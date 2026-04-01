@@ -29,6 +29,11 @@ export class KitsComponent implements OnInit {
   advancingKitId: number | null = null;
   advanceError: Record<number, string> = {};
 
+  // Resupply state per KitMaterial.id
+  resupplyQty: Record<number, number> = {};
+  resupplyingMaterialId: number | null = null;
+  resupplyError: Record<number, string> = {};
+
   constructor(private api: ApiService) {}
 
   ngOnInit(): void {
@@ -101,5 +106,32 @@ export class KitsComponent implements OnInit {
 
   maxAdvance(kit: any): number {
     return (kit.plan?.quantity ?? 0) - (kit.totalCompleted ?? 0);
+  }
+
+  registerResupply(kit: any, m: any): void {
+    const qty = this.resupplyQty[m.id];
+    if (!qty || qty <= 0) return;
+    this.resupplyingMaterialId = m.id;
+    this.resupplyError[m.id] = '';
+
+    this.api.createResupply(kit.id, m.partNumber, qty).subscribe({
+      next: (resupply) => {
+        this.api.deliverResupply(resupply.id, qty).subscribe({
+          next: () => {
+            this.resupplyQty[m.id] = 0;
+            this.resupplyingMaterialId = null;
+            this.api.getKits().subscribe({ next: (d) => { this.kits = d ?? []; } });
+          },
+          error: (err) => {
+            this.resupplyError[m.id] = err?.error?.message ?? 'Error al entregar resurtido';
+            this.resupplyingMaterialId = null;
+          },
+        });
+      },
+      error: (err) => {
+        this.resupplyError[m.id] = err?.error?.message ?? 'Error al crear resurtido';
+        this.resupplyingMaterialId = null;
+      },
+    });
   }
 }

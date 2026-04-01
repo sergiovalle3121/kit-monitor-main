@@ -21,11 +21,14 @@ export class KitMaterial {
   @Column({ type: 'float', nullable: true })
   quantityActual: number; // physically included (manual override)
 
+  @Column({ type: 'float', default: 0 })
+  quantityResupplied: number; // cumulative delivered resupplies
+
   @Column({ type: 'float', nullable: true })
   quantityConsumed: number; // updated after each advance: usageFactor × totalCompleted
 
   @Column({ type: 'float', nullable: true })
-  quantityRemaining: number; // quantityRequired − quantityConsumed
+  quantityRemaining: number; // (quantityRequired + quantityResupplied) − quantityConsumed
 
   @Column({ default: 'EA' })
   unit: string;

@@ -81,6 +81,22 @@ code { background: #f3f4f6; padding: 2px 6px; border-radius: 4px; font-size: 0.8
 .btn-success:disabled { background: #6ee7b7; cursor: not-allowed; }
 
 /* Consumption columns */
-.consumed { color: #7c3aed; }
+.consumed   { color: #7c3aed; }
+.resupplied { color: #0369a1; }
 .remaining-zero { color: #059669; font-weight: 600; }
 .row-done { background: #f0fdf4; }
+
+/* Resupply inline form */
+.resupply-cell { white-space: nowrap; }
+.resupply-form { display: flex; gap: 4px; align-items: center; }
+.resupply-input {
+  width: 60px; padding: 4px 6px; border: 1px solid #d1d5db; border-radius: 4px;
+  font-size: 0.82rem; text-align: right;
+}
+.btn-resupply {
+  padding: 4px 8px; background: #0369a1; color: #fff; border: none;
+  border-radius: 4px; font-size: 0.85rem; cursor: pointer; font-weight: 600;
+}
+.btn-resupply:hover { background: #0284c7; }
+.btn-resupply:disabled { background: #93c5fd; cursor: not-allowed; }
+.error-inline { color: #c00; font-size: 0.75rem; display: block; margin-bottom: 2px; }

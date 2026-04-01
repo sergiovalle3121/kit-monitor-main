@@ -106,7 +106,8 @@
           <thead>
             <tr>
               <th>N° Parte</th><th>Descripción</th>
-              <th>Requerido</th><th>Consumido</th><th>Restante</th><th>Ud.</th>
+              <th>Requerido</th><th>Resurtido</th><th>Consumido</th><th>Restante</th><th>Ud.</th>
+              <th>Resurtir</th>
             </tr>
           </thead>
           <tbody>
@@ -114,11 +115,24 @@
               <td><code>{{ m.partNumber }}</code></td>
               <td>{{ m.description || '–' }}</td>
               <td class="qty-cell">{{ m.quantityRequired }}</td>
+              <td class="qty-cell resupplied">{{ m.quantityResupplied ?? 0 }}</td>
               <td class="qty-cell consumed">{{ m.quantityConsumed ?? 0 }}</td>
               <td class="qty-cell" [class.remaining-zero]="(m.quantityRemaining ?? m.quantityRequired) <= 0">
                 {{ m.quantityRemaining ?? m.quantityRequired }}
               </td>
               <td>{{ m.unit }}</td>
+              <td class="resupply-cell">
+                <span *ngIf="resupplyError[m.id]" class="error-inline">{{ resupplyError[m.id] }}</span>
+                <div class="resupply-form">
+                  <input [(ngModel)]="resupplyQty[m.id]" type="number" min="0.01" step="0.01"
+                         placeholder="0" class="resupply-input" />
+                  <button class="btn-resupply"
+                          (click)="registerResupply(kit, m)"
+                          [disabled]="!resupplyQty[m.id] || resupplyQty[m.id] <= 0 || resupplyingMaterialId === m.id">
+                    {{ resupplyingMaterialId === m.id ? '…' : '+' }}
+                  </button>
+                </div>
+              </td>
             </tr>
           </tbody>
         </table>

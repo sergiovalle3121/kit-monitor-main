@@ -54,6 +54,12 @@ export class ApiService {
   getResupplies(kitId: number): Observable<any[]> {
     return this.get<any[]>('resupplies', { kitId });
   }
+  createResupply(kitId: number, partNumber: string, qty: number): Observable<any> {
+    return this.post<any>('resupplies', { kitId, partNumber, quantityRequested: qty });
+  }
+  deliverResupply(id: number, qty: number): Observable<any> {
+    return this.http.patch<any>(`${this.base}/resupplies/${id}/deliver`, { quantityDelivered: qty });
+  }
 
   // ── Exceptions ───────────────────────────────────────────
   getExceptions(kitId: number): Observable<any[]> {

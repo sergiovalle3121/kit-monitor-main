@@ -60,9 +60,10 @@ export class AdvancesService {
       // Recalculate consumption for every KitMaterial
       for (const material of kit.materials) {
         // Derive usageFactor from stored quantityRequired and plan quantity
-        const usageFactor      = material.quantityRequired / planQty;
-        const quantityConsumed  = usageFactor * totalAfter;
-        const quantityRemaining = material.quantityRequired - quantityConsumed;
+        const usageFactor        = material.quantityRequired / planQty;
+        const quantityConsumed   = usageFactor * totalAfter;
+        const quantityResupplied = material.quantityResupplied ?? 0;
+        const quantityRemaining  = (material.quantityRequired + quantityResupplied) - quantityConsumed;
         await em.update(KitMaterial, material.id, {
           quantityConsumed:  Math.round(quantityConsumed  * 1e6) / 1e6,
           quantityRemaining: Math.round(quantityRemaining * 1e6) / 1e6,
