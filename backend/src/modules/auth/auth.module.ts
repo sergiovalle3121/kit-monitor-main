@@ -1,16 +1,15 @@
 import { Module } from '@nestjs/common';
-import { TypeOrmModule } from '@nestjs/typeorm';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { JwtStrategy } from './strategies/jwt.strategy';
-import { User } from '../users/entities/user.entity';
 import { UsersModule } from '../users/users.module';
 
+// TypeOrmModule.forFeature removed: UsersService uses in-memory store,
+// no repository injection needed here. Re-add when switching to TypeORM.
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User]),
     UsersModule,
     PassportModule,
     JwtModule.register({
