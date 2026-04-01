@@ -34,6 +34,12 @@ export class KitsComponent implements OnInit {
   resupplyingMaterialId: number | null = null;
   resupplyError: Record<number, string> = {};
 
+  // Exception state per kit
+  exceptionType: Record<number, string> = {};
+  exceptionDesc: Record<number, string> = {};
+  reportingKitId: number | null = null;
+  exceptionError: Record<number, string> = {};
+
   constructor(private api: ApiService) {}
 
   ngOnInit(): void {
@@ -106,6 +112,32 @@ export class KitsComponent implements OnInit {
 
   maxAdvance(kit: any): number {
     return (kit.plan?.quantity ?? 0) - (kit.totalCompleted ?? 0);
+  }
+
+  reportException(kit: any): void {
+    const type = this.exceptionType[kit.id];
+    const desc = this.exceptionDesc[kit.id];
+    if (!type || !desc?.trim()) return;
+    this.reportingKitId = kit.id;
+    this.exceptionError[kit.id] = '';
+    this.api.createException(kit.id, type, desc.trim()).subscribe({
+      next: () => {
+        this.exceptionType[kit.id] = '';
+        this.exceptionDesc[kit.id] = '';
+        this.reportingKitId = null;
+        this.api.getKits().subscribe({ next: (d) => { this.kits = d ?? []; } });
+      },
+      error: (err) => {
+        this.exceptionError[kit.id] = err?.error?.message ?? 'Error al reportar';
+        this.reportingKitId = null;
+      },
+    });
+  }
+
+  resolveException(exc: any): void {
+    this.api.resolveException(exc.id).subscribe({
+      next: () => this.api.getKits().subscribe({ next: (d) => { this.kits = d ?? []; } }),
+    });
   }
 
   registerResupply(kit: any, m: any): void {

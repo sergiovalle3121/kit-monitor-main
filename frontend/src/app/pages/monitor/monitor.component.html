@@ -16,12 +16,14 @@
     <tbody>
       <tr *ngFor="let bk of backens">
         <th>BK{{ bk }}</th>
-        <td *ngFor="let bh of bahias" [class]="'cell ' + (kitAt(bk, bh)?.status ?? 'empty')">
+        <td *ngFor="let bh of bahias"
+            [class]="'cell ' + (kitAt(bk, bh)?.status ?? 'empty') + (kitAt(bk, bh)?.hasOpenException ? ' has-exception' : '')">
           <ng-container *ngIf="kitAt(bk, bh) as kit">
             <div class="cell-model">{{ kit.plan?.model ?? '–' }}</div>
             <div class="cell-wo">{{ kit.plan?.workOrder }}</div>
             <div class="cell-progress">{{ (kit.totalCompleted ?? 0) }} / {{ kit.plan?.quantity }}</div>
             <div class="cell-status">{{ kit.status }}</div>
+            <div *ngIf="kit.hasOpenException" class="cell-alert" title="Incidencia abierta">⚠ Alerta</div>
           </ng-container>
           <span *ngIf="!kitAt(bk, bh)" class="empty-label">Sin kit</span>
         </td>

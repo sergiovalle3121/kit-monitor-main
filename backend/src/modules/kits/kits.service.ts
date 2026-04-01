@@ -20,7 +20,7 @@ export class KitsService {
 
   async findAll(): Promise<any[]> {
     const kits = await this.repo.find({
-      relations: ['plan', 'materials', 'advances'],
+      relations: ['plan', 'materials', 'advances', 'exceptions'],
       order: { createdAt: 'DESC' },
     });
     return kits.map(k => this.withTotalCompleted(k));
@@ -29,7 +29,7 @@ export class KitsService {
   async findOne(id: number): Promise<any> {
     const kit = await this.repo.findOne({
       where: { id },
-      relations: ['plan', 'materials', 'advances'],
+      relations: ['plan', 'materials', 'advances', 'exceptions'],
     });
     if (!kit) throw new NotFoundException(`Kit ${id} not found`);
     return this.withTotalCompleted(kit);
@@ -37,7 +37,8 @@ export class KitsService {
 
   private withTotalCompleted(kit: Kit): any {
     const totalCompleted = kit.advances?.reduce((s, a) => s + a.unitsAssembled, 0) ?? 0;
-    return { ...kit, totalCompleted };
+    const hasOpenException = kit.exceptions?.some(e => e.status === 'open') ?? false;
+    return { ...kit, totalCompleted, hasOpenException };
   }
 
   async create(dto: CreateKitDto): Promise<any> {

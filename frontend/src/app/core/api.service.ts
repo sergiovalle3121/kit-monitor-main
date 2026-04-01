@@ -65,4 +65,10 @@ export class ApiService {
   getExceptions(kitId: number): Observable<any[]> {
     return this.get<any[]>('exceptions', { kitId });
   }
+  createException(kitId: number, type: string, description: string, partNumber?: string): Observable<any> {
+    return this.post<any>('exceptions', { kitId, type, description, partNumber });
+  }
+  resolveException(id: number): Observable<any> {
+    return this.http.patch<any>(`${this.base}/exceptions/${id}/resolve`, {});
+  }
 }
