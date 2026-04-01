@@ -99,14 +99,17 @@
           </li>
         </ul>
         <div class="exception-form">
-          <select [(ngModel)]="exceptionType[kit.id]">
+          <select [value]="exceptionType[kit.id] || ''"
+                  (change)="exceptionType[kit.id] = $any($event.target).value">
             <option value="">— Tipo —</option>
             <option value="missing_material">Faltante</option>
             <option value="excess">Exceso</option>
             <option value="quality">Calidad</option>
             <option value="other">Otro</option>
           </select>
-          <input [(ngModel)]="exceptionDesc[kit.id]" placeholder="Descripción corta…" class="exc-input" />
+          <input [value]="exceptionDesc[kit.id] || ''"
+                 (input)="exceptionDesc[kit.id] = $any($event.target).value"
+                 placeholder="Descripción corta…" class="exc-input" />
           <button class="btn-warn"
                   (click)="reportException(kit)"
                   [disabled]="!exceptionType[kit.id] || !(exceptionDesc[kit.id] || '').trim() || reportingKitId === kit.id">
@@ -154,7 +157,8 @@
                 <span *ngIf="resupplyError[m.id]" class="error-inline">{{ resupplyError[m.id] }}</span>
                 <div class="resupply-form">
                   <input [(ngModel)]="resupplyQty[m.id]" type="number" min="0.01" step="0.01"
-                         placeholder="0" class="resupply-input" />
+                         placeholder="0" class="resupply-input"
+                         [disabled]="resupplyingMaterialId === m.id" />
                   <button class="btn-resupply"
                           (click)="registerResupply(kit, m)"
                           [disabled]="!resupplyQty[m.id] || resupplyQty[m.id] <= 0 || resupplyingMaterialId === m.id">
