@@ -1,0 +1,13 @@
+<h2>Login</h2>
+<p>Formulario aquí…</p>
+
+<div *ngIf="(reports || []).length > 0; else empty">
+  <p>Total de reportes: {{ reports.length }}</p>
+  <div *ngFor="let report of (reports || [])">
+    <p>{{ report?.name || 'Reporte sin nombre' }}</p>
+  </div>
+</div>
+
+<ng-template #empty>
+  <p>No hay reportes.</p>
+</ng-template>

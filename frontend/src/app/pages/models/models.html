@@ -1,0 +1,10 @@
+<div *ngIf="models && models.length > 0">
+  <p>Total de modelos: {{ models.length }}</p>
+  <div *ngFor="let model of models">
+    <p>{{ model.name }}</p>
+  </div>
+</div>
+
+<div *ngIf="!models || models.length === 0">
+  <p>No hay modelos disponibles para mostrar.</p>
+</div>

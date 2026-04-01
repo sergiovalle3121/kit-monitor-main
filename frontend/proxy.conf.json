@@ -1,0 +1,22 @@
+{
+    "/models":  {
+                    "secure":  false,
+                    "changeOrigin":  true,
+                    "target":  "http://localhost:3000"
+                },
+    "/kits":  {
+                  "secure":  false,
+                  "changeOrigin":  true,
+                  "target":  "http://localhost:3000"
+              },
+    "/auth":  {
+                  "secure":  false,
+                  "changeOrigin":  true,
+                  "target":  "http://localhost:3000"
+              },
+    "/reports":  {
+                     "secure":  false,
+                     "changeOrigin":  true,
+                     "target":  "http://localhost:3000"
+                 }
+}

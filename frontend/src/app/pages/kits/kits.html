@@ -1,0 +1,10 @@
+﻿<div *ngIf="kits && kits.length > 0">
+  <p>Total de kits: {{ (kits || []).length }}</p>
+  <div *ngFor="let kit of (kits || [])">
+    <p>{{ kit.name }}</p>
+  </div>
+</div>
+
+<div *ngIf="!kits || kits.length === 0">
+  <p>No hay kits disponibles para mostrar.</p>
+</div>

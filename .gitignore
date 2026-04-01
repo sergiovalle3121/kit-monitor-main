@@ -1,0 +1,26 @@
+# ---- Global (monorepo) ----
+node_modules/
+dist/
+.tmp/
+.cache/
+coverage/
+*.log
+
+# Frontend (Angular)
+frontend/.angular/
+frontend/dist/
+frontend/node_modules/
+
+# Backend (NestJS)
+backend/dist/
+backend/node_modules/
+
+# Entornos / secretos
+.env
+.env.*
+*.local
+
+# Sistema / editor
+.DS_Store
+Thumbs.db
+.vscode/
