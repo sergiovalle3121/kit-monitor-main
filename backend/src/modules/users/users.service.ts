@@ -3,11 +3,12 @@ import { User } from './entities/user.entity';
 
 @Injectable()
 export class UsersService {
+  // Demo user — password: Admin123!
   private users: User[] = [
     {
       id: 1,
       email: 'test@example.com',
-      password: '$2b$10$123456789012345678901uuz2W1V95WrSTf5ysOIEcC2w1eP9Tf4q',
+      password: '$2b$10$cuOPLqq4I2RjOjOeZ5wxv.4wS19DoHpI.zi5P0Rpaj7MNZWKItuYC',
       isActive: true,
     },
   ];
