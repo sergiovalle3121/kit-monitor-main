@@ -19,20 +19,23 @@ export class ApiService {
     return this.http.get<T>(url, { params: httpParams });
   }
 
-  // ── Plans ────────────────────────────────────────────────
-  getPlans(): Observable<any[]> {
-    return this.get<any[]>('plans');
+  private post<T>(path: string, body: any): Observable<T> {
+    return this.http.post<T>(`${this.base}/${path}`, body);
   }
 
+  // ── Plans ────────────────────────────────────────────────
+  getPlans(): Observable<any[]>             { return this.get<any[]>('plans'); }
+  createPlan(dto: any): Observable<any>     { return this.post<any>('plans', dto); }
+
   // ── Kits ─────────────────────────────────────────────────
-  getKits(): Observable<any[]> {
-    return this.get<any[]>('kits');
-  }
+  getKits(): Observable<any[]>              { return this.get<any[]>('kits'); }
+  createKit(planId: number): Observable<any>{ return this.post<any>('kits', { planId }); }
 
   // ── BOM ──────────────────────────────────────────────────
   getBom(model?: string): Observable<any[]> {
     return this.get<any[]>('bom', model ? { model } : undefined);
   }
+  createBomItem(dto: any): Observable<any>  { return this.post<any>('bom', dto); }
 
   // ── Advances ─────────────────────────────────────────────
   getAdvances(kitId: number): Observable<any[]> {

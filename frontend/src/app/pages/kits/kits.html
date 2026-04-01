@@ -1,10 +1,88 @@
-﻿<div *ngIf="kits && kits.length > 0">
-  <p>Total de kits: {{ (kits || []).length }}</p>
-  <div *ngFor="let kit of (kits || [])">
-    <p>{{ kit.name }}</p>
-  </div>
+<div class="page-header">
+  <h2>Kits</h2>
+  <button class="btn-primary" (click)="showForm = !showForm">
+    {{ showForm ? 'Cancelar' : '+ Nuevo kit' }}
+  </button>
 </div>
 
-<div *ngIf="!kits || kits.length === 0">
-  <p>No hay kits disponibles para mostrar.</p>
+<div class="form-card" *ngIf="showForm">
+  <h3>Crear kit desde plan</h3>
+  <p *ngIf="createError" class="error">{{ createError }}</p>
+  <div class="form-row">
+    <div class="field">
+      <label>Seleccionar plan *</label>
+      <select [(ngModel)]="selectedPlanId">
+        <option [ngValue]="null">— Elige un plan —</option>
+        <option *ngFor="let p of plansWithoutKit()" [ngValue]="p.id">
+          {{ p.workOrder }} · {{ p.model }} · BK{{ p.backen }} B{{ p.bahia }} · x{{ p.quantity }}
+        </option>
+      </select>
+    </div>
+    <div class="field-action">
+      <button class="btn-primary" (click)="createKit()" [disabled]="!selectedPlanId || creating">
+        {{ creating ? 'Creando…' : 'Crear kit' }}
+      </button>
+    </div>
+  </div>
+  <p class="hint" *ngIf="plansWithoutKit().length === 0">No hay planes disponibles sin kit asignado.</p>
+</div>
+
+<p *ngIf="loading">Cargando kits…</p>
+<p *ngIf="error" class="error">{{ error }}</p>
+
+<div class="kit-list" *ngIf="!loading">
+  <div class="kit-row" *ngFor="let kit of kits">
+    <div class="kit-header" (click)="toggleExpand(kit.id)">
+      <div class="kit-info">
+        <span class="kit-id">#{{ kit.id }}</span>
+        <span class="wo">{{ kit.plan?.workOrder }}</span>
+        <span class="model">{{ kit.plan?.model }}</span>
+        <span class="location" *ngIf="kit.plan">BK{{ kit.plan.backen }} · B{{ kit.plan.bahia }}</span>
+        <span class="qty">×{{ kit.plan?.quantity }}</span>
+      </div>
+      <div class="kit-meta">
+        <span class="badge" [class]="kit.status">{{ kit.status }}</span>
+        <span class="materials-count" *ngIf="kit.materials?.length">
+          {{ kit.materials.length }} materiales
+        </span>
+        <span class="expand-icon">{{ expandedKitId === kit.id ? '▲' : '▼' }}</span>
+      </div>
+    </div>
+
+    <div class="kit-detail" *ngIf="expandedKitId === kit.id">
+      <div class="detail-section" *ngIf="kit.plan">
+        <h4>Plan</h4>
+        <dl>
+          <dt>WO</dt><dd>{{ kit.plan.workOrder }}</dd>
+          <dt>Modelo</dt><dd>{{ kit.plan.model }}</dd>
+          <dt>Backen / Bahía</dt><dd>BK{{ kit.plan.backen }} / B{{ kit.plan.bahia }}</dd>
+          <dt>Cantidad</dt><dd>{{ kit.plan.quantity }}</dd>
+          <dt>Turno</dt><dd>{{ kit.plan.shift }}</dd>
+          <dt>Estatus plan</dt><dd>{{ kit.plan.status }}</dd>
+        </dl>
+      </div>
+
+      <div class="detail-section" *ngIf="kit.materials?.length">
+        <h4>Materiales ({{ kit.materials.length }})</h4>
+        <table class="materials-table">
+          <thead>
+            <tr><th>N° Parte</th><th>Descripción</th><th>Cant. requerida</th><th>Cant. real</th><th>Unidad</th></tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let m of kit.materials">
+              <td><code>{{ m.partNumber }}</code></td>
+              <td>{{ m.description || '–' }}</td>
+              <td class="qty-cell">{{ m.quantityRequired }}</td>
+              <td class="qty-cell">{{ m.quantityActual ?? '–' }}</td>
+              <td>{{ m.unit }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p class="hint" *ngIf="!kit.materials?.length">Sin materiales cargados.</p>
+    </div>
+  </div>
+
+  <p *ngIf="kits.length === 0">Sin kits registrados.</p>
 </div>

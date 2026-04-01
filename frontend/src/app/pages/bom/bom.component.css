@@ -3,20 +3,22 @@
 .form-card h3 { margin: 0 0 16px; font-size: 1rem; }
 .form-row { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 12px; }
 .field { display: flex; flex-direction: column; gap: 4px; min-width: 140px; flex: 1; }
+.field.flex-2 { flex: 2; }
 .field label { font-size: 0.8rem; color: #555; font-weight: 500; }
 .field input, .field select {
   padding: 7px 10px; border: 1px solid #d1d5db; border-radius: 6px;
   font-size: 0.9rem; background: #fff;
 }
-.field input:focus, .field select:focus { outline: 2px solid #3b82f6; border-color: transparent; }
 .btn-primary {
   background: #1a56db; color: #fff; border: none; border-radius: 6px;
   padding: 8px 16px; font-size: 0.9rem; cursor: pointer;
 }
 .btn-primary:hover { background: #1e40af; }
 .btn-primary:disabled { background: #93c5fd; cursor: not-allowed; }
-.badge { padding: 2px 8px; border-radius: 10px; font-size: 0.78rem; font-weight: 500; }
-.badge.pending    { background: #fef3c7; color: #92400e; }
-.badge.active     { background: #d1fae5; color: #065f46; }
-.badge.completed  { background: #c8e6c9; color: #1b5e20; }
-.badge.cancelled  { background: #fee2e2; color: #991b1b; }
+.filter-row { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+.filter-input {
+  padding: 7px 12px; border: 1px solid #d1d5db; border-radius: 6px;
+  font-size: 0.9rem; width: 240px;
+}
+.count { font-size: 0.85rem; color: #666; }
+code { background: #f3f4f6; padding: 2px 6px; border-radius: 4px; font-size: 0.85rem; }

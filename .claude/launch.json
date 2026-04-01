@@ -1,0 +1,26 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "NestJS Backend",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["dist/main.js"],
+      "cwd": "backend",
+      "port": 3000
+    },
+    {
+      "name": "Angular Frontend",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["serve-dist.js"],
+      "cwd": "frontend",
+      "port": 4200
+    },
+    {
+      "name": "Vite Frontend",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "cwd": "frontend",
+      "port": 4200
+    }
+  ]
+}

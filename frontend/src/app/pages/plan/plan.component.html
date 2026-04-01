@@ -1,5 +1,58 @@
 <div class="page-header">
   <h2>Planeación</h2>
+  <button class="btn-primary" (click)="showForm = !showForm">
+    {{ showForm ? 'Cancelar' : '+ Nuevo plan' }}
+  </button>
+</div>
+
+<div class="form-card" *ngIf="showForm">
+  <h3>Crear plan</h3>
+  <p *ngIf="formError" class="error">{{ formError }}</p>
+  <form (ngSubmit)="submit()" #f="ngForm">
+    <div class="form-row">
+      <div class="field">
+        <label>Orden de trabajo *</label>
+        <input [(ngModel)]="form.workOrder" name="workOrder" required placeholder="WO-001" />
+      </div>
+      <div class="field">
+        <label>Modelo *</label>
+        <input [(ngModel)]="form.model" name="model" required placeholder="CLIO-IV" />
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="field">
+        <label>Backen (1–7) *</label>
+        <input [(ngModel)]="form.backen" name="backen" type="number" min="1" max="7" required />
+      </div>
+      <div class="field">
+        <label>Bahía (1–6) *</label>
+        <input [(ngModel)]="form.bahia" name="bahia" type="number" min="1" max="6" required />
+      </div>
+      <div class="field">
+        <label>Cantidad *</label>
+        <input [(ngModel)]="form.quantity" name="quantity" type="number" min="1" required />
+      </div>
+      <div class="field">
+        <label>Turno *</label>
+        <select [(ngModel)]="form.shift" name="shift">
+          <option>T1</option><option>T2</option><option>T3</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="field">
+        <label>Programado (opcional)</label>
+        <input [(ngModel)]="form.scheduledAt" name="scheduledAt" type="datetime-local" />
+      </div>
+      <div class="field">
+        <label>Secuencia</label>
+        <input [(ngModel)]="form.sequence" name="sequence" type="number" min="0" />
+      </div>
+    </div>
+    <button type="submit" class="btn-primary" [disabled]="submitting || f.invalid">
+      {{ submitting ? 'Guardando…' : 'Guardar plan' }}
+    </button>
+  </form>
 </div>
 
 <p *ngIf="loading">Cargando planes…</p>
@@ -9,7 +62,7 @@
   <thead>
     <tr>
       <th>WO</th><th>Modelo</th><th>Backen</th><th>Bahía</th>
-      <th>Cantidad</th><th>Turno</th><th>Estatus</th>
+      <th>Cantidad</th><th>Turno</th><th>Programado</th><th>Estatus</th>
     </tr>
   </thead>
   <tbody>
@@ -20,7 +73,8 @@
       <td>{{ p.bahia }}</td>
       <td>{{ p.quantity }}</td>
       <td>{{ p.shift }}</td>
-      <td>{{ p.status }}</td>
+      <td>{{ p.scheduledAt ? (p.scheduledAt | date:'dd/MM HH:mm') : '–' }}</td>
+      <td><span class="badge" [class]="p.status">{{ p.status }}</span></td>
     </tr>
   </tbody>
 </table>
