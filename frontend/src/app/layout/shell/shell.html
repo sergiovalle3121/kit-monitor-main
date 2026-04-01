@@ -1,7 +1,11 @@
 <div class="layout">
   <aside class="sidebar">
-    <a routerLink="/kits">Kits</a>
-    <button (click)="logout()">Cerrar sesión</button>
+    <nav>
+      <a routerLink="/plan">Planeación</a>
+      <a routerLink="/kits">Kits</a>
+      <a routerLink="/monitor">Monitor</a>
+    </nav>
+    <button class="logout" (click)="logout()">Cerrar sesión</button>
   </aside>
   <main class="content">
     <router-outlet></router-outlet>

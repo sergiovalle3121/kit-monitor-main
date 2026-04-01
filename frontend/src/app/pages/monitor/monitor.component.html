@@ -1,0 +1,35 @@
+<div class="page-header">
+  <h2>Monitor de línea</h2>
+</div>
+
+<p *ngIf="loading">Cargando…</p>
+<p *ngIf="error" class="error">{{ error }}</p>
+
+<div *ngIf="!loading" class="grid-wrap">
+  <table class="monitor-grid">
+    <thead>
+      <tr>
+        <th>Backen \ Bahía</th>
+        <th *ngFor="let b of bahias">B{{ b }}</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let bk of backens">
+        <th>BK{{ bk }}</th>
+        <td *ngFor="let bh of bahias" [class]="'cell ' + (kitAt(bk, bh)?.status ?? 'empty')">
+          <span *ngIf="kitAt(bk, bh) as kit">{{ kit.plan?.workOrder ?? '–' }}</span>
+          <span *ngIf="!kitAt(bk, bh)" class="empty-label">–</span>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="legend">
+    <span class="chip prepared">Preparado</span>
+    <span class="chip sent">Enviado</span>
+    <span class="chip received">Recibido</span>
+    <span class="chip in_progress">En proceso</span>
+    <span class="chip completed">Completado</span>
+    <span class="chip empty">Vacío</span>
+  </div>
+</div>

@@ -1,0 +1,28 @@
+<div class="page-header">
+  <h2>Planeación</h2>
+</div>
+
+<p *ngIf="loading">Cargando planes…</p>
+<p *ngIf="error" class="error">{{ error }}</p>
+
+<table *ngIf="!loading && plans.length > 0">
+  <thead>
+    <tr>
+      <th>WO</th><th>Modelo</th><th>Backen</th><th>Bahía</th>
+      <th>Cantidad</th><th>Turno</th><th>Estatus</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr *ngFor="let p of plans">
+      <td>{{ p.workOrder }}</td>
+      <td>{{ p.model }}</td>
+      <td>{{ p.backen }}</td>
+      <td>{{ p.bahia }}</td>
+      <td>{{ p.quantity }}</td>
+      <td>{{ p.shift }}</td>
+      <td>{{ p.status }}</td>
+    </tr>
+  </tbody>
+</table>
+
+<p *ngIf="!loading && plans.length === 0 && !error">Sin planes registrados.</p>
