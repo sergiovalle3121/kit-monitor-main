@@ -52,3 +52,35 @@ dd { margin: 0; }
 .materials-table th { background: #f3f4f6; font-weight: 600; font-size: 0.8rem; }
 .qty-cell { text-align: right; font-variant-numeric: tabular-nums; }
 code { background: #f3f4f6; padding: 2px 6px; border-radius: 4px; font-size: 0.82rem; }
+
+/* Progress */
+.progress-label { font-size: 0.82rem; color: #555; font-variant-numeric: tabular-nums; }
+.progress-bar-wrap {
+  position: relative; background: #e5e7eb; border-radius: 6px;
+  height: 12px; margin-top: 10px; overflow: hidden;
+}
+.progress-bar { height: 100%; background: #1a56db; border-radius: 6px; transition: width 0.3s; }
+.progress-text {
+  position: absolute; right: 6px; top: -1px;
+  font-size: 0.72rem; color: #555; line-height: 14px;
+}
+
+/* Advance form */
+.advance-section { background: #f0f7ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 14px 16px; }
+.advance-form { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; margin-bottom: 10px; }
+.advance-form .field input {
+  padding: 7px 10px; border: 1px solid #d1d5db; border-radius: 6px;
+  font-size: 0.9rem; background: #fff; width: 100%;
+}
+.advance-form .field.flex-2 { flex: 2; min-width: 160px; }
+.btn-success {
+  background: #059669; color: #fff; border: none; border-radius: 6px;
+  padding: 8px 16px; font-size: 0.9rem; cursor: pointer; white-space: nowrap;
+}
+.btn-success:hover { background: #047857; }
+.btn-success:disabled { background: #6ee7b7; cursor: not-allowed; }
+
+/* Consumption columns */
+.consumed { color: #7c3aed; }
+.remaining-zero { color: #059669; font-weight: 600; }
+.row-done { background: #f0fdf4; }

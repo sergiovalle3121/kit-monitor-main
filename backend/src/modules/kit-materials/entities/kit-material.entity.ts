@@ -16,10 +16,16 @@ export class KitMaterial {
   description: string;
 
   @Column({ type: 'float' })
-  quantityRequired: number; // calculated: BomItem.usageFactor × Plan.quantity
+  quantityRequired: number; // BomItem.usageFactor × Plan.quantity
 
   @Column({ type: 'float', nullable: true })
-  quantityActual: number; // what was physically included
+  quantityActual: number; // physically included (manual override)
+
+  @Column({ type: 'float', nullable: true })
+  quantityConsumed: number; // updated after each advance: usageFactor × totalCompleted
+
+  @Column({ type: 'float', nullable: true })
+  quantityRemaining: number; // quantityRequired − quantityConsumed
 
   @Column({ default: 'EA' })
   unit: string;

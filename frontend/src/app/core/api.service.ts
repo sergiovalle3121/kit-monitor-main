@@ -46,6 +46,9 @@ export class ApiService {
   getAdvances(kitId: number): Observable<any[]> {
     return this.get<any[]>('advances', { kitId });
   }
+  createAdvance(kitId: number, unitsAssembled: number, notes?: string): Observable<any> {
+    return this.post<any>('advances', { kitId, unitsAssembled, notes });
+  }
 
   // ── Resupplies ───────────────────────────────────────────
   getResupplies(kitId: number): Observable<any[]> {

@@ -1,9 +1,11 @@
 import { Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { Plan } from './entities/plan.entity';
 import { PlansService } from './plans.service';
 import { PlansController } from './plans.controller';
-// TODO: add TypeOrmModule.forFeature([Plan]) when DB integration is wired
 
 @Module({
+  imports: [TypeOrmModule.forFeature([Plan])],
   controllers: [PlansController],
   providers: [PlansService],
   exports: [PlansService],

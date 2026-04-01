@@ -1,21 +1,43 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { KitException } from './entities/kit-exception.entity';
+import { Kit } from '../kits/entities/kit.entity';
 import { CreateExceptionDto } from './dto/create-exception.dto';
 
 @Injectable()
 export class ExceptionsService {
-  findByKit(kitId: number) {
-    return [];
+  constructor(
+    @InjectRepository(KitException)
+    private readonly repo: Repository<KitException>,
+  ) {}
+
+  findByKit(kitId: number): Promise<KitException[]> {
+    return this.repo.find({
+      where: { kit: { id: kitId } },
+      order: { createdAt: 'DESC' },
+    });
   }
 
-  findOne(id: number) {
-    throw new NotFoundException(`Exception ${id} not found`);
+  async findOne(id: number): Promise<KitException> {
+    const item = await this.repo.findOneBy({ id });
+    if (!item) throw new NotFoundException(`Exception ${id} not found`);
+    return item;
   }
 
-  create(dto: CreateExceptionDto) {
-    return { id: 0, ...dto, status: 'open', createdAt: new Date() };
+  create(dto: CreateExceptionDto): Promise<KitException> {
+    const exception = this.repo.create({
+      kit: { id: dto.kitId } as Kit,
+      type: dto.type,
+      partNumber: dto.partNumber,
+      description: dto.description,
+    });
+    return this.repo.save(exception);
   }
 
-  resolve(id: number) {
-    return { id, status: 'resolved', resolvedAt: new Date() };
+  async resolve(id: number): Promise<KitException> {
+    await this.findOne(id);
+    await this.repo.update(id, { status: 'resolved', resolvedAt: new Date() });
+    return this.findOne(id);
   }
 }

@@ -13,15 +13,11 @@ import { AdvancesModule } from "./modules/advances/advances.module";
 import { ResuppliesModule } from "./modules/resupplies/resupplies.module";
 import { ExceptionsModule } from "./modules/exceptions/exceptions.module";
 
-const enableDb =
-  (process.env.DATABASE_URL && process.env.DATABASE_URL.length > 0) ||
-  (process.env.DB_HOST && process.env.DB_HOST.length > 0);
-
-const dbImports = enableDb ? [TypeOrmModule.forRoot(ormOptions())] : [];
-
+// TypeOrmModule always loads: uses SQLite (dev.sqlite) when no PG env vars,
+// PostgreSQL when DATABASE_URL or DB_HOST is set. See orm.options.ts.
 @Module({
   imports: [
-    ...dbImports,
+    TypeOrmModule.forRoot(ormOptions()),
     AuthModule,
     UsersModule,
     PlansModule,

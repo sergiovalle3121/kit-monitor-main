@@ -23,6 +23,12 @@ export class KitsComponent implements OnInit {
 
   expandedKitId: number | null = null;
 
+  // Advance registration state per kit
+  advanceDelta: Record<number, number> = {};
+  advanceNotes: Record<number, string> = {};
+  advancingKitId: number | null = null;
+  advanceError: Record<number, string> = {};
+
   constructor(private api: ApiService) {}
 
   ngOnInit(): void {
@@ -57,6 +63,33 @@ export class KitsComponent implements OnInit {
     });
   }
 
+  registerAdvance(kit: any): void {
+    const delta = this.advanceDelta[kit.id];
+    if (!delta || delta <= 0) return;
+    this.advancingKitId = kit.id;
+    this.advanceError[kit.id] = '';
+
+    this.api.createAdvance(kit.id, delta, this.advanceNotes[kit.id]).subscribe({
+      next: (result) => {
+        // Update kit in-place with new totalCompleted and status
+        const idx = this.kits.findIndex(k => k.id === kit.id);
+        if (idx >= 0) {
+          this.kits[idx].totalCompleted = result.totalCompleted;
+          this.kits[idx].status = result.kitStatus;
+          // Reload full kit to get updated material consumption
+          this.api.getKits().subscribe({ next: (d) => { this.kits = d ?? []; } });
+        }
+        this.advanceDelta[kit.id] = 0;
+        this.advanceNotes[kit.id] = '';
+        this.advancingKitId = null;
+      },
+      error: (err) => {
+        this.advanceError[kit.id] = err?.error?.message ?? 'Error al registrar avance';
+        this.advancingKitId = null;
+      },
+    });
+  }
+
   toggleExpand(kitId: number): void {
     this.expandedKitId = this.expandedKitId === kitId ? null : kitId;
   }
@@ -64,5 +97,9 @@ export class KitsComponent implements OnInit {
   plansWithoutKit(): any[] {
     const usedPlanIds = new Set(this.kits.map(k => k.plan?.id));
     return this.plans.filter(p => !usedPlanIds.has(p.id));
+  }
+
+  maxAdvance(kit: any): number {
+    return (kit.plan?.quantity ?? 0) - (kit.totalCompleted ?? 0);
   }
 }

@@ -18,28 +18,34 @@ export class KitsService {
     private readonly dataSource: DataSource,
   ) {}
 
-  findAll(): Promise<Kit[]> {
-    return this.repo.find({
-      relations: ['plan', 'materials'],
+  async findAll(): Promise<any[]> {
+    const kits = await this.repo.find({
+      relations: ['plan', 'materials', 'advances'],
       order: { createdAt: 'DESC' },
     });
+    return kits.map(k => this.withTotalCompleted(k));
   }
 
-  async findOne(id: number): Promise<Kit> {
+  async findOne(id: number): Promise<any> {
     const kit = await this.repo.findOne({
       where: { id },
-      relations: ['plan', 'materials'],
+      relations: ['plan', 'materials', 'advances'],
     });
     if (!kit) throw new NotFoundException(`Kit ${id} not found`);
-    return kit;
+    return this.withTotalCompleted(kit);
   }
 
-  async create(dto: CreateKitDto): Promise<Kit> {
-    // 1. Verify plan exists and load model + quantity
+  private withTotalCompleted(kit: Kit): any {
+    const totalCompleted = kit.advances?.reduce((s, a) => s + a.unitsAssembled, 0) ?? 0;
+    return { ...kit, totalCompleted };
+  }
+
+  async create(dto: CreateKitDto): Promise<any> {
+    // 1. Verify plan exists
     const plan = await this.planRepo.findOneBy({ id: dto.planId });
     if (!plan) throw new NotFoundException(`Plan ${dto.planId} not found`);
 
-    // 2. Load BOM items for that model
+    // 2. Load BOM items for the model
     const bomItems = await this.bomRepo.findBy({ model: plan.model });
     if (!bomItems.length) {
       throw new BadRequestException(
@@ -50,28 +56,29 @@ export class KitsService {
     // 3. Create kit + all KitMaterials atomically
     return this.dataSource.transaction(async (em) => {
       const kit = em.create(Kit, {
-        plan: { id: plan.id } as Plan,
+        plan:       { id: plan.id } as Plan,
         preparedAt: dto.preparedAt ? new Date(dto.preparedAt) : new Date(),
       });
       const savedKit = await em.save(Kit, kit);
 
       const materials = bomItems.map((item) =>
         em.create(KitMaterial, {
-          kit: { id: savedKit.id } as Kit,
-          partNumber: item.partNumber,
-          description: item.description,
+          kit:              { id: savedKit.id } as Kit,
+          partNumber:       item.partNumber,
+          description:      item.description,
           quantityRequired: item.usageFactor * plan.quantity,
-          unit: item.unit,
+          unit:             item.unit,
+          quantityConsumed:  0,
+          quantityRemaining: item.usageFactor * plan.quantity,
         }),
       );
       await em.save(KitMaterial, materials);
 
-      // Return with all relations populated
       return this.findOne(savedKit.id);
     });
   }
 
-  async updateStatus(id: number, dto: UpdateKitStatusDto): Promise<Kit> {
+  async updateStatus(id: number, dto: UpdateKitStatusDto): Promise<any> {
     await this.findOne(id);
     const timestamps: Partial<Kit> = {};
     if (dto.status === 'sent')     timestamps.sentAt = new Date();

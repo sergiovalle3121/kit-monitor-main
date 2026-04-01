@@ -1,21 +1,42 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { KitMaterial } from './entities/kit-material.entity';
+import { Kit } from '../kits/entities/kit.entity';
 import { CreateKitMaterialDto } from './dto/create-kit-material.dto';
 
 @Injectable()
 export class KitMaterialsService {
-  findByKit(kitId: number) {
-    return [];
+  constructor(
+    @InjectRepository(KitMaterial)
+    private readonly repo: Repository<KitMaterial>,
+  ) {}
+
+  findByKit(kitId: number): Promise<KitMaterial[]> {
+    return this.repo.find({ where: { kit: { id: kitId } } });
   }
 
-  findOne(id: number) {
-    throw new NotFoundException(`KitMaterial ${id} not found`);
+  async findOne(id: number): Promise<KitMaterial> {
+    const item = await this.repo.findOneBy({ id });
+    if (!item) throw new NotFoundException(`KitMaterial ${id} not found`);
+    return item;
   }
 
-  create(dto: CreateKitMaterialDto) {
-    return { id: 0, unit: 'EA', ...dto };
+  create(dto: CreateKitMaterialDto): Promise<KitMaterial> {
+    const item = this.repo.create({
+      kit: { id: dto.kitId } as Kit,
+      partNumber: dto.partNumber,
+      description: dto.description,
+      quantityRequired: dto.quantityRequired,
+      quantityActual: dto.quantityActual,
+      unit: dto.unit ?? 'EA',
+    });
+    return this.repo.save(item);
   }
 
-  remove(id: number) {
+  async remove(id: number): Promise<{ deleted: boolean; id: number }> {
+    await this.findOne(id);
+    await this.repo.delete(id);
     return { deleted: true, id };
   }
 }

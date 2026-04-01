@@ -23,13 +23,13 @@ export class Kit {
   @Column({ default: 'prepared' })
   status: KitStatus;
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ type: 'datetime', nullable: true })
   preparedAt: Date;
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ type: 'datetime', nullable: true })
   sentAt: Date;
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ type: 'datetime', nullable: true })
   receivedAt: Date;
 
   @OneToMany(() => KitMaterial, (m) => m.kit)
