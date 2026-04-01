@@ -24,13 +24,13 @@ export class KitsComponent implements OnInit {
   expandedKitId: number | null = null;
 
   // Advance registration state per kit
-  advanceDelta: Record<number, number> = {};
+  advanceDelta: Record<number, number | null> = {};
   advanceNotes: Record<number, string> = {};
   advancingKitId: number | null = null;
   advanceError: Record<number, string> = {};
 
   // Resupply state per KitMaterial.id
-  resupplyQty: Record<number, number> = {};
+  resupplyQty: Record<number, number | null> = {};
   resupplyingMaterialId: number | null = null;
   resupplyError: Record<number, string> = {};
 
@@ -90,7 +90,7 @@ export class KitsComponent implements OnInit {
           // Reload full kit to get updated material consumption
           this.api.getKits().subscribe({ next: (d) => { this.kits = d ?? []; } });
         }
-        this.advanceDelta[kit.id] = 0;
+        this.advanceDelta[kit.id] = null;
         this.advanceNotes[kit.id] = '';
         this.advancingKitId = null;
       },
@@ -134,9 +134,10 @@ export class KitsComponent implements OnInit {
     });
   }
 
-  resolveException(exc: any): void {
+  resolveException(exc: any, kit: any): void {
     this.api.resolveException(exc.id).subscribe({
       next: () => this.api.getKits().subscribe({ next: (d) => { this.kits = d ?? []; } }),
+      error: () => { this.exceptionError[kit.id] = 'No se pudo resolver la incidencia'; },
     });
   }
 
@@ -150,7 +151,7 @@ export class KitsComponent implements OnInit {
       next: (resupply) => {
         this.api.deliverResupply(resupply.id, qty).subscribe({
           next: () => {
-            this.resupplyQty[m.id] = 0;
+            this.resupplyQty[m.id] = null;
             this.resupplyingMaterialId = null;
             this.api.getKits().subscribe({ next: (d) => { this.kits = d ?? []; } });
           },

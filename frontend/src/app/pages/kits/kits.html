@@ -71,7 +71,7 @@
           <div class="field-action">
             <button class="btn-success"
                     (click)="registerAdvance(kit)"
-                    [disabled]="!advanceDelta[kit.id] || advanceDelta[kit.id] <= 0 || advancingKitId === kit.id">
+                    [disabled]="!advanceDelta[kit.id] || (advanceDelta[kit.id] ?? 0) <= 0 || advancingKitId === kit.id">
               {{ advancingKitId === kit.id ? 'Guardando…' : 'Registrar' }}
             </button>
           </div>
@@ -94,7 +94,7 @@
           <li *ngFor="let e of kit.exceptions" [class.exc-open]="e.status === 'open'" [class.exc-resolved]="e.status === 'resolved'">
             <span class="exc-type">{{ e.type }}</span>
             <span class="exc-desc">{{ e.description }}</span>
-            <button *ngIf="e.status === 'open'" class="btn-resolve" (click)="resolveException(e)">Resolver</button>
+            <button *ngIf="e.status === 'open'" class="btn-resolve" (click)="resolveException(e, kit)">Resolver</button>
             <span *ngIf="e.status === 'resolved'" class="exc-tag">Resuelta</span>
           </li>
         </ul>
@@ -161,7 +161,7 @@
                          [disabled]="resupplyingMaterialId === m.id" />
                   <button class="btn-resupply"
                           (click)="registerResupply(kit, m)"
-                          [disabled]="!resupplyQty[m.id] || resupplyQty[m.id] <= 0 || resupplyingMaterialId === m.id">
+                          [disabled]="!resupplyQty[m.id] || (resupplyQty[m.id] ?? 0) <= 0 || resupplyingMaterialId === m.id">
                     {{ resupplyingMaterialId === m.id ? '…' : '+' }}
                   </button>
                 </div>
