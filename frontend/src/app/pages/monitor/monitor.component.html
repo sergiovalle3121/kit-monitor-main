@@ -17,8 +17,13 @@
       <tr *ngFor="let bk of backens">
         <th>BK{{ bk }}</th>
         <td *ngFor="let bh of bahias" [class]="'cell ' + (kitAt(bk, bh)?.status ?? 'empty')">
-          <span *ngIf="kitAt(bk, bh) as kit">{{ kit.plan?.workOrder ?? '–' }}</span>
-          <span *ngIf="!kitAt(bk, bh)" class="empty-label">–</span>
+          <ng-container *ngIf="kitAt(bk, bh) as kit">
+            <div class="cell-model">{{ kit.plan?.model ?? '–' }}</div>
+            <div class="cell-wo">{{ kit.plan?.workOrder }}</div>
+            <div class="cell-progress">{{ (kit.totalCompleted ?? 0) }} / {{ kit.plan?.quantity }}</div>
+            <div class="cell-status">{{ kit.status }}</div>
+          </ng-container>
+          <span *ngIf="!kitAt(bk, bh)" class="empty-label">Sin kit</span>
         </td>
       </tr>
     </tbody>

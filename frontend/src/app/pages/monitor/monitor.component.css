@@ -18,6 +18,11 @@
 .cell.completed   { background: #c8e6c9; }
 .cell.empty       { background: #fafafa; color: #bbb; }
 
+.cell-model    { font-weight: 600; font-size: 0.85rem; }
+.cell-wo       { font-size: 0.75rem; color: #555; }
+.cell-progress { font-size: 0.8rem; margin-top: 2px; }
+.cell-status   { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.03em; margin-top: 2px; opacity: 0.7; }
+
 .legend { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
 .chip { padding: 4px 12px; border-radius: 12px; font-size: 0.8rem; }
 .chip.prepared    { background: #e3f2fd; }
