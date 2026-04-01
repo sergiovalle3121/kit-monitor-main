@@ -1,13 +1,15 @@
-<h2>Login</h2>
-<p>Formulario aquí…</p>
-
-<div *ngIf="(reports || []).length > 0; else empty">
-  <p>Total de reportes: {{ reports.length }}</p>
-  <div *ngFor="let report of (reports || [])">
-    <p>{{ report?.name || 'Reporte sin nombre' }}</p>
-  </div>
+<div class="login-wrap">
+  <h2>Kit Monitor</h2>
+  <form (ngSubmit)="submit()">
+    <label>
+      Email
+      <input type="email" [(ngModel)]="email" name="email" required autocomplete="username">
+    </label>
+    <label>
+      Contraseña
+      <input type="password" [(ngModel)]="password" name="password" required autocomplete="current-password">
+    </label>
+    <p class="error" *ngIf="error">{{ error }}</p>
+    <button type="submit" [disabled]="loading">{{ loading ? 'Entrando…' : 'Entrar' }}</button>
+  </form>
 </div>
-
-<ng-template #empty>
-  <p>No hay reportes.</p>
-</ng-template>

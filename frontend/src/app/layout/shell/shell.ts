@@ -1,5 +1,6 @@
 import { Component } from '@angular/core';
 import { RouterOutlet, RouterLink } from '@angular/router';
+import { AuthService } from '../../core/auth.service';
 
 @Component({
   selector: 'app-shell',
@@ -8,4 +9,10 @@ import { RouterOutlet, RouterLink } from '@angular/router';
   templateUrl: './shell.html',
   styleUrls: ['./shell.css'],
 })
-export class ShellComponent {}
+export class ShellComponent {
+  constructor(private auth: AuthService) {}
+
+  logout(): void {
+    this.auth.logout();
+  }
+}

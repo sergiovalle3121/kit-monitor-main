@@ -1,26 +1,22 @@
-import { Controller, Post, Request, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { Controller, Post, Get, Body, UseGuards, Request } from '@nestjs/common';
 import { AuthService } from './auth.service';
+import { LoginDto } from './dto/login.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
-import { LocalAuthGuard } from './guards/local-auth.guard';
 
-@ApiTags('auth')
+// LocalAuthGuard removed: no LocalStrategy exists in this project.
+// Login validates credentials directly via AuthService.validateUser.
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
-  @UseGuards(LocalAuthGuard)
   @Post('login')
-  @ApiOperation({ summary: 'Inicia sesión y obtiene un token JWT' })
-  @ApiResponse({ status: 200, description: 'Inicio de sesión exitoso' })
-  async login(@Request() req: any) {
-    return this.authService.login(req.user);
+  async login(@Body() dto: LoginDto) {
+    const user = await this.authService.validateUser(dto.email, dto.password);
+    return this.authService.login(user);
   }
 
   @UseGuards(JwtAuthGuard)
-  @Post('profile')
-  @ApiOperation({ summary: 'Obtiene el perfil del usuario autenticado' })
-  @ApiResponse({ status: 200, description: 'Perfil obtenido exitosamente' })
+  @Get('profile')
   getProfile(@Request() req: any) {
     return req.user;
   }
