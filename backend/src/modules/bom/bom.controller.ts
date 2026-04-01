@@ -1,4 +1,9 @@
-import { Controller, Get, Post, Patch, Delete, Param, Body, Query, ParseIntPipe } from '@nestjs/common';
+import {
+  Controller, Get, Post, Patch, Delete,
+  Param, Body, Query, ParseIntPipe,
+  UseInterceptors, UploadedFile, BadRequestException,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { BomService } from './bom.service';
 import { CreateBomItemDto } from './dto/create-bom-item.dto';
 import { UpdateBomItemDto } from './dto/update-bom-item.dto';
@@ -20,6 +25,15 @@ export class BomController {
   @Post()
   create(@Body() dto: CreateBomItemDto) {
     return this.bomService.create(dto);
+  }
+
+  @Post('import')
+  @UseInterceptors(FileInterceptor('file'))
+  async importXlsx(@UploadedFile() file: any) {
+    if (!file) throw new BadRequestException('No file uploaded');
+    const ext = file.originalname.split('.').pop()?.toLowerCase();
+    if (ext !== 'xlsx') throw new BadRequestException('Only .xlsx files are accepted');
+    return this.bomService.importFromBuffer(file.buffer);
   }
 
   @Patch(':id')

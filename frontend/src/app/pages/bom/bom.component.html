@@ -1,10 +1,34 @@
 <div class="page-header">
   <h2>BOM</h2>
-  <button class="btn-primary" (click)="showForm = !showForm">
-    {{ showForm ? 'Cancelar' : '+ Nuevo item' }}
-  </button>
+  <div class="header-actions">
+    <label class="btn-import" [class.loading]="importing">
+      <input type="file" accept=".xlsx" (change)="onFileSelected($event)" [disabled]="importing" hidden />
+      {{ importing ? 'Importando…' : '↑ Importar Excel' }}
+    </label>
+    <button class="btn-primary" (click)="showForm = !showForm">
+      {{ showForm ? 'Cancelar' : '+ Nuevo item' }}
+    </button>
+  </div>
 </div>
 
+<!-- Import result -->
+<div class="import-result success" *ngIf="importResult">
+  <strong>✓ Importación completa:</strong>
+  {{ importResult.imported }} items importados/actualizados.
+  <span *ngIf="importResult.errors.length"> · {{ importResult.errors.length }} errores.</span>
+  <button class="close-btn" (click)="importResult = null">×</button>
+  <div *ngIf="importResult.errors.length" class="error-list">
+    <div *ngFor="let e of importResult.errors" class="error-row">
+      Hoja <strong>{{ e.sheet }}</strong>, fila {{ e.row }}: {{ e.reason }}
+    </div>
+  </div>
+</div>
+<div class="import-result error-banner" *ngIf="importError">
+  <strong>✗ Error al importar:</strong> {{ importError }}
+  <button class="close-btn" (click)="importError = null">×</button>
+</div>
+
+<!-- Manual form -->
 <div class="form-card" *ngIf="showForm">
   <h3>Agregar item al BOM</h3>
   <p *ngIf="formError" class="error">{{ formError }}</p>
@@ -43,7 +67,9 @@
 
 <div class="filter-row">
   <input [(ngModel)]="filterModel" placeholder="Filtrar por modelo…" class="filter-input" />
-  <span class="count" *ngIf="filterModel">{{ filtered.length }} resultado(s)</span>
+  <span class="count">
+    {{ filtered.length }} de {{ items.length }} items
+  </span>
 </div>
 
 <p *ngIf="loading">Cargando…</p>

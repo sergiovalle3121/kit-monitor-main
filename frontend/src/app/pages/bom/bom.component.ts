@@ -20,6 +20,11 @@ export class BomComponent implements OnInit {
   submitting = false;
   formError: string | null = null;
 
+  // Import state
+  importing = false;
+  importResult: { imported: number; errors: any[] } | null = null;
+  importError: string | null = null;
+
   form = {
     model: '',
     partNumber: '',
@@ -60,6 +65,32 @@ export class BomComponent implements OnInit {
       error: (err) => {
         this.formError = err?.error?.message ?? 'Error al guardar el item';
         this.submitting = false;
+      },
+    });
+  }
+
+  onFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+
+    this.importing = true;
+    this.importResult = null;
+    this.importError = null;
+
+    this.api.importBom(file).subscribe({
+      next: (result) => {
+        this.importResult = result;
+        this.importing = false;
+        // Reload the table to show newly imported items
+        this.load();
+        // Reset file input
+        input.value = '';
+      },
+      error: (err) => {
+        this.importError = err?.error?.message ?? 'Error al importar el archivo';
+        this.importing = false;
+        input.value = '';
       },
     });
   }

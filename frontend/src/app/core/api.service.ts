@@ -36,6 +36,11 @@ export class ApiService {
     return this.get<any[]>('bom', model ? { model } : undefined);
   }
   createBomItem(dto: any): Observable<any>  { return this.post<any>('bom', dto); }
+  importBom(file: File): Observable<any> {
+    const fd = new FormData();
+    fd.append('file', file);
+    return this.http.post<any>(`${this.base}/bom/import`, fd);
+  }
 
   // ── Advances ─────────────────────────────────────────────
   getAdvances(kitId: number): Observable<any[]> {
