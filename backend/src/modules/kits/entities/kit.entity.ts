@@ -8,8 +8,12 @@ import { Advance } from '../../advances/entities/advance.entity';
 import { Resupply } from '../../resupplies/entities/resupply.entity';
 import { KitException } from '../../exceptions/entities/kit-exception.entity';
 
-// Status flow: prepared → sent → received → in_progress → completed
-export type KitStatus = 'prepared' | 'sent' | 'received' | 'in_progress' | 'completed';
+// Status flow: preparing → kitted → ready → requested → delivered → in_progress → completed
+// Legacy aliases kept for backward compat: prepared, sent, received
+export type KitStatus =
+  | 'preparing' | 'kitted' | 'ready' | 'requested' | 'delivered'
+  | 'in_progress' | 'completed'
+  | 'prepared' | 'sent' | 'received'; // legacy
 
 @Entity('kits')
 export class Kit {
@@ -20,7 +24,7 @@ export class Kit {
   @JoinColumn()
   plan: Plan;
 
-  @Column({ default: 'prepared' })
+  @Column({ default: 'preparing' })
   status: KitStatus;
 
   @Column({ type: 'datetime', nullable: true })
@@ -31,6 +35,15 @@ export class Kit {
 
   @Column({ type: 'datetime', nullable: true })
   receivedAt: Date;
+
+  @Column({ type: 'datetime', nullable: true })
+  kittedAt: Date;
+
+  @Column({ type: 'datetime', nullable: true })
+  requestedAt: Date;
+
+  @Column({ type: 'datetime', nullable: true })
+  deliveredAt: Date;
 
   @OneToMany(() => KitMaterial, (m) => m.kit)
   materials: KitMaterial[];

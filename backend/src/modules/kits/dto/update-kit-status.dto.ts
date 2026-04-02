@@ -1,3 +1,6 @@
 export class UpdateKitStatusDto {
-  status: 'prepared' | 'sent' | 'received' | 'in_progress' | 'completed';
+  status:
+    | 'preparing' | 'kitted' | 'ready' | 'requested' | 'delivered'
+    | 'in_progress' | 'completed'
+    | 'prepared' | 'sent' | 'received'; // legacy
 }

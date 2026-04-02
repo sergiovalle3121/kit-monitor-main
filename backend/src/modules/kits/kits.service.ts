@@ -75,16 +75,29 @@ export class KitsService {
       );
       await em.save(KitMaterial, materials);
 
+      // Link plan status to active
+      await em.update(Plan, plan.id, { status: 'active' });
+
       return this.findOne(savedKit.id);
     });
   }
 
   async updateStatus(id: number, dto: UpdateKitStatusDto): Promise<any> {
-    await this.findOne(id);
+    const kit = await this.findOne(id);
     const timestamps: Partial<Kit> = {};
-    if (dto.status === 'sent')     timestamps.sentAt = new Date();
-    if (dto.status === 'received') timestamps.receivedAt = new Date();
+    if (dto.status === 'kitted')    timestamps.kittedAt = new Date();
+    if (dto.status === 'requested') timestamps.requestedAt = new Date();
+    if (dto.status === 'delivered') timestamps.deliveredAt = new Date();
+    // Legacy compat
+    if (dto.status === 'sent')      timestamps.sentAt = new Date();
+    if (dto.status === 'received')  timestamps.receivedAt = new Date();
     await this.repo.update(id, { status: dto.status, ...timestamps });
+
+    // Auto-complete plan when kit completes
+    if (dto.status === 'completed' && kit.plan?.id) {
+      await this.planRepo.update(kit.plan.id, { status: 'completed' });
+    }
+
     return this.findOne(id);
   }
 

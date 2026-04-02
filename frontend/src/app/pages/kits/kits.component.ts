@@ -141,6 +141,43 @@ export class KitsComponent implements OnInit {
     });
   }
 
+  // ── Workflow status transitions ───────────────────────────
+  statusLabel(status: string): string {
+    const labels: Record<string, string> = {
+      preparing: 'Preparando', prepared: 'Armado', kitted: 'Armado',
+      ready: 'Listo', requested: 'Solicitado', delivered: 'Entregado',
+      sent: 'Enviado', received: 'Recibido',
+      in_progress: 'En proceso', completed: 'Completado',
+    };
+    return labels[status] ?? status;
+  }
+
+  nextAction(kit: any): { label: string; status: string; style: string } | null {
+    const map: Record<string, { label: string; status: string; style: string }> = {
+      preparing: { label: 'Marcar como armado', status: 'kitted', style: 'btn-flow flow-kitted' },
+      kitted:    { label: 'Marcar listo', status: 'ready', style: 'btn-flow flow-ready' },
+      ready:     { label: 'Solicitar kit', status: 'requested', style: 'btn-flow flow-requested' },
+      requested: { label: 'Confirmar entrega', status: 'delivered', style: 'btn-flow flow-delivered' },
+    };
+    return map[kit.status] ?? null;
+  }
+
+  canAdvance(kit: any): boolean {
+    return kit.status === 'delivered' || kit.status === 'in_progress' || kit.status === 'received';
+  }
+
+  transitionKit(kit: any, newStatus: string): void {
+    this.api.updateKitStatus(kit.id, newStatus).subscribe({
+      next: () => {
+        this.api.getKits().subscribe({ next: (d) => { this.kits = d ?? []; } });
+        this.api.getPlans().subscribe({ next: (d) => { this.plans = d ?? []; } });
+      },
+      error: (err) => {
+        this.error = err?.error?.message ?? 'Error al cambiar estado';
+      },
+    });
+  }
+
   registerResupply(kit: any, m: any): void {
     const qty = this.resupplyQty[m.id];
     if (!qty || qty <= 0) return;

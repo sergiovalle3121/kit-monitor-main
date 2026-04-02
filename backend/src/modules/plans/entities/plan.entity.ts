@@ -23,8 +23,8 @@ export class Plan {
   @Column({ type: 'int' })
   backen: number; // 1–7
 
-  @Column({ type: 'int' })
-  bahia: number; // 1–6
+  @Column({ type: 'int', nullable: true })
+  bahia: number; // 1–6 (optional — kit is per backen)
 
   @Column({ type: 'int' })
   quantity: number; // units to assemble

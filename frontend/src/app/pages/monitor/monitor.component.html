@@ -1,42 +1,57 @@
 <div class="page-header">
-  <h2>Monitor de línea</h2>
+  <h2>Monitor de Linea</h2>
 </div>
 
-<p *ngIf="loading">Cargando…</p>
+<p *ngIf="loading" class="loading-text">Cargando monitor...</p>
 <p *ngIf="error" class="error">{{ error }}</p>
 
-<div *ngIf="!loading" class="grid-wrap">
-  <table class="monitor-grid">
-    <thead>
-      <tr>
-        <th>Backen \ Bahía</th>
-        <th *ngFor="let b of bahias">B{{ b }}</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr *ngFor="let bk of backens">
-        <th>BK{{ bk }}</th>
-        <td *ngFor="let bh of bahias"
-            [class]="'cell ' + (kitAt(bk, bh)?.status ?? 'empty') + (kitAt(bk, bh)?.hasOpenException ? ' has-exception' : '')">
-          <ng-container *ngIf="kitAt(bk, bh) as kit">
-            <div class="cell-model">{{ kit.plan?.model ?? '–' }}</div>
-            <div class="cell-wo">{{ kit.plan?.workOrder }}</div>
-            <div class="cell-progress">{{ (kit.totalCompleted ?? 0) }} / {{ kit.plan?.quantity }}</div>
-            <div class="cell-status">{{ kit.status }}</div>
-            <div *ngIf="kit.hasOpenException" class="cell-alert" title="Incidencia abierta">⚠ Alerta</div>
-          </ng-container>
-          <span *ngIf="!kitAt(bk, bh)" class="empty-label">Sin kit</span>
-        </td>
-      </tr>
-    </tbody>
-  </table>
+<div *ngIf="!loading && !error" class="backens-grid">
+  <div *ngFor="let bk of backens"
+       [class]="'backen-card status-' + (slots[bk]?.status ?? 'empty')"
+       [class.has-exception]="slots[bk]?.hasException">
 
-  <div class="legend">
-    <span class="chip prepared">Preparado</span>
-    <span class="chip sent">Enviado</span>
-    <span class="chip received">Recibido</span>
-    <span class="chip in_progress">En proceso</span>
-    <span class="chip completed">Completado</span>
-    <span class="chip empty">Vacío</span>
+    <div class="card-header">
+      <span class="bk-label">BK{{ bk }}</span>
+      <span [class]="'status-badge badge-' + (slots[bk]?.status ?? 'empty')">
+        {{ labelFor(slots[bk]?.status ?? 'empty') }}
+      </span>
+    </div>
+
+    <div class="card-body" *ngIf="slots[bk]?.status !== 'empty'">
+      <div class="model-name">{{ slots[bk]?.model }}</div>
+      <div class="card-meta">
+        <span>{{ slots[bk]?.workOrder }}</span>
+        <span class="meta-sep">|</span>
+        <span>{{ slots[bk]?.shift }}</span>
+        <span class="meta-sep">|</span>
+        <span>x{{ slots[bk]?.quantity }}</span>
+      </div>
+
+      <div class="progress-section" *ngIf="slots[bk]?.status !== 'scheduled'">
+        <div class="progress-track">
+          <div class="progress-fill" [style.width.%]="slots[bk]?.progressPct ?? 0"></div>
+        </div>
+        <span class="progress-label">{{ slots[bk]?.completed }} / {{ slots[bk]?.quantity }} ({{ slots[bk]?.progressPct }}%)</span>
+      </div>
+
+      <div class="alert-banner" *ngIf="slots[bk]?.hasException">
+        Incidencia abierta
+      </div>
+    </div>
+
+    <div class="card-empty" *ngIf="slots[bk]?.status === 'empty'">
+      Sin programacion
+    </div>
   </div>
+</div>
+
+<div class="legend" *ngIf="!loading && !error">
+  <span class="chip chip-scheduled">Programado</span>
+  <span class="chip chip-preparing">Preparando</span>
+  <span class="chip chip-kitted">Armado</span>
+  <span class="chip chip-ready">Listo</span>
+  <span class="chip chip-requested">Solicitado</span>
+  <span class="chip chip-delivered">Entregado</span>
+  <span class="chip chip-in_progress">En proceso</span>
+  <span class="chip chip-completed">Completado</span>
 </div>

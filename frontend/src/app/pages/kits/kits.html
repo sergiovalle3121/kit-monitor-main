@@ -5,74 +5,85 @@
   </button>
 </div>
 
+<!-- Create kit from plan -->
 <div class="form-card" *ngIf="showForm">
   <h3>Crear kit desde plan</h3>
   <p *ngIf="createError" class="error">{{ createError }}</p>
   <div class="form-row">
     <div class="field">
-      <label>Seleccionar plan *</label>
+      <label>Seleccionar plan</label>
       <select [(ngModel)]="selectedPlanId">
-        <option [ngValue]="null">— Elige un plan —</option>
+        <option [ngValue]="null">-- Elige un plan --</option>
         <option *ngFor="let p of plansWithoutKit()" [ngValue]="p.id">
-          {{ p.workOrder }} · {{ p.model }} · BK{{ p.backen }} B{{ p.bahia }} · x{{ p.quantity }}
+          {{ p.workOrder }} &middot; {{ p.model }} &middot; BK{{ p.backen }}{{ p.bahia ? ' B' + p.bahia : '' }} &middot; x{{ p.quantity }}
         </option>
       </select>
     </div>
     <div class="field-action">
       <button class="btn-primary" (click)="createKit()" [disabled]="!selectedPlanId || creating">
-        {{ creating ? 'Creando…' : 'Crear kit' }}
+        {{ creating ? 'Creando...' : 'Crear kit' }}
       </button>
     </div>
   </div>
   <p class="hint" *ngIf="plansWithoutKit().length === 0">No hay planes disponibles sin kit asignado.</p>
 </div>
 
-<p *ngIf="loading">Cargando kits…</p>
+<p *ngIf="loading" class="loading-text">Cargando kits...</p>
 <p *ngIf="error" class="error">{{ error }}</p>
 
 <div class="kit-list" *ngIf="!loading">
-  <div class="kit-row" *ngFor="let kit of kits">
+  <div *ngFor="let kit of kits" class="kit-card" [class.expanded]="expandedKitId === kit.id">
+    <!-- Header row -->
     <div class="kit-header" (click)="toggleExpand(kit.id)">
       <div class="kit-info">
         <span class="kit-id">#{{ kit.id }}</span>
         <span class="wo">{{ kit.plan?.workOrder }}</span>
         <span class="model">{{ kit.plan?.model }}</span>
-        <span class="location" *ngIf="kit.plan">BK{{ kit.plan.backen }} · B{{ kit.plan.bahia }}</span>
-        <span class="qty">×{{ kit.plan?.quantity }}</span>
+        <span class="location" *ngIf="kit.plan">BK{{ kit.plan.backen }}{{ kit.plan.bahia ? ' &middot; B' + kit.plan.bahia : '' }}</span>
+        <span class="qty">x{{ kit.plan?.quantity }}</span>
       </div>
       <div class="kit-meta">
         <span class="progress-label" *ngIf="kit.plan">
           {{ kit.totalCompleted ?? 0 }} / {{ kit.plan.quantity }}
         </span>
-        <span class="badge" [class]="kit.status">{{ kit.status }}</span>
+        <span [class]="'status-badge badge-' + kit.status">{{ statusLabel(kit.status) }}</span>
         <span class="materials-count" *ngIf="kit.materials?.length">
           {{ kit.materials.length }} mat.
         </span>
-        <span class="expand-icon">{{ expandedKitId === kit.id ? '▲' : '▼' }}</span>
+        <span class="expand-icon">{{ expandedKitId === kit.id ? '&#9650;' : '&#9660;' }}</span>
       </div>
     </div>
 
+    <!-- Expanded detail panel -->
     <div class="kit-detail" *ngIf="expandedKitId === kit.id">
 
-      <!-- Advance registration (only if not completed) -->
-      <div class="detail-section advance-section" *ngIf="kit.status !== 'completed'">
+      <!-- ━━ Workflow actions ━━ -->
+      <div class="detail-section workflow-section" *ngIf="nextAction(kit) as action">
+        <span class="flow-label">Siguiente paso:</span>
+        <button [class]="action.style" (click)="transitionKit(kit, action.status)">
+          {{ action.label }}
+        </button>
+      </div>
+
+      <!-- ━━ Advance registration (only when delivered / in_progress) ━━ -->
+      <div class="detail-section advance-section" *ngIf="canAdvance(kit)">
         <h4>Registrar avance</h4>
         <p *ngIf="advanceError[kit.id]" class="error">{{ advanceError[kit.id] }}</p>
         <div class="advance-form">
           <div class="field">
-            <label>Unidades completadas (máx. {{ maxAdvance(kit) }})</label>
+            <label>Unidades completadas (max. {{ maxAdvance(kit) }})</label>
             <input [(ngModel)]="advanceDelta[kit.id]" type="number"
                    min="1" [max]="maxAdvance(kit)" placeholder="0" />
           </div>
           <div class="field flex-2">
             <label>Notas (opcional)</label>
-            <input [(ngModel)]="advanceNotes[kit.id]" placeholder="Observaciones…" />
+            <input [(ngModel)]="advanceNotes[kit.id]" placeholder="Observaciones..." />
           </div>
           <div class="field-action">
             <button class="btn-success"
                     (click)="registerAdvance(kit)"
                     [disabled]="!advanceDelta[kit.id] || (advanceDelta[kit.id] ?? 0) <= 0 || advancingKitId === kit.id">
-              {{ advancingKitId === kit.id ? 'Guardando…' : 'Registrar' }}
+              {{ advancingKitId === kit.id ? 'Guardando...' : 'Registrar' }}
             </button>
           </div>
         </div>
@@ -86,9 +97,9 @@
         </div>
       </div>
 
-      <!-- Exceptions -->
+      <!-- ━━ Exceptions ━━ -->
       <div class="detail-section exception-section">
-        <h4>Incidencias{{ kit.hasOpenException ? ' ⚠' : '' }}</h4>
+        <h4>Incidencias{{ kit.hasOpenException ? ' !' : '' }}</h4>
         <p *ngIf="exceptionError[kit.id]" class="error">{{ exceptionError[kit.id] }}</p>
         <ul class="exception-list" *ngIf="kit.exceptions?.length">
           <li *ngFor="let e of kit.exceptions" [class.exc-open]="e.status === 'open'" [class.exc-resolved]="e.status === 'resolved'">
@@ -101,7 +112,7 @@
         <div class="exception-form">
           <select [value]="exceptionType[kit.id] || ''"
                   (change)="exceptionType[kit.id] = $any($event.target).value">
-            <option value="">— Tipo —</option>
+            <option value="">-- Tipo --</option>
             <option value="missing_material">Faltante</option>
             <option value="excess">Exceso</option>
             <option value="quality">Calidad</option>
@@ -109,71 +120,74 @@
           </select>
           <input [value]="exceptionDesc[kit.id] || ''"
                  (input)="exceptionDesc[kit.id] = $any($event.target).value"
-                 placeholder="Descripción corta…" class="exc-input" />
+                 placeholder="Descripcion corta..." class="exc-input" />
           <button class="btn-warn"
                   (click)="reportException(kit)"
                   [disabled]="!exceptionType[kit.id] || !(exceptionDesc[kit.id] || '').trim() || reportingKitId === kit.id">
-            {{ reportingKitId === kit.id ? '…' : 'Reportar' }}
+            {{ reportingKitId === kit.id ? '...' : 'Reportar' }}
           </button>
         </div>
       </div>
 
-      <!-- Plan info -->
-      <div class="detail-section" *ngIf="kit.plan">
+      <!-- ━━ Plan info ━━ -->
+      <div class="detail-section plan-info" *ngIf="kit.plan">
         <h4>Plan</h4>
         <dl>
           <dt>WO</dt><dd>{{ kit.plan.workOrder }}</dd>
           <dt>Modelo</dt><dd>{{ kit.plan.model }}</dd>
-          <dt>Backen / Bahía</dt><dd>BK{{ kit.plan.backen }} / B{{ kit.plan.bahia }}</dd>
-          <dt>Cantidad objetivo</dt><dd>{{ kit.plan.quantity }}</dd>
+          <dt>Backen</dt><dd>BK{{ kit.plan.backen }}</dd>
+          <dt>Bahia</dt><dd>{{ kit.plan.bahia ? 'B' + kit.plan.bahia : '–' }}</dd>
+          <dt>Cantidad</dt><dd>{{ kit.plan.quantity }}</dd>
           <dt>Completadas</dt><dd><strong>{{ kit.totalCompleted ?? 0 }}</strong></dd>
           <dt>Turno</dt><dd>{{ kit.plan.shift }}</dd>
         </dl>
       </div>
 
-      <!-- Materials with consumption -->
+      <!-- ━━ Materials with consumption ━━ -->
       <div class="detail-section" *ngIf="kit.materials?.length">
         <h4>Materiales ({{ kit.materials.length }})</h4>
-        <table class="materials-table">
-          <thead>
-            <tr>
-              <th>N° Parte</th><th>Descripción</th>
-              <th>Requerido</th><th>Resurtido</th><th>Consumido</th><th>Restante</th><th>Ud.</th>
-              <th>Resurtir</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr *ngFor="let m of kit.materials" [class.row-done]="(m.quantityRemaining ?? m.quantityRequired) <= 0">
-              <td><code>{{ m.partNumber }}</code></td>
-              <td>{{ m.description || '–' }}</td>
-              <td class="qty-cell">{{ m.quantityRequired }}</td>
-              <td class="qty-cell resupplied">{{ m.quantityResupplied ?? 0 }}</td>
-              <td class="qty-cell consumed">{{ m.quantityConsumed ?? 0 }}</td>
-              <td class="qty-cell" [class.remaining-zero]="(m.quantityRemaining ?? m.quantityRequired) <= 0">
-                {{ m.quantityRemaining ?? m.quantityRequired }}
-              </td>
-              <td>{{ m.unit }}</td>
-              <td class="resupply-cell">
-                <span *ngIf="resupplyError[m.id]" class="error-inline">{{ resupplyError[m.id] }}</span>
-                <div class="resupply-form">
-                  <input [(ngModel)]="resupplyQty[m.id]" type="number" min="0.01" step="0.01"
-                         placeholder="0" class="resupply-input"
-                         [disabled]="resupplyingMaterialId === m.id" />
-                  <button class="btn-resupply"
-                          (click)="registerResupply(kit, m)"
-                          [disabled]="!resupplyQty[m.id] || (resupplyQty[m.id] ?? 0) <= 0 || resupplyingMaterialId === m.id">
-                    {{ resupplyingMaterialId === m.id ? '…' : '+' }}
-                  </button>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+        <div class="table-scroll">
+          <table class="materials-table">
+            <thead>
+              <tr>
+                <th>N. Parte</th><th>Descripcion</th>
+                <th>Requerido</th><th>Resurtido</th><th>Consumido</th><th>Restante</th><th>Ud.</th>
+                <th>Resurtir</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let m of kit.materials" [class.row-done]="(m.quantityRemaining ?? m.quantityRequired) <= 0">
+                <td><code>{{ m.partNumber }}</code></td>
+                <td>{{ m.description || '–' }}</td>
+                <td class="qty-cell">{{ m.quantityRequired }}</td>
+                <td class="qty-cell resupplied">{{ m.quantityResupplied ?? 0 }}</td>
+                <td class="qty-cell consumed">{{ m.quantityConsumed ?? 0 }}</td>
+                <td class="qty-cell" [class.remaining-zero]="(m.quantityRemaining ?? m.quantityRequired) <= 0">
+                  {{ m.quantityRemaining ?? m.quantityRequired }}
+                </td>
+                <td>{{ m.unit }}</td>
+                <td class="resupply-cell">
+                  <span *ngIf="resupplyError[m.id]" class="error-inline">{{ resupplyError[m.id] }}</span>
+                  <div class="resupply-form">
+                    <input [(ngModel)]="resupplyQty[m.id]" type="number" min="0.01" step="0.01"
+                           placeholder="0" class="resupply-input"
+                           [disabled]="resupplyingMaterialId === m.id" />
+                    <button class="btn-resupply"
+                            (click)="registerResupply(kit, m)"
+                            [disabled]="!resupplyQty[m.id] || (resupplyQty[m.id] ?? 0) <= 0 || resupplyingMaterialId === m.id">
+                      {{ resupplyingMaterialId === m.id ? '...' : '+' }}
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <p class="hint" *ngIf="!kit.materials?.length">Sin materiales cargados.</p>
     </div>
   </div>
 
-  <p *ngIf="kits.length === 0">Sin kits registrados.</p>
+  <p *ngIf="kits.length === 0" class="empty-state">Sin kits registrados.</p>
 </div>

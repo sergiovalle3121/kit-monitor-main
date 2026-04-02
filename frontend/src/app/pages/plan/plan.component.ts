@@ -23,7 +23,7 @@ export class PlanComponent implements OnInit {
     workOrder: '',
     model: '',
     backen: 1,
-    bahia: 1,
+    bahia: null as number | null,
     quantity: 1,
     shift: 'T1',
     scheduledAt: '',
@@ -64,8 +64,16 @@ export class PlanComponent implements OnInit {
     });
   }
 
+  planStatusLabel(status: string): string {
+    const labels: Record<string, string> = {
+      pending: 'Pendiente', active: 'Activo',
+      completed: 'Completado', cancelled: 'Cancelado',
+    };
+    return labels[status] ?? status;
+  }
+
   private resetForm(): void {
-    this.form = { workOrder: '', model: '', backen: 1, bahia: 1,
+    this.form = { workOrder: '', model: '', backen: 1, bahia: null as number | null,
                   quantity: 1, shift: 'T1', scheduledAt: '', sequence: 0 };
   }
 }

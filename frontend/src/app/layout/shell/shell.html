@@ -1,12 +1,13 @@
 <div class="layout">
   <aside class="sidebar">
+    <div class="brand">Kit Monitor</div>
     <nav>
-      <a routerLink="/plan" routerLinkActive="active">Planeación</a>
+      <a routerLink="/plan" routerLinkActive="active">Planeacion</a>
       <a routerLink="/bom" routerLinkActive="active">BOM</a>
       <a routerLink="/kits" routerLinkActive="active">Kits</a>
       <a routerLink="/monitor" routerLinkActive="active">Monitor</a>
     </nav>
-    <button class="logout" (click)="logout()">Cerrar sesión</button>
+    <button class="logout" (click)="logout()">Cerrar sesion</button>
   </aside>
   <main class="content">
     <router-outlet></router-outlet>

@@ -61,6 +61,16 @@ export class ApiService {
     return this.http.patch<any>(`${this.base}/resupplies/${id}/deliver`, { quantityDelivered: qty });
   }
 
+  // ── Kit status transitions ────────────────────────────────
+  updateKitStatus(id: number, status: string): Observable<any> {
+    return this.http.patch<any>(`${this.base}/kits/${id}/status`, { status });
+  }
+
+  // ── Plan updates ─────────────────────────────────────────
+  updatePlan(id: number, dto: any): Observable<any> {
+    return this.http.patch<any>(`${this.base}/plans/${id}`, dto);
+  }
+
   // ── Exceptions ───────────────────────────────────────────
   getExceptions(kitId: number): Observable<any[]> {
     return this.get<any[]>('exceptions', { kitId });
