@@ -16,6 +16,7 @@
   grid-template-columns: 278px 1fr;
   min-height: 100vh;
   background: linear-gradient(155deg, #1a2531 0%, #1e2a37 44%, #202e3b 100%);
+  background: linear-gradient(155deg, #0d141f 0%, #101926 40%, #121d2d 100%);
   color: var(--text-main);
   transition: grid-template-columns var(--t-base);
 }
