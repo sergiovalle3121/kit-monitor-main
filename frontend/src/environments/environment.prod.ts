@@ -1,4 +1,4 @@
 ﻿export const environment = {
   production: true,
-  apiUrl: 'https://kit-monitor-demo.onrender.com/api'
+  apiUrl: 'https://vigilant-unity-production-cae5.up.railway.app/api'
 };
