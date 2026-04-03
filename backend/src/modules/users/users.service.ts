@@ -7,8 +7,8 @@ export class UsersService {
   private users: User[] = [
     {
       id: 1,
-      email: 'test@example.com',
-      password: '$2b$10$cuOPLqq4I2RjOjOeZ5wxv.4wS19DoHpI.zi5P0Rpaj7MNZWKItuYC',
+      email: '3312793',
+      password: '$2b$10$rDujs6HbIV2SuNnQXKi11.nACMOvBItTThv7hHDTacMbwGnDY8/fG',
       isActive: true,
     },
   ];
