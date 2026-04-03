@@ -32,6 +32,6 @@ export class Resupply {
   @CreateDateColumn()
   requestedAt: Date;
 
-  @Column({ type: 'datetime', nullable: true })
+  @Column({ type: 'timestamp', nullable: true })
   deliveredAt: Date;
 }

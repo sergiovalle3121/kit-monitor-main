@@ -32,7 +32,7 @@ export class Plan {
   @Column()
   shift: string; // T1 | T2 | T3
 
-  @Column({ type: 'datetime', nullable: true })
+  @Column({ type: 'timestamp', nullable: true })
   scheduledAt: Date;
 
   @Column({ type: 'int', default: 0 })

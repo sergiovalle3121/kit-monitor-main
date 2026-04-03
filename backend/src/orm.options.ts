@@ -5,7 +5,8 @@ import { TypeOrmModuleOptions } from "@nestjs/typeorm";
  *
  *  PRODUCTION (DATABASE_URL set)
  *    → PostgreSQL via connection URL
- *    → synchronize: false  (schema managed manually / migrations)
+ *    → synchronize: true by default to bootstrap Railway-managed schemas
+ *      on fresh databases (override with SYNCHRONIZE=false)
  *    → SSL enabled when sslmode=require or NODE_ENV=production
  *
  *  DEVELOPMENT with explicit PG creds (DB_HOST set)
@@ -33,12 +34,20 @@ export function ormOptions(): TypeOrmModuleOptions {
   }
 
   // ── Shared PostgreSQL base ───────────────────────────────────────────────
-  const syncDefault = process.env.SYNCHRONIZE === "false" ? false : !isProd;
+  const syncOverride = process.env.SYNCHRONIZE;
+  const synchronize =
+    syncOverride === "true"
+      ? true
+      : syncOverride === "false"
+        ? false
+        : url
+          ? true
+          : !isProd;
 
   const pgBase: Partial<TypeOrmModuleOptions> = {
     type: "postgres",
     autoLoadEntities: true,
-    synchronize: isProd ? false : syncDefault,
+    synchronize,
     ssl:
       isProd || url?.includes("sslmode=require")
         ? { rejectUnauthorized: false }
