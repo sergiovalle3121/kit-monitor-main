@@ -1,10 +1,13 @@
 import {
   Controller, Get, Post, Delete,
   Param, Body, Query, ParseIntPipe,
+  UseGuards,
 } from '@nestjs/common';
 import { BayLayoutService } from './bay-layout.service';
 import { CreateBayLayoutDto } from './dto/create-bay-layout.dto';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
+@UseGuards(JwtAuthGuard)
 @Controller('bay-layouts')
 export class BayLayoutController {
   constructor(private readonly service: BayLayoutService) {}

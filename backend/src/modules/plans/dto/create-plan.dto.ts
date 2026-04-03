@@ -1,5 +1,5 @@
 export class CreatePlanDto {
-  workOrder: string;
+  workOrder?: string;
   model: string;
   backen: number;   // 1–7
   bahia?: number;   // 1–6 (optional — kit is per backen)

@@ -16,6 +16,9 @@ export class BomItem {
   @Column({ nullable: true })
   description: string;
 
+  @Column({ nullable: true })
+  location: string;
+
   @Column({ type: 'float' })
   usageFactor: number; // units consumed per assembled unit
 

@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { KitMaterial } from './entities/kit-material.entity';
 import { Kit } from '../kits/entities/kit.entity';
 import { CreateKitMaterialDto } from './dto/create-kit-material.dto';
+import { UpdateKitMaterialDto } from './dto/update-kit-material.dto';
 
 @Injectable()
 export class KitMaterialsService {
@@ -32,6 +33,15 @@ export class KitMaterialsService {
       unit: dto.unit ?? 'EA',
     });
     return this.repo.save(item);
+  }
+
+  async update(id: number, dto: UpdateKitMaterialDto): Promise<KitMaterial> {
+    await this.findOne(id);
+    await this.repo.update(id, {
+      quantityActual: dto.quantityActual ?? null,
+      isBulkResupply: dto.isBulkResupply ?? false,
+    });
+    return this.findOne(id);
   }
 
   async remove(id: number): Promise<{ deleted: boolean; id: number }> {

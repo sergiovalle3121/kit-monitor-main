@@ -1,7 +1,10 @@
-import { Controller, Get, Post, Delete, Param, Body, Query, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Param, Body, Query, ParseIntPipe, UseGuards } from '@nestjs/common';
 import { KitMaterialsService } from './kit-materials.service';
 import { CreateKitMaterialDto } from './dto/create-kit-material.dto';
+import { UpdateKitMaterialDto } from './dto/update-kit-material.dto';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
+@UseGuards(JwtAuthGuard)
 @Controller('kit-materials')
 export class KitMaterialsController {
   constructor(private readonly service: KitMaterialsService) {}
@@ -14,6 +17,11 @@ export class KitMaterialsController {
   @Post()
   create(@Body() dto: CreateKitMaterialDto) {
     return this.service.create(dto);
+  }
+
+  @Patch(':id')
+  update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateKitMaterialDto) {
+    return this.service.update(id, dto);
   }
 
   @Delete(':id')

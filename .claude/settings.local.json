@@ -1,8 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(ls -la ./backend/.env.example* ./frontend/.env.example*)",
-      "Bash(npm run:*)"
-    ]
-  }
-}

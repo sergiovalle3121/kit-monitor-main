@@ -1,7 +1,9 @@
-import { Controller, Get, Post, Param, Body, Query, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Post, Param, Body, Query, ParseIntPipe, UseGuards } from '@nestjs/common';
 import { AdvancesService } from './advances.service';
 import { CreateAdvanceDto } from './dto/create-advance.dto';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
+@UseGuards(JwtAuthGuard)
 @Controller('advances')
 export class AdvancesController {
   constructor(private readonly service: AdvancesService) {}

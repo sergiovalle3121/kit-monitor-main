@@ -1,0 +1,734 @@
+<section class="intelligence-page">
+  <header class="hero">
+    <div class="hero-copy">
+      <p class="eyebrow">PLANEACION INTELIGENTE</p>
+      <h1>Forecast, riesgo y decision operativa en una sola vista</h1>
+      <p class="lede">
+        Laboratorio estadistico para workbooks reales de SAP: limpia demanda por NP,
+        mide error, simula quiebre y aterriza prioridad operativa aun cuando el archivo venga caotico.
+      </p>
+      <div class="hero-pills">
+        <span>Series de tiempo</span>
+        <span>Bootstrap empirico</span>
+        <span>Backtesting</span>
+        <span>Matching heuristico</span>
+        <span>Capacidad</span>
+      </div>
+    </div>
+
+    <aside class="hero-side">
+      <span class="side-label">LOGICA DE NEGOCIO</span>
+      <p>
+        El forecast maestro vive por material/NP. Riesgo consume ese forecast con stock workbook o manual.
+        Operacion traduce la senal al nivel modelo con matching heuristico mientras no exista BOM real.
+      </p>
+      <ul>
+        <li>Parser tolerante a encabezados SAP caoticos y multiples hojas</li>
+        <li>Forecast por material con MAPE, MAD, Bias y banda simple</li>
+        <li>Operacion con warnings cuando el matching aun es debil</li>
+      </ul>
+    </aside>
+  </header>
+
+  <section class="mode-strip">
+    <button type="button" class="mode-card" [class.active]="activeView === 'forecast'" (click)="setView('forecast')">
+      <span>Forecast</span>
+      <small>{{ forecastState.message }}</small>
+      <em class="state-chip" [class]="sectionToneClass(forecastState.tone)">{{ forecastState.title }}</em>
+    </button>
+
+    <button type="button" class="mode-card" [class.active]="activeView === 'risk'" (click)="setView('risk')">
+      <span>Riesgo</span>
+      <small>{{ riskState.message }}</small>
+      <em class="state-chip" [class]="sectionToneClass(riskState.tone)">{{ riskState.title }}</em>
+    </button>
+
+    <button type="button" class="mode-card" [class.active]="activeView === 'operation'" (click)="setView('operation')">
+      <span>Operacion</span>
+      <small>{{ operationState.message }}</small>
+      <em class="state-chip" [class]="sectionToneClass(operationState.tone)">{{ operationState.title }}</em>
+    </button>
+  </section>
+
+  @if (activeView === 'forecast') {
+    <section class="view-grid">
+      <article
+        class="card upload-card"
+        (dragover)="$event.preventDefault(); dragOver = true"
+        (dragleave)="dragOver = false"
+        (drop)="onDemandDrop($event)"
+        [class.drag-over]="dragOver"
+      >
+        <div class="card-head">
+          <div>
+            <p class="card-kicker">ENTRADA DE DEMANDA</p>
+            <h2>Sube un workbook SAP o planeacion</h2>
+          </div>
+          @if (fileName) {
+            <button type="button" class="ghost-btn" (click)="clearDemandFile()">Limpiar</button>
+          }
+        </div>
+
+        <div class="upload-zone">
+          <div class="upload-icon">XLS</div>
+          <p class="upload-title">{{ fileName || 'Arrastra el workbook o selecciona el Excel' }}</p>
+          <p class="upload-hint">
+            El parser recorre todas las hojas, detecta el header real, ignora metadata y clasifica demanda,
+            stock, catalogo y hojas desconocidas. Soporta formatos horizontal y vertical.
+          </p>
+          <label class="primary-btn upload-btn">
+            Seleccionar archivo
+            <input type="file" accept=".xlsx,.xls,.csv" hidden (change)="onDemandSelect($event)" />
+          </label>
+        </div>
+
+        <div class="meta-grid">
+          <div><span>Archivo</span><strong>{{ fileName || 'Pendiente' }}</strong></div>
+          <div><span>Hoja primaria</span><strong>{{ sheetName || 'Pendiente' }}</strong></div>
+          <div><span>Formato</span><strong>{{ demandFormatLabel || 'Detectado al cargar' }}</strong></div>
+        </div>
+
+        @if (demandSheetInfos.length) {
+          <div class="pill-grid">
+            @for (sheet of demandSheetInfos; track sheet.sheetName) {
+              <span class="badge subtle">{{ sheet.sheetName }} - {{ sheetRoleLabel(sheet.role) }}</span>
+            }
+          </div>
+        }
+
+        @if (parseError) {
+          <p class="inline-error">{{ parseError }}</p>
+        }
+      </article>
+
+      <article class="card state-card">
+        <div class="card-head">
+          <div>
+            <p class="card-kicker">ESTADO DEL LABORATORIO</p>
+            <h2>{{ forecastState.title }}</h2>
+          </div>
+          <span class="status-pill" [class]="sectionToneClass(forecastState.tone)">{{ forecastState.tone }}</span>
+        </div>
+
+        <p class="recommendation-text">{{ forecastState.message }}</p>
+
+        @if (forecastStatusMessage) {
+          <p class="inline-note">{{ forecastStatusMessage }}</p>
+        }
+
+        @if (forecastState.warnings.length) {
+          <div class="warning-list">
+            @for (warning of forecastState.warnings; track warning) {
+              <div class="warning-item">{{ warning }}</div>
+            }
+          </div>
+        }
+
+        <div class="formula-row">
+          <span>MAPE</span>
+          <span>MAD</span>
+          <span>Bias</span>
+          <span>Banda</span>
+        </div>
+      </article>
+    </section>
+
+    <section class="metric-strip">
+      <article class="metric-card"><strong>{{ demandSeries.length }}</strong><span>Series detectadas</span></article>
+      <article class="metric-card"><strong>{{ maxObservedPeriods }}</strong><span>Maximo de periodos</span></article>
+      <article class="metric-card"><strong>{{ readyForecastCount }}</strong><span>Series listas</span></article>
+      <article class="metric-card"><strong>{{ workbookStockCount }}</strong><span>Stocks SAP detectados</span></article>
+    </section>
+
+    <section class="view-grid">
+      <article class="card config-card">
+        <div class="card-head">
+          <div>
+            <p class="card-kicker">COMPETENCIA DE METODOS</p>
+            <h2>Configura y recalcula el forecast maestro</h2>
+          </div>
+        </div>
+
+        <div class="model-grid five">
+          @for (option of modelCards; track option.key) {
+            <button type="button" class="model-tile" [class.active]="model === option.key" (click)="setModel(option.key)">
+              <strong>{{ option.title }}</strong>
+              <span>{{ option.useCase }}</span>
+            </button>
+          }
+        </div>
+
+        <div class="form-grid">
+          <label class="field">
+            <span>Alfa SES</span>
+            <input type="number" min="0.01" max="0.99" step="0.05" [(ngModel)]="sesAlpha" />
+          </label>
+
+          <label class="field">
+            <span>Horizonte</span>
+            <input type="number" min="1" max="12" [(ngModel)]="horizon" />
+          </label>
+
+          <label class="field">
+            <span>Minimo historial</span>
+            <input type="number" [ngModel]="minHistoryPeriods" disabled />
+          </label>
+        </div>
+
+        <div class="action-row">
+          <button type="button" class="primary-btn" (click)="runForecastAnalysis(true)">Recalcular forecast</button>
+        </div>
+
+        @if (methodSummaries.length) {
+          <div class="mini-table">
+            @for (summary of methodSummaries; track summary.model) {
+              <div class="mini-row">
+                <span>{{ summary.label }}</span>
+                <span>MAPE {{ summary.avgMape }}%</span>
+                <span>Bias {{ summary.avgBias }}</span>
+              </div>
+            }
+          </div>
+        }
+      </article>
+
+      <article class="card preview-card">
+        <div class="card-head">
+          <div>
+            <p class="card-kicker">VISTA PREVIA</p>
+            <h2>Demanda normalizada</h2>
+          </div>
+        </div>
+
+        @if (previewDemandRows.length) {
+          <div class="table-wrap compact">
+            <table>
+              <thead>
+                <tr>
+                  <th>Material</th>
+                  <th>Localidad</th>
+                  <th>Stock</th>
+                  @for (header of previewDemandPeriods; track header) {
+                    <th>{{ header }}</th>
+                  }
+                </tr>
+              </thead>
+              <tbody>
+                @for (row of previewDemandRows; track row.key) {
+                  <tr>
+                    <td class="emphasis">{{ row.material }}</td>
+                    <td>{{ row.location || 'Sin dato' }}</td>
+                    <td class="num">{{ row.stock.value ?? '-' }}</td>
+                    @for (value of previewDemandValues(row); track $index) {
+                      <td class="num">{{ value }}</td>
+                    }
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        } @else {
+          <div class="empty-state">
+            <strong>Sin demanda cargada</strong>
+            <span>Cuando subas un workbook, aqui veras la serie ya normalizada a periodos YYYY-MM.</span>
+          </div>
+        }
+      </article>
+    </section>
+
+    <section class="view-grid chart-grid">
+      <article class="card chart-card">
+        <div class="card-head">
+          <div>
+            <p class="card-kicker">EXPLORACION DE SERIE</p>
+            <h2>{{ selectedForecastRecord?.displayLabel || 'Sin serie seleccionada' }}</h2>
+          </div>
+          <span class="badge">{{ selectedChartMethod?.label || 'Sin metodo' }}</span>
+        </div>
+
+        @if (selectedForecastRecord) {
+          <div class="stats-grid">
+            <div><span>Promedio</span><strong>{{ selectedForecastRecord.statistics.mean }}</strong></div>
+            <div><span>Std Dev</span><strong>{{ selectedForecastRecord.statistics.stdDev }}</strong></div>
+            <div><span>CV</span><strong>{{ selectedForecastRecord.statistics.cv }}</strong></div>
+            <div><span>Outliers</span><strong>{{ selectedForecastRecord.statistics.outlierCount }}</strong></div>
+            <div><span>Min</span><strong>{{ selectedForecastRecord.statistics.min }}</strong></div>
+            <div><span>Max</span><strong>{{ selectedForecastRecord.statistics.max }}</strong></div>
+          </div>
+
+          @if (selectedForecastChart) {
+            <svg class="forecast-chart" [attr.viewBox]="'0 0 ' + chartWidth + ' ' + chartHeight">
+              <line
+                [attr.x1]="selectedForecastChart.dividerX"
+                y1="16"
+                [attr.x2]="selectedForecastChart.dividerX"
+                [attr.y2]="chartHeight - 16"
+                class="divider-line"
+              ></line>
+              <polyline [attr.points]="selectedForecastChart.fittedPoints" class="fit-line"></polyline>
+              <polyline [attr.points]="selectedForecastChart.actualPoints" class="actual-line"></polyline>
+              <polyline [attr.points]="selectedForecastChart.futurePoints" class="future-line"></polyline>
+              @for (label of selectedForecastChart.labels; track label.x) {
+                <text [attr.x]="label.x" [attr.y]="chartHeight - 6" class="chart-label">{{ label.text }}</text>
+              }
+            </svg>
+          }
+        } @else {
+          <div class="empty-state">
+            <strong>Sin serie activa</strong>
+            <span>Carga demanda y calcula forecast para explorar el historico limpio.</span>
+          </div>
+        }
+      </article>
+
+      <article class="card insight-card">
+        <div class="card-head">
+          <div>
+            <p class="card-kicker">DIAGNOSTICO</p>
+            <h2>Lectura ejecutiva del material</h2>
+          </div>
+        </div>
+
+        @if (selectedForecastRecord) {
+          <div class="insight-list">
+            <div><strong>Metodo ganador</strong><span>{{ selectedForecastRecord.bestMethodLabel }}</span></div>
+            <div><strong>Forecast siguiente periodo</strong><span>{{ selectedForecastRecord.forecastNext ?? '-' }}</span></div>
+            <div><strong>MAPE</strong><span>{{ selectedForecastRecord.error ?? '-' }}%</span></div>
+            <div><strong>MAD</strong><span>{{ selectedForecastRecord.mad ?? '-' }}</span></div>
+            <div><strong>Bias</strong><span>{{ selectedForecastRecord.bias ?? '-' }}</span></div>
+            <div><strong>Stock fuente</strong><span>{{ selectedForecastRecord.stock.source }}</span></div>
+          </div>
+
+          <div class="pill-grid">
+            @for (diagnostic of selectedForecastRecord.diagnostics; track diagnostic) {
+              <span class="badge subtle">{{ diagnostic }}</span>
+            }
+          </div>
+
+          <p class="recommendation-text">{{ selectedForecastRecord.recommendedMethod }}</p>
+        } @else {
+          <div class="empty-state">
+            <strong>Esperando analisis</strong>
+            <span>Esta tarjeta mostrara el diagnostico estadistico y la recomendacion automatica.</span>
+          </div>
+        }
+      </article>
+    </section>
+
+    <article class="card table-card">
+      <div class="card-head">
+        <div>
+          <p class="card-kicker">FORECAST MAESTRO</p>
+          <h2>Forecast por NP/material</h2>
+        </div>
+
+        <label class="search-field">
+          <span>Filtrar</span>
+          <input type="search" placeholder="Material, localidad o descripcion" [(ngModel)]="resultFilter" />
+        </label>
+      </div>
+
+      @if (filteredForecastResults.length) {
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Material</th>
+                <th>Localidad</th>
+                <th>Calidad</th>
+                <th>Metodo</th>
+                <th>Forecast +1</th>
+                <th>MAPE</th>
+                <th>Bias</th>
+                <th>Stock</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (record of filteredForecastResults; track record.key) {
+                <tr class="selectable-row" [class.selected]="record.key === selectedForecastKey" (click)="selectForecast(record.key)">
+                  <td class="emphasis">{{ record.material }}</td>
+                  <td>{{ record.location || 'Sin dato' }}</td>
+                  <td><span class="status-pill" [class]="forecastStatusClass(record)">{{ record.quality }}</span></td>
+                  <td>{{ record.bestMethodLabel }}</td>
+                  <td class="num">{{ record.forecastNext ?? '-' }}</td>
+                  <td class="num">{{ record.error ?? '-' }}</td>
+                  <td class="num">{{ record.bias ?? '-' }}</td>
+                  <td class="num">{{ record.stock.value ?? '-' }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      } @else {
+        <div class="empty-state">
+          <strong>No hay resultados aun</strong>
+          <span>El forecast maestro aparecera aqui en cuanto se detecten series utiles.</span>
+        </div>
+      }
+    </article>
+  }
+
+  @if (activeView === 'risk') {
+    <section class="view-grid">
+      <article class="card scenario-card">
+        <div class="card-head">
+          <div>
+            <p class="card-kicker">RIESGO POR MATERIAL</p>
+            <h2>Bootstrap empirico y cobertura</h2>
+          </div>
+        </div>
+
+        @if (selectedForecastRecord) {
+          <div class="scenario-grid">
+            <label class="field">
+              <span>Material</span>
+              <select [ngModel]="selectedForecastKey" (ngModelChange)="selectForecast($event)">
+                @for (record of forecastResults; track record.key) {
+                  <option [ngValue]="record.key">{{ record.displayLabel }}</option>
+                }
+              </select>
+            </label>
+
+            <label class="field">
+              <span>Lead time (dias)</span>
+              <input type="number" min="1" max="90" [(ngModel)]="riskLeadTimeDays" />
+            </label>
+
+            <label class="field">
+              <span>Stock manual</span>
+              <input type="number" min="0" placeholder="Opcional" [(ngModel)]="riskManualStock" />
+            </label>
+          </div>
+
+          <div class="action-row">
+            <button type="button" class="primary-btn" (click)="runRiskSimulation(true)">Simular riesgo</button>
+          </div>
+
+          <p class="inline-note">
+            Stock base actual: {{ selectedForecastRecord.stock.value ?? 'sin workbook' }}
+            ({{ selectedForecastRecord.stock.source }})
+          </p>
+        } @else {
+          <div class="empty-state">
+            <strong>Sin serie base</strong>
+            <span>Forecast necesita al menos una serie para que Riesgo pueda simular demanda futura.</span>
+          </div>
+        }
+
+        @if (riskStatusMessage) {
+          <p class="inline-note">{{ riskStatusMessage }}</p>
+        }
+      </article>
+
+      <article class="card state-card">
+        <div class="card-head">
+          <div>
+            <p class="card-kicker">ESTADO DEL RIESGO</p>
+            <h2>{{ riskState.title }}</h2>
+          </div>
+          <span class="status-pill" [class]="sectionToneClass(riskState.tone)">{{ riskState.tone }}</span>
+        </div>
+
+        <p class="recommendation-text">{{ riskState.message }}</p>
+
+        @if (riskState.warnings.length) {
+          <div class="warning-list">
+            @for (warning of riskState.warnings; track warning) {
+              <div class="warning-item">{{ warning }}</div>
+            }
+          </div>
+        }
+      </article>
+    </section>
+
+    <section class="metric-strip">
+      <article class="metric-card"><strong>{{ selectedRiskScenario?.stock ?? '-' }}</strong><span>Stock usado</span></article>
+      <article class="metric-card"><strong>{{ selectedRiskScenario?.horizons?.[0]?.coverageDays ?? '-' }}</strong><span>Dias de cobertura</span></article>
+      <article class="metric-card"><strong>{{ percentLabel(selectedRiskScenario?.stockoutProbability ?? null) }}</strong><span>Riesgo al lead time</span></article>
+      <article class="metric-card"><strong>{{ selectedRiskScenario?.estimatedStockoutDate || '-' }}</strong><span>Fecha estimada de quiebre</span></article>
+    </section>
+
+    <section class="view-grid">
+      <article class="card histogram-card">
+        <div class="card-head">
+          <div>
+            <p class="card-kicker">DISTRIBUCION EMPIRICA</p>
+            <h2>Demanda simulada al lead time</h2>
+          </div>
+        </div>
+
+        @if (selectedRiskScenario) {
+          <div class="histogram">
+            @for (bucket of selectedRiskScenario.histogram; track bucket.label) {
+              <div class="histogram-bar">
+                <div class="histogram-fill" [style.height.%]="bucket.ratio * 100"></div>
+                <span>{{ bucket.label }}</span>
+              </div>
+            }
+          </div>
+
+          <p class="recommendation-text">
+            Rango realista: {{ selectedRiskScenario.realisticMin }} a {{ selectedRiskScenario.realisticMax }}.
+            Safety stock sugerido: {{ selectedRiskScenario.safetyStockSuggested }}.
+          </p>
+        } @else {
+          <div class="empty-state">
+            <strong>Simulacion pendiente</strong>
+            <span>Al ejecutar riesgo, aqui veras la distribucion bootstrap al lead time.</span>
+          </div>
+        }
+      </article>
+
+      <article class="card table-card">
+        <div class="card-head">
+          <div>
+            <p class="card-kicker">HORIZONTES</p>
+            <h2>Riesgo 7 / 14 / 30 dias</h2>
+          </div>
+        </div>
+
+        @if (selectedRiskScenario) {
+          <div class="table-wrap compact">
+            <table>
+              <thead>
+                <tr>
+                  <th>Horizonte</th>
+                  <th>P50</th>
+                  <th>P80</th>
+                  <th>P95</th>
+                  <th>Prob. quiebre</th>
+                  <th>Remaining</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (horizon of selectedRiskScenario.horizons; track horizon.days) {
+                  <tr>
+                    <td class="emphasis">{{ horizon.days }} dias</td>
+                    <td class="num">{{ horizon.demandP50 }}</td>
+                    <td class="num">{{ horizon.demandP80 }}</td>
+                    <td class="num">{{ horizon.demandP95 }}</td>
+                    <td class="num">{{ percentLabel(horizon.stockoutProbability) }}</td>
+                    <td class="num">{{ horizon.projectedRemaining ?? '-' }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        } @else {
+          <div class="empty-state">
+            <strong>Sin horizontes calculados</strong>
+            <span>La tabla mostrara cobertura, percentiles y riesgo de stockout por ventana.</span>
+          </div>
+        }
+      </article>
+    </section>
+  }
+
+  @if (activeView === 'operation') {
+    <section class="view-grid">
+      <article
+        class="card upload-card"
+        (dragover)="$event.preventDefault(); operationDragOver = true"
+        (dragleave)="operationDragOver = false"
+        (drop)="onOperationDrop($event)"
+        [class.drag-over]="operationDragOver"
+      >
+        <div class="card-head">
+          <div>
+            <p class="card-kicker">ENTRADA OPERATIVA</p>
+            <h2>Capacidad, WIP y backlog</h2>
+          </div>
+          @if (operationFileName) {
+            <button type="button" class="ghost-btn" (click)="clearOperationFile()">Limpiar</button>
+          }
+        </div>
+
+        <div class="upload-zone">
+          <div class="upload-icon">OPS</div>
+          <p class="upload-title">{{ operationFileName || 'Sube el workbook operativo' }}</p>
+          <p class="upload-hint">
+            Puede traer WIP, capacidad, stock y demanda en hojas separadas. El motor detecta Assembly,
+            WorkOrder, Planned, Wip, Backlog, Lead Time y BOM disponible aunque el workbook venga mezclado.
+          </p>
+          <label class="primary-btn upload-btn">
+            Seleccionar archivo
+            <input type="file" accept=".xlsx,.xls,.csv" hidden (change)="onOperationSelect($event)" />
+          </label>
+        </div>
+
+        <div class="meta-grid">
+          <div><span>Archivo</span><strong>{{ operationFileName || 'Pendiente' }}</strong></div>
+          <div><span>Hoja primaria</span><strong>{{ operationSheetName || 'Pendiente' }}</strong></div>
+          <div><span>Modelos</span><strong>{{ operationRows.length || 0 }}</strong></div>
+        </div>
+
+        @if (operationSheetInfos.length) {
+          <div class="pill-grid">
+            @for (sheet of operationSheetInfos; track sheet.sheetName) {
+              <span class="badge subtle">{{ sheet.sheetName }} - {{ sheetRoleLabel(sheet.role) }}</span>
+            }
+          </div>
+        }
+
+        @if (operationParseError) {
+          <p class="inline-error">{{ operationParseError }}</p>
+        }
+      </article>
+
+      <article class="card config-card">
+        <div class="card-head">
+          <div>
+            <p class="card-kicker">CAPACIDAD</p>
+            <h2>Inputs manuales de operacion</h2>
+          </div>
+        </div>
+
+        <div class="form-grid">
+          <label class="field"><span>Operadores</span><input type="number" min="1" [(ngModel)]="operatorsAvailable" /></label>
+          <label class="field"><span>Horas por turno</span><input type="number" min="1" max="24" [(ngModel)]="hoursPerShift" /></label>
+          <label class="field"><span>Turnos por dia</span><input type="number" min="1" max="4" [(ngModel)]="shiftsPerDay" /></label>
+          <label class="field"><span>Eficiencia %</span><input type="number" min="1" max="100" [(ngModel)]="efficiencyPercent" /></label>
+        </div>
+
+        <div class="action-row">
+          <button type="button" class="primary-btn" (click)="runOperationalPlanning(true)">Recalcular operacion</button>
+        </div>
+
+        @if (operationState.warnings.length) {
+          <div class="warning-list">
+            @for (warning of operationState.warnings; track warning) {
+              <div class="warning-item">{{ warning }}</div>
+            }
+          </div>
+        }
+      </article>
+    </section>
+
+    <section class="metric-strip">
+      <article class="metric-card"><strong>{{ operationRows.length }}</strong><span>Modelos evaluados</span></article>
+      <article class="metric-card"><strong>{{ operatorsAvailable }}</strong><span>Operadores</span></article>
+      <article class="metric-card"><strong>{{ hoursPerShift * shiftsPerDay }}</strong><span>Horas nominales/dia</span></article>
+      <article class="metric-card"><strong>{{ selectedOperationDecision?.label || '-' }}</strong><span>Primera prioridad</span></article>
+    </section>
+
+    <section class="view-grid">
+      <article class="card ranking-card">
+        <div class="card-head">
+          <div>
+            <p class="card-kicker">PRIORIDAD OPERATIVA</p>
+            <h2>Ranking por modelo</h2>
+          </div>
+        </div>
+
+        @if (operationDecisions.length) {
+          <div class="ranking-list">
+            @for (decision of operationDecisions; track decision.key) {
+              <button type="button" class="ranking-item" [class.selected]="decision.key === selectedOperationKey" (click)="selectOperational(decision.key)">
+                <div class="ranking-copy">
+                  <strong>{{ decision.label }}</strong>
+                  <span>{{ decision.matchingQuality }} - {{ decision.riskLevel }} riesgo</span>
+                </div>
+                <div class="ranking-bar">
+                  <span class="ranking-fill" [style.width.%]="decision.score"></span>
+                </div>
+                <span class="ranking-score">{{ decision.score | number:'1.0-0' }}</span>
+              </button>
+            }
+          </div>
+        } @else {
+          <div class="empty-state">
+            <strong>Sin prioridad calculada</strong>
+            <span>En cuanto cargues capacidad o WIP, el ranking aparecera aqui.</span>
+          </div>
+        }
+      </article>
+
+      <article class="card decision-card">
+        <div class="card-head">
+          <div>
+            <p class="card-kicker">DECISION ACTIVA</p>
+            <h2>{{ selectedOperationDecision?.label || 'Sin seleccion' }}</h2>
+          </div>
+        </div>
+
+        @if (selectedOperationDecision) {
+          <div class="decision-top">
+            <div class="risk-gauge" [style.background]="riskGaugeBackground(selectedOperationDecision)">
+              <div class="risk-gauge-inner">
+                <strong>{{ selectedOperationDecision.riskScore | number:'1.0-0' }}</strong>
+                <span>Riesgo</span>
+              </div>
+            </div>
+
+            <div class="insight-list">
+              <div><strong>Coverage</strong><span>{{ selectedOperationDecision.coverage ?? '-' }}</span></div>
+              <div><strong>Factibilidad</strong><span>{{ selectedOperationDecision.feasibility }}%</span></div>
+              <div><strong>Kits posibles</strong><span>{{ selectedOperationDecision.kitsPossible }}</span></div>
+              <div><strong>Matching</strong><span>{{ selectedOperationDecision.matchingQuality }}</span></div>
+              <div><strong>Forecast referencia</strong><span>{{ selectedOperationDecision.forecastReference || 'Sin match' }}</span></div>
+            </div>
+          </div>
+
+          <div class="warning-list">
+            @for (warning of selectedOperationDecision.warnings; track warning) {
+              <div class="warning-item">{{ warning }}</div>
+            }
+          </div>
+
+          <div class="table-wrap compact">
+            <table>
+              <thead>
+                <tr>
+                  <th>Material</th>
+                  <th>Loc.</th>
+                  <th>Score</th>
+                  <th>Forecast</th>
+                  <th>Prob. quiebre</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (link of selectedOperationDecision.matchedMaterials; track link.material + link.location) {
+                  <tr>
+                    <td class="emphasis">{{ link.material }}</td>
+                    <td>{{ link.location || '-' }}</td>
+                    <td class="num">{{ link.score }}</td>
+                    <td class="num">{{ link.forecastNext ?? '-' }}</td>
+                    <td class="num">{{ percentLabel(link.riskProbability) }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+
+          <p class="recommendation-text">{{ selectedOperationDecision.recommendedAction }}</p>
+        } @else {
+          <div class="empty-state">
+            <strong>Sin decision activa</strong>
+            <span>La tarjeta mostrara la justificacion y el matching material-modelo de la opcion seleccionada.</span>
+          </div>
+        }
+      </article>
+    </section>
+
+    <article class="card recommendation-card">
+      <div class="card-head">
+        <div>
+          <p class="card-kicker">RECOMENDACION OPERATIVA</p>
+          <h2>Salida final del motor</h2>
+        </div>
+      </div>
+
+      <p class="final-recommendation">{{ recommendationText }}</p>
+
+      <div class="top-three">
+        @for (decision of topOperationalDecisions; track decision.key) {
+          <div class="top-card" [class]="recommendationClass(decision)">
+            <strong>{{ decision.label }}</strong>
+            <span>Score {{ decision.score | number:'1.0-0' }}</span>
+            <small>{{ decision.riskLevel }} riesgo - {{ decision.matchingQuality }} matching</small>
+          </div>
+        }
+      </div>
+    </article>
+  }
+</section>

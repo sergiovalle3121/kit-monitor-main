@@ -1,6 +1,7 @@
 import { Component } from '@angular/core';
-import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
+import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { AuthService } from '../../core/auth.service';
+import { filter } from 'rxjs';
 
 @Component({
   selector: 'app-shell',
@@ -10,9 +11,47 @@ import { AuthService } from '../../core/auth.service';
   styleUrls: ['./shell.css'],
 })
 export class ShellComponent {
-  constructor(private auth: AuthService) {}
+  collapsed = false;
+  openSection: string | null = null;
+
+  constructor(
+    private auth: AuthService,
+    private router: Router,
+  ) {
+    this.syncSection(this.router.url);
+    this.router.events
+      .pipe(filter((event): event is NavigationEnd => event instanceof NavigationEnd))
+      .subscribe((event) => this.syncSection(event.urlAfterRedirects));
+  }
+
+  toggle(): void {
+    this.collapsed = !this.collapsed;
+  }
+
+  toggleSection(section: string): void {
+    this.openSection = this.openSection === section ? null : section;
+  }
 
   logout(): void {
     this.auth.logout();
+  }
+
+  private syncSection(url: string): void {
+    if (url.startsWith('/plan') || url.startsWith('/forecast')) {
+      this.openSection = 'plan';
+      return;
+    }
+
+    if (url.startsWith('/bom') || url.startsWith('/kits') || url.startsWith('/conteos')) {
+      this.openSection = 'ic';
+      return;
+    }
+
+    if (url.startsWith('/production')) {
+      this.openSection = 'prod';
+      return;
+    }
+
+    this.openSection = null;
   }
 }

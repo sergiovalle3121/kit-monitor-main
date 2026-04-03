@@ -1,0 +1,171 @@
+<div class="page-header">
+  <div>
+    <h2>BOM</h2>
+    <p class="page-subtitle">Modelos OP con despiece expandible por material.</p>
+  </div>
+
+  <div class="header-actions">
+    <label class="btn-import" [class.loading]="importing">
+      <input type="file" accept=".xlsx" (change)="onBomFileSelected($event)" [disabled]="importing" hidden />
+      {{ importing ? 'Importando...' : 'Importar BOM' }}
+    </label>
+
+    <label class="btn-import secondary" [class.loading]="catalogImporting">
+      <input
+        type="file"
+        accept=".xlsx"
+        (change)="onCatalogFileSelected($event)"
+        [disabled]="catalogImporting"
+        hidden
+      />
+      {{ catalogImporting ? 'Sincronizando...' : 'Importar Kan-Ban' }}
+    </label>
+
+    <button class="btn-primary" (click)="showForm = !showForm">
+      {{ showForm ? 'Cancelar' : '+ Nuevo item' }}
+    </button>
+  </div>
+</div>
+
+<div class="import-result success" *ngIf="importResult">
+  <strong>Importacion completa:</strong>
+  {{ importResult.imported }} items importados o actualizados.
+  <span *ngIf="importResult.errors.length"> - {{ importResult.errors.length }} errores.</span>
+  <button class="close-btn" (click)="importResult = null">x</button>
+
+  <div *ngIf="importResult.errors.length" class="error-list">
+    <div *ngFor="let e of importResult.errors" class="error-row">
+      Hoja <strong>{{ e.sheet }}</strong>, fila {{ e.row }}: {{ e.reason }}
+    </div>
+  </div>
+</div>
+
+<div class="import-result error-banner" *ngIf="importError">
+  <strong>Error al importar BOM:</strong> {{ importError }}
+  <button class="close-btn" (click)="importError = null">x</button>
+</div>
+
+<div class="import-result success" *ngIf="catalogResult">
+  <strong>Catalogo Kan-Ban actualizado:</strong>
+  {{ catalogResult.updated }} materiales enriquecidos.
+  <span> - {{ catalogResult.matchedPartNumbers }} NP encontrados en BOM.</span>
+  <span> - {{ catalogResult.catalogRows }} filas leidas.</span>
+  <button class="close-btn" (click)="catalogResult = null">x</button>
+</div>
+
+<div class="import-result error-banner" *ngIf="catalogError">
+  <strong>Error al importar Kan-Ban:</strong> {{ catalogError }}
+  <button class="close-btn" (click)="catalogError = null">x</button>
+</div>
+
+<div class="form-card" *ngIf="showForm">
+  <h3>Agregar item al BOM</h3>
+  <p *ngIf="formError" class="error">{{ formError }}</p>
+
+  <form (ngSubmit)="submit()" #f="ngForm">
+    <div class="form-row">
+      <div class="field">
+        <label>Modelo *</label>
+        <input [(ngModel)]="form.model" name="model" required placeholder="OP-320-1211A" />
+      </div>
+
+      <div class="field">
+        <label>Numero de parte *</label>
+        <input [(ngModel)]="form.partNumber" name="partNumber" required placeholder="OP-500-1234A" />
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="field flex-2">
+        <label>Descripcion</label>
+        <input [(ngModel)]="form.description" name="description" placeholder="Descripcion del material" />
+      </div>
+
+      <div class="field">
+        <label>Ubicacion</label>
+        <input [(ngModel)]="form.location" name="location" placeholder="R7 E6" />
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="field">
+        <label>Factor de uso *</label>
+        <input [(ngModel)]="form.usageFactor" name="usageFactor" type="number" min="0.001" step="0.001" required />
+      </div>
+
+      <div class="field">
+        <label>Unidad</label>
+        <select [(ngModel)]="form.unit" name="unit">
+          <option>EA</option>
+          <option>KG</option>
+          <option>M</option>
+          <option>L</option>
+        </select>
+      </div>
+    </div>
+
+    <button type="submit" class="btn-primary" [disabled]="submitting || f.invalid">
+      {{ submitting ? 'Guardando...' : 'Guardar item' }}
+    </button>
+  </form>
+</div>
+
+<div class="filter-row">
+  <input
+    [(ngModel)]="filterModel"
+    (ngModelChange)="onFilterChange()"
+    placeholder="Filtrar por modelo OP..."
+    class="filter-input"
+  />
+
+  <span class="count">
+    {{ filteredGroups.length }} modelos - {{ visibleMaterialCount }} materiales OP-
+  </span>
+</div>
+
+<p *ngIf="loading">Cargando...</p>
+<p *ngIf="error" class="error">{{ error }}</p>
+
+<div class="model-list" *ngIf="!loading && filteredGroups.length > 0">
+  <section class="model-card" *ngFor="let group of filteredGroups">
+    <button type="button" class="model-toggle" (click)="toggleModel(group.model)">
+      <div class="model-main">
+        <span class="model-code">{{ group.model }}</span>
+        <span class="model-meta">{{ group.materialCount }} materiales</span>
+      </div>
+
+      <div class="model-badges">
+        <span class="badge neutral">{{ group.locatedCount }} con ubicacion</span>
+        <span class="chevron" [class.open]="isExpanded(group.model)">v</span>
+      </div>
+    </button>
+
+    <div class="materials-panel" *ngIf="isExpanded(group.model)">
+      <div class="table-shell">
+        <table class="materials-table">
+          <thead>
+            <tr>
+              <th>NP</th>
+              <th>Descripcion</th>
+              <th>Ubicacion</th>
+              <th>Factor uso</th>
+              <th>Unidad</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            <tr *ngFor="let item of group.materials">
+              <td><code>{{ item.partNumber }}</code></td>
+              <td [class.muted]="!item.description">{{ descriptionLabel(item) }}</td>
+              <td [class.muted]="!item.location">{{ locationLabel(item) }}</td>
+              <td>{{ item.usageFactor }}</td>
+              <td>{{ item.unit || 'EA' }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+</div>
+
+<p *ngIf="!loading && filteredGroups.length === 0 && !error">Sin modelos OP en BOM.</p>

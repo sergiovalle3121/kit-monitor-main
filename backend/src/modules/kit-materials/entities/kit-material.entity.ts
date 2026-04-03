@@ -12,23 +12,26 @@ export class KitMaterial {
   @Column()
   partNumber: string;
 
-  @Column({ nullable: true })
-  description: string;
+  @Column({ type: 'varchar', nullable: true })
+  description?: string | null;
 
   @Column({ type: 'float' })
-  quantityRequired: number; // BomItem.usageFactor × Plan.quantity
+  quantityRequired: number;
 
   @Column({ type: 'float', nullable: true })
-  quantityActual: number; // physically included (manual override)
+  quantityActual?: number | null;
 
   @Column({ type: 'float', default: 0 })
-  quantityResupplied: number; // cumulative delivered resupplies
+  quantityResupplied: number;
 
   @Column({ type: 'float', nullable: true })
-  quantityConsumed: number; // updated after each advance: usageFactor × totalCompleted
+  quantityConsumed?: number | null;
 
   @Column({ type: 'float', nullable: true })
-  quantityRemaining: number; // (quantityRequired + quantityResupplied) − quantityConsumed
+  quantityRemaining?: number | null;
+
+  @Column({ default: false })
+  isBulkResupply: boolean;
 
   @Column({ default: 'EA' })
   unit: string;

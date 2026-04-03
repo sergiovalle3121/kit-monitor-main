@@ -1,0 +1,193 @@
+<section class="plan-shell">
+  <div class="page-header">
+    <div>
+      <p class="page-kicker">Planeacion</p>
+      <h2>Publicaciones de produccion</h2>
+      <p class="page-copy">
+        Publica el modelo que se va a correr y conserva un registro claro para kits, monitor y produccion.
+      </p>
+    </div>
+
+    <div class="page-actions">
+      <span class="summary-pill">{{ totalPlans }} registros</span>
+      <button class="btn-primary" type="button" (click)="toggleForm()">
+        {{ showForm ? 'Cerrar publicacion' : '+ Nueva publicacion' }}
+      </button>
+    </div>
+  </div>
+
+  <div class="metrics-row" *ngIf="!loading">
+    <article class="metric-card">
+      <span>Registros</span>
+      <strong>{{ totalPlans }}</strong>
+      <small>Publicaciones totales</small>
+    </article>
+
+    <article class="metric-card">
+      <span>Pendientes</span>
+      <strong>{{ pendingPlans }}</strong>
+      <small>Listas para preparacion</small>
+    </article>
+
+    <article class="metric-card">
+      <span>Activos</span>
+      <strong>{{ activePlans }}</strong>
+      <small>Ya ligados a kit</small>
+    </article>
+
+    <article class="metric-card">
+      <span>Programados</span>
+      <strong>{{ scheduledPlans }}</strong>
+      <small>Con fecha/hora definida</small>
+    </article>
+  </div>
+
+  <div class="composer-card" *ngIf="showForm">
+    <div class="composer-top">
+      <div>
+        <p class="composer-kicker">Nuevo registro</p>
+        <h3>Publicar plan de produccion</h3>
+        <p class="composer-copy">
+          El folio se genera automaticamente como consecutivo para que Planeacion publique solo por backen.
+        </p>
+      </div>
+
+      <div class="folio-chip">
+        <span>Folio automatico</span>
+        <strong>{{ generatedFolioPreview }}</strong>
+        <small>Se confirma al guardar.</small>
+      </div>
+    </div>
+
+    <p *ngIf="formError" class="error-banner">{{ formError }}</p>
+
+    <form (ngSubmit)="submit()" #f="ngForm" novalidate>
+      <datalist id="plan-models">
+        <option *ngFor="let model of availableModels" [value]="model"></option>
+      </datalist>
+
+      <div class="form-grid">
+        <label class="field field-wide">
+          <span>Modelo *</span>
+          <input
+            [(ngModel)]="form.model"
+            (ngModelChange)="onModelInput($event)"
+            name="model"
+            required
+            pattern="OP-.*"
+            placeholder="OP-320-1049A"
+            list="plan-models"
+          />
+          <small>Usa el codigo OP del modelo que se va a correr.</small>
+        </label>
+
+        <label class="field">
+          <span>Backen *</span>
+          <select [(ngModel)]="form.backen" name="backen">
+            <option *ngFor="let backen of backens" [ngValue]="backen">BK{{ backen }}</option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span>Cantidad *</span>
+          <input [(ngModel)]="form.quantity" name="quantity" type="number" min="1" required />
+        </label>
+
+        <label class="field">
+          <span>Turno *</span>
+          <select [(ngModel)]="form.shift" name="shift">
+            <option *ngFor="let shift of shifts" [ngValue]="shift">{{ shift }}</option>
+          </select>
+        </label>
+
+        <label class="field field-wide">
+          <span>Fecha/hora programada</span>
+          <input [(ngModel)]="form.scheduledAt" name="scheduledAt" type="datetime-local" />
+          <small>Si queda vacia, la publicacion se registra sin hora fija.</small>
+        </label>
+      </div>
+
+      <div class="form-footer">
+        <p class="form-note">
+          La secuencia deja de estorbar en el flujo principal. El sistema la conserva en 0 por compatibilidad.
+        </p>
+
+        <button type="submit" class="btn-primary" [disabled]="submitting || f.invalid">
+          {{ submitting ? 'Publicando...' : 'Publicar plan' }}
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <p *ngIf="loading" class="loading-text">Cargando publicaciones...</p>
+  <p *ngIf="error" class="error-banner page-error">{{ error }}</p>
+
+  <div class="feed" *ngIf="!loading && plans.length > 0">
+    <article class="plan-post" *ngFor="let plan of plans; trackBy: trackByPlanId">
+      <header class="post-header">
+        <div class="post-avatar">PL</div>
+
+        <div class="post-meta">
+          <p class="post-author">Planeacion publico un plan</p>
+          <p class="post-time">{{ createdLabel(plan) }} - Folio {{ plan.workOrder }}</p>
+        </div>
+
+        <div class="post-actions">
+          <span [class]="'status-badge badge-plan-' + plan.status">{{ planStatusLabel(plan.status) }}</span>
+
+          <button
+            *ngIf="canDelete(plan)"
+            class="icon-btn danger"
+            type="button"
+            (click)="deletePlan(plan)"
+            [disabled]="deletingPlanId === plan.id"
+            [attr.aria-label]="'Borrar ' + plan.workOrder"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                d="M9 3h6l1 2h4v2H4V5h4l1-2zm1 6h2v8h-2V9zm4 0h2v8h-2V9zM7 9h2v8H7V9zm-1 12h12l1-13H5l1 13z"
+              />
+            </svg>
+            <span>{{ deletingPlanId === plan.id ? 'Borrando...' : 'Borrar' }}</span>
+          </button>
+        </div>
+      </header>
+
+      <div class="post-body">
+        <div class="model-panel">
+          <p class="model-kicker">Modelo a correr</p>
+          <h3>{{ plan.model }}</h3>
+          <p class="model-caption">{{ publicationSummary(plan) }}</p>
+        </div>
+
+        <div class="post-grid">
+          <div class="info-pill">
+            <span>Backen</span>
+            <strong>BK{{ plan.backen }}</strong>
+          </div>
+
+          <div class="info-pill">
+            <span>Cantidad</span>
+            <strong>{{ plan.quantity }} uds</strong>
+          </div>
+
+          <div class="info-pill">
+            <span>Turno</span>
+            <strong>{{ plan.shift }}</strong>
+          </div>
+        </div>
+      </div>
+
+      <footer class="post-footer">
+        <span class="footer-chip">{{ scheduleLabel(plan) }}</span>
+        <span class="footer-chip" *ngIf="plan.sequence > 0">Orden interno {{ plan.sequence }}</span>
+        <span class="footer-note" *ngIf="!canDelete(plan)">Registro conservado como historial operativo.</span>
+      </footer>
+    </article>
+  </div>
+
+  <div class="empty-state" *ngIf="!loading && plans.length === 0 && !error">
+    <h3>No hay publicaciones todavia</h3>
+    <p>Publica el siguiente modelo a correr para dejar visible el registro de Planeacion.</p>
+  </div>
+</section>

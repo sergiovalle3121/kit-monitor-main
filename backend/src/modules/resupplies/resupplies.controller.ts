@@ -1,8 +1,10 @@
-import { Controller, Get, Post, Patch, Param, Body, Query, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Param, Body, Query, ParseIntPipe, UseGuards } from '@nestjs/common';
 import { ResuppliesService } from './resupplies.service';
 import { CreateResupplyDto } from './dto/create-resupply.dto';
 import { DeliverResupplyDto } from './dto/deliver-resupply.dto';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
+@UseGuards(JwtAuthGuard)
 @Controller('resupplies')
 export class ResuppliesController {
   constructor(private readonly service: ResuppliesService) {}

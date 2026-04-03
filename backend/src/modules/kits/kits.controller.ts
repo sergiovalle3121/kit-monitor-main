@@ -1,8 +1,10 @@
-import { Controller, Get, Post, Patch, Delete, Param, Body, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Param, Body, ParseIntPipe, UseGuards } from '@nestjs/common';
 import { KitsService } from './kits.service';
 import { CreateKitDto } from './dto/create-kit.dto';
 import { UpdateKitStatusDto } from './dto/update-kit-status.dto';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
+@UseGuards(JwtAuthGuard)
 @Controller('kits')
 export class KitsController {
   constructor(private readonly kitsService: KitsService) {}
@@ -20,6 +22,11 @@ export class KitsController {
   @Post()
   create(@Body() dto: CreateKitDto) {
     return this.kitsService.create(dto);
+  }
+
+  @Patch(':id/start')
+  startPreparation(@Param('id', ParseIntPipe) id: number) {
+    return this.kitsService.startPreparation(id);
   }
 
   @Patch(':id/status')

@@ -2,15 +2,14 @@
     "name": "kit-monitor-frontend",
     "version": "1.0.0",
     "private": true,
-"scripts": {
-  "ng": "ng",
-  "start": "ng serve --host 0.0.0.0 --port 4200",
-  "build": "ng build --configuration production",
-  "test": "ng test",
-  "lint": "ng lint",
-  "e2e": "ng e2e"
-},
-
+    "scripts": {
+        "ng": "ng",
+        "start": "ng serve --host 0.0.0.0 --port 4200",
+        "build": "ng build --configuration production",
+        "test": "ng test",
+        "lint": "ng lint",
+        "e2e": "ng e2e"
+    },
     "engines": {
         "node": ">=18"
     },
@@ -28,6 +27,7 @@
         "http-proxy-middleware": "^3.0.0",
         "rxjs": "~7.8.0",
         "tslib": "^2.3.0",
+        "xlsx": "^0.18.5",
         "zone.js": "^0.15.1"
     },
     "devDependencies": {

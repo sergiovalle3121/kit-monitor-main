@@ -1,7 +1,9 @@
-import { Controller, Get, Post, Patch, Param, Body, Query, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Param, Body, Query, ParseIntPipe, UseGuards } from '@nestjs/common';
 import { ExceptionsService } from './exceptions.service';
 import { CreateExceptionDto } from './dto/create-exception.dto';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
+@UseGuards(JwtAuthGuard)
 @Controller('exceptions')
 export class ExceptionsController {
   constructor(private readonly service: ExceptionsService) {}

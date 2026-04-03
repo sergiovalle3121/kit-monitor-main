@@ -1,13 +1,15 @@
 import {
   Controller, Get, Post, Patch, Delete,
   Param, Body, Query, ParseIntPipe,
-  UseInterceptors, UploadedFile, BadRequestException,
+  UseInterceptors, UploadedFile, BadRequestException, UseGuards,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { BomService } from './bom.service';
 import { CreateBomItemDto } from './dto/create-bom-item.dto';
 import { UpdateBomItemDto } from './dto/update-bom-item.dto';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
+@UseGuards(JwtAuthGuard)
 @Controller('bom')
 export class BomController {
   constructor(private readonly bomService: BomService) {}
@@ -34,6 +36,15 @@ export class BomController {
     const ext = file.originalname.split('.').pop()?.toLowerCase();
     if (ext !== 'xlsx') throw new BadRequestException('Only .xlsx files are accepted');
     return this.bomService.importFromBuffer(file.buffer);
+  }
+
+  @Post('catalog/import')
+  @UseInterceptors(FileInterceptor('file'))
+  async importKanbanCatalog(@UploadedFile() file: any) {
+    if (!file) throw new BadRequestException('No file uploaded');
+    const ext = file.originalname.split('.').pop()?.toLowerCase();
+    if (ext !== 'xlsx') throw new BadRequestException('Only .xlsx files are accepted');
+    return this.bomService.syncCatalogFromKanban(file.buffer);
   }
 
   @Patch(':id')

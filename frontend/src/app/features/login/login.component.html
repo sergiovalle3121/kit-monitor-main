@@ -1,0 +1,90 @@
+<div class="login-shell">
+  <div class="login-background" [class.video-active]="videoReady" aria-hidden="true">
+    <div class="login-background__poster"></div>
+    <video
+      #backgroundVideo
+      class="login-background__video"
+      [class.is-ready]="videoReady"
+      autoplay
+      muted
+      loop
+      playsinline
+      preload="metadata"
+      disablePictureInPicture
+      disableremoteplayback
+      (loadedmetadata)="onVideoReady()"
+      (loadeddata)="onVideoReady()"
+      (canplay)="onVideoReady()">
+    </video>
+    <div class="login-background__overlay"></div>
+    <div class="login-background__mesh"></div>
+  </div>
+
+  <div class="login-card">
+    <section class="login-hero">
+      <span class="hero-kicker">Industrial Flow Control</span>
+
+      <div class="hero-content">
+        <h1>Kit Monitor</h1>
+        <p class="hero-copy">
+          Supervisa kits, distribucion por linea y avance operativo con una experiencia clara,
+          moderna y lista para piso de produccion.
+        </p>
+      </div>
+
+      <div class="hero-pills">
+        <span>Backen-first</span>
+        <span>Pull flow</span>
+        <span>Operator friendly</span>
+      </div>
+
+      <div class="hero-panel">
+        <span class="panel-label">Operacion conectada</span>
+        <strong>Planeacion, kits y monitor en una sola vista de trabajo.</strong>
+        <small>Control operativo continuo para decisiones mas rapidas y mas claras.</small>
+      </div>
+    </section>
+
+    <section class="login-panel">
+      <div class="panel-head">
+        <span class="panel-kicker">Acceso seguro</span>
+        <h2>Iniciar sesion</h2>
+        <p>Entra con tu cuenta para continuar con la operacion.</p>
+      </div>
+
+      <form (ngSubmit)="submit()" class="login-form" [attr.aria-busy]="loading">
+        <label class="field">
+          <span>Email</span>
+          <div class="field-shell">
+            <input
+              type="email"
+              [(ngModel)]="email"
+              name="email"
+              required
+              autocomplete="username"
+              placeholder="operador@planta.com">
+          </div>
+        </label>
+
+        <label class="field">
+          <span>Contrasena</span>
+          <div class="field-shell">
+            <input
+              type="password"
+              [(ngModel)]="password"
+              name="password"
+              required
+              autocomplete="current-password"
+              placeholder="Ingresa tu contrasena">
+          </div>
+        </label>
+
+        <p class="error" *ngIf="error">{{ error }}</p>
+
+        <button type="submit" [disabled]="loading">
+          {{ loading ? 'Entrando...' : 'Entrar a Kit Monitor' }}
+        </button>
+      </form>
+    </section>
+  </div>
+</div>

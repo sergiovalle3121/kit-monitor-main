@@ -1,0 +1,250 @@
+<div class="page-header">
+  <div>
+    <h2>Produccion</h2>
+    <p class="page-subtitle">
+      Operacion por backen con captura rapida por Enter, consumo en vivo y pedido de material desde linea.
+    </p>
+  </div>
+
+  <button class="btn-refresh" (click)="load()" [disabled]="loading">Actualizar</button>
+</div>
+
+<p *ngIf="loading" class="loading-text">Cargando estaciones...</p>
+<p *ngIf="error" class="error">{{ error }}</p>
+
+<div class="station-grid" *ngIf="!loading && !error">
+  <section class="station-card" *ngFor="let station of stations" [class.empty]="!station.kit">
+    <div class="station-header">
+      <div>
+        <div class="station-label">BK{{ station.backen }}</div>
+        <div class="station-model">{{ station.model || 'Sin kit activo' }}</div>
+        <div class="station-meta" *ngIf="station.kit">
+          <span>{{ station.workOrder }}</span>
+          <span class="meta-sep">|</span>
+          <span>{{ station.shift }}</span>
+          <span class="meta-sep">|</span>
+          <span>x{{ station.quantity }}</span>
+        </div>
+      </div>
+
+      <div class="station-side">
+        <span [class]="'status-badge badge-' + station.status">
+          {{ statusLabel(station.status) }}
+        </span>
+        <span class="progress-pill" *ngIf="station.kit">
+          {{ station.completed }} / {{ station.quantity }}
+        </span>
+      </div>
+    </div>
+
+    <ng-container *ngIf="station.kit; else emptyStation">
+      <div class="progress-block">
+        <div class="progress-track">
+          <div class="progress-fill" [style.width.%]="station.progressPct"></div>
+        </div>
+        <span class="progress-text">{{ station.progressPct }}%</span>
+      </div>
+
+      <div class="alert-strip" *ngIf="station.hasOpenException">
+        Hay una incidencia abierta en este kit.
+      </div>
+
+      <div class="action-strip" *ngIf="canRequestKit(station)">
+        <div>
+          <div class="action-title">Listo para linea</div>
+          <div class="action-caption">Produccion solicita el kit cuando la estacion lo necesita.</div>
+        </div>
+        <button
+          class="btn-request"
+          (click)="requestKit(station)"
+          [disabled]="updatingStatusKitId === station.kit.id"
+        >
+          {{ updatingStatusKitId === station.kit.id ? 'Solicitando...' : 'Solicitar kit' }}
+        </button>
+      </div>
+
+      <p class="error" *ngIf="requestError[station.kit.id]">{{ requestError[station.kit.id] }}</p>
+
+      <div class="action-strip info" *ngIf="station.status === 'requested'">
+        <div>
+          <div class="action-title">Kit solicitado</div>
+          <div class="action-caption">Linea ya pidio el material. Esperando entrega para iniciar captura.</div>
+        </div>
+      </div>
+
+      <div class="capture-card" *ngIf="canCapture(station)">
+        <div class="capture-header">
+          <div>
+            <h3>Captura de ensamble</h3>
+            <p>Deja la cantidad en 1 y solo presiona Enter por cada unidad terminada.</p>
+          </div>
+          <span class="capture-tag">Consumo en vivo</span>
+        </div>
+
+        <p class="error" *ngIf="advanceError[station.kit.id]">{{ advanceError[station.kit.id] }}</p>
+
+        <div class="capture-form">
+          <div class="field compact">
+            <label>Unidades</label>
+            <input
+              type="number"
+              min="1"
+              [ngModel]="quickQtyFor(station)"
+              (ngModelChange)="updateQuickQty(station, $event)"
+              (keydown.enter)="onAdvanceEnter(station, $event)"
+            />
+          </div>
+
+          <div class="field flex-2">
+            <label>Notas</label>
+            <input
+              [ngModel]="advanceNotes[station.kit.id] || ''"
+              (ngModelChange)="advanceNotes[station.kit.id] = $event"
+              (keydown.enter)="onAdvanceEnter(station, $event)"
+              placeholder="Opcional"
+            />
+          </div>
+
+          <button
+            class="btn-capture"
+            (click)="registerAdvance(station)"
+            [disabled]="advancingKitId === station.kit.id"
+          >
+            {{ advancingKitId === station.kit.id ? 'Guardando...' : 'Registrar' }}
+          </button>
+        </div>
+      </div>
+
+      <div class="station-body">
+        <div class="layout-area">
+          <div class="section-header">
+            <h3>Bahias del backen</h3>
+            <span class="section-meta" *ngIf="station.layoutBays.length">{{ station.layoutBays.length }} bahias con layout</span>
+          </div>
+
+          <div class="bay-grid" *ngIf="station.layoutBays.length; else noLayout">
+            <article class="bay-card" *ngFor="let bay of station.layoutBays">
+              <div class="bay-header">
+                <span>B{{ bay.bahia }}</span>
+                <span>{{ bay.materials.length }} NP</span>
+              </div>
+
+              <div class="material-stack">
+                <div
+                  class="material-card"
+                  *ngFor="let material of bay.materials"
+                  [class.low]="material.isLowCoverage"
+                  [class.critical]="material.isCriticalCoverage"
+                >
+                  <div class="material-top">
+                    <code>{{ material.partNumber }}</code>
+                    <span class="stock-pill">{{ material.quantityRemaining | number:'1.0-2' }} {{ material.unit }}</span>
+                  </div>
+                  <div class="material-desc">{{ material.description }}</div>
+                  <div class="material-meta">
+                    <span>{{ material.location }}</span>
+                    <span>Cons: {{ material.quantityConsumed | number:'1.0-2' }}</span>
+                    <span>Alcance: {{ coverageLabel(material) }}</span>
+                  </div>
+                  <div class="resupply-row">
+                    <input
+                      type="number"
+                      min="0.01"
+                      step="0.01"
+                      [ngModel]="resupplyQty[resupplyKey(station, material)]"
+                      (ngModelChange)="resupplyQty[resupplyKey(station, material)] = $event"
+                      (keydown.enter)="onResupplyEnter(station, material, $event)"
+                      placeholder="Qty"
+                    />
+                    <button
+                      class="btn-resupply"
+                      (click)="requestResupply(station, material)"
+                      [disabled]="requestingResupplyKey === resupplyKey(station, material)"
+                    >
+                      {{ requestingResupplyKey === resupplyKey(station, material) ? '...' : 'Pedir' }}
+                    </button>
+                  </div>
+                  <p class="error-inline" *ngIf="resupplyError[resupplyKey(station, material)]">
+                    {{ resupplyError[resupplyKey(station, material)] }}
+                  </p>
+                </div>
+              </div>
+            </article>
+          </div>
+
+          <ng-template #noLayout>
+            <div class="empty-box">
+              No hay layout de bahias cargado para este modelo. Se muestran abajo los materiales sin asignacion.
+            </div>
+          </ng-template>
+
+          <div class="section-header" *ngIf="station.unassignedMaterials.length">
+            <h3>Material sin bahia asignada</h3>
+            <span class="section-meta">{{ station.unassignedMaterials.length }} NP</span>
+          </div>
+
+          <div class="unassigned-list" *ngIf="station.unassignedMaterials.length">
+            <div class="unassigned-row" *ngFor="let material of station.unassignedMaterials">
+              <div>
+                <code>{{ material.partNumber }}</code>
+                <span class="unassigned-desc">{{ material.description }}</span>
+              </div>
+              <div class="unassigned-meta">
+                <span>{{ material.location }}</span>
+                <span>Alcance: {{ coverageLabel(material) }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="side-area">
+          <div class="info-card">
+            <div class="section-header">
+              <h3>Ultimos avances</h3>
+              <span class="section-meta">{{ station.recentAdvances.length }}</span>
+            </div>
+
+            <div class="timeline" *ngIf="station.recentAdvances.length; else noAdvances">
+              <div class="timeline-row" *ngFor="let advance of station.recentAdvances">
+                <div class="timeline-main">
+                  <strong>+{{ advance.unitsAssembled }}</strong>
+                  <span>{{ advance.registeredAt | date:'shortTime' }}</span>
+                </div>
+                <div class="timeline-note">{{ advance.notes || 'Sin notas' }}</div>
+              </div>
+            </div>
+
+            <ng-template #noAdvances>
+              <div class="empty-box compact">Sin avances registrados.</div>
+            </ng-template>
+          </div>
+
+          <div class="info-card">
+            <div class="section-header">
+              <h3>Pedidos de material</h3>
+              <span class="section-meta">{{ station.openResupplies.length }}</span>
+            </div>
+
+            <div class="request-list" *ngIf="station.openResupplies.length; else noRequests">
+              <div class="request-row" *ngFor="let item of station.openResupplies">
+                <div>
+                  <code>{{ item.partNumber }}</code>
+                  <span class="request-qty">x{{ item.quantityRequested }}</span>
+                </div>
+                <span [class]="'request-status status-' + item.status">{{ item.status }}</span>
+              </div>
+            </div>
+
+            <ng-template #noRequests>
+              <div class="empty-box compact">Sin pedidos pendientes.</div>
+            </ng-template>
+          </div>
+        </div>
+      </div>
+    </ng-container>
+
+    <ng-template #emptyStation>
+      <div class="empty-box">Sin kit activo para esta estacion.</div>
+    </ng-template>
+  </section>
+</div>

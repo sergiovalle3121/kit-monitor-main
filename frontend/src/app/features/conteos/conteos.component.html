@@ -1,0 +1,409 @@
+﻿<section class="conteos-page">
+  <header class="hero">
+    <div class="hero-copy">
+      <p class="eyebrow">IC / CONTEOS</p>
+      <h1>Bitacora de conteos para supermercado y racks</h1>
+      <p class="lede">
+        Compara SAP vs fisico, prioriza materiales por dificultad y reparte la carga semanal por dias y turnos
+        sin perder trazabilidad de las desviaciones.
+      </p>
+      <div class="hero-pills">
+        <span>Excel SAP</span>
+        <span>Dificultad heuristica</span>
+        <span>Carga balanceada</span>
+        <span>Delta SAP vs fisico</span>
+      </div>
+    </div>
+
+    <aside class="hero-side">
+      <span class="side-label">LOGICA DE CONTEO</span>
+      <p>
+        El modulo usa el stock del workbook como referencia SAP, estima dificultad por descripcion y prioriza
+        el plan para que las discrepancias salten a la vista primero.
+      </p>
+      <ul>
+        <li>Parser tolerante a hojas multiples y filas basura</li>
+        <li>Bitacora por semana, dia y turno</li>
+        <li>Visual enfocado en pendientes, desviacion y criticos</li>
+      </ul>
+    </aside>
+  </header>
+
+  <section class="top-grid">
+    <article class="card upload-card" (dragover)="onFileDrag($event)" (drop)="onFileDrop($event)">
+      <div class="card-head">
+        <div>
+          <p class="card-kicker">INPUT SAP</p>
+          <h2>Sube el stock actual del supermercado</h2>
+        </div>
+        @if (materials.length || logs.length) {
+          <button type="button" class="ghost-btn" (click)="clearAll()">Limpiar</button>
+        }
+      </div>
+
+      <div class="upload-zone" [class.loading]="loading">
+        <div class="upload-icon">SAP</div>
+        <p class="upload-title">{{ parseMeta?.fileName || 'Arrastra el Excel o selecciona el archivo' }}</p>
+        <p class="upload-hint">
+          Detecta Material/NP, descripcion, localidad y cantidad SAP aunque los encabezados no vengan iguales.
+        </p>
+        <label class="primary-btn upload-btn">
+          Seleccionar archivo
+          <input type="file" accept=".xlsx,.xls,.csv" hidden (change)="onFileSelected($event)" />
+        </label>
+      </div>
+
+      <div class="meta-grid">
+        <div><span>Registros</span><strong>{{ parseMeta?.recordCount || 0 }}</strong></div>
+        <div><span>Hoja base</span><strong>{{ parseMeta?.primarySheet || 'Pendiente' }}</strong></div>
+        <div><span>Header</span><strong>{{ parseMeta?.headerRow || '-' }}</strong></div>
+      </div>
+
+      @if (parseMeta?.detectedColumns?.length) {
+        <div class="pill-grid">
+          @for (column of parseMeta!.detectedColumns; track column) {
+            <span class="badge subtle">{{ column }}</span>
+          }
+        </div>
+      }
+
+      @if (parseMeta?.warnings?.length) {
+        <div class="warning-list compact">
+          @for (warning of parseMeta!.warnings; track warning) {
+            <div class="warning-item">{{ warning }}</div>
+          }
+        </div>
+      }
+
+      @if (parseError) {
+        <p class="inline-error">{{ parseError }}</p>
+      }
+    </article>
+
+    <article class="card config-card">
+      <div class="card-head">
+        <div>
+          <p class="card-kicker">PLAN SEMANAL</p>
+          <h2>Configura la bitacora de conteos</h2>
+        </div>
+      </div>
+
+      <div class="form-grid">
+        <label class="field">
+          <span>Dias a repartir</span>
+          <input type="number" min="1" max="7" [(ngModel)]="configDays" />
+        </label>
+      </div>
+
+      <div class="turno-grid">
+        @for (option of turnOptions; track option.label) {
+          <label class="turno-pill" [class.active]="option.enabled">
+            <input type="checkbox" [(ngModel)]="option.enabled" />
+            <span>{{ option.label }}</span>
+          </label>
+        }
+      </div>
+
+      <div class="action-row">
+        <button type="button" class="primary-btn" (click)="generatePlan()" [disabled]="!materials.length">
+          Generar bitacora
+        </button>
+      </div>
+
+      <div class="summary-slab">
+        <div>
+          <span>Prioridad alta</span>
+          <strong>{{ materials.length ? materials[0].material : 'Sin datos' }}</strong>
+        </div>
+        <div>
+          <span>Progreso</span>
+          <strong>{{ completionPct }}%</strong>
+        </div>
+      </div>
+    </article>
+  </section>
+
+  <section class="metric-strip">
+    <article class="metric-card"><strong>{{ summary.total }}</strong><span>Conteos programados</span></article>
+    <article class="metric-card"><strong>{{ summary.pending }}</strong><span>Pendientes</span></article>
+    <article class="metric-card"><strong>{{ summary.desviacion + summary.critico }}</strong><span>Con delta</span></article>
+    <article class="metric-card"><strong>{{ summary.accuracyPct }}%</strong><span>Exactitud</span></article>
+  </section>
+
+  <section class="analytics-grid">
+    <article class="card preview-card">
+      <div class="card-head">
+        <div>
+          <p class="card-kicker">PREVIEW NORMALIZADO</p>
+          <h2>Materiales detectados</h2>
+        </div>
+      </div>
+
+      @if (previewMaterials.length) {
+        <div class="table-wrap compact">
+          <table>
+            <thead>
+              <tr>
+                <th>Material</th>
+                <th>Descripcion</th>
+                <th>Localidad</th>
+                <th>SAP</th>
+                <th>Dificultad</th>
+                <th>Prioridad</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (material of previewMaterials; track material.id) {
+                <tr>
+                  <td class="mono emphasis">{{ material.material }}</td>
+                  <td>{{ material.descripcion || 'Sin descripcion' }}</td>
+                  <td>{{ material.location || 'Sin localidad' }}</td>
+                  <td class="num">{{ material.sapQuantity }}</td>
+                  <td><span class="difficulty-pill" [class]="difficultyClass(material.difficulty)">{{ material.difficulty }}</span></td>
+                  <td class="num">{{ material.priorityScore }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      } @else {
+        <div class="empty-state">
+          <strong>Sin materiales cargados</strong>
+          <span>Al subir el Excel, aqui veras la normalizacion y la heuristica inicial.</span>
+        </div>
+      }
+    </article>
+
+    <article class="card plan-card">
+      <div class="card-head">
+        <div>
+          <p class="card-kicker">REPARTO SEMANAL</p>
+          <h2>Balance por dia y turno</h2>
+        </div>
+      </div>
+
+      @if (dayLoads.length) {
+        <div class="day-list">
+          @for (day of dayLoads; track day.dia) {
+            <article class="day-card">
+              <div class="day-top">
+                <strong>Dia {{ day.dia }}</strong>
+                <span>{{ day.completed }}/{{ day.total }} completados</span>
+              </div>
+              <div class="progress-track">
+                <span class="progress-fill" [style.width.%]="(day.totalWeight / strongestDayLoad) * 100"></span>
+              </div>
+              <div class="turno-mini-grid">
+                @for (turno of day.turnos; track turno.turno) {
+                  <div class="turno-mini">
+                    <span>{{ turno.turno }}</span>
+                    <strong>{{ turno.completed }}/{{ turno.total }}</strong>
+                  </div>
+                }
+              </div>
+            </article>
+          }
+        </div>
+      } @else {
+        <div class="empty-state">
+          <strong>Bitacora sin generar</strong>
+          <span>Despues de cargar SAP, reparte la carga para armar tu semana de conteos.</span>
+        </div>
+      }
+    </article>
+  </section>
+
+  <section class="analytics-grid">
+    <article class="card histogram-card">
+      <div class="card-head">
+        <div>
+          <p class="card-kicker">DELTA HISTOGRAM</p>
+          <h2>Distribucion de diferencias</h2>
+        </div>
+      </div>
+
+      @if (summary.completed) {
+        <div class="histogram">
+          @for (bucket of deltaBuckets; track bucket.label) {
+            <div class="histogram-bar">
+              <div class="histogram-fill" [style.height.%]="bucket.ratio * 100"></div>
+              <strong>{{ bucket.count }}</strong>
+              <span>{{ bucket.label }}</span>
+            </div>
+          }
+        </div>
+      } @else {
+        <div class="empty-state">
+          <strong>Sin conteos cerrados</strong>
+          <span>En cuanto captures fisico, aqui veras la dispersion de los deltas.</span>
+        </div>
+      }
+    </article>
+
+    <article class="card heat-card">
+      <div class="card-head">
+        <div>
+          <p class="card-kicker">LOCALIDADES CALIENTES</p>
+          <h2>Donde se concentra el riesgo</h2>
+        </div>
+      </div>
+
+      @if (locationSummary.length) {
+        <div class="heat-list">
+          @for (location of locationSummary; track location.location) {
+            <div class="heat-row">
+              <div class="heat-copy">
+                <strong>{{ location.location }}</strong>
+                <span>{{ location.total }} materiales</span>
+              </div>
+              <div class="heat-bar">
+                <span class="heat-fill" [style.width.%]="((location.pending + location.desviacion + location.critico) / strongestLocationIssues) * 100"></span>
+              </div>
+              <small>{{ location.pending }} pend / {{ location.desviacion + location.critico }} issues</small>
+            </div>
+          }
+        </div>
+      } @else {
+        <div class="empty-state">
+          <strong>Sin localidades</strong>
+          <span>La prioridad por rack aparecera aqui una vez cargado el stock.</span>
+        </div>
+      }
+    </article>
+  </section>
+
+  <section class="execution-grid">
+    <article class="card capture-card">
+      <div class="card-head">
+        <div>
+          <p class="card-kicker">CAPTURA FISICA</p>
+          <h2>{{ selectedLog?.material || 'Selecciona un conteo' }}</h2>
+        </div>
+        @if (selectedLog) {
+          <span class="status-pill" [class]="statusClass(selectedLog.status)">{{ selectedLog.status }}</span>
+        }
+      </div>
+
+      @if (selectedLog) {
+        <div class="capture-meta">
+          <div><span>Descripcion</span><strong>{{ selectedLog.descripcion }}</strong></div>
+          <div><span>Localidad</span><strong>{{ selectedLog.location || 'Sin localidad' }}</strong></div>
+          <div><span>SAP</span><strong>{{ selectedLog.sapQuantity }}</strong></div>
+          <div><span>Dia / Turno</span><strong>Dia {{ selectedLog.dia }} - {{ selectedLog.turno }}</strong></div>
+          <div><span>Dificultad</span><strong>{{ selectedLog.difficulty }}</strong></div>
+          <div><span>Prioridad</span><strong>{{ selectedLog.priorityScore }}</strong></div>
+        </div>
+
+        <div class="form-grid two">
+          <label class="field">
+            <span>Conteo fisico</span>
+            <input type="number" min="0" [(ngModel)]="physicalQuantity" />
+          </label>
+
+          <label class="field full">
+            <span>Observaciones</span>
+            <textarea rows="4" [(ngModel)]="observations" placeholder="Dano, faltante, exceso, material mezclado..."></textarea>
+          </label>
+        </div>
+
+        <div class="action-row">
+          <button type="button" class="primary-btn" (click)="saveCount()" [disabled]="physicalQuantity == null">
+            Guardar conteo
+          </button>
+        </div>
+      } @else {
+        <div class="empty-state tall">
+          <strong>Selecciona un material pendiente</strong>
+          <span>La captura fisica se centraliza aqui para dejar una bitacora limpia por dia y turno.</span>
+        </div>
+      }
+    </article>
+
+    <article class="card ledger-card">
+      <div class="card-head">
+        <div>
+          <p class="card-kicker">BITACORA</p>
+          <h2>Conteos registrados</h2>
+        </div>
+      </div>
+
+      <div class="filter-row">
+        <label class="field search-field">
+          <span>Buscar</span>
+          <input type="search" placeholder="Material, descripcion o localidad" [(ngModel)]="searchTerm" />
+        </label>
+
+        <label class="field compact-field">
+          <span>Estado</span>
+          <select [(ngModel)]="logFilter">
+            <option value="todos">Todos</option>
+            <option value="pendiente">Pendientes</option>
+            <option value="completado">Completados</option>
+            <option value="desviacion">Desviacion</option>
+            <option value="critico">Critico</option>
+          </select>
+        </label>
+
+        <label class="field compact-field">
+          <span>Dia</span>
+          <select [(ngModel)]="dayFilter">
+            <option [ngValue]="0">Todos</option>
+            @for (day of dayLoads; track day.dia) {
+              <option [ngValue]="day.dia">Dia {{ day.dia }}</option>
+            }
+          </select>
+        </label>
+
+        <label class="field compact-field">
+          <span>Turno</span>
+          <select [(ngModel)]="shiftFilter">
+            <option value="todos">Todos</option>
+            @for (shift of shiftOptions; track shift) {
+              <option [value]="shift">{{ shift }}</option>
+            }
+          </select>
+        </label>
+      </div>
+
+      @if (filteredLogs.length) {
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Material</th>
+                <th>Localidad</th>
+                <th>SAP</th>
+                <th>Fisico</th>
+                <th>Delta</th>
+                <th>Delta %</th>
+                <th>Dia</th>
+                <th>Turno</th>
+                <th>Estado</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (log of filteredLogs; track log.id) {
+                <tr class="selectable-row" [class.selected]="log.id === selectedLogId" (click)="selectLog(log.id)">
+                  <td class="mono emphasis">{{ log.material }}</td>
+                  <td>{{ log.location || 'Sin localidad' }}</td>
+                  <td class="num">{{ log.sapQuantity }}</td>
+                  <td class="num">{{ log.physicalQuantity ?? '-' }}</td>
+                  <td class="num">{{ log.delta ?? '-' }}</td>
+                  <td class="num">{{ log.deltaPct ?? '-' }}</td>
+                  <td>Dia {{ log.dia }}</td>
+                  <td>{{ log.turno }}</td>
+                  <td><span class="status-pill" [class]="statusClass(log.status)">{{ log.status }}</span></td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      } @else {
+        <div class="empty-state">
+          <strong>Sin registros para ese filtro</strong>
+          <span>Ajusta los filtros o genera la bitacora para empezar a capturar.</span>
+        </div>
+      }
+    </article>
+  </section>
+</section>

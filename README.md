@@ -1,69 +1,43 @@
-Perfecto, Sergio 🙌
-Aquí te paso un README.md ya completo, limpio y profesional para tu proyecto kit-monitor.
-Solo copia y pega todo esto dentro de tu archivo README.md:
+# Kit Monitor
 
-# 🚀 kit-monitor
+Monorepo con frontend en Angular y backend en NestJS para seguimiento operativo de planes, kits, BOM y monitoreo de produccion.
 
-Monorepo con **Frontend (Angular)** y **Backend (NestJS)** para monitorear cambios de modelo (SMED), registrar información y mostrar un **dashboard con semáforo**.
+## Estructura
 
----
+```text
+frontend/   Aplicacion Angular
+backend/    API NestJS
+```
 
-## 📂 Estructura del proyecto
+## Requisitos
 
+- Node.js 18+
+- npm 10+
 
-/frontend # Angular (interfaz gráfica)
-/backend # NestJS (API y lógica de negocio)
+## Desarrollo local
 
+Frontend:
 
----
-
-## ⚙️ Requisitos
-- Node.js **20+**
-- npm **10+**
-
----
-
-## 🖥️ Desarrollo Local
-
-### ▶️ Frontend (Angular)
 ```bash
 cd frontend
 npm install
-npx ng serve   # http://localhost:4200
+npm start
+```
 
-⚡ Backend (NestJS)
+Backend:
+
+```bash
 cd backend
 npm install
-npm run start:dev   # http://localhost:3000
+npm run start:dev
+```
 
-🌐 URLs locales
+URLs locales:
 
-Frontend: http://localhost:4200
+- Frontend: http://localhost:4200
+- Backend: http://localhost:3000
 
-Backend: http://localhost:3000
+## Notas
 
-📦 Deploy (Producción)
-
-Subir el repositorio a GitHub.
-
-Configurar Railway para el despliegue:
-
-Frontend → Angular (build y host estático).
-
-Backend → NestJS (Node.js server).
-
-Definir variables de entorno en Railway si es necesario.
-
-👨‍💻 Autor
-
-Sergio Valle
-
-
----
-
-✅ Con eso tu repositorio en GitHub se verá **profesional y claro**.  
-📌 Recuerda: lo que está dentro de ```bash son ejemplos de comandos que **ejecutas en la terminal**, no en el README.  
-
----
-
-¿Quieres que además te prepare el paso a paso de cómo hacer el **deploy en Railway** (para frontend y backend separados)?
+- El backend puede usar una base SQLite local para desarrollo.
+- Los archivos generados, logs, caches y bases locales estan excluidos del control de versiones.
