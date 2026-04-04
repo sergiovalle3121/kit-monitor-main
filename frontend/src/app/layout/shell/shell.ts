@@ -52,6 +52,11 @@ export class ShellComponent {
       return;
     }
 
+    if (url.startsWith('/visual-aids') || url.startsWith('/disposition')) {
+      this.openSection = 'ie';
+      return;
+    }
+
     this.openSection = null;
   }
 }
