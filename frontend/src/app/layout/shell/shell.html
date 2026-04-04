@@ -1,9 +1,21 @@
 <div class="layout" [class.collapsed]="collapsed">
+  <div class="app-ambient" aria-hidden="true">
+    <span class="ambient-orb orb-a"></span>
+    <span class="ambient-orb orb-b"></span>
+    <span class="ambient-orb orb-c"></span>
+    <span class="ambient-beam beam-a"></span>
+    <span class="ambient-beam beam-b"></span>
+    <span class="ambient-grid"></span>
+  </div>
+
   <aside class="sidebar">
+    <div class="sidebar-noise" aria-hidden="true"></div>
+
     <div class="brand">
       <div class="brand-mark" aria-hidden="true">KM</div>
       <div class="brand-text nav-full">
         <strong>Kit Monitor</strong>
+        <small>Industrial Intelligence</small>
       </div>
       <button class="toggle-btn" (click)="toggle()" [attr.aria-label]="collapsed ? 'Expandir' : 'Colapsar'">
         <i class="fas" [class.fa-chevron-left]="!collapsed" [class.fa-chevron-right]="collapsed"></i>
@@ -88,26 +100,35 @@
   </aside>
 
   <div class="shell-main">
+    <div class="shell-main-overlay" aria-hidden="true"></div>
+
     <header class="topbar">
       <button class="menu-trigger" (click)="toggle()" aria-label="Alternar menu"><i class="fas fa-bars"></i></button>
+
       <div class="search-wrapper">
         <label class="search" aria-label="Buscar modulo">
           <i class="fas fa-search search-icon"></i>
           <input type="search" placeholder="Buscar módulo, kit o material" />
+          <span class="search-hint nav-full">⌘K</span>
         </label>
       </div>
+
       <div class="topbar-actions">
-        <button class="icon-btn" aria-label="Notificaciones">
+        <button class="icon-btn glass-btn" aria-label="Notificaciones">
           <i class="far fa-bell"></i>
           <span class="notif-dot"></span>
         </button>
-        <button class="icon-btn" aria-label="Perfil de usuario">
+        <button class="icon-btn glass-btn" aria-label="Perfil de usuario">
           <i class="far fa-user-circle"></i>
         </button>
       </div>
     </header>
+
     <main class="content">
       <section class="content-frame">
+        <div class="frame-topline" aria-hidden="true"></div>
+        <div class="content-glow content-glow-a" aria-hidden="true"></div>
+        <div class="content-glow content-glow-b" aria-hidden="true"></div>
         <router-outlet></router-outlet>
       </section>
     </main>
