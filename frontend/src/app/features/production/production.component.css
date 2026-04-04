@@ -106,6 +106,15 @@
   gap: 10px;
 }
 
+.btn-collapse {
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--gray-700);
+  border-radius: 11px;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
 .status-badge {
   display: inline-flex;
   align-items: center;
@@ -189,6 +198,10 @@
 .action-strip.info {
   background: rgba(249, 250, 251, 0.96);
   border-color: rgba(203, 213, 225, 0.8);
+}
+
+.action-strip.compact {
+  margin-top: 12px;
 }
 
 .action-title {

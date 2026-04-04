@@ -3,6 +3,9 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { forkJoin, map, of, switchMap } from 'rxjs';
 import { ApiService } from '../../core/api.service';
+import { DispositionItem, VisualAid } from '../../core/ie-data.models';
+import { DispositionService } from '../../core/disposition.service';
+import { VisualAidsService } from '../../core/visual-aids.service';
 
 interface ProductionCatalogItem {
   partNumber: string;
@@ -48,6 +51,8 @@ interface ProductionStationView {
   unassignedMaterials: ProductionMaterialView[];
   recentAdvances: any[];
   openResupplies: any[];
+  disposition: DispositionItem[];
+  visualAid: VisualAid | null;
 }
 
 @Component({
@@ -75,6 +80,7 @@ export class ProductionComponent implements OnInit {
   resupplyQty: Record<string, number | null> = {};
   requestingResupplyKey: string | null = null;
   resupplyError: Record<string, string> = {};
+  expandedByBacken: Record<number, boolean> = {};
 
   private readonly stationPriority: Record<string, number> = {
     in_progress: 1,
@@ -90,20 +96,24 @@ export class ProductionComponent implements OnInit {
   };
 
   private readonly statusLabels: Record<string, string> = {
-    preparing: 'Preparando',
-    prepared: 'Armado',
-    kitted: 'Armado',
-    ready: 'Listo',
-    requested: 'Solicitado',
-    delivered: 'Entregado',
+    preparing: 'Kit en preparación',
+    prepared: 'Kit listo',
+    kitted: 'Kit listo',
+    ready: 'Kit listo',
+    requested: 'En línea',
+    delivered: 'En línea',
     sent: 'Enviado',
-    received: 'Recibido',
-    in_progress: 'En produccion',
+    received: 'En línea',
+    in_progress: 'En ensamblado',
     completed: 'Completado',
-    empty: 'Sin kit',
+    empty: 'Programado',
   };
 
-  constructor(private api: ApiService) {}
+  constructor(
+    private api: ApiService,
+    private readonly visualAids: VisualAidsService,
+    private readonly dispositionService: DispositionService,
+  ) {}
 
   ngOnInit(): void {
     this.load();
@@ -296,6 +306,19 @@ export class ProductionComponent implements OnInit {
     return `${Math.max(0, Math.floor(material.coverageUnits))} uds`;
   }
 
+  toggleStation(backen: number): void {
+    this.expandedByBacken[backen] = !this.expandedByBacken[backen];
+  }
+
+  isExpanded(backen: number): boolean {
+    return this.expandedByBacken[backen] ?? true;
+  }
+
+  openVisualAid(station: ProductionStationView): void {
+    if (!station.visualAid) return;
+    window.open(station.visualAid.pdfUrl, '_blank', 'noopener');
+  }
+
   private buildStations(
     kits: any[],
     advances: Array<{ kitId: number; advances: any[] }>,
@@ -336,6 +359,8 @@ export class ProductionComponent implements OnInit {
           unassignedMaterials: [],
           recentAdvances: [],
           openResupplies: [],
+          disposition: [],
+          visualAid: null,
         };
       }
 
@@ -346,6 +371,9 @@ export class ProductionComponent implements OnInit {
           this.toMaterialView(material, catalog.get(material.partNumber), kit.plan.quantity),
         ] as const),
       );
+
+      const disposition = this.dispositionService.getDispositionByModel(kit.plan.model);
+      const visualAid = this.visualAids.getActiveVisualAidByModel(kit.plan.model);
 
       const layoutRows = layoutsByModel.get(kit.plan.model) ?? [];
       const assignedPartNumbers = new Set<string>();
@@ -385,6 +413,8 @@ export class ProductionComponent implements OnInit {
         unassignedMaterials,
         recentAdvances: (advancesByKitId.get(kit.id) ?? []).slice(0, 6),
         openResupplies: (resuppliesByKitId.get(kit.id) ?? []).filter((item: any) => item.status !== 'delivered'),
+        disposition,
+        visualAid,
       };
     });
   }

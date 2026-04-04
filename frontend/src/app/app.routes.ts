@@ -46,6 +46,16 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/monitor/monitor.component').then(m => m.MonitorComponent),
       },
+      {
+        path: 'visual-aids',
+        loadComponent: () =>
+          import('./features/visual-aids/visual-aids.component').then(m => m.VisualAidsComponent),
+      },
+      {
+        path: 'disposition',
+        loadComponent: () =>
+          import('./features/disposition/disposition.component').then(m => m.DispositionComponent),
+      },
     ],
   },
   { path: '**', redirectTo: 'login' },

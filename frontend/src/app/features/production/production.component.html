@@ -34,10 +34,21 @@
         <span class="progress-pill" *ngIf="station.kit">
           {{ station.completed }} / {{ station.quantity }}
         </span>
+        <button class="btn-collapse" (click)="toggleStation(station.backen)">
+          {{ isExpanded(station.backen) ? 'Colapsar' : 'Expandir' }}
+        </button>
       </div>
     </div>
 
     <ng-container *ngIf="station.kit; else emptyStation">
+      <div class="action-strip info compact" *ngIf="!isExpanded(station.backen)">
+        <div>
+          <div class="action-title">Panel operativo resumido</div>
+          <div class="action-caption">Estado {{ statusLabel(station.status) }} · {{ station.progressPct }}% · {{ station.openResupplies.length }} pedidos.</div>
+        </div>
+      </div>
+
+      <ng-container *ngIf="isExpanded(station.backen)">
       <div class="progress-block">
         <div class="progress-track">
           <div class="progress-fill" [style.width.%]="station.progressPct"></div>
@@ -115,6 +126,14 @@
         </div>
       </div>
 
+      <div class="action-strip info" *ngIf="station.visualAid">
+        <div>
+          <div class="action-title">Ayuda visual</div>
+          <div class="action-caption">{{ station.visualAid.title }} · {{ station.visualAid.process }}</div>
+        </div>
+        <button class="btn-request" (click)="openVisualAid(station)">Abrir ayuda visual</button>
+      </div>
+
       <div class="station-body">
         <div class="layout-area">
           <div class="section-header">
@@ -176,6 +195,28 @@
             <div class="empty-box">
               No hay layout de bahias cargado para este modelo. Se muestran abajo los materiales sin asignacion.
             </div>
+          </ng-template>
+
+          <div class="section-header">
+            <h3>Disposición de bahías (IE)</h3>
+            <span class="section-meta" *ngIf="station.disposition.length">{{ station.disposition.length }} NP definidos</span>
+          </div>
+
+          <div class="unassigned-list" *ngIf="station.disposition.length; else noDisposition">
+            <div class="unassigned-row" *ngFor="let entry of station.disposition">
+              <div>
+                <code>{{ entry.partNumber }}</code>
+                <span class="unassigned-desc">B{{ entry.bayId }} · {{ entry.description || 'Sin descripción' }}</span>
+              </div>
+              <div class="unassigned-meta">
+                <span>mini-MOST: {{ entry.mostScore }}</span>
+                <span>{{ entry.recommendation }}</span>
+              </div>
+            </div>
+          </div>
+
+          <ng-template #noDisposition>
+            <div class="empty-box">IE aún no define disposición para este modelo.</div>
           </ng-template>
 
           <div class="section-header" *ngIf="station.unassignedMaterials.length">
@@ -241,6 +282,7 @@
           </div>
         </div>
       </div>
+      </ng-container>
     </ng-container>
 
     <ng-template #emptyStation>

@@ -28,13 +28,33 @@ export class BomService {
   }
 
   create(dto: CreateBomItemDto): Promise<BomItem> {
-    const item = this.repo.create({ unit: 'EA', ...dto });
+    const normalizedImageUrl = dto.imageUrl?.trim() || null;
+    const item = this.repo.create({
+      unit: 'EA',
+      ...dto,
+      imageUrl: normalizedImageUrl,
+      hasImage: dto.hasImage ?? !!normalizedImageUrl,
+    });
     return this.repo.save(item);
   }
 
   async update(id: number, dto: UpdateBomItemDto): Promise<BomItem> {
     await this.findOne(id);
-    await this.repo.update(id, dto);
+
+    const normalizedImageUrl = dto.imageUrl?.trim();
+    const hasImage =
+      dto.hasImage !== undefined
+        ? dto.hasImage
+        : normalizedImageUrl !== undefined
+          ? normalizedImageUrl.length > 0
+          : undefined;
+
+    await this.repo.update(id, {
+      ...dto,
+      imageUrl: normalizedImageUrl ?? dto.imageUrl,
+      ...(hasImage !== undefined ? { hasImage } : {}),
+    });
+
     return this.findOne(id);
   }
 

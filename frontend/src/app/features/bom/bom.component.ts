@@ -1,13 +1,14 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../core/api.service';
+import { BomVisualItem, MaterialImageViewerComponent } from './material-image-viewer.component';
+import { DEMO_IMAGE_DATA_URLS } from './material-image-demo.data';
 
-interface BomItemView {
+interface BomItemView extends BomVisualItem {
   id?: number;
   model: string;
   partNumber: string;
-  description?: string | null;
   location?: string | null;
   usageFactor: number;
   unit?: string | null;
@@ -20,14 +21,16 @@ interface BomModelGroup {
   locatedCount: number;
 }
 
+const DEMO_MODEL = 'OP-320-0107B';
+
 @Component({
   selector: 'app-bom',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, MaterialImageViewerComponent],
   templateUrl: './bom.component.html',
   styleUrls: ['./bom.component.css'],
 })
-export class BomComponent implements OnInit {
+export class BomComponent implements OnInit, OnDestroy {
   items: BomItemView[] = [];
   allGroups: BomModelGroup[] = [];
   filteredGroups: BomModelGroup[] = [];
@@ -49,6 +52,14 @@ export class BomComponent implements OnInit {
   catalogResult: { updated: number; catalogRows: number; matchedPartNumbers: number } | null = null;
   catalogError: string | null = null;
 
+  imageValidationError: string | null = null;
+  imagePreview: string | null = null;
+
+  viewerOpen = false;
+  viewerModel = '';
+  viewerItems: BomItemView[] = [];
+  viewerActiveIndex = 0;
+
   form = {
     model: '',
     partNumber: '',
@@ -56,6 +67,8 @@ export class BomComponent implements OnInit {
     location: '',
     usageFactor: 1,
     unit: 'EA',
+    imageUrl: '',
+    specUrl: '',
   };
 
   constructor(private api: ApiService) {}
@@ -64,13 +77,19 @@ export class BomComponent implements OnInit {
     this.load();
   }
 
+  ngOnDestroy(): void {
+    if (this.imagePreview?.startsWith('blob:')) {
+      URL.revokeObjectURL(this.imagePreview);
+    }
+  }
+
   load(): void {
     this.loading = true;
     this.error = null;
 
     this.api.getBom().subscribe({
       next: (data) => {
-        this.items = data ?? [];
+        this.items = (data ?? []).map(item => this.decorateWithVisuals(item));
         this.rebuildGroups();
         this.loading = false;
       },
@@ -89,20 +108,20 @@ export class BomComponent implements OnInit {
     this.submitting = true;
     this.formError = null;
 
-    this.api.createBomItem({ ...this.form }).subscribe({
+    const payload = {
+      ...this.form,
+      imageUrl: this.form.imageUrl?.trim() || undefined,
+      specUrl: this.form.specUrl?.trim() || undefined,
+      hasImage: !!this.form.imageUrl?.trim(),
+    };
+
+    this.api.createBomItem(payload).subscribe({
       next: (created) => {
-        this.items = [...this.items, created];
+        this.items = [...this.items, this.decorateWithVisuals(created)];
         this.rebuildGroups();
         this.submitting = false;
         this.showForm = false;
-        this.form = {
-          model: '',
-          partNumber: '',
-          description: '',
-          location: '',
-          usageFactor: 1,
-          unit: 'EA',
-        };
+        this.resetForm();
       },
       error: (err) => {
         this.formError = err?.error?.message ?? 'Error al guardar el item';
@@ -159,6 +178,52 @@ export class BomComponent implements OnInit {
     });
   }
 
+  onImageSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+
+    this.imageValidationError = null;
+    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    const maxSize = 5 * 1024 * 1024;
+
+    if (!validTypes.includes(file.type)) {
+      this.imageValidationError = 'Formato no valido. Usa JPG, PNG o WEBP.';
+      input.value = '';
+      return;
+    }
+
+    if (file.size > maxSize) {
+      this.imageValidationError = 'La imagen supera 5MB. Usa una version mas ligera.';
+      input.value = '';
+      return;
+    }
+
+    if (this.imagePreview?.startsWith('blob:')) {
+      URL.revokeObjectURL(this.imagePreview);
+    }
+
+    const previewUrl = URL.createObjectURL(file);
+    this.imagePreview = previewUrl;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = typeof reader.result === 'string' ? reader.result : '';
+      this.form.imageUrl = result;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  removeImage(): void {
+    if (this.imagePreview?.startsWith('blob:')) {
+      URL.revokeObjectURL(this.imagePreview);
+    }
+
+    this.imagePreview = null;
+    this.imageValidationError = null;
+    this.form.imageUrl = '';
+  }
+
   toggleModel(model: string): void {
     if (this.expandedModels.has(model)) {
       this.expandedModels.delete(model);
@@ -178,6 +243,44 @@ export class BomComponent implements OnInit {
 
   locationLabel(item: BomItemView): string {
     return item.location?.trim() || 'Sin ubicacion';
+  }
+
+  hasImage(item: BomItemView): boolean {
+    return !!item.imageUrl;
+  }
+
+  openViewer(group: BomModelGroup, item: BomItemView): void {
+    if (group.model.trim().toUpperCase() !== DEMO_MODEL) return;
+    const visualItems = group.materials.filter(material => !!material.imageUrl);
+    if (!visualItems.length || !item.imageUrl) return;
+
+    this.viewerModel = group.model;
+    this.viewerItems = visualItems;
+    this.viewerActiveIndex = Math.max(
+      0,
+      visualItems.findIndex(material => material.partNumber === item.partNumber),
+    );
+    this.viewerOpen = true;
+  }
+
+  closeViewer(): void {
+    this.viewerOpen = false;
+  }
+
+  setViewerIndex(index: number): void {
+    this.viewerActiveIndex = index;
+  }
+
+  markThumbError(item: BomItemView, event: Event): void {
+    if (item.imageUrl?.endsWith('.jpg')) {
+      item.imageUrl = item.imageUrl.replace('.jpg', '.svg');
+      return;
+    }
+
+    item.imageUrl = null;
+    item.hasImage = false;
+    const target = event.target as HTMLImageElement;
+    target.style.display = 'none';
   }
 
   get visibleMaterialCount(): number {
@@ -200,6 +303,42 @@ export class BomComponent implements OnInit {
 
   get hasCatalogGaps(): boolean {
     return this.missingCatalogCount > 0;
+  }
+
+  private resetForm(): void {
+    this.removeImage();
+    this.form = {
+      model: '',
+      partNumber: '',
+      description: '',
+      location: '',
+      usageFactor: 1,
+      unit: 'EA',
+      imageUrl: '',
+      specUrl: '',
+    };
+  }
+
+  private decorateWithVisuals(item: BomItemView): BomItemView {
+    const normalizedModel = item.model?.trim().toUpperCase();
+    const normalizedPart = item.partNumber?.trim().toUpperCase();
+    if (normalizedModel !== DEMO_MODEL) {
+      return {
+        ...item,
+        imageUrl: null,
+        hasImage: false,
+      };
+    }
+
+    const mappedImage = DEMO_IMAGE_DATA_URLS[normalizedPart] ?? null;
+
+    const imageUrl = item.imageUrl?.trim() || mappedImage || null;
+
+    return {
+      ...item,
+      imageUrl,
+      hasImage: !!imageUrl,
+    };
   }
 
   private rebuildGroups(): void {
