@@ -1,8 +1,8 @@
-/* --------------------------------------------
-   Apple Premium Dark para Kit Monitor
-   Fondo azul medianoche, vidrio esmerilado
-   Tarjetas legibles, búsqueda centrada
------------------------------------------------ */
+/* ------------------------------------------------------
+   Apple Industrial Dark - HMI para planta
+   Contraste 7:1, datos críticos en blanco puro
+   Vidrio controlado, colores emisores de estado
+--------------------------------------------------------- */
 * {
   margin: 0;
   padding: 0;
@@ -13,37 +13,50 @@
   --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
   --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", sans-serif;
 
-  /* Paleta oscura premium */
-  --bg-deep: #0f172a;        /* azul medianoche profundo */
-  --glass-bg: rgba(15, 23, 42, 0.68);
-  --glass-border: rgba(255, 255, 255, 0.08);
-  --glass-highlight: rgba(255, 255, 255, 0.03);
-  --card-bg: rgba(20, 30, 55, 0.85);
-  --card-border: rgba(255, 255, 255, 0.1);
+  /* Fondo global profundo (WCAG base) */
+  --bg-deep: #0f172a;               /* Azul medianoche */
   
-  --text-primary: #f1f5f9;
+  /* Vidrio oscuro controlado */
+  --glass-sidebar: rgba(15, 23, 42, 0.85);
+  --glass-content: rgba(15, 23, 42, 0.70);
+  --glass-border: rgba(255, 255, 255, 0.12);
+  
+  /* Tarjetas de kit - fondo sólido oscuro + blur suave */
+  --card-bg-solid: rgba(30, 41, 59, 0.88);
+  --card-border: rgba(255, 255, 255, 0.15);
+  
+  /* Texto crítico: blanco puro con peso alto */
+  --text-critical: #ffffff;
   --text-secondary: #cbd5e1;
   --text-tertiary: #94a3b8;
   
+  /* Acentos y gradientes iOS */
   --accent-blue: #0a84ff;
-  --accent-blue-glow: rgba(10, 132, 255, 0.2);
-  --accent-gradient: linear-gradient(90deg, rgba(10, 132, 255, 0.25), rgba(10, 132, 255, 0.05));
+  --accent-glow: rgba(10, 132, 255, 0.25);
+  --accent-gradient: linear-gradient(90deg, rgba(10, 132, 255, 0.35), rgba(10, 132, 255, 0.02));
   
-  --status-progress: #f59e0b;
-  --status-completed: #10b981;
-  --status-alert-bg: rgba(220, 38, 38, 0.15);
+  /* Colores emisores (estados) */
+  --status-progress-bg: rgba(245, 158, 11, 0.2);
+  --status-progress-text: #fbbf24;
+  --status-progress-border: rgba(245, 158, 11, 0.4);
+  
+  --status-completed-bg: rgba(16, 185, 129, 0.2);
+  --status-completed-text: #34d399;
+  --status-completed-border: rgba(16, 185, 129, 0.4);
+  
+  --status-alert-bg: rgba(220, 38, 38, 0.2);
+  --status-alert-text: #f87171;
   --status-alert-border: #ef4444;
-  --status-alert-text: #fca5a5;
   
   --radius-card: 20px;
   --radius-element: 12px;
-  --transition: all 0.2s cubic-bezier(0.23, 1, 0.32, 1);
+  --transition: all 0.2s ease;
 }
 
 body {
   background: var(--bg-deep);
   font-family: var(--font);
-  color: var(--text-primary);
+  color: var(--text-secondary);
   min-height: 100vh;
 }
 
@@ -59,13 +72,13 @@ body {
   grid-template-columns: 88px 1fr;
 }
 
-/* Sidebar con vidrio esmerilado oscuro */
+/* Sidebar de vidrio oscuro */
 .sidebar {
-  background: rgba(15, 23, 42, 0.75);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  background: var(--glass-sidebar);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border-right: 1px solid var(--glass-border);
-  box-shadow: 4px 0 20px rgba(0, 0, 0, 0.3);
+  box-shadow: 4px 0 20px rgba(0, 0, 0, 0.4);
   display: flex;
   flex-direction: column;
   padding: 28px 20px 24px 20px;
@@ -75,7 +88,6 @@ body {
   overflow-y: auto;
 }
 
-/* Brand / Logo */
 .brand {
   display: flex;
   align-items: center;
@@ -93,23 +105,23 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: 600;
-  font-size: 0.9rem;
+  font-weight: 700;
+  font-size: 1rem;
   color: white;
   font-family: var(--font-display);
-  box-shadow: 0 4px 12px rgba(0, 122, 255, 0.3);
+  box-shadow: 0 4px 12px rgba(0, 122, 255, 0.4);
 }
 
 .brand-text strong {
   font-size: 1.1rem;
-  font-weight: 590;
+  font-weight: 620;
   letter-spacing: -0.3px;
-  color: var(--text-primary);
+  color: var(--text-critical);
 }
 
 .toggle-btn {
   margin-left: auto;
-  background: var(--glass-highlight);
+  background: rgba(255, 255, 255, 0.05);
   border: 1px solid var(--glass-border);
   width: 32px;
   height: 32px;
@@ -123,8 +135,8 @@ body {
 }
 
 .toggle-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.12);
+  color: white;
   transform: scale(0.96);
 }
 
@@ -146,7 +158,7 @@ nav {
   padding: 12px 14px;
   border-radius: var(--radius-element);
   font-size: 0.9rem;
-  font-weight: 470;
+  font-weight: 500;
   color: var(--text-secondary);
   text-decoration: none;
   background: transparent;
@@ -169,7 +181,6 @@ nav {
 
 .nav-icon {
   width: 22px;
-  text-align: center;
   font-size: 1.1rem;
   color: #94a3b8;
 }
@@ -178,18 +189,18 @@ nav {
 .nav-group-header:hover,
 .nav-group-items a:hover:not(.disabled),
 .logout:hover {
-  background: rgba(255, 255, 255, 0.05);
-  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.06);
+  color: white;
 }
 
-/* Elemento activo estilo iOS (degradado azul suave) */
+/* Elemento activo estilo iOS (degradado azul) */
 .nav-item.active,
 .nav-group-items a.active {
   background: var(--accent-gradient);
   color: var(--accent-blue);
-  font-weight: 510;
+  font-weight: 600;
   border-left: 3px solid var(--accent-blue);
-  box-shadow: inset 0 0 0 1px rgba(10, 132, 255, 0.2);
+  box-shadow: inset 0 0 0 1px rgba(10, 132, 255, 0.3);
 }
 
 .nav-item.active .nav-icon,
@@ -234,7 +245,7 @@ nav {
 }
 
 .logout:hover {
-  background: rgba(248, 113, 113, 0.1);
+  background: rgba(248, 113, 113, 0.12);
   color: #fecaca;
 }
 
@@ -258,17 +269,17 @@ nav {
   flex-direction: column;
 }
 
-/* Topbar con vidrio y búsqueda centrada */
+/* Topbar con búsqueda centrada */
 .topbar {
-  background: rgba(15, 23, 42, 0.6);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
+  background: rgba(15, 23, 42, 0.7);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   border-bottom: 1px solid var(--glass-border);
   padding: 12px 32px;
   display: grid;
   grid-template-columns: auto 1fr auto;
   align-items: center;
-  gap: 20px;
+  gap: 24px;
   position: sticky;
   top: 0;
   z-index: 10;
@@ -280,22 +291,21 @@ nav {
   border: none;
   font-size: 1.4rem;
   cursor: pointer;
-  color: var(--text-primary);
+  color: var(--text-critical);
 }
 
-/* Contenedor de búsqueda centrado */
 .search-wrapper {
+  flex: 1;
   display: flex;
   justify-content: center;
-  width: 100%;
 }
 
 .search {
   display: flex;
   align-items: center;
   gap: 12px;
-  background: rgba(255, 255, 255, 0.08);
-  border-radius: 32px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 40px;
   padding: 10px 20px;
   width: 100%;
   max-width: 480px;
@@ -304,9 +314,9 @@ nav {
 }
 
 .search:focus-within {
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.45);
   border-color: var(--accent-blue);
-  box-shadow: 0 0 0 3px var(--accent-blue-glow);
+  box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.25);
 }
 
 .search-icon {
@@ -321,7 +331,7 @@ nav {
   font-size: 0.95rem;
   width: 100%;
   font-family: var(--font);
-  color: var(--text-primary);
+  color: var(--text-critical);
 }
 
 .search input::placeholder {
@@ -352,7 +362,7 @@ nav {
 
 .icon-btn:hover {
   background: rgba(255, 255, 255, 0.08);
-  color: var(--text-primary);
+  color: white;
 }
 
 .notif-dot {
@@ -373,92 +383,98 @@ nav {
 }
 
 .content-frame {
-  background: rgba(15, 23, 42, 0.55);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  background: var(--glass-content);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border-radius: var(--radius-card);
   border: 1px solid var(--glass-border);
   padding: 28px;
-  transition: var(--transition);
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
 }
 
-/* ============================================
-   ESTILOS PARA TARJETAS DE KIT (BK1, BK2...)
-   Debes aplicar estas clases a tus componentes
-   de monitor/planeación para que hereden el estilo
-   ============================================ */
+/* =======================================================
+   ESTILOS PARA TARJETAS DE KIT (BK1, BK2, etc.)
+   Cumple con contraste 7:1, datos críticos en blanco puro
+======================================================= */
 .kit-card, .kit-item, .card-kit {
-  background: var(--card-bg);
+  background: var(--card-bg-solid);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--card-border);
   border-radius: 18px;
-  padding: 16px 20px;
-  margin-bottom: 16px;
+  padding: 18px 22px;
+  margin-bottom: 18px;
   transition: var(--transition);
-  backdrop-filter: blur(4px);
 }
 
-.kit-card:hover {
+.kit-card:hover, .kit-item:hover {
   transform: translateY(-2px);
-  border-color: rgba(255, 255, 255, 0.2);
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+  border-color: rgba(255, 255, 255, 0.25);
+  box-shadow: 0 12px 24px -8px rgba(0, 0, 0, 0.5);
 }
 
-/* Códigos de modelo - más peso para lectura a distancia */
-.kit-model, .modelo, .kit-modelo {
-  font-weight: 620;
+/* Datos críticos: blanco puro, peso alto */
+.kit-model, .modelo, .kit-modelo,
+.kit-code, .codigo-parte,
+.kit-cantidad, .cantidad-texto {
+  font-weight: 700;
   font-size: 1.1rem;
-  color: var(--text-primary);
+  color: var(--text-critical);
   letter-spacing: -0.2px;
 }
 
-.kit-code, .codigo-parte {
-  font-weight: 550;
-  font-family: var(--font-display);
+/* Texto secundario dentro de tarjetas */
+.kit-meta, .info-secundaria {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  font-weight: 450;
 }
 
-/* Etiquetas de estado (Apple: pastel translúcido) */
+/* Estados tipo "luces de advertencia" */
 .estado, .status-badge {
   display: inline-block;
-  padding: 4px 12px;
-  border-radius: 30px;
+  padding: 5px 14px;
+  border-radius: 40px;
   font-size: 0.75rem;
-  font-weight: 500;
+  font-weight: 600;
   letter-spacing: 0.3px;
-  background: rgba(255, 255, 255, 0.08);
+  text-transform: uppercase;
+  background: rgba(255, 255, 255, 0.05);
   color: var(--text-secondary);
   border: 0.5px solid rgba(255, 255, 255, 0.15);
 }
 
 .estado.en-proceso, .status-badge.progress {
-  background: rgba(245, 158, 11, 0.15);
-  color: #fbbf24;
-  border-color: rgba(245, 158, 11, 0.4);
+  background: var(--status-progress-bg);
+  color: var(--status-progress-text);
+  border-color: var(--status-progress-border);
 }
 
 .estado.completado, .status-badge.completed {
-  background: rgba(16, 185, 129, 0.15);
-  color: #6ee7b7;
-  border-color: rgba(16, 185, 129, 0.4);
+  background: var(--status-completed-bg);
+  color: var(--status-completed-text);
+  border-color: var(--status-completed-border);
 }
 
-/* Alerta de incidencia */
+/* Alerta de incidencia (fondo rojo oscuro, texto vibrante) */
 .incidencia, .alert-badge {
   background: var(--status-alert-bg);
-  border-left: 3px solid var(--status-alert-border);
-  padding: 8px 12px;
-  border-radius: 10px;
+  border-left: 4px solid var(--status-alert-border);
+  padding: 10px 14px;
+  border-radius: 12px;
   color: var(--status-alert-text);
-  font-weight: 500;
-  font-size: 0.8rem;
+  font-weight: 600;
+  font-size: 0.85rem;
+  margin-top: 10px;
 }
 
-/* Barras de progreso estilo iOS */
+/* Barra de progreso estilo iOS (fina, brillante) */
 .progress-bar {
   height: 6px;
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.15);
   border-radius: 6px;
   overflow: hidden;
+  margin: 12px 0 8px;
 }
 
 .progress-fill {
@@ -466,6 +482,7 @@ nav {
   background: var(--accent-blue);
   border-radius: 6px;
   width: 0%;
+  box-shadow: 0 0 4px var(--accent-blue);
 }
 
 /* Responsive */
@@ -492,12 +509,11 @@ nav {
     display: none;
   }
   .topbar {
-    grid-template-columns: auto 1fr auto;
     padding: 12px 20px;
-    gap: 12px;
+    gap: 16px;
   }
   .search {
-    max-width: 300px;
+    max-width: 320px;
   }
 }
 
@@ -513,8 +529,5 @@ nav {
   }
   .search {
     padding: 8px 16px;
-  }
-  .search input {
-    font-size: 0.85rem;
   }
 }
