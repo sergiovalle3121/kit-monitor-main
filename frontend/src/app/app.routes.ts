@@ -53,6 +53,11 @@ export const routes: Routes = [
           import('./features/production-completed/production-completed.component').then(m => m.ProductionCompletedComponent),
       },
       {
+        path: 'production/logistics',
+        loadComponent: () =>
+          import('./features/logistics-risk/logistics-risk.component').then(m => m.LogisticsRiskComponent),
+      },
+      {
         path: 'monitor',
         loadComponent: () =>
           import('./features/monitor/monitor.component').then(m => m.MonitorComponent),

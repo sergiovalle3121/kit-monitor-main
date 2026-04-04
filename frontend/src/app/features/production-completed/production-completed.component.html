@@ -5,9 +5,9 @@
   </div>
 </div>
 
-<div class="cards" *ngIf="rows().length; else empty">
-  <article class="card" *ngFor="let row of rows()">
-    <h3>{{ row.backendKey }} · {{ row.model }}</h3>
+<div class="cards" *ngIf="rows.length; else empty">
+  <article class="card" *ngFor="let row of rows">
+    <h3>{{ row.backendCode }} · {{ row.model }}</h3>
     <p>Completado: {{ row.completedQty }} / {{ row.targetQty }}</p>
     <p>Eventos de bahía: {{ row.totalEvents }}</p>
     <p>NP bajo umbral: {{ row.lowStockHits }}</p>

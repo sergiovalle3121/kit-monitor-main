@@ -3,19 +3,19 @@ import { Component, OnInit } from '@angular/core';
 import { ApiService } from '../../core/api.service';
 
 @Component({
-  selector: 'app-production-completed',
+  selector: 'app-logistics-risk',
   standalone: true,
   imports: [CommonModule],
-  templateUrl: './production-completed.component.html',
-  styleUrl: './production-completed.component.css',
+  templateUrl: './logistics-risk.component.html',
+  styleUrl: './logistics-risk.component.css',
 })
-export class ProductionCompletedComponent implements OnInit {
+export class LogisticsRiskComponent implements OnInit {
   rows: any[] = [];
 
   constructor(private readonly api: ApiService) {}
 
   ngOnInit(): void {
-    this.api.getProductionCompleted().subscribe({
+    this.api.getLogisticsShortageRisk().subscribe({
       next: (rows) => { this.rows = rows ?? []; },
       error: () => { this.rows = []; },
     });

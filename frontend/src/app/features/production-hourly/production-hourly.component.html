@@ -5,7 +5,7 @@
   </div>
 </div>
 
-<div class="panel" *ngIf="rows().length; else empty">
+<div class="panel" *ngIf="rows.length; else empty">
   <table>
     <thead>
       <tr>
@@ -17,7 +17,7 @@
       </tr>
     </thead>
     <tbody>
-      <tr *ngFor="let row of rows()">
+      <tr *ngFor="let row of rows">
         <td>{{ row.backendKey }}</td>
         <td>{{ row.model }}</td>
         <td>{{ row.hourBucket | date:'short' }}</td>
