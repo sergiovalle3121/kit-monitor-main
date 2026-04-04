@@ -1,0 +1,73 @@
+<div class="page-header">
+  <div>
+    <h2>Ayudas visuales</h2>
+    <p class="page-subtitle">Repositorio PDF de IE ligado por modelo para consulta operativa en línea.</p>
+  </div>
+  <button class="btn-primary" (click)="showForm = !showForm">{{ showForm ? 'Cerrar' : 'Nueva ayuda visual' }}</button>
+</div>
+
+<div class="panel" *ngIf="showForm">
+  <h3>Registrar ayuda visual</h3>
+  <p class="error" *ngIf="formError">{{ formError }}</p>
+
+  <div class="grid">
+    <input [(ngModel)]="form.model" placeholder="Modelo (ej. OP-320-0107B)" />
+    <input [(ngModel)]="form.title" placeholder="Título" />
+    <input [(ngModel)]="form.process" placeholder="Proceso / categoría" />
+    <input [(ngModel)]="form.area" placeholder="Área / estación" />
+    <input [(ngModel)]="form.revision" placeholder="Revisión" />
+    <label class="upload">
+      <input type="file" accept="application/pdf" hidden (change)="onPdfSelected($event)" />
+      {{ fileName || 'Seleccionar PDF' }}
+    </label>
+    <textarea [(ngModel)]="form.notes" placeholder="Notas"></textarea>
+    <label class="toggle"><input type="checkbox" [(ngModel)]="form.isActive" /> Activo</label>
+  </div>
+
+  <button class="btn-primary" (click)="save()">Guardar ayuda visual</button>
+</div>
+
+<div class="filters">
+  <input [(ngModel)]="query" (ngModelChange)="applyFilters()" placeholder="Buscar por modelo, título o proceso" />
+  <select [(ngModel)]="modelFilter" (ngModelChange)="applyFilters()">
+    <option value="">Todos los modelos</option>
+    <option *ngFor="let model of models()" [value]="model">{{ model }}</option>
+  </select>
+  <select [(ngModel)]="processFilter" (ngModelChange)="applyFilters()">
+    <option value="">Todos los procesos</option>
+    <option *ngFor="let process of processes()" [value]="process">{{ process }}</option>
+  </select>
+  <select [(ngModel)]="activeFilter" (ngModelChange)="applyFilters()">
+    <option value="all">Todos</option>
+    <option value="active">Activos</option>
+    <option value="inactive">Inactivos</option>
+  </select>
+</div>
+
+<div class="cards">
+  <article class="card" *ngFor="let aid of filtered">
+    <div>
+      <h4>{{ aid.title }}</h4>
+      <p>{{ aid.model }} • {{ aid.process }} • {{ aid.revision || 'Sin revisión' }}</p>
+      <small>{{ aid.area || 'Área general' }} · {{ aid.updatedAt | date:'short' }}</small>
+    </div>
+    <div class="actions">
+      <span class="chip" [class.off]="!aid.isActive">{{ aid.isActive ? 'Activo' : 'Inactivo' }}</span>
+      <button class="btn-light" (click)="openViewer(aid)">Ver PDF</button>
+      <button class="btn-light" (click)="openInNewTab(aid)">Nueva pestaña</button>
+      <button class="btn-light" (click)="toggleActive(aid)">{{ aid.isActive ? 'Desactivar' : 'Activar' }}</button>
+    </div>
+  </article>
+
+  <p class="empty" *ngIf="!filtered.length">Sin ayudas visuales para los filtros actuales.</p>
+</div>
+
+<div class="viewer" *ngIf="viewer" (click)="viewer = null">
+  <section class="viewer-body" (click)="$event.stopPropagation()">
+    <header>
+      <strong>{{ viewer.model }}</strong>
+      <button class="btn-light" (click)="viewer = null">Cerrar</button>
+    </header>
+    <iframe [src]="viewer.pdfUrl" title="Visual aid PDF"></iframe>
+  </section>
+</div>
