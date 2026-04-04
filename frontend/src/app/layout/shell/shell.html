@@ -70,8 +70,8 @@
           <span class="nav-full group-arrow"><i class="fas fa-chevron-down"></i></span>
         </button>
         <div class="nav-group-items">
-          <a class="disabled"><i class="fas fa-eye"></i> Ayudas visuales</a>
-          <a class="disabled"><i class="fas fa-vector-square"></i> Disposicion</a>
+          <a routerLink="/visual-aids" routerLinkActive="active"><i class="fas fa-eye"></i> Ayudas visuales</a>
+          <a routerLink="/disposition" routerLinkActive="active"><i class="fas fa-vector-square"></i> Disposicion</a>
         </div>
       </div>
 
@@ -85,9 +85,10 @@
           <span class="nav-full group-arrow"><i class="fas fa-chevron-down"></i></span>
         </button>
         <div class="nav-group-items">
-          <a routerLink="/production" routerLinkActive="active"><i class="fas fa-tools"></i> Solicitar kit</a>
-          <a class="disabled"><i class="fas fa-clock"></i> Hora por hora</a>
-          <a class="disabled"><i class="fas fa-check-circle"></i> Kit terminado</a>
+          <a routerLink="/production" routerLinkActive="active"><i class="fas fa-tools"></i> Operación en línea</a>
+          <a routerLink="/production/hourly" routerLinkActive="active"><i class="fas fa-clock"></i> Hora por hora</a>
+          <a routerLink="/production/completed" routerLinkActive="active"><i class="fas fa-check-circle"></i> Kits terminados</a>
+          <a routerLink="/production/logistics" routerLinkActive="active"><i class="fas fa-truck-loading"></i> Logística en vivo</a>
         </div>
       </div>
     </nav>

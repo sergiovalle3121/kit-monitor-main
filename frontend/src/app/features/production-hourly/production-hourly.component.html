@@ -1,0 +1,33 @@
+<div class="page-header">
+  <div>
+    <h2>Hora por hora</h2>
+    <p class="page-subtitle">Analítica base conectada al historial real de eventos por bahía.</p>
+  </div>
+</div>
+
+<div class="panel" *ngIf="rows.length; else empty">
+  <table>
+    <thead>
+      <tr>
+        <th>Backend</th>
+        <th>Modelo</th>
+        <th>Hora</th>
+        <th>Unidades</th>
+        <th>Eventos</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let row of rows">
+        <td>{{ row.backendKey }}</td>
+        <td>{{ row.model }}</td>
+        <td>{{ row.hourBucket | date:'short' }}</td>
+        <td>{{ row.units }}</td>
+        <td>{{ row.events }}</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<ng-template #empty>
+  <div class="empty-box">Aún no hay eventos capturados en Producción para construir la vista hora por hora.</div>
+</ng-template>

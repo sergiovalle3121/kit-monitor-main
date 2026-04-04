@@ -1,0 +1,7 @@
+.page-header h2 { margin: 0; }
+.page-subtitle { margin: 6px 0 16px; color: var(--gray-500); }
+.panel { background: rgba(255,255,255,.95); border: 1px solid var(--border-soft); border-radius: 18px; padding: 14px; }
+table { width: 100%; border-collapse: collapse; }
+th, td { padding: 10px 8px; border-bottom: 1px solid rgba(219,228,238,.6); text-align: left; }
+th { font-size: .78rem; text-transform: uppercase; letter-spacing: .03em; color: var(--gray-500); }
+.empty-box { padding: 18px; border-radius: 14px; border: 1px dashed rgba(148,163,184,.45); color: var(--gray-500); }

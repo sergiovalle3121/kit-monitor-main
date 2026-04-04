@@ -41,10 +41,36 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/production/production.component').then(m => m.ProductionComponent),
       },
+
+      {
+        path: 'production/hourly',
+        loadComponent: () =>
+          import('./features/production-hourly/production-hourly.component').then(m => m.ProductionHourlyComponent),
+      },
+      {
+        path: 'production/completed',
+        loadComponent: () =>
+          import('./features/production-completed/production-completed.component').then(m => m.ProductionCompletedComponent),
+      },
+      {
+        path: 'production/logistics',
+        loadComponent: () =>
+          import('./features/logistics-risk/logistics-risk.component').then(m => m.LogisticsRiskComponent),
+      },
       {
         path: 'monitor',
         loadComponent: () =>
           import('./features/monitor/monitor.component').then(m => m.MonitorComponent),
+      },
+      {
+        path: 'visual-aids',
+        loadComponent: () =>
+          import('./features/visual-aids/visual-aids.component').then(m => m.VisualAidsComponent),
+      },
+      {
+        path: 'disposition',
+        loadComponent: () =>
+          import('./features/disposition/disposition.component').then(m => m.DispositionComponent),
       },
     ],
   },
