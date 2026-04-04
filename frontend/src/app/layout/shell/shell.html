@@ -1,22 +1,28 @@
 <div class="layout" [class.collapsed]="collapsed">
   <aside class="sidebar">
     <div class="brand">
-      <span class="brand-full">Kit Monitor</span>
-      <span class="brand-short">KM</span>
+      <div class="brand-mark" aria-hidden="true">KM</div>
+      <div class="brand-text nav-full">
+        <strong>Kit Monitor</strong>
+        <span>Industrial Control</span>
+      </div>
       <button class="toggle-btn" (click)="toggle()" [attr.aria-label]="collapsed ? 'Expandir' : 'Colapsar'">
         <span class="chevron">{{ collapsed ? '&#9654;' : '&#9664;' }}</span>
       </button>
     </div>
     <nav>
-      <!-- Dashboard -->
-      <a routerLink="/monitor" routerLinkActive="active" class="nav-dashboard">
-        <span class="nav-full">Monitor</span><span class="nav-short">MN</span>
+      <a routerLink="/monitor" routerLinkActive="active" class="nav-item nav-dashboard">
+        <span class="nav-icon" aria-hidden="true">◴</span>
+        <span class="nav-full">Monitor</span>
+        <span class="nav-short">MN</span>
       </a>
-
-      <!-- Planeación -->
       <div class="nav-group" [class.open]="openSection === 'plan'">
         <button class="nav-group-header" (click)="toggleSection('plan')">
-          <span class="nav-full">Planeacion</span><span class="nav-short">PL</span>
+          <span class="nav-group-label">
+            <span class="nav-icon" aria-hidden="true">▣</span>
+            <span class="nav-full">Planeacion</span>
+            <span class="nav-short">PL</span>
+          </span>
           <span class="nav-full group-arrow">{{ openSection === 'plan' ? '&#9650;' : '&#9660;' }}</span>
         </button>
         <div class="nav-group-items">
@@ -24,11 +30,13 @@
           <a routerLink="/forecast" routerLinkActive="active">Pronostico</a>
         </div>
       </div>
-
-      <!-- IC — Control de Inventarios -->
       <div class="nav-group" [class.open]="openSection === 'ic'">
         <button class="nav-group-header" (click)="toggleSection('ic')">
-          <span class="nav-full">IC</span><span class="nav-short">IC</span>
+          <span class="nav-group-label">
+            <span class="nav-icon" aria-hidden="true">◫</span>
+            <span class="nav-full">IC</span>
+            <span class="nav-short">IC</span>
+          </span>
           <span class="nav-full group-arrow">{{ openSection === 'ic' ? '&#9650;' : '&#9660;' }}</span>
         </button>
         <div class="nav-group-items">
@@ -37,11 +45,13 @@
           <a routerLink="/conteos" routerLinkActive="active">Conteos</a>
         </div>
       </div>
-
-      <!-- IE — Ingeniería Industrial -->
       <div class="nav-group" [class.open]="openSection === 'ie'">
         <button class="nav-group-header" (click)="toggleSection('ie')">
-          <span class="nav-full">IE</span><span class="nav-short">IE</span>
+          <span class="nav-group-label">
+            <span class="nav-icon" aria-hidden="true">◭</span>
+            <span class="nav-full">IE</span>
+            <span class="nav-short">IE</span>
+          </span>
           <span class="nav-full group-arrow">{{ openSection === 'ie' ? '&#9650;' : '&#9660;' }}</span>
         </button>
         <div class="nav-group-items">
@@ -49,11 +59,13 @@
           <a class="disabled">Disposicion</a>
         </div>
       </div>
-
-      <!-- Producción -->
       <div class="nav-group" [class.open]="openSection === 'prod'">
         <button class="nav-group-header" (click)="toggleSection('prod')">
-          <span class="nav-full">Produccion</span><span class="nav-short">PR</span>
+          <span class="nav-group-label">
+            <span class="nav-icon" aria-hidden="true">◪</span>
+            <span class="nav-full">Produccion</span>
+            <span class="nav-short">PR</span>
+          </span>
           <span class="nav-full group-arrow">{{ openSection === 'prod' ? '&#9650;' : '&#9660;' }}</span>
         </button>
         <div class="nav-group-items">
@@ -63,9 +75,33 @@
         </div>
       </div>
     </nav>
-    <button class="logout" (click)="logout()"><span class="nav-full">Cerrar sesion</span><span class="nav-short">X</span></button>
+    <button class="logout" (click)="logout()">
+      <span class="nav-icon" aria-hidden="true">⏻</span>
+      <span class="nav-full">Cerrar sesion</span>
+      <span class="nav-short">X</span>
+    </button>
   </aside>
-  <main class="content">
-    <router-outlet></router-outlet>
-  </main>
+  <div class="shell-main">
+    <header class="topbar">
+      <button class="menu-trigger" (click)="toggle()" aria-label="Alternar menu">☰</button>
+      <label class="search" aria-label="Buscar modulo">
+        <span class="search-icon" aria-hidden="true">⌕</span>
+        <input type="search" placeholder="Buscar modulo, kit o material" />
+      </label>
+      <div class="topbar-actions">
+        <button class="icon-btn" aria-label="Notificaciones">
+          <span aria-hidden="true">🔔</span>
+          <span class="notif-dot"></span>
+        </button>
+        <button class="icon-btn" aria-label="Perfil de usuario">
+          <span aria-hidden="true">👤</span>
+        </button>
+      </div>
+    </header>
+    <main class="content">
+      <section class="content-frame">
+        <router-outlet></router-outlet>
+      </section>
+    </main>
+  </div>
 </div>
