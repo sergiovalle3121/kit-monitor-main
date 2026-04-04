@@ -7,95 +7,102 @@
         <span>Industrial Control</span>
       </div>
       <button class="toggle-btn" (click)="toggle()" [attr.aria-label]="collapsed ? 'Expandir' : 'Colapsar'">
-        <span class="chevron">{{ collapsed ? '›' : '‹' }}</span>
+        <span class="chevron"><i class="fas fa-chevron-left" *ngIf="!collapsed; else expandIcon"></i></span>
+        <ng-template #expandIcon><i class="fas fa-chevron-right"></i></ng-template>
       </button>
     </div>
 
     <nav>
-      <a routerLink="/monitor" routerLinkActive="active" class="nav-item nav-dashboard">
-        <span class="nav-icon" aria-hidden="true">◴</span>
+      <a routerLink="/monitor" routerLinkActive="active" class="nav-item">
+        <i class="fas fa-chart-line nav-icon"></i>
         <span class="nav-full">Monitor</span>
         <span class="nav-short">MN</span>
       </a>
+
       <div class="nav-group" [class.open]="openSection === 'plan'">
         <button class="nav-group-header" (click)="toggleSection('plan')">
           <span class="nav-group-label">
-            <span class="nav-icon" aria-hidden="true">▣</span>
+            <i class="fas fa-calendar-alt nav-icon"></i>
             <span class="nav-full">Planeacion</span>
             <span class="nav-short">PL</span>
           </span>
-          <span class="nav-full group-arrow">{{ openSection === 'plan' ? '▲' : '▼' }}</span>
+          <span class="nav-full group-arrow"><i class="fas fa-chevron-down"></i></span>
         </button>
         <div class="nav-group-items">
-          <a routerLink="/plan" routerLinkActive="active">Publicacion</a>
-          <a routerLink="/forecast" routerLinkActive="active">Pronostico</a>
+          <a routerLink="/plan" routerLinkActive="active"><i class="fas fa-bullhorn"></i> Publicacion</a>
+          <a routerLink="/forecast" routerLinkActive="active"><i class="fas fa-chart-simple"></i> Pronostico</a>
         </div>
       </div>
+
       <div class="nav-group" [class.open]="openSection === 'ic'">
         <button class="nav-group-header" (click)="toggleSection('ic')">
           <span class="nav-group-label">
-            <span class="nav-icon" aria-hidden="true">◫</span>
+            <i class="fas fa-microchip nav-icon"></i>
             <span class="nav-full">IC</span>
             <span class="nav-short">IC</span>
           </span>
-          <span class="nav-full group-arrow">{{ openSection === 'ic' ? '▲' : '▼' }}</span>
+          <span class="nav-full group-arrow"><i class="fas fa-chevron-down"></i></span>
         </button>
         <div class="nav-group-items">
-          <a routerLink="/bom" routerLinkActive="active">BOM</a>
-          <a routerLink="/kits" routerLinkActive="active">Kits</a>
-          <a routerLink="/conteos" routerLinkActive="active">Conteos</a>
+          <a routerLink="/bom" routerLinkActive="active"><i class="fas fa-cubes"></i> BOM</a>
+          <a routerLink="/kits" routerLinkActive="active"><i class="fas fa-boxes"></i> Kits</a>
+          <a routerLink="/conteos" routerLinkActive="active"><i class="fas fa-clipboard-list"></i> Conteos</a>
         </div>
       </div>
+
       <div class="nav-group" [class.open]="openSection === 'ie'">
         <button class="nav-group-header" (click)="toggleSection('ie')">
           <span class="nav-group-label">
-            <span class="nav-icon" aria-hidden="true">◭</span>
+            <i class="fas fa-chalkboard-user nav-icon"></i>
             <span class="nav-full">IE</span>
             <span class="nav-short">IE</span>
           </span>
-          <span class="nav-full group-arrow">{{ openSection === 'ie' ? '▲' : '▼' }}</span>
+          <span class="nav-full group-arrow"><i class="fas fa-chevron-down"></i></span>
         </button>
         <div class="nav-group-items">
-          <a class="disabled">Ayudas visuales</a>
-          <a class="disabled">Disposicion</a>
+          <a class="disabled"><i class="fas fa-eye"></i> Ayudas visuales</a>
+          <a class="disabled"><i class="fas fa-vector-square"></i> Disposicion</a>
         </div>
       </div>
+
       <div class="nav-group" [class.open]="openSection === 'prod'">
         <button class="nav-group-header" (click)="toggleSection('prod')">
           <span class="nav-group-label">
-            <span class="nav-icon" aria-hidden="true">◪</span>
+            <i class="fas fa-industry nav-icon"></i>
             <span class="nav-full">Produccion</span>
             <span class="nav-short">PR</span>
           </span>
-          <span class="nav-full group-arrow">{{ openSection === 'prod' ? '▲' : '▼' }}</span>
+          <span class="nav-full group-arrow"><i class="fas fa-chevron-down"></i></span>
         </button>
         <div class="nav-group-items">
-          <a routerLink="/production" routerLinkActive="active">Solicitar kit</a>
-          <a class="disabled">Hora por hora</a>
-          <a class="disabled">Kit terminado</a>
+          <a routerLink="/production" routerLinkActive="active"><i class="fas fa-tools"></i> Solicitar kit</a>
+          <a class="disabled"><i class="fas fa-clock"></i> Hora por hora</a>
+          <a class="disabled"><i class="fas fa-check-circle"></i> Kit terminado</a>
         </div>
       </div>
     </nav>
+
     <button class="logout" (click)="logout()">
-      <span class="nav-icon" aria-hidden="true">⏻</span>
+      <i class="fas fa-sign-out-alt nav-icon"></i>
       <span class="nav-full">Cerrar sesion</span>
       <span class="nav-short">X</span>
     </button>
   </aside>
+
   <div class="shell-main">
     <header class="topbar">
-      <button class="menu-trigger" (click)="toggle()" aria-label="Alternar menu">☰</button>
+      <button class="menu-trigger" (click)="toggle()" aria-label="Alternar menu"><i class="fas fa-bars"></i></button>
       <label class="search" aria-label="Buscar modulo">
-        <span class="search-icon" aria-hidden="true">🔍</span>
+        <i class="fas fa-search search-icon"></i>
         <input type="search" placeholder="Buscar modulo, kit o material" />
       </label>
       <div class="topbar-actions">
         <button class="icon-btn" aria-label="Notificaciones">
-          <span aria-hidden="true">🔔</span>
+          <i class="far fa-bell"></i>
           <span class="notif-dot"></span>
         </button>
         <button class="icon-btn" aria-label="Perfil de usuario">
-          <span aria-hidden="true">👤</span>
+          <i class="far fa-user-circle"></i>
         </button>
       </div>
     </header>
