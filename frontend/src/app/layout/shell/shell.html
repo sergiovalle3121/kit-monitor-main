@@ -4,11 +4,10 @@
       <div class="brand-mark" aria-hidden="true">KM</div>
       <div class="brand-text nav-full">
         <strong>Kit Monitor</strong>
-        <span>Industrial Control</span>
+        <!-- Eliminado "Industrial Control" -->
       </div>
       <button class="toggle-btn" (click)="toggle()" [attr.aria-label]="collapsed ? 'Expandir' : 'Colapsar'">
-        <span class="chevron"><i class="fas fa-chevron-left" *ngIf="!collapsed; else expandIcon"></i></span>
-        <ng-template #expandIcon><i class="fas fa-chevron-right"></i></ng-template>
+        <i class="fas" [class.fa-chevron-left]="!collapsed" [class.fa-chevron-right]="collapsed"></i>
       </button>
     </div>
 
