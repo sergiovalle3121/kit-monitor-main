@@ -326,28 +326,15 @@ export class ProductionComponent implements OnInit {
     this.requestResupply(station, partNumber, description);
   }
 
-  toggleStation(backen: number): void {
+  toggleStationPanel(backen: number): void {
     this.expandedByBacken[backen] = !this.expandedByBacken[backen];
   }
 
-  isExpanded(backen: number): boolean {
+  isStationExpanded(backen: number): boolean {
     return this.expandedByBacken[backen] ?? true;
   }
 
-  openVisualAid(station: ProductionStationView): void {
-    if (!station.visualAid) return;
-    window.open(station.visualAid.pdfUrl, '_blank', 'noopener');
-  }
-
-  toggleStation(backen: number): void {
-    this.expandedByBacken[backen] = !this.expandedByBacken[backen];
-  }
-
-  isExpanded(backen: number): boolean {
-    return this.expandedByBacken[backen] ?? true;
-  }
-
-  openVisualAid(station: ProductionStationView): void {
+  openStationVisualAid(station: ProductionStationView): void {
     if (!station.visualAid) return;
     window.open(station.visualAid.pdfUrl, '_blank', 'noopener');
   }

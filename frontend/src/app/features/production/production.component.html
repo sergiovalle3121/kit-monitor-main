@@ -34,21 +34,21 @@
         <span class="progress-pill" *ngIf="station.kit">{{ station.progressPct }}%</span>
         <span class="quick-chip" *ngIf="station.visualAid">AV</span>
         <span class="quick-chip warn" *ngIf="station.hasOpenException">INC</span>
-        <button class="btn-collapse" (click)="toggleStation(station.backen)">
-          {{ isExpanded(station.backen) ? 'Colapsar' : 'Expandir' }}
+        <button class="btn-collapse" (click)="toggleStationPanel(station.backen)">
+          {{ isStationExpanded(station.backen) ? 'Colapsar' : 'Expandir' }}
         </button>
       </div>
     </div>
 
     <ng-container *ngIf="station.kit; else emptyStation">
-      <div class="action-strip info compact" *ngIf="!isExpanded(station.backen)">
+      <div class="action-strip info compact" *ngIf="!isStationExpanded(station.backen)">
         <div class="action-caption">
           {{ station.backendKey }} · {{ station.model }} · {{ statusLabel(station.status) }} · {{ station.progressPct }}% ·
           {{ station.openResupplies.length }} pedidos
         </div>
       </div>
 
-      <ng-container *ngIf="isExpanded(station.backen)">
+      <ng-container *ngIf="isStationExpanded(station.backen)">
         <div class="progress-block">
           <div class="progress-track">
             <div class="progress-fill" [style.width.%]="station.progressPct"></div>
@@ -65,7 +65,7 @@
           <button class="btn-capture" *ngIf="canStartAssembly(station)" (click)="startAssembly(station)" [disabled]="updatingStatusKitId === station.kit.id">
             {{ updatingStatusKitId === station.kit.id ? 'Procesando...' : 'Iniciar ensamblado' }}
           </button>
-          <button class="btn-request" *ngIf="station.visualAid" (click)="openVisualAid(station)">Abrir ayuda visual</button>
+          <button class="btn-request" *ngIf="station.visualAid" (click)="openStationVisualAid(station)">Abrir ayuda visual</button>
         </div>
 
         <p class="error" *ngIf="requestError[station.kit.id]">{{ requestError[station.kit.id] }}</p>
