@@ -1,0 +1,132 @@
+import { CommonModule } from '@angular/common';
+import { Component, OnInit } from '@angular/core';
+import { FormsModule } from '@angular/forms';
+import { VisualAid } from '../../core/ie-data.models';
+import { VisualAidsService } from '../../core/visual-aids.service';
+
+@Component({
+  selector: 'app-visual-aids',
+  standalone: true,
+  imports: [CommonModule, FormsModule],
+  templateUrl: './visual-aids.component.html',
+  styleUrl: './visual-aids.component.css',
+})
+export class VisualAidsComponent implements OnInit {
+  aids: VisualAid[] = [];
+  filtered: VisualAid[] = [];
+  query = '';
+  modelFilter = '';
+  processFilter = '';
+  activeFilter: 'all' | 'active' | 'inactive' = 'all';
+
+  showForm = false;
+  formError: string | null = null;
+  fileName = '';
+
+  viewer: VisualAid | null = null;
+
+  form = {
+    model: '',
+    title: '',
+    process: '',
+    area: '',
+    revision: '',
+    pdfUrl: '',
+    isActive: true,
+    notes: '',
+  };
+
+  constructor(private readonly visualAids: VisualAidsService) {}
+
+  ngOnInit(): void {
+    this.visualAids.getVisualAids().subscribe((items) => {
+      this.aids = items;
+      this.applyFilters();
+    });
+  }
+
+  applyFilters(): void {
+    const q = this.query.trim().toLowerCase();
+    this.filtered = this.aids.filter((item) => {
+      if (this.modelFilter && item.model !== this.modelFilter) return false;
+      if (this.processFilter && item.process !== this.processFilter) return false;
+      if (this.activeFilter === 'active' && !item.isActive) return false;
+      if (this.activeFilter === 'inactive' && item.isActive) return false;
+      if (!q) return true;
+      return [item.model, item.title, item.process].some((value) => value.toLowerCase().includes(q));
+    });
+  }
+
+  models(): string[] {
+    return [...new Set(this.aids.map(item => item.model))].sort();
+  }
+
+  processes(): string[] {
+    return [...new Set(this.aids.map(item => item.process))].sort();
+  }
+
+  onPdfSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+
+    if (file.type !== 'application/pdf') {
+      this.formError = 'Solo se permite PDF.';
+      input.value = '';
+      return;
+    }
+
+    if (file.size > 12 * 1024 * 1024) {
+      this.formError = 'PDF supera 12MB.';
+      input.value = '';
+      return;
+    }
+
+    this.formError = null;
+    this.fileName = file.name;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      this.form.pdfUrl = typeof reader.result === 'string' ? reader.result : '';
+    };
+    reader.readAsDataURL(file);
+  }
+
+  save(): void {
+    if (!this.form.model || !this.form.title || !this.form.process || !this.form.pdfUrl) {
+      this.formError = 'Modelo, título, proceso y PDF son obligatorios.';
+      return;
+    }
+
+    this.visualAids.createVisualAid({
+      ...this.form,
+      uploadedBy: 'IE',
+    });
+
+    this.showForm = false;
+    this.fileName = '';
+    this.formError = null;
+    this.form = {
+      model: '',
+      title: '',
+      process: '',
+      area: '',
+      revision: '',
+      pdfUrl: '',
+      isActive: true,
+      notes: '',
+    };
+  }
+
+  toggleActive(item: VisualAid): void {
+    this.visualAids.updateVisualAid(item.id, { isActive: !item.isActive });
+  }
+
+  openViewer(item: VisualAid): void {
+    this.viewer = item;
+  }
+
+  openInNewTab(item: VisualAid): void {
+    window.open(item.pdfUrl, '_blank', 'noopener');
+  }
+}

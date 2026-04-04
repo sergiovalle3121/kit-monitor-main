@@ -1,0 +1,54 @@
+<div class="page-header">
+  <div>
+    <h2>Disposición de bahías</h2>
+    <p class="page-subtitle">IE asigna NP por bahía y mini-MOST sugiere ubicación por modelo.</p>
+  </div>
+</div>
+
+<div class="toolbar">
+  <select [(ngModel)]="modelFilter" (ngModelChange)="refresh()">
+    <option>OP-320-0107B</option>
+  </select>
+</div>
+
+<div class="panel">
+  <h3>Agregar NP a bahía</h3>
+  <div class="grid">
+    <input [(ngModel)]="form.model" placeholder="Modelo" />
+    <input [(ngModel)]="form.partNumber" placeholder="NP" />
+    <input [(ngModel)]="form.description" placeholder="Descripción" />
+    <input type="number" min="1" max="6" [(ngModel)]="form.bayId" placeholder="Bahía" />
+    <input type="number" min="1" max="5" [(ngModel)]="form.usageFrequency" placeholder="Frecuencia" />
+    <input type="number" min="1" max="5" [(ngModel)]="form.picksPerCycle" placeholder="Picks/ciclo" />
+    <input type="number" min="1" max="5" [(ngModel)]="form.handlingDifficulty" placeholder="Manipulación" />
+    <input type="number" min="1" max="5" [(ngModel)]="form.weightCategory" placeholder="Peso/volumen" />
+    <input type="number" min="1" max="5" [(ngModel)]="form.distanceCategory" placeholder="Distancia" />
+    <input type="number" min="1" max="5" [(ngModel)]="form.criticality" placeholder="Criticidad" />
+    <textarea [(ngModel)]="form.notes" placeholder="Notas"></textarea>
+  </div>
+  <button class="btn-primary" (click)="save()">Guardar disposición</button>
+</div>
+
+<div class="bay-grid">
+  <article class="bay-card" *ngFor="let bay of bays()">
+    <header>
+      <strong>Bahía {{ bay.bay }}</strong>
+      <span class="score">Score mini-MOST: {{ bay.score || '-' }}</span>
+    </header>
+
+    <div class="row" *ngFor="let item of bay.items">
+      <div>
+        <code>{{ item.partNumber }}</code>
+        <p>{{ item.description || 'Sin descripción' }}</p>
+      </div>
+      <div class="right">
+        <span class="chip" [class.warn]="item.recommendation === 'Reubicar' || item.recommendation === 'Revisar'">
+          {{ item.recommendation }}
+        </span>
+        <button class="btn-light" (click)="remove(item.id)">Quitar</button>
+      </div>
+    </div>
+
+    <p class="empty" *ngIf="!bay.items.length">Sin NP asignados.</p>
+  </article>
+</div>
