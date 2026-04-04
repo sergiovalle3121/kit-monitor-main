@@ -164,6 +164,35 @@ export class ApiService {
     return this.get<any[]>('production/logistics/shortage-risk');
   }
 
+
+  createForecastRun(dto: any): Observable<any> {
+    return this.post<any>('decision-intelligence/forecast-runs', dto);
+  }
+
+  getForecastRuns(): Observable<any[]> {
+    return this.get<any[]>('decision-intelligence/forecast-runs');
+  }
+
+  createPlanScenario(dto: any): Observable<any> {
+    return this.post<any>('decision-intelligence/plan-scenarios', dto);
+  }
+
+  getPlanScenarios(): Observable<any[]> {
+    return this.get<any[]>('decision-intelligence/plan-scenarios');
+  }
+
+  publishPlan(dto: any): Observable<any> {
+    return this.post<any>('decision-intelligence/plan-publications', dto);
+  }
+
+  getPlanPublications(): Observable<any[]> {
+    return this.get<any[]>('decision-intelligence/plan-publications');
+  }
+
+  getDecisionLogisticsPriority(runId?: number): Observable<any> {
+    return this.get<any>('decision-intelligence/logistics-priority', runId ? { runId } : undefined);
+  }
+
   getExceptions(kitId: number): Observable<any[]> {
     return this.get<any[]>('exceptions', { kitId });
   }

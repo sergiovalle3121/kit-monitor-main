@@ -14,6 +14,7 @@ import { AdvancesModule } from "./modules/advances/advances.module";
 import { ResuppliesModule } from "./modules/resupplies/resupplies.module";
 import { ExceptionsModule } from "./modules/exceptions/exceptions.module";
 import { ProductionRuntimeModule } from "./modules/production-runtime/production-runtime.module";
+import { DecisionIntelligenceModule } from "./modules/decision-intelligence/decision-intelligence.module";
 
 // TypeOrmModule always loads: uses SQLite (dev.sqlite) when no PG env vars,
 // PostgreSQL when DATABASE_URL or DB_HOST is set. See orm.options.ts.
@@ -31,6 +32,7 @@ import { ProductionRuntimeModule } from "./modules/production-runtime/production
     ResuppliesModule,
     ExceptionsModule,
     ProductionRuntimeModule,
+    DecisionIntelligenceModule,
   ],
   controllers: [HealthController],
   providers: [],
