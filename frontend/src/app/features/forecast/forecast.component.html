@@ -592,6 +592,7 @@
 
         <div class="action-row">
           <button type="button" class="primary-btn" (click)="runOperationalPlanning(true)">Recalcular operacion</button>
+          <button type="button" class="ghost-btn" (click)="publishLatestPlan()" [disabled]="!latestScenarioId">Publicar plan</button>
         </div>
 
         @if (operationState.warnings.length) {
@@ -719,6 +720,40 @@
       </div>
 
       <p class="final-recommendation">{{ recommendationText }}</p>
+
+      @if (planConfidenceScore != null) {
+        <div class="pill-grid">
+          <span class="badge subtle">Plan confidence score: {{ planConfidenceScore }}</span>
+          <span class="badge subtle">Probabilidad estimada: {{ percentLabel(planProbability) }}</span>
+          <span class="badge subtle">Run ID: {{ latestRunId || '-' }}</span>
+          <span class="badge subtle">Scenario ID: {{ latestScenarioId || '-' }}</span>
+        </div>
+      }
+
+      @if (logisticsPriorityTop.length) {
+        <div class="table-wrap compact">
+          <table>
+            <thead>
+              <tr>
+                <th>NP</th>
+                <th>Severidad</th>
+                <th>Priority</th>
+                <th>Recomendación</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (item of logisticsPriorityTop; track item.partNumber) {
+                <tr>
+                  <td class="emphasis">{{ item.partNumber }}</td>
+                  <td>{{ item.severity }}</td>
+                  <td class="num">{{ item.priorityScore }}</td>
+                  <td>{{ item.recommendation }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
 
       <div class="top-three">
         @for (decision of topOperationalDecisions; track decision.key) {
