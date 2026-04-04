@@ -258,6 +258,7 @@ export class BomComponent implements OnInit, OnDestroy {
   }
 
   openViewer(group: BomModelGroup, item: BomItemView): void {
+    if (group.model.trim().toUpperCase() !== DEMO_MODEL) return;
     const visualItems = group.materials.filter(material => !!material.imageUrl);
     if (!visualItems.length || !item.imageUrl) return;
 
@@ -324,10 +325,16 @@ export class BomComponent implements OnInit, OnDestroy {
   private decorateWithVisuals(item: BomItemView): BomItemView {
     const normalizedModel = item.model?.trim().toUpperCase();
     const normalizedPart = item.partNumber?.trim().toUpperCase();
+    if (normalizedModel !== DEMO_MODEL) {
+      return {
+        ...item,
+        imageUrl: null,
+        hasImage: false,
+      };
+    }
+
     const mappedImage =
-      normalizedModel === DEMO_MODEL
-        ? DEMO_IMAGE_MAP[normalizedPart] ?? null
-        : null;
+      DEMO_IMAGE_MAP[normalizedPart] ?? null;
 
     const imageUrl = item.imageUrl?.trim() || mappedImage || null;
 

@@ -1,5 +1,15 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, HostListener, Input, Output } from '@angular/core';
+import {
+  Component,
+  ElementRef,
+  EventEmitter,
+  HostListener,
+  Input,
+  OnChanges,
+  Output,
+  SimpleChanges,
+  ViewChild,
+} from '@angular/core';
 
 export interface BomVisualItem {
   partNumber: string;
@@ -16,7 +26,8 @@ export interface BomVisualItem {
   templateUrl: './material-image-viewer.component.html',
   styleUrls: ['./material-image-viewer.component.css'],
 })
-export class MaterialImageViewerComponent {
+export class MaterialImageViewerComponent implements OnChanges {
+  @ViewChild('dialogRef') dialogRef?: ElementRef<HTMLDialogElement>;
   @Input() open = false;
   @Input() model = '';
   @Input() items: BomVisualItem[] = [];
@@ -24,6 +35,21 @@ export class MaterialImageViewerComponent {
 
   @Output() closed = new EventEmitter<void>();
   @Output() indexChanged = new EventEmitter<number>();
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if (!changes['open']) return;
+    const dialog = this.dialogRef?.nativeElement;
+    if (!dialog) return;
+
+    if (this.open && !dialog.open) {
+      dialog.showModal();
+      return;
+    }
+
+    if (!this.open && dialog.open) {
+      dialog.close();
+    }
+  }
 
   get safeItems(): BomVisualItem[] {
     return this.items.filter(item => !!item.imageUrl);
@@ -42,7 +68,15 @@ export class MaterialImageViewerComponent {
   }
 
   close(): void {
+    const dialog = this.dialogRef?.nativeElement;
+    if (dialog?.open) dialog.close();
     this.closed.emit();
+  }
+
+  onDialogClick(event: MouseEvent): void {
+    if (event.target === this.dialogRef?.nativeElement) {
+      this.close();
+    }
   }
 
   previous(): void {

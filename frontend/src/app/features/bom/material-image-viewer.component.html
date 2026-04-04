@@ -1,4 +1,4 @@
-<div class="viewer-backdrop" *ngIf="open" (click)="close()">
+<dialog #dialogRef class="viewer-dialog" [class.open]="open" *ngIf="open" (cancel)="close()" (click)="onDialogClick($event)">
   <section class="viewer-modal" (click)="$event.stopPropagation()">
     <header class="viewer-header">
       <div>
@@ -35,4 +35,4 @@
       </button>
     </div>
   </section>
-</div>
+</dialog>
