@@ -1,5 +1,17 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, HostListener, Input, Output } from '@angular/core';
+import { DOCUMENT } from '@angular/common';
+import {
+  Component,
+  ElementRef,
+  EventEmitter,
+  HostListener,
+  Inject,
+  Input,
+  OnDestroy,
+  OnInit,
+  Output,
+  Renderer2,
+} from '@angular/core';
 
 export interface BomVisualItem {
   partNumber: string;
@@ -16,7 +28,7 @@ export interface BomVisualItem {
   templateUrl: './material-image-viewer.component.html',
   styleUrls: ['./material-image-viewer.component.css'],
 })
-export class MaterialImageViewerComponent {
+export class MaterialImageViewerComponent implements OnInit, OnDestroy {
   @Input() open = false;
   @Input() model = '';
   @Input() items: BomVisualItem[] = [];
@@ -24,6 +36,23 @@ export class MaterialImageViewerComponent {
 
   @Output() closed = new EventEmitter<void>();
   @Output() indexChanged = new EventEmitter<number>();
+
+  constructor(
+    private readonly host: ElementRef<HTMLElement>,
+    private readonly renderer: Renderer2,
+    @Inject(DOCUMENT) private readonly document: Document,
+  ) {}
+
+  ngOnInit(): void {
+    this.renderer.appendChild(this.document.body, this.host.nativeElement);
+  }
+
+  ngOnDestroy(): void {
+    const parent = this.host.nativeElement.parentNode;
+    if (parent) {
+      this.renderer.removeChild(parent, this.host.nativeElement);
+    }
+  }
 
   get safeItems(): BomVisualItem[] {
     return this.items.filter(item => !!item.imageUrl);
