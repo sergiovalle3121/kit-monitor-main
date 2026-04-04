@@ -106,6 +106,15 @@
   gap: 10px;
 }
 
+.btn-collapse {
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--gray-700);
+  border-radius: 11px;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
 .status-badge {
   display: inline-flex;
   align-items: center;
@@ -189,6 +198,10 @@
 .action-strip.info {
   background: rgba(249, 250, 251, 0.96);
   border-color: rgba(203, 213, 225, 0.8);
+}
+
+.action-strip.compact {
+  margin-top: 12px;
 }
 
 .action-title {
@@ -535,4 +548,80 @@ code {
     flex-direction: column;
     align-items: stretch;
   }
+}
+
+.quick-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 30px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  background: rgba(14, 165, 233, 0.14);
+  color: #0369a1;
+}
+
+.quick-chip.warn {
+  background: rgba(239, 68, 68, 0.12);
+  color: #b91c1c;
+}
+
+.action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 16px 22px 0;
+}
+
+.bay-stats {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.78rem;
+  color: var(--gray-500);
+  margin-bottom: 10px;
+}
+
+.risk.warn {
+  color: #b45309;
+}
+
+.consumption-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+.metric-card {
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid rgba(219, 228, 238, 0.88);
+  border-radius: 14px;
+  padding: 12px;
+}
+
+.metric-card small {
+  display: block;
+  color: var(--gray-500);
+  margin-bottom: 6px;
+}
+
+.metric-card strong {
+  font-size: 1.2rem;
+  color: var(--gray-900);
+}
+
+.metric-card.top-parts div {
+  font-size: 0.82rem;
+  color: var(--gray-700);
+  margin-top: 4px;
+}
+
+.capture-form input {
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 10px;
+  padding: 8px 10px;
+  background: #fff;
+  min-width: 0;
 }

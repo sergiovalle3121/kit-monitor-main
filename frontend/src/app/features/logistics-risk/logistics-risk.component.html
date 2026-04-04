@@ -1,0 +1,20 @@
+<div class="page-header">
+  <div>
+    <h2>Logística en vivo</h2>
+    <p class="page-subtitle">Riesgo de faltante por backend y NP según ritmo reciente.</p>
+  </div>
+</div>
+
+<div class="grid" *ngIf="rows.length; else empty">
+  <article class="card" *ngFor="let row of rows">
+    <h3>{{ row.backend.backendCode }} · {{ row.backend.model }}</h3>
+    <p>Progreso: {{ row.backend.completedQty }} / {{ row.backend.targetQty }}</p>
+    <p>NP en riesgo: {{ row.risk.riskyCount }}</p>
+    <p *ngIf="row.risk.mostCritical">Crítico: B{{ row.risk.mostCritical.bayId }} · {{ row.risk.mostCritical.partNumber }}</p>
+    <p *ngIf="row.risk.mostCritical?.minutesToStockout !== null">Quiebre est.: {{ row.risk.mostCritical.minutesToStockout | number:'1.0-0' }} min</p>
+  </article>
+</div>
+
+<ng-template #empty>
+  <div class="empty-box">Sin riesgo activo por ahora.</div>
+</ng-template>
