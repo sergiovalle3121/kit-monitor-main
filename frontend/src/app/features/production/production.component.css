@@ -47,16 +47,43 @@
   gap: 18px;
 }
 
+.empty-state-premium {
+  position: relative;
+  overflow: hidden;
+  border-radius: 28px;
+  padding: 34px 28px;
+  background: linear-gradient(140deg, rgba(15, 23, 42, 0.96), rgba(30, 41, 59, 0.95));
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  color: #e2e8f0;
+}
+
+.empty-state-premium h3 {
+  margin: 0 0 10px;
+  font-size: 1.45rem;
+}
+
+.empty-state-premium p {
+  margin: 0;
+  max-width: 760px;
+  color: #cbd5e1;
+}
+
+.empty-orb {
+  position: absolute;
+  right: -64px;
+  top: -64px;
+  width: 220px;
+  height: 220px;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(14, 165, 233, 0.4), rgba(37, 99, 235, 0.05) 68%, transparent 70%);
+}
+
 .station-card {
   background: rgba(255, 255, 255, 0.96);
   border: 1px solid var(--border-soft);
   border-radius: 24px;
   box-shadow: var(--shadow-sm);
   overflow: hidden;
-}
-
-.station-card.empty {
-  background: rgba(248, 250, 252, 0.9);
 }
 
 .station-header {

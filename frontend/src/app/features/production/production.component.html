@@ -12,13 +12,22 @@
 <p *ngIf="loading" class="loading-text">Cargando estaciones...</p>
 <p *ngIf="error" class="error">{{ error }}</p>
 
-<div class="station-grid" *ngIf="!loading && !error">
-  <section class="station-card" *ngFor="let station of stations" [class.empty]="!station.kit">
+<section class="empty-state-premium" *ngIf="!loading && !error && !stations.length">
+  <div class="empty-orb"></div>
+  <h3>Sin backends reales en operación</h3>
+  <p>
+    Aún no hay kits activos nacidos del flujo <strong>planeación → publicación → kit → producción</strong>.
+    Cuando exista un backend real, aparecerá aquí automáticamente.
+  </p>
+</section>
+
+<div class="station-grid" *ngIf="!loading && !error && stations.length">
+  <section class="station-card" *ngFor="let station of stations">
     <div class="station-header">
       <div>
         <div class="station-label">{{ station.backendKey }}</div>
-        <div class="station-model">{{ station.model || 'Sin kit activo' }}</div>
-        <div class="station-meta" *ngIf="station.kit">
+        <div class="station-model">{{ station.model || 'Modelo no definido' }}</div>
+        <div class="station-meta">
           <span>{{ station.workOrder }}</span>
           <span class="meta-sep">|</span>
           <span>{{ station.shift }}</span>
@@ -31,7 +40,7 @@
         <span [class]="'status-badge badge-' + station.status">
           {{ statusLabel(station.status) }}
         </span>
-        <span class="progress-pill" *ngIf="station.kit">{{ station.progressPct }}%</span>
+        <span class="progress-pill">{{ station.progressPct }}%</span>
         <span class="quick-chip" *ngIf="station.visualAid">AV</span>
         <span class="quick-chip warn" *ngIf="station.hasOpenException">INC</span>
         <button class="btn-collapse" (click)="toggleStationPanel(station.backen)">
@@ -40,7 +49,6 @@
       </div>
     </div>
 
-    <ng-container *ngIf="station.kit; else emptyStation">
       <div class="action-strip info compact" *ngIf="!isStationExpanded(station.backen)">
         <div class="action-caption">
           {{ station.backendKey }} · {{ station.model }} · {{ statusLabel(station.status) }} · {{ station.progressPct }}% ·
@@ -74,11 +82,11 @@
           <div class="layout-area">
             <div class="section-header">
               <h3>Bahías en operación</h3>
-              <span class="section-meta">6 bahías</span>
+              <span class="section-meta">{{ bayIdsForStation(station).length }} bahías</span>
             </div>
 
-            <div class="bay-grid">
-              <article class="bay-card" *ngFor="let bayId of [1,2,3,4,5,6]">
+            <div class="bay-grid" *ngIf="bayIdsForStation(station).length; else noBaysConfigured">
+              <article class="bay-card" *ngFor="let bayId of bayIdsForStation(station)">
                 <div class="bay-header">
                   <strong>Bahía {{ bayId }}</strong>
                   <span class="risk" [class.warn]="bayLowStockCount(station, bayId)">
@@ -154,6 +162,9 @@
                 </div>
               </article>
             </div>
+            <ng-template #noBaysConfigured>
+              <div class="empty-box">Sin configuración de bahías/materiales para este backend.</div>
+            </ng-template>
 
             <div class="section-header"><h3>Consumo en vivo</h3></div>
             <div class="consumption-summary" *ngIf="station.snapshot as snap">
@@ -209,10 +220,5 @@
           </div>
         </div>
       </ng-container>
-    </ng-container>
-
-    <ng-template #emptyStation>
-      <div class="empty-box">Sin kit activo para esta estación.</div>
-    </ng-template>
   </section>
 </div>

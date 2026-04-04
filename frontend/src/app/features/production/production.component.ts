@@ -55,7 +55,6 @@ export class ProductionComponent implements OnInit {
   error: string | null = null;
 
   stations: ProductionStationView[] = [];
-  readonly backens = [1, 2, 3, 4, 5, 6, 7];
 
   updatingStatusKitId: number | null = null;
   requestError: Record<number, string> = {};
@@ -70,19 +69,6 @@ export class ProductionComponent implements OnInit {
   bayOperator: Record<string, string> = {};
   baySaving: Record<string, boolean> = {};
 
-  private readonly stationPriority: Record<string, number> = {
-    in_progress: 1,
-    delivered: 2,
-    received: 2,
-    sent: 2,
-    requested: 3,
-    ready: 4,
-    kitted: 5,
-    prepared: 5,
-    preparing: 6,
-    completed: 99,
-  };
-
   private readonly statusLabels: Record<string, string> = {
     preparing: 'Kit en preparación',
     prepared: 'Kit listo',
@@ -94,7 +80,6 @@ export class ProductionComponent implements OnInit {
     received: 'Recibido en línea',
     in_progress: 'En ensamblado',
     completed: 'Completado',
-    empty: 'Programado',
   };
 
   constructor(
@@ -111,37 +96,37 @@ export class ProductionComponent implements OnInit {
     this.loading = true;
     this.error = null;
 
-    this.api.getKits().pipe(
-      switchMap((kits) => {
-        const stationKits = this.selectStationKits(kits ?? []);
+    this.api.getProductionBackends().pipe(
+      switchMap((backends) => {
+        const realBackends = backends ?? [];
 
-        const advancesRequest = stationKits.length
-          ? forkJoin(stationKits.map((kit) => this.api.getAdvances(kit.id).pipe(map((advances) => ({ kitId: kit.id, advances: advances ?? [] })))))
+        const advancesRequest = realBackends.length
+          ? forkJoin(realBackends.map((backend) => this.api.getAdvances(backend.kitId).pipe(map((advances) => ({ kitId: backend.kitId, advances: advances ?? [] })))))
           : of([]);
 
-        const resuppliesRequest = stationKits.length
-          ? forkJoin(stationKits.map((kit) => this.api.getResupplies(kit.id).pipe(map((resupplies) => ({ kitId: kit.id, resupplies: resupplies ?? [] })))))
+        const resuppliesRequest = realBackends.length
+          ? forkJoin(realBackends.map((backend) => this.api.getResupplies(backend.kitId).pipe(map((resupplies) => ({ kitId: backend.kitId, resupplies: resupplies ?? [] })))))
           : of([]);
 
-        const runtimeRequest = stationKits.length
-          ? forkJoin(stationKits.map((kit) => forkJoin({
-              backend: this.api.getProductionBackend(kit.id),
-              events: this.api.getProductionEvents(kit.id),
-              materials: this.api.getProductionMaterials(kit.id),
-              risk: this.api.getProductionShortageRisk(kit.id),
-            }).pipe(map((payload) => ({ kitId: kit.id, ...payload })))))
+        const runtimeRequest = realBackends.length
+          ? forkJoin(realBackends.map((backend) => forkJoin({
+              backend: this.api.getProductionBackend(backend.kitId),
+              events: this.api.getProductionEvents(backend.kitId),
+              materials: this.api.getProductionMaterials(backend.kitId),
+              risk: this.api.getProductionShortageRisk(backend.kitId),
+            }).pipe(map((payload) => ({ kitId: backend.kitId, ...payload })))))
           : of([]);
 
         return forkJoin({
-          kits: of(kits ?? []),
+          backends: of(realBackends),
           advances: advancesRequest,
           resupplies: resuppliesRequest,
           runtime: runtimeRequest,
         });
       }),
     ).subscribe({
-      next: ({ kits, advances, resupplies, runtime }) => {
-        this.buildStations(kits, advances, resupplies, runtime as any[]);
+      next: ({ backends, advances, resupplies, runtime }) => {
+        this.buildStations(backends, advances, resupplies, runtime as any[]);
         this.loading = false;
       },
       error: () => {
@@ -238,6 +223,13 @@ export class ProductionComponent implements OnInit {
     return found?.timestamp ?? '';
   }
 
+  bayIdsForStation(station: ProductionStationView): number[] {
+    const ids = new Set<number>();
+    (station.snapshot?.bayMaterials ?? []).forEach((item) => ids.add(item.bayId));
+    (station.snapshot?.events ?? []).forEach((event) => ids.add(event.bayId));
+    return [...ids].sort((a, b) => a - b);
+  }
+
   bayLowStockCount(station: ProductionStationView, bayId: number): number {
     return this.materialsForBay(station, bayId).filter((item) => item.availableQty <= item.lowStockThreshold).length;
   }
@@ -294,68 +286,51 @@ export class ProductionComponent implements OnInit {
   }
 
   private buildStations(
-    kits: any[],
+    backends: any[],
     advances: Array<{ kitId: number; advances: any[] }>,
     resupplies: Array<{ kitId: number; resupplies: any[] }>,
     runtime: any[],
   ): void {
-    const selectedByBacken = new Map<number, any>(this.selectStationKits(kits).map((kit) => [kit.plan.backen, kit] as const));
     const advancesByKitId = new Map(advances.map((entry) => [entry.kitId, entry.advances]));
     const resuppliesByKitId = new Map(resupplies.map((entry) => [entry.kitId, entry.resupplies]));
     const runtimeByKitId = new Map(runtime.map((entry) => [entry.kitId, entry]));
 
-    this.stations = this.backens.map((backen) => {
-      const kit = selectedByBacken.get(backen);
-      const backendKey = `BK${backen}`;
-      if (!kit?.plan) {
-        return { backen, backendKey, kit: null, status: 'empty', model: null, workOrder: null, shift: null, quantity: 0, completed: 0, progressPct: 0, hasOpenException: false, recentAdvances: [], openResupplies: [], disposition: [], visualAid: null, snapshot: null };
-      }
+    this.stations = (backends ?? [])
+      .sort((a, b) => (a.backen ?? Number.MAX_SAFE_INTEGER) - (b.backen ?? Number.MAX_SAFE_INTEGER))
+      .map((backend) => {
+        const kitId = backend.kitId;
+        const backen = backend.backen;
+        const backendKey = backend.backendCode ?? `BK${backen ?? '-'}`;
 
-      const disposition = this.dispositionService.getDispositionByModel(kit.plan.model);
-      const visualAid = this.visualAids.getActiveVisualAidByModel(kit.plan.model);
-      const rt = runtimeByKitId.get(kit.id);
-      const snapshot: ProductionRuntimeSnapshot = {
-        backend: rt?.backend ?? null,
-        events: rt?.events ?? [],
-        bayMaterials: rt?.materials ?? [],
-        shortageRisk: rt?.risk,
-      };
+        const disposition = backend.model ? this.dispositionService.getDispositionByModel(backend.model) : [];
+        const visualAid = backend.model ? this.visualAids.getActiveVisualAidByModel(backend.model) : null;
+        const rt = runtimeByKitId.get(kitId);
+        const snapshot: ProductionRuntimeSnapshot = {
+          backend: rt?.backend ?? backend,
+          events: rt?.events ?? [],
+          bayMaterials: rt?.materials ?? [],
+          shortageRisk: rt?.risk,
+        };
 
-      const completed = Number(rt?.backend?.completedQty ?? kit.totalCompleted ?? 0);
-      return {
-        backen,
-        backendKey,
-        kit,
-        status: kit.status,
-        model: kit.plan.model,
-        workOrder: kit.plan.workOrder,
-        shift: kit.plan.shift,
-        quantity: kit.plan.quantity,
-        completed,
-        progressPct: kit.plan.quantity > 0 ? Math.min(100, Math.round((completed / kit.plan.quantity) * 100)) : 0,
-        hasOpenException: kit.hasOpenException ?? false,
-        recentAdvances: (advancesByKitId.get(kit.id) ?? []).slice(0, 6),
-        openResupplies: (resuppliesByKitId.get(kit.id) ?? []).filter((item: any) => item.status !== 'delivered'),
-        disposition,
-        visualAid,
-        snapshot,
-      };
-    });
-  }
-
-  private selectStationKits(kits: any[]): any[] {
-    return this.backens
-      .map((backen) => kits.filter((kit) => kit.plan?.backen === backen && kit.status !== 'completed').sort((left, right) => this.compareKits(left, right))[0])
-      .filter((kit): kit is any => !!kit);
-  }
-
-  private compareKits(left: any, right: any): number {
-    const statusDiff = this.priorityFor(left.status) - this.priorityFor(right.status);
-    if (statusDiff !== 0) return statusDiff;
-    return (left.id ?? 0) - (right.id ?? 0);
-  }
-
-  private priorityFor(status: string): number {
-    return this.stationPriority[status] ?? Number.MAX_SAFE_INTEGER;
+        const completed = Number(rt?.backend?.completedQty ?? backend.completedQty ?? 0);
+        return {
+          backen,
+          backendKey,
+          kit: { id: kitId },
+          status: backend.status,
+          model: backend.model,
+          workOrder: backend.workOrder,
+          shift: backend.shift,
+          quantity: backend.targetQty ?? 0,
+          completed,
+          progressPct: (backend.targetQty ?? 0) > 0 ? Math.min(100, Math.round((completed / backend.targetQty) * 100)) : 0,
+          hasOpenException: !!backend.hasIncident,
+          recentAdvances: (advancesByKitId.get(kitId) ?? []).slice(0, 6),
+          openResupplies: (resuppliesByKitId.get(kitId) ?? []).filter((item: any) => item.status !== 'delivered'),
+          disposition,
+          visualAid,
+          snapshot,
+        };
+      });
   }
 }

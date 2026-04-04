@@ -5,12 +5,7 @@ import { evaluateMiniMost } from './most-score.util';
 
 @Injectable({ providedIn: 'root' })
 export class DispositionService {
-  private readonly store = new BehaviorSubject<DispositionItem[]>([
-    this.createSeed('OP-320-0107B', 1, 'OP-520-0088', 'SCREW, PH, PHIL, SEMS, PLST, 4-40, 1/4', 5, 4, 2, 1, 1, 5),
-    this.createSeed('OP-320-0107B', 1, 'OP-520-0091', 'SCREW, FLAT HEAD, 4-40 X 3/16', 4, 3, 2, 1, 1, 4),
-    this.createSeed('OP-320-0107B', 2, 'OP-520-0097', 'WASHER, LOCK, FOR MOLEX BNC', 3, 2, 2, 1, 2, 3),
-    this.createSeed('OP-320-0107B', 2, 'OP-520-0098', 'NUT, JAM, FOR MOLEX BNC', 3, 2, 3, 1, 2, 4),
-  ]);
+  private readonly store = new BehaviorSubject<DispositionItem[]>([]);
 
   getDisposition(): Observable<DispositionItem[]> {
     return this.store.asObservable();
@@ -46,38 +41,5 @@ export class DispositionService {
 
   removeItem(id: string): void {
     this.store.next(this.store.value.filter(item => item.id !== id));
-  }
-
-  private createSeed(
-    model: string,
-    bayId: number,
-    partNumber: string,
-    description: string,
-    usageFrequency: number,
-    picksPerCycle: number,
-    handlingDifficulty: 1 | 2 | 3 | 4 | 5,
-    weightCategory: 1 | 2 | 3 | 4 | 5,
-    distanceCategory: 1 | 2 | 3 | 4 | 5,
-    criticality: 1 | 2 | 3 | 4 | 5,
-  ): DispositionItem {
-    const most = evaluateMiniMost({ usageFrequency, picksPerCycle, handlingDifficulty, weightCategory, distanceCategory, criticality });
-    return {
-      id: `seed-${model}-${bayId}-${partNumber}`,
-      model,
-      bayId,
-      partNumber,
-      description,
-      usageFrequency,
-      picksPerCycle,
-      handlingDifficulty,
-      weightCategory,
-      distanceCategory,
-      criticality,
-      notes: '',
-      mostScore: most.score,
-      recommendation: most.recommendation,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
   }
 }

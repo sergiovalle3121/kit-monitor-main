@@ -30,6 +30,24 @@
     </aside>
   </header>
 
+  <section class="executive-strip">
+    <article class="exec-card spotlight">
+      <small>Estado global del laboratorio</small>
+      <strong>{{ forecastState.title }}</strong>
+      <p>{{ forecastState.message }}</p>
+    </article>
+    <article class="exec-card">
+      <small>Series listas / total</small>
+      <strong>{{ readyForecastCount }} / {{ forecastResults.length || 0 }}</strong>
+      <p>Dominante actual: {{ bestMethodSummary?.label || 'Sin método líder' }}</p>
+    </article>
+    <article class="exec-card">
+      <small>Planeación conectada</small>
+      <strong>{{ latestRunId ? ('Run #' + latestRunId) : 'Sin persistir' }}</strong>
+      <p>{{ latestScenarioId ? ('Scenario #' + latestScenarioId) : 'Sin escenario aún' }}</p>
+    </article>
+  </section>
+
   <section class="mode-strip">
     <button type="button" class="mode-card" [class.active]="activeView === 'forecast'" (click)="setView('forecast')">
       <span>Forecast</span>
