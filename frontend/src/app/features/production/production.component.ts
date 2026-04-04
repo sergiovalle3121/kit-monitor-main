@@ -3,38 +3,15 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { forkJoin, map, of, switchMap } from 'rxjs';
 import { ApiService } from '../../core/api.service';
-
-interface ProductionCatalogItem {
-  partNumber: string;
-  description?: string | null;
-  location?: string | null;
-  usageFactor?: number | null;
-  unit?: string | null;
-}
-
-interface ProductionMaterialView {
-  id: number | null;
-  partNumber: string;
-  description: string;
-  location: string;
-  unit: string;
-  quantityRequired: number;
-  quantityConsumed: number;
-  quantityRemaining: number;
-  quantityResupplied: number;
-  usagePerUnit: number;
-  coverageUnits: number | null;
-  isLowCoverage: boolean;
-  isCriticalCoverage: boolean;
-}
-
-interface ProductionBayView {
-  bahia: number;
-  materials: ProductionMaterialView[];
-}
+import { DispositionItem, VisualAid } from '../../core/ie-data.models';
+import { DispositionService } from '../../core/disposition.service';
+import { VisualAidsService } from '../../core/visual-aids.service';
+import { BayMaterialState, ProductionRuntimeSnapshot } from '../../core/production-ops.models';
+import { ProductionOpsService } from '../../core/production-ops.service';
 
 interface ProductionStationView {
   backen: number;
+  backendKey: string;
   kit: any | null;
   status: string;
   model: string | null;
@@ -44,10 +21,11 @@ interface ProductionStationView {
   completed: number;
   progressPct: number;
   hasOpenException: boolean;
-  layoutBays: ProductionBayView[];
-  unassignedMaterials: ProductionMaterialView[];
   recentAdvances: any[];
   openResupplies: any[];
+  disposition: DispositionItem[];
+  visualAid: VisualAid | null;
+  snapshot: ProductionRuntimeSnapshot | null;
 }
 
 @Component({
@@ -64,17 +42,18 @@ export class ProductionComponent implements OnInit {
   stations: ProductionStationView[] = [];
   readonly backens = [1, 2, 3, 4, 5, 6, 7];
 
-  advanceQty: Record<number, number> = {};
-  advanceNotes: Record<number, string> = {};
-  advancingKitId: number | null = null;
-  advanceError: Record<number, string> = {};
-
   updatingStatusKitId: number | null = null;
   requestError: Record<number, string> = {};
 
   resupplyQty: Record<string, number | null> = {};
   requestingResupplyKey: string | null = null;
   resupplyError: Record<string, string> = {};
+  expandedByBacken: Record<number, boolean> = {};
+
+  bayQty: Record<string, number> = {};
+  bayNotes: Record<string, string> = {};
+  bayOperator: Record<string, string> = {};
+  baySaving: Record<string, boolean> = {};
 
   private readonly stationPriority: Record<string, number> = {
     in_progress: 1,
@@ -90,20 +69,25 @@ export class ProductionComponent implements OnInit {
   };
 
   private readonly statusLabels: Record<string, string> = {
-    preparing: 'Preparando',
-    prepared: 'Armado',
-    kitted: 'Armado',
-    ready: 'Listo',
-    requested: 'Solicitado',
-    delivered: 'Entregado',
-    sent: 'Enviado',
-    received: 'Recibido',
-    in_progress: 'En produccion',
+    preparing: 'Kit en preparación',
+    prepared: 'Kit listo',
+    kitted: 'Kit listo',
+    ready: 'Kit listo',
+    requested: 'Recibido en línea',
+    delivered: 'Recibido en línea',
+    sent: 'Recibido en línea',
+    received: 'Recibido en línea',
+    in_progress: 'En ensamblado',
     completed: 'Completado',
-    empty: 'Sin kit',
+    empty: 'Programado',
   };
 
-  constructor(private api: ApiService) {}
+  constructor(
+    private api: ApiService,
+    private readonly visualAids: VisualAidsService,
+    private readonly dispositionService: DispositionService,
+    private readonly productionOps: ProductionOpsService,
+  ) {}
 
   ngOnInit(): void {
     this.load();
@@ -140,37 +124,15 @@ export class ProductionComponent implements OnInit {
             )
           : of([]);
 
-        const layoutsRequest = models.length
-          ? forkJoin(
-              models.map((modelName) =>
-                this.api.getBayLayouts(modelName).pipe(
-                  map((rows) => ({ model: modelName, rows: rows ?? [] })),
-                ),
-              ),
-            )
-          : of([]);
-
-        const bomRequest = models.length
-          ? forkJoin(
-              models.map((modelName) =>
-                this.api.getBom(modelName).pipe(
-                  map((rows) => ({ model: modelName, rows: rows ?? [] })),
-                ),
-              ),
-            )
-          : of([]);
-
         return forkJoin({
           kits: of(kits ?? []),
           advances: advancesRequest,
           resupplies: resuppliesRequest,
-          layouts: layoutsRequest,
-          bom: bomRequest,
         });
       }),
     ).subscribe({
-      next: ({ kits, advances, resupplies, layouts, bom }) => {
-        this.buildStations(kits, advances, resupplies, layouts, bom);
+      next: ({ kits, advances, resupplies }) => {
+        this.buildStations(kits, advances, resupplies);
         this.loading = false;
       },
       error: () => {
@@ -184,53 +146,16 @@ export class ProductionComponent implements OnInit {
     return this.statusLabels[status] ?? status;
   }
 
-  canCapture(station: ProductionStationView): boolean {
-    return ['delivered', 'received', 'sent', 'in_progress'].includes(station.status);
+  canReceiveKit(station: ProductionStationView): boolean {
+    return !!station.kit && ['ready', 'requested'].includes(station.status);
   }
 
-  canRequestKit(station: ProductionStationView): boolean {
-    return station.status === 'ready';
+  canStartAssembly(station: ProductionStationView): boolean {
+    return !!station.kit && ['requested', 'delivered', 'received', 'sent', 'ready'].includes(station.status);
   }
 
-  quickQtyFor(station: ProductionStationView): number {
-    const kitId = station.kit?.id;
-    return kitId ? this.advanceQty[kitId] ?? 1 : 1;
-  }
-
-  updateQuickQty(station: ProductionStationView, value: number | string): void {
-    const kitId = station.kit?.id;
-    if (!kitId) return;
-    const parsed = Number(value);
-    this.advanceQty[kitId] = Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
-  }
-
-  onAdvanceEnter(station: ProductionStationView, event: Event): void {
-    event.preventDefault();
-    this.registerAdvance(station);
-  }
-
-  registerAdvance(station: ProductionStationView): void {
-    const kitId = station.kit?.id;
-    if (!kitId) return;
-
-    const qty = this.quickQtyFor(station);
-    if (!qty || qty <= 0) return;
-
-    this.advancingKitId = kitId;
-    this.advanceError[kitId] = '';
-
-    this.api.createAdvance(kitId, qty, this.advanceNotes[kitId]?.trim() || undefined).subscribe({
-      next: () => {
-        this.advanceQty[kitId] = 1;
-        this.advanceNotes[kitId] = '';
-        this.advancingKitId = null;
-        this.load();
-      },
-      error: (err) => {
-        this.advanceError[kitId] = err?.error?.message ?? 'No se pudo registrar el avance';
-        this.advancingKitId = null;
-      },
-    });
+  canCaptureByBay(station: ProductionStationView): boolean {
+    return !!station.kit && !!station.snapshot && ['requested', 'delivered', 'received', 'sent', 'in_progress'].includes(station.status);
   }
 
   requestKit(station: ProductionStationView): void {
@@ -242,25 +167,135 @@ export class ProductionComponent implements OnInit {
 
     this.api.updateKitStatus(kitId, 'requested').subscribe({
       next: () => {
+        this.productionOps.markReceivedLine(station.backendKey);
         this.updatingStatusKitId = null;
         this.load();
       },
       error: (err) => {
-        this.requestError[kitId] = err?.error?.message ?? 'No se pudo solicitar el kit';
+        this.requestError[kitId] = err?.error?.message ?? 'No se pudo recibir el kit';
         this.updatingStatusKitId = null;
       },
     });
   }
 
-  resupplyKey(station: ProductionStationView, material: ProductionMaterialView): string {
-    return `${station.kit?.id ?? 'x'}-${material.partNumber}`;
-  }
-
-  requestResupply(station: ProductionStationView, material: ProductionMaterialView): void {
+  startAssembly(station: ProductionStationView): void {
     const kitId = station.kit?.id;
     if (!kitId) return;
 
-    const key = this.resupplyKey(station, material);
+    this.updatingStatusKitId = kitId;
+    this.requestError[kitId] = '';
+
+    this.api.updateKitStatus(kitId, 'in_progress').subscribe({
+      next: () => {
+        this.productionOps.startAssembly(station.backendKey);
+        this.updatingStatusKitId = null;
+        this.load();
+      },
+      error: (err) => {
+        this.requestError[kitId] = err?.error?.message ?? 'No se pudo iniciar ensamble';
+        this.updatingStatusKitId = null;
+      },
+    });
+  }
+
+  bayInputKey(station: ProductionStationView, bayId: number): string {
+    return `${station.backendKey}-B${bayId}`;
+  }
+
+  quickBayQty(station: ProductionStationView, bayId: number): number {
+    return this.bayQty[this.bayInputKey(station, bayId)] ?? 1;
+  }
+
+  updateBayQty(station: ProductionStationView, bayId: number, value: number | string): void {
+    const key = this.bayInputKey(station, bayId);
+    const parsed = Number(value);
+    this.bayQty[key] = Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
+  }
+
+  onBayEnter(station: ProductionStationView, bayId: number, event: Event): void {
+    event.preventDefault();
+    this.registerBayAssembly(station, bayId);
+  }
+
+  registerBayAssembly(station: ProductionStationView, bayId: number): void {
+    if (!station.snapshot) return;
+    const key = this.bayInputKey(station, bayId);
+    const qty = this.quickBayQty(station, bayId);
+    if (!qty || qty <= 0) return;
+
+    this.baySaving[key] = true;
+
+    const notes = this.bayNotes[key]?.trim();
+    const operator = this.bayOperator[key]?.trim();
+
+    const updated = this.productionOps.registerBayAssembly(
+      station.backendKey,
+      bayId,
+      qty,
+      operator || undefined,
+      notes || undefined,
+    );
+
+    if (!updated) {
+      this.baySaving[key] = false;
+      return;
+    }
+
+    station.snapshot = updated;
+    station.completed = updated.backend.completedQty;
+    station.progressPct = station.quantity > 0
+      ? Math.min(100, Math.round((station.completed / station.quantity) * 100))
+      : 0;
+
+    if (station.status !== 'in_progress') {
+      this.api.updateKitStatus(station.kit.id, 'in_progress').subscribe();
+      station.status = 'in_progress';
+    }
+
+    this.bayQty[key] = 1;
+    this.bayNotes[key] = '';
+    this.baySaving[key] = false;
+  }
+
+  materialsForBay(station: ProductionStationView, bayId: number): BayMaterialState[] {
+    return station.snapshot?.bayMaterials.filter((item) => item.bayId === bayId) ?? [];
+  }
+
+  bayAssembled(station: ProductionStationView, bayId: number): number {
+    return station.snapshot?.events
+      .filter((event) => event.bayId === bayId)
+      .reduce((sum, event) => sum + event.quantity, 0) ?? 0;
+  }
+
+  bayLastEvent(station: ProductionStationView, bayId: number): string {
+    const found = station.snapshot?.events.find((event) => event.bayId === bayId);
+    return found?.timestamp ?? '';
+  }
+
+  bayLowStockCount(station: ProductionStationView, bayId: number): number {
+    return this.materialsForBay(station, bayId).filter((item) => item.availableQty <= item.lowStockThreshold).length;
+  }
+
+  liveConsumptionTotals(station: ProductionStationView): { consumed: number; lowStock: number; topParts: BayMaterialState[] } {
+    const materials = station.snapshot?.bayMaterials ?? [];
+    const consumed = materials.reduce((sum, item) => sum + item.consumedQty, 0);
+    const lowStock = materials.filter((item) => item.availableQty <= item.lowStockThreshold).length;
+    const topParts = [...materials]
+      .sort((left, right) => right.consumedQty - left.consumedQty)
+      .slice(0, 3);
+
+    return { consumed, lowStock, topParts };
+  }
+
+  resupplyKey(station: ProductionStationView, partNumber: string): string {
+    return `${station.kit?.id ?? 'x'}-${partNumber}`;
+  }
+
+  requestResupply(station: ProductionStationView, partNumber: string, description?: string): void {
+    const kitId = station.kit?.id;
+    if (!kitId) return;
+
+    const key = this.resupplyKey(station, partNumber);
     const qty = this.resupplyQty[key];
     if (!qty || qty <= 0) return;
 
@@ -269,10 +304,10 @@ export class ProductionComponent implements OnInit {
 
     this.api.createResupply(
       kitId,
-      material.partNumber,
+      partNumber,
       qty,
-      material.description,
-      'production_request',
+      description,
+      'production_low_stock',
     ).subscribe({
       next: () => {
         this.resupplyQty[key] = null;
@@ -286,43 +321,42 @@ export class ProductionComponent implements OnInit {
     });
   }
 
-  onResupplyEnter(station: ProductionStationView, material: ProductionMaterialView, event: Event): void {
+  onResupplyEnter(station: ProductionStationView, partNumber: string, event: Event, description?: string): void {
     event.preventDefault();
-    this.requestResupply(station, material);
+    this.requestResupply(station, partNumber, description);
   }
 
-  coverageLabel(material: ProductionMaterialView): string {
-    if (material.coverageUnits === null) return 'Sin calculo';
-    return `${Math.max(0, Math.floor(material.coverageUnits))} uds`;
+  toggleStationPanel(backen: number): void {
+    this.expandedByBacken[backen] = !this.expandedByBacken[backen];
+  }
+
+  isStationExpanded(backen: number): boolean {
+    return this.expandedByBacken[backen] ?? true;
+  }
+
+  openStationVisualAid(station: ProductionStationView): void {
+    if (!station.visualAid) return;
+    window.open(station.visualAid.pdfUrl, '_blank', 'noopener');
   }
 
   private buildStations(
     kits: any[],
     advances: Array<{ kitId: number; advances: any[] }>,
     resupplies: Array<{ kitId: number; resupplies: any[] }>,
-    layouts: Array<{ model: string; rows: any[] }>,
-    bom: Array<{ model: string; rows: any[] }>,
   ): void {
     const selectedByBacken = new Map<number, any>(
       this.selectStationKits(kits).map((kit) => [kit.plan.backen, kit] as const),
     );
     const advancesByKitId = new Map(advances.map((entry) => [entry.kitId, entry.advances]));
     const resuppliesByKitId = new Map(resupplies.map((entry) => [entry.kitId, entry.resupplies]));
-    const layoutsByModel = new Map(layouts.map((entry) => [entry.model, entry.rows]));
-    const bomByModel = new Map(
-      bom.map((entry) => [
-        entry.model,
-        new Map<string, ProductionCatalogItem>(
-          entry.rows.map((item) => [item.partNumber, item] as const),
-        ),
-      ]),
-    );
 
     this.stations = this.backens.map((backen) => {
       const kit = selectedByBacken.get(backen);
+      const backendKey = `BK${backen}`;
       if (!kit?.plan) {
         return {
           backen,
+          backendKey,
           kit: null,
           status: 'empty',
           model: null,
@@ -332,90 +366,52 @@ export class ProductionComponent implements OnInit {
           completed: 0,
           progressPct: 0,
           hasOpenException: false,
-          layoutBays: [],
-          unassignedMaterials: [],
           recentAdvances: [],
           openResupplies: [],
+          disposition: [],
+          visualAid: null,
+          snapshot: null,
         };
       }
 
-      const catalog = bomByModel.get(kit.plan.model) ?? new Map<string, ProductionCatalogItem>();
-      const materialsByPart = new Map<string, ProductionMaterialView>(
-        (kit.materials ?? []).map((material: any) => [
-          material.partNumber,
-          this.toMaterialView(material, catalog.get(material.partNumber), kit.plan.quantity),
-        ] as const),
-      );
+      const disposition = this.dispositionService.getDispositionByModel(kit.plan.model);
+      const visualAid = this.visualAids.getActiveVisualAidByModel(kit.plan.model);
+      const snapshot = this.productionOps.ensureRuntime({
+        backen,
+        kitId: kit.id,
+        model: kit.plan.model,
+        workOrder: kit.plan.workOrder,
+        shift: kit.plan.shift,
+        targetQty: kit.plan.quantity,
+        completedQty: kit.totalCompleted ?? 0,
+        hasIncident: kit.hasOpenException ?? false,
+        sourceStatus: kit.status,
+        visualAid,
+        disposition,
+      });
 
-      const layoutRows = layoutsByModel.get(kit.plan.model) ?? [];
-      const assignedPartNumbers = new Set<string>();
-      const layoutBays: ProductionBayView[] = [1, 2, 3, 4, 5, 6]
-        .map((bahia) => {
-          const materials: ProductionMaterialView[] = layoutRows
-            .filter((row: any) => row.bahia === bahia)
-            .map((row: any) => {
-              assignedPartNumbers.add(row.partNumber);
-              return materialsByPart.get(row.partNumber)
-                ?? this.toMaterialView(null, catalog.get(row.partNumber), kit.plan.quantity, row.partNumber);
-            })
-            .sort((left, right) => left.partNumber.localeCompare(right.partNumber));
-
-          return { bahia, materials };
-        })
-        .filter((bay) => bay.materials.length > 0);
-
-      const unassignedMaterials: ProductionMaterialView[] = [...materialsByPart.values()]
-        .filter((material) => !assignedPartNumbers.has(material.partNumber))
-        .sort((left, right) => left.partNumber.localeCompare(right.partNumber));
-
+      const completed = snapshot.backend.completedQty;
       return {
         backen,
+        backendKey,
         kit,
         status: kit.status,
         model: kit.plan.model,
         workOrder: kit.plan.workOrder,
         shift: kit.plan.shift,
         quantity: kit.plan.quantity,
-        completed: kit.totalCompleted ?? 0,
+        completed,
         progressPct: kit.plan.quantity > 0
-          ? Math.round(((kit.totalCompleted ?? 0) / kit.plan.quantity) * 100)
+          ? Math.min(100, Math.round((completed / kit.plan.quantity) * 100))
           : 0,
         hasOpenException: kit.hasOpenException ?? false,
-        layoutBays,
-        unassignedMaterials,
         recentAdvances: (advancesByKitId.get(kit.id) ?? []).slice(0, 6),
         openResupplies: (resuppliesByKitId.get(kit.id) ?? []).filter((item: any) => item.status !== 'delivered'),
+        disposition,
+        visualAid,
+        snapshot,
       };
     });
-  }
-
-  private toMaterialView(
-    material: any | null,
-    catalogItem?: ProductionCatalogItem,
-    planQuantity = 0,
-    forcedPartNumber?: string,
-  ): ProductionMaterialView {
-    const quantityRequired = material?.quantityRequired ?? ((catalogItem?.usageFactor ?? 0) * planQuantity);
-    const quantityConsumed = material?.quantityConsumed ?? 0;
-    const quantityRemaining = material?.quantityRemaining ?? quantityRequired;
-    const usagePerUnit = planQuantity > 0 ? quantityRequired / planQuantity : (catalogItem?.usageFactor ?? 0);
-    const coverageUnits = usagePerUnit > 0 ? quantityRemaining / usagePerUnit : null;
-
-    return {
-      id: material?.id ?? null,
-      partNumber: forcedPartNumber ?? material?.partNumber ?? catalogItem?.partNumber ?? '',
-      description: catalogItem?.description?.trim() || material?.description?.trim() || 'Sin descripcion',
-      location: catalogItem?.location?.trim() || 'Sin ubicacion',
-      unit: material?.unit || catalogItem?.unit || 'EA',
-      quantityRequired,
-      quantityConsumed,
-      quantityRemaining,
-      quantityResupplied: material?.quantityResupplied ?? 0,
-      usagePerUnit,
-      coverageUnits,
-      isLowCoverage: coverageUnits !== null && coverageUnits <= 12,
-      isCriticalCoverage: coverageUnits !== null && coverageUnits <= 5,
-    };
   }
 
   private selectStationKits(kits: any[]): any[] {
