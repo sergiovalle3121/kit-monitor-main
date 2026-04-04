@@ -2,17 +2,17 @@
 
 :root {
   /* Primary */
-  --primary: #2d3b4b;
-  --primary-light: #6886c3;
-  --primary-hover: #5876b0;
-  --accent: #7390c8;
+  --primary: #304055;
+  --primary-light: #6f8bc3;
+  --primary-hover: #607caf;
+  --accent: #7a94ca;
 
   /* Grays (Slate) */
   --gray-50: #f7fafc;
-  --gray-100: #e7edf5;
+  --gray-100: #e4ecf5;
   --gray-200: #dbe4ee;
   --gray-300: #c3d0de;
-  --gray-400: #8d9fb3;
+  --gray-400: #8a9eb3;
   --gray-500: #64748b;
   --gray-600: #49586b;
   --gray-700: #334155;
@@ -54,19 +54,19 @@
   --radius-xl: 24px;
 
   /* Shadows */
-  --shadow-sm:    0 1px 4px rgba(27, 39, 54, 0.07),  0 2px 8px rgba(27, 39, 54, 0.045);
-  --shadow-md:    0 3px 10px rgba(27, 39, 54, 0.10), 0 6px 16px rgba(27, 39, 54, 0.065);
-  --shadow-lg:    0 6px 18px rgba(27, 39, 54, 0.13), 0 10px 26px rgba(27, 39, 54, 0.08);
-  --shadow-hover: 0 5px 14px rgba(27, 39, 54, 0.11), 0 8px 22px rgba(27, 39, 54, 0.075);
+  --shadow-sm:    0 1px 3px rgba(27, 39, 54, 0.065), 0 2px 7px rgba(27, 39, 54, 0.04);
+  --shadow-md:    0 3px 9px rgba(27, 39, 54, 0.09),  0 6px 14px rgba(27, 39, 54, 0.06);
+  --shadow-lg:    0 6px 16px rgba(27, 39, 54, 0.12), 0 10px 24px rgba(27, 39, 54, 0.075);
+  --shadow-hover: 0 4px 12px rgba(27, 39, 54, 0.10), 0 8px 20px rgba(27, 39, 54, 0.07);
 
   /* Surfaces */
-  --surface-0: #eef3f9;
-  --surface-1: rgba(239, 245, 251, 0.9);
-  --surface-2: #e3eaf3;
+  --surface-0: #e9f0f8;
+  --surface-1: rgba(235, 242, 250, 0.88);
+  --surface-2: #dfe7f1;
 
   /* Borders */
-  --border-soft: rgba(131, 149, 172, 0.2);
-  --border-card: rgba(131, 149, 172, 0.14);
+  --border-soft: rgba(131, 149, 172, 0.16);
+  --border-card: rgba(131, 149, 172, 0.12);
 
   /* Typography */
   --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
@@ -83,7 +83,7 @@ html { font-size: 15px; }
 body {
   font-family: var(--font);
   color: var(--gray-800);
-  background: linear-gradient(180deg, #eef3f8 0%, #f8fafc 42%, #edf2f8 100%);
+  background: linear-gradient(180deg, #e8eef6 0%, #f1f5fa 48%, #e7edf5 100%);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
