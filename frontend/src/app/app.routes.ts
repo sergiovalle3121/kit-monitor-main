@@ -41,6 +41,17 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/production/production.component').then(m => m.ProductionComponent),
       },
+
+      {
+        path: 'production/hourly',
+        loadComponent: () =>
+          import('./features/production-hourly/production-hourly.component').then(m => m.ProductionHourlyComponent),
+      },
+      {
+        path: 'production/completed',
+        loadComponent: () =>
+          import('./features/production-completed/production-completed.component').then(m => m.ProductionCompletedComponent),
+      },
       {
         path: 'monitor',
         loadComponent: () =>
