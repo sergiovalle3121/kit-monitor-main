@@ -175,16 +175,28 @@ body {
 .sidebar {
   position: sticky;
   top: 0;
+  isolation: isolate;
   height: 100vh;
   display: flex;
   flex-direction: column;
   padding: 24px 18px 24px 18px;
   overflow-y: auto;
-  background: var(--glass-sidebar);
-  border-right: 1px solid rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(24px) saturate(145%);
-  -webkit-backdrop-filter: blur(24px) saturate(145%);
+  background: rgba(255, 255, 255, 0.26);
+  border-right: 1px solid rgba(255, 255, 255, 0.3);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
   box-shadow: 12px 0 40px rgba(2, 8, 23, 0.34);
+}
+
+.sidebar-ambient-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 0;
+  opacity: 0.28;
+  pointer-events: none;
 }
 
 .sidebar::before {
@@ -195,6 +207,7 @@ body {
     linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent 18%),
     radial-gradient(circle at top left, rgba(90, 200, 250, 0.12), transparent 36%);
   pointer-events: none;
+  z-index: 1;
 }
 
 .sidebar-noise {
@@ -205,13 +218,14 @@ body {
   background-image: radial-gradient(rgba(255, 255, 255, 0.55) 0.6px, transparent 0.6px);
   background-size: 10px 10px;
   mix-blend-mode: soft-light;
+  z-index: 1;
 }
 
 .brand,
 nav,
 .logout {
   position: relative;
-  z-index: 1;
+  z-index: 2;
 }
 
 .brand {
@@ -220,7 +234,7 @@ nav,
   gap: 14px;
   padding: 0 8px 24px 8px;
   margin-bottom: 18px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid rgba(17, 24, 39, 0.08);
 }
 
 .brand-mark {
@@ -251,14 +265,14 @@ nav,
 }
 
 .brand-text strong {
-  color: var(--text-critical);
+  color: #1c1c1e;
   font-size: 1.12rem;
   font-weight: 630;
   letter-spacing: -0.03em;
 }
 
 .brand-text small {
-  color: var(--text-tertiary);
+  color: rgba(28, 28, 30, 0.6);
   font-size: 0.76rem;
   letter-spacing: 0.05em;
   text-transform: uppercase;
@@ -267,9 +281,9 @@ nav,
 .toggle-btn,
 .glass-btn,
 .menu-trigger {
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.04);
-  color: var(--text-secondary);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: rgba(255, 255, 255, 0.35);
+  color: #1c1c1e;
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
   transition: var(--transition);
@@ -315,13 +329,13 @@ nav {
   border: none;
   border-radius: 16px;
   background: transparent;
-  color: var(--text-secondary);
+  color: #1c1c1e;
   font-family: var(--font);
   font-size: 0.93rem;
   font-weight: 540;
   text-decoration: none;
   cursor: pointer;
-  transition: var(--transition);
+  transition: all 0.25s cubic-bezier(0.25, 1, 0.5, 1);
 }
 
 .nav-group-header {
@@ -336,9 +350,9 @@ nav {
 
 .nav-icon {
   width: 22px;
-  color: #8ea0be;
+  color: #1c1c1e;
   font-size: 1rem;
-  transition: var(--transition);
+  transition: all 0.25s cubic-bezier(0.25, 1, 0.5, 1);
 }
 
 .nav-item::before,
@@ -358,8 +372,9 @@ nav {
 .nav-group-header:hover,
 .nav-group-items a:hover:not(.disabled),
 .logout:hover {
-  color: var(--text-critical);
-  transform: translateX(2px);
+  color: #1c1c1e;
+  background: rgba(255, 255, 255, 0.6);
+  transform: scale(0.98);
 }
 
 .nav-item:hover::before,
@@ -373,17 +388,18 @@ nav {
 .nav-group-header:hover .nav-icon,
 .nav-group-items a:hover:not(.disabled) i,
 .logout:hover .nav-icon {
-  color: var(--text-critical);
+  color: #1c1c1e;
 }
 
 .nav-item.active,
 .nav-group-items a.active {
-  color: var(--text-critical);
-  background: linear-gradient(135deg, rgba(10, 132, 255, 0.22), rgba(90, 200, 250, 0.08));
-  border: 1px solid rgba(90, 200, 250, 0.16);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.12),
-    0 10px 20px rgba(10, 132, 255, 0.14);
+  color: #0056b3;
+  font-weight: 600;
+  background: rgba(0, 122, 255, 0.12);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(0, 122, 255, 0.2);
+  box-shadow: inset 2px 0 0 rgba(0, 86, 179, 0.45);
 }
 
 .nav-item.active::after,
@@ -401,7 +417,7 @@ nav {
 
 .nav-item.active .nav-icon,
 .nav-group-items a.active i {
-  color: var(--accent-cyan);
+  color: #0056b3;
 }
 
 .nav-group-items {
@@ -502,15 +518,15 @@ nav {
   position: sticky;
   top: 0;
   z-index: 10;
-  display: grid;
-  grid-template-columns: auto 1fr auto;
+  display: flex;
+  justify-content: space-between;
   align-items: center;
   gap: 22px;
   padding: 18px 28px;
-  background: var(--glass-topbar);
+  background: rgba(255, 255, 255, 0.35);
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(24px) saturate(150%);
-  -webkit-backdrop-filter: blur(24px) saturate(150%);
+  backdrop-filter: blur(20px) saturate(150%);
+  -webkit-backdrop-filter: blur(20px) saturate(150%);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.16);
 }
 
@@ -534,6 +550,9 @@ nav {
 }
 
 .search-wrapper {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
   justify-content: center;
 }
@@ -543,20 +562,18 @@ nav {
   display: flex;
   align-items: center;
   gap: 12px;
-  width: 100%;
-  max-width: 560px;
+  width: 300px;
+  max-width: 300px;
   padding: 12px 16px 12px 18px;
   border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.03)),
-    rgba(6, 10, 20, 0.38);
-  backdrop-filter: blur(20px) saturate(130%);
-  -webkit-backdrop-filter: blur(20px) saturate(130%);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(12px) saturate(120%);
+  -webkit-backdrop-filter: blur(12px) saturate(120%);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.08),
     0 16px 40px rgba(2, 8, 20, 0.18);
-  transition: var(--transition);
+  transition: width 0.25s cubic-bezier(0.25, 1, 0.5, 1), box-shadow 0.25s cubic-bezier(0.25, 1, 0.5, 1), background 0.25s cubic-bezier(0.25, 1, 0.5, 1);
 }
 
 .search::after {
@@ -570,12 +587,12 @@ nav {
 }
 
 .search:focus-within {
-  border-color: rgba(90, 200, 250, 0.38);
-  transform: translateY(-1px);
+  width: 320px;
+  max-width: 320px;
+  border-color: rgba(0, 122, 255, 0.22);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.1),
-    0 0 0 3px rgba(10, 132, 255, 0.12),
-    0 18px 40px rgba(10, 132, 255, 0.16);
+    0 0 0 3px rgba(0, 122, 255, 0.3);
 }
 
 .search:focus-within::after {
@@ -596,13 +613,13 @@ nav {
   border: none;
   outline: none;
   background: transparent;
-  color: var(--text-critical);
+  color: #1c1c1e;
   font-family: var(--font);
   font-size: 0.95rem;
 }
 
 .search input::placeholder {
-  color: #8b9ab4;
+  color: rgba(28, 28, 30, 0.45);
 }
 
 .search-hint {
@@ -619,18 +636,27 @@ nav {
 .topbar-actions {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
 }
 
 .icon-btn {
   position: relative;
   width: 42px;
   height: 42px;
-  border-radius: 14px;
+  border-radius: 999px;
   display: grid;
   place-items: center;
   font-size: 1.08rem;
   cursor: pointer;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: rgba(255, 255, 255, 0.42);
+  color: #1c1c1e;
+  transition: all 0.25s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.icon-btn:hover {
+  background: rgba(0, 0, 0, 0.06);
+  transform: scale(0.98);
 }
 
 .notif-dot {
@@ -643,6 +669,18 @@ nav {
   background: radial-gradient(circle, #ff7f76, #ff453a);
   box-shadow: 0 0 14px rgba(255, 69, 58, 0.7);
   border: 1px solid rgba(5, 10, 18, 0.8);
+  animation: pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(255, 69, 58, 0.45);
+  }
+  50% {
+    transform: scale(1.18);
+    box-shadow: 0 0 0 8px rgba(255, 69, 58, 0);
+  }
 }
 
 .content {

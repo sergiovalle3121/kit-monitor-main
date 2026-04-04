@@ -5,4 +5,7 @@ export class CreateBomItemDto {
   location?: string;
   usageFactor: number;
   unit?: string; // defaults to 'EA'
+  imageUrl?: string;
+  specUrl?: string;
+  hasImage?: boolean;
 }

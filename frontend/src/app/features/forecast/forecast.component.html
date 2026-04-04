@@ -30,6 +30,24 @@
     </aside>
   </header>
 
+  <section class="executive-strip">
+    <article class="exec-card spotlight">
+      <small>Estado global del laboratorio</small>
+      <strong>{{ forecastState.title }}</strong>
+      <p>{{ forecastState.message }}</p>
+    </article>
+    <article class="exec-card">
+      <small>Series listas / total</small>
+      <strong>{{ readyForecastCount }} / {{ forecastResults.length || 0 }}</strong>
+      <p>Dominante actual: {{ bestMethodSummary?.label || 'Sin método líder' }}</p>
+    </article>
+    <article class="exec-card">
+      <small>Planeación conectada</small>
+      <strong>{{ latestRunId ? ('Run #' + latestRunId) : 'Sin persistir' }}</strong>
+      <p>{{ latestScenarioId ? ('Scenario #' + latestScenarioId) : 'Sin escenario aún' }}</p>
+    </article>
+  </section>
+
   <section class="mode-strip">
     <button type="button" class="mode-card" [class.active]="activeView === 'forecast'" (click)="setView('forecast')">
       <span>Forecast</span>
@@ -592,6 +610,7 @@
 
         <div class="action-row">
           <button type="button" class="primary-btn" (click)="runOperationalPlanning(true)">Recalcular operacion</button>
+          <button type="button" class="ghost-btn" (click)="publishLatestPlan()" [disabled]="!latestScenarioId">Publicar plan</button>
         </div>
 
         @if (operationState.warnings.length) {
@@ -719,6 +738,58 @@
       </div>
 
       <p class="final-recommendation">{{ recommendationText }}</p>
+
+      @if (planConfidenceScore != null) {
+        <div class="pill-grid">
+          <span class="badge subtle">Plan confidence score: {{ planConfidenceScore }}</span>
+          <span class="badge subtle">Probabilidad estimada: {{ percentLabel(planProbability) }}</span>
+          <span class="badge subtle">Run ID: {{ latestRunId || '-' }}</span>
+          <span class="badge subtle">Scenario ID: {{ latestScenarioId || '-' }}</span>
+          <span class="badge subtle">Modo simulación: {{ simulationMode || 'N/A' }}</span>
+          <span class="badge subtle">Data sufficiency: {{ dataSufficiencyScore ?? '-' }}</span>
+          <span class="badge subtle" *ngIf="confidenceBand">Band: {{ confidenceBand.low | number:'1.0-0' }}-{{ confidenceBand.high | number:'1.0-0' }}</span>
+        </div>
+      }
+
+      @if (logisticsPriorityTop.length) {
+        <div class="table-wrap compact">
+          <table>
+            <thead>
+              <tr>
+                <th>NP</th>
+                <th>Severidad</th>
+                <th>Priority</th>
+                <th>Recomendación</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (item of logisticsPriorityTop; track item.partNumber) {
+                <tr>
+                  <td class="emphasis">{{ item.partNumber }}</td>
+                  <td>{{ item.severity }}</td>
+                  <td class="num">{{ item.priorityScore }}</td>
+                  <td>{{ item.recommendation }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+
+      @if (calibrationSummary) {
+        <div class="pill-grid">
+          <span class="badge subtle">Calibration samples: {{ calibrationSummary.samples }}</span>
+          <span class="badge subtle">Observed success rate: {{ percentLabel(calibrationSummary.overallSuccessRate) }}</span>
+        </div>
+      }
+
+      @if (controlTower) {
+        <div class="pill-grid">
+          <span class="badge subtle">Control tower: {{ controlTower.outcome?.fulfillmentResult || 'sin outcome' }}</span>
+          <span class="badge subtle">Variance: {{ controlTower.outcome?.variancePct | number:'1.0-1' }}%</span>
+          <span class="badge subtle">Signals: {{ controlTower.signals?.join(', ') }}</span>
+        </div>
+      }
 
       <div class="top-three">
         @for (decision of topOperationalDecisions; track decision.key) {

@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import * as XLSX from 'xlsx';
+import { ApiService } from '../../core/api.service';
 import { ForecastEngine } from './forecast.engine';
 import {
   AppView,
@@ -101,6 +102,19 @@ export class ForecastComponent {
   hoursPerShift = 8;
   shiftsPerDay = 2;
   efficiencyPercent = 85;
+  latestRunId: number | null = null;
+  latestScenarioId: number | null = null;
+  planConfidenceScore: number | null = null;
+  planProbability: number | null = null;
+  logisticsPriorityTop: Array<{ partNumber: string; severity: string; priorityScore: number; recommendation: string }> = [];
+  simulationMode: string | null = null;
+  dataSufficiencyScore: number | null = null;
+  confidenceBand: { low: number; high: number } | null = null;
+  calibrationSummary: any = null;
+  controlTower: any = null;
+  lastPublicationId: number | null = null;
+
+  constructor(private readonly api: ApiService) {}
 
   setView(view: AppView): void {
     this.activeView = view;
@@ -194,6 +208,7 @@ export class ForecastComponent {
     this.forecastStatusMessage = readyCount
       ? `${readyCount} series listas para forecast. Metodo con mejor confiabilidad global: ${this.bestMethodSummary?.label ?? 'Sin dominante'}.`
       : 'Se cargaron datos, pero ninguna serie tiene historia suficiente para un forecast confiable.';
+    this.persistForecastRun();
     if (this.operationRows.length) this.runOperationalPlanning(false);
     if (this.selectedForecastRecord) this.syncRiskInputs();
     if (setView) this.activeView = 'forecast';
@@ -236,7 +251,37 @@ export class ForecastComponent {
     this.operationStatusMessage = this.operationDecisions.length
       ? 'Operacion enlazo backlog, capacidad y forecast maestro por material con matching heuristico.'
       : 'No se encontraron filas operativas utiles.';
+    this.persistPlanScenario();
     if (setView) this.activeView = 'operation';
+  }
+
+  publishLatestPlan(): void {
+    if (!this.latestRunId && !this.latestScenarioId) return;
+    this.api.publishPlan({
+      title: `Plan ${new Date().toISOString().slice(0, 16)}`,
+      runId: this.latestRunId ?? undefined,
+      scenarioId: this.latestScenarioId ?? undefined,
+      publishedBy: 'planner-ui',
+    }).subscribe({
+      next: () => {
+        this.operationStatusMessage = 'Plan publicado con trazabilidad de forecast y escenario.';
+        this.api.getPlanPublications().subscribe({
+          next: (publications) => {
+            this.lastPublicationId = publications?.[0]?.id ?? null;
+            if (this.lastPublicationId) {
+              this.api.registerPlanOutcome(this.lastPublicationId, {
+                actualQty: Math.round((this.planProbability ?? 0.6) * (this.forecastResults.reduce((acc, row) => acc + (row.forecastNext ?? 0), 0))),
+                shortageEvents: this.logisticsPriorityTop.length ? 1 : 0,
+                overtimeHours: this.planProbability && this.planProbability < 0.65 ? 3 : 1,
+              }).subscribe(() => this.loadControlTower());
+            }
+          },
+        });
+      },
+      error: () => {
+        this.operationStatusMessage = 'No se pudo publicar el plan.';
+      },
+    });
   }
 
   selectForecast(recordKey: string): void {
@@ -251,6 +296,102 @@ export class ForecastComponent {
 
   get previewDemandRows(): DemandSeries[] {
     return this.demandSeries.slice(0, 8);
+  }
+
+  private persistForecastRun(): void {
+    if (!this.forecastResults.length) return;
+    const payload = {
+      name: `Run ${new Date().toISOString().slice(0, 16)}`,
+      sourceFile: this.fileName || undefined,
+      assumptions: {
+        horizon: this.horizon,
+        sesAlpha: this.sesAlpha,
+      },
+      series: this.forecastResults.map((record) => ({
+        material: record.material,
+        location: record.location ?? undefined,
+        championMethod: record.bestMethod ?? 'naive',
+        mape: record.error ?? 0,
+        mad: record.mad ?? 0,
+        bias: record.bias ?? 0,
+        forecastNext: record.forecastNext ?? 0,
+        forecastHorizon: (record.rankedMethods[0]?.future ?? []).slice(0, this.horizon),
+        diagnostics: { quality: record.quality, trend: record.trend, warnings: record.diagnostics },
+        confidenceScore: record.quality === 'Alta' ? 90 : record.quality === 'Media' ? 75 : record.quality === 'Baja' ? 60 : 40,
+      })),
+    };
+
+    this.api.createForecastRun(payload).subscribe({
+      next: (run) => {
+        this.latestRunId = run?.id ?? null;
+      },
+      error: () => {
+        this.latestRunId = null;
+      },
+    });
+  }
+
+  private persistPlanScenario(): void {
+    if (!this.latestRunId || !this.operationRows.length || !this.forecastResults.length) return;
+    const plannedDemandUnits = this.forecastResults.reduce((acc, row) => acc + (row.forecastNext ?? 0), 0);
+    const dailyCapacityUnits = Math.max(1, this.round(this.operatorsAvailable * this.hoursPerShift * this.shiftsPerDay * (this.efficiencyPercent / 100)));
+
+    this.api.createPlanScenario({
+      runId: this.latestRunId,
+      name: `Scenario ${new Date().toISOString().slice(0, 16)}`,
+      assumptions: {
+        horizonDays: this.horizon * 7,
+        dailyCapacityUnits,
+        efficiencyPercent: this.efficiencyPercent,
+        plannedDemandUnits,
+        leadTimeDays: this.riskLeadTimeDays,
+        scrapRate: 0.03,
+      },
+      constraints: {
+        operatorsAvailable: this.operatorsAvailable,
+        shiftsPerDay: this.shiftsPerDay,
+      },
+    }).subscribe({
+      next: (scenario) => {
+        this.latestScenarioId = scenario?.id ?? null;
+        this.planConfidenceScore = scenario?.viabilityScore ?? null;
+        this.planProbability = scenario?.estimatedProbability ?? null;
+        this.logisticsPriorityTop = (scenario?.logisticRisk?.items ?? []).slice(0, 5);
+        if (this.latestScenarioId) this.runScenarioSimulation(this.latestScenarioId);
+      },
+      error: () => {
+        this.latestScenarioId = null;
+      },
+    });
+  }
+
+  private runScenarioSimulation(scenarioId: number): void {
+    this.api.runPlanScenarioSimulation(scenarioId, { numRuns: 500 }).subscribe({
+      next: (payload) => {
+        const result = payload?.result;
+        this.planProbability = result?.probabilityOfPlanSuccess ?? this.planProbability;
+        this.planConfidenceScore = payload?.calibratedScore ?? this.planConfidenceScore;
+        this.simulationMode = result?.simulationMode ?? null;
+        this.dataSufficiencyScore = result?.dataSufficiencyScore ?? null;
+        this.confidenceBand = payload?.confidenceBand ?? null;
+        this.loadCalibrationSummary();
+      },
+    });
+  }
+
+  private loadCalibrationSummary(): void {
+    this.api.getCalibrationSummary().subscribe({
+      next: (summary) => { this.calibrationSummary = summary; },
+      error: () => { this.calibrationSummary = null; },
+    });
+  }
+
+  private loadControlTower(): void {
+    if (!this.lastPublicationId) return;
+    this.api.getPlanControlTower(this.lastPublicationId).subscribe({
+      next: (value) => { this.controlTower = value; },
+      error: () => { this.controlTower = null; },
+    });
   }
 
   get previewDemandPeriods(): string[] {
