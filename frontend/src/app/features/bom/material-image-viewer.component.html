@@ -1,0 +1,38 @@
+<dialog #dialogRef class="viewer-dialog" [class.open]="open" *ngIf="open" (cancel)="close()" (click)="onDialogClick($event)">
+  <section class="viewer-modal" (click)="$event.stopPropagation()">
+    <header class="viewer-header">
+      <div>
+        <p class="eyebrow">Visual BOM</p>
+        <h3>{{ model }}</h3>
+      </div>
+      <button type="button" class="close-button" (click)="close()">✕</button>
+    </header>
+
+    <div class="viewer-stage" *ngIf="current as active">
+      <button type="button" class="nav prev" (click)="previous()" aria-label="Anterior">‹</button>
+      <figure class="hero-frame">
+        <img [src]="active.imageUrl" [alt]="active.partNumber" (error)="onImageError($event)" />
+      </figure>
+      <button type="button" class="nav next" (click)="next()" aria-label="Siguiente">›</button>
+    </div>
+
+    <div class="viewer-info" *ngIf="current as active">
+      <div class="np">{{ active.partNumber }}</div>
+      <div class="description" *ngIf="active.description">{{ active.description }}</div>
+      <div class="description muted" *ngIf="!active.description">Sin descripción disponible.</div>
+    </div>
+
+    <div class="filmstrip" *ngIf="safeItems.length">
+      <button
+        type="button"
+        class="thumb"
+        *ngFor="let item of safeItems; let i = index"
+        [class.active]="i === clampedIndex"
+        (click)="select(i)"
+      >
+        <img [src]="item.imageUrl" [alt]="item.partNumber" />
+        <span>{{ item.partNumber }}</span>
+      </button>
+    </div>
+  </section>
+</dialog>

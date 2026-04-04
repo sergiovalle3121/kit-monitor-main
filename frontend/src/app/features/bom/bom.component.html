@@ -102,6 +102,38 @@
           <option>L</option>
         </select>
       </div>
+
+      <div class="field">
+        <label>Spec URL (fase 2)</label>
+        <input [(ngModel)]="form.specUrl" name="specUrl" placeholder="https://.../ficha-tecnica.pdf" />
+      </div>
+    </div>
+
+    <div class="upload-card">
+      <div class="upload-main">
+        <div>
+          <p class="upload-title">Foto del material</p>
+          <p class="upload-subtitle">JPG, PNG o WEBP. Maximo 5MB.</p>
+        </div>
+
+        <label class="btn-import secondary compact">
+          <input type="file" accept="image/jpeg,image/jpg,image/png,image/webp" (change)="onImageSelected($event)" hidden />
+          {{ imagePreview ? 'Reemplazar imagen' : 'Seleccionar imagen' }}
+        </label>
+      </div>
+
+      <p *ngIf="imageValidationError" class="error">{{ imageValidationError }}</p>
+
+      <div class="upload-preview" *ngIf="imagePreview; else emptyPreview">
+        <img [src]="imagePreview" alt="Preview material" />
+        <button type="button" class="btn-outline" (click)="removeImage()">Quitar</button>
+      </div>
+
+      <ng-template #emptyPreview>
+        <div class="upload-placeholder">
+          <span>Sin imagen seleccionada</span>
+        </div>
+      </ng-template>
     </div>
 
     <button type="submit" class="btn-primary" [disabled]="submitting || f.invalid">
@@ -145,6 +177,7 @@
         <table class="materials-table">
           <thead>
             <tr>
+              <th>Visual</th>
               <th>NP</th>
               <th>Descripcion</th>
               <th>Ubicacion</th>
@@ -155,6 +188,25 @@
 
           <tbody>
             <tr *ngFor="let item of group.materials">
+              <td>
+                <button
+                  type="button"
+                  class="thumb-trigger"
+                  [class.with-image]="hasImage(item)"
+                  [disabled]="!hasImage(item)"
+                  (click)="openViewer(group, item)"
+                >
+                  <img
+                    *ngIf="item.imageUrl; else placeholder"
+                    [src]="item.imageUrl"
+                    [alt]="item.partNumber"
+                    (error)="markThumbError(item, $event)"
+                  />
+                  <ng-template #placeholder>
+                    <span class="placeholder-icon">🖼</span>
+                  </ng-template>
+                </button>
+              </td>
               <td><code>{{ item.partNumber }}</code></td>
               <td [class.muted]="!item.description">{{ descriptionLabel(item) }}</td>
               <td [class.muted]="!item.location">{{ locationLabel(item) }}</td>
@@ -169,3 +221,12 @@
 </div>
 
 <p *ngIf="!loading && filteredGroups.length === 0 && !error">Sin modelos OP en BOM.</p>
+
+<app-material-image-viewer
+  [open]="viewerOpen"
+  [model]="viewerModel"
+  [items]="viewerItems"
+  [activeIndex]="viewerActiveIndex"
+  (closed)="closeViewer()"
+  (indexChanged)="setViewerIndex($event)"
+></app-material-image-viewer>
