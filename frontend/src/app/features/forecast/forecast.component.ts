@@ -107,6 +107,12 @@ export class ForecastComponent {
   planConfidenceScore: number | null = null;
   planProbability: number | null = null;
   logisticsPriorityTop: Array<{ partNumber: string; severity: string; priorityScore: number; recommendation: string }> = [];
+  simulationMode: string | null = null;
+  dataSufficiencyScore: number | null = null;
+  confidenceBand: { low: number; high: number } | null = null;
+  calibrationSummary: any = null;
+  controlTower: any = null;
+  lastPublicationId: number | null = null;
 
   constructor(private readonly api: ApiService) {}
 
@@ -259,6 +265,18 @@ export class ForecastComponent {
     }).subscribe({
       next: () => {
         this.operationStatusMessage = 'Plan publicado con trazabilidad de forecast y escenario.';
+        this.api.getPlanPublications().subscribe({
+          next: (publications) => {
+            this.lastPublicationId = publications?.[0]?.id ?? null;
+            if (this.lastPublicationId) {
+              this.api.registerPlanOutcome(this.lastPublicationId, {
+                actualQty: Math.round((this.planProbability ?? 0.6) * (this.forecastResults.reduce((acc, row) => acc + (row.forecastNext ?? 0), 0))),
+                shortageEvents: this.logisticsPriorityTop.length ? 1 : 0,
+                overtimeHours: this.planProbability && this.planProbability < 0.65 ? 3 : 1,
+              }).subscribe(() => this.loadControlTower());
+            }
+          },
+        });
       },
       error: () => {
         this.operationStatusMessage = 'No se pudo publicar el plan.';
@@ -339,10 +357,40 @@ export class ForecastComponent {
         this.planConfidenceScore = scenario?.viabilityScore ?? null;
         this.planProbability = scenario?.estimatedProbability ?? null;
         this.logisticsPriorityTop = (scenario?.logisticRisk?.items ?? []).slice(0, 5);
+        if (this.latestScenarioId) this.runScenarioSimulation(this.latestScenarioId);
       },
       error: () => {
         this.latestScenarioId = null;
       },
+    });
+  }
+
+  private runScenarioSimulation(scenarioId: number): void {
+    this.api.runPlanScenarioSimulation(scenarioId, { numRuns: 500 }).subscribe({
+      next: (payload) => {
+        const result = payload?.result;
+        this.planProbability = result?.probabilityOfPlanSuccess ?? this.planProbability;
+        this.planConfidenceScore = payload?.calibratedScore ?? this.planConfidenceScore;
+        this.simulationMode = result?.simulationMode ?? null;
+        this.dataSufficiencyScore = result?.dataSufficiencyScore ?? null;
+        this.confidenceBand = payload?.confidenceBand ?? null;
+        this.loadCalibrationSummary();
+      },
+    });
+  }
+
+  private loadCalibrationSummary(): void {
+    this.api.getCalibrationSummary().subscribe({
+      next: (summary) => { this.calibrationSummary = summary; },
+      error: () => { this.calibrationSummary = null; },
+    });
+  }
+
+  private loadControlTower(): void {
+    if (!this.lastPublicationId) return;
+    this.api.getPlanControlTower(this.lastPublicationId).subscribe({
+      next: (value) => { this.controlTower = value; },
+      error: () => { this.controlTower = null; },
     });
   }
 

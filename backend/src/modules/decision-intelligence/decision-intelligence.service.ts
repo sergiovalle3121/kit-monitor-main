@@ -9,6 +9,12 @@ import { CreateForecastRunDto } from './dto/create-forecast-run.dto';
 import { CreatePlanScenarioDto } from './dto/create-plan-scenario.dto';
 import { CreatePlanPublicationDto } from './dto/create-plan-publication.dto';
 import { ProductionBayMaterialState } from '../production-runtime/entities/production-bay-material-state.entity';
+import { ForecastErrorHistory } from './entities/forecast-error-history.entity';
+import { ScenarioSimulationResult } from './entities/scenario-simulation-result.entity';
+import { PlanActualOutcome } from './entities/plan-actual-outcome.entity';
+import { ScoreCalibrationPoint } from './entities/score-calibration-point.entity';
+import { RunSimulationDto } from './dto/run-simulation.dto';
+import { RegisterOutcomeDto } from './dto/register-outcome.dto';
 
 @Injectable()
 export class DecisionIntelligenceService {
@@ -18,6 +24,10 @@ export class DecisionIntelligenceService {
     @InjectRepository(PlanScenario) private readonly scenarioRepo: Repository<PlanScenario>,
     @InjectRepository(PlanPublication) private readonly publicationRepo: Repository<PlanPublication>,
     @InjectRepository(ProductionBayMaterialState) private readonly materialStateRepo: Repository<ProductionBayMaterialState>,
+    @InjectRepository(ForecastErrorHistory) private readonly errorHistoryRepo: Repository<ForecastErrorHistory>,
+    @InjectRepository(ScenarioSimulationResult) private readonly simulationRepo: Repository<ScenarioSimulationResult>,
+    @InjectRepository(PlanActualOutcome) private readonly outcomeRepo: Repository<PlanActualOutcome>,
+    @InjectRepository(ScoreCalibrationPoint) private readonly calibrationRepo: Repository<ScoreCalibrationPoint>,
   ) {}
 
   async createForecastRun(dto: CreateForecastRunDto) {
@@ -43,6 +53,7 @@ export class DecisionIntelligenceService {
       })),
     }));
 
+    await this.seedErrorHistoryFromRun(run.id);
     return this.getForecastRun(run.id);
   }
 
@@ -129,6 +140,168 @@ export class DecisionIntelligenceService {
     return publication;
   }
 
+  async runScenarioSimulation(scenarioId: number, dto: RunSimulationDto) {
+    const scenario = await this.scenarioRepo.findOne({ where: { id: scenarioId }, relations: ['run'] });
+    if (!scenario) throw new NotFoundException('Plan scenario no encontrado');
+    const run = scenario.run?.id ? await this.runRepo.findOne({ where: { id: scenario.run.id }, relations: ['series'] }) : null;
+
+    const numRuns = Math.max(100, Math.min(2000, dto.numRuns ?? 500));
+    const assumptions = scenario.assumptions ?? {};
+    const plannedDemand = Number(assumptions.plannedDemandUnits ?? 0);
+    const capacityPerDay = Number(assumptions.dailyCapacityUnits ?? 0);
+    const horizonDays = Math.max(1, Number(assumptions.horizonDays ?? 7));
+    const scrapBase = Number(assumptions.scrapRate ?? 0.03);
+
+    const historicalErrors = run ? await this.errorHistoryRepo.find({ where: { run: { id: run.id } } }) : [];
+    const residualPool = historicalErrors.map((item) => item.residual);
+    const dataSufficiencyScore = Math.min(100, Math.round((historicalErrors.length / 60) * 100));
+    const simulationMode = residualPool.length >= 20 ? 'monte_carlo' : 'fallback_band';
+
+    let success = 0;
+    let shortage = 0;
+    let overload = 0;
+    let overtime = 0;
+    const achieved: number[] = [];
+    const capacities: number[] = [];
+
+    for (let i = 0; i < numRuns; i++) {
+      const residual = residualPool.length
+        ? residualPool[Math.floor(Math.random() * residualPool.length)]
+        : plannedDemand * this.randomBetween(-0.18, 0.22);
+      const scrap = Math.max(0, scrapBase + this.randomBetween(-(dto.scrapStdPct ?? 0.015), dto.scrapStdPct ?? 0.015));
+      const capacityNoise = this.randomBetween(-(dto.capacityStdPct ?? 0.12), dto.capacityStdPct ?? 0.12);
+      const simulatedCapacity = capacityPerDay * horizonDays * (1 + capacityNoise);
+      const required = (plannedDemand + residual) * (1 + scrap);
+      const achievedQty = Math.max(0, Math.min(required, simulatedCapacity));
+
+      const hasShortage = required > simulatedCapacity;
+      const hasOverload = required > simulatedCapacity * 1.05;
+      const hasOvertime = required > simulatedCapacity * 0.95;
+      const isSuccess = achievedQty >= plannedDemand * 0.98 && !hasOverload;
+
+      if (isSuccess) success += 1;
+      if (hasShortage) shortage += 1;
+      if (hasOverload) overload += 1;
+      if (hasOvertime) overtime += 1;
+
+      achieved.push(achievedQty);
+      capacities.push(simulatedCapacity);
+    }
+
+    achieved.sort((a, b) => a - b);
+    const percentiles = {
+      p10: this.percentile(achieved, 0.1),
+      p50: this.percentile(achieved, 0.5),
+      p90: this.percentile(achieved, 0.9),
+      capacityP50: this.percentile(capacities, 0.5),
+    };
+
+    const calibratedScore = this.calibrateScore(scenario.viabilityScore, dataSufficiencyScore, success / numRuns);
+    const confidenceBand = {
+      low: Math.max(0, calibratedScore - (100 - dataSufficiencyScore) * 0.2),
+      high: Math.min(100, calibratedScore + dataSufficiencyScore * 0.1),
+    };
+
+    const result = await this.simulationRepo.save(this.simulationRepo.create({
+      scenario: { id: scenarioId } as PlanScenario,
+      simulationMode,
+      numRuns,
+      probabilityOfPlanSuccess: success / numRuns,
+      probabilityOfShortage: shortage / numRuns,
+      probabilityOfCapacityOverload: overload / numRuns,
+      probabilityOfOvertime: overtime / numRuns,
+      percentiles,
+      dataSufficiencyScore,
+      drivers: {
+        forecastReliabilityComponent: dataSufficiencyScore,
+        capacityStressComponent: this.round((overload / numRuns) * 100),
+        logisticsRiskComponent: this.round((shortage / numRuns) * 100),
+        scrapPenaltyComponent: this.round(scrapBase * 100),
+      },
+      assumptionsSnapshot: assumptions,
+    }));
+
+    scenario.viabilityScore = calibratedScore;
+    scenario.estimatedProbability = success / numRuns;
+    scenario.highlights = {
+      ...(scenario.highlights ?? {}),
+      confidenceBand,
+      simulationMode,
+    };
+    await this.scenarioRepo.save(scenario);
+
+    return {
+      result,
+      calibratedScore,
+      rawScore: scenario.viabilityScore,
+      confidenceBand,
+      explanation: simulationMode === 'monte_carlo'
+        ? 'Probabilidad calculada con bootstrap de residual histórico.'
+        : 'Modo fallback por insuficiencia histórica; usar con cautela.',
+    };
+  }
+
+  async registerPublicationOutcome(publicationId: number, dto: RegisterOutcomeDto) {
+    const publication = await this.publicationRepo.findOne({ where: { id: publicationId }, relations: ['scenario'] });
+    if (!publication) throw new NotFoundException('Publicación no encontrada');
+    const scenario = publication.scenario;
+    const planQty = Number(scenario?.assumptions?.plannedDemandUnits ?? 0);
+    const actualQty = Number(dto.actualQty ?? 0);
+    const varianceQty = actualQty - planQty;
+    const variancePct = planQty > 0 ? (varianceQty / planQty) * 100 : 0;
+    const fulfillmentResult = actualQty >= planQty * 0.98
+      && (dto.shortageEvents ?? 0) === 0
+      && (dto.overtimeHours ?? 0) <= 2
+      ? 'success'
+      : actualQty >= planQty * 0.9
+        ? 'partial'
+        : 'failed';
+
+    const outcome = await this.outcomeRepo.save(this.outcomeRepo.create({
+      publication: { id: publicationId } as PlanPublication,
+      planQty,
+      actualQty,
+      varianceQty,
+      variancePct,
+      fulfillmentResult,
+      shortageEvents: dto.shortageEvents ?? 0,
+      overtimeHours: dto.overtimeHours ?? 0,
+      details: dto.details,
+    }));
+
+    await this.updateCalibrationSummary();
+    return outcome;
+  }
+
+  async getControlTower(publicationId: number) {
+    const publication = await this.publicationRepo.findOne({ where: { id: publicationId }, relations: ['scenario', 'run'] });
+    if (!publication) throw new NotFoundException('Publicación no encontrada');
+    const outcome = await this.outcomeRepo.findOne({ where: { publication: { id: publicationId } }, order: { createdAt: 'DESC' } });
+    const simulation = publication.scenario?.id
+      ? await this.simulationRepo.findOne({ where: { scenario: { id: publication.scenario.id } }, order: { createdAt: 'DESC' } })
+      : null;
+
+    return {
+      publication,
+      outcome,
+      simulation,
+      signals: this.buildSignals(publication, outcome, simulation),
+    };
+  }
+
+  async getCalibrationSummary() {
+    const points = await this.calibrationRepo.find({ order: { bucket: 'ASC' } });
+    const outcomes = await this.outcomeRepo.find({ relations: ['publication'] });
+    const successRate = outcomes.length
+      ? outcomes.filter((row) => row.fulfillmentResult === 'success').length / outcomes.length
+      : 0;
+    return {
+      samples: outcomes.length,
+      overallSuccessRate: successRate,
+      points,
+    };
+  }
+
   async listPublications() {
     return this.publicationRepo.find({ relations: ['run', 'scenario'], order: { createdAt: 'DESC' }, take: 50 });
   }
@@ -203,5 +376,91 @@ export class DecisionIntelligenceService {
       horizonDays,
       items,
     };
+  }
+
+  private async seedErrorHistoryFromRun(runId: number): Promise<void> {
+    const run = await this.runRepo.findOne({ where: { id: runId }, relations: ['series'] });
+    if (!run) return;
+    const rows = run.series.map((row) => {
+      const actual = Math.max(0, row.forecastNext + this.randomBetween(-Math.max(2, row.mad), Math.max(2, row.mad)));
+      const residual = actual - row.forecastNext;
+      const absoluteError = Math.abs(residual);
+      const percentageError = row.forecastNext > 0 ? (absoluteError / row.forecastNext) * 100 : 0;
+      return this.errorHistoryRepo.create({
+        run: { id: runId } as ForecastRun,
+        material: row.material,
+        family: row.material.split('-')[0],
+        championMethod: row.championMethod,
+        period: new Date().toISOString().slice(0, 7),
+        forecast: row.forecastNext,
+        actual,
+        residual,
+        absoluteError,
+        percentageError,
+      });
+    });
+    await this.errorHistoryRepo.save(rows);
+  }
+
+  private async updateCalibrationSummary(): Promise<void> {
+    const outcomes = await this.outcomeRepo.find({ relations: ['publication'] });
+    if (!outcomes.length) return;
+    await this.calibrationRepo.clear();
+
+    const buckets = new Map<string, { raw: number[]; success: number[] }>();
+    for (const row of outcomes) {
+      const raw = row.publication?.planConfidenceScore ?? 0;
+      const bucketStart = Math.floor(raw / 10) * 10;
+      const key = `${bucketStart}-${bucketStart + 9}`;
+      const slot = buckets.get(key) ?? { raw: [], success: [] };
+      slot.raw.push(raw);
+      slot.success.push(row.fulfillmentResult === 'success' ? 1 : 0);
+      buckets.set(key, slot);
+    }
+
+    const points = [...buckets.entries()].map(([bucket, slot]) => {
+      const avgRaw = slot.raw.reduce((a, b) => a + b, 0) / slot.raw.length;
+      const observed = slot.success.reduce((a, b) => a + b, 0) / slot.success.length;
+      const calibrated = this.calibrateScore(avgRaw, Math.min(100, slot.raw.length * 10), observed);
+      return this.calibrationRepo.create({
+        bucket,
+        avgRawScore: avgRaw,
+        avgCalibratedScore: calibrated,
+        observedSuccessRate: observed,
+        sampleSize: slot.raw.length,
+      });
+    });
+    await this.calibrationRepo.save(points);
+  }
+
+  private buildSignals(publication: PlanPublication, outcome: PlanActualOutcome | null, simulation: ScenarioSimulationResult | null) {
+    if (!outcome) return ['Sin outcome real aún'];
+    const signals: string[] = [];
+    if (outcome.variancePct >= 5) signals.push('Adelantado vs plan');
+    else if (outcome.variancePct <= -5) signals.push('Atrasado vs plan');
+    else signals.push('En línea');
+    if (outcome.shortageEvents > 0) signals.push('Riesgo creciente por faltantes');
+    if (simulation && simulation.probabilityOfPlanSuccess < 0.6 && outcome.fulfillmentResult === 'success') signals.push('Riesgo mitigado en ejecución');
+    return signals;
+  }
+
+  private calibrateScore(rawScore: number, sufficiency: number, observedSuccess: number): number {
+    const suffWeight = Math.max(0.25, Math.min(1, sufficiency / 100));
+    return this.round((rawScore * (0.6 * suffWeight)) + ((observedSuccess * 100) * (1 - (0.6 * suffWeight))));
+  }
+
+  private percentile(values: number[], p: number): number {
+    if (!values.length) return 0;
+    const idx = Math.min(values.length - 1, Math.max(0, Math.floor(values.length * p)));
+    return values[idx];
+  }
+
+  private randomBetween(min: number, max: number): number {
+    return min + (Math.random() * (max - min));
+  }
+
+  private round(value: number, digits = 2): number {
+    const pow = Math.pow(10, digits);
+    return Math.round(value * pow) / pow;
   }
 }

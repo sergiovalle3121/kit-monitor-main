@@ -7,6 +7,10 @@ import { ForecastSeriesResult } from './entities/forecast-series-result.entity';
 import { PlanScenario } from './entities/plan-scenario.entity';
 import { PlanPublication } from './entities/plan-publication.entity';
 import { ProductionBayMaterialState } from '../production-runtime/entities/production-bay-material-state.entity';
+import { ForecastErrorHistory } from './entities/forecast-error-history.entity';
+import { ScenarioSimulationResult } from './entities/scenario-simulation-result.entity';
+import { PlanActualOutcome } from './entities/plan-actual-outcome.entity';
+import { ScoreCalibrationPoint } from './entities/score-calibration-point.entity';
 
 @Module({
   imports: [TypeOrmModule.forFeature([
@@ -15,6 +19,10 @@ import { ProductionBayMaterialState } from '../production-runtime/entities/produ
     PlanScenario,
     PlanPublication,
     ProductionBayMaterialState,
+    ForecastErrorHistory,
+    ScenarioSimulationResult,
+    PlanActualOutcome,
+    ScoreCalibrationPoint,
   ])],
   providers: [DecisionIntelligenceService],
   controllers: [DecisionIntelligenceController],

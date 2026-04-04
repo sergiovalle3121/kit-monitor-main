@@ -4,6 +4,8 @@ import { DecisionIntelligenceService } from './decision-intelligence.service';
 import { CreateForecastRunDto } from './dto/create-forecast-run.dto';
 import { CreatePlanScenarioDto } from './dto/create-plan-scenario.dto';
 import { CreatePlanPublicationDto } from './dto/create-plan-publication.dto';
+import { RunSimulationDto } from './dto/run-simulation.dto';
+import { RegisterOutcomeDto } from './dto/register-outcome.dto';
 
 @UseGuards(JwtAuthGuard)
 @Controller('decision-intelligence')
@@ -53,5 +55,30 @@ export class DecisionIntelligenceController {
   @Get('logistics-priority')
   getLogisticsPriority(@Query('runId') runId?: string) {
     return this.service.getLogisticPriority(runId ? Number(runId) : undefined);
+  }
+
+  @Post('plan-scenarios/:id/simulate')
+  runSimulation(@Param('id', ParseIntPipe) id: number, @Body() dto: RunSimulationDto) {
+    return this.service.runScenarioSimulation(id, dto);
+  }
+
+  @Get('plan-scenarios/:id/simulation')
+  getScenarioSimulation(@Param('id', ParseIntPipe) id: number) {
+    return this.service.runScenarioSimulation(id, {});
+  }
+
+  @Post('plan-publications/:id/outcome')
+  registerOutcome(@Param('id', ParseIntPipe) id: number, @Body() dto: RegisterOutcomeDto) {
+    return this.service.registerPublicationOutcome(id, dto);
+  }
+
+  @Get('plan-publications/:id/control-tower')
+  getControlTower(@Param('id', ParseIntPipe) id: number) {
+    return this.service.getControlTower(id);
+  }
+
+  @Get('calibration/summary')
+  getCalibrationSummary() {
+    return this.service.getCalibrationSummary();
   }
 }

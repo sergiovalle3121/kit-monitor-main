@@ -193,6 +193,26 @@ export class ApiService {
     return this.get<any>('decision-intelligence/logistics-priority', runId ? { runId } : undefined);
   }
 
+  runPlanScenarioSimulation(id: number, dto: any): Observable<any> {
+    return this.post<any>(`decision-intelligence/plan-scenarios/${id}/simulate`, dto);
+  }
+
+  getPlanScenarioSimulation(id: number): Observable<any> {
+    return this.get<any>(`decision-intelligence/plan-scenarios/${id}/simulation`);
+  }
+
+  registerPlanOutcome(publicationId: number, dto: any): Observable<any> {
+    return this.post<any>(`decision-intelligence/plan-publications/${publicationId}/outcome`, dto);
+  }
+
+  getPlanControlTower(publicationId: number): Observable<any> {
+    return this.get<any>(`decision-intelligence/plan-publications/${publicationId}/control-tower`);
+  }
+
+  getCalibrationSummary(): Observable<any> {
+    return this.get<any>('decision-intelligence/calibration/summary');
+  }
+
   getExceptions(kitId: number): Observable<any[]> {
     return this.get<any[]>('exceptions', { kitId });
   }

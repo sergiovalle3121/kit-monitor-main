@@ -727,6 +727,9 @@
           <span class="badge subtle">Probabilidad estimada: {{ percentLabel(planProbability) }}</span>
           <span class="badge subtle">Run ID: {{ latestRunId || '-' }}</span>
           <span class="badge subtle">Scenario ID: {{ latestScenarioId || '-' }}</span>
+          <span class="badge subtle">Modo simulación: {{ simulationMode || 'N/A' }}</span>
+          <span class="badge subtle">Data sufficiency: {{ dataSufficiencyScore ?? '-' }}</span>
+          <span class="badge subtle" *ngIf="confidenceBand">Band: {{ confidenceBand.low | number:'1.0-0' }}-{{ confidenceBand.high | number:'1.0-0' }}</span>
         </div>
       }
 
@@ -752,6 +755,21 @@
               }
             </tbody>
           </table>
+        </div>
+      }
+
+      @if (calibrationSummary) {
+        <div class="pill-grid">
+          <span class="badge subtle">Calibration samples: {{ calibrationSummary.samples }}</span>
+          <span class="badge subtle">Observed success rate: {{ percentLabel(calibrationSummary.overallSuccessRate) }}</span>
+        </div>
+      }
+
+      @if (controlTower) {
+        <div class="pill-grid">
+          <span class="badge subtle">Control tower: {{ controlTower.outcome?.fulfillmentResult || 'sin outcome' }}</span>
+          <span class="badge subtle">Variance: {{ controlTower.outcome?.variancePct | number:'1.0-1' }}%</span>
+          <span class="badge subtle">Signals: {{ controlTower.signals?.join(', ') }}</span>
         </div>
       }
 
