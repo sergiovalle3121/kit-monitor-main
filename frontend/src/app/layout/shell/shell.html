@@ -7,7 +7,7 @@
         <span>Industrial Control</span>
       </div>
       <button class="toggle-btn" (click)="toggle()" [attr.aria-label]="collapsed ? 'Expandir' : 'Colapsar'">
-        <span class="chevron">{{ collapsed ? '&#9654;' : '&#9664;' }}</span>
+        <span class="chevron">{{ collapsed ? '›' : '‹' }}</span>
       </button>
     </div>
 
@@ -24,7 +24,7 @@
             <span class="nav-full">Planeacion</span>
             <span class="nav-short">PL</span>
           </span>
-          <span class="nav-full group-arrow">{{ openSection === 'plan' ? '&#9650;' : '&#9660;' }}</span>
+          <span class="nav-full group-arrow">{{ openSection === 'plan' ? '▲' : '▼' }}</span>
         </button>
         <div class="nav-group-items">
           <a routerLink="/plan" routerLinkActive="active">Publicacion</a>
@@ -38,7 +38,7 @@
             <span class="nav-full">IC</span>
             <span class="nav-short">IC</span>
           </span>
-          <span class="nav-full group-arrow">{{ openSection === 'ic' ? '&#9650;' : '&#9660;' }}</span>
+          <span class="nav-full group-arrow">{{ openSection === 'ic' ? '▲' : '▼' }}</span>
         </button>
         <div class="nav-group-items">
           <a routerLink="/bom" routerLinkActive="active">BOM</a>
@@ -53,7 +53,7 @@
             <span class="nav-full">IE</span>
             <span class="nav-short">IE</span>
           </span>
-          <span class="nav-full group-arrow">{{ openSection === 'ie' ? '&#9650;' : '&#9660;' }}</span>
+          <span class="nav-full group-arrow">{{ openSection === 'ie' ? '▲' : '▼' }}</span>
         </button>
         <div class="nav-group-items">
           <a class="disabled">Ayudas visuales</a>
@@ -67,7 +67,7 @@
             <span class="nav-full">Produccion</span>
             <span class="nav-short">PR</span>
           </span>
-          <span class="nav-full group-arrow">{{ openSection === 'prod' ? '&#9650;' : '&#9660;' }}</span>
+          <span class="nav-full group-arrow">{{ openSection === 'prod' ? '▲' : '▼' }}</span>
         </button>
         <div class="nav-group-items">
           <a routerLink="/production" routerLinkActive="active">Solicitar kit</a>
@@ -86,7 +86,7 @@
     <header class="topbar">
       <button class="menu-trigger" (click)="toggle()" aria-label="Alternar menu">☰</button>
       <label class="search" aria-label="Buscar modulo">
-        <span class="search-icon" aria-hidden="true">⌕</span>
+        <span class="search-icon" aria-hidden="true">🔍</span>
         <input type="search" placeholder="Buscar modulo, kit o material" />
       </label>
       <div class="topbar-actions">
