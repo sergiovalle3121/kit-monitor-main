@@ -5,6 +5,7 @@ import {
   EventEmitter,
   HostListener,
   Input,
+  AfterViewInit,
   OnChanges,
   Output,
   SimpleChanges,
@@ -26,7 +27,7 @@ export interface BomVisualItem {
   templateUrl: './material-image-viewer.component.html',
   styleUrls: ['./material-image-viewer.component.css'],
 })
-export class MaterialImageViewerComponent implements OnChanges {
+export class MaterialImageViewerComponent implements OnChanges, AfterViewInit {
   @ViewChild('dialogRef') dialogRef?: ElementRef<HTMLDialogElement>;
   @Input() open = false;
   @Input() model = '';
@@ -38,6 +39,14 @@ export class MaterialImageViewerComponent implements OnChanges {
 
   ngOnChanges(changes: SimpleChanges): void {
     if (!changes['open']) return;
+    this.syncDialogState();
+  }
+
+  ngAfterViewInit(): void {
+    this.syncDialogState();
+  }
+
+  private syncDialogState(): void {
     const dialog = this.dialogRef?.nativeElement;
     if (!dialog) return;
 
