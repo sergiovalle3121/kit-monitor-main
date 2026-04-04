@@ -1,16 +1,5 @@
 import { CommonModule } from '@angular/common';
-import {
-  Component,
-  ElementRef,
-  EventEmitter,
-  HostListener,
-  Input,
-  AfterViewInit,
-  OnChanges,
-  Output,
-  SimpleChanges,
-  ViewChild,
-} from '@angular/core';
+import { Component, EventEmitter, HostListener, Input, Output } from '@angular/core';
 
 export interface BomVisualItem {
   partNumber: string;
@@ -27,8 +16,7 @@ export interface BomVisualItem {
   templateUrl: './material-image-viewer.component.html',
   styleUrls: ['./material-image-viewer.component.css'],
 })
-export class MaterialImageViewerComponent implements OnChanges, AfterViewInit {
-  @ViewChild('dialogRef') dialogRef?: ElementRef<HTMLDialogElement>;
+export class MaterialImageViewerComponent {
   @Input() open = false;
   @Input() model = '';
   @Input() items: BomVisualItem[] = [];
@@ -36,29 +24,6 @@ export class MaterialImageViewerComponent implements OnChanges, AfterViewInit {
 
   @Output() closed = new EventEmitter<void>();
   @Output() indexChanged = new EventEmitter<number>();
-
-  ngOnChanges(changes: SimpleChanges): void {
-    if (!changes['open']) return;
-    this.syncDialogState();
-  }
-
-  ngAfterViewInit(): void {
-    this.syncDialogState();
-  }
-
-  private syncDialogState(): void {
-    const dialog = this.dialogRef?.nativeElement;
-    if (!dialog) return;
-
-    if (this.open && !dialog.open) {
-      dialog.showModal();
-      return;
-    }
-
-    if (!this.open && dialog.open) {
-      dialog.close();
-    }
-  }
 
   get safeItems(): BomVisualItem[] {
     return this.items.filter(item => !!item.imageUrl);
@@ -77,15 +42,7 @@ export class MaterialImageViewerComponent implements OnChanges, AfterViewInit {
   }
 
   close(): void {
-    const dialog = this.dialogRef?.nativeElement;
-    if (dialog?.open) dialog.close();
     this.closed.emit();
-  }
-
-  onDialogClick(event: MouseEvent): void {
-    if (event.target === this.dialogRef?.nativeElement) {
-      this.close();
-    }
   }
 
   previous(): void {
@@ -106,6 +63,10 @@ export class MaterialImageViewerComponent implements OnChanges, AfterViewInit {
 
   onImageError(event: Event): void {
     const target = event.target as HTMLImageElement;
+    if (target.src.endsWith('.jpg')) {
+      target.src = target.src.replace('.jpg', '.svg');
+      return;
+    }
     target.style.opacity = '0.18';
   }
 

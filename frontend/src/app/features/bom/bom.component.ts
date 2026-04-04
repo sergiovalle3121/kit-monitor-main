@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../core/api.service';
 import { BomVisualItem, MaterialImageViewerComponent } from './material-image-viewer.component';
+import { DEMO_IMAGE_DATA_URLS } from './material-image-demo.data';
 
 interface BomItemView extends BomVisualItem {
   id?: number;
@@ -21,15 +22,6 @@ interface BomModelGroup {
 }
 
 const DEMO_MODEL = 'OP-320-0107B';
-const DEMO_IMAGE_MAP: Record<string, string> = {
-  'OP-520-0088': 'assets/material-images/OP-520-0088.svg',
-  'OP-520-0091': 'assets/material-images/OP-520-0091.svg',
-  'OP-520-0097': 'assets/material-images/OP-520-0097.svg',
-  'OP-520-0098': 'assets/material-images/OP-520-0098.svg',
-  'OP-580-0433A': 'assets/material-images/OP-580-0433A.svg',
-  'OP-580-0434A': 'assets/material-images/OP-580-0434A.svg',
-  'OP-600-0007': 'assets/material-images/OP-600-0007.svg',
-};
 
 @Component({
   selector: 'app-bom',
@@ -280,6 +272,11 @@ export class BomComponent implements OnInit, OnDestroy {
   }
 
   markThumbError(item: BomItemView, event: Event): void {
+    if (item.imageUrl?.endsWith('.jpg')) {
+      item.imageUrl = item.imageUrl.replace('.jpg', '.svg');
+      return;
+    }
+
     item.imageUrl = null;
     item.hasImage = false;
     const target = event.target as HTMLImageElement;
@@ -333,8 +330,7 @@ export class BomComponent implements OnInit, OnDestroy {
       };
     }
 
-    const mappedImage =
-      DEMO_IMAGE_MAP[normalizedPart] ?? null;
+    const mappedImage = DEMO_IMAGE_DATA_URLS[normalizedPart] ?? null;
 
     const imageUrl = item.imageUrl?.trim() || mappedImage || null;
 

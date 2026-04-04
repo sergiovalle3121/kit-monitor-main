@@ -1,18 +1,20 @@
-.viewer-dialog {
-  width: 100vw;
-  height: 100vh;
-  max-width: 100vw;
-  max-height: 100vh;
-  border: none;
-  margin: 0;
-  padding: 24px;
-  background: transparent;
-  z-index: 1200;
+:host {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  pointer-events: none;
 }
 
-.viewer-dialog::backdrop {
+.viewer-backdrop {
+  position: fixed;
+  inset: 0;
   background: rgba(2, 6, 23, 0.74);
   backdrop-filter: blur(12px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  pointer-events: auto;
 }
 
 .viewer-modal {
