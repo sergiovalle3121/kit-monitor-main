@@ -2,17 +2,17 @@
 
 :root {
   /* Primary */
-  --primary: #233246;
-  --primary-light: #4f72c7;
-  --primary-hover: #3f5ea9;
-  --accent: #5d7ecf;
+  --primary: #2a394a;
+  --primary-light: #5f80c7;
+  --primary-hover: #4e6eaf;
+  --accent: #6b8bcf;
 
   /* Grays (Slate) */
   --gray-50: #f7fafc;
-  --gray-100: #eef3f8;
+  --gray-100: #e9eff6;
   --gray-200: #dbe4ee;
   --gray-300: #c3d0de;
-  --gray-400: #8fa0b3;
+  --gray-400: #90a2b6;
   --gray-500: #64748b;
   --gray-600: #49586b;
   --gray-700: #334155;
@@ -20,15 +20,24 @@
   --gray-900: #0f172a;
 
   /* Status palette */
-  --st-scheduled-bg: #eff6ff;   --st-scheduled-fg: #1e40af;
-  --st-preparing-bg: #fffbeb;   --st-preparing-fg: #92400e;
-  --st-kitted-bg: #eef2ff;      --st-kitted-fg: #4338ca;
-  --st-ready-bg: #f0fdfa;       --st-ready-fg: #0f766e;
-  --st-requested-bg: #fff7ed;   --st-requested-fg: #c2410c;
-  --st-delivered-bg: #faf5ff;   --st-delivered-fg: #7e22ce;
-  --st-in_progress-bg: #ecfdf5; --st-in_progress-fg: #047857;
-  --st-completed-bg: #dcfce7;   --st-completed-fg: #15803d;
-  --st-empty-bg: #f1f5f9;       --st-empty-fg: #94a3b8;
+  --st-scheduled-bg: #eff6ff;
+  --st-scheduled-fg: #1e40af;
+  --st-preparing-bg: #fffbeb;
+  --st-preparing-fg: #92400e;
+  --st-kitted-bg: #eef2ff;
+  --st-kitted-fg: #4338ca;
+  --st-ready-bg: #f0fdfa;
+  --st-ready-fg: #0f766e;
+  --st-requested-bg: #fff7ed;
+  --st-requested-fg: #c2410c;
+  --st-delivered-bg: #faf5ff;
+  --st-delivered-fg: #7e22ce;
+  --st-in_progress-bg: #ecfdf5;
+  --st-in_progress-fg: #047857;
+  --st-completed-bg: #dcfce7;
+  --st-completed-fg: #15803d;
+  --st-empty-bg: #f1f5f9;
+  --st-empty-fg: #94a3b8;
 
   /* Semantic */
   --danger: #dc2626;
@@ -45,15 +54,15 @@
   --radius-xl: 24px;
 
   /* Shadows */
-  --shadow-sm:    0 2px 6px rgba(28, 39, 54, 0.08),  0 4px 12px rgba(28, 39, 54, 0.05);
-  --shadow-md:    0 5px 18px rgba(28, 39, 54, 0.12), 0 10px 24px rgba(28, 39, 54, 0.07);
-  --shadow-lg:    0 10px 30px rgba(28, 39, 54, 0.16), 0 16px 40px rgba(28, 39, 54, 0.09);
-  --shadow-hover: 0 8px 22px rgba(28, 39, 54, 0.14), 0 14px 32px rgba(28, 39, 54, 0.08);
+  --shadow-sm:    0 2px 5px rgba(27, 39, 54, 0.08),  0 3px 10px rgba(27, 39, 54, 0.05);
+  --shadow-md:    0 4px 14px rgba(27, 39, 54, 0.11), 0 8px 20px rgba(27, 39, 54, 0.07);
+  --shadow-lg:    0 8px 24px rgba(27, 39, 54, 0.15), 0 14px 34px rgba(27, 39, 54, 0.09);
+  --shadow-hover: 0 7px 18px rgba(27, 39, 54, 0.13), 0 12px 28px rgba(27, 39, 54, 0.08);
 
   /* Surfaces */
-  --surface-0: #f3f6fa;
-  --surface-1: rgba(243, 247, 252, 0.9);
-  --surface-2: #e9eef5;
+  --surface-0: #eff4fa;
+  --surface-1: rgba(241, 246, 252, 0.9);
+  --surface-2: #e5ecf4;
 
   /* Borders */
   --border-soft: rgba(131, 149, 172, 0.22);
