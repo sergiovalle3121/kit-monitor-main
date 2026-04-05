@@ -69,6 +69,14 @@ export class ApiService {
     return this.get<any[]>('bay-layouts', { model });
   }
 
+  createBayLayoutsBulk(rows: Array<{ model: string; partNumber: string; bahia: number }>): Observable<any[]> {
+    return this.post<any[]>('bay-layouts/bulk', rows);
+  }
+
+  deleteBayLayoutsByModel(model: string): Observable<{ deleted: number }> {
+    return this.delete<{ deleted: number }>(`bay-layouts/model/${encodeURIComponent(model)}`);
+  }
+
   createBomItem(dto: any): Observable<any> {
     return this.post<any>('bom', dto);
   }

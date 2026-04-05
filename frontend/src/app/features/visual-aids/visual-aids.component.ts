@@ -1,8 +1,15 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
+import { environment } from '../../../environments/environment';
 import { VisualAid } from '../../core/ie-data.models';
 import { VisualAidsService } from '../../core/visual-aids.service';
+
+interface VisualAidViewer {
+  item: VisualAid;
+  safePdfUrl: SafeResourceUrl;
+}
 
 @Component({
   selector: 'app-visual-aids',
@@ -23,7 +30,7 @@ export class VisualAidsComponent implements OnInit {
   formError: string | null = null;
   fileName = '';
 
-  viewer: VisualAid | null = null;
+  viewer: VisualAidViewer | null = null;
 
   form = {
     model: '',
@@ -36,7 +43,10 @@ export class VisualAidsComponent implements OnInit {
     notes: '',
   };
 
-  constructor(private readonly visualAids: VisualAidsService) {}
+  constructor(
+    private readonly visualAids: VisualAidsService,
+    private readonly sanitizer: DomSanitizer,
+  ) {}
 
   ngOnInit(): void {
     this.visualAids.getVisualAids().subscribe((items) => {
@@ -123,10 +133,25 @@ export class VisualAidsComponent implements OnInit {
   }
 
   openViewer(item: VisualAid): void {
-    this.viewer = item;
+    this.viewer = {
+      item,
+      safePdfUrl: this.sanitizer.bypassSecurityTrustResourceUrl(this.resolvePdfUrl(item.pdfUrl)),
+    };
   }
 
   openInNewTab(item: VisualAid): void {
-    window.open(item.pdfUrl, '_blank', 'noopener');
+    window.open(this.resolvePdfUrl(item.pdfUrl), '_blank', 'noopener');
+  }
+
+  private resolvePdfUrl(rawUrl: string): string {
+    const value = String(rawUrl ?? '').trim();
+    if (!value) return '';
+
+    if (/^https?:\/\//i.test(value) || /^data:application\/pdf/i.test(value)) {
+      return value;
+    }
+
+    const apiBase = environment.apiUrl.replace(/\/$/, '');
+    return `${apiBase}/visual-aids/file/${encodeURIComponent(value)}`;
   }
 }
