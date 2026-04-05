@@ -156,46 +156,72 @@
           <div class="layout-area">
             <div class="section-header">
               <h3>Bahías en operación</h3>
-              <span class="section-meta">{{ bayIdsForStation(station).length }} bahías</span>
+              <span class="section-meta">{{ getAvailableBahias(station).length }} bahías</span>
             </div>
 
-            <div class="bay-grid" *ngIf="bayIdsForStation(station).length; else noBaysConfigured">
-              <article class="bay-card" *ngFor="let bayId of bayIdsForStation(station)">
+            <div class="empty-box compact" *ngIf="layoutLoadingByStation[getStationKey(station)]">Cargando disposición...</div>
+
+            <div class="empty-box compact" *ngIf="!layoutLoadingByStation[getStationKey(station)] && layoutErrorByStation[getStationKey(station)]">
+              {{ layoutErrorByStation[getStationKey(station)] }}
+            </div>
+
+            <ng-container *ngIf="!layoutLoadingByStation[getStationKey(station)] && !layoutErrorByStation[getStationKey(station)]">
+              <div class="bay-tabs" *ngIf="getAvailableBahias(station).length">
+                <button
+                  type="button"
+                  class="bay-tab"
+                  *ngFor="let bahia of getAvailableBahias(station)"
+                  [class.active]="selectedBahiaByStation[getStationKey(station)] === bahia"
+                  (click)="selectBahia(station, bahia)"
+                >
+                  {{ bahia }} ({{ bayMapByStation[getStationKey(station)][bahia].length }})
+                </button>
+              </div>
+
+              <article
+                class="bay-card"
+                *ngIf="selectedBahiaByStation[getStationKey(station)] as selectedBahia"
+                [class.pulse]="registerPulseByStation[getStationKey(station)]"
+              >
                 <div class="bay-header">
-                  <strong>Bahía {{ bayId }}</strong>
-                  <span class="risk" [class.warn]="bayLowStockCount(station, bayId)">
-                    Riesgo: {{ bayLowStockCount(station, bayId) || 'Sin riesgo' }}
+                  <strong>{{ selectedBahia }}</strong>
+                  <span class="risk" [class.warn]="bayLowStockCount(station, extractBayNumber(selectedBahia))">
+                    Riesgo: {{ bayLowStockCount(station, extractBayNumber(selectedBahia)) || 'Sin riesgo' }}
                   </span>
                 </div>
 
                 <div class="bay-stats">
-                  <span>Ensamblado: {{ bayAssembled(station, bayId) }}</span>
-                  <span *ngIf="bayLastEvent(station, bayId)">Último: {{ bayLastEvent(station, bayId) | date:'shortTime' }}</span>
+                  <span>Ensamblado: {{ bayAssembled(station, extractBayNumber(selectedBahia)) }}</span>
+                  <span *ngIf="bayLastEvent(station, extractBayNumber(selectedBahia))">Último: {{ bayLastEvent(station, extractBayNumber(selectedBahia)) | date:'shortTime' }}</span>
                 </div>
 
-                <div class="material-stack" *ngIf="materialsForBay(station, bayId).length; else noBayMaterials">
-                  <div class="material-card" *ngFor="let material of materialsForBay(station, bayId)" [class.low]="material.availableQty <= material.lowStockThreshold">
+                <div class="action-row inline-row" *ngIf="station.visualAid">
+                  <button class="btn-request" (click)="openStationVisualAid(station)">Abrir ayuda visual</button>
+                </div>
+
+                <div class="material-stack" *ngIf="getDisplayedBayMaterials(station).length; else noBayMaterials">
+                  <div class="material-card" *ngFor="let material of getDisplayedBayMaterials(station)" [class.low]="material.runtime && material.runtime.availableQty <= material.runtime.lowStockThreshold">
                     <div class="material-top">
                       <code>{{ material.partNumber }}</code>
-                      <span class="stock-pill">{{ material.availableQty | number:'1.0-2' }}</span>
+                      <span class="stock-pill">{{ material.disponible }}</span>
                     </div>
-                    <div class="material-desc">{{ material.description || 'Sin descripción' }}</div>
+                    <div class="material-desc">{{ material.descripcion }}</div>
                     <div class="material-meta">
-                      <span>Consumo: {{ material.consumedQty | number:'1.0-2' }}</span>
-                      <span>Factor: {{ material.usagePerAssembly | number:'1.0-2' }}/u</span>
+                      <span>Consumo: {{ material.runtime?.consumedQty | number:'1.0-2' }}</span>
+                      <span>Factor: {{ material.factor | number:'1.0-2' }}/u</span>
                     </div>
-                    <div class="resupply-row" *ngIf="material.availableQty <= material.lowStockThreshold">
+                    <div class="resupply-row" *ngIf="material.runtime && material.runtime.availableQty <= material.runtime.lowStockThreshold">
                       <input
                         type="number"
                         min="1"
                         [ngModel]="resupplyQty[resupplyKey(station, material.partNumber)]"
                         (ngModelChange)="resupplyQty[resupplyKey(station, material.partNumber)] = $event"
-                        (keydown.enter)="onResupplyEnter(station, material.partNumber, $event, material.description)"
+                        (keydown.enter)="onResupplyEnter(station, material.partNumber, $event, material.descripcion)"
                         placeholder="Reabasto"
                       />
                       <button
                         class="btn-resupply"
-                        (click)="requestResupply(station, material.partNumber, material.description)"
+                        (click)="requestResupply(station, material.partNumber, material.descripcion)"
                         [disabled]="requestingResupplyKey === resupplyKey(station, material.partNumber)"
                       >
                         {{ requestingResupplyKey === resupplyKey(station, material.partNumber) ? '...' : 'Pedir' }}
@@ -208,34 +234,43 @@
                 </div>
 
                 <ng-template #noBayMaterials>
-                  <div class="empty-box compact">Sin NP en disposición para esta bahía.</div>
+                  <div class="empty-box compact">No hay NPs asignados a esta bahía en la disposición. Pide a IE actualizar la disposición.</div>
                 </ng-template>
 
                 <div class="capture-form" *ngIf="canCaptureByBay(station)">
                   <input
                     type="number"
                     min="1"
-                    [ngModel]="quickBayQty(station, bayId)"
-                    (ngModelChange)="updateBayQty(station, bayId, $event)"
-                    (keydown.enter)="onBayEnter(station, bayId, $event)"
+                    [ngModel]="quickBayQty(station, extractBayNumber(selectedBahia))"
+                    (ngModelChange)="updateBayQty(station, extractBayNumber(selectedBahia), $event)"
+                    (keydown.enter)="onSelectedBayEnter(station, $event)"
                   />
                   <input
-                    [ngModel]="bayOperator[bayInputKey(station, bayId)] || ''"
-                    (ngModelChange)="bayOperator[bayInputKey(station, bayId)] = $event"
+                    [ngModel]="bayOperator[bayInputKey(station, extractBayNumber(selectedBahia))] || ''"
+                    (ngModelChange)="bayOperator[bayInputKey(station, extractBayNumber(selectedBahia))] = $event"
                     placeholder="Operador"
                   />
                   <input
-                    [ngModel]="bayNotes[bayInputKey(station, bayId)] || ''"
-                    (ngModelChange)="bayNotes[bayInputKey(station, bayId)] = $event"
-                    (keydown.enter)="onBayEnter(station, bayId, $event)"
+                    [ngModel]="bayNotes[bayInputKey(station, extractBayNumber(selectedBahia))] || ''"
+                    (ngModelChange)="bayNotes[bayInputKey(station, extractBayNumber(selectedBahia))] = $event"
+                    (keydown.enter)="onSelectedBayEnter(station, $event)"
                     placeholder="Nota"
                   />
-                  <button class="btn-capture" (click)="registerBayAssembly(station, bayId)" [disabled]="baySaving[bayInputKey(station, bayId)]">
-                    {{ baySaving[bayInputKey(station, bayId)] ? '...' : 'Registrar (+Enter)' }}
+                  <button
+                    class="btn-capture"
+                    (click)="registerSelectedBayAssembly(station)"
+                    [disabled]="baySaving[bayInputKey(station, extractBayNumber(selectedBahia))] || !canRegisterSelectedBay(station)"
+                  >
+                    {{ baySaving[bayInputKey(station, extractBayNumber(selectedBahia))] ? '...' : 'Registrar (+Enter)' }}
                   </button>
                 </div>
               </article>
-            </div>
+
+              <div class="empty-box" *ngIf="!getAvailableBahias(station).length">
+                Sin configuración de bahías/materiales para este backend.
+              </div>
+            </ng-container>
+
             <ng-template #noBaysConfigured>
               <div class="empty-box">Sin configuración de bahías/materiales para este backend.</div>
             </ng-template>

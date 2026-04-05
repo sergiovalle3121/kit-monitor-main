@@ -450,6 +450,28 @@
   gap: 14px;
 }
 
+.bay-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.bay-tab {
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--gray-700);
+  border-radius: 11px;
+  padding: 6px 10px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.bay-tab.active {
+  background: rgba(37, 99, 235, 0.1);
+  border-color: rgba(37, 99, 235, 0.35);
+  color: var(--primary-light);
+}
+
 .bay-card,
 .info-card {
   background: rgba(248, 250, 252, 0.9);
@@ -718,4 +740,17 @@ code {
   padding: 8px 10px;
   background: #fff;
   min-width: 0;
+}
+
+.inline-row {
+  margin: 0 0 10px;
+}
+
+.bay-card.pulse {
+  animation: bayPulse 0.3s ease-in-out;
+}
+
+@keyframes bayPulse {
+  0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.35); }
+  100% { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
 }
