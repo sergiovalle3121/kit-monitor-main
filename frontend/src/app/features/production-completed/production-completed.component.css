@@ -1,0 +1,10 @@
+.page-header h2 { margin: 0; }
+.page-subtitle { margin: 6px 0 16px; color: var(--gray-500); }
+.summary{display:flex;gap:16px;margin-bottom:12px;color:var(--gray-600);font-size:.9rem}
+.cards { display: grid; grid-template-columns: repeat(auto-fit,minmax(260px,1fr)); gap: 12px; }
+.card { background: rgba(255,255,255,.96); border: 1px solid var(--border-soft); border-radius: 18px; padding: 14px; }
+.card h3 { margin: 0 0 8px; }
+.card p { margin: 5px 0; color: var(--gray-600); }
+.progress-track{height:8px;background:rgba(148,163,184,.18);border-radius:999px;overflow:hidden;margin:8px 0}
+.progress-fill{height:100%;background:linear-gradient(90deg,#2563eb,#0ea5e9)}
+.empty-box { padding: 18px; border-radius: 14px; border: 1px dashed rgba(148,163,184,.45); color: var(--gray-500); }

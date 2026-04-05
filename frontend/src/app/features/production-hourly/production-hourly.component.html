@@ -1,0 +1,51 @@
+<div class="page-header">
+  <div>
+    <h2>Hora por hora</h2>
+    <p class="page-subtitle">Analítica basada en eventos reales de Producción por backend y bahía.</p>
+  </div>
+  <button class="btn-light" (click)="load()" [disabled]="loading">Actualizar</button>
+</div>
+
+<div class="kpi-grid" *ngIf="rows.length">
+  <article class="kpi-card">
+    <small>Unidades registradas</small>
+    <strong>{{ totalUnits }}</strong>
+  </article>
+  <article class="kpi-card">
+    <small>Eventos totales</small>
+    <strong>{{ totalEvents }}</strong>
+  </article>
+  <article class="kpi-card">
+    <small>Última hora</small>
+    <strong>{{ lastHourUnits }}</strong>
+  </article>
+</div>
+
+<div class="panel" *ngIf="rows.length; else empty">
+  <table>
+    <thead>
+      <tr>
+        <th>Backend</th>
+        <th>Modelo</th>
+        <th>Bahía</th>
+        <th>Hora</th>
+        <th>Unidades</th>
+        <th>Eventos</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let row of rows">
+        <td>{{ row.backendKey }}</td>
+        <td>{{ row.model }}</td>
+        <td>B{{ row.bayId }}</td>
+        <td>{{ row.hourBucket | date:'short' }}</td>
+        <td>{{ row.units }}</td>
+        <td>{{ row.events }}</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<ng-template #empty>
+  <div class="empty-box">Aún no hay eventos capturados en Producción para construir la vista hora por hora.</div>
+</ng-template>

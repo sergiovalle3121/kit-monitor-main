@@ -570,6 +570,42 @@
   font-variant-numeric: tabular-nums;
 }
 
+.delta-neg {
+  color: #b91c1c;
+  font-weight: 700;
+}
+
+.delta-pos {
+  color: #b45309;
+  font-weight: 700;
+}
+
+.material-state {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.st-ok {
+  background: rgba(22, 163, 74, 0.14);
+  color: #166534;
+}
+
+.st-missing {
+  background: rgba(220, 38, 38, 0.14);
+  color: #991b1b;
+}
+
+.st-excess,
+.st-volume-resupply {
+  background: rgba(245, 158, 11, 0.14);
+  color: #92400e;
+}
+
 .location-chip {
   display: inline-flex;
   align-items: center;

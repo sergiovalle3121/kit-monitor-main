@@ -28,6 +28,7 @@ export class PlanComponent implements OnInit {
   showForm = false;
   submitting = false;
   deletingPlanId: number | null = null;
+  selectedPlanDetail: any | null = null;
   formError: string | null = null;
 
   readonly backens = [1, 2, 3, 4, 5, 6, 7];
@@ -160,6 +161,14 @@ export class PlanComponent implements OnInit {
         this.deletingPlanId = null;
       },
     });
+  }
+
+  openDetail(plan: any): void {
+    this.selectedPlanDetail = plan;
+  }
+
+  closeDetail(): void {
+    this.selectedPlanDetail = null;
   }
 
   canDelete(plan: any): boolean {

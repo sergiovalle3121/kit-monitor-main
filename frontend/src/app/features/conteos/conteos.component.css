@@ -103,7 +103,7 @@
 }
 
 .execution-grid {
-  grid-template-columns: minmax(320px, 0.9fr) minmax(0, 1.4fr);
+  grid-template-columns: minmax(320px, 0.9fr) minmax(0, 1.4fr) minmax(280px, 0.9fr);
 }
 
 .card {
@@ -313,8 +313,10 @@
 
 .metric-card strong {
   display: block;
-  font-size: 2rem;
+  font-size: 1.25rem;
   font-weight: 800;
+  line-height: 1.2;
+  word-break: break-word;
 }
 
 .table-wrap {
@@ -323,8 +325,57 @@
   border-radius: 22px;
 }
 
+.delta-neg {
+  color: #b91c1c;
+  font-weight: 700;
+}
+
+.delta-pos {
+  color: #b45309;
+  font-weight: 700;
+}
+
+.sev-ok {
+  background: rgba(22, 163, 74, 0.14);
+  color: #166534;
+}
+
+.sev-missing {
+  background: rgba(220, 38, 38, 0.14);
+  color: #991b1b;
+}
+
+.sev-excess {
+  background: rgba(245, 158, 11, 0.16);
+  color: #92400e;
+}
+
 .table-wrap.compact {
   max-height: 430px;
+}
+
+.history-list {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.history-item {
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.9);
+  text-align: left;
+  padding: 0.75rem 0.85rem;
+  display: grid;
+  gap: 0.2rem;
+  cursor: pointer;
+}
+
+.history-item strong {
+  color: var(--gray-900);
+}
+
+.history-item small {
+  color: var(--gray-500);
 }
 
 table {

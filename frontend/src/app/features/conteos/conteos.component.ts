@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { finalize } from 'rxjs';
+import * as XLSX from 'xlsx';
 
 import {
   ConteoDayLoad,
@@ -13,7 +14,7 @@ import {
 } from './conteos.models';
 import { ConteosService } from './conteos.service';
 
-type LogFilter = 'todos' | 'pendiente' | 'completado' | 'desviacion' | 'critico';
+type LogFilter = 'todos' | 'diferencias' | 'faltantes' | 'sobrantes';
 
 interface TurnOption {
   label: string;
@@ -27,6 +28,19 @@ interface ConteoLogView extends ConteoLog {
   location2: string;
   bulk: boolean;
   familia: string;
+}
+
+interface ConteoSession {
+  id: string;
+  timestamp: string;
+  fileName: string;
+  kpis: {
+    totalNps: number;
+    squaredPct: number;
+    missingUnits: number;
+    excessUnits: number;
+  };
+  rows: ConteoLogView[];
 }
 
 @Component({
@@ -46,13 +60,15 @@ export class ConteosComponent {
   summary: ConteoSummary = this.emptySummary();
 
   configDays = 5;
+  countDate = new Date().toISOString().slice(0, 10);
+  readonly location = '7BOX';
   turnOptions: TurnOption[] = [
     { label: 'T1', enabled: true },
     { label: 'T2', enabled: true },
     { label: 'T3', enabled: false },
   ];
 
-  logFilter: LogFilter = 'pendiente';
+  logFilter: LogFilter = 'diferencias';
   searchTerm = '';
   dayFilter = 0;
   shiftFilter = 'todos';
@@ -60,9 +76,13 @@ export class ConteosComponent {
   selectedLogId: string | null = null;
   physicalQuantity: number | null = null;
   observations = '';
+  sessions: ConteoSession[] = [];
+  selectedSessionId: string | null = null;
+  private readonly sessionsKey = 'km_conteos_sessions_v1';
 
   constructor(private readonly conteos: ConteosService) {
     this.syncState();
+    this.loadSessions();
   }
 
   onFileSelected(event: Event): void {
@@ -97,6 +117,7 @@ export class ConteosComponent {
     this.parseError = null;
     this.syncState();
     this.pickNextPending();
+    this.saveSessionSnapshot();
   }
 
   selectLog(logId: string): void {
@@ -111,6 +132,7 @@ export class ConteosComponent {
     this.conteos.registerCount(this.selectedLogId, this.physicalQuantity, this.observations.trim());
     this.syncState();
     this.pickNextPending();
+    this.saveSessionSnapshot();
   }
 
   clearAll(): void {
@@ -120,7 +142,7 @@ export class ConteosComponent {
     this.searchTerm = '';
     this.dayFilter = 0;
     this.shiftFilter = 'todos';
-    this.logFilter = 'pendiente';
+    this.logFilter = 'diferencias';
     this.selectedLogId = null;
     this.physicalQuantity = null;
     this.observations = '';
@@ -130,6 +152,7 @@ export class ConteosComponent {
       { label: 'T3', enabled: false },
     ];
     this.syncState();
+    this.selectedSessionId = null;
   }
 
   get previewMaterials(): ConteoMaterial[] {
@@ -158,14 +181,38 @@ export class ConteosComponent {
       : 0;
   }
 
+  get totalSapUnits(): number {
+    return this.logs.reduce((sum, log) => sum + Number(log.sapQuantity ?? 0), 0);
+  }
+
+  get totalPhysicalUnits(): number {
+    return this.logs.reduce((sum, log) => sum + Number(log.physicalQuantity ?? 0), 0);
+  }
+
+  get totalMissingUnits(): number {
+    return this.logs.reduce((sum, log) => sum + Math.abs(Math.min(0, Number(log.delta ?? 0))), 0);
+  }
+
+  get totalExcessUnits(): number {
+    return this.logs.reduce((sum, log) => sum + Math.max(0, Number(log.delta ?? 0)), 0);
+  }
+
+  get variationUnits(): number {
+    return Math.round((this.totalPhysicalUnits - this.totalSapUnits) * 100) / 100;
+  }
+
+  get squaredPct(): number {
+    return this.summary.completed ? Math.round((this.summary.ok / this.summary.completed) * 100) : 0;
+  }
+
   get filteredLogs(): ConteoLogView[] {
+    const source = this.selectedSession?.rows ?? this.logViews;
     const term = this.searchTerm.trim().toUpperCase();
-    return this.logViews
+    return source
       .filter((log) => {
-        if (this.logFilter === 'pendiente' && log.status !== 'pendiente') return false;
-        if (this.logFilter === 'completado' && log.status === 'pendiente') return false;
-        if (this.logFilter === 'desviacion' && log.status !== 'desviacion') return false;
-        if (this.logFilter === 'critico' && log.status !== 'critico') return false;
+        if (this.logFilter === 'diferencias' && Number(log.delta ?? 0) === 0) return false;
+        if (this.logFilter === 'faltantes' && Number(log.delta ?? 0) >= 0) return false;
+        if (this.logFilter === 'sobrantes' && Number(log.delta ?? 0) <= 0) return false;
         if (this.dayFilter && log.dia !== this.dayFilter) return false;
         if (this.shiftFilter !== 'todos' && log.turno !== this.shiftFilter) return false;
         if (!term) return true;
@@ -178,6 +225,14 @@ export class ConteosComponent {
         || left.dia - right.dia
         || left.turno.localeCompare(right.turno)
         || right.priorityScore - left.priorityScore);
+  }
+
+  get selectedSession(): ConteoSession | null {
+    return this.sessions.find((session) => session.id === this.selectedSessionId) ?? null;
+  }
+
+  get isHistoryMode(): boolean {
+    return !!this.selectedSession;
   }
 
   get selectedLog(): ConteoLogView | null {
@@ -208,6 +263,43 @@ export class ConteosComponent {
     return `status-${status}`;
   }
 
+  severityLabel(log: ConteoLog): string {
+    const delta = Number(log.delta ?? 0);
+    if (delta === 0) return 'Cuadrado';
+    return delta < 0 ? 'Faltante' : 'Sobrante';
+  }
+
+  severityClass(log: ConteoLog): string {
+    const delta = Number(log.delta ?? 0);
+    if (delta === 0) return 'sev-ok';
+    return delta < 0 ? 'sev-missing' : 'sev-excess';
+  }
+
+  exportSession(): void {
+    const rows = this.filteredLogs.map((log) => ({
+      NP: log.material,
+      Descripción: log.descripcion || '',
+      QtySAP: log.sapQuantity,
+      QtyFísica: log.physicalQuantity ?? '',
+      Delta: log.delta ?? '',
+      Severidad: this.severityLabel(log),
+      Comentario: log.observaciones ?? '',
+    }));
+
+    const sheet = XLSX.utils.json_to_sheet(rows);
+    const book = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(book, sheet, 'Conteo');
+    XLSX.writeFile(book, `conteo-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.xlsx`);
+  }
+
+  openSession(sessionId: string): void {
+    this.selectedSessionId = sessionId;
+  }
+
+  backToLive(): void {
+    this.selectedSessionId = null;
+  }
+
   private loadFile(file: File): void {
     this.loading = true;
     this.parseError = null;
@@ -232,6 +324,36 @@ export class ConteosComponent {
     this.logs = this.conteos.logs;
     this.parseMeta = this.conteos.parseMeta;
     this.summary = this.conteos.getSummary();
+  }
+
+  private saveSessionSnapshot(): void {
+    if (!this.logs.length) return;
+    const session: ConteoSession = {
+      id: `session-${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      fileName: this.parseMeta?.fileName ?? 'Sin archivo',
+      kpis: {
+        totalNps: this.parseMeta?.recordCount ?? this.logs.length,
+        squaredPct: this.squaredPct,
+        missingUnits: this.totalMissingUnits,
+        excessUnits: this.totalExcessUnits,
+      },
+      rows: this.logViews,
+    };
+
+    this.sessions = [session, ...this.sessions].slice(0, 30);
+    localStorage.setItem(this.sessionsKey, JSON.stringify(this.sessions));
+  }
+
+  private loadSessions(): void {
+    const raw = localStorage.getItem(this.sessionsKey);
+    if (!raw) return;
+    try {
+      const parsed = JSON.parse(raw) as ConteoSession[];
+      this.sessions = Array.isArray(parsed) ? parsed : [];
+    } catch {
+      this.sessions = [];
+    }
   }
 
   private pickNextPending(): void {

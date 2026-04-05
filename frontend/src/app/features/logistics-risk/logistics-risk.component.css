@@ -1,0 +1,5 @@
+.page-subtitle { color: var(--gray-500); }
+.grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(260px,1fr)); gap: 12px; }
+.card { background: rgba(255,255,255,.96); border: 1px solid var(--border-soft); border-radius: 18px; padding: 14px; }
+.card p { margin: 5px 0; color: var(--gray-600); }
+.empty-box { padding: 18px; border-radius: 14px; border: 1px dashed rgba(148,163,184,.45); color: var(--gray-500); }

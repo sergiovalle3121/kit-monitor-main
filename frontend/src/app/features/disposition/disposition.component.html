@@ -1,0 +1,48 @@
+<div class="page-header">
+  <div>
+    <h2>Disposición de bahías</h2>
+    <p class="page-subtitle">Consulta la ubicación operativa de NP por modelo con base en layout y BOM actual.</p>
+  </div>
+  <button class="btn-light" (click)="loadModels()" [disabled]="loading">Actualizar</button>
+</div>
+
+<div class="toolbar" *ngIf="models.length">
+  <label>
+    Modelo
+    <select [ngModel]="modelFilter" (ngModelChange)="onModelChange($event)">
+      <option *ngFor="let model of models" [ngValue]="model">{{ model }}</option>
+    </select>
+  </label>
+</div>
+
+<p *ngIf="loading" class="loading-text">Cargando disposición...</p>
+<p *ngIf="error" class="error">{{ error }}</p>
+
+<section class="empty-box" *ngIf="!loading && !error && !models.length">
+  No hay modelos disponibles todavía. Publica un plan y genera un kit para habilitar esta vista.
+</section>
+
+<div class="bay-grid" *ngIf="!loading && !error && models.length">
+  <article class="bay-card" *ngFor="let bay of bays">
+    <header>
+      <div>
+        <strong>Bahía {{ bay.bayId }}</strong>
+        <small>{{ bay.totalParts }} NP</small>
+      </div>
+      <span class="score">Req. total: {{ bay.totalRequired | number:'1.0-2' }}</span>
+    </header>
+
+    <div class="row" *ngFor="let item of bay.rows">
+      <div>
+        <code>{{ item.partNumber }}</code>
+        <p>{{ item.description }}</p>
+      </div>
+      <div class="right">
+        <span class="chip">Factor {{ item.usageFactor | number:'1.0-3' }}</span>
+        <span class="chip neutral">Req {{ item.quantityRequired | number:'1.0-2' }}</span>
+      </div>
+    </div>
+
+    <p class="empty" *ngIf="!bay.rows.length">Sin NP asignados para este modelo.</p>
+  </article>
+</div>

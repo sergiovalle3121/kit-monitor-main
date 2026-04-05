@@ -308,6 +308,34 @@ export class KitsComponent implements OnInit, OnDestroy {
     return labels[status] ?? status;
   }
 
+  materialTypeLabel(material: any): 'Exacto' | 'Volumen' {
+    return this.materialBulk[material.id] || material.isBulkResupply ? 'Volumen' : 'Exacto';
+  }
+
+  materialDelta(material: any): number {
+    const planned = Number(material.quantityRequired ?? 0);
+    const physical = Number(this.materialActual[material.id] ?? material.quantityActual ?? 0);
+    return Math.round((physical - planned) * 100) / 100;
+  }
+
+  materialStatusLabel(material: any): string {
+    const delta = this.materialDelta(material);
+    const isVolume = this.materialTypeLabel(material) === 'Volumen';
+
+    if (isVolume) return delta < 0 ? 'Resurtir' : 'Suficiente';
+    if (delta === 0) return '✓ OK';
+    return delta < 0 ? 'Faltante' : 'Exceso';
+  }
+
+  materialStatusClass(material: any): string {
+    const delta = this.materialDelta(material);
+    const isVolume = this.materialTypeLabel(material) === 'Volumen';
+
+    if (isVolume) return delta < 0 ? 'st-volume-resupply' : 'st-ok';
+    if (delta === 0) return 'st-ok';
+    return delta < 0 ? 'st-missing' : 'st-excess';
+  }
+
   needsStart(kit: any): boolean {
     return this.workflowStatusForAction(kit.status) === 'preparing' && !kit.preparedAt;
   }
