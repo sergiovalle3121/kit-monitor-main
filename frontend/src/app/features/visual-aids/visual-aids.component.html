@@ -70,8 +70,16 @@
   <section class="viewer-body" (click)="$event.stopPropagation()">
     <header>
       <strong>{{ viewer.item.model }}</strong>
-      <button class="btn-light" (click)="viewer = null">Cerrar</button>
+      <div class="pdf-controls">
+        <button class="btn-light" (click)="previousPage()" [disabled]="viewer.currentPage <= 1">Anterior</button>
+        <span>Página {{ viewer.currentPage }} de {{ viewer.totalPages || '?' }}</span>
+        <button class="btn-light" (click)="nextPage()" [disabled]="viewer.currentPage >= viewer.totalPages">Siguiente</button>
+        <button class="btn-light" (click)="viewer = null">Cerrar</button>
+      </div>
     </header>
-    <iframe [src]="viewer.safePdfUrl" title="Visual aid PDF"></iframe>
+    <div class="pdf-canvas-wrap">
+      <p class="empty" *ngIf="viewer.loading">Cargando PDF...</p>
+      <canvas id="visual-aid-canvas"></canvas>
+    </div>
   </section>
 </div>

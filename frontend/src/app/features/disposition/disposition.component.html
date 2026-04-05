@@ -72,11 +72,11 @@
           <div class="empty">Sin NPs asignados.</div>
         </ng-template>
 
-        <div class="bay-add" *ngIf="!bayPickerOpen[bay]">
+        <div class="bay-add" *ngIf="!bayPickerOpen.get(bay)">
           <button class="add-np-btn" (click)="showPicker(bay)">+ Agregar NP</button>
         </div>
 
-        <div class="bay-add" *ngIf="bayPickerOpen[bay]">
+        <div class="bay-add" *ngIf="bayPickerOpen.get(bay)">
           <select [(ngModel)]="baySelection[bay]">
             <option value="">Selecciona NP...</option>
             <option *ngFor="let candidate of optionsForBay(bay)" [value]="candidate.partNumber">

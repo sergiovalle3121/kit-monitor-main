@@ -1,7 +1,6 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit } from '@angular/core';
+import { AfterViewChecked, Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { environment } from '../../../environments/environment';
 import { ApiService } from '../../core/api.service';
 import { VisualAid } from '../../core/ie-data.models';
@@ -10,7 +9,10 @@ import { ConfirmModalService } from '../../shared/confirm-modal/confirm-modal.se
 
 interface VisualAidViewer {
   item: VisualAid;
-  safePdfUrl: SafeResourceUrl;
+  pdfUrl: string;
+  currentPage: number;
+  totalPages: number;
+  loading: boolean;
 }
 
 @Component({
@@ -20,7 +22,7 @@ interface VisualAidViewer {
   templateUrl: './visual-aids.component.html',
   styleUrl: './visual-aids.component.css',
 })
-export class VisualAidsComponent implements OnInit {
+export class VisualAidsComponent implements OnInit, AfterViewChecked {
   aids: VisualAid[] = [];
   filtered: VisualAid[] = [];
   query = '';
@@ -35,6 +37,8 @@ export class VisualAidsComponent implements OnInit {
   modelSuggestions: string[] = [];
 
   viewer: VisualAidViewer | null = null;
+  private pdfDocument: any | null = null;
+  private pdfjsLib: any | null = null;
 
   form = {
     model: '',
@@ -48,10 +52,15 @@ export class VisualAidsComponent implements OnInit {
 
   constructor(
     private readonly visualAids: VisualAidsService,
-    private readonly sanitizer: DomSanitizer,
     private readonly api: ApiService,
     private readonly confirmModal: ConfirmModalService,
   ) {}
+
+  ngAfterViewChecked(): void {
+    if (this.viewer && this.pdfDocument && !this.viewer.loading) {
+      this.renderCurrentPage();
+    }
+  }
 
   ngOnInit(): void {
     this.visualAids.getVisualAids().subscribe((items) => {
@@ -166,12 +175,28 @@ export class VisualAidsComponent implements OnInit {
   openViewer(item: VisualAid): void {
     this.viewer = {
       item,
-      safePdfUrl: this.sanitizer.bypassSecurityTrustResourceUrl(this.resolvePdfUrl(item.pdfUrl)),
+      pdfUrl: this.resolvePdfUrl(item.pdfUrl),
+      currentPage: 1,
+      totalPages: 0,
+      loading: true,
     };
+    this.loadPdfInCanvas();
   }
 
   openInNewTab(item: VisualAid): void {
     window.open(this.resolvePdfUrl(item.pdfUrl), '_blank', 'noopener');
+  }
+
+  previousPage(): void {
+    if (!this.viewer || this.viewer.currentPage <= 1) return;
+    this.viewer.currentPage -= 1;
+    this.renderCurrentPage();
+  }
+
+  nextPage(): void {
+    if (!this.viewer || this.viewer.currentPage >= this.viewer.totalPages) return;
+    this.viewer.currentPage += 1;
+    this.renderCurrentPage();
   }
 
   private resolvePdfUrl(rawUrl: string): string {
@@ -184,5 +209,54 @@ export class VisualAidsComponent implements OnInit {
 
     const apiBase = environment.apiUrl.replace(/\/$/, '');
     return `${apiBase}/visual-aids/file/${encodeURIComponent(value)}`;
+  }
+
+  private async loadPdfInCanvas(): Promise<void> {
+    if (!this.viewer) return;
+    try {
+      const pdfjs = await this.ensurePdfJs();
+      pdfjs.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      const loadingTask = pdfjs.getDocument(this.viewer.pdfUrl);
+      this.pdfDocument = await loadingTask.promise;
+      this.viewer.totalPages = this.pdfDocument.numPages;
+      this.viewer.currentPage = 1;
+      this.viewer.loading = false;
+      this.renderCurrentPage();
+    } catch {
+      if (this.viewer) this.viewer.loading = false;
+    }
+  }
+
+  private async ensurePdfJs(): Promise<any> {
+    if ((window as any).pdfjsLib) {
+      this.pdfjsLib = (window as any).pdfjsLib;
+      return this.pdfjsLib;
+    }
+
+    await new Promise<void>((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+      script.async = true;
+      script.onload = () => resolve();
+      script.onerror = () => reject(new Error('No se pudo cargar PDF.js'));
+      document.body.appendChild(script);
+    });
+
+    this.pdfjsLib = (window as any).pdfjsLib;
+    return this.pdfjsLib;
+  }
+
+  private async renderCurrentPage(): Promise<void> {
+    if (!this.viewer || !this.pdfDocument) return;
+    const canvas = document.getElementById('visual-aid-canvas') as HTMLCanvasElement | null;
+    if (!canvas) return;
+
+    const page = await this.pdfDocument.getPage(this.viewer.currentPage);
+    const viewport = page.getViewport({ scale: 1.25 });
+    const context = canvas.getContext('2d');
+    if (!context) return;
+    canvas.height = viewport.height;
+    canvas.width = viewport.width;
+    await page.render({ canvasContext: context, viewport }).promise;
   }
 }

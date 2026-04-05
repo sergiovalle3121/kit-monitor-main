@@ -13,9 +13,8 @@ import {
 } from '@nestjs/common';
 import type { Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
-import { extname, join, resolve } from 'path';
-import { existsSync, mkdirSync } from 'fs';
+import { memoryStorage } from 'multer';
+import { extname } from 'path';
 import { CreateVisualAidDto } from './dto/create-visual-aid.dto';
 import { UpdateVisualAidDto } from './dto/update-visual-aid.dto';
 import { VisualAidsService } from './visual-aids.service';
@@ -31,18 +30,7 @@ export class VisualAidsController {
 
   @Post()
   @UseInterceptors(FileInterceptor('file', {
-    storage: diskStorage({
-      destination: (_req, _file, cb) => {
-        const destination = '/app/uploads/visual-aids';
-        mkdirSync(destination, { recursive: true });
-        cb(null, destination);
-      },
-      filename: (_req, file, cb) => {
-        const suffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
-        const extension = extname(file.originalname) || '.pdf';
-        cb(null, `va-${suffix}${extension}`);
-      },
-    }),
+    storage: memoryStorage(),
     fileFilter: (_req, file, cb) => {
       if (file.mimetype !== 'application/pdf') {
         cb(new BadRequestException('Solo se permite archivo PDF'), false);
@@ -53,14 +41,16 @@ export class VisualAidsController {
     limits: { fileSize: 12 * 1024 * 1024 },
   }))
   create(@Body() dto: CreateVisualAidDto, @UploadedFile() file?: any) {
-    if (!file?.filename) {
+    if (!file?.buffer) {
       throw new BadRequestException('PDF es obligatorio');
     }
     const normalized = {
       ...dto,
       isActive: String(dto.isActive ?? 'true') !== 'false',
     };
-    return this.service.create(normalized, file.filename);
+    const extension = extname(file.originalname || '') || '.pdf';
+    const filename = `va-${Date.now()}-${Math.round(Math.random() * 1e9)}${extension}`;
+    return this.service.create(normalized, filename, file.buffer);
   }
 
   @Patch(':id')
@@ -74,18 +64,17 @@ export class VisualAidsController {
   }
 
   @Get('file/:filename')
-  serveFile(@Param('filename') filename: string, @Res() res: Response) {
-    const baseDir = resolve('/app/uploads/visual-aids');
+  async serveFile(@Param('filename') filename: string, @Res() res: Response) {
     const safeName = filename.replace(/\//g, '');
-    const fullPath = join(baseDir, safeName);
-
-    if (!existsSync(fullPath)) {
+    const item = await this.service.findByFilename(safeName);
+    if (!item?.pdfData) {
       return res.status(404).json({ message: 'Archivo no encontrado' });
     }
 
     res.removeHeader('X-Frame-Options');
     res.setHeader('Content-Security-Policy', "frame-ancestors *");
-
-    return res.sendFile(fullPath);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="${safeName}"`);
+    return res.send(item.pdfData);
   }
 }

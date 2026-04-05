@@ -16,14 +16,22 @@ export class VisualAidsService {
     return this.repo.find({ order: { updatedAt: 'DESC' } });
   }
 
-  async create(dto: CreateVisualAidDto, filename: string): Promise<VisualAid> {
+  async create(dto: CreateVisualAidDto, filename: string, pdfData: Buffer): Promise<VisualAid> {
     const entity = this.repo.create({
       ...dto,
       pdfUrl: filename,
+      pdfData,
       id: `va-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       isActive: dto.isActive ?? true,
     });
     return this.repo.save(entity);
+  }
+
+  async findByFilename(filename: string): Promise<VisualAid | null> {
+    return this.repo.createQueryBuilder('visualAid')
+      .addSelect('visualAid.pdfData')
+      .where('visualAid.pdfUrl = :filename', { filename })
+      .getOne();
   }
 
   async update(id: string, dto: UpdateVisualAidDto): Promise<VisualAid> {

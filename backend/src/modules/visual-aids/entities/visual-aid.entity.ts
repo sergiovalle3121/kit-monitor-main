@@ -23,6 +23,9 @@ export class VisualAid {
   @Column({ name: 'filename', type: 'text' })
   pdfUrl: string;
 
+  @Column({ name: 'pdf_data', type: 'bytea', nullable: true, select: false })
+  pdfData?: Buffer | null;
+
   @Column({ name: 'active', type: 'boolean', default: true })
   isActive: boolean;
 
