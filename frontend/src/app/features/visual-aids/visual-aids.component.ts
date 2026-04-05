@@ -14,7 +14,8 @@ import { ConfirmModalService } from '../../shared/confirm-modal/confirm-modal.se
   templateUrl: './visual-aids.component.html',
   styleUrl: './visual-aids.component.css',
 })
-export class VisualAidsComponent implements OnInit, AfterViewChecked {
+export class VisualAidsComponent implements OnInit {
+  // Nota: este componente solo implementa OnInit (no AfterViewChecked).
   aids: VisualAid[] = [];
   filtered: VisualAid[] = [];
   query = '';
