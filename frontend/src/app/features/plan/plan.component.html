@@ -134,22 +134,6 @@
 
         <div class="post-actions">
           <span [class]="'status-badge badge-plan-' + plan.status">{{ planStatusLabel(plan.status) }}</span>
-
-          <button
-            *ngIf="canDelete(plan)"
-            class="icon-btn danger"
-            type="button"
-            (click)="deletePlan(plan)"
-            [disabled]="deletingPlanId === plan.id"
-            [attr.aria-label]="'Borrar ' + plan.workOrder"
-          >
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path
-                d="M9 3h6l1 2h4v2H4V5h4l1-2zm1 6h2v8h-2V9zm4 0h2v8h-2V9zM7 9h2v8H7V9zm-1 12h12l1-13H5l1 13z"
-              />
-            </svg>
-            <span>{{ deletingPlanId === plan.id ? 'Borrando...' : 'Borrar' }}</span>
-          </button>
         </div>
       </header>
 
@@ -182,12 +166,41 @@
         <span class="footer-chip">{{ scheduleLabel(plan) }}</span>
         <span class="footer-chip" *ngIf="plan.sequence > 0">Orden interno {{ plan.sequence }}</span>
         <span class="footer-note" *ngIf="!canDelete(plan)">Registro conservado como historial operativo.</span>
+        <button class="icon-btn" type="button" (click)="openDetail(plan)">Ver detalle</button>
+        <button
+          *ngIf="canDelete(plan)"
+          class="icon-btn danger"
+          type="button"
+          (click)="deletePlan(plan)"
+          [disabled]="deletingPlanId === plan.id"
+        >
+          {{ deletingPlanId === plan.id ? 'Borrando...' : 'Borrar' }}
+        </button>
       </footer>
     </article>
   </div>
 
   <div class="empty-state" *ngIf="!loading && plans.length === 0 && !error">
-    <h3>No hay publicaciones todavia</h3>
-    <p>Publica el siguiente modelo a correr para dejar visible el registro de Planeacion.</p>
+    <h3>Aún no hay publicaciones</h3>
+    <p>Cuando publiques un plan, aquí aparecerán sus versiones, estado y trazabilidad.</p>
+  </div>
+
+  <div class="detail-modal" *ngIf="selectedPlanDetail as detail">
+    <div class="detail-card">
+      <header>
+        <h3>Detalle de publicación</h3>
+        <button class="icon-btn" type="button" (click)="closeDetail()">Cerrar</button>
+      </header>
+      <div class="detail-grid">
+        <div><span>Folio</span><strong>{{ detail.workOrder }}</strong></div>
+        <div><span>Modelo</span><strong>{{ detail.model }}</strong></div>
+        <div><span>Backen</span><strong>BK{{ detail.backen }}</strong></div>
+        <div><span>Cantidad</span><strong>{{ detail.quantity }}</strong></div>
+        <div><span>Turno</span><strong>{{ detail.shift }}</strong></div>
+        <div><span>Estado</span><strong>{{ planStatusLabel(detail.status) }}</strong></div>
+        <div><span>Fecha creación</span><strong>{{ createdLabel(detail) }}</strong></div>
+        <div><span>Arranque</span><strong>{{ scheduleLabel(detail) }}</strong></div>
+      </div>
+    </div>
   </div>
 </section>

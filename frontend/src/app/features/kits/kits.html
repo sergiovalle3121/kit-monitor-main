@@ -234,10 +234,12 @@
                 <tr>
                   <th>N. Parte</th>
                   <th>Descripcion</th>
+                  <th>Tipo</th>
+                  <th>Qty Planeada</th>
+                  <th>Qty Física</th>
+                  <th>Delta</th>
+                  <th>Estado</th>
                   <th>Localidad</th>
-                  <th>Requerido</th>
-                  <th>Kitteado real</th>
-                  <th>Modo</th>
                   <th>Resurtido</th>
                   <th>Consumido</th>
                   <th>Restante</th>
@@ -251,11 +253,9 @@
                 <tr *ngFor="let material of kit.materials; trackBy: trackByMaterialId" [class.row-bulk]="materialBulk[material.id]" [class.row-done]="(material.quantityRemaining ?? material.quantityRequired) <= 0">
                   <td><code>{{ material.partNumber }}</code></td>
                   <td>{{ material.description || 'Sin descripcion' }}</td>
-                  <td>
-                    <span class="location-chip">{{ material.location || 'Sin ubicacion' }}</span>
-                  </td>
+                  <td>{{ materialTypeLabel(material) }}</td>
                   <td class="qty-cell">{{ material.quantityRequired }}</td>
-                  <td class="capture-cell">
+                  <td>
                     <input
                       [(ngModel)]="materialActual[material.id]"
                       type="number"
@@ -264,6 +264,15 @@
                       class="capture-input"
                       [disabled]="materialBulk[material.id]"
                     />
+                  </td>
+                  <td class="qty-cell" [class.delta-neg]="materialDelta(material) < 0" [class.delta-pos]="materialDelta(material) > 0">
+                    {{ materialDelta(material) | number:'1.0-2' }}
+                  </td>
+                  <td>
+                    <span class="material-state" [class]="materialStatusClass(material)">{{ materialStatusLabel(material) }}</span>
+                  </td>
+                  <td>
+                    <span class="location-chip">{{ material.location || 'Sin ubicacion' }}</span>
                   </td>
                   <td>
                     <label class="bulk-toggle">
@@ -315,6 +324,6 @@
       </div>
     </article>
 
-    <p *ngIf="kits.length === 0" class="empty-state">Sin kits registrados.</p>
+    <p *ngIf="kits.length === 0" class="empty-state">No hay kits registrados. Los kits aparecerán conforme se capture el proceso de kitteo.</p>
   </div>
 </section>

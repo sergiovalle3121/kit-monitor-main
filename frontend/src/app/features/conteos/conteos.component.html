@@ -4,8 +4,7 @@
       <p class="eyebrow">IC / CONTEOS</p>
       <h1>Bitacora de conteos para supermercado y racks</h1>
       <p class="lede">
-        Compara SAP vs fisico, prioriza materiales por dificultad y reparte la carga semanal por dias y turnos
-        sin perder trazabilidad de las desviaciones.
+        Auditoría 7BOX: compara SAP vs físico, captura diferencias y conserva trazabilidad por sesión.
       </p>
       <div class="hero-pills">
         <span>Excel SAP</span>
@@ -124,10 +123,14 @@
   </section>
 
   <section class="metric-strip">
-    <article class="metric-card"><strong>{{ summary.total }}</strong><span>Conteos programados</span></article>
-    <article class="metric-card"><strong>{{ summary.pending }}</strong><span>Pendientes</span></article>
-    <article class="metric-card"><strong>{{ summary.desviacion + summary.critico }}</strong><span>Con delta</span></article>
-    <article class="metric-card"><strong>{{ summary.accuracyPct }}%</strong><span>Exactitud</span></article>
+    <article class="metric-card"><strong>{{ parseMeta?.fileName || 'Sin archivo' }}</strong><span>Archivo cargado</span></article>
+    <article class="metric-card"><strong>{{ countDate }}</strong><span>Fecha de conteo</span></article>
+    <article class="metric-card"><strong>{{ location }}</strong><span>Localidad</span></article>
+    <article class="metric-card"><strong>{{ parseMeta?.recordCount || 0 }}</strong><span>Total NPs</span></article>
+    <article class="metric-card"><strong>{{ totalSapUnits | number:'1.0-2' }}</strong><span>Total SAP</span></article>
+    <article class="metric-card"><strong>{{ totalPhysicalUnits | number:'1.0-2' }}</strong><span>Total físico</span></article>
+    <article class="metric-card"><strong>{{ variationUnits | number:'1.0-2' }}</strong><span>Variación total</span></article>
+    <article class="metric-card"><strong>{{ squaredPct }}%</strong><span>% cuadrados</span></article>
   </section>
 
   <section class="analytics-grid">
@@ -297,20 +300,21 @@
         <div class="form-grid two">
           <label class="field">
             <span>Conteo fisico</span>
-            <input type="number" min="0" [(ngModel)]="physicalQuantity" />
+            <input type="number" min="0" [(ngModel)]="physicalQuantity" [disabled]="isHistoryMode" />
           </label>
 
           <label class="field full">
             <span>Observaciones</span>
-            <textarea rows="4" [(ngModel)]="observations" placeholder="Dano, faltante, exceso, material mezclado..."></textarea>
+            <textarea rows="4" [(ngModel)]="observations" placeholder="Dano, faltante, exceso, material mezclado..." [disabled]="isHistoryMode"></textarea>
           </label>
         </div>
 
         <div class="action-row">
-          <button type="button" class="primary-btn" (click)="saveCount()" [disabled]="physicalQuantity == null">
+          <button type="button" class="primary-btn" (click)="saveCount()" [disabled]="physicalQuantity == null || isHistoryMode">
             Guardar conteo
           </button>
         </div>
+        <p class="inline-note" *ngIf="isHistoryMode">Modo solo lectura: seleccionaste una sesión del historial.</p>
       } @else {
         <div class="empty-state tall">
           <strong>Selecciona un material pendiente</strong>
@@ -325,6 +329,10 @@
           <p class="card-kicker">BITACORA</p>
           <h2>Conteos registrados</h2>
         </div>
+        <div class="action-row">
+          <button type="button" class="ghost-btn" (click)="exportSession()">Exportar sesión</button>
+          <button type="button" class="ghost-btn" *ngIf="isHistoryMode" (click)="backToLive()">Volver a live</button>
+        </div>
       </div>
 
       <div class="filter-row">
@@ -334,13 +342,12 @@
         </label>
 
         <label class="field compact-field">
-          <span>Estado</span>
+          <span>Filtro</span>
           <select [(ngModel)]="logFilter">
             <option value="todos">Todos</option>
-            <option value="pendiente">Pendientes</option>
-            <option value="completado">Completados</option>
-            <option value="desviacion">Desviacion</option>
-            <option value="critico">Critico</option>
+            <option value="diferencias">Solo diferencias</option>
+            <option value="faltantes">Solo faltantes</option>
+            <option value="sobrantes">Solo sobrantes</option>
           </select>
         </label>
 
@@ -370,29 +377,25 @@
           <table>
             <thead>
               <tr>
-                <th>Material</th>
-                <th>Localidad</th>
+                <th>NP</th>
+                <th>Descripción</th>
                 <th>SAP</th>
                 <th>Fisico</th>
                 <th>Delta</th>
-                <th>Delta %</th>
-                <th>Dia</th>
-                <th>Turno</th>
-                <th>Estado</th>
+                <th>Severidad</th>
+                <th>Comentario</th>
               </tr>
             </thead>
             <tbody>
               @for (log of filteredLogs; track log.id) {
                 <tr class="selectable-row" [class.selected]="log.id === selectedLogId" (click)="selectLog(log.id)">
                   <td class="mono emphasis">{{ log.material }}</td>
-                  <td>{{ log.location || 'Sin localidad' }}</td>
+                  <td>{{ log.descripcion || 'Sin descripción' }}</td>
                   <td class="num">{{ log.sapQuantity }}</td>
                   <td class="num">{{ log.physicalQuantity ?? '-' }}</td>
-                  <td class="num">{{ log.delta ?? '-' }}</td>
-                  <td class="num">{{ log.deltaPct ?? '-' }}</td>
-                  <td>Dia {{ log.dia }}</td>
-                  <td>{{ log.turno }}</td>
-                  <td><span class="status-pill" [class]="statusClass(log.status)">{{ log.status }}</span></td>
+                  <td class="num" [class.delta-neg]="(log.delta ?? 0) < 0" [class.delta-pos]="(log.delta ?? 0) > 0">{{ log.delta ?? '-' }}</td>
+                  <td><span class="status-pill" [class]="severityClass(log)">{{ severityLabel(log) }}</span></td>
+                  <td>{{ log.observaciones || '-' }}</td>
                 </tr>
               }
             </tbody>
@@ -404,6 +407,29 @@
           <span>Ajusta los filtros o genera la bitacora para empezar a capturar.</span>
         </div>
       }
+    </article>
+
+    <article class="card history-card">
+      <div class="card-head">
+        <div>
+          <p class="card-kicker">HISTORIAL</p>
+          <h2>Sesiones pasadas</h2>
+        </div>
+      </div>
+
+      <div class="empty-state" *ngIf="!sessions.length">
+        <strong>Sin sesiones guardadas</strong>
+        <span>Cuando captures conteos, aquí se almacenará el historial.</span>
+      </div>
+
+      <div class="history-list" *ngIf="sessions.length">
+        <button type="button" class="history-item" *ngFor="let session of sessions" (click)="openSession(session.id)">
+          <strong>{{ session.fileName }}</strong>
+          <small>{{ session.timestamp | date:'short' }}</small>
+          <small>NPs: {{ session.kpis.totalNps }} · % cuadrados: {{ session.kpis.squaredPct }}</small>
+          <small>Faltantes: {{ session.kpis.missingUnits }} · Sobrantes: {{ session.kpis.excessUnits }}</small>
+        </button>
+      </div>
     </article>
   </section>
 </section>
