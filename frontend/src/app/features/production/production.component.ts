@@ -80,6 +80,7 @@ export class ProductionComponent implements OnInit {
   error: string | null = null;
 
   stations: ProductionStationView[] = [];
+  overview: ProductionOverview = { totalStations: 0, readyKits: 0, startedStations: 0, avgProgress: 0 };
   readyKits: ReadyKitRow[] = [];
   dayPlan: DayPlanRow[] = [];
   currentKitInProcess: ReadyKitRow | null = null;
@@ -155,8 +156,8 @@ export class ProductionComponent implements OnInit {
         });
       }),
     ).subscribe({
-      next: ({ backends, advances, resupplies, runtime, publications }) => {
-        this.buildStations(backends, advances, resupplies, runtime as any[]);
+      next: ({ backends, kits, advances, resupplies, runtime, publications }) => {
+        this.buildStations(backends, kits, advances, resupplies, runtime as any[]);
         this.buildOpsSections(publications as any[]);
         this.loading = false;
       },
