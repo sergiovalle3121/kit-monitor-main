@@ -224,4 +224,20 @@ export class ApiService {
   resolveException(id: number): Observable<any> {
     return this.patch<any>(`exceptions/${id}/resolve`, {});
   }
+
+  createCancellationRequest(dto: { publicationId: number; kitId?: number; requestedBy?: string }): Observable<any> {
+    return this.post<any>('cancellation-requests', dto);
+  }
+
+  getPendingCancellationRequests(): Observable<any[]> {
+    return this.get<any[]>('cancellation-requests/pending');
+  }
+
+  getRecentCancellationRequests(): Observable<any[]> {
+    return this.get<any[]>('cancellation-requests/recent');
+  }
+
+  respondCancellationRequest(id: number, action: 'accept' | 'reject', respondedBy?: string): Observable<any> {
+    return this.patch<any>(`cancellation-requests/${id}/respond`, { action, respondedBy });
+  }
 }

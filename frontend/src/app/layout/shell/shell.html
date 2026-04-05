@@ -107,10 +107,11 @@
     <header class="topbar">
       <button class="menu-trigger" (click)="toggle()" aria-label="Alternar menu"><i class="fas fa-bars"></i></button>
 
-      <div class="search-wrapper">
+      <div class="search-wrapper" #searchWrapper>
         <label class="search" aria-label="Buscar modulo">
           <i class="fas fa-search search-icon"></i>
           <input
+            #searchInput
             type="search"
             placeholder="Buscar módulo, kit, modelo, NP o publicación"
             [ngModel]="searchTerm"
@@ -129,31 +130,34 @@
       </div>
 
       <div class="topbar-actions">
-        <button class="icon-btn glass-btn" aria-label="Notificaciones" (click)="toggleNotifications()">
-          <i class="far fa-bell"></i>
-          <span class="notif-dot" *ngIf="notifications.length"></span>
-        </button>
-        <button class="icon-btn glass-btn" aria-label="Perfil de usuario" (click)="toggleUserPanel()">
-          <i class="far fa-user-circle"></i>
-        </button>
-
-        <div class="notif-panel" *ngIf="showNotifications">
-          <div class="panel-head">
-            <strong>Notificaciones</strong>
-            <button type="button" class="link-btn" (click)="clearNotifications()">Limpiar todo</button>
+        <div class="action-wrap" #notificationsWrap>
+          <button class="icon-btn glass-btn" aria-label="Notificaciones" (click)="toggleNotifications()">
+            <i class="far fa-bell"></i>
+            <span class="notif-dot" *ngIf="notifications.length"></span>
+          </button>
+          <div class="notif-panel" *ngIf="showNotifications">
+            <div class="panel-head">
+              <strong>Notificaciones</strong>
+              <button type="button" class="link-btn" (click)="clearNotifications()">Limpiar todo</button>
+            </div>
+            <div class="panel-empty" *ngIf="!notifications.length">Sin notificaciones activas.</div>
+            <article class="notif-item" *ngFor="let item of notifications">
+              <span class="notif-type">{{ notificationTypeLabel(item.type) }}</span>
+              <p>{{ item.message }}</p>
+              <small>{{ formatTimestamp(item.createdAt) }}</small>
+            </article>
           </div>
-          <div class="panel-empty" *ngIf="!notifications.length">Sin notificaciones activas.</div>
-          <article class="notif-item" *ngFor="let item of notifications">
-            <span class="notif-type">{{ notificationTypeLabel(item.type) }}</span>
-            <p>{{ item.message }}</p>
-            <small>{{ formatTimestamp(item.createdAt) }}</small>
-          </article>
         </div>
 
-        <div class="user-panel" *ngIf="showUserPanel">
-          <strong>Sergio</strong>
-          <small>Planner / IE</small>
-          <button type="button" class="btn-user-logout" (click)="logout()">Cerrar sesión</button>
+        <div class="action-wrap" #userWrap>
+          <button class="icon-btn glass-btn" aria-label="Perfil de usuario" (click)="toggleUserPanel()">
+            <i class="far fa-user-circle"></i>
+          </button>
+          <div class="user-panel" *ngIf="showUserPanel">
+            <strong>Sergio</strong>
+            <small>Planner / IE</small>
+            <button type="button" class="btn-user-logout" (click)="logout()">Cerrar sesión</button>
+          </div>
         </div>
       </div>
     </header>
@@ -168,3 +172,4 @@
     </main>
   </div>
 </div>
+<app-confirm-modal></app-confirm-modal>
