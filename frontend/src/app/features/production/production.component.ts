@@ -116,6 +116,8 @@ export class ProductionComponent implements OnInit {
   layoutLoadingByStation: Record<string, boolean> = {};
   layoutErrorByStation: Record<string, string | null> = {};
   registerPulseByStation: Record<string, boolean> = {};
+  mesOpenByStation: Record<string, boolean> = {};
+  registerSuccessByStation: Record<string, string> = {};
   private stationModelByKey: Record<string, string | null> = {};
 
   private readonly statusLabels: Record<string, string> = {
@@ -255,6 +257,7 @@ export class ProductionComponent implements OnInit {
         this.bayNotes[key] = '';
         const stationKey = this.getStationKey(station);
         this.registerPulseByStation[stationKey] = true;
+        this.registerSuccessByStation[stationKey] = `Unidad registrada (${new Date().toLocaleTimeString()})`;
         setTimeout(() => { this.registerPulseByStation[stationKey] = false; }, 300);
         this.load();
       },
@@ -351,6 +354,19 @@ export class ProductionComponent implements OnInit {
     const key = this.getStationKey(station);
     return Object.keys(this.bayMapByStation[key] ?? {})
       .sort((a, b) => this.extractBayNumber(a) - this.extractBayNumber(b));
+  }
+
+  openBahiaMES(station: ProductionStationView, bahia: string): void {
+    this.selectBahia(station, bahia);
+    this.mesOpenByStation[this.getStationKey(station)] = true;
+  }
+
+  closeBahiaMES(station: ProductionStationView): void {
+    this.mesOpenByStation[this.getStationKey(station)] = false;
+  }
+
+  isBahiaMESOpen(station: ProductionStationView): boolean {
+    return this.mesOpenByStation[this.getStationKey(station)] ?? false;
   }
 
   getDisplayedBayMaterials(station: ProductionStationView): DisplayBayMaterial[] {
@@ -592,6 +608,8 @@ export class ProductionComponent implements OnInit {
       delete this.layoutLoadingByStation[key];
       delete this.layoutErrorByStation[key];
       delete this.registerPulseByStation[key];
+      delete this.mesOpenByStation[key];
+      delete this.registerSuccessByStation[key];
       delete this.stationModelByKey[key];
     });
 
