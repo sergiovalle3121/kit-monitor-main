@@ -126,6 +126,12 @@ export class ProductionComponent implements OnInit {
   mesOpenByStation: Record<string, boolean> = {};
   registerSuccessByStation: Record<string, string> = {};
   sessionAssembledByStation: Record<string, number> = {};
+  lastSuccessAtByStation: Record<string, string> = {};
+  lastSuccessBahiaByStation: Record<string, string> = {};
+  quickModeByStation: Record<string, boolean> = {};
+  localIncidentsByStation: Record<string, { type: string; note?: string; at: string }[]> = {};
+  incidentTypeDraftByStation: Record<string, string> = {};
+  incidentNoteDraftByStation: Record<string, string> = {};
   private stationModelByKey: Record<string, string | null> = {};
   private pendingRefreshContext: PendingRefreshContext | null = null;
 
@@ -278,9 +284,15 @@ export class ProductionComponent implements OnInit {
         this.bayQty[key] = 1;
         this.bayNotes[key] = '';
         this.registerPulseByStation[openStationKey] = true;
-        this.registerSuccessByStation[openStationKey] = `Unidad registrada (${new Date().toLocaleTimeString()})`;
+        this.registerSuccessByStation[openStationKey] = `Unidad registrada en ${openBahia || `Bahía ${bayId}`}`;
+        this.lastSuccessAtByStation[openStationKey] = new Date().toISOString();
+        this.lastSuccessBahiaByStation[openStationKey] = openBahia || `Bahía ${bayId}`;
         setTimeout(() => { this.registerPulseByStation[openStationKey] = false; }, 300);
+        if (this.quickModeByStation[openStationKey]) {
+          this.bayQty[key] = 1;
+        }
         this.load();
+        this.focusQuantityInput(station);
       },
       error: (err) => {
         this.baySaving[key] = false;
@@ -433,6 +445,66 @@ export class ProductionComponent implements OnInit {
         return rightDate - leftDate;
       })
       .slice(0, 5);
+  }
+
+  getLastSuccessfulBayEvent(station: ProductionStationView): string | null {
+    const key = this.getStationKey(station);
+    const at = this.lastSuccessAtByStation[key];
+    if (!at) return null;
+    return `${this.lastSuccessBahiaByStation[key] ?? ''} · ${new Date(at).toLocaleTimeString()}`.trim();
+  }
+
+  getBayRiskSummary(station: ProductionStationView): { total: number; risk: number; empty: number } {
+    const materials = this.getDisplayedBayMaterials(station);
+    const risk = materials.filter((m) => this.getMaterialHealth(m) === 'risk').length;
+    const empty = materials.filter((m) => this.getMaterialHealth(m) === 'empty').length;
+    return { total: materials.length, risk, empty };
+  }
+
+  getBayHealth(station: ProductionStationView): 'ok' | 'risk' | 'empty' | 'unknown' {
+    const materials = this.getDisplayedBayMaterials(station);
+    if (!materials.length) return 'unknown';
+    if (materials.some((m) => this.getMaterialHealth(m) === 'empty')) return 'empty';
+    if (materials.some((m) => this.getMaterialHealth(m) === 'risk')) return 'risk';
+    return 'ok';
+  }
+
+  canUndoLastRegister(station: ProductionStationView): boolean {
+    const key = this.getStationKey(station);
+    const at = this.lastSuccessAtByStation[key];
+    if (!at) return false;
+    return (Date.now() - new Date(at).getTime()) <= 10_000;
+  }
+
+  undoAvailabilityMessage(station: ProductionStationView): string {
+    return this.canUndoLastRegister(station)
+      ? 'Deshacer no disponible aún: requiere soporte backend'
+      : '';
+  }
+
+  reportLocalIncident(station: ProductionStationView): void {
+    const key = this.getStationKey(station);
+    const type = this.incidentTypeDraftByStation[key] || 'Otro';
+    const note = this.incidentNoteDraftByStation[key]?.trim();
+    this.localIncidentsByStation[key] = [
+      { type, note, at: new Date().toISOString() },
+      ...(this.localIncidentsByStation[key] ?? []),
+    ].slice(0, 10);
+    this.incidentNoteDraftByStation[key] = '';
+  }
+
+  lastLocalIncident(station: ProductionStationView): { type: string; note?: string; at: string } | null {
+    const key = this.getStationKey(station);
+    return this.localIncidentsByStation[key]?.[0] ?? null;
+  }
+
+  focusQuantityInput(station: ProductionStationView): void {
+    const key = this.getStationKey(station);
+    requestAnimationFrame(() => {
+      const element = document.getElementById(`mes-qty-${key}`) as HTMLInputElement | null;
+      element?.focus();
+      element?.select();
+    });
   }
 
   canRegisterSelectedBay(station: ProductionStationView): boolean {
@@ -659,6 +731,12 @@ export class ProductionComponent implements OnInit {
       delete this.mesOpenByStation[key];
       delete this.registerSuccessByStation[key];
       delete this.sessionAssembledByStation[key];
+      delete this.lastSuccessAtByStation[key];
+      delete this.lastSuccessBahiaByStation[key];
+      delete this.quickModeByStation[key];
+      delete this.localIncidentsByStation[key];
+      delete this.incidentTypeDraftByStation[key];
+      delete this.incidentNoteDraftByStation[key];
       delete this.stationModelByKey[key];
     });
 

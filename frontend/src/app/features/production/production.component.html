@@ -209,6 +209,13 @@
                     </div>
 
                     <div class="bay-stats">
+                      <span class="plan-chip status-ok" *ngIf="getBayHealth(station) === 'ok'">Semáforo: Verde</span>
+                      <span class="plan-chip status-progress" *ngIf="getBayHealth(station) === 'risk'">Semáforo: Ámbar</span>
+                      <span class="plan-chip status-pending" *ngIf="getBayHealth(station) === 'empty'">Semáforo: Rojo</span>
+                      <span class="plan-chip status-pending" *ngIf="getBayHealth(station) === 'unknown'">Semáforo: N/D</span>
+                    </div>
+
+                    <div class="bay-stats">
                       <span>Ensamblado: {{ bayAssembled(station, extractBayNumber(selectedBahia)) }}</span>
                       <span *ngIf="bayLastEvent(station, extractBayNumber(selectedBahia))">Último: {{ bayLastEvent(station, extractBayNumber(selectedBahia)) | date:'shortTime' }}</span>
                     </div>
@@ -220,6 +227,8 @@
                     <div class="action-row inline-row" *ngIf="station.visualAid">
                       <button class="btn-request" (click)="openStationVisualAid(station)">Abrir ayuda visual</button>
                     </div>
+                    <div class="action-caption" *ngIf="station.visualAid">Ayuda visual disponible</div>
+                    <div class="action-caption" *ngIf="!station.visualAid">Este modelo no tiene ayuda visual cargada por IE</div>
 
                     <div class="material-stack" *ngIf="getDisplayedBayMaterials(station).length; else noBayMaterials">
                       <div
@@ -266,6 +275,7 @@
 
                     <div class="capture-form" *ngIf="canCaptureByBay(station)">
                       <input
+                        [id]="'mes-qty-' + getStationKey(station)"
                         type="number"
                         min="1"
                         [ngModel]="quickBayQty(station, extractBayNumber(selectedBahia))"
@@ -292,8 +302,41 @@
                       </button>
                     </div>
 
+                    <label class="quick-mode">
+                      <input
+                        type="checkbox"
+                        [ngModel]="quickModeByStation[getStationKey(station)] || false"
+                        (ngModelChange)="quickModeByStation[getStationKey(station)] = $event"
+                      />
+                      Modo rápido
+                    </label>
+
+                    <div class="action-row inline-row">
+                      <button class="btn-resupply" [disabled]="true" [title]="undoAvailabilityMessage(station)">
+                        Deshacer último registro
+                      </button>
+                      <span class="action-caption" *ngIf="undoAvailabilityMessage(station)">{{ undoAvailabilityMessage(station) }}</span>
+                    </div>
+
                     <div class="mes-feedback" *ngIf="registerSuccessByStation[getStationKey(station)]">
                       {{ registerSuccessByStation[getStationKey(station)] }}
+                    </div>
+                    <div class="action-caption" *ngIf="getBayRiskSummary(station).risk">Material comprometido en esta bahía</div>
+                    <div class="error-inline" *ngIf="requestError[station.kit.id]">{{ requestError[station.kit.id] }}</div>
+
+                    <div class="info-card compact-card">
+                      <div class="section-header">
+                        <h3>Resumen operativo</h3>
+                      </div>
+                      <div class="bay-stats">
+                        <span>Sesión: {{ sessionAssembledByStation[getStationKey(station)] || 0 }}</span>
+                        <span>Último: {{ getLastSuccessfulBayEvent(station) || 'Sin registros' }}</span>
+                      </div>
+                      <div class="bay-stats">
+                        <span>NPs activos: {{ getBayRiskSummary(station).total }}</span>
+                        <span>En riesgo: {{ getBayRiskSummary(station).risk }}</span>
+                        <span>Sin material: {{ getBayRiskSummary(station).empty }}</span>
+                      </div>
                     </div>
 
                     <div class="info-card compact-card">
@@ -319,6 +362,31 @@
                       <ng-template #noRecentBayEvents>
                         <div class="empty-box compact">Aún no hay registros para esta bahía.</div>
                       </ng-template>
+                    </div>
+
+                    <div class="info-card compact-card">
+                      <div class="section-header"><h3>Reportar incidencia</h3></div>
+                      <div class="capture-form">
+                        <select
+                          [ngModel]="incidentTypeDraftByStation[getStationKey(station)] || 'Falta material'"
+                          (ngModelChange)="incidentTypeDraftByStation[getStationKey(station)] = $event"
+                        >
+                          <option value="Falta material">Falta material</option>
+                          <option value="Error de ensamble">Error de ensamble</option>
+                          <option value="Paro de estación">Paro de estación</option>
+                          <option value="Otro">Otro</option>
+                        </select>
+                        <input
+                          [ngModel]="incidentNoteDraftByStation[getStationKey(station)] || ''"
+                          (ngModelChange)="incidentNoteDraftByStation[getStationKey(station)] = $event"
+                          placeholder="Nota opcional"
+                        />
+                        <button class="btn-resupply" (click)="reportLocalIncident(station)">Reportar incidencia</button>
+                      </div>
+                      <div class="action-caption" *ngIf="lastLocalIncident(station)">
+                        Incidencia registrada en sesión · {{ lastLocalIncident(station)?.type }}
+                        <span *ngIf="lastLocalIncident(station)?.note"> · {{ lastLocalIncident(station)?.note }}</span>
+                      </div>
                     </div>
                   </ng-container>
                 </article>
