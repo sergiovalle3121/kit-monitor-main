@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { forkJoin, of } from 'rxjs';
 import { ApiService } from '../../core/api.service';
 import { DispositionService } from '../../core/disposition.service';
+import { ConfirmModalService } from '../../shared/confirm-modal/confirm-modal.service';
 
 interface BomNpRow {
   partNumber: string;
@@ -40,6 +41,7 @@ export class DispositionComponent implements OnInit {
   constructor(
     private readonly api: ApiService,
     private readonly disposition: DispositionService,
+    private readonly confirmModal: ConfirmModalService,
   ) {}
 
   ngOnInit(): void {
@@ -115,7 +117,7 @@ export class DispositionComponent implements OnInit {
     });
   }
 
-  onAssignmentChange(row: BomNpRow, nextBk: number | null, nextBay: number | null): void {
+  async onAssignmentChange(row: BomNpRow, nextBk: number | null, nextBay: number | null): Promise<void> {
     if (!nextBk || !nextBay) {
       row.bk = nextBk;
       row.bay = nextBay;
@@ -126,7 +128,12 @@ export class DispositionComponent implements OnInit {
     const slotKey = this.slotKey(nextBk, nextBay);
     const occupiedBy = this.slotToPartNumber.get(slotKey);
     if (occupiedBy && occupiedBy !== row.partNumber) {
-      const confirmed = window.confirm(`Esta bahía ya tiene asignado ${occupiedBy}. ¿Reemplazar?`);
+      const confirmed = await this.confirmModal.open({
+        title: 'Reemplazar asignación',
+        message: `Esta bahía ya tiene asignado ${occupiedBy}. ¿Deseas reemplazarlo?`,
+        confirmText: 'Reemplazar',
+        type: 'destructive',
+      });
       if (!confirmed) return;
       const occupiedRow = this.npRows.find((candidate) => candidate.partNumber === occupiedBy);
       if (occupiedRow) {
