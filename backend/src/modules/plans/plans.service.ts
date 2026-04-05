@@ -66,12 +66,18 @@ export class PlansService {
     }
     await this.dataSource.transaction(async (em) => {
       if (plan.kit?.status === 'cancelled') {
+        await em.createQueryBuilder().delete().from('advances').where('"kitId" = :kitId', { kitId: plan.kit.id }).execute();
         await em
           .createQueryBuilder()
           .delete()
           .from(KitMaterial)
           .where('"kitId" = :kitId', { kitId: plan.kit.id })
           .execute();
+        await em.createQueryBuilder().delete().from('kit_exceptions').where('"kitId" = :kitId', { kitId: plan.kit.id }).execute();
+        await em.createQueryBuilder().delete().from('cancellation_requests').where('"kit_id" = :kitId', { kitId: plan.kit.id }).execute();
+        await em.createQueryBuilder().delete().from('resupplies').where('"kitId" = :kitId', { kitId: plan.kit.id }).execute();
+        await em.createQueryBuilder().delete().from('production_bay_events').where('"kitId" = :kitId', { kitId: plan.kit.id }).execute();
+        await em.createQueryBuilder().delete().from('production_bay_material_states').where('"kitId" = :kitId', { kitId: plan.kit.id }).execute();
         await em.delete(Kit, plan.kit.id);
       }
       await em.delete(Plan, id);

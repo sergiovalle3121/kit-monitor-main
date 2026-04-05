@@ -111,12 +111,18 @@ export class KitsService {
   async remove(id: number): Promise<{ deleted: boolean; id: number }> {
     await this.findOne(id);
     await this.dataSource.transaction(async (em) => {
+      await em.createQueryBuilder().delete().from('advances').where('"kitId" = :kitId', { kitId: id }).execute();
       await em
         .createQueryBuilder()
         .delete()
         .from(KitMaterial)
         .where('"kitId" = :kitId', { kitId: id })
         .execute();
+      await em.createQueryBuilder().delete().from('kit_exceptions').where('"kitId" = :kitId', { kitId: id }).execute();
+      await em.createQueryBuilder().delete().from('cancellation_requests').where('"kit_id" = :kitId', { kitId: id }).execute();
+      await em.createQueryBuilder().delete().from('resupplies').where('"kitId" = :kitId', { kitId: id }).execute();
+      await em.createQueryBuilder().delete().from('production_bay_events').where('"kitId" = :kitId', { kitId: id }).execute();
+      await em.createQueryBuilder().delete().from('production_bay_material_states').where('"kitId" = :kitId', { kitId: id }).execute();
       await em.delete(Kit, id);
     });
     return { deleted: true, id };
