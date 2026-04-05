@@ -6,7 +6,7 @@ export class AddKitMaterialBulkResupply20260402052000 implements MigrationInterf
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`
       ALTER TABLE "kit_materials"
-      ADD COLUMN "isBulkResupply" boolean NOT NULL DEFAULT false
+      ADD COLUMN IF NOT EXISTS "isBulkResupply" boolean NOT NULL DEFAULT false
     `);
   }
 

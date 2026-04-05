@@ -18,6 +18,7 @@
 .btn-primary,.btn-light{border:none;border-radius:12px;padding:9px 12px;cursor:pointer}
 .btn-primary{background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff}
 .btn-light{background:rgba(15,23,42,.08);color:var(--gray-800)}
+.btn-light.danger{background:#fee2e2;color:#991b1b}
 .viewer{position:fixed;inset:0;z-index:4000;background:rgba(2,6,23,.72);backdrop-filter:blur(10px);display:flex;align-items:center;justify-content:center;padding:24px}
 .viewer-body{width:min(1000px,100%);height:min(88vh,800px);background:#fff;border-radius:18px;overflow:hidden;display:flex;flex-direction:column}
 .viewer-body header{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-bottom:1px solid #e2e8f0}
