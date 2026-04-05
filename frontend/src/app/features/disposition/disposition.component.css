@@ -50,6 +50,7 @@
 .btn-light.danger{background:#fee2e2;color:#991b1b}
 
 @media (max-width: 1200px){
+  .toolbar{grid-template-columns:1fr}
   .two-panel{grid-template-columns:1fr}
   .bay-grid{grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
 }
