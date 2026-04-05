@@ -1,15 +1,17 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { Plan } from './entities/plan.entity';
 import { CreatePlanDto } from './dto/create-plan.dto';
 import { UpdatePlanDto } from './dto/update-plan.dto';
+import { Kit } from '../kits/entities/kit.entity';
 
 @Injectable()
 export class PlansService {
   constructor(
     @InjectRepository(Plan)
     private readonly repo: Repository<Plan>,
+    private readonly dataSource: DataSource,
   ) {}
 
   async findAll(): Promise<any[]> {
@@ -58,8 +60,11 @@ export class PlansService {
       relations: ['kit'],
     });
     if (!plan) throw new NotFoundException(`Plan ${id} not found`);
-    if (plan.kit) {
+    if (plan.kit && plan.kit.status !== 'cancelled') {
       throw new BadRequestException('Este plan ya tiene un kit ligado y se conserva como historial operativo.');
+    }
+    if (plan.kit?.status === 'cancelled') {
+      await this.dataSource.getRepository(Kit).delete(plan.kit.id);
     }
     await this.repo.delete(id);
     return { deleted: true, id };
@@ -87,6 +92,8 @@ export class PlansService {
     return {
       ...rest,
       hasKit: !!kit,
+      kitId: kit?.id ?? null,
+      kitStatus: kit?.status ?? null,
     };
   }
 }
