@@ -1,15 +1,18 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { Plan } from './entities/plan.entity';
 import { CreatePlanDto } from './dto/create-plan.dto';
 import { UpdatePlanDto } from './dto/update-plan.dto';
+import { Kit } from '../kits/entities/kit.entity';
+import { KitMaterial } from '../kit-materials/entities/kit-material.entity';
 
 @Injectable()
 export class PlansService {
   constructor(
     @InjectRepository(Plan)
     private readonly repo: Repository<Plan>,
+    private readonly dataSource: DataSource,
   ) {}
 
   async findAll(): Promise<any[]> {
@@ -58,10 +61,27 @@ export class PlansService {
       relations: ['kit'],
     });
     if (!plan) throw new NotFoundException(`Plan ${id} not found`);
-    if (plan.kit) {
+    if (plan.kit && plan.kit.status !== 'cancelled') {
       throw new BadRequestException('Este plan ya tiene un kit ligado y se conserva como historial operativo.');
     }
-    await this.repo.delete(id);
+    await this.dataSource.transaction(async (em) => {
+      if (plan.kit?.status === 'cancelled') {
+        await em.createQueryBuilder().delete().from('advances').where('"kitId" = :kitId', { kitId: plan.kit.id }).execute();
+        await em
+          .createQueryBuilder()
+          .delete()
+          .from(KitMaterial)
+          .where('"kitId" = :kitId', { kitId: plan.kit.id })
+          .execute();
+        await em.createQueryBuilder().delete().from('kit_exceptions').where('"kitId" = :kitId', { kitId: plan.kit.id }).execute();
+        await em.createQueryBuilder().delete().from('cancellation_requests').where('"kit_id" = :kitId', { kitId: plan.kit.id }).execute();
+        await em.createQueryBuilder().delete().from('resupplies').where('"kitId" = :kitId', { kitId: plan.kit.id }).execute();
+        await em.createQueryBuilder().delete().from('production_bay_events').where('"kitId" = :kitId', { kitId: plan.kit.id }).execute();
+        await em.createQueryBuilder().delete().from('production_bay_material_states').where('"kitId" = :kitId', { kitId: plan.kit.id }).execute();
+        await em.delete(Kit, plan.kit.id);
+      }
+      await em.delete(Plan, id);
+    });
     return { deleted: true, id };
   }
 
@@ -87,6 +107,8 @@ export class PlansService {
     return {
       ...rest,
       hasKit: !!kit,
+      kitId: kit?.id ?? null,
+      kitStatus: kit?.status ?? null,
     };
   }
 }
