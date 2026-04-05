@@ -4,19 +4,13 @@ import { FormsModule } from '@angular/forms';
 import { forkJoin, of } from 'rxjs';
 import { ApiService } from '../../core/api.service';
 import { DispositionService } from '../../core/disposition.service';
+import { ConfirmModalService } from '../../shared/confirm-modal/confirm-modal.service';
 
 interface BomNpRow {
   partNumber: string;
   description: string;
   qtyPlanned: number;
   miniMost: number | null;
-  bk: number | null;
-  bay: number | null;
-}
-
-interface GridBayCell {
-  bay: number;
-  partNumber: string | null;
 }
 
 @Component({
@@ -28,18 +22,18 @@ interface GridBayCell {
 })
 export class DispositionComponent implements OnInit {
   loading = false;
+  saving = false;
   models: string[] = [];
   modelFilter = '';
   npRows: BomNpRow[] = [];
+  layoutByPart = new Map<string, Set<number>>();
 
-  readonly bkOptions = [1, 2, 3, 4, 5, 6, 7];
   readonly bayOptions = [1, 2, 3, 4, 5, 6];
-
-  private slotToPartNumber = new Map<string, string>();
 
   constructor(
     private readonly api: ApiService,
     private readonly disposition: DispositionService,
+    private readonly confirmModal: ConfirmModalService,
   ) {}
 
   ngOnInit(): void {
@@ -60,6 +54,7 @@ export class DispositionComponent implements OnInit {
         this.models = [];
         this.modelFilter = '';
         this.npRows = [];
+        this.layoutByPart.clear();
         this.loading = false;
       },
     });
@@ -68,6 +63,7 @@ export class DispositionComponent implements OnInit {
   refresh(): void {
     if (!this.modelFilter) {
       this.npRows = [];
+      this.layoutByPart.clear();
       this.loading = false;
       return;
     }
@@ -84,93 +80,111 @@ export class DispositionComponent implements OnInit {
           miniMostByPart.set(item.partNumber, item.mostScore);
         });
 
-        const assignmentByPart = new Map<string, { bk: number | null; bay: number | null }>();
+        this.npRows = (bom ?? []).map((item) => ({
+          partNumber: String(item.partNumber ?? ''),
+          description: item.description || 'Sin descripción',
+          qtyPlanned: Number(item.usageFactor ?? 0),
+          miniMost: miniMostByPart.get(item.partNumber) ?? null,
+        }));
+
+        this.layoutByPart.clear();
         (layouts ?? []).forEach((layout) => {
-          assignmentByPart.set(layout.partNumber, {
-            bk: this.extractBkFromLocation(layout.location),
-            bay: Number(layout.bahia ?? 0) || null,
-          });
+          const partNumber = String(layout.partNumber ?? '');
+          const bayId = Number(layout.bahia ?? 0);
+          if (!partNumber || !this.bayOptions.includes(bayId)) return;
+          const current = this.layoutByPart.get(partNumber) ?? new Set<number>();
+          current.add(bayId);
+          this.layoutByPart.set(partNumber, current);
         });
 
-        this.npRows = (bom ?? []).map((item) => {
-          const assignment = assignmentByPart.get(item.partNumber);
-          return {
-            partNumber: item.partNumber,
-            description: item.description || 'Sin descripción',
-            qtyPlanned: Number(item.usageFactor ?? 0),
-            miniMost: miniMostByPart.get(item.partNumber) ?? null,
-            bk: assignment?.bk ?? null,
-            bay: assignment?.bay ?? null,
-          };
-        });
-
-        this.rebuildSlotIndex();
         this.loading = false;
       },
       error: () => {
         this.npRows = [];
-        this.slotToPartNumber.clear();
+        this.layoutByPart.clear();
         this.loading = false;
       },
     });
   }
 
-  onAssignmentChange(row: BomNpRow, nextBk: number | null, nextBay: number | null): void {
-    if (!nextBk || !nextBay) {
-      row.bk = nextBk;
-      row.bay = nextBay;
-      this.rebuildSlotIndex();
-      return;
-    }
-
-    const slotKey = this.slotKey(nextBk, nextBay);
-    const occupiedBy = this.slotToPartNumber.get(slotKey);
-    if (occupiedBy && occupiedBy !== row.partNumber) {
-      const confirmed = window.confirm(`Esta bahía ya tiene asignado ${occupiedBy}. ¿Reemplazar?`);
-      if (!confirmed) return;
-      const occupiedRow = this.npRows.find((candidate) => candidate.partNumber === occupiedBy);
-      if (occupiedRow) {
-        occupiedRow.bk = null;
-        occupiedRow.bay = null;
-      }
-    }
-
-    row.bk = nextBk;
-    row.bay = nextBay;
-    this.rebuildSlotIndex();
+  assignedBaysForPart(partNumber: string): number[] {
+    return [...(this.layoutByPart.get(partNumber) ?? new Set<number>())].sort((a, b) => a - b);
   }
 
-  baysForBk(bk: number): GridBayCell[] {
-    const partByBay = new Map<number, string>();
-    this.npRows.forEach((row) => {
-      if (row.bk === bk && row.bay) {
-        partByBay.set(row.bay, row.partNumber);
-      }
+  itemsForBay(bay: number): BomNpRow[] {
+    return this.npRows
+      .filter((row) => this.layoutByPart.get(row.partNumber)?.has(bay))
+      .sort((left, right) => left.partNumber.localeCompare(right.partNumber));
+  }
+
+  optionsForBay(bay: number): BomNpRow[] {
+    return this.npRows
+      .filter((row) => !(this.layoutByPart.get(row.partNumber)?.has(bay) ?? false))
+      .sort((left, right) => left.partNumber.localeCompare(right.partNumber));
+  }
+
+  addPartToBay(partNumber: string, bay: number): void {
+    if (!partNumber || !this.bayOptions.includes(bay)) return;
+    const current = this.layoutByPart.get(partNumber) ?? new Set<number>();
+    current.add(bay);
+    this.layoutByPart.set(partNumber, current);
+  }
+
+  async removePartFromBay(partNumber: string, bay: number): Promise<void> {
+    const confirmed = await this.confirmModal.open({
+      title: 'Remover asignación',
+      message: `¿Deseas remover ${partNumber} de la bahía ${bay}?`,
+      confirmText: 'Remover',
+      type: 'destructive',
     });
 
-    return this.bayOptions.map((bay) => ({ bay, partNumber: partByBay.get(bay) ?? null }));
+    if (!confirmed) return;
+
+    const current = this.layoutByPart.get(partNumber);
+    if (!current) return;
+    current.delete(bay);
+    if (!current.size) {
+      this.layoutByPart.delete(partNumber);
+      return;
+    }
+    this.layoutByPart.set(partNumber, current);
+  }
+
+  save(): void {
+    if (!this.modelFilter || this.saving) return;
+
+    const payload: Array<{ model: string; partNumber: string; bahia: number }> = [];
+    this.layoutByPart.forEach((bays, partNumber) => {
+      bays.forEach((bahia) => {
+        payload.push({ model: this.modelFilter, partNumber, bahia });
+      });
+    });
+
+    this.saving = true;
+    this.api.deleteBayLayoutsByModel(this.modelFilter).subscribe({
+      next: () => {
+        if (!payload.length) {
+          this.saving = false;
+          return;
+        }
+
+        this.api.createBayLayoutsBulk(payload).subscribe({
+          next: () => {
+            this.saving = false;
+            this.refresh();
+          },
+          error: () => {
+            this.saving = false;
+          },
+        });
+      },
+      error: () => {
+        this.saving = false;
+      },
+    });
   }
 
   trackByPart(_index: number, row: BomNpRow): string {
     return row.partNumber;
-  }
-
-  private rebuildSlotIndex(): void {
-    this.slotToPartNumber.clear();
-    this.npRows.forEach((row) => {
-      if (row.bk && row.bay) {
-        this.slotToPartNumber.set(this.slotKey(row.bk, row.bay), row.partNumber);
-      }
-    });
-  }
-
-  private slotKey(bk: number, bay: number): string {
-    return `${bk}-${bay}`;
-  }
-
-  private extractBkFromLocation(location: string | null | undefined): number | null {
-    if (!location) return null;
-    const match = String(location).match(/BK\s*(\d+)/i);
-    return match ? Number(match[1]) : null;
   }
 }
