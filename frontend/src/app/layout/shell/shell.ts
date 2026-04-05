@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, ElementRef, HostListener, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
@@ -36,6 +36,10 @@ export class ShellComponent implements OnInit {
   showUserPanel = false;
   showNotifications = false;
   notifications: ShellNotification[] = [];
+  @ViewChild('searchInput') searchInput?: ElementRef<HTMLInputElement>;
+  @ViewChild('searchWrapper') searchWrapper?: ElementRef<HTMLElement>;
+  @ViewChild('notificationsWrap') notificationsWrap?: ElementRef<HTMLElement>;
+  @ViewChild('userWrap') userWrap?: ElementRef<HTMLElement>;
 
   private readonly modulesCatalog: SearchResult[] = [
     { label: 'Monitor', route: '/monitor', category: 'modulos' },
@@ -86,6 +90,7 @@ export class ShellComponent implements OnInit {
   onSearchFocus(): void {
     this.showSearchResults = true;
     this.computeSearchResults();
+    setTimeout(() => this.searchInput?.nativeElement.focus());
   }
 
   onSearchChange(value: string): void {
@@ -107,6 +112,29 @@ export class ShellComponent implements OnInit {
 
   toggleNotifications(): void {
     this.showNotifications = !this.showNotifications;
+    this.showUserPanel = false;
+  }
+
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: MouseEvent): void {
+    const target = event.target as Node | null;
+    if (!target) return;
+
+    if (this.searchWrapper?.nativeElement && !this.searchWrapper.nativeElement.contains(target)) {
+      this.showSearchResults = false;
+    }
+    if (this.notificationsWrap?.nativeElement && !this.notificationsWrap.nativeElement.contains(target)) {
+      this.showNotifications = false;
+    }
+    if (this.userWrap?.nativeElement && !this.userWrap.nativeElement.contains(target)) {
+      this.showUserPanel = false;
+    }
+  }
+
+  @HostListener('document:keydown.escape')
+  onEscape(): void {
+    this.showSearchResults = false;
+    this.showNotifications = false;
     this.showUserPanel = false;
   }
 
