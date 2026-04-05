@@ -1,14 +1,20 @@
 <div class="page-header">
   <div>
     <h2>Corridas terminadas</h2>
-    <p class="page-subtitle">Cierre operativo por backend con resumen de consumo y eventos.</p>
+    <p class="page-subtitle">Cierre operativo por backend con cumplimiento de lote y trazabilidad de salida.</p>
   </div>
+</div>
+
+<div class="summary" *ngIf="rows.length">
+  <span>Corridas: {{ rows.length }}</span>
+  <span>Unidades completadas: {{ totalCompletedQty }}</span>
 </div>
 
 <div class="cards" *ngIf="rows.length; else empty">
   <article class="card" *ngFor="let row of rows">
     <h3>{{ row.backendCode }} · {{ row.model }}</h3>
-    <p>Completado: {{ row.completedQty }} / {{ row.targetQty }}</p>
+    <p>Completado: {{ row.completedQty }} / {{ row.targetQty }} ({{ row.closurePct }}%)</p>
+    <div class="progress-track"><div class="progress-fill" [style.width.%]="row.closurePct"></div></div>
     <p>Eventos de bahía: {{ row.totalEvents }}</p>
     <p>NP bajo umbral: {{ row.lowStockHits }}</p>
     <p>Inicio: {{ row.startedAt ? (row.startedAt | date:'short') : 'N/A' }}</p>

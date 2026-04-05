@@ -41,6 +41,30 @@
   color: var(--danger);
 }
 
+.overview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.overview-card {
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid var(--border-soft);
+  border-radius: 16px;
+  padding: 12px 14px;
+}
+
+.overview-card small {
+  color: var(--gray-500);
+  display: block;
+  margin-bottom: 4px;
+}
+
+.overview-card strong {
+  font-size: 1.2rem;
+}
+
 .station-grid {
   display: flex;
   flex-direction: column;

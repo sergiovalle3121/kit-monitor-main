@@ -1,8 +1,23 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { DispositionService } from '../../core/disposition.service';
-import { DispositionItem } from '../../core/ie-data.models';
+import { forkJoin } from 'rxjs';
+import { ApiService } from '../../core/api.service';
+
+interface BayDispositionRow {
+  bayId: number;
+  partNumber: string;
+  description: string;
+  usageFactor: number;
+  quantityRequired: number;
+}
+
+interface BayDispositionView {
+  bayId: number;
+  rows: BayDispositionRow[];
+  totalParts: number;
+  totalRequired: number;
+}
 
 @Component({
   selector: 'app-disposition',
@@ -12,52 +27,105 @@ import { DispositionItem } from '../../core/ie-data.models';
   styleUrl: './disposition.component.css',
 })
 export class DispositionComponent implements OnInit {
-  items: DispositionItem[] = [];
-  modelFilter = 'OP-320-0107B';
-  form = {
-    model: 'OP-320-0107B',
-    bayId: 1,
-    partNumber: '',
-    description: '',
-    usageFrequency: 3,
-    picksPerCycle: 2,
-    handlingDifficulty: 2 as 1 | 2 | 3 | 4 | 5,
-    weightCategory: 2 as 1 | 2 | 3 | 4 | 5,
-    distanceCategory: 2 as 1 | 2 | 3 | 4 | 5,
-    criticality: 3 as 1 | 2 | 3 | 4 | 5,
-    notes: '',
-  };
+  loading = false;
+  error: string | null = null;
 
-  constructor(private readonly disposition: DispositionService) {}
+  models: string[] = [];
+  modelFilter = '';
+  bays: BayDispositionView[] = [];
+
+  constructor(private readonly api: ApiService) {}
 
   ngOnInit(): void {
-    this.disposition.getDisposition().subscribe(() => {
-      this.refresh();
+    this.loadModels();
+  }
+
+  loadModels(): void {
+    this.loading = true;
+    this.error = null;
+
+    forkJoin({
+      plans: this.api.getPlans(),
+      kits: this.api.getKits(),
+    }).subscribe({
+      next: ({ plans, kits }) => {
+        const planModels = (plans ?? []).map((plan: any) => (plan.model ?? '').trim()).filter((model: string) => !!model);
+        const kitModels = (kits ?? []).map((kit: any) => (kit?.plan?.model ?? '').trim()).filter((model: string) => !!model);
+        this.models = [...new Set([...planModels, ...kitModels])].sort();
+
+        if (!this.modelFilter && this.models.length) {
+          this.modelFilter = this.models[0];
+        }
+
+        if (!this.modelFilter) {
+          this.bays = [];
+          this.loading = false;
+          return;
+        }
+
+        this.loadDisposition(this.modelFilter);
+      },
+      error: () => {
+        this.loading = false;
+        this.error = 'No se pudieron cargar los modelos disponibles';
+      },
     });
   }
 
-  refresh(): void {
-    this.items = this.disposition.getDispositionByModel(this.modelFilter);
+  onModelChange(model: string): void {
+    this.modelFilter = model;
+    this.loadDisposition(model);
   }
 
-  save(): void {
-    this.disposition.upsertItem(this.form);
-    this.form.partNumber = '';
-    this.form.description = '';
-    this.form.notes = '';
-  }
+  private loadDisposition(model: string): void {
+    this.loading = true;
+    this.error = null;
 
-  remove(id: string): void {
-    this.disposition.removeItem(id);
-  }
+    forkJoin({
+      layout: this.api.getBayLayouts(model),
+      bom: this.api.getBom(model),
+      kits: this.api.getKits(),
+    }).subscribe({
+      next: ({ layout, bom, kits }) => {
+        const bomByPart = new Map<string, any>((bom ?? []).map((item: any) => [item.partNumber, item]));
+        const activeKit = (kits ?? []).find((item: any) => item?.plan?.model === model && ['preparing', 'kitted', 'ready', 'requested', 'delivered', 'in_progress', 'received', 'sent'].includes(item.status));
+        const kitMaterials = new Map<string, any>((activeKit?.materials ?? []).map((mat: any) => [mat.partNumber, mat]));
+        const lotQty = Number(activeKit?.plan?.quantity ?? 0);
 
-  bays(): Array<{ bay: number; items: DispositionItem[]; score: number }> {
-    return [1, 2, 3, 4, 5, 6].map((bay) => {
-      const bayItems = this.items.filter(item => item.bayId === bay);
-      const score = bayItems.length
-        ? Math.round(bayItems.reduce((acc, item) => acc + item.mostScore, 0) / bayItems.length)
-        : 0;
-      return { bay, items: bayItems, score };
+        const rows: BayDispositionRow[] = (layout ?? []).map((item: any) => {
+          const bomItem = bomByPart.get(item.partNumber);
+          const material = kitMaterials.get(item.partNumber);
+          const usageFactor = Number(bomItem?.usageFactor ?? 0);
+          const quantityRequired = Number(material?.quantityRequired ?? (lotQty > 0 ? usageFactor * lotQty : 0));
+
+          return {
+            bayId: Number(item.bahia),
+            partNumber: item.partNumber,
+            description: bomItem?.description ?? material?.description ?? 'Sin descripción',
+            usageFactor,
+            quantityRequired,
+          };
+        });
+
+        this.bays = [1, 2, 3, 4, 5, 6].map((bayId) => {
+          const bayRows = rows
+            .filter((row) => row.bayId === bayId)
+            .sort((left, right) => left.partNumber.localeCompare(right.partNumber));
+          const totalRequired = bayRows.reduce((sum, row) => sum + row.quantityRequired, 0);
+          return {
+            bayId,
+            rows: bayRows,
+            totalParts: bayRows.length,
+            totalRequired,
+          };
+        });
+
+        this.loading = false;
+      },
+      error: () => {
+        this.loading = false;
+        this.error = 'No se pudo cargar la disposición por bahías';
+      },
     });
   }
 }
