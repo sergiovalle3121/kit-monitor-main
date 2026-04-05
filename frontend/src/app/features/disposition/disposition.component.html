@@ -12,13 +12,17 @@
 </div>
 
 <div class="toolbar">
-  <label>Modelo</label>
-  <select [(ngModel)]="modelFilter" (ngModelChange)="refresh()">
-    <option *ngFor="let model of models" [value]="model">{{ model }}</option>
-  </select>
+  <div class="toolbar-control">
+    <label>Modelo</label>
+    <select [(ngModel)]="modelFilter" (ngModelChange)="refresh()">
+      <option *ngFor="let model of models" [value]="model">{{ model }}</option>
+    </select>
+  </div>
 
-  <label>Total NPs BOM</label>
-  <input [value]="npRows.length" readonly />
+  <div class="toolbar-control">
+    <label>Total NPs BOM</label>
+    <input [value]="npRows.length" readonly />
+  </div>
 </div>
 
 <p class="loading" *ngIf="loading">Cargando disposición...</p>
@@ -67,14 +71,19 @@
           <div class="empty">Sin NPs asignados.</div>
         </ng-template>
 
-        <div class="bay-add">
-          <select #picker>
-            <option value="">Agregar NP...</option>
+        <div class="bay-add" *ngIf="!bayPickerOpen[bay]">
+          <button class="btn-light" (click)="showPicker(bay)">Agregar NP...</button>
+        </div>
+
+        <div class="bay-add" *ngIf="bayPickerOpen[bay]">
+          <select [(ngModel)]="baySelection[bay]">
+            <option value="">Selecciona NP...</option>
             <option *ngFor="let candidate of optionsForBay(bay)" [value]="candidate.partNumber">
               {{ candidate.partNumber }} — {{ candidate.description }}
             </option>
           </select>
-          <button class="btn-light" (click)="addPartToBay(picker.value, bay); picker.value = ''" [disabled]="!picker.value">Agregar</button>
+          <button class="btn-light" (click)="addPartToBay(baySelection[bay], bay)" [disabled]="!baySelection[bay]">Agregar</button>
+          <button class="btn-light" (click)="cancelPicker(bay)">Cancelar</button>
         </div>
       </article>
     </div>

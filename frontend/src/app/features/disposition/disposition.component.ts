@@ -27,6 +27,8 @@ export class DispositionComponent implements OnInit {
   modelFilter = '';
   npRows: BomNpRow[] = [];
   layoutByPart = new Map<string, Set<number>>();
+  bayPickerOpen: Record<number, boolean> = {};
+  baySelection: Record<number, string> = {};
 
   readonly bayOptions = [1, 2, 3, 4, 5, 6];
 
@@ -68,6 +70,8 @@ export class DispositionComponent implements OnInit {
     if (!this.modelFilter) {
       this.npRows = [];
       this.layoutByPart.clear();
+      this.bayPickerOpen = {};
+      this.baySelection = {};
       this.loading = false;
       return;
     }
@@ -93,6 +97,8 @@ export class DispositionComponent implements OnInit {
         }));
 
         this.layoutByPart.clear();
+        this.bayPickerOpen = {};
+        this.baySelection = {};
         (layouts ?? []).forEach((layout) => {
           const partNumber = String(layout.partNumber ?? '');
           const bayId = Number(layout.bahia ?? 0);
@@ -107,6 +113,8 @@ export class DispositionComponent implements OnInit {
       error: () => {
         this.npRows = [];
         this.layoutByPart.clear();
+        this.bayPickerOpen = {};
+        this.baySelection = {};
         this.loading = false;
       },
     });
@@ -133,6 +141,17 @@ export class DispositionComponent implements OnInit {
     const current = this.layoutByPart.get(partNumber) ?? new Set<number>();
     current.add(bay);
     this.layoutByPart.set(partNumber, current);
+    this.baySelection[bay] = '';
+    this.bayPickerOpen[bay] = false;
+  }
+
+  showPicker(bay: number): void {
+    this.bayPickerOpen[bay] = true;
+  }
+
+  cancelPicker(bay: number): void {
+    this.baySelection[bay] = '';
+    this.bayPickerOpen[bay] = false;
   }
 
   async removePartFromBay(partNumber: string, bay: number): Promise<void> {

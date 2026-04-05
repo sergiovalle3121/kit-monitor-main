@@ -41,3 +41,4 @@ URLs locales:
 
 - El backend puede usar una base SQLite local para desarrollo.
 - Los archivos generados, logs, caches y bases locales estan excluidos del control de versiones.
+- El modulo de Ayudas Visuales permite almacenar referencia/contenido PDF en base de datos para evitar dependencia de almacenamiento local efimero.

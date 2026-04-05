@@ -7,17 +7,14 @@ import {
   Patch,
   Post,
   Res,
-  UseGuards,
 } from '@nestjs/common';
 import type { Response } from 'express';
 import { join, resolve } from 'path';
 import { existsSync } from 'fs';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CreateVisualAidDto } from './dto/create-visual-aid.dto';
 import { UpdateVisualAidDto } from './dto/update-visual-aid.dto';
 import { VisualAidsService } from './visual-aids.service';
 
-@UseGuards(JwtAuthGuard)
 @Controller('visual-aids')
 export class VisualAidsController {
   constructor(private readonly service: VisualAidsService) {}

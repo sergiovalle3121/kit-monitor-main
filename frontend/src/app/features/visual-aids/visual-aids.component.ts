@@ -13,11 +13,6 @@ interface VisualAidViewer {
   safePdfUrl: SafeResourceUrl;
 }
 
-interface VisualAidViewer {
-  item: VisualAid;
-  safePdfUrl: SafeResourceUrl;
-}
-
 @Component({
   selector: 'app-visual-aids',
   standalone: true,

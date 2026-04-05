@@ -20,10 +20,10 @@ export class VisualAid {
   @Column({ type: 'varchar', length: 80, nullable: true })
   revision?: string | null;
 
-  @Column({ type: 'text' })
+  @Column({ name: 'filename', type: 'text' })
   pdfUrl: string;
 
-  @Column({ type: 'boolean', default: true })
+  @Column({ name: 'active', type: 'boolean', default: true })
   isActive: boolean;
 
   @Column({ type: 'text', nullable: true })
@@ -32,9 +32,9 @@ export class VisualAid {
   @Column({ type: 'varchar', length: 80, nullable: true })
   uploadedBy?: string | null;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
-  @UpdateDateColumn()
+  @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 }
