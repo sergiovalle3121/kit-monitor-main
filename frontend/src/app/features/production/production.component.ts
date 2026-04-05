@@ -80,6 +80,7 @@ export class ProductionComponent implements OnInit {
   error: string | null = null;
 
   stations: ProductionStationView[] = [];
+  overview: ProductionOverview = { totalStations: 0, readyKits: 0, startedStations: 0, avgProgress: 0 };
   readyKits: ReadyKitRow[] = [];
   dayPlan: DayPlanRow[] = [];
   currentKitInProcess: ReadyKitRow | null = null;
