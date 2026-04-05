@@ -1,10 +1,11 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, ElementRef, HostListener, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { AuthService } from '../../core/auth.service';
 import { filter, forkJoin } from 'rxjs';
 import { ApiService } from '../../core/api.service';
+import { ConfirmModalComponent } from '../../shared/confirm-modal/confirm-modal.component';
 
 interface SearchResult {
   label: string;
@@ -16,18 +17,18 @@ interface SearchResult {
 interface ShellNotification {
   id: string;
   message: string;
-  type: 'publication' | 'kit_ready' | 'partial' | 'ops';
+  type: 'publication' | 'kit_ready' | 'partial' | 'ops' | 'cancellation';
   createdAt: string;
 }
 
 @Component({
   selector: 'app-shell',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterOutlet, RouterLink, RouterLinkActive],
+  imports: [CommonModule, FormsModule, RouterOutlet, RouterLink, RouterLinkActive, ConfirmModalComponent],
   templateUrl: './shell.html',
   styleUrls: ['./shell.css'],
 })
-export class ShellComponent implements OnInit {
+export class ShellComponent implements OnInit, OnDestroy {
   collapsed = false;
   openSection: string | null = null;
   searchTerm = '';
@@ -36,6 +37,11 @@ export class ShellComponent implements OnInit {
   showUserPanel = false;
   showNotifications = false;
   notifications: ShellNotification[] = [];
+  @ViewChild('searchInput') searchInput?: ElementRef<HTMLInputElement>;
+  @ViewChild('searchWrapper') searchWrapper?: ElementRef<HTMLElement>;
+  @ViewChild('notificationsWrap') notificationsWrap?: ElementRef<HTMLElement>;
+  @ViewChild('userWrap') userWrap?: ElementRef<HTMLElement>;
+  private notificationsTimerId: number | null = null;
 
   private readonly modulesCatalog: SearchResult[] = [
     { label: 'Monitor', route: '/monitor', category: 'modulos' },
@@ -69,6 +75,13 @@ export class ShellComponent implements OnInit {
 
   ngOnInit(): void {
     this.refreshNotifications();
+    this.notificationsTimerId = window.setInterval(() => this.refreshNotifications(), 30_000);
+  }
+
+  ngOnDestroy(): void {
+    if (this.notificationsTimerId !== null) {
+      window.clearInterval(this.notificationsTimerId);
+    }
   }
 
   toggle(): void {
@@ -86,6 +99,7 @@ export class ShellComponent implements OnInit {
   onSearchFocus(): void {
     this.showSearchResults = true;
     this.computeSearchResults();
+    setTimeout(() => this.searchInput?.nativeElement.focus());
   }
 
   onSearchChange(value: string): void {
@@ -106,7 +120,33 @@ export class ShellComponent implements OnInit {
   }
 
   toggleNotifications(): void {
+    if (!this.showNotifications) {
+      this.refreshNotifications();
+    }
     this.showNotifications = !this.showNotifications;
+    this.showUserPanel = false;
+  }
+
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: MouseEvent): void {
+    const target = event.target as Node | null;
+    if (!target) return;
+
+    if (this.searchWrapper?.nativeElement && !this.searchWrapper.nativeElement.contains(target)) {
+      this.showSearchResults = false;
+    }
+    if (this.notificationsWrap?.nativeElement && !this.notificationsWrap.nativeElement.contains(target)) {
+      this.showNotifications = false;
+    }
+    if (this.userWrap?.nativeElement && !this.userWrap.nativeElement.contains(target)) {
+      this.showUserPanel = false;
+    }
+  }
+
+  @HostListener('document:keydown.escape')
+  onEscape(): void {
+    this.showSearchResults = false;
+    this.showNotifications = false;
     this.showUserPanel = false;
   }
 
@@ -148,8 +188,9 @@ export class ShellComponent implements OnInit {
       publications: this.api.getPlanPublications(),
       kits: this.api.getKits(),
       backends: this.api.getProductionBackends(),
+      cancellations: this.api.getRecentCancellationRequests(),
     }).subscribe({
-      next: ({ publications, kits, backends }) => {
+      next: ({ publications, kits, backends, cancellations }) => {
         const now = Date.now();
         const fromPublications = (publications ?? []).slice(0, 8).map((item: any) => ({
           id: `pub-${item.id}`,
@@ -188,7 +229,44 @@ export class ShellComponent implements OnInit {
             createdAt: backend.startedAt ?? new Date().toISOString(),
           }));
 
-        const merged = [...fromPublications, ...fromReadyKits, ...fromPartial, ...fromOps]
+        const fromCancellations = (cancellations ?? [])
+          .slice(0, 20)
+          .map((request: any) => {
+            const wo = request?.publication?.workOrder ?? 'WO';
+            const model = request?.publication?.model ?? 'N/A';
+            if (request.status === 'pending') {
+              return {
+                id: `cancel-${request.id}`,
+                message: `⚠️ Planeación solicita cancelar el kit ${wo} de ${model}. Tienes 30 minutos para responder.`,
+                type: 'cancellation' as const,
+                createdAt: request.createdAt ?? new Date().toISOString(),
+              };
+            }
+            if (request.status === 'accepted') {
+              return {
+                id: `cancel-${request.id}`,
+                message: `El kitteador autorizó la cancelación de ${wo}. Ya puedes eliminar la publicación.`,
+                type: 'cancellation' as const,
+                createdAt: request.respondedAt ?? request.createdAt ?? new Date().toISOString(),
+              };
+            }
+            if (request.status === 'rejected') {
+              return {
+                id: `cancel-${request.id}`,
+                message: `El kitteador rechazó la cancelación del kit ${wo}. La publicación se conserva.`,
+                type: 'cancellation' as const,
+                createdAt: request.respondedAt ?? request.createdAt ?? new Date().toISOString(),
+              };
+            }
+            return {
+              id: `cancel-${request.id}`,
+              message: `Sin respuesta del kitteador. Cancelación de ${wo} rechazada por timeout.`,
+              type: 'cancellation' as const,
+              createdAt: request.respondedAt ?? request.expiresAt ?? request.createdAt ?? new Date().toISOString(),
+            };
+          });
+
+        const merged = [...fromPublications, ...fromReadyKits, ...fromPartial, ...fromOps, ...fromCancellations]
           .filter((item) => now - new Date(item.createdAt).getTime() < 24 * 60 * 60 * 1000)
           .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
@@ -206,6 +284,7 @@ export class ShellComponent implements OnInit {
     if (type === 'publication') return 'Publicación';
     if (type === 'kit_ready') return 'Kit listo';
     if (type === 'partial') return 'Parcial';
+    if (type === 'cancellation') return 'Cancelación';
     return 'Operación';
   }
 

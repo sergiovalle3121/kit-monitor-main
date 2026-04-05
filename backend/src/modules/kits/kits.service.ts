@@ -110,7 +110,15 @@ export class KitsService {
 
   async remove(id: number): Promise<{ deleted: boolean; id: number }> {
     await this.findOne(id);
-    await this.repo.delete(id);
+    await this.dataSource.transaction(async (em) => {
+      await em
+        .createQueryBuilder()
+        .delete()
+        .from(KitMaterial)
+        .where('"kitId" = :kitId', { kitId: id })
+        .execute();
+      await em.delete(Kit, id);
+    });
     return { deleted: true, id };
   }
 }
