@@ -69,6 +69,14 @@ export class ApiService {
     return this.get<any[]>('bay-layouts', { model });
   }
 
+  createBayLayoutsBulk(rows: Array<{ model: string; partNumber: string; bahia: number }>): Observable<any[]> {
+    return this.post<any[]>('bay-layouts/bulk', rows);
+  }
+
+  deleteBayLayoutsByModel(model: string): Observable<{ deleted: number }> {
+    return this.delete<{ deleted: number }>(`bay-layouts/model/${encodeURIComponent(model)}`);
+  }
+
   createBomItem(dto: any): Observable<any> {
     return this.post<any>('bom', dto);
   }
@@ -223,5 +231,21 @@ export class ApiService {
 
   resolveException(id: number): Observable<any> {
     return this.patch<any>(`exceptions/${id}/resolve`, {});
+  }
+
+  createCancellationRequest(dto: { publicationId: number; kitId?: number; requestedBy?: string }): Observable<any> {
+    return this.post<any>('cancellation-requests', dto);
+  }
+
+  getPendingCancellationRequests(): Observable<any[]> {
+    return this.get<any[]>('cancellation-requests/pending');
+  }
+
+  getRecentCancellationRequests(): Observable<any[]> {
+    return this.get<any[]>('cancellation-requests/recent');
+  }
+
+  respondCancellationRequest(id: number, action: 'accept' | 'reject', respondedBy?: string): Observable<any> {
+    return this.patch<any>(`cancellation-requests/${id}/respond`, { action, respondedBy });
   }
 }

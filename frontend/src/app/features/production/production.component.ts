@@ -80,6 +80,7 @@ export class ProductionComponent implements OnInit {
   error: string | null = null;
 
   stations: ProductionStationView[] = [];
+  overview: ProductionOverview = { totalStations: 0, readyKits: 0, startedStations: 0, avgProgress: 0 };
   readyKits: ReadyKitRow[] = [];
   dayPlan: DayPlanRow[] = [];
   currentKitInProcess: ReadyKitRow | null = null;
@@ -155,8 +156,8 @@ export class ProductionComponent implements OnInit {
         });
       }),
     ).subscribe({
-      next: ({ backends, advances, resupplies, runtime, publications }) => {
-        this.buildStations(backends, advances, resupplies, runtime as any[]);
+      next: ({ backends, kits, advances, resupplies, runtime, publications }) => {
+        this.buildStations(backends, kits, advances, resupplies, runtime as any[]);
         this.buildOpsSections(publications as any[]);
         this.loading = false;
       },
@@ -438,8 +439,6 @@ export class ProductionComponent implements OnInit {
       .filter((line: any) => !!line?.model)
       .map((line: any) => ({ model: String(line.model), qtyPlanned: Number(line.quantity ?? line.qtyPlanned ?? 0) }));
 
-    const fallbackRows = this.stations.map((station) => ({ model: station.model ?? 'N/A', qtyPlanned: station.quantity ?? 0 }));
-    const sourceRows = publicationRows.length ? publicationRows : fallbackRows;
     const statusByModel = new Map<string, DayPlanRow['status']>();
 
     this.stations.forEach((station) => {
@@ -457,7 +456,7 @@ export class ProductionComponent implements OnInit {
       }
     });
 
-    this.dayPlan = sourceRows.map((row) => ({
+    this.dayPlan = publicationRows.map((row) => ({
       model: row.model,
       qtyPlanned: row.qtyPlanned,
       status: statusByModel.get(row.model) ?? 'Pendiente',

@@ -65,9 +65,9 @@
 <div class="viewer" *ngIf="viewer" (click)="viewer = null">
   <section class="viewer-body" (click)="$event.stopPropagation()">
     <header>
-      <strong>{{ viewer.model }}</strong>
+      <strong>{{ viewer.item.model }}</strong>
       <button class="btn-light" (click)="viewer = null">Cerrar</button>
     </header>
-    <iframe [src]="viewer.pdfUrl" title="Visual aid PDF"></iframe>
+    <iframe [src]="viewer.safePdfUrl" title="Visual aid PDF"></iframe>
   </section>
 </div>
