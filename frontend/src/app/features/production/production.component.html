@@ -130,6 +130,14 @@
           <span class="progress-text">{{ station.completed }} / {{ station.quantity }}</span>
         </div>
 
+        <div class="action-strip info compact" *ngIf="station.kitStatus">
+          <div class="action-caption">
+            Kit: {{ statusLabel(station.kitStatus) }} · Material físico capturado:
+            {{ station.kitActualCaptured | number:'1.0-2' }} / {{ station.kitRequiredTotal | number:'1.0-2' }}
+            <span *ngIf="station.kitMaterialsCoveragePct !== null"> ({{ station.kitMaterialsCoveragePct }}%)</span>
+          </div>
+        </div>
+
         <div class="alert-strip" *ngIf="station.hasOpenException">Hay una incidencia abierta en este kit.</div>
 
         <div class="action-row">
