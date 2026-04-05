@@ -439,8 +439,6 @@ export class ProductionComponent implements OnInit {
       .filter((line: any) => !!line?.model)
       .map((line: any) => ({ model: String(line.model), qtyPlanned: Number(line.quantity ?? line.qtyPlanned ?? 0) }));
 
-    const fallbackRows = this.stations.map((station) => ({ model: station.model ?? 'N/A', qtyPlanned: station.quantity ?? 0 }));
-    const sourceRows = publicationRows.length ? publicationRows : fallbackRows;
     const statusByModel = new Map<string, DayPlanRow['status']>();
 
     this.stations.forEach((station) => {
@@ -458,7 +456,7 @@ export class ProductionComponent implements OnInit {
       }
     });
 
-    this.dayPlan = sourceRows.map((row) => ({
+    this.dayPlan = publicationRows.map((row) => ({
       model: row.model,
       qtyPlanned: row.qtyPlanned,
       status: statusByModel.get(row.model) ?? 'Pendiente',
