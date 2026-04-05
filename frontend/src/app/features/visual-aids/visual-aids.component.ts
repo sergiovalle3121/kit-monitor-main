@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit } from '@angular/core';
+import { AfterViewChecked, Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { environment } from '../../../environments/environment';
 import { ApiService } from '../../core/api.service';
@@ -14,7 +14,7 @@ import { ConfirmModalService } from '../../shared/confirm-modal/confirm-modal.se
   templateUrl: './visual-aids.component.html',
   styleUrl: './visual-aids.component.css',
 })
-export class VisualAidsComponent implements OnInit {
+export class VisualAidsComponent implements OnInit, AfterViewChecked {
   aids: VisualAid[] = [];
   filtered: VisualAid[] = [];
   query = '';
