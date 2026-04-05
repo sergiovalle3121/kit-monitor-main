@@ -1,7 +1,7 @@
 <div class="page-header">
   <div>
     <h2>Hora por hora</h2>
-    <p class="page-subtitle">Analítica basada en eventos reales de Producción por backend y bahía.</p>
+    <p class="page-subtitle">Real vs Planeado por corrida activa con detalle BOM colapsable.</p>
   </div>
   <button class="btn-light" (click)="load()" [disabled]="loading">Actualizar</button>
 </div>
@@ -21,31 +21,69 @@
   </article>
 </div>
 
-<div class="panel" *ngIf="rows.length; else empty">
-  <table>
-    <thead>
-      <tr>
-        <th>Backend</th>
-        <th>Modelo</th>
-        <th>Bahía</th>
-        <th>Hora</th>
-        <th>Unidades</th>
-        <th>Eventos</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr *ngFor="let row of rows">
-        <td>{{ row.backendKey }}</td>
-        <td>{{ row.model }}</td>
-        <td>B{{ row.bayId }}</td>
-        <td>{{ row.hourBucket | date:'short' }}</td>
-        <td>{{ row.units }}</td>
-        <td>{{ row.events }}</td>
-      </tr>
-    </tbody>
-  </table>
+<p class="loading" *ngIf="loading">Cargando datos de producción...</p>
+
+<div class="model-list" *ngIf="!loading && models.length; else empty">
+  <article class="model-card" *ngFor="let model of models">
+    <header class="model-header">
+      <div>
+        <h3>{{ model.backendKey }} · {{ model.model }}</h3>
+      </div>
+      <button class="btn-toggle" (click)="toggleModel(model)">
+        {{ model.expanded ? '▾ Ocultar detalle BOM' : '▸ Ver detalle BOM' }}
+      </button>
+    </header>
+
+    <div class="chart-wrap" *ngIf="model.points.length; else noChart">
+      <svg [attr.viewBox]="'0 0 ' + chartWidth + ' ' + chartHeight" class="line-chart">
+        <path [attr.d]="model.chartPathPlanned" class="line planned"></path>
+        <path [attr.d]="model.chartPathReal" class="line real"></path>
+      </svg>
+      <div class="chart-legend">
+        <span><i class="legend-line real"></i> Real</span>
+        <span><i class="legend-line planned"></i> Planeado</span>
+      </div>
+      <div class="chart-labels">
+        <span *ngFor="let point of model.points">{{ point.label }}</span>
+      </div>
+    </div>
+    <ng-template #noChart>
+      <div class="empty-box">Sin eventos suficientes para construir la gráfica Real vs Planeado.</div>
+    </ng-template>
+
+    <div class="bom-detail" *ngIf="model.expanded">
+      <table *ngIf="model.rows.length; else emptyRows">
+        <thead>
+          <tr>
+            <th>NP</th>
+            <th>Descripción</th>
+            <th>Qty/unidad</th>
+            <th>Total Consumido</th>
+            <th>Qty Entregada del Kit</th>
+            <th>Delta</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let row of model.rows" [class.alert-row]="hasNegativeDelta(row)">
+            <td><code>{{ row.partNumber }}</code></td>
+            <td>{{ row.description }}</td>
+            <td>{{ row.qtyPerUnit | number:'1.0-3' }}</td>
+            <td>
+              <span *ngIf="hasNegativeDelta(row)" class="warn-icon">⚠</span>
+              {{ row.totalConsumed | number:'1.0-3' }}
+            </td>
+            <td>{{ row.qtyDelivered | number:'1.0-3' }}</td>
+            <td>{{ row.delta | number:'1.0-3' }}</td>
+          </tr>
+        </tbody>
+      </table>
+      <ng-template #emptyRows>
+        <div class="empty-box">No hay subestructura BOM para este modelo.</div>
+      </ng-template>
+    </div>
+  </article>
 </div>
 
 <ng-template #empty>
-  <div class="empty-box">Aún no hay eventos capturados en Producción para construir la vista hora por hora.</div>
+  <div class="empty-box">Aún no hay corridas activas para la vista hora por hora.</div>
 </ng-template>

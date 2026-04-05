@@ -87,6 +87,8 @@ export class ForecastComponent {
   forecastStatusMessage: string | null = null;
   selectedForecastKey: string | null = null;
   resultFilter = '';
+  criticalityFilter: 'all' | 'alta' | 'media' | 'baja' | 'insuficiente' = 'all';
+  methodFilter: 'all' | ModelType = 'all';
   sesAlpha = 0.35;
   horizon = 3;
 
@@ -404,12 +406,28 @@ export class ForecastComponent {
 
   get filteredForecastResults(): ForecastRecord[] {
     const term = this.resultFilter.trim().toUpperCase();
-    if (!term) return this.forecastResults;
-    return this.forecastResults.filter((record) => record.displayLabel.toUpperCase().includes(term) || record.material.toUpperCase().includes(term) || (record.location ?? '').toUpperCase().includes(term) || (record.description ?? '').toUpperCase().includes(term));
+    return this.forecastResults.filter((record) => {
+      const matchesTerm = !term
+        || record.displayLabel.toUpperCase().includes(term)
+        || record.material.toUpperCase().includes(term)
+        || (record.location ?? '').toUpperCase().includes(term)
+        || (record.description ?? '').toUpperCase().includes(term);
+
+      const qualityKey = record.quality.toLowerCase() as 'alta' | 'media' | 'baja' | 'insuficiente';
+      const matchesCriticality = this.criticalityFilter === 'all' || this.criticalityFilter === qualityKey;
+      const matchesMethod = this.methodFilter === 'all' || record.bestMethod === this.methodFilter;
+      return matchesTerm && matchesCriticality && matchesMethod;
+    });
   }
 
   get bestMethodSummary(): MethodSummary | null {
     return this.methodSummaries[0] ?? null;
+  }
+
+  get topMaterialRiskLabel(): string {
+    const top = this.logisticsPriorityTop[0];
+    if (!top) return 'Sin riesgo crítico';
+    return `${top.partNumber} · ${top.severity}`;
   }
 
   get readyForecastCount(): number {
