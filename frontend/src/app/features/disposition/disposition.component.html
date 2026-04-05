@@ -17,14 +17,8 @@
     <option *ngFor="let model of models" [value]="model">{{ model }}</option>
   </select>
 
-  <label>BK publicado</label>
-  <input [value]="publishedBk ? 'BK' + publishedBk : 'Sin BK publicado'" readonly />
-
   <label>Total NPs BOM</label>
   <input [value]="npRows.length" readonly />
-
-  <label>Total asignaciones</label>
-  <input [value]="totalAssignments" readonly />
 </div>
 
 <p class="loading" *ngIf="loading">Cargando disposición...</p>

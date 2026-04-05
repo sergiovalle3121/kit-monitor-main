@@ -30,8 +30,6 @@ export class DispositionComponent implements OnInit {
 
   readonly bayOptions = [1, 2, 3, 4, 5, 6];
 
-  publishedBk: number | null = null;
-
   constructor(
     private readonly api: ApiService,
     private readonly disposition: DispositionService,
@@ -104,13 +102,11 @@ export class DispositionComponent implements OnInit {
           this.layoutByPart.set(partNumber, current);
         });
 
-        this.publishedBk = this.resolvePublishedBk(plans ?? []);
         this.loading = false;
       },
       error: () => {
         this.npRows = [];
         this.layoutByPart.clear();
-        this.publishedBk = null;
         this.loading = false;
       },
     });
@@ -195,11 +191,5 @@ export class DispositionComponent implements OnInit {
 
   trackByPart(_index: number, row: BomNpRow): string {
     return row.partNumber;
-  }
-
-  private resolvePublishedBk(plans: any[]): number | null {
-    const match = (plans ?? []).find((plan) => String(plan?.model ?? '').trim() === this.modelFilter);
-    const bk = Number(match?.bahia ?? 0);
-    return Number.isFinite(bk) && bk > 0 ? bk : null;
   }
 }

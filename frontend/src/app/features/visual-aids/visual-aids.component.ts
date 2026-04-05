@@ -3,8 +3,15 @@ import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { environment } from '../../../environments/environment';
+import { ApiService } from '../../core/api.service';
 import { VisualAid } from '../../core/ie-data.models';
 import { VisualAidsService } from '../../core/visual-aids.service';
+import { ConfirmModalService } from '../../shared/confirm-modal/confirm-modal.service';
+
+interface VisualAidViewer {
+  item: VisualAid;
+  safePdfUrl: SafeResourceUrl;
+}
 
 interface VisualAidViewer {
   item: VisualAid;
@@ -29,6 +36,7 @@ export class VisualAidsComponent implements OnInit {
   showForm = false;
   formError: string | null = null;
   fileName = '';
+  modelSuggestions: string[] = [];
 
   viewer: VisualAidViewer | null = null;
 
@@ -46,12 +54,23 @@ export class VisualAidsComponent implements OnInit {
   constructor(
     private readonly visualAids: VisualAidsService,
     private readonly sanitizer: DomSanitizer,
+    private readonly api: ApiService,
+    private readonly confirmModal: ConfirmModalService,
   ) {}
 
   ngOnInit(): void {
     this.visualAids.getVisualAids().subscribe((items) => {
       this.aids = items;
       this.applyFilters();
+    });
+
+    this.visualAids.loadVisualAids().subscribe();
+
+    this.api.getBom().subscribe((items) => {
+      this.modelSuggestions = [...new Set((items ?? [])
+        .map((item) => String(item?.model ?? '').trim())
+        .filter(Boolean))]
+        .sort((a, b) => a.localeCompare(b));
     });
   }
 
@@ -111,25 +130,41 @@ export class VisualAidsComponent implements OnInit {
     this.visualAids.createVisualAid({
       ...this.form,
       uploadedBy: 'IE',
+    }).subscribe({
+      next: () => {
+        this.showForm = false;
+        this.fileName = '';
+        this.formError = null;
+        this.form = {
+          model: '',
+          title: '',
+          process: '',
+          area: '',
+          revision: '',
+          pdfUrl: '',
+          isActive: true,
+          notes: '',
+        };
+      },
+      error: () => {
+        this.formError = 'No se pudo guardar la ayuda visual.';
+      },
     });
-
-    this.showForm = false;
-    this.fileName = '';
-    this.formError = null;
-    this.form = {
-      model: '',
-      title: '',
-      process: '',
-      area: '',
-      revision: '',
-      pdfUrl: '',
-      isActive: true,
-      notes: '',
-    };
   }
 
   toggleActive(item: VisualAid): void {
-    this.visualAids.updateVisualAid(item.id, { isActive: !item.isActive });
+    this.visualAids.updateVisualAid(item.id, { isActive: !item.isActive }).subscribe();
+  }
+
+  async removeAid(item: VisualAid): Promise<void> {
+    const confirmed = await this.confirmModal.open({
+      title: '¿Eliminar ayuda visual?',
+      message: 'Esta acción no se puede deshacer.',
+      confirmText: 'Eliminar',
+      type: 'destructive',
+    });
+    if (!confirmed) return;
+    this.visualAids.deleteVisualAid(item.id).subscribe();
   }
 
   openViewer(item: VisualAid): void {

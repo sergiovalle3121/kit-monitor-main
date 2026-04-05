@@ -65,6 +65,22 @@ export class ApiService {
     return this.get<any[]>('bom', model ? { model } : undefined);
   }
 
+  getVisualAids(): Observable<any[]> {
+    return this.get<any[]>('visual-aids');
+  }
+
+  createVisualAid(dto: any): Observable<any> {
+    return this.post<any>('visual-aids', dto);
+  }
+
+  updateVisualAid(id: string, dto: any): Observable<any> {
+    return this.patch<any>(`visual-aids/${encodeURIComponent(id)}`, dto);
+  }
+
+  deleteVisualAid(id: string): Observable<any> {
+    return this.delete<any>(`visual-aids/${encodeURIComponent(id)}`);
+  }
+
   getBayLayouts(model: string): Observable<any[]> {
     return this.get<any[]>('bay-layouts', { model });
   }

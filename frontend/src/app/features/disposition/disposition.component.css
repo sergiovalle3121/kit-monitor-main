@@ -2,7 +2,7 @@
 .page-subtitle{margin:6px 0 0;color:var(--gray-500)}
 .header-actions{display:flex;gap:8px}
 
-.toolbar{display:grid;grid-template-columns:repeat(4,minmax(180px,1fr));gap:8px;margin-bottom:12px;align-items:end}
+.toolbar{display:grid;grid-template-columns:repeat(2,minmax(180px,1fr));gap:8px;margin-bottom:12px;align-items:end}
 .toolbar label{font-size:.78rem;color:var(--gray-600)}
 .toolbar select,.toolbar input{padding:10px 12px;border:1px solid var(--gray-300);border-radius:10px;max-width:100%;background:#fff}
 .loading{color:var(--gray-500)}
@@ -40,7 +40,7 @@
 .empty-box{padding:14px;border:1px dashed rgba(148,163,184,.45);border-radius:12px;color:var(--gray-500)}
 
 @media (max-width: 1200px){
-  .toolbar{grid-template-columns:repeat(2,minmax(180px,1fr))}
+  .toolbar{grid-template-columns:1fr}
   .two-panel{grid-template-columns:1fr}
   .bay-grid{grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
 }
