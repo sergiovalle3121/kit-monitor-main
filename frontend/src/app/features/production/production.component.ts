@@ -41,6 +41,17 @@ interface ProductionStationView {
   disposition: DispositionItem[];
   visualAid: VisualAid | null;
   snapshot: ProductionRuntimeSnapshot | null;
+  kitStatus: string | null;
+  kitMaterialsCoveragePct: number | null;
+  kitActualCaptured: number;
+  kitRequiredTotal: number;
+}
+
+interface ProductionOverview {
+  totalStations: number;
+  readyKits: number;
+  startedStations: number;
+  avgProgress: number;
 }
 
 interface ReadyKitRow {
@@ -136,6 +147,7 @@ export class ProductionComponent implements OnInit {
 
         return forkJoin({
           backends: of(realBackends),
+          kits: this.api.getKits(),
           advances: advancesRequest,
           resupplies: resuppliesRequest,
           runtime: runtimeRequest,
@@ -325,6 +337,7 @@ export class ProductionComponent implements OnInit {
 
   private buildStations(
     backends: any[],
+    kits: any[],
     advances: Array<{ kitId: number; advances: any[] }>,
     resupplies: Array<{ kitId: number; resupplies: any[] }>,
     runtime: any[],
@@ -332,6 +345,8 @@ export class ProductionComponent implements OnInit {
     const advancesByKitId = new Map(advances.map((entry) => [entry.kitId, entry.advances]));
     const resuppliesByKitId = new Map(resupplies.map((entry) => [entry.kitId, entry.resupplies]));
     const runtimeByKitId = new Map(runtime.map((entry) => [entry.kitId, entry]));
+
+    const kitsById = new Map((kits ?? []).map((item: any) => [item.id, item]));
 
     this.stations = (backends ?? [])
       .sort((a, b) => (a.backen ?? Number.MAX_SAFE_INTEGER) - (b.backen ?? Number.MAX_SAFE_INTEGER))
@@ -343,6 +358,14 @@ export class ProductionComponent implements OnInit {
         const disposition = backend.model ? this.dispositionService.getDispositionByModel(backend.model) : [];
         const visualAid = backend.model ? this.visualAids.getActiveVisualAidByModel(backend.model) : null;
         const rt = runtimeByKitId.get(kitId);
+        const kitRuntime = kitsById.get(kitId);
+        const materialRows = kitRuntime?.materials ?? [];
+        const requiredTotal = materialRows.reduce((sum: number, item: any) => sum + Number(item.quantityRequired ?? 0), 0);
+        const actualCaptured = materialRows.reduce((sum: number, item: any) => {
+          const actual = item.quantityActual;
+          return sum + Number(actual ?? 0);
+        }, 0);
+        const materialsCoverage = requiredTotal > 0 ? Math.min(100, Math.round((actualCaptured / requiredTotal) * 100)) : null;
         const snapshot: ProductionRuntimeSnapshot = {
           backend: rt?.backend ?? backend,
           events: rt?.events ?? [],
@@ -368,8 +391,24 @@ export class ProductionComponent implements OnInit {
           disposition,
           visualAid,
           snapshot,
+          kitStatus: kitRuntime?.status ?? null,
+          kitMaterialsCoveragePct: materialsCoverage,
+          kitActualCaptured: actualCaptured,
+          kitRequiredTotal: requiredTotal,
         };
       });
+
+    const startedStations = this.stations.filter((item) => ['in_progress', 'completed'].includes(item.status)).length;
+    const readyKits = this.stations.filter((item) => ['ready', 'requested', 'delivered', 'received', 'sent'].includes(item.status)).length;
+    const avgProgress = this.stations.length
+      ? Math.round(this.stations.reduce((sum, item) => sum + item.progressPct, 0) / this.stations.length)
+      : 0;
+    this.overview = {
+      totalStations: this.stations.length,
+      readyKits,
+      startedStations,
+      avgProgress,
+    };
   }
 
   private buildOpsSections(publications: any[]): void {

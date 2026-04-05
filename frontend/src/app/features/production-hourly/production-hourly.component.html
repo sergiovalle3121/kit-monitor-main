@@ -3,6 +3,22 @@
     <h2>Hora por hora</h2>
     <p class="page-subtitle">Real vs Planeado por corrida activa con detalle BOM colapsable.</p>
   </div>
+  <button class="btn-light" (click)="load()" [disabled]="loading">Actualizar</button>
+</div>
+
+<div class="kpi-grid" *ngIf="rows.length">
+  <article class="kpi-card">
+    <small>Unidades registradas</small>
+    <strong>{{ totalUnits }}</strong>
+  </article>
+  <article class="kpi-card">
+    <small>Eventos totales</small>
+    <strong>{{ totalEvents }}</strong>
+  </article>
+  <article class="kpi-card">
+    <small>Última hora</small>
+    <strong>{{ lastHourUnits }}</strong>
+  </article>
 </div>
 
 <p class="loading" *ngIf="loading">Cargando datos de producción...</p>
