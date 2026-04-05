@@ -10,17 +10,6 @@
       {{ importing ? 'Importando...' : 'Importar BOM' }}
     </label>
 
-    <label class="btn-import secondary" [class.loading]="catalogImporting">
-      <input
-        type="file"
-        accept=".xlsx"
-        (change)="onCatalogFileSelected($event)"
-        [disabled]="catalogImporting"
-        hidden
-      />
-      {{ catalogImporting ? 'Sincronizando...' : 'Importar Kan-Ban' }}
-    </label>
-
     <button class="btn-primary" (click)="showForm = !showForm">
       {{ showForm ? 'Cancelar' : '+ Nuevo item' }}
     </button>
