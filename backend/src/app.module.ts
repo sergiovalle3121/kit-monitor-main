@@ -15,6 +15,7 @@ import { ResuppliesModule } from "./modules/resupplies/resupplies.module";
 import { ExceptionsModule } from "./modules/exceptions/exceptions.module";
 import { ProductionRuntimeModule } from "./modules/production-runtime/production-runtime.module";
 import { DecisionIntelligenceModule } from "./modules/decision-intelligence/decision-intelligence.module";
+import { CancellationRequestsModule } from "./modules/cancellation-requests/cancellation-requests.module";
 
 // TypeOrmModule always loads: uses SQLite (dev.sqlite) when no PG env vars,
 // PostgreSQL when DATABASE_URL or DB_HOST is set. See orm.options.ts.
@@ -33,6 +34,7 @@ import { DecisionIntelligenceModule } from "./modules/decision-intelligence/deci
     ExceptionsModule,
     ProductionRuntimeModule,
     DecisionIntelligenceModule,
+    CancellationRequestsModule,
   ],
   controllers: [HealthController],
   providers: [],

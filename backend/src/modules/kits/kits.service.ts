@@ -52,7 +52,7 @@ export class KitsService {
       );
     }
 
-    return this.dataSource.transaction(async (em) => {
+    const createdKitId = await this.dataSource.transaction(async (em) => {
       const kit = em.create(Kit, {
         plan: { id: plan.id } as Plan,
         preparedAt: dto.preparedAt ? new Date(dto.preparedAt) : undefined,
@@ -76,8 +76,10 @@ export class KitsService {
 
       await em.update(Plan, plan.id, { status: 'active' });
 
-      return this.findOne(savedKit.id);
+      return savedKit.id;
     });
+
+    return this.findOne(createdKitId);
   }
 
   async startPreparation(id: number): Promise<any> {
@@ -110,7 +112,21 @@ export class KitsService {
 
   async remove(id: number): Promise<{ deleted: boolean; id: number }> {
     await this.findOne(id);
-    await this.repo.delete(id);
+    await this.dataSource.transaction(async (em) => {
+      await em.createQueryBuilder().delete().from('advances').where('"kitId" = :kitId', { kitId: id }).execute();
+      await em
+        .createQueryBuilder()
+        .delete()
+        .from(KitMaterial)
+        .where('"kitId" = :kitId', { kitId: id })
+        .execute();
+      await em.createQueryBuilder().delete().from('kit_exceptions').where('"kitId" = :kitId', { kitId: id }).execute();
+      await em.createQueryBuilder().delete().from('cancellation_requests').where('"kit_id" = :kitId', { kitId: id }).execute();
+      await em.createQueryBuilder().delete().from('resupplies').where('"kitId" = :kitId', { kitId: id }).execute();
+      await em.createQueryBuilder().delete().from('production_bay_events').where('"kitId" = :kitId', { kitId: id }).execute();
+      await em.createQueryBuilder().delete().from('production_bay_material_states').where('"kitId" = :kitId', { kitId: id }).execute();
+      await em.delete(Kit, id);
+    });
     return { deleted: true, id };
   }
 }
