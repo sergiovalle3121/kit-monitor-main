@@ -1,7 +1,28 @@
 .page-header h2 { margin: 0; }
 .page-subtitle { margin: 6px 0 16px; color: var(--gray-500); }
-.panel { background: rgba(255,255,255,.95); border: 1px solid var(--border-soft); border-radius: 18px; padding: 14px; }
+.loading { color: var(--gray-500); }
+
+.model-list { display: grid; gap: 12px; }
+.model-card { background: rgba(255,255,255,.96); border: 1px solid var(--border-soft); border-radius: 18px; padding: 14px; }
+.model-header { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 12px; }
+.model-header h3 { margin: 0; font-size: 1.05rem; }
+.btn-toggle { border: 1px solid var(--gray-300); border-radius: 10px; background: #fff; padding: 8px 10px; cursor: pointer; font-weight: 600; }
+
+.chart-wrap { border: 1px solid rgba(226,232,240,.9); border-radius: 12px; padding: 10px; background: #f8fafc; }
+.line-chart { width: 100%; height: 220px; display: block; }
+.line { fill: none; stroke-width: 3; }
+.line.real { stroke: #2563eb; }
+.line.planned { stroke: #0ea5e9; stroke-dasharray: 8 6; }
+.chart-legend { display: flex; gap: 14px; font-size: .84rem; color: var(--gray-600); margin-top: 4px; }
+.legend-line { display: inline-block; width: 20px; height: 0; border-top: 3px solid; margin-right: 5px; transform: translateY(-2px); }
+.legend-line.real { border-color: #2563eb; }
+.legend-line.planned { border-color: #0ea5e9; border-top-style: dashed; }
+.chart-labels { display: flex; justify-content: space-between; gap: 8px; margin-top: 8px; font-size: .75rem; color: var(--gray-500); }
+
+.bom-detail { margin-top: 12px; }
 table { width: 100%; border-collapse: collapse; }
-th, td { padding: 10px 8px; border-bottom: 1px solid rgba(219,228,238,.6); text-align: left; }
-th { font-size: .78rem; text-transform: uppercase; letter-spacing: .03em; color: var(--gray-500); }
+th, td { padding: 8px 6px; border-bottom: 1px solid rgba(226,232,240,.85); text-align: left; }
+th { font-size: .75rem; text-transform: uppercase; color: var(--gray-500); letter-spacing: .03em; }
+.alert-row { background: rgba(254,226,226,.6); }
+.warn-icon { margin-right: 4px; }
 .empty-box { padding: 18px; border-radius: 14px; border: 1px dashed rgba(148,163,184,.45); color: var(--gray-500); }

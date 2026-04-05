@@ -1,21 +1,58 @@
 <div class="page-header">
   <div>
     <h2>Corridas terminadas</h2>
-    <p class="page-subtitle">Cierre operativo por backend con resumen de consumo y eventos.</p>
+    <p class="page-subtitle">Cierre operativo con expiración automática a 24 horas.</p>
   </div>
 </div>
 
-<div class="cards" *ngIf="rows.length; else empty">
-  <article class="card" *ngFor="let row of rows">
-    <h3>{{ row.backendCode }} · {{ row.model }}</h3>
+<section class="partial-form card">
+  <h3>Registrar ensamble parcial</h3>
+  <div class="form-grid">
+    <label>
+      Modelo
+      <select [(ngModel)]="form.model">
+        <option *ngFor="let model of activeModels" [value]="model">{{ model }}</option>
+      </select>
+    </label>
+
+    <label>
+      Qty parcial completada
+      <input type="number" min="1" [(ngModel)]="form.qty" />
+    </label>
+
+    <label>
+      Motivo
+      <select [(ngModel)]="form.reason">
+        <option *ngFor="let reason of reasonCatalog" [value]="reason">{{ reason }}</option>
+      </select>
+    </label>
+
+    <label>
+      Timestamp
+      <input [value]="'Automático al guardar'" readonly />
+    </label>
+  </div>
+  <button class="btn-save" (click)="registerPartial()">Guardar parcial</button>
+</section>
+
+<div class="cards" *ngIf="visibleRows.length; else empty">
+  <article class="card" *ngFor="let row of visibleRows">
+    <div class="header-line">
+      <h3>{{ row.backendCode }} · {{ row.model }}</h3>
+      <span class="state-chip" [class.partial]="row.kind === 'partial'">
+        {{ row.kind === 'partial' ? '⚠ Ensamble parcial' : '✓ Corrida completa' }}
+      </span>
+    </div>
+
     <p>Completado: {{ row.completedQty }} / {{ row.targetQty }}</p>
     <p>Eventos de bahía: {{ row.totalEvents }}</p>
     <p>NP bajo umbral: {{ row.lowStockHits }}</p>
-    <p>Inicio: {{ row.startedAt ? (row.startedAt | date:'short') : 'N/A' }}</p>
-    <p>Fin: {{ row.completedAt ? (row.completedAt | date:'short') : 'N/A' }}</p>
+    <p *ngIf="row.reason">Motivo: {{ row.reason }}</p>
+    <p>Timestamp: {{ row.timestamp | date:'short' }}</p>
+    <p *ngIf="expiresInLabel(row)" class="countdown">{{ expiresInLabel(row) }}</p>
   </article>
 </div>
 
 <ng-template #empty>
-  <div class="empty-box">Todavía no hay backends cerrados en el runtime de Producción.</div>
+  <div class="empty-box">No hay corridas visibles (las expiradas se ocultan automáticamente a las 24h).</div>
 </ng-template>

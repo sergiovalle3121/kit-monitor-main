@@ -818,3 +818,72 @@ th {
   .ranking-item { grid-template-columns: 1fr; }
   .ranking-item { display: flex; flex-direction: column; align-items: stretch; }
 }
+
+/* Iteración 3 visual compact overrides */
+.intelligence-page { gap: 14px; }
+.executive-strip.compact-five { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
+.card { padding: 18px; }
+.card-head h2 { font-size: 1.12rem; }
+
+.hero-chart-shell { display: grid; }
+.chart-card.compact { padding: 14px; }
+.forecast-chart {
+  min-height: 240px;
+  margin-top: 10px;
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(248,250,252,.88), rgba(255,255,255,.95));
+}
+.chart-label { font-weight: 700; fill: #334155; }
+.confidence-band {
+  margin-top: 8px;
+  display: inline-flex;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(14,116,144,.12);
+  color: #0f766e;
+  font-size: .82rem;
+  font-weight: 700;
+}
+
+.compact-card { min-height: 0; }
+.ranking-table { display: grid; gap: 8px; margin-top: 10px; }
+.ranking-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid rgba(148,163,184,.2);
+  border-radius: 12px;
+  padding: 8px 10px;
+  background: rgba(255,255,255,.9);
+}
+.ranking-row.champion {
+  border-color: rgba(37,99,235,.35);
+  background: rgba(219,234,254,.68);
+}
+.ranking-row em { font-style: normal; color: #1d4ed8; font-weight: 700; }
+
+.viability-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 10px; margin-bottom: 8px; }
+.viability-tile {
+  border: 1px solid rgba(148,163,184,.2);
+  border-radius: 14px;
+  padding: 12px;
+  background: rgba(255,255,255,.9);
+}
+.viability-tile strong { font-size: 1.35rem; color: #0f172a; }
+.probability-bar { width: 100%; height: 10px; border-radius: 999px; background: rgba(226,232,240,.95); overflow: hidden; margin-top: 8px; }
+.probability-bar span { display: block; height: 100%; background: linear-gradient(90deg,#2563eb,#0ea5e9); }
+
+.search-field select {
+  min-height: 52px;
+  padding: 0 15px;
+  border-radius: 16px;
+  border: 1px solid rgba(148,163,184,.22);
+  background: rgba(255,255,255,.96);
+  color: #0f172a;
+}
+.table-card .card-head { flex-wrap: wrap; }
+
+@media (max-width: 1200px) {
+  .executive-strip.compact-five { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

@@ -1,7 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { forkJoin, map, of, switchMap } from 'rxjs';
+import { catchError, forkJoin, map, of, switchMap } from 'rxjs';
 import { ApiService } from '../../core/api.service';
 import { DispositionItem, VisualAid } from '../../core/ie-data.models';
 import { DispositionService } from '../../core/disposition.service';
@@ -43,6 +43,20 @@ interface ProductionStationView {
   snapshot: ProductionRuntimeSnapshot | null;
 }
 
+interface ReadyKitRow {
+  model: string;
+  backendKey: string;
+  kitId: number;
+  timestamp: string;
+  status?: string;
+}
+
+interface DayPlanRow {
+  model: string;
+  qtyPlanned: number;
+  status: 'Pendiente' | 'En proceso' | 'Completado';
+}
+
 @Component({
   selector: 'app-production',
   standalone: true,
@@ -55,6 +69,9 @@ export class ProductionComponent implements OnInit {
   error: string | null = null;
 
   stations: ProductionStationView[] = [];
+  readyKits: ReadyKitRow[] = [];
+  dayPlan: DayPlanRow[] = [];
+  currentKitInProcess: ReadyKitRow | null = null;
 
   updatingStatusKitId: number | null = null;
   requestError: Record<number, string> = {};
@@ -122,11 +139,13 @@ export class ProductionComponent implements OnInit {
           advances: advancesRequest,
           resupplies: resuppliesRequest,
           runtime: runtimeRequest,
+          publications: this.api.getPlanPublications().pipe(catchError(() => of([]))),
         });
       }),
     ).subscribe({
-      next: ({ backends, advances, resupplies, runtime }) => {
+      next: ({ backends, advances, resupplies, runtime, publications }) => {
         this.buildStations(backends, advances, resupplies, runtime as any[]);
+        this.buildOpsSections(publications as any[]);
         this.loading = false;
       },
       error: () => {
@@ -285,6 +304,25 @@ export class ProductionComponent implements OnInit {
     window.open(station.visualAid.pdfUrl, '_blank', 'noopener');
   }
 
+  requestReadyKit(row: ReadyKitRow): void {
+    const station = this.stations.find((item) => item.kit?.id === row.kitId);
+    if (!station) return;
+    this.requestKit(station);
+  }
+
+  planStatusClass(status: DayPlanRow['status']): string {
+    if (status === 'Completado') return 'status-ok';
+    if (status === 'En proceso') return 'status-progress';
+    return 'status-pending';
+  }
+
+  currentKitStatusLabel(): string {
+    if (!this.currentKitInProcess?.status) return 'En tránsito';
+    return ['delivered', 'received', 'sent', 'in_progress'].includes(this.currentKitInProcess.status)
+      ? 'Entregado a línea'
+      : 'En tránsito';
+  }
+
   private buildStations(
     backends: any[],
     advances: Array<{ kitId: number; advances: any[] }>,
@@ -332,5 +370,58 @@ export class ProductionComponent implements OnInit {
           snapshot,
         };
       });
+  }
+
+  private buildOpsSections(publications: any[]): void {
+    this.readyKits = this.stations
+      .filter((station) => ['ready', 'kitted', 'prepared'].includes(station.status))
+      .map((station) => ({
+        model: station.model ?? 'N/A',
+        backendKey: station.backendKey,
+        kitId: station.kit?.id ?? 0,
+          timestamp: station.snapshot?.backend?.receivedAt ?? new Date().toISOString(),
+          status: station.status,
+        }));
+
+    const active = this.stations.find((station) => ['requested', 'delivered', 'received', 'sent', 'in_progress'].includes(station.status));
+    this.currentKitInProcess = active
+      ? {
+          model: active.model ?? 'N/A',
+          backendKey: active.backendKey,
+          kitId: active.kit?.id ?? 0,
+          timestamp: active.snapshot?.backend?.receivedAt ?? new Date().toISOString(),
+          status: active.status,
+        }
+      : null;
+
+    const publicationRows = (publications ?? [])
+      .flatMap((publication) => publication.planSnapshot ?? publication.lines ?? [])
+      .filter((line: any) => !!line?.model)
+      .map((line: any) => ({ model: String(line.model), qtyPlanned: Number(line.quantity ?? line.qtyPlanned ?? 0) }));
+
+    const fallbackRows = this.stations.map((station) => ({ model: station.model ?? 'N/A', qtyPlanned: station.quantity ?? 0 }));
+    const sourceRows = publicationRows.length ? publicationRows : fallbackRows;
+    const statusByModel = new Map<string, DayPlanRow['status']>();
+
+    this.stations.forEach((station) => {
+      const model = station.model ?? 'N/A';
+      if (station.status === 'completed') {
+        statusByModel.set(model, 'Completado');
+        return;
+      }
+      if (['in_progress', 'requested', 'delivered', 'received', 'sent'].includes(station.status) && statusByModel.get(model) !== 'Completado') {
+        statusByModel.set(model, 'En proceso');
+        return;
+      }
+      if (!statusByModel.has(model)) {
+        statusByModel.set(model, 'Pendiente');
+      }
+    });
+
+    this.dayPlan = sourceRows.map((row) => ({
+      model: row.model,
+      qtyPlanned: row.qtyPlanned,
+      status: statusByModel.get(row.model) ?? 'Pendiente',
+    }));
   }
 }

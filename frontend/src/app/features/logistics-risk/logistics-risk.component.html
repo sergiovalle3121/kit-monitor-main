@@ -1,20 +1,50 @@
 <div class="page-header">
   <div>
     <h2>Logística en vivo</h2>
-    <p class="page-subtitle">Riesgo de faltante por backend y NP según ritmo reciente.</p>
+    <p class="page-subtitle">Centro de reabasto en tiempo real para línea de ensamble.</p>
   </div>
+  <div class="counter-chip">{{ activeMovementsToday }} movimientos activos hoy</div>
 </div>
 
-<div class="grid" *ngIf="rows.length; else empty">
-  <article class="card" *ngFor="let row of rows">
-    <h3>{{ row.backend.backendCode }} · {{ row.backend.model }}</h3>
-    <p>Progreso: {{ row.backend.completedQty }} / {{ row.backend.targetQty }}</p>
-    <p>NP en riesgo: {{ row.risk.riskyCount }}</p>
-    <p *ngIf="row.risk.mostCritical">Crítico: B{{ row.risk.mostCritical.bayId }} · {{ row.risk.mostCritical.partNumber }}</p>
-    <p *ngIf="row.risk.mostCritical?.minutesToStockout !== null">Quiebre est.: {{ row.risk.mostCritical.minutesToStockout | number:'1.0-0' }} min</p>
-  </article>
-</div>
+<section class="movement-section">
+  <h3>Movimientos activos</h3>
+  <div class="movement-grid" *ngIf="movements.length; else noMovements">
+    <article class="movement-card" *ngFor="let movement of movements">
+      <div class="route">
+        <strong>Origen:</strong> Supermercado → <strong>Destino:</strong> {{ movement.destination }}
+      </div>
+      <p class="meta">{{ movement.backendCode }} · {{ movement.model }}</p>
+      <p class="parts" *ngIf="movement.parts.length; else noParts">NPs: {{ movement.parts.join(', ') }}</p>
+      <ng-template #noParts>
+        <p class="parts">NPs: en seguimiento por modelo</p>
+      </ng-template>
 
-<ng-template #empty>
-  <div class="empty-box">Sin riesgo activo por ahora.</div>
+      <div class="status" [class.in-transit]="movement.status === 'in_transit'" [class.delivered]="movement.status === 'delivered'">
+        <span class="pulse" *ngIf="movement.status === 'in_transit'">🚚 En tránsito</span>
+        <span *ngIf="movement.status === 'delivered'">✓ Entregado</span>
+      </div>
+    </article>
+  </div>
+</section>
+
+<section class="risk-panel">
+  <h3>Riesgo de materiales críticos</h3>
+  <div class="risk-list" *ngIf="materialRisks.length; else noRisk">
+    <article class="risk-item" *ngFor="let item of materialRisks">
+      <div class="risk-head">
+        <strong>{{ item.partNumber }}</strong>
+        <span class="semaphore">{{ riskSignal(item) }} {{ riskLabel(item) }}</span>
+      </div>
+      <p class="time">Tiempo a quiebre: <strong>{{ timeToStockout(item) }}</strong></p>
+      <p class="action">{{ item.recommendation }}</p>
+    </article>
+  </div>
+</section>
+
+<ng-template #noMovements>
+  <div class="empty-box">📭 Sin movimientos activos</div>
+</ng-template>
+
+<ng-template #noRisk>
+  <div class="empty-box">Sin riesgo de materiales en este momento.</div>
 </ng-template>

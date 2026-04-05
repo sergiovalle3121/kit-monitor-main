@@ -1,50 +1,29 @@
 <section class="intelligence-page">
-  <header class="hero">
-    <div class="hero-copy">
-      <p class="eyebrow">PLANEACION INTELIGENTE</p>
-      <h1>Forecast, riesgo y decision operativa en una sola vista</h1>
-      <p class="lede">
-        Laboratorio estadistico para workbooks reales de SAP: limpia demanda por NP,
-        mide error, simula quiebre y aterriza prioridad operativa aun cuando el archivo venga caotico.
-      </p>
-      <div class="hero-pills">
-        <span>Series de tiempo</span>
-        <span>Bootstrap empirico</span>
-        <span>Backtesting</span>
-        <span>Matching heuristico</span>
-        <span>Capacidad</span>
-      </div>
-    </div>
-
-    <aside class="hero-side">
-      <span class="side-label">LOGICA DE NEGOCIO</span>
-      <p>
-        El forecast maestro vive por material/NP. Riesgo consume ese forecast con stock workbook o manual.
-        Operacion traduce la senal al nivel modelo con matching heuristico mientras no exista BOM real.
-      </p>
-      <ul>
-        <li>Parser tolerante a encabezados SAP caoticos y multiples hojas</li>
-        <li>Forecast por material con MAPE, MAD, Bias y banda simple</li>
-        <li>Operacion con warnings cuando el matching aun es debil</li>
-      </ul>
-    </aside>
-  </header>
-
-  <section class="executive-strip">
+  <section class="executive-strip compact-five">
     <article class="exec-card spotlight">
-      <small>Estado global del laboratorio</small>
-      <strong>{{ forecastState.title }}</strong>
-      <p>{{ forecastState.message }}</p>
+      <small>Run activo</small>
+      <strong>{{ latestRunId ? ('Run #' + latestRunId) : 'Sin run activo' }}</strong>
+      <p>{{ latestScenarioId ? ('Scenario #' + latestScenarioId) : 'Sin escenario' }}</p>
     </article>
     <article class="exec-card">
-      <small>Series listas / total</small>
-      <strong>{{ readyForecastCount }} / {{ forecastResults.length || 0 }}</strong>
-      <p>Dominante actual: {{ bestMethodSummary?.label || 'Sin método líder' }}</p>
+      <small>Confidence score</small>
+      <strong>{{ planConfidenceScore != null ? (planConfidenceScore | number:'1.0-1') : '-' }}</strong>
+      <p>Calibrated score</p>
     </article>
     <article class="exec-card">
-      <small>Planeación conectada</small>
-      <strong>{{ latestRunId ? ('Run #' + latestRunId) : 'Sin persistir' }}</strong>
-      <p>{{ latestScenarioId ? ('Scenario #' + latestScenarioId) : 'Sin escenario aún' }}</p>
+      <small>Probability of success</small>
+      <strong>{{ percentLabel(planProbability) }}</strong>
+      <p>Viabilidad de plan</p>
+    </article>
+    <article class="exec-card">
+      <small>Simulation mode</small>
+      <strong>{{ simulationMode || 'N/A' }}</strong>
+      <p>Iteraciones: {{ simulationIterations }}</p>
+    </article>
+    <article class="exec-card">
+      <small>Top material risk</small>
+      <strong>{{ topMaterialRiskLabel }}</strong>
+      <p>Estado global: {{ forecastState.title }}</p>
     </article>
   </section>
 
@@ -254,12 +233,12 @@
       </article>
     </section>
 
-    <section class="view-grid chart-grid">
-      <article class="card chart-card">
+    <section class="hero-chart-shell">
+      <article class="card chart-card compact">
         <div class="card-head">
           <div>
-            <p class="card-kicker">EXPLORACION DE SERIE</p>
-            <h2>{{ selectedForecastRecord?.displayLabel || 'Sin serie seleccionada' }}</h2>
+            <p class="card-kicker">GRÁFICA HERO</p>
+            <h2>{{ selectedForecastRecord?.displayLabel || 'Sin serie seleccionada' }} · Histórico vs Forecast</h2>
           </div>
           <span class="badge">{{ selectedChartMethod?.label || 'Sin metodo' }}</span>
         </div>
@@ -290,6 +269,9 @@
                 <text [attr.x]="label.x" [attr.y]="chartHeight - 6" class="chart-label">{{ label.text }}</text>
               }
             </svg>
+            @if (confidenceBand) {
+              <div class="confidence-band">Banda de confianza: {{ confidenceBand.low | number:'1.0-2' }} – {{ confidenceBand.high | number:'1.0-2' }}</div>
+            }
           }
         } @else {
           <div class="empty-state">
@@ -298,12 +280,36 @@
           </div>
         }
       </article>
+    </section>
 
-      <article class="card insight-card">
+    <section class="view-grid chart-grid">
+      <article class="card compact-card">
+        <div class="card-head">
+          <div>
+            <p class="card-kicker">RANKING DE MÉTODOS</p>
+            <h2>Método · Score · Campeón</h2>
+          </div>
+        </div>
+        @if (methodSummaries.length) {
+          <div class="ranking-table">
+            @for (summary of methodSummaries; track summary.model; let idx = $index) {
+              <div class="ranking-row" [class.champion]="idx === 0">
+                <span>{{ summary.label }}</span>
+                <strong>{{ summary.reliability | number:'1.0-1' }}</strong>
+                <em>{{ idx === 0 ? 'Campeón' : '-' }}</em>
+              </div>
+            }
+          </div>
+        } @else {
+          <div class="empty-state"><span>Sin ranking todavía.</span></div>
+        }
+      </article>
+
+      <article class="card insight-card compact-card">
         <div class="card-head">
           <div>
             <p class="card-kicker">DIAGNOSTICO</p>
-            <h2>Lectura ejecutiva del material</h2>
+            <h2>Diagnóstico por material</h2>
           </div>
         </div>
 
@@ -318,6 +324,10 @@
           </div>
 
           <div class="pill-grid">
+            <span class="badge subtle">Tendencia: {{ selectedForecastRecord.trend }}</span>
+            <span class="badge subtle">Estado: {{ selectedForecastRecord.statistics.cv > 1 ? 'Volátil' : 'Estable' }}</span>
+            <span class="badge subtle" *ngIf="selectedForecastRecord.statistics.outlierCount > 0">Intermitente</span>
+            <span class="badge subtle" *ngIf="!selectedForecastRecord.sufficientHistory">Data corta</span>
             @for (diagnostic of selectedForecastRecord.diagnostics; track diagnostic) {
               <span class="badge subtle">{{ diagnostic }}</span>
             }
@@ -333,6 +343,35 @@
       </article>
     </section>
 
+    <section class="view-grid">
+      <article class="card compact-card">
+        <div class="card-head">
+          <div>
+            <p class="card-kicker">SIMULACIÓN / VIABILIDAD</p>
+            <h2>Bloque ejecutivo de decisión</h2>
+          </div>
+        </div>
+        <div class="viability-grid">
+          <div class="viability-tile">
+            <small>Calibrated score</small>
+            <strong>{{ planConfidenceScore != null ? (planConfidenceScore | number:'1.0-1') : '-' }}</strong>
+          </div>
+          <div class="viability-tile">
+            <small>Probabilidad</small>
+            <strong>{{ percentLabel(planProbability) }}</strong>
+            <div class="probability-bar">
+              <span [style.width.%]="(planProbability ?? 0) * 100"></span>
+            </div>
+          </div>
+        </div>
+        <div class="pill-grid">
+          @for (risk of logisticsPriorityTop.slice(0, 5); track risk.partNumber) {
+            <span class="badge subtle">{{ risk.partNumber }} · {{ risk.severity }}</span>
+          }
+        </div>
+      </article>
+    </section>
+
     <article class="card table-card">
       <div class="card-head">
         <div>
@@ -341,8 +380,29 @@
         </div>
 
         <label class="search-field">
-          <span>Filtrar</span>
+          <span>NP</span>
           <input type="search" placeholder="Material, localidad o descripcion" [(ngModel)]="resultFilter" />
+        </label>
+        <label class="search-field">
+          <span>Criticidad</span>
+          <select [(ngModel)]="criticalityFilter">
+            <option value="all">Todas</option>
+            <option value="alta">Alta</option>
+            <option value="media">Media</option>
+            <option value="baja">Baja</option>
+            <option value="insuficiente">Insuficiente</option>
+          </select>
+        </label>
+        <label class="search-field">
+          <span>Método</span>
+          <select [(ngModel)]="methodFilter">
+            <option value="all">Todos</option>
+            <option value="naive">Naive</option>
+            <option value="ma3">MA3</option>
+            <option value="ma6">MA6</option>
+            <option value="ses">SES</option>
+            <option value="regression">Regresión</option>
+          </select>
         </label>
       </div>
 
