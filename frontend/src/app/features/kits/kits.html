@@ -75,6 +75,22 @@
       </header>
 
       <div class="kit-detail" *ngIf="expandedKitId === kit.id">
+        <section class="detail-section cancellation-banner" *ngIf="pendingCancellation(kit) as request">
+          <div>
+            <p class="section-kicker">Solicitud de cancelación</p>
+            <h4>Planeación solicita cancelar este kit. ¿Autorizas la cancelación?</h4>
+            <p class="countdown">{{ cancellationCountdownLabel(kit) }}</p>
+          </div>
+          <div class="cancellation-actions">
+            <button class="btn-accept" type="button" (click)="respondCancellationRequest(kit, 'accept')" [disabled]="respondingCancellationId === request.id">
+              {{ respondingCancellationId === request.id ? '...' : '✓ Autorizar' }}
+            </button>
+            <button class="btn-reject" type="button" (click)="respondCancellationRequest(kit, 'reject')" [disabled]="respondingCancellationId === request.id">
+              {{ respondingCancellationId === request.id ? '...' : '✗ Rechazar' }}
+            </button>
+          </div>
+        </section>
+
         <section class="detail-section start-section" *ngIf="needsStart(kit)">
           <div class="start-copy">
             <p class="section-kicker">Inicio de surtido</p>
