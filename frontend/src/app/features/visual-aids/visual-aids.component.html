@@ -11,7 +11,10 @@
   <p class="error" *ngIf="formError">{{ formError }}</p>
 
   <div class="grid">
-    <input [(ngModel)]="form.model" placeholder="Modelo (ej. OP-320-0107B)" />
+    <input [(ngModel)]="form.model" list="visual-aid-models" placeholder="Modelo (ej. OP-320-0107B)" />
+    <datalist id="visual-aid-models">
+      <option *ngFor="let model of modelSuggestions" [value]="model">{{ model }}</option>
+    </datalist>
     <input [(ngModel)]="form.title" placeholder="Título" />
     <input [(ngModel)]="form.process" placeholder="Proceso / categoría" />
     <input [(ngModel)]="form.area" placeholder="Área / estación" />
@@ -56,6 +59,7 @@
       <button class="btn-light" (click)="openViewer(aid)">Ver PDF</button>
       <button class="btn-light" (click)="openInNewTab(aid)">Nueva pestaña</button>
       <button class="btn-light" (click)="toggleActive(aid)">{{ aid.isActive ? 'Desactivar' : 'Activar' }}</button>
+      <button class="btn-light danger" (click)="removeAid(aid)">Borrar</button>
     </div>
   </article>
 
@@ -65,9 +69,9 @@
 <div class="viewer" *ngIf="viewer" (click)="viewer = null">
   <section class="viewer-body" (click)="$event.stopPropagation()">
     <header>
-      <strong>{{ viewer.model }}</strong>
+      <strong>{{ viewer.item.model }}</strong>
       <button class="btn-light" (click)="viewer = null">Cerrar</button>
     </header>
-    <iframe [src]="viewer.pdfUrl" title="Visual aid PDF"></iframe>
+    <iframe [src]="viewer.safePdfUrl" title="Visual aid PDF"></iframe>
   </section>
 </div>

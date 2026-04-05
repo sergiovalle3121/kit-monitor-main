@@ -49,6 +49,8 @@ export class KitsComponent implements OnInit, OnDestroy {
   now = Date.now();
   private timerId: number | null = null;
   private bomCatalogByModel = new Map<string, Map<string, any>>();
+  pendingCancellationByKitId: Record<number, any> = {};
+  respondingCancellationId: number | null = null;
 
   constructor(private api: ApiService) {}
 
@@ -82,7 +84,13 @@ export class KitsComponent implements OnInit, OnDestroy {
         )];
 
         if (!models.length) {
-          return of({ kits: safeKits, catalogs: [] as Array<{ model: string; rows: any[] }> });
+          return this.api.getPendingCancellationRequests().pipe(
+            map((pendingRequests) => ({
+              kits: safeKits,
+              catalogs: [] as Array<{ model: string; rows: any[] }>,
+              pendingRequests: pendingRequests ?? [],
+            })),
+          );
         }
 
         return forkJoin(
@@ -91,14 +99,22 @@ export class KitsComponent implements OnInit, OnDestroy {
               map((rows) => ({ model: modelName, rows: rows ?? [] })),
             ),
           ),
-        ).pipe(
-          map((catalogs) => ({ kits: safeKits, catalogs })),
+        ).pipe(switchMap((catalogs) =>
+          this.api.getPendingCancellationRequests().pipe(
+            map((pendingRequests) => ({ kits: safeKits, catalogs, pendingRequests: pendingRequests ?? [] })),
+          ),
+        ),
         );
       }),
     ).subscribe({
-      next: ({ kits, catalogs }) => {
+      next: ({ kits, catalogs, pendingRequests }) => {
         this.setCatalogs(catalogs);
         this.kits = this.decorateKits(kits);
+        this.pendingCancellationByKitId = (pendingRequests ?? []).reduce((acc: Record<number, any>, request: any) => {
+          const kitId = Number(request?.kit?.id ?? request?.kitId ?? 0);
+          if (kitId > 0) acc[kitId] = request;
+          return acc;
+        }, {});
         this.bootstrapMaterialDrafts();
         this.loading = false;
       },
@@ -292,6 +308,35 @@ export class KitsComponent implements OnInit, OnDestroy {
     });
   }
 
+  pendingCancellation(kit: any): any | null {
+    return this.pendingCancellationByKitId[kit.id] ?? null;
+  }
+
+  cancellationCountdownLabel(kit: any): string {
+    const request = this.pendingCancellation(kit);
+    if (!request?.expiresAt) return 'Expira pronto';
+    const diff = Math.max(0, new Date(request.expiresAt).getTime() - this.now);
+    const minutes = Math.floor(diff / 60_000);
+    const seconds = Math.floor((diff % 60_000) / 1000);
+    return `Expira en ${minutes}m ${String(seconds).padStart(2, '0')}s`;
+  }
+
+  respondCancellationRequest(kit: any, action: 'accept' | 'reject'): void {
+    const request = this.pendingCancellation(kit);
+    if (!request || this.respondingCancellationId !== null) return;
+    this.respondingCancellationId = request.id;
+    this.api.respondCancellationRequest(request.id, action, 'kitteador').subscribe({
+      next: () => {
+        this.respondingCancellationId = null;
+        this.loadKits();
+      },
+      error: (err) => {
+        this.error = err?.error?.message ?? 'No se pudo responder la solicitud de cancelación';
+        this.respondingCancellationId = null;
+      },
+    });
+  }
+
   statusLabel(status: string): string {
     const labels: Record<string, string> = {
       preparing: 'Preparando',
@@ -304,6 +349,7 @@ export class KitsComponent implements OnInit, OnDestroy {
       received: 'Recibido',
       in_progress: 'En proceso',
       completed: 'Completado',
+      cancelled: 'Cancelado',
     };
     return labels[status] ?? status;
   }

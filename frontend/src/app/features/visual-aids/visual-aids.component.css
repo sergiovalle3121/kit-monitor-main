@@ -5,7 +5,8 @@
 .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:12px}
 .grid input,.grid textarea,.filters input,.filters select{padding:10px 12px;border:1px solid var(--gray-300);border-radius:12px}
 .grid textarea{grid-column:1/-1;min-height:72px}
-.upload{display:flex;align-items:center;justify-content:center;border:1px dashed var(--gray-300);border-radius:12px;padding:10px;cursor:pointer}
+.upload{display:flex;align-items:center;justify-content:center;border:1px solid #dc2626;border-radius:12px;padding:10px;cursor:pointer;background:#dc2626;color:#fff;font-weight:600}
+.upload:hover{background:#b91c1c;border-color:#b91c1c}
 .toggle{display:flex;align-items:center;gap:8px}
 .filters{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:10px;margin-bottom:14px}
 .cards{display:flex;flex-direction:column;gap:10px}
@@ -18,6 +19,7 @@
 .btn-primary,.btn-light{border:none;border-radius:12px;padding:9px 12px;cursor:pointer}
 .btn-primary{background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff}
 .btn-light{background:rgba(15,23,42,.08);color:var(--gray-800)}
+.btn-light.danger{background:#fee2e2;color:#991b1b}
 .viewer{position:fixed;inset:0;z-index:4000;background:rgba(2,6,23,.72);backdrop-filter:blur(10px);display:flex;align-items:center;justify-content:center;padding:24px}
 .viewer-body{width:min(1000px,100%);height:min(88vh,800px);background:#fff;border-radius:18px;overflow:hidden;display:flex;flex-direction:column}
 .viewer-body header{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-bottom:1px solid #e2e8f0}
