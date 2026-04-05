@@ -1,4 +1,5 @@
 import { TypeOrmModuleOptions } from "@nestjs/typeorm";
+import { join } from "path";
 
 /**
  * Database strategy:
@@ -48,6 +49,8 @@ export function ormOptions(): TypeOrmModuleOptions {
     type: "postgres",
     autoLoadEntities: true,
     synchronize,
+    migrationsRun: isProd || process.env.MIGRATIONS_RUN === "true",
+    migrations: [join(__dirname, "migrations", "*.{ts,js}")],
     ssl:
       isProd || url?.includes("sslmode=require")
         ? { rejectUnauthorized: false }

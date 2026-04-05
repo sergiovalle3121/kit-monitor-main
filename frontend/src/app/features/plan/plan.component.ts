@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../core/api.service';
+import { ConfirmModalService } from '../../shared/confirm-modal/confirm-modal.service';
 
 interface PlanForm {
   model: string;
@@ -36,7 +37,10 @@ export class PlanComponent implements OnInit {
 
   form: PlanForm = this.createEmptyForm();
 
-  constructor(private api: ApiService) {}
+  constructor(
+    private api: ApiService,
+    private readonly confirmModal: ConfirmModalService,
+  ) {}
 
   ngOnInit(): void {
     this.loadPlans();
@@ -142,10 +146,43 @@ export class PlanComponent implements OnInit {
     });
   }
 
-  deletePlan(plan: any): void {
+  async deletePlan(plan: any): Promise<void> {
     if (!this.canDelete(plan) || this.deletingPlanId !== null) return;
 
-    const confirmed = window.confirm(`Borrar la publicacion ${plan.workOrder} de ${plan.model}?`);
+    if (plan.hasKit && plan.kitStatus !== 'cancelled') {
+      const requestConfirm = await this.confirmModal.open({
+        title: 'Solicitar cancelación de kit',
+        message: `Este plan tiene el kit ${plan.workOrder} en proceso. Se enviará una solicitud al kitteador para que autorice la cancelación.`,
+        confirmText: 'Enviar solicitud',
+        type: 'neutral',
+      });
+      if (!requestConfirm) return;
+
+      this.deletingPlanId = plan.id;
+      this.error = null;
+      this.api.createCancellationRequest({
+        publicationId: plan.id,
+        kitId: plan.kitId ?? undefined,
+        requestedBy: 'planeacion',
+      }).subscribe({
+        next: () => {
+          this.error = `Solicitud enviada para ${plan.workOrder}.`;
+          this.deletingPlanId = null;
+        },
+        error: (err) => {
+          this.error = this.extractMessage(err, 'No se pudo crear la solicitud de cancelación');
+          this.deletingPlanId = null;
+        },
+      });
+      return;
+    }
+
+    const confirmed = await this.confirmModal.open({
+      title: '¿Estás seguro?',
+      message: 'Esta acción no se puede deshacer.',
+      confirmText: 'Borrar',
+      type: 'destructive',
+    });
     if (!confirmed) return;
 
     this.deletingPlanId = plan.id;
@@ -172,7 +209,7 @@ export class PlanComponent implements OnInit {
   }
 
   canDelete(plan: any): boolean {
-    return ['pending', 'cancelled'].includes(plan.status) && !plan.hasKit;
+    return !!plan?.id;
   }
 
   planStatusLabel(status: string): string {

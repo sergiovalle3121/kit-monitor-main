@@ -43,6 +43,28 @@ export class ProductionHourlyComponent implements OnInit {
   readonly chartHeight = 220;
   readonly chartPadding = 26;
 
+  get rows(): BomConsumptionRow[] {
+    return this.models.flatMap((model) => model.rows);
+  }
+
+  get totalUnits(): number {
+    return this.models.reduce(
+      (sum, model) => sum + model.points.reduce((modelSum, point) => modelSum + point.real, 0),
+      0,
+    );
+  }
+
+  get totalEvents(): number {
+    return this.models.reduce((sum, model) => sum + model.points.length, 0);
+  }
+
+  get lastHourUnits(): number {
+    const lastPoint = this.models
+      .flatMap((model) => model.points)
+      .at(-1);
+    return lastPoint?.real ?? 0;
+  }
+
   constructor(private readonly api: ApiService) {}
 
   ngOnInit(): void {

@@ -12,7 +12,7 @@ import { KitException } from '../../exceptions/entities/kit-exception.entity';
 // Legacy aliases kept for backward compat: prepared, sent, received
 export type KitStatus =
   | 'preparing' | 'kitted' | 'ready' | 'requested' | 'delivered'
-  | 'in_progress' | 'completed'
+  | 'in_progress' | 'completed' | 'cancelled'
   | 'prepared' | 'sent' | 'received'; // legacy
 
 @Entity('kits')
