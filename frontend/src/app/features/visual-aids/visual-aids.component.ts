@@ -7,14 +7,6 @@ import { VisualAid } from '../../core/ie-data.models';
 import { VisualAidsService } from '../../core/visual-aids.service';
 import { ConfirmModalService } from '../../shared/confirm-modal/confirm-modal.service';
 
-interface VisualAidViewer {
-  item: VisualAid;
-  pdfUrl: string;
-  currentPage: number;
-  totalPages: number;
-  loading: boolean;
-}
-
 @Component({
   selector: 'app-visual-aids',
   standalone: true,
@@ -36,10 +28,6 @@ export class VisualAidsComponent implements OnInit, AfterViewChecked {
   selectedPdfFile: File | null = null;
   modelSuggestions: string[] = [];
 
-  viewer: VisualAidViewer | null = null;
-  private pdfDocument: any | null = null;
-  private pdfjsLib: any | null = null;
-
   form = {
     model: '',
     title: '',
@@ -55,12 +43,6 @@ export class VisualAidsComponent implements OnInit, AfterViewChecked {
     private readonly api: ApiService,
     private readonly confirmModal: ConfirmModalService,
   ) {}
-
-  ngAfterViewChecked(): void {
-    if (this.viewer && this.pdfDocument && !this.viewer.loading) {
-      this.renderCurrentPage();
-    }
-  }
 
   ngOnInit(): void {
     this.visualAids.getVisualAids().subscribe((items) => {
@@ -172,91 +154,19 @@ export class VisualAidsComponent implements OnInit, AfterViewChecked {
     this.visualAids.deleteVisualAid(item.id).subscribe();
   }
 
-  openViewer(item: VisualAid): void {
-    this.viewer = {
-      item,
-      pdfUrl: this.resolvePdfUrl(item.pdfUrl),
-      currentPage: 1,
-      totalPages: 0,
-      loading: true,
-    };
-    this.loadPdfInCanvas();
-  }
-
   openInNewTab(item: VisualAid): void {
     window.open(this.resolvePdfUrl(item.pdfUrl), '_blank', 'noopener');
-  }
-
-  previousPage(): void {
-    if (!this.viewer || this.viewer.currentPage <= 1) return;
-    this.viewer.currentPage -= 1;
-    this.renderCurrentPage();
-  }
-
-  nextPage(): void {
-    if (!this.viewer || this.viewer.currentPage >= this.viewer.totalPages) return;
-    this.viewer.currentPage += 1;
-    this.renderCurrentPage();
   }
 
   private resolvePdfUrl(rawUrl: string): string {
     const value = String(rawUrl ?? '').trim();
     if (!value) return '';
 
-    if (/^https?:\/\//i.test(value) || /^data:application\/pdf/i.test(value)) {
+    if (/^https?:\/\//i.test(value)) {
       return value;
     }
 
     const apiBase = environment.apiUrl.replace(/\/$/, '');
     return `${apiBase}/visual-aids/file/${encodeURIComponent(value)}`;
-  }
-
-  private async loadPdfInCanvas(): Promise<void> {
-    if (!this.viewer) return;
-    try {
-      const pdfjs = await this.ensurePdfJs();
-      pdfjs.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-      const loadingTask = pdfjs.getDocument(this.viewer.pdfUrl);
-      this.pdfDocument = await loadingTask.promise;
-      this.viewer.totalPages = this.pdfDocument.numPages;
-      this.viewer.currentPage = 1;
-      this.viewer.loading = false;
-      this.renderCurrentPage();
-    } catch {
-      if (this.viewer) this.viewer.loading = false;
-    }
-  }
-
-  private async ensurePdfJs(): Promise<any> {
-    if ((window as any).pdfjsLib) {
-      this.pdfjsLib = (window as any).pdfjsLib;
-      return this.pdfjsLib;
-    }
-
-    await new Promise<void>((resolve, reject) => {
-      const script = document.createElement('script');
-      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
-      script.async = true;
-      script.onload = () => resolve();
-      script.onerror = () => reject(new Error('No se pudo cargar PDF.js'));
-      document.body.appendChild(script);
-    });
-
-    this.pdfjsLib = (window as any).pdfjsLib;
-    return this.pdfjsLib;
-  }
-
-  private async renderCurrentPage(): Promise<void> {
-    if (!this.viewer || !this.pdfDocument) return;
-    const canvas = document.getElementById('visual-aid-canvas') as HTMLCanvasElement | null;
-    if (!canvas) return;
-
-    const page = await this.pdfDocument.getPage(this.viewer.currentPage);
-    const viewport = page.getViewport({ scale: 1.25 });
-    const context = canvas.getContext('2d');
-    if (!context) return;
-    canvas.height = viewport.height;
-    canvas.width = viewport.width;
-    await page.render({ canvasContext: context, viewport }).promise;
   }
 }

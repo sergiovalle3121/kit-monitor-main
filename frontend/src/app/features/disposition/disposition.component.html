@@ -72,20 +72,16 @@
           <div class="empty">Sin NPs asignados.</div>
         </ng-template>
 
-        <div class="bay-add" *ngIf="!bayPickerOpen.get(bay)">
-          <button class="add-np-btn" (click)="showPicker(bay)">+ Agregar NP</button>
-        </div>
-
-        <div class="bay-add" *ngIf="bayPickerOpen.get(bay)">
-          <select [(ngModel)]="baySelection[bay]">
-            <option value="">Selecciona NP...</option>
-            <option *ngFor="let candidate of optionsForBay(bay)" [value]="candidate.partNumber">
-              {{ candidate.partNumber }} — {{ candidate.description }}
-            </option>
-          </select>
-          <button class="btn-light" (click)="addPartToBay(baySelection[bay], bay)" [disabled]="!baySelection[bay]">Agregar</button>
-          <button class="btn-light" (click)="cancelPicker(bay)">Cancelar</button>
-        </div>
+        <select
+          class="bay-native-select"
+          [(ngModel)]="baySelection[bay]"
+          (ngModelChange)="addPartToBay($event, bay)"
+        >
+          <option value="">— Agregar NP —</option>
+          <option *ngFor="let candidate of optionsForBay(bay)" [value]="candidate.partNumber">
+            {{ candidate.partNumber }} — {{ candidate.description }}
+          </option>
+        </select>
       </article>
     </div>
   </section>

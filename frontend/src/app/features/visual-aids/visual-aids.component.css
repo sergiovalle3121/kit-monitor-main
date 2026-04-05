@@ -20,11 +20,5 @@
 .btn-primary{background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff}
 .btn-light{background:rgba(15,23,42,.08);color:var(--gray-800)}
 .btn-light.danger{background:#fee2e2;color:#991b1b}
-.viewer{position:fixed;inset:0;z-index:4000;background:rgba(2,6,23,.72);backdrop-filter:blur(10px);display:flex;align-items:center;justify-content:center;padding:24px}
-.viewer-body{width:90vw;height:90vh;background:#fff;border-radius:18px;overflow:hidden;display:flex;flex-direction:column}
-.viewer-body header{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-bottom:1px solid #e2e8f0}
-.pdf-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.pdf-canvas-wrap{flex:1;overflow:auto;display:flex;justify-content:center;align-items:flex-start;background:#f8fafc;padding:12px}
-.pdf-canvas-wrap canvas{max-width:100%;height:auto;border:1px solid #e2e8f0;background:#fff}
 .error{color:var(--danger)}
 .empty{color:var(--gray-500)}

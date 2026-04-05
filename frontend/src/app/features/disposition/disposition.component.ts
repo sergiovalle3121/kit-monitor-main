@@ -32,7 +32,6 @@ export class DispositionComponent implements OnInit {
   modelFilter = '';
   npRows: BomNpRow[] = [];
   layoutByPart = new Map<string, Set<number>>();
-  bayPickerOpen = new Map<number, boolean>();
   baySelection: Record<number, string> = {};
   savedDispositions: SavedDispositionRow[] = [];
   saveNotice = '';
@@ -110,7 +109,6 @@ export class DispositionComponent implements OnInit {
     if (!this.modelFilter) {
       this.npRows = [];
       this.layoutByPart.clear();
-      this.bayPickerOpen.clear();
       this.baySelection = {};
       this.loading = false;
       return;
@@ -137,7 +135,6 @@ export class DispositionComponent implements OnInit {
         }));
 
         this.layoutByPart.clear();
-        this.bayPickerOpen.clear();
         this.baySelection = {};
         (layouts ?? []).forEach((layout) => {
           const partNumber = String(layout.partNumber ?? '');
@@ -153,7 +150,6 @@ export class DispositionComponent implements OnInit {
       error: () => {
         this.npRows = [];
         this.layoutByPart.clear();
-        this.bayPickerOpen.clear();
         this.baySelection = {};
         this.loading = false;
       },
@@ -182,16 +178,6 @@ export class DispositionComponent implements OnInit {
     current.add(bay);
     this.layoutByPart.set(partNumber, current);
     this.baySelection[bay] = '';
-    this.bayPickerOpen.set(bay, false);
-  }
-
-  showPicker(bay: number): void {
-    this.bayPickerOpen.set(bay, true);
-  }
-
-  cancelPicker(bay: number): void {
-    this.baySelection[bay] = '';
-    this.bayPickerOpen.set(bay, false);
   }
 
   async removePartFromBay(partNumber: string, bay: number): Promise<void> {

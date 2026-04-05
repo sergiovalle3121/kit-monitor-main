@@ -56,30 +56,11 @@
     </div>
     <div class="actions">
       <span class="chip" [class.off]="!aid.isActive">{{ aid.isActive ? 'Activo' : 'Inactivo' }}</span>
-      <button class="btn-light" (click)="openViewer(aid)">Ver PDF</button>
-      <button class="btn-light" (click)="openInNewTab(aid)">Nueva pestaña</button>
+      <button class="btn-light" (click)="openInNewTab(aid)">Ver PDF</button>
       <button class="btn-light" (click)="toggleActive(aid)">{{ aid.isActive ? 'Desactivar' : 'Activar' }}</button>
       <button class="btn-light danger" (click)="removeAid(aid)">Borrar</button>
     </div>
   </article>
 
   <p class="empty" *ngIf="!filtered.length">Sin ayudas visuales para los filtros actuales.</p>
-</div>
-
-<div class="viewer" *ngIf="viewer" (click)="viewer = null">
-  <section class="viewer-body" (click)="$event.stopPropagation()">
-    <header>
-      <strong>{{ viewer.item.model }}</strong>
-      <div class="pdf-controls">
-        <button class="btn-light" (click)="previousPage()" [disabled]="viewer.currentPage <= 1">Anterior</button>
-        <span>Página {{ viewer.currentPage }} de {{ viewer.totalPages || '?' }}</span>
-        <button class="btn-light" (click)="nextPage()" [disabled]="viewer.currentPage >= viewer.totalPages">Siguiente</button>
-        <button class="btn-light" (click)="viewer = null">Cerrar</button>
-      </div>
-    </header>
-    <div class="pdf-canvas-wrap">
-      <p class="empty" *ngIf="viewer.loading">Cargando PDF...</p>
-      <canvas id="visual-aid-canvas"></canvas>
-    </div>
-  </section>
 </div>
