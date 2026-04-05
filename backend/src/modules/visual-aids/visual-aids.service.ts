@@ -16,9 +16,10 @@ export class VisualAidsService {
     return this.repo.find({ order: { updatedAt: 'DESC' } });
   }
 
-  async create(dto: CreateVisualAidDto): Promise<VisualAid> {
+  async create(dto: CreateVisualAidDto, filename: string): Promise<VisualAid> {
     const entity = this.repo.create({
       ...dto,
+      pdfUrl: filename,
       id: `va-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       isActive: dto.isActive ?? true,
     });

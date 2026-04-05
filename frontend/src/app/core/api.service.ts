@@ -73,6 +73,10 @@ export class ApiService {
     return this.post<any>('visual-aids', dto);
   }
 
+  createVisualAidFormData(formData: FormData): Observable<any> {
+    return this.http.post<any>(`${this.base}/visual-aids`, formData);
+  }
+
   updateVisualAid(id: string, dto: any): Observable<any> {
     return this.patch<any>(`visual-aids/${encodeURIComponent(id)}`, dto);
   }

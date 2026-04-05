@@ -31,6 +31,7 @@ export class VisualAidsComponent implements OnInit {
   showForm = false;
   formError: string | null = null;
   fileName = '';
+  selectedPdfFile: File | null = null;
   modelSuggestions: string[] = [];
 
   viewer: VisualAidViewer | null = null;
@@ -41,7 +42,6 @@ export class VisualAidsComponent implements OnInit {
     process: '',
     area: '',
     revision: '',
-    pdfUrl: '',
     isActive: true,
     notes: '',
   };
@@ -108,27 +108,29 @@ export class VisualAidsComponent implements OnInit {
 
     this.formError = null;
     this.fileName = file.name;
-
-    const reader = new FileReader();
-    reader.onload = () => {
-      this.form.pdfUrl = typeof reader.result === 'string' ? reader.result : '';
-    };
-    reader.readAsDataURL(file);
+    this.selectedPdfFile = file;
   }
 
   save(): void {
-    if (!this.form.model || !this.form.title || !this.form.process || !this.form.pdfUrl) {
+    if (!this.form.model || !this.form.title || !this.form.process || !this.selectedPdfFile) {
       this.formError = 'Modelo, título, proceso y PDF son obligatorios.';
       return;
     }
 
     this.visualAids.createVisualAid({
-      ...this.form,
+      model: this.form.model,
+      title: this.form.title,
+      process: this.form.process,
+      area: this.form.area,
+      revision: this.form.revision,
+      notes: this.form.notes,
+      isActive: this.form.isActive,
       uploadedBy: 'IE',
-    }).subscribe({
+    }, this.selectedPdfFile).subscribe({
       next: () => {
         this.showForm = false;
         this.fileName = '';
+        this.selectedPdfFile = null;
         this.formError = null;
         this.form = {
           model: '',
@@ -136,7 +138,6 @@ export class VisualAidsComponent implements OnInit {
           process: '',
           area: '',
           revision: '',
-          pdfUrl: '',
           isActive: true,
           notes: '',
         };

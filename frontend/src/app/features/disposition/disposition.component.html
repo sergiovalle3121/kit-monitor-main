@@ -26,6 +26,7 @@
 </div>
 
 <p class="loading" *ngIf="loading">Cargando disposición...</p>
+<p class="success" *ngIf="saveNotice">{{ saveNotice }}</p>
 
 <div class="two-panel" *ngIf="!loading">
   <section class="panel left-panel">
@@ -72,7 +73,7 @@
         </ng-template>
 
         <div class="bay-add" *ngIf="!bayPickerOpen[bay]">
-          <button class="btn-light" (click)="showPicker(bay)">Agregar NP...</button>
+          <button class="add-np-btn" (click)="showPicker(bay)">+ Agregar NP</button>
         </div>
 
         <div class="bay-add" *ngIf="bayPickerOpen[bay]">
@@ -90,6 +91,26 @@
   </section>
 </div>
 
+<section class="panel saved-panel" *ngIf="!loading">
+  <h3>Disposiciones guardadas</h3>
+  <div class="saved-list" *ngIf="savedDispositions.length; else noSavedLayouts">
+    <article class="saved-row" *ngFor="let row of savedDispositions">
+      <div>
+        <strong>{{ row.model }}</strong>
+        <p>Última actualización: {{ row.updatedAt ? (row.updatedAt | date:'short') : 'Sin fecha' }}</p>
+        <small>NPs asignados: {{ row.npCount }}</small>
+      </div>
+      <div class="saved-actions">
+        <button class="btn-light" (click)="editSavedDisposition(row.model)">Editar</button>
+        <button class="btn-light danger" (click)="deleteSavedDisposition(row.model)">Borrar</button>
+      </div>
+    </article>
+  </div>
+</section>
+
 <ng-template #noBomRows>
   <div class="empty-box">No hay NPs en BOM para el modelo seleccionado.</div>
+</ng-template>
+<ng-template #noSavedLayouts>
+  <div class="empty-box">No hay disposiciones guardadas.</div>
 </ng-template>

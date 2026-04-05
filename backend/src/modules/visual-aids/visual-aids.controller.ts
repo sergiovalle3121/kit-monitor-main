@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -7,10 +8,14 @@ import {
   Patch,
   Post,
   Res,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
 import type { Response } from 'express';
-import { join, resolve } from 'path';
-import { existsSync } from 'fs';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
+import { extname, join, resolve } from 'path';
+import { existsSync, mkdirSync } from 'fs';
 import { CreateVisualAidDto } from './dto/create-visual-aid.dto';
 import { UpdateVisualAidDto } from './dto/update-visual-aid.dto';
 import { VisualAidsService } from './visual-aids.service';
@@ -25,8 +30,37 @@ export class VisualAidsController {
   }
 
   @Post()
-  create(@Body() dto: CreateVisualAidDto) {
-    return this.service.create(dto);
+  @UseInterceptors(FileInterceptor('file', {
+    storage: diskStorage({
+      destination: (_req, _file, cb) => {
+        const destination = '/app/uploads/visual-aids';
+        mkdirSync(destination, { recursive: true });
+        cb(null, destination);
+      },
+      filename: (_req, file, cb) => {
+        const suffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+        const extension = extname(file.originalname) || '.pdf';
+        cb(null, `va-${suffix}${extension}`);
+      },
+    }),
+    fileFilter: (_req, file, cb) => {
+      if (file.mimetype !== 'application/pdf') {
+        cb(new BadRequestException('Solo se permite archivo PDF'), false);
+        return;
+      }
+      cb(null, true);
+    },
+    limits: { fileSize: 12 * 1024 * 1024 },
+  }))
+  create(@Body() dto: CreateVisualAidDto, @UploadedFile() file?: any) {
+    if (!file?.filename) {
+      throw new BadRequestException('PDF es obligatorio');
+    }
+    const normalized = {
+      ...dto,
+      isActive: String(dto.isActive ?? 'true') !== 'false',
+    };
+    return this.service.create(normalized, file.filename);
   }
 
   @Patch(':id')
@@ -41,7 +75,7 @@ export class VisualAidsController {
 
   @Get('file/:filename')
   serveFile(@Param('filename') filename: string, @Res() res: Response) {
-    const baseDir = resolve(process.cwd(), 'uploads', 'visual-aids');
+    const baseDir = resolve('/app/uploads/visual-aids');
     const safeName = filename.replace(/\//g, '');
     const fullPath = join(baseDir, safeName);
 

@@ -31,8 +31,28 @@ export class VisualAidsService {
     ) ?? null;
   }
 
-  createVisualAid(input: Omit<VisualAid, 'id' | 'createdAt' | 'updatedAt'>): Observable<VisualAid> {
-    return this.api.createVisualAid(input).pipe(
+  createVisualAid(input: {
+    model: string;
+    title: string;
+    process: string;
+    area?: string;
+    revision?: string;
+    notes?: string;
+    isActive?: boolean;
+    uploadedBy?: string;
+  }, file: File): Observable<VisualAid> {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('model', input.model);
+    formData.append('title', input.title);
+    formData.append('process', input.process);
+    formData.append('area', input.area ?? '');
+    formData.append('revision', input.revision ?? '');
+    formData.append('notes', input.notes ?? '');
+    formData.append('uploadedBy', input.uploadedBy ?? '');
+    formData.append('isActive', String(input.isActive ?? true));
+
+    return this.api.createVisualAidFormData(formData).pipe(
       tap((created) => this.store.next([created, ...this.store.value])),
     );
   }

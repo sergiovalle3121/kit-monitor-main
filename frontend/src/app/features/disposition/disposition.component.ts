@@ -12,6 +12,11 @@ interface BomNpRow {
   qtyPlanned: number;
   miniMost: number | null;
 }
+interface SavedDispositionRow {
+  model: string;
+  updatedAt: string | null;
+  npCount: number;
+}
 
 @Component({
   selector: 'app-disposition',
@@ -29,6 +34,8 @@ export class DispositionComponent implements OnInit {
   layoutByPart = new Map<string, Set<number>>();
   bayPickerOpen: Record<number, boolean> = {};
   baySelection: Record<number, string> = {};
+  savedDispositions: SavedDispositionRow[] = [];
+  saveNotice = '';
 
   readonly bayOptions = [1, 2, 3, 4, 5, 6];
 
@@ -54,6 +61,7 @@ export class DispositionComponent implements OnInit {
           .sort((left, right) => left.localeCompare(right));
         this.models = models;
         this.modelFilter = this.modelFilter || models[0] || '';
+        this.loadSavedDispositions(models);
         this.refresh();
       },
       error: () => {
@@ -62,6 +70,38 @@ export class DispositionComponent implements OnInit {
         this.npRows = [];
         this.layoutByPart.clear();
         this.loading = false;
+      },
+    });
+  }
+
+  loadSavedDispositions(models: string[] = this.models): void {
+    if (!models.length) {
+      this.savedDispositions = [];
+      return;
+    }
+    const requests = models.map((model) => this.api.getBayLayouts(model));
+    forkJoin(requests).subscribe({
+      next: (responses) => {
+        this.savedDispositions = responses
+          .map((layouts, index) => {
+            const rows = layouts ?? [];
+            if (!rows.length) return null;
+            const latest = rows
+              .map((item: any) => String(item.updatedAt ?? item.createdAt ?? ''))
+              .filter(Boolean)
+              .sort()
+              .at(-1) ?? null;
+            return {
+              model: models[index],
+              updatedAt: latest,
+              npCount: new Set(rows.map((item: any) => String(item.partNumber ?? ''))).size,
+            } as SavedDispositionRow;
+          })
+          .filter((item): item is SavedDispositionRow => !!item)
+          .sort((a, b) => a.model.localeCompare(b.model));
+      },
+      error: () => {
+        this.savedDispositions = [];
       },
     });
   }
@@ -176,6 +216,7 @@ export class DispositionComponent implements OnInit {
 
   save(): void {
     if (!this.modelFilter || this.saving) return;
+    this.saveNotice = '';
 
     const payload: Array<{ model: string; partNumber: string; bahia: number }> = [];
     this.layoutByPart.forEach((bays, partNumber) => {
@@ -195,6 +236,8 @@ export class DispositionComponent implements OnInit {
         this.api.createBayLayoutsBulk(payload).subscribe({
           next: () => {
             this.saving = false;
+            this.saveNotice = 'Disposición guardada correctamente';
+            this.loadSavedDispositions();
             this.refresh();
           },
           error: () => {
@@ -204,6 +247,42 @@ export class DispositionComponent implements OnInit {
       },
       error: () => {
         this.saving = false;
+      },
+    });
+
+    if (!confirmed) return;
+
+    const current = this.layoutByPart.get(partNumber);
+    if (!current) return;
+    current.delete(bay);
+    if (!current.size) {
+      this.layoutByPart.delete(partNumber);
+      return;
+    }
+    this.layoutByPart.set(partNumber, current);
+  }
+
+  editSavedDisposition(model: string): void {
+    this.modelFilter = model;
+    this.refresh();
+  }
+
+  async deleteSavedDisposition(model: string): Promise<void> {
+    const confirmed = await this.confirmModal.open({
+      title: 'Eliminar disposición',
+      message: `¿Eliminar disposición guardada para ${model}?`,
+      confirmText: 'Eliminar',
+      type: 'destructive',
+    });
+    if (!confirmed) return;
+
+    this.api.deleteBayLayoutsByModel(model).subscribe({
+      next: () => {
+        if (this.modelFilter === model) {
+          this.layoutByPart.clear();
+          this.refresh();
+        }
+        this.loadSavedDispositions();
       },
     });
   }
