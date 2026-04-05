@@ -11,7 +11,9 @@ async function bootstrap() {
   app.setGlobalPrefix('api');
 
   // Seguridad y compresión
-  app.use(helmet());
+  app.use(helmet({
+    frameguard: false,
+  }));
   app.use(compression());
 
   // ---------------------------

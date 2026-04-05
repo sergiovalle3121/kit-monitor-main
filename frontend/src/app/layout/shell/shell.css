@@ -553,10 +553,9 @@ nav {
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
-  display: flex;
-  justify-content: center;
-  flex-direction: column;
-  align-items: center;
+  width: 320px;
+  max-width: min(92vw, 360px);
+  z-index: 30;
 }
 
 .search {
@@ -564,8 +563,8 @@ nav {
   display: flex;
   align-items: center;
   gap: 12px;
-  width: 300px;
-  max-width: 300px;
+  width: 100%;
+  max-width: 100%;
   padding: 12px 16px 12px 18px;
   border-radius: 999px;
   border: 1px solid rgba(0, 0, 0, 0.05);
@@ -640,17 +639,25 @@ nav {
   display: flex;
   align-items: center;
   gap: 12px;
+  z-index: 40;
+}
+
+.action-wrap {
+  position: relative;
 }
 
 .search-results {
-  margin-top: 8px;
-  width: 360px;
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  width: 100%;
   max-height: 360px;
   overflow: auto;
   border-radius: 14px;
   border: 1px solid rgba(0, 0, 0, 0.08);
   background: rgba(255, 255, 255, 0.95);
   box-shadow: 0 18px 38px rgba(15, 23, 42, 0.16);
+  z-index: 25;
 }
 
 .search-result {
@@ -711,11 +718,13 @@ nav {
   top: calc(100% + 10px);
   right: 0;
   width: 320px;
+  max-width: min(90vw, 320px);
   border-radius: 16px;
   border: 1px solid rgba(0, 0, 0, 0.08);
   background: rgba(255, 255, 255, 0.96);
   box-shadow: 0 20px 40px rgba(15, 23, 42, 0.16);
   padding: 12px;
+  z-index: 45;
 }
 
 .panel-head {
@@ -1065,6 +1074,13 @@ button:hover:not(.nav-group-header):not(.nav-item):not(.logout):not(.toggle-btn)
     gap: 14px;
   }
 
+  .search-wrapper {
+    position: static;
+    transform: none;
+    width: 100%;
+    max-width: 100%;
+  }
+
   .content {
     padding: 16px;
   }
@@ -1077,6 +1093,10 @@ button:hover:not(.nav-group-header):not(.nav-item):not(.logout):not(.toggle-btn)
 
   .search {
     max-width: none;
+  }
+
+  .search-results {
+    width: 100%;
   }
 }
 

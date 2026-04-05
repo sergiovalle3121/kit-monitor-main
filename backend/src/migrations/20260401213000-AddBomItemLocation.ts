@@ -6,7 +6,7 @@ export class AddBomItemLocation20260401213000 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`
       ALTER TABLE "bom_items"
-      ADD COLUMN "location" character varying
+      ADD COLUMN IF NOT EXISTS "location" character varying
     `);
   }
 
