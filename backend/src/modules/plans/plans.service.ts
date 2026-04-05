@@ -5,6 +5,7 @@ import { Plan } from './entities/plan.entity';
 import { CreatePlanDto } from './dto/create-plan.dto';
 import { UpdatePlanDto } from './dto/update-plan.dto';
 import { Kit } from '../kits/entities/kit.entity';
+import { KitMaterial } from '../kit-materials/entities/kit-material.entity';
 
 @Injectable()
 export class PlansService {
@@ -63,10 +64,18 @@ export class PlansService {
     if (plan.kit && plan.kit.status !== 'cancelled') {
       throw new BadRequestException('Este plan ya tiene un kit ligado y se conserva como historial operativo.');
     }
-    if (plan.kit?.status === 'cancelled') {
-      await this.dataSource.getRepository(Kit).delete(plan.kit.id);
-    }
-    await this.repo.delete(id);
+    await this.dataSource.transaction(async (em) => {
+      if (plan.kit?.status === 'cancelled') {
+        await em
+          .createQueryBuilder()
+          .delete()
+          .from(KitMaterial)
+          .where('"kitId" = :kitId', { kitId: plan.kit.id })
+          .execute();
+        await em.delete(Kit, plan.kit.id);
+      }
+      await em.delete(Plan, id);
+    });
     return { deleted: true, id };
   }
 
