@@ -1,4 +1,4 @@
-import { Component, ElementRef, HostListener, OnInit, ViewChild } from '@angular/core';
+import { Component, ElementRef, HostListener, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
@@ -28,7 +28,7 @@ interface ShellNotification {
   templateUrl: './shell.html',
   styleUrls: ['./shell.css'],
 })
-export class ShellComponent implements OnInit {
+export class ShellComponent implements OnInit, OnDestroy {
   collapsed = false;
   openSection: string | null = null;
   searchTerm = '';
@@ -41,6 +41,7 @@ export class ShellComponent implements OnInit {
   @ViewChild('searchWrapper') searchWrapper?: ElementRef<HTMLElement>;
   @ViewChild('notificationsWrap') notificationsWrap?: ElementRef<HTMLElement>;
   @ViewChild('userWrap') userWrap?: ElementRef<HTMLElement>;
+  private notificationsTimerId: number | null = null;
 
   private readonly modulesCatalog: SearchResult[] = [
     { label: 'Monitor', route: '/monitor', category: 'modulos' },
@@ -74,6 +75,13 @@ export class ShellComponent implements OnInit {
 
   ngOnInit(): void {
     this.refreshNotifications();
+    this.notificationsTimerId = window.setInterval(() => this.refreshNotifications(), 30_000);
+  }
+
+  ngOnDestroy(): void {
+    if (this.notificationsTimerId !== null) {
+      window.clearInterval(this.notificationsTimerId);
+    }
   }
 
   toggle(): void {
@@ -112,6 +120,9 @@ export class ShellComponent implements OnInit {
   }
 
   toggleNotifications(): void {
+    if (!this.showNotifications) {
+      this.refreshNotifications();
+    }
     this.showNotifications = !this.showNotifications;
     this.showUserPanel = false;
   }
