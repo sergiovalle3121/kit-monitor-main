@@ -52,7 +52,7 @@ export class KitsService {
       );
     }
 
-    return this.dataSource.transaction(async (em) => {
+    const created = await this.dataSource.transaction(async (em) => {
       const kit = em.create(Kit, {
         plan: { id: plan.id } as Plan,
         preparedAt: dto.preparedAt ? new Date(dto.preparedAt) : undefined,
@@ -76,8 +76,29 @@ export class KitsService {
 
       await em.update(Plan, plan.id, { status: 'active' });
 
-      return this.findOne(savedKit.id);
+      return {
+        id: savedKit.id,
+        status: savedKit.status,
+        preparedAt: savedKit.preparedAt,
+        sentAt: savedKit.sentAt,
+        receivedAt: savedKit.receivedAt,
+        kittedAt: savedKit.kittedAt,
+        requestedAt: savedKit.requestedAt,
+        deliveredAt: savedKit.deliveredAt,
+        createdAt: savedKit.createdAt,
+        plan: {
+          ...plan,
+          status: 'active',
+        },
+        materials,
+        advances: [],
+        exceptions: [],
+        resupplies: [],
+      };
     });
+
+    const createdFromDb = await this.findOneWithRetry(created.id, 3, 100);
+    return createdFromDb ?? this.withTotalCompleted(created as any);
   }
 
   async startPreparation(id: number): Promise<any> {
@@ -110,7 +131,35 @@ export class KitsService {
 
   async remove(id: number): Promise<{ deleted: boolean; id: number }> {
     await this.findOne(id);
-    await this.repo.delete(id);
+    await this.dataSource.transaction(async (em) => {
+      await em.createQueryBuilder().delete().from('advances').where('"kitId" = :kitId', { kitId: id }).execute();
+      await em
+        .createQueryBuilder()
+        .delete()
+        .from(KitMaterial)
+        .where('"kitId" = :kitId', { kitId: id })
+        .execute();
+      await em.createQueryBuilder().delete().from('kit_exceptions').where('"kitId" = :kitId', { kitId: id }).execute();
+      await em.createQueryBuilder().delete().from('cancellation_requests').where('"kit_id" = :kitId', { kitId: id }).execute();
+      await em.createQueryBuilder().delete().from('resupplies').where('"kitId" = :kitId', { kitId: id }).execute();
+      await em.createQueryBuilder().delete().from('production_bay_events').where('"kitId" = :kitId', { kitId: id }).execute();
+      await em.createQueryBuilder().delete().from('production_bay_material_states').where('"kitId" = :kitId', { kitId: id }).execute();
+      await em.delete(Kit, id);
+    });
     return { deleted: true, id };
+  }
+
+  private async findOneWithRetry(id: number, maxAttempts: number, waitMs: number): Promise<any | null> {
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      const kit = await this.repo.findOne({
+        where: { id },
+        relations: ['plan', 'materials', 'advances', 'exceptions'],
+      });
+      if (kit) return this.withTotalCompleted(kit);
+      if (attempt < maxAttempts) {
+        await new Promise((resolve) => setTimeout(resolve, waitMs));
+      }
+    }
+    return null;
   }
 }

@@ -1,0 +1,77 @@
+.confirm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  z-index: 1200;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+}
+
+.confirm-card {
+  width: min(92vw, 430px);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(40px);
+  -webkit-backdrop-filter: blur(40px);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  padding: 26px 22px 18px;
+  animation: iosPop 200ms ease-out;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+}
+
+.confirm-card h3 {
+  margin: 0;
+  text-align: center;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.confirm-card p {
+  margin: 10px 0 0;
+  text-align: center;
+  color: #64748b;
+  line-height: 1.5;
+}
+
+.confirm-actions {
+  margin-top: 18px;
+  border-top: 1px solid rgba(148, 163, 184, 0.28);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+.confirm-actions button {
+  min-height: 48px;
+  border: none;
+  background: transparent;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-cancel {
+  color: #2563eb;
+}
+
+.btn-confirm {
+  color: #2563eb;
+  border-left: 1px solid rgba(148, 163, 184, 0.28);
+}
+
+.btn-confirm.destructive {
+  color: #dc2626;
+}
+
+@keyframes iosPop {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
