@@ -83,6 +83,9 @@ export class VisualAidsController {
       return res.status(404).json({ message: 'Archivo no encontrado' });
     }
 
+    res.removeHeader('X-Frame-Options');
+    res.setHeader('Content-Security-Policy', "frame-ancestors *");
+
     return res.sendFile(fullPath);
   }
 }

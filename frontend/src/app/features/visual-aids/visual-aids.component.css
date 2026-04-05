@@ -5,7 +5,8 @@
 .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:12px}
 .grid input,.grid textarea,.filters input,.filters select{padding:10px 12px;border:1px solid var(--gray-300);border-radius:12px}
 .grid textarea{grid-column:1/-1;min-height:72px}
-.upload{display:flex;align-items:center;justify-content:center;border:1px dashed var(--gray-300);border-radius:12px;padding:10px;cursor:pointer}
+.upload{display:flex;align-items:center;justify-content:center;border:1px solid #dc2626;border-radius:12px;padding:10px;cursor:pointer;background:#dc2626;color:#fff;font-weight:600}
+.upload:hover{background:#b91c1c;border-color:#b91c1c}
 .toggle{display:flex;align-items:center;gap:8px}
 .filters{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:10px;margin-bottom:14px}
 .cards{display:flex;flex-direction:column;gap:10px}
