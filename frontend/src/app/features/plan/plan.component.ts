@@ -145,8 +145,11 @@ export class PlanComponent implements OnInit {
   deletePlan(plan: any): void {
     if (!this.canDelete(plan) || this.deletingPlanId !== null) return;
 
-    const confirmed = window.confirm(`Borrar la publicacion ${plan.workOrder} de ${plan.model}?`);
-    if (!confirmed) return;
+    const firstConfirm = window.confirm(`Borrar la publicacion ${plan.workOrder} de ${plan.model}?`);
+    if (!firstConfirm) return;
+
+    const secondConfirm = window.confirm('¿Estás seguro? Esta acción no se puede deshacer.');
+    if (!secondConfirm) return;
 
     this.deletingPlanId = plan.id;
     this.error = null;
@@ -172,7 +175,7 @@ export class PlanComponent implements OnInit {
   }
 
   canDelete(plan: any): boolean {
-    return ['pending', 'cancelled'].includes(plan.status) && !plan.hasKit;
+    return !!plan?.id;
   }
 
   planStatusLabel(status: string): string {
