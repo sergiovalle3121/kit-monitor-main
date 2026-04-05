@@ -1,54 +1,79 @@
 <div class="page-header">
   <div>
     <h2>Disposición de bahías</h2>
-    <p class="page-subtitle">IE asigna NP por bahía y mini-MOST sugiere ubicación por modelo.</p>
+    <p class="page-subtitle">Asignación visual de NP por BK/Bahía con soporte mini-MOST.</p>
   </div>
 </div>
 
 <div class="toolbar">
+  <label>Modelo</label>
   <select [(ngModel)]="modelFilter" (ngModelChange)="refresh()">
-    <option>OP-320-0107B</option>
+    <option *ngFor="let model of models" [value]="model">{{ model }}</option>
   </select>
 </div>
 
-<div class="panel">
-  <h3>Agregar NP a bahía</h3>
-  <div class="grid">
-    <input [(ngModel)]="form.model" placeholder="Modelo" />
-    <input [(ngModel)]="form.partNumber" placeholder="NP" />
-    <input [(ngModel)]="form.description" placeholder="Descripción" />
-    <input type="number" min="1" max="6" [(ngModel)]="form.bayId" placeholder="Bahía" />
-    <input type="number" min="1" max="5" [(ngModel)]="form.usageFrequency" placeholder="Frecuencia" />
-    <input type="number" min="1" max="5" [(ngModel)]="form.picksPerCycle" placeholder="Picks/ciclo" />
-    <input type="number" min="1" max="5" [(ngModel)]="form.handlingDifficulty" placeholder="Manipulación" />
-    <input type="number" min="1" max="5" [(ngModel)]="form.weightCategory" placeholder="Peso/volumen" />
-    <input type="number" min="1" max="5" [(ngModel)]="form.distanceCategory" placeholder="Distancia" />
-    <input type="number" min="1" max="5" [(ngModel)]="form.criticality" placeholder="Criticidad" />
-    <textarea [(ngModel)]="form.notes" placeholder="Notas"></textarea>
-  </div>
-  <button class="btn-primary" (click)="save()">Guardar disposición</button>
-</div>
+<p class="loading" *ngIf="loading">Cargando disposición...</p>
 
-<div class="bay-grid">
-  <article class="bay-card" *ngFor="let bay of bays()">
-    <header>
-      <strong>Bahía {{ bay.bay }}</strong>
-      <span class="score">Score mini-MOST: {{ bay.score || '-' }}</span>
-    </header>
-
-    <div class="row" *ngFor="let item of bay.items">
-      <div>
-        <code>{{ item.partNumber }}</code>
-        <p>{{ item.description || 'Sin descripción' }}</p>
-      </div>
-      <div class="right">
-        <span class="chip" [class.warn]="item.recommendation === 'Reubicar' || item.recommendation === 'Revisar'">
-          {{ item.recommendation }}
-        </span>
-        <button class="btn-light" (click)="remove(item.id)">Quitar</button>
-      </div>
+<div class="two-panel" *ngIf="!loading">
+  <section class="panel left-panel">
+    <h3>BOM del modelo seleccionado</h3>
+    <div class="table-wrap" *ngIf="npRows.length; else noBomRows">
+      <table>
+        <thead>
+          <tr>
+            <th>NP</th>
+            <th>Descripción</th>
+            <th>Qty planeada</th>
+            <th>mini-MOST</th>
+            <th>BK</th>
+            <th>Bahía</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let row of npRows; trackBy: trackByPart">
+            <td><code>{{ row.partNumber }}</code></td>
+            <td>{{ row.description }}</td>
+            <td>{{ row.qtyPlanned | number:'1.0-3' }}</td>
+            <td>
+              <span class="most-chip" [class.empty]="row.miniMost === null">
+                {{ row.miniMost === null ? 'N/A' : row.miniMost }}
+              </span>
+            </td>
+            <td>
+              <select [ngModel]="row.bk" (ngModelChange)="onAssignmentChange(row, $event, row.bay)">
+                <option [ngValue]="null">-</option>
+                <option *ngFor="let bk of bkOptions" [ngValue]="bk">BK{{ bk }}</option>
+              </select>
+            </td>
+            <td>
+              <select [ngModel]="row.bay" (ngModelChange)="onAssignmentChange(row, row.bk, $event)">
+                <option [ngValue]="null">-</option>
+                <option *ngFor="let bay of bayOptions" [ngValue]="bay">{{ bay }}</option>
+              </select>
+            </td>
+          </tr>
+        </tbody>
+      </table>
     </div>
+  </section>
 
-    <p class="empty" *ngIf="!bay.items.length">Sin NP asignados.</p>
-  </article>
+  <section class="panel right-panel">
+    <h3>Grid visual BK1–BK7</h3>
+    <div class="bk-grid">
+      <article class="bk-card" *ngFor="let bk of bkOptions">
+        <header>BK{{ bk }}</header>
+        <div class="bay-list">
+          <div class="bay-cell" *ngFor="let cell of baysForBk(bk)">
+            <span class="bay-label">Bahía {{ cell.bay }}</span>
+            <code *ngIf="cell.partNumber">{{ cell.partNumber }}</code>
+            <span class="empty" *ngIf="!cell.partNumber">Vacío</span>
+          </div>
+        </div>
+      </article>
+    </div>
+  </section>
 </div>
+
+<ng-template #noBomRows>
+  <div class="empty-box">No hay NPs en BOM para el modelo seleccionado.</div>
+</ng-template>

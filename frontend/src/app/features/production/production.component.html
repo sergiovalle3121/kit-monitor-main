@@ -12,6 +12,72 @@
 <p *ngIf="loading" class="loading-text">Cargando estaciones...</p>
 <p *ngIf="error" class="error">{{ error }}</p>
 
+<div class="ops-sections" *ngIf="!loading && !error">
+  <section class="ops-card">
+    <h3>Kits listos para solicitar</h3>
+    <table *ngIf="readyKits.length; else noReadyKits">
+      <thead>
+        <tr>
+          <th>Modelo</th>
+          <th>BK</th>
+          <th>Kit ID</th>
+          <th>Timestamp</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let row of readyKits">
+          <td>{{ row.model }}</td>
+          <td>{{ row.backendKey }}</td>
+          <td>{{ row.kitId }}</td>
+          <td>{{ row.timestamp | date:'short' }}</td>
+          <td>
+            <button class="btn-request" (click)="requestReadyKit(row)">Solicitar</button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    <ng-template #noReadyKits>
+      <div class="empty-box compact">No hay kits listos para solicitar.</div>
+    </ng-template>
+  </section>
+
+  <section class="ops-card">
+    <h3>Plan del día</h3>
+    <table *ngIf="dayPlan.length; else noDayPlan">
+      <thead>
+        <tr>
+          <th>Modelo</th>
+          <th>Qty Planeada</th>
+          <th>Estado</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let row of dayPlan">
+          <td>{{ row.model }}</td>
+          <td>{{ row.qtyPlanned }}</td>
+          <td><span class="plan-chip" [ngClass]="planStatusClass(row.status)">{{ row.status }}</span></td>
+        </tr>
+      </tbody>
+    </table>
+    <ng-template #noDayPlan>
+      <div class="empty-box compact">Sin publicaciones disponibles para el turno actual.</div>
+    </ng-template>
+  </section>
+
+  <section class="ops-card">
+    <h3>Kit en proceso</h3>
+    <div *ngIf="currentKitInProcess; else noCurrentKit" class="kit-in-process">
+      <p><strong>{{ currentKitInProcess.model }}</strong> · {{ currentKitInProcess.backendKey }}</p>
+      <p>Kit ID {{ currentKitInProcess.kitId }}</p>
+      <span class="plan-chip status-progress">{{ currentKitStatusLabel() }}</span>
+    </div>
+    <ng-template #noCurrentKit>
+      <div class="empty-box compact">No hay kit en proceso.</div>
+    </ng-template>
+  </section>
+</div>
+
 <section class="empty-state-premium" *ngIf="!loading && !error && !stations.length">
   <div class="empty-orb"></div>
   <h3>Sin backends reales en operación</h3>
