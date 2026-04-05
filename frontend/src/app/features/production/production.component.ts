@@ -3,8 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { catchError, forkJoin, map, of, switchMap } from 'rxjs';
 import { ApiService } from '../../core/api.service';
-import { DispositionItem, VisualAid } from '../../core/ie-data.models';
-import { DispositionService } from '../../core/disposition.service';
+import { VisualAid } from '../../core/ie-data.models';
 import { VisualAidsService } from '../../core/visual-aids.service';
 
 interface BayMaterialState {
@@ -38,7 +37,6 @@ interface ProductionStationView {
   hasOpenException: boolean;
   recentAdvances: any[];
   openResupplies: any[];
-  disposition: DispositionItem[];
   visualAid: VisualAid | null;
   snapshot: ProductionRuntimeSnapshot | null;
   kitStatus: string | null;
@@ -66,6 +64,28 @@ interface DayPlanRow {
   model: string;
   qtyPlanned: number;
   status: 'Pendiente' | 'En proceso' | 'Completado';
+}
+
+interface BayLayout {
+  id?: number | string;
+  model: string;
+  partNumber: string;
+  bahia: number | string;
+}
+
+interface DisplayBayMaterial {
+  partNumber: string;
+  descripcion: string;
+  factor: number;
+  disponible: number | string;
+  runtime?: BayMaterialState;
+}
+
+interface PendingRefreshContext {
+  openStationKey: string;
+  openBahia: string;
+  sessionCount: number;
+  wasOpen: boolean;
 }
 
 @Component({
@@ -97,6 +117,17 @@ export class ProductionComponent implements OnInit {
   bayNotes: Record<string, string> = {};
   bayOperator: Record<string, string> = {};
   baySaving: Record<string, boolean> = {};
+  selectedBahiaByStation: Record<string, string> = {};
+  bayLayoutsByStation: Record<string, BayLayout[]> = {};
+  bayMapByStation: Record<string, Record<string, string[]>> = {};
+  layoutLoadingByStation: Record<string, boolean> = {};
+  layoutErrorByStation: Record<string, string | null> = {};
+  registerPulseByStation: Record<string, boolean> = {};
+  mesOpenByStation: Record<string, boolean> = {};
+  registerSuccessByStation: Record<string, string> = {};
+  sessionAssembledByStation: Record<string, number> = {};
+  private stationModelByKey: Record<string, string | null> = {};
+  private pendingRefreshContext: PendingRefreshContext | null = null;
 
   private readonly statusLabels: Record<string, string> = {
     preparing: 'Kit en preparación',
@@ -114,7 +145,6 @@ export class ProductionComponent implements OnInit {
   constructor(
     private api: ApiService,
     private readonly visualAids: VisualAidsService,
-    private readonly dispositionService: DispositionService,
   ) {}
 
   ngOnInit(): void {
@@ -158,6 +188,8 @@ export class ProductionComponent implements OnInit {
     ).subscribe({
       next: ({ backends, kits, advances, resupplies, runtime, publications }) => {
         this.buildStations(backends, kits, advances, resupplies, runtime as any[]);
+        this.syncStationLayouts();
+        this.restorePendingRefreshContext();
         this.buildOpsSections(publications as any[]);
         this.loading = false;
       },
@@ -230,9 +262,24 @@ export class ProductionComponent implements OnInit {
       operator: this.bayOperator[key]?.trim() || undefined,
     }).subscribe({
       next: () => {
+        const openStationKey = this.getStationKey(station);
+        const openBahia = this.selectedBahiaByStation[openStationKey] ?? '';
+        const sessionCount = this.sessionAssembledByStation[openStationKey] ?? 0;
+        const wasOpen = this.mesOpenByStation[openStationKey] === true;
+        this.sessionAssembledByStation[openStationKey] = sessionCount + qty;
+        this.pendingRefreshContext = {
+          openStationKey,
+          openBahia,
+          sessionCount: this.sessionAssembledByStation[openStationKey],
+          wasOpen,
+        };
+
         this.baySaving[key] = false;
         this.bayQty[key] = 1;
         this.bayNotes[key] = '';
+        this.registerPulseByStation[openStationKey] = true;
+        this.registerSuccessByStation[openStationKey] = `Unidad registrada (${new Date().toLocaleTimeString()})`;
+        setTimeout(() => { this.registerPulseByStation[openStationKey] = false; }, 300);
         this.load();
       },
       error: (err) => {
@@ -240,6 +287,18 @@ export class ProductionComponent implements OnInit {
         this.requestError[kitId] = err?.error?.message ?? 'No se pudo registrar evento de bahía';
       },
     });
+  }
+
+  registerSelectedBayAssembly(station: ProductionStationView): void {
+    const selected = this.selectedBahiaByStation[this.getStationKey(station)];
+    const bayId = this.extractBayNumber(selected);
+    if (bayId <= 0 || !this.canRegisterSelectedBay(station)) return;
+    this.registerBayAssembly(station, bayId);
+  }
+
+  onSelectedBayEnter(station: ProductionStationView, event: Event): void {
+    event.preventDefault();
+    this.registerSelectedBayAssembly(station);
   }
 
   materialsForBay(station: ProductionStationView, bayId: number): BayMaterialState[] {
@@ -260,6 +319,132 @@ export class ProductionComponent implements OnInit {
     (station.snapshot?.bayMaterials ?? []).forEach((item) => ids.add(item.bayId));
     (station.snapshot?.events ?? []).forEach((event) => ids.add(event.bayId));
     return [...ids].sort((a, b) => a - b);
+  }
+
+  getStationKey(station: ProductionStationView): string {
+    return String(station.kit?.id ?? station.backendKey ?? station.backen);
+  }
+
+  getStationModel(station: ProductionStationView): string | null {
+    const model = station.model?.trim();
+    return model ? model : null;
+  }
+
+  normalizeBahiaLabel(value: string | number | null | undefined): string {
+    const raw = String(value ?? '').trim();
+    if (!raw) return '';
+    const numeric = raw.replace(/bah[ií]a/ig, '').trim();
+    const parsed = Number(numeric);
+    if (Number.isFinite(parsed) && parsed >= 1 && parsed <= 6) {
+      return `Bahía ${parsed}`;
+    }
+    return raw;
+  }
+
+  extractBayNumber(bahia: string | null | undefined): number {
+    const normalized = this.normalizeBahiaLabel(bahia ?? '');
+    const match = normalized.match(/(\d+)/);
+    return match ? Number(match[1]) : NaN;
+  }
+
+  buildBayMap(layoutRows: BayLayout[]): Record<string, string[]> {
+    const mapByBay: Record<string, Set<string>> = {};
+    layoutRows.forEach((row) => {
+      const bayLabel = this.normalizeBahiaLabel(row.bahia);
+      if (!bayLabel) return;
+      mapByBay[bayLabel] = mapByBay[bayLabel] ?? new Set<string>();
+      if (row.partNumber) mapByBay[bayLabel].add(row.partNumber);
+    });
+
+    return Object.entries(mapByBay)
+      .sort(([left], [right]) => this.extractBayNumber(left) - this.extractBayNumber(right))
+      .reduce<Record<string, string[]>>((acc, [bay, values]) => {
+        acc[bay] = [...values].sort((a, b) => a.localeCompare(b));
+        return acc;
+      }, {});
+  }
+
+  selectBahia(station: ProductionStationView, bahia: string): void {
+    const key = this.getStationKey(station);
+    const normalized = this.normalizeBahiaLabel(bahia);
+    if (!this.bayMapByStation[key]?.[normalized]) return;
+    this.selectedBahiaByStation[key] = normalized;
+  }
+
+  getAvailableBahias(station: ProductionStationView): string[] {
+    const key = this.getStationKey(station);
+    return Object.keys(this.bayMapByStation[key] ?? {})
+      .sort((a, b) => this.extractBayNumber(a) - this.extractBayNumber(b));
+  }
+
+  openBahiaMES(station: ProductionStationView, bahia: string): void {
+    this.selectBahia(station, bahia);
+    this.mesOpenByStation[this.getStationKey(station)] = true;
+  }
+
+  closeBahiaMES(station: ProductionStationView): void {
+    this.mesOpenByStation[this.getStationKey(station)] = false;
+  }
+
+  isBahiaMESOpen(station: ProductionStationView): boolean {
+    return this.mesOpenByStation[this.getStationKey(station)] ?? false;
+  }
+
+  getDisplayedBayMaterials(station: ProductionStationView): DisplayBayMaterial[] {
+    const stationKey = this.getStationKey(station);
+    const selectedBahia = this.selectedBahiaByStation[stationKey];
+    const npList = this.bayMapByStation[stationKey]?.[selectedBahia] ?? [];
+    const materials = station.snapshot?.bayMaterials ?? [];
+
+    return npList.map((np) => {
+      const runtimeItem = materials.find((m: any) => m.partNumber === np || m.np === np);
+      return {
+        partNumber: np,
+        descripcion: runtimeItem?.description ?? (runtimeItem as any)?.descripcion ?? 'Sin descripción',
+        factor: Number(runtimeItem?.usagePerAssembly ?? (runtimeItem as any)?.factor ?? (runtimeItem as any)?.qty ?? 1),
+        disponible: runtimeItem?.availableQty ?? (runtimeItem as any)?.remaining ?? (runtimeItem as any)?.available ?? (runtimeItem as any)?.disponible ?? 'N/D',
+        runtime: runtimeItem,
+      };
+    });
+  }
+
+  getMaterialHealth(material: DisplayBayMaterial): 'ok' | 'risk' | 'empty' | 'unknown' {
+    const raw = material.disponible;
+    const available = typeof raw === 'number' ? raw : Number(raw);
+    if (!Number.isFinite(available)) return 'unknown';
+    if (available <= 0) return 'empty';
+    if (available <= material.factor) return 'risk';
+    return 'ok';
+  }
+
+  getRecentBayEvents(station: ProductionStationView): any[] {
+    const selected = this.selectedBahiaByStation[this.getStationKey(station)];
+    const selectedBay = this.extractBayNumber(selected);
+    const events = station.snapshot?.events ?? [];
+
+    return [...events]
+      .filter((event: any) => {
+        const eventBay = Number(event?.bayId ?? event?.bay);
+        return Number.isFinite(selectedBay) && eventBay === selectedBay;
+      })
+      .sort((left: any, right: any) => {
+        const leftDate = new Date(left?.timestamp ?? left?.createdAt ?? 0).getTime();
+        const rightDate = new Date(right?.timestamp ?? right?.createdAt ?? 0).getTime();
+        return rightDate - leftDate;
+      })
+      .slice(0, 5);
+  }
+
+  canRegisterSelectedBay(station: ProductionStationView): boolean {
+    if (!this.canCaptureByBay(station)) return false;
+    const key = this.getStationKey(station);
+    const selected = this.selectedBahiaByStation[key];
+    if (!selected) return false;
+    if (!this.bayMapByStation[key]?.[selected]?.length) return false;
+    const bayId = this.extractBayNumber(selected);
+    if (!Number.isFinite(bayId) || bayId <= 0) return false;
+    const qty = this.quickBayQty(station, bayId);
+    return Number.isFinite(qty) && qty > 0;
   }
 
   bayLowStockCount(station: ProductionStationView, bayId: number): number {
@@ -356,7 +541,6 @@ export class ProductionComponent implements OnInit {
         const backen = backend.backen;
         const backendKey = backend.backendCode ?? `BK${backen ?? '-'}`;
 
-        const disposition = backend.model ? this.dispositionService.getDispositionByModel(backend.model) : [];
         const visualAid = backend.model ? this.visualAids.getActiveVisualAidByModel(backend.model) : null;
         const rt = runtimeByKitId.get(kitId);
         const kitRuntime = kitsById.get(kitId);
@@ -389,7 +573,6 @@ export class ProductionComponent implements OnInit {
           hasOpenException: !!backend.hasIncident,
           recentAdvances: (advancesByKitId.get(kitId) ?? []).slice(0, 6),
           openResupplies: (resuppliesByKitId.get(kitId) ?? []).filter((item: any) => item.status !== 'delivered'),
-          disposition,
           visualAid,
           snapshot,
           kitStatus: kitRuntime?.status ?? null,
@@ -461,5 +644,92 @@ export class ProductionComponent implements OnInit {
       qtyPlanned: row.qtyPlanned,
       status: statusByModel.get(row.model) ?? 'Pendiente',
     }));
+  }
+
+  private syncStationLayouts(): void {
+    const activeKeys = new Set(this.stations.map((station) => this.getStationKey(station)));
+    Object.keys(this.bayLayoutsByStation).forEach((key) => {
+      if (activeKeys.has(key)) return;
+      delete this.bayLayoutsByStation[key];
+      delete this.bayMapByStation[key];
+      delete this.selectedBahiaByStation[key];
+      delete this.layoutLoadingByStation[key];
+      delete this.layoutErrorByStation[key];
+      delete this.registerPulseByStation[key];
+      delete this.mesOpenByStation[key];
+      delete this.registerSuccessByStation[key];
+      delete this.sessionAssembledByStation[key];
+      delete this.stationModelByKey[key];
+    });
+
+    this.stations.forEach((station) => {
+      const key = this.getStationKey(station);
+      const model = this.getStationModel(station);
+      if (!model) {
+        this.layoutLoadingByStation[key] = false;
+        this.layoutErrorByStation[key] = 'No hay disposición guardada para este modelo. Pide a IE guardar la disposición.';
+        this.bayLayoutsByStation[key] = [];
+        this.bayMapByStation[key] = {};
+        this.selectedBahiaByStation[key] = '';
+        this.stationModelByKey[key] = null;
+        return;
+      }
+
+      if (this.stationModelByKey[key] === model && this.bayLayoutsByStation[key]) {
+        return;
+      }
+
+      this.layoutLoadingByStation[key] = true;
+      this.layoutErrorByStation[key] = null;
+      this.stationModelByKey[key] = model;
+
+      this.api.getBayLayouts(model).subscribe({
+        next: (rows) => {
+          const layoutRows = (rows ?? []) as BayLayout[];
+          this.bayLayoutsByStation[key] = layoutRows;
+          const bayMap = this.buildBayMap(layoutRows);
+          this.bayMapByStation[key] = bayMap;
+          const availableBahias = Object.keys(bayMap).sort((a, b) => this.extractBayNumber(a) - this.extractBayNumber(b));
+          const current = this.selectedBahiaByStation[key];
+          this.selectedBahiaByStation[key] = current && bayMap[current] ? current : (availableBahias[0] ?? '');
+          this.layoutErrorByStation[key] = availableBahias.length
+            ? null
+            : 'No hay disposición guardada para este modelo. Pide a IE guardar la disposición.';
+          this.layoutLoadingByStation[key] = false;
+        },
+        error: () => {
+          this.layoutLoadingByStation[key] = false;
+          this.layoutErrorByStation[key] = 'No hay disposición guardada para este modelo. Pide a IE guardar la disposición.';
+          this.bayLayoutsByStation[key] = [];
+          this.bayMapByStation[key] = {};
+          this.selectedBahiaByStation[key] = '';
+        },
+      });
+    });
+  }
+
+  private restorePendingRefreshContext(): void {
+    const context = this.pendingRefreshContext;
+    if (!context) return;
+    const { openStationKey, openBahia, sessionCount, wasOpen } = context;
+    this.pendingRefreshContext = null;
+
+    const found = this.stations.find((station) => this.getStationKey(station) === openStationKey);
+    if (!found) {
+      delete this.mesOpenByStation[openStationKey];
+      delete this.selectedBahiaByStation[openStationKey];
+      delete this.sessionAssembledByStation[openStationKey];
+      return;
+    }
+
+    this.mesOpenByStation[openStationKey] = wasOpen;
+    const availableBahias = Object.keys(this.bayMapByStation[openStationKey] ?? {});
+    if (openBahia && availableBahias.includes(openBahia)) {
+      this.selectedBahiaByStation[openStationKey] = openBahia;
+    } else if (availableBahias.length) {
+      this.selectedBahiaByStation[openStationKey] = availableBahias
+        .sort((a, b) => this.extractBayNumber(a) - this.extractBayNumber(b))[0];
+    }
+    this.sessionAssembledByStation[openStationKey] = sessionCount;
   }
 }
