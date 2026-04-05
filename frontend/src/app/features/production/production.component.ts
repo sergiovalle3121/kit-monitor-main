@@ -81,6 +81,13 @@ interface DisplayBayMaterial {
   runtime?: BayMaterialState;
 }
 
+interface PendingRefreshContext {
+  openStationKey: string;
+  openBahia: string;
+  sessionCount: number;
+  wasOpen: boolean;
+}
+
 @Component({
   selector: 'app-production',
   standalone: true,
@@ -118,7 +125,9 @@ export class ProductionComponent implements OnInit {
   registerPulseByStation: Record<string, boolean> = {};
   mesOpenByStation: Record<string, boolean> = {};
   registerSuccessByStation: Record<string, string> = {};
+  sessionAssembledByStation: Record<string, number> = {};
   private stationModelByKey: Record<string, string | null> = {};
+  private pendingRefreshContext: PendingRefreshContext | null = null;
 
   private readonly statusLabels: Record<string, string> = {
     preparing: 'Kit en preparación',
@@ -180,6 +189,7 @@ export class ProductionComponent implements OnInit {
       next: ({ backends, kits, advances, resupplies, runtime, publications }) => {
         this.buildStations(backends, kits, advances, resupplies, runtime as any[]);
         this.syncStationLayouts();
+        this.restorePendingRefreshContext();
         this.buildOpsSections(publications as any[]);
         this.loading = false;
       },
@@ -252,13 +262,24 @@ export class ProductionComponent implements OnInit {
       operator: this.bayOperator[key]?.trim() || undefined,
     }).subscribe({
       next: () => {
+        const openStationKey = this.getStationKey(station);
+        const openBahia = this.selectedBahiaByStation[openStationKey] ?? '';
+        const sessionCount = this.sessionAssembledByStation[openStationKey] ?? 0;
+        const wasOpen = this.mesOpenByStation[openStationKey] === true;
+        this.sessionAssembledByStation[openStationKey] = sessionCount + qty;
+        this.pendingRefreshContext = {
+          openStationKey,
+          openBahia,
+          sessionCount: this.sessionAssembledByStation[openStationKey],
+          wasOpen,
+        };
+
         this.baySaving[key] = false;
         this.bayQty[key] = 1;
         this.bayNotes[key] = '';
-        const stationKey = this.getStationKey(station);
-        this.registerPulseByStation[stationKey] = true;
-        this.registerSuccessByStation[stationKey] = `Unidad registrada (${new Date().toLocaleTimeString()})`;
-        setTimeout(() => { this.registerPulseByStation[stationKey] = false; }, 300);
+        this.registerPulseByStation[openStationKey] = true;
+        this.registerSuccessByStation[openStationKey] = `Unidad registrada (${new Date().toLocaleTimeString()})`;
+        setTimeout(() => { this.registerPulseByStation[openStationKey] = false; }, 300);
         this.load();
       },
       error: (err) => {
@@ -385,6 +406,33 @@ export class ProductionComponent implements OnInit {
         runtime: runtimeItem,
       };
     });
+  }
+
+  getMaterialHealth(material: DisplayBayMaterial): 'ok' | 'risk' | 'empty' | 'unknown' {
+    const raw = material.disponible;
+    const available = typeof raw === 'number' ? raw : Number(raw);
+    if (!Number.isFinite(available)) return 'unknown';
+    if (available <= 0) return 'empty';
+    if (available <= material.factor) return 'risk';
+    return 'ok';
+  }
+
+  getRecentBayEvents(station: ProductionStationView): any[] {
+    const selected = this.selectedBahiaByStation[this.getStationKey(station)];
+    const selectedBay = this.extractBayNumber(selected);
+    const events = station.snapshot?.events ?? [];
+
+    return [...events]
+      .filter((event: any) => {
+        const eventBay = Number(event?.bayId ?? event?.bay);
+        return Number.isFinite(selectedBay) && eventBay === selectedBay;
+      })
+      .sort((left: any, right: any) => {
+        const leftDate = new Date(left?.timestamp ?? left?.createdAt ?? 0).getTime();
+        const rightDate = new Date(right?.timestamp ?? right?.createdAt ?? 0).getTime();
+        return rightDate - leftDate;
+      })
+      .slice(0, 5);
   }
 
   canRegisterSelectedBay(station: ProductionStationView): boolean {
@@ -610,6 +658,7 @@ export class ProductionComponent implements OnInit {
       delete this.registerPulseByStation[key];
       delete this.mesOpenByStation[key];
       delete this.registerSuccessByStation[key];
+      delete this.sessionAssembledByStation[key];
       delete this.stationModelByKey[key];
     });
 
@@ -657,5 +706,30 @@ export class ProductionComponent implements OnInit {
         },
       });
     });
+  }
+
+  private restorePendingRefreshContext(): void {
+    const context = this.pendingRefreshContext;
+    if (!context) return;
+    const { openStationKey, openBahia, sessionCount, wasOpen } = context;
+    this.pendingRefreshContext = null;
+
+    const found = this.stations.find((station) => this.getStationKey(station) === openStationKey);
+    if (!found) {
+      delete this.mesOpenByStation[openStationKey];
+      delete this.selectedBahiaByStation[openStationKey];
+      delete this.sessionAssembledByStation[openStationKey];
+      return;
+    }
+
+    this.mesOpenByStation[openStationKey] = wasOpen;
+    const availableBahias = Object.keys(this.bayMapByStation[openStationKey] ?? {});
+    if (openBahia && availableBahias.includes(openBahia)) {
+      this.selectedBahiaByStation[openStationKey] = openBahia;
+    } else if (availableBahias.length) {
+      this.selectedBahiaByStation[openStationKey] = availableBahias
+        .sort((a, b) => this.extractBayNumber(a) - this.extractBayNumber(b))[0];
+    }
+    this.sessionAssembledByStation[openStationKey] = sessionCount;
   }
 }

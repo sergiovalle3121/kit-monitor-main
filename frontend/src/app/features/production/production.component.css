@@ -817,3 +817,7 @@ code {
   font-weight: 600;
   font-size: 0.86rem;
 }
+
+.compact-card {
+  margin-top: 12px;
+}

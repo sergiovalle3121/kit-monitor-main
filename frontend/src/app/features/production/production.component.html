@@ -213,12 +213,21 @@
                       <span *ngIf="bayLastEvent(station, extractBayNumber(selectedBahia))">Último: {{ bayLastEvent(station, extractBayNumber(selectedBahia)) | date:'shortTime' }}</span>
                     </div>
 
+                    <div class="bay-stats">
+                      <span>Sesión: {{ sessionAssembledByStation[getStationKey(station)] || 0 }}</span>
+                    </div>
+
                     <div class="action-row inline-row" *ngIf="station.visualAid">
                       <button class="btn-request" (click)="openStationVisualAid(station)">Abrir ayuda visual</button>
                     </div>
 
                     <div class="material-stack" *ngIf="getDisplayedBayMaterials(station).length; else noBayMaterials">
-                      <div class="material-card" *ngFor="let material of getDisplayedBayMaterials(station)" [class.low]="material.runtime && material.runtime.availableQty <= material.runtime.lowStockThreshold">
+                      <div
+                        class="material-card"
+                        *ngFor="let material of getDisplayedBayMaterials(station)"
+                        [class.low]="getMaterialHealth(material) === 'risk'"
+                        [class.critical]="getMaterialHealth(material) === 'empty'"
+                      >
                         <div class="material-top">
                           <code>{{ material.partNumber }}</code>
                           <span class="stock-pill">{{ material.disponible }}</span>
@@ -285,6 +294,31 @@
 
                     <div class="mes-feedback" *ngIf="registerSuccessByStation[getStationKey(station)]">
                       {{ registerSuccessByStation[getStationKey(station)] }}
+                    </div>
+
+                    <div class="info-card compact-card">
+                      <div class="section-header">
+                        <h3>Actividad reciente</h3>
+                        <span class="section-meta">{{ getRecentBayEvents(station).length }}</span>
+                      </div>
+                      <div class="timeline" *ngIf="getRecentBayEvents(station).length; else noRecentBayEvents">
+                        <div class="timeline-row" *ngFor="let event of getRecentBayEvents(station)">
+                          <div class="timeline-main">
+                            <strong *ngIf="event.quantity !== undefined">+{{ event.quantity }}</strong>
+                            <strong *ngIf="event.quantity === undefined && event.qty !== undefined">+{{ event.qty }}</strong>
+                            <span *ngIf="event.timestamp">{{ event.timestamp | date:'shortTime' }}</span>
+                            <span *ngIf="!event.timestamp && event.createdAt">{{ event.createdAt | date:'shortTime' }}</span>
+                          </div>
+                          <div class="timeline-note" *ngIf="event.operator || event.notes">
+                            <span *ngIf="event.operator">{{ event.operator }}</span>
+                            <span *ngIf="event.operator && event.notes"> · </span>
+                            <span *ngIf="event.notes">{{ event.notes }}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <ng-template #noRecentBayEvents>
+                        <div class="empty-box compact">Aún no hay registros para esta bahía.</div>
+                      </ng-template>
                     </div>
                   </ng-container>
                 </article>
