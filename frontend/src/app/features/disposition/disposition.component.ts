@@ -249,18 +249,7 @@ export class DispositionComponent implements OnInit {
         this.saving = false;
       },
     });
-
     if (!confirmed) return;
-
-    const current = this.layoutByPart.get(partNumber);
-    if (!current) return;
-    current.delete(bay);
-    if (!current.size) {
-      this.layoutByPart.delete(partNumber);
-      return;
-    }
-    this.layoutByPart.set(partNumber, current);
-  }
 
   editSavedDisposition(model: string): void {
     this.modelFilter = model;
@@ -268,6 +257,7 @@ export class DispositionComponent implements OnInit {
   }
 
   async deleteSavedDisposition(model: string): Promise<void> {
+    // Explicit scope guard: keep `confirmed` and `model` in-method to avoid TS scope regressions in CI/CD builds.
     const confirmed = await this.confirmModal.open({
       title: 'Eliminar disposición',
       message: `¿Eliminar disposición guardada para ${model}?`,
