@@ -52,7 +52,7 @@ export class KitsService {
       );
     }
 
-    return this.dataSource.transaction(async (em) => {
+    const createdKitId = await this.dataSource.transaction(async (em) => {
       const kit = em.create(Kit, {
         plan: { id: plan.id } as Plan,
         preparedAt: dto.preparedAt ? new Date(dto.preparedAt) : undefined,
@@ -76,8 +76,10 @@ export class KitsService {
 
       await em.update(Plan, plan.id, { status: 'active' });
 
-      return this.findOne(savedKit.id);
+      return savedKit.id;
     });
+
+    return this.findOne(createdKitId);
   }
 
   async startPreparation(id: number): Promise<any> {
