@@ -40,6 +40,10 @@ export class DispositionComponent implements OnInit {
     this.loadModels();
   }
 
+  get totalAssignments(): number {
+    return this.npRows.reduce((sum, row) => sum + this.assignedBaysForPart(row.partNumber).length, 0);
+  }
+
   loadModels(): void {
     this.loading = true;
     this.api.getBom().subscribe({
@@ -72,9 +76,10 @@ export class DispositionComponent implements OnInit {
     forkJoin({
       bom: this.api.getBom(this.modelFilter),
       layouts: this.api.getBayLayouts(this.modelFilter),
+      plans: this.api.getPlans(),
       currentDisposition: of(this.disposition.getDispositionByModel(this.modelFilter)),
     }).subscribe({
-      next: ({ bom, layouts, currentDisposition }) => {
+      next: ({ bom, layouts, plans, currentDisposition }) => {
         const miniMostByPart = new Map<string, number>();
         currentDisposition.forEach((item) => {
           miniMostByPart.set(item.partNumber, item.mostScore);
