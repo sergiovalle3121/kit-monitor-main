@@ -119,6 +119,100 @@ export class ApiService {
     return this.patch<any>(`kit-materials/${id}`, dto);
   }
 
+
+  getProductionBackends(): Observable<any[]> {
+    return this.get<any[]>('production/backends');
+  }
+
+  getProductionBackend(kitId: number): Observable<any> {
+    return this.get<any>(`production/backends/${kitId}`);
+  }
+
+  receiveProductionBackend(kitId: number): Observable<any> {
+    return this.post<any>(`production/backends/${kitId}/receive`, {});
+  }
+
+  startProductionBackend(kitId: number): Observable<any> {
+    return this.post<any>(`production/backends/${kitId}/start`, {});
+  }
+
+  createBayEvent(kitId: number, bayId: number, dto: { quantity: number; notes?: string; operator?: string }): Observable<any> {
+    return this.post<any>(`production/backends/${kitId}/bays/${bayId}/events`, dto);
+  }
+
+  getProductionEvents(kitId: number): Observable<any[]> {
+    return this.get<any[]>(`production/backends/${kitId}/events`);
+  }
+
+  getProductionMaterials(kitId: number): Observable<any[]> {
+    return this.get<any[]>(`production/backends/${kitId}/materials`);
+  }
+
+  getProductionHourly(kitId: number): Observable<any[]> {
+    return this.get<any[]>(`production/backends/${kitId}/hourly`);
+  }
+
+  getProductionCompleted(): Observable<any[]> {
+    return this.get<any[]>('production/completed');
+  }
+
+  getProductionShortageRisk(kitId: number): Observable<any> {
+    return this.get<any>(`production/backends/${kitId}/shortage-risk`);
+  }
+
+  getLogisticsShortageRisk(): Observable<any[]> {
+    return this.get<any[]>('production/logistics/shortage-risk');
+  }
+
+
+  createForecastRun(dto: any): Observable<any> {
+    return this.post<any>('decision-intelligence/forecast-runs', dto);
+  }
+
+  getForecastRuns(): Observable<any[]> {
+    return this.get<any[]>('decision-intelligence/forecast-runs');
+  }
+
+  createPlanScenario(dto: any): Observable<any> {
+    return this.post<any>('decision-intelligence/plan-scenarios', dto);
+  }
+
+  getPlanScenarios(): Observable<any[]> {
+    return this.get<any[]>('decision-intelligence/plan-scenarios');
+  }
+
+  publishPlan(dto: any): Observable<any> {
+    return this.post<any>('decision-intelligence/plan-publications', dto);
+  }
+
+  getPlanPublications(): Observable<any[]> {
+    return this.get<any[]>('decision-intelligence/plan-publications');
+  }
+
+  getDecisionLogisticsPriority(runId?: number): Observable<any> {
+    return this.get<any>('decision-intelligence/logistics-priority', runId ? { runId } : undefined);
+  }
+
+  runPlanScenarioSimulation(id: number, dto: any): Observable<any> {
+    return this.post<any>(`decision-intelligence/plan-scenarios/${id}/simulate`, dto);
+  }
+
+  getPlanScenarioSimulation(id: number): Observable<any> {
+    return this.get<any>(`decision-intelligence/plan-scenarios/${id}/simulation`);
+  }
+
+  registerPlanOutcome(publicationId: number, dto: any): Observable<any> {
+    return this.post<any>(`decision-intelligence/plan-publications/${publicationId}/outcome`, dto);
+  }
+
+  getPlanControlTower(publicationId: number): Observable<any> {
+    return this.get<any>(`decision-intelligence/plan-publications/${publicationId}/control-tower`);
+  }
+
+  getCalibrationSummary(): Observable<any> {
+    return this.get<any>('decision-intelligence/calibration/summary');
+  }
+
   getExceptions(kitId: number): Observable<any[]> {
     return this.get<any[]>('exceptions', { kitId });
   }

@@ -9,6 +9,7 @@
   </div>
 
   <aside class="sidebar">
+    <video autoplay loop muted playsinline class="sidebar-ambient-video"><source src="assets/login/system-atmosphere.mp4" type="video/mp4"></video>
     <div class="sidebar-noise" aria-hidden="true"></div>
 
     <div class="brand">
@@ -70,8 +71,8 @@
           <span class="nav-full group-arrow"><i class="fas fa-chevron-down"></i></span>
         </button>
         <div class="nav-group-items">
-          <a class="disabled"><i class="fas fa-eye"></i> Ayudas visuales</a>
-          <a class="disabled"><i class="fas fa-vector-square"></i> Disposicion</a>
+          <a routerLink="/visual-aids" routerLinkActive="active"><i class="fas fa-eye"></i> Ayudas visuales</a>
+          <a routerLink="/disposition" routerLinkActive="active"><i class="fas fa-vector-square"></i> Disposicion</a>
         </div>
       </div>
 
@@ -85,9 +86,10 @@
           <span class="nav-full group-arrow"><i class="fas fa-chevron-down"></i></span>
         </button>
         <div class="nav-group-items">
-          <a routerLink="/production" routerLinkActive="active"><i class="fas fa-tools"></i> Solicitar kit</a>
-          <a class="disabled"><i class="fas fa-clock"></i> Hora por hora</a>
-          <a class="disabled"><i class="fas fa-check-circle"></i> Kit terminado</a>
+          <a routerLink="/production" routerLinkActive="active"><i class="fas fa-tools"></i> Operación en línea</a>
+          <a routerLink="/production/hourly" routerLinkActive="active"><i class="fas fa-clock"></i> Hora por hora</a>
+          <a routerLink="/production/completed" routerLinkActive="active"><i class="fas fa-check-circle"></i> Corridas terminadas</a>
+          <a routerLink="/production/logistics" routerLinkActive="active"><i class="fas fa-truck-loading"></i> Logística en vivo</a>
         </div>
       </div>
     </nav>
@@ -108,19 +110,51 @@
       <div class="search-wrapper">
         <label class="search" aria-label="Buscar modulo">
           <i class="fas fa-search search-icon"></i>
-          <input type="search" placeholder="Buscar módulo, kit o material" />
+          <input
+            type="search"
+            placeholder="Buscar módulo, kit, modelo, NP o publicación"
+            [ngModel]="searchTerm"
+            (ngModelChange)="onSearchChange($event)"
+            (focus)="onSearchFocus()"
+          />
           <span class="search-hint nav-full">⌘K</span>
         </label>
+        <div class="search-results" *ngIf="showSearchResults">
+          <button type="button" class="search-result" *ngFor="let result of searchResults" (click)="openSearchResult(result)">
+            <span class="result-main">{{ result.label }}</span>
+            <span class="result-meta">{{ result.category }} <small *ngIf="result.subtitle">· {{ result.subtitle }}</small></span>
+          </button>
+          <div class="search-empty" *ngIf="!searchResults.length">Sin resultados.</div>
+        </div>
       </div>
 
       <div class="topbar-actions">
-        <button class="icon-btn glass-btn" aria-label="Notificaciones">
+        <button class="icon-btn glass-btn" aria-label="Notificaciones" (click)="toggleNotifications()">
           <i class="far fa-bell"></i>
-          <span class="notif-dot"></span>
+          <span class="notif-dot" *ngIf="notifications.length"></span>
         </button>
-        <button class="icon-btn glass-btn" aria-label="Perfil de usuario">
+        <button class="icon-btn glass-btn" aria-label="Perfil de usuario" (click)="toggleUserPanel()">
           <i class="far fa-user-circle"></i>
         </button>
+
+        <div class="notif-panel" *ngIf="showNotifications">
+          <div class="panel-head">
+            <strong>Notificaciones</strong>
+            <button type="button" class="link-btn" (click)="clearNotifications()">Limpiar todo</button>
+          </div>
+          <div class="panel-empty" *ngIf="!notifications.length">Sin notificaciones activas.</div>
+          <article class="notif-item" *ngFor="let item of notifications">
+            <span class="notif-type">{{ notificationTypeLabel(item.type) }}</span>
+            <p>{{ item.message }}</p>
+            <small>{{ formatTimestamp(item.createdAt) }}</small>
+          </article>
+        </div>
+
+        <div class="user-panel" *ngIf="showUserPanel">
+          <strong>Sergio</strong>
+          <small>Planner / IE</small>
+          <button type="button" class="btn-user-logout" (click)="logout()">Cerrar sesión</button>
+        </div>
       </div>
     </header>
 

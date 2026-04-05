@@ -10,7 +10,8 @@
 .view-grid,
 .metric-strip,
 .mode-strip,
-.top-three {
+.top-three,
+.executive-strip {
   display: grid;
   gap: 18px;
 }
@@ -112,6 +113,48 @@
 
 .mode-strip {
   grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.executive-strip {
+  grid-template-columns: 1.35fr repeat(2, minmax(0, 1fr));
+}
+
+.exec-card {
+  padding: 18px 22px;
+  border-radius: 22px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 18px 34px rgba(15, 23, 42, 0.08);
+}
+
+.exec-card small {
+  color: #64748b;
+}
+
+.exec-card strong {
+  display: block;
+  margin-top: 8px;
+  font-size: 1.28rem;
+  color: #0f172a;
+  letter-spacing: -0.02em;
+}
+
+.exec-card p {
+  margin: 8px 0 0;
+  color: #475569;
+}
+
+.exec-card.spotlight {
+  background:
+    radial-gradient(circle at top left, rgba(14, 116, 144, 0.12), transparent 28%),
+    linear-gradient(135deg, rgba(15, 23, 42, 0.96), rgba(30, 41, 59, 0.96));
+  border-color: rgba(56, 189, 248, 0.35);
+}
+
+.exec-card.spotlight small,
+.exec-card.spotlight strong,
+.exec-card.spotlight p {
+  color: #e2e8f0;
 }
 
 .mode-card {
@@ -747,6 +790,7 @@ th {
   .hero,
   .view-grid,
   .mode-strip,
+  .executive-strip,
   .model-grid,
   .top-three { grid-template-columns: 1fr; }
   .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }

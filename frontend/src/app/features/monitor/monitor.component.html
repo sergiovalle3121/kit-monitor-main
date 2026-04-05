@@ -1,57 +1,59 @@
 <div class="page-header">
-  <h2>Monitor de Linea</h2>
+  <h2>Monitor de línea</h2>
+  <button class="btn-toggle-all" (click)="toggleAll()">
+    {{ allExpanded ? 'Colapsar todo' : 'Expandir todo' }}
+  </button>
 </div>
 
 <p *ngIf="loading" class="loading-text">Cargando monitor...</p>
 <p *ngIf="error" class="error">{{ error }}</p>
 
-<div *ngIf="!loading && !error" class="backens-grid">
-  <div *ngFor="let bk of backens"
-       [class]="'backen-card status-' + (slots[bk]?.status ?? 'empty')"
-       [class.has-exception]="slots[bk]?.hasException">
-
-    <div class="card-header">
-      <span class="bk-label">BK{{ bk }}</span>
-      <span [class]="'status-badge badge-' + (slots[bk]?.status ?? 'empty')">
-        {{ labelFor(slots[bk]?.status ?? 'empty') }}
-      </span>
-    </div>
-
-    <div class="card-body" *ngIf="slots[bk]?.status !== 'empty'">
-      <div class="model-name">{{ slots[bk]?.model }}</div>
-      <div class="card-meta">
-        <span>{{ slots[bk]?.workOrder }}</span>
-        <span class="meta-sep">|</span>
-        <span>{{ slots[bk]?.shift }}</span>
-        <span class="meta-sep">|</span>
-        <span>x{{ slots[bk]?.quantity }}</span>
+<section *ngIf="!loading && !error" class="rows-wrap">
+  <article
+    *ngFor="let bk of backens"
+    class="bk-row"
+    [class.has-real]="slots[bk]?.hasRealOperation"
+    [class.has-exception]="slots[bk]?.hasException"
+  >
+    <header class="row-head">
+      <div class="head-left">
+        <strong class="bk-title">BK{{ bk }}</strong>
+        <span [class]="'status-badge badge-' + (slots[bk]?.status ?? 'empty')">
+          {{ labelFor(slots[bk]?.status ?? 'empty') }}
+        </span>
+        <span class="model" *ngIf="slots[bk]?.model">{{ slots[bk]?.model }}</span>
       </div>
 
-      <div class="progress-section" *ngIf="slots[bk]?.status !== 'scheduled'">
-        <div class="progress-track">
-          <div class="progress-fill" [style.width.%]="slots[bk]?.progressPct ?? 0"></div>
+      <div class="head-right">
+        <div class="progress-mini" *ngIf="slots[bk]?.hasRealOperation && slots[bk]?.quantity">
+          <span>{{ slots[bk]?.progressPct }}%</span>
+          <div class="track"><i [style.width.%]="slots[bk]?.progressPct"></i></div>
         </div>
-        <span class="progress-label">{{ slots[bk]?.completed }} / {{ slots[bk]?.quantity }} ({{ slots[bk]?.progressPct }}%)</span>
+        <span class="incident" *ngIf="slots[bk]?.hasException">Incidencia</span>
+        <button class="btn-expand" (click)="toggleBk(bk)">{{ isExpanded(bk) ? '▴' : '▾' }}</button>
+      </div>
+    </header>
+
+    <div class="row-empty" *ngIf="!slots[bk]?.model">Sin operación activa.</div>
+
+    <section class="row-detail" *ngIf="isExpanded(bk) && slots[bk]?.model">
+      <div class="meta-line">
+        <span>WO {{ slots[bk]?.workOrder || 'N/A' }}</span>
+        <span>Turno {{ slots[bk]?.shift || 'N/A' }}</span>
+        <span>{{ slots[bk]?.completed || 0 }} / {{ slots[bk]?.quantity || 0 }}</span>
       </div>
 
-      <div class="alert-banner" *ngIf="slots[bk]?.hasException">
-        Incidencia abierta
+      <div class="bays" *ngIf="slots[bk]?.bays?.length; else noBays">
+        <div class="bay-card" *ngFor="let bay of slots[bk]?.bays">
+          <strong>Bahía {{ bay.bayId }}</strong>
+          <small>NPs: {{ bay.npCount }}</small>
+          <small>Consumido: {{ bay.consumed | number:'1.0-2' }}</small>
+          <small>Ensamblado: {{ bay.assembled }}</small>
+        </div>
       </div>
-    </div>
-
-    <div class="card-empty" *ngIf="slots[bk]?.status === 'empty'">
-      Sin programacion
-    </div>
-  </div>
-</div>
-
-<div class="legend" *ngIf="!loading && !error">
-  <span class="chip chip-scheduled">Programado</span>
-  <span class="chip chip-preparing">Preparando</span>
-  <span class="chip chip-kitted">Armado</span>
-  <span class="chip chip-ready">Listo</span>
-  <span class="chip chip-requested">Solicitado</span>
-  <span class="chip chip-delivered">Entregado</span>
-  <span class="chip chip-in_progress">En proceso</span>
-  <span class="chip chip-completed">Completado</span>
-</div>
+      <ng-template #noBays>
+        <div class="row-empty compact">Sin detalle de bahías disponible para este backend.</div>
+      </ng-template>
+    </section>
+  </article>
+</section>

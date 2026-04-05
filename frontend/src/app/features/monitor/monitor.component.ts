@@ -1,6 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { forkJoin } from 'rxjs';
+import { forkJoin, map, of, switchMap } from 'rxjs';
 import { ApiService } from '../../core/api.service';
 
 @Component({
@@ -15,6 +15,9 @@ export class MonitorComponent implements OnInit {
   error: string | null = null;
   backens = [1, 2, 3, 4, 5, 6, 7];
   slots: Record<number, any> = {};
+  expandedByBk: Record<number, boolean> = {};
+  allExpanded = false;
+
   private readonly statusPriority: Record<string, number> = {
     requested: 1,
     ready: 2,
@@ -39,9 +42,9 @@ export class MonitorComponent implements OnInit {
     delivered: 'Entregado',
     sent: 'Enviado',
     received: 'Recibido',
-    in_progress: 'En proceso',
+    in_progress: 'Activo',
     completed: 'Completado',
-    empty: 'Sin programar',
+    empty: 'Sin operación',
   };
 
   constructor(private api: ApiService) {}
@@ -51,9 +54,23 @@ export class MonitorComponent implements OnInit {
     forkJoin({
       kits: this.api.getKits(),
       plans: this.api.getPlans(),
-    }).subscribe({
-      next: ({ kits, plans }) => {
-        this.buildSlots(kits ?? [], plans ?? []);
+      backends: this.api.getProductionBackends(),
+    }).pipe(
+      switchMap(({ kits, plans, backends }) => {
+        const backendList = backends ?? [];
+        const detailRequest = backendList.length
+          ? forkJoin(backendList.map((backend) =>
+              forkJoin({
+                materials: this.api.getProductionMaterials(backend.kitId),
+                events: this.api.getProductionEvents(backend.kitId),
+              }).pipe(map((payload) => ({ kitId: backend.kitId, ...payload }))),
+            ))
+          : of([]);
+        return detailRequest.pipe(map((details) => ({ kits: kits ?? [], plans: plans ?? [], backends: backendList, details })));
+      }),
+    ).subscribe({
+      next: ({ kits, plans, backends, details }) => {
+        this.buildSlots(kits, plans, backends, details as any[]);
         this.loading = false;
       },
       error: () => {
@@ -65,6 +82,22 @@ export class MonitorComponent implements OnInit {
 
   labelFor(status: string): string {
     return this.labels[status] ?? status;
+  }
+
+  toggleAll(): void {
+    this.allExpanded = !this.allExpanded;
+    this.backens.forEach((bk) => {
+      this.expandedByBk[bk] = this.allExpanded;
+    });
+  }
+
+  toggleBk(bk: number): void {
+    this.expandedByBk[bk] = !this.expandedByBk[bk];
+    this.allExpanded = this.backens.every((value) => this.expandedByBk[value]);
+  }
+
+  isExpanded(bk: number): boolean {
+    return !!this.expandedByBk[bk];
   }
 
   private compareCandidates(a: any, b: any): number {
@@ -97,41 +130,54 @@ export class MonitorComponent implements OnInit {
     return this.statusPriority[status] ?? Number.MAX_SAFE_INTEGER;
   }
 
-  private buildSlots(kits: any[], plans: any[]): void {
+  private buildSlots(kits: any[], plans: any[], backends: any[], details: any[]): void {
+    const backendByBk = new Map<number, any>(backends.map((backend) => [backend.backen, backend]));
+    const detailsByKitId = new Map<number, any>(details.map((entry) => [entry.kitId, entry]));
     const usedPlanIds = new Set<number>(
-      kits
-        .map(k => k.plan?.id)
-        .filter((id): id is number => typeof id === 'number'),
+      kits.map((kit) => kit.plan?.id).filter((id): id is number => typeof id === 'number'),
     );
 
     for (const bk of this.backens) {
+      const runtimeBackend = backendByBk.get(bk);
+      if (runtimeBackend) {
+        const runtime = detailsByKitId.get(runtimeBackend.kitId);
+        this.slots[bk] = {
+          status: runtimeBackend.status,
+          model: runtimeBackend.model,
+          workOrder: runtimeBackend.workOrder,
+          shift: runtimeBackend.shift,
+          quantity: runtimeBackend.targetQty ?? 0,
+          completed: runtimeBackend.completedQty ?? 0,
+          progressPct: runtimeBackend.targetQty > 0 ? Math.round(((runtimeBackend.completedQty ?? 0) / runtimeBackend.targetQty) * 100) : 0,
+          hasException: !!runtimeBackend.hasIncident,
+          bays: this.buildBayRows(runtime?.materials ?? [], runtime?.events ?? []),
+          hasRealOperation: true,
+        };
+        continue;
+      }
+
       const candidates = [
         ...kits
-          .filter(k => k.plan?.backen === bk)
-          .map(k => ({
+          .filter((kit) => kit.plan?.backen === bk)
+          .map((kit) => ({
             type: 'kit',
-            item: k,
-            id: k.id,
-            status: k.status,
-            scheduledAt: k.plan?.scheduledAt,
-            sequence: k.plan?.sequence,
-            createdAt: k.createdAt,
+            item: kit,
+            id: kit.id,
+            status: kit.status,
+            scheduledAt: kit.plan?.scheduledAt,
+            sequence: kit.plan?.sequence,
+            createdAt: kit.createdAt,
           })),
         ...plans
-          .filter(
-            p =>
-              p.backen === bk &&
-              (p.status === 'pending' || p.status === 'active') &&
-              !usedPlanIds.has(p.id),
-          )
-          .map(p => ({
+          .filter((plan) => plan.backen === bk && (plan.status === 'pending' || plan.status === 'active') && !usedPlanIds.has(plan.id))
+          .map((plan) => ({
             type: 'plan',
-            item: p,
-            id: p.id,
+            item: plan,
+            id: plan.id,
             status: 'scheduled',
-            scheduledAt: p.scheduledAt,
-            sequence: p.sequence,
-            createdAt: p.createdAt,
+            scheduledAt: plan.scheduledAt,
+            sequence: plan.sequence,
+            createdAt: plan.createdAt,
           })),
       ].sort((a, b) => this.compareCandidates(a, b));
 
@@ -150,6 +196,8 @@ export class MonitorComponent implements OnInit {
           completed,
           progressPct: qty > 0 ? Math.round((completed / qty) * 100) : 0,
           hasException: kit.hasOpenException ?? false,
+          bays: [],
+          hasRealOperation: false,
         };
       } else if (selected?.type === 'plan') {
         const plan = selected.item;
@@ -162,6 +210,8 @@ export class MonitorComponent implements OnInit {
           completed: 0,
           progressPct: 0,
           hasException: false,
+          bays: [],
+          hasRealOperation: false,
         };
       } else {
         this.slots[bk] = {
@@ -169,8 +219,30 @@ export class MonitorComponent implements OnInit {
           completed: 0,
           progressPct: 0,
           hasException: false,
+          bays: [],
+          hasRealOperation: false,
         };
       }
     }
+  }
+
+  private buildBayRows(materials: any[], events: any[]): Array<{ bayId: number; npCount: number; consumed: number; assembled: number }> {
+    const byBay = new Map<number, { npCount: number; consumed: number; assembled: number }>();
+    materials.forEach((item) => {
+      const current = byBay.get(item.bayId) ?? { npCount: 0, consumed: 0, assembled: 0 };
+      current.npCount += 1;
+      current.consumed += Number(item.consumedQty ?? 0);
+      byBay.set(item.bayId, current);
+    });
+
+    events.forEach((event) => {
+      const current = byBay.get(event.bayId) ?? { npCount: 0, consumed: 0, assembled: 0 };
+      current.assembled += Number(event.quantity ?? 0);
+      byBay.set(event.bayId, current);
+    });
+
+    return [...byBay.entries()]
+      .sort((a, b) => a[0] - b[0])
+      .map(([bayId, value]) => ({ bayId, ...value }));
   }
 }

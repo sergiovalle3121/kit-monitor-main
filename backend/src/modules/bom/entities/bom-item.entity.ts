@@ -24,4 +24,13 @@ export class BomItem {
 
   @Column({ default: 'EA' })
   unit: string; // EA | KG | M | L | etc.
+
+  @Column({ type: 'text', nullable: true })
+  imageUrl: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  specUrl: string | null;
+
+  @Column({ default: false })
+  hasImage: boolean;
 }

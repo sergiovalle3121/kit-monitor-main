@@ -514,6 +514,52 @@
   text-align: center;
 }
 
+.detail-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  display: grid;
+  place-items: center;
+  z-index: 60;
+}
+
+.detail-card {
+  width: min(760px, 92vw);
+  border-radius: 20px;
+  border: 1px solid var(--border-card);
+  background: #fff;
+  padding: 16px;
+}
+
+.detail-card header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.detail-grid div {
+  border: 1px solid var(--border-soft);
+  border-radius: 12px;
+  padding: 10px;
+}
+
+.detail-grid span {
+  display: block;
+  color: var(--gray-500);
+  font-size: 0.8rem;
+}
+
+.detail-grid strong {
+  color: var(--gray-900);
+}
+
 @media (max-width: 1100px) {
   .metrics-row,
   .form-grid {
