@@ -249,7 +249,7 @@ export class DispositionComponent implements OnInit {
         this.saving = false;
       },
     });
-    if (!confirmed) return;
+  }
 
   editSavedDisposition(model: string): void {
     this.modelFilter = model;
@@ -277,7 +277,7 @@ export class DispositionComponent implements OnInit {
     });
   }
 
-  trackByPart(_index: number, row: BomNpRow): string {
+  trackByPart(_index: number, row: any): string {
     return row.partNumber;
   }
 }
