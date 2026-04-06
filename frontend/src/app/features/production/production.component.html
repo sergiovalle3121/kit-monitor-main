@@ -147,7 +147,7 @@
           <button class="btn-capture" *ngIf="canStartAssembly(station)" (click)="startAssembly(station)" [disabled]="updatingStatusKitId === station.kit.id">
             {{ updatingStatusKitId === station.kit.id ? 'Procesando...' : 'Iniciar ensamblado' }}
           </button>
-          <button class="btn-request" *ngIf="station.visualAid" (click)="openStationVisualAid(station)">Abrir ayuda visual</button>
+          <button class="btn-request" *ngIf="station.visualAid" (click)="openStationVisualAid(station)">Ver ayuda visual</button>
         </div>
 
         <p class="error" *ngIf="requestError[station.kit.id]">{{ requestError[station.kit.id] }}</p>
@@ -237,7 +237,7 @@
                     </div>
 
                     <div class="action-row inline-row" *ngIf="station.visualAid">
-                      <button class="btn-request" (click)="openStationVisualAid(station)">Abrir ayuda visual</button>
+                      <button class="btn-request" (click)="openStationVisualAid(station)">Ver ayuda visual</button>
                     </div>
                     <div class="action-caption" *ngIf="station.visualAid">Ayuda visual disponible</div>
                     <div class="action-caption" *ngIf="!station.visualAid">Este modelo no tiene ayuda visual cargada por IE</div>

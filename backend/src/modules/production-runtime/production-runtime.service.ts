@@ -637,9 +637,6 @@ export class ProductionRuntimeService {
   }
 
   private async ensureMaterialState(kitId: number) {
-    const existing = await this.materialStateRepo.count({ where: { kit: { id: kitId } } });
-    if (existing > 0) return;
-
     const kit = await this.kitRepo.findOne({
       where: { id: kitId },
       relations: ['plan', 'materials'],
@@ -653,8 +650,12 @@ export class ProductionRuntimeService {
     const bom = await this.bomRepo.find({ where: { model } });
     const bomByPart = new Map(bom.map((item) => [item.partNumber, item]));
     const materialByPart = new Map(kit.materials.map((item) => [item.partNumber, item]));
+    const existing = await this.materialStateRepo.find({ where: { kit: { id: kitId } } });
+    const existingKey = new Set(existing.map((item) => `${item.bayId}::${item.partNumber}`));
 
-    const rows = layouts.map((layout) => {
+    const rows = layouts
+      .filter((layout) => !existingKey.has(`${layout.bahia}::${layout.partNumber}`))
+      .map((layout) => {
       const material = materialByPart.get(layout.partNumber);
       const bomItem = bomByPart.get(layout.partNumber);
       const quantityRequired = material?.quantityRequired ?? (bomItem?.usageFactor ?? 0) * kit.plan.quantity;
@@ -675,7 +676,9 @@ export class ProductionRuntimeService {
       });
     });
 
-    await this.materialStateRepo.save(rows);
+    if (rows.length) {
+      await this.materialStateRepo.save(rows);
+    }
   }
 
   private async findKit(kitId: number): Promise<Kit> {

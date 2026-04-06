@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { catchError, forkJoin, map, of, switchMap } from 'rxjs';
+import { environment } from '../../../environments/environment';
 import { ApiService } from '../../core/api.service';
 import { VisualAid } from '../../core/ie-data.models';
 import { VisualAidsService } from '../../core/visual-aids.service';
@@ -169,7 +170,10 @@ export class ProductionComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    this.load();
+    this.visualAids.loadVisualAids().subscribe({
+      next: () => this.load(),
+      error: () => this.load(),
+    });
   }
 
   load(): void {
@@ -502,26 +506,43 @@ export class ProductionComponent implements OnInit {
 
   selectedBayOperationalState(station: ProductionStationView): string {
     const key = this.getStationKey(station);
-    const bayId = this.extractBayNumber(this.selectedBahiaByStation[key]);
-    const runtimeRows = this.materialsForBay(station, bayId);
-    if (!runtimeRows.length) {
-      const hasLayout = !!(this.bayMapByStation[key]?.[this.selectedBahiaByStation[key] ?? '']?.length);
-      return hasLayout ? 'configured_not_mounted' : 'not_configured';
+    const selectedBay = this.selectedBahiaByStation[key];
+    const bayId = this.extractBayNumber(selectedBay);
+    const hasLayout = !!(this.bayMapByStation[key]?.[selectedBay ?? '']?.length);
+    if (!hasLayout) return 'not_configured';
+    if (!['requested', 'delivered', 'received', 'sent', 'in_progress', 'completed'].includes(station.status)) {
+      return 'configured_pending_delivery';
     }
-    const status = runtimeRows.find((row) => !!row.bayStatus)?.bayStatus;
-    return status ?? 'ready_to_produce';
+
+    const runtimeRows = this.materialsForBay(station, bayId);
+    if (!runtimeRows.length) return 'configured_not_mounted';
+
+    const nonMountable = runtimeRows.filter((row) => Number(row.usagePerAssembly ?? 0) <= 0).length;
+    if (nonMountable === runtimeRows.length) return 'configured_not_mountable';
+
+    const zeroStock = runtimeRows.filter((row) => Number(row.availableQty ?? 0) <= 0).length;
+    if (zeroStock === runtimeRows.length) return 'mounted_without_stock';
+    if (zeroStock > 0) return 'mounted_partial';
+
+    const anyLowStock = runtimeRows.some((row) => Number(row.availableQty ?? 0) <= Number(row.lowStockThreshold ?? 0));
+    if (anyLowStock) return 'at_risk';
+    if (this.getRecentBayEvents(station).length) return 'in_production';
+    return 'ready_to_produce';
   }
 
   selectedBayOperationalMessage(station: ProductionStationView): string {
+    const key = this.getStationKey(station);
+    const selectedBahia = this.selectedBahiaByStation[key] ?? 'Bahía';
     const status = this.selectedBayOperationalState(station);
-    if (status === 'not_configured') return 'La bahía no está configurada en la disposición de IE.';
-    if (status === 'configured_not_mounted') return 'Bahía configurada por IE pero aún no montada en backend.';
-    if (status === 'out_of_material') return 'Bahía sin material disponible.';
-    if (status === 'at_risk') return 'Bahía con riesgo de agotamiento de material.';
-    if (status === 'with_incident') return 'Bahía con incidencia abierta.';
-    if (status === 'off_plan') return 'Bahía desfasada respecto al consumo teórico.';
-    if (status === 'in_production') return 'Bahía en producción activa.';
-    return 'Bahía lista para producir.';
+    if (status === 'not_configured') return `${selectedBahia} no está configurada en la disposición de IE.`;
+    if (status === 'configured_pending_delivery') return `${selectedBahia} está configurada por IE pero el backend aún no ha sido entregado a línea.`;
+    if (status === 'configured_not_mounted') return `${selectedBahia} está configurada por IE, pero no quedó montada en runtime.`;
+    if (status === 'configured_not_mountable') return `${selectedBahia} está configurada, pero faltan factores BOM/datos críticos para montarla.`;
+    if (status === 'mounted_without_stock') return `${selectedBahia} fue montada, pero no tiene stock suficiente.`;
+    if (status === 'mounted_partial') return `${selectedBahia} fue montada parcialmente; falta stock para algunos NPs.`;
+    if (status === 'at_risk') return `${selectedBahia} está montada pero en riesgo por bajo stock.`;
+    if (status === 'in_production') return `${selectedBahia} está en producción.`;
+    return `${selectedBahia} está lista para producir.`;
   }
 
   selectedBayConsumptionSummary(station: ProductionStationView): { theoretical: number; real: number; delta: number } {
@@ -638,6 +659,10 @@ export class ProductionComponent implements OnInit {
     if (!this.bayMapByStation[key]?.[selected]?.length) return false;
     const bayId = this.extractBayNumber(selected);
     if (!Number.isFinite(bayId) || bayId <= 0) return false;
+    const operationalState = this.selectedBayOperationalState(station);
+    if (['not_configured', 'configured_pending_delivery', 'configured_not_mounted', 'configured_not_mountable', 'mounted_without_stock'].includes(operationalState)) {
+      return false;
+    }
     const qty = this.quickBayQty(station, bayId);
     const saving = this.baySaving[this.bayInputKey(station, bayId)] ?? false;
     return !saving && Number.isFinite(qty) && qty > 0;
@@ -695,7 +720,7 @@ export class ProductionComponent implements OnInit {
 
   openStationVisualAid(station: ProductionStationView): void {
     if (!station.visualAid) return;
-    window.open(station.visualAid.pdfUrl, '_blank', 'noopener');
+    window.open(this.resolveVisualAidUrl(station.visualAid.pdfUrl), '_blank', 'noopener');
   }
 
   requestReadyKit(row: ReadyKitRow): void {
@@ -980,5 +1005,15 @@ export class ProductionComponent implements OnInit {
     if (code === 'UNDO_WINDOW_EXPIRED') return 'Ventana de deshacer expirada';
     if (code === 'INCIDENT_TYPE_INVALID') return 'Tipo de incidencia inválido';
     return error?.error?.message ?? fallback;
+  }
+
+  private resolveVisualAidUrl(rawUrl: string): string {
+    const value = String(rawUrl ?? '').trim();
+    if (!value) return '';
+    if (/^https?:\/\//i.test(value)) {
+      return value;
+    }
+    const apiBase = environment.apiUrl.replace(/\/$/, '');
+    return `${apiBase}/visual-aids/file/${encodeURIComponent(value)}`;
   }
 }
