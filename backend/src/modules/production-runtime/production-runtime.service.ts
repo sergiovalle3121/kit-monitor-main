@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, In, IsNull, Repository } from 'typeorm';
 import { Kit } from '../kits/entities/kit.entity';
@@ -58,31 +58,68 @@ export class ProductionRuntimeService {
 
   async registerBayEvent(kitId: number, bayId: number, dto: RegisterBayEventDto) {
     if (!Number.isFinite(dto.quantity) || dto.quantity <= 0) {
-      throw new BadRequestException('quantity debe ser mayor a 0');
+      throw new BadRequestException({ code: 'VALIDATION_ERROR', message: 'quantity debe ser mayor a 0' });
     }
     if (bayId < 1 || bayId > 6) {
-      throw new BadRequestException('bayId debe estar entre 1 y 6');
+      throw new BadRequestException({ code: 'VALIDATION_ERROR', message: 'bayId debe estar entre 1 y 6' });
     }
+    if (!dto.clientRequestId?.trim()) {
+      throw new BadRequestException({ code: 'VALIDATION_ERROR', message: 'clientRequestId es obligatorio' });
+    }
+    const clientRequestId = dto.clientRequestId.trim();
 
     const kit = await this.findKit(kitId);
     const model = kit.plan?.model;
-    if (!model) throw new BadRequestException('Kit sin modelo asociado');
+    if (!model) throw new BadRequestException({ code: 'VALIDATION_ERROR', message: 'Kit sin modelo asociado' });
 
     await this.ensureMaterialState(kitId);
 
     return this.dataSource.transaction(async (em) => {
-      const states = await em.find(ProductionBayMaterialState, {
-        where: { kit: { id: kitId }, bayId },
+      const duplicate = await em.findOne(ProductionBayEvent, {
+        where: { clientRequestId },
       });
+      if (duplicate) {
+        const backend = await this.buildBackendView(kitId);
+        return {
+          ...backend,
+          duplicated: true,
+          code: 'DUPLICATE_REQUEST',
+          message: 'Solicitud duplicada ignorada',
+          lastEvent: {
+            id: duplicate.id,
+            bayId: duplicate.bayId,
+            quantity: duplicate.quantity,
+            timestamp: duplicate.timestamp,
+            operator: duplicate.operator,
+            notes: duplicate.notes,
+          },
+        };
+      }
+
+      const states = await em
+        .createQueryBuilder(ProductionBayMaterialState, 'state')
+        .setLock('pessimistic_write')
+        .where('state.kitId = :kitId', { kitId })
+        .andWhere('state.bayId = :bayId', { bayId })
+        .getMany();
 
       if (!states.length) {
-        throw new BadRequestException(`No hay materiales configurados para bahía ${bayId}`);
+        throw new BadRequestException({ code: 'VALIDATION_ERROR', message: `No hay materiales configurados para bahía ${bayId}` });
       }
 
       for (const state of states) {
         const consume = dto.quantity * state.usagePerAssembly;
+        if (state.availableQty - consume < 0) {
+          throw new ConflictException({
+            code: 'MATERIAL_INSUFFICIENT',
+            message: `Material insuficiente en ${state.partNumber} para registrar`,
+          });
+        }
         state.consumedQty = Math.round((state.consumedQty + consume) * 1e6) / 1e6;
         state.availableQty = Math.max(0, Math.round((state.availableQty - consume) * 1e6) / 1e6);
+        if (state.availableQty < 0 || state.consumedQty < 0) {
+          throw new ConflictException({ code: 'STATE_INCONSISTENT', message: 'Estado de material inconsistente' });
+        }
       }
 
       await em.save(states);
@@ -95,6 +132,7 @@ export class ProductionRuntimeService {
         notes: dto.notes,
         operator: dto.operator,
         source: 'bay_enter',
+        clientRequestId,
         timestamp: new Date(),
       });
       await em.save(event);
@@ -107,6 +145,9 @@ export class ProductionRuntimeService {
         .getRawOne<{ total: string }>();
 
       const completedQty = Number(total?.total ?? 0);
+      if (completedQty < 0) {
+        throw new ConflictException({ code: 'STATE_INCONSISTENT', message: 'completedQty inválido' });
+      }
       const nextStatus = completedQty >= kit.plan.quantity ? 'completed' : 'in_progress';
       await em.update(Kit, kitId, { status: nextStatus });
 
@@ -126,25 +167,55 @@ export class ProductionRuntimeService {
   }
 
   async revertBayEvent(eventId: number) {
-    const event = await this.eventRepo.findOne({
-      where: { id: eventId },
-      relations: ['kit'],
-    });
-    if (!event) throw new NotFoundException(`Evento ${eventId} no encontrado`);
-    if (event.revertedAt) throw new BadRequestException('El evento ya fue revertido');
-
-    const kit = await this.findKit(event.kit.id);
-    await this.ensureMaterialState(kit.id);
-
     return this.dataSource.transaction(async (em) => {
-      const states = await em.find(ProductionBayMaterialState, {
-        where: { kit: { id: kit.id }, bayId: event.bayId },
-      });
+      const event = await em
+        .createQueryBuilder(ProductionBayEvent, 'event')
+        .setLock('pessimistic_write')
+        .leftJoinAndSelect('event.kit', 'kit')
+        .where('event.id = :eventId', { eventId })
+        .getOne();
+      if (!event) throw new NotFoundException({ code: 'EVENT_NOT_FOUND', message: `Evento ${eventId} no encontrado` });
+      if (event.revertedAt) {
+        throw new ConflictException({ code: 'EVENT_ALREADY_REVERTED', message: 'El evento ya fue revertido' });
+      }
+
+      const undoWindowMs = 10_000;
+      if ((Date.now() - new Date(event.createdAt).getTime()) > undoWindowMs) {
+        throw new ConflictException({ code: 'UNDO_WINDOW_EXPIRED', message: 'Ventana de reversa expirada' });
+      }
+
+      const lastActive = await em
+        .createQueryBuilder(ProductionBayEvent, 'event')
+        .setLock('pessimistic_read')
+        .where('event.kitId = :kitId', { kitId: event.kit.id })
+        .andWhere('event.bayId = :bayId', { bayId: event.bayId })
+        .andWhere('event.revertedAt IS NULL')
+        .orderBy('event.timestamp', 'DESC')
+        .addOrderBy('event.id', 'DESC')
+        .getOne();
+      if (!lastActive || lastActive.id !== event.id) {
+        throw new ConflictException({
+          code: 'EVENT_NOT_LAST_REVERSIBLE',
+          message: 'Solo el último evento vigente de la bahía puede revertirse',
+        });
+      }
+
+      const kit = await this.findKit(event.kit.id);
+      await this.ensureMaterialState(kit.id);
+      const states = await em
+        .createQueryBuilder(ProductionBayMaterialState, 'state')
+        .setLock('pessimistic_write')
+        .where('state.kitId = :kitId', { kitId: kit.id })
+        .andWhere('state.bayId = :bayId', { bayId: event.bayId })
+        .getMany();
 
       for (const state of states) {
         const rollback = event.quantity * state.usagePerAssembly;
         state.consumedQty = Math.max(0, Math.round((state.consumedQty - rollback) * 1e6) / 1e6);
         state.availableQty = Math.max(0, Math.round((state.availableQty + rollback) * 1e6) / 1e6);
+        if (state.availableQty < 0 || state.consumedQty < 0) {
+          throw new ConflictException({ code: 'STATE_INCONSISTENT', message: 'Estado de material inconsistente tras reversa' });
+        }
       }
       await em.save(states);
 
@@ -160,6 +231,9 @@ export class ProductionRuntimeService {
         .getRawOne<{ total: string }>();
 
       const completedQty = Number(total?.total ?? 0);
+      if (completedQty < 0) {
+        throw new ConflictException({ code: 'STATE_INCONSISTENT', message: 'completedQty inválido tras reversa' });
+      }
       const nextStatus = completedQty >= kit.plan.quantity ? 'completed' : 'in_progress';
       await em.update(Kit, kit.id, { status: nextStatus });
 
@@ -188,14 +262,22 @@ export class ProductionRuntimeService {
   }
 
   async createBayIncident(kitId: number, bayId: number, dto: CreateBayIncidentDto) {
-    if (bayId < 1 || bayId > 6) throw new BadRequestException('bayId debe estar entre 1 y 6');
+    if (bayId < 1 || bayId > 6) {
+      throw new BadRequestException({ code: 'VALIDATION_ERROR', message: 'bayId debe estar entre 1 y 6' });
+    }
+    const allowedTypes = ['Falta material', 'Error de ensamble', 'Paro de estación', 'Otro'];
+    if (!allowedTypes.includes(dto.type)) {
+      throw new ConflictException({ code: 'INCIDENT_TYPE_INVALID', message: 'Tipo de incidencia inválido' });
+    }
     await this.findKit(kitId);
+    const note = dto.note?.trim() || undefined;
+    const operator = dto.operator?.trim() || undefined;
     const incident = this.incidentRepo.create({
       kit: { id: kitId } as Kit,
       bayId,
       type: dto.type,
-      note: dto.note,
-      operator: dto.operator,
+      note,
+      operator,
       status: 'open',
     });
     return this.incidentRepo.save(incident);

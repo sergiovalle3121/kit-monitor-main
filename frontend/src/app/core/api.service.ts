@@ -164,7 +164,7 @@ export class ApiService {
     return this.post<any>(`production/backends/${kitId}/start`, {});
   }
 
-  createBayEvent(kitId: number, bayId: number, dto: { quantity: number; notes?: string; operator?: string }): Observable<any> {
+  createBayEvent(kitId: number, bayId: number, dto: { quantity: number; notes?: string; operator?: string; clientRequestId: string }): Observable<any> {
     return this.post<any>(`production/backends/${kitId}/bays/${bayId}/events`, dto);
   }
 

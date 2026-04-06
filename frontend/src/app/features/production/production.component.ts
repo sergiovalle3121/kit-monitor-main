@@ -275,13 +275,15 @@ export class ProductionComponent implements OnInit {
       quantity: qty,
       notes: this.bayNotes[key]?.trim() || undefined,
       operator: this.bayOperator[key]?.trim() || undefined,
+      clientRequestId: this.generateClientRequestId(station, bayId),
     }).subscribe({
       next: (response) => {
         const openStationKey = this.getStationKey(station);
         const openBahia = this.selectedBahiaByStation[openStationKey] ?? '';
         const sessionCount = this.sessionAssembledByStation[openStationKey] ?? 0;
         const wasOpen = this.mesOpenByStation[openStationKey] === true;
-        this.sessionAssembledByStation[openStationKey] = sessionCount + qty;
+        const duplicated = response?.duplicated === true || response?.code === 'DUPLICATE_REQUEST';
+        this.sessionAssembledByStation[openStationKey] = duplicated ? sessionCount : sessionCount + qty;
         this.pendingRefreshContext = {
           openStationKey,
           openBahia,
@@ -293,11 +295,15 @@ export class ProductionComponent implements OnInit {
         this.bayQty[key] = 1;
         this.bayNotes[key] = '';
         this.registerPulseByStation[openStationKey] = true;
-        this.registerSuccessByStation[openStationKey] = `Unidad registrada en ${openBahia || `Bahía ${bayId}`}`;
-        this.lastSuccessAtByStation[openStationKey] = new Date().toISOString();
-        this.lastSuccessBahiaByStation[openStationKey] = openBahia || `Bahía ${bayId}`;
+        if (duplicated) {
+          this.registerSuccessByStation[openStationKey] = 'Registro duplicado detectado: no se consumió material';
+        } else {
+          this.registerSuccessByStation[openStationKey] = `Unidad registrada en ${openBahia || `Bahía ${bayId}`}`;
+          this.lastSuccessAtByStation[openStationKey] = new Date().toISOString();
+          this.lastSuccessBahiaByStation[openStationKey] = openBahia || `Bahía ${bayId}`;
+        }
         const createdEventId = Number(response?.lastEvent?.id);
-        if (Number.isFinite(createdEventId) && createdEventId > 0) {
+        if (!duplicated && Number.isFinite(createdEventId) && createdEventId > 0) {
           this.lastRegisteredEventByStation[openStationKey] = {
             eventId: createdEventId,
             at: new Date().toISOString(),
@@ -314,7 +320,7 @@ export class ProductionComponent implements OnInit {
       },
       error: (err) => {
         this.baySaving[key] = false;
-        this.requestError[kitId] = err?.error?.message ?? 'No se pudo registrar evento de bahía';
+        this.requestError[kitId] = this.toPanelErrorMessage(err, 'No se pudo registrar evento de bahía');
       },
     });
   }
@@ -527,7 +533,7 @@ export class ProductionComponent implements OnInit {
       },
       error: (err) => {
         this.undoInProgressByStation[key] = false;
-        this.requestError[station.kit?.id] = err?.error?.message ?? 'No se pudo revertir el último registro';
+        this.requestError[station.kit?.id] = this.toPanelErrorMessage(err, 'No se pudo revertir el último registro');
       },
     });
   }
@@ -556,7 +562,7 @@ export class ProductionComponent implements OnInit {
         this.registerSuccessByStation[key] = 'Incidencia guardada';
       },
       error: (err) => {
-        this.requestError[kitId] = err?.error?.message ?? 'No se pudo guardar la incidencia';
+        this.requestError[kitId] = this.toPanelErrorMessage(err, 'No se pudo guardar la incidencia');
       },
     });
   }
@@ -914,5 +920,23 @@ export class ProductionComponent implements OnInit {
         this.localIncidentsByStation[key] = this.localIncidentsByStation[key] ?? [];
       },
     });
+  }
+
+  private generateClientRequestId(station: ProductionStationView, bayId: number): string {
+    if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+      return `req-${station.kit?.id ?? 'x'}-b${bayId}-${crypto.randomUUID()}`;
+    }
+    return `req-${station.kit?.id ?? 'x'}-b${bayId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  }
+
+  private toPanelErrorMessage(error: any, fallback: string): string {
+    const code = error?.error?.code;
+    if (code === 'MATERIAL_INSUFFICIENT') return 'Material insuficiente para registrar';
+    if (code === 'DUPLICATE_REQUEST') return 'Registro duplicado detectado';
+    if (code === 'EVENT_ALREADY_REVERTED') return 'El evento ya fue revertido';
+    if (code === 'EVENT_NOT_LAST_REVERSIBLE') return 'Solo se puede revertir el último evento de la bahía';
+    if (code === 'UNDO_WINDOW_EXPIRED') return 'Ventana de deshacer expirada';
+    if (code === 'INCIDENT_TYPE_INVALID') return 'Tipo de incidencia inválido';
+    return error?.error?.message ?? fallback;
   }
 }
