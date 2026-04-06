@@ -57,6 +57,9 @@
           <small>NPs: {{ bay.npCount }}</small>
           <small>Consumido: {{ bay.consumed | number:'1.0-2' }}</small>
           <small>Ensamblado: {{ bay.assembled }}</small>
+          <small>Ritmo: {{ bay.pace | number:'1.0-1' }} u/h</small>
+          <small *ngIf="bay.etaMinutes !== null">ETA stock: {{ bay.etaMinutes | number:'1.0-0' }} min</small>
+          <small>Estado: {{ bayStatusLabel(bay.status) }}</small>
         </div>
       </div>
       <ng-template #noBays>

@@ -32,6 +32,16 @@ export class MonitorComponent implements OnInit {
     completed: 'Completado',
     empty: 'Sin operación',
   };
+  private bayStatusLabels: Record<string, string> = {
+    not_configured: 'No configurada',
+    configured_not_mounted: 'Configurada IE, no montada',
+    out_of_material: 'Sin material',
+    at_risk: 'En riesgo',
+    with_incident: 'Con incidencia',
+    off_plan: 'Desfasada',
+    in_production: 'En producción',
+    ready_to_produce: 'Lista',
+  };
 
   constructor(private api: ApiService) {}
 
@@ -49,6 +59,7 @@ export class MonitorComponent implements OnInit {
                   forkJoin({
                     materials: this.api.getProductionMaterials(backend.kitId),
                     events: this.api.getProductionEvents(backend.kitId),
+                    risk: this.api.getProductionShortageRisk(backend.kitId),
                   }).pipe(map((payload) => ({ kitId: backend.kitId, ...payload }))),
                 ),
               )
@@ -93,6 +104,10 @@ export class MonitorComponent implements OnInit {
     return !!this.slots[bk]?.model;
   }
 
+  bayStatusLabel(status: string): string {
+    return this.bayStatusLabels[status] ?? status;
+  }
+
   private buildSlots(backends: any[], details: any[]): void {
     const backendByBk = new Map<number, any>(backends.map((backend) => [backend.backen, backend]));
     const detailsByKitId = new Map<number, any>(details.map((entry) => [entry.kitId, entry]));
@@ -113,7 +128,7 @@ export class MonitorComponent implements OnInit {
               ? Math.round(((runtimeBackend.completedQty ?? 0) / runtimeBackend.targetQty) * 100)
               : 0,
           hasException: !!runtimeBackend.hasIncident,
-          bays: this.buildBayRows(runtime?.materials ?? [], runtime?.events ?? []),
+          bays: this.buildBayRows(runtime?.materials ?? [], runtime?.events ?? [], runtime?.risk?.bays ?? []),
           hasRealOperation: true,
         };
         continue;
@@ -132,19 +147,29 @@ export class MonitorComponent implements OnInit {
   private buildBayRows(
     materials: any[],
     events: any[],
-  ): Array<{ bayId: number; npCount: number; consumed: number; assembled: number }> {
-    const byBay = new Map<number, { npCount: number; consumed: number; assembled: number }>();
+    bayRisk: any[],
+  ): Array<{ bayId: number; npCount: number; consumed: number; assembled: number; pace: number; etaMinutes: number | null; status: string }> {
+    const byBay = new Map<number, { npCount: number; consumed: number; assembled: number; pace: number; etaMinutes: number | null; status: string }>();
     materials.forEach((item) => {
-      const current = byBay.get(item.bayId) ?? { npCount: 0, consumed: 0, assembled: 0 };
+      const current = byBay.get(item.bayId) ?? { npCount: 0, consumed: 0, assembled: 0, pace: 0, etaMinutes: null, status: 'ready_to_produce' };
       current.npCount += 1;
       current.consumed += Number(item.consumedQty ?? 0);
+      if (item.bayStatus) current.status = String(item.bayStatus);
       byBay.set(item.bayId, current);
     });
 
     events.forEach((event) => {
-      const current = byBay.get(event.bayId) ?? { npCount: 0, consumed: 0, assembled: 0 };
+      const current = byBay.get(event.bayId) ?? { npCount: 0, consumed: 0, assembled: 0, pace: 0, etaMinutes: null, status: 'ready_to_produce' };
       current.assembled += Number(event.quantity ?? 0);
       byBay.set(event.bayId, current);
+    });
+
+    bayRisk.forEach((riskItem) => {
+      const current = byBay.get(riskItem.bayId) ?? { npCount: 0, consumed: 0, assembled: 0, pace: 0, etaMinutes: null, status: 'ready_to_produce' };
+      current.pace = Number(riskItem.assembliesPerHour ?? 0);
+      current.etaMinutes = riskItem.avgMinutesToStockout ?? null;
+      current.status = String(riskItem.status ?? current.status);
+      byBay.set(riskItem.bayId, current);
     });
 
     return [...byBay.entries()]

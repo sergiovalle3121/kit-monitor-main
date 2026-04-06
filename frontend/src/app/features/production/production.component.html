@@ -224,6 +224,18 @@
                       <span>Sesión: {{ sessionAssembledByStation[getStationKey(station)] || 0 }}</span>
                     </div>
 
+                    <div class="action-strip info compact">
+                      <div class="action-caption">{{ selectedBayOperationalMessage(station) }}</div>
+                    </div>
+
+                    <div class="bay-stats" *ngIf="getDisplayedBayMaterials(station).length">
+                      <span>Teórico: {{ selectedBayConsumptionSummary(station).theoretical | number:'1.0-2' }}</span>
+                      <span>Real: {{ selectedBayConsumptionSummary(station).real | number:'1.0-2' }}</span>
+                      <span [class.warn]="selectedBayConsumptionSummary(station).delta > 0">
+                        Δ {{ selectedBayConsumptionSummary(station).delta | number:'1.0-2' }}
+                      </span>
+                    </div>
+
                     <div class="action-row inline-row" *ngIf="station.visualAid">
                       <button class="btn-request" (click)="openStationVisualAid(station)">Abrir ayuda visual</button>
                     </div>
@@ -245,6 +257,12 @@
                         <div class="material-meta">
                           <span>Consumo: {{ material.runtime?.consumedQty | number:'1.0-2' }}</span>
                           <span>Factor: {{ material.factor | number:'1.0-2' }}/u</span>
+                        </div>
+                        <div class="material-meta" *ngIf="material.runtime?.theoreticalConsumed !== undefined">
+                          <span>Teórico: {{ material.runtime?.theoreticalConsumed | number:'1.0-2' }}</span>
+                          <span [class.warn]="(material.runtime?.deltaConsumed ?? 0) > 0">
+                            Δ {{ material.runtime?.deltaConsumed | number:'1.0-2' }}
+                          </span>
                         </div>
                         <div class="resupply-row" *ngIf="material.runtime && material.runtime.availableQty <= material.runtime.lowStockThreshold">
                           <input
@@ -293,6 +311,25 @@
                         (keydown.enter)="onSelectedBayEnter(station, $event)"
                         placeholder="Nota"
                       />
+                      <button
+                        class="btn-capture"
+                        (click)="registerSelectedBayAssembly(station)"
+                        [disabled]="baySaving[bayInputKey(station, extractBayNumber(selectedBahia))] || !canRegisterSelectedBay(station)"
+                      >
+                        {{ baySaving[bayInputKey(station, extractBayNumber(selectedBahia))] ? '...' : 'Registrar (+Enter)' }}
+                      </button>
+                    </div>
+
+                    <label class="quick-mode">
+                      <input
+                        type="checkbox"
+                        [ngModel]="quickModeByStation[getStationKey(station)] || false"
+                        (ngModelChange)="quickModeByStation[getStationKey(station)] = $event"
+                      />
+                      Modo rápido
+                    </label>
+
+                    <div class="action-row inline-row">
                       <button
                         class="btn-capture"
                         (click)="registerSelectedBayAssembly(station)"

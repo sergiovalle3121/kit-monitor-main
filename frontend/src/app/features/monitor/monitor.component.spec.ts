@@ -8,12 +8,14 @@ describe('MonitorComponent', () => {
     getProductionBackends: jasmine.createSpy('getProductionBackends'),
     getProductionMaterials: jasmine.createSpy('getProductionMaterials'),
     getProductionEvents: jasmine.createSpy('getProductionEvents'),
+    getProductionShortageRisk: jasmine.createSpy('getProductionShortageRisk'),
   };
 
   beforeEach(async () => {
     apiMock.getProductionBackends.calls.reset();
     apiMock.getProductionMaterials.calls.reset();
     apiMock.getProductionEvents.calls.reset();
+    apiMock.getProductionShortageRisk.calls.reset();
 
     await TestBed.configureTestingModule({
       imports: [MonitorComponent],
@@ -45,6 +47,7 @@ describe('MonitorComponent', () => {
       ]),
     );
     apiMock.getProductionEvents.and.returnValue(of([{ bayId: 3, quantity: 5 }, { bayId: 1, quantity: 2 }]));
+    apiMock.getProductionShortageRisk.and.returnValue(of({ bays: [] }));
 
     const fixture = TestBed.createComponent(MonitorComponent);
     const component = fixture.componentInstance;
@@ -55,14 +58,15 @@ describe('MonitorComponent', () => {
     expect(component.slots[1].progressPct).toBe(25);
     expect(component.slots[1].hasException).toBeTrue();
     expect(component.slots[1].bays).toEqual([
-      { bayId: 1, npCount: 1, consumed: 4, assembled: 2 },
-      { bayId: 3, npCount: 2, consumed: 3.5, assembled: 5 },
+      { bayId: 1, npCount: 1, consumed: 4, assembled: 2, pace: 0, etaMinutes: null, status: 'ready_to_produce' },
+      { bayId: 3, npCount: 2, consumed: 3.5, assembled: 5, pace: 0, etaMinutes: null, status: 'ready_to_produce' },
     ]);
     expect(component.slots[2].status).toBe('empty');
   });
 
   it('prevents row expansion when there is no active operation', () => {
     apiMock.getProductionBackends.and.returnValue(of([]));
+    apiMock.getProductionShortageRisk.and.returnValue(of({ bays: [] }));
 
     const fixture = TestBed.createComponent(MonitorComponent);
     const component = fixture.componentInstance;

@@ -14,6 +14,12 @@ interface BayMaterialState {
   availableQty: number;
   consumedQty: number;
   lowStockThreshold: number;
+  theoreticalConsumed?: number;
+  realConsumed?: number;
+  deltaConsumed?: number;
+  deltaState?: 'normal' | 'vigilar' | 'desviado';
+  depletionEtaMinutes?: number | null;
+  bayStatus?: string;
 }
 
 interface ProductionRuntimeSnapshot {
@@ -494,6 +500,39 @@ export class ProductionComponent implements OnInit {
     return 'ok';
   }
 
+  selectedBayOperationalState(station: ProductionStationView): string {
+    const key = this.getStationKey(station);
+    const bayId = this.extractBayNumber(this.selectedBahiaByStation[key]);
+    const runtimeRows = this.materialsForBay(station, bayId);
+    if (!runtimeRows.length) {
+      const hasLayout = !!(this.bayMapByStation[key]?.[this.selectedBahiaByStation[key] ?? '']?.length);
+      return hasLayout ? 'configured_not_mounted' : 'not_configured';
+    }
+    const status = runtimeRows.find((row) => !!row.bayStatus)?.bayStatus;
+    return status ?? 'ready_to_produce';
+  }
+
+  selectedBayOperationalMessage(station: ProductionStationView): string {
+    const status = this.selectedBayOperationalState(station);
+    if (status === 'not_configured') return 'La bahía no está configurada en la disposición de IE.';
+    if (status === 'configured_not_mounted') return 'Bahía configurada por IE pero aún no montada en backend.';
+    if (status === 'out_of_material') return 'Bahía sin material disponible.';
+    if (status === 'at_risk') return 'Bahía con riesgo de agotamiento de material.';
+    if (status === 'with_incident') return 'Bahía con incidencia abierta.';
+    if (status === 'off_plan') return 'Bahía desfasada respecto al consumo teórico.';
+    if (status === 'in_production') return 'Bahía en producción activa.';
+    return 'Bahía lista para producir.';
+  }
+
+  selectedBayConsumptionSummary(station: ProductionStationView): { theoretical: number; real: number; delta: number } {
+    const key = this.getStationKey(station);
+    const bayId = this.extractBayNumber(this.selectedBahiaByStation[key]);
+    const runtimeRows = this.materialsForBay(station, bayId);
+    const theoretical = runtimeRows.reduce((sum, row) => sum + Number(row.theoreticalConsumed ?? 0), 0);
+    const real = runtimeRows.reduce((sum, row) => sum + Number(row.realConsumed ?? row.consumedQty ?? 0), 0);
+    return { theoretical, real, delta: real - theoretical };
+  }
+
   canUndoLastRegister(station: ProductionStationView): boolean {
     const key = this.getStationKey(station);
     const last = this.lastRegisteredEventByStation[key];
@@ -932,6 +971,9 @@ export class ProductionComponent implements OnInit {
   private toPanelErrorMessage(error: any, fallback: string): string {
     const code = error?.error?.code;
     if (code === 'MATERIAL_INSUFFICIENT') return 'Material insuficiente para registrar';
+    if (code === 'NO_LAYOUT_CONFIGURED') return 'No hay disposición IE guardada para este modelo';
+    if (code === 'BAY_NOT_CONFIGURED_IN_LAYOUT') return 'La bahía seleccionada no está configurada en disposición IE';
+    if (code === 'BAY_NOT_MOUNTED_RUNTIME') return 'Bahía configurada por IE pero aún no montada en backend';
     if (code === 'DUPLICATE_REQUEST') return 'Registro duplicado detectado';
     if (code === 'EVENT_ALREADY_REVERTED') return 'El evento ya fue revertido';
     if (code === 'EVENT_NOT_LAST_REVERSIBLE') return 'Solo se puede revertir el último evento de la bahía';
