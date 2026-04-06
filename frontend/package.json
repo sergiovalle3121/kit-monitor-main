@@ -6,9 +6,10 @@
         "ng": "ng",
         "start": "ng serve --host 0.0.0.0 --port 4200",
         "build": "ng build --configuration production",
-        "test": "ng test --watch=false --browsers=ChromeHeadless",
+        "test": "node ./scripts/run-headless-tests.cjs",
         "lint": "ng lint",
-        "e2e": "ng e2e"
+        "e2e": "ng e2e",
+        "test:watch": "ng test --browsers=ChromeHeadlessCI"
     },
     "engines": {
         "node": ">=18"
@@ -42,5 +43,8 @@
         "karma-jasmine": "~5.1.0",
         "karma-jasmine-html-reporter": "~2.1.0",
         "typescript": "~5.8.2"
+    },
+    "optionalDependencies": {
+        "puppeteer": "^24.7.1"
     }
 }
