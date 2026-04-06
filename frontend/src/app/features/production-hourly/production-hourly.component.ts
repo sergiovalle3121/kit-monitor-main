@@ -7,6 +7,7 @@ interface HourPoint {
   label: string;
   real: number;
   planned: number;
+  bayId?: number;
 }
 
 interface BomConsumptionRow {
@@ -26,6 +27,7 @@ interface HourlyModelView {
   chartPathPlanned: string;
   points: HourPoint[];
   rows: BomConsumptionRow[];
+  bayRhythm: Array<{ bayId: number; unitsPerHour: number; etaMinutes: number | null; status: string }>;
 }
 
 @Component({
@@ -80,6 +82,7 @@ export class ProductionHourlyComponent implements OnInit {
           hourly: this.api.getProductionHourly(backend.kitId),
           materials: this.api.getProductionMaterials(backend.kitId),
           bom: this.api.getBom(backend.model),
+          risk: this.api.getProductionShortageRisk(backend.kitId),
         }));
         return calls.length ? forkJoin(calls) : of([]);
       }),
@@ -109,6 +112,7 @@ export class ProductionHourlyComponent implements OnInit {
     const hourly = payload.hourly ?? [];
     const materials = payload.materials ?? [];
     const bom = payload.bom ?? [];
+    const risk = payload.risk ?? {};
 
     const byHour = new Map<string, number>();
     hourly.forEach((item: any) => {
@@ -142,17 +146,24 @@ export class ProductionHourlyComponent implements OnInit {
     bom.forEach((item: any) => bomByPart.set(item.partNumber, item));
 
     const rows: BomConsumptionRow[] = materials.map((item: any) => {
-      const delivered = Number(item.availableQty ?? 0) + Number(item.consumedQty ?? 0);
-      const totalConsumed = Number(item.consumedQty ?? 0);
+      const theoretical = Number(item.theoreticalConsumed ?? 0);
+      const totalConsumed = Number(item.realConsumed ?? item.consumedQty ?? 0);
       return {
         partNumber: item.partNumber,
         description: item.description || bomByPart.get(item.partNumber)?.description || 'Sin descripción',
         qtyPerUnit: Number(item.usagePerAssembly ?? bomByPart.get(item.partNumber)?.usageFactor ?? 0),
         totalConsumed,
-        qtyDelivered: delivered,
-        delta: delivered - totalConsumed,
+        qtyDelivered: theoretical,
+        delta: Number(item.deltaConsumed ?? (totalConsumed - theoretical)),
       };
     }).sort((left: BomConsumptionRow, right: BomConsumptionRow) => left.partNumber.localeCompare(right.partNumber));
+
+    const bayRhythm = (risk.bays ?? []).map((row: any) => ({
+      bayId: Number(row.bayId ?? 0),
+      unitsPerHour: Number(row.assembliesPerHour ?? 0),
+      etaMinutes: row.avgMinutesToStockout ?? null,
+      status: String(row.status ?? 'ready_to_produce'),
+    })).sort((a: any, b: any) => a.bayId - b.bayId);
 
     return {
       model: backend.model ?? 'N/A',
@@ -162,6 +173,7 @@ export class ProductionHourlyComponent implements OnInit {
       chartPathPlanned: buildPath('planned'),
       points,
       rows,
+      bayRhythm,
     };
   }
 }
