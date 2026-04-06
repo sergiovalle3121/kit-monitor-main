@@ -1,7 +1,7 @@
 FROM node:18-alpine AS build
 WORKDIR /app
 COPY frontend/package*.json ./frontend/
-RUN cd frontend && npm ci
+RUN cd frontend && npm install
 COPY frontend ./frontend
 RUN cd frontend && npx ng build --configuration production
 
