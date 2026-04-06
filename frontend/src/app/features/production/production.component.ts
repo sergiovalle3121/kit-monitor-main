@@ -88,6 +88,13 @@ interface PendingRefreshContext {
   wasOpen: boolean;
 }
 
+interface LastRegisteredEvent {
+  eventId: number;
+  at: string;
+  bahia: string;
+  quantity: number;
+}
+
 @Component({
   selector: 'app-production',
   standalone: true,
@@ -129,9 +136,11 @@ export class ProductionComponent implements OnInit {
   lastSuccessAtByStation: Record<string, string> = {};
   lastSuccessBahiaByStation: Record<string, string> = {};
   quickModeByStation: Record<string, boolean> = {};
-  localIncidentsByStation: Record<string, { type: string; note?: string; at: string }[]> = {};
+  localIncidentsByStation: Record<string, { id?: number; bayId: number; type: string; note?: string; operator?: string; at: string }[]> = {};
   incidentTypeDraftByStation: Record<string, string> = {};
   incidentNoteDraftByStation: Record<string, string> = {};
+  undoInProgressByStation: Record<string, boolean> = {};
+  lastRegisteredEventByStation: Record<string, LastRegisteredEvent | null> = {};
   private stationModelByKey: Record<string, string | null> = {};
   private pendingRefreshContext: PendingRefreshContext | null = null;
 
@@ -267,7 +276,7 @@ export class ProductionComponent implements OnInit {
       notes: this.bayNotes[key]?.trim() || undefined,
       operator: this.bayOperator[key]?.trim() || undefined,
     }).subscribe({
-      next: () => {
+      next: (response) => {
         const openStationKey = this.getStationKey(station);
         const openBahia = this.selectedBahiaByStation[openStationKey] ?? '';
         const sessionCount = this.sessionAssembledByStation[openStationKey] ?? 0;
@@ -287,6 +296,15 @@ export class ProductionComponent implements OnInit {
         this.registerSuccessByStation[openStationKey] = `Unidad registrada en ${openBahia || `Bahía ${bayId}`}`;
         this.lastSuccessAtByStation[openStationKey] = new Date().toISOString();
         this.lastSuccessBahiaByStation[openStationKey] = openBahia || `Bahía ${bayId}`;
+        const createdEventId = Number(response?.lastEvent?.id);
+        if (Number.isFinite(createdEventId) && createdEventId > 0) {
+          this.lastRegisteredEventByStation[openStationKey] = {
+            eventId: createdEventId,
+            at: new Date().toISOString(),
+            bahia: openBahia || `Bahía ${bayId}`,
+            quantity: qty,
+          };
+        }
         setTimeout(() => { this.registerPulseByStation[openStationKey] = false; }, 300);
         if (this.quickModeByStation[openStationKey]) {
           this.bayQty[key] = 1;
@@ -392,6 +410,7 @@ export class ProductionComponent implements OnInit {
   openBahiaMES(station: ProductionStationView, bahia: string): void {
     this.selectBahia(station, bahia);
     this.mesOpenByStation[this.getStationKey(station)] = true;
+    this.loadBayIncidents(station);
   }
 
   closeBahiaMES(station: ProductionStationView): void {
@@ -471,31 +490,90 @@ export class ProductionComponent implements OnInit {
 
   canUndoLastRegister(station: ProductionStationView): boolean {
     const key = this.getStationKey(station);
-    const at = this.lastSuccessAtByStation[key];
-    if (!at) return false;
-    return (Date.now() - new Date(at).getTime()) <= 10_000;
+    const last = this.lastRegisteredEventByStation[key];
+    if (!last || this.undoInProgressByStation[key]) return false;
+    const selected = this.selectedBahiaByStation[key];
+    if (selected !== last.bahia) return false;
+    return (Date.now() - new Date(last.at).getTime()) <= 10_000;
   }
 
   undoAvailabilityMessage(station: ProductionStationView): string {
-    return this.canUndoLastRegister(station)
-      ? 'Deshacer no disponible aún: requiere soporte backend'
-      : '';
+    if (this.canUndoLastRegister(station)) return 'Deshacer disponible por 10 segundos';
+    const key = this.getStationKey(station);
+    if (this.lastRegisteredEventByStation[key]) return 'Ventana de deshacer expirada';
+    return '';
+  }
+
+  undoLastRegister(station: ProductionStationView): void {
+    const key = this.getStationKey(station);
+    const last = this.lastRegisteredEventByStation[key];
+    if (!last || !this.canUndoLastRegister(station)) return;
+    this.undoInProgressByStation[key] = true;
+
+    const openBahia = this.selectedBahiaByStation[key] ?? last.bahia;
+    this.pendingRefreshContext = {
+      openStationKey: key,
+      openBahia,
+      sessionCount: Math.max(0, (this.sessionAssembledByStation[key] ?? 0) - last.quantity),
+      wasOpen: this.mesOpenByStation[key] === true,
+    };
+
+    this.api.revertProductionEvent(last.eventId).subscribe({
+      next: () => {
+        this.undoInProgressByStation[key] = false;
+        this.lastRegisteredEventByStation[key] = null;
+        this.registerSuccessByStation[key] = 'Último registro revertido';
+        this.load();
+      },
+      error: (err) => {
+        this.undoInProgressByStation[key] = false;
+        this.requestError[station.kit?.id] = err?.error?.message ?? 'No se pudo revertir el último registro';
+      },
+    });
   }
 
   reportLocalIncident(station: ProductionStationView): void {
     const key = this.getStationKey(station);
+    const kitId = station.kit?.id;
+    const bayId = this.extractBayNumber(this.selectedBahiaByStation[key]);
+    if (!kitId || !Number.isFinite(bayId) || bayId <= 0) return;
     const type = this.incidentTypeDraftByStation[key] || 'Otro';
     const note = this.incidentNoteDraftByStation[key]?.trim();
-    this.localIncidentsByStation[key] = [
-      { type, note, at: new Date().toISOString() },
-      ...(this.localIncidentsByStation[key] ?? []),
-    ].slice(0, 10);
-    this.incidentNoteDraftByStation[key] = '';
+    const operator = this.bayOperator[this.bayInputKey(station, bayId)]?.trim() || undefined;
+
+    this.api.createProductionIncident(kitId, bayId, { type, note, operator }).subscribe({
+      next: (saved) => {
+        const mapped = {
+          id: saved?.id,
+          bayId: Number(saved?.bayId ?? bayId),
+          type: saved?.type ?? type,
+          note: saved?.note ?? note,
+          operator: saved?.operator ?? operator,
+          at: saved?.createdAt ?? new Date().toISOString(),
+        };
+        this.localIncidentsByStation[key] = [mapped, ...(this.localIncidentsByStation[key] ?? [])].slice(0, 20);
+        this.incidentNoteDraftByStation[key] = '';
+        this.registerSuccessByStation[key] = 'Incidencia guardada';
+      },
+      error: (err) => {
+        this.requestError[kitId] = err?.error?.message ?? 'No se pudo guardar la incidencia';
+      },
+    });
   }
 
-  lastLocalIncident(station: ProductionStationView): { type: string; note?: string; at: string } | null {
+  lastLocalIncident(station: ProductionStationView): { id?: number; bayId: number; type: string; note?: string; operator?: string; at: string } | null {
     const key = this.getStationKey(station);
-    return this.localIncidentsByStation[key]?.[0] ?? null;
+    const bayId = this.extractBayNumber(this.selectedBahiaByStation[key]);
+    return (this.localIncidentsByStation[key] ?? []).find((item) => item.bayId === bayId) ?? null;
+  }
+
+  getRecentBayIncidents(station: ProductionStationView): Array<{ id?: number; bayId: number; type: string; note?: string; operator?: string; at: string }> {
+    const key = this.getStationKey(station);
+    const bayId = this.extractBayNumber(this.selectedBahiaByStation[key]);
+    return (this.localIncidentsByStation[key] ?? [])
+      .filter((incident) => incident.bayId === bayId)
+      .sort((left, right) => new Date(right.at).getTime() - new Date(left.at).getTime())
+      .slice(0, 5);
   }
 
   focusQuantityInput(station: ProductionStationView): void {
@@ -516,7 +594,8 @@ export class ProductionComponent implements OnInit {
     const bayId = this.extractBayNumber(selected);
     if (!Number.isFinite(bayId) || bayId <= 0) return false;
     const qty = this.quickBayQty(station, bayId);
-    return Number.isFinite(qty) && qty > 0;
+    const saving = this.baySaving[this.bayInputKey(station, bayId)] ?? false;
+    return !saving && Number.isFinite(qty) && qty > 0;
   }
 
   bayLowStockCount(station: ProductionStationView, bayId: number): number {
@@ -737,6 +816,8 @@ export class ProductionComponent implements OnInit {
       delete this.localIncidentsByStation[key];
       delete this.incidentTypeDraftByStation[key];
       delete this.incidentNoteDraftByStation[key];
+      delete this.undoInProgressByStation[key];
+      delete this.lastRegisteredEventByStation[key];
       delete this.stationModelByKey[key];
     });
 
@@ -783,6 +864,8 @@ export class ProductionComponent implements OnInit {
           this.selectedBahiaByStation[key] = '';
         },
       });
+
+      this.loadBayIncidents(station);
     });
   }
 
@@ -809,5 +892,27 @@ export class ProductionComponent implements OnInit {
         .sort((a, b) => this.extractBayNumber(a) - this.extractBayNumber(b))[0];
     }
     this.sessionAssembledByStation[openStationKey] = sessionCount;
+  }
+
+  private loadBayIncidents(station: ProductionStationView): void {
+    const key = this.getStationKey(station);
+    const kitId = station.kit?.id;
+    const bayId = this.extractBayNumber(this.selectedBahiaByStation[key]);
+    if (!kitId || !Number.isFinite(bayId) || bayId <= 0) return;
+    this.api.getProductionIncidents(kitId, bayId).subscribe({
+      next: (rows) => {
+        this.localIncidentsByStation[key] = (rows ?? []).map((row: any) => ({
+          id: row.id,
+          bayId: Number(row.bayId ?? bayId),
+          type: row.type,
+          note: row.note,
+          operator: row.operator,
+          at: row.createdAt,
+        }));
+      },
+      error: () => {
+        this.localIncidentsByStation[key] = this.localIncidentsByStation[key] ?? [];
+      },
+    });
   }
 }

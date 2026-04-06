@@ -1,13 +1,15 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, In, Repository } from 'typeorm';
+import { DataSource, In, IsNull, Repository } from 'typeorm';
 import { Kit } from '../kits/entities/kit.entity';
 import { KitMaterial } from '../kit-materials/entities/kit-material.entity';
 import { BayLayout } from '../bay-layout/entities/bay-layout.entity';
 import { BomItem } from '../bom/entities/bom-item.entity';
 import { ProductionBayEvent } from './entities/production-bay-event.entity';
+import { ProductionBayIncident } from './entities/production-bay-incident.entity';
 import { ProductionBayMaterialState } from './entities/production-bay-material-state.entity';
 import { RegisterBayEventDto } from './dto/register-bay-event.dto';
+import { CreateBayIncidentDto } from './dto/create-bay-incident.dto';
 
 @Injectable()
 export class ProductionRuntimeService {
@@ -17,6 +19,7 @@ export class ProductionRuntimeService {
     @InjectRepository(BayLayout) private readonly bayLayoutRepo: Repository<BayLayout>,
     @InjectRepository(BomItem) private readonly bomRepo: Repository<BomItem>,
     @InjectRepository(ProductionBayEvent) private readonly eventRepo: Repository<ProductionBayEvent>,
+    @InjectRepository(ProductionBayIncident) private readonly incidentRepo: Repository<ProductionBayIncident>,
     @InjectRepository(ProductionBayMaterialState) private readonly materialStateRepo: Repository<ProductionBayMaterialState>,
     private readonly dataSource: DataSource,
   ) {}
@@ -100,13 +103,80 @@ export class ProductionRuntimeService {
         .createQueryBuilder(ProductionBayEvent, 'event')
         .select('COALESCE(SUM(event.quantity), 0)', 'total')
         .where('event.kitId = :kitId', { kitId })
+        .andWhere('event.revertedAt IS NULL')
         .getRawOne<{ total: string }>();
 
       const completedQty = Number(total?.total ?? 0);
       const nextStatus = completedQty >= kit.plan.quantity ? 'completed' : 'in_progress';
       await em.update(Kit, kitId, { status: nextStatus });
 
-      return this.buildBackendView(kitId);
+      const backend = await this.buildBackendView(kitId);
+      return {
+        ...backend,
+        lastEvent: {
+          id: event.id,
+          bayId: event.bayId,
+          quantity: event.quantity,
+          timestamp: event.timestamp,
+          operator: event.operator,
+          notes: event.notes,
+        },
+      };
+    });
+  }
+
+  async revertBayEvent(eventId: number) {
+    const event = await this.eventRepo.findOne({
+      where: { id: eventId },
+      relations: ['kit'],
+    });
+    if (!event) throw new NotFoundException(`Evento ${eventId} no encontrado`);
+    if (event.revertedAt) throw new BadRequestException('El evento ya fue revertido');
+
+    const kit = await this.findKit(event.kit.id);
+    await this.ensureMaterialState(kit.id);
+
+    return this.dataSource.transaction(async (em) => {
+      const states = await em.find(ProductionBayMaterialState, {
+        where: { kit: { id: kit.id }, bayId: event.bayId },
+      });
+
+      for (const state of states) {
+        const rollback = event.quantity * state.usagePerAssembly;
+        state.consumedQty = Math.max(0, Math.round((state.consumedQty - rollback) * 1e6) / 1e6);
+        state.availableQty = Math.max(0, Math.round((state.availableQty + rollback) * 1e6) / 1e6);
+      }
+      await em.save(states);
+
+      event.revertedAt = new Date();
+      event.revertedReason = 'operator_undo';
+      await em.save(event);
+
+      const total = await em
+        .createQueryBuilder(ProductionBayEvent, 'event')
+        .select('COALESCE(SUM(event.quantity), 0)', 'total')
+        .where('event.kitId = :kitId', { kitId: kit.id })
+        .andWhere('event.revertedAt IS NULL')
+        .getRawOne<{ total: string }>();
+
+      const completedQty = Number(total?.total ?? 0);
+      const nextStatus = completedQty >= kit.plan.quantity ? 'completed' : 'in_progress';
+      await em.update(Kit, kit.id, { status: nextStatus });
+
+      const backend = await this.buildBackendView(kit.id);
+      return {
+        ...backend,
+        reverted: true,
+        revertedEvent: {
+          id: event.id,
+          bayId: event.bayId,
+          quantity: event.quantity,
+          timestamp: event.timestamp,
+          operator: event.operator,
+          notes: event.notes,
+          revertedAt: event.revertedAt,
+        },
+      };
     });
   }
 
@@ -114,6 +184,28 @@ export class ProductionRuntimeService {
     return this.eventRepo.find({
       where: { kit: { id: kitId } },
       order: { timestamp: 'DESC' },
+    });
+  }
+
+  async createBayIncident(kitId: number, bayId: number, dto: CreateBayIncidentDto) {
+    if (bayId < 1 || bayId > 6) throw new BadRequestException('bayId debe estar entre 1 y 6');
+    await this.findKit(kitId);
+    const incident = this.incidentRepo.create({
+      kit: { id: kitId } as Kit,
+      bayId,
+      type: dto.type,
+      note: dto.note,
+      operator: dto.operator,
+      status: 'open',
+    });
+    return this.incidentRepo.save(incident);
+  }
+
+  async getBayIncidents(kitId: number, bayId: number) {
+    return this.incidentRepo.find({
+      where: { kit: { id: kitId }, bayId },
+      order: { createdAt: 'DESC' },
+      take: 20,
     });
   }
 
@@ -132,7 +224,7 @@ export class ProductionRuntimeService {
     });
 
     const agg = new Map<string, { bayId: number; totalQty: number; events: number }>();
-    events.forEach((event) => {
+    events.filter((event) => !event.revertedAt).forEach((event) => {
       const dt = new Date(event.timestamp);
       dt.setMinutes(0, 0, 0);
       const key = `${dt.toISOString()}-B${event.bayId}`;
@@ -172,7 +264,7 @@ export class ProductionRuntimeService {
     });
 
     const recentByBay = new Map<number, number>();
-    events.filter((event) => new Date(event.timestamp) >= cutoff).forEach((event) => {
+    events.filter((event) => !event.revertedAt && new Date(event.timestamp) >= cutoff).forEach((event) => {
       recentByBay.set(event.bayId, (recentByBay.get(event.bayId) ?? 0) + event.quantity);
     });
 
@@ -236,6 +328,7 @@ export class ProductionRuntimeService {
       .createQueryBuilder('event')
       .select('COALESCE(SUM(event.quantity), 0)', 'total')
       .where('event.kitId = :kitId', { kitId })
+      .andWhere('event.revertedAt IS NULL')
       .getRawOne<{ total: string }>();
 
     const completedQty = Number(completedRaw?.total ?? 0);
@@ -261,12 +354,18 @@ export class ProductionRuntimeService {
 
 
   private async firstEventAt(kitId: number): Promise<Date | null> {
-    const row = await this.eventRepo.findOne({ where: { kit: { id: kitId } }, order: { timestamp: 'ASC' } });
+    const row = await this.eventRepo.findOne({
+      where: { kit: { id: kitId }, revertedAt: IsNull() },
+      order: { timestamp: 'ASC' },
+    });
     return row?.timestamp ?? null;
   }
 
   private async lastEventAt(kitId: number): Promise<Date | null> {
-    const row = await this.eventRepo.findOne({ where: { kit: { id: kitId } }, order: { timestamp: 'DESC' } });
+    const row = await this.eventRepo.findOne({
+      where: { kit: { id: kitId }, revertedAt: IsNull() },
+      order: { timestamp: 'DESC' },
+    });
     return row?.timestamp ?? null;
   }
 

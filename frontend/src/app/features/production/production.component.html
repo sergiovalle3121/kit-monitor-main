@@ -312,7 +312,12 @@
                     </label>
 
                     <div class="action-row inline-row">
-                      <button class="btn-resupply" [disabled]="true" [title]="undoAvailabilityMessage(station)">
+                      <button
+                        class="btn-resupply"
+                        (click)="undoLastRegister(station)"
+                        [disabled]="!canUndoLastRegister(station)"
+                        [title]="undoAvailabilityMessage(station)"
+                      >
                         Deshacer último registro
                       </button>
                       <span class="action-caption" *ngIf="undoAvailabilityMessage(station)">{{ undoAvailabilityMessage(station) }}</span>
@@ -362,6 +367,20 @@
                       <ng-template #noRecentBayEvents>
                         <div class="empty-box compact">Aún no hay registros para esta bahía.</div>
                       </ng-template>
+
+                      <div class="timeline" *ngIf="getRecentBayIncidents(station).length">
+                        <div class="timeline-row" *ngFor="let incident of getRecentBayIncidents(station)">
+                          <div class="timeline-main">
+                            <strong>INC · {{ incident.type }}</strong>
+                            <span>{{ incident.at | date:'shortTime' }}</span>
+                          </div>
+                          <div class="timeline-note" *ngIf="incident.operator || incident.note">
+                            <span *ngIf="incident.operator">{{ incident.operator }}</span>
+                            <span *ngIf="incident.operator && incident.note"> · </span>
+                            <span *ngIf="incident.note">{{ incident.note }}</span>
+                          </div>
+                        </div>
+                      </div>
                     </div>
 
                     <div class="info-card compact-card">
@@ -384,7 +403,7 @@
                         <button class="btn-resupply" (click)="reportLocalIncident(station)">Reportar incidencia</button>
                       </div>
                       <div class="action-caption" *ngIf="lastLocalIncident(station)">
-                        Incidencia registrada en sesión · {{ lastLocalIncident(station)?.type }}
+                        Incidencia guardada · {{ lastLocalIncident(station)?.type }}
                         <span *ngIf="lastLocalIncident(station)?.note"> · {{ lastLocalIncident(station)?.note }}</span>
                       </div>
                     </div>
