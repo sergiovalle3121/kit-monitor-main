@@ -2,6 +2,7 @@ import { Body, Controller, Get, Param, ParseIntPipe, Post, UseGuards } from '@ne
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ProductionRuntimeService } from './production-runtime.service';
 import { RegisterBayEventDto } from './dto/register-bay-event.dto';
+import { CreateBayIncidentDto } from './dto/create-bay-incident.dto';
 
 @UseGuards(JwtAuthGuard)
 @Controller('production')
@@ -37,6 +38,11 @@ export class ProductionRuntimeController {
     return this.service.registerBayEvent(kitId, bayId, dto);
   }
 
+  @Post('events/:eventId/revert')
+  revertEvent(@Param('eventId', ParseIntPipe) eventId: number) {
+    return this.service.revertBayEvent(eventId);
+  }
+
   @Get('backends/:kitId/events')
   getEvents(@Param('kitId', ParseIntPipe) kitId: number) {
     return this.service.getEvents(kitId);
@@ -45,6 +51,23 @@ export class ProductionRuntimeController {
   @Get('backends/:kitId/materials')
   getMaterials(@Param('kitId', ParseIntPipe) kitId: number) {
     return this.service.getMaterials(kitId);
+  }
+
+  @Post('backends/:kitId/bays/:bayId/incidents')
+  createIncident(
+    @Param('kitId', ParseIntPipe) kitId: number,
+    @Param('bayId', ParseIntPipe) bayId: number,
+    @Body() dto: CreateBayIncidentDto,
+  ) {
+    return this.service.createBayIncident(kitId, bayId, dto);
+  }
+
+  @Get('backends/:kitId/bays/:bayId/incidents')
+  getIncidents(
+    @Param('kitId', ParseIntPipe) kitId: number,
+    @Param('bayId', ParseIntPipe) bayId: number,
+  ) {
+    return this.service.getBayIncidents(kitId, bayId);
   }
 
   @Get('backends/:kitId/hourly')
