@@ -1,0 +1,12 @@
+{
+  "name": "kit-monitor-root",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "build": "npm --prefix frontend ci && npm --prefix frontend run build",
+    "start": "node frontend/serve-dist.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
