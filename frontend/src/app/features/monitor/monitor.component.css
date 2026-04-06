@@ -121,6 +121,22 @@
   width: 30px;
   height: 30px;
   cursor: pointer;
+  transition: transform 120ms ease, background-color 120ms ease, opacity 120ms ease;
+}
+
+.btn-expand:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.18);
+  transform: translateY(-1px);
+}
+
+.btn-expand:focus-visible {
+  outline: 2px solid #93c5fd;
+  outline-offset: 1px;
+}
+
+.btn-expand:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .row-empty {
