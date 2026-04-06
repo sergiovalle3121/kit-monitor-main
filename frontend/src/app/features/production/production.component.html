@@ -331,44 +331,6 @@
 
                     <div class="action-row inline-row">
                       <button
-                        class="btn-capture"
-                        (click)="registerSelectedBayAssembly(station)"
-                        [disabled]="baySaving[bayInputKey(station, extractBayNumber(selectedBahia))] || !canRegisterSelectedBay(station)"
-                      >
-                        {{ baySaving[bayInputKey(station, extractBayNumber(selectedBahia))] ? '...' : 'Registrar (+Enter)' }}
-                      </button>
-                    </div>
-
-                    <label class="quick-mode">
-                      <input
-                        type="checkbox"
-                        [ngModel]="quickModeByStation[getStationKey(station)] || false"
-                        (ngModelChange)="quickModeByStation[getStationKey(station)] = $event"
-                      />
-                      Modo rápido
-                    </label>
-
-                    <div class="action-row inline-row">
-                      <button
-                        class="btn-capture"
-                        (click)="registerSelectedBayAssembly(station)"
-                        [disabled]="baySaving[bayInputKey(station, extractBayNumber(selectedBahia))] || !canRegisterSelectedBay(station)"
-                      >
-                        {{ baySaving[bayInputKey(station, extractBayNumber(selectedBahia))] ? '...' : 'Registrar (+Enter)' }}
-                      </button>
-                    </div>
-
-                    <label class="quick-mode">
-                      <input
-                        type="checkbox"
-                        [ngModel]="quickModeByStation[getStationKey(station)] || false"
-                        (ngModelChange)="quickModeByStation[getStationKey(station)] = $event"
-                      />
-                      Modo rápido
-                    </label>
-
-                    <div class="action-row inline-row">
-                      <button
                         class="btn-resupply"
                         (click)="undoLastRegister(station)"
                         [disabled]="!canUndoLastRegister(station)"
