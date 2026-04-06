@@ -147,7 +147,7 @@
           <button class="btn-capture" *ngIf="canStartAssembly(station)" (click)="startAssembly(station)" [disabled]="updatingStatusKitId === station.kit.id">
             {{ updatingStatusKitId === station.kit.id ? 'Procesando...' : 'Iniciar ensamblado' }}
           </button>
-          <button class="btn-request" *ngIf="station.visualAid" (click)="openStationVisualAid(station)">Abrir ayuda visual</button>
+          <button class="btn-request" *ngIf="station.visualAid" (click)="openStationVisualAid(station)">Ver ayuda visual</button>
         </div>
 
         <p class="error" *ngIf="requestError[station.kit.id]">{{ requestError[station.kit.id] }}</p>
@@ -156,86 +156,284 @@
           <div class="layout-area">
             <div class="section-header">
               <h3>Bahías en operación</h3>
-              <span class="section-meta">{{ bayIdsForStation(station).length }} bahías</span>
+              <span class="section-meta">{{ getAvailableBahias(station).length }} bahías</span>
             </div>
 
-            <div class="bay-grid" *ngIf="bayIdsForStation(station).length; else noBaysConfigured">
-              <article class="bay-card" *ngFor="let bayId of bayIdsForStation(station)">
-                <div class="bay-header">
-                  <strong>Bahía {{ bayId }}</strong>
-                  <span class="risk" [class.warn]="bayLowStockCount(station, bayId)">
-                    Riesgo: {{ bayLowStockCount(station, bayId) || 'Sin riesgo' }}
-                  </span>
-                </div>
+            <div class="empty-box compact" *ngIf="layoutLoadingByStation[getStationKey(station)]">Cargando disposición...</div>
 
-                <div class="bay-stats">
-                  <span>Ensamblado: {{ bayAssembled(station, bayId) }}</span>
-                  <span *ngIf="bayLastEvent(station, bayId)">Último: {{ bayLastEvent(station, bayId) | date:'shortTime' }}</span>
-                </div>
+            <div class="empty-box compact" *ngIf="!layoutLoadingByStation[getStationKey(station)] && layoutErrorByStation[getStationKey(station)]">
+              {{ layoutErrorByStation[getStationKey(station)] }}
+            </div>
 
-                <div class="material-stack" *ngIf="materialsForBay(station, bayId).length; else noBayMaterials">
-                  <div class="material-card" *ngFor="let material of materialsForBay(station, bayId)" [class.low]="material.availableQty <= material.lowStockThreshold">
-                    <div class="material-top">
-                      <code>{{ material.partNumber }}</code>
-                      <span class="stock-pill">{{ material.availableQty | number:'1.0-2' }}</span>
+            <ng-container *ngIf="!layoutLoadingByStation[getStationKey(station)] && !layoutErrorByStation[getStationKey(station)]">
+              <div class="bay-entry-grid" *ngIf="getAvailableBahias(station).length">
+                <button
+                  type="button"
+                  class="bay-entry-card"
+                  *ngFor="let bahia of getAvailableBahias(station)"
+                  (click)="openBahiaMES(station, bahia)"
+                >
+                  <strong>{{ bahia }}</strong>
+                  <span>{{ bayMapByStation[getStationKey(station)][bahia].length }} NPs</span>
+                </button>
+              </div>
+
+              <div class="mes-overlay" *ngIf="isBahiaMESOpen(station)" (click)="closeBahiaMES(station)">
+                <article
+                  class="mes-panel bay-card"
+                  [class.pulse]="registerPulseByStation[getStationKey(station)]"
+                  (click)="$event.stopPropagation()"
+                >
+                  <div class="mes-header">
+                    <div>
+                      <strong>{{ selectedBahiaByStation[getStationKey(station)] || 'Bahía' }}</strong>
+                      <div class="mes-subtitle">{{ station.model }} · {{ station.backendKey }} · {{ statusLabel(station.status) }}</div>
                     </div>
-                    <div class="material-desc">{{ material.description || 'Sin descripción' }}</div>
-                    <div class="material-meta">
-                      <span>Consumo: {{ material.consumedQty | number:'1.0-2' }}</span>
-                      <span>Factor: {{ material.usagePerAssembly | number:'1.0-2' }}/u</span>
+                    <button class="btn-collapse" (click)="closeBahiaMES(station)">Cerrar</button>
+                  </div>
+
+                  <div class="empty-box compact" *ngIf="layoutLoadingByStation[getStationKey(station)]">
+                    Cargando estación MES...
+                  </div>
+
+                  <div class="empty-box compact" *ngIf="!layoutLoadingByStation[getStationKey(station)] && layoutErrorByStation[getStationKey(station)]">
+                    {{ layoutErrorByStation[getStationKey(station)] }}
+                  </div>
+
+                  <ng-container *ngIf="!layoutLoadingByStation[getStationKey(station)] && !layoutErrorByStation[getStationKey(station)] && selectedBahiaByStation[getStationKey(station)] as selectedBahia">
+                    <div class="bay-header">
+                      <strong>{{ selectedBahia }}</strong>
+                      <span class="risk" [class.warn]="bayLowStockCount(station, extractBayNumber(selectedBahia))">
+                        Riesgo: {{ bayLowStockCount(station, extractBayNumber(selectedBahia)) || 'Sin riesgo' }}
+                      </span>
                     </div>
-                    <div class="resupply-row" *ngIf="material.availableQty <= material.lowStockThreshold">
+
+                    <div class="bay-stats">
+                      <span class="plan-chip status-ok" *ngIf="getBayHealth(station) === 'ok'">Semáforo: Verde</span>
+                      <span class="plan-chip status-progress" *ngIf="getBayHealth(station) === 'risk'">Semáforo: Ámbar</span>
+                      <span class="plan-chip status-pending" *ngIf="getBayHealth(station) === 'empty'">Semáforo: Rojo</span>
+                      <span class="plan-chip status-pending" *ngIf="getBayHealth(station) === 'unknown'">Semáforo: N/D</span>
+                    </div>
+
+                    <div class="bay-stats">
+                      <span>Ensamblado: {{ bayAssembled(station, extractBayNumber(selectedBahia)) }}</span>
+                      <span *ngIf="bayLastEvent(station, extractBayNumber(selectedBahia))">Último: {{ bayLastEvent(station, extractBayNumber(selectedBahia)) | date:'shortTime' }}</span>
+                    </div>
+
+                    <div class="bay-stats">
+                      <span>Sesión: {{ sessionAssembledByStation[getStationKey(station)] || 0 }}</span>
+                    </div>
+
+                    <div class="action-strip info compact">
+                      <div class="action-caption">{{ selectedBayOperationalMessage(station) }}</div>
+                    </div>
+
+                    <div class="bay-stats" *ngIf="getDisplayedBayMaterials(station).length">
+                      <span>Teórico: {{ selectedBayConsumptionSummary(station).theoretical | number:'1.0-2' }}</span>
+                      <span>Real: {{ selectedBayConsumptionSummary(station).real | number:'1.0-2' }}</span>
+                      <span [class.warn]="selectedBayConsumptionSummary(station).delta > 0">
+                        Δ {{ selectedBayConsumptionSummary(station).delta | number:'1.0-2' }}
+                      </span>
+                    </div>
+
+                    <div class="action-row inline-row" *ngIf="station.visualAid">
+                      <button class="btn-request" (click)="openStationVisualAid(station)">Ver ayuda visual</button>
+                    </div>
+                    <div class="action-caption" *ngIf="station.visualAid">Ayuda visual disponible</div>
+                    <div class="action-caption" *ngIf="!station.visualAid">Este modelo no tiene ayuda visual cargada por IE</div>
+
+                    <div class="material-stack" *ngIf="getDisplayedBayMaterials(station).length; else noBayMaterials">
+                      <div
+                        class="material-card"
+                        *ngFor="let material of getDisplayedBayMaterials(station)"
+                        [class.low]="getMaterialHealth(material) === 'risk'"
+                        [class.critical]="getMaterialHealth(material) === 'empty'"
+                      >
+                        <div class="material-top">
+                          <code>{{ material.partNumber }}</code>
+                          <span class="stock-pill">{{ material.disponible }}</span>
+                        </div>
+                        <div class="material-desc">{{ material.descripcion }}</div>
+                        <div class="material-meta">
+                          <span>Consumo: {{ material.runtime?.consumedQty | number:'1.0-2' }}</span>
+                          <span>Factor: {{ material.factor | number:'1.0-2' }}/u</span>
+                        </div>
+                        <div class="material-meta" *ngIf="material.runtime?.theoreticalConsumed !== undefined">
+                          <span>Teórico: {{ material.runtime?.theoreticalConsumed | number:'1.0-2' }}</span>
+                          <span [class.warn]="(material.runtime?.deltaConsumed ?? 0) > 0">
+                            Δ {{ material.runtime?.deltaConsumed | number:'1.0-2' }}
+                          </span>
+                        </div>
+                        <div class="resupply-row" *ngIf="material.runtime && material.runtime.availableQty <= material.runtime.lowStockThreshold">
+                          <input
+                            type="number"
+                            min="1"
+                            [ngModel]="resupplyQty[resupplyKey(station, material.partNumber)]"
+                            (ngModelChange)="resupplyQty[resupplyKey(station, material.partNumber)] = $event"
+                            (keydown.enter)="onResupplyEnter(station, material.partNumber, $event, material.descripcion)"
+                            placeholder="Reabasto"
+                          />
+                          <button
+                            class="btn-resupply"
+                            (click)="requestResupply(station, material.partNumber, material.descripcion)"
+                            [disabled]="requestingResupplyKey === resupplyKey(station, material.partNumber)"
+                          >
+                            {{ requestingResupplyKey === resupplyKey(station, material.partNumber) ? '...' : 'Pedir' }}
+                          </button>
+                        </div>
+                        <p class="error-inline" *ngIf="resupplyError[resupplyKey(station, material.partNumber)]">
+                          {{ resupplyError[resupplyKey(station, material.partNumber)] }}
+                        </p>
+                      </div>
+                    </div>
+
+                    <ng-template #noBayMaterials>
+                      <div class="empty-box compact">No hay NPs asignados a esta bahía en la disposición.</div>
+                    </ng-template>
+
+                    <div class="capture-form" *ngIf="canCaptureByBay(station)">
                       <input
+                        [id]="'mes-qty-' + getStationKey(station)"
                         type="number"
                         min="1"
-                        [ngModel]="resupplyQty[resupplyKey(station, material.partNumber)]"
-                        (ngModelChange)="resupplyQty[resupplyKey(station, material.partNumber)] = $event"
-                        (keydown.enter)="onResupplyEnter(station, material.partNumber, $event, material.description)"
-                        placeholder="Reabasto"
+                        [ngModel]="quickBayQty(station, extractBayNumber(selectedBahia))"
+                        (ngModelChange)="updateBayQty(station, extractBayNumber(selectedBahia), $event)"
+                        (keydown.enter)="onSelectedBayEnter(station, $event)"
+                      />
+                      <input
+                        [ngModel]="bayOperator[bayInputKey(station, extractBayNumber(selectedBahia))] || ''"
+                        (ngModelChange)="bayOperator[bayInputKey(station, extractBayNumber(selectedBahia))] = $event"
+                        placeholder="Operador"
+                      />
+                      <input
+                        [ngModel]="bayNotes[bayInputKey(station, extractBayNumber(selectedBahia))] || ''"
+                        (ngModelChange)="bayNotes[bayInputKey(station, extractBayNumber(selectedBahia))] = $event"
+                        (keydown.enter)="onSelectedBayEnter(station, $event)"
+                        placeholder="Nota"
                       />
                       <button
-                        class="btn-resupply"
-                        (click)="requestResupply(station, material.partNumber, material.description)"
-                        [disabled]="requestingResupplyKey === resupplyKey(station, material.partNumber)"
+                        class="btn-capture"
+                        (click)="registerSelectedBayAssembly(station)"
+                        [disabled]="baySaving[bayInputKey(station, extractBayNumber(selectedBahia))] || !canRegisterSelectedBay(station)"
                       >
-                        {{ requestingResupplyKey === resupplyKey(station, material.partNumber) ? '...' : 'Pedir' }}
+                        {{ baySaving[bayInputKey(station, extractBayNumber(selectedBahia))] ? '...' : 'Registrar (+Enter)' }}
                       </button>
                     </div>
-                    <p class="error-inline" *ngIf="resupplyError[resupplyKey(station, material.partNumber)]">
-                      {{ resupplyError[resupplyKey(station, material.partNumber)] }}
-                    </p>
-                  </div>
-                </div>
 
-                <ng-template #noBayMaterials>
-                  <div class="empty-box compact">Sin NP en disposición para esta bahía.</div>
-                </ng-template>
+                    <label class="quick-mode">
+                      <input
+                        type="checkbox"
+                        [ngModel]="quickModeByStation[getStationKey(station)] || false"
+                        (ngModelChange)="quickModeByStation[getStationKey(station)] = $event"
+                      />
+                      Modo rápido
+                    </label>
 
-                <div class="capture-form" *ngIf="canCaptureByBay(station)">
-                  <input
-                    type="number"
-                    min="1"
-                    [ngModel]="quickBayQty(station, bayId)"
-                    (ngModelChange)="updateBayQty(station, bayId, $event)"
-                    (keydown.enter)="onBayEnter(station, bayId, $event)"
-                  />
-                  <input
-                    [ngModel]="bayOperator[bayInputKey(station, bayId)] || ''"
-                    (ngModelChange)="bayOperator[bayInputKey(station, bayId)] = $event"
-                    placeholder="Operador"
-                  />
-                  <input
-                    [ngModel]="bayNotes[bayInputKey(station, bayId)] || ''"
-                    (ngModelChange)="bayNotes[bayInputKey(station, bayId)] = $event"
-                    (keydown.enter)="onBayEnter(station, bayId, $event)"
-                    placeholder="Nota"
-                  />
-                  <button class="btn-capture" (click)="registerBayAssembly(station, bayId)" [disabled]="baySaving[bayInputKey(station, bayId)]">
-                    {{ baySaving[bayInputKey(station, bayId)] ? '...' : 'Registrar (+Enter)' }}
-                  </button>
-                </div>
-              </article>
-            </div>
+                    <div class="action-row inline-row">
+                      <button
+                        class="btn-resupply"
+                        (click)="undoLastRegister(station)"
+                        [disabled]="!canUndoLastRegister(station)"
+                        [title]="undoAvailabilityMessage(station)"
+                      >
+                        Deshacer último registro
+                      </button>
+                      <span class="action-caption" *ngIf="undoAvailabilityMessage(station)">{{ undoAvailabilityMessage(station) }}</span>
+                    </div>
+
+                    <div class="mes-feedback" *ngIf="registerSuccessByStation[getStationKey(station)]">
+                      {{ registerSuccessByStation[getStationKey(station)] }}
+                    </div>
+                    <div class="action-caption" *ngIf="getBayRiskSummary(station).risk">Material comprometido en esta bahía</div>
+                    <div class="error-inline" *ngIf="requestError[station.kit.id]">{{ requestError[station.kit.id] }}</div>
+
+                    <div class="info-card compact-card">
+                      <div class="section-header">
+                        <h3>Resumen operativo</h3>
+                      </div>
+                      <div class="bay-stats">
+                        <span>Sesión: {{ sessionAssembledByStation[getStationKey(station)] || 0 }}</span>
+                        <span>Último: {{ getLastSuccessfulBayEvent(station) || 'Sin registros' }}</span>
+                      </div>
+                      <div class="bay-stats">
+                        <span>NPs activos: {{ getBayRiskSummary(station).total }}</span>
+                        <span>En riesgo: {{ getBayRiskSummary(station).risk }}</span>
+                        <span>Sin material: {{ getBayRiskSummary(station).empty }}</span>
+                      </div>
+                    </div>
+
+                    <div class="info-card compact-card">
+                      <div class="section-header">
+                        <h3>Actividad reciente</h3>
+                        <span class="section-meta">{{ getRecentBayEvents(station).length }}</span>
+                      </div>
+                      <div class="timeline" *ngIf="getRecentBayEvents(station).length; else noRecentBayEvents">
+                        <div class="timeline-row" *ngFor="let event of getRecentBayEvents(station)">
+                          <div class="timeline-main">
+                            <strong *ngIf="event.quantity !== undefined">+{{ event.quantity }}</strong>
+                            <strong *ngIf="event.quantity === undefined && event.qty !== undefined">+{{ event.qty }}</strong>
+                            <span *ngIf="event.timestamp">{{ event.timestamp | date:'shortTime' }}</span>
+                            <span *ngIf="!event.timestamp && event.createdAt">{{ event.createdAt | date:'shortTime' }}</span>
+                          </div>
+                          <div class="timeline-note" *ngIf="event.operator || event.notes">
+                            <span *ngIf="event.operator">{{ event.operator }}</span>
+                            <span *ngIf="event.operator && event.notes"> · </span>
+                            <span *ngIf="event.notes">{{ event.notes }}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <ng-template #noRecentBayEvents>
+                        <div class="empty-box compact">Aún no hay registros para esta bahía.</div>
+                      </ng-template>
+
+                      <div class="timeline" *ngIf="getRecentBayIncidents(station).length">
+                        <div class="timeline-row" *ngFor="let incident of getRecentBayIncidents(station)">
+                          <div class="timeline-main">
+                            <strong>INC · {{ incident.type }}</strong>
+                            <span>{{ incident.at | date:'shortTime' }}</span>
+                          </div>
+                          <div class="timeline-note" *ngIf="incident.operator || incident.note">
+                            <span *ngIf="incident.operator">{{ incident.operator }}</span>
+                            <span *ngIf="incident.operator && incident.note"> · </span>
+                            <span *ngIf="incident.note">{{ incident.note }}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="info-card compact-card">
+                      <div class="section-header"><h3>Reportar incidencia</h3></div>
+                      <div class="capture-form">
+                        <select
+                          [ngModel]="incidentTypeDraftByStation[getStationKey(station)] || 'Falta material'"
+                          (ngModelChange)="incidentTypeDraftByStation[getStationKey(station)] = $event"
+                        >
+                          <option value="Falta material">Falta material</option>
+                          <option value="Error de ensamble">Error de ensamble</option>
+                          <option value="Paro de estación">Paro de estación</option>
+                          <option value="Otro">Otro</option>
+                        </select>
+                        <input
+                          [ngModel]="incidentNoteDraftByStation[getStationKey(station)] || ''"
+                          (ngModelChange)="incidentNoteDraftByStation[getStationKey(station)] = $event"
+                          placeholder="Nota opcional"
+                        />
+                        <button class="btn-resupply" (click)="reportLocalIncident(station)">Reportar incidencia</button>
+                      </div>
+                      <div class="action-caption" *ngIf="lastLocalIncident(station)">
+                        Incidencia guardada · {{ lastLocalIncident(station)?.type }}
+                        <span *ngIf="lastLocalIncident(station)?.note"> · {{ lastLocalIncident(station)?.note }}</span>
+                      </div>
+                    </div>
+                  </ng-container>
+                </article>
+              </div>
+
+              <div class="empty-box" *ngIf="!getAvailableBahias(station).length">
+                Sin configuración de bahías/materiales para este backend.
+              </div>
+            </ng-container>
+
             <ng-template #noBaysConfigured>
               <div class="empty-box">Sin configuración de bahías/materiales para este backend.</div>
             </ng-template>

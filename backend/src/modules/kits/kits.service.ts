@@ -5,6 +5,8 @@ import { Kit } from './entities/kit.entity';
 import { Plan } from '../plans/entities/plan.entity';
 import { BomItem } from '../bom/entities/bom-item.entity';
 import { KitMaterial } from '../kit-materials/entities/kit-material.entity';
+import { BayLayout } from '../bay-layout/entities/bay-layout.entity';
+import { ProductionBayMaterialState } from '../production-runtime/entities/production-bay-material-state.entity';
 import { CreateKitDto } from './dto/create-kit.dto';
 import { UpdateKitStatusDto } from './dto/update-kit-status.dto';
 
@@ -15,6 +17,8 @@ export class KitsService {
     @InjectRepository(Plan) private readonly planRepo: Repository<Plan>,
     @InjectRepository(BomItem) private readonly bomRepo: Repository<BomItem>,
     @InjectRepository(KitMaterial) private readonly materialRepo: Repository<KitMaterial>,
+    @InjectRepository(BayLayout) private readonly bayLayoutRepo: Repository<BayLayout>,
+    @InjectRepository(ProductionBayMaterialState) private readonly runtimeMaterialRepo: Repository<ProductionBayMaterialState>,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -125,8 +129,58 @@ export class KitsService {
     if (dto.status === 'completed' && kit.plan?.id) {
       await this.planRepo.update(kit.plan.id, { status: 'completed' });
     }
+    if (['requested', 'delivered', 'sent', 'received', 'in_progress'].includes(dto.status)) {
+      await this.materializeRuntimeForDeliveredBackend(id);
+    }
 
     return this.findOne(id);
+  }
+
+  private async materializeRuntimeForDeliveredBackend(kitId: number): Promise<void> {
+    const kit = await this.repo.findOne({
+      where: { id: kitId },
+      relations: ['plan', 'materials'],
+    });
+    if (!kit?.plan) return;
+
+    const model = kit.plan.model;
+    const layouts = await this.bayLayoutRepo.find({ where: { model } });
+    if (!layouts.length) return;
+
+    const bom = await this.bomRepo.find({ where: { model } });
+    const bomByPart = new Map(bom.map((item) => [item.partNumber, item]));
+    const materialByPart = new Map(kit.materials.map((item) => [item.partNumber, item]));
+    const existing = await this.runtimeMaterialRepo.find({ where: { kit: { id: kitId } } });
+    const existingKey = new Set(existing.map((row) => `${row.bayId}::${row.partNumber}`));
+
+    const rows = layouts
+      .filter((layout) => !existingKey.has(`${layout.bahia}::${layout.partNumber}`))
+      .map((layout) => {
+        const material = materialByPart.get(layout.partNumber);
+        const bomItem = bomByPart.get(layout.partNumber);
+        const quantityRequired = material?.quantityRequired ?? (bomItem?.usageFactor ?? 0) * kit.plan.quantity;
+        const usagePerAssembly = kit.plan.quantity > 0
+          ? quantityRequired / kit.plan.quantity
+          : (bomItem?.usageFactor ?? 0);
+        const availableQty = Math.max(0, material?.quantityRemaining ?? quantityRequired);
+        const lowStockThreshold = Math.max(5, Math.ceil((quantityRequired || 20) * 0.2));
+
+        return this.runtimeMaterialRepo.create({
+          kit: { id: kitId } as Kit,
+          bayId: layout.bahia,
+          model,
+          partNumber: layout.partNumber,
+          description: bomItem?.description ?? material?.description ?? undefined,
+          usagePerAssembly,
+          availableQty,
+          consumedQty: material?.quantityConsumed ?? 0,
+          lowStockThreshold,
+        });
+      });
+
+    if (rows.length) {
+      await this.runtimeMaterialRepo.save(rows);
+    }
   }
 
   async remove(id: number): Promise<{ deleted: boolean; id: number }> {
