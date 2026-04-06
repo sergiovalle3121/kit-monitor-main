@@ -52,7 +52,7 @@ export class LoginComponent implements AfterViewInit, OnDestroy {
     this.error = null;
     this.loading = true;
     this.auth.login(this.email, this.password).subscribe({
-      next: () => this.router.navigateByUrl('/kits'),
+      next: () => this.router.navigateByUrl('/monitor'),
       error: () => {
         this.error = 'Credenciales incorrectas';
         this.loading = false;
