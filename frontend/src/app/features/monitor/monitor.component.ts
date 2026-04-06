@@ -39,29 +39,33 @@ export class MonitorComponent implements OnInit {
     this.loading = true;
     forkJoin({
       backends: this.api.getProductionBackends(),
-    }).pipe(
-      switchMap(({ backends }) => {
-        const backendList = backends ?? [];
-        const detailRequest = backendList.length
-          ? forkJoin(backendList.map((backend) =>
-              forkJoin({
-                materials: this.api.getProductionMaterials(backend.kitId),
-                events: this.api.getProductionEvents(backend.kitId),
-              }).pipe(map((payload) => ({ kitId: backend.kitId, ...payload }))),
-            ))
-          : of([]);
-        return detailRequest.pipe(map((details) => ({ backends: backendList, details })));
-      }),
-    ).subscribe({
-      next: ({ backends, details }) => {
-        this.buildSlots(backends, details as any[]);
-        this.loading = false;
-      },
-      error: () => {
-        this.error = 'No se pudo cargar el monitor';
-        this.loading = false;
-      },
-    });
+    })
+      .pipe(
+        switchMap(({ backends }) => {
+          const backendList = backends ?? [];
+          const detailRequest = backendList.length
+            ? forkJoin(
+                backendList.map((backend) =>
+                  forkJoin({
+                    materials: this.api.getProductionMaterials(backend.kitId),
+                    events: this.api.getProductionEvents(backend.kitId),
+                  }).pipe(map((payload) => ({ kitId: backend.kitId, ...payload }))),
+                ),
+              )
+            : of([]);
+          return detailRequest.pipe(map((details) => ({ backends: backendList, details })));
+        }),
+      )
+      .subscribe({
+        next: ({ backends, details }) => {
+          this.buildSlots(backends, details as any[]);
+          this.loading = false;
+        },
+        error: () => {
+          this.error = 'No se pudo cargar el monitor';
+          this.loading = false;
+        },
+      });
   }
 
   labelFor(status: string): string {
@@ -71,17 +75,22 @@ export class MonitorComponent implements OnInit {
   toggleAll(): void {
     this.allExpanded = !this.allExpanded;
     this.backens.forEach((bk) => {
-      this.expandedByBk[bk] = this.allExpanded;
+      this.expandedByBk[bk] = this.allExpanded && this.isExpandable(bk);
     });
   }
 
   toggleBk(bk: number): void {
+    if (!this.isExpandable(bk)) return;
     this.expandedByBk[bk] = !this.expandedByBk[bk];
-    this.allExpanded = this.backens.every((value) => this.expandedByBk[value]);
+    this.allExpanded = this.backens.every((value) => !this.isExpandable(value) || this.expandedByBk[value]);
   }
 
   isExpanded(bk: number): boolean {
     return !!this.expandedByBk[bk];
+  }
+
+  isExpandable(bk: number): boolean {
+    return !!this.slots[bk]?.model;
   }
 
   private buildSlots(backends: any[], details: any[]): void {
@@ -99,7 +108,10 @@ export class MonitorComponent implements OnInit {
           shift: runtimeBackend.shift,
           quantity: runtimeBackend.targetQty ?? 0,
           completed: runtimeBackend.completedQty ?? 0,
-          progressPct: runtimeBackend.targetQty > 0 ? Math.round(((runtimeBackend.completedQty ?? 0) / runtimeBackend.targetQty) * 100) : 0,
+          progressPct:
+            runtimeBackend.targetQty > 0
+              ? Math.round(((runtimeBackend.completedQty ?? 0) / runtimeBackend.targetQty) * 100)
+              : 0,
           hasException: !!runtimeBackend.hasIncident,
           bays: this.buildBayRows(runtime?.materials ?? [], runtime?.events ?? []),
           hasRealOperation: true,
@@ -117,7 +129,10 @@ export class MonitorComponent implements OnInit {
     }
   }
 
-  private buildBayRows(materials: any[], events: any[]): Array<{ bayId: number; npCount: number; consumed: number; assembled: number }> {
+  private buildBayRows(
+    materials: any[],
+    events: any[],
+  ): Array<{ bayId: number; npCount: number; consumed: number; assembled: number }> {
     const byBay = new Map<number, { npCount: number; consumed: number; assembled: number }>();
     materials.forEach((item) => {
       const current = byBay.get(item.bayId) ?? { npCount: 0, consumed: 0, assembled: 0 };

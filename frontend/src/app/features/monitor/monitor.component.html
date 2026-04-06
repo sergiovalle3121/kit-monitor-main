@@ -30,7 +30,15 @@
           <div class="track"><i [style.width.%]="slots[bk]?.progressPct"></i></div>
         </div>
         <span class="incident" *ngIf="slots[bk]?.hasException">Incidencia</span>
-        <button class="btn-expand" (click)="toggleBk(bk)">{{ isExpanded(bk) ? '▴' : '▾' }}</button>
+        <button
+          class="btn-expand"
+          [disabled]="!isExpandable(bk)"
+          [attr.aria-label]="(isExpanded(bk) ? 'Colapsar' : 'Expandir') + ' backend ' + bk"
+          [attr.title]="isExpandable(bk) ? 'Ver detalle de bahías' : 'Sin operación activa'"
+          (click)="toggleBk(bk)"
+        >
+          {{ isExpanded(bk) ? '▴' : '▾' }}
+        </button>
       </div>
     </header>
 
