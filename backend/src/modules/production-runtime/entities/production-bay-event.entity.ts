@@ -2,12 +2,14 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  Index,
   ManyToOne,
   PrimaryGeneratedColumn,
 } from 'typeorm';
 import { Kit } from '../../kits/entities/kit.entity';
 
 @Entity('production_bay_events')
+@Index(['clientRequestId'], { unique: true })
 export class ProductionBayEvent {
   @PrimaryGeneratedColumn()
   id: number;
@@ -35,6 +37,15 @@ export class ProductionBayEvent {
 
   @Column({ type: 'timestamp' })
   timestamp: Date;
+
+  @Column({ type: 'varchar', length: 80, nullable: true })
+  clientRequestId?: string | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  revertedAt?: Date | null;
+
+  @Column({ type: 'varchar', length: 120, nullable: true })
+  revertedReason?: string | null;
 
   @CreateDateColumn()
   createdAt: Date;

@@ -52,14 +52,21 @@
     </ng-template>
 
     <div class="bom-detail" *ngIf="model.expanded">
+      <div class="empty-box" *ngIf="model.bayRhythm.length">
+        <strong>Ritmo por bahía:</strong>
+        <span *ngFor="let bay of model.bayRhythm" style="margin-left: 10px;">
+          B{{ bay.bayId }} {{ bay.unitsPerHour | number:'1.0-1' }} u/h
+          <ng-container *ngIf="bay.etaMinutes !== null"> · ETA {{ bay.etaMinutes | number:'1.0-0' }} min</ng-container>
+        </span>
+      </div>
       <table *ngIf="model.rows.length; else emptyRows">
         <thead>
           <tr>
             <th>NP</th>
             <th>Descripción</th>
             <th>Qty/unidad</th>
-            <th>Total Consumido</th>
-            <th>Qty Entregada del Kit</th>
+            <th>Consumo Real</th>
+            <th>Consumo Teórico</th>
             <th>Delta</th>
           </tr>
         </thead>
