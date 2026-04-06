@@ -36,6 +36,12 @@ export class ProductionBayEvent {
   @Column({ type: 'timestamp' })
   timestamp: Date;
 
+  @Column({ type: 'timestamp', nullable: true })
+  revertedAt?: Date | null;
+
+  @Column({ type: 'varchar', length: 120, nullable: true })
+  revertedReason?: string | null;
+
   @CreateDateColumn()
   createdAt: Date;
 }

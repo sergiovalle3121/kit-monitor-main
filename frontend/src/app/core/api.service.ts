@@ -168,8 +168,24 @@ export class ApiService {
     return this.post<any>(`production/backends/${kitId}/bays/${bayId}/events`, dto);
   }
 
+  revertProductionEvent(eventId: number): Observable<any> {
+    return this.post<any>(`production/events/${eventId}/revert`, {});
+  }
+
   getProductionEvents(kitId: number): Observable<any[]> {
     return this.get<any[]>(`production/backends/${kitId}/events`);
+  }
+
+  createProductionIncident(
+    kitId: number,
+    bayId: number,
+    dto: { type: string; note?: string; operator?: string },
+  ): Observable<any> {
+    return this.post<any>(`production/backends/${kitId}/bays/${bayId}/incidents`, dto);
+  }
+
+  getProductionIncidents(kitId: number, bayId: number): Observable<any[]> {
+    return this.get<any[]>(`production/backends/${kitId}/bays/${bayId}/incidents`);
   }
 
   getProductionMaterials(kitId: number): Observable<any[]> {
