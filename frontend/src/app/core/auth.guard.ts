@@ -33,7 +33,7 @@ export const authGuard: CanActivateFn = () => {
   const http = inject(HttpClient);
   const token = typeof localStorage !== 'undefined' ? localStorage.getItem(TOKEN_KEY) : null;
   const primaryBase = resolveApiBase();
-  const sameOriginBase = getSameOriginApiUrl();
+  const sameOriginBase = shouldUseSameOriginFallback() ? getSameOriginApiUrl() : '';
 
   if (token && isUsableToken(token)) {
     return http.get(buildUrl(primaryBase, 'auth/profile')).pipe(
@@ -75,6 +75,10 @@ function resolveApiBase(): string {
 function getSameOriginApiUrl(): string {
   if (typeof window === 'undefined') return '';
   return `${window.location.origin}/api`;
+}
+
+function shouldUseSameOriginFallback(): boolean {
+  return !environment.production;
 }
 
 function buildUrl(base: string, path: string): string {
