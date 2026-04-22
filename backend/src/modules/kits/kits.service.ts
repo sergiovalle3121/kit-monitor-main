@@ -113,12 +113,10 @@ export class KitsService {
       action: 'KIT_CREATED',
       referenceType: 'KIT',
       referenceId: finalKit.id.toString(),
-      context: {
-        model: plan.model,
-        workOrder: plan.workOrder,
-        line: plan.line?.toString(),
-        shift: plan.shift,
-      },
+      model: plan.model,
+      workOrder: plan.workOrder,
+      line: plan.line?.toString(),
+      shift: plan.shift,
       transaction: {
         quantity: plan.quantity,
       },
@@ -161,11 +159,9 @@ export class KitsService {
       action: 'KIT_STATUS_CHANGED',
       referenceType: 'KIT',
       referenceId: id.toString(),
-      context: {
-        model: kit.plan?.model,
-        workOrder: kit.plan?.workOrder,
-        line: kit.plan?.line?.toString(),
-      },
+      model: kit.plan?.model,
+      workOrder: kit.plan?.workOrder,
+      line: kit.plan?.line?.toString(),
       metadata: {
         beforeState: kit.status,
         afterState: dto.status,

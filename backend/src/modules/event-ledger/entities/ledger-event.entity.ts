@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, Index } from 'typeorm';
 
 export enum EventDomain {
   MATERIALS = 'MATERIALS',
@@ -30,26 +30,54 @@ export class LedgerEvent {
   @Column()
   action: string; // e.g., 'KIT_CREATED', 'STATUS_CHANGED', 'SHORTAGE_DETECTED'
 
+  @Index()
   @Column({ nullable: true })
   referenceType: string; // e.g., 'KIT', 'WORK_ORDER', 'MATERIAL'
 
+  @Index()
   @Column({ nullable: true })
   referenceId: string;
 
-  // Organizational & Industrial Context
+  // Organizational & Industrial Context (Explicit indexed columns for dashboards)
+  @Index()
+  @Column({ nullable: true })
+  plant: string;
+
+  @Index()
+  @Column({ nullable: true })
+  warehouse: string;
+
+  @Index()
+  @Column({ nullable: true })
+  line: string;
+
+  @Index()
+  @Column({ nullable: true })
+  shift: string;
+
+  @Index()
+  @Column({ nullable: true })
+  customer: string;
+
+  @Index()
+  @Column({ nullable: true })
+  program: string;
+
+  @Index()
+  @Column({ nullable: true })
+  model: string;
+
+  @Index()
+  @Column({ nullable: true })
+  workOrder: string;
+
+  // Additional context not queried heavily
   @Column({ type: 'jsonb', nullable: true, default: {} })
   context: {
-    plant?: string;
-    warehouse?: string;
-    line?: string;
-    shift?: string;
-    customer?: string;
-    program?: string;
-    model?: string;
-    workOrder?: string;
     revision?: string;
     lot?: string;
     serial?: string;
+    [key: string]: any;
   };
 
   // Transactional Specifics

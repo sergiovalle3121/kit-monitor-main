@@ -10,18 +10,21 @@ export interface CreateLedgerEventDto {
   action: string;
   referenceType?: string;
   referenceId?: string;
+  
+  plant?: string;
+  warehouse?: string;
+  line?: string;
+  shift?: string;
+  customer?: string;
+  program?: string;
+  model?: string;
+  workOrder?: string;
+
   context?: {
-    plant?: string;
-    warehouse?: string;
-    line?: string;
-    shift?: string;
-    customer?: string;
-    program?: string;
-    model?: string;
-    workOrder?: string;
     revision?: string;
     lot?: string;
     serial?: string;
+    [key: string]: any;
   };
   transaction?: {
     quantity?: number;
@@ -52,6 +55,14 @@ export class EventLedgerService {
     try {
       const event = this.ledgerRepository.create({
         ...dto,
+        plant: dto.plant,
+        warehouse: dto.warehouse,
+        line: dto.line,
+        shift: dto.shift,
+        customer: dto.customer,
+        program: dto.program,
+        model: dto.model,
+        workOrder: dto.workOrder,
         context: dto.context || {},
         transaction: dto.transaction || {},
         metadata: dto.metadata || {},

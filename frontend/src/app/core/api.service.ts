@@ -172,6 +172,10 @@ export class ApiService {
     return this.post<any>(`production/events/${eventId}/revert`, {});
   }
 
+  getLedgerEvents(referenceType: string, referenceId: string | number): Observable<any[]> {
+    return this.get<any[]>(`ledger/reference/${referenceType}/${referenceId}`);
+  }
+
   getProductionEvents(kitId: number): Observable<any[]> {
     return this.get<any[]>(`production/lines/${kitId}/events`);
   }

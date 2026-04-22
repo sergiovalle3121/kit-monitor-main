@@ -52,6 +52,9 @@ export class KitsComponent implements OnInit, OnDestroy {
   pendingCancellationByKitId: Record<number, any> = {};
   respondingCancellationId: number | null = null;
 
+  ledgerEvents: Record<number, any[]> = {};
+  loadingLedger: Record<number, boolean> = {};
+
   constructor(private api: ApiService) {}
 
   ngOnInit(): void {
@@ -265,7 +268,25 @@ export class KitsComponent implements OnInit, OnDestroy {
   }
 
   toggleExpand(kitId: number): void {
-    this.expandedKitId = this.expandedKitId === kitId ? null : kitId;
+    if (this.expandedKitId === kitId) {
+      this.expandedKitId = null;
+    } else {
+      this.expandedKitId = kitId;
+      this.loadLedgerForKit(kitId);
+    }
+  }
+
+  loadLedgerForKit(kitId: number): void {
+    this.loadingLedger[kitId] = true;
+    this.api.getLedgerEvents('KIT', kitId).subscribe({
+      next: (events) => {
+        this.ledgerEvents[kitId] = events;
+        this.loadingLedger[kitId] = false;
+      },
+      error: () => {
+        this.loadingLedger[kitId] = false;
+      }
+    });
   }
 
   plansWithoutKit(): any[] {

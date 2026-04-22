@@ -66,11 +66,9 @@ export class CancellationRequestsService implements OnModuleInit, OnModuleDestro
       actorName: request.requestedBy,
       referenceType: 'KIT',
       referenceId: kit.id.toString(),
-      context: {
-        model: kit.plan?.model,
-        workOrder: kit.plan?.workOrder,
-        line: kit.plan?.line?.toString(),
-      },
+      model: kit.plan?.model,
+      workOrder: kit.plan?.workOrder,
+      line: kit.plan?.line?.toString(),
     });
 
     return saved;
@@ -116,11 +114,9 @@ export class CancellationRequestsService implements OnModuleInit, OnModuleDestro
       action: dto.action === 'accept' ? 'CANCELLATION_APPROVED' : 'CANCELLATION_REJECTED',
       referenceType: 'KIT',
       referenceId: request.kit.id.toString(),
-      context: {
-        model: request.kit.plan?.model,
-        workOrder: request.kit.plan?.workOrder,
-        line: request.kit.plan?.line?.toString(),
-      },
+      model: request.kit.plan?.model,
+      workOrder: request.kit.plan?.workOrder,
+      line: request.kit.plan?.line?.toString(),
       metadata: {
         approvalContext: dto.action,
       },

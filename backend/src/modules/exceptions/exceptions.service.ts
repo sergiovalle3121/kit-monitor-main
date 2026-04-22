@@ -48,11 +48,9 @@ export class ExceptionsService {
       action: dto.type === 'missing_material' ? 'SHORTAGE_DETECTED' : 'EXCEPTION_REPORTED',
       referenceType: 'KIT',
       referenceId: kit.id.toString(),
-      context: {
-        model: kit.plan?.model,
-        workOrder: kit.plan?.workOrder,
-        line: kit.plan?.line?.toString(),
-      },
+      model: kit.plan?.model,
+      workOrder: kit.plan?.workOrder,
+      line: kit.plan?.line?.toString(),
       metadata: {
         reasonCode: dto.type,
         reasonDesc: dto.description,
@@ -76,11 +74,9 @@ export class ExceptionsService {
         action: item.type === 'missing_material' ? 'SHORTAGE_RESOLVED' : 'EXCEPTION_RESOLVED',
         referenceType: 'KIT',
         referenceId: kit.id.toString(),
-        context: {
-          model: kit.plan?.model,
-          workOrder: kit.plan?.workOrder,
-          line: kit.plan?.line?.toString(),
-        },
+        model: kit.plan?.model,
+        workOrder: kit.plan?.workOrder,
+        line: kit.plan?.line?.toString(),
         metadata: {
           reasonCode: item.type,
           partNumber: item.partNumber,

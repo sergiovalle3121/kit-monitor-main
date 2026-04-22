@@ -337,6 +337,34 @@
         </section>
 
         <p class="hint" *ngIf="!kit.materials?.length">Sin materiales cargados.</p>
+
+        <section class="detail-section ledger-section">
+          <div class="section-head">
+            <div>
+              <p class="section-kicker">Event Ledger</p>
+              <h4>Trazabilidad Inmutable</h4>
+            </div>
+            <p class="section-copy">Historial transaccional industrial del surtido de este kit.</p>
+          </div>
+
+          <p *ngIf="loadingLedger[kit.id]" class="loading-text">Cargando eventos del ledger...</p>
+          <div class="ledger-timeline" *ngIf="!loadingLedger[kit.id]">
+            <article class="ledger-event" *ngFor="let event of ledgerEvents[kit.id]">
+              <div class="event-indicator"></div>
+              <div class="event-content">
+                <div class="event-top">
+                  <strong>{{ event.action }}</strong>
+                  <time>{{ event.timestamp | date:'short' }}</time>
+                </div>
+                <div class="event-body">
+                  <span class="event-actor" *ngIf="event.actorName"><i class="fas fa-user"></i> {{ event.actorName }}</span>
+                  <span class="event-context"><i class="fas fa-tag"></i> {{ event.domain }} · {{ event.model || 'N/A' }} · BK{{ event.line || 'N/A' }}</span>
+                </div>
+              </div>
+            </article>
+            <p class="hint" *ngIf="!ledgerEvents[kit.id]?.length">Aún no hay eventos registrados en el Ledger para este kit.</p>
+          </div>
+        </section>
       </div>
     </article>
 
