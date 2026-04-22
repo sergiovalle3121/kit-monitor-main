@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 620 520" role="img" aria-label="AXOS OS">
+  <defs>
+    <linearGradient id="hexStroke" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#d3d8df"/>
+      <stop offset="40%" stop-color="#4e5a69"/>
+      <stop offset="75%" stop-color="#f0f3f7"/>
+      <stop offset="100%" stop-color="#2e3742"/>
+    </linearGradient>
+    <linearGradient id="xDark" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0c1726"/>
+      <stop offset="100%" stop-color="#1e3a63"/>
+    </linearGradient>
+    <linearGradient id="xLight" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#f6f8fb"/>
+      <stop offset="100%" stop-color="#778398"/>
+    </linearGradient>
+    <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="12" stdDeviation="10" flood-color="#04070d" flood-opacity="0.45"/>
+    </filter>
+  </defs>
+
+  <g transform="translate(110 36)" filter="url(#softShadow)">
+    <polygon points="200,8 372,108 372,307 200,408 28,307 28,108" fill="none" stroke="url(#hexStroke)" stroke-width="16" />
+    <polygon points="200,36 345,120 345,295 200,380 55,295 55,120" fill="none" stroke="rgba(227,232,239,0.55)" stroke-width="4" />
+
+    <polygon points="110,136 176,150 207,183 141,170" fill="url(#xDark)" stroke="#111826" stroke-width="2"/>
+    <polygon points="290,136 224,150 193,183 259,170" fill="url(#xLight)" stroke="#111826" stroke-width="2"/>
+    <polygon points="110,278 176,264 207,231 141,244" fill="url(#xDark)" stroke="#111826" stroke-width="2"/>
+    <polygon points="290,278 224,264 193,231 259,244" fill="url(#xLight)" stroke="#111826" stroke-width="2"/>
+  </g>
+
+  <g transform="translate(122 464)">
+    <text x="0" y="0" font-family="'Segoe UI', 'Helvetica Neue', sans-serif" font-size="56" letter-spacing="18" fill="#dce4ef">AXOS OS</text>
+  </g>
+</svg>
