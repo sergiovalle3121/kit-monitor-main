@@ -3,12 +3,12 @@ import { User } from './entities/user.entity';
 
 @Injectable()
 export class UsersService {
-  // Demo user — password: Admin123!
+  // Demo user credentials: email 3312793 | password 31218223
   private users: User[] = [
     {
       id: 1,
       email: '3312793',
-      password: '$2b$10$w3CkuSQF2VY5HtOKkA7beOqbnMXi5uRVa1U5ybMEQH5guu8JvWfLK',
+      password: '$2b$10$lNxisUFosMXq95BclEDVoe4x0gkjudUAIXKbwkaxnYEX16n.Y1h0a',
       isActive: true,
     },
   ];
@@ -48,6 +48,7 @@ export class UsersService {
   }
 
   async findOneByEmail(email: string): Promise<User | undefined> {
-    return this.users.find(user => user.email === email);
+    const normalized = (email ?? '').trim().toLowerCase();
+    return this.users.find((user) => user.email.trim().toLowerCase() === normalized);
   }
 }
