@@ -1,6 +1,7 @@
 import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
 import { Plan } from '../../plans/entities/plan.entity';
 import { Kit } from '../../kits/entities/kit.entity';
+import { DATE_COLUMN_TYPE } from '../../../common/database/date-column-type';
 
 export type CancellationRequestStatus = 'pending' | 'accepted' | 'rejected' | 'expired';
 
@@ -26,9 +27,9 @@ export class CancellationRequest {
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
-  @Column({ name: 'responded_at', type: 'timestamp', nullable: true })
+  @Column({ name: 'responded_at', type: DATE_COLUMN_TYPE, nullable: true })
   respondedAt: Date | null;
 
-  @Column({ name: 'expires_at', type: 'timestamp' })
+  @Column({ name: 'expires_at', type: DATE_COLUMN_TYPE })
   expiresAt: Date;
 }

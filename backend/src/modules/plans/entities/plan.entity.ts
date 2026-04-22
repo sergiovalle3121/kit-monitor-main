@@ -3,6 +3,7 @@ import {
   CreateDateColumn, OneToOne,
 } from 'typeorm';
 import { Kit } from '../../kits/entities/kit.entity';
+import { DATE_COLUMN_TYPE } from '../../../common/database/date-column-type';
 
 // Status flow: pending → active → completed | cancelled
 export type PlanStatus = 'pending' | 'active' | 'completed' | 'cancelled';
@@ -32,7 +33,7 @@ export class Plan {
   @Column()
   shift: string; // T1 | T2 | T3
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ type: DATE_COLUMN_TYPE, nullable: true })
   scheduledAt: Date;
 
   @Column({ type: 'int', default: 0 })
