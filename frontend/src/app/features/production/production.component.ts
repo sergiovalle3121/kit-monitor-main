@@ -761,11 +761,6 @@ export class ProductionComponent implements OnInit {
     return this.expandedByBacken[line] ?? true;
   }
 
-  openStationVisualAid(station: ProductionStationView): void {
-    if (!station.visualAid) return;
-    window.open(this.resolveVisualAidUrl(station.visualAid.pdfUrl), '_blank', 'noopener');
-  }
-
   requestReadyKit(row: ReadyKitRow): void {
     const station = this.stations.find((item) => item.kit?.id === row.kitId);
     if (!station) return;
