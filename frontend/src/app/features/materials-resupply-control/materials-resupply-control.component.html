@@ -1,0 +1,99 @@
+<section class="axos-page">
+  <header class="axos-header">
+    <div>
+      <p class="breadcrumbs">AXOS OS / Materials / Resupply Control</p>
+      <h2>Materials / Resupply Control</h2>
+      <p class="subtitle">Line feeding orchestration between warehouse, inventory control, and production in real time.</p>
+    </div>
+    <div class="view-toggle">
+      <button [class.active]="viewMode === 'board'" (click)="viewMode='board'">Board</button>
+      <button [class.active]="viewMode === 'list'" (click)="viewMode='list'">List</button>
+      <button (click)="load()">Refresh</button>
+    </div>
+  </header>
+
+  <section class="kpi-strip">
+    <article><span>Open requests</span><strong>{{ kpiOpenRequests() }}</strong></article>
+    <article><span>Overdue requests</span><strong class="danger">{{ kpiOverdueRequests() }}</strong></article>
+    <article><span>Avg acknowledge</span><strong>{{ kpiAvgAckMins() }}m</strong></article>
+    <article><span>Avg delivery</span><strong>{{ kpiAvgDeliveryMins() }}m</strong></article>
+    <article><span>Escalated today</span><strong class="warn">{{ kpiEscalatedToday() }}</strong></article>
+    <article class="wide"><span>Requests by line</span><strong>{{ kpiRequestsByLine() }}</strong></article>
+  </section>
+
+  <section class="filters">
+    <input type="search" [(ngModel)]="filters.q" (ngModelChange)="applyFilters()" placeholder="Search part / owner / model / WO" />
+    <select [(ngModel)]="filters.line" (ngModelChange)="applyFilters()"><option value="">All lines</option><option *ngFor="let line of lineOptions()" [value]="line">Line {{ line }}</option></select>
+    <select [(ngModel)]="filters.model" (ngModelChange)="applyFilters()"><option value="">All models</option><option *ngFor="let model of modelOptions()" [value]="model">{{ model }}</option></select>
+    <select [(ngModel)]="filters.workOrder" (ngModelChange)="applyFilters()"><option value="">All WO</option><option *ngFor="let wo of workOrderOptions()" [value]="wo">{{ wo }}</option></select>
+    <select [(ngModel)]="filters.status" (ngModelChange)="applyFilters()">
+      <option value="">All states</option><option value="requested">Requested</option><option value="acknowledged">Acknowledged</option><option value="pick_started">Picking started</option>
+      <option value="pick_completed">Picking completed</option><option value="in_transit">In transit</option><option value="delivered">Delivered</option><option value="confirmed">Confirmed</option>
+      <option value="escalated">Escalated</option><option value="cancelled">Cancelled</option>
+    </select>
+    <select [(ngModel)]="filters.priority" (ngModelChange)="applyFilters()"><option value="">Any priority</option><option value="critical">Critical</option><option value="high">High</option><option value="medium">Medium</option><option value="low">Low</option></select>
+  </section>
+
+  <div class="state" *ngIf="loading">Synchronizing real-time resupply operations...</div>
+  <div class="state error" *ngIf="!loading && error">{{ error }}</div>
+  <div class="state" *ngIf="!loading && !error && !filteredRows.length">No open requests with current filters. Try clearing filters or refresh the timeline.</div>
+
+  <section class="board" *ngIf="!loading && !error && filteredRows.length && viewMode === 'board'">
+    <article class="column" *ngFor="let col of boardColumns">
+      <header><h3>{{ col.label }}</h3><span>{{ rowsForColumn(col.statuses).length }}</span></header>
+      <div class="card" *ngFor="let row of rowsForColumn(col.statuses)">
+        <div class="head"><strong>{{ row.partNumber }}</strong><span class="priority" [class]="row.priority">{{ row.priority }}</span></div>
+        <p>{{ row.description || 'Material replenishment request' }}</p>
+        <div class="meta"><span>L{{ row.kit?.plan?.line || '—' }}</span><span>{{ row.kit?.plan?.model || 'N/A' }}</span><span>{{ row.kit?.plan?.workOrder || 'WO—' }}</span></div>
+        <div class="meta"><span>Owner: {{ row.ownerName || 'Unassigned' }}</span><span>{{ ageLabel(row) }}</span></div>
+        <div class="sla" [class]="slaState(row)">{{ slaLabel(row) }}</div>
+        <div class="actions">
+          <button type="button" (click)="openDetail(row)">Details</button>
+          <button type="button" *ngFor="let action of allowedActions(row.status)" [class.warn]="action.tone === 'warn'" [class.danger]="action.tone === 'danger'" [disabled]="processingId === row.id" (click)="runAction(row, action.to)">{{ action.label }}</button>
+        </div>
+      </div>
+    </article>
+  </section>
+
+  <section class="list" *ngIf="!loading && !error && filteredRows.length && viewMode === 'list'">
+    <table>
+      <thead><tr><th>Part</th><th>Line</th><th>Model</th><th>WO</th><th>Priority</th><th>Owner</th><th>State</th><th>Aging</th><th>SLA</th><th>Actions</th></tr></thead>
+      <tbody>
+        <tr *ngFor="let row of filteredRows">
+          <td>{{ row.partNumber }}</td><td>L{{ row.kit?.plan?.line || '—' }}</td><td>{{ row.kit?.plan?.model || 'N/A' }}</td><td>{{ row.kit?.plan?.workOrder || 'WO—' }}</td>
+          <td><span class="priority" [class]="row.priority">{{ row.priority }}</span></td><td>{{ row.ownerName || 'Unassigned' }}</td><td>{{ statusLabel(row.status) }}</td><td>{{ ageLabel(row) }}</td><td><span class="sla" [class]="slaState(row)">{{ slaState(row) }}</span></td>
+          <td><button type="button" (click)="openDetail(row)">Open</button><button type="button" *ngFor="let action of allowedActions(row.status)" [disabled]="processingId === row.id" (click)="runAction(row, action.to)">{{ action.label }}</button></td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <aside class="drawer" *ngIf="selected">
+    <header><h3>Resupply #{{ selected.id }}</h3><button (click)="closeDetail()">✕</button></header>
+    <section class="drawer-grid">
+      <article>
+        <h4>Industrial context</h4>
+        <p><strong>Line:</strong> L{{ selected.kit?.plan?.line || '—' }}</p><p><strong>Model:</strong> {{ selected.kit?.plan?.model || 'N/A' }}</p><p><strong>Work order:</strong> {{ selected.kit?.plan?.workOrder || 'N/A' }}</p>
+        <p><strong>Priority:</strong> {{ selected.priority }}</p><p><strong>State:</strong> {{ statusLabel(selected.status) }}</p><p><strong>SLA:</strong> {{ slaLabel(selected) }}</p>
+      </article>
+      <article>
+        <h4>Owner assignment</h4>
+        <p><strong>Current owner:</strong> {{ selected.ownerName || 'Unassigned' }}</p>
+        <label class="owner-field">Assign owner<input type="text" [(ngModel)]="ownerDraft" placeholder="e.g. Maria V / Materials" /></label>
+        <button (click)="assignOwner()" [disabled]="assigningOwner || !ownerDraft.trim()">{{ assigningOwner ? 'Assigning...' : 'Assign owner' }}</button>
+      </article>
+      <article>
+        <h4>Lifecycle timestamps</h4>
+        <p><strong>Requested:</strong> {{ timestamp(selected.requestedAt) }}</p><p><strong>Acknowledged:</strong> {{ timestamp(selected.acknowledgedAt) }}</p><p><strong>Pick started:</strong> {{ timestamp(selected.pickStartedAt) }}</p>
+        <p><strong>Pick completed:</strong> {{ timestamp(selected.pickCompletedAt) }}</p><p><strong>Delivered:</strong> {{ timestamp(selected.deliveredAt) }}</p><p><strong>Confirmed:</strong> {{ timestamp(selected.confirmedAt) }}</p>
+        <p><strong>Escalated:</strong> {{ timestamp(selected.escalatedAt) }}</p><p><strong>Cancelled:</strong> {{ timestamp(selected.cancelledAt) }}</p>
+      </article>
+      <article class="full"><h4>Reason / notes</h4><p>{{ selected.reason || 'No reason notes provided.' }}</p></article>
+      <article class="full">
+        <h4>Ledger timeline</h4>
+        <ol class="timeline" *ngIf="selectedTimeline.length; else noTimeline"><li *ngFor="let ev of selectedTimeline"><div><strong>{{ ev.action }}</strong><p>{{ ev.actorName || 'System' }} · {{ timestamp(ev.createdAt) }}</p></div></li></ol>
+        <ng-template #noTimeline><p class="muted">No ledger events found for this request.</p></ng-template>
+      </article>
+    </section>
+  </aside>
+</section>

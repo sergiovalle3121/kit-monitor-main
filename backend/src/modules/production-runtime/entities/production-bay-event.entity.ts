@@ -7,6 +7,7 @@ import {
   PrimaryGeneratedColumn,
 } from 'typeorm';
 import { Kit } from '../../kits/entities/kit.entity';
+import { DATE_COLUMN_TYPE } from '../../../common/database/date-column-type';
 
 @Entity('production_bay_events')
 @Index(['clientRequestId'], { unique: true })
@@ -35,13 +36,13 @@ export class ProductionBayEvent {
   @Column({ type: 'varchar', length: 32, default: 'bay_enter' })
   source: string;
 
-  @Column({ type: 'timestamp' })
+  @Column({ type: DATE_COLUMN_TYPE })
   timestamp: Date;
 
   @Column({ type: 'varchar', length: 80, nullable: true })
   clientRequestId?: string | null;
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ type: DATE_COLUMN_TYPE, nullable: true })
   revertedAt?: Date | null;
 
   @Column({ type: 'varchar', length: 120, nullable: true })

@@ -1,5 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, CreateDateColumn } from 'typeorm';
 import { Kit } from '../../kits/entities/kit.entity';
+import { DATE_COLUMN_TYPE } from '../../../common/database/date-column-type';
 
 export type ExceptionType = 'missing_material' | 'excess' | 'quality' | 'other';
 export type ExceptionStatus = 'open' | 'resolved';
@@ -28,6 +29,6 @@ export class KitException {
   @CreateDateColumn()
   createdAt: Date;
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ type: DATE_COLUMN_TYPE, nullable: true })
   resolvedAt: Date;
 }
