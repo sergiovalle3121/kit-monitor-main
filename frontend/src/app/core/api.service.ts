@@ -136,6 +136,14 @@ export class ApiService {
     return this.patch<any>(`resupplies/${id}/status`, dto);
   }
 
+
+  assignResupplyOwner(
+    id: number,
+    dto: { ownerId?: string; ownerName: string; actorName?: string },
+  ): Observable<any> {
+    return this.patch<any>(`resupplies/${id}/owner`, dto);
+  }
+
   createResupply(kitId: number, partNumber: string, qty: number, description?: string, reason?: string): Observable<any> {
     return this.post<any>('resupplies', {
       kitId,

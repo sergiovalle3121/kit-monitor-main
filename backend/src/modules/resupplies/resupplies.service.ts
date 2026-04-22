@@ -7,6 +7,7 @@ import { Kit } from '../kits/entities/kit.entity';
 import { CreateResupplyDto } from './dto/create-resupply.dto';
 import { DeliverResupplyDto } from './dto/deliver-resupply.dto';
 import { UpdateResupplyStatusDto } from './dto/update-resupply-status.dto';
+import { AssignResupplyOwnerDto } from './dto/assign-resupply-owner.dto';
 import { EventLedgerService } from '../event-ledger/event-ledger.service';
 import { EventDomain } from '../event-ledger/entities/ledger-event.entity';
 
@@ -70,6 +71,36 @@ export class ResuppliesService {
     });
 
     return fullResupply;
+  }
+
+
+  async assignOwner(id: number, dto: AssignResupplyOwnerDto): Promise<Resupply> {
+    const current = await this.findOne(id);
+    await this.repo.update(id, {
+      ownerId: dto.ownerId ?? current.ownerId,
+      ownerName: dto.ownerName,
+    });
+
+    const updated = await this.findOne(id);
+
+    await this.eventLedger.recordEvent({
+      domain: EventDomain.MATERIALS,
+      action: 'RESUPPLY_OWNER_ASSIGNED',
+      actorName: dto.actorName ?? 'AXOS Dispatcher',
+      referenceType: 'RESUPPLY',
+      referenceId: id.toString(),
+      customer: (updated.kit.plan as any)?.customer,
+      program: (updated.kit.plan as any)?.program,
+      model: updated.kit.plan?.model,
+      workOrder: updated.kit.plan?.workOrder,
+      line: updated.kit.plan?.line?.toString(),
+      metadata: {
+        ownerId: updated.ownerId,
+        ownerName: updated.ownerName,
+      },
+    });
+
+    return updated;
   }
 
   async updateStatus(id: number, dto: UpdateResupplyStatusDto): Promise<Resupply> {
