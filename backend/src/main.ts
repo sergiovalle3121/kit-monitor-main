@@ -1,4 +1,4 @@
-﻿import { NestFactory } from '@nestjs/core';
+import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import helmet from 'helmet';
 import compression from 'compression';
@@ -52,7 +52,12 @@ async function bootstrap() {
 
   const allowedOrigins = parseAllowedOrigins(allowedOriginEnv);
 
-  const defaultDevOrigins = ['http://localhost:4200', 'http://localhost:5173'];
+  const defaultDevOrigins = [
+    'http://localhost:4200', 
+    'http://localhost:5173',
+    'http://127.0.0.1:4200',
+    'http://127.0.0.1:5173'
+  ];
   const defaultProdOrigins = ['https://axonos.up.railway.app'];
   const originsToValidate = allowedOrigins.length > 0
     ? allowedOrigins
