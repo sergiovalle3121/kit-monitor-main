@@ -6,6 +6,8 @@ import { CreateCancellationRequestDto } from './dto/create-cancellation-request.
 import { RespondCancellationRequestDto } from './dto/respond-cancellation-request.dto';
 import { Plan } from '../plans/entities/plan.entity';
 import { Kit } from '../kits/entities/kit.entity';
+import { EventLedgerService } from '../event-ledger/event-ledger.service';
+import { EventDomain } from '../event-ledger/entities/ledger-event.entity';
 
 @Injectable()
 export class CancellationRequestsService implements OnModuleInit, OnModuleDestroy {
@@ -18,6 +20,7 @@ export class CancellationRequestsService implements OnModuleInit, OnModuleDestro
     private readonly plansRepo: Repository<Plan>,
     @InjectRepository(Kit)
     private readonly kitsRepo: Repository<Kit>,
+    private readonly eventLedger: EventLedgerService,
   ) {}
 
   onModuleInit(): void {
@@ -54,7 +57,23 @@ export class CancellationRequestsService implements OnModuleInit, OnModuleDestro
       respondedAt: null,
     });
 
-    return this.repo.save(request);
+    const saved = await this.repo.save(request);
+
+    // Ledger Event
+    await this.eventLedger.recordEvent({
+      domain: EventDomain.MATERIALS,
+      action: 'CANCELLATION_REQUESTED',
+      actorName: request.requestedBy,
+      referenceType: 'KIT',
+      referenceId: kit.id.toString(),
+      context: {
+        model: kit.plan?.model,
+        workOrder: kit.plan?.workOrder,
+        line: kit.plan?.line?.toString(),
+      },
+    });
+
+    return saved;
   }
 
   async findPending(): Promise<CancellationRequest[]> {
@@ -89,7 +108,25 @@ export class CancellationRequestsService implements OnModuleInit, OnModuleDestro
       await this.plansRepo.update(request.publication.id, { status: 'cancelled' });
     }
 
-    return this.repo.save(request);
+    const saved = await this.repo.save(request);
+
+    // Ledger Event
+    await this.eventLedger.recordEvent({
+      domain: EventDomain.MATERIALS,
+      action: dto.action === 'accept' ? 'CANCELLATION_APPROVED' : 'CANCELLATION_REJECTED',
+      referenceType: 'KIT',
+      referenceId: request.kit.id.toString(),
+      context: {
+        model: request.kit.plan?.model,
+        workOrder: request.kit.plan?.workOrder,
+        line: request.kit.plan?.line?.toString(),
+      },
+      metadata: {
+        approvalContext: dto.action,
+      },
+    });
+
+    return saved;
   }
 
   async expirePending(): Promise<number> {

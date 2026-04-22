@@ -17,6 +17,7 @@ import { ProductionRuntimeModule } from "./modules/production-runtime/production
 import { DecisionIntelligenceModule } from "./modules/decision-intelligence/decision-intelligence.module";
 import { CancellationRequestsModule } from "./modules/cancellation-requests/cancellation-requests.module";
 import { VisualAidsModule } from "./modules/visual-aids/visual-aids.module";
+import { EventLedgerModule } from "./modules/event-ledger/event-ledger.module";
 
 // TypeOrmModule always loads: uses SQLite (dev.sqlite) when no PG env vars,
 // PostgreSQL when DATABASE_URL or DB_HOST is set. See orm.options.ts.
@@ -37,6 +38,7 @@ import { VisualAidsModule } from "./modules/visual-aids/visual-aids.module";
     DecisionIntelligenceModule,
     CancellationRequestsModule,
     VisualAidsModule,
+    EventLedgerModule,
   ],
   controllers: [HealthController],
   providers: [],

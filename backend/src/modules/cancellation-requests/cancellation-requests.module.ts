@@ -5,9 +5,13 @@ import { CancellationRequestsService } from './cancellation-requests.service';
 import { CancellationRequestsController } from './cancellation-requests.controller';
 import { Plan } from '../plans/entities/plan.entity';
 import { Kit } from '../kits/entities/kit.entity';
+import { EventLedgerModule } from '../event-ledger/event-ledger.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([CancellationRequest, Plan, Kit])],
+  imports: [
+    TypeOrmModule.forFeature([CancellationRequest, Plan, Kit]),
+    EventLedgerModule,
+  ],
   controllers: [CancellationRequestsController],
   providers: [CancellationRequestsService],
   exports: [CancellationRequestsService],

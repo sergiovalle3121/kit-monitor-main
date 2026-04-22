@@ -9,6 +9,8 @@ import { BayLayout } from '../bay-layout/entities/bay-layout.entity';
 import { ProductionBayMaterialState } from '../production-runtime/entities/production-bay-material-state.entity';
 import { CreateKitDto } from './dto/create-kit.dto';
 import { UpdateKitStatusDto } from './dto/update-kit-status.dto';
+import { EventLedgerService } from '../event-ledger/event-ledger.service';
+import { EventDomain } from '../event-ledger/entities/ledger-event.entity';
 
 @Injectable()
 export class KitsService {
@@ -20,6 +22,7 @@ export class KitsService {
     @InjectRepository(BayLayout) private readonly bayLayoutRepo: Repository<BayLayout>,
     @InjectRepository(ProductionBayMaterialState) private readonly runtimeMaterialRepo: Repository<ProductionBayMaterialState>,
     private readonly dataSource: DataSource,
+    private readonly eventLedger: EventLedgerService,
   ) {}
 
   async findAll(): Promise<any[]> {
@@ -102,7 +105,26 @@ export class KitsService {
     });
 
     const createdFromDb = await this.findOneWithRetry(created.id, 3, 100);
-    return createdFromDb ?? this.withTotalCompleted(created as any);
+    const finalKit = createdFromDb ?? this.withTotalCompleted(created as any);
+
+    // Record Event Ledger
+    await this.eventLedger.recordEvent({
+      domain: EventDomain.MATERIALS,
+      action: 'KIT_CREATED',
+      referenceType: 'KIT',
+      referenceId: finalKit.id.toString(),
+      context: {
+        model: plan.model,
+        workOrder: plan.workOrder,
+        line: plan.line?.toString(),
+        shift: plan.shift,
+      },
+      transaction: {
+        quantity: plan.quantity,
+      },
+    });
+
+    return finalKit;
   }
 
   async startPreparation(id: number): Promise<any> {
@@ -132,6 +154,23 @@ export class KitsService {
     if (['requested', 'delivered', 'sent', 'received', 'in_progress'].includes(dto.status)) {
       await this.materializeRuntimeForDeliveredBackend(id);
     }
+
+    // Record Event Ledger
+    await this.eventLedger.recordEvent({
+      domain: EventDomain.MATERIALS,
+      action: 'KIT_STATUS_CHANGED',
+      referenceType: 'KIT',
+      referenceId: id.toString(),
+      context: {
+        model: kit.plan?.model,
+        workOrder: kit.plan?.workOrder,
+        line: kit.plan?.line?.toString(),
+      },
+      metadata: {
+        beforeState: kit.status,
+        afterState: dto.status,
+      },
+    });
 
     return this.findOne(id);
   }

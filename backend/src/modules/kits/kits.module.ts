@@ -8,9 +8,13 @@ import { BayLayout } from '../bay-layout/entities/bay-layout.entity';
 import { ProductionBayMaterialState } from '../production-runtime/entities/production-bay-material-state.entity';
 import { KitsService } from './kits.service';
 import { KitsController } from './kits.controller';
+import { EventLedgerModule } from '../event-ledger/event-ledger.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Kit, Plan, BomItem, KitMaterial, BayLayout, ProductionBayMaterialState])],
+  imports: [
+    TypeOrmModule.forFeature([Kit, Plan, BomItem, KitMaterial, BayLayout, ProductionBayMaterialState]),
+    EventLedgerModule,
+  ],
   controllers: [KitsController],
   providers: [KitsService],
   exports: [KitsService],
