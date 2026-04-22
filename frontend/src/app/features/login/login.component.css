@@ -88,10 +88,10 @@
 .login-card {
   position: relative;
   z-index: 1;
-  width: min(100%, 1120px);
-  min-height: min(760px, calc(100vh - 56px));
+  width: min(100%, 1080px);
+  min-height: min(700px, calc(100vh - 56px));
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(400px, 0.84fr);
+  grid-template-columns: minmax(0, 0.9fr) minmax(420px, 0.92fr);
   border-radius: var(--radius-card);
   overflow: hidden;
   border: 1px solid var(--border-soft);
@@ -104,15 +104,14 @@
 .login-panel { position: relative; min-width: 0; }
 
 .login-hero {
-  padding: clamp(40px, 5vw, 58px) clamp(36px, 4vw, 56px);
+  padding: clamp(34px, 4.4vw, 48px) clamp(30px, 3.2vw, 42px);
   display: flex;
   flex-direction: column;
-  gap: 20px;
-  justify-content: space-between;
-  gap: clamp(24px, 3vw, 40px);
+  justify-content: center;
+  gap: clamp(18px, 2.2vw, 28px);
   color: var(--text-hero);
   background:
-    radial-gradient(circle at 50% 38%, rgba(14, 165, 233, 0.22), transparent 40%),
+    radial-gradient(circle at 50% 34%, rgba(14, 165, 233, 0.16), transparent 42%),
     linear-gradient(165deg, var(--hero-a) 0%, var(--hero-b) 55%, var(--hero-c) 100%);
   border-right: 1px solid rgba(255, 255, 255, 0.09);
 }
@@ -155,34 +154,35 @@
   align-items: center;
   gap: 14px;
   text-align: center;
-  margin-top: 8px;
+  margin-top: 2px;
 }
 
 .hero-logo-frame {
-  width: min(340px, 100%);
-  min-height: 320px;
+  width: min(300px, 100%);
+  min-height: 240px;
   display: grid;
   place-items: center;
-  padding: 22px;
+  padding: 18px;
   border-radius: 24px;
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  background: linear-gradient(165deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.06));
-  box-shadow: var(--shadow-glass), inset 0 1px 0 rgba(255, 255, 255, 0.26);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: linear-gradient(165deg, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0.04));
+  box-shadow: 0 14px 36px rgba(2, 10, 30, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.22);
   backdrop-filter: blur(20px);
 }
 
 .hero-logo {
-  width: min(200px, 72%);
+  width: min(220px, 88%);
   display: block;
-  filter: drop-shadow(0 10px 20px rgba(7, 15, 34, 0.55));
+  filter: grayscale(0.08) saturate(0.7) brightness(1.12) contrast(1.06)
+    drop-shadow(0 8px 18px rgba(7, 15, 34, 0.45));
 }
 
 .hero-wordmark {
   margin: 0;
-  color: rgba(214, 228, 250, 0.94);
-  letter-spacing: 0.36em;
+  color: rgba(225, 235, 248, 0.88);
+  letter-spacing: 0.24em;
   text-transform: uppercase;
-  font-size: 0.74rem;
+  font-size: 0.68rem;
   font-weight: 600;
 }
 
@@ -192,22 +192,6 @@
   gap: 14px;
   text-align: center;
   align-items: center;
-}
-
-.hero-logo-frame {
-  width: min(360px, 100%);
-  padding: 12px;
-  border-radius: 24px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: linear-gradient(175deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), var(--shadow-hero);
-}
-
-.hero-logo {
-  width: 100%;
-  display: block;
-  border-radius: 16px;
-  filter: drop-shadow(0 10px 20px rgba(1, 8, 22, 0.5));
 }
 
 .hero-wordmark {
@@ -223,7 +207,7 @@
 
 .login-hero h1 {
   margin: 0;
-  font-size: clamp(2.6rem, 4.8vw, 4rem);
+  font-size: clamp(2.4rem, 4.2vw, 3.3rem);
   line-height: 0.95;
   letter-spacing: -0.045em;
   font-weight: 790;
@@ -231,10 +215,10 @@
 
 .hero-copy {
   margin: 0;
-  max-width: 44ch;
+  max-width: 40ch;
   color: var(--text-hero-soft);
-  font-size: 1rem;
-  line-height: 1.66;
+  font-size: 0.95rem;
+  line-height: 1.58;
 }
 
 .hero-pills {
@@ -245,7 +229,7 @@
 }
 
 .hero-pills span {
-  min-height: 32px;
+  min-height: 34px;
   padding: 0 12px;
   display: inline-flex;
   align-items: center;
@@ -254,7 +238,7 @@
   border: 1px solid var(--border-pill);
   background: rgba(6, 14, 28, 0.44);
   color: rgba(216, 228, 246, 0.9);
-  font-size: 0.82rem;
+  font-size: 0.78rem;
   font-weight: 600;
 }
 
@@ -266,30 +250,32 @@
 }
 
 .hero-panel {
-  padding: 22px 24px;
+  padding: 16px 18px;
+  margin: 0 auto;
+  max-width: 520px;
   border-radius: var(--radius-panel);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: linear-gradient(180deg, rgba(10, 20, 40, 0.9), rgba(8, 16, 32, 0.96));
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: linear-gradient(180deg, rgba(10, 20, 40, 0.72), rgba(8, 16, 32, 0.84));
 }
 
 .hero-panel strong {
   display: block;
-  margin-top: 12px;
+  margin-top: 10px;
   color: rgba(242, 247, 255, 0.96);
-  font-size: 1.04rem;
+  font-size: 0.96rem;
   line-height: 1.5;
 }
 
 .hero-panel small {
   display: block;
-  margin-top: 10px;
+  margin-top: 8px;
   color: rgba(170, 188, 214, 0.86);
-  line-height: 1.5;
-  font-size: 0.88rem;
+  line-height: 1.45;
+  font-size: 0.82rem;
 }
 
 .login-panel {
-  padding: clamp(40px, 4vw, 60px) clamp(30px, 3.5vw, 42px);
+  padding: clamp(42px, 4.4vw, 64px) clamp(34px, 3.8vw, 46px);
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -406,7 +392,7 @@ button:disabled {
 @media (max-width: 1024px) {
   .login-card {
     grid-template-columns: 1fr;
-    max-width: 700px;
+    max-width: 760px;
   }
 
   .login-hero {
