@@ -1,36 +1,39 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient, HttpParams } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { HttpClient, HttpErrorResponse, HttpParams } from '@angular/common/http';
+import { Observable, catchError, tap, throwError } from 'rxjs';
 import { environment } from '../../environments/environment';
 
 @Injectable({ providedIn: 'root' })
 export class ApiService {
   private http = inject(HttpClient);
-  private readonly base = environment.apiUrl;
+  private base = this.resolveInitialBase();
+  private readonly sameOriginBase = this.getSameOriginApiUrl();
 
   private get<T>(path: string, params?: Record<string, any>): Observable<T> {
-    const url = `${this.base}/${path}`;
-    let httpParams = new HttpParams();
-    if (params) {
-      for (const [key, value] of Object.entries(params)) {
-        if (value !== undefined && value !== null) {
-          httpParams = httpParams.set(key, String(value));
+    return this.withFallback((base) => {
+      const url = this.buildUrl(base, path);
+      let httpParams = new HttpParams();
+      if (params) {
+        for (const [key, value] of Object.entries(params)) {
+          if (value !== undefined && value !== null) {
+            httpParams = httpParams.set(key, String(value));
+          }
         }
       }
-    }
-    return this.http.get<T>(url, { params: httpParams });
+      return this.http.get<T>(url, { params: httpParams });
+    });
   }
 
   private post<T>(path: string, body: any): Observable<T> {
-    return this.http.post<T>(`${this.base}/${path}`, body);
+    return this.withFallback((base) => this.http.post<T>(this.buildUrl(base, path), body));
   }
 
   private patch<T>(path: string, body: any): Observable<T> {
-    return this.http.patch<T>(`${this.base}/${path}`, body);
+    return this.withFallback((base) => this.http.patch<T>(this.buildUrl(base, path), body));
   }
 
   private delete<T>(path: string): Observable<T> {
-    return this.http.delete<T>(`${this.base}/${path}`);
+    return this.withFallback((base) => this.http.delete<T>(this.buildUrl(base, path)));
   }
 
   getPlans(): Observable<any[]> {
@@ -74,7 +77,7 @@ export class ApiService {
   }
 
   createVisualAidFormData(formData: FormData): Observable<any> {
-    return this.http.post<any>(`${this.base}/visual-aids`, formData);
+    return this.withFallback((base) => this.http.post<any>(this.buildUrl(base, 'visual-aids'), formData));
   }
 
   updateVisualAid(id: string, dto: any): Observable<any> {
@@ -104,13 +107,13 @@ export class ApiService {
   importBom(file: File): Observable<any> {
     const fd = new FormData();
     fd.append('file', file);
-    return this.http.post<any>(`${this.base}/bom/import`, fd);
+    return this.withFallback((base) => this.http.post<any>(this.buildUrl(base, 'bom/import'), fd));
   }
 
   importBomCatalog(file: File): Observable<any> {
     const fd = new FormData();
     fd.append('file', file);
-    return this.http.post<any>(`${this.base}/bom/catalog/import`, fd);
+    return this.withFallback((base) => this.http.post<any>(this.buildUrl(base, 'bom/catalog/import'), fd));
   }
 
   getAdvances(kitId: number): Observable<any[]> {
@@ -306,5 +309,43 @@ export class ApiService {
 
   respondCancellationRequest(id: number, action: 'accept' | 'reject', respondedBy?: string): Observable<any> {
     return this.patch<any>(`cancellation-requests/${id}/respond`, { action, respondedBy });
+  }
+
+  private withFallback<T>(request: (base: string) => Observable<T>): Observable<T> {
+    return request(this.base).pipe(
+      catchError((err: HttpErrorResponse) => {
+        if (err.status !== 0 || !this.sameOriginBase || this.sameOriginBase === this.base) {
+          return throwError(() => err);
+        }
+        return request(this.sameOriginBase).pipe(
+          tap(() => {
+            this.base = this.sameOriginBase;
+          }),
+        );
+      }),
+    );
+  }
+
+  private resolveInitialBase(): string {
+    if (typeof window === 'undefined') {
+      return environment.apiUrl.replace(/\/+$/, '');
+    }
+
+    const runtimeApiUrl = (window as any).__API_URL__;
+    const configured = String(runtimeApiUrl || environment.apiUrl || '').trim();
+    if (configured) {
+      return configured.replace(/\/+$/, '');
+    }
+
+    return this.getSameOriginApiUrl() || '/api';
+  }
+
+  private getSameOriginApiUrl(): string {
+    if (typeof window === 'undefined') return '';
+    return `${window.location.origin}/api`;
+  }
+
+  private buildUrl(base: string, path: string): string {
+    return `${base.replace(/\/+$/, '')}/${path.replace(/^\/+/, '')}`;
   }
 }
