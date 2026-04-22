@@ -47,12 +47,19 @@ async function bootstrap() {
   const sharedKey = process.env.FRONTEND_SHARED_KEY;
   if (env === 'production' && sharedKey) {
     app.use((req: Request, res: Response, next: NextFunction) => {
-      // Deja libre el healthcheck
-      if (req.path === '/api/health') return next();
+      // Deja libres endpoints críticos para autenticación y salud
+      if (req.path === '/api/health' || req.path === '/api/auth/login') return next();
+      if (req.method === 'OPTIONS') return next();
+
+      // Si el request ya trae Authorization, el JWT guard hará la validación real
+      if (req.header('authorization')) return next();
 
       const got = req.header('x-frontend-key');
       if (got !== sharedKey) {
-        return res.status(403).json({ error: 'Forbidden' });
+        return res.status(403).json({
+          error: 'Forbidden',
+          message: 'Missing or invalid x-frontend-key',
+        });
       }
       next();
     });
