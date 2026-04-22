@@ -44,18 +44,21 @@ export class ShellComponent implements OnInit, OnDestroy {
   private notificationsTimerId: number | null = null;
 
   private readonly modulesCatalog: SearchResult[] = [
-    { label: 'Monitor', route: '/monitor', category: 'modulos' },
-    { label: 'Planeación', route: '/plan', category: 'modulos' },
-    { label: 'Pronóstico', route: '/forecast', category: 'modulos' },
-    { label: 'BOM', route: '/bom', category: 'modulos' },
-    { label: 'Kits', route: '/kits', category: 'modulos' },
-    { label: 'Conteos', route: '/conteos', category: 'modulos' },
-    { label: 'Disposición', route: '/disposition', category: 'modulos' },
-    { label: 'Ayudas visuales', route: '/visual-aids', category: 'modulos' },
-    { label: 'Producción', route: '/production', category: 'modulos' },
-    { label: 'Hora por hora', route: '/production/hourly', category: 'modulos' },
-    { label: 'Corridas terminadas', route: '/production/completed', category: 'modulos' },
-    { label: 'Logística en vivo', route: '/production/logistics', category: 'modulos' },
+    { label: 'Control Tower', route: '/monitor', category: 'modulos' },
+    { label: 'Production Plan', route: '/plan', category: 'modulos' },
+    { label: 'Decision Intelligence', route: '/forecast', category: 'modulos' },
+    { label: 'Warehouse / Receiving', route: '/', category: 'modulos' },
+    { label: 'Inventory Control', route: '/', category: 'modulos' },
+    { label: 'Kitting Execution', route: '/kits', category: 'modulos' },
+    { label: 'Line Feeding / Resupply', route: '/production/logistics', category: 'modulos' },
+    { label: 'Cycle Counts', route: '/conteos', category: 'modulos' },
+    { label: 'BOM / Models', route: '/bom', category: 'modulos' },
+    { label: 'Visual Aids / SOP', route: '/visual-aids', category: 'modulos' },
+    { label: 'Bay Layout', route: '/disposition', category: 'modulos' },
+    { label: 'Live Line Monitor', route: '/monitor', category: 'modulos' },
+    { label: 'Shopfloor Execution', route: '/production', category: 'modulos' },
+    { label: 'Hour by Hour', route: '/production/hourly', category: 'modulos' },
+    { label: 'Historical Runs', route: '/production/completed', category: 'modulos' },
   ];
 
   constructor(
@@ -295,23 +298,28 @@ export class ShellComponent implements OnInit, OnDestroy {
   }
 
   private syncSection(url: string): void {
+    if (url === '/monitor') {
+      this.openSection = 'tower';
+      return;
+    }
+
     if (url.startsWith('/plan') || url.startsWith('/forecast')) {
-      this.openSection = 'plan';
+      this.openSection = 'planning';
       return;
     }
 
-    if (url.startsWith('/bom') || url.startsWith('/kits') || url.startsWith('/conteos')) {
-      this.openSection = 'ic';
+    if (url.startsWith('/kits') || url.startsWith('/conteos') || url.startsWith('/production/logistics')) {
+      this.openSection = 'materials';
       return;
     }
 
-    if (url.startsWith('/production')) {
-      this.openSection = 'prod';
+    if (url.startsWith('/bom') || url.startsWith('/visual-aids') || url.startsWith('/disposition')) {
+      this.openSection = 'engineering';
       return;
     }
 
-    if (url.startsWith('/visual-aids') || url.startsWith('/disposition')) {
-      this.openSection = 'ie';
+    if (url === '/production' || url.startsWith('/production/hourly') || url.startsWith('/production/completed')) {
+      this.openSection = 'production';
       return;
     }
 

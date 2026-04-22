@@ -13,10 +13,10 @@
     <div class="sidebar-noise" aria-hidden="true"></div>
 
     <div class="brand">
-      <div class="brand-mark" aria-hidden="true">KM</div>
+      <div class="brand-mark" aria-hidden="true">FL</div>
       <div class="brand-text">
-        <strong>Kit Monitor</strong>
-        <small>Industrial Intelligence</small>
+        <strong>FLOW OS</strong>
+        <small>Powered by Kit Monitor Core</small>
       </div>
       <button class="toggle-btn" (click)="toggle()" [attr.aria-label]="collapsed ? 'Expandir' : 'Colapsar'">
         <i class="fas" [class.fa-chevron-left]="!collapsed" [class.fa-chevron-right]="collapsed"></i>
@@ -25,73 +25,135 @@
 
     <nav>
       <a routerLink="/monitor" routerLinkActive="active" class="nav-item">
-        <i class="fas fa-chart-line nav-icon"></i>
-        <span class="nav-full">Monitor</span>
-        <span class="nav-short">MN</span>
+        <i class="fas fa-tower-broadcast nav-icon"></i>
+        <span class="nav-full">Control Tower</span>
+        <span class="nav-short">CT</span>
       </a>
 
-      <div class="nav-group" [class.open]="openSection === 'plan'">
-        <button class="nav-group-header" (click)="toggleSection('plan')">
+      <div class="nav-group" [class.open]="openSection === 'planning'">
+        <button class="nav-group-header" (click)="toggleSection('planning')">
           <span class="nav-group-label">
             <i class="fas fa-calendar-alt nav-icon"></i>
-            <span class="nav-full">Planeacion</span>
+            <span class="nav-full">Planning</span>
             <span class="nav-short">PL</span>
           </span>
           <span class="nav-full group-arrow"><i class="fas fa-chevron-down"></i></span>
         </button>
         <div class="nav-group-items">
-          <a routerLink="/plan" routerLinkActive="active"><i class="fas fa-bullhorn"></i> Publicacion</a>
-          <a routerLink="/forecast" routerLinkActive="active"><i class="fas fa-chart-simple"></i> Pronostico</a>
+          <a routerLink="/plan" routerLinkActive="active"><i class="fas fa-bullhorn"></i> Production Plan</a>
+          <a routerLink="/forecast" routerLinkActive="active"><i class="fas fa-brain"></i> Decision Intelligence</a>
+          <a class="disabled" title="Coming soon"><i class="fas fa-chart-line"></i> Capacity Planning</a>
+          <a class="disabled" title="Coming soon"><i class="fas fa-shield-halved"></i> Commit Risk</a>
         </div>
       </div>
 
-      <div class="nav-group" [class.open]="openSection === 'ic'">
-        <button class="nav-group-header" (click)="toggleSection('ic')">
+      <div class="nav-group" [class.open]="openSection === 'materials'">
+        <button class="nav-group-header" (click)="toggleSection('materials')">
           <span class="nav-group-label">
-            <i class="fas fa-microchip nav-icon"></i>
-            <span class="nav-full">IC</span>
-            <span class="nav-short">IC</span>
+            <i class="fas fa-box-open nav-icon"></i>
+            <span class="nav-full">Materials</span>
+            <span class="nav-short">MT</span>
           </span>
           <span class="nav-full group-arrow"><i class="fas fa-chevron-down"></i></span>
         </button>
         <div class="nav-group-items">
-          <a routerLink="/bom" routerLinkActive="active"><i class="fas fa-cubes"></i> BOM</a>
-          <a routerLink="/kits" routerLinkActive="active"><i class="fas fa-boxes"></i> Kits</a>
-          <a routerLink="/conteos" routerLinkActive="active"><i class="fas fa-clipboard-list"></i> Conteos</a>
+          <a class="disabled" title="Coming soon"><i class="fas fa-dolly"></i> Receiving</a>
+          <a class="disabled" title="Coming soon"><i class="fas fa-warehouse"></i> Warehouse</a>
+          <a class="disabled" title="Coming soon"><i class="fas fa-barcode"></i> Inventory Control</a>
+          <a routerLink="/kits" routerLinkActive="active"><i class="fas fa-boxes"></i> Kitting Execution</a>
+          <a routerLink="/production/logistics" routerLinkActive="active"><i class="fas fa-truck-loading"></i> Line Feeding / Resupply</a>
+          <a routerLink="/conteos" routerLinkActive="active"><i class="fas fa-clipboard-list"></i> Cycle Counts</a>
+          <a class="disabled" title="Coming soon"><i class="fas fa-triangle-exclamation"></i> Shortages</a>
         </div>
       </div>
 
-      <div class="nav-group" [class.open]="openSection === 'ie'">
-        <button class="nav-group-header" (click)="toggleSection('ie')">
+      <div class="nav-group" [class.open]="openSection === 'engineering'">
+        <button class="nav-group-header" (click)="toggleSection('engineering')">
           <span class="nav-group-label">
             <i class="fas fa-chalkboard-user nav-icon"></i>
-            <span class="nav-full">IE</span>
+            <span class="nav-full">Industrial Engineering</span>
             <span class="nav-short">IE</span>
           </span>
           <span class="nav-full group-arrow"><i class="fas fa-chevron-down"></i></span>
         </button>
         <div class="nav-group-items">
-          <a routerLink="/visual-aids" routerLinkActive="active"><i class="fas fa-eye"></i> Ayudas visuales</a>
-          <a routerLink="/disposition" routerLinkActive="active"><i class="fas fa-vector-square"></i> Disposicion</a>
+          <a routerLink="/bom" routerLinkActive="active"><i class="fas fa-cubes"></i> BOM / Models</a>
+          <a routerLink="/visual-aids" routerLinkActive="active"><i class="fas fa-eye"></i> Visual Aids / SOP</a>
+          <a routerLink="/disposition" routerLinkActive="active"><i class="fas fa-vector-square"></i> Bay Layout</a>
+          <a class="disabled" title="Coming soon"><i class="fas fa-file-contract"></i> Standard Work</a>
         </div>
       </div>
 
-      <div class="nav-group" [class.open]="openSection === 'prod'">
-        <button class="nav-group-header" (click)="toggleSection('prod')">
+      <div class="nav-group" [class.open]="openSection === 'production'">
+        <button class="nav-group-header" (click)="toggleSection('production')">
           <span class="nav-group-label">
             <i class="fas fa-industry nav-icon"></i>
-            <span class="nav-full">Produccion</span>
+            <span class="nav-full">Production</span>
             <span class="nav-short">PR</span>
           </span>
           <span class="nav-full group-arrow"><i class="fas fa-chevron-down"></i></span>
         </button>
         <div class="nav-group-items">
-          <a routerLink="/production" routerLinkActive="active"><i class="fas fa-tools"></i> Operación en línea</a>
-          <a routerLink="/production/hourly" routerLinkActive="active"><i class="fas fa-clock"></i> Hora por hora</a>
-          <a routerLink="/production/completed" routerLinkActive="active"><i class="fas fa-check-circle"></i> Corridas terminadas</a>
-          <a routerLink="/production/logistics" routerLinkActive="active"><i class="fas fa-truck-loading"></i> Logística en vivo</a>
+          <a class="disabled" title="Coming soon"><i class="fas fa-desktop"></i> Live Monitor</a>
+          <a routerLink="/production" routerLinkActive="active"><i class="fas fa-tools"></i> Shopfloor Execution</a>
+          <a routerLink="/production/hourly" routerLinkActive="active"><i class="fas fa-clock"></i> Hour by Hour</a>
+          <a class="disabled" title="Coming soon"><i class="fas fa-triangle-exclamation"></i> Incidents</a>
+          <a routerLink="/production/completed" routerLinkActive="active"><i class="fas fa-check-circle"></i> Historical Runs</a>
         </div>
       </div>
+
+      <div class="nav-group disabled" title="Coming soon">
+        <button class="nav-group-header">
+          <span class="nav-group-label">
+            <i class="fas fa-certificate nav-icon"></i>
+            <span class="nav-full">Quality</span>
+            <span class="nav-short">QA</span>
+          </span>
+          <span class="nav-full group-arrow"><i class="fas fa-chevron-down"></i></span>
+        </button>
+      </div>
+
+      <div class="nav-group disabled" title="Coming soon">
+        <button class="nav-group-header">
+          <span class="nav-group-label">
+            <i class="fas fa-truck-fast nav-icon"></i>
+            <span class="nav-full">Shipping</span>
+            <span class="nav-short">SH</span>
+          </span>
+          <span class="nav-full group-arrow"><i class="fas fa-chevron-down"></i></span>
+        </button>
+      </div>
+      
+      <a class="nav-item disabled" title="Coming soon">
+        <i class="fas fa-wrench nav-icon"></i>
+        <span class="nav-full">Maintenance</span>
+        <span class="nav-short">MX</span>
+      </a>
+
+      <a class="nav-item disabled" title="Coming soon">
+        <i class="fas fa-briefcase nav-icon"></i>
+        <span class="nav-full">Program Control</span>
+        <span class="nav-short">PM</span>
+      </a>
+
+      <a class="nav-item disabled" title="Coming soon">
+        <i class="fas fa-dollar-sign nav-icon"></i>
+        <span class="nav-full">Cost & Risk</span>
+        <span class="nav-short">$$</span>
+      </a>
+
+      <a class="nav-item disabled" title="Coming soon">
+        <i class="fas fa-chart-pie nav-icon"></i>
+        <span class="nav-full">Analytics</span>
+        <span class="nav-short">AN</span>
+      </a>
+
+      <a class="nav-item disabled" title="Coming soon">
+        <i class="fas fa-cogs nav-icon"></i>
+        <span class="nav-full">Administration</span>
+        <span class="nav-short">AD</span>
+      </a>
+
     </nav>
 
     <button class="logout" (click)="logout()">
