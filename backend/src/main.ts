@@ -72,10 +72,22 @@ async function bootstrap() {
         return callback(null, true);
       }
 
-      if (originsToValidate.includes(normalizedOrigin)) {
+      // Exact match or protocol-agnostic match (e.g. //domain.com matches http://domain.com and https://domain.com)
+      const isAllowed = originsToValidate.some(allowed => {
+        if (allowed === normalizedOrigin) return true;
+        if (allowed.startsWith('//') && normalizedOrigin.endsWith(allowed.substring(2))) {
+          // Ensure it's not a subdomain mismatch (e.g. //os.app shouldn't match xos.app)
+          const domain = allowed.substring(2);
+          return normalizedOrigin === `http://${domain}` || normalizedOrigin === `https://${domain}`;
+        }
+        return false;
+      });
+
+      if (isAllowed) {
         return callback(null, true);
       }
 
+      console.error(`[CORS] Origin rejected: ${normalizedOrigin}. Expected one of: ${JSON.stringify(originsToValidate)}`);
       return callback(new Error(`Origin not allowed by CORS: ${normalizedOrigin}`), false);
     },
     credentials: true,
