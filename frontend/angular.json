@@ -2,7 +2,7 @@
   "$schema": "./node_modules/@angular/cli/lib/config/schema.json",
   "version": 1,
   "projects": {
-    "frontend": {
+    "axos-os-frontend": {
       "root": "",
       "sourceRoot": "src",
       "projectType": "application",
@@ -10,7 +10,7 @@
         "build": {
           "builder": "@angular/build:application",
           "options": {
-            "outputPath": "dist/frontend",
+            "outputPath": "dist/axos-os-frontend",
             "index": "src/index.html",
             "browser": "src/main.ts",
             "polyfills": ["zone.js"],
@@ -39,14 +39,14 @@
         "serve": {
           "builder": "@angular/build:dev-server",
           "options": {
-            "buildTarget": "frontend:build"
+            "buildTarget": "axos-os-frontend:build"
           },
           "configurations": {
             "production": {
-              "buildTarget": "frontend:build:production"
+              "buildTarget": "axos-os-frontend:build:production"
             },
             "development": {
-              "buildTarget": "frontend:build:development"
+              "buildTarget": "axos-os-frontend:build:development"
             }
           },
           "defaultConfiguration": "development"

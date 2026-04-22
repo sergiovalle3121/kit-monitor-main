@@ -1,4 +1,4 @@
-# Kit Monitor
+# AXOS OS
 
 Monorepo con frontend en Angular y backend en NestJS para seguimiento operativo de planes, kits, BOM y monitoreo de produccion.
 

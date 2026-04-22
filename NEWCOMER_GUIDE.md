@@ -1,8 +1,8 @@
-# Newcomer Guide: Kit Monitor
+# Newcomer Guide: AXOS OS
 
 ## 1) What this project is
 
-Kit Monitor is a monorepo for tracking production plans, kits, BOM materials, and execution events on the shop floor.
+AXOS OS is a monorepo for tracking production plans, kits, BOM materials, and execution events on the shop floor.
 
 - **Frontend:** Angular app (`frontend/`) for operators/planners.
 - **Backend:** NestJS API (`backend/`) with TypeORM and JWT auth.

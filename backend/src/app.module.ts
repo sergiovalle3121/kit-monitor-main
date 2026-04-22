@@ -4,7 +4,7 @@ import { ormOptions } from "./orm.options";
 import { HealthController } from "./health/health.controller";
 import { AuthModule } from "./modules/auth/auth.module";
 import { UsersModule } from "./modules/users/users.module";
-// Kit Monitor domain modules
+// AXOS OS domain modules
 import { PlansModule } from "./modules/plans/plans.module";
 import { BomModule } from "./modules/bom/bom.module";
 import { BayLayoutModule } from "./modules/bay-layout/bay-layout.module";
