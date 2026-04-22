@@ -1,4 +1,5 @@
 import { Column, CreateDateColumn, Entity, PrimaryColumn, UpdateDateColumn } from 'typeorm';
+import { BINARY_COLUMN_TYPE } from '../../../common/database/binary-column-type';
 
 @Entity('visual_aids')
 export class VisualAid {
@@ -23,7 +24,7 @@ export class VisualAid {
   @Column({ name: 'filename', type: 'text' })
   pdfUrl: string;
 
-  @Column({ name: 'pdf_data', type: 'bytea', nullable: true, select: false })
+  @Column({ name: 'pdf_data', type: BINARY_COLUMN_TYPE, nullable: true, select: false })
   pdfData?: Buffer | null;
 
   @Column({ name: 'active', type: 'boolean', default: true })

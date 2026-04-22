@@ -13,10 +13,10 @@
     <div class="sidebar-noise" aria-hidden="true"></div>
 
     <div class="brand">
-      <div class="brand-mark" aria-hidden="true">FL</div>
+      <div class="brand-mark" aria-hidden="true">AX</div>
       <div class="brand-text">
-        <strong>FLOW OS</strong>
-        <small>Powered by Kit Monitor Core</small>
+        <strong>AXOS OS</strong>
+        <small>Industrial Operating System</small>
       </div>
       <button class="toggle-btn" (click)="toggle()" [attr.aria-label]="collapsed ? 'Expandir' : 'Colapsar'">
         <i class="fas" [class.fa-chevron-left]="!collapsed" [class.fa-chevron-right]="collapsed"></i>
@@ -61,8 +61,8 @@
           <a class="disabled" title="Coming soon"><i class="fas fa-warehouse"></i> Warehouse</a>
           <a class="disabled" title="Coming soon"><i class="fas fa-barcode"></i> Inventory Control</a>
           <a routerLink="/kits" routerLinkActive="active"><i class="fas fa-boxes"></i> Kitting Execution</a>
-          <a routerLink="/production/logistics" routerLinkActive="active"><i class="fas fa-truck-loading"></i> Line Feeding / Resupply</a>
-          <a routerLink="/conteos" routerLinkActive="active"><i class="fas fa-clipboard-list"></i> Cycle Counts</a>
+          <a routerLink="/materials/resupply" routerLinkActive="active"><i class="fas fa-truck-loading"></i> Materials / Resupply Control</a>
+          <a routerLink="/materials/cycle-counts" routerLinkActive="active"><i class="fas fa-clipboard-list"></i> Cycle Counts / Inventory Accuracy</a>
           <a class="disabled" title="Coming soon"><i class="fas fa-triangle-exclamation"></i> Shortages</a>
         </div>
       </div>

@@ -4,7 +4,10 @@ export class UpdateResupplyTable1713000000001 implements MigrationInterface {
     name = 'UpdateResupplyTable1713000000001'
 
     public async up(queryRunner: QueryRunner): Promise<void> {
-        await queryRunner.addColumns("resupplies", [
+        const hasResuppliesTable = await queryRunner.hasTable("resupplies");
+        if (!hasResuppliesTable) return;
+
+        const columnsToAdd: TableColumn[] = [
             new TableColumn({
                 name: "priority",
                 type: "varchar",
@@ -60,11 +63,26 @@ export class UpdateResupplyTable1713000000001 implements MigrationInterface {
                 type: "timestamp",
                 isNullable: true
             })
-        ]);
+        ];
+
+        const missingColumns: TableColumn[] = [];
+        for (const column of columnsToAdd) {
+            const hasColumn = await queryRunner.hasColumn("resupplies", column.name);
+            if (!hasColumn) {
+                missingColumns.push(column);
+            }
+        }
+
+        if (missingColumns.length > 0) {
+            await queryRunner.addColumns("resupplies", missingColumns);
+        }
     }
 
     public async down(queryRunner: QueryRunner): Promise<void> {
-        await queryRunner.dropColumns("resupplies", [
+        const hasResuppliesTable = await queryRunner.hasTable("resupplies");
+        if (!hasResuppliesTable) return;
+
+        const columnsToDrop = [
             "priority",
             "ownerId",
             "ownerName",
@@ -76,6 +94,18 @@ export class UpdateResupplyTable1713000000001 implements MigrationInterface {
             "confirmedAt",
             "escalatedAt",
             "cancelledAt"
-        ]);
+        ];
+
+        const existingColumns: string[] = [];
+        for (const columnName of columnsToDrop) {
+            const hasColumn = await queryRunner.hasColumn("resupplies", columnName);
+            if (hasColumn) {
+                existingColumns.push(columnName);
+            }
+        }
+
+        if (existingColumns.length > 0) {
+            await queryRunner.dropColumns("resupplies", existingColumns);
+        }
     }
 }
