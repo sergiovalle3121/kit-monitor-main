@@ -2,6 +2,7 @@ import { AfterViewInit, Component, ElementRef, OnDestroy, ViewChild } from '@ang
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
+import { HttpErrorResponse } from '@angular/common/http';
 import { AuthService } from '../../core/auth.service';
 
 @Component({
@@ -53,8 +54,16 @@ export class LoginComponent implements AfterViewInit, OnDestroy {
     this.loading = true;
     this.auth.login(this.email.trim(), this.password.trim()).subscribe({
       next: () => this.router.navigateByUrl('/monitor'),
-      error: () => {
-        this.error = 'Credenciales incorrectas';
+      error: (err: HttpErrorResponse) => {
+        if (err.status === 401) {
+          this.error = 'Credenciales incorrectas';
+        } else if (err.status === 403) {
+          this.error = 'Acceso bloqueado por configuración de seguridad del backend.';
+        } else if (err.status === 0) {
+          this.error = 'No se pudo conectar al backend. Verifica URL/API en entorno.';
+        } else {
+          this.error = err?.error?.message || 'No se pudo iniciar sesión';
+        }
         this.loading = false;
       },
     });
