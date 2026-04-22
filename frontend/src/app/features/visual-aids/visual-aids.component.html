@@ -19,15 +19,59 @@
     <input [(ngModel)]="form.process" placeholder="Proceso / categoría" />
     <input [(ngModel)]="form.area" placeholder="Área / estación" />
     <input [(ngModel)]="form.revision" placeholder="Revisión" />
-    <label class="upload">
-      <input type="file" accept="application/pdf,image/jpeg,image/png,image/webp" hidden (change)="onPdfSelected($event)" />
-      {{ fileName || 'Seleccionar Archivo (PDF o Imagen)' }}
-    </label>
+    <div class="creation-mode">
+      <button type="button" class="btn-toggle" [class.active]="creationMode === 'upload'" (click)="creationMode = 'upload'">Subir Archivo / Anotaciones</button>
+      <button type="button" class="btn-toggle" [class.active]="creationMode === 'canvas'" (click)="creationMode = 'canvas'">Crear diseño desde cero</button>
+    </div>
+
+    <ng-container *ngIf="creationMode === 'upload'">
+      <label class="upload">
+        <input type="file" accept="application/pdf,image/jpeg,image/png,image/webp" hidden (change)="onPdfSelected($event)" />
+        {{ fileName || 'Seleccionar Archivo (PDF o Imagen)' }}
+      </label>
+    </ng-container>
+
+    <ng-container *ngIf="creationMode === 'canvas'">
+      <div class="slide-editor">
+        <div class="slide-toolbar">
+          <button type="button" class="btn-light" (click)="addText()">📝 Texto</button>
+          <button type="button" class="btn-light" (click)="fileInputSlide.click()">🖼️ Imagen</button>
+          <input type="file" #fileInputSlide accept="image/*" hidden (change)="addImage($event)" />
+          <button type="button" class="btn-light" (click)="addArrow()">➔ Flecha</button>
+        </div>
+
+        <div class="slide-canvas" id="slide-canvas" #slideCanvas>
+          <div class="slide-item" *ngFor="let item of slideItems; let i = index"
+               cdkDrag cdkDragBoundary=".slide-canvas" [style.color]="item.color" [style.fontSize.px]="item.fontSize">
+             
+            <div class="slide-item-controls">
+               <button type="button" (click)="removeSlideItem(i)" title="Eliminar">✕</button>
+               <button type="button" *ngIf="item.type === 'text' || item.type === 'arrow'" (click)="increaseSize(item)">A+</button>
+               <button type="button" *ngIf="item.type === 'text' || item.type === 'arrow'" (click)="decreaseSize(item)">A-</button>
+            </div>
+
+            <ng-container *ngIf="item.type === 'text'">
+               <div contenteditable="true" (blur)="onTextChange($event, item)" class="editable-text" [innerHTML]="item.content"></div>
+            </ng-container>
+
+            <ng-container *ngIf="item.type === 'arrow'">
+               <div class="arrow-shape" contenteditable="true" (blur)="onTextChange($event, item)" [innerHTML]="item.content"></div>
+            </ng-container>
+
+            <ng-container *ngIf="item.type === 'image'">
+               <img [src]="item.url" [style.width.px]="item.width" class="draggable-img" />
+               <div class="resize-handle" (mousedown)="increaseSize(item)" title="Agrandar">➕</div>
+               <div class="resize-handle minus" (mousedown)="decreaseSize(item)" title="Achicar">➖</div>
+            </ng-container>
+          </div>
+        </div>
+      </div>
+    </ng-container>
     <textarea [(ngModel)]="form.notes" placeholder="Notas"></textarea>
     <label class="toggle"><input type="checkbox" [(ngModel)]="form.isActive" /> Activo</label>
   </div>
 
-  <div class="canvas-container" *ngIf="isImage && imagePreviewUrl">
+  <div class="canvas-container" *ngIf="creationMode === 'upload' && isImage && imagePreviewUrl">
     <div class="canvas-instructions">Haz clic en cualquier punto de la imagen para agregar una anotación (PowerPoint Style)</div>
     <div class="canvas-box" (click)="onImageClick($event)">
       <img [src]="imagePreviewUrl" alt="Preview" class="canvas-image" />
@@ -40,7 +84,7 @@
         <span class="pin-dot"></span>
         <div class="pin-tooltip">
           {{ ann.text }}
-          <button class="pin-delete" (click)="removeAnnotation(i, $event)">✕</button>
+          <button type="button" class="pin-delete" (click)="removeAnnotation(i, $event)">✕</button>
         </div>
       </div>
     </div>

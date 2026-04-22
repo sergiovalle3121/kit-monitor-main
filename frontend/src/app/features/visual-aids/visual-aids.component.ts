@@ -1,6 +1,8 @@
 import { CommonModule } from '@angular/common';
-import { AfterViewChecked, Component, OnInit } from '@angular/core';
+import { AfterViewChecked, Component, ElementRef, OnInit, ViewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { DragDropModule } from '@angular/cdk/drag-drop';
+import html2canvas from 'html2canvas';
 import { environment } from '../../../environments/environment';
 import { ApiService } from '../../core/api.service';
 import { VisualAid } from '../../core/ie-data.models';
@@ -10,7 +12,7 @@ import { ConfirmModalService } from '../../shared/confirm-modal/confirm-modal.se
 @Component({
   selector: 'app-visual-aids',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, DragDropModule],
   templateUrl: './visual-aids.component.html',
   styleUrl: './visual-aids.component.css',
 })
@@ -24,6 +26,7 @@ export class VisualAidsComponent implements OnInit {
   activeFilter: 'all' | 'active' | 'inactive' = 'all';
 
   showForm = false;
+  creationMode: 'upload' | 'canvas' = 'upload';
   formError: string | null = null;
   fileName = '';
   selectedPdfFile: File | null = null;
@@ -31,6 +34,9 @@ export class VisualAidsComponent implements OnInit {
   isImage = false;
   modelSuggestions: string[] = [];
   annotations: Array<{ x: number; y: number; text: string }> = [];
+
+  slideItems: Array<any> = [];
+  @ViewChild('slideCanvas') slideCanvas?: ElementRef<HTMLElement>;
 
   form = {
     model: '',
@@ -137,9 +143,73 @@ export class VisualAidsComponent implements OnInit {
 
 
 
-  save(): void {
-    if (!this.form.model || !this.form.title || !this.form.process || !this.selectedPdfFile) {
-      this.formError = 'Modelo, título, proceso y PDF son obligatorios.';
+  addText(): void {
+    this.slideItems.push({ type: 'text', content: 'Nuevo texto', fontSize: 24, color: '#000000' });
+  }
+
+  addArrow(): void {
+    this.slideItems.push({ type: 'arrow', content: '➡', fontSize: 48, color: '#ff0000' });
+  }
+
+  addImage(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      this.slideItems.push({ type: 'image', url: e.target?.result as string, width: 300 });
+      input.value = '';
+    };
+    reader.readAsDataURL(file);
+  }
+
+  removeSlideItem(index: number): void {
+    this.slideItems.splice(index, 1);
+  }
+
+  increaseSize(item: any): void {
+    if (item.type === 'text' || item.type === 'arrow') item.fontSize += 4;
+    else if (item.type === 'image') item.width += 20;
+  }
+
+  decreaseSize(item: any): void {
+    if (item.type === 'text' || item.type === 'arrow') item.fontSize = Math.max(12, item.fontSize - 4);
+    else if (item.type === 'image') item.width = Math.max(50, item.width - 20);
+  }
+
+  onTextChange(event: Event, item: any): void {
+    item.content = (event.target as HTMLElement).innerHTML;
+  }
+
+  async save(): Promise<void> {
+    if (!this.form.model || !this.form.title || !this.form.process) {
+      this.formError = 'Modelo, título y proceso son obligatorios.';
+      return;
+    }
+
+    let finalFile = this.selectedPdfFile;
+
+    if (this.creationMode === 'canvas') {
+      if (!this.slideCanvas) return;
+      this.formError = 'Generando imagen...';
+      
+      const el = this.slideCanvas.nativeElement;
+      el.classList.add('exporting');
+      try {
+        const canvas = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+        const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/png'));
+        if (!blob) throw new Error('Error al generar blob');
+        finalFile = new File([blob], 'slide-generado.png', { type: 'image/png' });
+      } catch (e) {
+        this.formError = 'Error al procesar el lienzo interactivo.';
+        el.classList.remove('exporting');
+        return;
+      }
+      el.classList.remove('exporting');
+    }
+
+    if (!finalFile) {
+      this.formError = 'Debes subir un archivo o diseñar algo en el lienzo.';
       return;
     }
 
@@ -153,7 +223,7 @@ export class VisualAidsComponent implements OnInit {
       isActive: this.form.isActive,
       uploadedBy: 'IE',
       annotations: JSON.stringify(this.annotations),
-    }, this.selectedPdfFile).subscribe({
+    }, finalFile).subscribe({
       next: () => {
         this.showForm = false;
         this.fileName = '';
@@ -171,6 +241,8 @@ export class VisualAidsComponent implements OnInit {
         this.imagePreviewUrl = null;
         this.isImage = false;
         this.annotations = [];
+        this.slideItems = [];
+        this.creationMode = 'upload';
       },
       error: () => {
         this.formError = 'No se pudo guardar la ayuda visual.';
