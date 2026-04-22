@@ -9,27 +9,27 @@ import { CreateBayIncidentDto } from './dto/create-bay-incident.dto';
 export class ProductionRuntimeController {
   constructor(private readonly service: ProductionRuntimeService) {}
 
-  @Get('backends')
+  @Get('lines')
   getLines() {
     return this.service.getLines();
   }
 
-  @Get('backends/:kitId')
+  @Get('lines/:kitId')
   getLine(@Param('kitId', ParseIntPipe) kitId: number) {
     return this.service.getLine(kitId);
   }
 
-  @Post('backends/:kitId/receive')
+  @Post('lines/:kitId/receive')
   receive(@Param('kitId', ParseIntPipe) kitId: number) {
     return this.service.receiveLine(kitId);
   }
 
-  @Post('backends/:kitId/start')
+  @Post('lines/:kitId/start')
   start(@Param('kitId', ParseIntPipe) kitId: number) {
     return this.service.startLine(kitId);
   }
 
-  @Post('backends/:kitId/bays/:bayId/events')
+  @Post('lines/:kitId/bays/:bayId/events')
   createEvent(
     @Param('kitId', ParseIntPipe) kitId: number,
     @Param('bayId', ParseIntPipe) bayId: number,
@@ -43,17 +43,17 @@ export class ProductionRuntimeController {
     return this.service.revertBayEvent(eventId);
   }
 
-  @Get('backends/:kitId/events')
+  @Get('lines/:kitId/events')
   getEvents(@Param('kitId', ParseIntPipe) kitId: number) {
     return this.service.getEvents(kitId);
   }
 
-  @Get('backends/:kitId/materials')
+  @Get('lines/:kitId/materials')
   getMaterials(@Param('kitId', ParseIntPipe) kitId: number) {
     return this.service.getMaterials(kitId);
   }
 
-  @Post('backends/:kitId/bays/:bayId/incidents')
+  @Post('lines/:kitId/bays/:bayId/incidents')
   createIncident(
     @Param('kitId', ParseIntPipe) kitId: number,
     @Param('bayId', ParseIntPipe) bayId: number,
@@ -62,7 +62,7 @@ export class ProductionRuntimeController {
     return this.service.createBayIncident(kitId, bayId, dto);
   }
 
-  @Get('backends/:kitId/bays/:bayId/incidents')
+  @Get('lines/:kitId/bays/:bayId/incidents')
   getIncidents(
     @Param('kitId', ParseIntPipe) kitId: number,
     @Param('bayId', ParseIntPipe) bayId: number,
@@ -70,12 +70,12 @@ export class ProductionRuntimeController {
     return this.service.getBayIncidents(kitId, bayId);
   }
 
-  @Get('backends/:kitId/hourly')
+  @Get('lines/:kitId/hourly')
   getHourly(@Param('kitId', ParseIntPipe) kitId: number) {
     return this.service.getHourly(kitId);
   }
 
-  @Get('backends/:kitId/shortage-risk')
+  @Get('lines/:kitId/shortage-risk')
   getShortage(@Param('kitId', ParseIntPipe) kitId: number) {
     return this.service.getShortageRisk(kitId);
   }
