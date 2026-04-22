@@ -8,7 +8,7 @@ export class UsersService {
     {
       id: 1,
       email: '3312793',
-      password: '$2b$10$lNxisUFosMXq95BclEDVoe4x0gkjudUAIXKbwkaxnYEX16n.Y1h0a',
+      password: '$2b$10$BvXnNMDTTalPOe.pMVew5.mMoDXwaPJL6SmBOoKDzSd3aRAyjK5ju',
       isActive: true,
     },
   ];

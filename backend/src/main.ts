@@ -20,22 +20,32 @@ async function bootstrap() {
   // CORS
   // ---------------------------
   const env = process.env.NODE_ENV || 'development';
-
-  // Permite pasar varios orígenes separados por coma en ALLOWED_ORIGIN
-  // Ej: "https://mi-front.app,https://admin.mi-front.app"
-  const allowedOriginEnv =
-    process.env.ALLOWED_ORIGIN ||
-    (env === 'production'
-      ? 'https://your-frontend.up.railway.app'
-      : 'http://localhost:4200,http://localhost:5173');
+  const allowedOriginEnv = process.env.ALLOWED_ORIGIN || '';
 
   const allowedOrigins = allowedOriginEnv
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean);
 
+  const defaultDevOrigins = ['http://localhost:4200', 'http://localhost:5173'];
+  const originsToValidate = allowedOrigins.length > 0
+    ? allowedOrigins
+    : (env === 'development' ? defaultDevOrigins : []);
+
   app.enableCors({
-    origin: allowedOrigins,
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true);
+
+      if (originsToValidate.length === 0) {
+        return callback(null, true);
+      }
+
+      if (originsToValidate.includes(origin)) {
+        return callback(null, true);
+      }
+
+      return callback(new Error(`Origin not allowed by CORS: ${origin}`), false);
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'x-frontend-key'],
@@ -72,7 +82,7 @@ async function bootstrap() {
   await app.listen(port, '0.0.0.0');
 
   console.log(
-    `API listening on :${port} (NODE_ENV=${env}) allowedOrigins=${allowedOrigins.join(
+    `API listening on :${port} (NODE_ENV=${env}) allowedOrigins=${originsToValidate.join(
       ', '
     )}`
   );

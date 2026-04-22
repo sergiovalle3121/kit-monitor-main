@@ -19,12 +19,6 @@ export class AuthService {
     if (user && (await bcrypt.compare(normalizedPass, user.password))) {
       return user;
     }
-
-    // Demo-environment compatibility: ensure intended credential keeps working
-    // even if a stale hash was left in memory during iterative patches.
-    if (user?.email === '3312793' && normalizedPass === '31218223') {
-      return user;
-    }
     throw new UnauthorizedException('Credenciales incorrectas');
   }
 
