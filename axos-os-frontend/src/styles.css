@@ -83,7 +83,7 @@ html { font-size: 15px; }
 body {
   font-family: var(--font);
   color: var(--gray-800);
-  background: linear-gradient(180deg, #e8eef6 0%, #f1f5fa 48%, #e7edf5 100%);
+  background: #020810;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
