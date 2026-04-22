@@ -1,4 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, Index } from 'typeorm';
+import { DATE_COLUMN_TYPE } from '../../../common/database/date-column-type';
+import { JSON_COLUMN_TYPE } from '../../../common/database/json-column-type';
 
 export enum EventDomain {
   MATERIALS = 'MATERIALS',
@@ -15,7 +17,7 @@ export class LedgerEvent {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @CreateDateColumn({ type: 'timestamp with time zone' })
+  @CreateDateColumn({ type: DATE_COLUMN_TYPE })
   timestamp: Date;
 
   @Column({ nullable: true })
@@ -72,7 +74,7 @@ export class LedgerEvent {
   workOrder: string;
 
   // Additional context not queried heavily
-  @Column({ type: 'jsonb', nullable: true, default: {} })
+  @Column({ type: JSON_COLUMN_TYPE, nullable: true })
   context: {
     revision?: string;
     lot?: string;
@@ -81,7 +83,7 @@ export class LedgerEvent {
   };
 
   // Transactional Specifics
-  @Column({ type: 'jsonb', nullable: true, default: {} })
+  @Column({ type: JSON_COLUMN_TYPE, nullable: true })
   transaction: {
     quantity?: number;
     fromLocation?: string;
@@ -90,7 +92,7 @@ export class LedgerEvent {
   };
 
   // State changes, reasons, and approvals
-  @Column({ type: 'jsonb', nullable: true, default: {} })
+  @Column({ type: JSON_COLUMN_TYPE, nullable: true })
   metadata: {
     reasonCode?: string;
     reasonDesc?: string;

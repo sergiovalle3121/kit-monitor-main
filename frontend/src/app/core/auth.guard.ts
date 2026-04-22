@@ -1,7 +1,7 @@
 import { inject } from '@angular/core';
 import { CanActivateFn, Router } from '@angular/router';
-import { HttpClient } from '@angular/common/http';
-import { catchError, map, of } from 'rxjs';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { catchError, map, of, throwError } from 'rxjs';
 import { TOKEN_KEY } from './auth.service';
 import { environment } from '../../environments/environment';
 
@@ -32,9 +32,17 @@ export const authGuard: CanActivateFn = () => {
   const router = inject(Router);
   const http = inject(HttpClient);
   const token = typeof localStorage !== 'undefined' ? localStorage.getItem(TOKEN_KEY) : null;
+  const primaryBase = resolveApiBase();
+  const sameOriginBase = getSameOriginApiUrl();
 
   if (token && isUsableToken(token)) {
-    return http.get(`${environment.apiUrl}/auth/profile`).pipe(
+    return http.get(buildUrl(primaryBase, 'auth/profile')).pipe(
+      catchError((err: HttpErrorResponse) => {
+        if (err.status !== 0 || !sameOriginBase || sameOriginBase === primaryBase) {
+          return throwError(() => err);
+        }
+        return http.get(buildUrl(sameOriginBase, 'auth/profile'));
+      }),
       map(() => true),
       catchError(() => {
         localStorage.removeItem(TOKEN_KEY);
@@ -49,3 +57,26 @@ export const authGuard: CanActivateFn = () => {
 
   return router.createUrlTree(['/login']);
 };
+
+function resolveApiBase(): string {
+  if (typeof window === 'undefined') {
+    return environment.apiUrl.replace(/\/+$/, '');
+  }
+
+  const runtimeApiUrl = (window as any).__API_URL__;
+  const configured = String(runtimeApiUrl || environment.apiUrl || '').trim();
+  if (configured) {
+    return configured.replace(/\/+$/, '');
+  }
+
+  return getSameOriginApiUrl() || '/api';
+}
+
+function getSameOriginApiUrl(): string {
+  if (typeof window === 'undefined') return '';
+  return `${window.location.origin}/api`;
+}
+
+function buildUrl(base: string, path: string): string {
+  return `${base.replace(/\/+$/, '')}/${path.replace(/^\/+/, '')}`;
+}

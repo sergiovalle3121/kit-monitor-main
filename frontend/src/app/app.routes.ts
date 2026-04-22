@@ -33,9 +33,14 @@ export const routes: Routes = [
           import('./features/kits/kits.component').then(m => m.KitsComponent),
       },
       {
-        path: 'conteos',
+        path: 'materials/cycle-counts',
         loadComponent: () =>
           import('./features/conteos/conteos.component').then(m => m.ConteosComponent),
+      },
+      {
+        path: 'conteos',
+        redirectTo: 'materials/cycle-counts',
+        pathMatch: 'full',
       },
       {
         path: 'production',
@@ -54,9 +59,14 @@ export const routes: Routes = [
           import('./features/production-completed/production-completed.component').then(m => m.ProductionCompletedComponent),
       },
       {
-        path: 'production/logistics',
+        path: 'materials/resupply',
         loadComponent: () =>
-          import('./features/logistics-risk/logistics-risk.component').then(m => m.LogisticsRiskComponent),
+          import('./features/materials-resupply-control/materials-resupply-control.component').then(m => m.MaterialsResupplyControlComponent),
+      },
+      {
+        path: 'production/logistics',
+        redirectTo: 'materials/resupply',
+        pathMatch: 'full',
       },
       {
         path: 'monitor',
