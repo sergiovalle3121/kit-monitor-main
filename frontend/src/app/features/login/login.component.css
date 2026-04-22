@@ -101,10 +101,7 @@
 }
 
 .login-hero,
-.login-panel {
-  position: relative;
-  min-width: 0;
-}
+.login-panel { position: relative; min-width: 0; }
 
 .login-hero {
   padding: clamp(24px, 3vh, 36px) clamp(22px, 2.6vw, 34px);
@@ -197,6 +194,8 @@
   align-items: center;
 }
 
+.hero-content { display: flex; flex-direction: column; gap: 10px; }
+
 .login-hero h1 {
   margin: 0;
   font-size: clamp(2.04rem, 3.4vw, 2.8rem);
@@ -284,6 +283,8 @@
   margin-bottom: 18px;
 }
 
+.panel-head { margin-bottom: 24px; }
+
 .panel-head h2 {
   margin: 10px 0 8px;
   color: var(--text-main);
@@ -308,7 +309,7 @@
 .field {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
 }
 
 .field span {
@@ -343,9 +344,7 @@
   transition: all 300ms ease;
 }
 
-.field input::placeholder {
-  color: #94a3b8;
-}
+.field input::placeholder { color: #94a3b8; }
 
 .error {
   margin: 0;
@@ -426,6 +425,8 @@ button:disabled {
   .hero-panel small {
     display: none;
   }
+
+  .hero-wordmark { letter-spacing: 0.24em; }
 }
 
 @media (max-width: 640px) {
