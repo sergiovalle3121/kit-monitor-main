@@ -14,7 +14,7 @@ export class AuthService {
 
   login(email: string, password: string): Observable<{ access_token: string }> {
     return this.http
-      .post<{ access_token: string }>(`${this.base}/auth/login`, { email: email.trim(), password })
+      .post<{ access_token: string }>(`${this.base}/auth/login`, { email: email.trim(), password: password.trim() })
       .pipe(tap(res => localStorage.setItem(TOKEN_KEY, res.access_token)));
   }
 
