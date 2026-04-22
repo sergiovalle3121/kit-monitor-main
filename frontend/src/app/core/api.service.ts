@@ -125,6 +125,17 @@ export class ApiService {
     return this.get<any[]>('resupplies', { kitId });
   }
 
+  getAllResupplies(): Observable<any[]> {
+    return this.get<any[]>('resupplies');
+  }
+
+  updateResupplyStatus(
+    id: number,
+    dto: { status: string; actorName: string; quantityDelivered?: number; reason?: string },
+  ): Observable<any> {
+    return this.patch<any>(`resupplies/${id}/status`, dto);
+  }
+
   createResupply(kitId: number, partNumber: string, qty: number, description?: string, reason?: string): Observable<any> {
     return this.post<any>('resupplies', {
       kitId,

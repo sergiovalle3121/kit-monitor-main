@@ -11,8 +11,11 @@ export class ResuppliesController {
   constructor(private readonly service: ResuppliesService) {}
 
   @Get()
-  findByKit(@Query('kitId', ParseIntPipe) kitId: number) {
-    return this.service.findByKit(kitId);
+  find(@Query('kitId') kitId?: string) {
+    if (kitId) {
+      return this.service.findByKit(Number(kitId));
+    }
+    return this.service.findAll();
   }
 
   @Post()

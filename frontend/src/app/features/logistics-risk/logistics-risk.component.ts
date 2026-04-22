@@ -1,115 +1,322 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../core/api.service';
 
-interface LogisticsMovement {
-  lineCode: string;
-  destination: string;
-  model: string;
-  parts: string[];
-  status: 'in_transit' | 'delivered';
-  timestamp: string;
-}
+type UiStatus = 'requested' | 'acknowledged' | 'pick_started' | 'pick_completed' | 'in_transit' | 'delivered' | 'confirmed' | 'escalated' | 'cancelled';
+type UiPriority = 'low' | 'medium' | 'high' | 'critical';
+type SlaState = 'on_track' | 'at_risk' | 'overdue';
 
-interface MaterialRiskItem {
+interface ResupplyItem {
+  id: number;
+  status: UiStatus;
+  priority: UiPriority;
   partNumber: string;
-  severity: 'stable' | 'attention' | 'critical' | 'urgent';
-  minutesToStockout: number | null;
-  bayId: number;
-  recommendation: string;
+  description?: string;
+  quantityRequested: number;
+  quantityDelivered?: number;
+  ownerName?: string;
+  reason?: string;
+  requestedAt?: string;
+  acknowledgedAt?: string;
+  pickStartedAt?: string;
+  pickCompletedAt?: string;
+  deliveredAt?: string;
+  confirmedAt?: string;
+  escalatedAt?: string;
+  cancelledAt?: string;
+  kit?: { id?: number; plan?: any };
 }
 
 @Component({
   selector: 'app-logistics-risk',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, FormsModule],
   templateUrl: './logistics-risk.component.html',
   styleUrl: './logistics-risk.component.css',
 })
 export class LogisticsRiskComponent implements OnInit {
-  movements: LogisticsMovement[] = [];
-  materialRisks: MaterialRiskItem[] = [];
+  loading = false;
+  error = '';
+  viewMode: 'board' | 'list' = 'board';
+  selected: ResupplyItem | null = null;
+  selectedTimeline: any[] = [];
+  processingId: number | null = null;
+
+  rows: ResupplyItem[] = [];
+  filteredRows: ResupplyItem[] = [];
+
+  filters = {
+    q: '',
+    line: '',
+    model: '',
+    workOrder: '',
+    status: '',
+    priority: '',
+  };
+
+  readonly boardColumns = [
+    { key: 'requested', label: 'Requested', statuses: ['requested'] as UiStatus[] },
+    { key: 'acknowledged', label: 'Acknowledged', statuses: ['acknowledged'] as UiStatus[] },
+    { key: 'picking', label: 'Picking', statuses: ['pick_started', 'pick_completed', 'in_transit'] as UiStatus[] },
+    { key: 'delivered', label: 'Delivered', statuses: ['delivered'] as UiStatus[] },
+    { key: 'confirmed', label: 'Confirmed', statuses: ['confirmed'] as UiStatus[] },
+    { key: 'escalated', label: 'Escalated', statuses: ['escalated'] as UiStatus[] },
+  ];
 
   constructor(private readonly api: ApiService) {}
 
   ngOnInit(): void {
-    this.api.getLogisticsShortageRisk().subscribe({
-      next: (rows) => this.buildView(rows ?? []),
-      error: () => {
-        this.movements = [];
-        this.materialRisks = [];
+    this.load();
+  }
+
+  load(): void {
+    this.loading = true;
+    this.error = '';
+
+    this.api.getAllResupplies().subscribe({
+      next: (rows) => {
+        this.rows = (rows ?? []).map((it) => ({ ...it }));
+        this.applyFilters();
+        this.loading = false;
+      },
+      error: (err) => {
+        this.rows = [];
+        this.filteredRows = [];
+        this.loading = false;
+        this.error = err?.error?.message ?? 'No fue posible cargar Resupply Control';
       },
     });
   }
 
-  get activeMovementsToday(): number {
-    const startOfDay = new Date();
-    startOfDay.setHours(0, 0, 0, 0);
-    return this.movements.filter((item) => item.status === 'in_transit' && new Date(item.timestamp).getTime() >= startOfDay.getTime()).length;
+  applyFilters(): void {
+    const q = this.filters.q.trim().toUpperCase();
+    this.filteredRows = this.rows.filter((row) => {
+      const line = this.safe(row.kit?.plan?.line);
+      const model = this.safe(row.kit?.plan?.model);
+      const wo = this.safe(row.kit?.plan?.workOrder);
+
+      if (this.filters.line && line !== this.filters.line) return false;
+      if (this.filters.model && model !== this.filters.model) return false;
+      if (this.filters.workOrder && wo !== this.filters.workOrder) return false;
+      if (this.filters.status && row.status !== this.filters.status) return false;
+      if (this.filters.priority && row.priority !== this.filters.priority) return false;
+
+      if (!q) return true;
+      return [
+        row.partNumber,
+        row.description,
+        row.ownerName,
+        line,
+        model,
+        wo,
+        row.status,
+        row.priority,
+      ].some((value) => this.safe(value).includes(q));
+    });
   }
 
-  riskSignal(item: MaterialRiskItem): '🟢' | '🟡' | '🔴' {
-    if (item.severity === 'stable') return '🟢';
-    if (item.severity === 'attention') return '🟡';
-    return '🔴';
+  openDetail(item: ResupplyItem): void {
+    this.selected = item;
+    this.selectedTimeline = [];
+    this.api.getLedgerEvents('RESUPPLY', item.id).subscribe({
+      next: (events) => this.selectedTimeline = events ?? [],
+      error: () => this.selectedTimeline = [],
+    });
   }
 
-  riskLabel(item: MaterialRiskItem): string {
-    if (item.severity === 'stable') return 'Sin riesgo';
-    if (item.severity === 'attention') return 'Riesgo próximo';
-    return 'Quiebre inminente';
+  closeDetail(): void {
+    this.selected = null;
+    this.selectedTimeline = [];
   }
 
-  timeToStockout(item: MaterialRiskItem): string {
-    if (item.minutesToStockout == null) return 'Sin quiebre estimado';
-    if (item.minutesToStockout <= 60) return `${Math.round(item.minutesToStockout)} min`;
-    const hours = Math.floor(item.minutesToStockout / 60);
-    const minutes = Math.round(item.minutesToStockout % 60);
-    return `${hours}h ${minutes}m`;
+  runAction(item: ResupplyItem, action: UiStatus): void {
+    if (!this.canTransition(item.status, action) || this.processingId) return;
+
+    let reason: string | undefined;
+    if (action === 'escalated' || action === 'cancelled') {
+      reason = window.prompt(`Reason for ${action}`, item.reason ?? '')?.trim() ?? '';
+    }
+
+    const quantityDelivered = action === 'delivered'
+      ? (item.quantityDelivered ?? item.quantityRequested)
+      : undefined;
+
+    this.processingId = item.id;
+    this.api.updateResupplyStatus(item.id, {
+      status: action,
+      actorName: 'AXOS Operator',
+      reason,
+      quantityDelivered,
+    }).subscribe({
+      next: (updated) => {
+        this.rows = this.rows.map((row) => row.id === item.id ? { ...row, ...updated } : row);
+        this.applyFilters();
+        if (this.selected?.id === item.id) {
+          this.openDetail({ ...(this.selected ?? item), ...updated });
+        }
+        this.processingId = null;
+      },
+      error: () => {
+        this.processingId = null;
+      },
+    });
   }
 
-  private buildView(rows: any[]): void {
-    this.movements = rows
-      .map((row: any) => {
-        const backend = row.backend ?? {};
-        const riskMaterials = row.risk?.materials ?? [];
-        const parts = riskMaterials
-          .filter((material: any) => ['attention', 'critical', 'urgent'].includes(material.severity))
-          .map((material: any) => material.partNumber)
-          .slice(0, 5);
-
-        const isDelivered = ['completed', 'delivered', 'received', 'sent'].includes(backend.status);
-
-        return {
-          lineCode: backend.lineCode ?? `BK${backend.line ?? '-'}`,
-          destination: backend.line ? `BK${backend.line}/Línea` : 'Línea',
-          model: backend.model ?? 'N/A',
-          parts,
-          status: isDelivered ? 'delivered' : 'in_transit',
-          timestamp: backend.receivedAt ?? backend.startedAt ?? new Date().toISOString(),
-        } as LogisticsMovement;
-      })
-      .filter((item) => item.status === 'in_transit' || item.parts.length > 0);
-
-    this.materialRisks = rows
-      .flatMap((row: any) => (row.risk?.materials ?? []).map((material: any) => ({
-        partNumber: material.partNumber,
-        severity: material.severity,
-        minutesToStockout: material.minutesToStockout,
-        bayId: material.bayId,
-        recommendation: this.recommendationFor(material),
-      } as MaterialRiskItem)))
-      .sort((left: MaterialRiskItem, right: MaterialRiskItem) => {
-        const severityRank: Record<MaterialRiskItem['severity'], number> = { urgent: 3, critical: 2, attention: 1, stable: 0 };
-        return severityRank[right.severity] - severityRank[left.severity];
-      })
-      .slice(0, 24);
+  kpiOpenRequests(): number {
+    return this.rows.filter((r) => !['confirmed', 'cancelled'].includes(r.status)).length;
   }
 
-  private recommendationFor(material: any): string {
-    if (material.severity === 'urgent') return `Reabastecer NP ${material.partNumber} en B${material.bayId} de inmediato.`;
-    if (material.severity === 'critical') return `Priorizar surtido en ruta corta para B${material.bayId}.`;
-    if (material.severity === 'attention') return `Programar reposición preventiva en siguiente corrida logística.`;
-    return `Monitoreo normal, sin acción inmediata.`;
+  kpiOverdueRequests(): number {
+    return this.rows.filter((r) => this.slaState(r) === 'overdue' && !['confirmed', 'cancelled'].includes(r.status)).length;
+  }
+
+  kpiAvgAckMins(): number {
+    const vals = this.rows
+      .filter((r) => r.requestedAt && r.acknowledgedAt)
+      .map((r) => this.diffMinutes(r.requestedAt!, r.acknowledgedAt!));
+    return vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : 0;
+  }
+
+  kpiAvgDeliveryMins(): number {
+    const vals = this.rows
+      .filter((r) => r.requestedAt && r.deliveredAt)
+      .map((r) => this.diffMinutes(r.requestedAt!, r.deliveredAt!));
+    return vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : 0;
+  }
+
+  kpiEscalatedToday(): number {
+    const day = new Date();
+    day.setUTCHours(0, 0, 0, 0);
+    return this.rows.filter((r) => r.escalatedAt && new Date(r.escalatedAt).getTime() >= day.getTime()).length;
+  }
+
+  kpiRequestsByLine(): string {
+    const byLine = this.filteredRows.reduce((acc, row) => {
+      const line = row.kit?.plan?.line ? `L${row.kit.plan.line}` : 'N/A';
+      acc[line] = (acc[line] ?? 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    return Object.entries(byLine)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 4)
+      .map(([line, count]) => `${line}: ${count}`)
+      .join(' · ') || 'No active lines';
+  }
+
+  lineOptions(): string[] {
+    return [...new Set(this.rows.map((r) => this.safe(r.kit?.plan?.line)).filter(Boolean))];
+  }
+
+  modelOptions(): string[] {
+    return [...new Set(this.rows.map((r) => this.safe(r.kit?.plan?.model)).filter(Boolean))];
+  }
+
+  workOrderOptions(): string[] {
+    return [...new Set(this.rows.map((r) => this.safe(r.kit?.plan?.workOrder)).filter(Boolean))];
+  }
+
+  rowsForColumn(statuses: UiStatus[]): ResupplyItem[] {
+    return this.filteredRows.filter((row) => statuses.includes(row.status));
+  }
+
+  ageLabel(row: ResupplyItem): string {
+    if (!row.requestedAt) return 'n/a';
+    const minutes = this.diffMinutes(row.requestedAt, new Date().toISOString());
+    if (minutes < 60) return `${minutes}m`;
+    const h = Math.floor(minutes / 60);
+    const m = minutes % 60;
+    return `${h}h ${m}m`;
+  }
+
+  timestamp(v?: string): string {
+    if (!v) return '—';
+    return new Date(v).toLocaleString();
+  }
+
+  statusLabel(status: UiStatus): string {
+    return {
+      requested: 'Requested',
+      acknowledged: 'Acknowledged',
+      pick_started: 'Picking started',
+      pick_completed: 'Picking completed',
+      in_transit: 'In transit',
+      delivered: 'Delivered',
+      confirmed: 'Confirmed by line',
+      escalated: 'Escalated',
+      cancelled: 'Cancelled',
+    }[status];
+  }
+
+  slaState(row: ResupplyItem): SlaState {
+    const elapsed = row.requestedAt ? this.diffMinutes(row.requestedAt, new Date().toISOString()) : 0;
+    const target = this.slaTargetMins(row.priority);
+    if (elapsed > target) return 'overdue';
+    if (elapsed > target * 0.75) return 'at_risk';
+    return 'on_track';
+  }
+
+  slaLabel(row: ResupplyItem): string {
+    const target = this.slaTargetMins(row.priority);
+    return `${this.statusCase(this.slaState(row))} · target ${target}m`;
+  }
+
+  statusCase(v: string): string {
+    return v.replace('_', ' ').replace(/\b\w/g, (m) => m.toUpperCase());
+  }
+
+  allowedActions(status: UiStatus): Array<{ label: string; to: UiStatus; tone?: 'danger' | 'warn' }> {
+    const all = {
+      requested: [
+        { label: 'Acknowledge', to: 'acknowledged' as UiStatus },
+        { label: 'Escalate', to: 'escalated' as UiStatus, tone: 'warn' as const },
+        { label: 'Cancel', to: 'cancelled' as UiStatus, tone: 'danger' as const },
+      ],
+      acknowledged: [
+        { label: 'Start pick', to: 'pick_started' as UiStatus },
+        { label: 'Escalate', to: 'escalated' as UiStatus, tone: 'warn' as const },
+        { label: 'Cancel', to: 'cancelled' as UiStatus, tone: 'danger' as const },
+      ],
+      pick_started: [
+        { label: 'Complete pick', to: 'pick_completed' as UiStatus },
+        { label: 'Escalate', to: 'escalated' as UiStatus, tone: 'warn' as const },
+      ],
+      pick_completed: [
+        { label: 'Mark delivered', to: 'delivered' as UiStatus },
+      ],
+      in_transit: [
+        { label: 'Mark delivered', to: 'delivered' as UiStatus },
+        { label: 'Escalate', to: 'escalated' as UiStatus, tone: 'warn' as const },
+      ],
+      delivered: [
+        { label: 'Confirm by line', to: 'confirmed' as UiStatus },
+        { label: 'Escalate', to: 'escalated' as UiStatus, tone: 'warn' as const },
+      ],
+      confirmed: [],
+      escalated: [
+        { label: 'Acknowledge', to: 'acknowledged' as UiStatus },
+        { label: 'Cancel', to: 'cancelled' as UiStatus, tone: 'danger' as const },
+      ],
+      cancelled: [],
+    } as Record<UiStatus, Array<{ label: string; to: UiStatus; tone?: 'danger' | 'warn' }>>;
+
+    return all[status] ?? [];
+  }
+
+  canTransition(from: UiStatus, to: UiStatus): boolean {
+    return this.allowedActions(from).some((a) => a.to === to);
+  }
+
+  private diffMinutes(from: string, to: string): number {
+    return Math.max(0, Math.round((new Date(to).getTime() - new Date(from).getTime()) / 60000));
+  }
+
+  private slaTargetMins(priority: UiPriority): number {
+    return { critical: 25, high: 45, medium: 75, low: 120 }[priority] ?? 75;
+  }
+
+  private safe(value: unknown): string {
+    return `${value ?? ''}`.trim().toUpperCase();
   }
 }

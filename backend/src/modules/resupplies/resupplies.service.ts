@@ -23,7 +23,16 @@ export class ResuppliesService {
   findByKit(kitId: number): Promise<Resupply[]> {
     return this.repo.find({
       where: { kit: { id: kitId } },
+      relations: ['kit', 'kit.plan'],
       order: { requestedAt: 'DESC' },
+    });
+  }
+
+  findAll(): Promise<Resupply[]> {
+    return this.repo.find({
+      relations: ['kit', 'kit.plan'],
+      order: { requestedAt: 'DESC' },
+      take: 500,
     });
   }
 
