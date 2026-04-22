@@ -7,6 +7,7 @@ import { KitMaterial } from '../../kit-materials/entities/kit-material.entity';
 import { Advance } from '../../advances/entities/advance.entity';
 import { Resupply } from '../../resupplies/entities/resupply.entity';
 import { KitException } from '../../exceptions/entities/kit-exception.entity';
+import { DATE_COLUMN_TYPE } from '../../../common/database/date-column-type';
 
 // Status flow: preparing → kitted → ready → requested → delivered → in_progress → completed
 // Legacy aliases kept for backward compat: prepared, sent, received
@@ -27,22 +28,22 @@ export class Kit {
   @Column({ default: 'preparing' })
   status: KitStatus;
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ type: DATE_COLUMN_TYPE, nullable: true })
   preparedAt: Date;
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ type: DATE_COLUMN_TYPE, nullable: true })
   sentAt: Date;
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ type: DATE_COLUMN_TYPE, nullable: true })
   receivedAt: Date;
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ type: DATE_COLUMN_TYPE, nullable: true })
   kittedAt: Date;
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ type: DATE_COLUMN_TYPE, nullable: true })
   requestedAt: Date;
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ type: DATE_COLUMN_TYPE, nullable: true })
   deliveredAt: Date;
 
   @OneToMany(() => KitMaterial, (m) => m.kit)
