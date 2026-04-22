@@ -35,6 +35,9 @@ export class VisualAid {
   @Column({ type: 'varchar', length: 80, nullable: true })
   uploadedBy?: string | null;
 
+  @Column({ type: 'json', nullable: true })
+  annotations?: any | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 

@@ -20,11 +20,30 @@
     <input [(ngModel)]="form.area" placeholder="Área / estación" />
     <input [(ngModel)]="form.revision" placeholder="Revisión" />
     <label class="upload">
-      <input type="file" accept="application/pdf" hidden (change)="onPdfSelected($event)" />
-      {{ fileName || 'Seleccionar PDF' }}
+      <input type="file" accept="application/pdf,image/jpeg,image/png,image/webp" hidden (change)="onPdfSelected($event)" />
+      {{ fileName || 'Seleccionar Archivo (PDF o Imagen)' }}
     </label>
     <textarea [(ngModel)]="form.notes" placeholder="Notas"></textarea>
     <label class="toggle"><input type="checkbox" [(ngModel)]="form.isActive" /> Activo</label>
+  </div>
+
+  <div class="canvas-container" *ngIf="isImage && imagePreviewUrl">
+    <div class="canvas-instructions">Haz clic en cualquier punto de la imagen para agregar una anotación (PowerPoint Style)</div>
+    <div class="canvas-box" (click)="onImageClick($event)">
+      <img [src]="imagePreviewUrl" alt="Preview" class="canvas-image" />
+      <div 
+        class="canvas-pin" 
+        *ngFor="let ann of annotations; let i = index" 
+        [style.left.%]="ann.x" 
+        [style.top.%]="ann.y"
+      >
+        <span class="pin-dot"></span>
+        <div class="pin-tooltip">
+          {{ ann.text }}
+          <button class="pin-delete" (click)="removeAnnotation(i, $event)">✕</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <button class="btn-primary" (click)="save()">Guardar ayuda visual</button>

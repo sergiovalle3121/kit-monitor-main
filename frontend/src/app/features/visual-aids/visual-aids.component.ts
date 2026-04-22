@@ -27,7 +27,10 @@ export class VisualAidsComponent implements OnInit {
   formError: string | null = null;
   fileName = '';
   selectedPdfFile: File | null = null;
+  imagePreviewUrl: string | null = null;
+  isImage = false;
   modelSuggestions: string[] = [];
+  annotations: Array<{ x: number; y: number; text: string }> = [];
 
   form = {
     model: '',
@@ -86,14 +89,17 @@ export class VisualAidsComponent implements OnInit {
     const file = input.files?.[0];
     if (!file) return;
 
-    if (file.type !== 'application/pdf') {
-      this.formError = 'Solo se permite PDF.';
+    const isPdf = file.type === 'application/pdf';
+    this.isImage = file.type.startsWith('image/');
+
+    if (!isPdf && !this.isImage) {
+      this.formError = 'Solo se permiten PDF o imágenes.';
       input.value = '';
       return;
     }
 
     if (file.size > 12 * 1024 * 1024) {
-      this.formError = 'PDF supera 12MB.';
+      this.formError = 'El archivo supera 12MB.';
       input.value = '';
       return;
     }
@@ -101,7 +107,35 @@ export class VisualAidsComponent implements OnInit {
     this.formError = null;
     this.fileName = file.name;
     this.selectedPdfFile = file;
+    this.annotations = [];
+
+    if (this.isImage) {
+      const reader = new FileReader();
+      reader.onload = (e) => this.imagePreviewUrl = e.target?.result as string;
+      reader.readAsDataURL(file);
+    } else {
+      this.imagePreviewUrl = null;
+    }
   }
+
+  onImageClick(event: MouseEvent): void {
+    if (!this.isImage) return;
+    const rect = (event.target as HTMLElement).getBoundingClientRect();
+    const x = ((event.clientX - rect.left) / rect.width) * 100;
+    const y = ((event.clientY - rect.top) / rect.height) * 100;
+    
+    const text = prompt('Añade un texto de anotación para este punto:');
+    if (text?.trim()) {
+      this.annotations.push({ x, y, text: text.trim() });
+    }
+  }
+
+  removeAnnotation(index: number, event: Event): void {
+    event.stopPropagation();
+    this.annotations.splice(index, 1);
+  }
+
+
 
   save(): void {
     if (!this.form.model || !this.form.title || !this.form.process || !this.selectedPdfFile) {
@@ -118,6 +152,7 @@ export class VisualAidsComponent implements OnInit {
       notes: this.form.notes,
       isActive: this.form.isActive,
       uploadedBy: 'IE',
+      annotations: JSON.stringify(this.annotations),
     }, this.selectedPdfFile).subscribe({
       next: () => {
         this.showForm = false;
@@ -133,6 +168,9 @@ export class VisualAidsComponent implements OnInit {
           isActive: true,
           notes: '',
         };
+        this.imagePreviewUrl = null;
+        this.isImage = false;
+        this.annotations = [];
       },
       error: () => {
         this.formError = 'No se pudo guardar la ayuda visual.';

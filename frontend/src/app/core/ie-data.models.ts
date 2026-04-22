@@ -11,6 +11,7 @@ export interface VisualAid {
   uploadedBy?: string;
   createdAt: string;
   updatedAt: string;
+  annotations?: Array<{x: number, y: number, text: string}>;
 }
 
 export type MostRecommendation = 'Óptimo' | 'Aceptable' | 'Revisar' | 'Reubicar';

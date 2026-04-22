@@ -32,8 +32,9 @@ export class VisualAidsController {
   @UseInterceptors(FileInterceptor('file', {
     storage: memoryStorage(),
     fileFilter: (_req, file, cb) => {
-      if (file.mimetype !== 'application/pdf') {
-        cb(new BadRequestException('Solo se permite archivo PDF'), false);
+      const allowed = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'];
+      if (!allowed.includes(file.mimetype)) {
+        cb(new BadRequestException('Solo se permiten PDF o imágenes (JPG, PNG, WEBP)'), false);
         return;
       }
       cb(null, true);
@@ -47,6 +48,7 @@ export class VisualAidsController {
     const normalized = {
       ...dto,
       isActive: String(dto.isActive ?? 'true') !== 'false',
+      annotations: dto.annotations ? JSON.parse(dto.annotations) : null,
     };
     const extension = extname(file.originalname || '') || '.pdf';
     const filename = `va-${Date.now()}-${Math.round(Math.random() * 1e9)}${extension}`;
@@ -73,7 +75,8 @@ export class VisualAidsController {
 
     res.removeHeader('X-Frame-Options');
     res.setHeader('Content-Security-Policy', "frame-ancestors *");
-    res.setHeader('Content-Type', 'application/pdf');
+    const mime = item.pdfUrl.endsWith('.pdf') ? 'application/pdf' : 'image/png';
+    res.setHeader('Content-Type', mime);
     res.setHeader('Content-Disposition', `inline; filename="${safeName}"`);
     return res.send(item.pdfData);
   }

@@ -22,3 +22,73 @@
 .btn-light.danger{background:#fee2e2;color:#991b1b}
 .error{color:var(--danger)}
 .empty{color:var(--gray-500)}
+
+.canvas-container {
+  margin: 20px 0;
+  border-top: 1px solid var(--border-soft);
+  padding-top: 16px;
+}
+.canvas-instructions {
+  font-size: 0.85rem;
+  color: var(--gray-600);
+  margin-bottom: 12px;
+  background: rgba(10, 132, 255, 0.08);
+  padding: 8px 12px;
+  border-radius: 6px;
+  border-left: 3px solid #0a84ff;
+}
+.canvas-box {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+  border: 2px dashed var(--gray-300);
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: crosshair;
+}
+.canvas-image {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+.canvas-pin {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  z-index: 10;
+  pointer-events: none;
+}
+.pin-dot {
+  display: block;
+  width: 16px;
+  height: 16px;
+  background: #ff3b30;
+  border: 2px solid white;
+  border-radius: 50%;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+  pointer-events: auto;
+}
+.pin-tooltip {
+  position: absolute;
+  top: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  white-space: nowrap;
+  pointer-events: auto;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+.pin-delete {
+  background: transparent;
+  border: none;
+  color: #ff6b6b;
+  cursor: pointer;
+  font-weight: bold;
+  padding: 0 4px;
+}

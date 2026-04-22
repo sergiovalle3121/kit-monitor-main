@@ -7,4 +7,5 @@ export class CreateVisualAidDto {
   isActive?: boolean;
   notes?: string;
   uploadedBy?: string;
+  annotations?: any;
 }

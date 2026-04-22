@@ -6,6 +6,7 @@ import { environment } from '../../../environments/environment';
 import { ApiService } from '../../core/api.service';
 import { VisualAid } from '../../core/ie-data.models';
 import { VisualAidsService } from '../../core/visual-aids.service';
+import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 
 interface BayMaterialState {
   bayId: number;
@@ -151,6 +152,7 @@ export class ProductionComponent implements OnInit {
   lastRegisteredEventByStation: Record<string, LastRegisteredEvent | null> = {};
   private stationModelByKey: Record<string, string | null> = {};
   private pendingRefreshContext: PendingRefreshContext | null = null;
+  selectedVisualAidForModal: any = null;
 
   private readonly statusLabels: Record<string, string> = {
     preparing: 'Kit en preparación',
@@ -168,6 +170,7 @@ export class ProductionComponent implements OnInit {
   constructor(
     private api: ApiService,
     private readonly visualAids: VisualAidsService,
+    private domSanitizer: DomSanitizer,
   ) {}
 
   ngOnInit(): void {
@@ -597,6 +600,45 @@ export class ProductionComponent implements OnInit {
         this.requestError[station.kit?.id] = this.toPanelErrorMessage(err, 'No se pudo revertir el último registro');
       },
     });
+  }
+
+  openStationVisualAid(station: ProductionStationView): void {
+    if (!station.visualAid || !station.visualAid.pdfUrl) return;
+    this.selectedVisualAidForModal = station.visualAid;
+  }
+
+  closeVisualAidModal(): void {
+    this.selectedVisualAidForModal = null;
+  }
+
+  isImage(rawUrl: string): boolean {
+    const value = String(rawUrl ?? '').trim().toLowerCase();
+    return value.endsWith('.jpg') || value.endsWith('.jpeg') || value.endsWith('.png') || value.endsWith('.webp');
+  }
+
+  resolvePdfUrl(rawUrl: string): string {
+    const value = String(rawUrl ?? '').trim();
+    if (!value) return '';
+    if (/^https?:\/\//i.test(value)) return value;
+    const apiBase = environment.apiUrl.replace(/\/$/, '');
+    return `${apiBase}/visual-aids/file/${encodeURIComponent(value)}`;
+  }
+
+  getSafeUrl(url: string): SafeResourceUrl {
+    return this.domSanitizer.bypassSecurityTrustResourceUrl(url);
+  }
+
+  getParsedAnnotations(aid: any): Array<{x: number, y: number, text: string}> {
+    if (!aid || !aid.annotations) return [];
+    if (Array.isArray(aid.annotations)) return aid.annotations;
+    if (typeof aid.annotations === 'string') {
+      try {
+        return JSON.parse(aid.annotations);
+      } catch (e) {
+        return [];
+      }
+    }
+    return [];
   }
 
   reportLocalIncident(station: ProductionStationView): void {

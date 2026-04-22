@@ -8,4 +8,5 @@ export class UpdateVisualAidDto {
   isActive?: boolean;
   notes?: string;
   uploadedBy?: string;
+  annotations?: any;
 }

@@ -40,6 +40,7 @@ export class VisualAidsService {
     notes?: string;
     isActive?: boolean;
     uploadedBy?: string;
+    annotations?: string;
   }, file: File): Observable<VisualAid> {
     const formData = new FormData();
     formData.append('file', file);
@@ -51,6 +52,9 @@ export class VisualAidsService {
     formData.append('notes', input.notes ?? '');
     formData.append('uploadedBy', input.uploadedBy ?? '');
     formData.append('isActive', String(input.isActive ?? true));
+    if (input.annotations) {
+      formData.append('annotations', input.annotations);
+    }
 
     return this.api.createVisualAidFormData(formData).pipe(
       tap((created) => this.store.next([created, ...this.store.value])),

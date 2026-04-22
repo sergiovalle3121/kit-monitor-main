@@ -501,3 +501,35 @@
       </ng-container>
   </section>
 </div>
+
+<div class="modal-overlay visual-aid-modal-overlay" *ngIf="selectedVisualAidForModal">
+  <div class="modal visual-aid-modal">
+    <div class="mes-header">
+      <div>
+        <strong>{{ selectedVisualAidForModal.title }}</strong>
+        <div class="mes-subtitle">{{ selectedVisualAidForModal.model }} · {{ selectedVisualAidForModal.process }}</div>
+      </div>
+      <button class="btn-collapse" (click)="closeVisualAidModal()">Cerrar</button>
+    </div>
+    
+    <div class="visual-aid-content">
+      <div class="canvas-container" *ngIf="isImage(selectedVisualAidForModal.pdfUrl); else pdfViewer">
+        <div class="canvas-box">
+          <img [src]="resolvePdfUrl(selectedVisualAidForModal.pdfUrl)" class="canvas-image" />
+          <div 
+            class="canvas-pin" 
+            *ngFor="let ann of getParsedAnnotations(selectedVisualAidForModal)" 
+            [style.left.%]="ann.x" 
+            [style.top.%]="ann.y"
+          >
+            <span class="pin-dot"></span>
+            <div class="pin-tooltip">{{ ann.text }}</div>
+          </div>
+        </div>
+      </div>
+      <ng-template #pdfViewer>
+        <iframe [src]="getSafeUrl(resolvePdfUrl(selectedVisualAidForModal.pdfUrl))" class="pdf-frame"></iframe>
+      </ng-template>
+    </div>
+  </div>
+</div>
