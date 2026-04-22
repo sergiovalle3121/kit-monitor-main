@@ -583,7 +583,7 @@ export class ProductionRuntimeService {
 
     return {
       kitId,
-      backendCode: `BK${kit.plan.backen}`,
+      backendCode: `Línea ${kit.plan.backen}`,
       backen: kit.plan.backen,
       model: kit.plan.model,
       workOrder: kit.plan.workOrder,

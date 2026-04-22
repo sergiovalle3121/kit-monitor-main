@@ -2,7 +2,7 @@
   <div>
     <h2>Operación en línea</h2>
     <p class="page-subtitle">
-      Panel MES ligero por backend: recepción, ensamble por bahía, consumo en vivo y trazabilidad.
+      Panel MES ligero por línea de producción: recepción, ensamble por bahía, consumo en vivo y trazabilidad.
     </p>
   </div>
 
@@ -19,7 +19,7 @@
       <thead>
         <tr>
           <th>Modelo</th>
-          <th>BK</th>
+          <th>Línea</th>
           <th>Kit ID</th>
           <th>Timestamp</th>
           <th></th>
@@ -80,10 +80,10 @@
 
 <section class="empty-state-premium" *ngIf="!loading && !error && !stations.length">
   <div class="empty-orb"></div>
-  <h3>Sin backends reales en operación</h3>
+  <h3>Sin líneas de producción activas</h3>
   <p>
-    Aún no hay kits activos nacidos del flujo <strong>planeación → publicación → kit → producción</strong>.
-    Cuando exista un backend real, aparecerá aquí automáticamente.
+    Aún no hay líneas operando desde el flujo <strong>planeación → publicación → kit → producción</strong>.
+    Cuando inicie una línea real, aparecerá aquí automáticamente.
   </p>
 </section>
 
@@ -262,6 +262,13 @@
                           <span>Teórico: {{ material.runtime?.theoreticalConsumed | number:'1.0-2' }}</span>
                           <span [class.warn]="(material.runtime?.deltaConsumed ?? 0) > 0">
                             Δ {{ material.runtime?.deltaConsumed | number:'1.0-2' }}
+                          </span>
+                        </div>
+                        <div class="material-meta burn-rate-strip" *ngIf="material.runtime && material.runtime.realConsumptionPerHour > 0">
+                          <span class="burn-label">🚀 Burn-rate:</span>
+                          <span>{{ material.runtime.realConsumptionPerHour | number:'1.0-1' }} / hr</span>
+                          <span class="burn-eta" [class.blink-urgent]="material.runtime.depletionEtaMinutes < 60">
+                            ETA: {{ material.runtime.depletionEtaMinutes < 60 ? (material.runtime.depletionEtaMinutes | number:'1.0-0') + ' min' : '> 1 hr' }}
                           </span>
                         </div>
                         <div class="resupply-row" *ngIf="material.runtime && material.runtime.availableQty <= material.runtime.lowStockThreshold">

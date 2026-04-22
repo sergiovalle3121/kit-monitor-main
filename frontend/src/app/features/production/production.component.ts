@@ -760,7 +760,7 @@ export class ProductionComponent implements OnInit {
       .map((backend) => {
         const kitId = backend.kitId;
         const backen = backend.backen;
-        const backendKey = backend.backendCode ?? `BK${backen ?? '-'}`;
+        const backendKey = backend.backendCode ?? `Línea ${backen ?? '-'}`;
 
         const visualAid = backend.model ? this.visualAids.getActiveVisualAidByModel(backend.model) : null;
         const rt = runtimeByKitId.get(kitId);

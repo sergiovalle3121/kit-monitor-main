@@ -878,3 +878,39 @@ code {
   color: var(--gray-600);
   font-size: 0.85rem;
 }
+
+.burn-rate-strip {
+  margin-top: 8px;
+  padding: 6px 10px;
+  background: rgba(10, 132, 255, 0.08);
+  border-radius: 6px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 500;
+}
+
+.burn-label {
+  color: #0a84ff;
+  font-size: 0.82rem;
+  letter-spacing: 0.3px;
+}
+
+.burn-eta {
+  font-size: 0.82rem;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.burn-eta.blink-urgent {
+  background: rgba(255, 59, 48, 0.15);
+  color: #ff3b30;
+  animation: pulseBlink 1.5s infinite alternate ease-in-out;
+  box-shadow: 0 0 8px rgba(255, 59, 48, 0.4);
+}
+
+@keyframes pulseBlink {
+  from { opacity: 0.6; box-shadow: 0 0 2px rgba(255, 59, 48, 0.2); }
+  to { opacity: 1; box-shadow: 0 0 12px rgba(255, 59, 48, 0.6); }
+}
