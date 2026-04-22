@@ -3,7 +3,7 @@ const http = require('http');
 const fs   = require('fs');
 const path = require('path');
 
-const ROOT = path.join(__dirname, 'dist', 'frontend', 'browser');
+const ROOT = path.join(__dirname, 'dist', 'axos-os-frontend', 'browser');
 const PORT = process.env.PORT || 4200;
 
 const MIME = {
@@ -33,5 +33,5 @@ http.createServer((req, res) => {
     res.end(data);
   });
 }).listen(PORT, '0.0.0.0', () => {
-  console.log(`Kit Monitor frontend → http://localhost:${PORT}`);
+  console.log(`AXOS OS frontend → http://localhost:${PORT}`);
 });
