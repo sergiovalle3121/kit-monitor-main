@@ -25,12 +25,14 @@ async function bootstrap() {
   const allowedOrigins = allowedOriginEnv
     .split(',')
     .map((s) => s.trim())
+    .map((s) => s.replace(/\/+$/, ''))
     .filter(Boolean);
 
   const defaultDevOrigins = ['http://localhost:4200', 'http://localhost:5173'];
+  const defaultProdOrigins = ['https://axonos.up.railway.app'];
   const originsToValidate = allowedOrigins.length > 0
     ? allowedOrigins
-    : (env === 'development' ? defaultDevOrigins : []);
+    : (env === 'development' ? defaultDevOrigins : defaultProdOrigins);
 
   app.enableCors({
     origin: (origin, callback) => {

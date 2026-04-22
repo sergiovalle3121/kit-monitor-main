@@ -7,7 +7,7 @@ import { environment } from '../../environments/environment';
 export class ApiService {
   private http = inject(HttpClient);
   private base = this.resolveInitialBase();
-  private readonly sameOriginBase = this.getSameOriginApiUrl();
+  private readonly sameOriginBase = this.shouldUseSameOriginFallback() ? this.getSameOriginApiUrl() : '';
 
   private get<T>(path: string, params?: Record<string, any>): Observable<T> {
     return this.withFallback((base) => {
@@ -343,6 +343,10 @@ export class ApiService {
   private getSameOriginApiUrl(): string {
     if (typeof window === 'undefined') return '';
     return `${window.location.origin}/api`;
+  }
+
+  private shouldUseSameOriginFallback(): boolean {
+    return !environment.production;
   }
 
   private buildUrl(base: string, path: string): string {
