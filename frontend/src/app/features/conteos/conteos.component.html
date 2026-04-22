@@ -1,10 +1,10 @@
 ﻿<section class="conteos-page">
   <header class="hero">
     <div class="hero-copy">
-      <p class="eyebrow">IC / CONTEOS</p>
-      <h1>Bitacora de conteos para supermercado y racks</h1>
+      <p class="eyebrow">MATERIALS / INVENTORY ACCURACY</p>
+      <h1>Cycle Counts & Inventory Accuracy Control Tower</h1>
       <p class="lede">
-        Auditoría 7BOX: compara SAP vs físico, captura diferencias y conserva trazabilidad por sesión.
+        Supervisa conteos abiertos, discrepancias, recuentos y cierres de inventario en una sola superficie operativa de Materiales.
       </p>
       <div class="hero-pills">
         <span>Excel SAP</span>
@@ -15,15 +15,15 @@
     </div>
 
     <aside class="hero-side">
-      <span class="side-label">LOGICA DE CONTEO</span>
+      <span class="side-label">OPERATIONAL BACKBONE</span>
       <p>
         El modulo usa el stock del workbook como referencia SAP, estima dificultad por descripcion y prioriza
         el plan para que las discrepancias salten a la vista primero.
       </p>
       <ul>
-        <li>Parser tolerante a hojas multiples y filas basura</li>
-        <li>Bitacora por semana, dia y turno</li>
-        <li>Visual enfocado en pendientes, desviacion y criticos</li>
+        <li>Conteos por estado con control de variación</li>
+        <li>Trazabilidad por usuario, turno y timeline operacional</li>
+        <li>Riesgo de inventario por área/warehouse/line</li>
       </ul>
     </aside>
   </header>
@@ -123,14 +123,42 @@
   </section>
 
   <section class="metric-strip">
-    <article class="metric-card"><strong>{{ parseMeta?.fileName || 'Sin archivo' }}</strong><span>Archivo cargado</span></article>
-    <article class="metric-card"><strong>{{ countDate }}</strong><span>Fecha de conteo</span></article>
-    <article class="metric-card"><strong>{{ location }}</strong><span>Localidad</span></article>
-    <article class="metric-card"><strong>{{ parseMeta?.recordCount || 0 }}</strong><span>Total NPs</span></article>
-    <article class="metric-card"><strong>{{ totalSapUnits | number:'1.0-2' }}</strong><span>Total SAP</span></article>
-    <article class="metric-card"><strong>{{ totalPhysicalUnits | number:'1.0-2' }}</strong><span>Total físico</span></article>
-    <article class="metric-card"><strong>{{ variationUnits | number:'1.0-2' }}</strong><span>Variación total</span></article>
-    <article class="metric-card"><strong>{{ squaredPct }}%</strong><span>% cuadrados</span></article>
+    <article class="metric-card"><strong>{{ summary.pending }}</strong><span>Open counts</span></article>
+    <article class="metric-card"><strong>{{ summary.completed }}</strong><span>Completed counts</span></article>
+    <article class="metric-card"><strong>{{ discrepancyRate }}%</strong><span>Discrepancy rate</span></article>
+    <article class="metric-card"><strong>{{ pendingApprovals }}</strong><span>Pending approvals</span></article>
+    <article class="metric-card"><strong>{{ highVarianceCounts }}</strong><span>High-variance counts</span></article>
+    <article class="metric-card"><strong>{{ inventoryAccuracyPct }}%</strong><span>Inventory accuracy</span></article>
+    <article class="metric-card"><strong>{{ countsByAreaLabel }}</strong><span>Counts by area</span></article>
+    <article class="metric-card"><strong>{{ countsByWarehouseLabel }}</strong><span>Counts by warehouse</span></article>
+    <article class="metric-card"><strong>{{ countsByLineLabel }}</strong><span>Counts by line</span></article>
+  </section>
+
+  <section class="status-board card">
+    <div class="card-head">
+      <div>
+        <p class="card-kicker">STATUS BOARD</p>
+        <h2>Operational queue by lifecycle status</h2>
+      </div>
+    </div>
+    <div class="status-board-grid">
+      @for (lane of statusBoard; track lane.status) {
+        <article class="status-lane">
+          <header>
+            <span class="status-pill" [class]="operationalStatusClass(lane.status)">{{ lane.label }}</span>
+            <strong>{{ lane.total }}</strong>
+          </header>
+          @if (lane.logs.length) {
+            <button type="button" class="status-item" *ngFor="let log of lane.logs" (click)="selectLog(log.id)">
+              <span>{{ log.material }}</span>
+              <small>{{ log.location || 'N/A' }} · Día {{ log.dia }} · {{ ownerForLog(log) }}</small>
+            </button>
+          } @else {
+            <p class="lane-empty">No active counts</p>
+          }
+        </article>
+      }
+    </div>
   </section>
 
   <section class="analytics-grid">
@@ -295,6 +323,9 @@
           <div><span>Dia / Turno</span><strong>Dia {{ selectedLog.dia }} - {{ selectedLog.turno }}</strong></div>
           <div><span>Dificultad</span><strong>{{ selectedLog.difficulty }}</strong></div>
           <div><span>Prioridad</span><strong>{{ selectedLog.priorityScore }}</strong></div>
+          <div><span>Warehouse</span><strong>{{ selectedLog.location || 'WH-MAIN' }}</strong></div>
+          <div><span>Owner</span><strong>{{ ownerForLog(selectedLog) }}</strong></div>
+          <div><span>Operational status</span><strong>{{ operationalStatusLabel(selectedStatus()) }}</strong></div>
         </div>
 
         <div class="form-grid two">
@@ -307,12 +338,30 @@
             <span>Observaciones</span>
             <textarea rows="4" [(ngModel)]="observations" placeholder="Dano, faltante, exceso, material mezclado..." [disabled]="isHistoryMode"></textarea>
           </label>
+
+          <label class="field">
+            <span>Owner / Responsible</span>
+            <input type="text" [(ngModel)]="ownerName" [disabled]="isHistoryMode" placeholder="IC Supervisor" />
+          </label>
         </div>
 
         <div class="action-row">
           <button type="button" class="primary-btn" (click)="saveCount()" [disabled]="physicalQuantity == null || isHistoryMode">
             Guardar conteo
           </button>
+          <button type="button" class="ghost-btn" (click)="startCount()" [disabled]="!canStartCount(selectedLog)">Start count</button>
+          <button type="button" class="ghost-btn" (click)="submitCycleCount()" [disabled]="!canSubmitCount(selectedLog)">Submit count</button>
+          <button type="button" class="ghost-btn" (click)="requestRecount()" [disabled]="!canRequestRecount(selectedLog)">Request recount</button>
+          <button type="button" class="ghost-btn" (click)="approveVariance()" [disabled]="!canApproveVariance(selectedLog)">Approve variance</button>
+          <button type="button" class="ghost-btn" (click)="adjustInventory()" [disabled]="!canAdjustInventory(selectedLog)">Adjust inventory</button>
+          <button type="button" class="ghost-btn" (click)="closeCount()" [disabled]="!canCloseCount(selectedLog)">Close count</button>
+        </div>
+        <div class="timeline-block" *ngIf="timelineForSelected().length">
+          <strong>Operational timeline</strong>
+          <div class="timeline-row" *ngFor="let event of timelineForSelected()">
+            <span>{{ event.action }}</span>
+            <small>{{ event.actor }} · {{ event.timestamp | date:'short' }} <em *ngIf="event.note">· {{ event.note }}</em></small>
+          </div>
         </div>
         <p class="inline-note" *ngIf="isHistoryMode">Modo solo lectura: seleccionaste una sesión del historial.</p>
       } @else {
@@ -369,6 +418,46 @@
               <option [value]="shift">{{ shift }}</option>
             }
           </select>
+        </label>
+
+        <label class="field compact-field">
+          <span>Status</span>
+          <select [(ngModel)]="statusFilter">
+            <option value="todos">Todos</option>
+            @for (status of statusOptions; track status) {
+              <option [value]="status">{{ operationalStatusLabel(status) }}</option>
+            }
+          </select>
+        </label>
+
+        <label class="field compact-field">
+          <span>Area</span>
+          <select [(ngModel)]="areaFilter">
+            <option value="todos">Todas</option>
+            @for (area of areaOptions; track area) {
+              <option [value]="area">{{ area }}</option>
+            }
+          </select>
+        </label>
+
+        <label class="field compact-field">
+          <span>Owner</span>
+          <select [(ngModel)]="ownerFilter">
+            <option value="todos">Todos</option>
+            @for (owner of ownerOptions; track owner) {
+              <option [value]="owner">{{ owner }}</option>
+            }
+          </select>
+        </label>
+
+        <label class="turno-pill">
+          <input type="checkbox" [(ngModel)]="highVarianceOnly" />
+          <span>High variance only</span>
+        </label>
+
+        <label class="turno-pill">
+          <input type="checkbox" [(ngModel)]="openOnly" />
+          <span>Open only</span>
         </label>
       </div>
 

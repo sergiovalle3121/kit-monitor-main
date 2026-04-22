@@ -51,7 +51,7 @@ export class ShellComponent implements OnInit, OnDestroy {
     { label: 'Inventory Control', route: '/', category: 'modulos' },
     { label: 'Kitting Execution', route: '/kits', category: 'modulos' },
     { label: 'Materials / Resupply Control', route: '/materials/resupply', category: 'modulos' },
-    { label: 'Cycle Counts', route: '/conteos', category: 'modulos' },
+    { label: 'Cycle Counts / Inventory Accuracy', route: '/materials/cycle-counts', category: 'modulos' },
     { label: 'BOM / Models', route: '/bom', category: 'modulos' },
     { label: 'Visual Aids / SOP', route: '/visual-aids', category: 'modulos' },
     { label: 'Bay Layout', route: '/disposition', category: 'modulos' },
@@ -308,7 +308,7 @@ export class ShellComponent implements OnInit, OnDestroy {
       return;
     }
 
-    if (url.startsWith('/kits') || url.startsWith('/conteos') || url.startsWith('/materials/resupply') || url.startsWith('/production/logistics')) {
+    if (url.startsWith('/kits') || url.startsWith('/conteos') || url.startsWith('/materials/cycle-counts') || url.startsWith('/materials/resupply') || url.startsWith('/production/logistics')) {
       this.openSection = 'materials';
       return;
     }
