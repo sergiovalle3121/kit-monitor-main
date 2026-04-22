@@ -101,15 +101,13 @@
 }
 
 .login-hero,
-.login-panel {
-  position: relative;
-  min-width: 0;
-}
+.login-panel { position: relative; min-width: 0; }
 
 .login-hero {
   padding: clamp(40px, 5vw, 58px) clamp(36px, 4vw, 56px);
   display: flex;
   flex-direction: column;
+  gap: 20px;
   justify-content: space-between;
   gap: clamp(24px, 3vw, 40px);
   color: var(--text-hero);
@@ -196,6 +194,33 @@
   align-items: center;
 }
 
+.hero-logo-frame {
+  width: min(360px, 100%);
+  padding: 12px;
+  border-radius: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: linear-gradient(175deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), var(--shadow-hero);
+}
+
+.hero-logo {
+  width: 100%;
+  display: block;
+  border-radius: 16px;
+  filter: drop-shadow(0 10px 20px rgba(1, 8, 22, 0.5));
+}
+
+.hero-wordmark {
+  margin: 0;
+  color: rgba(215, 226, 244, 0.96);
+  letter-spacing: 0.36em;
+  text-transform: uppercase;
+  font-size: 0.76rem;
+  font-weight: 600;
+}
+
+.hero-content { display: flex; flex-direction: column; gap: 10px; }
+
 .login-hero h1 {
   margin: 0;
   font-size: clamp(2.6rem, 4.8vw, 4rem);
@@ -220,8 +245,8 @@
 }
 
 .hero-pills span {
-  min-height: 36px;
-  padding: 0 14px;
+  min-height: 32px;
+  padding: 0 12px;
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -281,6 +306,8 @@
   margin-bottom: 30px;
 }
 
+.panel-head { margin-bottom: 24px; }
+
 .panel-head h2 {
   margin: 14px 0 10px;
   color: var(--text-main);
@@ -296,11 +323,7 @@
   font-size: 0.96rem;
 }
 
-.login-form {
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-}
+.login-form { display: flex; flex-direction: column; gap: 16px; }
 
 .field {
   display: flex;
@@ -340,9 +363,7 @@
   transition: all 300ms ease;
 }
 
-.field input::placeholder {
-  color: #94a3b8;
-}
+.field input::placeholder { color: #94a3b8; }
 
 .error {
   margin: 0;
