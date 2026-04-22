@@ -64,7 +64,16 @@
 
         <ul class="bay-items" *ngIf="itemsForBay(bay).length; else emptyBay">
           <li *ngFor="let item of itemsForBay(bay)">
-            <code>{{ item.partNumber }}</code>
+            <div class="bay-item-main">
+              <code>{{ item.partNumber }}</code>
+              <input 
+                class="min-stock-input" 
+                type="number" 
+                placeholder="Stock Min" 
+                [ngModel]="item.minStock" 
+                (ngModelChange)="updateMinStock(item.partNumber, bay, $event)"
+              />
+            </div>
             <button class="remove-btn" (click)="removePartFromBay(item.partNumber, bay)">✕</button>
           </li>
         </ul>

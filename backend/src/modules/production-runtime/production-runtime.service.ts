@@ -661,7 +661,7 @@ export class ProductionRuntimeService {
       const quantityRequired = material?.quantityRequired ?? (bomItem?.usageFactor ?? 0) * kit.plan.quantity;
       const usagePerAssembly = kit.plan.quantity > 0 ? quantityRequired / kit.plan.quantity : (bomItem?.usageFactor ?? 0);
       const availableQty = Math.max(0, material?.quantityRemaining ?? quantityRequired);
-      const lowStockThreshold = Math.max(5, Math.ceil((quantityRequired || 20) * 0.2));
+      const lowStockThreshold = layout.minStock ?? Math.max(5, Math.ceil((quantityRequired || 20) * 0.2));
 
       return this.materialStateRepo.create({
         kit: { id: kitId } as Kit,

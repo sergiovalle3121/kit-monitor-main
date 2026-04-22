@@ -20,4 +20,7 @@ export class BayLayout {
 
   @Column({ type: 'int' })
   bahia: number; // 1–6
+
+  @Column({ type: 'int', nullable: true })
+  minStock: number; // Stock mínimo / Punto de reorden manual
 }

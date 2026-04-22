@@ -52,3 +52,24 @@
   .two-panel{grid-template-columns:1fr}
   .bay-grid{grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
 }
+
+.bay-item-main {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+
+.min-stock-input {
+  width: 90px;
+  padding: 4px 6px;
+  font-size: 0.78rem;
+  border: 1px solid var(--gray-300);
+  border-radius: 6px;
+  background: #f8fafc;
+}
+.min-stock-input:focus {
+  outline: none;
+  border-color: #0a84ff;
+  background: #fff;
+}

@@ -46,6 +46,10 @@ export interface BayMaterialState {
   availableQty: number;
   consumedQty: number;
   lowStockThreshold: number;
+  theoreticalConsumed?: number;
+  deltaConsumed?: number;
+  realConsumptionPerHour?: number;
+  depletionEtaMinutes?: number | null;
 }
 
 export interface ProductionRuntimeSnapshot {

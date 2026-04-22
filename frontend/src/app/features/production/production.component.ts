@@ -18,8 +18,9 @@ interface BayMaterialState {
   theoreticalConsumed?: number;
   realConsumed?: number;
   deltaConsumed?: number;
-  deltaState?: 'normal' | 'vigilar' | 'desviado';
+  realConsumptionPerHour?: number;
   depletionEtaMinutes?: number | null;
+  deltaState?: 'normal' | 'vigilar' | 'desviado';
   bayStatus?: string;
 }
 

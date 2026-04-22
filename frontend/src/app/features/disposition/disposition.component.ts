@@ -31,7 +31,7 @@ export class DispositionComponent implements OnInit {
   models: string[] = [];
   modelFilter = '';
   npRows: BomNpRow[] = [];
-  layoutByPart = new Map<string, Set<number>>();
+  layoutByPart = new Map<string, Map<number, { minStock: number | null }>>();
   baySelection: Record<number, string> = {};
   savedDispositions: SavedDispositionRow[] = [];
   saveNotice = '';
@@ -140,8 +140,8 @@ export class DispositionComponent implements OnInit {
           const partNumber = String(layout.partNumber ?? '');
           const bayId = Number(layout.bahia ?? 0);
           if (!partNumber || !this.bayOptions.includes(bayId)) return;
-          const current = this.layoutByPart.get(partNumber) ?? new Set<number>();
-          current.add(bayId);
+          const current = this.layoutByPart.get(partNumber) ?? new Map<number, { minStock: number | null }>();
+          current.set(bayId, { minStock: layout.minStock ?? null });
           this.layoutByPart.set(partNumber, current);
         });
 
@@ -157,12 +157,16 @@ export class DispositionComponent implements OnInit {
   }
 
   assignedBaysForPart(partNumber: string): number[] {
-    return [...(this.layoutByPart.get(partNumber) ?? new Set<number>())].sort((a, b) => a - b);
+    return [...(this.layoutByPart.get(partNumber)?.keys() ?? [])].sort((a, b) => a - b);
   }
 
-  itemsForBay(bay: number): BomNpRow[] {
+  itemsForBay(bay: number): (BomNpRow & { minStock: number | null })[] {
     return this.npRows
       .filter((row) => this.layoutByPart.get(row.partNumber)?.has(bay))
+      .map((row) => ({
+        ...row,
+        minStock: this.layoutByPart.get(row.partNumber)?.get(bay)?.minStock ?? null,
+      }))
       .sort((left, right) => left.partNumber.localeCompare(right.partNumber));
   }
 
@@ -174,8 +178,8 @@ export class DispositionComponent implements OnInit {
 
   addPartToBay(partNumber: string, bay: number): void {
     if (!partNumber || !this.bayOptions.includes(bay)) return;
-    const current = this.layoutByPart.get(partNumber) ?? new Set<number>();
-    current.add(bay);
+    const current = this.layoutByPart.get(partNumber) ?? new Map<number, { minStock: number | null }>();
+    current.set(bay, { minStock: null });
     this.layoutByPart.set(partNumber, current);
     this.baySelection[bay] = '';
   }
@@ -200,14 +204,26 @@ export class DispositionComponent implements OnInit {
     this.layoutByPart.set(partNumber, current);
   }
 
+  updateMinStock(partNumber: string, bay: number, value: number | null): void {
+    const current = this.layoutByPart.get(partNumber);
+    if (!current || !current.has(bay)) return;
+    current.set(bay, { minStock: value });
+    this.layoutByPart.set(partNumber, current);
+  }
+
   save(): void {
     if (!this.modelFilter || this.saving) return;
     this.saveNotice = '';
 
-    const payload: Array<{ model: string; partNumber: string; bahia: number }> = [];
+    const payload: Array<{ model: string; partNumber: string; bahia: number; minStock?: number }> = [];
     this.layoutByPart.forEach((bays, partNumber) => {
-      bays.forEach((bahia) => {
-        payload.push({ model: this.modelFilter, partNumber, bahia });
+      bays.forEach((config, bahia) => {
+        payload.push({ 
+          model: this.modelFilter, 
+          partNumber, 
+          bahia,
+          ...(config.minStock !== null && { minStock: config.minStock })
+        });
       });
     });
 
