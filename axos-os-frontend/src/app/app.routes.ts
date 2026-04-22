@@ -4,7 +4,11 @@ import { ShellComponent } from './layout/shell/shell';
 import { authGuard } from './core/auth.guard';
 
 export const routes: Routes = [
-  { path: '', redirectTo: 'login', pathMatch: 'full' },
+  {
+    path: '',
+    loadComponent: () =>
+      import('./features/landing/landing.component').then(m => m.LandingComponent),
+  },
   { path: 'login', component: LoginComponent },
   {
     path: '',
