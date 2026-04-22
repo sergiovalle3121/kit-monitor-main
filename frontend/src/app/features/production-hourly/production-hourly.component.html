@@ -27,7 +27,7 @@
   <article class="model-card" *ngFor="let model of models">
     <header class="model-header">
       <div>
-        <h3>{{ model.backendKey }} · {{ model.model }}</h3>
+        <h3>{{ model.lineKey }} · {{ model.model }}</h3>
       </div>
       <button class="btn-toggle" (click)="toggleModel(model)">
         {{ model.expanded ? '▾ Ocultar detalle BOM' : '▸ Ver detalle BOM' }}

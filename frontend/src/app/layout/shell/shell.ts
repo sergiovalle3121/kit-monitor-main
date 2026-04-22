@@ -204,7 +204,7 @@ export class ShellComponent implements OnInit, OnDestroy {
           .slice(0, 8)
           .map((kit: any) => ({
             id: `kit-ready-${kit.id}`,
-            message: `Kit listo para línea: ${kit.plan?.model ?? 'N/A'} BK${kit.plan?.backen ?? '-'}`,
+            message: `Kit listo para línea: ${kit.plan?.model ?? 'N/A'} BK${kit.plan?.line ?? '-'}`,
             type: 'kit_ready' as const,
             createdAt: kit.updatedAt ?? kit.createdAt ?? new Date().toISOString(),
           }));
@@ -224,7 +224,7 @@ export class ShellComponent implements OnInit, OnDestroy {
           .slice(0, 6)
           .map((backend: any) => ({
             id: `ops-${backend.kitId}`,
-            message: `Operación activa ${backend.backendCode ?? `BK${backend.backen}`}: ${backend.model ?? 'N/A'}`,
+            message: `Operación activa ${backend.lineCode ?? `BK${backend.line}`}: ${backend.model ?? 'N/A'}`,
             type: 'ops' as const,
             createdAt: backend.startedAt ?? new Date().toISOString(),
           }));

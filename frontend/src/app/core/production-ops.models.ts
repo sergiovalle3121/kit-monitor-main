@@ -6,9 +6,9 @@ export type ProductionRuntimeStatus =
   | 'assembling'
   | 'completed';
 
-export interface ProductionBackendRuntime {
-  backendKey: string;
-  backen: number;
+export interface ProductionLineRuntime {
+  lineKey: string;
+  line: number;
   kitId: number;
   model: string;
   workOrder?: string;
@@ -25,7 +25,7 @@ export interface ProductionBackendRuntime {
 
 export interface ProductionBayEvent {
   id: string;
-  backendKey: string;
+  lineKey: string;
   kitId: number;
   model: string;
   bayId: number;
@@ -36,7 +36,7 @@ export interface ProductionBayEvent {
 }
 
 export interface BayMaterialState {
-  backendKey: string;
+  lineKey: string;
   model: string;
   bayId: number;
   partNumber: string;
@@ -49,13 +49,13 @@ export interface BayMaterialState {
 }
 
 export interface ProductionRuntimeSnapshot {
-  backend: ProductionBackendRuntime;
+  backend: ProductionLineRuntime;
   bayMaterials: BayMaterialState[];
   events: ProductionBayEvent[];
 }
 
 export interface HourlyProductionPoint {
-  backendKey: string;
+  lineKey: string;
   model: string;
   hourBucket: string;
   units: number;
@@ -63,7 +63,7 @@ export interface HourlyProductionPoint {
 }
 
 export interface CompletedKitSummary {
-  backendKey: string;
+  lineKey: string;
   model: string;
   completedQty: number;
   targetQty: number;

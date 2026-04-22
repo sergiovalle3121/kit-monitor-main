@@ -29,7 +29,7 @@
         <select [(ngModel)]="selectedPlanId">
           <option [ngValue]="null">-- Elige un plan --</option>
           <option *ngFor="let plan of plansWithoutKit()" [ngValue]="plan.id">
-            {{ plan.workOrder }} - {{ plan.model }} - BK{{ plan.backen }} - x{{ plan.quantity }}
+            {{ plan.workOrder }} - {{ plan.model }} - BK{{ plan.line }} - x{{ plan.quantity }}
           </option>
         </select>
       </div>
@@ -56,7 +56,7 @@
           <span class="kit-id">#{{ kit.id }}</span>
           <span class="wo">{{ kit.plan?.workOrder }}</span>
           <span class="model">{{ kit.plan?.model }}</span>
-          <span class="location" *ngIf="kit.plan">BK{{ kit.plan.backen }}</span>
+          <span class="location" *ngIf="kit.plan">BK{{ kit.plan.line }}</span>
           <span class="qty">x{{ kit.plan?.quantity }}</span>
         </div>
 
@@ -217,7 +217,7 @@
           </div>
           <div class="info-card">
             <span>Backen</span>
-            <strong>BK{{ kit.plan.backen }}</strong>
+            <strong>BK{{ kit.plan.line }}</strong>
           </div>
           <div class="info-card">
             <span>Cantidad</span>

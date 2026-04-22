@@ -48,7 +48,7 @@
         <p class="composer-kicker">Nuevo registro</p>
         <h3>Publicar plan de produccion</h3>
         <p class="composer-copy">
-          El folio se genera automaticamente como consecutivo para que Planeacion publique solo por backen.
+          El folio se genera automaticamente como consecutivo para que Planeacion publique solo por line.
         </p>
       </div>
 
@@ -83,8 +83,8 @@
 
         <label class="field">
           <span>Backen *</span>
-          <select [(ngModel)]="form.backen" name="backen">
-            <option *ngFor="let backen of backens" [ngValue]="backen">BK{{ backen }}</option>
+          <select [(ngModel)]="form.line" name="line">
+            <option *ngFor="let line of backens" [ngValue]="line">BK{{ line }}</option>
           </select>
         </label>
 
@@ -147,7 +147,7 @@
         <div class="post-grid">
           <div class="info-pill">
             <span>Backen</span>
-            <strong>BK{{ plan.backen }}</strong>
+            <strong>BK{{ plan.line }}</strong>
           </div>
 
           <div class="info-pill">
@@ -194,7 +194,7 @@
       <div class="detail-grid">
         <div><span>Folio</span><strong>{{ detail.workOrder }}</strong></div>
         <div><span>Modelo</span><strong>{{ detail.model }}</strong></div>
-        <div><span>Backen</span><strong>BK{{ detail.backen }}</strong></div>
+        <div><span>Backen</span><strong>BK{{ detail.line }}</strong></div>
         <div><span>Cantidad</span><strong>{{ detail.quantity }}</strong></div>
         <div><span>Turno</span><strong>{{ detail.shift }}</strong></div>
         <div><span>Estado</span><strong>{{ planStatusLabel(detail.status) }}</strong></div>

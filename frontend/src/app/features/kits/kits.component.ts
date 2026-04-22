@@ -184,7 +184,7 @@ export class KitsComponent implements OnInit, OnDestroy {
     const rows = this.materialRowsForDocument(kit).map((material) => [
       kit.plan?.workOrder ?? '',
       kit.plan?.model ?? '',
-      `BK${kit.plan?.backen ?? ''}`,
+      `BK${kit.plan?.line ?? ''}`,
       material.location,
       material.partNumber,
       material.description,
@@ -727,7 +727,7 @@ export class KitsComponent implements OnInit, OnDestroy {
 
             <section class="summary">
               <div class="summary-card"><span>Modelo</span><strong>${this.escapeHtml(kit.plan?.model ?? '')}</strong></div>
-              <div class="summary-card"><span>Backen</span><strong>BK${this.escapeHtml(String(kit.plan?.backen ?? ''))}</strong></div>
+              <div class="summary-card"><span>Backen</span><strong>BK${this.escapeHtml(String(kit.plan?.line ?? ''))}</strong></div>
               <div class="summary-card"><span>Cantidad</span><strong>${this.escapeHtml(String(kit.plan?.quantity ?? 0))}</strong></div>
               <div class="summary-card"><span>Turno</span><strong>${this.escapeHtml(kit.plan?.shift ?? '')}</strong></div>
               <div class="summary-card"><span>Materiales</span><strong>${this.escapeHtml(String(kit.materials?.length ?? 0))}</strong></div>

@@ -10,23 +10,23 @@ export class ProductionRuntimeController {
   constructor(private readonly service: ProductionRuntimeService) {}
 
   @Get('backends')
-  getBackends() {
-    return this.service.getBackends();
+  getLines() {
+    return this.service.getLines();
   }
 
   @Get('backends/:kitId')
-  getBackend(@Param('kitId', ParseIntPipe) kitId: number) {
-    return this.service.getBackend(kitId);
+  getLine(@Param('kitId', ParseIntPipe) kitId: number) {
+    return this.service.getLine(kitId);
   }
 
   @Post('backends/:kitId/receive')
   receive(@Param('kitId', ParseIntPipe) kitId: number) {
-    return this.service.receiveBackend(kitId);
+    return this.service.receiveLine(kitId);
   }
 
   @Post('backends/:kitId/start')
   start(@Param('kitId', ParseIntPipe) kitId: number) {
-    return this.service.startBackend(kitId);
+    return this.service.startLine(kitId);
   }
 
   @Post('backends/:kitId/bays/:bayId/events')

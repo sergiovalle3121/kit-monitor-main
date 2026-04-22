@@ -21,10 +21,10 @@ export class Plan {
   model: string; // product model code — matches BomItem.model
 
   @Column({ type: 'int' })
-  backen: number; // 1–7
+  line: number; // 1–7
 
   @Column({ type: 'int', nullable: true })
-  bahia: number; // 1–6 (optional — kit is per backen)
+  bahia: number; // 1–6 (optional — kit is per line)
 
   @Column({ type: 'int' })
   quantity: number; // units to assemble

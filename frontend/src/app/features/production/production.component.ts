@@ -31,8 +31,8 @@ interface ProductionRuntimeSnapshot {
 }
 
 interface ProductionStationView {
-  backen: number;
-  backendKey: string;
+  line: number;
+  lineKey: string;
   kit: any | null;
   status: string;
   model: string | null;
@@ -61,7 +61,7 @@ interface ProductionOverview {
 
 interface ReadyKitRow {
   model: string;
-  backendKey: string;
+  lineKey: string;
   kitId: number;
   timestamp: string;
   status?: string;
@@ -256,7 +256,7 @@ export class ProductionComponent implements OnInit {
   }
 
   bayInputKey(station: ProductionStationView, bayId: number): string {
-    return `${station.backendKey}-B${bayId}`;
+    return `${station.lineKey}-B${bayId}`;
   }
 
   quickBayQty(station: ProductionStationView, bayId: number): number {
@@ -368,7 +368,7 @@ export class ProductionComponent implements OnInit {
   }
 
   getStationKey(station: ProductionStationView): string {
-    return String(station.kit?.id ?? station.backendKey ?? station.backen);
+    return String(station.kit?.id ?? station.lineKey ?? station.line);
   }
 
   getStationModel(station: ProductionStationView): string | null {
@@ -710,12 +710,12 @@ export class ProductionComponent implements OnInit {
     this.requestResupply(station, partNumber, description);
   }
 
-  toggleStationPanel(backen: number): void {
-    this.expandedByBacken[backen] = !this.expandedByBacken[backen];
+  toggleStationPanel(line: number): void {
+    this.expandedByBacken[line] = !this.expandedByBacken[line];
   }
 
-  isStationExpanded(backen: number): boolean {
-    return this.expandedByBacken[backen] ?? true;
+  isStationExpanded(line: number): boolean {
+    return this.expandedByBacken[line] ?? true;
   }
 
   openStationVisualAid(station: ProductionStationView): void {
@@ -756,11 +756,11 @@ export class ProductionComponent implements OnInit {
     const kitsById = new Map((kits ?? []).map((item: any) => [item.id, item]));
 
     this.stations = (backends ?? [])
-      .sort((a, b) => (a.backen ?? Number.MAX_SAFE_INTEGER) - (b.backen ?? Number.MAX_SAFE_INTEGER))
+      .sort((a, b) => (a.line ?? Number.MAX_SAFE_INTEGER) - (b.line ?? Number.MAX_SAFE_INTEGER))
       .map((backend) => {
         const kitId = backend.kitId;
-        const backen = backend.backen;
-        const backendKey = backend.backendCode ?? `Línea ${backen ?? '-'}`;
+        const line = backend.line;
+        const lineKey = backend.lineCode ?? `Línea ${line ?? '-'}`;
 
         const visualAid = backend.model ? this.visualAids.getActiveVisualAidByModel(backend.model) : null;
         const rt = runtimeByKitId.get(kitId);
@@ -781,8 +781,8 @@ export class ProductionComponent implements OnInit {
 
         const completed = Number(rt?.backend?.completedQty ?? backend.completedQty ?? 0);
         return {
-          backen,
-          backendKey,
+          line,
+          lineKey,
           kit: { id: kitId },
           status: backend.status,
           model: backend.model,
@@ -821,7 +821,7 @@ export class ProductionComponent implements OnInit {
       .filter((station) => ['ready', 'kitted', 'prepared'].includes(station.status))
       .map((station) => ({
         model: station.model ?? 'N/A',
-        backendKey: station.backendKey,
+        lineKey: station.lineKey,
         kitId: station.kit?.id ?? 0,
           timestamp: station.snapshot?.backend?.receivedAt ?? new Date().toISOString(),
           status: station.status,
@@ -831,7 +831,7 @@ export class ProductionComponent implements OnInit {
     this.currentKitInProcess = active
       ? {
           model: active.model ?? 'N/A',
-          backendKey: active.backendKey,
+          lineKey: active.lineKey,
           kitId: active.kit?.id ?? 0,
           timestamp: active.snapshot?.backend?.receivedAt ?? new Date().toISOString(),
           status: active.status,

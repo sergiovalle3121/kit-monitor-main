@@ -28,7 +28,7 @@
       <tbody>
         <tr *ngFor="let row of readyKits">
           <td>{{ row.model }}</td>
-          <td>{{ row.backendKey }}</td>
+          <td>{{ row.lineKey }}</td>
           <td>{{ row.kitId }}</td>
           <td>{{ row.timestamp | date:'short' }}</td>
           <td>
@@ -68,7 +68,7 @@
   <section class="ops-card">
     <h3>Kit en proceso</h3>
     <div *ngIf="currentKitInProcess; else noCurrentKit" class="kit-in-process">
-      <p><strong>{{ currentKitInProcess.model }}</strong> · {{ currentKitInProcess.backendKey }}</p>
+      <p><strong>{{ currentKitInProcess.model }}</strong> · {{ currentKitInProcess.lineKey }}</p>
       <p>Kit ID {{ currentKitInProcess.kitId }}</p>
       <span class="plan-chip status-progress">{{ currentKitStatusLabel() }}</span>
     </div>
@@ -91,7 +91,7 @@
   <section class="station-card" *ngFor="let station of stations">
     <div class="station-header">
       <div>
-        <div class="station-label">{{ station.backendKey }}</div>
+        <div class="station-label">{{ station.lineKey }}</div>
         <div class="station-model">{{ station.model || 'Modelo no definido' }}</div>
         <div class="station-meta">
           <span>{{ station.workOrder }}</span>
@@ -109,20 +109,20 @@
         <span class="progress-pill">{{ station.progressPct }}%</span>
         <span class="quick-chip" *ngIf="station.visualAid">AV</span>
         <span class="quick-chip warn" *ngIf="station.hasOpenException">INC</span>
-        <button class="btn-collapse" (click)="toggleStationPanel(station.backen)">
-          {{ isStationExpanded(station.backen) ? 'Colapsar' : 'Expandir' }}
+        <button class="btn-collapse" (click)="toggleStationPanel(station.line)">
+          {{ isStationExpanded(station.line) ? 'Colapsar' : 'Expandir' }}
         </button>
       </div>
     </div>
 
-      <div class="action-strip info compact" *ngIf="!isStationExpanded(station.backen)">
+      <div class="action-strip info compact" *ngIf="!isStationExpanded(station.line)">
         <div class="action-caption">
-          {{ station.backendKey }} · {{ station.model }} · {{ statusLabel(station.status) }} · {{ station.progressPct }}% ·
+          {{ station.lineKey }} · {{ station.model }} · {{ statusLabel(station.status) }} · {{ station.progressPct }}% ·
           {{ station.openResupplies.length }} pedidos
         </div>
       </div>
 
-      <ng-container *ngIf="isStationExpanded(station.backen)">
+      <ng-container *ngIf="isStationExpanded(station.line)">
         <div class="progress-block">
           <div class="progress-track">
             <div class="progress-fill" [style.width.%]="station.progressPct"></div>
@@ -187,7 +187,7 @@
                   <div class="mes-header">
                     <div>
                       <strong>{{ selectedBahiaByStation[getStationKey(station)] || 'Bahía' }}</strong>
-                      <div class="mes-subtitle">{{ station.model }} · {{ station.backendKey }} · {{ statusLabel(station.status) }}</div>
+                      <div class="mes-subtitle">{{ station.model }} · {{ station.lineKey }} · {{ statusLabel(station.status) }}</div>
                     </div>
                     <button class="btn-collapse" (click)="closeBahiaMES(station)">Cerrar</button>
                   </div>
@@ -264,11 +264,11 @@
                             Δ {{ material.runtime?.deltaConsumed | number:'1.0-2' }}
                           </span>
                         </div>
-                        <div class="material-meta burn-rate-strip" *ngIf="material.runtime && material.runtime.realConsumptionPerHour > 0">
+                        <div class="material-meta burn-rate-strip" *ngIf="material.runtime && (material.runtime.realConsumptionPerHour ?? 0) > 0">
                           <span class="burn-label">🚀 Burn-rate:</span>
                           <span>{{ material.runtime.realConsumptionPerHour | number:'1.0-1' }} / hr</span>
-                          <span class="burn-eta" [class.blink-urgent]="material.runtime.depletionEtaMinutes < 60">
-                            ETA: {{ material.runtime.depletionEtaMinutes < 60 ? (material.runtime.depletionEtaMinutes | number:'1.0-0') + ' min' : '> 1 hr' }}
+                          <span class="burn-eta" [class.blink-urgent]="(material.runtime.depletionEtaMinutes ?? 999) < 60">
+                            ETA: {{ (material.runtime.depletionEtaMinutes ?? 999) < 60 ? (material.runtime.depletionEtaMinutes | number:'1.0-0') + ' min' : '> 1 hr' }}
                           </span>
                         </div>
                         <div class="resupply-row" *ngIf="material.runtime && material.runtime.availableQty <= material.runtime.lowStockThreshold">

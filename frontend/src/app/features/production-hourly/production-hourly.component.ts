@@ -21,7 +21,7 @@ interface BomConsumptionRow {
 
 interface HourlyModelView {
   model: string;
-  backendKey: string;
+  lineKey: string;
   expanded: boolean;
   chartPathReal: string;
   chartPathPlanned: string;
@@ -167,7 +167,7 @@ export class ProductionHourlyComponent implements OnInit {
 
     return {
       model: backend.model ?? 'N/A',
-      backendKey: backend.backendCode ?? `BK${backend.backen ?? '-'}`,
+      lineKey: backend.lineCode ?? `BK${backend.line ?? '-'}`,
       expanded: false,
       chartPathReal: buildPath('real'),
       chartPathPlanned: buildPath('planned'),

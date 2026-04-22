@@ -109,7 +109,7 @@ export class MonitorComponent implements OnInit {
   }
 
   private buildSlots(backends: any[], details: any[]): void {
-    const backendByBk = new Map<number, any>(backends.map((backend) => [backend.backen, backend]));
+    const backendByBk = new Map<number, any>(backends.map((backend) => [backend.line, backend]));
     const detailsByKitId = new Map<number, any>(details.map((entry) => [entry.kitId, entry]));
 
     for (const bk of this.backens) {

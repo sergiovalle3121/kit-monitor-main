@@ -24,7 +24,7 @@ export class ProductionRuntimeService {
     private readonly dataSource: DataSource,
   ) {}
 
-  async getBackends() {
+  async getLines() {
     const kits = await this.kitRepo.find({
       where: { status: In(['preparing', 'kitted', 'ready', 'requested', 'delivered', 'in_progress', 'received', 'sent']) },
       relations: ['plan'],
@@ -34,11 +34,11 @@ export class ProductionRuntimeService {
     return Promise.all(kits.map((kit) => this.buildBackendView(kit.id)));
   }
 
-  async getBackend(kitId: number) {
+  async getLine(kitId: number) {
     return this.buildBackendView(kitId);
   }
 
-  async receiveBackend(kitId: number) {
+  async receiveLine(kitId: number) {
     const kit = await this.findKit(kitId);
     if (!['ready', 'requested'].includes(kit.status)) {
       throw new BadRequestException('Kit no está listo para recepción en línea');
@@ -47,7 +47,7 @@ export class ProductionRuntimeService {
     return this.buildBackendView(kitId);
   }
 
-  async startBackend(kitId: number) {
+  async startLine(kitId: number) {
     const kit = await this.findKit(kitId);
     if (!['requested', 'received', 'delivered', 'sent', 'ready', 'in_progress'].includes(kit.status)) {
       throw new BadRequestException('Kit no puede iniciar ensamble desde su estado actual');
@@ -555,7 +555,7 @@ export class ProductionRuntimeService {
   }
 
   async getLogisticsRisk() {
-    const backends = await this.getBackends();
+    const backends = await this.getLines();
     const risks = await Promise.all(backends.map((backend) => this.getShortageRisk(backend.kitId)));
     return backends.map((backend, idx) => ({
       backend,
@@ -583,8 +583,8 @@ export class ProductionRuntimeService {
 
     return {
       kitId,
-      backendCode: `Línea ${kit.plan.backen}`,
-      backen: kit.plan.backen,
+      lineCode: `Línea ${kit.plan.line}`,
+      line: kit.plan.line,
       model: kit.plan.model,
       workOrder: kit.plan.workOrder,
       shift: kit.plan.shift,

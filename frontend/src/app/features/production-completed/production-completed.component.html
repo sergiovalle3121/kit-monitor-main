@@ -38,7 +38,7 @@
 <div class="cards" *ngIf="visibleRows.length; else empty">
   <article class="card" *ngFor="let row of visibleRows">
     <div class="header-line">
-      <h3>{{ row.backendCode }} · {{ row.model }}</h3>
+      <h3>{{ row.lineCode }} · {{ row.model }}</h3>
       <span class="state-chip" [class.partial]="row.kind === 'partial'">
         {{ row.kind === 'partial' ? '⚠ Ensamble parcial' : '✓ Corrida completa' }}
       </span>

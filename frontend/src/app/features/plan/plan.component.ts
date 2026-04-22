@@ -6,7 +6,7 @@ import { ConfirmModalService } from '../../shared/confirm-modal/confirm-modal.se
 
 interface PlanForm {
   model: string;
-  backen: number;
+  line: number;
   quantity: number;
   shift: string;
   scheduledAt: string;
@@ -125,7 +125,7 @@ export class PlanComponent implements OnInit {
 
     const dto: any = {
       model,
-      backen: this.form.backen,
+      line: this.form.line,
       quantity: Number(this.form.quantity),
       shift: this.form.shift,
     };
@@ -223,7 +223,7 @@ export class PlanComponent implements OnInit {
   }
 
   publicationSummary(plan: any): string {
-    const parts = [`BK${plan.backen}`];
+    const parts = [`BK${plan.line}`];
 
     parts.push(`${plan.quantity} uds`);
     parts.push(plan.shift);
@@ -254,7 +254,7 @@ export class PlanComponent implements OnInit {
   private createEmptyForm(): PlanForm {
     return {
       model: '',
-      backen: 1,
+      line: 1,
       quantity: 1,
       shift: 'T1',
       scheduledAt: '',

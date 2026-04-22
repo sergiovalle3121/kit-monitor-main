@@ -149,23 +149,23 @@ export class ApiService {
 
 
   getProductionBackends(): Observable<any[]> {
-    return this.get<any[]>('production/backends');
+    return this.get<any[]>('production/lines');
   }
 
   getProductionBackend(kitId: number): Observable<any> {
-    return this.get<any>(`production/backends/${kitId}`);
+    return this.get<any>(`production/lines/${kitId}`);
   }
 
   receiveProductionBackend(kitId: number): Observable<any> {
-    return this.post<any>(`production/backends/${kitId}/receive`, {});
+    return this.post<any>(`production/lines/${kitId}/receive`, {});
   }
 
   startProductionBackend(kitId: number): Observable<any> {
-    return this.post<any>(`production/backends/${kitId}/start`, {});
+    return this.post<any>(`production/lines/${kitId}/start`, {});
   }
 
   createBayEvent(kitId: number, bayId: number, dto: { quantity: number; notes?: string; operator?: string; clientRequestId: string }): Observable<any> {
-    return this.post<any>(`production/backends/${kitId}/bays/${bayId}/events`, dto);
+    return this.post<any>(`production/lines/${kitId}/bays/${bayId}/events`, dto);
   }
 
   revertProductionEvent(eventId: number): Observable<any> {
@@ -173,7 +173,7 @@ export class ApiService {
   }
 
   getProductionEvents(kitId: number): Observable<any[]> {
-    return this.get<any[]>(`production/backends/${kitId}/events`);
+    return this.get<any[]>(`production/lines/${kitId}/events`);
   }
 
   createProductionIncident(
@@ -181,19 +181,19 @@ export class ApiService {
     bayId: number,
     dto: { type: string; note?: string; operator?: string },
   ): Observable<any> {
-    return this.post<any>(`production/backends/${kitId}/bays/${bayId}/incidents`, dto);
+    return this.post<any>(`production/lines/${kitId}/bays/${bayId}/incidents`, dto);
   }
 
   getProductionIncidents(kitId: number, bayId: number): Observable<any[]> {
-    return this.get<any[]>(`production/backends/${kitId}/bays/${bayId}/incidents`);
+    return this.get<any[]>(`production/lines/${kitId}/bays/${bayId}/incidents`);
   }
 
   getProductionMaterials(kitId: number): Observable<any[]> {
-    return this.get<any[]>(`production/backends/${kitId}/materials`);
+    return this.get<any[]>(`production/lines/${kitId}/materials`);
   }
 
   getProductionHourly(kitId: number): Observable<any[]> {
-    return this.get<any[]>(`production/backends/${kitId}/hourly`);
+    return this.get<any[]>(`production/lines/${kitId}/hourly`);
   }
 
   getProductionCompleted(): Observable<any[]> {
@@ -201,7 +201,7 @@ export class ApiService {
   }
 
   getProductionShortageRisk(kitId: number): Observable<any> {
-    return this.get<any>(`production/backends/${kitId}/shortage-risk`);
+    return this.get<any>(`production/lines/${kitId}/shortage-risk`);
   }
 
   getLogisticsShortageRisk(): Observable<any[]> {

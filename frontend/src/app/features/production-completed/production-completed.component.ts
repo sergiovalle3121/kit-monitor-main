@@ -5,7 +5,7 @@ import { forkJoin, interval, Subscription } from 'rxjs';
 import { ApiService } from '../../core/api.service';
 
 interface CompletedRow {
-  backendCode: string;
+  lineCode: string;
   model: string;
   completedQty: number;
   targetQty: number;
@@ -63,7 +63,7 @@ export class ProductionCompletedComponent implements OnInit, OnDestroy {
         const serverRows: CompletedRow[] = (completed ?? []).map((row: any) => {
           const timestamp = row.completedAt ?? row.startedAt ?? new Date().toISOString();
           return {
-            backendCode: row.backendCode ?? `BK${row.backen ?? '-'}`,
+            lineCode: row.lineCode ?? `BK${row.line ?? '-'}`,
             model: row.model ?? 'N/A',
             completedQty: Number(row.completedQty ?? 0),
             targetQty: Number(row.targetQty ?? 0),
@@ -97,7 +97,7 @@ export class ProductionCompletedComponent implements OnInit, OnDestroy {
     const timestamp = new Date().toISOString();
     const kitId = this.activeModels.indexOf(this.form.model) + 1;
     const newRow: CompletedRow = {
-      backendCode: 'PARCIAL',
+      lineCode: 'PARCIAL',
       model: this.form.model,
       completedQty: Number(this.form.qty),
       targetQty: Number(this.form.qty),

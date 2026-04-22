@@ -3,7 +3,7 @@ import { Component, OnInit } from '@angular/core';
 import { ApiService } from '../../core/api.service';
 
 interface LogisticsMovement {
-  backendCode: string;
+  lineCode: string;
   destination: string;
   model: string;
   parts: string[];
@@ -81,8 +81,8 @@ export class LogisticsRiskComponent implements OnInit {
         const isDelivered = ['completed', 'delivered', 'received', 'sent'].includes(backend.status);
 
         return {
-          backendCode: backend.backendCode ?? `BK${backend.backen ?? '-'}`,
-          destination: backend.backen ? `BK${backend.backen}/Línea` : 'Línea',
+          lineCode: backend.lineCode ?? `BK${backend.line ?? '-'}`,
+          destination: backend.line ? `BK${backend.line}/Línea` : 'Línea',
           model: backend.model ?? 'N/A',
           parts,
           status: isDelivered ? 'delivered' : 'in_transit',

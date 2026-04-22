@@ -1,6 +1,6 @@
 export class UpdatePlanDto {
   model?: string;
-  backen?: number;
+  line?: number;
   bahia?: number;
   quantity?: number;
   shift?: string;

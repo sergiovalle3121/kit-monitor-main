@@ -27,7 +27,7 @@ describe('MonitorComponent', () => {
     apiMock.getProductionBackends.and.returnValue(
       of([
         {
-          backen: 1,
+          line: 1,
           kitId: 77,
           status: 'in_progress',
           model: 'OP-520-0001',

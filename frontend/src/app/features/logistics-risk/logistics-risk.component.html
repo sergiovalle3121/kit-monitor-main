@@ -13,7 +13,7 @@
       <div class="route">
         <strong>Origen:</strong> Supermercado → <strong>Destino:</strong> {{ movement.destination }}
       </div>
-      <p class="meta">{{ movement.backendCode }} · {{ movement.model }}</p>
+      <p class="meta">{{ movement.lineCode }} · {{ movement.model }}</p>
       <p class="parts" *ngIf="movement.parts.length; else noParts">NPs: {{ movement.parts.join(', ') }}</p>
       <ng-template #noParts>
         <p class="parts">NPs: en seguimiento por modelo</p>

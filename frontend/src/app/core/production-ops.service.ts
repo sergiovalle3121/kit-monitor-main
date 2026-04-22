@@ -5,14 +5,14 @@ import {
   BayMaterialState,
   CompletedKitSummary,
   HourlyProductionPoint,
-  ProductionBackendRuntime,
+  ProductionLineRuntime,
   ProductionBayEvent,
   ProductionRuntimeSnapshot,
   ProductionRuntimeStatus,
 } from './production-ops.models';
 
 interface EnsureRuntimeInput {
-  backen: number;
+  line: number;
   kitId: number;
   model: string;
   workOrder?: string;
@@ -33,10 +33,10 @@ export class ProductionOpsService {
 
   ensureRuntime(input: EnsureRuntimeInput): ProductionRuntimeSnapshot {
     const state = new Map(this.snapshots.value);
-    const backendKey = `BK${input.backen}`;
-    const existing = state.get(backendKey);
+    const lineKey = `BK${input.line}`;
+    const existing = state.get(lineKey);
 
-    const backend: ProductionBackendRuntime = existing?.backend
+    const backend: ProductionLineRuntime = existing?.backend
       ? {
           ...existing.backend,
           kitId: input.kitId,
@@ -49,8 +49,8 @@ export class ProductionOpsService {
           completedQty: Math.max(existing.backend.completedQty, input.completedQty),
         }
       : {
-          backendKey,
-          backen: input.backen,
+          lineKey,
+          line: input.line,
           kitId: input.kitId,
           model: input.model,
           workOrder: input.workOrder,
@@ -73,7 +73,7 @@ export class ProductionOpsService {
 
     const bayMaterials = this.buildOrReuseBayMaterials(
       existing?.bayMaterials ?? [],
-      backendKey,
+      lineKey,
       input.model,
       input.disposition,
     );
@@ -84,21 +84,21 @@ export class ProductionOpsService {
       events: existing?.events ?? [],
     };
 
-    state.set(backendKey, snapshot);
+    state.set(lineKey, snapshot);
     this.snapshots.next(state);
     return snapshot;
   }
 
-  markReceivedLine(backendKey: string): void {
-    this.patchBackend(backendKey, (backend) => ({
+  markReceivedLine(lineKey: string): void {
+    this.patchLine(lineKey, (backend) => ({
       ...backend,
       status: backend.status === 'completed' ? 'completed' : 'received_line',
       receivedAt: backend.receivedAt ?? new Date().toISOString(),
     }));
   }
 
-  startAssembly(backendKey: string): void {
-    this.patchBackend(backendKey, (backend) => ({
+  startAssembly(lineKey: string): void {
+    this.patchLine(lineKey, (backend) => ({
       ...backend,
       status: backend.status === 'completed' ? 'completed' : 'assembling',
       startedAt: backend.startedAt ?? new Date().toISOString(),
@@ -107,7 +107,7 @@ export class ProductionOpsService {
   }
 
   registerBayAssembly(
-    backendKey: string,
+    lineKey: string,
     bayId: number,
     quantity: number,
     operator?: string,
@@ -116,13 +116,13 @@ export class ProductionOpsService {
     if (!Number.isFinite(quantity) || quantity <= 0) return null;
 
     const state = new Map(this.snapshots.value);
-    const snapshot = state.get(backendKey);
+    const snapshot = state.get(lineKey);
     if (!snapshot) return null;
 
     const timestamp = new Date().toISOString();
     const event: ProductionBayEvent = {
       id: `evt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      backendKey,
+      lineKey,
       kitId: snapshot.backend.kitId,
       model: snapshot.backend.model,
       bayId,
@@ -162,13 +162,13 @@ export class ProductionOpsService {
       events: [event, ...snapshot.events].slice(0, 600),
     };
 
-    state.set(backendKey, nextSnapshot);
+    state.set(lineKey, nextSnapshot);
     this.snapshots.next(state);
     return nextSnapshot;
   }
 
-  getSnapshot(backendKey: string): ProductionRuntimeSnapshot | null {
-    return this.snapshots.value.get(backendKey) ?? null;
+  getSnapshot(lineKey: string): ProductionRuntimeSnapshot | null {
+    return this.snapshots.value.get(lineKey) ?? null;
   }
 
   getHourlySeries(): HourlyProductionPoint[] {
@@ -188,7 +188,7 @@ export class ProductionOpsService {
         .sort(([left], [right]) => right.localeCompare(left))
         .forEach(([hourBucket, agg]) => {
           rows.push({
-            backendKey: snapshot.backend.backendKey,
+            lineKey: snapshot.backend.lineKey,
             model: snapshot.backend.model,
             hourBucket,
             units: agg.units,
@@ -206,7 +206,7 @@ export class ProductionOpsService {
       .map((snapshot) => {
         const lowStockHits = snapshot.bayMaterials.filter((item) => item.availableQty <= item.lowStockThreshold).length;
         return {
-          backendKey: snapshot.backend.backendKey,
+          lineKey: snapshot.backend.lineKey,
           model: snapshot.backend.model,
           completedQty: snapshot.backend.completedQty,
           targetQty: snapshot.backend.targetQty,
@@ -230,7 +230,7 @@ export class ProductionOpsService {
 
   private buildOrReuseBayMaterials(
     existing: BayMaterialState[],
-    backendKey: string,
+    lineKey: string,
     model: string,
     disposition: DispositionItem[],
   ): BayMaterialState[] {
@@ -251,7 +251,7 @@ export class ProductionOpsService {
       const lowStockThreshold = Math.max(5, Math.ceil(assignedQty * 0.2));
 
       return {
-        backendKey,
+        lineKey,
         model,
         bayId: item.bayId,
         partNumber: item.partNumber,
@@ -265,15 +265,15 @@ export class ProductionOpsService {
     });
   }
 
-  private patchBackend(
-    backendKey: string,
-    update: (backend: ProductionBackendRuntime) => ProductionBackendRuntime,
+  private patchLine(
+    lineKey: string,
+    update: (backend: ProductionLineRuntime) => ProductionLineRuntime,
   ): void {
     const state = new Map(this.snapshots.value);
-    const snapshot = state.get(backendKey);
+    const snapshot = state.get(lineKey);
     if (!snapshot) return;
 
-    state.set(backendKey, { ...snapshot, backend: update(snapshot.backend) });
+    state.set(lineKey, { ...snapshot, backend: update(snapshot.backend) });
     this.snapshots.next(state);
   }
 }
