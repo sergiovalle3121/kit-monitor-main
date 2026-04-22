@@ -42,7 +42,7 @@ export function ormOptions(): TypeOrmModuleOptions {
       : syncOverride === "false"
         ? false
         : url
-          ? true
+          ? false
           : !isProd;
 
   const pgBase: Partial<TypeOrmModuleOptions> = {

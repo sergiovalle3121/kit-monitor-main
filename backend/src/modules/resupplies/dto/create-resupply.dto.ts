@@ -4,4 +4,5 @@ export class CreateResupplyDto {
   description?: string;
   quantityRequested: number;
   reason?: string;
+  priority?: 'low' | 'medium' | 'high' | 'critical';
 }
