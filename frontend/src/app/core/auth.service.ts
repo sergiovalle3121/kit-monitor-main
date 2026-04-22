@@ -9,7 +9,7 @@ export const TOKEN_KEY = 'access_token';
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private base = this.resolveInitialBase();
-  private readonly sameOriginBase = this.getSameOriginApiUrl();
+  private readonly sameOriginBase = this.shouldUseSameOriginFallback() ? this.getSameOriginApiUrl() : '';
 
   constructor(private http: HttpClient, private router: Router) {}
 
@@ -57,6 +57,10 @@ export class AuthService {
   private getSameOriginApiUrl(): string {
     if (typeof window === 'undefined') return '';
     return `${window.location.origin}/api`;
+  }
+
+  private shouldUseSameOriginFallback(): boolean {
+    return !environment.production;
   }
 
   private buildUrl(base: string, path: string): string {
