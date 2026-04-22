@@ -4,6 +4,7 @@ import { CreateResupplyDto } from './dto/create-resupply.dto';
 import { DeliverResupplyDto } from './dto/deliver-resupply.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { UpdateResupplyStatusDto } from './dto/update-resupply-status.dto';
+import { AssignResupplyOwnerDto } from './dto/assign-resupply-owner.dto';
 
 @UseGuards(JwtAuthGuard)
 @Controller('resupplies')
@@ -11,8 +12,11 @@ export class ResuppliesController {
   constructor(private readonly service: ResuppliesService) {}
 
   @Get()
-  findByKit(@Query('kitId', ParseIntPipe) kitId: number) {
-    return this.service.findByKit(kitId);
+  find(@Query('kitId') kitId?: string) {
+    if (kitId) {
+      return this.service.findByKit(Number(kitId));
+    }
+    return this.service.findAll();
   }
 
   @Post()
@@ -23,6 +27,12 @@ export class ResuppliesController {
   @Patch(':id/deliver')
   deliver(@Param('id', ParseIntPipe) id: number, @Body() dto: DeliverResupplyDto) {
     return this.service.deliver(id, dto);
+  }
+
+
+  @Patch(':id/owner')
+  assignOwner(@Param('id', ParseIntPipe) id: number, @Body() dto: AssignResupplyOwnerDto) {
+    return this.service.assignOwner(id, dto);
   }
 
   @Patch(':id/status')
