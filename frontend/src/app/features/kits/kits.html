@@ -1,23 +1,23 @@
-<section class="kits-shell">
+<section class="kits-shell flow-module">
   <div class="page-header">
-    <div>
-      <p class="page-kicker">Kits</p>
-      <h2>Estacion de surtido</h2>
+    <div class="header-titles">
+      <p class="page-kicker">Materials / Kitting Execution</p>
+      <h2>Kitting Control</h2>
       <p class="page-copy">
-        Toma la solicitud, imprime el formato profesional, recorre localidades y captura lo realmente kitteado.
+        Gobernanza del surtido de materiales. Ejecuta órdenes de kitting, asigna material físico y controla excepciones logísticas.
       </p>
     </div>
 
     <button class="btn-primary" type="button" (click)="showForm = !showForm">
-      {{ showForm ? 'Cancelar' : '+ Nuevo kit' }}
+      {{ showForm ? 'Cancelar' : '+ Iniciar nueva ejecución' }}
     </button>
   </div>
 
-  <div class="form-card" *ngIf="showForm">
+  <div class="form-card flow-card" *ngIf="showForm">
     <div class="form-top">
       <div>
-        <p class="form-kicker">Crear desde Planeacion</p>
-        <h3>Generar kit a partir de una publicacion</h3>
+        <p class="form-kicker">Work Order Linking</p>
+        <h3>Generar kit desde Plan de Producción</h3>
       </div>
     </div>
 
@@ -46,8 +46,8 @@
     </p>
   </div>
 
-  <p *ngIf="loading" class="loading-text">Cargando kits...</p>
-  <p *ngIf="error" class="error-banner">{{ error }}</p>
+  <p *ngIf="loading" class="loading-text flow-loading">Cargando contexto de ejecución...</p>
+  <p *ngIf="error" class="error-banner flow-error">{{ error }}</p>
 
   <div class="kit-list" *ngIf="!loading">
     <article class="kit-card" *ngFor="let kit of kits; trackBy: trackByKitId" [class.expanded]="expandedKitId === kit.id">
