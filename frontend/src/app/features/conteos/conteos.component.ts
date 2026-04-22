@@ -15,6 +15,15 @@ import {
 import { ConteosService } from './conteos.service';
 
 type LogFilter = 'todos' | 'diferencias' | 'faltantes' | 'sobrantes';
+type OperationalStatus =
+  | 'scheduled'
+  | 'in_progress'
+  | 'counted'
+  | 'variance_detected'
+  | 'recount_required'
+  | 'approved'
+  | 'adjusted'
+  | 'closed';
 
 interface TurnOption {
   label: string;
@@ -41,6 +50,13 @@ interface ConteoSession {
     excessUnits: number;
   };
   rows: ConteoLogView[];
+}
+
+interface CycleCountTimelineEvent {
+  action: string;
+  timestamp: string;
+  actor: string;
+  note?: string;
 }
 
 @Component({
@@ -72,6 +88,12 @@ export class ConteosComponent {
   searchTerm = '';
   dayFilter = 0;
   shiftFilter = 'todos';
+  statusFilter: 'todos' | OperationalStatus = 'todos';
+  areaFilter = 'todos';
+  ownerFilter = 'todos';
+  highVarianceOnly = false;
+  openOnly = true;
+  ownerName = 'IC Supervisor';
 
   selectedLogId: string | null = null;
   physicalQuantity: number | null = null;
@@ -79,6 +101,9 @@ export class ConteosComponent {
   sessions: ConteoSession[] = [];
   selectedSessionId: string | null = null;
   private readonly sessionsKey = 'km_conteos_sessions_v1';
+  private readonly statusByLogId = new Map<string, OperationalStatus>();
+  private readonly ownerByLogId = new Map<string, string>();
+  private readonly timelineByLogId = new Map<string, CycleCountTimelineEvent[]>();
 
   constructor(private readonly conteos: ConteosService) {
     this.syncState();
@@ -130,6 +155,11 @@ export class ConteosComponent {
   saveCount(): void {
     if (!this.selectedLogId || this.physicalQuantity == null) return;
     this.conteos.registerCount(this.selectedLogId, this.physicalQuantity, this.observations.trim());
+    const selected = this.logs.find((item) => item.id === this.selectedLogId);
+    const hasVariance = Math.abs(Number(selected?.delta ?? 0)) > 0;
+    this.setOperationalStatus(this.selectedLogId, hasVariance ? 'variance_detected' : 'counted', 'COUNT_SUBMITTED');
+    this.recordTimeline(this.selectedLogId, hasVariance ? 'VARIANCE_DETECTED' : 'COUNT_SUBMITTED', this.observations.trim() || undefined);
+    this.ownerByLogId.set(this.selectedLogId, this.ownerName.trim() || 'IC Supervisor');
     this.syncState();
     this.pickNextPending();
     this.saveSessionSnapshot();
@@ -153,6 +183,9 @@ export class ConteosComponent {
     ];
     this.syncState();
     this.selectedSessionId = null;
+    this.statusByLogId.clear();
+    this.ownerByLogId.clear();
+    this.timelineByLogId.clear();
   }
 
   get previewMaterials(): ConteoMaterial[] {
@@ -197,6 +230,52 @@ export class ConteosComponent {
     return this.logs.reduce((sum, log) => sum + Math.max(0, Number(log.delta ?? 0)), 0);
   }
 
+  get pendingApprovals(): number {
+    return this.logViews.filter((log) => this.getOperationalStatus(log) === 'variance_detected').length;
+  }
+
+  get highVarianceCounts(): number {
+    return this.logViews.filter((log) => this.isHighVariance(log)).length;
+  }
+
+  get discrepancyRate(): number {
+    const completed = this.logViews.filter((log) => this.getOperationalStatus(log) !== 'scheduled').length;
+    if (!completed) return 0;
+    const withVariance = this.logViews.filter((log) => this.isVariance(log)).length;
+    return Math.round((withVariance / completed) * 100);
+  }
+
+  get inventoryAccuracyPct(): number {
+    return this.summary.accuracyPct;
+  }
+
+  get countsByAreaLabel(): string {
+    const byArea = new Map<string, number>();
+    for (const log of this.logViews) {
+      const key = this.resolveArea(log.location);
+      byArea.set(key, (byArea.get(key) ?? 0) + 1);
+    }
+    return Array.from(byArea.entries()).slice(0, 3).map(([area, count]) => `${area}: ${count}`).join(' · ') || 'Sin datos';
+  }
+
+  get countsByLineLabel(): string {
+    const byLine = new Map<string, number>();
+    for (const log of this.logViews) {
+      const key = `L${((log.dia - 1) % 7) + 1}`;
+      byLine.set(key, (byLine.get(key) ?? 0) + 1);
+    }
+    return Array.from(byLine.entries()).slice(0, 3).map(([line, count]) => `${line}: ${count}`).join(' · ') || 'Sin datos';
+  }
+
+  get countsByWarehouseLabel(): string {
+    const map = new Map<string, number>();
+    for (const log of this.logViews) {
+      const wh = this.resolveWarehouse(log.location);
+      map.set(wh, (map.get(wh) ?? 0) + 1);
+    }
+    return Array.from(map.entries()).slice(0, 3).map(([wh, count]) => `${wh}: ${count}`).join(' · ') || 'Sin datos';
+  }
+
   get variationUnits(): number {
     return Math.round((this.totalPhysicalUnits - this.totalSapUnits) * 100) / 100;
   }
@@ -215,6 +294,11 @@ export class ConteosComponent {
         if (this.logFilter === 'sobrantes' && Number(log.delta ?? 0) <= 0) return false;
         if (this.dayFilter && log.dia !== this.dayFilter) return false;
         if (this.shiftFilter !== 'todos' && log.turno !== this.shiftFilter) return false;
+        if (this.statusFilter !== 'todos' && this.getOperationalStatus(log) !== this.statusFilter) return false;
+        if (this.areaFilter !== 'todos' && this.resolveArea(log.location) !== this.areaFilter) return false;
+        if (this.ownerFilter !== 'todos' && this.ownerForLog(log) !== this.ownerFilter) return false;
+        if (this.highVarianceOnly && !this.isHighVariance(log)) return false;
+        if (this.openOnly && this.getOperationalStatus(log) === 'closed') return false;
         if (!term) return true;
         return [log.material, log.descripcion, log.location, log.location2, log.familia]
           .join(' ')
@@ -239,6 +323,30 @@ export class ConteosComponent {
     return this.logViews.find((log) => log.id === this.selectedLogId) ?? null;
   }
 
+  get statusOptions(): OperationalStatus[] {
+    return ['scheduled', 'in_progress', 'counted', 'variance_detected', 'recount_required', 'approved', 'adjusted', 'closed'];
+  }
+
+  get areaOptions(): string[] {
+    return Array.from(new Set(this.logViews.map((log) => this.resolveArea(log.location)))).sort();
+  }
+
+  get ownerOptions(): string[] {
+    return Array.from(new Set(this.logViews.map((log) => this.ownerForLog(log)))).sort();
+  }
+
+  get statusBoard(): Array<{ status: OperationalStatus; label: string; total: number; logs: ConteoLogView[] }> {
+    return this.statusOptions.map((status) => {
+      const logs = this.logViews.filter((log) => this.getOperationalStatus(log) === status);
+      return {
+        status,
+        label: this.operationalStatusLabel(status),
+        total: logs.length,
+        logs: logs.slice(0, 4),
+      };
+    });
+  }
+
   get shiftOptions(): string[] {
     const values = new Set<string>();
     for (const day of this.dayLoads) {
@@ -257,6 +365,101 @@ export class ConteosComponent {
 
   difficultyClass(level: DifficultyLevel): string {
     return `difficulty-${level}`;
+  }
+
+  operationalStatusLabel(status: OperationalStatus): string {
+    const labels: Record<OperationalStatus, string> = {
+      scheduled: 'Scheduled',
+      in_progress: 'In Progress',
+      counted: 'Counted',
+      variance_detected: 'Variance Detected',
+      recount_required: 'Recount Required',
+      approved: 'Approved',
+      adjusted: 'Adjusted',
+      closed: 'Closed',
+    };
+    return labels[status];
+  }
+
+  operationalStatusClass(status: OperationalStatus): string {
+    return `op-${status}`;
+  }
+
+  selectedStatus(): OperationalStatus {
+    return this.selectedLog ? this.getOperationalStatus(this.selectedLog) : 'scheduled';
+  }
+
+  canStartCount(log: ConteoLogView | null): boolean {
+    return !!log && this.getOperationalStatus(log) === 'scheduled' && !this.isHistoryMode;
+  }
+
+  canSubmitCount(log: ConteoLogView | null): boolean {
+    return !!log && ['in_progress', 'recount_required'].includes(this.getOperationalStatus(log)) && !this.isHistoryMode;
+  }
+
+  canRequestRecount(log: ConteoLogView | null): boolean {
+    return !!log && ['variance_detected', 'counted'].includes(this.getOperationalStatus(log)) && !this.isHistoryMode;
+  }
+
+  canApproveVariance(log: ConteoLogView | null): boolean {
+    return !!log && this.getOperationalStatus(log) === 'variance_detected' && !this.isHistoryMode;
+  }
+
+  canAdjustInventory(log: ConteoLogView | null): boolean {
+    return !!log && this.getOperationalStatus(log) === 'approved' && this.isVariance(log) && !this.isHistoryMode;
+  }
+
+  canCloseCount(log: ConteoLogView | null): boolean {
+    return !!log && ['approved', 'adjusted', 'counted'].includes(this.getOperationalStatus(log)) && !this.isHistoryMode;
+  }
+
+  startCount(): void {
+    if (!this.selectedLogId) return;
+    this.setOperationalStatus(this.selectedLogId, 'in_progress', 'COUNT_STARTED');
+    this.recordTimeline(this.selectedLogId, 'COUNT_STARTED');
+  }
+
+  submitCycleCount(): void {
+    if (!this.selectedLogId) return;
+    if (this.physicalQuantity != null) {
+      this.saveCount();
+      return;
+    }
+    this.setOperationalStatus(this.selectedLogId, 'counted', 'COUNT_SUBMITTED');
+    this.recordTimeline(this.selectedLogId, 'COUNT_SUBMITTED');
+  }
+
+  requestRecount(): void {
+    if (!this.selectedLogId) return;
+    this.setOperationalStatus(this.selectedLogId, 'recount_required', 'RECOUNT_REQUESTED');
+    this.recordTimeline(this.selectedLogId, 'RECOUNT_REQUESTED', this.observations.trim() || undefined);
+  }
+
+  approveVariance(): void {
+    if (!this.selectedLogId) return;
+    this.setOperationalStatus(this.selectedLogId, 'approved', 'COUNT_APPROVED');
+    this.recordTimeline(this.selectedLogId, 'COUNT_APPROVED');
+  }
+
+  adjustInventory(): void {
+    if (!this.selectedLogId) return;
+    this.setOperationalStatus(this.selectedLogId, 'adjusted', 'INVENTORY_ADJUSTED');
+    this.recordTimeline(this.selectedLogId, 'INVENTORY_ADJUSTED');
+  }
+
+  closeCount(): void {
+    if (!this.selectedLogId) return;
+    this.setOperationalStatus(this.selectedLogId, 'closed', 'COUNT_CLOSED');
+    this.recordTimeline(this.selectedLogId, 'COUNT_CLOSED');
+  }
+
+  timelineForSelected(): CycleCountTimelineEvent[] {
+    if (!this.selectedLogId) return [];
+    return this.timelineByLogId.get(this.selectedLogId) ?? [];
+  }
+
+  ownerForLog(log: ConteoLogView): string {
+    return this.ownerByLogId.get(log.id) ?? 'IC Team';
   }
 
   statusClass(status: ConteoLog['status']): string {
@@ -308,6 +511,10 @@ export class ConteosComponent {
       .subscribe({
         next: () => {
           this.syncState();
+          for (const log of this.logs) {
+            this.setOperationalStatus(log.id, 'scheduled');
+            this.recordTimeline(log.id, 'COUNT_CREATED', 'Loaded from SAP workbook');
+          }
           this.selectedLogId = null;
           this.physicalQuantity = null;
           this.observations = '';
@@ -387,6 +594,53 @@ export class ConteosComponent {
     if (status === 'critico') return 1;
     if (status === 'desviacion') return 2;
     return 3;
+  }
+
+  private getOperationalStatus(log: ConteoLogView): OperationalStatus {
+    if (this.statusByLogId.has(log.id)) return this.statusByLogId.get(log.id)!;
+    if (log.status === 'pendiente') return 'scheduled';
+    if (log.status === 'ok') return 'counted';
+    if (log.status === 'desviacion' || log.status === 'critico') return 'variance_detected';
+    return 'scheduled';
+  }
+
+  private setOperationalStatus(logId: string, status: OperationalStatus, timelineAction?: string): void {
+    this.statusByLogId.set(logId, status);
+    if (timelineAction) this.recordTimeline(logId, timelineAction);
+  }
+
+  private recordTimeline(logId: string, action: string, note?: string): void {
+    const current = this.timelineByLogId.get(logId) ?? [];
+    current.unshift({
+      action,
+      timestamp: new Date().toISOString(),
+      actor: this.ownerName.trim() || 'IC Supervisor',
+      note,
+    });
+    this.timelineByLogId.set(logId, current.slice(0, 18));
+  }
+
+  private resolveWarehouse(location: string): string {
+    const value = (location || '').toUpperCase();
+    if (value.includes('7BOX')) return 'WH-7BOX';
+    if (value.includes('SUP')) return 'WH-SUP';
+    return 'WH-MAIN';
+  }
+
+  private resolveArea(location: string): string {
+    const value = (location || '').toUpperCase();
+    if (value.includes('RACK')) return 'RACK';
+    if (value.includes('SUP')) return 'SUPERMARKET';
+    if (value.includes('LINE')) return 'LINE-FEED';
+    return 'GENERAL';
+  }
+
+  private isVariance(log: ConteoLogView): boolean {
+    return Math.abs(Number(log.delta ?? 0)) > 0;
+  }
+
+  private isHighVariance(log: ConteoLogView): boolean {
+    return Math.abs(Number(log.deltaPct ?? 0)) >= 20 || Math.abs(Number(log.delta ?? 0)) >= 25;
   }
 
   private emptySummary(): ConteoSummary {

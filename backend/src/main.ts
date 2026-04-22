@@ -20,22 +20,32 @@ async function bootstrap() {
   // CORS
   // ---------------------------
   const env = process.env.NODE_ENV || 'development';
-
-  // Permite pasar varios orígenes separados por coma en ALLOWED_ORIGIN
-  // Ej: "https://mi-front.app,https://admin.mi-front.app"
-  const allowedOriginEnv =
-    process.env.ALLOWED_ORIGIN ||
-    (env === 'production'
-      ? 'https://your-frontend.up.railway.app'
-      : 'http://localhost:4200,http://localhost:5173');
+  const allowedOriginEnv = process.env.ALLOWED_ORIGIN || '';
 
   const allowedOrigins = allowedOriginEnv
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean);
 
+  const defaultDevOrigins = ['http://localhost:4200', 'http://localhost:5173'];
+  const originsToValidate = allowedOrigins.length > 0
+    ? allowedOrigins
+    : (env === 'development' ? defaultDevOrigins : []);
+
   app.enableCors({
-    origin: allowedOrigins,
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true);
+
+      if (originsToValidate.length === 0) {
+        return callback(null, true);
+      }
+
+      if (originsToValidate.includes(origin)) {
+        return callback(null, true);
+      }
+
+      return callback(new Error(`Origin not allowed by CORS: ${origin}`), false);
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'x-frontend-key'],
@@ -47,12 +57,19 @@ async function bootstrap() {
   const sharedKey = process.env.FRONTEND_SHARED_KEY;
   if (env === 'production' && sharedKey) {
     app.use((req: Request, res: Response, next: NextFunction) => {
-      // Deja libre el healthcheck
-      if (req.path === '/api/health') return next();
+      // Deja libres endpoints críticos para autenticación y salud
+      if (req.path === '/api/health' || req.path === '/api/auth/login') return next();
+      if (req.method === 'OPTIONS') return next();
+
+      // Si el request ya trae Authorization, el JWT guard hará la validación real
+      if (req.header('authorization')) return next();
 
       const got = req.header('x-frontend-key');
       if (got !== sharedKey) {
-        return res.status(403).json({ error: 'Forbidden' });
+        return res.status(403).json({
+          error: 'Forbidden',
+          message: 'Missing or invalid x-frontend-key',
+        });
       }
       next();
     });
@@ -65,7 +82,7 @@ async function bootstrap() {
   await app.listen(port, '0.0.0.0');
 
   console.log(
-    `API listening on :${port} (NODE_ENV=${env}) allowedOrigins=${allowedOrigins.join(
+    `API listening on :${port} (NODE_ENV=${env}) allowedOrigins=${originsToValidate.join(
       ', '
     )}`
   );
