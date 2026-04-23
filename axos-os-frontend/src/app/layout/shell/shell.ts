@@ -1,7 +1,7 @@
 import { Component, ElementRef, HostListener, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { ActivatedRoute, NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { AuthService } from '../../core/auth.service';
 import { filter, forkJoin } from 'rxjs';
 import { ApiService } from '../../core/api.service';
@@ -45,7 +45,6 @@ interface WorkspaceDomainConfig {
   label: string;
   eyebrow: string;
   description: string;
-  immersivePrefixes: string[];
   railRoutes: string[];
 }
 
@@ -63,6 +62,8 @@ export class ShellComponent implements OnInit, OnDestroy {
   currentUrl = '';
   activeGroup: NavGroupConfig | null = null;
   activeItem: NavItemConfig | null = null;
+  routeWorkspaceDomainId: WorkspaceDomainConfig['id'] | null = null;
+  routeImmersiveWorkspace = false;
   searchTerm = '';
   showSearchResults = false;
   searchResults: SearchResult[] = [];
@@ -82,7 +83,6 @@ export class ShellComponent implements OnInit, OnDestroy {
       label: 'Materials Workspace',
       eyebrow: 'Supply Chain / Materials',
       description: 'Material flow, storage, receiving and dispatch operations in one continuous workspace.',
-      immersivePrefixes: ['/materials', '/inventory-explorer', '/receiving-center', '/warehouse-center', '/picking-center', '/shipping-center', '/replenishment-center', '/kits'],
       railRoutes: ['/materials/inventory', '/receiving-center', '/warehouse-center', '/picking-center', '/shipping-center', '/replenishment-center', '/kits', '/materials/resupply', '/materials/cycle-counts'],
     },
     {
@@ -90,10 +90,13 @@ export class ShellComponent implements OnInit, OnDestroy {
       label: 'Production Command Workspace',
       eyebrow: 'Manufacturing Execution',
       description: 'Execution-critical stage for line runtime, WIP, output monitoring and command visibility.',
-      immersivePrefixes: ['/production', '/production-wip', '/monitor', '/control-tower', '/fg-center'],
       railRoutes: ['/control-tower', '/production', '/production-wip', '/monitor', '/production/completed', '/fg-center'],
     },
   ];
+  private readonly workspaceDomainById = new Map<WorkspaceDomainConfig['id'], WorkspaceDomainConfig>(
+    this.workspaceDomains.map((domain) => [domain.id, domain]),
+  );
+  private readonly navItemByRoute = new Map<string, NavItemConfig>();
 
   readonly navGroups: NavGroupConfig[] = [
     {
@@ -252,10 +255,12 @@ export class ShellComponent implements OnInit, OnDestroy {
   constructor(
     private auth: AuthService,
     private router: Router,
+    private readonly activatedRoute: ActivatedRoute,
     private readonly api: ApiService,
     readonly enterpriseContext: EnterpriseContextService,
   ) {
     this.focusMode = sessionStorage.getItem('axos.focusMode') === '1';
+    this.indexNavItemsByRoute();
     this.syncSection(this.router.url);
     this.router.events
       .pipe(filter((event): event is NavigationEnd => event instanceof NavigationEnd))
@@ -487,6 +492,9 @@ export class ShellComponent implements OnInit, OnDestroy {
 
   private syncSection(url: string): void {
     this.currentUrl = url;
+    const routeMeta = this.readCurrentRouteWorkspaceMeta();
+    this.routeWorkspaceDomainId = routeMeta.domain;
+    this.routeImmersiveWorkspace = routeMeta.immersive;
     const group = this.navGroups.find((entry) => entry.items.some((item) => url === item.route || url.startsWith(`${item.route}/`)));
     this.activeGroup = group ?? null;
     this.activeItem = group?.items.find((item) => url === item.route || url.startsWith(`${item.route}/`)) ?? null;
@@ -494,7 +502,7 @@ export class ShellComponent implements OnInit, OnDestroy {
   }
 
   get isImmersiveRoute(): boolean {
-    return !!this.activeWorkspaceDomain?.immersivePrefixes.some((prefix) => this.currentUrl === prefix || this.currentUrl.startsWith(`${prefix}/`));
+    return this.routeImmersiveWorkspace;
   }
 
   get workspaceClass(): string {
@@ -522,9 +530,8 @@ export class ShellComponent implements OnInit, OnDestroy {
   }
 
   get activeWorkspaceDomain(): WorkspaceDomainConfig | null {
-    return this.workspaceDomains.find((domain) =>
-      domain.immersivePrefixes.some((prefix) => this.currentUrl === prefix || this.currentUrl.startsWith(`${prefix}/`)),
-    ) ?? null;
+    if (!this.routeWorkspaceDomainId) return null;
+    return this.workspaceDomainById.get(this.routeWorkspaceDomainId) ?? null;
   }
 
   get showWorkspaceHeader(): boolean {
@@ -532,13 +539,35 @@ export class ShellComponent implements OnInit, OnDestroy {
   }
 
   get activeGroupItems(): NavItemConfig[] {
-    if (!this.activeGroup) return [];
     if (!this.activeWorkspaceDomain) return [];
-    const allowed = new Set(this.activeWorkspaceDomain.railRoutes);
-    return this.activeGroup.items.filter((item) => allowed.has(item.route));
+    return this.activeWorkspaceDomain.railRoutes
+      .map((route) => this.navItemByRoute.get(route))
+      .filter((item): item is NavItemConfig => !!item);
   }
 
   get workspaceDomainClass(): string {
     return this.activeWorkspaceDomain ? `workspace-domain-${this.activeWorkspaceDomain.id}` : 'workspace-domain-generic';
+  }
+
+  private indexNavItemsByRoute(): void {
+    this.navGroups.forEach((group) => {
+      group.items.forEach((item) => {
+        if (!this.navItemByRoute.has(item.route)) this.navItemByRoute.set(item.route, item);
+      });
+    });
+  }
+
+  private readCurrentRouteWorkspaceMeta(): { domain: WorkspaceDomainConfig['id'] | null; immersive: boolean } {
+    let route = this.activatedRoute.firstChild;
+    let domain: WorkspaceDomainConfig['id'] | null = null;
+    let immersive = false;
+    while (route) {
+      const routeDomain = route.snapshot.data['workspaceDomain'] as WorkspaceDomainConfig['id'] | undefined;
+      const routeImmersive = route.snapshot.data['immersiveWorkspace'] as boolean | undefined;
+      if (routeDomain) domain = routeDomain;
+      if (typeof routeImmersive === 'boolean') immersive = routeImmersive;
+      route = route.firstChild;
+    }
+    return { domain, immersive };
   }
 }
