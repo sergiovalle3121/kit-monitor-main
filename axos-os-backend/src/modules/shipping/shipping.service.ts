@@ -6,6 +6,7 @@ import { ShipmentItem } from './entities/shipment-item.entity';
 import { PackingList } from './entities/packing-list.entity';
 import { InventoryService } from '../inventory/inventory.service';
 import { AuditService } from '../governance/audit.service';
+import { User } from '../users/entities/user.entity';
 
 @Injectable()
 export class ShippingService {
@@ -20,11 +21,12 @@ export class ShippingService {
     private readonly audit: AuditService,
   ) {}
 
-  async findAll() {
+  async findAll(user: User) {
+    // TODO: Apply scope filtering
     return this.shipmentRepo.find({ order: { createdAt: 'DESC' } });
   }
 
-  async findOne(id: number) {
+  async findOne(id: number, user: User) {
     const shipment = await this.shipmentRepo.findOne({ where: { id } });
     if (!shipment) throw new NotFoundException('Shipment not found');
     
@@ -33,19 +35,19 @@ export class ShippingService {
     return { ...shipment, items, packingLists };
   }
 
-  async create(dto: Partial<Shipment>) {
+  async create(dto: Partial<Shipment>, user: User) {
     const count = await this.shipmentRepo.count();
     const shipmentNumber = `SHP-GDL-${(count + 1).toString().padStart(4, '0')}`;
     const shipment = this.shipmentRepo.create({ ...dto, shipmentNumber, status: ShipmentStatus.PLANNING });
     return this.shipmentRepo.save(shipment);
   }
 
-  async addItem(shipmentId: number, itemDto: any) {
+  async addItem(shipmentId: number, itemDto: any, user: User) {
     const shipment = await this.shipmentRepo.findOne({ where: { id: shipmentId } });
     if (!shipment) throw new NotFoundException('Shipment not found');
 
     // ELIGIBILITY RULE: Only 'available' stock (OQC Passed) can be added
-    const stock = await this.inventory.findAllPositions({ 
+    const stock = await this.inventory.findAllPositions(user, { 
       partNumber: itemDto.partNumber, 
       warehouseId: 'WH-FG'
     });
@@ -82,7 +84,7 @@ export class ShippingService {
     return item;
   }
 
-  async generatePackingList(shipmentId: number, actor: string) {
+  async generatePackingList(shipmentId: number, actor: string, user: User) {
     const shipment = await this.shipmentRepo.findOne({ where: { id: shipmentId } });
     if (!shipment) throw new NotFoundException('Shipment not found');
 

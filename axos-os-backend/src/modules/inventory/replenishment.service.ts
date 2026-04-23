@@ -26,8 +26,9 @@ export class ReplenishmentService {
     const qb = this.ruleRepo.createQueryBuilder('rule');
     
     // 1. Scope-aware filtering
-    if (user.scopes?.buildings?.length > 0) {
-      qb.andWhere('rule.warehouseId IN (SELECT id FROM enterprise_warehouses WHERE building_id IN (:...bids))', { bids: user.scopes.buildings });
+    const scopeBids = user.scopes?.buildings ?? [];
+    if (scopeBids.length > 0) {
+      qb.andWhere('rule.warehouseId IN (SELECT id FROM enterprise_warehouses WHERE building_id IN (:...bids))', { bids: scopeBids });
     }
 
     return qb.getMany();
@@ -54,8 +55,9 @@ export class ReplenishmentService {
       .where('rule.isActive = :active', { active: true });
 
     // 1. Scope-aware filtering
-    if (user.scopes?.buildings?.length > 0) {
-      qb.andWhere('rule.warehouseId IN (SELECT id FROM enterprise_warehouses WHERE building_id IN (:...bids))', { bids: user.scopes.buildings });
+    const scopeBids = user.scopes?.buildings ?? [];
+    if (scopeBids.length > 0) {
+      qb.andWhere('rule.warehouseId IN (SELECT id FROM enterprise_warehouses WHERE building_id IN (:...bids))', { bids: scopeBids });
     }
 
     const rules = await qb.getMany();

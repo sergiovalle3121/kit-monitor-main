@@ -30,15 +30,14 @@ export class InventoryService {
       .leftJoinAndSelect('pos.warehouse', 'warehouse');
 
     // 1. Mandatory Organizational Scope
-    if (user.scopes) {
-      if (user.scopes.buildings?.length > 0) {
-        const whs = await this.warehouseRepo.find({ where: { building: { id: In(user.scopes.buildings) } } as any });
-        const whIds = whs.map(w => w.id);
-        if (whIds.length > 0) {
-          qb.andWhere('pos.warehouseId IN (:...scopeWhIds)', { scopeWhIds: whIds });
-        } else {
-          qb.andWhere('1 = 0');
-        }
+    const scopeBuildingIds = user.scopes?.buildings ?? [];
+    if (scopeBuildingIds.length > 0) {
+      const whs = await this.warehouseRepo.find({ where: { building: { id: In(scopeBuildingIds) } } as any });
+      const whIds = whs.map(w => w.id);
+      if (whIds.length > 0) {
+        qb.andWhere('pos.warehouseId IN (:...scopeWhIds)', { scopeWhIds: whIds });
+      } else {
+        qb.andWhere('1 = 0');
       }
     }
 
@@ -53,15 +52,14 @@ export class InventoryService {
     const qb = this.movementRepo.createQueryBuilder('mov');
 
     // 1. Mandatory Organizational Scope
-    if (user.scopes) {
-      if (user.scopes.buildings?.length > 0) {
-        const whs = await this.warehouseRepo.find({ where: { building: { id: In(user.scopes.buildings) } } as any });
-        const whIds = whs.map(w => w.id);
-        if (whIds.length > 0) {
-          qb.andWhere('(mov.fromWarehouseId IN (:...scopeWhIds) OR mov.toWarehouseId IN (:...scopeWhIds))', { scopeWhIds: whIds });
-        } else {
-          qb.andWhere('1 = 0');
-        }
+    const scopeBuildingIds = user.scopes?.buildings ?? [];
+    if (scopeBuildingIds.length > 0) {
+      const whs = await this.warehouseRepo.find({ where: { building: { id: In(scopeBuildingIds) } } as any });
+      const whIds = whs.map(w => w.id);
+      if (whIds.length > 0) {
+        qb.andWhere('(mov.fromWarehouseId IN (:...scopeWhIds) OR mov.toWarehouseId IN (:...scopeWhIds))', { scopeWhIds: whIds });
+      } else {
+        qb.andWhere('1 = 0');
       }
     }
 

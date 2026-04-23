@@ -26,15 +26,14 @@ export class ReceivingService {
     const qb = this.receivingRepo.createQueryBuilder('rec');
 
     // 1. Scope-aware filtering
-    if (user.scopes) {
-      if (user.scopes.buildings?.length > 0) {
-        const whs = await this.warehouseRepo.find({ where: { building: { id: In(user.scopes.buildings) } } as any });
-        const whIds = whs.map(w => w.id);
-        if (whIds.length > 0) {
-          qb.andWhere('rec.warehouseId IN (:...whIds)', { whIds });
-        } else {
-          qb.andWhere('1 = 0');
-        }
+    const scopeBids = user.scopes?.buildings ?? [];
+    if (scopeBids.length > 0) {
+      const whs = await this.warehouseRepo.find({ where: { building: { id: In(scopeBids) } } as any });
+      const whIds = whs.map(w => w.id);
+      if (whIds.length > 0) {
+        qb.andWhere('rec.warehouseId IN (:...whIds)', { whIds });
+      } else {
+        qb.andWhere('1 = 0');
       }
     }
 

@@ -1,11 +1,10 @@
-import { Controller, Get, Post, Body, Query, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Query, Param, UseGuards, Request } from '@nestjs/common';
 import { InventoryService } from './inventory.service';
 import { InventoryPosition } from './entities/inventory-position.entity';
 import { InventoryMovement, InventoryTransactionType } from './entities/inventory-movement.entity';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { PermissionsGuard } from '../governance/guards/permissions.guard';
-import { RequirePermissions } from '../governance/decorators/permissions.decorator';
-import { Request } from '@nestjs/common';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { RequirePermissions } from '../auth/decorators/permissions.decorator';
 
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller('inventory')
@@ -14,10 +13,10 @@ export class InventoryController {
 
   @Get('positions')
   async getPositions(
+    @Request() req: any,
     @Query('warehouseId') warehouseId?: string,
     @Query('partNumber') partNumber?: string,
     @Query('programId') programId?: string,
-    @Request() req: any,
   ): Promise<InventoryPosition[]> {
     return this.inventoryService.findAllPositions(req.user, { warehouseId, partNumber, programId });
   }
@@ -25,9 +24,9 @@ export class InventoryController {
   @Get('movements')
   @RequirePermissions('materials:read')
   async getMovements(
+    @Request() req: any,
     @Query('partNumber') partNumber?: string,
     @Query('warehouseId') warehouseId?: string,
-    @Request() req: any,
   ): Promise<InventoryMovement[]> {
     return this.inventoryService.getMovements(req.user, { partNumber, warehouseId });
   }
@@ -58,7 +57,7 @@ export class InventoryController {
 
   @Post('master-data')
   @RequirePermissions('admin:write')
-  async createMaterial(@Body() dto: any, @Request() req: any) {
+  async createMaterial(@Request() req: any, @Body() dto: any) {
     return this.inventoryService.ensureMaterial(dto, req.user);
   }
 }

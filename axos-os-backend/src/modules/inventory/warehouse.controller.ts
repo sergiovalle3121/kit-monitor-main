@@ -1,8 +1,8 @@
 import { Controller, Get, Post, Patch, Body, Param, Query, UseGuards, Request } from '@nestjs/common';
 import { WarehouseService } from './warehouse.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { PermissionsGuard } from '../governance/guards/permissions.guard';
-import { RequirePermissions } from '../governance/decorators/permissions.decorator';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { RequirePermissions } from '../auth/decorators/permissions.decorator';
 
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller('warehouse')

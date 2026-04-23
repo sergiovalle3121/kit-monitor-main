@@ -23,15 +23,14 @@ export class WarehouseService {
     const qb = this.taskRepo.createQueryBuilder('task');
 
     // 1. Scope-aware filtering
-    if (user.scopes) {
-      if (user.scopes.buildings?.length > 0) {
-        const whs = await this.warehouseRepo.find({ where: { building: { id: In(user.scopes.buildings) } } as any });
-        const whIds = whs.map(w => w.id);
-        if (whIds.length > 0) {
-          qb.andWhere('(task.fromWarehouseId IN (:...whIds) OR task.toWarehouseId IN (:...whIds))', { whIds });
-        } else {
-          qb.andWhere('1 = 0');
-        }
+    const scopeBids = user.scopes?.buildings ?? [];
+    if (scopeBids.length > 0) {
+      const whs = await this.warehouseRepo.find({ where: { building: { id: In(scopeBids) } } as any });
+      const whIds = whs.map(w => w.id);
+      if (whIds.length > 0) {
+        qb.andWhere('(task.fromWarehouseId IN (:...whIds) OR task.toWarehouseId IN (:...whIds))', { whIds });
+      } else {
+        qb.andWhere('1 = 0');
       }
     }
 
@@ -126,15 +125,14 @@ export class WarehouseService {
       .andWhere('task.type IN (:...types)', { types: [WarehouseTaskType.PICK, WarehouseTaskType.TRANSFER] });
     
     // 1. Scope-aware filtering
-    if (user.scopes) {
-      if (user.scopes.buildings?.length > 0) {
-        const whs = await this.warehouseRepo.find({ where: { building: { id: In(user.scopes.buildings) } } as any });
-        const whIds = whs.map(w => w.id);
-        if (whIds.length > 0) {
-          qb.andWhere('task.fromWarehouseId IN (:...whIds)', { whIds });
-        } else {
-          qb.andWhere('1 = 0');
-        }
+    const scopeBids = user.scopes?.buildings ?? [];
+    if (scopeBids.length > 0) {
+      const whs = await this.warehouseRepo.find({ where: { building: { id: In(scopeBids) } } as any });
+      const whIds = whs.map(w => w.id);
+      if (whIds.length > 0) {
+        qb.andWhere('task.fromWarehouseId IN (:...whIds)', { whIds });
+      } else {
+        qb.andWhere('1 = 0');
       }
     }
 

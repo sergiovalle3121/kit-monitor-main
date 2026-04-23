@@ -42,24 +42,24 @@ export class KitsService {
       .orderBy('kit.createdAt', 'DESC');
 
     // 1. Mandatory Organizational Scope
-    if (user.scopes) {
-      if (user.scopes.buildings?.length > 0) {
-        const lines = await this.lineRepo.find({ where: { building: { id: In(user.scopes.buildings) } } as any });
-        const legacyNums = lines.map((l) => l.legacyLineNumber).filter((n): n is number => n != null);
-        if (legacyNums.length > 0) {
-          qb.andWhere('plan.line IN (:...scopeLineNums)', { scopeLineNums: legacyNums });
-        } else {
-          qb.andWhere('1 = 0');
-        }
+    const scopeBids = user.scopes?.buildings ?? [];
+    if (scopeBids.length > 0) {
+      const lines = await this.lineRepo.find({ where: { building: { id: In(scopeBids) } } as any });
+      const legacyNums = lines.map((l) => l.legacyLineNumber).filter((n): n is number => n != null);
+      if (legacyNums.length > 0) {
+        qb.andWhere('plan.line IN (:...scopeLineNums)', { scopeLineNums: legacyNums });
+      } else {
+        qb.andWhere('1 = 0');
       }
-      
-      if (user.scopes.programs?.length > 0) {
-        const programs = await this.programRepo.find({ where: { id: In(user.scopes.programs) } });
-        const prefixes = programs.map(p => p.primaryModelPrefix?.toUpperCase()).filter(Boolean);
-        if (prefixes.length > 0) {
-          qb.andWhere('(' + prefixes.map((_, i) => `UPPER(plan.model) LIKE :scopePre${i}`).join(' OR ') + ')', 
-            prefixes.reduce((acc, pre, i) => ({ ...acc, [`scopePre${i}`]: `${pre}%` }), {}));
-        }
+    }
+    
+    const scopePids = user.scopes?.programs ?? [];
+    if (scopePids.length > 0) {
+      const programs = await this.programRepo.find({ where: { id: In(scopePids) } });
+      const prefixes = programs.map(p => p.primaryModelPrefix?.toUpperCase()).filter(Boolean);
+      if (prefixes.length > 0) {
+        qb.andWhere('(' + prefixes.map((_, i) => `UPPER(plan.model) LIKE :scopePre${i}`).join(' OR ') + ')', 
+          prefixes.reduce((acc, pre, i) => ({ ...acc, [`scopePre${i}`]: `${pre}%` }), {}));
       }
     }
 

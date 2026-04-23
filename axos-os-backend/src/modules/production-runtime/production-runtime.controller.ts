@@ -3,8 +3,8 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ProductionRuntimeService } from './production-runtime.service';
 import { RegisterBayEventDto } from './dto/register-bay-event.dto';
 import { CreateBayIncidentDto } from './dto/create-bay-incident.dto';
-import { PermissionsGuard } from '../governance/guards/permissions.guard';
-import { RequirePermissions } from '../governance/decorators/permissions.decorator';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { RequirePermissions } from '../auth/decorators/permissions.decorator';
 import { Request } from '@nestjs/common';
 
 @UseGuards(JwtAuthGuard, PermissionsGuard)

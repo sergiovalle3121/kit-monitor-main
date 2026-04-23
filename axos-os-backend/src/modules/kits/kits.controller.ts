@@ -3,8 +3,8 @@ import { KitsService } from './kits.service';
 import { CreateKitDto } from './dto/create-kit.dto';
 import { UpdateKitStatusDto } from './dto/update-kit-status.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { PermissionsGuard } from '../governance/guards/permissions.guard';
-import { RequirePermissions } from '../governance/decorators/permissions.decorator';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { RequirePermissions } from '../auth/decorators/permissions.decorator';
 import { Request } from '@nestjs/common';
 
 @UseGuards(JwtAuthGuard, PermissionsGuard)
