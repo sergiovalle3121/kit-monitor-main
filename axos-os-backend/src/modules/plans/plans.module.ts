@@ -8,12 +8,14 @@ import { EnterpriseProgram } from '../enterprise-campus/entities/enterprise-prog
 import { EnterpriseLine } from '../enterprise-campus/entities/enterprise-line.entity';
 import { InventoryModule } from '../inventory/inventory.module';
 import { QualityModule } from '../quality/quality.module';
+import { GovernanceModule } from '../governance/governance.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Plan, LineCapacity, EnterpriseProgram, EnterpriseLine]),
     InventoryModule,
     QualityModule,
+    GovernanceModule,
   ],
   controllers: [PlansController],
   providers: [PlansService],

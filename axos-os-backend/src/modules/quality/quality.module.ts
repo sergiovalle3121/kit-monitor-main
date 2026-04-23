@@ -13,6 +13,7 @@ import { EventLedgerModule } from '../event-ledger/event-ledger.module';
 import { InventoryModule } from '../inventory/inventory.module';
 import { NcrModule } from '../ncr/ncr.module';
 import { SuppliersModule } from '../suppliers/suppliers.module';
+import { GovernanceModule } from '../governance/governance.module';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { SuppliersModule } from '../suppliers/suppliers.module';
     InventoryModule,
     NcrModule,
     SuppliersModule,
+    GovernanceModule,
   ],
   controllers: [QualityController],
   providers: [QualityService],

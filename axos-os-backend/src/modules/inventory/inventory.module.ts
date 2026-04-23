@@ -13,6 +13,7 @@ import { WarehouseController } from './warehouse.controller';
 import { ReplenishmentRule } from './entities/replenishment-rule.entity';
 import { ReplenishmentService } from './replenishment.service';
 import { ReplenishmentController } from './replenishment.controller';
+import { GovernanceModule } from '../governance/governance.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { ReplenishmentController } from './replenishment.controller';
       ReplenishmentRule
     ]),
     EnterpriseCampusModule,
+    GovernanceModule,
   ],
   controllers: [InventoryController, WarehouseController, ReplenishmentController],
   providers: [InventoryService, WarehouseService, ReplenishmentService],

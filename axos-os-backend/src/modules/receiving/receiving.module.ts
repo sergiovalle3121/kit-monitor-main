@@ -5,12 +5,14 @@ import { ReceivingService } from './receiving.service';
 import { ReceivingController } from './receiving.controller';
 import { InventoryModule } from '../inventory/inventory.module';
 import { EventLedgerModule } from '../event-ledger/event-ledger.module';
+import { GovernanceModule } from '../governance/governance.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([ReceivingEvent]),
     InventoryModule,
-    EventLedgerModule
+    EventLedgerModule,
+    GovernanceModule
   ],
   controllers: [ReceivingController],
   providers: [ReceivingService],
