@@ -85,4 +85,15 @@ export class QualityController {
   async updateCapa(@Param('id') id: number, @Body() dto: any, @Body('actor') actor: string) {
     return this.qualityService.updateCapa(id, dto, actor || 'QA User');
   }
+
+  // IQC
+  @Get('iqc')
+  async getIqc(@Query() filters: any) {
+    return this.qualityService.findIqcInspections(filters);
+  }
+
+  @Post('iqc')
+  async recordIqc(@Body() dto: any) {
+    return this.qualityService.recordIqcInspection(dto);
+  }
 }

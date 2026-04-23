@@ -5,12 +5,14 @@ import { QualityHold, QualityHoldLevel } from './entities/quality-hold.entity';
 import { QuarantineTransfer, QuarantineTransferStatus } from './entities/quarantine-transfer.entity';
 import { Disposition, DispositionType, DispositionStatus } from './entities/disposition.entity';
 import { CAPA, CapaStatus } from './entities/capa.entity';
+import { IQCInspection, IqcResult } from './entities/iqc-inspection.entity';
 import { InventoryPosition } from '../inventory/entities/inventory-position.entity';
 import { InventoryService } from '../inventory/inventory.service';
 import { EventLedgerService } from '../event-ledger/event-ledger.service';
 import { EventDomain } from '../event-ledger/entities/ledger-event.entity';
 import { NcrService } from '../ncr/ncr.service';
 import { NcrStatus } from '../ncr/entities/ncr.entity';
+import { SuppliersService } from '../suppliers/suppliers.service';
 
 @Injectable()
 export class QualityService {
@@ -23,11 +25,14 @@ export class QualityService {
     private readonly dispositionRepo: Repository<Disposition>,
     @InjectRepository(CAPA)
     private readonly capaRepo: Repository<CAPA>,
+    @InjectRepository(IQCInspection)
+    private readonly iqcRepo: Repository<IQCInspection>,
     @InjectRepository(InventoryPosition)
     private readonly positionRepo: Repository<InventoryPosition>,
     private readonly eventLedger: EventLedgerService,
     private readonly inventory: InventoryService,
     private readonly ncrService: NcrService,
+    private readonly suppliersService: SuppliersService,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -391,5 +396,53 @@ export class QualityService {
     });
 
     return updated;
+  }
+
+  // --- IQC ENGINE ---
+
+  async findIqcInspections(filters: any): Promise<IQCInspection[]> {
+    const qb = this.iqcRepo.createQueryBuilder('iqc')
+      .leftJoinAndSelect('iqc.supplier', 'supplier');
+
+    if (filters.partNumber) qb.andWhere('iqc.partNumber = :pn', { pn: filters.partNumber });
+    if (filters.result) qb.andWhere('iqc.result = :res', { res: filters.result });
+
+    qb.orderBy('iqc.createdAt', 'DESC');
+    return qb.getMany();
+  }
+
+  async recordIqcInspection(dto: Partial<IQCInspection>): Promise<IQCInspection> {
+    const count = await this.iqcRepo.count();
+    const year = new Date().getFullYear();
+    const inspectionNumber = `IQC-${year}-${(count + 1).toString().padStart(4, '0')}`;
+
+    const inspection = this.iqcRepo.create({
+      ...dto,
+      inspectionNumber,
+    });
+    const saved = await this.iqcRepo.save(inspection);
+
+    // If FAIL, trigger containment
+    if (dto.result === IqcResult.FAIL) {
+      await this.createHold({
+        partNumber: saved.partNumber,
+        level: QualityHoldLevel.LOT,
+        levelValue: saved.lotNumber,
+        reason: `FAILED IQC: ${saved.inspectionNumber}`,
+        heldBy: saved.inspector,
+        notes: `Automatic hold triggered by IQC failure. ${saved.notes || ''}`
+      });
+    }
+
+    await this.eventLedger.recordEvent({
+      domain: EventDomain.QUALITY,
+      action: 'IQC_INSPECTION_RECORDED',
+      actorName: saved.inspector,
+      referenceType: 'IQC_INSPECTION',
+      referenceId: saved.id.toString(),
+      metadata: { result: saved.result, partNumber: saved.partNumber, lot: saved.lotNumber }
+    });
+
+    return saved;
   }
 }

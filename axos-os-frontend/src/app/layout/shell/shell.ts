@@ -143,7 +143,7 @@ export class ShellComponent implements OnInit, OnDestroy {
       short: 'QA',
       icon: 'fa-certificate',
       items: [
-        { label: 'IQC', route: '/roadmap/quality/iqc', icon: 'fa-clipboard-check', state: 'planned' },
+        { label: 'IQC', route: '/iqc-center', icon: 'fa-clipboard-check', state: 'active' },
         { label: 'IPQC', route: '/roadmap/quality/ipqc', icon: 'fa-vial', state: 'planned' },
         { label: 'OQC', route: '/roadmap/quality/oqc', icon: 'fa-box-check', state: 'planned' },
         { label: 'NCR', route: '/ncr-center', icon: 'fa-triangle-exclamation', state: 'active' },

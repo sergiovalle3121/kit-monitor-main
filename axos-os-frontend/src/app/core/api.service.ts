@@ -441,6 +441,24 @@ export class ApiService {
     return this.patch<any>(`quality/capas/${id}`, { ...dto, actor });
   }
 
+  // IQC Management
+  getIqcInspections(filters: any = {}): Observable<any[]> {
+    return this.get<any[]>('quality/iqc', filters);
+  }
+
+  recordIqcInspection(dto: any): Observable<any> {
+    return this.post<any>('quality/iqc', dto);
+  }
+
+  // Supplier Management
+  getSuppliers(): Observable<any[]> {
+    return this.get<any[]>('suppliers');
+  }
+
+  createSupplier(dto: any): Observable<any> {
+    return this.post<any>('suppliers', dto);
+  }
+
 
   private contextQuery(): Record<string, string> {
     const ctx = this.context.context();

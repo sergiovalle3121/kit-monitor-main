@@ -1,0 +1,102 @@
+<div class="iqc-container">
+  <header class="main-header">
+    <div class="title-area">
+      <h1><i class="fas fa-clipboard-check"></i> IQC Center</h1>
+      <p>Incoming Quality Control - Receipt Inspection & Supplier Quality</p>
+    </div>
+    <button class="btn-primary" (click)="openCreate()">
+      <i class="fas fa-plus"></i> Nueva Inspección de Recibo
+    </button>
+  </header>
+
+  <section class="iqc-list">
+    <div class="axos-table-container">
+      <table class="axos-table">
+        <thead>
+          <tr>
+            <th>ID Inspección</th>
+            <th>Part Number</th>
+            <th>Proveedor</th>
+            <th>Lote</th>
+            <th>Resultado</th>
+            <th>Inspector</th>
+            <th>Fecha</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let i of inspections">
+            <td><strong>{{ i.inspectionNumber }}</strong></td>
+            <td>{{ i.partNumber }}</td>
+            <td>{{ i.supplier?.name || 'N/A' }}</td>
+            <td>{{ i.lotNumber }}</td>
+            <td>
+              <span class="status-pill" [class]="getResultClass(i.result)">{{ i.result }}</span>
+            </td>
+            <td>{{ i.inspector }}</td>
+            <td>{{ i.createdAt | date:'short' }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>
+
+<!-- CREATE MODAL -->
+<div class="modal-overlay" *ngIf="showModal">
+  <div class="modal-card">
+    <header>
+      <h3>Registrar Inspección de Recibo</h3>
+      <button class="close-btn" (click)="showModal = false">✕</button>
+    </header>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Part Number</label>
+          <input type="text" [(ngModel)]="inspectionForm.partNumber" />
+        </div>
+        <div class="form-group">
+          <label>Proveedor</label>
+          <select [(ngModel)]="inspectionForm.supplierId">
+            <option *ngFor="let s of suppliers" [value]="s.id">{{ s.name }}</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Lote / Serial</label>
+          <input type="text" [(ngModel)]="inspectionForm.lotNumber" />
+        </div>
+        <div class="form-group">
+          <label>Resultado</label>
+          <select [(ngModel)]="inspectionForm.result">
+            <option value="pass">Pasa (PASS)</option>
+            <option value="fail">Rechazado (FAIL)</option>
+            <option value="conditional">Condicional</option>
+            <option value="pending">Pendiente</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Tamaño de Muestra</label>
+          <input type="number" [(ngModel)]="inspectionForm.sampleSize" />
+        </div>
+        <div class="form-group">
+          <label>Defectos Encontrados</label>
+          <input type="number" [(ngModel)]="inspectionForm.defectsFound" />
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Notas / Evidencia</label>
+        <textarea [(ngModel)]="inspectionForm.notes" rows="3"></textarea>
+      </div>
+    </div>
+    <footer>
+      <button class="btn-secondary" (click)="showModal = false">Cancelar</button>
+      <button class="btn-primary" (click)="saveInspection()" [disabled]="!inspectionForm.partNumber">Guardar Inspección</button>
+    </footer>
+  </div>
+</div>

@@ -22,6 +22,7 @@ import { EnterpriseCampusModule } from "./modules/enterprise-campus/enterprise-c
 import { InventoryModule } from "./modules/inventory/inventory.module";
 import { QualityModule } from "./modules/quality/quality.module";
 import { NcrModule } from "./modules/ncr/ncr.module";
+import { SuppliersModule } from "./modules/suppliers/suppliers.module";
 
 // TypeOrmModule always loads: uses SQLite (dev.sqlite) when no PG env vars,
 // PostgreSQL when DATABASE_URL or DB_HOST is set. See orm.options.ts.
@@ -47,6 +48,7 @@ import { NcrModule } from "./modules/ncr/ncr.module";
     InventoryModule,
     QualityModule,
     NcrModule,
+    SuppliersModule,
   ],
   controllers: [HealthController],
   providers: [],
