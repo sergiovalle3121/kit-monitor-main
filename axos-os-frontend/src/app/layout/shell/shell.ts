@@ -88,6 +88,7 @@ export class ShellComponent implements OnInit, OnDestroy {
         { label: 'Receiving Center', route: '/receiving-center', icon: 'fa-truck-loading', state: 'active' },
         { label: 'Warehouse Ops', route: '/warehouse-center', icon: 'fa-dolly', state: 'active' },
         { label: 'Picking Ops', route: '/picking-center', icon: 'fa-hand-holding-hand', state: 'active' },
+        { label: 'Shipping Center', route: '/shipping-center', icon: 'fa-truck-fast', state: 'active' },
         { label: 'Replenishment', route: '/replenishment-center', icon: 'fa-sync', state: 'active' },
         { label: 'Building Warehouses', route: '/roadmap/materials/building-warehouses', icon: 'fa-warehouse', state: 'planned', note: 'Foundation pending' },
         { label: 'Inventory Control', route: '/materials/inventory', icon: 'fa-barcode', state: 'active' },
@@ -134,6 +135,7 @@ export class ShellComponent implements OnInit, OnDestroy {
       items: [
         { label: 'Production Backend', route: '/production-backend', icon: 'fa-terminal', state: 'active' },
         { label: 'WIP & Consumption', route: '/production-wip', icon: 'fa-microchip', state: 'active' },
+        { label: 'Finished Goods', route: '/fg-center', icon: 'fa-box', state: 'active' },
         { label: 'Line Monitoring', route: '/line-monitoring', icon: 'fa-tv', state: 'active' },
         { label: 'Live Line Monitor', route: '/monitor', icon: 'fa-desktop', state: 'active' },
         { label: 'WIP / Runtime', route: '/control-tower', icon: 'fa-gauge-high', state: 'partial', note: 'Topology-backed runtime' },

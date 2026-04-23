@@ -1,0 +1,35 @@
+.fg-container {
+  padding: 24px;
+  background: var(--cv-bg);
+  min-height: 100vh;
+}
+
+.main-header { margin-bottom: 32px; }
+
+.declaration-board {
+  background: var(--cv-surface);
+  border-radius: 12px;
+  border: 1px solid var(--cv-border2);
+  padding: 24px;
+}
+
+.qty { font-size: 1.2rem; font-weight: 800; color: white; }
+.status-pill.ready { background: #1e3a8a; color: #60a5fa; }
+
+.info-box {
+  background: rgba(255,255,255,0.05);
+  padding: 16px;
+  border-radius: 8px;
+  margin-bottom: 24px;
+}
+.info-box p { margin: 4px 0; font-size: 0.9rem; }
+
+.disclaimer {
+  font-size: 0.8rem;
+  color: var(--cv-t3);
+  margin-top: 24px;
+  border-left: 2px solid var(--cv-accent);
+  padding-left: 12px;
+}
+
+.btn-primary.small { padding: 6px 12px; font-size: 0.8rem; }

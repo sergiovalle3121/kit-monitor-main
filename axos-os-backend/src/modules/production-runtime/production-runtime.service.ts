@@ -786,4 +786,35 @@ export class ProductionRuntimeService {
     qb.orderBy('wip.updatedAt', 'DESC');
     return qb.getMany();
   }
+
+  async declareFinishedGoods(kitId: number, quantity: number, actor: string): Promise<ProductionWip> {
+    const wip = await this.wipRepo.findOne({ where: { kit: { id: kitId } }, relations: ['kit', 'kit.plan'] });
+    if (!wip) throw new NotFoundException('WIP record not found for this kit');
+    if (wip.completedQty < quantity) throw new BadRequestException('Cannot declare more FG than completed WIP');
+
+    return this.dataSource.transaction(async (em) => {
+      // 1. Move from WIP to FG Inventory
+      await this.inventory.recordTransaction({
+        type: 'TRANSFER' as any,
+        partNumber: wip.partNumber,
+        quantity: quantity,
+        fromWarehouseId: `LINE-${wip.kit.plan.line}`,
+        fromLocation: 'FINISHED_STAGING',
+        toWarehouseId: 'WH-FG',
+        toLocation: 'STAGING',
+        actorName: actor,
+        referenceType: 'FG_DECLARATION',
+        referenceId: wip.workOrder,
+        holdStatus: 'pending_oqc', // Hard lock for final quality
+        reason: `FG Declaration - WO ${wip.workOrder}`
+      });
+
+      // 2. Update WIP
+      wip.completedQty -= quantity;
+      if (wip.completedQty <= 0 && wip.status === 'ready_for_fg') {
+        wip.status = 'completed';
+      }
+      return em.save(wip);
+    });
+  }
 }

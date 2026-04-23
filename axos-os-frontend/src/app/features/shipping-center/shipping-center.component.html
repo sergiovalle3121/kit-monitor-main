@@ -1,0 +1,114 @@
+<div class="shipping-container">
+  <header class="main-header">
+    <div class="title-area">
+      <h1><i class="fas fa-truck-fast"></i> Shipping Center</h1>
+      <p>Dispatch Preparation & Outbound Logistics - Guadalajara Campus</p>
+    </div>
+    <button class="btn-primary" (click)="showCreateModal = true">
+      <i class="fas fa-plus"></i> Nuevo Embarque
+    </button>
+  </header>
+
+  <div class="shipping-grid">
+    <!-- ACTIVE SHIPMENTS -->
+    <section class="shipments-panel">
+      <h3>Plan de Embarque</h3>
+      <div class="shipment-list">
+        <div class="shipment-card" *ngFor="let s of shipments" [class.dispatched]="s.status === 'dispatched'">
+          <div class="card-header">
+            <span class="ship-num">{{ s.shipmentNumber }}</span>
+            <span class="status-badge" [class]="s.status">{{ s.status }}</span>
+          </div>
+          <div class="card-body">
+            <div class="customer">{{ s.customer }}</div>
+            <div class="meta">
+              <span><i class="fas fa-truck"></i> {{ s.carrier || 'TBD' }}</span>
+              <span><i class="fas fa-calendar"></i> {{ s.scheduledAt | date:'shortDate' }}</span>
+            </div>
+          </div>
+          <div class="card-footer">
+            <button class="btn-secondary small" (click)="openStaging(s)" *ngIf="s.status === 'planning'">
+              <i class="fas fa-boxes"></i> Stage FG
+            </button>
+            <button class="btn-primary success small" (click)="dispatch(s.id)" *ngIf="s.status === 'planning'">
+              <i class="fas fa-paper-plane"></i> Dispatch
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- FG READINESS -->
+    <aside class="fg-readiness">
+      <h3><i class="fas fa-shield-check"></i> FG Listos para Embarque (Released)</h3>
+      <div class="fg-item" *ngFor="let item of fgInventory">
+        <div class="item-main">
+          <strong>{{ item.partNumber }}</strong>
+          <span class="qty">{{ item.onHand }} units</span>
+        </div>
+        <div class="item-sub">
+          <span>Loc: {{ item.location }}</span>
+          <span>Lot: {{ item.lotNumber || '-' }}</span>
+        </div>
+      </div>
+      <div class="empty-state" *ngIf="fgInventory.length === 0">
+        No hay producto terminado liberado disponible para embarcar.
+      </div>
+    </aside>
+  </div>
+</div>
+
+<!-- CREATE SHIPMENT MODAL -->
+<div class="modal-overlay" *ngIf="showCreateModal">
+  <div class="modal-card">
+    <header>
+      <h3>Programar Nuevo Embarque</h3>
+      <button class="close-btn" (click)="showCreateModal = false">✕</button>
+    </header>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Cliente / Destino</label>
+        <input type="text" [(ngModel)]="newShipment.customer" placeholder="Ej: Apple - Cupertino" />
+      </div>
+      <div class="form-group">
+        <label>Carrier (Transportista)</label>
+        <input type="text" [(ngModel)]="newShipment.carrier" placeholder="Ej: FedEx, DHL, Internal" />
+      </div>
+      <div class="form-group">
+        <label>Fecha Programada</label>
+        <input type="date" [(ngModel)]="newShipment.scheduledAt" />
+      </div>
+    </div>
+    <footer>
+      <button class="btn-secondary" (click)="showCreateModal = false">Cancelar</button>
+      <button class="btn-primary" (click)="createShipment()" [disabled]="!newShipment.customer">Crear Plan</button>
+    </footer>
+  </div>
+</div>
+
+<!-- STAGING MODAL -->
+<div class="modal-overlay" *ngIf="showStagingModal">
+  <div class="modal-card">
+    <header>
+      <h3>Staging de Producto Terminado - {{ selectedShipment?.shipmentNumber }}</h3>
+      <button class="close-btn" (click)="showStagingModal = false">✕</button>
+    </header>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Seleccionar Material Liberado</label>
+        <select [(ngModel)]="stagingForm.partNumber">
+          <option *ngFor="let inv of fgInventory" [value]="inv.partNumber">{{ inv.partNumber }} ({{ inv.onHand }} disp.)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Cantidad a Embarcar</label>
+        <input type="number" [(ngModel)]="stagingForm.quantity" />
+      </div>
+      <p class="staging-alert">Al confirmar, el material se moverá al <strong>SHIPPING DOCK</strong> y se marcará como <strong>STAGED</strong>.</p>
+    </div>
+    <footer>
+      <button class="btn-secondary" (click)="showStagingModal = false">Cancelar</button>
+      <button class="btn-primary" (click)="stageItem()" [disabled]="!stagingForm.partNumber || stagingForm.quantity <= 0">Confirmar Staging</button>
+    </footer>
+  </div>
+</div>

@@ -1,0 +1,65 @@
+.shipping-container {
+  padding: 24px;
+  background: var(--cv-bg);
+  min-height: 100vh;
+}
+
+.main-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 32px;
+}
+
+.shipping-grid {
+  display: grid;
+  grid-template-columns: 1fr 400px;
+  gap: 24px;
+}
+
+.shipments-panel, .fg-readiness {
+  background: var(--cv-surface);
+  border-radius: 12px;
+  border: 1px solid var(--cv-border2);
+  padding: 24px;
+}
+
+.shipment-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+}
+
+.shipment-card {
+  background: rgba(255,255,255,0.02);
+  border: 1px solid var(--cv-border2);
+  border-radius: 12px;
+  padding: 16px;
+  transition: all 0.2s;
+}
+.shipment-card:hover { border-color: var(--cv-accent); transform: translateY(-2px); }
+.shipment-card.dispatched { opacity: 0.6; border-color: #34d399; }
+
+.card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.ship-num { font-weight: 800; font-family: monospace; color: var(--cv-accent); }
+
+.status-badge { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; padding: 2px 8px; border-radius: 4px; }
+.status-badge.planning { background: #1e293b; color: #94a3b8; }
+.status-badge.dispatched { background: #065f46; color: #34d399; }
+
+.customer { font-size: 1.1rem; font-weight: 700; margin-bottom: 8px; }
+.meta { display: flex; gap: 16px; font-size: 0.8rem; color: var(--cv-t3); }
+
+.card-footer { margin-top: 20px; display: flex; gap: 8px; }
+
+/* FG READINESS SIDEBAR */
+.fg-item {
+  padding: 12px;
+  border-bottom: 1px solid var(--cv-border2);
+}
+.item-main { display: flex; justify-content: space-between; align-items: center; }
+.item-main .qty { color: #34d399; font-weight: 700; }
+.item-sub { font-size: 0.75rem; color: var(--cv-t4); display: flex; gap: 12px; margin-top: 4px; }
+
+.staging-alert { font-size: 0.8rem; color: var(--cv-t3); margin-top: 24px; border-left: 2px solid var(--cv-accent); padding-left: 12px; }
+.btn-primary.success { background: #059669; border: none; }

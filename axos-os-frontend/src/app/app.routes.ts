@@ -154,6 +154,16 @@ export const routes: Routes = [
           import('./features/production-wip/production-wip.component').then(m => m.ProductionWipComponent),
       },
       {
+        path: 'fg-center',
+        loadComponent: () =>
+          import('./features/fg-center/fg-center.component').then(m => m.FgCenterComponent),
+      },
+      {
+        path: 'shipping-center',
+        loadComponent: () =>
+          import('./features/shipping-center/shipping-center.component').then(m => m.ShippingCenterComponent),
+      },
+      {
         path: 'roadmap/:domain/:module',
         loadComponent: () =>
           import('./features/enterprise-placeholder/enterprise-placeholder.component').then(m => m.EnterprisePlaceholderComponent),

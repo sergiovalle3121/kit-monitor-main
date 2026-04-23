@@ -534,6 +534,27 @@ export class ApiService {
     return this.get<any[]>('production-runtime/wip', scope);
   }
 
+  declareFinishedGoods(kitId: number, dto: any): Observable<any> {
+    return this.post<any>(`production-runtime/wip/${kitId}/declare-fg`, dto);
+  }
+
+  // Shipping Management
+  getShipments(): Observable<any[]> {
+    return this.get<any[]>('shipping');
+  }
+
+  createShipment(dto: any): Observable<any> {
+    return this.post<any>('shipping', dto);
+  }
+
+  addShipmentItem(shipmentId: number, dto: any): Observable<any> {
+    return this.post<any>(`shipping/${shipmentId}/items`, dto);
+  }
+
+  dispatchShipment(id: number, actor: string): Observable<any> {
+    return this.patch<any>(`shipping/${id}/dispatch`, { actor });
+  }
+
   private contextQuery(): Record<string, string> {
     const ctx = this.context.context();
     const q: Record<string, string> = {};

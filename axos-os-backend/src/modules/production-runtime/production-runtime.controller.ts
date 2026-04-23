@@ -5,7 +5,7 @@ import { RegisterBayEventDto } from './dto/register-bay-event.dto';
 import { CreateBayIncidentDto } from './dto/create-bay-incident.dto';
 
 @UseGuards(JwtAuthGuard)
-@Controller('production')
+@Controller('production-runtime')
 export class ProductionRuntimeController {
   constructor(private readonly service: ProductionRuntimeService) {}
 
@@ -105,5 +105,10 @@ export class ProductionRuntimeController {
   @Get('wip')
   async getWip(@Query() scope: any) {
     return this.service.getWipStatus(scope);
+  }
+
+  @Post('wip/:kitId/declare-fg')
+  async declareFg(@Param('kitId') kitId: number, @Body() dto: { quantity: number; actor: string }) {
+    return this.service.declareFinishedGoods(kitId, dto.quantity, dto.actor);
   }
 }
