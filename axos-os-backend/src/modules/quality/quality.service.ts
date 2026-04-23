@@ -16,6 +16,7 @@ import { SuppliersService } from '../suppliers/suppliers.service';
 
 import { FinalInspection } from './entities/final-inspection.entity';
 import { AuditService } from '../governance/audit.service';
+import { ExceptionSeverity, ExceptionDomain } from '../governance/entities/operational-exception.entity';
 
 @Injectable()
 export class QualityService {
@@ -91,6 +92,18 @@ export class QualityService {
           value: dto.levelValue,
           reason: dto.reason
         }
+      });
+
+      // AUTOMATION: Create Operational Exception for Quality Hold
+      await this.audit.recordException({
+        severity: ExceptionSeverity.CRITICAL,
+        domain: ExceptionDomain.QUALITY,
+        title: `Quality Hold: ${dto.partNumber}`,
+        description: `Material ${dto.partNumber} blocked at ${dto.level} level (${dto.levelValue || 'ALL'}). Reason: ${dto.reason}`,
+        actor: dto.heldBy,
+        resourceType: 'QualityHold',
+        resourceId: savedHold.id.toString(),
+        metadata: { partNumber: dto.partNumber, level: dto.level, value: dto.levelValue }
       });
 
       await queryRunner.commitTransaction();
@@ -207,6 +220,18 @@ export class QualityService {
       metadata: { partNumber: hold.partNumber, qty: dto.quantity }
     });
 
+    // AUTOMATION: Create Operational Exception for Quarantine Transfer
+    await this.audit.recordException({
+      severity: ExceptionSeverity.MEDIUM,
+      domain: ExceptionDomain.QUALITY,
+      title: `Quarantine Transfer: ${hold.partNumber}`,
+      description: `Containment requested for ${dto.quantity} units to be moved to ${dto.destWarehouseId}.`,
+      actor: dto.requestedBy,
+      resourceType: 'QuarantineTransfer',
+      resourceId: saved.id.toString(),
+      metadata: { partNumber: hold.partNumber, quantity: dto.quantity, destination: dto.destWarehouseId }
+    });
+
     return saved;
   }
 
@@ -272,6 +297,18 @@ export class QualityService {
       referenceType: 'DISPOSITION',
       referenceId: saved.id.toString(),
       metadata: { type: dto.type, partNumber: dto.partNumber }
+    });
+
+    // AUTOMATION: Create Operational Exception for Disposition
+    await this.audit.recordException({
+      severity: ExceptionSeverity.MEDIUM,
+      domain: ExceptionDomain.QUALITY,
+      title: `Disposition Proposed: ${dto.type}`,
+      description: `New disposition proposed for ${dto.partNumber} (${dto.quantity} units). Type: ${dto.type}`,
+      actor: dto.proposedBy,
+      resourceType: 'Disposition',
+      resourceId: saved.id.toString(),
+      metadata: { type: dto.type, partNumber: dto.partNumber, quantity: dto.quantity }
     });
 
     return saved;

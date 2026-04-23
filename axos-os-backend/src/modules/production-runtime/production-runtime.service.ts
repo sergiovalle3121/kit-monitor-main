@@ -16,6 +16,7 @@ import { ProductionWip } from './entities/production-wip.entity';
 import { InventoryService } from '../inventory/inventory.service';
 import { AuditService } from '../governance/audit.service';
 import { User } from '../users/entities/user.entity';
+import { ExceptionSeverity, ExceptionDomain } from '../governance/entities/operational-exception.entity';
 
 type ScopeQuery = { line?: string; model?: string; workOrder?: string; buildingId?: string; programId?: string };
 
@@ -394,6 +395,19 @@ export class ProductionRuntimeService {
       resourceId: saved.id.toString(),
       metadata: { bayId, type: dto.type },
       outcome: 'ALLOWED'
+    });
+
+    // AUTOMATION: Create Operational Exception for Production Incidents
+    await this.audit.recordException({
+      severity: ExceptionSeverity.HIGH,
+      domain: ExceptionDomain.PRODUCTION,
+      title: `Production Incident: ${dto.type}`,
+      description: `Incident reported in Bay ${bayId} for Kit ${kitId}: ${dto.note || 'No details provided'}`,
+      actor: user.email,
+      buildingId: kit.plan?.buildingId?.toString(),
+      resourceType: 'ProductionBayIncident',
+      resourceId: saved.id.toString(),
+      metadata: { kitId, bayId, type: dto.type }
     });
 
     return saved;
