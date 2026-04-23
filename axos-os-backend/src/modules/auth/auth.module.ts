@@ -5,12 +5,12 @@ import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { UsersModule } from '../users/users.module';
+import { GovernanceModule } from '../governance/governance.module';
 
-// TypeOrmModule.forFeature removed: UsersService uses in-memory store,
-// no repository injection needed here. Re-add when switching to TypeORM.
 @Module({
   imports: [
     UsersModule,
+    GovernanceModule,
     PassportModule,
     JwtModule.register({
       secret: process.env.JWT_SECRET || 'secretKey',

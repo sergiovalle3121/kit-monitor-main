@@ -5,6 +5,7 @@ import { Shipment, ShipmentStatus } from './entities/shipment.entity';
 import { ShipmentItem } from './entities/shipment-item.entity';
 import { PackingList } from './entities/packing-list.entity';
 import { InventoryService } from '../inventory/inventory.service';
+import { AuditService } from '../governance/audit.service';
 
 @Injectable()
 export class ShippingService {
@@ -15,7 +16,8 @@ export class ShippingService {
     private readonly itemRepo: Repository<ShipmentItem>,
     @InjectRepository(PackingList)
     private readonly packingRepo: Repository<PackingList>,
-    private readonly inventory: InventoryService
+    private readonly inventory: InventoryService,
+    private readonly audit: AuditService,
   ) {}
 
   async findAll() {
@@ -129,10 +131,23 @@ export class ShippingService {
       });
     }
 
+    const before = { ...shipment };
     shipment.status = ShipmentStatus.DISPATCHED;
     shipment.dispatchedAt = new Date();
     shipment.dispatchedBy = actor;
-    return this.shipmentRepo.save(shipment);
+    const saved = await this.shipmentRepo.save(shipment);
+
+    await this.audit.log({
+      actor,
+      action: 'DISPATCH_EXECUTION',
+      entity: 'Shipment',
+      entityId: String(shipment.id),
+      before,
+      after: saved,
+      scope: { carrier: shipment.carrier, route: shipment.route }
+    });
+
+    return saved;
   }
 
   async closeShipment(id: number) {

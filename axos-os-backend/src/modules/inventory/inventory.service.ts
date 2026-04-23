@@ -5,6 +5,7 @@ import { InventoryPosition } from './entities/inventory-position.entity';
 import { InventoryMovement, InventoryTransactionType } from './entities/inventory-movement.entity';
 import { MaterialMaster } from './entities/material-master.entity';
 import { EnterpriseWarehouse } from '../enterprise-campus/entities/enterprise-warehouse.entity';
+import { AuditService } from '../governance/audit.service';
 
 @Injectable()
 export class InventoryService {
@@ -17,6 +18,7 @@ export class InventoryService {
     private readonly materialRepo: Repository<MaterialMaster>,
     @InjectRepository(EnterpriseWarehouse)
     private readonly warehouseRepo: Repository<EnterpriseWarehouse>,
+    private readonly audit: AuditService,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -136,6 +138,15 @@ export class InventoryService {
         createdAt: new Date()
       });
       const savedMovement = await queryRunner.manager.save(movement);
+
+      await this.audit.log({
+        actor: dto.actorName,
+        action: `INV_${dto.type}`,
+        entity: 'InventoryPosition',
+        entityId: dto.partNumber,
+        after: savedMovement,
+        scope: { warehouseId: dto.toWarehouseId || dto.fromWarehouseId, programId: dto.programId }
+      });
 
       await queryRunner.commitTransaction();
       return savedMovement;

@@ -14,6 +14,9 @@ import { NcrService } from '../ncr/ncr.service';
 import { NcrStatus } from '../ncr/entities/ncr.entity';
 import { SuppliersService } from '../suppliers/suppliers.service';
 
+import { FinalInspection } from './entities/final-inspection.entity';
+import { AuditService } from '../governance/audit.service';
+
 @Injectable()
 export class QualityService {
   constructor(
@@ -35,6 +38,7 @@ export class QualityService {
     private readonly inventory: InventoryService,
     private readonly ncrService: NcrService,
     private readonly suppliersService: SuppliersService,
+    private readonly audit: AuditService,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -132,6 +136,16 @@ export class QualityService {
         referenceType: 'QUALITY_HOLD',
         referenceId: hold.id.toString(),
         metadata: { partNumber: hold.partNumber, reason: hold.reason }
+      });
+
+      await this.audit.log({
+        actor: releasedBy,
+        action: 'QUALITY_HOLD_RELEASE',
+        entity: 'QualityHold',
+        entityId: String(hold.id),
+        before: { id: hold.id, isActive: true },
+        after: hold,
+        scope: { partNumber: hold.partNumber }
       });
 
       await queryRunner.commitTransaction();
@@ -266,10 +280,23 @@ export class QualityService {
   async approveDisposition(id: number, actor: string): Promise<Disposition> {
     const disposition = await this.dispositionRepo.findOne({ where: { id } });
     if (!disposition) throw new NotFoundException('Disposition not found');
-    
+
+    const before = { ...disposition };
     disposition.status = DispositionStatus.APPROVED;
     disposition.approvedBy = actor;
-    return this.dispositionRepo.save(disposition);
+    const saved = await this.dispositionRepo.save(disposition);
+
+    await this.audit.log({
+      actor,
+      action: 'DISPOSITION_APPROVAL',
+      entity: 'Disposition',
+      entityId: String(disposition.id),
+      before,
+      after: saved,
+      scope: { type: disposition.type, partNumber: disposition.partNumber }
+    });
+
+    return saved;
   }
 
   async executeDisposition(id: number, actor: string): Promise<Disposition> {

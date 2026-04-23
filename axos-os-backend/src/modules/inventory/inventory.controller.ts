@@ -1,8 +1,12 @@
-import { Controller, Get, Post, Body, Query, Param } from '@nestjs/common';
+import { Controller, Get, Post, Body, Query, Param, UseGuards } from '@nestjs/common';
 import { InventoryService } from './inventory.service';
 import { InventoryPosition } from './entities/inventory-position.entity';
 import { InventoryMovement, InventoryTransactionType } from './entities/inventory-movement.entity';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { RequirePermissions } from '../auth/decorators/permissions.decorator';
 
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller('inventory')
 export class InventoryController {
   constructor(private readonly inventoryService: InventoryService) {}
@@ -25,6 +29,7 @@ export class InventoryController {
   }
 
   @Post('transaction')
+  @RequirePermissions('INVENTORY_ADJUST')
   async recordTransaction(
     @Body() dto: {
       type: InventoryTransactionType;
@@ -47,6 +52,7 @@ export class InventoryController {
   }
 
   @Post('master-data')
+  @RequirePermissions('MANAGE_MASTER_DATA')
   async createMaterial(@Body() dto: any) {
     return this.inventoryService.ensureMaterial(dto);
   }

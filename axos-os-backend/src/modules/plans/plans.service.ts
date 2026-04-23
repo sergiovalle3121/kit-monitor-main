@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository, SelectQueryBuilder } from 'typeorm';
+import { DataSource, Repository, SelectQueryBuilder, In, Brackets } from 'typeorm';
 import { EnterpriseProgram } from '../enterprise-campus/entities/enterprise-program.entity';
 import { EnterpriseLine } from '../enterprise-campus/entities/enterprise-line.entity';
 import { Plan } from './entities/plan.entity';
@@ -12,6 +12,7 @@ import { KitMaterial } from '../kit-materials/entities/kit-material.entity';
 import { LineCapacity } from './entities/line-capacity.entity';
 import { InventoryService } from '../inventory/inventory.service';
 import { QualityService } from '../quality/quality.service';
+import { AuditService } from '../governance/audit.service';
 
 @Injectable()
 export class PlansService {
@@ -24,14 +25,15 @@ export class PlansService {
     @InjectRepository(EnterpriseLine) private readonly lineRepo: Repository<EnterpriseLine>,
     private readonly inventory: InventoryService,
     private readonly quality: QualityService,
+    private readonly audit: AuditService,
     private readonly dataSource: DataSource,
   ) {}
 
-  async findAll(scope?: { line?: string; model?: string; workOrder?: string; buildingId?: string; programId?: string }): Promise<any[]> {
+  async findAll(filters?: { line?: string; model?: string; workOrder?: string; buildingId?: string; programId?: string }, user?: any): Promise<any[]> {
     const qb = this.repo.createQueryBuilder('plan')
       .leftJoinAndSelect('plan.kit', 'kit')
       .orderBy('plan.createdAt', 'DESC');
-    await this.applyScopeToQb(qb, scope);
+    await this.applyScopeToQb(qb, filters, user);
     const plans = await qb.getMany();
     return plans.map((plan) => this.serialize(plan));
   }
@@ -106,12 +108,24 @@ export class PlansService {
     // 1. Check Readiness (Simplified Mock for now, would use real inventory/quality check)
     const readiness = await this.calculateReadiness(plan);
     
+    const before = { ...plan };
     plan.status = 'released';
     plan.releasedAt = new Date();
     plan.releasedBy = actor;
     plan.readinessSummary = readiness;
 
-    await this.repo.save(plan);
+    const saved = await this.repo.save(plan);
+
+    await this.audit.log({
+      actor,
+      action: 'RELEASE_WO',
+      entity: 'Plan',
+      entityId: String(plan.id),
+      before,
+      after: saved,
+      scope: { buildingId: plan.buildingId }
+    });
+
     return this.findOne(id);
   }
 
@@ -158,9 +172,37 @@ export class PlansService {
 
   private async applyScopeToQb(
     qb: SelectQueryBuilder<Plan>,
-    scope?: { line?: string; model?: string; workOrder?: string; buildingId?: string; programId?: string },
+    filters?: { line?: string; model?: string; workOrder?: string; buildingId?: string; programId?: string },
+    user?: any
   ): Promise<void> {
-    if (!scope) return;
+    // 1. Enforce Hard Organizational Scopes from User
+    if (user && user.role !== 'Admin' && user.scopes) {
+      if (user.scopes.buildings?.length > 0) {
+        const linesInBuildings = await this.lineRepo.find({ where: { building: { id: In(user.scopes.buildings) } } as any });
+        const buildingLegacyNums = linesInBuildings.map(l => l.legacyLineNumber).filter((n): n is number => n != null);
+        qb.andWhere('plan.line IN (:...bLegacy)', { bLegacy: buildingLegacyNums.length ? buildingLegacyNums : [-1] });
+      }
+      
+      if (user.scopes.lines?.length > 0) {
+        qb.andWhere('plan.line IN (:...uLines)', { uLines: user.scopes.lines });
+      }
+      
+      if (user.scopes.programs?.length > 0) {
+        // Find prefixes for scoped programs
+        const programs = await this.programRepo.find({ where: { id: In(user.scopes.programs) } });
+        const prefixes = programs.map(p => p.primaryModelPrefix?.toUpperCase()).filter(Boolean);
+        if (prefixes.length > 0) {
+          qb.andWhere(new Brackets(sub => {
+            prefixes.forEach((pre, i) => {
+              sub.orWhere(`UPPER(plan.model) LIKE :pre${i}`, { [`pre${i}`]: `${pre}%` });
+            });
+          }));
+        }
+      }
+    }
+
+    // 2. Apply Optional Filters
+    if (!filters) return;
 
     if (scope.model) {
       qb.andWhere('UPPER(plan.model) LIKE :model', { model: `%${scope.model.toUpperCase()}%` });
