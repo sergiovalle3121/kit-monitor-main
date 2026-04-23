@@ -1,10 +1,14 @@
-import { AfterViewInit, Component, ElementRef, OnDestroy, ViewChild } from '@angular/core';
+import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
 import { AuthService } from '../../core/auth.service';
 
+/**
+ * LoginComponent – direct page route kept as fallback.
+ * The primary login experience is the modal on LandingComponent.
+ */
 @Component({
   selector: 'app-login',
   standalone: true,
@@ -12,42 +16,14 @@ import { AuthService } from '../../core/auth.service';
   templateUrl: './login.component.html',
   styleUrls: ['./login.component.css'],
 })
-export class LoginComponent implements AfterViewInit, OnDestroy {
-  @ViewChild('backgroundVideo') backgroundVideo?: ElementRef<HTMLVideoElement>;
-
+export class LoginComponent {
   email = '';
   password = '';
   error: string | null = null;
   loading = false;
-  videoReady = false;
-
-  private videoLoadTimer: number | null = null;
+  showPassword = false;
 
   constructor(private auth: AuthService, private router: Router) {}
-
-  ngAfterViewInit(): void {
-    if (typeof window === 'undefined') return;
-
-    this.videoLoadTimer = window.setTimeout(() => {
-      const video = this.backgroundVideo?.nativeElement;
-      if (!video) return;
-
-      video.src = 'assets/login/system-atmosphere.mp4';
-      video.load();
-      this.tryPlayVideo();
-    }, 120);
-  }
-
-  ngOnDestroy(): void {
-    if (typeof window !== 'undefined' && this.videoLoadTimer != null) {
-      window.clearTimeout(this.videoLoadTimer);
-    }
-  }
-
-  onVideoReady(): void {
-    this.videoReady = true;
-    this.tryPlayVideo();
-  }
 
   submit(): void {
     this.error = null;
@@ -58,31 +34,14 @@ export class LoginComponent implements AfterViewInit, OnDestroy {
         if (err.status === 401) {
           this.error = 'Credenciales incorrectas';
         } else if (err.status === 403) {
-          this.error = 'Acceso bloqueado por configuración de seguridad del backend.';
+          this.error = 'Acceso bloqueado.';
         } else if (err.status === 0) {
-          this.error = 'No se pudo conectar al backend. Verifica URL/API en entorno.';
+          this.error = 'No se pudo conectar al backend.';
         } else {
           this.error = err?.error?.message || 'No se pudo iniciar sesión';
         }
         this.loading = false;
       },
     });
-  }
-
-  private tryPlayVideo(): void {
-    const video = this.backgroundVideo?.nativeElement;
-    if (!video) return;
-
-    video.muted = true;
-    video.defaultMuted = true;
-    video.loop = true;
-    video.playsInline = true;
-
-    const playPromise = video.play();
-    if (playPromise && typeof playPromise.catch === 'function') {
-      playPromise.catch(() => {
-        this.videoReady = false;
-      });
-    }
   }
 }

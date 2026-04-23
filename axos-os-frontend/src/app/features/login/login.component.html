@@ -1,26 +1,10 @@
 <div class="login-shell">
-  <div class="login-background" [class.video-active]="videoReady" aria-hidden="true">
-    <div class="login-background__poster"></div>
-    <video
-      #backgroundVideo
-      class="login-background__video"
-      [class.is-ready]="videoReady"
-      autoplay
-      muted
-      loop
-      playsinline
-      preload="metadata"
-      disablePictureInPicture
-      disableremoteplayback
-      (loadedmetadata)="onVideoReady()"
-      (loadeddata)="onVideoReady()"
-      (canplay)="onVideoReady()">
-    </video>
-    <div class="login-background__overlay"></div>
-    <div class="login-background__mesh"></div>
-  </div>
+  <!-- Pure CSS animated background — no video -->
+  <div class="login-bg-net" aria-hidden="true"></div>
+  <div class="login-bg-overlay" aria-hidden="true"></div>
 
   <div class="login-card">
+    <!-- Left: Brand Panel -->
     <section class="login-hero">
       <span class="hero-kicker">INDUSTRIAL OPERATING SYSTEM</span>
 
@@ -51,6 +35,7 @@
       </div>
     </section>
 
+    <!-- Right: Form Panel -->
     <section class="login-panel">
       <div class="panel-head">
         <span class="panel-kicker">Acceso seguro</span>
@@ -62,33 +47,46 @@
         <label class="field">
           <span>Usuario o email</span>
           <div class="field-shell">
+            <i class="fas fa-user field-ico"></i>
             <input
               type="text"
               [(ngModel)]="email"
               name="email"
               required
               autocomplete="username"
-              placeholder="3312793">
+              placeholder="3312793"
+              id="login-email" />
           </div>
         </label>
 
         <label class="field">
           <span>Contraseña</span>
           <div class="field-shell">
+            <i class="fas fa-lock field-ico"></i>
             <input
-              type="password"
+              [type]="showPassword ? 'text' : 'password'"
               [(ngModel)]="password"
               name="password"
               required
               autocomplete="current-password"
-              placeholder="Ingresa tu contraseña">
+              placeholder="Ingresa tu contraseña"
+              id="login-password" />
+            <button type="button" class="eye-btn" (click)="showPassword = !showPassword">
+              <i class="fas {{ showPassword ? 'fa-eye-slash' : 'fa-eye' }}"></i>
+            </button>
           </div>
         </label>
 
-        <p class="error" *ngIf="error">{{ error }}</p>
+        @if (error) {
+          <p class="error"><i class="fas fa-circle-exclamation"></i> {{ error }}</p>
+        }
 
-        <button type="submit" [disabled]="loading">
-          {{ loading ? 'Entrando...' : 'Entrar a AXOS OS' }}
+        <button type="submit" [disabled]="loading" id="btn-submit-login">
+          @if (loading) {
+            <span class="spin-ring"></span> Entrando...
+          } @else {
+            Entrar a AXOS OS
+          }
         </button>
       </form>
     </section>
