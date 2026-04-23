@@ -92,6 +92,12 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/disposition/disposition.component').then(m => m.DispositionComponent),
       },
+
+      {
+        path: 'roadmap/:domain/:module',
+        loadComponent: () =>
+          import('./features/enterprise-placeholder/enterprise-placeholder.component').then(m => m.EnterprisePlaceholderComponent),
+      },
     ],
   },
   { path: '**', redirectTo: 'login' },

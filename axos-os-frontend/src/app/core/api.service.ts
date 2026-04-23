@@ -1,13 +1,16 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpErrorResponse, HttpParams } from '@angular/common/http';
-import { Observable, catchError, tap, throwError } from 'rxjs';
+import { Observable, catchError, map, tap, throwError } from 'rxjs';
 import { environment } from '../../environments/environment';
+import { CampusState } from './enterprise.model';
+import { EnterpriseContextService } from './enterprise-context.service';
 
 @Injectable({ providedIn: 'root' })
 export class ApiService {
   private http = inject(HttpClient);
   private base = this.resolveInitialBase();
   private readonly sameOriginBase = this.shouldUseSameOriginFallback() ? this.getSameOriginApiUrl() : '';
+  private readonly context = inject(EnterpriseContextService);
 
   private get<T>(path: string, params?: Record<string, any>): Observable<T> {
     return this.withFallback((base) => {
@@ -37,7 +40,7 @@ export class ApiService {
   }
 
   getPlans(): Observable<any[]> {
-    return this.get<any[]>('plans');
+    return this.get<any[]>('plans').pipe(map((rows) => this.filterPlansByContext(rows ?? [])));
   }
 
   createPlan(dto: any): Observable<any> {
@@ -49,7 +52,7 @@ export class ApiService {
   }
 
   getKits(): Observable<any[]> {
-    return this.get<any[]>('kits');
+    return this.get<any[]>('kits').pipe(map((rows) => this.filterKitsByContext(rows ?? [])));
   }
 
   createKit(planId: number): Observable<any> {
@@ -65,11 +68,11 @@ export class ApiService {
   }
 
   getBom(model?: string): Observable<any[]> {
-    return this.get<any[]>('bom', model ? { model } : undefined);
+    return this.get<any[]>('bom', model ? { model } : undefined).pipe(map((rows) => this.filterBomByContext(rows ?? [])));
   }
 
   getVisualAids(): Observable<any[]> {
-    return this.get<any[]>('visual-aids');
+    return this.get<any[]>('visual-aids').pipe(map((rows) => this.filterVisualAidsByContext(rows ?? [])));
   }
 
   createVisualAid(dto: any): Observable<any> {
@@ -129,7 +132,7 @@ export class ApiService {
   }
 
   getAllResupplies(): Observable<any[]> {
-    return this.get<any[]>('resupplies');
+    return this.get<any[]>('resupplies').pipe(map((rows) => this.filterResuppliesByContext(rows ?? [])));
   }
 
   updateResupplyStatus(
@@ -171,7 +174,7 @@ export class ApiService {
 
 
   getProductionBackends(): Observable<any[]> {
-    return this.get<any[]>('production/lines');
+    return this.get<any[]>('production/lines').pipe(map((rows) => this.filterBackendsByContext(rows ?? [])));
   }
 
   getProductionBackend(kitId: number): Observable<any> {
@@ -223,7 +226,7 @@ export class ApiService {
   }
 
   getProductionCompleted(): Observable<any[]> {
-    return this.get<any[]>('production/completed');
+    return this.get<any[]>('production/completed').pipe(map((rows) => this.filterBackendsByContext(rows ?? [])));
   }
 
   getProductionShortageRisk(kitId: number): Observable<any> {
@@ -256,7 +259,40 @@ export class ApiService {
   }
 
   getPlanPublications(): Observable<any[]> {
-    return this.get<any[]>('decision-intelligence/plan-publications');
+    return this.get<any[]>('decision-intelligence/plan-publications').pipe(map((rows) => this.filterPublicationsByContext(rows ?? [])));
+  }
+
+  getEnterpriseCampusState(): Observable<CampusState> {
+    return this.get<CampusState>('enterprise/campus-state');
+  }
+
+
+  getEnterpriseBuildings(): Observable<any[]> {
+    return this.get<any[]>('enterprise/buildings');
+  }
+
+  getEnterpriseWarehouses(): Observable<any[]> {
+    return this.get<any[]>('enterprise/warehouses');
+  }
+
+  getEnterpriseCustomers(): Observable<any[]> {
+    return this.get<any[]>('enterprise/customers');
+  }
+
+  getEnterprisePrograms(): Observable<any[]> {
+    return this.get<any[]>('enterprise/programs');
+  }
+
+  getEnterpriseAreas(): Observable<any[]> {
+    return this.get<any[]>('enterprise/areas');
+  }
+
+  getEnterpriseLines(): Observable<any[]> {
+    return this.get<any[]>('enterprise/lines');
+  }
+
+  getEnterpriseStations(lineId?: string): Observable<any[]> {
+    return this.get<any[]>('enterprise/stations', lineId ? { lineId } : undefined);
   }
 
   getDecisionLogisticsPriority(runId?: number): Observable<any> {
@@ -309,6 +345,43 @@ export class ApiService {
 
   respondCancellationRequest(id: number, action: 'accept' | 'reject', respondedBy?: string): Observable<any> {
     return this.patch<any>(`cancellation-requests/${id}/respond`, { action, respondedBy });
+  }
+
+
+  private filterPlansByContext(rows: any[]): any[] {
+    return rows.filter((plan) => this.matchesContext(plan?.model, plan?.line, plan?.workOrder));
+  }
+
+  private filterKitsByContext(rows: any[]): any[] {
+    return rows.filter((kit) => this.matchesContext(kit?.plan?.model, kit?.plan?.line, kit?.plan?.workOrder));
+  }
+
+  private filterBackendsByContext(rows: any[]): any[] {
+    return rows.filter((backend) => this.matchesContext(backend?.model, backend?.line, backend?.workOrder));
+  }
+
+  private filterResuppliesByContext(rows: any[]): any[] {
+    return rows.filter((row) => this.matchesContext(row?.kit?.plan?.model, row?.kit?.plan?.line, row?.kit?.plan?.workOrder));
+  }
+
+  private filterBomByContext(rows: any[]): any[] {
+    return rows.filter((item) => this.context.modelMatches(item?.model) && this.context.programMatches(item?.model));
+  }
+
+  private filterVisualAidsByContext(rows: any[]): any[] {
+    return rows.filter((item) => this.context.modelMatches(item?.model) && this.context.programMatches(item?.model));
+  }
+
+  private filterPublicationsByContext(rows: any[]): any[] {
+    return rows.filter((item) => this.matchesContext(item?.title, item?.line, item?.workOrder));
+  }
+
+  private matchesContext(model?: string, line?: string | number, workOrder?: string): boolean {
+    return this.context.modelMatches(model)
+      && this.context.programMatches(model)
+      && this.context.lineMatches(line)
+      && this.context.buildingMatches(line)
+      && this.context.workOrderMatches(workOrder);
   }
 
   private withFallback<T>(request: (base: string) => Observable<T>): Observable<T> {
