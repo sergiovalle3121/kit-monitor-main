@@ -11,12 +11,12 @@ export class AuthService {
     private readonly jwtService: JwtService,
   ) {}
 
-  async validateUser(email: string, pass: string): Promise<User> {
-    const normalizedEmail = (email ?? '').trim();
-    const normalizedPass = (pass ?? '').trim();
-    const user = await this.usersService.findOneByEmail(normalizedEmail);
+  async validateUser(identifier: string, pass: string): Promise<User> {
+    const normalizedIdentifier = (identifier ?? "").trim();
+    const normalizedPass = String(pass ?? "");
+    const user = await this.usersService.findOneByIdentifier(normalizedIdentifier);
 
-    if (user && (await bcrypt.compare(normalizedPass, user.password))) {
+    if (user && user.isActive !== false && (await bcrypt.compare(normalizedPass, user.password))) {
       return user;
     }
     throw new UnauthorizedException('Credenciales incorrectas');
