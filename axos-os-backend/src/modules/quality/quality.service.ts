@@ -3,10 +3,13 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { QualityHold, QualityHoldLevel } from './entities/quality-hold.entity';
 import { QuarantineTransfer } from './entities/quarantine-transfer.entity';
+import { Disposition, DispositionType, DispositionStatus } from './entities/disposition.entity';
 import { InventoryPosition } from '../inventory/entities/inventory-position.entity';
 import { InventoryService } from '../inventory/inventory.service';
 import { EventLedgerService } from '../event-ledger/event-ledger.service';
 import { EventDomain } from '../event-ledger/entities/ledger-event.entity';
+import { NcrService } from '../ncr/ncr.service';
+import { NcrStatus } from '../ncr/entities/ncr.entity';
 
 @Injectable()
 export class QualityService {
@@ -15,10 +18,13 @@ export class QualityService {
     private readonly holdRepo: Repository<QualityHold>,
     @InjectRepository(QuarantineTransfer)
     private readonly transferRepo: Repository<QuarantineTransfer>,
+    @InjectRepository(Disposition)
+    private readonly dispositionRepo: Repository<Disposition>,
     @InjectRepository(InventoryPosition)
     private readonly positionRepo: Repository<InventoryPosition>,
     private readonly eventLedger: EventLedgerService,
     private readonly inventory: InventoryService,
+    private readonly ncrService: NcrService,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -217,5 +223,113 @@ export class QualityService {
     );
 
     return updated;
+  }
+
+  // --- DISPOSITION ENGINE ---
+
+  async findDispositions(): Promise<Disposition[]> {
+    return this.dispositionRepo.find({ 
+      relations: ['ncr', 'hold'],
+      order: { createdAt: 'DESC' }
+    });
+  }
+
+  async proposeDisposition(dto: Partial<Disposition>): Promise<Disposition> {
+    const disposition = this.dispositionRepo.create({
+      ...dto,
+      status: DispositionStatus.PROPOSED
+    });
+    const saved = await this.dispositionRepo.save(disposition);
+
+    await this.eventLedger.recordEvent({
+      domain: EventDomain.QUALITY,
+      action: 'DISPOSITION_PROPOSED',
+      actorName: dto.proposedBy,
+      referenceType: 'DISPOSITION',
+      referenceId: saved.id.toString(),
+      metadata: { type: dto.type, partNumber: dto.partNumber }
+    });
+
+    return saved;
+  }
+
+  async approveDisposition(id: number, actor: string): Promise<Disposition> {
+    const disposition = await this.dispositionRepo.findOne({ where: { id } });
+    if (!disposition) throw new NotFoundException('Disposition not found');
+    
+    disposition.status = DispositionStatus.APPROVED;
+    disposition.approvedBy = actor;
+    return this.dispositionRepo.save(disposition);
+  }
+
+  async executeDisposition(id: number, actor: string): Promise<Disposition> {
+    const disposition = await this.dispositionRepo.findOne({ 
+      where: { id },
+      relations: ['ncr', 'hold'] 
+    });
+    if (!disposition) throw new NotFoundException('Disposition not found');
+    if (disposition.status !== DispositionStatus.APPROVED) throw new Error('Disposition must be approved before execution');
+
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      // 1. IMPACT INVENTORY BASED ON TYPE
+      if (disposition.type === DispositionType.RELEASE || disposition.type === DispositionType.USE_AS_IS) {
+        // Restore to Available
+        await queryRunner.manager.update(
+          InventoryPosition,
+          { 
+            partNumber: disposition.partNumber, 
+            warehouseId: disposition.warehouseId, 
+            location: disposition.location 
+          },
+          { holdStatus: 'available' }
+        );
+      } else if (disposition.type === DispositionType.SCRAP || disposition.type === DispositionType.RTV) {
+        // Permanently decrement stock
+        await this.inventory.recordTransaction({
+          type: 'ADJUST',
+          partNumber: disposition.partNumber,
+          quantity: disposition.quantity,
+          fromWarehouseId: disposition.warehouseId,
+          fromLocation: disposition.location,
+          actorName: actor,
+          reason: `Quality Disposition: ${disposition.type.toUpperCase()} - NCR ${disposition.ncr?.ncrNumber || 'N/A'}`
+        });
+      }
+
+      // 2. CLOSE RELATED ENTITIES
+      if (disposition.ncr) {
+        await this.ncrService.updateStatus(disposition.ncr.id, NcrStatus.CLOSED, actor);
+      }
+      if (disposition.hold) {
+        await this.releaseHold(disposition.hold.id, actor);
+      }
+
+      // 3. FINALIZE DISPOSITION
+      disposition.status = DispositionStatus.EXECUTED;
+      disposition.executedBy = actor;
+      disposition.executedAt = new Date();
+      const updated = await queryRunner.manager.save(disposition);
+
+      await this.eventLedger.recordEvent({
+        domain: EventDomain.QUALITY,
+        action: 'DISPOSITION_EXECUTED',
+        actorName: actor,
+        referenceType: 'DISPOSITION',
+        referenceId: updated.id.toString(),
+        metadata: { type: updated.type, partNumber: updated.partNumber }
+      });
+
+      await queryRunner.commitTransaction();
+      return updated;
+    } catch (err) {
+      await queryRunner.rollbackTransaction();
+      throw err;
+    } finally {
+      await queryRunner.release();
+    }
   }
 }

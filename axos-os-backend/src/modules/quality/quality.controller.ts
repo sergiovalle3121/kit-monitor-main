@@ -48,4 +48,25 @@ export class QualityController {
   async completeTransfer(@Param('id') id: number, @Body('actor') actor: string) {
     return this.qualityService.completeQuarantineTransfer(id, actor);
   }
+
+  // Dispositions
+  @Get('dispositions')
+  async getDispositions() {
+    return this.qualityService.findDispositions();
+  }
+
+  @Post('dispositions')
+  async proposeDisposition(@Body() dto: any) {
+    return this.qualityService.proposeDisposition(dto);
+  }
+
+  @Patch('dispositions/:id/approve')
+  async approveDisposition(@Param('id') id: number, @Body('actor') actor: string) {
+    return this.qualityService.approveDisposition(id, actor);
+  }
+
+  @Patch('dispositions/:id/execute')
+  async executeDisposition(@Param('id') id: number, @Body('actor') actor: string) {
+    return this.qualityService.executeDisposition(id, actor);
+  }
 }

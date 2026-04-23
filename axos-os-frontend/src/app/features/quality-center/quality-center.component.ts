@@ -17,7 +17,8 @@ export class QualityCenterComponent implements OnInit {
   loading = true;
   activeHolds: any[] = [];
   transfers: any[] = [];
-  activeTab: 'holds' | 'transfers' = 'holds';
+  dispositions: any[] = [];
+  activeTab: 'holds' | 'transfers' | 'dispositions' = 'holds';
   
   // Create hold form
   holdForm = {
@@ -38,11 +39,25 @@ export class QualityCenterComponent implements OnInit {
     destLocation: 'QUARANTINE-01'
   };
 
+  // Disposition form
+  dispositionForm = {
+    ncrId: null,
+    holdId: null,
+    partNumber: '',
+    quantity: 0,
+    type: 'release' as any,
+    reason: '',
+    warehouseId: '',
+    location: ''
+  };
+
   showTransferModal = false;
+  showDispositionModal = false;
 
   ngOnInit() {
     this.loadHolds();
     this.loadTransfers();
+    this.loadDispositions();
   }
 
   loadHolds() {
@@ -62,11 +77,25 @@ export class QualityCenterComponent implements OnInit {
     });
   }
 
+  loadDispositions() {
+    this.api.getDispositions().subscribe({
+      next: (data) => this.dispositions = data
+    });
+  }
+
   openTransferRequest(hold: any) {
     this.transferForm.holdId = hold.id;
     this.transferForm.quantity = 0;
     this.transferForm.sourceWarehouseId = hold.level === 'WAREHOUSE' ? hold.levelValue : '';
     this.showTransferModal = true;
+  }
+
+  openDispositionPropose(hold: any) {
+    this.dispositionForm.holdId = hold.id;
+    this.dispositionForm.partNumber = hold.partNumber;
+    this.dispositionForm.warehouseId = hold.level === 'WAREHOUSE' ? hold.levelValue : '';
+    this.dispositionForm.location = hold.level === 'WAREHOUSE' ? 'BULK' : '';
+    this.showDispositionModal = true;
   }
 
   requestTransfer() {
@@ -77,6 +106,33 @@ export class QualityCenterComponent implements OnInit {
       next: () => {
         this.loadTransfers();
         this.showTransferModal = false;
+      }
+    });
+  }
+
+  proposeDisposition() {
+    this.api.proposeDisposition({
+      ...this.dispositionForm,
+      proposedBy: 'QA Engineer'
+    }).subscribe({
+      next: () => {
+        this.loadDispositions();
+        this.showDispositionModal = false;
+      }
+    });
+  }
+
+  approveDisposition(id: number) {
+    this.api.approveDisposition(id, 'QA Manager').subscribe({
+      next: () => this.loadDispositions()
+    });
+  }
+
+  executeDisposition(id: number) {
+    this.api.executeDisposition(id, 'Logistics Lead').subscribe({
+      next: () => {
+        this.loadDispositions();
+        this.loadHolds();
       }
     });
   }

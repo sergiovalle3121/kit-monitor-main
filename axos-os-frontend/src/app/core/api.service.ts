@@ -411,6 +411,23 @@ export class ApiService {
     return this.patch<any>(`ncr/${id}/status`, { status, actor });
   }
 
+  // Disposition Management
+  getDispositions(): Observable<any[]> {
+    return this.get<any[]>('quality/dispositions');
+  }
+
+  proposeDisposition(dto: any): Observable<any> {
+    return this.post<any>('quality/dispositions', dto);
+  }
+
+  approveDisposition(id: number, actor: string): Observable<any> {
+    return this.patch<any>(`quality/dispositions/${id}/approve`, { actor });
+  }
+
+  executeDisposition(id: number, actor: string): Observable<any> {
+    return this.patch<any>(`quality/dispositions/${id}/execute`, { actor });
+  }
+
 
   private contextQuery(): Record<string, string> {
     const ctx = this.context.context();

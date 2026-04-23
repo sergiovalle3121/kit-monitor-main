@@ -4,10 +4,11 @@
   <div class="tabs-nav">
     <button [class.active]="activeTab === 'holds'" (click)="activeTab = 'holds'">Active Holds</button>
     <button [class.active]="activeTab === 'transfers'" (click)="activeTab = 'transfers'">Quarantine Transfers</button>
+    <button [class.active]="activeTab === 'dispositions'" (click)="activeTab = 'dispositions'">Dispositions</button>
   </div>
 
   <div class="main-layout" *ngIf="activeTab === 'holds'">
-    <!-- HOLD CREATION PANEL -->
+    <!-- ... (HOLD CREATION PANEL same as before) -->
     <aside class="hold-panel">
       <header>
         <h3><i class="fas fa-shield-virus"></i> Aplicar Bloqueo (Hold)</h3>
@@ -82,6 +83,7 @@
               <span>{{ hold.createdAt | date:'short' }}</span>
             </div>
             <div class="actions">
+              <button class="btn-dispo" (click)="openDispositionPropose(hold)">Disposición</button>
               <button class="btn-quarantine" (click)="openTransferRequest(hold)">Segregar</button>
               <button class="btn-release" (click)="releaseHold(hold.id)">Liberar</button>
             </div>
@@ -101,8 +103,9 @@
     </section>
   </div>
 
-  <!-- TRANSFERS SECTION -->
+  <!-- TRANSFERS VIEW (same as before) -->
   <div class="transfers-view" *ngIf="activeTab === 'transfers'">
+    <!-- ... -->
     <header class="section-header">
       <h3>Movimientos a Cuarentena</h3>
       <p>Logística de contención física de materiales bloqueados.</p>
@@ -140,9 +143,81 @@
       </table>
     </div>
   </div>
+
+  <!-- DISPOSITIONS VIEW -->
+  <div class="dispositions-view" *ngIf="activeTab === 'dispositions'">
+    <header class="section-header">
+      <h3>Control de Disposiciones</h3>
+      <p>Resolución final y destino de materiales no conformes.</p>
+    </header>
+
+    <div class="dispo-grid">
+      <div class="dispo-card" *ngFor="let d of dispositions">
+        <div class="dispo-header">
+          <span class="type-badge" [class]="d.type">{{ d.type }}</span>
+          <span class="status-pill" [class]="d.status">{{ d.status }}</span>
+        </div>
+        <div class="dispo-body">
+          <h4>{{ d.partNumber }}</h4>
+          <p class="qty">Cantidad: <strong>{{ d.quantity }}</strong></p>
+          <p class="reason">"{{ d.reason }}"</p>
+          <p class="meta">Propuesto por: {{ d.proposedBy }}</p>
+        </div>
+        <div class="dispo-footer">
+          <button class="btn-approve" *ngIf="d.status === 'proposed'" (click)="approveDisposition(d.id)">Aprobar</button>
+          <button class="btn-execute" *ngIf="d.status === 'approved'" (click)="executeDisposition(d.id)">Ejecutar</button>
+          <span *ngIf="d.status === 'executed'" class="done-stamp">EJECUTADO ✓</span>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 
-<!-- TRANSFER MODAL -->
+<!-- DISPOSITION MODAL -->
+<div class="modal-overlay" *ngIf="showDispositionModal">
+  <div class="modal-card">
+    <header>
+      <h3>Proponer Disposición Final</h3>
+      <button class="close-btn" (click)="showDispositionModal = false">✕</button>
+    </header>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Tipo de Disposición</label>
+        <select [(ngModel)]="dispositionForm.type">
+          <option value="release">Release (Liberar stock)</option>
+          <option value="scrap">Scrap (Desecho definitivo)</option>
+          <option value="rtv">RTV (Return to Vendor)</option>
+          <option value="rework">Rework (Retrabajo)</option>
+          <option value="use_as_is">Use As Is (Usar así)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Cantidad</label>
+        <input type="number" [(ngModel)]="dispositionForm.quantity" />
+      </div>
+      <div class="form-group">
+        <label>Justificación / Notas</label>
+        <textarea [(ngModel)]="dispositionForm.reason" rows="3"></textarea>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Warehouse</label>
+          <input type="text" [(ngModel)]="dispositionForm.warehouseId" />
+        </div>
+        <div class="form-group">
+          <label>Ubicación Actual</label>
+          <input type="text" [(ngModel)]="dispositionForm.location" />
+        </div>
+      </div>
+    </div>
+    <footer>
+      <button class="btn-cancel" (click)="showDispositionModal = false">Cancelar</button>
+      <button class="btn-confirm" (click)="proposeDisposition()">Proponer Disposición</button>
+    </footer>
+  </div>
+</div>
+
+<!-- (TRANSFER MODAL same as before) -->
 <div class="modal-overlay" *ngIf="showTransferModal">
   <div class="modal-card">
     <header>
