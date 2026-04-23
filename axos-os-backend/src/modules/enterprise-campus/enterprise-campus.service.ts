@@ -48,9 +48,13 @@ export class EnterpriseCampusService implements OnModuleInit {
   ) {}
 
   async onModuleInit(): Promise<void> {
-    await this.ensureDimensionSeedData();
-    await this.ensureTopologySeedData();
-    await this.ensurePlanLinkage();
+    try {
+      await this.ensureDimensionSeedData();
+      await this.ensureTopologySeedData();
+      await this.ensurePlanLinkage();
+    } catch (err) {
+      console.error('[EnterpriseCampusService] Initialization warning:', err.message);
+    }
   }
 
   async listBuildings() {
