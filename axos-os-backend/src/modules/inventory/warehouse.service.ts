@@ -63,4 +63,52 @@ export class WarehouseService {
     task.completedAt = new Date();
     return this.taskRepo.save(task);
   }
+
+  // --- GUIDED PICKING ---
+
+  async getPickingBacklog(warehouseId?: string): Promise<WarehouseTask[]> {
+    const qb = this.taskRepo.createQueryBuilder('task')
+      .where('task.status IN (:...statuses)', { statuses: [WarehouseTaskStatus.PENDING, WarehouseTaskStatus.IN_PROGRESS] })
+      .andWhere('task.type IN (:...types)', { types: [WarehouseTaskType.PICK, WarehouseTaskType.TRANSFER] });
+    
+    if (warehouseId) qb.andWhere('task.fromWarehouseId = :wh', { wh: warehouseId });
+    
+    qb.orderBy('task.createdAt', 'ASC');
+    return qb.getMany();
+  }
+
+  async handlePickException(id: number, exception: { reason: string; pickedQty: number; actor: string }): Promise<WarehouseTask> {
+    const task = await this.taskRepo.findOne({ where: { id } });
+    if (!task) throw new NotFoundException('Task not found');
+
+    if (exception.reason === 'SHORT_PICK' && exception.pickedQty > 0) {
+      // Execute partial movement
+      await this.inventory.recordTransaction({
+        type: 'TRANSFER',
+        partNumber: task.partNumber,
+        quantity: exception.pickedQty,
+        fromWarehouseId: task.fromWarehouseId,
+        fromLocation: task.fromLocation,
+        toWarehouseId: task.toWarehouseId,
+        toLocation: task.toLocation,
+        actorName: exception.actor,
+        referenceType: 'PICK_EXCEPTION',
+        referenceId: task.taskNumber,
+        reason: `Short Pick Exception: ${exception.reason}`
+      });
+      
+      // Create new task for remaining balance
+      await this.createTask({
+        ...task,
+        id: undefined,
+        quantity: task.quantity - exception.pickedQty,
+        status: WarehouseTaskStatus.PENDING,
+        referenceId: `${task.taskNumber}-REMAINDER`
+      });
+    }
+
+    task.status = WarehouseTaskStatus.CANCELLED; // Cancel original task
+    task.completedBy = exception.actor;
+    return this.taskRepo.save(task);
+  }
 }

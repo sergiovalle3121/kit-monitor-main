@@ -507,6 +507,15 @@ export class ApiService {
     return this.patch<any>(`warehouse/tasks/${id}/complete`, { actor });
   }
 
+  // Picking Management
+  getPickingBacklog(warehouseId: string = ''): Observable<any[]> {
+    return this.get<any[]>('warehouse/picking/backlog', { warehouseId });
+  }
+
+  handlePickException(id: number, exception: any): Observable<any> {
+    return this.post<any>(`warehouse/picking/${id}/exception`, exception);
+  }
+
   // Replenishment Management
   getReplenishmentRules(): Observable<any[]> {
     return this.get<any[]>('replenishment/rules');

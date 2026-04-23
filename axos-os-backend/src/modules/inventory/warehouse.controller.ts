@@ -24,4 +24,15 @@ export class WarehouseController {
   async completeTask(@Param('id') id: number, @Body('actor') actor: string) {
     return this.warehouseService.completeTask(id, actor);
   }
+
+  // Picking
+  @Get('picking/backlog')
+  async getPickingBacklog(@Query('warehouseId') warehouseId: string) {
+    return this.warehouseService.getPickingBacklog(warehouseId);
+  }
+
+  @Post('picking/:id/exception')
+  async handleException(@Param('id') id: number, @Body() exception: any) {
+    return this.warehouseService.handlePickException(id, exception);
+  }
 }
