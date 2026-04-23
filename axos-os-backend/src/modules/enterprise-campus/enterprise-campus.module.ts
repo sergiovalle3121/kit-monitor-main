@@ -34,5 +34,6 @@ import { EnterprisePlanLink } from './entities/enterprise-plan-link.entity';
   ],
   controllers: [EnterpriseCampusController],
   providers: [EnterpriseCampusService],
+  exports: [EnterpriseCampusService],
 })
 export class EnterpriseCampusModule {}
