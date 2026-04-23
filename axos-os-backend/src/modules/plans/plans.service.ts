@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, Repository, SelectQueryBuilder } from 'typeorm';
 import { EnterpriseProgram } from '../enterprise-campus/entities/enterprise-program.entity';
 import { EnterpriseLine } from '../enterprise-campus/entities/enterprise-line.entity';
 import { Plan } from './entities/plan.entity';
@@ -20,12 +20,12 @@ export class PlansService {
   ) {}
 
   async findAll(scope?: { line?: string; model?: string; workOrder?: string; buildingId?: string; programId?: string }): Promise<any[]> {
-    const plans = await this.repo.find({
-      relations: ['kit'],
-      order: { createdAt: 'DESC' },
-    });
-    const filtered = await this.applyScope(plans, scope);
-    return filtered.map((plan) => this.serialize(plan));
+    const qb = this.repo.createQueryBuilder('plan')
+      .leftJoinAndSelect('plan.kit', 'kit')
+      .orderBy('plan.createdAt', 'DESC');
+    await this.applyScopeToQb(qb, scope);
+    const plans = await qb.getMany();
+    return plans.map((plan) => this.serialize(plan));
   }
 
   async findOne(id: number): Promise<any> {
@@ -91,27 +91,42 @@ export class PlansService {
   }
 
 
-  private async applyScope(plans: Plan[], scope?: { line?: string; model?: string; workOrder?: string; buildingId?: string; programId?: string }): Promise<Plan[]> {
-    if (!scope) return plans;
-    let list = [...plans];
+  private async applyScopeToQb(
+    qb: SelectQueryBuilder<Plan>,
+    scope?: { line?: string; model?: string; workOrder?: string; buildingId?: string; programId?: string },
+  ): Promise<void> {
+    if (!scope) return;
 
-    if (scope.line) list = list.filter((plan) => String(plan.line) === String(scope.line));
-    if (scope.model) list = list.filter((plan) => plan.model?.toUpperCase().includes(String(scope.model).toUpperCase()));
-    if (scope.workOrder) list = list.filter((plan) => plan.workOrder?.toUpperCase().includes(String(scope.workOrder).toUpperCase()));
-
+    if (scope.model) {
+      qb.andWhere('UPPER(plan.model) LIKE :model', { model: `%${scope.model.toUpperCase()}%` });
+    }
+    if (scope.workOrder) {
+      qb.andWhere('UPPER(plan.workOrder) LIKE :workOrder', { workOrder: `%${scope.workOrder.toUpperCase()}%` });
+    }
+    if (scope.line) {
+      // line param may be an enterprise line UUID — resolve to legacy integer
+      const lineRef = await this.lineRepo.findOne({ where: { id: scope.line } });
+      const legacyNum = lineRef?.legacyLineNumber ?? parseInt(scope.line, 10);
+      if (!isNaN(legacyNum)) {
+        qb.andWhere('plan.line = :lineNum', { lineNum: legacyNum });
+      }
+    }
+    if (scope.buildingId) {
+      const lines = await this.lineRepo.find({ where: { building: { id: scope.buildingId } } as any });
+      const legacyNums = lines.map((l) => l.legacyLineNumber).filter((n): n is number => n != null);
+      if (legacyNums.length) {
+        qb.andWhere('plan.line IN (:...lineNums)', { lineNums: legacyNums });
+      } else {
+        qb.andWhere('1 = 0');
+      }
+    }
     if (scope.programId) {
       const program = await this.programRepo.findOne({ where: { id: scope.programId } });
       const prefix = program?.primaryModelPrefix?.toUpperCase();
-      if (prefix) list = list.filter((plan) => plan.model?.toUpperCase().startsWith(prefix));
+      if (prefix) {
+        qb.andWhere('UPPER(plan.model) LIKE :prefix', { prefix: `${prefix}%` });
+      }
     }
-
-    if (scope.buildingId) {
-      const lines = await this.lineRepo.find({ where: { building: { id: scope.buildingId } } as any });
-      const allowed = new Set(lines.map((line) => line.legacyLineNumber).filter((line): line is number => line != null));
-      if (allowed.size) list = list.filter((plan) => allowed.has(plan.line));
-    }
-
-    return list;
   }
 
   private async generateWorkOrder(): Promise<string> {

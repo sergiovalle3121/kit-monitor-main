@@ -328,30 +328,162 @@ nav { position:relative; z-index:2; flex:1; display:flex; flex-direction:column;
 
 /* Topbar actions */
 
-.context-strip {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
+/* ── Enterprise Context Zone ───────────────── */
+.context-zone {
+  position: relative;
+  z-index: 30;
 }
-.context-strip select, .ctx-input {
-  min-width: 160px;
-  border-radius: 8px;
+
+.ctx-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 12px;
+  border-radius: 9px;
+  border: 1px solid var(--cv-border2);
+  background: var(--cv-surface);
+  color: var(--cv-t2);
+  font-size: 0.8rem;
+  font-family: var(--font);
+  cursor: pointer;
+  max-width: 340px;
+  min-width: 140px;
+  white-space: nowrap;
+  overflow: hidden;
+  transition: all var(--t) var(--ease);
+}
+.ctx-trigger:hover {
+  background: var(--cv-card);
+  border-color: rgba(14,165,233,0.3);
+  color: var(--cv-t1);
+}
+.ctx-trigger--active {
+  background: rgba(14,165,233,0.06);
+  border-color: rgba(14,165,233,0.32);
+  color: var(--cv-t1);
+}
+.ctx-trigger-icon { font-size: 0.82rem; color: var(--cv-t3); flex-shrink: 0; }
+.ctx-trigger--active .ctx-trigger-icon { color: var(--accent); }
+
+.ctx-all-scope-label { color: var(--cv-t3); font-style: italic; }
+
+.ctx-token-bar {
+  display: flex;
+  gap: 4px;
+  overflow: hidden;
+  flex: 1;
+}
+.ctx-token {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(14,165,233,0.1);
+  border: 1px solid rgba(14,165,233,0.22);
+  color: var(--accent-2);
+  font-size: 0.73rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.ctx-token-x {
+  border: none;
+  background: transparent;
+  color: var(--cv-t3);
+  cursor: pointer;
+  font-size: 0.88rem;
+  line-height: 1;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  transition: color var(--t);
+}
+.ctx-token-x:hover { color: var(--red); }
+
+.ctx-chevron {
+  font-size: 0.6rem;
+  color: var(--cv-t4);
+  flex-shrink: 0;
+  margin-left: auto;
+  transition: transform var(--t) var(--ease);
+}
+.ctx-chevron--open { transform: rotate(180deg); }
+
+/* Context panel dropdown */
+.ctx-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  width: 272px;
+  border-radius: 13px;
   border: 1px solid var(--cv-border2);
   background: var(--cv-card);
-  color: var(--cv-t2);
-  padding: 7px 10px;
-  font-size: 0.78rem;
+  box-shadow: 0 16px 40px rgba(15,30,60,0.13), 0 2px 8px rgba(15,30,60,0.07);
+  padding: 14px;
+  z-index: 35;
+  animation: dropPanel 0.18s var(--ease) both;
 }
-.ctx-clear {
-  border: 1px solid rgba(220,38,38,0.3);
-  color: #b91c1c;
-  background: rgba(220,38,38,0.08);
+.ctx-panel-title {
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--cv-t3);
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--cv-border);
+}
+.ctx-panel-field {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+.ctx-field-label {
+  font-size: 0.67rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--cv-t3);
+}
+.ctx-panel-field select {
+  width: 100%;
+  padding: 7px 10px;
   border-radius: 8px;
-  padding: 7px 10px;
-  font-size: 0.74rem;
+  border: 1px solid var(--cv-border2);
+  background: var(--cv-surface);
+  color: var(--cv-t1);
+  font-size: 0.82rem;
+  font-family: var(--font);
   cursor: pointer;
+  transition: border-color var(--t), box-shadow var(--t);
 }
+.ctx-panel-field select:focus {
+  outline: none;
+  border-color: rgba(14,165,233,0.4);
+  box-shadow: 0 0 0 3px rgba(14,165,233,0.1);
+}
+.ctx-panel-footer {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--cv-border);
+  display: flex;
+  justify-content: flex-end;
+}
+.ctx-clear-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid rgba(220,38,38,0.22);
+  background: rgba(220,38,38,0.05);
+  color: var(--red);
+  border-radius: 7px;
+  padding: 6px 12px;
+  font-size: 0.76rem;
+  font-family: var(--font);
+  cursor: pointer;
+  transition: background var(--t);
+}
+.ctx-clear-btn:hover { background: rgba(220,38,38,0.1); }
 
 .topbar-actions { display:flex; align-items:center; gap:9px; z-index:40; position:relative; }
 .action-wrap { position:relative; }

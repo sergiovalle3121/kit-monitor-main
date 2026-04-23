@@ -38,36 +38,47 @@ export class ResuppliesService {
   }
 
   async findAll(scope?: ScopeQuery): Promise<Resupply[]> {
-    const rows = await this.repo.find({
-      relations: ['kit', 'kit.plan'],
-      order: { requestedAt: 'DESC' },
-      take: 500,
-    });
-    return this.applyScope(rows, scope);
+    const qb = this.repo.createQueryBuilder('resupply')
+      .leftJoinAndSelect('resupply.kit', 'kit')
+      .leftJoinAndSelect('kit.plan', 'plan')
+      .orderBy('resupply.requestedAt', 'DESC')
+      .take(500);
+    await this.applyScopeToQb(qb, scope);
+    return qb.getMany();
   }
 
+  private async applyScopeToQb(qb: import('typeorm').SelectQueryBuilder<Resupply>, scope?: ScopeQuery): Promise<void> {
+    if (!scope) return;
 
-  private async applyScope(rows: Resupply[], scope?: ScopeQuery): Promise<Resupply[]> {
-    if (!scope) return rows;
-    let list = [...rows];
-
-    if (scope.line) list = list.filter((row) => String(row.kit?.plan?.line ?? '') === String(scope.line));
-    if (scope.model) list = list.filter((row) => (row.kit?.plan?.model ?? '').toUpperCase().includes(String(scope.model).toUpperCase()));
-    if (scope.workOrder) list = list.filter((row) => (row.kit?.plan?.workOrder ?? '').toUpperCase().includes(String(scope.workOrder).toUpperCase()));
-
+    if (scope.model) {
+      qb.andWhere('UPPER(plan.model) LIKE :model', { model: `%${scope.model.toUpperCase()}%` });
+    }
+    if (scope.workOrder) {
+      qb.andWhere('UPPER(plan.workOrder) LIKE :workOrder', { workOrder: `%${scope.workOrder.toUpperCase()}%` });
+    }
+    if (scope.line) {
+      const lineRef = await this.lineRepo.findOne({ where: { id: scope.line } });
+      const legacyNum = lineRef?.legacyLineNumber ?? parseInt(scope.line, 10);
+      if (!isNaN(legacyNum)) {
+        qb.andWhere('plan.line = :lineNum', { lineNum: legacyNum });
+      }
+    }
+    if (scope.buildingId) {
+      const lines = await this.lineRepo.find({ where: { building: { id: scope.buildingId } } as any });
+      const legacyNums = lines.map((l) => l.legacyLineNumber).filter((n): n is number => n != null);
+      if (legacyNums.length) {
+        qb.andWhere('plan.line IN (:...lineNums)', { lineNums: legacyNums });
+      } else {
+        qb.andWhere('1 = 0');
+      }
+    }
     if (scope.programId) {
       const program = await this.programRepo.findOne({ where: { id: scope.programId } });
       const prefix = program?.primaryModelPrefix?.toUpperCase();
-      if (prefix) list = list.filter((row) => (row.kit?.plan?.model ?? '').toUpperCase().startsWith(prefix));
+      if (prefix) {
+        qb.andWhere('UPPER(plan.model) LIKE :prefix', { prefix: `${prefix}%` });
+      }
     }
-
-    if (scope.buildingId) {
-      const lines = await this.lineRepo.find({ where: { building: { id: scope.buildingId } } as any });
-      const allowed = new Set(lines.map((line) => line.legacyLineNumber).filter((line): line is number => line != null));
-      if (allowed.size) list = list.filter((row) => allowed.has(row.kit?.plan?.line ?? -1));
-    }
-
-    return list;
   }
 
   async findOne(id: number): Promise<Resupply> {
