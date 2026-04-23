@@ -32,4 +32,20 @@ export class QualityController {
   ) {
     return this.qualityService.releaseHold(id, releasedBy);
   }
+
+  // Quarantine Transfers
+  @Get('transfers')
+  async getTransfers() {
+    return this.qualityService.findTransfers();
+  }
+
+  @Post('transfers')
+  async requestTransfer(@Body() dto: any) {
+    return this.qualityService.requestQuarantineTransfer(dto);
+  }
+
+  @Patch('transfers/:id/complete')
+  async completeTransfer(@Param('id') id: number, @Body('actor') actor: string) {
+    return this.qualityService.completeQuarantineTransfer(id, actor);
+  }
 }

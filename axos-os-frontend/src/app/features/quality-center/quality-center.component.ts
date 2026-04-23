@@ -16,6 +16,8 @@ export class QualityCenterComponent implements OnInit {
   
   loading = true;
   activeHolds: any[] = [];
+  transfers: any[] = [];
+  activeTab: 'holds' | 'transfers' = 'holds';
   
   // Create hold form
   holdForm = {
@@ -26,8 +28,21 @@ export class QualityCenterComponent implements OnInit {
     notes: ''
   };
 
+  // Transfer form
+  transferForm = {
+    holdId: 0,
+    quantity: 0,
+    sourceWarehouseId: '',
+    sourceLocation: '',
+    destWarehouseId: 'WH-QUARANTINE',
+    destLocation: 'QUARANTINE-01'
+  };
+
+  showTransferModal = false;
+
   ngOnInit() {
     this.loadHolds();
+    this.loadTransfers();
   }
 
   loadHolds() {
@@ -38,6 +53,40 @@ export class QualityCenterComponent implements OnInit {
         this.loading = false;
       },
       error: () => this.loading = false
+    });
+  }
+
+  loadTransfers() {
+    this.api.getQuarantineTransfers().subscribe({
+      next: (data) => this.transfers = data
+    });
+  }
+
+  openTransferRequest(hold: any) {
+    this.transferForm.holdId = hold.id;
+    this.transferForm.quantity = 0;
+    this.transferForm.sourceWarehouseId = hold.level === 'WAREHOUSE' ? hold.levelValue : '';
+    this.showTransferModal = true;
+  }
+
+  requestTransfer() {
+    this.api.requestQuarantineTransfer({
+      ...this.transferForm,
+      requestedBy: 'QA Operator'
+    }).subscribe({
+      next: () => {
+        this.loadTransfers();
+        this.showTransferModal = false;
+      }
+    });
+  }
+
+  completeTransfer(id: number) {
+    this.api.completeQuarantineTransfer(id, 'Logistics Lead').subscribe({
+      next: () => {
+        this.loadTransfers();
+        this.loadHolds();
+      }
     });
   }
 

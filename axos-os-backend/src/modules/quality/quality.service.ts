@@ -2,7 +2,9 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { QualityHold, QualityHoldLevel } from './entities/quality-hold.entity';
+import { QuarantineTransfer } from './entities/quarantine-transfer.entity';
 import { InventoryPosition } from '../inventory/entities/inventory-position.entity';
+import { InventoryService } from '../inventory/inventory.service';
 import { EventLedgerService } from '../event-ledger/event-ledger.service';
 import { EventDomain } from '../event-ledger/entities/ledger-event.entity';
 
@@ -11,9 +13,12 @@ export class QualityService {
   constructor(
     @InjectRepository(QualityHold)
     private readonly holdRepo: Repository<QualityHold>,
+    @InjectRepository(QuarantineTransfer)
+    private readonly transferRepo: Repository<QuarantineTransfer>,
     @InjectRepository(InventoryPosition)
     private readonly positionRepo: Repository<InventoryPosition>,
     private readonly eventLedger: EventLedgerService,
+    private readonly inventory: InventoryService,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -133,5 +138,84 @@ export class QualityService {
       if (hold.level === 'PROGRAM' && hold.levelValue === context.programId) return true;
     }
     return false;
+  }
+
+  // --- QUARANTINE TRANSFERS ---
+
+  async findTransfers(): Promise<QuarantineTransfer[]> {
+    return this.transferRepo.find({ 
+      relations: ['hold'],
+      order: { createdAt: 'DESC' }
+    });
+  }
+
+  async requestQuarantineTransfer(dto: {
+    holdId: number;
+    quantity: number;
+    sourceWarehouseId: string;
+    sourceLocation: string;
+    destWarehouseId: string;
+    destLocation: string;
+    requestedBy: string;
+  }): Promise<QuarantineTransfer> {
+    const hold = await this.holdRepo.findOne({ where: { id: dto.holdId } });
+    if (!hold) throw new NotFoundException('Hold not found');
+
+    const transfer = this.transferRepo.create({
+      ...dto,
+      partNumber: hold.partNumber,
+      status: 'pending'
+    });
+    const saved = await this.transferRepo.save(transfer);
+
+    await this.eventLedger.recordEvent({
+      domain: EventDomain.QUALITY,
+      action: 'QUARANTINE_TRANSFER_REQUESTED',
+      actorName: dto.requestedBy,
+      referenceType: 'QUARANTINE_TRANSFER',
+      referenceId: saved.id.toString(),
+      metadata: { partNumber: hold.partNumber, qty: dto.quantity }
+    });
+
+    return saved;
+  }
+
+  async completeQuarantineTransfer(id: number, actor: string): Promise<QuarantineTransfer> {
+    const transfer = await this.transferRepo.findOne({ where: { id }, relations: ['hold'] });
+    if (!transfer) throw new NotFoundException('Transfer not found');
+    if (transfer.status !== 'pending') throw new Error('Transfer already processed');
+
+    // Perform Physical Movement in Inventory Backbone
+    await this.inventory.recordTransaction({
+      type: 'TRANSFER',
+      partNumber: transfer.partNumber,
+      quantity: transfer.quantity,
+      fromWarehouseId: transfer.sourceWarehouseId,
+      fromLocation: transfer.sourceLocation,
+      toWarehouseId: transfer.destWarehouseId,
+      toLocation: transfer.destLocation,
+      actorName: actor,
+      referenceType: 'QUARANTINE_TRANSFER',
+      referenceId: transfer.id.toString(),
+      reason: `Quarantine Containment: ${transfer.hold.reason}`
+    });
+
+    // Update Status
+    transfer.status = 'completed';
+    transfer.completedBy = actor;
+    transfer.completedAt = new Date();
+    const updated = await this.transferRepo.save(transfer);
+
+    // Update inventory position hold status to 'quarantine' in destination
+    await this.positionRepo.update(
+      { 
+        partNumber: transfer.partNumber, 
+        warehouseId: transfer.destWarehouseId, 
+        location: transfer.destLocation 
+      },
+      { holdStatus: 'quarantine' }
+    );
+
+    return updated;
   }
 }

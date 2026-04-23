@@ -1,7 +1,12 @@
 <div class="quality-container">
   <app-enterprise-context-banner title="Quality Hold Engine" subtitle="Control preventivo y contención de materiales no conformes"></app-enterprise-context-banner>
 
-  <div class="main-layout">
+  <div class="tabs-nav">
+    <button [class.active]="activeTab === 'holds'" (click)="activeTab = 'holds'">Active Holds</button>
+    <button [class.active]="activeTab === 'transfers'" (click)="activeTab = 'transfers'">Quarantine Transfers</button>
+  </div>
+
+  <div class="main-layout" *ngIf="activeTab === 'holds'">
     <!-- HOLD CREATION PANEL -->
     <aside class="hold-panel">
       <header>
@@ -76,7 +81,10 @@
               <span>Held by: {{ hold.heldBy }}</span>
               <span>{{ hold.createdAt | date:'short' }}</span>
             </div>
-            <button class="btn-release" (click)="releaseHold(hold.id)">Liberar</button>
+            <div class="actions">
+              <button class="btn-quarantine" (click)="openTransferRequest(hold)">Segregar</button>
+              <button class="btn-release" (click)="releaseHold(hold.id)">Liberar</button>
+            </div>
           </div>
         </div>
 
@@ -91,5 +99,85 @@
         <p>Sincronizando estados de calidad...</p>
       </div>
     </section>
+  </div>
+
+  <!-- TRANSFERS SECTION -->
+  <div class="transfers-view" *ngIf="activeTab === 'transfers'">
+    <header class="section-header">
+      <h3>Movimientos a Cuarentena</h3>
+      <p>Logística de contención física de materiales bloqueados.</p>
+    </header>
+
+    <div class="transfers-table-container">
+      <table class="axos-table">
+        <thead>
+          <tr>
+            <th>PN</th>
+            <th>Cantidad</th>
+            <th>Origen</th>
+            <th>Destino (Cuarentena)</th>
+            <th>Estado</th>
+            <th>Solicitante</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let t of transfers">
+            <td><strong>{{ t.partNumber }}</strong></td>
+            <td>{{ t.quantity }}</td>
+            <td>{{ t.sourceWarehouseId }} / {{ t.sourceLocation }}</td>
+            <td>{{ t.destWarehouseId }} / {{ t.destLocation }}</td>
+            <td>
+              <span class="status-pill" [class]="t.status">{{ t.status }}</span>
+            </td>
+            <td>{{ t.requestedBy }}</td>
+            <td>
+              <button class="btn-complete" *ngIf="t.status === 'pending'" (click)="completeTransfer(t.id)">Confirmar Transfer</button>
+              <span *ngIf="t.status === 'completed'" class="done">Completado por {{ t.completedBy }}</span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- TRANSFER MODAL -->
+<div class="modal-overlay" *ngIf="showTransferModal">
+  <div class="modal-card">
+    <header>
+      <h3>Solicitar Transferencia a Cuarentena</h3>
+      <button class="close-btn" (click)="showTransferModal = false">✕</button>
+    </header>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Cantidad a segregar</label>
+        <input type="number" [(ngModel)]="transferForm.quantity" />
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Origen (Warehouse)</label>
+          <input type="text" [(ngModel)]="transferForm.sourceWarehouseId" />
+        </div>
+        <div class="form-group">
+          <label>Ubicación (Bin)</label>
+          <input type="text" [(ngModel)]="transferForm.sourceLocation" placeholder="Ej: LINE-01" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Destino (Cuarentena)</label>
+          <input type="text" [(ngModel)]="transferForm.destWarehouseId" />
+        </div>
+        <div class="form-group">
+          <label>Ubicación Destino</label>
+          <input type="text" [(ngModel)]="transferForm.destLocation" />
+        </div>
+      </div>
+    </div>
+    <footer>
+      <button class="btn-cancel" (click)="showTransferModal = false">Cancelar</button>
+      <button class="btn-confirm" (click)="requestTransfer()" [disabled]="!transferForm.quantity">Solicitar Movimiento</button>
+    </footer>
   </div>
 </div>

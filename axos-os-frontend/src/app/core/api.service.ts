@@ -386,6 +386,18 @@ export class ApiService {
     return this.patch<any>(`quality/holds/${id}/release`, { releasedBy });
   }
 
+  getQuarantineTransfers(): Observable<any[]> {
+    return this.get<any[]>('quality/transfers');
+  }
+
+  requestQuarantineTransfer(dto: any): Observable<any> {
+    return this.post<any>('quality/transfers', dto);
+  }
+
+  completeQuarantineTransfer(id: number, actor: string): Observable<any> {
+    return this.patch<any>(`quality/transfers/${id}/complete`, { actor });
+  }
+
 
   private contextQuery(): Record<string, string> {
     const ctx = this.context.context();
