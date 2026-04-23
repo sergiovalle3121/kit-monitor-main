@@ -81,6 +81,45 @@ export class ResuppliesService {
     }
   }
 
+  private async applyScope(rows: Resupply[], scope?: ScopeQuery): Promise<Resupply[]> {
+    if (!scope) return rows;
+
+    let lineAllowedLegacyNumbers: number[] | null = null;
+
+    if (scope.buildingId) {
+      const lines = await this.lineRepo.find({ where: { building: { id: scope.buildingId } } as any });
+      lineAllowedLegacyNumbers = lines.map((line) => line.legacyLineNumber).filter((value): value is number => value != null);
+      if (!lineAllowedLegacyNumbers.length) return [];
+    }
+
+    if (scope.line) {
+      const lineRef = await this.lineRepo.findOne({ where: { id: scope.line } });
+      const legacyNum = lineRef?.legacyLineNumber ?? parseInt(scope.line, 10);
+      if (!isNaN(legacyNum)) {
+        lineAllowedLegacyNumbers = [legacyNum];
+      }
+    }
+
+    let requiredProgramPrefix = '';
+    if (scope.programId) {
+      const program = await this.programRepo.findOne({ where: { id: scope.programId } });
+      requiredProgramPrefix = program?.primaryModelPrefix?.toUpperCase() ?? '';
+    }
+
+    return rows.filter((row) => {
+      const plan = row.kit?.plan as any;
+      const model = String(plan?.model ?? '').toUpperCase();
+      const workOrder = String(plan?.workOrder ?? '').toUpperCase();
+      const line = Number(plan?.line);
+
+      if (scope.model && !model.includes(scope.model.toUpperCase())) return false;
+      if (scope.workOrder && !workOrder.includes(scope.workOrder.toUpperCase())) return false;
+      if (lineAllowedLegacyNumbers && !lineAllowedLegacyNumbers.includes(line)) return false;
+      if (requiredProgramPrefix && !model.startsWith(requiredProgramPrefix)) return false;
+      return true;
+    });
+  }
+
   async findOne(id: number): Promise<Resupply> {
     const item = await this.repo.findOne({ where: { id }, relations: ['kit', 'kit.plan'] });
     if (!item) throw new NotFoundException(`Resupply ${id} not found`);
