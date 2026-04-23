@@ -31,14 +31,13 @@ export class ProductionRuntimeService {
   ) {}
 
   async getLines(scope?: ScopeQuery) {
-    const kits = await this.kitRepo.find({
-      where: { status: In(['preparing', 'kitted', 'ready', 'requested', 'delivered', 'in_progress', 'received', 'sent']) },
-      relations: ['plan'],
-      order: { id: 'ASC' },
-    });
-
+    const kits = await this.buildScopedKitQuery(
+      ['preparing', 'kitted', 'ready', 'requested', 'delivered', 'in_progress', 'received', 'sent'],
+      scope,
+      'ASC',
+    );
     const rows = await Promise.all(kits.map((kit) => this.buildBackendView(kit.id)));
-    return this.applyScope(rows, scope);
+    return rows.filter(Boolean);
   }
 
   async getLine(kitId: number) {
@@ -442,38 +441,58 @@ export class ProductionRuntimeService {
   }
 
 
-  private async applyScope(rows: any[], scope?: ScopeQuery): Promise<any[]> {
-    if (!scope) return rows;
-    let list = [...rows];
+  private async buildScopedKitQuery(
+    statuses: string[],
+    scope: ScopeQuery | undefined,
+    order: 'ASC' | 'DESC',
+    take?: number,
+  ): Promise<Kit[]> {
+    const qb = this.kitRepo.createQueryBuilder('kit')
+      .leftJoinAndSelect('kit.plan', 'plan')
+      .where('kit.status IN (:...statuses)', { statuses })
+      .orderBy('kit.id', order);
 
-    if (scope.line) list = list.filter((row) => String(row?.line ?? '') === String(scope.line));
-    if (scope.model) list = list.filter((row) => String(row?.model ?? '').toUpperCase().includes(String(scope.model).toUpperCase()));
-    if (scope.workOrder) list = list.filter((row) => String(row?.workOrder ?? '').toUpperCase().includes(String(scope.workOrder).toUpperCase()));
+    if (take) qb.take(take);
 
+    if (!scope) return qb.getMany();
+
+    if (scope.model) {
+      qb.andWhere('UPPER(plan.model) LIKE :model', { model: `%${scope.model.toUpperCase()}%` });
+    }
+    if (scope.workOrder) {
+      qb.andWhere('UPPER(plan.workOrder) LIKE :workOrder', { workOrder: `%${scope.workOrder.toUpperCase()}%` });
+    }
+    if (scope.line) {
+      const lineRef = await this.lineRepo.findOne({ where: { id: scope.line } });
+      const legacyNum = lineRef?.legacyLineNumber ?? parseInt(scope.line, 10);
+      if (!isNaN(legacyNum)) {
+        qb.andWhere('plan.line = :lineNum', { lineNum: legacyNum });
+      }
+    }
+    if (scope.buildingId) {
+      const lines = await this.lineRepo.find({ where: { building: { id: scope.buildingId } } as any });
+      const legacyNums = lines.map((l) => l.legacyLineNumber).filter((n): n is number => n != null);
+      if (legacyNums.length) {
+        qb.andWhere('plan.line IN (:...lineNums)', { lineNums: legacyNums });
+      } else {
+        qb.andWhere('1 = 0');
+      }
+    }
     if (scope.programId) {
       const program = await this.programRepo.findOne({ where: { id: scope.programId } });
       const prefix = program?.primaryModelPrefix?.toUpperCase();
-      if (prefix) list = list.filter((row) => String(row?.model ?? '').toUpperCase().startsWith(prefix));
+      if (prefix) {
+        qb.andWhere('UPPER(plan.model) LIKE :prefix', { prefix: `${prefix}%` });
+      }
     }
 
-    if (scope.buildingId) {
-      const lines = await this.lineRepo.find({ where: { building: { id: scope.buildingId } } as any });
-      const allowed = new Set(lines.map((line) => line.legacyLineNumber).filter((line): line is number => line != null));
-      if (allowed.size) list = list.filter((row) => allowed.has(Number(row?.line)));
-    }
-
-    return list;
+    return qb.getMany();
   }
 
   async getCompleted(scope?: ScopeQuery) {
-    const kits = await this.kitRepo.find({
-      where: { status: 'completed' },
-      relations: ['plan'],
-      order: { id: 'DESC' },
-      take: 100,
-    });
+    const kits = await this.buildScopedKitQuery(['completed'], scope, 'DESC', 100);
     const rows = await Promise.all(kits.map((kit) => this.buildBackendView(kit.id)));
-    return this.applyScope(rows, scope);
+    return rows.filter(Boolean);
   }
 
   async getShortageRisk(kitId: number) {

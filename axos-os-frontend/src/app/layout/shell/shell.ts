@@ -55,11 +55,13 @@ export class ShellComponent implements OnInit, OnDestroy {
   searchResults: SearchResult[] = [];
   showUserPanel = false;
   showNotifications = false;
+  showContextPanel = false;
   notifications: ShellNotification[] = [];
   @ViewChild('searchInput') searchInput?: ElementRef<HTMLInputElement>;
   @ViewChild('searchWrapper') searchWrapper?: ElementRef<HTMLElement>;
   @ViewChild('notificationsWrap') notificationsWrap?: ElementRef<HTMLElement>;
   @ViewChild('userWrap') userWrap?: ElementRef<HTMLElement>;
+  @ViewChild('contextWrap') contextWrap?: ElementRef<HTMLElement>;
   private notificationsTimerId: number | null = null;
 
   readonly navGroups: NavGroupConfig[] = [
@@ -260,12 +262,45 @@ export class ShellComponent implements OnInit, OnDestroy {
   }
 
 
+  toggleContextPanel(): void {
+    this.showContextPanel = !this.showContextPanel;
+  }
+
+  clearContextToken(key: string, event: MouseEvent): void {
+    event.stopPropagation();
+    this.enterpriseContext.update({ [key]: undefined });
+  }
+
+  get hasActiveContext(): boolean {
+    const ctx = this.enterpriseContext.context();
+    return !!(ctx.buildingId || ctx.programId || ctx.lineId);
+  }
+
+  get activeContextTokens(): Array<{ label: string; key: string }> {
+    const ctx = this.enterpriseContext.context();
+    const tokens: Array<{ label: string; key: string }> = [];
+    if (ctx.buildingId) {
+      const b = this.enterpriseContext.buildings().find((x) => x.id === ctx.buildingId);
+      tokens.push({ label: b ? b.code : ctx.buildingId, key: 'buildingId' });
+    }
+    if (ctx.programId) {
+      const p = this.enterpriseContext.programs().find((x) => x.id === ctx.programId);
+      tokens.push({ label: p ? p.code : ctx.programId, key: 'programId' });
+    }
+    if (ctx.lineId) {
+      const l = this.enterpriseContext.lines().find((x) => x.id === ctx.lineId);
+      tokens.push({ label: l ? l.code : ctx.lineId, key: 'lineId' });
+    }
+    return tokens;
+  }
+
   onContextChange(field: string, value: string): void {
     this.enterpriseContext.update({ [field]: value || undefined });
   }
 
   clearEnterpriseContext(): void {
     this.enterpriseContext.clear();
+    this.showContextPanel = false;
   }
 
   stateLabel(state: ModuleState): string {
@@ -281,6 +316,7 @@ export class ShellComponent implements OnInit, OnDestroy {
     if (this.searchWrapper?.nativeElement && !this.searchWrapper.nativeElement.contains(target)) this.showSearchResults = false;
     if (this.notificationsWrap?.nativeElement && !this.notificationsWrap.nativeElement.contains(target)) this.showNotifications = false;
     if (this.userWrap?.nativeElement && !this.userWrap.nativeElement.contains(target)) this.showUserPanel = false;
+    if (this.contextWrap?.nativeElement && !this.contextWrap.nativeElement.contains(target)) this.showContextPanel = false;
   }
 
   @HostListener('document:keydown.escape')
@@ -288,6 +324,7 @@ export class ShellComponent implements OnInit, OnDestroy {
     this.showSearchResults = false;
     this.showNotifications = false;
     this.showUserPanel = false;
+    this.showContextPanel = false;
   }
 
   clearNotifications(): void {

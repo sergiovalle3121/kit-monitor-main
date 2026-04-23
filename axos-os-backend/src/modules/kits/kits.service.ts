@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, Repository, SelectQueryBuilder } from 'typeorm';
 import { Kit } from './entities/kit.entity';
 import { Plan } from '../plans/entities/plan.entity';
 import { BomItem } from '../bom/entities/bom-item.entity';
@@ -30,36 +30,52 @@ export class KitsService {
   ) {}
 
   async findAll(scope?: { line?: string; model?: string; workOrder?: string; buildingId?: string; programId?: string }): Promise<any[]> {
-    const kits = await this.repo.find({
-      relations: ['plan', 'materials', 'advances', 'exceptions'],
-      order: { createdAt: 'DESC' },
-    });
-    const filtered = await this.applyScope(kits, scope);
-    return filtered.map((kit) => this.withTotalCompleted(kit));
+    const qb = this.repo.createQueryBuilder('kit')
+      .leftJoinAndSelect('kit.plan', 'plan')
+      .leftJoinAndSelect('kit.materials', 'materials')
+      .leftJoinAndSelect('kit.advances', 'advances')
+      .leftJoinAndSelect('kit.exceptions', 'exceptions')
+      .orderBy('kit.createdAt', 'DESC');
+    await this.applyScopeToQb(qb, scope);
+    const kits = await qb.getMany();
+    return kits.map((kit) => this.withTotalCompleted(kit));
   }
 
+  private async applyScopeToQb(
+    qb: SelectQueryBuilder<Kit>,
+    scope?: { line?: string; model?: string; workOrder?: string; buildingId?: string; programId?: string },
+  ): Promise<void> {
+    if (!scope) return;
 
-  private async applyScope(kits: Kit[], scope?: { line?: string; model?: string; workOrder?: string; buildingId?: string; programId?: string }): Promise<Kit[]> {
-    if (!scope) return kits;
-    let list = [...kits];
-
-    if (scope.line) list = list.filter((kit) => String(kit.plan?.line ?? '') === String(scope.line));
-    if (scope.model) list = list.filter((kit) => (kit.plan?.model ?? '').toUpperCase().includes(String(scope.model).toUpperCase()));
-    if (scope.workOrder) list = list.filter((kit) => (kit.plan?.workOrder ?? '').toUpperCase().includes(String(scope.workOrder).toUpperCase()));
-
+    if (scope.model) {
+      qb.andWhere('UPPER(plan.model) LIKE :model', { model: `%${scope.model.toUpperCase()}%` });
+    }
+    if (scope.workOrder) {
+      qb.andWhere('UPPER(plan.workOrder) LIKE :workOrder', { workOrder: `%${scope.workOrder.toUpperCase()}%` });
+    }
+    if (scope.line) {
+      const lineRef = await this.lineRepo.findOne({ where: { id: scope.line } });
+      const legacyNum = lineRef?.legacyLineNumber ?? parseInt(scope.line, 10);
+      if (!isNaN(legacyNum)) {
+        qb.andWhere('plan.line = :lineNum', { lineNum: legacyNum });
+      }
+    }
+    if (scope.buildingId) {
+      const lines = await this.lineRepo.find({ where: { building: { id: scope.buildingId } } as any });
+      const legacyNums = lines.map((l) => l.legacyLineNumber).filter((n): n is number => n != null);
+      if (legacyNums.length) {
+        qb.andWhere('plan.line IN (:...lineNums)', { lineNums: legacyNums });
+      } else {
+        qb.andWhere('1 = 0');
+      }
+    }
     if (scope.programId) {
       const program = await this.programRepo.findOne({ where: { id: scope.programId } });
       const prefix = program?.primaryModelPrefix?.toUpperCase();
-      if (prefix) list = list.filter((kit) => (kit.plan?.model ?? '').toUpperCase().startsWith(prefix));
+      if (prefix) {
+        qb.andWhere('UPPER(plan.model) LIKE :prefix', { prefix: `${prefix}%` });
+      }
     }
-
-    if (scope.buildingId) {
-      const lines = await this.lineRepo.find({ where: { building: { id: scope.buildingId } } as any });
-      const allowed = new Set(lines.map((line) => line.legacyLineNumber).filter((line): line is number => line != null));
-      if (allowed.size) list = list.filter((kit) => allowed.has(kit.plan?.line ?? -1));
-    }
-
-    return list;
   }
 
   async findOne(id: number): Promise<any> {
