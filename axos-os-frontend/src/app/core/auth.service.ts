@@ -33,7 +33,7 @@ export class AuthService {
 
   logout(): void {
     localStorage.removeItem(TOKEN_KEY);
-    this.router.navigateByUrl('/login');
+    this.router.navigateByUrl('/');
   }
 
   isLoggedIn(): boolean {
