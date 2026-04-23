@@ -1,0 +1,99 @@
+<div class="ncr-container">
+  <app-enterprise-context-banner title="NCR Engine" subtitle="Gestión formal de no conformidades y calidad industrial"></app-enterprise-context-banner>
+
+  <header class="ncr-header">
+    <div class="stats">
+      <article><span>Total NCRs</span><strong>{{ ncrs.length }}</strong></article>
+      <article><span>Open</span><strong>{{ openNcrs.length }}</strong></article>
+      <article><span>Critical</span><strong class="danger">{{ criticalNcrs.length }}</strong></article>
+    </div>
+    <button class="btn-primary" (click)="showCreateModal = true">Crear Nuevo NCR</button>
+  </header>
+
+  <section class="ncr-list-view">
+    <div class="loader" *ngIf="loading">Cargando registros...</div>
+    
+    <table class="axos-table" *ngIf="!loading">
+      <thead>
+        <tr>
+          <th>NCR #</th>
+          <th>Material / PN</th>
+          <th>Estado</th>
+          <th>Severidad</th>
+          <th>Categoría</th>
+          <th>Creado</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let ncr of ncrs">
+          <td><strong>{{ ncr.ncrNumber }}</strong></td>
+          <td>{{ ncr.partNumber }} <br><small>{{ ncr.workOrder || 'N/A' }}</small></td>
+          <td><span class="status-pill" [class]="ncr.status">{{ ncr.status }}</span></td>
+          <td><span class="severity-pill" [class]="ncr.severity">{{ ncr.severity }}</span></td>
+          <td>{{ ncr.category }}</td>
+          <td>{{ ncr.createdAt | date:'shortDate' }}</td>
+          <td>
+            <button class="btn-text" (click)="updateStatus(ncr.id, 'under_review')" *ngIf="ncr.status === 'open'">Revisar</button>
+            <button class="btn-text" (click)="updateStatus(ncr.id, 'closed')" *ngIf="ncr.status !== 'closed'">Cerrar</button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+</div>
+
+<!-- CREATE MODAL -->
+<div class="modal-overlay" *ngIf="showCreateModal">
+  <div class="modal-card">
+    <header>
+      <h3>Registrar Nueva No Conformidad (NCR)</h3>
+      <button class="close-btn" (click)="showCreateModal = false">✕</button>
+    </header>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Part Number</label>
+          <input type="text" [(ngModel)]="ncrForm.partNumber" />
+        </div>
+        <div class="form-group">
+          <label>Cantidad Afectada</label>
+          <input type="number" [(ngModel)]="ncrForm.quantityAffected" />
+        </div>
+        <div class="form-group">
+          <label>Severidad</label>
+          <select [(ngModel)]="ncrForm.severity">
+            <option value="minor">Minor</option>
+            <option value="major">Major</option>
+            <option value="critical">Critical</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Origen</label>
+          <select [(ngModel)]="ncrForm.sourceType">
+            <option value="incoming">Incoming</option>
+            <option value="in-process">In-Process</option>
+            <option value="warehouse">Warehouse</option>
+            <option value="outgoing">Outgoing</option>
+          </select>
+        </div>
+        <div class="form-group full">
+          <label>Descripción del Hallazgo</label>
+          <textarea [(ngModel)]="ncrForm.description" rows="4"></textarea>
+        </div>
+        <div class="form-group">
+          <label>Work Order</label>
+          <input type="text" [(ngModel)]="ncrForm.workOrder" />
+        </div>
+        <div class="form-group">
+          <label>Lote / Serial</label>
+          <input type="text" [(ngModel)]="ncrForm.lotNumber" />
+        </div>
+      </div>
+    </div>
+    <footer>
+      <button class="btn-cancel" (click)="showCreateModal = false">Cancelar</button>
+      <button class="btn-confirm" (click)="createNcr()">Generar NCR</button>
+    </footer>
+  </div>
+</div>

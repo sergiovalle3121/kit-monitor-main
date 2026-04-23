@@ -104,6 +104,11 @@ export const routes: Routes = [
           import('./features/quality-center/quality-center.component').then(m => m.QualityCenterComponent),
       },
       {
+        path: 'ncr-center',
+        loadComponent: () =>
+          import('./features/ncr-center/ncr-center.component').then(m => m.NcrCenterComponent),
+      },
+      {
         path: 'roadmap/:domain/:module',
         loadComponent: () =>
           import('./features/enterprise-placeholder/enterprise-placeholder.component').then(m => m.EnterprisePlaceholderComponent),

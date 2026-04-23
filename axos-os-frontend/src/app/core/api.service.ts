@@ -398,6 +398,19 @@ export class ApiService {
     return this.patch<any>(`quality/transfers/${id}/complete`, { actor });
   }
 
+  // NCR Management
+  getAllNcrs(filters: any = {}): Observable<any[]> {
+    return this.get<any[]>('ncr', filters);
+  }
+
+  createNcr(dto: any): Observable<any> {
+    return this.post<any>('ncr', dto);
+  }
+
+  updateNcrStatus(id: number, status: string, actor: string): Observable<any> {
+    return this.patch<any>(`ncr/${id}/status`, { status, actor });
+  }
+
 
   private contextQuery(): Record<string, string> {
     const ctx = this.context.context();
