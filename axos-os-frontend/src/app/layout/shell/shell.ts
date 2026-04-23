@@ -7,6 +7,24 @@ import { filter, forkJoin } from 'rxjs';
 import { ApiService } from '../../core/api.service';
 import { ConfirmModalComponent } from '../../shared/confirm-modal/confirm-modal.component';
 
+type ModuleState = 'active' | 'partial' | 'planned';
+
+interface NavItemConfig {
+  label: string;
+  route: string;
+  icon: string;
+  state: ModuleState;
+  note?: string;
+}
+
+interface NavGroupConfig {
+  id: string;
+  label: string;
+  short: string;
+  icon: string;
+  items: NavItemConfig[];
+}
+
 interface SearchResult {
   label: string;
   route: string;
@@ -43,24 +61,141 @@ export class ShellComponent implements OnInit, OnDestroy {
   @ViewChild('userWrap') userWrap?: ElementRef<HTMLElement>;
   private notificationsTimerId: number | null = null;
 
-  private readonly modulesCatalog: SearchResult[] = [
-    { label: 'Control Tower — Enterprise Overview', route: '/control-tower', category: 'modulos' },
-    { label: 'Control Tower', route: '/control-tower', category: 'modulos' },
-    { label: 'Live Lines Monitor', route: '/monitor', category: 'modulos' },
-    { label: 'Production Plan', route: '/plan', category: 'modulos' },
-    { label: 'Decision Intelligence', route: '/forecast', category: 'modulos' },
-    { label: 'Warehouse / Receiving', route: '/', category: 'modulos' },
-    { label: 'Inventory Control', route: '/', category: 'modulos' },
-    { label: 'Kitting Execution', route: '/kits', category: 'modulos' },
-    { label: 'Materials / Resupply Control', route: '/materials/resupply', category: 'modulos' },
-    { label: 'Cycle Counts / Inventory Accuracy', route: '/materials/cycle-counts', category: 'modulos' },
-    { label: 'BOM / Models', route: '/bom', category: 'modulos' },
-    { label: 'Visual Aids / SOP', route: '/visual-aids', category: 'modulos' },
-    { label: 'Bay Layout', route: '/disposition', category: 'modulos' },
-    { label: 'Shopfloor Execution', route: '/production', category: 'modulos' },
-    { label: 'Hour by Hour', route: '/production/hourly', category: 'modulos' },
-    { label: 'Historical Runs', route: '/production/completed', category: 'modulos' },
+  readonly navGroups: NavGroupConfig[] = [
+    {
+      id: 'executive',
+      label: 'Executive / Command',
+      short: 'EX',
+      icon: 'fa-tower-broadcast',
+      items: [
+        { label: 'Control Tower', route: '/control-tower', icon: 'fa-globe', state: 'active' },
+        { label: 'Site Overview', route: '/roadmap/executive/site-overview', icon: 'fa-building', state: 'planned', note: 'Enterprise roadmap' },
+        { label: 'Risk Center', route: '/roadmap/executive/risk-center', icon: 'fa-triangle-exclamation', state: 'planned', note: 'Enterprise roadmap' },
+        { label: 'Analytics', route: '/roadmap/executive/analytics', icon: 'fa-chart-line', state: 'partial', note: 'Using Forecast + KPIs' },
+        { label: 'Cost & Risk', route: '/roadmap/executive/cost-risk', icon: 'fa-sack-dollar', state: 'planned', note: 'Enterprise roadmap' },
+      ],
+    },
+    {
+      id: 'supply',
+      label: 'Supply Chain / Materials',
+      short: 'SC',
+      icon: 'fa-box-open',
+      items: [
+        { label: 'Receiving / Inbound', route: '/roadmap/materials/receiving', icon: 'fa-dolly', state: 'planned', note: 'Foundation pending' },
+        { label: 'Central Warehouse', route: '/roadmap/materials/central-warehouse', icon: 'fa-warehouse', state: 'planned', note: 'Foundation pending' },
+        { label: 'Building Warehouses', route: '/roadmap/materials/building-warehouses', icon: 'fa-warehouse', state: 'planned', note: 'Foundation pending' },
+        { label: 'Inventory Control', route: '/roadmap/materials/inventory-control', icon: 'fa-barcode', state: 'planned', note: 'Foundation pending' },
+        { label: 'Kitting', route: '/kits', icon: 'fa-boxes', state: 'active' },
+        { label: 'Resupply / Pull Monitor', route: '/materials/resupply', icon: 'fa-truck-loading', state: 'active' },
+        { label: 'Cycle Counts', route: '/materials/cycle-counts', icon: 'fa-clipboard-list', state: 'active' },
+        { label: 'Material Traceability', route: '/roadmap/materials/traceability', icon: 'fa-fingerprint', state: 'planned', note: 'Roadmap' },
+        { label: 'Holds / Quarantine', route: '/roadmap/materials/quarantine', icon: 'fa-shield-halved', state: 'planned', note: 'Roadmap' },
+      ],
+    },
+    {
+      id: 'planning',
+      label: 'Planning / Program',
+      short: 'PL',
+      icon: 'fa-calendar-alt',
+      items: [
+        { label: 'Planning', route: '/plan', icon: 'fa-bullhorn', state: 'active' },
+        { label: 'Scheduling / Capacity', route: '/roadmap/planning/capacity', icon: 'fa-chart-gantt', state: 'planned', note: 'Roadmap' },
+        { label: 'Forecast / Demand', route: '/forecast', icon: 'fa-brain', state: 'active' },
+        { label: 'Program Control', route: '/roadmap/planning/program-control', icon: 'fa-briefcase', state: 'partial', note: 'Enterprise topology in progress' },
+        { label: 'Customer / Program View', route: '/control-tower', icon: 'fa-users', state: 'partial', note: 'Control Tower filters' },
+      ],
+    },
+    {
+      id: 'engineering',
+      label: 'Engineering',
+      short: 'EN',
+      icon: 'fa-chalkboard-user',
+      items: [
+        { label: 'Industrial Engineering', route: '/roadmap/engineering/ie', icon: 'fa-compass-drafting', state: 'partial', note: 'BOM/Layout foundations active' },
+        { label: 'Product Engineering', route: '/roadmap/engineering/product-engineering', icon: 'fa-microchip', state: 'planned', note: 'Roadmap' },
+        { label: 'BOM / Model Structure', route: '/bom', icon: 'fa-cubes', state: 'active' },
+        { label: 'Routing', route: '/roadmap/engineering/routing', icon: 'fa-route', state: 'planned', note: 'Roadmap' },
+        { label: 'NPI / ECO / Change Control', route: '/roadmap/engineering/npi-eco', icon: 'fa-code-branch', state: 'planned', note: 'Roadmap' },
+        { label: 'Visual Aids / SOPs', route: '/visual-aids', icon: 'fa-eye', state: 'active' },
+        { label: 'Disposition / Line Layout', route: '/disposition', icon: 'fa-vector-square', state: 'active' },
+      ],
+    },
+    {
+      id: 'execution',
+      label: 'Execution / MES',
+      short: 'MES',
+      icon: 'fa-industry',
+      items: [
+        { label: 'Production', route: '/production', icon: 'fa-tools', state: 'active' },
+        { label: 'Hour-by-Hour', route: '/production/hourly', icon: 'fa-clock', state: 'active' },
+        { label: 'Live Line Monitor', route: '/monitor', icon: 'fa-desktop', state: 'active' },
+        { label: 'WIP / Runtime', route: '/control-tower', icon: 'fa-gauge-high', state: 'partial', note: 'Topology-backed runtime' },
+        { label: 'Completed Runs', route: '/production/completed', icon: 'fa-check-circle', state: 'active' },
+        { label: 'Incidents / Andon', route: '/roadmap/execution/incidents-andon', icon: 'fa-bell', state: 'partial', note: 'Incidents foundation in runtime API' },
+      ],
+    },
+    {
+      id: 'quality',
+      label: 'Quality',
+      short: 'QA',
+      icon: 'fa-certificate',
+      items: [
+        { label: 'IQC', route: '/roadmap/quality/iqc', icon: 'fa-clipboard-check', state: 'planned' },
+        { label: 'IPQC', route: '/roadmap/quality/ipqc', icon: 'fa-vial', state: 'planned' },
+        { label: 'OQC', route: '/roadmap/quality/oqc', icon: 'fa-box-check', state: 'planned' },
+        { label: 'NCR', route: '/roadmap/quality/ncr', icon: 'fa-triangle-exclamation', state: 'planned' },
+        { label: 'CAPA', route: '/roadmap/quality/capa', icon: 'fa-screwdriver-wrench', state: 'planned' },
+        { label: 'Holds / Release', route: '/roadmap/quality/holds-release', icon: 'fa-lock', state: 'planned' },
+        { label: 'Supplier Quality', route: '/roadmap/quality/supplier-quality', icon: 'fa-handshake', state: 'planned' },
+      ],
+    },
+    {
+      id: 'logistics',
+      label: 'Logistics / Shipping',
+      short: 'LG',
+      icon: 'fa-truck-fast',
+      items: [
+        { label: 'Finished Goods', route: '/roadmap/logistics/finished-goods', icon: 'fa-box-archive', state: 'planned' },
+        { label: 'Packing', route: '/roadmap/logistics/packing', icon: 'fa-box-tape', state: 'planned' },
+        { label: 'Dispatch', route: '/roadmap/logistics/dispatch', icon: 'fa-truck-ramp-box', state: 'planned' },
+        { label: 'Shipment Status', route: '/roadmap/logistics/shipment-status', icon: 'fa-location-arrow', state: 'planned' },
+      ],
+    },
+    {
+      id: 'support',
+      label: 'Plant Support',
+      short: 'PS',
+      icon: 'fa-screwdriver-wrench',
+      items: [
+        { label: 'Maintenance', route: '/roadmap/support/maintenance', icon: 'fa-wrench', state: 'planned' },
+        { label: 'Facilities / Utilities', route: '/roadmap/support/facilities', icon: 'fa-bolt', state: 'planned' },
+        { label: 'EHS / Safety', route: '/roadmap/support/ehs', icon: 'fa-helmet-safety', state: 'planned' },
+        { label: 'Training / Certification', route: '/roadmap/support/training', icon: 'fa-user-graduate', state: 'planned' },
+        { label: 'Document Control', route: '/roadmap/support/document-control', icon: 'fa-file-lines', state: 'planned' },
+      ],
+    },
+    {
+      id: 'platform',
+      label: 'Platform / Governance',
+      short: 'PF',
+      icon: 'fa-cogs',
+      items: [
+        { label: 'Administration', route: '/roadmap/platform/administration', icon: 'fa-sliders', state: 'planned' },
+        { label: 'Users / Roles', route: '/roadmap/platform/users-roles', icon: 'fa-users-gear', state: 'planned' },
+        { label: 'Master Data', route: '/roadmap/platform/master-data', icon: 'fa-database', state: 'partial', note: 'Enterprise dimensions active' },
+        { label: 'Audit / Ledger', route: '/roadmap/platform/audit-ledger', icon: 'fa-scroll', state: 'partial', note: 'Ledger module active' },
+        { label: 'Configuration', route: '/roadmap/platform/configuration', icon: 'fa-gears', state: 'planned' },
+      ],
+    },
   ];
+
+  private readonly modulesCatalog: SearchResult[] = this.navGroups
+    .flatMap((group) => group.items.map((item) => ({
+      label: `${item.label} (${group.label})`,
+      route: item.route,
+      category: 'modulos' as const,
+      subtitle: this.stateLabel(item.state),
+    })));
 
   constructor(
     private auth: AuthService,
@@ -83,22 +218,14 @@ export class ShellComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    if (this.notificationsTimerId !== null) {
-      window.clearInterval(this.notificationsTimerId);
-    }
+    if (this.notificationsTimerId !== null) window.clearInterval(this.notificationsTimerId);
   }
 
-  toggle(): void {
-    this.collapsed = !this.collapsed;
-  }
+  toggle(): void { this.collapsed = !this.collapsed; }
 
-  toggleSection(section: string): void {
-    this.openSection = this.openSection === section ? null : section;
-  }
+  toggleSection(section: string): void { this.openSection = this.openSection === section ? null : section; }
 
-  logout(): void {
-    this.auth.logout();
-  }
+  logout(): void { this.auth.logout(); }
 
   onSearchFocus(): void {
     this.showSearchResults = true;
@@ -124,27 +251,24 @@ export class ShellComponent implements OnInit, OnDestroy {
   }
 
   toggleNotifications(): void {
-    if (!this.showNotifications) {
-      this.refreshNotifications();
-    }
+    if (!this.showNotifications) this.refreshNotifications();
     this.showNotifications = !this.showNotifications;
     this.showUserPanel = false;
+  }
+
+  stateLabel(state: ModuleState): string {
+    if (state === 'active') return 'Activo';
+    if (state === 'partial') return 'Parcial';
+    return 'Planificado';
   }
 
   @HostListener('document:click', ['$event'])
   onDocumentClick(event: MouseEvent): void {
     const target = event.target as Node | null;
     if (!target) return;
-
-    if (this.searchWrapper?.nativeElement && !this.searchWrapper.nativeElement.contains(target)) {
-      this.showSearchResults = false;
-    }
-    if (this.notificationsWrap?.nativeElement && !this.notificationsWrap.nativeElement.contains(target)) {
-      this.showNotifications = false;
-    }
-    if (this.userWrap?.nativeElement && !this.userWrap.nativeElement.contains(target)) {
-      this.showUserPanel = false;
-    }
+    if (this.searchWrapper?.nativeElement && !this.searchWrapper.nativeElement.contains(target)) this.showSearchResults = false;
+    if (this.notificationsWrap?.nativeElement && !this.notificationsWrap.nativeElement.contains(target)) this.showNotifications = false;
+    if (this.userWrap?.nativeElement && !this.userWrap.nativeElement.contains(target)) this.showUserPanel = false;
   }
 
   @HostListener('document:keydown.escape')
@@ -162,7 +286,7 @@ export class ShellComponent implements OnInit, OnDestroy {
   private computeSearchResults(): void {
     const term = this.searchTerm.trim().toUpperCase();
     if (!term) {
-      this.searchResults = this.modulesCatalog.slice(0, 6);
+      this.searchResults = this.modulesCatalog.slice(0, 8);
       return;
     }
 
@@ -173,17 +297,14 @@ export class ShellComponent implements OnInit, OnDestroy {
 
   private buildDynamicSearch(term: string): SearchResult[] {
     const results: SearchResult[] = [];
-    this.notifications
-      .filter((item) => item.message.toUpperCase().includes(term))
-      .slice(0, 3)
-      .forEach((item) => {
-        results.push({
-          label: item.message,
-          route: item.type === 'publication' ? '/plan' : '/production',
-          category: 'publicaciones',
-          subtitle: this.formatTimestamp(item.createdAt),
-        });
+    this.notifications.filter((item) => item.message.toUpperCase().includes(term)).slice(0, 3).forEach((item) => {
+      results.push({
+        label: item.message,
+        route: item.type === 'publication' ? '/plan' : '/production',
+        category: 'publicaciones',
+        subtitle: this.formatTimestamp(item.createdAt),
       });
+    });
     return results;
   }
 
@@ -203,72 +324,35 @@ export class ShellComponent implements OnInit, OnDestroy {
           createdAt: item.createdAt ?? new Date().toISOString(),
         }));
 
-        const fromReadyKits = (kits ?? [])
-          .filter((kit: any) => ['ready', 'requested'].includes(kit.status))
-          .slice(0, 8)
-          .map((kit: any) => ({
-            id: `kit-ready-${kit.id}`,
-            message: `Kit listo para línea: ${kit.plan?.model ?? 'N/A'} BK${kit.plan?.line ?? '-'}`,
-            type: 'kit_ready' as const,
-            createdAt: kit.updatedAt ?? kit.createdAt ?? new Date().toISOString(),
-          }));
+        const fromReadyKits = (kits ?? []).filter((kit: any) => ['ready', 'requested'].includes(kit.status)).slice(0, 8).map((kit: any) => ({
+          id: `kit-ready-${kit.id}`,
+          message: `Kit listo para línea: ${kit.plan?.model ?? 'N/A'} BK${kit.plan?.line ?? '-'}`,
+          type: 'kit_ready' as const,
+          createdAt: kit.updatedAt ?? kit.createdAt ?? new Date().toISOString(),
+        }));
 
-        const fromPartial = (kits ?? [])
-          .filter((kit: any) => (kit.totalCompleted ?? 0) > 0 && (kit.totalCompleted ?? 0) < (kit.plan?.quantity ?? Number.MAX_SAFE_INTEGER))
-          .slice(0, 8)
-          .map((kit: any) => ({
-            id: `kit-partial-${kit.id}`,
-            message: `Ensamble parcial ${kit.plan?.model ?? 'N/A'}: ${kit.totalCompleted}/${kit.plan?.quantity ?? 0}`,
-            type: 'partial' as const,
-            createdAt: kit.updatedAt ?? kit.createdAt ?? new Date().toISOString(),
-          }));
+        const fromPartial = (kits ?? []).filter((kit: any) => (kit.totalCompleted ?? 0) > 0 && (kit.totalCompleted ?? 0) < (kit.plan?.quantity ?? Number.MAX_SAFE_INTEGER)).slice(0, 8).map((kit: any) => ({
+          id: `kit-partial-${kit.id}`,
+          message: `Ensamble parcial ${kit.plan?.model ?? 'N/A'}: ${kit.totalCompleted}/${kit.plan?.quantity ?? 0}`,
+          type: 'partial' as const,
+          createdAt: kit.updatedAt ?? kit.createdAt ?? new Date().toISOString(),
+        }));
 
-        const fromOps = (backends ?? [])
-          .filter((backend: any) => backend.status === 'in_progress')
-          .slice(0, 6)
-          .map((backend: any) => ({
-            id: `ops-${backend.kitId}`,
-            message: `Operación activa ${backend.lineCode ?? `BK${backend.line}`}: ${backend.model ?? 'N/A'}`,
-            type: 'ops' as const,
-            createdAt: backend.startedAt ?? new Date().toISOString(),
-          }));
+        const fromOps = (backends ?? []).filter((backend: any) => backend.status === 'in_progress').slice(0, 6).map((backend: any) => ({
+          id: `ops-${backend.kitId}`,
+          message: `Operación activa ${backend.lineCode ?? `BK${backend.line}`}: ${backend.model ?? 'N/A'}`,
+          type: 'ops' as const,
+          createdAt: backend.startedAt ?? new Date().toISOString(),
+        }));
 
-        const fromCancellations = (cancellations ?? [])
-          .slice(0, 20)
-          .map((request: any) => {
-            const wo = request?.publication?.workOrder ?? 'WO';
-            const model = request?.publication?.model ?? 'N/A';
-            if (request.status === 'pending') {
-              return {
-                id: `cancel-${request.id}`,
-                message: `⚠️ Planeación solicita cancelar el kit ${wo} de ${model}. Tienes 30 minutos para responder.`,
-                type: 'cancellation' as const,
-                createdAt: request.createdAt ?? new Date().toISOString(),
-              };
-            }
-            if (request.status === 'accepted') {
-              return {
-                id: `cancel-${request.id}`,
-                message: `El kitteador autorizó la cancelación de ${wo}. Ya puedes eliminar la publicación.`,
-                type: 'cancellation' as const,
-                createdAt: request.respondedAt ?? request.createdAt ?? new Date().toISOString(),
-              };
-            }
-            if (request.status === 'rejected') {
-              return {
-                id: `cancel-${request.id}`,
-                message: `El kitteador rechazó la cancelación del kit ${wo}. La publicación se conserva.`,
-                type: 'cancellation' as const,
-                createdAt: request.respondedAt ?? request.createdAt ?? new Date().toISOString(),
-              };
-            }
-            return {
-              id: `cancel-${request.id}`,
-              message: `Sin respuesta del kitteador. Cancelación de ${wo} rechazada por timeout.`,
-              type: 'cancellation' as const,
-              createdAt: request.respondedAt ?? request.expiresAt ?? request.createdAt ?? new Date().toISOString(),
-            };
-          });
+        const fromCancellations = (cancellations ?? []).slice(0, 20).map((request: any) => {
+          const wo = request?.publication?.workOrder ?? 'WO';
+          const model = request?.publication?.model ?? 'N/A';
+          if (request.status === 'pending') return { id: `cancel-${request.id}`, message: `⚠️ Planeación solicita cancelar el kit ${wo} de ${model}. Tienes 30 minutos para responder.`, type: 'cancellation' as const, createdAt: request.createdAt ?? new Date().toISOString() };
+          if (request.status === 'accepted') return { id: `cancel-${request.id}`, message: `El kitteador autorizó la cancelación de ${wo}. Ya puedes eliminar la publicación.`, type: 'cancellation' as const, createdAt: request.respondedAt ?? request.createdAt ?? new Date().toISOString() };
+          if (request.status === 'rejected') return { id: `cancel-${request.id}`, message: `El kitteador rechazó la cancelación del kit ${wo}. La publicación se conserva.`, type: 'cancellation' as const, createdAt: request.respondedAt ?? request.createdAt ?? new Date().toISOString() };
+          return { id: `cancel-${request.id}`, message: `Sin respuesta del kitteador. Cancelación de ${wo} rechazada por timeout.`, type: 'cancellation' as const, createdAt: request.respondedAt ?? request.expiresAt ?? request.createdAt ?? new Date().toISOString() };
+        });
 
         const merged = [...fromPublications, ...fromReadyKits, ...fromPartial, ...fromOps, ...fromCancellations]
           .filter((item) => now - new Date(item.createdAt).getTime() < 24 * 60 * 60 * 1000)
@@ -299,31 +383,7 @@ export class ShellComponent implements OnInit, OnDestroy {
   }
 
   private syncSection(url: string): void {
-    if (url === '/control-tower' || url.startsWith('/control-tower/') || url === '/monitor') {
-      this.openSection = 'tower';
-      return;
-    }
-
-    if (url.startsWith('/plan') || url.startsWith('/forecast')) {
-      this.openSection = 'planning';
-      return;
-    }
-
-    if (url.startsWith('/kits') || url.startsWith('/conteos') || url.startsWith('/materials/cycle-counts') || url.startsWith('/materials/resupply') || url.startsWith('/production/logistics')) {
-      this.openSection = 'materials';
-      return;
-    }
-
-    if (url.startsWith('/bom') || url.startsWith('/visual-aids') || url.startsWith('/disposition')) {
-      this.openSection = 'engineering';
-      return;
-    }
-
-    if (url === '/production' || url.startsWith('/production/hourly') || url.startsWith('/production/completed')) {
-      this.openSection = 'production';
-      return;
-    }
-
-    this.openSection = null;
+    const group = this.navGroups.find((entry) => entry.items.some((item) => url === item.route || url.startsWith(`${item.route}/`)));
+    this.openSection = group?.id ?? null;
   }
 }
