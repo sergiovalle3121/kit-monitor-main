@@ -490,6 +490,22 @@ export class ApiService {
     return this.post<any>('receiving/receipt', dto);
   }
 
+  // Warehouse Operations
+  getWarehouseTasks(filters: any = {}): Observable<any[]> {
+    return this.get<any[]>('warehouse/tasks', filters);
+  }
+
+  createWarehouseTask(dto: any): Observable<any> {
+    return this.post<any>('warehouse/tasks', dto);
+  }
+
+  startWarehouseTask(id: number, actor: string): Observable<any> {
+    return this.patch<any>(`warehouse/tasks/${id}/start`, { actor });
+  }
+
+  completeWarehouseTask(id: number, actor: string): Observable<any> {
+    return this.patch<any>(`warehouse/tasks/${id}/complete`, { actor });
+  }
 
   private contextQuery(): Record<string, string> {
     const ctx = this.context.context();

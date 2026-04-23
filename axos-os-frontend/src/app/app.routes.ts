@@ -134,6 +134,11 @@ export const routes: Routes = [
           import('./features/receiving-center/receiving-center.component').then(m => m.ReceivingCenterComponent),
       },
       {
+        path: 'warehouse-center',
+        loadComponent: () =>
+          import('./features/warehouse-center/warehouse-center.component').then(m => m.WarehouseCenterComponent),
+      },
+      {
         path: 'roadmap/:domain/:module',
         loadComponent: () =>
           import('./features/enterprise-placeholder/enterprise-placeholder.component').then(m => m.EnterprisePlaceholderComponent),

@@ -86,7 +86,7 @@ export class ShellComponent implements OnInit, OnDestroy {
       items: [
         { label: 'Inventory Explorer', route: '/inventory-explorer', icon: 'fa-warehouse', state: 'active' },
         { label: 'Receiving Center', route: '/receiving-center', icon: 'fa-truck-loading', state: 'active' },
-        { label: 'Central Warehouse', route: '/roadmap/materials/central-warehouse', icon: 'fa-warehouse', state: 'planned', note: 'Foundation pending' },
+        { label: 'Warehouse Ops', route: '/warehouse-center', icon: 'fa-dolly', state: 'active' },
         { label: 'Building Warehouses', route: '/roadmap/materials/building-warehouses', icon: 'fa-warehouse', state: 'planned', note: 'Foundation pending' },
         { label: 'Inventory Control', route: '/materials/inventory', icon: 'fa-barcode', state: 'active' },
         { label: 'Kitting', route: '/kits', icon: 'fa-boxes', state: 'active' },
