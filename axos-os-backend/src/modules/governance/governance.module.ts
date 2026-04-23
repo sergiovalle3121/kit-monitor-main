@@ -12,6 +12,7 @@ import { Notification } from './entities/notification.entity';
 import { NotificationLog } from './entities/notification-log.entity';
 import { GovernancePolicy } from './entities/governance-policy.entity';
 import { NotificationService } from './notification.service';
+import { GovernanceAnalyticsService } from './governance-analytics.service';
 import { EscalationTask } from './tasks/escalation.task';
 
 import { GovernanceSeedService } from './governance-seed.service';
@@ -33,10 +34,11 @@ import { GovernanceSeedService } from './governance-seed.service';
     GovernanceService, 
     AuditService, 
     NotificationService, 
+    GovernanceAnalyticsService,
     EscalationTask, 
     GovernanceSeedService
   ],
   controllers: [GovernanceController],
-  exports: [GovernanceService, AuditService, NotificationService],
+  exports: [GovernanceService, AuditService, NotificationService, GovernanceAnalyticsService],
 })
 export class GovernanceModule {}

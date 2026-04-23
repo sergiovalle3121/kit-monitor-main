@@ -1,5 +1,6 @@
-import { Controller, Get, Patch, Param, Body, UseGuards, Request, Query } from '@nestjs/common';
+import { Controller, Get, Patch, Post, Param, Body, UseGuards, Request, Query } from '@nestjs/common';
 import { GovernanceService } from './governance.service';
+import { GovernanceAnalyticsService } from './governance-analytics.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { RequirePermissions } from '../auth/decorators/permissions.decorator';
@@ -7,7 +8,10 @@ import { RequirePermissions } from '../auth/decorators/permissions.decorator';
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller('governance')
 export class GovernanceController {
-  constructor(private readonly governanceService: GovernanceService) {}
+  constructor(
+    private readonly governanceService: GovernanceService,
+    private readonly analytics: GovernanceAnalyticsService,
+  ) {}
 
   @Get('master-data')
   @RequirePermissions('ADMIN_ACCESS')
@@ -37,6 +41,24 @@ export class GovernanceController {
   @RequirePermissions('ADMIN_ACCESS')
   checkEscalations() {
     return this.governanceService.checkEscalations();
+  }
+
+  @Get('analytics/trends')
+  @RequirePermissions('ADMIN_ACCESS')
+  getTrends(@Request() req: any, @Query('days') days: number) {
+    return this.analytics.getTrends(req.user, days || 30);
+  }
+
+  @Get('analytics/domains')
+  @RequirePermissions('ADMIN_ACCESS')
+  getDomainAnalytics(@Request() req: any) {
+    return this.analytics.getDomainAnalytics(req.user);
+  }
+
+  @Get('analytics/friction')
+  @RequirePermissions('ADMIN_ACCESS')
+  getFriction(@Request() req: any) {
+    return this.analytics.getOrganizationalFriction(req.user);
   }
 
   @Get('users')

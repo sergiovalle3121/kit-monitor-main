@@ -7,24 +7,88 @@
       <p>Supervisión industrial de anomalías, violaciones de gobierno e incidentes críticos</p>
     </div>
     
-    <div class="header-stats">
-      <div class="stat-card critical">
-        <span class="stat-value">{{ stats.critical }}</span>
-        <span class="stat-label">CRÍTICAS</span>
+    <div class="header-actions">
+      <div class="view-switcher">
+        <button [class.active]="viewMode === 'list'" (click)="switchView('list')">Incident Management</button>
+        <button [class.active]="viewMode === 'analytics'" (click)="switchView('analytics')">Governance Analytics</button>
       </div>
-      <div class="stat-card high">
-        <span class="stat-value">{{ stats.high }}</span>
-        <span class="stat-label">ALTA SEVERIDAD</span>
-      </div>
-      <div class="stat-card open">
-        <span class="stat-value">{{ stats.open }}</span>
-        <span class="stat-label">ABIERTAS</span>
-      </div>
+      <button class="btn-refresh" (click)="loadExceptions()"><i class="fas fa-sync-alt" [class.fa-spin]="loading"></i></button>
     </div>
   </header>
 
-  <!-- Risk Prioritization Layer -->
-  <div class="risk-prioritization-layer" *ngIf="riskSummary">
+  <!-- Governance Analytics View -->
+  <div class="analytics-view" *ngIf="viewMode === 'analytics'">
+    <div class="analytics-grid">
+      <!-- SLA Trends -->
+      <section class="analytics-card trend-card">
+        <div class="card-header">
+          <h3>SLA Performance (Últimos {{ analyticsDays }} días)</h3>
+          <div class="legend">
+            <span class="l-created">Creadas</span>
+            <span class="l-overdue">Vencidas</span>
+            <span class="l-escalated">Escaladas</span>
+          </div>
+        </div>
+        <div class="trend-chart">
+          <div class="trend-day" *ngFor="let day of trends">
+            <div class="bars">
+              <div class="bar bar-created" [style.height.px]="day.created * 10" [attr.title]="day.created + ' creadas'"></div>
+              <div class="bar bar-overdue" [style.height.px]="day.overdue * 10" [attr.title]="day.overdue + ' vencidas'"></div>
+              <div class="bar bar-escalated" [style.height.px]="day.escalated * 10" [attr.title]="day.escalated + ' escaladas'"></div>
+            </div>
+            <label>{{ day.date.split('-')[2] }}</label>
+          </div>
+        </div>
+      </section>
+
+      <!-- Domain Performance -->
+      <section class="analytics-card domain-card">
+        <h3>Cross-Domain Intelligence</h3>
+        <div class="domain-stats">
+          <div class="domain-row header">
+            <span>Dominio</span>
+            <span>Volumen</span>
+            <span>Overdue %</span>
+            <span>Recurrencia</span>
+            <span>Avg. Resolution</span>
+          </div>
+          <div class="domain-row" *ngFor="let d of domainStats">
+            <span class="d-name"><i class="fas" [class]="getDomainIcon(d.domain)"></i> {{ d.domain }}</span>
+            <span>{{ d.count }}</span>
+            <span [class.text-danger]="d.overdueRate > 20">{{ d.overdueRate | number:'1.0-0' }}%</span>
+            <span>{{ d.recurrenceRate | number:'1.0-0' }}%</span>
+            <span>{{ d.avgResolutionHours | number:'1.1-1' }}h</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Organizational Friction -->
+      <section class="analytics-card friction-card" *ngIf="friction">
+        <h3>Fricción por Sede / Programa</h3>
+        <div class="friction-groups">
+          <div class="friction-group">
+            <label>Buildings</label>
+            <div class="friction-item-mini" *ngFor="let item of friction.buildings | keyvalue">
+              <span class="f-label">{{ item.key }}</span>
+              <div class="f-bar-bg"><div class="f-bar" [style.width.%]="(item.value / riskSummary?.totalOpen) * 100"></div></div>
+              <strong class="f-value">{{ item.value }}</strong>
+            </div>
+          </div>
+          <div class="friction-group">
+            <label>Programs</label>
+            <div class="friction-item-mini" *ngFor="let item of friction.programs | keyvalue">
+              <span class="f-label">{{ item.key }}</span>
+              <div class="f-bar-bg"><div class="f-bar" [style.width.%]="(item.value / riskSummary?.totalOpen) * 100"></div></div>
+              <strong class="f-value">{{ item.value }}</strong>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <!-- Risk Prioritization Layer (Only in List View) -->
+  <div class="risk-prioritization-layer" *ngIf="riskSummary && viewMode === 'list'">
     <div class="risk-card main-threat">
       <div class="card-icon critical"><i class="fas fa-bolt"></i></div>
       <div class="card-info">

@@ -41,9 +41,28 @@ export class ExceptionCenterComponent implements OnInit {
   // Summary State
   riskSummary: any = null;
 
+  // Analytics View State
+  viewMode: 'list' | 'analytics' = 'list';
+  analyticsDays = 30;
+  trends: any[] = [];
+  domainStats: any[] = [];
+  friction: any = null;
+
   ngOnInit() {
     this.loadExceptions();
     this.loadSummary();
+    this.loadAnalytics();
+  }
+
+  switchView(mode: 'list' | 'analytics') {
+    this.viewMode = mode;
+    if (mode === 'analytics') this.loadAnalytics();
+  }
+
+  loadAnalytics() {
+    this.api.getGovernanceTrends(this.analyticsDays).subscribe(data => this.trends = data);
+    this.api.getGovernanceDomainAnalytics().subscribe(data => this.domainStats = data);
+    this.api.getGovernanceFriction().subscribe(data => this.friction = data);
   }
 
   loadSummary() {

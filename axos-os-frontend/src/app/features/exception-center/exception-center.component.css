@@ -624,3 +624,124 @@
 }
 
 .friction-item span { font-size: 0.7rem; color: #666; text-align: right; }
+
+/* Governance Analytics View */
+.view-switcher {
+  display: flex;
+  background: #1a1c1e;
+  border: 1px solid #2a2c2e;
+  padding: 4px;
+  border-radius: 8px;
+  gap: 4px;
+}
+
+.view-switcher button {
+  background: transparent;
+  border: none;
+  color: #888;
+  padding: 6px 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.view-switcher button.active {
+  background: #2a2c2e;
+  color: #fff;
+}
+
+.analytics-view {
+  margin-bottom: 24px;
+  animation: fadeIn 0.3s ease-out;
+}
+
+.analytics-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.analytics-card {
+  background: #1a1c1e;
+  border: 1px solid #2a2c2e;
+  border-radius: 12px;
+  padding: 20px;
+}
+
+.analytics-card h3 {
+  font-size: 0.9rem;
+  margin: 0 0 16px;
+  color: #fff;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Trend Chart */
+.trend-card { grid-column: span 2; }
+.card-header { display: flex; justify-content: space-between; align-items: flex-start; }
+.legend { display: flex; gap: 12px; font-size: 0.7rem; }
+.legend span { display: flex; align-items: center; gap: 4px; }
+.legend span::before { content: ''; width: 8px; height: 8px; border-radius: 2px; }
+.l-created::before { background: #007aff; }
+.l-overdue::before { background: #ff9500; }
+.l-escalated::before { background: #ff3b30; }
+
+.trend-chart {
+  display: flex;
+  align-items: flex-end;
+  height: 120px;
+  gap: 8px;
+  padding-top: 20px;
+  border-bottom: 1px solid #2a2c2e;
+}
+
+.trend-day {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.trend-day .bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 100%;
+}
+
+.bar { width: 6px; border-radius: 1px 1px 0 0; transition: height 0.3s ease; }
+.bar-created { background: #007aff; }
+.bar-overdue { background: #ff9500; }
+.bar-escalated { background: #ff3b30; }
+
+.trend-day label { font-size: 0.6rem; color: #666; }
+
+/* Domain Stats */
+.domain-stats { display: flex; flex-direction: column; gap: 8px; }
+.domain-row {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr 1fr 1fr 1.2fr;
+  font-size: 0.8rem;
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: #0a0b0d;
+}
+
+.domain-row.header { background: transparent; color: #666; font-weight: 600; font-size: 0.7rem; text-transform: uppercase; }
+.d-name { display: flex; align-items: center; gap: 8px; font-weight: 600; color: #fff; }
+.text-danger { color: #ff3b30; font-weight: 700; }
+
+/* Friction mini */
+.friction-groups { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.friction-group label { display: block; font-size: 0.7rem; font-weight: 700; color: #666; margin-bottom: 12px; text-transform: uppercase; }
+.friction-item-mini { display: grid; grid-template-columns: 80px 1fr 30px; align-items: center; gap: 12px; margin-bottom: 8px; }
+.f-label { font-size: 0.7rem; color: #888; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.f-bar-bg { height: 4px; background: #0a0b0d; border-radius: 2px; overflow: hidden; }
+.f-bar { height: 100%; background: #007aff; border-radius: 2px; }
+.f-value { font-size: 0.7rem; color: #fff; text-align: right; }
+
+@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }

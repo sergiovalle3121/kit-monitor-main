@@ -120,6 +120,18 @@ export class ApiService {
     return this.patch<any>(`governance/notifications/${id}/read`, {});
   }
 
+  getGovernanceTrends(days = 30): Observable<any[]> {
+    return this.get<any[]>('governance/analytics/trends', { days });
+  }
+
+  getGovernanceDomainAnalytics(): Observable<any[]> {
+    return this.get<any[]>('governance/analytics/domains');
+  }
+
+  getGovernanceFriction(): Observable<any> {
+    return this.get<any>('governance/analytics/friction');
+  }
+
   getBom(model?: string): Observable<any[]> {
     return this.get<any[]>('bom', { ...this.contextQuery(), ...(model ? { model } : {}) }).pipe(map((rows) => this.filterBomByContext(rows ?? [])));
   }
