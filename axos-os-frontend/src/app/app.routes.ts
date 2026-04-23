@@ -63,6 +63,11 @@ export const routes: Routes = [
           import('./features/production-completed/production-completed.component').then(m => m.ProductionCompletedComponent),
       },
       {
+        path: 'materials/inventory',
+        loadComponent: () =>
+          import('./features/inventory-explorer/inventory-explorer.component').then(m => m.InventoryExplorerComponent),
+      },
+      {
         path: 'materials/resupply',
         loadComponent: () =>
           import('./features/materials-resupply-control/materials-resupply-control.component').then(m => m.MaterialsResupplyControlComponent),

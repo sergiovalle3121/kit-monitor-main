@@ -347,6 +347,23 @@ export class ApiService {
     return this.patch<any>(`cancellation-requests/${id}/respond`, { action, respondedBy });
   }
 
+  // Inventory & Warehouse Network
+  getInventoryPositions(params?: { warehouseId?: string; partNumber?: string; programId?: string }): Observable<any[]> {
+    return this.get<any[]>('inventory/positions', params);
+  }
+
+  getInventoryMovements(params?: { partNumber?: string; warehouseId?: string }): Observable<any[]> {
+    return this.get<any[]>('inventory/movements', params);
+  }
+
+  recordInventoryTransaction(dto: any): Observable<any> {
+    return this.post<any>('inventory/transaction', dto);
+  }
+
+  createMaterialMaster(dto: any): Observable<any> {
+    return this.post<any>('inventory/master-data', dto);
+  }
+
 
   private contextQuery(): Record<string, string> {
     const ctx = this.context.context();
