@@ -27,7 +27,6 @@ import { SuppliersModule } from "./modules/suppliers/suppliers.module";
 import { ReceivingModule } from "./modules/receiving/receiving.module";
 import { ShippingModule } from "./modules/shipping/shipping.module";
 import { GovernanceModule } from "./modules/governance/governance.module";
-import { AuditService } from './audit/audit.service';
 
 @Module({
   imports: [
@@ -57,6 +56,6 @@ import { AuditService } from './audit/audit.service';
     GovernanceModule,
   ],
   controllers: [HealthController],
-  providers: [AuditService],
+  providers: [],
 })
 export class AppModule {}

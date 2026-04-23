@@ -60,7 +60,7 @@ export class InventoryService {
     referenceType?: string;
     referenceId?: string;
     reason?: string;
-    holdStatus?: 'available' | 'hold' | 'quarantine' | 'expired' | 'pending_iqc';
+    holdStatus?: 'available' | 'hold' | 'quarantine' | 'expired' | 'pending_iqc' | 'pending_oqc' | 'staged_for_shipping' | 'shipped';
     lotNumber?: string;
     serialNumber?: string;
   }): Promise<InventoryMovement> {

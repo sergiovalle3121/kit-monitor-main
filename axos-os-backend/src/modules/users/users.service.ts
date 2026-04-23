@@ -25,7 +25,7 @@ export class UsersService {
     return user;
   }
 
-  async findOneByEmail(email: string): Promise<User | undefined> {
+  async findOneByEmail(email: string): Promise<User | null> {
     const normalized = (email ?? '').trim().toLowerCase();
     return this.userRepo.findOne({ 
       where: { email: normalized },

@@ -204,22 +204,22 @@ export class PlansService {
     // 2. Apply Optional Filters
     if (!filters) return;
 
-    if (scope.model) {
-      qb.andWhere('UPPER(plan.model) LIKE :model', { model: `%${scope.model.toUpperCase()}%` });
+    if (filters.model) {
+      qb.andWhere('UPPER(plan.model) LIKE :model', { model: `%${filters.model.toUpperCase()}%` });
     }
-    if (scope.workOrder) {
-      qb.andWhere('UPPER(plan.workOrder) LIKE :workOrder', { workOrder: `%${scope.workOrder.toUpperCase()}%` });
+    if (filters.workOrder) {
+      qb.andWhere('UPPER(plan.workOrder) LIKE :workOrder', { workOrder: `%${filters.workOrder.toUpperCase()}%` });
     }
-    if (scope.line) {
+    if (filters.line) {
       // line param may be an enterprise line UUID — resolve to legacy integer
-      const lineRef = await this.lineRepo.findOne({ where: { id: scope.line } });
-      const legacyNum = lineRef?.legacyLineNumber ?? parseInt(scope.line, 10);
+      const lineRef = await this.lineRepo.findOne({ where: { id: filters.line } });
+      const legacyNum = lineRef?.legacyLineNumber ?? parseInt(filters.line, 10);
       if (!isNaN(legacyNum)) {
         qb.andWhere('plan.line = :lineNum', { lineNum: legacyNum });
       }
     }
-    if (scope.buildingId) {
-      const lines = await this.lineRepo.find({ where: { building: { id: scope.buildingId } } as any });
+    if (filters.buildingId) {
+      const lines = await this.lineRepo.find({ where: { building: { id: filters.buildingId } } as any });
       const legacyNums = lines.map((l) => l.legacyLineNumber).filter((n): n is number => n != null);
       if (legacyNums.length) {
         qb.andWhere('plan.line IN (:...lineNums)', { lineNums: legacyNums });
@@ -227,8 +227,8 @@ export class PlansService {
         qb.andWhere('1 = 0');
       }
     }
-    if (scope.programId) {
-      const program = await this.programRepo.findOne({ where: { id: scope.programId } });
+    if (filters.programId) {
+      const program = await this.programRepo.findOne({ where: { id: filters.programId } });
       const prefix = program?.primaryModelPrefix?.toUpperCase();
       if (prefix) {
         qb.andWhere('UPPER(plan.model) LIKE :prefix', { prefix: `${prefix}%` });

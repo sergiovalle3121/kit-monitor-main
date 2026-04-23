@@ -32,7 +32,7 @@ export class ReceivingService {
 
     // OPERATIONAL HARDENING: Any received material starts as 'pending_iqc'
     await this.inventory.recordTransaction({
-      type: 'RECEIPT',
+      type: 'RECEIVE',
       partNumber: saved.partNumber,
       quantity: saved.quantity,
       toWarehouseId: saved.warehouseId,

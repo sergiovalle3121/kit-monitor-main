@@ -16,7 +16,7 @@ import { ScoreCalibrationPoint } from './entities/score-calibration-point.entity
 import { RunSimulationDto } from './dto/run-simulation.dto';
 import { RegisterOutcomeDto } from './dto/register-outcome.dto';
 import { ProductionWip } from '../production-runtime/entities/production-wip.entity';
-import { Ncr } from '../ncr/entities/ncr.entity';
+import { NCR } from '../ncr/entities/ncr.entity';
 import { WarehouseTask } from '../inventory/entities/warehouse-task.entity';
 import { Shipment } from '../shipping/entities/shipment.entity';
 import { InventoryPosition } from '../inventory/entities/inventory-position.entity';
@@ -24,8 +24,12 @@ import { EnterpriseBuilding } from '../enterprise-campus/entities/enterprise-bui
 import { FinalInspection } from '../quality/entities/final-inspection.entity';
 import { IQCInspection } from '../quality/entities/iqc-inspection.entity';
 import { CAPA } from '../quality/entities/capa.entity';
-import { SCAR } from '../suppliers/entities/scar.entity';
+import { SCAR, ScarStatus } from '../suppliers/entities/scar.entity';
 import { Supplier } from '../suppliers/entities/supplier.entity';
+import { CapaStatus } from '../quality/entities/capa.entity';
+import { IqcResult } from '../quality/entities/iqc-inspection.entity';
+import { WarehouseTaskStatus, WarehouseTaskType } from '../inventory/entities/warehouse-task.entity';
+import { ShipmentStatus } from '../shipping/entities/shipment.entity';
 
 @Injectable()
 export class DecisionIntelligenceService {
@@ -40,7 +44,7 @@ export class DecisionIntelligenceService {
     @InjectRepository(PlanActualOutcome) private readonly outcomeRepo: Repository<PlanActualOutcome>,
     @InjectRepository(ScoreCalibrationPoint) private readonly calibrationRepo: Repository<ScoreCalibrationPoint>,
     @InjectRepository(ProductionWip) private readonly wipRepo: Repository<ProductionWip>,
-    @InjectRepository(Ncr) private readonly ncrRepo: Repository<Ncr>,
+    @InjectRepository(NCR) private readonly ncrRepo: Repository<NCR>,
     @InjectRepository(WarehouseTask) private readonly warehouseTaskRepo: Repository<WarehouseTask>,
     @InjectRepository(Shipment) private readonly shipmentRepo: Repository<Shipment>,
     @InjectRepository(InventoryPosition) private readonly inventoryRepo: Repository<InventoryPosition>,
@@ -484,12 +488,14 @@ export class DecisionIntelligenceService {
   private round(value: number, digits = 2): number {
     const pow = Math.pow(10, digits);
     return Math.round(value * pow) / pow;
+  }
+
   async getSiteOverview() {
     const buildings = await this.buildingRepo.find();
     const inventory = await this.inventoryRepo.find();
     const wip = await this.wipRepo.find();
     const ncrs = await this.ncrRepo.find();
-    const tasks = await this.warehouseTaskRepo.find({ where: { status: 'PENDING' } });
+    const tasks = await this.warehouseTaskRepo.find({ where: { status: WarehouseTaskStatus.PENDING } });
     const shipments = await this.shipmentRepo.find();
     const oqc = await this.oqcRepo.find();
     const iqc = await this.iqcRepo.find();
@@ -502,8 +508,8 @@ export class DecisionIntelligenceService {
     const passedOqc = oqc.filter(o => o.result === 'PASS').length;
     const fpy = totalOqc > 0 ? (passedOqc / totalOqc) * 100 : 100;
 
-    const openCapas = capas.filter(c => c.status !== 'Closed').length;
-    const overdueCapas = capas.filter(c => c.status !== 'Closed' && new Date(c.dueDate) < new Date()).length;
+    const openCapas = capas.filter(c => c.status !== CapaStatus.CLOSED).length;
+    const overdueCapas = capas.filter(c => c.status !== CapaStatus.CLOSED && c.dueDate && new Date(c.dueDate) < new Date()).length;
 
     // 2. FG & Shipping Signals
     const pendingOqcQty = inventory.filter(p => p.holdStatus === 'pending_oqc').reduce((acc, p) => acc + p.onHand, 0);
@@ -514,7 +520,7 @@ export class DecisionIntelligenceService {
     const quarantinedQty = inventory.filter(p => p.holdStatus === 'quarantine').reduce((acc, p) => acc + p.onHand, 0);
 
     // 4. Supplier Intelligence
-    const openScars = scars.filter(s => s.status !== 'Closed').length;
+    const openScars = scars.filter(s => s.status !== ScarStatus.CLOSED).length;
     const criticalSuppliers = suppliers.filter(s => s.status === 'Critical').length; // Assuming status exists
 
     return {
@@ -527,7 +533,7 @@ export class DecisionIntelligenceService {
       quality: {
         fpy: this.round(fpy),
         oqcRate: totalOqc > 0 ? this.round((passedOqc / totalOqc) * 100) : 100,
-        iqcPassRate: iqc.length > 0 ? this.round((iqc.filter(i => i.result === 'PASS').length / iqc.length) * 100) : 100,
+        iqcPassRate: iqc.length > 0 ? this.round((iqc.filter(i => i.result === IqcResult.PASS).length / iqc.length) * 100) : 100,
         openNcrs: ncrs.filter(n => n.status !== 'closed').length,
         criticalNcrs: ncrs.filter(n => n.severity === 'critical' && n.status !== 'closed').length,
         openCapas,
@@ -538,7 +544,7 @@ export class DecisionIntelligenceService {
         shortages,
         quarantinedQty,
         holdQty: inventory.filter(p => p.holdStatus === 'hold').reduce((acc, p) => acc + p.onHand, 0),
-        replenishmentBacklog: tasks.filter(t => t.type === 'TRANSFER').length
+        replenishmentBacklog: tasks.filter(t => t.type === WarehouseTaskType.TRANSFER).length
       },
       production: {
         activeWorkOrders: wip.filter(w => w.status === 'in_production').length,
@@ -550,12 +556,12 @@ export class DecisionIntelligenceService {
         staged: shipments.filter(s => s.status === 'staged').length,
         loading: shipments.filter(s => s.status === 'loading').length,
         dispatched: shipments.filter(s => s.status === 'dispatched').length,
-        blockers: shipments.filter(s => s.status === 'planning' && s.scheduledAt < new Date()).length
+        blockers: shipments.filter(s => s.status === ShipmentStatus.PLANNING && s.scheduledAt && new Date(s.scheduledAt) < new Date()).length
       },
       suppliers: {
         criticalCount: criticalSuppliers,
         openScars,
-        avgScarAging: this.calculateAvgAging(scars.filter(s => s.status !== 'Closed'))
+        avgScarAging: this.calculateAvgAging(scars.filter(s => s.status !== ScarStatus.CLOSED))
       }
     };
   }

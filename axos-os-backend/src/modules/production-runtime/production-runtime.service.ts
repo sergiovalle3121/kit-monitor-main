@@ -12,6 +12,8 @@ import { RegisterBayEventDto } from './dto/register-bay-event.dto';
 import { CreateBayIncidentDto } from './dto/create-bay-incident.dto';
 import { EnterpriseProgram } from '../enterprise-campus/entities/enterprise-program.entity';
 import { EnterpriseLine } from '../enterprise-campus/entities/enterprise-line.entity';
+import { ProductionWip } from './entities/production-wip.entity';
+import { InventoryService } from '../inventory/inventory.service';
 
 type ScopeQuery = { line?: string; model?: string; workOrder?: string; buildingId?: string; programId?: string };
 
@@ -200,12 +202,14 @@ export class ProductionRuntimeService {
       const completedQty = Number(total?.total ?? 0);
       
       // Update WIP Progress
-      wip.completedQty = completedQty;
-      if (completedQty >= kit.plan.quantity) {
-        wip.status = 'ready_for_fg';
-        wip.completedAt = new Date();
+      if (wip) {
+        wip.completedQty = completedQty;
+        if (completedQty >= kit.plan.quantity) {
+          wip.status = 'ready_for_fg';
+          wip.completedAt = new Date();
+        }
+        await em.save(wip);
       }
-      await em.save(wip);
 
       const nextStatus = completedQty >= kit.plan.quantity ? 'completed' : 'in_progress';
       await em.update(Kit, kitId, { status: nextStatus });

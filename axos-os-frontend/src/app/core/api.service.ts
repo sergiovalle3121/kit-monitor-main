@@ -39,8 +39,8 @@ export class ApiService {
     return this.withFallback((base) => this.http.delete<T>(this.buildUrl(base, path)));
   }
 
-  getPlans(): Observable<any[]> {
-    return this.get<any[]>('plans', this.contextQuery()).pipe(map((rows) => this.filterPlansByContext(rows ?? [])));
+  getPlans(params?: any): Observable<any[]> {
+    return this.get<any[]>('plans', { ...this.contextQuery(), ...params }).pipe(map((rows) => this.filterPlansByContext(rows ?? [])));
   }
 
   getSchedulingIntelligence(): Observable<any> {
@@ -382,7 +382,7 @@ export class ApiService {
   }
 
   // Inventory & Warehouse Network
-  getInventoryPositions(params?: { warehouseId?: string; partNumber?: string; programId?: string }): Observable<any[]> {
+  getInventoryPositions(params?: { warehouseId?: string; partNumber?: string; programId?: string; holdStatus?: string }): Observable<any[]> {
     return this.get<any[]>('inventory/positions', params);
   }
 

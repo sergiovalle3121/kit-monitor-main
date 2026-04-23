@@ -117,7 +117,7 @@ export class SuppliersService {
       const totalDays = scars
         .filter(s => s.status === ScarStatus.CLOSED && s.closedAt)
         .reduce((acc, s) => {
-          const diff = s.closedAt.getTime() - s.createdAt.getTime();
+          const diff = s.closedAt!.getTime() - s.createdAt.getTime();
           return acc + (diff / (1000 * 60 * 60 * 24));
         }, 0);
       avgClosureDays = totalDays / closedScars;
@@ -155,7 +155,7 @@ export class SuppliersService {
 
   async getAllScorecards(): Promise<any[]> {
     const suppliers = await this.findAll();
-    const scorecards = [];
+    const scorecards: any[] = [];
     for (const s of suppliers) {
       scorecards.push(await this.getScorecard(s.id));
     }

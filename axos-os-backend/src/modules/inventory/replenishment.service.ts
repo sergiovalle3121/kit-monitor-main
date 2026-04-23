@@ -27,7 +27,7 @@ export class ReplenishmentService {
 
   async analyzeInventory(): Promise<any[]> {
     const rules = await this.ruleRepo.find({ where: { isActive: true } });
-    const signals = [];
+    const signals: any[] = [];
 
     for (const rule of rules) {
       // Get total on-hand in destination warehouse

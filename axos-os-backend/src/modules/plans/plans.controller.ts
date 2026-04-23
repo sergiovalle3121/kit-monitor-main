@@ -13,12 +13,12 @@ export class PlansController {
 
   @Get()
   findAll(
+    @Request() req: any,
     @Query('line') line?: string,
     @Query('model') model?: string,
     @Query('workOrder') workOrder?: string,
     @Query('buildingId') buildingId?: string,
     @Query('programId') programId?: string,
-    @Request() req: any
   ) {
     return this.plansService.findAll({ line, model, workOrder, buildingId, programId }, req.user);
   }

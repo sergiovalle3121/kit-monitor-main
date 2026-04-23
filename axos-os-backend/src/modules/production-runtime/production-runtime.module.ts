@@ -15,17 +15,23 @@ import { EnterpriseProgram } from '../enterprise-campus/entities/enterprise-prog
 import { EnterpriseLine } from '../enterprise-campus/entities/enterprise-line.entity';
 
 @Module({
-    Kit,
-    KitMaterial,
-    BayLayout,
-    BomItem,
-    ProductionBayEvent,
-    ProductionBayIncident,
-    ProductionBayMaterialState,
-    EnterpriseProgram,
-    EnterpriseLine,
-  ])],
+  imports: [
+    TypeOrmModule.forFeature([
+      Kit,
+      KitMaterial,
+      BayLayout,
+      BomItem,
+      ProductionBayEvent,
+      ProductionBayIncident,
+      ProductionBayMaterialState,
+      ProductionWip,
+      EnterpriseProgram,
+      EnterpriseLine,
+    ]),
+    InventoryModule,
+  ],
   providers: [ProductionRuntimeService],
   controllers: [ProductionRuntimeController],
+  exports: [ProductionRuntimeService],
 })
 export class ProductionRuntimeModule {}

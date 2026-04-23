@@ -485,7 +485,8 @@ export class QualityService {
     });
 
     return saved;
-  async getPendingOqcBacklog() {
+  }
+  async getPendingOqcBacklog(): Promise<InventoryPosition[]> {
     return this.positionRepo.find({
       where: { holdStatus: 'pending_oqc' as any },
       relations: ['material', 'warehouse'],
@@ -501,7 +502,7 @@ export class QualityService {
     try {
       // 1. Record Inspection Result
       const inspection = this.oqcRepo.create(dto);
-      const saved = await queryRunner.manager.save(inspection);
+      const saved = await queryRunner.manager.save(inspection) as any as FinalInspection;
 
       // 2. Update Inventory Status based on result
       let targetStatus: any = 'available';
@@ -524,7 +525,7 @@ export class QualityService {
         
         // Use inventory service for formal ledger
         await this.inventory.recordTransaction({
-          type: 'HOLD' as any, // Hold transition
+          type: 'HOLD',
           partNumber: pos.partNumber,
           quantity: applyQty,
           fromWarehouseId: 'WH-FG',
@@ -532,7 +533,7 @@ export class QualityService {
           toWarehouseId: 'WH-FG',
           toLocation: pos.location,
           actorName: dto.inspector || 'Quality System',
-          holdStatus: targetStatus,
+          holdStatus: targetStatus as any,
           referenceType: 'OQC_INSPECTION',
           referenceId: saved.id.toString(),
           reason: `OQC Result: ${dto.result} - WO ${dto.workOrder}`
@@ -551,7 +552,7 @@ export class QualityService {
     }
   }
 
-  async getOqcHistory(partNumber?: string) {
+  async getOqcHistory(partNumber?: string): Promise<FinalInspection[]> {
     const where = partNumber ? { partNumber } : {};
     return this.oqcRepo.find({ where, order: { createdAt: 'DESC' }, take: 100 });
   }

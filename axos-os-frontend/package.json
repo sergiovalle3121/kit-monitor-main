@@ -5,7 +5,7 @@
     "scripts": {
         "ng": "ng",
         "start": "ng serve --host 0.0.0.0 --port 4200",
-        "clean": "rm -rf .angular dist",
+        "clean": "node -e \"const fs = require('fs'); ['dist', '.angular'].forEach(p => fs.rmSync(p, { recursive: true, force: true }))\"",
         "build": "npm run clean && NG_PERSISTENT_BUILD_CACHE=0 node --max-old-space-size=4096 ./node_modules/@angular/cli/bin/ng build --configuration production --no-progress",
         "test": "node ./scripts/run-headless-tests.cjs",
         "lint": "ng lint",

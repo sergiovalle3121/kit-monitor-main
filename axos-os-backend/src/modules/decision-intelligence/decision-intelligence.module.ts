@@ -14,7 +14,7 @@ import { ScoreCalibrationPoint } from './entities/score-calibration-point.entity
 
 // Site Overview Dependencies
 import { ProductionWip } from '../production-runtime/entities/production-wip.entity';
-import { Ncr } from '../ncr/entities/ncr.entity';
+import { NCR } from '../ncr/entities/ncr.entity';
 import { WarehouseTask } from '../inventory/entities/warehouse-task.entity';
 import { Shipment } from '../shipping/entities/shipment.entity';
 import { InventoryPosition } from '../inventory/entities/inventory-position.entity';
@@ -37,7 +37,7 @@ import { Supplier } from '../suppliers/entities/supplier.entity';
     PlanActualOutcome,
     ScoreCalibrationPoint,
     ProductionWip,
-    Ncr,
+    NCR,
     WarehouseTask,
     Shipment,
     InventoryPosition,
