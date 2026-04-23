@@ -7,6 +7,7 @@ import { filter, forkJoin } from 'rxjs';
 import { ApiService } from '../../core/api.service';
 import { EnterpriseContextService } from '../../core/enterprise-context.service';
 import { ConfirmModalComponent } from '../../shared/confirm-modal/confirm-modal.component';
+import { WORKSPACE_ROUTE_META, WorkspaceDomainId } from './workspace-route-meta';
 
 type ModuleState = 'active' | 'partial' | 'planned';
 
@@ -41,7 +42,7 @@ interface ShellNotification {
 }
 
 interface WorkspaceDomainConfig {
-  id: 'materials' | 'production';
+  id: WorkspaceDomainId;
   label: string;
   eyebrow: string;
   description: string;
@@ -62,7 +63,7 @@ export class ShellComponent implements OnInit, OnDestroy {
   currentUrl = '';
   activeGroup: NavGroupConfig | null = null;
   activeItem: NavItemConfig | null = null;
-  routeWorkspaceDomainId: WorkspaceDomainConfig['id'] | null = null;
+  routeWorkspaceDomainId: WorkspaceDomainId | null = null;
   routeImmersiveWorkspace = false;
   searchTerm = '';
   showSearchResults = false;
@@ -93,7 +94,7 @@ export class ShellComponent implements OnInit, OnDestroy {
       railRoutes: ['/control-tower', '/production', '/production-wip', '/monitor', '/production/completed', '/fg-center'],
     },
   ];
-  private readonly workspaceDomainById = new Map<WorkspaceDomainConfig['id'], WorkspaceDomainConfig>(
+  private readonly workspaceDomainById = new Map<WorkspaceDomainId, WorkspaceDomainConfig>(
     this.workspaceDomains.map((domain) => [domain.id, domain]),
   );
   private readonly navItemByRoute = new Map<string, NavItemConfig>();
@@ -557,13 +558,13 @@ export class ShellComponent implements OnInit, OnDestroy {
     });
   }
 
-  private readCurrentRouteWorkspaceMeta(): { domain: WorkspaceDomainConfig['id'] | null; immersive: boolean } {
+  private readCurrentRouteWorkspaceMeta(): { domain: WorkspaceDomainId | null; immersive: boolean } {
     let route = this.activatedRoute.firstChild;
-    let domain: WorkspaceDomainConfig['id'] | null = null;
+    let domain: WorkspaceDomainId | null = null;
     let immersive = false;
     while (route) {
-      const routeDomain = route.snapshot.data['workspaceDomain'] as WorkspaceDomainConfig['id'] | undefined;
-      const routeImmersive = route.snapshot.data['immersiveWorkspace'] as boolean | undefined;
+      const routeDomain = route.snapshot.data[WORKSPACE_ROUTE_META.domain] as WorkspaceDomainId | undefined;
+      const routeImmersive = route.snapshot.data[WORKSPACE_ROUTE_META.immersive] as boolean | undefined;
       if (routeDomain) domain = routeDomain;
       if (typeof routeImmersive === 'boolean') immersive = routeImmersive;
       route = route.firstChild;
