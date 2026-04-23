@@ -25,6 +25,19 @@ export class UsersService {
     return user;
   }
 
+
+  async findOneByIdentifier(identifier: string): Promise<User | null> {
+    const normalized = (identifier ?? '').trim().toLowerCase();
+    if (!normalized) return null;
+
+    return this.userRepo
+      .createQueryBuilder('user')
+      .addSelect('user.password')
+      .where('LOWER(user.email) = :normalized', { normalized })
+      .orWhere('LOWER(user.username) = :normalized', { normalized })
+      .getOne();
+  }
+
   async findOneByEmail(email: string): Promise<User | null> {
     const normalized = (email ?? '').trim().toLowerCase();
     return this.userRepo.findOne({ 
