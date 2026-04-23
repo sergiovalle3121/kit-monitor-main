@@ -154,6 +154,11 @@ export const routes: Routes = [
           import('./features/picking-center/picking-center.component').then(m => m.PickingCenterComponent),
       },
       {
+        path: 'scheduling-center',
+        loadComponent: () =>
+          import('./features/scheduling-center/scheduling-center.component').then(m => m.SchedulingCenterComponent),
+      },
+      {
         path: 'production-wip',
         loadComponent: () =>
           import('./features/production-wip/production-wip.component').then(m => m.ProductionWipComponent),

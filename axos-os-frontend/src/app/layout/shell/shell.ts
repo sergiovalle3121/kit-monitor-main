@@ -105,7 +105,7 @@ export class ShellComponent implements OnInit, OnDestroy {
       icon: 'fa-calendar-alt',
       items: [
         { label: 'Planning', route: '/plan', icon: 'fa-bullhorn', state: 'active' },
-        { label: 'Scheduling / Capacity', route: '/roadmap/planning/capacity', icon: 'fa-chart-gantt', state: 'planned', note: 'Roadmap' },
+        { label: 'Scheduling Center', route: '/scheduling-center', icon: 'fa-calendar-check', state: 'active' },
         { label: 'Forecast / Demand', route: '/forecast', icon: 'fa-brain', state: 'active' },
         { label: 'Program Control', route: '/roadmap/planning/program-control', icon: 'fa-briefcase', state: 'partial', note: 'Enterprise topology in progress' },
         { label: 'Customer / Program View', route: '/control-tower', icon: 'fa-users', state: 'partial', note: 'Control Tower filters' },

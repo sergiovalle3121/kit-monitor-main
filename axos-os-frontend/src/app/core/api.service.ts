@@ -43,6 +43,14 @@ export class ApiService {
     return this.get<any[]>('plans', this.contextQuery()).pipe(map((rows) => this.filterPlansByContext(rows ?? [])));
   }
 
+  getSchedulingIntelligence(): Observable<any> {
+    return this.get<any>('plans/intelligence');
+  }
+
+  releaseWorkOrder(id: number, actor: string): Observable<any> {
+    return this.post<any>(`plans/${id}/release`, { actor });
+  }
+
   createPlan(dto: any): Observable<any> {
     return this.post<any>('plans', dto);
   }

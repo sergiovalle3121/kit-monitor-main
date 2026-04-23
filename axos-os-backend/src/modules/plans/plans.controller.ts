@@ -20,6 +20,11 @@ export class PlansController {
     return this.plansService.findAll({ line, model, workOrder, buildingId, programId });
   }
 
+  @Get('intelligence')
+  getIntelligence() {
+    return this.plansService.getSchedulingIntelligence();
+  }
+
   @Get(':id')
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.plansService.findOne(id);
@@ -28,6 +33,11 @@ export class PlansController {
   @Post()
   create(@Body() dto: CreatePlanDto) {
     return this.plansService.create(dto);
+  }
+
+  @Post(':id/release')
+  release(@Param('id', ParseIntPipe) id: number, @Body('actor') actor: string) {
+    return this.plansService.releaseWorkOrder(id, actor);
   }
 
   @Patch(':id')

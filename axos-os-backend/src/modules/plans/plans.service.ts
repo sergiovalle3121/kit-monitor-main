@@ -9,13 +9,21 @@ import { UpdatePlanDto } from './dto/update-plan.dto';
 import { Kit } from '../kits/entities/kit.entity';
 import { KitMaterial } from '../kit-materials/entities/kit-material.entity';
 
+import { LineCapacity } from './entities/line-capacity.entity';
+import { InventoryService } from '../inventory/inventory.service';
+import { QualityService } from '../quality/quality.service';
+
 @Injectable()
 export class PlansService {
   constructor(
     @InjectRepository(Plan)
     private readonly repo: Repository<Plan>,
+    @InjectRepository(LineCapacity)
+    private readonly capacityRepo: Repository<LineCapacity>,
     @InjectRepository(EnterpriseProgram) private readonly programRepo: Repository<EnterpriseProgram>,
     @InjectRepository(EnterpriseLine) private readonly lineRepo: Repository<EnterpriseLine>,
+    private readonly inventory: InventoryService,
+    private readonly quality: QualityService,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -90,6 +98,63 @@ export class PlansService {
     return { deleted: true, id };
   }
 
+
+  async releaseWorkOrder(id: number, actor: string): Promise<any> {
+    const plan = await this.repo.findOne({ where: { id } });
+    if (!plan) throw new NotFoundException('Plan not found');
+
+    // 1. Check Readiness (Simplified Mock for now, would use real inventory/quality check)
+    const readiness = await this.calculateReadiness(plan);
+    
+    plan.status = 'released';
+    plan.releasedAt = new Date();
+    plan.releasedBy = actor;
+    plan.readinessSummary = readiness;
+
+    await this.repo.save(plan);
+    return this.findOne(id);
+  }
+
+  async getSchedulingIntelligence() {
+    const plans = await this.repo.find({ where: { status: 'pending' as any } });
+    const activePlans = await this.repo.find({ where: { status: 'active' as any } });
+    const capacities = await this.capacityRepo.find();
+
+    const lineLoad = capacities.map(cap => {
+      const lineActiveQty = activePlans
+        .filter(p => p.line === cap.line)
+        .reduce((sum, p) => sum + p.quantity, 0);
+      
+      const loadPercent = cap.dailyCapacityUnits > 0 
+        ? (lineActiveQty / (cap.dailyCapacityUnits * (cap.efficiencyFactor / 100))) * 100 
+        : 0;
+
+      return {
+        line: cap.line,
+        buildingId: cap.buildingId,
+        capacity: cap.dailyCapacityUnits,
+        currentLoad: lineActiveQty,
+        loadPercent: Math.round(loadPercent),
+        status: loadPercent > 90 ? 'overloaded' : (loadPercent > 70 ? 'warning' : 'optimal')
+      };
+    });
+
+    return {
+      backlog: plans.length,
+      lineLoad,
+      readinessRisks: plans.filter(p => p.priority === 'critical').length
+    };
+  }
+
+  private async calculateReadiness(plan: Plan) {
+    // Real logic would check BOM shortages and Quality Holds
+    return {
+      materials: 'green',
+      quality: 'green',
+      shipping: 'green',
+      timestamp: new Date()
+    };
+  }
 
   private async applyScopeToQb(
     qb: SelectQueryBuilder<Plan>,

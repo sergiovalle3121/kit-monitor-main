@@ -1,14 +1,12 @@
 import {
   Entity, PrimaryGeneratedColumn, Column,
-  CreateDateColumn, OneToOne,
+  CreateDateColumn, OneToOne, Index,
 } from 'typeorm';
 import { Kit } from '../../kits/entities/kit.entity';
 import { DATE_COLUMN_TYPE } from '../../../common/database/date-column-type';
 
-// Status flow: pending → active → completed | cancelled
-export type PlanStatus = 'pending' | 'active' | 'completed' | 'cancelled';
-// Shifts
-export type Shift = 'T1' | 'T2' | 'T3';
+export type PlanStatus = 'pending' | 'released' | 'active' | 'completed' | 'cancelled';
+export type PlanPriority = 'low' | 'normal' | 'high' | 'critical';
 
 @Entity('plans')
 export class Plan {
@@ -16,31 +14,50 @@ export class Plan {
   id: number;
 
   @Column({ unique: true })
-  workOrder: string; // WO identifier from planning system
+  @Index()
+  workOrder: string;
 
   @Column()
-  model: string; // product model code — matches BomItem.model
+  model: string;
 
   @Column({ type: 'int' })
-  line: number; // 1–7
+  line: number;
+
+  @Column({ type: 'varchar', length: 32, nullable: true })
+  buildingId: string;
 
   @Column({ type: 'int', nullable: true })
-  bahia: number; // 1–6 (optional — kit is per line)
+  bahia: number;
 
   @Column({ type: 'int' })
-  quantity: number; // units to assemble
+  quantity: number;
 
   @Column()
-  shift: string; // T1 | T2 | T3
+  shift: string;
 
   @Column({ type: DATE_COLUMN_TYPE, nullable: true })
   scheduledAt: Date;
 
+  @Column({ type: DATE_COLUMN_TYPE, nullable: true })
+  dueDate: Date;
+
   @Column({ type: 'int', default: 0 })
-  sequence: number; // within-shift order
+  sequence: number;
 
   @Column({ default: 'pending' })
   status: PlanStatus;
+
+  @Column({ default: 'normal' })
+  priority: PlanPriority;
+
+  @Column({ type: DATE_COLUMN_TYPE, nullable: true })
+  releasedAt: Date;
+
+  @Column({ type: 'varchar', length: 120, nullable: true })
+  releasedBy: string;
+
+  @Column({ type: 'jsonb', nullable: true })
+  readinessSummary: any; // { materials: 'green', quality: 'red', shipping: 'yellow' }
 
   @OneToOne(() => Kit, (kit) => kit.plan, { nullable: true })
   kit: Kit;
