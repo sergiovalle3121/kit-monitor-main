@@ -2,9 +2,28 @@ import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, CreateDateColumn, Up
 import { QualityHold } from '../../quality/entities/quality-hold.entity';
 import { QuarantineTransfer } from '../../quality/entities/quarantine-transfer.entity';
 
-export type NcrStatus = 'open' | 'under_review' | 'contained' | 'dispositioned' | 'closed';
-export type NcrSeverity = 'minor' | 'major' | 'critical';
-export type NcrSourceType = 'incoming' | 'in-process' | 'outgoing' | 'warehouse' | 'supplier' | 'customer';
+export enum NcrStatus {
+  OPEN = 'open',
+  UNDER_REVIEW = 'under_review',
+  CONTAINED = 'contained',
+  DISPOSITIONED = 'dispositioned',
+  CLOSED = 'closed'
+}
+
+export enum NcrSeverity {
+  MINOR = 'minor',
+  MAJOR = 'major',
+  CRITICAL = 'critical'
+}
+
+export enum NcrSourceType {
+  INCOMING = 'incoming',
+  IN_PROCESS = 'in-process',
+  OUTGOING = 'outgoing',
+  WAREHOUSE = 'warehouse',
+  SUPPLIER = 'supplier',
+  CUSTOMER = 'customer'
+}
 
 @Entity('ncrs')
 export class NCR {
