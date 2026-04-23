@@ -298,6 +298,9 @@ nav { position:relative; z-index:2; flex:1; display:flex; flex-direction:column;
 .layout-focus .topbar {
   box-shadow: 0 1px 0 rgba(24,24,27,0.05), 0 1px 8px rgba(24,24,27,0.04);
 }
+.layout-focus .topbar {
+  box-shadow: 0 1px 0 rgba(15,30,60,0.05), 0 1px 8px rgba(15,30,60,0.04);
+}
 
 .menu-trigger {
   display:none; width:36px; height:36px; border-radius:9px;
@@ -716,6 +719,27 @@ nav { position:relative; z-index:2; flex:1; display:flex; flex-direction:column;
 .layout-workspace-active.layout-focus .content-frame {
   border-radius: 8px;
   border-color: rgba(24,24,27,0.05);
+  padding: 22px 22px 24px;
+}
+.layout-immersive .content-frame {
+  border-radius: 12px;
+  border-color: rgba(15,30,60,0.07);
+  box-shadow: 0 1px 2px rgba(15,30,60,0.04), 0 8px 22px rgba(15,30,60,0.035);
+}
+.layout-workspace-active.layout-immersive .content-frame {
+  border-radius: 10px;
+  border-color: rgba(15,30,60,0.055);
+  box-shadow: 0 1px 2px rgba(15,30,60,0.03), 0 6px 18px rgba(15,30,60,0.028);
+}
+.layout-focus .content-frame {
+  border-radius: 10px;
+  border-color: rgba(15,30,60,0.06);
+  min-height: calc(100vh - 84px);
+  box-shadow: 0 1px 2px rgba(15,30,60,0.03), 0 6px 14px rgba(15,30,60,0.03);
+}
+.layout-workspace-active.layout-focus .content-frame {
+  border-radius: 8px;
+  border-color: rgba(15,30,60,0.05);
   padding: 22px 22px 24px;
 }
 

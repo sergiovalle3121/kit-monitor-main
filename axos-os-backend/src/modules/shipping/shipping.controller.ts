@@ -56,4 +56,13 @@ export class ShippingController {
   async close(@Param('id') id: number) {
     return this.shippingService.closeShipment(id);
   }
+
+  @Post(':id/discrepancy')
+  @RequirePermissions('materials:write')
+  async reportDiscrepancy(
+    @Param('id') id: number, 
+    @Body() body: { type: string, detail: string, actor: string }
+  ) {
+    return this.shippingService.reportPackingDiscrepancy(id, body);
+  }
 }

@@ -1,4 +1,4 @@
-import { Controller, Get, Patch, Param, Body, UseGuards } from '@nestjs/common';
+import { Controller, Get, Patch, Param, Body, UseGuards, Request, Query } from '@nestjs/common';
 import { GovernanceService } from './governance.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
@@ -31,5 +31,39 @@ export class GovernanceController {
   @RequirePermissions('ADMIN_ACCESS')
   getAuditLogs() {
     return this.governanceService.getAuditLogs();
+  }
+
+  @Get('exceptions')
+  @RequirePermissions('ADMIN_ACCESS')
+  getExceptions(@Request() req: any, @Query() filters: any) {
+    return this.governanceService.getExceptions(req.user, filters);
+  }
+
+  @Get('exceptions/summary')
+  @RequirePermissions('ADMIN_ACCESS')
+  getExceptionSummary(@Request() req: any) {
+    return this.governanceService.getExceptionSummary(req.user);
+  }
+
+  @Patch('exceptions/:id/status')
+  @RequirePermissions('ADMIN_ACCESS')
+  updateExceptionStatus(@Param('id') id: string, @Body('status') status: any, @Request() req: any) {
+    return this.governanceService.updateExceptionStatus(+id, status, req.user.email || req.user.username);
+  }
+
+  @Patch('exceptions/:id/assign')
+  @RequirePermissions('ADMIN_ACCESS')
+  assignException(@Param('id') id: string, @Body('assignee') assignee: string, @Request() req: any) {
+    return this.governanceService.assignException(+id, req.user.email || req.user.username, assignee);
+  }
+
+  @Patch('exceptions/:id/resolve')
+  @RequirePermissions('ADMIN_ACCESS')
+  resolveException(
+    @Param('id') id: string, 
+    @Body() body: { reason: string, comments?: string }, 
+    @Request() req: any
+  ) {
+    return this.governanceService.resolveException(+id, req.user.email || req.user.username, body);
   }
 }

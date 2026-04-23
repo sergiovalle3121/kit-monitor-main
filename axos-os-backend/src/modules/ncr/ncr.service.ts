@@ -4,6 +4,8 @@ import { Repository } from 'typeorm';
 import { NCR, NcrStatus } from './entities/ncr.entity';
 import { EventLedgerService } from '../event-ledger/event-ledger.service';
 import { EventDomain } from '../event-ledger/entities/ledger-event.entity';
+import { AuditService } from '../governance/audit.service';
+import { ExceptionSeverity, ExceptionDomain } from '../governance/entities/operational-exception.entity';
 
 @Injectable()
 export class NcrService {
@@ -11,6 +13,7 @@ export class NcrService {
     @InjectRepository(NCR)
     private readonly ncrRepo: Repository<NCR>,
     private readonly eventLedger: EventLedgerService,
+    private readonly audit: AuditService,
   ) {}
 
   async findAll(filters: any): Promise<NCR[]> {
@@ -54,6 +57,18 @@ export class NcrService {
       referenceType: 'NCR',
       referenceId: saved.id.toString(),
       metadata: { ncrNumber: saved.ncrNumber, partNumber: saved.partNumber }
+    });
+
+    // AUTOMATION: Create Operational Exception for Quality NCR
+    await this.audit.recordException({
+      severity: ExceptionSeverity.HIGH,
+      domain: ExceptionDomain.QUALITY,
+      title: `NCR Reported: ${saved.ncrNumber}`,
+      description: `Non-Conformance Report for ${saved.partNumber}. Issue: ${saved.issueType || 'General'}. Reported by ${saved.createdBy}`,
+      actor: saved.createdBy,
+      resourceType: 'NCR',
+      resourceId: saved.id.toString(),
+      metadata: { ncrNumber: saved.ncrNumber, partNumber: saved.partNumber, buildingId: saved.buildingId }
     });
 
     return saved;
