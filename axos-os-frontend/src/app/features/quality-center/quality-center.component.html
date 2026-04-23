@@ -1,0 +1,95 @@
+<div class="quality-container">
+  <app-enterprise-context-banner title="Quality Hold Engine" subtitle="Control preventivo y contención de materiales no conformes"></app-enterprise-context-banner>
+
+  <div class="main-layout">
+    <!-- HOLD CREATION PANEL -->
+    <aside class="hold-panel">
+      <header>
+        <h3><i class="fas fa-shield-virus"></i> Aplicar Bloqueo (Hold)</h3>
+      </header>
+      
+      <div class="form-group">
+        <label>Part Number</label>
+        <input type="text" [(ngModel)]="holdForm.partNumber" placeholder="Ej: 12345-ABC" />
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Nivel de Alcance</label>
+          <select [(ngModel)]="holdForm.level">
+            <option value="PART_NUMBER">Global (Part Number)</option>
+            <option value="LOT">Por Lote</option>
+            <option value="WAREHOUSE">Por Almacén</option>
+            <option value="PROGRAM">Por Programa</option>
+          </select>
+        </div>
+        <div class="form-group" *ngIf="holdForm.level !== 'PART_NUMBER'">
+          <label>Valor (ID/Lote)</label>
+          <input type="text" [(ngModel)]="holdForm.levelValue" placeholder="ID Almacén o Lote" />
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Motivo del Hold</label>
+        <select [(ngModel)]="holdForm.reason">
+          <option value="">Seleccione motivo...</option>
+          <option value="Defecto de Calidad">Defecto de Calidad</option>
+          <option value="Material Sospechoso">Material Sospechoso</option>
+          <option value="Cambio de Ingeniería">Cambio de Ingeniería</option>
+          <option value="Auditoría de Cliente">Auditoría de Cliente</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>Notas adicionales</label>
+        <textarea [(ngModel)]="holdForm.notes" rows="3"></textarea>
+      </div>
+
+      <button class="btn-hold" (click)="applyHold()" [disabled]="!holdForm.partNumber || !holdForm.reason">
+        Bloquear Material
+      </button>
+    </aside>
+
+    <!-- ACTIVE HOLDS LIST -->
+    <section class="holds-list">
+      <header>
+        <h3>Bloqueos Activos <span class="badge">{{ activeHolds.length }}</span></h3>
+      </header>
+
+      <div class="holds-grid" *ngIf="!loading">
+        <div class="hold-card" *ngFor="let hold of activeHolds">
+          <div class="hold-header">
+            <div class="pn-info">
+              <strong>{{ hold.partNumber }}</strong>
+              <span class="scope">Alcance: {{ hold.level }} <span *ngIf="hold.levelValue">({{ hold.levelValue }})</span></span>
+            </div>
+            <i class="fas fa-lock danger-icon"></i>
+          </div>
+          
+          <div class="hold-body">
+            <p class="reason"><strong>Motivo:</strong> {{ hold.reason }}</p>
+            <p class="notes" *ngIf="hold.notes">{{ hold.notes }}</p>
+          </div>
+
+          <div class="hold-footer">
+            <div class="meta">
+              <span>Held by: {{ hold.heldBy }}</span>
+              <span>{{ hold.createdAt | date:'short' }}</span>
+            </div>
+            <button class="btn-release" (click)="releaseHold(hold.id)">Liberar</button>
+          </div>
+        </div>
+
+        <div class="empty-state" *ngIf="activeHolds.length === 0">
+          <i class="fas fa-check-circle"></i>
+          <p>No hay bloqueos de calidad activos.</p>
+        </div>
+      </div>
+
+      <div class="loader" *ngIf="loading">
+        <div class="spinner"></div>
+        <p>Sincronizando estados de calidad...</p>
+      </div>
+    </section>
+  </div>
+</div>

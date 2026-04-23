@@ -99,6 +99,11 @@ export const routes: Routes = [
       },
 
       {
+        path: 'quality-center',
+        loadComponent: () =>
+          import('./features/quality-center/quality-center.component').then(m => m.QualityCenterComponent),
+      },
+      {
         path: 'roadmap/:domain/:module',
         loadComponent: () =>
           import('./features/enterprise-placeholder/enterprise-placeholder.component').then(m => m.EnterprisePlaceholderComponent),

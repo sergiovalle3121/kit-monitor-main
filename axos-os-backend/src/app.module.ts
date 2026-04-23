@@ -20,6 +20,7 @@ import { VisualAidsModule } from "./modules/visual-aids/visual-aids.module";
 import { EventLedgerModule } from "./modules/event-ledger/event-ledger.module";
 import { EnterpriseCampusModule } from "./modules/enterprise-campus/enterprise-campus.module";
 import { InventoryModule } from "./modules/inventory/inventory.module";
+import { QualityModule } from "./modules/quality/quality.module";
 
 // TypeOrmModule always loads: uses SQLite (dev.sqlite) when no PG env vars,
 // PostgreSQL when DATABASE_URL or DB_HOST is set. See orm.options.ts.
@@ -43,6 +44,7 @@ import { InventoryModule } from "./modules/inventory/inventory.module";
     EventLedgerModule,
     EnterpriseCampusModule,
     InventoryModule,
+    QualityModule,
   ],
   controllers: [HealthController],
   providers: [],

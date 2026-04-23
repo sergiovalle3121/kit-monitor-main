@@ -83,6 +83,10 @@ export class InventoryService {
           throw new BadRequestException(`Insufficient stock in ${dto.fromWarehouseId} for ${dto.partNumber}`);
         }
 
+        if (sourcePos.holdStatus !== 'available') {
+          throw new BadRequestException(`Material ${dto.partNumber} is currently in status '${sourcePos.holdStatus}' and cannot be moved.`);
+        }
+
         sourcePos.onHand -= dto.quantity;
         await queryRunner.manager.save(sourcePos);
       }

@@ -373,6 +373,19 @@ export class ApiService {
     return this.post<any>('inventory/master-data', dto);
   }
 
+  // Quality Management
+  getActiveHolds(): Observable<any[]> {
+    return this.get<any[]>('quality/holds/active');
+  }
+
+  applyQualityHold(dto: any): Observable<any> {
+    return this.post<any>('quality/holds', dto);
+  }
+
+  releaseQualityHold(id: number, releasedBy: string): Observable<any> {
+    return this.patch<any>(`quality/holds/${id}/release`, { releasedBy });
+  }
+
 
   private contextQuery(): Record<string, string> {
     const ctx = this.context.context();
