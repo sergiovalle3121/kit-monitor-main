@@ -30,11 +30,19 @@ export class GovernanceSeedService implements OnModuleInit {
 
     const users = [
       {
+        email: '3312793',
+        username: 'Super Admin',
+        password: '$2b$10$fzycKYiktGF6Ik.giQU6kuccL2pr49oX7ChtaaoNxkIVYgbu5uZxO', // 31218223
+        role: UserRole.ADMIN,
+        permissions: ['ADMIN_ACCESS', 'RELEASE_WO', 'QUALITY_APPROVE', 'DISPATCH', 'MANAGE_MASTER_DATA', 'INVENTORY_ADJUST', 'materials:read', 'materials:write', 'production:read', 'production:write', 'admin:read', 'admin:write'],
+        scopes: {}
+      },
+      {
         email: 'admin@axos.os',
         username: 'System Admin',
         password,
         role: UserRole.ADMIN,
-        permissions: ['ADMIN_ACCESS', 'RELEASE_WO', 'QUALITY_APPROVE', 'DISPATCH', 'MANAGE_MASTER_DATA', 'INVENTORY_ADJUST'],
+        permissions: ['ADMIN_ACCESS', 'RELEASE_WO', 'QUALITY_APPROVE', 'DISPATCH', 'MANAGE_MASTER_DATA', 'INVENTORY_ADJUST', 'materials:read', 'materials:write', 'production:read', 'production:write', 'admin:read', 'admin:write'],
         scopes: {}
       },
       {
