@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { EnterpriseContextBannerComponent } from '../../shared/enterprise-context-banner/enterprise-context-banner.component';
 import { finalize } from 'rxjs';
 import * as XLSX from 'xlsx';
 
@@ -62,7 +63,7 @@ interface CycleCountTimelineEvent {
 @Component({
   selector: 'app-conteos',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [EnterpriseContextBannerComponent, CommonModule, FormsModule],
   templateUrl: './conteos.component.html',
   styleUrls: ['./conteos.component.css'],
 })

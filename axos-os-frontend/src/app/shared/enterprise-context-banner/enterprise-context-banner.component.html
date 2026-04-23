@@ -1,0 +1,9 @@
+<div class="ctx-banner" *ngIf="context.context() as ctx">
+  <span class="ctx-module">{{ moduleName }}</span>
+  <span class="ctx-chip">Campus: {{ ctx.campusId || 'jbl-gdl' }}</span>
+  <span class="ctx-chip" *ngIf="ctx.buildingId">Building: {{ ctx.buildingId }}</span>
+  <span class="ctx-chip" *ngIf="ctx.programId">Program: {{ ctx.programId }}</span>
+  <span class="ctx-chip" *ngIf="ctx.lineId">Line: {{ ctx.lineId }}</span>
+  <span class="ctx-chip" *ngIf="ctx.workOrder">WO: {{ ctx.workOrder }}</span>
+  <span class="ctx-chip" *ngIf="ctx.model">Model: {{ ctx.model }}</span>
+</div>

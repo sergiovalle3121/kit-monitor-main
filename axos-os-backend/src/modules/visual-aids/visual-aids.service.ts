@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { EnterpriseProgram } from '../enterprise-campus/entities/enterprise-program.entity';
 import { CreateVisualAidDto } from './dto/create-visual-aid.dto';
 import { UpdateVisualAidDto } from './dto/update-visual-aid.dto';
 import { VisualAid } from './entities/visual-aid.entity';
@@ -10,10 +11,18 @@ export class VisualAidsService {
   constructor(
     @InjectRepository(VisualAid)
     private readonly repo: Repository<VisualAid>,
+    @InjectRepository(EnterpriseProgram) private readonly programRepo: Repository<EnterpriseProgram>,
   ) {}
 
-  findAll(): Promise<VisualAid[]> {
-    return this.repo.find({ order: { updatedAt: 'DESC' } });
+  async findAll(model?: string, programId?: string): Promise<VisualAid[]> {
+    if (model) return this.repo.find({ where: { model }, order: { updatedAt: 'DESC' } });
+    const all = await this.repo.find({ order: { updatedAt: 'DESC' } });
+    if (programId) {
+      const program = await this.programRepo.findOne({ where: { id: programId } });
+      const prefix = program?.primaryModelPrefix?.toUpperCase();
+      if (prefix) return all.filter((item) => item.model?.toUpperCase().startsWith(prefix));
+    }
+    return all;
   }
 
   async create(dto: CreateVisualAidDto, filename: string, pdfData: Buffer): Promise<VisualAid> {

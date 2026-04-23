@@ -10,6 +10,11 @@ import { UpdateResupplyStatusDto } from './dto/update-resupply-status.dto';
 import { AssignResupplyOwnerDto } from './dto/assign-resupply-owner.dto';
 import { EventLedgerService } from '../event-ledger/event-ledger.service';
 import { EventDomain } from '../event-ledger/entities/ledger-event.entity';
+import { EnterpriseProgram } from '../enterprise-campus/entities/enterprise-program.entity';
+import { EnterpriseLine } from '../enterprise-campus/entities/enterprise-line.entity';
+
+
+type ScopeQuery = { line?: string; model?: string; workOrder?: string; buildingId?: string; programId?: string };
 
 @Injectable()
 export class ResuppliesService {
@@ -18,23 +23,51 @@ export class ResuppliesService {
     private readonly repo: Repository<Resupply>,
     @InjectRepository(KitMaterial)
     private readonly materialRepo: Repository<KitMaterial>,
+    @InjectRepository(EnterpriseProgram) private readonly programRepo: Repository<EnterpriseProgram>,
+    @InjectRepository(EnterpriseLine) private readonly lineRepo: Repository<EnterpriseLine>,
     private readonly eventLedger: EventLedgerService,
   ) {}
 
-  findByKit(kitId: number): Promise<Resupply[]> {
-    return this.repo.find({
+  async findByKit(kitId: number, scope?: ScopeQuery): Promise<Resupply[]> {
+    const rows = await this.repo.find({
       where: { kit: { id: kitId } },
       relations: ['kit', 'kit.plan'],
       order: { requestedAt: 'DESC' },
     });
+    return this.applyScope(rows, scope);
   }
 
-  findAll(): Promise<Resupply[]> {
-    return this.repo.find({
+  async findAll(scope?: ScopeQuery): Promise<Resupply[]> {
+    const rows = await this.repo.find({
       relations: ['kit', 'kit.plan'],
       order: { requestedAt: 'DESC' },
       take: 500,
     });
+    return this.applyScope(rows, scope);
+  }
+
+
+  private async applyScope(rows: Resupply[], scope?: ScopeQuery): Promise<Resupply[]> {
+    if (!scope) return rows;
+    let list = [...rows];
+
+    if (scope.line) list = list.filter((row) => String(row.kit?.plan?.line ?? '') === String(scope.line));
+    if (scope.model) list = list.filter((row) => (row.kit?.plan?.model ?? '').toUpperCase().includes(String(scope.model).toUpperCase()));
+    if (scope.workOrder) list = list.filter((row) => (row.kit?.plan?.workOrder ?? '').toUpperCase().includes(String(scope.workOrder).toUpperCase()));
+
+    if (scope.programId) {
+      const program = await this.programRepo.findOne({ where: { id: scope.programId } });
+      const prefix = program?.primaryModelPrefix?.toUpperCase();
+      if (prefix) list = list.filter((row) => (row.kit?.plan?.model ?? '').toUpperCase().startsWith(prefix));
+    }
+
+    if (scope.buildingId) {
+      const lines = await this.lineRepo.find({ where: { building: { id: scope.buildingId } } as any });
+      const allowed = new Set(lines.map((line) => line.legacyLineNumber).filter((line): line is number => line != null));
+      if (allowed.size) list = list.filter((row) => allowed.has(row.kit?.plan?.line ?? -1));
+    }
+
+    return list;
   }
 
   async findOne(id: number): Promise<Resupply> {

@@ -12,11 +12,17 @@ export class ResuppliesController {
   constructor(private readonly service: ResuppliesService) {}
 
   @Get()
-  find(@Query('kitId') kitId?: string) {
-    if (kitId) {
-      return this.service.findByKit(Number(kitId));
-    }
-    return this.service.findAll();
+  find(
+    @Query('kitId') kitId?: string,
+    @Query('line') line?: string,
+    @Query('model') model?: string,
+    @Query('workOrder') workOrder?: string,
+    @Query('buildingId') buildingId?: string,
+    @Query('programId') programId?: string,
+  ) {
+    const scope = { line, model, workOrder, buildingId, programId };
+    if (kitId) return this.service.findByKit(Number(kitId), scope);
+    return this.service.findAll(scope);
   }
 
   @Post()

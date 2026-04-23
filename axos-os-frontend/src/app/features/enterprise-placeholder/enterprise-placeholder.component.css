@@ -1,0 +1,28 @@
+.placeholder-wrap {
+  max-width: 920px;
+  margin: 24px auto;
+  padding: 28px;
+  border-radius: 16px;
+  border: 1px solid rgba(15, 30, 60, 0.12);
+  background: linear-gradient(145deg, #ffffff, #f7faff);
+  box-shadow: 0 14px 30px rgba(15, 30, 60, 0.08);
+}
+.kicker {
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: #64748b;
+  font-size: 0.74rem;
+  margin-bottom: 10px;
+}
+h1 { color: #0f172a; margin-bottom: 12px; }
+p { color: #334155; line-height: 1.6; }
+ul { margin: 14px 0 0 20px; color: #1e293b; }
+.actions { margin-top: 18px; display: flex; gap: 12px; flex-wrap: wrap; }
+.actions a {
+  padding: 8px 12px;
+  border-radius: 8px;
+  text-decoration: none;
+  border: 1px solid rgba(14, 116, 144, 0.28);
+  color: #0e7490;
+  background: rgba(14, 116, 144, 0.08);
+}

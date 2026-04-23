@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseIntPipe, Post, Query, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ProductionRuntimeService } from './production-runtime.service';
 import { RegisterBayEventDto } from './dto/register-bay-event.dto';
@@ -10,8 +10,14 @@ export class ProductionRuntimeController {
   constructor(private readonly service: ProductionRuntimeService) {}
 
   @Get('lines')
-  getLines() {
-    return this.service.getLines();
+  getLines(
+    @Query('line') line?: string,
+    @Query('model') model?: string,
+    @Query('workOrder') workOrder?: string,
+    @Query('buildingId') buildingId?: string,
+    @Query('programId') programId?: string,
+  ) {
+    return this.service.getLines({ line, model, workOrder, buildingId, programId });
   }
 
   @Get('lines/:kitId')
@@ -81,8 +87,14 @@ export class ProductionRuntimeController {
   }
 
   @Get('completed')
-  getCompleted() {
-    return this.service.getCompleted();
+  getCompleted(
+    @Query('line') line?: string,
+    @Query('model') model?: string,
+    @Query('workOrder') workOrder?: string,
+    @Query('buildingId') buildingId?: string,
+    @Query('programId') programId?: string,
+  ) {
+    return this.service.getCompleted({ line, model, workOrder, buildingId, programId });
   }
 
   @Get('logistics/shortage-risk')

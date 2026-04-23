@@ -6,10 +6,12 @@ import { ResuppliesService } from './resupplies.service';
 import { ResuppliesController } from './resupplies.controller';
 
 import { EventLedgerModule } from '../event-ledger/event-ledger.module';
+import { EnterpriseProgram } from '../enterprise-campus/entities/enterprise-program.entity';
+import { EnterpriseLine } from '../enterprise-campus/entities/enterprise-line.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Resupply, KitMaterial]),
+    TypeOrmModule.forFeature([Resupply, KitMaterial, EnterpriseProgram, EnterpriseLine]),
     EventLedgerModule
   ],
   controllers: [ResuppliesController],

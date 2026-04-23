@@ -1,6 +1,7 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { EnterpriseContextBannerComponent } from '../../shared/enterprise-context-banner/enterprise-context-banner.component';
 import { ApiService } from '../../core/api.service';
 import { BomVisualItem, MaterialImageViewerComponent } from './material-image-viewer.component';
 import { DEMO_IMAGE_DATA_URLS } from './material-image-demo.data';
@@ -26,7 +27,7 @@ const DEMO_MODEL = 'OP-320-0107B';
 @Component({
   selector: 'app-bom',
   standalone: true,
-  imports: [CommonModule, FormsModule, MaterialImageViewerComponent],
+  imports: [EnterpriseContextBannerComponent, CommonModule, FormsModule, MaterialImageViewerComponent],
   templateUrl: './bom.component.html',
   styleUrls: ['./bom.component.css'],
 })

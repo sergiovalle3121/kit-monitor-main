@@ -1,0 +1,19 @@
+.ctx-banner {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(15, 30, 60, 0.12);
+  background: rgba(248, 250, 252, 0.9);
+  margin-bottom: 12px;
+}
+.ctx-module { font-weight: 700; color: #0f172a; margin-right: 4px; }
+.ctx-chip {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.74rem;
+  border: 1px solid rgba(14, 116, 144, 0.2);
+  color: #0e7490;
+  background: rgba(14, 116, 144, 0.1);
+}

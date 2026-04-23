@@ -2,11 +2,12 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { forkJoin, map, of, switchMap } from 'rxjs';
 import { ApiService } from '../../core/api.service';
+import { EnterpriseContextBannerComponent } from '../../shared/enterprise-context-banner/enterprise-context-banner.component';
 
 @Component({
   selector: 'app-monitor',
   standalone: true,
-  imports: [CommonModule],
+  imports: [EnterpriseContextBannerComponent, CommonModule],
   templateUrl: './monitor.component.html',
   styleUrls: ['./monitor.component.css'],
 })

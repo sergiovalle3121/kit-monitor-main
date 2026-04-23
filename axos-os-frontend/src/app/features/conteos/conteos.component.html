@@ -1,3 +1,4 @@
+<app-enterprise-context-banner moduleName="Cycle Counts"></app-enterprise-context-banner>
 <section class="conteos-page">
   <header class="hero">
     <div class="hero-copy">
@@ -21,9 +22,9 @@
         el plan para que las discrepancias salten a la vista primero.
       </p>
       <ul>
-        <li>Conteos por estado con control de variación</li>
+        <li>Conteos por estado con control de variaciÃ³n</li>
         <li>Trazabilidad por usuario, turno y timeline operacional</li>
-        <li>Riesgo de inventario por área/warehouse/line</li>
+        <li>Riesgo de inventario por Ã¡rea/warehouse/line</li>
       </ul>
     </aside>
   </header>
@@ -151,7 +152,7 @@
           @if (lane.logs.length) {
             <button type="button" class="status-item" *ngFor="let log of lane.logs" (click)="selectLog(log.id)">
               <span>{{ log.material }}</span>
-              <small>{{ log.location || 'N/A' }} · Día {{ log.dia }} · {{ ownerForLog(log) }}</small>
+              <small>{{ log.location || 'N/A' }} Â· DÃ­a {{ log.dia }} Â· {{ ownerForLog(log) }}</small>
             </button>
           } @else {
             <p class="lane-empty">No active counts</p>
@@ -360,10 +361,10 @@
           <strong>Operational timeline</strong>
           <div class="timeline-row" *ngFor="let event of timelineForSelected()">
             <span>{{ event.action }}</span>
-            <small>{{ event.actor }} · {{ event.timestamp | date:'short' }} <em *ngIf="event.note">· {{ event.note }}</em></small>
+            <small>{{ event.actor }} Â· {{ event.timestamp | date:'short' }} <em *ngIf="event.note">Â· {{ event.note }}</em></small>
           </div>
         </div>
-        <p class="inline-note" *ngIf="isHistoryMode">Modo solo lectura: seleccionaste una sesión del historial.</p>
+        <p class="inline-note" *ngIf="isHistoryMode">Modo solo lectura: seleccionaste una sesiÃ³n del historial.</p>
       } @else {
         <div class="empty-state tall">
           <strong>Selecciona un material pendiente</strong>
@@ -379,7 +380,7 @@
           <h2>Conteos registrados</h2>
         </div>
         <div class="action-row">
-          <button type="button" class="ghost-btn" (click)="exportSession()">Exportar sesión</button>
+          <button type="button" class="ghost-btn" (click)="exportSession()">Exportar sesiÃ³n</button>
           <button type="button" class="ghost-btn" *ngIf="isHistoryMode" (click)="backToLive()">Volver a live</button>
         </div>
       </div>
@@ -467,7 +468,7 @@
             <thead>
               <tr>
                 <th>NP</th>
-                <th>Descripción</th>
+                <th>DescripciÃ³n</th>
                 <th>SAP</th>
                 <th>Fisico</th>
                 <th>Delta</th>
@@ -479,7 +480,7 @@
               @for (log of filteredLogs; track log.id) {
                 <tr class="selectable-row" [class.selected]="log.id === selectedLogId" (click)="selectLog(log.id)">
                   <td class="mono emphasis">{{ log.material }}</td>
-                  <td>{{ log.descripcion || 'Sin descripción' }}</td>
+                  <td>{{ log.descripcion || 'Sin descripciÃ³n' }}</td>
                   <td class="num">{{ log.sapQuantity }}</td>
                   <td class="num">{{ log.physicalQuantity ?? '-' }}</td>
                   <td class="num" [class.delta-neg]="(log.delta ?? 0) < 0" [class.delta-pos]="(log.delta ?? 0) > 0">{{ log.delta ?? '-' }}</td>
@@ -508,15 +509,15 @@
 
       <div class="empty-state" *ngIf="!sessions.length">
         <strong>Sin sesiones guardadas</strong>
-        <span>Cuando captures conteos, aquí se almacenará el historial.</span>
+        <span>Cuando captures conteos, aquÃ­ se almacenarÃ¡ el historial.</span>
       </div>
 
       <div class="history-list" *ngIf="sessions.length">
         <button type="button" class="history-item" *ngFor="let session of sessions" (click)="openSession(session.id)">
           <strong>{{ session.fileName }}</strong>
           <small>{{ session.timestamp | date:'short' }}</small>
-          <small>NPs: {{ session.kpis.totalNps }} · % cuadrados: {{ session.kpis.squaredPct }}</small>
-          <small>Faltantes: {{ session.kpis.missingUnits }} · Sobrantes: {{ session.kpis.excessUnits }}</small>
+          <small>NPs: {{ session.kpis.totalNps }} Â· % cuadrados: {{ session.kpis.squaredPct }}</small>
+          <small>Faltantes: {{ session.kpis.missingUnits }} Â· Sobrantes: {{ session.kpis.excessUnits }}</small>
         </button>
       </div>
     </article>

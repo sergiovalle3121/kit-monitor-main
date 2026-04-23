@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
+import { EnterpriseProgram } from '../enterprise-campus/entities/enterprise-program.entity';
 import { BomItem } from './entities/bom-item.entity';
 import { CreateBomItemDto } from './dto/create-bom-item.dto';
 import { UpdateBomItemDto } from './dto/update-bom-item.dto';
@@ -14,10 +15,19 @@ export class BomService {
   constructor(
     @InjectRepository(BomItem)
     private readonly repo: Repository<BomItem>,
+    @InjectRepository(EnterpriseProgram) private readonly programRepo: Repository<EnterpriseProgram>,
   ) {}
 
-  findAll(model?: string): Promise<BomItem[]> {
+  async findAll(model?: string, programId?: string): Promise<BomItem[]> {
     if (model) return this.repo.findBy({ model });
+    if (programId) {
+      const program = await this.programRepo.findOne({ where: { id: programId } });
+      const prefix = program?.primaryModelPrefix?.toUpperCase();
+      if (prefix) {
+        const all = await this.repo.find({ order: { model: 'ASC', partNumber: 'ASC' } });
+        return all.filter((item) => item.model?.toUpperCase().startsWith(prefix));
+      }
+    }
     return this.repo.find({ order: { model: 'ASC', partNumber: 'ASC' } });
   }
 

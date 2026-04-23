@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { AfterViewChecked, Component, ElementRef, OnInit, ViewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { EnterpriseContextBannerComponent } from '../../shared/enterprise-context-banner/enterprise-context-banner.component';
 import { DragDropModule } from '@angular/cdk/drag-drop';
 import html2canvas from 'html2canvas';
 import { environment } from '../../../environments/environment';
@@ -12,7 +13,7 @@ import { ConfirmModalService } from '../../shared/confirm-modal/confirm-modal.se
 @Component({
   selector: 'app-visual-aids',
   standalone: true,
-  imports: [CommonModule, FormsModule, DragDropModule],
+  imports: [EnterpriseContextBannerComponent, CommonModule, FormsModule, DragDropModule],
   templateUrl: './visual-aids.component.html',
   styleUrl: './visual-aids.component.css',
 })

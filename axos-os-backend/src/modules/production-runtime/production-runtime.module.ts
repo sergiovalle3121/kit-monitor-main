@@ -9,6 +9,8 @@ import { ProductionBayIncident } from './entities/production-bay-incident.entity
 import { ProductionBayMaterialState } from './entities/production-bay-material-state.entity';
 import { ProductionRuntimeService } from './production-runtime.service';
 import { ProductionRuntimeController } from './production-runtime.controller';
+import { EnterpriseProgram } from '../enterprise-campus/entities/enterprise-program.entity';
+import { EnterpriseLine } from '../enterprise-campus/entities/enterprise-line.entity';
 
 @Module({
   imports: [TypeOrmModule.forFeature([
@@ -19,6 +21,8 @@ import { ProductionRuntimeController } from './production-runtime.controller';
     ProductionBayEvent,
     ProductionBayIncident,
     ProductionBayMaterialState,
+    EnterpriseProgram,
+    EnterpriseLine,
   ])],
   providers: [ProductionRuntimeService],
   controllers: [ProductionRuntimeController],

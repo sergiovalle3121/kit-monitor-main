@@ -10,6 +10,10 @@ import { ProductionBayIncident } from './entities/production-bay-incident.entity
 import { ProductionBayMaterialState } from './entities/production-bay-material-state.entity';
 import { RegisterBayEventDto } from './dto/register-bay-event.dto';
 import { CreateBayIncidentDto } from './dto/create-bay-incident.dto';
+import { EnterpriseProgram } from '../enterprise-campus/entities/enterprise-program.entity';
+import { EnterpriseLine } from '../enterprise-campus/entities/enterprise-line.entity';
+
+type ScopeQuery = { line?: string; model?: string; workOrder?: string; buildingId?: string; programId?: string };
 
 @Injectable()
 export class ProductionRuntimeService {
@@ -21,17 +25,20 @@ export class ProductionRuntimeService {
     @InjectRepository(ProductionBayEvent) private readonly eventRepo: Repository<ProductionBayEvent>,
     @InjectRepository(ProductionBayIncident) private readonly incidentRepo: Repository<ProductionBayIncident>,
     @InjectRepository(ProductionBayMaterialState) private readonly materialStateRepo: Repository<ProductionBayMaterialState>,
+    @InjectRepository(EnterpriseProgram) private readonly programRepo: Repository<EnterpriseProgram>,
+    @InjectRepository(EnterpriseLine) private readonly lineRepo: Repository<EnterpriseLine>,
     private readonly dataSource: DataSource,
   ) {}
 
-  async getLines() {
+  async getLines(scope?: ScopeQuery) {
     const kits = await this.kitRepo.find({
       where: { status: In(['preparing', 'kitted', 'ready', 'requested', 'delivered', 'in_progress', 'received', 'sent']) },
       relations: ['plan'],
       order: { id: 'ASC' },
     });
 
-    return Promise.all(kits.map((kit) => this.buildBackendView(kit.id)));
+    const rows = await Promise.all(kits.map((kit) => this.buildBackendView(kit.id)));
+    return this.applyScope(rows, scope);
   }
 
   async getLine(kitId: number) {
@@ -434,14 +441,39 @@ export class ProductionRuntimeService {
       .sort((a, b) => b.hourBucket.localeCompare(a.hourBucket) || a.bayId - b.bayId);
   }
 
-  async getCompleted() {
+
+  private async applyScope(rows: any[], scope?: ScopeQuery): Promise<any[]> {
+    if (!scope) return rows;
+    let list = [...rows];
+
+    if (scope.line) list = list.filter((row) => String(row?.line ?? '') === String(scope.line));
+    if (scope.model) list = list.filter((row) => String(row?.model ?? '').toUpperCase().includes(String(scope.model).toUpperCase()));
+    if (scope.workOrder) list = list.filter((row) => String(row?.workOrder ?? '').toUpperCase().includes(String(scope.workOrder).toUpperCase()));
+
+    if (scope.programId) {
+      const program = await this.programRepo.findOne({ where: { id: scope.programId } });
+      const prefix = program?.primaryModelPrefix?.toUpperCase();
+      if (prefix) list = list.filter((row) => String(row?.model ?? '').toUpperCase().startsWith(prefix));
+    }
+
+    if (scope.buildingId) {
+      const lines = await this.lineRepo.find({ where: { building: { id: scope.buildingId } } as any });
+      const allowed = new Set(lines.map((line) => line.legacyLineNumber).filter((line): line is number => line != null));
+      if (allowed.size) list = list.filter((row) => allowed.has(Number(row?.line)));
+    }
+
+    return list;
+  }
+
+  async getCompleted(scope?: ScopeQuery) {
     const kits = await this.kitRepo.find({
       where: { status: 'completed' },
       relations: ['plan'],
       order: { id: 'DESC' },
       take: 100,
     });
-    return Promise.all(kits.map((kit) => this.buildBackendView(kit.id)));
+    const rows = await Promise.all(kits.map((kit) => this.buildBackendView(kit.id)));
+    return this.applyScope(rows, scope);
   }
 
   async getShortageRisk(kitId: number) {
