@@ -4,6 +4,7 @@ import { EnterpriseCampusService } from '../enterprise-campus/enterprise-campus.
 import { AuditService } from './audit.service';
 import { ExceptionDomain, ExceptionSeverity, ExceptionStatus } from './entities/operational-exception.entity';
 import { User } from '../users/entities/user.entity';
+import { NotificationService } from './notification.service';
 
 @Injectable()
 export class GovernanceService {
@@ -11,6 +12,7 @@ export class GovernanceService {
     private readonly usersService: UsersService,
     private readonly campusService: EnterpriseCampusService,
     private readonly auditService: AuditService,
+    private readonly notificationService: NotificationService,
   ) {}
 
   // User Management
@@ -49,6 +51,10 @@ export class GovernanceService {
 
   async getLogs(limit: number) {
     return this.auditService.getLogs(limit);
+  }
+
+  async getAuditLogs() {
+    return this.auditService.getLogs(100);
   }
 
   async getMyNotifications(email: string) {

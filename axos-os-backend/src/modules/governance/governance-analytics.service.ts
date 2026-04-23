@@ -118,10 +118,10 @@ export class GovernanceAnalyticsService {
 
   private applyScope(qb: any, user: User) {
     if (user.scopes) {
-      if (user.scopes.buildings?.length > 0) {
+      if (user.scopes.buildings && user.scopes.buildings.length > 0) {
         qb.andWhere('(ex.buildingId IN (:...bids) OR ex.buildingId IS NULL)', { bids: user.scopes.buildings });
       }
-      if (user.scopes.programs?.length > 0) {
+      if (user.scopes.programs && user.scopes.programs.length > 0) {
         qb.andWhere('(ex.programId IN (:...pids) OR ex.programId IS NULL)', { pids: user.scopes.programs });
       }
     }

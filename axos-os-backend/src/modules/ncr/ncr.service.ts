@@ -64,11 +64,11 @@ export class NcrService {
       severity: ExceptionSeverity.HIGH,
       domain: ExceptionDomain.QUALITY,
       title: `NCR Reported: ${saved.ncrNumber}`,
-      description: `Non-Conformance Report for ${saved.partNumber}. Issue: ${saved.issueType || 'General'}. Reported by ${saved.createdBy}`,
+      description: `Non-Conformance Report for ${saved.partNumber}. Category: ${saved.category || 'General'}. Reported by ${saved.createdBy}`,
       actor: saved.createdBy,
       resourceType: 'NCR',
       resourceId: saved.id.toString(),
-      metadata: { ncrNumber: saved.ncrNumber, partNumber: saved.partNumber, buildingId: saved.buildingId }
+      metadata: { ncrNumber: saved.ncrNumber, partNumber: saved.partNumber, buildingId: saved.building }
     });
 
     return saved;

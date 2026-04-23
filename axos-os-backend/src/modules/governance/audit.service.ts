@@ -123,10 +123,10 @@ export class AuditService {
 
     // 1. Mandatory Organizational Scope
     if (user.scopes) {
-      if (user.scopes.buildings?.length > 0) {
+      if (user.scopes.buildings && user.scopes.buildings.length > 0) {
         qb.andWhere('(ex.buildingId IN (:...bids) OR ex.buildingId IS NULL)', { bids: user.scopes.buildings });
       }
-      if (user.scopes.programs?.length > 0) {
+      if (user.scopes.programs && user.scopes.programs.length > 0) {
         qb.andWhere('(ex.programId IN (:...pids) OR ex.programId IS NULL)', { pids: user.scopes.programs });
       }
     }
@@ -316,18 +316,19 @@ export class AuditService {
       });
       
       if (!alreadyNotifiedOverdue) {
+        if (!ex.managementTimeline) ex.managementTimeline = [];
         ex.managementTimeline.push({
           action: 'OVERDUE_ALERT',
           actor: 'SLA_MONITOR',
           timestamp: new Date(),
-          note: `SLA Expired at ${ex.dueAt.toLocaleString()}`
+          note: `SLA Expired at ${ex.dueAt ? ex.dueAt.toLocaleString() : 'N/A'}`
         });
         await this.exceptionRepo.save(ex);
         await this.notifications.notifyException(ex, 'OVERDUE');
       }
 
       // 2. Escalation Logic (Policy-Driven)
-      if (ex.severity === ExceptionSeverity.CRITICAL || ex.severity === ExceptionSeverity.HIGH) {
+      if (ex.dueAt && (ex.severity === ExceptionSeverity.CRITICAL || ex.severity === ExceptionSeverity.HIGH)) {
         const policy = policyMap.get(ex.domain);
         const thresholdHours = policy?.escalationThresholdHours ?? (ex.severity === ExceptionSeverity.CRITICAL ? 1 : 4);
         const escalationTime = new Date(ex.dueAt.getTime() + thresholdHours * 60 * 60 * 1000);
@@ -338,6 +339,7 @@ export class AuditService {
           });
 
           if (!alreadyEscalated) {
+             if (!ex.managementTimeline) ex.managementTimeline = [];
              ex.managementTimeline.push({
                action: 'ESCALATED',
                actor: 'GOVERNANCE_ENGINE',

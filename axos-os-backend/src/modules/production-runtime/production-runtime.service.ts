@@ -375,7 +375,7 @@ export class ProductionRuntimeService {
     if (!allowedTypes.includes(dto.type)) {
       throw new ConflictException({ code: 'INCIDENT_TYPE_INVALID', message: 'Tipo de incidencia inválido' });
     }
-    await this.findKit(kitId);
+    const kit = await this.findKit(kitId);
     const note = dto.note?.trim() || undefined;
     const operator = dto.operator?.trim() || undefined;
     const incident = this.incidentRepo.create({
