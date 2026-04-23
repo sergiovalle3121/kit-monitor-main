@@ -5,6 +5,7 @@ import { QuarantineTransfer } from './entities/quarantine-transfer.entity';
 import { Disposition } from './entities/disposition.entity';
 import { CAPA } from './entities/capa.entity';
 import { IQCInspection } from './entities/iqc-inspection.entity';
+import { FinalInspection } from './entities/final-inspection.entity';
 import { QualityService } from './quality.service';
 import { QualityController } from './quality.controller';
 import { InventoryPosition } from '../inventory/entities/inventory-position.entity';
@@ -15,7 +16,15 @@ import { SuppliersModule } from '../suppliers/suppliers.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([QualityHold, QuarantineTransfer, Disposition, CAPA, IQCInspection, InventoryPosition]),
+    TypeOrmModule.forFeature([
+      QualityHold, 
+      QuarantineTransfer, 
+      Disposition, 
+      CAPA, 
+      IQCInspection, 
+      FinalInspection,
+      InventoryPosition
+    ]),
     EventLedgerModule,
     InventoryModule,
     NcrModule,

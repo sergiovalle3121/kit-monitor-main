@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, Patch } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Patch, Query } from '@nestjs/common';
 import { QualityService } from './quality.service';
 import { QualityHoldLevel } from './entities/quality-hold.entity';
 
@@ -95,5 +95,21 @@ export class QualityController {
   @Post('iqc')
   async recordIqc(@Body() dto: any) {
     return this.qualityService.recordIqcInspection(dto);
+  }
+
+  // OQC Endpoints
+  @Get('oqc/backlog')
+  async getOqcBacklog() {
+    return this.qualityService.getPendingOqcBacklog();
+  }
+
+  @Post('oqc/inspections')
+  async recordOqc(@Body() dto: any) {
+    return this.qualityService.recordFinalInspection(dto);
+  }
+
+  @Get('oqc/history')
+  async getOqcHistory(@Query('partNumber') partNumber?: string) {
+    return this.qualityService.getOqcHistory(partNumber);
   }
 }

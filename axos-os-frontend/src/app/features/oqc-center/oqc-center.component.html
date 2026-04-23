@@ -1,0 +1,125 @@
+<div class="oqc-container">
+  <header class="main-header">
+    <div class="title-area">
+      <h1><i class="fas fa-shield-check"></i> OQC Center</h1>
+      <p>Outgoing Quality Control - Final Inspection & Shipping Release</p>
+    </div>
+  </header>
+
+  <div class="oqc-grid">
+    <!-- PENDING BACKLOG -->
+    <section class="oqc-panel backlog">
+      <div class="panel-header">
+        <h3><i class="fas fa-clock"></i> Pendiente de Inspección</h3>
+        <span class="badge">{{ backlog.length }}</span>
+      </div>
+      <div class="axos-table-container">
+        <table class="axos-table">
+          <thead>
+            <tr>
+              <th>Part Number</th>
+              <th>Qty</th>
+              <th>Reference (WO/Lot)</th>
+              <th>Age</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let item of backlog">
+              <td><strong>{{ item.partNumber }}</strong></td>
+              <td><span class="qty-pill">{{ item.onHand }}</span></td>
+              <td>{{ item.lotNumber || 'N/A' }}</td>
+              <td>{{ item.updatedAt | date:'shortTime' }}</td>
+              <td>
+                <button class="btn-primary small" (click)="openInspection(item)">Inspeccionar</button>
+              </td>
+            </tr>
+            <tr *ngIf="backlog.length === 0">
+              <td colspan="5" class="empty-state">No hay producto terminado pendiente de OQC.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- HISTORY -->
+    <section class="oqc-panel history">
+      <div class="panel-header">
+        <h3><i class="fas fa-history"></i> Historial Reciente</h3>
+      </div>
+      <div class="history-list">
+        <div class="history-card" *ngFor="let h of history">
+          <div class="card-top">
+            <span class="result-pill" [class]="h.result.toLowerCase()">{{ h.result }}</span>
+            <span class="date">{{ h.createdAt | date:'short' }}</span>
+          </div>
+          <div class="card-mid">
+            <strong>{{ h.partNumber }}</strong>
+            <span>WO: {{ h.workOrder }}</span>
+          </div>
+          <div class="card-bot">
+            <span>Inspected: {{ h.quantityInspected }}</span>
+            <span class="passed">Pass: {{ h.quantityPassed }}</span>
+            <span class="failed">Fail: {{ h.quantityFailed }}</span>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<!-- INSPECTION MODAL -->
+<div class="modal-overlay" *ngIf="showInspectionModal">
+  <div class="modal-card">
+    <header>
+      <h3>Inspección Final de Calidad (OQC)</h3>
+      <button class="close-btn" (click)="showInspectionModal = false">✕</button>
+    </header>
+    <div class="modal-body">
+      <div class="info-grid">
+        <div class="info-item"><label>Part:</label> <span>{{ selectedItem?.partNumber }}</span></div>
+        <div class="info-item"><label>Qty:</label> <span>{{ selectedItem?.onHand }}</span></div>
+      </div>
+
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Resultado Final</label>
+          <select [(ngModel)]="inspectionForm.result">
+            <option value="PASS">PASS (Libera para Shipping)</option>
+            <option value="FAIL">FAIL (Bloquea FG)</option>
+            <option value="CONDITIONAL">CONDITIONAL (Cuarentena)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Inspector</label>
+          <input type="text" [(ngModel)]="inspectionForm.inspector" />
+        </div>
+      </div>
+
+      <div class="qty-grid">
+        <div class="form-group">
+          <label>Passed Qty</label>
+          <input type="number" [(ngModel)]="inspectionForm.quantityPassed" />
+        </div>
+        <div class="form-group">
+          <label>Failed Qty</label>
+          <input type="number" [(ngModel)]="inspectionForm.quantityFailed" />
+        </div>
+      </div>
+
+      <div class="form-group" *ngIf="inspectionForm.result !== 'PASS'">
+        <label>Tipo de Defecto</label>
+        <input type="text" [(ngModel)]="inspectionForm.defectType" placeholder="Ej: Rayadura, Funcional, Empaque..." />
+      </div>
+
+      <div class="form-group">
+        <label>Notas de Inspección</label>
+        <textarea [(ngModel)]="inspectionForm.notes" rows="3"></textarea>
+      </div>
+    </div>
+    <footer>
+      <button class="btn-secondary" (click)="showInspectionModal = false">Cancelar</button>
+      <button class="btn-primary" (click)="submitInspection()">Finalizar Inspección</button>
+    </footer>
+  </div>
+</div>

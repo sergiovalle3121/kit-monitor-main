@@ -164,6 +164,11 @@ export const routes: Routes = [
           import('./features/fg-center/fg-center.component').then(m => m.FgCenterComponent),
       },
       {
+        path: 'oqc-center',
+        loadComponent: () =>
+          import('./features/oqc-center/oqc-center.component').then(m => m.OqcCenterComponent),
+      },
+      {
         path: 'shipping-center',
         loadComponent: () =>
           import('./features/shipping-center/shipping-center.component').then(m => m.ShippingCenterComponent),

@@ -559,6 +559,19 @@ export class ApiService {
     return this.get<any>('decision-intelligence/site-overview');
   }
 
+  // OQC Final Quality
+  getOqcBacklog(): Observable<any[]> {
+    return this.get<any[]>('quality/oqc/backlog');
+  }
+
+  recordOqcInspection(dto: any): Observable<any> {
+    return this.post<any>('quality/oqc/inspections', dto);
+  }
+
+  getOqcHistory(): Observable<any[]> {
+    return this.get<any[]>('quality/oqc/history');
+  }
+
   private contextQuery(): Record<string, string> {
     const ctx = this.context.context();
     const q: Record<string, string> = {};

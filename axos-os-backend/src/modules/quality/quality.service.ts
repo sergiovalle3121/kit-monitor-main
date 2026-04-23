@@ -27,6 +27,8 @@ export class QualityService {
     private readonly capaRepo: Repository<CAPA>,
     @InjectRepository(IQCInspection)
     private readonly iqcRepo: Repository<IQCInspection>,
+    @InjectRepository(FinalInspection)
+    private readonly oqcRepo: Repository<FinalInspection>,
     @InjectRepository(InventoryPosition)
     private readonly positionRepo: Repository<InventoryPosition>,
     private readonly eventLedger: EventLedgerService,
@@ -456,5 +458,74 @@ export class QualityService {
     });
 
     return saved;
+  async getPendingOqcBacklog() {
+    return this.positionRepo.find({
+      where: { holdStatus: 'pending_oqc' as any },
+      relations: ['material', 'warehouse'],
+      order: { updatedAt: 'DESC' }
+    });
+  }
+
+  async recordFinalInspection(dto: any): Promise<FinalInspection> {
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      // 1. Record Inspection Result
+      const inspection = this.oqcRepo.create(dto);
+      const saved = await queryRunner.manager.save(inspection);
+
+      // 2. Update Inventory Status based on result
+      let targetStatus: any = 'available';
+      if (dto.result === 'FAIL') targetStatus = 'hold';
+      if (dto.result === 'CONDITIONAL') targetStatus = 'quarantine';
+
+      // Find relevant positions in WH-FG
+      const positions = await queryRunner.manager.find(InventoryPosition, {
+        where: {
+          partNumber: dto.partNumber,
+          holdStatus: 'pending_oqc' as any,
+          warehouseId: 'WH-FG'
+        }
+      });
+
+      let remainingToApply = dto.quantityInspected;
+      for (const pos of positions) {
+        if (remainingToApply <= 0) break;
+        const applyQty = Math.min(pos.onHand, remainingToApply);
+        
+        // Use inventory service for formal ledger
+        await this.inventory.recordTransaction({
+          type: 'HOLD' as any, // Hold transition
+          partNumber: pos.partNumber,
+          quantity: applyQty,
+          fromWarehouseId: 'WH-FG',
+          fromLocation: pos.location,
+          toWarehouseId: 'WH-FG',
+          toLocation: pos.location,
+          actorName: dto.inspector || 'Quality System',
+          holdStatus: targetStatus,
+          referenceType: 'OQC_INSPECTION',
+          referenceId: saved.id.toString(),
+          reason: `OQC Result: ${dto.result} - WO ${dto.workOrder}`
+        });
+
+        remainingToApply -= applyQty;
+      }
+
+      await queryRunner.commitTransaction();
+      return saved;
+    } catch (err) {
+      await queryRunner.rollbackTransaction();
+      throw err;
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  async getOqcHistory(partNumber?: string) {
+    const where = partNumber ? { partNumber } : {};
+    return this.oqcRepo.find({ where, order: { createdAt: 'DESC' }, take: 100 });
   }
 }
