@@ -298,9 +298,6 @@ nav { position:relative; z-index:2; flex:1; display:flex; flex-direction:column;
 .layout-focus .topbar {
   box-shadow: 0 1px 0 rgba(24,24,27,0.05), 0 1px 8px rgba(24,24,27,0.04);
 }
-.layout-focus .topbar {
-  box-shadow: 0 1px 0 rgba(15,30,60,0.05), 0 1px 8px rgba(15,30,60,0.04);
-}
 
 .menu-trigger {
   display:none; width:36px; height:36px; border-radius:9px;
@@ -359,15 +356,8 @@ nav { position:relative; z-index:2; flex:1; display:flex; flex-direction:column;
   border-bottom: 1px solid rgba(24,24,27,0.05);
   transition:background var(--t);
 }
+.search-result:last-child { border-bottom:none; }
 .search-result:hover { background:rgba(24,24,27,0.04); }
-.notif-item:hover { background: rgba(255, 255, 255, 0.05); }
-
-.notif-item.unread {
-  background: rgba(0, 122, 255, 0.05);
-  border-left: 3px solid #007aff;
-}
-
-.notif-item.unread p { color: #fff; font-weight: 600; }
 .result-main { color:var(--cv-t1); font-weight:650; font-size:0.87rem; }
 .result-meta { color:var(--cv-t3); font-size:0.73rem; text-transform:capitalize; }
 .search-empty { padding:14px 16px; color:var(--cv-t3); font-size:0.84rem; }
@@ -726,27 +716,6 @@ nav { position:relative; z-index:2; flex:1; display:flex; flex-direction:column;
 .layout-workspace-active.layout-focus .content-frame {
   border-radius: 8px;
   border-color: rgba(24,24,27,0.05);
-  padding: 22px 22px 24px;
-}
-.layout-immersive .content-frame {
-  border-radius: 12px;
-  border-color: rgba(15,30,60,0.07);
-  box-shadow: 0 1px 2px rgba(15,30,60,0.04), 0 8px 22px rgba(15,30,60,0.035);
-}
-.layout-workspace-active.layout-immersive .content-frame {
-  border-radius: 10px;
-  border-color: rgba(15,30,60,0.055);
-  box-shadow: 0 1px 2px rgba(15,30,60,0.03), 0 6px 18px rgba(15,30,60,0.028);
-}
-.layout-focus .content-frame {
-  border-radius: 10px;
-  border-color: rgba(15,30,60,0.06);
-  min-height: calc(100vh - 84px);
-  box-shadow: 0 1px 2px rgba(15,30,60,0.03), 0 6px 14px rgba(15,30,60,0.03);
-}
-.layout-workspace-active.layout-focus .content-frame {
-  border-radius: 8px;
-  border-color: rgba(15,30,60,0.05);
   padding: 22px 22px 24px;
 }
 

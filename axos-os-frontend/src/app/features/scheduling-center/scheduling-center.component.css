@@ -13,12 +13,12 @@
 .panel-header h3 { font-size: 0.9rem; font-weight: 700; color: var(--cv-t3); text-transform: uppercase; margin: 0; }
 
 .capacity-cards { display: flex; flex-direction: column; gap: 16px; }
-.cap-card { background: rgba(255,255,255,0.02); padding: 16px; border-radius: 8px; border: 1px solid var(--cv-border2); }
+.cap-card { background: #f7f7f6; padding: 16px; border-radius: 8px; border: 1px solid var(--cv-border2); }
 .cap-info { display: flex; justify-content: space-between; margin-bottom: 12px; }
 .line-num { font-weight: 800; font-size: 1rem; }
 .building { font-size: 0.7rem; color: var(--cv-t4); }
 
-.progress-bar { height: 8px; background: rgba(0,0,0,0.3); border-radius: 4px; overflow: hidden; margin-bottom: 8px; }
+.progress-bar { height: 8px; background: #e7e7e5; border-radius: 4px; overflow: hidden; margin-bottom: 8px; }
 .fill { height: 100%; transition: width 0.5s ease-out; }
 .fill.optimal { background: #10b981; }
 .fill.warning { background: #f59e0b; }
@@ -29,9 +29,9 @@
 .priority-pill { font-size: 0.6rem; font-weight: 900; text-transform: uppercase; padding: 2px 8px; border-radius: 4px; }
 .priority-pill.critical { background: #7f1d1d; color: #f87171; }
 .priority-pill.high { background: #78350f; color: #fbbf24; }
-.priority-pill.normal { background: #1e293b; color: #94a3b8; }
+.priority-pill.normal { background: #f1f1f0; color: #52525b; border: 1px solid rgba(24,24,27,0.12); }
 
-.qty-pill { background: rgba(255,255,255,0.05); padding: 4px 10px; border-radius: 6px; font-weight: 700; }
+.qty-pill { background: #f3f4f3; padding: 4px 10px; border-radius: 6px; font-weight: 700; border: 1px solid rgba(24,24,27,0.12); }
 
 .readiness-dots { display: flex; gap: 6px; }
 .dot { width: 8px; height: 8px; border-radius: 50%; }
@@ -39,4 +39,4 @@
 .dot.yellow { background: #f59e0b; }
 .dot.red { background: #ef4444; }
 
-.badge { background: var(--cv-accent); color: black; padding: 2px 10px; border-radius: 20px; font-weight: 800; font-size: 0.8rem; }
+.badge { background: rgba(24,24,27,0.08); color: var(--cv-t2); border: 1px solid rgba(24,24,27,0.2); padding: 2px 10px; border-radius: 20px; font-weight: 800; font-size: 0.8rem; }
