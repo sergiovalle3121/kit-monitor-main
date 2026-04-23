@@ -83,7 +83,7 @@ html { font-size: 15px; }
 body {
   font-family: var(--font);
   color: #334e68;
-  background: #eef1f7;
+  background: #f0f4f9;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
