@@ -42,14 +42,14 @@ export function ormOptions(): TypeOrmModuleOptions {
       : syncOverride === "false"
         ? false
         : url
-          ? false
+          ? true
           : !isProd;
 
   const pgBase: Partial<TypeOrmModuleOptions> = {
     type: "postgres",
     autoLoadEntities: true,
     synchronize,
-    migrationsRun: isProd || process.env.MIGRATIONS_RUN === "true",
+    migrationsRun: !synchronize && (isProd || process.env.MIGRATIONS_RUN === "true"),
     migrations: [join(__dirname, "migrations", "*.{ts,js}")],
     ssl:
       isProd || url?.includes("sslmode=require")
