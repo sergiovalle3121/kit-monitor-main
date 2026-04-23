@@ -49,6 +49,19 @@ export class Resupply {
   @Column({ nullable: true })
   ownerName: string;
 
+  // Inventory Integration
+  @Column({ nullable: true })
+  sourceWarehouseId: string;
+
+  @Column({ nullable: true, default: 'BULK' })
+  sourceLocation: string;
+
+  @Column({ nullable: true })
+  destinationWarehouseId: string;
+
+  @Column({ nullable: true, default: 'LINE' })
+  destinationLocation: string;
+
   // Trazabilidad de SLA
   @CreateDateColumn()
   requestedAt: Date;

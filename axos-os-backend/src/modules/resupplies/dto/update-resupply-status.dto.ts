@@ -5,4 +5,8 @@ export class UpdateResupplyStatusDto {
   actorName: string;
   quantityDelivered?: number;
   reason?: string;
+  sourceWarehouseId?: string;
+  sourceLocation?: string;
+  destinationWarehouseId?: string;
+  destinationLocation?: string;
 }

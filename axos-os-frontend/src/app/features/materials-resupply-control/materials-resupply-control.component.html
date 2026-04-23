@@ -84,6 +84,20 @@
         <button (click)="assignOwner()" [disabled]="assigningOwner || !ownerDraft.trim()">{{ assigningOwner ? 'Assigning...' : 'Assign owner' }}</button>
       </article>
       <article>
+        <h4>Inventory fulfillment</h4>
+        <div class="fulfill-fields">
+          <label>Source warehouse
+            <select [(ngModel)]="overrideSourceWarehouseId">
+              <option *ngFor="let w of warehouses" [value]="w.id">{{ w.code }} - {{ w.name }}</option>
+            </select>
+          </label>
+          <label>Source bin <input type="text" [(ngModel)]="overrideSourceLocation" /></label>
+          <label>Destination <input type="text" [(ngModel)]="overrideDestWarehouseId" /></label>
+          <label>Dest. location <input type="text" [(ngModel)]="overrideDestLocation" /></label>
+        </div>
+      </article>
+
+      <article>
         <h4>Lifecycle timestamps</h4>
         <p><strong>Requested:</strong> {{ timestamp(selected.requestedAt) }}</p><p><strong>Acknowledged:</strong> {{ timestamp(selected.acknowledgedAt) }}</p><p><strong>Pick started:</strong> {{ timestamp(selected.pickStartedAt) }}</p>
         <p><strong>Pick completed:</strong> {{ timestamp(selected.pickCompletedAt) }}</p><p><strong>Delivered:</strong> {{ timestamp(selected.deliveredAt) }}</p><p><strong>Confirmed:</strong> {{ timestamp(selected.confirmedAt) }}</p>

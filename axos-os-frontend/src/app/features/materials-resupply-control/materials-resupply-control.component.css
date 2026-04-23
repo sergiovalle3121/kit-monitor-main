@@ -140,6 +140,16 @@ tr:hover td { background:rgba(14,165,233,0.04); }
 .timeline { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:6px; }
 .timeline li { border-left:2px solid rgba(14,165,233,0.35); padding:0 0 0 10px; color:#627d98; font-size:0.82rem; }
 
+
+/* ── Inventory Fulfillment ────────────────── */
+.fulfill-fields { display:flex; flex-direction:column; gap:8px; margin-top:5px; }
+.fulfill-fields label { display:flex; flex-direction:column; gap:3px; font-size:0.7rem; font-weight:750; color:#627d98; text-transform:uppercase; letter-spacing:0.04em; }
+.fulfill-fields select, .fulfill-fields input {
+  padding:6px 9px; border-radius:7px; border:1px solid rgba(15,30,60,0.12);
+  background:#ffffff; color:#0f1e30; font-size:0.8rem;
+}
+.fulfill-fields select:focus, .fulfill-fields input:focus { border-color:#0ea5e9; outline:none; }
+
 /* ── Responsive ────────────────────────────── */
 @media (max-width:1200px){ .kpi-strip{grid-template-columns:repeat(3,minmax(0,1fr));} .kpi-strip article.wide{grid-column:span 3;} .filters{grid-template-columns:repeat(2,minmax(0,1fr));} .board{grid-template-columns:repeat(3,minmax(220px,1fr));} }
 @media (max-width:800px){ .axos-header{flex-direction:column;} .kpi-strip{grid-template-columns:repeat(2,minmax(0,1fr));} .kpi-strip article.wide{grid-column:span 2;} .board{grid-template-columns:repeat(1,minmax(240px,1fr));} .drawer{top:6px;right:6px;left:6px;width:auto;height:calc(100vh - 12px);} .drawer-grid{grid-template-columns:1fr;} }

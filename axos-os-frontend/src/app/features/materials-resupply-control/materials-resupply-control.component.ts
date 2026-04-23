@@ -68,10 +68,26 @@ export class MaterialsResupplyControlComponent implements OnInit {
     { key: 'escalated', label: 'Escalated', statuses: ['escalated'] as UiStatus[] },
   ];
 
+  warehouses: any[] = [];
+  overrideSourceWarehouseId = '';
+  overrideSourceLocation = 'BULK';
+  overrideDestWarehouseId = 'WH-LINE';
+  overrideDestLocation = 'LINE';
+
   constructor(private readonly api: ApiService) {}
 
   ngOnInit(): void {
     this.load();
+    this.loadWarehouses();
+  }
+
+  loadWarehouses(): void {
+    this.api.getEnterpriseWarehouses().subscribe({
+      next: (ws) => {
+        this.warehouses = ws;
+        if (ws.length) this.overrideSourceWarehouseId = ws[0].id;
+      }
+    });
   }
 
   load(): void {
@@ -176,6 +192,10 @@ export class MaterialsResupplyControlComponent implements OnInit {
       actorName: 'AXOS Operator',
       reason,
       quantityDelivered,
+      sourceWarehouseId: this.overrideSourceWarehouseId,
+      sourceLocation: this.overrideSourceLocation,
+      destinationWarehouseId: this.overrideDestWarehouseId,
+      destinationLocation: this.overrideDestLocation
     }).subscribe({
       next: (updated) => {
         this.rows = this.rows.map((row) => row.id === item.id ? { ...row, ...updated } : row);

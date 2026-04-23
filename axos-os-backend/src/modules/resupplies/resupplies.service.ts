@@ -8,10 +8,8 @@ import { CreateResupplyDto } from './dto/create-resupply.dto';
 import { DeliverResupplyDto } from './dto/deliver-resupply.dto';
 import { UpdateResupplyStatusDto } from './dto/update-resupply-status.dto';
 import { AssignResupplyOwnerDto } from './dto/assign-resupply-owner.dto';
-import { EventLedgerService } from '../event-ledger/event-ledger.service';
-import { EventDomain } from '../event-ledger/entities/ledger-event.entity';
-import { EnterpriseProgram } from '../enterprise-campus/entities/enterprise-program.entity';
 import { EnterpriseLine } from '../enterprise-campus/entities/enterprise-line.entity';
+import { InventoryService } from '../inventory/inventory.service';
 
 
 type ScopeQuery = { line?: string; model?: string; workOrder?: string; buildingId?: string; programId?: string };
@@ -26,6 +24,7 @@ export class ResuppliesService {
     @InjectRepository(EnterpriseProgram) private readonly programRepo: Repository<EnterpriseProgram>,
     @InjectRepository(EnterpriseLine) private readonly lineRepo: Repository<EnterpriseLine>,
     private readonly eventLedger: EventLedgerService,
+    private readonly inventory: InventoryService,
   ) {}
 
   async findByKit(kitId: number, scope?: ScopeQuery): Promise<Resupply[]> {
@@ -194,6 +193,12 @@ export class ResuppliesService {
     
     const updateData: Partial<Resupply> = { status: dto.status };
     
+    // Update warehouse/location if provided in DTO
+    if (dto.sourceWarehouseId) updateData.sourceWarehouseId = dto.sourceWarehouseId;
+    if (dto.sourceLocation) updateData.sourceLocation = dto.sourceLocation;
+    if (dto.destinationWarehouseId) updateData.destinationWarehouseId = dto.destinationWarehouseId;
+    if (dto.destinationLocation) updateData.destinationLocation = dto.destinationLocation;
+
     if (dto.status === 'acknowledged') updateData.acknowledgedAt = new Date();
     if (dto.status === 'pick_started') updateData.pickStartedAt = new Date();
     if (dto.status === 'pick_completed') updateData.pickCompletedAt = new Date();
@@ -202,8 +207,47 @@ export class ResuppliesService {
     if (dto.status === 'escalated') updateData.escalatedAt = new Date();
     if (dto.status === 'cancelled') updateData.cancelledAt = new Date();
 
+    const qty = dto.quantityDelivered !== undefined ? dto.quantityDelivered : resupply.quantityRequested;
     if (dto.quantityDelivered !== undefined) {
       updateData.quantityDelivered = dto.quantityDelivered;
+    }
+
+    // --- INVENTORY INTEGRATION ---
+    // Handle physical movements based on status
+    try {
+      if (dto.status === 'pick_started') {
+        // Move from source to 'TRANSIT' (or just log the start of movement)
+        await this.inventory.recordTransaction({
+          type: 'TRANSFER',
+          partNumber: resupply.partNumber,
+          quantity: qty,
+          fromWarehouseId: dto.sourceWarehouseId || resupply.sourceWarehouseId || 'WH-CENTRAL',
+          fromLocation: dto.sourceLocation || resupply.sourceLocation || 'BULK',
+          actorName: dto.actorName,
+          referenceType: 'RESUPPLY',
+          referenceId: id.toString(),
+          reason: `Picking started: ${dto.reason || ''}`
+        });
+      }
+
+      if (dto.status === 'delivered') {
+        // Move to destination (Line or Sub-warehouse)
+        await this.inventory.recordTransaction({
+          type: (dto.destinationWarehouseId || resupply.destinationWarehouseId || '').includes('LINE') ? 'ISSUE' : 'TRANSFER',
+          partNumber: resupply.partNumber,
+          quantity: qty,
+          toWarehouseId: dto.destinationWarehouseId || resupply.destinationWarehouseId || 'WH-LINE',
+          toLocation: dto.destinationLocation || resupply.destinationLocation || 'LINE',
+          actorName: dto.actorName,
+          referenceType: 'RESUPPLY',
+          referenceId: id.toString(),
+          reason: `Delivered: ${dto.reason || ''}`
+        });
+      }
+    } catch (invErr) {
+      // If inventory fails (e.g. no stock), we should probably not update the resupply status
+      console.error('Inventory transaction failed for resupply:', invErr);
+      throw invErr; 
     }
 
     await this.repo.update(id, updateData);
@@ -237,8 +281,12 @@ export class ResuppliesService {
       model: updated.kit.plan?.model,
       workOrder: updated.kit.plan?.workOrder,
       line: updated.kit.plan?.line?.toString(),
-      metadata: { reason: dto.reason },
-      transaction: dto.quantityDelivered !== undefined ? { quantity: dto.quantityDelivered } : undefined
+      metadata: { 
+        reason: dto.reason,
+        source: updated.sourceWarehouseId,
+        destination: updated.destinationWarehouseId
+      },
+      transaction: qty !== undefined ? { quantity: qty } : undefined
     });
 
     return updated;
