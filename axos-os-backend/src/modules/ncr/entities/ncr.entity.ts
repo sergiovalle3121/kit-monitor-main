@@ -1,6 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, CreateDateColumn, UpdateDateColumn, Index, OneToOne, JoinColumn } from 'typeorm';
-import { QualityHold } from '../quality/entities/quality-hold.entity';
-import { QuarantineTransfer } from '../quality/entities/quarantine-transfer.entity';
+import { QualityHold } from '../../quality/entities/quality-hold.entity';
+import { QuarantineTransfer } from '../../quality/entities/quarantine-transfer.entity';
 
 export type NcrStatus = 'open' | 'under_review' | 'contained' | 'dispositioned' | 'closed';
 export type NcrSeverity = 'minor' | 'major' | 'critical';
