@@ -18,7 +18,7 @@ export class QualityService {
   ) {}
 
   async findAllActiveHolds(): Promise<QualityHold[]> {
-    return this.holdRepo.find({ where: { isActive: true }, orderBy: { createdAt: 'DESC' } });
+    return this.holdRepo.find({ where: { isActive: true }, order: { createdAt: 'DESC' } });
   }
 
   async createHold(dto: {
