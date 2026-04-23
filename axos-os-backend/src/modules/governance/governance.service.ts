@@ -58,4 +58,12 @@ export class GovernanceService {
   async updateExceptionStatus(id: number, status: ExceptionStatus, actor: string) {
     return this.auditService.updateExceptionStatus(id, status, actor);
   }
+
+  async assignException(id: number, actor: string, assignee: string) {
+    return this.auditService.assignException(id, actor, assignee);
+  }
+
+  async resolveException(id: number, actor: string, params: { reason: string, comments?: string }) {
+    return this.auditService.resolveException(id, actor, params);
+  }
 }

@@ -79,17 +79,67 @@ export class ExceptionCenterComponent implements OnInit {
     this.selectedException = ex;
   }
 
-  updateStatus(ex: any, newStatus: string) {
-    this.api.updateOperationalExceptionStatus(ex.id, newStatus)
-      .subscribe({
-        next: () => {
-          ex.status = newStatus;
-          if (this.selectedException && this.selectedException.id === ex.id) {
-            this.selectedException.status = newStatus;
-          }
-          this.loadExceptions(); // Refresh to update filters/stats
-        }
-      });
+  // Resolution Dialog State
+  showResolveDialog = false;
+  resolutionReason = '';
+  resolutionComments = '';
+  resolutionReasons = [
+    'Technical Correction',
+    'Administrative Approval',
+    'Material Restored',
+    'Process Adjustment',
+    'False Positive',
+    'Override'
+  ];
+
+  isOverdue(dueAt?: string): boolean {
+    if (!dueAt) return false;
+    return new Date(dueAt).getTime() < new Date().getTime();
+  }
+
+  acknowledge(ex: any) {
+    this.api.updateOperationalExceptionStatus(ex.id, 'ACKNOWLEDGED').subscribe(() => {
+      this.loadExceptions();
+    });
+  }
+
+  assign(ex: any, assignee: string) {
+    if (!assignee) return;
+    this.api.assignOperationalException(ex.id, assignee).subscribe(() => {
+      this.loadExceptions();
+    });
+  }
+
+  openResolveDialog() {
+    this.showResolveDialog = true;
+    this.resolutionReason = this.resolutionReasons[0];
+  }
+
+  resolve() {
+    if (!this.selectedException || !this.resolutionReason) return;
+    this.api.resolveOperationalException(
+      this.selectedException.id, 
+      this.resolutionReason, 
+      this.resolutionComments
+    ).subscribe(() => {
+      this.showResolveDialog = false;
+      this.resolutionReason = '';
+      this.resolutionComments = '';
+      this.loadExceptions();
+    });
+  }
+
+  reopen(ex: any) {
+    this.api.updateOperationalExceptionStatus(ex.id, 'OPEN').subscribe(() => {
+      this.loadExceptions();
+    });
+  }
+
+  assignPrompt(ex: any) {
+    const assignee = prompt('Ingrese el nombre del responsable:', ex.assignee || '');
+    if (assignee !== null) {
+      this.assign(ex, assignee);
+    }
   }
 
   severityClass(sev: string): string {

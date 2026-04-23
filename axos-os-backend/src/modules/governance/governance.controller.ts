@@ -42,6 +42,22 @@ export class GovernanceController {
   @Patch('exceptions/:id/status')
   @RequirePermissions('ADMIN_ACCESS')
   updateExceptionStatus(@Param('id') id: string, @Body('status') status: any, @Request() req: any) {
-    return this.governanceService.updateExceptionStatus(+id, status, req.user.email);
+    return this.governanceService.updateExceptionStatus(+id, status, req.user.email || req.user.username);
+  }
+
+  @Patch('exceptions/:id/assign')
+  @RequirePermissions('ADMIN_ACCESS')
+  assignException(@Param('id') id: string, @Body('assignee') assignee: string, @Request() req: any) {
+    return this.governanceService.assignException(+id, req.user.email || req.user.username, assignee);
+  }
+
+  @Patch('exceptions/:id/resolve')
+  @RequirePermissions('ADMIN_ACCESS')
+  resolveException(
+    @Param('id') id: string, 
+    @Body() body: { reason: string, comments?: string }, 
+    @Request() req: any
+  ) {
+    return this.governanceService.resolveException(+id, req.user.email || req.user.username, body);
   }
 }

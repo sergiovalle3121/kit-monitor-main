@@ -62,6 +62,41 @@ export class OperationalException {
   actor?: string;
 
   @Column({ nullable: true })
+  assignee?: string;
+
+  @Column({ nullable: true })
+  acknowledgedBy?: string;
+
+  @Column({ type: 'timestamp', nullable: true })
+  acknowledgedAt?: Date;
+
+  @Column({ nullable: true })
+  resolvedBy?: string;
+
+  @Column({ type: 'timestamp', nullable: true })
+  resolvedAt?: Date;
+
+  @Column({ type: 'text', nullable: true })
+  resolutionReason?: string;
+
+  @Column({ type: 'text', nullable: true })
+  resolutionComments?: string;
+
+  @Column({ type: 'timestamp', nullable: true })
+  dueAt?: Date;
+
+  @Column({ type: 'jsonb', nullable: true, default: [] })
+  managementTimeline?: Array<{
+    action: string;
+    actor: string;
+    timestamp: Date;
+    note?: string;
+  }>;
+
+  @Column({ default: 0 })
+  recurrenceCount: number;
+
+  @Column({ nullable: true })
   @Index()
   buildingId?: string;
 

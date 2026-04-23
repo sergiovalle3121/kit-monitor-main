@@ -366,8 +366,181 @@
 
 .badge-aging i { font-size: 0.7rem; color: #888; }
 
+.badge-overdue {
+  font-size: 0.65rem;
+  font-weight: 800;
+  background: #ff3b30;
+  color: #fff;
+  padding: 2px 6px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  animation: pulse-red 2s infinite;
+}
+
+@keyframes pulse-red {
+  0% { opacity: 1; }
+  50% { opacity: 0.6; }
+  100% { opacity: 1; }
+}
+
 .row-time {
   font-size: 0.75rem;
   color: #555;
   margin-left: 8px;
 }
+
+.meta-assignee { color: #007aff !important; font-weight: 600; }
+.meta-recurrence { color: #ff9500 !important; font-weight: 700; }
+
+.sla-info {
+  margin-top: 12px;
+  font-size: 0.8rem;
+  color: #888;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.overdue-text { color: #ff3b30; font-weight: 800; }
+
+.assignee-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.btn-icon-sm {
+  background: #2a2c2e;
+  border: none;
+  color: #888;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-icon-sm:hover { color: #fff; background: #3a3c3e; }
+
+/* Timeline */
+.timeline-section {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #2a2c2e;
+}
+
+.timeline-list {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  position: relative;
+}
+
+.timeline-list::before {
+  content: '';
+  position: absolute;
+  left: 7px;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: #2a2c2e;
+}
+
+.timeline-item {
+  display: flex;
+  gap: 16px;
+  position: relative;
+  z-index: 1;
+}
+
+.step-icon {
+  width: 16px;
+  height: 16px;
+  background: #1a1c1e;
+  color: #007aff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.6rem;
+}
+
+.step-content { flex: 1; }
+
+.step-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.step-head strong { font-size: 0.8rem; color: #fff; }
+.step-time { font-size: 0.7rem; color: #555; }
+.step-note { font-size: 0.8rem; color: #aaa; margin: 0; line-height: 1.4; }
+.step-actor { font-size: 0.7rem; color: #555; display: block; margin-top: 2px; }
+
+/* Resolution Box */
+.resolution-box {
+  margin-top: 24px;
+  background: rgba(52, 199, 89, 0.05);
+  border: 1px solid rgba(52, 199, 89, 0.2);
+  padding: 16px;
+  border-radius: 8px;
+}
+
+.resolution-box strong { display: block; color: #34c759; margin-bottom: 8px; font-size: 0.9rem; }
+.resolution-box p { font-size: 0.85rem; color: #ccc; margin-bottom: 12px; }
+.resolution-box small { font-size: 0.7rem; color: #666; }
+
+/* Modal */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(4px);
+}
+
+.modal-card {
+  background: #1a1c1e;
+  border: 1px solid #2a2c2e;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 500px;
+  padding: 32px;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+}
+
+.modal-card h3 { font-size: 1.5rem; color: #fff; margin-bottom: 8px; }
+.modal-card p { color: #888; margin-bottom: 24px; font-size: 0.9rem; }
+
+.field { margin-bottom: 20px; }
+.field label { display: block; font-size: 0.75rem; font-weight: 600; color: #888; margin-bottom: 8px; text-transform: uppercase; }
+.field select, .field textarea {
+  width: 100%;
+  background: #0a0b0d;
+  border: 1px solid #3a3c3e;
+  color: #fff;
+  padding: 12px;
+  border-radius: 8px;
+  font-family: inherit;
+}
+.field textarea { height: 100px; resize: none; }
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 16px;
+  margin-top: 32px;
+}
+
+.btn-primary { background: #007aff; color: #fff; border: none; padding: 12px 24px; border-radius: 8px; font-weight: 700; cursor: pointer; }
+.btn-secondary { background: transparent; border: 1px solid #2a2c2e; color: #888; padding: 12px 24px; border-radius: 8px; font-weight: 700; cursor: pointer; }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }

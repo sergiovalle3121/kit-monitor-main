@@ -70,12 +70,34 @@ export class AuditService {
   }
 
   async recordException(params: Partial<OperationalException>) {
+    const severity = params.severity || ExceptionSeverity.MEDIUM;
+    const dueAt = this.calculateSlaDueAt(severity);
+    
     const exception = this.exceptionRepo.create({
       ...params,
       status: params.status || ExceptionStatus.OPEN,
-      severity: params.severity || ExceptionSeverity.MEDIUM
+      severity,
+      dueAt,
+      managementTimeline: [{
+        action: 'CREATED',
+        actor: params.actor || 'SYSTEM',
+        timestamp: new Date(),
+        note: `Initial detection: ${params.title}`
+      }]
     });
     return this.exceptionRepo.save(exception);
+  }
+
+  private calculateSlaDueAt(severity: ExceptionSeverity): Date {
+    const now = new Date();
+    const hoursMap: Record<ExceptionSeverity, number> = {
+      [ExceptionSeverity.CRITICAL]: 1,
+      [ExceptionSeverity.HIGH]: 4,
+      [ExceptionSeverity.MEDIUM]: 24,
+      [ExceptionSeverity.LOW]: 48
+    };
+    const hours = hoursMap[severity] || 24;
+    return new Date(now.getTime() + hours * 60 * 60 * 1000);
   }
 
   async findAllExceptions(user: User, filters: { domain?: ExceptionDomain, severity?: ExceptionSeverity, status?: ExceptionStatus } = {}) {
@@ -99,17 +121,86 @@ export class AuditService {
     return qb.getMany();
   }
 
-  async updateExceptionStatus(id: number, status: ExceptionStatus, actor: string) {
+  async acknowledgeException(id: number, actor: string) {
     const ex = await this.exceptionRepo.findOne({ where: { id } });
     if (!ex) return null;
-    
-    ex.status = status;
-    // Log the change in metadata or a separate trail if needed
-    if (!ex.metadata) ex.metadata = {};
-    ex.metadata.resolvedBy = actor;
-    ex.metadata.resolvedAt = new Date();
-    
+
+    ex.status = ExceptionStatus.ACKNOWLEDGED;
+    ex.acknowledgedBy = actor;
+    ex.acknowledgedAt = new Date();
+    ex.assignee = actor; // Auto-assign to acknowledger if no assignee
+
+    if (!ex.managementTimeline) ex.managementTimeline = [];
+    ex.managementTimeline.push({
+      action: 'ACKNOWLEDGED',
+      actor,
+      timestamp: new Date(),
+      note: 'Exception acknowledged by operator'
+    });
+
     return this.exceptionRepo.save(ex);
+  }
+
+  async resolveException(id: number, actor: string, params: { reason: string, comments?: string }) {
+    const ex = await this.exceptionRepo.findOne({ where: { id } });
+    if (!ex) return null;
+
+    ex.status = ExceptionStatus.RESOLVED;
+    ex.resolvedBy = actor;
+    ex.resolvedAt = new Date();
+    ex.resolutionReason = params.reason;
+    ex.resolutionComments = params.comments;
+
+    if (!ex.managementTimeline) ex.managementTimeline = [];
+    ex.managementTimeline.push({
+      action: 'RESOLVED',
+      actor,
+      timestamp: new Date(),
+      note: `Resolved: ${params.reason}. ${params.comments || ''}`
+    });
+
+    return this.exceptionRepo.save(ex);
+  }
+
+  async assignException(id: number, actor: string, assignee: string) {
+    const ex = await this.exceptionRepo.findOne({ where: { id } });
+    if (!ex) return null;
+
+    ex.assignee = assignee;
+    if (!ex.managementTimeline) ex.managementTimeline = [];
+    ex.managementTimeline.push({
+      action: 'ASSIGNED',
+      actor,
+      timestamp: new Date(),
+      note: `Assigned to ${assignee}`
+    });
+
+    return this.exceptionRepo.save(ex);
+  }
+
+  async reopenException(id: number, actor: string, note?: string) {
+    const ex = await this.exceptionRepo.findOne({ where: { id } });
+    if (!ex) return null;
+
+    ex.status = ExceptionStatus.OPEN;
+    ex.recurrenceCount = (ex.recurrenceCount || 0) + 1;
+    
+    if (!ex.managementTimeline) ex.managementTimeline = [];
+    ex.managementTimeline.push({
+      action: 'REOPENED',
+      actor,
+      timestamp: new Date(),
+      note: note || 'Exception reopened for further review'
+    });
+
+    return this.exceptionRepo.save(ex);
+  }
+
+  async updateExceptionStatus(id: number, status: ExceptionStatus, actor: string) {
+    if (status === ExceptionStatus.ACKNOWLEDGED) return this.acknowledgeException(id, actor);
+    if (status === ExceptionStatus.RESOLVED) return this.resolveException(id, actor, { reason: 'Status updated via bulk action' });
+    if (status === ExceptionStatus.OPEN) return this.reopenException(id, actor);
+    return null;
   }
 
   async getLogs(limit = 100) {
