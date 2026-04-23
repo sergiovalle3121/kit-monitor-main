@@ -25,8 +25,23 @@ export class ShippingController {
     return this.shippingService.addItem(id, itemDto);
   }
 
+  @Post(':id/packing-list')
+  async generatePackingList(@Param('id') id: number, @Body('actor') actor: string) {
+    return this.shippingService.generatePackingList(id, actor);
+  }
+
+  @Patch(':id/start-loading')
+  async startLoading(@Param('id') id: number, @Body() manifestDto: any) {
+    return this.shippingService.startLoading(id, manifestDto);
+  }
+
   @Patch(':id/dispatch')
   async dispatch(@Param('id') id: number, @Body('actor') actor: string) {
     return this.shippingService.dispatch(id, actor);
+  }
+
+  @Patch(':id/close')
+  async close(@Param('id') id: number) {
+    return this.shippingService.closeShipment(id);
   }
 }

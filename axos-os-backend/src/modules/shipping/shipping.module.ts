@@ -2,13 +2,14 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Shipment } from './entities/shipment.entity';
 import { ShipmentItem } from './entities/shipment-item.entity';
+import { PackingList } from './entities/packing-list.entity';
 import { ShippingService } from './shipping.service';
 import { ShippingController } from './shipping.controller';
 import { InventoryModule } from '../inventory/inventory.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Shipment, ShipmentItem]),
+    TypeOrmModule.forFeature([Shipment, ShipmentItem, PackingList]),
     InventoryModule
   ],
   controllers: [ShippingController],

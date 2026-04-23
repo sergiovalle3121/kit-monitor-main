@@ -13,23 +13,15 @@ import { ApiService } from '../../core/api.service';
 export class ShippingCenterComponent implements OnInit {
   loading = true;
   shipments: any[] = [];
-  fgInventory: any[] = [];
+  releasedFg: any[] = [];
   showCreateModal = false;
   showStagingModal = false;
+  showManifestModal = false;
   selectedShipment: any = null;
 
-  newShipment = {
-    customer: '',
-    carrier: '',
-    scheduledAt: ''
-  };
-
-  stagingForm = {
-    partNumber: '',
-    quantity: 0,
-    lotNumber: '',
-    fromLocation: 'STAGING'
-  };
+  newShipment = { customer: '', scheduledAt: '' };
+  manifestForm = { carrier: '', truckPlate: '', driverName: '', dockNumber: '' };
+  stagingForm = { partNumber: '', quantity: 0, fromLocation: 'STAGING' };
 
   constructor(private api: ApiService) {}
 
@@ -40,8 +32,8 @@ export class ShippingCenterComponent implements OnInit {
   loadData() {
     this.loading = true;
     this.api.getShipments().subscribe(data => this.shipments = data);
-    this.api.getInventoryPositions({ warehouseId: 'WH-FG' }).subscribe(data => {
-      this.fgInventory = data.filter((p: any) => p.holdStatus === 'available' && p.onHand > 0);
+    this.api.getInventoryPositions({ warehouseId: 'WH-FG', holdStatus: 'available' }).subscribe(data => {
+      this.releasedFg = data.filter((p: any) => p.onHand > 0);
       this.loading = false;
     });
   }
@@ -59,20 +51,35 @@ export class ShippingCenterComponent implements OnInit {
   }
 
   stageItem() {
-    this.api.addShipmentItem(this.selectedShipment.id, {
-      ...this.stagingForm,
-      fromWarehouseId: 'WH-FG'
-    }).subscribe(() => {
+    this.api.addShipmentItem(this.selectedShipment.id, this.stagingForm).subscribe(() => {
       this.showStagingModal = false;
+      this.loadData();
+    }, (err) => {
+      alert(err.error?.message || 'Error staging item');
+    });
+  }
+
+  generatePL(id: number) {
+    this.api.generatePackingList(id, 'Shipping Supervisor 01').subscribe(() => this.loadData());
+  }
+
+  openLoading(shipment: any) {
+    this.selectedShipment = shipment;
+    this.showManifestModal = true;
+  }
+
+  confirmLoading() {
+    this.api.startLoading(this.selectedShipment.id, this.manifestForm).subscribe(() => {
+      this.showManifestModal = false;
       this.loadData();
     });
   }
 
   dispatch(id: number) {
-    this.api.dispatchShipment(id, 'Shipping Agent 01').subscribe(() => this.loadData());
+    this.api.dispatchShipment(id, 'Dispatch Agent 01').subscribe(() => this.loadData());
   }
 
-  getStatusClass(status: string) {
-    return status.toLowerCase();
+  closeShipment(id: number) {
+    this.api.closeShipment(id).subscribe(() => this.loadData());
   }
 }

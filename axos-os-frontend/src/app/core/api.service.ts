@@ -555,6 +555,18 @@ export class ApiService {
     return this.patch<any>(`shipping/${id}/dispatch`, { actor });
   }
 
+  generatePackingList(id: number, actor: string): Observable<any> {
+    return this.post<any>(`shipping/${id}/packing-list`, { actor });
+  }
+
+  startLoading(id: number, dto: any): Observable<any> {
+    return this.patch<any>(`shipping/${id}/start-loading`, dto);
+  }
+
+  closeShipment(id: number): Observable<any> {
+    return this.patch<any>(`shipping/${id}/close`, {});
+  }
+
   getSiteOverview(): Observable<any> {
     return this.get<any>('decision-intelligence/site-overview');
   }
