@@ -71,11 +71,10 @@ export class ShellComponent implements OnInit, OnDestroy {
       short: 'EX',
       icon: 'fa-tower-broadcast',
       items: [
+        { label: 'Site Overview', route: '/site-overview', icon: 'fa-tower-broadcast', state: 'active' },
         { label: 'Control Tower', route: '/control-tower', icon: 'fa-globe', state: 'active' },
-        { label: 'Site Overview', route: '/roadmap/executive/site-overview', icon: 'fa-building', state: 'planned', note: 'Enterprise roadmap' },
         { label: 'Risk Center', route: '/roadmap/executive/risk-center', icon: 'fa-triangle-exclamation', state: 'planned', note: 'Enterprise roadmap' },
         { label: 'Analytics', route: '/roadmap/executive/analytics', icon: 'fa-chart-line', state: 'partial', note: 'Using Forecast + KPIs' },
-        { label: 'Cost & Risk', route: '/roadmap/executive/cost-risk', icon: 'fa-sack-dollar', state: 'planned', note: 'Enterprise roadmap' },
       ],
     },
     {

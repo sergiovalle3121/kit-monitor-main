@@ -555,6 +555,10 @@ export class ApiService {
     return this.patch<any>(`shipping/${id}/dispatch`, { actor });
   }
 
+  getSiteOverview(): Observable<any> {
+    return this.get<any>('decision-intelligence/site-overview');
+  }
+
   private contextQuery(): Record<string, string> {
     const ctx = this.context.context();
     const q: Record<string, string> = {};

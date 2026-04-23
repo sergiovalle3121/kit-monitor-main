@@ -12,6 +12,14 @@ import { ScenarioSimulationResult } from './entities/scenario-simulation-result.
 import { PlanActualOutcome } from './entities/plan-actual-outcome.entity';
 import { ScoreCalibrationPoint } from './entities/score-calibration-point.entity';
 
+// Site Overview Dependencies
+import { ProductionWip } from '../production-runtime/entities/production-wip.entity';
+import { Ncr } from '../ncr/entities/ncr.entity';
+import { WarehouseTask } from '../inventory/entities/warehouse-task.entity';
+import { Shipment } from '../shipping/entities/shipment.entity';
+import { InventoryPosition } from '../inventory/entities/inventory-position.entity';
+import { EnterpriseBuilding } from '../enterprise-campus/entities/enterprise-building.entity';
+
 @Module({
   imports: [TypeOrmModule.forFeature([
     ForecastRun,
@@ -23,6 +31,12 @@ import { ScoreCalibrationPoint } from './entities/score-calibration-point.entity
     ScenarioSimulationResult,
     PlanActualOutcome,
     ScoreCalibrationPoint,
+    ProductionWip,
+    Ncr,
+    WarehouseTask,
+    Shipment,
+    InventoryPosition,
+    EnterpriseBuilding,
   ])],
   providers: [DecisionIntelligenceService],
   controllers: [DecisionIntelligenceController],

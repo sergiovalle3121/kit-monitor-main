@@ -1,0 +1,134 @@
+<div class="command-center" *ngIf="!loading">
+  <header class="cc-header">
+    <div class="site-identity">
+      <span class="location-tag">GUADALAJARA CAMPUS</span>
+      <h1>SITE COMMAND CENTER</h1>
+    </div>
+    <div class="overall-health">
+      <div class="health-ring" [class]="getHealthClass(data.site.healthScore)">
+        <span class="score">{{ data.site.healthScore }}</span>
+        <span class="label">HEALTH</span>
+      </div>
+    </div>
+  </header>
+
+  <div class="cc-grid">
+    <!-- MATERIALS & INVENTORY -->
+    <section class="cc-card materials">
+      <header>
+        <i class="fas fa-box-open"></i>
+        <h3>Materials & Warehouse</h3>
+      </header>
+      <div class="card-content">
+        <div class="kpi-main">
+          <span class="value">{{ data.materials.warehouseHealth }}%</span>
+          <span class="label">Inventory Integrity</span>
+        </div>
+        <div class="kpi-list">
+          <div class="kpi-item red" *ngIf="data.materials.criticalShortages > 0">
+            <span class="qty">{{ data.materials.criticalShortages }}</span>
+            <span class="txt">Critical Shortages</span>
+          </div>
+          <div class="kpi-item yellow" *ngIf="data.materials.pendingReplenishment > 0">
+            <span class="qty">{{ data.materials.pendingReplenishment }}</span>
+            <span class="txt">Open Replenishment Tasks</span>
+          </div>
+        </div>
+        <div class="hold-status">
+          <div class="hold-box">
+            <span class="qty">{{ data.materials.holdInventory.qualityHold }}</span>
+            <span class="label">Quality Hold</span>
+          </div>
+          <div class="hold-box">
+            <span class="qty">{{ data.materials.holdInventory.quarantine }}</span>
+            <span class="label">Quarantine</span>
+          </div>
+        </div>
+      </div>
+      <footer routerLink="/warehouse-center">GO TO WAREHOUSE OPS <i class="fas fa-arrow-right"></i></footer>
+    </section>
+
+    <!-- PRODUCTION & WIP -->
+    <section class="cc-card production">
+      <header>
+        <i class="fas fa-industry"></i>
+        <h3>Manufacturing Execution</h3>
+      </header>
+      <div class="card-content">
+        <div class="kpi-main">
+          <span class="value">{{ data.production.activeWorkOrders }}</span>
+          <span class="label">Active Work Orders</span>
+        </div>
+        <div class="kpi-list">
+          <div class="kpi-item blue">
+            <span class="qty">{{ data.production.wipUnits }}</span>
+            <span class="txt">Units in WIP</span>
+          </div>
+          <div class="kpi-item orange" *ngIf="data.production.fgPendingOqc > 0">
+            <span class="qty">{{ data.production.fgPendingOqc }}</span>
+            <span class="txt">FG Pending OQC</span>
+          </div>
+        </div>
+        <div class="efficiency-bar">
+          <div class="fill" [style.width.%]="data.production.productionEfficiency"></div>
+          <span class="label">Efficiency: {{ data.production.productionEfficiency }}%</span>
+        </div>
+      </div>
+      <footer routerLink="/production-wip">VIEW WIP FLOW <i class="fas fa-arrow-right"></i></footer>
+    </section>
+
+    <!-- QUALITY & RISK -->
+    <section class="cc-card quality">
+      <header>
+        <i class="fas fa-shield-virus"></i>
+        <h3>Quality & Risk Control</h3>
+      </header>
+      <div class="card-content">
+        <div class="kpi-main">
+          <span class="value">{{ data.quality.openNcrs }}</span>
+          <span class="label">Open Quality Events (NCR)</span>
+        </div>
+        <div class="risk-meter" [class]="data.quality.supplierRiskLevel.toLowerCase()">
+          <span class="label">Supplier Risk:</span>
+          <span class="level">{{ data.quality.supplierRiskLevel }}</span>
+        </div>
+        <div class="impact-list">
+          <div class="impact-item" *ngIf="data.quality.criticalQualityRisk > 0">
+            <i class="fas fa-exclamation-triangle"></i> {{ data.quality.criticalQualityRisk }} Critical NCRs affecting throughput
+          </div>
+        </div>
+      </div>
+      <footer routerLink="/ncr-center">OPEN QUALITY CENTER <i class="fas fa-arrow-right"></i></footer>
+    </section>
+
+    <!-- SHIPPING & LOGISTICS -->
+    <section class="cc-card shipping">
+      <header>
+        <i class="fas fa-truck-fast"></i>
+        <h3>Shipping Readiness</h3>
+      </header>
+      <div class="card-content">
+        <div class="kpi-main">
+          <span class="value">{{ data.shipping.stagedShipments }}</span>
+          <span class="label">Shipments Staged</span>
+        </div>
+        <div class="shipping-stats">
+          <div class="s-box">
+            <span class="qty">{{ data.shipping.todaySchedule }}</span>
+            <span class="label">Scheduled Today</span>
+          </div>
+          <div class="s-box green">
+            <span class="qty">{{ data.shipping.pendingDispatch }}</span>
+            <span class="label">Ready for Dispatch</span>
+          </div>
+        </div>
+      </div>
+      <footer routerLink="/shipping-center">GO TO SHIPPING CENTER <i class="fas fa-arrow-right"></i></footer>
+    </section>
+  </div>
+</div>
+
+<div class="loading-overlay" *ngIf="loading">
+  <div class="loader"></div>
+  <p>Consolidating Campus Signals...</p>
+</div>

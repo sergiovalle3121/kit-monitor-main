@@ -28,6 +28,12 @@ export class DecisionIntelligenceService {
     @InjectRepository(ScenarioSimulationResult) private readonly simulationRepo: Repository<ScenarioSimulationResult>,
     @InjectRepository(PlanActualOutcome) private readonly outcomeRepo: Repository<PlanActualOutcome>,
     @InjectRepository(ScoreCalibrationPoint) private readonly calibrationRepo: Repository<ScoreCalibrationPoint>,
+    @InjectRepository(ProductionWip) private readonly wipRepo: Repository<ProductionWip>,
+    @InjectRepository(Ncr) private readonly ncrRepo: Repository<Ncr>,
+    @InjectRepository(WarehouseTask) private readonly warehouseTaskRepo: Repository<WarehouseTask>,
+    @InjectRepository(Shipment) private readonly shipmentRepo: Repository<Shipment>,
+    @InjectRepository(InventoryPosition) private readonly inventoryRepo: Repository<InventoryPosition>,
+    @InjectRepository(EnterpriseBuilding) private readonly buildingRepo: Repository<EnterpriseBuilding>,
   ) {}
 
   async createForecastRun(dto: CreateForecastRunDto) {
@@ -462,5 +468,58 @@ export class DecisionIntelligenceService {
   private round(value: number, digits = 2): number {
     const pow = Math.pow(10, digits);
     return Math.round(value * pow) / pow;
+  async getSiteOverview() {
+    const buildings = await this.buildingRepo.find();
+    const inventory = await this.inventoryRepo.find();
+    const wip = await this.wipRepo.find();
+    const ncrs = await this.ncrRepo.find();
+    const tasks = await this.warehouseTaskRepo.find({ where: { status: 'PENDING' } });
+    const shipments = await this.shipmentRepo.find();
+
+    // Health Aggregation
+    const qualityHoldQty = inventory.filter(p => p.holdStatus === 'hold').reduce((acc, p) => acc + p.onHand, 0);
+    const quarantineQty = inventory.filter(p => p.holdStatus === 'quarantine').reduce((acc, p) => acc + p.onHand, 0);
+    const pendingOqcQty = inventory.filter(p => p.holdStatus === 'pending_oqc').reduce((acc, p) => acc + p.onHand, 0);
+
+    return {
+      site: {
+        id: 'GDL-CAMPUS',
+        name: 'Guadalajara Industrial Campus',
+        healthScore: this.calculateSiteHealth(ncrs, tasks, wip),
+        activeBuildings: buildings.length,
+      },
+      materials: {
+        warehouseHealth: inventory.length > 0 ? 94 : 0, // Mock for now, will refine
+        pendingReplenishment: tasks.filter(t => t.type === 'TRANSFER').length,
+        criticalShortages: inventory.filter(p => p.onHand <= 0).length, // Simplified
+        holdInventory: {
+          qualityHold: qualityHoldQty,
+          quarantine: quarantineQty
+        }
+      },
+      production: {
+        activeWorkOrders: wip.filter(w => w.status === 'in_production').length,
+        wipUnits: wip.reduce((acc, w) => acc + w.completedQty, 0),
+        productionEfficiency: 88, // Mock
+        fgPendingOqc: pendingOqcQty
+      },
+      quality: {
+        openNcrs: ncrs.filter(n => n.status !== 'closed').length,
+        criticalQualityRisk: ncrs.filter(n => n.severity === 'critical' && n.status !== 'closed').length,
+        supplierRiskLevel: 'Medium'
+      },
+      shipping: {
+        stagedShipments: shipments.filter(s => s.status === 'staging').length,
+        pendingDispatch: shipments.filter(s => s.status === 'packed').length,
+        todaySchedule: shipments.filter(s => s.status === 'planning').length
+      }
+    };
+  }
+
+  private calculateSiteHealth(ncrs: any[], tasks: any[], wip: any[]): number {
+    const ncrPenalty = ncrs.filter(n => n.status !== 'closed').length * 2;
+    const taskPenalty = Math.min(20, tasks.length * 0.5);
+    const wipBonus = Math.min(10, wip.length);
+    return Math.max(0, Math.min(100, 95 - ncrPenalty - taskPenalty + wipBonus));
   }
 }

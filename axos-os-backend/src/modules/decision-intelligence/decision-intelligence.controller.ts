@@ -81,4 +81,9 @@ export class DecisionIntelligenceController {
   getCalibrationSummary() {
     return this.service.getCalibrationSummary();
   }
+
+  @Get('site-overview')
+  async getSiteOverview() {
+    return this.service.getSiteOverview();
+  }
 }

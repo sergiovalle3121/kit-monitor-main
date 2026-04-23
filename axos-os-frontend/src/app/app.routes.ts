@@ -78,6 +78,11 @@ export const routes: Routes = [
         pathMatch: 'full',
       },
       {
+        path: 'site-overview',
+        loadComponent: () =>
+          import('./features/site-overview/site-overview.component').then(m => m.SiteOverviewComponent),
+      },
+      {
         path: 'control-tower',
         loadComponent: () =>
           import('./features/control-tower/control-tower.component').then(m => m.ControlTowerComponent),
