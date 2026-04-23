@@ -15,6 +15,17 @@ import { PlanActualOutcome } from './entities/plan-actual-outcome.entity';
 import { ScoreCalibrationPoint } from './entities/score-calibration-point.entity';
 import { RunSimulationDto } from './dto/run-simulation.dto';
 import { RegisterOutcomeDto } from './dto/register-outcome.dto';
+import { ProductionWip } from '../production-runtime/entities/production-wip.entity';
+import { Ncr } from '../ncr/entities/ncr.entity';
+import { WarehouseTask } from '../inventory/entities/warehouse-task.entity';
+import { Shipment } from '../shipping/entities/shipment.entity';
+import { InventoryPosition } from '../inventory/entities/inventory-position.entity';
+import { EnterpriseBuilding } from '../enterprise-campus/entities/enterprise-building.entity';
+import { FinalInspection } from '../quality/entities/final-inspection.entity';
+import { IQCInspection } from '../quality/entities/iqc-inspection.entity';
+import { CAPA } from '../quality/entities/capa.entity';
+import { SCAR } from '../suppliers/entities/scar.entity';
+import { Supplier } from '../suppliers/entities/supplier.entity';
 
 @Injectable()
 export class DecisionIntelligenceService {
@@ -34,6 +45,11 @@ export class DecisionIntelligenceService {
     @InjectRepository(Shipment) private readonly shipmentRepo: Repository<Shipment>,
     @InjectRepository(InventoryPosition) private readonly inventoryRepo: Repository<InventoryPosition>,
     @InjectRepository(EnterpriseBuilding) private readonly buildingRepo: Repository<EnterpriseBuilding>,
+    @InjectRepository(FinalInspection) private readonly oqcRepo: Repository<FinalInspection>,
+    @InjectRepository(IQCInspection) private readonly iqcRepo: Repository<IQCInspection>,
+    @InjectRepository(CAPA) private readonly capaRepo: Repository<CAPA>,
+    @InjectRepository(SCAR) private readonly scarRepo: Repository<SCAR>,
+    @InjectRepository(Supplier) private readonly supplierRepo: Repository<Supplier>,
   ) {}
 
   async createForecastRun(dto: CreateForecastRunDto) {
@@ -475,51 +491,88 @@ export class DecisionIntelligenceService {
     const ncrs = await this.ncrRepo.find();
     const tasks = await this.warehouseTaskRepo.find({ where: { status: 'PENDING' } });
     const shipments = await this.shipmentRepo.find();
+    const oqc = await this.oqcRepo.find();
+    const iqc = await this.iqcRepo.find();
+    const capas = await this.capaRepo.find();
+    const scars = await this.scarRepo.find();
+    const suppliers = await this.supplierRepo.find();
 
-    // Health Aggregation
-    const qualityHoldQty = inventory.filter(p => p.holdStatus === 'hold').reduce((acc, p) => acc + p.onHand, 0);
-    const quarantineQty = inventory.filter(p => p.holdStatus === 'quarantine').reduce((acc, p) => acc + p.onHand, 0);
+    // 1. Quality Analytics
+    const totalOqc = oqc.length;
+    const passedOqc = oqc.filter(o => o.result === 'PASS').length;
+    const fpy = totalOqc > 0 ? (passedOqc / totalOqc) * 100 : 100;
+
+    const openCapas = capas.filter(c => c.status !== 'Closed').length;
+    const overdueCapas = capas.filter(c => c.status !== 'Closed' && new Date(c.dueDate) < new Date()).length;
+
+    // 2. FG & Shipping Signals
     const pendingOqcQty = inventory.filter(p => p.holdStatus === 'pending_oqc').reduce((acc, p) => acc + p.onHand, 0);
+    const blockedFgQty = inventory.filter(p => p.holdStatus === 'hold' && p.warehouseId === 'WH-FG').reduce((acc, p) => acc + p.onHand, 0);
+    
+    // 3. Supply Chain Signals
+    const shortages = inventory.filter(p => p.onHand <= 0).length;
+    const quarantinedQty = inventory.filter(p => p.holdStatus === 'quarantine').reduce((acc, p) => acc + p.onHand, 0);
+
+    // 4. Supplier Intelligence
+    const openScars = scars.filter(s => s.status !== 'Closed').length;
+    const criticalSuppliers = suppliers.filter(s => s.status === 'Critical').length; // Assuming status exists
 
     return {
       site: {
         id: 'GDL-CAMPUS',
         name: 'Guadalajara Industrial Campus',
-        healthScore: this.calculateSiteHealth(ncrs, tasks, wip),
+        healthScore: this.calculateDeepHealth(ncrs, tasks, wip, fpy, overdueCapas),
         activeBuildings: buildings.length,
       },
+      quality: {
+        fpy: this.round(fpy),
+        oqcRate: totalOqc > 0 ? this.round((passedOqc / totalOqc) * 100) : 100,
+        iqcPassRate: iqc.length > 0 ? this.round((iqc.filter(i => i.result === 'PASS').length / iqc.length) * 100) : 100,
+        openNcrs: ncrs.filter(n => n.status !== 'closed').length,
+        criticalNcrs: ncrs.filter(n => n.severity === 'critical' && n.status !== 'closed').length,
+        openCapas,
+        overdueCapas,
+        openScars
+      },
       materials: {
-        warehouseHealth: inventory.length > 0 ? 94 : 0, // Mock for now, will refine
-        pendingReplenishment: tasks.filter(t => t.type === 'TRANSFER').length,
-        criticalShortages: inventory.filter(p => p.onHand <= 0).length, // Simplified
-        holdInventory: {
-          qualityHold: qualityHoldQty,
-          quarantine: quarantineQty
-        }
+        shortages,
+        quarantinedQty,
+        holdQty: inventory.filter(p => p.holdStatus === 'hold').reduce((acc, p) => acc + p.onHand, 0),
+        replenishmentBacklog: tasks.filter(t => t.type === 'TRANSFER').length
       },
       production: {
         activeWorkOrders: wip.filter(w => w.status === 'in_production').length,
         wipUnits: wip.reduce((acc, w) => acc + w.completedQty, 0),
-        productionEfficiency: 88, // Mock
-        fgPendingOqc: pendingOqcQty
-      },
-      quality: {
-        openNcrs: ncrs.filter(n => n.status !== 'closed').length,
-        criticalQualityRisk: ncrs.filter(n => n.severity === 'critical' && n.status !== 'closed').length,
-        supplierRiskLevel: 'Medium'
+        fgPendingOqc: pendingOqcQty,
+        fgBlocked: blockedFgQty
       },
       shipping: {
-        stagedShipments: shipments.filter(s => s.status === 'staging').length,
-        pendingDispatch: shipments.filter(s => s.status === 'packed').length,
-        todaySchedule: shipments.filter(s => s.status === 'planning').length
+        staged: shipments.filter(s => s.status === 'staged').length,
+        loading: shipments.filter(s => s.status === 'loading').length,
+        dispatched: shipments.filter(s => s.status === 'dispatched').length,
+        blockers: shipments.filter(s => s.status === 'planning' && s.scheduledAt < new Date()).length
+      },
+      suppliers: {
+        criticalCount: criticalSuppliers,
+        openScars,
+        avgScarAging: this.calculateAvgAging(scars.filter(s => s.status !== 'Closed'))
       }
     };
   }
 
-  private calculateSiteHealth(ncrs: any[], tasks: any[], wip: any[]): number {
-    const ncrPenalty = ncrs.filter(n => n.status !== 'closed').length * 2;
-    const taskPenalty = Math.min(20, tasks.length * 0.5);
-    const wipBonus = Math.min(10, wip.length);
-    return Math.max(0, Math.min(100, 95 - ncrPenalty - taskPenalty + wipBonus));
+  private calculateDeepHealth(ncrs: any[], tasks: any[], wip: any[], fpy: number, overdueCapas: number): number {
+    let score = 95;
+    score -= (ncrs.filter(n => n.status !== 'closed').length * 1.5);
+    score -= (tasks.length * 0.2);
+    score -= (overdueCapas * 5);
+    score -= ((100 - fpy) * 0.5);
+    return Math.max(0, Math.min(100, this.round(score)));
+  }
+
+  private calculateAvgAging(items: any[]): number {
+    if (!items.length) return 0;
+    const now = new Date().getTime();
+    const sum = items.reduce((acc, item) => acc + (now - new Date(item.createdAt).getTime()), 0);
+    return this.round(sum / (items.length * 1000 * 3600 * 24), 1); // Days
   }
 }

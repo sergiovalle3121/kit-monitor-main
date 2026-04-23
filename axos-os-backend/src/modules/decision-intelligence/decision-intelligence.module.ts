@@ -19,6 +19,11 @@ import { WarehouseTask } from '../inventory/entities/warehouse-task.entity';
 import { Shipment } from '../shipping/entities/shipment.entity';
 import { InventoryPosition } from '../inventory/entities/inventory-position.entity';
 import { EnterpriseBuilding } from '../enterprise-campus/entities/enterprise-building.entity';
+import { FinalInspection } from '../quality/entities/final-inspection.entity';
+import { IQCInspection } from '../quality/entities/iqc-inspection.entity';
+import { CAPA } from '../quality/entities/capa.entity';
+import { SCAR } from '../suppliers/entities/scar.entity';
+import { Supplier } from '../suppliers/entities/supplier.entity';
 
 @Module({
   imports: [TypeOrmModule.forFeature([
@@ -37,6 +42,11 @@ import { EnterpriseBuilding } from '../enterprise-campus/entities/enterprise-bui
     Shipment,
     InventoryPosition,
     EnterpriseBuilding,
+    FinalInspection,
+    IQCInspection,
+    CAPA,
+    SCAR,
+    Supplier
   ])],
   providers: [DecisionIntelligenceService],
   controllers: [DecisionIntelligenceController],
