@@ -117,8 +117,78 @@ export class AuditService {
     if (filters.severity) qb.andWhere('ex.severity = :severity', { severity: filters.severity });
     if (filters.status) qb.andWhere('ex.status = :status', { status: filters.status });
 
-    qb.orderBy('ex.createdAt', 'DESC');
-    return qb.getMany();
+    const list = await qb.getMany();
+    const now = new Date();
+
+    // 2. INDUSTRIAL PRIORITIZATION LOGIC
+    // Sort logic: 
+    // - CRITICAL + OVERDUE -> 0
+    // - CRITICAL           -> 1
+    // - HIGH + OVERDUE     -> 2
+    // - HIGH               -> 3
+    // - MEDIUM/LOW         -> 4
+    // - RESOLVED           -> 5
+    const getPriority = (ex: OperationalException) => {
+      if (ex.status === ExceptionStatus.RESOLVED) return 100;
+      const isOverdue = ex.dueAt && new Date(ex.dueAt) < now;
+      
+      if (ex.severity === ExceptionSeverity.CRITICAL) return isOverdue ? 0 : 1;
+      if (ex.severity === ExceptionSeverity.HIGH) return isOverdue ? 2 : 3;
+      if (ex.severity === ExceptionSeverity.MEDIUM) return 4;
+      return 5;
+    };
+
+    return list.sort((a, b) => {
+      const pA = getPriority(a);
+      const pB = getPriority(b);
+      if (pA !== pB) return pA - pB;
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
+  }
+
+  async getExceptionRiskSummary(user: User) {
+    const exceptions = await this.findAllExceptions(user);
+    const now = new Date();
+
+    const summary = {
+      bySeverity: { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0 },
+      byDomain: {} as Record<string, number>,
+      overdueCount: 0,
+      recurrenceCount: 0,
+      totalOpen: 0,
+      highFrictionLocations: [] as any[]
+    };
+
+    exceptions.forEach(ex => {
+      if (ex.status !== ExceptionStatus.RESOLVED) {
+        summary.totalOpen++;
+        summary.bySeverity[ex.severity]++;
+        summary.byDomain[ex.domain] = (summary.byDomain[ex.domain] || 0) + 1;
+        
+        if (ex.dueAt && new Date(ex.dueAt) < now) {
+          summary.overdueCount++;
+        }
+        
+        if (ex.recurrenceCount > 0) {
+          summary.recurrenceCount++;
+        }
+      }
+    });
+
+    const locations = new Map<string, number>();
+    exceptions.forEach(ex => {
+      if (ex.status !== ExceptionStatus.RESOLVED) {
+        const locKey = ex.buildingId || 'Global';
+        locations.set(locKey, (locations.get(locKey) || 0) + 1);
+      }
+    });
+
+    summary.highFrictionLocations = Array.from(locations.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([id, count]) => ({ id, count }));
+
+    return summary;
   }
 
   async acknowledgeException(id: number, actor: string) {

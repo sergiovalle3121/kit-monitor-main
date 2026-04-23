@@ -39,6 +39,12 @@ export class GovernanceController {
     return this.governanceService.getExceptions(req.user, filters);
   }
 
+  @Get('exceptions/summary')
+  @RequirePermissions('ADMIN_ACCESS')
+  getExceptionSummary(@Request() req: any) {
+    return this.governanceService.getExceptionSummary(req.user);
+  }
+
   @Patch('exceptions/:id/status')
   @RequirePermissions('ADMIN_ACCESS')
   updateExceptionStatus(@Param('id') id: string, @Body('status') status: any, @Request() req: any) {

@@ -23,6 +23,37 @@
     </div>
   </header>
 
+  <!-- Risk Prioritization Layer -->
+  <div class="risk-prioritization-layer" *ngIf="riskSummary">
+    <div class="risk-card main-threat">
+      <div class="card-icon critical"><i class="fas fa-bolt"></i></div>
+      <div class="card-info">
+        <h3>Amenazas Inmediatas</h3>
+        <p><strong>{{ riskSummary.overdueCount }}</strong> excepciones vencidas (SLA Overdue)</p>
+      </div>
+      <div class="card-value">{{ riskSummary.bySeverity.CRITICAL }} Críticas</div>
+    </div>
+
+    <div class="risk-card friction">
+      <div class="card-icon warning"><i class="fas fa-sync"></i></div>
+      <div class="card-info">
+        <h3>Recurrencia Operativa</h3>
+        <p><strong>{{ riskSummary.recurrenceCount }}</strong> problemas reapareciendo</p>
+      </div>
+      <div class="card-value">{{ riskSummary.totalOpen }} Abiertas</div>
+    </div>
+
+    <div class="friction-summary">
+      <div class="friction-item" *ngFor="let loc of riskSummary.highFrictionLocations">
+        <label>Sede: {{ loc.id }}</label>
+        <div class="friction-bar-bg">
+          <div class="friction-bar" [style.width.%]="(loc.count / riskSummary.totalOpen) * 100"></div>
+        </div>
+        <span>{{ loc.count }} exc.</span>
+      </div>
+    </div>
+  </div>
+
   <div class="exc-content">
     <!-- Filter Bar -->
     <div class="filter-bar">

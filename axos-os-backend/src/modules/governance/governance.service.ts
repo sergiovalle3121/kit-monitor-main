@@ -55,6 +55,10 @@ export class GovernanceService {
     return this.auditService.findAllExceptions(user, filters);
   }
 
+  async getExceptionSummary(user: User) {
+    return this.auditService.getExceptionRiskSummary(user);
+  }
+
   async updateExceptionStatus(id: number, status: ExceptionStatus, actor: string) {
     return this.auditService.updateExceptionStatus(id, status, actor);
   }

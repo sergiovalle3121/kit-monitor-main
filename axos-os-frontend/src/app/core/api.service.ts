@@ -96,6 +96,10 @@ export class ApiService {
     return this.get<any[]>('governance/exceptions', filters);
   }
 
+  getOperationalExceptionSummary(): Observable<any> {
+    return this.get<any>('governance/exceptions/summary');
+  }
+
   updateOperationalExceptionStatus(id: number, status: string): Observable<any> {
     return this.patch<any>(`governance/exceptions/${id}/status`, { status });
   }

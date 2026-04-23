@@ -38,8 +38,18 @@ export class ExceptionCenterComponent implements OnInit {
   severities = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'];
   statuses = ['OPEN', 'ACKNOWLEDGED', 'RESOLVED'];
 
+  // Summary State
+  riskSummary: any = null;
+
   ngOnInit() {
     this.loadExceptions();
+    this.loadSummary();
+  }
+
+  loadSummary() {
+    this.api.getOperationalExceptionSummary().subscribe(data => {
+      this.riskSummary = data;
+    });
   }
 
   loadExceptions() {

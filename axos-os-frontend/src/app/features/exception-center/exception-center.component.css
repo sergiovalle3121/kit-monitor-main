@@ -544,3 +544,83 @@
 .btn-primary { background: #007aff; color: #fff; border: none; padding: 12px 24px; border-radius: 8px; font-weight: 700; cursor: pointer; }
 .btn-secondary { background: transparent; border: 1px solid #2a2c2e; color: #888; padding: 12px 24px; border-radius: 8px; font-weight: 700; cursor: pointer; }
 .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Risk Prioritization Layer */
+.risk-prioritization-layer {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1.2fr;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.risk-card {
+  background: #1a1c1e;
+  border: 1px solid #2a2c2e;
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  transition: all 0.2s;
+}
+
+.risk-card:hover { border-color: #3a3c3e; transform: translateY(-2px); }
+
+.card-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+}
+
+.card-icon.critical { background: rgba(255, 59, 48, 0.1); color: #ff3b30; }
+.card-icon.warning { background: rgba(255, 149, 0, 0.1); color: #ff9500; }
+
+.card-info h3 { font-size: 0.9rem; font-weight: 700; margin: 0; color: #fff; }
+.card-info p { font-size: 0.8rem; color: #888; margin: 4px 0 0; }
+.card-info strong { color: #fff; }
+
+.card-value {
+  margin-left: auto;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #666;
+  text-transform: uppercase;
+}
+
+.friction-summary {
+  background: #1a1c1e;
+  border: 1px solid #2a2c2e;
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.friction-item {
+  display: grid;
+  grid-template-columns: 100px 1fr 60px;
+  align-items: center;
+  gap: 12px;
+}
+
+.friction-item label { font-size: 0.7rem; font-weight: 600; color: #888; }
+
+.friction-bar-bg {
+  height: 6px;
+  background: #0a0b0d;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.friction-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #ff9500, #ff3b30);
+  border-radius: 3px;
+}
+
+.friction-item span { font-size: 0.7rem; color: #666; text-align: right; }
