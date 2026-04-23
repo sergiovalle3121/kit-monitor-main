@@ -1,4 +1,9 @@
-<div class="layout" [class.collapsed]="collapsed">
+<div
+  class="layout"
+  [class.collapsed]="collapsed"
+  [class.layout-focus]="focusMode"
+  [class.layout-immersive]="isImmersiveRoute"
+  [attr.data-workspace]="workspaceClass">
   <div class="app-ambient" aria-hidden="true">
     <span class="ambient-orb orb-a"></span>
     <span class="ambient-orb orb-b"></span>
@@ -8,7 +13,7 @@
     <span class="ambient-grid"></span>
   </div>
 
-  <aside class="sidebar">
+  <aside class="sidebar" [class.sidebar-secondary]="focusMode || isImmersiveRoute">
     <div class="sidebar-ambient" aria-hidden="true">
       <div class="sidebar-glow"></div>
       <div class="sidebar-grid"></div>
@@ -154,6 +159,14 @@
       </div>
 
       <div class="topbar-actions">
+        <button
+          class="icon-btn glass-btn nav-full"
+          type="button"
+          [class.btn-focus-active]="focusMode"
+          aria-label="Alternar focus mode"
+          (click)="toggleFocusMode()">
+          <i class="fas" [class.fa-expand]="!focusMode" [class.fa-compress]="focusMode"></i>
+        </button>
         <div class="action-wrap" #notificationsWrap>
           <button class="icon-btn glass-btn" aria-label="Notificaciones" (click)="toggleNotifications()">
             <i class="far fa-bell"></i>
@@ -187,6 +200,33 @@
     </header>
 
     <main class="content">
+      <section class="workspace-header">
+        <div class="workspace-meta">
+          <p class="workspace-eyebrow">{{ workspaceEyebrow }}</p>
+          <h1>{{ moduleTitle }}</h1>
+          <p class="workspace-description">{{ moduleDescription }}</p>
+        </div>
+        <div class="workspace-breadcrumb" *ngIf="activeGroup">
+          <span>AXOS OS</span>
+          <i class="fas fa-chevron-right"></i>
+          <span>{{ activeGroup.label }}</span>
+          <i class="fas fa-chevron-right" *ngIf="activeItem"></i>
+          <strong *ngIf="activeItem">{{ activeItem.label }}</strong>
+        </div>
+      </section>
+
+      <section class="workspace-rail" *ngIf="activeGroupItems.length > 1">
+        <a
+          *ngFor="let groupItem of activeGroupItems"
+          class="workspace-chip"
+          [routerLink]="groupItem.route"
+          routerLinkActive="active"
+          [attr.aria-label]="groupItem.label">
+          <i class="fas" [class]="'fas ' + groupItem.icon"></i>
+          <span>{{ groupItem.label }}</span>
+        </a>
+      </section>
+
       <section class="content-frame">
         <div class="frame-topline" aria-hidden="true"></div>
         <div class="content-glow content-glow-a" aria-hidden="true"></div>

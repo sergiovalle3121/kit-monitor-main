@@ -49,7 +49,11 @@ interface ShellNotification {
 })
 export class ShellComponent implements OnInit, OnDestroy {
   collapsed = false;
+  focusMode = false;
   openSection: string | null = null;
+  currentUrl = '';
+  activeGroup: NavGroupConfig | null = null;
+  activeItem: NavItemConfig | null = null;
   searchTerm = '';
   showSearchResults = false;
   searchResults: SearchResult[] = [];
@@ -63,6 +67,7 @@ export class ShellComponent implements OnInit, OnDestroy {
   @ViewChild('userWrap') userWrap?: ElementRef<HTMLElement>;
   @ViewChild('contextWrap') contextWrap?: ElementRef<HTMLElement>;
   private notificationsTimerId: number | null = null;
+  private readonly immersiveRoutePrefixes = ['/monitor', '/production', '/control-tower', '/production-wip'];
 
   readonly navGroups: NavGroupConfig[] = [
     {
@@ -223,6 +228,7 @@ export class ShellComponent implements OnInit, OnDestroy {
     private readonly api: ApiService,
     readonly enterpriseContext: EnterpriseContextService,
   ) {
+    this.focusMode = sessionStorage.getItem('axos.focusMode') === '1';
     this.syncSection(this.router.url);
     this.router.events
       .pipe(filter((event): event is NavigationEnd => event instanceof NavigationEnd))
@@ -244,6 +250,10 @@ export class ShellComponent implements OnInit, OnDestroy {
   }
 
   toggle(): void { this.collapsed = !this.collapsed; }
+  toggleFocusMode(): void {
+    this.focusMode = !this.focusMode;
+    sessionStorage.setItem('axos.focusMode', this.focusMode ? '1' : '0');
+  }
 
   toggleSection(section: string): void { this.openSection = this.openSection === section ? null : section; }
 
@@ -449,7 +459,39 @@ export class ShellComponent implements OnInit, OnDestroy {
   }
 
   private syncSection(url: string): void {
+    this.currentUrl = url;
     const group = this.navGroups.find((entry) => entry.items.some((item) => url === item.route || url.startsWith(`${item.route}/`)));
+    this.activeGroup = group ?? null;
+    this.activeItem = group?.items.find((item) => url === item.route || url.startsWith(`${item.route}/`)) ?? null;
     this.openSection = group?.id ?? null;
+  }
+
+  get isImmersiveRoute(): boolean {
+    return this.immersiveRoutePrefixes.some((prefix) => this.currentUrl === prefix || this.currentUrl.startsWith(`${prefix}/`));
+  }
+
+  get workspaceClass(): string {
+    if (this.focusMode) return 'focus';
+    if (this.isImmersiveRoute) return 'immersive';
+    return 'standard';
+  }
+
+  get workspaceEyebrow(): string {
+    if (!this.activeGroup) return 'Industrial Workspace';
+    return this.activeGroup.label;
+  }
+
+  get moduleTitle(): string {
+    return this.activeItem?.label ?? 'Operations Workspace';
+  }
+
+  get moduleDescription(): string {
+    if (this.focusMode) return 'Focus mode active · navigation minimized for execution.';
+    if (this.isImmersiveRoute) return 'Immersive view · expanded stage for high-attention operations.';
+    return this.activeItem?.note ?? `${this.stateLabel(this.activeItem?.state ?? 'active')} module`;
+  }
+
+  get activeGroupItems(): NavItemConfig[] {
+    return this.activeGroup?.items ?? [];
   }
 }
