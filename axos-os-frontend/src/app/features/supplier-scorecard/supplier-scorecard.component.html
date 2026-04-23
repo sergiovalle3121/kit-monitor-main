@@ -1,0 +1,103 @@
+<div class="scorecard-container">
+  <header class="main-header">
+    <div class="title-area">
+      <h1><i class="fas fa-chart-line"></i> Supplier Scorecards</h1>
+      <p>Performance Monitoring & Supplier Risk Assessment</p>
+    </div>
+  </header>
+
+  <div class="scorecard-grid">
+    <!-- SUPPLIER LIST -->
+    <div class="supplier-list-panel">
+      <div class="axos-table-container">
+        <table class="axos-table">
+          <thead>
+            <tr>
+              <th>Proveedor</th>
+              <th>Quality Score</th>
+              <th>Risk Level</th>
+              <th>Trend</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let s of scorecards" [class.selected]="selectedScorecard?.supplier?.id === s.supplier.id">
+              <td>
+                <div class="supplier-info">
+                  <span class="name">{{ s.supplier.name }}</span>
+                  <span class="code">{{ s.supplier.code }}</span>
+                </div>
+              </td>
+              <td>
+                <div class="score-pill" [style.background]="'linear-gradient(90deg, var(--cv-accent) ' + s.scorecard.qualityScore + '%, transparent 0%)'">
+                  {{ s.scorecard.qualityScore }}%
+                </div>
+              </td>
+              <td>
+                <span class="risk-badge" [class]="getRiskClass(s.scorecard.riskLevel)">{{ s.scorecard.riskLevel }}</span>
+              </td>
+              <td><i class="fas fa-minus trend-icon stable"></i></td>
+              <td>
+                <button class="btn-icon" (click)="viewDetail(s)"><i class="fas fa-chevron-right"></i></button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- DETAIL PANEL -->
+    <div class="detail-panel" *ngIf="selectedScorecard">
+      <div class="detail-card">
+        <header>
+          <h2>{{ selectedScorecard.supplier.name }}</h2>
+          <span class="risk-badge large" [class]="getRiskClass(selectedScorecard.scorecard.riskLevel)">{{ selectedScorecard.scorecard.riskLevel }} RISK</span>
+        </header>
+
+        <div class="metrics-grid">
+          <div class="metric-section">
+            <h4><i class="fas fa-clipboard-check"></i> Quality Performance</h4>
+            <div class="metric-row">
+              <span>IQC Pass Rate:</span>
+              <span class="value">{{ selectedScorecard.metrics.iqc.passRate }}%</span>
+            </div>
+            <div class="metric-row">
+              <span>Total Inspections:</span>
+              <span>{{ selectedScorecard.metrics.iqc.total }}</span>
+            </div>
+            <div class="metric-row">
+              <span>Failed Lots:</span>
+              <span class="value fail">{{ selectedScorecard.metrics.iqc.failed }}</span>
+            </div>
+          </div>
+
+          <div class="metric-section">
+            <h4><i class="fas fa-file-invoice"></i> SCAR Performance</h4>
+            <div class="metric-row">
+              <span>Open SCARs:</span>
+              <span class="value" [class.fail]="selectedScorecard.metrics.scars.open > 0">{{ selectedScorecard.metrics.scars.open }}</span>
+            </div>
+            <div class="metric-row">
+              <span>Response Score:</span>
+              <span class="value">{{ selectedScorecard.scorecard.responseScore }}%</span>
+            </div>
+            <div class="metric-row">
+              <span>Avg Closure Time:</span>
+              <span>{{ selectedScorecard.metrics.scars.avgClosureDays }} days</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="action-footer">
+          <button class="btn-secondary">Generar Reporte PDF</button>
+          <button class="btn-primary" [routerLink]="['/scar-center']" [queryParams]="{ supplierId: selectedScorecard.supplier.id }">Ver Todos los SCARs</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="empty-detail" *ngIf="!selectedScorecard">
+      <i class="fas fa-mouse-pointer"></i>
+      <p>Seleccione un proveedor para ver su desempeño detallado</p>
+    </div>
+  </div>
+</div>

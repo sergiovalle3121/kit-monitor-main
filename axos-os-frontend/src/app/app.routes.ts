@@ -124,6 +124,11 @@ export const routes: Routes = [
           import('./features/scar-center/scar-center.component').then(m => m.ScarCenterComponent),
       },
       {
+        path: 'supplier-scorecard',
+        loadComponent: () =>
+          import('./features/supplier-scorecard/supplier-scorecard.component').then(m => m.SupplierScorecardComponent),
+      },
+      {
         path: 'roadmap/:domain/:module',
         loadComponent: () =>
           import('./features/enterprise-placeholder/enterprise-placeholder.component').then(m => m.EnterprisePlaceholderComponent),

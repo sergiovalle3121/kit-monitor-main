@@ -1,0 +1,116 @@
+.scorecard-container {
+  padding: 24px;
+  background: var(--cv-bg);
+  min-height: 100vh;
+}
+
+.main-header { margin-bottom: 32px; }
+.main-header h1 { font-size: 2rem; margin: 0; font-weight: 800; }
+.main-header p { color: var(--cv-t3); margin: 4px 0 0; }
+
+.scorecard-grid {
+  display: grid;
+  grid-template-columns: 1fr 400px;
+  gap: 24px;
+}
+
+.supplier-list-panel {
+  background: var(--cv-surface);
+  border-radius: 12px;
+  border: 1px solid var(--cv-border2);
+  overflow: hidden;
+}
+
+.supplier-info { display: flex; flex-direction: column; }
+.supplier-info .name { font-weight: 700; color: var(--cv-t1); }
+.supplier-info .code { font-size: 0.75rem; color: var(--cv-t4); }
+
+.score-pill {
+  width: 100px;
+  height: 24px;
+  background: var(--cv-border2);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: white;
+  border: 1px solid rgba(255,255,255,0.1);
+}
+
+.risk-badge {
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+.risk-badge.normal { background: #065f46; color: #34d399; }
+.risk-badge.major { background: #92400e; color: #fbbf24; }
+.risk-badge.critical { background: #7f1d1d; color: #f87171; }
+.risk-badge.large { padding: 4px 12px; font-size: 0.8rem; }
+
+/* DETAIL PANEL */
+.detail-panel {
+  background: var(--cv-surface);
+  border-radius: 12px;
+  border: 1px solid var(--cv-border2);
+  padding: 24px;
+  position: sticky;
+  top: 24px;
+  height: fit-content;
+}
+
+.detail-card header {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 32px;
+}
+
+.detail-card h2 { margin: 0; font-size: 1.5rem; }
+
+.metrics-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.metric-section h4 {
+  margin: 0 0 16px;
+  font-size: 0.9rem;
+  color: var(--cv-t3);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.metric-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--cv-border2);
+  font-size: 0.9rem;
+}
+
+.metric-row .value { font-weight: 700; color: var(--cv-accent); }
+.metric-row .value.fail { color: var(--cv-danger); }
+
+.action-footer {
+  margin-top: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.empty-detail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--cv-t4);
+  background: rgba(255,255,255,0.02);
+  border: 1px dashed var(--cv-border2);
+  border-radius: 12px;
+}
+.empty-detail i { font-size: 3rem; margin-bottom: 16px; opacity: 0.2; }

@@ -472,6 +472,15 @@ export class ApiService {
     return this.patch<any>(`suppliers/scars/${id}`, { ...dto, actor });
   }
 
+  // Scorecard Management
+  getSupplierScorecards(): Observable<any[]> {
+    return this.get<any[]>('suppliers/scorecards');
+  }
+
+  getSupplierScorecard(id: number): Observable<any> {
+    return this.get<any>(`suppliers/${id}/scorecard`);
+  }
+
 
   private contextQuery(): Record<string, string> {
     const ctx = this.context.context();

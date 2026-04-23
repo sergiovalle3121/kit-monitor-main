@@ -30,4 +30,15 @@ export class SuppliersController {
   async updateScar(@Param('id') id: number, @Body() dto: any, @Body('actor') actor: string) {
     return this.suppliersService.updateScar(id, dto, actor || 'QA User');
   }
+
+  // Scorecards
+  @Get('scorecards')
+  async getAllScorecards() {
+    return this.suppliersService.getAllScorecards();
+  }
+
+  @Get(':id/scorecard')
+  async getScorecard(@Param('id') id: number) {
+    return this.suppliersService.getScorecard(id);
+  }
 }
