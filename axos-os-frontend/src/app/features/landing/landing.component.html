@@ -1,222 +1,62 @@
 <main class="land">
+  <div class="cinema-video" aria-hidden="true">
+    <video autoplay muted loop playsinline preload="metadata">
+      <source src="assets/3141208-uhd_3840_2160_25fps.mp4" type="video/mp4" />
+    </video>
+  </div>
+  <div class="cinema-overlay" aria-hidden="true"></div>
 
-  <!-- ═══════════════════════════════════════════════════════
-       HERO
-  ══════════════════════════════════════════════════════════ -->
-  <section class="hero" aria-label="AXOS OS hero">
-    <div class="hero__bg" aria-hidden="true">
-      <video class="hero__video" autoplay muted loop playsinline preload="metadata"
-             disablePictureInPicture disableremoteplayback>
-        <source src="assets/login/system-atmosphere.mp4" type="video/mp4">
-      </video>
-      <div class="hero__overlay"></div>
-      <div class="hero__grid"></div>
-      <div class="hero__glow hero__glow--a"></div>
-      <div class="hero__glow hero__glow--b"></div>
-    </div>
+  <header class="top-nav">
+    <a class="nav-logo" href="#top" aria-label="AXOS OS home">
+      <img src="assets/login/axos-os-original.svg" alt="AXOS OS" />
+      <span>AXOS OS</span>
+    </a>
+    <button class="nav-login" (click)="launch()">Iniciar Sesión</button>
+  </header>
 
-    <div class="hero__content">
-      <div class="hero__kicker">
-        <span class="kicker-dot"></span>
-        INDUSTRIAL OPERATING SYSTEM
-      </div>
-
-      <div class="hero__brand">
-        <img src="assets/login/axos-os-original.svg" alt="AXOS OS" class="hero__logo" />
-        <span class="hero__wordmark">AXOS OS</span>
-      </div>
-
-      <h1 class="hero__headline">
-        The Industrial<br>Operating System
-      </h1>
-
+  <section class="hero" id="top" aria-label="AXOS OS Hero">
+    <div class="hero__content reveal revealed">
+      <p class="hero__eyebrow">INDUSTRIAL OPERATING SYSTEM</p>
+      <h1>The Industrial Operating System</h1>
       <p class="hero__sub">
-        AXOS OS unifica materiales, planeación, ingeniería, producción, calidad
-        y logística en una sola plataforma operativa.
+        AXOS OS integra ingeniería, materiales, planeación, producción y logística
+        en una operación sincronizada de misión crítica.
       </p>
-
       <div class="hero__actions">
-        <button class="btn-launch" (click)="launch()" id="landing-launch-btn">
-          <i class="fas fa-power-off"></i>
-          Launch System
-        </button>
-        <a class="hero__scroll-link" href="#pillars" aria-label="Scroll to capabilities">
-          <i class="fas fa-chevron-down"></i>
-        </a>
-      </div>
-
-      <div class="hero__meta">
-        <span><i class="fas fa-shield-halved"></i> Enterprise-grade security</span>
-        <span><i class="fas fa-bolt"></i> Real-time execution</span>
-        <span><i class="fas fa-layer-group"></i> Full plant coverage</span>
-      </div>
-
-      <div class="hero__ops-bar">
-        <div class="ops-stat">
-          <span class="ops-val" id="stat-lines">0</span>
-          <span class="ops-label">Active Lines</span>
-        </div>
-        <div class="ops-divider"></div>
-        <div class="ops-stat">
-          <span class="ops-val" id="stat-wo">0</span>
-          <span class="ops-label">Work Orders</span>
-        </div>
-        <div class="ops-divider"></div>
-        <div class="ops-stat">
-          <span class="ops-val" id="stat-parts">0</span>
-          <span class="ops-label">Parts Tracked</span>
-        </div>
-        <div class="ops-divider"></div>
-        <div class="ops-stat">
-          <span class="ops-val">100<span class="ops-pct">%</span></span>
-          <span class="ops-label">Traceability</span>
-        </div>
-        <div class="ops-live">
-          <span class="ops-live-dot"></span>
-          LIVE SYSTEM
-        </div>
+        <button class="btn-launch" (click)="launch()">Launch System</button>
       </div>
     </div>
   </section>
 
-  <!-- ═══════════════════════════════════════════════════════
-       PILLARS
-  ══════════════════════════════════════════════════════════ -->
-  <section class="pillars" id="pillars" aria-label="Platform pillars">
-    <div class="section-inner">
-      <div class="section-label reveal">
-        <span class="label-dot"></span>
-        Platform Coverage
-      </div>
-      <h2 class="section-title reveal">One Platform.<br>Full Plant Control.</h2>
-      <p class="section-sub reveal">
-        From the dock door to the shipping bay, every department operates on a single source of truth.
-      </p>
-
-      <div class="pillars__grid">
-        @for (p of pillars; track p.label) {
-          <div class="pillar-card reveal">
-            <div class="pillar-icon">
-              <i class="fas {{ p.icon }}"></i>
-            </div>
-            <strong class="pillar-label">{{ p.label }}</strong>
-            <p class="pillar-desc">{{ p.desc }}</p>
-          </div>
-        }
-      </div>
+  <section class="cards-section" aria-label="Platform Coverage">
+    <div class="section-head reveal">
+      <p class="section-kicker">Platform Coverage</p>
+      <h2>One Platform. Full Plant Control.</h2>
+    </div>
+    <div class="cards-grid">
+      @for (p of pillars; track p.label) {
+        <article class="glass-card reveal">
+          <div class="card-icon"><i class="fas {{ p.icon }}"></i></div>
+          <h3>{{ p.label }}</h3>
+          <p>{{ p.desc }}</p>
+        </article>
+      }
     </div>
   </section>
 
-  <!-- ═══════════════════════════════════════════════════════
-       CAPABILITIES
-  ══════════════════════════════════════════════════════════ -->
-  <section class="capabilities" aria-label="Strategic capabilities">
-    <div class="section-inner">
-      <div class="section-label reveal">
-        <span class="label-dot"></span>
-        Strategic Capabilities
-      </div>
-      <h2 class="section-title reveal">Built for<br>Manufacturing Execution.</h2>
-
-      <div class="caps__grid">
-        @for (c of capabilities; track c.label) {
-          <div class="cap-card reveal">
-            <span class="cap-stat">{{ c.stat }}</span>
-            <strong class="cap-label">{{ c.label }}</strong>
-            <p class="cap-desc">{{ c.desc }}</p>
-          </div>
-        }
-      </div>
+  <section class="cards-section" aria-label="Strategic Capabilities">
+    <div class="section-head reveal">
+      <p class="section-kicker">Strategic Capabilities</p>
+      <h2>Built for Manufacturing Execution.</h2>
+    </div>
+    <div class="cards-grid">
+      @for (c of capabilities; track c.label) {
+        <article class="glass-card reveal">
+          <div class="card-stat">{{ c.stat }}</div>
+          <h3>{{ c.label }}</h3>
+          <p>{{ c.desc }}</p>
+        </article>
+      }
     </div>
   </section>
-
-  <!-- ═══════════════════════════════════════════════════════
-       FLOW
-  ══════════════════════════════════════════════════════════ -->
-  <section class="flow" aria-label="Manufacturing flow">
-    <div class="section-inner">
-      <div class="section-label reveal">
-        <span class="label-dot"></span>
-        End-to-End Coverage
-      </div>
-      <h2 class="section-title reveal">From Supplier to Shipping.<br>Fully Governed.</h2>
-
-      <div class="flow__track reveal">
-        @for (step of flowSteps; track step.code; let last = $last) {
-          <div class="flow-step">
-            <div class="flow-step__badge">
-              <i class="fas {{ step.icon }}"></i>
-            </div>
-            <span class="flow-step__code">{{ step.code }}</span>
-            <span class="flow-step__label">{{ step.label }}</span>
-          </div>
-          @if (!last) {
-            <div class="flow-arrow" aria-hidden="true">
-              <i class="fas fa-chevron-right"></i>
-            </div>
-          }
-        }
-      </div>
-    </div>
-  </section>
-
-  <!-- ═══════════════════════════════════════════════════════
-       ENTERPRISE BAR
-  ══════════════════════════════════════════════════════════ -->
-  <section class="trust" aria-label="Enterprise trust indicators">
-    <div class="section-inner">
-      <div class="trust__grid reveal">
-        <div class="trust-item">
-          <i class="fas fa-database"></i>
-          <span>Immutable Event Ledger</span>
-        </div>
-        <div class="trust-item">
-          <i class="fas fa-shield-halved"></i>
-          <span>JWT Authentication</span>
-        </div>
-        <div class="trust-item">
-          <i class="fas fa-server"></i>
-          <span>PostgreSQL + NestJS Backend</span>
-        </div>
-        <div class="trust-item">
-          <i class="fas fa-users"></i>
-          <span>Multi-Department RBAC</span>
-        </div>
-        <div class="trust-item">
-          <i class="fas fa-chart-line"></i>
-          <span>Decision Intelligence</span>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ═══════════════════════════════════════════════════════
-       FINAL CTA
-  ══════════════════════════════════════════════════════════ -->
-  <section class="final-cta" aria-label="Enter AXOS OS">
-    <div class="section-inner">
-      <div class="cta__inner reveal">
-        <div class="cta__glow" aria-hidden="true"></div>
-        <div class="cta__badge">
-          <img src="assets/login/axos-os-original.svg" alt="" aria-hidden="true" />
-        </div>
-        <h2 class="cta__title">Ready to Run the Plant?</h2>
-        <p class="cta__sub">
-          Access your AXOS OS workspace and take full operational control.
-        </p>
-        <button class="btn-launch btn-launch--lg" (click)="launch()" id="landing-launch-btn-bottom">
-          <i class="fas fa-power-off"></i>
-          Launch System
-        </button>
-      </div>
-    </div>
-  </section>
-
-  <!-- FOOTER -->
-  <footer class="land-footer">
-    <span>AXOS OS · Industrial Operating System</span>
-    <span class="footer-sep">·</span>
-    <span>Built for precision manufacturing execution</span>
-  </footer>
-
 </main>
