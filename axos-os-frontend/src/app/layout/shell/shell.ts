@@ -40,6 +40,15 @@ interface ShellNotification {
   createdAt: string;
 }
 
+interface WorkspaceDomainConfig {
+  id: 'materials' | 'production';
+  label: string;
+  eyebrow: string;
+  description: string;
+  immersivePrefixes: string[];
+  railRoutes: string[];
+}
+
 @Component({
   selector: 'app-shell',
   standalone: true,
@@ -67,7 +76,24 @@ export class ShellComponent implements OnInit, OnDestroy {
   @ViewChild('userWrap') userWrap?: ElementRef<HTMLElement>;
   @ViewChild('contextWrap') contextWrap?: ElementRef<HTMLElement>;
   private notificationsTimerId: number | null = null;
-  private readonly immersiveRoutePrefixes = ['/monitor', '/production', '/control-tower', '/production-wip'];
+  private readonly workspaceDomains: WorkspaceDomainConfig[] = [
+    {
+      id: 'materials',
+      label: 'Materials Workspace',
+      eyebrow: 'Supply Chain / Materials',
+      description: 'Material flow, storage, receiving and dispatch operations in one continuous workspace.',
+      immersivePrefixes: ['/materials', '/inventory-explorer', '/receiving-center', '/warehouse-center', '/picking-center', '/shipping-center', '/replenishment-center', '/kits'],
+      railRoutes: ['/materials/inventory', '/receiving-center', '/warehouse-center', '/picking-center', '/shipping-center', '/replenishment-center', '/kits', '/materials/resupply', '/materials/cycle-counts'],
+    },
+    {
+      id: 'production',
+      label: 'Production Command Workspace',
+      eyebrow: 'Manufacturing Execution',
+      description: 'Execution-critical stage for line runtime, WIP, output monitoring and command visibility.',
+      immersivePrefixes: ['/production', '/production-wip', '/monitor', '/control-tower', '/fg-center'],
+      railRoutes: ['/control-tower', '/production', '/production-wip', '/monitor', '/production/completed', '/fg-center'],
+    },
+  ];
 
   readonly navGroups: NavGroupConfig[] = [
     {
@@ -468,7 +494,7 @@ export class ShellComponent implements OnInit, OnDestroy {
   }
 
   get isImmersiveRoute(): boolean {
-    return this.immersiveRoutePrefixes.some((prefix) => this.currentUrl === prefix || this.currentUrl.startsWith(`${prefix}/`));
+    return !!this.activeWorkspaceDomain?.immersivePrefixes.some((prefix) => this.currentUrl === prefix || this.currentUrl.startsWith(`${prefix}/`));
   }
 
   get workspaceClass(): string {
@@ -478,21 +504,41 @@ export class ShellComponent implements OnInit, OnDestroy {
   }
 
   get workspaceEyebrow(): string {
+    if (this.activeWorkspaceDomain) return this.activeWorkspaceDomain.eyebrow;
     if (!this.activeGroup) return 'Industrial Workspace';
     return this.activeGroup.label;
   }
 
   get moduleTitle(): string {
+    if (this.activeWorkspaceDomain) return this.activeWorkspaceDomain.label;
     return this.activeItem?.label ?? 'Operations Workspace';
   }
 
   get moduleDescription(): string {
     if (this.focusMode) return 'Focus mode active · navigation minimized for execution.';
     if (this.isImmersiveRoute) return 'Immersive view · expanded stage for high-attention operations.';
+    if (this.activeWorkspaceDomain) return this.activeWorkspaceDomain.description;
     return this.activeItem?.note ?? `${this.stateLabel(this.activeItem?.state ?? 'active')} module`;
   }
 
+  get activeWorkspaceDomain(): WorkspaceDomainConfig | null {
+    return this.workspaceDomains.find((domain) =>
+      domain.immersivePrefixes.some((prefix) => this.currentUrl === prefix || this.currentUrl.startsWith(`${prefix}/`)),
+    ) ?? null;
+  }
+
+  get showWorkspaceHeader(): boolean {
+    return !!this.activeWorkspaceDomain;
+  }
+
   get activeGroupItems(): NavItemConfig[] {
-    return this.activeGroup?.items ?? [];
+    if (!this.activeGroup) return [];
+    if (!this.activeWorkspaceDomain) return [];
+    const allowed = new Set(this.activeWorkspaceDomain.railRoutes);
+    return this.activeGroup.items.filter((item) => allowed.has(item.route));
+  }
+
+  get workspaceDomainClass(): string {
+    return this.activeWorkspaceDomain ? `workspace-domain-${this.activeWorkspaceDomain.id}` : 'workspace-domain-generic';
   }
 }

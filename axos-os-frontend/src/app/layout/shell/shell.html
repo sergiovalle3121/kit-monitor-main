@@ -3,6 +3,8 @@
   [class.collapsed]="collapsed"
   [class.layout-focus]="focusMode"
   [class.layout-immersive]="isImmersiveRoute"
+  [class.layout-workspace-active]="showWorkspaceHeader"
+  [ngClass]="workspaceDomainClass"
   [attr.data-workspace]="workspaceClass">
   <div class="app-ambient" aria-hidden="true">
     <span class="ambient-orb orb-a"></span>
@@ -200,7 +202,7 @@
     </header>
 
     <main class="content">
-      <section class="workspace-header">
+      <section class="workspace-header" *ngIf="showWorkspaceHeader">
         <div class="workspace-meta">
           <p class="workspace-eyebrow">{{ workspaceEyebrow }}</p>
           <h1>{{ moduleTitle }}</h1>
@@ -215,7 +217,7 @@
         </div>
       </section>
 
-      <section class="workspace-rail" *ngIf="activeGroupItems.length > 1">
+      <section class="workspace-rail" *ngIf="showWorkspaceHeader && activeGroupItems.length > 1">
         <a
           *ngFor="let groupItem of activeGroupItems"
           class="workspace-chip"
