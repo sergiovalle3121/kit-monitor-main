@@ -3,8 +3,8 @@ import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../core/api.service';
-import { forkJoin, interval, Subscription } from 'rxjs';
-import { startWith, switchMap } from 'rxjs/operators';
+import { forkJoin, interval, of, Subscription } from 'rxjs';
+import { catchError, startWith, switchMap } from 'rxjs/operators';
 import {
   Building, Campus, CampusKpi, CampusState, Customer, DomainHealth,
   EnterpriseException, ProgramSummary, RiskLevel, Shift, Warehouse
@@ -51,7 +51,7 @@ export class ControlTowerComponent implements OnInit, OnDestroy {
           this.kits          = data.kits          ?? [];
           this.publications  = data.publications  ?? [];
           this.cancellations = data.cancellations ?? [];
-          this.campusState   = this.buildCampusState();
+          this.campusState   = data.campusState ?? this.buildCampusState();
           this.lastUpdated   = new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
           this.loading = false;
         },
@@ -70,6 +70,7 @@ export class ControlTowerComponent implements OnInit, OnDestroy {
       kits:          this.api.getKits(),
       publications:  this.api.getPlanPublications(),
       cancellations: this.api.getRecentCancellationRequests(),
+      campusState:   this.api.getEnterpriseCampusState().pipe(catchError(() => of(null))),
     });
   }
 

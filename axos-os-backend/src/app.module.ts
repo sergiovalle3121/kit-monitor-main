@@ -18,6 +18,7 @@ import { DecisionIntelligenceModule } from "./modules/decision-intelligence/deci
 import { CancellationRequestsModule } from "./modules/cancellation-requests/cancellation-requests.module";
 import { VisualAidsModule } from "./modules/visual-aids/visual-aids.module";
 import { EventLedgerModule } from "./modules/event-ledger/event-ledger.module";
+import { EnterpriseCampusModule } from "./modules/enterprise-campus/enterprise-campus.module";
 
 // TypeOrmModule always loads: uses SQLite (dev.sqlite) when no PG env vars,
 // PostgreSQL when DATABASE_URL or DB_HOST is set. See orm.options.ts.
@@ -39,6 +40,7 @@ import { EventLedgerModule } from "./modules/event-ledger/event-ledger.module";
     CancellationRequestsModule,
     VisualAidsModule,
     EventLedgerModule,
+    EnterpriseCampusModule,
   ],
   controllers: [HealthController],
   providers: [],
