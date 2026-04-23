@@ -58,6 +58,9 @@ export class InventoryService {
     referenceType?: string;
     referenceId?: string;
     reason?: string;
+    holdStatus?: 'available' | 'hold' | 'quarantine' | 'expired' | 'pending_iqc';
+    lotNumber?: string;
+    serialNumber?: string;
   }): Promise<InventoryMovement> {
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
@@ -75,7 +78,9 @@ export class InventoryService {
             partNumber: dto.partNumber, 
             warehouseId: dto.fromWarehouseId, 
             location: dto.fromLocation || 'BULK',
-            programId: dto.programId
+            programId: dto.programId,
+            lotNumber: dto.lotNumber,
+            serialNumber: dto.serialNumber
           }
         });
 
@@ -83,8 +88,9 @@ export class InventoryService {
           throw new BadRequestException(`Insufficient stock in ${dto.fromWarehouseId} for ${dto.partNumber}`);
         }
 
+        // OPERATIONAL HARD LOCK: Only 'available' stock can be moved from source
         if (sourcePos.holdStatus !== 'available') {
-          throw new BadRequestException(`Material ${dto.partNumber} is currently in status '${sourcePos.holdStatus}' and cannot be moved.`);
+          throw new BadRequestException(`Material ${dto.partNumber} is in status '${sourcePos.holdStatus}'. Movement BLOCKED.`);
         }
 
         sourcePos.onHand -= dto.quantity;
@@ -98,7 +104,9 @@ export class InventoryService {
             partNumber: dto.partNumber, 
             warehouseId: dto.toWarehouseId, 
             location: dto.toLocation || 'BULK',
-            programId: dto.programId
+            programId: dto.programId,
+            lotNumber: dto.lotNumber,
+            serialNumber: dto.serialNumber
           }
         });
 
@@ -108,8 +116,14 @@ export class InventoryService {
             warehouseId: dto.toWarehouseId,
             location: dto.toLocation || 'BULK',
             programId: dto.programId,
-            onHand: 0
+            lotNumber: dto.lotNumber,
+            serialNumber: dto.serialNumber,
+            onHand: 0,
+            holdStatus: dto.holdStatus || 'available'
           });
+        } else {
+          // If position exists, update its status if explicitly provided
+          if (dto.holdStatus) destPos.holdStatus = dto.holdStatus;
         }
 
         destPos.onHand += dto.quantity;

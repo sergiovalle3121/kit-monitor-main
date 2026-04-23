@@ -481,6 +481,15 @@ export class ApiService {
     return this.get<any>(`suppliers/${id}/scorecard`);
   }
 
+  // Receiving Management
+  getReceivingEvents(): Observable<any[]> {
+    return this.get<any[]>('receiving/events');
+  }
+
+  recordReceipt(dto: any): Observable<any> {
+    return this.post<any>('receiving/receipt', dto);
+  }
+
 
   private contextQuery(): Record<string, string> {
     const ctx = this.context.context();

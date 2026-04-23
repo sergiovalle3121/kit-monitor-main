@@ -129,6 +129,11 @@ export const routes: Routes = [
           import('./features/supplier-scorecard/supplier-scorecard.component').then(m => m.SupplierScorecardComponent),
       },
       {
+        path: 'receiving-center',
+        loadComponent: () =>
+          import('./features/receiving-center/receiving-center.component').then(m => m.ReceivingCenterComponent),
+      },
+      {
         path: 'roadmap/:domain/:module',
         loadComponent: () =>
           import('./features/enterprise-placeholder/enterprise-placeholder.component').then(m => m.EnterprisePlaceholderComponent),

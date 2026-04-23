@@ -37,8 +37,8 @@ export class InventoryPosition {
   @Column({ type: 'float', default: 0 })
   inTransit: number;
 
-  @Column({ type: 'varchar', length: 20, default: 'available' })
-  holdStatus: 'available' | 'hold' | 'quarantine' | 'expired';
+  @Column({ type: 'varchar', length: 32, default: 'available' })
+  holdStatus: 'available' | 'hold' | 'quarantine' | 'expired' | 'pending_iqc';
 
   @Column({ type: 'varchar', length: 100, nullable: true })
   lotNumber?: string;

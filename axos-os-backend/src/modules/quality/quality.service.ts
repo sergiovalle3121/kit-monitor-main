@@ -422,6 +422,18 @@ export class QualityService {
     });
     const saved = await this.iqcRepo.save(inspection);
 
+    // If PASS, release to usable stock
+    if (dto.result === IqcResult.PASS) {
+      await this.positionRepo.update(
+        { 
+          partNumber: saved.partNumber, 
+          lotNumber: saved.lotNumber,
+          holdStatus: 'pending_iqc'
+        },
+        { holdStatus: 'available' }
+      );
+    }
+
     // If FAIL, trigger containment
     if (dto.result === IqcResult.FAIL) {
       await this.createHold({
