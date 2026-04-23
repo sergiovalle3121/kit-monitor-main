@@ -1,13 +1,25 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { UsersService } from '../users/users.service';
 import { UserRole } from '../users/entities/user.entity';
 
 @Injectable()
 export class GovernanceSeedService implements OnModuleInit {
+  private readonly logger = new Logger(GovernanceSeedService.name);
+
   constructor(private readonly usersService: UsersService) {}
 
   async onModuleInit() {
-    await this.seedUsers();
+    try {
+      await this.seedUsers();
+    } catch (error: any) {
+      const msg = String(error?.message ?? '');
+      const code = error?.code;
+      if (code === '42P01' || msg.toLowerCase().includes('relation') && msg.toLowerCase().includes('does not exist')) {
+        this.logger.warn('Skipping governance seed: users table is not available yet.');
+        return;
+      }
+      throw error;
+    }
   }
 
   async seedUsers() {

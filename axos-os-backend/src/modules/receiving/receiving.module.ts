@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ReceivingEvent } from './entities/receiving-event.entity';
+import { EnterpriseWarehouse } from '../enterprise-campus/entities/enterprise-warehouse.entity';
 import { ReceivingService } from './receiving.service';
 import { ReceivingController } from './receiving.controller';
 import { InventoryModule } from '../inventory/inventory.module';
@@ -9,7 +10,7 @@ import { GovernanceModule } from '../governance/governance.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([ReceivingEvent]),
+    TypeOrmModule.forFeature([ReceivingEvent, EnterpriseWarehouse]),
     InventoryModule,
     EventLedgerModule,
     GovernanceModule
