@@ -112,7 +112,27 @@ export class ExceptionCenterComponent implements OnInit {
   getResourceLink(ex: any): string {
     if (ex.resourceType === 'Kit') return `/production`;
     if (ex.resourceType === 'InventoryPosition') return `/materials/inventory`;
-    if (ex.resourceType === 'Ncr') return `/ncr-center`;
+    if (ex.resourceType === 'Ncr' || ex.resourceType === 'NCR') return `/ncr-center`;
+    if (ex.resourceType === 'QualityHold') return `/quality-center`;
+    if (ex.resourceType === 'QuarantineTransfer') return `/quality-center`;
+    if (ex.resourceType === 'Disposition') return `/disposition`;
+    if (ex.resourceType === 'CAPA') return `/capa-center`;
+    if (ex.resourceType === 'IQC_INSPECTION') return `/iqc-center`;
     return '#';
+  }
+
+  getAging(createdAt: string): string {
+    const start = new Date(createdAt).getTime();
+    const now = new Date().getTime();
+    const diff = now - start;
+    
+    const minutes = Math.floor(diff / 60000);
+    if (minutes < 60) return `${minutes}m`;
+    
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours}h`;
+    
+    const days = Math.floor(hours / 24);
+    return `${days}d`;
   }
 }

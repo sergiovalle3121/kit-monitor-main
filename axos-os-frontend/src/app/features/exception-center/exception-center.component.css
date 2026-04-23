@@ -349,3 +349,25 @@
   .main-layout { grid-template-columns: 1fr; }
   .detail-panel { position: fixed; right: 0; top: 0; bottom: 0; width: 400px; z-index: 100; border-radius: 0; border-left: 2px solid #2a2c2e; }
 }
+
+/* Aging Badge */
+.badge-aging {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: #666;
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.badge-aging i { font-size: 0.7rem; color: #888; }
+
+.row-time {
+  font-size: 0.75rem;
+  color: #555;
+  margin-left: 8px;
+}

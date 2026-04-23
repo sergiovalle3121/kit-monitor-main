@@ -81,6 +81,7 @@
               <div class="row-top">
                 <span class="badge-domain">{{ ex.domain }}</span>
                 <span class="badge-severity">{{ ex.severity }}</span>
+                <span class="badge-aging"><i class="far fa-clock"></i> {{ getAging(ex.createdAt) }}</span>
                 <span class="row-time">{{ ex.createdAt | date:'HH:mm' }}</span>
               </div>
               <h3 class="row-title">{{ ex.title }}</h3>
