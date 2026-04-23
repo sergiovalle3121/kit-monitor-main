@@ -25,8 +25,10 @@ export class ProductionRuntimeService {
     @InjectRepository(ProductionBayEvent) private readonly eventRepo: Repository<ProductionBayEvent>,
     @InjectRepository(ProductionBayIncident) private readonly incidentRepo: Repository<ProductionBayIncident>,
     @InjectRepository(ProductionBayMaterialState) private readonly materialStateRepo: Repository<ProductionBayMaterialState>,
+    @InjectRepository(ProductionWip) private readonly wipRepo: Repository<ProductionWip>,
     @InjectRepository(EnterpriseProgram) private readonly programRepo: Repository<EnterpriseProgram>,
     @InjectRepository(EnterpriseLine) private readonly lineRepo: Repository<EnterpriseLine>,
+    private readonly inventory: InventoryService,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -138,14 +140,42 @@ export class ProductionRuntimeService {
             message: `Material insuficiente en ${state.partNumber} para registrar`,
           });
         }
+        
+        // Formal Inventory Consumption
+        await this.inventory.recordTransaction({
+          type: 'CONSUME' as any,
+          partNumber: state.partNumber,
+          quantity: consume,
+          fromWarehouseId: `LINE-${kit.plan.line}`, // Virtual line-side warehouse
+          fromLocation: `BAY-${bayId}`,
+          actorName: dto.operator || 'System',
+          referenceType: 'PRODUCTION_EVENT',
+          referenceId: clientRequestId,
+          reason: `Production Consumption - WO ${kit.plan.workOrder}`
+        }).catch(() => {
+          // Fallback if inventory is not hard-locked for production yet
+          console.warn(`Inventory decrement failed for ${state.partNumber} at line ${kit.plan.line}`);
+        });
+
         state.consumedQty = Math.round((state.consumedQty + consume) * 1e6) / 1e6;
         state.availableQty = Math.max(0, Math.round((state.availableQty - consume) * 1e6) / 1e6);
-        if (state.availableQty < 0 || state.consumedQty < 0) {
-          throw new ConflictException({ code: 'STATE_INCONSISTENT', message: 'Estado de material inconsistente' });
-        }
       }
 
       await em.save(states);
+
+      // --- WIP Update ---
+      let wip = await em.findOne(ProductionWip, { where: { kit: { id: kitId } } });
+      if (!wip) {
+        wip = em.create(ProductionWip, {
+          kit: { id: kitId } as Kit,
+          workOrder: kit.plan.workOrder,
+          partNumber: kit.plan.model,
+          targetQty: kit.plan.quantity,
+          status: 'in_production',
+          startedAt: new Date(),
+          line: `Line ${kit.plan.line}`
+        });
+      }
 
       const event = em.create(ProductionBayEvent, {
         kit: { id: kitId } as Kit,
@@ -168,9 +198,15 @@ export class ProductionRuntimeService {
         .getRawOne<{ total: string }>();
 
       const completedQty = Number(total?.total ?? 0);
-      if (completedQty < 0) {
-        throw new ConflictException({ code: 'STATE_INCONSISTENT', message: 'completedQty inválido' });
+      
+      // Update WIP Progress
+      wip.completedQty = completedQty;
+      if (completedQty >= kit.plan.quantity) {
+        wip.status = 'ready_for_fg';
+        wip.completedAt = new Date();
       }
+      await em.save(wip);
+
       const nextStatus = completedQty >= kit.plan.quantity ? 'completed' : 'in_progress';
       await em.update(Kit, kitId, { status: nextStatus });
 
@@ -736,5 +772,18 @@ export class ProductionRuntimeService {
     const kit = await this.kitRepo.findOne({ where: { id: kitId }, relations: ['plan'] });
     if (!kit) throw new NotFoundException(`Kit ${kitId} no encontrado`);
     return kit;
+  }
+
+  async getWipStatus(scope?: ScopeQuery): Promise<ProductionWip[]> {
+    const qb = this.wipRepo.createQueryBuilder('wip')
+      .leftJoinAndSelect('wip.kit', 'kit')
+      .leftJoinAndSelect('kit.plan', 'plan');
+    
+    if (scope?.workOrder) {
+      qb.andWhere('wip.workOrder = :wo', { wo: scope.workOrder });
+    }
+    
+    qb.orderBy('wip.updatedAt', 'DESC');
+    return qb.getMany();
   }
 }

@@ -149,6 +149,11 @@ export const routes: Routes = [
           import('./features/picking-center/picking-center.component').then(m => m.PickingCenterComponent),
       },
       {
+        path: 'production-wip',
+        loadComponent: () =>
+          import('./features/production-wip/production-wip.component').then(m => m.ProductionWipComponent),
+      },
+      {
         path: 'roadmap/:domain/:module',
         loadComponent: () =>
           import('./features/enterprise-placeholder/enterprise-placeholder.component').then(m => m.EnterprisePlaceholderComponent),

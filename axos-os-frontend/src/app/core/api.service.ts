@@ -529,6 +529,11 @@ export class ApiService {
     return this.get<any[]>('replenishment/analyze');
   }
 
+  // Production WIP
+  getProductionWip(scope: any = {}): Observable<any[]> {
+    return this.get<any[]>('production-runtime/wip', scope);
+  }
+
   private contextQuery(): Record<string, string> {
     const ctx = this.context.context();
     const q: Record<string, string> = {};

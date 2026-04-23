@@ -127,13 +127,14 @@ export class ShellComponent implements OnInit, OnDestroy {
       ],
     },
     {
-      id: 'execution',
-      label: 'Execution / MES',
+      id: 'manufacturing',
+      label: 'Manufacturing Execution',
       short: 'MES',
       icon: 'fa-industry',
       items: [
-        { label: 'Production', route: '/production', icon: 'fa-tools', state: 'active' },
-        { label: 'Hour-by-Hour', route: '/production/hourly', icon: 'fa-clock', state: 'active' },
+        { label: 'Production Backend', route: '/production-backend', icon: 'fa-terminal', state: 'active' },
+        { label: 'WIP & Consumption', route: '/production-wip', icon: 'fa-microchip', state: 'active' },
+        { label: 'Line Monitoring', route: '/line-monitoring', icon: 'fa-tv', state: 'active' },
         { label: 'Live Line Monitor', route: '/monitor', icon: 'fa-desktop', state: 'active' },
         { label: 'WIP / Runtime', route: '/control-tower', icon: 'fa-gauge-high', state: 'partial', note: 'Topology-backed runtime' },
         { label: 'Completed Runs', route: '/production/completed', icon: 'fa-check-circle', state: 'active' },

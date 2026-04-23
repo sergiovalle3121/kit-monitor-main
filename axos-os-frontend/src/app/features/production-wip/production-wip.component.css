@@ -1,0 +1,57 @@
+.wip-container {
+  padding: 24px;
+  background: var(--cv-bg);
+  min-height: 100vh;
+}
+
+.main-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 32px;
+}
+
+.stat-card {
+  background: var(--cv-surface);
+  padding: 12px 24px;
+  border-radius: 8px;
+  border: 1px solid var(--cv-border2);
+  text-align: right;
+}
+.stat-card .label { font-size: 0.7rem; color: var(--cv-t3); display: block; }
+.stat-card .value { font-size: 1.5rem; font-weight: 800; color: var(--cv-accent); }
+
+.model-info .model { display: block; font-weight: 700; }
+.model-info .kit-id { font-size: 0.75rem; color: var(--cv-t4); }
+
+.progress-col { width: 200px; }
+.progress-container {
+  height: 8px;
+  background: rgba(255,255,255,0.05);
+  border-radius: 4px;
+  position: relative;
+  overflow: visible;
+}
+.progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--cv-accent), #34d399);
+  border-radius: 4px;
+  transition: width 0.5s ease;
+}
+.perc {
+  position: absolute;
+  right: -40px;
+  top: -6px;
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.qty-display .done { font-weight: 800; color: white; }
+.qty-display .total { color: var(--cv-t4); }
+
+.status-pill.in_production { background: #1e3a8a; color: #60a5fa; }
+.status-pill.ready_for_fg { background: #065f46; color: #34d399; }
+.status-pill.completed { background: #1e293b; color: #94a3b8; }
+
+.time { font-family: monospace; color: var(--cv-t4); font-size: 0.8rem; }
+.empty-state { text-align: center; color: var(--cv-t4); padding: 60px !important; }

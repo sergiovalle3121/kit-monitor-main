@@ -1,0 +1,62 @@
+<div class="wip-container">
+  <header class="main-header">
+    <div class="title-area">
+      <h1><i class="fas fa-microchip"></i> WIP & Consumption</h1>
+      <p>Real-time Material Transformation & Work Order Traceability</p>
+    </div>
+    <div class="stats">
+      <div class="stat-card">
+        <span class="label">ACTIVE WIP</span>
+        <span class="value">{{ wipList.length }}</span>
+      </div>
+    </div>
+  </header>
+
+  <section class="wip-grid">
+    <div class="axos-table-container">
+      <table class="axos-table">
+        <thead>
+          <tr>
+            <th>Work Order</th>
+            <th>Model / Part</th>
+            <th>Line / Building</th>
+            <th>Progress</th>
+            <th>Qty</th>
+            <th>Status</th>
+            <th>Last Update</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let wip of wipList">
+            <td><strong>{{ wip.workOrder }}</strong></td>
+            <td>
+              <div class="model-info">
+                <span class="model">{{ wip.partNumber }}</span>
+                <span class="kit-id">Kit #{{ wip.kit?.id }}</span>
+              </div>
+            </td>
+            <td>{{ wip.line }}</td>
+            <td class="progress-col">
+              <div class="progress-container">
+                <div class="progress-bar" [style.width.%]="getProgress(wip)"></div>
+                <span class="perc">{{ getProgress(wip) | number:'1.0-0' }}%</span>
+              </div>
+            </td>
+            <td>
+              <div class="qty-display">
+                <span class="done">{{ wip.completedQty }}</span> / <span class="total">{{ wip.targetQty }}</span>
+              </div>
+            </td>
+            <td>
+              <span class="status-pill" [class]="getStatusClass(wip.status)">{{ wip.status }}</span>
+            </td>
+            <td class="time">{{ wip.updatedAt | date:'HH:mm:ss' }}</td>
+          </tr>
+          <tr *ngIf="wipList.length === 0">
+            <td colspan="7" class="empty-state">No hay órdenes en proceso de transformación.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>

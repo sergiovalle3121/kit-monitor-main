@@ -101,4 +101,9 @@ export class ProductionRuntimeController {
   getLogisticsRisk() {
     return this.service.getLogisticsRisk();
   }
+
+  @Get('wip')
+  async getWip(@Query() scope: any) {
+    return this.service.getWipStatus(scope);
+  }
 }
