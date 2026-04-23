@@ -120,10 +120,21 @@ export class ShellComponent implements OnInit, OnDestroy {
         { label: 'Industrial Engineering', route: '/roadmap/engineering/ie', icon: 'fa-compass-drafting', state: 'partial', note: 'BOM/Layout foundations active' },
         { label: 'Product Engineering', route: '/roadmap/engineering/product-engineering', icon: 'fa-microchip', state: 'planned', note: 'Roadmap' },
         { label: 'BOM / Model Structure', route: '/bom', icon: 'fa-cubes', state: 'active' },
-        { label: 'Routing', route: '/roadmap/engineering/routing', icon: 'fa-route', state: 'planned', note: 'Roadmap' },
+        { label: 'Engineering BI', route: '/roadmap/engineering/bi', icon: 'fa-chart-pie', state: 'planned', note: 'Roadmap' },
         { label: 'NPI / ECO / Change Control', route: '/roadmap/engineering/npi-eco', icon: 'fa-code-branch', state: 'planned', note: 'Roadmap' },
         { label: 'Visual Aids / SOPs', route: '/visual-aids', icon: 'fa-eye', state: 'active' },
         { label: 'Disposition / Line Layout', route: '/disposition', icon: 'fa-vector-square', state: 'active' },
+      ],
+    },
+    {
+      id: 'governance',
+      label: 'System Governance',
+      short: 'GV',
+      icon: 'fa-user-shield',
+      items: [
+        { label: 'Admin Center', route: '/admin-center', icon: 'fa-gears', state: 'active' },
+        { label: 'Audit Logs', route: '/admin-center', icon: 'fa-history', state: 'active' },
+        { label: 'Campus Topology', route: '/admin-center', icon: 'fa-network-wired', state: 'active' },
       ],
     },
     {

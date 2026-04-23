@@ -179,6 +179,11 @@ export const routes: Routes = [
           import('./features/shipping-center/shipping-center.component').then(m => m.ShippingCenterComponent),
       },
       {
+        path: 'admin-center',
+        loadComponent: () =>
+          import('./features/admin-center/admin-center.component').then(m => m.AdminCenterComponent),
+      },
+      {
         path: 'roadmap/:domain/:module',
         loadComponent: () =>
           import('./features/enterprise-placeholder/enterprise-placeholder.component').then(m => m.EnterprisePlaceholderComponent),

@@ -75,6 +75,23 @@ export class ApiService {
     return this.patch<any>(`kits/${id}/status`, { status });
   }
 
+  // Governance & Admin
+  getGovernanceUsers(): Observable<any[]> {
+    return this.get<any[]>('governance/users');
+  }
+
+  updateGovernanceUser(id: number, dto: any): Observable<any> {
+    return this.patch<any>(`governance/users/${id}`, dto);
+  }
+
+  getGovernanceMasterData(): Observable<any> {
+    return this.get<any>('governance/master-data');
+  }
+
+  getGovernanceAuditLogs(): Observable<any[]> {
+    return this.get<any[]>('governance/audit-logs');
+  }
+
   getBom(model?: string): Observable<any[]> {
     return this.get<any[]>('bom', { ...this.contextQuery(), ...(model ? { model } : {}) }).pipe(map((rows) => this.filterBomByContext(rows ?? [])));
   }

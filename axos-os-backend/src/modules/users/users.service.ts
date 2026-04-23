@@ -1,54 +1,55 @@
-import { Injectable } from '@nestjs/common';
-import { User } from './entities/user.entity';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { User, UserRole } from './entities/user.entity';
 
 @Injectable()
 export class UsersService {
-  // Demo user credentials: email 3312793 | password 31218223
-  private users: User[] = [
-    {
-      id: 1,
-      email: '3312793',
-      password: '$2b$10$TiyD4WmvV3cDHl2/ysBK4eF8P5ZtfuQzQrMZsxokgfA/Fl.cNB0dy',
-      isActive: true,
-    },
-  ];
+  constructor(
+    @InjectRepository(User)
+    private readonly userRepo: Repository<User>,
+  ) {}
 
-  async create(user: Partial<User>): Promise<User> {
-    const newUser: User = {
-      ...user,
-      id: this.users.length + 1,
-      isActive: true,
-      password: user.password || '',
-      email: user.email || '',
-    } as User;
-    this.users.push(newUser);
-    return newUser;
+  async create(dto: Partial<User>): Promise<User> {
+    const user = this.userRepo.create(dto);
+    return this.userRepo.save(user);
   }
 
   async findAll(): Promise<User[]> {
-    return this.users;
+    return this.userRepo.find({ order: { id: 'ASC' } });
   }
 
-  async findOne(id: number): Promise<User | undefined> {
-    return this.users.find(user => user.id === id);
-  }
-
-  async update(id: number, user: Partial<User>): Promise<User | undefined> {
-    const idx = this.users.findIndex(u => u.id === id);
-    if (idx === -1) return undefined;
-    this.users[idx] = { ...this.users[idx], ...user };
-    return this.users[idx];
-  }
-
-  async remove(id: number): Promise<boolean> {
-    const idx = this.users.findIndex(u => u.id === id);
-    if (idx === -1) return false;
-    this.users.splice(idx, 1);
-    return true;
+  async findOne(id: number): Promise<User> {
+    const user = await this.userRepo.findOne({ where: { id } });
+    if (!user) throw new NotFoundException('User not found');
+    return user;
   }
 
   async findOneByEmail(email: string): Promise<User | undefined> {
     const normalized = (email ?? '').trim().toLowerCase();
-    return this.users.find((user) => user.email.trim().toLowerCase() === normalized);
+    return this.userRepo.findOne({ 
+      where: { email: normalized },
+      select: ['id', 'email', 'password', 'role', 'scopes', 'permissions', 'isActive', 'username'] 
+    });
+  }
+
+  async update(id: number, dto: Partial<User>): Promise<User> {
+    const user = await this.findOne(id);
+    Object.assign(user, dto);
+    return this.userRepo.save(user);
+  }
+
+  async remove(id: number): Promise<void> {
+    const user = await this.findOne(id);
+    await this.userRepo.remove(user);
+  }
+
+  async getRoleStats() {
+    const users = await this.userRepo.find();
+    const stats: Record<string, number> = {};
+    users.forEach(u => {
+      stats[u.role] = (stats[u.role] || 0) + 1;
+    });
+    return stats;
   }
 }

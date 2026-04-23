@@ -4,6 +4,7 @@ import { ormOptions } from "./orm.options";
 import { HealthController } from "./health/health.controller";
 import { AuthModule } from "./modules/auth/auth.module";
 import { UsersModule } from "./modules/users/users.module";
+
 // AXOS OS domain modules
 import { PlansModule } from "./modules/plans/plans.module";
 import { BomModule } from "./modules/bom/bom.module";
@@ -25,9 +26,8 @@ import { NcrModule } from "./modules/ncr/ncr.module";
 import { SuppliersModule } from "./modules/suppliers/suppliers.module";
 import { ReceivingModule } from "./modules/receiving/receiving.module";
 import { ShippingModule } from "./modules/shipping/shipping.module";
+import { GovernanceModule } from "./modules/governance/governance.module";
 
-// TypeOrmModule always loads: uses SQLite (dev.sqlite) when no PG env vars,
-// PostgreSQL when DATABASE_URL or DB_HOST is set. See orm.options.ts.
 @Module({
   imports: [
     TypeOrmModule.forRoot(ormOptions()),
@@ -53,6 +53,7 @@ import { ShippingModule } from "./modules/shipping/shipping.module";
     SuppliersModule,
     ReceivingModule,
     ShippingModule,
+    GovernanceModule,
   ],
   controllers: [HealthController],
   providers: [],
