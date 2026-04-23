@@ -1,25 +1,51 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { UsersService } from '../users/users.service';
 import { UserRole } from '../users/entities/user.entity';
+import { GovernancePolicy } from './entities/governance-policy.entity';
 
 @Injectable()
 export class GovernanceSeedService implements OnModuleInit {
   private readonly logger = new Logger(GovernanceSeedService.name);
 
-  constructor(private readonly usersService: UsersService) {}
+  constructor(
+    private readonly usersService: UsersService,
+    @InjectRepository(GovernancePolicy)
+    private readonly policyRepo: Repository<GovernancePolicy>,
+  ) {}
 
   async onModuleInit() {
     try {
       await this.seedUsers();
+      await this.seedPolicies();
     } catch (error: any) {
       const msg = String(error?.message ?? '');
       const code = error?.code;
-      if (code === '42P01' || msg.toLowerCase().includes('relation') && msg.toLowerCase().includes('does not exist')) {
-        this.logger.warn('Skipping governance seed: users table is not available yet.');
+      if (code === '42P01' || (msg.toLowerCase().includes('relation') && msg.toLowerCase().includes('does not exist'))) {
+        this.logger.warn('Skipping governance seed: tables are not available yet.');
         return;
       }
       throw error;
     }
+  }
+
+  async seedPolicies() {
+    const policies = [
+      { domain: 'QUALITY', escalationThresholdHours: 1 },
+      { domain: 'SHIPPING', escalationThresholdHours: 1 },
+      { domain: 'INVENTORY', escalationThresholdHours: 4 },
+      { domain: 'PRODUCTION', escalationThresholdHours: 2 },
+      { domain: 'PLANNING', escalationThresholdHours: 8 },
+    ];
+
+    for (const p of policies) {
+      const exists = await this.policyRepo.findOne({ where: { domain: p.domain } });
+      if (!exists) {
+        await this.policyRepo.save(this.policyRepo.create(p));
+      }
+    }
+    this.logger.log('Governance policies seeded.');
   }
 
   async seedUsers() {

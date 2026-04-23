@@ -3,6 +3,9 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AuditLog } from './entities/audit-log.entity';
 import { OperationalException, ExceptionSeverity, ExceptionDomain, ExceptionStatus } from './entities/operational-exception.entity';
+import { Notification } from './entities/notification.entity';
+import { NotificationLog } from './entities/notification-log.entity';
+import { GovernancePolicy } from './entities/governance-policy.entity';
 import { User } from '../users/entities/user.entity';
 import { NotificationService } from './notification.service';
 
@@ -13,6 +16,12 @@ export class AuditService {
     private readonly auditRepo: Repository<AuditLog>,
     @InjectRepository(OperationalException)
     private readonly exceptionRepo: Repository<OperationalException>,
+    @InjectRepository(Notification)
+    private readonly notificationRepo: Repository<Notification>,
+    @InjectRepository(NotificationLog)
+    private readonly logRepo: Repository<NotificationLog>,
+    @InjectRepository(GovernancePolicy)
+    private readonly policyRepo: Repository<GovernancePolicy>,
     private readonly notifications: NotificationService,
   ) {}
 
@@ -289,21 +298,24 @@ export class AuditService {
     });
   }
 
-  // ESCALATION GOVERNANCE
+  // ESCALATION GOVERNANCE (Hardened & Idempotent)
   async checkEscalations() {
     const now = new Date();
-    // Find Open/Acknowledged exceptions that are overdue
     const overdue = await this.exceptionRepo.createQueryBuilder('ex')
       .where('ex.status != :resolved', { resolved: ExceptionStatus.RESOLVED })
       .andWhere('ex.dueAt < :now', { now })
       .getMany();
 
+    const policies = await this.policyRepo.find();
+    const policyMap = new Map(policies.map(p => [p.domain, p]));
+
     for (const ex of overdue) {
-      // 1. Initial Overdue Alert
-      // Check if already notified overdue (we can use metadata or timeline to avoid spam)
-      const alreadyNotified = ex.managementTimeline?.some(t => t.action === 'OVERDUE_ALERT');
+      // 1. Initial Overdue Alert (Idempotent)
+      const alreadyNotifiedOverdue = await this.logRepo.findOne({
+        where: { exceptionId: ex.id, type: 'OVERDUE' }
+      });
       
-      if (!alreadyNotified) {
+      if (!alreadyNotifiedOverdue) {
         ex.managementTimeline.push({
           action: 'OVERDUE_ALERT',
           actor: 'SLA_MONITOR',
@@ -314,18 +326,23 @@ export class AuditService {
         await this.notifications.notifyException(ex, 'OVERDUE');
       }
 
-      // 2. Escalation Logic (e.g., 2 hours past SLA for Critical)
-      if (ex.severity === ExceptionSeverity.CRITICAL) {
-        const slaHours = 1;
-        const escalationTime = new Date(ex.dueAt.getTime() + slaHours * 60 * 60 * 1000);
+      // 2. Escalation Logic (Policy-Driven)
+      if (ex.severity === ExceptionSeverity.CRITICAL || ex.severity === ExceptionSeverity.HIGH) {
+        const policy = policyMap.get(ex.domain);
+        const thresholdHours = policy?.escalationThresholdHours ?? (ex.severity === ExceptionSeverity.CRITICAL ? 1 : 4);
+        const escalationTime = new Date(ex.dueAt.getTime() + thresholdHours * 60 * 60 * 1000);
+
         if (now > escalationTime) {
-          const escalated = ex.managementTimeline?.some(t => t.action === 'ESCALATED');
-          if (!escalated) {
+          const alreadyEscalated = await this.logRepo.findOne({
+            where: { exceptionId: ex.id, type: 'ESCALATED' }
+          });
+
+          if (!alreadyEscalated) {
              ex.managementTimeline.push({
                action: 'ESCALATED',
                actor: 'GOVERNANCE_ENGINE',
                timestamp: new Date(),
-               note: `Critical exception unaddressed after ${slaHours}h post-SLA. Escalating to Site Management.`
+               note: `Unaddressed after ${thresholdHours}h post-SLA. Escalating based on ${ex.domain} policy.`
              });
              await this.exceptionRepo.save(ex);
              await this.notifications.notifyException(ex, 'ESCALATED');

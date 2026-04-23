@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Notification, NotificationStatus } from './entities/notification.entity';
+import { NotificationLog } from './entities/notification-log.entity';
 import { OperationalException, ExceptionSeverity } from './entities/operational-exception.entity';
 import { UsersService } from '../users/users.service';
 import { UserRole } from '../users/entities/user.entity';
@@ -13,20 +14,32 @@ export class NotificationService {
   constructor(
     @InjectRepository(Notification)
     private readonly notificationRepo: Repository<Notification>,
+    @InjectRepository(NotificationLog)
+    private readonly logRepo: Repository<NotificationLog>,
     private readonly usersService: UsersService,
   ) {}
 
   async notifyException(exception: OperationalException, event: 'CREATED' | 'OVERDUE' | 'ESCALATED') {
     const roles = this.getTargetRoles(exception.domain);
-    const users = await this.usersService.findAll();
+    const allUsers = await this.usersService.findAll();
     
-    // Filter users by role and scope
-    const recipients = users.filter(user => {
+    // Hardened Scope Routing: Building, Program, Line
+    const recipients = allUsers.filter(user => {
       const hasRole = roles.includes(user.role);
-      const inScope = !exception.buildingId || 
-                     !user.scopes?.buildings || 
-                     user.scopes.buildings.includes(exception.buildingId);
-      return hasRole && inScope;
+      
+      const inBuilding = !exception.buildingId || 
+                        !user.scopes?.buildings?.length || 
+                        user.scopes.buildings.includes(exception.buildingId);
+      
+      const inProgram = !exception.programId || 
+                       !user.scopes?.programs?.length || 
+                       user.scopes.programs.includes(exception.programId);
+
+      const inLine = !exception.lineId || 
+                    !user.scopes?.lines?.length || 
+                    user.scopes.lines.includes(Number(exception.lineId));
+
+      return hasRole && inBuilding && inProgram && inLine;
     });
 
     for (const user of recipients) {
@@ -34,11 +47,60 @@ export class NotificationService {
     }
 
     if (recipients.length === 0) {
-      // Fallback to Admins if no specific role found in scope
-      const admins = users.filter(u => u.role === UserRole.ADMIN);
+      const admins = allUsers.filter(u => u.role === UserRole.ADMIN);
       for (const admin of admins) {
         await this.sendAlert(admin.email, exception, event);
       }
+    }
+  }
+
+  private async sendAlert(email: string, exception: OperationalException, event: string) {
+    const title = `[AXOS ALERT] ${event}: ${exception.severity} Exception in ${exception.domain}`;
+    const message = `
+      Event: ${event}
+      Title: ${exception.title}
+      Severity: ${exception.severity}
+      Status: ${exception.status}
+      Domain: ${exception.domain}
+      Location: Building ${exception.buildingId || 'N/A'}, Line ${exception.lineId || 'N/A'}
+      
+      Link: /exception-center (ID: ${exception.id})
+    `;
+
+    try {
+      // 1. In-App Notification
+      await this.notificationRepo.save(
+        this.notificationRepo.create({
+          recipient: email,
+          title,
+          message,
+          exceptionId: exception.id,
+          metadata: { event, severity: exception.severity }
+        })
+      );
+
+      // 2. Trazabilidad: Notification Log
+      await this.logRepo.save(this.logRepo.create({
+        exceptionId: exception.id,
+        type: event,
+        recipient: email,
+        channel: 'IN_APP',
+        status: 'SENT',
+        metadata: { title }
+      }));
+
+      // 3. Simulated Email Log
+      await this.logRepo.save(this.logRepo.create({
+        exceptionId: exception.id,
+        type: event,
+        recipient: email,
+        channel: 'EMAIL',
+        status: 'SIMULATED'
+      }));
+
+      this.logger.log(`Trace: Notification ${event} for exception ${exception.id} sent to ${email}`);
+    } catch (err) {
+      this.logger.error(`Failed to log notification for ${email}`, err.stack);
     }
   }
 
@@ -52,35 +114,6 @@ export class NotificationService {
       case 'SHIPPING': return [UserRole.SHIPPING_LEAD];
       default: return [UserRole.ADMIN];
     }
-  }
-
-  private async sendAlert(email: string, exception: OperationalException, event: string) {
-    const title = `[AXOS ALERT] ${event}: ${exception.severity} Exception in ${exception.domain}`;
-    const message = `
-      Event: ${event}
-      Title: ${exception.title}
-      Severity: ${exception.severity}
-      Status: ${exception.status}
-      Domain: ${exception.domain}
-      Location: Building ${exception.buildingId || 'N/A'}, Line ${exception.lineId || 'N/A'}
-      SLA Due: ${exception.dueAt ? new Date(exception.dueAt).toLocaleString() : 'N/A'}
-      
-      Link: /exception-center (ID: ${exception.id})
-    `;
-
-    // 1. In-App Notification
-    await this.notificationRepo.save(
-      this.notificationRepo.create({
-        recipient: email,
-        title,
-        message,
-        exceptionId: exception.id,
-        metadata: { event, severity: exception.severity }
-      })
-    );
-
-    // 2. Simulated Email
-    this.logger.log(`SIMULATED EMAIL SENT to ${email}: ${title}`);
   }
 
   async getMyNotifications(email: string) {
