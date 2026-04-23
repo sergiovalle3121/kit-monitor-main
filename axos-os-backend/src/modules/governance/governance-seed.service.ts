@@ -23,9 +23,6 @@ export class GovernanceSeedService implements OnModuleInit {
   }
 
   async seedUsers() {
-    const existing = await this.usersService.findAll();
-    if (existing.length > 1) return; // Skip if already seeded
-
     const password = '$2b$10$TiyD4WmvV3cDHl2/ysBK4eF8P5ZtfuQzQrMZsxokgfA/Fl.cNB0dy'; // Demo password
 
     const users = [
