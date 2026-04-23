@@ -70,7 +70,7 @@
             <label>Buildings</label>
             <div class="friction-item-mini" *ngFor="let item of friction.buildings | keyvalue">
               <span class="f-label">{{ item.key }}</span>
-              <div class="f-bar-bg"><div class="f-bar" [style.width.%]="(item.value / riskSummary?.totalOpen) * 100"></div></div>
+              <div class="f-bar-bg"><div class="f-bar" [style.width.%]="riskSummary?.totalOpen ? ($any(item.value) / riskSummary.totalOpen) * 100 : 0"></div></div>
               <strong class="f-value">{{ item.value }}</strong>
             </div>
           </div>
@@ -78,7 +78,7 @@
             <label>Programs</label>
             <div class="friction-item-mini" *ngFor="let item of friction.programs | keyvalue">
               <span class="f-label">{{ item.key }}</span>
-              <div class="f-bar-bg"><div class="f-bar" [style.width.%]="(item.value / riskSummary?.totalOpen) * 100"></div></div>
+              <div class="f-bar-bg"><div class="f-bar" [style.width.%]="riskSummary?.totalOpen ? ($any(item.value) / riskSummary.totalOpen) * 100 : 0"></div></div>
               <strong class="f-value">{{ item.value }}</strong>
             </div>
           </div>
@@ -111,7 +111,7 @@
       <div class="friction-item" *ngFor="let loc of riskSummary.highFrictionLocations">
         <label>Sede: {{ loc.id }}</label>
         <div class="friction-bar-bg">
-          <div class="friction-bar" [style.width.%]="(loc.count / riskSummary.totalOpen) * 100"></div>
+          <div class="friction-bar" [style.width.%]="riskSummary?.totalOpen ? (loc.count / riskSummary.totalOpen) * 100 : 0"></div>
         </div>
         <span>{{ loc.count }} exc.</span>
       </div>

@@ -180,10 +180,10 @@
               <button type="button" class="link-btn" (click)="clearNotifications()">Limpiar todo</button>
             </div>
             <div class="panel-empty" *ngIf="!notifications.length">Sin notificaciones activas.</div>
-            <article class="notif-item" 
-                     *ngFor="let item of notifications"
-                     [class.unread]="item.status === 'UNREAD'"
-                     (click)="markAsRead(item)">
+             <article class="notif-item" 
+                      *ngFor="let item of notifications"
+                      [class.unread]="$any(item).status === 'UNREAD'"
+                      (click)="markAsRead(item)">
                <span class="notif-type">{{ notificationTypeLabel(item.type) }}</span>
                <p>{{ item.message }}</p>
                <small>{{ formatTimestamp(item.createdAt) }}</small>

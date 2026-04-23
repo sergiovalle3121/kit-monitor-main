@@ -39,6 +39,8 @@ interface ShellNotification {
   message: string;
   type: 'publication' | 'kit_ready' | 'partial' | 'ops' | 'cancellation';
   createdAt: string;
+  status?: string;
+  backendId?: number;
 }
 
 interface WorkspaceDomainConfig {
@@ -475,8 +477,8 @@ export class ShellComponent implements OnInit, OnDestroy {
           return { id: `cancel-${request.id}`, message: `Sin respuesta del kitteador. Cancelación de ${wo} rechazada por timeout.`, type: 'cancellation' as const, createdAt: request.respondedAt ?? request.expiresAt ?? request.createdAt ?? new Date().toISOString() };
         });
 
-        const merged = [...fromGoverned, ...fromPublications, ...fromReadyKits, ...fromPartial, ...fromOps, ...fromCancellations]
-          .filter((item) => item.status === 'UNREAD' || (now - new Date(item.createdAt).getTime() < 24 * 60 * 60 * 1000))
+        const merged: ShellNotification[] = [...fromGoverned, ...fromPublications, ...fromReadyKits, ...fromPartial, ...fromOps, ...fromCancellations]
+          .filter((item: any) => item.status === 'UNREAD' || (now - new Date(item.createdAt).getTime() < 24 * 60 * 60 * 1000))
           .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
         this.notifications = merged;
