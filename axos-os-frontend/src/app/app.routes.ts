@@ -93,6 +93,11 @@ export const routes: Routes = [
           import('./features/monitor/monitor.component').then(m => m.MonitorComponent),
       },
       {
+        path: 'exception-center',
+        loadComponent: () =>
+          import('./features/exception-center/exception-center.component').then(m => m.ExceptionCenterComponent),
+      },
+      {
         path: 'visual-aids',
         loadComponent: () =>
           import('./features/visual-aids/visual-aids.component').then(m => m.VisualAidsComponent),

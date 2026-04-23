@@ -6,12 +6,13 @@ import { UsersModule } from '../users/users.module';
 import { EnterpriseCampusModule } from '../enterprise-campus/enterprise-campus.module';
 import { AuditService } from './audit.service';
 import { AuditLog } from './entities/audit-log.entity';
+import { OperationalException } from './entities/operational-exception.entity';
 
 import { GovernanceSeedService } from './governance-seed.service';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([AuditLog]),
+    TypeOrmModule.forFeature([AuditLog, OperationalException]),
     UsersModule,
     EnterpriseCampusModule,
   ],
