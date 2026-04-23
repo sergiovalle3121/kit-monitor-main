@@ -1,4 +1,4 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, Query } from '@nestjs/common';
 import { EnterpriseCampusService } from './enterprise-campus.service';
 
 @Controller('enterprise')
@@ -23,6 +23,21 @@ export class EnterpriseCampusController {
   @Get('programs')
   getPrograms() {
     return this.service.listPrograms();
+  }
+
+  @Get('areas')
+  getAreas() {
+    return this.service.listAreas();
+  }
+
+  @Get('lines')
+  getLines() {
+    return this.service.listLines();
+  }
+
+  @Get('stations')
+  getStations(@Query('lineId') lineId?: string) {
+    return this.service.listStations(lineId);
   }
 
   @Get('campus-state')

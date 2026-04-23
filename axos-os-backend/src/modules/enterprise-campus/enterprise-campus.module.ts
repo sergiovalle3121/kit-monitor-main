@@ -10,6 +10,10 @@ import { EnterpriseBuilding } from './entities/enterprise-building.entity';
 import { EnterpriseWarehouse } from './entities/enterprise-warehouse.entity';
 import { EnterpriseCustomer } from './entities/enterprise-customer.entity';
 import { EnterpriseProgram } from './entities/enterprise-program.entity';
+import { EnterpriseArea } from './entities/enterprise-area.entity';
+import { EnterpriseLine } from './entities/enterprise-line.entity';
+import { EnterpriseStation } from './entities/enterprise-station.entity';
+import { EnterprisePlanLink } from './entities/enterprise-plan-link.entity';
 
 @Module({
   imports: [
@@ -22,6 +26,10 @@ import { EnterpriseProgram } from './entities/enterprise-program.entity';
       EnterpriseWarehouse,
       EnterpriseCustomer,
       EnterpriseProgram,
+      EnterpriseArea,
+      EnterpriseLine,
+      EnterpriseStation,
+      EnterprisePlanLink,
     ]),
   ],
   controllers: [EnterpriseCampusController],

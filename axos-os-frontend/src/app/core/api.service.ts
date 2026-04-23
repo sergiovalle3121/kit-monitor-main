@@ -281,6 +281,18 @@ export class ApiService {
     return this.get<any[]>('enterprise/programs');
   }
 
+  getEnterpriseAreas(): Observable<any[]> {
+    return this.get<any[]>('enterprise/areas');
+  }
+
+  getEnterpriseLines(): Observable<any[]> {
+    return this.get<any[]>('enterprise/lines');
+  }
+
+  getEnterpriseStations(lineId?: string): Observable<any[]> {
+    return this.get<any[]>('enterprise/stations', lineId ? { lineId } : undefined);
+  }
+
   getDecisionLogisticsPriority(runId?: number): Observable<any> {
     return this.get<any>('decision-intelligence/logistics-priority', runId ? { runId } : undefined);
   }

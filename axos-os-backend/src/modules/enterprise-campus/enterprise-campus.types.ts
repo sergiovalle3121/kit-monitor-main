@@ -4,12 +4,46 @@ export type WarehouseType = 'central' | 'building' | 'subwarehouse' | 'pou' | 'q
 export type ProgramStatus = 'active' | 'npi' | 'ramping' | 'end_of_life' | 'on_hold';
 export type Shift = 'A' | 'B' | 'C' | 'weekend';
 
+
+export interface ProductionAreaNode {
+  id: string;
+  buildingId: string;
+  code: string;
+  name: string;
+  type: string;
+  status: string;
+}
+
+export interface ProductionLineNode {
+  id: string;
+  buildingId: string;
+  areaId: string;
+  code: string;
+  name: string;
+  status: string;
+  activeShift?: string;
+  capacityPerShift?: number;
+  stationCount: number;
+  activePlanCount: number;
+}
+
+export interface ProductionStationNode {
+  id: string;
+  lineId: string;
+  code: string;
+  position: number;
+  status: string;
+}
+
 export interface CampusStateResponse {
   campus: { id: string; code: string; name: string };
   buildings: BuildingNode[];
   warehouses: WarehouseNode[];
   customers: CustomerNode[];
   programs: ProgramNode[];
+  areas: ProductionAreaNode[];
+  lines: ProductionLineNode[];
+  stations: ProductionStationNode[];
   kpis: CampusKpi[];
   exceptions: CampusException[];
   domainHealth: DomainHealth[];
