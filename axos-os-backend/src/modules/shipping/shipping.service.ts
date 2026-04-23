@@ -7,6 +7,7 @@ import { PackingList } from './entities/packing-list.entity';
 import { InventoryService } from '../inventory/inventory.service';
 import { AuditService } from '../governance/audit.service';
 import { User } from '../users/entities/user.entity';
+import { ExceptionSeverity, ExceptionDomain } from '../governance/entities/operational-exception.entity';
 
 @Injectable()
 export class ShippingService {
@@ -56,6 +57,18 @@ export class ShippingService {
 
     const totalAvailable = eligibleStock.reduce((acc, s) => acc + s.onHand, 0);
     if (totalAvailable < itemDto.quantity) {
+      // AUTOMATION: Create Operational Exception for Shipping Blocker
+      await this.audit.recordException({
+        severity: ExceptionSeverity.CRITICAL,
+        domain: ExceptionDomain.SHIPPING,
+        title: `Shipping Blocked: Material Unreleased`,
+        description: `Attempted to stage ${itemDto.partNumber} for shipment ${shipment.shipmentNumber}, but material is on hold or pending OQC.`,
+        actor: user.email || 'Shipping Agent',
+        resourceType: 'Shipment',
+        resourceId: shipment.id.toString(),
+        metadata: { partNumber: itemDto.partNumber, requested: itemDto.quantity, available: totalAvailable }
+      });
+      
       throw new BadRequestException(`Material not eligible for shipping. Available released: ${totalAvailable}, Requested: ${itemDto.quantity}. Check OQC status.`);
     }
 
@@ -121,6 +134,21 @@ export class ShippingService {
 
     const items = await this.itemRepo.find({ where: { shipment: { id } } });
 
+    // ELIGIBILITY RULE: Shipment must be in LOADING state to dispatch
+    if (shipment.status !== ShipmentStatus.LOADING) {
+      await this.audit.recordException({
+        severity: ExceptionSeverity.HIGH,
+        domain: ExceptionDomain.SHIPPING,
+        title: `Dispatch Anomaly: Invalid State`,
+        description: `Attempted dispatch for shipment ${shipment.shipmentNumber} while in ${shipment.status} state. Expected LOADING.`,
+        actor,
+        resourceType: 'Shipment',
+        resourceId: shipment.id.toString(),
+        metadata: { currentStatus: shipment.status }
+      });
+      throw new BadRequestException(`Shipment ${shipment.shipmentNumber} cannot be dispatched. Current status: ${shipment.status}`);
+    }
+
     for (const item of items) {
       await this.inventory.recordTransaction({
         type: 'TRANSFER',
@@ -160,5 +188,23 @@ export class ShippingService {
     if (!shipment) throw new NotFoundException('Shipment not found');
     shipment.status = ShipmentStatus.CLOSED;
     return this.shipmentRepo.save(shipment);
+  }
+
+  async reportPackingDiscrepancy(shipmentId: number, discrepancy: { type: string, detail: string, actor: string }) {
+    const shipment = await this.shipmentRepo.findOne({ where: { id: shipmentId } });
+    if (!shipment) throw new NotFoundException('Shipment not found');
+
+    await this.audit.recordException({
+      severity: ExceptionSeverity.HIGH,
+      domain: ExceptionDomain.SHIPPING,
+      title: `Packing Discrepancy: ${discrepancy.type}`,
+      description: `Mismatch detected during packing list validation for shipment ${shipment.shipmentNumber}. Detail: ${discrepancy.detail}`,
+      actor: discrepancy.actor,
+      resourceType: 'Shipment',
+      resourceId: shipment.id.toString(),
+      metadata: { discrepancyType: discrepancy.type, detail: discrepancy.detail }
+    });
+
+    return { success: true };
   }
 }

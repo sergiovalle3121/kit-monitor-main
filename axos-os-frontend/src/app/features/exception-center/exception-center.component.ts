@@ -168,6 +168,7 @@ export class ExceptionCenterComponent implements OnInit {
     if (ex.resourceType === 'Disposition') return `/disposition`;
     if (ex.resourceType === 'CAPA') return `/capa-center`;
     if (ex.resourceType === 'IQC_INSPECTION') return `/iqc-center`;
+    if (ex.resourceType === 'Shipment') return `/shipping-center`;
     return '#';
   }
 
