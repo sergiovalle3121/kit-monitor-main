@@ -264,6 +264,23 @@ export class ApiService {
     return this.get<CampusState>('enterprise/campus-state');
   }
 
+
+  getEnterpriseBuildings(): Observable<any[]> {
+    return this.get<any[]>('enterprise/buildings');
+  }
+
+  getEnterpriseWarehouses(): Observable<any[]> {
+    return this.get<any[]>('enterprise/warehouses');
+  }
+
+  getEnterpriseCustomers(): Observable<any[]> {
+    return this.get<any[]>('enterprise/customers');
+  }
+
+  getEnterprisePrograms(): Observable<any[]> {
+    return this.get<any[]>('enterprise/programs');
+  }
+
   getDecisionLogisticsPriority(runId?: number): Observable<any> {
     return this.get<any>('decision-intelligence/logistics-priority', runId ? { runId } : undefined);
   }
