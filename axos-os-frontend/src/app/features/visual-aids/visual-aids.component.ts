@@ -419,6 +419,12 @@ export class VisualAidsComponent implements OnInit {
     this.markDirty();
   }
 
+  copySelectedElement(): void {
+    const selected = this.selectedElement();
+    if (!selected) return;
+    this.clipboardElement = { ...selected, id: this.uid('el') };
+  }
+
   saveEditorDraft(): void {
     this.editorDraftSnapshot = this.clonePages(this.pages);
     this.editorOpen = false;

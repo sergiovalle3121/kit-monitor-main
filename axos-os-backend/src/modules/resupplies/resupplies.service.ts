@@ -29,12 +29,15 @@ export class ResuppliesService {
   ) {}
 
   async findByKit(kitId: number, scope?: ScopeQuery): Promise<Resupply[]> {
-    const rows = await this.repo.find({
-      where: { kit: { id: kitId } },
-      relations: ['kit', 'kit.plan'],
-      order: { requestedAt: 'DESC' },
-    });
-    return this.applyScope(rows, scope);
+    const qb = this.repo.createQueryBuilder('resupply')
+      .leftJoinAndSelect('resupply.kit', 'kit')
+      .leftJoinAndSelect('kit.plan', 'plan')
+      .where('kit.id = :kitId', { kitId })
+      .orderBy('resupply.requestedAt', 'DESC')
+      .take(500);
+
+    await this.applyScopeToQb(qb, scope);
+    return qb.getMany();
   }
 
   async findAll(scope?: ScopeQuery): Promise<Resupply[]> {
