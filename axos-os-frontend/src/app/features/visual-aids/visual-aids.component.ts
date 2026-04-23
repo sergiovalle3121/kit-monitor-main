@@ -392,40 +392,11 @@ export class VisualAidsComponent implements OnInit {
       input.value = '';
       this.markDirty();
     };
-    page.elements.push(duplicate);
-    this.selectedElementId = duplicate.id;
-    this.markDirty();
-  }
-
-  bringSelectedForward(): void {
-    const page = this.currentPage();
-    const selected = this.selectedElement();
-    if (!page || !selected) return;
-    const index = page.elements.findIndex((el) => el.id === selected.id);
-    if (index === -1 || index === page.elements.length - 1) return;
-    this.pushHistory();
-    [page.elements[index], page.elements[index + 1]] = [page.elements[index + 1], page.elements[index]];
-    this.markDirty();
-  }
-
-  sendSelectedBackward(): void {
-    const page = this.currentPage();
-    const selected = this.selectedElement();
-    if (!page || !selected) return;
-    const index = page.elements.findIndex((el) => el.id === selected.id);
-    if (index <= 0) return;
-    this.pushHistory();
-    [page.elements[index], page.elements[index - 1]] = [page.elements[index - 1], page.elements[index]];
-    this.markDirty();
-  }
-
-  copySelectedElement(): void {
-    const selected = this.selectedElement();
-    if (!selected) return;
-    this.clipboardElement = { ...selected, id: this.uid('el') };
+    reader.readAsDataURL(file);
   }
 
   saveEditorDraft(): void {
+
     this.editorDraftSnapshot = this.clonePages(this.pages);
     this.editorOpen = false;
     this.editorDirty = false;

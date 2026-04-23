@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, AfterViewInit, ElementRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, AfterViewInit, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { AuthService } from '../../core/auth.service';
@@ -12,18 +12,6 @@ import { AuthService } from '../../core/auth.service';
 })
 export class LandingComponent implements OnInit, AfterViewInit, OnDestroy {
   private observer: IntersectionObserver | null = null;
-
-  readonly flowSteps = [
-    { label: 'Supplier',          icon: 'fa-truck-ramp-box',   code: 'SUP' },
-    { label: 'Receiving',         icon: 'fa-dolly',            code: 'RCV' },
-    { label: 'Warehouse',         icon: 'fa-warehouse',        code: 'WHS' },
-    { label: 'Inventory Control', icon: 'fa-barcode',          code: 'INV' },
-    { label: 'Kitting',           icon: 'fa-boxes-stacked',    code: 'KIT' },
-    { label: 'Resupply',          icon: 'fa-truck-loading',    code: 'RSP' },
-    { label: 'Production',        icon: 'fa-industry',         code: 'PRD' },
-    { label: 'Quality',           icon: 'fa-certificate',      code: 'QUA' },
-    { label: 'Shipping',          icon: 'fa-ship',             code: 'SHP' },
-  ];
 
   readonly pillars = [
     { icon: 'fa-box-open',          label: 'Materials & IC',       desc: 'Receiving, warehouse, inventory, kitting, resupply' },
@@ -48,7 +36,7 @@ export class LandingComponent implements OnInit, AfterViewInit, OnDestroy {
 
   ngAfterViewInit(): void {
     this.initScrollReveal();
-    this.initCounters();
+    this.initCardEffects();
   }
 
   ngOnDestroy(): void {
@@ -67,37 +55,38 @@ export class LandingComponent implements OnInit, AfterViewInit, OnDestroy {
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
             entry.target.classList.add('revealed');
-            this.observer?.unobserve(entry.target);
+            // We keep observing for potential re-animations if desired, 
+            // but for a landing page, once is usually enough.
           }
         });
       },
-      { threshold: 0.1, rootMargin: '0px 0px -48px 0px' }
+      { threshold: 0.15, rootMargin: '0px 0px -50px 0px' }
     );
 
     document.querySelectorAll('.reveal').forEach((el) => this.observer?.observe(el));
   }
 
-  private initCounters(): void {
-    if (typeof window === 'undefined') return;
-    const targets: { id: string; target: number; suffix?: string }[] = [
-      { id: 'stat-lines', target: 24 },
-      { id: 'stat-wo',    target: 187 },
-      { id: 'stat-parts', target: 94200 },
-    ];
-    targets.forEach(({ id, target }) => {
-      const el = document.getElementById(id);
-      if (!el) return;
-      const duration = 1600;
-      const start = performance.now();
-      const step = (now: number) => {
-        const progress = Math.min((now - start) / duration, 1);
-        const ease = 1 - Math.pow(1 - progress, 3);
-        const val = Math.floor(ease * target);
-        el.textContent = val >= 1000 ? (val / 1000).toFixed(1) + 'k' : String(val);
-        if (progress < 1) requestAnimationFrame(step);
-        else el.textContent = target >= 1000 ? (target / 1000).toFixed(1) + 'k' : String(target);
-      };
-      setTimeout(() => requestAnimationFrame(step), 600);
+  private initCardEffects(): void {
+    // We handle this via HostListener for performance or direct DOM for simplicity
+    const cards = document.querySelectorAll('.glass-card');
+    cards.forEach(card => {
+      card.addEventListener('mousemove', (e: any) => {
+        const rect = card.getBoundingClientRect();
+        const x = ((e.clientX - rect.left) / rect.width) * 100;
+        const y = ((e.clientY - rect.top) / rect.height) * 100;
+        (card as HTMLElement).style.setProperty('--mouse-x', `${x}%`);
+        (card as HTMLElement).style.setProperty('--mouse-y', `${y}%`);
+      });
     });
+  }
+
+  @HostListener('window:scroll', [])
+  onWindowScroll() {
+    const nav = document.querySelector('.top-nav');
+    if (window.scrollY > 50) {
+      nav?.classList.add('nav-scrolled');
+    } else {
+      nav?.classList.remove('nav-scrolled');
+    }
   }
 }

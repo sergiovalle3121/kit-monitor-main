@@ -1,36 +1,71 @@
 <main class="land">
   <div class="cinema-video" aria-hidden="true">
     <video autoplay muted loop playsinline preload="metadata">
-      <source src="assets/Video-Project-5.mp4" type="video/mp4" />
+      <source src="assets/Video nodos.mp4" type="video/mp4" />
     </video>
   </div>
   <div class="cinema-overlay" aria-hidden="true"></div>
   <div class="noise-overlay" aria-hidden="true"></div>
+  <div class="scanline" aria-hidden="true"></div>
+
+  <div class="system-status-bar">
+    <div class="status-item">
+      <span class="status-dot"></span>
+      <span class="status-text">SYSTEM OPERATIONAL</span>
+    </div>
+    <div class="status-divider"></div>
+    <div class="status-item">
+      <span class="status-label">LATENCY:</span>
+      <span class="status-value">12ms</span>
+    </div>
+    <div class="status-divider"></div>
+    <div class="status-item">
+      <span class="status-label">NODES:</span>
+      <span class="status-value">ACTIVE</span>
+    </div>
+  </div>
 
   <header class="top-nav">
     <a class="nav-logo" href="#top" aria-label="AXOS OS home">
-      <img src="assets/login/axos-os-original.svg" alt="AXOS OS" />
+      <div class="logo-hex">
+        <img src="assets/login/axos-os-original.svg" alt="AXOS OS" />
+      </div>
       <span>AXOS OS</span>
     </a>
+    <div class="nav-links">
+      <a href="#platform">Platform</a>
+      <a href="#capabilities">Capabilities</a>
+    </div>
     <button class="nav-login" (click)="launch()">Iniciar Sesión</button>
   </header>
 
   <section class="hero" id="top" aria-label="AXOS OS Hero">
-    <div class="hero__content reveal revealed">
-      <span class="hero__badge">Enterprise Industrial Platform</span>
+    <div class="hero__glow"></div>
+    <div class="hero__content reveal">
+      <div class="hero__badge-container">
+        <span class="hero__badge">Enterprise Industrial Platform v2.0</span>
+      </div>
       <p class="hero__eyebrow">INDUSTRIAL OPERATING SYSTEM</p>
-      <h1>The Industrial<br>Operating System</h1>
+      <h1 class="shimmer-text">The Industrial<br>Operating System</h1>
       <p class="hero__sub">
         AXOS OS integra ingeniería, materiales, planeación, producción y logística
         en una operación sincronizada de misión crítica.
       </p>
       <div class="hero__actions">
-        <button class="btn-launch" (click)="launch()">Launch System</button>
+        <button class="btn-launch" (click)="launch()">
+          <span>Launch System</span>
+          <i class="fas fa-arrow-right"></i>
+        </button>
       </div>
+    </div>
+
+    <div class="scroll-indicator">
+      <span class="scroll-text">Explore System</span>
+      <div class="scroll-line"></div>
     </div>
   </section>
 
-  <section class="cards-section" aria-label="Platform Coverage">
+  <section class="cards-section" id="platform" aria-label="Platform Coverage">
     <div class="section-head reveal">
       <p class="section-kicker">Platform Coverage</p>
       <h2>One Platform. Full Plant Control.</h2>
@@ -38,6 +73,7 @@
     <div class="cards-grid">
       @for (p of pillars; track p.label) {
         <article class="glass-card reveal">
+          <div class="card-glow"></div>
           <div class="card-icon"><i class="fas {{ p.icon }}"></i></div>
           <h3>{{ p.label }}</h3>
           <p>{{ p.desc }}</p>
@@ -46,7 +82,7 @@
     </div>
   </section>
 
-  <section class="cards-section" aria-label="Strategic Capabilities">
+  <section class="cards-section" id="capabilities" aria-label="Strategic Capabilities">
     <div class="section-head reveal">
       <p class="section-kicker">Strategic Capabilities</p>
       <h2>Built for Manufacturing Execution.</h2>
@@ -54,6 +90,7 @@
     <div class="cards-grid">
       @for (c of capabilities; track c.label) {
         <article class="glass-card reveal">
+          <div class="card-glow"></div>
           <div class="card-stat">{{ c.stat }}</div>
           <h3>{{ c.label }}</h3>
           <p>{{ c.desc }}</p>
@@ -61,4 +98,14 @@
       }
     </div>
   </section>
+
+  <footer class="land-footer">
+    <div class="footer-content">
+      <div class="footer-logo">
+        <img src="assets/login/axos-os-original.svg" alt="AXOS OS" />
+        <span>AXOS OS</span>
+      </div>
+      <p>© 2026 AXOS OS Guadalajara. All Rights Reserved.</p>
+    </div>
+  </footer>
 </main>
