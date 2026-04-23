@@ -392,52 +392,31 @@ export class VisualAidsComponent implements OnInit {
       input.value = '';
       this.markDirty();
     };
-    this.pages.push(page);
-    this.selectedPageId = page.id;
-    this.selectedElementId = null;
+    page.elements.push(duplicate);
+    this.selectedElementId = duplicate.id;
+    this.markDirty();
   }
 
-  removeCurrentPage(): void {
-    if (this.pages.length <= 1) return;
-    this.pages = this.pages.filter((page) => page.id !== this.selectedPageId);
-    this.selectedPageId = this.pages[0]?.id ?? '';
-    this.selectedElementId = null;
-  }
-
-  selectPage(pageId: string): void {
-    this.selectedPageId = pageId;
-    this.selectedElementId = null;
-  }
-
-  addElement(type: ElementType): void {
+  bringSelectedForward(): void {
     const page = this.currentPage();
-    if (!page) return;
+    const selected = this.selectedElement();
+    if (!page || !selected) return;
+    const index = page.elements.findIndex((el) => el.id === selected.id);
+    if (index === -1 || index === page.elements.length - 1) return;
+    this.pushHistory();
+    [page.elements[index], page.elements[index + 1]] = [page.elements[index + 1], page.elements[index]];
+    this.markDirty();
+  }
 
-    const base: SlideElement = {
-      id: this.uid('el'),
-      type,
-      x: 90,
-      y: 90,
-      width: 280,
-      height: 120,
-      fontSize: 22,
-      color: '#0f172a',
-      content: 'Texto editable',
-      background: '#ffffff',
-      borderColor: '#94a3b8',
-    };
-
-    const mapByType: Record<ElementType, Partial<SlideElement>> = {
-      text: { content: 'Nuevo texto', width: 320, height: 64, background: 'transparent', borderColor: 'transparent' },
-      arrow: { content: '➡', fontSize: 56, color: '#dc2626', width: 80, height: 80, background: 'transparent', borderColor: 'transparent' },
-      image: { imageUrl: '', content: 'Cargar imagen', width: 360, height: 240, background: '#f8fafc' },
-      badge: { content: 'Etiqueta / Nota', width: 340, height: 120, background: '#fef3c7', borderColor: '#d97706' },
-      box: { content: '', width: 420, height: 220, background: '#ffffff', borderColor: '#94a3b8' },
-    };
-
-    const item = { ...base, ...mapByType[type], type };
-    page.elements.push(item);
-    this.selectedElementId = item.id;
+  sendSelectedBackward(): void {
+    const page = this.currentPage();
+    const selected = this.selectedElement();
+    if (!page || !selected) return;
+    const index = page.elements.findIndex((el) => el.id === selected.id);
+    if (index <= 0) return;
+    this.pushHistory();
+    [page.elements[index], page.elements[index - 1]] = [page.elements[index - 1], page.elements[index]];
+    this.markDirty();
   }
 
   saveEditorDraft(): void {
