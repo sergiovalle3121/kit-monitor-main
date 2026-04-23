@@ -103,6 +103,37 @@ export interface WorkOrderSummary {
   dueDate?: string;
 }
 
+
+export interface ProductionArea {
+  id: string;
+  buildingId: string;
+  code: string;
+  name: string;
+  type: string;
+  status: string;
+}
+
+export interface ProductionLine {
+  id: string;
+  buildingId: string;
+  areaId: string;
+  code: string;
+  name: string;
+  status: string;
+  activeShift?: string;
+  capacityPerShift?: number;
+  stationCount: number;
+  activePlanCount: number;
+}
+
+export interface ProductionStation {
+  id: string;
+  lineId: string;
+  code: string;
+  position: number;
+  status: string;
+}
+
 /** Campus-wide exception */
 export interface EnterpriseException {
   id: string;
@@ -157,6 +188,9 @@ export interface CampusState {
   warehouses: Warehouse[];
   customers: Customer[];
   programs: ProgramSummary[];
+  areas?: ProductionArea[];
+  lines?: ProductionLine[];
+  stations?: ProductionStation[];
   kpis: CampusKpi[];
   exceptions: EnterpriseException[];
   domainHealth: DomainHealth[];
