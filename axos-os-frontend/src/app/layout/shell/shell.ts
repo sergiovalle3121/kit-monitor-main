@@ -44,7 +44,9 @@ export class ShellComponent implements OnInit, OnDestroy {
   private notificationsTimerId: number | null = null;
 
   private readonly modulesCatalog: SearchResult[] = [
-    { label: 'Control Tower', route: '/monitor', category: 'modulos' },
+    { label: 'Control Tower — Enterprise Overview', route: '/control-tower', category: 'modulos' },
+    { label: 'Control Tower', route: '/control-tower', category: 'modulos' },
+    { label: 'Live Lines Monitor', route: '/monitor', category: 'modulos' },
     { label: 'Production Plan', route: '/plan', category: 'modulos' },
     { label: 'Decision Intelligence', route: '/forecast', category: 'modulos' },
     { label: 'Warehouse / Receiving', route: '/', category: 'modulos' },
@@ -55,7 +57,6 @@ export class ShellComponent implements OnInit, OnDestroy {
     { label: 'BOM / Models', route: '/bom', category: 'modulos' },
     { label: 'Visual Aids / SOP', route: '/visual-aids', category: 'modulos' },
     { label: 'Bay Layout', route: '/disposition', category: 'modulos' },
-    { label: 'Live Line Monitor', route: '/monitor', category: 'modulos' },
     { label: 'Shopfloor Execution', route: '/production', category: 'modulos' },
     { label: 'Hour by Hour', route: '/production/hourly', category: 'modulos' },
     { label: 'Historical Runs', route: '/production/completed', category: 'modulos' },
@@ -298,7 +299,7 @@ export class ShellComponent implements OnInit, OnDestroy {
   }
 
   private syncSection(url: string): void {
-    if (url === '/monitor') {
+    if (url === '/control-tower' || url.startsWith('/control-tower/') || url === '/monitor') {
       this.openSection = 'tower';
       return;
     }

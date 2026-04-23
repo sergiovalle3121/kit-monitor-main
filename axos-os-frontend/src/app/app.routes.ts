@@ -73,6 +73,11 @@ export const routes: Routes = [
         pathMatch: 'full',
       },
       {
+        path: 'control-tower',
+        loadComponent: () =>
+          import('./features/control-tower/control-tower.component').then(m => m.ControlTowerComponent),
+      },
+      {
         path: 'monitor',
         loadComponent: () =>
           import('./features/monitor/monitor.component').then(m => m.MonitorComponent),

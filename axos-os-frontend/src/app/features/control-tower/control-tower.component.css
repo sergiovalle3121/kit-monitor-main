@@ -1,0 +1,363 @@
+/* AXOS OS — Enterprise Control Tower · Command Surface */
+/* Premium industrial command center: dark structural frame, light operational surfaces */
+
+:host { display: block; }
+
+.ct-page {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  padding: 4px 2px 32px;
+}
+
+/* ── Command Header ────────────────────────── */
+.ct-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 20px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid rgba(15,30,60,0.1);
+}
+
+.ct-header-left { display: flex; flex-direction: column; gap: 6px; }
+
+.ct-kicker {
+  display: inline-flex; align-items: center; gap: 9px;
+  font-size: 0.62rem; font-weight: 800; letter-spacing: 0.22em;
+  text-transform: uppercase; color: #0ea5e9; margin: 0;
+}
+
+.live-dot {
+  display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+  background: #34d399; box-shadow: 0 0 10px rgba(52,211,153,0.8);
+  animation: ct-pulse 1.8s ease-in-out infinite;
+}
+@keyframes ct-pulse { 0%,100% { opacity:1; box-shadow:0 0 10px rgba(52,211,153,0.8); } 50% { opacity:0.4; box-shadow:0 0 4px rgba(52,211,153,0.3); } }
+
+.ct-header h1 {
+  margin: 0; font-size: clamp(1.7rem,3vw,2.5rem);
+  font-weight: 800; letter-spacing: -0.045em; color: #0f1e30; line-height: 1.05;
+}
+.ct-sub { margin: 0; font-size: 0.88rem; color: #627d98; line-height: 1.6; max-width: 560px; }
+
+.ct-header-right { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+
+.ct-filter-bar { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.ct-select {
+  height: 38px; padding: 0 12px; border-radius: 8px;
+  border: 1px solid rgba(15,30,60,0.14); background: #fff;
+  color: #334e68; font-size: 0.82rem; font-family: inherit; cursor: pointer;
+  box-shadow: 0 1px 2px rgba(15,30,60,0.05);
+  transition: border-color 150ms;
+}
+.ct-select:focus { outline: none; border-color: rgba(14,165,233,0.4); }
+
+.ct-timestamp { margin: 0; font-size: 0.72rem; color: #9fb3c8; font-family: 'Cascadia Code','Fira Code',monospace; }
+
+/* ── States ────────────────────────────────── */
+.ct-state {
+  padding: 16px 20px; border-radius: 10px;
+  display: flex; align-items: center; gap: 12px;
+  background: #fff; border: 1px solid rgba(15,30,60,0.1);
+  color: #627d98; font-size: 0.9rem;
+}
+.ct-error { border-color: rgba(220,38,38,0.22); background: #fef2f2; color: #991b1b; }
+
+.state-spinner {
+  display: inline-block; width: 16px; height: 16px; border-radius: 50%;
+  border: 2px solid rgba(14,165,233,0.3); border-top-color: #0ea5e9;
+  animation: spin 0.9s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Section wrapper ───────────────────────── */
+.ct-section { display: flex; flex-direction: column; gap: 14px; }
+.ct-section-head {
+  display: flex; justify-content: space-between; align-items: flex-start; gap: 14px;
+}
+.ct-section-head h2 {
+  margin: 4px 0 0; font-size: 1.25rem; font-weight: 780;
+  color: #0f1e30; letter-spacing: -0.035em;
+}
+
+.section-kicker {
+  margin: 0; font-size: 0.61rem; font-weight: 800;
+  letter-spacing: 0.2em; text-transform: uppercase; color: #0ea5e9;
+  display: inline-flex; align-items: center; gap: 5px;
+}
+.section-kicker::before { content:''; width:3px; height:3px; border-radius:50%; background:#0ea5e9; }
+
+.ct-action-link {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 8px 14px; border-radius: 8px;
+  border: 1px solid rgba(14,165,233,0.28); color: #0ea5e9;
+  background: #f0f8ff; font-size: 0.8rem; font-weight: 720;
+  text-decoration: none; white-space: nowrap;
+  transition: all 160ms ease;
+}
+.ct-action-link:hover { background: #dbeafe; border-color: rgba(14,165,233,0.45); }
+
+/* ── KPI Strip ─────────────────────────────── */
+.ct-kpi-strip {
+  display: grid;
+  grid-template-columns: repeat(6,minmax(0,1fr));
+  gap: 10px;
+}
+
+.kpi-card {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 16px; border-radius: 12px;
+  border: 1px solid rgba(15,30,60,0.09); background: #fff;
+  box-shadow: 0 1px 3px rgba(15,30,60,0.06), 0 3px 8px rgba(15,30,60,0.04);
+  transition: border-color 160ms, box-shadow 160ms;
+}
+.kpi-card:hover { border-color: rgba(14,165,233,0.22); box-shadow: 0 4px 14px rgba(14,165,233,0.07); }
+
+.kpi-icon { font-size: 1.3rem; flex-shrink: 0; }
+
+.kpi-body { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.kpi-label { font-size: 0.63rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: #9fb3c8; }
+.kpi-value { font-size: 1.35rem; font-weight: 800; color: #0f1e30; line-height: 1; font-family: 'Cascadia Code','Fira Code',monospace; }
+.kpi-sub { font-size: 0.72rem; color: #9fb3c8; }
+
+/* KPI risk variants */
+.kpi-at_risk .kpi-value { color: #d97706; }
+.kpi-critical .kpi-value { color: #dc2626; }
+.kpi-critical { border-color: rgba(220,38,38,0.2); background: #fff8f8; }
+.kpi-at_risk  { border-color: rgba(217,119,6,0.2); background: #fffdf7; }
+
+/* ── Site Grid ─────────────────────────────── */
+.site-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill,minmax(320px,1fr));
+  gap: 12px;
+}
+
+.site-card {
+  border-radius: 13px; border: 1px solid rgba(15,30,60,0.1); overflow: hidden;
+  box-shadow: 0 1px 3px rgba(15,30,60,0.06), 0 4px 14px rgba(15,30,60,0.05);
+  transition: border-color 160ms, box-shadow 160ms;
+}
+.site-card:hover { border-color: rgba(14,165,233,0.22); box-shadow: 0 6px 20px rgba(15,30,60,0.1); }
+
+/* Site header — dark structural */
+.site-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 12px 16px; background: #111c2d;
+}
+.site-ok .site-header     { background: linear-gradient(90deg, rgba(5,150,105,0.12), transparent 50%), #111c2d; }
+.site-at_risk .site-header{ background: linear-gradient(90deg, rgba(217,119,6,0.15), transparent 50%), #111c2d; }
+.site-critical .site-header{ background: linear-gradient(90deg, rgba(220,38,38,0.18), transparent 50%), #111c2d; }
+
+.site-id-block { display: flex; align-items: center; gap: 10px; }
+.site-code { font-size: 0.82rem; font-weight: 800; color: rgba(140,185,230,0.6); font-family: 'Cascadia Code','Fira Code',monospace; letter-spacing: 0.1em; }
+.site-shift { font-size: 0.7rem; font-weight: 700; color: rgba(100,155,210,0.5); border: 1px solid rgba(255,255,255,0.08); padding: 2px 8px; border-radius: 5px; }
+
+.site-risk-badge {
+  font-size: 0.6rem; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase;
+  padding: 4px 10px; border-radius: 999px;
+}
+.rb-ok       { background: rgba(5,150,105,0.2); color: #34d399; border: 1px solid rgba(5,150,105,0.35); }
+.rb-at_risk  { background: rgba(217,119,6,0.2); color: #fbbf24; border: 1px solid rgba(217,119,6,0.35); }
+.rb-critical { background: rgba(220,38,38,0.2); color: #f87171; border: 1px solid rgba(220,38,38,0.4); box-shadow: 0 0 8px rgba(220,38,38,0.2); }
+.rb-blocked  { background: rgba(124,58,237,0.2); color: #a78bfa; border: 1px solid rgba(124,58,237,0.35); }
+
+/* Site body — light reading surface */
+.site-body { padding: 14px 16px; background: #fff; }
+.site-name { margin: 0 0 12px; font-size: 1.05rem; font-weight: 760; color: #0f1e30; }
+
+.site-stats { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 8px; }
+.site-stat { display: flex; flex-direction: column; gap: 3px; }
+.site-stat span { font-size: 0.62rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: #9fb3c8; }
+.site-stat strong { font-size: 1.1rem; font-weight: 800; color: #0f1e30; font-family: 'Cascadia Code','Fira Code',monospace; }
+.site-stat strong.stat-danger { color: #dc2626; }
+
+.site-progress-wrap { margin-top: 14px; }
+.site-progress-track { height: 5px; border-radius: 999px; background: rgba(15,30,60,0.08); overflow: hidden; }
+.site-progress-fill { height: 100%; border-radius: inherit; background: linear-gradient(90deg, #0ea5e9, #38bdf8); transition: width 800ms ease; }
+.site-progress-fill.fill-warn { background: linear-gradient(90deg, #d97706, #fbbf24); }
+.site-progress-fill.fill-ok   { background: linear-gradient(90deg, #059669, #34d399); }
+.site-progress-label { display: block; margin-top: 5px; font-size: 0.72rem; color: #9fb3c8; font-family: 'Cascadia Code','Fira Code',monospace; }
+
+/* Site footer */
+.site-footer {
+  display: flex; gap: 7px; padding: 10px 14px;
+  border-top: 1px solid rgba(15,30,60,0.07); background: #f7f9fc;
+}
+.site-drill-btn {
+  display: inline-flex; align-items: center; gap: 5px; padding: 6px 10px;
+  border-radius: 6px; border: 1px solid rgba(15,30,60,0.12);
+  background: #fff; color: #334e68; font-size: 0.75rem; font-weight: 680;
+  text-decoration: none; transition: all 150ms ease;
+}
+.site-drill-btn:hover { border-color: rgba(14,165,233,0.3); color: #0ea5e9; background: #f0f8ff; }
+
+/* Placeholder site */
+.site-placeholder {
+  border-style: dashed; border-color: rgba(15,30,60,0.14);
+  background: transparent; display: flex; align-items: center; justify-content: center;
+  min-height: 200px;
+}
+.placeholder-body {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 8px; text-align: center; padding: 24px;
+}
+.placeholder-icon { font-size: 2rem; opacity: 0.4; }
+.placeholder-body strong { color: #627d98; font-size: 0.95rem; }
+.placeholder-body small { color: #9fb3c8; font-size: 0.8rem; max-width: 200px; line-height: 1.5; }
+
+/* ── Two-col layout ────────────────────────── */
+.ct-two-col {
+  display: grid;
+  grid-template-columns: 1fr 1.1fr;
+  gap: 16px;
+}
+
+/* ── Domain Health Matrix ──────────────────── */
+.domain-grid { display: flex; flex-direction: column; gap: 7px; }
+
+.domain-card {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 14px; border-radius: 10px;
+  border: 1px solid rgba(15,30,60,0.09); background: #fff;
+  text-decoration: none;
+  box-shadow: 0 1px 2px rgba(15,30,60,0.05);
+  transition: all 160ms ease;
+}
+.domain-card:hover { border-color: rgba(14,165,233,0.22); box-shadow: 0 3px 10px rgba(14,165,233,0.07); transform: translateX(2px); }
+
+.domain-icon { font-size: 1.2rem; flex-shrink: 0; width: 32px; text-align: center; }
+.domain-body { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.domain-name { font-size: 0.9rem; font-weight: 740; color: #0f1e30; }
+.domain-metric { font-size: 0.78rem; color: #334e68; }
+.domain-detail { font-size: 0.72rem; color: #9fb3c8; }
+
+.domain-status-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.dot-ok       { background: #34d399; box-shadow: 0 0 6px rgba(52,211,153,0.6); }
+.dot-at_risk  { background: #fbbf24; box-shadow: 0 0 6px rgba(251,191,36,0.6); }
+.dot-critical { background: #f87171; box-shadow: 0 0 8px rgba(248,113,113,0.7); animation: ct-pulse 1.4s ease-in-out infinite; }
+.dot-blocked  { background: #a78bfa; }
+
+/* ── Exception Feed ────────────────────────── */
+.exception-count {
+  display: inline-flex; align-items: center;
+  background: #fef2f2; border: 1px solid rgba(220,38,38,0.22);
+  color: #991b1b; border-radius: 999px;
+  padding: 3px 11px; font-size: 0.7rem; font-weight: 800;
+}
+
+.exception-feed { display: flex; flex-direction: column; gap: 7px; }
+
+.exception-item {
+  display: flex; align-items: center; gap: 0;
+  border-radius: 9px; border: 1px solid rgba(15,30,60,0.09);
+  background: #fff; overflow: hidden; text-decoration: none;
+  box-shadow: 0 1px 2px rgba(15,30,60,0.05);
+  transition: border-color 150ms, box-shadow 150ms;
+}
+.exception-item:hover { box-shadow: 0 3px 10px rgba(15,30,60,0.09); border-color: rgba(15,30,60,0.18); }
+
+.exc-sev-bar { width: 4px; align-self: stretch; flex-shrink: 0; }
+.sev-critical .exc-sev-bar { background: #dc2626; }
+.sev-high     .exc-sev-bar { background: #f97316; }
+.sev-med      .exc-sev-bar { background: #d97706; }
+.sev-low      .exc-sev-bar { background: #0ea5e9; }
+
+.exc-body { flex: 1; padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; }
+.exc-top { display: flex; justify-content: space-between; gap: 8px; }
+.exc-domain { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: #9fb3c8; }
+.exc-time   { font-size: 0.65rem; color: #9fb3c8; font-family: 'Cascadia Code','Fira Code',monospace; }
+.exc-message { margin: 0; font-size: 0.84rem; color: #334e68; line-height: 1.4; }
+
+.sev-critical .exc-message { color: #7f1d1d; }
+.sev-high     .exc-message { color: #7c2d12; }
+
+.exc-arrow { color: #9fb3c8; font-size: 0.65rem; padding: 0 12px; flex-shrink: 0; }
+
+.exception-empty {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 6px; padding: 32px 20px; text-align: center;
+  border-radius: 10px; border: 1px dashed rgba(15,30,60,0.12);
+  background: #f7f9fc;
+}
+.ok-indicator { font-size: 1.6rem; }
+.exception-empty strong { color: #0f1e30; font-size: 0.95rem; }
+.exception-empty small  { color: #9fb3c8; font-size: 0.82rem; }
+
+/* ── Module Grid ───────────────────────────── */
+.module-grid {
+  display: grid;
+  grid-template-columns: repeat(4,minmax(0,1fr));
+  gap: 10px;
+}
+
+.module-tile {
+  display: flex; flex-direction: column; gap: 5px;
+  padding: 16px; border-radius: 11px;
+  border: 1px solid rgba(15,30,60,0.09); background: #fff;
+  text-decoration: none;
+  box-shadow: 0 1px 3px rgba(15,30,60,0.05);
+  transition: all 160ms ease; position: relative;
+}
+.module-tile:hover {
+  border-color: rgba(14,165,233,0.25); box-shadow: 0 4px 16px rgba(14,165,233,0.08);
+  transform: translateY(-2px);
+}
+.module-icon { font-size: 1.2rem; margin-bottom: 4px; color: #0ea5e9; }
+.module-name { font-size: 0.9rem; font-weight: 740; color: #0f1e30; }
+.module-desc { font-size: 0.76rem; color: #627d98; line-height: 1.4; flex: 1; }
+.module-tag {
+  display: inline-flex; align-items: center;
+  padding: 2px 8px; border-radius: 4px;
+  background: #f7f9fc; border: 1px solid rgba(15,30,60,0.1);
+  font-size: 0.62rem; font-weight: 800; letter-spacing: 0.1em;
+  text-transform: uppercase; color: #9fb3c8; margin-top: 4px;
+  align-self: flex-start;
+}
+
+/* ── Roadmap Banner ────────────────────────── */
+.ct-roadmap-banner {
+  display: flex; gap: 24px; align-items: flex-start;
+  padding: 20px 22px; border-radius: 13px;
+  border: 1px solid rgba(14,165,233,0.18);
+  background: linear-gradient(135deg, #111c2d 0%, #0d1a2e 100%);
+  box-shadow: 0 4px 16px rgba(14,165,233,0.1);
+}
+
+.roadmap-left { display: flex; flex-direction: column; gap: 7px; flex: 1; min-width: 0; }
+.roadmap-kicker {
+  font-size: 0.6rem; font-weight: 800; letter-spacing: 0.2em;
+  text-transform: uppercase; color: #38bdf8; margin: 0;
+}
+.roadmap-left strong { font-size: 0.95rem; font-weight: 800; color: #e8f1ff; }
+.roadmap-copy { margin: 0; font-size: 0.82rem; color: rgba(140,185,230,0.65); line-height: 1.6; max-width: 560px; }
+
+.roadmap-pills { display: flex; flex-wrap: wrap; gap: 7px; align-content: flex-start; min-width: 240px; }
+.roadmap-pill {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 5px 11px; border-radius: 999px;
+  border: 1px solid rgba(14,165,233,0.22);
+  background: rgba(14,165,233,0.08);
+  font-size: 0.72rem; font-weight: 700; color: rgba(56,189,248,0.85);
+}
+
+/* ── Responsive ────────────────────────────── */
+@media (max-width:1200px) {
+  .ct-kpi-strip { grid-template-columns: repeat(3,minmax(0,1fr)); }
+  .module-grid   { grid-template-columns: repeat(3,minmax(0,1fr)); }
+}
+@media (max-width:900px) {
+  .ct-header { flex-direction: column; }
+  .ct-header-right { align-items: flex-start; }
+  .ct-two-col { grid-template-columns: 1fr; }
+  .ct-kpi-strip { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .module-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .ct-roadmap-banner { flex-direction: column; }
+}
+@media (max-width:600px) {
+  .site-stats { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .ct-kpi-strip { grid-template-columns: 1fr; }
+  .module-grid { grid-template-columns: 1fr; }
+}
