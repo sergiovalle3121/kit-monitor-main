@@ -1,12 +1,16 @@
 import { Injectable } from '@nestjs/common';
 import { UsersService } from '../users/users.service';
 import { EnterpriseCampusService } from '../enterprise-campus/enterprise-campus.service';
+import { AuditService } from './audit.service';
+import { ExceptionDomain, ExceptionSeverity, ExceptionStatus } from './entities/operational-exception.entity';
+import { User } from '../users/entities/user.entity';
 
 @Injectable()
 export class GovernanceService {
   constructor(
     private readonly usersService: UsersService,
     private readonly campusService: EnterpriseCampusService,
+    private readonly auditService: AuditService,
   ) {}
 
   // User Management
@@ -44,10 +48,22 @@ export class GovernanceService {
   }
 
   async getAuditLogs() {
-    // Mock audit logs for now
-    return [
-      { id: 1, action: 'USER_ROLE_CHANGE', actor: 'Admin', target: 'sergio@jabil.com', timestamp: new Date(), details: 'Role changed to Quality Manager' },
-      { id: 2, action: 'MASTER_DATA_UPDATE', actor: 'Admin', target: 'BLDG-01', timestamp: new Date(), details: 'Capacity updated to 1200 units' },
-    ];
+    return this.auditService.getLogs();
+  }
+
+  async getExceptions(user: User, filters: { domain?: ExceptionDomain, severity?: ExceptionSeverity, status?: ExceptionStatus } = {}) {
+    return this.auditService.findAllExceptions(user, filters);
+  }
+
+  async updateExceptionStatus(id: number, status: ExceptionStatus, actor: string) {
+    return this.auditService.updateExceptionStatus(id, status, actor);
+  }
+
+  async assignException(id: number, actor: string, assignee: string) {
+    return this.auditService.assignException(id, actor, assignee);
+  }
+
+  async resolveException(id: number, actor: string, params: { reason: string, comments?: string }) {
+    return this.auditService.resolveException(id, actor, params);
   }
 }

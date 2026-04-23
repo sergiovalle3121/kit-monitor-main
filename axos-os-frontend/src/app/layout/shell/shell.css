@@ -546,6 +546,11 @@ nav { position:relative; z-index:2; flex:1; display:flex; flex-direction:column;
   border-color: rgba(24,24,27,0.26);
   background: rgba(24,24,27,0.08);
 }
+.btn-focus-active {
+  color: #075985;
+  border-color: rgba(14,165,233,0.34);
+  background: rgba(14,165,233,0.1);
+}
 
 .notif-dot {
   position:absolute; top:7px; right:7px;
