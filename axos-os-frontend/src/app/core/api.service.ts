@@ -137,7 +137,16 @@ export class ApiService {
 
   updateResupplyStatus(
     id: number,
-    dto: { status: string; actorName: string; quantityDelivered?: number; reason?: string },
+    dto: { 
+      status: string; 
+      actorName: string; 
+      quantityDelivered?: number; 
+      reason?: string;
+      sourceWarehouseId?: string;
+      sourceLocation?: string;
+      destinationWarehouseId?: string;
+      destinationLocation?: string;
+    },
   ): Observable<any> {
     return this.patch<any>(`resupplies/${id}/status`, dto);
   }
