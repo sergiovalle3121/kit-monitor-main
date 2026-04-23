@@ -1,12 +1,13 @@
 import { Component, ElementRef, HostListener, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { ActivatedRoute, NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { AuthService } from '../../core/auth.service';
 import { filter, forkJoin } from 'rxjs';
 import { ApiService } from '../../core/api.service';
 import { EnterpriseContextService } from '../../core/enterprise-context.service';
 import { ConfirmModalComponent } from '../../shared/confirm-modal/confirm-modal.component';
+import { WORKSPACE_ROUTE_META, WorkspaceDomainId } from './workspace-route-meta';
 
 type ModuleState = 'active' | 'partial' | 'planned';
 
@@ -40,6 +41,14 @@ interface ShellNotification {
   createdAt: string;
 }
 
+interface WorkspaceDomainConfig {
+  id: WorkspaceDomainId;
+  label: string;
+  eyebrow: string;
+  description: string;
+  railRoutes: string[];
+}
+
 @Component({
   selector: 'app-shell',
   standalone: true,
@@ -49,7 +58,13 @@ interface ShellNotification {
 })
 export class ShellComponent implements OnInit, OnDestroy {
   collapsed = false;
+  focusMode = false;
   openSection: string | null = null;
+  currentUrl = '';
+  activeGroup: NavGroupConfig | null = null;
+  activeItem: NavItemConfig | null = null;
+  routeWorkspaceDomainId: WorkspaceDomainId | null = null;
+  routeImmersiveWorkspace = false;
   searchTerm = '';
   showSearchResults = false;
   searchResults: SearchResult[] = [];
@@ -63,6 +78,26 @@ export class ShellComponent implements OnInit, OnDestroy {
   @ViewChild('userWrap') userWrap?: ElementRef<HTMLElement>;
   @ViewChild('contextWrap') contextWrap?: ElementRef<HTMLElement>;
   private notificationsTimerId: number | null = null;
+  private readonly workspaceDomains: WorkspaceDomainConfig[] = [
+    {
+      id: 'materials',
+      label: 'Materials Workspace',
+      eyebrow: 'Supply Chain / Materials',
+      description: 'Material flow, storage, receiving and dispatch operations in one continuous workspace.',
+      railRoutes: ['/materials/inventory', '/receiving-center', '/warehouse-center', '/picking-center', '/shipping-center', '/replenishment-center', '/kits', '/materials/resupply', '/materials/cycle-counts'],
+    },
+    {
+      id: 'production',
+      label: 'Production Command Workspace',
+      eyebrow: 'Manufacturing Execution',
+      description: 'Execution-critical stage for line runtime, WIP, output monitoring and command visibility.',
+      railRoutes: ['/control-tower', '/production', '/production-wip', '/monitor', '/production/completed', '/fg-center'],
+    },
+  ];
+  private readonly workspaceDomainById = new Map<WorkspaceDomainId, WorkspaceDomainConfig>(
+    this.workspaceDomains.map((domain) => [domain.id, domain]),
+  );
+  private readonly navItemByRoute = new Map<string, NavItemConfig>();
 
   readonly navGroups: NavGroupConfig[] = [
     {
@@ -220,9 +255,12 @@ export class ShellComponent implements OnInit, OnDestroy {
   constructor(
     private auth: AuthService,
     private router: Router,
+    private readonly activatedRoute: ActivatedRoute,
     private readonly api: ApiService,
     readonly enterpriseContext: EnterpriseContextService,
   ) {
+    this.focusMode = sessionStorage.getItem('axos.focusMode') === '1';
+    this.indexNavItemsByRoute();
     this.syncSection(this.router.url);
     this.router.events
       .pipe(filter((event): event is NavigationEnd => event instanceof NavigationEnd))
@@ -244,6 +282,10 @@ export class ShellComponent implements OnInit, OnDestroy {
   }
 
   toggle(): void { this.collapsed = !this.collapsed; }
+  toggleFocusMode(): void {
+    this.focusMode = !this.focusMode;
+    sessionStorage.setItem('axos.focusMode', this.focusMode ? '1' : '0');
+  }
 
   toggleSection(section: string): void { this.openSection = this.openSection === section ? null : section; }
 
@@ -449,7 +491,83 @@ export class ShellComponent implements OnInit, OnDestroy {
   }
 
   private syncSection(url: string): void {
+    this.currentUrl = url;
+    const routeMeta = this.readCurrentRouteWorkspaceMeta();
+    this.routeWorkspaceDomainId = routeMeta.domain;
+    this.routeImmersiveWorkspace = routeMeta.immersive;
     const group = this.navGroups.find((entry) => entry.items.some((item) => url === item.route || url.startsWith(`${item.route}/`)));
+    this.activeGroup = group ?? null;
+    this.activeItem = group?.items.find((item) => url === item.route || url.startsWith(`${item.route}/`)) ?? null;
     this.openSection = group?.id ?? null;
+  }
+
+  get isImmersiveRoute(): boolean {
+    return this.routeImmersiveWorkspace;
+  }
+
+  get workspaceClass(): string {
+    if (this.focusMode) return 'focus';
+    if (this.isImmersiveRoute) return 'immersive';
+    return 'standard';
+  }
+
+  get workspaceEyebrow(): string {
+    if (this.activeWorkspaceDomain) return this.activeWorkspaceDomain.eyebrow;
+    if (!this.activeGroup) return 'Industrial Workspace';
+    return this.activeGroup.label;
+  }
+
+  get moduleTitle(): string {
+    if (this.activeWorkspaceDomain) return this.activeWorkspaceDomain.label;
+    return this.activeItem?.label ?? 'Operations Workspace';
+  }
+
+  get moduleDescription(): string {
+    if (this.focusMode) return 'Focus mode active · navigation minimized for execution.';
+    if (this.isImmersiveRoute) return 'Immersive view · expanded stage for high-attention operations.';
+    if (this.activeWorkspaceDomain) return this.activeWorkspaceDomain.description;
+    return this.activeItem?.note ?? `${this.stateLabel(this.activeItem?.state ?? 'active')} module`;
+  }
+
+  get activeWorkspaceDomain(): WorkspaceDomainConfig | null {
+    if (!this.routeWorkspaceDomainId) return null;
+    return this.workspaceDomainById.get(this.routeWorkspaceDomainId) ?? null;
+  }
+
+  get showWorkspaceHeader(): boolean {
+    return !!this.activeWorkspaceDomain;
+  }
+
+  get activeGroupItems(): NavItemConfig[] {
+    if (!this.activeWorkspaceDomain) return [];
+    return this.activeWorkspaceDomain.railRoutes
+      .map((route) => this.navItemByRoute.get(route))
+      .filter((item): item is NavItemConfig => !!item);
+  }
+
+  get workspaceDomainClass(): string {
+    return this.activeWorkspaceDomain ? `workspace-domain-${this.activeWorkspaceDomain.id}` : 'workspace-domain-generic';
+  }
+
+  private indexNavItemsByRoute(): void {
+    this.navGroups.forEach((group) => {
+      group.items.forEach((item) => {
+        if (!this.navItemByRoute.has(item.route)) this.navItemByRoute.set(item.route, item);
+      });
+    });
+  }
+
+  private readCurrentRouteWorkspaceMeta(): { domain: WorkspaceDomainId | null; immersive: boolean } {
+    let route = this.activatedRoute.firstChild;
+    let domain: WorkspaceDomainId | null = null;
+    let immersive = false;
+    while (route) {
+      const routeDomain = route.snapshot.data[WORKSPACE_ROUTE_META.domain] as WorkspaceDomainId | undefined;
+      const routeImmersive = route.snapshot.data[WORKSPACE_ROUTE_META.immersive] as boolean | undefined;
+      if (routeDomain) domain = routeDomain;
+      if (typeof routeImmersive === 'boolean') immersive = routeImmersive;
+      route = route.firstChild;
+    }
+    return { domain, immersive };
   }
 }
