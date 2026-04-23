@@ -318,6 +318,75 @@
   border-radius: 14px;
 }
 
+/* ── Ops bar (live manufacturing stats) ───── */
+.hero__ops-bar {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 14px 22px;
+  border-radius: 12px;
+  border: 1px solid var(--land-border2, rgba(255,255,255,0.14));
+  background: rgba(14,165,233,0.06);
+  backdrop-filter: blur(12px);
+  flex-wrap: wrap;
+  gap: 0;
+}
+
+.ops-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 0 20px;
+}
+
+.ops-val {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #e8f1ff;
+  font-family: 'Cascadia Code','Fira Code',monospace;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+.ops-pct { font-size: 1rem; }
+
+.ops-label {
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(140,185,230,0.6);
+}
+
+.ops-divider {
+  width: 1px;
+  height: 32px;
+  background: rgba(255,255,255,0.1);
+  flex-shrink: 0;
+}
+
+.ops-live {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(52,211,153,0.9);
+  padding-left: 20px;
+}
+
+.ops-live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #34d399;
+  box-shadow: 0 0 8px rgba(52,211,153,0.8);
+  animation: pulse 1.8s ease-in-out infinite;
+}
+
 .hero__scroll-link {
   display: flex;
   align-items: center;

@@ -48,6 +48,7 @@ export class LandingComponent implements OnInit, AfterViewInit, OnDestroy {
 
   ngAfterViewInit(): void {
     this.initScrollReveal();
+    this.initCounters();
   }
 
   ngOnDestroy(): void {
@@ -74,5 +75,29 @@ export class LandingComponent implements OnInit, AfterViewInit, OnDestroy {
     );
 
     document.querySelectorAll('.reveal').forEach((el) => this.observer?.observe(el));
+  }
+
+  private initCounters(): void {
+    if (typeof window === 'undefined') return;
+    const targets: { id: string; target: number; suffix?: string }[] = [
+      { id: 'stat-lines', target: 24 },
+      { id: 'stat-wo',    target: 187 },
+      { id: 'stat-parts', target: 94200 },
+    ];
+    targets.forEach(({ id, target }) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      const duration = 1600;
+      const start = performance.now();
+      const step = (now: number) => {
+        const progress = Math.min((now - start) / duration, 1);
+        const ease = 1 - Math.pow(1 - progress, 3);
+        const val = Math.floor(ease * target);
+        el.textContent = val >= 1000 ? (val / 1000).toFixed(1) + 'k' : String(val);
+        if (progress < 1) requestAnimationFrame(step);
+        else el.textContent = target >= 1000 ? (target / 1000).toFixed(1) + 'k' : String(target);
+      };
+      setTimeout(() => requestAnimationFrame(step), 600);
+    });
   }
 }
