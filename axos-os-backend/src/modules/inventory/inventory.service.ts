@@ -8,6 +8,7 @@ import { EnterpriseWarehouse } from '../enterprise-campus/entities/enterprise-wa
 import { AuditService } from '../governance/audit.service';
 import { User } from '../users/entities/user.entity';
 import { In } from 'typeorm';
+import { ExceptionSeverity, ExceptionDomain } from '../governance/entities/operational-exception.entity';
 
 @Injectable()
 export class InventoryService {
@@ -114,11 +115,31 @@ export class InventoryService {
         });
 
         if (!sourcePos || sourcePos.onHand < dto.quantity) {
+          await this.audit.recordException({
+            severity: ExceptionSeverity.HIGH,
+            domain: ExceptionDomain.INVENTORY,
+            title: `Insufficient Stock: ${dto.partNumber}`,
+            description: `Attempted to move ${dto.quantity} from ${dto.fromWarehouseId} but only ${sourcePos?.onHand ?? 0} available.`,
+            actor: dto.actorName,
+            resourceType: 'InventoryPosition',
+            resourceId: dto.partNumber,
+            metadata: { warehouseId: dto.fromWarehouseId, requested: dto.quantity, available: sourcePos?.onHand ?? 0 }
+          });
           throw new BadRequestException(`Insufficient stock in ${dto.fromWarehouseId} for ${dto.partNumber}`);
         }
 
         // OPERATIONAL HARD LOCK: Only 'available' stock can be moved from source
         if (sourcePos.holdStatus !== 'available') {
+          await this.audit.recordException({
+            severity: ExceptionSeverity.CRITICAL,
+            domain: ExceptionDomain.INVENTORY,
+            title: `Movement Blocked: ${dto.partNumber}`,
+            description: `Attempted to move material with status '${sourcePos.holdStatus}'. Movements are only allowed for 'available' stock.`,
+            actor: dto.actorName,
+            resourceType: 'InventoryPosition',
+            resourceId: dto.partNumber,
+            metadata: { warehouseId: dto.fromWarehouseId, status: sourcePos.holdStatus }
+          });
           throw new BadRequestException(`Material ${dto.partNumber} is in status '${sourcePos.holdStatus}'. Movement BLOCKED.`);
         }
 

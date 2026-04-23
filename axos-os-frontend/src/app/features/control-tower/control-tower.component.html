@@ -269,9 +269,14 @@
             <p class="section-kicker"><i class="fas fa-bell"></i> Excepciones y Alertas</p>
             <h2>Risk &amp; Exception Feed</h2>
           </div>
-          <span class="exception-count" *ngIf="filteredExceptions.length > 0">
-            {{ filteredExceptions.length }} activa{{ filteredExceptions.length !== 1 ? 's' : '' }}
-          </span>
+          <div class="ct-section-actions">
+            <span class="exception-count" *ngIf="filteredExceptions.length > 0">
+              {{ filteredExceptions.length }} activa{{ filteredExceptions.length !== 1 ? 's' : '' }}
+            </span>
+            <a routerLink="/exception-center" class="ct-action-link">
+              <i class="fas fa-list-ul"></i> Ver Centro de Excepciones
+            </a>
+          </div>
         </div>
 
         <div class="exception-feed" *ngIf="filteredExceptions.length > 0">
