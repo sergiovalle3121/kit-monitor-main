@@ -43,7 +43,7 @@ export class NcrService {
     const ncr = this.ncrRepo.create({
       ...dto,
       ncrNumber,
-      status: 'open'
+      status: NcrStatus.OPEN
     });
     const saved = await this.ncrRepo.save(ncr);
 

@@ -1,6 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, CreateDateColumn, UpdateDateColumn, Index } from 'typeorm';
 import { NCR } from '../../ncr/entities/ncr.entity';
-import { QualityHold } from '../quality/entities/quality-hold.entity';
+import { QualityHold } from './quality-hold.entity';
 
 export enum DispositionType {
   RELEASE = 'release',

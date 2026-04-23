@@ -2,7 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { QualityHold, QualityHoldLevel } from './entities/quality-hold.entity';
-import { QuarantineTransfer } from './entities/quarantine-transfer.entity';
+import { QuarantineTransfer, QuarantineTransferStatus } from './entities/quarantine-transfer.entity';
 import { Disposition, DispositionType, DispositionStatus } from './entities/disposition.entity';
 import { InventoryPosition } from '../inventory/entities/inventory-position.entity';
 import { InventoryService } from '../inventory/inventory.service';
@@ -170,7 +170,7 @@ export class QualityService {
     const transfer = this.transferRepo.create({
       ...dto,
       partNumber: hold.partNumber,
-      status: 'pending'
+      status: QuarantineTransferStatus.PENDING
     });
     const saved = await this.transferRepo.save(transfer);
 
@@ -189,7 +189,7 @@ export class QualityService {
   async completeQuarantineTransfer(id: number, actor: string): Promise<QuarantineTransfer> {
     const transfer = await this.transferRepo.findOne({ where: { id }, relations: ['hold'] });
     if (!transfer) throw new NotFoundException('Transfer not found');
-    if (transfer.status !== 'pending') throw new Error('Transfer already processed');
+    if (transfer.status !== QuarantineTransferStatus.PENDING) throw new Error('Transfer already processed');
 
     // Perform Physical Movement in Inventory Backbone
     await this.inventory.recordTransaction({
@@ -207,7 +207,7 @@ export class QualityService {
     });
 
     // Update Status
-    transfer.status = 'completed';
+    transfer.status = QuarantineTransferStatus.COMPLETED;
     transfer.completedBy = actor;
     transfer.completedAt = new Date();
     const updated = await this.transferRepo.save(transfer);
