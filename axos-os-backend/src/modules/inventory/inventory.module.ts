@@ -10,6 +10,9 @@ import { EnterpriseWarehouse } from '../enterprise-campus/entities/enterprise-wa
 import { WarehouseTask } from './entities/warehouse-task.entity';
 import { WarehouseService } from './warehouse.service';
 import { WarehouseController } from './warehouse.controller';
+import { ReplenishmentRule } from './entities/replenishment-rule.entity';
+import { ReplenishmentService } from './replenishment.service';
+import { ReplenishmentController } from './replenishment.controller';
 
 @Module({
   imports: [
@@ -18,12 +21,13 @@ import { WarehouseController } from './warehouse.controller';
       InventoryMovement,
       MaterialMaster,
       EnterpriseWarehouse,
-      WarehouseTask
+      WarehouseTask,
+      ReplenishmentRule
     ]),
     EnterpriseCampusModule,
   ],
-  controllers: [InventoryController, WarehouseController],
-  providers: [InventoryService, WarehouseService],
-  exports: [InventoryService, WarehouseService],
+  controllers: [InventoryController, WarehouseController, ReplenishmentController],
+  providers: [InventoryService, WarehouseService, ReplenishmentService],
+  exports: [InventoryService, WarehouseService, ReplenishmentService],
 })
 export class InventoryModule {}

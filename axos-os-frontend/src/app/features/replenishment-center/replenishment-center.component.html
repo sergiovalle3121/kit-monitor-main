@@ -1,0 +1,109 @@
+<div class="replenishment-container">
+  <header class="main-header">
+    <div class="title-area">
+      <h1><i class="fas fa-sync"></i> Replenishment Center</h1>
+      <p>Warehouse Orchestration & Inventory Reorder Signals</p>
+    </div>
+    <div class="actions">
+      <button class="btn-secondary" (click)="loadData()"><i class="fas fa-redo"></i> Analizar Ahora</button>
+      <button class="btn-primary" (click)="showRuleModal = true"><i class="fas fa-plus"></i> Nueva Regla</button>
+    </div>
+  </header>
+
+  <div class="replenishment-grid">
+    <!-- SIGNALS / ALERTS -->
+    <section class="signals-panel">
+      <h3><i class="fas fa-bell"></i> Señales de Reabasto Activas</h3>
+      <div class="axos-table-container">
+        <table class="axos-table">
+          <thead>
+            <tr>
+              <th>Material</th>
+              <th>Nodo Destino</th>
+              <th>Stock Actual</th>
+              <th>Estatus</th>
+              <th>Sugerencia</th>
+              <th>Prioridad</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let s of signals">
+              <td><strong>{{ s.rule.partNumber }}</strong></td>
+              <td>{{ s.rule.warehouseId }}</td>
+              <td>{{ s.currentStock }} / {{ s.rule.minStock }} (Min)</td>
+              <td>
+                <span class="status-pill" [class]="getStatusClass(s.status)">{{ s.status }}</span>
+              </td>
+              <td>Traer <strong>{{ s.suggestedQty }}</strong> de {{ s.sourceWarehouseId }}</td>
+              <td><span class="priority-label" [class]="s.priority">{{ s.priority }}</span></td>
+            </tr>
+            <tr *ngIf="signals.length === 0">
+              <td colspan="6" class="empty-state">No hay señales de reabasto activas. Todo el stock está dentro de los límites.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- RULES OVERVIEW -->
+    <section class="rules-panel">
+      <h3><i class="fas fa-cog"></i> Reglas de Orquestación</h3>
+      <div class="rules-list">
+        <div class="rule-card" *ngFor="let r of rules">
+          <div class="rule-header">
+            <strong>{{ r.partNumber }}</strong>
+            <span class="auto-badge" *ngIf="r.autoCreateTasks">AUTO-TASK</span>
+          </div>
+          <div class="rule-body">
+            <p>Nodo: {{ r.warehouseId }}</p>
+            <p>Rango: {{ r.minStock }} - {{ r.maxStock }}</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<!-- RULE MODAL -->
+<div class="modal-overlay" *ngIf="showRuleModal">
+  <div class="modal-card">
+    <header>
+      <h3>Configurar Regla de Reabasto</h3>
+      <button class="close-btn" (click)="showRuleModal = false">✕</button>
+    </header>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Warehouse / Nodo Destino</label>
+          <input type="text" [(ngModel)]="ruleForm.warehouseId" placeholder="Ej: WH-BLDG1" />
+        </div>
+        <div class="form-group">
+          <label>Part Number</label>
+          <input type="text" [(ngModel)]="ruleForm.partNumber" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Min (Trigger)</label>
+          <input type="number" [(ngModel)]="ruleForm.minStock" />
+        </div>
+        <div class="form-group">
+          <label>Max (Target)</label>
+          <input type="number" [(ngModel)]="ruleForm.maxStock" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Fuente Preferida</label>
+        <input type="text" [(ngModel)]="ruleForm.preferredSourceWarehouseId" />
+      </div>
+      <div class="form-group checkbox">
+        <input type="checkbox" [(ngModel)]="ruleForm.autoCreateTasks" id="autoTask" />
+        <label for="autoTask">Crear tareas de transferencia automáticamente</label>
+      </div>
+    </div>
+    <footer>
+      <button class="btn-secondary" (click)="showRuleModal = false">Cancelar</button>
+      <button class="btn-primary" (click)='saveRule()'>Guardar Regla</button>
+    </footer>
+  </div>
+</div>

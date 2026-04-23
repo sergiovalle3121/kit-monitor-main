@@ -507,6 +507,19 @@ export class ApiService {
     return this.patch<any>(`warehouse/tasks/${id}/complete`, { actor });
   }
 
+  // Replenishment Management
+  getReplenishmentRules(): Observable<any[]> {
+    return this.get<any[]>('replenishment/rules');
+  }
+
+  createReplenishmentRule(dto: any): Observable<any> {
+    return this.post<any>('replenishment/rules', dto);
+  }
+
+  analyzeReplenishment(): Observable<any[]> {
+    return this.get<any[]>('replenishment/analyze');
+  }
+
   private contextQuery(): Record<string, string> {
     const ctx = this.context.context();
     const q: Record<string, string> = {};
