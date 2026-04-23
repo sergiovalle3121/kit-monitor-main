@@ -11,11 +11,13 @@ import { KitsController } from './kits.controller';
 import { EventLedgerModule } from '../event-ledger/event-ledger.module';
 import { EnterpriseProgram } from '../enterprise-campus/entities/enterprise-program.entity';
 import { EnterpriseLine } from '../enterprise-campus/entities/enterprise-line.entity';
+import { GovernanceModule } from '../governance/governance.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Kit, Plan, BomItem, KitMaterial, BayLayout, ProductionBayMaterialState, EnterpriseProgram, EnterpriseLine]),
     EventLedgerModule,
+    GovernanceModule,
   ],
   controllers: [KitsController],
   providers: [KitsService],
