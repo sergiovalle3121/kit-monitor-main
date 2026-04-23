@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { AuditLog } from './entities/audit-log.entity';
 import { OperationalException, ExceptionSeverity, ExceptionDomain, ExceptionStatus } from './entities/operational-exception.entity';
 import { User } from '../users/entities/user.entity';
+import { NotificationService } from './notification.service';
 
 @Injectable()
 export class AuditService {
@@ -12,6 +13,7 @@ export class AuditService {
     private readonly auditRepo: Repository<AuditLog>,
     @InjectRepository(OperationalException)
     private readonly exceptionRepo: Repository<OperationalException>,
+    private readonly notifications: NotificationService,
   ) {}
 
   async log(params: {
@@ -85,7 +87,14 @@ export class AuditService {
         note: `Initial detection: ${params.title}`
       }]
     });
-    return this.exceptionRepo.save(exception);
+    const saved = await this.exceptionRepo.save(exception);
+
+    // ALERTING GOVERNANCE: Notify immediately if Critical
+    if (saved.severity === ExceptionSeverity.CRITICAL) {
+      await this.notifications.notifyException(saved, 'CREATED');
+    }
+
+    return saved;
   }
 
   private calculateSlaDueAt(severity: ExceptionSeverity): Date {
@@ -278,5 +287,53 @@ export class AuditService {
       order: { timestamp: 'DESC' },
       take: limit,
     });
+  }
+
+  // ESCALATION GOVERNANCE
+  async checkEscalations() {
+    const now = new Date();
+    // Find Open/Acknowledged exceptions that are overdue
+    const overdue = await this.exceptionRepo.createQueryBuilder('ex')
+      .where('ex.status != :resolved', { resolved: ExceptionStatus.RESOLVED })
+      .andWhere('ex.dueAt < :now', { now })
+      .getMany();
+
+    for (const ex of overdue) {
+      // 1. Initial Overdue Alert
+      // Check if already notified overdue (we can use metadata or timeline to avoid spam)
+      const alreadyNotified = ex.managementTimeline?.some(t => t.action === 'OVERDUE_ALERT');
+      
+      if (!alreadyNotified) {
+        ex.managementTimeline.push({
+          action: 'OVERDUE_ALERT',
+          actor: 'SLA_MONITOR',
+          timestamp: new Date(),
+          note: `SLA Expired at ${ex.dueAt.toLocaleString()}`
+        });
+        await this.exceptionRepo.save(ex);
+        await this.notifications.notifyException(ex, 'OVERDUE');
+      }
+
+      // 2. Escalation Logic (e.g., 2 hours past SLA for Critical)
+      if (ex.severity === ExceptionSeverity.CRITICAL) {
+        const slaHours = 1;
+        const escalationTime = new Date(ex.dueAt.getTime() + slaHours * 60 * 60 * 1000);
+        if (now > escalationTime) {
+          const escalated = ex.managementTimeline?.some(t => t.action === 'ESCALATED');
+          if (!escalated) {
+             ex.managementTimeline.push({
+               action: 'ESCALATED',
+               actor: 'GOVERNANCE_ENGINE',
+               timestamp: new Date(),
+               note: `Critical exception unaddressed after ${slaHours}h post-SLA. Escalating to Site Management.`
+             });
+             await this.exceptionRepo.save(ex);
+             await this.notifications.notifyException(ex, 'ESCALATED');
+          }
+        }
+      }
+    }
+    
+    return { checked: overdue.length };
   }
 }

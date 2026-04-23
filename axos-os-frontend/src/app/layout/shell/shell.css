@@ -359,8 +359,15 @@ nav { position:relative; z-index:2; flex:1; display:flex; flex-direction:column;
   border-bottom: 1px solid rgba(24,24,27,0.05);
   transition:background var(--t);
 }
-.search-result:last-child { border-bottom:none; }
 .search-result:hover { background:rgba(24,24,27,0.04); }
+.notif-item:hover { background: rgba(255, 255, 255, 0.05); }
+
+.notif-item.unread {
+  background: rgba(0, 122, 255, 0.05);
+  border-left: 3px solid #007aff;
+}
+
+.notif-item.unread p { color: #fff; font-weight: 600; }
 .result-main { color:var(--cv-t1); font-weight:650; font-size:0.87rem; }
 .result-meta { color:var(--cv-t3); font-size:0.73rem; text-transform:capitalize; }
 .search-empty { padding:14px 16px; color:var(--cv-t3); font-size:0.84rem; }

@@ -47,8 +47,20 @@ export class GovernanceService {
     };
   }
 
-  async getAuditLogs() {
-    return this.auditService.getLogs();
+  async getLogs(limit: number) {
+    return this.auditService.getLogs(limit);
+  }
+
+  async getMyNotifications(email: string) {
+    return this.notificationService.getMyNotifications(email);
+  }
+
+  async markNotificationAsRead(id: number, email: string) {
+    return this.notificationService.markAsRead(id, email);
+  }
+
+  async checkEscalations() {
+    return this.auditService.checkEscalations();
   }
 
   async getExceptions(user: User, filters: { domain?: ExceptionDomain, severity?: ExceptionSeverity, status?: ExceptionStatus } = {}) {

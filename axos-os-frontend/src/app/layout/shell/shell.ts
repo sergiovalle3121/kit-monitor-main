@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { AuthService } from '../../core/auth.service';
-import { filter, forkJoin } from 'rxjs';
+import { filter, forkJoin, catchError, of } from 'rxjs';
 import { ApiService } from '../../core/api.service';
 import { EnterpriseContextService } from '../../core/enterprise-context.service';
 import { ConfirmModalComponent } from '../../shared/confirm-modal/confirm-modal.component';
@@ -423,9 +423,21 @@ export class ShellComponent implements OnInit, OnDestroy {
       kits: this.api.getKits(),
       backends: this.api.getProductionBackends(),
       cancellations: this.api.getRecentCancellationRequests(),
+      governed: this.api.getNotifications().pipe(catchError(() => of([])))
     }).subscribe({
-      next: ({ publications, kits, backends, cancellations }) => {
+      next: ({ publications, kits, backends, cancellations, governed }) => {
         const now = Date.now();
+        
+        // Transform Governed Notifications (High Priority)
+        const fromGoverned = (governed ?? []).map((item: any) => ({
+          id: `gov-${item.id}`,
+          message: item.message,
+          type: 'ops' as const, // Use generic 'ops' for now or expand ShellNotification types
+          createdAt: item.createdAt,
+          status: item.status,
+          backendId: item.id
+        }));
+
         const fromPublications = (publications ?? []).slice(0, 8).map((item: any) => ({
           id: `pub-${item.id}`,
           message: `Plan publicado #${item.id} (${item.title ?? 'sin título'})`,
@@ -463,8 +475,8 @@ export class ShellComponent implements OnInit, OnDestroy {
           return { id: `cancel-${request.id}`, message: `Sin respuesta del kitteador. Cancelación de ${wo} rechazada por timeout.`, type: 'cancellation' as const, createdAt: request.respondedAt ?? request.expiresAt ?? request.createdAt ?? new Date().toISOString() };
         });
 
-        const merged = [...fromPublications, ...fromReadyKits, ...fromPartial, ...fromOps, ...fromCancellations]
-          .filter((item) => now - new Date(item.createdAt).getTime() < 24 * 60 * 60 * 1000)
+        const merged = [...fromGoverned, ...fromPublications, ...fromReadyKits, ...fromPartial, ...fromOps, ...fromCancellations]
+          .filter((item) => item.status === 'UNREAD' || (now - new Date(item.createdAt).getTime() < 24 * 60 * 60 * 1000))
           .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
         this.notifications = merged;
@@ -475,6 +487,15 @@ export class ShellComponent implements OnInit, OnDestroy {
         this.notifications = cached ? JSON.parse(cached) : [];
       },
     });
+  }
+
+  markAsRead(item: any) {
+    if (item.backendId && item.status === 'UNREAD') {
+      this.api.markNotificationAsRead(item.backendId).subscribe(() => {
+        item.status = 'READ';
+        this.refreshNotifications();
+      });
+    }
   }
 
   notificationTypeLabel(type: ShellNotification['type']): string {

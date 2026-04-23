@@ -112,6 +112,14 @@ export class ApiService {
     return this.patch<any>(`governance/exceptions/${id}/resolve`, { reason, comments });
   }
 
+  getNotifications(): Observable<any[]> {
+    return this.get<any[]>('governance/notifications');
+  }
+
+  markNotificationAsRead(id: number): Observable<any> {
+    return this.patch<any>(`governance/notifications/${id}/read`, {});
+  }
+
   getBom(model?: string): Observable<any[]> {
     return this.get<any[]>('bom', { ...this.contextQuery(), ...(model ? { model } : {}) }).pipe(map((rows) => this.filterBomByContext(rows ?? [])));
   }

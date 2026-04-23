@@ -15,6 +15,30 @@ export class GovernanceController {
     return this.governanceService.getMasterData();
   }
 
+  @Get('logs')
+  @RequirePermissions('ADMIN_ACCESS')
+  getLogs(@Query('limit') limit: number) {
+    return this.governanceService.getLogs(limit);
+  }
+
+  @Get('notifications')
+  @RequirePermissions('ADMIN_ACCESS')
+  getMyNotifications(@Request() req: any) {
+    return this.governanceService.getMyNotifications(req.user.email);
+  }
+
+  @Patch('notifications/:id/read')
+  @RequirePermissions('ADMIN_ACCESS')
+  markNotificationAsRead(@Param('id') id: string, @Request() req: any) {
+    return this.governanceService.markNotificationAsRead(+id, req.user.email);
+  }
+
+  @Post('exceptions/check-escalations')
+  @RequirePermissions('ADMIN_ACCESS')
+  checkEscalations() {
+    return this.governanceService.checkEscalations();
+  }
+
   @Get('users')
   @RequirePermissions('ADMIN_ACCESS')
   getUsers() {
