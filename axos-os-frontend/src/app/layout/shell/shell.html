@@ -84,6 +84,23 @@
         </div>
       </div>
 
+
+      <div class="context-strip nav-full" *ngIf="enterpriseContext.buildings().length || enterpriseContext.programs().length">
+        <select [ngModel]="enterpriseContext.context().buildingId || ''" (ngModelChange)="onContextChange('buildingId', $event)">
+          <option value="">Building: Todos</option>
+          <option *ngFor="let b of enterpriseContext.buildings()" [value]="b.id">{{ b.code }} · {{ b.name }}</option>
+        </select>
+        <select [ngModel]="enterpriseContext.context().programId || ''" (ngModelChange)="onContextChange('programId', $event)">
+          <option value="">Programa: Todos</option>
+          <option *ngFor="let p of enterpriseContext.programs()" [value]="p.id">{{ p.code }} · {{ p.name }}</option>
+        </select>
+        <select [ngModel]="enterpriseContext.context().lineId || ''" (ngModelChange)="onContextChange('lineId', $event)">
+          <option value="">Línea: Todas</option>
+          <option *ngFor="let l of enterpriseContext.lines()" [value]="l.id">{{ l.code }} · {{ l.name }}</option>
+        </select>
+        <button type="button" class="ctx-clear" (click)="clearEnterpriseContext()">Limpiar</button>
+      </div>
+
       <div class="topbar-actions">
         <div class="action-wrap" #notificationsWrap>
           <button class="icon-btn glass-btn" aria-label="Notificaciones" (click)="toggleNotifications()">

@@ -5,6 +5,7 @@ import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } fro
 import { AuthService } from '../../core/auth.service';
 import { filter, forkJoin } from 'rxjs';
 import { ApiService } from '../../core/api.service';
+import { EnterpriseContextService } from '../../core/enterprise-context.service';
 import { ConfirmModalComponent } from '../../shared/confirm-modal/confirm-modal.component';
 
 type ModuleState = 'active' | 'partial' | 'planned';
@@ -201,6 +202,7 @@ export class ShellComponent implements OnInit, OnDestroy {
     private auth: AuthService,
     private router: Router,
     private readonly api: ApiService,
+    readonly enterpriseContext: EnterpriseContextService,
   ) {
     this.syncSection(this.router.url);
     this.router.events
@@ -213,6 +215,7 @@ export class ShellComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    this.enterpriseContext.preload();
     this.refreshNotifications();
     this.notificationsTimerId = window.setInterval(() => this.refreshNotifications(), 30_000);
   }
@@ -254,6 +257,15 @@ export class ShellComponent implements OnInit, OnDestroy {
     if (!this.showNotifications) this.refreshNotifications();
     this.showNotifications = !this.showNotifications;
     this.showUserPanel = false;
+  }
+
+
+  onContextChange(field: string, value: string): void {
+    this.enterpriseContext.update({ [field]: value || undefined });
+  }
+
+  clearEnterpriseContext(): void {
+    this.enterpriseContext.clear();
   }
 
   stateLabel(state: ModuleState): string {

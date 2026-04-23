@@ -327,6 +327,32 @@ nav { position:relative; z-index:2; flex:1; display:flex; flex-direction:column;
 .search-empty { padding:12px 14px; color:var(--cv-t3); font-size:0.84rem; }
 
 /* Topbar actions */
+
+.context-strip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.context-strip select {
+  min-width: 160px;
+  border-radius: 8px;
+  border: 1px solid var(--cv-border2);
+  background: var(--cv-card);
+  color: var(--cv-t2);
+  padding: 7px 10px;
+  font-size: 0.78rem;
+}
+.ctx-clear {
+  border: 1px solid rgba(220,38,38,0.3);
+  color: #b91c1c;
+  background: rgba(220,38,38,0.08);
+  border-radius: 8px;
+  padding: 7px 10px;
+  font-size: 0.74rem;
+  cursor: pointer;
+}
+
 .topbar-actions { display:flex; align-items:center; gap:9px; z-index:40; position:relative; }
 .action-wrap { position:relative; }
 
