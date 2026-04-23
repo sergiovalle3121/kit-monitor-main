@@ -92,6 +92,14 @@ export class ApiService {
     return this.get<any[]>('governance/audit-logs');
   }
 
+  getOperationalExceptions(filters: any = {}): Observable<any[]> {
+    return this.get<any[]>('governance/exceptions', filters);
+  }
+
+  updateOperationalExceptionStatus(id: number, status: string): Observable<any> {
+    return this.patch<any>(`governance/exceptions/${id}/status`, { status });
+  }
+
   getBom(model?: string): Observable<any[]> {
     return this.get<any[]>('bom', { ...this.contextQuery(), ...(model ? { model } : {}) }).pipe(map((rows) => this.filterBomByContext(rows ?? [])));
   }
