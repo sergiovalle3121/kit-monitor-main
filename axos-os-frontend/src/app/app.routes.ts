@@ -119,6 +119,11 @@ export const routes: Routes = [
           import('./features/iqc-center/iqc-center.component').then(m => m.IqcCenterComponent),
       },
       {
+        path: 'scar-center',
+        loadComponent: () =>
+          import('./features/scar-center/scar-center.component').then(m => m.ScarCenterComponent),
+      },
+      {
         path: 'roadmap/:domain/:module',
         loadComponent: () =>
           import('./features/enterprise-placeholder/enterprise-placeholder.component').then(m => m.EnterprisePlaceholderComponent),

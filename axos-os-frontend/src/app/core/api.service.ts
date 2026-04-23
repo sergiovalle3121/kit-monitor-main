@@ -459,6 +459,19 @@ export class ApiService {
     return this.post<any>('suppliers', dto);
   }
 
+  // SCAR Management
+  getScars(filters: any = {}): Observable<any[]> {
+    return this.get<any[]>('suppliers/scars', filters);
+  }
+
+  createScar(dto: any): Observable<any> {
+    return this.post<any>('suppliers/scars', dto);
+  }
+
+  updateScar(id: number, dto: any, actor: string): Observable<any> {
+    return this.patch<any>(`suppliers/scars/${id}`, { ...dto, actor });
+  }
+
 
   private contextQuery(): Record<string, string> {
     const ctx = this.context.context();

@@ -1,0 +1,162 @@
+<div class="scar-container">
+  <header class="main-header">
+    <div class="title-area">
+      <h1><i class="fas fa-file-invoice"></i> SCAR Center</h1>
+      <p>Supplier Corrective Action Reports - Quality Claims Management</p>
+    </div>
+    <button class="btn-primary" (click)="openCreate()">
+      <i class="fas fa-plus"></i> Abrir Nuevo SCAR
+    </button>
+  </header>
+
+  <section class="scar-list">
+    <div class="axos-table-container">
+      <table class="axos-table">
+        <thead>
+          <tr>
+            <th>ID SCAR</th>
+            <th>Proveedor</th>
+            <th>Part Number</th>
+            <th>Estatus</th>
+            <th>Severidad</th>
+            <th>Fecha</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let s of scars">
+            <td><strong>{{ s.scarNumber }}</strong></td>
+            <td>{{ s.supplier?.name }}</td>
+            <td>{{ s.partNumber }}</td>
+            <td>
+              <span class="status-pill" [class]="getStatusClass(s.status)">{{ s.status }}</span>
+            </td>
+            <td>
+              <span class="severity-label" [class]="s.severity">{{ s.severity }}</span>
+            </td>
+            <td>{{ s.createdAt | date:'short' }}</td>
+            <td>
+              <button class="btn-icon" (click)="viewDetail(s)"><i class="fas fa-edit"></i></button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>
+
+<!-- CREATE MODAL -->
+<div class="modal-overlay" *ngIf="showCreateModal">
+  <div class="modal-card">
+    <header>
+      <h3>Abrir Reclamo a Proveedor (SCAR)</h3>
+      <button class="close-btn" (click)="showCreateModal = false">✕</button>
+    </header>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Proveedor Responsable</label>
+          <select [(ngModel)]="scarForm.supplierId">
+            <option *ngFor="let sup of suppliers" [value]="sup.id">{{ sup.name }}</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Severidad</label>
+          <select [(ngModel)]="scarForm.severity">
+            <option value="minor">Menor</option>
+            <option value="major">Mayor</option>
+            <option value="critical">Crítica</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Part Number</label>
+          <input type="text" [(ngModel)]="scarForm.partNumber" />
+        </div>
+        <div class="form-group">
+          <label>Cantidad Afectada</label>
+          <input type="number" [(ngModel)]="scarForm.quantityAffected" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Resumen del Problema (Issue Summary)</label>
+        <input type="text" [(ngModel)]="scarForm.issueSummary" placeholder="Ej: Defecto cosmético recurrente en lote XYZ" />
+      </div>
+      <div class="form-group">
+        <label>Descripción Detallada del Defecto</label>
+        <textarea [(ngModel)]="scarForm.defectDescription" rows="3"></textarea>
+      </div>
+    </div>
+    <footer>
+      <button class="btn-secondary" (click)="showCreateModal = false">Cancelar</button>
+      <button class="btn-primary" (click)="createScar()">Abrir SCAR</button>
+    </footer>
+  </div>
+</div>
+
+<!-- DETAIL / REVIEW MODAL -->
+<div class="modal-overlay" *ngIf="showDetailModal">
+  <div class="modal-card large">
+    <header>
+      <div class="modal-title">
+        <h3>{{ selectedScar?.scarNumber }} - Gestión de Reclamo</h3>
+        <span class="status-pill" [class]="getStatusClass(selectedScar?.status)">{{ selectedScar?.status }}</span>
+      </div>
+      <button class="close-btn" (click)="showDetailModal = false">✕</button>
+    </header>
+    <div class="modal-body">
+      <div class="scar-management-grid">
+        <div class="info-panel">
+          <h4><i class="fas fa-info-circle"></i> Información del Defecto</h4>
+          <p><strong>Proveedor:</strong> {{ selectedScar?.supplier?.name }}</p>
+          <p><strong>PN:</strong> {{ selectedScar?.partNumber }}</p>
+          <p><strong>Descripción:</strong> {{ selectedScar?.defectDescription }}</p>
+        </div>
+
+        <div class="response-panel">
+          <h4><i class="fas fa-reply"></i> Respuesta del Proveedor</h4>
+          <div class="form-group">
+            <label>Causa Raíz (Supplier Root Cause)</label>
+            <textarea [(ngModel)]="selectedScar.supplierRootCause" rows="3"></textarea>
+          </div>
+          <div class="form-group">
+            <label>Acción Correctiva Propuesta</label>
+            <textarea [(ngModel)]="selectedScar.supplierCorrectiveAction" rows="3"></textarea>
+          </div>
+        </div>
+
+        <div class="review-panel">
+          <h4><i class="fas fa-user-check"></i> Revisión Interna y Cierre</h4>
+          <div class="form-group">
+            <label>Notas de Revisión</label>
+            <textarea [(ngModel)]="selectedScar.internalReviewNotes" rows="2"></textarea>
+          </div>
+          <div class="form-group">
+            <label>Confirmación de Efectividad</label>
+            <textarea [(ngModel)]="selectedScar.effectivenessConfirmation" rows="2"></textarea>
+          </div>
+        </div>
+      </div>
+
+      <div class="governance-bar">
+        <div class="form-group">
+          <label>Actualizar Estado del SCAR</label>
+          <select [(ngModel)]="selectedScar.status">
+            <option value="open">Abierto</option>
+            <option value="sent_to_supplier">Enviado a Proveedor</option>
+            <option value="awaiting_response">Esperando Respuesta</option>
+            <option value="response_under_review">En Revisión de Respuesta</option>
+            <option value="action_accepted">Acción Aceptada</option>
+            <option value="effectiveness_review">Revisión de Efectividad</option>
+            <option value="closed">Cerrado</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <footer>
+      <button class="btn-secondary" (click)="showDetailModal = false">Cerrar</button>
+      <button class="btn-primary" (click)="updateScar()">Guardar Cambios</button>
+    </footer>
+  </div>
+</div>
