@@ -4,6 +4,7 @@ import { Repository, DataSource } from 'typeorm';
 import { QualityHold, QualityHoldLevel } from './entities/quality-hold.entity';
 import { QuarantineTransfer, QuarantineTransferStatus } from './entities/quarantine-transfer.entity';
 import { Disposition, DispositionType, DispositionStatus } from './entities/disposition.entity';
+import { CAPA, CapaStatus } from './entities/capa.entity';
 import { InventoryPosition } from '../inventory/entities/inventory-position.entity';
 import { InventoryService } from '../inventory/inventory.service';
 import { EventLedgerService } from '../event-ledger/event-ledger.service';
@@ -20,6 +21,8 @@ export class QualityService {
     private readonly transferRepo: Repository<QuarantineTransfer>,
     @InjectRepository(Disposition)
     private readonly dispositionRepo: Repository<Disposition>,
+    @InjectRepository(CAPA)
+    private readonly capaRepo: Repository<CAPA>,
     @InjectRepository(InventoryPosition)
     private readonly positionRepo: Repository<InventoryPosition>,
     private readonly eventLedger: EventLedgerService,
@@ -331,5 +334,62 @@ export class QualityService {
     } finally {
       await queryRunner.release();
     }
+  }
+
+  // --- CAPA ENGINE ---
+
+  async findCapas(filters: any): Promise<CAPA[]> {
+    const qb = this.capaRepo.createQueryBuilder('capa')
+      .leftJoinAndSelect('capa.ncr', 'ncr')
+      .leftJoinAndSelect('capa.disposition', 'dispo');
+
+    if (filters.status) qb.andWhere('capa.status = :status', { status: filters.status });
+    if (filters.partNumber) qb.andWhere('capa.partNumber = :pn', { pn: filters.partNumber });
+
+    qb.orderBy('capa.createdAt', 'DESC');
+    return qb.getMany();
+  }
+
+  async createCapa(dto: Partial<CAPA>): Promise<CAPA> {
+    const count = await this.capaRepo.count();
+    const year = new Date().getFullYear();
+    const capaNumber = `CAPA-${year}-${(count + 1).toString().padStart(4, '0')}`;
+
+    const capa = this.capaRepo.create({
+      ...dto,
+      capaNumber,
+      status: CapaStatus.OPEN
+    });
+    const saved = await this.capaRepo.save(capa);
+
+    await this.eventLedger.recordEvent({
+      domain: EventDomain.QUALITY,
+      action: 'CAPA_CREATED',
+      actorName: dto.createdBy || 'QA System',
+      referenceType: 'CAPA',
+      referenceId: saved.id.toString(),
+      metadata: { capaNumber: saved.capaNumber, partNumber: saved.partNumber }
+    });
+
+    return saved;
+  }
+
+  async updateCapa(id: number, dto: Partial<CAPA>, actor: string): Promise<CAPA> {
+    const capa = await this.capaRepo.findOne({ where: { id } });
+    if (!capa) throw new NotFoundException('CAPA not found');
+
+    Object.assign(capa, dto);
+    const updated = await this.capaRepo.save(capa);
+
+    await this.eventLedger.recordEvent({
+      domain: EventDomain.QUALITY,
+      action: 'CAPA_UPDATED',
+      actorName: actor,
+      referenceType: 'CAPA',
+      referenceId: id.toString(),
+      metadata: { status: updated.status }
+    });
+
+    return updated;
   }
 }

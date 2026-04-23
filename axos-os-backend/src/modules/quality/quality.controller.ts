@@ -69,4 +69,20 @@ export class QualityController {
   async executeDisposition(@Param('id') id: number, @Body('actor') actor: string) {
     return this.qualityService.executeDisposition(id, actor);
   }
+
+  // CAPA
+  @Get('capas')
+  async getCapas(@Query() filters: any) {
+    return this.qualityService.findCapas(filters);
+  }
+
+  @Post('capas')
+  async createCapa(@Body() dto: any) {
+    return this.qualityService.createCapa(dto);
+  }
+
+  @Patch('capas/:id')
+  async updateCapa(@Param('id') id: number, @Body() dto: any, @Body('actor') actor: string) {
+    return this.qualityService.updateCapa(id, dto, actor || 'QA User');
+  }
 }

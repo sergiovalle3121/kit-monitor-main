@@ -109,6 +109,11 @@ export const routes: Routes = [
           import('./features/ncr-center/ncr-center.component').then(m => m.NcrCenterComponent),
       },
       {
+        path: 'capa-center',
+        loadComponent: () =>
+          import('./features/capa-center/capa-center.component').then(m => m.CapaCenterComponent),
+      },
+      {
         path: 'roadmap/:domain/:module',
         loadComponent: () =>
           import('./features/enterprise-placeholder/enterprise-placeholder.component').then(m => m.EnterprisePlaceholderComponent),

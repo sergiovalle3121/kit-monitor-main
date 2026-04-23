@@ -428,6 +428,19 @@ export class ApiService {
     return this.patch<any>(`quality/dispositions/${id}/execute`, { actor });
   }
 
+  // CAPA Management
+  getCapas(filters: any = {}): Observable<any[]> {
+    return this.get<any[]>('quality/capas', filters);
+  }
+
+  createCapa(dto: any): Observable<any> {
+    return this.post<any>('quality/capas', dto);
+  }
+
+  updateCapa(id: number, dto: any, actor: string): Observable<any> {
+    return this.patch<any>(`quality/capas/${id}`, { ...dto, actor });
+  }
+
 
   private contextQuery(): Record<string, string> {
     const ctx = this.context.context();

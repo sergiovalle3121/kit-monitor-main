@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { QualityHold } from './entities/quality-hold.entity';
 import { QuarantineTransfer } from './entities/quarantine-transfer.entity';
 import { Disposition } from './entities/disposition.entity';
+import { CAPA } from './entities/capa.entity';
 import { QualityService } from './quality.service';
 import { QualityController } from './quality.controller';
 import { InventoryPosition } from '../inventory/entities/inventory-position.entity';
@@ -12,7 +13,7 @@ import { NcrModule } from '../ncr/ncr.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([QualityHold, QuarantineTransfer, Disposition, InventoryPosition]),
+    TypeOrmModule.forFeature([QualityHold, QuarantineTransfer, Disposition, CAPA, InventoryPosition]),
     EventLedgerModule,
     InventoryModule,
     NcrModule,
