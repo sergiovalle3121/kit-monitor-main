@@ -2,6 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpErrorResponse, HttpParams } from '@angular/common/http';
 import { Observable, catchError, tap, throwError } from 'rxjs';
 import { environment } from '../../environments/environment';
+import { CampusState } from './enterprise.model';
 
 @Injectable({ providedIn: 'root' })
 export class ApiService {
@@ -257,6 +258,27 @@ export class ApiService {
 
   getPlanPublications(): Observable<any[]> {
     return this.get<any[]>('decision-intelligence/plan-publications');
+  }
+
+  getEnterpriseCampusState(): Observable<CampusState> {
+    return this.get<CampusState>('enterprise/campus-state');
+  }
+
+
+  getEnterpriseBuildings(): Observable<any[]> {
+    return this.get<any[]>('enterprise/buildings');
+  }
+
+  getEnterpriseWarehouses(): Observable<any[]> {
+    return this.get<any[]>('enterprise/warehouses');
+  }
+
+  getEnterpriseCustomers(): Observable<any[]> {
+    return this.get<any[]>('enterprise/customers');
+  }
+
+  getEnterprisePrograms(): Observable<any[]> {
+    return this.get<any[]>('enterprise/programs');
   }
 
   getDecisionLogisticsPriority(runId?: number): Observable<any> {
