@@ -8,6 +8,9 @@ import { CreateResupplyDto } from './dto/create-resupply.dto';
 import { DeliverResupplyDto } from './dto/deliver-resupply.dto';
 import { UpdateResupplyStatusDto } from './dto/update-resupply-status.dto';
 import { AssignResupplyOwnerDto } from './dto/assign-resupply-owner.dto';
+import { EventLedgerService } from '../event-ledger/event-ledger.service';
+import { EventDomain } from '../event-ledger/entities/ledger-event.entity';
+import { EnterpriseProgram } from '../enterprise-campus/entities/enterprise-program.entity';
 import { EnterpriseLine } from '../enterprise-campus/entities/enterprise-line.entity';
 import { InventoryService } from '../inventory/inventory.service';
 
