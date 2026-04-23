@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Delete, Param, Body, ParseIntPipe, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Param, Body, ParseIntPipe, Query, UseGuards } from '@nestjs/common';
 import { PlansService } from './plans.service';
 import { CreatePlanDto } from './dto/create-plan.dto';
 import { UpdatePlanDto } from './dto/update-plan.dto';
@@ -10,8 +10,14 @@ export class PlansController {
   constructor(private readonly plansService: PlansService) {}
 
   @Get()
-  findAll() {
-    return this.plansService.findAll();
+  findAll(
+    @Query('line') line?: string,
+    @Query('model') model?: string,
+    @Query('workOrder') workOrder?: string,
+    @Query('buildingId') buildingId?: string,
+    @Query('programId') programId?: string,
+  ) {
+    return this.plansService.findAll({ line, model, workOrder, buildingId, programId });
   }
 
   @Get(':id')

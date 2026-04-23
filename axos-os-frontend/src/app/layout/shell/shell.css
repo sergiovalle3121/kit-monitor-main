@@ -334,7 +334,7 @@ nav { position:relative; z-index:2; flex:1; display:flex; flex-direction:column;
   gap: 8px;
   flex-wrap: wrap;
 }
-.context-strip select {
+.context-strip select, .ctx-input {
   min-width: 160px;
   border-radius: 8px;
   border: 1px solid var(--cv-border2);

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Delete, Param, Body, ParseIntPipe, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Param, Body, ParseIntPipe, Query, UseGuards } from '@nestjs/common';
 import { KitsService } from './kits.service';
 import { CreateKitDto } from './dto/create-kit.dto';
 import { UpdateKitStatusDto } from './dto/update-kit-status.dto';
@@ -10,8 +10,14 @@ export class KitsController {
   constructor(private readonly kitsService: KitsService) {}
 
   @Get()
-  findAll() {
-    return this.kitsService.findAll();
+  findAll(
+    @Query('line') line?: string,
+    @Query('model') model?: string,
+    @Query('workOrder') workOrder?: string,
+    @Query('buildingId') buildingId?: string,
+    @Query('programId') programId?: string,
+  ) {
+    return this.kitsService.findAll({ line, model, workOrder, buildingId, programId });
   }
 
   @Get(':id')

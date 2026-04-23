@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { EnterpriseContextBannerComponent } from '../../shared/enterprise-context-banner/enterprise-context-banner.component';
 import { ApiService } from '../../core/api.service';
 
 type UiStatus = 'requested' | 'acknowledged' | 'pick_started' | 'pick_completed' | 'in_transit' | 'delivered' | 'confirmed' | 'escalated' | 'cancelled';
@@ -32,7 +33,7 @@ interface ResupplyItem {
 @Component({
   selector: 'app-materials-resupply-control',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [EnterpriseContextBannerComponent, CommonModule, FormsModule],
   templateUrl: './materials-resupply-control.component.html',
   styleUrl: './materials-resupply-control.component.css',
 })

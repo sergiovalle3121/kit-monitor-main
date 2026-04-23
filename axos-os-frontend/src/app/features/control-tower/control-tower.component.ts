@@ -2,6 +2,7 @@ import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
+import { EnterpriseContextBannerComponent } from '../../shared/enterprise-context-banner/enterprise-context-banner.component';
 import { ApiService } from '../../core/api.service';
 import { forkJoin, interval, of, Subscription } from 'rxjs';
 import { catchError, startWith, switchMap } from 'rxjs/operators';
@@ -13,7 +14,7 @@ import {
 @Component({
   selector: 'app-control-tower',
   standalone: true,
-  imports: [CommonModule, RouterLink, FormsModule],
+  imports: [EnterpriseContextBannerComponent, CommonModule, RouterLink, FormsModule],
   templateUrl: './control-tower.component.html',
   styleUrls: ['./control-tower.component.css'],
 })

@@ -1,13 +1,14 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { EnterpriseContextBannerComponent } from '../../shared/enterprise-context-banner/enterprise-context-banner.component';
 import { forkJoin, map, of, switchMap } from 'rxjs';
 import { ApiService } from '../../core/api.service';
 
 @Component({
   selector: 'app-kits',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [EnterpriseContextBannerComponent, CommonModule, FormsModule],
   templateUrl: './kits.html',
   styleUrls: ['./kits.css'],
 })

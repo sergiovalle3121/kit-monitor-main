@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { EnterpriseContextBannerComponent } from '../../shared/enterprise-context-banner/enterprise-context-banner.component';
 import { catchError, forkJoin, map, of, switchMap } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { ApiService } from '../../core/api.service';
@@ -107,7 +108,7 @@ interface LastRegisteredEvent {
 @Component({
   selector: 'app-production',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [EnterpriseContextBannerComponent, CommonModule, FormsModule],
   templateUrl: './production.component.html',
   styleUrls: ['./production.component.css'],
 })

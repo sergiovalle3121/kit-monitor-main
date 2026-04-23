@@ -40,7 +40,7 @@ export class ApiService {
   }
 
   getPlans(): Observable<any[]> {
-    return this.get<any[]>('plans').pipe(map((rows) => this.filterPlansByContext(rows ?? [])));
+    return this.get<any[]>('plans', this.contextQuery()).pipe(map((rows) => this.filterPlansByContext(rows ?? [])));
   }
 
   createPlan(dto: any): Observable<any> {
@@ -52,7 +52,7 @@ export class ApiService {
   }
 
   getKits(): Observable<any[]> {
-    return this.get<any[]>('kits').pipe(map((rows) => this.filterKitsByContext(rows ?? [])));
+    return this.get<any[]>('kits', this.contextQuery()).pipe(map((rows) => this.filterKitsByContext(rows ?? [])));
   }
 
   createKit(planId: number): Observable<any> {
@@ -68,11 +68,11 @@ export class ApiService {
   }
 
   getBom(model?: string): Observable<any[]> {
-    return this.get<any[]>('bom', model ? { model } : undefined).pipe(map((rows) => this.filterBomByContext(rows ?? [])));
+    return this.get<any[]>('bom', { ...this.contextQuery(), ...(model ? { model } : {}) }).pipe(map((rows) => this.filterBomByContext(rows ?? [])));
   }
 
   getVisualAids(): Observable<any[]> {
-    return this.get<any[]>('visual-aids').pipe(map((rows) => this.filterVisualAidsByContext(rows ?? [])));
+    return this.get<any[]>('visual-aids', this.contextQuery()).pipe(map((rows) => this.filterVisualAidsByContext(rows ?? [])));
   }
 
   createVisualAid(dto: any): Observable<any> {
@@ -132,7 +132,7 @@ export class ApiService {
   }
 
   getAllResupplies(): Observable<any[]> {
-    return this.get<any[]>('resupplies').pipe(map((rows) => this.filterResuppliesByContext(rows ?? [])));
+    return this.get<any[]>('resupplies', this.contextQuery()).pipe(map((rows) => this.filterResuppliesByContext(rows ?? [])));
   }
 
   updateResupplyStatus(
@@ -174,7 +174,7 @@ export class ApiService {
 
 
   getProductionBackends(): Observable<any[]> {
-    return this.get<any[]>('production/lines').pipe(map((rows) => this.filterBackendsByContext(rows ?? [])));
+    return this.get<any[]>('production/lines', this.contextQuery()).pipe(map((rows) => this.filterBackendsByContext(rows ?? [])));
   }
 
   getProductionBackend(kitId: number): Observable<any> {
@@ -226,7 +226,7 @@ export class ApiService {
   }
 
   getProductionCompleted(): Observable<any[]> {
-    return this.get<any[]>('production/completed').pipe(map((rows) => this.filterBackendsByContext(rows ?? [])));
+    return this.get<any[]>('production/completed', this.contextQuery()).pipe(map((rows) => this.filterBackendsByContext(rows ?? [])));
   }
 
   getProductionShortageRisk(kitId: number): Observable<any> {
@@ -259,40 +259,7 @@ export class ApiService {
   }
 
   getPlanPublications(): Observable<any[]> {
-    return this.get<any[]>('decision-intelligence/plan-publications').pipe(map((rows) => this.filterPublicationsByContext(rows ?? [])));
-  }
-
-  getEnterpriseCampusState(): Observable<CampusState> {
-    return this.get<CampusState>('enterprise/campus-state');
-  }
-
-
-  getEnterpriseBuildings(): Observable<any[]> {
-    return this.get<any[]>('enterprise/buildings');
-  }
-
-  getEnterpriseWarehouses(): Observable<any[]> {
-    return this.get<any[]>('enterprise/warehouses');
-  }
-
-  getEnterpriseCustomers(): Observable<any[]> {
-    return this.get<any[]>('enterprise/customers');
-  }
-
-  getEnterprisePrograms(): Observable<any[]> {
-    return this.get<any[]>('enterprise/programs');
-  }
-
-  getEnterpriseAreas(): Observable<any[]> {
-    return this.get<any[]>('enterprise/areas');
-  }
-
-  getEnterpriseLines(): Observable<any[]> {
-    return this.get<any[]>('enterprise/lines');
-  }
-
-  getEnterpriseStations(lineId?: string): Observable<any[]> {
-    return this.get<any[]>('enterprise/stations', lineId ? { lineId } : undefined);
+    return this.get<any[]>('decision-intelligence/plan-publications', this.contextQuery()).pipe(map((rows) => this.filterPublicationsByContext(rows ?? [])));
   }
 
   getEnterpriseCampusState(): Observable<CampusState> {
@@ -380,6 +347,19 @@ export class ApiService {
     return this.patch<any>(`cancellation-requests/${id}/respond`, { action, respondedBy });
   }
 
+
+  private contextQuery(): Record<string, string> {
+    const ctx = this.context.context();
+    const q: Record<string, string> = {};
+    if (ctx.lineId) q['line'] = ctx.lineId;
+    if (ctx.model) q['model'] = ctx.model;
+    if (ctx.workOrder) q['workOrder'] = ctx.workOrder;
+    if (ctx.buildingId) q['buildingId'] = ctx.buildingId;
+    if (ctx.programId) q['programId'] = ctx.programId;
+    if (ctx.customerId) q['customerId'] = ctx.customerId;
+    if (ctx.warehouseId) q['warehouseId'] = ctx.warehouseId;
+    return q;
+  }
 
   private filterPlansByContext(rows: any[]): any[] {
     return rows.filter((plan) => this.matchesContext(plan?.model, plan?.line, plan?.workOrder));

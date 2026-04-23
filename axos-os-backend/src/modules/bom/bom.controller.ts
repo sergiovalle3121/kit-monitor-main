@@ -15,8 +15,8 @@ export class BomController {
   constructor(private readonly bomService: BomService) {}
 
   @Get()
-  findAll(@Query('model') model?: string) {
-    return this.bomService.findAll(model);
+  findAll(@Query('model') model?: string, @Query('programId') programId?: string) {
+    return this.bomService.findAll(model, programId);
   }
 
   @Get(':id')

@@ -9,10 +9,12 @@ import { ProductionBayMaterialState } from '../production-runtime/entities/produ
 import { KitsService } from './kits.service';
 import { KitsController } from './kits.controller';
 import { EventLedgerModule } from '../event-ledger/event-ledger.module';
+import { EnterpriseProgram } from '../enterprise-campus/entities/enterprise-program.entity';
+import { EnterpriseLine } from '../enterprise-campus/entities/enterprise-line.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Kit, Plan, BomItem, KitMaterial, BayLayout, ProductionBayMaterialState]),
+    TypeOrmModule.forFeature([Kit, Plan, BomItem, KitMaterial, BayLayout, ProductionBayMaterialState, EnterpriseProgram, EnterpriseLine]),
     EventLedgerModule,
   ],
   controllers: [KitsController],

@@ -4,6 +4,7 @@ import {
   Controller,
   Delete,
   Get,
+  Query,
   Param,
   Patch,
   Post,
@@ -24,8 +25,8 @@ export class VisualAidsController {
   constructor(private readonly service: VisualAidsService) {}
 
   @Get()
-  findAll() {
-    return this.service.findAll();
+  findAll(@Query('model') model?: string, @Query('programId') programId?: string) {
+    return this.service.findAll(model, programId);
   }
 
   @Post()

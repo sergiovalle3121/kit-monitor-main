@@ -98,6 +98,16 @@
           <option value="">Línea: Todas</option>
           <option *ngFor="let l of enterpriseContext.lines()" [value]="l.id">{{ l.code }} · {{ l.name }}</option>
         </select>
+
+        <select [ngModel]="enterpriseContext.context().customerId || ''" (ngModelChange)="onContextChange('customerId', $event)">
+          <option value="">Customer: Todos</option>
+          <option *ngFor="let c of enterpriseContext.customers()" [value]="c.id">{{ c.code }} · {{ c.name }}</option>
+        </select>
+        <select [ngModel]="enterpriseContext.context().warehouseId || ''" (ngModelChange)="onContextChange('warehouseId', $event)">
+          <option value="">Warehouse: Todos</option>
+          <option *ngFor="let w of enterpriseContext.warehouses()" [value]="w.id">{{ w.code }} · {{ w.name }}</option>
+        </select>
+        <input class="ctx-input" [ngModel]="enterpriseContext.context().workOrder || ''" (ngModelChange)="onContextChange('workOrder', $event)" placeholder="WO" />
         <button type="button" class="ctx-clear" (click)="clearEnterpriseContext()">Limpiar</button>
       </div>
 

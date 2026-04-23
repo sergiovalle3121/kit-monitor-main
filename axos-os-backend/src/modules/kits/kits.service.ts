@@ -11,6 +11,8 @@ import { CreateKitDto } from './dto/create-kit.dto';
 import { UpdateKitStatusDto } from './dto/update-kit-status.dto';
 import { EventLedgerService } from '../event-ledger/event-ledger.service';
 import { EventDomain } from '../event-ledger/entities/ledger-event.entity';
+import { EnterpriseProgram } from '../enterprise-campus/entities/enterprise-program.entity';
+import { EnterpriseLine } from '../enterprise-campus/entities/enterprise-line.entity';
 
 @Injectable()
 export class KitsService {
@@ -21,16 +23,43 @@ export class KitsService {
     @InjectRepository(KitMaterial) private readonly materialRepo: Repository<KitMaterial>,
     @InjectRepository(BayLayout) private readonly bayLayoutRepo: Repository<BayLayout>,
     @InjectRepository(ProductionBayMaterialState) private readonly runtimeMaterialRepo: Repository<ProductionBayMaterialState>,
+    @InjectRepository(EnterpriseProgram) private readonly programRepo: Repository<EnterpriseProgram>,
+    @InjectRepository(EnterpriseLine) private readonly lineRepo: Repository<EnterpriseLine>,
     private readonly dataSource: DataSource,
     private readonly eventLedger: EventLedgerService,
   ) {}
 
-  async findAll(): Promise<any[]> {
+  async findAll(scope?: { line?: string; model?: string; workOrder?: string; buildingId?: string; programId?: string }): Promise<any[]> {
     const kits = await this.repo.find({
       relations: ['plan', 'materials', 'advances', 'exceptions'],
       order: { createdAt: 'DESC' },
     });
-    return kits.map((kit) => this.withTotalCompleted(kit));
+    const filtered = await this.applyScope(kits, scope);
+    return filtered.map((kit) => this.withTotalCompleted(kit));
+  }
+
+
+  private async applyScope(kits: Kit[], scope?: { line?: string; model?: string; workOrder?: string; buildingId?: string; programId?: string }): Promise<Kit[]> {
+    if (!scope) return kits;
+    let list = [...kits];
+
+    if (scope.line) list = list.filter((kit) => String(kit.plan?.line ?? '') === String(scope.line));
+    if (scope.model) list = list.filter((kit) => (kit.plan?.model ?? '').toUpperCase().includes(String(scope.model).toUpperCase()));
+    if (scope.workOrder) list = list.filter((kit) => (kit.plan?.workOrder ?? '').toUpperCase().includes(String(scope.workOrder).toUpperCase()));
+
+    if (scope.programId) {
+      const program = await this.programRepo.findOne({ where: { id: scope.programId } });
+      const prefix = program?.primaryModelPrefix?.toUpperCase();
+      if (prefix) list = list.filter((kit) => (kit.plan?.model ?? '').toUpperCase().startsWith(prefix));
+    }
+
+    if (scope.buildingId) {
+      const lines = await this.lineRepo.find({ where: { building: { id: scope.buildingId } } as any });
+      const allowed = new Set(lines.map((line) => line.legacyLineNumber).filter((line): line is number => line != null));
+      if (allowed.size) list = list.filter((kit) => allowed.has(kit.plan?.line ?? -1));
+    }
+
+    return list;
   }
 
   async findOne(id: number): Promise<any> {
