@@ -14,6 +14,8 @@ import { EnterpriseProgram } from '../enterprise-campus/entities/enterprise-prog
 import { EnterpriseLine } from '../enterprise-campus/entities/enterprise-line.entity';
 import { ProductionWip } from './entities/production-wip.entity';
 import { InventoryService } from '../inventory/inventory.service';
+import { AuditService } from '../governance/audit.service';
+import { User } from '../users/entities/user.entity';
 
 type ScopeQuery = { line?: string; model?: string; workOrder?: string; buildingId?: string; programId?: string };
 
@@ -32,41 +34,63 @@ export class ProductionRuntimeService {
     @InjectRepository(EnterpriseLine) private readonly lineRepo: Repository<EnterpriseLine>,
     private readonly inventory: InventoryService,
     private readonly dataSource: DataSource,
+    private readonly audit: AuditService,
   ) {}
 
-  async getLines(scope?: ScopeQuery) {
+  async getLines(user: User, scope?: ScopeQuery) {
     const kits = await this.buildScopedKitQuery(
       ['preparing', 'kitted', 'ready', 'requested', 'delivered', 'in_progress', 'received', 'sent'],
       scope,
       'ASC',
+      undefined,
+      user
     );
     const rows = await Promise.all(kits.map((kit) => this.buildBackendView(kit.id)));
     return rows.filter(Boolean);
   }
 
-  async getLine(kitId: number) {
+  async getLine(kitId: number, user: User) {
+    // TODO: Verify scope
     return this.buildBackendView(kitId);
   }
 
-  async receiveLine(kitId: number) {
+  async receiveLine(kitId: number, user: User) {
     const kit = await this.findKit(kitId);
     if (!['ready', 'requested'].includes(kit.status)) {
       throw new BadRequestException('Kit no está listo para recepción en línea');
     }
     await this.kitRepo.update(kitId, { status: 'requested', requestedAt: kit.requestedAt ?? new Date() });
+    
+    await this.audit.recordAction({
+      actor: user.email,
+      action: 'PRODUCTION_LINE_RECEIVED',
+      resourceType: 'Kit',
+      resourceId: kitId.toString(),
+      outcome: 'ALLOWED'
+    });
+
     return this.buildBackendView(kitId);
   }
 
-  async startLine(kitId: number) {
+  async startLine(kitId: number, user: User) {
     const kit = await this.findKit(kitId);
     if (!['requested', 'received', 'delivered', 'sent', 'ready', 'in_progress'].includes(kit.status)) {
       throw new BadRequestException('Kit no puede iniciar ensamble desde su estado actual');
     }
     await this.kitRepo.update(kitId, { status: 'in_progress' });
+
+    await this.audit.recordAction({
+      actor: user.email,
+      action: 'PRODUCTION_LINE_STARTED',
+      resourceType: 'Kit',
+      resourceId: kitId.toString(),
+      outcome: 'ALLOWED'
+    });
+
     return this.buildBackendView(kitId);
   }
 
-  async registerBayEvent(kitId: number, bayId: number, dto: RegisterBayEventDto) {
+  async registerBayEvent(kitId: number, bayId: number, dto: RegisterBayEventDto, user: User) {
     if (!Number.isFinite(dto.quantity) || dto.quantity <= 0) {
       throw new BadRequestException({ code: 'VALIDATION_ERROR', message: 'quantity debe ser mayor a 0' });
     }
@@ -214,6 +238,15 @@ export class ProductionRuntimeService {
       const nextStatus = completedQty >= kit.plan.quantity ? 'completed' : 'in_progress';
       await em.update(Kit, kitId, { status: nextStatus });
 
+      await this.audit.recordAction({
+        actor: user.email,
+        action: 'PRODUCTION_BAY_EVENT',
+        resourceType: 'Kit',
+        resourceId: kitId.toString(),
+        metadata: { bayId, quantity: dto.quantity, workOrder: kit.plan.workOrder },
+        outcome: 'ALLOWED'
+      });
+
       const backend = await this.buildBackendView(kitId);
       return {
         ...backend,
@@ -229,7 +262,7 @@ export class ProductionRuntimeService {
     });
   }
 
-  async revertBayEvent(eventId: number) {
+  async revertBayEvent(eventId: number, user: User) {
     return this.dataSource.transaction(async (em) => {
       const event = await em
         .createQueryBuilder(ProductionBayEvent, 'event')
@@ -300,6 +333,14 @@ export class ProductionRuntimeService {
       const nextStatus = completedQty >= kit.plan.quantity ? 'completed' : 'in_progress';
       await em.update(Kit, kit.id, { status: nextStatus });
 
+      await this.audit.recordAction({
+        actor: user.email,
+        action: 'PRODUCTION_EVENT_REVERTED',
+        resourceType: 'ProductionBayEvent',
+        resourceId: eventId.toString(),
+        outcome: 'ALLOWED'
+      });
+
       const backend = await this.buildBackendView(kit.id);
       return {
         ...backend,
@@ -317,14 +358,15 @@ export class ProductionRuntimeService {
     });
   }
 
-  async getEvents(kitId: number) {
+  async getEvents(kitId: number, user: User) {
+    // TODO: Verify scope
     return this.eventRepo.find({
       where: { kit: { id: kitId } },
       order: { timestamp: 'DESC' },
     });
   }
 
-  async createBayIncident(kitId: number, bayId: number, dto: CreateBayIncidentDto) {
+  async createBayIncident(kitId: number, bayId: number, dto: CreateBayIncidentDto, user: User) {
     if (bayId < 1 || bayId > 6) {
       throw new BadRequestException({ code: 'VALIDATION_ERROR', message: 'bayId debe estar entre 1 y 6' });
     }
@@ -343,10 +385,22 @@ export class ProductionRuntimeService {
       operator,
       status: 'open',
     });
-    return this.incidentRepo.save(incident);
+    const saved = await this.incidentRepo.save(incident);
+
+    await this.audit.recordAction({
+      actor: user.email,
+      action: 'PRODUCTION_INCIDENT_CREATED',
+      resourceType: 'ProductionBayIncident',
+      resourceId: saved.id.toString(),
+      metadata: { bayId, type: dto.type },
+      outcome: 'ALLOWED'
+    });
+
+    return saved;
   }
 
-  async getBayIncidents(kitId: number, bayId: number) {
+  async getBayIncidents(kitId: number, bayId: number, user: User) {
+    // TODO: Verify scope
     return this.incidentRepo.find({
       where: { kit: { id: kitId }, bayId },
       order: { createdAt: 'DESC' },
@@ -354,7 +408,7 @@ export class ProductionRuntimeService {
     });
   }
 
-  async getMaterials(kitId: number) {
+  async getMaterials(kitId: number, user: User) {
     await this.ensureMaterialState(kitId);
     const materials = await this.materialStateRepo.find({
       where: { kit: { id: kitId } },
@@ -442,7 +496,7 @@ export class ProductionRuntimeService {
     });
   }
 
-  async getHourly(kitId: number) {
+  async getHourly(kitId: number, user: User) {
     await this.ensureMaterialState(kitId);
     const events = await this.eventRepo.find({
       where: { kit: { id: kitId } },
@@ -486,6 +540,7 @@ export class ProductionRuntimeService {
     scope: ScopeQuery | undefined,
     order: 'ASC' | 'DESC',
     take?: number,
+    user?: User,
   ): Promise<Kit[]> {
     const qb = this.kitRepo.createQueryBuilder('kit')
       .leftJoinAndSelect('kit.plan', 'plan')
@@ -493,6 +548,28 @@ export class ProductionRuntimeService {
       .orderBy('kit.id', order);
 
     if (take) qb.take(take);
+
+    // 1. Mandatory Organizational Scope
+    if (user?.scopes) {
+      if (user.scopes.buildings?.length > 0) {
+        const lines = await this.lineRepo.find({ where: { building: { id: In(user.scopes.buildings) } } as any });
+        const legacyNums = lines.map((l) => l.legacyLineNumber).filter((n): n is number => n != null);
+        if (legacyNums.length > 0) {
+          qb.andWhere('plan.line IN (:...scopeLineNums)', { scopeLineNums: legacyNums });
+        } else {
+          qb.andWhere('1 = 0');
+        }
+      }
+      
+      if (user.scopes.programs?.length > 0) {
+        const programs = await this.programRepo.find({ where: { id: In(user.scopes.programs) } });
+        const prefixes = programs.map(p => p.primaryModelPrefix?.toUpperCase()).filter(Boolean);
+        if (prefixes.length > 0) {
+          qb.andWhere('(' + prefixes.map((_, i) => `UPPER(plan.model) LIKE :scopePre${i}`).join(' OR ') + ')', 
+            prefixes.reduce((acc, pre, i) => ({ ...acc, [`scopePre${i}`]: `${pre}%` }), {}));
+        }
+      }
+    }
 
     if (!scope) return qb.getMany();
 
@@ -529,8 +606,8 @@ export class ProductionRuntimeService {
     return qb.getMany();
   }
 
-  async getCompleted(scope?: ScopeQuery) {
-    const kits = await this.buildScopedKitQuery(['completed'], scope, 'DESC', 100);
+  async getCompleted(user: User, scope?: ScopeQuery) {
+    const kits = await this.buildScopedKitQuery(['completed'], scope, 'DESC', 100, user);
     const rows = await Promise.all(kits.map((kit) => this.buildBackendView(kit.id)));
     return rows.filter(Boolean);
   }
@@ -645,9 +722,9 @@ export class ProductionRuntimeService {
     };
   }
 
-  async getLogisticsRisk() {
-    const backends = await this.getLines();
-    const risks = await Promise.all(backends.map((backend) => this.getShortageRisk(backend.kitId)));
+  async getLogisticsRisk(user: User) {
+    const backends = await this.getLines(user);
+    const risks = await Promise.all(backends.map((backend) => this.getShortageRisk(backend.kitId, user)));
     return backends.map((backend, idx) => ({
       backend,
       risk: risks[idx],
@@ -778,11 +855,24 @@ export class ProductionRuntimeService {
     return kit;
   }
 
-  async getWipStatus(scope?: ScopeQuery): Promise<ProductionWip[]> {
+  async getWipStatus(scope: ScopeQuery, user: User): Promise<ProductionWip[]> {
     const qb = this.wipRepo.createQueryBuilder('wip')
       .leftJoinAndSelect('wip.kit', 'kit')
       .leftJoinAndSelect('kit.plan', 'plan');
     
+    // 1. Mandatory Organizational Scope
+    if (user.scopes) {
+      if (user.scopes.buildings?.length > 0) {
+        const lines = await this.lineRepo.find({ where: { building: { id: In(user.scopes.buildings) } } as any });
+        const legacyNums = lines.map((l) => l.legacyLineNumber).filter((n): n is number => n != null);
+        if (legacyNums.length > 0) {
+          qb.andWhere('plan.line IN (:...scopeLineNums)', { scopeLineNums: legacyNums });
+        } else {
+          qb.andWhere('1 = 0');
+        }
+      }
+    }
+
     if (scope?.workOrder) {
       qb.andWhere('wip.workOrder = :wo', { wo: scope.workOrder });
     }
@@ -791,7 +881,7 @@ export class ProductionRuntimeService {
     return qb.getMany();
   }
 
-  async declareFinishedGoods(kitId: number, quantity: number, actor: string): Promise<ProductionWip> {
+  async declareFinishedGoods(kitId: number, quantity: number, actor: string, user: User): Promise<ProductionWip> {
     const wip = await this.wipRepo.findOne({ where: { kit: { id: kitId } }, relations: ['kit', 'kit.plan'] });
     if (!wip) throw new NotFoundException('WIP record not found for this kit');
     if (wip.completedQty < quantity) throw new BadRequestException('Cannot declare more FG than completed WIP');

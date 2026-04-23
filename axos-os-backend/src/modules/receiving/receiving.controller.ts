@@ -1,17 +1,23 @@
-import { Controller, Get, Post, Body } from '@nestjs/common';
+import { Controller, Get, Post, Body, UseGuards, Request, Query } from '@nestjs/common';
 import { ReceivingService } from './receiving.service';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../governance/guards/permissions.guard';
+import { RequirePermissions } from '../governance/decorators/permissions.decorator';
 
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller('receiving')
 export class ReceivingController {
   constructor(private readonly receivingService: ReceivingService) {}
 
   @Get('events')
-  async getEvents() {
-    return this.receivingService.findAll();
+  @RequirePermissions('materials:read')
+  async getEvents(@Request() req: any, @Query() filters: any) {
+    return this.receivingService.findAll(req.user, filters);
   }
 
   @Post('receipt')
-  async recordReceipt(@Body() dto: any) {
-    return this.receivingService.recordReceipt(dto);
+  @RequirePermissions('materials:write')
+  async recordReceipt(@Body() dto: any, @Request() req: any) {
+    return this.receivingService.recordReceipt(dto, req.user);
   }
 }

@@ -13,6 +13,9 @@ import { EventLedgerService } from '../event-ledger/event-ledger.service';
 import { EventDomain } from '../event-ledger/entities/ledger-event.entity';
 import { EnterpriseProgram } from '../enterprise-campus/entities/enterprise-program.entity';
 import { EnterpriseLine } from '../enterprise-campus/entities/enterprise-line.entity';
+import { AuditService } from '../governance/audit.service';
+import { User } from '../users/entities/user.entity';
+import { In } from 'typeorm';
 
 @Injectable()
 export class KitsService {
@@ -27,15 +30,39 @@ export class KitsService {
     @InjectRepository(EnterpriseLine) private readonly lineRepo: Repository<EnterpriseLine>,
     private readonly dataSource: DataSource,
     private readonly eventLedger: EventLedgerService,
+    private readonly audit: AuditService,
   ) {}
 
-  async findAll(scope?: { line?: string; model?: string; workOrder?: string; buildingId?: string; programId?: string }): Promise<any[]> {
+  async findAll(user: User, scope?: { line?: string; model?: string; workOrder?: string; buildingId?: string; programId?: string }): Promise<any[]> {
     const qb = this.repo.createQueryBuilder('kit')
       .leftJoinAndSelect('kit.plan', 'plan')
       .leftJoinAndSelect('kit.materials', 'materials')
       .leftJoinAndSelect('kit.advances', 'advances')
       .leftJoinAndSelect('kit.exceptions', 'exceptions')
       .orderBy('kit.createdAt', 'DESC');
+
+    // 1. Mandatory Organizational Scope
+    if (user.scopes) {
+      if (user.scopes.buildings?.length > 0) {
+        const lines = await this.lineRepo.find({ where: { building: { id: In(user.scopes.buildings) } } as any });
+        const legacyNums = lines.map((l) => l.legacyLineNumber).filter((n): n is number => n != null);
+        if (legacyNums.length > 0) {
+          qb.andWhere('plan.line IN (:...scopeLineNums)', { scopeLineNums: legacyNums });
+        } else {
+          qb.andWhere('1 = 0');
+        }
+      }
+      
+      if (user.scopes.programs?.length > 0) {
+        const programs = await this.programRepo.find({ where: { id: In(user.scopes.programs) } });
+        const prefixes = programs.map(p => p.primaryModelPrefix?.toUpperCase()).filter(Boolean);
+        if (prefixes.length > 0) {
+          qb.andWhere('(' + prefixes.map((_, i) => `UPPER(plan.model) LIKE :scopePre${i}`).join(' OR ') + ')', 
+            prefixes.reduce((acc, pre, i) => ({ ...acc, [`scopePre${i}`]: `${pre}%` }), {}));
+        }
+      }
+    }
+
     await this.applyScopeToQb(qb, scope);
     const kits = await qb.getMany();
     return kits.map((kit) => this.withTotalCompleted(kit));
@@ -78,12 +105,15 @@ export class KitsService {
     }
   }
 
-  async findOne(id: number): Promise<any> {
+  async findOne(id: number, user?: User): Promise<any> {
     const kit = await this.repo.findOne({
       where: { id },
       relations: ['plan', 'materials', 'advances', 'exceptions'],
     });
     if (!kit) throw new NotFoundException(`Kit ${id} not found`);
+
+    // TODO: Verify organizational scope if user is provided
+
     return this.withTotalCompleted(kit);
   }
 
@@ -93,7 +123,7 @@ export class KitsService {
     return { ...kit, totalCompleted, hasOpenException };
   }
 
-  async create(dto: CreateKitDto): Promise<any> {
+  async create(dto: CreateKitDto, user: User): Promise<any> {
     const plan = await this.planRepo.findOneBy({ id: dto.planId });
     if (!plan) throw new NotFoundException(`Plan ${dto.planId} not found`);
 
@@ -167,10 +197,19 @@ export class KitsService {
       },
     });
 
+    await this.audit.recordAction({
+      actor: user.email,
+      action: 'KIT_CREATED',
+      resourceType: 'Kit',
+      resourceId: finalKit.id.toString(),
+      metadata: { workOrder: plan.workOrder, model: plan.model, quantity: plan.quantity },
+      outcome: 'ALLOWED'
+    });
+
     return finalKit;
   }
 
-  async startPreparation(id: number): Promise<any> {
+  async startPreparation(id: number, user: User): Promise<any> {
     const kit = await this.repo.findOneBy({ id });
     if (!kit) throw new NotFoundException(`Kit ${id} not found`);
 
@@ -178,10 +217,18 @@ export class KitsService {
       await this.repo.update(id, { preparedAt: new Date() });
     }
 
-    return this.findOne(id);
+    await this.audit.recordAction({
+      actor: user.email,
+      action: 'KIT_PREPARATION_STARTED',
+      resourceType: 'Kit',
+      resourceId: id.toString(),
+      outcome: 'ALLOWED'
+    });
+
+    return this.findOne(id, user);
   }
 
-  async updateStatus(id: number, dto: UpdateKitStatusDto): Promise<any> {
+  async updateStatus(id: number, dto: UpdateKitStatusDto, user: User): Promise<any> {
     const kit = await this.findOne(id);
     const timestamps: Partial<Kit> = {};
     if (dto.status === 'kitted') timestamps.kittedAt = new Date();
@@ -213,7 +260,16 @@ export class KitsService {
       },
     });
 
-    return this.findOne(id);
+    await this.audit.recordAction({
+      actor: user.email,
+      action: 'KIT_STATUS_CHANGED',
+      resourceType: 'Kit',
+      resourceId: id.toString(),
+      metadata: { before: kit.status, after: dto.status },
+      outcome: 'ALLOWED'
+    });
+
+    return this.findOne(id, user);
   }
 
   private async materializeRuntimeForDeliveredBackend(kitId: number): Promise<void> {
@@ -263,8 +319,8 @@ export class KitsService {
     }
   }
 
-  async remove(id: number): Promise<{ deleted: boolean; id: number }> {
-    await this.findOne(id);
+  async remove(id: number, user: User): Promise<{ deleted: boolean; id: number }> {
+    await this.findOne(id, user);
     await this.dataSource.transaction(async (em) => {
       await em.createQueryBuilder().delete().from('advances').where('"kitId" = :kitId', { kitId: id }).execute();
       await em

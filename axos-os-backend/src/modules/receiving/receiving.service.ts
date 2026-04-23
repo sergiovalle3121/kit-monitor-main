@@ -5,6 +5,10 @@ import { ReceivingEvent } from './entities/receiving-event.entity';
 import { InventoryService } from '../inventory/inventory.service';
 import { EventLedgerService } from '../event-ledger/event-ledger.service';
 import { EventDomain } from '../event-ledger/entities/ledger-event.entity';
+import { AuditService } from '../governance/audit.service';
+import { User } from '../users/entities/user.entity';
+import { EnterpriseWarehouse } from '../enterprise-campus/entities/enterprise-warehouse.entity';
+import { In } from 'typeorm';
 
 @Injectable()
 export class ReceivingService {
@@ -13,13 +17,37 @@ export class ReceivingService {
     private readonly receivingRepo: Repository<ReceivingEvent>,
     private readonly inventory: InventoryService,
     private readonly eventLedger: EventLedgerService,
+    private readonly audit: AuditService,
+    @InjectRepository(EnterpriseWarehouse)
+    private readonly warehouseRepo: Repository<EnterpriseWarehouse>,
   ) {}
 
-  async findAll(): Promise<ReceivingEvent[]> {
-    return this.receivingRepo.find({ order: { createdAt: 'DESC' } });
+  async findAll(user: User, filters: any = {}): Promise<ReceivingEvent[]> {
+    const qb = this.receivingRepo.createQueryBuilder('rec');
+
+    // 1. Scope-aware filtering
+    if (user.scopes) {
+      if (user.scopes.buildings?.length > 0) {
+        const whs = await this.warehouseRepo.find({ where: { building: { id: In(user.scopes.buildings) } } as any });
+        const whIds = whs.map(w => w.id);
+        if (whIds.length > 0) {
+          qb.andWhere('rec.warehouseId IN (:...whIds)', { whIds });
+        } else {
+          qb.andWhere('1 = 0');
+        }
+      }
+    }
+
+    // 2. Application filters
+    if (filters.partNumber) qb.andWhere('rec.partNumber LIKE :pn', { pn: `%${filters.partNumber}%` });
+    if (filters.supplierCode) qb.andWhere('rec.supplierCode = :sc', { sc: filters.supplierCode });
+    if (filters.warehouseId) qb.andWhere('rec.warehouseId = :wh', { wh: filters.warehouseId });
+
+    qb.orderBy('rec.createdAt', 'DESC');
+    return qb.getMany();
   }
 
-  async recordReceipt(dto: Partial<ReceivingEvent>): Promise<ReceivingEvent> {
+  async recordReceipt(dto: Partial<ReceivingEvent>, user: User): Promise<ReceivingEvent> {
     const count = await this.receivingRepo.count();
     const year = new Date().getFullYear();
     const receiptNumber = `REC-${year}-${(count + 1).toString().padStart(4, '0')}`;
@@ -53,6 +81,20 @@ export class ReceivingService {
       referenceType: 'RECEIPT',
       referenceId: saved.receiptNumber,
       metadata: { partNumber: saved.partNumber, qty: saved.quantity, status: 'pending_iqc' }
+    });
+
+    await this.audit.recordAction({
+      actor: user.email,
+      action: 'MATERIAL_RECEIPT_RECORDED',
+      resourceType: 'ReceivingEvent',
+      resourceId: saved.receiptNumber,
+      metadata: { 
+        partNumber: saved.partNumber, 
+        quantity: saved.quantity, 
+        warehouse: saved.warehouseId,
+        supplier: saved.supplierCode
+      },
+      outcome: 'ALLOWED'
     });
 
     return saved;

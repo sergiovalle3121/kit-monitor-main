@@ -1,38 +1,48 @@
-import { Controller, Get, Post, Patch, Body, Param, Query } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Body, Param, Query, UseGuards, Request } from '@nestjs/common';
 import { WarehouseService } from './warehouse.service';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../governance/guards/permissions.guard';
+import { RequirePermissions } from '../governance/decorators/permissions.decorator';
 
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller('warehouse')
 export class WarehouseController {
   constructor(private readonly warehouseService: WarehouseService) {}
 
   @Get('tasks')
-  async getTasks(@Query() filters: any) {
-    return this.warehouseService.findAllTasks(filters);
+  @RequirePermissions('materials:read')
+  async getTasks(@Query() filters: any, @Request() req: any) {
+    return this.warehouseService.findAllTasks(filters, req.user);
   }
 
   @Post('tasks')
-  async createTask(@Body() dto: any) {
-    return this.warehouseService.createTask(dto);
+  @RequirePermissions('materials:write')
+  async createTask(@Body() dto: any, @Request() req: any) {
+    return this.warehouseService.createTask(dto, req.user);
   }
 
   @Patch('tasks/:id/start')
-  async startTask(@Param('id') id: number, @Body('actor') actor: string) {
-    return this.warehouseService.startTask(id, actor);
+  @RequirePermissions('materials:write')
+  async startTask(@Param('id') id: number, @Body('actor') actor: string, @Request() req: any) {
+    return this.warehouseService.startTask(id, actor, req.user);
   }
 
   @Patch('tasks/:id/complete')
-  async completeTask(@Param('id') id: number, @Body('actor') actor: string) {
-    return this.warehouseService.completeTask(id, actor);
+  @RequirePermissions('materials:write')
+  async completeTask(@Param('id') id: number, @Body('actor') actor: string, @Request() req: any) {
+    return this.warehouseService.completeTask(id, actor, req.user);
   }
 
   // Picking
   @Get('picking/backlog')
-  async getPickingBacklog(@Query('warehouseId') warehouseId: string) {
-    return this.warehouseService.getPickingBacklog(warehouseId);
+  @RequirePermissions('materials:read')
+  async getPickingBacklog(@Query('warehouseId') warehouseId: string, @Request() req: any) {
+    return this.warehouseService.getPickingBacklog(warehouseId, req.user);
   }
 
   @Post('picking/:id/exception')
-  async handleException(@Param('id') id: number, @Body() exception: any) {
-    return this.warehouseService.handlePickException(id, exception);
+  @RequirePermissions('materials:write')
+  async handleException(@Param('id') id: number, @Body() exception: any, @Request() req: any) {
+    return this.warehouseService.handlePickException(id, exception, req.user);
   }
 }

@@ -3,8 +3,9 @@ import { InventoryService } from './inventory.service';
 import { InventoryPosition } from './entities/inventory-position.entity';
 import { InventoryMovement, InventoryTransactionType } from './entities/inventory-movement.entity';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { PermissionsGuard } from '../auth/guards/permissions.guard';
-import { RequirePermissions } from '../auth/decorators/permissions.decorator';
+import { PermissionsGuard } from '../governance/guards/permissions.guard';
+import { RequirePermissions } from '../governance/decorators/permissions.decorator';
+import { Request } from '@nestjs/common';
 
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller('inventory')
@@ -16,21 +17,25 @@ export class InventoryController {
     @Query('warehouseId') warehouseId?: string,
     @Query('partNumber') partNumber?: string,
     @Query('programId') programId?: string,
+    @Request() req: any,
   ): Promise<InventoryPosition[]> {
-    return this.inventoryService.findAllPositions({ warehouseId, partNumber, programId });
+    return this.inventoryService.findAllPositions(req.user, { warehouseId, partNumber, programId });
   }
 
   @Get('movements')
+  @RequirePermissions('materials:read')
   async getMovements(
     @Query('partNumber') partNumber?: string,
     @Query('warehouseId') warehouseId?: string,
+    @Request() req: any,
   ): Promise<InventoryMovement[]> {
-    return this.inventoryService.getMovements({ partNumber, warehouseId });
+    return this.inventoryService.getMovements(req.user, { partNumber, warehouseId });
   }
 
   @Post('transaction')
-  @RequirePermissions('INVENTORY_ADJUST')
+  @RequirePermissions('materials:write')
   async recordTransaction(
+    @Request() req: any,
     @Body() dto: {
       type: InventoryTransactionType;
       partNumber: string;
@@ -52,8 +57,8 @@ export class InventoryController {
   }
 
   @Post('master-data')
-  @RequirePermissions('MANAGE_MASTER_DATA')
-  async createMaterial(@Body() dto: any) {
-    return this.inventoryService.ensureMaterial(dto);
+  @RequirePermissions('admin:write')
+  async createMaterial(@Body() dto: any, @Request() req: any) {
+    return this.inventoryService.ensureMaterial(dto, req.user);
   }
 }

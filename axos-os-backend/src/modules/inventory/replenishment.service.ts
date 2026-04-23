@@ -5,6 +5,9 @@ import { ReplenishmentRule } from './entities/replenishment-rule.entity';
 import { InventoryPosition } from './entities/inventory-position.entity';
 import { WarehouseService } from './warehouse.service';
 import { WarehouseTaskType } from './entities/warehouse-task.entity';
+import { AuditService } from '../governance/audit.service';
+import { User } from '../users/entities/user.entity';
+import { EnterpriseWarehouse } from '../enterprise-campus/entities/enterprise-warehouse.entity';
 
 @Injectable()
 export class ReplenishmentService {
@@ -14,19 +17,48 @@ export class ReplenishmentService {
     @InjectRepository(InventoryPosition)
     private readonly positionRepo: Repository<InventoryPosition>,
     private readonly warehouseService: WarehouseService,
+    private readonly audit: AuditService,
+    @InjectRepository(EnterpriseWarehouse)
+    private readonly warehouseRepo: Repository<EnterpriseWarehouse>,
   ) {}
 
-  async getRules(): Promise<ReplenishmentRule[]> {
-    return this.ruleRepo.find();
+  async getRules(user: User): Promise<ReplenishmentRule[]> {
+    const qb = this.ruleRepo.createQueryBuilder('rule');
+    
+    // 1. Scope-aware filtering
+    if (user.scopes?.buildings?.length > 0) {
+      qb.andWhere('rule.warehouseId IN (SELECT id FROM enterprise_warehouses WHERE building_id IN (:...bids))', { bids: user.scopes.buildings });
+    }
+
+    return qb.getMany();
   }
 
-  async createRule(dto: Partial<ReplenishmentRule>): Promise<ReplenishmentRule> {
+  async createRule(dto: Partial<ReplenishmentRule>, user: User): Promise<ReplenishmentRule> {
     const rule = this.ruleRepo.create(dto);
-    return this.ruleRepo.save(rule);
+    const saved = await this.ruleRepo.save(rule);
+
+    await this.audit.recordAction({
+      actor: user.email,
+      action: 'REPLENISHMENT_RULE_CREATED',
+      resourceType: 'ReplenishmentRule',
+      resourceId: saved.id.toString(),
+      metadata: { partNumber: saved.partNumber, warehouse: saved.warehouseId },
+      outcome: 'ALLOWED'
+    });
+
+    return saved;
   }
 
-  async analyzeInventory(): Promise<any[]> {
-    const rules = await this.ruleRepo.find({ where: { isActive: true } });
+  async analyzeInventory(user: User): Promise<any[]> {
+    const qb = this.ruleRepo.createQueryBuilder('rule')
+      .where('rule.isActive = :active', { active: true });
+
+    // 1. Scope-aware filtering
+    if (user.scopes?.buildings?.length > 0) {
+      qb.andWhere('rule.warehouseId IN (SELECT id FROM enterprise_warehouses WHERE building_id IN (:...bids))', { bids: user.scopes.buildings });
+    }
+
+    const rules = await qb.getMany();
     const signals: any[] = [];
 
     for (const rule of rules) {
@@ -65,7 +97,7 @@ export class ReplenishmentService {
             toLocation: 'RECEIVING',
             referenceType: 'REPLENISHMENT',
             referenceId: `RULE-${rule.id}`
-          });
+          }, user);
         }
       }
     }

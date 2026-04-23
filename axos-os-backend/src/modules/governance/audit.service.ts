@@ -28,6 +28,26 @@ export class AuditService {
     return this.auditRepo.save(entry);
   }
 
+  async recordAction(params: {
+    actor: string;
+    action: string;
+    resourceType: string;
+    resourceId?: string;
+    metadata?: any;
+    outcome?: 'ALLOWED' | 'DENIED';
+    reason?: string;
+  }) {
+    return this.log({
+      actor: params.actor,
+      action: params.action,
+      entity: params.resourceType,
+      entityId: params.resourceId,
+      after: params.metadata,
+      result: params.outcome,
+      reason: params.reason
+    });
+  }
+
   async getLogs(limit = 100) {
     return this.auditRepo.find({
       order: { timestamp: 'DESC' },

@@ -6,6 +6,8 @@ import { InventoryMovement, InventoryTransactionType } from './entities/inventor
 import { MaterialMaster } from './entities/material-master.entity';
 import { EnterpriseWarehouse } from '../enterprise-campus/entities/enterprise-warehouse.entity';
 import { AuditService } from '../governance/audit.service';
+import { User } from '../users/entities/user.entity';
+import { In } from 'typeorm';
 
 @Injectable()
 export class InventoryService {
@@ -22,10 +24,23 @@ export class InventoryService {
     private readonly dataSource: DataSource,
   ) {}
 
-  async findAllPositions(filters: { warehouseId?: string; partNumber?: string; programId?: string }): Promise<InventoryPosition[]> {
+  async findAllPositions(user: User, filters: { warehouseId?: string; partNumber?: string; programId?: string }): Promise<InventoryPosition[]> {
     const qb = this.positionRepo.createQueryBuilder('pos')
       .leftJoinAndSelect('pos.material', 'material')
       .leftJoinAndSelect('pos.warehouse', 'warehouse');
+
+    // 1. Mandatory Organizational Scope
+    if (user.scopes) {
+      if (user.scopes.buildings?.length > 0) {
+        const whs = await this.warehouseRepo.find({ where: { building: { id: In(user.scopes.buildings) } } as any });
+        const whIds = whs.map(w => w.id);
+        if (whIds.length > 0) {
+          qb.andWhere('pos.warehouseId IN (:...scopeWhIds)', { scopeWhIds: whIds });
+        } else {
+          qb.andWhere('1 = 0');
+        }
+      }
+    }
 
     if (filters.warehouseId) qb.andWhere('pos.warehouseId = :wh', { wh: filters.warehouseId });
     if (filters.partNumber) qb.andWhere('pos.partNumber LIKE :pn', { pn: `%${filters.partNumber}%` });
@@ -34,8 +49,22 @@ export class InventoryService {
     return qb.getMany();
   }
 
-  async getMovements(filters: { partNumber?: string; warehouseId?: string }): Promise<InventoryMovement[]> {
+  async getMovements(user: User, filters: { partNumber?: string; warehouseId?: string }): Promise<InventoryMovement[]> {
     const qb = this.movementRepo.createQueryBuilder('mov');
+
+    // 1. Mandatory Organizational Scope
+    if (user.scopes) {
+      if (user.scopes.buildings?.length > 0) {
+        const whs = await this.warehouseRepo.find({ where: { building: { id: In(user.scopes.buildings) } } as any });
+        const whIds = whs.map(w => w.id);
+        if (whIds.length > 0) {
+          qb.andWhere('(mov.fromWarehouseId IN (:...scopeWhIds) OR mov.toWarehouseId IN (:...scopeWhIds))', { scopeWhIds: whIds });
+        } else {
+          qb.andWhere('1 = 0');
+        }
+      }
+    }
+
     if (filters.partNumber) qb.andWhere('mov.partNumber = :pn', { pn: filters.partNumber });
     if (filters.warehouseId) {
       qb.andWhere('(mov.fromWarehouseId = :wh OR mov.toWarehouseId = :wh)', { wh: filters.warehouseId });
@@ -139,13 +168,18 @@ export class InventoryService {
       });
       const savedMovement = await queryRunner.manager.save(movement);
 
-      await this.audit.log({
+      await this.audit.recordAction({
         actor: dto.actorName,
-        action: `INV_${dto.type}`,
-        entity: 'InventoryPosition',
-        entityId: dto.partNumber,
-        after: savedMovement,
-        scope: { warehouseId: dto.toWarehouseId || dto.fromWarehouseId, programId: dto.programId }
+        action: `INVENTORY_${dto.type}`,
+        resourceType: 'InventoryPosition',
+        resourceId: dto.partNumber,
+        metadata: { 
+          quantity: dto.quantity, 
+          from: dto.fromWarehouseId, 
+          to: dto.toWarehouseId,
+          reference: `${dto.referenceType}:${dto.referenceId}`
+        },
+        outcome: 'ALLOWED'
       });
 
       await queryRunner.commitTransaction();
@@ -159,7 +193,7 @@ export class InventoryService {
   }
 
   // Helper to ensure material exists in master data (used for auto-receiving/demos)
-  async ensureMaterial(dto: Partial<MaterialMaster>): Promise<MaterialMaster> {
+  async ensureMaterial(dto: Partial<MaterialMaster>, user?: User): Promise<MaterialMaster> {
     if (!dto.partNumber) throw new BadRequestException('partNumber required');
     let m = await this.materialRepo.findOne({ where: { partNumber: dto.partNumber } });
     if (!m) {
@@ -168,7 +202,17 @@ export class InventoryService {
         description: dto.description || `Part ${dto.partNumber}`,
         uom: dto.uom || 'EA'
       });
-      return this.materialRepo.save(m);
+      const saved = await this.materialRepo.save(m);
+      if (user) {
+        await this.audit.recordAction({
+          actor: user.email,
+          action: 'MATERIAL_MASTER_CREATED',
+          resourceType: 'MaterialMaster',
+          resourceId: saved.partNumber,
+          outcome: 'ALLOWED'
+        });
+      }
+      return saved;
     }
     return m;
   }
