@@ -92,7 +92,7 @@ export class LandingComponent implements OnInit, AfterViewInit, OnDestroy {
       next: () => {
         this.loginLoading = false;
         this.closeLogin();
-        this.router.navigateByUrl('/monitor');
+        this.router.navigateByUrl('/dashboard');
       },
       error: (err: HttpErrorResponse) => {
         if (err.status === 401) {
