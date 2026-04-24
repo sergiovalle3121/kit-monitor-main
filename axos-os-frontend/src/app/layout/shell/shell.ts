@@ -70,6 +70,7 @@ export class ShellComponent implements OnInit, OnDestroy {
   searchTerm = '';
   showSearchResults = false;
   searchResults: SearchResult[] = [];
+  recentSearches: SearchResult[] = [];
   showUserPanel = false;
   showNotifications = false;
   showContextPanel = false;
@@ -82,6 +83,7 @@ export class ShellComponent implements OnInit, OnDestroy {
   @ViewChild('userWrap') userWrap?: ElementRef<HTMLElement>;
   @ViewChild('contextWrap') contextWrap?: ElementRef<HTMLElement>;
   private notificationsTimerId: number | null = null;
+  private readonly searchHistoryStorageKey = 'axos.shell.search.history';
   private readonly workspaceDomains: WorkspaceDomainConfig[] = [
     {
       id: 'materials',
@@ -283,6 +285,7 @@ export class ShellComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.enterpriseContext.preload();
+    this.loadSearchHistory();
     this.refreshNotifications();
     this.updateBreadcrumbs();
     this.notificationsTimerId = window.setInterval(() => this.refreshNotifications(), 30_000);
@@ -305,19 +308,23 @@ export class ShellComponent implements OnInit, OnDestroy {
   onSearchFocus(): void {
     this.showSearchResults = true;
     this.computeSearchResults();
+    this.recentSearches = this.getRecentSearches();
     setTimeout(() => this.searchInput?.nativeElement.focus());
   }
 
   onSearchChange(value: string): void {
     this.searchTerm = value;
     this.computeSearchResults();
+    this.recentSearches = this.getRecentSearches();
     this.showSearchResults = true;
   }
 
   openSearchResult(result: SearchResult): void {
+    this.persistSearchHistory(result);
     this.router.navigateByUrl(result.route);
     this.searchTerm = '';
     this.showSearchResults = false;
+    this.recentSearches = this.getRecentSearches();
   }
 
   toggleUserPanel(): void {
@@ -405,6 +412,14 @@ export class ShellComponent implements OnInit, OnDestroy {
     this.showContextPanel = false;
   }
 
+  @HostListener('document:keydown', ['$event'])
+  onGlobalSearchShortcut(event: KeyboardEvent): void {
+    const pressedShortcut = (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k';
+    if (!pressedShortcut) return;
+    event.preventDefault();
+    this.onSearchFocus();
+  }
+
   clearNotifications(): void {
     this.notifications = [];
     localStorage.removeItem('km_shell_notifications');
@@ -413,13 +428,15 @@ export class ShellComponent implements OnInit, OnDestroy {
   private computeSearchResults(): void {
     const term = this.searchTerm.trim().toUpperCase();
     if (!term) {
-      this.searchResults = this.modulesCatalog.slice(0, 8);
+      const recentRoutes = new Set(this.recentSearches.map((item) => item.route));
+      this.searchResults = this.modulesCatalog.filter((entry) => !recentRoutes.has(entry.route)).slice(0, 8);
       return;
     }
 
     const localMatches = this.modulesCatalog.filter((entry) => entry.label.toUpperCase().includes(term));
     const dynamicMatches = this.buildDynamicSearch(term);
-    this.searchResults = [...localMatches, ...dynamicMatches].slice(0, 12);
+    const merged = [...localMatches, ...dynamicMatches];
+    this.searchResults = merged.filter((entry, index) => merged.findIndex((candidate) => candidate.route === entry.route) === index).slice(0, 12);
   }
 
   private buildDynamicSearch(term: string): SearchResult[] {
@@ -433,6 +450,33 @@ export class ShellComponent implements OnInit, OnDestroy {
       });
     });
     return results;
+  }
+
+  private loadSearchHistory(): void {
+    this.recentSearches = this.getRecentSearches();
+  }
+
+  private getRecentSearches(): SearchResult[] {
+    const raw = localStorage.getItem(this.searchHistoryStorageKey);
+    if (!raw) return [];
+    try {
+      const parsed = JSON.parse(raw) as SearchResult[];
+      return Array.isArray(parsed) ? parsed.slice(0, 6) : [];
+    } catch {
+      return [];
+    }
+  }
+
+  private persistSearchHistory(result: SearchResult): void {
+    const normalized: SearchResult = {
+      label: result.label,
+      route: result.route,
+      category: result.category,
+      subtitle: result.subtitle,
+    };
+    const previous = this.getRecentSearches().filter((entry) => entry.route !== result.route);
+    const history = [normalized, ...previous].slice(0, 6);
+    localStorage.setItem(this.searchHistoryStorageKey, JSON.stringify(history));
   }
 
   private refreshNotifications(): void {

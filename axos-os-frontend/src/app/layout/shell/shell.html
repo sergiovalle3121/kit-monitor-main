@@ -70,27 +70,39 @@
     <div class="shell-main-overlay" aria-hidden="true"></div>
 
     <header class="topbar">
-      <button class="menu-trigger" (click)="toggle()" aria-label="Alternar menu"><i class="fas fa-bars"></i></button>
+      <div class="topbar-leading">
+        <button class="menu-trigger" (click)="toggle()" aria-label="Alternar menu"><i class="fas fa-bars"></i></button>
 
-      <div class="search-wrapper" #searchWrapper>
-        <label class="search" aria-label="Buscar modulo">
-          <i class="fas fa-search search-icon"></i>
-          <input
-            #searchInput
-            type="search"
-            placeholder="Buscar módulo, kit, modelo, NP o publicación"
-            [ngModel]="searchTerm"
-            (ngModelChange)="onSearchChange($event)"
-            (focus)="onSearchFocus()"
-          />
-          <span class="search-hint nav-full">⌘K</span>
-        </label>
-        <div class="search-results" *ngIf="showSearchResults">
-          <button type="button" class="search-result" *ngFor="let result of searchResults" (click)="openSearchResult(result)">
-            <span class="result-main">{{ result.label }}</span>
-            <span class="result-meta">{{ result.category }} <small *ngIf="result.subtitle">· {{ result.subtitle }}</small></span>
-          </button>
-          <div class="search-empty" *ngIf="!searchResults.length">Sin resultados.</div>
+        <div class="search-wrapper" #searchWrapper>
+          <label class="search" aria-label="Buscar modulo">
+            <i class="fas fa-search search-icon"></i>
+            <input
+              #searchInput
+              type="search"
+              placeholder="Buscar módulo o sección"
+              [ngModel]="searchTerm"
+              (ngModelChange)="onSearchChange($event)"
+              (focus)="onSearchFocus()"
+            />
+            <span class="search-hint nav-full">⌘K</span>
+          </label>
+          <div class="search-results" *ngIf="showSearchResults">
+            <div class="search-group" *ngIf="!searchTerm.trim() && recentSearches.length">
+              <p class="search-group-title">Recientes</p>
+              <button type="button" class="search-result" *ngFor="let result of recentSearches" (click)="openSearchResult(result)">
+                <span class="result-main"><i class="fas fa-clock-rotate-left"></i> {{ result.label }}</span>
+                <span class="result-meta">Historial · {{ result.category }} <small *ngIf="result.subtitle">· {{ result.subtitle }}</small></span>
+              </button>
+            </div>
+            <div class="search-group">
+              <p class="search-group-title">{{ searchTerm.trim() ? 'Resultados' : 'Sugerencias' }}</p>
+              <button type="button" class="search-result" *ngFor="let result of searchResults" (click)="openSearchResult(result)">
+                <span class="result-main">{{ result.label }}</span>
+                <span class="result-meta">{{ result.category }} <small *ngIf="result.subtitle">· {{ result.subtitle }}</small></span>
+              </button>
+            </div>
+            <div class="search-empty" *ngIf="!searchResults.length && !recentSearches.length">Sin resultados.</div>
+          </div>
         </div>
       </div>
 
