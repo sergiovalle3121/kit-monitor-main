@@ -41,9 +41,10 @@
         <div class="selection-grid">
           <div *ngFor="let b of buildings()" 
                class="context-card building-card" 
+               [class.special-card]="b.id === 'next-01'"
                (click)="selectBuilding(b.id)">
             <div class="card-icon">
-              <i class="fas fa-building"></i>
+              <i class="fas" [class.fa-building]="b.id !== 'next-01'" [class.fa-warehouse]="b.id === 'next-01'"></i>
             </div>
             <div class="card-info">
               <h3>{{ b.code }}</h3>

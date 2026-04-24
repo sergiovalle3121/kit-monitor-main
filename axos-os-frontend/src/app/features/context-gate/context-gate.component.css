@@ -1,7 +1,8 @@
 :host {
   display: block;
   height: 100vh;
-  overflow: hidden;
+  overflow-y: auto;
+  background: #f8f9fa;
 }
 
 .gate-container {
@@ -27,8 +28,8 @@
   position: relative;
   z-index: 2;
   width: 100%;
-  max-width: 1000px;
-  padding: 2rem;
+  max-width: 1400px;
+  padding: 3rem 2rem;
   display: flex;
   flex-direction: column;
   gap: 3rem;
@@ -175,22 +176,28 @@
 
 .selection-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 1.5rem;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 1.25rem;
 }
 
 .context-card {
   background: white;
   border: 1px solid #eee;
   border-radius: 1.25rem;
-  padding: 1.5rem;
+  padding: 1.25rem;
   display: flex;
   align-items: center;
-  gap: 1.5rem;
+  gap: 1rem;
   cursor: pointer;
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   overflow: hidden;
+}
+
+.context-card.special-card {
+  background: #f0f4f8;
+  border-style: dashed;
+  border-width: 2px;
 }
 
 .context-card:hover {
