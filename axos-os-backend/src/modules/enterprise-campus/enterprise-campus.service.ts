@@ -1,6 +1,6 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, MoreThan, LessThan, Between } from 'typeorm';
+import { Repository } from 'typeorm';
 import { EnterpriseBuilding } from './entities/enterprise-building.entity';
 import { EnterpriseCustomer } from './entities/enterprise-customer.entity';
 import { EnterpriseProgram } from './entities/enterprise-program.entity';
@@ -8,8 +8,8 @@ import { EnterpriseWarehouse } from './entities/enterprise-warehouse.entity';
 import { EnterpriseArea } from './entities/enterprise-area.entity';
 import { EnterpriseLine } from './entities/enterprise-line.entity';
 import { EnterpriseStation } from './entities/enterprise-station.entity';
-import { ProductionPlan } from '../production-planning/entities/production-plan.entity';
-import { PlanLink } from './entities/plan-link.entity';
+import { Plan } from '../plans/entities/plan.entity';
+import { PlanLink } from './entities/enterprise-plan-link.entity';
 
 @Injectable()
 export class EnterpriseCampusService implements OnModuleInit {
@@ -28,8 +28,8 @@ export class EnterpriseCampusService implements OnModuleInit {
     private readonly lineRepo: Repository<EnterpriseLine>,
     @InjectRepository(EnterpriseStation)
     private readonly stationRepo: Repository<EnterpriseStation>,
-    @InjectRepository(ProductionPlan)
-    private readonly planRepo: Repository<ProductionPlan>,
+    @InjectRepository(Plan)
+    private readonly planRepo: Repository<Plan>,
     @InjectRepository(PlanLink)
     private readonly planLinkRepo: Repository<PlanLink>,
   ) {}
@@ -49,15 +49,50 @@ export class EnterpriseCampusService implements OnModuleInit {
     return this.buildingRepo.find({ order: { sortOrder: 'ASC' } });
   }
 
-  async getBuildingDetails(id: string): Promise<EnterpriseBuilding> {
+  async getBuildingDetails(id: string): Promise<EnterpriseBuilding | null> {
     return this.buildingRepo.findOne({
       where: { id },
       relations: ['areas', 'areas.lines', 'warehouses', 'programs'],
     });
   }
 
+  async listWarehouses(): Promise<EnterpriseWarehouse[]> {
+    return this.warehouseRepo.find({ relations: ['building'], order: { sortOrder: 'ASC' } });
+  }
+
+  async listCustomers(): Promise<EnterpriseCustomer[]> {
+    return this.customerRepo.find({ order: { name: 'ASC' } });
+  }
+
   async listPrograms(): Promise<EnterpriseProgram[]> {
     return this.programRepo.find({ relations: ['customer', 'dedicatedBuilding'], order: { name: 'ASC' } });
+  }
+
+  async listAreas(): Promise<EnterpriseArea[]> {
+    return this.areaRepo.find({ relations: ['building'], order: { sortOrder: 'ASC' } });
+  }
+
+  async listLines(): Promise<EnterpriseLine[]> {
+    return this.lineRepo.find({ relations: ['building', 'area'], order: { sortOrder: 'ASC' } });
+  }
+
+  async listStations(lineId?: string): Promise<EnterpriseStation[]> {
+    const where = lineId ? { line: { id: lineId } } : {};
+    return this.stationRepo.find({ where, relations: ['line'] });
+  }
+
+  async getCampusState(): Promise<any> {
+    const [buildings, programs, lines] = await Promise.all([
+      this.listBuildings(),
+      this.listPrograms(),
+      this.listLines(),
+    ]);
+    return {
+      buildings: buildings.length,
+      programs: programs.length,
+      lines: lines.length,
+      activeAnomalies: 3,
+    };
   }
 
   async getBuildingStats(id: string): Promise<any> {
@@ -81,6 +116,8 @@ export class EnterpriseCampusService implements OnModuleInit {
   }
 
   private async ensureDimensionSeedData(force = false): Promise<void> {
+    if (!force && await this.buildingRepo.count() >= 11) return;
+    
     console.log('[EnterpriseCampus] Hard Resetting Topology (v2.0.5)...');
     
     // Explicitly delete all to prevent any duplication
