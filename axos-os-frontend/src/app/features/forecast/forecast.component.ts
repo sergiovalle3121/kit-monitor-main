@@ -275,7 +275,7 @@ export class ForecastComponent {
     
     // Bottleneck logic
     if (this.efficiencyPercent < 80) this.bottleneckResource.set('Eficiencia Operativa');
-    else if (top.riskLevel === 'Alta') this.bottleneckResource.set('Suministro de Materiales');
+    else if (top.riskLevel === 'Alto') this.bottleneckResource.set('Suministro de Materiales');
     else this.bottleneckResource.set('Capacidad de Planta');
   }
 

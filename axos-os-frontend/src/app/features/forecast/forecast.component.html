@@ -562,7 +562,7 @@
             <p class="card-kicker">MONTE CARLO DISTRIBUTION</p>
             <h2>Simulación de Demanda (Bootstrap)</h2>
           </div>
-          <div class="lab-pill">$\sigma = {{ selectedRiskScenario?.sigma | number:'1.0-2' || '0.0' }}$</div>
+          <div class="lab-pill">$\sigma = {{ (selectedRiskScenario?.sigma ?? 0) | number:'1.0-2' }}$</div>
         </div>
 
         @if (selectedRiskScenario) {
