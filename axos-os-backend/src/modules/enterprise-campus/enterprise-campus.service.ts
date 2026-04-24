@@ -349,18 +349,18 @@ export class EnterpriseCampusService implements OnModuleInit {
     // Campus Jabil Guadalajara Topology (GDL1 & GDL2)
     const buildings = await this.buildingRepo.save([
       // GDL1: Valdepeñas
-      this.buildingRepo.create({ id: 'val-01', code: 'B1', name: 'GDL1 - Whirlpool Ops', status: 'active', tags: ['valdepenas', 'consumer'], sortOrder: 10 }),
-      this.buildingRepo.create({ id: 'val-02', code: 'B2', name: 'GDL1 - Ericsson Ops', status: 'active', tags: ['valdepenas', 'telecom'], sortOrder: 11 }),
+      this.buildingRepo.create({ id: 'val-01', code: 'B1', name: 'Valdepeñas B1', status: 'active', tags: ['valdepenas'], sortOrder: 10 }),
+      this.buildingRepo.create({ id: 'val-02', code: 'B2', name: 'Valdepeñas B2', status: 'active', tags: ['valdepenas'], sortOrder: 11 }),
       
       // GDL2: Technology Park
-      this.buildingRepo.create({ id: 'gtp-03', code: 'B3', name: 'GDL2 - Almacén / Services', status: 'active', tags: ['gtp', 'logistics'], sortOrder: 20 }),
-      this.buildingRepo.create({ id: 'gtp-04', code: 'B4', name: 'GDL2 - Cisco Systems', status: 'active', tags: ['gtp', 'networking'], sortOrder: 21 }),
-      this.buildingRepo.create({ id: 'gtp-05', code: 'B5', name: 'GDL2 - Motorola Solutions', status: 'active', tags: ['gtp', 'mobility'], sortOrder: 22 }),
-      this.buildingRepo.create({ id: 'gtp-06', code: 'B6', name: 'GDL2 - Optics Production', status: 'active', tags: ['gtp', 'fiber'], sortOrder: 23 }),
-      this.buildingRepo.create({ id: 'gtp-07', code: 'B7', name: 'GDL2 - Building 7', status: 'active', tags: ['gtp'], sortOrder: 24 }),
-      this.buildingRepo.create({ id: 'gtp-08', code: 'B8', name: 'GDL2 - Metalurgia', status: 'active', tags: ['gtp', 'metal'], sortOrder: 25 }),
-      this.buildingRepo.create({ id: 'gtp-09', code: 'B9', name: 'GDL2 - Healthcare / Medical', status: 'active', tags: ['gtp', 'medical'], sortOrder: 26 }),
-      this.buildingRepo.create({ id: 'gtp-10', code: 'B10', name: 'GDL2 - Fabricación PCBA', status: 'active', tags: ['gtp', 'smt'], sortOrder: 27 }),
+      this.buildingRepo.create({ id: 'gtp-03', code: 'B3', name: 'GTP B3', status: 'active', tags: ['gtp'], sortOrder: 20 }),
+      this.buildingRepo.create({ id: 'gtp-04', code: 'B4', name: 'GTP B4', status: 'active', tags: ['gtp'], sortOrder: 21 }),
+      this.buildingRepo.create({ id: 'gtp-05', code: 'B5', name: 'GTP B5', status: 'active', tags: ['gtp'], sortOrder: 22 }),
+      this.buildingRepo.create({ id: 'gtp-06', code: 'B6', name: 'GTP B6', status: 'active', tags: ['gtp'], sortOrder: 23 }),
+      this.buildingRepo.create({ id: 'gtp-07', code: 'B7', name: 'GTP B7 (Optics)', status: 'active', tags: ['gtp', 'primary'], sortOrder: 24 }),
+      this.buildingRepo.create({ id: 'gtp-08', code: 'B8', name: 'GTP B8', status: 'active', tags: ['gtp'], sortOrder: 25 }),
+      this.buildingRepo.create({ id: 'gtp-09', code: 'B9', name: 'GTP B9', status: 'active', tags: ['gtp'], sortOrder: 26 }),
+      this.buildingRepo.create({ id: 'gtp-10', code: 'B10', name: 'GTP B10', status: 'active', tags: ['gtp'], sortOrder: 27 }),
 
       // External / General
       this.buildingRepo.create({ id: 'next-01', code: 'NEXTIPAC', name: 'Almacén General (Nextipac)', status: 'active', tags: ['external', 'storage'], sortOrder: 50 }),
@@ -385,31 +385,10 @@ export class EnterpriseCampusService implements OnModuleInit {
     ]);
 
     await this.programRepo.save([
-      // B1 - Whirlpool
-      this.programRepo.create({ id: 'prog-whirlpool', customer: customerById.get('cust-whirlpool')!, code: 'WHP-CTRL', name: 'Whirlpool Control Panels', status: 'active', primaryModelPrefix: 'WHP', dedicatedBuilding: byId.get('val-01') }),
+      // B7 - Optics (Primary)
+      this.programRepo.create({ id: 'prog-optics', customer: customerById.get('cust-cisco')!, code: 'OPTICS', name: 'Optics Project', status: 'active', primaryModelPrefix: 'OPT', dedicatedBuilding: byId.get('gtp-07') }),
       
-      // B2 - Ericsson
-      this.programRepo.create({ id: 'prog-ericsson', customer: customerById.get('cust-nokia')!, code: 'ERIC-5G', name: 'Ericsson 5G Infra', status: 'active', primaryModelPrefix: 'ERI', dedicatedBuilding: byId.get('val-02') }),
-      
-      // B4 - Cisco
-      this.programRepo.create({ id: 'prog-cisco', customer: customerById.get('cust-cisco')!, code: 'CSCO-NET', name: 'Cisco Networking', status: 'active', primaryModelPrefix: 'CSW', dedicatedBuilding: byId.get('gtp-04') }),
-
-      // B5 - Motorola
-      this.programRepo.create({ id: 'prog-motorola', customer: customerById.get('cust-tesla')!, code: 'MOT-RAD', name: 'Motorola Radio Systems', status: 'active', primaryModelPrefix: 'MOT', dedicatedBuilding: byId.get('gtp-05') }),
-
-      // B6 - Optics
-      this.programRepo.create({ id: 'prog-optics', customer: customerById.get('cust-cisco')!, code: 'OPT-TRANS', name: 'Optics Transceivers', status: 'active', primaryModelPrefix: 'OPT', dedicatedBuilding: byId.get('gtp-06') }),
-
-      // B8 - Metalurgia
-      this.programRepo.create({ id: 'prog-metal', customer: customerById.get('cust-zebra')!, code: 'MET-FAB', name: 'Metallurgy Fabrication', status: 'active', primaryModelPrefix: 'MET', dedicatedBuilding: byId.get('gtp-08') }),
-
-      // B9 - Medical
-      this.programRepo.create({ id: 'prog-jj', customer: customerById.get('cust-jj')!, code: 'JJ-MED', name: 'J&J Medical Devices', status: 'active', primaryModelPrefix: 'JJM', dedicatedBuilding: byId.get('gtp-09') }),
-
-      // B10 - PCBA
-      this.programRepo.create({ id: 'prog-pcba', customer: customerById.get('cust-nokia')!, code: 'PCBA-SMT', name: 'PCBA SMT Production', status: 'active', primaryModelPrefix: 'SMT', dedicatedBuilding: byId.get('gtp-10') }),
-
-      // Generic
+      // Other generic assignments
       this.programRepo.create({ id: 'prog-na', customer: customerById.get('cust-cisco')!, code: 'N/A', name: 'Proyecto N/A', status: 'active', primaryModelPrefix: 'NA' }),
       this.programRepo.create({ id: 'prog-generic', customer: customerById.get('cust-zebra')!, code: 'GENERIC', name: 'Proyecto Genérico', status: 'active', primaryModelPrefix: 'GEN' }),
     ]);
