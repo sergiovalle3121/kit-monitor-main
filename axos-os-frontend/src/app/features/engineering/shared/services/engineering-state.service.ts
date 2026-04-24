@@ -41,6 +41,10 @@ export class EngineeringStateService {
     this.isModified.set(true);
   }
 
+  clearModified() {
+    this.isModified.set(false);
+  }
+
   updateViewport(zoom: number, x: number, y: number) {
     this.zoom.set(zoom);
     this.panX.set(x);
