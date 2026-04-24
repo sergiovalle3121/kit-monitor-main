@@ -172,7 +172,7 @@ export class EnterpriseCampusService implements OnModuleInit {
         programs.push(this.programRepo.create({ 
           id: `prog-optics-${b.id}`, 
           customer: customerById.get('cust-cisco')!, 
-          code: 'OPTICS', 
+          code: `OPT-${b.id}`, 
           name: 'Optics Project', 
           status: 'active', 
           primaryModelPrefix: 'OPT', 
@@ -181,7 +181,7 @@ export class EnterpriseCampusService implements OnModuleInit {
         programs.push(this.programRepo.create({ 
           id: `prog-gen-${b.id}`, 
           customer: customerById.get('cust-cisco')!, 
-          code: 'GEN-07', 
+          code: `GEN-${b.id}`, 
           name: 'Proyecto Genérico', 
           status: 'active', 
           primaryModelPrefix: 'GEN', 
@@ -191,7 +191,7 @@ export class EnterpriseCampusService implements OnModuleInit {
         programs.push(this.programRepo.create({ 
           id: `prog-gen1-${b.id}`, 
           customer: customerById.get('cust-cisco')!, 
-          code: 'GEN-01', 
+          code: `G1-${b.id}`, 
           name: 'Proyecto Genérico 1', 
           status: 'active', 
           primaryModelPrefix: 'GEN', 
