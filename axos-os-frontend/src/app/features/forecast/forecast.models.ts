@@ -229,6 +229,7 @@ export interface RiskScenario {
   stockoutProbability: number | null;
   estimatedStockoutDate: string | null;
   horizons: RiskHorizon[];
+  sigma: number;
   warnings: string[];
   message: string;
 }

@@ -159,6 +159,7 @@ export class ForecastAnalytics {
       stockoutProbability,
       estimatedStockoutDate: coverageDays == null ? null : this.addDays(coverageDays),
       horizons: horizonsSummary,
+      sigma: this.round(this.std(empiricalDaily)),
       warnings,
       message: stockValue == null ? 'Se estimo la demanda con bootstrap empirico, pero falta stock para medir quiebre.' : `Riesgo al lead time: ${Math.round((stockoutProbability ?? 0) * 100)}% de probabilidad de stockout.`,
     };
