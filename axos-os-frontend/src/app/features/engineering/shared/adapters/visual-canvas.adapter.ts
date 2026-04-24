@@ -137,7 +137,7 @@ export class VisualCanvasAdapter {
   bringToFront() {
     const activeObject = this.canvas.getActiveObject();
     if (activeObject) {
-      activeObject.bringToFront();
+      this.canvas.bringObjectToFront(activeObject);
       this.canvas.renderAll();
     }
   }
@@ -145,7 +145,7 @@ export class VisualCanvasAdapter {
   sendToBack() {
     const activeObject = this.canvas.getActiveObject();
     if (activeObject) {
-      activeObject.sendToBack();
+      this.canvas.sendObjectToBack(activeObject);
       this.canvas.renderAll();
     }
   }
