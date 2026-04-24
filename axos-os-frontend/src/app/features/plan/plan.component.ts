@@ -1,8 +1,9 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, inject, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../core/api.service';
 import { ConfirmModalService } from '../../shared/confirm-modal/confirm-modal.service';
+import { EnterpriseContextService } from '../../core/enterprise-context.service';
 
 interface PlanForm {
   model: string;
@@ -20,8 +21,10 @@ interface PlanForm {
   styleUrls: ['./plan.component.css'],
 })
 export class PlanComponent implements OnInit {
+  private readonly contextService = inject(EnterpriseContextService);
   plans: any[] = [];
   availableModels: string[] = [];
+  dynamicLines: any[] = [];
 
   loading = false;
   error: string | null = null;
@@ -32,7 +35,6 @@ export class PlanComponent implements OnInit {
   selectedPlanDetail: any | null = null;
   formError: string | null = null;
 
-  readonly backens = [1, 2, 3, 4, 5, 6, 7];
   readonly shifts = ['T1', 'T2', 'T3'];
 
   form: PlanForm = this.createEmptyForm();
@@ -40,11 +42,35 @@ export class PlanComponent implements OnInit {
   constructor(
     private api: ApiService,
     private readonly confirmModal: ConfirmModalService,
-  ) {}
+  ) {
+    effect(() => {
+      const ctx = this.contextService.context();
+      if (ctx.isConfigured) {
+        this.refreshTopology();
+        this.loadPlans();
+        this.loadAvailableModels();
+      }
+    });
+  }
 
   ngOnInit(): void {
-    this.loadPlans();
-    this.loadAvailableModels();
+    // Initial load handled by effect
+  }
+
+  private refreshTopology(): void {
+    const ctx = this.contextService.context();
+    const allLines = this.contextService.lines();
+    
+    this.dynamicLines = allLines.filter(l => l.buildingId === ctx.buildingId || l.building?.id === ctx.buildingId);
+    
+    // Ensure form line is valid for the new topology
+    if (this.dynamicLines.length > 0) {
+      const firstLineId = this.dynamicLines[0].id;
+      // If current form line not in new topology, reset
+      if (!this.dynamicLines.find(l => (l.legacyLineNumber ?? parseInt(l.code)) === this.form.line)) {
+        this.form.line = this.dynamicLines[0].legacyLineNumber ?? parseInt(this.dynamicLines[0].code);
+      }
+    }
   }
 
   get generatedFolioPreview(): string {

@@ -12,6 +12,7 @@ export interface EnterpriseContextState {
   model?: string;
   lineId?: string;
   workOrder?: string;
+  isConfigured: boolean;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -55,7 +56,7 @@ export class EnterpriseContextService {
   }
 
   clear(): void {
-    const base = { campusId: 'jbl-gdl' };
+    const base: EnterpriseContextState = { campusId: 'jbl-gdl', isConfigured: false };
     this._context.set(base);
     localStorage.setItem(this.storageKey, JSON.stringify(base));
   }
@@ -114,11 +115,16 @@ export class EnterpriseContextService {
   }
 
   private loadInitial(): EnterpriseContextState {
-    const base = { campusId: 'jbl-gdl' };
+    const base: EnterpriseContextState = { campusId: 'jbl-gdl', isConfigured: false };
     const raw = localStorage.getItem(this.storageKey);
     if (!raw) return base;
     try {
-      return { ...base, ...(JSON.parse(raw) as Partial<EnterpriseContextState>) };
+      const parsed = JSON.parse(raw);
+      // If we have building and program, consider it configured if not explicitly set
+      if (parsed.buildingId && parsed.programId && parsed.isConfigured === undefined) {
+        parsed.isConfigured = true;
+      }
+      return { ...base, ...parsed };
     } catch {
       return base;
     }

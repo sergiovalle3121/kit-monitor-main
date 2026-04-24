@@ -3,7 +3,9 @@ import { LoginComponent } from './features/login/login.component';
 import { ShellComponent } from './layout/shell/shell';
 import { FocusedLayoutComponent } from './layout/focused-layout/focused-layout';
 import { authGuard } from './core/auth.guard';
+import { contextGuard } from './core/context.guard';
 import { workspaceRouteData } from './layout/shell/workspace-route-meta';
+import { ContextGateComponent } from './features/context-gate/context-gate.component';
 
 export const routes: Routes = [
 
@@ -14,14 +16,15 @@ export const routes: Routes = [
       import('./features/landing/landing.component').then(m => m.LandingComponent),
   },
   { path: 'login', component: LoginComponent },
+  { path: 'context-gate', component: ContextGateComponent, canActivate: [authGuard] },
 
   // ── MainLayout: Shell (Sidebar + Header + Content) ──────────────────────
   // Dashboard and all standard-navigation modules live here.
   {
     path: '',
     component: ShellComponent,
-    canActivate: [authGuard],
-    canActivateChild: [authGuard],
+    canActivate: [authGuard, contextGuard],
+    canActivateChild: [authGuard, contextGuard],
     children: [
 
       // Mission Control Dashboard — landing post-login

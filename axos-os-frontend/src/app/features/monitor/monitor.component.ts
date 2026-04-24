@@ -1,7 +1,8 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, inject, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { forkJoin, map, of, switchMap } from 'rxjs';
 import { ApiService } from '../../core/api.service';
+import { EnterpriseContextService } from '../../core/enterprise-context.service';
 import { EnterpriseContextBannerComponent } from '../../shared/enterprise-context-banner/enterprise-context-banner.component';
 
 @Component({
@@ -12,9 +13,10 @@ import { EnterpriseContextBannerComponent } from '../../shared/enterprise-contex
   styleUrls: ['./monitor.component.css'],
 })
 export class MonitorComponent implements OnInit {
+  private readonly contextService = inject(EnterpriseContextService);
   loading = false;
   error: string | null = null;
-  backens = [1, 2, 3, 4, 5, 6, 7];
+  backens: number[] = [];
   slots: Record<number, any> = {};
   expandedByBk: Record<number, boolean> = {};
   allExpanded = false;
@@ -44,15 +46,41 @@ export class MonitorComponent implements OnInit {
     ready_to_produce: 'Lista',
   };
 
-  constructor(private api: ApiService) {}
+  constructor(private api: ApiService) {
+    // React to context changes
+    effect(() => {
+      const ctx = this.contextService.context();
+      if (ctx.isConfigured) {
+        this.refreshTopology();
+        this.loadData();
+      }
+    });
+  }
 
   ngOnInit(): void {
+    // Initial load handled by effect
+  }
+
+  private refreshTopology(): void {
+    const ctx = this.contextService.context();
+    const allLines = this.contextService.lines();
+    
+    // Filter lines by current building
+    const buildingLines = allLines.filter(l => l.buildingId === ctx.buildingId || l.building?.id === ctx.buildingId);
+    
+    // If no building selected, show all (or empty)
+    this.backens = buildingLines.length 
+      ? buildingLines.map(l => l.legacyLineNumber ?? parseInt(l.code)).filter(n => !isNaN(n))
+      : [1, 2, 3, 4, 5, 6, 7]; // Fallback to demo lines if topology not loaded
+    
+    this.backens.sort((a, b) => a - b);
+  }
+
+  private loadData(): void {
     this.loading = true;
-    forkJoin({
-      backends: this.api.getProductionBackends(),
-    })
+    this.api.getProductionBackends()
       .pipe(
-        switchMap(({ backends }) => {
+        switchMap((backends) => {
           const backendList = backends ?? [];
           const detailRequest = backendList.length
             ? forkJoin(

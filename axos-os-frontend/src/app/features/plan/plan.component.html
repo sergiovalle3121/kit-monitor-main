@@ -84,7 +84,9 @@
         <label class="field">
           <span>Backen *</span>
           <select [(ngModel)]="form.line" name="line">
-            <option *ngFor="let line of backens" [ngValue]="line">BK{{ line }}</option>
+            <option *ngFor="let line of dynamicLines" [ngValue]="line.legacyLineNumber ?? line.code">
+              {{ line.code }}
+            </option>
           </select>
         </label>
 

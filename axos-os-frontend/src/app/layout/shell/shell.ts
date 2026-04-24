@@ -73,6 +73,8 @@ export class ShellComponent implements OnInit, OnDestroy {
   showUserPanel = false;
   showNotifications = false;
   showContextPanel = false;
+  
+  breadcrumbs: Array<{ label: string; route?: string }> = [];
   notifications: ShellNotification[] = [];
   @ViewChild('searchInput') searchInput?: ElementRef<HTMLInputElement>;
   @ViewChild('searchWrapper') searchWrapper?: ElementRef<HTMLElement>;
@@ -272,14 +274,17 @@ export class ShellComponent implements OnInit, OnDestroy {
       .pipe(filter((event): event is NavigationEnd => event instanceof NavigationEnd))
       .subscribe((event) => {
         this.syncSection(event.urlAfterRedirects);
+        this.updateBreadcrumbs();
         this.showSearchResults = false;
         this.showUserPanel = false;
+        this.showContextPanel = false;
       });
   }
 
   ngOnInit(): void {
     this.enterpriseContext.preload();
     this.refreshNotifications();
+    this.updateBreadcrumbs();
     this.notificationsTimerId = window.setInterval(() => this.refreshNotifications(), 30_000);
   }
 
@@ -366,6 +371,14 @@ export class ShellComponent implements OnInit, OnDestroy {
   clearEnterpriseContext(): void {
     this.enterpriseContext.clear();
     this.showContextPanel = false;
+  }
+
+  getBuildingCode(id: string): string {
+    return this.enterpriseContext.buildings().find(b => b.id === id)?.code || id;
+  }
+
+  getProgramCode(id: string): string {
+    return this.enterpriseContext.programs().find(p => p.id === id)?.code || id;
   }
 
   stateLabel(state: ModuleState): string {
@@ -525,7 +538,25 @@ export class ShellComponent implements OnInit, OnDestroy {
     const group = this.navGroups.find((entry) => entry.items.some((item) => url === item.route || url.startsWith(`${item.route}/`)));
     this.activeGroup = group ?? null;
     this.activeItem = group?.items.find((item) => url === item.route || url.startsWith(`${item.route}/`)) ?? null;
-    this.openSection = group?.id ?? null;
+    
+    // If we have an active item, ensure its group is open in the sidebar
+    if (group) {
+      this.openSection = group.id;
+    }
+  }
+
+  private updateBreadcrumbs(): void {
+    const list: Array<{ label: string; route?: string }> = [{ label: 'AXOS OS', route: '/dashboard' }];
+    
+    if (this.activeGroup) {
+      list.push({ label: this.activeGroup.label });
+    }
+    
+    if (this.activeItem) {
+      list.push({ label: this.activeItem.label, route: this.activeItem.route });
+    }
+
+    this.breadcrumbs = list;
   }
 
   get isImmersiveRoute(): boolean {

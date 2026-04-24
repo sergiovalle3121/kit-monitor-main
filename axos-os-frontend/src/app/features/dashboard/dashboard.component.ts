@@ -33,6 +33,8 @@ interface QuickLink {
   icon: string;
 }
 
+import { EnterpriseContextService } from '../../core/enterprise-context.service';
+
 @Component({
   selector: 'app-dashboard',
   standalone: true,
@@ -41,6 +43,8 @@ interface QuickLink {
   styleUrls: ['./dashboard.component.css'],
 })
 export class DashboardComponent implements OnInit, OnDestroy {
+  private readonly contextService = inject(EnterpriseContextService);
+  readonly context = this.contextService.context;
   currentTime = new Date();
   activeKpiIndex = 0;
   private kpiInterval: number | null = null;
@@ -96,9 +100,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   get greeting(): string {
     const h = this.currentTime.getHours();
-    if (h < 12) return 'Good morning';
-    if (h < 18) return 'Good afternoon';
-    return 'Good evening';
+    const building = this.contextService.buildings().find(b => b.id === this.context().buildingId);
+    const suffix = building ? ` en ${building.code}` : '';
+    
+    if (h < 12) return `Buenos días${suffix}`;
+    if (h < 18) return `Buenas tardes${suffix}`;
+    return `Buenas noches${suffix}`;
   }
 
   get formattedDate(): string {
