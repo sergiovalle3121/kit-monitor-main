@@ -121,8 +121,22 @@ export class VisualAidsComponent implements OnInit, AfterViewInit, OnDestroy {
       }
     };
 
-    console.log('Saving Visual Aid:', updatedDoc);
-    this.state.setDocument(updatedDoc);
+    const saveObs = doc.id 
+      ? this.api.updateEngineeringDocument(doc.id, updatedDoc)
+      : this.api.createEngineeringDocument(updatedDoc);
+
+    saveObs.subscribe({
+      next: (saved) => {
+        console.log('Document saved successfully:', saved);
+        this.state.setDocument(saved);
+        this.state.clearModified();
+        alert('Visual Aid guardado correctamente.');
+      },
+      error: (err) => {
+        console.error('Error saving document:', err);
+        alert('Error al guardar el Visual Aid. Verifica la conexión con el servidor.');
+      }
+    });
   }
 }
 

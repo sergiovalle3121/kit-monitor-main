@@ -4,7 +4,6 @@ import { FormsModule } from '@angular/forms';
 import { EnterpriseContextBannerComponent } from '../../shared/enterprise-context-banner/enterprise-context-banner.component';
 import { ApiService } from '../../core/api.service';
 import { BomVisualItem, MaterialImageViewerComponent } from './material-image-viewer.component';
-import { DEMO_IMAGE_DATA_URLS } from './material-image-demo.data';
 
 interface BomItemView extends BomVisualItem {
   id?: number;
@@ -21,8 +20,6 @@ interface BomModelGroup {
   materialCount: number;
   locatedCount: number;
 }
-
-const DEMO_MODEL = 'OP-320-0107B';
 
 @Component({
   selector: 'app-bom',
@@ -90,7 +87,7 @@ export class BomComponent implements OnInit, OnDestroy {
 
     this.api.getBom().subscribe({
       next: (data) => {
-        this.items = (data ?? []).map(item => this.decorateWithVisuals(item));
+        this.items = (data ?? []).map(item => this.sanitizeItem(item));
         this.rebuildGroups();
         this.loading = false;
       },
@@ -118,7 +115,7 @@ export class BomComponent implements OnInit, OnDestroy {
 
     this.api.createBomItem(payload).subscribe({
       next: (created) => {
-        this.items = [...this.items, this.decorateWithVisuals(created)];
+        this.items = [...this.items, this.sanitizeItem(created)];
         this.rebuildGroups();
         this.submitting = false;
         this.showForm = false;
@@ -251,7 +248,6 @@ export class BomComponent implements OnInit, OnDestroy {
   }
 
   openViewer(group: BomModelGroup, item: BomItemView): void {
-    if (group.model.trim().toUpperCase() !== DEMO_MODEL) return;
     const visualItems = group.materials.filter(material => !!material.imageUrl);
     if (!visualItems.length || !item.imageUrl) return;
 
@@ -273,11 +269,6 @@ export class BomComponent implements OnInit, OnDestroy {
   }
 
   markThumbError(item: BomItemView, event: Event): void {
-    if (item.imageUrl?.endsWith('.jpg')) {
-      item.imageUrl = item.imageUrl.replace('.jpg', '.svg');
-      return;
-    }
-
     item.imageUrl = null;
     item.hasImage = false;
     const target = event.target as HTMLImageElement;
@@ -289,16 +280,16 @@ export class BomComponent implements OnInit, OnDestroy {
   }
 
   get missingLocationCount(): number {
-    return this.items.filter(item => this.isEligibleItem(item) && !item.location?.trim()).length;
+    return this.items.filter(item => !item.location?.trim()).length;
   }
 
   get missingDescriptionCount(): number {
-    return this.items.filter(item => this.isEligibleItem(item) && !item.description?.trim()).length;
+    return this.items.filter(item => !item.description?.trim()).length;
   }
 
   get missingCatalogCount(): number {
     return this.items.filter(
-      item => this.isEligibleItem(item) && (!item.location?.trim() || !item.description?.trim()),
+      item => !item.location?.trim() || !item.description?.trim(),
     ).length;
   }
 
@@ -320,25 +311,10 @@ export class BomComponent implements OnInit, OnDestroy {
     };
   }
 
-  private decorateWithVisuals(item: BomItemView): BomItemView {
-    const normalizedModel = item.model?.trim().toUpperCase();
-    const normalizedPart = item.partNumber?.trim().toUpperCase();
-    if (normalizedModel !== DEMO_MODEL) {
-      return {
-        ...item,
-        imageUrl: null,
-        hasImage: false,
-      };
-    }
-
-    const mappedImage = DEMO_IMAGE_DATA_URLS[normalizedPart] ?? null;
-
-    const imageUrl = item.imageUrl?.trim() || mappedImage || null;
-
+  private sanitizeItem(item: BomItemView): BomItemView {
     return {
       ...item,
-      imageUrl,
-      hasImage: !!imageUrl,
+      hasImage: !!item.imageUrl,
     };
   }
 
@@ -346,8 +322,6 @@ export class BomComponent implements OnInit, OnDestroy {
     const groups = new Map<string, BomItemView[]>();
 
     for (const item of this.items) {
-      if (!this.isEligibleItem(item)) continue;
-
       const model = item.model.trim();
       const current = groups.get(model) ?? [];
       current.push(item);
@@ -384,13 +358,5 @@ export class BomComponent implements OnInit, OnDestroy {
         this.expandedModels.delete(model);
       }
     }
-  }
-
-  private isEligibleItem(item: BomItemView): boolean {
-    return this.isOpCode(item.model) && this.isOpCode(item.partNumber);
-  }
-
-  private isOpCode(value: string | null | undefined): boolean {
-    return typeof value === 'string' && value.trim().toUpperCase().startsWith('OP-');
   }
 }

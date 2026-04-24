@@ -3,7 +3,8 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { EngineeringStateService } from '../shared/services/engineering-state.service';
 import { VisualCanvasAdapter } from '../shared/adapters/visual-canvas.adapter';
-import { EditorTool } from '../shared/models/engineering.models';
+import { EditorTool, EngineeringDocument } from '../shared/models/engineering.models';
+import { ApiService } from '../../../core/api.service';
 
 @Component({
   selector: 'app-plant-layout-editor',
@@ -16,6 +17,7 @@ export class PlantLayoutComponent implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild('canvasElement') canvasElement!: ElementRef<HTMLCanvasElement>;
 
   private state = inject(EngineeringStateService);
+  private api = inject(ApiService);
   private adapter?: VisualCanvasAdapter;
 
   // Reactive State
@@ -28,19 +30,21 @@ export class PlantLayoutComponent implements OnInit, AfterViewInit, OnDestroy {
   showGrid = signal<boolean>(true);
 
   ngOnInit() {
-    this.state.setDocument({
-      name: 'Nuevo Plant Layout',
-      documentType: 'PLANT_LAYOUT',
-      schemaVersion: 1,
-      scope: {},
-      viewport: { zoom: 1, x: 0, y: 0 },
-      units: 'mm',
-      content: { layers: [
-        { id: 'floor', name: 'Planta / Suelo', visible: true, locked: false, opacity: 1 },
-        { id: 'machinery', name: 'Maquinaria', visible: true, locked: false, opacity: 1 },
-        { id: 'utilities', name: 'Servicios', visible: true, locked: false, opacity: 1 }
-      ] }
-    });
+    if (!this.currentDoc()) {
+      this.state.setDocument({
+        name: 'Nuevo Plant Layout',
+        documentType: 'PLANT_LAYOUT',
+        schemaVersion: 1,
+        scope: {},
+        viewport: { zoom: 1, x: 0, y: 0 },
+        units: 'mm',
+        content: { layers: [
+          { id: 'floor', name: 'Planta / Suelo', visible: true, locked: false, opacity: 1 },
+          { id: 'machinery', name: 'Maquinaria', visible: true, locked: false, opacity: 1 },
+          { id: 'utilities', name: 'Servicios', visible: true, locked: false, opacity: 1 }
+        ] }
+      });
+    }
   }
 
   ngAfterViewInit() {
@@ -55,7 +59,7 @@ export class PlantLayoutComponent implements OnInit, AfterViewInit, OnDestroy {
       selectionLineWidth: 1
     });
 
-    canvas.on('object:moving', (options) => {
+    canvas.on('object:moving', (options: any) => {
       if (this.snapToGrid()) {
         const gridSize = 20;
         options.target.set({
@@ -70,12 +74,11 @@ export class PlantLayoutComponent implements OnInit, AfterViewInit, OnDestroy {
     canvas.on('selection:updated', () => this.syncSelection());
     canvas.on('selection:cleared', () => this.syncSelection());
     
-    this.drawGrid();
-  }
-
-  drawGrid() {
-    // Grid rendering logic could be complex in Fabric, 
-    // for now we'll use a pattern or just CSS background
+    // Initial Load
+    const doc = this.currentDoc();
+    if (doc?.content?.objects) {
+      this.adapter.load(doc.content);
+    }
   }
 
   syncSelection() {
@@ -101,8 +104,7 @@ export class PlantLayoutComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   addMachine(type: string) {
-    // Add specialized machine footprint
-    this.adapter?.addRect(); // Placeholder for specific machinery symbols
+    this.adapter?.addRect();
     const obj = this.adapter?.getFabricCanvas().getActiveObject();
     if (obj) {
       obj.set({
@@ -132,12 +134,32 @@ export class PlantLayoutComponent implements OnInit, AfterViewInit, OnDestroy {
     const doc = this.currentDoc();
     if (!doc || !this.adapter) return;
     
-    const updated = {
+    const updatedDoc: EngineeringDocument = {
       ...doc,
-      content: this.adapter.serialize()
+      content: this.adapter.serialize(),
+      viewport: {
+        zoom: this.adapter.getZoom(),
+        x: 0,
+        y: 0
+      }
     };
-    console.log('Saving Plant Layout:', updated);
-    this.state.setDocument(updated);
+
+    const saveObs = doc.id 
+      ? this.api.updateEngineeringDocument(doc.id, updatedDoc)
+      : this.api.createEngineeringDocument(updatedDoc);
+
+    saveObs.subscribe({
+      next: (saved) => {
+        console.log('Plant Layout saved successfully:', saved);
+        this.state.setDocument(saved);
+        this.state.clearModified();
+        alert('Plant Layout guardado correctamente.');
+      },
+      error: (err) => {
+        console.error('Error saving plant layout:', err);
+        alert('Error al guardar el Plant Layout.');
+      }
+    });
   }
 }
 
