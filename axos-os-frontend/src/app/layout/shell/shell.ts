@@ -421,10 +421,10 @@ export class ShellComponent implements OnInit, OnDestroy {
 
   private refreshNotifications(): void {
     forkJoin({
-      publications: this.api.getPlanPublications(),
-      kits: this.api.getKits(),
-      backends: this.api.getProductionBackends(),
-      cancellations: this.api.getRecentCancellationRequests(),
+      publications: this.api.getPlanPublications().pipe(catchError(() => of([]))),
+      kits: this.api.getKits().pipe(catchError(() => of([]))),
+      backends: this.api.getProductionBackends().pipe(catchError(() => of([]))),
+      cancellations: this.api.getRecentCancellationRequests().pipe(catchError(() => of([]))),
       governed: this.api.getNotifications().pipe(catchError(() => of([])))
     }).subscribe({
       next: ({ publications, kits, backends, cancellations, governed }) => {
@@ -586,8 +586,9 @@ export class ShellComponent implements OnInit, OnDestroy {
     let domain: WorkspaceDomainId | null = null;
     let immersive = false;
     while (route) {
-      const routeDomain = route.snapshot.data[WORKSPACE_ROUTE_META.domain] as WorkspaceDomainId | undefined;
-      const routeImmersive = route.snapshot.data[WORKSPACE_ROUTE_META.immersive] as boolean | undefined;
+      const data = route.snapshot?.data;
+      const routeDomain = data ? data[WORKSPACE_ROUTE_META.domain] as WorkspaceDomainId | undefined : undefined;
+      const routeImmersive = data ? data[WORKSPACE_ROUTE_META.immersive] as boolean | undefined : undefined;
       if (routeDomain) domain = routeDomain;
       if (typeof routeImmersive === 'boolean') immersive = routeImmersive;
       route = route.firstChild;

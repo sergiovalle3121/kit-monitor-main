@@ -2,6 +2,7 @@ import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
+import { catchError, of } from 'rxjs';
 import { ApiService } from '../../core/api.service';
 import { EnterpriseContextBannerComponent } from '../../shared/enterprise-context-banner/enterprise-context-banner.component';
 
@@ -60,9 +61,9 @@ export class ExceptionCenterComponent implements OnInit {
   }
 
   loadAnalytics() {
-    this.api.getGovernanceTrends(this.analyticsDays).subscribe(data => this.trends = data);
-    this.api.getGovernanceDomainAnalytics().subscribe(data => this.domainStats = data);
-    this.api.getGovernanceFriction().subscribe(data => this.friction = data);
+    this.api.getGovernanceTrends(this.analyticsDays).pipe(catchError(() => of([]))).subscribe(data => this.trends = data);
+    this.api.getGovernanceDomainAnalytics().pipe(catchError(() => of([]))).subscribe(data => this.domainStats = data);
+    this.api.getGovernanceFriction().pipe(catchError(() => of(null))).subscribe(data => this.friction = data);
   }
 
   loadSummary() {

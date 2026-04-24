@@ -36,7 +36,7 @@
               <div class="bar bar-overdue" [style.height.px]="day.overdue * 10" [attr.title]="day.overdue + ' vencidas'"></div>
               <div class="bar bar-escalated" [style.height.px]="day.escalated * 10" [attr.title]="day.escalated + ' escaladas'"></div>
             </div>
-            <label>{{ day.date.split('-')[2] }}</label>
+            <label>{{ day.date ? day.date.split('-')[2] : '-' }}</label>
           </div>
         </div>
       </section>
