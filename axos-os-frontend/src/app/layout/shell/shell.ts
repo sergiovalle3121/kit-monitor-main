@@ -108,6 +108,7 @@ export class ShellComponent implements OnInit, OnDestroy {
       short: 'EX',
       icon: 'fa-tower-broadcast',
       items: [
+        { label: 'Dashboard', route: '/dashboard', icon: 'fa-gauge', state: 'active' },
         { label: 'Site Overview', route: '/site-overview', icon: 'fa-tower-broadcast', state: 'active' },
         { label: 'Control Tower', route: '/control-tower', icon: 'fa-globe', state: 'active' },
         { label: 'Exception Center', route: '/exception-center', icon: 'fa-triangle-exclamation', state: 'active' },
@@ -162,6 +163,8 @@ export class ShellComponent implements OnInit, OnDestroy {
         { label: 'Plant Layout 2D', route: '/plant-layout', icon: 'fa-vector-square', state: 'active' },
         { label: 'Visual Aids / SOPs', route: '/visual-aids', icon: 'fa-eye', state: 'active' },
         { label: 'Disposition / Line Layout', route: '/disposition', icon: 'fa-vector-square', state: 'active' },
+        { label: 'Layout Designer', route: '/layout-designer', icon: 'fa-draw-polygon', state: 'active' },
+        { label: 'Editor', route: '/editor', icon: 'fa-pencil-ruler', state: 'active' },
       ],
     },
     {

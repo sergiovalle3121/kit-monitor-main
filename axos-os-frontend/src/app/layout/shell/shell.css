@@ -71,6 +71,11 @@ body {
   grid-template-columns: 268px 1fr;
   min-height: 100vh;
   transition: grid-template-columns var(--t) var(--ease);
+  animation: layoutFadeIn 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes layoutFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 .layout.collapsed { grid-template-columns: 70px 1fr; }
 .layout.layout-immersive { grid-template-columns: 232px 1fr; }

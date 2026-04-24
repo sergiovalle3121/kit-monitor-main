@@ -1,0 +1,64 @@
+<div class="ld-wrap">
+
+  <!-- Toolbar -->
+  <div class="ld-toolbar">
+    <div class="toolbar-group">
+      <span class="toolbar-badge">Layout Designer</span>
+    </div>
+    <div class="toolbar-group toolbar-tools">
+      <button class="tool-btn" title="Wall"><i class="fas fa-grip-lines-vertical"></i></button>
+      <button class="tool-btn" title="Bay"><i class="fas fa-border-all"></i></button>
+      <button class="tool-btn" title="Workstation"><i class="fas fa-person-digging"></i></button>
+      <div class="tool-divider"></div>
+      <button class="tool-btn" title="Conveyor"><i class="fas fa-route"></i></button>
+      <button class="tool-btn" title="Storage"><i class="fas fa-pallet"></i></button>
+      <div class="tool-divider"></div>
+      <button class="tool-btn tool-btn--active" title="Select"><i class="fas fa-arrow-pointer"></i></button>
+      <button class="tool-btn" title="Erase"><i class="fas fa-eraser"></i></button>
+    </div>
+    <div class="toolbar-group toolbar-right">
+      <button class="toolbar-action">
+        <i class="fas fa-floppy-disk"></i> Save Draft
+      </button>
+      <span class="toolbar-status">
+        <i class="fas fa-circle-dot" style="color:#10b981;font-size:0.6rem"></i>
+        FocusedLayout · Full-Screen Mode
+      </span>
+    </div>
+  </div>
+
+  <!-- Designer content -->
+  <div class="ld-stage">
+    <!-- Left panel: components palette -->
+    <aside class="ld-palette">
+      <p class="palette-title">Components</p>
+      <div class="palette-item"><i class="fas fa-border-all"></i><span>Bay</span></div>
+      <div class="palette-item"><i class="fas fa-person-digging"></i><span>Workstation</span></div>
+      <div class="palette-item"><i class="fas fa-route"></i><span>Conveyor</span></div>
+      <div class="palette-item"><i class="fas fa-pallet"></i><span>Storage</span></div>
+      <div class="palette-item"><i class="fas fa-restroom"></i><span>Service</span></div>
+      <div class="palette-item"><i class="fas fa-door-open"></i><span>Entry/Exit</span></div>
+    </aside>
+
+    <!-- Main canvas -->
+    <div class="ld-canvas" aria-label="Layout designer canvas">
+      <div class="canvas-grid" aria-hidden="true"></div>
+      <div class="canvas-placeholder">
+        <i class="fas fa-draw-polygon"></i>
+        <h2>Layout Designer</h2>
+        <p>Full-screen plant layout designer · FocusedLayout active</p>
+        <small>Use the Back → Shell button to return to the main navigation</small>
+      </div>
+    </div>
+
+    <!-- Right panel: properties -->
+    <aside class="ld-props">
+      <p class="palette-title">Properties</p>
+      <div class="prop-empty">
+        <i class="fas fa-arrow-pointer"></i>
+        <span>Select an element</span>
+      </div>
+    </aside>
+  </div>
+
+</div>
