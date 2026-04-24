@@ -3,11 +3,111 @@
 
 .intelligence-page {
   position: relative; z-index: 1;
-  display: flex; flex-direction: column; gap: 20px;
+  display: flex; flex-direction: column; gap: 24px;
 }
 
-.hero,.view-grid,.metric-strip,.mode-strip,.top-three,.executive-strip { display: grid; gap: 16px; }
-.hero { grid-template-columns: minmax(0,1.55fr) minmax(300px,0.95fr); }
+/* ── Laboratory Header ─────────────────────── */
+.lab-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 32px;
+  background: #ffffff;
+  border: 1px solid var(--sb-border);
+  border-radius: 20px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.02), 0 20px 40px rgba(0,0,0,0.04);
+  position: relative;
+  overflow: hidden;
+}
+
+.lab-header::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(circle at 2px 2px, rgba(0,0,0,0.03) 1px, transparent 0);
+  background-size: 24px 24px;
+  opacity: 0.5;
+}
+
+.lab-title {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  position: relative;
+  z-index: 1;
+}
+
+.lab-icon {
+  width: 64px;
+  height: 64px;
+  background: #18181b;
+  color: #ffffff;
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
+  font-size: 2rem;
+  font-weight: 300;
+  box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+}
+
+.lab-stats {
+  display: flex;
+  gap: 40px;
+  position: relative;
+  z-index: 1;
+}
+
+.stat-dial {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 140px;
+}
+
+.stat-dial small {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #71717a;
+  font-weight: 700;
+}
+
+.stat-dial strong {
+  font-size: 1.5rem;
+  color: #18181b;
+  font-family: 'Cascadia Code', monospace;
+  letter-spacing: -0.02em;
+}
+
+.dial-track {
+  height: 4px;
+  background: #f4f4f5;
+  border-radius: 2px;
+  overflow: hidden;
+  margin-top: 4px;
+}
+
+.dial-track span {
+  display: block;
+  height: 100%;
+  background: #18181b;
+  transition: width 1s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.stat-dial.spotlight {
+  padding-left: 24px;
+  border-left: 1px solid #e4e4e7;
+}
+
+.stat-dial.spotlight strong {
+  color: #059669;
+  font-size: 1.1rem;
+}
+
+.stat-dial.spotlight p {
+  font-size: 0.75rem;
+  color: #71717a;
+}
 
 /* ── Base card ─────────────────────────────── */
 .hero-copy,.hero-side,.card,.metric-card,.mode-card,.top-card {
@@ -229,11 +329,113 @@ th {
 .stats-grid span { color:#9fb3c8; font-size:0.72rem; font-weight:800; letter-spacing:0.1em; text-transform:uppercase; }
 .stats-grid strong { color:#0f1e30; font-size:1.08rem; font-weight:800; font-family:'Cascadia Code','Fira Code',monospace; }
 
-/* ── Histogram ─────────────────────────────── */
-.histogram { display:flex; align-items:end; gap:7px; min-height:220px; margin-top:16px; }
-.histogram-bar { flex:1; display:flex; flex-direction:column; justify-content:end; align-items:center; gap:7px; }
-.histogram-fill { width:100%; min-height:5px; border-radius:8px 8px 0 0; background:linear-gradient(180deg,#0ea5e9,#7dd3fc); }
-.histogram-bar span { color:#9fb3c8; font-size:0.72rem; writing-mode:vertical-rl; transform:rotate(180deg); }
+.lab-pill {
+  padding: 4px 10px;
+  background: #f4f4f5;
+  border-radius: 6px;
+  font-family: 'Cascadia Code', monospace;
+  font-size: 0.75rem;
+  color: #18181b;
+  border: 1px solid #e4e4e7;
+}
+
+/* ── Histogram — Pro Laboratory ────────────── */
+.histogram-container {
+  margin-top: 24px;
+}
+
+.histogram {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  height: 200px;
+}
+
+.histogram-bar {
+  flex: 1;
+  position: relative;
+}
+
+.histogram-fill {
+  width: 100%;
+  background: #18181b;
+  border-radius: 4px 4px 0 0;
+  transition: height 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+  opacity: 0.85;
+}
+
+.histogram-fill:hover {
+  opacity: 1;
+  background: #059669;
+}
+
+.hover-tip {
+  position: absolute;
+  top: -30px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #18181b;
+  color: white;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.65rem;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.2s;
+  pointer-events: none;
+}
+
+.histogram-fill:hover .hover-tip {
+  opacity: 1;
+}
+
+.histogram-axis {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #f4f4f5;
+}
+
+.histogram-axis span {
+  font-size: 0.6rem;
+  color: #a1a1aa;
+  font-family: 'Cascadia Code', monospace;
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+}
+
+.dist-meta {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px dashed #e4e4e7;
+}
+
+.dist-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.dist-stat small {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  color: #71717a;
+  font-weight: 700;
+}
+
+.dist-stat strong {
+  font-size: 1.2rem;
+  color: #18181b;
+  font-family: 'Cascadia Code', monospace;
+}
+
+.dist-stat.highlight strong {
+  color: #059669;
+}
 
 /* Status semantic */
 .status-good { background:#f0fdf4; color:#166534; border:1px solid #bbf7d0; border-radius:999px; padding:0 10px; }
@@ -256,11 +458,50 @@ th {
 .ranking-score { color:#0f1e30; font-weight:800; text-align:right; font-family:'Cascadia Code','Fira Code',monospace; }
 
 /* ── Decision panel ────────────────────────── */
-.decision-top { display:grid; grid-template-columns:170px minmax(0,1fr); gap:18px; margin-top:10px; }
+.decision-top { display:grid; grid-template-columns:180px minmax(0,1fr); gap:32px; margin-top:10px; }
+.risk-gauge-container { display: flex; flex-direction: column; align-items: center; gap: 8px; }
 .risk-gauge { width:160px; height:160px; border-radius:50%; padding:14px; display:grid; place-items:center; }
 .risk-gauge-inner { width:100%; height:100%; border-radius:50%; background:#fff; display:grid; place-items:center; text-align:center; border:1px solid rgba(15,30,60,0.09); }
-.risk-gauge-inner strong { color:#0f1e30; font-size:1.9rem; line-height:1; font-family:'Cascadia Code','Fira Code',monospace; }
-.recommendation-card { background:linear-gradient(145deg, rgba(14,165,233,0.04) 0%, #fff 30%); }
+.risk-gauge-inner strong { color:#18181b; font-size:1.9rem; line-height:1; font-family:'Cascadia Code',monospace; }
+.risk-gauge-inner span { font-size: 0.65rem; color: #71717a; font-weight: 700; text-transform: uppercase; }
+.gauge-label { font-size: 0.7rem; color: #a1a1aa; font-weight: 600; }
+
+.lab-data-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+.data-cell {
+  padding: 16px;
+  background: #fcfcfb;
+  border: 1px solid #f4f4f5;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.data-cell small {
+  font-size: 0.65rem;
+  color: #71717a;
+  font-weight: 700;
+}
+
+.data-cell strong {
+  font-size: 1.1rem;
+  color: #18181b;
+  font-family: 'Cascadia Code', monospace;
+}
+
+.data-cell.spotlight {
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+}
+
+.data-cell.spotlight strong {
+  color: #059669;
+}
 .final-recommendation { margin:0; color:#0f1e30; font-size:1rem; }
 
 /* ── Top three ─────────────────────────────── */

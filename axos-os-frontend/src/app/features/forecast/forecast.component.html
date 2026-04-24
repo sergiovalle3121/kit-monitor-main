@@ -1,29 +1,58 @@
 <section class="intelligence-page">
+  <!-- Laboratory Header: Von Neumann Style -->
+  <header class="lab-header">
+    <div class="lab-title">
+      <div class="lab-icon">Σ</div>
+      <div>
+        <p class="card-kicker">MATHEMATICAL PREDICTION ENVIRONMENT</p>
+        <h1>Laboratorio de Planeación & Forecast</h1>
+      </div>
+    </div>
+    
+    <div class="lab-stats">
+      <div class="stat-dial">
+        <small>$\sigma$ Stability</small>
+        <strong>{{ sigmaStability() | number:'1.0-1' }}%</strong>
+        <div class="dial-track"><span [style.width.%]="sigmaStability()"></span></div>
+      </div>
+      <div class="stat-dial">
+        <small>Favorability Index</small>
+        <strong>{{ favorabilityIndex() | number:'1.0-1' }}%</strong>
+        <div class="dial-track"><span [style.width.%]="favorabilityIndex()"></span></div>
+      </div>
+      <div class="stat-dial spotlight">
+        <small>Bottleneck Resource</small>
+        <strong>{{ bottleneckResource() }}</strong>
+        <p>Limitante detectado</p>
+      </div>
+    </div>
+  </header>
+
   <section class="executive-strip compact-five">
     <article class="exec-card spotlight">
-      <small>Run activo</small>
-      <strong>{{ latestRunId ? ('Run #' + latestRunId) : 'Sin run activo' }}</strong>
-      <p>{{ latestScenarioId ? ('Scenario #' + latestScenarioId) : 'Sin escenario' }}</p>
+      <small>Run activo (ID)</small>
+      <strong>{{ latestRunId ? ('R-' + latestRunId) : 'N/A' }}</strong>
+      <p>$\int$ Análisis Maestro</p>
     </article>
     <article class="exec-card">
-      <small>Confidence score</small>
-      <strong>{{ planConfidenceScore != null ? (planConfidenceScore | number:'1.0-1') : '-' }}</strong>
-      <p>Calibrated score</p>
+      <small>Plan Confidence</small>
+      <strong>{{ planConfidenceScore != null ? (planConfidenceScore | number:'1.0-1') : '0.0' }}</strong>
+      <p>Score Calibrado</p>
     </article>
     <article class="exec-card">
-      <small>Probability of success</small>
+      <small>Success Probability</small>
       <strong>{{ percentLabel(planProbability) }}</strong>
-      <p>Viabilidad de plan</p>
+      <p>$P(success)$</p>
     </article>
     <article class="exec-card">
-      <small>Simulation mode</small>
-      <strong>{{ simulationMode || 'N/A' }}</strong>
-      <p>Iteraciones: {{ simulationIterations }}</p>
+      <small>Monte Carlo Mode</small>
+      <strong>{{ simulationMode || 'Bootstrap' }}</strong>
+      <p>$N = {{ simulationIterations / 1000 }}k$ iter</p>
     </article>
     <article class="exec-card">
-      <small>Top material risk</small>
+      <small>Critical Risk</small>
       <strong>{{ topMaterialRiskLabel }}</strong>
-      <p>Estado global: {{ forecastState.title }}</p>
+      <p>$\Delta$ Variación Max</p>
     </article>
   </section>
 
@@ -530,29 +559,52 @@
       <article class="card histogram-card">
         <div class="card-head">
           <div>
-            <p class="card-kicker">DISTRIBUCION EMPIRICA</p>
-            <h2>Demanda simulada al lead time</h2>
+            <p class="card-kicker">MONTE CARLO DISTRIBUTION</p>
+            <h2>Simulación de Demanda (Bootstrap)</h2>
           </div>
+          <div class="lab-pill">$\sigma = {{ selectedRiskScenario?.sigma | number:'1.0-2' || '0.0' }}$</div>
         </div>
 
         @if (selectedRiskScenario) {
-          <div class="histogram">
-            @for (bucket of selectedRiskScenario.histogram; track bucket.label) {
-              <div class="histogram-bar">
-                <div class="histogram-fill" [style.height.%]="bucket.ratio * 100"></div>
+          <div class="histogram-container">
+            <div class="histogram">
+              @for (bucket of selectedRiskScenario.histogram; track bucket.label) {
+                <div class="histogram-bar">
+                  <div class="histogram-fill" [style.height.%]="bucket.ratio * 100">
+                    <span class="hover-tip">{{ bucket.count }} hits</span>
+                  </div>
+                </div>
+              }
+            </div>
+            <div class="histogram-axis">
+              @for (bucket of selectedRiskScenario.histogram; track bucket.label) {
                 <span>{{ bucket.label }}</span>
-              </div>
-            }
+              }
+            </div>
           </div>
 
-          <p class="recommendation-text">
-            Rango realista: {{ selectedRiskScenario.realisticMin }} a {{ selectedRiskScenario.realisticMax }}.
-            Safety stock sugerido: {{ selectedRiskScenario.safetyStockSuggested }}.
-          </p>
+          <div class="dist-meta">
+            <div class="dist-stat">
+              <small>Realistic Min</small>
+              <strong>{{ selectedRiskScenario.realisticMin }}</strong>
+            </div>
+            <div class="dist-stat">
+              <small>Expected ($\mu$)</small>
+              <strong>{{ selectedRiskScenario.stock }}</strong>
+            </div>
+            <div class="dist-stat">
+              <small>Realistic Max</small>
+              <strong>{{ selectedRiskScenario.realisticMax }}</strong>
+            </div>
+            <div class="dist-stat highlight">
+              <small>Safety Stock ($\Sigma$)</small>
+              <strong>{{ selectedRiskScenario.safetyStockSuggested }}</strong>
+            </div>
+          </div>
         } @else {
           <div class="empty-state">
-            <strong>Simulacion pendiente</strong>
-            <span>Al ejecutar riesgo, aqui veras la distribucion bootstrap al lead time.</span>
+            <strong>Esperando simulación</strong>
+            <span>Ejecuta el análisis de riesgo para ver la distribución probabilística.</span>
           </div>
         }
       </article>
@@ -732,19 +784,33 @@
 
         @if (selectedOperationDecision) {
           <div class="decision-top">
-            <div class="risk-gauge" [style.background]="riskGaugeBackground(selectedOperationDecision)">
-              <div class="risk-gauge-inner">
-                <strong>{{ selectedOperationDecision.riskScore | number:'1.0-0' }}</strong>
-                <span>Riesgo</span>
+            <div class="risk-gauge-container">
+              <div class="risk-gauge" [style.background]="riskGaugeBackground(selectedOperationDecision)">
+                <div class="risk-gauge-inner">
+                  <strong>{{ selectedOperationDecision.riskScore | number:'1.0-0' }}</strong>
+                  <span>$\Delta$ Riesgo</span>
+                </div>
               </div>
+              <p class="gauge-label">P(Stockout)</p>
             </div>
 
-            <div class="insight-list">
-              <div><strong>Coverage</strong><span>{{ selectedOperationDecision.coverage ?? '-' }}</span></div>
-              <div><strong>Factibilidad</strong><span>{{ selectedOperationDecision.feasibility }}%</span></div>
-              <div><strong>Kits posibles</strong><span>{{ selectedOperationDecision.kitsPossible }}</span></div>
-              <div><strong>Matching</strong><span>{{ selectedOperationDecision.matchingQuality }}</span></div>
-              <div><strong>Forecast referencia</strong><span>{{ selectedOperationDecision.forecastReference || 'Sin match' }}</span></div>
+            <div class="lab-data-grid">
+              <div class="data-cell">
+                <small>$\phi$ Factibilidad</small>
+                <strong>{{ selectedOperationDecision.feasibility }}%</strong>
+              </div>
+              <div class="data-cell">
+                <small>$\kappa$ Kits Posibles</small>
+                <strong>{{ selectedOperationDecision.kitsPossible }}</strong>
+              </div>
+              <div class="data-cell spotlight">
+                <small>$\mu$ Forecast Ref</small>
+                <strong>{{ selectedOperationDecision.forecastReference || '0.0' }}</strong>
+              </div>
+              <div class="data-cell">
+                <small>Matching $q$</small>
+                <strong>{{ selectedOperationDecision.matchingQuality }}</strong>
+              </div>
             </div>
           </div>
 

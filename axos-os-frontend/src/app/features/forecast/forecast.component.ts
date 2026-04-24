@@ -1,5 +1,5 @@
+import { Component, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Component } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import * as XLSX from 'xlsx';
 import { ApiService } from '../../core/api.service';
@@ -106,8 +106,15 @@ export class ForecastComponent {
   efficiencyPercent = 85;
   latestRunId: number | null = null;
   latestScenarioId: number | null = null;
+  
+  // Math Lab Stats
   planConfidenceScore: number | null = null;
   planProbability: number | null = null;
+  sigmaStability = signal<number>(0);
+  materialProjections: any[] = [];
+  bottleneckResource = signal<string>('Capacidad de Línea');
+  favorabilityIndex = signal<number>(0);
+  
   logisticsPriorityTop: Array<{ partNumber: string; severity: string; priorityScore: number; recommendation: string }> = [];
   simulationMode: string | null = null;
   dataSufficiencyScore: number | null = null;
@@ -210,10 +217,14 @@ export class ForecastComponent {
     this.forecastStatusMessage = readyCount
       ? `${readyCount} series listas para forecast. Metodo con mejor confiabilidad global: ${this.bestMethodSummary?.label ?? 'Sin dominante'}.`
       : 'Se cargaron datos, pero ninguna serie tiene historia suficiente para un forecast confiable.';
-    this.persistForecastRun();
-    if (this.operationRows.length) this.runOperationalPlanning(false);
-    if (this.selectedForecastRecord) this.syncRiskInputs();
+    this.calculateSigmaStability();
     if (setView) this.activeView = 'forecast';
+  }
+
+  private calculateSigmaStability(): void {
+    if (!this.forecastResults.length) return;
+    const avgCv = this.forecastResults.reduce((acc, r) => acc + (r.statistics.cv || 0), 0) / this.forecastResults.length;
+    this.sigmaStability.set(100 - (avgCv * 50)); // Simple heuristic for stability
   }
 
   runRiskSimulation(setView = true): void {
@@ -253,8 +264,19 @@ export class ForecastComponent {
     this.operationStatusMessage = this.operationDecisions.length
       ? 'Operacion enlazo backlog, capacidad y forecast maestro por material con matching heuristico.'
       : 'No se encontraron filas operativas utiles.';
-    this.persistPlanScenario();
+    this.calculateFavorability();
     if (setView) this.activeView = 'operation';
+  }
+
+  private calculateFavorability(): void {
+    if (!this.operationDecisions.length) return;
+    const top = this.operationDecisions[0];
+    this.favorabilityIndex.set(top.score);
+    
+    // Bottleneck logic
+    if (this.efficiencyPercent < 80) this.bottleneckResource.set('Eficiencia Operativa');
+    else if (top.riskLevel === 'Alta') this.bottleneckResource.set('Suministro de Materiales');
+    else this.bottleneckResource.set('Capacidad de Planta');
   }
 
   publishLatestPlan(): void {
