@@ -346,6 +346,14 @@ export class EnterpriseCampusService implements OnModuleInit {
   private async ensureDimensionSeedData(force = false): Promise<void> {
     if (!force && await this.buildingRepo.count() >= 10) return;
 
+    // Clear old data to prevent duplicates (only for development hardening)
+    if (force) {
+      await this.programRepo.delete({});
+      await this.warehouseRepo.delete({});
+      await this.buildingRepo.delete({});
+      await this.customerRepo.delete({});
+    }
+
     // Campus Jabil Guadalajara Topology (GDL1 & GDL2)
     const buildings = await this.buildingRepo.save([
       // GDL1: Valdepeñas
