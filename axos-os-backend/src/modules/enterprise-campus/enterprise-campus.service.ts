@@ -347,10 +347,24 @@ export class EnterpriseCampusService implements OnModuleInit {
 
     // Campus Jabil Guadalajara
     const buildings = await this.buildingRepo.save([
-      this.buildingRepo.create({ id: 'val-01', code: 'VAL-01', name: 'Valdepeñas Building 1', status: 'active', tags: ['assembly', 'valdepenas'], activeShifts: ['A', 'B', 'C'], sortOrder: 10 }),
-      this.buildingRepo.create({ id: 'val-02', code: 'VAL-02', name: 'Valdepeñas Building 2', status: 'active', tags: ['smt', 'valdepenas'], activeShifts: ['A', 'B'], sortOrder: 11 }),
-      this.buildingRepo.create({ id: 'gtp-01', code: 'GTP-01', name: 'GTP Technology Park B1', status: 'active', tags: ['final-assembly', 'gtp'], activeShifts: ['A', 'B', 'C'], sortOrder: 20 }),
-      this.buildingRepo.create({ id: 'gtp-02', code: 'GTP-02', name: 'GTP Technology Park B2', status: 'active', tags: ['warehouse', 'gtp'], activeShifts: ['A', 'B'], sortOrder: 21 }),
+    // Campus Jabil Guadalajara Topology
+    const buildings = await this.buildingRepo.save([
+      // Valdepeñas
+      this.buildingRepo.create({ id: 'val-01', code: 'B1', name: 'Valdepeñas B1', status: 'active', tags: ['valdepenas'], sortOrder: 10 }),
+      this.buildingRepo.create({ id: 'val-02', code: 'B2', name: 'Valdepeñas B2', status: 'active', tags: ['valdepenas'], sortOrder: 11 }),
+      
+      // GTP (Guadalajara Technology Park)
+      this.buildingRepo.create({ id: 'gtp-03', code: 'B3', name: 'GTP B3 (Almacén)', status: 'active', tags: ['gtp', 'warehouse'], sortOrder: 20 }),
+      this.buildingRepo.create({ id: 'gtp-04', code: 'B4', name: 'GTP B4', status: 'active', tags: ['gtp'], sortOrder: 21 }),
+      this.buildingRepo.create({ id: 'gtp-05', code: 'B5', name: 'GTP B5', status: 'active', tags: ['gtp'], sortOrder: 22 }),
+      this.buildingRepo.create({ id: 'gtp-06', code: 'B6', name: 'GTP B6', status: 'active', tags: ['gtp'], sortOrder: 23 }),
+      this.buildingRepo.create({ id: 'gtp-07', code: 'B7', name: 'GTP B7', status: 'active', tags: ['gtp'], sortOrder: 24 }),
+      this.buildingRepo.create({ id: 'gtp-08', code: 'B8', name: 'GTP B8', status: 'active', tags: ['gtp'], sortOrder: 25 }),
+      this.buildingRepo.create({ id: 'gtp-09', code: 'B9', name: 'GTP B9', status: 'active', tags: ['gtp'], sortOrder: 26 }),
+      this.buildingRepo.create({ id: 'gtp-10', code: 'B10', name: 'GTP B10', status: 'active', tags: ['gtp'], sortOrder: 27 }),
+
+      // Nextipac
+      this.buildingRepo.create({ id: 'next-01', code: 'NEXTIPAC', name: 'Nextipac (Almacén General)', status: 'active', tags: ['central-warehouse'], sortOrder: 50 }),
     ]);
     const byId = new Map(buildings.map((building) => [building.id, building]));
 
@@ -363,15 +377,16 @@ export class EnterpriseCampusService implements OnModuleInit {
     const customerById = new Map(customers.map((customer) => [customer.id, customer]));
 
     await this.warehouseRepo.save([
-      this.warehouseRepo.create({ id: 'wh-nextipac', code: 'NEXTIPAC', name: 'Almacén Externo Nextipac', type: 'central', status: 'active', locationCount: 5000, sortOrder: 5 }),
-      this.warehouseRepo.create({ id: 'wh-val-01', code: 'WH-VAL-01', name: 'Almacén VAL-01', type: 'building', status: 'active', locationCount: 1200, sortOrder: 10, building: byId.get('val-01') }),
-      this.warehouseRepo.create({ id: 'wh-gtp-01', code: 'WH-GTP-01', name: 'Almacén GTP-01', type: 'building', status: 'active', locationCount: 1500, sortOrder: 20, building: byId.get('gtp-01') }),
+      this.warehouseRepo.create({ id: 'wh-nextipac', code: 'WH-NEXTI', name: 'Nextipac Main Storage', type: 'central', status: 'active', locationCount: 15000, sortOrder: 5, building: byId.get('next-01') }),
+      this.warehouseRepo.create({ id: 'wh-val-01', code: 'WH-B1', name: 'Almacén B1', type: 'building', status: 'active', locationCount: 2200, sortOrder: 10, building: byId.get('val-01') }),
+      this.warehouseRepo.create({ id: 'wh-gtp-03', code: 'WH-B3', name: 'Almacén B3', type: 'building', status: 'active', locationCount: 8500, sortOrder: 20, building: byId.get('gtp-03') }),
     ]);
 
     await this.programRepo.save([
-      this.programRepo.create({ id: 'prog-optics', customer: customerById.get('cust-cisco')!, code: 'OPTICS', name: 'Cisco Optics High-Speed', status: 'active', primaryModelPrefix: 'OPT', dedicatedBuilding: byId.get('val-01') }),
-      this.programRepo.create({ id: 'prog-servers', customer: customerById.get('cust-dell')!, code: 'SERVERS', name: 'Dell PowerEdge Gen16', status: 'active', primaryModelPrefix: 'PE16', dedicatedBuilding: byId.get('val-02') }),
-      this.programRepo.create({ id: 'prog-auto-nx', customer: customerById.get('cust-tesla')!, code: 'AUTO-NX', name: 'Tesla Autopilot HW4', status: 'ramping', primaryModelPrefix: 'HW4', dedicatedBuilding: byId.get('gtp-01') }),
+      this.programRepo.create({ id: 'prog-optics', customer: customerById.get('cust-cisco')!, code: 'OPTICS', name: 'Cisco Optics', status: 'active', primaryModelPrefix: 'OPT', dedicatedBuilding: byId.get('val-01') }),
+      this.programRepo.create({ id: 'prog-servers', customer: customerById.get('cust-dell')!, code: 'SERVERS', name: 'Dell PowerEdge', status: 'active', primaryModelPrefix: 'PE16', dedicatedBuilding: byId.get('val-02') }),
+      this.programRepo.create({ id: 'prog-auto-nx', customer: customerById.get('cust-tesla')!, code: 'AUTO-NX', name: 'Tesla Autopilot', status: 'ramping', primaryModelPrefix: 'HW4', dedicatedBuilding: byId.get('gtp-04') }),
+      this.programRepo.create({ id: 'prog-iphone', customer: customerById.get('cust-apple')!, code: 'IPHONE', name: 'Apple iPhone Assy', status: 'active', primaryModelPrefix: 'APL', dedicatedBuilding: byId.get('gtp-05') }),
     ]);
   }
 
@@ -384,14 +399,28 @@ export class EnterpriseCampusService implements OnModuleInit {
     const areas = await this.areaRepo.save([
       this.areaRepo.create({ id: 'area-v1-asm', building: byId.get('val-01')!, code: 'V1-ASM', name: 'Valdepeñas Assy Zone', type: 'Assembly', sortOrder: 10 }),
       this.areaRepo.create({ id: 'area-v2-smt', building: byId.get('val-02')!, code: 'V2-SMT', name: 'Valdepeñas SMT Zone', type: 'SMT', sortOrder: 10 }),
-      this.areaRepo.create({ id: 'area-g1-fa', building: byId.get('gtp-01')!, code: 'G1-FA', name: 'GTP Final Assy', type: 'PCBA', sortOrder: 10 }),
+      this.areaRepo.create({ id: 'area-g3-wh',  building: byId.get('gtp-03')!, code: 'G3-WH',  name: 'GTP Warehouse Zone', type: 'Warehouse', sortOrder: 20 }),
+      this.areaRepo.create({ id: 'area-g4-fa',  building: byId.get('gtp-04')!, code: 'G4-FA',  name: 'GTP Final Assy Zone', type: 'Assembly', sortOrder: 21 }),
+      this.areaRepo.create({ id: 'area-g5-fa',  building: byId.get('gtp-05')!, code: 'G5-FA',  name: 'GTP Final Assy Zone', type: 'Assembly', sortOrder: 22 }),
+      this.areaRepo.create({ id: 'area-g6-fa',  building: byId.get('gtp-06')!, code: 'G6-FA',  name: 'GTP Final Assy Zone', type: 'Assembly', sortOrder: 23 }),
+      this.areaRepo.create({ id: 'area-g7-fa',  building: byId.get('gtp-07')!, code: 'G7-FA',  name: 'GTP Final Assy Zone', type: 'Assembly', sortOrder: 24 }),
+      this.areaRepo.create({ id: 'area-g8-fa',  building: byId.get('gtp-08')!, code: 'G8-FA',  name: 'GTP Final Assy Zone', type: 'Assembly', sortOrder: 25 }),
+      this.areaRepo.create({ id: 'area-g9-fa',  building: byId.get('gtp-09')!, code: 'G9-FA',  name: 'GTP Final Assy Zone', type: 'Assembly', sortOrder: 26 }),
+      this.areaRepo.create({ id: 'area-g10-fa', building: byId.get('gtp-10')!, code: 'G10-FA', name: 'GTP Final Assy Zone', type: 'Assembly', sortOrder: 27 }),
     ]);
     const areaById = new Map(areas.map((a) => [a.id, a]));
 
     const lines = await this.lineRepo.save([
-      this.lineRepo.create({ id: 'line-v1-01', building: byId.get('val-01')!, area: areaById.get('area-v1-asm')!, code: 'L-V1-01', name: 'Assy Line 01', legacyLineNumber: 1, status: 'active', capacityPerShift: 1000, activeShift: 'A', tags: ['assembly'], sortOrder: 10 }),
-      this.lineRepo.create({ id: 'line-v2-05', building: byId.get('val-02')!, area: areaById.get('area-v2-smt')!, code: 'L-V2-05', name: 'SMT Line 05', legacyLineNumber: 5, status: 'active', capacityPerShift: 1500, activeShift: 'B', tags: ['smt'], sortOrder: 50 }),
-      this.lineRepo.create({ id: 'line-g1-08', building: byId.get('gtp-01')!, area: areaById.get('area-g1-fa')!, code: 'L-G1-08', name: 'GTP Line 08', legacyLineNumber: 8, status: 'active', capacityPerShift: 800, activeShift: 'A', tags: ['final-assembly'], sortOrder: 80 }),
+      this.lineRepo.create({ id: 'line-v1-01', building: byId.get('val-01')!, area: areaById.get('area-v1-asm')!, code: 'L-B1-01', name: 'B1 Line 01', legacyLineNumber: 1, status: 'active', capacityPerShift: 1000, activeShift: 'A', tags: ['assembly'], sortOrder: 10 }),
+      this.lineRepo.create({ id: 'line-v1-02', building: byId.get('val-01')!, area: areaById.get('area-v1-asm')!, code: 'L-B1-02', name: 'B1 Line 02', legacyLineNumber: 2, status: 'active', capacityPerShift: 1000, activeShift: 'A', tags: ['assembly'], sortOrder: 11 }),
+      this.lineRepo.create({ id: 'line-v2-05', building: byId.get('val-02')!, area: areaById.get('area-v2-smt')!, code: 'L-B2-05', name: 'B2 Line 05', legacyLineNumber: 5, status: 'active', capacityPerShift: 1500, activeShift: 'B', tags: ['smt'], sortOrder: 50 }),
+      this.lineRepo.create({ id: 'line-g4-08', building: byId.get('gtp-04')!, area: areaById.get('area-g4-fa')!, code: 'L-B4-08', name: 'B4 Line 08', legacyLineNumber: 8, status: 'active', capacityPerShift: 800, activeShift: 'A', tags: ['final-assembly'], sortOrder: 80 }),
+      this.lineRepo.create({ id: 'line-g5-10', building: byId.get('gtp-05')!, area: areaById.get('area-g5-fa')!, code: 'L-B5-10', name: 'B5 Line 10', legacyLineNumber: 10, status: 'active', capacityPerShift: 1200, activeShift: 'A', tags: ['final-assembly'], sortOrder: 100 }),
+      this.lineRepo.create({ id: 'line-g6-11', building: byId.get('gtp-06')!, area: areaById.get('area-g6-fa')!, code: 'L-B6-11', name: 'B6 Line 11', legacyLineNumber: 11, status: 'active', capacityPerShift: 900, activeShift: 'C', tags: ['final-assembly'], sortOrder: 110 }),
+      this.lineRepo.create({ id: 'line-g7-12', building: byId.get('gtp-07')!, area: areaById.get('area-g7-fa')!, code: 'L-B7-12', name: 'B7 Line 12', legacyLineNumber: 12, status: 'active', capacityPerShift: 900, activeShift: 'C', tags: ['final-assembly'], sortOrder: 120 }),
+      this.lineRepo.create({ id: 'line-g8-13', building: byId.get('gtp-08')!, area: areaById.get('area-g8-fa')!, code: 'L-B8-13', name: 'B8 Line 13', legacyLineNumber: 13, status: 'active', capacityPerShift: 900, activeShift: 'C', tags: ['final-assembly'], sortOrder: 130 }),
+      this.lineRepo.create({ id: 'line-g9-14', building: byId.get('gtp-09')!, area: areaById.get('area-g9-fa')!, code: 'L-B9-14', name: 'B9 Line 14', legacyLineNumber: 14, status: 'active', capacityPerShift: 900, activeShift: 'C', tags: ['final-assembly'], sortOrder: 140 }),
+      this.lineRepo.create({ id: 'line-g10-15', building: byId.get('gtp-10')!, area: areaById.get('area-g10-fa')!, code: 'L-B10-15', name: 'B10 Line 15', legacyLineNumber: 15, status: 'active', capacityPerShift: 900, activeShift: 'C', tags: ['final-assembly'], sortOrder: 150 }),
     ]);
 
     const stations = lines.flatMap((line) => [1, 2, 3, 4, 5, 6].map((position) =>
