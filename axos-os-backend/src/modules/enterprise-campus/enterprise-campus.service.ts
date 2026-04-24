@@ -9,7 +9,7 @@ import { EnterpriseArea } from './entities/enterprise-area.entity';
 import { EnterpriseLine } from './entities/enterprise-line.entity';
 import { EnterpriseStation } from './entities/enterprise-station.entity';
 import { Plan } from '../plans/entities/plan.entity';
-import { PlanLink } from './entities/enterprise-plan-link.entity';
+import { EnterprisePlanLink } from './entities/enterprise-plan-link.entity';
 
 @Injectable()
 export class EnterpriseCampusService implements OnModuleInit {
@@ -30,8 +30,8 @@ export class EnterpriseCampusService implements OnModuleInit {
     private readonly stationRepo: Repository<EnterpriseStation>,
     @InjectRepository(Plan)
     private readonly planRepo: Repository<Plan>,
-    @InjectRepository(PlanLink)
-    private readonly planLinkRepo: Repository<PlanLink>,
+    @InjectRepository(EnterprisePlanLink)
+    private readonly planLinkRepo: Repository<EnterprisePlanLink>,
   ) {}
 
   async onModuleInit(): Promise<void> {
