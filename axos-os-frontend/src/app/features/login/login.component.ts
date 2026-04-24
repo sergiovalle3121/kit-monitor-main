@@ -25,6 +25,10 @@ export class LoginComponent {
 
   constructor(private auth: AuthService, private router: Router) {}
 
+  cancel(): void {
+    this.router.navigate(['/landing']);
+  }
+
   submit(): void {
     this.error = null;
     this.loading = true;

@@ -6,32 +6,17 @@
   <div class="login-card">
     <!-- Left: Brand Panel -->
     <section class="login-hero">
-      <span class="hero-kicker">INDUSTRIAL OPERATING SYSTEM</span>
-
-      <div class="hero-brand-lockup" aria-label="AXOS OS">
-        <div class="hero-logo-frame">
-          <img src="assets/login/axos-os-original.svg" alt="AXOS OS" class="hero-logo" />
-        </div>
-        <p class="hero-wordmark">AXOS OS · INDUSTRIAL CORE</p>
+      <div class="hero-logo-frame">
+        <img src="assets/login/axos-os-original.svg" alt="AXOS OS" class="hero-logo" />
       </div>
-
-      <div class="hero-content">
-        <h1>AXOS OS</h1>
-        <p class="hero-copy">
-          Control integral de materiales, planeación, ingeniería, producción, calidad y logística en una sola plataforma.
-        </p>
-      </div>
+      
+      <h1>AXOS OS</h1>
+      <p class="hero-subline">Industrial Operating System — Mission Critical.</p>
 
       <div class="hero-pills">
-        <span><i>◉</i>Multi-department</span>
-        <span><i>∿</i>Real-time execution</span>
-        <span><i>⌁</i>Traceability backbone</span>
-      </div>
-
-      <div class="hero-panel">
-        <span class="panel-label">Operación conectada de punta a punta</span>
-        <strong>Desde recibos y materiales hasta producción, resurtido, calidad y embarques.</strong>
-        <small>Diseñado para equipos industriales que operan con precisión, trazabilidad y ritmo de ejecución.</small>
+        <span>◉ Multi-department</span>
+        <span>∿ Real-time</span>
+        <span>⌁ Traceability</span>
       </div>
     </section>
 
@@ -85,10 +70,15 @@
           @if (loading) {
             <span class="spin-ring"></span> Entrando...
           } @else {
-            Entrar a AXOS OS
+            Entrar a AXOS OS <i class="fas fa-arrow-right"></i>
           }
         </button>
       </form>
     </section>
+
+    <!-- Close Button -->
+    <button class="close-btn" (click)="cancel()">
+      <i class="fas fa-times"></i>
+    </button>
   </div>
 </div>
