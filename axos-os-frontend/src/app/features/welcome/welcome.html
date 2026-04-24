@@ -1,0 +1,60 @@
+<div class="welcome-container">
+  
+  <!-- Hero Section -->
+  <section class="welcome-hero">
+    <div class="hero-ambient" aria-hidden="true">
+      <div class="hero-orb orb-1"></div>
+      <div class="hero-orb orb-2"></div>
+    </div>
+
+    <div class="hero-content">
+      <p class="hero-eyebrow">AXOS Operating System v1.0</p>
+      <h1 class="hero-title">
+        Hola Sergio,<br>
+        <span class="accent">Estás en el control central.</span>
+      </h1>
+      <p class="hero-subtitle">
+        Tu ecosistema digital para la ingeniería industrial y el control de producción avanzado ha sido sincronizado.
+      </p>
+
+      <div class="context-badge">
+        <i class="fas fa-building"></i>
+        <span>Edificio: <b>{{ buildingName() }}</b></span>
+        <span class="divider">|</span>
+        <i class="fas fa-project-diagram"></i>
+        <span>Proyecto: <b>{{ projectName() }}</b></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Feature Catalog -->
+  <section class="features-section">
+    <div class="section-head">
+      <h2>Explora tus funciones</h2>
+      <p>Selecciona una herramienta para comenzar a optimizar tu operación.</p>
+    </div>
+
+    <div class="features-grid">
+      <a *ngFor="let feature of features" 
+         [routerLink]="feature.route" 
+         class="feature-card">
+        
+        <div class="card-icon">
+          <i class="fas" [class]="feature.icon"></i>
+        </div>
+
+        <h3 class="card-title">
+          {{ feature.title }}
+          <span class="card-tag" *ngIf="feature.tag">{{ feature.tag }}</span>
+        </h3>
+        
+        <p class="card-desc">{{ feature.description }}</p>
+
+        <div class="card-arrow">
+          Acceder <i class="fas fa-arrow-right"></i>
+        </div>
+      </a>
+    </div>
+  </section>
+
+</div>

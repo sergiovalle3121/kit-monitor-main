@@ -1,0 +1,220 @@
+/* AXOS OS — Welcome Experience · Apple White Premium */
+
+:host {
+  display: block;
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: #ffffff;
+}
+
+/* ── Hero Section ─────────────────────────────── */
+.welcome-hero {
+  position: relative;
+  min-height: 500px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 80px 60px;
+  background: radial-gradient(circle at top right, rgba(16, 185, 129, 0.05), transparent 40%),
+              radial-gradient(circle at bottom left, rgba(59, 130, 246, 0.05), transparent 40%);
+}
+
+.hero-ambient {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.hero-orb {
+  position: absolute;
+  width: 600px;
+  height: 600px;
+  border-radius: 50%;
+  filter: blur(120px);
+  opacity: 0.3;
+  animation: orbFloat 20s infinite alternate ease-in-out;
+}
+
+.orb-1 { top: -200px; right: -100px; background: rgba(16, 185, 129, 0.2); }
+.orb-2 { bottom: -200px; left: -100px; background: rgba(59, 130, 246, 0.2); animation-delay: -5s; }
+
+@keyframes orbFloat {
+  0% { transform: translate(0, 0) scale(1); }
+  100% { transform: translate(40px, 60px) scale(1.1); }
+}
+
+.hero-content {
+  position: relative;
+  z-index: 1;
+  max-width: 1000px;
+  animation: contentFade 1s cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+
+@keyframes contentFade {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.hero-eyebrow {
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #10b981;
+  margin-bottom: 24px;
+}
+
+.hero-title {
+  font-size: 4rem;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  color: #09090b;
+  line-height: 1.1;
+  margin-bottom: 24px;
+}
+
+.hero-title .accent {
+  background: linear-gradient(135deg, #09090b 30%, #52525b 90%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.hero-subtitle {
+  font-size: 1.25rem;
+  font-weight: 400;
+  color: #71717a;
+  max-width: 600px;
+  line-height: 1.6;
+}
+
+.context-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 40px;
+  padding: 12px 24px;
+  background: rgba(24, 24, 27, 0.03);
+  border: 1px solid rgba(24, 24, 27, 0.06);
+  border-radius: 999px;
+  font-weight: 500;
+  color: #27272a;
+}
+
+.context-badge i { color: #71717a; }
+.context-badge b { color: #09090b; }
+
+/* ── Feature Catalog ──────────────────────────── */
+.features-section {
+  padding: 80px 60px;
+}
+
+.section-head {
+  margin-bottom: 60px;
+}
+
+.section-head h2 {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #09090b;
+  margin-bottom: 12px;
+}
+
+.section-head p {
+  color: #71717a;
+  font-size: 1.1rem;
+}
+
+.features-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 24px;
+}
+
+.feature-card {
+  position: relative;
+  padding: 40px;
+  background: #ffffff;
+  border: 1px solid rgba(24, 24, 27, 0.06);
+  border-radius: 24px;
+  transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+  text-decoration: none;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.feature-card:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.04);
+  border-color: rgba(16, 185, 129, 0.2);
+}
+
+.card-icon {
+  width: 60px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(24, 24, 27, 0.03);
+  border-radius: 16px;
+  font-size: 1.5rem;
+  color: #09090b;
+  margin-bottom: 24px;
+  transition: all 0.4s;
+}
+
+.feature-card:hover .card-icon {
+  background: #10b981;
+  color: #ffffff;
+  transform: scale(1.1);
+}
+
+.card-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #09090b;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.card-tag {
+  font-size: 0.65rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  padding: 4px 8px;
+  background: rgba(16, 185, 129, 0.1);
+  color: #10b981;
+  border-radius: 6px;
+}
+
+.card-desc {
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: #71717a;
+  flex: 1;
+}
+
+.card-arrow {
+  margin-top: 24px;
+  font-size: 0.8rem;
+  color: #a1a1aa;
+  transition: transform 0.3s;
+}
+
+.feature-card:hover .card-arrow {
+  transform: translateX(6px);
+  color: #10b981;
+}
+
+/* ── Responsive ───────────────────────────────── */
+@media (max-width: 768px) {
+  .hero-title { font-size: 2.5rem; }
+  .welcome-hero { padding: 60px 30px; }
+  .features-section { padding: 40px 30px; }
+}

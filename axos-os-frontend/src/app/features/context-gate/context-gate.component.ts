@@ -73,7 +73,7 @@ export class ContextGateComponent implements OnInit {
         isConfigured: true
       });
 
-      const returnUrl = this.route.snapshot.queryParams['returnUrl'] || '/dashboard';
+      const returnUrl = this.route.snapshot.queryParams['returnUrl'] || '/welcome';
       this.router.navigateByUrl(returnUrl);
     }
   }

@@ -26,8 +26,16 @@ export const routes: Routes = [
     canActivate: [authGuard, contextGuard],
     canActivateChild: [authGuard, contextGuard],
     children: [
+      { path: '', redirectTo: 'welcome', pathMatch: 'full' },
 
-      // Mission Control Dashboard — landing post-login
+      // Welcome Landing — landing post-context selection
+      {
+        path: 'welcome',
+        loadComponent: () =>
+          import('./features/welcome/welcome').then(m => m.WelcomeComponent),
+      },
+
+      // Mission Control Dashboard
       {
         path: 'dashboard',
         loadComponent: () =>
