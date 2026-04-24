@@ -315,3 +315,36 @@
   .mc-quick-tile:hover { transform: none; }
   .mc-kpi.kpi-active  { transform: none; }
 }
+
+/* ── Empty States ─────────────────────────────── */
+.mc-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  text-align: center;
+  background: rgba(244, 244, 245, 0.4);
+  border: 1px dashed rgba(24, 24, 27, 0.1);
+  border-radius: 12px;
+  color: #71717a;
+}
+
+.mc-empty-state i {
+  font-size: 2rem;
+  margin-bottom: 12px;
+  opacity: 0.5;
+}
+
+.mc-empty-state p {
+  font-size: 0.84rem;
+  font-weight: 600;
+  margin: 0;
+  color: #27272a;
+}
+
+.mc-empty-hint {
+  font-size: 0.72rem;
+  margin-top: 4px;
+  opacity: 0.8;
+}

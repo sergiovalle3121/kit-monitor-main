@@ -1,6 +1,9 @@
-import { Component, OnInit, OnDestroy, inject } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
+import { EnterpriseContextService } from '../../core/enterprise-context.service';
+import { ApiService } from '../../core/api.service';
+import { forkJoin, of, catchError } from 'rxjs';
 
 interface KpiCard {
   label: string;
@@ -20,7 +23,7 @@ interface LineStatus {
   status: 'in_progress' | 'ready' | 'completed' | 'scheduled' | 'idle';
 }
 
-interface Alert {
+interface DashboardAlert {
   type: 'critical' | 'warning' | 'info';
   message: string;
   time: string;
@@ -33,8 +36,6 @@ interface QuickLink {
   icon: string;
 }
 
-import { EnterpriseContextService } from '../../core/enterprise-context.service';
-
 @Component({
   selector: 'app-dashboard',
   standalone: true,
@@ -44,36 +45,39 @@ import { EnterpriseContextService } from '../../core/enterprise-context.service'
 })
 export class DashboardComponent implements OnInit, OnDestroy {
   private readonly contextService = inject(EnterpriseContextService);
+  private readonly api = inject(ApiService);
+  
   readonly context = this.contextService.context;
-  currentTime = new Date();
-  activeKpiIndex = 0;
-  private kpiInterval: number | null = null;
-  private timeInterval: number | null = null;
+  currentTime = signal(new Date());
+  activeKpiIndex = signal(0);
+  
+  // Real Data Signals
+  lines = signal<LineStatus[]>([]);
+  alertsList = signal<DashboardAlert[]>([]);
+  kpiStats = signal({
+    unitsToday: 0,
+    oeeAverage: 0,
+    activeLines: 0,
+    pendingNcrs: 0,
+    kitReadiness: 0,
+    pendingShipments: 0
+  });
 
-  readonly kpis: KpiCard[] = [
-    { label: 'Units Produced', value: '1,847', unit: 'today',     delta: '+12%', trend: 'up',   status: 'good' },
-    { label: 'OEE',            value: '91.4',  unit: '%',         delta: '-1.2%', trend: 'down', status: 'warn' },
-    { label: 'Active Lines',   value: '4',     unit: 'of 6',                                    status: 'good' },
-    { label: 'Open NCRs',      value: '7',     unit: 'pending',   delta: '+2',   trend: 'down', status: 'alert' },
-    { label: 'Kit Readiness',  value: '86',    unit: '%',         delta: '+4%',  trend: 'up',   status: 'good' },
-    { label: 'Shipments',      value: '12',    unit: 'pending',                                 status: 'warn' },
-  ];
+  private kpiInterval: any;
+  private timeInterval: any;
+  private dataInterval: any;
 
-  readonly lines: LineStatus[] = [
-    { code: 'BK1', model: 'XA-220', completed: 234, target: 300, oee: 94.2, status: 'in_progress' },
-    { code: 'BK2', model: 'XB-110', completed: 0,   target: 150, oee: null, status: 'ready'       },
-    { code: 'BK3', model: 'XA-220', completed: 300, target: 300, oee: 97.1, status: 'completed'   },
-    { code: 'BK4', model: 'XC-440', completed: 0,   target: 200, oee: null, status: 'scheduled'   },
-    { code: 'BK5', model: 'XB-110', completed: 89,  target: 150, oee: 88.5, status: 'in_progress' },
-    { code: 'BK6', model: '—',      completed: 0,   target: 0,   oee: null, status: 'idle'        },
-  ];
-
-  readonly alerts: Alert[] = [
-    { type: 'critical', message: 'BK5 OEE below 90% threshold',      time: '14 min ago', icon: 'fa-triangle-exclamation' },
-    { type: 'warning',  message: 'Kit shortage for BK4 · XC-440',    time: '32 min ago', icon: 'fa-box-open'             },
-    { type: 'warning',  message: 'NCR #1042 requires disposition',    time: '1 hr ago',   icon: 'fa-clipboard-check'      },
-    { type: 'info',     message: 'Plan published for tomorrow',       time: '2 hr ago',   icon: 'fa-calendar-check'       },
-  ];
+  readonly kpis = computed<KpiCard[]>(() => {
+    const s = this.kpiStats();
+    return [
+      { label: 'Units Produced', value: s.unitsToday.toLocaleString(), unit: 'today', delta: '0%', trend: 'neutral', status: 'good' },
+      { label: 'OEE Average',   value: s.oeeAverage.toFixed(1),      unit: '%',     delta: '0%', trend: 'neutral', status: s.oeeAverage > 85 ? 'good' : 'warn' },
+      { label: 'Active Lines',   value: s.activeLines.toString(),     unit: 'running',                              status: 'good' },
+      { label: 'Open NCRs',      value: s.pendingNcrs.toString(),     unit: 'pending',                              status: s.pendingNcrs > 0 ? 'alert' : 'good' },
+      { label: 'Kit Readiness',  value: s.kitReadiness.toString(),    unit: '%',                                     status: 'good' },
+      { label: 'Shipments',      value: s.pendingShipments.toString(), unit: 'pending',                             status: 'warn' },
+    ];
+  });
 
   readonly quickLinks: QuickLink[] = [
     { label: 'Control Tower',  route: '/control-tower',     icon: 'fa-globe'                  },
@@ -85,21 +89,91 @@ export class DashboardComponent implements OnInit, OnDestroy {
   ];
 
   ngOnInit(): void {
-    this.kpiInterval = window.setInterval(() => {
-      this.activeKpiIndex = (this.activeKpiIndex + 1) % this.kpis.length;
-    }, 3200);
-    this.timeInterval = window.setInterval(() => {
-      this.currentTime = new Date();
+    this.refreshData();
+    
+    this.kpiInterval = setInterval(() => {
+      this.activeKpiIndex.update(v => (v + 1) % 6);
+    }, 4000);
+
+    this.timeInterval = setInterval(() => {
+      this.currentTime.set(new Date());
     }, 60_000);
+
+    this.dataInterval = setInterval(() => this.refreshData(), 30_000);
   }
 
   ngOnDestroy(): void {
-    if (this.kpiInterval !== null) window.clearInterval(this.kpiInterval);
-    if (this.timeInterval !== null) window.clearInterval(this.timeInterval);
+    clearInterval(this.kpiInterval);
+    clearInterval(this.timeInterval);
+    clearInterval(this.dataInterval);
+  }
+
+  refreshData() {
+    forkJoin({
+      lines: this.api.getProductionBackends().pipe(catchError(() => of([]))),
+      ncrs: this.api.getAllNcrs({ status: 'OPEN' }).pipe(catchError(() => of([]))),
+      notifications: this.api.getNotifications().pipe(catchError(() => of([]))),
+      kits: this.api.getKits().pipe(catchError(() => of([]))),
+      shipments: this.api.getShipments().pipe(catchError(() => of([])))
+    }).subscribe(data => {
+      const mappedLines: LineStatus[] = data.lines.map((l: any) => ({
+        code: l.lineCode || `BK${l.line}`,
+        model: l.model || '—',
+        completed: l.completedCount || 0,
+        target: l.targetCount || 0,
+        oee: l.oee || null,
+        status: l.status || 'idle'
+      }));
+      this.lines.set(mappedLines);
+
+      const mappedAlerts: DashboardAlert[] = data.notifications.slice(0, 5).map((n: any) => ({
+        type: n.type === 'critical' ? 'critical' : n.type === 'warning' ? 'warning' : 'info',
+        message: n.message,
+        time: this.formatTimeAgo(n.createdAt),
+        icon: this.getAlertIcon(n.type)
+      }));
+      this.alertsList.set(mappedAlerts);
+
+      const activeLines = mappedLines.filter(l => l.status === 'in_progress').length;
+      const oeeValues = mappedLines.filter(l => l.oee !== null).map(l => l.oee as number);
+      const oeeAvg = oeeValues.length > 0 ? oeeValues.reduce((a, b) => a + b, 0) / oeeValues.length : 0;
+      
+      this.kpiStats.set({
+        unitsToday: mappedLines.reduce((acc, l) => acc + l.completed, 0),
+        oeeAverage: oeeAvg,
+        activeLines: activeLines,
+        pendingNcrs: data.ncrs.length,
+        kitReadiness: this.calculateKitReadiness(data.kits),
+        pendingShipments: data.shipments.filter((s: any) => s.status !== 'DELIVERED').length
+      });
+    });
+  }
+
+  private calculateKitReadiness(kits: any[]): number {
+    if (!kits.length) return 0;
+    const ready = kits.filter(k => k.status === 'ready').length;
+    return Math.round((ready / kits.length) * 100);
+  }
+
+  private formatTimeAgo(dateStr: string): string {
+    const date = new Date(dateStr);
+    const seconds = Math.floor((new Date().getTime() - date.getTime()) / 1000);
+    if (seconds < 60) return 'just now';
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes}m ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours}h ago`;
+    return date.toLocaleDateString();
+  }
+
+  private getAlertIcon(type: string): string {
+    if (type === 'critical') return 'fa-triangle-exclamation';
+    if (type === 'warning') return 'fa-circle-exclamation';
+    return 'fa-info-circle';
   }
 
   get greeting(): string {
-    const h = this.currentTime.getHours();
+    const h = this.currentTime().getHours();
     const building = this.contextService.buildings().find((b: any) => b.id === this.context().buildingId);
     const suffix = building ? ` en ${building.code}` : '';
     
@@ -111,13 +185,13 @@ export class DashboardComponent implements OnInit, OnDestroy {
   get formattedDate(): string {
     return new Intl.DateTimeFormat('en-US', {
       weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
-    }).format(this.currentTime);
+    }).format(this.currentTime());
   }
 
   get formattedTime(): string {
     return new Intl.DateTimeFormat('en-US', {
       hour: '2-digit', minute: '2-digit', hour12: false,
-    }).format(this.currentTime);
+    }).format(this.currentTime());
   }
 
   lineProgress(line: LineStatus): number {
