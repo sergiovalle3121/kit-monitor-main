@@ -346,9 +346,12 @@ export class EnterpriseCampusService implements OnModuleInit {
   private async ensureDimensionSeedData(force = false): Promise<void> {
     if (!force && await this.buildingRepo.count() >= 11) return;
 
-    // Hard cleanup for development sync
+    console.log('[EnterpriseCampus] Hard Resetting Topology...');
+    // Hard cleanup
     await this.programRepo.delete({});
     await this.warehouseRepo.delete({});
+    await this.areaRepo.delete({});
+    await this.lineRepo.delete({});
     await this.buildingRepo.delete({});
     await this.customerRepo.delete({});
 
