@@ -110,7 +110,12 @@ export const routes: Routes = [
       {
         path: 'visual-aids',
         loadComponent: () =>
-          import('./features/visual-aids/visual-aids.component').then(m => m.VisualAidsComponent),
+          import('./features/engineering/visual-aids/visual-aids.component').then(m => m.VisualAidsComponent),
+      },
+      {
+        path: 'plant-layout',
+        loadComponent: () =>
+          import('./features/engineering/plant-layout/plant-layout.component').then(m => m.PlantLayoutComponent),
       },
       {
         path: 'disposition',

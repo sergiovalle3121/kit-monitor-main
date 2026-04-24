@@ -136,6 +136,27 @@ export class ApiService {
     return this.get<any[]>('bom', { ...this.contextQuery(), ...(model ? { model } : {}) }).pipe(map((rows) => this.filterBomByContext(rows ?? [])));
   }
 
+  // Engineering Authoring Foundation
+  getEngineeringDocuments(type?: string): Observable<any[]> {
+    return this.get<any[]>('engineering/documents', { type, ...this.contextQuery() });
+  }
+
+  getEngineeringDocument(id: string): Observable<any> {
+    return this.get<any>(`engineering/documents/${id}`);
+  }
+
+  createEngineeringDocument(dto: any): Observable<any> {
+    return this.post<any>('engineering/documents', dto);
+  }
+
+  updateEngineeringDocument(id: string, dto: any): Observable<any> {
+    return this.patch<any>(`engineering/documents/${id}`, dto);
+  }
+
+  deleteEngineeringDocument(id: string): Observable<any> {
+    return this.delete<any>(`engineering/documents/${id}`);
+  }
+
   getVisualAids(): Observable<any[]> {
     return this.get<any[]>('visual-aids', this.contextQuery()).pipe(map((rows) => this.filterVisualAidsByContext(rows ?? [])));
   }

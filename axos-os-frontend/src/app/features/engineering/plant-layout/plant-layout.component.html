@@ -1,0 +1,64 @@
+<div class="eng-editor-container">
+  <header class="eng-toolbar">
+    <div class="doc-info">
+      <span class="badge" style="background: #ffaa00; color: #000">Plant Layout</span>
+      <h2>{{ currentDoc()?.name }}</h2>
+    </div>
+
+    <div class="tool-group">
+      <button class="tool-btn" [class.active]="activeTool() === 'SELECT'" (click)="setTool('SELECT')">
+        <i class="fas fa-mouse-pointer"></i>
+      </button>
+      <button class="tool-btn" (click)="addFootprint()" title="Add Footprint">
+        <i class="fas fa-vector-square"></i>
+      </button>
+    </div>
+
+    <div class="spacer" style="flex: 1"></div>
+
+    <div class="actions">
+      <button class="btn-primary" (click)="save()">
+        <i class="fas fa-save"></i> Guardar Layout
+      </button>
+    </div>
+  </header>
+
+  <aside class="eng-sidebar">
+    <section class="control-group">
+      <h3>Layers Técnicos</h3>
+      <div class="layer-list">
+        <div class="layer-item">
+          <i class="fas fa-eye active"></i>
+          <span class="layer-name">Floor Map</span>
+        </div>
+        <div class="layer-item">
+          <i class="fas fa-eye active"></i>
+          <span class="layer-name">Equipment</span>
+        </div>
+      </div>
+    </section>
+  </aside>
+
+  <main class="eng-canvas-area">
+    <div class="layout-stage" [innerHTML]="svgContent">
+      <!-- SVG Render Area -->
+    </div>
+  </main>
+
+  <aside class="eng-properties">
+    <section class="control-group">
+      <h3>Configuración de Plano</h3>
+      <div class="field">
+        <label>Escala</label>
+        <input type="text" value="1:100">
+      </div>
+      <div class="field">
+        <label>Grid Snapping</label>
+        <select>
+          <option>50mm</option>
+          <option>100mm</option>
+        </select>
+      </div>
+    </section>
+  </aside>
+</div>

@@ -1,0 +1,88 @@
+<div class="eng-editor-container">
+  <!-- Toolbar -->
+  <header class="eng-toolbar">
+    <div class="doc-info">
+      <span class="badge">Visual Aid</span>
+      <h2>{{ currentDoc()?.name }}</h2>
+    </div>
+
+    <div class="tool-group">
+      <button class="tool-btn" [class.active]="activeTool() === 'SELECT'" (click)="setTool('SELECT')" title="Select (V)">
+        <i class="fas fa-mouse-pointer"></i>
+      </button>
+      <button class="tool-btn" [class.active]="activeTool() === 'RECT'" (click)="addRect()" title="Rectangle (R)">
+        <i class="far fa-square"></i>
+      </button>
+      <button class="tool-btn" [class.active]="activeTool() === 'CIRCLE'" (click)="addCircle()" title="Circle (C)">
+        <i class="far fa-circle"></i>
+      </button>
+      <button class="tool-btn" [class.active]="activeTool() === 'LINE'" (click)="addLine()" title="Line (L)">
+        <i class="fas fa-minus"></i>
+      </button>
+      <button class="tool-btn" [class.active]="activeTool() === 'TEXT'" (click)="addText()" title="Text (T)">
+        <i class="fas fa-font"></i>
+      </button>
+    </div>
+
+    <div class="spacer" style="flex: 1"></div>
+
+    <div class="actions">
+      <span class="status-dot" [class.modified]="isModified()" title="Changes pending"></span>
+      <button class="btn-primary" (click)="save()">
+        <i class="fas fa-save"></i> Guardar Diseño
+      </button>
+    </div>
+  </header>
+
+  <!-- Sidebar: Layers & Symbols -->
+  <aside class="eng-sidebar">
+    <section class="control-group">
+      <h3>Capas / Layers</h3>
+      <div class="layer-list">
+        <div class="layer-item" *ngFor="let layer of currentDoc()?.content?.layers">
+          <i class="fas" [class.fa-eye]="layer.visible" [class.fa-eye-slash]="!layer.visible"></i>
+          <span class="layer-name">{{ layer.name }}</span>
+          <i class="fas fa-lock-open"></i>
+        </div>
+      </div>
+    </section>
+
+    <section class="control-group">
+      <h3>Librería Industrial</h3>
+      <div class="symbol-grid">
+        <!-- Future symbols like Warning signs, arrows, etc -->
+        <p class="empty-msg">Próximamente: Señalética de seguridad y flechas de proceso.</p>
+      </div>
+    </section>
+  </aside>
+
+  <!-- Main Canvas Stage -->
+  <main class="eng-canvas-area">
+    <div class="canvas-wrapper">
+      <canvas #canvasElement></canvas>
+    </div>
+  </main>
+
+  <!-- Properties Panel -->
+  <aside class="eng-properties">
+    <section class="control-group">
+      <h3>Propiedades del Objeto</h3>
+      <p class="empty-msg">Selecciona un objeto para editar sus parámetros.</p>
+    </section>
+
+    <section class="control-group">
+      <h3>Documento</h3>
+      <div class="field">
+        <label>Nombre</label>
+        <input type="text" [ngModel]="currentDoc()?.name">
+      </div>
+      <div class="field">
+        <label>Unidades</label>
+        <select [ngModel]="currentDoc()?.units">
+          <option value="px">Pixeles (px)</option>
+          <option value="mm">Milímetros (mm)</option>
+        </select>
+      </div>
+    </section>
+  </aside>
+</div>

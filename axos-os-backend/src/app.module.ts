@@ -27,6 +27,7 @@ import { SuppliersModule } from "./modules/suppliers/suppliers.module";
 import { ReceivingModule } from "./modules/receiving/receiving.module";
 import { ShippingModule } from "./modules/shipping/shipping.module";
 import { GovernanceModule } from "./modules/governance/governance.module";
+import { EngineeringModule } from "./modules/engineering/engineering.module";
 
 @Module({
   imports: [
@@ -54,6 +55,7 @@ import { GovernanceModule } from "./modules/governance/governance.module";
     ReceivingModule,
     ShippingModule,
     GovernanceModule,
+    EngineeringModule,
   ],
   controllers: [HealthController],
   providers: [],
