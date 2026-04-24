@@ -29,7 +29,7 @@ export class LoginComponent {
     this.error = null;
     this.loading = true;
     this.auth.login(this.email.trim(), this.password.trim()).subscribe({
-      next: () => this.router.navigateByUrl('/dashboard'),
+      next: () => this.router.navigateByUrl('/context-gate'),
       error: (err: HttpErrorResponse) => {
         if (err.status === 401) {
           this.error = 'Credenciales incorrectas';

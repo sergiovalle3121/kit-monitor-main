@@ -386,6 +386,8 @@ export class EnterpriseCampusService implements OnModuleInit {
       this.programRepo.create({ id: 'prog-servers', customer: customerById.get('cust-dell')!, code: 'SERVERS', name: 'Dell PowerEdge', status: 'active', primaryModelPrefix: 'PE16', dedicatedBuilding: byId.get('val-02') }),
       this.programRepo.create({ id: 'prog-auto-nx', customer: customerById.get('cust-tesla')!, code: 'AUTO-NX', name: 'Tesla Autopilot', status: 'ramping', primaryModelPrefix: 'HW4', dedicatedBuilding: byId.get('gtp-04') }),
       this.programRepo.create({ id: 'prog-iphone', customer: customerById.get('cust-apple')!, code: 'IPHONE', name: 'Apple iPhone Assy', status: 'active', primaryModelPrefix: 'APL', dedicatedBuilding: byId.get('gtp-05') }),
+      this.programRepo.create({ id: 'prog-na', customer: customerById.get('cust-apple')!, code: 'N/A', name: 'Proyecto N/A', status: 'active', primaryModelPrefix: 'NA' }),
+      this.programRepo.create({ id: 'prog-generic', customer: customerById.get('cust-dell')!, code: 'GENERIC', name: 'Proyecto Genérico', status: 'active', primaryModelPrefix: 'GEN' }),
     ]);
   }
 

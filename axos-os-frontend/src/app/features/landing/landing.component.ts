@@ -92,7 +92,7 @@ export class LandingComponent implements OnInit, AfterViewInit, OnDestroy {
       next: () => {
         this.loginLoading = false;
         this.closeLogin();
-        this.router.navigateByUrl('/dashboard');
+        this.router.navigateByUrl('/context-gate');
       },
       error: (err: HttpErrorResponse) => {
         if (err.status === 401) {
