@@ -344,34 +344,32 @@ export class EnterpriseCampusService implements OnModuleInit {
   }
 
   private async ensureDimensionSeedData(force = false): Promise<void> {
-    if (!force && await this.buildingRepo.count() >= 10) return;
+    if (!force && await this.buildingRepo.count() >= 11) return;
 
-    // Clear old data to prevent duplicates (only for development hardening)
-    if (force) {
-      await this.programRepo.delete({});
-      await this.warehouseRepo.delete({});
-      await this.buildingRepo.delete({});
-      await this.customerRepo.delete({});
-    }
+    // Hard cleanup for development sync
+    await this.programRepo.delete({});
+    await this.warehouseRepo.delete({});
+    await this.buildingRepo.delete({});
+    await this.customerRepo.delete({});
 
     // Campus Jabil Guadalajara Topology (GDL1 & GDL2)
     const buildings = await this.buildingRepo.save([
       // GDL1: Valdepeñas
-      this.buildingRepo.create({ id: 'val-01', code: 'B1', name: 'Valdepeñas B1', status: 'active', tags: ['valdepenas'], sortOrder: 10 }),
-      this.buildingRepo.create({ id: 'val-02', code: 'B2', name: 'Valdepeñas B2', status: 'active', tags: ['valdepenas'], sortOrder: 11 }),
+      this.buildingRepo.create({ id: 'b1', code: 'B1', name: 'Valdepeñas B1', status: 'active', tags: ['valdepenas'], sortOrder: 10 }),
+      this.buildingRepo.create({ id: 'b2', code: 'B2', name: 'Valdepeñas B2', status: 'active', tags: ['valdepenas'], sortOrder: 11 }),
       
       // GDL2: Technology Park
-      this.buildingRepo.create({ id: 'gtp-03', code: 'B3', name: 'GTP B3', status: 'active', tags: ['gtp'], sortOrder: 20 }),
-      this.buildingRepo.create({ id: 'gtp-04', code: 'B4', name: 'GTP B4', status: 'active', tags: ['gtp'], sortOrder: 21 }),
-      this.buildingRepo.create({ id: 'gtp-05', code: 'B5', name: 'GTP B5', status: 'active', tags: ['gtp'], sortOrder: 22 }),
-      this.buildingRepo.create({ id: 'gtp-06', code: 'B6', name: 'GTP B6', status: 'active', tags: ['gtp'], sortOrder: 23 }),
-      this.buildingRepo.create({ id: 'gtp-07', code: 'B7', name: 'GTP B7 (Optics)', status: 'active', tags: ['gtp', 'primary'], sortOrder: 24 }),
-      this.buildingRepo.create({ id: 'gtp-08', code: 'B8', name: 'GTP B8', status: 'active', tags: ['gtp'], sortOrder: 25 }),
-      this.buildingRepo.create({ id: 'gtp-09', code: 'B9', name: 'GTP B9', status: 'active', tags: ['gtp'], sortOrder: 26 }),
-      this.buildingRepo.create({ id: 'gtp-10', code: 'B10', name: 'GTP B10', status: 'active', tags: ['gtp'], sortOrder: 27 }),
+      this.buildingRepo.create({ id: 'b3', code: 'B3', name: 'GTP B3', status: 'active', tags: ['gtp'], sortOrder: 20 }),
+      this.buildingRepo.create({ id: 'b4', code: 'B4', name: 'GTP B4', status: 'active', tags: ['gtp'], sortOrder: 21 }),
+      this.buildingRepo.create({ id: 'b5', code: 'B5', name: 'GTP B5', status: 'active', tags: ['gtp'], sortOrder: 22 }),
+      this.buildingRepo.create({ id: 'b6', code: 'B6', name: 'GTP B6', status: 'active', tags: ['gtp'], sortOrder: 23 }),
+      this.buildingRepo.create({ id: 'b7', code: 'B7', name: 'GTP B7 (Optics)', status: 'active', tags: ['gtp', 'primary'], sortOrder: 24 }),
+      this.buildingRepo.create({ id: 'b8', code: 'B8', name: 'GTP B8', status: 'active', tags: ['gtp'], sortOrder: 25 }),
+      this.buildingRepo.create({ id: 'b9', code: 'B9', name: 'GTP B9', status: 'active', tags: ['gtp'], sortOrder: 26 }),
+      this.buildingRepo.create({ id: 'b10', code: 'B10', name: 'GTP B10', status: 'active', tags: ['gtp'], sortOrder: 27 }),
 
       // External / General
-      this.buildingRepo.create({ id: 'next-01', code: 'NEXTIPAC', name: 'Almacén General (Nextipac)', status: 'active', tags: ['external', 'storage'], sortOrder: 50 }),
+      this.buildingRepo.create({ id: 'nextipac', code: 'NEXTIPAC', name: 'Almacén General (Nextipac)', status: 'active', tags: ['external', 'storage'], sortOrder: 50 }),
     ]);
     const byId = new Map(buildings.map((building) => [building.id, building]));
 
@@ -392,14 +390,41 @@ export class EnterpriseCampusService implements OnModuleInit {
       this.warehouseRepo.create({ id: 'wh-val-01', code: 'WH-B1', name: 'Almacén B1', type: 'building', status: 'active', locationCount: 2200, sortOrder: 10, building: byId.get('val-01') }),
     ]);
 
-    await this.programRepo.save([
-      // B7 - Optics (Primary)
-      this.programRepo.create({ id: 'prog-optics', customer: customerById.get('cust-cisco')!, code: 'OPTICS', name: 'Optics Project', status: 'active', primaryModelPrefix: 'OPT', dedicatedBuilding: byId.get('gtp-07') }),
-      
-      // Other generic assignments
-      this.programRepo.create({ id: 'prog-na', customer: customerById.get('cust-cisco')!, code: 'N/A', name: 'Proyecto N/A', status: 'active', primaryModelPrefix: 'NA' }),
-      this.programRepo.create({ id: 'prog-generic', customer: customerById.get('cust-zebra')!, code: 'GENERIC', name: 'Proyecto Genérico', status: 'active', primaryModelPrefix: 'GEN' }),
-    ]);
+    const programs: any[] = [];
+    buildings.forEach(b => {
+      if (b.code === 'B7') {
+        programs.push(this.programRepo.create({ 
+          id: `prog-optics-${b.id}`, 
+          customer: customerById.get('cust-cisco')!, 
+          code: 'OPTICS', 
+          name: 'Optics Project', 
+          status: 'active', 
+          primaryModelPrefix: 'OPT', 
+          dedicatedBuilding: b 
+        }));
+      } else {
+        programs.push(this.programRepo.create({ 
+          id: `prog-gen1-${b.id}`, 
+          customer: customerById.get('cust-cisco')!, 
+          code: 'GEN-01', 
+          name: 'Proyecto Genérico 1', 
+          status: 'active', 
+          primaryModelPrefix: 'GEN', 
+          dedicatedBuilding: b 
+        }));
+        programs.push(this.programRepo.create({ 
+          id: `prog-gen2-${b.id}`, 
+          customer: customerById.get('cust-cisco')!, 
+          code: 'GEN-02', 
+          name: 'Proyecto Genérico 2', 
+          status: 'active', 
+          primaryModelPrefix: 'GEN', 
+          dedicatedBuilding: b 
+        }));
+      }
+    });
+
+    await this.programRepo.save(programs);
   }
 
   private async ensureTopologySeedData(): Promise<void> {
