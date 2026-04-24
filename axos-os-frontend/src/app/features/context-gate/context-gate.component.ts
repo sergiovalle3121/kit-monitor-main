@@ -26,7 +26,12 @@ export class ContextGateComponent implements OnInit {
   filteredPrograms = computed(() => {
     const bId = this.selectedBuildingId();
     if (!bId) return [];
-    return this.programs().filter(p => p.dedicatedBuilding?.id === bId || !p.dedicatedBuilding);
+    return this.programs().filter(p => {
+      const buildingRef = p.dedicatedBuilding;
+      if (!buildingRef) return true; // Global program
+      // Match if it's an object with .id or if it's a direct ID string
+      return buildingRef === bId || buildingRef.id === bId;
+    });
   });
 
   async ngOnInit() {
