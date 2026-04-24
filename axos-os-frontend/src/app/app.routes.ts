@@ -256,16 +256,6 @@ export const routes: Routes = [
     canActivate: [authGuard],
     canActivateChild: [authGuard],
     children: [
-      {
-        path: 'editor',
-        loadComponent: () =>
-          import('./features/editor/editor.component').then(m => m.EditorComponent),
-      },
-      {
-        path: 'layout-designer',
-        loadComponent: () =>
-          import('./features/layout-designer/layout-designer.component').then(m => m.LayoutDesignerComponent),
-      },
     ],
   },
 

@@ -15,7 +15,7 @@
       <p class="mc-sub">{{ formattedDate }}</p>
     </div>
     <div class="mc-header-right">
-      <time class="mc-clock" [attr.datetime]="currentTime.toISOString()">{{ formattedTime }}</time>
+      <time class="mc-clock" [attr.datetime]="currentTime().toISOString()">{{ formattedTime }}</time>
       <span class="mc-live-dot" aria-label="Live data active"></span>
     </div>
   </header>
@@ -24,8 +24,8 @@
   <section class="mc-kpi-strip" aria-label="Key Performance Indicators">
     <div
       class="mc-kpi"
-      *ngFor="let kpi of kpis; let i = index"
-      [class.kpi-active]="i === activeKpiIndex"
+      *ngFor="let kpi of kpis(); let i = index"
+      [class.kpi-active]="i === activeKpiIndex()"
       [class.kpi-good]="kpi.status === 'good'"
       [class.kpi-warn]="kpi.status === 'warn'"
       [class.kpi-alert]="kpi.status === 'alert'"
@@ -60,8 +60,16 @@
           View all <i class="fas fa-arrow-right"></i>
         </a>
       </div>
-      <div class="mc-lines-list">
-        <div class="mc-line-row" *ngFor="let line of lines">
+      
+      <!-- Empty State for Lines -->
+      <div class="mc-empty-state" *ngIf="lines().length === 0">
+        <i class="fas fa-industry"></i>
+        <p>No hay líneas activas actualmente.</p>
+        <span class="mc-empty-hint">Configura una nueva producción para comenzar.</span>
+      </div>
+
+      <div class="mc-lines-list" *ngIf="lines().length > 0">
+        <div class="mc-line-row" *ngFor="let line of lines()">
           <span class="line-dot" [class]="'dot-' + line.status" aria-hidden="true"></span>
           <span class="line-code">{{ line.code }}</span>
           <span class="line-model">{{ line.model }}</span>
@@ -84,18 +92,25 @@
     <!-- Alerts -->
     <section class="mc-card mc-alerts-card">
       <div class="mc-card-head">
-        <h2>Alerts</h2>
+        <h2>Recent Activity & Alerts</h2>
         <a routerLink="/exception-center" class="mc-card-link">
           View all <i class="fas fa-arrow-right"></i>
         </a>
       </div>
-      <div class="mc-alerts-list">
+
+      <!-- Empty State for Alerts -->
+      <div class="mc-empty-state" *ngIf="alertsList().length === 0">
+        <i class="fas fa-bell-slash"></i>
+        <p>Sin alertas recientes.</p>
+      </div>
+
+      <div class="mc-alerts-list" *ngIf="alertsList().length > 0">
         <div
           class="mc-alert-item"
-          *ngFor="let alert of alerts"
+          *ngFor="let alert of alertsList()"
           [class]="'alert-' + alert.type"
         >
-          <i class="fas alert-icon" [class]="'fas ' + alert.icon"></i>
+          <i class="fas alert-icon" [class]="alert.icon"></i>
           <div class="alert-body">
             <p>{{ alert.message }}</p>
             <small>{{ alert.time }}</small>
@@ -115,7 +130,7 @@
         *ngFor="let link of quickLinks"
         [routerLink]="link.route"
       >
-        <i class="fas" [class]="'fas ' + link.icon"></i>
+        <i class="fas" [class]="link.icon"></i>
         <span>{{ link.label }}</span>
       </a>
     </div>

@@ -998,7 +998,6 @@ button, input, select, textarea { font:inherit; }
 /* ── Responsive ────────────────────────────── */
 @media (max-width:1180px) {
   .layout { grid-template-columns:70px 1fr; }
-  .menu-trigger { display:grid; }
   .brand-text, .nav-full, .group-arrow { display:none; }
   .nav-short { display:inline; }
   .nav-item, .nav-group-header, .logout { justify-content:center; padding-inline:8px; }
