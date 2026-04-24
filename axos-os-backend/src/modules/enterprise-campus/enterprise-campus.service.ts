@@ -346,7 +346,6 @@ export class EnterpriseCampusService implements OnModuleInit {
     if (await this.buildingRepo.count()) return;
 
     // Campus Jabil Guadalajara
-    const buildings = await this.buildingRepo.save([
     // Campus Jabil Guadalajara Topology
     const buildings = await this.buildingRepo.save([
       // Valdepeñas
@@ -399,7 +398,7 @@ export class EnterpriseCampusService implements OnModuleInit {
     const areas = await this.areaRepo.save([
       this.areaRepo.create({ id: 'area-v1-asm', building: byId.get('val-01')!, code: 'V1-ASM', name: 'Valdepeñas Assy Zone', type: 'Assembly', sortOrder: 10 }),
       this.areaRepo.create({ id: 'area-v2-smt', building: byId.get('val-02')!, code: 'V2-SMT', name: 'Valdepeñas SMT Zone', type: 'SMT', sortOrder: 10 }),
-      this.areaRepo.create({ id: 'area-g3-wh',  building: byId.get('gtp-03')!, code: 'G3-WH',  name: 'GTP Warehouse Zone', type: 'Warehouse', sortOrder: 20 }),
+      this.areaRepo.create({ id: 'area-g3-wh',  building: byId.get('gtp-03')!, code: 'G3-WH',  name: 'GTP Warehouse Zone', type: 'Storage', sortOrder: 20 }),
       this.areaRepo.create({ id: 'area-g4-fa',  building: byId.get('gtp-04')!, code: 'G4-FA',  name: 'GTP Final Assy Zone', type: 'Assembly', sortOrder: 21 }),
       this.areaRepo.create({ id: 'area-g5-fa',  building: byId.get('gtp-05')!, code: 'G5-FA',  name: 'GTP Final Assy Zone', type: 'Assembly', sortOrder: 22 }),
       this.areaRepo.create({ id: 'area-g6-fa',  building: byId.get('gtp-06')!, code: 'G6-FA',  name: 'GTP Final Assy Zone', type: 'Assembly', sortOrder: 23 }),
