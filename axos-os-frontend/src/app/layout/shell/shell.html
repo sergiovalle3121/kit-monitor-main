@@ -22,15 +22,12 @@
     </div>
     <div class="sidebar-noise" aria-hidden="true"></div>
 
-    <div class="brand">
+    <div class="brand" (click)="toggle()" role="button" [attr.aria-label]="collapsed ? 'Expandir menú' : 'Colapsar menú'">
       <div class="brand-mark" aria-hidden="true">AX</div>
       <div class="brand-text">
         <strong>AXOS OS</strong>
         <small>Industrial Operating System</small>
       </div>
-      <button class="toggle-btn" (click)="toggle()" [attr.aria-label]="collapsed ? 'Expandir' : 'Colapsar'">
-        <i class="fas" [class.fa-chevron-left]="!collapsed" [class.fa-chevron-right]="collapsed"></i>
-      </button>
     </div>
 
     <nav>
