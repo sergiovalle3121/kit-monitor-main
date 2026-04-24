@@ -49,7 +49,8 @@ export class EnterpriseCampusService implements OnModuleInit {
 
   async onModuleInit(): Promise<void> {
     try {
-      await this.ensureDimensionSeedData();
+      // Force update for this slice to ensure 10 buildings are present
+      await this.ensureDimensionSeedData(true);
       await this.ensureTopologySeedData();
       await this.ensurePlanLinkage();
     } catch (err) {
@@ -342,52 +343,59 @@ export class EnterpriseCampusService implements OnModuleInit {
     return list.sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity]).slice(0, 12);
   }
 
-  private async ensureDimensionSeedData(): Promise<void> {
-    if (await this.buildingRepo.count()) return;
+  private async ensureDimensionSeedData(force = false): Promise<void> {
+    if (!force && await this.buildingRepo.count() >= 10) return;
 
-    // Campus Jabil Guadalajara
-    // Campus Jabil Guadalajara Topology
+    // Campus Jabil Guadalajara Topology (GDL1 & GDL2)
     const buildings = await this.buildingRepo.save([
-      // Valdepeñas
-      this.buildingRepo.create({ id: 'val-01', code: 'B1', name: 'Valdepeñas B1', status: 'active', tags: ['valdepenas'], sortOrder: 10 }),
-      this.buildingRepo.create({ id: 'val-02', code: 'B2', name: 'Valdepeñas B2', status: 'active', tags: ['valdepenas'], sortOrder: 11 }),
+      // GDL1: Valdepeñas
+      this.buildingRepo.create({ id: 'val-01', code: 'B1', name: 'GDL1 - Nave Principal', status: 'active', tags: ['valdepenas', 'networking'], sortOrder: 10 }),
+      this.buildingRepo.create({ id: 'val-02', code: 'B2', name: 'GDL1 - Nave Consumo', status: 'active', tags: ['valdepenas', 'consumer'], sortOrder: 11 }),
       
-      // GTP (Guadalajara Technology Park)
-      this.buildingRepo.create({ id: 'gtp-03', code: 'B3', name: 'GTP B3 (Almacén)', status: 'active', tags: ['gtp', 'warehouse'], sortOrder: 20 }),
-      this.buildingRepo.create({ id: 'gtp-04', code: 'B4', name: 'GTP B4', status: 'active', tags: ['gtp'], sortOrder: 21 }),
-      this.buildingRepo.create({ id: 'gtp-05', code: 'B5', name: 'GTP B5', status: 'active', tags: ['gtp'], sortOrder: 22 }),
-      this.buildingRepo.create({ id: 'gtp-06', code: 'B6', name: 'GTP B6', status: 'active', tags: ['gtp'], sortOrder: 23 }),
-      this.buildingRepo.create({ id: 'gtp-07', code: 'B7', name: 'GTP B7', status: 'active', tags: ['gtp'], sortOrder: 24 }),
-      this.buildingRepo.create({ id: 'gtp-08', code: 'B8', name: 'GTP B8', status: 'active', tags: ['gtp'], sortOrder: 25 }),
-      this.buildingRepo.create({ id: 'gtp-09', code: 'B9', name: 'GTP B9', status: 'active', tags: ['gtp'], sortOrder: 26 }),
-      this.buildingRepo.create({ id: 'gtp-10', code: 'B10', name: 'GTP B10', status: 'active', tags: ['gtp'], sortOrder: 27 }),
+      // GDL2: Technology Park
+      this.buildingRepo.create({ id: 'gtp-03', code: 'B3', name: 'GDL2 - Healthcare Norte', status: 'active', tags: ['gtp', 'medical-class2'], sortOrder: 20 }),
+      this.buildingRepo.create({ id: 'gtp-04', code: 'B4', name: 'GDL2 - Healthcare Sur', status: 'active', tags: ['gtp', 'medical-class3'], sortOrder: 21 }),
+      this.buildingRepo.create({ id: 'gtp-05', code: 'B5', name: 'GDL2 - Automotive & Cloud', status: 'active', tags: ['gtp'], sortOrder: 22 }),
+      this.buildingRepo.create({ id: 'gtp-06', code: 'B6', name: 'GDL2 - Industrial', status: 'active', tags: ['gtp'], sortOrder: 23 }),
+      this.buildingRepo.create({ id: 'gtp-07', code: 'B7', name: 'GDL2 - Multi-Product', status: 'active', tags: ['gtp'], sortOrder: 24 }),
+      this.buildingRepo.create({ id: 'gtp-08', code: 'B8', name: 'GDL2 - Support Nave', status: 'active', tags: ['gtp'], sortOrder: 25 }),
+      this.buildingRepo.create({ id: 'gtp-09', code: 'B9', name: 'GDL2 - Logistics Hub', status: 'active', tags: ['gtp'], sortOrder: 26 }),
+      this.buildingRepo.create({ id: 'gtp-10', code: 'B10', name: 'GDL2 - Innovation Center', status: 'active', tags: ['gtp'], sortOrder: 27 }),
 
-      // Nextipac
-      this.buildingRepo.create({ id: 'next-01', code: 'NEXTIPAC', name: 'Nextipac (Almacén General)', status: 'active', tags: ['central-warehouse'], sortOrder: 50 }),
+      // External
+      this.buildingRepo.create({ id: 'next-01', code: 'NEXTI', name: 'Almacén General Nextipac', status: 'active', tags: ['external'], sortOrder: 50 }),
     ]);
     const byId = new Map(buildings.map((building) => [building.id, building]));
 
     const customers = await this.customerRepo.save([
-      this.customerRepo.create({ id: 'cust-tesla', code: 'TSLA', name: 'Tesla', industry: 'Automotive', status: 'active' }),
       this.customerRepo.create({ id: 'cust-cisco', code: 'CSCO', name: 'Cisco Systems', industry: 'Networking', status: 'active' }),
-      this.customerRepo.create({ id: 'cust-dell', code: 'DELL', name: 'Dell Technologies', industry: 'Computing', status: 'active' }),
-      this.customerRepo.create({ id: 'cust-apple', code: 'AAPL', name: 'Apple Inc.', industry: 'Consumer Electronics', status: 'active' }),
+      this.customerRepo.create({ id: 'cust-whirlpool', code: 'WHLP', name: 'Whirlpool', industry: 'Consumer', status: 'active' }),
+      this.customerRepo.create({ id: 'cust-electrolux', code: 'ELUX', name: 'Electrolux', industry: 'Consumer', status: 'active' }),
+      this.customerRepo.create({ id: 'cust-zebra', code: 'ZBRA', name: 'Zebra Technologies', industry: 'Industrial', status: 'active' }),
+      this.customerRepo.create({ id: 'cust-jj', code: 'J&J', name: 'Johnson & Johnson', industry: 'Healthcare', status: 'active' }),
+      this.customerRepo.create({ id: 'cust-ethicon', code: 'ETHI', name: 'Ethicon', industry: 'Healthcare', status: 'active' }),
+      this.customerRepo.create({ id: 'cust-tesla', code: 'TSLA', name: 'Tesla', industry: 'Automotive', status: 'active' }),
+      this.customerRepo.create({ id: 'cust-nokia', code: 'NOK', name: 'Nokia', industry: 'Infrastructure', status: 'active' }),
     ]);
     const customerById = new Map(customers.map((customer) => [customer.id, customer]));
 
     await this.warehouseRepo.save([
       this.warehouseRepo.create({ id: 'wh-nextipac', code: 'WH-NEXTI', name: 'Nextipac Main Storage', type: 'central', status: 'active', locationCount: 15000, sortOrder: 5, building: byId.get('next-01') }),
       this.warehouseRepo.create({ id: 'wh-val-01', code: 'WH-B1', name: 'Almacén B1', type: 'building', status: 'active', locationCount: 2200, sortOrder: 10, building: byId.get('val-01') }),
-      this.warehouseRepo.create({ id: 'wh-gtp-03', code: 'WH-B3', name: 'Almacén B3', type: 'building', status: 'active', locationCount: 8500, sortOrder: 20, building: byId.get('gtp-03') }),
     ]);
 
     await this.programRepo.save([
-      this.programRepo.create({ id: 'prog-optics', customer: customerById.get('cust-cisco')!, code: 'OPTICS', name: 'Cisco Optics', status: 'active', primaryModelPrefix: 'OPT', dedicatedBuilding: byId.get('val-01') }),
-      this.programRepo.create({ id: 'prog-servers', customer: customerById.get('cust-dell')!, code: 'SERVERS', name: 'Dell PowerEdge', status: 'active', primaryModelPrefix: 'PE16', dedicatedBuilding: byId.get('val-02') }),
-      this.programRepo.create({ id: 'prog-auto-nx', customer: customerById.get('cust-tesla')!, code: 'AUTO-NX', name: 'Tesla Autopilot', status: 'ramping', primaryModelPrefix: 'HW4', dedicatedBuilding: byId.get('gtp-04') }),
-      this.programRepo.create({ id: 'prog-iphone', customer: customerById.get('cust-apple')!, code: 'IPHONE', name: 'Apple iPhone Assy', status: 'active', primaryModelPrefix: 'APL', dedicatedBuilding: byId.get('gtp-05') }),
-      this.programRepo.create({ id: 'prog-na', customer: customerById.get('cust-apple')!, code: 'N/A', name: 'Proyecto N/A', status: 'active', primaryModelPrefix: 'NA' }),
-      this.programRepo.create({ id: 'prog-generic', customer: customerById.get('cust-dell')!, code: 'GENERIC', name: 'Proyecto Genérico', status: 'active', primaryModelPrefix: 'GEN' }),
+      // B1 - Cisco
+      this.programRepo.create({ id: 'prog-cisco-sw', customer: customerById.get('cust-cisco')!, code: 'CISCO-SW', name: 'Cisco Switches & Routers', status: 'active', primaryModelPrefix: 'CSW', dedicatedBuilding: byId.get('val-01') }),
+      this.programRepo.create({ id: 'prog-nokia-inf', customer: customerById.get('cust-nokia')!, code: 'NOK-INF', name: 'Nokia Infrastructure', status: 'active', primaryModelPrefix: 'NOK', dedicatedBuilding: byId.get('val-01') }),
+      
+      // B2 - Consumer
+      this.programRepo.create({ id: 'prog-whirlpool', customer: customerById.get('cust-whirlpool')!, code: 'WH-CTRL', name: 'Whirlpool Control Panels', status: 'active', primaryModelPrefix: 'WHP', dedicatedBuilding: byId.get('val-02') }),
+      this.programRepo.create({ id: 'prog-electrolux', customer: customerById.get('cust-electrolux')!, code: 'EL-CTRL', name: 'Electrolux Panels', status: 'active', primaryModelPrefix: 'ELX', dedicatedBuilding: byId.get('val-02') }),
+      this.programRepo.create({ id: 'prog-zebra', customer: customerById.get('cust-zebra')!, code: 'ZBRA-PRT', name: 'Zebra Printers', status: 'active', primaryModelPrefix: 'ZBR', dedicatedBuilding: byId.get('val-02') }),
+
+      // B3 - Healthcare
+      this.programRepo.create({ id: 'prog-jj-eth', customer: customerById.get('cust-jj')!, code: 'JJ-ETH', name: 'J&J Ethicon Instruments', status: 'active', primaryModelPrefix: 'ETH', dedicatedBuilding: byId.get('gtp-03') }),
     ]);
   }
 
