@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, ViewChild, ElementRef, AfterViewInit, inject } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild, ElementRef, AfterViewInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { EngineeringStateService } from '../shared/services/engineering-state.service';
@@ -25,8 +25,9 @@ export class VisualAidsComponent implements OnInit, AfterViewInit, OnDestroy {
   activeTool = this.state.activeTool;
   isModified = this.state.isModified;
   
+  selectedObject = signal<any>(null);
+  
   ngOnInit() {
-    // Initialize blank doc if none
     if (!this.currentDoc()) {
       this.state.setDocument({
         name: 'Nuevo Visual Aid',
@@ -42,14 +43,34 @@ export class VisualAidsComponent implements OnInit, AfterViewInit, OnDestroy {
 
   ngAfterViewInit() {
     this.adapter = new VisualCanvasAdapter(this.canvasElement.nativeElement);
-    this.adapter.getFabricCanvas().on('object:modified', () => this.state.markModified());
-    this.adapter.getFabricCanvas().on('object:added', () => this.state.markModified());
     
-    // Initial Load if doc has content
+    const canvas = this.adapter.getFabricCanvas();
+    
+    canvas.on('object:modified', () => this.syncSelection());
+    canvas.on('object:added', () => this.syncSelection());
+    canvas.on('selection:created', () => this.syncSelection());
+    canvas.on('selection:updated', () => this.syncSelection());
+    canvas.on('selection:cleared', () => this.syncSelection());
+    
+    // Initial Load
     const doc = this.currentDoc();
     if (doc?.content?.objects) {
       this.adapter.load(doc.content);
     }
+  }
+
+  syncSelection() {
+    this.state.markModified();
+    const active = this.adapter?.getFabricCanvas().getActiveObject();
+    this.selectedObject.set(active ? {
+      type: active.type,
+      fill: active.get('fill'),
+      stroke: active.get('stroke'),
+      strokeWidth: active.get('strokeWidth'),
+      opacity: active.get('opacity'),
+      fontSize: active.get('fontSize'),
+      fontFamily: active.get('fontFamily'),
+    } : null);
   }
 
   ngOnDestroy() {
@@ -66,6 +87,26 @@ export class VisualAidsComponent implements OnInit, AfterViewInit, OnDestroy {
   addText() { this.adapter?.addText(); }
   addLine() { this.adapter?.addLine(); }
 
+  onImageUpload(event: any) {
+    const file = event.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (e: any) => {
+        this.adapter?.addImage(e.target.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  }
+
+  updateProperty(prop: string, value: any) {
+    this.adapter?.updateProperty(prop, value);
+    this.syncSelection();
+  }
+
+  deleteSelected() {
+    this.adapter?.deleteSelected();
+  }
+
   save() {
     const doc = this.currentDoc();
     if (!doc || !this.adapter) return;
@@ -74,14 +115,14 @@ export class VisualAidsComponent implements OnInit, AfterViewInit, OnDestroy {
       ...doc,
       content: this.adapter.serialize(),
       viewport: {
-        zoom: this.adapter.getFabricCanvas().getZoom(),
+        zoom: this.adapter.getZoom(),
         x: 0,
         y: 0
       }
     };
 
-    // Use existing Engineering backend endpoints (to be implemented/mapped in ApiService)
     console.log('Saving Visual Aid:', updatedDoc);
-    this.state.setDocument(updatedDoc); // Mock success for foundation
+    this.state.setDocument(updatedDoc);
   }
 }
+
