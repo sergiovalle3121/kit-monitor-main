@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 
@@ -100,7 +100,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   get greeting(): string {
     const h = this.currentTime.getHours();
-    const building = this.contextService.buildings().find(b => b.id === this.context().buildingId);
+    const building = this.contextService.buildings().find((b: any) => b.id === this.context().buildingId);
     const suffix = building ? ` en ${building.code}` : '';
     
     if (h < 12) return `Buenos días${suffix}`;
