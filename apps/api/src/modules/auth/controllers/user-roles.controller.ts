@@ -13,6 +13,7 @@ import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import { PermissionsGuard } from '../guards/permissions.guard';
 import { RequirePermission } from '../decorators/permissions.decorator';
 import { AuthorizationService } from '../services/authorization.service';
+import { User } from '../../users/entities/user.entity';
 
 /**
  * DTO for assigning a role to a user
