@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "NODE_OPTIONS='--max-old-space-size=4096' next build",
     "start": "next start",
     "lint": "eslint"
   },
@@ -17,6 +17,7 @@
     "react-dom": "19.2.4",
     "recharts": "^3.8.1",
     "shadcn-ui": "^0.9.5",
+    "swr": "^2.4.1",
     "tailwind-merge": "^3.5.0"
   },
   "devDependencies": {
