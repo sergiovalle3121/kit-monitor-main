@@ -1,5 +1,4 @@
-import { UserRole } from '../../modules/users/entities/user.entity';
-
+/** Shape of user scopes for authorization */
 export interface UserScopes {
   buildings?: string[];
   programs?: string[];
@@ -9,10 +8,10 @@ export interface UserScopes {
 
 /** Shape signed into every JWT. */
 export interface JwtPayload {
-  /** User primary key. Standard JWT subject claim. */
-  sub: number;
+  /** User primary key (UUID). Standard JWT subject claim. */
+  sub: string;
   email: string;
-  role: UserRole;
+  role: string;
   tenant_id: string | null;
   organization_id: string | null;
   /** Active plant for this session. Null = org-level / multi-plant access. */
@@ -23,9 +22,9 @@ export interface JwtPayload {
 
 /** Shape of `req.user` after JwtStrategy.validate() resolves. */
 export interface AuthenticatedUser {
-  userId: number;
+  userId: string;
   email: string;
-  role: UserRole;
+  role: string;
   tenant_id: string | null;
   organization_id: string | null;
   plant_id: string | null;
