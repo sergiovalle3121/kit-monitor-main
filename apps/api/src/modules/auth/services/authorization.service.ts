@@ -268,8 +268,8 @@ export class AuthorizationService {
         userId,
         roleId,
         tenantId,
-        plantId: plantId ?? null,
-      },
+        plantId: plantId ?? undefined,
+      } as any,
     });
 
     if (existing) {
