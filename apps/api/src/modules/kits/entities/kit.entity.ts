@@ -1,6 +1,6 @@
 import {
   Entity, PrimaryGeneratedColumn, Column,
-  CreateDateColumn, OneToOne, JoinColumn, OneToMany,
+  CreateDateColumn, OneToOne, JoinColumn, OneToMany, Index,
 } from 'typeorm';
 import { Plan } from '../../plans/entities/plan.entity';
 import { KitMaterial } from '../../kit-materials/entities/kit-material.entity';

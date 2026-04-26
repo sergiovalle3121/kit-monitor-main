@@ -319,8 +319,8 @@ export class KitsService {
     }
   }
 
-  async remove(id: number, user: User): Promise<{ deleted: boolean; id: number }> {
-    await this.findOne(id, user);
+  async remove(id: number): Promise<{ deleted: boolean; id: number }> {
+    await this.findOne(id);
     await this.dataSource.transaction(async (em) => {
       await em.createQueryBuilder().delete().from('advances').where('"kitId" = :kitId', { kitId: id }).execute();
       await em
