@@ -1,0 +1,259 @@
+<app-enterprise-context-banner moduleName="Cost Roll-up Explorer"></app-enterprise-context-banner>
+
+<div class="cost-rollup-page">
+  <!-- Page Header -->
+  <header class="page-header">
+    <div class="header-left">
+      <span class="page-kicker">Financial Intelligence</span>
+      <h2>Cost Roll-up Explorer</h2>
+      <span class="page-meta">Analyze unit economics through granular cost decomposition</span>
+    </div>
+  </header>
+
+  <!-- Premium Search Bar -->
+  <section class="search-section">
+    <div class="search-container">
+      <label class="premium-search" [class.has-value]="selectedProduct">
+        <i class="fas fa-search search-icon"></i>
+        <input
+          type="text"
+          placeholder="Search by SKU, Model, or Product Name..."
+          [(ngModel)]="searchQuery"
+          (focus)="onSearchFocus()"
+          (blur)="onSearchBlur()"
+          (ngModelChange)="onSearchChange($event)"
+          [class.has-selection]="selectedProduct"
+        />
+        <button 
+          *ngIf="selectedProduct" 
+          class="clear-btn" 
+          (click)="clearSelection()"
+          aria-label="Clear selection"
+        >
+          <i class="fas fa-times"></i>
+        </button>
+      </label>
+
+      <!-- Dropdown Results -->
+      <div class="search-dropdown" *ngIf="showDropdown && availableProducts.length">
+        <div 
+          class="product-item" 
+          *ngFor="let product of availableProducts | filterProducts: searchQuery"
+          (click)="selectProduct(product)"
+        >
+          <div class="product-sku">{{ product.sku }}</div>
+          <div class="product-info">
+            <span class="product-model">{{ product.model }}</span>
+            <span class="product-desc">{{ product.description }}</span>
+          </div>
+          <i class="fas fa-chevron-right select-indicator"></i>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Loading State -->
+  <div class="loading-state" *ngIf="loading && !costData">
+    <div class="loading-spinner">
+      <div class="spinner-ring"></div>
+      <div class="spinner-ring"></div>
+      <div class="spinner-ring"></div>
+    </div>
+    <p class="loading-text">Analyzing cost structure...</p>
+  </div>
+
+  <!-- Error State -->
+  <div class="error-state" *ngIf="error">
+    <i class="fas fa-exclamation-circle error-icon"></i>
+    <p class="error-message">{{ error }}</p>
+  </div>
+
+  <!-- Cost Breakdown Display -->
+  <section class="breakdown-section" *ngIf="costData && !loading">
+    <!-- Product Info Card -->
+    <div class="product-card">
+      <div class="product-header">
+        <div class="sku-badge">{{ selectedProduct?.sku }}</div>
+        <div class="product-details">
+          <h3 class="product-title">{{ selectedProduct?.model }}</h3>
+          <p class="product-description">{{ selectedProduct?.description }}</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Cost Visualization -->
+    <div class="cost-visualization">
+      <!-- Circular Chart -->
+      <div class="chart-container">
+        <div class="donut-chart">
+          <svg viewBox="0 0 120 120" class="chart-svg">
+            <!-- Background circle -->
+            <circle 
+              cx="60" 
+              cy="60" 
+              r="52" 
+              fill="none" 
+              stroke="rgba(255,255,255,0.08)" 
+              stroke-width="16"
+            />
+            <!-- Materials segment -->
+            <circle 
+              cx="60" 
+              cy="60" 
+              r="52" 
+              fill="none" 
+              stroke="url(#gradient-materials)" 
+              stroke-width="16"
+              stroke-dasharray="{{ costData.materialsPercent * 3.26 }} 326"
+              stroke-dashoffset="0"
+              stroke-linecap="round"
+              class="segment-materials"
+            />
+            <!-- Labor segment -->
+            <circle 
+              cx="60" 
+              cy="60" 
+              r="52" 
+              fill="none" 
+              stroke="url(#gradient-labor)" 
+              stroke-width="16"
+              stroke-dasharray="{{ costData.laborPercent * 3.26 }} 326"
+              stroke-dashoffset="{{ -costData.materialsPercent * 3.26 }}"
+              stroke-linecap="round"
+              class="segment-labor"
+            />
+            <!-- Overhead segment -->
+            <circle 
+              cx="60" 
+              cy="60" 
+              r="52" 
+              fill="none" 
+              stroke="url(#gradient-overhead)" 
+              stroke-width="16"
+              stroke-dasharray="{{ costData.overheadPercent * 3.26 }} 326"
+              stroke-dashoffset="{{ -(costData.materialsPercent + costData.laborPercent) * 3.26 }}"
+              stroke-linecap="round"
+              class="segment-overhead"
+            />
+            <!-- Gradients -->
+            <defs>
+              <linearGradient id="gradient-materials" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#10b981" />
+                <stop offset="100%" stop-color="#34d399" />
+              </linearGradient>
+              <linearGradient id="gradient-labor" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#3b82f6" />
+                <stop offset="100%" stop-color="#60a5fa" />
+              </linearGradient>
+              <linearGradient id="gradient-overhead" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#f59e0b" />
+                <stop offset="100%" stop-color="#fbbf24" />
+              </linearGradient>
+            </defs>
+          </svg>
+          <!-- Center Total -->
+          <div class="chart-center">
+            <span class="center-label">Total Cost</span>
+            <span class="center-value">{{ formatCurrency(costData.totalUnitCost) }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Cost Breakdown Cards -->
+      <div class="breakdown-cards">
+        <!-- Materials -->
+        <div class="cost-card materials">
+          <div class="cost-card-header">
+            <div class="cost-icon materials-icon">
+              <i class="fas fa-box"></i>
+            </div>
+            <span class="cost-percent">{{ costData.materialsPercent }}%</span>
+          </div>
+          <div class="cost-card-body">
+            <span class="cost-label">Materials</span>
+            <span class="cost-value">{{ formatCurrency(costData.materialsCost) }}</span>
+          </div>
+          <div class="cost-bar">
+            <div class="cost-bar-fill materials-fill" [style.width.%]="costData.materialsPercent"></div>
+          </div>
+        </div>
+
+        <!-- Labor -->
+        <div class="cost-card labor">
+          <div class="cost-card-header">
+            <div class="cost-icon labor-icon">
+              <i class="fas fa-users"></i>
+            </div>
+            <span class="cost-percent">{{ costData.laborPercent }}%</span>
+          </div>
+          <div class="cost-card-body">
+            <span class="cost-label">Labor</span>
+            <span class="cost-value">{{ formatCurrency(costData.laborCost) }}</span>
+          </div>
+          <div class="cost-bar">
+            <div class="cost-bar-fill labor-fill" [style.width.%]="costData.laborPercent"></div>
+          </div>
+        </div>
+
+        <!-- Overhead -->
+        <div class="cost-card overhead">
+          <div class="cost-card-header">
+            <div class="cost-icon overhead-icon">
+              <i class="fas fa-building"></i>
+            </div>
+            <span class="cost-percent">{{ costData.overheadPercent }}%</span>
+          </div>
+          <div class="cost-card-body">
+            <span class="cost-label">Overhead</span>
+            <span class="cost-value">{{ formatCurrency(costData.overheadCost) }}</span>
+          </div>
+          <div class="cost-bar">
+            <div class="cost-bar-fill overhead-fill" [style.width.%]="costData.overheadPercent"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Formula Display -->
+    <div class="formula-section">
+      <div class="formula-title">Cost Roll-up Formula</div>
+      <div class="formula-display">
+        <span class="formula-component materials-formula">
+          <span class="formula-label">Materials</span>
+          <span class="formula-value">{{ formatCurrency(costData.materialsCost) }}</span>
+        </span>
+        <span class="formula-operator">+</span>
+        <span class="formula-component labor-formula">
+          <span class="formula-label">Labor</span>
+          <span class="formula-value">{{ formatCurrency(costData.laborCost) }}</span>
+        </span>
+        <span class="formula-operator">+</span>
+        <span class="formula-component overhead-formula">
+          <span class="formula-label">Overhead</span>
+          <span class="formula-value">{{ formatCurrency(costData.overheadCost) }}</span>
+        </span>
+        <span class="formula-operator">=</span>
+        <span class="formula-component total-formula">
+          <span class="formula-label">Total Unit Cost</span>
+          <span class="formula-value">{{ formatCurrency(costData.totalUnitCost) }}</span>
+        </span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Empty State -->
+  <section class="empty-state" *ngIf="!costData && !loading && !selectedProduct">
+    <div class="empty-icon">
+      <i class="fas fa-calculator"></i>
+    </div>
+    <h3 class="empty-title">Select a Product to Analyze</h3>
+    <p class="empty-description">
+      Search for a SKU above to view its complete cost breakdown including materials, labor, and operational expenses.
+    </p>
+    <div class="empty-hints">
+      <span class="hint-badge"><i class="fas fa-search"></i> Search by SKU</span>
+      <span class="hint-badge"><i class="fas fa-chart-pie"></i> Visual breakdown</span>
+      <span class="hint-badge"><i class="fas fa-dollar-sign"></i> Unit economics</span>
+    </div>
+  </section>
+</div>
