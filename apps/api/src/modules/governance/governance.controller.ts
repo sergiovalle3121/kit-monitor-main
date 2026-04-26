@@ -80,7 +80,7 @@ export class GovernanceController {
   @Patch('users/:id')
   @RequirePermissions('ADMIN_ACCESS')
   updateUser(@Param('id') id: string, @Body() dto: any) {
-    return this.governanceService.updateUser(Number(id), dto);
+    return this.governanceService.updateUser(id, dto);
   }
 
   @Get('audit-logs')
