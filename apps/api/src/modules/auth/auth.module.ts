@@ -13,6 +13,7 @@ import { PermissionsGuard } from './guards/permissions.guard';
 import { RolesController } from './controllers/roles.controller';
 import { UserRolesController } from './controllers/user-roles.controller';
 import { SeedController } from './controllers/seed.controller';
+import { PlantsController } from './controllers/plants.controller';
 
 // Entities
 import { Tenant } from './entities/tenant.entity';
@@ -43,7 +44,7 @@ import { RolePermission } from './entities/role-permission.entity';
       RolePermission,
     ]),
   ],
-  controllers: [AuthController, RolesController, UserRolesController, SeedController],
+  controllers: [AuthController, RolesController, UserRolesController, SeedController, PlantsController],
   providers: [AuthService, JwtStrategy, AuthorizationService, RolesSeederService, PermissionsGuard],
   exports: [AuthService, AuthorizationService, TypeOrmModule],
 })
