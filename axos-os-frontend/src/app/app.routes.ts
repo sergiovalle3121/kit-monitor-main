@@ -184,6 +184,11 @@ export const routes: Routes = [
           import('./features/admin-center/admin-center.component').then(m => m.AdminCenterComponent),
       },
       {
+        path: 'finance/cost-rollup',
+        loadComponent: () =>
+          import('./features/finance-cost-rollup/finance-cost-rollup.component').then(m => m.FinanceCostRollupComponent),
+      },
+      {
         path: 'roadmap/:domain/:module',
         loadComponent: () =>
           import('./features/enterprise-placeholder/enterprise-placeholder.component').then(m => m.EnterprisePlaceholderComponent),
