@@ -311,7 +311,12 @@ export class AccountingService {
       overhead: [IndustrialAccountCode.INVENTORY_ADJUSTMENT, IndustrialAccountCode.SCRAP_EXPENSE],
     };
 
-    const breakdown: Record<string, CostBreakdownItem[]> = {
+    const breakdown: {
+      labor: CostBreakdownItem[];
+      materials: CostBreakdownItem[];
+      energy: CostBreakdownItem[];
+      overhead: CostBreakdownItem[];
+    } = {
       labor: [],
       materials: [],
       energy: [],

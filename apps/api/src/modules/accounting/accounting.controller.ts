@@ -47,7 +47,7 @@ export class AccountingController {
   async getTransactions(
     @Query('materialPartNumber') materialPartNumber?: string,
     @Query('workOrder') workOrder?: string,
-    @Query('limit') limit?: number,
+    @Query('limit') limit?: string,
   ): Promise<Transaction[]> {
     return this.accountingService.findTransactions({
       materialPartNumber,
