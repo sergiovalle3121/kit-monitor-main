@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import Link from "next/link";
 import { 
   Activity, 
   Box, 
@@ -47,9 +48,9 @@ export default function Home() {
             <a href="#" className="hover:text-black dark:hover:text-white transition-colors">Solutions</a>
             <a href="#" className="hover:text-black dark:hover:text-white transition-colors">Enterprise</a>
           </div>
-          <button className="px-5 py-2 bg-black dark:bg-white text-white dark:text-black rounded-full text-sm font-medium hover:scale-105 active:scale-95 transition-all shadow-lg shadow-black/10 dark:shadow-white/5">
+          <Link href="/dashboard" className="px-5 py-2 bg-black dark:bg-white text-white dark:text-black rounded-full text-sm font-medium hover:scale-105 active:scale-95 transition-all shadow-lg shadow-black/10 dark:shadow-white/5">
             Launch Console
-          </button>
+          </Link>
         </div>
       </nav>
 
@@ -89,13 +90,13 @@ export default function Home() {
             variants={itemVariants}
             className="flex flex-col sm:flex-row gap-4 justify-center items-center"
           >
-            <button className="group px-8 py-4 bg-black dark:bg-white text-white dark:text-black rounded-2xl text-lg font-medium flex items-center gap-2 hover:shadow-2xl transition-all">
+            <Link href="/login" className="group px-8 py-4 bg-black dark:bg-white text-white dark:text-black rounded-2xl text-lg font-medium flex items-center gap-2 hover:shadow-2xl transition-all">
               Get Started
               <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-            </button>
-            <button className="px-8 py-4 border border-gray-200 dark:border-white/10 rounded-2xl text-lg font-medium hover:bg-gray-50 dark:hover:bg-white/5 transition-all">
+            </Link>
+            <Link href="/dashboard/forecast" className="px-8 py-4 border border-gray-200 dark:border-white/10 rounded-2xl text-lg font-medium hover:bg-gray-50 dark:hover:bg-white/5 transition-all">
               View Demo
-            </button>
+            </Link>
           </motion.div>
         </motion.div>
       </section>
