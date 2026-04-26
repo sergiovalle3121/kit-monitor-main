@@ -21,6 +21,7 @@ venv/
 
 # Build directories
 dist/
+**/dist/
 build/
 target/
 *.log

@@ -112,7 +112,7 @@ export default function CostRollupPage() {
     }));
   }, [selectedProduct]);
 
-  const containerVariants = {
+  const containerVariants: Variants = {
     hidden: { opacity: 0 },
     visible: {
       opacity: 1,
@@ -123,12 +123,12 @@ export default function CostRollupPage() {
     },
   };
 
-  const itemVariants = {
+  const itemVariants: Variants = {
     hidden: { opacity: 0, y: 30 },
     visible: {
       opacity: 1,
       y: 0,
-      transition: { duration: 0.5, ease: [0.23, 1, 0.32, 1] },
+      transition: { duration: 0.5, ease: "easeOut" },
     },
   };
 
