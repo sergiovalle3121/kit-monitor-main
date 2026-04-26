@@ -12,6 +12,7 @@ import {
   TransactionDirection,
   TransactionSourceType,
 } from './entities/transaction.entity';
+import { CostBreakdownItem, ProductCostRollup } from './accounting.controller';
 
 type AccountRef = {
   code: IndustrialAccountCode;
@@ -271,5 +272,91 @@ export class AccountingService {
 
   private round(value: number): number {
     return Math.round((Number(value) || 0) * 1_000_000) / 1_000_000;
+  }
+
+  async findTransactions(filters: {
+    materialPartNumber?: string | null;
+    workOrder?: string | null;
+    limit?: number;
+  }): Promise<Transaction[]> {
+    const query = this.transactionRepo.createQueryBuilder('transaction');
+    
+    if (filters.materialPartNumber) {
+      query.andWhere('transaction.materialPartNumber = :materialPartNumber', {
+        materialPartNumber: filters.materialPartNumber,
+      });
+    }
+    
+    if (filters.workOrder) {
+      query.andWhere('transaction.workOrder = :workOrder', {
+        workOrder: filters.workOrder,
+      });
+    }
+    
+    query.orderBy('transaction.postedAt', 'DESC').limit(filters.limit ?? 100);
+    
+    return query.getMany();
+  }
+
+  async calculateCostRollup(sku: string): Promise<ProductCostRollup> {
+    const transactions = await this.transactionRepo.find({
+      where: { materialPartNumber: sku },
+      order: { postedAt: 'DESC' },
+    });
+
+    const categoryMapping: Record<string, IndustrialAccountCode[]> = {
+      labor: [IndustrialAccountCode.WIP_INVENTORY],
+      materials: [IndustrialAccountCode.RAW_MATERIAL_INVENTORY, IndustrialAccountCode.PRODUCTION_CONSUMPTION],
+      energy: [IndustrialAccountCode.WIP_INVENTORY],
+      overhead: [IndustrialAccountCode.INVENTORY_ADJUSTMENT, IndustrialAccountCode.SCRAP_EXPENSE],
+    };
+
+    const breakdown: Record<string, CostBreakdownItem[]> = {
+      labor: [],
+      materials: [],
+      energy: [],
+      overhead: [],
+    };
+
+    const costs = { labor: 0, materials: 0, energy: 0, overhead: 0 };
+
+    for (const tx of transactions) {
+      let category: string | null = null;
+      
+      for (const [cat, codes] of Object.entries(categoryMapping)) {
+        if (codes.includes(tx.accountCode as IndustrialAccountCode)) {
+          category = cat;
+          break;
+        }
+      }
+
+      if (!category) {
+        category = 'overhead';
+      }
+
+      const item: CostBreakdownItem = {
+        id: tx.id,
+        name: tx.description ?? tx.accountName,
+        partNumber: tx.materialPartNumber ?? undefined,
+        quantity: tx.quantity,
+        unitCost: tx.actualUnitCost,
+        totalCost: tx.actualTotalCost,
+        workOrder: tx.workOrder ?? undefined,
+        postedAt: tx.postedAt,
+      };
+
+      breakdown[category].push(item);
+      costs[category as keyof typeof costs] += tx.actualTotalCost;
+    }
+
+    const totalCost = Object.values(costs).reduce((sum, val) => sum + val, 0);
+
+    return {
+      sku,
+      name: sku,
+      costs,
+      breakdown,
+      totalCost,
+    };
   }
 }
