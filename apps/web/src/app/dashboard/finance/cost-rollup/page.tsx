@@ -397,7 +397,7 @@ export default function CostRollupPage() {
                           color: '#fff',
                           fontSize: '12px',
                         }}
-                        formatter={(value: number) => [`$${value.toFixed(2)}`, 'Costo']}
+                        formatter={(value: any) => [`$${Number(value).toFixed(2)}`, 'Costo']}
                       />
                     </PieChart>
                   </ResponsiveContainer>
@@ -442,7 +442,7 @@ export default function CostRollupPage() {
                           color: '#fff',
                           fontSize: '12px',
                         }}
-                        formatter={(value: number) => [`$${value.toFixed(2)}`, 'Costo']}
+                        formatter={(value: any) => [`$${Number(value).toFixed(2)}`, 'Costo']}
                       />
                       <Bar dataKey="cost" radius={[6, 6, 0, 0]}>
                         {barData.map((entry, index) => (
