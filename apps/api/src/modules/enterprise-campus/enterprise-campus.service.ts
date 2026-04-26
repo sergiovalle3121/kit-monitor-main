@@ -107,8 +107,8 @@ export class EnterpriseCampusService implements OnModuleInit {
   async getActiveAnomalies(buildingId?: string): Promise<any[]> {
     const list = [
       { id: 'an-1', severity: 'critical', area: 'B7 SMT', message: 'Pick-and-place nozzle vacuum low on Line 4', timestamp: new Date() },
-      { id: 'an-2', severity: 'warning', area: 'B1 Assembly', message: 'Yield drop on Cisco OPT-200 (94.2%)', timestamp: new Date() },
-      { id: 'an-3', severity: 'info', area: 'Nextipac WH', message: 'Material arrival: 5 pallets J&J sensors', timestamp: new Date() },
+      { id: 'an-2', severity: 'warning', area: 'B1 Assembly', message: 'Yield drop on Product OPT-200 (94.2%)', timestamp: new Date() },
+      { id: 'an-3', severity: 'info', area: 'External WH', message: 'Material arrival: 5 pallets sensor assemblies', timestamp: new Date() },
     ];
     const severityOrder = { critical: 0, warning: 1, info: 2 };
     return list.sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity]).slice(0, 12);
@@ -129,21 +129,21 @@ export class EnterpriseCampusService implements OnModuleInit {
     await this.buildingRepo.createQueryBuilder().delete().execute();
     await this.customerRepo.createQueryBuilder().delete().execute();
 
-    // Campus Jabil Guadalajara Topology (GDL1 & GDL2)
+    // Default white-label campus topology
     const buildings = await this.buildingRepo.save([
       // GDL1: Valdepeñas
       this.buildingRepo.create({ id: 'b1', code: 'B1', name: 'Valdepeñas B1', status: 'active', tags: ['valdepenas'], sortOrder: 10 }),
       this.buildingRepo.create({ id: 'b2', code: 'B2', name: 'Valdepeñas B2', status: 'active', tags: ['valdepenas'], sortOrder: 11 }),
       
-      // GDL2: Technology Park
-      this.buildingRepo.create({ id: 'b3', code: 'B3', name: 'GTP B3', status: 'active', tags: ['gtp'], sortOrder: 20 }),
-      this.buildingRepo.create({ id: 'b4', code: 'B4', name: 'GTP B4', status: 'active', tags: ['gtp'], sortOrder: 21 }),
-      this.buildingRepo.create({ id: 'b5', code: 'B5', name: 'GTP B5', status: 'active', tags: ['gtp'], sortOrder: 22 }),
-      this.buildingRepo.create({ id: 'b6', code: 'B6', name: 'GTP B6', status: 'active', tags: ['gtp'], sortOrder: 23 }),
-      this.buildingRepo.create({ id: 'b7', code: 'B7', name: 'GTP B7', status: 'active', tags: ['gtp', 'primary'], sortOrder: 24 }),
-      this.buildingRepo.create({ id: 'b8', code: 'B8', name: 'GTP B8', status: 'active', tags: ['gtp'], sortOrder: 25 }),
-      this.buildingRepo.create({ id: 'b9', code: 'B9', name: 'GTP B9', status: 'active', tags: ['gtp'], sortOrder: 26 }),
-      this.buildingRepo.create({ id: 'b10', code: 'B10', name: 'GTP B10', status: 'active', tags: ['gtp'], sortOrder: 27 }),
+      // Site B
+      this.buildingRepo.create({ id: 'b3', code: 'B3', name: 'Advanced Manufacturing B3', status: 'active', tags: ['site-b'], sortOrder: 20 }),
+      this.buildingRepo.create({ id: 'b4', code: 'B4', name: 'Advanced Manufacturing B4', status: 'active', tags: ['site-b'], sortOrder: 21 }),
+      this.buildingRepo.create({ id: 'b5', code: 'B5', name: 'Advanced Manufacturing B5', status: 'active', tags: ['site-b'], sortOrder: 22 }),
+      this.buildingRepo.create({ id: 'b6', code: 'B6', name: 'Advanced Manufacturing B6', status: 'active', tags: ['site-b'], sortOrder: 23 }),
+      this.buildingRepo.create({ id: 'b7', code: 'B7', name: 'Advanced Manufacturing B7', status: 'active', tags: ['site-b', 'primary'], sortOrder: 24 }),
+      this.buildingRepo.create({ id: 'b8', code: 'B8', name: 'Advanced Manufacturing B8', status: 'active', tags: ['site-b'], sortOrder: 25 }),
+      this.buildingRepo.create({ id: 'b9', code: 'B9', name: 'Advanced Manufacturing B9', status: 'active', tags: ['site-b'], sortOrder: 26 }),
+      this.buildingRepo.create({ id: 'b10', code: 'B10', name: 'Advanced Manufacturing B10', status: 'active', tags: ['site-b'], sortOrder: 27 }),
 
       // External / General
       this.buildingRepo.create({ id: 'nextipac', code: 'NEXTIPAC', name: 'Almacén General (Nextipac)', status: 'active', tags: ['external', 'storage'], sortOrder: 50 }),
