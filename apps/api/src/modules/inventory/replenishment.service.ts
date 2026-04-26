@@ -123,7 +123,7 @@ export class ReplenishmentService {
   }
 }
 
-interface AnalysisSignal {
+export interface AnalysisSignal {
   rule: ReplenishmentRule;
   currentStock: number;
   status: 'OUT_OF_STOCK' | 'BELOW_MIN';

@@ -128,10 +128,27 @@ For each module in Tier 2–4, repeat:
 - [x] `src/modules/forecast/forecast.controller.ts` — REST endpoints + Swagger
 - [x] `src/modules/forecast/forecast.module.ts`
 
+### ✅ Inventory Module (Tier 2 Pilot) — DONE (2026-04-25)
+**Entities** — `tenant_id`, `organization_id`, `plant_id` added to all 5:
+- [x] `material_master` — `tenant_id` + `organization_id` (catalog-level)
+- [x] `inventory_positions` — all 3 + composite indexes `[tenant_id, warehouseId]`, `[tenant_id, partNumber]`
+- [x] `inventory_movements` — all 3 + `[tenant_id, partNumber]` index
+- [x] `replenishment_rules` — all 3 + `[tenant_id, warehouseId]` index
+- [x] `warehouse_tasks` — all 3 + `[tenant_id, status]` index
+
+**Services** — `user: User` param removed; all filtering via `TenantContextService`:
+- [x] `InventoryService` — tenant isolation + building scope on positions, movements, materials
+- [x] `WarehouseService` — tenant isolation + building scope on tasks and picking backlog
+- [x] `ReplenishmentService` — tenant isolation + building scope on rules and analysis
+
+**TenantContextService** — expanded with `role`, `permissions`, `scopes`, `getAllowedBuildingIds()`, `hasPermission()`, `isAdmin()`
+
+**Cross-module fix** — `ShippingService.addItem()` updated to new `findAllPositions()` signature
+
 ### Next Steps
-- [ ] Generate TypeORM migration for `users` table: add `tenant_id`, `organization_id`, `plant_id`, `deleted_at`
-- [ ] Generate TypeORM migration for `forecasts` table (new table)
-- [ ] Tier 2 pilot: apply `TenantBaseEntity` to `inventory` module
+- [ ] Generate TypeORM migration: users table changes (tenant fields + deleted_at)
+- [ ] Generate TypeORM migration: new columns on inventory tables
+- [ ] Continue Tier 2: `production-runtime`, `plans`, `kits`, `bom`
 
 ---
 
