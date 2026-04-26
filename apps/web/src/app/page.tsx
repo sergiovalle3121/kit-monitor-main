@@ -48,7 +48,7 @@ export default function Home() {
             <a href="#" className="hover:text-black dark:hover:text-white transition-colors">Solutions</a>
             <a href="#" className="hover:text-black dark:hover:text-white transition-colors">Enterprise</a>
           </div>
-          <Link href="/dashboard" className="px-5 py-2 bg-black dark:bg-white text-white dark:text-black rounded-full text-sm font-medium hover:scale-105 active:scale-95 transition-all shadow-lg shadow-black/10 dark:shadow-white/5">
+          <Link href="/login" className="px-5 py-2 bg-black dark:bg-white text-white dark:text-black rounded-full text-sm font-medium hover:scale-105 active:scale-95 transition-all shadow-lg shadow-black/10 dark:shadow-white/5">
             Launch Console
           </Link>
         </div>

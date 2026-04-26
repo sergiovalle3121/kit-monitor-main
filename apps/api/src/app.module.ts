@@ -30,6 +30,7 @@ import { ReceivingModule } from './modules/receiving/receiving.module';
 import { ShippingModule } from './modules/shipping/shipping.module';
 import { GovernanceModule } from './modules/governance/governance.module';
 import { EngineeringModule } from './modules/engineering/engineering.module';
+import { AccountingModule } from './modules/accounting/accounting.module';
 
 @Module({
   imports: [
@@ -60,6 +61,7 @@ import { EngineeringModule } from './modules/engineering/engineering.module';
     ShippingModule,
     GovernanceModule,
     EngineeringModule,
+    AccountingModule,
   ],
   controllers: [HealthController],
   providers: [],

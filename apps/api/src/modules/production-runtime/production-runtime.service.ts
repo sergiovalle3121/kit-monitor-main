@@ -19,8 +19,13 @@ import { EnterpriseProgram } from '../enterprise-campus/entities/enterprise-prog
 import { EnterpriseLine } from '../enterprise-campus/entities/enterprise-line.entity';
 import { ProductionWip } from './entities/production-wip.entity';
 import { InventoryService } from '../inventory/inventory.service';
+import { MaterialMaster } from '../inventory/entities/material-master.entity';
 import { AuditService } from '../governance/audit.service';
 import { TenantContextService } from '../../common/tenant/tenant-context.service';
+import {
+  TransactionCostBasis,
+  TransactionSourceType,
+} from '../accounting/entities/transaction.entity';
 import {
   ExceptionSeverity,
   ExceptionDomain,
@@ -1178,6 +1183,11 @@ export class ProductionRuntimeService {
       );
 
     return this.dataSource.transaction(async (em) => {
+      const remainingCompletedQty = wip.completedQty - quantity;
+      const isFinalDeclaration =
+        remainingCompletedQty <= 0 && wip.status === 'ready_for_fg';
+      const actualUnitCost = await this.estimateFinishedGoodUnitCost(kitId, em);
+
       // 1. Move from WIP to FG Inventory
       await this.inventory.recordTransaction({
         type: 'TRANSFER',
@@ -1192,14 +1202,55 @@ export class ProductionRuntimeService {
         referenceId: wip.workOrder,
         holdStatus: 'pending_oqc', // Hard lock for final quality
         reason: `FG Declaration - WO ${wip.workOrder}`,
+        actualUnitCost,
+        accountingCostBasis: TransactionCostBasis.BOM_ROLLUP,
+        accountingSourceType: isFinalDeclaration
+          ? TransactionSourceType.PRODUCTION_COMPLETION
+          : TransactionSourceType.INVENTORY_MOVEMENT,
+        accountingMetadata: {
+          kitId,
+          declaredFinishedGoodsQty: quantity,
+          remainingCompletedQty: Math.max(0, remainingCompletedQty),
+        },
       });
 
       // 2. Update WIP
-      wip.completedQty -= quantity;
+      wip.completedQty = remainingCompletedQty;
       if (wip.completedQty <= 0 && wip.status === 'ready_for_fg') {
         wip.status = 'completed';
       }
       return em.save(wip);
     });
+  }
+
+  private async estimateFinishedGoodUnitCost(
+    kitId: number,
+    manager = this.dataSource.manager,
+  ): Promise<number> {
+    const states = await manager.find(ProductionBayMaterialState, {
+      where: { kit: { id: kitId } },
+    });
+    const partNumbers = [...new Set(states.map((state) => state.partNumber))];
+    if (!partNumbers.length) return 0;
+
+    const materials = await manager.find(MaterialMaster, {
+      where: { partNumber: In(partNumbers) },
+    });
+    const costByPart = new Map(
+      materials.map((material) => [
+        material.partNumber,
+        Number(material.standardCost ?? 0),
+      ]),
+    );
+
+    const unitCost = states.reduce(
+      (sum, state) =>
+        sum +
+        Number(state.usagePerAssembly ?? 0) *
+          Number(costByPart.get(state.partNumber) ?? 0),
+      0,
+    );
+
+    return Math.round(unitCost * 1_000_000) / 1_000_000;
   }
 }

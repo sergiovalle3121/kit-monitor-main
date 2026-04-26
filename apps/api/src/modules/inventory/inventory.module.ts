@@ -14,6 +14,7 @@ import { ReplenishmentService } from './replenishment.service';
 import { ReplenishmentController } from './replenishment.controller';
 import { EnterpriseCampusModule } from '../enterprise-campus/enterprise-campus.module';
 import { GovernanceModule } from '../governance/governance.module';
+import { AccountingModule } from '../accounting/accounting.module';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { GovernanceModule } from '../governance/governance.module';
     ]),
     EnterpriseCampusModule,
     GovernanceModule,
+    AccountingModule,
     // TenantModule is @Global — TenantContextService injected automatically.
   ],
   controllers: [

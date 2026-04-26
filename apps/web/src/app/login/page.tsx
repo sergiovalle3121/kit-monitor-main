@@ -22,9 +22,12 @@ export default function LoginPage() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    // Simulating login and redirecting to dashboard
+    
+    // Simulating login and setting session cookie
     setTimeout(() => {
       setLoading(false);
+      // Creamos la cookie de sesión (en una app real esto lo haría el backend)
+      document.cookie = "axos_session=true; path=/; max-age=3600";
       router.push("/dashboard");
     }, 1500);
   };

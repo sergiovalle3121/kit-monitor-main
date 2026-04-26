@@ -14,6 +14,7 @@ import { ProductionRuntimeController } from './production-runtime.controller';
 import { EnterpriseProgram } from '../enterprise-campus/entities/enterprise-program.entity';
 import { EnterpriseLine } from '../enterprise-campus/entities/enterprise-line.entity';
 import { GovernanceModule } from '../governance/governance.module';
+import { AccountingModule } from '../accounting/accounting.module';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { GovernanceModule } from '../governance/governance.module';
     ]),
     InventoryModule,
     GovernanceModule,
+    AccountingModule,
   ],
   providers: [ProductionRuntimeService],
   controllers: [ProductionRuntimeController],

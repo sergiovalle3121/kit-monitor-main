@@ -14,6 +14,11 @@ import { MaterialMaster } from './entities/material-master.entity';
 import { EnterpriseWarehouse } from '../enterprise-campus/entities/enterprise-warehouse.entity';
 import { AuditService } from '../governance/audit.service';
 import { TenantContextService } from '../../common/tenant/tenant-context.service';
+import { AccountingService } from '../accounting/accounting.service';
+import {
+  TransactionCostBasis,
+  TransactionSourceType,
+} from '../accounting/entities/transaction.entity';
 import {
   ExceptionSeverity,
   ExceptionDomain,
@@ -31,6 +36,7 @@ export class InventoryService {
     @InjectRepository(EnterpriseWarehouse)
     private readonly warehouseRepo: Repository<EnterpriseWarehouse>,
     private readonly audit: AuditService,
+    private readonly accounting: AccountingService,
     private readonly tenantContext: TenantContextService,
     private readonly dataSource: DataSource,
   ) {}
@@ -181,6 +187,11 @@ export class InventoryService {
     holdStatus?: InventoryPosition['holdStatus'];
     lotNumber?: string;
     serialNumber?: string;
+    actualUnitCost?: number;
+    currency?: string;
+    accountingSourceType?: TransactionSourceType;
+    accountingCostBasis?: TransactionCostBasis;
+    accountingMetadata?: Record<string, unknown>;
   }): Promise<InventoryMovement> {
     const tenantId = this.tenantContext.getTenantId();
     const actor = dto.actorName ?? this.tenantContext.getUserEmail();
@@ -297,6 +308,17 @@ export class InventoryService {
         plant_id: this.tenantContext.getPlantId(),
       });
       const savedMovement = await queryRunner.manager.save(movement);
+
+      await this.accounting.recordInventoryMovement({
+        movement: savedMovement,
+        material,
+        manager: queryRunner.manager,
+        sourceType: dto.accountingSourceType,
+        actualUnitCost: dto.actualUnitCost,
+        currency: dto.currency,
+        costBasis: dto.accountingCostBasis,
+        metadata: dto.accountingMetadata,
+      });
 
       await this.audit.recordAction({
         actor,
