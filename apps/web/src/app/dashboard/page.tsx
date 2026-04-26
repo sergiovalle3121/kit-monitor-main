@@ -63,32 +63,125 @@ const apps = [
 ];
 
 export default function DashboardLauncher() {
+  const router = useRouter();
   const [isAppSwitcherOpen, setIsAppSwitcherOpen] = useState(false);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const filteredApps = apps.filter(app => 
+    app.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    app.description.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const handleLogout = () => {
+    // Borrar la cookie de sesión
+    document.cookie = "axos_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+    router.push("/login");
+  };
 
   return (
     <div className="min-h-screen bg-[#F2F2F7] dark:bg-black text-black dark:text-white font-sans overflow-hidden">
       
       {/* Top Bar (iOS Style) */}
-      <nav className="fixed top-0 w-full z-50 px-6 py-4 flex justify-between items-center backdrop-blur-md bg-white/70 dark:bg-black/70">
+      <nav className="fixed top-0 w-full z-50 px-6 py-4 flex justify-between items-center backdrop-blur-md bg-white/70 dark:bg-black/70 border-b border-gray-200/50 dark:border-white/5">
         <div className="flex items-center gap-2">
           <span className="font-bold text-lg tracking-tight">Axos OS</span>
         </div>
         
         <div className="flex items-center gap-6">
-          <div className="hidden md:flex items-center gap-4 px-4 py-2 bg-gray-200/50 dark:bg-white/10 rounded-full">
+          <div className="hidden md:flex items-center gap-4 px-4 py-2 bg-gray-200/50 dark:bg-white/10 rounded-full focus-within:ring-2 ring-blue-500/20 transition-all">
             <Search className="w-4 h-4 text-gray-500" />
             <input 
               type="text" 
-              placeholder="Siri, find my inventory..." 
+              placeholder="Search apps or data..." 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
               className="bg-transparent border-none outline-none text-sm w-48 placeholder:text-gray-500"
             />
           </div>
-          <div className="flex items-center gap-3">
-            <button className="p-2 hover:bg-gray-200 dark:hover:bg-white/10 rounded-full transition-colors">
-              <Bell className="w-5 h-5" />
-            </button>
-            <div className="w-8 h-8 bg-black dark:bg-white rounded-full flex items-center justify-center text-white dark:text-black font-bold text-xs">
-              SV
+          
+          <div className="flex items-center gap-3 relative">
+            {/* Notifications Button */}
+            <div className="relative">
+              <button 
+                onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
+                className="p-2 hover:bg-gray-200 dark:hover:bg-white/10 rounded-full transition-colors relative"
+              >
+                <Bell className="w-5 h-5" />
+                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white dark:border-black" />
+              </button>
+
+              {/* Notifications Dropdown */}
+              <AnimatePresence>
+                {isNotificationsOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                    className="absolute right-0 mt-4 w-80 bg-white dark:bg-[#1C1C1E] border border-gray-200 dark:border-white/10 rounded-[2rem] shadow-2xl p-6 z-[100] backdrop-blur-xl"
+                  >
+                    <h3 className="font-bold mb-4">Alertas Recientes</h3>
+                    <div className="space-y-4">
+                      <div className="flex gap-3 items-start">
+                        <div className="w-2 h-2 bg-red-500 rounded-full mt-1.5 flex-shrink-0" />
+                        <div>
+                          <p className="text-xs font-bold">Stock Crítico</p>
+                          <p className="text-[10px] text-gray-500">SKU-2055 por debajo del mínimo.</p>
+                        </div>
+                      </div>
+                      <div className="flex gap-3 items-start">
+                        <div className="w-2 h-2 bg-amber-500 rounded-full mt-1.5 flex-shrink-0" />
+                        <div>
+                          <p className="text-xs font-bold">Línea A1 - OEE 85%</p>
+                          <p className="text-[10px] text-gray-500">Rendimiento por debajo del objetivo.</p>
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* User Profile Button */}
+            <div className="relative">
+              <button 
+                onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                className="w-10 h-10 bg-black dark:bg-white rounded-full flex items-center justify-center text-white dark:text-black font-bold text-xs hover:scale-105 active:scale-95 transition-all"
+              >
+                SV
+              </button>
+
+              {/* User Menu Dropdown */}
+              <AnimatePresence>
+                {isUserMenuOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                    className="absolute right-0 mt-4 w-64 bg-white dark:bg-[#1C1C1E] border border-gray-200 dark:border-white/10 rounded-[2rem] shadow-2xl p-4 z-[100] backdrop-blur-xl"
+                  >
+                    <div className="px-4 py-3 border-b border-gray-100 dark:border-white/5 mb-2 text-center">
+                      <p className="font-bold text-sm">Sergio Valle</p>
+                      <p className="text-[10px] text-gray-500 uppercase tracking-widest">Administrator</p>
+                    </div>
+                    <div className="space-y-1">
+                      <button className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-white/5 rounded-xl text-xs transition-colors flex items-center gap-3">
+                        <User className="w-4 h-4" /> Account Settings
+                      </button>
+                      <button className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-white/5 rounded-xl text-xs transition-colors flex items-center gap-3">
+                        <Settings className="w-4 h-4" /> System Preferences
+                      </button>
+                      <button 
+                        onClick={handleLogout}
+                        className="w-full text-left px-4 py-2 hover:bg-red-50 dark:hover:bg-red-500/10 text-red-500 rounded-xl text-xs transition-colors flex items-center gap-3"
+                      >
+                        <Lock className="w-4 h-4" /> Sign Out
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           </div>
         </div>
@@ -116,7 +209,7 @@ export default function DashboardLauncher() {
 
         {/* Quick Access Grid */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-6 md:gap-10">
-          {apps.map((app, i) => (
+          {filteredApps.map((app, i) => (
             <Link href={app.href} key={app.id}>
               <motion.div
                 initial={{ opacity: 0, scale: 0.8 }}
@@ -228,7 +321,7 @@ export default function DashboardLauncher() {
               <div className="w-12 h-1.5 bg-gray-200 dark:bg-white/10 rounded-full mx-auto mb-10" />
               <h2 className="text-3xl font-bold mb-8 text-center">Axos Applications</h2>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-8 max-w-4xl mx-auto">
-                {apps.map((app) => (
+                {filteredApps.map((app) => (
                   <Link href={app.href} key={app.id} onClick={() => setIsAppSwitcherOpen(false)}>
                     <div className="flex flex-col items-center">
                       <div className={`w-20 h-20 rounded-[1.8rem] ${app.color} flex items-center justify-center shadow-lg`}>
