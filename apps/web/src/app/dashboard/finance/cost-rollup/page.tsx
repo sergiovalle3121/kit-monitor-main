@@ -132,12 +132,12 @@ export default function CostRollupPage() {
     },
   };
 
-  const breakdownItemVariants = {
+  const breakdownItemVariants: Variants = {
     hidden: { opacity: 0, height: 0 },
     visible: { 
       opacity: 1, 
       height: 'auto',
-      transition: { duration: 0.3, ease: [0.23, 1, 0.32, 1] }
+      transition: { duration: 0.3, ease: "easeOut" }
     },
     exit: { 
       opacity: 0, 
