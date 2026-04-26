@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { motion } from "framer-motion";
+import { useRouter } from "next/navigation";
 import { 
   ArrowRight, 
   Eye, 
@@ -14,14 +15,18 @@ import {
 import Link from "next/link";
 
 export default function LoginPage() {
+  const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    // Simulating login for now
-    setTimeout(() => setLoading(false), 2000);
+    // Simulating login and redirecting to dashboard
+    setTimeout(() => {
+      setLoading(false);
+      router.push("/dashboard");
+    }, 1500);
   };
 
   return (
