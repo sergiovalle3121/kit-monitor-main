@@ -7,5 +7,6 @@ import { AccountingService } from './accounting.service';
   imports: [TypeOrmModule.forFeature([Transaction])],
   providers: [AccountingService],
   exports: [AccountingService],
+  controllers: [AccountingController],
 })
 export class AccountingModule {}
