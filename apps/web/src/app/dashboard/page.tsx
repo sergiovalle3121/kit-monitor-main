@@ -17,11 +17,20 @@ import {
   Boxes,
   DollarSign,
   TrendingUp,
-  Lock
+  Lock,
+  RadioTower
 } from "lucide-react";
 import Link from "next/link";
 
 const apps = [
+  {
+    id: "mission-control",
+    name: "Mission Control",
+    icon: <RadioTower className="w-8 h-8 text-cyan-500" strokeWidth={1.5} />,
+    color: "bg-cyan-50 dark:bg-cyan-500/10",
+    href: "/dashboard/mission-control",
+    description: "War Room"
+  },
   { 
     id: "inventory", 
     name: "Inventory", 
