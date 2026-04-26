@@ -114,11 +114,24 @@ For each module in Tier 2–4, repeat:
 - [x] `JwtStrategy.validate()` → `req.user` is now typed as `AuthenticatedUser`
 - [x] `PermissionsGuard` → typed with `AuthenticatedUser`, fixed TS strict-null issues
 
+### ✅ Tenant Infrastructure — DONE (2026-04-25)
+- [x] `src/common/tenant/tenant-context.service.ts` — AsyncLocalStorage-based per-request context
+- [x] `src/common/tenant/tenant.interceptor.ts` — populates context from JWT on every request
+- [x] `src/common/tenant/tenant.module.ts` — @Global, registers APP_INTERCEPTOR
+- [x] `TenantModule` registered in `AppModule`
+
+### ✅ Forecast Module — DONE (2026-04-25)
+- [x] `src/modules/forecast/entities/forecast.entity.ts` — extends TenantBaseEntity
+- [x] `src/modules/forecast/dto/forecast.dto.ts` — Create, Update, Run, Simulate DTOs
+- [x] `src/modules/forecast/monte-carlo.service.ts` — Box-Muller, normal/lognormal, P10/P50/P90
+- [x] `src/modules/forecast/forecast.service.ts` — tenant-scoped CRUD + stateless simulate
+- [x] `src/modules/forecast/forecast.controller.ts` — REST endpoints + Swagger
+- [x] `src/modules/forecast/forecast.module.ts`
+
 ### Next Steps
-- [ ] Create `TenantContextService` with AsyncLocalStorage (injectable per-request tenant context)
-- [ ] Create `TenantInterceptor` (register globally in `main.ts`)
-- [ ] Pick one Tier 2 module (`inventory`) as the pilot migration
 - [ ] Generate TypeORM migration for `users` table: add `tenant_id`, `organization_id`, `plant_id`, `deleted_at`
+- [ ] Generate TypeORM migration for `forecasts` table (new table)
+- [ ] Tier 2 pilot: apply `TenantBaseEntity` to `inventory` module
 
 ---
 

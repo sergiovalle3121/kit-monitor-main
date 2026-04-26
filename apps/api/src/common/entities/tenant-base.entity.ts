@@ -5,15 +5,17 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 
+// Fields are nullable during the migration phase (existing rows have no tenant).
+// Once the tenant-management module ships, a migration will enforce NOT NULL.
 export abstract class TenantBaseEntity {
-  @Column({ type: 'uuid', nullable: false })
-  tenant_id: string;
+  @Column({ type: 'varchar', length: 36, nullable: true, name: 'tenant_id' })
+  tenant_id: string | null;
 
-  @Column({ type: 'uuid', nullable: false })
-  organization_id: string;
+  @Column({ type: 'varchar', length: 36, nullable: true, name: 'organization_id' })
+  organization_id: string | null;
 
-  @Column({ type: 'uuid', nullable: false })
-  plant_id: string;
+  @Column({ type: 'varchar', length: 36, nullable: true, name: 'plant_id' })
+  plant_id: string | null;
 
   @CreateDateColumn({ name: 'created_at' })
   created_at: Date;

@@ -3,7 +3,6 @@
 import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { 
-  LineChart, 
   Line, 
   XAxis, 
   YAxis, 
@@ -23,9 +22,27 @@ import {
   Sigma, 
   History,
   Download,
-  AlertTriangle
+  AlertTriangle,
+  ChevronRight
 } from "lucide-react";
 import Link from "next/link";
+
+const simulationPalette = {
+  actual: "#0F766E",
+  actualDot: "#14B8A6",
+  projection: "#7C3AED",
+  projectionGlow: "#A78BFA",
+  upperBound: "#38BDF8",
+  lowerBound: "#F59E0B",
+  grid: "#CBD5E1",
+  tick: "#94A3B8",
+};
+
+const buttonMotion = {
+  whileHover: { y: -2, scale: 1.02 },
+  whileTap: { scale: 0.98 },
+  transition: { type: "spring", stiffness: 420, damping: 28 },
+} as const;
 
 // Mock Data for Monte Carlo Simulation
 const generateSimulationData = () => {
@@ -60,9 +77,11 @@ export default function ForecastLabPage() {
       {/* Header */}
       <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12">
         <div className="flex items-center gap-6">
-          <Link href="/dashboard" className="p-3 bg-white dark:bg-[#111] border border-gray-100 dark:border-white/5 rounded-2xl hover:scale-105 active:scale-95 transition-all">
-            <ChevronLeft className="w-5 h-5" />
-          </Link>
+          <motion.div {...buttonMotion}>
+            <Link href="/dashboard" className="p-3 bg-white dark:bg-[#111] border border-gray-100 dark:border-white/5 rounded-2xl shadow-sm hover:border-teal-200 hover:shadow-lg hover:shadow-teal-500/10 dark:hover:border-teal-400/20 dark:hover:shadow-teal-400/5 transition-all duration-300 inline-flex">
+              <ChevronLeft className="w-5 h-5" />
+            </Link>
+          </motion.div>
           <div>
             <div className="flex items-center gap-2 mb-1">
               <span className="px-2 py-0.5 rounded bg-black dark:bg-white text-[10px] font-bold text-white dark:text-black uppercase tracking-tighter">Lab</span>
@@ -72,18 +91,26 @@ export default function ForecastLabPage() {
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <button className="px-6 py-3 border border-gray-200 dark:border-white/10 rounded-2xl text-sm font-medium hover:bg-gray-50 dark:hover:bg-white/5 transition-all flex items-center gap-2">
+          <motion.button
+            type="button"
+            {...buttonMotion}
+            className="px-6 py-3 border border-gray-200 dark:border-white/10 rounded-2xl text-sm font-medium hover:bg-white hover:border-slate-300 hover:shadow-lg hover:shadow-slate-900/5 dark:hover:bg-white/5 dark:hover:border-white/20 dark:hover:shadow-white/5 transition-colors duration-300 flex items-center gap-2"
+          >
             <Download className="w-4 h-4" />
             Export Dataset
-          </button>
-          <button 
+          </motion.button>
+          <motion.button 
+            type="button"
             onClick={startSimulation}
             disabled={isSimulating}
-            className="px-6 py-3 bg-black dark:bg-white text-white dark:text-black rounded-2xl text-sm font-bold shadow-xl shadow-black/10 dark:shadow-white/5 hover:scale-105 active:scale-95 transition-all flex items-center gap-2 disabled:opacity-50"
+            whileHover={isSimulating ? undefined : buttonMotion.whileHover}
+            whileTap={isSimulating ? undefined : buttonMotion.whileTap}
+            transition={buttonMotion.transition}
+            className="px-6 py-3 bg-black dark:bg-white text-white dark:text-black rounded-2xl text-sm font-bold shadow-xl shadow-black/10 dark:shadow-white/5 hover:shadow-2xl hover:shadow-violet-500/20 dark:hover:shadow-teal-300/10 transition-shadow duration-300 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isSimulating ? <RotateCcw className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4 fill-current" />}
             {isSimulating ? "Computing..." : "Run Simulation"}
-          </button>
+          </motion.button>
         </div>
       </header>
 
@@ -101,7 +128,7 @@ export default function ForecastLabPage() {
                   <p className="text-2xl font-bold">94.2%</p>
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-1">Sigma (σ)</h3>
+                  <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-1">Sigma (&sigma;)</h3>
                   <p className="text-2xl font-bold">2.4</p>
                 </div>
               </div>
@@ -116,60 +143,76 @@ export default function ForecastLabPage() {
                 <AreaChart data={data} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
                   <defs>
                     <linearGradient id="colorProjection" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#000000" stopOpacity={0.1}/>
-                      <stop offset="95%" stopColor="#000000" stopOpacity={0}/>
+                      <stop offset="5%" stopColor={simulationPalette.projectionGlow} stopOpacity={0.16}/>
+                      <stop offset="95%" stopColor={simulationPalette.projectionGlow} stopOpacity={0}/>
+                    </linearGradient>
+                    <linearGradient id="confidenceBand" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor={simulationPalette.upperBound} stopOpacity={0.16}/>
+                      <stop offset="55%" stopColor={simulationPalette.projectionGlow} stopOpacity={0.08}/>
+                      <stop offset="95%" stopColor={simulationPalette.lowerBound} stopOpacity={0.14}/>
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" opacity={0.3} />
+                  <CartesianGrid strokeDasharray="4 8" vertical={false} stroke={simulationPalette.grid} opacity={0.35} />
                   <XAxis 
                     dataKey="name" 
                     axisLine={false} 
                     tickLine={false} 
-                    tick={{ fontSize: 10, fontWeight: 600, fill: '#9CA3AF' }}
+                    tick={{ fontSize: 10, fontWeight: 600, fill: simulationPalette.tick }}
                     dy={10}
                   />
                   <YAxis 
                     axisLine={false} 
                     tickLine={false} 
-                    tick={{ fontSize: 10, fontWeight: 600, fill: '#9CA3AF' }}
+                    tick={{ fontSize: 10, fontWeight: 600, fill: simulationPalette.tick }}
                   />
                   <Tooltip 
                     contentStyle={{ 
-                      borderRadius: '20px', 
-                      border: 'none', 
-                      boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)',
+                      borderRadius: '18px', 
+                      border: '1px solid rgb(226 232 240 / 0.85)', 
+                      boxShadow: '0 20px 45px -18px rgb(15 23 42 / 0.35)',
                       fontSize: '12px',
-                      fontWeight: 'bold'
+                      fontWeight: 'bold',
+                      background: 'rgb(255 255 255 / 0.96)'
+                    }}
+                    labelStyle={{
+                      color: '#334155',
+                      marginBottom: '6px'
                     }} 
                   />
                   <Area 
                     type="monotone" 
                     dataKey="upperBound" 
-                    stroke="transparent" 
-                    fill="#9CA3AF" 
-                    fillOpacity={0.1} 
+                    stroke={simulationPalette.upperBound}
+                    strokeOpacity={0.3}
+                    strokeWidth={1.5}
+                    fill="url(#confidenceBand)" 
+                    fillOpacity={1} 
                   />
                   <Area 
                     type="monotone" 
                     dataKey="lowerBound" 
-                    stroke="transparent" 
-                    fill="#9CA3AF" 
-                    fillOpacity={0.1} 
+                    stroke={simulationPalette.lowerBound}
+                    strokeOpacity={0.25}
+                    strokeWidth={1.5}
+                    fill="url(#colorProjection)" 
+                    fillOpacity={1} 
                   />
                   <Line 
                     type="monotone" 
                     dataKey="projection" 
-                    stroke="#000000" 
+                    stroke={simulationPalette.projection} 
                     strokeWidth={3} 
                     dot={false} 
-                    strokeDasharray="5 5"
+                    strokeDasharray="7 7"
+                    activeDot={{ r: 6, fill: simulationPalette.projection, stroke: '#FFFFFF', strokeWidth: 3 }}
                   />
                   <Line 
                     type="monotone" 
                     dataKey="actual" 
-                    stroke="#000000" 
+                    stroke={simulationPalette.actual} 
                     strokeWidth={3} 
-                    dot={{ r: 4, fill: '#000000', strokeWidth: 0 }} 
+                    dot={{ r: 4, fill: simulationPalette.actualDot, stroke: '#FFFFFF', strokeWidth: 2 }} 
+                    activeDot={{ r: 7, fill: simulationPalette.actual, stroke: '#CCFBF1', strokeWidth: 3 }}
                   />
                 </AreaChart>
               </ResponsiveContainer>
@@ -272,12 +315,16 @@ export default function ForecastLabPage() {
               <h3 className="text-xs font-bold uppercase tracking-widest">Sigma Analysis</h3>
             </div>
             <p className="text-sm font-light leading-relaxed mb-6 opacity-80">
-              Your current process stability is at 2.4σ. To reach Six Sigma (6σ), you need to reduce variance in the "Project-X1" assembly line by 42%.
+              Your current process stability is at 2.4&sigma;. To reach Six Sigma (6&sigma;), you need to reduce variance in Project-X1 assembly line by 42%.
             </p>
-            <button className="text-xs font-bold flex items-center gap-2 group underline underline-offset-4">
+            <motion.button
+              type="button"
+              {...buttonMotion}
+              className="text-xs font-bold flex items-center gap-2 group underline underline-offset-4"
+            >
               View Stability Report
               <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-            </button>
+            </motion.button>
           </div>
         </div>
 

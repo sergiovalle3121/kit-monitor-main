@@ -2,8 +2,10 @@ import { Module } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { ormOptions } from "./orm.options";
 import { HealthController } from "./health/health.controller";
+import { TenantModule } from "./common/tenant/tenant.module";
 import { AuthModule } from "./modules/auth/auth.module";
 import { UsersModule } from "./modules/users/users.module";
+import { ForecastModule } from "./modules/forecast/forecast.module";
 
 // AXOS OS domain modules
 import { PlansModule } from "./modules/plans/plans.module";
@@ -32,8 +34,10 @@ import { EngineeringModule } from "./modules/engineering/engineering.module";
 @Module({
   imports: [
     TypeOrmModule.forRoot(ormOptions()),
+    TenantModule,
     AuthModule,
     UsersModule,
+    ForecastModule,
     PlansModule,
     BomModule,
     BayLayoutModule,
