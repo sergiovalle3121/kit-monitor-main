@@ -11,9 +11,20 @@ import { DATE_COLUMN_TYPE } from '../../../common/database/date-column-type';
 
 @Entity('production_bay_events')
 @Index(['clientRequestId'], { unique: true })
+@Index(['tenant_id', 'bayId'])
 export class ProductionBayEvent {
   @PrimaryGeneratedColumn()
   id: number;
+
+  @Index()
+  @Column({ type: 'varchar', length: 36, nullable: true, name: 'tenant_id' })
+  tenant_id: string | null;
+
+  @Column({ type: 'varchar', length: 36, nullable: true, name: 'organization_id' })
+  organization_id: string | null;
+
+  @Column({ type: 'varchar', length: 36, nullable: true, name: 'plant_id' })
+  plant_id: string | null;
 
   @ManyToOne(() => Kit, { onDelete: 'CASCADE' })
   kit: Kit;

@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { 
   ShieldCheck, 
@@ -14,17 +14,85 @@ import {
   ArrowUpRight,
   MoreVertical,
   CheckCircle2,
-  Clock,
-  Ban
+  Activity
 } from "lucide-react";
 import Link from "next/link";
+import type {
+  NCR,
+  NcrSeverity,
+  NcrSeverityFilter,
+  NcrStatus,
+  NcrStatusFilter,
+  QualityInspection,
+} from "./quality.types";
+import { calculateFirstPassYield } from "./quality.utils";
 
-const mockNCRs = [
-  { id: "NCR-2026-001", part: "AX-Main-Chassis", issue: "Dimensional Deviation", status: "Open", severity: "High", date: "2h ago" },
-  { id: "NCR-2026-002", part: "AX-Cable-Harness", issue: "Insulation Breach", status: "Under Review", severity: "Critical", date: "5h ago" },
-  { id: "NCR-2026-003", part: "AX-Sensor-Array", issue: "Calibration Failure", status: "Closed", severity: "Medium", date: "1d ago" },
-  { id: "NCR-2026-004", part: "Steel Plate 4x8", issue: "Surface Oxidation", status: "Open", severity: "Low", date: "2d ago" },
+const ncrSeverities: NcrSeverity[] = ["Critical", "High", "Medium", "Low"];
+const ncrStatuses: NcrStatus[] = ["Open", "Under Review", "Contained", "Closed"];
+
+const mockNCRs: NCR[] = [
+  {
+    id: "NCR-2026-001",
+    partNumber: "AX-Main-Chassis",
+    issue: "Dimensional Deviation",
+    status: "Open",
+    severity: "High",
+    rootCause: "Fixture drift during final torque sequence",
+    createdAt: "2h ago",
+    owner: "QA Engineering",
+  },
+  {
+    id: "NCR-2026-002",
+    partNumber: "AX-Cable-Harness",
+    issue: "Insulation Breach",
+    status: "Under Review",
+    severity: "Critical",
+    rootCause: "Pending containment analysis",
+    createdAt: "5h ago",
+    owner: "Supplier Quality",
+  },
+  {
+    id: "NCR-2026-003",
+    partNumber: "AX-Sensor-Array",
+    issue: "Calibration Failure",
+    status: "Closed",
+    severity: "Medium",
+    rootCause: "Outdated calibration profile",
+    closureDate: "2026-04-24",
+    createdAt: "1d ago",
+    owner: "Test Engineering",
+  },
+  {
+    id: "NCR-2026-004",
+    partNumber: "Steel Plate 4x8",
+    issue: "Surface Oxidation",
+    status: "Open",
+    severity: "Low",
+    rootCause: "Packaging moisture exposure",
+    createdAt: "2d ago",
+    owner: "Incoming Quality",
+  },
 ];
+
+const mockInspections: QualityInspection[] = [
+  { id: "IQC-2026-0191", inspectedQuantity: 120, passedQuantity: 118, result: "pass" },
+  { id: "OQC-2026-2204", inspectedQuantity: 80, passedQuantity: 80, result: "pass" },
+  { id: "OQC-2026-2205", inspectedQuantity: 60, passedQuantity: 55, result: "conditional" },
+];
+
+const severityStyles: Record<NcrSeverity, string> = {
+  Critical: "bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400",
+  High: "bg-orange-50 text-orange-600 dark:bg-orange-500/10 dark:text-orange-400",
+  Medium: "bg-yellow-50 text-yellow-600 dark:bg-yellow-500/10 dark:text-yellow-400",
+  Low: "bg-slate-50 text-slate-500 dark:bg-white/5 dark:text-slate-300",
+};
+
+const statusStyles: Record<NcrStatus, string> = {
+  Open: "bg-red-100 text-red-600 dark:bg-red-500/10 dark:text-red-400",
+  "Under Review": "bg-blue-100 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400",
+  Contained: "bg-purple-100 text-purple-600 dark:bg-purple-500/10 dark:text-purple-300",
+  Closed: "bg-green-100 text-green-600 dark:bg-green-500/10 dark:text-green-400",
+};
 
 const QualityMetric = ({ title, value, change, trend }: { title: string, value: string, change: string, trend: "up" | "down" }) => (
   <div className="bg-white dark:bg-[#111] p-6 rounded-[2rem] border border-gray-100 dark:border-white/5 shadow-sm">
@@ -40,6 +108,29 @@ const QualityMetric = ({ title, value, change, trend }: { title: string, value: 
 );
 
 export default function QualityCenterPage() {
+  const [searchTerm, setSearchTerm] = useState("");
+  const [severityFilter, setSeverityFilter] = useState<NcrSeverityFilter>("all");
+  const [statusFilter, setStatusFilter] = useState<NcrStatusFilter>("all");
+
+  const firstPassYield = calculateFirstPassYield(mockInspections);
+  const activeNcrCount = mockNCRs.filter((ncr) => ncr.status !== "Closed").length;
+
+  const filteredNCRs = useMemo(() => {
+    const normalizedSearch = searchTerm.trim().toLowerCase();
+
+    return mockNCRs.filter((ncr) => {
+      const matchesSearch =
+        normalizedSearch.length === 0 ||
+        ncr.id.toLowerCase().includes(normalizedSearch) ||
+        ncr.partNumber.toLowerCase().includes(normalizedSearch) ||
+        ncr.issue.toLowerCase().includes(normalizedSearch);
+      const matchesSeverity = severityFilter === "all" || ncr.severity === severityFilter;
+      const matchesStatus = statusFilter === "all" || ncr.status === statusFilter;
+
+      return matchesSearch && matchesSeverity && matchesStatus;
+    });
+  }, [searchTerm, severityFilter, statusFilter]);
+
   return (
     <div className="min-h-screen bg-[#F8F9FA] dark:bg-[#0A0A0A] p-6 md:p-10 lg:p-12">
       
@@ -70,8 +161,8 @@ export default function QualityCenterPage() {
       </header>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
-        <QualityMetric title="First Pass Yield" value="96.4%" change="+0.8%" trend="up" />
-        <QualityMetric title="Active NCRs" value="12" change="-2" trend="up" />
+        <QualityMetric title="First Pass Yield" value={`${firstPassYield}%`} change="+0.8%" trend="up" />
+        <QualityMetric title="Active NCRs" value={String(activeNcrCount)} change="-2" trend="up" />
         <QualityMetric title="Defect Rate" value="0.24%" change="-0.05%" trend="up" />
         <QualityMetric title="Avg Closure Time" value="1.4d" change="+0.2d" trend="down" />
       </div>
@@ -83,19 +174,49 @@ export default function QualityCenterPage() {
           <div className="bg-white dark:bg-[#111] p-8 rounded-[2.5rem] border border-gray-100 dark:border-white/5 shadow-sm">
             <div className="flex justify-between items-center mb-8">
               <h3 className="text-xl font-bold tracking-tight">NCR Tracking</h3>
-              <div className="flex gap-2">
-                <div className="relative">
+              <div className="flex flex-col sm:flex-row gap-2">
+                <div className="relative flex-1 sm:flex-none">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
-                  <input type="text" placeholder="Search NCR..." className="bg-gray-50 dark:bg-white/5 border-none rounded-xl py-2 pl-9 pr-4 text-xs outline-none focus:ring-1 focus:ring-black/10 transition-all" />
+                  <input
+                    type="text"
+                    placeholder="Search NCR..."
+                    value={searchTerm}
+                    onChange={(event) => setSearchTerm(event.target.value)}
+                    className="w-full bg-gray-50 dark:bg-white/5 border-none rounded-xl py-2 pl-9 pr-4 text-xs outline-none focus:ring-1 focus:ring-black/10 transition-all"
+                  />
                 </div>
-                <button className="p-2 bg-gray-50 dark:bg-white/5 rounded-xl">
-                  <Filter className="w-4 h-4 text-gray-400" />
-                </button>
+                <div className="relative">
+                  <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+                  <select
+                    value={severityFilter}
+                    onChange={(event) => setSeverityFilter(event.target.value as NcrSeverityFilter)}
+                    className="w-full appearance-none bg-gray-50 dark:bg-white/5 rounded-xl py-2 pl-9 pr-8 text-xs font-bold outline-none focus:ring-1 focus:ring-black/10 transition-all"
+                  >
+                    <option value="all">All Severities</option>
+                    {ncrSeverities.map((severity) => (
+                      <option key={severity} value={severity}>
+                        {severity}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <select
+                  value={statusFilter}
+                  onChange={(event) => setStatusFilter(event.target.value as NcrStatusFilter)}
+                  className="appearance-none bg-gray-50 dark:bg-white/5 rounded-xl py-2 px-3 text-xs font-bold outline-none focus:ring-1 focus:ring-black/10 transition-all"
+                >
+                  <option value="all">All Statuses</option>
+                  {ncrStatuses.map((status) => (
+                    <option key={status} value={status}>
+                      {status}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
 
             <div className="space-y-4">
-              {mockNCRs.map((ncr) => (
+              {filteredNCRs.map((ncr) => (
                 <motion.div 
                   key={ncr.id}
                   whileHover={{ x: 4 }}

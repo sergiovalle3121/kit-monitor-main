@@ -26,9 +26,21 @@ export enum NcrSourceType {
 }
 
 @Entity('ncrs')
+@Index(['tenant_id', 'status'])
+@Index(['tenant_id', 'partNumber'])
 export class NCR {
   @PrimaryGeneratedColumn()
   id: number;
+
+  @Index()
+  @Column({ type: 'varchar', length: 36, nullable: true, name: 'tenant_id' })
+  tenant_id: string | null;
+
+  @Column({ type: 'varchar', length: 36, nullable: true, name: 'organization_id' })
+  organization_id: string | null;
+
+  @Column({ type: 'varchar', length: 36, nullable: true, name: 'plant_id' })
+  plant_id: string | null;
 
   @Column({ type: 'varchar', length: 32, unique: true })
   @Index()

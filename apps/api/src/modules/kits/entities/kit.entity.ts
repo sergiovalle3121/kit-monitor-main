@@ -17,9 +17,20 @@ export type KitStatus =
   | 'prepared' | 'sent' | 'received'; // legacy
 
 @Entity('kits')
+@Index(['tenant_id', 'status'])
 export class Kit {
   @PrimaryGeneratedColumn()
   id: number;
+
+  @Index()
+  @Column({ type: 'varchar', length: 36, nullable: true, name: 'tenant_id' })
+  tenant_id: string | null;
+
+  @Column({ type: 'varchar', length: 36, nullable: true, name: 'organization_id' })
+  organization_id: string | null;
+
+  @Column({ type: 'varchar', length: 36, nullable: true, name: 'plant_id' })
+  plant_id: string | null;
 
   @OneToOne(() => Plan, (plan) => plan.kit)
   @JoinColumn()
