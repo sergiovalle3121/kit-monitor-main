@@ -1,16 +1,22 @@
 import { Body, Controller, Get, Param, ParseIntPipe, Post, Query, UseGuards } from '@nestjs/common';
+import { ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ProductionRuntimeService } from './production-runtime.service';
+import { BottleneckService } from './bottleneck.service';
 import { RegisterBayEventDto } from './dto/register-bay-event.dto';
 import { CreateBayIncidentDto } from './dto/create-bay-incident.dto';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { RequirePermissions } from '../auth/decorators/permissions.decorator';
 import { Request } from '@nestjs/common';
 
+@ApiTags('Production Runtime')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller('production-runtime')
 export class ProductionRuntimeController {
-  constructor(private readonly service: ProductionRuntimeService) {}
+  constructor(
+    private readonly service: ProductionRuntimeService,
+    private readonly bottleneck: BottleneckService,
+  ) {}
 
   @Get('lines')
   @RequirePermissions('production:read')
@@ -134,5 +140,31 @@ export class ProductionRuntimeController {
   @RequirePermissions('production:write')
   async declareFg(@Param('kitId') kitId: number, @Body() dto: { quantity: number; actor: string }, @Request() req: any) {
     return this.service.declareFinishedGoods(kitId, dto.quantity, dto.actor, req.user);
+  }
+
+  // ── Bottleneck Analysis ────────────────────────────────────────────────────
+
+  @Get('bottleneck')
+  @RequirePermissions('production:read')
+  @ApiOperation({
+    summary: 'Bottleneck Detection — Graph-based flow analysis for a model/kit',
+    description:
+      'Maps BayLayout as a directed graph, compares theoretical capacity (BOM) vs real ' +
+      'throughput (BayEvents), and returns Hotspots with SeverityScores (0.0–1.0). ' +
+      'Identifies Starvation (empty input), Blocking (full output), and Bottleneck (low efficiency) bays.',
+  })
+  @ApiQuery({ name: 'model',         required: true,  description: 'Model code, e.g. XA-220' })
+  @ApiQuery({ name: 'kitId',         required: false, description: 'Optional kit ID to scope analysis' })
+  @ApiQuery({ name: 'windowMinutes', required: false, description: 'Analysis window in minutes (default 60)' })
+  analyzeBottlenecks(
+    @Query('model')         model: string,
+    @Query('kitId')         kitId?: string,
+    @Query('windowMinutes') windowMinutes?: string,
+  ) {
+    return this.bottleneck.analyzeBottlenecks({
+      model,
+      kitId:         kitId         ? Number(kitId)         : undefined,
+      windowMinutes: windowMinutes ? Number(windowMinutes) : undefined,
+    });
   }
 }

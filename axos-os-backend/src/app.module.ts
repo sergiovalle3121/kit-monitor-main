@@ -1,6 +1,10 @@
 import { Module } from "@nestjs/common";
+import { APP_INTERCEPTOR } from "@nestjs/core";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { ormOptions } from "./orm.options";
+import { EventLedgerInterceptor } from "./common/interceptors/event-ledger.interceptor";
+import { TenantContextService } from "./common/services/tenant-context.service";
+import { TenantSubscriber } from "./common/database/tenant.subscriber";
 import { HealthController } from "./health/health.controller";
 import { AuthModule } from "./modules/auth/auth.module";
 import { UsersModule } from "./modules/users/users.module";
@@ -56,6 +60,17 @@ import { GovernanceModule } from "./modules/governance/governance.module";
     GovernanceModule,
   ],
   controllers: [HealthController],
-  providers: [],
+  providers: [
+    // Global mutation audit interceptor — fires after every POST/PATCH/PUT/DELETE
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: EventLedgerInterceptor,
+    },
+    // Tenant context (AsyncLocalStorage) — available app-wide
+    TenantContextService,
+    // TypeORM subscriber — enforces org scope on Insert/Update/Remove
+    TenantSubscriber,
+  ],
+  exports: [TenantContextService],
 })
 export class AppModule {}

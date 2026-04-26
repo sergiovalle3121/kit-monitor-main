@@ -1,0 +1,153 @@
+import {
+  Injectable,
+  NestInterceptor,
+  ExecutionContext,
+  CallHandler,
+  Logger,
+} from '@nestjs/common';
+import { Observable } from 'rxjs';
+import { tap } from 'rxjs/operators';
+import { Request } from 'express';
+import { EventLedgerService } from '../../modules/event-ledger/event-ledger.service';
+import { EventDomain } from '../../modules/event-ledger/entities/ledger-event.entity';
+
+const MUTATION_METHODS = new Set(['POST', 'PATCH', 'PUT', 'DELETE']);
+
+/** Maps the first URL segment after /api/ to an EventDomain */
+const SEGMENT_TO_DOMAIN: Record<string, EventDomain> = {
+  plans:                 EventDomain.PLANNING,
+  'decision-intelligence': EventDomain.PLANNING,
+  kits:                  EventDomain.MATERIALS,
+  'kit-materials':       EventDomain.MATERIALS,
+  advances:              EventDomain.MATERIALS,
+  resupplies:            EventDomain.MATERIALS,
+  receiving:             EventDomain.MATERIALS,
+  inventory:             EventDomain.MATERIALS,
+  shipping:              EventDomain.SHIPPING,
+  'production-runtime':  EventDomain.PRODUCTION,
+  quality:               EventDomain.QUALITY,
+  ncr:                   EventDomain.QUALITY,
+  suppliers:             EventDomain.QUALITY,
+  bom:                   EventDomain.ENGINEERING,
+  'bay-layout':          EventDomain.ENGINEERING,
+  'visual-aids':         EventDomain.ENGINEERING,
+  'enterprise-campus':   EventDomain.SYSTEM,
+  governance:            EventDomain.SYSTEM,
+  users:                 EventDomain.SYSTEM,
+  auth:                  EventDomain.SYSTEM,
+};
+
+/** Maps the URL segment to a canonical entity name for referenceType */
+const SEGMENT_TO_ENTITY: Record<string, string> = {
+  plans:                 'PLAN',
+  kits:                  'KIT',
+  'kit-materials':       'KIT_MATERIAL',
+  advances:              'ADVANCE',
+  resupplies:            'RESUPPLY',
+  receiving:             'RECEIVING_RECORD',
+  inventory:             'INVENTORY_POSITION',
+  shipping:              'SHIPMENT',
+  'production-runtime':  'PRODUCTION_EVENT',
+  quality:               'QUALITY_RECORD',
+  ncr:                   'NCR',
+  bom:                   'BOM_ITEM',
+  'bay-layout':          'BAY_LAYOUT',
+  'visual-aids':         'VISUAL_AID',
+  suppliers:             'SUPPLIER',
+  'enterprise-campus':   'ENTERPRISE_RECORD',
+  governance:            'GOVERNANCE_RECORD',
+  users:                 'USER',
+};
+
+const HTTP_METHOD_TO_VERB: Record<string, string> = {
+  POST:   'CREATED',
+  PATCH:  'UPDATED',
+  PUT:    'UPDATED',
+  DELETE: 'DELETED',
+};
+
+/**
+ * Global interceptor that automatically records mutation events (POST, PATCH, PUT, DELETE)
+ * on tracked domains into the immutable LedgerEvent audit trail.
+ *
+ * Registration: Declared as APP_INTERCEPTOR in AppModule for DI-aware global scope.
+ *
+ * beforeState capture: For PATCH/PUT requests a deep-clone of the request body is
+ * stored as beforeState. The resolved response body becomes afterState. Deep DB diffing
+ * requires domain-specific hooks; this interceptor provides request-level diffing which
+ * covers the vast majority of audit needs without per-entity DB queries.
+ */
+@Injectable()
+export class EventLedgerInterceptor implements NestInterceptor {
+  private readonly logger = new Logger(EventLedgerInterceptor.name);
+
+  constructor(private readonly ledger: EventLedgerService) {}
+
+  intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
+    const http = context.switchToHttp();
+    const req  = http.getRequest<Request>();
+    const { method, path, body, params } = req;
+
+    if (!MUTATION_METHODS.has(method)) {
+      return next.handle();
+    }
+
+    // Resolve path segment — strip /api/ prefix and split
+    const firstSegment = path.replace(/^\/api\//, '').split('/')[0];
+    const domain = SEGMENT_TO_DOMAIN[firstSegment];
+
+    if (!domain) {
+      return next.handle();
+    }
+
+    // Actor from Passport JWT guard (set by JwtAuthGuard)
+    const user = (req as any).user as Record<string, any> | undefined;
+    const actorId   = user?.userId?.toString() ?? user?.id?.toString();
+    const actorName = user?.username ?? user?.email;
+
+    // Reference extraction: path param :id takes priority, then body id
+    const referenceId   = params?.id ?? body?.id;
+    const entityName    = SEGMENT_TO_ENTITY[firstSegment]
+                          ?? firstSegment.toUpperCase().replace(/-/g, '_');
+    const action        = `${entityName}_${HTTP_METHOD_TO_VERB[method] ?? 'MUTATED'}`;
+
+    // Deep-clone request body to capture pre-handler state for diffs
+    const beforeState = (method === 'PATCH' || method === 'PUT')
+      ? JSON.parse(JSON.stringify(body ?? {}))
+      : undefined;
+
+    const t0 = Date.now();
+
+    return next.handle().pipe(
+      tap(async (responseData: Record<string, any> | null) => {
+        try {
+          await this.ledger.recordEvent({
+            actorId,
+            actorName,
+            domain,
+            action,
+            referenceType: entityName,
+            referenceId:   (referenceId ?? responseData?.id)?.toString(),
+            model:         body?.model   ?? responseData?.model,
+            workOrder:     body?.workOrder ?? responseData?.workOrder,
+            program:       body?.program  ?? responseData?.program,
+            line:          body?.line?.toString() ?? responseData?.line?.toString(),
+            plant:         body?.building ?? body?.plant ?? responseData?.building,
+            metadata: {
+              beforeState,
+              afterState:  responseData,
+              durationMs:  Date.now() - t0,
+              httpMethod:  method,
+              path,
+            },
+          });
+        } catch (err: any) {
+          // Ledger write failures must never break the business operation
+          this.logger.warn(
+            `EventLedger write skipped for [${domain}] ${action}: ${err?.message}`,
+          );
+        }
+      }),
+    );
+  }
+}

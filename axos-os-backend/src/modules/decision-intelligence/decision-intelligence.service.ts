@@ -1,6 +1,12 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, MoreThan } from 'typeorm';
+import { ProductionBayEvent } from '../production-runtime/entities/production-bay-event.entity';
+import {
+  StabilityReportDto,
+  BayStabilityDto,
+  ProcessCapability,
+} from './dto/stability-report.dto';
 import { ForecastRun } from './entities/forecast-run.entity';
 import { ForecastSeriesResult } from './entities/forecast-series-result.entity';
 import { PlanScenario } from './entities/plan-scenario.entity';
@@ -54,6 +60,7 @@ export class DecisionIntelligenceService {
     @InjectRepository(CAPA) private readonly capaRepo: Repository<CAPA>,
     @InjectRepository(SCAR) private readonly scarRepo: Repository<SCAR>,
     @InjectRepository(Supplier) private readonly supplierRepo: Repository<Supplier>,
+    @InjectRepository(ProductionBayEvent) private readonly bayEventRepo: Repository<ProductionBayEvent>,
   ) {}
 
   async createForecastRun(dto: CreateForecastRunDto) {
@@ -580,5 +587,154 @@ export class DecisionIntelligenceService {
     const now = new Date().getTime();
     const sum = items.reduce((acc, item) => acc + (now - new Date(item.createdAt).getTime()), 0);
     return this.round(sum / (items.length * 1000 * 3600 * 24), 1); // Days
+  }
+
+  // ── Statistical Process Control (SPC) ─────────────────────────────────────
+
+  /**
+   * Computes a StabilityReport using SPC for a given line/model scope.
+   *
+   * Metric: cycle time between consecutive bay events (seconds).
+   * A stable process has low variance → higher sigma level.
+   *
+   * @param line   Optional line identifier (matches ProductionWip.line)
+   * @param model  Optional model code (matches ProductionBayEvent.model)
+   * @param windowHours  Analysis window in hours (default 8h — one shift)
+   */
+  async getStabilityReport(
+    line?: string,
+    model?: string,
+    windowHours = 8,
+  ): Promise<StabilityReportDto> {
+    const since = new Date(Date.now() - windowHours * 3_600_000);
+
+    const qb = this.bayEventRepo.createQueryBuilder('ev')
+      .where('ev.timestamp > :since', { since })
+      .andWhere('ev.revertedAt IS NULL')
+      .orderBy('ev.bayId', 'ASC')
+      .addOrderBy('ev.timestamp', 'ASC');
+
+    if (model) qb.andWhere('ev.model = :model', { model });
+
+    const events = await qb.getMany();
+
+    if (events.length < 2) {
+      return this.emptyStabilityReport(line, model);
+    }
+
+    // Group events by bayId
+    const byBay = new Map<number, ProductionBayEvent[]>();
+    for (const ev of events) {
+      const list = byBay.get(ev.bayId) ?? [];
+      list.push(ev);
+      byBay.set(ev.bayId, list);
+    }
+
+    const bayBreakdowns: BayStabilityDto[] = [];
+    const allCycleTimes: number[] = [];
+
+    for (const [bayId, bayEvents] of byBay.entries()) {
+      // Cycle times: delta seconds between consecutive events at the same bay
+      const cycleTimes: number[] = [];
+      for (let i = 1; i < bayEvents.length; i++) {
+        const dt = (new Date(bayEvents[i].timestamp).getTime() -
+                    new Date(bayEvents[i - 1].timestamp).getTime()) / 1000;
+        if (dt > 0 && dt < 3600) cycleTimes.push(dt); // ignore > 1hr gaps
+      }
+
+      if (cycleTimes.length < 2) continue;
+
+      const mean   = this.spcMean(cycleTimes);
+      const stdDev = this.spcStdDev(cycleTimes, mean);
+      const sigma  = stdDev > 0 ? this.round(mean / stdDev) : 99;
+      const ucl    = this.round(mean + 3 * stdDev);
+      const lcl    = this.round(Math.max(0, mean - 3 * stdDev));
+
+      const outOfControl = cycleTimes.filter((ct) => ct > ucl || ct < lcl).length;
+      const latest       = cycleTimes[cycleTimes.length - 1];
+      const latestZ      = stdDev > 0 ? this.round((latest - mean) / stdDev) : null;
+
+      bayBreakdowns.push({
+        bayId,
+        mean:              this.round(mean),
+        stdDev:            this.round(stdDev),
+        sigmaLevel:        Math.min(99, sigma),
+        sampleCount:       cycleTimes.length,
+        outOfControlCount: outOfControl,
+        ucl,
+        lcl,
+        latestZScore:      latestZ,
+      });
+
+      allCycleTimes.push(...cycleTimes);
+    }
+
+    if (!allCycleTimes.length) {
+      return this.emptyStabilityReport(line, model);
+    }
+
+    const mean   = this.spcMean(allCycleTimes);
+    const stdDev = this.spcStdDev(allCycleTimes, mean);
+    const sigma  = stdDev > 0 ? this.round(mean / stdDev) : 99;
+    const ucl    = this.round(mean + 3 * stdDev);
+    const lcl    = this.round(Math.max(0, mean - 3 * stdDev));
+    const ooc    = allCycleTimes.filter((ct) => ct > ucl || ct < lcl).length;
+    const oocPct = this.round((ooc / allCycleTimes.length) * 100);
+
+    return {
+      line,
+      model,
+      sigmaLevel:        Math.min(99, sigma),
+      mean:              this.round(mean),
+      stdDev:            this.round(stdDev),
+      totalEvents:       allCycleTimes.length,
+      outOfControlCount: ooc,
+      outOfControlPct:   oocPct,
+      processCapability: this.classifyCapability(sigma),
+      ucl,
+      lcl,
+      bayBreakdowns:     bayBreakdowns.sort((a, b) => a.bayId - b.bayId),
+      generatedAt:       new Date(),
+    };
+  }
+
+  // ── SPC private helpers ────────────────────────────────────────────────────
+
+  private spcMean(values: number[]): number {
+    return values.reduce((s, v) => s + v, 0) / values.length;
+  }
+
+  private spcStdDev(values: number[], mean: number): number {
+    if (values.length < 2) return 0;
+    const variance =
+      values.reduce((s, v) => s + Math.pow(v - mean, 2), 0) / (values.length - 1);
+    return Math.sqrt(variance);
+  }
+
+  /** Computes the Z-Score of a single value against a reference distribution. */
+  spcZScore(value: number, mean: number, stdDev: number): number {
+    if (stdDev === 0) return 0;
+    return this.round((value - mean) / stdDev);
+  }
+
+  private classifyCapability(sigmaLevel: number): ProcessCapability {
+    if (sigmaLevel >= 4.5) return 'excellent';
+    if (sigmaLevel >= 3.0) return 'good';
+    if (sigmaLevel >= 2.0) return 'acceptable';
+    if (sigmaLevel >= 1.5) return 'marginal';
+    if (sigmaLevel >= 1.0) return 'poor';
+    return 'critical';
+  }
+
+  private emptyStabilityReport(line?: string, model?: string): StabilityReportDto {
+    return {
+      line, model,
+      sigmaLevel: 0, mean: 0, stdDev: 0,
+      totalEvents: 0, outOfControlCount: 0, outOfControlPct: 0,
+      processCapability: 'critical',
+      ucl: 0, lcl: 0,
+      bayBreakdowns: [],
+      generatedAt: new Date(),
+    };
   }
 }
