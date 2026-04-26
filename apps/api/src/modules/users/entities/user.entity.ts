@@ -8,6 +8,17 @@ import { UserRoleAssignment } from '../../auth/entities/user-role.entity';
  * Each user belongs to a tenant and can have multiple roles assigned.
  * Unified version for the AXOS OS RBAC system.
  */
+export enum UserRole {
+  ADMIN = 'Admin',
+  PLANNER = 'Planner',
+  MATERIALS_LEAD = 'Materials Lead',
+  WAREHOUSE_OPERATOR = 'Warehouse Operator',
+  PRODUCTION_SUPERVISOR = 'Production Supervisor',
+  QUALITY_ENGINEER = 'Quality Engineer',
+  QUALITY_MANAGER = 'Quality Manager',
+  SHIPPING_LEAD = 'Shipping Lead',
+}
+
 @Entity('users')
 @Index(['tenantId'])
 @Index(['email', 'tenantId'], { unique: true })
@@ -28,6 +39,9 @@ export class User extends BaseEntity {
 
   @Column({ type: 'varchar', length: 255, select: false, name: 'password_hash' })
   passwordHash: string;
+
+  @Column({ type: 'varchar', length: 50, default: UserRole.WAREHOUSE_OPERATOR })
+  role: UserRole;
 
   @Column({ type: 'varchar', length: 100, name: 'first_name' })
   firstName: string;

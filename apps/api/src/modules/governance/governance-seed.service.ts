@@ -64,9 +64,12 @@ export class GovernanceSeedService implements OnModuleInit {
       {
         email: '3312793',
         username: 'Super Admin',
-        password:
+        passwordHash:
           '$2b$10$fzycKYiktGF6Ik.giQU6kuccL2pr49oX7ChtaaoNxkIVYgbu5uZxO', // 31218223
         role: UserRole.ADMIN,
+        firstName: 'Super',
+        lastName: 'Admin',
+        tenantId: 'demo-tenant-id', // Placeholder, se ajustará en el seed
         permissions: [
           'ADMIN_ACCESS',
           'RELEASE_WO',
@@ -86,8 +89,11 @@ export class GovernanceSeedService implements OnModuleInit {
       {
         email: 'admin@axos.os',
         username: 'System Admin',
-        password,
+        passwordHash: password,
         role: UserRole.ADMIN,
+        firstName: 'System',
+        lastName: 'Admin',
+        tenantId: 'demo-tenant-id',
         permissions: [
           'ADMIN_ACCESS',
           'RELEASE_WO',
@@ -107,32 +113,44 @@ export class GovernanceSeedService implements OnModuleInit {
       {
         email: 'planner.b1@axos.os',
         username: 'Planner BLDG-01',
-        password,
+        passwordHash: password,
         role: UserRole.PLANNER,
+        firstName: 'Planner',
+        lastName: 'BLDG-01',
+        tenantId: 'demo-tenant-id',
         permissions: ['PLANNING_VIEW', 'MANAGE_PLANS', 'RELEASE_WO'],
         scopes: { buildings: ['bldg-01'] },
       },
       {
         email: 'quality.mgr@axos.os',
         username: 'QA Manager',
-        password,
+        passwordHash: password,
         role: UserRole.QUALITY_MANAGER,
+        firstName: 'QA',
+        lastName: 'Manager',
+        tenantId: 'demo-tenant-id',
         permissions: ['QUALITY_WRITE', 'QUALITY_APPROVE'],
         scopes: {}, // Full campus QA
       },
       {
         email: 'warehouse.op1@axos.os',
         username: 'WH Operator Line 1',
-        password,
+        passwordHash: password,
         role: UserRole.WAREHOUSE_OPERATOR,
+        firstName: 'WH',
+        lastName: 'Operator',
+        tenantId: 'demo-tenant-id',
         permissions: ['INVENTORY_ADJUST'],
         scopes: { lines: [1] },
       },
       {
         email: 'shipping.lead@axos.os',
         username: 'Shipping Lead',
-        password,
+        passwordHash: password,
         role: UserRole.SHIPPING_LEAD,
+        firstName: 'Shipping',
+        lastName: 'Lead',
+        tenantId: 'demo-tenant-id',
         permissions: ['SHIPPING_WRITE', 'DISPATCH'],
         scopes: { buildings: ['bldg-03'] }, // Shipping is usually in assembly bldg
       },
