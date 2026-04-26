@@ -104,14 +104,21 @@ For each module in Tier 2–4, repeat:
 
 ---
 
-## Immediate Next Steps
+## Progress
 
-- [ ] Create `src/common/entities/tenant-base.entity.ts`
-- [ ] Update `User` entity → add `tenant_id`, `organization_id` columns
-- [ ] Update `AuthService.login()` → embed tenant fields in JWT
-- [ ] Create `TenantContextService` with AsyncLocalStorage
+### ✅ Tier 1 — DONE (2026-04-25)
+- [x] `src/common/entities/tenant-base.entity.ts` — abstract base with all required columns
+- [x] `src/common/types/jwt.types.ts` — `JwtPayload` and `AuthenticatedUser` interfaces
+- [x] `User` entity → `tenant_id`, `organization_id`, `plant_id` (nullable), `deleted_at` added
+- [x] `AuthService.login()` → JWT now carries full tenant context + enriched login response
+- [x] `JwtStrategy.validate()` → `req.user` is now typed as `AuthenticatedUser`
+- [x] `PermissionsGuard` → typed with `AuthenticatedUser`, fixed TS strict-null issues
+
+### Next Steps
+- [ ] Create `TenantContextService` with AsyncLocalStorage (injectable per-request tenant context)
 - [ ] Create `TenantInterceptor` (register globally in `main.ts`)
-- [ ] Pick one Tier 2 module (recommend `inventory`) as the pilot migration
+- [ ] Pick one Tier 2 module (`inventory`) as the pilot migration
+- [ ] Generate TypeORM migration for `users` table: add `tenant_id`, `organization_id`, `plant_id`, `deleted_at`
 
 ---
 

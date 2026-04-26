@@ -1,6 +1,7 @@
 import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { AuditService } from '../../governance/audit.service';
+import { AuthenticatedUser } from '../../../common/types/jwt.types';
 
 @Injectable()
 export class PermissionsGuard implements CanActivate {
@@ -16,7 +17,8 @@ export class PermissionsGuard implements CanActivate {
     ]);
 
     const request = context.switchToHttp().getRequest();
-    const { user, query, params, body } = request;
+    const user: AuthenticatedUser = request.user;
+    const { query, params, body } = request;
 
     if (!user) {
       throw new ForbiddenException('User not authenticated');
@@ -51,27 +53,27 @@ export class PermissionsGuard implements CanActivate {
     const programId = query.programId || body.programId || params.programId;
     const line = query.line || body.line || params.line;
 
-    if (user.scopes) {
-      // Building Check
-      if (buildingId && user.scopes.buildings?.length > 0) {
-        if (!user.scopes.buildings.includes(buildingId)) {
+    const scopes = user.scopes;
+    if (scopes) {
+      const { buildings, programs, lines } = scopes;
+
+      if (buildingId && buildings && buildings.length > 0) {
+        if (!buildings.includes(buildingId)) {
           await this.logScopeViolation(user, 'Building', buildingId);
           throw new ForbiddenException(`Access denied for Building: ${buildingId}`);
         }
       }
 
-      // Program Check
-      if (programId && user.scopes.programs?.length > 0) {
-        if (!user.scopes.programs.includes(programId)) {
+      if (programId && programs && programs.length > 0) {
+        if (!programs.includes(programId)) {
           await this.logScopeViolation(user, 'Program', programId);
           throw new ForbiddenException(`Access denied for Program: ${programId}`);
         }
       }
 
-      // Line Check
-      if (line && user.scopes.lines?.length > 0) {
+      if (line && lines && lines.length > 0) {
         const lineNum = parseInt(line, 10);
-        if (!user.scopes.lines.includes(lineNum)) {
+        if (!lines.includes(lineNum)) {
           await this.logScopeViolation(user, 'Line', String(line));
           throw new ForbiddenException(`Access denied for Line: ${line}`);
         }
@@ -81,7 +83,7 @@ export class PermissionsGuard implements CanActivate {
     return true;
   }
 
-  private async logScopeViolation(user: any, dimension: string, value: string) {
+  private async logScopeViolation(user: AuthenticatedUser, dimension: string, value: string) {
     await this.audit.log({
       actor: user.email,
       action: 'SCOPE_VIOLATION',
