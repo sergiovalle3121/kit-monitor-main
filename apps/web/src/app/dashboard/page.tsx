@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useRouter } from "next/navigation";
 import { 
   BarChart3, 
   Activity, 
@@ -15,7 +16,8 @@ import {
   Cpu,
   Boxes,
   DollarSign,
-  TrendingUp
+  TrendingUp,
+  Lock
 } from "lucide-react";
 import Link from "next/link";
 
