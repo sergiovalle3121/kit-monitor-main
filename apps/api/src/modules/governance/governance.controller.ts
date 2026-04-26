@@ -44,7 +44,7 @@ export class GovernanceController {
   @Patch('notifications/:id/read')
   @RequirePermissions('ADMIN_ACCESS')
   markNotificationAsRead(@Param('id') id: string, @Request() req: any) {
-    return this.governanceService.markNotificationAsRead(+id, req.user.email);
+    return this.governanceService.markNotificationAsRead(Number(id), req.user.email);
   }
 
   @Post('exceptions/check-escalations')
@@ -80,7 +80,7 @@ export class GovernanceController {
   @Patch('users/:id')
   @RequirePermissions('ADMIN_ACCESS')
   updateUser(@Param('id') id: string, @Body() dto: any) {
-    return this.governanceService.updateUser(+id, dto);
+    return this.governanceService.updateUser(Number(id), dto);
   }
 
   @Get('audit-logs')
@@ -109,7 +109,7 @@ export class GovernanceController {
     @Request() req: any,
   ) {
     return this.governanceService.updateExceptionStatus(
-      +id,
+      Number(id),
       status,
       req.user.email || req.user.username,
     );
@@ -123,7 +123,7 @@ export class GovernanceController {
     @Request() req: any,
   ) {
     return this.governanceService.assignException(
-      +id,
+      Number(id),
       req.user.email || req.user.username,
       assignee,
     );
@@ -137,7 +137,7 @@ export class GovernanceController {
     @Request() req: any,
   ) {
     return this.governanceService.resolveException(
-      +id,
+      Number(id),
       req.user.email || req.user.username,
       body,
     );
