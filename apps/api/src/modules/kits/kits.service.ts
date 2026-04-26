@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository, SelectQueryBuilder } from 'typeorm';
+import { DataSource, Repository, SelectQueryBuilder, In } from 'typeorm';
 import { Kit } from './entities/kit.entity';
 import { Plan } from '../plans/entities/plan.entity';
 import { BomItem } from '../bom/entities/bom-item.entity';
@@ -14,8 +14,7 @@ import { EventDomain } from '../event-ledger/entities/ledger-event.entity';
 import { EnterpriseProgram } from '../enterprise-campus/entities/enterprise-program.entity';
 import { EnterpriseLine } from '../enterprise-campus/entities/enterprise-line.entity';
 import { AuditService } from '../governance/audit.service';
-import { User } from '../users/entities/user.entity';
-import { In } from 'typeorm';
+import { TenantContextService } from '../../common/tenant/tenant-context.service';
 
 @Injectable()
 export class KitsService {
@@ -31,9 +30,10 @@ export class KitsService {
     private readonly dataSource: DataSource,
     private readonly eventLedger: EventLedgerService,
     private readonly audit: AuditService,
+    private readonly tenantContext: TenantContextService,
   ) {}
 
-  async findAll(user: User, scope?: { line?: string; model?: string; workOrder?: string; buildingId?: string; programId?: string }): Promise<any[]> {
+  async findAll(scope?: { line?: string; model?: string; workOrder?: string; buildingId?: string; programId?: string }): Promise<any[]> {
     const qb = this.repo.createQueryBuilder('kit')
       .leftJoinAndSelect('kit.plan', 'plan')
       .leftJoinAndSelect('kit.materials', 'materials')
@@ -41,8 +41,11 @@ export class KitsService {
       .leftJoinAndSelect('kit.exceptions', 'exceptions')
       .orderBy('kit.createdAt', 'DESC');
 
-    // 1. Mandatory Organizational Scope
-    const scopeBids = user.scopes?.buildings ?? [];
+    const tenantId = this.tenantContext.getTenantId();
+    if (tenantId) qb.andWhere('kit.tenant_id = :tenantId', { tenantId });
+
+    const scopes = this.tenantContext.getScopes();
+    const scopeBids = scopes?.buildings ?? [];
     if (scopeBids.length > 0) {
       const lines = await this.lineRepo.find({ where: { building: { id: In(scopeBids) } } as any });
       const legacyNums = lines.map((l) => l.legacyLineNumber).filter((n): n is number => n != null);
@@ -52,13 +55,13 @@ export class KitsService {
         qb.andWhere('1 = 0');
       }
     }
-    
-    const scopePids = user.scopes?.programs ?? [];
+
+    const scopePids = scopes?.programs ?? [];
     if (scopePids.length > 0) {
       const programs = await this.programRepo.find({ where: { id: In(scopePids) } });
       const prefixes = programs.map(p => p.primaryModelPrefix?.toUpperCase()).filter(Boolean);
       if (prefixes.length > 0) {
-        qb.andWhere('(' + prefixes.map((_, i) => `UPPER(plan.model) LIKE :scopePre${i}`).join(' OR ') + ')', 
+        qb.andWhere('(' + prefixes.map((_, i) => `UPPER(plan.model) LIKE :scopePre${i}`).join(' OR ') + ')',
           prefixes.reduce((acc, pre, i) => ({ ...acc, [`scopePre${i}`]: `${pre}%` }), {}));
       }
     }
@@ -105,15 +108,12 @@ export class KitsService {
     }
   }
 
-  async findOne(id: number, user?: User): Promise<any> {
+  async findOne(id: number): Promise<any> {
     const kit = await this.repo.findOne({
       where: { id },
       relations: ['plan', 'materials', 'advances', 'exceptions'],
     });
     if (!kit) throw new NotFoundException(`Kit ${id} not found`);
-
-    // TODO: Verify organizational scope if user is provided
-
     return this.withTotalCompleted(kit);
   }
 
@@ -123,7 +123,7 @@ export class KitsService {
     return { ...kit, totalCompleted, hasOpenException };
   }
 
-  async create(dto: CreateKitDto, user: User): Promise<any> {
+  async create(dto: CreateKitDto): Promise<any> {
     const plan = await this.planRepo.findOneBy({ id: dto.planId });
     if (!plan) throw new NotFoundException(`Plan ${dto.planId} not found`);
 
@@ -198,7 +198,7 @@ export class KitsService {
     });
 
     await this.audit.recordAction({
-      actor: user.email,
+      actor: this.tenantContext.getUserEmail(),
       action: 'KIT_CREATED',
       resourceType: 'Kit',
       resourceId: finalKit.id.toString(),
@@ -209,7 +209,7 @@ export class KitsService {
     return finalKit;
   }
 
-  async startPreparation(id: number, user: User): Promise<any> {
+  async startPreparation(id: number): Promise<any> {
     const kit = await this.repo.findOneBy({ id });
     if (!kit) throw new NotFoundException(`Kit ${id} not found`);
 
@@ -218,17 +218,17 @@ export class KitsService {
     }
 
     await this.audit.recordAction({
-      actor: user.email,
+      actor: this.tenantContext.getUserEmail(),
       action: 'KIT_PREPARATION_STARTED',
       resourceType: 'Kit',
       resourceId: id.toString(),
       outcome: 'ALLOWED'
     });
 
-    return this.findOne(id, user);
+    return this.findOne(id);
   }
 
-  async updateStatus(id: number, dto: UpdateKitStatusDto, user: User): Promise<any> {
+  async updateStatus(id: number, dto: UpdateKitStatusDto): Promise<any> {
     const kit = await this.findOne(id);
     const timestamps: Partial<Kit> = {};
     if (dto.status === 'kitted') timestamps.kittedAt = new Date();
@@ -261,7 +261,7 @@ export class KitsService {
     });
 
     await this.audit.recordAction({
-      actor: user.email,
+      actor: this.tenantContext.getUserEmail(),
       action: 'KIT_STATUS_CHANGED',
       resourceType: 'Kit',
       resourceId: id.toString(),
@@ -269,7 +269,7 @@ export class KitsService {
       outcome: 'ALLOWED'
     });
 
-    return this.findOne(id, user);
+    return this.findOne(id);
   }
 
   private async materializeRuntimeForDeliveredBackend(kitId: number): Promise<void> {

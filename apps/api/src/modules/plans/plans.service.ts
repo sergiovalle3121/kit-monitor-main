@@ -13,6 +13,7 @@ import { LineCapacity } from './entities/line-capacity.entity';
 import { InventoryService } from '../inventory/inventory.service';
 import { QualityService } from '../quality/quality.service';
 import { AuditService } from '../governance/audit.service';
+import { TenantContextService } from '../../common/tenant/tenant-context.service';
 
 @Injectable()
 export class PlansService {
@@ -27,13 +28,18 @@ export class PlansService {
     private readonly quality: QualityService,
     private readonly audit: AuditService,
     private readonly dataSource: DataSource,
+    private readonly tenantContext: TenantContextService,
   ) {}
 
-  async findAll(filters?: { line?: string; model?: string; workOrder?: string; buildingId?: string; programId?: string }, user?: any): Promise<any[]> {
+  async findAll(filters?: { line?: string; model?: string; workOrder?: string; buildingId?: string; programId?: string }): Promise<any[]> {
     const qb = this.repo.createQueryBuilder('plan')
       .leftJoinAndSelect('plan.kit', 'kit')
       .orderBy('plan.createdAt', 'DESC');
-    await this.applyScopeToQb(qb, filters, user);
+
+    const tenantId = this.tenantContext.getTenantId();
+    if (tenantId) qb.andWhere('plan.tenant_id = :tenantId', { tenantId });
+
+    await this.applyScopeToQb(qb, filters);
     const plans = await qb.getMany();
     return plans.map((plan) => this.serialize(plan));
   }
@@ -54,6 +60,9 @@ export class PlansService {
       workOrder,
       model: dto.model.trim().toUpperCase(),
       scheduledAt: dto.scheduledAt ? new Date(dto.scheduledAt) : undefined,
+      tenant_id: this.tenantContext.getTenantId(),
+      organization_id: this.tenantContext.getOrganizationId(),
+      plant_id: this.tenantContext.getPlantId(),
     });
     const saved = await this.repo.save(plan);
     return this.findOne(saved.id);
@@ -101,9 +110,10 @@ export class PlansService {
   }
 
 
-  async releaseWorkOrder(id: number, actor: string): Promise<any> {
+  async releaseWorkOrder(id: number): Promise<any> {
     const plan = await this.repo.findOne({ where: { id } });
     if (!plan) throw new NotFoundException('Plan not found');
+    const actor = this.tenantContext.getUserEmail();
 
     // 1. Check Readiness (Simplified Mock for now, would use real inventory/quality check)
     const readiness = await this.calculateReadiness(plan);
@@ -173,23 +183,22 @@ export class PlansService {
   private async applyScopeToQb(
     qb: SelectQueryBuilder<Plan>,
     filters?: { line?: string; model?: string; workOrder?: string; buildingId?: string; programId?: string },
-    user?: any
   ): Promise<void> {
-    // 1. Enforce Hard Organizational Scopes from User
-    if (user && user.role !== 'Admin' && user.scopes) {
-      if (user.scopes.buildings?.length > 0) {
-        const linesInBuildings = await this.lineRepo.find({ where: { building: { id: In(user.scopes.buildings) } } as any });
+    // Enforce organizational scopes from tenant context (skipped for Admin)
+    if (!this.tenantContext.isAdmin()) {
+      const scopes = this.tenantContext.getScopes();
+      if (scopes?.buildings && scopes.buildings.length > 0) {
+        const linesInBuildings = await this.lineRepo.find({ where: { building: { id: In(scopes.buildings) } } as any });
         const buildingLegacyNums = linesInBuildings.map(l => l.legacyLineNumber).filter((n): n is number => n != null);
         qb.andWhere('plan.line IN (:...bLegacy)', { bLegacy: buildingLegacyNums.length ? buildingLegacyNums : [-1] });
       }
-      
-      if (user.scopes.lines?.length > 0) {
-        qb.andWhere('plan.line IN (:...uLines)', { uLines: user.scopes.lines });
+
+      if (scopes?.lines && scopes.lines.length > 0) {
+        qb.andWhere('plan.line IN (:...uLines)', { uLines: scopes.lines });
       }
-      
-      if (user.scopes.programs?.length > 0) {
-        // Find prefixes for scoped programs
-        const programs = await this.programRepo.find({ where: { id: In(user.scopes.programs) } });
+
+      if (scopes?.programs && scopes.programs.length > 0) {
+        const programs = await this.programRepo.find({ where: { id: In(scopes.programs) } });
         const prefixes = programs.map(p => p.primaryModelPrefix?.toUpperCase()).filter(Boolean);
         if (prefixes.length > 0) {
           qb.andWhere(new Brackets(sub => {

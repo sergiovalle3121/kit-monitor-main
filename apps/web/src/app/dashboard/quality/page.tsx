@@ -2,19 +2,19 @@
 
 import React, { useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { 
-  ShieldCheck, 
-  AlertOctagon, 
-  Search, 
-  Filter, 
-  Plus, 
-  FileText, 
-  ClipboardCheck, 
-  ChevronLeft,
+import {
+  Activity,
+  AlertOctagon,
   ArrowUpRight,
-  MoreVertical,
   CheckCircle2,
-  Activity
+  ChevronLeft,
+  ClipboardCheck,
+  FileText,
+  Filter,
+  MoreVertical,
+  Plus,
+  Search,
+  ShieldCheck,
 } from "lucide-react";
 import Link from "next/link";
 import type {
@@ -94,7 +94,17 @@ const statusStyles: Record<NcrStatus, string> = {
   Closed: "bg-green-100 text-green-600 dark:bg-green-500/10 dark:text-green-400",
 };
 
-const QualityMetric = ({ title, value, change, trend }: { title: string, value: string, change: string, trend: "up" | "down" }) => (
+const QualityMetric = ({
+  title,
+  value,
+  change,
+  trend,
+}: {
+  title: string;
+  value: string;
+  change: string;
+  trend: "up" | "down";
+}) => (
   <div className="bg-white dark:bg-[#111] p-6 rounded-[2rem] border border-gray-100 dark:border-white/5 shadow-sm">
     <div className="flex justify-between items-start mb-2">
       <h4 className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{title}</h4>
@@ -133,8 +143,6 @@ export default function QualityCenterPage() {
 
   return (
     <div className="min-h-screen bg-[#F8F9FA] dark:bg-[#0A0A0A] p-6 md:p-10 lg:p-12">
-      
-      {/* Header */}
       <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12">
         <div className="flex items-center gap-6">
           <Link href="/dashboard" className="p-3 bg-white dark:bg-[#111] border border-gray-100 dark:border-white/5 rounded-2xl shadow-sm hover:scale-105 active:scale-95 transition-all">
@@ -168,11 +176,9 @@ export default function QualityCenterPage() {
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
-        
-        {/* NCR Tracking List */}
         <div className="xl:col-span-2 space-y-6">
           <div className="bg-white dark:bg-[#111] p-8 rounded-[2.5rem] border border-gray-100 dark:border-white/5 shadow-sm">
-            <div className="flex justify-between items-center mb-8">
+            <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4 mb-8">
               <h3 className="text-xl font-bold tracking-tight">NCR Tracking</h3>
               <div className="flex flex-col sm:flex-row gap-2">
                 <div className="relative flex-1 sm:flex-none">
@@ -217,38 +223,42 @@ export default function QualityCenterPage() {
 
             <div className="space-y-4">
               {filteredNCRs.map((ncr) => (
-                <motion.div 
+                <motion.div
                   key={ncr.id}
                   whileHover={{ x: 4 }}
                   className="flex items-center justify-between p-5 rounded-2xl bg-gray-50/50 dark:bg-white/[0.02] border border-transparent hover:border-gray-100 dark:hover:border-white/5 transition-all group"
                 >
                   <div className="flex items-center gap-4">
-                    <div className={`p-3 rounded-xl ${
-                      ncr.severity === 'Critical' ? 'bg-red-50 text-red-600' : 'bg-white dark:bg-white/5 text-gray-400'
-                    }`}>
+                    <div className={`p-3 rounded-xl ${severityStyles[ncr.severity]}`}>
                       <AlertOctagon className="w-5 h-5" />
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-bold">{ncr.id}</span>
-                        <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${
-                          ncr.status === 'Open' ? 'bg-red-100 text-red-600' : 
-                          ncr.status === 'Under Review' ? 'bg-blue-100 text-blue-600' : 'bg-green-100 text-green-600'
-                        }`}>
+                        <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${statusStyles[ncr.status]}`}>
                           {ncr.status}
                         </span>
                       </div>
-                      <p className="text-xs text-gray-500 font-medium mt-0.5">{ncr.part} — <span className="text-gray-400 font-light">{ncr.issue}</span></p>
+                      <p className="text-xs text-gray-500 font-medium mt-0.5">
+                        {ncr.partNumber} - <span className="text-gray-400 font-light">{ncr.issue}</span>
+                      </p>
+                      <p className="text-[10px] text-gray-400 font-medium mt-1">
+                        Root cause: {ncr.rootCause ?? "Pending analysis"}
+                      </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-8">
                     <div className="hidden md:block text-right">
                       <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Severity</p>
-                      <p className={`text-xs font-bold ${ncr.severity === 'Critical' ? 'text-red-500' : 'text-gray-700 dark:text-gray-300'}`}>{ncr.severity}</p>
+                      <p className={`text-xs font-bold ${ncr.severity === "Critical" ? "text-red-500" : "text-gray-700 dark:text-gray-300"}`}>
+                        {ncr.severity}
+                      </p>
                     </div>
                     <div className="hidden md:block text-right">
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Timestamp</p>
-                      <p className="text-xs font-bold text-gray-700 dark:text-gray-300">{ncr.date}</p>
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">
+                        {ncr.status === "Closed" ? "Closed" : "Timestamp"}
+                      </p>
+                      <p className="text-xs font-bold text-gray-700 dark:text-gray-300">{ncr.closureDate ?? ncr.createdAt}</p>
                     </div>
                     <button className="p-2 opacity-0 group-hover:opacity-100 transition-opacity">
                       <MoreVertical className="w-4 h-4 text-gray-400" />
@@ -256,15 +266,20 @@ export default function QualityCenterPage() {
                   </div>
                 </motion.div>
               ))}
+              {filteredNCRs.length === 0 && (
+                <div className="rounded-2xl border border-dashed border-gray-200 p-10 text-center dark:border-white/10">
+                  <p className="text-sm font-bold text-gray-500 dark:text-gray-300">No NCRs match these filters</p>
+                  <p className="mt-1 text-xs text-gray-400">Try another severity, status, or search term.</p>
+                </div>
+              )}
             </div>
-            
+
             <button className="w-full mt-6 py-4 border border-dashed border-gray-200 dark:border-white/10 rounded-2xl text-xs font-bold text-gray-400 hover:text-black dark:hover:text-white transition-all">
               View All Quality Records
             </button>
           </div>
         </div>
 
-        {/* Inspections Sidebar */}
         <div className="space-y-8">
           <div className="bg-white dark:bg-[#111] p-8 rounded-[2.5rem] border border-gray-100 dark:border-white/5 shadow-sm">
             <h3 className="text-xl font-bold tracking-tight mb-6">Pending Inspections</h3>
@@ -272,9 +287,9 @@ export default function QualityCenterPage() {
               {[
                 { label: "Incoming Materials", count: 8, icon: <FileText className="text-blue-500" /> },
                 { label: "In-Process Audit", count: 3, icon: <Activity className="text-teal-500" /> },
-                { label: "Final Release", count: 5, icon: <CheckCircle2 className="text-green-500" /> }
-              ].map((item, i) => (
-                <div key={i} className="flex items-center justify-between group cursor-pointer">
+                { label: "Final Release", count: 5, icon: <CheckCircle2 className="text-green-500" /> },
+              ].map((item) => (
+                <div key={item.label} className="flex items-center justify-between group cursor-pointer">
                   <div className="flex items-center gap-4">
                     <div className="w-10 h-10 bg-gray-50 dark:bg-white/5 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
                       {item.icon}
@@ -298,7 +313,6 @@ export default function QualityCenterPage() {
             <div className="absolute top-[-20%] right-[-20%] w-[60%] h-[60%] bg-white/10 dark:bg-black/5 rounded-full blur-3xl" />
           </div>
         </div>
-
       </div>
     </div>
   );
