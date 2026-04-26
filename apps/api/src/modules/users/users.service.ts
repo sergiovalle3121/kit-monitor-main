@@ -40,9 +40,13 @@ export class UsersService {
 
   async findOneByEmail(email: string): Promise<User | null> {
     const normalized = (email ?? '').trim().toLowerCase();
-    return this.userRepo.findOne({ 
+    return this.userRepo.findOne({
       where: { email: normalized },
-      select: ['id', 'email', 'password', 'role', 'scopes', 'permissions', 'isActive', 'username'] 
+      select: [
+        'id', 'email', 'username', 'password', 'role',
+        'tenant_id', 'organization_id', 'plant_id',
+        'scopes', 'permissions', 'isActive',
+      ],
     });
   }
 

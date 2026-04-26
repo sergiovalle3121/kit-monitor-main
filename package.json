@@ -1,12 +1,18 @@
 {
-  "name": "axos-os-root",
+  "name": "axos-os",
   "private": true,
-  "version": "1.0.0",
   "scripts": {
-    "build": "npm --prefix axos-os-frontend install && npm --prefix axos-os-frontend run build",
-    "start": "node axos-os-frontend/serve-dist.js"
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "format": "prettier --write \"**/*.{ts,tsx,md}\""
   },
-  "engines": {
-    "node": ">=18"
-  }
+  "devDependencies": {
+    "turbo": "latest",
+    "prettier": "^3.0.0"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ]
 }
