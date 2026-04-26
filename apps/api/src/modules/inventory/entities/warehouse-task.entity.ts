@@ -15,9 +15,21 @@ export enum WarehouseTaskStatus {
 }
 
 @Entity('warehouse_tasks')
+@Index(['tenant_id', 'status'])
 export class WarehouseTask {
   @PrimaryGeneratedColumn()
   id: number;
+
+  // Multi-tenant isolation — nullable during migration phase.
+  @Index()
+  @Column({ type: 'varchar', length: 36, nullable: true, name: 'tenant_id' })
+  tenant_id: string | null;
+
+  @Column({ type: 'varchar', length: 36, nullable: true, name: 'organization_id' })
+  organization_id: string | null;
+
+  @Column({ type: 'varchar', length: 36, nullable: true, name: 'plant_id' })
+  plant_id: string | null;
 
   @Column({ type: 'varchar', length: 32, unique: true })
   @Index()

@@ -3,16 +3,16 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { InventoryPosition } from './entities/inventory-position.entity';
 import { InventoryMovement } from './entities/inventory-movement.entity';
 import { MaterialMaster } from './entities/material-master.entity';
+import { WarehouseTask } from './entities/warehouse-task.entity';
+import { ReplenishmentRule } from './entities/replenishment-rule.entity';
+import { EnterpriseWarehouse } from '../enterprise-campus/entities/enterprise-warehouse.entity';
 import { InventoryService } from './inventory.service';
 import { InventoryController } from './inventory.controller';
-import { EnterpriseCampusModule } from '../enterprise-campus/enterprise-campus.module';
-import { EnterpriseWarehouse } from '../enterprise-campus/entities/enterprise-warehouse.entity';
-import { WarehouseTask } from './entities/warehouse-task.entity';
 import { WarehouseService } from './warehouse.service';
 import { WarehouseController } from './warehouse.controller';
-import { ReplenishmentRule } from './entities/replenishment-rule.entity';
 import { ReplenishmentService } from './replenishment.service';
 import { ReplenishmentController } from './replenishment.controller';
+import { EnterpriseCampusModule } from '../enterprise-campus/enterprise-campus.module';
 import { GovernanceModule } from '../governance/governance.module';
 
 @Module({
@@ -23,10 +23,11 @@ import { GovernanceModule } from '../governance/governance.module';
       MaterialMaster,
       EnterpriseWarehouse,
       WarehouseTask,
-      ReplenishmentRule
+      ReplenishmentRule,
     ]),
     EnterpriseCampusModule,
     GovernanceModule,
+    // TenantModule is @Global — TenantContextService injected automatically.
   ],
   controllers: [InventoryController, WarehouseController, ReplenishmentController],
   providers: [InventoryService, WarehouseService, ReplenishmentService],

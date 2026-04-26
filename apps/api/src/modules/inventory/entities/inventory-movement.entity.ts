@@ -14,9 +14,21 @@ export type InventoryTransactionType =
   | 'SCRAP';     // Disposal
 
 @Entity('inventory_movements')
+@Index(['tenant_id', 'partNumber'])
 export class InventoryMovement {
   @PrimaryGeneratedColumn()
   id: number;
+
+  // Multi-tenant isolation — nullable during migration phase.
+  @Index()
+  @Column({ type: 'varchar', length: 36, nullable: true, name: 'tenant_id' })
+  tenant_id: string | null;
+
+  @Column({ type: 'varchar', length: 36, nullable: true, name: 'organization_id' })
+  organization_id: string | null;
+
+  @Column({ type: 'varchar', length: 36, nullable: true, name: 'plant_id' })
+  plant_id: string | null;
 
   @Index()
   @Column({ type: 'varchar', length: 100 })

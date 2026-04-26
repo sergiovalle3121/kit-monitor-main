@@ -4,9 +4,22 @@ import { EnterpriseWarehouse } from '../../enterprise-campus/entities/enterprise
 
 @Entity('inventory_positions')
 @Unique(['material', 'warehouse', 'location', 'programId'])
+@Index(['tenant_id', 'warehouseId'])
+@Index(['tenant_id', 'partNumber'])
 export class InventoryPosition {
   @PrimaryGeneratedColumn()
   id: number;
+
+  // Multi-tenant isolation — nullable during migration phase.
+  @Index()
+  @Column({ type: 'varchar', length: 36, nullable: true, name: 'tenant_id' })
+  tenant_id: string | null;
+
+  @Column({ type: 'varchar', length: 36, nullable: true, name: 'organization_id' })
+  organization_id: string | null;
+
+  @Column({ type: 'varchar', length: 36, nullable: true, name: 'plant_id' })
+  plant_id: string | null;
 
   @ManyToOne(() => MaterialMaster)
   @JoinColumn({ name: 'part_number' })

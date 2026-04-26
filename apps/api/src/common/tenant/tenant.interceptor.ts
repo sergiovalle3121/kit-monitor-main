@@ -21,6 +21,9 @@ export class TenantInterceptor implements NestInterceptor {
       organization_id: user?.organization_id ?? null,
       plant_id: user?.plant_id ?? null,
       user_email: user?.email ?? 'anonymous',
+      role: user?.role ?? null,
+      permissions: user?.permissions ?? null,
+      scopes: user?.scopes ?? null,
     };
 
     // next.handle() is called inside run() so the entire async execution tree

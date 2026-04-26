@@ -48,9 +48,9 @@ export class ShippingService {
     if (!shipment) throw new NotFoundException('Shipment not found');
 
     // ELIGIBILITY RULE: Only 'available' stock (OQC Passed) can be added
-    const stock = await this.inventory.findAllPositions(user, { 
-      partNumber: itemDto.partNumber, 
-      warehouseId: 'WH-FG'
+    const stock = await this.inventory.findAllPositions({
+      partNumber: itemDto.partNumber,
+      warehouseId: 'WH-FG',
     });
 
     const eligibleStock = stock.filter(s => s.holdStatus === 'available');

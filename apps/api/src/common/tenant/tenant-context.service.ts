@@ -1,11 +1,15 @@
 import { Injectable } from '@nestjs/common';
 import { AsyncLocalStorage } from 'async_hooks';
+import { UserScopes } from '../types/jwt.types';
 
 export interface TenantContext {
   tenant_id: string | null;
   organization_id: string | null;
   plant_id: string | null;
   user_email: string;
+  role: string | null;
+  permissions: string[] | null;
+  scopes: UserScopes | null;
 }
 
 @Injectable()
@@ -34,5 +38,30 @@ export class TenantContextService {
 
   getUserEmail(): string {
     return this.storage.getStore()?.user_email ?? 'anonymous';
+  }
+
+  getRole(): string | null {
+    return this.storage.getStore()?.role ?? null;
+  }
+
+  getPermissions(): string[] | null {
+    return this.storage.getStore()?.permissions ?? null;
+  }
+
+  getScopes(): UserScopes | null {
+    return this.storage.getStore()?.scopes ?? null;
+  }
+
+  /** Convenience: IDs of buildings this user can access. Empty = no restriction. */
+  getAllowedBuildingIds(): string[] {
+    return this.storage.getStore()?.scopes?.buildings ?? [];
+  }
+
+  hasPermission(permission: string): boolean {
+    return this.storage.getStore()?.permissions?.includes(permission) ?? false;
+  }
+
+  isAdmin(): boolean {
+    return this.storage.getStore()?.role === 'Admin';
   }
 }
