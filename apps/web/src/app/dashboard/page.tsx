@@ -13,7 +13,9 @@ import {
   Search,
   Zap,
   Cpu,
-  Boxes
+  Boxes,
+  DollarSign,
+  TrendingUp
 } from "lucide-react";
 import Link from "next/link";
 
@@ -49,6 +51,14 @@ const apps = [
     color: "bg-green-50 dark:bg-green-500/10", 
     href: "/dashboard/quality",
     description: "NCR & Audits"
+  },
+  { 
+    id: "finance", 
+    name: "Finance", 
+    icon: <DollarSign className="w-8 h-8 text-emerald-500" />, 
+    color: "bg-emerald-50 dark:bg-emerald-500/10", 
+    href: "/dashboard/finance",
+    description: "Financial Ledger"
   }
 ];
 
@@ -94,7 +104,9 @@ export default function DashboardLauncher() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, ease: "easeOut" }}
           >
-            <h2 className="text-gray-500 dark:text-gray-400 font-medium text-lg mb-2">Saturday, April 25</h2>
+            <h2 className="text-gray-500 dark:text-gray-400 font-medium text-lg mb-2">
+              {new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}
+            </h2>
             <h1 className="text-5xl md:text-7xl font-bold tracking-tight mb-4">
               Hola, Sergio. <br />
               <span className="text-gray-400">Bienvenido a Axos OS.</span>
@@ -103,7 +115,7 @@ export default function DashboardLauncher() {
         </header>
 
         {/* Quick Access Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-10">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-6 md:gap-10">
           {apps.map((app, i) => (
             <Link href={app.href} key={app.id}>
               <motion.div
@@ -126,7 +138,7 @@ export default function DashboardLauncher() {
           ))}
         </div>
 
-        {/* System Widgets Placeholder */}
+        {/* System Widgets */}
         <div className="mt-24 grid grid-cols-1 md:grid-cols-2 gap-8">
           <motion.div 
             initial={{ opacity: 0, x: -20 }}
