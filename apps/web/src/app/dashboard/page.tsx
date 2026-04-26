@@ -61,6 +61,14 @@ const apps = [
     color: "bg-emerald-50 dark:bg-emerald-500/10", 
     href: "/dashboard/finance",
     description: "Financial Ledger"
+  },
+  { 
+    id: "settings-users", 
+    name: "Identity", 
+    icon: <Lock className="w-8 h-8 text-rose-500" />, 
+    color: "bg-rose-50 dark:bg-rose-500/10", 
+    href: "/dashboard/settings/users",
+    description: "Roles & Permissions"
   }
 ];
 
