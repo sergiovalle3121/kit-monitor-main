@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { 
   Line, 
@@ -44,19 +44,6 @@ const buttonMotion = {
   transition: { type: "spring", stiffness: 420, damping: 28 },
 } as const;
 
-// Mock Data for Monte Carlo Simulation
-const generateSimulationData = () => {
-  return Array.from({ length: 20 }, (_, i) => ({
-    name: `Day ${i + 1}`,
-    actual: i < 10 ? 400 + Math.random() * 100 : null,
-    projection: 400 + i * 10 + Math.random() * 50,
-    upperBound: 450 + i * 12 + Math.random() * 80,
-    lowerBound: 350 + i * 8 - Math.random() * 80,
-  }));
-};
-
-const data = generateSimulationData();
-
 const ControlLabel = ({ children }: { children: React.ReactNode }) => (
   <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2 block">
     {children}
@@ -65,10 +52,50 @@ const ControlLabel = ({ children }: { children: React.ReactNode }) => (
 
 export default function ForecastLabPage() {
   const [isSimulating, setIsSimulating] = useState(false);
+  const [cycles, setCycles] = useState(10000);
+  const [confidence, setConfidence] = useState(95);
+  const [volatility, setVolatility] = useState(0.15);
+  const [simulationData, setSimulationData] = useState<any[]>([]);
 
-  const startSimulation = () => {
+  // Initial simulation load
+  useEffect(() => {
+    runSimulation();
+  }, []);
+
+  const runSimulation = async () => {
     setIsSimulating(true);
-    setTimeout(() => setIsSimulating(false), 2000);
+    try {
+      // Calling Claude's new endpoint
+      const response = await fetch("/api/forecast/simulate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          historicalData: [420, 435, 410, 445, 430, 455, 440, 465, 450, 475, 460, 485],
+          config: {
+            periods: 20,
+            iterations: cycles,
+            confidenceInterval: confidence / 100,
+            volatility: volatility
+          }
+        })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        const formattedData = result.projections.map((p: any, i: number) => ({
+          name: `P${p.period}`,
+          projection: p.p50,
+          upperBound: p.p90,
+          lowerBound: p.p10,
+          actual: i < 0 ? 460 : null // Placeholder for historical alignment
+        }));
+        setSimulationData(formattedData);
+      }
+    } catch (error) {
+      console.error("Simulation failed:", error);
+    } finally {
+      setIsSimulating(false);
+    }
   };
 
   return (
@@ -101,7 +128,7 @@ export default function ForecastLabPage() {
           </motion.button>
           <motion.button 
             type="button"
-            onClick={startSimulation}
+            onClick={runSimulation}
             disabled={isSimulating}
             whileHover={isSimulating ? undefined : buttonMotion.whileHover}
             whileTap={isSimulating ? undefined : buttonMotion.whileTap}
@@ -125,7 +152,7 @@ export default function ForecastLabPage() {
               <div className="flex gap-8">
                 <div>
                   <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-1">Confidence Level</h3>
-                  <p className="text-2xl font-bold">94.2%</p>
+                  <p className="text-2xl font-bold">{confidence}%</p>
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-1">Sigma (&sigma;)</h3>
@@ -140,7 +167,7 @@ export default function ForecastLabPage() {
 
             <div className="h-[450px] w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={data} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                <AreaChart data={simulationData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
                   <defs>
                     <linearGradient id="colorProjection" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor={simulationPalette.projectionGlow} stopOpacity={0.16}/>
@@ -206,14 +233,6 @@ export default function ForecastLabPage() {
                     strokeDasharray="7 7"
                     activeDot={{ r: 6, fill: simulationPalette.projection, stroke: '#FFFFFF', strokeWidth: 3 }}
                   />
-                  <Line 
-                    type="monotone" 
-                    dataKey="actual" 
-                    stroke={simulationPalette.actual} 
-                    strokeWidth={3} 
-                    dot={{ r: 4, fill: simulationPalette.actualDot, stroke: '#FFFFFF', strokeWidth: 2 }} 
-                    activeDot={{ r: 7, fill: simulationPalette.actual, stroke: '#CCFBF1', strokeWidth: 3 }}
-                  />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
@@ -252,7 +271,7 @@ export default function ForecastLabPage() {
                 </div>
                 <h4 className="text-xs font-bold uppercase tracking-widest text-gray-400">Monte Carlo Iterations</h4>
               </div>
-              <p className="text-2xl font-bold">10,000</p>
+              <p className="text-2xl font-bold">{cycles.toLocaleString()}</p>
               <p className="text-[10px] text-gray-400 font-bold mt-1">High Precision Mode</p>
             </div>
           </div>
@@ -270,25 +289,48 @@ export default function ForecastLabPage() {
               <div>
                 <div className="flex justify-between items-center mb-2">
                   <ControlLabel>Simulation Cycles</ControlLabel>
-                  <span className="text-xs font-bold">10k</span>
+                  <span className="text-xs font-bold">{cycles / 1000}k</span>
                 </div>
-                <input type="range" className="w-full h-1 bg-gray-100 rounded-lg appearance-none cursor-pointer accent-black dark:accent-white" />
+                <input 
+                  type="range" 
+                  min="1000"
+                  max="50000"
+                  step="1000"
+                  value={cycles}
+                  onChange={(e) => setCycles(parseInt(e.target.value))}
+                  className="w-full h-1 bg-gray-100 rounded-lg appearance-none cursor-pointer accent-black dark:accent-white" 
+                />
               </div>
 
               <div>
                 <div className="flex justify-between items-center mb-2">
                   <ControlLabel>Confidence Interval</ControlLabel>
-                  <span className="text-xs font-bold">95%</span>
+                  <span className="text-xs font-bold">{confidence}%</span>
                 </div>
-                <input type="range" className="w-full h-1 bg-gray-100 rounded-lg appearance-none cursor-pointer accent-black dark:accent-white" />
+                <input 
+                  type="range" 
+                  min="50"
+                  max="99"
+                  value={confidence}
+                  onChange={(e) => setConfidence(parseInt(e.target.value))}
+                  className="w-full h-1 bg-gray-100 rounded-lg appearance-none cursor-pointer accent-black dark:accent-white" 
+                />
               </div>
 
               <div>
                 <div className="flex justify-between items-center mb-2">
                   <ControlLabel>Volatility Factor</ControlLabel>
-                  <span className="text-xs font-bold">0.15</span>
+                  <span className="text-xs font-bold">{volatility}</span>
                 </div>
-                <input type="range" className="w-full h-1 bg-gray-100 rounded-lg appearance-none cursor-pointer accent-black dark:accent-white" />
+                <input 
+                  type="range" 
+                  min="0.01"
+                  max="0.5"
+                  step="0.01"
+                  value={volatility}
+                  onChange={(e) => setVolatility(parseFloat(e.target.value))}
+                  className="w-full h-1 bg-gray-100 rounded-lg appearance-none cursor-pointer accent-black dark:accent-white" 
+                />
               </div>
 
               <div className="pt-6 border-t border-gray-100 dark:border-white/5 space-y-4">
