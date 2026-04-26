@@ -12,7 +12,7 @@ import { GovernanceModule } from '../governance/governance.module';
   imports: [
     TypeOrmModule.forFeature([Supplier, SCAR, IQCInspection]),
     EventLedgerModule,
-    GovernanceModule
+    GovernanceModule,
   ],
   controllers: [SuppliersController],
   providers: [SuppliersService],

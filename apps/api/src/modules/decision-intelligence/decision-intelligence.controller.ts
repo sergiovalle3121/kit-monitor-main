@@ -1,4 +1,13 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Post, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseIntPipe,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { DecisionIntelligenceService } from './decision-intelligence.service';
 import { CreateForecastRunDto } from './dto/create-forecast-run.dto';
@@ -58,7 +67,10 @@ export class DecisionIntelligenceController {
   }
 
   @Post('plan-scenarios/:id/simulate')
-  runSimulation(@Param('id', ParseIntPipe) id: number, @Body() dto: RunSimulationDto) {
+  runSimulation(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: RunSimulationDto,
+  ) {
     return this.service.runScenarioSimulation(id, dto);
   }
 
@@ -68,7 +80,10 @@ export class DecisionIntelligenceController {
   }
 
   @Post('plan-publications/:id/outcome')
-  registerOutcome(@Param('id', ParseIntPipe) id: number, @Body() dto: RegisterOutcomeDto) {
+  registerOutcome(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: RegisterOutcomeDto,
+  ) {
     return this.service.registerPublicationOutcome(id, dto);
   }
 

@@ -1,6 +1,16 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository, SelectQueryBuilder, In, Brackets } from 'typeorm';
+import {
+  DataSource,
+  Repository,
+  SelectQueryBuilder,
+  In,
+  Brackets,
+} from 'typeorm';
 import { EnterpriseProgram } from '../enterprise-campus/entities/enterprise-program.entity';
 import { EnterpriseLine } from '../enterprise-campus/entities/enterprise-line.entity';
 import { Plan } from './entities/plan.entity';
@@ -22,8 +32,10 @@ export class PlansService {
     private readonly repo: Repository<Plan>,
     @InjectRepository(LineCapacity)
     private readonly capacityRepo: Repository<LineCapacity>,
-    @InjectRepository(EnterpriseProgram) private readonly programRepo: Repository<EnterpriseProgram>,
-    @InjectRepository(EnterpriseLine) private readonly lineRepo: Repository<EnterpriseLine>,
+    @InjectRepository(EnterpriseProgram)
+    private readonly programRepo: Repository<EnterpriseProgram>,
+    @InjectRepository(EnterpriseLine)
+    private readonly lineRepo: Repository<EnterpriseLine>,
     private readonly inventory: InventoryService,
     private readonly quality: QualityService,
     private readonly audit: AuditService,
@@ -31,8 +43,15 @@ export class PlansService {
     private readonly tenantContext: TenantContextService,
   ) {}
 
-  async findAll(filters?: { line?: string; model?: string; workOrder?: string; buildingId?: string; programId?: string }): Promise<any[]> {
-    const qb = this.repo.createQueryBuilder('plan')
+  async findAll(filters?: {
+    line?: string;
+    model?: string;
+    workOrder?: string;
+    buildingId?: string;
+    programId?: string;
+  }): Promise<any[]> {
+    const qb = this.repo
+      .createQueryBuilder('plan')
       .leftJoinAndSelect('plan.kit', 'kit')
       .orderBy('plan.createdAt', 'DESC');
 
@@ -54,7 +73,7 @@ export class PlansService {
   }
 
   async create(dto: CreatePlanDto): Promise<any> {
-    const workOrder = dto.workOrder?.trim() || await this.generateWorkOrder();
+    const workOrder = dto.workOrder?.trim() || (await this.generateWorkOrder());
     const plan = this.repo.create({
       ...dto,
       workOrder,
@@ -86,29 +105,60 @@ export class PlansService {
     });
     if (!plan) throw new NotFoundException(`Plan ${id} not found`);
     if (plan.kit && plan.kit.status !== 'cancelled') {
-      throw new BadRequestException('Este plan ya tiene un kit ligado y se conserva como historial operativo.');
+      throw new BadRequestException(
+        'Este plan ya tiene un kit ligado y se conserva como historial operativo.',
+      );
     }
     await this.dataSource.transaction(async (em) => {
       if (plan.kit?.status === 'cancelled') {
-        await em.createQueryBuilder().delete().from('advances').where('"kitId" = :kitId', { kitId: plan.kit.id }).execute();
+        await em
+          .createQueryBuilder()
+          .delete()
+          .from('advances')
+          .where('"kitId" = :kitId', { kitId: plan.kit.id })
+          .execute();
         await em
           .createQueryBuilder()
           .delete()
           .from(KitMaterial)
           .where('"kitId" = :kitId', { kitId: plan.kit.id })
           .execute();
-        await em.createQueryBuilder().delete().from('kit_exceptions').where('"kitId" = :kitId', { kitId: plan.kit.id }).execute();
-        await em.createQueryBuilder().delete().from('cancellation_requests').where('"kit_id" = :kitId', { kitId: plan.kit.id }).execute();
-        await em.createQueryBuilder().delete().from('resupplies').where('"kitId" = :kitId', { kitId: plan.kit.id }).execute();
-        await em.createQueryBuilder().delete().from('production_bay_events').where('"kitId" = :kitId', { kitId: plan.kit.id }).execute();
-        await em.createQueryBuilder().delete().from('production_bay_material_states').where('"kitId" = :kitId', { kitId: plan.kit.id }).execute();
+        await em
+          .createQueryBuilder()
+          .delete()
+          .from('kit_exceptions')
+          .where('"kitId" = :kitId', { kitId: plan.kit.id })
+          .execute();
+        await em
+          .createQueryBuilder()
+          .delete()
+          .from('cancellation_requests')
+          .where('"kit_id" = :kitId', { kitId: plan.kit.id })
+          .execute();
+        await em
+          .createQueryBuilder()
+          .delete()
+          .from('resupplies')
+          .where('"kitId" = :kitId', { kitId: plan.kit.id })
+          .execute();
+        await em
+          .createQueryBuilder()
+          .delete()
+          .from('production_bay_events')
+          .where('"kitId" = :kitId', { kitId: plan.kit.id })
+          .execute();
+        await em
+          .createQueryBuilder()
+          .delete()
+          .from('production_bay_material_states')
+          .where('"kitId" = :kitId', { kitId: plan.kit.id })
+          .execute();
         await em.delete(Kit, plan.kit.id);
       }
       await em.delete(Plan, id);
     });
     return { deleted: true, id };
   }
-
 
   async releaseWorkOrder(id: number): Promise<any> {
     const plan = await this.repo.findOne({ where: { id } });
@@ -117,7 +167,7 @@ export class PlansService {
 
     // 1. Check Readiness (Simplified Mock for now, would use real inventory/quality check)
     const readiness = await this.calculateReadiness(plan);
-    
+
     const before = { ...plan };
     plan.status = 'released';
     plan.releasedAt = new Date();
@@ -133,25 +183,30 @@ export class PlansService {
       entityId: String(plan.id),
       before,
       after: saved,
-      scope: { buildingId: plan.buildingId }
+      scope: { buildingId: plan.buildingId },
     });
 
     return this.findOne(id);
   }
 
   async getSchedulingIntelligence() {
-    const plans = await this.repo.find({ where: { status: 'pending' as any } });
-    const activePlans = await this.repo.find({ where: { status: 'active' as any } });
+    const plans = await this.repo.find({ where: { status: 'pending' } });
+    const activePlans = await this.repo.find({
+      where: { status: 'active' },
+    });
     const capacities = await this.capacityRepo.find();
 
-    const lineLoad = capacities.map(cap => {
+    const lineLoad = capacities.map((cap) => {
       const lineActiveQty = activePlans
-        .filter(p => p.line === cap.line)
+        .filter((p) => p.line === cap.line)
         .reduce((sum, p) => sum + p.quantity, 0);
-      
-      const loadPercent = cap.dailyCapacityUnits > 0 
-        ? (lineActiveQty / (cap.dailyCapacityUnits * (cap.efficiencyFactor / 100))) * 100 
-        : 0;
+
+      const loadPercent =
+        cap.dailyCapacityUnits > 0
+          ? (lineActiveQty /
+              (cap.dailyCapacityUnits * (cap.efficiencyFactor / 100))) *
+            100
+          : 0;
 
       return {
         line: cap.line,
@@ -159,14 +214,19 @@ export class PlansService {
         capacity: cap.dailyCapacityUnits,
         currentLoad: lineActiveQty,
         loadPercent: Math.round(loadPercent),
-        status: loadPercent > 90 ? 'overloaded' : (loadPercent > 70 ? 'warning' : 'optimal')
+        status:
+          loadPercent > 90
+            ? 'overloaded'
+            : loadPercent > 70
+              ? 'warning'
+              : 'optimal',
       };
     });
 
     return {
       backlog: plans.length,
       lineLoad,
-      readinessRisks: plans.filter(p => p.priority === 'critical').length
+      readinessRisks: plans.filter((p) => p.priority === 'critical').length,
     };
   }
 
@@ -176,21 +236,33 @@ export class PlansService {
       materials: 'green',
       quality: 'green',
       shipping: 'green',
-      timestamp: new Date()
+      timestamp: new Date(),
     };
   }
 
   private async applyScopeToQb(
     qb: SelectQueryBuilder<Plan>,
-    filters?: { line?: string; model?: string; workOrder?: string; buildingId?: string; programId?: string },
+    filters?: {
+      line?: string;
+      model?: string;
+      workOrder?: string;
+      buildingId?: string;
+      programId?: string;
+    },
   ): Promise<void> {
     // Enforce organizational scopes from tenant context (skipped for Admin)
     if (!this.tenantContext.isAdmin()) {
       const scopes = this.tenantContext.getScopes();
       if (scopes?.buildings && scopes.buildings.length > 0) {
-        const linesInBuildings = await this.lineRepo.find({ where: { building: { id: In(scopes.buildings) } } as any });
-        const buildingLegacyNums = linesInBuildings.map(l => l.legacyLineNumber).filter((n): n is number => n != null);
-        qb.andWhere('plan.line IN (:...bLegacy)', { bLegacy: buildingLegacyNums.length ? buildingLegacyNums : [-1] });
+        const linesInBuildings = await this.lineRepo.find({
+          where: { building: { id: In(scopes.buildings) } },
+        });
+        const buildingLegacyNums = linesInBuildings
+          .map((l) => l.legacyLineNumber)
+          .filter((n): n is number => n != null);
+        qb.andWhere('plan.line IN (:...bLegacy)', {
+          bLegacy: buildingLegacyNums.length ? buildingLegacyNums : [-1],
+        });
       }
 
       if (scopes?.lines && scopes.lines.length > 0) {
@@ -198,14 +270,22 @@ export class PlansService {
       }
 
       if (scopes?.programs && scopes.programs.length > 0) {
-        const programs = await this.programRepo.find({ where: { id: In(scopes.programs) } });
-        const prefixes = programs.map(p => p.primaryModelPrefix?.toUpperCase()).filter(Boolean);
+        const programs = await this.programRepo.find({
+          where: { id: In(scopes.programs) },
+        });
+        const prefixes = programs
+          .map((p) => p.primaryModelPrefix?.toUpperCase())
+          .filter(Boolean);
         if (prefixes.length > 0) {
-          qb.andWhere(new Brackets(sub => {
-            prefixes.forEach((pre, i) => {
-              sub.orWhere(`UPPER(plan.model) LIKE :pre${i}`, { [`pre${i}`]: `${pre}%` });
-            });
-          }));
+          qb.andWhere(
+            new Brackets((sub) => {
+              prefixes.forEach((pre, i) => {
+                sub.orWhere(`UPPER(plan.model) LIKE :pre${i}`, {
+                  [`pre${i}`]: `${pre}%`,
+                });
+              });
+            }),
+          );
         }
       }
     }
@@ -214,22 +294,32 @@ export class PlansService {
     if (!filters) return;
 
     if (filters.model) {
-      qb.andWhere('UPPER(plan.model) LIKE :model', { model: `%${filters.model.toUpperCase()}%` });
+      qb.andWhere('UPPER(plan.model) LIKE :model', {
+        model: `%${filters.model.toUpperCase()}%`,
+      });
     }
     if (filters.workOrder) {
-      qb.andWhere('UPPER(plan.workOrder) LIKE :workOrder', { workOrder: `%${filters.workOrder.toUpperCase()}%` });
+      qb.andWhere('UPPER(plan.workOrder) LIKE :workOrder', {
+        workOrder: `%${filters.workOrder.toUpperCase()}%`,
+      });
     }
     if (filters.line) {
       // line param may be an enterprise line UUID — resolve to legacy integer
-      const lineRef = await this.lineRepo.findOne({ where: { id: filters.line } });
+      const lineRef = await this.lineRepo.findOne({
+        where: { id: filters.line },
+      });
       const legacyNum = lineRef?.legacyLineNumber ?? parseInt(filters.line, 10);
       if (!isNaN(legacyNum)) {
         qb.andWhere('plan.line = :lineNum', { lineNum: legacyNum });
       }
     }
     if (filters.buildingId) {
-      const lines = await this.lineRepo.find({ where: { building: { id: filters.buildingId } } as any });
-      const legacyNums = lines.map((l) => l.legacyLineNumber).filter((n): n is number => n != null);
+      const lines = await this.lineRepo.find({
+        where: { building: { id: filters.buildingId } },
+      });
+      const legacyNums = lines
+        .map((l) => l.legacyLineNumber)
+        .filter((n): n is number => n != null);
       if (legacyNums.length) {
         qb.andWhere('plan.line IN (:...lineNums)', { lineNums: legacyNums });
       } else {
@@ -237,7 +327,9 @@ export class PlansService {
       }
     }
     if (filters.programId) {
-      const program = await this.programRepo.findOne({ where: { id: filters.programId } });
+      const program = await this.programRepo.findOne({
+        where: { id: filters.programId },
+      });
       const prefix = program?.primaryModelPrefix?.toUpperCase();
       if (prefix) {
         qb.andWhere('UPPER(plan.model) LIKE :prefix', { prefix: `${prefix}%` });

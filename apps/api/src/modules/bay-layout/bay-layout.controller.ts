@@ -1,6 +1,12 @@
 import {
-  Controller, Get, Post, Delete,
-  Param, Body, Query, ParseIntPipe,
+  Controller,
+  Get,
+  Post,
+  Delete,
+  Param,
+  Body,
+  Query,
+  ParseIntPipe,
   UseGuards,
 } from '@nestjs/common';
 import { BayLayoutService } from './bay-layout.service';

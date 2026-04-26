@@ -37,7 +37,9 @@ export class ReplenishmentService {
     return qb.orderBy('rule.warehouseId', 'ASC').getMany();
   }
 
-  async createRule(dto: Partial<ReplenishmentRule>): Promise<ReplenishmentRule> {
+  async createRule(
+    dto: Partial<ReplenishmentRule>,
+  ): Promise<ReplenishmentRule> {
     const rule = this.ruleRepo.create({
       ...dto,
       tenant_id: this.tenantContext.getTenantId(),

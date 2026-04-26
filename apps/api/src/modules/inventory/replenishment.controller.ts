@@ -27,7 +27,9 @@ export class ReplenishmentController {
 
   @Get('analyze')
   @RequirePermissions('materials:read')
-  @ApiOperation({ summary: 'Run inventory analysis and return replenishment signals' })
+  @ApiOperation({
+    summary: 'Run inventory analysis and return replenishment signals',
+  })
   analyze() {
     return this.replenishmentService.analyzeInventory();
   }

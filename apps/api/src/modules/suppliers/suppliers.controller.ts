@@ -27,7 +27,11 @@ export class SuppliersController {
   }
 
   @Patch('scars/:id')
-  async updateScar(@Param('id') id: number, @Body() dto: any, @Body('actor') actor: string) {
+  async updateScar(
+    @Param('id') id: number,
+    @Body() dto: any,
+    @Body('actor') actor: string,
+  ) {
     return this.suppliersService.updateScar(id, dto, actor || 'QA User');
   }
 

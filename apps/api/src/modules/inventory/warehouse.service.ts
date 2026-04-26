@@ -1,7 +1,15 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { WarehouseTask, WarehouseTaskStatus, WarehouseTaskType } from './entities/warehouse-task.entity';
+import {
+  WarehouseTask,
+  WarehouseTaskStatus,
+  WarehouseTaskType,
+} from './entities/warehouse-task.entity';
 import { InventoryService } from './inventory.service';
 import { AuditService } from '../governance/audit.service';
 import { TenantContextService } from '../../common/tenant/tenant-context.service';
@@ -30,7 +38,8 @@ export class WarehouseService {
     // 2. Building-level scope
     const allowedBuildings = this.tenantContext.getAllowedBuildingIds();
     if (allowedBuildings.length > 0) {
-      const whIds = await this.inventory.resolveWarehouseIdsByBuildings(allowedBuildings);
+      const whIds =
+        await this.inventory.resolveWarehouseIdsByBuildings(allowedBuildings);
       whIds.length > 0
         ? qb.andWhere(
             '(task.fromWarehouseId IN (:...whIds) OR task.toWarehouseId IN (:...whIds))',
@@ -39,13 +48,13 @@ export class WarehouseService {
         : qb.andWhere('1 = 0');
     }
 
-    if (filters.status) qb.andWhere('task.status = :status', { status: filters.status });
+    if (filters.status)
+      qb.andWhere('task.status = :status', { status: filters.status });
     if (filters.type) qb.andWhere('task.type = :type', { type: filters.type });
     if (filters.warehouseId)
-      qb.andWhere(
-        '(task.fromWarehouseId = :wh OR task.toWarehouseId = :wh)',
-        { wh: filters.warehouseId },
-      );
+      qb.andWhere('(task.fromWarehouseId = :wh OR task.toWarehouseId = :wh)', {
+        wh: filters.warehouseId,
+      });
 
     return qb.orderBy('task.createdAt', 'DESC').getMany();
   }
@@ -70,7 +79,11 @@ export class WarehouseService {
       action: 'WAREHOUSE_TASK_CREATED',
       resourceType: 'WarehouseTask',
       resourceId: saved.taskNumber,
-      metadata: { type: saved.type, from: saved.fromWarehouseId, to: saved.toWarehouseId },
+      metadata: {
+        type: saved.type,
+        from: saved.fromWarehouseId,
+        to: saved.toWarehouseId,
+      },
       outcome: 'ALLOWED',
     });
 
@@ -139,7 +152,10 @@ export class WarehouseService {
     const qb = this.taskRepo
       .createQueryBuilder('task')
       .where('task.status IN (:...statuses)', {
-        statuses: [WarehouseTaskStatus.PENDING, WarehouseTaskStatus.IN_PROGRESS],
+        statuses: [
+          WarehouseTaskStatus.PENDING,
+          WarehouseTaskStatus.IN_PROGRESS,
+        ],
       })
       .andWhere('task.type IN (:...types)', {
         types: [WarehouseTaskType.PICK, WarehouseTaskType.TRANSFER],
@@ -150,13 +166,15 @@ export class WarehouseService {
 
     const allowedBuildings = this.tenantContext.getAllowedBuildingIds();
     if (allowedBuildings.length > 0) {
-      const whIds = await this.inventory.resolveWarehouseIdsByBuildings(allowedBuildings);
+      const whIds =
+        await this.inventory.resolveWarehouseIdsByBuildings(allowedBuildings);
       whIds.length > 0
         ? qb.andWhere('task.fromWarehouseId IN (:...whIds)', { whIds })
         : qb.andWhere('1 = 0');
     }
 
-    if (warehouseId) qb.andWhere('task.fromWarehouseId = :wh', { wh: warehouseId });
+    if (warehouseId)
+      qb.andWhere('task.fromWarehouseId = :wh', { wh: warehouseId });
 
     return qb.orderBy('task.createdAt', 'ASC').getMany();
   }
@@ -212,7 +230,7 @@ export class WarehouseService {
     const where: Record<string, unknown> = { id };
     if (tenantId) where['tenant_id'] = tenantId;
 
-    const task = await this.taskRepo.findOne({ where: where as any });
+    const task = await this.taskRepo.findOne({ where: where });
     if (!task) throw new NotFoundException('Task not found');
     return task;
   }

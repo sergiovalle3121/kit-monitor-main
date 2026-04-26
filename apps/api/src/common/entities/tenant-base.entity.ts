@@ -11,7 +11,12 @@ export abstract class TenantBaseEntity {
   @Column({ type: 'varchar', length: 36, nullable: true, name: 'tenant_id' })
   tenant_id: string | null;
 
-  @Column({ type: 'varchar', length: 36, nullable: true, name: 'organization_id' })
+  @Column({
+    type: 'varchar',
+    length: 36,
+    nullable: true,
+    name: 'organization_id',
+  })
   organization_id: string | null;
 
   @Column({ type: 'varchar', length: 36, nullable: true, name: 'plant_id' })

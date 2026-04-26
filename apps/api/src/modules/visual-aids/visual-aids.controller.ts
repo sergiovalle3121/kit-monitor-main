@@ -25,23 +25,38 @@ export class VisualAidsController {
   constructor(private readonly service: VisualAidsService) {}
 
   @Get()
-  findAll(@Query('model') model?: string, @Query('programId') programId?: string) {
+  findAll(
+    @Query('model') model?: string,
+    @Query('programId') programId?: string,
+  ) {
     return this.service.findAll(model, programId);
   }
 
   @Post()
-  @UseInterceptors(FileInterceptor('file', {
-    storage: memoryStorage(),
-    fileFilter: (_req, file, cb) => {
-      const allowed = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'];
-      if (!allowed.includes(file.mimetype)) {
-        cb(new BadRequestException('Solo se permiten PDF o imágenes (JPG, PNG, WEBP)'), false);
-        return;
-      }
-      cb(null, true);
-    },
-    limits: { fileSize: 12 * 1024 * 1024 },
-  }))
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: memoryStorage(),
+      fileFilter: (_req, file, cb) => {
+        const allowed = [
+          'application/pdf',
+          'image/jpeg',
+          'image/png',
+          'image/webp',
+        ];
+        if (!allowed.includes(file.mimetype)) {
+          cb(
+            new BadRequestException(
+              'Solo se permiten PDF o imágenes (JPG, PNG, WEBP)',
+            ),
+            false,
+          );
+          return;
+        }
+        cb(null, true);
+      },
+      limits: { fileSize: 12 * 1024 * 1024 },
+    }),
+  )
   create(@Body() dto: CreateVisualAidDto, @UploadedFile() file?: any) {
     if (!file?.buffer) {
       throw new BadRequestException('PDF es obligatorio');
@@ -75,7 +90,7 @@ export class VisualAidsController {
     }
 
     res.removeHeader('X-Frame-Options');
-    res.setHeader('Content-Security-Policy', "frame-ancestors *");
+    res.setHeader('Content-Security-Policy', 'frame-ancestors *');
     const mime = item.pdfUrl.endsWith('.pdf') ? 'application/pdf' : 'image/png';
     res.setHeader('Content-Type', mime);
     res.setHeader('Content-Disposition', `inline; filename="${safeName}"`);

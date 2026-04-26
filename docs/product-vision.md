@@ -10,6 +10,6 @@ AXOS OS is not just an inventory app; it is an **Industrial Operating System** f
 
 ## Aesthetic & Experience
 - **Minimalist**: Clean interfaces with high whitespace.
-- **Premium Industrial**: Inspired by Apple, Tesla, and modern SAP.
+- **Premium Industrial**: Inspired by polished enterprise software and modern industrial systems.
 - **Visuals**: Dark mode excellence, soft cards, serious typography, discreet animations.
 - **Semáforos Operativos**: Clear visual indicators of status (Green/Yellow/Red) but in a sophisticated palette.

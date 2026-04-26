@@ -15,9 +15,14 @@ export class AuthService {
   async validateUser(identifier: string, pass: string): Promise<User> {
     const normalizedIdentifier = (identifier ?? '').trim();
     const normalizedPass = String(pass ?? '');
-    const user = await this.usersService.findOneByIdentifier(normalizedIdentifier);
+    const user =
+      await this.usersService.findOneByIdentifier(normalizedIdentifier);
 
-    if (user && user.isActive !== false && (await bcrypt.compare(normalizedPass, user.password))) {
+    if (
+      user &&
+      user.isActive !== false &&
+      (await bcrypt.compare(normalizedPass, user.password))
+    ) {
       return user;
     }
     throw new UnauthorizedException('Credenciales incorrectas');

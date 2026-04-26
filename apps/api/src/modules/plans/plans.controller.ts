@@ -1,4 +1,17 @@
-import { Controller, Get, Post, Patch, Delete, Param, Body, ParseIntPipe, Query, UseGuards, UsePipes, ValidationPipe } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Delete,
+  Param,
+  Body,
+  ParseIntPipe,
+  Query,
+  UseGuards,
+  UsePipes,
+  ValidationPipe,
+} from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiQuery } from '@nestjs/swagger';
 import { PlansService } from './plans.service';
 import { CreatePlanDto } from './dto/create-plan.dto';
@@ -28,7 +41,13 @@ export class PlansController {
     @Query('buildingId') buildingId?: string,
     @Query('programId') programId?: string,
   ) {
-    return this.plansService.findAll({ line, model, workOrder, buildingId, programId });
+    return this.plansService.findAll({
+      line,
+      model,
+      workOrder,
+      buildingId,
+      programId,
+    });
   }
 
   @Get('intelligence')
@@ -67,7 +86,9 @@ export class PlansController {
 
   @Delete(':id')
   @RequirePermissions('MANAGE_PLANS')
-  @ApiOperation({ summary: 'Delete a plan (only if kit is cancelled or missing)' })
+  @ApiOperation({
+    summary: 'Delete a plan (only if kit is cancelled or missing)',
+  })
   remove(@Param('id', ParseIntPipe) id: number) {
     return this.plansService.remove(id);
   }

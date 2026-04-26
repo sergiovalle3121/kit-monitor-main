@@ -1,4 +1,11 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Index } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  Index,
+} from 'typeorm';
 
 export enum QualityHoldLevel {
   PART_NUMBER = 'PART_NUMBER',
@@ -7,7 +14,7 @@ export enum QualityHoldLevel {
   WAREHOUSE = 'WAREHOUSE',
   BUILDING = 'BUILDING',
   PROGRAM = 'PROGRAM',
-  WORK_ORDER = 'WORK_ORDER'
+  WORK_ORDER = 'WORK_ORDER',
 }
 
 @Entity('quality_holds')

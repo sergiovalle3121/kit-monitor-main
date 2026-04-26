@@ -1,15 +1,21 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, CreateDateColumn } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  ManyToOne,
+  CreateDateColumn,
+} from 'typeorm';
 import { Kit } from '../../kits/entities/kit.entity';
 
-export type ResupplyStatus = 
-  | 'requested' 
-  | 'acknowledged' 
-  | 'pick_started' 
-  | 'pick_completed' 
-  | 'in_transit' 
-  | 'delivered' 
-  | 'confirmed' 
-  | 'escalated' 
+export type ResupplyStatus =
+  | 'requested'
+  | 'acknowledged'
+  | 'pick_started'
+  | 'pick_completed'
+  | 'in_transit'
+  | 'delivered'
+  | 'confirmed'
+  | 'escalated'
   | 'cancelled';
 
 export type ResupplyPriority = 'low' | 'medium' | 'high' | 'critical';

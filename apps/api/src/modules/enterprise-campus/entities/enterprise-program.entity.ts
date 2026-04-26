@@ -1,19 +1,39 @@
-import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryColumn, UpdateDateColumn } from 'typeorm';
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  JoinColumn,
+  ManyToOne,
+  PrimaryColumn,
+  UpdateDateColumn,
+} from 'typeorm';
 import { EnterpriseCustomer } from './enterprise-customer.entity';
 import { EnterpriseBuilding } from './enterprise-building.entity';
 
-export type EnterpriseProgramStatus = 'active' | 'npi' | 'ramping' | 'end_of_life' | 'on_hold';
+export type EnterpriseProgramStatus =
+  | 'active'
+  | 'npi'
+  | 'ramping'
+  | 'end_of_life'
+  | 'on_hold';
 
 @Entity('enterprise_programs')
 export class EnterpriseProgram {
   @PrimaryColumn({ type: 'varchar', length: 64 })
   id: string;
 
-  @ManyToOne(() => EnterpriseCustomer, (customer) => customer.programs, { nullable: false, onDelete: 'RESTRICT' })
+  @ManyToOne(() => EnterpriseCustomer, (customer) => customer.programs, {
+    nullable: false,
+    onDelete: 'RESTRICT',
+  })
   @JoinColumn({ name: 'customer_id' })
   customer: EnterpriseCustomer;
 
-  @ManyToOne(() => EnterpriseBuilding, (building) => building.dedicatedPrograms, { nullable: true, onDelete: 'SET NULL' })
+  @ManyToOne(
+    () => EnterpriseBuilding,
+    (building) => building.dedicatedPrograms,
+    { nullable: true, onDelete: 'SET NULL' },
+  )
   @JoinColumn({ name: 'dedicated_building_id' })
   dedicatedBuilding?: EnterpriseBuilding | null;
 

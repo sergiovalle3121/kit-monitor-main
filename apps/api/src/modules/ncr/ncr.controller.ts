@@ -43,12 +43,20 @@ export class NcrController {
     @Query('severity') severity?: string,
     @Query('sourceType') sourceType?: string,
   ) {
-    return this.ncrService.findAll({ partNumber, status, workOrder, severity, sourceType });
+    return this.ncrService.findAll({
+      partNumber,
+      status,
+      workOrder,
+      severity,
+      sourceType,
+    });
   }
 
   @Get(':id')
   @RequirePermissions('quality:read')
-  @ApiOperation({ summary: 'Get a single NCR with related hold and quarantine data' })
+  @ApiOperation({
+    summary: 'Get a single NCR with related hold and quarantine data',
+  })
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.ncrService.findOne(id);
   }
@@ -68,6 +76,10 @@ export class NcrController {
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateNcrStatusDto,
   ) {
-    return this.ncrService.updateStatus(id, dto.status as NcrStatus, dto.dispositionNotes);
+    return this.ncrService.updateStatus(
+      id,
+      dto.status as NcrStatus,
+      dto.dispositionNotes,
+    );
   }
 }

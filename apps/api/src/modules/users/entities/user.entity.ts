@@ -31,7 +31,12 @@ export class User {
   @Column({ type: 'varchar', length: 36, nullable: true, name: 'tenant_id' })
   tenant_id: string | null;
 
-  @Column({ type: 'varchar', length: 36, nullable: true, name: 'organization_id' })
+  @Column({
+    type: 'varchar',
+    length: 36,
+    nullable: true,
+    name: 'organization_id',
+  })
   organization_id: string | null;
 
   // Default plant for this user; null means org-level access (multi-plant).

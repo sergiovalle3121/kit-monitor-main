@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { 
   Line, 
@@ -44,6 +44,39 @@ const buttonMotion = {
   transition: { type: "spring", stiffness: 420, damping: 28 },
 } as const;
 
+interface SimulationPoint {
+  name: string;
+  projection: number;
+  upperBound: number;
+  lowerBound: number;
+  actual: number | null;
+}
+
+interface SimulationProjection {
+  period: number;
+  p10: number;
+  p50: number;
+  p90: number;
+}
+
+interface SimulationResponse {
+  projections: SimulationProjection[];
+}
+
+const createInitialSimulationData = (): SimulationPoint[] =>
+  Array.from({ length: 20 }, (_, index) => {
+    const period = index + 1;
+    const projection = 420 + period * 8;
+
+    return {
+      name: `P${period}`,
+      projection,
+      upperBound: projection + 38,
+      lowerBound: projection - 34,
+      actual: null,
+    };
+  });
+
 const ControlLabel = ({ children }: { children: React.ReactNode }) => (
   <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2 block">
     {children}
@@ -55,12 +88,7 @@ export default function ForecastLabPage() {
   const [cycles, setCycles] = useState(10000);
   const [confidence, setConfidence] = useState(95);
   const [volatility, setVolatility] = useState(0.15);
-  const [simulationData, setSimulationData] = useState<any[]>([]);
-
-  // Initial simulation load
-  useEffect(() => {
-    runSimulation();
-  }, []);
+  const [simulationData, setSimulationData] = useState<SimulationPoint[]>(createInitialSimulationData);
 
   const runSimulation = async () => {
     setIsSimulating(true);
@@ -81,8 +109,8 @@ export default function ForecastLabPage() {
       });
 
       if (response.ok) {
-        const result = await response.json();
-        const formattedData = result.projections.map((p: any, i: number) => ({
+        const result = (await response.json()) as SimulationResponse;
+        const formattedData = result.projections.map((p, i): SimulationPoint => ({
           name: `P${p.period}`,
           projection: p.p50,
           upperBound: p.p90,

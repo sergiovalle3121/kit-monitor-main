@@ -2,8 +2,15 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { QualityHold, QualityHoldLevel } from './entities/quality-hold.entity';
-import { QuarantineTransfer, QuarantineTransferStatus } from './entities/quarantine-transfer.entity';
-import { Disposition, DispositionType, DispositionStatus } from './entities/disposition.entity';
+import {
+  QuarantineTransfer,
+  QuarantineTransferStatus,
+} from './entities/quarantine-transfer.entity';
+import {
+  Disposition,
+  DispositionType,
+  DispositionStatus,
+} from './entities/disposition.entity';
 import { CAPA, CapaStatus } from './entities/capa.entity';
 import { IQCInspection, IqcResult } from './entities/iqc-inspection.entity';
 import { InventoryPosition } from '../inventory/entities/inventory-position.entity';
@@ -16,7 +23,10 @@ import { SuppliersService } from '../suppliers/suppliers.service';
 
 import { FinalInspection } from './entities/final-inspection.entity';
 import { AuditService } from '../governance/audit.service';
-import { ExceptionSeverity, ExceptionDomain } from '../governance/entities/operational-exception.entity';
+import {
+  ExceptionSeverity,
+  ExceptionDomain,
+} from '../governance/entities/operational-exception.entity';
 
 @Injectable()
 export class QualityService {
@@ -44,7 +54,10 @@ export class QualityService {
   ) {}
 
   async findAllActiveHolds(): Promise<QualityHold[]> {
-    return this.holdRepo.find({ where: { isActive: true }, order: { createdAt: 'DESC' } });
+    return this.holdRepo.find({
+      where: { isActive: true },
+      order: { createdAt: 'DESC' },
+    });
   }
 
   async createHold(dto: {
@@ -66,17 +79,22 @@ export class QualityService {
 
       // 2. Apply to Inventory Positions
       // Build update query based on level
-      const qb = queryRunner.manager.createQueryBuilder(InventoryPosition, 'pos')
+      const qb = queryRunner.manager
+        .createQueryBuilder(InventoryPosition, 'pos')
         .update()
         .set({ holdStatus: 'hold' })
         .where('partNumber = :pn', { pn: dto.partNumber });
 
-      if (dto.level === 'WAREHOUSE') qb.andWhere('warehouseId = :val', { val: dto.levelValue });
-      if (dto.level === 'PROGRAM') qb.andWhere('programId = :val', { val: dto.levelValue });
-      if (dto.level === 'LOT') qb.andWhere('lotNumber = :val', { val: dto.levelValue });
-      if (dto.level === 'SERIAL') qb.andWhere('serialNumber = :val', { val: dto.levelValue });
+      if (dto.level === 'WAREHOUSE')
+        qb.andWhere('warehouseId = :val', { val: dto.levelValue });
+      if (dto.level === 'PROGRAM')
+        qb.andWhere('programId = :val', { val: dto.levelValue });
+      if (dto.level === 'LOT')
+        qb.andWhere('lotNumber = :val', { val: dto.levelValue });
+      if (dto.level === 'SERIAL')
+        qb.andWhere('serialNumber = :val', { val: dto.levelValue });
       // BUILDING level would require joining warehouse, but for simplicity we assume warehouseId is prefixed or we handle it in business logic
-      
+
       await qb.execute();
 
       // 3. Log Event
@@ -86,12 +104,12 @@ export class QualityService {
         actorName: dto.heldBy,
         referenceType: 'QUALITY_HOLD',
         referenceId: savedHold.id.toString(),
-        metadata: { 
+        metadata: {
           partNumber: dto.partNumber,
           level: dto.level,
           value: dto.levelValue,
-          reason: dto.reason
-        }
+          reason: dto.reason,
+        },
       });
 
       // AUTOMATION: Create Operational Exception for Quality Hold
@@ -103,7 +121,11 @@ export class QualityService {
         actor: dto.heldBy,
         resourceType: 'QualityHold',
         resourceId: savedHold.id.toString(),
-        metadata: { partNumber: dto.partNumber, level: dto.level, value: dto.levelValue }
+        metadata: {
+          partNumber: dto.partNumber,
+          level: dto.level,
+          value: dto.levelValue,
+        },
       });
 
       await queryRunner.commitTransaction();
@@ -131,15 +153,19 @@ export class QualityService {
       await queryRunner.manager.save(hold);
 
       // Restore Inventory Positions
-      const qb = queryRunner.manager.createQueryBuilder(InventoryPosition, 'pos')
+      const qb = queryRunner.manager
+        .createQueryBuilder(InventoryPosition, 'pos')
         .update()
         .set({ holdStatus: 'available' })
         .where('partNumber = :pn', { pn: hold.partNumber });
 
-      if (hold.level === 'WAREHOUSE') qb.andWhere('warehouseId = :val', { val: hold.levelValue });
-      if (hold.level === 'PROGRAM') qb.andWhere('programId = :val', { val: hold.levelValue });
-      if (hold.level === 'LOT') qb.andWhere('lotNumber = :val', { val: hold.levelValue });
-      
+      if (hold.level === 'WAREHOUSE')
+        qb.andWhere('warehouseId = :val', { val: hold.levelValue });
+      if (hold.level === 'PROGRAM')
+        qb.andWhere('programId = :val', { val: hold.levelValue });
+      if (hold.level === 'LOT')
+        qb.andWhere('lotNumber = :val', { val: hold.levelValue });
+
       await qb.execute();
 
       await this.eventLedger.recordEvent({
@@ -148,7 +174,7 @@ export class QualityService {
         actorName: releasedBy,
         referenceType: 'QUALITY_HOLD',
         referenceId: hold.id.toString(),
-        metadata: { partNumber: hold.partNumber, reason: hold.reason }
+        metadata: { partNumber: hold.partNumber, reason: hold.reason },
       });
 
       await this.audit.log({
@@ -158,7 +184,7 @@ export class QualityService {
         entityId: String(hold.id),
         before: { id: hold.id, isActive: true },
         after: hold,
-        scope: { partNumber: hold.partNumber }
+        scope: { partNumber: hold.partNumber },
       });
 
       await queryRunner.commitTransaction();
@@ -171,14 +197,21 @@ export class QualityService {
     }
   }
 
-  async checkIsHeld(partNumber: string, context: { warehouseId?: string; programId?: string }): Promise<boolean> {
-    const activeHolds = await this.holdRepo.find({ where: { partNumber, isActive: true } });
+  async checkIsHeld(
+    partNumber: string,
+    context: { warehouseId?: string; programId?: string },
+  ): Promise<boolean> {
+    const activeHolds = await this.holdRepo.find({
+      where: { partNumber, isActive: true },
+    });
     if (!activeHolds.length) return false;
 
     for (const hold of activeHolds) {
       if (hold.level === 'PART_NUMBER') return true;
-      if (hold.level === 'WAREHOUSE' && hold.levelValue === context.warehouseId) return true;
-      if (hold.level === 'PROGRAM' && hold.levelValue === context.programId) return true;
+      if (hold.level === 'WAREHOUSE' && hold.levelValue === context.warehouseId)
+        return true;
+      if (hold.level === 'PROGRAM' && hold.levelValue === context.programId)
+        return true;
     }
     return false;
   }
@@ -186,9 +219,9 @@ export class QualityService {
   // --- QUARANTINE TRANSFERS ---
 
   async findTransfers(): Promise<QuarantineTransfer[]> {
-    return this.transferRepo.find({ 
+    return this.transferRepo.find({
       relations: ['hold'],
-      order: { createdAt: 'DESC' }
+      order: { createdAt: 'DESC' },
     });
   }
 
@@ -207,7 +240,7 @@ export class QualityService {
     const transfer = this.transferRepo.create({
       ...dto,
       partNumber: hold.partNumber,
-      status: QuarantineTransferStatus.PENDING
+      status: QuarantineTransferStatus.PENDING,
     });
     const saved = await this.transferRepo.save(transfer);
 
@@ -217,7 +250,7 @@ export class QualityService {
       actorName: dto.requestedBy,
       referenceType: 'QUARANTINE_TRANSFER',
       referenceId: saved.id.toString(),
-      metadata: { partNumber: hold.partNumber, qty: dto.quantity }
+      metadata: { partNumber: hold.partNumber, qty: dto.quantity },
     });
 
     // AUTOMATION: Create Operational Exception for Quarantine Transfer
@@ -229,16 +262,27 @@ export class QualityService {
       actor: dto.requestedBy,
       resourceType: 'QuarantineTransfer',
       resourceId: saved.id.toString(),
-      metadata: { partNumber: hold.partNumber, quantity: dto.quantity, destination: dto.destWarehouseId }
+      metadata: {
+        partNumber: hold.partNumber,
+        quantity: dto.quantity,
+        destination: dto.destWarehouseId,
+      },
     });
 
     return saved;
   }
 
-  async completeQuarantineTransfer(id: number, actor: string): Promise<QuarantineTransfer> {
-    const transfer = await this.transferRepo.findOne({ where: { id }, relations: ['hold'] });
+  async completeQuarantineTransfer(
+    id: number,
+    actor: string,
+  ): Promise<QuarantineTransfer> {
+    const transfer = await this.transferRepo.findOne({
+      where: { id },
+      relations: ['hold'],
+    });
     if (!transfer) throw new NotFoundException('Transfer not found');
-    if (transfer.status !== QuarantineTransferStatus.PENDING) throw new Error('Transfer already processed');
+    if (transfer.status !== QuarantineTransferStatus.PENDING)
+      throw new Error('Transfer already processed');
 
     // Perform Physical Movement in Inventory Backbone
     await this.inventory.recordTransaction({
@@ -252,7 +296,7 @@ export class QualityService {
       actorName: actor,
       referenceType: 'QUARANTINE_TRANSFER',
       referenceId: transfer.id.toString(),
-      reason: `Quarantine Containment: ${transfer.hold.reason}`
+      reason: `Quarantine Containment: ${transfer.hold.reason}`,
     });
 
     // Update Status
@@ -263,12 +307,12 @@ export class QualityService {
 
     // Update inventory position hold status to 'quarantine' in destination
     await this.positionRepo.update(
-      { 
-        partNumber: transfer.partNumber, 
-        warehouseId: transfer.destWarehouseId, 
-        location: transfer.destLocation 
+      {
+        partNumber: transfer.partNumber,
+        warehouseId: transfer.destWarehouseId,
+        location: transfer.destLocation,
       },
-      { holdStatus: 'quarantine' }
+      { holdStatus: 'quarantine' },
     );
 
     return updated;
@@ -277,16 +321,16 @@ export class QualityService {
   // --- DISPOSITION ENGINE ---
 
   async findDispositions(): Promise<Disposition[]> {
-    return this.dispositionRepo.find({ 
+    return this.dispositionRepo.find({
       relations: ['ncr', 'hold'],
-      order: { createdAt: 'DESC' }
+      order: { createdAt: 'DESC' },
     });
   }
 
   async proposeDisposition(dto: Partial<Disposition>): Promise<Disposition> {
     const disposition = this.dispositionRepo.create({
       ...dto,
-      status: DispositionStatus.PROPOSED
+      status: DispositionStatus.PROPOSED,
     });
     const saved = await this.dispositionRepo.save(disposition);
 
@@ -296,7 +340,7 @@ export class QualityService {
       actorName: dto.proposedBy,
       referenceType: 'DISPOSITION',
       referenceId: saved.id.toString(),
-      metadata: { type: dto.type, partNumber: dto.partNumber }
+      metadata: { type: dto.type, partNumber: dto.partNumber },
     });
 
     // AUTOMATION: Create Operational Exception for Disposition
@@ -308,7 +352,11 @@ export class QualityService {
       actor: dto.proposedBy,
       resourceType: 'Disposition',
       resourceId: saved.id.toString(),
-      metadata: { type: dto.type, partNumber: dto.partNumber, quantity: dto.quantity }
+      metadata: {
+        type: dto.type,
+        partNumber: dto.partNumber,
+        quantity: dto.quantity,
+      },
     });
 
     return saved;
@@ -330,19 +378,20 @@ export class QualityService {
       entityId: String(disposition.id),
       before,
       after: saved,
-      scope: { type: disposition.type, partNumber: disposition.partNumber }
+      scope: { type: disposition.type, partNumber: disposition.partNumber },
     });
 
     return saved;
   }
 
   async executeDisposition(id: number, actor: string): Promise<Disposition> {
-    const disposition = await this.dispositionRepo.findOne({ 
+    const disposition = await this.dispositionRepo.findOne({
       where: { id },
-      relations: ['ncr', 'hold'] 
+      relations: ['ncr', 'hold'],
     });
     if (!disposition) throw new NotFoundException('Disposition not found');
-    if (disposition.status !== DispositionStatus.APPROVED) throw new Error('Disposition must be approved before execution');
+    if (disposition.status !== DispositionStatus.APPROVED)
+      throw new Error('Disposition must be approved before execution');
 
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
@@ -350,18 +399,24 @@ export class QualityService {
 
     try {
       // 1. IMPACT INVENTORY BASED ON TYPE
-      if (disposition.type === DispositionType.RELEASE || disposition.type === DispositionType.USE_AS_IS) {
+      if (
+        disposition.type === DispositionType.RELEASE ||
+        disposition.type === DispositionType.USE_AS_IS
+      ) {
         // Restore to Available
         await queryRunner.manager.update(
           InventoryPosition,
-          { 
-            partNumber: disposition.partNumber, 
-            warehouseId: disposition.warehouseId, 
-            location: disposition.location 
+          {
+            partNumber: disposition.partNumber,
+            warehouseId: disposition.warehouseId,
+            location: disposition.location,
           },
-          { holdStatus: 'available' }
+          { holdStatus: 'available' },
         );
-      } else if (disposition.type === DispositionType.SCRAP || disposition.type === DispositionType.RTV) {
+      } else if (
+        disposition.type === DispositionType.SCRAP ||
+        disposition.type === DispositionType.RTV
+      ) {
         // Permanently decrement stock
         await this.inventory.recordTransaction({
           type: 'ADJUST',
@@ -370,13 +425,17 @@ export class QualityService {
           fromWarehouseId: disposition.warehouseId,
           fromLocation: disposition.location,
           actorName: actor,
-          reason: `Quality Disposition: ${disposition.type.toUpperCase()} - NCR ${disposition.ncr?.ncrNumber || 'N/A'}`
+          reason: `Quality Disposition: ${disposition.type.toUpperCase()} - NCR ${disposition.ncr?.ncrNumber || 'N/A'}`,
         });
       }
 
       // 2. CLOSE RELATED ENTITIES
       if (disposition.ncr) {
-        await this.ncrService.updateStatus(disposition.ncr.id, NcrStatus.CLOSED, actor);
+        await this.ncrService.updateStatus(
+          disposition.ncr.id,
+          NcrStatus.CLOSED,
+          actor,
+        );
       }
       if (disposition.hold) {
         await this.releaseHold(disposition.hold.id, actor);
@@ -394,7 +453,7 @@ export class QualityService {
         actorName: actor,
         referenceType: 'DISPOSITION',
         referenceId: updated.id.toString(),
-        metadata: { type: updated.type, partNumber: updated.partNumber }
+        metadata: { type: updated.type, partNumber: updated.partNumber },
       });
 
       await queryRunner.commitTransaction();
@@ -410,12 +469,15 @@ export class QualityService {
   // --- CAPA ENGINE ---
 
   async findCapas(filters: any): Promise<CAPA[]> {
-    const qb = this.capaRepo.createQueryBuilder('capa')
+    const qb = this.capaRepo
+      .createQueryBuilder('capa')
       .leftJoinAndSelect('capa.ncr', 'ncr')
       .leftJoinAndSelect('capa.disposition', 'dispo');
 
-    if (filters.status) qb.andWhere('capa.status = :status', { status: filters.status });
-    if (filters.partNumber) qb.andWhere('capa.partNumber = :pn', { pn: filters.partNumber });
+    if (filters.status)
+      qb.andWhere('capa.status = :status', { status: filters.status });
+    if (filters.partNumber)
+      qb.andWhere('capa.partNumber = :pn', { pn: filters.partNumber });
 
     qb.orderBy('capa.createdAt', 'DESC');
     return qb.getMany();
@@ -429,7 +491,7 @@ export class QualityService {
     const capa = this.capaRepo.create({
       ...dto,
       capaNumber,
-      status: CapaStatus.OPEN
+      status: CapaStatus.OPEN,
     });
     const saved = await this.capaRepo.save(capa);
 
@@ -439,13 +501,17 @@ export class QualityService {
       actorName: dto.createdBy || 'QA System',
       referenceType: 'CAPA',
       referenceId: saved.id.toString(),
-      metadata: { capaNumber: saved.capaNumber, partNumber: saved.partNumber }
+      metadata: { capaNumber: saved.capaNumber, partNumber: saved.partNumber },
     });
 
     return saved;
   }
 
-  async updateCapa(id: number, dto: Partial<CAPA>, actor: string): Promise<CAPA> {
+  async updateCapa(
+    id: number,
+    dto: Partial<CAPA>,
+    actor: string,
+  ): Promise<CAPA> {
     const capa = await this.capaRepo.findOne({ where: { id } });
     if (!capa) throw new NotFoundException('CAPA not found');
 
@@ -458,7 +524,7 @@ export class QualityService {
       actorName: actor,
       referenceType: 'CAPA',
       referenceId: id.toString(),
-      metadata: { status: updated.status }
+      metadata: { status: updated.status },
     });
 
     return updated;
@@ -467,17 +533,22 @@ export class QualityService {
   // --- IQC ENGINE ---
 
   async findIqcInspections(filters: any): Promise<IQCInspection[]> {
-    const qb = this.iqcRepo.createQueryBuilder('iqc')
+    const qb = this.iqcRepo
+      .createQueryBuilder('iqc')
       .leftJoinAndSelect('iqc.supplier', 'supplier');
 
-    if (filters.partNumber) qb.andWhere('iqc.partNumber = :pn', { pn: filters.partNumber });
-    if (filters.result) qb.andWhere('iqc.result = :res', { res: filters.result });
+    if (filters.partNumber)
+      qb.andWhere('iqc.partNumber = :pn', { pn: filters.partNumber });
+    if (filters.result)
+      qb.andWhere('iqc.result = :res', { res: filters.result });
 
     qb.orderBy('iqc.createdAt', 'DESC');
     return qb.getMany();
   }
 
-  async recordIqcInspection(dto: Partial<IQCInspection>): Promise<IQCInspection> {
+  async recordIqcInspection(
+    dto: Partial<IQCInspection>,
+  ): Promise<IQCInspection> {
     const count = await this.iqcRepo.count();
     const year = new Date().getFullYear();
     const inspectionNumber = `IQC-${year}-${(count + 1).toString().padStart(4, '0')}`;
@@ -491,12 +562,12 @@ export class QualityService {
     // If PASS, release to usable stock
     if (dto.result === IqcResult.PASS) {
       await this.positionRepo.update(
-        { 
-          partNumber: saved.partNumber, 
+        {
+          partNumber: saved.partNumber,
           lotNumber: saved.lotNumber,
-          holdStatus: 'pending_iqc'
+          holdStatus: 'pending_iqc',
         },
-        { holdStatus: 'available' }
+        { holdStatus: 'available' },
       );
     }
 
@@ -508,7 +579,7 @@ export class QualityService {
         levelValue: saved.lotNumber,
         reason: `FAILED IQC: ${saved.inspectionNumber}`,
         heldBy: saved.inspector,
-        notes: `Automatic hold triggered by IQC failure. ${saved.notes || ''}`
+        notes: `Automatic hold triggered by IQC failure. ${saved.notes || ''}`,
       });
     }
 
@@ -518,16 +589,20 @@ export class QualityService {
       actorName: saved.inspector,
       referenceType: 'IQC_INSPECTION',
       referenceId: saved.id.toString(),
-      metadata: { result: saved.result, partNumber: saved.partNumber, lot: saved.lotNumber }
+      metadata: {
+        result: saved.result,
+        partNumber: saved.partNumber,
+        lot: saved.lotNumber,
+      },
     });
 
     return saved;
   }
   async getPendingOqcBacklog(): Promise<InventoryPosition[]> {
     return this.positionRepo.find({
-      where: { holdStatus: 'pending_oqc' as any },
+      where: { holdStatus: 'pending_oqc' },
       relations: ['material', 'warehouse'],
-      order: { updatedAt: 'DESC' }
+      order: { updatedAt: 'DESC' },
     });
   }
 
@@ -539,7 +614,9 @@ export class QualityService {
     try {
       // 1. Record Inspection Result
       const inspection = this.oqcRepo.create(dto);
-      const saved = await queryRunner.manager.save(inspection) as any as FinalInspection;
+      const saved = (await queryRunner.manager.save(
+        inspection,
+      )) as any as FinalInspection;
 
       // 2. Update Inventory Status based on result
       let targetStatus: any = 'available';
@@ -551,15 +628,15 @@ export class QualityService {
         where: {
           partNumber: dto.partNumber,
           holdStatus: 'pending_oqc' as any,
-          warehouseId: 'WH-FG'
-        }
+          warehouseId: 'WH-FG',
+        },
       });
 
       let remainingToApply = dto.quantityInspected;
       for (const pos of positions) {
         if (remainingToApply <= 0) break;
         const applyQty = Math.min(pos.onHand, remainingToApply);
-        
+
         // Use inventory service for formal ledger
         await this.inventory.recordTransaction({
           type: 'HOLD',
@@ -570,10 +647,10 @@ export class QualityService {
           toWarehouseId: 'WH-FG',
           toLocation: pos.location,
           actorName: dto.inspector || 'Quality System',
-          holdStatus: targetStatus as any,
+          holdStatus: targetStatus,
           referenceType: 'OQC_INSPECTION',
           referenceId: saved.id.toString(),
-          reason: `OQC Result: ${dto.result} - WO ${dto.workOrder}`
+          reason: `OQC Result: ${dto.result} - WO ${dto.workOrder}`,
         });
 
         remainingToApply -= applyQty;
@@ -591,6 +668,10 @@ export class QualityService {
 
   async getOqcHistory(partNumber?: string): Promise<FinalInspection[]> {
     const where = partNumber ? { partNumber } : {};
-    return this.oqcRepo.find({ where, order: { createdAt: 'DESC' }, take: 100 });
+    return this.oqcRepo.find({
+      where,
+      order: { createdAt: 'DESC' },
+      take: 100,
+    });
   }
 }

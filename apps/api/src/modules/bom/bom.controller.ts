@@ -1,7 +1,17 @@
 import {
-  Controller, Get, Post, Patch, Delete,
-  Param, Body, Query, ParseIntPipe,
-  UseInterceptors, UploadedFile, BadRequestException, UseGuards,
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Delete,
+  Param,
+  Body,
+  Query,
+  ParseIntPipe,
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException,
+  UseGuards,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { BomService } from './bom.service';
@@ -15,7 +25,10 @@ export class BomController {
   constructor(private readonly bomService: BomService) {}
 
   @Get()
-  findAll(@Query('model') model?: string, @Query('programId') programId?: string) {
+  findAll(
+    @Query('model') model?: string,
+    @Query('programId') programId?: string,
+  ) {
     return this.bomService.findAll(model, programId);
   }
 
@@ -34,7 +47,8 @@ export class BomController {
   async importXlsx(@UploadedFile() file: any) {
     if (!file) throw new BadRequestException('No file uploaded');
     const ext = file.originalname.split('.').pop()?.toLowerCase();
-    if (ext !== 'xlsx') throw new BadRequestException('Only .xlsx files are accepted');
+    if (ext !== 'xlsx')
+      throw new BadRequestException('Only .xlsx files are accepted');
     return this.bomService.importFromBuffer(file.buffer);
   }
 
@@ -43,7 +57,8 @@ export class BomController {
   async importKanbanCatalog(@UploadedFile() file: any) {
     if (!file) throw new BadRequestException('No file uploaded');
     const ext = file.originalname.split('.').pop()?.toLowerCase();
-    if (ext !== 'xlsx') throw new BadRequestException('Only .xlsx files are accepted');
+    if (ext !== 'xlsx')
+      throw new BadRequestException('Only .xlsx files are accepted');
     return this.bomService.syncCatalogFromKanban(file.buffer);
   }
 

@@ -37,9 +37,14 @@ export class ForecastController {
 
   @Post('simulate')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Run a Monte Carlo simulation without persisting anything' })
+  @ApiOperation({
+    summary: 'Run a Monte Carlo simulation without persisting anything',
+  })
   simulate(@Body() dto: SimulateDto) {
-    return this.forecastService.simulateStateless(dto.input_data, dto.parameters);
+    return this.forecastService.simulateStateless(
+      dto.input_data,
+      dto.parameters,
+    );
   }
 
   // ── Persisted forecasts ───────────────────────────────────────────────────
@@ -47,7 +52,11 @@ export class ForecastController {
   @Get()
   @ApiOperation({ summary: 'List all forecasts for the current tenant' })
   @ApiQuery({ name: 'model_id', required: false })
-  @ApiQuery({ name: 'status', required: false, enum: ['draft', 'completed', 'archived'] })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    enum: ['draft', 'completed', 'archived'],
+  })
   findAll(
     @Query('model_id') model_id?: string,
     @Query('status') status?: string,
@@ -84,11 +93,10 @@ export class ForecastController {
 
   @Post(':id/run')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Execute Monte Carlo simulation and persist results' })
-  run(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: RunSimulationDto,
-  ) {
+  @ApiOperation({
+    summary: 'Execute Monte Carlo simulation and persist results',
+  })
+  run(@Param('id', ParseUUIDPipe) id: string, @Body() dto: RunSimulationDto) {
     return this.forecastService.runSimulation(id, dto.parameters);
   }
 

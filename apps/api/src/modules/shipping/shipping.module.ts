@@ -12,10 +12,10 @@ import { GovernanceModule } from '../governance/governance.module';
   imports: [
     TypeOrmModule.forFeature([Shipment, ShipmentItem, PackingList]),
     InventoryModule,
-    GovernanceModule
+    GovernanceModule,
   ],
   controllers: [ShippingController],
   providers: [ShippingService],
-  exports: [ShippingService]
+  exports: [ShippingService],
 })
 export class ShippingModule {}

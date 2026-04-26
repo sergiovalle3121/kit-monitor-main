@@ -18,13 +18,13 @@ import { GovernanceModule } from '../governance/governance.module';
 @Module({
   imports: [
     TypeOrmModule.forFeature([
-      QualityHold, 
-      QuarantineTransfer, 
-      Disposition, 
-      CAPA, 
-      IQCInspection, 
+      QualityHold,
+      QuarantineTransfer,
+      Disposition,
+      CAPA,
+      IQCInspection,
       FinalInspection,
-      InventoryPosition
+      InventoryPosition,
     ]),
     EventLedgerModule,
     InventoryModule,

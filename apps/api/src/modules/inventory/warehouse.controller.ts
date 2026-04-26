@@ -1,4 +1,14 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseIntPipe,
+  Patch,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
@@ -44,7 +54,9 @@ export class WarehouseController {
 
   @Patch('tasks/:id/complete')
   @RequirePermissions('materials:write')
-  @ApiOperation({ summary: 'Complete a warehouse task and execute the physical movement' })
+  @ApiOperation({
+    summary: 'Complete a warehouse task and execute the physical movement',
+  })
   completeTask(
     @Param('id', ParseIntPipe) id: number,
     @Body('actor') actor: string,

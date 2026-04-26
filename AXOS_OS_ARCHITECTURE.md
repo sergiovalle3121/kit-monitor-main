@@ -6,7 +6,7 @@ Para asegurar que AXOS OS funcione a escala global y no se amarre a un solo proy
 ### Modelo Organizacional
 Todo dato en el sistema pertenecerá o cruzará a través de esta topología:
 1.  **Plant / Site:** La instalación física (ej. Planta 1, Planta 2).
-2.  **Customer:** El cliente final (ej. Tesla, Dell, Cisco).
+2.  **Customer:** El cliente final (ej. Cliente A, Cliente B, Cliente C).
 3.  **Program / Project:** El programa específico dentro de un cliente (ej. Optics, Servers Gen5).
 4.  **Model:** El número de parte top-level (el producto final a ensamblar).
 5.  **Revision:** La versión de ingeniería activa de ese modelo.
@@ -87,7 +87,7 @@ El ledger se enriquece para capturar el contexto dimensional completo:
 
 ---
 
-## 6. Design System AXOS (Premium / Apple-like)
+## 6. Design System AXOS (Premium / White-label)
 
 El rediseño mantendrá Vanilla CSS pero introducirá jerarquía extrema:
 *   **Tarjetas y Paneles:** Off-white o Graphite puro, bordes sutiles de 1px.

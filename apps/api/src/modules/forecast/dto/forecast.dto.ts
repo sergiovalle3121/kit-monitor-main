@@ -39,7 +39,10 @@ export class SimulationParamsDto {
   @Max(50000)
   iterations?: number;
 
-  @ApiPropertyOptional({ example: 12, description: 'Periods to project forward' })
+  @ApiPropertyOptional({
+    example: 12,
+    description: 'Periods to project forward',
+  })
   @IsOptional()
   @IsNumber()
   @Min(1)
@@ -97,7 +100,10 @@ export class CreateForecastDto {
 }
 
 export class RunSimulationDto {
-  @ApiPropertyOptional({ type: SimulationParamsDto, description: 'Override stored params for this run' })
+  @ApiPropertyOptional({
+    type: SimulationParamsDto,
+    description: 'Override stored params for this run',
+  })
   @IsOptional()
   @ValidateNested()
   @Type(() => SimulationParamsDto)

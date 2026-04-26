@@ -1,8 +1,19 @@
-import { Column, CreateDateColumn, Entity, OneToMany, PrimaryColumn, UpdateDateColumn } from 'typeorm';
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  OneToMany,
+  PrimaryColumn,
+  UpdateDateColumn,
+} from 'typeorm';
 import { EnterpriseWarehouse } from './enterprise-warehouse.entity';
 import { EnterpriseProgram } from './enterprise-program.entity';
 
-export type EnterpriseBuildingStatus = 'active' | 'maintenance' | 'idle' | 'offline';
+export type EnterpriseBuildingStatus =
+  | 'active'
+  | 'maintenance'
+  | 'idle'
+  | 'offline';
 
 @Entity('enterprise_buildings')
 export class EnterpriseBuilding {

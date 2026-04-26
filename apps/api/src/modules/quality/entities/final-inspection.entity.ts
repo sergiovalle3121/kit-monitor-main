@@ -1,9 +1,18 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Index, ManyToOne, JoinColumn } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  Index,
+  ManyToOne,
+  JoinColumn,
+} from 'typeorm';
 
 export enum OqcResult {
   PASS = 'PASS',
   FAIL = 'FAIL',
-  CONDITIONAL = 'CONDITIONAL'
+  CONDITIONAL = 'CONDITIONAL',
 }
 
 @Entity('final_inspections')

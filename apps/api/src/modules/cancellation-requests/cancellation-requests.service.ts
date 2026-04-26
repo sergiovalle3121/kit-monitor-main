@@ -1,4 +1,10 @@
-import { BadRequestException, Injectable, NotFoundException, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+  OnModuleDestroy,
+  OnModuleInit,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { LessThan, Repository } from 'typeorm';
 import { CancellationRequest } from './entities/cancellation-request.entity';
@@ -10,7 +16,9 @@ import { EventLedgerService } from '../event-ledger/event-ledger.service';
 import { EventDomain } from '../event-ledger/entities/ledger-event.entity';
 
 @Injectable()
-export class CancellationRequestsService implements OnModuleInit, OnModuleDestroy {
+export class CancellationRequestsService
+  implements OnModuleInit, OnModuleDestroy
+{
   private expireTimer: NodeJS.Timeout | null = null;
 
   constructor(
@@ -33,19 +41,35 @@ export class CancellationRequestsService implements OnModuleInit, OnModuleDestro
     if (this.expireTimer) clearInterval(this.expireTimer);
   }
 
-  async create(dto: CreateCancellationRequestDto): Promise<CancellationRequest> {
-    const publication = await this.plansRepo.findOne({ where: { id: dto.publicationId }, relations: ['kit'] });
-    if (!publication) throw new NotFoundException(`Publicación ${dto.publicationId} no encontrada`);
+  async create(
+    dto: CreateCancellationRequestDto,
+  ): Promise<CancellationRequest> {
+    const publication = await this.plansRepo.findOne({
+      where: { id: dto.publicationId },
+      relations: ['kit'],
+    });
+    if (!publication)
+      throw new NotFoundException(
+        `Publicación ${dto.publicationId} no encontrada`,
+      );
 
     const kitId = dto.kitId ?? publication.kit?.id;
-    if (!kitId) throw new BadRequestException('La publicación no tiene kit ligado');
+    if (!kitId)
+      throw new BadRequestException('La publicación no tiene kit ligado');
 
-    const kit = await this.kitsRepo.findOne({ where: { id: kitId }, relations: ['plan'] });
+    const kit = await this.kitsRepo.findOne({
+      where: { id: kitId },
+      relations: ['plan'],
+    });
     if (!kit) throw new NotFoundException(`Kit ${kitId} no encontrado`);
 
-    const pending = await this.repo.findOne({ where: { kit: { id: kit.id }, status: 'pending' } });
+    const pending = await this.repo.findOne({
+      where: { kit: { id: kit.id }, status: 'pending' },
+    });
     if (pending) {
-      throw new BadRequestException('Ya existe una solicitud pendiente para este kit');
+      throw new BadRequestException(
+        'Ya existe una solicitud pendiente para este kit',
+      );
     }
 
     const request = this.repo.create({
@@ -90,11 +114,19 @@ export class CancellationRequestsService implements OnModuleInit, OnModuleDestro
     });
   }
 
-  async respond(id: number, dto: RespondCancellationRequestDto): Promise<CancellationRequest> {
-    const request = await this.repo.findOne({ where: { id }, relations: ['kit', 'publication'] });
+  async respond(
+    id: number,
+    dto: RespondCancellationRequestDto,
+  ): Promise<CancellationRequest> {
+    const request = await this.repo.findOne({
+      where: { id },
+      relations: ['kit', 'publication'],
+    });
     if (!request) throw new NotFoundException(`Solicitud ${id} no encontrada`);
     if (request.status !== 'pending') {
-      throw new BadRequestException(`La solicitud ya fue atendida (${request.status})`);
+      throw new BadRequestException(
+        `La solicitud ya fue atendida (${request.status})`,
+      );
     }
 
     const nextStatus = dto.action === 'accept' ? 'accepted' : 'rejected';
@@ -102,8 +134,12 @@ export class CancellationRequestsService implements OnModuleInit, OnModuleDestro
     request.respondedAt = new Date();
 
     if (dto.action === 'accept') {
-      await this.kitsRepo.update(request.kit.id, { status: 'cancelled' as any });
-      await this.plansRepo.update(request.publication.id, { status: 'cancelled' });
+      await this.kitsRepo.update(request.kit.id, {
+        status: 'cancelled',
+      });
+      await this.plansRepo.update(request.publication.id, {
+        status: 'cancelled',
+      });
     }
 
     const saved = await this.repo.save(request);
@@ -111,7 +147,10 @@ export class CancellationRequestsService implements OnModuleInit, OnModuleDestro
     // Ledger Event
     await this.eventLedger.recordEvent({
       domain: EventDomain.MATERIALS,
-      action: dto.action === 'accept' ? 'CANCELLATION_APPROVED' : 'CANCELLATION_REJECTED',
+      action:
+        dto.action === 'accept'
+          ? 'CANCELLATION_APPROVED'
+          : 'CANCELLATION_REJECTED',
       referenceType: 'KIT',
       referenceId: request.kit.id.toString(),
       model: request.kit.plan?.model,

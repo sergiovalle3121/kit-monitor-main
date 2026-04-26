@@ -12,7 +12,12 @@ import { EnterpriseLine } from '../enterprise-campus/entities/enterprise-line.en
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Resupply, KitMaterial, EnterpriseProgram, EnterpriseLine]),
+    TypeOrmModule.forFeature([
+      Resupply,
+      KitMaterial,
+      EnterpriseProgram,
+      EnterpriseLine,
+    ]),
     EventLedgerModule,
     InventoryModule,
   ],

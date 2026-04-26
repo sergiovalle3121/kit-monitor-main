@@ -1,4 +1,11 @@
-import { Entity, PrimaryColumn, Column, CreateDateColumn, UpdateDateColumn, Index } from 'typeorm';
+import {
+  Entity,
+  PrimaryColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  Index,
+} from 'typeorm';
 
 @Entity('material_master')
 export class MaterialMaster {
@@ -10,7 +17,12 @@ export class MaterialMaster {
   @Column({ type: 'varchar', length: 36, nullable: true, name: 'tenant_id' })
   tenant_id: string | null;
 
-  @Column({ type: 'varchar', length: 36, nullable: true, name: 'organization_id' })
+  @Column({
+    type: 'varchar',
+    length: 36,
+    nullable: true,
+    name: 'organization_id',
+  })
   organization_id: string | null;
 
   @Column({ type: 'varchar', length: 255 })

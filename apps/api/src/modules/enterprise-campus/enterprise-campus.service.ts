@@ -41,7 +41,10 @@ export class EnterpriseCampusService implements OnModuleInit {
       await this.ensureTopologySeedData();
       await this.ensurePlanLinkage();
     } catch (err) {
-      console.error('[EnterpriseCampusService] Initialization warning:', err.message);
+      console.error(
+        '[EnterpriseCampusService] Initialization warning:',
+        err.message,
+      );
     }
   }
 
@@ -57,7 +60,10 @@ export class EnterpriseCampusService implements OnModuleInit {
   }
 
   async listWarehouses(): Promise<EnterpriseWarehouse[]> {
-    return this.warehouseRepo.find({ relations: ['building'], order: { sortOrder: 'ASC' } });
+    return this.warehouseRepo.find({
+      relations: ['building'],
+      order: { sortOrder: 'ASC' },
+    });
   }
 
   async listCustomers(): Promise<EnterpriseCustomer[]> {
@@ -65,15 +71,24 @@ export class EnterpriseCampusService implements OnModuleInit {
   }
 
   async listPrograms(): Promise<EnterpriseProgram[]> {
-    return this.programRepo.find({ relations: ['customer', 'dedicatedBuilding'], order: { name: 'ASC' } });
+    return this.programRepo.find({
+      relations: ['customer', 'dedicatedBuilding'],
+      order: { name: 'ASC' },
+    });
   }
 
   async listAreas(): Promise<EnterpriseArea[]> {
-    return this.areaRepo.find({ relations: ['building'], order: { sortOrder: 'ASC' } });
+    return this.areaRepo.find({
+      relations: ['building'],
+      order: { sortOrder: 'ASC' },
+    });
   }
 
   async listLines(): Promise<EnterpriseLine[]> {
-    return this.lineRepo.find({ relations: ['building', 'area'], order: { sortOrder: 'ASC' } });
+    return this.lineRepo.find({
+      relations: ['building', 'area'],
+      order: { sortOrder: 'ASC' },
+    });
   }
 
   async listStations(lineId?: string): Promise<EnterpriseStation[]> {
@@ -99,26 +114,49 @@ export class EnterpriseCampusService implements OnModuleInit {
     const lines = await this.lineRepo.find({ where: { building: { id } } });
     return {
       activeLines: lines.filter((l) => l.status === 'active').length,
-      capacity: lines.reduce((acc, curr) => acc + (curr.capacityPerShift || 0), 0),
+      capacity: lines.reduce(
+        (acc, curr) => acc + (curr.capacityPerShift || 0),
+        0,
+      ),
       utilization: 0.75, // Placeholder
     };
   }
 
   async getActiveAnomalies(buildingId?: string): Promise<any[]> {
     const list = [
-      { id: 'an-1', severity: 'critical', area: 'B7 SMT', message: 'Pick-and-place nozzle vacuum low on Line 4', timestamp: new Date() },
-      { id: 'an-2', severity: 'warning', area: 'B1 Assembly', message: 'Yield drop on Product OPT-200 (94.2%)', timestamp: new Date() },
-      { id: 'an-3', severity: 'info', area: 'External WH', message: 'Material arrival: 5 pallets sensor assemblies', timestamp: new Date() },
+      {
+        id: 'an-1',
+        severity: 'critical',
+        area: 'B7 SMT',
+        message: 'Pick-and-place nozzle vacuum low on Line 4',
+        timestamp: new Date(),
+      },
+      {
+        id: 'an-2',
+        severity: 'warning',
+        area: 'B1 Assembly',
+        message: 'Yield drop on Product OPT-200 (94.2%)',
+        timestamp: new Date(),
+      },
+      {
+        id: 'an-3',
+        severity: 'info',
+        area: 'External WH',
+        message: 'Material arrival: 5 pallets sensor assemblies',
+        timestamp: new Date(),
+      },
     ];
     const severityOrder = { critical: 0, warning: 1, info: 2 };
-    return list.sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity]).slice(0, 12);
+    return list
+      .sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity])
+      .slice(0, 12);
   }
 
   private async ensureDimensionSeedData(force = false): Promise<void> {
-    if (!force && await this.buildingRepo.count() >= 11) return;
-    
+    if (!force && (await this.buildingRepo.count()) >= 11) return;
+
     console.log('[EnterpriseCampus] SURGICAL HARD RESET (v2.0.5)...');
-    
+
     // Explicitly delete in order to satisfy foreign keys
     await this.planLinkRepo.createQueryBuilder().delete().execute();
     await this.stationRepo.createQueryBuilder().delete().execute();
@@ -131,68 +169,169 @@ export class EnterpriseCampusService implements OnModuleInit {
 
     // Default white-label campus topology
     const buildings = await this.buildingRepo.save([
-      // GDL1: Valdepeñas
-      this.buildingRepo.create({ id: 'b1', code: 'B1', name: 'Valdepeñas B1', status: 'active', tags: ['valdepenas'], sortOrder: 10 }),
-      this.buildingRepo.create({ id: 'b2', code: 'B2', name: 'Valdepeñas B2', status: 'active', tags: ['valdepenas'], sortOrder: 11 }),
-      
+      // Site A
+      this.buildingRepo.create({
+        id: 'b1',
+        code: 'B1',
+        name: 'Manufacturing Building 1',
+        status: 'active',
+        tags: ['site-a'],
+        sortOrder: 10,
+      }),
+      this.buildingRepo.create({
+        id: 'b2',
+        code: 'B2',
+        name: 'Manufacturing Building 2',
+        status: 'active',
+        tags: ['site-a'],
+        sortOrder: 11,
+      }),
+
       // Site B
-      this.buildingRepo.create({ id: 'b3', code: 'B3', name: 'Advanced Manufacturing B3', status: 'active', tags: ['site-b'], sortOrder: 20 }),
-      this.buildingRepo.create({ id: 'b4', code: 'B4', name: 'Advanced Manufacturing B4', status: 'active', tags: ['site-b'], sortOrder: 21 }),
-      this.buildingRepo.create({ id: 'b5', code: 'B5', name: 'Advanced Manufacturing B5', status: 'active', tags: ['site-b'], sortOrder: 22 }),
-      this.buildingRepo.create({ id: 'b6', code: 'B6', name: 'Advanced Manufacturing B6', status: 'active', tags: ['site-b'], sortOrder: 23 }),
-      this.buildingRepo.create({ id: 'b7', code: 'B7', name: 'Advanced Manufacturing B7', status: 'active', tags: ['site-b', 'primary'], sortOrder: 24 }),
-      this.buildingRepo.create({ id: 'b8', code: 'B8', name: 'Advanced Manufacturing B8', status: 'active', tags: ['site-b'], sortOrder: 25 }),
-      this.buildingRepo.create({ id: 'b9', code: 'B9', name: 'Advanced Manufacturing B9', status: 'active', tags: ['site-b'], sortOrder: 26 }),
-      this.buildingRepo.create({ id: 'b10', code: 'B10', name: 'Advanced Manufacturing B10', status: 'active', tags: ['site-b'], sortOrder: 27 }),
+      this.buildingRepo.create({
+        id: 'b3',
+        code: 'B3',
+        name: 'Advanced Manufacturing B3',
+        status: 'active',
+        tags: ['site-b'],
+        sortOrder: 20,
+      }),
+      this.buildingRepo.create({
+        id: 'b4',
+        code: 'B4',
+        name: 'Advanced Manufacturing B4',
+        status: 'active',
+        tags: ['site-b'],
+        sortOrder: 21,
+      }),
+      this.buildingRepo.create({
+        id: 'b5',
+        code: 'B5',
+        name: 'Advanced Manufacturing B5',
+        status: 'active',
+        tags: ['site-b'],
+        sortOrder: 22,
+      }),
+      this.buildingRepo.create({
+        id: 'b6',
+        code: 'B6',
+        name: 'Advanced Manufacturing B6',
+        status: 'active',
+        tags: ['site-b'],
+        sortOrder: 23,
+      }),
+      this.buildingRepo.create({
+        id: 'b7',
+        code: 'B7',
+        name: 'Advanced Manufacturing B7',
+        status: 'active',
+        tags: ['site-b', 'primary'],
+        sortOrder: 24,
+      }),
+      this.buildingRepo.create({
+        id: 'b8',
+        code: 'B8',
+        name: 'Advanced Manufacturing B8',
+        status: 'active',
+        tags: ['site-b'],
+        sortOrder: 25,
+      }),
+      this.buildingRepo.create({
+        id: 'b9',
+        code: 'B9',
+        name: 'Advanced Manufacturing B9',
+        status: 'active',
+        tags: ['site-b'],
+        sortOrder: 26,
+      }),
+      this.buildingRepo.create({
+        id: 'b10',
+        code: 'B10',
+        name: 'Advanced Manufacturing B10',
+        status: 'active',
+        tags: ['site-b'],
+        sortOrder: 27,
+      }),
 
       // External / General
-      this.buildingRepo.create({ id: 'nextipac', code: 'NEXTIPAC', name: 'Almacén General (Nextipac)', status: 'active', tags: ['external', 'storage'], sortOrder: 50 }),
+      this.buildingRepo.create({
+        id: 'external-warehouse',
+        code: 'EXT-WH',
+        name: 'General Warehouse',
+        status: 'active',
+        tags: ['external', 'storage'],
+        sortOrder: 50,
+      }),
     ]);
-    const customerById = new Map((await this.customerRepo.save([
-      this.customerRepo.create({ id: 'cust-cisco', code: 'CSCO', name: 'Cisco Systems', industry: 'Networking', status: 'active' }),
-      this.customerRepo.create({ id: 'cust-zebra', code: 'ZBRA', name: 'Zebra Technologies', industry: 'Industrial', status: 'active' }),
-    ])).map(c => [c.id, c]));
+    const customerById = new Map(
+      (
+        await this.customerRepo.save([
+          this.customerRepo.create({
+            id: 'cust-primary',
+            code: 'CUST-A',
+            name: 'Customer A',
+            industry: 'Industrial',
+            status: 'active',
+          }),
+          this.customerRepo.create({
+            id: 'cust-secondary',
+            code: 'CUST-B',
+            name: 'Customer B',
+            industry: 'Industrial',
+            status: 'active',
+          }),
+        ])
+      ).map((c) => [c.id, c]),
+    );
 
     const programs: any[] = [];
-    buildings.forEach(b => {
+    buildings.forEach((b) => {
       if (b.code === 'B7') {
-        programs.push(this.programRepo.create({ 
-          id: `prog-optics-${b.id}`, 
-          customer: customerById.get('cust-cisco')!, 
-          code: `OPT-${b.id}`, 
-          name: 'Optics Project', 
-          status: 'active', 
-          primaryModelPrefix: 'OPT', 
-          dedicatedBuilding: b 
-        }));
-        programs.push(this.programRepo.create({ 
-          id: `prog-gen-${b.id}`, 
-          customer: customerById.get('cust-cisco')!, 
-          code: `GEN-${b.id}`, 
-          name: 'Proyecto Genérico', 
-          status: 'active', 
-          primaryModelPrefix: 'GEN', 
-          dedicatedBuilding: b 
-        }));
+        programs.push(
+          this.programRepo.create({
+            id: `prog-optics-${b.id}`,
+            customer: customerById.get('cust-primary')!,
+            code: `OPT-${b.id}`,
+            name: 'Optics Project',
+            status: 'active',
+            primaryModelPrefix: 'OPT',
+            dedicatedBuilding: b,
+          }),
+        );
+        programs.push(
+          this.programRepo.create({
+            id: `prog-gen-${b.id}`,
+            customer: customerById.get('cust-primary')!,
+            code: `GEN-${b.id}`,
+            name: 'Proyecto Genérico',
+            status: 'active',
+            primaryModelPrefix: 'GEN',
+            dedicatedBuilding: b,
+          }),
+        );
       } else {
-        programs.push(this.programRepo.create({ 
-          id: `prog-gen1-${b.id}`, 
-          customer: customerById.get('cust-cisco')!, 
-          code: `G1-${b.id}`, 
-          name: 'Proyecto Genérico 1', 
-          status: 'active', 
-          primaryModelPrefix: 'GEN', 
-          dedicatedBuilding: b 
-        }));
-        programs.push(this.programRepo.create({ 
-          id: `prog-gen2-${b.id}`, 
-          customer: customerById.get('cust-cisco')!, 
-          code: `G2-${b.id}`, 
-          name: 'Proyecto Genérico 2', 
-          status: 'active', 
-          primaryModelPrefix: 'GEN', 
-          dedicatedBuilding: b 
-        }));
+        programs.push(
+          this.programRepo.create({
+            id: `prog-gen1-${b.id}`,
+            customer: customerById.get('cust-primary')!,
+            code: `G1-${b.id}`,
+            name: 'Proyecto Genérico 1',
+            status: 'active',
+            primaryModelPrefix: 'GEN',
+            dedicatedBuilding: b,
+          }),
+        );
+        programs.push(
+          this.programRepo.create({
+            id: `prog-gen2-${b.id}`,
+            customer: customerById.get('cust-primary')!,
+            code: `G2-${b.id}`,
+            name: 'Proyecto Genérico 2',
+            status: 'active',
+            primaryModelPrefix: 'GEN',
+            dedicatedBuilding: b,
+          }),
+        );
       }
     });
 
@@ -204,14 +343,52 @@ export class EnterpriseCampusService implements OnModuleInit {
     const buildings = await this.listBuildings();
     const byId = new Map(buildings.map((building) => [building.id, building]));
     const areas = await this.areaRepo.save([
-      this.areaRepo.create({ id: 'area-b7-smt', building: byId.get('b7')!, code: 'B7-SMT', name: 'B7 SMT Zone', type: 'SMT', sortOrder: 10 }),
-      this.areaRepo.create({ id: 'area-b7-asm', building: byId.get('b7')!, code: 'B7-ASM', name: 'B7 Assembly Zone', type: 'Assembly', sortOrder: 11 }),
+      this.areaRepo.create({
+        id: 'area-b7-smt',
+        building: byId.get('b7')!,
+        code: 'B7-SMT',
+        name: 'B7 SMT Zone',
+        type: 'SMT',
+        sortOrder: 10,
+      }),
+      this.areaRepo.create({
+        id: 'area-b7-asm',
+        building: byId.get('b7')!,
+        code: 'B7-ASM',
+        name: 'B7 Assembly Zone',
+        type: 'Assembly',
+        sortOrder: 11,
+      }),
     ]);
     const areaById = new Map(areas.map((area) => [area.id, area]));
     const lines = await this.lineRepo.save([
-      this.lineRepo.create({ id: 'line-b7-04', building: byId.get('b7')!, area: areaById.get('area-b7-smt')!, code: 'L-B7-04', name: 'B7 Line 04', legacyLineNumber: 4, status: 'active', capacityPerShift: 500, activeShift: 'A', tags: ['smt'], sortOrder: 40 }),
+      this.lineRepo.create({
+        id: 'line-b7-04',
+        building: byId.get('b7')!,
+        area: areaById.get('area-b7-smt')!,
+        code: 'L-B7-04',
+        name: 'B7 Line 04',
+        legacyLineNumber: 4,
+        status: 'active',
+        capacityPerShift: 500,
+        activeShift: 'A',
+        tags: ['smt'],
+        sortOrder: 40,
+      }),
     ]);
-    await this.stationRepo.save(lines.flatMap(l => [1,2].map(p => this.stationRepo.create({ id: `st-${l.id}-${p}`, line: l, code: `${l.code}-B${p}`, position: p, status: 'active' }))));
+    await this.stationRepo.save(
+      lines.flatMap((l) =>
+        [1, 2].map((p) =>
+          this.stationRepo.create({
+            id: `st-${l.id}-${p}`,
+            line: l,
+            code: `${l.code}-B${p}`,
+            position: p,
+            status: 'active',
+          }),
+        ),
+      ),
+    );
   }
 
   private async ensurePlanLinkage(): Promise<void> {

@@ -15,17 +15,24 @@ export class BomService {
   constructor(
     @InjectRepository(BomItem)
     private readonly repo: Repository<BomItem>,
-    @InjectRepository(EnterpriseProgram) private readonly programRepo: Repository<EnterpriseProgram>,
+    @InjectRepository(EnterpriseProgram)
+    private readonly programRepo: Repository<EnterpriseProgram>,
   ) {}
 
   async findAll(model?: string, programId?: string): Promise<BomItem[]> {
     if (model) return this.repo.findBy({ model });
     if (programId) {
-      const program = await this.programRepo.findOne({ where: { id: programId } });
+      const program = await this.programRepo.findOne({
+        where: { id: programId },
+      });
       const prefix = program?.primaryModelPrefix?.toUpperCase();
       if (prefix) {
-        const all = await this.repo.find({ order: { model: 'ASC', partNumber: 'ASC' } });
-        return all.filter((item) => item.model?.toUpperCase().startsWith(prefix));
+        const all = await this.repo.find({
+          order: { model: 'ASC', partNumber: 'ASC' },
+        });
+        return all.filter((item) =>
+          item.model?.toUpperCase().startsWith(prefix),
+        );
       }
     }
     return this.repo.find({ order: { model: 'ASC', partNumber: 'ASC' } });
@@ -94,16 +101,18 @@ export class BomService {
     return { imported, errors };
   }
 
-  async syncCatalogFromKanban(
-    buffer: Buffer,
-  ): Promise<{ updated: number; catalogRows: number; matchedPartNumbers: number }> {
+  async syncCatalogFromKanban(buffer: Buffer): Promise<{
+    updated: number;
+    catalogRows: number;
+    matchedPartNumbers: number;
+  }> {
     const catalogRows = parseKanbanXlsx(buffer);
     if (catalogRows.length === 0) {
       return { updated: 0, catalogRows: 0, matchedPartNumbers: 0 };
     }
 
     const catalogByPartNumber = new Map(
-      catalogRows.map(row => [row.partNumber, row] as const),
+      catalogRows.map((row) => [row.partNumber, row] as const),
     );
 
     const partNumbers = [...catalogByPartNumber.keys()];
@@ -116,13 +125,15 @@ export class BomService {
     }
 
     const changedItems = matchedItems
-      .map(item => {
+      .map((item) => {
         const catalog = catalogByPartNumber.get(item.partNumber);
         if (!catalog) return null;
 
         const nextDescription = catalog.description ?? item.description ?? '';
         const nextLocation = catalog.location ?? item.location ?? '';
-        const changed = nextDescription !== item.description || nextLocation !== item.location;
+        const changed =
+          nextDescription !== item.description ||
+          nextLocation !== item.location;
 
         if (!changed) return null;
 
@@ -139,7 +150,8 @@ export class BomService {
     return {
       updated: changedItems.length,
       catalogRows: catalogRows.length,
-      matchedPartNumbers: new Set(matchedItems.map(item => item.partNumber)).size,
+      matchedPartNumbers: new Set(matchedItems.map((item) => item.partNumber))
+        .size,
     };
   }
 }

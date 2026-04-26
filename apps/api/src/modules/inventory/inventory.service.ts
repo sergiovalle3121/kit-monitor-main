@@ -1,13 +1,23 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, In } from 'typeorm';
 import { InventoryPosition } from './entities/inventory-position.entity';
-import { InventoryMovement, InventoryTransactionType } from './entities/inventory-movement.entity';
+import {
+  InventoryMovement,
+  InventoryTransactionType,
+} from './entities/inventory-movement.entity';
 import { MaterialMaster } from './entities/material-master.entity';
 import { EnterpriseWarehouse } from '../enterprise-campus/entities/enterprise-warehouse.entity';
 import { AuditService } from '../governance/audit.service';
 import { TenantContextService } from '../../common/tenant/tenant-context.service';
-import { ExceptionSeverity, ExceptionDomain } from '../governance/entities/operational-exception.entity';
+import {
+  ExceptionSeverity,
+  ExceptionDomain,
+} from '../governance/entities/operational-exception.entity';
 
 @Injectable()
 export class InventoryService {
@@ -47,14 +57,20 @@ export class InventoryService {
     if (allowedBuildings.length > 0) {
       const whIds = await this.resolveWarehouseIdsByBuildings(allowedBuildings);
       whIds.length > 0
-        ? qb.andWhere('pos.warehouseId IN (:...scopeWhIds)', { scopeWhIds: whIds })
+        ? qb.andWhere('pos.warehouseId IN (:...scopeWhIds)', {
+            scopeWhIds: whIds,
+          })
         : qb.andWhere('1 = 0');
     }
 
-    if (filters.warehouseId) qb.andWhere('pos.warehouseId = :wh', { wh: filters.warehouseId });
-    if (filters.partNumber) qb.andWhere('pos.partNumber LIKE :pn', { pn: `%${filters.partNumber}%` });
-    if (filters.programId) qb.andWhere('pos.programId = :prog', { prog: filters.programId });
-    if (filters.holdStatus) qb.andWhere('pos.holdStatus = :hs', { hs: filters.holdStatus });
+    if (filters.warehouseId)
+      qb.andWhere('pos.warehouseId = :wh', { wh: filters.warehouseId });
+    if (filters.partNumber)
+      qb.andWhere('pos.partNumber LIKE :pn', { pn: `%${filters.partNumber}%` });
+    if (filters.programId)
+      qb.andWhere('pos.programId = :prog', { prog: filters.programId });
+    if (filters.holdStatus)
+      qb.andWhere('pos.holdStatus = :hs', { hs: filters.holdStatus });
 
     return qb.orderBy('pos.updatedAt', 'DESC').getMany();
   }
@@ -83,9 +99,12 @@ export class InventoryService {
         : qb.andWhere('1 = 0');
     }
 
-    if (filters.partNumber) qb.andWhere('mov.partNumber = :pn', { pn: filters.partNumber });
+    if (filters.partNumber)
+      qb.andWhere('mov.partNumber = :pn', { pn: filters.partNumber });
     if (filters.warehouseId)
-      qb.andWhere('(mov.fromWarehouseId = :wh OR mov.toWarehouseId = :wh)', { wh: filters.warehouseId });
+      qb.andWhere('(mov.fromWarehouseId = :wh OR mov.toWarehouseId = :wh)', {
+        wh: filters.warehouseId,
+      });
     if (filters.type) qb.andWhere('mov.type = :type', { type: filters.type });
 
     return qb
@@ -96,15 +115,21 @@ export class InventoryService {
 
   // ── Material master ───────────────────────────────────────────────────────
 
-  async findAllMaterials(filters: { category?: string; search?: string }): Promise<MaterialMaster[]> {
+  async findAllMaterials(filters: {
+    category?: string;
+    search?: string;
+  }): Promise<MaterialMaster[]> {
     const qb = this.materialRepo.createQueryBuilder('m');
 
     const tenantId = this.tenantContext.getTenantId();
     if (tenantId) qb.andWhere('m.tenant_id = :tenantId', { tenantId });
 
-    if (filters.category) qb.andWhere('m.category = :cat', { cat: filters.category });
+    if (filters.category)
+      qb.andWhere('m.category = :cat', { cat: filters.category });
     if (filters.search)
-      qb.andWhere('(m.partNumber LIKE :s OR m.description LIKE :s)', { s: `%${filters.search}%` });
+      qb.andWhere('(m.partNumber LIKE :s OR m.description LIKE :s)', {
+        s: `%${filters.search}%`,
+      });
 
     return qb.orderBy('m.partNumber', 'ASC').getMany();
   }
@@ -113,7 +138,9 @@ export class InventoryService {
     if (!dto.partNumber) throw new BadRequestException('partNumber required');
 
     const tenantId = this.tenantContext.getTenantId();
-    let m = await this.materialRepo.findOne({ where: { partNumber: dto.partNumber } });
+    let m = await this.materialRepo.findOne({
+      where: { partNumber: dto.partNumber },
+    });
 
     if (!m) {
       m = this.materialRepo.create({
@@ -163,8 +190,13 @@ export class InventoryService {
     await queryRunner.startTransaction();
 
     try {
-      const material = await this.materialRepo.findOne({ where: { partNumber: dto.partNumber } });
-      if (!material) throw new NotFoundException(`Material ${dto.partNumber} not found in Master Data`);
+      const material = await this.materialRepo.findOne({
+        where: { partNumber: dto.partNumber },
+      });
+      if (!material)
+        throw new NotFoundException(
+          `Material ${dto.partNumber} not found in Master Data`,
+        );
 
       // Debit source
       if (dto.fromWarehouseId) {
@@ -188,9 +220,15 @@ export class InventoryService {
             actor,
             resourceType: 'InventoryPosition',
             resourceId: dto.partNumber,
-            metadata: { warehouseId: dto.fromWarehouseId, requested: dto.quantity, available: sourcePos?.onHand ?? 0 },
+            metadata: {
+              warehouseId: dto.fromWarehouseId,
+              requested: dto.quantity,
+              available: sourcePos?.onHand ?? 0,
+            },
           });
-          throw new BadRequestException(`Insufficient stock in ${dto.fromWarehouseId} for ${dto.partNumber}`);
+          throw new BadRequestException(
+            `Insufficient stock in ${dto.fromWarehouseId} for ${dto.partNumber}`,
+          );
         }
 
         if (sourcePos.holdStatus !== 'available') {
@@ -202,7 +240,10 @@ export class InventoryService {
             actor,
             resourceType: 'InventoryPosition',
             resourceId: dto.partNumber,
-            metadata: { warehouseId: dto.fromWarehouseId, status: sourcePos.holdStatus },
+            metadata: {
+              warehouseId: dto.fromWarehouseId,
+              status: sourcePos.holdStatus,
+            },
           });
           throw new BadRequestException(
             `Material ${dto.partNumber} is in status '${sourcePos.holdStatus}'. Movement BLOCKED.`,
@@ -284,10 +325,12 @@ export class InventoryService {
 
   // ── Shared helpers ────────────────────────────────────────────────────────
 
-  async resolveWarehouseIdsByBuildings(buildingIds: string[]): Promise<string[]> {
+  async resolveWarehouseIdsByBuildings(
+    buildingIds: string[],
+  ): Promise<string[]> {
     if (buildingIds.length === 0) return [];
     const whs = await this.warehouseRepo.find({
-      where: { building: { id: In(buildingIds) } } as any,
+      where: { building: { id: In(buildingIds) } },
     });
     return whs.map((w) => w.id);
   }

@@ -1,4 +1,14 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, CreateDateColumn, UpdateDateColumn, Index, OneToOne, JoinColumn } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  ManyToOne,
+  CreateDateColumn,
+  UpdateDateColumn,
+  Index,
+  OneToOne,
+  JoinColumn,
+} from 'typeorm';
 import { QualityHold } from '../../quality/entities/quality-hold.entity';
 import { QuarantineTransfer } from '../../quality/entities/quarantine-transfer.entity';
 
@@ -7,13 +17,13 @@ export enum NcrStatus {
   UNDER_REVIEW = 'under_review',
   CONTAINED = 'contained',
   DISPOSITIONED = 'dispositioned',
-  CLOSED = 'closed'
+  CLOSED = 'closed',
 }
 
 export enum NcrSeverity {
   MINOR = 'minor',
   MAJOR = 'major',
-  CRITICAL = 'critical'
+  CRITICAL = 'critical',
 }
 
 export enum NcrSourceType {
@@ -22,7 +32,7 @@ export enum NcrSourceType {
   OUTGOING = 'outgoing',
   WAREHOUSE = 'warehouse',
   SUPPLIER = 'supplier',
-  CUSTOMER = 'customer'
+  CUSTOMER = 'customer',
 }
 
 @Entity('ncrs')
@@ -36,7 +46,12 @@ export class NCR {
   @Column({ type: 'varchar', length: 36, nullable: true, name: 'tenant_id' })
   tenant_id: string | null;
 
-  @Column({ type: 'varchar', length: 36, nullable: true, name: 'organization_id' })
+  @Column({
+    type: 'varchar',
+    length: 36,
+    nullable: true,
+    name: 'organization_id',
+  })
   organization_id: string | null;
 
   @Column({ type: 'varchar', length: 36, nullable: true, name: 'plant_id' })

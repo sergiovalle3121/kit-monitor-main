@@ -1,4 +1,12 @@
-import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  JoinColumn,
+  ManyToOne,
+  PrimaryGeneratedColumn,
+  UpdateDateColumn,
+} from 'typeorm';
 import { Plan } from '../../plans/entities/plan.entity';
 import { EnterpriseProgram } from './enterprise-program.entity';
 import { EnterpriseBuilding } from './enterprise-building.entity';
@@ -13,15 +21,27 @@ export class EnterprisePlanLink {
   @JoinColumn({ name: 'plan_id' })
   plan: Plan;
 
-  @ManyToOne(() => EnterpriseProgram, { nullable: true, onDelete: 'SET NULL', eager: true })
+  @ManyToOne(() => EnterpriseProgram, {
+    nullable: true,
+    onDelete: 'SET NULL',
+    eager: true,
+  })
   @JoinColumn({ name: 'program_id' })
   program?: EnterpriseProgram | null;
 
-  @ManyToOne(() => EnterpriseBuilding, { nullable: true, onDelete: 'SET NULL', eager: true })
+  @ManyToOne(() => EnterpriseBuilding, {
+    nullable: true,
+    onDelete: 'SET NULL',
+    eager: true,
+  })
   @JoinColumn({ name: 'building_id' })
   building?: EnterpriseBuilding | null;
 
-  @ManyToOne(() => EnterpriseLine, { nullable: true, onDelete: 'SET NULL', eager: true })
+  @ManyToOne(() => EnterpriseLine, {
+    nullable: true,
+    onDelete: 'SET NULL',
+    eager: true,
+  })
   @JoinColumn({ name: 'line_id' })
   line?: EnterpriseLine | null;
 

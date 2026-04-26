@@ -1,7 +1,12 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Forecast, ForecastStatus, HistoricalDataPoint, SimulationParams } from './entities/forecast.entity';
+import {
+  Forecast,
+  ForecastStatus,
+  HistoricalDataPoint,
+  SimulationParams,
+} from './entities/forecast.entity';
 import { TenantContextService } from '../../common/tenant/tenant-context.service';
 import { MonteCarloService } from './monte-carlo.service';
 import { CreateForecastDto, UpdateForecastDto } from './dto/forecast.dto';
@@ -15,14 +20,21 @@ export class ForecastService {
     private readonly monteCarlo: MonteCarloService,
   ) {}
 
-  async findAll(filters?: { model_id?: string; status?: string }): Promise<Forecast[]> {
-    const qb = this.repo.createQueryBuilder('f').orderBy('f.created_at', 'DESC');
+  async findAll(filters?: {
+    model_id?: string;
+    status?: string;
+  }): Promise<Forecast[]> {
+    const qb = this.repo
+      .createQueryBuilder('f')
+      .orderBy('f.created_at', 'DESC');
 
     const tenantId = this.tenantContext.getTenantId();
     if (tenantId) qb.andWhere('f.tenant_id = :tenantId', { tenantId });
 
-    if (filters?.model_id) qb.andWhere('f.model_id = :modelId', { modelId: filters.model_id });
-    if (filters?.status) qb.andWhere('f.status = :status', { status: filters.status });
+    if (filters?.model_id)
+      qb.andWhere('f.model_id = :modelId', { modelId: filters.model_id });
+    if (filters?.status)
+      qb.andWhere('f.status = :status', { status: filters.status });
 
     return qb.getMany();
   }
@@ -32,7 +44,7 @@ export class ForecastService {
     const where: Record<string, unknown> = { id };
     if (tenantId) where['tenant_id'] = tenantId;
 
-    const forecast = await this.repo.findOne({ where: where as any });
+    const forecast = await this.repo.findOne({ where: where });
     if (!forecast) throw new NotFoundException(`Forecast ${id} not found`);
     return forecast;
   }
@@ -61,11 +73,16 @@ export class ForecastService {
     await this.repo.softRemove(forecast);
   }
 
-  async runSimulation(id: string, paramsOverride?: Partial<SimulationParams>): Promise<Forecast> {
+  async runSimulation(
+    id: string,
+    paramsOverride?: Partial<SimulationParams>,
+  ): Promise<Forecast> {
     const forecast = await this.findOne(id);
 
     if (!forecast.input_data || forecast.input_data.length < 2) {
-      throw new NotFoundException('Forecast needs at least 2 historical data points to run a simulation');
+      throw new NotFoundException(
+        'Forecast needs at least 2 historical data points to run a simulation',
+      );
     }
 
     const params = paramsOverride

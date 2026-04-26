@@ -29,7 +29,11 @@ import { GovernanceModule } from '../governance/governance.module';
     GovernanceModule,
     // TenantModule is @Global — TenantContextService injected automatically.
   ],
-  controllers: [InventoryController, WarehouseController, ReplenishmentController],
+  controllers: [
+    InventoryController,
+    WarehouseController,
+    ReplenishmentController,
+  ],
   providers: [InventoryService, WarehouseService, ReplenishmentService],
   exports: [InventoryService, WarehouseService, ReplenishmentService],
 })

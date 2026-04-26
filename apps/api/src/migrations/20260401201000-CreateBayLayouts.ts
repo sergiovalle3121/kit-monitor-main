@@ -1,7 +1,7 @@
-import { MigrationInterface, QueryRunner } from "typeorm";
+import { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class CreateBayLayouts20260401201000 implements MigrationInterface {
-  name = "CreateBayLayouts20260401201000";
+  name = 'CreateBayLayouts20260401201000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`

@@ -1,11 +1,19 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, CreateDateColumn, UpdateDateColumn, Index } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  ManyToOne,
+  CreateDateColumn,
+  UpdateDateColumn,
+  Index,
+} from 'typeorm';
 import { Supplier } from '../../suppliers/entities/supplier.entity';
 
 export enum IqcResult {
   PASS = 'pass',
   FAIL = 'fail',
   CONDITIONAL = 'conditional',
-  PENDING = 'pending'
+  PENDING = 'pending',
 }
 
 @Entity('iqc_inspections')

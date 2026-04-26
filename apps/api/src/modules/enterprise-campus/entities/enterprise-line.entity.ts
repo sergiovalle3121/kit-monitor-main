@@ -1,9 +1,22 @@
-import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, OneToMany, PrimaryColumn, UpdateDateColumn } from 'typeorm';
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  JoinColumn,
+  ManyToOne,
+  OneToMany,
+  PrimaryColumn,
+  UpdateDateColumn,
+} from 'typeorm';
 import { EnterpriseBuilding } from './enterprise-building.entity';
 import { EnterpriseArea } from './enterprise-area.entity';
 import { EnterpriseStation } from './enterprise-station.entity';
 
-export type EnterpriseLineStatus = 'active' | 'idle' | 'maintenance' | 'offline';
+export type EnterpriseLineStatus =
+  | 'active'
+  | 'idle'
+  | 'maintenance'
+  | 'offline';
 
 @Entity('enterprise_lines')
 export class EnterpriseLine {
@@ -14,7 +27,10 @@ export class EnterpriseLine {
   @JoinColumn({ name: 'building_id' })
   building: EnterpriseBuilding;
 
-  @ManyToOne(() => EnterpriseArea, (area) => area.lines, { nullable: false, onDelete: 'CASCADE' })
+  @ManyToOne(() => EnterpriseArea, (area) => area.lines, {
+    nullable: false,
+    onDelete: 'CASCADE',
+  })
   @JoinColumn({ name: 'area_id' })
   area: EnterpriseArea;
 

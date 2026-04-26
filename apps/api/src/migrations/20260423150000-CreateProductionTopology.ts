@@ -69,8 +69,12 @@ export class CreateProductionTopology20260423150000 implements MigrationInterfac
       )
     `);
 
-    await queryRunner.query('CREATE UNIQUE INDEX IF NOT EXISTS "UQ_enterprise_plan_links_plan" ON "enterprise_plan_links" ("plan_id")');
-    await queryRunner.query('CREATE UNIQUE INDEX IF NOT EXISTS "UQ_enterprise_stations_line_pos" ON "enterprise_stations" ("line_id", "position")');
+    await queryRunner.query(
+      'CREATE UNIQUE INDEX IF NOT EXISTS "UQ_enterprise_plan_links_plan" ON "enterprise_plan_links" ("plan_id")',
+    );
+    await queryRunner.query(
+      'CREATE UNIQUE INDEX IF NOT EXISTS "UQ_enterprise_stations_line_pos" ON "enterprise_stations" ("line_id", "position")',
+    );
 
     await queryRunner.query(`
       ALTER TABLE "enterprise_areas"
@@ -124,16 +128,36 @@ export class CreateProductionTopology20260423150000 implements MigrationInterfac
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query('ALTER TABLE "enterprise_plan_links" DROP CONSTRAINT IF EXISTS "FK_enterprise_plan_links_line"');
-    await queryRunner.query('ALTER TABLE "enterprise_plan_links" DROP CONSTRAINT IF EXISTS "FK_enterprise_plan_links_building"');
-    await queryRunner.query('ALTER TABLE "enterprise_plan_links" DROP CONSTRAINT IF EXISTS "FK_enterprise_plan_links_program"');
-    await queryRunner.query('ALTER TABLE "enterprise_plan_links" DROP CONSTRAINT IF EXISTS "FK_enterprise_plan_links_plan"');
-    await queryRunner.query('ALTER TABLE "enterprise_stations" DROP CONSTRAINT IF EXISTS "FK_enterprise_stations_line"');
-    await queryRunner.query('ALTER TABLE "enterprise_lines" DROP CONSTRAINT IF EXISTS "FK_enterprise_lines_area"');
-    await queryRunner.query('ALTER TABLE "enterprise_lines" DROP CONSTRAINT IF EXISTS "FK_enterprise_lines_building"');
-    await queryRunner.query('ALTER TABLE "enterprise_areas" DROP CONSTRAINT IF EXISTS "FK_enterprise_areas_building"');
-    await queryRunner.query('DROP INDEX IF EXISTS "UQ_enterprise_stations_line_pos"');
-    await queryRunner.query('DROP INDEX IF EXISTS "UQ_enterprise_plan_links_plan"');
+    await queryRunner.query(
+      'ALTER TABLE "enterprise_plan_links" DROP CONSTRAINT IF EXISTS "FK_enterprise_plan_links_line"',
+    );
+    await queryRunner.query(
+      'ALTER TABLE "enterprise_plan_links" DROP CONSTRAINT IF EXISTS "FK_enterprise_plan_links_building"',
+    );
+    await queryRunner.query(
+      'ALTER TABLE "enterprise_plan_links" DROP CONSTRAINT IF EXISTS "FK_enterprise_plan_links_program"',
+    );
+    await queryRunner.query(
+      'ALTER TABLE "enterprise_plan_links" DROP CONSTRAINT IF EXISTS "FK_enterprise_plan_links_plan"',
+    );
+    await queryRunner.query(
+      'ALTER TABLE "enterprise_stations" DROP CONSTRAINT IF EXISTS "FK_enterprise_stations_line"',
+    );
+    await queryRunner.query(
+      'ALTER TABLE "enterprise_lines" DROP CONSTRAINT IF EXISTS "FK_enterprise_lines_area"',
+    );
+    await queryRunner.query(
+      'ALTER TABLE "enterprise_lines" DROP CONSTRAINT IF EXISTS "FK_enterprise_lines_building"',
+    );
+    await queryRunner.query(
+      'ALTER TABLE "enterprise_areas" DROP CONSTRAINT IF EXISTS "FK_enterprise_areas_building"',
+    );
+    await queryRunner.query(
+      'DROP INDEX IF EXISTS "UQ_enterprise_stations_line_pos"',
+    );
+    await queryRunner.query(
+      'DROP INDEX IF EXISTS "UQ_enterprise_plan_links_plan"',
+    );
     await queryRunner.query('DROP TABLE IF EXISTS "enterprise_plan_links"');
     await queryRunner.query('DROP TABLE IF EXISTS "enterprise_stations"');
     await queryRunner.query('DROP TABLE IF EXISTS "enterprise_lines"');

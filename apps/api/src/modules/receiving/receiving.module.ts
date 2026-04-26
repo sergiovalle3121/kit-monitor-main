@@ -13,7 +13,7 @@ import { GovernanceModule } from '../governance/governance.module';
     TypeOrmModule.forFeature([ReceivingEvent, EnterpriseWarehouse]),
     InventoryModule,
     EventLedgerModule,
-    GovernanceModule
+    GovernanceModule,
   ],
   controllers: [ReceivingController],
   providers: [ReceivingService],

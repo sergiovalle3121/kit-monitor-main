@@ -1,5 +1,5 @@
-import { TypeOrmModuleOptions } from "@nestjs/typeorm";
-import { join } from "path";
+import { TypeOrmModuleOptions } from '@nestjs/typeorm';
+import { join } from 'path';
 
 /**
  * Database strategy:
@@ -20,15 +20,15 @@ import { join } from "path";
  *    → zero setup required — dev.sqlite is git-ignored
  */
 export function ormOptions(): TypeOrmModuleOptions {
-  const isProd = process.env.NODE_ENV === "production";
-  const url    = process.env.DATABASE_URL;
+  const isProd = process.env.NODE_ENV === 'production';
+  const url = process.env.DATABASE_URL;
   const dbHost = process.env.DB_HOST;
 
   // ── SQLite fallback (local dev, no PG credentials) ──────────────────────
   if (!url && !dbHost) {
     return {
-      type: "sqlite",
-      database: process.env.SQLITE_PATH || "dev.sqlite",
+      type: 'sqlite',
+      database: process.env.SQLITE_PATH || 'dev.sqlite',
       autoLoadEntities: true,
       synchronize: true, // safe: dev only, no production data at risk
     };
@@ -37,38 +37,39 @@ export function ormOptions(): TypeOrmModuleOptions {
   // ── Shared PostgreSQL base ───────────────────────────────────────────────
   const syncOverride = process.env.SYNCHRONIZE;
   const synchronize =
-    syncOverride === "true"
+    syncOverride === 'true'
       ? true
-      : syncOverride === "false"
+      : syncOverride === 'false'
         ? false
         : url
           ? true
           : !isProd;
 
   const pgBase: Partial<TypeOrmModuleOptions> = {
-    type: "postgres",
+    type: 'postgres',
     autoLoadEntities: true,
     synchronize,
-    migrationsRun: !synchronize && (isProd || process.env.MIGRATIONS_RUN === "true"),
-    migrations: [join(__dirname, "migrations", "*.{ts,js}")],
+    migrationsRun:
+      !synchronize && (isProd || process.env.MIGRATIONS_RUN === 'true'),
+    migrations: [join(__dirname, 'migrations', '*.{ts,js}')],
     ssl:
-      isProd || url?.includes("sslmode=require")
+      isProd || url?.includes('sslmode=require')
         ? { rejectUnauthorized: false }
         : false,
   };
 
   // ── PostgreSQL via DATABASE_URL (Railway / production) ───────────────────
   if (url) {
-    return { ...pgBase, url } as TypeOrmModuleOptions;
+    return { ...pgBase, url };
   }
 
   // ── PostgreSQL via individual env vars (explicit dev/staging) ────────────
   return {
     ...pgBase,
-    host:     dbHost,
-    port:     Number(process.env.DB_PORT ?? 5432),
+    host: dbHost,
+    port: Number(process.env.DB_PORT ?? 5432),
     username: process.env.DB_USERNAME,
-    password: String(process.env.DB_PASSWORD ?? ""),
+    password: String(process.env.DB_PASSWORD ?? ''),
     database: process.env.DB_DATABASE,
-  } as TypeOrmModuleOptions;
+  };
 }

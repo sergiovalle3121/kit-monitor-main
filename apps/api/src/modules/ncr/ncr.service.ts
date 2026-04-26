@@ -6,7 +6,10 @@ import { CreateNcrDto } from './dto/ncr.dto';
 import { EventLedgerService } from '../event-ledger/event-ledger.service';
 import { EventDomain } from '../event-ledger/entities/ledger-event.entity';
 import { AuditService } from '../governance/audit.service';
-import { ExceptionSeverity, ExceptionDomain } from '../governance/entities/operational-exception.entity';
+import {
+  ExceptionSeverity,
+  ExceptionDomain,
+} from '../governance/entities/operational-exception.entity';
 import { TenantContextService } from '../../common/tenant/tenant-context.service';
 
 @Injectable()
@@ -34,11 +37,16 @@ export class NcrService {
     const tenantId = this.tenantContext.getTenantId();
     if (tenantId) qb.andWhere('ncr.tenant_id = :tenantId', { tenantId });
 
-    if (filters.partNumber) qb.andWhere('ncr.partNumber = :pn', { pn: filters.partNumber });
-    if (filters.status) qb.andWhere('ncr.status = :status', { status: filters.status });
-    if (filters.workOrder) qb.andWhere('ncr.workOrder = :wo', { wo: filters.workOrder });
-    if (filters.severity) qb.andWhere('ncr.severity = :sev', { sev: filters.severity });
-    if (filters.sourceType) qb.andWhere('ncr.sourceType = :src', { src: filters.sourceType });
+    if (filters.partNumber)
+      qb.andWhere('ncr.partNumber = :pn', { pn: filters.partNumber });
+    if (filters.status)
+      qb.andWhere('ncr.status = :status', { status: filters.status });
+    if (filters.workOrder)
+      qb.andWhere('ncr.workOrder = :wo', { wo: filters.workOrder });
+    if (filters.severity)
+      qb.andWhere('ncr.severity = :sev', { sev: filters.severity });
+    if (filters.sourceType)
+      qb.andWhere('ncr.sourceType = :src', { src: filters.sourceType });
 
     return qb.orderBy('ncr.createdAt', 'DESC').getMany();
   }
@@ -49,7 +57,7 @@ export class NcrService {
     if (tenantId) where['tenant_id'] = tenantId;
 
     const ncr = await this.ncrRepo.findOne({
-      where: where as any,
+      where: where,
       relations: ['hold', 'quarantineTransfer'],
     });
     if (!ncr) throw new NotFoundException('NCR not found');
@@ -90,13 +98,21 @@ export class NcrService {
       actor,
       resourceType: 'NCR',
       resourceId: saved.id.toString(),
-      metadata: { ncrNumber: saved.ncrNumber, partNumber: saved.partNumber, buildingId: saved.building },
+      metadata: {
+        ncrNumber: saved.ncrNumber,
+        partNumber: saved.partNumber,
+        buildingId: saved.building,
+      },
     });
 
     return saved;
   }
 
-  async updateStatus(id: number, status: NcrStatus, dispositionNotes?: string): Promise<NCR> {
+  async updateStatus(
+    id: number,
+    status: NcrStatus,
+    dispositionNotes?: string,
+  ): Promise<NCR> {
     const ncr = await this.findOne(id);
     ncr.status = status;
     if (dispositionNotes) ncr.dispositionNotes = dispositionNotes;

@@ -1,4 +1,17 @@
-import { Controller, Get, Post, Patch, Delete, Param, Body, ParseIntPipe, Query, UseGuards, UsePipes, ValidationPipe } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Delete,
+  Param,
+  Body,
+  ParseIntPipe,
+  Query,
+  UseGuards,
+  UsePipes,
+  ValidationPipe,
+} from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiQuery } from '@nestjs/swagger';
 import { KitsService } from './kits.service';
 import { CreateKitDto } from './dto/create-kit.dto';
@@ -29,7 +42,13 @@ export class KitsController {
     @Query('buildingId') buildingId?: string,
     @Query('programId') programId?: string,
   ) {
-    return this.kitsService.findAll({ line, model, workOrder, buildingId, programId });
+    return this.kitsService.findAll({
+      line,
+      model,
+      workOrder,
+      buildingId,
+      programId,
+    });
   }
 
   @Get(':id')
@@ -55,8 +74,13 @@ export class KitsController {
 
   @Patch(':id/status')
   @RequirePermissions('materials:write')
-  @ApiOperation({ summary: 'Update kit status (kitted, requested, delivered, etc.)' })
-  updateStatus(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateKitStatusDto) {
+  @ApiOperation({
+    summary: 'Update kit status (kitted, requested, delivered, etc.)',
+  })
+  updateStatus(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateKitStatusDto,
+  ) {
     return this.kitsService.updateStatus(id, dto);
   }
 

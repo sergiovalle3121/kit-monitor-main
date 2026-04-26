@@ -1,11 +1,19 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Index, OneToMany } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  Index,
+  OneToMany,
+} from 'typeorm';
 
 export enum ShipmentStatus {
   PLANNING = 'planning',
   STAGED = 'staged',
   LOADING = 'loading',
   DISPATCHED = 'dispatched',
-  CLOSED = 'closed'
+  CLOSED = 'closed',
 }
 
 @Entity('shipments')

@@ -1,4 +1,13 @@
-import { Body, Controller, Get, Post, Query, UseGuards, UsePipes, ValidationPipe } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Post,
+  Query,
+  UseGuards,
+  UsePipes,
+  ValidationPipe,
+} from '@nestjs/common';
 import { ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
@@ -15,7 +24,9 @@ export class InventoryController {
   constructor(private readonly inventoryService: InventoryService) {}
 
   @Get('positions')
-  @ApiOperation({ summary: 'List inventory positions scoped to the current tenant' })
+  @ApiOperation({
+    summary: 'List inventory positions scoped to the current tenant',
+  })
   @ApiQuery({ name: 'warehouseId', required: false })
   @ApiQuery({ name: 'partNumber', required: false })
   @ApiQuery({ name: 'programId', required: false })
@@ -26,7 +37,12 @@ export class InventoryController {
     @Query('programId') programId?: string,
     @Query('holdStatus') holdStatus?: string,
   ) {
-    return this.inventoryService.findAllPositions({ warehouseId, partNumber, programId, holdStatus });
+    return this.inventoryService.findAllPositions({
+      warehouseId,
+      partNumber,
+      programId,
+      holdStatus,
+    });
   }
 
   @Get('movements')
@@ -42,11 +58,18 @@ export class InventoryController {
     @Query('type') type?: string,
     @Query('limit') limit?: number,
   ) {
-    return this.inventoryService.getMovements({ partNumber, warehouseId, type, limit });
+    return this.inventoryService.getMovements({
+      partNumber,
+      warehouseId,
+      type,
+      limit,
+    });
   }
 
   @Get('materials')
-  @ApiOperation({ summary: 'List material master records for the current tenant' })
+  @ApiOperation({
+    summary: 'List material master records for the current tenant',
+  })
   @ApiQuery({ name: 'category', required: false })
   @ApiQuery({ name: 'search', required: false })
   getMaterials(
@@ -60,7 +83,8 @@ export class InventoryController {
   @RequirePermissions('materials:write')
   @ApiOperation({ summary: 'Record an inventory movement transaction' })
   async recordTransaction(
-    @Body() dto: {
+    @Body()
+    dto: {
       type: InventoryTransactionType;
       partNumber: string;
       quantity: number;

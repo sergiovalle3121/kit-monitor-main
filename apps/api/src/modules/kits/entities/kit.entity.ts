@@ -1,6 +1,12 @@
 import {
-  Entity, PrimaryGeneratedColumn, Column,
-  CreateDateColumn, OneToOne, JoinColumn, OneToMany, Index,
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  OneToOne,
+  JoinColumn,
+  OneToMany,
+  Index,
 } from 'typeorm';
 import { Plan } from '../../plans/entities/plan.entity';
 import { KitMaterial } from '../../kit-materials/entities/kit-material.entity';
@@ -12,9 +18,17 @@ import { DATE_COLUMN_TYPE } from '../../../common/database/date-column-type';
 // Status flow: preparing → kitted → ready → requested → delivered → in_progress → completed
 // Legacy aliases kept for backward compat: prepared, sent, received
 export type KitStatus =
-  | 'preparing' | 'kitted' | 'ready' | 'requested' | 'delivered'
-  | 'in_progress' | 'completed' | 'cancelled'
-  | 'prepared' | 'sent' | 'received'; // legacy
+  | 'preparing'
+  | 'kitted'
+  | 'ready'
+  | 'requested'
+  | 'delivered'
+  | 'in_progress'
+  | 'completed'
+  | 'cancelled'
+  | 'prepared'
+  | 'sent'
+  | 'received'; // legacy
 
 @Entity('kits')
 @Index(['tenant_id', 'status'])
@@ -26,7 +40,12 @@ export class Kit {
   @Column({ type: 'varchar', length: 36, nullable: true, name: 'tenant_id' })
   tenant_id: string | null;
 
-  @Column({ type: 'varchar', length: 36, nullable: true, name: 'organization_id' })
+  @Column({
+    type: 'varchar',
+    length: 36,
+    nullable: true,
+    name: 'organization_id',
+  })
   organization_id: string | null;
 
   @Column({ type: 'varchar', length: 36, nullable: true, name: 'plant_id' })

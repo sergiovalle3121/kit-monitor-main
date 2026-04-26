@@ -1,7 +1,21 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Query, UseGuards, Req } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  Query,
+  UseGuards,
+  Req,
+} from '@nestjs/common';
 import { EngineeringService } from './engineering.service';
 import { EngineeringDocumentType } from './entities/engineering-document.entity';
-import { CreateEngineeringDocumentDto, UpdateEngineeringDocumentDto } from './dto/engineering-document.dto';
+import {
+  CreateEngineeringDocumentDto,
+  UpdateEngineeringDocumentDto,
+} from './dto/engineering-document.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @Controller('engineering')
@@ -18,7 +32,10 @@ export class EngineeringController {
     @Query('model') model?: string,
   ) {
     if (buildingId || programId || lineId || model) {
-      return this.engineeringService.findByScope({ buildingId, programId, lineId, model }, type);
+      return this.engineeringService.findByScope(
+        { buildingId, programId, lineId, model },
+        type,
+      );
     }
     return this.engineeringService.findAll(type);
   }

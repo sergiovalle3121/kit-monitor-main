@@ -1,4 +1,14 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, Index, Unique, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  ManyToOne,
+  JoinColumn,
+  Index,
+  Unique,
+  CreateDateColumn,
+  UpdateDateColumn,
+} from 'typeorm';
 import { MaterialMaster } from './material-master.entity';
 import { EnterpriseWarehouse } from '../../enterprise-campus/entities/enterprise-warehouse.entity';
 
@@ -15,7 +25,12 @@ export class InventoryPosition {
   @Column({ type: 'varchar', length: 36, nullable: true, name: 'tenant_id' })
   tenant_id: string | null;
 
-  @Column({ type: 'varchar', length: 36, nullable: true, name: 'organization_id' })
+  @Column({
+    type: 'varchar',
+    length: 36,
+    nullable: true,
+    name: 'organization_id',
+  })
   organization_id: string | null;
 
   @Column({ type: 'varchar', length: 36, nullable: true, name: 'plant_id' })
@@ -56,7 +71,15 @@ export class InventoryPosition {
     default: 'available',
   })
   @Index()
-  holdStatus: 'available' | 'hold' | 'quarantine' | 'expired' | 'pending_iqc' | 'pending_oqc' | 'staged_for_shipping' | 'shipped';
+  holdStatus:
+    | 'available'
+    | 'hold'
+    | 'quarantine'
+    | 'expired'
+    | 'pending_iqc'
+    | 'pending_oqc'
+    | 'staged_for_shipping'
+    | 'shipped';
 
   @Column({ type: 'varchar', length: 100, nullable: true })
   lotNumber?: string;

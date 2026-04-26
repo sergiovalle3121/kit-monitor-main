@@ -1,4 +1,15 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Post, Query, UseGuards, UsePipes, ValidationPipe } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseIntPipe,
+  Post,
+  Query,
+  UseGuards,
+  UsePipes,
+  ValidationPipe,
+} from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiQuery } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ProductionRuntimeService } from './production-runtime.service';
@@ -16,7 +27,9 @@ export class ProductionRuntimeController {
 
   @Get('lines')
   @RequirePermissions('production:read')
-  @ApiOperation({ summary: 'List active production lines (kits in-progress or ready)' })
+  @ApiOperation({
+    summary: 'List active production lines (kits in-progress or ready)',
+  })
   @ApiQuery({ name: 'line', required: false })
   @ApiQuery({ name: 'model', required: false })
   @ApiQuery({ name: 'workOrder', required: false })
@@ -29,7 +42,13 @@ export class ProductionRuntimeController {
     @Query('buildingId') buildingId?: string,
     @Query('programId') programId?: string,
   ) {
-    return this.service.getLines({ line, model, workOrder, buildingId, programId });
+    return this.service.getLines({
+      line,
+      model,
+      workOrder,
+      buildingId,
+      programId,
+    });
   }
 
   @Get('lines/:kitId')
@@ -80,14 +99,18 @@ export class ProductionRuntimeController {
 
   @Get('lines/:kitId/materials')
   @RequirePermissions('production:read')
-  @ApiOperation({ summary: 'Get real-time material state for all bays of a kit' })
+  @ApiOperation({
+    summary: 'Get real-time material state for all bays of a kit',
+  })
   getMaterials(@Param('kitId', ParseIntPipe) kitId: number) {
     return this.service.getMaterials(kitId);
   }
 
   @Post('lines/:kitId/bays/:bayId/incidents')
   @RequirePermissions('production:write')
-  @ApiOperation({ summary: 'Report a bay incident (material shortage, assembly error, etc.)' })
+  @ApiOperation({
+    summary: 'Report a bay incident (material shortage, assembly error, etc.)',
+  })
   createIncident(
     @Param('kitId', ParseIntPipe) kitId: number,
     @Param('bayId', ParseIntPipe) bayId: number,
@@ -135,12 +158,20 @@ export class ProductionRuntimeController {
     @Query('buildingId') buildingId?: string,
     @Query('programId') programId?: string,
   ) {
-    return this.service.getCompleted({ line, model, workOrder, buildingId, programId });
+    return this.service.getCompleted({
+      line,
+      model,
+      workOrder,
+      buildingId,
+      programId,
+    });
   }
 
   @Get('logistics/shortage-risk')
   @RequirePermissions('materials:read')
-  @ApiOperation({ summary: 'Get logistics-wide shortage risk across all active lines' })
+  @ApiOperation({
+    summary: 'Get logistics-wide shortage risk across all active lines',
+  })
   getLogisticsRisk() {
     return this.service.getLogisticsRisk();
   }
@@ -156,7 +187,10 @@ export class ProductionRuntimeController {
   @Post('wip/:kitId/declare-fg')
   @RequirePermissions('production:write')
   @ApiOperation({ summary: 'Declare finished goods from a WIP record' })
-  async declareFg(@Param('kitId') kitId: number, @Body() dto: { quantity: number; actor: string }) {
+  async declareFg(
+    @Param('kitId') kitId: number,
+    @Body() dto: { quantity: number; actor: string },
+  ) {
     return this.service.declareFinishedGoods(kitId, dto.quantity, dto.actor);
   }
 }

@@ -85,7 +85,9 @@ export class CreateNcrDto {
 }
 
 export class UpdateNcrStatusDto {
-  @ApiProperty({ enum: ['open', 'under_review', 'contained', 'dispositioned', 'closed'] })
+  @ApiProperty({
+    enum: ['open', 'under_review', 'contained', 'dispositioned', 'closed'],
+  })
   @IsNotEmpty()
   @IsString()
   status: string;

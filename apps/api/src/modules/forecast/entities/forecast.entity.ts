@@ -1,9 +1,4 @@
-import {
-  Column,
-  Entity,
-  Index,
-  PrimaryGeneratedColumn,
-} from 'typeorm';
+import { Column, Entity, Index, PrimaryGeneratedColumn } from 'typeorm';
 import { TenantBaseEntity } from '../../../common/entities/tenant-base.entity';
 import { JSON_COLUMN_TYPE } from '../../../common/database/json-column-type';
 
@@ -14,14 +9,14 @@ export enum ForecastStatus {
 }
 
 export interface HistoricalDataPoint {
-  date: string;   // ISO-8601 date string
-  value: number;  // observed quantity (units, hours, etc.)
+  date: string; // ISO-8601 date string
+  value: number; // observed quantity (units, hours, etc.)
   label?: string; // optional human-readable label
 }
 
 export interface SimulationParams {
-  iterations: number;        // Monte Carlo iterations (default 1000)
-  periods: number;           // future periods to project (default 12)
+  iterations: number; // Monte Carlo iterations (default 1000)
+  periods: number; // future periods to project (default 12)
   periodUnit: 'day' | 'week' | 'month';
   confidenceLevels: number[]; // e.g. [10, 50, 90]
   distribution: 'normal' | 'lognormal';

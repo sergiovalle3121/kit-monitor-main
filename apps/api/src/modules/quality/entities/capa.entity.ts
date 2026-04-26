@@ -1,4 +1,12 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, CreateDateColumn, UpdateDateColumn, Index } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  ManyToOne,
+  CreateDateColumn,
+  UpdateDateColumn,
+  Index,
+} from 'typeorm';
 import { NCR } from '../../ncr/entities/ncr.entity';
 import { Disposition } from './disposition.entity';
 
@@ -8,14 +16,14 @@ export enum CapaStatus {
   ACTION_DEFINED = 'action_defined',
   IN_PROGRESS = 'in_progress',
   EFFECTIVENESS_REVIEW = 'effectiveness_review',
-  CLOSED = 'closed'
+  CLOSED = 'closed',
 }
 
 export enum CapaPriority {
   LOW = 'low',
   MEDIUM = 'medium',
   HIGH = 'high',
-  URGENT = 'urgent'
+  URGENT = 'urgent',
 }
 
 @Entity('capas')

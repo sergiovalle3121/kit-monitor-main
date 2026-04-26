@@ -3,7 +3,7 @@
 You are part of the AXOS OS Engineering Team. This project is an Industrial OS (ERP + MES) designed as a high-fidelity, multi-tenant SaaS.
 
 ## 1. Core Principles
-- **Aesthetic**: Premium, minimalist, "Apple White" / Modern Industrial.
+- **Aesthetic**: Premium, minimalist, white-label / Modern Industrial.
 - **Architecture**: Modular Monolith (Monorepo) using Turborepo.
 - **Frontend**: Next.js (App Router), React, TypeScript, Tailwind CSS, shadcn/ui.
 - **Backend**: NestJS, TypeScript, TypeORM, PostgreSQL.

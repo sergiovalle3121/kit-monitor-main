@@ -12,7 +12,12 @@ import { GovernanceModule } from '../governance/governance.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Plan, LineCapacity, EnterpriseProgram, EnterpriseLine]),
+    TypeOrmModule.forFeature([
+      Plan,
+      LineCapacity,
+      EnterpriseProgram,
+      EnterpriseLine,
+    ]),
     InventoryModule,
     QualityModule,
     GovernanceModule,

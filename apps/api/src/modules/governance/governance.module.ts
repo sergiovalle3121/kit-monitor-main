@@ -20,25 +20,30 @@ import { GovernanceSeedService } from './governance-seed.service';
 @Module({
   imports: [
     TypeOrmModule.forFeature([
-      AuditLog, 
-      OperationalException, 
-      Notification, 
-      NotificationLog, 
-      GovernancePolicy
+      AuditLog,
+      OperationalException,
+      Notification,
+      NotificationLog,
+      GovernancePolicy,
     ]),
     UsersModule,
     EnterpriseCampusModule,
     ScheduleModule.forRoot(),
   ],
   providers: [
-    GovernanceService, 
-    AuditService, 
-    NotificationService, 
+    GovernanceService,
+    AuditService,
+    NotificationService,
     GovernanceAnalyticsService,
-    EscalationTask, 
-    GovernanceSeedService
+    EscalationTask,
+    GovernanceSeedService,
   ],
   controllers: [GovernanceController],
-  exports: [GovernanceService, AuditService, NotificationService, GovernanceAnalyticsService],
+  exports: [
+    GovernanceService,
+    AuditService,
+    NotificationService,
+    GovernanceAnalyticsService,
+  ],
 })
 export class GovernanceModule {}

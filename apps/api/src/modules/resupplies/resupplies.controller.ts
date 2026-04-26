@@ -1,4 +1,14 @@
-import { Controller, Get, Post, Patch, Param, Body, Query, ParseIntPipe, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Param,
+  Body,
+  Query,
+  ParseIntPipe,
+  UseGuards,
+} from '@nestjs/common';
 import { ResuppliesService } from './resupplies.service';
 import { CreateResupplyDto } from './dto/create-resupply.dto';
 import { DeliverResupplyDto } from './dto/deliver-resupply.dto';
@@ -31,18 +41,26 @@ export class ResuppliesController {
   }
 
   @Patch(':id/deliver')
-  deliver(@Param('id', ParseIntPipe) id: number, @Body() dto: DeliverResupplyDto) {
+  deliver(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: DeliverResupplyDto,
+  ) {
     return this.service.deliver(id, dto);
   }
 
-
   @Patch(':id/owner')
-  assignOwner(@Param('id', ParseIntPipe) id: number, @Body() dto: AssignResupplyOwnerDto) {
+  assignOwner(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: AssignResupplyOwnerDto,
+  ) {
     return this.service.assignOwner(id, dto);
   }
 
   @Patch(':id/status')
-  updateStatus(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateResupplyStatusDto) {
+  updateStatus(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateResupplyStatusDto,
+  ) {
     return this.service.updateStatus(id, dto);
   }
 }

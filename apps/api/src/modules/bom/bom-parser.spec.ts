@@ -12,7 +12,9 @@ describe('parseBomXlsx', () => {
     ]);
     XLSX.utils.book_append_sheet(wb, ws, 'flat');
 
-    const result = parseBomXlsx(XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }));
+    const result = parseBomXlsx(
+      XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }),
+    );
 
     expect(result.errors).toHaveLength(0);
     expect(result.rows).toEqual([
@@ -45,14 +47,36 @@ describe('parseBomXlsx', () => {
     ]);
     XLSX.utils.book_append_sheet(wb, ws, 'native');
 
-    const result = parseBomXlsx(XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }));
+    const result = parseBomXlsx(
+      XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }),
+    );
 
     expect(result.errors).toHaveLength(0);
     expect(result.rows).toEqual([
-      { model: 'OP-520-1000', partNumber: 'OP-520-0100', usageFactor: 3, unit: 'EA' },
-      { model: 'OP-520-1000', partNumber: 'OP-520-0101', usageFactor: 2, unit: 'EA' },
-      { model: 'OP-520-2000', partNumber: 'OP-520-0200', usageFactor: 1, unit: 'EA' },
-      { model: 'OP-520-2000', partNumber: 'OP-520-0201', usageFactor: 5, unit: 'EA' },
+      {
+        model: 'OP-520-1000',
+        partNumber: 'OP-520-0100',
+        usageFactor: 3,
+        unit: 'EA',
+      },
+      {
+        model: 'OP-520-1000',
+        partNumber: 'OP-520-0101',
+        usageFactor: 2,
+        unit: 'EA',
+      },
+      {
+        model: 'OP-520-2000',
+        partNumber: 'OP-520-0200',
+        usageFactor: 1,
+        unit: 'EA',
+      },
+      {
+        model: 'OP-520-2000',
+        partNumber: 'OP-520-0201',
+        usageFactor: 5,
+        unit: 'EA',
+      },
     ]);
   });
 });

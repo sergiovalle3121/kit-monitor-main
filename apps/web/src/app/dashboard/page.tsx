@@ -3,7 +3,6 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
-  Package, 
   BarChart3, 
   Activity, 
   ShieldCheck, 

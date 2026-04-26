@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Shipment, ShipmentStatus } from './entities/shipment.entity';
@@ -7,7 +11,10 @@ import { PackingList } from './entities/packing-list.entity';
 import { InventoryService } from '../inventory/inventory.service';
 import { AuditService } from '../governance/audit.service';
 import { User } from '../users/entities/user.entity';
-import { ExceptionSeverity, ExceptionDomain } from '../governance/entities/operational-exception.entity';
+import {
+  ExceptionSeverity,
+  ExceptionDomain,
+} from '../governance/entities/operational-exception.entity';
 
 @Injectable()
 export class ShippingService {
@@ -30,21 +37,29 @@ export class ShippingService {
   async findOne(id: number, user: User) {
     const shipment = await this.shipmentRepo.findOne({ where: { id } });
     if (!shipment) throw new NotFoundException('Shipment not found');
-    
+
     const items = await this.itemRepo.find({ where: { shipment: { id } } });
-    const packingLists = await this.packingRepo.find({ where: { shipment: { id } } });
+    const packingLists = await this.packingRepo.find({
+      where: { shipment: { id } },
+    });
     return { ...shipment, items, packingLists };
   }
 
   async create(dto: Partial<Shipment>, user: User) {
     const count = await this.shipmentRepo.count();
-    const shipmentNumber = `SHP-GDL-${(count + 1).toString().padStart(4, '0')}`;
-    const shipment = this.shipmentRepo.create({ ...dto, shipmentNumber, status: ShipmentStatus.PLANNING });
+    const shipmentNumber = `SHP-${(count + 1).toString().padStart(4, '0')}`;
+    const shipment = this.shipmentRepo.create({
+      ...dto,
+      shipmentNumber,
+      status: ShipmentStatus.PLANNING,
+    });
     return this.shipmentRepo.save(shipment);
   }
 
   async addItem(shipmentId: number, itemDto: any, user: User) {
-    const shipment = await this.shipmentRepo.findOne({ where: { id: shipmentId } });
+    const shipment = await this.shipmentRepo.findOne({
+      where: { id: shipmentId },
+    });
     if (!shipment) throw new NotFoundException('Shipment not found');
 
     // ELIGIBILITY RULE: Only 'available' stock (OQC Passed) can be added
@@ -53,7 +68,7 @@ export class ShippingService {
       warehouseId: 'WH-FG',
     });
 
-    const eligibleStock = stock.filter(s => s.holdStatus === 'available');
+    const eligibleStock = stock.filter((s) => s.holdStatus === 'available');
 
     const totalAvailable = eligibleStock.reduce((acc, s) => acc + s.onHand, 0);
     if (totalAvailable < itemDto.quantity) {
@@ -66,10 +81,16 @@ export class ShippingService {
         actor: user.email || 'Shipping Agent',
         resourceType: 'Shipment',
         resourceId: shipment.id.toString(),
-        metadata: { partNumber: itemDto.partNumber, requested: itemDto.quantity, available: totalAvailable }
+        metadata: {
+          partNumber: itemDto.partNumber,
+          requested: itemDto.quantity,
+          available: totalAvailable,
+        },
       });
-      
-      throw new BadRequestException(`Material not eligible for shipping. Available released: ${totalAvailable}, Requested: ${itemDto.quantity}. Check OQC status.`);
+
+      throw new BadRequestException(
+        `Material not eligible for shipping. Available released: ${totalAvailable}, Requested: ${itemDto.quantity}. Check OQC status.`,
+      );
     }
 
     const item = this.itemRepo.create({ ...itemDto, shipment });
@@ -85,10 +106,10 @@ export class ShippingService {
       toWarehouseId: 'WH-FG',
       toLocation: 'SHIPPING_DOCK',
       actorName: 'Shipping Agent',
-      holdStatus: 'hold' as any, // staged_for_shipping is not in current union, using hold for now or cast
+      holdStatus: 'hold', // staged_for_shipping is not in current union, using hold for now or cast
       referenceType: 'SHIPMENT_STAGING',
       referenceId: shipment.shipmentNumber,
-      reason: `Staged for Shipment ${shipment.shipmentNumber}`
+      reason: `Staged for Shipment ${shipment.shipmentNumber}`,
     });
 
     shipment.status = ShipmentStatus.STAGED;
@@ -98,19 +119,26 @@ export class ShippingService {
   }
 
   async generatePackingList(shipmentId: number, actor: string, user: User) {
-    const shipment = await this.shipmentRepo.findOne({ where: { id: shipmentId } });
+    const shipment = await this.shipmentRepo.findOne({
+      where: { id: shipmentId },
+    });
     if (!shipment) throw new NotFoundException('Shipment not found');
 
-    const items = await this.itemRepo.find({ where: { shipment: { id: shipmentId } } });
-    
+    const items = await this.itemRepo.find({
+      where: { shipment: { id: shipmentId } },
+    });
+
     const plNumber = `PL-${shipment.shipmentNumber}-${Date.now().toString().slice(-4)}`;
     const packingList = this.packingRepo.create({
       packingListNumber: plNumber,
       shipment: shipment,
       customer: shipment.customer,
-      items: items.map(i => ({ partNumber: i.partNumber, quantity: i.quantity })),
+      items: items.map((i) => ({
+        partNumber: i.partNumber,
+        quantity: i.quantity,
+      })),
       generatedBy: actor,
-      status: 'FINALIZED'
+      status: 'FINALIZED',
     });
 
     return this.packingRepo.save(packingList);
@@ -122,7 +150,7 @@ export class ShippingService {
 
     Object.assign(shipment, manifestDto, {
       status: ShipmentStatus.LOADING,
-      loadingStartedAt: new Date()
+      loadingStartedAt: new Date(),
     });
 
     return this.shipmentRepo.save(shipment);
@@ -144,9 +172,11 @@ export class ShippingService {
         actor,
         resourceType: 'Shipment',
         resourceId: shipment.id.toString(),
-        metadata: { currentStatus: shipment.status }
+        metadata: { currentStatus: shipment.status },
       });
-      throw new BadRequestException(`Shipment ${shipment.shipmentNumber} cannot be dispatched. Current status: ${shipment.status}`);
+      throw new BadRequestException(
+        `Shipment ${shipment.shipmentNumber} cannot be dispatched. Current status: ${shipment.status}`,
+      );
     }
 
     for (const item of items) {
@@ -157,10 +187,10 @@ export class ShippingService {
         fromWarehouseId: 'WH-FG',
         fromLocation: 'SHIPPING_DOCK',
         actorName: actor,
-        holdStatus: 'available' as any, // will be 'shipped' logic in inventory if added, using available for now
+        holdStatus: 'available', // will be 'shipped' logic in inventory if added, using available for now
         referenceType: 'DISPATCH_EXECUTION',
         referenceId: shipment.shipmentNumber,
-        reason: `Final Dispatch - Carrier: ${shipment.carrier}`
+        reason: `Final Dispatch - Carrier: ${shipment.carrier}`,
       });
     }
 
@@ -177,7 +207,7 @@ export class ShippingService {
       entityId: String(shipment.id),
       before,
       after: saved,
-      scope: { carrier: shipment.carrier, route: shipment.route }
+      scope: { carrier: shipment.carrier, route: shipment.route },
     });
 
     return saved;
@@ -190,8 +220,13 @@ export class ShippingService {
     return this.shipmentRepo.save(shipment);
   }
 
-  async reportPackingDiscrepancy(shipmentId: number, discrepancy: { type: string, detail: string, actor: string }) {
-    const shipment = await this.shipmentRepo.findOne({ where: { id: shipmentId } });
+  async reportPackingDiscrepancy(
+    shipmentId: number,
+    discrepancy: { type: string; detail: string; actor: string },
+  ) {
+    const shipment = await this.shipmentRepo.findOne({
+      where: { id: shipmentId },
+    });
     if (!shipment) throw new NotFoundException('Shipment not found');
 
     await this.audit.recordException({
@@ -202,7 +237,10 @@ export class ShippingService {
       actor: discrepancy.actor,
       resourceType: 'Shipment',
       resourceId: shipment.id.toString(),
-      metadata: { discrepancyType: discrepancy.type, detail: discrepancy.detail }
+      metadata: {
+        discrepancyType: discrepancy.type,
+        detail: discrepancy.detail,
+      },
     });
 
     return { success: true };

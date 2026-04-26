@@ -21,7 +21,10 @@ export class MonteCarloService {
     rawParams?: Partial<SimulationParams> | null,
   ): SimulationOutput {
     const start = Date.now();
-    const params: Required<SimulationParams> = { ...DEFAULT_PARAMS, ...rawParams };
+    const params: Required<SimulationParams> = {
+      ...DEFAULT_PARAMS,
+      ...rawParams,
+    };
 
     const values = inputData.map((d) => d.value);
     const stats = this.computeStats(values);
@@ -94,7 +97,7 @@ export class MonteCarloService {
   private sampleLognormal(mean: number, stdDev: number): number {
     // Convert normal parameters to lognormal parameters (method-of-moments)
     const variance = stdDev ** 2;
-    const mu = Math.log((mean ** 2) / Math.sqrt(mean ** 2 + variance));
+    const mu = Math.log(mean ** 2 / Math.sqrt(mean ** 2 + variance));
     const sigma = Math.sqrt(Math.log(1 + variance / mean ** 2));
     return Math.exp(this.sampleNormal(mu, sigma));
   }
@@ -109,9 +112,10 @@ export class MonteCarloService {
     const { periods } = params;
     const projections: PercentileProjection[] = [];
 
-    const lastDate = inputData.length > 0
-      ? new Date(inputData[inputData.length - 1].date)
-      : new Date();
+    const lastDate =
+      inputData.length > 0
+        ? new Date(inputData[inputData.length - 1].date)
+        : new Date();
 
     for (let p = 0; p < periods; p++) {
       const column = matrix.map((row) => row[p]).sort((a, b) => a - b);

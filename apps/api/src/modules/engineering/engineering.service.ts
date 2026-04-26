@@ -1,8 +1,14 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { EngineeringDocument, EngineeringDocumentType } from './entities/engineering-document.entity';
-import { CreateEngineeringDocumentDto, UpdateEngineeringDocumentDto } from './dto/engineering-document.dto';
+import {
+  EngineeringDocument,
+  EngineeringDocumentType,
+} from './entities/engineering-document.entity';
+import {
+  CreateEngineeringDocumentDto,
+  UpdateEngineeringDocumentDto,
+} from './dto/engineering-document.dto';
 
 @Injectable()
 export class EngineeringService {
@@ -47,12 +53,20 @@ export class EngineeringService {
   async findByScope(scope: any, type?: EngineeringDocumentType) {
     const query = this.docRepo.createQueryBuilder('doc');
     if (type) query.andWhere('doc.documentType = :type', { type });
-    
+
     // Simple scope filtering (exact match on keys if provided)
-    if (scope.buildingId) query.andWhere("doc.scope->>'buildingId' = :bid", { bid: scope.buildingId });
-    if (scope.programId) query.andWhere("doc.scope->>'programId' = :pid", { pid: scope.programId });
-    if (scope.lineId) query.andWhere("doc.scope->>'lineId' = :lid", { lid: scope.lineId });
-    if (scope.model) query.andWhere("doc.scope->>'model' = :model", { model: scope.model });
+    if (scope.buildingId)
+      query.andWhere("doc.scope->>'buildingId' = :bid", {
+        bid: scope.buildingId,
+      });
+    if (scope.programId)
+      query.andWhere("doc.scope->>'programId' = :pid", {
+        pid: scope.programId,
+      });
+    if (scope.lineId)
+      query.andWhere("doc.scope->>'lineId' = :lid", { lid: scope.lineId });
+    if (scope.model)
+      query.andWhere("doc.scope->>'model' = :model", { model: scope.model });
 
     return query.orderBy('doc.updatedAt', 'DESC').getMany();
   }
