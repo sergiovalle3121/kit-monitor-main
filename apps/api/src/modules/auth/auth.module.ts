@@ -17,7 +17,7 @@ import { SeedController } from './controllers/seed.controller';
 // Entities
 import { Tenant } from './entities/tenant.entity';
 import { Plant } from './entities/plant.entity';
-import { User } from './entities/user.entity';
+import { User } from '../users/entities/user.entity'; // Points to unified entity
 import { Role } from './entities/role.entity';
 import { Permission } from './entities/permission.entity';
 import { UserRoleAssignment } from './entities/user-role.entity';

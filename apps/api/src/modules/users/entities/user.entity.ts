@@ -1,83 +1,57 @@
-import {
-  Entity,
-  PrimaryGeneratedColumn,
-  Column,
-  CreateDateColumn,
-  UpdateDateColumn,
-  DeleteDateColumn,
-  Index,
-} from 'typeorm';
+import { Entity, Column, OneToMany, ManyToOne, JoinColumn, Index } from 'typeorm';
+import { BaseEntity } from '../../auth/entities/base.entity';
+import { Tenant } from '../../auth/entities/tenant.entity';
+import { UserRoleAssignment } from '../../auth/entities/user-role.entity';
 
-export enum UserRole {
-  ADMIN = 'Admin',
-  PLANNER = 'Planner',
-  MATERIALS_LEAD = 'Materials Lead',
-  WAREHOUSE_OPERATOR = 'Warehouse Operator',
-  PRODUCTION_SUPERVISOR = 'Production Supervisor',
-  QUALITY_ENGINEER = 'Quality Engineer',
-  QUALITY_MANAGER = 'Quality Manager',
-  SHIPPING_LEAD = 'Shipping Lead',
-}
-
+/**
+ * User entity - represents a user in the system.
+ * Each user belongs to a tenant and can have multiple roles assigned.
+ * Unified version for the AXOS OS RBAC system.
+ */
 @Entity('users')
-@Index(['tenant_id', 'email'], { unique: true })
-export class User {
-  @PrimaryGeneratedColumn()
-  id: number;
-
-  // ── Multi-tenant identity ────────────────────────────────────────────────
-  // Nullable during migration; will be NOT NULL once tenant management is live.
+@Index(['tenantId'])
+@Index(['email', 'tenantId'], { unique: true })
+export class User extends BaseEntity {
+  @Column({ type: 'uuid', name: 'tenant_id' })
   @Index()
-  @Column({ type: 'varchar', length: 36, nullable: true, name: 'tenant_id' })
-  tenant_id: string | null;
+  tenantId: string;
 
-  @Column({
-    type: 'varchar',
-    length: 36,
-    nullable: true,
-    name: 'organization_id',
-  })
-  organization_id: string | null;
+  @ManyToOne(() => Tenant, { eager: false })
+  @JoinColumn({ name: 'tenant_id' })
+  tenant: Tenant;
 
-  // Default plant for this user; null means org-level access (multi-plant).
-  @Column({ type: 'varchar', length: 36, nullable: true, name: 'plant_id' })
-  plant_id: string | null;
-
-  // ── Core identity ────────────────────────────────────────────────────────
-  @Column({ unique: true })
+  @Column({ type: 'varchar', length: 255 })
   email: string;
 
-  @Column()
+  @Column({ type: 'varchar', length: 255 })
   username: string;
 
-  @Column({ select: false })
-  password: string;
+  @Column({ type: 'varchar', length: 255, select: false, name: 'password_hash' })
+  passwordHash: string;
 
-  @Column({ type: 'varchar', length: 50, default: UserRole.WAREHOUSE_OPERATOR })
-  role: UserRole;
+  @Column({ type: 'varchar', length: 100, name: 'first_name' })
+  firstName: string;
 
-  // ── Authorization ────────────────────────────────────────────────────────
+  @Column({ type: 'varchar', length: 100, name: 'last_name' })
+  lastName: string;
+
+  @Column({ default: true, name: 'is_active' })
+  isActive: boolean;
+
+  @Column({ type: 'timestamptz', nullable: true, name: 'last_login_at' })
+  lastLoginAt: Date | null;
+
+  /**
+   * Roles assigned to this user.
+   * Each role assignment includes tenant and optional plant scope.
+   */
+  @OneToMany(() => UserRoleAssignment, (userRole) => userRole.user)
+  userRoles: UserRoleAssignment[];
+
+  // Compatibility fields for legacy code (TODO: remove once all modules are updated)
   @Column({ type: 'jsonb', nullable: true })
-  scopes: {
-    buildings?: string[];
-    programs?: string[];
-    lines?: number[];
-    warehouses?: string[];
-  };
+  scopes: any;
 
   @Column({ type: 'jsonb', nullable: true })
   permissions: string[];
-
-  @Column({ default: true })
-  isActive: boolean;
-
-  // ── Audit timestamps ─────────────────────────────────────────────────────
-  @CreateDateColumn({ name: 'created_at' })
-  createdAt: Date;
-
-  @UpdateDateColumn({ name: 'updated_at' })
-  updatedAt: Date;
-
-  @DeleteDateColumn({ name: 'deleted_at', nullable: true })
-  deletedAt: Date | null;
 }
