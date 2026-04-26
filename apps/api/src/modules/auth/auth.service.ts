@@ -15,13 +15,14 @@ export class AuthService {
   async validateUser(identifier: string, pass: string): Promise<User> {
     const normalizedIdentifier = (identifier ?? '').trim();
     const normalizedPass = String(pass ?? '');
-    const user =
-      await this.usersService.findOneByIdentifier(normalizedIdentifier);
+    
+    // Find user and include password_hash
+    const user = await this.usersService.findOneByIdentifier(normalizedIdentifier);
 
     if (
       user &&
       user.isActive !== false &&
-      (await bcrypt.compare(normalizedPass, user.password))
+      (await bcrypt.compare(normalizedPass, user.passwordHash))
     ) {
       return user;
     }
@@ -32,12 +33,12 @@ export class AuthService {
     const payload: JwtPayload = {
       sub: user.id,
       email: user.email,
-      role: user.role,
-      tenant_id: user.tenant_id ?? null,
-      organization_id: user.organization_id ?? null,
-      plant_id: user.plant_id ?? null,
-      permissions: user.permissions ?? null,
-      scopes: user.scopes ?? null,
+      role: 'UnifiedRole', // Roles are now managed by UserRoleAssignment
+      tenant_id: user.tenantId ?? null,
+      organization_id: null,
+      plant_id: null,
+      permissions: user.permissions ?? [],
+      scopes: user.scopes ?? {},
     };
 
     return {
@@ -46,10 +47,9 @@ export class AuthService {
         id: user.id,
         email: user.email,
         username: user.username,
-        role: user.role,
-        tenant_id: user.tenant_id,
-        organization_id: user.organization_id,
-        plant_id: user.plant_id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        tenant_id: user.tenantId,
         permissions: user.permissions ?? [],
         scopes: user.scopes ?? {},
       },

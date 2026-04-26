@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { User, UserRole } from './entities/user.entity';
+import { User } from './entities/user.entity';
 
 @Injectable()
 export class UsersService {
@@ -16,10 +16,10 @@ export class UsersService {
   }
 
   async findAll(): Promise<User[]> {
-    return this.userRepo.find({ order: { id: 'ASC' } });
+    return this.userRepo.find({ order: { createdAt: 'DESC' } });
   }
 
-  async findOne(id: number): Promise<User> {
+  async findOne(id: string): Promise<User> {
     const user = await this.userRepo.findOne({ where: { id } });
     if (!user) throw new NotFoundException('User not found');
     return user;
@@ -31,7 +31,7 @@ export class UsersService {
 
     return this.userRepo
       .createQueryBuilder('user')
-      .addSelect('user.password')
+      .addSelect('user.password_hash')
       .where('LOWER(user.email) = :normalized', { normalized })
       .orWhere('LOWER(user.username) = :normalized', { normalized })
       .getOne();
@@ -45,35 +45,27 @@ export class UsersService {
         'id',
         'email',
         'username',
-        'password',
-        'role',
-        'tenant_id',
-        'organization_id',
-        'plant_id',
-        'scopes',
-        'permissions',
+        'passwordHash',
+        'tenantId',
         'isActive',
       ],
     });
   }
 
-  async update(id: number, dto: Partial<User>): Promise<User> {
+  async update(id: string, dto: Partial<User>): Promise<User> {
     const user = await this.findOne(id);
     Object.assign(user, dto);
     return this.userRepo.save(user);
   }
 
-  async remove(id: number): Promise<void> {
+  async remove(id: string): Promise<void> {
     const user = await this.findOne(id);
     await this.userRepo.remove(user);
   }
 
   async getRoleStats() {
-    const users = await this.userRepo.find();
-    const stats: Record<string, number> = {};
-    users.forEach((u) => {
-      stats[u.role] = (stats[u.role] || 0) + 1;
-    });
-    return stats;
+    // This will be updated to use the new UserRoleAssignment system
+    // For now, returning empty to avoid crash
+    return {};
   }
 }
