@@ -21,59 +21,33 @@ export interface ParseResult {
 }
 
 function isOpCode(value: unknown): value is string {
-  return (
-    typeof value === 'string' && value.trim().toUpperCase().startsWith('OP-')
-  );
+  return typeof value === 'string' && value.trim().toUpperCase().startsWith('OP-');
 }
 
 /** Detect flat format: first row has header "model" and "partNumber" (case-insensitive) */
 function isFlatFormat(raw: (string | number | null)[][]): boolean {
   if (!raw[0]) return false;
-  const headers = raw[0].map((c) =>
-    String(c ?? '')
-      .toLowerCase()
-      .replace(/[\s_]/g, ''),
-  );
-  return (
-    headers.includes('model') &&
-    (headers.includes('partnumber') || headers.includes('np'))
-  );
+  const headers = raw[0].map(c => String(c ?? '').toLowerCase().replace(/[\s_]/g, ''));
+  return headers.includes('model') && (headers.includes('partnumber') || headers.includes('np'));
 }
 
 /** Parse flat table: headers in row 0, data from row 1 */
-function parseFlatSheet(
-  raw: (string | number | null)[][],
-  sheetName: string,
-): ParseResult {
+function parseFlatSheet(raw: (string | number | null)[][], sheetName: string): ParseResult {
   const rows: ParsedBomRow[] = [];
   const errors: ParseError[] = [];
 
-  const headers = raw[0].map((c) =>
-    String(c ?? '')
-      .toLowerCase()
-      .replace(/[\s_]/g, ''),
-  );
+  const headers = raw[0].map(c => String(c ?? '').toLowerCase().replace(/[\s_]/g, ''));
   const idx = {
-    model: headers.findIndex((h) => h === 'model'),
-    partNumber: headers.findIndex((h) => h === 'partnumber' || h === 'np'),
-    description: headers.findIndex(
-      (h) => h === 'description' || h === 'descripcion',
-    ),
-    usageFactor: headers.findIndex(
-      (h) => h === 'usagefactor' || h === 'fu' || h === 'factordeuso',
-    ),
-    unit: headers.findIndex((h) => h === 'unit' || h === 'unidad'),
+    model:        headers.findIndex(h => h === 'model'),
+    partNumber:   headers.findIndex(h => h === 'partnumber' || h === 'np'),
+    description:  headers.findIndex(h => h === 'description' || h === 'descripcion'),
+    usageFactor:  headers.findIndex(h => h === 'usagefactor' || h === 'fu' || h === 'factordeuso'),
+    unit:         headers.findIndex(h => h === 'unit' || h === 'unidad'),
   };
-  const locationIdx = headers.findIndex(
-    (h) => h === 'location' || h === 'ubicacion',
-  );
+  const locationIdx = headers.findIndex(h => h === 'location' || h === 'ubicacion');
 
   if (idx.model === -1 || idx.partNumber === -1) {
-    errors.push({
-      sheet: sheetName,
-      row: 0,
-      reason: 'Missing required columns: model, partNumber',
-    });
+    errors.push({ sheet: sheetName, row: 0, reason: 'Missing required columns: model, partNumber' });
     return { rows, errors };
   }
 
@@ -83,12 +57,8 @@ function parseFlatSheet(
     const partNumber = row[idx.partNumber];
 
     if (!model || !partNumber) {
-      if (row.some((c) => c !== null)) {
-        errors.push({
-          sheet: sheetName,
-          row: r + 1,
-          reason: 'Missing model or partNumber',
-        });
+      if (row.some(c => c !== null)) {
+        errors.push({ sheet: sheetName, row: r + 1, reason: 'Missing model or partNumber' });
       }
       continue;
     }
@@ -96,18 +66,14 @@ function parseFlatSheet(
     if (!isOpCode(model) || !isOpCode(partNumber)) continue;
 
     const fuRaw = idx.usageFactor >= 0 ? row[idx.usageFactor] : null;
-    const usageFactor =
-      fuRaw !== null && !isNaN(Number(fuRaw)) ? Number(fuRaw) : 1;
-    const unit =
-      idx.unit >= 0 && row[idx.unit] ? String(row[idx.unit]).trim() : 'EA';
-    const description =
-      idx.description >= 0 && row[idx.description]
-        ? String(row[idx.description]).trim()
-        : undefined;
-    const location =
-      locationIdx >= 0 && row[locationIdx]
-        ? String(row[locationIdx]).trim()
-        : undefined;
+    const usageFactor = fuRaw !== null && !isNaN(Number(fuRaw)) ? Number(fuRaw) : 1;
+    const unit = (idx.unit >= 0 && row[idx.unit]) ? String(row[idx.unit]).trim() : 'EA';
+    const description = idx.description >= 0 && row[idx.description]
+      ? String(row[idx.description]).trim()
+      : undefined;
+    const location = locationIdx >= 0 && row[locationIdx]
+      ? String(row[locationIdx]).trim()
+      : undefined;
 
     rows.push({
       model: String(model).trim(),
@@ -129,10 +95,7 @@ function parseFlatSheet(
  *   Row 2: N.P / F.U headers (or empty in some sheets)
  *   Row 3+: part data (N.P at col offset 0, F.U at col offset 1)
  */
-function parseMultiColumnSheet(
-  raw: (string | number | null)[][],
-  sheetName: string,
-): ParseResult {
+function parseMultiColumnSheet(raw: (string | number | null)[][], sheetName: string): ParseResult {
   const rows: ParsedBomRow[] = [];
   const errors: ParseError[] = [];
 
@@ -150,10 +113,9 @@ function parseMultiColumnSheet(
       if (!isOpCode(partNumber)) continue;
 
       const fuRaw = dataRow[c + 1];
-      const usageFactor =
-        fuRaw !== null && fuRaw !== undefined && !isNaN(Number(fuRaw))
-          ? Number(fuRaw)
-          : 1;
+      const usageFactor = (fuRaw !== null && fuRaw !== undefined && !isNaN(Number(fuRaw)))
+        ? Number(fuRaw)
+        : 1;
 
       rows.push({
         model: modelCode.trim(),

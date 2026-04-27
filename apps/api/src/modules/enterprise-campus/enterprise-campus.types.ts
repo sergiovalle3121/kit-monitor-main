@@ -1,19 +1,9 @@
 export type RiskLevel = 'ok' | 'at_risk' | 'critical' | 'blocked';
 export type BuildingStatus = 'active' | 'maintenance' | 'idle' | 'offline';
-export type WarehouseType =
-  | 'central'
-  | 'building'
-  | 'subwarehouse'
-  | 'pou'
-  | 'quarantine'
-  | 'transit';
-export type ProgramStatus =
-  | 'active'
-  | 'npi'
-  | 'ramping'
-  | 'end_of_life'
-  | 'on_hold';
+export type WarehouseType = 'central' | 'building' | 'subwarehouse' | 'pou' | 'quarantine' | 'transit';
+export type ProgramStatus = 'active' | 'npi' | 'ramping' | 'end_of_life' | 'on_hold';
 export type Shift = 'A' | 'B' | 'C' | 'weekend';
+
 
 export interface ProductionAreaNode {
   id: string;
@@ -125,13 +115,7 @@ export interface CampusKpi {
 export interface CampusException {
   id: string;
   severity: 'critical' | 'high' | 'medium' | 'low';
-  domain:
-    | 'production'
-    | 'materials'
-    | 'quality'
-    | 'planning'
-    | 'shipping'
-    | 'maintenance';
+  domain: 'production' | 'materials' | 'quality' | 'planning' | 'shipping' | 'maintenance';
   buildingId?: string;
   programId?: string;
   message: string;

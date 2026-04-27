@@ -1,18 +1,10 @@
-import {
-  Entity,
-  PrimaryGeneratedColumn,
-  Column,
-  ManyToOne,
-  CreateDateColumn,
-  UpdateDateColumn,
-  Index,
-} from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, CreateDateColumn, UpdateDateColumn, Index } from 'typeorm';
 import { QualityHold } from './quality-hold.entity';
 
 export enum QuarantineTransferStatus {
   PENDING = 'pending',
   COMPLETED = 'completed',
-  CANCELLED = 'cancelled',
+  CANCELLED = 'cancelled'
 }
 
 @Entity('quarantine_transfers')

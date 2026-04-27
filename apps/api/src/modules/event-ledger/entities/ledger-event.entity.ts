@@ -1,10 +1,4 @@
-import {
-  Entity,
-  PrimaryGeneratedColumn,
-  Column,
-  CreateDateColumn,
-  Index,
-} from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, Index } from 'typeorm';
 import { DATE_COLUMN_TYPE } from '../../../common/database/date-column-type';
 import { JSON_COLUMN_TYPE } from '../../../common/database/json-column-type';
 

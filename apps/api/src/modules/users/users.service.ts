@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { User } from './entities/user.entity';
+import { User, UserRole } from './entities/user.entity';
 
 @Injectable()
 export class UsersService {
@@ -16,14 +16,15 @@ export class UsersService {
   }
 
   async findAll(): Promise<User[]> {
-    return this.userRepo.find({ order: { createdAt: 'DESC' } });
+    return this.userRepo.find({ order: { id: 'ASC' } });
   }
 
-  async findOne(id: string): Promise<User> {
+  async findOne(id: number): Promise<User> {
     const user = await this.userRepo.findOne({ where: { id } });
     if (!user) throw new NotFoundException('User not found');
     return user;
   }
+
 
   async findOneByIdentifier(identifier: string): Promise<User | null> {
     const normalized = (identifier ?? '').trim().toLowerCase();
@@ -31,7 +32,7 @@ export class UsersService {
 
     return this.userRepo
       .createQueryBuilder('user')
-      .addSelect('user.password_hash')
+      .addSelect('user.password')
       .where('LOWER(user.email) = :normalized', { normalized })
       .orWhere('LOWER(user.username) = :normalized', { normalized })
       .getOne();
@@ -39,33 +40,29 @@ export class UsersService {
 
   async findOneByEmail(email: string): Promise<User | null> {
     const normalized = (email ?? '').trim().toLowerCase();
-    return this.userRepo.findOne({
+    return this.userRepo.findOne({ 
       where: { email: normalized },
-      select: [
-        'id',
-        'email',
-        'username',
-        'passwordHash',
-        'tenantId',
-        'isActive',
-      ],
+      select: ['id', 'email', 'password', 'role', 'scopes', 'permissions', 'isActive', 'username'] 
     });
   }
 
-  async update(id: string, dto: Partial<User>): Promise<User> {
+  async update(id: number, dto: Partial<User>): Promise<User> {
     const user = await this.findOne(id);
     Object.assign(user, dto);
     return this.userRepo.save(user);
   }
 
-  async remove(id: string): Promise<void> {
+  async remove(id: number): Promise<void> {
     const user = await this.findOne(id);
     await this.userRepo.remove(user);
   }
 
   async getRoleStats() {
-    // This will be updated to use the new UserRoleAssignment system
-    // For now, returning empty to avoid crash
-    return {};
+    const users = await this.userRepo.find();
+    const stats: Record<string, number> = {};
+    users.forEach(u => {
+      stats[u.role] = (stats[u.role] || 0) + 1;
+    });
+    return stats;
   }
 }

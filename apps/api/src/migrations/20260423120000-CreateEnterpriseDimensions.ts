@@ -93,15 +93,9 @@ export class CreateEnterpriseDimensions20260423120000 implements MigrationInterf
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(
-      'ALTER TABLE "enterprise_warehouses" DROP CONSTRAINT IF EXISTS "FK_enterprise_warehouses_building"',
-    );
-    await queryRunner.query(
-      'ALTER TABLE "enterprise_programs" DROP CONSTRAINT IF EXISTS "FK_enterprise_programs_building"',
-    );
-    await queryRunner.query(
-      'ALTER TABLE "enterprise_programs" DROP CONSTRAINT IF EXISTS "FK_enterprise_programs_customer"',
-    );
+    await queryRunner.query('ALTER TABLE "enterprise_warehouses" DROP CONSTRAINT IF EXISTS "FK_enterprise_warehouses_building"');
+    await queryRunner.query('ALTER TABLE "enterprise_programs" DROP CONSTRAINT IF EXISTS "FK_enterprise_programs_building"');
+    await queryRunner.query('ALTER TABLE "enterprise_programs" DROP CONSTRAINT IF EXISTS "FK_enterprise_programs_customer"');
     await queryRunner.query('DROP TABLE IF EXISTS "enterprise_warehouses"');
     await queryRunner.query('DROP TABLE IF EXISTS "enterprise_programs"');
     await queryRunner.query('DROP TABLE IF EXISTS "enterprise_customers"');

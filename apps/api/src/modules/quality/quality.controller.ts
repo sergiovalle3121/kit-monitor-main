@@ -1,13 +1,4 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Body,
-  Param,
-  Patch,
-  Query,
-  UseGuards,
-} from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Patch, Query, UseGuards } from '@nestjs/common';
 import { QualityService } from './quality.service';
 import { QualityHoldLevel } from './entities/quality-hold.entity';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -27,15 +18,14 @@ export class QualityController {
   @Post('holds')
   @RequirePermissions('QUALITY_WRITE')
   async createHold(
-    @Body()
-    dto: {
+    @Body() dto: {
       partNumber: string;
       level: QualityHoldLevel;
       levelValue?: string;
       reason: string;
       heldBy: string;
       notes?: string;
-    },
+    }
   ) {
     return this.qualityService.createHold(dto);
   }
@@ -44,7 +34,7 @@ export class QualityController {
   @RequirePermissions('QUALITY_APPROVE')
   async releaseHold(
     @Param('id') id: number,
-    @Body('releasedBy') releasedBy: string,
+    @Body('releasedBy') releasedBy: string
   ) {
     return this.qualityService.releaseHold(id, releasedBy);
   }
@@ -63,10 +53,7 @@ export class QualityController {
 
   @Patch('transfers/:id/complete')
   @RequirePermissions('QUALITY_WRITE')
-  async completeTransfer(
-    @Param('id') id: number,
-    @Body('actor') actor: string,
-  ) {
+  async completeTransfer(@Param('id') id: number, @Body('actor') actor: string) {
     return this.qualityService.completeQuarantineTransfer(id, actor);
   }
 
@@ -84,19 +71,13 @@ export class QualityController {
 
   @Patch('dispositions/:id/approve')
   @RequirePermissions('QUALITY_APPROVE')
-  async approveDisposition(
-    @Param('id') id: number,
-    @Body('actor') actor: string,
-  ) {
+  async approveDisposition(@Param('id') id: number, @Body('actor') actor: string) {
     return this.qualityService.approveDisposition(id, actor);
   }
 
   @Patch('dispositions/:id/execute')
   @RequirePermissions('QUALITY_WRITE')
-  async executeDisposition(
-    @Param('id') id: number,
-    @Body('actor') actor: string,
-  ) {
+  async executeDisposition(@Param('id') id: number, @Body('actor') actor: string) {
     return this.qualityService.executeDisposition(id, actor);
   }
 
@@ -114,11 +95,7 @@ export class QualityController {
 
   @Patch('capas/:id')
   @RequirePermissions('QUALITY_APPROVE')
-  async updateCapa(
-    @Param('id') id: number,
-    @Body() dto: any,
-    @Body('actor') actor: string,
-  ) {
+  async updateCapa(@Param('id') id: number, @Body() dto: any, @Body('actor') actor: string) {
     return this.qualityService.updateCapa(id, dto, actor || 'QA User');
   }
 

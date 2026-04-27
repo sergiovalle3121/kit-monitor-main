@@ -1,13 +1,4 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Body,
-  Param,
-  Patch,
-  UseGuards,
-  Request,
-} from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Patch, UseGuards, Request } from '@nestjs/common';
 import { ShippingService } from './shipping.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
@@ -38,21 +29,13 @@ export class ShippingController {
 
   @Post(':id/items')
   @RequirePermissions('materials:write')
-  async addItem(
-    @Param('id') id: number,
-    @Body() itemDto: any,
-    @Request() req: any,
-  ) {
+  async addItem(@Param('id') id: number, @Body() itemDto: any, @Request() req: any) {
     return this.shippingService.addItem(id, itemDto, req.user);
   }
 
   @Post(':id/packing-list')
   @RequirePermissions('materials:write')
-  async generatePackingList(
-    @Param('id') id: number,
-    @Body('actor') actor: string,
-    @Request() req: any,
-  ) {
+  async generatePackingList(@Param('id') id: number, @Body('actor') actor: string, @Request() req: any) {
     return this.shippingService.generatePackingList(id, actor, req.user);
   }
 
@@ -77,8 +60,8 @@ export class ShippingController {
   @Post(':id/discrepancy')
   @RequirePermissions('materials:write')
   async reportDiscrepancy(
-    @Param('id') id: number,
-    @Body() body: { type: string; detail: string; actor: string },
+    @Param('id') id: number, 
+    @Body() body: { type: string, detail: string, actor: string }
   ) {
     return this.shippingService.reportPackingDiscrepancy(id, body);
   }

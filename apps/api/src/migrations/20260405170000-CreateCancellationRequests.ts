@@ -44,18 +44,10 @@ export class CreateCancellationRequests20260405170000 implements MigrationInterf
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(
-      'DROP INDEX IF EXISTS "IDX_cancellation_requests_kit_status"',
-    );
-    await queryRunner.query(
-      'DROP INDEX IF EXISTS "IDX_cancellation_requests_status"',
-    );
-    await queryRunner.query(
-      'ALTER TABLE "cancellation_requests" DROP CONSTRAINT IF EXISTS "FK_cancellation_requests_kit"',
-    );
-    await queryRunner.query(
-      'ALTER TABLE "cancellation_requests" DROP CONSTRAINT IF EXISTS "FK_cancellation_requests_publication"',
-    );
+    await queryRunner.query('DROP INDEX IF EXISTS "IDX_cancellation_requests_kit_status"');
+    await queryRunner.query('DROP INDEX IF EXISTS "IDX_cancellation_requests_status"');
+    await queryRunner.query('ALTER TABLE "cancellation_requests" DROP CONSTRAINT IF EXISTS "FK_cancellation_requests_kit"');
+    await queryRunner.query('ALTER TABLE "cancellation_requests" DROP CONSTRAINT IF EXISTS "FK_cancellation_requests_publication"');
     await queryRunner.query('DROP TABLE IF EXISTS "cancellation_requests"');
   }
 }

@@ -1,12 +1,4 @@
-import {
-  Entity,
-  PrimaryGeneratedColumn,
-  Column,
-  ManyToOne,
-  CreateDateColumn,
-  UpdateDateColumn,
-  Index,
-} from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, CreateDateColumn, UpdateDateColumn, Index } from 'typeorm';
 import { NCR } from '../../ncr/entities/ncr.entity';
 import { QualityHold } from './quality-hold.entity';
 
@@ -15,7 +7,7 @@ export enum DispositionType {
   SCRAP = 'scrap',
   RTV = 'rtv',
   REWORK = 'rework',
-  USE_AS_IS = 'use_as_is',
+  USE_AS_IS = 'use_as_is'
 }
 
 export enum DispositionStatus {
@@ -23,7 +15,7 @@ export enum DispositionStatus {
   UNDER_REVIEW = 'under_review',
   APPROVED = 'approved',
   EXECUTED = 'executed',
-  CLOSED = 'closed',
+  CLOSED = 'closed'
 }
 
 @Entity('dispositions')

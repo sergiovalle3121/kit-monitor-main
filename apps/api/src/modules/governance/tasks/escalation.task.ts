@@ -13,9 +13,7 @@ export class EscalationTask {
     this.logger.log('Starting autonomous escalation check...');
     try {
       const result = await this.auditService.checkEscalations();
-      this.logger.log(
-        `Escalation check completed. Exceptions checked: ${result.checked}`,
-      );
+      this.logger.log(`Escalation check completed. Exceptions checked: ${result.checked}`);
     } catch (err) {
       this.logger.error('Error during autonomous escalation check', err.stack);
     }

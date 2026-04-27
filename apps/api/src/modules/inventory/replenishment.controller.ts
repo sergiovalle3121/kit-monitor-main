@@ -1,11 +1,9 @@
-import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Controller, Get, Post, Body, UseGuards, Request } from '@nestjs/common';
+import { ReplenishmentService } from './replenishment.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { RequirePermissions } from '../auth/decorators/permissions.decorator';
-import { ReplenishmentService } from './replenishment.service';
 
-@ApiTags('replenishment')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller('replenishment')
 export class ReplenishmentController {
@@ -13,24 +11,19 @@ export class ReplenishmentController {
 
   @Get('rules')
   @RequirePermissions('materials:read')
-  @ApiOperation({ summary: 'List replenishment rules for the current tenant' })
-  getRules() {
-    return this.replenishmentService.getRules();
+  async getRules(@Request() req: any) {
+    return this.replenishmentService.getRules(req.user);
   }
 
   @Post('rules')
   @RequirePermissions('materials:write')
-  @ApiOperation({ summary: 'Create a replenishment rule' })
-  createRule(@Body() dto: any) {
-    return this.replenishmentService.createRule(dto);
+  async createRule(@Body() dto: any, @Request() req: any) {
+    return this.replenishmentService.createRule(dto, req.user);
   }
 
   @Get('analyze')
   @RequirePermissions('materials:read')
-  @ApiOperation({
-    summary: 'Run inventory analysis and return replenishment signals',
-  })
-  analyze() {
-    return this.replenishmentService.analyzeInventory();
+  async analyze(@Request() req: any) {
+    return this.replenishmentService.analyzeInventory(req.user);
   }
 }

@@ -11,6 +11,7 @@ import { ProductionWip } from './entities/production-wip.entity';
 import { InventoryModule } from '../inventory/inventory.module';
 import { ProductionRuntimeService } from './production-runtime.service';
 import { ProductionRuntimeController } from './production-runtime.controller';
+import { BottleneckService } from './bottleneck.service';
 import { EnterpriseProgram } from '../enterprise-campus/entities/enterprise-program.entity';
 import { EnterpriseLine } from '../enterprise-campus/entities/enterprise-line.entity';
 import { GovernanceModule } from '../governance/governance.module';
@@ -34,8 +35,8 @@ import { AccountingModule } from '../accounting/accounting.module';
     GovernanceModule,
     AccountingModule,
   ],
-  providers: [ProductionRuntimeService],
+  providers: [ProductionRuntimeService, BottleneckService],
   controllers: [ProductionRuntimeController],
-  exports: [ProductionRuntimeService],
+  exports: [ProductionRuntimeService, BottleneckService],
 })
 export class ProductionRuntimeModule {}

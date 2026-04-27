@@ -1,12 +1,4 @@
-import {
-  Entity,
-  PrimaryGeneratedColumn,
-  Column,
-  ManyToOne,
-  CreateDateColumn,
-  UpdateDateColumn,
-  Index,
-} from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, CreateDateColumn, UpdateDateColumn, Index } from 'typeorm';
 import { Supplier } from './supplier.entity';
 import { IQCInspection } from '../../quality/entities/iqc-inspection.entity';
 
@@ -17,13 +9,13 @@ export enum ScarStatus {
   RESPONSE_UNDER_REVIEW = 'response_under_review',
   ACTION_ACCEPTED = 'action_accepted',
   EFFECTIVENESS_REVIEW = 'effectiveness_review',
-  CLOSED = 'closed',
+  CLOSED = 'closed'
 }
 
 export enum ScarSeverity {
   MINOR = 'minor',
   MAJOR = 'major',
-  CRITICAL = 'critical',
+  CRITICAL = 'critical'
 }
 
 @Entity('scars')

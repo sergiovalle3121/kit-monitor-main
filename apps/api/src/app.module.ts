@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { APP_INTERCEPTOR } from '@nestjs/core';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ormOptions } from './orm.options';
 import { HealthController } from './health/health.controller';
@@ -6,6 +7,11 @@ import { TenantModule } from './common/tenant/tenant.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { ForecastModule } from './modules/forecast/forecast.module';
+
+// AXOS OS Intelligence & Tenancy Infrastructure
+import { EventLedgerInterceptor } from './common/interceptors/event-ledger.interceptor';
+import { TenantContextService } from './common/services/tenant-context.service';
+import { TenantSubscriber } from './common/database/tenant.subscriber';
 
 // AXOS OS domain modules
 import { PlansModule } from './modules/plans/plans.module';
@@ -31,6 +37,7 @@ import { ShippingModule } from './modules/shipping/shipping.module';
 import { GovernanceModule } from './modules/governance/governance.module';
 import { EngineeringModule } from './modules/engineering/engineering.module';
 import { AccountingModule } from './modules/accounting/accounting.module';
+import { CostRollupModule } from './modules/cost-rollup/cost-rollup.module';
 
 @Module({
   imports: [
@@ -62,8 +69,17 @@ import { AccountingModule } from './modules/accounting/accounting.module';
     GovernanceModule,
     EngineeringModule,
     AccountingModule,
+    CostRollupModule,
   ],
   controllers: [HealthController],
-  providers: [],
+  providers: [
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: EventLedgerInterceptor,
+    },
+    TenantContextService,
+    TenantSubscriber,
+  ],
+  exports: [TenantContextService],
 })
 export class AppModule {}

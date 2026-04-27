@@ -1,12 +1,4 @@
-import {
-  Column,
-  CreateDateColumn,
-  Entity,
-  JoinColumn,
-  ManyToOne,
-  PrimaryColumn,
-  UpdateDateColumn,
-} from 'typeorm';
+import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryColumn, UpdateDateColumn } from 'typeorm';
 import { EnterpriseLine } from './enterprise-line.entity';
 
 export type EnterpriseStationStatus = 'active' | 'disabled' | 'maintenance';
@@ -16,10 +8,7 @@ export class EnterpriseStation {
   @PrimaryColumn({ type: 'varchar', length: 64 })
   id: string;
 
-  @ManyToOne(() => EnterpriseLine, (line) => line.stations, {
-    nullable: false,
-    onDelete: 'CASCADE',
-  })
+  @ManyToOne(() => EnterpriseLine, (line) => line.stations, { nullable: false, onDelete: 'CASCADE' })
   @JoinColumn({ name: 'line_id' })
   line: EnterpriseLine;
 

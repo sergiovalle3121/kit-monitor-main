@@ -1,20 +1,9 @@
-import {
-  Column,
-  CreateDateColumn,
-  Entity,
-  JoinColumn,
-  ManyToOne,
-  PrimaryGeneratedColumn,
-} from 'typeorm';
+import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
 import { Plan } from '../../plans/entities/plan.entity';
 import { Kit } from '../../kits/entities/kit.entity';
 import { DATE_COLUMN_TYPE } from '../../../common/database/date-column-type';
 
-export type CancellationRequestStatus =
-  | 'pending'
-  | 'accepted'
-  | 'rejected'
-  | 'expired';
+export type CancellationRequestStatus = 'pending' | 'accepted' | 'rejected' | 'expired';
 
 @Entity('cancellation_requests')
 export class CancellationRequest {

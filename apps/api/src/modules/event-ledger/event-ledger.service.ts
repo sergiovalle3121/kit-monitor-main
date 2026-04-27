@@ -10,7 +10,7 @@ export interface CreateLedgerEventDto {
   action: string;
   referenceType?: string;
   referenceId?: string;
-
+  
   plant?: string;
   warehouse?: string;
   line?: string;
@@ -68,25 +68,17 @@ export class EventLedgerService {
         metadata: dto.metadata || {},
       });
       const saved = await this.ledgerRepository.save(event);
-      this.logger.log(
-        `Event recorded: [${dto.domain}] ${dto.action} on ${dto.referenceType}:${dto.referenceId}`,
-      );
+      this.logger.log(`Event recorded: [${dto.domain}] ${dto.action} on ${dto.referenceType}:${dto.referenceId}`);
       return saved;
     } catch (error) {
-      this.logger.error(
-        `Failed to record event: [${dto.domain}] ${dto.action}`,
-        error,
-      );
+      this.logger.error(`Failed to record event: [${dto.domain}] ${dto.action}`, error);
       // In a strict environment, failing to write to ledger might revert the transaction.
       // For now, we log it and avoid crashing the main workflow.
       throw error;
     }
   }
 
-  async getEventsByReference(
-    referenceType: string,
-    referenceId: string,
-  ): Promise<LedgerEvent[]> {
+  async getEventsByReference(referenceType: string, referenceId: string): Promise<LedgerEvent[]> {
     return this.ledgerRepository.find({
       where: { referenceType, referenceId },
       order: { timestamp: 'DESC' },
@@ -94,8 +86,7 @@ export class EventLedgerService {
   }
 
   async getEventsByWorkOrder(workOrder: string): Promise<LedgerEvent[]> {
-    return this.ledgerRepository
-      .createQueryBuilder('event')
+    return this.ledgerRepository.createQueryBuilder('event')
       .where("event.context->>'workOrder' = :workOrder", { workOrder })
       .orderBy('event.timestamp', 'DESC')
       .getMany();

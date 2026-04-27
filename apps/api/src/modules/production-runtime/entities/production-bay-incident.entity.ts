@@ -12,20 +12,6 @@ export class ProductionBayIncident {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column({ type: 'varchar', length: 36, nullable: true, name: 'tenant_id' })
-  tenant_id: string | null;
-
-  @Column({
-    type: 'varchar',
-    length: 36,
-    nullable: true,
-    name: 'organization_id',
-  })
-  organization_id: string | null;
-
-  @Column({ type: 'varchar', length: 36, nullable: true, name: 'plant_id' })
-  plant_id: string | null;
-
   @ManyToOne(() => Kit, { onDelete: 'CASCADE' })
   kit: Kit;
 

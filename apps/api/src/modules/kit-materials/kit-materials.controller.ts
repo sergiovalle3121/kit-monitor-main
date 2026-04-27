@@ -1,15 +1,4 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Patch,
-  Delete,
-  Param,
-  Body,
-  Query,
-  ParseIntPipe,
-  UseGuards,
-} from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Param, Body, Query, ParseIntPipe, UseGuards } from '@nestjs/common';
 import { KitMaterialsService } from './kit-materials.service';
 import { CreateKitMaterialDto } from './dto/create-kit-material.dto';
 import { UpdateKitMaterialDto } from './dto/update-kit-material.dto';
@@ -31,10 +20,7 @@ export class KitMaterialsController {
   }
 
   @Patch(':id')
-  update(
-    @Param('id', ParseIntPipe) id: number,
-    @Body() dto: UpdateKitMaterialDto,
-  ) {
+  update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateKitMaterialDto) {
     return this.service.update(id, dto);
   }
 

@@ -20,15 +20,12 @@ function toText(value: unknown): string | undefined {
 }
 
 function isOpCode(value: unknown): value is string {
-  return (
-    typeof value === 'string' && value.trim().toUpperCase().startsWith('OP-')
-  );
+  return typeof value === 'string' && value.trim().toUpperCase().startsWith('OP-');
 }
 
 export function parseKanbanXlsx(buffer: Buffer): ParsedKanbanRow[] {
   const workbook = XLSX.read(buffer, { type: 'buffer' });
-  const sheet =
-    workbook.Sheets['Kan-Ban'] ?? workbook.Sheets[workbook.SheetNames[0] ?? ''];
+  const sheet = workbook.Sheets['Kan-Ban'] ?? workbook.Sheets[workbook.SheetNames[0] ?? ''];
   if (!sheet) return [];
 
   const raw: unknown[][] = XLSX.utils.sheet_to_json(sheet, {
@@ -39,14 +36,10 @@ export function parseKanbanXlsx(buffer: Buffer): ParsedKanbanRow[] {
   const headerRow = raw[0] ?? [];
   const headers = headerRow.map(normalizeHeader);
 
-  const partNumberIndex = headers.findIndex(
-    (header) => header === 'numerodeparte',
-  );
-  const descriptionIndex = headers.findIndex(
-    (header) => header === 'descripcion',
-  );
-  const locationIndex = headers.findIndex((header) => header === 'ubicacion');
-  const location2Index = headers.findIndex((header) => header === 'ubicacion2');
+  const partNumberIndex = headers.findIndex(header => header === 'numerodeparte');
+  const descriptionIndex = headers.findIndex(header => header === 'descripcion');
+  const locationIndex = headers.findIndex(header => header === 'ubicacion');
+  const location2Index = headers.findIndex(header => header === 'ubicacion2');
 
   if (partNumberIndex === -1) return [];
 
@@ -57,11 +50,10 @@ export function parseKanbanXlsx(buffer: Buffer): ParsedKanbanRow[] {
     const partNumber = row[partNumberIndex];
     if (!isOpCode(partNumber)) continue;
 
-    const location =
-      [toText(row[locationIndex]), toText(row[location2Index])]
-        .filter(Boolean)
-        .join(' ')
-        .trim() || undefined;
+    const location = [toText(row[locationIndex]), toText(row[location2Index])]
+      .filter(Boolean)
+      .join(' ')
+      .trim() || undefined;
 
     catalog.set(partNumber.trim(), {
       partNumber: partNumber.trim(),

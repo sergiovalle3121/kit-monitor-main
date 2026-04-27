@@ -1,35 +1,10 @@
-import {
-  Entity,
-  PrimaryGeneratedColumn,
-  Column,
-  CreateDateColumn,
-  UpdateDateColumn,
-  Index,
-  OneToOne,
-  JoinColumn,
-} from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Index, OneToOne, JoinColumn } from 'typeorm';
 import { Kit } from '../../kits/entities/kit.entity';
 
 @Entity('production_wip')
-@Index(['tenant_id', 'status'])
 export class ProductionWip {
   @PrimaryGeneratedColumn()
   id: number;
-
-  @Index()
-  @Column({ type: 'varchar', length: 36, nullable: true, name: 'tenant_id' })
-  tenant_id: string | null;
-
-  @Column({
-    type: 'varchar',
-    length: 36,
-    nullable: true,
-    name: 'organization_id',
-  })
-  organization_id: string | null;
-
-  @Column({ type: 'varchar', length: 36, nullable: true, name: 'plant_id' })
-  plant_id: string | null;
 
   @OneToOne(() => Kit)
   @JoinColumn()

@@ -1,29 +1,9 @@
-import {
-  Entity,
-  PrimaryColumn,
-  Column,
-  CreateDateColumn,
-  UpdateDateColumn,
-  Index,
-} from 'typeorm';
+import { Entity, PrimaryColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 
 @Entity('material_master')
 export class MaterialMaster {
   @PrimaryColumn({ type: 'varchar', length: 100 })
   partNumber: string;
-
-  // Multi-tenant: nullable during migration; each tenant maintains its own catalog.
-  @Index()
-  @Column({ type: 'varchar', length: 36, nullable: true, name: 'tenant_id' })
-  tenant_id: string | null;
-
-  @Column({
-    type: 'varchar',
-    length: 36,
-    nullable: true,
-    name: 'organization_id',
-  })
-  organization_id: string | null;
 
   @Column({ type: 'varchar', length: 255 })
   description: string;

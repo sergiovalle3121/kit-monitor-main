@@ -1,40 +1,12 @@
-import {
-  Entity,
-  PrimaryGeneratedColumn,
-  Column,
-  ManyToOne,
-  JoinColumn,
-  Index,
-  Unique,
-  CreateDateColumn,
-  UpdateDateColumn,
-} from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, Index, Unique, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 import { MaterialMaster } from './material-master.entity';
 import { EnterpriseWarehouse } from '../../enterprise-campus/entities/enterprise-warehouse.entity';
 
 @Entity('inventory_positions')
 @Unique(['material', 'warehouse', 'location', 'programId'])
-@Index(['tenant_id', 'warehouseId'])
-@Index(['tenant_id', 'partNumber'])
 export class InventoryPosition {
   @PrimaryGeneratedColumn()
   id: number;
-
-  // Multi-tenant isolation — nullable during migration phase.
-  @Index()
-  @Column({ type: 'varchar', length: 36, nullable: true, name: 'tenant_id' })
-  tenant_id: string | null;
-
-  @Column({
-    type: 'varchar',
-    length: 36,
-    nullable: true,
-    name: 'organization_id',
-  })
-  organization_id: string | null;
-
-  @Column({ type: 'varchar', length: 36, nullable: true, name: 'plant_id' })
-  plant_id: string | null;
 
   @ManyToOne(() => MaterialMaster)
   @JoinColumn({ name: 'part_number' })
@@ -71,15 +43,7 @@ export class InventoryPosition {
     default: 'available',
   })
   @Index()
-  holdStatus:
-    | 'available'
-    | 'hold'
-    | 'quarantine'
-    | 'expired'
-    | 'pending_iqc'
-    | 'pending_oqc'
-    | 'staged_for_shipping'
-    | 'shipped';
+  holdStatus: 'available' | 'hold' | 'quarantine' | 'expired' | 'pending_iqc' | 'pending_oqc' | 'staged_for_shipping' | 'shipped';
 
   @Column({ type: 'varchar', length: 100, nullable: true })
   lotNumber?: string;

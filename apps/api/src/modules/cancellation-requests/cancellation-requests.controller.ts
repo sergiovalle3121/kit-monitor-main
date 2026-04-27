@@ -1,12 +1,4 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Param,
-  ParseIntPipe,
-  Patch,
-  Post,
-} from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseIntPipe, Patch, Post } from '@nestjs/common';
 import { CancellationRequestsService } from './cancellation-requests.service';
 import { CreateCancellationRequestDto } from './dto/create-cancellation-request.dto';
 import { RespondCancellationRequestDto } from './dto/respond-cancellation-request.dto';
@@ -31,10 +23,7 @@ export class CancellationRequestsController {
   }
 
   @Patch(':id/respond')
-  respond(
-    @Param('id', ParseIntPipe) id: number,
-    @Body() dto: RespondCancellationRequestDto,
-  ) {
+  respond(@Param('id', ParseIntPipe) id: number, @Body() dto: RespondCancellationRequestDto) {
     return this.service.respond(id, dto);
   }
 }

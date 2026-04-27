@@ -1,43 +1,17 @@
 import {
-  Entity,
-  PrimaryGeneratedColumn,
-  Column,
-  CreateDateColumn,
-  OneToOne,
-  Index,
+  Entity, PrimaryGeneratedColumn, Column,
+  CreateDateColumn, OneToOne, Index,
 } from 'typeorm';
-
 import { Kit } from '../../kits/entities/kit.entity';
 import { DATE_COLUMN_TYPE } from '../../../common/database/date-column-type';
 
-export type PlanStatus =
-  | 'pending'
-  | 'released'
-  | 'active'
-  | 'completed'
-  | 'cancelled';
+export type PlanStatus = 'pending' | 'released' | 'active' | 'completed' | 'cancelled';
 export type PlanPriority = 'low' | 'normal' | 'high' | 'critical';
 
 @Entity('plans')
-@Index(['tenant_id', 'status'])
 export class Plan {
   @PrimaryGeneratedColumn()
   id: number;
-
-  @Index()
-  @Column({ type: 'varchar', length: 36, nullable: true, name: 'tenant_id' })
-  tenant_id: string | null;
-
-  @Column({
-    type: 'varchar',
-    length: 36,
-    nullable: true,
-    name: 'organization_id',
-  })
-  organization_id: string | null;
-
-  @Column({ type: 'varchar', length: 36, nullable: true, name: 'plant_id' })
-  plant_id: string | null;
 
   @Column({ unique: true })
   @Index()

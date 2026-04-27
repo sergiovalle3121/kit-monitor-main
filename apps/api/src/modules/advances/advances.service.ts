@@ -1,8 +1,4 @@
-import {
-  Injectable,
-  NotFoundException,
-  BadRequestException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { Advance } from './entities/advance.entity';
@@ -13,10 +9,9 @@ import { CreateAdvanceDto } from './dto/create-advance.dto';
 @Injectable()
 export class AdvancesService {
   constructor(
-    @InjectRepository(Advance) private readonly repo: Repository<Advance>,
-    @InjectRepository(Kit) private readonly kitRepo: Repository<Kit>,
-    @InjectRepository(KitMaterial)
-    private readonly materialRepo: Repository<KitMaterial>,
+    @InjectRepository(Advance)    private readonly repo: Repository<Advance>,
+    @InjectRepository(Kit)        private readonly kitRepo: Repository<Kit>,
+    @InjectRepository(KitMaterial) private readonly materialRepo: Repository<KitMaterial>,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -41,14 +36,14 @@ export class AdvancesService {
     }
 
     const totalBefore = kit.advances.reduce((s, a) => s + a.unitsAssembled, 0);
-    const totalAfter = totalBefore + dto.unitsAssembled;
-    const planQty = kit.plan.quantity;
+    const totalAfter  = totalBefore + dto.unitsAssembled;
+    const planQty     = kit.plan.quantity;
 
     if (totalAfter > planQty) {
       throw new BadRequestException(
         `Advance would exceed plan quantity (${planQty}). ` +
-          `Already completed: ${totalBefore}. Delta: ${dto.unitsAssembled}. ` +
-          `Max allowed: ${planQty - totalBefore}.`,
+        `Already completed: ${totalBefore}. Delta: ${dto.unitsAssembled}. ` +
+        `Max allowed: ${planQty - totalBefore}.`,
       );
     }
 
@@ -56,22 +51,21 @@ export class AdvancesService {
     return this.dataSource.transaction(async (em) => {
       // Save advance
       const advance = em.create(Advance, {
-        kit: { id: dto.kitId } as Kit,
+        kit:            { id: dto.kitId } as Kit,
         unitsAssembled: dto.unitsAssembled,
-        notes: dto.notes,
+        notes:          dto.notes,
       });
       await em.save(Advance, advance);
 
       // Recalculate consumption for every KitMaterial
       for (const material of kit.materials) {
         // Derive usageFactor from stored quantityRequired and plan quantity
-        const usageFactor = material.quantityRequired / planQty;
-        const quantityConsumed = usageFactor * totalAfter;
+        const usageFactor        = material.quantityRequired / planQty;
+        const quantityConsumed   = usageFactor * totalAfter;
         const quantityResupplied = material.quantityResupplied ?? 0;
-        const quantityRemaining =
-          material.quantityRequired + quantityResupplied - quantityConsumed;
+        const quantityRemaining  = (material.quantityRequired + quantityResupplied) - quantityConsumed;
         await em.update(KitMaterial, material.id, {
-          quantityConsumed: Math.round(quantityConsumed * 1e6) / 1e6,
+          quantityConsumed:  Math.round(quantityConsumed  * 1e6) / 1e6,
           quantityRemaining: Math.round(quantityRemaining * 1e6) / 1e6,
         });
       }

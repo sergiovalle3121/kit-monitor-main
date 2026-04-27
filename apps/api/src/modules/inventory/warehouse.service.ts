@@ -1,18 +1,12 @@
-import {
-  Injectable,
-  NotFoundException,
-  BadRequestException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import {
-  WarehouseTask,
-  WarehouseTaskStatus,
-  WarehouseTaskType,
-} from './entities/warehouse-task.entity';
+import { WarehouseTask, WarehouseTaskStatus, WarehouseTaskType } from './entities/warehouse-task.entity';
 import { InventoryService } from './inventory.service';
 import { AuditService } from '../governance/audit.service';
-import { TenantContextService } from '../../common/tenant/tenant-context.service';
+import { User } from '../users/entities/user.entity';
+import { EnterpriseWarehouse } from '../enterprise-campus/entities/enterprise-warehouse.entity';
+import { In } from 'typeorm';
 
 @Injectable()
 export class WarehouseService {
@@ -21,101 +15,76 @@ export class WarehouseService {
     private readonly taskRepo: Repository<WarehouseTask>,
     private readonly inventory: InventoryService,
     private readonly audit: AuditService,
-    private readonly tenantContext: TenantContextService,
+    @InjectRepository(EnterpriseWarehouse)
+    private readonly warehouseRepo: Repository<EnterpriseWarehouse>,
   ) {}
 
-  async findAllTasks(filters: {
-    status?: string;
-    type?: string;
-    warehouseId?: string;
-  }): Promise<WarehouseTask[]> {
+  async findAllTasks(filters: any, user: User): Promise<WarehouseTask[]> {
     const qb = this.taskRepo.createQueryBuilder('task');
 
-    // 1. Tenant isolation
-    const tenantId = this.tenantContext.getTenantId();
-    if (tenantId) qb.andWhere('task.tenant_id = :tenantId', { tenantId });
-
-    // 2. Building-level scope
-    const allowedBuildings = this.tenantContext.getAllowedBuildingIds();
-    if (allowedBuildings.length > 0) {
-      const whIds =
-        await this.inventory.resolveWarehouseIdsByBuildings(allowedBuildings);
-      whIds.length > 0
-        ? qb.andWhere(
-            '(task.fromWarehouseId IN (:...whIds) OR task.toWarehouseId IN (:...whIds))',
-            { whIds },
-          )
-        : qb.andWhere('1 = 0');
+    // 1. Scope-aware filtering
+    const scopeBids = user.scopes?.buildings ?? [];
+    if (scopeBids.length > 0) {
+      const whs = await this.warehouseRepo.find({ where: { building: { id: In(scopeBids) } } as any });
+      const whIds = whs.map(w => w.id);
+      if (whIds.length > 0) {
+        qb.andWhere('(task.fromWarehouseId IN (:...whIds) OR task.toWarehouseId IN (:...whIds))', { whIds });
+      } else {
+        qb.andWhere('1 = 0');
+      }
     }
 
-    if (filters.status)
-      qb.andWhere('task.status = :status', { status: filters.status });
+    if (filters.status) qb.andWhere('task.status = :status', { status: filters.status });
     if (filters.type) qb.andWhere('task.type = :type', { type: filters.type });
-    if (filters.warehouseId)
-      qb.andWhere('(task.fromWarehouseId = :wh OR task.toWarehouseId = :wh)', {
-        wh: filters.warehouseId,
-      });
-
-    return qb.orderBy('task.createdAt', 'DESC').getMany();
+    qb.orderBy('task.createdAt', 'DESC');
+    return qb.getMany();
   }
 
-  async createTask(dto: Partial<WarehouseTask>): Promise<WarehouseTask> {
+  async createTask(dto: Partial<WarehouseTask>, user: User): Promise<WarehouseTask> {
     const count = await this.taskRepo.count();
-    const year = new Date().getFullYear();
-    const taskNumber = `TSK-${year}-${(count + 1).toString().padStart(4, '0')}`;
-
-    const task = this.taskRepo.create({
-      ...dto,
-      taskNumber,
-      status: WarehouseTaskStatus.PENDING,
-      tenant_id: this.tenantContext.getTenantId(),
-      organization_id: this.tenantContext.getOrganizationId(),
-      plant_id: this.tenantContext.getPlantId(),
-    });
+    const taskNumber = `TSK-2024-${(count + 1).toString().padStart(4, '0')}`;
+    const task = this.taskRepo.create({ ...dto, taskNumber, status: WarehouseTaskStatus.PENDING });
     const saved = await this.taskRepo.save(task);
 
     await this.audit.recordAction({
-      actor: this.tenantContext.getUserEmail(),
+      actor: user.email,
       action: 'WAREHOUSE_TASK_CREATED',
       resourceType: 'WarehouseTask',
       resourceId: saved.taskNumber,
-      metadata: {
-        type: saved.type,
-        from: saved.fromWarehouseId,
-        to: saved.toWarehouseId,
-      },
-      outcome: 'ALLOWED',
+      metadata: { type: saved.type, from: saved.fromWarehouseId, to: saved.toWarehouseId },
+      outcome: 'ALLOWED'
     });
 
     return saved;
   }
 
-  async startTask(id: number, actor: string): Promise<WarehouseTask> {
-    const task = await this.findTaskInTenant(id);
-    if (task.status !== WarehouseTaskStatus.PENDING)
-      throw new BadRequestException('Task already started or completed');
-
+  async startTask(id: number, actor: string, user: User): Promise<WarehouseTask> {
+    const task = await this.taskRepo.findOne({ where: { id } });
+    if (!task) throw new NotFoundException('Task not found');
+    if (task.status !== WarehouseTaskStatus.PENDING) throw new BadRequestException('Task already started or completed');
+    
     task.status = WarehouseTaskStatus.IN_PROGRESS;
     task.assignedTo = actor;
     const saved = await this.taskRepo.save(task);
 
     await this.audit.recordAction({
-      actor: this.tenantContext.getUserEmail(),
+      actor: user.email,
       action: 'WAREHOUSE_TASK_STARTED',
       resourceType: 'WarehouseTask',
       resourceId: saved.taskNumber,
       metadata: { assignedTo: actor },
-      outcome: 'ALLOWED',
+      outcome: 'ALLOWED'
     });
 
     return saved;
   }
 
-  async completeTask(id: number, actor: string): Promise<WarehouseTask> {
-    const task = await this.findTaskInTenant(id);
-    if (task.status !== WarehouseTaskStatus.IN_PROGRESS)
-      throw new BadRequestException('Task must be in progress to complete');
+  async completeTask(id: number, actor: string, user: User): Promise<WarehouseTask> {
+    const task = await this.taskRepo.findOne({ where: { id } });
+    if (!task) throw new NotFoundException('Task not found');
+    if (task.status !== WarehouseTaskStatus.IN_PROGRESS) throw new BadRequestException('Task must be in progress to complete');
 
+    // Execute Physical Movement
     await this.inventory.recordTransaction({
       type: 'TRANSFER',
       partNumber: task.partNumber,
@@ -128,7 +97,7 @@ export class WarehouseService {
       referenceType: 'WAREHOUSE_TASK',
       referenceId: task.taskNumber,
       lotNumber: task.lotNumber,
-      reason: `Task Completion: ${task.type.toUpperCase()} - ${task.taskNumber}`,
+      reason: `Task Completion: ${task.type.toUpperCase()} - ${task.taskNumber}`
     });
 
     task.status = WarehouseTaskStatus.COMPLETED;
@@ -137,55 +106,48 @@ export class WarehouseService {
     const saved = await this.taskRepo.save(task);
 
     await this.audit.recordAction({
-      actor: this.tenantContext.getUserEmail(),
+      actor: user.email,
       action: 'WAREHOUSE_TASK_COMPLETED',
       resourceType: 'WarehouseTask',
       resourceId: saved.taskNumber,
       metadata: { completedBy: actor },
-      outcome: 'ALLOWED',
+      outcome: 'ALLOWED'
     });
 
     return saved;
   }
 
-  async getPickingBacklog(warehouseId: string): Promise<WarehouseTask[]> {
-    const qb = this.taskRepo
-      .createQueryBuilder('task')
-      .where('task.status IN (:...statuses)', {
-        statuses: [
-          WarehouseTaskStatus.PENDING,
-          WarehouseTaskStatus.IN_PROGRESS,
-        ],
-      })
-      .andWhere('task.type IN (:...types)', {
-        types: [WarehouseTaskType.PICK, WarehouseTaskType.TRANSFER],
-      });
+  // --- GUIDED PICKING ---
 
-    const tenantId = this.tenantContext.getTenantId();
-    if (tenantId) qb.andWhere('task.tenant_id = :tenantId', { tenantId });
-
-    const allowedBuildings = this.tenantContext.getAllowedBuildingIds();
-    if (allowedBuildings.length > 0) {
-      const whIds =
-        await this.inventory.resolveWarehouseIdsByBuildings(allowedBuildings);
-      whIds.length > 0
-        ? qb.andWhere('task.fromWarehouseId IN (:...whIds)', { whIds })
-        : qb.andWhere('1 = 0');
+  async getPickingBacklog(warehouseId: string, user: User): Promise<WarehouseTask[]> {
+    const qb = this.taskRepo.createQueryBuilder('task')
+      .where('task.status IN (:...statuses)', { statuses: [WarehouseTaskStatus.PENDING, WarehouseTaskStatus.IN_PROGRESS] })
+      .andWhere('task.type IN (:...types)', { types: [WarehouseTaskType.PICK, WarehouseTaskType.TRANSFER] });
+    
+    // 1. Scope-aware filtering
+    const scopeBids = user.scopes?.buildings ?? [];
+    if (scopeBids.length > 0) {
+      const whs = await this.warehouseRepo.find({ where: { building: { id: In(scopeBids) } } as any });
+      const whIds = whs.map(w => w.id);
+      if (whIds.length > 0) {
+        qb.andWhere('task.fromWarehouseId IN (:...whIds)', { whIds });
+      } else {
+        qb.andWhere('1 = 0');
+      }
     }
 
-    if (warehouseId)
-      qb.andWhere('task.fromWarehouseId = :wh', { wh: warehouseId });
-
-    return qb.orderBy('task.createdAt', 'ASC').getMany();
+    if (warehouseId) qb.andWhere('task.fromWarehouseId = :wh', { wh: warehouseId });
+    
+    qb.orderBy('task.createdAt', 'ASC');
+    return qb.getMany();
   }
 
-  async handlePickException(
-    id: number,
-    exception: { reason: string; pickedQty: number; actor: string },
-  ): Promise<WarehouseTask> {
-    const task = await this.findTaskInTenant(id);
+  async handlePickException(id: number, exception: { reason: string; pickedQty: number; actor: string }, user: User): Promise<WarehouseTask> {
+    const task = await this.taskRepo.findOne({ where: { id } });
+    if (!task) throw new NotFoundException('Task not found');
 
     if (exception.reason === 'SHORT_PICK' && exception.pickedQty > 0) {
+      // Execute partial movement
       await this.inventory.recordTransaction({
         type: 'TRANSFER',
         partNumber: task.partNumber,
@@ -197,41 +159,32 @@ export class WarehouseService {
         actorName: exception.actor,
         referenceType: 'PICK_EXCEPTION',
         referenceId: task.taskNumber,
-        reason: `Short Pick Exception: ${exception.reason}`,
+        reason: `Short Pick Exception: ${exception.reason}`
       });
-
+      
+      // Create new task for remaining balance
       await this.createTask({
         ...task,
         id: undefined,
         quantity: task.quantity - exception.pickedQty,
         status: WarehouseTaskStatus.PENDING,
-        referenceId: `${task.taskNumber}-REMAINDER`,
-      });
+        referenceId: `${task.taskNumber}-REMAINDER`
+      }, user);
     }
 
-    task.status = WarehouseTaskStatus.CANCELLED;
+    task.status = WarehouseTaskStatus.CANCELLED; // Cancel original task
     task.completedBy = exception.actor;
     const saved = await this.taskRepo.save(task);
 
     await this.audit.recordAction({
-      actor: this.tenantContext.getUserEmail(),
+      actor: user.email,
       action: 'PICK_EXCEPTION_HANDLED',
       resourceType: 'WarehouseTask',
       resourceId: saved.taskNumber,
       metadata: { reason: exception.reason, pickedQty: exception.pickedQty },
-      outcome: 'ALLOWED',
+      outcome: 'ALLOWED'
     });
 
     return saved;
-  }
-
-  private async findTaskInTenant(id: number): Promise<WarehouseTask> {
-    const tenantId = this.tenantContext.getTenantId();
-    const where: Record<string, unknown> = { id };
-    if (tenantId) where['tenant_id'] = tenantId;
-
-    const task = await this.taskRepo.findOne({ where: where });
-    if (!task) throw new NotFoundException('Task not found');
-    return task;
   }
 }

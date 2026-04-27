@@ -3,7 +3,6 @@ import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { UsersService } from '../users/users.service';
 import { User } from '../users/entities/user.entity';
-import { JwtPayload } from '../../common/types/jwt.types';
 
 @Injectable()
 export class AuthService {
@@ -13,46 +12,20 @@ export class AuthService {
   ) {}
 
   async validateUser(identifier: string, pass: string): Promise<User> {
-    const normalizedIdentifier = (identifier ?? '').trim();
-    const normalizedPass = String(pass ?? '');
-    
-    // Find user and include password_hash
+    const normalizedIdentifier = (identifier ?? "").trim();
+    const normalizedPass = String(pass ?? "");
     const user = await this.usersService.findOneByIdentifier(normalizedIdentifier);
 
-    if (
-      user &&
-      user.isActive !== false &&
-      (await bcrypt.compare(normalizedPass, user.passwordHash))
-    ) {
+    if (user && user.isActive !== false && (await bcrypt.compare(normalizedPass, user.password))) {
       return user;
     }
     throw new UnauthorizedException('Credenciales incorrectas');
   }
 
   async login(user: User) {
-    const payload: JwtPayload = {
-      sub: user.id,
-      email: user.email,
-      role: 'UnifiedRole', // Roles are now managed by UserRoleAssignment
-      tenant_id: user.tenantId ?? null,
-      organization_id: null,
-      plant_id: null,
-      permissions: user.permissions ?? [],
-      scopes: user.scopes ?? {},
-    };
-
+    const payload = { email: user.email, sub: user.id };
     return {
       access_token: this.jwtService.sign(payload),
-      user: {
-        id: user.id,
-        email: user.email,
-        username: user.username,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        tenant_id: user.tenantId,
-        permissions: user.permissions ?? [],
-        scopes: user.scopes ?? {},
-      },
     };
   }
 }

@@ -1,21 +1,9 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Param,
-  ParseIntPipe,
-  Patch,
-  Post,
-  Query,
-  UseGuards,
-} from '@nestjs/common';
-import { ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
+import { Controller, Get, Post, Patch, Body, Param, Query, UseGuards, Request } from '@nestjs/common';
+import { WarehouseService } from './warehouse.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { RequirePermissions } from '../auth/decorators/permissions.decorator';
-import { WarehouseService } from './warehouse.service';
 
-@ApiTags('warehouse')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller('warehouse')
 export class WarehouseController {
@@ -23,62 +11,38 @@ export class WarehouseController {
 
   @Get('tasks')
   @RequirePermissions('materials:read')
-  @ApiOperation({ summary: 'List warehouse tasks for the current tenant' })
-  @ApiQuery({ name: 'status', required: false })
-  @ApiQuery({ name: 'type', required: false })
-  @ApiQuery({ name: 'warehouseId', required: false })
-  getTasks(
-    @Query('status') status?: string,
-    @Query('type') type?: string,
-    @Query('warehouseId') warehouseId?: string,
-  ) {
-    return this.warehouseService.findAllTasks({ status, type, warehouseId });
+  async getTasks(@Query() filters: any, @Request() req: any) {
+    return this.warehouseService.findAllTasks(filters, req.user);
   }
 
   @Post('tasks')
   @RequirePermissions('materials:write')
-  @ApiOperation({ summary: 'Create a warehouse task' })
-  createTask(@Body() dto: any) {
-    return this.warehouseService.createTask(dto);
+  async createTask(@Body() dto: any, @Request() req: any) {
+    return this.warehouseService.createTask(dto, req.user);
   }
 
   @Patch('tasks/:id/start')
   @RequirePermissions('materials:write')
-  @ApiOperation({ summary: 'Start a warehouse task' })
-  startTask(
-    @Param('id', ParseIntPipe) id: number,
-    @Body('actor') actor: string,
-  ) {
-    return this.warehouseService.startTask(id, actor);
+  async startTask(@Param('id') id: number, @Body('actor') actor: string, @Request() req: any) {
+    return this.warehouseService.startTask(id, actor, req.user);
   }
 
   @Patch('tasks/:id/complete')
   @RequirePermissions('materials:write')
-  @ApiOperation({
-    summary: 'Complete a warehouse task and execute the physical movement',
-  })
-  completeTask(
-    @Param('id', ParseIntPipe) id: number,
-    @Body('actor') actor: string,
-  ) {
-    return this.warehouseService.completeTask(id, actor);
+  async completeTask(@Param('id') id: number, @Body('actor') actor: string, @Request() req: any) {
+    return this.warehouseService.completeTask(id, actor, req.user);
   }
 
+  // Picking
   @Get('picking/backlog')
   @RequirePermissions('materials:read')
-  @ApiOperation({ summary: 'Get open picking tasks scoped to current tenant' })
-  @ApiQuery({ name: 'warehouseId', required: false })
-  getPickingBacklog(@Query('warehouseId') warehouseId: string) {
-    return this.warehouseService.getPickingBacklog(warehouseId);
+  async getPickingBacklog(@Query('warehouseId') warehouseId: string, @Request() req: any) {
+    return this.warehouseService.getPickingBacklog(warehouseId, req.user);
   }
 
   @Post('picking/:id/exception')
   @RequirePermissions('materials:write')
-  @ApiOperation({ summary: 'Handle a pick exception (short pick, etc.)' })
-  handleException(
-    @Param('id', ParseIntPipe) id: number,
-    @Body() exception: { reason: string; pickedQty: number; actor: string },
-  ) {
-    return this.warehouseService.handlePickException(id, exception);
+  async handleException(@Param('id') id: number, @Body() exception: any, @Request() req: any) {
+    return this.warehouseService.handlePickException(id, exception, req.user);
   }
 }

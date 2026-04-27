@@ -8,7 +8,10 @@ import { EventLedgerModule } from '../event-ledger/event-ledger.module';
 import { Kit } from '../kits/entities/kit.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([KitException, Kit]), EventLedgerModule],
+  imports: [
+    TypeOrmModule.forFeature([KitException, Kit]),
+    EventLedgerModule,
+  ],
   controllers: [ExceptionsController],
   providers: [ExceptionsService],
   exports: [ExceptionsService],

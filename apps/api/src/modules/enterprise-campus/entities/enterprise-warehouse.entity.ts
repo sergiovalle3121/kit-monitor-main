@@ -1,21 +1,7 @@
-import {
-  Column,
-  CreateDateColumn,
-  Entity,
-  JoinColumn,
-  ManyToOne,
-  PrimaryColumn,
-  UpdateDateColumn,
-} from 'typeorm';
+import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryColumn, UpdateDateColumn } from 'typeorm';
 import { EnterpriseBuilding } from './enterprise-building.entity';
 
-export type EnterpriseWarehouseType =
-  | 'central'
-  | 'building'
-  | 'subwarehouse'
-  | 'pou'
-  | 'quarantine'
-  | 'transit';
+export type EnterpriseWarehouseType = 'central' | 'building' | 'subwarehouse' | 'pou' | 'quarantine' | 'transit';
 export type EnterpriseWarehouseStatus = 'active' | 'maintenance' | 'offline';
 
 @Entity('enterprise_warehouses')
@@ -23,10 +9,7 @@ export class EnterpriseWarehouse {
   @PrimaryColumn({ type: 'varchar', length: 64 })
   id: string;
 
-  @ManyToOne(() => EnterpriseBuilding, (building) => building.warehouses, {
-    nullable: true,
-    onDelete: 'SET NULL',
-  })
+  @ManyToOne(() => EnterpriseBuilding, (building) => building.warehouses, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'building_id' })
   building?: EnterpriseBuilding | null;
 

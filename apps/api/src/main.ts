@@ -39,11 +39,9 @@ async function bootstrap() {
   app.setGlobalPrefix('api');
 
   // Seguridad y compresión
-  app.use(
-    helmet({
-      frameguard: false,
-    }),
-  );
+  app.use(helmet({
+    frameguard: false,
+  }));
   app.use(compression());
 
   // ---------------------------
@@ -55,53 +53,42 @@ async function bootstrap() {
   const allowedOrigins = parseAllowedOrigins(allowedOriginEnv);
 
   const defaultDevOrigins = [
-    'http://localhost:4200',
+    'http://localhost:4200', 
     'http://localhost:5173',
     'http://127.0.0.1:4200',
-    'http://127.0.0.1:5173',
+    'http://127.0.0.1:5173'
   ];
   const defaultProdOrigins = ['https://axonos.up.railway.app'];
-  const originsToValidate =
-    allowedOrigins.length > 0
-      ? allowedOrigins
-      : env === 'development'
-        ? defaultDevOrigins
-        : defaultProdOrigins;
+  const originsToValidate = allowedOrigins.length > 0
+    ? allowedOrigins
+    : (env === 'development' ? defaultDevOrigins : defaultProdOrigins);
 
   app.enableCors({
     origin: (origin, callback) => {
-      // Allow requests with no origin (like mobile apps or curl)
       if (!origin) return callback(null, true);
-
       const normalizedOrigin = origin.replace(/\/+$/, '');
 
-      // In production, if no ALLOWED_ORIGIN is set, be more permissive with Railway subdomains
-      if (
-        originsToValidate.length === 0 ||
-        (originsToValidate.length === 1 &&
-          originsToValidate[0] === 'https://axonos.up.railway.app')
-      ) {
-        if (
-          normalizedOrigin.endsWith('.up.railway.app') ||
-          normalizedOrigin === 'http://localhost:4200'
-        ) {
-          return callback(null, true);
-        }
-      }
-
-      const isAllowed = originsToValidate.some((allowed) => {
-        if (allowed === normalizedOrigin) return true;
-        return false;
-      });
-
-      if (isAllowed || env === 'development') {
+      if (originsToValidate.length === 0) {
         return callback(null, true);
       }
 
-      console.error(
-        `[CORS] Origin rejected: ${normalizedOrigin}. Expected one of: ${JSON.stringify(originsToValidate)}`,
-      );
-      return callback(null, true); // Temporarily allow all to debug connection
+      // Exact match or protocol-agnostic match (e.g. //domain.com matches http://domain.com and https://domain.com)
+      const isAllowed = originsToValidate.some(allowed => {
+        if (allowed === normalizedOrigin) return true;
+        if (allowed.startsWith('//') && normalizedOrigin.endsWith(allowed.substring(2))) {
+          // Ensure it's not a subdomain mismatch (e.g. //os.app shouldn't match xos.app)
+          const domain = allowed.substring(2);
+          return normalizedOrigin === `http://${domain}` || normalizedOrigin === `https://${domain}`;
+        }
+        return false;
+      });
+
+      if (isAllowed) {
+        return callback(null, true);
+      }
+
+      console.error(`[CORS] Origin rejected: ${normalizedOrigin}. Expected one of: ${JSON.stringify(originsToValidate)}`);
+      return callback(new Error(`Origin not allowed by CORS: ${normalizedOrigin}`), false);
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
@@ -115,8 +102,7 @@ async function bootstrap() {
   if (env === 'production' && sharedKey) {
     app.use((req: Request, res: Response, next: NextFunction) => {
       // Deja libres endpoints críticos para autenticación y salud
-      if (req.path === '/api/health' || req.path === '/api/auth/login')
-        return next();
+      if (req.path === '/api/health' || req.path === '/api/auth/login') return next();
       if (req.method === 'OPTIONS') return next();
 
       // Si el request ya trae Authorization, el JWT guard hará la validación real
@@ -140,12 +126,12 @@ async function bootstrap() {
   await app.listen(port, '0.0.0.0');
 
   console.log(
-    `[CORS] NODE_ENV=${env} ALLOWED_ORIGIN_RAW="${allowedOriginEnv}" ALLOWED_ORIGINS_RESOLVED=${JSON.stringify(originsToValidate)}`,
+    `[CORS] NODE_ENV=${env} ALLOWED_ORIGIN_RAW="${allowedOriginEnv}" ALLOWED_ORIGINS_RESOLVED=${JSON.stringify(originsToValidate)}`
   );
   console.log(
     `API listening on :${port} (NODE_ENV=${env}) allowedOrigins=${originsToValidate.join(
-      ', ',
-    )}`,
+      ', '
+    )}`
   );
 }
 

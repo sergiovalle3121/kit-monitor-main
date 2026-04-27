@@ -15,16 +15,7 @@ import { GovernanceModule } from '../governance/governance.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([
-      Kit,
-      Plan,
-      BomItem,
-      KitMaterial,
-      BayLayout,
-      ProductionBayMaterialState,
-      EnterpriseProgram,
-      EnterpriseLine,
-    ]),
+    TypeOrmModule.forFeature([Kit, Plan, BomItem, KitMaterial, BayLayout, ProductionBayMaterialState, EnterpriseProgram, EnterpriseLine]),
     EventLedgerModule,
     GovernanceModule,
   ],

@@ -1,35 +1,10 @@
-import {
-  Entity,
-  PrimaryGeneratedColumn,
-  Column,
-  CreateDateColumn,
-  UpdateDateColumn,
-  Index,
-  Unique,
-} from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Index, Unique } from 'typeorm';
 
 @Entity('replenishment_rules')
 @Unique(['warehouseId', 'partNumber', 'programId'])
-@Index(['tenant_id', 'warehouseId'])
 export class ReplenishmentRule {
   @PrimaryGeneratedColumn()
   id: number;
-
-  // Multi-tenant isolation — nullable during migration phase.
-  @Index()
-  @Column({ type: 'varchar', length: 36, nullable: true, name: 'tenant_id' })
-  tenant_id: string | null;
-
-  @Column({
-    type: 'varchar',
-    length: 36,
-    nullable: true,
-    name: 'organization_id',
-  })
-  organization_id: string | null;
-
-  @Column({ type: 'varchar', length: 36, nullable: true, name: 'plant_id' })
-  plant_id: string | null;
 
   @Column({ type: 'varchar', length: 64 })
   @Index()

@@ -31,10 +31,7 @@ export class ExceptionsService {
   }
 
   async create(dto: CreateExceptionDto): Promise<KitException> {
-    const kit = await this.kitRepo.findOne({
-      where: { id: dto.kitId },
-      relations: ['plan'],
-    });
+    const kit = await this.kitRepo.findOne({ where: { id: dto.kitId }, relations: ['plan'] });
     if (!kit) throw new NotFoundException('Kit not found');
 
     const exception = this.repo.create({
@@ -48,10 +45,7 @@ export class ExceptionsService {
     // Ledger Event
     await this.eventLedger.recordEvent({
       domain: EventDomain.MATERIALS,
-      action:
-        dto.type === 'missing_material'
-          ? 'SHORTAGE_DETECTED'
-          : 'EXCEPTION_REPORTED',
+      action: dto.type === 'missing_material' ? 'SHORTAGE_DETECTED' : 'EXCEPTION_REPORTED',
       referenceType: 'KIT',
       referenceId: kit.id.toString(),
       model: kit.plan?.model,
@@ -70,20 +64,14 @@ export class ExceptionsService {
   async resolve(id: number): Promise<KitException> {
     const item = await this.findOne(id);
     await this.repo.update(id, { status: 'resolved', resolvedAt: new Date() });
-
-    const kit = await this.kitRepo.findOne({
-      where: { id: item.kit.id },
-      relations: ['plan'],
-    });
+    
+    const kit = await this.kitRepo.findOne({ where: { id: item.kit.id }, relations: ['plan'] });
 
     // Ledger Event
     if (kit) {
       await this.eventLedger.recordEvent({
         domain: EventDomain.MATERIALS,
-        action:
-          item.type === 'missing_material'
-            ? 'SHORTAGE_RESOLVED'
-            : 'EXCEPTION_RESOLVED',
+        action: item.type === 'missing_material' ? 'SHORTAGE_RESOLVED' : 'EXCEPTION_RESOLVED',
         referenceType: 'KIT',
         referenceId: kit.id.toString(),
         model: kit.plan?.model,

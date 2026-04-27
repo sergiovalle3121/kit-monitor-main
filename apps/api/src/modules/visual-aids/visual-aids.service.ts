@@ -11,32 +11,21 @@ export class VisualAidsService {
   constructor(
     @InjectRepository(VisualAid)
     private readonly repo: Repository<VisualAid>,
-    @InjectRepository(EnterpriseProgram)
-    private readonly programRepo: Repository<EnterpriseProgram>,
+    @InjectRepository(EnterpriseProgram) private readonly programRepo: Repository<EnterpriseProgram>,
   ) {}
 
   async findAll(model?: string, programId?: string): Promise<VisualAid[]> {
-    if (model)
-      return this.repo.find({ where: { model }, order: { updatedAt: 'DESC' } });
+    if (model) return this.repo.find({ where: { model }, order: { updatedAt: 'DESC' } });
     const all = await this.repo.find({ order: { updatedAt: 'DESC' } });
     if (programId) {
-      const program = await this.programRepo.findOne({
-        where: { id: programId },
-      });
+      const program = await this.programRepo.findOne({ where: { id: programId } });
       const prefix = program?.primaryModelPrefix?.toUpperCase();
-      if (prefix)
-        return all.filter((item) =>
-          item.model?.toUpperCase().startsWith(prefix),
-        );
+      if (prefix) return all.filter((item) => item.model?.toUpperCase().startsWith(prefix));
     }
     return all;
   }
 
-  async create(
-    dto: CreateVisualAidDto,
-    filename: string,
-    pdfData: Buffer,
-  ): Promise<VisualAid> {
+  async create(dto: CreateVisualAidDto, filename: string, pdfData: Buffer): Promise<VisualAid> {
     const entity = this.repo.create({
       ...dto,
       pdfUrl: filename,
@@ -48,8 +37,7 @@ export class VisualAidsService {
   }
 
   async findByFilename(filename: string): Promise<VisualAid | null> {
-    return this.repo
-      .createQueryBuilder('visualAid')
+    return this.repo.createQueryBuilder('visualAid')
       .addSelect('visualAid.pdfData')
       .where('visualAid.pdfUrl = :filename', { filename })
       .getOne();

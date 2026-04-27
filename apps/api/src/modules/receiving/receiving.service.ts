@@ -28,10 +28,8 @@ export class ReceivingService {
     // 1. Scope-aware filtering
     const scopeBids = user.scopes?.buildings ?? [];
     if (scopeBids.length > 0) {
-      const whs = await this.warehouseRepo.find({
-        where: { building: { id: In(scopeBids) } },
-      });
-      const whIds = whs.map((w) => w.id);
+      const whs = await this.warehouseRepo.find({ where: { building: { id: In(scopeBids) } } as any });
+      const whIds = whs.map(w => w.id);
       if (whIds.length > 0) {
         qb.andWhere('rec.warehouseId IN (:...whIds)', { whIds });
       } else {
@@ -40,28 +38,22 @@ export class ReceivingService {
     }
 
     // 2. Application filters
-    if (filters.partNumber)
-      qb.andWhere('rec.partNumber LIKE :pn', { pn: `%${filters.partNumber}%` });
-    if (filters.supplierCode)
-      qb.andWhere('rec.supplierCode = :sc', { sc: filters.supplierCode });
-    if (filters.warehouseId)
-      qb.andWhere('rec.warehouseId = :wh', { wh: filters.warehouseId });
+    if (filters.partNumber) qb.andWhere('rec.partNumber LIKE :pn', { pn: `%${filters.partNumber}%` });
+    if (filters.supplierCode) qb.andWhere('rec.supplierCode = :sc', { sc: filters.supplierCode });
+    if (filters.warehouseId) qb.andWhere('rec.warehouseId = :wh', { wh: filters.warehouseId });
 
     qb.orderBy('rec.createdAt', 'DESC');
     return qb.getMany();
   }
 
-  async recordReceipt(
-    dto: Partial<ReceivingEvent>,
-    user: User,
-  ): Promise<ReceivingEvent> {
+  async recordReceipt(dto: Partial<ReceivingEvent>, user: User): Promise<ReceivingEvent> {
     const count = await this.receivingRepo.count();
     const year = new Date().getFullYear();
     const receiptNumber = `REC-${year}-${(count + 1).toString().padStart(4, '0')}`;
 
     const receipt = this.receivingRepo.create({
       ...dto,
-      receiptNumber,
+      receiptNumber
     });
     const saved = await this.receivingRepo.save(receipt);
 
@@ -78,7 +70,7 @@ export class ReceivingService {
       holdStatus: 'pending_iqc', // FORCE PENDING IQC STATUS
       lotNumber: saved.lotNumber,
       serialNumber: saved.serialNumber,
-      reason: `Material Receipt from Supplier: ${saved.supplierCode}`,
+      reason: `Material Receipt from Supplier: ${saved.supplierCode}`
     });
 
     await this.eventLedger.recordEvent({
@@ -87,11 +79,7 @@ export class ReceivingService {
       actorName: saved.receivedBy,
       referenceType: 'RECEIPT',
       referenceId: saved.receiptNumber,
-      metadata: {
-        partNumber: saved.partNumber,
-        qty: saved.quantity,
-        status: 'pending_iqc',
-      },
+      metadata: { partNumber: saved.partNumber, qty: saved.quantity, status: 'pending_iqc' }
     });
 
     await this.audit.recordAction({
@@ -99,13 +87,13 @@ export class ReceivingService {
       action: 'MATERIAL_RECEIPT_RECORDED',
       resourceType: 'ReceivingEvent',
       resourceId: saved.receiptNumber,
-      metadata: {
-        partNumber: saved.partNumber,
-        quantity: saved.quantity,
+      metadata: { 
+        partNumber: saved.partNumber, 
+        quantity: saved.quantity, 
         warehouse: saved.warehouseId,
-        supplier: saved.supplierCode,
+        supplier: saved.supplierCode
       },
-      outcome: 'ALLOWED',
+      outcome: 'ALLOWED'
     });
 
     return saved;

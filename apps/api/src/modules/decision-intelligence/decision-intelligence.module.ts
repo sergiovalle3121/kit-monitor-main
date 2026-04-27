@@ -2,6 +2,8 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { DecisionIntelligenceService } from './decision-intelligence.service';
 import { DecisionIntelligenceController } from './decision-intelligence.controller';
+import { MonteCarloService } from './monte-carlo.service';
+import { ProductionBayEvent } from '../production-runtime/entities/production-bay-event.entity';
 import { ForecastRun } from './entities/forecast-run.entity';
 import { ForecastSeriesResult } from './entities/forecast-series-result.entity';
 import { PlanScenario } from './entities/plan-scenario.entity';
@@ -26,31 +28,31 @@ import { SCAR } from '../suppliers/entities/scar.entity';
 import { Supplier } from '../suppliers/entities/supplier.entity';
 
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([
-      ForecastRun,
-      ForecastSeriesResult,
-      PlanScenario,
-      PlanPublication,
-      ProductionBayMaterialState,
-      ForecastErrorHistory,
-      ScenarioSimulationResult,
-      PlanActualOutcome,
-      ScoreCalibrationPoint,
-      ProductionWip,
-      NCR,
-      WarehouseTask,
-      Shipment,
-      InventoryPosition,
-      EnterpriseBuilding,
-      FinalInspection,
-      IQCInspection,
-      CAPA,
-      SCAR,
-      Supplier,
-    ]),
-  ],
-  providers: [DecisionIntelligenceService],
+  imports: [TypeOrmModule.forFeature([
+    ForecastRun,
+    ForecastSeriesResult,
+    PlanScenario,
+    PlanPublication,
+    ProductionBayMaterialState,
+    ForecastErrorHistory,
+    ScenarioSimulationResult,
+    PlanActualOutcome,
+    ScoreCalibrationPoint,
+    ProductionWip,
+    NCR,
+    WarehouseTask,
+    Shipment,
+    InventoryPosition,
+    EnterpriseBuilding,
+    FinalInspection,
+    IQCInspection,
+    CAPA,
+    SCAR,
+    Supplier,
+    ProductionBayEvent,
+  ])],
+  providers: [DecisionIntelligenceService, MonteCarloService],
   controllers: [DecisionIntelligenceController],
+  exports: [MonteCarloService],
 })
 export class DecisionIntelligenceModule {}

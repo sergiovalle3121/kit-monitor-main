@@ -2,11 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { UsersService } from '../users/users.service';
 import { EnterpriseCampusService } from '../enterprise-campus/enterprise-campus.service';
 import { AuditService } from './audit.service';
-import {
-  ExceptionDomain,
-  ExceptionSeverity,
-  ExceptionStatus,
-} from './entities/operational-exception.entity';
+import { ExceptionDomain, ExceptionSeverity, ExceptionStatus } from './entities/operational-exception.entity';
 import { User } from '../users/entities/user.entity';
 import { NotificationService } from './notification.service';
 
@@ -24,7 +20,7 @@ export class GovernanceService {
     return this.usersService.findAll();
   }
 
-  async updateUser(id: string, dto: any) {
+  async updateUser(id: number, dto: any) {
     return this.usersService.update(id, dto);
   }
 
@@ -43,23 +39,13 @@ export class GovernanceService {
       programs,
       lines,
       roles: [
-        'Admin',
-        'Planner',
-        'Materials Lead',
-        'Warehouse Operator',
-        'Production Supervisor',
-        'Quality Engineer',
-        'Quality Manager',
-        'Shipping Lead',
+        'Admin', 'Planner', 'Materials Lead', 'Warehouse Operator', 
+        'Production Supervisor', 'Quality Engineer', 'Quality Manager', 'Shipping Lead'
       ],
       permissions: [
-        'RELEASE_WO',
-        'APPROVE_QUALITY',
-        'DISPATCH',
-        'ADJUST_INVENTORY',
-        'MANAGE_MASTER_DATA',
-        'ADMIN_ACCESS',
-      ],
+        'RELEASE_WO', 'APPROVE_QUALITY', 'DISPATCH', 'ADJUST_INVENTORY', 
+        'MANAGE_MASTER_DATA', 'ADMIN_ACCESS'
+      ]
     };
   }
 
@@ -83,14 +69,7 @@ export class GovernanceService {
     return this.auditService.checkEscalations();
   }
 
-  async getExceptions(
-    user: User,
-    filters: {
-      domain?: ExceptionDomain;
-      severity?: ExceptionSeverity;
-      status?: ExceptionStatus;
-    } = {},
-  ) {
+  async getExceptions(user: User, filters: { domain?: ExceptionDomain, severity?: ExceptionSeverity, status?: ExceptionStatus } = {}) {
     return this.auditService.findAllExceptions(user, filters);
   }
 
@@ -98,11 +77,7 @@ export class GovernanceService {
     return this.auditService.getExceptionRiskSummary(user);
   }
 
-  async updateExceptionStatus(
-    id: number,
-    status: ExceptionStatus,
-    actor: string,
-  ) {
+  async updateExceptionStatus(id: number, status: ExceptionStatus, actor: string) {
     return this.auditService.updateExceptionStatus(id, status, actor);
   }
 
@@ -110,11 +85,7 @@ export class GovernanceService {
     return this.auditService.assignException(id, actor, assignee);
   }
 
-  async resolveException(
-    id: number,
-    actor: string,
-    params: { reason: string; comments?: string },
-  ) {
+  async resolveException(id: number, actor: string, params: { reason: string, comments?: string }) {
     return this.auditService.resolveException(id, actor, params);
   }
 }

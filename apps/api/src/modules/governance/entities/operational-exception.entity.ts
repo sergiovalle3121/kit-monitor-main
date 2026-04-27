@@ -1,17 +1,10 @@
-import {
-  Entity,
-  PrimaryGeneratedColumn,
-  Column,
-  CreateDateColumn,
-  UpdateDateColumn,
-  Index,
-} from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Index } from 'typeorm';
 
 export enum ExceptionSeverity {
   LOW = 'LOW',
   MEDIUM = 'MEDIUM',
   HIGH = 'HIGH',
-  CRITICAL = 'CRITICAL',
+  CRITICAL = 'CRITICAL'
 }
 
 export enum ExceptionDomain {
@@ -21,13 +14,13 @@ export enum ExceptionDomain {
   WAREHOUSE = 'WAREHOUSE',
   PRODUCTION = 'PRODUCTION',
   SHIPPING = 'SHIPPING',
-  GOVERNANCE = 'GOVERNANCE',
+  GOVERNANCE = 'GOVERNANCE'
 }
 
 export enum ExceptionStatus {
   OPEN = 'OPEN',
   ACKNOWLEDGED = 'ACKNOWLEDGED',
-  RESOLVED = 'RESOLVED',
+  RESOLVED = 'RESOLVED'
 }
 
 @Entity('operational_exceptions')
@@ -38,14 +31,14 @@ export class OperationalException {
   @Column({
     type: 'enum',
     enum: ExceptionSeverity,
-    default: ExceptionSeverity.MEDIUM,
+    default: ExceptionSeverity.MEDIUM
   })
   @Index()
   severity: ExceptionSeverity;
 
   @Column({
     type: 'enum',
-    enum: ExceptionDomain,
+    enum: ExceptionDomain
   })
   @Index()
   domain: ExceptionDomain;
@@ -53,7 +46,7 @@ export class OperationalException {
   @Column({
     type: 'enum',
     enum: ExceptionStatus,
-    default: ExceptionStatus.OPEN,
+    default: ExceptionStatus.OPEN
   })
   @Index()
   status: ExceptionStatus;

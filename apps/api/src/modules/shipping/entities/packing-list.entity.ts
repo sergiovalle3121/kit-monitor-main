@@ -1,15 +1,4 @@
-import {
-  Entity,
-  PrimaryGeneratedColumn,
-  Column,
-  CreateDateColumn,
-  UpdateDateColumn,
-  Index,
-  OneToOne,
-  JoinColumn,
-  OneToMany,
-  ManyToOne,
-} from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Index, OneToOne, JoinColumn, OneToMany, ManyToOne } from 'typeorm';
 import { Shipment } from './shipment.entity';
 
 @Entity('packing_lists')

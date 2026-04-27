@@ -1,10 +1,6 @@
-import {
-  Injectable,
-  NotFoundException,
-  BadRequestException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository, SelectQueryBuilder, In } from 'typeorm';
+import { DataSource, Repository, SelectQueryBuilder } from 'typeorm';
 import { Kit } from './entities/kit.entity';
 import { Plan } from '../plans/entities/plan.entity';
 import { BomItem } from '../bom/entities/bom-item.entity';
@@ -18,7 +14,8 @@ import { EventDomain } from '../event-ledger/entities/ledger-event.entity';
 import { EnterpriseProgram } from '../enterprise-campus/entities/enterprise-program.entity';
 import { EnterpriseLine } from '../enterprise-campus/entities/enterprise-line.entity';
 import { AuditService } from '../governance/audit.service';
-import { TenantContextService } from '../../common/tenant/tenant-context.service';
+import { User } from '../users/entities/user.entity';
+import { In } from 'typeorm';
 
 @Injectable()
 export class KitsService {
@@ -26,78 +23,43 @@ export class KitsService {
     @InjectRepository(Kit) private readonly repo: Repository<Kit>,
     @InjectRepository(Plan) private readonly planRepo: Repository<Plan>,
     @InjectRepository(BomItem) private readonly bomRepo: Repository<BomItem>,
-    @InjectRepository(KitMaterial)
-    private readonly materialRepo: Repository<KitMaterial>,
-    @InjectRepository(BayLayout)
-    private readonly bayLayoutRepo: Repository<BayLayout>,
-    @InjectRepository(ProductionBayMaterialState)
-    private readonly runtimeMaterialRepo: Repository<ProductionBayMaterialState>,
-    @InjectRepository(EnterpriseProgram)
-    private readonly programRepo: Repository<EnterpriseProgram>,
-    @InjectRepository(EnterpriseLine)
-    private readonly lineRepo: Repository<EnterpriseLine>,
+    @InjectRepository(KitMaterial) private readonly materialRepo: Repository<KitMaterial>,
+    @InjectRepository(BayLayout) private readonly bayLayoutRepo: Repository<BayLayout>,
+    @InjectRepository(ProductionBayMaterialState) private readonly runtimeMaterialRepo: Repository<ProductionBayMaterialState>,
+    @InjectRepository(EnterpriseProgram) private readonly programRepo: Repository<EnterpriseProgram>,
+    @InjectRepository(EnterpriseLine) private readonly lineRepo: Repository<EnterpriseLine>,
     private readonly dataSource: DataSource,
     private readonly eventLedger: EventLedgerService,
     private readonly audit: AuditService,
-    private readonly tenantContext: TenantContextService,
   ) {}
 
-  async findAll(scope?: {
-    line?: string;
-    model?: string;
-    workOrder?: string;
-    buildingId?: string;
-    programId?: string;
-  }): Promise<any[]> {
-    const qb = this.repo
-      .createQueryBuilder('kit')
+  async findAll(user: User, scope?: { line?: string; model?: string; workOrder?: string; buildingId?: string; programId?: string }): Promise<any[]> {
+    const qb = this.repo.createQueryBuilder('kit')
       .leftJoinAndSelect('kit.plan', 'plan')
       .leftJoinAndSelect('kit.materials', 'materials')
       .leftJoinAndSelect('kit.advances', 'advances')
       .leftJoinAndSelect('kit.exceptions', 'exceptions')
       .orderBy('kit.createdAt', 'DESC');
 
-    const tenantId = this.tenantContext.getTenantId();
-    if (tenantId) qb.andWhere('kit.tenant_id = :tenantId', { tenantId });
-
-    const scopes = this.tenantContext.getScopes();
-    const scopeBids = scopes?.buildings ?? [];
+    // 1. Mandatory Organizational Scope
+    const scopeBids = user.scopes?.buildings ?? [];
     if (scopeBids.length > 0) {
-      const lines = await this.lineRepo.find({
-        where: { building: { id: In(scopeBids) } },
-      });
-      const legacyNums = lines
-        .map((l) => l.legacyLineNumber)
-        .filter((n): n is number => n != null);
+      const lines = await this.lineRepo.find({ where: { building: { id: In(scopeBids) } } as any });
+      const legacyNums = lines.map((l) => l.legacyLineNumber).filter((n): n is number => n != null);
       if (legacyNums.length > 0) {
-        qb.andWhere('plan.line IN (:...scopeLineNums)', {
-          scopeLineNums: legacyNums,
-        });
+        qb.andWhere('plan.line IN (:...scopeLineNums)', { scopeLineNums: legacyNums });
       } else {
         qb.andWhere('1 = 0');
       }
     }
-
-    const scopePids = scopes?.programs ?? [];
+    
+    const scopePids = user.scopes?.programs ?? [];
     if (scopePids.length > 0) {
-      const programs = await this.programRepo.find({
-        where: { id: In(scopePids) },
-      });
-      const prefixes = programs
-        .map((p) => p.primaryModelPrefix?.toUpperCase())
-        .filter(Boolean);
+      const programs = await this.programRepo.find({ where: { id: In(scopePids) } });
+      const prefixes = programs.map(p => p.primaryModelPrefix?.toUpperCase()).filter(Boolean);
       if (prefixes.length > 0) {
-        qb.andWhere(
-          '(' +
-            prefixes
-              .map((_, i) => `UPPER(plan.model) LIKE :scopePre${i}`)
-              .join(' OR ') +
-            ')',
-          prefixes.reduce(
-            (acc, pre, i) => ({ ...acc, [`scopePre${i}`]: `${pre}%` }),
-            {},
-          ),
-        );
+        qb.andWhere('(' + prefixes.map((_, i) => `UPPER(plan.model) LIKE :scopePre${i}`).join(' OR ') + ')', 
+          prefixes.reduce((acc, pre, i) => ({ ...acc, [`scopePre${i}`]: `${pre}%` }), {}));
       }
     }
 
@@ -108,42 +70,26 @@ export class KitsService {
 
   private async applyScopeToQb(
     qb: SelectQueryBuilder<Kit>,
-    scope?: {
-      line?: string;
-      model?: string;
-      workOrder?: string;
-      buildingId?: string;
-      programId?: string;
-    },
+    scope?: { line?: string; model?: string; workOrder?: string; buildingId?: string; programId?: string },
   ): Promise<void> {
     if (!scope) return;
 
     if (scope.model) {
-      qb.andWhere('UPPER(plan.model) LIKE :model', {
-        model: `%${scope.model.toUpperCase()}%`,
-      });
+      qb.andWhere('UPPER(plan.model) LIKE :model', { model: `%${scope.model.toUpperCase()}%` });
     }
     if (scope.workOrder) {
-      qb.andWhere('UPPER(plan.workOrder) LIKE :workOrder', {
-        workOrder: `%${scope.workOrder.toUpperCase()}%`,
-      });
+      qb.andWhere('UPPER(plan.workOrder) LIKE :workOrder', { workOrder: `%${scope.workOrder.toUpperCase()}%` });
     }
     if (scope.line) {
-      const lineRef = await this.lineRepo.findOne({
-        where: { id: scope.line },
-      });
+      const lineRef = await this.lineRepo.findOne({ where: { id: scope.line } });
       const legacyNum = lineRef?.legacyLineNumber ?? parseInt(scope.line, 10);
       if (!isNaN(legacyNum)) {
         qb.andWhere('plan.line = :lineNum', { lineNum: legacyNum });
       }
     }
     if (scope.buildingId) {
-      const lines = await this.lineRepo.find({
-        where: { building: { id: scope.buildingId } },
-      });
-      const legacyNums = lines
-        .map((l) => l.legacyLineNumber)
-        .filter((n): n is number => n != null);
+      const lines = await this.lineRepo.find({ where: { building: { id: scope.buildingId } } as any });
+      const legacyNums = lines.map((l) => l.legacyLineNumber).filter((n): n is number => n != null);
       if (legacyNums.length) {
         qb.andWhere('plan.line IN (:...lineNums)', { lineNums: legacyNums });
       } else {
@@ -151,9 +97,7 @@ export class KitsService {
       }
     }
     if (scope.programId) {
-      const program = await this.programRepo.findOne({
-        where: { id: scope.programId },
-      });
+      const program = await this.programRepo.findOne({ where: { id: scope.programId } });
       const prefix = program?.primaryModelPrefix?.toUpperCase();
       if (prefix) {
         qb.andWhere('UPPER(plan.model) LIKE :prefix', { prefix: `${prefix}%` });
@@ -161,25 +105,25 @@ export class KitsService {
     }
   }
 
-  async findOne(id: number): Promise<any> {
+  async findOne(id: number, user?: User): Promise<any> {
     const kit = await this.repo.findOne({
       where: { id },
       relations: ['plan', 'materials', 'advances', 'exceptions'],
     });
     if (!kit) throw new NotFoundException(`Kit ${id} not found`);
+
+    // TODO: Verify organizational scope if user is provided
+
     return this.withTotalCompleted(kit);
   }
 
   private withTotalCompleted(kit: Kit): any {
-    const totalCompleted =
-      kit.advances?.reduce((sum, advance) => sum + advance.unitsAssembled, 0) ??
-      0;
-    const hasOpenException =
-      kit.exceptions?.some((exception) => exception.status === 'open') ?? false;
+    const totalCompleted = kit.advances?.reduce((sum, advance) => sum + advance.unitsAssembled, 0) ?? 0;
+    const hasOpenException = kit.exceptions?.some((exception) => exception.status === 'open') ?? false;
     return { ...kit, totalCompleted, hasOpenException };
   }
 
-  async create(dto: CreateKitDto): Promise<any> {
+  async create(dto: CreateKitDto, user: User): Promise<any> {
     const plan = await this.planRepo.findOneBy({ id: dto.planId });
     if (!plan) throw new NotFoundException(`Plan ${dto.planId} not found`);
 
@@ -254,22 +198,18 @@ export class KitsService {
     });
 
     await this.audit.recordAction({
-      actor: this.tenantContext.getUserEmail(),
+      actor: user.email,
       action: 'KIT_CREATED',
       resourceType: 'Kit',
       resourceId: finalKit.id.toString(),
-      metadata: {
-        workOrder: plan.workOrder,
-        model: plan.model,
-        quantity: plan.quantity,
-      },
-      outcome: 'ALLOWED',
+      metadata: { workOrder: plan.workOrder, model: plan.model, quantity: plan.quantity },
+      outcome: 'ALLOWED'
     });
 
     return finalKit;
   }
 
-  async startPreparation(id: number): Promise<any> {
+  async startPreparation(id: number, user: User): Promise<any> {
     const kit = await this.repo.findOneBy({ id });
     if (!kit) throw new NotFoundException(`Kit ${id} not found`);
 
@@ -278,17 +218,17 @@ export class KitsService {
     }
 
     await this.audit.recordAction({
-      actor: this.tenantContext.getUserEmail(),
+      actor: user.email,
       action: 'KIT_PREPARATION_STARTED',
       resourceType: 'Kit',
       resourceId: id.toString(),
-      outcome: 'ALLOWED',
+      outcome: 'ALLOWED'
     });
 
-    return this.findOne(id);
+    return this.findOne(id, user);
   }
 
-  async updateStatus(id: number, dto: UpdateKitStatusDto): Promise<any> {
+  async updateStatus(id: number, dto: UpdateKitStatusDto, user: User): Promise<any> {
     const kit = await this.findOne(id);
     const timestamps: Partial<Kit> = {};
     if (dto.status === 'kitted') timestamps.kittedAt = new Date();
@@ -301,11 +241,7 @@ export class KitsService {
     if (dto.status === 'completed' && kit.plan?.id) {
       await this.planRepo.update(kit.plan.id, { status: 'completed' });
     }
-    if (
-      ['requested', 'delivered', 'sent', 'received', 'in_progress'].includes(
-        dto.status,
-      )
-    ) {
+    if (['requested', 'delivered', 'sent', 'received', 'in_progress'].includes(dto.status)) {
       await this.materializeRuntimeForDeliveredBackend(id);
     }
 
@@ -325,20 +261,18 @@ export class KitsService {
     });
 
     await this.audit.recordAction({
-      actor: this.tenantContext.getUserEmail(),
+      actor: user.email,
       action: 'KIT_STATUS_CHANGED',
       resourceType: 'Kit',
       resourceId: id.toString(),
       metadata: { before: kit.status, after: dto.status },
-      outcome: 'ALLOWED',
+      outcome: 'ALLOWED'
     });
 
-    return this.findOne(id);
+    return this.findOne(id, user);
   }
 
-  private async materializeRuntimeForDeliveredBackend(
-    kitId: number,
-  ): Promise<void> {
+  private async materializeRuntimeForDeliveredBackend(kitId: number): Promise<void> {
     const kit = await this.repo.findOne({
       where: { id: kitId },
       relations: ['plan', 'materials'],
@@ -351,46 +285,28 @@ export class KitsService {
 
     const bom = await this.bomRepo.find({ where: { model } });
     const bomByPart = new Map(bom.map((item) => [item.partNumber, item]));
-    const materialByPart = new Map(
-      kit.materials.map((item) => [item.partNumber, item]),
-    );
-    const existing = await this.runtimeMaterialRepo.find({
-      where: { kit: { id: kitId } },
-    });
-    const existingKey = new Set(
-      existing.map((row) => `${row.bayId}::${row.partNumber}`),
-    );
+    const materialByPart = new Map(kit.materials.map((item) => [item.partNumber, item]));
+    const existing = await this.runtimeMaterialRepo.find({ where: { kit: { id: kitId } } });
+    const existingKey = new Set(existing.map((row) => `${row.bayId}::${row.partNumber}`));
 
     const rows = layouts
-      .filter(
-        (layout) => !existingKey.has(`${layout.bahia}::${layout.partNumber}`),
-      )
+      .filter((layout) => !existingKey.has(`${layout.bahia}::${layout.partNumber}`))
       .map((layout) => {
         const material = materialByPart.get(layout.partNumber);
         const bomItem = bomByPart.get(layout.partNumber);
-        const quantityRequired =
-          material?.quantityRequired ??
-          (bomItem?.usageFactor ?? 0) * kit.plan.quantity;
-        const usagePerAssembly =
-          kit.plan.quantity > 0
-            ? quantityRequired / kit.plan.quantity
-            : (bomItem?.usageFactor ?? 0);
-        const availableQty = Math.max(
-          0,
-          material?.quantityRemaining ?? quantityRequired,
-        );
-        const lowStockThreshold = Math.max(
-          5,
-          Math.ceil((quantityRequired || 20) * 0.2),
-        );
+        const quantityRequired = material?.quantityRequired ?? (bomItem?.usageFactor ?? 0) * kit.plan.quantity;
+        const usagePerAssembly = kit.plan.quantity > 0
+          ? quantityRequired / kit.plan.quantity
+          : (bomItem?.usageFactor ?? 0);
+        const availableQty = Math.max(0, material?.quantityRemaining ?? quantityRequired);
+        const lowStockThreshold = Math.max(5, Math.ceil((quantityRequired || 20) * 0.2));
 
         return this.runtimeMaterialRepo.create({
           kit: { id: kitId } as Kit,
           bayId: layout.bahia,
           model,
           partNumber: layout.partNumber,
-          description:
-            bomItem?.description ?? material?.description ?? undefined,
+          description: bomItem?.description ?? material?.description ?? undefined,
           usagePerAssembly,
           availableQty,
           consumedQty: material?.quantityConsumed ?? 0,
@@ -403,61 +319,27 @@ export class KitsService {
     }
   }
 
-  async remove(id: number): Promise<{ deleted: boolean; id: number }> {
-    await this.findOne(id);
+  async remove(id: number, user: User): Promise<{ deleted: boolean; id: number }> {
+    await this.findOne(id, user);
     await this.dataSource.transaction(async (em) => {
-      await em
-        .createQueryBuilder()
-        .delete()
-        .from('advances')
-        .where('"kitId" = :kitId', { kitId: id })
-        .execute();
+      await em.createQueryBuilder().delete().from('advances').where('"kitId" = :kitId', { kitId: id }).execute();
       await em
         .createQueryBuilder()
         .delete()
         .from(KitMaterial)
         .where('"kitId" = :kitId', { kitId: id })
         .execute();
-      await em
-        .createQueryBuilder()
-        .delete()
-        .from('kit_exceptions')
-        .where('"kitId" = :kitId', { kitId: id })
-        .execute();
-      await em
-        .createQueryBuilder()
-        .delete()
-        .from('cancellation_requests')
-        .where('"kit_id" = :kitId', { kitId: id })
-        .execute();
-      await em
-        .createQueryBuilder()
-        .delete()
-        .from('resupplies')
-        .where('"kitId" = :kitId', { kitId: id })
-        .execute();
-      await em
-        .createQueryBuilder()
-        .delete()
-        .from('production_bay_events')
-        .where('"kitId" = :kitId', { kitId: id })
-        .execute();
-      await em
-        .createQueryBuilder()
-        .delete()
-        .from('production_bay_material_states')
-        .where('"kitId" = :kitId', { kitId: id })
-        .execute();
+      await em.createQueryBuilder().delete().from('kit_exceptions').where('"kitId" = :kitId', { kitId: id }).execute();
+      await em.createQueryBuilder().delete().from('cancellation_requests').where('"kit_id" = :kitId', { kitId: id }).execute();
+      await em.createQueryBuilder().delete().from('resupplies').where('"kitId" = :kitId', { kitId: id }).execute();
+      await em.createQueryBuilder().delete().from('production_bay_events').where('"kitId" = :kitId', { kitId: id }).execute();
+      await em.createQueryBuilder().delete().from('production_bay_material_states').where('"kitId" = :kitId', { kitId: id }).execute();
       await em.delete(Kit, id);
     });
     return { deleted: true, id };
   }
 
-  private async findOneWithRetry(
-    id: number,
-    maxAttempts: number,
-    waitMs: number,
-  ): Promise<any | null> {
+  private async findOneWithRetry(id: number, maxAttempts: number, waitMs: number): Promise<any | null> {
     for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
       const kit = await this.repo.findOne({
         where: { id },

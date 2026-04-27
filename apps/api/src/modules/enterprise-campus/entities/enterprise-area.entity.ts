@@ -1,24 +1,8 @@
-import {
-  Column,
-  CreateDateColumn,
-  Entity,
-  JoinColumn,
-  ManyToOne,
-  OneToMany,
-  PrimaryColumn,
-  UpdateDateColumn,
-} from 'typeorm';
+import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, OneToMany, PrimaryColumn, UpdateDateColumn } from 'typeorm';
 import { EnterpriseBuilding } from './enterprise-building.entity';
 import { EnterpriseLine } from './enterprise-line.entity';
 
-export type EnterpriseAreaType =
-  | 'SMT'
-  | 'PCBA'
-  | 'Assembly'
-  | 'Test'
-  | 'Shipping'
-  | 'Storage'
-  | 'Other';
+export type EnterpriseAreaType = 'SMT' | 'PCBA' | 'Assembly' | 'Test' | 'Shipping' | 'Storage' | 'Other';
 export type EnterpriseAreaStatus = 'active' | 'maintenance' | 'inactive';
 
 @Entity('enterprise_areas')

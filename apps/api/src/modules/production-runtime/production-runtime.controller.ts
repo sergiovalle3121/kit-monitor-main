@@ -1,196 +1,170 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Param,
-  ParseIntPipe,
-  Post,
-  Query,
-  UseGuards,
-  UsePipes,
-  ValidationPipe,
-} from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiQuery } from '@nestjs/swagger';
+import { Body, Controller, Get, Param, ParseIntPipe, Post, Query, UseGuards } from '@nestjs/common';
+import { ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ProductionRuntimeService } from './production-runtime.service';
+import { BottleneckService } from './bottleneck.service';
 import { RegisterBayEventDto } from './dto/register-bay-event.dto';
 import { CreateBayIncidentDto } from './dto/create-bay-incident.dto';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { RequirePermissions } from '../auth/decorators/permissions.decorator';
+import { Request } from '@nestjs/common';
 
-@ApiTags('production-runtime')
+@ApiTags('Production Runtime')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
-@UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
 @Controller('production-runtime')
 export class ProductionRuntimeController {
-  constructor(private readonly service: ProductionRuntimeService) {}
+  constructor(
+    private readonly service: ProductionRuntimeService,
+    private readonly bottleneck: BottleneckService,
+  ) {}
 
   @Get('lines')
   @RequirePermissions('production:read')
-  @ApiOperation({
-    summary: 'List active production lines (kits in-progress or ready)',
-  })
-  @ApiQuery({ name: 'line', required: false })
-  @ApiQuery({ name: 'model', required: false })
-  @ApiQuery({ name: 'workOrder', required: false })
-  @ApiQuery({ name: 'buildingId', required: false })
-  @ApiQuery({ name: 'programId', required: false })
   getLines(
+    @Request() req: any,
     @Query('line') line?: string,
     @Query('model') model?: string,
     @Query('workOrder') workOrder?: string,
     @Query('buildingId') buildingId?: string,
     @Query('programId') programId?: string,
   ) {
-    return this.service.getLines({
-      line,
-      model,
-      workOrder,
-      buildingId,
-      programId,
-    });
+    return this.service.getLines(req.user, { line, model, workOrder, buildingId, programId });
   }
 
   @Get('lines/:kitId')
   @RequirePermissions('production:read')
-  @ApiOperation({ summary: 'Get backend view for a specific kit/line' })
-  getLine(@Param('kitId', ParseIntPipe) kitId: number) {
-    return this.service.getLine(kitId);
+  getLine(@Param('kitId', ParseIntPipe) kitId: number, @Request() req: any) {
+    return this.service.getLine(kitId, req.user);
   }
 
   @Post('lines/:kitId/receive')
   @RequirePermissions('production:write')
-  @ApiOperation({ summary: 'Receive kit at production line' })
-  receive(@Param('kitId', ParseIntPipe) kitId: number) {
-    return this.service.receiveLine(kitId);
+  receive(@Param('kitId', ParseIntPipe) kitId: number, @Request() req: any) {
+    return this.service.receiveLine(kitId, req.user);
   }
 
   @Post('lines/:kitId/start')
   @RequirePermissions('production:write')
-  @ApiOperation({ summary: 'Start assembly for a kit on the line' })
-  start(@Param('kitId', ParseIntPipe) kitId: number) {
-    return this.service.startLine(kitId);
+  start(@Param('kitId', ParseIntPipe) kitId: number, @Request() req: any) {
+    return this.service.startLine(kitId, req.user);
   }
 
   @Post('lines/:kitId/bays/:bayId/events')
   @RequirePermissions('production:write')
-  @ApiOperation({ summary: 'Register a production bay assembly event' })
   createEvent(
     @Param('kitId', ParseIntPipe) kitId: number,
     @Param('bayId', ParseIntPipe) bayId: number,
     @Body() dto: RegisterBayEventDto,
+    @Request() req: any,
   ) {
-    return this.service.registerBayEvent(kitId, bayId, dto);
+    return this.service.registerBayEvent(kitId, bayId, dto, req.user);
   }
 
   @Post('events/:eventId/revert')
   @RequirePermissions('production:write')
-  @ApiOperation({ summary: 'Revert a bay event within the undo window' })
-  revertEvent(@Param('eventId', ParseIntPipe) eventId: number) {
-    return this.service.revertBayEvent(eventId);
+  revertEvent(@Param('eventId', ParseIntPipe) eventId: number, @Request() req: any) {
+    return this.service.revertBayEvent(eventId, req.user);
   }
 
   @Get('lines/:kitId/events')
   @RequirePermissions('production:read')
-  @ApiOperation({ summary: 'Get all bay events for a kit' })
-  getEvents(@Param('kitId', ParseIntPipe) kitId: number) {
-    return this.service.getEvents(kitId);
+  getEvents(@Param('kitId', ParseIntPipe) kitId: number, @Request() req: any) {
+    return this.service.getEvents(kitId, req.user);
   }
 
   @Get('lines/:kitId/materials')
   @RequirePermissions('production:read')
-  @ApiOperation({
-    summary: 'Get real-time material state for all bays of a kit',
-  })
-  getMaterials(@Param('kitId', ParseIntPipe) kitId: number) {
-    return this.service.getMaterials(kitId);
+  getMaterials(@Param('kitId', ParseIntPipe) kitId: number, @Request() req: any) {
+    return this.service.getMaterials(kitId, req.user);
   }
 
   @Post('lines/:kitId/bays/:bayId/incidents')
   @RequirePermissions('production:write')
-  @ApiOperation({
-    summary: 'Report a bay incident (material shortage, assembly error, etc.)',
-  })
   createIncident(
     @Param('kitId', ParseIntPipe) kitId: number,
     @Param('bayId', ParseIntPipe) bayId: number,
     @Body() dto: CreateBayIncidentDto,
+    @Request() req: any,
   ) {
-    return this.service.createBayIncident(kitId, bayId, dto);
+    return this.service.createBayIncident(kitId, bayId, dto, req.user);
   }
 
   @Get('lines/:kitId/bays/:bayId/incidents')
   @RequirePermissions('production:read')
-  @ApiOperation({ summary: 'Get open incidents for a specific bay' })
   getIncidents(
     @Param('kitId', ParseIntPipe) kitId: number,
     @Param('bayId', ParseIntPipe) bayId: number,
+    @Request() req: any,
   ) {
-    return this.service.getBayIncidents(kitId, bayId);
+    return this.service.getBayIncidents(kitId, bayId, req.user);
   }
 
   @Get('lines/:kitId/hourly')
   @RequirePermissions('production:read')
-  @ApiOperation({ summary: 'Get hourly production totals per bay for a kit' })
-  getHourly(@Param('kitId', ParseIntPipe) kitId: number) {
-    return this.service.getHourly(kitId);
+  getHourly(@Param('kitId', ParseIntPipe) kitId: number, @Request() req: any) {
+    return this.service.getHourly(kitId, req.user);
   }
 
   @Get('lines/:kitId/shortage-risk')
   @RequirePermissions('production:read')
-  @ApiOperation({ summary: 'Get material shortage risk analysis for a kit' })
-  getShortage(@Param('kitId', ParseIntPipe) kitId: number) {
-    return this.service.getShortageRisk(kitId);
+  getShortage(@Param('kitId', ParseIntPipe) kitId: number, @Request() req: any) {
+    return this.service.getShortageRisk(kitId, req.user);
   }
 
   @Get('completed')
   @RequirePermissions('production:read')
-  @ApiOperation({ summary: 'List completed kits' })
-  @ApiQuery({ name: 'line', required: false })
-  @ApiQuery({ name: 'model', required: false })
-  @ApiQuery({ name: 'workOrder', required: false })
-  @ApiQuery({ name: 'buildingId', required: false })
-  @ApiQuery({ name: 'programId', required: false })
   getCompleted(
+    @Request() req: any,
     @Query('line') line?: string,
     @Query('model') model?: string,
     @Query('workOrder') workOrder?: string,
     @Query('buildingId') buildingId?: string,
     @Query('programId') programId?: string,
   ) {
-    return this.service.getCompleted({
-      line,
-      model,
-      workOrder,
-      buildingId,
-      programId,
-    });
+    return this.service.getCompleted(req.user, { line, model, workOrder, buildingId, programId });
   }
 
   @Get('logistics/shortage-risk')
   @RequirePermissions('materials:read')
-  @ApiOperation({
-    summary: 'Get logistics-wide shortage risk across all active lines',
-  })
-  getLogisticsRisk() {
-    return this.service.getLogisticsRisk();
+  getLogisticsRisk(@Request() req: any) {
+    return this.service.getLogisticsRisk(req.user);
   }
 
   @Get('wip')
   @RequirePermissions('production:read')
-  @ApiOperation({ summary: 'Get WIP status records' })
-  @ApiQuery({ name: 'workOrder', required: false })
-  async getWip(@Query() scope: any) {
-    return this.service.getWipStatus(scope);
+  async getWip(@Query() scope: any, @Request() req: any) {
+    return this.service.getWipStatus(scope, req.user);
   }
 
   @Post('wip/:kitId/declare-fg')
   @RequirePermissions('production:write')
-  @ApiOperation({ summary: 'Declare finished goods from a WIP record' })
-  async declareFg(
-    @Param('kitId') kitId: number,
-    @Body() dto: { quantity: number; actor: string },
+  async declareFg(@Param('kitId') kitId: number, @Body() dto: { quantity: number; actor: string }, @Request() req: any) {
+    return this.service.declareFinishedGoods(kitId, dto.quantity, dto.actor, req.user);
+  }
+
+  // ── Bottleneck Analysis ────────────────────────────────────────────────────
+
+  @Get('bottleneck')
+  @RequirePermissions('production:read')
+  @ApiOperation({
+    summary: 'Bottleneck Detection — Graph-based flow analysis for a model/kit',
+    description:
+      'Maps BayLayout as a directed graph, compares theoretical capacity (BOM) vs real ' +
+      'throughput (BayEvents), and returns Hotspots with SeverityScores (0.0–1.0). ' +
+      'Identifies Starvation (empty input), Blocking (full output), and Bottleneck (low efficiency) bays.',
+  })
+  @ApiQuery({ name: 'model',         required: true,  description: 'Model code, e.g. XA-220' })
+  @ApiQuery({ name: 'kitId',         required: false, description: 'Optional kit ID to scope analysis' })
+  @ApiQuery({ name: 'windowMinutes', required: false, description: 'Analysis window in minutes (default 60)' })
+  analyzeBottlenecks(
+    @Query('model')         model: string,
+    @Query('kitId')         kitId?: string,
+    @Query('windowMinutes') windowMinutes?: string,
   ) {
-    return this.service.declareFinishedGoods(kitId, dto.quantity, dto.actor);
+    return this.bottleneck.analyzeBottlenecks({
+      model,
+      kitId:         kitId         ? Number(kitId)         : undefined,
+      windowMinutes: windowMinutes ? Number(windowMinutes) : undefined,
+    });
   }
 }

@@ -1,10 +1,4 @@
-import {
-  MigrationInterface,
-  QueryRunner,
-  Table,
-  TableColumn,
-  TableIndex,
-} from 'typeorm';
+import { MigrationInterface, QueryRunner, Table, TableColumn, TableIndex } from 'typeorm';
 
 export class LedgerEventTable1713000000000 implements MigrationInterface {
   name = 'LedgerEventTable1713000000000';
@@ -13,32 +7,14 @@ export class LedgerEventTable1713000000000 implements MigrationInterface {
     const tableName = 'ledger_events';
 
     const requiredColumns: TableColumn[] = [
-      new TableColumn({
-        name: 'id',
-        type: 'uuid',
-        isPrimary: true,
-        generationStrategy: 'uuid',
-        default: 'uuid_generate_v4()',
-      }),
-      new TableColumn({
-        name: 'timestamp',
-        type: 'timestamp with time zone',
-        default: 'now()',
-      }),
+      new TableColumn({ name: 'id', type: 'uuid', isPrimary: true, generationStrategy: 'uuid', default: 'uuid_generate_v4()' }),
+      new TableColumn({ name: 'timestamp', type: 'timestamp with time zone', default: 'now()' }),
       new TableColumn({ name: 'actorId', type: 'varchar', isNullable: true }),
       new TableColumn({ name: 'actorName', type: 'varchar', isNullable: true }),
       new TableColumn({ name: 'domain', type: 'varchar' }),
       new TableColumn({ name: 'action', type: 'varchar' }),
-      new TableColumn({
-        name: 'referenceType',
-        type: 'varchar',
-        isNullable: true,
-      }),
-      new TableColumn({
-        name: 'referenceId',
-        type: 'varchar',
-        isNullable: true,
-      }),
+      new TableColumn({ name: 'referenceType', type: 'varchar', isNullable: true }),
+      new TableColumn({ name: 'referenceId', type: 'varchar', isNullable: true }),
       new TableColumn({ name: 'plant', type: 'varchar', isNullable: true }),
       new TableColumn({ name: 'warehouse', type: 'varchar', isNullable: true }),
       new TableColumn({ name: 'line', type: 'varchar', isNullable: true }),
@@ -47,24 +23,9 @@ export class LedgerEventTable1713000000000 implements MigrationInterface {
       new TableColumn({ name: 'program', type: 'varchar', isNullable: true }),
       new TableColumn({ name: 'model', type: 'varchar', isNullable: true }),
       new TableColumn({ name: 'workOrder', type: 'varchar', isNullable: true }),
-      new TableColumn({
-        name: 'context',
-        type: 'jsonb',
-        isNullable: true,
-        default: "'{}'",
-      }),
-      new TableColumn({
-        name: 'transaction',
-        type: 'jsonb',
-        isNullable: true,
-        default: "'{}'",
-      }),
-      new TableColumn({
-        name: 'metadata',
-        type: 'jsonb',
-        isNullable: true,
-        default: "'{}'",
-      }),
+      new TableColumn({ name: 'context', type: 'jsonb', isNullable: true, default: "'{}'" }),
+      new TableColumn({ name: 'transaction', type: 'jsonb', isNullable: true, default: "'{}'" }),
+      new TableColumn({ name: 'metadata', type: 'jsonb', isNullable: true, default: "'{}'" }),
     ];
 
     if (!(await queryRunner.hasTable(tableName))) {

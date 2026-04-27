@@ -1,16 +1,10 @@
-import {
-  Controller,
-  Post,
-  Get,
-  Body,
-  UseGuards,
-  Request,
-} from '@nestjs/common';
+import { Controller, Post, Get, Body, UseGuards, Request } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
-import { AuthenticatedUser } from '../../common/types/jwt.types';
 
+// LocalAuthGuard removed: no LocalStrategy exists in this project.
+// Login validates credentials directly via AuthService.validateUser.
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
@@ -23,7 +17,7 @@ export class AuthController {
 
   @UseGuards(JwtAuthGuard)
   @Get('profile')
-  getProfile(@Request() req: { user: AuthenticatedUser }) {
+  getProfile(@Request() req: any) {
     return req.user;
   }
 }

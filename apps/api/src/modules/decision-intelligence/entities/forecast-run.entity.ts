@@ -1,10 +1,4 @@
-import {
-  Column,
-  CreateDateColumn,
-  Entity,
-  OneToMany,
-  PrimaryGeneratedColumn,
-} from 'typeorm';
+import { Column, CreateDateColumn, Entity, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
 import { ForecastSeriesResult } from './forecast-series-result.entity';
 
 @Entity('forecast_runs')
@@ -27,9 +21,7 @@ export class ForecastRun {
   @Column({ type: 'float', default: 0 })
   confidenceScore: number;
 
-  @OneToMany(() => ForecastSeriesResult, (series) => series.run, {
-    cascade: true,
-  })
+  @OneToMany(() => ForecastSeriesResult, (series) => series.run, { cascade: true })
   series: ForecastSeriesResult[];
 
   @CreateDateColumn()

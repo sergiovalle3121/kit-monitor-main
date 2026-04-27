@@ -1,7 +1,7 @@
-import { MigrationInterface, QueryRunner } from 'typeorm';
+import { MigrationInterface, QueryRunner } from "typeorm";
 
 export class KitPlanSchemaUpdate20260401193000 implements MigrationInterface {
-  name = 'KitPlanSchemaUpdate20260401193000';
+  name = "KitPlanSchemaUpdate20260401193000";
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(

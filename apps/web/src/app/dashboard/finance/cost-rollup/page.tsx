@@ -1,465 +1,752 @@
 'use client';
 
-import { motion, AnimatePresence, Variants } from 'framer-motion';
-import { ArrowLeft, Search, Package, ChevronDown, ChevronRight, Loader2 } from 'lucide-react';
+import { motion, type Variants } from 'framer-motion';
+import {
+  ArrowLeft,
+  BarChart3,
+  Boxes,
+  Building2,
+  Database,
+  DollarSign,
+  Factory,
+  FilterX,
+  RefreshCw,
+  Search,
+  ShieldAlert,
+  UsersRound,
+  Zap,
+  type LucideIcon,
+} from 'lucide-react';
 import Link from 'next/link';
-import { useState, useMemo, useEffect, useCallback } from 'react';
-import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
+import { type ReactNode, useMemo, useState, useTransition } from 'react';
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
+import { useAuth } from '@/hooks/useAuth';
+import {
+  type CostCategory,
+  type CostItem,
+  useCostRollup,
+} from '@/hooks/useCostRollup';
 
-export interface CostBreakdownItem {
-  id: string;
-  name: string;
-  partNumber?: string;
-  quantity: number;
-  unitCost: number;
-  totalCost: number;
-  workOrder?: string;
-  postedAt: string;
-}
+type CategoryMeta = {
+  label: string;
+  color: string;
+  tint: string;
+  Icon: LucideIcon;
+};
 
-export interface ProductCostRollup {
-  sku: string;
-  name: string;
-  costs: {
-    labor: number;
-    materials: number;
-    energy: number;
-    overhead: number;
-  };
-  breakdown: {
-    labor: CostBreakdownItem[];
-    materials: CostBreakdownItem[];
-    energy: CostBreakdownItem[];
-    overhead: CostBreakdownItem[];
-  };
-  totalCost: number;
-}
+type ChartRow = {
+  category: CostCategory;
+  label: string;
+  amount: number;
+  percentage: number;
+  color: string;
+};
 
-const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#8b5cf6'];
-
-const COST_CATEGORIES = [
-  { key: 'labor', label: 'Mano de Obra', icon: '👷' },
-  { key: 'materials', label: 'Materia Prima', icon: '📦' },
-  { key: 'energy', label: 'Energía', icon: '⚡' },
-  { key: 'overhead', label: 'Gastos Fijos', icon: '🏭' },
+const CATEGORY_ORDER: CostCategory[] = [
+  'mano_de_obra',
+  'materia_prima',
+  'energia',
+  'gastos_fijos',
 ];
 
-async function fetchCostRollup(sku: string): Promise<ProductCostRollup> {
-  const response = await fetch(`/api/accounting/cost-rollup?sku=${encodeURIComponent(sku)}`);
-  if (!response.ok) {
-    throw new Error('Failed to fetch cost rollup');
-  }
-  return response.json();
+const CATEGORY_META: Record<CostCategory, CategoryMeta> = {
+  mano_de_obra: {
+    label: 'Mano de Obra',
+    color: '#FFB800',
+    tint: 'text-amber-300',
+    Icon: UsersRound,
+  },
+  materia_prima: {
+    label: 'Materia Prima',
+    color: '#10B981',
+    tint: 'text-emerald-300',
+    Icon: Boxes,
+  },
+  energia: {
+    label: 'Energia',
+    color: '#3B82F6',
+    tint: 'text-blue-300',
+    Icon: Zap,
+  },
+  gastos_fijos: {
+    label: 'Gastos Fijos',
+    color: '#8B5CF6',
+    tint: 'text-violet-300',
+    Icon: Building2,
+  },
+};
+
+const currencyFormatter = new Intl.NumberFormat('en-US', {
+  style: 'currency',
+  currency: 'USD',
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
+const compactCurrencyFormatter = new Intl.NumberFormat('en-US', {
+  style: 'currency',
+  currency: 'USD',
+  notation: 'compact',
+  maximumFractionDigits: 1,
+});
+
+const containerVariants: Variants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+};
+
+const cardVariants: Variants = {
+  hidden: { opacity: 0, y: 18 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { type: 'spring', damping: 20, stiffness: 100 },
+  },
+};
+
+const rowVariants: Variants = {
+  hidden: { opacity: 0, x: -12 },
+  visible: {
+    opacity: 1,
+    x: 0,
+    transition: { type: 'spring', damping: 20, stiffness: 100 },
+  },
+};
+
+function formatCurrency(value: number) {
+  return currencyFormatter.format(Number(value) || 0);
 }
 
-export default function CostRollupPage() {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedProduct, setSelectedProduct] = useState<ProductCostRollup | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
+function formatCompactCurrency(value: number) {
+  return compactCurrencyFormatter.format(Number(value) || 0);
+}
 
-  const availableProducts = useMemo(() => [
-    { sku: 'SKU-2055', name: 'Industrial Bearing Assembly' },
-    { sku: 'SKU-3042', name: 'Hydraulic Pump Module' },
-    { sku: 'SKU-1087', name: 'Control Valve Unit' },
-  ], []);
+function formatDate(value: string) {
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(value));
+}
 
-  const filteredProducts = useMemo(() => {
-    return availableProducts.filter(
-      (p) =>
-        p.sku.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.name.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-  }, [searchQuery, availableProducts]);
-
-  const handleSelectProduct = useCallback(async (sku: string) => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const data = await fetchCostRollup(sku);
-      setSelectedProduct(data);
-    } catch (err) {
-      setError('No se pudo cargar los datos del producto. Asegúrate de que la API esté disponible.');
-      console.error(err);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  const toggleCategory = (category: string) => {
-    setExpandedCategory(expandedCategory === category ? null : category);
-  };
-
-  const totalCost = useMemo(() => {
-    if (!selectedProduct) return 0;
-    return selectedProduct.totalCost;
-  }, [selectedProduct]);
-
-  const pieData = useMemo(() => {
-    if (!selectedProduct) return [];
-    return COST_CATEGORIES.map((cat) => ({
-      name: cat.label,
-      value: selectedProduct.costs[cat.key as keyof typeof selectedProduct.costs] || 0,
-    }));
-  }, [selectedProduct]);
-
-  const barData = useMemo(() => {
-    if (!selectedProduct) return [];
-    return COST_CATEGORIES.map((cat) => ({
-      category: cat.label,
-      cost: selectedProduct.costs[cat.key as keyof typeof selectedProduct.costs] || 0,
-    }));
-  }, [selectedProduct]);
-
-  const containerVariants: Variants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.15,
-        delayChildren: 0.1,
-      },
-    },
-  };
-
-  const itemVariants: Variants = {
-    hidden: { opacity: 0, y: 30 },
-    visible: {
-      opacity: 1,
-      y: 0,
-      transition: { duration: 0.5, ease: "easeOut" },
-    },
-  };
-
-  const breakdownItemVariants: Variants = {
-    hidden: { opacity: 0, height: 0 },
-    visible: { 
-      opacity: 1, 
-      height: 'auto',
-      transition: { duration: 0.3, ease: "easeOut" }
-    },
-    exit: { 
-      opacity: 0, 
-      height: 0,
-      transition: { duration: 0.2 }
-    },
-  };
-
+function CostRollupShell({ children }: { children: ReactNode }) {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-4 md:p-8">
-      {/* Glassmorphism Container */}
+    <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(0,242,234,0.14),transparent_34%),linear-gradient(135deg,#050505_0%,#101010_48%,#050505_100%)] px-4 py-6 text-white md:px-8 lg:px-10">
+      <div className="mx-auto flex w-full max-w-[1680px] flex-col gap-6">
+        {children}
+      </div>
+    </main>
+  );
+}
+
+function PremiumSkeleton() {
+  return (
+    <motion.div
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+      className="grid gap-5 lg:grid-cols-4"
+    >
+      {Array.from({ length: 4 }).map((_, index) => (
+        <motion.div
+          key={index}
+          variants={cardVariants}
+          className="h-36 rounded-3xl border border-white/20 bg-white/10 p-5 shadow-2xl shadow-black/25 backdrop-blur-xl"
+        >
+          <div className="h-4 w-24 animate-pulse rounded-full bg-white/20" />
+          <div className="mt-8 h-8 w-36 animate-pulse rounded-full bg-white/15" />
+          <div className="mt-5 h-3 w-full animate-pulse rounded-full bg-white/10" />
+        </motion.div>
+      ))}
       <motion.div
-        initial={{ opacity: 0, y: 30, scale: 0.95 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ duration: 0.6, ease: [0.23, 1, 0.32, 1] }}
-        className="relative backdrop-blur-xl bg-white/10 border border-white/20 rounded-3xl shadow-2xl p-6 md:p-10 max-w-7xl mx-auto overflow-hidden"
+        variants={cardVariants}
+        className="h-[360px] rounded-3xl border border-white/20 bg-white/10 p-6 shadow-2xl shadow-black/25 backdrop-blur-xl lg:col-span-2"
       >
-        {/* Ambient Glow Effect */}
-        <div className="absolute -top-24 -right-24 w-48 h-48 bg-purple-500/30 rounded-full blur-3xl" />
-        <div className="absolute -bottom-24 -left-24 w-48 h-48 bg-emerald-500/30 rounded-full blur-3xl" />
+        <div className="h-4 w-36 animate-pulse rounded-full bg-white/20" />
+        <div className="mx-auto mt-12 h-48 w-48 animate-pulse rounded-full bg-white/10" />
+      </motion.div>
+      <motion.div
+        variants={cardVariants}
+        className="h-[360px] rounded-3xl border border-white/20 bg-white/10 p-6 shadow-2xl shadow-black/25 backdrop-blur-xl lg:col-span-2"
+      >
+        <div className="h-4 w-36 animate-pulse rounded-full bg-white/20" />
+        <div className="mt-12 grid h-48 grid-cols-4 items-end gap-4">
+          {[55, 80, 42, 64].map((height) => (
+            <div
+              key={height}
+              className="animate-pulse rounded-t-2xl bg-white/10"
+              style={{ height: `${height}%` }}
+            />
+          ))}
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
 
-        {/* Header with Back Button */}
-        <motion.div variants={itemVariants} className="relative z-10 mb-8">
-          <Link href="/dashboard/finance">
-            <motion.button
-              whileHover={{ scale: 1.05, backgroundColor: 'rgba(255, 255, 255, 0.15)' }}
-              whileTap={{ scale: 0.95 }}
-              className="group inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-white/10 border border-white/20 text-white font-medium tracking-wide backdrop-blur-sm shadow-lg hover:shadow-xl hover:shadow-emerald-500/20 transition-all duration-300"
-            >
-              <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform duration-300" />
-              <span>Regresar al Hub</span>
-            </motion.button>
-          </Link>
-        </motion.div>
+function AccessDenied() {
+  return (
+    <CostRollupShell>
+      <section className="mx-auto mt-24 max-w-xl rounded-3xl border border-white/20 bg-white/10 p-8 text-center shadow-2xl shadow-black/30 backdrop-blur-xl">
+        <ShieldAlert
+          className="mx-auto h-12 w-12 text-[#FF005C]"
+          strokeWidth={1.5}
+        />
+        <h1 className="mt-5 text-2xl font-semibold">Finance access required</h1>
+        <p className="mt-3 text-sm leading-6 text-white/65">
+          This module is protected by RBAC. Ask an administrator for the
+          finance:read permission to view cost rollup data.
+        </p>
+      </section>
+    </CostRollupShell>
+  );
+}
 
-        {/* Title Section */}
-        <motion.div variants={itemVariants} className="relative z-10 text-center mb-10">
-          <h1 className="text-3xl md:text-4xl font-light tracking-wide text-white mb-2">
-            Industrial Cost Roll-up Explorer
-          </h1>
-          <p className="text-lg md:text-xl font-extralight tracking-[0.15em] text-emerald-200/80 uppercase">
-            Análisis de Costos de Fabricación
+function MetricTile({
+  label,
+  value,
+  detail,
+  Icon,
+}: {
+  label: string;
+  value: string;
+  detail: string;
+  Icon: LucideIcon;
+}) {
+  return (
+    <motion.section
+      variants={cardVariants}
+      whileHover={{ y: -4, borderColor: 'rgba(0,242,234,0.36)' }}
+      className="rounded-3xl border border-white/20 bg-white/10 p-5 shadow-2xl shadow-black/25 backdrop-blur-xl transition-colors duration-300"
+    >
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-white/45">
+            {label}
           </p>
-          <motion.div
-            initial={{ scaleX: 0 }}
-            animate={{ scaleX: 1 }}
-            transition={{ delay: 0.4, duration: 0.8 }}
-            className="w-32 h-px bg-gradient-to-r from-transparent via-emerald-400/50 to-transparent mx-auto mt-6"
-          />
-        </motion.div>
+          <p className="mt-4 text-2xl font-semibold tracking-tight text-white md:text-3xl">
+            {value}
+          </p>
+        </div>
+        <div className="rounded-2xl border border-white/15 bg-black/30 p-3">
+          <Icon className="h-5 w-5 text-[#00F2EA]" strokeWidth={1.5} />
+        </div>
+      </div>
+      <p className="mt-4 text-sm text-white/55">{detail}</p>
+    </motion.section>
+  );
+}
 
-        {/* Loading State */}
-        {isLoading && (
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="flex items-center justify-center py-20"
-          >
-            <Loader2 className="w-12 h-12 text-emerald-400 animate-spin" />
-            <span className="ml-4 text-white font-medium">Cargando datos del producto...</span>
-          </motion.div>
-        )}
+function CategoryBreakdown({ rows }: { rows: ChartRow[] }) {
+  return (
+    <motion.section
+      variants={cardVariants}
+      className="rounded-3xl border border-white/20 bg-white/10 p-5 shadow-2xl shadow-black/25 backdrop-blur-xl"
+    >
+      <div className="mb-5 flex items-center justify-between gap-4">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-white/45">
+            Breakdown
+          </p>
+          <h2 className="mt-2 text-lg font-semibold">Cost categories</h2>
+        </div>
+        <BarChart3 className="h-5 w-5 text-white/50" strokeWidth={1.5} />
+      </div>
+      <div className="space-y-4">
+        {rows.map((row) => {
+          const meta = CATEGORY_META[row.category];
+          const Icon = meta.Icon;
 
-        {/* Error State */}
-        {error && !isLoading && (
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="backdrop-blur-xl bg-red-500/10 border border-red-400/30 rounded-2xl p-6 text-center"
-          >
-            <p className="text-red-300 font-medium">{error}</p>
-            <p className="text-red-400/70 text-sm mt-2">Los datos de ejemplo se mostrarán a continuación.</p>
-          </motion.div>
-        )}
+          return (
+            <div key={row.category}>
+              <div className="mb-2 flex items-center justify-between gap-4">
+                <div className="flex min-w-0 items-center gap-3">
+                  <Icon
+                    className={`h-4 w-4 shrink-0 ${meta.tint}`}
+                    strokeWidth={1.5}
+                  />
+                  <span className="truncate text-sm text-white/78">
+                    {row.label}
+                  </span>
+                </div>
+                <div className="shrink-0 text-right">
+                  <p className="text-sm font-semibold">
+                    {formatCurrency(row.amount)}
+                  </p>
+                  <p className="text-xs text-white/45">
+                    {row.percentage.toFixed(1)}%
+                  </p>
+                </div>
+              </div>
+              <div className="h-2 overflow-hidden rounded-full bg-white/10">
+                <motion.div
+                  initial={{ width: 0 }}
+                  animate={{ width: `${Math.min(row.percentage, 100)}%` }}
+                  transition={{ type: 'spring', damping: 20, stiffness: 100 }}
+                  className="h-full rounded-full"
+                  style={{ backgroundColor: row.color }}
+                />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </motion.section>
+  );
+}
 
-        {!isLoading && (
-          <motion.div
+function CostItemsTable({ items }: { items: CostItem[] }) {
+  return (
+    <motion.section
+      variants={cardVariants}
+      className="rounded-3xl border border-white/20 bg-white/10 p-5 shadow-2xl shadow-black/25 backdrop-blur-xl"
+    >
+      <div className="mb-5 flex items-center justify-between gap-4">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-white/45">
+            Work Order Drilldown
+          </p>
+          <h2 className="mt-2 text-lg font-semibold">Individual cost records</h2>
+        </div>
+        <Database className="h-5 w-5 text-white/50" strokeWidth={1.5} />
+      </div>
+      <div className="overflow-x-auto">
+        <table className="min-w-full text-left text-sm">
+          <thead className="border-b border-white/10 text-xs uppercase tracking-[0.18em] text-white/42">
+            <tr>
+              <th className="whitespace-nowrap px-3 py-3 font-medium">
+                Work Order
+              </th>
+              <th className="whitespace-nowrap px-3 py-3 font-medium">
+                Category
+              </th>
+              <th className="min-w-[220px] px-3 py-3 font-medium">
+                Description
+              </th>
+              <th className="whitespace-nowrap px-3 py-3 text-right font-medium">
+                Amount
+              </th>
+              <th className="whitespace-nowrap px-3 py-3 text-right font-medium">
+                Recorded
+              </th>
+            </tr>
+          </thead>
+          <motion.tbody
             variants={containerVariants}
             initial="hidden"
             animate="visible"
-            className="relative z-10 grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8"
+            className="divide-y divide-white/10"
           >
-            {/* Left Column: Search & Product List */}
-            <motion.div variants={itemVariants} className="lg:col-span-1 space-y-4">
-              {/* Premium Search Input */}
-              <div className="backdrop-blur-xl bg-white/5 border border-white/20 rounded-2xl p-4 shadow-lg">
-                <div className="flex items-center gap-3">
-                  <Search className="w-5 h-5 text-emerald-300" strokeWidth={1.5} />
-                  <input
-                    type="text"
-                    placeholder="Buscar producto por SKU..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="flex-1 bg-transparent border-none outline-none text-white placeholder:text-gray-400 text-sm tracking-wide"
-                  />
-                </div>
-              </div>
+            {items.map((item) => {
+              const meta = CATEGORY_META[item.category];
 
-              {/* Product List */}
-              <div className="backdrop-blur-xl bg-white/5 border border-white/20 rounded-2xl p-4 shadow-lg max-h-96 overflow-y-auto">
-                <h3 className="text-sm font-medium text-gray-300 mb-3 tracking-wide">Productos Disponibles</h3>
-                <div className="space-y-2">
-                  {filteredProducts.map((product) => (
-                    <motion.button
-                      key={product.sku}
-                      whileHover={{ scale: 1.02, backgroundColor: 'rgba(255, 255, 255, 0.1)' }}
-                      whileTap={{ scale: 0.98 }}
-                      onClick={() => handleSelectProduct(product.sku)}
-                      className={`w-full text-left p-3 rounded-xl border transition-all duration-300 ${
-                        selectedProduct?.sku === product.sku
-                          ? 'bg-emerald-500/20 border-emerald-400/40 shadow-lg shadow-emerald-500/10'
-                          : 'bg-white/5 border-white/10 hover:border-white/20'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <Package className="w-4 h-4 text-emerald-300" strokeWidth={1.5} />
-                        <div>
-                          <p className="text-white font-medium text-sm">{product.sku}</p>
-                          <p className="text-gray-400 text-xs truncate">{product.name}</p>
-                        </div>
-                      </div>
-                    </motion.button>
-                  ))}
-                </div>
-              </div>
-            </motion.div>
-
-            {/* Middle Column: Cost Breakdown Cards with Drill-down */}
-            <motion.div variants={itemVariants} className="lg:col-span-1 space-y-4">
-              <div className="backdrop-blur-xl bg-white/5 border border-white/20 rounded-2xl p-5 shadow-lg">
-                <h3 className="text-sm font-medium text-gray-300 mb-4 tracking-wide">Desglose de Costos</h3>
-                <div className="space-y-3">
-                  {COST_CATEGORIES.map((cat, index) => {
-                    const value = selectedProduct?.costs[cat.key as keyof typeof selectedProduct.costs] || 0;
-                    const percentage = totalCost > 0 ? (value / totalCost) * 100 : 0;
-                    const isExpanded = expandedCategory === cat.key;
-                    const breakdownItems = selectedProduct?.breakdown[cat.key as keyof typeof selectedProduct.breakdown] || [];
-
-                    return (
-                      <motion.div
-                        key={cat.key}
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: 0.3 + index * 0.1, duration: 0.4 }}
-                        className="rounded-xl border border-white/10 overflow-hidden"
-                      >
-                        {/* Category Header - Clickable */}
-                        <motion.button
-                          whileHover={{ backgroundColor: 'rgba(255, 255, 255, 0.08)' }}
-                          onClick={() => toggleCategory(cat.key)}
-                          className="w-full flex items-center justify-between p-3 bg-white/5"
-                        >
-                          <div className="flex items-center gap-3">
-                            <span className="text-lg">{cat.icon}</span>
-                            <div className="text-left">
-                              <p className="text-white text-sm font-medium">{cat.label}</p>
-                              <p className="text-gray-400 text-xs">{percentage.toFixed(1)}% del total</p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <div className="text-right">
-                              <p className="text-emerald-300 font-semibold">${value.toFixed(2)}</p>
-                            </div>
-                            {breakdownItems.length > 0 && (
-                              <motion.div
-                                animate={{ rotate: isExpanded ? 180 : 0 }}
-                                transition={{ duration: 0.2 }}
-                              >
-                                <ChevronDown className="w-4 h-4 text-gray-400" />
-                              </motion.div>
-                            )}
-                          </div>
-                        </motion.button>
-
-                        {/* Drill-down Details */}
-                        <AnimatePresence>
-                          {isExpanded && breakdownItems.length > 0 && (
-                            <motion.div
-                              variants={breakdownItemVariants}
-                              initial="hidden"
-                              animate="visible"
-                              exit="exit"
-                              className="bg-black/20 border-t border-white/10"
-                            >
-                              <div className="p-3 space-y-2">
-                                <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">
-                                  Detalle de {cat.label}
-                                </p>
-                                {breakdownItems.map((item, idx) => (
-                                  <motion.div
-                                    key={item.id}
-                                    initial={{ opacity: 0, x: -10 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    transition={{ delay: idx * 0.05 }}
-                                    className="text-xs p-2 rounded-lg bg-white/5 border border-white/5"
-                                  >
-                                    <div className="flex justify-between items-start mb-1">
-                                      <span className="text-white font-medium">{item.name}</span>
-                                      <span className="text-emerald-300 font-semibold">${item.totalCost.toFixed(2)}</span>
-                                    </div>
-                                    <div className="flex justify-between text-gray-400">
-                                      <span>{item.partNumber || item.workOrder || 'N/A'}</span>
-                                      <span>{item.quantity} × ${item.unitCost.toFixed(2)}</span>
-                                    </div>
-                                  </motion.div>
-                                ))}
-                              </div>
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                      </motion.div>
-                    );
-                  })}
-                </div>
-
-                {/* Total Cost Display */}
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: 0.7, duration: 0.4 }}
-                  className="mt-5 pt-4 border-t border-white/20"
+              return (
+                <motion.tr
+                  key={item.id}
+                  variants={rowVariants}
+                  className="text-white/72 transition-colors duration-300 hover:bg-white/5"
                 >
-                  <div className="flex items-center justify-between">
-                    <span className="text-gray-300 text-sm font-medium">Costo Total</span>
-                    <span className="text-2xl font-bold text-emerald-300">${totalCost.toFixed(2)}</span>
+                  <td className="whitespace-nowrap px-3 py-4 font-medium text-white">
+                    {item.workOrderId ?? 'Unassigned'}
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-4">
+                    <span
+                      className="inline-flex items-center rounded-full border border-white/10 px-3 py-1 text-xs font-medium"
+                      style={{ color: meta.color }}
+                    >
+                      {meta.label}
+                    </span>
+                  </td>
+                  <td className="px-3 py-4 text-white/68">
+                    {item.description}
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-4 text-right font-semibold text-white">
+                    {formatCurrency(item.amount)}
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-4 text-right text-white/48">
+                    {formatDate(item.recordedAt)}
+                  </td>
+                </motion.tr>
+              );
+            })}
+          </motion.tbody>
+        </table>
+      </div>
+      {!items.length && (
+        <div className="py-12 text-center text-sm text-white/55">
+          No cost records match this work order filter.
+        </div>
+      )}
+    </motion.section>
+  );
+}
+
+export default function CostRollupPage() {
+  const { hasPermission, isLoading: isAuthLoading } = useAuth();
+  const [workOrderQuery, setWorkOrderQuery] = useState('');
+  const [activeWorkOrder, setActiveWorkOrder] = useState('');
+  const [isPending, startTransition] = useTransition();
+  const canReadFinance = hasPermission('finance', 'read');
+  const { data, error, isLoading, isValidating } = useCostRollup({
+    workOrderId: activeWorkOrder,
+  });
+
+  const chartRows = useMemo<ChartRow[]>(() => {
+    const breakdownByCategory = new Map(
+      (data?.breakdown ?? []).map((entry) => [entry.category, entry]),
+    );
+
+    return CATEGORY_ORDER.map((category) => {
+      const entry = breakdownByCategory.get(category);
+      const meta = CATEGORY_META[category];
+
+      return {
+        category,
+        label: meta.label,
+        amount: entry?.amount ?? 0,
+        percentage: entry?.percentage ?? 0,
+        color: meta.color,
+      };
+    });
+  }, [data?.breakdown]);
+
+  const topCategory = useMemo(() => {
+    return chartRows.reduce(
+      (winner, row) => (row.amount > winner.amount ? row : winner),
+      chartRows[0],
+    );
+  }, [chartRows]);
+
+  const totalCost = data?.totalCost ?? 0;
+  const items = data?.items ?? [];
+  const isBusy = isPending || isValidating;
+
+  const handleWorkOrderChange = (value: string) => {
+    setWorkOrderQuery(value);
+    startTransition(() => {
+      setActiveWorkOrder(value.trim());
+    });
+  };
+
+  const clearWorkOrderFilter = () => {
+    setWorkOrderQuery('');
+    startTransition(() => {
+      setActiveWorkOrder('');
+    });
+  };
+
+  if (!isAuthLoading && !canReadFinance) {
+    return <AccessDenied />;
+  }
+
+  return (
+    <CostRollupShell>
+      <motion.header
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+        className="rounded-3xl border border-white/20 bg-white/10 p-5 shadow-2xl shadow-black/30 backdrop-blur-xl md:p-6"
+      >
+        <motion.div variants={cardVariants} className="flex flex-wrap gap-3">
+          <Link href="/dashboard/finance">
+            <motion.span
+              whileHover={{ x: -3, borderColor: 'rgba(0,242,234,0.35)' }}
+              whileTap={{ scale: 0.98 }}
+              className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-black/25 px-4 py-2 text-sm text-white/76 transition-colors duration-300"
+            >
+              <ArrowLeft className="h-4 w-4" strokeWidth={1.5} />
+              Finance Hub
+            </motion.span>
+          </Link>
+        </motion.div>
+
+        <motion.div
+          variants={cardVariants}
+          className="mt-6 grid gap-5 lg:grid-cols-[1fr_minmax(320px,520px)] lg:items-end"
+        >
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-[#00F2EA]/75">
+              Industrial Accounting
+            </p>
+            <h1 className="mt-3 text-3xl font-semibold tracking-tight text-white md:text-5xl">
+              Cost Rollup Command Desk
+            </h1>
+            <p className="mt-4 max-w-3xl text-sm leading-6 text-white/60 md:text-base">
+              Live tenant-scoped costs grouped by labor, materials, energy, and
+              fixed overhead.
+            </p>
+          </div>
+
+          <div className="rounded-3xl border border-white/20 bg-black/25 p-3 backdrop-blur-xl">
+            <label
+              htmlFor="work-order-filter"
+              className="mb-2 block px-2 text-xs font-semibold uppercase tracking-[0.2em] text-white/45"
+            >
+              Work Order Filter
+            </label>
+            <div className="flex items-center gap-2">
+              <Search
+                className="ml-2 h-5 w-5 shrink-0 text-[#00F2EA]"
+                strokeWidth={1.5}
+              />
+              <input
+                id="work-order-filter"
+                value={workOrderQuery}
+                onChange={(event) => handleWorkOrderChange(event.target.value)}
+                placeholder="Search WO-9012"
+                className="min-w-0 flex-1 bg-transparent px-2 py-3 text-sm text-white outline-none placeholder:text-white/32"
+              />
+              {isBusy && (
+                <RefreshCw
+                  className="h-4 w-4 animate-spin text-white/45"
+                  strokeWidth={1.5}
+                />
+              )}
+              {activeWorkOrder && (
+                <motion.button
+                  type="button"
+                  whileHover={{
+                    scale: 1.05,
+                    backgroundColor: 'rgba(255,255,255,0.12)',
+                  }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={clearWorkOrderFilter}
+                  className="rounded-full border border-white/10 bg-white/5 p-2 text-white/70 transition-colors duration-300"
+                  aria-label="Clear work order filter"
+                >
+                  <FilterX className="h-4 w-4" strokeWidth={1.5} />
+                </motion.button>
+              )}
+            </div>
+          </div>
+        </motion.div>
+      </motion.header>
+
+      {isLoading && !data ? (
+        <PremiumSkeleton />
+      ) : (
+        <motion.div
+          variants={containerVariants}
+          initial="hidden"
+          animate="visible"
+          className="space-y-6"
+        >
+          {error && (
+            <motion.section
+              variants={cardVariants}
+              className="rounded-3xl border border-[#FF005C]/30 bg-[#FF005C]/10 p-5 text-sm text-rose-100 shadow-2xl shadow-black/25 backdrop-blur-xl"
+            >
+              Cost rollup data could not be loaded. Confirm that the API is
+              running and that your token includes finance:read.
+            </motion.section>
+          )}
+
+          <section className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+            <MetricTile
+              label="Total Cost"
+              value={formatCurrency(totalCost)}
+              detail={
+                activeWorkOrder
+                  ? `Filtered by ${activeWorkOrder}`
+                  : 'All visible work orders'
+              }
+              Icon={DollarSign}
+            />
+            <MetricTile
+              label="Largest Bucket"
+              value={topCategory?.label ?? 'No Data'}
+              detail={formatCurrency(topCategory?.amount ?? 0)}
+              Icon={Factory}
+            />
+            <MetricTile
+              label="Cost Records"
+              value={String(items.length)}
+              detail="Tenant-scoped ledger items"
+              Icon={Database}
+            />
+            <MetricTile
+              label="Active Filter"
+              value={activeWorkOrder || 'All WOs'}
+              detail="Updates through SWR revalidation"
+              Icon={Search}
+            />
+          </section>
+
+          <section className="grid gap-6 xl:grid-cols-[0.85fr_1.15fr_1fr]">
+            <CategoryBreakdown rows={chartRows} />
+
+            <motion.section
+              variants={cardVariants}
+              className="rounded-3xl border border-white/20 bg-white/10 p-5 shadow-2xl shadow-black/25 backdrop-blur-xl"
+            >
+              <div className="mb-4 flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-white/45">
+                    Pie Rollup
+                  </p>
+                  <h2 className="mt-2 text-lg font-semibold">
+                    Category distribution
+                  </h2>
+                </div>
+                <DollarSign
+                  className="h-5 w-5 text-white/50"
+                  strokeWidth={1.5}
+                />
+              </div>
+              <div className="h-[320px] min-h-[320px] w-full">
+                <ResponsiveContainer
+                  width="100%"
+                  height={310}
+                  minWidth={260}
+                  minHeight={260}
+                  initialDimension={{ width: 520, height: 310 }}
+                >
+                  <PieChart>
+                    <Pie
+                      data={chartRows}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={68}
+                      outerRadius={112}
+                      paddingAngle={4}
+                      dataKey="amount"
+                      nameKey="label"
+                    >
+                      {chartRows.map((row) => (
+                        <Cell
+                          key={row.category}
+                          fill={row.color}
+                          stroke="rgba(255,255,255,0.16)"
+                          strokeWidth={1}
+                        />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      contentStyle={{
+                        background: 'rgba(0,0,0,0.86)',
+                        border: '1px solid rgba(255,255,255,0.14)',
+                        borderRadius: '16px',
+                        color: 'white',
+                        backdropFilter: 'blur(18px)',
+                      }}
+                      formatter={(value) => [
+                        formatCurrency(Number(value)),
+                        'Cost',
+                      ]}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                {chartRows.map((row) => (
+                  <div
+                    key={row.category}
+                    className="flex items-center gap-2 text-xs text-white/60"
+                  >
+                    <span
+                      className="h-2.5 w-2.5 rounded-full"
+                      style={{ backgroundColor: row.color }}
+                    />
+                    <span className="truncate">{row.label}</span>
                   </div>
-                </motion.div>
+                ))}
               </div>
-            </motion.div>
+            </motion.section>
 
-            {/* Right Column: Charts */}
-            <motion.div variants={itemVariants} className="lg:col-span-1 space-y-4">
-              {/* Pie Chart */}
-              <div className="backdrop-blur-xl bg-white/5 border border-white/20 rounded-2xl p-5 shadow-lg">
-                <h3 className="text-sm font-medium text-gray-300 mb-4 tracking-wide">Distribución de Costos</h3>
-                <div className="h-48">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={pieData}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={50}
-                        outerRadius={75}
-                        paddingAngle={4}
-                        dataKey="value"
-                      >
-                        {pieData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} strokeWidth={0} />
-                        ))}
-                      </Pie>
-                      <Tooltip
-                        contentStyle={{
-                          backgroundColor: 'rgba(15, 23, 42, 0.9)',
-                          border: '1px solid rgba(255, 255, 255, 0.1)',
-                          borderRadius: '12px',
-                          color: '#fff',
-                          fontSize: '12px',
-                        }}
-                        formatter={(value: any) => [`$${Number(value).toFixed(2)}`, 'Costo']}
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
+            <motion.section
+              variants={cardVariants}
+              className="rounded-3xl border border-white/20 bg-white/10 p-5 shadow-2xl shadow-black/25 backdrop-blur-xl"
+            >
+              <div className="mb-4 flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-white/45">
+                    Bar Rollup
+                  </p>
+                  <h2 className="mt-2 text-lg font-semibold">
+                    Cost comparison
+                  </h2>
                 </div>
-                {/* Legend */}
-                <div className="flex flex-wrap justify-center gap-3 mt-4">
-                  {pieData.map((entry, index) => (
-                    <div key={entry.name} className="flex items-center gap-2">
-                      <div
-                        className="w-3 h-3 rounded-full"
-                        style={{ backgroundColor: COLORS[index % COLORS.length] }}
-                      />
-                      <span className="text-xs text-gray-300">{entry.name}</span>
-                    </div>
-                  ))}
-                </div>
+                <BarChart3
+                  className="h-5 w-5 text-white/50"
+                  strokeWidth={1.5}
+                />
               </div>
-
-              {/* Bar Chart */}
-              <div className="backdrop-blur-xl bg-white/5 border border-white/20 rounded-2xl p-5 shadow-lg">
-                <h3 className="text-sm font-medium text-gray-300 mb-4 tracking-wide">Comparativa Visual</h3>
-                <div className="h-40">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={barData}>
-                      <XAxis
-                        dataKey="category"
-                        tick={{ fill: '#9ca3af', fontSize: 10 }}
-                        axisLine={false}
-                        tickLine={false}
-                      />
-                      <YAxis
-                        tick={{ fill: '#9ca3af', fontSize: 10 }}
-                        axisLine={false}
-                        tickLine={false}
-                        tickFormatter={(value) => `$${value}`}
-                      />
-                      <Tooltip
-                        contentStyle={{
-                          backgroundColor: 'rgba(15, 23, 42, 0.9)',
-                          border: '1px solid rgba(255, 255, 255, 0.1)',
-                          borderRadius: '12px',
-                          color: '#fff',
-                          fontSize: '12px',
-                        }}
-                        formatter={(value: any) => [`$${Number(value).toFixed(2)}`, 'Costo']}
-                      />
-                      <Bar dataKey="cost" radius={[6, 6, 0, 0]}>
-                        {barData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                        ))}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
+              <div className="h-[320px] min-h-[320px] w-full">
+                <ResponsiveContainer
+                  width="100%"
+                  height={310}
+                  minWidth={260}
+                  minHeight={260}
+                  initialDimension={{ width: 520, height: 310 }}
+                >
+                  <BarChart
+                    data={chartRows}
+                    margin={{ top: 16, right: 10, left: -18, bottom: 12 }}
+                  >
+                    <CartesianGrid
+                      stroke="rgba(255,255,255,0.07)"
+                      vertical={false}
+                    />
+                    <XAxis
+                      dataKey="label"
+                      axisLine={false}
+                      tickLine={false}
+                      interval={0}
+                      tick={{ fill: 'rgba(255,255,255,0.52)', fontSize: 11 }}
+                    />
+                    <YAxis
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fill: 'rgba(255,255,255,0.52)', fontSize: 11 }}
+                      tickFormatter={(value) =>
+                        formatCompactCurrency(Number(value))
+                      }
+                    />
+                    <Tooltip
+                      cursor={{ fill: 'rgba(255,255,255,0.05)' }}
+                      contentStyle={{
+                        background: 'rgba(0,0,0,0.86)',
+                        border: '1px solid rgba(255,255,255,0.14)',
+                        borderRadius: '16px',
+                        color: 'white',
+                        backdropFilter: 'blur(18px)',
+                      }}
+                      formatter={(value) => [
+                        formatCurrency(Number(value)),
+                        'Cost',
+                      ]}
+                    />
+                    <Bar dataKey="amount" radius={[14, 14, 4, 4]}>
+                      {chartRows.map((row) => (
+                        <Cell key={row.category} fill={row.color} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
               </div>
-            </motion.div>
-          </motion.div>
-        )}
+            </motion.section>
+          </section>
 
-        {/* Bottom Gradient Line */}
-        <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-emerald-400/50 to-transparent" />
-      </motion.div>
-    </div>
+          {activeWorkOrder && <CostItemsTable items={items} />}
+        </motion.div>
+      )}
+    </CostRollupShell>
   );
 }
