@@ -27,7 +27,7 @@ export interface CriticalEvent {
   actor?: string;
   line?: string;
   model?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export type ConnectionStatus = 'connecting' | 'connected' | 'disconnected' | 'error';
@@ -41,8 +41,10 @@ export function useSignals(tenantId: string = 'default') {
   const connect = useCallback(() => {
     if (socketRef.current?.connected) return;
 
-    // Derive API base from window location if relative
-    const apiBase = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
+    const apiBase = (
+      process.env.NEXT_PUBLIC_API_URL ||
+      (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000')
+    ).replace(/\/$/, '');
     
     setStatus('connecting');
 
