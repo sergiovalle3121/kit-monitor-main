@@ -41,10 +41,10 @@ export class CorrectiveProposal {
   tenantId: string;
 
   @Column({ type: 'varchar', length: 100, nullable: true })
-  line: string;
+  line: string | null;
 
   @Column({ type: 'varchar', length: 100, nullable: true })
-  model: string;
+  model: string | null;
 
   @Column({ type: 'integer', nullable: true })
   bayId: number;

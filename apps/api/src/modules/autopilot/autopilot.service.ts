@@ -135,29 +135,29 @@ export class AutopilotService {
                          : hotspot.severityScore > 0.8 ? 'high'
                          : 'medium';
 
-          const proposal = await this.proposalRepo.save(
-            this.proposalRepo.create({
-              category:     'bottleneck',
-              title:        `Bottleneck detected — Bay ${hotspot.bayId} (${model})`,
-              description:  hotspot.recommendation,
-              severity,
-              tenantId:     wip?.building ?? 'default',
-              line:         wip?.line     ?? null,
+          const newProposal = this.proposalRepo.create({
+            category:     'bottleneck',
+            title:        `Bottleneck detected — Bay ${hotspot.bayId} (${model})`,
+            description:  hotspot.recommendation,
+            severity,
+            tenantId:     wip?.building ?? 'default',
+            line:         wip?.line     ?? null,
+            model,
+            bayId:        hotspot.bayId,
+            severityScore: hotspot.severityScore,
+            executionType: 'wip_rebalance',
+            executionPayload: {
               model,
               bayId:        hotspot.bayId,
-              severityScore: hotspot.severityScore,
-              executionType: 'wip_rebalance',
-              executionPayload: {
-                model,
-                bayId:        hotspot.bayId,
-                type:         hotspot.type,
-                efficiencyGap: hotspot.efficiencyGap,
-                wipIds:       activeWips
-                  .filter((w) => w.partNumber === model)
-                  .map((w) => w.id),
-              },
-            }),
-          );
+              type:         hotspot.type,
+              efficiencyGap: hotspot.efficiencyGap,
+              wipIds:       activeWips
+                .filter((w) => w.partNumber === model)
+                .map((w) => w.id),
+            },
+          });
+
+          const proposal = await this.proposalRepo.save(newProposal);
 
           this.signals.emitProposal(proposal.tenantId ?? 'default', proposal);
           this.logger.log(
@@ -189,8 +189,8 @@ export class AutopilotService {
           8,
         );
 
-        if (report.overallSigmaLevel >= SIGMA_THRESHOLD) continue;
-        if (!report.bays.length) continue;
+        if (report.sigmaLevel >= SIGMA_THRESHOLD) continue;
+        if (!report.bayBreakdowns.length) continue;
 
         const alreadyExists = await this.proposalRepo.findOne({
           where: { category: 'sigma_instability', line, status: 'pending' },
@@ -198,41 +198,41 @@ export class AutopilotService {
         if (alreadyExists) continue;
 
         const wip = activeWips.find((w) => w.line === line);
-        const severity = report.overallSigmaLevel < 1.0 ? 'critical'
-                       : report.overallSigmaLevel < 1.5 ? 'high'
+        const severity = report.sigmaLevel < 1.0 ? 'critical'
+                       : report.sigmaLevel < 1.5 ? 'high'
                        : 'medium';
 
-        const worstBay = report.bays.reduce(
+        const worstBay = report.bayBreakdowns.reduce(
           (a, b) => (a.sigmaLevel < b.sigmaLevel ? a : b),
         );
 
-        const proposal = await this.proposalRepo.save(
-          this.proposalRepo.create({
-            category:   'sigma_instability',
-            title:      `Sigma instability — Line ${line} (σ = ${report.overallSigmaLevel.toFixed(2)})`,
-            description:
-              `Process stability is below the 2σ threshold on Line ${line}. ` +
-              `Worst bay: Bay ${worstBay.bayId} at σ = ${worstBay.sigmaLevel.toFixed(2)}. ` +
-              `Triggering urgent Maintenance Audit.`,
-            severity,
-            tenantId:     wip?.building ?? 'default',
+        const newProposal = this.proposalRepo.create({
+          category:   'sigma_instability',
+          title:      `Sigma instability — Line ${line} (σ = ${report.sigmaLevel.toFixed(2)})`,
+          description:
+            `Process stability is below the 2σ threshold on Line ${line}. ` +
+            `Worst bay: Bay ${worstBay.bayId} at σ = ${worstBay.sigmaLevel.toFixed(2)}. ` +
+            `Triggering urgent Maintenance Audit.`,
+          severity,
+          tenantId:     wip?.building ?? 'default',
+          line,
+          model:        wip?.partNumber ?? null,
+          sigmaLevel:   report.sigmaLevel,
+          executionType: 'maintenance_audit',
+          executionPayload: {
             line,
-            model:        wip?.partNumber ?? null,
-            sigmaLevel:   report.overallSigmaLevel,
-            executionType: 'maintenance_audit',
-            executionPayload: {
-              line,
-              overallSigmaLevel: report.overallSigmaLevel,
-              worstBayId:        worstBay.bayId,
-              worstBaySigma:     worstBay.sigmaLevel,
-              outOfControlCount: report.bays.reduce((s, b) => s + b.outOfControlCount, 0),
-            },
-          }),
-        );
+            overallSigmaLevel: report.sigmaLevel,
+            worstBayId:        worstBay.bayId,
+            worstBaySigma:     worstBay.sigmaLevel,
+            outOfControlCount: report.bayBreakdowns.reduce((s, b) => s + b.outOfControlCount, 0),
+          },
+        });
+
+        const proposal = await this.proposalRepo.save(newProposal);
 
         this.signals.emitProposal(proposal.tenantId ?? 'default', proposal);
         this.logger.log(
-          `Proposal #${proposal.id} created: sigma_instability line ${line} (σ = ${report.overallSigmaLevel})`,
+          `Proposal #${proposal.id} created: sigma_instability line ${line} (σ = ${report.sigmaLevel})`,
         );
       } catch (err: any) {
         this.logger.warn(
