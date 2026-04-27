@@ -10,7 +10,7 @@ import {
 } from 'typeorm';
 import { Injectable, Logger, ForbiddenException } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
-import { TenantContextService, TenantContext } from '../services/tenant-context.service';
+import { TenantContextService, TenantContext } from '../tenant/tenant-context.service';
 
 /**
  * TenantSubscriber — Global TypeORM EntitySubscriber
@@ -62,19 +62,21 @@ export class TenantSubscriber implements EntitySubscriberInterface {
     const ent  = event.entity;
     if (!ctx || !ent) return;
 
+    const buildings = ctx.scopes?.buildings;
+
     // Auto-populate tenantId when the entity declares it and context provides one
-    if ('tenantId' in ent && !ent.tenantId && ctx.buildings?.length === 1) {
-      ent.tenantId = ctx.buildings[0];
+    if ('tenantId' in ent && !ent.tenantId && buildings?.length === 1) {
+      ent.tenantId = buildings[0];
     }
 
     // Auto-populate buildingId (Plans, Advances, etc.) from single-building context
-    if ('buildingId' in ent && !ent.buildingId && ctx.buildings?.length === 1) {
-      ent.buildingId = ctx.buildings[0];
+    if ('buildingId' in ent && !ent.buildingId && buildings?.length === 1) {
+      ent.buildingId = buildings[0];
     }
 
     // Auto-populate building (ProductionWip, etc.)
-    if ('building' in ent && !ent.building && ctx.buildings?.length === 1) {
-      ent.building = ctx.buildings[0];
+    if ('building' in ent && !ent.building && buildings?.length === 1) {
+      ent.building = buildings[0];
     }
   }
 
@@ -83,7 +85,7 @@ export class TenantSubscriber implements EntitySubscriberInterface {
   beforeUpdate(event: UpdateEvent<any>): void {
     const ctx = this.tenantCtx.get();
     const ent = event.entity;
-    const isScoped = (ctx?.buildings?.length ?? 0) > 0 || (ctx?.programs?.length ?? 0) > 0 || (ctx?.lines?.length ?? 0) > 0;
+    const isScoped = (ctx?.scopes?.buildings?.length ?? 0) > 0 || (ctx?.scopes?.programs?.length ?? 0) > 0 || (ctx?.scopes?.lines?.length ?? 0) > 0;
     if (!ctx || !ent || !isScoped) return; // Skip for unrestricted users
 
     this.assertAllowed(ent, ctx, 'UPDATE', event.metadata?.tableName);
@@ -94,7 +96,7 @@ export class TenantSubscriber implements EntitySubscriberInterface {
   beforeRemove(event: RemoveEvent<any>): void {
     const ctx = this.tenantCtx.get();
     const ent = event.entity;
-    const isScoped = (ctx?.buildings?.length ?? 0) > 0 || (ctx?.programs?.length ?? 0) > 0 || (ctx?.lines?.length ?? 0) > 0;
+    const isScoped = (ctx?.scopes?.buildings?.length ?? 0) > 0 || (ctx?.scopes?.programs?.length ?? 0) > 0 || (ctx?.scopes?.lines?.length ?? 0) > 0;
     if (!ctx || !ent || !isScoped) return;
 
     this.assertAllowed(ent, ctx, 'DELETE', event.metadata?.tableName);
@@ -103,7 +105,7 @@ export class TenantSubscriber implements EntitySubscriberInterface {
   beforeSoftRemove(event: SoftRemoveEvent<any>): void {
     const ctx = this.tenantCtx.get();
     const ent = event.entity;
-    const isScoped = (ctx?.buildings?.length ?? 0) > 0 || (ctx?.programs?.length ?? 0) > 0 || (ctx?.lines?.length ?? 0) > 0;
+    const isScoped = (ctx?.scopes?.buildings?.length ?? 0) > 0 || (ctx?.scopes?.programs?.length ?? 0) > 0 || (ctx?.scopes?.lines?.length ?? 0) > 0;
     if (!ctx || !ent || !isScoped) return;
 
     this.assertAllowed(ent, ctx, 'SOFT_DELETE', event.metadata?.tableName);
@@ -113,20 +115,21 @@ export class TenantSubscriber implements EntitySubscriberInterface {
 
   afterLoad(entity: any, event?: LoadEvent<any>): void {
     const ctx = this.tenantCtx.get();
-    const isScoped = (ctx?.buildings?.length ?? 0) > 0 || (ctx?.programs?.length ?? 0) > 0 || (ctx?.lines?.length ?? 0) > 0;
+    const isScoped = (ctx?.scopes?.buildings?.length ?? 0) > 0 || (ctx?.scopes?.programs?.length ?? 0) > 0 || (ctx?.scopes?.lines?.length ?? 0) > 0;
     if (!isScoped || !entity || !ctx) return;
 
     // Debug-level cross-tenant read auditing
+    const buildings = ctx.scopes?.buildings;
     if (
-      ctx.buildings &&
-      ctx.buildings.length > 0 &&
+      buildings &&
+      buildings.length > 0 &&
       'buildingId' in entity &&
       entity.buildingId &&
-      !ctx.buildings.includes(entity.buildingId)
+      !buildings.includes(entity.buildingId)
     ) {
       this.logger.debug(
         `Cross-scope read: table=${event?.metadata?.tableName} ` +
-        `buildingId=${entity.buildingId} allowedScope=${ctx?.buildings?.join(',')}`,
+        `buildingId=${entity.buildingId} allowedScope=${buildings.join(',')}`,
       );
     }
   }
@@ -142,15 +145,16 @@ export class TenantSubscriber implements EntitySubscriberInterface {
     if (!ctx) return;
 
     const entityBuilding = entity.buildingId ?? entity.building ?? entity.tenantId;
+    const buildings = ctx?.scopes?.buildings;
     if (
       entityBuilding &&
-      ctx.buildings &&
-      ctx.buildings.length > 0 &&
-      !ctx.buildings.includes(entityBuilding)
+      buildings &&
+      buildings.length > 0 &&
+      !buildings.includes(entityBuilding)
     ) {
       const msg =
         `Tenant scope violation: ${operation} on table=${table} ` +
-        `building=${entityBuilding} blocked for user=${ctx.userId}`;
+        `building=${entityBuilding} blocked for user=${ctx?.user_email}`;
       this.logger.warn(msg);
       throw new ForbiddenException('Operation not permitted in your organizational scope');
     }
@@ -181,25 +185,27 @@ export function withTenantScope<T extends ObjectLiteral>(
 ): SelectQueryBuilder<T> {
   if (!ctx) return qb;
 
-  // Manual check for scope since ctx is just a data interface
-  const isScoped = (ctx.buildings?.length ?? 0) > 0 || 
-                   (ctx.programs?.length ?? 0) > 0 || 
-                   (ctx.lines?.length ?? 0) > 0;
+  const buildings = ctx.scopes?.buildings;
+  const programs  = ctx.scopes?.programs;
+  const lines     = ctx.scopes?.lines;
+  const isScoped  = (buildings?.length ?? 0) > 0 ||
+                    (programs?.length  ?? 0) > 0 ||
+                    (lines?.length     ?? 0) > 0;
 
   if (!isScoped) return qb;
 
   const buildingField = opts.buildingField ?? 'buildingId';
   const programField  = opts.programField  ?? 'program';
 
-  if (ctx.buildings && ctx.buildings.length > 0) {
+  if (buildings && buildings.length > 0) {
     qb.andWhere(`${alias}.${buildingField} IN (:...tenantBuildings)`, {
-      tenantBuildings: ctx.buildings,
+      tenantBuildings: buildings,
     });
   }
 
-  if (ctx.programs && ctx.programs.length > 0) {
+  if (programs && programs.length > 0) {
     qb.andWhere(`${alias}.${programField} IN (:...tenantPrograms)`, {
-      tenantPrograms: ctx.programs,
+      tenantPrograms: programs,
     });
   }
 

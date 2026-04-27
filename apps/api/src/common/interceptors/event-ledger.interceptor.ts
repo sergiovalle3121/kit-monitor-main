@@ -12,7 +12,7 @@ import { Request } from 'express';
 import { EventLedgerService } from '../../modules/event-ledger/event-ledger.service';
 import { EventDomain } from '../../modules/event-ledger/entities/ledger-event.entity';
 import { SignalGateway } from '../gateway/signal.gateway';
-import { TenantContextService } from '../services/tenant-context.service';
+import { TenantContextService } from '../tenant/tenant-context.service';
 
 const MUTATION_METHODS = new Set(['POST', 'PATCH', 'PUT', 'DELETE']);
 
@@ -166,7 +166,7 @@ export class EventLedgerInterceptor implements NestInterceptor {
         if (this.signals && CRITICAL_BROADCAST_SEGMENTS.has(firstSegment)) {
           try {
             const tenantId =
-              this.tenantCtx?.get()?.buildings?.[0] ??
+              this.tenantCtx?.getAllowedBuildingIds()?.[0] ??
               body?.building ?? body?.tenantId ??
               responseData?.building ?? responseData?.tenantId ??
               'default';
