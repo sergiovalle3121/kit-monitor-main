@@ -1,5 +1,6 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
+import { IoAdapter } from '@nestjs/platform-socket.io';
 import helmet from 'helmet';
 import compression from 'compression';
 import { Request, Response, NextFunction } from 'express';
@@ -34,6 +35,7 @@ function parseAllowedOrigins(raw: string): string[] {
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { cors: false });
+  app.useWebSocketAdapter(new IoAdapter(app));
 
   // Prefijo global: todas las rutas bajo /api
   app.setGlobalPrefix('api');

@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { APP_INTERCEPTOR } from '@nestjs/core';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ScheduleModule } from '@nestjs/schedule';
 import { ormOptions } from './orm.options';
 import { HealthController } from './health/health.controller';
 import { TenantModule } from './common/tenant/tenant.module';
@@ -38,6 +39,8 @@ import { GovernanceModule } from './modules/governance/governance.module';
 import { EngineeringModule } from './modules/engineering/engineering.module';
 import { AccountingModule } from './modules/accounting/accounting.module';
 import { CostRollupModule } from './modules/cost-rollup/cost-rollup.module';
+import { AutopilotModule } from './modules/autopilot/autopilot.module';
+import { SignalModule } from './common/gateway/signal.module';
 
 @Module({
   imports: [
@@ -70,6 +73,9 @@ import { CostRollupModule } from './modules/cost-rollup/cost-rollup.module';
     EngineeringModule,
     AccountingModule,
     CostRollupModule,
+    AutopilotModule,
+    SignalModule,
+    ScheduleModule.forRoot(),
   ],
   controllers: [HealthController],
   providers: [

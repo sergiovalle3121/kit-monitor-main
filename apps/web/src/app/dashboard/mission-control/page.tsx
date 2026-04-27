@@ -25,6 +25,7 @@ import {
   SigmaChart,
   type SigmaPoint,
 } from "@/components/analytics/SigmaChart";
+import { AutopilotHud } from "@/components/dashboard/AutopilotHud";
 
 const spring = { type: "spring", damping: 20, stiffness: 100 } as const;
 
@@ -313,6 +314,8 @@ export default function MissionControlPage() {
     <main className="min-h-screen overflow-hidden bg-[#020409] text-white">
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_20%_10%,rgba(0,242,234,0.18),transparent_28%),radial-gradient(circle_at_82%_14%,rgba(255,0,92,0.12),transparent_24%),linear-gradient(135deg,#020409_0%,#071018_48%,#020409_100%)]" />
       <div className="pointer-events-none fixed inset-0 opacity-[0.16] [background-image:linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px)] [background-size:44px_44px]" />
+      
+      <AutopilotHud />
 
       <motion.div
         variants={containerVariants}
