@@ -22,7 +22,7 @@ import { useSignals, CorrectiveProposal, CriticalEvent } from '@/hooks/useSignal
 import { useAuth } from '@/hooks/useAuth';
 
 export function AutopilotHud() {
-  const { user } = useAuth();
+  const { tenantId } = useAuth();
   const { 
     status, 
     proposals, 
@@ -30,7 +30,7 @@ export function AutopilotHud() {
     criticalEvents, 
     removeProposal, 
     removeEvent 
-  } = useSignals(user?.tenantId || 'default');
+  } = useSignals(tenantId || 'default');
 
   const [minimized, setMinimized] = useState(false);
   const [executingId, setExecutingId] = useState<number | null>(null);
