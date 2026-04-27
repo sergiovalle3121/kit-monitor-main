@@ -17,6 +17,10 @@ export class LedgerEvent {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
+  @Column({ name: 'tenant_id', type: 'varchar', length: 100, nullable: true })
+  @Index()
+  tenantId: string;
+
   @CreateDateColumn({ type: DATE_COLUMN_TYPE })
   timestamp: Date;
 

@@ -4,8 +4,14 @@ import {
   Entity,
   Index,
   PrimaryGeneratedColumn,
+  type ColumnOptions,
 } from 'typeorm';
 import { DATE_COLUMN_TYPE } from '../../../common/database/date-column-type';
+
+const TENANT_ID_COLUMN: ColumnOptions =
+  process.env.DATABASE_URL || process.env.DB_HOST
+    ? { name: 'tenant_id', type: 'uuid' }
+    : { name: 'tenant_id', type: 'varchar', length: 36 };
 
 const decimalToNumber = {
   to: (value: number | null | undefined) => value ?? 0,
@@ -28,7 +34,7 @@ export class CostItem {
   id: string;
 
   @Index()
-  @Column({ name: 'tenant_id', type: 'varchar', length: 36 })
+  @Column(TENANT_ID_COLUMN)
   tenantId: string;
 
   @Column({ type: 'varchar', length: 100, nullable: true })

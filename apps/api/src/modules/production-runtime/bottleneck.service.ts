@@ -110,7 +110,7 @@ export class BottleneckService {
     const theoreticalByBay = new Map<number, number>();
     for (const bayId of bayIds) {
       const items   = bayBomMap.get(bayId) ?? [];
-      const totalBomUsage = items.reduce((s, b) => s + (b.usagePerAssembly ?? 1), 0);
+      const totalBomUsage = items.reduce((s, b) => s + (b.usageFactor ?? 1), 0);
       // Simpler model: each bay should process targetQty assemblies per window
       // weighted by how many distinct components it handles (complexity factor)
       const complexityFactor  = Math.max(1, items.length);

@@ -20,7 +20,7 @@ export class GovernanceService {
     return this.usersService.findAll();
   }
 
-  async updateUser(id: number, dto: any) {
+  async updateUser(id: string, dto: any) {
     return this.usersService.update(id, dto);
   }
 

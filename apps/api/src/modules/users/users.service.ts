@@ -19,7 +19,7 @@ export class UsersService {
     return this.userRepo.find({ order: { id: 'ASC' } });
   }
 
-  async findOne(id: number): Promise<User> {
+  async findOne(id: string): Promise<User> {
     const user = await this.userRepo.findOne({ where: { id } });
     if (!user) throw new NotFoundException('User not found');
     return user;
@@ -46,13 +46,13 @@ export class UsersService {
     });
   }
 
-  async update(id: number, dto: Partial<User>): Promise<User> {
+  async update(id: string, dto: Partial<User>): Promise<User> {
     const user = await this.findOne(id);
     Object.assign(user, dto);
     return this.userRepo.save(user);
   }
 
-  async remove(id: number): Promise<void> {
+  async remove(id: string): Promise<void> {
     const user = await this.findOne(id);
     await this.userRepo.remove(user);
   }
