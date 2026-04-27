@@ -11,7 +11,6 @@ import { ForecastModule } from './modules/forecast/forecast.module';
 
 // AXOS OS Intelligence & Tenancy Infrastructure
 import { EventLedgerInterceptor } from './common/interceptors/event-ledger.interceptor';
-import { TenantContextService } from './common/services/tenant-context.service';
 import { TenantSubscriber } from './common/database/tenant.subscriber';
 
 // AXOS OS domain modules
@@ -83,9 +82,7 @@ import { SignalModule } from './common/gateway/signal.module';
       provide: APP_INTERCEPTOR,
       useClass: EventLedgerInterceptor,
     },
-    TenantContextService,
     TenantSubscriber,
   ],
-  exports: [TenantContextService],
 })
 export class AppModule {}

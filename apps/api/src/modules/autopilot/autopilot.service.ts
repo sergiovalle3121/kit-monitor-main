@@ -9,7 +9,6 @@ import { Resupply } from '../resupplies/entities/resupply.entity';
 import { BottleneckService } from '../production-runtime/bottleneck.service';
 import { DecisionIntelligenceService } from '../decision-intelligence/decision-intelligence.service';
 import { SignalGateway } from '../../common/gateway/signal.gateway';
-import { TenantContextService } from '../../common/services/tenant-context.service';
 import { ProposalExecutionResult } from './dto/autopilot.dto';
 
 const BOTTLENECK_THRESHOLD = 0.7;   // SeverityScore above which we generate a proposal
@@ -30,7 +29,6 @@ export class AutopilotService {
     private readonly bottleneck: BottleneckService,
     private readonly diService: DecisionIntelligenceService,
     private readonly signals: SignalGateway,
-    private readonly tenantCtx: TenantContextService,
   ) {}
 
   @Cron(CronExpression.EVERY_5_MINUTES)
