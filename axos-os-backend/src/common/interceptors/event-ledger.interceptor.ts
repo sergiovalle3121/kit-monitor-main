@@ -4,12 +4,15 @@ import {
   ExecutionContext,
   CallHandler,
   Logger,
+  Optional,
 } from '@nestjs/common';
 import { Observable } from 'rxjs';
 import { tap } from 'rxjs/operators';
 import { Request } from 'express';
 import { EventLedgerService } from '../../modules/event-ledger/event-ledger.service';
 import { EventDomain } from '../../modules/event-ledger/entities/ledger-event.entity';
+import { SignalGateway } from '../gateway/signal.gateway';
+import { TenantContextService } from '../services/tenant-context.service';
 
 const MUTATION_METHODS = new Set(['POST', 'PATCH', 'PUT', 'DELETE']);
 
@@ -67,21 +70,31 @@ const HTTP_METHOD_TO_VERB: Record<string, string> = {
 };
 
 /**
+ * Segments that warrant a real-time broadcast when mutated.
+ * Critical domains: PRODUCTION writes and QUALITY NCRs are the most
+ * time-sensitive for the shopfloor HUD.
+ */
+const CRITICAL_BROADCAST_SEGMENTS = new Set([
+  'production-runtime',
+  'ncr',
+  'autopilot',
+  'plans',
+]);
+
+/**
  * Global interceptor that automatically records mutation events (POST, PATCH, PUT, DELETE)
- * on tracked domains into the immutable LedgerEvent audit trail.
- *
- * Registration: Declared as APP_INTERCEPTOR in AppModule for DI-aware global scope.
- *
- * beforeState capture: For PATCH/PUT requests a deep-clone of the request body is
- * stored as beforeState. The resolved response body becomes afterState. Deep DB diffing
- * requires domain-specific hooks; this interceptor provides request-level diffing which
- * covers the vast majority of audit needs without per-entity DB queries.
+ * on tracked domains into the immutable LedgerEvent audit trail, and broadcasts
+ * critical events via the SignalGateway WebSocket for the live Autopilot HUD.
  */
 @Injectable()
 export class EventLedgerInterceptor implements NestInterceptor {
   private readonly logger = new Logger(EventLedgerInterceptor.name);
 
-  constructor(private readonly ledger: EventLedgerService) {}
+  constructor(
+    private readonly ledger: EventLedgerService,
+    @Optional() private readonly signals: SignalGateway,
+    @Optional() private readonly tenantCtx: TenantContextService,
+  ) {}
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
     const http = context.switchToHttp();
@@ -146,6 +159,34 @@ export class EventLedgerInterceptor implements NestInterceptor {
           this.logger.warn(
             `EventLedger write skipped for [${domain}] ${action}: ${err?.message}`,
           );
+        }
+
+        // Broadcast critical events to the live HUD via WebSocket
+        if (this.signals && CRITICAL_BROADCAST_SEGMENTS.has(firstSegment)) {
+          try {
+            const tenantId =
+              this.tenantCtx?.get()?.buildings?.[0] ??
+              body?.building ?? body?.tenantId ??
+              responseData?.building ?? responseData?.tenantId ??
+              'default';
+
+            this.signals.emitCriticalEvent(tenantId, {
+              domain,
+              action,
+              referenceId: (referenceId ?? responseData?.id)?.toString(),
+              actor:       actorName,
+              line:        body?.line?.toString() ?? responseData?.line?.toString(),
+              model:       body?.model ?? responseData?.model,
+              metadata: {
+                httpMethod: method,
+                path,
+                durationMs: Date.now() - t0,
+              },
+            });
+          } catch (err: any) {
+            // Signal emit failures must never break the business operation
+            this.logger.debug(`Signal emit skipped: ${err?.message}`);
+          }
         }
       }),
     );

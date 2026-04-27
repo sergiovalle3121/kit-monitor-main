@@ -1,0 +1,105 @@
+<!-- Autopilot HUD — floating glass panel -->
+<aside class="hud-shell" @hudSlide>
+
+  <!-- ── Header ─────────────────────────────────────────────────────────── -->
+  <header class="hud-header" (click)="toggleMinimize()" role="button" [attr.aria-expanded]="!hudMinimized">
+    <div class="hud-header-left">
+      <i class="fas fa-robot hud-icon" aria-hidden="true"></i>
+      <span class="hud-title">Autopilot</span>
+      <span class="hud-badge" *ngIf="pendingCount > 0" aria-label="{{ pendingCount }} active proposals">
+        {{ pendingCount }}
+      </span>
+    </div>
+    <div class="hud-header-right">
+      <span class="hud-status-dot" [class]="statusDotClass()" [title]="status"></span>
+      <i class="fas hud-chevron"
+         [class.fa-chevron-up]="!hudMinimized"
+         [class.fa-chevron-down]="hudMinimized"
+         aria-hidden="true"></i>
+    </div>
+  </header>
+
+  <!-- ── Body ───────────────────────────────────────────────────────────── -->
+  <div class="hud-body" *ngIf="!hudMinimized">
+
+    <!-- Critical event toasts -->
+    <div class="hud-toasts" *ngIf="criticalEvents.length > 0" [@listStagger]="criticalEvents.length">
+      <div
+        class="hud-toast"
+        *ngFor="let ev of criticalEvents; trackBy: trackById"
+        @itemEnter
+      >
+        <i class="fas fa-bolt hud-toast-icon" aria-hidden="true"></i>
+        <div class="hud-toast-body">
+          <span class="hud-toast-domain">{{ ev.domain }}</span>
+          <span class="hud-toast-action">{{ ev.action }}</span>
+          <span class="hud-toast-meta" *ngIf="ev.line">Line {{ ev.line }}</span>
+        </div>
+        <button class="hud-dismiss-btn" (click)="dismissEvent(ev)" aria-label="Dismiss">
+          <i class="fas fa-xmark" aria-hidden="true"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Proposal list -->
+    <div class="hud-proposals" [@listStagger]="proposals.length">
+      <div
+        class="hud-proposal"
+        *ngFor="let p of proposals; trackBy: trackById"
+        @itemEnter
+        [class]="'proposal-' + p.severity"
+        [class.proposal-executed]="p.status === 'executed'"
+      >
+        <div class="proposal-header">
+          <i class="fas proposal-cat-icon" [class]="'fas ' + categoryIcon(p.category)" aria-hidden="true"></i>
+          <span class="proposal-title">{{ p.title }}</span>
+          <i class="fas proposal-sev-icon" [class]="'fas ' + severityIcon(p.severity)" aria-hidden="true"></i>
+        </div>
+
+        <p class="proposal-desc">{{ p.description }}</p>
+
+        <div class="proposal-meta">
+          <span class="proposal-tag" *ngIf="p.line">
+            <i class="fas fa-industry" aria-hidden="true"></i> {{ p.line }}
+          </span>
+          <span class="proposal-tag" *ngIf="p.bayId">
+            Bay {{ p.bayId }}
+          </span>
+          <span class="proposal-tag" *ngIf="p.severityScore">
+            Score {{ (p.severityScore * 100 | number:'1.0-0') }}%
+          </span>
+          <span class="proposal-tag" *ngIf="p.sigmaLevel">
+            σ = {{ p.sigmaLevel | number:'1.2-2' }}
+          </span>
+        </div>
+
+        <div class="proposal-actions" *ngIf="p.status === 'pending'">
+          <button
+            class="btn-execute"
+            (click)="executeFix(p)"
+            [disabled]="executingId === p.id"
+            [class.btn-loading]="executingId === p.id"
+          >
+            <i class="fas fa-bolt" aria-hidden="true"></i>
+            {{ executingId === p.id ? 'Executing…' : 'Execute Fix' }}
+          </button>
+          <button class="btn-dismiss" (click)="dismiss(p)" aria-label="Dismiss proposal">
+            <i class="fas fa-xmark" aria-hidden="true"></i>
+          </button>
+        </div>
+
+        <div class="proposal-executed-label" *ngIf="p.status === 'executed'">
+          <i class="fas fa-check-circle" aria-hidden="true"></i> Applied
+        </div>
+      </div>
+
+      <!-- Empty state -->
+      <div class="hud-empty" *ngIf="proposals.length === 0">
+        <i class="fas fa-check-circle hud-empty-icon" aria-hidden="true"></i>
+        <p>All systems nominal</p>
+      </div>
+    </div>
+
+  </div>
+
+</aside>

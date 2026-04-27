@@ -1,10 +1,12 @@
 import { Module } from "@nestjs/common";
 import { APP_INTERCEPTOR } from "@nestjs/core";
 import { TypeOrmModule } from "@nestjs/typeorm";
+import { ScheduleModule } from "@nestjs/schedule";
 import { ormOptions } from "./orm.options";
 import { EventLedgerInterceptor } from "./common/interceptors/event-ledger.interceptor";
 import { TenantContextService } from "./common/services/tenant-context.service";
 import { TenantSubscriber } from "./common/database/tenant.subscriber";
+import { SignalModule } from "./common/gateway/signal.module";
 import { HealthController } from "./health/health.controller";
 import { AuthModule } from "./modules/auth/auth.module";
 import { UsersModule } from "./modules/users/users.module";
@@ -31,10 +33,13 @@ import { SuppliersModule } from "./modules/suppliers/suppliers.module";
 import { ReceivingModule } from "./modules/receiving/receiving.module";
 import { ShippingModule } from "./modules/shipping/shipping.module";
 import { GovernanceModule } from "./modules/governance/governance.module";
+import { AutopilotModule } from "./modules/autopilot/autopilot.module";
 
 @Module({
   imports: [
     TypeOrmModule.forRoot(ormOptions()),
+    ScheduleModule.forRoot(),
+    SignalModule,
     AuthModule,
     UsersModule,
     PlansModule,
@@ -58,6 +63,7 @@ import { GovernanceModule } from "./modules/governance/governance.module";
     ReceivingModule,
     ShippingModule,
     GovernanceModule,
+    AutopilotModule,
   ],
   controllers: [HealthController],
   providers: [
