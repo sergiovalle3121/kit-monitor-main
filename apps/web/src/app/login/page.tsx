@@ -241,7 +241,7 @@ function LoginInner() {
                     <User className="w-4 h-4" />
                   </div>
                   <input
-                    type="email"
+                    type="text"
                     required
                     value={formData.email}
                     onChange={(e) =>
