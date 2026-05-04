@@ -1,23 +1,41 @@
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { decodeSession, SESSION_COOKIE_NAME } from "@/lib/session";
 
-// Este middleware protege todas las rutas dentro de /dashboard
-export function middleware(request: NextRequest) {
-  // Por ahora, simulamos la verificación de una cookie de sesión o token
-  const isAuthenticated = request.cookies.get('axos_session');
+const DEMO_BLOCKED_PREFIXES = [
+  "/dashboard/admin",
+  "/dashboard/settings/users",
+];
 
-  // Si el usuario intenta entrar al dashboard y NO está autenticado
-  if (request.nextUrl.pathname.startsWith('/dashboard')) {
-    if (!isAuthenticated) {
-      // Redirigir a la página de login
-      return NextResponse.redirect(new URL('/login', request.url));
-    }
+export async function middleware(request: NextRequest) {
+  const token = request.cookies.get(SESSION_COOKIE_NAME)?.value;
+  const session = await decodeSession(token);
+  const path = request.nextUrl.pathname;
+
+  if (!session) {
+    const url = new URL("/login", request.url);
+    url.searchParams.set("next", path);
+    return NextResponse.redirect(url);
+  }
+
+  if (
+    session.kind === "demo" &&
+    DEMO_BLOCKED_PREFIXES.some((p) => path.startsWith(p))
+  ) {
+    const url = new URL("/dashboard", request.url);
+    url.searchParams.set("blocked", "demo");
+    return NextResponse.redirect(url);
+  }
+
+  if (path.startsWith("/dashboard/admin") && session.role !== "admin") {
+    const url = new URL("/dashboard", request.url);
+    url.searchParams.set("blocked", "admin");
+    return NextResponse.redirect(url);
   }
 
   return NextResponse.next();
 }
 
-// Configuración para que el middleware solo actúe en las rutas del dashboard
 export const config = {
-  matcher: ['/dashboard/:path*'],
+  matcher: ["/dashboard/:path*"],
 };
