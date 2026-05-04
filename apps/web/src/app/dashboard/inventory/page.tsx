@@ -1,23 +1,23 @@
 "use client";
 
-import React, { useDeferredValue, useMemo, useState } from "react";
-import { motion } from "framer-motion";
+import React, { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { 
   Search, 
   Filter, 
   Plus, 
-  ArrowUpDown, 
   Package, 
-  AlertTriangle, 
   ChevronLeft,
   Download,
-  Edit2,
-  Trash2,
   History,
   X,
-  Save,
   FileSpreadsheet,
-  FileText
+  FileText,
+  Boxes,
+  ArrowRightLeft,
+  Barcode,
+  MoreVertical,
+  RefreshCw
 } from "lucide-react";
 import Link from "next/link";
 import * as XLSX from 'xlsx';
@@ -25,16 +25,9 @@ import { saveAs } from 'file-saver';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
+// --- Types ---
 type InventoryItemStatus = "In Stock" | "Reorder" | "Critical";
-
-type InventoryCategory =
-  | "Consumables"
-  | "Electronics"
-  | "Fasteners"
-  | "Mechanical"
-  | "Raw Materials";
-
-type InventoryCategoryFilter = InventoryCategory | "all";
+type InventoryCategory = "Consumables" | "Electronics" | "Fasteners" | "Mechanical" | "Raw Materials";
 
 interface InventoryItem {
   id: string;
@@ -50,380 +43,295 @@ interface InventoryItem {
   price: number;
   warehouseId: string;
   location: string;
+  lastUpdated?: string;
 }
 
+// --- Styles ---
 const statusStyles: Record<InventoryItemStatus, string> = {
-    "In Stock": "bg-green-50 text-green-600 dark:bg-green-500/10 dark:text-green-400 border-green-100 dark:border-green-500/20",
-    "Reorder": "bg-yellow-50 text-yellow-600 dark:bg-yellow-500/10 dark:text-yellow-400 border-yellow-100 dark:border-yellow-500/20",
-    "Critical": "bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400 border-red-100 dark:border-red-500/20",
+    "In Stock": "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/20",
+    "Reorder": "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400 border-amber-200 dark:border-amber-500/20",
+    "Critical": "bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-400 border-rose-200 dark:border-rose-500/20",
 };
 
-// UI projection of MaterialMaster + InventoryPosition + ReplenishmentRule.
-const mockInventory: InventoryItem[] = [
-  { id: "SKU-1024", name: "Steel Plate 4x8", category: "Raw Materials", stock: 142, allocated: 18, inTransit: 40, reorderPoint: 35, maxStock: 220, unit: "pcs", status: "In Stock", price: 45.00, warehouseId: "WH-A1", location: "BULK-A03" },
-  { id: "SKU-2055", name: "Aluminum Extrusion", category: "Raw Materials", stock: 12, allocated: 6, inTransit: 30, reorderPoint: 40, maxStock: 160, unit: "m", status: "Critical", price: 82.50, warehouseId: "WH-A1", location: "RACK-12" },
-  { id: "SKU-3091", name: "M6 Hex Bolt", category: "Fasteners", stock: 4500, allocated: 650, inTransit: 1200, reorderPoint: 900, maxStock: 6000, unit: "pcs", status: "In Stock", price: 0.12, warehouseId: "WH-B2", location: "BIN-F06" },
-  { id: "SKU-4022", name: "Electronic Controller v2", category: "Electronics", stock: 24, allocated: 8, inTransit: 16, reorderPoint: 30, maxStock: 90, unit: "pcs", status: "Reorder", price: 120.00, warehouseId: "WH-QA", location: "ESD-02" },
-  { id: "SKU-5011", name: "Hydraulic Pump", category: "Mechanical", stock: 5, allocated: 2, inTransit: 0, reorderPoint: 10, maxStock: 35, unit: "pcs", status: "Critical", price: 450.00, warehouseId: "WH-A1", location: "CAGE-01" },
-  { id: "SKU-6033", name: "Thermal Paste", category: "Consumables", stock: 85, allocated: 12, inTransit: 24, reorderPoint: 25, maxStock: 140, unit: "tubes", status: "In Stock", price: 15.00, warehouseId: "WH-B2", location: "CHEM-04" },
-];
-
-const isLowStock = (item: InventoryItem) => item.stock <= item.reorderPoint;
-
-const StatusBadge = ({ status }: { status: InventoryItemStatus }) => {
-  const styles = statusStyles[status];
-
-  return (
-    <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border ${styles}`}>
-      {status}
-    </span>
-  );
-};
-
-export default function InventoryExplorerPage() {
-  const [inventoryData, setInventoryData] = useState<InventoryItem[]>(mockInventory);
+export default function EnterpriseInventoryPage() {
+  const [inventory, setInventory] = useState<InventoryItem[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState<InventoryCategoryFilter>("all");
-  const [showLowStockOnly, setShowLowStockOnly] = useState(false);
-  
-  // Modal state
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingItem, setEditingItem] = useState<Partial<InventoryItem> | null>(null);
+  const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
+  const [activeTab, setActiveTab] = useState<"master" | "movements">("master");
 
-  const handleSave = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (editingItem?.id) {
-      const isExisting = inventoryData.some(item => item.id === editingItem.id);
-      if (isExisting) {
-        setInventoryData(inventoryData.map(item => item.id === editingItem.id ? editingItem as InventoryItem : item));
+  // Fetch logic prepared for Claude's backend
+  const fetchInventory = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/inventory");
+      if (res.ok) {
+        const data = await res.json();
+        setInventory(data);
       } else {
-        setInventoryData([...inventoryData, { ...editingItem, status: "In Stock" } as InventoryItem]);
+        // Fallback mock if API not ready yet
+        simulateDataLoad();
       }
+    } catch (e) {
+      simulateDataLoad(); // Fallback
     }
-    setIsModalOpen(false);
-    setEditingItem(null);
   };
 
-  const handleDelete = (id: string) => {
-    setInventoryData(inventoryData.filter(item => item.id !== id));
+  const simulateDataLoad = () => {
+    setTimeout(() => {
+      setInventory([
+        { id: "SKU-1024", name: "Steel Plate 4x8", category: "Raw Materials", stock: 142, allocated: 18, inTransit: 40, reorderPoint: 35, maxStock: 220, unit: "pcs", status: "In Stock", price: 45.00, warehouseId: "WH-A1", location: "BULK-A03", lastUpdated: "2026-05-04T10:00:00Z" },
+        { id: "SKU-2055", name: "Aluminum Extrusion", category: "Raw Materials", stock: 12, allocated: 6, inTransit: 30, reorderPoint: 40, maxStock: 160, unit: "m", status: "Critical", price: 82.50, warehouseId: "WH-A1", location: "RACK-12", lastUpdated: "2026-05-04T09:15:00Z" },
+        { id: "SKU-3091", name: "M6 Hex Bolt", category: "Fasteners", stock: 4500, allocated: 650, inTransit: 1200, reorderPoint: 900, maxStock: 6000, unit: "pcs", status: "In Stock", price: 0.12, warehouseId: "WH-B2", location: "BIN-F06", lastUpdated: "2026-05-03T16:20:00Z" },
+        { id: "SKU-4022", name: "Controller v2", category: "Electronics", stock: 24, allocated: 8, inTransit: 16, reorderPoint: 30, maxStock: 90, unit: "pcs", status: "Reorder", price: 120.00, warehouseId: "WH-QA", location: "ESD-02", lastUpdated: "2026-05-02T11:45:00Z" },
+      ]);
+      setLoading(false);
+    }, 800);
   };
 
-  const exportToExcel = () => {
-    const ws = XLSX.utils.json_to_sheet(filteredInventory);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Inventory");
-    const excelBuffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
-    const data = new Blob([excelBuffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8" });
-    saveAs(data, "Inventory_Report.xlsx");
-  };
+  useEffect(() => {
+    fetchInventory();
+  }, []);
 
-  const exportToPDF = () => {
-    const doc = new jsPDF();
-    doc.text("Inventory Report", 14, 15);
-    autoTable(doc, {
-      head: [['SKU', 'Name', 'Category', 'Stock', 'Status']],
-      body: filteredInventory.map(item => [item.id, item.name, item.category, item.stock.toString(), item.status]),
-      startY: 20,
-    });
-    doc.save("Inventory_Report.pdf");
-  };
-
-  const deferredSearchTerm = useDeferredValue(searchTerm);
-
-  const categories = useMemo(
-    () => Array.from(new Set(inventoryData.map((item) => item.category))).sort(),
-    [inventoryData]
+  const filteredInventory = inventory.filter(i => 
+    i.id.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    i.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const filteredInventory = useMemo(() => {
-    const normalizedSearch = deferredSearchTerm.trim().toLowerCase();
-
-    return inventoryData.filter((item) => {
-      const matchesSearch =
-        normalizedSearch.length === 0 ||
-        item.name.toLowerCase().includes(normalizedSearch) ||
-        item.category.toLowerCase().includes(normalizedSearch);
-      const matchesCategory = selectedCategory === "all" || item.category === selectedCategory;
-      const matchesLowStock = !showLowStockOnly || isLowStock(item);
-
-      return matchesSearch && matchesCategory && matchesLowStock;
-    });
-  }, [deferredSearchTerm, selectedCategory, showLowStockOnly]);
+  const exportExcel = () => {
+    const ws = XLSX.utils.json_to_sheet(inventory);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Inventory_Master");
+    saveAs(new Blob([XLSX.write(wb, { bookType: "xlsx", type: "array" })]), "SAP_Inventory_Export.xlsx");
+  };
 
   return (
-    <div className="min-h-screen bg-[#F8F9FA] dark:bg-[#0A0A0A] p-6 md:p-10 lg:p-12">
+    <div className="min-h-screen bg-[#FBFBFD] dark:bg-[#0A0A0A] text-[#1D1D1F] dark:text-[#F5F5F7] font-sans flex overflow-hidden">
       
-      {/* Header */}
-      <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12">
-        <div className="flex items-center gap-6">
-          <Link href="/dashboard" className="p-3 bg-white dark:bg-[#111] border border-gray-100 dark:border-white/5 rounded-2xl hover:scale-105 active:scale-95 transition-all shadow-sm">
-            <ChevronLeft className="w-5 h-5" />
-          </Link>
-          <div>
-            <h1 className="text-4xl font-bold tracking-tight mb-1">Inventory Explorer</h1>
-            <p className="text-gray-500 dark:text-gray-400 font-light">Global material management and stock control</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-3">
-          <button onClick={exportToExcel} className="px-4 py-3 border border-gray-200 dark:border-white/10 rounded-2xl text-sm font-medium hover:bg-white dark:hover:bg-white/5 transition-all flex items-center gap-2">
-            <FileSpreadsheet className="w-4 h-4 text-green-600" />
-            Excel
-          </button>
-          <button onClick={exportToPDF} className="px-4 py-3 border border-gray-200 dark:border-white/10 rounded-2xl text-sm font-medium hover:bg-white dark:hover:bg-white/5 transition-all flex items-center gap-2">
-            <FileText className="w-4 h-4 text-red-500" />
-            PDF
-          </button>
-          <button 
-            onClick={() => {
-              setEditingItem({ id: `SKU-${Math.floor(Math.random() * 9000) + 1000}`, stock: 0, reorderPoint: 10, maxStock: 100, category: "Consumables", unit: "pcs" });
-              setIsModalOpen(true);
-            }}
-            className="px-6 py-3 bg-black dark:bg-white text-white dark:text-black rounded-2xl text-sm font-bold shadow-xl shadow-black/10 dark:shadow-white/5 hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
-          >
-            <Plus className="w-4 h-4" />
-            New Material
-          </button>
-        </div>
-      </header>
-
-      {/* Filters Bar */}
-      <div className="bg-white dark:bg-[#111] p-4 rounded-[2rem] border border-gray-100 dark:border-white/5 mb-8 flex flex-col md:flex-row gap-4 items-center">
-        <div className="relative flex-1 w-full">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <input 
-            type="text" 
-            placeholder="Search by name or category..." 
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full bg-gray-50 dark:bg-white/5 border-none rounded-xl py-3 pl-11 pr-4 text-sm outline-none focus:ring-2 focus:ring-black/5 transition-all"
-          />
-        </div>
-        <div className="flex gap-2 w-full md:w-auto">
-          <div className="relative flex-1 md:flex-none">
-            <Filter className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-            <select
-              value={selectedCategory}
-              onChange={(event) => setSelectedCategory(event.target.value as InventoryCategoryFilter)}
-              className="w-full appearance-none bg-gray-50 dark:bg-white/5 rounded-xl py-3 pl-10 pr-8 text-sm font-medium outline-none hover:bg-gray-100 dark:hover:bg-white/10 focus:ring-2 focus:ring-black/5 transition-all"
-            >
-              <option value="all">All Categories</option>
-              {categories.map((category) => (
-                <option key={category} value={category}>
-                  {category}
-                </option>
-              ))}
-            </select>
-          </div>
-          <button
-            type="button"
-            onClick={() => setShowLowStockOnly((current) => !current)}
-            aria-pressed={showLowStockOnly}
-            className={`px-4 py-3 rounded-xl text-sm font-medium flex items-center gap-2 transition-all ${
-              showLowStockOnly
-                ? "bg-red-50 text-red-600 shadow-sm shadow-red-500/10 dark:bg-red-500/10 dark:text-red-400"
-                : "bg-gray-50 text-red-500 dark:bg-white/5 hover:bg-gray-100 dark:hover:bg-white/10"
-            }`}
-          >
-            <AlertTriangle className="w-4 h-4" />
-            Low Stock
-          </button>
-        </div>
-      </div>
-
-      {/* Inventory Table */}
-      <div className="bg-white dark:bg-[#111] rounded-[2.5rem] border border-gray-100 dark:border-white/5 shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left">
-            <thead>
-              <tr className="border-b border-gray-50 dark:border-white/5 text-[10px] font-bold uppercase tracking-widest text-gray-400">
-                <th className="px-8 py-6">Material</th>
-                <th className="px-8 py-6">SKU</th>
-                <th className="px-8 py-6">Category</th>
-                <th className="px-8 py-6">
-                  <div className="flex items-center gap-2">
-                    Stock Level
-                    <ArrowUpDown className="w-3 h-3" />
-                  </div>
-                </th>
-                <th className="px-8 py-6 text-center">Status</th>
-                <th className="px-8 py-6 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50 dark:divide-white/5">
-              {filteredInventory.map((item) => (
-                <motion.tr 
-                  key={item.id}
-                  whileHover={{ backgroundColor: "rgba(0,0,0,0.01)" }}
-                  className="group transition-colors"
-                >
-                  <td className="px-8 py-5">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-gray-100 dark:bg-white/5 rounded-xl flex items-center justify-center">
-                        <Package className="w-5 h-5 text-gray-400 group-hover:text-black dark:group-hover:text-white transition-colors" />
-                      </div>
-                      <span className="text-sm font-bold">{item.name}</span>
-                    </div>
-                  </td>
-                  <td className="px-8 py-5 text-sm font-medium text-gray-500">{item.id}</td>
-                  <td className="px-8 py-5">
-                    <span className="text-xs px-2 py-1 bg-gray-50 dark:bg-white/5 rounded-lg text-gray-500">
-                      {item.category}
-                    </span>
-                  </td>
-                  <td className="px-8 py-5">
-                    <div className="flex flex-col gap-1">
-                      <span className="text-sm font-bold">{item.stock} <span className="font-light text-gray-400">{item.unit}</span></span>
-                      <div className="w-24 h-1 bg-gray-100 dark:bg-white/5 rounded-full overflow-hidden">
-                        <div 
-                          className={`h-full ${item.status === 'Critical' ? 'bg-red-500' : item.status === 'Reorder' ? 'bg-yellow-500' : 'bg-green-500'}`} 
-                          style={{ width: `${Math.min(100, (item.stock / item.maxStock) * 100)}%` }} 
-                        />
-                      </div>
-                      <span className="text-[10px] font-medium text-gray-400">
-                        Min {item.reorderPoint} {item.unit}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-8 py-5 text-center">
-                    <StatusBadge status={item.status} />
-                  </td>
-                  <td className="px-8 py-5 text-right">
-                    <div className="flex justify-end gap-2">
-                      <button className="p-2 text-gray-400 hover:text-black dark:hover:text-white transition-colors">
-                        <History className="w-4 h-4" />
-                      </button>
-                      <button 
-                        onClick={() => {
-                          setEditingItem(item);
-                          setIsModalOpen(true);
-                        }}
-                        className="p-2 text-gray-400 hover:text-blue-500 transition-colors"
-                      >
-                        <Edit2 className="w-4 h-4" />
-                      </button>
-                      <button 
-                        onClick={() => handleDelete(item.id)}
-                        className="p-2 text-gray-400 hover:text-red-500 transition-colors"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </td>
-                </motion.tr>
-              ))}
-              {filteredInventory.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="px-8 py-14 text-center">
-                    <p className="text-sm font-bold text-gray-500 dark:text-gray-300">No materials found</p>
-                    <p className="mt-1 text-xs text-gray-400">Try another name, category, or stock filter.</p>
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+      {/* Main Content Area */}
+      <div className={`flex-1 flex flex-col transition-all duration-300 ${selectedItem ? 'pr-96' : ''}`}>
         
-        {/* Pagination Placeholder */}
-        <div className="px-8 py-6 bg-gray-50/50 dark:bg-white/[0.02] border-t border-gray-50 dark:border-white/5 flex justify-between items-center">
-          <p className="text-xs text-gray-400 font-medium">
-            Showing {filteredInventory.length} of {inventoryData.length} materials
-          </p>
-          <div className="flex gap-2">
-            <button className="px-4 py-2 border border-gray-200 dark:border-white/10 rounded-xl text-xs font-bold disabled:opacity-30" disabled>Previous</button>
-            <button className="px-4 py-2 border border-gray-200 dark:border-white/10 rounded-xl text-xs font-bold">Next</button>
+        {/* Top Header */}
+        <header className="px-8 py-6 bg-white dark:bg-[#111] border-b border-[#E5E5EA] dark:border-white/5 flex justify-between items-center z-10">
+          <div className="flex items-center gap-4">
+            <Link href="/dashboard" className="p-2 hover:bg-gray-100 dark:hover:bg-white/5 rounded-full transition-colors">
+              <ChevronLeft className="w-5 h-5" />
+            </Link>
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+                <Boxes className="w-6 h-6 text-blue-600" /> Material Master Data
+              </h1>
+              <div className="flex gap-4 mt-1 text-[11px] font-bold text-gray-500 uppercase tracking-widest">
+                <span>Total Items: {inventory.length}</span>
+                <span>Value: ${inventory.reduce((acc, curr) => acc + (curr.stock * curr.price), 0).toLocaleString()}</span>
+              </div>
+            </div>
           </div>
+          
+          <div className="flex items-center gap-2">
+            <button onClick={fetchInventory} className="p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-white/5 rounded-lg transition-colors">
+              <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
+            </button>
+            <button onClick={exportExcel} className="p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-white/5 rounded-lg transition-colors">
+              <FileSpreadsheet className="w-5 h-5" />
+            </button>
+            <button className="flex items-center gap-2 bg-black dark:bg-white text-white dark:text-black px-4 py-2 rounded-lg text-sm font-semibold hover:scale-105 transition-transform ml-2">
+              <Plus className="w-4 h-4" /> Create Material
+            </button>
+          </div>
+        </header>
+
+        {/* Toolbar */}
+        <div className="px-8 py-4 flex gap-4 bg-[#FBFBFD] dark:bg-[#0A0A0A] border-b border-[#E5E5EA] dark:border-white/5 items-center">
+          <div className="relative w-72">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <input 
+              type="text" 
+              placeholder="Search SKU or description..."
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              className="w-full pl-9 pr-4 py-2 bg-white dark:bg-[#111] border border-gray-200 dark:border-white/10 rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20 outline-none transition-all shadow-sm"
+            />
+          </div>
+          <button className="flex items-center gap-2 px-3 py-2 bg-white dark:bg-[#111] border border-gray-200 dark:border-white/10 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors shadow-sm">
+            <Filter className="w-4 h-4" /> Advanced Filter
+          </button>
+          
+          <div className="ml-auto flex bg-gray-200/50 dark:bg-white/5 p-1 rounded-lg">
+            <button 
+              onClick={() => setActiveTab("master")}
+              className={`px-4 py-1.5 rounded-md text-xs font-bold transition-colors ${activeTab === 'master' ? 'bg-white dark:bg-[#222] shadow-sm' : 'text-gray-500'}`}
+            >
+              Master Data
+            </button>
+            <button 
+              onClick={() => setActiveTab("movements")}
+              className={`px-4 py-1.5 rounded-md text-xs font-bold transition-colors ${activeTab === 'movements' ? 'bg-white dark:bg-[#222] shadow-sm' : 'text-gray-500'}`}
+            >
+              Movements
+            </button>
+          </div>
+        </div>
+
+        {/* Dense Data Grid */}
+        <div className="flex-1 overflow-auto bg-white dark:bg-[#111]">
+          {loading ? (
+            <div className="flex items-center justify-center h-64 text-gray-400 flex-col gap-4">
+              <RefreshCw className="w-8 h-8 animate-spin" />
+              <p className="text-sm">Synchronizing with SAP/Backend...</p>
+            </div>
+          ) : (
+            <table className="w-full text-left text-sm border-collapse">
+              <thead className="sticky top-0 bg-[#F5F5F7] dark:bg-[#1A1A1C] z-10 shadow-sm">
+                <tr className="text-gray-500 dark:text-gray-400 text-[10px] uppercase tracking-wider font-bold">
+                  <th className="px-6 py-3 border-b border-gray-200 dark:border-white/5">Material ID</th>
+                  <th className="px-6 py-3 border-b border-gray-200 dark:border-white/5">Description</th>
+                  <th className="px-6 py-3 border-b border-gray-200 dark:border-white/5">Stock Level</th>
+                  <th className="px-6 py-3 border-b border-gray-200 dark:border-white/5">Status</th>
+                  <th className="px-6 py-3 border-b border-gray-200 dark:border-white/5">Location</th>
+                  <th className="px-6 py-3 border-b border-gray-200 dark:border-white/5 text-right">Unit Price</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100 dark:divide-white/5">
+                {filteredInventory.map(item => (
+                  <tr 
+                    key={item.id} 
+                    onClick={() => setSelectedItem(item)}
+                    className={`cursor-pointer transition-colors hover:bg-blue-50/50 dark:hover:bg-blue-500/10 ${selectedItem?.id === item.id ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}
+                  >
+                    <td className="px-6 py-3 font-mono text-xs font-medium text-blue-600 dark:text-blue-400">
+                      {item.id}
+                    </td>
+                    <td className="px-6 py-3">
+                      <div className="font-semibold text-gray-900 dark:text-white">{item.name}</div>
+                      <div className="text-[10px] text-gray-500 uppercase tracking-wider">{item.category}</div>
+                    </td>
+                    <td className="px-6 py-3">
+                      <div className="flex flex-col gap-1 w-32">
+                        <div className="flex justify-between text-xs font-bold">
+                          <span>{item.stock} {item.unit}</span>
+                          <span className="text-gray-400 font-normal">{item.maxStock}</span>
+                        </div>
+                        <div className="h-1.5 w-full bg-gray-100 dark:bg-white/5 rounded-full overflow-hidden">
+                          <div 
+                            className={`h-full ${item.stock <= item.reorderPoint ? 'bg-red-500' : 'bg-green-500'}`} 
+                            style={{ width: `${Math.min((item.stock / item.maxStock) * 100, 100)}%` }} 
+                          />
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-3">
+                      <span className={`px-2 py-1 rounded-md text-[10px] font-bold border ${statusStyles[item.status]}`}>
+                        {item.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-3 text-xs text-gray-600 dark:text-gray-300">
+                      {item.warehouseId} <br/> <span className="text-gray-400 font-mono">{item.location}</span>
+                    </td>
+                    <td className="px-6 py-3 text-right font-mono text-xs">
+                      ${item.price.toFixed(2)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
 
-      {/* Edit/Add Modal */}
-      {isModalOpen && editingItem && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      {/* Enterprise Side Panel (Slide Over) */}
+      <AnimatePresence>
+        {selectedItem && (
           <motion.div 
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="bg-white dark:bg-[#111] rounded-[2rem] p-8 max-w-lg w-full shadow-2xl border border-gray-100 dark:border-white/5"
+            initial={{ x: "100%", opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: "100%", opacity: 0 }}
+            transition={{ type: "spring", damping: 25, stiffness: 200 }}
+            className="fixed top-0 right-0 w-96 h-screen bg-white dark:bg-[#1C1C1E] shadow-2xl border-l border-gray-200 dark:border-white/10 z-50 flex flex-col"
           >
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold">{editingItem.name ? 'Edit Material' : 'New Material'}</h2>
-              <button onClick={() => setIsModalOpen(false)} className="p-2 bg-gray-100 dark:bg-white/5 rounded-full hover:bg-gray-200 dark:hover:bg-white/10">
-                <X className="w-4 h-4" />
+            {/* Panel Header */}
+            <div className="p-6 border-b border-gray-100 dark:border-white/5 bg-gray-50/50 dark:bg-white/[0.02]">
+              <div className="flex justify-between items-start mb-4">
+                <div className="p-3 bg-blue-100 dark:bg-blue-500/20 text-blue-600 rounded-xl">
+                  <Package className="w-6 h-6" />
+                </div>
+                <button onClick={() => setSelectedItem(null)} className="p-2 bg-gray-200 dark:bg-white/10 rounded-full hover:bg-gray-300 transition-colors">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <h2 className="text-xl font-bold tracking-tight mb-1">{selectedItem.name}</h2>
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-xs font-bold text-gray-500 bg-gray-200 dark:bg-white/10 px-2 py-0.5 rounded">{selectedItem.id}</span>
+                <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${statusStyles[selectedItem.status]}`}>
+                  {selectedItem.status}
+                </span>
+              </div>
+            </div>
+
+            {/* Panel Body */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-8">
+              
+              {/* Quick Stats */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="p-4 bg-gray-50 dark:bg-white/5 rounded-2xl border border-gray-100 dark:border-white/5">
+                  <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold mb-1">Available</p>
+                  <p className="text-2xl font-bold text-green-600">{selectedItem.stock} <span className="text-sm font-normal text-gray-400">{selectedItem.unit}</span></p>
+                </div>
+                <div className="p-4 bg-gray-50 dark:bg-white/5 rounded-2xl border border-gray-100 dark:border-white/5">
+                  <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold mb-1">Allocated</p>
+                  <p className="text-2xl font-bold text-amber-600">{selectedItem.allocated} <span className="text-sm font-normal text-gray-400">{selectedItem.unit}</span></p>
+                </div>
+              </div>
+
+              {/* Replenishment Data */}
+              <div>
+                <h3 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-4 border-b border-gray-100 dark:border-white/10 pb-2">MRP Parameters</h3>
+                <div className="space-y-3 text-sm">
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-500">Reorder Point</span>
+                    <span className="font-bold">{selectedItem.reorderPoint} {selectedItem.unit}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-500">Maximum Stock</span>
+                    <span className="font-bold">{selectedItem.maxStock} {selectedItem.unit}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-500">In Transit (PO)</span>
+                    <span className="font-bold text-blue-500">+{selectedItem.inTransit} {selectedItem.unit}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-500">Unit Cost (Standard)</span>
+                    <span className="font-mono font-bold">${selectedItem.price.toFixed(2)}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Barcode / Storage */}
+              <div>
+                <h3 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-4 border-b border-gray-100 dark:border-white/10 pb-2">Storage & Tracking</h3>
+                <div className="bg-gray-100 dark:bg-white/10 p-4 rounded-xl flex items-center justify-between mb-4">
+                  <div>
+                    <p className="text-xs font-bold">Warehouse: {selectedItem.warehouseId}</p>
+                    <p className="text-[10px] font-mono text-gray-500">{selectedItem.location}</p>
+                  </div>
+                  <Barcode className="w-12 h-12 text-black dark:text-white opacity-50" />
+                </div>
+              </div>
+
+            </div>
+
+            {/* Panel Footer Actions */}
+            <div className="p-6 border-t border-gray-100 dark:border-white/5 bg-gray-50/50 dark:bg-[#111] grid grid-cols-2 gap-3">
+              <button className="flex items-center justify-center gap-2 py-3 bg-white dark:bg-[#222] border border-gray-200 dark:border-white/10 rounded-xl text-sm font-bold shadow-sm hover:bg-gray-50 transition-colors">
+                <ArrowRightLeft className="w-4 h-4" /> Transfer
+              </button>
+              <button className="flex items-center justify-center gap-2 py-3 bg-black dark:bg-white text-white dark:text-black rounded-xl text-sm font-bold shadow-md hover:scale-[1.02] transition-transform">
+                <Package className="w-4 h-4" /> Adjust Stock
               </button>
             </div>
-            
-            <form onSubmit={handleSave} className="space-y-4">
-              <div>
-                <label className="text-xs font-bold text-gray-500 mb-1 block">Material Name</label>
-                <input 
-                  type="text" required 
-                  value={editingItem.name || ''} 
-                  onChange={e => setEditingItem({...editingItem, name: e.target.value})}
-                  className="w-full bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-black dark:focus:border-white transition-all"
-                />
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs font-bold text-gray-500 mb-1 block">SKU</label>
-                  <input 
-                    type="text" required 
-                    value={editingItem.id || ''} 
-                    onChange={e => setEditingItem({...editingItem, id: e.target.value})}
-                    className="w-full bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-black dark:focus:border-white transition-all"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-bold text-gray-500 mb-1 block">Category</label>
-                  <select 
-                    value={editingItem.category || ''} 
-                    onChange={e => setEditingItem({...editingItem, category: e.target.value as InventoryCategory})}
-                    className="w-full bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-black dark:focus:border-white transition-all"
-                  >
-                    <option value="Raw Materials">Raw Materials</option>
-                    <option value="Fasteners">Fasteners</option>
-                    <option value="Electronics">Electronics</option>
-                    <option value="Consumables">Consumables</option>
-                    <option value="Mechanical">Mechanical</option>
-                  </select>
-                </div>
-              </div>
-              
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <label className="text-xs font-bold text-gray-500 mb-1 block">Current Stock</label>
-                  <input 
-                    type="number" required 
-                    value={editingItem.stock || 0} 
-                    onChange={e => setEditingItem({...editingItem, stock: parseInt(e.target.value)})}
-                    className="w-full bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-black dark:focus:border-white transition-all"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-bold text-gray-500 mb-1 block">Min Stock</label>
-                  <input 
-                    type="number" required 
-                    value={editingItem.reorderPoint || 0} 
-                    onChange={e => setEditingItem({...editingItem, reorderPoint: parseInt(e.target.value)})}
-                    className="w-full bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-black dark:focus:border-white transition-all"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-bold text-gray-500 mb-1 block">Unit</label>
-                  <input 
-                    type="text" required 
-                    value={editingItem.unit || ''} 
-                    onChange={e => setEditingItem({...editingItem, unit: e.target.value})}
-                    className="w-full bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-black dark:focus:border-white transition-all"
-                  />
-                </div>
-              </div>
-              
-              <button type="submit" className="w-full py-4 mt-4 bg-black dark:bg-white text-white dark:text-black rounded-xl font-bold flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98] transition-all">
-                <Save className="w-4 h-4" /> Save Material
-              </button>
-            </form>
           </motion.div>
-        </div>
-      )}
+        )}
+      </AnimatePresence>
 
     </div>
   );
