@@ -18,7 +18,7 @@ import {
   AlertCircle,
   PlayCircle,
 } from "lucide-react";
-import { useRouter } from "next/navigation";
+
 
 interface Feature {
   icon: React.ReactNode;
