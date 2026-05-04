@@ -18,7 +18,9 @@ import {
   DollarSign,
   TrendingUp,
   Lock,
-  RadioTower
+  RadioTower,
+  MessageSquare,
+  FileText
 } from "lucide-react";
 import Link from "next/link";
 
@@ -86,6 +88,22 @@ const apps = [
     color: "bg-rose-50 dark:bg-rose-500/10", 
     href: "/dashboard/settings/users",
     description: "Roles & Permissions"
+  },
+  { 
+    id: "chat", 
+    name: "Teams", 
+    icon: <MessageSquare className="w-8 h-8 text-sky-500" />, 
+    color: "bg-sky-50 dark:bg-sky-500/10", 
+    href: "/dashboard/chat",
+    description: "Communications"
+  },
+  { 
+    id: "documents", 
+    name: "Office", 
+    icon: <FileText className="w-8 h-8 text-orange-500" />, 
+    color: "bg-orange-50 dark:bg-orange-500/10", 
+    href: "/dashboard/documents",
+    description: "Files & Docs"
   }
 ];
 
@@ -193,12 +211,12 @@ export default function DashboardLauncher() {
                       <p className="text-[10px] text-gray-500 uppercase tracking-widest">Administrator</p>
                     </div>
                     <div className="space-y-1">
-                      <button className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-white/5 rounded-xl text-xs transition-colors flex items-center gap-3">
+                      <Link href="/dashboard/settings/users" className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-white/5 rounded-xl text-xs transition-colors flex items-center gap-3">
                         <User className="w-4 h-4" /> Account Settings
-                      </button>
-                      <button className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-white/5 rounded-xl text-xs transition-colors flex items-center gap-3">
+                      </Link>
+                      <Link href="/dashboard/settings/users" className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-white/5 rounded-xl text-xs transition-colors flex items-center gap-3">
                         <Settings className="w-4 h-4" /> System Preferences
-                      </button>
+                      </Link>
                       <button 
                         onClick={handleLogout}
                         className="w-full text-left px-4 py-2 hover:bg-red-50 dark:hover:bg-red-500/10 text-red-500 rounded-xl text-xs transition-colors flex items-center gap-3"

@@ -12,8 +12,17 @@ import {
   ShieldCheck, 
   Zap 
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 export default function Home() {
+  const router = useRouter();
+  
+  const handleViewDemo = () => {
+    document.cookie = `axos_session=true; path=/; max-age=3600`;
+    document.cookie = `axos_user_role=admin; path=/; max-age=3600`;
+    document.cookie = `axos_user_name=Demo User; path=/; max-age=3600`;
+    router.push("/dashboard/forecast");
+  };
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
@@ -94,9 +103,9 @@ export default function Home() {
               Get Started
               <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
             </Link>
-            <Link href="/dashboard/forecast" className="px-8 py-4 border border-gray-200 dark:border-white/10 rounded-2xl text-lg font-medium hover:bg-gray-50 dark:hover:bg-white/5 transition-all">
+            <button onClick={handleViewDemo} className="px-8 py-4 border border-gray-200 dark:border-white/10 rounded-2xl text-lg font-medium hover:bg-gray-50 dark:hover:bg-white/5 transition-all">
               View Demo
-            </Link>
+            </button>
           </motion.div>
         </motion.div>
       </section>
