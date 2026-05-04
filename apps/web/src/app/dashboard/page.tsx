@@ -1,26 +1,26 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { Suspense, useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useRouter } from "next/navigation";
-import { 
-  BarChart3, 
-  Activity, 
-  ShieldCheck, 
-  LayoutGrid, 
-  Bell, 
-  Settings, 
+import { useRouter, useSearchParams } from "next/navigation";
+import {
+  BarChart3,
+  Activity,
+  ShieldCheck,
+  LayoutGrid,
+  Bell,
+  Settings,
   User,
   Search,
   Zap,
   Cpu,
   Boxes,
   DollarSign,
-  TrendingUp,
   Lock,
   RadioTower,
-  MessageSquare,
-  FileText
+  ShieldAlert,
+  AlertCircle,
+  Eye,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -31,173 +31,283 @@ const apps = [
     icon: <RadioTower className="w-8 h-8 text-cyan-500" strokeWidth={1.5} />,
     color: "bg-cyan-50 dark:bg-cyan-500/10",
     href: "/dashboard/mission-control",
-    description: "War Room"
+    description: "War Room",
   },
-  { 
-    id: "inventory", 
-    name: "Inventory", 
-    icon: <Boxes className="w-8 h-8 text-blue-500" />, 
-    color: "bg-blue-50 dark:bg-blue-500/10", 
+  {
+    id: "inventory",
+    name: "Inventory",
+    icon: <Boxes className="w-8 h-8 text-blue-500" />,
+    color: "bg-blue-50 dark:bg-blue-500/10",
     href: "/dashboard/inventory",
-    description: "Stock & Materials"
+    description: "Stock & Materials",
   },
-  { 
-    id: "forecast", 
-    name: "Forecast", 
-    icon: <BarChart3 className="w-8 h-8 text-violet-500" />, 
-    color: "bg-violet-50 dark:bg-violet-500/10", 
+  {
+    id: "forecast",
+    name: "Forecast",
+    icon: <BarChart3 className="w-8 h-8 text-violet-500" />,
+    color: "bg-violet-50 dark:bg-violet-500/10",
     href: "/dashboard/forecast",
-    description: "Predictions"
+    description: "Predictions",
   },
-  { 
-    id: "production", 
-    name: "Production", 
-    icon: <Cpu className="w-8 h-8 text-amber-500" />, 
-    color: "bg-amber-50 dark:bg-amber-500/10", 
+  {
+    id: "production",
+    name: "Production",
+    icon: <Cpu className="w-8 h-8 text-amber-500" />,
+    color: "bg-amber-50 dark:bg-amber-500/10",
     href: "/dashboard/production",
-    description: "Shop Floor"
+    description: "Shop Floor",
   },
-  { 
-    id: "quality", 
-    name: "Quality", 
-    icon: <ShieldCheck className="w-8 h-8 text-green-500" />, 
-    color: "bg-green-50 dark:bg-green-500/10", 
+  {
+    id: "quality",
+    name: "Quality",
+    icon: <ShieldCheck className="w-8 h-8 text-green-500" />,
+    color: "bg-green-50 dark:bg-green-500/10",
     href: "/dashboard/quality",
-    description: "NCR & Audits"
+    description: "NCR & Audits",
   },
-  { 
-    id: "finance", 
-    name: "Finance", 
-    icon: <DollarSign className="w-8 h-8 text-emerald-500" />, 
-    color: "bg-emerald-50 dark:bg-emerald-500/10", 
+  {
+    id: "finance",
+    name: "Finance",
+    icon: <DollarSign className="w-8 h-8 text-emerald-500" />,
+    color: "bg-emerald-50 dark:bg-emerald-500/10",
     href: "/dashboard/finance",
-    description: "Financial Ledger"
+    description: "Financial Ledger",
   },
-  { 
-    id: "engineering", 
-    name: "Engineering", 
-    icon: <Cpu className="w-8 h-8 text-indigo-500" />, 
-    color: "bg-indigo-50 dark:bg-indigo-500/10", 
+  {
+    id: "engineering",
+    name: "Engineering",
+    icon: <Cpu className="w-8 h-8 text-indigo-500" />,
+    color: "bg-indigo-50 dark:bg-indigo-500/10",
     href: "/dashboard/engineering",
-    description: "NPI & BOM"
+    description: "NPI & BOM",
   },
-  { 
-    id: "settings-users", 
-    name: "Identity", 
-    icon: <Lock className="w-8 h-8 text-rose-500" />, 
-    color: "bg-rose-50 dark:bg-rose-500/10", 
+  {
+    id: "settings-users",
+    name: "Identity",
+    icon: <Lock className="w-8 h-8 text-rose-500" />,
+    color: "bg-rose-50 dark:bg-rose-500/10",
     href: "/dashboard/settings/users",
-    description: "Roles & Permissions"
+    description: "Roles & Permissions",
+    adminOnly: true,
   },
-  { 
-    id: "chat", 
-    name: "Teams", 
-    icon: <MessageSquare className="w-8 h-8 text-sky-500" />, 
-    color: "bg-sky-50 dark:bg-sky-500/10", 
-    href: "/dashboard/chat",
-    description: "Communications"
-  },
-  { 
-    id: "documents", 
-    name: "Office", 
-    icon: <FileText className="w-8 h-8 text-orange-500" />, 
-    color: "bg-orange-50 dark:bg-orange-500/10", 
-    href: "/dashboard/documents",
-    description: "Files & Docs"
-  }
 ];
 
-export default function DashboardLauncher() {
+interface SessionInfo {
+  kind: "user" | "demo";
+  name: string;
+  email: string | null;
+  role: string;
+  userId: string | null;
+}
+
+interface AdminNotification {
+  id: string;
+  type: string;
+  title: string;
+  body: string;
+  userId: string;
+  read: boolean;
+  createdAt: string;
+}
+
+function DashboardInner() {
   const router = useRouter();
+  const params = useSearchParams();
+  const blocked = params.get("blocked");
+
+  const [session, setSession] = useState<SessionInfo | null>(null);
   const [isAppSwitcherOpen, setIsAppSwitcherOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [notifications, setNotifications] = useState<AdminNotification[]>([]);
+  const [pendingCount, setPendingCount] = useState(0);
 
-  const filteredApps = apps.filter(app => 
-    app.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    app.description.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  useEffect(() => {
+    fetch("/api/auth/me")
+      .then((r) => r.json())
+      .then((d) => setSession(d.session));
+  }, []);
 
-  const handleLogout = () => {
-    // Borrar la cookie de sesión
-    document.cookie = "axos_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+  useEffect(() => {
+    if (session?.role !== "admin") return;
+    let active = true;
+    async function load() {
+      const [n, p] = await Promise.all([
+        fetch("/api/admin/notifications", { cache: "no-store" }).then((r) =>
+          r.json(),
+        ),
+        fetch("/api/admin/pending", { cache: "no-store" }).then((r) =>
+          r.json(),
+        ),
+      ]);
+      if (!active) return;
+      setNotifications(n.notifications || []);
+      setPendingCount(p.users?.length || 0);
+    }
+    load();
+    const t = setInterval(load, 15000);
+    return () => {
+      active = false;
+      clearInterval(t);
+    };
+  }, [session]);
+
+  const isAdmin = session?.role === "admin";
+  const isDemo = session?.kind === "demo";
+  const unread = notifications.filter((n) => !n.read).length;
+
+  const filteredApps = apps
+    .filter((app) => !app.adminOnly || isAdmin)
+    .filter(
+      (app) =>
+        app.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        app.description.toLowerCase().includes(searchQuery.toLowerCase()),
+    );
+
+  async function handleLogout() {
+    await fetch("/api/auth/logout", { method: "POST" });
     router.push("/login");
-  };
+    router.refresh();
+  }
+
+  async function handleOpenNotifications() {
+    setIsNotificationsOpen((open) => !open);
+    if (!isNotificationsOpen && isAdmin) {
+      await fetch("/api/admin/notifications", { method: "POST" });
+      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    }
+  }
+
+  const initials = (session?.name || "??")
+    .split(" ")
+    .map((p) => p[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
 
   return (
     <div className="min-h-screen bg-[#F2F2F7] dark:bg-black text-black dark:text-white font-sans overflow-hidden">
-      
-      {/* Top Bar (iOS Style) */}
+      {/* Top Bar */}
       <nav className="fixed top-0 w-full z-50 px-6 py-4 flex justify-between items-center backdrop-blur-md bg-white/70 dark:bg-black/70 border-b border-gray-200/50 dark:border-white/5">
         <div className="flex items-center gap-2">
           <span className="font-bold text-lg tracking-tight">Axos OS</span>
+          {isDemo && (
+            <span className="ml-2 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300 flex items-center gap-1">
+              <Eye className="w-3 h-3" /> Demo · Solo lectura
+            </span>
+          )}
         </div>
-        
+
         <div className="flex items-center gap-6">
           <div className="hidden md:flex items-center gap-4 px-4 py-2 bg-gray-200/50 dark:bg-white/10 rounded-full focus-within:ring-2 ring-blue-500/20 transition-all">
             <Search className="w-4 h-4 text-gray-500" />
-            <input 
-              type="text" 
-              placeholder="Search apps or data..." 
+            <input
+              type="text"
+              placeholder="Search apps or data..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="bg-transparent border-none outline-none text-sm w-48 placeholder:text-gray-500"
             />
           </div>
-          
+
           <div className="flex items-center gap-3 relative">
-            {/* Notifications Button */}
+            {/* Notifications */}
             <div className="relative">
-              <button 
-                onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
+              <button
+                onClick={handleOpenNotifications}
                 className="p-2 hover:bg-gray-200 dark:hover:bg-white/10 rounded-full transition-colors relative"
               >
                 <Bell className="w-5 h-5" />
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white dark:border-black" />
+                {(unread > 0 || pendingCount > 0) && (
+                  <span className="absolute top-0 right-0 min-w-[18px] h-[18px] px-1 bg-red-500 rounded-full border-2 border-white dark:border-black text-[9px] font-bold text-white flex items-center justify-center">
+                    {Math.max(unread, pendingCount)}
+                  </span>
+                )}
               </button>
 
-              {/* Notifications Dropdown */}
               <AnimatePresence>
                 {isNotificationsOpen && (
                   <motion.div
                     initial={{ opacity: 0, y: 10, scale: 0.95 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                    className="absolute right-0 mt-4 w-80 bg-white dark:bg-[#1C1C1E] border border-gray-200 dark:border-white/10 rounded-[2rem] shadow-2xl p-6 z-[100] backdrop-blur-xl"
+                    className="absolute right-0 mt-4 w-96 bg-white dark:bg-[#1C1C1E] border border-gray-200 dark:border-white/10 rounded-[2rem] shadow-2xl p-6 z-[100] backdrop-blur-xl"
                   >
-                    <h3 className="font-bold mb-4">Alertas Recientes</h3>
-                    <div className="space-y-4">
-                      <div className="flex gap-3 items-start">
-                        <div className="w-2 h-2 bg-red-500 rounded-full mt-1.5 flex-shrink-0" />
-                        <div>
-                          <p className="text-xs font-bold">Stock Crítico</p>
-                          <p className="text-[10px] text-gray-500">SKU-2055 por debajo del mínimo.</p>
-                        </div>
-                      </div>
-                      <div className="flex gap-3 items-start">
-                        <div className="w-2 h-2 bg-amber-500 rounded-full mt-1.5 flex-shrink-0" />
-                        <div>
-                          <p className="text-xs font-bold">Línea A1 - OEE 85%</p>
-                          <p className="text-[10px] text-gray-500">Rendimiento por debajo del objetivo.</p>
-                        </div>
-                      </div>
+                    <div className="flex justify-between items-center mb-4">
+                      <h3 className="font-bold">Notificaciones</h3>
+                      {isAdmin && pendingCount > 0 && (
+                        <Link
+                          href="/dashboard/admin/approvals"
+                          onClick={() => setIsNotificationsOpen(false)}
+                          className="text-xs font-bold text-rose-500 hover:underline"
+                        >
+                          Revisar {pendingCount} pendiente{pendingCount === 1 ? "" : "s"}
+                        </Link>
+                      )}
                     </div>
+
+                    {!isAdmin && (
+                      <div className="space-y-4">
+                        <div className="flex gap-3 items-start">
+                          <div className="w-2 h-2 bg-red-500 rounded-full mt-1.5 flex-shrink-0" />
+                          <div>
+                            <p className="text-xs font-bold">Stock Crítico</p>
+                            <p className="text-[10px] text-gray-500">SKU-2055 por debajo del mínimo.</p>
+                          </div>
+                        </div>
+                        <div className="flex gap-3 items-start">
+                          <div className="w-2 h-2 bg-amber-500 rounded-full mt-1.5 flex-shrink-0" />
+                          <div>
+                            <p className="text-xs font-bold">Línea A1 - OEE 85%</p>
+                            <p className="text-[10px] text-gray-500">Rendimiento por debajo del objetivo.</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {isAdmin && (
+                      <div className="space-y-3 max-h-72 overflow-y-auto">
+                        {notifications.length === 0 ? (
+                          <p className="text-xs text-gray-400">Sin notificaciones.</p>
+                        ) : (
+                          notifications.slice(0, 8).map((n) => (
+                            <div key={n.id} className="flex gap-3 items-start">
+                              <div
+                                className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${
+                                  n.type === "user.pending"
+                                    ? "bg-rose-500"
+                                    : n.type === "user.approved"
+                                    ? "bg-green-500"
+                                    : "bg-gray-400"
+                                }`}
+                              />
+                              <div className="min-w-0">
+                                <p className="text-xs font-bold truncate">{n.title}</p>
+                                <p className="text-[10px] text-gray-500">{n.body}</p>
+                                <p className="text-[9px] text-gray-400 mt-0.5">
+                                  {new Date(n.createdAt).toLocaleString()}
+                                </p>
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    )}
                   </motion.div>
                 )}
               </AnimatePresence>
             </div>
 
-            {/* User Profile Button */}
+            {/* User */}
             <div className="relative">
-              <button 
+              <button
                 onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
                 className="w-10 h-10 bg-black dark:bg-white rounded-full flex items-center justify-center text-white dark:text-black font-bold text-xs hover:scale-105 active:scale-95 transition-all"
               >
-                SV
+                {initials}
               </button>
 
-              {/* User Menu Dropdown */}
               <AnimatePresence>
                 {isUserMenuOpen && (
                   <motion.div
@@ -207,17 +317,33 @@ export default function DashboardLauncher() {
                     className="absolute right-0 mt-4 w-64 bg-white dark:bg-[#1C1C1E] border border-gray-200 dark:border-white/10 rounded-[2rem] shadow-2xl p-4 z-[100] backdrop-blur-xl"
                   >
                     <div className="px-4 py-3 border-b border-gray-100 dark:border-white/5 mb-2 text-center">
-                      <p className="font-bold text-sm">Sergio Valle</p>
-                      <p className="text-[10px] text-gray-500 uppercase tracking-widest">Administrator</p>
+                      <p className="font-bold text-sm">{session?.name ?? "Visitor"}</p>
+                      <p className="text-[10px] text-gray-500 uppercase tracking-widest">
+                        {session?.role ?? "guest"}
+                      </p>
                     </div>
                     <div className="space-y-1">
-                      <Link href="/dashboard/settings/users" className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-white/5 rounded-xl text-xs transition-colors flex items-center gap-3">
+                      {isAdmin && (
+                        <Link
+                          href="/dashboard/admin/approvals"
+                          onClick={() => setIsUserMenuOpen(false)}
+                          className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-white/5 rounded-xl text-xs transition-colors flex items-center gap-3"
+                        >
+                          <ShieldAlert className="w-4 h-4" /> Approvals
+                          {pendingCount > 0 && (
+                            <span className="ml-auto px-2 py-0.5 rounded-full bg-rose-500 text-white text-[9px] font-bold">
+                              {pendingCount}
+                            </span>
+                          )}
+                        </Link>
+                      )}
+                      <button className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-white/5 rounded-xl text-xs transition-colors flex items-center gap-3">
                         <User className="w-4 h-4" /> Account Settings
                       </Link>
                       <Link href="/dashboard/settings/users" className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-white/5 rounded-xl text-xs transition-colors flex items-center gap-3">
                         <Settings className="w-4 h-4" /> System Preferences
-                      </Link>
-                      <button 
+                      </button>
+                      <button
                         onClick={handleLogout}
                         className="w-full text-left px-4 py-2 hover:bg-red-50 dark:hover:bg-red-500/10 text-red-500 rounded-xl text-xs transition-colors flex items-center gap-3"
                       >
@@ -232,10 +358,25 @@ export default function DashboardLauncher() {
         </div>
       </nav>
 
-      {/* Main Content (Springboard Style) */}
-      <main className="pt-32 pb-20 px-6 md:px-12 lg:px-24 max-w-7xl mx-auto">
-        
-        {/* Welcome Header */}
+      <main className="pt-32 pb-32 px-6 md:px-12 lg:px-24 max-w-7xl mx-auto">
+        {blocked && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-8 p-4 rounded-2xl bg-amber-50 dark:bg-amber-500/10 border border-amber-100 dark:border-amber-500/20 text-amber-800 dark:text-amber-200 flex gap-3 items-start"
+          >
+            <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+            <div>
+              <p className="text-sm font-bold">Acceso restringido</p>
+              <p className="text-xs">
+                {blocked === "demo"
+                  ? "La sesión demo no permite entrar a esa sección. Inicia sesión con una cuenta autorizada."
+                  : "Necesitas rol de Administrador para esa sección."}
+              </p>
+            </div>
+          </motion.div>
+        )}
+
         <header className="mb-16">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -243,16 +384,19 @@ export default function DashboardLauncher() {
             transition={{ duration: 0.8, ease: "easeOut" }}
           >
             <h2 className="text-gray-500 dark:text-gray-400 font-medium text-lg mb-2">
-              {new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}
+              {new Date().toLocaleDateString("es-ES", {
+                weekday: "long",
+                day: "numeric",
+                month: "long",
+              })}
             </h2>
             <h1 className="text-5xl md:text-7xl font-bold tracking-tight mb-4">
-              Hola, Sergio. <br />
+              Hola, {session?.name?.split(" ")[0] ?? "Visitor"}. <br />
               <span className="text-gray-400">Bienvenido a Axos OS.</span>
             </h1>
           </motion.div>
         </header>
 
-        {/* Quick Access Grid */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-6 md:gap-10">
           {filteredApps.map((app, i) => (
             <Link href={app.href} key={app.id}>
@@ -264,10 +408,14 @@ export default function DashboardLauncher() {
                 whileTap={{ scale: 0.95 }}
                 className="group flex flex-col items-center cursor-pointer"
               >
-                <div className={`w-24 h-24 md:w-32 md:h-32 rounded-[2rem] ${app.color} shadow-xl shadow-black/5 flex items-center justify-center transition-all duration-300 group-hover:shadow-2xl group-hover:shadow-black/10 dark:group-hover:shadow-white/5`}>
+                <div
+                  className={`w-24 h-24 md:w-32 md:h-32 rounded-[2rem] ${app.color} shadow-xl shadow-black/5 flex items-center justify-center transition-all duration-300 group-hover:shadow-2xl group-hover:shadow-black/10 dark:group-hover:shadow-white/5`}
+                >
                   {app.icon}
                 </div>
-                <span className="mt-4 font-bold text-sm md:text-base tracking-tight">{app.name}</span>
+                <span className="mt-4 font-bold text-sm md:text-base tracking-tight">
+                  {app.name}
+                </span>
                 <span className="text-[10px] md:text-xs text-gray-400 font-medium opacity-0 group-hover:opacity-100 transition-opacity">
                   {app.description}
                 </span>
@@ -276,9 +424,8 @@ export default function DashboardLauncher() {
           ))}
         </div>
 
-        {/* System Widgets */}
         <div className="mt-24 grid grid-cols-1 md:grid-cols-2 gap-8">
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.5 }}
@@ -297,13 +444,17 @@ export default function DashboardLauncher() {
               </div>
               <div className="w-32 h-12 bg-gray-50 dark:bg-white/5 rounded-2xl overflow-hidden flex items-end gap-1 p-2">
                 {[40, 70, 45, 90, 65, 80, 50].map((h, i) => (
-                  <div key={i} className="flex-1 bg-blue-500/30 rounded-t-sm" style={{ height: `${h}%` }} />
+                  <div
+                    key={i}
+                    className="flex-1 bg-blue-500/30 rounded-t-sm"
+                    style={{ height: `${h}%` }}
+                  />
                 ))}
               </div>
             </div>
           </motion.div>
 
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.6 }}
@@ -329,12 +480,11 @@ export default function DashboardLauncher() {
         </div>
       </main>
 
-      {/* Dock (iOS Style) */}
       <div className="fixed bottom-8 left-1/2 -translate-x-1/2 px-6 py-4 backdrop-blur-2xl bg-white/30 dark:bg-black/30 border border-white/20 dark:border-white/10 rounded-[2.5rem] shadow-2xl flex items-center gap-8">
         <button className="p-3 hover:scale-110 active:scale-95 transition-all text-gray-600 dark:text-gray-300">
           <Settings className="w-6 h-6" />
         </button>
-        <button 
+        <button
           onClick={() => setIsAppSwitcherOpen(true)}
           className="p-4 bg-black dark:bg-white rounded-3xl shadow-xl hover:scale-110 active:scale-90 transition-all"
         >
@@ -345,18 +495,17 @@ export default function DashboardLauncher() {
         </button>
       </div>
 
-      {/* App Switcher (Half-Screen Drawer Style) */}
       <AnimatePresence>
         {isAppSwitcherOpen && (
           <>
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setIsAppSwitcherOpen(false)}
               className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[60]"
             />
-            <motion.div 
+            <motion.div
               initial={{ y: "100%" }}
               animate={{ y: "20%" }}
               exit={{ y: "100%" }}
@@ -382,5 +531,13 @@ export default function DashboardLauncher() {
         )}
       </AnimatePresence>
     </div>
+  );
+}
+
+export default function DashboardLauncher() {
+  return (
+    <Suspense fallback={null}>
+      <DashboardInner />
+    </Suspense>
   );
 }
