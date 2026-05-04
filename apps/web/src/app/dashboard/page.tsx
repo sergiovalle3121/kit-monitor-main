@@ -339,8 +339,8 @@ function DashboardInner() {
                       )}
                       <button className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-white/5 rounded-xl text-xs transition-colors flex items-center gap-3">
                         <User className="w-4 h-4" /> Account Settings
-                      </button>
-                      <button className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-white/5 rounded-xl text-xs transition-colors flex items-center gap-3">
+                      </Link>
+                      <Link href="/dashboard/settings/users" className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-white/5 rounded-xl text-xs transition-colors flex items-center gap-3">
                         <Settings className="w-4 h-4" /> System Preferences
                       </button>
                       <button
