@@ -93,32 +93,30 @@ export default function ForecastLabPage() {
   const runSimulation = async () => {
     setIsSimulating(true);
     try {
-      // Calling Claude's new endpoint
-      const response = await fetch("/api/forecast/simulate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          historicalData: [420, 435, 410, 445, 430, 455, 440, 465, 450, 475, 460, 485],
-          config: {
-            periods: 20,
-            iterations: cycles,
-            confidenceInterval: confidence / 100,
-            volatility: volatility
-          }
-        })
+      // Simulate network/computation delay
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      const newSimulationData: SimulationPoint[] = Array.from({ length: 20 }, (_, index) => {
+        const period = index + 1;
+        const historicalBase = 460;
+        
+        // Simulating projection drift using volatility
+        const drift = (Math.random() - 0.5) * volatility * 100;
+        const baseProjection = historicalBase + (period * 5) + drift;
+        
+        // Calculate bounds based on confidence interval
+        const spread = (confidence / 100) * (baseProjection * 0.15) * Math.sqrt(period);
+        
+        return {
+          name: `P${period}`,
+          projection: Math.round(baseProjection),
+          upperBound: Math.round(baseProjection + spread),
+          lowerBound: Math.round(baseProjection - spread),
+          actual: null
+        };
       });
-
-      if (response.ok) {
-        const result = (await response.json()) as SimulationResponse;
-        const formattedData = result.projections.map((p, i): SimulationPoint => ({
-          name: `P${p.period}`,
-          projection: p.p50,
-          upperBound: p.p90,
-          lowerBound: p.p10,
-          actual: i < 0 ? 460 : null // Placeholder for historical alignment
-        }));
-        setSimulationData(formattedData);
-      }
+      
+      setSimulationData(newSimulationData);
     } catch (error) {
       console.error("Simulation failed:", error);
     } finally {

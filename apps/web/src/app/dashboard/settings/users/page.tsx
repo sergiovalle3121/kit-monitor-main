@@ -53,9 +53,14 @@ export default function UsersManagementPage() {
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      const res = await fetch('/api/governance/users');
-      const data = await res.json();
-      setUsers(data);
+      await new Promise(resolve => setTimeout(resolve, 800)); // Simulate delay
+      const mockUsers: User[] = [
+        { id: '1', email: 'admin@axos.com', username: 'admin', firstName: 'System', lastName: 'Admin', role: 'SystemAdmin', isActive: true, tenantId: 'Global', createdAt: '2026-01-01', lastLoginAt: new Date().toISOString() },
+        { id: '2', email: 'j.smith@axos.com', username: 'jsmith', firstName: 'John', lastName: 'Smith', role: 'PlantManager', isActive: true, tenantId: 'Plant-Alpha', createdAt: '2026-02-15', lastLoginAt: new Date().toISOString() },
+        { id: '3', email: 'm.chen@axos.com', username: 'mchen', firstName: 'Maria', lastName: 'Chen', role: 'ExecutiveManager', isActive: true, tenantId: 'Global', createdAt: '2026-03-10' },
+        { id: '4', email: 't.wilson@axos.com', username: 'twilson', firstName: 'Tom', lastName: 'Wilson', role: 'Supervisor', isActive: false, tenantId: 'Plant-Beta', createdAt: '2026-04-22' },
+      ];
+      setUsers(mockUsers);
     } catch (error) {
       console.error('Error fetching users:', error);
     } finally {
@@ -96,6 +101,20 @@ export default function UsersManagementPage() {
           <motion.button
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
+            onClick={() => {
+              const newUser: User = {
+                id: Math.random().toString(),
+                email: 'new.user@axos.com',
+                username: 'newuser',
+                firstName: 'New',
+                lastName: 'User',
+                role: 'Operator',
+                isActive: true,
+                tenantId: 'Plant-Alpha',
+                createdAt: new Date().toISOString()
+              };
+              setUsers([newUser, ...users]);
+            }}
             className="flex items-center gap-2 bg-[#1D1D1F] text-white px-6 py-3 rounded-full font-medium transition-all shadow-lg shadow-black/5"
           >
             <UserPlus className="w-5 h-5" />
