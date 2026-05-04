@@ -18,16 +18,25 @@ export default function LoginPage() {
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [isRegistering, setIsRegistering] = useState(false);
+  const [formData, setFormData] = useState({
+    name: "",
+    userOrEmail: "",
+    password: "",
+    role: "production"
+  });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     
-    // Simulating login and setting session cookie
+    // Simulating login/register and setting session cookie
     setTimeout(() => {
       setLoading(false);
-      // Creamos la cookie de sesión (en una app real esto lo haría el backend)
-      document.cookie = "axos_session=true; path=/; max-age=3600";
+      // Creamos la cookie de sesión con el rol simulado
+      document.cookie = `axos_session=true; path=/; max-age=3600`;
+      document.cookie = `axos_user_role=${formData.role}; path=/; max-age=3600`;
+      document.cookie = `axos_user_name=${formData.name || 'User'}; path=/; max-age=3600`;
       router.push("/dashboard");
     }, 1500);
   };
@@ -95,14 +104,43 @@ export default function LoginPage() {
             transition={{ delay: 0.2 }}
           >
             <div className="mb-10">
-              <span className="text-xs font-bold uppercase tracking-[0.2em] text-gray-400 mb-2 block">Secure Access</span>
-              <h2 className="text-3xl font-bold tracking-tight mb-2">Welcome Back</h2>
+              <span className="text-xs font-bold uppercase tracking-[0.2em] text-gray-400 mb-2 block">
+                {isRegistering ? "Join AXOS" : "Secure Access"}
+              </span>
+              <h2 className="text-3xl font-bold tracking-tight mb-2">
+                {isRegistering ? "Create Account" : "Welcome Back"}
+              </h2>
               <p className="text-gray-500 dark:text-gray-400 font-light text-sm">
-                Enter your credentials to access the AXOS console.
+                {isRegistering 
+                  ? "Sign up to start using the industrial intelligence platform."
+                  : "Enter your credentials to access the AXOS console."}
               </p>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-6">
+              {isRegistering && (
+                <motion.div 
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  className="space-y-2 overflow-hidden"
+                >
+                  <label className="text-xs font-medium text-gray-500 dark:text-gray-400 ml-1">Full Name</label>
+                  <div className="relative group">
+                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400 group-focus-within:text-black dark:group-focus-within:text-white transition-colors">
+                      <User className="w-4 h-4" />
+                    </div>
+                    <input 
+                      type="text" 
+                      required
+                      value={formData.name}
+                      onChange={(e) => setFormData({...formData, name: e.target.value})}
+                      placeholder="John Doe"
+                      className="w-full bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/5 rounded-2xl py-4 pl-11 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-black/5 dark:focus:ring-white/5 focus:border-black dark:focus:border-white transition-all outline-none"
+                    />
+                  </div>
+                </motion.div>
+              )}
+
               <div className="space-y-2">
                 <label className="text-xs font-medium text-gray-500 dark:text-gray-400 ml-1">User or Email</label>
                 <div className="relative group">
@@ -112,16 +150,48 @@ export default function LoginPage() {
                   <input 
                     type="text" 
                     required
-                    placeholder="3312793"
+                    value={formData.userOrEmail}
+                    onChange={(e) => setFormData({...formData, userOrEmail: e.target.value})}
+                    placeholder="3312793 or name@domain.com"
                     className="w-full bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/5 rounded-2xl py-4 pl-11 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-black/5 dark:focus:ring-white/5 focus:border-black dark:focus:border-white transition-all outline-none"
                   />
                 </div>
               </div>
 
+              {isRegistering && (
+                <motion.div 
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  className="space-y-2 overflow-hidden"
+                >
+                  <label className="text-xs font-medium text-gray-500 dark:text-gray-400 ml-1">Primary Role / Function</label>
+                  <div className="relative group">
+                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400 group-focus-within:text-black dark:group-focus-within:text-white transition-colors">
+                      <Layers className="w-4 h-4" />
+                    </div>
+                    <select 
+                      required
+                      value={formData.role}
+                      onChange={(e) => setFormData({...formData, role: e.target.value})}
+                      className="w-full bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/5 rounded-2xl py-4 pl-11 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-black/5 dark:focus:ring-white/5 focus:border-black dark:focus:border-white transition-all outline-none appearance-none"
+                    >
+                      <option value="admin">Administrator (Full Access)</option>
+                      <option value="engineering">Engineering (NPI & BOM)</option>
+                      <option value="production">Production & Manufacturing</option>
+                      <option value="quality">Quality Assurance</option>
+                      <option value="inventory">Inventory & Logistics</option>
+                      <option value="finance">Finance & Costing</option>
+                    </select>
+                  </div>
+                </motion.div>
+              )}
+
               <div className="space-y-2">
                 <div className="flex justify-between items-center px-1">
                   <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Password</label>
-                  <a href="#" className="text-[10px] uppercase tracking-wider font-bold text-gray-400 hover:text-black dark:hover:text-white transition-colors">Forgot?</a>
+                  {!isRegistering && (
+                    <a href="#" className="text-[10px] uppercase tracking-wider font-bold text-gray-400 hover:text-black dark:hover:text-white transition-colors">Forgot?</a>
+                  )}
                 </div>
                 <div className="relative group">
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400 group-focus-within:text-black dark:group-focus-within:text-white transition-colors">
@@ -130,6 +200,8 @@ export default function LoginPage() {
                   <input 
                     type={showPassword ? "text" : "password"} 
                     required
+                    value={formData.password}
+                    onChange={(e) => setFormData({...formData, password: e.target.value})}
                     placeholder="••••••••"
                     className="w-full bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/5 rounded-2xl py-4 pl-11 pr-12 text-sm focus:outline-none focus:ring-2 focus:ring-black/5 dark:focus:ring-white/5 focus:border-black dark:focus:border-white transition-all outline-none"
                   />
@@ -152,14 +224,23 @@ export default function LoginPage() {
                   <div className="w-5 h-5 border-2 border-white/30 dark:border-black/30 border-t-white dark:border-t-black rounded-full animate-spin" />
                 ) : (
                   <>
-                    Sign In to AXOS
+                    {isRegistering ? "Create Account" : "Sign In to AXOS"}
                     <ArrowRight className="w-4 h-4" />
                   </>
                 )}
               </button>
             </form>
 
-            <div className="mt-10 text-center">
+            <div className="mt-8 text-center space-y-4">
+              <button 
+                onClick={() => setIsRegistering(!isRegistering)}
+                className="text-sm font-bold text-gray-500 dark:text-gray-300 hover:text-black dark:hover:text-white transition-colors"
+              >
+                {isRegistering 
+                  ? "Already have an account? Sign in" 
+                  : "Need an account? Sign up"}
+              </button>
+              
               <p className="text-xs text-gray-400 font-light">
                 Need help? <a href="#" className="font-bold text-gray-500 dark:text-gray-300 hover:underline">Contact Administrator</a>
               </p>

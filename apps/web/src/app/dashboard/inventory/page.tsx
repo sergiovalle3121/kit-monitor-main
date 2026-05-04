@@ -13,9 +13,17 @@ import {
   Download,
   Edit2,
   Trash2,
-  History
+  History,
+  X,
+  Save,
+  FileSpreadsheet,
+  FileText
 } from "lucide-react";
 import Link from "next/link";
+import * as XLSX from 'xlsx';
+import { saveAs } from 'file-saver';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 type InventoryItemStatus = "In Stock" | "Reorder" | "Critical";
 
@@ -73,21 +81,64 @@ const StatusBadge = ({ status }: { status: InventoryItemStatus }) => {
 };
 
 export default function InventoryExplorerPage() {
+  const [inventoryData, setInventoryData] = useState<InventoryItem[]>(mockInventory);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<InventoryCategoryFilter>("all");
   const [showLowStockOnly, setShowLowStockOnly] = useState(false);
+  
+  // Modal state
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState<Partial<InventoryItem> | null>(null);
+
+  const handleSave = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (editingItem?.id) {
+      const isExisting = inventoryData.some(item => item.id === editingItem.id);
+      if (isExisting) {
+        setInventoryData(inventoryData.map(item => item.id === editingItem.id ? editingItem as InventoryItem : item));
+      } else {
+        setInventoryData([...inventoryData, { ...editingItem, status: "In Stock" } as InventoryItem]);
+      }
+    }
+    setIsModalOpen(false);
+    setEditingItem(null);
+  };
+
+  const handleDelete = (id: string) => {
+    setInventoryData(inventoryData.filter(item => item.id !== id));
+  };
+
+  const exportToExcel = () => {
+    const ws = XLSX.utils.json_to_sheet(filteredInventory);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Inventory");
+    const excelBuffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+    const data = new Blob([excelBuffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8" });
+    saveAs(data, "Inventory_Report.xlsx");
+  };
+
+  const exportToPDF = () => {
+    const doc = new jsPDF();
+    doc.text("Inventory Report", 14, 15);
+    autoTable(doc, {
+      head: [['SKU', 'Name', 'Category', 'Stock', 'Status']],
+      body: filteredInventory.map(item => [item.id, item.name, item.category, item.stock.toString(), item.status]),
+      startY: 20,
+    });
+    doc.save("Inventory_Report.pdf");
+  };
 
   const deferredSearchTerm = useDeferredValue(searchTerm);
 
   const categories = useMemo(
-    () => Array.from(new Set(mockInventory.map((item) => item.category))).sort(),
-    []
+    () => Array.from(new Set(inventoryData.map((item) => item.category))).sort(),
+    [inventoryData]
   );
 
   const filteredInventory = useMemo(() => {
     const normalizedSearch = deferredSearchTerm.trim().toLowerCase();
 
-    return mockInventory.filter((item) => {
+    return inventoryData.filter((item) => {
       const matchesSearch =
         normalizedSearch.length === 0 ||
         item.name.toLowerCase().includes(normalizedSearch) ||
@@ -114,11 +165,21 @@ export default function InventoryExplorerPage() {
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <button className="px-6 py-3 border border-gray-200 dark:border-white/10 rounded-2xl text-sm font-medium hover:bg-white dark:hover:bg-white/5 transition-all flex items-center gap-2">
-            <Download className="w-4 h-4" />
-            Export CSV
+          <button onClick={exportToExcel} className="px-4 py-3 border border-gray-200 dark:border-white/10 rounded-2xl text-sm font-medium hover:bg-white dark:hover:bg-white/5 transition-all flex items-center gap-2">
+            <FileSpreadsheet className="w-4 h-4 text-green-600" />
+            Excel
           </button>
-          <button className="px-6 py-3 bg-black dark:bg-white text-white dark:text-black rounded-2xl text-sm font-bold shadow-xl shadow-black/10 dark:shadow-white/5 hover:scale-105 active:scale-95 transition-all flex items-center gap-2">
+          <button onClick={exportToPDF} className="px-4 py-3 border border-gray-200 dark:border-white/10 rounded-2xl text-sm font-medium hover:bg-white dark:hover:bg-white/5 transition-all flex items-center gap-2">
+            <FileText className="w-4 h-4 text-red-500" />
+            PDF
+          </button>
+          <button 
+            onClick={() => {
+              setEditingItem({ id: `SKU-${Math.floor(Math.random() * 9000) + 1000}`, stock: 0, reorderPoint: 10, maxStock: 100, category: "Consumables", unit: "pcs" });
+              setIsModalOpen(true);
+            }}
+            className="px-6 py-3 bg-black dark:bg-white text-white dark:text-black rounded-2xl text-sm font-bold shadow-xl shadow-black/10 dark:shadow-white/5 hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
+          >
             <Plus className="w-4 h-4" />
             New Material
           </button>
@@ -231,10 +292,19 @@ export default function InventoryExplorerPage() {
                       <button className="p-2 text-gray-400 hover:text-black dark:hover:text-white transition-colors">
                         <History className="w-4 h-4" />
                       </button>
-                      <button className="p-2 text-gray-400 hover:text-blue-500 transition-colors">
+                      <button 
+                        onClick={() => {
+                          setEditingItem(item);
+                          setIsModalOpen(true);
+                        }}
+                        className="p-2 text-gray-400 hover:text-blue-500 transition-colors"
+                      >
                         <Edit2 className="w-4 h-4" />
                       </button>
-                      <button className="p-2 text-gray-400 hover:text-red-500 transition-colors">
+                      <button 
+                        onClick={() => handleDelete(item.id)}
+                        className="p-2 text-gray-400 hover:text-red-500 transition-colors"
+                      >
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
@@ -256,7 +326,7 @@ export default function InventoryExplorerPage() {
         {/* Pagination Placeholder */}
         <div className="px-8 py-6 bg-gray-50/50 dark:bg-white/[0.02] border-t border-gray-50 dark:border-white/5 flex justify-between items-center">
           <p className="text-xs text-gray-400 font-medium">
-            Showing {filteredInventory.length} of {mockInventory.length} materials
+            Showing {filteredInventory.length} of {inventoryData.length} materials
           </p>
           <div className="flex gap-2">
             <button className="px-4 py-2 border border-gray-200 dark:border-white/10 rounded-xl text-xs font-bold disabled:opacity-30" disabled>Previous</button>
@@ -264,6 +334,96 @@ export default function InventoryExplorerPage() {
           </div>
         </div>
       </div>
+
+      {/* Edit/Add Modal */}
+      {isModalOpen && editingItem && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white dark:bg-[#111] rounded-[2rem] p-8 max-w-lg w-full shadow-2xl border border-gray-100 dark:border-white/5"
+          >
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold">{editingItem.name ? 'Edit Material' : 'New Material'}</h2>
+              <button onClick={() => setIsModalOpen(false)} className="p-2 bg-gray-100 dark:bg-white/5 rounded-full hover:bg-gray-200 dark:hover:bg-white/10">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            
+            <form onSubmit={handleSave} className="space-y-4">
+              <div>
+                <label className="text-xs font-bold text-gray-500 mb-1 block">Material Name</label>
+                <input 
+                  type="text" required 
+                  value={editingItem.name || ''} 
+                  onChange={e => setEditingItem({...editingItem, name: e.target.value})}
+                  className="w-full bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-black dark:focus:border-white transition-all"
+                />
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-bold text-gray-500 mb-1 block">SKU</label>
+                  <input 
+                    type="text" required 
+                    value={editingItem.id || ''} 
+                    onChange={e => setEditingItem({...editingItem, id: e.target.value})}
+                    className="w-full bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-black dark:focus:border-white transition-all"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-gray-500 mb-1 block">Category</label>
+                  <select 
+                    value={editingItem.category || ''} 
+                    onChange={e => setEditingItem({...editingItem, category: e.target.value as InventoryCategory})}
+                    className="w-full bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-black dark:focus:border-white transition-all"
+                  >
+                    <option value="Raw Materials">Raw Materials</option>
+                    <option value="Fasteners">Fasteners</option>
+                    <option value="Electronics">Electronics</option>
+                    <option value="Consumables">Consumables</option>
+                    <option value="Mechanical">Mechanical</option>
+                  </select>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <label className="text-xs font-bold text-gray-500 mb-1 block">Current Stock</label>
+                  <input 
+                    type="number" required 
+                    value={editingItem.stock || 0} 
+                    onChange={e => setEditingItem({...editingItem, stock: parseInt(e.target.value)})}
+                    className="w-full bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-black dark:focus:border-white transition-all"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-gray-500 mb-1 block">Min Stock</label>
+                  <input 
+                    type="number" required 
+                    value={editingItem.reorderPoint || 0} 
+                    onChange={e => setEditingItem({...editingItem, reorderPoint: parseInt(e.target.value)})}
+                    className="w-full bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-black dark:focus:border-white transition-all"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-gray-500 mb-1 block">Unit</label>
+                  <input 
+                    type="text" required 
+                    value={editingItem.unit || ''} 
+                    onChange={e => setEditingItem({...editingItem, unit: e.target.value})}
+                    className="w-full bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-black dark:focus:border-white transition-all"
+                  />
+                </div>
+              </div>
+              
+              <button type="submit" className="w-full py-4 mt-4 bg-black dark:bg-white text-white dark:text-black rounded-xl font-bold flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98] transition-all">
+                <Save className="w-4 h-4" /> Save Material
+              </button>
+            </form>
+          </motion.div>
+        </div>
+      )}
 
     </div>
   );

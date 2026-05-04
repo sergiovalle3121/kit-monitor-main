@@ -72,6 +72,14 @@ const apps = [
     description: "Financial Ledger"
   },
   { 
+    id: "engineering", 
+    name: "Engineering", 
+    icon: <Cpu className="w-8 h-8 text-indigo-500" />, 
+    color: "bg-indigo-50 dark:bg-indigo-500/10", 
+    href: "/dashboard/engineering",
+    description: "NPI & BOM"
+  },
+  { 
     id: "settings-users", 
     name: "Identity", 
     icon: <Lock className="w-8 h-8 text-rose-500" />, 
