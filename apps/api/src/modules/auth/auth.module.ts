@@ -7,6 +7,8 @@ import { PlantsController } from './controllers/plants.controller';
 import { RolesController } from './controllers/roles.controller';
 import { SeedController } from './controllers/seed.controller';
 import { UserRolesController } from './controllers/user-roles.controller';
+import { TCodeController } from './controllers/tcode.controller';
+import { TCodeService } from './services/tcode.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { UsersModule } from '../users/users.module';
 import { GovernanceModule } from '../governance/governance.module';
@@ -21,8 +23,8 @@ import { GovernanceModule } from '../governance/governance.module';
       signOptions: { expiresIn: '1d' },
     }),
   ],
-  controllers: [AuthController, PlantsController, RolesController, SeedController, UserRolesController],
-  providers: [AuthService, JwtStrategy],
-  exports: [AuthService],
+  controllers: [AuthController, PlantsController, RolesController, SeedController, UserRolesController, TCodeController],
+  providers: [AuthService, JwtStrategy, TCodeService],
+  exports: [AuthService, TCodeService],
 })
 export class AuthModule {}

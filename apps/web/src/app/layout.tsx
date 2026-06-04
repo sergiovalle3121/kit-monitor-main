@@ -3,6 +3,7 @@ import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { ChatWidget } from "@/components/ChatWidget";
+import { TCodePalette } from "@/components/TCodePalette";
 
 export const metadata: Metadata = {
   title: "AXOS OS",
@@ -21,6 +22,7 @@ export default function RootLayout({
           <AuthProvider>
             {children}
             <ChatWidget />
+            <TCodePalette />
           </AuthProvider>
         </ThemeProvider>
       </body>
