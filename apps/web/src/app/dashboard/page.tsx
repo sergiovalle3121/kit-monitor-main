@@ -23,7 +23,7 @@ import {
   Eye,
 } from "lucide-react";
 import Link from "next/link";
-import TCodePalette from "@/components/TCodePalette";
+import { TCodePalette } from "@/components/TCodePalette";
 
 const apps = [
   {
