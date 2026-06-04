@@ -5,15 +5,7 @@ import { RequirePermission } from '../decorators/permissions.decorator';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Plant } from '../entities/plant.entity';
-
-/**
- * DTO for creating or updating a plant
- */
-interface CreatePlantDto {
-  name: string;
-  location: string;
-  tenantId: string;
-}
+import { CreatePlantDto, UpdatePlantDto } from '../dto/plant.dto';
 
 /**
  * PlantsController - CRUD endpoints for managing plants.
@@ -73,7 +65,7 @@ export class PlantsController {
   @RequirePermission('settings', 'write')
   async updatePlant(
     @Param('id', ParseUUIDPipe) id: string,
-    @Body() body: Partial<CreatePlantDto>,
+    @Body() body: UpdatePlantDto,
   ) {
     await this.plantRepository.update(id, body);
     return await this.plantRepository.findOne({ where: { id } });

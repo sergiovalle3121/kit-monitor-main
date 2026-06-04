@@ -13,22 +13,7 @@ import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import { PermissionsGuard } from '../guards/permissions.guard';
 import { RequirePermission } from '../decorators/permissions.decorator';
 import { AuthorizationService } from '../services/authorization.service';
-
-/**
- * DTO for assigning a permission to a role
- */
-interface AssignPermissionDto {
-  permissionId: string;
-}
-
-/**
- * DTO for assigning a role to a user
- */
-interface AssignRoleDto {
-  roleId: string;
-  tenantId: string;
-  plantId?: string | null;
-}
+import { AssignPermissionDto, AssignRoleDto } from '../dto/role.dto';
 
 /**
  * RolesController - Admin endpoints for managing roles and permissions.

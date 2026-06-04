@@ -3,6 +3,10 @@ import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
+import { PlantsController } from './controllers/plants.controller';
+import { RolesController } from './controllers/roles.controller';
+import { SeedController } from './controllers/seed.controller';
+import { UserRolesController } from './controllers/user-roles.controller';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { UsersModule } from '../users/users.module';
 import { GovernanceModule } from '../governance/governance.module';
@@ -17,7 +21,7 @@ import { GovernanceModule } from '../governance/governance.module';
       signOptions: { expiresIn: '1d' },
     }),
   ],
-  controllers: [AuthController],
+  controllers: [AuthController, PlantsController, RolesController, SeedController, UserRolesController],
   providers: [AuthService, JwtStrategy],
   exports: [AuthService],
 })
