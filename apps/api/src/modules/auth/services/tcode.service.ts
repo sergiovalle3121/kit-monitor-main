@@ -123,7 +123,7 @@ export class TCodeService {
   }
 
   getAllTCodes() {
-    const result = [];
+    const result: Array<{ code: string; description: string; category: string; handler: (params?: any) => Promise<TCodeResult> }> = [];
     for (const [code, info] of this.tCodes.entries()) {
       result.push({ code, ...info });
     }
@@ -145,6 +145,7 @@ export class TCodeService {
   private async handleMB52(params?: any): Promise<TCodeResult> {
     // Simulación de consulta de stock
     return {
+      success: true,
       message: 'Stock visualizado correctamente',
       action: 'VIEW_STOCK',
       data: {
@@ -159,6 +160,7 @@ export class TCodeService {
 
   private async handleMB51(params?: any): Promise<TCodeResult> {
     return {
+      success: true,
       message: 'Movimientos recuperados',
       action: 'VIEW_MOVEMENTS',
       data: {
@@ -172,6 +174,7 @@ export class TCodeService {
 
   private async handleMMBE(params?: any): Promise<TCodeResult> {
     return {
+      success: true,
       message: 'Resumen de stock obtenido',
       action: 'STOCK_SUMMARY',
       data: { summary: 'Datos consolidados de stock por almacenes' },
@@ -180,6 +183,7 @@ export class TCodeService {
 
   private async handleME23N(params?: any): Promise<TCodeResult> {
     return {
+      success: true,
       message: 'Pedido de compra visualizado',
       action: 'VIEW_PO',
       data: { po: { number: '4500000001', vendor: 'PROVEEDOR A', total: 15000 } },
@@ -188,6 +192,7 @@ export class TCodeService {
 
   private async handleME2N(params?: any): Promise<TCodeResult> {
     return {
+      success: true,
       message: 'Lista de pedidos obtenida',
       action: 'LIST_PO',
       data: { orders: [{ number: '4500000001', vendor: 'PROVEEDOR A' }, { number: '4500000002', vendor: 'PROVEEDOR B' }] },
@@ -196,6 +201,7 @@ export class TCodeService {
 
   private async handleCO03(params?: any): Promise<TCodeResult> {
     return {
+      success: true,
       message: 'Orden de fabricación visualizada',
       action: 'VIEW_PRODUCTION_ORDER',
       data: { order: { number: '10000001', material: 'PROD-FINAL', quantity: 100, status: 'LIBERADA' } },
@@ -204,6 +210,7 @@ export class TCodeService {
 
   private async handleCOOIS(params?: any): Promise<TCodeResult> {
     return {
+      success: true,
       message: 'Información de órdenes obtenida',
       action: 'PRODUCTION_INFO',
       data: { orders: [{ number: '10000001', status: 'LIBERADA' }, { number: '10000002', status: 'EN PROCESO' }] },
@@ -212,6 +219,7 @@ export class TCodeService {
 
   private async handleFB03(params?: any): Promise<TCodeResult> {
     return {
+      success: true,
       message: 'Documento contable visualizado',
       action: 'VIEW_ACCOUNTING_DOC',
       data: { document: { number: '1000000001', amount: 5000, currency: 'USD' } },
@@ -220,6 +228,7 @@ export class TCodeService {
 
   private async handleFBL3N(params?: any): Promise<TCodeResult> {
     return {
+      success: true,
       message: 'Cuentas de proveedor obtenidas',
       action: 'VENDOR_ACCOUNTS',
       data: { accounts: [{ vendor: 'PROVEEDOR A', balance: 15000 }, { vendor: 'PROVEEDOR B', balance: 8500 }] },
@@ -228,6 +237,7 @@ export class TCodeService {
 
   private async handleQE51N(params?: any): Promise<TCodeResult> {
     return {
+      success: true,
       message: 'Resultados de inspección obtenidos',
       action: 'QUALITY_RESULTS',
       data: { results: [{ lot: '0100000001', status: 'ACEPTADO' }, { lot: '0100000002', status: 'RECHAZADO' }] },
@@ -236,6 +246,7 @@ export class TCodeService {
 
   private async handleVA03(params?: any): Promise<TCodeResult> {
     return {
+      success: true,
       message: 'Pedido de venta visualizado',
       action: 'VIEW_SALES_ORDER',
       data: { order: { number: '100000001', customer: 'CLIENTE A', total: 25000 } },
@@ -245,6 +256,7 @@ export class TCodeService {
   private async handleHelp(): Promise<TCodeResult> {
     const tcodes = this.getAllTCodes();
     return {
+      success: true,
       message: 'T-Codes disponibles',
       action: 'HELP',
       data: { tcodes },
