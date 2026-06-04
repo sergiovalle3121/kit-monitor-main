@@ -8,6 +8,8 @@ import { BomComponent } from './entities/bom-component.entity';
 import { MaterialMaster } from '../inventory/entities/material-master.entity';
 import { CreateBomHeaderDto, CreateBomComponentDto } from './dto/create-bom.dto';
 import { UpdateBomHeaderDto, UpdateBomComponentDto } from './dto/update-bom.dto';
+import { CreateBomItemDto } from './dto/create-bom-item.dto';
+import { UpdateBomItemDto } from './dto/update-bom-item.dto';
 import { parseBomXlsx } from './bom-parser';
 import { parseKanbanXlsx } from './kanban-parser';
 
@@ -235,7 +237,11 @@ export class BomService {
       await this.headerRepo.update(bomId, { estimatedCost: totalCost });
     }
 
-    return this.componentRepo.findOne({ where: { id: componentId } })!;
+    const updated = await this.componentRepo.findOne({ where: { id: componentId } });
+    if (!updated) {
+      throw new NotFoundException(`Component ${componentId} not found`);
+    }
+    return updated;
   }
 
   async removeComponentFromBom(bomId: number, componentId: number): Promise<{ deleted: boolean; id: number }> {
@@ -337,12 +343,12 @@ export class BomService {
 
   create(dto: CreateBomItemDto): Promise<BomItem> {
     const normalizedImageUrl = dto.imageUrl?.trim() || null;
-    const item = this.repo.create({
+    const item: BomItem = this.repo.create({
       unit: 'EA',
       ...dto,
       imageUrl: normalizedImageUrl,
       hasImage: dto.hasImage ?? !!normalizedImageUrl,
-    });
+    }) as BomItem;
     return this.repo.save(item);
   }
 

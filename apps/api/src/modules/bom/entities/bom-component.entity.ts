@@ -60,10 +60,10 @@ export class BomComponent {
   isPhantom: boolean; // Si es un subensamble fantasma (no se inventaría)
 
   @Column({ type: 'timestamptz', nullable: true })
-  effectiveDate: Date; // Fecha de efectividad del componente
+  effectiveDate: Date | null; // Fecha de efectividad del componente
 
   @Column({ type: 'timestamptz', nullable: true })
-  expirationDate: Date; // Fecha de expiración del componente
+  expirationDate: Date | null; // Fecha de expiración del componente
 
   @Column({ type: 'jsonb', nullable: true })
   metadata: Record<string, any>;

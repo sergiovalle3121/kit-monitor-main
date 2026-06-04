@@ -11,7 +11,7 @@ import {
   Unique,
 } from 'typeorm';
 import { BomComponent } from './bom-component.entity';
-import { MaterialMaster } from '../inventory/entities/material-master.entity';
+import { MaterialMaster } from '../../inventory/entities/material-master.entity';
 
 export enum BomStatus {
   DRAFT = 'DRAFT',
