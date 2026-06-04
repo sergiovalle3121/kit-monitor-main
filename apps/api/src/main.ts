@@ -4,6 +4,7 @@ import { IoAdapter } from '@nestjs/platform-socket.io';
 import helmet from 'helmet';
 import compression from 'compression';
 import { Request, Response, NextFunction } from 'express';
+import { UsersService } from './modules/users/users.service';
 
 function parseAllowedOrigins(raw: string): string[] {
   const value = (raw || '').trim();
@@ -119,6 +120,31 @@ async function bootstrap() {
       }
       next();
     });
+  }
+
+  // ---------------------------
+  // Auto-seed admin user
+  // ---------------------------
+  try {
+    const usersService = app.get(UsersService);
+    const adminEmail = 'admin@example.com';
+    const exists = await usersService.findOneByEmail(adminEmail);
+    if (!exists) {
+      const adminData = {
+        email: adminEmail,
+        password: '31218223', // Will be hashed inside UsersService.create
+        username: 'admin',
+        role: 'admin' as any,
+        isActive: true,
+        permissions: ['RELEASE_WO', 'APPROVE_QUALITY', 'DISPATCH'],
+      };
+      await usersService.create(adminData);
+      console.log('✅ Auto-seed: Default admin user created successfully.');
+    } else {
+      console.log('ℹ️ Auto-seed: Admin user already exists.');
+    }
+  } catch (err) {
+    console.error('❌ Auto-seed failed:', err);
   }
 
   // ---------------------------
