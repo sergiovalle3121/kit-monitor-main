@@ -23,6 +23,7 @@ import {
   Eye,
 } from "lucide-react";
 import Link from "next/link";
+import TCodePalette from "@/components/TCodePalette";
 
 const apps = [
   {
@@ -188,6 +189,9 @@ function DashboardInner() {
 
   return (
     <div className="min-h-screen bg-[#F2F2F7] dark:bg-black text-black dark:text-white font-sans overflow-hidden">
+      {/* T-Code Palette - Command Center */}
+      <TCodePalette />
+
       {/* Top Bar */}
       <nav className="fixed top-0 w-full z-50 px-6 py-4 flex justify-between items-center backdrop-blur-md bg-white/70 dark:bg-black/70 border-b border-gray-200/50 dark:border-white/5">
         <div className="flex items-center gap-2">
@@ -200,14 +204,15 @@ function DashboardInner() {
         </div>
 
         <div className="flex items-center gap-6">
-          <div className="hidden md:flex items-center gap-4 px-4 py-2 bg-gray-200/50 dark:bg-white/10 rounded-full focus-within:ring-2 ring-blue-500/20 transition-all">
+          <div className="hidden md:flex items-center gap-4 px-4 py-2 bg-gray-200/50 dark:bg-white/10 rounded-full focus-within:ring-2 ring-blue-500/20 transition-all cursor-pointer hover:bg-gray-300/50 dark:hover:bg-white/20" onClick={() => window.dispatchEvent(new KeyboardEvent('keydown', {'key': 'F1'}))}>
             <Search className="w-4 h-4 text-gray-500" />
             <input
               type="text"
-              placeholder="Search apps or data..."
+              placeholder="Search apps, T-Codes or data... (F1)"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="bg-transparent border-none outline-none text-sm w-48 placeholder:text-gray-500"
+              readOnly
             />
           </div>
 
