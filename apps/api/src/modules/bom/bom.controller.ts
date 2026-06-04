@@ -1,18 +1,24 @@
 import {
-  Controller, Get, Post, Patch, Delete,
+  Controller, Get, Post, Patch, Delete, Put,
   Param, Body, Query, ParseIntPipe,
   UseInterceptors, UploadedFile, BadRequestException, UseGuards,
+  Headers,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { BomService } from './bom.service';
 import { CreateBomItemDto } from './dto/create-bom-item.dto';
 import { UpdateBomItemDto } from './dto/update-bom-item.dto';
+import { CreateBomHeaderDto, CreateBomComponentDto } from './dto/create-bom.dto';
+import { UpdateBomHeaderDto, UpdateBomComponentDto } from './dto/update-bom.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { BomStatus } from './entities/bom-header.entity';
 
 @UseGuards(JwtAuthGuard)
 @Controller('bom')
 export class BomController {
   constructor(private readonly bomService: BomService) {}
+
+  // ==================== LEGACY BOM ITEM ENDPOINTS ====================
 
   @Get()
   findAll(@Query('model') model?: string, @Query('programId') programId?: string) {
@@ -55,5 +61,76 @@ export class BomController {
   @Delete(':id')
   remove(@Param('id', ParseIntPipe) id: number) {
     return this.bomService.remove(id);
+  }
+
+  // ==================== SAP-STYLE BOM HEADER & COMPONENTS ENDPOINTS ====================
+
+  @Get('headers')
+  findAllBomHeaders(
+    @Query('model') model?: string, 
+    @Query('status') status?: BomStatus
+  ) {
+    return this.bomService.findAllBomHeaders(model, status);
+  }
+
+  @Get('headers/:id')
+  findBomHeaderById(@Param('id', ParseIntPipe) id: number) {
+    return this.bomService.findBomHeaderById(id);
+  }
+
+  @Get('headers/:id/tree')
+  getBomTreeStructure(@Param('id', ParseIntPipe) id: number) {
+    return this.bomService.getBomTreeStructure(id);
+  }
+
+  @Post('headers')
+  createBomWithComponents(@Body() dto: CreateBomHeaderDto) {
+    return this.bomService.createBomWithComponents(dto);
+  }
+
+  @Patch('headers/:id')
+  updateBomHeader(
+    @Param('id', ParseIntPipe) id: number, 
+    @Body() dto: UpdateBomHeaderDto
+  ) {
+    return this.bomService.updateBomHeader(id, dto);
+  }
+
+  @Post('headers/:id/components')
+  addComponentToBom(
+    @Param('id', ParseIntPipe) id: number, 
+    @Body() dto: CreateBomComponentDto
+  ) {
+    return this.bomService.addComponentToBom(id, dto);
+  }
+
+  @Patch('headers/:id/components/:componentId')
+  updateComponent(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('componentId', ParseIntPipe) componentId: number,
+    @Body() dto: UpdateBomComponentDto
+  ) {
+    return this.bomService.updateComponent(id, componentId, dto);
+  }
+
+  @Delete('headers/:id/components/:componentId')
+  removeComponentFromBom(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('componentId', ParseIntPipe) componentId: number
+  ) {
+    return this.bomService.removeComponentFromBom(id, componentId);
+  }
+
+  @Post('headers/:id/approve')
+  approveBom(
+    @Param('id', ParseIntPipe) id: number,
+    @Headers('x-user-id') approvedBy: string
+  ) {
+    return this.bomService.approveBom(id, approvedBy || 'System');
+  }
+
+  @Post('headers/:id/activate')
+  activateBom(@Param('id', ParseIntPipe) id: number) {
+    return this.bomService.activateBom(id);
   }
 }
