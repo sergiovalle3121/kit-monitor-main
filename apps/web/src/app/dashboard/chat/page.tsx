@@ -1,245 +1,507 @@
-"use client";
+'use client';
 
-import React, { useState, useRef, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { 
-  ChevronLeft, 
-  Search, 
-  Send, 
-  Paperclip, 
-  Image as ImageIcon,
-  MoreVertical,
-  Phone,
-  Video,
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import Link from 'next/link';
+import { io, Socket } from 'socket.io-client';
+import {
+  ChevronLeft,
+  Search,
+  Send,
+  ImageIcon,
+  Smile,
   Hash,
-  Users
-} from "lucide-react";
-import Link from "next/link";
+  Plus,
+  X,
+} from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
+import { glass } from '@/lib/glass';
+import { AuthImage } from '@/components/AuthImage';
+import {
+  chatApi,
+  CHAT_API_BASE,
+  ChatConversation,
+  ChatMessage,
+  ChatUser,
+} from '@/lib/chatApi';
 
-interface Message {
-  id: string;
-  sender: string;
-  content: string;
-  timestamp: string;
-  isMe: boolean;
-  avatar: string;
+const EMOJIS = ['😀', '😁', '😂', '😉', '😊', '😍', '👍', '🙏', '🔥', '✅', '⚠️', '❌', '🚀', '🛠️', '📦', '🏭'];
+
+function initials(name: string): string {
+  return name
+    .split(' ')
+    .map((p) => p[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase();
 }
 
-interface Channel {
-  id: string;
-  name: string;
-  type: "channel" | "direct";
-  unread: number;
+function timeOf(iso: string): string {
+  return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
-const mockChannels: Channel[] = [
-  { id: "c1", name: "general", type: "channel", unread: 0 },
-  { id: "c2", name: "production-line-a", type: "channel", unread: 3 },
-  { id: "c3", name: "quality-alerts", type: "channel", unread: 1 },
-  { id: "d1", name: "Sarah Connor (Plant Mgr)", type: "direct", unread: 0 },
-  { id: "d2", name: "John Smith (QA)", type: "direct", unread: 0 },
-];
+export default function ChatPage() {
+  const { user } = useAuth();
+  const meId = user?.id ?? '';
 
-const mockMessages: Record<string, Message[]> = {
-  "c2": [
-    { id: "m1", sender: "John Smith", content: "Line A is experiencing a 5% drop in yield. Anyone check the pick-and-place machine?", timestamp: "10:30 AM", isMe: false, avatar: "JS" },
-    { id: "m2", sender: "Sarah Connor", content: "Maintenance team is on it. We suspect a calibration issue.", timestamp: "10:32 AM", isMe: false, avatar: "SC" },
-    { id: "m3", sender: "Admin", content: "I'll update the NCR ticket with this info.", timestamp: "10:35 AM", isMe: true, avatar: "AD" },
-  ]
-};
+  const [conversations, setConversations] = useState<ChatConversation[]>([]);
+  const [users, setUsers] = useState<ChatUser[]>([]);
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [draft, setDraft] = useState('');
+  const [search, setSearch] = useState('');
+  const [showEmoji, setShowEmoji] = useState(false);
+  const [showNewChannel, setShowNewChannel] = useState(false);
 
-export default function TeamsChatPage() {
-  const [activeChannel, setActiveChannel] = useState<Channel>(mockChannels[1]);
-  const [messages, setMessages] = useState<Message[]>(mockMessages["c2"] || []);
-  const [inputValue, setInputValue] = useState("");
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
-
+  const socketRef = useRef<Socket | null>(null);
+  const bottomRef = useRef<HTMLDivElement | null>(null);
+  const fileRef = useRef<HTMLInputElement | null>(null);
+  const activeIdRef = useRef<string | null>(null);
   useEffect(() => {
-    scrollToBottom();
+    activeIdRef.current = activeId;
+  }, [activeId]);
+
+  const active = useMemo(
+    () => conversations.find((c) => c.id === activeId) ?? null,
+    [conversations, activeId],
+  );
+
+  const refreshConversations = useCallback(async () => {
+    try {
+      setConversations(await chatApi.listConversations());
+    } catch {
+      /* sin sesión todavía */
+    }
+  }, []);
+
+  // Carga inicial
+  useEffect(() => {
+    if (!meId) return;
+    let active = true;
+    (async () => {
+      try {
+        const c = await chatApi.listConversations();
+        if (active) setConversations(c);
+      } catch {
+        /* sin sesión todavía */
+      }
+      try {
+        const u = await chatApi.listUsers();
+        if (active) setUsers(u);
+      } catch {
+        /* ignore */
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [meId]);
+
+  // Socket en tiempo real
+  useEffect(() => {
+    if (!meId) return;
+    const socket = io(`${CHAT_API_BASE}/chat`, {
+      transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionAttempts: 10,
+    });
+    socket.on('connect', () => socket.emit('join', meId));
+    socket.on('message:new', (msg: ChatMessage) => {
+      if (msg.conversationId === activeIdRef.current) {
+        setMessages((prev) => (prev.some((m) => m.id === msg.id) ? prev : [...prev, msg]));
+      }
+      refreshConversations();
+    });
+    socketRef.current = socket;
+    return () => {
+      socket.disconnect();
+      socketRef.current = null;
+    };
+  }, [meId, refreshConversations]);
+
+  // Cargar mensajes al cambiar de conversación + marcar leído
+  useEffect(() => {
+    if (!activeId) return;
+    chatApi.listMessages(activeId).then(setMessages).catch(() => setMessages([]));
+    chatApi.markRead(activeId).then(refreshConversations).catch(() => {});
+  }, [activeId, refreshConversations]);
+
+  // Autoscroll
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const handleSendMessage = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!inputValue.trim()) return;
-
-    const newMessage: Message = {
-      id: Math.random().toString(),
-      sender: "Admin (You)",
-      content: inputValue,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      isMe: true,
-      avatar: "AD"
-    };
-
-    setMessages([...messages, newMessage]);
-    setInputValue("");
-    
-    // Simulate a reply if in direct message or just random
-    if (activeChannel.type === "direct") {
-      setTimeout(() => {
-        setMessages(prev => [...prev, {
-          id: Math.random().toString(),
-          sender: activeChannel.name,
-          content: "Copy that. I'm checking it right now.",
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          isMe: false,
-          avatar: activeChannel.name.charAt(0)
-        }]);
-      }, 2000);
+  async function handleSendText() {
+    const body = draft.trim();
+    if (!body || !activeId) return;
+    setDraft('');
+    setShowEmoji(false);
+    try {
+      const msg = await chatApi.sendText(activeId, body);
+      setMessages((prev) => [...prev, msg]);
+      refreshConversations();
+    } catch {
+      setDraft(body); // restaura si falla
     }
-  };
+  }
 
-  const switchChannel = (channel: Channel) => {
-    setActiveChannel(channel);
-    setMessages(mockMessages[channel.id] || []);
-  };
+  async function handleSendImage(file: File) {
+    if (!activeId) return;
+    try {
+      const msg = await chatApi.sendImage(activeId, file);
+      setMessages((prev) => [...prev, msg]);
+      refreshConversations();
+    } catch (e) {
+      alert('No se pudo enviar la imagen: ' + (e as Error).message);
+    }
+  }
+
+  async function startDm(userId: string) {
+    const convo = await chatApi.openDm(userId);
+    await refreshConversations();
+    setActiveId(convo.id);
+    setSearch('');
+  }
+
+  const filteredUsers = users.filter(
+    (u) =>
+      search.trim() &&
+      (u.username?.toLowerCase().includes(search.toLowerCase()) ||
+        u.email?.toLowerCase().includes(search.toLowerCase())),
+  );
+
+  const channels = conversations.filter((c) => c.type === 'channel');
+  const dms = conversations.filter((c) => c.type === 'dm');
 
   return (
-    <div className="flex h-screen bg-[#F8F9FA] dark:bg-[#0A0A0A] overflow-hidden">
-      {/* Sidebar */}
-      <div className="w-80 border-r border-gray-200 dark:border-white/10 bg-white dark:bg-[#111] flex flex-col">
-        <div className="p-4 border-b border-gray-200 dark:border-white/10 flex items-center gap-4">
-          <Link href="/dashboard" className="p-2 hover:bg-gray-100 dark:hover:bg-white/5 rounded-xl transition-colors">
-            <ChevronLeft className="w-5 h-5" />
-          </Link>
-          <h1 className="font-bold text-lg">Communications</h1>
-        </div>
-        
-        <div className="p-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <input 
-              type="text" 
-              placeholder="Search or start a chat" 
-              className="w-full bg-gray-50 dark:bg-white/5 rounded-xl py-2 pl-9 pr-4 text-sm outline-none focus:ring-2 focus:ring-black/5"
+    <div className="min-h-screen text-black dark:text-white font-sans">
+      <div className="mx-auto flex h-screen max-w-7xl gap-4 p-4 pt-6">
+        {/* ── Columna izquierda ── */}
+        <aside className={`${glass} flex w-80 shrink-0 flex-col rounded-[24px] p-4`}>
+          <div className="mb-4 flex items-center justify-between">
+            <Link href="/dashboard" className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-800 dark:hover:text-gray-200">
+              <ChevronLeft className="h-4 w-4" /> Inicio
+            </Link>
+            <button
+              onClick={() => setShowNewChannel(true)}
+              className="flex items-center gap-1 rounded-full bg-black px-3 py-1.5 text-xs font-semibold text-white dark:bg-white dark:text-black"
+            >
+              <Plus className="h-3.5 w-3.5" /> Canal
+            </button>
+          </div>
+
+          {/* Buscador de empleados */}
+          <div className={`${glass} mb-3 flex items-center gap-2 rounded-full px-3 py-2`}>
+            <Search className="h-4 w-4 text-gray-500" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Buscar empleado para chatear..."
+              className="w-full bg-transparent text-sm outline-none placeholder:text-gray-500"
             />
           </div>
-        </div>
 
-        <div className="flex-1 overflow-y-auto">
-          <div className="px-4 py-2">
-            <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-2">
-              <Hash className="w-3 h-3" /> Channels
-            </h2>
+          <div className="flex-1 space-y-4 overflow-y-auto">
+            {/* Resultados de búsqueda → iniciar DM */}
+            {filteredUsers.length > 0 && (
+              <div className="space-y-1">
+                <p className="px-1 text-xs font-medium text-gray-400">Empleados</p>
+                {filteredUsers.map((u) => (
+                  <button
+                    key={u.id}
+                    onClick={() => startDm(u.id)}
+                    className="flex w-full items-center gap-3 rounded-2xl p-2 text-left hover:bg-black/5 dark:hover:bg-white/10"
+                  >
+                    <span className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-violet-500 text-xs font-bold text-white">
+                      {initials(u.username || u.email)}
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-medium">{u.username || u.email}</span>
+                      <span className="block truncate text-xs text-gray-500">{u.role}</span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {channels.length > 0 && (
+              <div className="space-y-1">
+                <p className="px-1 text-xs font-medium text-gray-400">Canales</p>
+                {channels.map((c) => (
+                  <ConversationRow key={c.id} convo={c} active={c.id === activeId} onClick={() => setActiveId(c.id)} />
+                ))}
+              </div>
+            )}
+
             <div className="space-y-1">
-              {mockChannels.filter(c => c.type === "channel").map(channel => (
-                <button 
-                  key={channel.id}
-                  onClick={() => switchChannel(channel)}
-                  className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm transition-all ${activeChannel.id === channel.id ? 'bg-black text-white dark:bg-white dark:text-black font-medium' : 'hover:bg-gray-50 dark:hover:bg-white/5'}`}
-                >
-                  <span className="flex items-center gap-2"># {channel.name}</span>
-                  {channel.unread > 0 && activeChannel.id !== channel.id && (
-                    <span className="bg-red-500 text-white text-[10px] px-2 py-0.5 rounded-full font-bold">{channel.unread}</span>
-                  )}
-                </button>
+              <p className="px-1 text-xs font-medium text-gray-400">Mensajes directos</p>
+              {dms.length === 0 && (
+                <p className="px-1 text-xs text-gray-400">Busca un empleado para iniciar un chat.</p>
+              )}
+              {dms.map((c) => (
+                <ConversationRow key={c.id} convo={c} active={c.id === activeId} onClick={() => setActiveId(c.id)} />
               ))}
             </div>
           </div>
+        </aside>
 
-          <div className="px-4 py-6">
-            <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-2">
-              <Users className="w-3 h-3" /> Direct Messages
-            </h2>
-            <div className="space-y-1">
-              {mockChannels.filter(c => c.type === "direct").map(channel => (
-                <button 
-                  key={channel.id}
-                  onClick={() => switchChannel(channel)}
-                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-all ${activeChannel.id === channel.id ? 'bg-black text-white dark:bg-white dark:text-black font-medium' : 'hover:bg-gray-50 dark:hover:bg-white/5'}`}
-                >
-                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ${activeChannel.id === channel.id ? 'bg-white/20 text-white dark:bg-black/20 dark:text-black' : 'bg-gray-200 dark:bg-white/10'}`}>
-                    {channel.name.charAt(0)}
-                  </div>
-                  <span className="truncate">{channel.name}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col bg-white dark:bg-[#111]">
-        {/* Chat Header */}
-        <div className="h-16 border-b border-gray-200 dark:border-white/10 px-6 flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-3">
-            <h2 className="font-bold text-lg flex items-center gap-2">
-              {activeChannel.type === 'channel' ? <Hash className="w-5 h-5 text-gray-400" /> : null}
-              {activeChannel.name}
-            </h2>
-          </div>
-          <div className="flex items-center gap-4 text-gray-400">
-            <button className="hover:text-black dark:hover:text-white transition-colors"><Phone className="w-5 h-5" /></button>
-            <button className="hover:text-black dark:hover:text-white transition-colors"><Video className="w-5 h-5" /></button>
-            <button className="hover:text-black dark:hover:text-white transition-colors"><MoreVertical className="w-5 h-5" /></button>
-          </div>
-        </div>
-
-        {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-[#FBFBFD] dark:bg-[#0A0A0A]">
-          {messages.length === 0 ? (
-            <div className="h-full flex flex-col items-center justify-center text-gray-400">
-              <Hash className="w-12 h-12 mb-4 opacity-20" />
-              <p>This is the start of your history with <strong>{activeChannel.name}</strong>.</p>
+        {/* ── Panel de mensajes ── */}
+        <section className={`${glass} flex min-w-0 flex-1 flex-col rounded-[24px]`}>
+          {!active ? (
+            <div className="flex flex-1 items-center justify-center text-center text-gray-400">
+              <div>
+                <p className="text-lg font-semibold">Tu chat interno</p>
+                <p className="text-sm">Elige una conversación o busca un empleado.</p>
+              </div>
             </div>
           ) : (
-            <AnimatePresence>
-              {messages.map((msg, i) => (
-                <motion.div 
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  key={msg.id} 
-                  className={`flex gap-4 max-w-2xl ${msg.isMe ? 'ml-auto flex-row-reverse' : ''}`}
-                >
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 text-sm font-bold shadow-sm ${msg.isMe ? 'bg-black text-white dark:bg-white dark:text-black' : 'bg-gradient-to-br from-blue-500 to-indigo-600 text-white'}`}>
-                    {msg.avatar}
-                  </div>
-                  <div className={`flex flex-col ${msg.isMe ? 'items-end' : 'items-start'}`}>
-                    <div className="flex items-baseline gap-2 mb-1">
-                      <span className="font-bold text-sm">{msg.sender}</span>
-                      <span className="text-[10px] text-gray-400">{msg.timestamp}</span>
-                    </div>
-                    <div className={`px-5 py-3 rounded-2xl text-sm shadow-sm ${msg.isMe ? 'bg-black text-white dark:bg-white dark:text-black rounded-tr-sm' : 'bg-white dark:bg-[#111] border border-gray-100 dark:border-white/5 rounded-tl-sm'}`}>
-                      {msg.content}
-                    </div>
-                  </div>
-                </motion.div>
-              ))}
-            </AnimatePresence>
-          )}
-          <div ref={messagesEndRef} />
-        </div>
+            <>
+              {/* Header */}
+              <div className="flex items-center gap-3 border-b border-black/5 px-5 py-4 dark:border-white/10">
+                {active.type === 'channel' ? (
+                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-black/5 dark:bg-white/10">
+                    <Hash className="h-5 w-5" />
+                  </span>
+                ) : (
+                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-violet-500 text-sm font-bold text-white">
+                    {initials(active.title || '?')}
+                  </span>
+                )}
+                <div>
+                  <p className="font-semibold">{active.title || 'Conversación'}</p>
+                  <p className="text-xs text-gray-500">
+                    {active.type === 'channel' ? `${active.memberIds.length} miembros` : 'Mensaje directo'}
+                  </p>
+                </div>
+              </div>
 
-        {/* Input Area */}
-        <div className="p-4 bg-white dark:bg-[#111] border-t border-gray-200 dark:border-white/10 shrink-0">
-          <form onSubmit={handleSendMessage} className="flex items-end gap-2 bg-gray-50 dark:bg-white/5 p-2 rounded-2xl border border-gray-200 dark:border-white/10 focus-within:border-gray-300 dark:focus-within:border-white/20 transition-all">
-            <button type="button" className="p-3 text-gray-400 hover:text-black dark:hover:text-white transition-colors">
-              <Paperclip className="w-5 h-5" />
-            </button>
-            <button type="button" className="p-3 text-gray-400 hover:text-black dark:hover:text-white transition-colors">
-              <ImageIcon className="w-5 h-5" />
-            </button>
-            <input 
-              type="text" 
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              placeholder={`Message ${activeChannel.type === 'channel' ? '#' : ''}${activeChannel.name}`}
-              className="flex-1 bg-transparent border-none outline-none py-3 px-2 text-sm"
-            />
-            <button 
-              type="submit" 
-              disabled={!inputValue.trim()}
-              className="p-3 bg-black dark:bg-white text-white dark:text-black rounded-xl hover:scale-105 active:scale-95 disabled:opacity-50 disabled:hover:scale-100 transition-all"
-            >
-              <Send className="w-4 h-4" />
-            </button>
-          </form>
+              {/* Mensajes */}
+              <div className="flex-1 space-y-3 overflow-y-auto px-5 py-4">
+                {messages.map((m) => {
+                  const mine = m.senderId === meId;
+                  return (
+                    <div key={m.id} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
+                      <div
+                        className={`max-w-[70%] rounded-[18px] px-4 py-2 ${
+                          mine
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-black/5 text-gray-900 dark:bg-white/10 dark:text-gray-100'
+                        }`}
+                      >
+                        {active.type === 'channel' && !mine && (
+                          <p className="mb-0.5 text-[10px] font-semibold opacity-70">
+                            {senderName(m.senderId, users)}
+                          </p>
+                        )}
+                        {m.type === 'image' ? (
+                          <AuthImage messageId={m.id} />
+                        ) : (
+                          <p className="whitespace-pre-wrap break-words text-sm">{m.body}</p>
+                        )}
+                        <p className={`mt-1 text-[10px] ${mine ? 'text-white/70' : 'text-gray-500'}`}>
+                          {timeOf(m.createdAt)}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+                <div ref={bottomRef} />
+              </div>
+
+              {/* Input */}
+              <div className="relative border-t border-black/5 p-3 dark:border-white/10">
+                {showEmoji && (
+                  <div className={`${glass} absolute bottom-16 left-3 grid grid-cols-8 gap-1 rounded-2xl p-2`}>
+                    {EMOJIS.map((e) => (
+                      <button
+                        key={e}
+                        onClick={() => setDraft((d) => d + e)}
+                        className="rounded-lg p-1 text-lg hover:bg-black/5 dark:hover:bg-white/10"
+                      >
+                        {e}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setShowEmoji((s) => !s)}
+                    className="rounded-full p-2 text-gray-500 hover:bg-black/5 dark:hover:bg-white/10"
+                    aria-label="Emojis"
+                  >
+                    <Smile className="h-5 w-5" />
+                  </button>
+                  <button
+                    onClick={() => fileRef.current?.click()}
+                    className="rounded-full p-2 text-gray-500 hover:bg-black/5 dark:hover:bg-white/10"
+                    aria-label="Adjuntar imagen"
+                  >
+                    <ImageIcon className="h-5 w-5" />
+                  </button>
+                  <input
+                    ref={fileRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) handleSendImage(f);
+                      e.target.value = '';
+                    }}
+                  />
+                  <input
+                    value={draft}
+                    onChange={(e) => setDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSendText();
+                      }
+                    }}
+                    placeholder="Escribe un mensaje..."
+                    className="flex-1 rounded-full bg-black/5 px-4 py-2 text-sm outline-none placeholder:text-gray-500 focus-visible:ring-2 focus-visible:ring-blue-500/40 dark:bg-white/10"
+                  />
+                  <button
+                    onClick={handleSendText}
+                    disabled={!draft.trim()}
+                    className="rounded-full bg-blue-600 p-2.5 text-white disabled:opacity-40"
+                    aria-label="Enviar"
+                  >
+                    <Send className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
+        </section>
+      </div>
+
+      {showNewChannel && (
+        <NewChannelModal
+          users={users}
+          onClose={() => setShowNewChannel(false)}
+          onCreated={async (id) => {
+            setShowNewChannel(false);
+            await refreshConversations();
+            setActiveId(id);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function senderName(id: string, users: ChatUser[]): string {
+  const u = users.find((x) => x.id === id);
+  return u?.username || u?.email || 'Usuario';
+}
+
+function ConversationRow({
+  convo,
+  active,
+  onClick,
+}: {
+  convo: ChatConversation;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`flex w-full items-center gap-3 rounded-2xl p-2 text-left transition-colors ${
+        active ? 'bg-black/10 dark:bg-white/15' : 'hover:bg-black/5 dark:hover:bg-white/10'
+      }`}
+    >
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-violet-500 text-xs font-bold text-white">
+        {convo.type === 'channel' ? <Hash className="h-4 w-4" /> : initials(convo.title || '?')}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-medium">{convo.title || 'Conversación'}</span>
+        <span className="block truncate text-xs text-gray-500">
+          {convo.lastMessage
+            ? convo.lastMessage.type === 'image'
+              ? '📷 Imagen'
+              : convo.lastMessage.body
+            : 'Sin mensajes'}
+        </span>
+      </span>
+      {convo.unread > 0 && (
+        <span className="ml-auto flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+          {convo.unread}
+        </span>
+      )}
+    </button>
+  );
+}
+
+function NewChannelModal({
+  users,
+  onClose,
+  onCreated,
+}: {
+  users: ChatUser[];
+  onClose: () => void;
+  onCreated: (id: string) => void;
+}) {
+  const [name, setName] = useState('');
+  const [selected, setSelected] = useState<string[]>([]);
+  const [busy, setBusy] = useState(false);
+
+  function toggle(id: string) {
+    setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
+  }
+
+  async function create() {
+    if (!name.trim()) return;
+    setBusy(true);
+    try {
+      const convo = await chatApi.createChannel(name.trim(), selected);
+      onCreated(convo.id);
+    } catch (e) {
+      alert('No se pudo crear el canal: ' + (e as Error).message);
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 p-4">
+      <div className={`${glass} w-full max-w-md rounded-[24px] p-6`}>
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="text-lg font-semibold">Nuevo canal</h3>
+          <button onClick={onClose} className="rounded-full p-1 hover:bg-black/5 dark:hover:bg-white/10">
+            <X className="h-5 w-5" />
+          </button>
         </div>
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Nombre del canal (ej. produccion)"
+          className="mb-4 w-full rounded-xl bg-black/5 px-4 py-2 text-sm outline-none dark:bg-white/10"
+        />
+        <p className="mb-2 text-xs font-medium text-gray-400">Miembros</p>
+        <div className="mb-4 max-h-56 space-y-1 overflow-y-auto">
+          {users.map((u) => (
+            <button
+              key={u.id}
+              onClick={() => toggle(u.id)}
+              className={`flex w-full items-center gap-3 rounded-2xl p-2 text-left ${
+                selected.includes(u.id) ? 'bg-blue-500/15' : 'hover:bg-black/5 dark:hover:bg-white/10'
+              }`}
+            >
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-violet-500 text-[10px] font-bold text-white">
+                {initials(u.username || u.email)}
+              </span>
+              <span className="text-sm">{u.username || u.email}</span>
+              {selected.includes(u.id) && <span className="ml-auto text-xs text-blue-500">✓</span>}
+            </button>
+          ))}
+        </div>
+        <button
+          onClick={create}
+          disabled={busy || !name.trim()}
+          className="w-full rounded-full bg-blue-600 py-2.5 text-sm font-semibold text-white disabled:opacity-40"
+        >
+          {busy ? 'Creando...' : 'Crear canal'}
+        </button>
       </div>
     </div>
   );
