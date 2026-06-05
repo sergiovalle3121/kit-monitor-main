@@ -1,0 +1,86 @@
+import {
+  Controller,
+  Get,
+  Post,
+  Param,
+  Body,
+  Query,
+  Req,
+  Res,
+  UseGuards,
+  UploadedFile,
+  UseInterceptors,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
+import type { Response } from 'express';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { MessagingService } from './messaging.service';
+
+@Controller('api/messaging')
+@UseGuards(JwtAuthGuard)
+export class MessagingController {
+  constructor(private readonly messaging: MessagingService) {}
+
+  private me(req: any): string {
+    return req.user.userId;
+  }
+
+  @Get('users')
+  listUsers(@Req() req: any) {
+    return this.messaging.listUsers(this.me(req));
+  }
+
+  @Get('conversations')
+  listConversations(@Req() req: any) {
+    return this.messaging.listConversations(this.me(req));
+  }
+
+  @Get('conversations/:id/messages')
+  listMessages(@Req() req: any, @Param('id') id: string, @Query('before') before?: string) {
+    return this.messaging.listMessages(this.me(req), id, before);
+  }
+
+  @Post('conversations/dm/:userId')
+  openDm(@Req() req: any, @Param('userId') userId: string) {
+    return this.messaging.getOrCreateDm(this.me(req), userId);
+  }
+
+  @Post('conversations/channel')
+  createChannel(@Req() req: any, @Body() body: { name: string; memberIds?: string[] }) {
+    return this.messaging.createChannel(this.me(req), body?.name, body?.memberIds ?? []);
+  }
+
+  @Post('conversations/:id/read')
+  markRead(@Req() req: any, @Param('id') id: string) {
+    return this.messaging.markRead(this.me(req), id);
+  }
+
+  @Post('messages')
+  sendText(@Req() req: any, @Body() body: { conversationId: string; body: string }) {
+    return this.messaging.sendText(this.me(req), body?.conversationId, body?.body);
+  }
+
+  @Post('messages/image')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: memoryStorage(),
+      limits: { fileSize: 5 * 1024 * 1024 },
+    }),
+  )
+  sendImage(
+    @Req() req: any,
+    @Body() body: { conversationId: string },
+    @UploadedFile() file: { buffer: Buffer; mimetype: string; size: number },
+  ) {
+    return this.messaging.sendImage(this.me(req), body?.conversationId, file);
+  }
+
+  @Get('messages/:id/image')
+  async getImage(@Req() req: any, @Param('id') id: string, @Res() res: Response) {
+    const { data, mime } = await this.messaging.getImage(this.me(req), id);
+    res.setHeader('Content-Type', mime);
+    res.setHeader('Cache-Control', 'private, max-age=86400');
+    res.send(data);
+  }
+}

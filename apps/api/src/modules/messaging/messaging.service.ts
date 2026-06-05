@@ -1,0 +1,305 @@
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+  BadRequestException,
+} from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository, In } from 'typeorm';
+import { Conversation } from './entities/conversation.entity';
+import { ConversationMember } from './entities/conversation-member.entity';
+import { Message } from './entities/message.entity';
+import { User } from '../users/entities/user.entity';
+import { ChatGateway } from './chat.gateway';
+
+const MAX_INPUT_BYTES = 5 * 1024 * 1024; // 5 MB de entrada
+const TARGET_MAX_DIMENSION = 1280; // px
+const TARGET_QUALITY = 70; // jpeg quality
+
+@Injectable()
+export class MessagingService {
+  constructor(
+    @InjectRepository(Conversation)
+    private readonly conversations: Repository<Conversation>,
+    @InjectRepository(ConversationMember)
+    private readonly members: Repository<ConversationMember>,
+    @InjectRepository(Message)
+    private readonly messages: Repository<Message>,
+    @InjectRepository(User)
+    private readonly users: Repository<User>,
+    private readonly gateway: ChatGateway,
+  ) {}
+
+  // ── helpers ────────────────────────────────────────────────────────────
+  private async getUserOrThrow(userId: string): Promise<User> {
+    const user = await this.users.findOne({ where: { id: userId } });
+    if (!user) throw new NotFoundException('Usuario no encontrado');
+    return user;
+  }
+
+  private async memberIdsOf(conversationId: string): Promise<string[]> {
+    const rows = await this.members.find({ where: { conversationId } });
+    return rows.map((r) => r.userId);
+  }
+
+  private async assertMember(conversationId: string, userId: string): Promise<void> {
+    const m = await this.members.findOne({ where: { conversationId, userId } });
+    if (!m) throw new ForbiddenException('No eres miembro de esta conversación');
+  }
+
+  // ── usuarios del mismo tenant (para iniciar DM / armar canal) ───────────
+  async listUsers(meId: string) {
+    const me = await this.getUserOrThrow(meId);
+    const all = await this.users.find({
+      where: { tenantId: me.tenantId ?? undefined },
+      order: { username: 'ASC' },
+    });
+    return all
+      .filter((u) => u.id !== meId && u.isActive)
+      .map((u) => ({ id: u.id, username: u.username, email: u.email, role: u.role }));
+  }
+
+  // ── crear / obtener DM ──────────────────────────────────────────────────
+  async getOrCreateDm(meId: string, otherId: string): Promise<Conversation> {
+    if (meId === otherId) throw new BadRequestException('No puedes abrir un DM contigo mismo');
+    const me = await this.getUserOrThrow(meId);
+    const other = await this.getUserOrThrow(otherId);
+
+    // Buscar un DM existente que tenga exactamente a ambos.
+    const myDms = await this.members.find({ where: { userId: meId } });
+    for (const m of myDms) {
+      const convo = await this.conversations.findOne({ where: { id: m.conversationId } });
+      if (!convo || convo.type !== 'dm') continue;
+      const ids = await this.memberIdsOf(convo.id);
+      if (ids.length === 2 && ids.includes(meId) && ids.includes(otherId)) {
+        return convo;
+      }
+    }
+
+    const convo = await this.conversations.save(
+      this.conversations.create({
+        tenantId: me.tenantId ?? null,
+        type: 'dm',
+        name: null,
+        createdById: meId,
+      }),
+    );
+    await this.members.save([
+      this.members.create({ conversationId: convo.id, userId: meId }),
+      this.members.create({ conversationId: convo.id, userId: other.id }),
+    ]);
+    return convo;
+  }
+
+  // ── crear canal ─────────────────────────────────────────────────────────
+  async createChannel(meId: string, name: string, memberIds: string[]): Promise<Conversation> {
+    if (!name?.trim()) throw new BadRequestException('El canal necesita un nombre');
+    const me = await this.getUserOrThrow(meId);
+    const unique = Array.from(new Set([meId, ...(memberIds || [])]));
+
+    const convo = await this.conversations.save(
+      this.conversations.create({
+        tenantId: me.tenantId ?? null,
+        type: 'channel',
+        name: name.trim(),
+        createdById: meId,
+      }),
+    );
+    await this.members.save(
+      unique.map((userId) => this.members.create({ conversationId: convo.id, userId })),
+    );
+    return convo;
+  }
+
+  // ── listar mis conversaciones con último mensaje y no leídos ─────────────
+  async listConversations(meId: string) {
+    const myMemberships = await this.members.find({ where: { userId: meId } });
+    const result: any[] = [];
+
+    for (const membership of myMemberships) {
+      const convo = await this.conversations.findOne({
+        where: { id: membership.conversationId },
+      });
+      if (!convo) continue;
+
+      const memberRows = await this.members.find({ where: { conversationId: convo.id } });
+      const memberIds = memberRows.map((m) => m.userId);
+
+      // Nombre a mostrar: canal → su nombre; DM → el otro usuario.
+      let title = convo.name;
+      let counterpartId: string | null = null;
+      if (convo.type === 'dm') {
+        counterpartId = memberIds.find((id) => id !== meId) ?? null;
+        if (counterpartId) {
+          const other = await this.users.findOne({ where: { id: counterpartId } });
+          title = other?.username ?? other?.email ?? 'Usuario';
+        }
+      }
+
+      const last = await this.messages.findOne({
+        where: { conversationId: convo.id },
+        order: { createdAt: 'DESC' },
+      });
+
+      // No leídos: mensajes después de lastReadAt y no míos.
+      const unread = await this.messages
+        .createQueryBuilder('m')
+        .where('m.conversation_id = :cid', { cid: convo.id })
+        .andWhere('m.sender_id != :me', { me: meId })
+        .andWhere(
+          membership.lastReadAt
+            ? 'm.created_at > :lastRead'
+            : '1=1',
+          membership.lastReadAt ? { lastRead: membership.lastReadAt } : {},
+        )
+        .getCount();
+
+      result.push({
+        id: convo.id,
+        type: convo.type,
+        title,
+        counterpartId,
+        memberIds,
+        lastMessage: last
+          ? { type: last.type, body: last.body, createdAt: last.createdAt, senderId: last.senderId }
+          : null,
+        lastMessageAt: convo.lastMessageAt,
+        unread,
+      });
+    }
+
+    result.sort((a, b) => {
+      const ta = a.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0;
+      const tb = b.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0;
+      return tb - ta;
+    });
+    return result;
+  }
+
+  // ── mensajes de una conversación (paginado) ──────────────────────────────
+  async listMessages(meId: string, conversationId: string, before?: string) {
+    await this.assertMember(conversationId, meId);
+    const qb = this.messages
+      .createQueryBuilder('m')
+      .where('m.conversation_id = :cid', { cid: conversationId })
+      .orderBy('m.created_at', 'DESC')
+      .take(50);
+    if (before) qb.andWhere('m.created_at < :before', { before });
+    const rows = await qb.getMany();
+    // Devolver en orden cronológico ascendente.
+    return rows.reverse().map((m) => ({
+      id: m.id,
+      conversationId: m.conversationId,
+      senderId: m.senderId,
+      type: m.type,
+      body: m.body,
+      imageMime: m.imageMime,
+      createdAt: m.createdAt,
+    }));
+  }
+
+  // ── enviar texto ─────────────────────────────────────────────────────────
+  async sendText(meId: string, conversationId: string, body: string) {
+    await this.assertMember(conversationId, meId);
+    if (!body?.trim()) throw new BadRequestException('Mensaje vacío');
+    const msg = await this.messages.save(
+      this.messages.create({
+        conversationId,
+        senderId: meId,
+        type: 'text',
+        body: body.trim(),
+      }),
+    );
+    await this.touchAndBroadcast(conversationId, msg);
+    return this.toDto(msg);
+  }
+
+  // ── enviar imagen (comprimida) ───────────────────────────────────────────
+  async sendImage(
+    meId: string,
+    conversationId: string,
+    file: { buffer: Buffer; mimetype: string; size: number } | undefined,
+  ) {
+    await this.assertMember(conversationId, meId);
+    if (!file) throw new BadRequestException('No se recibió archivo');
+    if (!file.mimetype?.startsWith('image/')) {
+      throw new BadRequestException('El archivo no es una imagen');
+    }
+    if (file.size > MAX_INPUT_BYTES) {
+      throw new BadRequestException('La imagen supera el límite de 5 MB');
+    }
+
+    const { buffer, mime } = await this.compressImage(file.buffer);
+
+    const msg = await this.messages.save(
+      this.messages.create({
+        conversationId,
+        senderId: meId,
+        type: 'image',
+        body: null,
+        imageData: buffer,
+        imageMime: mime,
+        imageSize: buffer.length,
+      }),
+    );
+    await this.touchAndBroadcast(conversationId, msg);
+    return this.toDto(msg);
+  }
+
+  /**
+   * Comprime/redimensiona con sharp. Si sharp falla por cualquier motivo en
+   * runtime, guarda el original (el límite de 5 MB ya acota el tamaño).
+   */
+  private async compressImage(input: Buffer): Promise<{ buffer: Buffer; mime: string }> {
+    try {
+      // Import dinámico: si sharp no estuviera disponible, no tumba el arranque.
+      const sharp = (await import('sharp')).default;
+      const out = await sharp(input)
+        .rotate()
+        .resize({ width: TARGET_MAX_DIMENSION, height: TARGET_MAX_DIMENSION, fit: 'inside', withoutEnlargement: true })
+        .jpeg({ quality: TARGET_QUALITY })
+        .toBuffer();
+      return { buffer: out, mime: 'image/jpeg' };
+    } catch (e) {
+      return { buffer: input, mime: 'image/jpeg' };
+    }
+  }
+
+  // ── imagen para <img src> ────────────────────────────────────────────────
+  async getImage(meId: string, messageId: string) {
+    const msg = await this.messages
+      .createQueryBuilder('m')
+      .addSelect('m.image_data')
+      .where('m.id = :id', { id: messageId })
+      .getOne();
+    if (!msg || !msg.imageData) throw new NotFoundException('Imagen no encontrada');
+    await this.assertMember(msg.conversationId, meId);
+    return { data: msg.imageData, mime: msg.imageMime ?? 'image/jpeg' };
+  }
+
+  // ── marcar leído ─────────────────────────────────────────────────────────
+  async markRead(meId: string, conversationId: string) {
+    await this.assertMember(conversationId, meId);
+    await this.members.update({ conversationId, userId: meId }, { lastReadAt: new Date() });
+    return { ok: true };
+  }
+
+  // ── internos ─────────────────────────────────────────────────────────────
+  private async touchAndBroadcast(conversationId: string, msg: Message) {
+    await this.conversations.update(conversationId, { lastMessageAt: msg.createdAt });
+    const memberIds = await this.memberIdsOf(conversationId);
+    this.gateway.emitMessageToMembers(memberIds, this.toDto(msg));
+  }
+
+  private toDto(m: Message) {
+    return {
+      id: m.id,
+      conversationId: m.conversationId,
+      senderId: m.senderId,
+      type: m.type,
+      body: m.body,
+      imageMime: m.imageMime,
+      createdAt: m.createdAt,
+    };
+  }
+}
