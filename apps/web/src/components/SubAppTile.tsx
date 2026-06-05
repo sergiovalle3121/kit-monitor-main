@@ -2,6 +2,7 @@
 
 import React from 'react';
 import * as Icons from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { SubApp } from '@/config/domains';
 import { useRouter } from 'next/navigation';
 
@@ -12,7 +13,7 @@ interface SubAppTileProps {
 
 export function SubAppTile({ subApp, domainId }: SubAppTileProps) {
   const router = useRouter();
-  const IconComponent = Icons[subApp.icon as keyof typeof Icons] as React.ComponentType<{ className?: string }>;
+  const IconComponent = Icons[subApp.icon as keyof typeof Icons] as LucideIcon | undefined;
 
   return (
     <button

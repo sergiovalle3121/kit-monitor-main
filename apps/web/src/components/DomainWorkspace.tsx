@@ -3,6 +3,7 @@
 import React from 'react';
 import { Domain } from '@/config/domains';
 import * as Icons from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { SubAppGrid } from './SubAppGrid';
 
 interface DomainWorkspaceProps {
@@ -10,7 +11,7 @@ interface DomainWorkspaceProps {
 }
 
 export function DomainWorkspace({ domain }: DomainWorkspaceProps) {
-  const IconComponent = Icons[domain.icon as keyof typeof Icons] as React.ComponentType<{ className?: string }>;
+  const IconComponent = Icons[domain.icon as keyof typeof Icons] as LucideIcon | undefined;
 
   // KPIs simulados - se reemplazarán con datos reales
   const kpis = [
@@ -35,7 +36,7 @@ export function DomainWorkspace({ domain }: DomainWorkspaceProps) {
       {/* KPIs del dominio */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {kpis.map((kpi, index) => {
-          const KpiIcon = Icons[kpi.icon as keyof typeof Icons] as React.ComponentType<{ className?: string }>;
+          const KpiIcon = Icons[kpi.icon as keyof typeof Icons] as LucideIcon | undefined;
           return (
             <div key={index} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
               <div className="flex items-center justify-between mb-2">
