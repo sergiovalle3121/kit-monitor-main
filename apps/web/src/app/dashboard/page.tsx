@@ -1,7 +1,13 @@
 "use client";
 
 import React, { Suspense, useEffect, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import {
+  motion,
+  AnimatePresence,
+  useScroll,
+  useTransform,
+  useReducedMotion,
+} from "framer-motion";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Bell,
@@ -19,6 +25,7 @@ import { TCodePalette } from "@/components/TCodePalette";
 import { DomainGrid } from "@/components/DomainGrid";
 import { useVisibleDomains } from "@/hooks/useVisibleDomains";
 import { Role } from "@/config/domains";
+import { glass } from "@/lib/glass";
 
 interface SessionInfo {
   kind: "user" | "demo";
@@ -48,6 +55,12 @@ function DashboardInner() {
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [notifications, setNotifications] = useState<AdminNotification[]>([]);
   const [pendingCount, setPendingCount] = useState(0);
+
+  // Título grande que colapsa al hacer scroll (large-title de iOS).
+  const reduce = useReducedMotion();
+  const { scrollY } = useScroll();
+  const titleScale = useTransform(scrollY, [0, 120], [1, 0.78]);
+  const titleOpacity = useTransform(scrollY, [0, 140], [1, 0.65]);
 
   useEffect(() => {
     fetch("/api/auth/me")
@@ -108,12 +121,12 @@ function DashboardInner() {
     .toUpperCase();
 
   return (
-    <div className="min-h-screen bg-[#F2F2F7] dark:bg-black text-black dark:text-white font-sans overflow-hidden">
+    <div className="min-h-screen text-black dark:text-white font-sans">
       {/* T-Code Palette - Command Center */}
       <TCodePalette />
 
       {/* Top Bar */}
-      <nav className="fixed top-0 w-full z-50 px-6 py-4 flex justify-between items-center backdrop-blur-md bg-white/70 dark:bg-black/70 border-b border-gray-200/50 dark:border-white/5">
+      <nav className={`${glass} fixed top-0 w-full z-50 px-6 py-4 flex justify-between items-center rounded-none border-x-0 border-t-0`}>
         <div className="flex items-center gap-2">
           <span className="font-bold text-lg tracking-tight">Axos OS</span>
           {isDemo && (
@@ -124,7 +137,7 @@ function DashboardInner() {
         </div>
 
         <div className="flex items-center gap-6">
-          <div className="hidden md:flex items-center gap-4 px-4 py-2 bg-gray-200/50 dark:bg-white/10 rounded-full focus-within:ring-2 ring-blue-500/20 transition-all cursor-pointer hover:bg-gray-300/50 dark:hover:bg-white/20" onClick={() => window.dispatchEvent(new KeyboardEvent('keydown', {'key': 'F1'}))}>
+          <div className={`${glass} hidden md:flex items-center gap-4 px-4 py-2 rounded-full focus-within:ring-2 ring-blue-500/20 transition-all cursor-pointer hover:scale-[1.01]`} onClick={() => window.dispatchEvent(new KeyboardEvent('keydown', {'key': 'F1'}))}>
             <Search className="w-4 h-4 text-gray-500" />
             <input
               type="text"
@@ -155,7 +168,7 @@ function DashboardInner() {
                     initial={{ opacity: 0, y: 10, scale: 0.95 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                    className="absolute right-0 mt-4 w-96 bg-white dark:bg-[#1C1C1E] border border-gray-200 dark:border-white/10 rounded-[2rem] shadow-2xl p-6 z-[100] backdrop-blur-xl"
+                    className={`${glass} absolute right-0 mt-4 w-96 rounded-[2rem] shadow-2xl p-6 z-[100]`}
                   >
                     <div className="flex justify-between items-center mb-4">
                       <h3 className="font-bold">Notificaciones</h3>
@@ -237,7 +250,7 @@ function DashboardInner() {
                     initial={{ opacity: 0, y: 10, scale: 0.95 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                    className="absolute right-0 mt-4 w-64 bg-white dark:bg-[#1C1C1E] border border-gray-200 dark:border-white/10 rounded-[2rem] shadow-2xl p-4 z-[100] backdrop-blur-xl"
+                    className={`${glass} absolute right-0 mt-4 w-64 rounded-[2rem] shadow-2xl p-4 z-[100]`}
                   >
                     <div className="px-4 py-3 border-b border-gray-100 dark:border-white/5 mb-2 text-center">
                       <p className="font-bold text-sm">{session?.name ?? "Visitor"}</p>
@@ -313,9 +326,16 @@ function DashboardInner() {
                 month: "long",
               })}
             </h2>
-            <h1 className="text-5xl md:text-7xl font-bold tracking-tight">
+            <motion.h1
+              style={
+                reduce
+                  ? undefined
+                  : { scale: titleScale, opacity: titleOpacity, transformOrigin: "left top" }
+              }
+              className="text-5xl md:text-7xl font-bold tracking-tight"
+            >
               Hola, {session?.name?.split(' ')[0] || 'Usuario'}.
-            </h1>
+            </motion.h1>
             <p className="text-xl text-gray-500 dark:text-gray-400 mt-2">
               Bienvenido a Axos OS.
             </p>
@@ -327,7 +347,7 @@ function DashboardInner() {
       </main>
 
       {/* Floating Dock */}
-      <div className="fixed bottom-8 left-1/2 -translate-x-1/2 px-6 py-4 backdrop-blur-2xl bg-white/30 dark:bg-black/30 border border-white/20 dark:border-white/10 rounded-[2.5rem] shadow-2xl flex items-center gap-8">
+      <div className={`${glass} fixed bottom-8 left-1/2 -translate-x-1/2 px-6 py-4 rounded-[2.5rem] shadow-2xl flex items-center gap-8`}>
         <button className="p-3 hover:scale-110 active:scale-95 transition-all text-gray-600 dark:text-gray-300">
           <Settings className="w-6 h-6" />
         </button>
@@ -344,7 +364,7 @@ function DashboardInner() {
 
 export default function DashboardPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[#F2F2F7] dark:bg-black" />}>
+    <Suspense fallback={<div className="min-h-screen" />}>
       <DashboardInner />
     </Suspense>
   );

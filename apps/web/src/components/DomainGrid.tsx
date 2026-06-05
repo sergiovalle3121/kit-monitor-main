@@ -1,8 +1,11 @@
 'use client';
 
 import React from 'react';
+import { motion } from 'framer-motion';
 import { Domain, LAYERS } from '@/config/domains';
 import { DomainTile } from './DomainTile';
+import { Shelf } from './Shelf';
+import { container } from '@/lib/motion';
 import { useRouter } from 'next/navigation';
 
 interface DomainGridProps {
@@ -23,25 +26,32 @@ export function DomainGrid({ domains }: DomainGridProps) {
 
   // Ordenar capas
   const sortedLayers = Object.keys(groupedDomains).sort(
-    (a, b) => LAYERS[a as keyof typeof LAYERS].order - LAYERS[b as keyof typeof LAYERS].order
+    (a, b) => LAYERS[a as keyof typeof LAYERS].order - LAYERS[b as keyof typeof LAYERS].order,
   );
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-10">
       {sortedLayers.map((layerKey) => {
         const layer = layerKey as keyof typeof LAYERS;
         const layerDomains = groupedDomains[layer];
         const layerInfo = LAYERS[layer];
 
         return (
-          <div key={layer} className="space-y-4">
-            {/* Encabezado de capa - discreto */}
-            <h2 className="text-sm font-medium text-gray-500 uppercase tracking-wide">
+          <motion.section
+            key={layer}
+            className="space-y-4"
+            variants={container}
+            initial="hidden"
+            whileInView="show"
+            viewport={{ once: true, margin: '-80px' }}
+          >
+            {/* Encabezado de capa - section header sutil de iOS */}
+            <h2 className="text-sm font-medium tracking-wide text-gray-500 dark:text-gray-400">
               {layerInfo.label}
             </h2>
-            
-            {/* Rejilla de dominios */}
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
+
+            {/* Estante horizontal de dominios */}
+            <Shelf ariaLabel={layerInfo.label} itemWidth={208}>
               {layerDomains.map((domain) => (
                 <DomainTile
                   key={domain.id}
@@ -49,8 +59,8 @@ export function DomainGrid({ domains }: DomainGridProps) {
                   onClick={() => router.push(`/dashboard/${domain.id}`)}
                 />
               ))}
-            </div>
-          </div>
+            </Shelf>
+          </motion.section>
         );
       })}
     </div>

@@ -154,3 +154,34 @@
     filter: drop-shadow(0 0 26px rgba(255, 0, 92, 0.68));
   }
 }
+
+/* --- Material translúcido (glassmorphism) --- */
+/* La variante oscura usa prefers-color-scheme para alinearse con las
+   utilidades dark: de Tailwind v4 (no hay clase .dark activa en esta app). */
+.glass {
+  background: rgba(255, 255, 255, 0.55);
+  -webkit-backdrop-filter: blur(20px) saturate(150%);
+  backdrop-filter: blur(20px) saturate(150%);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow: 0 6px 20px rgba(80, 70, 120, 0.1);
+}
+
+@media (prefers-color-scheme: dark) {
+  .glass {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.1);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+  }
+}
+
+/* Fallback para navegadores sin backdrop-filter: superficie sólida legible. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass {
+    background: rgba(255, 255, 255, 0.9);
+  }
+  @media (prefers-color-scheme: dark) {
+    .glass {
+      background: rgba(28, 28, 30, 0.9);
+    }
+  }
+}
