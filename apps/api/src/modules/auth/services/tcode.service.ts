@@ -17,7 +17,7 @@ export class TCodeService {
   }
 
   private registerStandardTCodes() {
-    // Logística - Gestión de Stock
+    // ==================== LOGÍSTICA Y GESTIÓN DE MATERIALES (MM) ====================
     this.tCodes.set('MB52', {
       description: 'Visualizar stock de almacén',
       category: 'Logística',
@@ -36,11 +36,95 @@ export class TCodeService {
       handler: async (params) => await this.handleMMBE(params),
     });
 
-    // Compras
+    this.tCodes.set('MIGO', {
+      description: 'Movimiento de mercancías',
+      category: 'Logística',
+      handler: async (params) => await this.handleMIGO(params),
+    });
+
+    this.tCodes.set('MB1A', {
+      description: 'Emisión de mercancías',
+      category: 'Logística',
+      handler: async (params) => await this.handleMB1A(params),
+    });
+
+    this.tCodes.set('MB1C', {
+      description: 'Recepción de mercancías',
+      category: 'Logística',
+      handler: async (params) => await this.handleMB1C(params),
+    });
+
+    this.tCodes.set('MB1B', {
+      description: 'Traslado de puesto/transferencia',
+      category: 'Logística',
+      handler: async (params) => await this.handleMB1B(params),
+    });
+
+    this.tCodes.set('MIRO', {
+      description: 'Introducir factura entrante',
+      category: 'Logística',
+      handler: async (params) => await this.handleMIRO(params),
+    });
+
+    this.tCodes.set('MIR4', {
+      description: 'Mostrar documento de factura',
+      category: 'Logística',
+      handler: async (params) => await this.handleMIR4(params),
+    });
+
+    this.tCodes.set('MM01', {
+      description: 'Crear maestro de materiales',
+      category: 'Logística',
+      handler: async (params) => await this.handleMM01(params),
+    });
+
+    this.tCodes.set('MM02', {
+      description: 'Modificar maestro de materiales',
+      category: 'Logística',
+      handler: async (params) => await this.handleMM02(params),
+    });
+
+    this.tCodes.set('MM03', {
+      description: 'Visualizar maestro de materiales',
+      category: 'Logística',
+      handler: async (params) => await this.handleMM03(params),
+    });
+
+    // ==================== COMPRAS ====================
+    this.tCodes.set('ME21N', {
+      description: 'Crear orden de compra',
+      category: 'Compras',
+      handler: async (params) => await this.handleME21N(params),
+    });
+
+    this.tCodes.set('ME22N', {
+      description: 'Modificar orden de compra',
+      category: 'Compras',
+      handler: async (params) => await this.handleME22N(params),
+    });
+
     this.tCodes.set('ME23N', {
       description: 'Visualizar pedido de compra',
       category: 'Compras',
       handler: async (params) => await this.handleME23N(params),
+    });
+
+    this.tCodes.set('ME51N', {
+      description: 'Crear solicitud de compra',
+      category: 'Compras',
+      handler: async (params) => await this.handleME51N(params),
+    });
+
+    this.tCodes.set('ME52N', {
+      description: 'Modificar solicitud de compra',
+      category: 'Compras',
+      handler: async (params) => await this.handleME52N(params),
+    });
+
+    this.tCodes.set('ME53N', {
+      description: 'Visualizar solicitud de compra',
+      category: 'Compras',
+      handler: async (params) => await this.handleME53N(params),
     });
 
     this.tCodes.set('ME2N', {
@@ -49,11 +133,114 @@ export class TCodeService {
       handler: async (params) => await this.handleME2N(params),
     });
 
-    // Producción
+    this.tCodes.set('ME2L', {
+      description: 'Órdenes de compra por proveedor',
+      category: 'Compras',
+      handler: async (params) => await this.handleME2L(params),
+    });
+
+    this.tCodes.set('ME5A', {
+      description: 'Lista de solicitudes de compra',
+      category: 'Compras',
+      handler: async (params) => await this.handleME5A(params),
+    });
+
+    this.tCodes.set('ME01', {
+      description: 'Crear lista de fuentes',
+      category: 'Compras',
+      handler: async (params) => await this.handleME01(params),
+    });
+
+    // ==================== VENTAS Y DISTRIBUCIÓN (SD) ====================
+    this.tCodes.set('VA01', {
+      description: 'Crear pedido de venta',
+      category: 'Ventas',
+      handler: async (params) => await this.handleVA01(params),
+    });
+
+    this.tCodes.set('VA02', {
+      description: 'Modificar pedido de venta',
+      category: 'Ventas',
+      handler: async (params) => await this.handleVA02(params),
+    });
+
+    this.tCodes.set('VA03', {
+      description: 'Visualizar pedido de venta',
+      category: 'Ventas',
+      handler: async (params) => await this.handleVA03(params),
+    });
+
+    this.tCodes.set('VF01', {
+      description: 'Crear documento de facturación',
+      category: 'Ventas',
+      handler: async (params) => await this.handleVF01(params),
+    });
+
+    this.tCodes.set('VF02', {
+      description: 'Modificar documento de facturación',
+      category: 'Ventas',
+      handler: async (params) => await this.handleVF02(params),
+    });
+
+    this.tCodes.set('VF03', {
+      description: 'Visualizar documento de facturación',
+      category: 'Ventas',
+      handler: async (params) => await this.handleVF03(params),
+    });
+
+    this.tCodes.set('VL01N', {
+      description: 'Crear entrega saliente',
+      category: 'Ventas',
+      handler: async (params) => await this.handleVL01N(params),
+    });
+
+    this.tCodes.set('VL02N', {
+      description: 'Modificar entrega saliente',
+      category: 'Ventas',
+      handler: async (params) => await this.handleVL02N(params),
+    });
+
+    this.tCodes.set('VL03N', {
+      description: 'Visualizar entrega saliente',
+      category: 'Ventas',
+      handler: async (params) => await this.handleVL03N(params),
+    });
+
+    this.tCodes.set('VK11', {
+      description: 'Crear condiciones de precios',
+      category: 'Ventas',
+      handler: async (params) => await this.handleVK11(params),
+    });
+
+    // ==================== PLANIFICACIÓN DE PRODUCCIÓN (PP) ====================
+    this.tCodes.set('CO01', {
+      description: 'Crear orden de producción',
+      category: 'Producción',
+      handler: async (params) => await this.handleCO01(params),
+    });
+
+    this.tCodes.set('CO02', {
+      description: 'Modificar orden de producción',
+      category: 'Producción',
+      handler: async (params) => await this.handleCO02(params),
+    });
+
     this.tCodes.set('CO03', {
       description: 'Visualizar orden de fabricación',
       category: 'Producción',
       handler: async (params) => await this.handleCO03(params),
+    });
+
+    this.tCodes.set('MD04', {
+      description: 'Mostrar lista de requisitos de existencias (MRP)',
+      category: 'Producción',
+      handler: async (params) => await this.handleMD04(params),
+    });
+
+    this.tCodes.set('CO15', {
+      description: 'Confirmación de orden de producción',
+      category: 'Producción',
+      handler: async (params) => await this.handleCO15(params),
     });
 
     this.tCodes.set('COOIS', {
@@ -62,34 +249,300 @@ export class TCodeService {
       handler: async (params) => await this.handleCOOIS(params),
     });
 
-    // Finanzas
-    this.tCodes.set('FB03', {
-      description: 'Visualizar documento contable',
+    // ==================== CONTABILIDAD FINANCIERA (FI) ====================
+    this.tCodes.set('FB01', {
+      description: 'Documento financiero posterior',
       category: 'Finanzas',
-      handler: async (params) => await this.handleFB03(params),
+      handler: async (params) => await this.handleFB01(params),
+    });
+
+    this.tCodes.set('FB50', {
+      description: 'Introducir asiento contable en cuenta de mayor',
+      category: 'Finanzas',
+      handler: async (params) => await this.handleFB50(params),
+    });
+
+    this.tCodes.set('FBL1N', {
+      description: 'Mostrar artículos de línea del proveedor',
+      category: 'Finanzas',
+      handler: async (params) => await this.handleFBL1N(params),
     });
 
     this.tCodes.set('FBL3N', {
-      description: 'Cuentas de proveedor',
+      description: 'Mostrar partidas individuales de cuenta de mayor',
       category: 'Finanzas',
       handler: async (params) => await this.handleFBL3N(params),
     });
 
-    // Calidad
-    this.tCodes.set('QE51N', {
-      description: 'Lista de resultados de inspección',
-      category: 'Calidad',
-      handler: async (params) => await this.handleQE51N(params),
+    this.tCodes.set('FBL5N', {
+      description: 'Mostrar partidas del cliente',
+      category: 'Finanzas',
+      handler: async (params) => await this.handleFBL5N(params),
     });
 
-    // Ventas
-    this.tCodes.set('VA03', {
-      description: 'Visualizar pedido de venta',
-      category: 'Ventas',
-      handler: async (params) => await this.handleVA03(params),
+    this.tCodes.set('F-53', {
+      description: 'Pagos salientes',
+      category: 'Finanzas',
+      handler: async (params) => await this.handleF53(params),
     });
 
-    // T-Code genérico para desarrollo futuro
+    this.tCodes.set('F-28', {
+      description: 'Pagos entrantes',
+      category: 'Finanzas',
+      handler: async (params) => await this.handleF28(params),
+    });
+
+    this.tCodes.set('FS10N', {
+      description: 'Mostrar saldo de cuenta de mayor',
+      category: 'Finanzas',
+      handler: async (params) => await this.handleFS10N(params),
+    });
+
+    this.tCodes.set('FB60', {
+      description: 'Introducir factura del proveedor',
+      category: 'Finanzas',
+      handler: async (params) => await this.handleFB60(params),
+    });
+
+    this.tCodes.set('FB70', {
+      description: 'Introducir factura del cliente',
+      category: 'Finanzas',
+      handler: async (params) => await this.handleFB70(params),
+    });
+
+    this.tCodes.set('FD32', {
+      description: 'Gestión del crédito al cliente',
+      category: 'Finanzas',
+      handler: async (params) => await this.handleFD32(params),
+    });
+
+    // ==================== DATOS MAESTROS ====================
+    this.tCodes.set('XD01', {
+      description: 'Crear maestro de clientes',
+      category: 'Datos Maestros',
+      handler: async (params) => await this.handleXD01(params),
+    });
+
+    this.tCodes.set('XD02', {
+      description: 'Modificar datos maestros del cliente',
+      category: 'Datos Maestros',
+      handler: async (params) => await this.handleXD02(params),
+    });
+
+    this.tCodes.set('XD03', {
+      description: 'Visualizar maestro de clientes',
+      category: 'Datos Maestros',
+      handler: async (params) => await this.handleXD03(params),
+    });
+
+    this.tCodes.set('XK01', {
+      description: 'Crear maestro de proveedores',
+      category: 'Datos Maestros',
+      handler: async (params) => await this.handleXK01(params),
+    });
+
+    this.tCodes.set('XK02', {
+      description: 'Modificar maestro de proveedores',
+      category: 'Datos Maestros',
+      handler: async (params) => await this.handleXK02(params),
+    });
+
+    this.tCodes.set('XK03', {
+      description: 'Visualizar maestro de proveedores',
+      category: 'Datos Maestros',
+      handler: async (params) => await this.handleXK03(params),
+    });
+
+    // ==================== SISTEMA Y BASIS ====================
+    this.tCodes.set('SM37', {
+      description: 'Monitoreo de trabajos en segundo plano',
+      category: 'Sistema',
+      handler: async (params) => await this.handleSM37(params),
+    });
+
+    this.tCodes.set('SM12', {
+      description: 'Entradas de bloqueo (Lock entries)',
+      category: 'Sistema',
+      handler: async (params) => await this.handleSM12(params),
+    });
+
+    this.tCodes.set('SE11', {
+      description: 'Diccionario de datos ABAP',
+      category: 'Sistema',
+      handler: async (params) => await this.handleSE11(params),
+    });
+
+    this.tCodes.set('SQVI', {
+      description: 'Visor rápido de informes',
+      category: 'Sistema',
+      handler: async (params) => await this.handleSQVI(params),
+    });
+
+    this.tCodes.set('SU01', {
+      description: 'Mantenimiento de usuarios',
+      category: 'Sistema',
+      handler: async (params) => await this.handleSU01(params),
+    });
+
+    // ==================== PAGOS DIGITALES (Digital Payment Add-on) ====================
+    // Códigos de estado de transacción
+    this.tCodes.set('DPTR01', {
+      description: 'Transacción correcta (Digital Payment)',
+      category: 'Pagos Digitales',
+      handler: async (params) => await this.handleDigitalPaymentStatus(params),
+    });
+
+    this.tCodes.set('DPTR02', {
+      description: 'Transacción incorrecta (Digital Payment)',
+      category: 'Pagos Digitales',
+      handler: async (params) => await this.handleDigitalPaymentStatus(params),
+    });
+
+    this.tCodes.set('DPTR03', {
+      description: 'Transacción pendiente (Digital Payment)',
+      category: 'Pagos Digitales',
+      handler: async (params) => await this.handleDigitalPaymentStatus(params),
+    });
+
+    this.tCodes.set('DPTR04', {
+      description: 'Tiempo de espera finalizado (Digital Payment)',
+      category: 'Pagos Digitales',
+      handler: async (params) => await this.handleDigitalPaymentStatus(params),
+    });
+
+    this.tCodes.set('DPTR05', {
+      description: 'Transacción cancelada (Digital Payment)',
+      category: 'Pagos Digitales',
+      handler: async (params) => await this.handleDigitalPaymentStatus(params),
+    });
+
+    // Estados de procesamiento
+    this.tCodes.set('DPPS100', {
+      description: 'Procesamiento finalizado correctamente',
+      category: 'Pagos Digitales',
+      handler: async (params) => await this.handleProcessingStatus(params),
+    });
+
+    this.tCodes.set('DPPS201', {
+      description: 'Límite de tarjeta/cuenta superado',
+      category: 'Pagos Digitales',
+      handler: async (params) => await this.handleProcessingStatus(params),
+    });
+
+    this.tCodes.set('DPPS213', {
+      description: 'Procesamiento cancelado por fraude',
+      category: 'Pagos Digitales',
+      handler: async (params) => await this.handleProcessingStatus(params),
+    });
+
+    // Métodos de pago
+    this.tCodes.set('DPMCC', {
+      description: 'Tarjeta de crédito',
+      category: 'Pagos Digitales',
+      handler: async (params) => await this.handlePaymentMethods(params),
+    });
+
+    this.tCodes.set('DPMPP', {
+      description: 'PayPal',
+      category: 'Pagos Digitales',
+      handler: async (params) => await this.handlePaymentMethods(params),
+    });
+
+    this.tCodes.set('DPMAP', {
+      description: 'Apple Pay',
+      category: 'Pagos Digitales',
+      handler: async (params) => await this.handlePaymentMethods(params),
+    });
+
+    this.tCodes.set('DPMGP', {
+      description: 'Google Pay',
+      category: 'Pagos Digitales',
+      handler: async (params) => await this.handlePaymentMethods(params),
+    });
+
+    this.tCodes.set('DPMKL', {
+      description: 'Klarna',
+      category: 'Pagos Digitales',
+      handler: async (params) => await this.handlePaymentMethods(params),
+    });
+
+    // Tipos de tarjeta
+    this.tCodes.set('DPCVI', {
+      description: 'Visa',
+      category: 'Pagos Digitales',
+      handler: async (params) => await this.handleCardTypes(params),
+    });
+
+    this.tCodes.set('DPCMC', {
+      description: 'Mastercard',
+      category: 'Pagos Digitales',
+      handler: async (params) => await this.handleCardTypes(params),
+    });
+
+    this.tCodes.set('DPCAM', {
+      description: 'American Express',
+      category: 'Pagos Digitales',
+      handler: async (params) => await this.handleCardTypes(params),
+    });
+
+    // Proveedores de servicio de pago
+    this.tCodes.set('DPSPADY', {
+      description: 'Adyen',
+      category: 'Pagos Digitales',
+      handler: async (params) => await this.handlePaymentProviders(params),
+    });
+
+    this.tCodes.set('DPSPSTR', {
+      description: 'Stripe',
+      category: 'Pagos Digitales',
+      handler: async (params) => await this.handlePaymentProviders(params),
+    });
+
+    this.tCodes.set('DPSP PYPL', {
+      description: 'PayPal Braintree',
+      category: 'Pagos Digitales',
+      handler: async (params) => await this.handlePaymentProviders(params),
+    });
+
+    // Riesgo de fraude
+    this.tCodes.set('DPFRNONE', {
+      description: 'Sin riesgo de fraude',
+      category: 'Pagos Digitales',
+      handler: async (params) => await this.handleFraudRisk(params),
+    });
+
+    this.tCodes.set('DPFRELEV', {
+      description: 'Riesgo de fraude elevado',
+      category: 'Pagos Digitales',
+      handler: async (params) => await this.handleFraudRisk(params),
+    });
+
+    this.tCodes.set('DPFRSEV', {
+      description: 'Riesgo de fraude grave',
+      category: 'Pagos Digitales',
+      handler: async (params) => await this.handleFraudRisk(params),
+    });
+
+    // T-Codes personalizados AXOS
+    this.tCodes.set('ZSTOCK', {
+      description: 'Reporte ejecutivo de inventario',
+      category: 'Reportes AXOS',
+      handler: async (params) => await this.handleZSTOCK(params),
+    });
+
+    this.tCodes.set('ZPROD', {
+      description: 'KPIs de producción en tiempo real',
+      category: 'Reportes AXOS',
+      handler: async (params) => await this.handleZPROD(params),
+    });
+
+    this.tCodes.set('ZFIN', {
+      description: 'Dashboard financiero consolidado',
+      category: 'Reportes AXOS',
+      handler: async (params) => await this.handleZFIN(params),
+    });
+
+    // Ayuda
     this.tCodes.set('HELP', {
       description: 'Mostrar ayuda de T-Codes disponibles',
       category: 'Sistema',
