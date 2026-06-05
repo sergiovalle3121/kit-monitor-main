@@ -53,6 +53,6 @@ import { Supplier } from '../suppliers/entities/supplier.entity';
   ])],
   providers: [DecisionIntelligenceService, MonteCarloService],
   controllers: [DecisionIntelligenceController],
-  exports: [MonteCarloService],
+  exports: [DecisionIntelligenceService, MonteCarloService],
 })
 export class DecisionIntelligenceModule {}
