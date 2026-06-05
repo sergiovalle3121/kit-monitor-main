@@ -40,6 +40,7 @@ import { AccountingModule } from './modules/accounting/accounting.module';
 import { CostRollupModule } from './modules/cost-rollup/cost-rollup.module';
 import { AutopilotModule } from './modules/autopilot/autopilot.module';
 import { SignalModule } from './common/gateway/signal.module';
+import { MessagingModule } from './modules/messaging/messaging.module';
 
 @Module({
   imports: [
@@ -74,6 +75,7 @@ import { SignalModule } from './common/gateway/signal.module';
     CostRollupModule,
     AutopilotModule,
     SignalModule,
+    MessagingModule,
     ScheduleModule.forRoot(),
   ],
   controllers: [HealthController],
