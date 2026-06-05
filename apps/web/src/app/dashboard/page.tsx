@@ -12,6 +12,7 @@ import {
   ShieldAlert,
   AlertCircle,
   Lock,
+  LayoutGrid,
 } from "lucide-react";
 import Link from "next/link";
 import { TCodePalette } from "@/components/TCodePalette";
