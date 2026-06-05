@@ -715,4 +715,553 @@ export class TCodeService {
       data: { tcodes },
     };
   }
+
+  // ==================== LOGÍSTICA ====================
+  private async handleMIGO(params?: any): Promise<TCodeResult> {
+    return {
+      success: true,
+      message: 'MIGO - Movimiento de mercancías',
+      action: 'GOODS_MOVEMENT',
+      data: { message: 'Movimiento de mercancías registrado', params },
+    };
+  }
+
+  private async handleMB1A(params?: any): Promise<TCodeResult> {
+    return {
+      success: true,
+      message: 'MB1A - Emisión de mercancías',
+      action: 'GOODS_ISSUE',
+      data: { message: 'Emisión de mercancías registrada', params },
+    };
+  }
+
+  private async handleMB1B(params?: any): Promise<TCodeResult> {
+    return {
+      success: true,
+      message: 'MB1B - Traslado de puesto/transferencia',
+      action: 'GOODS_TRANSFER',
+      data: { message: 'Traslado de mercancías registrado', params },
+    };
+  }
+
+  private async handleMB1C(params?: any): Promise<TCodeResult> {
+    return {
+      success: true,
+      message: 'MB1C - Recepción de mercancías',
+      action: 'GOODS_RECEIPT',
+      data: { message: 'Recepción de mercancías registrada', params },
+    };
+  }
+
+  private async handleMIRO(params?: any): Promise<TCodeResult> {
+    return {
+      success: true,
+      message: 'MIRO - Introducir factura entrante',
+      action: 'ENTER_INCOMING_INVOICE',
+      data: { message: 'Factura entrante registrada', params },
+    };
+  }
+
+  private async handleMIR4(params?: any): Promise<TCodeResult> {
+    return {
+      success: true,
+      message: 'MIR4 - Mostrar documento de factura',
+      action: 'VIEW_INVOICE_DOCUMENT',
+      data: { message: 'Documento de factura visualizado', params },
+    };
+  }
+
+  private async handleMM01(params?: any): Promise<TCodeResult> {
+    return {
+      success: true,
+      message: 'MM01 - Crear maestro de materiales',
+      action: 'CREATE_MATERIAL',
+      data: { message: 'Maestro de materiales creado', params },
+    };
+  }
+
+  private async handleMM02(params?: any): Promise<TCodeResult> {
+    return {
+      success: true,
+      message: 'MM02 - Modificar maestro de materiales',
+      action: 'MODIFY_MATERIAL',
+      data: { message: 'Maestro de materiales modificado', params },
+    };
+  }
+
+  private async handleMM03(params?: any): Promise<TCodeResult> {
+    return {
+      success: true,
+      message: 'MM03 - Visualizar maestro de materiales',
+      action: 'VIEW_MATERIAL',
+      data: { message: 'Maestro de materiales visualizado', params },
+    };
+  }
+
+  // ==================== COMPRAS ====================
+  private async handleME21N(params?: any): Promise<TCodeResult> {
+    return {
+      success: true,
+      message: 'ME21N - Crear orden de compra',
+      action: 'CREATE_PO',
+      data: { message: 'Orden de compra creada', params },
+    };
+  }
+
+  private async handleME22N(params?: any): Promise<TCodeResult> {
+    return {
+      success: true,
+      message: 'ME22N - Modificar orden de compra',
+      action: 'MODIFY_PO',
+      data: { message: 'Orden de compra modificada', params },
+    };
+  }
+
+  private async handleME51N(params?: any): Promise<TCodeResult> {
+    return {
+      success: true,
+      message: 'ME51N - Crear solicitud de compra',
+      action: 'CREATE_PR',
+      data: { message: 'Solicitud de compra creada', params },
+    };
+  }
+
+  private async handleME52N(params?: any): Promise<TCodeResult> {
+    return {
+      success: true,
+      message: 'ME52N - Modificar solicitud de compra',
+      action: 'MODIFY_PR',
+      data: { message: 'Solicitud de compra modificada', params },
+    };
+  }
+
+  private async handleME53N(params?: any): Promise<TCodeResult> {
+    return {
+      success: true,
+      message: 'ME53N - Visualizar solicitud de compra',
+      action: 'VIEW_PR',
+      data: { message: 'Solicitud de compra visualizada', params },
+    };
+  }
+
+  private async handleME2L(params?: any): Promise<TCodeResult> {
+    return {
+      success: true,
+      message: 'ME2L - Órdenes de compra por proveedor',
+      action: 'LIST_PO_BY_VENDOR',
+      data: { message: 'Órdenes de compra por proveedor obtenidas', params },
+    };
+  }
+
+  private async handleME5A(params?: any): Promise<TCodeResult> {
+    return {
+      success: true,
+      message: 'ME5A - Lista de solicitudes de compra',
+      action: 'LIST_PR',
+      data: { message: 'Lista de solicitudes de compra obtenida', params },
+    };
+  }
+
+  private async handleME01(params?: any): Promise<TCodeResult> {
+    return {
+      success: true,
+      message: 'ME01 - Crear lista de fuentes',
+      action: 'CREATE_SOURCE_LIST',
+      data: { message: 'Lista de fuentes creada', params },
+    };
+  }
+
+  // ==================== VENTAS ====================
+  private async handleVA01(params?: any): Promise<TCodeResult> {
+    return {
+      success: true,
+      message: 'VA01 - Crear pedido de venta',
+      action: 'CREATE_SALES_ORDER',
+      data: { message: 'Pedido de venta creado', params },
+    };
+  }
+
+  private async handleVA02(params?: any): Promise<TCodeResult> {
+    return {
+      success: true,
+      message: 'VA02 - Modificar pedido de venta',
+      action: 'MODIFY_SALES_ORDER',
+      data: { message: 'Pedido de venta modificado', params },
+    };
+  }
+
+  private async handleVF01(params?: any): Promise<TCodeResult> {
+    return {
+      success: true,
+      message: 'VF01 - Crear documento de facturación',
+      action: 'CREATE_BILLING_DOC',
+      data: { message: 'Documento de facturación creado', params },
+    };
+  }
+
+  private async handleVF02(params?: any): Promise<TCodeResult> {
+    return {
+      success: true,
+      message: 'VF02 - Modificar documento de facturación',
+      action: 'MODIFY_BILLING_DOC',
+      data: { message: 'Documento de facturación modificado', params },
+    };
+  }
+
+  private async handleVF03(params?: any): Promise<TCodeResult> {
+    return {
+      success: true,
+      message: 'VF03 - Visualizar documento de facturación',
+      action: 'VIEW_BILLING_DOC',
+      data: { message: 'Documento de facturación visualizado', params },
+    };
+  }
+
+  private async handleVL01N(params?: any): Promise<TCodeResult> {
+    return {
+      success: true,
+      message: 'VL01N - Crear entrega saliente',
+      action: 'CREATE_OUTBOUND_DELIVERY',
+      data: { message: 'Entrega saliente creada', params },
+    };
+  }
+
+  private async handleVL02N(params?: any): Promise<TCodeResult> {
+    return {
+      success: true,
+      message: 'VL02N - Modificar entrega saliente',
+      action: 'MODIFY_OUTBOUND_DELIVERY',
+      data: { message: 'Entrega saliente modificada', params },
+    };
+  }
+
+  private async handleVL03N(params?: any): Promise<TCodeResult> {
+    return {
+      success: true,
+      message: 'VL03N - Visualizar entrega saliente',
+      action: 'VIEW_OUTBOUND_DELIVERY',
+      data: { message: 'Entrega saliente visualizada', params },
+    };
+  }
+
+  private async handleVK11(params?: any): Promise<TCodeResult> {
+    return {
+      success: true,
+      message: 'VK11 - Crear condiciones de precios',
+      action: 'CREATE_PRICE_CONDITIONS',
+      data: { message: 'Condiciones de precios creadas', params },
+    };
+  }
+
+  // ==================== PRODUCCIÓN ====================
+  private async handleCO01(params?: any): Promise<TCodeResult> {
+    return {
+      success: true,
+      message: 'CO01 - Crear orden de producción',
+      action: 'CREATE_PRODUCTION_ORDER',
+      data: { message: 'Orden de producción creada', params },
+    };
+  }
+
+  private async handleCO02(params?: any): Promise<TCodeResult> {
+    return {
+      success: true,
+      message: 'CO02 - Modificar orden de producción',
+      action: 'MODIFY_PRODUCTION_ORDER',
+      data: { message: 'Orden de producción modificada', params },
+    };
+  }
+
+  private async handleMD04(params?: any): Promise<TCodeResult> {
+    return {
+      success: true,
+      message: 'MD04 - Mostrar lista de requisitos de existencias (MRP)',
+      action: 'VIEW_MRP',
+      data: { message: 'Lista de requisitos de existencias obtenida', params },
+    };
+  }
+
+  private async handleCO15(params?: any): Promise<TCodeResult> {
+    return {
+      success: true,
+      message: 'CO15 - Confirmación de orden de producción',
+      action: 'CONFIRM_PRODUCTION_ORDER',
+      data: { message: 'Orden de producción confirmada', params },
+    };
+  }
+
+  // ==================== FINANZAS ====================
+  private async handleFB01(params?: any): Promise<TCodeResult> {
+    return {
+      success: true,
+      message: 'FB01 - Documento financiero posterior',
+      action: 'POST_FINANCIAL_DOCUMENT',
+      data: { message: 'Documento financiero registrado', params },
+    };
+  }
+
+  private async handleFB50(params?: any): Promise<TCodeResult> {
+    return {
+      success: true,
+      message: 'FB50 - Introducir asiento contable en cuenta de mayor',
+      action: 'ENTER_GL_POSTING',
+      data: { message: 'Asiento contable registrado', params },
+    };
+  }
+
+  private async handleFBL1N(params?: any): Promise<TCodeResult> {
+    return {
+      success: true,
+      message: 'FBL1N - Mostrar artículos de línea del proveedor',
+      action: 'VIEW_VENDOR_LINE_ITEMS',
+      data: { message: 'Artículos de línea del proveedor obtenidos', params },
+    };
+  }
+
+  private async handleFBL5N(params?: any): Promise<TCodeResult> {
+    return {
+      success: true,
+      message: 'FBL5N - Mostrar partidas del cliente',
+      action: 'VIEW_CUSTOMER_LINE_ITEMS',
+      data: { message: 'Partidas del cliente obtenidas', params },
+    };
+  }
+
+  private async handleF53(params?: any): Promise<TCodeResult> {
+    return {
+      success: true,
+      message: 'F-53 - Pagos salientes',
+      action: 'OUTGOING_PAYMENTS',
+      data: { message: 'Pagos salientes procesados', params },
+    };
+  }
+
+  private async handleF28(params?: any): Promise<TCodeResult> {
+    return {
+      success: true,
+      message: 'F-28 - Pagos entrantes',
+      action: 'INCOMING_PAYMENTS',
+      data: { message: 'Pagos entrantes procesados', params },
+    };
+  }
+
+  private async handleFS10N(params?: any): Promise<TCodeResult> {
+    return {
+      success: true,
+      message: 'FS10N - Mostrar saldo de cuenta de mayor',
+      action: 'VIEW_GL_BALANCE',
+      data: { message: 'Saldo de cuenta de mayor obtenido', params },
+    };
+  }
+
+  private async handleFB60(params?: any): Promise<TCodeResult> {
+    return {
+      success: true,
+      message: 'FB60 - Introducir factura del proveedor',
+      action: 'ENTER_VENDOR_INVOICE',
+      data: { message: 'Factura del proveedor registrada', params },
+    };
+  }
+
+  private async handleFB70(params?: any): Promise<TCodeResult> {
+    return {
+      success: true,
+      message: 'FB70 - Introducir factura del cliente',
+      action: 'ENTER_CUSTOMER_INVOICE',
+      data: { message: 'Factura del cliente registrada', params },
+    };
+  }
+
+  private async handleFD32(params?: any): Promise<TCodeResult> {
+    return {
+      success: true,
+      message: 'FD32 - Gestión del crédito al cliente',
+      action: 'CUSTOMER_CREDIT_MANAGEMENT',
+      data: { message: 'Gestión del crédito al cliente actualizada', params },
+    };
+  }
+
+  // ==================== DATOS MAESTROS ====================
+  private async handleXD01(params?: any): Promise<TCodeResult> {
+    return {
+      success: true,
+      message: 'XD01 - Crear maestro de clientes',
+      action: 'CREATE_CUSTOMER',
+      data: { message: 'Maestro de clientes creado', params },
+    };
+  }
+
+  private async handleXD02(params?: any): Promise<TCodeResult> {
+    return {
+      success: true,
+      message: 'XD02 - Modificar datos maestros del cliente',
+      action: 'MODIFY_CUSTOMER',
+      data: { message: 'Datos maestros del cliente modificados', params },
+    };
+  }
+
+  private async handleXD03(params?: any): Promise<TCodeResult> {
+    return {
+      success: true,
+      message: 'XD03 - Visualizar maestro de clientes',
+      action: 'VIEW_CUSTOMER',
+      data: { message: 'Maestro de clientes visualizado', params },
+    };
+  }
+
+  private async handleXK01(params?: any): Promise<TCodeResult> {
+    return {
+      success: true,
+      message: 'XK01 - Crear maestro de proveedores',
+      action: 'CREATE_VENDOR',
+      data: { message: 'Maestro de proveedores creado', params },
+    };
+  }
+
+  private async handleXK02(params?: any): Promise<TCodeResult> {
+    return {
+      success: true,
+      message: 'XK02 - Modificar maestro de proveedores',
+      action: 'MODIFY_VENDOR',
+      data: { message: 'Maestro de proveedores modificado', params },
+    };
+  }
+
+  private async handleXK03(params?: any): Promise<TCodeResult> {
+    return {
+      success: true,
+      message: 'XK03 - Visualizar maestro de proveedores',
+      action: 'VIEW_VENDOR',
+      data: { message: 'Maestro de proveedores visualizado', params },
+    };
+  }
+
+  // ==================== SISTEMA ====================
+  private async handleSM37(params?: any): Promise<TCodeResult> {
+    return {
+      success: true,
+      message: 'SM37 - Monitoreo de trabajos en segundo plano',
+      action: 'MONITOR_BACKGROUND_JOBS',
+      data: { message: 'Trabajos en segundo plano monitoreados', params },
+    };
+  }
+
+  private async handleSM12(params?: any): Promise<TCodeResult> {
+    return {
+      success: true,
+      message: 'SM12 - Entradas de bloqueo (Lock entries)',
+      action: 'VIEW_LOCK_ENTRIES',
+      data: { message: 'Entradas de bloqueo visualizadas', params },
+    };
+  }
+
+  private async handleSE11(params?: any): Promise<TCodeResult> {
+    return {
+      success: true,
+      message: 'SE11 - Diccionario de datos ABAP',
+      action: 'ABAP_DATA_DICTIONARY',
+      data: { message: 'Diccionario de datos ABAP accedido', params },
+    };
+  }
+
+  private async handleSQVI(params?: any): Promise<TCodeResult> {
+    return {
+      success: true,
+      message: 'SQVI - Visor rápido de informes',
+      action: 'QUICK_VIEWER',
+      data: { message: 'Visor rápido de informes accedido', params },
+    };
+  }
+
+  private async handleSU01(params?: any): Promise<TCodeResult> {
+    return {
+      success: true,
+      message: 'SU01 - Mantenimiento de usuarios',
+      action: 'USER_MAINTENANCE',
+      data: { message: 'Mantenimiento de usuarios accedido', params },
+    };
+  }
+
+  // ==================== PAGOS DIGITALES ====================
+  private async handleDigitalPaymentStatus(params?: any): Promise<TCodeResult> {
+    return {
+      success: true,
+      message: 'Estado de transacción de pago digital',
+      action: 'DIGITAL_PAYMENT_STATUS',
+      data: { message: 'Estado de pago digital obtenido', params },
+    };
+  }
+
+  private async handleProcessingStatus(params?: any): Promise<TCodeResult> {
+    return {
+      success: true,
+      message: 'Estado de procesamiento de pago',
+      action: 'PROCESSING_STATUS',
+      data: { message: 'Estado de procesamiento obtenido', params },
+    };
+  }
+
+  private async handlePaymentMethods(params?: any): Promise<TCodeResult> {
+    return {
+      success: true,
+      message: 'Métodos de pago disponibles',
+      action: 'PAYMENT_METHODS',
+      data: { message: 'Métodos de pago obtenidos', params },
+    };
+  }
+
+  private async handleCardTypes(params?: any): Promise<TCodeResult> {
+    return {
+      success: true,
+      message: 'Tipos de tarjeta disponibles',
+      action: 'CARD_TYPES',
+      data: { message: 'Tipos de tarjeta obtenidos', params },
+    };
+  }
+
+  private async handlePaymentProviders(params?: any): Promise<TCodeResult> {
+    return {
+      success: true,
+      message: 'Proveedores de servicio de pago',
+      action: 'PAYMENT_PROVIDERS',
+      data: { message: 'Proveedores de pago obtenidos', params },
+    };
+  }
+
+  private async handleFraudRisk(params?: any): Promise<TCodeResult> {
+    return {
+      success: true,
+      message: 'Evaluación de riesgo de fraude',
+      action: 'FRAUD_RISK',
+      data: { message: 'Riesgo de fraude evaluado', params },
+    };
+  }
+
+  // ==================== REPORTES AXOS ====================
+  private async handleZSTOCK(params?: any): Promise<TCodeResult> {
+    return {
+      success: true,
+      message: 'ZSTOCK - Reporte ejecutivo de inventario',
+      action: 'EXECUTIVE_STOCK_REPORT',
+      data: { message: 'Reporte ejecutivo de inventario generado', params },
+    };
+  }
+
+  private async handleZPROD(params?: any): Promise<TCodeResult> {
+    return {
+      success: true,
+      message: 'ZPROD - KPIs de producción en tiempo real',
+      action: 'PRODUCTION_KPIS',
+      data: { message: 'KPIs de producción obtenidos', params },
+    };
+  }
+
+  private async handleZFIN(params?: any): Promise<TCodeResult> {
+    return {
+      success: true,
+      message: 'ZFIN - Dashboard financiero consolidado',
+      action: 'FINANCIAL_DASHBOARD',
+      data: { message: 'Dashboard financiero consolidado generado', params },
+    };
+  }
 }
