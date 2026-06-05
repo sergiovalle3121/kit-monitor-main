@@ -8,6 +8,7 @@ import { Resupply } from '../resupplies/entities/resupply.entity';
 import { ProductionRuntimeModule } from '../production-runtime/production-runtime.module';
 import { DecisionIntelligenceModule } from '../decision-intelligence/decision-intelligence.module';
 import { SignalModule } from '../../common/gateway/signal.module';
+import { GovernanceModule } from '../governance/governance.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { SignalModule } from '../../common/gateway/signal.module';
     ProductionRuntimeModule,
     DecisionIntelligenceModule,
     SignalModule,
+    GovernanceModule,
   ],
   providers: [AutopilotService],
   controllers: [AutopilotController],
