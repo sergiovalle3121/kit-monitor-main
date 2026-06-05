@@ -2,6 +2,7 @@
 
 import React from 'react';
 import * as Icons from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { Domain } from '@/config/domains';
 
 interface DomainTileProps {
@@ -10,7 +11,7 @@ interface DomainTileProps {
 }
 
 export function DomainTile({ domain, onClick }: DomainTileProps) {
-  const IconComponent = Icons[domain.icon as keyof typeof Icons] as React.ComponentType<{ className?: string }>;
+  const IconComponent = Icons[domain.icon as keyof typeof Icons] as LucideIcon | undefined;
 
   return (
     <button
