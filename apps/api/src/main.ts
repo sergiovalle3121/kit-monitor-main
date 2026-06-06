@@ -5,6 +5,7 @@ import helmet from 'helmet';
 import compression from 'compression';
 import { Request, Response, NextFunction } from 'express';
 import { UsersService } from './modules/users/users.service';
+import { UserRole } from './modules/users/entities/user.entity';
 
 function parseAllowedOrigins(raw: string): string[] {
   const value = (raw || '').trim();
@@ -150,25 +151,59 @@ async function bootstrap() {
   }
 
   // ---------------------------
-  // Auto-seed admin user
+  // Auto-seed admins
   // ---------------------------
   try {
     const usersService = app.get(UsersService);
-    const adminEmail = 'admin@example.com';
-    const exists = await usersService.findOneByEmail(adminEmail);
-    if (!exists) {
-      const adminData = {
-        email: adminEmail,
-        password: '31218223', // Will be hashed inside UsersService.create
+
+    // Service account (used as the frontend-bridge fallback). Configurable.
+    const svcEmail = (
+      process.env.BACKEND_SERVICE_EMAIL || 'admin@example.com'
+    ).toLowerCase();
+    const svcPassword = process.env.BACKEND_SERVICE_PASSWORD || '31218223';
+    if (!(await usersService.findOneByEmail(svcEmail))) {
+      await usersService.create({
+        email: svcEmail,
         username: 'admin',
-        role: 'Admin' as any,
+        name: 'Service Admin',
+        password: svcPassword,
+        role: UserRole.ADMIN,
         isActive: true,
-        permissions: ['RELEASE_WO', 'APPROVE_QUALITY', 'DISPATCH'],
-      };
-      await usersService.create(adminData);
-      console.log('✅ Auto-seed: Default admin user created successfully.');
-    } else {
-      console.log('ℹ️ Auto-seed: Admin user already exists.');
+        status: 'active',
+        permissions: [],
+      });
+      console.log('✅ Auto-seed: service admin created.');
+    }
+
+    // Master (human) admin — credentials come ONLY from private env vars, never
+    // hardcoded, so they never live in the repo. Set MASTER_ADMIN_EMAIL +
+    // MASTER_ADMIN_PASSWORD in the backend service to enable.
+    const masterEmail = process.env.MASTER_ADMIN_EMAIL?.trim().toLowerCase();
+    const masterPassword = process.env.MASTER_ADMIN_PASSWORD;
+    if (masterEmail && masterPassword) {
+      const existing = await usersService.findOneByEmail(masterEmail);
+      if (!existing) {
+        await usersService.create({
+          email: masterEmail,
+          username: masterEmail,
+          name: process.env.MASTER_ADMIN_NAME || 'Master Admin',
+          password: masterPassword,
+          role: UserRole.ADMIN,
+          isActive: true,
+          status: 'active',
+          permissions: [],
+        });
+        console.log(`✅ Master admin created: ${masterEmail}`);
+      } else {
+        // Env is the source of truth: keep role/status and password in sync.
+        await usersService.update(existing.id, {
+          role: UserRole.ADMIN,
+          isActive: true,
+          status: 'active',
+          password: masterPassword,
+        });
+        console.log(`ℹ️ Master admin ensured: ${masterEmail}`);
+      }
     }
   } catch (err) {
     console.error('❌ Auto-seed failed:', err);
