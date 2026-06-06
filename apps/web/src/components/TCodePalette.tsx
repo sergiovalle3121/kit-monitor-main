@@ -1,11 +1,12 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { Command } from 'lucide-react';
 
 interface TCodeResult {
   success: boolean;
-  data?: any;
+  data?: Record<string, unknown>;
   message: string;
   action?: string;
 }
@@ -17,6 +18,7 @@ interface TCodeInfo {
 }
 
 export function TCodePalette() {
+  const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<TCodeInfo[]>([]);
@@ -40,31 +42,32 @@ export function TCodePalette() {
 
   // Búsqueda en tiempo real
   useEffect(() => {
-    if (!isOpen || !query.trim()) {
-      setResults([]);
-      return;
-    }
-
-    const searchTCodes = async () => {
-      setIsLoading(true);
-      try {
-        const token = localStorage.getItem('token');
-        const res = await fetch(`/api/tcode/search?q=${encodeURIComponent(query)}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (res.ok) {
-          const data = await res.json();
-          setResults(data);
-          setSelected(0);
-        }
-      } catch (error) {
-        console.error('Error searching T-Codes:', error);
-      } finally {
-        setIsLoading(false);
+    if (!isOpen) return;
+    const debounce = setTimeout(() => {
+      if (!query.trim()) {
+        setResults([]);
+        return;
       }
-    };
-
-    const debounce = setTimeout(searchTCodes, 300);
+      const searchTCodes = async () => {
+        setIsLoading(true);
+        try {
+          const token = localStorage.getItem('token');
+          const res = await fetch(`/api/tcode/search?q=${encodeURIComponent(query)}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (res.ok) {
+            const data = (await res.json()) as TCodeInfo[];
+            setResults(data);
+            setSelected(0);
+          }
+        } catch (error) {
+          console.error('Error searching T-Codes:', error);
+        } finally {
+          setIsLoading(false);
+        }
+      };
+      void searchTCodes();
+    }, 300);
     return () => clearTimeout(debounce);
   }, [query, isOpen]);
 
@@ -83,7 +86,15 @@ export function TCodePalette() {
 
       if (res.ok) {
         const result: TCodeResult = await res.json();
-        
+
+        // Navegación directa a una pantalla (ERP HUB y otros)
+        if (result.action === 'NAVIGATE' && result.data?.route) {
+          setIsOpen(false);
+          setQuery('');
+          router.push(result.data.route as string);
+          return;
+        }
+
         // Mostrar resultado según el tipo de acción
         if (result.action === 'VIEW_STOCK') {
           // Aquí se podría abrir un modal o panel con los datos de stock
@@ -99,7 +110,7 @@ export function TCodePalette() {
     } catch (error) {
       console.error('Error executing T-Code:', error);
     }
-  }, []);
+  }, [router]);
 
   // Navegación por teclado
   const handleKeyDown = (e: React.KeyboardEvent) => {
