@@ -62,9 +62,20 @@ export class OfficeService {
     const qb = this.repo.createQueryBuilder('d').select(LIST_COLUMNS.map((c) => `d.${c}`));
     if (type) qb.andWhere('d.type = :type', { type });
     if (trash) qb.withDeleted().andWhere('d.deletedAt IS NOT NULL');
-    // Owner scoping: non-admins only see what they created.
     if (!this.isAdmin(user)) {
-      qb.andWhere('d.createdBy = :email', { email: this.email(user) ?? '__none__' });
+      const email = this.email(user) ?? '__none__';
+      if (trash) {
+        // Trash only shows your own deleted documents.
+        qb.andWhere('d.createdBy = :email', { email });
+      } else {
+        // Owners see their docs; everyone else sees docs shared with them.
+        // Match the quoted email substring — robust across jsonb (Postgres adds
+        // spaces, e.g. `"email": "x"`) and simple-json (sqlite, compact) storage.
+        qb.andWhere('(d.createdBy = :email OR LOWER(CAST(d.sharedWith AS TEXT)) LIKE :share)', {
+          email,
+          share: `%"${email.toLowerCase()}"%`,
+        });
+      }
     }
     qb.orderBy('d.updatedAt', 'DESC');
     return qb.getMany();

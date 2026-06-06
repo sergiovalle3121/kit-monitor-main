@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ChevronLeft, FileText, Table, Presentation, Plus, Trash2, Loader2, Lock, AlertCircle,
-  Copy, Pencil, RotateCcw, Check, X, Clock,
+  Copy, Pencil, RotateCcw, Check, X, Clock, Users,
 } from 'lucide-react';
 import { glass } from '@/lib/glass';
 import { useApi } from '@/hooks/useApi';
@@ -40,8 +40,9 @@ function relTime(iso?: string): string {
 
 export default function OfficeHubPage() {
   const router = useRouter();
-  const { roles, permissions } = useAuth();
+  const { user, roles, permissions } = useAuth();
   const canWrite = roles.includes('Admin') || permissions.some((p) => p.endsWith(':write'));
+  const isAdmin = roles.includes('Admin');
 
   const [tab, setTab] = useState<DocType>('doc');
   const [trash, setTrash] = useState(false);
@@ -162,7 +163,12 @@ export default function OfficeHubPage() {
                   </div>
                 ) : (
                   <Link href={trash ? '#' : `/dashboard/office/${d.id}`} onClick={(e) => { if (trash) e.preventDefault(); }} className={`block ${trash ? 'cursor-default' : ''}`}>
-                    <div className={`inline-flex p-2.5 rounded-xl ${meta.tint} mb-3`}><meta.icon className={`w-5 h-5 ${meta.color}`} /></div>
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className={`inline-flex p-2.5 rounded-xl ${meta.tint}`}><meta.icon className={`w-5 h-5 ${meta.color}`} /></div>
+                      {!isAdmin && d.createdBy && user?.email && d.createdBy !== user.email && (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-500/10 text-blue-500" title={`Compartido por ${d.createdBy}`}><Users className="w-3 h-3" /> Compartido</span>
+                      )}
+                    </div>
                     <p className="font-bold truncate">{d.title}</p>
                     <p className="flex items-center gap-1 text-[11px] text-gray-400"><Clock className="w-3 h-3" /> {relTime(d.updatedAt)}</p>
                   </Link>
