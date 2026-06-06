@@ -4,6 +4,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { WorkspaceProvider } from "@/contexts/WorkspaceContext";
 import { ChatWidget } from "@/components/ChatWidget";
+import { AiCopilot } from "@/components/AiCopilot";
 import { TCodePalette } from "@/components/TCodePalette";
 
 export const metadata: Metadata = {
@@ -24,6 +25,7 @@ export default function RootLayout({
             <WorkspaceProvider>
               {children}
               <ChatWidget />
+              <AiCopilot />
               <TCodePalette />
             </WorkspaceProvider>
           </AuthProvider>

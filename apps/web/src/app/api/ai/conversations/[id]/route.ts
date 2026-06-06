@@ -1,0 +1,13 @@
+import { NextResponse } from 'next/server';
+import { backendUserFetch } from '@/lib/backendAuth';
+
+export async function GET(
+  _req: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const { id } = await params;
+  const r = await backendUserFetch(`/ai/conversations/${id}`, 'GET');
+  return NextResponse.json(r.data ?? { message: 'No encontrada.' }, {
+    status: r.status || 502,
+  });
+}
