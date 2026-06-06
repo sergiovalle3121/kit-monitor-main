@@ -13,6 +13,7 @@ import { SheetActions } from '@/components/office/SheetActions';
 import { SlideActions } from '@/components/office/SlideActions';
 import { DocActions } from '@/components/office/DocActions';
 import { VersionHistory } from '@/components/office/VersionHistory';
+import { ShareButton } from '@/components/office/ShareButton';
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000').replace(/\/$/, '');
 const AUTOSAVE_MS = 800;
@@ -26,11 +27,11 @@ const DocEditor = dynamic(() => import('@/components/office/DocEditor').then((m)
 const SheetEditor = dynamic(() => import('@/components/office/SheetEditor').then((m) => m.SheetEditor), { ssr: false, loading: Spinner });
 const SlidesEditor = dynamic(() => import('@/components/office/SlidesEditor').then((m) => m.SlidesEditor), { ssr: false, loading: Spinner });
 
-interface OfficeDoc { id: string; type: OfficeType; title: string; content: any }
+interface OfficeDoc { id: string; type: OfficeType; title: string; content: any; createdBy?: string | null; sharedWith?: { email: string; access: 'view' | 'edit' }[] | null }
 
 export default function OfficeEditorPage() {
   const { id } = useParams<{ id: string }>();
-  const { roles, permissions, isLoading: authLoading } = useAuth();
+  const { user, roles, permissions, isLoading: authLoading } = useAuth();
   // Mirrors the backend rule: writers are admins or anyone holding a *:write
   // permission. The read-only `executive` demo account only has *:read perms.
   const canWrite = roles.includes('Admin') || permissions.some((p) => p.endsWith(':write'));
@@ -159,9 +160,11 @@ export default function OfficeEditorPage() {
       : doc.type === 'doc'
         ? <DocActions content={content} title={title} onImport={replaceContent} readOnly={readOnly} />
         : null;
+  const isOwner = roles.includes('Admin') || (!!doc.createdBy && doc.createdBy === user?.email);
   const actions = (
     <>
       {typeActions}
+      {isOwner && canWrite && <ShareButton docId={id} initialShares={doc.sharedWith ?? []} />}
       <VersionHistory docId={id} canEdit={!readOnly} onRestored={onRestored} />
     </>
   );
