@@ -7,7 +7,6 @@ import { Tenant } from './tenant.entity';
  * Each plant belongs to a tenant and can have multiple users assigned.
  */
 @Entity('plants')
-@Index(['tenant_id'])
 export class Plant extends BaseEntity {
   @Column({ type: 'varchar', length: 255 })
   name: string;

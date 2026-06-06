@@ -1,4 +1,9 @@
-import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  CanActivate,
+  ExecutionContext,
+  ForbiddenException,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { AuditService } from '../../governance/audit.service';
 
@@ -6,17 +11,22 @@ import { AuditService } from '../../governance/audit.service';
 export class PermissionsGuard implements CanActivate {
   constructor(
     private reflector: Reflector,
-    private audit: AuditService
+    private audit: AuditService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const requiredPermissions = this.reflector.getAllAndOverride<string[]>('permissions', [
-      context.getHandler(),
-      context.getClass(),
-    ]);
+    const requiredPermissions = this.reflector.getAllAndOverride<string[]>(
+      'permissions',
+      [context.getHandler(), context.getClass()],
+    );
 
     const request = context.switchToHttp().getRequest();
-    const { user, query, params, body } = request;
+    const { user } = request;
+    // GET/DELETE requests have no parsed body, so default these to {} to avoid
+    // dereferencing undefined during the organizational scope checks below.
+    const query = request.query ?? {};
+    const params = request.params ?? {};
+    const body = request.body ?? {};
 
     if (!user) {
       throw new ForbiddenException('User not authenticated');
@@ -40,9 +50,11 @@ export class PermissionsGuard implements CanActivate {
           entity: 'Endpoint',
           result: 'DENIED',
           reason: `Missing permissions: ${requiredPermissions.join(', ')}`,
-          scope: user.scopes
+          scope: user.scopes,
         });
-        throw new ForbiddenException(`Missing required permissions: ${requiredPermissions.join(', ')}`);
+        throw new ForbiddenException(
+          `Missing required permissions: ${requiredPermissions.join(', ')}`,
+        );
       }
     }
 
@@ -56,7 +68,9 @@ export class PermissionsGuard implements CanActivate {
       if (buildingId && user.scopes.buildings?.length > 0) {
         if (!user.scopes.buildings.includes(buildingId)) {
           await this.logScopeViolation(user, 'Building', buildingId);
-          throw new ForbiddenException(`Access denied for Building: ${buildingId}`);
+          throw new ForbiddenException(
+            `Access denied for Building: ${buildingId}`,
+          );
         }
       }
 
@@ -64,7 +78,9 @@ export class PermissionsGuard implements CanActivate {
       if (programId && user.scopes.programs?.length > 0) {
         if (!user.scopes.programs.includes(programId)) {
           await this.logScopeViolation(user, 'Program', programId);
-          throw new ForbiddenException(`Access denied for Program: ${programId}`);
+          throw new ForbiddenException(
+            `Access denied for Program: ${programId}`,
+          );
         }
       }
 
@@ -89,7 +105,7 @@ export class PermissionsGuard implements CanActivate {
       entityId: value,
       result: 'DENIED',
       reason: `Unauthorized access attempt to ${dimension}: ${value}`,
-      scope: user.scopes
+      scope: user.scopes,
     });
   }
 }

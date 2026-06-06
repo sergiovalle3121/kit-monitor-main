@@ -17,6 +17,7 @@ import { UsersModule } from '../users/users.module';
 import { GovernanceModule } from '../governance/governance.module';
 import { User } from '../users/entities/user.entity';
 import { Plant } from './entities/plant.entity';
+import { Tenant } from './entities/tenant.entity';
 import { Role } from './entities/role.entity';
 import { Permission } from './entities/permission.entity';
 import { RolePermission } from './entities/role-permission.entity';
@@ -30,6 +31,7 @@ import { UserRoleAssignment } from './entities/user-role.entity';
     TypeOrmModule.forFeature([
       User,
       Plant,
+      Tenant,
       Role,
       Permission,
       RolePermission,
@@ -40,8 +42,21 @@ import { UserRoleAssignment } from './entities/user-role.entity';
       signOptions: { expiresIn: '1d' },
     }),
   ],
-  controllers: [AuthController, PlantsController, RolesController, SeedController, UserRolesController, TCodeController],
-  providers: [AuthService, JwtStrategy, TCodeService, AuthorizationService, RolesSeederService],
+  controllers: [
+    AuthController,
+    PlantsController,
+    RolesController,
+    SeedController,
+    UserRolesController,
+    TCodeController,
+  ],
+  providers: [
+    AuthService,
+    JwtStrategy,
+    TCodeService,
+    AuthorizationService,
+    RolesSeederService,
+  ],
   exports: [AuthService, TCodeService, AuthorizationService],
 })
 export class AuthModule {}

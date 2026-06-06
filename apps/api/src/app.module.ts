@@ -19,6 +19,7 @@ import { BomModule } from './modules/bom/bom.module';
 import { BayLayoutModule } from './modules/bay-layout/bay-layout.module';
 import { KitsModule } from './modules/kits/kits.module';
 import { KitMaterialsModule } from './modules/kit-materials/kit-materials.module';
+import { PickListModule } from './modules/pick-lists/pick-list.module';
 import { AdvancesModule } from './modules/advances/advances.module';
 import { ResuppliesModule } from './modules/resupplies/resupplies.module';
 import { ExceptionsModule } from './modules/exceptions/exceptions.module';
@@ -54,6 +55,7 @@ import { MessagingModule } from './modules/messaging/messaging.module';
     BayLayoutModule,
     KitsModule,
     KitMaterialsModule,
+    PickListModule,
     AdvancesModule,
     ResuppliesModule,
     ExceptionsModule,
