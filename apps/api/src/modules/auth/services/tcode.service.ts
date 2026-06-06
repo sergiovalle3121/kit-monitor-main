@@ -14,6 +14,38 @@ export class TCodeService {
 
   constructor() {
     this.registerStandardTCodes();
+    this.registerErpTCodes();
+  }
+
+  /** Axos Core ERP transaction codes — navigate to the /dashboard/erp HUB. */
+  private registerErpTCodes() {
+    const codes: Array<[string, string, string, string]> = [
+      ['ERP', 'Axos Core ERP — HUB central', 'ERP', '/dashboard/erp'],
+      ['FIN01', 'Libro Mayor / Balanza (GL)', 'ERP · Finanzas', '/dashboard/erp/fin'],
+      ['FIN02', 'Cuentas por Cobrar / Pagar (AR/AP)', 'ERP · Finanzas', '/dashboard/erp/fin?tab=invoices'],
+      ['FIN03', 'Centros de Costo y Presupuesto', 'ERP · Finanzas', '/dashboard/erp/fin?tab=cost-centers'],
+      ['MM01', 'Maestro de Materiales y Valuación', 'ERP · Materiales', '/dashboard/erp/mm?tab=valuation'],
+      ['MM02', 'Órdenes de Compra (PO)', 'ERP · Materiales', '/dashboard/erp/mm?tab=po'],
+      ['MM03', 'Requisiciones y Movimientos', 'ERP · Materiales', '/dashboard/erp/mm?tab=requisitions'],
+      ['PP01', 'Órdenes de Fabricación (Planeadas)', 'ERP · Producción', '/dashboard/erp/pp?tab=planned'],
+      ['PP02', 'Cálculo de Necesidades (MRP Run)', 'ERP · Producción', '/dashboard/erp/pp'],
+      ['PP03', 'Liberar Órdenes Planeadas', 'ERP · Producción', '/dashboard/erp/pp?tab=planned'],
+      ['SD01', 'Pedidos de Cliente (Sales Orders)', 'ERP · Ventas', '/dashboard/erp/sd'],
+      ['SD02', 'Despacho / Logística de Salida', 'ERP · Ventas', '/dashboard/erp/sd?tab=delivery'],
+      ['SD03', 'Facturación de Ventas', 'ERP · Ventas', '/dashboard/erp/sd?tab=invoices'],
+    ];
+    for (const [code, description, category, route] of codes) {
+      this.tCodes.set(code, {
+        description,
+        category,
+        handler: async () => ({
+          success: true,
+          action: 'NAVIGATE',
+          message: `Abriendo ${description}…`,
+          data: { route },
+        }),
+      });
+    }
   }
 
   private registerStandardTCodes() {

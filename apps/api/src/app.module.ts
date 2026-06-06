@@ -46,6 +46,7 @@ import { MessagingModule } from './modules/messaging/messaging.module';
 import { ProcessRoutingModule } from './modules/process-routing/process-routing.module';
 import { OfficeModule } from './modules/office/office.module';
 import { MesExecutionModule } from './modules/mes-execution/mes-execution.module';
+import { ErpCoreModule } from './modules/erp-core/erp-core.module';
 
 @Module({
   imports: [
@@ -86,6 +87,7 @@ import { MesExecutionModule } from './modules/mes-execution/mes-execution.module
     ProcessRoutingModule,
     OfficeModule,
     MesExecutionModule,
+    ErpCoreModule,
     ScheduleModule.forRoot(),
   ],
   controllers: [HealthController],
