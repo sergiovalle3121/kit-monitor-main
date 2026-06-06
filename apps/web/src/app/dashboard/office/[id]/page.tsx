@@ -24,15 +24,18 @@ export default function OfficeEditorPage() {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(true);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     let active = true;
-    apiFetch(`${API_BASE}/office-documents/${id}`).then((r) => r.json()).then((d) => {
+    apiFetch(`${API_BASE}/office-documents/${id}`).then(async (r) => {
       if (!active) return;
+      if (!r.ok) { setError(`No se pudo abrir el documento (HTTP ${r.status}).`); setLoading(false); return; }
+      const d = await r.json();
       setDoc(d); setTitle(d.title ?? ''); setContent(d.content ?? null); setLoading(false);
-    }).catch(() => setLoading(false));
+    }).catch(() => { if (active) { setError('Error de red al abrir el documento.'); setLoading(false); } });
     return () => { active = false; };
   }, [id]);
 
@@ -68,14 +71,22 @@ export default function OfficeEditorPage() {
       </div>
 
       <main className="max-w-5xl mx-auto px-4 md:px-6 pt-6">
-        {loading || !doc ? (
+        {error ? (
+          <div className="flex flex-col items-center text-center py-20">
+            <p className="font-bold mb-1">No se pudo abrir</p>
+            <p className="text-sm text-gray-500 max-w-sm">{error}</p>
+            <Link href="/dashboard/office" className="mt-4 text-sm font-semibold text-blue-500 hover:underline">Volver a Office</Link>
+          </div>
+        ) : loading || !doc ? (
           <Spinner />
         ) : doc.type === 'doc' ? (
           <DocEditor value={content} onChange={onContent} />
         ) : doc.type === 'sheet' ? (
           <SheetEditor value={content} onChange={onContent} />
-        ) : (
+        ) : doc.type === 'slides' ? (
           <SlidesEditor value={content} onChange={onContent} />
+        ) : (
+          <div className="py-20 text-center text-sm text-gray-400">Tipo de documento desconocido.</div>
         )}
       </main>
     </div>

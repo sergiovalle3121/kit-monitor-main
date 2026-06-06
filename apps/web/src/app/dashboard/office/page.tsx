@@ -5,7 +5,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { ChevronLeft, FileText, Table, Presentation, Plus, Trash2, Loader2, Lock } from 'lucide-react';
+import { ChevronLeft, FileText, Table, Presentation, Plus, Trash2, Loader2, Lock, AlertCircle } from 'lucide-react';
 import { glass } from '@/lib/glass';
 import { useApi } from '@/hooks/useApi';
 import { apiFetch } from '@/lib/apiFetch';
@@ -26,18 +26,27 @@ export default function OfficeHubPage() {
   const [tab, setTab] = useState<DocType>('doc');
   const { data, isLoading, forbidden, mutate } = useApi<OfficeDoc[]>(`/office-documents?type=${tab}`);
   const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
   const docs = Array.isArray(data) ? data : [];
   const meta = TABS.find((t) => t.id === tab)!;
 
   async function create() {
-    setBusy(true);
+    setBusy(true); setErr(null);
     try {
       const res = await apiFetch(`${API_BASE}/office-documents`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ type: tab, title: 'Sin título' }),
       });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        setErr(d?.message || `No se pudo crear (HTTP ${res.status}). Si acabas de desplegar, el backend puede seguir actualizándose.`);
+        return;
+      }
       const doc = await res.json();
-      if (res.ok && doc.id) router.push(`/dashboard/office/${doc.id}`);
+      if (doc?.id) router.push(`/dashboard/office/${doc.id}`);
+      else setErr('El servidor no devolvió un documento válido.');
+    } catch {
+      setErr('Error de red al crear el documento. Revisa la conexión con el backend.');
     } finally { setBusy(false); }
   }
   async function remove(id: string) {
@@ -73,6 +82,12 @@ export default function OfficeHubPage() {
             {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />} Nuevo {meta.label.toLowerCase()}
           </button>
         </div>
+
+        {err && (
+          <div className="flex gap-2 items-start p-3 rounded-2xl bg-red-50 dark:bg-red-500/10 text-red-600 text-sm mb-4">
+            <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" /> {err}
+          </div>
+        )}
 
         {forbidden ? (
           <Empty icon={<Lock className="w-6 h-6" />} title="Sin acceso al backend" body="Verifica que el servicio de API esté conectado." />
