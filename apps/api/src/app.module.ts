@@ -45,6 +45,7 @@ import { SignalModule } from './common/gateway/signal.module';
 import { MessagingModule } from './modules/messaging/messaging.module';
 import { ProcessRoutingModule } from './modules/process-routing/process-routing.module';
 import { OfficeModule } from './modules/office/office.module';
+import { MesExecutionModule } from './modules/mes-execution/mes-execution.module';
 
 @Module({
   imports: [
@@ -84,6 +85,7 @@ import { OfficeModule } from './modules/office/office.module';
     MessagingModule,
     ProcessRoutingModule,
     OfficeModule,
+    MesExecutionModule,
     ScheduleModule.forRoot(),
   ],
   controllers: [HealthController],
