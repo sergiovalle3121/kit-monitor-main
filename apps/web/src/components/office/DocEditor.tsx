@@ -14,12 +14,14 @@ import { TableKit } from '@tiptap/extension-table';
 import {
   Bold, Italic, Underline, Strikethrough, Code,
   List, ListOrdered, ListChecks, Quote, AlignLeft, AlignCenter, AlignRight, AlignJustify,
-  Highlighter, Link2, Image as ImageIcon, Table as TableIcon, Undo, Redo, Minus, Search,
+  Highlighter, Link2, Image as ImageIcon, Table as TableIcon, Undo, Redo, Minus, Search, SeparatorHorizontal,
 } from 'lucide-react';
 import { DocFindReplace } from './DocFindReplace';
 import { DocOutline } from './DocOutline';
 import { DocComments } from './DocComments';
+import { DocPageView } from './DocPageView';
 import { CommentMark } from './commentMark';
+import { PageBreak, PageMeta } from './docPageExtensions';
 import '@/styles/tiptap.css';
 
 const FONTS = [
@@ -73,6 +75,8 @@ export function DocEditor({ value, onChange, readOnly, author }: { value: any; o
       TextStyleKit.configure({ lineHeight: { types: ['heading', 'paragraph'] } } as any),
       TableKit.configure({ table: { resizable: true } }),
       CommentMark,
+      PageBreak,
+      PageMeta,
     ],
     content: value ?? '<p></p>',
     editable: !readOnly,
@@ -165,10 +169,12 @@ export function DocEditor({ value, onChange, readOnly, author }: { value: any; o
         <Btn on={addImage} title="Imagen"><ImageIcon className="w-4 h-4" /></Btn>
         <Btn on={() => (c() as any).insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()} title="Tabla"><TableIcon className="w-4 h-4" /></Btn>
         <Btn on={() => c().setHorizontalRule().run()} title="Separador"><Minus className="w-4 h-4" /></Btn>
+        <Btn on={() => (c() as any).setPageBreak().run()} title="Salto de página"><SeparatorHorizontal className="w-4 h-4" /></Btn>
         <Sep />
         <Btn on={() => setShowFind(true)} title="Buscar y reemplazar (Ctrl+F)"><Search className="w-4 h-4" /></Btn>
         <DocOutline editor={editor} />
         <DocComments editor={editor} author={author ?? ''} />
+        <DocPageView editor={editor} />
       </div>
       )}
 
