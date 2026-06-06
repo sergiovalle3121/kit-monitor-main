@@ -9,6 +9,7 @@ import { Loader2, FileWarning } from 'lucide-react';
 import { apiFetch } from '@/lib/apiFetch';
 import { useAuth } from '@/hooks/useAuth';
 import { OfficeShell, OfficeShellMessage, type SaveStatus, type OfficeType } from '@/components/office/OfficeShell';
+import { SheetActions } from '@/components/office/SheetActions';
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000').replace(/\/$/, '');
 const AUTOSAVE_MS = 800;
@@ -39,6 +40,7 @@ export default function OfficeEditorPage() {
   const [status, setStatus] = useState<SaveStatus>('saved');
   const [savedAt, setSavedAt] = useState<number | null>(null);
 
+  const [editorKey, setEditorKey] = useState(0); // bump to remount the editor (e.g. after an import)
   const contentRef = useRef<any>(null);
   const titleRef = useRef('');
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -101,6 +103,11 @@ export default function OfficeEditorPage() {
   const onContent = useCallback((c: any) => { contentRef.current = c; setContent(c); scheduleSave(); }, [scheduleSave]);
   const onTitle = useCallback((v: string) => { titleRef.current = v; setTitle(v); scheduleSave(); }, [scheduleSave]);
 
+  // Replace the whole document content (used by import) and remount the editor.
+  const replaceContent = useCallback((c: any) => {
+    contentRef.current = c; setContent(c); setEditorKey((k) => k + 1); scheduleSave();
+  }, [scheduleSave]);
+
   // Ctrl/Cmd+S → save immediately (and swallow the browser save dialog).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -133,12 +140,15 @@ export default function OfficeEditorPage() {
 
   const readOnly = !canWrite;
   const editorProps = { value: content, onChange: onContent, readOnly };
+  const actions = doc.type === 'sheet'
+    ? <SheetActions content={content} title={title} onImport={replaceContent} readOnly={readOnly} />
+    : null;
 
   return (
-    <OfficeShell type={doc.type} title={title} onTitleChange={onTitle} status={status} savedAt={savedAt} readOnly={readOnly}>
-      {doc.type === 'doc' ? <DocEditor {...editorProps} />
-        : doc.type === 'sheet' ? <SheetEditor {...editorProps} />
-        : doc.type === 'slides' ? <SlidesEditor {...editorProps} />
+    <OfficeShell type={doc.type} title={title} onTitleChange={onTitle} status={status} savedAt={savedAt} readOnly={readOnly} actions={actions}>
+      {doc.type === 'doc' ? <DocEditor key={editorKey} {...editorProps} />
+        : doc.type === 'sheet' ? <SheetEditor key={editorKey} {...editorProps} />
+        : doc.type === 'slides' ? <SlidesEditor key={editorKey} {...editorProps} />
         : <div className="py-20 text-center text-sm text-gray-400">Tipo de documento desconocido.</div>}
     </OfficeShell>
   );
