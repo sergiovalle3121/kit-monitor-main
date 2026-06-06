@@ -13,7 +13,9 @@ export class UsersService {
 
   async create(dto: Partial<User>): Promise<User> {
     if (dto.password) {
-      dto.password = await bcrypt.hash(dto.password, 10);
+      // Trim surrounding whitespace so accidental spaces (env vars, autofill,
+      // copy-paste) never silently break login. Must mirror validateUser().
+      dto.password = await bcrypt.hash(dto.password.trim(), 10);
     }
     const user = this.userRepo.create(dto);
     return this.userRepo.save(user);
@@ -68,7 +70,7 @@ export class UsersService {
   async update(id: string, dto: Partial<User>): Promise<User> {
     const user = await this.findOne(id);
     if (dto.password) {
-      dto.password = await bcrypt.hash(dto.password, 10);
+      dto.password = await bcrypt.hash(dto.password.trim(), 10);
     }
     Object.assign(user, dto);
     return this.userRepo.save(user);

@@ -20,15 +20,21 @@ export class AuthService {
 
   async validateUser(identifier: string, pass: string): Promise<User> {
     const normalizedIdentifier = (identifier ?? '').trim();
-    const normalizedPass = String(pass ?? '');
+    // Trim surrounding whitespace; must mirror UsersService password hashing so
+    // accidental spaces never silently break login.
+    const normalizedPass = String(pass ?? '').trim();
     const user =
       await this.usersService.findOneByIdentifier(normalizedIdentifier);
 
-    if (
-      !user ||
-      user.isActive === false ||
-      !(await bcrypt.compare(normalizedPass, user.password))
-    ) {
+    const passwordOk =
+      !!user && (await bcrypt.compare(normalizedPass, user.password));
+    if (!user || user.isActive === false || !passwordOk) {
+      // Diagnostic (no secret values): which check failed + received length.
+      console.warn(
+        `[login] FAIL identifier="${normalizedIdentifier}" found=${!!user} active=${
+          user ? user.isActive !== false : 'n/a'
+        } passwordMatch=${passwordOk} recvLen=${normalizedPass.length}`,
+      );
       throw new UnauthorizedException('Credenciales incorrectas');
     }
     // Account lifecycle gate (existing users have status null → treated as active).
