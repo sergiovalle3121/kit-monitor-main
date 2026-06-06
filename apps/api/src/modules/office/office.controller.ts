@@ -47,6 +47,21 @@ export class OfficeController {
     return this.service.restore(id, req.user);
   }
 
+  @Get(':id/versions')
+  versions(@Request() req: AuthReq, @Param('id') id: string) {
+    return this.service.listVersions(id, req.user);
+  }
+
+  @Post(':id/versions')
+  snapshot(@Request() req: AuthReq, @Param('id') id: string, @Body() dto: { label?: string }) {
+    return this.service.snapshotNow(id, req.user, dto?.label);
+  }
+
+  @Post(':id/versions/:versionId/restore')
+  restoreVersion(@Request() req: AuthReq, @Param('id') id: string, @Param('versionId') versionId: string) {
+    return this.service.restoreVersion(id, versionId, req.user);
+  }
+
   @Delete(':id')
   remove(@Request() req: AuthReq, @Param('id') id: string) {
     return this.service.remove(id, req.user);

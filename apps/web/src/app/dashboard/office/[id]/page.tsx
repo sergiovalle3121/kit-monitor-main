@@ -12,6 +12,7 @@ import { OfficeShell, OfficeShellMessage, type SaveStatus, type OfficeType } fro
 import { SheetActions } from '@/components/office/SheetActions';
 import { SlideActions } from '@/components/office/SlideActions';
 import { DocActions } from '@/components/office/DocActions';
+import { VersionHistory } from '@/components/office/VersionHistory';
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000').replace(/\/$/, '');
 const AUTOSAVE_MS = 800;
@@ -110,6 +111,15 @@ export default function OfficeEditorPage() {
     contentRef.current = c; setContent(c); setEditorKey((k) => k + 1); scheduleSave();
   }, [scheduleSave]);
 
+  // Restore from version history: the server already persisted it, so mark saved.
+  const onRestored = useCallback((c: any, t: string) => {
+    contentRef.current = c; setContent(c);
+    titleRef.current = t; setTitle(t);
+    setEditorKey((k) => k + 1);
+    dirtyRef.current = false;
+    setStatus('saved'); setSavedAt(Date.now());
+  }, []);
+
   // Ctrl/Cmd+S → save immediately (and swallow the browser save dialog).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -142,13 +152,19 @@ export default function OfficeEditorPage() {
 
   const readOnly = !canWrite;
   const editorProps = { value: content, onChange: onContent, readOnly };
-  const actions = doc.type === 'sheet'
+  const typeActions = doc.type === 'sheet'
     ? <SheetActions content={content} title={title} onImport={replaceContent} readOnly={readOnly} />
     : doc.type === 'slides'
       ? <SlideActions content={content} title={title} />
       : doc.type === 'doc'
         ? <DocActions />
         : null;
+  const actions = (
+    <>
+      {typeActions}
+      <VersionHistory docId={id} canEdit={!readOnly} onRestored={onRestored} />
+    </>
+  );
 
   return (
     <OfficeShell type={doc.type} title={title} onTitleChange={onTitle} status={status} savedAt={savedAt} readOnly={readOnly} actions={actions}>

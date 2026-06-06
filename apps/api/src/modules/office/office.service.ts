@@ -2,11 +2,15 @@ import { BadRequestException, ForbiddenException, Injectable, NotFoundException 
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { OfficeDocument, OfficeDocType, OfficeShare } from './entities/office-document.entity';
+import { OfficeDocumentVersion } from './entities/office-document-version.entity';
 import { AuthenticatedUser } from '../../common/types/jwt.types';
 
 const TYPES: OfficeDocType[] = ['doc', 'sheet', 'slides'];
 // Columns returned by list endpoints — heavy `content` is intentionally omitted.
 const LIST_COLUMNS = ['id', 'type', 'title', 'model', 'createdBy', 'tenantId', 'createdAt', 'updatedAt'];
+// Auto-snapshots are throttled so autosave doesn't create a version every keystroke.
+const SNAPSHOT_THROTTLE_MS = 2 * 60 * 1000;
+const MAX_VERSIONS = 50;
 
 interface CreateDto { type: OfficeDocType; title?: string; content?: any; model?: string }
 interface UpdateDto { title?: string; content?: any; model?: string | null; sharedWith?: OfficeShare[] }
@@ -20,6 +24,7 @@ interface UpdateDto { title?: string; content?: any; model?: string | null; shar
 export class OfficeService {
   constructor(
     @InjectRepository(OfficeDocument) private readonly repo: Repository<OfficeDocument>,
+    @InjectRepository(OfficeDocumentVersion) private readonly versionRepo: Repository<OfficeDocumentVersion>,
   ) {}
 
   // ── Authorization helpers ─────────────────────────────────────────────────
@@ -90,6 +95,8 @@ export class OfficeService {
   async update(id: string, dto: UpdateDto, user: AuthenticatedUser) {
     const doc = await this.get(id, user);
     if (!this.canEdit(doc, user)) throw new ForbiddenException('No puedes editar este documento.');
+    // Snapshot the pre-edit state (throttled) so history captures prior versions.
+    if (dto.content !== undefined) await this.maybeSnapshot(doc, user);
     if (dto.title !== undefined) doc.title = dto.title.trim() || 'Sin título';
     if (dto.content !== undefined) doc.content = dto.content;
     if (dto.model !== undefined) doc.model = dto.model?.trim().toUpperCase() || null;
@@ -141,8 +148,69 @@ export class OfficeService {
     if (!doc) throw new NotFoundException('Documento no encontrado.');
     this.assertWriter(user);
     if (!this.isOwner(doc, user)) throw new ForbiddenException('Solo el dueño puede eliminar.');
+    await this.versionRepo.delete({ documentId: id });
     await this.repo.delete(id);
     return { destroyed: true, id };
+  }
+
+  // ── Version history ─────────────────────────────────────────────────────────
+  async listVersions(id: string, user: AuthenticatedUser) {
+    await this.get(id, user); // read-access check
+    return this.versionRepo.find({
+      where: { documentId: id },
+      order: { createdAt: 'DESC' },
+      select: ['id', 'title', 'label', 'createdBy', 'createdAt'],
+    });
+  }
+
+  async getVersion(id: string, versionId: string, user: AuthenticatedUser) {
+    await this.get(id, user);
+    const v = await this.versionRepo.findOne({ where: { id: versionId, documentId: id } });
+    if (!v) throw new NotFoundException('Versión no encontrada.');
+    return v;
+  }
+
+  /** Explicit, user-requested snapshot of the current state. */
+  async snapshotNow(id: string, user: AuthenticatedUser, label?: string) {
+    const doc = await this.get(id, user);
+    if (!this.canEdit(doc, user)) throw new ForbiddenException('No puedes editar este documento.');
+    await this.snapshot(doc, user, label?.trim() || 'Versión guardada');
+    return { ok: true };
+  }
+
+  async restoreVersion(id: string, versionId: string, user: AuthenticatedUser) {
+    const doc = await this.get(id, user);
+    if (!this.canEdit(doc, user)) throw new ForbiddenException('No puedes editar este documento.');
+    const v = await this.versionRepo.findOne({ where: { id: versionId, documentId: id } });
+    if (!v) throw new NotFoundException('Versión no encontrada.');
+    // Capture the current state first so a restore is itself undoable.
+    await this.snapshot(doc, user, 'Antes de restaurar');
+    doc.title = v.title;
+    doc.content = v.content;
+    return this.repo.save(doc);
+  }
+
+  private async maybeSnapshot(doc: OfficeDocument, user: AuthenticatedUser) {
+    const last = await this.versionRepo.findOne({ where: { documentId: doc.id }, order: { createdAt: 'DESC' } });
+    if (last && Date.now() - new Date(last.createdAt).getTime() < SNAPSHOT_THROTTLE_MS) return;
+    await this.snapshot(doc, user);
+  }
+
+  private async snapshot(doc: OfficeDocument, user: AuthenticatedUser, label?: string) {
+    await this.versionRepo.save(this.versionRepo.create({
+      documentId: doc.id,
+      title: doc.title,
+      content: doc.content,
+      label: label ?? null,
+      createdBy: this.email(user),
+    }));
+    await this.prune(doc.id);
+  }
+
+  private async prune(documentId: string) {
+    const ids = await this.versionRepo.find({ where: { documentId }, order: { createdAt: 'DESC' }, select: ['id'] });
+    const excess = ids.slice(MAX_VERSIONS);
+    if (excess.length) await this.versionRepo.delete(excess.map((v) => v.id));
   }
 
   private normalizeShares(shares: OfficeShare[]): OfficeShare[] {
