@@ -4,7 +4,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   ChevronLeft, FileText, Table, Presentation, Plus, Trash2, Loader2, Lock, AlertCircle,
   Copy, Pencil, RotateCcw, Check, X, Clock,
@@ -13,6 +13,7 @@ import { glass } from '@/lib/glass';
 import { useApi } from '@/hooks/useApi';
 import { useAuth } from '@/hooks/useAuth';
 import { apiFetch } from '@/lib/apiFetch';
+import { TemplateGallery } from '@/components/office/TemplateGallery';
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000').replace(/\/$/, '');
 
@@ -49,26 +50,29 @@ export default function OfficeHubPage() {
   const [err, setErr] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
+  const [gallery, setGallery] = useState(false);
   const docs = Array.isArray(data) ? data : [];
   const meta = TABS.find((t) => t.id === tab)!;
 
-  async function create() {
+  async function createFrom(content: any) {
     setBusy(true); setErr(null);
     try {
       const res = await apiFetch(`${API_BASE}/office-documents`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: tab, title: 'Sin título' }),
+        body: JSON.stringify({ type: tab, title: 'Sin título', content: content ?? undefined }),
       });
       if (!res.ok) {
         const d = await res.json().catch(() => ({}));
         setErr(d?.message || `No se pudo crear (HTTP ${res.status}). Si acabas de desplegar, el backend puede seguir actualizándose.`);
+        setGallery(false);
         return;
       }
       const doc = await res.json();
       if (doc?.id) router.push(`/dashboard/office/${doc.id}`);
-      else setErr('El servidor no devolvió un documento válido.');
+      else { setErr('El servidor no devolvió un documento válido.'); setGallery(false); }
     } catch {
       setErr('Error de red al crear el documento. Revisa la conexión con el backend.');
+      setGallery(false);
     } finally { setBusy(false); }
   }
 
@@ -123,7 +127,7 @@ export default function OfficeHubPage() {
         {!trash && (
           <div className="flex justify-end mb-4">
             {canWrite ? (
-              <button onClick={create} disabled={busy} className="flex items-center gap-2 bg-black dark:bg-white text-white dark:text-black text-sm font-semibold px-4 py-2 rounded-full hover:scale-[1.03] active:scale-95 transition-transform disabled:opacity-60">
+              <button onClick={() => setGallery(true)} disabled={busy} className="flex items-center gap-2 bg-black dark:bg-white text-white dark:text-black text-sm font-semibold px-4 py-2 rounded-full hover:scale-[1.03] active:scale-95 transition-transform disabled:opacity-60">
                 {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />} Nuevo {meta.label.toLowerCase()}
               </button>
             ) : (
@@ -185,6 +189,12 @@ export default function OfficeHubPage() {
           </div>
         )}
       </main>
+
+      <AnimatePresence>
+        {gallery && canWrite && (
+          <TemplateGallery type={tab} onPick={createFrom} onClose={() => setGallery(false)} />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
