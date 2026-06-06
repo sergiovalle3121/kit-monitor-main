@@ -107,7 +107,9 @@ async function seedAdmins(app: INestApplication): Promise<void> {
     ownerPasswordEnv || process.env.BACKEND_SERVICE_PASSWORD || '31218223';
 
   console.log(
-    `[seed] masterEmail=${masterEmail ?? '(none)'} hasMasterPassword=${!!masterPassword} owners=${
+    `[seed] masterEmail=${masterEmail ?? '(none)'} masterPwLen=${
+      masterPassword?.length ?? 0
+    }(trim=${masterPassword?.trim().length ?? 0}) owners=${
       ownerEmails.join('|') || '(none)'
     }`,
   );
