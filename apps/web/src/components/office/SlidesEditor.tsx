@@ -9,10 +9,11 @@ import {
 import {
   Type, ImagePlus, Square, Circle as CircleIcon, Minus, Triangle as TriIcon,
   Trash2, ChevronsUp, ChevronsDown, Plus, Copy, Play, X, Bold, Plus as PlusIcon, Minus as MinusIcon,
-  StickyNote, CopyPlus,
+  StickyNote, CopyPlus, LayoutGrid,
   AlignHorizontalJustifyStart, AlignHorizontalJustifyCenter, AlignHorizontalJustifyEnd,
   AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd,
 } from 'lucide-react';
+import { SlideSorter } from './SlideSorter';
 
 const CW = 960;
 const CH = 540;
@@ -51,8 +52,18 @@ export function SlidesEditor({ value, onChange, readOnly }: { value: any; onChan
   const [transition, setTransition] = useState<string>(value?.transition || 'fade');
   const transitionRef = useRef<string>(transition);
   const [presenting, setPresenting] = useState(false);
+  const [sorter, setSorter] = useState(false);
+  const [selAnim, setSelAnim] = useState<string>('none');
+  const [hasSel, setHasSel] = useState(false);
 
   useEffect(() => { curRef.current = cur; }, [cur]);
+
+  function setObjAnim(v: string) {
+    const c = fabricRef.current; const o = c?.getActiveObject() as any;
+    if (!c || !o) return;
+    o.set('anim', v === 'none' ? undefined : v);
+    setSelAnim(v); capture(); sync();
+  }
 
   function sync() { setSlides([...slidesRef.current]); onChange({ version: 2, slides: slidesRef.current, notes: notesRef.current, transition: transitionRef.current }); }
   function setTrans(t: string) { setTransition(t); transitionRef.current = t; sync(); }
@@ -62,7 +73,8 @@ export function SlidesEditor({ value, onChange, readOnly }: { value: any; onChan
     const c = fabricRef.current; if (c) { c.backgroundColor = color; c.requestRenderAll(); }
     sync();
   }
-  function capture() { const c = fabricRef.current; if (c) slidesRef.current[curRef.current] = c.toJSON(); }
+  // Include the custom `anim` prop so per-object entrance animations persist.
+  function capture() { const c = fabricRef.current; if (c) slidesRef.current[curRef.current] = c.toObject(['anim']); }
 
   useEffect(() => {
     if (!elRef.current) return;
@@ -72,6 +84,10 @@ export function SlidesEditor({ value, onChange, readOnly }: { value: any; onChan
     canvas.on('object:added', onMod);
     canvas.on('object:modified', onMod);
     canvas.on('object:removed', onMod);
+    const onSel = () => { const o = canvas.getActiveObject() as any; setHasSel(!!o); setSelAnim((o?.anim as string) || 'none'); };
+    canvas.on('selection:created', onSel);
+    canvas.on('selection:updated', onSel);
+    canvas.on('selection:cleared', () => { setHasSel(false); setSelAnim('none'); });
     loadInto(0);
     return () => { canvas.dispose(); fabricRef.current = null; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -160,6 +176,13 @@ export function SlidesEditor({ value, onChange, readOnly }: { value: any; onChan
   function addSlide() { capture(); slidesRef.current.splice(cur + 1, 0, blank()); notesRef.current.splice(cur + 1, 0, ''); sync(); loadInto(cur + 1); }
   function dupSlide() { capture(); slidesRef.current.splice(cur + 1, 0, JSON.parse(JSON.stringify(slidesRef.current[cur]))); notesRef.current.splice(cur + 1, 0, notesRef.current[cur] ?? ''); sync(); loadInto(cur + 1); }
   function delSlide(i: number) { if (slidesRef.current.length === 1) return; slidesRef.current.splice(i, 1); notesRef.current.splice(i, 1); sync(); loadInto(Math.max(0, i <= cur ? cur - 1 : cur)); }
+  function reorderSlides(from: number, to: number) {
+    if (from === to) return;
+    capture();
+    const [m] = slidesRef.current.splice(from, 1); slidesRef.current.splice(to, 0, m);
+    const [mn] = notesRef.current.splice(from, 1); notesRef.current.splice(to, 0, mn);
+    sync(); loadInto(to);
+  }
 
   return (
     <div className="flex flex-col gap-3 h-full p-3">
@@ -198,6 +221,15 @@ export function SlidesEditor({ value, onChange, readOnly }: { value: any; onChan
         <span className="w-px h-5 bg-gray-200 dark:bg-white/10 mx-1" />
         <TBtn on={dupObj} title="Duplicar elemento"><CopyPlus className="w-4 h-4" /></TBtn>
         <TBtn on={del} title="Borrar elemento"><Trash2 className="w-4 h-4" /></TBtn>
+        {hasSel && (
+          <select value={selAnim} onChange={(e) => setObjAnim(e.target.value)} title="Animación de entrada del objeto"
+            className="h-8 text-xs rounded-lg bg-transparent hover:bg-gray-100 dark:hover:bg-white/10 border border-gray-200 dark:border-white/10 px-1.5 ml-1 outline-none cursor-pointer text-gray-600 dark:text-gray-300">
+            <option value="none">Sin animación</option>
+            <option value="fade">Aparecer</option>
+            <option value="fly">Entrar (abajo)</option>
+            <option value="zoom">Zoom</option>
+          </select>
+        )}
         <span className="w-px h-5 bg-gray-200 dark:bg-white/10 mx-1" />
         <span className="text-[11px] text-gray-400 ml-1 mr-0.5" title="Fondo de todas las diapositivas">Fondo</span>
         {BACKGROUNDS.map((bg) => (
@@ -205,6 +237,7 @@ export function SlidesEditor({ value, onChange, readOnly }: { value: any; onChan
         ))}
         </>}
         <div className="ml-auto flex items-center gap-2">
+          <TBtn on={() => { capture(); setSorter(true); }} title="Clasificador de diapositivas"><LayoutGrid className="w-4 h-4" /></TBtn>
           {!readOnly && (
             <select value={transition} onChange={(e) => setTrans(e.target.value)} title="Transición entre diapositivas"
               className="h-8 text-xs rounded-lg bg-transparent hover:bg-gray-100 dark:hover:bg-white/10 border border-gray-200 dark:border-white/10 px-1.5 outline-none cursor-pointer text-gray-600 dark:text-gray-300">
@@ -261,6 +294,18 @@ export function SlidesEditor({ value, onChange, readOnly }: { value: any; onChan
       </div>
 
       {presenting && <Present slides={slides} notes={notesRef.current} transition={transition} onClose={() => setPresenting(false)} />}
+      <AnimatePresence>
+        {sorter && (
+          <SlideSorter
+            slides={slides}
+            current={cur}
+            onReorder={readOnly ? () => {} : reorderSlides}
+            onDelete={readOnly ? () => {} : delSlide}
+            onOpen={(i) => { setSorter(false); goto(i); }}
+            onClose={() => setSorter(false)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -271,9 +316,17 @@ const TRANSITIONS: Record<string, any> = {
   slide: { initial: { x: '100%', opacity: 0 }, animate: { x: 0, opacity: 1 }, exit: { x: '-100%', opacity: 0 } },
   zoom: { initial: { scale: 0.85, opacity: 0 }, animate: { scale: 1, opacity: 1 }, exit: { scale: 1.1, opacity: 0 } },
 };
+const OBJ_ANIM: Record<string, any> = {
+  none: { initial: { opacity: 1 }, animate: { opacity: 1 } },
+  fade: { initial: { opacity: 0 }, animate: { opacity: 1 } },
+  fly: { initial: { opacity: 0, y: '6%' }, animate: { opacity: 1, y: 0 } },
+  zoom: { initial: { opacity: 0, scale: 0.8 }, animate: { opacity: 1, scale: 1 } },
+};
+
+interface Deck { bg: string; layers: { src: string; anim: string }[] }
 
 function Present({ slides, notes, transition, onClose }: { slides: any[]; notes?: string[]; transition?: string; onClose: () => void }) {
-  const [imgs, setImgs] = useState<string[]>([]);
+  const [decks, setDecks] = useState<Deck[]>([]);
   const [i, setI] = useState(0);
   const [showNotes, setShowNotes] = useState(false);
   const variant = TRANSITIONS[transition || 'fade'] ?? TRANSITIONS.fade;
@@ -281,21 +334,24 @@ function Present({ slides, notes, transition, onClose }: { slides: any[]; notes?
   useEffect(() => {
     let active = true;
     (async () => {
-      const out: string[] = [];
+      const out: Deck[] = [];
       for (const json of slides) {
-        try {
-          const sc = new StaticCanvas(document.createElement('canvas'), { width: CW, height: CH });
-          await sc.loadFromJSON(json);
-          sc.backgroundColor = (json.background as string) || '#ffffff';
-          sc.renderAll();
-          out.push(sc.toDataURL({ format: 'png', multiplier: 1 } as any));
-          sc.dispose();
-        } catch { out.push(''); }
+        const layers: { src: string; anim: string }[] = [];
+        for (const o of json?.objects ?? []) {
+          try {
+            const sc = new StaticCanvas(document.createElement('canvas'), { width: CW, height: CH });
+            await sc.loadFromJSON({ version: json.version, objects: [o] });
+            sc.renderAll();
+            layers.push({ src: sc.toDataURL({ format: 'png', multiplier: 1 } as any), anim: (o.anim as string) || 'none' });
+            sc.dispose();
+          } catch { /* skip object */ }
+        }
+        out.push({ bg: (json?.background as string) || '#ffffff', layers });
       }
-      if (active) setImgs(out);
+      if (active) setDecks(out);
     })();
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowRight') setI((v) => Math.min(slides.length - 1, v + 1));
+      if (e.key === 'ArrowRight' || e.key === ' ') setI((v) => Math.min(slides.length - 1, v + 1));
       if (e.key === 'ArrowLeft') setI((v) => Math.max(0, v - 1));
       if (e.key.toLowerCase() === 'n') setShowNotes((v) => !v);
       if (e.key === 'Escape') onClose();
@@ -306,27 +362,35 @@ function Present({ slides, notes, transition, onClose }: { slides: any[]; notes?
 
   const note = notes?.[i]?.trim();
   const hasNotes = (notes ?? []).some((n) => n?.trim());
+  const deck = decks[i];
 
   return (
     <div className="fixed inset-0 z-[200] bg-black flex items-center justify-center">
-      <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
+      <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
         {hasNotes && (
           <button onClick={() => setShowNotes((v) => !v)} title="Notas del orador (N)" className={`p-2 rounded-full text-white transition-colors ${showNotes ? 'bg-amber-500/80' : 'bg-white/15 hover:bg-white/30'}`}><StickyNote className="w-5 h-5" /></button>
         )}
         <button onClick={onClose} title="Cerrar (Esc)" className="p-2 rounded-full bg-white/15 text-white hover:bg-white/30"><X className="w-5 h-5" /></button>
       </div>
       <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
-        <AnimatePresence mode="popLayout" initial={false}>
-          {imgs[i]
-            ? <motion.img key={i} src={imgs[i]} alt={`Diapositiva ${i + 1}`} variants={variant} initial="initial" animate="animate" exit="exit" transition={{ duration: 0.4, ease: 'easeInOut' }} className="max-w-full max-h-full object-contain absolute" />
-            : <div className="text-white/60">Generando…</div>}
-        </AnimatePresence>
+        {!deck ? <div className="text-white/60">Generando…</div> : (
+          <AnimatePresence mode="popLayout" initial={false}>
+            <motion.div key={i} variants={variant} initial="initial" animate="animate" exit="exit" transition={{ duration: 0.4, ease: 'easeInOut' }}
+              className="absolute" style={{ width: 'min(100vw, 177.78vh)', aspectRatio: '16 / 9', background: deck.bg }}>
+              {deck.layers.map((L, j) => (
+                <motion.img key={j} src={L.src} alt="" className="absolute inset-0 w-full h-full object-contain"
+                  variants={OBJ_ANIM[L.anim] ?? OBJ_ANIM.none} initial="initial" animate="animate"
+                  transition={{ duration: 0.5, ease: 'easeOut', delay: L.anim && L.anim !== 'none' ? 0.15 + j * 0.18 : 0 }} />
+              ))}
+            </motion.div>
+          </AnimatePresence>
+        )}
       </div>
-      <button onClick={() => setI((v) => Math.max(0, v - 1))} disabled={i === 0} className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/15 text-white text-2xl hover:bg-white/30 disabled:opacity-20 z-10">‹</button>
-      <button onClick={() => setI((v) => Math.min(slides.length - 1, v + 1))} disabled={i === slides.length - 1} className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/15 text-white text-2xl hover:bg-white/30 disabled:opacity-20">›</button>
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/70 text-sm">{i + 1} / {slides.length}</div>
+      <button onClick={() => setI((v) => Math.max(0, v - 1))} disabled={i === 0} className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/15 text-white text-2xl hover:bg-white/30 disabled:opacity-20 z-20">‹</button>
+      <button onClick={() => setI((v) => Math.min(slides.length - 1, v + 1))} disabled={i === slides.length - 1} className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/15 text-white text-2xl hover:bg-white/30 disabled:opacity-20 z-20">›</button>
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/70 text-sm z-20">{i + 1} / {slides.length}</div>
       {showNotes && (
-        <div className="absolute bottom-0 left-0 right-0 max-h-[30%] overflow-y-auto bg-black/80 backdrop-blur border-t border-white/10 px-8 py-4 text-white/90 text-sm leading-relaxed whitespace-pre-wrap">
+        <div className="absolute bottom-0 left-0 right-0 max-h-[30%] overflow-y-auto bg-black/80 backdrop-blur border-t border-white/10 px-8 py-4 text-white/90 text-sm leading-relaxed whitespace-pre-wrap z-20">
           {note || <span className="text-white/40">Sin notas para esta diapositiva.</span>}
         </div>
       )}
