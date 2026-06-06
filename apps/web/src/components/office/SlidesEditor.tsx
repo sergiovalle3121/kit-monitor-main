@@ -8,7 +8,9 @@ import {
 import {
   Type, ImagePlus, Square, Circle as CircleIcon, Minus, Triangle as TriIcon,
   Trash2, ChevronsUp, ChevronsDown, Plus, Copy, Play, X, Bold, Plus as PlusIcon, Minus as MinusIcon,
-  StickyNote,
+  StickyNote, CopyPlus,
+  AlignHorizontalJustifyStart, AlignHorizontalJustifyCenter, AlignHorizontalJustifyEnd,
+  AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd,
 } from 'lucide-react';
 
 const CW = 960;
@@ -121,6 +123,28 @@ export function SlidesEditor({ value, onChange, readOnly }: { value: any; onChan
   function del() { const c = fabricRef.current; const o = c?.getActiveObject(); if (c && o) { c.remove(o); c.requestRenderAll(); } }
   function front() { const c = fabricRef.current; const o = c?.getActiveObject(); if (c && o) { (c as any).bringObjectToFront(o); c.requestRenderAll(); capture(); sync(); } }
   function back() { const c = fabricRef.current; const o = c?.getActiveObject(); if (c && o) { (c as any).sendObjectToBack(o); c.requestRenderAll(); capture(); sync(); } }
+  function alignObj(dir: 'left' | 'hcenter' | 'right' | 'top' | 'vcenter' | 'bottom') {
+    const c = fabricRef.current; const o = c?.getActiveObject() as any;
+    if (!c || !o) return;
+    const w = typeof o.getScaledWidth === 'function' ? o.getScaledWidth() : (o.width || 0) * (o.scaleX || 1);
+    const h = typeof o.getScaledHeight === 'function' ? o.getScaledHeight() : (o.height || 0) * (o.scaleY || 1);
+    if (dir === 'left') o.set('left', 0);
+    else if (dir === 'hcenter') o.set('left', (CW - w) / 2);
+    else if (dir === 'right') o.set('left', CW - w);
+    else if (dir === 'top') o.set('top', 0);
+    else if (dir === 'vcenter') o.set('top', (CH - h) / 2);
+    else if (dir === 'bottom') o.set('top', CH - h);
+    o.setCoords(); c.requestRenderAll(); capture(); sync();
+  }
+  async function dupObj() {
+    const c = fabricRef.current; const o = c?.getActiveObject() as any;
+    if (!c || !o) return;
+    try {
+      const clone = await o.clone();
+      clone.set({ left: (o.left || 0) + 20, top: (o.top || 0) + 20 });
+      c.add(clone); c.setActiveObject(clone); c.requestRenderAll(); // object:added → capture + sync
+    } catch { /* noop */ }
+  }
 
   function addSlide() { capture(); slidesRef.current.splice(cur + 1, 0, blank()); notesRef.current.splice(cur + 1, 0, ''); sync(); loadInto(cur + 1); }
   function dupSlide() { capture(); slidesRef.current.splice(cur + 1, 0, JSON.parse(JSON.stringify(slidesRef.current[cur]))); notesRef.current.splice(cur + 1, 0, notesRef.current[cur] ?? ''); sync(); loadInto(cur + 1); }
@@ -153,6 +177,15 @@ export function SlidesEditor({ value, onChange, readOnly }: { value: any; onChan
         <span className="w-px h-5 bg-gray-200 dark:bg-white/10 mx-1" />
         <TBtn on={front} title="Traer al frente"><ChevronsUp className="w-4 h-4" /></TBtn>
         <TBtn on={back} title="Enviar atrás"><ChevronsDown className="w-4 h-4" /></TBtn>
+        <span className="w-px h-5 bg-gray-200 dark:bg-white/10 mx-1" />
+        <TBtn on={() => alignObj('left')} title="Alinear a la izquierda"><AlignHorizontalJustifyStart className="w-4 h-4" /></TBtn>
+        <TBtn on={() => alignObj('hcenter')} title="Centrar horizontal"><AlignHorizontalJustifyCenter className="w-4 h-4" /></TBtn>
+        <TBtn on={() => alignObj('right')} title="Alinear a la derecha"><AlignHorizontalJustifyEnd className="w-4 h-4" /></TBtn>
+        <TBtn on={() => alignObj('top')} title="Alinear arriba"><AlignVerticalJustifyStart className="w-4 h-4" /></TBtn>
+        <TBtn on={() => alignObj('vcenter')} title="Centrar vertical"><AlignVerticalJustifyCenter className="w-4 h-4" /></TBtn>
+        <TBtn on={() => alignObj('bottom')} title="Alinear abajo"><AlignVerticalJustifyEnd className="w-4 h-4" /></TBtn>
+        <span className="w-px h-5 bg-gray-200 dark:bg-white/10 mx-1" />
+        <TBtn on={dupObj} title="Duplicar elemento"><CopyPlus className="w-4 h-4" /></TBtn>
         <TBtn on={del} title="Borrar elemento"><Trash2 className="w-4 h-4" /></TBtn>
         </>}
         <div className="ml-auto">
