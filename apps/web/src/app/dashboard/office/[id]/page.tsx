@@ -171,7 +171,7 @@ export default function OfficeEditorPage() {
 
   return (
     <OfficeShell type={doc.type} title={title} onTitleChange={onTitle} status={status} savedAt={savedAt} readOnly={readOnly} actions={actions}>
-      {doc.type === 'doc' ? <DocEditor key={editorKey} {...editorProps} />
+      {doc.type === 'doc' ? <DocEditor key={editorKey} {...editorProps} author={user?.email ?? ''} />
         : doc.type === 'sheet' ? <SheetEditor key={editorKey} {...editorProps} />
         : doc.type === 'slides' ? <SlidesEditor key={editorKey} {...editorProps} />
         : <div className="py-20 text-center text-sm text-gray-400">Tipo de documento desconocido.</div>}

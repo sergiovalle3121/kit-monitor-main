@@ -54,3 +54,16 @@
   }
   .tiptap-page .ProseMirror { color: #000 !important; }
 }
+
+/* Inline comments */
+.tiptap-page .ProseMirror .tiptap-comment {
+  background: rgba(245, 158, 11, 0.18);
+  border-bottom: 2px solid rgba(245, 158, 11, 0.7);
+  border-radius: 2px;
+  cursor: pointer;
+}
+.tiptap-page .ProseMirror .tiptap-comment[data-resolved="true"] {
+  background: transparent;
+  border-bottom: 1px dotted rgba(120, 120, 120, 0.5);
+}
+@media print { .tiptap-page .ProseMirror .tiptap-comment { background: transparent !important; border: none !important; } }
