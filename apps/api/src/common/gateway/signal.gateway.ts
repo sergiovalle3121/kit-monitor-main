@@ -75,13 +75,22 @@ export class SignalGateway
 
   emitProposal(tenantId: string, proposal: CorrectiveProposal): void {
     if (this.server) {
-      this.server.to(`tenant:${tenantId}`).emit('signal:new-proposal', proposal);
+      this.server
+        .to(`tenant:${tenantId}`)
+        .emit('signal:new-proposal', proposal);
     }
   }
 
   emitCriticalEvent(tenantId: string, event: SignalCriticalEvent): void {
     if (this.server) {
       this.server.to(`tenant:${tenantId}`).emit('signal:critical-event', event);
+    }
+  }
+
+  /** Generic broadcast to a tenant room — used by the materials pull system. */
+  emitToTenant(tenantId: string, event: string, payload: unknown): void {
+    if (this.server) {
+      this.server.to(`tenant:${tenantId ?? 'default'}`).emit(event, payload);
     }
   }
 }
