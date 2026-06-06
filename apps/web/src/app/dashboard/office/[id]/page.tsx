@@ -70,7 +70,7 @@ export default function OfficeEditorPage() {
         </button>
       </div>
 
-      <main className="max-w-5xl mx-auto px-4 md:px-6 pt-6">
+      <main className="max-w-[1400px] mx-auto px-3 md:px-5 pt-4">
         {error ? (
           <div className="flex flex-col items-center text-center py-20">
             <p className="font-bold mb-1">No se pudo abrir</p>
