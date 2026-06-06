@@ -14,6 +14,7 @@ import { InventoryPosition } from '../../inventory/entities/inventory-position.e
 import { ReplenishmentRule } from '../../inventory/entities/replenishment-rule.entity';
 import { Plan } from '../../plans/entities/plan.entity';
 import { ErpMmService } from './erp-mm.service';
+import { ErpSdService } from './erp-sd.service';
 import { ErpMrpRun, MrpMode } from '../entities/erp-mrp-run.entity';
 import { ErpMrpResult, MrpAction } from '../entities/erp-mrp-result.entity';
 import { ErpPlannedOrder } from '../entities/erp-planned-order.entity';
@@ -33,6 +34,7 @@ export interface RunMrpInput {
   mode?: MrpMode;
   demand?: MrpDemand[];
   includeOpenPlans?: boolean;
+  includeSalesOrders?: boolean;
   createdBy?: string;
 }
 
@@ -61,6 +63,7 @@ export class ErpPpService {
     private readonly ruleRepo: Repository<ReplenishmentRule>,
     @InjectRepository(Plan) private readonly planRepo: Repository<Plan>,
     private readonly mm: ErpMmService,
+    private readonly sd: ErpSdService,
     private readonly signals: SignalGateway,
   ) {}
 
@@ -142,6 +145,16 @@ export class ErpPpService {
         Number(d.quantity) || 0,
         d.needBy ? new Date(d.needBy) : undefined,
       );
+    }
+    // Independent demand from confirmed sales orders (SD01).
+    if (dto.includeSalesOrders !== false) {
+      for (const d of await this.sd.openDemand()) {
+        addDemand(
+          d.partNumber,
+          Number(d.quantity) || 0,
+          d.needBy ? new Date(d.needBy) : undefined,
+        );
+      }
     }
 
     // 3. Scheduled receipts: open POs + open Plans (which also drive dependent demand).

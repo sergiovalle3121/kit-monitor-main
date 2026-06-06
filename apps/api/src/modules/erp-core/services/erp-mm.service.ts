@@ -195,6 +195,14 @@ export class ErpMmService {
     return { rows, totalValue: round2(rows.reduce((s, r) => s + r.value, 0)) };
   }
 
+  /** Best available unit cost for a part (moving avg → standard cost). Used for COGS. */
+  async unitCostOf(partNumber: string): Promise<number> {
+    const val = await this.valRepo.findOne({ where: { partNumber } });
+    if (val && val.movingAvgCost > 0) return val.movingAvgCost;
+    const material = await this.materialRepo.findOne({ where: { partNumber } });
+    return material?.standardCost ?? 0;
+  }
+
   // ── Supplier prices / sourcing ──────────────────────────────────────────────
   async upsertSupplierPrice(dto: Partial<ErpSupplierPrice>) {
     if (!dto.supplierId || !dto.partNumber || dto.unitPrice == null) {

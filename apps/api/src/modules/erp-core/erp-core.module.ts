@@ -25,6 +25,11 @@ import { ErpMrpRun } from './entities/erp-mrp-run.entity';
 import { ErpMrpResult } from './entities/erp-mrp-result.entity';
 import { ErpPlannedOrder } from './entities/erp-planned-order.entity';
 
+// SD entities
+import { ErpCustomer } from './entities/erp-customer.entity';
+import { ErpSalesOrder } from './entities/erp-sales-order.entity';
+import { ErpSalesOrderLine } from './entities/erp-sales-order-line.entity';
+
 // Reused entities (read/validate — owned by other modules)
 import { MaterialMaster } from '../inventory/entities/material-master.entity';
 import { Supplier } from '../suppliers/entities/supplier.entity';
@@ -39,9 +44,11 @@ import { ErpSeedService } from './services/erp-seed.service';
 import { ErpFinService } from './services/erp-fin.service';
 import { ErpMmService } from './services/erp-mm.service';
 import { ErpPpService } from './services/erp-pp.service';
+import { ErpSdService } from './services/erp-sd.service';
 import { ErpFinController } from './controllers/erp-fin.controller';
 import { ErpMmController } from './controllers/erp-mm.controller';
 import { ErpPpController } from './controllers/erp-pp.controller';
+import { ErpSdController } from './controllers/erp-sd.controller';
 
 import { SignalModule } from '../../common/gateway/signal.module';
 import { GovernanceModule } from '../governance/governance.module';
@@ -71,6 +78,10 @@ import { InventoryModule } from '../inventory/inventory.module';
       ErpMrpRun,
       ErpMrpResult,
       ErpPlannedOrder,
+      // SD
+      ErpCustomer,
+      ErpSalesOrder,
+      ErpSalesOrderLine,
       // reused
       MaterialMaster,
       Supplier,
@@ -85,8 +96,19 @@ import { InventoryModule } from '../inventory/inventory.module';
     GovernanceModule, // provides AuditService required by PermissionsGuard
     InventoryModule, // provides InventoryService for goods receipt/issue
   ],
-  controllers: [ErpFinController, ErpMmController, ErpPpController],
-  providers: [ErpSeedService, ErpFinService, ErpMmService, ErpPpService],
-  exports: [ErpFinService, ErpMmService, ErpPpService],
+  controllers: [
+    ErpFinController,
+    ErpMmController,
+    ErpPpController,
+    ErpSdController,
+  ],
+  providers: [
+    ErpSeedService,
+    ErpFinService,
+    ErpMmService,
+    ErpPpService,
+    ErpSdService,
+  ],
+  exports: [ErpFinService, ErpMmService, ErpPpService, ErpSdService],
 })
 export class ErpCoreModule {}
