@@ -1,0 +1,130 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/**
+ * Word interop for the document editor.
+ *  · exportDocx: TipTap JSON → .docx via the `docx` library (MIT).
+ *  · importDocx: .docx → HTML via `mammoth` (BSD), which TipTap loads directly.
+ * Both libraries are imported dynamically (loaded only on use).
+ */
+
+const safe = (s: string) => (s || 'documento').replace(/[^\p{L}\p{N} _-]/gu, '').trim() || 'documento';
+
+function download(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1500);
+}
+
+export async function exportDocx(json: any, title: string) {
+  const docx = await import('docx');
+  const {
+    Document, Packer, Paragraph, TextRun, ExternalHyperlink, HeadingLevel,
+    AlignmentType, Table, TableRow, TableCell, WidthType, ShadingType,
+  } = docx as any;
+
+  const HEADINGS: any = { 1: HeadingLevel.HEADING_1, 2: HeadingLevel.HEADING_2, 3: HeadingLevel.HEADING_3 };
+  const align = (a?: string) => ({ center: AlignmentType.CENTER, right: AlignmentType.RIGHT, justify: AlignmentType.JUSTIFIED }[a ?? 'left'] ?? AlignmentType.LEFT);
+  const hex = (c?: string) => (c ? c.replace('#', '').slice(0, 6) : undefined);
+
+  function runOpts(node: any) {
+    const o: any = { text: node.text || '' };
+    let link: string | undefined;
+    for (const m of node.marks ?? []) {
+      if (m.type === 'bold') o.bold = true;
+      else if (m.type === 'italic') o.italics = true;
+      else if (m.type === 'underline') o.underline = {};
+      else if (m.type === 'strike') o.strike = true;
+      else if (m.type === 'code') o.font = 'Courier New';
+      else if (m.type === 'link') link = m.attrs?.href;
+      else if (m.type === 'highlight' && m.attrs?.color) o.shading = { type: ShadingType.CLEAR, fill: hex(m.attrs.color) };
+      else if (m.type === 'textStyle') {
+        if (m.attrs?.color) o.color = hex(m.attrs.color);
+        if (m.attrs?.fontFamily) o.font = m.attrs.fontFamily.split(',')[0].replace(/["']/g, '').trim();
+        if (m.attrs?.fontSize) { const px = parseInt(String(m.attrs.fontSize), 10); if (px) o.size = Math.round(px * 1.5); }
+      }
+    }
+    return { o, link };
+  }
+
+  function inlineRuns(content: any[]): any[] {
+    const out: any[] = [];
+    for (const n of content ?? []) {
+      if (n.type !== 'text') continue;
+      const { o, link } = runOpts(n);
+      if (link) out.push(new ExternalHyperlink({ link, children: [new TextRun({ ...o, color: '0563C1', underline: {} })] }));
+      else out.push(new TextRun(o));
+    }
+    return out;
+  }
+
+  function listParas(listNode: any, kind: 'bullet' | 'ordered' | 'task', level: number): any[] {
+    const out: any[] = [];
+    let idx = 1;
+    for (const item of listNode.content ?? []) {
+      const para = (item.content ?? []).find((n: any) => n.type === 'paragraph');
+      const runs = inlineRuns(para?.content);
+      if (kind === 'bullet') out.push(new Paragraph({ bullet: { level }, children: runs }));
+      else if (kind === 'ordered') out.push(new Paragraph({ indent: { left: (level + 1) * 360 }, children: [new TextRun({ text: `${idx++}. ` }), ...runs] }));
+      else out.push(new Paragraph({ indent: { left: (level + 1) * 360 }, children: [new TextRun({ text: item.attrs?.checked ? '☑ ' : '☐ ' }), ...runs] }));
+      for (const child of item.content ?? []) {
+        if (child.type === 'bulletList') out.push(...listParas(child, 'bullet', level + 1));
+        else if (child.type === 'orderedList') out.push(...listParas(child, 'ordered', level + 1));
+      }
+    }
+    return out;
+  }
+
+  function blockToEls(node: any): any[] {
+    switch (node.type) {
+      case 'heading': return [new Paragraph({ heading: HEADINGS[node.attrs?.level || 1], alignment: align(node.attrs?.textAlign), children: inlineRuns(node.content) })];
+      case 'paragraph': return [new Paragraph({ alignment: align(node.attrs?.textAlign), children: inlineRuns(node.content) })];
+      case 'bulletList': return listParas(node, 'bullet', 0);
+      case 'orderedList': return listParas(node, 'ordered', 0);
+      case 'taskList': return listParas(node, 'task', 0);
+      case 'blockquote': return (node.content ?? []).map((p: any) => new Paragraph({ indent: { left: 480 }, children: inlineRuns(p.content).map((r: any) => r) }));
+      case 'codeBlock': return String((node.content ?? []).map((t: any) => t.text).join('')).split('\n').map((line) => new Paragraph({ children: [new TextRun({ text: line, font: 'Courier New' })] }));
+      case 'horizontalRule': return [new Paragraph({ thematicBreak: true })];
+      case 'table': return [tableToEl(node)];
+      default: return node.content ? node.content.flatMap(blockToEls) : [];
+    }
+  }
+
+  function tableToEl(node: any) {
+    const rows = (node.content ?? []).map((row: any) => new TableRow({
+      children: (row.content ?? []).map((cell: any) => {
+        const paras = (cell.content ?? []).flatMap(blockToEls);
+        return new TableCell({ children: paras.length ? paras : [new Paragraph({})] });
+      }),
+    }));
+    return new Table({ rows, width: { size: 100, type: WidthType.PERCENTAGE } });
+  }
+
+  let children: any[];
+  if (typeof json === 'string') {
+    const dom = new DOMParser().parseFromString(json, 'text/html');
+    children = Array.from(dom.body.querySelectorAll('h1,h2,h3,p,li,blockquote,pre')).map((el) => {
+      const t = el.tagName.toLowerCase();
+      const text = el.textContent || '';
+      if (t === 'h1' || t === 'h2' || t === 'h3') return new Paragraph({ heading: HEADINGS[Number(t[1])], children: [new TextRun(text)] });
+      return new Paragraph({ children: [new TextRun(text)] });
+    });
+    if (!children.length) children = [new Paragraph({ children: [new TextRun(dom.body.textContent || '')] })];
+  } else {
+    children = (json?.content ?? []).flatMap(blockToEls);
+    if (!children.length) children = [new Paragraph({})];
+  }
+
+  const doc = new Document({ sections: [{ children }] });
+  download(await Packer.toBlob(doc), `${safe(title)}.docx`);
+}
+
+export async function importDocx(file: File): Promise<string> {
+  const mammoth: any = await import('mammoth');
+  const arrayBuffer = await file.arrayBuffer();
+  const result = await mammoth.convertToHtml({ arrayBuffer });
+  return result?.value || '<p></p>';
+}
