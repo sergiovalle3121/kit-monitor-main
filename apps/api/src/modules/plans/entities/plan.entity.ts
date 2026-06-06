@@ -5,7 +5,7 @@ import {
 import { Kit } from '../../kits/entities/kit.entity';
 import { DATE_COLUMN_TYPE } from '../../../common/database/date-column-type';
 
-export type PlanStatus = 'pending' | 'released' | 'active' | 'completed' | 'cancelled';
+export type PlanStatus = 'pending' | 'published' | 'released' | 'active' | 'completed' | 'cancelled';
 export type PlanPriority = 'low' | 'normal' | 'high' | 'critical';
 
 @Entity('plans')
@@ -55,6 +55,14 @@ export class Plan {
 
   @Column({ type: 'varchar', length: 120, nullable: true })
   releasedBy: string;
+
+  // Materials pull system (Phase 1A): when planning publishes the plan the BOM
+  // is exploded into a PickList and these fields capture the hand-off.
+  @Column({ type: DATE_COLUMN_TYPE, nullable: true })
+  publishedAt: Date;
+
+  @Column({ type: 'varchar', length: 120, nullable: true })
+  publishedBy: string;
 
   @Column({ type: 'jsonb', nullable: true })
   readinessSummary: any; // { materials: 'green', quality: 'red', shipping: 'yellow' }
