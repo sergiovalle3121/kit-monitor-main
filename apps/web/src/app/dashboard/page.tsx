@@ -19,6 +19,7 @@ import {
   PackageCheck,
   Warehouse,
   LineChart,
+  Building2,
 } from "lucide-react";
 import { TCodePalette } from "@/components/TCodePalette";
 import { DomainGrid } from "@/components/DomainGrid";
@@ -230,6 +231,11 @@ function DashboardInner() {
                     {isAdmin && (
                       <Link href="/dashboard/settings/users" onClick={() => setMenuOpen(false)} className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-white/5 rounded-xl text-xs transition-colors flex items-center gap-3">
                         <User className="w-4 h-4" /> Usuarios y accesos
+                      </Link>
+                    )}
+                    {isAdmin && (
+                      <Link href="/dashboard/settings/organization" onClick={() => setMenuOpen(false)} className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-white/5 rounded-xl text-xs transition-colors flex items-center gap-3">
+                        <Building2 className="w-4 h-4" /> Organización
                       </Link>
                     )}
                     <button onClick={handleLogout} className="w-full text-left px-4 py-2 hover:bg-red-50 dark:hover:bg-red-500/10 text-red-500 rounded-xl text-xs transition-colors flex items-center gap-3">
