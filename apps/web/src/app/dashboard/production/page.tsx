@@ -1,223 +1,102 @@
 "use client";
 
-import React, { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { 
-  ChevronLeft, 
-  Play, 
-  Pause, 
-  CheckCircle,
-  Activity,
-  Cpu,
-  Clock,
-  AlertTriangle,
-  Settings,
-  MoreHorizontal
-} from "lucide-react";
+import React, { useMemo, useState } from "react";
+import { motion } from "framer-motion";
+import { ChevronLeft, Factory, Loader2, Lock, Inbox } from "lucide-react";
 import Link from "next/link";
+import { glass } from "@/lib/glass";
+import { useApi } from "@/hooks/useApi";
 
-type OrderStatus = "Scheduled" | "In Progress" | "Paused" | "Completed";
-
-interface WorkOrder {
-  id: string;
-  product: string;
-  sku: string;
-  quantity: number;
-  completed: number;
-  status: OrderStatus;
-  line: string;
-  efficiency: number;
+interface Plan {
+  id: number; workOrder: string; model: string; line?: number; quantity: number;
+  shift?: string; status: string; kitStatus?: string | null;
 }
 
-const initialOrders: WorkOrder[] = [
-  { id: "WO-10024", product: "Controller V3", sku: "PRD-9921", quantity: 500, completed: 342, status: "In Progress", line: "Line A1", efficiency: 94 },
-  { id: "WO-10025", product: "Thermal Sensor Grid", sku: "PRD-8840", quantity: 1200, completed: 0, status: "Scheduled", line: "Line B2", efficiency: 0 },
-  { id: "WO-10023", product: "Robotic Arm Actuator", sku: "PRD-7732", quantity: 150, completed: 150, status: "Completed", line: "Line A1", efficiency: 88 },
-  { id: "WO-10026", product: "Power Supply Unit", sku: "PRD-5511", quantity: 800, completed: 410, status: "Paused", line: "Line C1", efficiency: 72 },
+const STATUS: Record<string, { label: string; color: string }> = {
+  pending: { label: "Por publicar", color: "#f59e0b" },
+  published: { label: "Publicado", color: "#7c3aed" },
+  released: { label: "Liberado", color: "#7c3aed" },
+  active: { label: "En producción", color: "#10b981" },
+  completed: { label: "Completado", color: "#6b7280" },
+  cancelled: { label: "Cancelado", color: "#ef4444" },
+};
+
+const TABS = [
+  { id: "active", label: "En producción", match: ["active"] },
+  { id: "scheduled", label: "Programadas", match: ["published", "released", "pending"] },
+  { id: "completed", label: "Completadas", match: ["completed"] },
+  { id: "all", label: "Todas", match: [] as string[] },
 ];
 
-export default function ProductionMESPage() {
-  const [orders, setOrders] = useState<WorkOrder[]>(initialOrders);
-  const [activeTab, setActiveTab] = useState("all");
-  
-  const handleStatusChange = (id: string, newStatus: OrderStatus) => {
-    setOrders(orders.map(o => o.id === id ? { ...o, status: newStatus } : o));
-  };
-
-  const filteredOrders = orders.filter(o => {
-    if (activeTab === "active") return o.status === "In Progress" || o.status === "Paused";
-    if (activeTab === "scheduled") return o.status === "Scheduled";
-    if (activeTab === "completed") return o.status === "Completed";
-    return true;
-  });
+export default function ProductionPage() {
+  const { data, isLoading, forbidden } = useApi<Plan[]>("/plans");
+  const [tab, setTab] = useState("active");
+  const plans = useMemo(() => (Array.isArray(data) ? data : []), [data]);
+  const active = TABS.find((t) => t.id === tab)!;
+  const rows = active.match.length ? plans.filter((p) => active.match.includes(p.status)) : plans;
 
   return (
-    <div className="min-h-screen bg-[#F8F9FA] dark:bg-[#0A0A0A] p-6 md:p-10 lg:p-12">
-      <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12">
-        <div className="flex items-center gap-6">
-          <Link href="/dashboard" className="p-3 bg-white dark:bg-[#111] border border-gray-100 dark:border-white/5 rounded-2xl hover:scale-105 active:scale-95 transition-all shadow-sm">
-            <ChevronLeft className="w-5 h-5" />
-          </Link>
+    <div className="min-h-screen text-black dark:text-white font-sans pb-32">
+      <div className={`${glass} sticky top-0 z-40 px-6 py-4 rounded-none border-x-0 border-t-0 flex items-center justify-between`}>
+        <Link href="/dashboard" className="flex items-center gap-2 text-sm font-medium text-gray-500 hover:text-black dark:hover:text-white transition-colors">
+          <ChevronLeft className="w-4 h-4" /> Dashboard
+        </Link>
+        <span className="text-sm font-semibold">Producción</span>
+      </div>
+
+      <main className="max-w-4xl mx-auto px-6 pt-10">
+        <header className="flex items-center gap-3 mb-8">
+          <div className="p-3 rounded-2xl bg-amber-50 dark:bg-amber-500/10"><Factory className="w-7 h-7 text-amber-500" strokeWidth={1.5} /></div>
           <div>
-            <h1 className="text-4xl font-bold tracking-tight mb-1">Production Execution</h1>
-            <p className="text-gray-500 dark:text-gray-400 font-light">Manufacturing Execution System (MES)</p>
+            <h1 className="text-3xl font-bold tracking-tight">Producción</h1>
+            <p className="text-gray-500 dark:text-gray-400 text-sm">Órdenes de trabajo desde los planes publicados</p>
           </div>
-        </div>
-        <div className="flex items-center gap-3 bg-white dark:bg-[#111] p-1.5 rounded-2xl border border-gray-100 dark:border-white/5 shadow-sm">
-          {["all", "active", "scheduled", "completed"].map(tab => (
-            <button 
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`px-6 py-2.5 rounded-xl text-sm font-bold capitalize transition-all ${
-                activeTab === tab 
-                  ? "bg-black text-white dark:bg-white dark:text-black shadow-md" 
-                  : "text-gray-500 hover:bg-gray-50 dark:hover:bg-white/5"
-              }`}
-            >
-              {tab}
+        </header>
+
+        <div className={`${glass} inline-flex p-1 rounded-2xl mb-6 gap-1`}>
+          {TABS.map((t) => (
+            <button key={t.id} onClick={() => setTab(t.id)} className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all ${tab === t.id ? "bg-black text-white dark:bg-white dark:text-black" : "text-gray-500 hover:bg-gray-100 dark:hover:bg-white/5"}`}>
+              {t.label}
             </button>
           ))}
         </div>
-      </header>
 
-      {/* KPI Widgets */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
-        <div className="bg-white dark:bg-[#111] p-6 rounded-[2rem] border border-gray-100 dark:border-white/5 shadow-sm flex flex-col justify-between">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="p-2 bg-blue-50 dark:bg-blue-500/10 text-blue-600 rounded-xl"><Activity className="w-5 h-5" /></div>
-            <span className="font-bold text-sm">Global OEE</span>
-          </div>
-          <div>
-            <p className="text-4xl font-bold tracking-tighter">88.4<span className="text-xl text-gray-400">%</span></p>
-            <p className="text-xs text-green-500 font-bold mt-1">+2.1% from last shift</p>
-          </div>
-        </div>
-
-        <div className="bg-white dark:bg-[#111] p-6 rounded-[2rem] border border-gray-100 dark:border-white/5 shadow-sm flex flex-col justify-between">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="p-2 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 rounded-xl"><CheckCircle className="w-5 h-5" /></div>
-            <span className="font-bold text-sm">Yield Rate</span>
-          </div>
-          <div>
-            <p className="text-4xl font-bold tracking-tighter">99.1<span className="text-xl text-gray-400">%</span></p>
-            <p className="text-xs text-green-500 font-bold mt-1">On Target</p>
-          </div>
-        </div>
-
-        <div className="bg-white dark:bg-[#111] p-6 rounded-[2rem] border border-gray-100 dark:border-white/5 shadow-sm flex flex-col justify-between">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="p-2 bg-amber-50 dark:bg-amber-500/10 text-amber-600 rounded-xl"><AlertTriangle className="w-5 h-5" /></div>
-            <span className="font-bold text-sm">Downtime</span>
-          </div>
-          <div>
-            <p className="text-4xl font-bold tracking-tighter">14<span className="text-xl text-gray-400">m</span></p>
-            <p className="text-xs text-amber-500 font-bold mt-1">Line C1 Issue</p>
-          </div>
-        </div>
-
-        <div className="bg-white dark:bg-[#111] p-6 rounded-[2rem] border border-gray-100 dark:border-white/5 shadow-sm flex flex-col justify-between">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="p-2 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 rounded-xl"><Cpu className="w-5 h-5" /></div>
-            <span className="font-bold text-sm">Units Produced</span>
-          </div>
-          <div>
-            <p className="text-4xl font-bold tracking-tighter">4,821</p>
-            <p className="text-xs text-gray-400 font-medium mt-1">Current Shift</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Active Work Orders */}
-      <h2 className="text-2xl font-bold mb-6">Work Orders</h2>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <AnimatePresence>
-          {filteredOrders.map(order => {
-            const progress = (order.completed / order.quantity) * 100;
-            return (
-              <motion.div 
-                layout
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.9 }}
-                key={order.id}
-                className="bg-white dark:bg-[#111] border border-gray-100 dark:border-white/5 rounded-[2.5rem] p-8 shadow-sm flex flex-col relative overflow-hidden group hover:shadow-xl transition-all"
-              >
-                {/* Background Progress Indicator */}
-                <div 
-                  className={`absolute bottom-0 left-0 h-1.5 transition-all duration-1000 ${
-                    order.status === 'Completed' ? 'bg-emerald-500' :
-                    order.status === 'In Progress' ? 'bg-blue-500' :
-                    order.status === 'Paused' ? 'bg-amber-500' : 'bg-gray-200 dark:bg-gray-800'
-                  }`} 
-                  style={{ width: `${progress}%` }} 
-                />
-
-                <div className="flex justify-between items-start mb-6">
-                  <div>
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1 block">{order.line}</span>
-                    <h3 className="text-2xl font-bold tracking-tight">{order.id}</h3>
+        {forbidden ? (
+          <Empty icon={<Lock className="w-6 h-6" />} title="Sin acceso al backend" body="Verifica que el servicio de API esté conectado." />
+        ) : isLoading ? (
+          <div className="flex justify-center py-20 text-gray-400"><Loader2 className="w-6 h-6 animate-spin" /></div>
+        ) : rows.length === 0 ? (
+          <Empty icon={<Inbox className="w-6 h-6" />} title="Sin órdenes" body="Cuando planeación publique un plan, aparecerá aquí como orden de trabajo." />
+        ) : (
+          <div className="space-y-3">
+            {rows.map((p) => {
+              const meta = STATUS[p.status] ?? STATUS.pending;
+              return (
+                <motion.div key={p.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className={`${glass} rounded-2xl p-4 flex items-center justify-between gap-4`}>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full" style={{ color: meta.color, backgroundColor: `${meta.color}1f` }}>{meta.label}</span>
+                      <span className="text-[11px] text-gray-400 font-mono">WO {p.workOrder}</span>
+                    </div>
+                    <h3 className="text-lg font-bold tracking-tight truncate">{p.model}</h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">{p.quantity} unidades{p.line ? ` · Línea ${p.line}` : ""}{p.shift ? ` · Turno ${p.shift}` : ""}</p>
                   </div>
-                  <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border ${
-                    order.status === 'In Progress' ? 'bg-blue-50 text-blue-600 border-blue-100 dark:bg-blue-500/10 dark:border-blue-500/20' :
-                    order.status === 'Paused' ? 'bg-amber-50 text-amber-600 border-amber-100 dark:bg-amber-500/10 dark:border-amber-500/20' :
-                    order.status === 'Completed' ? 'bg-emerald-50 text-emerald-600 border-emerald-100 dark:bg-emerald-500/10 dark:border-emerald-500/20' :
-                    'bg-gray-50 text-gray-600 border-gray-200 dark:bg-white/5 dark:text-gray-400'
-                  }`}>
-                    {order.status}
-                  </span>
-                </div>
+                </motion.div>
+              );
+            })}
+          </div>
+        )}
+      </main>
+    </div>
+  );
+}
 
-                <div className="mb-6">
-                  <p className="font-medium">{order.product}</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">SKU: {order.sku}</p>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4 mb-8">
-                  <div className="bg-gray-50 dark:bg-white/5 p-4 rounded-2xl">
-                    <p className="text-[10px] uppercase tracking-wider text-gray-400 mb-1">Progress</p>
-                    <p className="text-lg font-bold">{order.completed} <span className="text-xs text-gray-400 font-normal">/ {order.quantity}</span></p>
-                  </div>
-                  <div className="bg-gray-50 dark:bg-white/5 p-4 rounded-2xl">
-                    <p className="text-[10px] uppercase tracking-wider text-gray-400 mb-1">Efficiency</p>
-                    <p className="text-lg font-bold">{order.efficiency}%</p>
-                  </div>
-                </div>
-
-                <div className="mt-auto flex gap-3">
-                  {order.status === "Scheduled" || order.status === "Paused" ? (
-                    <button 
-                      onClick={() => handleStatusChange(order.id, "In Progress")}
-                      className="flex-1 py-3 bg-black dark:bg-white text-white dark:text-black rounded-xl text-sm font-bold flex items-center justify-center gap-2 hover:scale-105 active:scale-95 transition-all"
-                    >
-                      <Play className="w-4 h-4" /> Start
-                    </button>
-                  ) : order.status === "In Progress" ? (
-                    <button 
-                      onClick={() => handleStatusChange(order.id, "Paused")}
-                      className="flex-1 py-3 bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400 rounded-xl text-sm font-bold flex items-center justify-center gap-2 hover:scale-105 active:scale-95 transition-all"
-                    >
-                      <Pause className="w-4 h-4" /> Pause
-                    </button>
-                  ) : null}
-                  
-                  {order.status !== "Completed" && (
-                    <button 
-                      onClick={() => handleStatusChange(order.id, "Completed")}
-                      className="p-3 bg-gray-100 dark:bg-white/5 text-gray-600 dark:text-gray-300 rounded-xl hover:bg-emerald-100 hover:text-emerald-600 transition-all"
-                    >
-                      <CheckCircle className="w-5 h-5" />
-                    </button>
-                  )}
-                  
-                  <button className="p-3 bg-gray-100 dark:bg-white/5 text-gray-600 dark:text-gray-300 rounded-xl transition-all">
-                    <MoreHorizontal className="w-5 h-5" />
-                  </button>
-                </div>
-              </motion.div>
-            );
-          })}
-        </AnimatePresence>
-      </div>
+function Empty({ icon, title, body }: { icon: React.ReactNode; title: string; body: string }) {
+  return (
+    <div className="flex flex-col items-center text-center py-16 px-6">
+      <div className="p-4 rounded-2xl bg-gray-100 dark:bg-white/5 text-gray-400 mb-4">{icon}</div>
+      <h3 className="font-bold text-lg mb-1">{title}</h3>
+      <p className="text-sm text-gray-500 dark:text-gray-400 max-w-sm">{body}</p>
     </div>
   );
 }
