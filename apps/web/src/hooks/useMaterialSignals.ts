@@ -41,10 +41,15 @@ export function useMaterialSignals(
 
   const connect = useCallback(() => {
     if (socketRef.current?.connected) return;
+    // The WebSocket gateway namespace (/signals) lives at the server root — it
+    // is NOT under the HTTP global '/api' prefix. NEXT_PUBLIC_API_URL ends with
+    // '/api' (for the REST calls), so strip it before opening the socket.
     const apiBase = (
       process.env.NEXT_PUBLIC_API_URL ||
       (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000')
-    ).replace(/\/$/, '');
+    )
+      .replace(/\/$/, '')
+      .replace(/\/api$/, '');
 
     setStatus('connecting');
     const socket = io(`${apiBase}/signals`, {

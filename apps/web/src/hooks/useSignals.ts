@@ -41,11 +41,14 @@ export function useSignals(tenantId: string = 'default') {
   const connect = useCallback(() => {
     if (socketRef.current?.connected) return;
 
+    // /signals lives at the server root, not under the HTTP '/api' prefix.
     const apiBase = (
       process.env.NEXT_PUBLIC_API_URL ||
       (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000')
-    ).replace(/\/$/, '');
-    
+    )
+      .replace(/\/$/, '')
+      .replace(/\/api$/, '');
+
     setStatus('connecting');
 
     const socket = io(`${apiBase}/signals`, {
