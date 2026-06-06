@@ -127,7 +127,11 @@ async function bootstrap() {
   if (env === 'production' && sharedKey) {
     app.use((req: Request, res: Response, next: NextFunction) => {
       // Deja libres endpoints críticos para autenticación y salud
-      if (req.path === '/api/health' || req.path === '/api/auth/login')
+      if (
+        req.path === '/api/health' ||
+        req.path === '/api/auth/login' ||
+        req.path === '/api/auth/register'
+      )
         return next();
       if (req.method === 'OPTIONS') return next();
 

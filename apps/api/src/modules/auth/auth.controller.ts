@@ -3,6 +3,7 @@ import {
   Controller,
   ForbiddenException,
   Get,
+  Headers,
   Param,
   Post,
   Request,
@@ -29,6 +30,30 @@ export class AuthController {
   @Post('register')
   register(@Body() dto: RegisterDto) {
     return this.authService.register(dto);
+  }
+
+  /**
+   * Trusted identity sync from the frontend bridge → per-user JWT. Guarded by
+   * the shared frontend key (FRONTEND_SHARED_KEY); open in dev when unset.
+   */
+  @Post('sync')
+  sync(
+    @Body()
+    dto: {
+      email: string;
+      name?: string;
+      role?: string;
+      position?: string;
+      tenantId?: string;
+      buildingId?: string;
+    },
+    @Headers('x-frontend-key') key?: string,
+  ) {
+    const shared = process.env.FRONTEND_SHARED_KEY;
+    if (shared && key !== shared) {
+      throw new ForbiddenException('Invalid frontend key');
+    }
+    return this.authService.syncUser(dto);
   }
 
   @UseGuards(JwtAuthGuard)

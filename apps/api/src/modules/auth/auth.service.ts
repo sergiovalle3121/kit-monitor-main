@@ -4,6 +4,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { randomUUID } from 'crypto';
 import * as bcrypt from 'bcrypt';
 import { UsersService } from '../users/users.service';
 import { User } from '../users/entities/user.entity';
@@ -78,6 +79,55 @@ export class AuthService {
       isActive: true,
     });
     return this.publicUser(user);
+  }
+
+  /**
+   * Trusted upsert from the frontend session identity → durable Postgres user
+   * record + per-user JWT. Lets the bridge issue real per-user tokens (identity,
+   * RBAC, audit, tenant) without moving password verification. Guarded upstream
+   * by the shared frontend key.
+   */
+  async syncUser(dto: {
+    email: string;
+    name?: string;
+    role?: string;
+    position?: string;
+    tenantId?: string;
+    buildingId?: string;
+  }) {
+    const email = (dto.email ?? '').trim().toLowerCase();
+    if (!email) throw new BadRequestException('email es obligatorio.');
+    const role: AppRole = isAppRole(dto.role) ? dto.role : 'warehouse_operator';
+    const tenantId = dto.tenantId ?? dto.buildingId ?? undefined;
+
+    const existing = await this.usersService.findOneByEmail(email);
+    let user: User;
+    if (existing) {
+      const patch: Partial<User> = {
+        role: roleColumnFor(role) as User['role'],
+        permissions: permissionsFor(role),
+        status: 'active',
+      };
+      if (dto.name) patch.name = dto.name;
+      if (dto.position) patch.position = dto.position;
+      if (tenantId) patch.tenantId = tenantId;
+      user = await this.usersService.update(existing.id, patch);
+    } else {
+      user = await this.usersService.create({
+        email,
+        username: email,
+        name: dto.name ?? null,
+        position: dto.position ?? null,
+        password: randomUUID(), // unused: password auth happens in the frontend
+        role: roleColumnFor(role) as User['role'],
+        permissions: permissionsFor(role),
+        scopes: {},
+        tenantId,
+        status: 'active',
+        isActive: true,
+      });
+    }
+    return this.login(user);
   }
 
   async approve(id: string, actor: string) {

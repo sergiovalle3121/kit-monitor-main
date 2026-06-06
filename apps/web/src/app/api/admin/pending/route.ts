@@ -1,10 +1,10 @@
-import { NextResponse } from "next/server";
-import { listPendingUsers, publicUser } from "@/lib/store";
-import { requireAdmin } from "@/lib/guard";
+import { NextResponse } from 'next/server';
+import { requireAdmin } from '@/lib/guard';
+import { backendAdmin } from '@/lib/backendAuth';
 
 export async function GET() {
   const auth = await requireAdmin();
   if (!auth.ok) return auth.response;
-  const users = await listPendingUsers();
-  return NextResponse.json({ users: users.map(publicUser) });
+  const r = await backendAdmin('/auth/pending', 'GET');
+  return NextResponse.json({ users: Array.isArray(r.data) ? r.data : [] });
 }
