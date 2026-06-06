@@ -111,7 +111,13 @@ async function bootstrap() {
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'x-frontend-key'],
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'x-frontend-key',
+      'X-Building-Id',
+      'X-Project-Id',
+    ],
   });
 
   // ---------------------------
