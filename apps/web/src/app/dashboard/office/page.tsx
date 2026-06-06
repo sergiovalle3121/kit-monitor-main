@@ -1,14 +1,19 @@
 'use client';
- 
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { motion } from 'framer-motion';
-import { ChevronLeft, FileText, Table, Presentation, Plus, Trash2, Loader2, Lock, AlertCircle } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  ChevronLeft, FileText, Table, Presentation, Plus, Trash2, Loader2, Lock, AlertCircle,
+  Copy, Pencil, RotateCcw, Check, X, Clock,
+} from 'lucide-react';
 import { glass } from '@/lib/glass';
 import { useApi } from '@/hooks/useApi';
+import { useAuth } from '@/hooks/useAuth';
 import { apiFetch } from '@/lib/apiFetch';
+import { TemplateGallery } from '@/components/office/TemplateGallery';
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000').replace(/\/$/, '');
 
@@ -21,36 +26,73 @@ const TABS: { id: DocType; label: string; icon: typeof FileText; color: string; 
   { id: 'slides', label: 'Presentaciones', icon: Presentation, color: 'text-amber-500', tint: 'bg-amber-50 dark:bg-amber-500/10' },
 ];
 
+function relTime(iso?: string): string {
+  if (!iso) return '';
+  const s = Math.round((Date.now() - new Date(iso).getTime()) / 1000);
+  if (s < 60) return 'hace un momento';
+  const m = Math.round(s / 60);
+  if (m < 60) return `hace ${m} min`;
+  const h = Math.round(m / 60);
+  if (h < 24) return `hace ${h} h`;
+  const d = Math.round(h / 24);
+  return d === 1 ? 'ayer' : `hace ${d} días`;
+}
+
 export default function OfficeHubPage() {
   const router = useRouter();
+  const { roles, permissions } = useAuth();
+  const canWrite = roles.includes('Admin') || permissions.some((p) => p.endsWith(':write'));
+
   const [tab, setTab] = useState<DocType>('doc');
-  const { data, isLoading, forbidden, mutate } = useApi<OfficeDoc[]>(`/office-documents?type=${tab}`);
+  const [trash, setTrash] = useState(false);
+  const { data, isLoading, forbidden, mutate } = useApi<OfficeDoc[]>(`/office-documents?type=${tab}${trash ? '&trash=1' : ''}`);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [draft, setDraft] = useState('');
+  const [gallery, setGallery] = useState(false);
   const docs = Array.isArray(data) ? data : [];
   const meta = TABS.find((t) => t.id === tab)!;
 
-  async function create() {
+  async function createFrom(content: any) {
     setBusy(true); setErr(null);
     try {
       const res = await apiFetch(`${API_BASE}/office-documents`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: tab, title: 'Sin título' }),
+        body: JSON.stringify({ type: tab, title: 'Sin título', content: content ?? undefined }),
       });
       if (!res.ok) {
         const d = await res.json().catch(() => ({}));
         setErr(d?.message || `No se pudo crear (HTTP ${res.status}). Si acabas de desplegar, el backend puede seguir actualizándose.`);
+        setGallery(false);
         return;
       }
       const doc = await res.json();
       if (doc?.id) router.push(`/dashboard/office/${doc.id}`);
-      else setErr('El servidor no devolvió un documento válido.');
+      else { setErr('El servidor no devolvió un documento válido.'); setGallery(false); }
     } catch {
       setErr('Error de red al crear el documento. Revisa la conexión con el backend.');
+      setGallery(false);
     } finally { setBusy(false); }
   }
-  async function remove(id: string) {
-    await apiFetch(`${API_BASE}/office-documents/${id}`, { method: 'DELETE' });
+
+  async function act(path: string, method: string) {
+    await apiFetch(`${API_BASE}/office-documents/${path}`, { method });
+    mutate();
+  }
+  const toTrash = (id: string) => act(`${id}`, 'DELETE');
+  const restore = (id: string) => act(`${id}/restore`, 'PATCH');
+  const destroy = (id: string) => { if (window.confirm('¿Eliminar permanentemente? Esta acción no se puede deshacer.')) act(`${id}/permanent`, 'DELETE'); };
+  async function duplicate(id: string) {
+    const r = await apiFetch(`${API_BASE}/office-documents/${id}/duplicate`, { method: 'POST' });
+    if (r.ok) mutate();
+  }
+  async function saveRename(id: string) {
+    const title = draft.trim() || 'Sin título';
+    setEditingId(null);
+    await apiFetch(`${API_BASE}/office-documents/${id}`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title }),
+    });
     mutate();
   }
 
@@ -69,19 +111,30 @@ export default function OfficeHubPage() {
           <p className="text-gray-500 dark:text-gray-400 text-sm">Documentos, hojas de cálculo y presentaciones — todo dentro de Axos.</p>
         </header>
 
-        <div className={`${glass} inline-flex p-1 rounded-2xl mb-6 gap-1`}>
-          {TABS.map((t) => (
-            <button key={t.id} onClick={() => setTab(t.id)} className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${tab === t.id ? 'bg-black text-white dark:bg-white dark:text-black' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-white/5'}`}>
-              <t.icon className="w-4 h-4" /> {t.label}
-            </button>
-          ))}
-        </div>
-
-        <div className="flex justify-end mb-4">
-          <button onClick={create} disabled={busy} className="flex items-center gap-2 bg-black dark:bg-white text-white dark:text-black text-sm font-semibold px-4 py-2 rounded-full hover:scale-[1.03] active:scale-95 transition-transform disabled:opacity-60">
-            {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />} Nuevo {meta.label.toLowerCase()}
+        <div className="flex flex-wrap items-center gap-3 mb-6">
+          <div className={`${glass} inline-flex p-1 rounded-2xl gap-1`}>
+            {TABS.map((t) => (
+              <button key={t.id} onClick={() => setTab(t.id)} className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${tab === t.id ? 'bg-black text-white dark:bg-white dark:text-black' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-white/5'}`}>
+                <t.icon className="w-4 h-4" /> {t.label}
+              </button>
+            ))}
+          </div>
+          <button onClick={() => setTrash((v) => !v)} className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold transition-all ${trash ? 'bg-red-500/10 text-red-500' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-white/5'}`}>
+            <Trash2 className="w-4 h-4" /> Papelera
           </button>
         </div>
+
+        {!trash && (
+          <div className="flex justify-end mb-4">
+            {canWrite ? (
+              <button onClick={() => setGallery(true)} disabled={busy} className="flex items-center gap-2 bg-black dark:bg-white text-white dark:text-black text-sm font-semibold px-4 py-2 rounded-full hover:scale-[1.03] active:scale-95 transition-transform disabled:opacity-60">
+                {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />} Nuevo {meta.label.toLowerCase()}
+              </button>
+            ) : (
+              <span className="flex items-center gap-1.5 text-xs font-medium text-amber-600 dark:text-amber-400"><Lock className="w-3.5 h-3.5" /> Solo lectura</span>
+            )}
+          </div>
+        )}
 
         {err && (
           <div className="flex gap-2 items-start p-3 rounded-2xl bg-red-50 dark:bg-red-500/10 text-red-600 text-sm mb-4">
@@ -94,23 +147,61 @@ export default function OfficeHubPage() {
         ) : isLoading ? (
           <div className="flex justify-center py-16 text-gray-400"><Loader2 className="w-6 h-6 animate-spin" /></div>
         ) : docs.length === 0 ? (
-          <Empty icon={<meta.icon className="w-6 h-6" />} title={`Sin ${meta.label.toLowerCase()}`} body='Crea el primero con "Nuevo".' />
+          <Empty icon={trash ? <Trash2 className="w-6 h-6" /> : <meta.icon className="w-6 h-6" />} title={trash ? 'Papelera vacía' : `Sin ${meta.label.toLowerCase()}`} body={trash ? 'Los documentos que elimines aparecerán aquí.' : 'Crea el primero con "Nuevo".'} />
         ) : (
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {docs.map((d) => (
               <motion.div key={d.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className={`${glass} rounded-2xl p-4 group relative`}>
-                <Link href={`/dashboard/office/${d.id}`} className="block">
-                  <div className={`inline-flex p-2.5 rounded-xl ${meta.tint} mb-3`}><meta.icon className={`w-5 h-5 ${meta.color}`} /></div>
-                  <p className="font-bold truncate">{d.title}</p>
-                  <p className="text-[11px] text-gray-400">{d.createdBy ?? ''}</p>
-                </Link>
-                <button onClick={() => remove(d.id)} className="absolute top-3 right-3 p-1.5 rounded-full text-gray-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 opacity-0 group-hover:opacity-100 transition-all"><Trash2 className="w-4 h-4" /></button>
+                {editingId === d.id ? (
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <input autoFocus value={draft} onChange={(e) => setDraft(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') saveRename(d.id); if (e.key === 'Escape') setEditingId(null); }}
+                      className="flex-1 min-w-0 bg-gray-100 dark:bg-white/10 rounded-lg px-2 py-1 text-sm font-bold outline-none" />
+                    <button onClick={() => saveRename(d.id)} className="p-1.5 rounded-full text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-500/10"><Check className="w-4 h-4" /></button>
+                    <button onClick={() => setEditingId(null)} className="p-1.5 rounded-full text-gray-400 hover:bg-gray-100 dark:hover:bg-white/10"><X className="w-4 h-4" /></button>
+                  </div>
+                ) : (
+                  <Link href={trash ? '#' : `/dashboard/office/${d.id}`} onClick={(e) => { if (trash) e.preventDefault(); }} className={`block ${trash ? 'cursor-default' : ''}`}>
+                    <div className={`inline-flex p-2.5 rounded-xl ${meta.tint} mb-3`}><meta.icon className={`w-5 h-5 ${meta.color}`} /></div>
+                    <p className="font-bold truncate">{d.title}</p>
+                    <p className="flex items-center gap-1 text-[11px] text-gray-400"><Clock className="w-3 h-3" /> {relTime(d.updatedAt)}</p>
+                  </Link>
+                )}
+
+                {canWrite && editingId !== d.id && (
+                  <div className="absolute top-3 right-3 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-all">
+                    {trash ? (
+                      <>
+                        <IconBtn title="Restaurar" onClick={() => restore(d.id)} className="text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-500/10"><RotateCcw className="w-4 h-4" /></IconBtn>
+                        <IconBtn title="Eliminar para siempre" onClick={() => destroy(d.id)} className="text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10"><Trash2 className="w-4 h-4" /></IconBtn>
+                      </>
+                    ) : (
+                      <>
+                        <IconBtn title="Renombrar" onClick={() => { setEditingId(d.id); setDraft(d.title); }} className="text-gray-400 hover:text-black dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/10"><Pencil className="w-4 h-4" /></IconBtn>
+                        <IconBtn title="Duplicar" onClick={() => duplicate(d.id)} className="text-gray-400 hover:text-black dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/10"><Copy className="w-4 h-4" /></IconBtn>
+                        <IconBtn title="Mover a papelera" onClick={() => toTrash(d.id)} className="text-gray-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10"><Trash2 className="w-4 h-4" /></IconBtn>
+                      </>
+                    )}
+                  </div>
+                )}
               </motion.div>
             ))}
           </div>
         )}
       </main>
+
+      <AnimatePresence>
+        {gallery && canWrite && (
+          <TemplateGallery type={tab} onPick={createFrom} onClose={() => setGallery(false)} />
+        )}
+      </AnimatePresence>
     </div>
+  );
+}
+
+function IconBtn({ title, onClick, className, children }: { title: string; onClick: () => void; className?: string; children: React.ReactNode }) {
+  return (
+    <button title={title} onClick={onClick} className={`p-1.5 rounded-full transition-all ${className ?? ''}`}>{children}</button>
   );
 }
 

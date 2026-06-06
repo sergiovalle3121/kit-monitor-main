@@ -39,3 +39,18 @@
 .tiptap-page .ProseMirror p.is-editor-empty:first-child::before {
   content: attr(data-placeholder); color: #9ca3af; float: left; height: 0; pointer-events: none;
 }
+
+/* Print / Save-as-PDF: isolate the document page from the app chrome. */
+@media print {
+  body * { visibility: hidden !important; }
+  .tiptap-page, .tiptap-page * { visibility: visible !important; }
+  .tiptap-page {
+    position: absolute !important; inset: 0 !important; margin: 0 !important;
+    padding: 0 !important; overflow: visible !important; background: #fff !important;
+  }
+  .tiptap-page > div {
+    box-shadow: none !important; border-radius: 0 !important; max-width: none !important;
+    width: 100% !important; min-height: 0 !important; margin: 0 !important;
+  }
+  .tiptap-page .ProseMirror { color: #000 !important; }
+}
