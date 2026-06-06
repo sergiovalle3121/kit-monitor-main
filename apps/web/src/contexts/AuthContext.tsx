@@ -99,34 +99,48 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   /**
    * Initialize auth state from stored token
    */
+  const applyToken = useCallback((token: string) => {
+    const payload = decodeJwt(token);
+    if (payload && payload.exp > Date.now() / 1000) {
+      localStorage.setItem('axos_access_token', token);
+      setUser({ id: payload.sub, email: payload.email });
+      setTenantId(payload.tenant_id || null);
+      setPlantId(payload.plant_id || null);
+      setRoles(payload.role ? [payload.role] : []);
+      setPermissions(payload.permissions || []);
+      return true;
+    }
+    return false;
+  }, []);
+
   useEffect(() => {
-    const initAuth = () => {
+    const initAuth = async () => {
       const token = localStorage.getItem('axos_access_token');
-      
-      if (token) {
-        const payload = decodeJwt(token);
-        
-        if (payload && payload.exp > Date.now() / 1000) {
-          // Token is valid
-          setUser({
-            id: payload.sub,
-            email: payload.email,
-          });
-          setTenantId(payload.tenant_id || null);
-          setPlantId(payload.plant_id || null);
-          setRoles(payload.role ? [payload.role] : []);
-          setPermissions(payload.permissions || []);
-        } else {
-          // Token expired
-          localStorage.removeItem('axos_access_token');
-        }
+
+      if (token && applyToken(token)) {
+        setIsLoading(false);
+        return;
       }
-      
-      setIsLoading(false);
+      localStorage.removeItem('axos_access_token');
+
+      // No valid backend token yet. If the user has a frontend session, bridge
+      // it to a backend JWT so data calls become authenticated. Best-effort:
+      // a failure here never blocks the app (it just stays in "sin acceso").
+      try {
+        const res = await fetch('/api/backend/token', { cache: 'no-store' });
+        if (res.ok) {
+          const data = await res.json();
+          if (data?.access_token) applyToken(data.access_token);
+        }
+      } catch {
+        /* backend unreachable — leave unauthenticated */
+      } finally {
+        setIsLoading(false);
+      }
     };
 
     initAuth();
-  }, []);
+  }, [applyToken]);
 
   /**
    * Check if user has a specific permission
