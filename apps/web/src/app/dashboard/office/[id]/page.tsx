@@ -10,6 +10,8 @@ import { apiFetch } from '@/lib/apiFetch';
 import { useAuth } from '@/hooks/useAuth';
 import { OfficeShell, OfficeShellMessage, type SaveStatus, type OfficeType } from '@/components/office/OfficeShell';
 import { SheetActions } from '@/components/office/SheetActions';
+import { SlideActions } from '@/components/office/SlideActions';
+import { DocActions } from '@/components/office/DocActions';
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000').replace(/\/$/, '');
 const AUTOSAVE_MS = 800;
@@ -142,7 +144,11 @@ export default function OfficeEditorPage() {
   const editorProps = { value: content, onChange: onContent, readOnly };
   const actions = doc.type === 'sheet'
     ? <SheetActions content={content} title={title} onImport={replaceContent} readOnly={readOnly} />
-    : null;
+    : doc.type === 'slides'
+      ? <SlideActions content={content} title={title} />
+      : doc.type === 'doc'
+        ? <DocActions />
+        : null;
 
   return (
     <OfficeShell type={doc.type} title={title} onTitleChange={onTitle} status={status} savedAt={savedAt} readOnly={readOnly} actions={actions}>
