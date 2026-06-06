@@ -19,10 +19,13 @@ export function SheetActions({
   const [busy, setBusy] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  // Content is either the legacy sheet array or the new { sheets, charts } shape.
+  const sheetsOf = (v: any): any[] => (Array.isArray(v) ? v : (Array.isArray(v?.sheets) ? v.sheets : []));
+
   async function doExport(fmt: 'xlsx' | 'csv') {
     setOpen(false);
     setBusy(true);
-    try { await exportSheets(Array.isArray(content) ? content : [], title || 'hoja', fmt); }
+    try { await exportSheets(sheetsOf(content), title || 'hoja', fmt); }
     catch { /* ignore */ }
     finally { setBusy(false); }
   }
