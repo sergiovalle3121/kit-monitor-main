@@ -1,14 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createUser, publicUser, UserRole } from "@/lib/store";
-
-const ROLES: UserRole[] = [
-  "admin",
-  "engineering",
-  "production",
-  "quality",
-  "inventory",
-  "finance",
-];
+import { createUser, publicUser } from "@/lib/store";
+import { roleForPosition, SELECTABLE_POSITION_IDS } from "@/config/positions";
 
 export async function POST(req: NextRequest) {
   let body: unknown;
@@ -17,23 +9,23 @@ export async function POST(req: NextRequest) {
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
-  const { name, email, password, role } = (body ?? {}) as Record<string, string>;
+  const { name, email, password, position } = (body ?? {}) as Record<string, string>;
 
-  if (!name || !email || !password || !role) {
+  if (!name || !email || !password || !position) {
     return NextResponse.json(
-      { error: "Missing required fields" },
+      { error: "Faltan campos requeridos (incluye tu puesto)." },
       { status: 400 },
     );
   }
   if (password.length < 6) {
     return NextResponse.json(
-      { error: "Password must be at least 6 characters" },
+      { error: "La contraseña debe tener al menos 6 caracteres." },
       { status: 400 },
     );
   }
-  if (!ROLES.includes(role as UserRole) || role === "admin") {
+  if (!SELECTABLE_POSITION_IDS.has(position)) {
     return NextResponse.json(
-      { error: "Invalid role. Admin role cannot self-register." },
+      { error: "Puesto no válido o aún no disponible." },
       { status: 400 },
     );
   }
@@ -43,7 +35,8 @@ export async function POST(req: NextRequest) {
       name,
       email,
       password,
-      role: role as UserRole,
+      role: roleForPosition(position),
+      position,
     });
     return NextResponse.json({
       message:

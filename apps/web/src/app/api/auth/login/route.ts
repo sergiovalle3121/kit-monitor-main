@@ -51,6 +51,7 @@ export async function POST(req: NextRequest) {
     name: user.name,
     email: user.email,
     role: user.role,
+    position: user.position ?? null,
   });
 
   return NextResponse.json({ user: publicUser(user) });

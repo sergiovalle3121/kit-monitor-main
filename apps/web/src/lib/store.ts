@@ -3,19 +3,15 @@ import path from "path";
 import crypto from "crypto";
 
 export type UserStatus = "active" | "pending" | "rejected";
-export type UserRole =
-  | "admin"
-  | "engineering"
-  | "production"
-  | "quality"
-  | "inventory"
-  | "finance";
+// Access-group id from the job catalog (src/config/positions.ts → RoleId).
+export type UserRole = string;
 
 export interface StoredUser {
   id: string;
   name: string;
   email: string;
   role: UserRole;
+  position?: string; // position id from the job catalog
   status: UserStatus;
   passwordHash: string;
   passwordSalt: string;
@@ -118,6 +114,7 @@ export async function createUser(input: {
   email: string;
   password: string;
   role: UserRole;
+  position?: string;
 }): Promise<StoredUser> {
   const store = await readStore();
   const exists = store.users.some(
@@ -132,6 +129,7 @@ export async function createUser(input: {
     name: input.name,
     email: input.email,
     role: input.role,
+    position: input.position,
     status: "pending",
     passwordHash: hash,
     passwordSalt: salt,
@@ -215,6 +213,7 @@ export function publicUser(user: StoredUser) {
     name: user.name,
     email: user.email,
     role: user.role,
+    position: user.position ?? null,
     status: user.status,
     createdAt: user.createdAt,
   };

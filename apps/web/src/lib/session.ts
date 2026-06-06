@@ -8,6 +8,7 @@ export interface SessionPayload {
   name: string;
   email?: string;
   role: string;
+  position?: string | null; // position id from the job catalog
   exp: number;
 }
 
