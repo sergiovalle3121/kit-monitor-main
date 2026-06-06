@@ -1,6 +1,6 @@
-import { NextResponse } from "next/server";
-import { setUserStatus, publicUser } from "@/lib/store";
-import { requireAdmin } from "@/lib/guard";
+import { NextResponse } from 'next/server';
+import { requireAdmin } from '@/lib/guard';
+import { backendAdmin } from '@/lib/backendAuth';
 
 export async function POST(
   _req: Request,
@@ -9,9 +9,12 @@ export async function POST(
   const auth = await requireAdmin();
   if (!auth.ok) return auth.response;
   const { id } = await params;
-  const user = await setUserStatus(id, "active");
-  if (!user) {
-    return NextResponse.json({ error: "User not found" }, { status: 404 });
+  const r = await backendAdmin(`/auth/users/${id}/approve`, 'POST');
+  if (!r.ok) {
+    return NextResponse.json(
+      { error: 'No se pudo aprobar al usuario.' },
+      { status: r.status || 502 },
+    );
   }
-  return NextResponse.json({ user: publicUser(user) });
+  return NextResponse.json({ user: r.data });
 }
