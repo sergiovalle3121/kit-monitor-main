@@ -2,6 +2,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import React, { useEffect, useRef, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   Canvas, StaticCanvas, Textbox, Rect, Circle, Line, Triangle, FabricImage,
 } from 'fabric';
@@ -16,6 +17,7 @@ import {
 const CW = 960;
 const CH = 540;
 const PALETTE = ['#111827', '#ffffff', '#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#7c3aed', '#ec4899'];
+const BACKGROUNDS = ['#ffffff', '#f1f5f9', '#0f172a', '#1e293b', '#fef3c7', '#ecfeff'];
 
 function blank() { return { version: '7', objects: [], background: '#ffffff' }; }
 function labelOf(slide: any): string {
@@ -46,11 +48,20 @@ export function SlidesEditor({ value, onChange, readOnly }: { value: any; onChan
   const [slides, setSlides] = useState<any[]>(initial); // mirror for rendering
   const [cur, setCur] = useState(0);
   const [noteDraft, setNoteDraft] = useState<string>(initialNotes[0] ?? '');
+  const [transition, setTransition] = useState<string>(value?.transition || 'fade');
+  const transitionRef = useRef<string>(transition);
   const [presenting, setPresenting] = useState(false);
 
   useEffect(() => { curRef.current = cur; }, [cur]);
 
-  function sync() { setSlides([...slidesRef.current]); onChange({ version: 2, slides: slidesRef.current, notes: notesRef.current }); }
+  function sync() { setSlides([...slidesRef.current]); onChange({ version: 2, slides: slidesRef.current, notes: notesRef.current, transition: transitionRef.current }); }
+  function setTrans(t: string) { setTransition(t); transitionRef.current = t; sync(); }
+  function applyBgAll(color: string) {
+    capture();
+    for (const s of slidesRef.current) s.background = color;
+    const c = fabricRef.current; if (c) { c.backgroundColor = color; c.requestRenderAll(); }
+    sync();
+  }
   function capture() { const c = fabricRef.current; if (c) slidesRef.current[curRef.current] = c.toJSON(); }
 
   useEffect(() => {
@@ -187,8 +198,22 @@ export function SlidesEditor({ value, onChange, readOnly }: { value: any; onChan
         <span className="w-px h-5 bg-gray-200 dark:bg-white/10 mx-1" />
         <TBtn on={dupObj} title="Duplicar elemento"><CopyPlus className="w-4 h-4" /></TBtn>
         <TBtn on={del} title="Borrar elemento"><Trash2 className="w-4 h-4" /></TBtn>
+        <span className="w-px h-5 bg-gray-200 dark:bg-white/10 mx-1" />
+        <span className="text-[11px] text-gray-400 ml-1 mr-0.5" title="Fondo de todas las diapositivas">Fondo</span>
+        {BACKGROUNDS.map((bg) => (
+          <button key={bg} onClick={() => applyBgAll(bg)} title="Aplicar fondo a todo" className="w-5 h-5 rounded-full border border-gray-300 dark:border-white/20 mx-0.5" style={{ background: bg }} />
+        ))}
         </>}
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-2">
+          {!readOnly && (
+            <select value={transition} onChange={(e) => setTrans(e.target.value)} title="Transición entre diapositivas"
+              className="h-8 text-xs rounded-lg bg-transparent hover:bg-gray-100 dark:hover:bg-white/10 border border-gray-200 dark:border-white/10 px-1.5 outline-none cursor-pointer text-gray-600 dark:text-gray-300">
+              <option value="none">Sin transición</option>
+              <option value="fade">Fundido</option>
+              <option value="slide">Deslizar</option>
+              <option value="zoom">Zoom</option>
+            </select>
+          )}
           <button onClick={() => { capture(); setPresenting(true); }} className="flex items-center gap-1.5 bg-black dark:bg-white text-white dark:text-black text-sm font-semibold px-4 py-2 rounded-full hover:scale-[1.03] active:scale-95 transition-transform"><Play className="w-4 h-4" /> Presentar</button>
         </div>
       </div>
@@ -235,15 +260,23 @@ export function SlidesEditor({ value, onChange, readOnly }: { value: any; onChan
         </div>
       </div>
 
-      {presenting && <Present slides={slides} notes={notesRef.current} onClose={() => setPresenting(false)} />}
+      {presenting && <Present slides={slides} notes={notesRef.current} transition={transition} onClose={() => setPresenting(false)} />}
     </div>
   );
 }
 
-function Present({ slides, notes, onClose }: { slides: any[]; notes?: string[]; onClose: () => void }) {
+const TRANSITIONS: Record<string, any> = {
+  none: { initial: {}, animate: {}, exit: {} },
+  fade: { initial: { opacity: 0 }, animate: { opacity: 1 }, exit: { opacity: 0 } },
+  slide: { initial: { x: '100%', opacity: 0 }, animate: { x: 0, opacity: 1 }, exit: { x: '-100%', opacity: 0 } },
+  zoom: { initial: { scale: 0.85, opacity: 0 }, animate: { scale: 1, opacity: 1 }, exit: { scale: 1.1, opacity: 0 } },
+};
+
+function Present({ slides, notes, transition, onClose }: { slides: any[]; notes?: string[]; transition?: string; onClose: () => void }) {
   const [imgs, setImgs] = useState<string[]>([]);
   const [i, setI] = useState(0);
   const [showNotes, setShowNotes] = useState(false);
+  const variant = TRANSITIONS[transition || 'fade'] ?? TRANSITIONS.fade;
 
   useEffect(() => {
     let active = true;
@@ -282,8 +315,14 @@ function Present({ slides, notes, onClose }: { slides: any[]; notes?: string[]; 
         )}
         <button onClick={onClose} title="Cerrar (Esc)" className="p-2 rounded-full bg-white/15 text-white hover:bg-white/30"><X className="w-5 h-5" /></button>
       </div>
-      {imgs[i] ? <img src={imgs[i]} alt={`Diapositiva ${i + 1}`} className="max-w-full max-h-full object-contain" /> : <div className="text-white/60">Generando…</div>}
-      <button onClick={() => setI((v) => Math.max(0, v - 1))} disabled={i === 0} className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/15 text-white text-2xl hover:bg-white/30 disabled:opacity-20">‹</button>
+      <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
+        <AnimatePresence mode="popLayout" initial={false}>
+          {imgs[i]
+            ? <motion.img key={i} src={imgs[i]} alt={`Diapositiva ${i + 1}`} variants={variant} initial="initial" animate="animate" exit="exit" transition={{ duration: 0.4, ease: 'easeInOut' }} className="max-w-full max-h-full object-contain absolute" />
+            : <div className="text-white/60">Generando…</div>}
+        </AnimatePresence>
+      </div>
+      <button onClick={() => setI((v) => Math.max(0, v - 1))} disabled={i === 0} className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/15 text-white text-2xl hover:bg-white/30 disabled:opacity-20 z-10">‹</button>
       <button onClick={() => setI((v) => Math.min(slides.length - 1, v + 1))} disabled={i === slides.length - 1} className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/15 text-white text-2xl hover:bg-white/30 disabled:opacity-20">›</button>
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/70 text-sm">{i + 1} / {slides.length}</div>
       {showNotes && (
