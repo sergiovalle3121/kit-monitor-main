@@ -74,6 +74,7 @@ async function ensureAdmin(
     } else {
       await usersService.update(existing.id, {
         role: UserRole.ADMIN,
+        name: params.name,
         isActive: true,
         status: 'active',
         ...(params.forcePassword ? { password: params.password } : {}),

@@ -71,7 +71,7 @@ async function defaultStore(): Promise<StoreShape> {
     users: [
       {
         id: crypto.randomUUID(),
-        name: "Sergio Valle",
+        name: "Demo Admin",
         email: "admin@axos.com",
         role: "admin",
         status: "active",
