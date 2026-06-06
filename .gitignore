@@ -11,6 +11,12 @@ __pycache__/
 dist/
 build/
 target/
+.turbo/
+.next/
+
+# Local dev databases
+*.sqlite
+dev.sqlite
 
 # Dependencies
 .venv/

@@ -38,6 +38,7 @@ const AREAS: { name: string; desc: string; href: string; icon: LucideIcon; color
   { name: "Almacén", desc: "Surtir y autorizar", href: "/dashboard/almacen", icon: Warehouse, color: "text-blue-500", tint: "bg-blue-50 dark:bg-blue-500/10", roles: ["warehouse_operator"] },
   { name: "Inventario", desc: "Existencias y kitting", href: "/dashboard/inventory", icon: Boxes, color: "text-sky-500", tint: "bg-sky-50 dark:bg-sky-500/10", roles: ["warehouse_operator", "planner"] },
   { name: "Producción", desc: "Órdenes y piso", href: "/dashboard/production", icon: Factory, color: "text-amber-500", tint: "bg-amber-50 dark:bg-amber-500/10", roles: ["production_supervisor", "warehouse_operator"] },
+  { name: "Operador MES", desc: "Ejecución en estación", href: "/dashboard/operador", icon: Icons.HardHat, color: "text-orange-500", tint: "bg-orange-50 dark:bg-orange-500/10", roles: ["production_supervisor"] },
   { name: "Calidad", desc: "Inspección y NCR", href: "/dashboard/quality", icon: ShieldCheck, color: "text-emerald-500", tint: "bg-emerald-50 dark:bg-emerald-500/10", roles: ["quality_engineer"] },
   { name: "Ingeniería", desc: "BOM y proceso", href: "/dashboard/engineering", icon: Cpu, color: "text-indigo-500", tint: "bg-indigo-50 dark:bg-indigo-500/10", roles: ["engineering", "quality_engineer", "production_supervisor"] },
   { name: "Finanzas", desc: "Costos y P&L", href: "/dashboard/finance", icon: DollarSign, color: "text-green-500", tint: "bg-green-50 dark:bg-green-500/10", roles: ["finance"] },
