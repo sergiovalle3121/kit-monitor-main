@@ -27,6 +27,7 @@ import { useVisibleDomains } from "@/hooks/useVisibleDomains";
 import { Role } from "@/config/domains";
 import { glass } from "@/lib/glass";
 import { useApi } from "@/hooks/useApi";
+import { positionLabel } from "@/config/positions";
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000").replace(/\/$/, "");
 
@@ -35,6 +36,7 @@ interface SessionInfo {
   name: string;
   email: string | null;
   role: string;
+  position?: string | null;
   userId: string | null;
 }
 interface AdminNotification {
@@ -128,7 +130,7 @@ function DashboardInner() {
   const visibleDomains = useVisibleDomains((session?.role as Role) || "admin");
   const firstName = session?.name?.split(" ")[0] || "Usuario";
   const initials = (session?.name || "?").split(" ").map((p) => p[0]).slice(0, 2).join("").toUpperCase();
-  const roleLabel = ROLE_LABELS[session?.role || ""] || session?.role || "—";
+  const roleLabel = positionLabel(session?.position) || ROLE_LABELS[session?.role || ""] || session?.role || "—";
 
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST" });

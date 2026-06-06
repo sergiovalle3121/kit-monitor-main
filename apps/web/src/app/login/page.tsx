@@ -11,10 +11,14 @@ import {
   User,
   Layers,
   ChevronLeft,
+  ChevronDown,
   CheckCircle2,
   AlertCircle,
+  Briefcase,
+  Check,
 } from "lucide-react";
 import Link from "next/link";
+import { positionsByDepartment, getPosition, LEVELS } from "@/config/positions";
 
 type Status =
   | { kind: "idle" }
@@ -30,11 +34,12 @@ function LoginInner() {
   const [showPassword, setShowPassword] = useState(false);
   const [status, setStatus] = useState<Status>({ kind: "idle" });
   const [isRegistering, setIsRegistering] = useState(false);
+  const [openDept, setOpenDept] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
     password: "",
-    role: "production",
+    position: "",
   });
 
   async function handleSubmit(e: React.FormEvent) {
@@ -43,6 +48,10 @@ function LoginInner() {
 
     try {
       if (isRegistering) {
+        if (!formData.position) {
+          setStatus({ kind: "error", message: "Selecciona tu puesto." });
+          return;
+        }
         const res = await fetch("/api/auth/register", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -50,7 +59,7 @@ function LoginInner() {
             name: formData.name,
             email: formData.email,
             password: formData.password,
-            role: formData.role,
+            position: formData.position,
           }),
         });
         const data = await res.json();
@@ -260,29 +269,58 @@ function LoginInner() {
                   className="space-y-2 overflow-hidden"
                 >
                   <label className="text-xs font-medium text-gray-500 dark:text-gray-400 ml-1">
-                    Primary Role / Function
+                    Tu puesto
                   </label>
-                  <div className="relative group">
-                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400 group-focus-within:text-black dark:group-focus-within:text-white transition-colors">
-                      <Layers className="w-4 h-4" />
-                    </div>
-                    <select
-                      required
-                      value={formData.role}
-                      onChange={(e) =>
-                        setFormData({ ...formData, role: e.target.value })
-                      }
-                      className="w-full bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/5 rounded-2xl py-4 pl-11 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-black/5 dark:focus:ring-white/5 focus:border-black dark:focus:border-white transition-all outline-none appearance-none"
-                    >
-                      <option value="engineering">Engineering (NPI & BOM)</option>
-                      <option value="production">Production & Manufacturing</option>
-                      <option value="quality">Quality Assurance</option>
-                      <option value="inventory">Inventory & Logistics</option>
-                      <option value="finance">Finance & Costing</option>
-                    </select>
+                  <div className="rounded-2xl border border-gray-100 dark:border-white/10 divide-y divide-gray-100 dark:divide-white/10 max-h-72 overflow-y-auto">
+                    {positionsByDepartment().map(({ department, positions }) => {
+                      const open = openDept === department.id;
+                      const disabled = !!department.comingSoon;
+                      return (
+                        <div key={department.id}>
+                          <button
+                            type="button"
+                            onClick={() => setOpenDept(open ? null : department.id)}
+                            className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
+                          >
+                            <span className="flex items-center gap-2">
+                              <Briefcase className="w-4 h-4 text-gray-400" />
+                              <span className="text-sm font-medium">{department.label}</span>
+                              {disabled && (
+                                <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-400 dark:bg-white/10">Próximamente</span>
+                              )}
+                            </span>
+                            <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${open ? "rotate-180" : ""}`} />
+                          </button>
+                          {open && (
+                            <div className="px-2 pb-2 space-y-1">
+                              {positions.map((p) => {
+                                const selected = formData.position === p.id;
+                                return (
+                                  <button
+                                    key={p.id}
+                                    type="button"
+                                    disabled={disabled}
+                                    onClick={() => setFormData({ ...formData, position: p.id })}
+                                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm transition-colors ${disabled ? "opacity-40 cursor-not-allowed" : selected ? "bg-black text-white dark:bg-white dark:text-black" : "hover:bg-gray-100 dark:hover:bg-white/10"}`}
+                                  >
+                                    <span>
+                                      {p.label}
+                                      <span className={`ml-2 text-[10px] ${selected ? "opacity-70" : "text-gray-400"}`}>{LEVELS[p.level]}</span>
+                                    </span>
+                                    {selected && <Check className="w-4 h-4" />}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                   <p className="text-[10px] text-gray-400 ml-1 mt-1">
-                    El rol de Administrador no puede registrarse — un admin debe crearlo.
+                    {formData.position
+                      ? `Seleccionado: ${getPosition(formData.position)?.label}`
+                      : "Elige tu departamento y puesto. El administrador aprobará tu acceso."}
                   </p>
                 </motion.div>
               )}

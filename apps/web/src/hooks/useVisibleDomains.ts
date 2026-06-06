@@ -16,6 +16,8 @@ const IMPLEMENTED = new Set<string>([
 ]);
 
 export function useVisibleDomains(role: Role) {
-  const byRole = role === 'admin' ? DOMAINS : DOMAINS.filter((d) => d.roles.includes(role));
+  // admin and executive see every implemented area; everyone else only theirs.
+  const seesAll = role === 'admin' || role === 'executive';
+  const byRole = seesAll ? DOMAINS : DOMAINS.filter((d) => d.roles.includes(role));
   return byRole.filter((d) => IMPLEMENTED.has(d.id));
 }

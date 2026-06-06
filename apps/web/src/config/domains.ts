@@ -1,7 +1,7 @@
 export type Layer = 'control' | 'plan' | 'source' | 'make' | 'deliver' | 'enable';
 export type Role =
-  | 'admin' | 'planner' | 'buyer' | 'production_supervisor'
-  | 'quality_engineer' | 'warehouse_operator' | 'finance' | 'hr';
+  | 'admin' | 'executive' | 'planner' | 'buyer' | 'production_supervisor'
+  | 'quality_engineer' | 'engineering' | 'warehouse_operator' | 'finance' | 'hr';
 
 export interface SubApp {
   id: string;
@@ -84,7 +84,7 @@ export const DOMAINS: Domain[] = [
   {
     id: 'engineering', name: 'Ingeniería', subtitle: 'NPI y PLM',
     layer: 'make', icon: 'Cpu', tint: 'bg-indigo-50', accent: 'text-indigo-500',
-    roles: ['admin', 'quality_engineer', 'production_supervisor'],
+    roles: ['admin', 'engineering', 'quality_engineer', 'production_supervisor'],
     subApps: [
       { id: 'bom', name: 'Gestión de BOM', icon: 'ListTree' },
       { id: 'eco', name: 'Cambios ECO / ECN', icon: 'GitPullRequest' },
