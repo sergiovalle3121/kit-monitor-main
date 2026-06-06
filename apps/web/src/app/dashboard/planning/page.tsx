@@ -430,11 +430,11 @@ function NewPlanForm({
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
         <div className="col-span-2 md:col-span-1">
           <label className="text-xs text-gray-500 ml-1">Modelo</label>
-          <input className={field} value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} placeholder="OP-520-0001" />
+          <input className={field} value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} placeholder="Nombre o número de modelo" />
         </div>
         <div>
           <label className="text-xs text-gray-500 ml-1">Cantidad</label>
-          <input className={field} type="number" min={1} value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} placeholder="100" />
+          <input className={field} type="number" min={1} value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} placeholder="Unidades a producir" />
         </div>
         <div>
           <label className="text-xs text-gray-500 ml-1">Línea</label>
