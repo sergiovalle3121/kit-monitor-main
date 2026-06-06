@@ -11,10 +11,14 @@ import TaskItem from '@tiptap/extension-task-item';
 import Image from '@tiptap/extension-image';
 import { TextStyleKit } from '@tiptap/extension-text-style';
 import { TableKit } from '@tiptap/extension-table';
+import Subscript from '@tiptap/extension-subscript';
+import Superscript from '@tiptap/extension-superscript';
+import { CharacterCount } from '@tiptap/extension-character-count';
 import {
   Bold, Italic, Underline, Strikethrough, Code,
   List, ListOrdered, ListChecks, Quote, AlignLeft, AlignCenter, AlignRight, AlignJustify,
   Highlighter, Link2, Image as ImageIcon, Table as TableIcon, Undo, Redo, Minus, Search, SeparatorHorizontal,
+  Subscript as SubIcon, Superscript as SupIcon, RemoveFormatting,
 } from 'lucide-react';
 import { DocFindReplace } from './DocFindReplace';
 import { DocOutline } from './DocOutline';
@@ -63,7 +67,7 @@ function Sel({ value, onChange, title, style, children }: { value: string; onCha
 function Sep() { return <span className="w-px h-5 bg-gray-200 dark:bg-white/10 mx-1" />; }
 
 /** Word-like rich text editor (TipTap + MIT extensions). */
-export function DocEditor({ value, onChange, readOnly, author }: { value: any; onChange: (json: any) => void; readOnly?: boolean; author?: string }) {
+export function DocEditor({ value, onChange, readOnly, author, onStats }: { value: any; onChange: (json: any) => void; readOnly?: boolean; author?: string; onStats?: (s: { words: number; chars: number }) => void }) {
   const editor = useEditor({
     extensions: [
       StarterKit,
@@ -74,6 +78,9 @@ export function DocEditor({ value, onChange, readOnly, author }: { value: any; o
       Image.configure({ inline: false }),
       TextStyleKit.configure({ lineHeight: { types: ['heading', 'paragraph'] } } as any),
       TableKit.configure({ table: { resizable: true } }),
+      Subscript,
+      Superscript,
+      CharacterCount.configure({}),
       CommentMark,
       PageBreak,
       PageMeta,
@@ -81,8 +88,15 @@ export function DocEditor({ value, onChange, readOnly, author }: { value: any; o
     content: value ?? '<p></p>',
     editable: !readOnly,
     immediatelyRender: false,
-    onUpdate: ({ editor }) => onChange(editor.getJSON()),
+    onUpdate: ({ editor }) => {
+      onChange(editor.getJSON());
+      onStats?.({ words: editor.storage.characterCount.words(), chars: editor.storage.characterCount.characters() });
+    },
   });
+
+  useEffect(() => {
+    if (editor && onStats) onStats({ words: editor.storage.characterCount.words(), chars: editor.storage.characterCount.characters() });
+  }, [editor, onStats]);
 
   const [showFind, setShowFind] = React.useState(false);
 
@@ -146,6 +160,9 @@ export function DocEditor({ value, onChange, readOnly, author }: { value: any; o
         <Btn on={() => (c() as any).toggleUnderline().run()} active={editor.isActive('underline')} title="Subrayado"><Underline className="w-4 h-4" /></Btn>
         <Btn on={() => c().toggleStrike().run()} active={editor.isActive('strike')} title="Tachado"><Strikethrough className="w-4 h-4" /></Btn>
         <Btn on={() => (c() as any).toggleHighlight().run()} active={editor.isActive('highlight')} title="Resaltar"><Highlighter className="w-4 h-4" /></Btn>
+        <Btn on={() => (c() as any).toggleSubscript().run()} active={editor.isActive('subscript')} title="Subíndice"><SubIcon className="w-4 h-4" /></Btn>
+        <Btn on={() => (c() as any).toggleSuperscript().run()} active={editor.isActive('superscript')} title="Superíndice"><SupIcon className="w-4 h-4" /></Btn>
+        <Btn on={() => c().unsetAllMarks().clearNodes().run()} title="Limpiar formato"><RemoveFormatting className="w-4 h-4" /></Btn>
         <label title="Color de texto" className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-white/10 cursor-pointer flex items-center">
           <span className="w-4 h-4 rounded-sm border border-gray-300" style={{ background: 'linear-gradient(135deg,#ef4444,#3b82f6)' }} />
           <input type="color" onChange={(e) => (c() as any).setColor(e.target.value).run()} className="w-0 h-0 opacity-0 absolute" />

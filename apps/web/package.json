@@ -10,9 +10,12 @@
   },
   "dependencies": {
     "@fortune-sheet/react": "^1.0.4",
+    "@tiptap/extension-character-count": "^3.26.0",
     "@tiptap/extension-color": "^3.26.0",
     "@tiptap/extension-highlight": "^3.26.0",
     "@tiptap/extension-image": "^3.26.0",
+    "@tiptap/extension-subscript": "^3.26.0",
+    "@tiptap/extension-superscript": "^3.26.0",
     "@tiptap/extension-table": "^3.26.0",
     "@tiptap/extension-table-cell": "^3.26.0",
     "@tiptap/extension-table-header": "^3.26.0",

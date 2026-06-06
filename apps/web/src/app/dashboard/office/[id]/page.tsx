@@ -45,6 +45,7 @@ export default function OfficeEditorPage() {
   const [savedAt, setSavedAt] = useState<number | null>(null);
 
   const [editorKey, setEditorKey] = useState(0); // bump to remount the editor (e.g. after an import)
+  const [docStats, setDocStats] = useState<{ words: number; chars: number } | null>(null);
   const contentRef = useRef<any>(null);
   const titleRef = useRef('');
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -168,10 +169,13 @@ export default function OfficeEditorPage() {
       <VersionHistory docId={id} canEdit={!readOnly} onRestored={onRestored} />
     </>
   );
+  const statusBarRight = doc.type === 'doc' && docStats
+    ? <span>{docStats.words} palabras · {docStats.chars} caracteres</span>
+    : null;
 
   return (
-    <OfficeShell type={doc.type} title={title} onTitleChange={onTitle} status={status} savedAt={savedAt} readOnly={readOnly} actions={actions}>
-      {doc.type === 'doc' ? <DocEditor key={editorKey} {...editorProps} author={user?.email ?? ''} />
+    <OfficeShell type={doc.type} title={title} onTitleChange={onTitle} status={status} savedAt={savedAt} readOnly={readOnly} actions={actions} statusBarRight={statusBarRight}>
+      {doc.type === 'doc' ? <DocEditor key={editorKey} {...editorProps} author={user?.email ?? ''} onStats={setDocStats} />
         : doc.type === 'sheet' ? <SheetEditor key={editorKey} {...editorProps} />
         : doc.type === 'slides' ? <SlidesEditor key={editorKey} {...editorProps} />
         : <div className="py-20 text-center text-sm text-gray-400">Tipo de documento desconocido.</div>}
