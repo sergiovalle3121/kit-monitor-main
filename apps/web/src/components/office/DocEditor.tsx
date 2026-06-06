@@ -17,6 +17,9 @@ import {
   Highlighter, Link2, Image as ImageIcon, Table as TableIcon, Undo, Redo, Minus, Search,
 } from 'lucide-react';
 import { DocFindReplace } from './DocFindReplace';
+import { DocOutline } from './DocOutline';
+import { DocComments } from './DocComments';
+import { CommentMark } from './commentMark';
 import '@/styles/tiptap.css';
 
 const FONTS = [
@@ -58,7 +61,7 @@ function Sel({ value, onChange, title, style, children }: { value: string; onCha
 function Sep() { return <span className="w-px h-5 bg-gray-200 dark:bg-white/10 mx-1" />; }
 
 /** Word-like rich text editor (TipTap + MIT extensions). */
-export function DocEditor({ value, onChange, readOnly }: { value: any; onChange: (json: any) => void; readOnly?: boolean }) {
+export function DocEditor({ value, onChange, readOnly, author }: { value: any; onChange: (json: any) => void; readOnly?: boolean; author?: string }) {
   const editor = useEditor({
     extensions: [
       StarterKit,
@@ -69,6 +72,7 @@ export function DocEditor({ value, onChange, readOnly }: { value: any; onChange:
       Image.configure({ inline: false }),
       TextStyleKit.configure({ lineHeight: { types: ['heading', 'paragraph'] } } as any),
       TableKit.configure({ table: { resizable: true } }),
+      CommentMark,
     ],
     content: value ?? '<p></p>',
     editable: !readOnly,
@@ -163,6 +167,8 @@ export function DocEditor({ value, onChange, readOnly }: { value: any; onChange:
         <Btn on={() => c().setHorizontalRule().run()} title="Separador"><Minus className="w-4 h-4" /></Btn>
         <Sep />
         <Btn on={() => setShowFind(true)} title="Buscar y reemplazar (Ctrl+F)"><Search className="w-4 h-4" /></Btn>
+        <DocOutline editor={editor} />
+        <DocComments editor={editor} author={author ?? ''} />
       </div>
       )}
 
