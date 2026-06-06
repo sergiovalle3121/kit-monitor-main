@@ -22,7 +22,7 @@ export function ChatWidget() {
     <Link
       href="/dashboard/chat"
       aria-label="Abrir chat interno"
-      className="fixed bottom-8 right-8 z-[100] flex h-14 w-14 items-center justify-center rounded-full bg-blue-600 text-white shadow-2xl transition-all hover:scale-105 hover:bg-blue-700 active:scale-95"
+      className="fixed bottom-28 right-8 z-[100] flex h-14 w-14 items-center justify-center rounded-full bg-blue-600 text-white shadow-2xl transition-all hover:scale-105 hover:bg-blue-700 active:scale-95"
     >
       <MessageSquare className="h-6 w-6" />
     </Link>

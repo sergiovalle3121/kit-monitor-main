@@ -4,6 +4,8 @@
  * session still gates the UI, but identity/RBAC/audit live in the backend.
  */
 
+import { getSession } from '@/lib/session';
+
 export interface BackendUser {
   id: string;
   email: string;
@@ -133,5 +135,57 @@ export async function backendAdmin(
     return { ok: res.ok, status: res.status, data };
   } catch {
     return { ok: false, status: 502, data: null };
+  }
+}
+
+/**
+ * Mint a PER-USER backend JWT from the current cookie session (same bridge the
+ * /api/backend/token route uses) so backend RBAC + tenant scoping apply. Falls
+ * back to the shared service identity so calls never hard-break.
+ */
+export async function bridgeToken(): Promise<string | null> {
+  const session = await getSession();
+  if (!session) return null;
+  if (session.email) {
+    const t = await backendSync({
+      email: session.email,
+      name: session.name,
+      role: session.role,
+      position: session.position,
+    });
+    if (t) return t;
+  }
+  return backendServiceToken();
+}
+
+/** Authenticated backend call using the current user's per-user token. */
+export async function backendUserFetch(
+  path: string,
+  method: 'GET' | 'POST',
+  body?: unknown,
+): Promise<{ ok: boolean; status: number; data: unknown }> {
+  const token = await bridgeToken();
+  if (!token) {
+    return { ok: false, status: 401, data: { message: 'Sesión no válida.' } };
+  }
+  try {
+    const res = await fetch(`${backendApiBase()}${path}`, {
+      method,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        ...keyHeaders(),
+      },
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+      cache: 'no-store',
+    });
+    const data = await res.json().catch(() => null);
+    return { ok: res.ok, status: res.status, data };
+  } catch {
+    return {
+      ok: false,
+      status: 502,
+      data: { message: 'Backend no disponible.' },
+    };
   }
 }
