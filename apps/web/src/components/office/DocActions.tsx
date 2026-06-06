@@ -1,22 +1,76 @@
 'use client';
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
-import React from 'react';
-import { Printer } from 'lucide-react';
+import React, { useRef, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Printer, FileText, Upload, ChevronDown, Download, Loader2 } from 'lucide-react';
+import { exportDocx, importDocx } from '@/lib/office/docx';
 
-/**
- * Print / Save-as-PDF for documents. Uses the browser print pipeline, which is
- * the most faithful HTML→PDF path; print CSS (tiptap.css) isolates the page so
- * only the document — not the app chrome — is printed.
- */
-export function DocActions() {
+/** Export (PDF / Word) + Import (.docx) for the document editor. */
+export function DocActions({
+  content, title, onImport, readOnly,
+}: {
+  content: any;
+  title: string;
+  onImport: (html: string) => void;
+  readOnly?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  async function word() {
+    setOpen(false);
+    setBusy(true);
+    try { await exportDocx(content, title || 'documento'); }
+    catch { /* ignore */ }
+    finally { setBusy(false); }
+  }
+  function pdf() { setOpen(false); window.print(); }
+
+  async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0];
+    e.target.value = '';
+    if (!f) return;
+    setBusy(true);
+    try { onImport(await importDocx(f)); }
+    catch { window.alert('No se pudo importar el archivo .docx.'); }
+    finally { setBusy(false); }
+  }
+
+  const btn = 'flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 text-gray-600 dark:text-gray-300 transition-colors';
+
   return (
-    <button
-      onClick={() => window.print()}
-      title="Imprimir / Guardar como PDF"
-      className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 text-gray-600 dark:text-gray-300 transition-colors"
-    >
-      <Printer className="w-4 h-4" />
-      <span className="hidden lg:inline">Imprimir / PDF</span>
-    </button>
+    <div className="flex items-center gap-0.5">
+      {!readOnly && (
+        <>
+          <input ref={fileRef} type="file" accept=".docx" onChange={onFile} className="hidden" />
+          <button onClick={() => fileRef.current?.click()} className={btn} title="Importar .docx">
+            <Upload className="w-4 h-4" /> <span className="hidden lg:inline">Importar</span>
+          </button>
+        </>
+      )}
+      <div className="relative">
+        <button onClick={() => setOpen((o) => !o)} className={btn} title="Exportar">
+          {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+          <span className="hidden lg:inline">Exportar</span>
+          <ChevronDown className="w-3 h-3" />
+        </button>
+        <AnimatePresence>
+          {open && (
+            <>
+              <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+              <motion.div
+                initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
+                className="absolute right-0 mt-1 z-20 w-44 rounded-xl border border-black/10 dark:border-white/10 bg-white dark:bg-[#1a1a1a] shadow-xl p-1"
+              >
+                <button onClick={word} className="w-full flex items-center gap-2 text-left text-sm px-3 py-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10"><FileText className="w-4 h-4 text-blue-500" /> Word (.docx)</button>
+                <button onClick={pdf} className="w-full flex items-center gap-2 text-left text-sm px-3 py-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10"><Printer className="w-4 h-4 text-gray-500" /> PDF / Imprimir</button>
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>
+      </div>
+    </div>
   );
 }

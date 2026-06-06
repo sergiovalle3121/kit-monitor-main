@@ -157,7 +157,7 @@ export default function OfficeEditorPage() {
     : doc.type === 'slides'
       ? <SlideActions content={content} title={title} />
       : doc.type === 'doc'
-        ? <DocActions />
+        ? <DocActions content={content} title={title} onImport={replaceContent} readOnly={readOnly} />
         : null;
   const actions = (
     <>
