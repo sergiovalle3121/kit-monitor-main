@@ -26,7 +26,7 @@ function TBtn({ on, title, children }: any) {
   );
 }
 
-export function SlidesEditor({ value, onChange }: { value: any; onChange: (data: any) => void }) {
+export function SlidesEditor({ value, onChange, readOnly }: { value: any; onChange: (data: any) => void; readOnly?: boolean }) {
   const elRef = useRef<HTMLCanvasElement>(null);
   const fabricRef = useRef<Canvas | null>(null);
   const loadingRef = useRef(false);
@@ -63,6 +63,10 @@ export function SlidesEditor({ value, onChange }: { value: any; onChange: (data:
       const json = slidesRef.current[i] || blank();
       await c.loadFromJSON(json);
       c.backgroundColor = (json.background as string) || '#ffffff';
+      if (readOnly) {
+        c.selection = false;
+        c.forEachObject((o: any) => { o.selectable = false; o.evented = false; });
+      }
       c.requestRenderAll();
     } catch { /* noop */ }
     loadingRef.current = false;
@@ -113,8 +117,9 @@ export function SlidesEditor({ value, onChange }: { value: any; onChange: (data:
   function delSlide(i: number) { if (slidesRef.current.length === 1) return; slidesRef.current.splice(i, 1); sync(); loadInto(Math.max(0, i <= cur ? cur - 1 : cur)); }
 
   return (
-    <div className="flex flex-col gap-3" style={{ height: 'calc(100vh - 110px)' }}>
+    <div className="flex flex-col gap-3 h-full p-3">
       <div className="flex items-center gap-0.5 flex-wrap rounded-2xl border border-gray-100 dark:border-white/10 px-2 py-1.5 bg-white dark:bg-[#111]">
+        {!readOnly && <>
         <TBtn on={addText} title="Cuadro de texto"><Type className="w-4 h-4" /></TBtn>
         <label title="Imagen" className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-white/10 text-gray-600 dark:text-gray-300 cursor-pointer flex items-center">
           <ImagePlus className="w-4 h-4" /><input type="file" accept="image/*" onChange={onFile} className="hidden" />
@@ -139,6 +144,7 @@ export function SlidesEditor({ value, onChange }: { value: any; onChange: (data:
         <TBtn on={front} title="Traer al frente"><ChevronsUp className="w-4 h-4" /></TBtn>
         <TBtn on={back} title="Enviar atrás"><ChevronsDown className="w-4 h-4" /></TBtn>
         <TBtn on={del} title="Borrar elemento"><Trash2 className="w-4 h-4" /></TBtn>
+        </>}
         <div className="ml-auto">
           <button onClick={() => { capture(); setPresenting(true); }} className="flex items-center gap-1.5 bg-black dark:bg-white text-white dark:text-black text-sm font-semibold px-4 py-2 rounded-full hover:scale-[1.03] active:scale-95 transition-transform"><Play className="w-4 h-4" /> Presentar</button>
         </div>
@@ -154,15 +160,17 @@ export function SlidesEditor({ value, onChange }: { value: any; onChange: (data:
                   <p className="font-bold text-[10px] text-black line-clamp-2 mt-1">{labelOf(s) || 'Diapositiva'}</p>
                 </div>
               </button>
-              {slides.length > 1 && (
+              {!readOnly && slides.length > 1 && (
                 <button onClick={() => delSlide(i)} className="absolute top-1 right-1 p-1 rounded-full bg-white/90 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all shadow"><X className="w-3 h-3" /></button>
               )}
             </div>
           ))}
+          {!readOnly && (
           <div className="flex gap-2">
             <button onClick={addSlide} title="Nueva" className="flex-1 aspect-video rounded-lg border-2 border-dashed border-gray-300 dark:border-white/20 flex items-center justify-center text-gray-400 hover:text-black dark:hover:text-white transition-colors"><Plus className="w-5 h-5" /></button>
             <button onClick={dupSlide} title="Duplicar" className="flex-1 aspect-video rounded-lg border-2 border-dashed border-gray-300 dark:border-white/20 flex items-center justify-center text-gray-400 hover:text-black dark:hover:text-white transition-colors"><Copy className="w-5 h-5" /></button>
           </div>
+          )}
         </div>
 
         <div className="flex-1 min-w-0 bg-gray-100 dark:bg-[#0b0b0b] rounded-2xl flex items-center justify-center overflow-auto p-4">

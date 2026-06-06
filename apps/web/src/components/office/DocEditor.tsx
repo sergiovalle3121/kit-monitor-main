@@ -1,7 +1,7 @@
 'use client';
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import TextAlign from '@tiptap/extension-text-align';
@@ -29,7 +29,7 @@ function Btn({ on, active, title, children }: { on: () => void; active?: boolean
 function Sep() { return <span className="w-px h-5 bg-gray-200 dark:bg-white/10 mx-1" />; }
 
 /** Word-like rich text editor (TipTap + MIT extensions). */
-export function DocEditor({ value, onChange }: { value: any; onChange: (json: any) => void }) {
+export function DocEditor({ value, onChange, readOnly }: { value: any; onChange: (json: any) => void; readOnly?: boolean }) {
   const editor = useEditor({
     extensions: [
       StarterKit,
@@ -42,19 +42,23 @@ export function DocEditor({ value, onChange }: { value: any; onChange: (json: an
       TableKit.configure({ table: { resizable: true } }),
     ],
     content: value ?? '<p></p>',
+    editable: !readOnly,
     immediatelyRender: false,
     onUpdate: ({ editor }) => onChange(editor.getJSON()),
   });
 
-  if (!editor) return <div className="min-h-[70vh]" />;
+  useEffect(() => { editor?.setEditable(!readOnly); }, [editor, readOnly]);
+
+  if (!editor) return <div className="h-full" />;
 
   const c = () => editor.chain().focus();
   const addLink = () => { const url = window.prompt('URL del enlace'); if (url) c().extendMarkRange('link').setLink({ href: url }).run(); };
   const addImage = () => { const url = window.prompt('URL de la imagen'); if (url) (c() as any).setImage({ src: url }).run(); };
 
   return (
-    <div className="rounded-2xl overflow-hidden border border-gray-100 dark:border-white/10">
-      <div className="sticky top-[56px] z-30 bg-white/90 dark:bg-[#111]/90 backdrop-blur border-b border-gray-100 dark:border-white/10 px-3 py-2 flex items-center gap-0.5 flex-wrap">
+    <div className="flex flex-col h-full">
+      {!readOnly && (
+      <div className="bg-white/90 dark:bg-[#111]/90 backdrop-blur border-b border-gray-100 dark:border-white/10 px-3 py-1.5 flex items-center gap-0.5 flex-wrap flex-shrink-0">
         <Btn on={() => c().undo().run()} title="Deshacer"><Undo className="w-4 h-4" /></Btn>
         <Btn on={() => c().redo().run()} title="Rehacer"><Redo className="w-4 h-4" /></Btn>
         <Sep />
@@ -89,8 +93,9 @@ export function DocEditor({ value, onChange }: { value: any; onChange: (json: an
         <Btn on={() => (c() as any).insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()} title="Tabla"><TableIcon className="w-4 h-4" /></Btn>
         <Btn on={() => c().setHorizontalRule().run()} title="Separador"><Minus className="w-4 h-4" /></Btn>
       </div>
+      )}
 
-      <div className="tiptap-page bg-gray-100 dark:bg-[#0b0b0b] py-8 px-3 min-h-[72vh]">
+      <div className="tiptap-page flex-1 min-h-0 overflow-auto bg-gray-100 dark:bg-[#0b0b0b] py-8 px-3">
         <div className="mx-auto bg-white dark:bg-[#1a1a1a] shadow-xl rounded-sm w-full max-w-[820px] min-h-[1040px] px-12 md:px-16 py-14 text-black dark:text-gray-100">
           <EditorContent editor={editor} />
         </div>
