@@ -44,6 +44,7 @@ import { AutopilotModule } from './modules/autopilot/autopilot.module';
 import { SignalModule } from './common/gateway/signal.module';
 import { MessagingModule } from './modules/messaging/messaging.module';
 import { ProcessRoutingModule } from './modules/process-routing/process-routing.module';
+import { OfficeModule } from './modules/office/office.module';
 
 @Module({
   imports: [
@@ -82,6 +83,7 @@ import { ProcessRoutingModule } from './modules/process-routing/process-routing.
     SignalModule,
     MessagingModule,
     ProcessRoutingModule,
+    OfficeModule,
     ScheduleModule.forRoot(),
   ],
   controllers: [HealthController],
