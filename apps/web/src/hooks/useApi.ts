@@ -1,12 +1,9 @@
 'use client';
 
 import useSWR, { SWRConfiguration } from 'swr';
+import { apiFetch } from '@/lib/apiFetch';
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000').replace(/\/$/, '');
-
-function token(): string | null {
-  return typeof window !== 'undefined' ? window.localStorage.getItem('axos_access_token') : null;
-}
 
 /**
  * Error con código HTTP para que la UI distinga 401/403 (sin acceso) de
@@ -19,10 +16,7 @@ export class ApiError extends Error {
 }
 
 async function fetcher<T>(path: string): Promise<T> {
-  const t = token();
-  const res = await fetch(`${API_BASE}${path}`, {
-    headers: t ? { Authorization: `Bearer ${t}` } : {},
-  });
+  const res = await apiFetch(`${API_BASE}${path}`);
   if (!res.ok) {
     throw new ApiError(`${res.status} ${res.statusText}`, res.status);
   }

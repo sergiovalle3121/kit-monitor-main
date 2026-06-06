@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
+import { WorkspaceProvider } from "@/contexts/WorkspaceContext";
 import { ChatWidget } from "@/components/ChatWidget";
 import { TCodePalette } from "@/components/TCodePalette";
 
@@ -20,9 +21,11 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col">
         <ThemeProvider>
           <AuthProvider>
-            {children}
-            <ChatWidget />
-            <TCodePalette />
+            <WorkspaceProvider>
+              {children}
+              <ChatWidget />
+              <TCodePalette />
+            </WorkspaceProvider>
           </AuthProvider>
         </ThemeProvider>
       </body>

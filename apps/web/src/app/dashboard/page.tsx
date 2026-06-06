@@ -26,6 +26,7 @@ import { DomainGrid } from "@/components/DomainGrid";
 import { useVisibleDomains } from "@/hooks/useVisibleDomains";
 import { Role } from "@/config/domains";
 import { glass } from "@/lib/glass";
+import { WorkspaceSwitcher } from "@/components/WorkspaceSwitcher";
 
 interface SessionInfo {
   kind: "user" | "demo";
@@ -127,13 +128,14 @@ function DashboardInner() {
 
       {/* Top Bar */}
       <nav className={`${glass} fixed top-0 w-full z-50 px-6 py-4 flex justify-between items-center rounded-none border-x-0 border-t-0`}>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <span className="font-bold text-lg tracking-tight">Axos OS</span>
           {isDemo && (
-            <span className="ml-2 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300 flex items-center gap-1">
+            <span className="ml-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300 flex items-center gap-1">
               <Eye className="w-3 h-3" /> Demo · Solo lectura
             </span>
           )}
+          <WorkspaceSwitcher />
         </div>
 
         <div className="flex items-center gap-6">
