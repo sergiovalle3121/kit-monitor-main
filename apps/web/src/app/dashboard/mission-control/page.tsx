@@ -1,197 +1,531 @@
-"use client";
+'use client';
 
-import React, { useState } from "react";
-import { motion } from "framer-motion";
-import { 
-  ChevronLeft, 
-  Activity, 
-  Zap, 
-  Cpu, 
-  Boxes, 
-  Settings, 
-  Maximize,
-  RadioTower,
-  Thermometer,
-  Wind
-} from "lucide-react";
-import Link from "next/link";
-import { 
-  LineChart, 
-  Line, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  ResponsiveContainer 
+import React, { useMemo } from 'react';
+import Link from 'next/link';
+import {
+  motion,
+  useReducedMotion,
+  AnimatePresence,
+} from 'framer-motion';
+import {
+  ChevronLeft,
+  Activity,
+  AlertTriangle,
+  Boxes,
+  Factory,
+  PackageX,
+  Lock,
+  Inbox,
+  Radio,
+} from 'lucide-react';
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
 } from 'recharts';
+import { glass } from '@/lib/glass';
+import { useApi } from '@/hooks/useApi';
+import { useSignals, CorrectiveProposal } from '@/hooks/useSignals';
 
-const data = [
-  { time: '08:00', yield: 85, target: 90 },
-  { time: '10:00', yield: 88, target: 90 },
-  { time: '12:00', yield: 92, target: 90 },
-  { time: '14:00', yield: 89, target: 90 },
-  { time: '16:00', yield: 95, target: 90 },
-  { time: '18:00', yield: 91, target: 90 },
-];
+// Paleta de semáforos (de AXOS_OS_ARCHITECTURE.md)
+const GREEN = '#10b981';
+const AMBER = '#f59e0b';
+const RED = '#ef4444';
 
-export default function MissionControlPage() {
-  const [isLive, setIsLive] = useState(true);
+// ── Tipos defensivos ──────────────────────────────────────────────────
+interface ProductionLine {
+  id?: number | string;
+  kitId?: number;
+  name?: string;
+  status?: string;
+  progress?: number;
+  line?: string;
+  model?: string;
+}
+interface Bottleneck {
+  line?: string;
+  bayId?: number | string;
+  reason?: string;
+  severity?: string;
+}
+interface ShortageRow {
+  partNumber?: string;
+  description?: string;
+  shortage?: number;
+  severity?: string;
+}
+interface ExceptionSummary {
+  total?: number;
+  open?: number;
+  bySeverity?: Record<string, number>;
+}
+interface TrendPoint {
+  label?: string;
+  date?: string;
+  value?: number;
+}
+interface InventoryPosition {
+  id?: string;
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────
+const asArray = <T,>(v: unknown): T[] => (Array.isArray(v) ? (v as T[]) : []);
+
+function severityColor(sev?: string): string {
+  const s = (sev || '').toLowerCase();
+  if (s === 'critical' || s === 'high') return RED;
+  if (s === 'medium' || s === 'warning') return AMBER;
+  return GREEN;
+}
+
+// ── Componentes UI ────────────────────────────────────────────────────
+function KpiTile({
+  icon: Icon,
+  label,
+  value,
+  hint,
+  tone = 'neutral',
+  loading,
+  forbidden,
+}: {
+  icon: React.ComponentType<{ className?: string; strokeWidth?: number }>;
+  label: string;
+  value: React.ReactNode;
+  hint?: string;
+  tone?: 'neutral' | 'green' | 'amber' | 'red';
+  loading?: boolean;
+  forbidden?: boolean;
+}) {
+  const toneColor =
+    tone === 'green' ? GREEN : tone === 'amber' ? AMBER : tone === 'red' ? RED : undefined;
 
   return (
-    <div className="min-h-screen bg-[#F8F9FA] dark:bg-[#0A0A0A] text-black dark:text-white p-6 md:p-10 lg:p-12 relative overflow-hidden">
-      {/* Background Grid */}
-      <div className="absolute inset-0 bg-[linear-gradient(to_right,#00000005_1px,transparent_1px),linear-gradient(to_bottom,#00000005_1px,transparent_1px)] dark:bg-[linear-gradient(to_right,#ffffff05_1px,transparent_1px),linear-gradient(to_bottom,#ffffff05_1px,transparent_1px)] bg-[size:4rem_4rem] pointer-events-none" />
+    <div className={`${glass} rounded-[24px] p-5`}>
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
+          {label}
+        </p>
+        <Icon className="h-4 w-4 text-gray-400" strokeWidth={1.5} />
+      </div>
+      <div className="mt-3 flex items-baseline gap-2">
+        {forbidden ? (
+          <span className="flex items-center gap-1 text-sm text-gray-400">
+            <Lock className="h-3.5 w-3.5" /> Sin acceso
+          </span>
+        ) : loading ? (
+          <span className="block h-8 w-16 animate-pulse rounded-md bg-black/5 dark:bg-white/10" />
+        ) : (
+          <span
+            className="text-3xl font-semibold tracking-tight"
+            style={toneColor ? { color: toneColor } : undefined}
+          >
+            {value}
+          </span>
+        )}
+      </div>
+      {hint && !loading && !forbidden && (
+        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{hint}</p>
+      )}
+    </div>
+  );
+}
 
-      <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12 relative z-10">
-        <div className="flex items-center gap-6">
-          <Link href="/dashboard" className="p-3 bg-white dark:bg-[#111] border border-gray-100 dark:border-white/5 rounded-2xl hover:scale-105 active:scale-95 transition-all shadow-sm">
-            <ChevronLeft className="w-5 h-5 text-black dark:text-white" />
-          </Link>
-          <div>
-            <h1 className="text-4xl font-bold tracking-tight mb-1 flex items-center gap-3">
-              Mission Control
-              <span className={`flex items-center gap-2 text-xs px-2 py-1 rounded-full border ${isLive ? 'bg-red-500/10 text-red-500 border-red-500/20' : 'bg-gray-500/10 text-gray-500 border-gray-500/20'}`}>
-                <div className={`w-2 h-2 rounded-full ${isLive ? 'bg-red-500 animate-pulse' : 'bg-gray-500'}`} />
-                {isLive ? 'LIVE' : 'OFFLINE'}
-              </span>
-            </h1>
-            <p className="text-gray-400 font-light">Global Plant Operations Digital Twin</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-3">
-          <button className="px-6 py-3 bg-white dark:bg-[#111] border border-gray-100 dark:border-white/5 rounded-2xl text-sm font-medium hover:bg-gray-50 dark:hover:bg-white/5 transition-all flex items-center gap-2">
-            <Maximize className="w-4 h-4" />
-            Full Screen
-          </button>
-        </div>
-      </header>
+function PanelHeader({ title, subtitle }: { title: string; subtitle?: string }) {
+  return (
+    <div className="mb-3 flex items-end justify-between">
+      <div>
+        <h2 className="text-sm font-semibold tracking-wide text-gray-700 dark:text-gray-200">
+          {title}
+        </h2>
+        {subtitle && (
+          <p className="text-xs text-gray-500 dark:text-gray-400">{subtitle}</p>
+        )}
+      </div>
+    </div>
+  );
+}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 relative z-10">
-        {/* Main Plant Map/Grid */}
-        <div className="lg:col-span-2 flex flex-col gap-8">
-          <div className="bg-white dark:bg-[#111] p-8 rounded-[2rem] border border-gray-100 dark:border-white/5 shadow-sm relative overflow-hidden flex-1 min-h-[400px]">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="font-bold flex items-center gap-2"><RadioTower className="w-5 h-5 text-cyan-500" /> Facility Map</h2>
-              <div className="flex gap-4 text-xs font-bold text-gray-500">
-                <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-green-500" /> Optimal</span>
-                <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-amber-500" /> Warning</span>
-                <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-red-500" /> Critical</span>
-              </div>
+function EmptyState({ message }: { message: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center gap-2 py-8 text-center text-gray-400">
+      <Inbox className="h-6 w-6" strokeWidth={1.5} />
+      <p className="text-xs">{message}</p>
+    </div>
+  );
+}
+
+function ForbiddenState() {
+  return (
+    <div className="flex flex-col items-center justify-center gap-2 py-8 text-center text-gray-400">
+      <Lock className="h-6 w-6" strokeWidth={1.5} />
+      <p className="text-xs">No tienes permiso para ver esta información.</p>
+    </div>
+  );
+}
+
+// ── Página ────────────────────────────────────────────────────────────
+export default function MissionControlPage() {
+  const reduce = useReducedMotion();
+
+  const lines = useApi<ProductionLine[] | unknown>('/production-runtime/lines');
+  const wip = useApi<unknown>('/production-runtime/wip');
+  const bottleneck = useApi<Bottleneck | null>('/production-runtime/bottleneck');
+  const shortage = useApi<ShortageRow[] | unknown>('/production-runtime/logistics/shortage-risk');
+  const proposalsHistorical = useApi<CorrectiveProposal[] | unknown>('/autopilot/proposals');
+  const exceptions = useApi<ExceptionSummary | unknown>('/governance/exceptions/summary');
+  const trends = useApi<TrendPoint[] | unknown>('/governance/analytics/trends');
+  const inventory = useApi<InventoryPosition[] | unknown>('/inventory/positions');
+
+  const { proposals: liveProposals, criticalEvents, status: socketStatus } = useSignals();
+
+  // ── Derivados ───────────────────────────────────────────────────────
+  const linesArr = asArray<ProductionLine>(lines.data);
+  const shortageArr = asArray<ShortageRow>(shortage.data);
+  const historicalProposals = asArray<CorrectiveProposal>(proposalsHistorical.data);
+  const inventoryArr = asArray<InventoryPosition>(inventory.data);
+
+  // WIP total: si el backend devuelve un número, número; si devuelve array, count.
+  const wipTotal: number | null = useMemo(() => {
+    const d = wip.data;
+    if (typeof d === 'number') return d;
+    if (Array.isArray(d)) return d.length;
+    if (d && typeof d === 'object' && 'total' in (d as Record<string, unknown>)) {
+      const t = (d as Record<string, unknown>).total;
+      return typeof t === 'number' ? t : null;
+    }
+    return null;
+  }, [wip.data]);
+
+  const exceptionsCount: number | null = useMemo(() => {
+    const d = exceptions.data;
+    if (d && typeof d === 'object') {
+      const r = d as ExceptionSummary;
+      if (typeof r.open === 'number') return r.open;
+      if (typeof r.total === 'number') return r.total;
+    }
+    return null;
+  }, [exceptions.data]);
+
+  // Mezcla histórico + en vivo, dedupe por id, deja los pending al frente.
+  const allProposals = useMemo(() => {
+    const map = new Map<string | number, CorrectiveProposal>();
+    [...liveProposals, ...historicalProposals].forEach((p) => {
+      if (p && p.id != null) map.set(p.id, p);
+    });
+    return Array.from(map.values())
+      .sort((a, b) => {
+        if (a.status === 'pending' && b.status !== 'pending') return -1;
+        if (b.status === 'pending' && a.status !== 'pending') return 1;
+        return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+      })
+      .slice(0, 8);
+  }, [liveProposals, historicalProposals]);
+
+  const openAlertCount = useMemo(
+    () => allProposals.filter((p) => p.status === 'pending').length,
+    [allProposals],
+  );
+
+  // Semáforo general: rojo si hay críticos/cuello, ámbar si hay alertas
+  // pendientes o escasez, verde en otro caso.
+  const overall: 'green' | 'amber' | 'red' = useMemo(() => {
+    if (criticalEvents.length > 0) return 'red';
+    if (bottleneck.data && (bottleneck.data as Bottleneck)?.line) return 'red';
+    if (openAlertCount > 0 || shortageArr.length > 0) return 'amber';
+    return 'green';
+  }, [criticalEvents.length, bottleneck.data, openAlertCount, shortageArr.length]);
+
+  const overallColor = overall === 'red' ? RED : overall === 'amber' ? AMBER : GREEN;
+  const overallLabel =
+    overall === 'red' ? 'Atención inmediata' : overall === 'amber' ? 'Operación con alertas' : 'Operación estable';
+
+  const bottleneckLine = (bottleneck.data as Bottleneck | null)?.line ?? null;
+
+  // Datos de la gráfica: normaliza /governance/analytics/trends.
+  const chartData = useMemo(() => {
+    const arr = asArray<TrendPoint>(trends.data);
+    return arr
+      .map((p) => ({
+        label: p.label ?? p.date ?? '',
+        value: typeof p.value === 'number' ? p.value : 0,
+      }))
+      .slice(-20);
+  }, [trends.data]);
+
+  return (
+    <div className="min-h-screen text-black dark:text-white">
+      <div className="mx-auto max-w-7xl px-6 py-8 md:px-10 lg:px-12">
+        {/* ── Header ────────────────────────────────────────────────── */}
+        <header className="mb-8 flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <Link
+              href="/dashboard"
+              aria-label="Volver al inicio"
+              className={`${glass} flex h-10 w-10 items-center justify-center rounded-full hover:scale-105`}
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </Link>
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+                Mission control
+              </p>
+              <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">War room</h1>
             </div>
-
-            {/* Simulated 3D Top-Down View of lines */}
-            <div className="grid grid-cols-2 gap-4 h-[300px]">
-              <motion.div 
-                whileHover={{ scale: 1.02 }}
-                className="bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/5 rounded-xl p-4 flex flex-col justify-between relative overflow-hidden"
-              >
-                <div className="absolute top-0 left-0 w-1 h-full bg-green-500" />
-                <h3 className="font-bold">SMT Line A1</h3>
-                <div className="flex justify-between text-xs text-gray-400">
-                  <span>Speed: 12k CPH</span>
-                  <span>OEE: 92%</span>
-                </div>
-              </motion.div>
-              
-              <motion.div 
-                whileHover={{ scale: 1.02 }}
-                className="bg-white/5 border border-white/10 rounded-xl p-4 flex flex-col justify-between relative overflow-hidden"
-              >
-                <div className="absolute top-0 left-0 w-1 h-full bg-amber-500" />
-                <h3 className="font-bold">SMT Line B2</h3>
-                <div className="flex justify-between text-xs text-gray-400">
-                  <span>Speed: 8k CPH</span>
-                  <span>OEE: 75%</span>
-                </div>
-                <div className="absolute bottom-4 right-4 animate-ping w-2 h-2 rounded-full bg-amber-500" />
-              </motion.div>
-
-              <motion.div 
-                whileHover={{ scale: 1.02 }}
-                className="bg-white/5 border border-white/10 rounded-xl p-4 flex flex-col justify-between relative overflow-hidden"
-              >
-                <div className="absolute top-0 left-0 w-1 h-full bg-green-500" />
-                <h3 className="font-bold">Assembly Cell 1</h3>
-                <div className="flex justify-between text-xs text-gray-400">
-                  <span>Operators: 4</span>
-                  <span>Yield: 99%</span>
-                </div>
-              </motion.div>
-
-              <motion.div 
-                whileHover={{ scale: 1.02 }}
-                className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 flex flex-col justify-between relative overflow-hidden"
-              >
-                <div className="absolute top-0 left-0 w-1 h-full bg-red-500" />
-                <h3 className="font-bold text-red-500">Test Station QA-4</h3>
-                <div className="flex justify-between text-xs text-red-400">
-                  <span>Status: DOWN</span>
-                  <span>Time: 14m</span>
-                </div>
-                <div className="absolute bottom-4 right-4 animate-ping w-2 h-2 rounded-full bg-red-500" />
-              </motion.div>
-            </div>
           </div>
 
-          <div className="bg-white dark:bg-[#111] p-8 rounded-[2rem] border border-gray-100 dark:border-white/5 shadow-sm h-[300px]">
-            <h2 className="font-bold mb-6 flex items-center gap-2"><Activity className="w-5 h-5 text-blue-500" /> Output vs Target</h2>
-            <div className="h-[200px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={data}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#ccc" />
-                  <XAxis dataKey="time" stroke="#888" fontSize={10} />
-                  <YAxis stroke="#888" fontSize={10} />
-                  <Tooltip contentStyle={{ backgroundColor: '#fff', border: '1px solid #eee', borderRadius: '1rem' }} />
-                  <Line type="monotone" dataKey="yield" stroke="#3b82f6" strokeWidth={3} dot={{ r: 4, fill: '#3b82f6' }} />
-                  <Line type="monotone" dataKey="target" stroke="#94a3b8" strokeWidth={2} strokeDasharray="5 5" dot={false} />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
+          <div className={`${glass} flex items-center gap-3 rounded-full px-4 py-2`}>
+            <motion.span
+              aria-hidden
+              className="block h-2.5 w-2.5 rounded-full"
+              style={{ background: overallColor }}
+              animate={reduce ? undefined : { scale: [1, 1.25, 1] }}
+              transition={{ duration: 1.6, repeat: Infinity }}
+            />
+            <span className="text-sm font-medium" style={{ color: overallColor }}>
+              {overallLabel}
+            </span>
+            <span className="flex items-center gap-1 text-xs text-gray-500">
+              <Radio
+                className="h-3 w-3"
+                style={{ color: socketStatus === 'connected' ? GREEN : '#9ca3af' }}
+                strokeWidth={2}
+              />
+              {socketStatus === 'connected' ? 'en vivo' : 'reconectando'}
+            </span>
           </div>
-        </div>
+        </header>
 
-        {/* Sidebar Diagnostics */}
-        <div className="flex flex-col gap-8">
-          <div className="bg-white dark:bg-[#111] p-8 rounded-[2rem] border border-gray-100 dark:border-white/5 shadow-sm">
-            <h2 className="font-bold mb-6 flex items-center gap-2"><Thermometer className="w-5 h-5 text-rose-500" /> Environment</h2>
-            <div className="space-y-4">
-              <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-white/5 rounded-xl">
-                <span className="text-gray-500 dark:text-gray-400 text-sm">Temperature</span>
-                <span className="font-bold">22.4°C</span>
-              </div>
-              <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-white/5 rounded-xl">
-                <span className="text-gray-500 dark:text-gray-400 text-sm">Humidity</span>
-                <span className="font-bold">45%</span>
-              </div>
-              <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-white/5 rounded-xl">
-                <span className="text-gray-500 dark:text-gray-400 text-sm">Particle Count</span>
-                <span className="font-bold text-green-500">ISO Class 7</span>
-              </div>
-            </div>
-          </div>
+        {/* ── KPIs ──────────────────────────────────────────────────── */}
+        <section className="mb-8 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
+          <KpiTile
+            icon={Factory}
+            label="Líneas activas"
+            value={linesArr.length}
+            loading={lines.isLoading}
+            forbidden={lines.forbidden}
+          />
+          <KpiTile
+            icon={Activity}
+            label="WIP total"
+            value={wipTotal ?? '—'}
+            loading={wip.isLoading}
+            forbidden={wip.forbidden}
+          />
+          <KpiTile
+            icon={AlertTriangle}
+            label="Alertas abiertas"
+            value={openAlertCount}
+            tone={openAlertCount > 0 ? 'amber' : 'green'}
+            loading={proposalsHistorical.isLoading}
+            forbidden={proposalsHistorical.forbidden}
+          />
+          <KpiTile
+            icon={PackageX}
+            label="Riesgo de material"
+            value={shortageArr.length}
+            tone={shortageArr.length > 0 ? 'amber' : 'green'}
+            loading={shortage.isLoading}
+            forbidden={shortage.forbidden}
+          />
+          <KpiTile
+            icon={Boxes}
+            label="Posiciones en inventario"
+            value={inventoryArr.length || '—'}
+            hint={
+              exceptionsCount != null && !exceptions.forbidden
+                ? `${exceptionsCount} excepciones abiertas`
+                : undefined
+            }
+            loading={inventory.isLoading}
+            forbidden={inventory.forbidden}
+          />
+        </section>
 
-          <div className="bg-white dark:bg-[#111] p-8 rounded-[2rem] border border-gray-100 dark:border-white/5 shadow-sm flex-1">
-            <h2 className="font-bold mb-6 flex items-center gap-2"><Zap className="w-5 h-5 text-amber-500" /> Active Alerts</h2>
-            <div className="space-y-4">
-              <div className="p-4 border border-red-500/20 bg-red-500/10 rounded-xl relative overflow-hidden group">
-                <div className="absolute left-0 top-0 w-1 h-full bg-red-500" />
-                <h4 className="font-bold text-red-500 text-sm mb-1">Test Station QA-4 Offline</h4>
-                <p className="text-xs text-red-400">Voltage anomaly detected. Technician dispatched.</p>
+        {/* ── Paneles ───────────────────────────────────────────────── */}
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+          {/* Líneas de producción */}
+          <section className={`${glass} rounded-[24px] p-5 lg:col-span-2`}>
+            <PanelHeader
+              title="Líneas de producción"
+              subtitle={
+                bottleneckLine
+                  ? `Cuello de botella: ${bottleneckLine}`
+                  : 'Estado por línea, actualización cada 20 s'
+              }
+            />
+            {lines.forbidden ? (
+              <ForbiddenState />
+            ) : lines.isLoading ? (
+              <SkeletonRows />
+            ) : linesArr.length === 0 ? (
+              <EmptyState message="Sin líneas reportadas." />
+            ) : (
+              <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                {linesArr.slice(0, 12).map((l, i) => {
+                  const lineId = l.line || l.name || `Línea ${l.kitId ?? l.id ?? i}`;
+                  const isBottleneck = bottleneckLine && lineId === bottleneckLine;
+                  return (
+                    <li
+                      key={`${lineId}-${i}`}
+                      className="flex items-center justify-between rounded-2xl bg-black/5 px-3 py-2 dark:bg-white/5"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium">{lineId}</p>
+                        {l.model && (
+                          <p className="truncate text-xs text-gray-500">{l.model}</p>
+                        )}
+                      </div>
+                      <span
+                        className="rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                        style={{
+                          background: isBottleneck ? `${RED}1a` : `${GREEN}1a`,
+                          color: isBottleneck ? RED : GREEN,
+                        }}
+                      >
+                        {isBottleneck ? 'cuello de botella' : l.status || 'activa'}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </section>
+
+          {/* Alertas en vivo */}
+          <section className={`${glass} rounded-[24px] p-5`}>
+            <PanelHeader
+              title="Alertas en vivo"
+              subtitle={`${openAlertCount} pendiente${openAlertCount === 1 ? '' : 's'}`}
+            />
+            {proposalsHistorical.forbidden ? (
+              <ForbiddenState />
+            ) : proposalsHistorical.isLoading && allProposals.length === 0 ? (
+              <SkeletonRows count={3} />
+            ) : allProposals.length === 0 ? (
+              <EmptyState message="Sin alertas activas." />
+            ) : (
+              <ul className="space-y-2">
+                <AnimatePresence initial={false}>
+                  {allProposals.map((p) => (
+                    <motion.li
+                      key={p.id}
+                      layout
+                      initial={reduce ? undefined : { opacity: 0, y: -4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0 }}
+                      className="rounded-2xl bg-black/5 px-3 py-2 dark:bg-white/5"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span
+                          aria-hidden
+                          className="h-2 w-2 shrink-0 rounded-full"
+                          style={{ background: severityColor(p.severity) }}
+                        />
+                        <p className="min-w-0 flex-1 truncate text-sm font-medium">
+                          {p.title || p.category || 'Alerta'}
+                        </p>
+                        <span className="text-[10px] uppercase tracking-wide text-gray-500">
+                          {p.status}
+                        </span>
+                      </div>
+                      {p.description && (
+                        <p className="mt-1 line-clamp-2 text-xs text-gray-500">{p.description}</p>
+                      )}
+                    </motion.li>
+                  ))}
+                </AnimatePresence>
+              </ul>
+            )}
+          </section>
+
+          {/* Riesgo de material */}
+          <section className={`${glass} rounded-[24px] p-5 lg:col-span-2`}>
+            <PanelHeader title="Riesgo de material" subtitle="Componentes con riesgo de escasez" />
+            {shortage.forbidden ? (
+              <ForbiddenState />
+            ) : shortage.isLoading ? (
+              <SkeletonRows />
+            ) : shortageArr.length === 0 ? (
+              <EmptyState message="Sin riesgos de escasez reportados." />
+            ) : (
+              <ul className="space-y-2">
+                {shortageArr.slice(0, 8).map((row, i) => (
+                  <li
+                    key={`${row.partNumber}-${i}`}
+                    className="flex items-center justify-between rounded-2xl bg-black/5 px-3 py-2 dark:bg-white/5"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium">
+                        {row.partNumber || 'Parte sin nombre'}
+                      </p>
+                      {row.description && (
+                        <p className="truncate text-xs text-gray-500">{row.description}</p>
+                      )}
+                    </div>
+                    <span
+                      className="rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                      style={{
+                        background: `${severityColor(row.severity)}1a`,
+                        color: severityColor(row.severity),
+                      }}
+                    >
+                      {row.severity || 'riesgo'}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
+          {/* Tendencia */}
+          <section className={`${glass} rounded-[24px] p-5`}>
+            <PanelHeader title="Tendencia" subtitle="Gobernanza · últimos puntos" />
+            {trends.forbidden ? (
+              <ForbiddenState />
+            ) : trends.isLoading ? (
+              <div className="h-44 animate-pulse rounded-2xl bg-black/5 dark:bg-white/5" />
+            ) : chartData.length === 0 ? (
+              <EmptyState message="Sin datos de tendencia." />
+            ) : (
+              <div className="h-44 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={chartData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(120,120,120,0.15)" />
+                    <XAxis dataKey="label" tick={{ fontSize: 10 }} stroke="rgba(120,120,120,0.6)" />
+                    <YAxis tick={{ fontSize: 10 }} stroke="rgba(120,120,120,0.6)" />
+                    <Tooltip
+                      contentStyle={{
+                        background: 'rgba(255,255,255,0.95)',
+                        border: 'none',
+                        borderRadius: 12,
+                        fontSize: 12,
+                      }}
+                    />
+                    <Line type="monotone" dataKey="value" stroke={GREEN} strokeWidth={2} dot={false} />
+                  </LineChart>
+                </ResponsiveContainer>
               </div>
-              <div className="p-4 border border-amber-500/20 bg-amber-500/10 rounded-xl relative overflow-hidden group">
-                <div className="absolute left-0 top-0 w-1 h-full bg-amber-500" />
-                <h4 className="font-bold text-amber-500 text-sm mb-1">Low Yield SMT B2</h4>
-                <p className="text-xs text-amber-400">Component misalignment rate &gt; 2%. Calibrate pick-and-place.</p>
-              </div>
-              <div className="p-4 border border-gray-100 dark:border-white/10 bg-gray-50 dark:bg-white/5 rounded-xl relative overflow-hidden group">
-                <div className="absolute left-0 top-0 w-1 h-full bg-blue-500" />
-                <h4 className="font-bold text-black dark:text-white text-sm mb-1">Shift Change in 30m</h4>
-                <p className="text-xs text-gray-400">Prepare for handover to Shift 2.</p>
-              </div>
-            </div>
-          </div>
+            )}
+          </section>
         </div>
       </div>
     </div>
+  );
+}
+
+function SkeletonRows({ count = 4 }: { count?: number }) {
+  return (
+    <ul className="space-y-2">
+      {Array.from({ length: count }).map((_, i) => (
+        <li
+          key={i}
+          className="h-10 animate-pulse rounded-2xl bg-black/5 dark:bg-white/5"
+        />
+      ))}
+    </ul>
   );
 }
