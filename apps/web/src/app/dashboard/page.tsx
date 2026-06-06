@@ -9,7 +9,7 @@ import type { LucideIcon } from "lucide-react";
 import {
   Bell, User, ShieldAlert, AlertCircle, LogOut, ChevronRight, Megaphone,
   HandHelping, PackageCheck, Warehouse, LineChart, Building2, Settings, Boxes,
-  Factory, ShieldCheck, Cpu, DollarSign, RadioTower,
+  Factory, ShieldCheck, Cpu, DollarSign, RadioTower, FileText,
 } from "lucide-react";
 import { TCodePalette } from "@/components/TCodePalette";
 import { WorkspaceSwitcher } from "@/components/WorkspaceSwitcher";
@@ -42,6 +42,7 @@ const AREAS: { name: string; desc: string; href: string; icon: LucideIcon; color
   { name: "Ingeniería", desc: "BOM y proceso", href: "/dashboard/engineering", icon: Cpu, color: "text-indigo-500", tint: "bg-indigo-50 dark:bg-indigo-500/10", roles: ["engineering", "quality_engineer", "production_supervisor"] },
   { name: "Finanzas", desc: "Costos y P&L", href: "/dashboard/finance", icon: DollarSign, color: "text-green-500", tint: "bg-green-50 dark:bg-green-500/10", roles: ["finance"] },
   { name: "Mission Control", desc: "Vista ejecutiva", href: "/dashboard/mission-control", icon: RadioTower, color: "text-cyan-500", tint: "bg-cyan-50 dark:bg-cyan-500/10", roles: ["planner", "production_supervisor", "finance"] },
+  { name: "Office", desc: "Docs · Hojas · Slides", href: "/dashboard/office", icon: FileText, color: "text-gray-500", tint: "bg-gray-100 dark:bg-white/10", roles: ["engineering", "planner", "quality_engineer", "production_supervisor", "warehouse_operator", "finance", "buyer", "hr"] },
 ];
 
 function timeAgo(iso?: string | null): string {
