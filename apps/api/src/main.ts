@@ -35,6 +35,54 @@ function parseAllowedOrigins(raw: string): string[] {
     .filter(Boolean);
 }
 
+/**
+ * Idempotently ensure an Admin account exists and is active. Each call is
+ * isolated (its own try/catch) so a failure seeding one admin never blocks the
+ * others. On first creation the given password is set; on an existing account
+ * the role/active flags are re-asserted and the password is only re-synced when
+ * `forcePassword` is true (env-as-source-of-truth), so a self-chosen password is
+ * never clobbered.
+ */
+async function ensureAdmin(
+  usersService: UsersService,
+  params: {
+    email: string;
+    password: string;
+    name: string;
+    forcePassword: boolean;
+    label: string;
+  },
+): Promise<void> {
+  const email = (params.email ?? '').trim().toLowerCase();
+  if (!email) return;
+  try {
+    const existing = await usersService.findOneByEmail(email);
+    if (!existing) {
+      await usersService.create({
+        email,
+        username: email,
+        name: params.name,
+        password: params.password,
+        role: UserRole.ADMIN,
+        isActive: true,
+        status: 'active',
+        permissions: [],
+      });
+      console.log(`✅ ${params.label} created: ${email}`);
+    } else {
+      await usersService.update(existing.id, {
+        role: UserRole.ADMIN,
+        isActive: true,
+        status: 'active',
+        ...(params.forcePassword ? { password: params.password } : {}),
+      });
+      console.log(`ℹ️ ${params.label} ensured: ${email}`);
+    }
+  } catch (err) {
+    console.error(`❌ ${params.label} seed failed for ${email}:`, err);
+  }
+}
+
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { cors: false });
   app.useWebSocketAdapter(new IoAdapter(app));
@@ -156,65 +204,37 @@ async function bootstrap() {
   try {
     const usersService = app.get(UsersService);
 
-    // Service account (used as the frontend-bridge fallback). Configurable.
-    const svcEmail = (
-      process.env.BACKEND_SERVICE_EMAIL || 'admin@example.com'
-    ).toLowerCase();
-    const svcPassword = process.env.BACKEND_SERVICE_PASSWORD || '31218223';
-    if (!(await usersService.findOneByEmail(svcEmail))) {
-      await usersService.create({
-        email: svcEmail,
-        username: 'admin',
-        name: 'Service Admin',
-        password: svcPassword,
-        role: UserRole.ADMIN,
-        isActive: true,
-        status: 'active',
-        permissions: [],
-      });
-      console.log('✅ Auto-seed: service admin created.');
-    }
+    // Service account (frontend-bridge fallback). Created if missing, otherwise
+    // kept as an active admin (its password is not touched).
+    await ensureAdmin(usersService, {
+      email: process.env.BACKEND_SERVICE_EMAIL || 'admin@example.com',
+      password: process.env.BACKEND_SERVICE_PASSWORD || '31218223',
+      name: 'Service Admin',
+      forcePassword: false,
+      label: 'Service admin',
+    });
 
-    // Master (human) admin — credentials come ONLY from private env vars, never
-    // hardcoded, so they never live in the repo. Set MASTER_ADMIN_EMAIL +
-    // MASTER_ADMIN_PASSWORD in the backend service to enable.
+    // Master (human) admin — credentials come ONLY from env, never hardcoded.
+    // Env is the source of truth, so the password is re-synced on every boot.
     const masterEmail = process.env.MASTER_ADMIN_EMAIL?.trim().toLowerCase();
     const masterPassword = process.env.MASTER_ADMIN_PASSWORD;
     if (masterEmail && masterPassword) {
-      const existing = await usersService.findOneByEmail(masterEmail);
-      if (!existing) {
-        await usersService.create({
-          email: masterEmail,
-          username: masterEmail,
-          name: process.env.MASTER_ADMIN_NAME || 'Master Admin',
-          password: masterPassword,
-          role: UserRole.ADMIN,
-          isActive: true,
-          status: 'active',
-          permissions: [],
-        });
-        console.log(`✅ Master admin created: ${masterEmail}`);
-      } else {
-        // Env is the source of truth: keep role/status and password in sync.
-        await usersService.update(existing.id, {
-          role: UserRole.ADMIN,
-          isActive: true,
-          status: 'active',
-          password: masterPassword,
-        });
-        console.log(`ℹ️ Master admin ensured: ${masterEmail}`);
-      }
+      await ensureAdmin(usersService, {
+        email: masterEmail,
+        password: masterPassword,
+        name: process.env.MASTER_ADMIN_NAME || 'Master Admin',
+        forcePassword: true,
+        label: 'Master admin',
+      });
     }
 
-    // Owner admin(s) — the product owner. Unlike the master admin, these are
-    // ALWAYS ensured as Admin on every boot so the owner can sign in even when
-    // no MASTER_ADMIN_* env is set. The email is identity (not a secret) and can
-    // be overridden / extended with OWNER_ADMIN_EMAILS (comma-separated). The
-    // password is sourced from env so no real secret lives in the repo: set
-    // OWNER_ADMIN_PASSWORD to control it, otherwise it falls back to the service
-    // password. When OWNER_ADMIN_PASSWORD is set, env is the source of truth and
-    // the password is kept in sync; when it is not set, an existing owner's
-    // password is left untouched (so a self-chosen password is never clobbered).
+    // Owner admin(s) — the product owner. ALWAYS ensured as an active Admin on
+    // every boot so the owner can sign in even with no MASTER_ADMIN_* env. The
+    // email is identity (not a secret) and can be overridden / extended with
+    // OWNER_ADMIN_EMAILS (comma-separated). The password is sourced from env, so
+    // no real secret lives in the repo: set OWNER_ADMIN_PASSWORD to control it
+    // (then env is the source of truth); otherwise it falls back to the service
+    // password on first creation and an existing self-chosen password is kept.
     const ownerEmails = (
       process.env.OWNER_ADMIN_EMAILS || 'sergiovallezarate@gmail.com'
     )
@@ -226,29 +246,16 @@ async function bootstrap() {
       ownerPasswordEnv || process.env.BACKEND_SERVICE_PASSWORD || '31218223';
     for (const email of ownerEmails) {
       if (email === masterEmail) continue; // already ensured above
-      const existing = await usersService.findOneByEmail(email);
-      if (!existing) {
-        await usersService.create({
-          email,
-          username: email,
-          name: process.env.OWNER_ADMIN_NAME || 'Owner',
-          password: ownerSeedPassword,
-          role: UserRole.ADMIN,
-          isActive: true,
-          status: 'active',
-          permissions: [],
-        });
-        console.log(`✅ Owner admin created: ${email}`);
-      } else {
-        await usersService.update(existing.id, {
-          role: UserRole.ADMIN,
-          isActive: true,
-          status: 'active',
-          ...(ownerPasswordEnv ? { password: ownerPasswordEnv } : {}),
-        });
-        console.log(`ℹ️ Owner admin ensured: ${email}`);
-      }
+      await ensureAdmin(usersService, {
+        email,
+        password: ownerSeedPassword,
+        name: process.env.OWNER_ADMIN_NAME || 'Owner',
+        forcePassword: !!ownerPasswordEnv,
+        label: 'Owner admin',
+      });
     }
+
+    console.log('✅ Auto-seed complete (service + master + owner admins).');
   } catch (err) {
     console.error('❌ Auto-seed failed:', err);
   }
