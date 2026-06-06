@@ -39,11 +39,16 @@ export class MaterialRequestsService {
   async findAll(filters?: {
     kitId?: number;
     status?: MaterialRequestStatus;
-  }): Promise<MaterialRequest[]> {
+  }): Promise<any[]> {
     const where: Record<string, unknown> = {};
     if (filters?.kitId) where.kitId = filters.kitId;
     if (filters?.status) where.status = filters.status;
-    return this.repo.find({ where, order: { createdAt: 'DESC' } });
+    const rows = await this.repo.find({
+      where,
+      relations: ['kit', 'kit.plan'],
+      order: { createdAt: 'DESC' },
+    });
+    return rows.map((r) => this.serialize(r));
   }
 
   async findOne(id: number): Promise<MaterialRequest> {
@@ -51,6 +56,26 @@ export class MaterialRequestsService {
     if (!request)
       throw new NotFoundException(`Material request ${id} not found`);
     return request;
+  }
+
+  /** Flatten the request with its plan context for the warehouse board. */
+  private serialize(r: MaterialRequest): any {
+    const plan = r.kit?.plan;
+    return {
+      id: r.id,
+      kitId: r.kitId,
+      requestedBy: r.requestedBy,
+      status: r.status,
+      note: r.note,
+      decidedBy: r.decidedBy,
+      decidedAt: r.decidedAt,
+      decisionNote: r.decisionNote,
+      createdAt: r.createdAt,
+      model: plan?.model ?? null,
+      workOrder: plan?.workOrder ?? null,
+      line: plan?.line ?? null,
+      quantity: plan?.quantity ?? null,
+    };
   }
 
   /** Production raises a request for a published kit. */

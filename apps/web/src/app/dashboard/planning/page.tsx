@@ -15,6 +15,8 @@ import {
   Send,
   Boxes,
   X,
+  Warehouse,
+  HandHelping,
 } from 'lucide-react';
 import { glass } from '@/lib/glass';
 import { useApi } from '@/hooks/useApi';
@@ -39,6 +41,7 @@ interface Plan {
   publishedAt?: string | null;
   publishedBy?: string | null;
   createdAt?: string;
+  kitId?: number | null;
 }
 
 interface PickListLine {
@@ -107,6 +110,31 @@ export default function PlanningPage() {
     }
   }
 
+  async function requestMaterial(plan: Plan) {
+    if (!plan.kitId) {
+      flash('Este plan aún no tiene kit. Publícalo primero.');
+      return;
+    }
+    setBusy(plan.id);
+    try {
+      const res = await apiFetch(`${API_BASE}/material-requests`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kitId: plan.kitId, note: `Solicitud de ${plan.model}` }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        flash(data?.message || 'No se pudo enviar la solicitud.');
+        return;
+      }
+      flash(`Solicitud enviada al almacén · ${plan.model}`);
+    } catch {
+      flash('Error de red al solicitar.');
+    } finally {
+      setBusy(null);
+    }
+  }
+
   async function loadPickList(planId: number) {
     if (pickLists[planId]) {
       setPickLists((prev) => {
@@ -132,12 +160,17 @@ export default function PlanningPage() {
         <Link href="/dashboard" className="flex items-center gap-2 text-sm font-medium text-gray-500 hover:text-black dark:hover:text-white transition-colors">
           <ChevronLeft className="w-4 h-4" /> Dashboard
         </Link>
-        <button
-          onClick={() => setShowForm((v) => !v)}
-          className="flex items-center gap-2 bg-black dark:bg-white text-white dark:text-black text-sm font-semibold px-4 py-2 rounded-full hover:scale-[1.03] active:scale-95 transition-transform"
-        >
-          <Plus className="w-4 h-4" /> Nuevo plan
-        </button>
+        <div className="flex items-center gap-4">
+          <Link href="/dashboard/almacen" className="flex items-center gap-1.5 text-sm font-medium text-blue-500 hover:text-blue-700 transition-colors">
+            <Warehouse className="w-4 h-4" /> Almacén
+          </Link>
+          <button
+            onClick={() => setShowForm((v) => !v)}
+            className="flex items-center gap-2 bg-black dark:bg-white text-white dark:text-black text-sm font-semibold px-4 py-2 rounded-full hover:scale-[1.03] active:scale-95 transition-transform"
+          >
+            <Plus className="w-4 h-4" /> Nuevo plan
+          </button>
+        </div>
       </div>
 
       <main className="max-w-5xl mx-auto px-6 pt-10">
@@ -253,13 +286,23 @@ export default function PlanningPage() {
                         Publicar
                       </button>
                     ) : isPublished ? (
-                      <button
-                        onClick={() => loadPickList(plan.id)}
-                        className="flex items-center gap-2 text-violet-600 dark:text-violet-300 text-sm font-semibold px-4 py-2 rounded-full border border-violet-200 dark:border-violet-500/30 hover:bg-violet-50 dark:hover:bg-violet-500/10 transition-colors"
-                      >
-                        <Boxes className="w-4 h-4" />
-                        {pick ? 'Ocultar pick list' : 'Ver pick list'}
-                      </button>
+                      <div className="flex flex-col items-stretch gap-2">
+                        <button
+                          onClick={() => requestMaterial(plan)}
+                          disabled={busy === plan.id}
+                          className="flex items-center justify-center gap-2 bg-blue-600 text-white text-sm font-semibold px-4 py-2 rounded-full hover:bg-blue-700 active:scale-95 transition-all disabled:opacity-60"
+                        >
+                          {busy === plan.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <HandHelping className="w-4 h-4" />}
+                          Solicitar
+                        </button>
+                        <button
+                          onClick={() => loadPickList(plan.id)}
+                          className="flex items-center justify-center gap-2 text-violet-600 dark:text-violet-300 text-sm font-semibold px-4 py-2 rounded-full border border-violet-200 dark:border-violet-500/30 hover:bg-violet-50 dark:hover:bg-violet-500/10 transition-colors"
+                        >
+                          <Boxes className="w-4 h-4" />
+                          {pick ? 'Ocultar' : 'Pick list'}
+                        </button>
+                      </div>
                     ) : null}
                   </div>
                 </div>
