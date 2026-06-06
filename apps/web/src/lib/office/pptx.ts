@@ -71,7 +71,10 @@ function addObject(slide: any, o: any, ST: any) {
     slide.addShape(ST.line, { ...box, line: { color: hex(o.stroke) ?? '111827', width: o.strokeWidth ?? 2 } });
     return;
   }
-  const shape = type === 'circle' ? ST.ellipse
+  // Custom shape hint (star/arrow/diamond) maps to a native PowerPoint preset.
+  const presetByHint: Record<string, any> = { star5: ST.star5, rightArrow: ST.rightArrow, diamond: ST.diamond };
+  const shape = (o.shape && presetByHint[o.shape]) ? presetByHint[o.shape]
+    : type === 'circle' ? ST.ellipse
     : type === 'triangle' ? ST.triangle
     : (o.rx || o.ry) ? ST.roundRect
     : ST.rect;
