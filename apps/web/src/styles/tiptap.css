@@ -40,19 +40,20 @@
   content: attr(data-placeholder); color: #9ca3af; float: left; height: 0; pointer-events: none;
 }
 
-/* Print / Save-as-PDF: isolate the document page from the app chrome. */
+/* Print / Save-as-PDF: isolate the document page from the app chrome.
+   Scoped to :not(.preview-printing) so the Paged.js preview can print instead. */
 @media print {
-  body * { visibility: hidden !important; }
-  .tiptap-page, .tiptap-page * { visibility: visible !important; }
-  .tiptap-page {
+  body:not(.preview-printing) * { visibility: hidden !important; }
+  body:not(.preview-printing) .tiptap-page, body:not(.preview-printing) .tiptap-page * { visibility: visible !important; }
+  body:not(.preview-printing) .tiptap-page {
     position: absolute !important; inset: 0 !important; margin: 0 !important;
     padding: 0 !important; overflow: visible !important; background: #fff !important;
   }
-  .tiptap-page > div {
+  body:not(.preview-printing) .tiptap-page > div {
     box-shadow: none !important; border-radius: 0 !important; max-width: none !important;
     width: 100% !important; min-height: 0 !important; margin: 0 !important;
   }
-  .tiptap-page .ProseMirror { color: #000 !important; }
+  body:not(.preview-printing) .tiptap-page .ProseMirror { color: #000 !important; }
 }
 
 /* Inline comments */
@@ -67,3 +68,22 @@
   border-bottom: 1px dotted rgba(120, 120, 120, 0.5);
 }
 @media print { .tiptap-page .ProseMirror .tiptap-comment { background: transparent !important; border: none !important; } }
+
+/* Manual page break (on-screen divider; real page break on print) */
+.tiptap-page .ProseMirror div[data-page-break] {
+  height: 0; border-top: 2px dashed #cbd5e1; margin: 1.5rem 0; position: relative;
+}
+.tiptap-page .ProseMirror div[data-page-break]::after {
+  content: "Salto de página"; position: absolute; top: -0.7rem; left: 50%; transform: translateX(-50%);
+  background: #fff; color: #94a3b8; font-size: 10px; padding: 0 8px;
+}
+@media print { .tiptap-page .ProseMirror div[data-page-break] { break-before: page; border: none; } .tiptap-page .ProseMirror div[data-page-break]::after { display: none; } }
+
+/* Paged.js print preview isolation: print only the preview pages. */
+@media print {
+  body.preview-printing * { visibility: hidden !important; }
+  body.preview-printing .paged-preview-root, body.preview-printing .paged-preview-root * { visibility: visible !important; }
+  body.preview-printing .paged-preview-root { position: absolute !important; inset: 0 !important; overflow: visible !important; background: #fff !important; }
+  body.preview-printing .paged-preview-toolbar { display: none !important; }
+  body.preview-printing .pagedjs_page { box-shadow: none !important; margin: 0 !important; }
+}

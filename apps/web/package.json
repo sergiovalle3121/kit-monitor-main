@@ -37,6 +37,7 @@
     "lucide-react": "^1.11.0",
     "mammoth": "^1.12.0",
     "next": "16.2.4",
+    "pagedjs": "^0.4.3",
     "pptxgenjs": "^4.0.1",
     "react": "19.2.4",
     "react-chartjs-2": "^5.3.1",
