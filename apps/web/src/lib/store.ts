@@ -73,7 +73,10 @@ async function defaultStore(): Promise<StoreShape> {
         id: crypto.randomUUID(),
         name: "Demo Admin",
         email: "admin@axos.com",
-        role: "admin",
+        // Read-only demo: 'executive' sees every module (seesAll) but cannot
+        // write — the backend RBAC matrix grants executive only *:read perms,
+        // and the frontend hides all admin-only actions (isAdmin === false).
+        role: "executive",
         status: "active",
         passwordHash: adminPass.hash,
         passwordSalt: adminPass.salt,
