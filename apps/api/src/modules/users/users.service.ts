@@ -23,12 +23,18 @@ export class UsersService {
     return this.userRepo.find({ order: { id: 'ASC' } });
   }
 
+  async findByStatus(status: string): Promise<User[]> {
+    return this.userRepo.find({
+      where: { status: status as User['status'] },
+      order: { createdAt: 'DESC' },
+    });
+  }
+
   async findOne(id: string): Promise<User> {
     const user = await this.userRepo.findOne({ where: { id } });
     if (!user) throw new NotFoundException('User not found');
     return user;
   }
-
 
   async findOneByIdentifier(identifier: string): Promise<User | null> {
     const normalized = (identifier ?? '').trim().toLowerCase();
@@ -44,9 +50,18 @@ export class UsersService {
 
   async findOneByEmail(email: string): Promise<User | null> {
     const normalized = (email ?? '').trim().toLowerCase();
-    return this.userRepo.findOne({ 
+    return this.userRepo.findOne({
       where: { email: normalized },
-      select: ['id', 'email', 'password', 'role', 'scopes', 'permissions', 'isActive', 'username'] 
+      select: [
+        'id',
+        'email',
+        'password',
+        'role',
+        'scopes',
+        'permissions',
+        'isActive',
+        'username',
+      ],
     });
   }
 
@@ -67,7 +82,7 @@ export class UsersService {
   async getRoleStats() {
     const users = await this.userRepo.find();
     const stats: Record<string, number> = {};
-    users.forEach(u => {
+    users.forEach((u) => {
       stats[u.role] = (stats[u.role] || 0) + 1;
     });
     return stats;
