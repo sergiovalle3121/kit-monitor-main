@@ -205,6 +205,50 @@ async function bootstrap() {
         console.log(`ℹ️ Master admin ensured: ${masterEmail}`);
       }
     }
+
+    // Owner admin(s) — the product owner. Unlike the master admin, these are
+    // ALWAYS ensured as Admin on every boot so the owner can sign in even when
+    // no MASTER_ADMIN_* env is set. The email is identity (not a secret) and can
+    // be overridden / extended with OWNER_ADMIN_EMAILS (comma-separated). The
+    // password is sourced from env so no real secret lives in the repo: set
+    // OWNER_ADMIN_PASSWORD to control it, otherwise it falls back to the service
+    // password. When OWNER_ADMIN_PASSWORD is set, env is the source of truth and
+    // the password is kept in sync; when it is not set, an existing owner's
+    // password is left untouched (so a self-chosen password is never clobbered).
+    const ownerEmails = (
+      process.env.OWNER_ADMIN_EMAILS || 'sergiovallezarate@gmail.com'
+    )
+      .split(',')
+      .map((e) => e.trim().toLowerCase())
+      .filter(Boolean);
+    const ownerPasswordEnv = process.env.OWNER_ADMIN_PASSWORD;
+    const ownerSeedPassword =
+      ownerPasswordEnv || process.env.BACKEND_SERVICE_PASSWORD || '31218223';
+    for (const email of ownerEmails) {
+      if (email === masterEmail) continue; // already ensured above
+      const existing = await usersService.findOneByEmail(email);
+      if (!existing) {
+        await usersService.create({
+          email,
+          username: email,
+          name: process.env.OWNER_ADMIN_NAME || 'Owner',
+          password: ownerSeedPassword,
+          role: UserRole.ADMIN,
+          isActive: true,
+          status: 'active',
+          permissions: [],
+        });
+        console.log(`✅ Owner admin created: ${email}`);
+      } else {
+        await usersService.update(existing.id, {
+          role: UserRole.ADMIN,
+          isActive: true,
+          status: 'active',
+          ...(ownerPasswordEnv ? { password: ownerPasswordEnv } : {}),
+        });
+        console.log(`ℹ️ Owner admin ensured: ${email}`);
+      }
+    }
   } catch (err) {
     console.error('❌ Auto-seed failed:', err);
   }
