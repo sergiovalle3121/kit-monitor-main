@@ -1,5 +1,6 @@
 import React from 'react';
 import { AmbientBackground } from '@/components/AmbientBackground';
+import { WorkspaceGuard } from '@/components/WorkspaceGuard';
 
 export default function DashboardLayout({
   children,
@@ -7,7 +8,7 @@ export default function DashboardLayout({
   return (
     <>
       <AmbientBackground />
-      {children}
+      <WorkspaceGuard>{children}</WorkspaceGuard>
     </>
   );
 }
