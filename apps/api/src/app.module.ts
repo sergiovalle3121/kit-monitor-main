@@ -43,6 +43,7 @@ import { CostRollupModule } from './modules/cost-rollup/cost-rollup.module';
 import { AutopilotModule } from './modules/autopilot/autopilot.module';
 import { SignalModule } from './common/gateway/signal.module';
 import { MessagingModule } from './modules/messaging/messaging.module';
+import { ProcessRoutingModule } from './modules/process-routing/process-routing.module';
 
 @Module({
   imports: [
@@ -80,6 +81,7 @@ import { MessagingModule } from './modules/messaging/messaging.module';
     AutopilotModule,
     SignalModule,
     MessagingModule,
+    ProcessRoutingModule,
     ScheduleModule.forRoot(),
   ],
   controllers: [HealthController],
