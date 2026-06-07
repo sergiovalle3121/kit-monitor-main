@@ -24,6 +24,7 @@ import { CycleCountsModule } from './modules/cycle-counts/cycle-counts.module';
 import { CrmModule } from './modules/crm/crm.module';
 import { FixedAssetsModule } from './modules/fixed-assets/fixed-assets.module';
 import { ExpensesModule } from './modules/expenses/expenses.module';
+import { ToolingModule } from './modules/tooling/tooling.module';
 
 // AXOS OS Intelligence & Tenancy Infrastructure
 import { EventLedgerInterceptor } from './common/interceptors/event-ledger.interceptor';
@@ -87,6 +88,7 @@ import { AiModule } from './modules/ai/ai.module';
     CrmModule,
     FixedAssetsModule,
     ExpensesModule,
+    ToolingModule,
     ForecastModule,
     PlansModule,
     BomModule,
