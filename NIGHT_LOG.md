@@ -86,28 +86,56 @@ archivos, decisiones, endpoints/pantallas, KPIs, siguiente paso / bloqueos.
   cualquier usuario autenticado (sistema de ideas/Kaizen es participativo);
   admin omite scope. Ver `DECISIONS.md §4`.
 
+### [ehs] EHS / Seguridad y Medio Ambiente (P2.10) — FUNCIONAL
+- **Qué:** módulo nuevo, 100% aditivo, autocontenido; consume numeración
+  (`allocate('EHS_INCIDENT')` → `INC-2026-00001`).
+- **Backend** (`apps/api/src/modules/ehs/`): entidad `SafetyIncident` (extiende
+  `TenantBaseEntity`, scope tenant+planta, `program_id`), máquina de estados pura
+  (REPORTED→INVESTIGATING→ACTION_PENDING→CLOSED, + cierre rápido, rework,
+  CANCELLED), servicio con tipos (near-miss/first-aid/recordable/lost-time/
+  environmental/property), severidad, causa raíz, acción correctiva, días
+  perdidos, y KPIs de seguridad. Controller REST (Swagger `EHS`). Reporte abierto
+  a usuarios autenticados (reportar debe ser sin fricción).
+- **Endpoints:** `GET /ehs/incidents` (filtros), `GET /ehs/kpis`,
+  `GET /ehs/incidents/:id`, `POST /ehs/incidents`, `PATCH /ehs/incidents/:id`,
+  `POST /ehs/incidents/:id/transition`.
+- **Migración:** `20260607140000-CreateSafetyIncidents` (aditiva, idempotente).
+  Registrado en `app.module.ts`. Añadido docType `EHS_INCIDENT` (prefijo `INC`).
+- **Frontend** (`dashboard/ehs`): KPI estrella "días sin registrable", incidentes
+  abiertos, registrables (con tiempo perdido), días perdidos; reporte de
+  incidente, lista por estado con chips de tipo/severidad y transiciones que
+  respetan la máquina de estados (captura causa raíz / acción / días perdidos por
+  prompt). Enlace Cmd-K.
+- **KPIs:** total, abiertos, registrables, tiempo perdido, casi-accidentes, días
+  perdidos, **días desde el último registrable**.
+- **Tests:** `incident-state.spec.ts` + `ehs.service.spec.ts` (SQLite: folio INC,
+  ciclo de investigación con timestamps, transición ilegal, KPIs incl. días sin
+  registrable). API: **11 suites / 56 tests verdes**. Build limpio. Web tsc+lint
+  limpios.
+
 <!-- Próximas entradas arriba de esta línea, orden cronológico inverso por bloque -->
 
 ---
 
 ## ▶ RETOMAR AQUÍ (handoff para la próxima sesión)
 
-- **Último ítem terminado:** `feat(improvement)` — Mejora Continua / Kaizen
-  (P2.13), mergeado a `main` vía PR (squash). `main` verde.
-- **Estado de plataforma:** baseline verde; servicio central de **numeración de
-  folios** (T2) en producción; **Mejora Continua** en producción. API: 9 suites /
-  45 tests. Migraciones solo aditivas. `synchronize:true` en prod materializa las
+- **Último ítem terminado:** `feat(ehs)` — EHS / Seguridad y Medio Ambiente
+  (P2.10), mergeado a `main` vía PR (squash). `main` verde.
+- **Estado de plataforma:** baseline verde; en producción: **numeración de
+  folios** (T2), **Mejora Continua** (P2.13) y **EHS** (P2.10). API: 11 suites /
+  56 tests. Migraciones solo aditivas. `synchronize:true` en prod materializa las
   tablas nuevas desde las entidades (las migraciones son artefacto/red de
   seguridad e idempotentes).
-- **Siguiente ítem exacto a hacer:** **EHS / Seguridad y Medio Ambiente (P2.10)**
-  como rebanada vertical aditiva — entidad `SafetyIncident` (extiende
-  `TenantBaseEntity`, folio vía `allocate('EHS_INCIDENT')`), máquina de estados
-  (REPORTED→INVESTIGATING→ACTION_PENDING→CLOSED), severidad/tipo (near-miss,
-  first-aid, recordable, lost-time), acción correctiva (liga a workflow futuro),
-  KPIs TRIR/LTIR y días sin accidentes, pantalla `dashboard/ehs` + enlace Cmd-K,
-  tests de máquina de estados + servicio en SQLite. Añadir docType `EHS_INCIDENT`
-  (prefijo `INC`) a `numbering.defaults.ts`. Patrón a copiar: el módulo
-  `improvement` (es el más reciente y limpio).
+- **Siguiente ítem exacto a hacer:** **Mantenimiento / TPM (CMMS) (P2.7)** como
+  rebanada vertical aditiva — entidades `Asset` (equipo: código, ubicación,
+  criticidad, estado) y `MaintenanceOrder` (folio vía `allocate('MAINTENANCE_
+  ORDER')` → `MO-…`; tipo PREVENTIVE/CORRECTIVE/PREDICTIVE; máquina de estados
+  OPEN→IN_PROGRESS→COMPLETED + CANCELLED; ligable a un activo y a un paro de MES
+  futuro). KPIs: órdenes abiertas, % PM cumplido, órdenes vencidas, MTTR rough
+  (de created→completed). Pantalla `dashboard/maintenance` + enlace Cmd-K. Tests
+  de máquina de estados + servicio en SQLite. `MAINTENANCE_ORDER` (prefijo `MO`)
+  YA existe en `numbering.defaults.ts`; añadir `ASSET` (prefijo `EQ`) si se
+  numera el activo. Patrón a copiar: el módulo `ehs` (el más reciente y limpio).
 - **Cómo construir (receta probada):** entity → state machine (puro) + spec →
   dto → service (scope tenant+plant; usa `DocumentNumberingService`) → controller
   (`@UseGuards(JwtAuthGuard, PermissionsGuard)`) → module → migración aditiva

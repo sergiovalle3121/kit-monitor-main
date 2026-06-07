@@ -34,6 +34,7 @@ export const DEFAULT_SEQUENCES: SequenceDefault[] = [
   { docType: 'MAINTENANCE_ORDER', name: 'Orden de Mantenimiento', prefix: 'MO', pattern: '{PREFIX}-{YYYY}-{SEQ}', padding: 6, resetPolicy: 'YEARLY', description: 'Órdenes de mantenimiento (CMMS).' },
   { docType: 'KIT', name: 'Kit de Materiales', prefix: 'KIT', pattern: '{PREFIX}-{YYYY}-{SEQ}', padding: 6, resetPolicy: 'YEARLY', description: 'Kits de surtido por WO.' },
   { docType: 'IMPROVEMENT', name: 'Iniciativa de Mejora', prefix: 'CI', pattern: '{PREFIX}-{YYYY}-{SEQ}', padding: 5, resetPolicy: 'YEARLY', description: 'Iniciativas de mejora continua (Kaizen / Lean / 6σ).' },
+  { docType: 'EHS_INCIDENT', name: 'Incidente EHS', prefix: 'INC', pattern: '{PREFIX}-{YYYY}-{SEQ}', padding: 5, resetPolicy: 'YEARLY', description: 'Incidentes de seguridad y medio ambiente.' },
 ];
 
 const PATTERN_FALLBACK = '{PREFIX}-{YYYY}-{SEQ}';
