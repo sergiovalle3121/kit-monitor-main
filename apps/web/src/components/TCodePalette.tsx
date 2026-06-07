@@ -25,10 +25,10 @@ export function TCodePalette() {
   const [isLoading, setIsLoading] = useState(false);
   const [selected, setSelected] = useState(0);
 
-  // Abrir con Ctrl+K o F1
+  // Abrir con Ctrl/Cmd+K o F1, o desde la barra de búsqueda (evento 'axos:open-search').
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey && e.key === 'k') || e.key === 'F1') {
+      if (((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') || e.key === 'F1') {
         e.preventDefault();
         setIsOpen(true);
       }
@@ -36,8 +36,13 @@ export function TCodePalette() {
         setIsOpen(false);
       }
     };
+    const handleOpen = () => setIsOpen(true);
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener('axos:open-search', handleOpen);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('axos:open-search', handleOpen);
+    };
   }, []);
 
   // Búsqueda en tiempo real

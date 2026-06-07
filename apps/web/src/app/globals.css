@@ -192,15 +192,16 @@
 /* La variante oscura usa prefers-color-scheme para alinearse con las
    utilidades dark: de Tailwind v4 (no hay clase .dark activa en esta app). */
 .glass {
-  background: rgba(255, 255, 255, 0.62);
-  -webkit-backdrop-filter: blur(22px) saturate(160%);
-  backdrop-filter: blur(22px) saturate(160%);
-  border: 1px solid rgba(255, 255, 255, 0.6);
-  /* Highlight superior de 1px + halo difuso tintado con el acento (sin negro duro). */
+  background: rgba(255, 255, 255, 0.66);
+  -webkit-backdrop-filter: blur(22px) saturate(135%);
+  backdrop-filter: blur(22px) saturate(135%);
+  /* Borde sutil neutro (no blanco duro) + highlight superior tenue. */
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  /* Halo difuso muy suave, apenas tintado con el acento — descansa la vista. */
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.7),
-    0 12px 32px -10px rgba(79, 70, 229, 0.2),
-    0 2px 8px rgba(80, 70, 120, 0.06);
+    inset 0 1px 0 rgba(255, 255, 255, 0.55),
+    0 10px 30px -14px rgba(79, 70, 229, 0.12),
+    0 2px 8px rgba(80, 70, 120, 0.05);
   transition:
     box-shadow 0.35s var(--ease-out-expo),
     transform 0.35s var(--ease-out-expo);
@@ -209,11 +210,11 @@
 @media (prefers-color-scheme: dark) {
   .glass {
     background: rgba(255, 255, 255, 0.06);
-    border-color: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.08);
     box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.08),
-      0 16px 40px -12px rgba(99, 102, 241, 0.25),
-      0 2px 8px rgba(0, 0, 0, 0.3);
+      inset 0 1px 0 rgba(255, 255, 255, 0.06),
+      0 16px 40px -16px rgba(99, 102, 241, 0.18),
+      0 2px 8px rgba(0, 0, 0, 0.28);
   }
 }
 

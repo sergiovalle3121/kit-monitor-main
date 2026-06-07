@@ -12,7 +12,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 export class BayLayoutController {
   constructor(private readonly service: BayLayoutService) {}
 
-  /** GET /api/bay-layouts?model=OP-320-1211A */
+  /** GET /api/bay-layouts?model=MOD-1 */
   @Get()
   findByModel(@Query('model') model: string) {
     return this.service.findByModel(model);

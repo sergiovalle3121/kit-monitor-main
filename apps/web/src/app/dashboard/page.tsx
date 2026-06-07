@@ -9,9 +9,8 @@ import type { LucideIcon } from "lucide-react";
 import {
   Bell, User, ShieldAlert, AlertCircle, LogOut, ChevronRight, Megaphone,
   HandHelping, PackageCheck, Warehouse, LineChart, Building2, Settings, Boxes,
-  Factory, ShieldCheck, Cpu, DollarSign, RadioTower, FileText,
+  Factory, ShieldCheck, Cpu, DollarSign, RadioTower, FileText, Search,
 } from "lucide-react";
-import { TCodePalette } from "@/components/TCodePalette";
 import { WorkspaceSwitcher } from "@/components/WorkspaceSwitcher";
 import { glass } from "@/lib/glass";
 import { containerRM, itemRM, hoverRM, pressRM } from "@/lib/motion";
@@ -132,14 +131,24 @@ function DashboardInner() {
 
   return (
     <div className="min-h-screen text-black dark:text-white font-sans">
-      <TCodePalette />
-
       {/* Top bar */}
-      <nav className={`${glass} fixed top-0 w-full z-50 px-6 py-4 flex justify-between items-center rounded-none border-x-0 border-t-0`}>
+      <nav className={`${glass} fixed top-0 w-full z-50 px-6 py-4 flex justify-between items-center gap-4 rounded-none border-x-0 border-t-0`}>
         <div className="flex items-center gap-3">
           <span className="font-bold text-lg tracking-tight">Axos OS</span>
           <WorkspaceSwitcher />
         </div>
+
+        {/* Barra de búsqueda — abre la paleta de comandos (Ctrl/⌘+K) */}
+        <button
+          onClick={() => window.dispatchEvent(new CustomEvent("axos:open-search"))}
+          aria-label="Buscar"
+          className="hidden sm:flex items-center gap-2 rounded-full px-3.5 py-2 text-sm text-gray-500 dark:text-gray-400 bg-black/[0.04] dark:bg-white/5 border border-black/5 dark:border-white/10 hover:bg-black/[0.06] dark:hover:bg-white/10 hover:text-gray-700 dark:hover:text-gray-200 transition-colors w-full max-w-md"
+        >
+          <Search className="w-4 h-4 flex-shrink-0" />
+          <span className="flex-1 text-left">Buscar o ir a…</span>
+          <kbd className="hidden md:inline text-[10px] font-mono px-1.5 py-0.5 rounded bg-black/5 dark:bg-white/10 text-gray-400">⌘K</kbd>
+        </button>
+
         <div className="flex items-center gap-3 relative">
           <div className="relative">
             <button onClick={openNotifs} className="p-2 hover:bg-gray-200 dark:hover:bg-white/10 rounded-full transition-colors relative" aria-label="Notificaciones">

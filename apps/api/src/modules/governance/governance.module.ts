@@ -13,6 +13,7 @@ import { NotificationLog } from './entities/notification-log.entity';
 import { GovernancePolicy } from './entities/governance-policy.entity';
 import { NotificationService } from './notification.service';
 import { GovernanceAnalyticsService } from './governance-analytics.service';
+import { MaintenanceService } from './maintenance.service';
 import { EscalationTask } from './tasks/escalation.task';
 
 import { GovernanceSeedService } from './governance-seed.service';
@@ -31,11 +32,12 @@ import { GovernanceSeedService } from './governance-seed.service';
     ScheduleModule.forRoot(),
   ],
   providers: [
-    GovernanceService, 
-    AuditService, 
-    NotificationService, 
+    GovernanceService,
+    AuditService,
+    NotificationService,
     GovernanceAnalyticsService,
-    EscalationTask, 
+    MaintenanceService,
+    EscalationTask,
     GovernanceSeedService
   ],
   controllers: [GovernanceController],

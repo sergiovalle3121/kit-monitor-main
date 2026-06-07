@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Users, 
@@ -16,6 +16,8 @@ import {
   ShieldCheck,
   Factory
 } from 'lucide-react';
+import { useApi } from '@/hooks/useApi';
+import Link from 'next/link';
 
 // --- Types ---
 interface User {
@@ -31,7 +33,37 @@ interface User {
   createdAt: string;
 }
 
-const ROLE_COLORS: Record<string, { bg: string; text: string; icon: any }> = {
+// Forma real que devuelve el backend (/governance/users).
+interface BackendUser {
+  id: string;
+  email: string;
+  username?: string;
+  name?: string | null;
+  role?: string;
+  isActive?: boolean;
+  status?: string;
+  tenantId?: string | null;
+  createdAt?: string;
+}
+
+function mapUser(u: BackendUser): User {
+  const full = (u.name || u.username || u.email || '').trim();
+  const parts = full.split(/\s+/).filter(Boolean);
+  const emailLocal = u.email?.split('@')[0] || '';
+  return {
+    id: u.id,
+    email: u.email,
+    username: u.username || emailLocal,
+    firstName: parts[0] || emailLocal || '—',
+    lastName: parts.slice(1).join(' '),
+    role: u.role || 'Operator',
+    isActive: u.isActive ?? u.status === 'active',
+    tenantId: u.tenantId || 'Global',
+    createdAt: (u.createdAt || '').slice(0, 10),
+  };
+}
+
+const ROLE_COLORS: Record<string, { bg: string; text: string; icon: React.ElementType }> = {
   'Admin': { bg: 'bg-purple-50', text: 'text-purple-700', icon: ShieldCheck },
   'SystemAdmin': { bg: 'bg-red-50', text: 'text-red-700', icon: Shield },
   'PlantManager': { bg: 'bg-blue-50', text: 'text-blue-700', icon: Factory },
@@ -41,32 +73,11 @@ const ROLE_COLORS: Record<string, { bg: string; text: string; icon: any }> = {
 };
 
 export default function UsersManagementPage() {
-  const [users, setUsers] = useState<User[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Datos reales vía SWR (con auth + auto-refresh). Nada de usuarios maqueta.
+  const { data: rawUsers, isLoading: loading } = useApi<BackendUser[]>('/governance/users');
+  const users = (Array.isArray(rawUsers) ? rawUsers : []).map(mapUser);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
-
-  useEffect(() => {
-    fetchUsers();
-  }, []);
-
-  const fetchUsers = async () => {
-    try {
-      setLoading(true);
-      await new Promise(resolve => setTimeout(resolve, 800)); // Simulate delay
-      const mockUsers: User[] = [
-        { id: '1', email: 'admin@axos.com', username: 'admin', firstName: 'System', lastName: 'Admin', role: 'SystemAdmin', isActive: true, tenantId: 'Global', createdAt: '2026-01-01', lastLoginAt: new Date().toISOString() },
-        { id: '2', email: 'j.smith@axos.com', username: 'jsmith', firstName: 'John', lastName: 'Smith', role: 'PlantManager', isActive: true, tenantId: 'Plant-Alpha', createdAt: '2026-02-15', lastLoginAt: new Date().toISOString() },
-        { id: '3', email: 'm.chen@axos.com', username: 'mchen', firstName: 'Maria', lastName: 'Chen', role: 'ExecutiveManager', isActive: true, tenantId: 'Global', createdAt: '2026-03-10' },
-        { id: '4', email: 't.wilson@axos.com', username: 'twilson', firstName: 'Tom', lastName: 'Wilson', role: 'Supervisor', isActive: false, tenantId: 'Plant-Beta', createdAt: '2026-04-22' },
-      ];
-      setUsers(mockUsers);
-    } catch (error) {
-      console.error('Error fetching users:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const filteredUsers = users.filter(u => 
     u.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -98,28 +109,13 @@ export default function UsersManagementPage() {
             <p className="text-[#86868B] mt-2 text-lg">Manage multi-tenant roles, plant scopes and user permissions.</p>
           </div>
 
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={() => {
-              const newUser: User = {
-                id: Math.random().toString(),
-                email: 'new.user@axos.com',
-                username: 'newuser',
-                firstName: 'New',
-                lastName: 'User',
-                role: 'Operator',
-                isActive: true,
-                tenantId: 'Plant-Alpha',
-                createdAt: new Date().toISOString()
-              };
-              setUsers([newUser, ...users]);
-            }}
-            className="flex items-center gap-2 bg-[#1D1D1F] text-white px-6 py-3 rounded-full font-medium transition-all shadow-lg shadow-black/5"
+          <Link
+            href="/dashboard/admin/approvals"
+            className="flex items-center gap-2 bg-[#1D1D1F] text-white px-6 py-3 rounded-full font-medium transition-all shadow-lg shadow-black/5 hover:scale-[1.02] active:scale-95"
           >
             <UserPlus className="w-5 h-5" />
-            Add Team Member
-          </motion.button>
+            Aprobaciones
+          </Link>
         </div>
       </div>
 
