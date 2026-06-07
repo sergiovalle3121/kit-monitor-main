@@ -6,6 +6,7 @@ import {
   Search, LayoutGrid, LineChart, Warehouse, Boxes, Factory, HardHat, ShieldCheck,
   Cpu, DollarSign, Calculator, RadioTower, FileText, Landmark, Users, Building2,
   ShieldAlert, MessageSquare, CornerDownLeft, Hash, Lightbulb, Wrench, Scale, FlaskConical, ShoppingCart, GraduationCap, Truck, PackageCheck, ClipboardList, Target, Building, Receipt, Hammer, PackageX,
+  Gauge, Megaphone, PackagePlus, ScanLine, ShieldX,
 } from 'lucide-react';
 
 interface Dest {
@@ -56,6 +57,13 @@ const DESTS: Dest[] = [
   { label: 'Organización', sub: 'Edificios · Clientes · Proyectos', href: '/dashboard/settings/organization', keywords: 'organizacion edificios clientes proyectos admin', icon: Building2 },
   { label: 'Aprobaciones', sub: 'Admin', href: '/dashboard/admin/approvals', keywords: 'aprobaciones approvals usuarios pendientes admin', icon: ShieldAlert },
   { label: 'Numeración de folios', sub: 'Admin · Datos maestros', href: '/dashboard/admin/numbering', keywords: 'folios numeracion secuencias consecutivos wo po ncr prefijo admin datos maestros', icon: Hash },
+  // ── Piso de producción (shop floor) ──
+  { label: 'Disposición de líneas', sub: 'Ing. Industrial · layout y balanceo', href: '/dashboard/line-engineering', keywords: 'disposicion lineas industrial ie layout estacion ruteo routing balanceo takt cycle cuello botella factor de uso poka yoke ayuda visual ctq changeover', icon: Gauge },
+  { label: 'Muro del plan', sub: 'Planeación · publicar WOs en vivo', href: '/dashboard/production-plan', keywords: 'plan muro publicacion planeacion wo orden de trabajo work order liberar secuencia prioridad readiness adherencia operador autorizar acceso montado ejecucion', icon: Megaphone },
+  { label: 'Surtido y e-kanban', sub: 'Materialista · montar kit a estación', href: '/dashboard/material-staging', keywords: 'surtido staging kitting materialista almacen montar material estacion kanban reposicion pull faltante shortage fill rate cola scanner llamado', icon: PackagePlus },
+  { label: 'Terminal de operador', sub: 'Producción · ejecutar en estación', href: '/dashboard/operator-terminal', keywords: 'terminal operador ejecucion estacion escanear poka yoke backflush consumo confirmar serial genealogia andon defecto takt skill certificado bloqueo faltante hora por hora', icon: ScanLine },
+  { label: 'Calidad de piso · MRB', sub: 'Holds, disposición y where-used', href: '/dashboard/floor-quality', keywords: 'calidad piso hold retencion cuarentena mrb disposicion use as is rework repair scrap rtv scar sort ncr retrabajo reinspeccion where used genealogia contencion ppm', icon: ShieldX },
+  { label: 'Torre de control de línea', sub: 'Readiness y semáforo por línea', href: '/dashboard/line-control-tower', keywords: 'torre control linea readiness plan vs real andon holds reposicion semaforo gerente operaciones turno oee adherencia cross linea', icon: RadioTower },
   { label: 'Chat', sub: 'Mensajería', href: '/dashboard/chat', keywords: 'chat mensajes mensajeria', icon: MessageSquare },
 ];
 

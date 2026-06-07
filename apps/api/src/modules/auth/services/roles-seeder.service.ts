@@ -9,6 +9,12 @@ import { RolePermission } from '../entities/role-permission.entity';
 /**
  * Seed data for default roles and permissions.
  * This data is idempotent - running it multiple times won't create duplicates.
+ *
+ * NOTE: the authoritative runtime RBAC matrix is `auth/rbac.ts` (consumed by
+ * AuthService at login → User.permissions → PermissionsGuard). This DB seed is a
+ * secondary, optional catalog kept aligned with that vocabulary; it is extended
+ * additively so any external tooling reading the roles/permissions tables sees
+ * the same shop-floor permissions. Do not treat it as the source of truth.
  */
 
 /**
@@ -40,6 +46,14 @@ const DEFAULT_ROLES = [
     description:
       'Solo registro de producción en su estación, escaneo, reporte de fallas.',
   },
+  // ── Shop-floor roles (aligned with auth/rbac.ts) ─────────────────────────
+  { name: 'Planner', description: 'Publica el plan y libera órdenes de trabajo.' },
+  { name: 'Materialist', description: 'Surte y monta material a estación; e-kanban.' },
+  { name: 'IndustrialEngineer', description: 'Dispone líneas: ruteo, layout y balanceo.' },
+  { name: 'QualityEngineer', description: 'Holds de calidad y disposición MRB.' },
+  { name: 'MRBMember', description: 'Disposición de material en el comité MRB.' },
+  { name: 'CycleCountAnalyst', description: 'Concilia inventario contra conteos.' },
+  { name: 'MaintenanceTech', description: 'Atiende andon de máquina y mantenimiento.' },
 ];
 
 /**
@@ -105,6 +119,23 @@ const DEFAULT_PERMISSIONS = [
     action: 'write',
     description: 'Escribir configuración del sistema',
   },
+  // ── Shop-floor permission vocabulary (aligned with auth/rbac.ts) ──────────
+  { resource: 'planning', action: 'read', description: 'Leer el plan de producción' },
+  { resource: 'planning', action: 'write', description: 'Editar el plan de producción' },
+  { resource: 'planning', action: 'publish', description: 'Publicar el plan / liberar WOs' },
+  { resource: 'production', action: 'execute', description: 'Ejecutar una WO en estación (operador)' },
+  { resource: 'production', action: 'authorize', description: 'Autorizar a un operador a una WO' },
+  { resource: 'materials', action: 'read', description: 'Leer materiales' },
+  { resource: 'materials', action: 'request', description: 'Solicitar material a almacén' },
+  { resource: 'materials', action: 'stage', description: 'Surtir / montar material a estación' },
+  { resource: 'quality', action: 'report', description: 'Reportar defecto desde estación' },
+  { resource: 'quality', action: 'hold', description: 'Colocar retención de calidad (hold)' },
+  { resource: 'quality', action: 'disposition', description: 'Disponer material en MRB' },
+  { resource: 'inventory', action: 'reconcile', description: 'Conciliar inventario (conteos)' },
+  { resource: 'engineering', action: 'read', description: 'Leer datos de ingeniería' },
+  { resource: 'engineering', action: 'write', description: 'Editar ruteo / layout de línea' },
+  { resource: 'maintenance', action: 'read', description: 'Leer mantenimiento' },
+  { resource: 'maintenance', action: 'write', description: 'Atender mantenimiento / andon de máquina' },
 ];
 
 /**
@@ -155,10 +186,66 @@ const ROLE_PERMISSIONS: Record<string, [string, string][]> = {
   Supervisor: [
     ['production', 'read'],
     ['production', 'write'],
+    ['production', 'execute'],
+    ['production', 'authorize'],
     ['quality', 'read'],
+    ['quality', 'report'],
+    ['inventory', 'read'],
+    ['engineering', 'read'],
+  ],
+  Operator: [
+    ['production', 'read'],
+    ['production', 'write'],
+    ['production', 'execute'],
+    ['quality', 'report'],
+    ['materials', 'read'],
+  ],
+  // ── Shop-floor role assignments (aligned with auth/rbac.ts) ──────────────
+  Planner: [
+    ['planning', 'read'],
+    ['planning', 'write'],
+    ['planning', 'publish'],
+    ['production', 'read'],
+    ['materials', 'read'],
     ['inventory', 'read'],
   ],
-  Operator: [['production', 'read'], ['production', 'write']],
+  Materialist: [
+    ['materials', 'read'],
+    ['materials', 'stage'],
+    ['materials', 'request'],
+    ['inventory', 'read'],
+  ],
+  IndustrialEngineer: [
+    ['engineering', 'read'],
+    ['engineering', 'write'],
+    ['production', 'read'],
+    ['materials', 'read'],
+  ],
+  QualityEngineer: [
+    ['quality', 'read'],
+    ['quality', 'write'],
+    ['quality', 'hold'],
+    ['quality', 'report'],
+    ['quality', 'disposition'],
+    ['production', 'read'],
+    ['materials', 'read'],
+  ],
+  MRBMember: [
+    ['quality', 'disposition'],
+    ['quality', 'read'],
+    ['engineering', 'read'],
+    ['materials', 'read'],
+  ],
+  CycleCountAnalyst: [
+    ['inventory', 'read'],
+    ['inventory', 'reconcile'],
+    ['reports', 'read'],
+  ],
+  MaintenanceTech: [
+    ['maintenance', 'read'],
+    ['maintenance', 'write'],
+    ['production', 'read'],
+  ],
 };
 
 /**

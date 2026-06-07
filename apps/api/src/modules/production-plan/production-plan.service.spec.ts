@@ -1,0 +1,132 @@
+import { DataSource } from 'typeorm';
+import { ProductionPlanService } from './production-plan.service';
+import { SfWorkOrder } from './entities/sf-work-order.entity';
+import { DocumentNumberingService } from '../numbering/document-numbering.service';
+import { DocumentSequence } from '../numbering/entities/document-sequence.entity';
+import {
+  TenantContextService,
+  TenantContext,
+} from '../../common/tenant/tenant-context.service';
+import { createTenantScopedRepository } from '../../common/tenant/tenant-scoped.repository';
+
+function ctxFor(tenant: string | null): TenantContext {
+  return {
+    tenant_id: tenant,
+    organization_id: null,
+    plant_id: null,
+    user_email: 'planner@test',
+    role: null,
+    permissions: null,
+    scopes: null,
+  };
+}
+
+describe('ProductionPlanService (integration)', () => {
+  let dataSource: DataSource;
+  let service: ProductionPlanService;
+  let ctx: TenantContextService;
+  const year = new Date().getFullYear();
+
+  beforeEach(async () => {
+    dataSource = new DataSource({
+      type: 'sqlite',
+      database: ':memory:',
+      dropSchema: true,
+      synchronize: true,
+      entities: [SfWorkOrder, DocumentSequence],
+    });
+    await dataSource.initialize();
+    ctx = new TenantContextService();
+    const numbering = new DocumentNumberingService(
+      dataSource.getRepository(DocumentSequence),
+      dataSource,
+      ctx,
+    );
+    service = new ProductionPlanService(
+      createTenantScopedRepository(SfWorkOrder, dataSource.manager, ctx),
+      ctx,
+      numbering,
+    );
+  });
+
+  afterEach(async () => {
+    await dataSource.destroy();
+  });
+
+  it('publishes a WO with a WO- folio in RELEASED', async () => {
+    const wo = await service.publish({ model: 'AX-1000', line: 'SMT-1', quantityPlanned: 500 });
+    expect(wo.folio).toBe(`WO-${year}-000001`);
+    expect(wo.status).toBe('RELEASED');
+    expect(wo.materialReady).toBe(false);
+  });
+
+  it('staging readiness moves RELEASED→STAGED; pulling back reverts', async () => {
+    const wo = await service.publish({ model: 'M', line: 'L', quantityPlanned: 10 });
+    const staged = await service.setMaterialReady(wo.id, true);
+    expect(staged.status).toBe('STAGED');
+    expect(staged.materialReady).toBe(true);
+    const back = await service.setMaterialReady(wo.id, false);
+    expect(back.status).toBe('RELEASED');
+  });
+
+  it('execution increments completion and auto-completes the WO', async () => {
+    const wo = await service.publish({ model: 'M', line: 'L', quantityPlanned: 3 });
+    await service.setMaterialReady(wo.id, true);
+    let cur = await service.incrementCompleted(wo.id, 1);
+    expect(cur.status).toBe('IN_EXECUTION'); // first unit starts it
+    expect(cur.quantityCompleted).toBe(1);
+    await service.incrementCompleted(wo.id, 1);
+    cur = await service.incrementCompleted(wo.id, 1);
+    expect(cur.quantityCompleted).toBe(3);
+    expect(cur.status).toBe('COMPLETED');
+    expect(cur.completedAt).toBeTruthy();
+  });
+
+  it('reports run blockers (material, quality hold, FAI)', async () => {
+    const wo = await service.publish({ model: 'M', line: 'L', quantityPlanned: 5, faiRequired: true });
+    let b = service.runBlockers(wo);
+    expect(b.runnable).toBe(false);
+    expect(b.blockers.length).toBe(2); // no material + FAI pending
+
+    await service.setMaterialReady(wo.id, true);
+    await service.setFaiApproved(wo.id, true);
+    const ready = await service.getOne(wo.id);
+    b = service.runBlockers(ready);
+    expect(b.runnable).toBe(true);
+
+    // a quality hold blocks again
+    await service.setQualityClear(wo.id, false);
+    const held = await service.getOne(wo.id);
+    expect(service.runBlockers(held).runnable).toBe(false);
+  });
+
+  it('authorizes operators (the supervisor "acceso") and gates by membership', async () => {
+    const wo = await service.publish({ model: 'M', line: 'L', quantityPlanned: 5 });
+    // No explicit list → open to certified operators.
+    expect(service.isOperatorAuthorized(wo, 'anyone@x')).toBe(true);
+    const auth = await service.authorizeOperators(wo.id, { operators: ['op1@plant.com'] });
+    expect(service.isOperatorAuthorized(auth, 'op1@plant.com')).toBe(true);
+    expect(service.isOperatorAuthorized(auth, 'intruder@x')).toBe(false);
+  });
+
+  it('aggregates plan KPIs (adherence, readiness)', async () => {
+    const a = await service.publish({ model: 'M', line: 'L', quantityPlanned: 10 });
+    await service.publish({ model: 'N', line: 'L', quantityPlanned: 10 });
+    await service.setMaterialReady(a.id, true);
+    await service.incrementCompleted(a.id, 5);
+    const k = await service.kpis();
+    expect(k.total).toBe(2);
+    expect(k.unitsPlanned).toBe(20);
+    expect(k.unitsCompleted).toBe(5);
+    expect(k.planAdherencePct).toBe(0.25);
+    expect(k.woWithReadiness).toBe(1);
+  });
+
+  it('isolates WOs by tenant', async () => {
+    await ctx.run(ctxFor('T_A'), () => service.publish({ model: 'M', line: 'L', quantityPlanned: 1 }));
+    await ctx.run(ctxFor('T_B'), () => service.publish({ model: 'M', line: 'L', quantityPlanned: 1 }));
+    const aList = await ctx.run(ctxFor('T_A'), () => service.list());
+    expect(aList).toHaveLength(1);
+    expect(aList[0].tenant_id).toBe('T_A');
+  });
+});

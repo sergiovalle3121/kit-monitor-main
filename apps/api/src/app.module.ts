@@ -26,6 +26,12 @@ import { FixedAssetsModule } from './modules/fixed-assets/fixed-assets.module';
 import { ExpensesModule } from './modules/expenses/expenses.module';
 import { ToolingModule } from './modules/tooling/tooling.module';
 import { RmaModule } from './modules/rma/rma.module';
+import { LineEngineeringModule } from './modules/line-engineering/line-engineering.module';
+import { ProductionPlanModule } from './modules/production-plan/production-plan.module';
+import { MaterialStagingModule } from './modules/material-staging/material-staging.module';
+import { OperatorTerminalModule } from './modules/operator-terminal/operator-terminal.module';
+import { FloorQualityModule } from './modules/floor-quality/floor-quality.module';
+import { LineControlTowerModule } from './modules/line-control-tower/line-control-tower.module';
 
 // AXOS OS Intelligence & Tenancy Infrastructure
 import { EventLedgerInterceptor } from './common/interceptors/event-ledger.interceptor';
@@ -91,6 +97,12 @@ import { AiModule } from './modules/ai/ai.module';
     ExpensesModule,
     ToolingModule,
     RmaModule,
+    LineEngineeringModule,
+    ProductionPlanModule,
+    MaterialStagingModule,
+    OperatorTerminalModule,
+    FloorQualityModule,
+    LineControlTowerModule,
     ForecastModule,
     PlansModule,
     BomModule,

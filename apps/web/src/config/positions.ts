@@ -13,11 +13,18 @@
 export type RoleId =
   | 'admin' // system administrator (manages users/access)
   | 'executive' // plant director / ops manager — sees everything, no user admin
+  | 'plant_manager'
   | 'planner'
   | 'warehouse_operator' // materiales y almacén
+  | 'materialist'
   | 'production_supervisor'
+  | 'operator'
   | 'quality_engineer'
+  | 'mrb_member'
   | 'engineering'
+  | 'industrial_engineer'
+  | 'cycle_count_analyst'
+  | 'maintenance_tech'
   | 'buyer'
   | 'finance'
   | 'hr';
@@ -72,13 +79,14 @@ export const POSITIONS: Position[] = [
 
   // Materiales y Almacén
   { id: 'warehouse_operator', label: 'Operador de almacén', departmentId: 'materiales', level: 1, role: 'warehouse_operator' },
-  { id: 'materialist', label: 'Materialista / Surtidor', departmentId: 'materiales', level: 1, role: 'warehouse_operator' },
+  { id: 'materialist', label: 'Materialista / Surtidor', departmentId: 'materiales', level: 1, role: 'materialist' },
+  { id: 'cycle_count_analyst', label: 'Analista de conteos cíclicos', departmentId: 'materiales', level: 2, role: 'cycle_count_analyst' },
   { id: 'warehouse_lead', label: 'Líder de almacén', departmentId: 'materiales', level: 2, role: 'warehouse_operator' },
   { id: 'inventory_supervisor', label: 'Supervisor de inventarios', departmentId: 'materiales', level: 3, role: 'warehouse_operator' },
   { id: 'materials_manager', label: 'Gerente de materiales', departmentId: 'materiales', level: 4, role: 'warehouse_operator' },
 
   // Producción
-  { id: 'line_operator', label: 'Operador de línea', departmentId: 'produccion', level: 1, role: 'production_supervisor' },
+  { id: 'line_operator', label: 'Operador de línea', departmentId: 'produccion', level: 1, role: 'operator' },
   { id: 'production_lead', label: 'Líder de producción', departmentId: 'produccion', level: 2, role: 'production_supervisor' },
   { id: 'production_supervisor', label: 'Supervisor de producción', departmentId: 'produccion', level: 3, role: 'production_supervisor' },
   { id: 'production_manager', label: 'Gerente de producción', departmentId: 'produccion', level: 4, role: 'production_supervisor' },
@@ -90,6 +98,7 @@ export const POSITIONS: Position[] = [
 
   // Ingeniería
   { id: 'process_engineer', label: 'Ingeniero de proceso', departmentId: 'ingenieria', level: 3, role: 'engineering' },
+  { id: 'industrial_engineer', label: 'Ingeniero industrial', departmentId: 'ingenieria', level: 3, role: 'industrial_engineer' },
   { id: 'npi_engineer', label: 'Ingeniero NPI', departmentId: 'ingenieria', level: 3, role: 'engineering' },
   { id: 'engineering_manager', label: 'Gerente de ingeniería', departmentId: 'ingenieria', level: 4, role: 'engineering' },
 
@@ -100,7 +109,7 @@ export const POSITIONS: Position[] = [
   // Coming soon (selectable once their area ships)
   { id: 'buyer', label: 'Comprador', departmentId: 'compras', level: 2, role: 'buyer' },
   { id: 'logistics_coordinator', label: 'Coordinador de logística', departmentId: 'logistica', level: 2, role: 'warehouse_operator' },
-  { id: 'maintenance_tech', label: 'Técnico de mantenimiento', departmentId: 'mantenimiento', level: 1, role: 'production_supervisor' },
+  { id: 'maintenance_tech', label: 'Técnico de mantenimiento', departmentId: 'mantenimiento', level: 1, role: 'maintenance_tech' },
   { id: 'hr_analyst', label: 'Analista de RH', departmentId: 'personas', level: 2, role: 'hr' },
 ];
 
