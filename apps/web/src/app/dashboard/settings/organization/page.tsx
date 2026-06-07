@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  ChevronLeft, Building2, Briefcase, Users, Plus, Trash2, Loader2, X, AlertCircle,
+  ChevronLeft, Building2, Briefcase, Users, Plus, Trash2, Loader2, X, AlertCircle, AlertTriangle, CheckCircle2,
 } from 'lucide-react';
 import { glass } from '@/lib/glass';
 import { useApi } from '@/hooks/useApi';
@@ -86,7 +86,7 @@ export default function OrganizationPage() {
           items={customers.data ?? []}
           loading={customers.isLoading}
           empty="Aún no hay clientes. Agrega a quién le manufacturas."
-          fields={[{ key: 'code', label: 'Código', placeholder: 'MOT' }, { key: 'name', label: 'Nombre', placeholder: 'Motorola' }, { key: 'industry', label: 'Industria (opcional)', placeholder: 'Electrónica' }]}
+          fields={[{ key: 'code', label: 'Código', placeholder: 'CL-01' }, { key: 'name', label: 'Nombre', placeholder: 'Cliente 1' }, { key: 'industry', label: 'Industria (opcional)', placeholder: 'Electrónica' }]}
           onCreate={async (v) => { await post('/enterprise/customers', v); customers.mutate(); }}
           onDelete={async (id) => { await del(`/enterprise/customers/${id}`); customers.mutate(); }}
           onError={flash}
@@ -101,8 +101,8 @@ export default function OrganizationPage() {
           loading={programs.isLoading}
           empty="Aún no hay proyectos. Crea uno y ligálo a un cliente."
           fields={[
-            { key: 'code', label: 'Código', placeholder: 'MOT-EDGE' },
-            { key: 'name', label: 'Nombre', placeholder: 'Motorola Edge' },
+            { key: 'code', label: 'Código', placeholder: 'PRJ-01' },
+            { key: 'name', label: 'Nombre', placeholder: 'Proyecto 1' },
             { key: 'customerId', label: 'Cliente', type: 'select', options: (customers.data ?? []).map((c) => ({ value: c.id, label: c.name })) },
           ]}
           onCreate={async (v) => {
@@ -113,8 +113,65 @@ export default function OrganizationPage() {
           onError={flash}
           render={(p: Program) => ({ title: p.name, sub: p.customer?.name ? `${p.code} · ${p.customer.name}` : p.code })}
         />
+
+        {/* Zona de mantenimiento */}
+        <DangerZone onError={flash} />
       </main>
     </div>
+  );
+}
+
+function DangerZone({ onError }: { onError: (m: string) => void }) {
+  const [confirming, setConfirming] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState(false);
+
+  async function run() {
+    setBusy(true);
+    try {
+      await post('/governance/reset-operational', {});
+      setDone(true);
+      setConfirming(false);
+    } catch (e) {
+      onError(e instanceof Error ? e.message : 'Error');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section>
+      <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-gray-500 mb-3">
+        <AlertTriangle className="w-5 h-5 text-amber-500" /> Mantenimiento
+      </h2>
+      <div className={`${glass} rounded-2xl p-5`}>
+        <p className="text-sm font-semibold">Vaciar datos de operación</p>
+        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 max-w-xl leading-relaxed">
+          Borra planes, BOM, materiales, kits, órdenes en ejecución, solicitudes,
+          envíos, NCR y costos que hayan quedado de pruebas o importaciones. No toca
+          usuarios, tu organización (edificios / clientes / proyectos) ni la
+          configuración. Úsalo para arrancar la operación en limpio.
+        </p>
+        {done ? (
+          <p className="mt-4 flex items-center gap-2 text-sm font-semibold text-emerald-600">
+            <CheckCircle2 className="w-4 h-4" /> Listo. La operación quedó vacía.
+          </p>
+        ) : confirming ? (
+          <div className="mt-4 flex items-center gap-2">
+            <button onClick={run} disabled={busy} className="flex items-center gap-2 bg-red-500 text-white text-sm font-semibold px-4 py-2 rounded-full hover:bg-red-600 active:scale-95 transition-all disabled:opacity-60">
+              {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />} Sí, vaciar todo
+            </button>
+            <button onClick={() => setConfirming(false)} disabled={busy} className="text-sm font-medium px-4 py-2 rounded-full border border-gray-200 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-white/5 transition">
+              Cancelar
+            </button>
+          </div>
+        ) : (
+          <button onClick={() => setConfirming(true)} className="mt-4 flex items-center gap-2 text-sm font-semibold px-4 py-2 rounded-full border border-red-200 dark:border-red-500/30 text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10 transition">
+            <Trash2 className="w-4 h-4" /> Vaciar datos de operación
+          </button>
+        )}
+      </div>
+    </section>
   );
 }
 

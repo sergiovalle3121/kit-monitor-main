@@ -1,6 +1,7 @@
 import { Controller, Get, Patch, Post, Param, Body, UseGuards, Request, Query } from '@nestjs/common';
 import { GovernanceService } from './governance.service';
 import { GovernanceAnalyticsService } from './governance-analytics.service';
+import { MaintenanceService } from './maintenance.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { RequirePermissions } from '../auth/decorators/permissions.decorator';
@@ -11,12 +12,21 @@ export class GovernanceController {
   constructor(
     private readonly governanceService: GovernanceService,
     private readonly analytics: GovernanceAnalyticsService,
+    private readonly maintenance: MaintenanceService,
   ) {}
 
   @Get('master-data')
   @RequirePermissions('ADMIN_ACCESS')
   getMasterData() {
     return this.governanceService.getMasterData();
+  }
+
+  // Vacía la operación (planes, BOM, materiales, kits, WO, solicitudes, envíos,
+  // NCR, costos…). Preserva usuarios, organización y configuración. Sólo admin.
+  @Post('reset-operational')
+  @RequirePermissions('ADMIN_ACCESS')
+  resetOperational() {
+    return this.maintenance.resetOperationalData();
   }
 
   @Get('logs')

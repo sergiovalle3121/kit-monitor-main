@@ -131,7 +131,7 @@ async function seedAdmins(app: INestApplication): Promise<void> {
     await ensureAdmin(usersService, {
       email: masterEmail,
       password: masterPassword,
-      name: process.env.MASTER_ADMIN_NAME || 'Master Admin',
+      name: process.env.MASTER_ADMIN_NAME || 'Sergio',
       forcePassword: true,
       label: 'Master admin',
     });
@@ -147,7 +147,7 @@ async function seedAdmins(app: INestApplication): Promise<void> {
     await ensureAdmin(usersService, {
       email,
       password: ownerSeedPassword,
-      name: process.env.OWNER_ADMIN_NAME || 'Owner',
+      name: process.env.OWNER_ADMIN_NAME || 'Sergio',
       forcePassword: !!ownerPasswordEnv,
       label: 'Owner admin',
     });
