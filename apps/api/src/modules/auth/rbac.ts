@@ -9,11 +9,18 @@
 export type AppRole =
   | 'admin'
   | 'executive'
+  | 'plant_manager'
   | 'planner'
   | 'warehouse_operator'
+  | 'materialist'
   | 'production_supervisor'
+  | 'operator'
   | 'quality_engineer'
+  | 'mrb_member'
   | 'engineering'
+  | 'industrial_engineer'
+  | 'cycle_count_analyst'
+  | 'maintenance_tech'
   | 'buyer'
   | 'finance'
   | 'hr';
@@ -33,9 +40,27 @@ const READ_ALL = [
 export const ROLE_PERMISSIONS: Record<AppRole, string[]> = {
   admin: [], // role 'Admin' bypasses the guard; explicit perms not needed
   executive: READ_ALL,
+  // Plant manager / ops manager — broad read + the operational authorizations
+  // needed to run a plant (publish plans, authorize WOs, dispositions).
+  plant_manager: [
+    ...READ_ALL,
+    'planning:write',
+    'planning:publish',
+    'production:write',
+    'production:authorize',
+    'quality:write',
+    'quality:hold',
+    'quality:disposition',
+    'materials:write',
+    'materials:stage',
+    'inventory:write',
+    'inventory:reconcile',
+    'maintenance:write',
+  ],
   planner: [
     'planning:read',
     'planning:write',
+    'planning:publish',
     'production:read',
     'materials:read',
     'inventory:read',
@@ -47,22 +72,50 @@ export const ROLE_PERMISSIONS: Record<AppRole, string[]> = {
     'materials:write',
     'materials:request',
     'materials:authorize',
+    'materials:stage',
     'inventory:read',
     'inventory:write',
     'production:read',
   ],
+  // Materialist / line-feeder: stages kits to stations & raises replenishment.
+  materialist: [
+    'materials:read',
+    'materials:stage',
+    'materials:request',
+    'inventory:read',
+  ],
   production_supervisor: [
     'production:read',
     'production:write',
+    'production:execute',
+    'production:authorize',
     'materials:read',
     'materials:request',
     'quality:read',
+    'quality:report',
     'engineering:read',
+  ],
+  // Line operator: executes the published WO at their station, reports defects.
+  operator: [
+    'production:read',
+    'production:execute',
+    'quality:report',
+    'materials:read',
   ],
   quality_engineer: [
     'quality:read',
     'quality:write',
+    'quality:hold',
+    'quality:report',
+    'quality:disposition',
     'production:read',
+    'materials:read',
+  ],
+  // MRB member: dispositions material-review-board cases (no edit of root quality).
+  mrb_member: [
+    'quality:disposition',
+    'quality:read',
+    'engineering:read',
     'materials:read',
   ],
   engineering: [
@@ -70,6 +123,25 @@ export const ROLE_PERMISSIONS: Record<AppRole, string[]> = {
     'engineering:write',
     'production:read',
     'materials:read',
+  ],
+  // Industrial engineer: lays out lines (routing, station layout, balance).
+  industrial_engineer: [
+    'engineering:read',
+    'engineering:write',
+    'production:read',
+    'materials:read',
+  ],
+  // Cycle-count analyst: reconciles inventory variances from backflush vs count.
+  cycle_count_analyst: [
+    'inventory:read',
+    'inventory:reconcile',
+    'reports:read',
+  ],
+  // Maintenance technician: works machine andons / maintenance orders.
+  maintenance_tech: [
+    'maintenance:read',
+    'maintenance:write',
+    'production:read',
   ],
   buyer: [
     'materials:read',
