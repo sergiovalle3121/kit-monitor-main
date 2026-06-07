@@ -3,6 +3,7 @@ import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { WorkspaceProvider } from "@/contexts/WorkspaceContext";
+import { ToastProvider } from "@/contexts/ToastContext";
 import { ChatWidget } from "@/components/ChatWidget";
 import { AiCopilot } from "@/components/AiCopilot";
 import { SearchPalette } from "@/components/SearchPalette";
@@ -23,10 +24,12 @@ export default function RootLayout({
         <ThemeProvider>
           <AuthProvider>
             <WorkspaceProvider>
-              {children}
-              <ChatWidget />
-              <AiCopilot />
-              <SearchPalette />
+              <ToastProvider>
+                {children}
+                <ChatWidget />
+                <AiCopilot />
+                <SearchPalette />
+              </ToastProvider>
             </WorkspaceProvider>
           </AuthProvider>
         </ThemeProvider>
