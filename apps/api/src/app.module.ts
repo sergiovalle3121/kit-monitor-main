@@ -15,6 +15,7 @@ import { EhsModule } from './modules/ehs/ehs.module';
 import { MaintenanceModule } from './modules/maintenance/maintenance.module';
 import { LegalModule } from './modules/legal/legal.module';
 import { TestingModule } from './modules/testing/testing.module';
+import { ProcurementModule } from './modules/procurement/procurement.module';
 
 // AXOS OS Intelligence & Tenancy Infrastructure
 import { EventLedgerInterceptor } from './common/interceptors/event-ledger.interceptor';
@@ -69,6 +70,7 @@ import { AiModule } from './modules/ai/ai.module';
     MaintenanceModule,
     LegalModule,
     TestingModule,
+    ProcurementModule,
     ForecastModule,
     PlansModule,
     BomModule,
