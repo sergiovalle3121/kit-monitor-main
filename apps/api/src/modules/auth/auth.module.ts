@@ -13,6 +13,7 @@ import { TCodeService } from './services/tcode.service';
 import { AuthorizationService } from './services/authorization.service';
 import { RolesSeederService } from './services/roles-seeder.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
+import { getJwtSecret } from '../../common/config/jwt-secret';
 import { UsersModule } from '../users/users.module';
 import { GovernanceModule } from '../governance/governance.module';
 import { User } from '../users/entities/user.entity';
@@ -38,7 +39,7 @@ import { UserRoleAssignment } from './entities/user-role.entity';
       UserRoleAssignment,
     ]),
     JwtModule.register({
-      secret: process.env.JWT_SECRET || 'secretKey',
+      secret: getJwtSecret(),
       signOptions: { expiresIn: '1d' },
     }),
   ],

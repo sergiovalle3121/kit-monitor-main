@@ -4,15 +4,15 @@ import { join } from "path";
 /**
  * Database strategy:
  *
- *  PRODUCTION (DATABASE_URL set)
- *    → PostgreSQL via connection URL
- *    → synchronize: true by default to bootstrap Railway-managed schemas
- *      on fresh databases (override with SYNCHRONIZE=false)
+ *  PRODUCTION (NODE_ENV=production)
+ *    → PostgreSQL via connection URL / creds
+ *    → synchronize: ALWAYS false (SYNCHRONIZE no puede forzarlo) → migrationsRun: true
+ *      Las migraciones son la única vía de cambiar el esquema en prod.
  *    → SSL enabled when sslmode=require or NODE_ENV=production
  *
  *  DEVELOPMENT with explicit PG creds (DB_HOST set)
  *    → PostgreSQL via host/port/user/pass
- *    → synchronize: true by default (override with SYNCHRONIZE=false)
+ *    → synchronize: true by default (override with SYNCHRONIZE=false) → migrationsRun: false
  *
  *  LOCAL / no DB env vars
  *    → SQLite file at backend/dev.sqlite
@@ -35,21 +35,22 @@ export function ormOptions(): TypeOrmModuleOptions {
   }
 
   // ── Shared PostgreSQL base ───────────────────────────────────────────────
-  const syncOverride = process.env.SYNCHRONIZE;
-  const synchronize =
-    syncOverride === "true"
-      ? true
-      : syncOverride === "false"
-        ? false
-        : url
-          ? true
-          : !isProd;
+  // En PRODUCCIÓN nunca auto-sincronizamos el esquema: synchronize:true puede
+  // destruir datos. Las migraciones son la única vía. `SYNCHRONIZE=true` NO
+  // puede forzar el sync en prod (solo tiene efecto en desarrollo). En dev el
+  // default es true (apágalo con SYNCHRONIZE=false). migrationsRun = !synchronize,
+  // así en prod corren las migraciones y en dev no.
+  const synchronize = isProd
+    ? false
+    : process.env.SYNCHRONIZE === "false"
+      ? false
+      : true;
 
   const pgBase: Partial<TypeOrmModuleOptions> = {
     type: "postgres",
     autoLoadEntities: true,
     synchronize,
-    migrationsRun: !synchronize && (isProd || process.env.MIGRATIONS_RUN === "true"),
+    migrationsRun: !synchronize,
     migrations: [join(__dirname, "migrations", "*.{ts,js}")],
     ssl:
       isProd || url?.includes("sslmode=require")

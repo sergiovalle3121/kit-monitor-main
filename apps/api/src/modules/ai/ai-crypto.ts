@@ -4,6 +4,7 @@ import {
   randomBytes,
   scryptSync,
 } from 'crypto';
+import { getJwtSecret } from '../../common/config/jwt-secret';
 
 /**
  * Symmetric encryption for per-tenant BYO (bring-your-own) API keys.
@@ -16,13 +17,9 @@ import {
 const SALT = 'axos-ai-byo-key-v1';
 
 function secret(): string {
-  const s = process.env.AI_KEY_SECRET || process.env.JWT_SECRET;
-  if (!s) {
-    throw new Error(
-      'AI_KEY_SECRET (or JWT_SECRET) must be set to store BYO API keys.',
-    );
-  }
-  return s;
+  // Prefiere AI_KEY_SECRET; si no, usa el MISMO secreto JWT ya validado
+  // (getJwtSecret exige uno fuerte en producción).
+  return process.env.AI_KEY_SECRET || getJwtSecret();
 }
 
 function derivedKey(): Buffer {
