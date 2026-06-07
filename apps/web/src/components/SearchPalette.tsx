@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import {
   Search, LayoutGrid, LineChart, Warehouse, Boxes, Factory, HardHat, ShieldCheck,
   Cpu, DollarSign, Calculator, RadioTower, FileText, Landmark, Users, Building2,
-  ShieldAlert, MessageSquare, CornerDownLeft, Hash, Lightbulb, Wrench, Scale, FlaskConical, ShoppingCart, GraduationCap, Truck, PackageCheck,
+  ShieldAlert, MessageSquare, CornerDownLeft, Hash, Lightbulb, Wrench, Scale, FlaskConical, ShoppingCart, GraduationCap, Truck, PackageCheck, ClipboardList,
 } from 'lucide-react';
 
 interface Dest {
@@ -38,6 +38,7 @@ const DESTS: Dest[] = [
   { label: 'RH · Skills', sub: 'Certificaciones y matriz', href: '/dashboard/skills', keywords: 'rh skills habilidades certificaciones matriz capacitacion recertificacion empleados ipc esd', icon: GraduationCap },
   { label: 'Logística · Embarque', sub: 'Embarques, ASN y OTD', href: '/dashboard/outbound', keywords: 'logistica embarque shipping outbound asn entrega otd carrier guia tracking incoterm aduana', icon: Truck },
   { label: 'Recibo · Inbound', sub: 'Recepción e IQC', href: '/dashboard/inbound', keywords: 'recibo inbound recepcion iqc inspeccion entrada lote cuarentena dock to stock proveedor material', icon: PackageCheck },
+  { label: 'Conteos Cíclicos', sub: 'Exactitud de inventario', href: '/dashboard/cycle-counts', keywords: 'conteos ciclicos cycle count exactitud inventario varianza ajuste reconciliacion almacen', icon: ClipboardList },
   { label: 'Torre de Control', sub: 'Cockpit ejecutivo cross-área', href: '/dashboard/control-tower', keywords: 'torre de control control tower cockpit ejecutivo semaforo cross area resumen kpis vp operaciones', icon: RadioTower },
   { label: 'Mission Control', sub: 'Vista ejecutiva', href: '/dashboard/mission-control', keywords: 'mission control kpi ejecutivo metricas', icon: RadioTower },
   { label: 'Office', sub: 'Docs · Hojas · Slides', href: '/dashboard/office', keywords: 'office documentos hojas slides word excel', icon: FileText },
