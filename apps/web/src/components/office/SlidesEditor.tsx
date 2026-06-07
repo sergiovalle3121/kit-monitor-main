@@ -10,7 +10,7 @@ import {
   Type, ImagePlus, Square, Circle as CircleIcon, Minus, Triangle as TriIcon,
   Trash2, ChevronsUp, ChevronsDown, Plus, Copy, Play, X, Bold, Plus as PlusIcon, Minus as MinusIcon,
   StickyNote, CopyPlus, LayoutGrid, Star, ArrowRight, Diamond,
-  Italic, Underline, AlignLeft, AlignCenter, AlignRight, Droplet, Blend, Link2, FlipHorizontal, FlipVertical,
+  Italic, Underline, AlignLeft, AlignCenter, AlignRight, Droplet, Blend, Link2, FlipHorizontal, FlipVertical, Lock, Unlock,
   AlignHorizontalJustifyStart, AlignHorizontalJustifyCenter, AlignHorizontalJustifyEnd,
   AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd,
 } from 'lucide-react';
@@ -57,6 +57,7 @@ export function SlidesEditor({ value, onChange, readOnly }: { value: any; onChan
   const [sorter, setSorter] = useState(false);
   const [selAnim, setSelAnim] = useState<string>('none');
   const [selOpacity, setSelOpacity] = useState(1);
+  const [selLocked, setSelLocked] = useState(false);
   const [hasSel, setHasSel] = useState(false);
 
   useEffect(() => { curRef.current = cur; }, [cur]);
@@ -76,8 +77,18 @@ export function SlidesEditor({ value, onChange, readOnly }: { value: any; onChan
     const c = fabricRef.current; if (c) { c.backgroundColor = color; c.requestRenderAll(); }
     sync();
   }
-  // Include custom props (anim = entrance animation, shape = .pptx mapping, link = hyperlink).
-  function capture() { const c = fabricRef.current; if (c) slidesRef.current[curRef.current] = c.toObject(['anim', 'shape', 'link']); }
+  // Include custom props (anim = entrance animation, shape = .pptx mapping, link = hyperlink, locked).
+  function capture() { const c = fabricRef.current; if (c) slidesRef.current[curRef.current] = c.toObject(['anim', 'shape', 'link', 'locked']); }
+  function applyLock(o: any) {
+    const L = !!o.locked;
+    o.set({ lockMovementX: L, lockMovementY: L, lockScalingX: L, lockScalingY: L, lockRotation: L, hasControls: !L });
+  }
+  function toggleLock() {
+    const c = fabricRef.current; const o = c?.getActiveObject() as any;
+    if (!c || !o) return;
+    o.locked = !o.locked; applyLock(o); setSelLocked(!!o.locked);
+    c.requestRenderAll(); capture(); sync();
+  }
 
   useEffect(() => {
     if (!elRef.current) return;
@@ -87,7 +98,7 @@ export function SlidesEditor({ value, onChange, readOnly }: { value: any; onChan
     canvas.on('object:added', onMod);
     canvas.on('object:modified', onMod);
     canvas.on('object:removed', onMod);
-    const onSel = () => { const o = canvas.getActiveObject() as any; setHasSel(!!o); setSelAnim((o?.anim as string) || 'none'); setSelOpacity(o?.opacity ?? 1); };
+    const onSel = () => { const o = canvas.getActiveObject() as any; setHasSel(!!o); setSelAnim((o?.anim as string) || 'none'); setSelOpacity(o?.opacity ?? 1); setSelLocked(!!o?.locked); };
     canvas.on('selection:created', onSel);
     canvas.on('selection:updated', onSel);
     canvas.on('selection:cleared', () => { setHasSel(false); setSelAnim('none'); });
@@ -106,6 +117,8 @@ export function SlidesEditor({ value, onChange, readOnly }: { value: any; onChan
       if (readOnly) {
         c.selection = false;
         c.forEachObject((o: any) => { o.selectable = false; o.evented = false; });
+      } else {
+        c.forEachObject((o: any) => { if (o.locked) applyLock(o); });
       }
       c.requestRenderAll();
     } catch { /* noop */ }
@@ -332,6 +345,7 @@ export function SlidesEditor({ value, onChange, readOnly }: { value: any; onChan
         <TBtn on={toggleShadow} title="Sombra"><Droplet className="w-4 h-4" /></TBtn>
         <TBtn on={() => flip('x')} title="Voltear horizontal"><FlipHorizontal className="w-4 h-4" /></TBtn>
         <TBtn on={() => flip('y')} title="Voltear vertical"><FlipVertical className="w-4 h-4" /></TBtn>
+        <TBtn on={toggleLock} title={selLocked ? 'Desbloquear' : 'Bloquear posición'}>{selLocked ? <Unlock className="w-4 h-4" /> : <Lock className="w-4 h-4" />}</TBtn>
         <TBtn on={setObjLink} title="Hipervínculo"><Link2 className="w-4 h-4" /></TBtn>
         {hasSel && (
           <span className="flex items-center gap-1 ml-1" title="Opacidad">
