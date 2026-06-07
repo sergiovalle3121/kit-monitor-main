@@ -58,4 +58,65 @@ archivos, decisiones, endpoints/pantallas, KPIs, siguiente paso / bloqueos.
 - **Pendiente/siguiente:** integrar `allocate()` en los módulos que hoy numeran a
   mano (plans/WO, kits, NCR, receiving, shipping) — cambio incremental por módulo.
 
+### [improvement] Mejora Continua / OpEx — Kaizen (P2.13) — FUNCIONAL
+- **Qué:** módulo nuevo, 100% aditivo, autocontenido, que además ESTRENA el
+  servicio de numeración (`allocate('IMPROVEMENT')` → folios `CI-2026-00001`).
+- **Backend** (`apps/api/src/modules/improvement/`): entidad
+  `ImprovementInitiative` (extiende `TenantBaseEntity`, scope tenant+planta,
+  `program_id` de primera clase), máquina de estados pura
+  (DRAFT→IN_PROGRESS→IMPLEMENTED→VERIFIED→CLOSED, + rework y CANCELLED), servicio
+  con captura de ahorros (estimado vs realizado, multimoneda), KPIs de OpEx, y
+  eventos al Event Ledger. Controller REST (Swagger `Improvement`).
+- **Endpoints:** `GET /improvement` (filtros status/methodology/area/programId),
+  `GET /improvement/kpis`, `GET /improvement/:id`, `POST /improvement`,
+  `PATCH /improvement/:id`, `POST /improvement/:id/transition`.
+- **Migración:** `20260607130000-CreateImprovementInitiatives` (aditiva,
+  idempotente). Registrado en `app.module.ts`. Añadido docType `IMPROVEMENT`
+  (prefijo `CI`) a los defaults de numeración.
+- **Frontend** (`dashboard/improvement`): tablero por estado, KPIs (iniciativas,
+  en progreso, implementadas+, ahorro realizado vs estimado), alta de iniciativa,
+  y botones de transición que respetan la máquina de estados. Enlace Cmd-K.
+- **KPIs:** total, por fase, en progreso, implementadas+, ahorro estimado y
+  realizado (formato moneda).
+- **Tests:** `initiative-state.spec.ts` (máquina de estados) +
+  `improvement.service.spec.ts` (flujo crítico en SQLite: folio CI, ciclo de
+  vida con timestamps, transición ilegal rechazada, KPIs de ahorro). API:
+  **9 suites / 45 tests verdes**. Build API limpio. Web typecheck + lint limpios.
+- **Decisión:** la captura de ideas (POST/PATCH/transition) está abierta a
+  cualquier usuario autenticado (sistema de ideas/Kaizen es participativo);
+  admin omite scope. Ver `DECISIONS.md §4`.
+
 <!-- Próximas entradas arriba de esta línea, orden cronológico inverso por bloque -->
+
+---
+
+## ▶ RETOMAR AQUÍ (handoff para la próxima sesión)
+
+- **Último ítem terminado:** `feat(improvement)` — Mejora Continua / Kaizen
+  (P2.13), mergeado a `main` vía PR (squash). `main` verde.
+- **Estado de plataforma:** baseline verde; servicio central de **numeración de
+  folios** (T2) en producción; **Mejora Continua** en producción. API: 9 suites /
+  45 tests. Migraciones solo aditivas. `synchronize:true` en prod materializa las
+  tablas nuevas desde las entidades (las migraciones son artefacto/red de
+  seguridad e idempotentes).
+- **Siguiente ítem exacto a hacer:** **EHS / Seguridad y Medio Ambiente (P2.10)**
+  como rebanada vertical aditiva — entidad `SafetyIncident` (extiende
+  `TenantBaseEntity`, folio vía `allocate('EHS_INCIDENT')`), máquina de estados
+  (REPORTED→INVESTIGATING→ACTION_PENDING→CLOSED), severidad/tipo (near-miss,
+  first-aid, recordable, lost-time), acción correctiva (liga a workflow futuro),
+  KPIs TRIR/LTIR y días sin accidentes, pantalla `dashboard/ehs` + enlace Cmd-K,
+  tests de máquina de estados + servicio en SQLite. Añadir docType `EHS_INCIDENT`
+  (prefijo `INC`) a `numbering.defaults.ts`. Patrón a copiar: el módulo
+  `improvement` (es el más reciente y limpio).
+- **Cómo construir (receta probada):** entity → state machine (puro) + spec →
+  dto → service (scope tenant+plant; usa `DocumentNumberingService`) → controller
+  (`@UseGuards(JwtAuthGuard, PermissionsGuard)`) → module → migración aditiva
+  idempotente → registrar en `app.module.ts` → `npx tsc --noEmit` + `npx jest
+  src/modules/<x>` → build → frontend page (mirar `improvement/page.tsx`) +
+  entrada en `SearchPalette.tsx` → web tsc + eslint → commit/push → PR → merge.
+- **Notas/trampas:** fechas en entidades usar `DATE_COLUMN_TYPE` (no `timestamp`,
+  rompe SQLite). Tipos en firmas decoradas → `import type`. Dinero → `float`.
+  Rutas frontend sin prefijo `/api` (lo añade `NEXT_PUBLIC_API_URL`).
+- **Pendiente transversal (cuando haya tiempo):** cablear `allocate()` en módulos
+  que numeran a mano (WO/plans, kits, NCR, receiving, shipping) — cambio
+  incremental por módulo, cuidando no romper parsers de folios existentes en prod.

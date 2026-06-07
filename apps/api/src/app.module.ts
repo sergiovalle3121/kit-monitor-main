@@ -9,6 +9,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { ForecastModule } from './modules/forecast/forecast.module';
 import { NumberingModule } from './modules/numbering/numbering.module';
+import { ImprovementModule } from './modules/improvement/improvement.module';
 
 // AXOS OS Intelligence & Tenancy Infrastructure
 import { EventLedgerInterceptor } from './common/interceptors/event-ledger.interceptor';
@@ -57,6 +58,7 @@ import { AiModule } from './modules/ai/ai.module';
     AuthModule,
     UsersModule,
     NumberingModule,
+    ImprovementModule,
     ForecastModule,
     PlansModule,
     BomModule,
