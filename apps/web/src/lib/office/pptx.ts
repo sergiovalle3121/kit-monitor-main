@@ -22,7 +22,7 @@ function hex(c?: any): string | undefined {
   return undefined;
 }
 
-export async function exportPptx(slides: any[], title: string) {
+export async function exportPptx(slides: any[], title: string, notes: string[] = []) {
   const mod: any = await import('pptxgenjs');
   const PptxGenJS = mod.default ?? mod;
   const pptx: any = new PptxGenJS();
@@ -30,7 +30,7 @@ export async function exportPptx(slides: any[], title: string) {
   pptx.layout = 'AXOS_16x9';
   const ST = pptx.ShapeType;
 
-  for (const json of slides ?? []) {
+  (slides ?? []).forEach((json, i) => {
     const slide = pptx.addSlide();
     const bg = hex(json?.background);
     if (bg) slide.background = { color: bg };
@@ -38,7 +38,9 @@ export async function exportPptx(slides: any[], title: string) {
     for (const o of json?.objects ?? []) {
       try { addObject(slide, o, ST); } catch { /* skip unsupported object */ }
     }
-  }
+    const note = notes?.[i];
+    if (note && note.trim()) { try { slide.addNotes(note); } catch { /* ignore */ } }
+  });
 
   await pptx.writeFile({ fileName: `${safe(title)}.pptx` });
 }
