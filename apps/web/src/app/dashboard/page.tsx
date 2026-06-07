@@ -41,6 +41,7 @@ const ROLE_LABELS: Record<string, string> = {
 // (admin/executive see all). One uniform grid → predictable, symmetric, calm.
 const AREAS: { name: string; desc: string; href: string; icon: LucideIcon; color: string; tint: string; roles: string[] }[] = [
   { name: "Planeación", desc: "Publicar planes", href: "/dashboard/planning", icon: LineChart, color: "text-violet-500", tint: "bg-violet-50 dark:bg-violet-500/10", roles: ["planner"] },
+  { name: "Muro del plan", desc: "Publicar WOs en vivo", href: "/dashboard/production-plan", icon: Megaphone, color: "text-violet-600", tint: "bg-violet-50 dark:bg-violet-500/10", roles: ["planner", "production_supervisor", "operator", "materialist"] },
   { name: "Almacén", desc: "Surtir y autorizar", href: "/dashboard/almacen", icon: Warehouse, color: "text-blue-500", tint: "bg-blue-50 dark:bg-blue-500/10", roles: ["warehouse_operator", "materialist"] },
   { name: "Inventario", desc: "Existencias y kitting", href: "/dashboard/inventory", icon: Boxes, color: "text-sky-500", tint: "bg-sky-50 dark:bg-sky-500/10", roles: ["warehouse_operator", "materialist", "cycle_count_analyst", "planner"] },
   { name: "Producción", desc: "Órdenes y piso", href: "/dashboard/production", icon: Factory, color: "text-amber-500", tint: "bg-amber-50 dark:bg-amber-500/10", roles: ["production_supervisor", "operator", "warehouse_operator"] },
