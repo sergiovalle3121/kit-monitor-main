@@ -24,6 +24,7 @@ import { DocFindReplace } from './DocFindReplace';
 import { DocOutline } from './DocOutline';
 import { DocComments } from './DocComments';
 import { DocPageView } from './DocPageView';
+import { DocTableMenu } from './DocTableMenu';
 import { CommentMark } from './commentMark';
 import { PageBreak, PageMeta } from './docPageExtensions';
 import '@/styles/tiptap.css';
@@ -185,6 +186,7 @@ export function DocEditor({ value, onChange, readOnly, author, onStats }: { valu
         <Btn on={addLink} active={editor.isActive('link')} title="Enlace"><Link2 className="w-4 h-4" /></Btn>
         <Btn on={addImage} title="Imagen"><ImageIcon className="w-4 h-4" /></Btn>
         <Btn on={() => (c() as any).insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()} title="Tabla"><TableIcon className="w-4 h-4" /></Btn>
+        {editor.isActive('table') && <DocTableMenu editor={editor} />}
         <Btn on={() => c().setHorizontalRule().run()} title="Separador"><Minus className="w-4 h-4" /></Btn>
         <Btn on={() => (c() as any).setPageBreak().run()} title="Salto de página"><SeparatorHorizontal className="w-4 h-4" /></Btn>
         <Sep />
