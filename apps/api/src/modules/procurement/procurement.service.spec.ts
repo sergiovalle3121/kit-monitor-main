@@ -4,6 +4,7 @@ import { PurchaseOrder } from './entities/purchase-order.entity';
 import { DocumentNumberingService } from '../numbering/document-numbering.service';
 import { DocumentSequence } from '../numbering/entities/document-sequence.entity';
 import { TenantContextService } from '../../common/tenant/tenant-context.service';
+import { createTenantScopedRepository } from '../../common/tenant/tenant-scoped.repository';
 
 describe('ProcurementService (integration)', () => {
   let dataSource: DataSource;
@@ -27,7 +28,7 @@ describe('ProcurementService (integration)', () => {
       ctx,
     );
     service = new ProcurementService(
-      dataSource.getRepository(PurchaseOrder),
+      createTenantScopedRepository(PurchaseOrder, dataSource.manager, ctx),
       ctx,
       numbering,
     );
