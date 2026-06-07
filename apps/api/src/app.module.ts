@@ -22,6 +22,7 @@ import { OutboundModule } from './modules/outbound/outbound.module';
 import { InboundModule } from './modules/inbound/inbound.module';
 import { CycleCountsModule } from './modules/cycle-counts/cycle-counts.module';
 import { CrmModule } from './modules/crm/crm.module';
+import { FixedAssetsModule } from './modules/fixed-assets/fixed-assets.module';
 
 // AXOS OS Intelligence & Tenancy Infrastructure
 import { EventLedgerInterceptor } from './common/interceptors/event-ledger.interceptor';
@@ -83,6 +84,7 @@ import { AiModule } from './modules/ai/ai.module';
     InboundModule,
     CycleCountsModule,
     CrmModule,
+    FixedAssetsModule,
     ForecastModule,
     PlansModule,
     BomModule,

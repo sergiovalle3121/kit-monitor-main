@@ -40,6 +40,7 @@ export const DEFAULT_SEQUENCES: SequenceDefault[] = [
   { docType: 'TEST_RECORD', name: 'Registro de Prueba', prefix: 'TST', pattern: '{PREFIX}-{YYYY}{MM}-{SEQ}', padding: 6, resetPolicy: 'MONTHLY', description: 'Resultados de prueba (Test Engineering).' },
   { docType: 'CERTIFICATION', name: 'Certificación', prefix: 'CERT', pattern: '{PREFIX}-{YYYY}-{SEQ}', padding: 5, resetPolicy: 'YEARLY', description: 'Certificaciones de skills (RH).' },
   { docType: 'OPPORTUNITY', name: 'Oportunidad de Venta', prefix: 'OPP', pattern: '{PREFIX}-{YYYY}-{SEQ}', padding: 5, resetPolicy: 'YEARLY', description: 'Oportunidades de venta (CRM / SD).' },
+  { docType: 'FIXED_ASSET', name: 'Activo Fijo', prefix: 'FA', pattern: '{PREFIX}-{SEQ}', padding: 5, resetPolicy: 'NEVER', description: 'Activos fijos capitalizados (FIN).' },
 ];
 
 const PATTERN_FALLBACK = '{PREFIX}-{YYYY}-{SEQ}';

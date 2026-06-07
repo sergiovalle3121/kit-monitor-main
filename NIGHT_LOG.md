@@ -270,22 +270,36 @@ archivos, decisiones, endpoints/pantallas, KPIs, siguiente paso / bloqueos.
   ponderado/win-rate). Gate completo verde: build, **29 suites / 141 tests**, web
   tsc+lint, **bootstrap smoke (PG)**.
 
+### [fixed-assets] Activos Fijos / Depreciación (P1.1 FIN) — FUNCIONAL
+- **Backend** (`apps/api/src/modules/fixed-assets/`): `FixedAsset` (folio `FA-`;
+  costo, rescate, vida útil meses, fecha adquisición; estado IN_SERVICE→DISPOSED).
+  **Helper puro `depreciation.ts`** (línea recta: dep mensual, acumulada capada,
+  valor en libros) + spec. Servicio serializa con campos derivados; baja pone
+  valor en libros 0 y bloquea re-baja. KPIs: **valor en libros total**, costo,
+  depreciación acumulada, en servicio. Controller `fixed-assets`. Migración
+  aditiva. docType `FIXED_ASSET` (prefijo `FA`).
+- **Frontend** (`dashboard/fixed-assets`): KPIs, capitalización, lista con barra
+  de % depreciado, valor en libros y acción de baja. Enlace Cmd-K.
+- **Tests:** `depreciation.spec` (helper puro) + `fixed-assets.service.spec`
+  (SQLite). Gate completo verde: build, **31 suites / 149 tests**, web tsc+lint,
+  **bootstrap smoke (PG)**.
+
 <!-- Próximas entradas arriba de esta línea, orden cronológico inverso por bloque -->
 
 ---
 
 ## ▶ RETOMAR AQUÍ (handoff para la próxima sesión)
 
-- **Último ítem terminado:** `feat(crm)` — CRM / Oportunidades (P1.1 SD-CRM),
-  mergeado a `main` vía PR (squash). `main` verde.
-- **Estado de plataforma:** en producción 13 entregas nuevas + hotfix:
+- **Último ítem terminado:** `feat(fixed-assets)` — Activos Fijos / Depreciación
+  (P1.1 FIN), mergeado a `main` vía PR (squash). `main` verde.
+- **Estado de plataforma:** en producción 14 entregas nuevas + hotfix:
   **numeración** (T2), **Mejora Continua** (P2.13), **EHS** (P2.10),
   **Mantenimiento/TPM** (P2.7), **Legal** (P2.14), **Test Engineering** (P2.8),
   **Compras** (P2.4), **RH/Skills** (P2.9), **Torre de Control** (P3.1/P3.2),
   **Logística/Embarque** (P2.6), **Recibo/Inbound+IQC** (P2.5), **Conteos
-  Cíclicos** (P2.3), **CRM/Pipeline** (P1.1), más el **SecurityModule global** +
-  **smoke de bootstrap**. API: 29 suites / 141 tests. Migraciones solo aditivas.
-  Patrón por
+  Cíclicos** (P2.3), **CRM/Pipeline** (P1.1), **Activos Fijos** (P1.1 FIN), más el
+  **SecurityModule global** + **smoke de bootstrap**. API: 31 suites / 149 tests.
+  Migraciones solo aditivas. Patrón por
   módulo: (state machine / derivación pura si aplica) + entity (TABLA PREFIJADA
   para no chocar con legacy) + dto + service (scope tenant+plant, usa numeración) +
   controller + module + migración aditiva + specs + página + Cmd-K.
@@ -303,21 +317,18 @@ archivos, decisiones, endpoints/pantallas, KPIs, siguiente paso / bloqueos.
   # gate:
   cd apps/api && npm run build && DATABASE_URL="postgres://postgres@/axos_smoke?host=/tmp&port=5433" npm run smoke:bootstrap
   ```
-- **Siguiente ítem exacto a hacer:** **Activos Fijos / Depreciación (P1.1 FIN)**
-  como módulo nuevo `fixed-assets` (100% aditivo, tabla `fixed_assets` PREFIJADA).
-  Entidad `FixedAsset` (folio `FA-` — añadir docType `FIXED_ASSET` prefijo `FA`;
-  nombre, categoría, costo de adquisición, valor de rescate, vida útil en meses,
-  fecha de adquisición, método STRAIGHT_LINE; estado IN_SERVICE→DISPOSED; campos
-  derivados: depreciación mensual, depreciación acumulada a hoy, valor en libros).
-  Hacer la depreciación como **helper puro** `depreciation.ts` + spec (acumulada =
-  min(meses transcurridos, vida útil) × dep mensual; book value = costo − acum).
-  KPIs: valor en libros total, costo total, depreciación acumulada total, activos
-  en servicio. Pantalla `dashboard/fixed-assets` + Cmd-K. Patrón a copiar:
-  `people` (helper puro derivado) + `legal` (KPIs de valor).
+- **Siguiente ítem exacto a hacer:** **Gastos / Viáticos (FIN-AP)** como módulo
+  nuevo `expenses` (100% aditivo, tabla `expense_reports` PREFIJADA). Entidad
+  `ExpenseReport` (folio `EXP-` — añadir docType `EXPENSE` prefijo `EXP`;
+  empleado denormalizado, categoría, monto + moneda, descripción, fecha; máquina
+  de estados DRAFT→SUBMITTED→APPROVED|REJECTED→REIMBURSED; aprobador). KPIs:
+  pendientes de aprobación, aprobados sin reembolsar, total reembolsado,
+  monto promedio. Pantalla `dashboard/expenses` + Cmd-K. Tests máquina de estados
+  + servicio (SQLite). Patrón a copiar: `improvement`/`legal` (estados + montos).
 - **Más backlog aditivo disponible (mismo patrón):** Calidad NCR/CAPA frontend
-  (backend `ncr`/`quality` ya existe — SOLO UI, no romper); Gastos/Viáticos
-  (módulo nuevo `expenses`, folio `EXP-`); Portal de cliente (rol externo — mayor
-  cuidado de RBAC); Tooling/Moldes (mantenimiento de herramentales).
+  (backend `ncr`/`quality` ya existe — SOLO UI, no romper); Tooling/Moldes
+  (`tooling`, folio `TL-`); Portal de cliente (rol externo — mayor cuidado RBAC);
+  Auditorías por capas LPA (calidad).
 - **IMPORTANTE — puerta de bootstrap (obligatoria, atrapa colisiones de tabla):**
   levantar Postgres efímero (receta arriba) y `npm run smoke:bootstrap` ANTES de
   cada merge. El contenedor se resetea entre sesiones → re-crear el cluster. Y
