@@ -153,4 +153,30 @@ default explícito y claramente inseguro. Usado en `auth.module.ts` y
 `jwt-secret.spec.ts` escanea ambos archivos y **falla** si reaparece cualquier
 patrón `JWT_SECRET || '...'`, además de probar el throw en prod.
 
+## 11. Multi-tenencia real — `TenantScopedRepository` (P2)
+
+**Decisión:** `common/tenant/tenant-scoped.repository.ts` — un `Repository` de
+TypeORM que **inyecta automáticamente `WHERE tenant_id = <tenant del contexto>`**
+en `find/findOne/findBy/findOneBy/count/findAndCount/exists`, leyendo el tenant de
+`TenantContextService` (que viene del **JWT**, nunca del body). El aislamiento de
+lecturas deja de depender de que cada servicio recuerde filtrar.
+
+**Seguridad/compatibilidad (por qué es aditivo):**
+- Si NO hay tenant en contexto (seed/sistema) o la entidad no tiene columna
+  `tenant_id`, **no** agrega filtro → los flujos existentes (single-tenant/admin)
+  no cambian. La adopción por módulo es incremental y segura.
+- Arrays OR de `where` se scopean en cada rama (sin fuga).
+- **Limitación:** los reads por `createQueryBuilder` NO pasan por estos métodos;
+  para esos sigue el helper `withTenantScope()`. (Por eso `getOne(id)` que usa
+  `findOne` queda protegido al adoptar el repo, pero los `list()` con QueryBuilder
+  ya scopean manualmente.)
+
+**Blindaje:** `tenant-scoped.repository.spec.ts` — test anti-fuga obligatorio en
+el gate (2 tenants, mismo repo, 0 datos cruzados; findOne no alcanza a otro
+tenant; sin contexto no filtra; entidad sin tenant_id no se filtra).
+
+**Wiring NestJS:** `provideTenantScopedRepository(Entity)` +
+`@Inject(getTenantRepositoryToken(Entity))`. Adopción por módulo en commits
+gateados aparte (empezando por los sensibles).
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
