@@ -335,6 +335,21 @@ archivos, decisiones, endpoints/pantallas, KPIs, siguiente paso / bloqueos.
   falla si reaparece cualquier fallback hardcodeado. Ver `DECISIONS.md §10`.
 - **Gate:** build, **183 tests** (+6), web tsc/lint, **bootstrap smoke (PG)** verdes.
 
+### [P2.1] Multi-tenencia: `TenantScopedRepository` + anti-fuga — HECHO
+- **Qué:** `common/tenant/tenant-scoped.repository.ts` auto-inyecta
+  `WHERE tenant_id = ctx.tenant_id` en find/findOne/findBy/findOneBy/count/
+  findAndCount/exists (tenant del JWT vía `TenantContextService`). Aditivo: sin
+  tenant en contexto o sin columna `tenant_id` → no filtra. `withTenantScope()`
+  sigue para QueryBuilder. Wiring: `provideTenantScopedRepository(Entity)` +
+  `getTenantRepositoryToken(Entity)`. Ver `DECISIONS.md §11`.
+- **Anti-fuga (gate):** `tenant-scoped.repository.spec.ts` — 2 tenants, 0 datos
+  cruzados, findOne no alcanza a otro tenant, backward-compat sin contexto.
+- **Gate:** build, **190 tests** (+7), bootstrap smoke (PG) verdes. Sin cambios de
+  entidades/servicios → cero riesgo prod.
+- **Siguiente (P2.2):** adoptar el repo en módulos (cierra fuga real en
+  `getOne(id)`/`findOne` que hoy no scopea por tenant) + migrar entidades
+  sensibles a `extends TenantBaseEntity` (aditivo) — por commits gateados.
+
 <!-- Próximas entradas arriba de esta línea, orden cronológico inverso por bloque -->
 
 ---
