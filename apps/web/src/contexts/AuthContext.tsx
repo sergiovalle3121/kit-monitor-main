@@ -99,9 +99,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   /**
    * Initialize auth state from stored token
    */
-  const applyToken = useCallback((token: string) => {
+  const applyToken = useCallback((token: string, opts?: { requireRole?: boolean }) => {
     const payload = decodeJwt(token);
     if (payload && payload.exp > Date.now() / 1000) {
+      // Legacy tokens were signed without role/permissions. Reject those for the
+      // stored-token path so we re-bridge and mint a fresh token that carries them.
+      if (opts?.requireRole && !payload.role) return false;
       localStorage.setItem('axos_access_token', token);
       setUser({ id: payload.sub, email: payload.email });
       setTenantId(payload.tenant_id || null);
@@ -117,7 +120,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const initAuth = async () => {
       const token = localStorage.getItem('axos_access_token');
 
-      if (token && applyToken(token)) {
+      if (token && applyToken(token, { requireRole: true })) {
         setIsLoading(false);
         return;
       }

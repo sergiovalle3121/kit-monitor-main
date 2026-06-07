@@ -61,7 +61,17 @@ export class AuthService {
   }
 
   login(user: User) {
-    const payload = { email: user.email, sub: user.id };
+    // Include role/permissions/tenant in the token so the frontend can decode
+    // them for UI gating (read-only vs editable). The server still re-loads
+    // these from the DB in JwtStrategy.validate() for authoritative checks.
+    const payload = {
+      email: user.email,
+      sub: user.id,
+      role: user.role,
+      permissions: user.permissions ?? [],
+      tenant_id: user.tenantId ?? null,
+      scopes: user.scopes ?? {},
+    };
     return {
       access_token: this.jwtService.sign(payload),
       user: this.publicUser(user),
