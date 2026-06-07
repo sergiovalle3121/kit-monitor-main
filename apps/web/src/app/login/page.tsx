@@ -18,6 +18,8 @@ import {
   Check,
 } from "lucide-react";
 import Link from "next/link";
+import { AmbientBackground } from "@/components/AmbientBackground";
+import { EntranceSweep } from "@/components/EntranceSweep";
 import { positionsByDepartment, getPosition, LEVELS } from "@/config/positions";
 
 type Status =
@@ -110,10 +112,13 @@ function LoginInner() {
   const loading = status.kind === "loading";
 
   return (
-    <div className="min-h-screen bg-white dark:bg-[#0A0A0A] flex items-center justify-center p-4 md:p-0">
+    <div className="relative min-h-screen flex items-center justify-center p-4 md:p-0">
+      {/* Fondo con vida (aurora + nodos) y ola de luz al cargar — igual que la landing */}
+      <AmbientBackground calm network />
+      <EntranceSweep />
       <Link
         href="/"
-        className="fixed top-8 left-8 flex items-center gap-2 text-sm font-medium text-gray-500 hover:text-black dark:hover:text-white transition-colors"
+        className="fixed top-8 left-8 z-20 flex items-center gap-2 text-sm font-medium text-gray-500 hover:text-black dark:hover:text-white transition-colors"
       >
         <ChevronLeft className="w-4 h-4" />
         Back to home
