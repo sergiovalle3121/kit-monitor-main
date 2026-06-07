@@ -78,7 +78,7 @@ export class GovernanceSeedService implements OnModuleInit {
       },
       {
         email: 'quality.mgr@axos.os',
-        username: 'QA Manager GDL',
+        username: 'QA Manager',
         password,
         role: UserRole.QUALITY_MANAGER,
         permissions: ['QUALITY_WRITE', 'QUALITY_APPROVE'],

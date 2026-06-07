@@ -1,6 +1,6 @@
 /**
  * Catálogo de puestos (job catalog) for a contract-manufacturing (EMS) plant,
- * modeled on how CMs like Flex/Jabil structure their org: a hierarchy of
+ * modeled on how contract manufacturers structure their org: a hierarchy of
  * levels (Operador → Director) within each department.
  *
  * Each position maps to a single `role` — the access group that decides which
