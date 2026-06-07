@@ -14,7 +14,10 @@ const safe = (s: string) => (s || 'presentacion').replace(/[^\p{L}\p{N} _-]/gu, 
 const sx = (px: number) => +( (px / CW) * IN_W ).toFixed(3);
 const sy = (px: number) => +( (px / CH) * IN_H ).toFixed(3);
 function hex(c?: any): string | undefined {
-  if (!c || typeof c !== 'string') return undefined;
+  if (!c) return undefined;
+  // Gradient fill → approximate with its first color stop.
+  if (typeof c === 'object' && Array.isArray(c.colorStops) && c.colorStops[0]) return hex(c.colorStops[0].color);
+  if (typeof c !== 'string') return undefined;
   if (c.startsWith('#')) return c.slice(1, 7).toUpperCase();
   return undefined;
 }
