@@ -10,6 +10,7 @@ import {
   Type, ImagePlus, Square, Circle as CircleIcon, Minus, Triangle as TriIcon,
   Trash2, ChevronsUp, ChevronsDown, Plus, Copy, Play, X, Bold, Plus as PlusIcon, Minus as MinusIcon,
   StickyNote, CopyPlus, LayoutGrid, Star, ArrowRight, Diamond,
+  Italic, Underline, AlignLeft, AlignCenter, AlignRight,
   AlignHorizontalJustifyStart, AlignHorizontalJustifyCenter, AlignHorizontalJustifyEnd,
   AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd,
 } from 'lucide-react';
@@ -156,10 +157,16 @@ export function SlidesEditor({ value, onChange, readOnly }: { value: any; onChan
     const c = fabricRef.current; const o = c?.getActiveObject() as any;
     if (c && o && (o.type === 'textbox' || o.type === 'i-text' || o.type === 'text')) { o.set('fontSize', Math.max(8, (o.fontSize || 24) + delta)); c.requestRenderAll(); capture(); sync(); }
   }
-  function toggleBold() {
+  const isText = (o: any) => o && (o.type === 'textbox' || o.type === 'i-text' || o.type === 'text');
+  function textSet(mut: (o: any) => void) {
     const c = fabricRef.current; const o = c?.getActiveObject() as any;
-    if (c && o && (o.type === 'textbox' || o.type === 'i-text' || o.type === 'text')) { o.set('fontWeight', o.fontWeight === 'bold' ? 'normal' : 'bold'); c.requestRenderAll(); capture(); sync(); }
+    if (c && isText(o)) { mut(o); c.requestRenderAll(); capture(); sync(); }
   }
+  function toggleBold() { textSet((o) => o.set('fontWeight', o.fontWeight === 'bold' ? 'normal' : 'bold')); }
+  function toggleItalic() { textSet((o) => o.set('fontStyle', o.fontStyle === 'italic' ? 'normal' : 'italic')); }
+  function toggleUnderline() { textSet((o) => o.set('underline', !o.underline)); }
+  function setTextAlign(a: string) { textSet((o) => o.set('textAlign', a)); }
+  function setTextFont(f: string) { textSet((o) => o.set('fontFamily', f)); }
   function del() { const c = fabricRef.current; const o = c?.getActiveObject(); if (c && o) { c.remove(o); c.requestRenderAll(); } }
   function front() { const c = fabricRef.current; const o = c?.getActiveObject(); if (c && o) { (c as any).bringObjectToFront(o); c.requestRenderAll(); capture(); sync(); } }
   function back() { const c = fabricRef.current; const o = c?.getActiveObject(); if (c && o) { (c as any).sendObjectToBack(o); c.requestRenderAll(); capture(); sync(); } }
@@ -214,8 +221,18 @@ export function SlidesEditor({ value, onChange, readOnly }: { value: any; onChan
         <TBtn on={addLine} title="Línea"><Minus className="w-4 h-4" /></TBtn>
         <span className="w-px h-5 bg-gray-200 dark:bg-white/10 mx-1" />
         <TBtn on={toggleBold} title="Negrita"><Bold className="w-4 h-4" /></TBtn>
+        <TBtn on={toggleItalic} title="Cursiva"><Italic className="w-4 h-4" /></TBtn>
+        <TBtn on={toggleUnderline} title="Subrayado"><Underline className="w-4 h-4" /></TBtn>
         <TBtn on={() => fontSize(4)} title="Texto más grande"><PlusIcon className="w-4 h-4" /></TBtn>
         <TBtn on={() => fontSize(-4)} title="Texto más chico"><MinusIcon className="w-4 h-4" /></TBtn>
+        <TBtn on={() => setTextAlign('left')} title="Alinear izquierda"><AlignLeft className="w-4 h-4" /></TBtn>
+        <TBtn on={() => setTextAlign('center')} title="Centrar texto"><AlignCenter className="w-4 h-4" /></TBtn>
+        <TBtn on={() => setTextAlign('right')} title="Alinear derecha"><AlignRight className="w-4 h-4" /></TBtn>
+        <select onChange={(e) => { if (e.target.value) setTextFont(e.target.value); e.target.value = ''; }} title="Fuente del texto" defaultValue=""
+          className="h-8 text-xs rounded-lg bg-transparent hover:bg-gray-100 dark:hover:bg-white/10 border border-gray-200 dark:border-white/10 px-1 outline-none cursor-pointer text-gray-600 dark:text-gray-300">
+          <option value="" disabled>Fuente</option>
+          {['Arial', 'Georgia', 'Times New Roman', 'Verdana', 'Courier New', 'system-ui'].map((f) => <option key={f} value={f}>{f}</option>)}
+        </select>
         <span className="w-px h-5 bg-gray-200 dark:bg-white/10 mx-1" />
         {PALETTE.map((col) => (
           <button key={col} onClick={() => setColor(col)} title={col} className="w-5 h-5 rounded-full border border-gray-300 mx-0.5" style={{ background: col }} />
