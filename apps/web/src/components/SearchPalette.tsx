@@ -92,8 +92,8 @@ export function SearchPalette() {
 
   return (
     <div className="fixed inset-0 z-[200] flex items-start justify-center pt-[12vh] bg-black/40 backdrop-blur-sm" onClick={() => setIsOpen(false)}>
-      <div className="glass w-full max-w-xl mx-4 rounded-3xl overflow-hidden shadow-2xl" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center gap-3 px-4 py-3.5 border-b border-black/5 dark:border-white/10">
+      <div className="w-full max-w-xl mx-4 rounded-3xl overflow-hidden shadow-2xl bg-white/98 dark:bg-neutral-900/95 backdrop-blur-2xl border border-black/5 dark:border-white/10 ring-1 ring-black/[0.04]" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center gap-3 px-4 py-3.5 border-b border-black/[0.06] dark:border-white/10">
           <Search className="w-5 h-5 text-gray-400 flex-shrink-0" />
           <input
             autoFocus
