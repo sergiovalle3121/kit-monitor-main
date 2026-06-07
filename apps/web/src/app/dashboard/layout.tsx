@@ -7,7 +7,7 @@ export default function DashboardLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <>
-      <AmbientBackground calm />
+      <AmbientBackground calm network />
       <WorkspaceGuard>{children}</WorkspaceGuard>
     </>
   );

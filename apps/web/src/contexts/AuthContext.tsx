@@ -24,6 +24,7 @@ interface AuthContextType {
   permissions: string[];
   isLoading: boolean;
   isAuthenticated: boolean;
+  isAdmin: boolean;
   hasPermission: (resource: string, action: string) => boolean;
   hasRole: (roleName: string) => boolean;
   login: (email: string, password: string) => Promise<void>;
@@ -145,25 +146,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     initAuth();
   }, [applyToken]);
 
+  // Admin/owner is full-access: the backend stores role exactly 'Admin' and the
+  // guard bypasses it, so the UI must too (case-insensitive for safety).
+  const isAdmin = roles.some((role) => role?.toLowerCase() === 'admin');
+
   /**
-   * Check if user has a specific permission
+   * Check if user has a specific permission. Admin always passes.
    */
   const hasPermission = useCallback(
     (resource: string, action: string): boolean => {
+      if (isAdmin) return true;
       const permissionString = `${resource}:${action}`;
       return permissions.includes(permissionString);
     },
-    [permissions],
+    [permissions, isAdmin],
   );
 
   /**
-   * Check if user has a specific role
+   * Check if user has a specific role (case-insensitive; Admin satisfies any).
    */
   const hasRole = useCallback(
     (roleName: string): boolean => {
-      return roles.some((role) => role === roleName);
+      if (isAdmin) return true;
+      return roles.some((role) => role?.toLowerCase() === roleName?.toLowerCase());
     },
-    [roles],
+    [roles, isAdmin],
   );
 
   /**
@@ -225,6 +232,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     permissions,
     isLoading,
     isAuthenticated: !!user,
+    isAdmin,
     hasPermission,
     hasRole,
     login,

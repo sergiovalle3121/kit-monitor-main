@@ -290,17 +290,33 @@ function DashboardInner() {
           ))}
         </motion.section>
 
-        {/* Tus áreas — grid uniforme y simétrico */}
+        {/* Tus áreas — bento grid (tamaños variados, ritmo visual) */}
         <section className="mb-10">
           <h2 className="text-sm font-semibold tracking-wide text-gray-500 dark:text-gray-400 mb-4">Tus áreas de trabajo</h2>
           {areas.length > 0 ? (
-            <motion.div variants={containerRM(reduce)} initial="hidden" animate="show" className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {areas.map((a) => (
-                <motion.button key={a.name} variants={itemRM(reduce)} onClick={() => router.push(a.href)} whileHover={hoverRM(reduce)} whileTap={pressRM(reduce)} className={`${glass} rounded-3xl p-5 text-left flex flex-col gap-3 aspect-[4/3] justify-between`}>
-                  <div className={`inline-flex p-3 rounded-2xl ${a.tint} w-fit`}><a.icon className={`w-6 h-6 ${a.color}`} strokeWidth={1.5} /></div>
-                  <div><div className="font-bold">{a.name}</div><div className="text-xs text-gray-500 dark:text-gray-400">{a.desc}</div></div>
-                </motion.button>
-              ))}
+            <motion.div variants={containerRM(reduce)} initial="hidden" animate="show" className="grid grid-cols-2 md:grid-cols-4 auto-rows-[128px] gap-4 [grid-auto-flow:dense]">
+              {areas.map((a, i) => {
+                // Bento: la primera área es destacada (2x2); algunas se ensanchan.
+                const feature = i === 0;
+                const wide = !feature && i % 5 === 2;
+                const span = feature ? 'md:col-span-2 md:row-span-2 col-span-2' : wide ? 'md:col-span-2' : '';
+                return (
+                  <motion.button
+                    key={a.name}
+                    variants={itemRM(reduce)}
+                    onClick={() => router.push(a.href)}
+                    whileHover={hoverRM(reduce)}
+                    whileTap={pressRM(reduce)}
+                    className={`${glass} rounded-3xl p-5 text-left flex flex-col gap-3 justify-between h-full overflow-hidden ${span}`}
+                  >
+                    <div className={`inline-flex ${feature ? 'p-4' : 'p-3'} rounded-2xl ${a.tint} w-fit`}><a.icon className={`${feature ? 'w-8 h-8' : 'w-6 h-6'} ${a.color}`} strokeWidth={1.5} /></div>
+                    <div>
+                      <div className={`font-bold ${feature ? 'text-xl' : ''}`}>{a.name}</div>
+                      <div className={`text-gray-500 dark:text-gray-400 ${feature ? 'text-sm' : 'text-xs'}`}>{a.desc}</div>
+                    </div>
+                  </motion.button>
+                );
+              })}
             </motion.div>
           ) : (
             <div className={`${glass} rounded-3xl p-8 text-center text-sm text-gray-400`}>Aún no tienes áreas asignadas. Pide acceso a tu administrador.</div>

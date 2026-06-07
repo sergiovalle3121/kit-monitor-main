@@ -161,6 +161,25 @@ export const ROLE_PERMISSIONS: Record<AppRole, string[]> = {
 
 export const APP_ROLES: AppRole[] = Object.keys(ROLE_PERMISSIONS) as AppRole[];
 
+/**
+ * Every distinct permission the platform knows about. Built from the union of all
+ * role grants plus the admin-only resources (auth / settings). The `admin` role
+ * resolves to THIS full set so its JWT carries every permission — the backend
+ * guard bypasses Admin anyway, but the FRONTEND gates the UI on the permissions
+ * array, so without this the owner/Admin would be locked out of gated actions.
+ */
+export const ALL_PERMISSIONS: string[] = Array.from(
+  new Set<string>([
+    ...Object.entries(ROLE_PERMISSIONS).flatMap(([role, perms]) =>
+      role === 'admin' ? [] : perms,
+    ),
+    'auth:read',
+    'auth:write',
+    'settings:read',
+    'settings:write',
+  ]),
+);
+
 export function isAppRole(role?: string | null): role is AppRole {
   return !!role && (APP_ROLES as string[]).includes(role);
 }
@@ -171,6 +190,9 @@ export function roleColumnFor(role: AppRole): string {
 }
 
 export function permissionsFor(role: AppRole): string[] {
+  // Admin/owner gets the full permission set (carried in the JWT) so the frontend
+  // never gates them out. Backend authorization additionally bypasses on 'Admin'.
+  if (role === 'admin') return [...ALL_PERMISSIONS];
   return ROLE_PERMISSIONS[role] ?? [];
 }
 

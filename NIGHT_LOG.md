@@ -10,6 +10,93 @@ archivos, decisiones, endpoints/pantallas, KPIs, siguiente paso / bloqueos.
 
 ---
 
+## 2026-06-07 — PULIDO Y FUNCIONALIDAD (que lo que existe sirva)
+
+> Sesión de pulido (no features nuevas, no borrar). Rama `claude/hopeful-lovelace-GZEYN`.
+> Orden: 1 acceso owner → 2 JWT estable → 3 auditoría hub → 5 landing → 4 admin →
+> 6 estética → 7 chat → 8 office.
+
+### [1] Acceso del owner (CRÍTICO) — ARREGLADO de raíz
+- **Causa raíz:** `permissionsFor('admin')` devolvía `[]`. El guard del backend ya
+  hace bypass para `role==='Admin'`, pero el **frontend** gatea la UI con el array
+  `permissions` (`hasPermission`) → el owner quedaba bloqueado / "solicitar permiso"
+  / read-only en las apps del hub.
+- **Fix:** `rbac.ts` → `permissionsFor('admin')` ahora devuelve `ALL_PERMISSIONS`
+  (unión de todos los permisos + auth/settings). El JWT del owner carga TODO.
+  `AuthContext.hasPermission/hasRole` además hacen bypass para Admin (case-insensitive)
+  y exponen `isAdmin`. `auth.service.validateUser` refresca al owner a Admin + perms
+  completos de forma idempotente (incluso si tenía perms vacíos por un registro viejo).
+  `main.ts seedAdmins` ya garantizaba el owner como Admin activo (con self-check de login).
+- **Tests:** admin = superset de todos los roles; owner email reconocido.
+
+### [2] JWT estable entre deploys — ARREGLADO
+- **Causa:** sin `JWT_SECRET` en prod, se generaba un secreto aleatorio por proceso
+  → cada redeploy deslogeaba a todos.
+- **Fix:** `ensurePersistentJwtSecret()` corre en `main.ts` ANTES de `NestFactory.create`;
+  si no hay env secret, lee/crea el secreto en la tabla singleton `app_settings`
+  (Postgres) → se reusa entre deploys. SQLite dev = no-op. Nunca tira (fallback a
+  secreto por proceso). Migración aditiva `CreateAppSettings`. **Verificado** contra PG:
+  genera→persiste, y un "redeploy" lee el MISMO secreto.
+
+### [3] Auditoría funcional del hub — INVENTARIO
+Recorrí las ~50 páginas del dashboard. Hallazgo principal: el hub está **más
+funcional de lo que parecía**; el bloqueo real era el acceso del owner (Bloque 1).
+- **Navegación de regreso:** ✅ universal. Las que "parecían" sin botón usan headers
+  compartidos que ya lo traen (`DepartmentWorkspace` → "← Dashboard"; `ErpHeader` →
+  "← ERP"). Ninguna deja atrapado al usuario.
+- **CRUD real + backend:** la mayoría usa `useApi`/`apiFetch` con loading/empty/error
+  y toasts (plan, operador, almacén, calidad, inbound, outbound, procurement, crm,
+  improvement, ehs, maintenance, legal, tooling, fixed-assets, expenses, cycle-counts,
+  rma, skills, test-engineering, numbering, control-tower, + los 6 del piso).
+- **Borrado con confirmación:** ✅ planning, office (papelera + permanente), fixed-assets,
+  organization*, floor-quality. **Arreglado** ⚠️→✅: `engineering` (borrar estación/
+  material ahora confirma) y `settings/organization` (borrar edificio/cliente/proyecto
+  ahora confirma) — antes borraban al instante.
+- **Read-only por diseño (no roto):** `inventory`, `production` (vistas; las mutaciones
+  viven en cycle-counts/staging/operador). `forecast` = simulación client-side.
+- **⚠️ Pendiente menor:** `documents` es una página estática (mock) que duplica a
+  **Office** (sistema real `office-documents`). Se deja intacta (no romper); Office es
+  el sistema real — se pulirá en Bloque 8. Anotado para no confundir.
+
+### [5] Landing honesta + auth arriba a la derecha — HECHO
+- Header: "Iniciar sesión" + "Crear cuenta" (esquina superior derecha). `/login?register=1`
+  abre directo el formulario de registro.
+- **Quitado lo no verificable/fraudulento:** tarjeta "Aeroespacial / cumplimiento
+  AS9100"; suavizado "AI"/"millisecond latency"/"Perfected".
+- Copy honesto: el hero dice lo que AXOS realmente hace (unir los departamentos de una
+  manufacturera: piso MES con poka-yoke/backflush, ERP, calidad, inventario, Office/chat).
+  Tarjetas enlazan a pantallas reales (operator-terminal, floor-quality…). Estética intacta.
+
+### [4] Admin / gestión de usuarios real — HECHO
+- `settings/users` era una tabla read-only con botones muertos y stats falsos. Ahora
+  consola real (owner/Admin): **crear** usuario (rol + scope planta/línea + password),
+  **editar** (cambia rol → recomputa permisos, scope, nombre), **resetear contraseña**,
+  **activar/desactivar**; stats reales; back-nav.
+- Backend (extiende governance, ADMIN_ACCESS; owner bypass): `updateUser` recomputa
+  permisos al cambiar rol; nuevo `POST /governance/users` (createUser con permisos por rol).
+
+### [6] Profundidad estética (con vida, sin exagerar) — HECHO
+- `NodeNetwork`: red de nodos en movimiento (canvas) muy sutil, baja opacidad, DPR-aware,
+  pausa con pestaña oculta y **estática con prefers-reduced-motion** (perf + accesibilidad).
+  Integrada en `AmbientBackground` (prop `network`) en landing (vívida) y hub (calm).
+- Hub en **bento-grid** (primera área destacada 2x2 + tiles anchos) en vez de cuadrícula
+  uniforme; conserva el stagger fade-in + hover-lift existentes. `next build` verde.
+
+### [7] Chat → indicador "escribiendo…" (extiende, no rehace) — HECHO
+- El backend de messaging ya reenvía el evento socket `typing` pero la UI no lo emitía ni
+  mostraba. Cableado: emite `typing` (throttle ~1.5s) a los miembros al teclear; escucha y
+  muestra "escribiendo…" animado para la conversación activa (auto-limpia a 2.5s). Messaging
+  ya tenía DMs, canales, recibos de lectura (`/read`) y adjuntos de imagen.
+
+### [8] Office — auditado, ya funcional (no se rompe) — HECHO
+- Hallazgo: Office ya está pulido — autosave debounced (800ms) + estado guardado/guardando,
+  Cmd/Ctrl+S, flush al desmontar, historial de versiones, papelera/restaurar + borrado
+  permanente con confirmación, back-nav ("Volver a Office"), **plantillas** (TemplateGallery)
+  y **export/import .xlsx/.csv** (hojas). Cumple los pedidos del bloque; se deja intacto para
+  no regresionar un módulo que ya sirve.
+
+<!-- (resto de bloques de esta sesión se agregan arriba conforme avanza) -->
+
 ## 2026-06-07 — SUITE DE PISO DE PRODUCCIÓN (edición Jabil)
 
 > Sesión: rama `claude/hopeful-lovelace-GZEYN`. 7 entregas aditivas (PRE-2 + A,B,C,D,F,L).
@@ -470,6 +557,22 @@ archivos, decisiones, endpoints/pantallas, KPIs, siguiente paso / bloqueos.
 ---
 
 ## ▶ RETOMAR AQUÍ (handoff para la próxima sesión)
+
+> **PULIDO Y FUNCIONALIDAD (sesión más reciente) — rama `claude/hopeful-lovelace-GZEYN`.**
+> Hecho y en verde: [1] acceso del owner (raíz: admin con permisos completos en el JWT +
+> bypass en UI), [2] JWT estable entre deploys (persistido en `app_settings`), [3] auditoría
+> del hub (back-nav universal; confirmaciones de borrado en engineering/organization;
+> inventario en NIGHT_LOG), [5] landing honesta + auth arriba a la derecha, [4] admin de
+> usuarios real (crear/editar/rol/scope/activar/reset), [6] estética (red de nodos + bento),
+> [7] chat "escribiendo…", [8] Office auditado (ya funcional).
+> **Siguiente (si se desea profundizar, opcional):** Teams completo en chat (presencia,
+> reacciones, @menciones con notificación, hilos, búsqueda, recibos de lectura en UI) —
+> el backend ya soporta varios; faltaría UI. Office: export de docs/slides (hojas ya
+> exportan). `documents` (página estática mock) podría unificarse con Office real.
+> **Recordatorio:** lo ideal sigue siendo setear `JWT_SECRET` en Railway (con [2] ya no
+> deslogea en cada deploy aunque falte).
+
+---
 
 > **SHOP FLOOR (edición Jabil) — rama `claude/hopeful-lovelace-GZEYN`.**
 > Entregado y en verde: PRE-2 (RBAC piso) + bloques **A** (disposición de líneas),

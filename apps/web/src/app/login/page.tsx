@@ -33,7 +33,8 @@ function LoginInner() {
 
   const [showPassword, setShowPassword] = useState(false);
   const [status, setStatus] = useState<Status>({ kind: "idle" });
-  const [isRegistering, setIsRegistering] = useState(false);
+  // Landing "Crear cuenta" links to /login?register=1 → open in register mode.
+  const [isRegistering, setIsRegistering] = useState(params.get("register") === "1");
   const [openDept, setOpenDept] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: "",
