@@ -87,3 +87,8 @@
   body.preview-printing .paged-preview-toolbar { display: none !important; }
   body.preview-printing .pagedjs_page { box-shadow: none !important; margin: 0 !important; }
 }
+
+/* Image alignment & text wrap */
+.tiptap-page .ProseMirror img[data-align="left"] { float: left; margin: 0.25rem 1rem 0.5rem 0; }
+.tiptap-page .ProseMirror img[data-align="right"] { float: right; margin: 0.25rem 0 0.5rem 1rem; }
+.tiptap-page .ProseMirror img[data-align="center"] { display: block; margin: 0.5rem auto; float: none; }
