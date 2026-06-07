@@ -18,7 +18,7 @@ import {
   Bold, Italic, Underline, Strikethrough, Code,
   List, ListOrdered, ListChecks, Quote, AlignLeft, AlignCenter, AlignRight, AlignJustify,
   Highlighter, Link2, Image as ImageIcon, Table as TableIcon, Undo, Redo, Minus, Search, SeparatorHorizontal,
-  Subscript as SubIcon, Superscript as SupIcon, RemoveFormatting,
+  Subscript as SubIcon, Superscript as SupIcon, RemoveFormatting, Code2, Calendar, Smile,
 } from 'lucide-react';
 import { DocFindReplace } from './DocFindReplace';
 import { DocOutline } from './DocOutline';
@@ -66,6 +66,27 @@ function Sel({ value, onChange, title, style, children }: { value: string; onCha
   );
 }
 function Sep() { return <span className="w-px h-5 bg-gray-200 dark:bg-white/10 mx-1" />; }
+
+const EMOJIS = ['😀', '😁', '😂', '😍', '🤔', '👍', '👎', '🙏', '🎉', '🚀', '🔥', '⭐', '✅', '❌', '⚠️', '💡', '📌', '📈', '📉', '💰', '🟢', '🟡', '🔴', '➡️'];
+function EmojiBtn({ onPick }: { onPick: (e: string) => void }) {
+  const [open, setOpen] = React.useState(false);
+  return (
+    <span className="relative">
+      <button title="Emoji" onMouseDown={(e) => e.preventDefault()} onClick={() => setOpen((o) => !o)}
+        className="p-2 rounded-lg transition-colors hover:bg-gray-100 dark:hover:bg-white/10 text-gray-600 dark:text-gray-300"><Smile className="w-4 h-4" /></button>
+      {open && (
+        <>
+          <span className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+          <span className="absolute left-0 mt-1 z-20 grid grid-cols-6 gap-0.5 p-2 rounded-xl border border-black/10 dark:border-white/10 bg-white dark:bg-[#1a1a1a] shadow-xl w-56">
+            {EMOJIS.map((e) => (
+              <button key={e} onMouseDown={(ev) => ev.preventDefault()} onClick={() => { onPick(e); setOpen(false); }} className="text-lg p-1 rounded hover:bg-black/5 dark:hover:bg-white/10">{e}</button>
+            ))}
+          </span>
+        </>
+      )}
+    </span>
+  );
+}
 
 /** Word-like rich text editor (TipTap + MIT extensions). */
 export function DocEditor({ value, onChange, readOnly, author, onStats }: { value: any; onChange: (json: any) => void; readOnly?: boolean; author?: string; onStats?: (s: { words: number; chars: number }) => void }) {
@@ -181,10 +202,13 @@ export function DocEditor({ value, onChange, readOnly, author, onStats }: { valu
         <Btn on={() => c().toggleOrderedList().run()} active={editor.isActive('orderedList')} title="Numerada"><ListOrdered className="w-4 h-4" /></Btn>
         <Btn on={() => (c() as any).toggleTaskList().run()} active={editor.isActive('taskList')} title="Lista de tareas"><ListChecks className="w-4 h-4" /></Btn>
         <Btn on={() => c().toggleBlockquote().run()} active={editor.isActive('blockquote')} title="Cita"><Quote className="w-4 h-4" /></Btn>
-        <Btn on={() => c().toggleCodeBlock().run()} active={editor.isActive('codeBlock')} title="Código"><Code className="w-4 h-4" /></Btn>
+        <Btn on={() => (c() as any).toggleCode().run()} active={editor.isActive('code')} title="Código en línea"><Code2 className="w-4 h-4" /></Btn>
+        <Btn on={() => c().toggleCodeBlock().run()} active={editor.isActive('codeBlock')} title="Bloque de código"><Code className="w-4 h-4" /></Btn>
         <Sep />
         <Btn on={addLink} active={editor.isActive('link')} title="Enlace"><Link2 className="w-4 h-4" /></Btn>
         <Btn on={addImage} title="Imagen"><ImageIcon className="w-4 h-4" /></Btn>
+        <Btn on={() => c().insertContent(new Date().toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' })).run()} title="Insertar fecha"><Calendar className="w-4 h-4" /></Btn>
+        <EmojiBtn onPick={(e) => c().insertContent(e).run()} />
         <Btn on={() => (c() as any).insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()} title="Tabla"><TableIcon className="w-4 h-4" /></Btn>
         {editor.isActive('table') && <DocTableMenu editor={editor} />}
         <Btn on={() => c().setHorizontalRule().run()} title="Separador"><Minus className="w-4 h-4" /></Btn>
