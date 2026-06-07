@@ -23,25 +23,33 @@ export function EntranceSweep({ className = '' }: { className?: string }) {
         .axos-bloom {
           position: absolute;
           inset: -15%;
+          /* Light mode: a soft cool tint, NORMAL blend (screen is invisible on white). */
           background: radial-gradient(
-            58% 50% at 50% 36%,
-            rgba(168, 199, 246, 0.16) 0%,
-            rgba(201, 192, 242, 0.10) 38%,
-            rgba(174, 227, 208, 0.07) 60%,
+            56% 48% at 50% 34%,
+            rgba(129, 140, 248, 0.16) 0%,
+            rgba(96, 165, 250, 0.12) 40%,
+            rgba(45, 212, 191, 0.07) 62%,
             transparent 74%
           );
-          filter: blur(36px);
-          mix-blend-mode: screen;
+          filter: blur(44px);
           opacity: 0;
-          animation: axosBloom 2.8s cubic-bezier(0.33, 0, 0.2, 1) 0.1s 1 both;
+          animation: axosBloom 3.1s cubic-bezier(0.33, 0, 0.2, 1) 0.1s 1 both;
           will-change: opacity, transform;
         }
         :global(.dark) .axos-bloom {
-          mix-blend-mode: soft-light;
+          /* Dark mode: a light glow that lifts the scene; screen reads well on dark. */
+          background: radial-gradient(
+            56% 48% at 50% 34%,
+            rgba(168, 199, 246, 0.20) 0%,
+            rgba(129, 140, 248, 0.14) 42%,
+            transparent 72%
+          );
+          mix-blend-mode: screen;
         }
         @keyframes axosBloom {
           0% { opacity: 0; transform: scale(1.06); }
-          40% { opacity: 1; transform: scale(1.0); }
+          32% { opacity: 1; transform: scale(1.0); }
+          66% { opacity: 1; transform: scale(1.0); }
           100% { opacity: 0; transform: scale(1.0); }
         }
       `}</style>

@@ -72,7 +72,7 @@ export function NodeNetwork({
           const dy = a.y - b.y;
           const d = Math.hypot(dx, dy);
           if (d < LINK) {
-            ctx!.strokeStyle = `rgba(${color},${(1 - d / LINK) * 0.5})`;
+            ctx!.strokeStyle = `rgba(${color},${(1 - d / LINK) * 0.6})`;
             ctx!.lineWidth = 1;
             ctx!.beginPath();
             ctx!.moveTo(a.x, a.y);
@@ -81,10 +81,10 @@ export function NodeNetwork({
           }
         }
       }
-      ctx!.fillStyle = `rgba(${color},0.85)`;
+      ctx!.fillStyle = `rgba(${color},0.9)`;
       for (const n of nodes) {
         ctx!.beginPath();
-        ctx!.arc(n.x, n.y, 1.6, 0, Math.PI * 2);
+        ctx!.arc(n.x, n.y, 1.9, 0, Math.PI * 2);
         ctx!.fill();
       }
     }

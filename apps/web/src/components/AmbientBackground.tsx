@@ -51,8 +51,8 @@ export function AmbientBackground({
       {/* Red de nodos en movimiento (muy sutil) — encaja con "unir departamentos". */}
       {network && (
         <NodeNetwork
-          className={calm ? 'opacity-[0.18] dark:opacity-[0.16]' : 'opacity-30 dark:opacity-25'}
-          maxNodes={calm ? 32 : 48}
+          className={calm ? 'opacity-[0.30] dark:opacity-[0.24]' : 'opacity-[0.45] dark:opacity-[0.32]'}
+          maxNodes={calm ? 34 : 50}
         />
       )}
       {/* Noise sutil por encima de los blobs, debajo del contenido. */}
