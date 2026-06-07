@@ -378,6 +378,21 @@ archivos, decisiones, endpoints/pantallas, KPIs, siguiente paso / bloqueos.
 - **Adoptados hasta ahora (6/16 módulos nuevos):** improvement, legal, procurement,
   rma, expenses, ehs. Gate: build, **191 tests**, bootstrap smoke (PG) verdes.
 
+### 🔴→🟢 HOTFIX prod: arranque resiliente sin JWT_SECRET
+- **Síntoma:** Railway crasheaba en loop: `Error: JWT_SECRET is required in production`
+  (el guard P1a funcionando; `JWT_SECRET` nunca estuvo en Railway — prod corría con
+  el fallback inseguro `'secretKey'`).
+- **Fix (decisión del usuario: disponibilidad > hard-fail):** `getJwtSecret()` en
+  prod, si falta/≤16, **genera un secreto ALEATORIO por proceso + WARNING** en vez
+  de tirar. Seguro (aleatorio, NO reintroduce `'secretKey'`; el test de blindaje
+  sigue pasando), cacheado por proceso (firma==verifica). Rota en cada reinicio →
+  setear `JWT_SECRET` fijo en Railway para sesiones estables. Ver `DECISIONS.md §10`.
+- **Verificado:** `NODE_ENV=production` sin `JWT_SECRET` → `auth.module` carga sin
+  crashear (warning + secreto aleatorio); con `JWT_SECRET` válido → lo usa. Build,
+  191 tests, bootstrap smoke (PG) verdes.
+- **Nota:** P1b (baseline de esquema) sigue en la rama, NO mergeado (commit
+  `103da7c`, se re-aplica con cherry-pick tras este hotfix).
+
 <!-- Próximas entradas arriba de esta línea, orden cronológico inverso por bloque -->
 
 ---

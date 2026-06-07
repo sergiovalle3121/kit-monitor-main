@@ -146,12 +146,21 @@ así que los fixes jamás aterventeon en la historia de `main` (el helper
 ## 10. JWT_SECRET sin fallback inseguro (re-aplicado + blindado)
 
 **Decisión:** `common/config/jwt-secret.ts` → `getJwtSecret()`: devuelve
-`JWT_SECRET` si existe y ≥16 chars; **lanza Error si `NODE_ENV==='production'`** y
-falta o es corto (la app NO arranca con secreto inseguro); en dev/test devuelve un
-default explícito y claramente inseguro. Usado en `auth.module.ts` y
-`strategies/jwt.strategy.ts` (se eliminó `|| 'secretKey'`). **Blindaje:**
-`jwt-secret.spec.ts` escanea ambos archivos y **falla** si reaparece cualquier
-patrón `JWT_SECRET || '...'`, además de probar el throw en prod.
+`JWT_SECRET` si existe y ≥16 chars; en dev/test devuelve un default explícito.
+Usado en `auth.module.ts` y `strategies/jwt.strategy.ts` (se eliminó
+`|| 'secretKey'`). **Blindaje:** `jwt-secret.spec.ts` escanea ambos archivos y
+**falla** si reaparece cualquier patrón `JWT_SECRET || '...'`.
+
+**ADENDA (revisión por incidente de prod):** la versión inicial **lanzaba Error**
+en prod si faltaba el secreto ("que NO arranque"). En Railway `JWT_SECRET` nunca
+estuvo seteado (prod corría con el fallback inseguro `'secretKey'`), así que el
+guard tumbó prod en loop. Por decisión del usuario (disponibilidad > hard-fail) se
+cambió a **arranque resiliente**: si falta/≤16 en prod, genera un secreto
+**ALEATORIO una vez por proceso** + WARNING fuerte, en vez de crashear. Sigue
+siendo seguro (aleatorio, NO es un literal hardcodeado; el test de blindaje sigue
+válido) pero **rota en cada reinicio** (invalida sesiones) → conviene setear un
+`JWT_SECRET` fijo en Railway para auth estable. El secreto generado se **cachea
+por proceso** para que firmar (JwtModule) y verificar (JwtStrategy) usen el mismo.
 
 ## 11. Multi-tenencia real — `TenantScopedRepository` (P2)
 
