@@ -22,6 +22,7 @@ import { Role } from './entities/role.entity';
 import { Permission } from './entities/permission.entity';
 import { RolePermission } from './entities/role-permission.entity';
 import { UserRoleAssignment } from './entities/user-role.entity';
+import { getJwtSecret } from '../../common/config/jwt-secret';
 
 @Module({
   imports: [
@@ -38,7 +39,7 @@ import { UserRoleAssignment } from './entities/user-role.entity';
       UserRoleAssignment,
     ]),
     JwtModule.register({
-      secret: process.env.JWT_SECRET || 'secretKey',
+      secret: getJwtSecret(),
       signOptions: { expiresIn: '1d' },
     }),
   ],

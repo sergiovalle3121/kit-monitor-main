@@ -323,14 +323,39 @@ archivos, decisiones, endpoints/pantallas, KPIs, siguiente paso / bloqueos.
 - **Tests:** `rma-state.spec` + `rma.service.spec` (SQLite). Gate completo verde:
   build, **37 suites / 177 tests**, web tsc+lint, **bootstrap smoke (PG)**.
 
+## CONSOLIDACIÓN (sesión de cierre de riesgos — sin features nuevas)
+
+### [P1a] JWT_SECRET sin fallback inseguro (re-aplicado + blindado) — HECHO
+- **Causa de la reversión:** el fix original (`9a1c69f`) vivía en la rama
+  `claude/security-hardening`, **nunca mergeada** a `main` (no es ancestro). Ver
+  `DECISIONS.md §9`.
+- **Fix:** `common/config/jwt-secret.ts` `getJwtSecret()` (≥16 chars; throw en
+  prod si falta/corto; default explícito en dev). Usado en `auth.module.ts` +
+  `jwt.strategy.ts` (quitado `|| 'secretKey'`). **Blindaje:** `jwt-secret.spec.ts`
+  falla si reaparece cualquier fallback hardcodeado. Ver `DECISIONS.md §10`.
+- **Gate:** build, **183 tests** (+6), web tsc/lint, **bootstrap smoke (PG)** verdes.
+
 <!-- Próximas entradas arriba de esta línea, orden cronológico inverso por bloque -->
 
 ---
 
 ## ▶ RETOMAR AQUÍ (handoff para la próxima sesión)
 
-- **Último ítem terminado:** `feat(rma)` — Quejas de Cliente / RMA (P2.2),
-  mergeado a `main` vía PR (squash). `main` verde.
+> **MODO ACTUAL: CONSOLIDACIÓN / cierre de riesgos (sin features nuevas).**
+> Orden: P1a JWT ✅ → **P2 multi-tenencia real (EN CURSO, lo más importante)** →
+> P1b baseline de esquema (SIN flip de synchronize) → P3 profundizar austero.
+
+- **Último ítem terminado:** `fix(security)` P1a — JWT_SECRET sin fallback
+  inseguro + test de blindaje, mergeado a `main`. `main` verde (183 tests).
+- **Siguiente ítem (P2, EN CURSO):** **Multi-tenencia real** — repositorio/servicio
+  tenant-scoped que inyecte `WHERE tenant_id = ctx.tenant_id` automáticamente en
+  find/findOne/count (leyendo de `TenantContextService`), migrar entidades
+  sensibles a `extends TenantBaseEntity` (migraciones aditivas, `tenant_id`
+  nullable), y **test anti-fuga** (2 tenants, 0 datos cruzados) obligatorio en el
+  gate. `tenant_id` SIEMPRE del JWT, nunca del body. Después: P1b baseline +
+  procedimiento de corte documentado (REQUIERE DEPLOY SUPERVISADO POR SERGIO, NO
+  ejecutar), y P3 (cablear `allocate()` en módulos que numeran a mano, frontend
+  NCR/CAPA).
 - **Estado de plataforma:** en producción 17 entregas nuevas + hotfix:
   **numeración** (T2), **Mejora Continua** (P2.13), **EHS** (P2.10),
   **Mantenimiento/TPM** (P2.7), **Legal** (P2.14), **Test Engineering** (P2.8),
