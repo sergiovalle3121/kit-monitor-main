@@ -4,12 +4,12 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Canvas, StaticCanvas, Textbox, Rect, Circle, Line, Triangle, FabricImage,
+  Canvas, StaticCanvas, Textbox, Rect, Circle, Line, Triangle, FabricImage, Polygon,
 } from 'fabric';
 import {
   Type, ImagePlus, Square, Circle as CircleIcon, Minus, Triangle as TriIcon,
   Trash2, ChevronsUp, ChevronsDown, Plus, Copy, Play, X, Bold, Plus as PlusIcon, Minus as MinusIcon,
-  StickyNote, CopyPlus, LayoutGrid,
+  StickyNote, CopyPlus, LayoutGrid, Star, ArrowRight, Diamond,
   AlignHorizontalJustifyStart, AlignHorizontalJustifyCenter, AlignHorizontalJustifyEnd,
   AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd,
 } from 'lucide-react';
@@ -73,8 +73,8 @@ export function SlidesEditor({ value, onChange, readOnly }: { value: any; onChan
     const c = fabricRef.current; if (c) { c.backgroundColor = color; c.requestRenderAll(); }
     sync();
   }
-  // Include the custom `anim` prop so per-object entrance animations persist.
-  function capture() { const c = fabricRef.current; if (c) slidesRef.current[curRef.current] = c.toObject(['anim']); }
+  // Include custom props (anim for entrance animation, shape for .pptx mapping).
+  function capture() { const c = fabricRef.current; if (c) slidesRef.current[curRef.current] = c.toObject(['anim', 'shape']); }
 
   useEffect(() => {
     if (!elRef.current) return;
@@ -121,6 +121,19 @@ export function SlidesEditor({ value, onChange, readOnly }: { value: any; onChan
   function addCircle() { add(new Circle({ left: 140, top: 140, radius: 80, fill: '#10b981' })); }
   function addLine() { add(new Line([60, 60, 320, 60], { stroke: '#111827', strokeWidth: 4 })); }
   function addTriangle() { add(new Triangle({ left: 140, top: 140, width: 160, height: 140, fill: '#f59e0b' })); }
+  function addStar() {
+    const outer = 80; const inner = 32; const pts: { x: number; y: number }[] = [];
+    for (let i = 0; i < 10; i++) { const r = i % 2 === 0 ? outer : inner; const a = i * (Math.PI / 5) - Math.PI / 2; pts.push({ x: outer + r * Math.cos(a), y: outer + r * Math.sin(a) }); }
+    add(new Polygon(pts, { left: 140, top: 120, fill: '#f59e0b', shape: 'star5' } as any));
+  }
+  function addArrow() {
+    const pts = [{ x: 0, y: 30 }, { x: 100, y: 30 }, { x: 100, y: 0 }, { x: 160, y: 50 }, { x: 100, y: 100 }, { x: 100, y: 70 }, { x: 0, y: 70 }];
+    add(new Polygon(pts, { left: 130, top: 160, fill: '#3b82f6', shape: 'rightArrow' } as any));
+  }
+  function addDiamond() {
+    const pts = [{ x: 70, y: 0 }, { x: 140, y: 70 }, { x: 70, y: 140 }, { x: 0, y: 70 }];
+    add(new Polygon(pts, { left: 150, top: 130, fill: '#10b981', shape: 'diamond' } as any));
+  }
   function addImageFromUrl(url: string) {
     FabricImage.fromURL(url, { crossOrigin: 'anonymous' }).then((img: any) => {
       if (!img) return; img.scaleToWidth(360); img.set({ left: 100, top: 100 }); add(img);
@@ -195,6 +208,9 @@ export function SlidesEditor({ value, onChange, readOnly }: { value: any; onChan
         <TBtn on={addRect} title="Rectángulo"><Square className="w-4 h-4" /></TBtn>
         <TBtn on={addCircle} title="Círculo"><CircleIcon className="w-4 h-4" /></TBtn>
         <TBtn on={addTriangle} title="Triángulo"><TriIcon className="w-4 h-4" /></TBtn>
+        <TBtn on={addStar} title="Estrella"><Star className="w-4 h-4" /></TBtn>
+        <TBtn on={addArrow} title="Flecha"><ArrowRight className="w-4 h-4" /></TBtn>
+        <TBtn on={addDiamond} title="Rombo"><Diamond className="w-4 h-4" /></TBtn>
         <TBtn on={addLine} title="Línea"><Minus className="w-4 h-4" /></TBtn>
         <span className="w-px h-5 bg-gray-200 dark:bg-white/10 mx-1" />
         <TBtn on={toggleBold} title="Negrita"><Bold className="w-4 h-4" /></TBtn>
