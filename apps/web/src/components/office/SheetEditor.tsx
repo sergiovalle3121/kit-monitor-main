@@ -78,6 +78,15 @@ export function SheetEditor({ value, onChange, readOnly }: { value: any; onChang
     remount(sheets);
   }
 
+  function applyFreeze(type: string) {
+    const sheets = clone(sheetsRef.current);
+    const sheet = sheets.find((s: any) => s.status === 1) ?? sheets[0];
+    if (!sheet) return;
+    if (!type) delete sheet.frozen;
+    else sheet.frozen = { type, range: { row_focus: 0, column_focus: 0 } };
+    remount(sheets);
+  }
+
   function applyCondFormat({ range, op, value: cmp, color, sheetIndex }: CondFormatPayload) {
     const rng = parseRange(range);
     if (!rng) { window.alert('Rango inválido. Ej: A1:B20'); return; }
@@ -121,6 +130,15 @@ export function SheetEditor({ value, onChange, readOnly }: { value: any; onChang
         <div className="flex items-center gap-1 px-2 h-9 border-b border-gray-200 dark:border-white/10 flex-shrink-0 bg-gray-50 dark:bg-[#0e0e0e]">
           <button onClick={() => setTool('validation')} className={toolBtn}><ListChecks className="w-4 h-4 text-emerald-500" /> Validación</button>
           <button onClick={() => setTool('condformat')} className={toolBtn}><Palette className="w-4 h-4 text-blue-500" /> Formato condicional</button>
+          <span className="w-px h-5 bg-gray-200 dark:bg-white/10 mx-1" />
+          <select onChange={(e) => { applyFreeze(e.target.value === 'none' ? '' : e.target.value); e.target.value = ''; }} defaultValue=""
+            title="Inmovilizar paneles" className="h-7 text-xs rounded-lg bg-transparent hover:bg-black/5 dark:hover:bg-white/10 border border-gray-200 dark:border-white/10 px-1.5 outline-none cursor-pointer text-gray-600 dark:text-gray-300">
+            <option value="" disabled>Inmovilizar</option>
+            <option value="row">Fila 1</option>
+            <option value="column">Columna A</option>
+            <option value="both">Fila 1 + Columna A</option>
+            <option value="none">Quitar</option>
+          </select>
         </div>
       )}
       <div className="flex-1 min-h-0 bg-white">
