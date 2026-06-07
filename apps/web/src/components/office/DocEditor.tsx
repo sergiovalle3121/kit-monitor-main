@@ -138,6 +138,7 @@ export function DocEditor({ value, onChange, readOnly, author, onStats }: { valu
 
   const c = () => editor.chain().focus();
   const addLink = () => { const url = window.prompt('URL del enlace'); if (url) c().extendMarkRange('link').setLink({ href: url }).run(); };
+  const toggleLink = () => { if (editor.isActive('link')) c().extendMarkRange('link').unsetLink().run(); else addLink(); };
   const addImage = () => { const url = window.prompt('URL de la imagen'); if (url) (c() as any).setImage({ src: url }).run(); };
 
   const ts = editor.getAttributes('textStyle');
@@ -182,6 +183,10 @@ export function DocEditor({ value, onChange, readOnly, author, onStats }: { valu
         <Btn on={() => (c() as any).toggleUnderline().run()} active={editor.isActive('underline')} title="Subrayado"><Underline className="w-4 h-4" /></Btn>
         <Btn on={() => c().toggleStrike().run()} active={editor.isActive('strike')} title="Tachado"><Strikethrough className="w-4 h-4" /></Btn>
         <Btn on={() => (c() as any).toggleHighlight().run()} active={editor.isActive('highlight')} title="Resaltar"><Highlighter className="w-4 h-4" /></Btn>
+        <label title="Color de resaltado" className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-white/10 cursor-pointer flex items-center">
+          <span className="w-4 h-4 rounded-sm border border-gray-300" style={{ background: 'repeating-linear-gradient(45deg,#fde047,#fde047 3px,#fff 3px,#fff 6px)' }} />
+          <input type="color" defaultValue="#fde047" onChange={(e) => (c() as any).setHighlight({ color: e.target.value }).run()} className="w-0 h-0 opacity-0 absolute" />
+        </label>
         <Btn on={() => (c() as any).toggleSubscript().run()} active={editor.isActive('subscript')} title="Subíndice"><SubIcon className="w-4 h-4" /></Btn>
         <Btn on={() => (c() as any).toggleSuperscript().run()} active={editor.isActive('superscript')} title="Superíndice"><SupIcon className="w-4 h-4" /></Btn>
         <Btn on={() => c().unsetAllMarks().clearNodes().run()} title="Limpiar formato"><RemoveFormatting className="w-4 h-4" /></Btn>
@@ -205,7 +210,7 @@ export function DocEditor({ value, onChange, readOnly, author, onStats }: { valu
         <Btn on={() => (c() as any).toggleCode().run()} active={editor.isActive('code')} title="Código en línea"><Code2 className="w-4 h-4" /></Btn>
         <Btn on={() => c().toggleCodeBlock().run()} active={editor.isActive('codeBlock')} title="Bloque de código"><Code className="w-4 h-4" /></Btn>
         <Sep />
-        <Btn on={addLink} active={editor.isActive('link')} title="Enlace"><Link2 className="w-4 h-4" /></Btn>
+        <Btn on={toggleLink} active={editor.isActive('link')} title={editor.isActive('link') ? 'Quitar enlace' : 'Enlace'}><Link2 className="w-4 h-4" /></Btn>
         <Btn on={addImage} title="Imagen"><ImageIcon className="w-4 h-4" /></Btn>
         <Btn on={() => c().insertContent(new Date().toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' })).run()} title="Insertar fecha"><Calendar className="w-4 h-4" /></Btn>
         <EmojiBtn onPick={(e) => c().insertContent(e).run()} />
