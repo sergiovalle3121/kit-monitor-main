@@ -3,11 +3,28 @@ import { ImprovementService } from './improvement.service';
 import { ImprovementInitiative } from './entities/improvement-initiative.entity';
 import { DocumentNumberingService } from '../numbering/document-numbering.service';
 import { DocumentSequence } from '../numbering/entities/document-sequence.entity';
-import { TenantContextService } from '../../common/tenant/tenant-context.service';
+import {
+  TenantContextService,
+  TenantContext,
+} from '../../common/tenant/tenant-context.service';
+import { createTenantScopedRepository } from '../../common/tenant/tenant-scoped.repository';
+
+function ctxFor(tenant: string | null): TenantContext {
+  return {
+    tenant_id: tenant,
+    organization_id: null,
+    plant_id: null,
+    user_email: 'u@test',
+    role: null,
+    permissions: null,
+    scopes: null,
+  };
+}
 
 describe('ImprovementService (integration)', () => {
   let dataSource: DataSource;
   let service: ImprovementService;
+  let ctx: TenantContextService;
   const year = new Date().getFullYear();
 
   beforeEach(async () => {
@@ -20,14 +37,14 @@ describe('ImprovementService (integration)', () => {
     });
     await dataSource.initialize();
 
-    const ctx = new TenantContextService();
+    ctx = new TenantContextService();
     const numbering = new DocumentNumberingService(
       dataSource.getRepository(DocumentSequence),
       dataSource,
       ctx,
     );
     service = new ImprovementService(
-      dataSource.getRepository(ImprovementInitiative),
+      createTenantScopedRepository(ImprovementInitiative, dataSource.manager, ctx),
       ctx,
       numbering,
     );
@@ -94,5 +111,35 @@ describe('ImprovementService (integration)', () => {
     expect(kpis.realizedSavings).toBe(8000);
     // Estimated excludes the cancelled one (B, 5000): 10000 + 99999.
     expect(kpis.estimatedSavings).toBe(109999);
+  });
+
+  // P2 anti-leak: two tenants, same service, zero cross-tenant data.
+  it('isolates data by tenant (no cross-tenant reads)', async () => {
+    const a = await ctx.run(ctxFor('TENANT_A'), () =>
+      service.create({ title: 'A-only' }),
+    );
+    await ctx.run(ctxFor('TENANT_B'), () => service.create({ title: 'B-only' }));
+
+    // list() (QueryBuilder + scope) only returns the active tenant.
+    const aList = await ctx.run(ctxFor('TENANT_A'), () => service.list());
+    expect(aList.map((i) => i.title)).toEqual(['A-only']);
+    const bList = await ctx.run(ctxFor('TENANT_B'), () => service.list());
+    expect(bList.map((i) => i.title)).toEqual(['B-only']);
+
+    // getOne() (scoped findOne) cannot reach another tenant's row.
+    await expect(
+      ctx.run(ctxFor('TENANT_B'), () => service.getOne(a.id)),
+    ).rejects.toThrow(/no encontrada/);
+
+    // ...and update/transition inherit the isolation (they call getOne).
+    await expect(
+      ctx.run(ctxFor('TENANT_B'), () =>
+        service.transition(a.id, { status: 'IN_PROGRESS' }),
+      ),
+    ).rejects.toThrow(/no encontrada/);
+
+    // The owning tenant can read its own.
+    const got = await ctx.run(ctxFor('TENANT_A'), () => service.getOne(a.id));
+    expect(got.title).toBe('A-only');
   });
 });

@@ -350,6 +350,28 @@ archivos, decisiones, endpoints/pantallas, KPIs, siguiente paso / bloqueos.
   `getOne(id)`/`findOne` que hoy no scopea por tenant) + migrar entidades
   sensibles a `extends TenantBaseEntity` (aditivo) — por commits gateados.
 
+### [P2.2] Adopción del `TenantScopedRepository` (improvement, legal, procurement) — HECHO
+- **Qué:** estos 3 servicios ahora inyectan el repo tenant-scoped, así que
+  `getOne(id)`/`findOne` (y por ende `update`/`transition` que llaman a `getOne`)
+  quedan **aislados por tenant automáticamente** (cerraba fuga: antes `findOne({where:{id}})`
+  alcanzaba filas de otros tenants conociendo el UUID). Los `list()` ya scopeaban
+  vía QueryBuilder+applyScope.
+- **Recipe por módulo (mecánico, replicar en los demás):**
+  1. Servicio: en `@nestjs/common` añadir `Inject`; borrar `import { InjectRepository }`;
+     cambiar `import { Repository, SelectQueryBuilder } from 'typeorm'` → solo
+     `SelectQueryBuilder`; importar `{ TenantScopedRepository, getTenantRepositoryToken }`
+     de `common/tenant/tenant-scoped.repository`.
+  2. Constructor: `@Inject(getTenantRepositoryToken(Entity)) private readonly repo:
+     TenantScopedRepository<Entity>`.
+  3. Módulo: `providers: [Service, provideTenantScopedRepository(Entity)]`
+     (+ import). Mantener `TypeOrmModule.forFeature([Entity])`.
+  4. Spec: el repo del servicio pasa de `dataSource.getRepository(Entity)` a
+     `createTenantScopedRepository(Entity, dataSource.manager, ctx)` (else tsc rompe).
+- **Anti-fuga del MISMO servicio:** `improvement.service.spec.ts` — 2 tenants, list
+  scopeada, getOne/transition no alcanzan a otro tenant, dueño lee lo suyo.
+- **Gate:** build, **191 tests**, **bootstrap smoke (PG)** verdes (valida el DI de
+  los 3 providers scoped en la app real).
+
 <!-- Próximas entradas arriba de esta línea, orden cronológico inverso por bloque -->
 
 ---
@@ -360,17 +382,26 @@ archivos, decisiones, endpoints/pantallas, KPIs, siguiente paso / bloqueos.
 > Orden: P1a JWT ✅ → **P2 multi-tenencia real (EN CURSO, lo más importante)** →
 > P1b baseline de esquema (SIN flip de synchronize) → P3 profundizar austero.
 
-- **Último ítem terminado:** `fix(security)` P1a — JWT_SECRET sin fallback
-  inseguro + test de blindaje, mergeado a `main`. `main` verde (183 tests).
-- **Siguiente ítem (P2, EN CURSO):** **Multi-tenencia real** — repositorio/servicio
-  tenant-scoped que inyecte `WHERE tenant_id = ctx.tenant_id` automáticamente en
-  find/findOne/count (leyendo de `TenantContextService`), migrar entidades
-  sensibles a `extends TenantBaseEntity` (migraciones aditivas, `tenant_id`
-  nullable), y **test anti-fuga** (2 tenants, 0 datos cruzados) obligatorio en el
-  gate. `tenant_id` SIEMPRE del JWT, nunca del body. Después: P1b baseline +
-  procedimiento de corte documentado (REQUIERE DEPLOY SUPERVISADO POR SERGIO, NO
-  ejecutar), y P3 (cablear `allocate()` en módulos que numeran a mano, frontend
-  NCR/CAPA).
+- **Último ítem terminado:** `feat(tenant)` P2.2 — adopción del
+  `TenantScopedRepository` en improvement/legal/procurement (anti-fuga del mismo
+  servicio). `main` verde (191 tests). P1a (JWT) y P2.1 (infra) ya mergeados.
+- **Siguiente ítem (P2.3 — continuar adopción, mecánico):** replicar la
+  **recipe de [P2.2]** (arriba) en los demás módulos nuevos con `getOne`/`findOne`:
+  ehs, maintenance, testing, people, cycle-counts, crm, fixed-assets, tooling,
+  inbound, outbound, expenses, rma (control-tower no tiene repo; numbering es
+  infra). Cada uno: servicio+módulo+spec, gate verde (incl. **bootstrap smoke**),
+  merge. Luego:
+  - **P1b (SIN flip):** generar baseline del esquema
+    (`npm run migration:generate -- src/migrations/Baseline`), revisar aditivo/
+    idempotente (sin DROP), y documentar el **procedimiento de corte** en
+    `DECISIONS.md`. Marcar **"REQUIERE DEPLOY SUPERVISADO POR SERGIO"** — NO
+    ejecutar el corte ni flipear `synchronize`.
+  - **P2 (core, riesgoso):** migrar entidades que NO extienden `TenantBaseEntity`
+    (inventory, erp-core, plans, kits, bom, production-runtime, quality) — OJO:
+    colisión de `@CreateDateColumn`/`createdAt` (renombre a `created_at` rompe
+    refs en front/serialización). Hacer entidad por entidad, aditivo, con cuidado.
+  - **P3:** cablear `allocate()` en módulos que numeran a mano (plans/WO, kits,
+    NCR, receiving, shipping) sin romper parsers; frontend NCR/CAPA.
 - **Estado de plataforma:** en producción 17 entregas nuevas + hotfix:
   **numeración** (T2), **Mejora Continua** (P2.13), **EHS** (P2.10),
   **Mantenimiento/TPM** (P2.7), **Legal** (P2.14), **Test Engineering** (P2.8),

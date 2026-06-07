@@ -4,6 +4,7 @@ import { Contract } from './entities/contract.entity';
 import { DocumentNumberingService } from '../numbering/document-numbering.service';
 import { DocumentSequence } from '../numbering/entities/document-sequence.entity';
 import { TenantContextService } from '../../common/tenant/tenant-context.service';
+import { createTenantScopedRepository } from '../../common/tenant/tenant-scoped.repository';
 
 describe('LegalService (integration)', () => {
   let dataSource: DataSource;
@@ -27,7 +28,7 @@ describe('LegalService (integration)', () => {
       ctx,
     );
     service = new LegalService(
-      dataSource.getRepository(Contract),
+      createTenantScopedRepository(Contract, dataSource.manager, ctx),
       ctx,
       numbering,
     );

@@ -1,14 +1,18 @@
 import {
   BadRequestException,
+  Inject,
   Injectable,
   Logger,
   NotFoundException,
   Optional,
 } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, SelectQueryBuilder } from 'typeorm';
+import { SelectQueryBuilder } from 'typeorm';
 import { Contract } from './entities/contract.entity';
 import { TenantContextService } from '../../common/tenant/tenant-context.service';
+import {
+  TenantScopedRepository,
+  getTenantRepositoryToken,
+} from '../../common/tenant/tenant-scoped.repository';
 import { DocumentNumberingService } from '../numbering/document-numbering.service';
 import { EventLedgerService } from '../event-ledger/event-ledger.service';
 import { EventDomain } from '../event-ledger/entities/ledger-event.entity';
@@ -38,8 +42,8 @@ export class LegalService {
   private readonly logger = new Logger(LegalService.name);
 
   constructor(
-    @InjectRepository(Contract)
-    private readonly repo: Repository<Contract>,
+    @Inject(getTenantRepositoryToken(Contract))
+    private readonly repo: TenantScopedRepository<Contract>,
     private readonly tenantCtx: TenantContextService,
     private readonly numbering: DocumentNumberingService,
     @Optional() private readonly ledger?: EventLedgerService,

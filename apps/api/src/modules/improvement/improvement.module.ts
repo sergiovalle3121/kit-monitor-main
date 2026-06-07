@@ -5,6 +5,7 @@ import { ImprovementService } from './improvement.service';
 import { ImprovementController } from './improvement.controller';
 import { NumberingModule } from '../numbering/numbering.module';
 import { EventLedgerModule } from '../event-ledger/event-ledger.module';
+import { provideTenantScopedRepository } from '../../common/tenant/tenant-scoped.repository';
 
 /**
  * Continuous Improvement / OpEx (Kaizen, Lean, Six Sigma). Self-contained,
@@ -17,7 +18,10 @@ import { EventLedgerModule } from '../event-ledger/event-ledger.module';
     EventLedgerModule,
   ],
   controllers: [ImprovementController],
-  providers: [ImprovementService],
+  providers: [
+    ImprovementService,
+    provideTenantScopedRepository(ImprovementInitiative),
+  ],
   exports: [ImprovementService],
 })
 export class ImprovementModule {}

@@ -1,14 +1,18 @@
 import {
   BadRequestException,
+  Inject,
   Injectable,
   Logger,
   NotFoundException,
   Optional,
 } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, SelectQueryBuilder } from 'typeorm';
+import { SelectQueryBuilder } from 'typeorm';
 import { ImprovementInitiative } from './entities/improvement-initiative.entity';
 import { TenantContextService } from '../../common/tenant/tenant-context.service';
+import {
+  TenantScopedRepository,
+  getTenantRepositoryToken,
+} from '../../common/tenant/tenant-scoped.repository';
 import { DocumentNumberingService } from '../numbering/document-numbering.service';
 import { EventLedgerService } from '../event-ledger/event-ledger.service';
 import { EventDomain } from '../event-ledger/entities/ledger-event.entity';
@@ -41,8 +45,10 @@ export class ImprovementService {
   private readonly logger = new Logger(ImprovementService.name);
 
   constructor(
-    @InjectRepository(ImprovementInitiative)
-    private readonly repo: Repository<ImprovementInitiative>,
+    // Tenant-scoped repo: findOne/getOne (and thus update/transition) are
+    // automatically isolated by tenant_id from the JWT context.
+    @Inject(getTenantRepositoryToken(ImprovementInitiative))
+    private readonly repo: TenantScopedRepository<ImprovementInitiative>,
     private readonly tenantCtx: TenantContextService,
     private readonly numbering: DocumentNumberingService,
     @Optional() private readonly ledger?: EventLedgerService,

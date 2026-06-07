@@ -5,6 +5,7 @@ import { LegalService } from './legal.service';
 import { LegalController } from './legal.controller';
 import { NumberingModule } from '../numbering/numbering.module';
 import { EventLedgerModule } from '../event-ledger/event-ledger.module';
+import { provideTenantScopedRepository } from '../../common/tenant/tenant-scoped.repository';
 
 /**
  * Legal / Compliance: contracts repository with expiry alerts. Self-contained,
@@ -17,7 +18,7 @@ import { EventLedgerModule } from '../event-ledger/event-ledger.module';
     EventLedgerModule,
   ],
   controllers: [LegalController],
-  providers: [LegalService],
+  providers: [LegalService, provideTenantScopedRepository(Contract)],
   exports: [LegalService],
 })
 export class LegalModule {}

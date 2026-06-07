@@ -5,6 +5,7 @@ import { ProcurementService } from './procurement.service';
 import { ProcurementController } from './procurement.controller';
 import { NumberingModule } from '../numbering/numbering.module';
 import { EventLedgerModule } from '../event-ledger/event-ledger.module';
+import { provideTenantScopedRepository } from '../../common/tenant/tenant-scoped.repository';
 
 /**
  * Procurement / Purchasing: purchase orders. Self-contained, additive area that
@@ -18,7 +19,7 @@ import { EventLedgerModule } from '../event-ledger/event-ledger.module';
     EventLedgerModule,
   ],
   controllers: [ProcurementController],
-  providers: [ProcurementService],
+  providers: [ProcurementService, provideTenantScopedRepository(PurchaseOrder)],
   exports: [ProcurementService],
 })
 export class ProcurementModule {}
