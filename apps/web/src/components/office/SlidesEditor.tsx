@@ -10,7 +10,7 @@ import {
   Type, ImagePlus, Square, Circle as CircleIcon, Minus, Triangle as TriIcon,
   Trash2, ChevronsUp, ChevronsDown, Plus, Copy, Play, X, Bold, Plus as PlusIcon, Minus as MinusIcon,
   StickyNote, CopyPlus, LayoutGrid, Star, ArrowRight, Diamond,
-  Italic, Underline, AlignLeft, AlignCenter, AlignRight, Droplet, Blend,
+  Italic, Underline, AlignLeft, AlignCenter, AlignRight, Droplet, Blend, Link2,
   AlignHorizontalJustifyStart, AlignHorizontalJustifyCenter, AlignHorizontalJustifyEnd,
   AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd,
 } from 'lucide-react';
@@ -74,8 +74,8 @@ export function SlidesEditor({ value, onChange, readOnly }: { value: any; onChan
     const c = fabricRef.current; if (c) { c.backgroundColor = color; c.requestRenderAll(); }
     sync();
   }
-  // Include custom props (anim for entrance animation, shape for .pptx mapping).
-  function capture() { const c = fabricRef.current; if (c) slidesRef.current[curRef.current] = c.toObject(['anim', 'shape']); }
+  // Include custom props (anim = entrance animation, shape = .pptx mapping, link = hyperlink).
+  function capture() { const c = fabricRef.current; if (c) slidesRef.current[curRef.current] = c.toObject(['anim', 'shape', 'link']); }
 
   useEffect(() => {
     if (!elRef.current) return;
@@ -185,6 +185,18 @@ export function SlidesEditor({ value, onChange, readOnly }: { value: any; onChan
     }));
     c.requestRenderAll(); capture(); sync();
   }
+  function setObjLink() {
+    const c = fabricRef.current; const o = c?.getActiveObject() as any;
+    if (!c || !o) return;
+    const cur = o.link ? (o.link.type === 'url' ? o.link.href : String((o.link.index ?? 0) + 1)) : '';
+    const v = window.prompt('Vincular a: número de diapositiva o URL (vacío = quitar)', cur);
+    if (v === null) return;
+    const t = v.trim();
+    if (!t) o.set('link', null);
+    else if (/^https?:\/\//i.test(t)) o.set('link', { type: 'url', href: t });
+    else { const n = parseInt(t, 10); if (!Number.isNaN(n) && n > 0) o.set('link', { type: 'slide', index: n - 1 }); else { window.alert('Indica un número de diapositiva o una URL http(s).'); return; } }
+    c.requestRenderAll(); capture(); sync();
+  }
   function del() { const c = fabricRef.current; const o = c?.getActiveObject(); if (c && o) { c.remove(o); c.requestRenderAll(); } }
   function front() { const c = fabricRef.current; const o = c?.getActiveObject(); if (c && o) { (c as any).bringObjectToFront(o); c.requestRenderAll(); capture(); sync(); } }
   function back() { const c = fabricRef.current; const o = c?.getActiveObject(); if (c && o) { (c as any).sendObjectToBack(o); c.requestRenderAll(); capture(); sync(); } }
@@ -272,6 +284,7 @@ export function SlidesEditor({ value, onChange, readOnly }: { value: any; onChan
         <span className="w-px h-5 bg-gray-200 dark:bg-white/10 mx-1" />
         <TBtn on={applyGradient} title="Degradado"><Blend className="w-4 h-4" /></TBtn>
         <TBtn on={toggleShadow} title="Sombra"><Droplet className="w-4 h-4" /></TBtn>
+        <TBtn on={setObjLink} title="Hipervínculo"><Link2 className="w-4 h-4" /></TBtn>
         <TBtn on={dupObj} title="Duplicar elemento"><CopyPlus className="w-4 h-4" /></TBtn>
         <TBtn on={del} title="Borrar elemento"><Trash2 className="w-4 h-4" /></TBtn>
         {hasSel && (
@@ -435,6 +448,15 @@ function Present({ slides, notes, transition, onClose }: { slides: any[]; notes?
                   variants={OBJ_ANIM[L.anim] ?? OBJ_ANIM.none} initial="initial" animate="animate"
                   transition={{ duration: 0.5, ease: 'easeOut', delay: L.anim && L.anim !== 'none' ? 0.15 + j * 0.18 : 0 }} />
               ))}
+              {(slides[i]?.objects ?? []).map((o: any, j: number) => {
+                if (!o?.link) return null;
+                const w = (o.radius ? o.radius * 2 : (o.width ?? 0)) * (o.scaleX ?? 1);
+                const h = (o.radius ? o.radius * 2 : (o.height ?? 0)) * (o.scaleY ?? 1);
+                const go = () => { if (o.link.type === 'slide') setI(Math.max(0, Math.min(slides.length - 1, o.link.index))); else if (o.link.href) window.open(o.link.href, '_blank', 'noopener'); };
+                return <button key={`lnk${j}`} onClick={go} title="Ir al hipervínculo"
+                  style={{ position: 'absolute', left: `${((o.left ?? 0) / CW) * 100}%`, top: `${((o.top ?? 0) / CH) * 100}%`, width: `${(w / CW) * 100}%`, height: `${(h / CH) * 100}%` }}
+                  className="cursor-pointer hover:ring-2 ring-blue-400/60 rounded-sm" />;
+              })}
             </motion.div>
           </AnimatePresence>
         )}
