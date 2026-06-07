@@ -28,6 +28,7 @@ import { ToolingModule } from './modules/tooling/tooling.module';
 import { RmaModule } from './modules/rma/rma.module';
 import { LineEngineeringModule } from './modules/line-engineering/line-engineering.module';
 import { ProductionPlanModule } from './modules/production-plan/production-plan.module';
+import { MaterialStagingModule } from './modules/material-staging/material-staging.module';
 
 // AXOS OS Intelligence & Tenancy Infrastructure
 import { EventLedgerInterceptor } from './common/interceptors/event-ledger.interceptor';
@@ -95,6 +96,7 @@ import { AiModule } from './modules/ai/ai.module';
     RmaModule,
     LineEngineeringModule,
     ProductionPlanModule,
+    MaterialStagingModule,
     ForecastModule,
     PlansModule,
     BomModule,
