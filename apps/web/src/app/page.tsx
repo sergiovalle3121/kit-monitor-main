@@ -1,9 +1,12 @@
 "use client";
 
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { AmbientBackground } from "@/components/AmbientBackground";
+import { Reveal } from "@/components/Reveal";
+import { hoverLift, press } from "@/lib/motion";
 import {
   Activity,
   Box,
@@ -18,6 +21,8 @@ import {
   AlertCircle,
   PlayCircle,
 } from "lucide-react";
+
+const MotionLink = motion.create(Link);
 
 
 interface Feature {
@@ -83,6 +88,7 @@ type Toast = { id: number; kind: "info" | "success" | "error"; text: string };
 
 export default function Home() {
   const router = useRouter();
+  const reduce = useReducedMotion();
   const [activeFeature, setActiveFeature] = useState<Feature | null>(null);
   const [demoLoading, setDemoLoading] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
@@ -121,7 +127,10 @@ export default function Home() {
   };
 
   return (
-    <main className="min-h-screen bg-[#F8F9FA] dark:bg-[#0A0A0A] selection:bg-black selection:text-white dark:selection:bg-white dark:selection:text-black">
+    <main className="relative min-h-screen selection:bg-black selection:text-white dark:selection:bg-white dark:selection:text-black">
+      {/* Fondo ambiental (aurora + noise) detrás del hero */}
+      <AmbientBackground />
+
       {/* Navigation */}
       <nav className="fixed top-0 w-full z-50 premium-glass px-6 py-4 flex justify-between items-center border-b border-gray-200/50 dark:border-white/5 backdrop-blur-md bg-white/70 dark:bg-black/40">
         <div className="flex items-center gap-2">
@@ -183,7 +192,7 @@ export default function Home() {
             className="text-6xl md:text-8xl font-bold tracking-tighter mb-8 leading-[1.1]"
           >
             Industrial Intelligence. <br />
-            <span className="text-gray-400 dark:text-gray-600">Perfected.</span>
+            <span className="text-gradient-title">Perfected.</span>
           </motion.h1>
 
           <motion.p
@@ -199,16 +208,20 @@ export default function Home() {
             variants={itemVariants}
             className="flex flex-col sm:flex-row gap-4 justify-center items-center"
           >
-            <Link
+            <MotionLink
               href="/login"
-              className="group px-8 py-4 bg-black dark:bg-white text-white dark:text-black rounded-2xl text-lg font-medium flex items-center gap-2 hover:shadow-2xl transition-all"
+              whileHover={reduce ? undefined : hoverLift}
+              whileTap={reduce ? undefined : press}
+              className="group px-8 py-4 bg-black dark:bg-white text-white dark:text-black rounded-2xl text-lg font-medium flex items-center gap-2 shadow-lg shadow-indigo-500/10 hover:shadow-2xl transition-all"
             >
               Get Started
               <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-            </Link>
-            <button
+            </MotionLink>
+            <motion.button
               onClick={startDemo}
               disabled={demoLoading}
+              whileHover={reduce ? undefined : hoverLift}
+              whileTap={reduce ? undefined : press}
               className="px-8 py-4 border border-gray-200 dark:border-white/10 rounded-2xl text-lg font-medium hover:bg-gray-50 dark:hover:bg-white/5 transition-all flex items-center gap-2 disabled:opacity-60"
             >
               {demoLoading ? (
@@ -217,7 +230,7 @@ export default function Home() {
                 <PlayCircle className="w-5 h-5" />
               )}
               View Demo
-            </button>
+            </motion.button>
           </motion.div>
 
           <motion.p
@@ -234,7 +247,7 @@ export default function Home() {
         id="platform"
         className="py-20 px-6 bg-white dark:bg-black/40 scroll-mt-24"
       >
-        <div className="max-w-6xl mx-auto">
+        <Reveal className="max-w-6xl mx-auto">
           <div className="text-center mb-12">
             <span className="text-xs font-bold uppercase tracking-[0.2em] text-gray-400">
               Platform
@@ -268,12 +281,12 @@ export default function Home() {
               </motion.button>
             ))}
           </div>
-        </div>
+        </Reveal>
       </section>
 
       {/* Solutions Section */}
       <section id="solutions" className="py-20 px-6 scroll-mt-24">
-        <div className="max-w-6xl mx-auto">
+        <Reveal className="max-w-6xl mx-auto">
           <div className="text-center mb-12">
             <span className="text-xs font-bold uppercase tracking-[0.2em] text-gray-400">
               Solutions
@@ -308,7 +321,7 @@ export default function Home() {
               </div>
             ))}
           </div>
-        </div>
+        </Reveal>
       </section>
 
       {/* Enterprise Section */}
@@ -316,7 +329,7 @@ export default function Home() {
         id="enterprise"
         className="py-20 px-6 bg-white dark:bg-black/40 scroll-mt-24"
       >
-        <div className="max-w-4xl mx-auto text-center">
+        <Reveal className="max-w-4xl mx-auto text-center">
           <span className="text-xs font-bold uppercase tracking-[0.2em] text-gray-400">
             Enterprise
           </span>
@@ -351,7 +364,7 @@ export default function Home() {
           >
             Solicitar acceso <ChevronRight className="w-4 h-4" />
           </Link>
-        </div>
+        </Reveal>
       </section>
 
       {/* Footer */}
