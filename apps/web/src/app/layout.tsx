@@ -5,7 +5,7 @@ import { ThemeProvider } from "@/contexts/ThemeContext";
 import { WorkspaceProvider } from "@/contexts/WorkspaceContext";
 import { ChatWidget } from "@/components/ChatWidget";
 import { AiCopilot } from "@/components/AiCopilot";
-import { TCodePalette } from "@/components/TCodePalette";
+import { SearchPalette } from "@/components/SearchPalette";
 
 export const metadata: Metadata = {
   title: "AXOS OS",
@@ -26,7 +26,7 @@ export default function RootLayout({
               {children}
               <ChatWidget />
               <AiCopilot />
-              <TCodePalette />
+              <SearchPalette />
             </WorkspaceProvider>
           </AuthProvider>
         </ThemeProvider>
