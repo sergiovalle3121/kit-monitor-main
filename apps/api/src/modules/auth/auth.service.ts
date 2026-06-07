@@ -38,13 +38,23 @@ export class AuthService {
       throw new UnauthorizedException('Credenciales incorrectas');
     }
     // The app owner is always full Admin (and active), regardless of how the
-    // account was originally created. Password still had to match above.
-    if (isOwnerEmail(user.email) && (user.role !== 'Admin' || user.status === 'pending')) {
-      return this.usersService.update(user.id, {
-        role: 'Admin' as User['role'],
-        permissions: permissionsFor('admin'),
-        status: 'active',
-      });
+    // account was originally created. Password still had to match above. We also
+    // refresh when the stored permissions are empty/stale (e.g. an older record
+    // saved before admin carried the full permission set) so the owner is never
+    // gated in the UI. Idempotent.
+    if (isOwnerEmail(user.email)) {
+      const fullPerms = permissionsFor('admin');
+      const needsFix =
+        user.role !== 'Admin' ||
+        user.status === 'pending' ||
+        (user.permissions?.length ?? 0) < fullPerms.length;
+      if (needsFix) {
+        return this.usersService.update(user.id, {
+          role: 'Admin' as User['role'],
+          permissions: fullPerms,
+          status: 'active',
+        });
+      }
     }
     // Account lifecycle gate (existing users have status null → treated as active).
     if (user.status === 'pending') {

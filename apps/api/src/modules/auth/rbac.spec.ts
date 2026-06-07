@@ -1,4 +1,4 @@
-import { permissionsFor, ROLE_PERMISSIONS, AppRole } from './rbac';
+import { permissionsFor, ROLE_PERMISSIONS, ALL_PERMISSIONS, AppRole, isOwnerEmail } from './rbac';
 
 /**
  * RBAC matrix guard tests. These lock in the shop-floor authorization rules the
@@ -73,5 +73,37 @@ describe('rbac shop-floor matrix', () => {
     for (const role of Object.keys(ROLE_PERMISSIONS) as AppRole[]) {
       expect(Array.isArray(permissionsFor(role))).toBe(true);
     }
+  });
+
+  // Owner/Admin must carry the FULL permission set in the JWT so the frontend
+  // (which gates the UI on the permissions array) never locks the owner out.
+  it('admin resolves to the full permission set (not empty)', () => {
+    const adminPerms = permissionsFor('admin');
+    expect(adminPerms.length).toBeGreaterThan(0);
+    expect(adminPerms.length).toBe(ALL_PERMISSIONS.length);
+    // representative permissions from every area must be present
+    for (const p of [
+      'planning:publish', 'production:execute', 'production:authorize',
+      'materials:stage', 'quality:hold', 'quality:disposition',
+      'inventory:reconcile', 'maintenance:write', 'auth:write', 'settings:write',
+    ]) {
+      expect(adminPerms).toContain(p);
+    }
+  });
+
+  it('admin holds a superset of every other role’s permissions', () => {
+    const adminPerms = new Set(permissionsFor('admin'));
+    for (const role of Object.keys(ROLE_PERMISSIONS) as AppRole[]) {
+      if (role === 'admin') continue;
+      for (const p of permissionsFor(role)) {
+        expect(adminPerms.has(p)).toBe(true);
+      }
+    }
+  });
+
+  it('recognizes the project owner email', () => {
+    expect(isOwnerEmail('sergiovallezarate@gmail.com')).toBe(true);
+    expect(isOwnerEmail('SergioValleZarate@Gmail.com')).toBe(true);
+    expect(isOwnerEmail('random@x.com')).toBe(false);
   });
 });
