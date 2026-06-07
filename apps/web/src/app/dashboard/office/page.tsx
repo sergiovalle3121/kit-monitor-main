@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ChevronLeft, FileText, Table, Presentation, Plus, Trash2, Loader2, Lock, AlertCircle,
-  Copy, Pencil, RotateCcw, Check, X, Clock, Users,
+  Copy, Pencil, RotateCcw, Check, X, Clock, Users, Search, ArrowDownUp,
 } from 'lucide-react';
 import { glass } from '@/lib/glass';
 import { useApi } from '@/hooks/useApi';
@@ -52,8 +52,14 @@ export default function OfficeHubPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
   const [gallery, setGallery] = useState(false);
-  const docs = Array.isArray(data) ? data : [];
+  const [q, setQ] = useState('');
+  const [sort, setSort] = useState<'recent' | 'name'>('recent');
   const meta = TABS.find((t) => t.id === tab)!;
+  const docs = (Array.isArray(data) ? data : [])
+    .filter((d) => !q.trim() || (d.title || '').toLowerCase().includes(q.trim().toLowerCase()))
+    .sort((a, b) => sort === 'name'
+      ? (a.title || '').localeCompare(b.title || '')
+      : (new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime()));
 
   async function createFrom(content: any) {
     setBusy(true); setErr(null);
@@ -122,6 +128,18 @@ export default function OfficeHubPage() {
           </div>
           <button onClick={() => setTrash((v) => !v)} className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold transition-all ${trash ? 'bg-red-500/10 text-red-500' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-white/5'}`}>
             <Trash2 className="w-4 h-4" /> Papelera
+          </button>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 mb-4">
+          <div className="relative flex-1 min-w-[180px]">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar por nombre…"
+              className={`${glass} w-full rounded-xl pl-9 pr-3 py-2 text-sm outline-none focus:ring-2 ring-black/10 dark:ring-white/20`} />
+          </div>
+          <button onClick={() => setSort((s) => (s === 'recent' ? 'name' : 'recent'))}
+            className={`${glass} flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium text-gray-600 dark:text-gray-300`}>
+            <ArrowDownUp className="w-4 h-4" /> {sort === 'recent' ? 'Recientes' : 'Nombre'}
           </button>
         </div>
 

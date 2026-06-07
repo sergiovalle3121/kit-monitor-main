@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ChevronLeft, FileText, Table, Presentation, Check, Loader2, Cloud, CloudOff,
-  Lock, Maximize2, Minimize2,
+  Lock, Maximize2, Minimize2, Keyboard, X,
 } from 'lucide-react';
 
 export type SaveStatus = 'saved' | 'saving' | 'unsaved' | 'error' | 'readonly';
@@ -77,6 +77,7 @@ export function OfficeShell({
   const meta = META[type];
   const Icon = meta.icon;
   const [isFs, setIsFs] = useState(false);
+  const [help, setHelp] = useState(false);
 
   useEffect(() => {
     const h = () => setIsFs(!!document.fullscreenElement);
@@ -120,6 +121,13 @@ export function OfficeShell({
           <StatusPill status={readOnly ? 'readonly' : status} savedAt={savedAt} />
           {actions}
           <button
+            onClick={() => setHelp(true)}
+            title="Atajos de teclado"
+            className="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-400 transition-colors"
+          >
+            <Keyboard className="w-4 h-4" />
+          </button>
+          <button
             onClick={toggleFs}
             title={isFs ? 'Salir de pantalla completa' : 'Pantalla completa'}
             className="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-400 transition-colors"
@@ -128,6 +136,10 @@ export function OfficeShell({
           </button>
         </div>
       </header>
+
+      <AnimatePresence>
+        {help && <ShortcutsHelp type={type} onClose={() => setHelp(false)} />}
+      </AnimatePresence>
 
       {/* ── Ribbon ────────────────────────────────────────────────────── */}
       {ribbon != null && (
@@ -150,6 +162,41 @@ export function OfficeShell({
         {statusBarLeft}
         <div className="ml-auto flex items-center gap-3">{statusBarRight}</div>
       </footer>
+    </motion.div>
+  );
+}
+
+function ShortcutsHelp({ type, onClose }: { type: OfficeType; onClose: () => void }) {
+  const common: [string, string][] = [
+    ['Ctrl / ⌘ + S', 'Guardar'],
+    ['Ctrl / ⌘ + Z', 'Deshacer'],
+    ['Ctrl / ⌘ + Y', 'Rehacer'],
+    ['F11', 'Pantalla completa (navegador)'],
+  ];
+  const byType: Record<OfficeType, [string, string][]> = {
+    doc: [['Ctrl / ⌘ + B / I / U', 'Negrita / cursiva / subrayado'], ['Ctrl / ⌘ + F', 'Buscar y reemplazar']],
+    sheet: [['Ctrl / ⌘ + C / V', 'Copiar / pegar'], ['Supr', 'Borrar contenido de la celda']],
+    slides: [['← / →', 'Anterior / siguiente (presentación)'], ['N', 'Notas del orador (presentación)'], ['Esc', 'Salir de la presentación']],
+  };
+  const rows = [...common, ...byType[type]];
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[90] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" onClick={onClose}>
+      <motion.div initial={{ opacity: 0, y: 16, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-md rounded-3xl bg-white dark:bg-[#161616] border border-black/5 dark:border-white/10 shadow-2xl p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-bold">Atajos de teclado</h2>
+          <button onClick={onClose} className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-400"><X className="w-5 h-5" /></button>
+        </div>
+        <div className="space-y-1.5">
+          {rows.map(([k, v]) => (
+            <div key={k} className="flex items-center justify-between text-sm py-1">
+              <span className="text-gray-600 dark:text-gray-300">{v}</span>
+              <kbd className="font-mono text-xs px-2 py-1 rounded-md bg-black/5 dark:bg-white/10">{k}</kbd>
+            </div>
+          ))}
+        </div>
+      </motion.div>
     </motion.div>
   );
 }
