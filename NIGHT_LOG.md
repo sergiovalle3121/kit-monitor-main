@@ -213,22 +213,39 @@ archivos, decisiones, endpoints/pantallas, KPIs, siguiente paso / bloqueos.
   101 tests**, web tsc+lint, **bootstrap smoke (PG)** — clave aquí por las 7
   inyecciones cross-módulo.
 
+### [outbound] Logística / Embarque (P2.6) — FUNCIONAL
+- **Backend** (`apps/api/src/modules/outbound/`): `Shipment` (tabla
+  **`outbound_shipments`** — renombrada para no chocar con la tabla `shipments`
+  legacy; cliente/destino denormalizados, incoterm, carrier, tracking, bultos;
+  máquina de estados PACKING→READY→SHIPPED→DELIVERED + CANCELLED; **genera ASN**
+  (folio `ASN-`) al embarcar). Folio `SHP-` al crear. KPIs: por embarcar, en
+  tránsito, vencidas, **OTD a cliente**. Controller `outbound`. Migración aditiva.
+  Event Ledger (SHIPPING).
+- **Frontend** (`dashboard/outbound`): KPIs, alta de embarque, tablero por estado
+  con badges (ASN, vencida) y transiciones (captura tracking al embarcar). Cmd-K.
+- **Tests:** `shipment-state.spec` + `outbound.service.spec` (SQLite).
+- **⚠️ El smoke de bootstrap atrapó una colisión real de tabla** (`shipments` ya
+  existía en el módulo `shipping` legacy con PK integer + FK `shipment_items`).
+  Renombrada a `outbound_shipments`. Ver `DECISIONS.md §8`. Gate final verde:
+  build, **23 suites / 110 tests**, web tsc+lint, **bootstrap smoke (PG)**.
+
 <!-- Próximas entradas arriba de esta línea, orden cronológico inverso por bloque -->
 
 ---
 
 ## ▶ RETOMAR AQUÍ (handoff para la próxima sesión)
 
-- **Último ítem terminado:** `feat(control-tower)` — Torre de Control / Cockpit
-  ejecutivo (P3.1/P3.2), mergeado a `main` vía PR (squash). `main` verde.
-- **Estado de plataforma:** en producción 9 entregas nuevas + hotfix:
+- **Último ítem terminado:** `feat(outbound)` — Logística / Embarque (P2.6),
+  mergeado a `main` vía PR (squash). `main` verde.
+- **Estado de plataforma:** en producción 10 entregas nuevas + hotfix:
   **numeración** (T2), **Mejora Continua** (P2.13), **EHS** (P2.10),
   **Mantenimiento/TPM** (P2.7), **Legal** (P2.14), **Test Engineering** (P2.8),
-  **Compras** (P2.4), **RH/Skills** (P2.9), **Torre de Control** (P3.1/P3.2), más
-  el **SecurityModule global** + **smoke de bootstrap**. API: 22 suites /
-  101 tests. Migraciones solo aditivas. Patrón por módulo: (state machine /
-  derivación pura si aplica) + entity + dto + service (scope tenant+plant, usa
-  numeración) + controller + module + migración aditiva + specs + página + Cmd-K.
+  **Compras** (P2.4), **RH/Skills** (P2.9), **Torre de Control** (P3.1/P3.2),
+  **Logística/Embarque** (P2.6), más el **SecurityModule global** + **smoke de
+  bootstrap**. API: 23 suites / 110 tests. Migraciones solo aditivas. Patrón por
+  módulo: (state machine / derivación pura si aplica) + entity (TABLA PREFIJADA
+  para no chocar con legacy) + dto + service (scope tenant+plant, usa numeración) +
+  controller + module + migración aditiva + specs + página + Cmd-K.
 - **PUERTAS DE CALIDAD ahora (obligatorio antes de cada merge):**
   1) `cd apps/api && npm run build`  2) `npm test` (unit)  3) `npm run lint`+`tsc`
   en web para archivos tocados  4) **`npm run smoke:bootstrap` con Postgres** —
@@ -243,22 +260,22 @@ archivos, decisiones, endpoints/pantallas, KPIs, siguiente paso / bloqueos.
   # gate:
   cd apps/api && npm run build && DATABASE_URL="postgres://postgres@/axos_smoke?host=/tmp&port=5433" npm run smoke:bootstrap
   ```
-- **Siguiente ítem exacto a hacer:** **Logística / Embarque (P2.6)** como módulo
-  nuevo `outbound` (NO tocar el `shipping` backend existente; mantener 100%
-  aditivo). Entidad `Shipment` (folio `SHP-` o `ASN-` vía `allocate('SHIPMENT')`/
-  `allocate('ASN')` — ambos YA en defaults; cliente/destino denormalizados,
-  incoterm, carrier, tracking, fecha prometida/embarcada; máquina de estados
-  PACKING→READY→SHIPPED→DELIVERED + CANCELLED). KPIs: por embarcar, embarcados,
-  OTD a cliente, en tránsito. Pantalla `dashboard/outbound` + Cmd-K. Tests máquina
-  de estados + servicio (SQLite). Patrón a copiar: módulo `procurement` (muy
-  similar: estados + fechas + OTD).
-- **Más backlog aditivo disponible (mismo patrón, todo aditivo):** Calidad
-  NCR/CAPA frontend (backend `ncr`/`quality` ya existe — solo UI, OJO no romper);
-  Inbound/Recibo (módulo nuevo `inbound` con IQC pasa/no-pasa, folio `RCV-`);
-  Activos fijos/Depreciación; Conteos cíclicos (módulo nuevo).
-- **IMPORTANTE — puerta de bootstrap:** levantar Postgres efímero (receta arriba)
-  y correr `npm run smoke:bootstrap` ANTES de cada merge. El contenedor se resetea
-  entre sesiones, así que hay que re-crear el cluster cada sesión.
+- **Siguiente ítem exacto a hacer:** **Recibo / Inbound + IQC (P2.5)** como módulo
+  nuevo `inbound` (100% aditivo, tabla `inbound_receipts` PREFIJADA). Entidad
+  `Receipt` (folio `RCV-` vía `allocate('RECEIPT')` — ya en defaults; proveedor y
+  PO denormalizados, parte, cantidad, lote/serie/date-code; resultado IQC
+  PENDING→PASS/FAIL→RELEASED/QUARANTINE; máquina de estados
+  RECEIVED→IQC→RELEASED|QUARANTINE). KPIs: dock-to-stock (tiempo received→released),
+  % rechazo en recibo, en cuarentena, pendientes de IQC. Pantalla
+  `dashboard/inbound` (captura scanner-friendly de recibo + cola IQC) + Cmd-K.
+  Tests máquina de estados + servicio (SQLite). Patrón a copiar: `outbound`.
+- **Más backlog aditivo disponible (mismo patrón):** Calidad NCR/CAPA frontend
+  (backend `ncr`/`quality` ya existe — SOLO UI, no romper); Conteos cíclicos
+  (módulo nuevo `cycle-counts`, folio `CC-`); Activos fijos/Depreciación.
+- **IMPORTANTE — puerta de bootstrap (obligatoria, atrapa colisiones de tabla):**
+  levantar Postgres efímero (receta arriba) y `npm run smoke:bootstrap` ANTES de
+  cada merge. El contenedor se resetea entre sesiones → re-crear el cluster. Y
+  **prefijar SIEMPRE el nombre de tabla** de módulos nuevos (lección §8).
 - **Hygiene recomendada (de-riesga el gate):** portar los 14 `jsonb` hardcodeados
   a `JSON_COLUMN_TYPE` y crear `ENUM_COLUMN_TYPE` (`'enum'` en PG / `'simple-enum'`
   en sqlite) para los 4 `type:'enum'`. Es **no-op en Postgres** y haría que el

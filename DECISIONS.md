@@ -116,4 +116,18 @@ que el path sqlite documentado funcione; es no-op en Postgres.)
 numeración), KPIs CMMS (abiertas, vencidas, %PM, MTTR, downtime). RBAC: igual que
 las otras áreas operativas nuevas, abierto a autenticados (admin omite scope).
 
+## 8. Colisión de nombres de tabla con módulos legacy (lección del gate)
+
+**Hallazgo:** el módulo nuevo `outbound` definía `@Entity('shipments')`, que choca
+con la tabla `shipments` (PK integer) del módulo legacy `shipping` y su FK
+`shipment_items.shipment_id`. El **smoke de bootstrap lo atrapó** (synchronize
+falló: "incompatible types integer and uuid"); `tsc` y los unit tests (sqlite con
+solo la entidad nueva) NO lo ven.
+
+**Decisión / regla:** al crear módulos aditivos, **prefijar el nombre de tabla**
+para no colisionar con tablas existentes (aquí `outbound_shipments`). Antes de
+mergear, el smoke de bootstrap contra Postgres (que carga TODAS las entidades) es
+la única puerta que detecta colisiones de tabla/índice y FKs incompatibles entre
+módulos. Reforzado: el gate de bootstrap es obligatorio.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
