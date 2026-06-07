@@ -155,20 +155,36 @@ archivos, decisiones, endpoints/pantallas, KPIs, siguiente paso / bloqueos.
 - **Tests:** `contract-state.spec` + `legal.service.spec` (SQLite). Gate completo
   verde: build, 15 suites / 77 tests, web tsc+lint, **bootstrap smoke (Postgres)**.
 
+### [testing] Test Engineering / Yields (P2.8) — FUNCIONAL
+- **Backend** (`apps/api/src/modules/testing/`): `TestRecord` inmutable (serie,
+  estación ICT/FCT/AOI/FINAL, PASS/FAIL, código de falla, modelo, operador; folio
+  `TST-` vía numeración). Sin máquina de estados (registro inmutable). Servicio con
+  KPIs: **First-Pass Yield** (primer test por serie), yield total, Pareto de
+  códigos de falla (top 10), series distintas. Evento al Event Ledger (QUALITY).
+  Controller `testing` (records + recent + kpis). Migración aditiva. docType
+  `TEST_RECORD` (prefijo `TST`, reinicio mensual).
+- **Frontend** (`dashboard/test-engineering`): captura scanner-friendly (Enter
+  para capturar, autofocus en SN), KPIs (FPY, yield, pruebas, fallas), **Pareto**
+  de fallas (barras), capturas recientes. Enlace Cmd-K.
+- **Tests:** `testing.service.spec` (SQLite): folio, forzar/limpiar failureCode,
+  cálculo de yield + FPY + Pareto. Gate completo verde: build, **17 suites /
+  80 tests**, web tsc+lint, **bootstrap smoke (Postgres)**.
+
 <!-- Próximas entradas arriba de esta línea, orden cronológico inverso por bloque -->
 
 ---
 
 ## ▶ RETOMAR AQUÍ (handoff para la próxima sesión)
 
-- **Último ítem terminado:** `feat(legal)` — Legal / Contratos (P2.14), mergeado
-  a `main` vía PR (squash). `main` verde.
+- **Último ítem terminado:** `feat(testing)` — Test Engineering / Yields (P2.8),
+  mergeado a `main` vía PR (squash). `main` verde.
 - **Estado de plataforma:** en producción: **numeración** (T2), **Mejora
   Continua** (P2.13), **EHS** (P2.10), **Mantenimiento/TPM** (P2.7), **Legal**
-  (P2.14), y el **SecurityModule global** (wiring del guard). API: 15 suites /
-  77 tests. Migraciones solo aditivas. Patrón consolidado por módulo: state
-  machine pura + entity + dto + service (scope tenant+plant, usa numeración) +
-  controller + module + migración aditiva + 2 specs + página + Cmd-K.
+  (P2.14), **Test Engineering** (P2.8), y el **SecurityModule global** (wiring del
+  guard). API: 17 suites / 80 tests. Migraciones solo aditivas. Patrón consolidado
+  por módulo: (state machine pura si aplica) + entity + dto + service (scope
+  tenant+plant, usa numeración) + controller + module + migración aditiva + specs
+  + página + Cmd-K.
 - **PUERTAS DE CALIDAD ahora (obligatorio antes de cada merge):**
   1) `cd apps/api && npm run build`  2) `npm test` (unit)  3) `npm run lint`+`tsc`
   en web para archivos tocados  4) **`npm run smoke:bootstrap` con Postgres** —
@@ -183,16 +199,17 @@ archivos, decisiones, endpoints/pantallas, KPIs, siguiente paso / bloqueos.
   # gate:
   cd apps/api && npm run build && DATABASE_URL="postgres://postgres@/axos_smoke?host=/tmp&port=5433" npm run smoke:bootstrap
   ```
-- **Siguiente ítem exacto a hacer:** **Test Engineering / Yields (P2.8)** como
-  rebanada vertical aditiva — entidad `TestRecord` (estación ICT/FCT, número de
-  serie, resultado PASS/FAIL, código de falla, parámetros) y opcional
-  `TestStation`. Folio `TST-` vía `allocate('TEST_RECORD')`. KPIs: First-Pass
-  Yield, total pruebas, % fallas, Pareto de códigos de falla (top N). Pantalla
-  `dashboard/test-engineering` (captura de resultado + tablero de yields + Pareto)
-  + Cmd-K. Tests servicio (SQLite) — yield calc + Pareto. Añadir docType
-  `TEST_RECORD` (prefijo `TST`). Patrón a copiar: módulo `legal` (el más reciente
-  y limpio). NOTA: este módulo es más de captura/analítica que máquina de estados;
-  puede no necesitar state machine (un TestRecord es inmutable: PASS/FAIL).
+- **Siguiente ítem exacto a hacer:** **Compras / Procurement — Órdenes de Compra
+  (P2.4)** como rebanada vertical aditiva — entidad `PurchaseOrder` (folio `PO-`
+  vía `allocate('PURCHASE_ORDER')`; proveedor por nombre/id denormalizado para no
+  acoplar a `suppliers`; líneas como JSON o campos simples: monto total + moneda;
+  máquina de estados DRAFT→ISSUED→ACKNOWLEDGED→RECEIVED→CLOSED + CANCELLED; fecha
+  requerida/prometida para OTD). KPIs: POs abiertas, por recibir, vencidas (OTD),
+  valor comprometido. Pantalla `dashboard/procurement` + Cmd-K. Tests máquina de
+  estados + servicio (SQLite). `PURCHASE_ORDER` (prefijo `PO`) YA existe en
+  defaults. Patrón a copiar: módulo `legal`/`maintenance` (los más recientes).
+  OJO: NO acoplar a `suppliers` existente (denormalizar supplierName); mantener
+  100% aditivo.
 - **Hygiene recomendada (de-riesga el gate):** portar los 14 `jsonb` hardcodeados
   a `JSON_COLUMN_TYPE` y crear `ENUM_COLUMN_TYPE` (`'enum'` en PG / `'simple-enum'`
   en sqlite) para los 4 `type:'enum'`. Es **no-op en Postgres** y haría que el

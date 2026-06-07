@@ -37,6 +37,7 @@ export const DEFAULT_SEQUENCES: SequenceDefault[] = [
   { docType: 'EHS_INCIDENT', name: 'Incidente EHS', prefix: 'INC', pattern: '{PREFIX}-{YYYY}-{SEQ}', padding: 5, resetPolicy: 'YEARLY', description: 'Incidentes de seguridad y medio ambiente.' },
   { docType: 'ASSET', name: 'Activo / Equipo', prefix: 'EQ', pattern: '{PREFIX}-{SEQ}', padding: 5, resetPolicy: 'NEVER', description: 'Activos mantenibles (CMMS).' },
   { docType: 'CONTRACT', name: 'Contrato', prefix: 'CON', pattern: '{PREFIX}-{YYYY}-{SEQ}', padding: 5, resetPolicy: 'YEARLY', description: 'Contratos legales / compliance.' },
+  { docType: 'TEST_RECORD', name: 'Registro de Prueba', prefix: 'TST', pattern: '{PREFIX}-{YYYY}{MM}-{SEQ}', padding: 6, resetPolicy: 'MONTHLY', description: 'Resultados de prueba (Test Engineering).' },
 ];
 
 const PATTERN_FALLBACK = '{PREFIX}-{YYYY}-{SEQ}';
