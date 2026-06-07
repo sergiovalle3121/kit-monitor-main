@@ -229,20 +229,34 @@ archivos, decisiones, endpoints/pantallas, KPIs, siguiente paso / bloqueos.
   Renombrada a `outbound_shipments`. Ver `DECISIONS.md §8`. Gate final verde:
   build, **23 suites / 110 tests**, web tsc+lint, **bootstrap smoke (PG)**.
 
+### [inbound] Recibo / Inbound + IQC (P2.5) — FUNCIONAL
+- **Backend** (`apps/api/src/modules/inbound/`): `Receipt` (tabla
+  **`inbound_receipts`** prefijada; proveedor/PO denormalizados, parte, cantidad,
+  UOM, lote/serie/date-code; flujo IQC RECEIVED→INSPECTING→RELEASED|QUARANTINE,
+  QUARANTINE→RELEASED|REJECTED; resultado IQC PASS/FAIL, código de rechazo). Folio
+  `RCV-`. KPIs: **dock-to-stock** (h), **% rechazo en recibo**, pendientes IQC, en
+  cuarentena. Controller `inbound`. Migración aditiva. Event Ledger (MATERIALS).
+- **Frontend** (`dashboard/inbound`): captura scanner-friendly (Enter para
+  recibir, autofocus en parte), KPIs, cola por estado con transiciones IQC
+  (pasa/cuarentena/rechazo con código). Enlace Cmd-K.
+- **Tests:** `receipt-state.spec` + `inbound.service.spec` (SQLite). Gate completo
+  verde: build, **25 suites / 121 tests**, web tsc+lint, **bootstrap smoke (PG)**.
+
 <!-- Próximas entradas arriba de esta línea, orden cronológico inverso por bloque -->
 
 ---
 
 ## ▶ RETOMAR AQUÍ (handoff para la próxima sesión)
 
-- **Último ítem terminado:** `feat(outbound)` — Logística / Embarque (P2.6),
+- **Último ítem terminado:** `feat(inbound)` — Recibo / Inbound + IQC (P2.5),
   mergeado a `main` vía PR (squash). `main` verde.
-- **Estado de plataforma:** en producción 10 entregas nuevas + hotfix:
+- **Estado de plataforma:** en producción 11 entregas nuevas + hotfix:
   **numeración** (T2), **Mejora Continua** (P2.13), **EHS** (P2.10),
   **Mantenimiento/TPM** (P2.7), **Legal** (P2.14), **Test Engineering** (P2.8),
   **Compras** (P2.4), **RH/Skills** (P2.9), **Torre de Control** (P3.1/P3.2),
-  **Logística/Embarque** (P2.6), más el **SecurityModule global** + **smoke de
-  bootstrap**. API: 23 suites / 110 tests. Migraciones solo aditivas. Patrón por
+  **Logística/Embarque** (P2.6), **Recibo/Inbound+IQC** (P2.5), más el
+  **SecurityModule global** + **smoke de bootstrap**. API: 25 suites / 121 tests.
+  Migraciones solo aditivas. Patrón por
   módulo: (state machine / derivación pura si aplica) + entity (TABLA PREFIJADA
   para no chocar con legacy) + dto + service (scope tenant+plant, usa numeración) +
   controller + module + migración aditiva + specs + página + Cmd-K.
@@ -260,18 +274,18 @@ archivos, decisiones, endpoints/pantallas, KPIs, siguiente paso / bloqueos.
   # gate:
   cd apps/api && npm run build && DATABASE_URL="postgres://postgres@/axos_smoke?host=/tmp&port=5433" npm run smoke:bootstrap
   ```
-- **Siguiente ítem exacto a hacer:** **Recibo / Inbound + IQC (P2.5)** como módulo
-  nuevo `inbound` (100% aditivo, tabla `inbound_receipts` PREFIJADA). Entidad
-  `Receipt` (folio `RCV-` vía `allocate('RECEIPT')` — ya en defaults; proveedor y
-  PO denormalizados, parte, cantidad, lote/serie/date-code; resultado IQC
-  PENDING→PASS/FAIL→RELEASED/QUARANTINE; máquina de estados
-  RECEIVED→IQC→RELEASED|QUARANTINE). KPIs: dock-to-stock (tiempo received→released),
-  % rechazo en recibo, en cuarentena, pendientes de IQC. Pantalla
-  `dashboard/inbound` (captura scanner-friendly de recibo + cola IQC) + Cmd-K.
-  Tests máquina de estados + servicio (SQLite). Patrón a copiar: `outbound`.
+- **Siguiente ítem exacto a hacer:** **Conteos Cíclicos (P2.3)** como módulo nuevo
+  `cycle-counts` (100% aditivo, tabla `cycle_counts` PREFIJADA). Entidad
+  `CycleCount` (folio `CC-` vía `allocate('CYCLE_COUNT')` — ya en defaults; parte,
+  ubicación, cantidad de sistema vs contada, varianza derivada, estado
+  OPEN→COUNTED→RECONCILED|ADJUSTED + CANCELLED). KPIs: exactitud de inventario
+  (% conteos sin varianza), conteos abiertos, varianza absoluta total, ajustes.
+  Pantalla `dashboard/cycle-counts` (captura scanner-friendly contado vs sistema)
+  + Cmd-K. Tests máquina de estados + servicio (SQLite, incl. cálculo de varianza
+  y exactitud). Patrón a copiar: `inbound`/`testing` (captura/analítica).
 - **Más backlog aditivo disponible (mismo patrón):** Calidad NCR/CAPA frontend
-  (backend `ncr`/`quality` ya existe — SOLO UI, no romper); Conteos cíclicos
-  (módulo nuevo `cycle-counts`, folio `CC-`); Activos fijos/Depreciación.
+  (backend `ncr`/`quality` ya existe — SOLO UI, no romper); Activos fijos /
+  Depreciación; CRM/Oportunidades (módulo nuevo, folio `OPP-`).
 - **IMPORTANTE — puerta de bootstrap (obligatoria, atrapa colisiones de tabla):**
   levantar Postgres efímero (receta arriba) y `npm run smoke:bootstrap` ANTES de
   cada merge. El contenedor se resetea entre sesiones → re-crear el cluster. Y
