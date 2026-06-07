@@ -52,6 +52,7 @@ export default function ChatPage() {
   const [showEmoji, setShowEmoji] = useState(false);
   const [showNewChannel, setShowNewChannel] = useState(false);
   const [typingConvo, setTypingConvo] = useState<string | null>(null);
+  const [onlineIds, setOnlineIds] = useState<Set<string>>(new Set());
 
   const socketRef = useRef<Socket | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
@@ -120,6 +121,16 @@ export default function ChatPage() {
       setTypingConvo(p.conversationId);
       if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
       typingTimerRef.current = setTimeout(() => setTypingConvo(null), 2500);
+    });
+    // Presencia online/offline.
+    socket.on('presence:state', (ids: string[]) => setOnlineIds(new Set(ids)));
+    socket.on('presence:update', (p: { userId: string; online: boolean }) => {
+      setOnlineIds((prev) => {
+        const next = new Set(prev);
+        if (p.online) next.add(p.userId);
+        else next.delete(p.userId);
+        return next;
+      });
     });
     socketRef.current = socket;
     return () => {
@@ -261,7 +272,13 @@ export default function ChatPage() {
                 <p className="px-1 text-xs text-gray-400">Busca un empleado para iniciar un chat.</p>
               )}
               {dms.map((c) => (
-                <ConversationRow key={c.id} convo={c} active={c.id === activeId} onClick={() => setActiveId(c.id)} />
+                <ConversationRow
+                  key={c.id}
+                  convo={c}
+                  active={c.id === activeId}
+                  online={c.counterpartId ? onlineIds.has(c.counterpartId) : undefined}
+                  onClick={() => setActiveId(c.id)}
+                />
               ))}
             </div>
           </div>
@@ -285,14 +302,23 @@ export default function ChatPage() {
                     <Hash className="h-5 w-5" />
                   </span>
                 ) : (
-                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-violet-500 text-sm font-bold text-white">
-                    {initials(active.title || '?')}
+                  <span className="relative">
+                    <span className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-violet-500 text-sm font-bold text-white">
+                      {initials(active.title || '?')}
+                    </span>
+                    {active.counterpartId && (
+                      <PresenceDot online={onlineIds.has(active.counterpartId)} />
+                    )}
                   </span>
                 )}
                 <div>
                   <p className="font-semibold">{active.title || 'Conversación'}</p>
                   <p className="text-xs text-gray-500">
-                    {active.type === 'channel' ? `${active.memberIds.length} miembros` : 'Mensaje directo'}
+                    {active.type === 'channel'
+                      ? `${active.memberIds.length} miembros`
+                      : active.counterpartId && onlineIds.has(active.counterpartId)
+                        ? 'En línea'
+                        : 'Desconectado'}
                   </p>
                 </div>
               </div>
@@ -430,13 +456,28 @@ function senderName(id: string, users: ChatUser[]): string {
   return u?.username || u?.email || 'Usuario';
 }
 
+/** Punto de presencia (verde = en línea, gris = desconectado) sobre un avatar. */
+function PresenceDot({ online }: { online: boolean }) {
+  return (
+    <span
+      className={`absolute -bottom-0.5 -right-0.5 block h-3 w-3 rounded-full border-2 border-white dark:border-gray-900 ${
+        online ? 'bg-green-500' : 'bg-gray-400'
+      }`}
+      title={online ? 'En línea' : 'Desconectado'}
+      aria-label={online ? 'En línea' : 'Desconectado'}
+    />
+  );
+}
+
 function ConversationRow({
   convo,
   active,
+  online,
   onClick,
 }: {
   convo: ChatConversation;
   active: boolean;
+  online?: boolean;
   onClick: () => void;
 }) {
   return (
@@ -446,8 +487,11 @@ function ConversationRow({
         active ? 'bg-black/10 dark:bg-white/15' : 'hover:bg-black/5 dark:hover:bg-white/10'
       }`}
     >
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-violet-500 text-xs font-bold text-white">
-        {convo.type === 'channel' ? <Hash className="h-4 w-4" /> : initials(convo.title || '?')}
+      <span className="relative shrink-0">
+        <span className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-violet-500 text-xs font-bold text-white">
+          {convo.type === 'channel' ? <Hash className="h-4 w-4" /> : initials(convo.title || '?')}
+        </span>
+        {online !== undefined && <PresenceDot online={online} />}
       </span>
       <span className="min-w-0 flex-1">
         <span className="block truncate text-sm font-medium">{convo.title || 'Conversación'}</span>
