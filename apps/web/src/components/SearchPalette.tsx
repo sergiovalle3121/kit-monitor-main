@@ -63,6 +63,7 @@ const DESTS: Dest[] = [
   { label: 'Surtido y e-kanban', sub: 'Materialista · montar kit a estación', href: '/dashboard/material-staging', keywords: 'surtido staging kitting materialista almacen montar material estacion kanban reposicion pull faltante shortage fill rate cola scanner llamado', icon: PackagePlus },
   { label: 'Terminal de operador', sub: 'Producción · ejecutar en estación', href: '/dashboard/operator-terminal', keywords: 'terminal operador ejecucion estacion escanear poka yoke backflush consumo confirmar serial genealogia andon defecto takt skill certificado bloqueo faltante hora por hora', icon: ScanLine },
   { label: 'Calidad de piso · MRB', sub: 'Holds, disposición y where-used', href: '/dashboard/floor-quality', keywords: 'calidad piso hold retencion cuarentena mrb disposicion use as is rework repair scrap rtv scar sort ncr retrabajo reinspeccion where used genealogia contencion ppm', icon: ShieldX },
+  { label: 'Torre de control de línea', sub: 'Readiness y semáforo por línea', href: '/dashboard/line-control-tower', keywords: 'torre control linea readiness plan vs real andon holds reposicion semaforo gerente operaciones turno oee adherencia cross linea', icon: RadioTower },
   { label: 'Chat', sub: 'Mensajería', href: '/dashboard/chat', keywords: 'chat mensajes mensajeria', icon: MessageSquare },
 ];
 

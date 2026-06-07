@@ -188,4 +188,53 @@ tenant; sin contexto no filtra; entidad sin tenant_id no se filtra).
 `@Inject(getTenantRepositoryToken(Entity))`. Adopción por módulo en commits
 gateados aparte (empezando por los sensibles).
 
+## 12. Suite de Piso de Producción (Shop Floor) — bloques A–F + L
+
+**Contexto:** el brief "edición Jabil" pide flujos reales de piso (disposición de
+líneas, ejecución del operador, surtido/e-kanban, calidad/MRB, torre de línea) que
+unifiquen áreas sobre el MISMO plan/WO/material/serie.
+
+**Decisión — módulos nuevos, 100% aditivos, tablas PREFIJADAS `sf_`:**
+- `line-engineering` (A): `sf_line_stations`, `sf_model_lines`.
+- `production-plan` (B): `sf_work_orders` (reusa folio central `WORK_ORDER`).
+- `material-staging` (C): `sf_staging`, `sf_replenish_calls`.
+- `operator-terminal` (D): `sf_consumption_events` (idempotente), `sf_floor_events`.
+- `floor-quality` (F): `sf_quality_holds` (reusa folio `NCR`).
+- `line-control-tower` (L): sin tablas (agregador read-only).
+
+**Acoplamiento por servicios, no por tablas (sin tocar legacy):** los módulos se
+integran inyectando los servicios exportados (C→A,B; D→A,B,C,F,people; F→B; L→B,C,D,F).
+Grafo sin ciclos. Las referencias a modelo/línea/WO/parte son **denormalizadas**
+(strings/UUID) como el resto del repo (outbound/procurement). NO se modificó ningún
+módulo, entidad, endpoint ni página existente — solo se extendió (RBAC, positions,
+hub, Cmd-K de forma aditiva).
+
+**Decisiones de dominio:**
+- **Consumo configurable por WO:** `consumptionMode` BY_UNIT (1 Enter = 1 pza) vs
+  BY_QTY_FACTOR (cantidad terminada × factor de uso). Backflush = unidades × factor.
+- **Serie configurable por WO:** `serialControl` NONE (solo cantidad/lote) vs
+  BY_UNIT (genealogía; exige serial al confirmar).
+- **"Acceso":** el supervisor autoriza operadores a una WO (`authorizedOperators`);
+  lista vacía = abierto a operadores certificados.
+- **Skill gate pragmático:** una estación CON personas certificadas (people) solo
+  corre con un operador certificado; una estación SIN certificaciones configuradas
+  queda **no-gated** (el sistema es usable antes de poblar la matriz de skills).
+- **FAI opt-in por WO** (`faiRequired`): el gate de primera pieza solo bloquea si la
+  WO lo exige, para no bloquear el flujo del operador por defecto.
+- **Hold bloquea consumo:** crear un hold sobre una WO baja `qualityClear=false`
+  (el terminal del operador lo respeta y bloquea); cerrar el último hold libera.
+- **SAP STUB:** `SapAdapter.postGoodsIssue261` es un stub idempotente (outbox
+  `outboxStatus`); AXOS funciona standalone. El gancho está listo para implementar.
+- **Idempotencia del backflush:** `sf_consumption_events.idempotency_key` único →
+  un doble-tap/reintento no doble-cuenta.
+
+**RBAC (PRE-2):** `auth/rbac.ts` es la ÚNICA fuente; se extendió aditivamente con
+roles de piso (operator, materialist, industrial_engineer, mrb_member,
+cycle_count_analyst, maintenance_tech, plant_manager) y permisos nuevos
+(production:execute/authorize, planning:publish, materials:stage,
+quality:hold/report/disposition, inventory:reconcile, maintenance:write). El
+roles-seeder DB se alineó aditivamente (no es fuente de verdad). `rbac.spec.ts`
+blinda las reglas (operator NO publica/autoriza; solo quality/mrb disponen; solo
+quality pone hold).
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->

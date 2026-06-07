@@ -10,7 +10,79 @@ archivos, decisiones, endpoints/pantallas, KPIs, siguiente paso / bloqueos.
 
 ---
 
-## 2026-06-07
+## 2026-06-07 — SUITE DE PISO DE PRODUCCIÓN (edición Jabil)
+
+> Sesión: rama `claude/hopeful-lovelace-GZEYN`. 7 entregas aditivas (PRE-2 + A,B,C,D,F,L).
+> 100% aditivo: NO se modificó ningún módulo/entidad/endpoint/página existente — solo
+> se extendió (RBAC, positions, hub, Cmd-K). Tablas nuevas prefijadas `sf_`. Acoplamiento
+> por servicios (sin tocar legacy). 4 puertas en verde por bloque (build, unit, web tsc/lint,
+> bootstrap smoke PG). Suite API: **48 suites / 253 tests**. Ver `DECISIONS.md §12`.
+
+### [PRE-2] RBAC de piso consolidado en `auth/rbac.ts` (ÚNICA fuente) — HECHO
+- Roles nuevos: operator, materialist, industrial_engineer, mrb_member,
+  cycle_count_analyst, maintenance_tech, plant_manager (se conservan todos los previos).
+- Permisos nuevos: production:execute/authorize, planning:publish, materials:stage,
+  quality:hold/report/disposition, inventory:reconcile, maintenance:write. Concedidos
+  aditivamente a roles existentes (planner publish, supervisor authorize, quality hold/disp).
+- `roles-seeder` DB alineado aditivamente (nota: rbac.ts es la verdad). `positions.ts` +
+  hub + ROLE_LABELS extendidos. **Test `rbac.spec.ts`**: operator NO publica/autoriza,
+  solo quality/mrb disponen, solo quality pone hold.
+
+### [A] Disposición de líneas (Ing. Industrial) — FUNCIONAL
+- `line-engineering`: `sf_line_stations` (modelo/rev/línea/estación/secuencia, **NP esperado**
+  = poka-yoke, **factor de uso** = backflush, tiempo std, feeder, ayuda visual, CTQ) +
+  `sf_model_lines` (calificación modelo↔línea, changeover, takt target).
+- Lógica pura `line-balance.ts`: takt, cuello de botella, %balance, estaciones sobre takt,
+  completeness de layout; capacidad/carga con changeover. `stationRequirements()` es el
+  puente a surtido (C) y operador (D).
+- Endpoints `/line-engineering/*` (stations, routing, requirements, qualifications, balance,
+  capacity, kpis) guard engineering:read/write. KPIs: %ayuda visual, %modelos balanceados,
+  layouts incompletos. Página `dashboard/line-engineering`. Tests: 12 (balance puro + SQLite).
+
+### [B] Muro de publicación del plan + WOs — FUNCIONAL
+- `production-plan`: `sf_work_orders` (folio `WO-` central; modelo/línea/bahía/cantidad/
+  fecha/secuencia/prioridad; **consumptionMode** BY_UNIT|BY_QTY_FACTOR, **serialControl**
+  NONE|BY_UNIT; readiness material/quality/FAI; `authorizedOperators` = acceso).
+- Máquina de estados pura RELEASED→STAGED→EN EJECUCIÓN→COMPLETED (+CANCELLED). `runBlockers()`
+  explica por qué no corre. Hooks: setMaterialReady/setQualityClear/setFaiApproved,
+  incrementCompleted (auto-arranca/auto-completa). KPIs: adherencia, %readiness, atrasos.
+- Endpoints guard planning:publish (publish), planning:write (resequence/transition),
+  production:authorize (authorize). Página `dashboard/production-plan`. Tests: 13.
+
+### [C] Surtido + e-kanban de reposición — FUNCIONAL
+- `material-staging`: `sf_staging` (líneas de kit por estación, requerido=factor×cantidad,
+  montado, kanban) + `sf_replenish_calls` (pull con cronómetro). Expande la WO desde el
+  ruteo de IE. Faltante bloquea readiness + llamado. **consumeStaged()** decrementa en vivo
+  (backflush del operador); bajo kanban auto-genera llamado; stockout lanza faltante crítico
+  (bloquea) + llamado URGENTE. KPIs: fill-rate, faltantes, llamados, tiempo de reposición.
+- Endpoints guard materials:read/stage/request. Página `dashboard/material-staging`. Tests: 7.
+
+### [D] Terminal de operador (el corazón) — FUNCIONAL
+- `operator-terminal`: `sf_consumption_events` (inmutable, **idempotente**) + `sf_floor_events`
+  (andon/defecto/paro). `confirm()` valida en orden: bloqueos de WO (material/hold/FAI) →
+  autorización (acceso) → estación en ruteo → **skill** (certificaciones people) → **poka-yoke**
+  (NP escaneado = esperado) → **serial** (genealogía) → **idempotencia** → **backflush**
+  (=unidades×factor vía staging, decremento en vivo) → incrementa WO → **SAP 261 (stub)**.
+- ANDON (material/calidad/máquina/ayuda/seguridad) + REPORTAR DEFECTO ruteados al rol. Hora
+  por hora + KPIs (u/h, andons, defectos). Endpoints guard production:execute/quality:report.
+  Página `dashboard/operator-terminal` (scanner/táctil, botón grande, banner de bloqueos,
+  ayuda visual, andon). **Tests: 9** (backflush, poka-yoke, hold, skill, qty×factor,
+  idempotencia, serial, andon, defecto).
+
+### [F] Calidad de piso: Hold → MRB → Disposición — FUNCIONAL
+- `floor-quality`: `sf_quality_holds` (folio `NCR-`; origen IQC/en-proceso/OQC, parte/cant/
+  lote/serie/WO/estación/defecto/severidad/foto). Crear hold sobre una WO **bloquea su consumo**
+  (qualityClear=false). Máquina HELD→MRB_REVIEW→DISPOSITIONED→(REWORK→REINSPECT)→CLOSED.
+  Disposición requiere firma; USE_AS_IS→waiver, RTV→SCAR. Retrabajo + re-inspección
+  (pasa libera / falla vuelve). Cerrar el último hold libera la WO. **Where-used** (genealogía)
+  desde el ledger de consumo. KPIs: holds abiertos, %use-as-is, scrap, retrabajo, ciclo, vencidas.
+- Endpoints guard quality:hold/disposition/read. Página `dashboard/floor-quality`. Tests: 12.
+
+### [L] Torre de control de línea (Director de Operaciones) — FUNCIONAL
+- `line-control-tower`: agregador read-only SIN tablas. Por línea: readiness, plan vs real,
+  andons/holds/reposición abiertos, modelos, **semáforo** (worst-of) con motivos; estado
+  global. Resiliente (un área caída no rompe la vista). Endpoint guard production:read.
+  Página `dashboard/line-control-tower`. Tests: 4 (agregación, rojo por hold/andon, resiliencia).
 
 ### [setup] Baseline verde + arranque de plataforma (P0.1)
 - **Estado inicial verificado:** monorepo Turborepo con 37 módulos en
@@ -399,7 +471,38 @@ archivos, decisiones, endpoints/pantallas, KPIs, siguiente paso / bloqueos.
 
 ## ▶ RETOMAR AQUÍ (handoff para la próxima sesión)
 
-> **MODO ACTUAL: CONSOLIDACIÓN / cierre de riesgos (sin features nuevas).**
+> **SHOP FLOOR (edición Jabil) — rama `claude/hopeful-lovelace-GZEYN`.**
+> Entregado y en verde: PRE-2 (RBAC piso) + bloques **A** (disposición de líneas),
+> **B** (muro del plan/WOs), **C** (surtido + e-kanban), **D** (terminal de operador:
+> poka-yoke, backflush, andon), **F** (calidad hold/MRB), **L** (torre de línea).
+> Suite API **48/253 verde**; las 4 puertas pasan por bloque (incl. bootstrap smoke PG).
+> Flujo de punta a punta probado: IE dispone línea → planeación publica WO → materialista
+> surte → operador ejecuta (con bloqueos reales) → calidad retiene/MRB → torre lo ve.
+>
+> **Siguiente paso exacto (orden del backlog A→M, faltan E,G,H,I,J,K,M-explícito):**
+> 1) **Bloque E — FAI + Changeover/SMED:** módulo `fai-changeover` (tabla `sf_fai` +
+>    `sf_changeovers`). FAI: inspección de primera pieza que aprueba `production-plan`
+>    `setFaiApproved(woId,true)` (ya existe el hook + `faiRequired`). Changeover: checklist
+>    + cronómetro de setup (SMED) ligado a OEE. Reusar patrón de `floor-quality` (captura)
+>    + `production-plan` (hook). Guard quality:report (FAI) / production:write (changeover).
+> 2) **Bloque G — Andon board + escalamiento + downtime:** ya existe `sf_floor_events`
+>    (operator-terminal). Crear un módulo/endpoint de **escalamiento por tiempo** (sube
+>    `escalationLevel` si no se atiende) + tablero en vivo por línea/estación + downtime→OEE
+>    + (máquina) abre orden de mantenimiento (maintenance module). Extender, no duplicar.
+> 3) **Bloque H — Hour-by-hour + OEE + entrega de turno:** OEE = Disp×Rend×Calidad por
+>    línea/turno desde consumo (D) + downtime (G) + holds (F). `hourByHour` ya existe en D.
+> 4) **Bloque I — Genealogía/As-built:** ya hay `whereUsed` (F) sobre `sf_consumption_events`
+>    (serial). Agregar reporte AS-BUILT completo por serie (lote de cada NP, operador, hora).
+> 5) **J (packout/etiquetas ZPL/ASN), K (conciliación conteos vs backflush), M (puentes
+>    explícitos restantes: Finanzas COGS en vivo desde backflush, Compras escasez).**
+> - **Puerta de bootstrap (obligatoria):** levantar Postgres efímero (receta abajo) y
+>   `npm run smoke:bootstrap` antes de cada merge. Prefijar SIEMPRE tablas nuevas (`sf_`).
+> - **Cómo extender el piso:** inyectar los servicios exportados (no tocar legacy);
+>   referencias denormalizadas; tenant-scoped repos; eventos al Event Ledger.
+
+---
+
+> **MODO PREVIO: CONSOLIDACIÓN / cierre de riesgos (sin features nuevas).**
 > Orden: P1a JWT ✅ → **P2 multi-tenencia real (EN CURSO, lo más importante)** →
 > P1b baseline de esquema (SIN flip de synchronize) → P3 profundizar austero.
 
