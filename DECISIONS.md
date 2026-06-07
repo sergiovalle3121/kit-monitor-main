@@ -75,4 +75,45 @@ ahorros estimado/realizado. Folios vía el servicio central de numeración
   SQLite/PG y porque son montos de ahorro para reporting, no asientos contables.
   Si se requiere precisión contable, migrar a `decimal` con manejo string.
 
+## 5. Wiring global de seguridad (SecurityModule) — HOTFIX de producción
+
+**Síntoma:** prod caía al arrancar con `Nest can't resolve dependencies of the
+PermissionsGuard (Reflector, ?). AuditService ... NumberingModule`.
+
+**Causa raíz:** `PermissionsGuard` (usado como class-ref en `@UseGuards` en TODOS
+los controllers) inyecta `AuditService`, que solo lo exporta `GovernanceModule`.
+Los módulos existentes funcionaban porque importan `GovernanceModule`; los módulos
+nuevos (numbering/improvement/ehs) no, así que Nest no podía construir el guard en
+su contexto. `tsc` y los unit tests NO lo detectan; solo aparece al inicializar.
+
+**Arreglo sistémico:** `src/common/security/security.module.ts` — `@Global()` que
+PROVEE y EXPORTA `PermissionsGuard` y re-exporta `GovernanceModule` (para que
+`AuditService` sea resoluble globalmente). Importado UNA vez en `AppModule`.
+Resultado: cualquier controller, en cualquier módulo, puede usar
+`@UseGuards(PermissionsGuard)` sin importar nada extra. Ya no se repite el fallo.
+
+## 6. Puerta de calidad nueva: smoke de bootstrap (compilado, contra Postgres)
+
+**Decisión:** antes de CADA merge: `build` + `unit tests` + **smoke de bootstrap**
+verdes. El smoke vive en `apps/api/scripts/bootstrap-smoke.js`
+(`npm run smoke:bootstrap`): hace `NestFactory.create(AppModule)` + `app.init()`
+sobre el **dist compilado** contra una base **Postgres**, resolviendo proveedores
+y guards de ruta — justo donde aparece este tipo de fallo de DI.
+
+**Por qué compilado + Postgres y no un test Jest:** la app usa tipos de columna
+solo-Postgres (`jsonb`, `enum`) y metadata de tipos por decorador; `ts-jest`
+(con `isolatedModules`) NO emite la metadata igual que `nest build` (tsc), así que
+un boot bajo Jest da fallos falsos (p.ej. `MaterialRequest.status` → "Object") y
+ni siquiera llega a instanciar los guards. Correr el `dist/` real contra Postgres
+refleja producción con fidelidad. (Pendiente de hygiene futura: portar `jsonb`/
+`enum` hardcodeados a los helpers `JSON_COLUMN_TYPE`/un `ENUM_COLUMN_TYPE` para
+que el path sqlite documentado funcione; es no-op en Postgres.)
+
+## 7. Mantenimiento / TPM (CMMS) — módulo nuevo
+
+**Decisión:** módulo `maintenance` con entidades `Asset` y `MaintenanceOrder`
+(máquina de estados OPEN→IN_PROGRESS→COMPLETED + CANCELLED, folio MO- vía
+numeración), KPIs CMMS (abiertas, vencidas, %PM, MTTR, downtime). RBAC: igual que
+las otras áreas operativas nuevas, abierto a autenticados (admin omite scope).
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->

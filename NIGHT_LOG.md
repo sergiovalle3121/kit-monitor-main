@@ -113,29 +113,76 @@ archivos, decisiones, endpoints/pantallas, KPIs, siguiente paso / bloqueos.
   registrable). API: **11 suites / 56 tests verdes**. Build limpio. Web tsc+lint
   limpios.
 
+### [maintenance] Mantenimiento / TPM (CMMS) (P2.7) — FUNCIONAL
+- **Backend** (`apps/api/src/modules/maintenance/`): `Asset` + `MaintenanceOrder`
+  (folio `MO-` vía numeración; máquina de estados OPEN→IN_PROGRESS→COMPLETED +
+  reopen + CANCELLED), KPIs CMMS (abiertas, vencidas, %PM cumplido, MTTR, downtime
+  total, activos parados). Controller `maintenance` (assets + orders). Migración
+  aditiva (2 tablas). docType `ASSET` (prefijo `EQ`) añadido.
+- **Frontend** (`dashboard/maintenance`): KPIs, tira de activos con alta rápida,
+  alta de orden (con selección de activo), tablero por estado con transiciones.
+  Enlace Cmd-K.
+- **Tests:** `order-state.spec` + `maintenance.service.spec` (SQLite). 
+
+### [hotfix] 🔴→🟢 Prod caída: PermissionsGuard no resolvía AuditService
+- **Causa:** los módulos nuevos usaban `@UseGuards(PermissionsGuard)` pero el guard
+  inyecta `AuditService` (solo exportado por `GovernanceModule`), que esos módulos
+  no importaban → crash al bootstrap. `tsc`/unit tests NO lo detectan.
+- **Arreglo sistémico:** `common/security/security.module.ts` `@Global()` que
+  provee+exporta `PermissionsGuard` y re-exporta `GovernanceModule`; importado una
+  vez en `AppModule`. Ahora cualquier controller usa el guard sin imports extra.
+  (Ver `DECISIONS.md §5`.)
+- **NUEVA PUERTA DE CALIDAD (obligatoria):** smoke de bootstrap COMPILADO contra
+  Postgres: `apps/api/scripts/bootstrap-smoke.js` (`npm run smoke:bootstrap`).
+  Hace `NestFactory.create + app.init()` sobre `dist/` → resuelve proveedores y
+  guards; atrapa exactamente este fallo. NO se usó test Jest porque `ts-jest`
+  (`isolatedModules`) no emite la metadata de decoradores igual que `tsc` y da
+  fallos falsos (`MaterialRequest.status` → "Object"). (Ver `DECISIONS.md §6`.)
+- **Verificado:** `dist/main.js` arranca limpio contra Postgres local
+  ("Nest application successfully started", login self-check OK) y
+  `npm run smoke:bootstrap` → OK. Build + 66 unit tests + web tsc/lint verdes.
+
 <!-- Próximas entradas arriba de esta línea, orden cronológico inverso por bloque -->
 
 ---
 
 ## ▶ RETOMAR AQUÍ (handoff para la próxima sesión)
 
-- **Último ítem terminado:** `feat(ehs)` — EHS / Seguridad y Medio Ambiente
-  (P2.10), mergeado a `main` vía PR (squash). `main` verde.
-- **Estado de plataforma:** baseline verde; en producción: **numeración de
-  folios** (T2), **Mejora Continua** (P2.13) y **EHS** (P2.10). API: 11 suites /
-  56 tests. Migraciones solo aditivas. `synchronize:true` en prod materializa las
-  tablas nuevas desde las entidades (las migraciones son artefacto/red de
-  seguridad e idempotentes).
-- **Siguiente ítem exacto a hacer:** **Mantenimiento / TPM (CMMS) (P2.7)** como
-  rebanada vertical aditiva — entidades `Asset` (equipo: código, ubicación,
-  criticidad, estado) y `MaintenanceOrder` (folio vía `allocate('MAINTENANCE_
-  ORDER')` → `MO-…`; tipo PREVENTIVE/CORRECTIVE/PREDICTIVE; máquina de estados
-  OPEN→IN_PROGRESS→COMPLETED + CANCELLED; ligable a un activo y a un paro de MES
-  futuro). KPIs: órdenes abiertas, % PM cumplido, órdenes vencidas, MTTR rough
-  (de created→completed). Pantalla `dashboard/maintenance` + enlace Cmd-K. Tests
-  de máquina de estados + servicio en SQLite. `MAINTENANCE_ORDER` (prefijo `MO`)
-  YA existe en `numbering.defaults.ts`; añadir `ASSET` (prefijo `EQ`) si se
-  numera el activo. Patrón a copiar: el módulo `ehs` (el más reciente y limpio).
+- **Último ítem terminado:** HOTFIX de seguridad (SecurityModule global) +
+  `feat(maintenance)` CMMS (P2.7), mergeado a `main` vía PR (squash). `main` verde
+  y **prod arranca limpio** (verificado con boot compilado contra Postgres).
+- **Estado de plataforma:** en producción: **numeración** (T2), **Mejora
+  Continua** (P2.13), **EHS** (P2.10), **Mantenimiento/TPM** (P2.7), y el
+  **SecurityModule global** que arregla el wiring del guard. API: 13 suites /
+  66 tests. Migraciones solo aditivas.
+- **PUERTAS DE CALIDAD ahora (obligatorio antes de cada merge):**
+  1) `cd apps/api && npm run build`  2) `npm test` (unit)  3) `npm run lint`+`tsc`
+  en web para archivos tocados  4) **`npm run smoke:bootstrap` con Postgres** —
+  ver setup abajo. Si el smoke falla, NO mergear.
+- **Setup del Postgres efímero para el smoke (el contenedor se resetea, repetir):**
+  ```
+  PGBIN=$(ls -d /usr/lib/postgresql/*/bin | head -1)
+  rm -rf /tmp/pgdata && mkdir -p /tmp/pgdata && chown -R postgres /tmp/pgdata
+  runuser -u postgres -- $PGBIN/initdb -D /tmp/pgdata --auth=trust -U postgres
+  runuser -u postgres -- $PGBIN/pg_ctl -D /tmp/pgdata -o "-p 5433 -k /tmp" -l /tmp/pg.log start
+  runuser -u postgres -- $PGBIN/createdb -h /tmp -p 5433 -U postgres axos_smoke
+  # gate:
+  cd apps/api && npm run build && DATABASE_URL="postgres://postgres@/axos_smoke?host=/tmp&port=5433" npm run smoke:bootstrap
+  ```
+- **Siguiente ítem exacto a hacer:** **Legal / Compliance / Contratos (P2.14)**
+  como rebanada vertical aditiva — entidad `Contract` (folio `CON-` vía
+  `allocate('CONTRACT')`; tipo, contraparte, fechas inicio/fin, valor+moneda,
+  estado DRAFT→ACTIVE→EXPIRED/TERMINATED, alertas de vencimiento), opcional
+  `ComplianceCertification` (ISO9001/IATF16949/…, fecha de expiración). KPIs:
+  contratos activos, por vencer (30/60/90d), valor total. Pantalla
+  `dashboard/legal` + Cmd-K. Tests máquina de estados + servicio (SQLite OK para
+  unit; el bootstrap gate es aparte). Añadir docType `CONTRACT` (prefijo `CON`) a
+  `numbering.defaults.ts`. Patrón a copiar: módulo `maintenance` (el más reciente).
+- **Hygiene recomendada (de-riesga el gate):** portar los 14 `jsonb` hardcodeados
+  a `JSON_COLUMN_TYPE` y crear `ENUM_COLUMN_TYPE` (`'enum'` en PG / `'simple-enum'`
+  en sqlite) para los 4 `type:'enum'`. Es **no-op en Postgres** y haría que el
+  smoke corra en sqlite dentro de `npm test` (sin Postgres). NO cambiar tipos de
+  columna de forma destructiva en prod (los helpers mantienen el mismo tipo en PG).
 - **Cómo construir (receta probada):** entity → state machine (puro) + spec →
   dto → service (scope tenant+plant; usa `DocumentNumberingService`) → controller
   (`@UseGuards(JwtAuthGuard, PermissionsGuard)`) → module → migración aditiva
