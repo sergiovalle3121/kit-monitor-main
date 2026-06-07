@@ -36,50 +36,50 @@ interface Feature {
 const FEATURES: Feature[] = [
   {
     icon: <LayoutDashboard />,
-    title: "Control Tower",
-    desc: "Full visibility of your global operations with real-time KPIs.",
+    title: "Torre de control",
+    desc: "Visibilidad de la operación con KPIs en vivo: readiness, OEE, throughput y alertas.",
     details:
-      "Mission Control consolida OEE, throughput, alertas críticas y estado por planta en un único panel. Útil para directores y supervisores.",
+      "Mission Control y la torre de línea consolidan readiness, plan vs real, andons, holds y estado por línea en un solo panel. Para directores y supervisores.",
     href: "/dashboard/mission-control",
   },
   {
     icon: <Box />,
-    title: "Smart Inventory",
-    desc: "Automated replenishment and shortage prediction driven by AI.",
+    title: "Inventario y surtido",
+    desc: "Inventario, kitting y reposición e-kanban a línea, con alertas de faltante.",
     details:
-      "Predicción de quiebres, sugerencias de re-orden y vista por SKU/material. Conectado a forecast y producción.",
+      "Surtido por estación desde el ruteo, reposición pull (e-kanban) y conteos cíclicos. Conectado a la ejecución del piso.",
     href: "/dashboard/inventory",
   },
   {
     icon: <Activity />,
-    title: "MES Engine",
-    desc: "High-precision manufacturing execution with millisecond latency.",
+    title: "Ejecución en piso (MES)",
+    desc: "Terminal de operador: poka-yoke, backflush de material y andon por estación.",
     details:
-      "Trazabilidad por lote, tiempos de ciclo y eventos de máquina en tiempo real. Diseñado para piso de planta.",
-    href: "/dashboard/production",
+      "El operador escanea, el sistema valida el NP (poka-yoke), descuenta material (backflush) y registra el avance. Bloqueos por calidad, skill y faltante.",
+    href: "/dashboard/operator-terminal",
   },
   {
     icon: <Zap />,
-    title: "Predictive Ops",
-    desc: "Avoid line stops before they happen with Monte Carlo simulations.",
+    title: "Calidad y MRB",
+    desc: "Holds que ponen el lote en cuarentena y bloquean el consumo, con flujo MRB.",
     details:
-      "Simulaciones Monte Carlo sobre demanda y capacidad para anticipar paros de línea y reasignar recursos.",
-    href: "/dashboard/forecast",
+      "Captura de rechazo → cuarentena → revisión MRB → disposición (use-as-is/rework/scrap/RTV) con firma y where-used. Bloquea el consumo de la WO retenida.",
+    href: "/dashboard/floor-quality",
   },
   {
     icon: <Cpu />,
-    title: "Core Architecture",
-    desc: "NestJS & Next.js power a robust modular monolith.",
+    title: "Arquitectura",
+    desc: "NestJS + Next.js, TypeORM y diseño multi-tenant. Monolito modular.",
     details:
-      "Backend NestJS modular, frontend Next.js 16, TypeORM y arquitectura preparada para multi-tenant.",
+      "Backend NestJS modular, frontend Next.js, TypeORM y arquitectura preparada para multi-tenant (aislamiento por organización).",
     href: "/dashboard/engineering",
   },
   {
     icon: <Layers />,
-    title: "Multi-tenant",
-    desc: "B2B SaaS ready from day one with enterprise-grade isolation.",
+    title: "Roles por puesto",
+    desc: "Aislamiento por organización con roles y permisos por puesto del piso.",
     details:
-      "Aislamiento por organización, gestión de roles y permisos granulares. Listo para despliegue B2B.",
+      "Roles de planta (operador, materialista, supervisor, planeación, calidad/MRB, ingeniería industrial) con permisos por acción y scope por planta/línea.",
     href: "/dashboard/settings/users",
   },
 ];
@@ -162,12 +162,20 @@ export default function Home() {
               Enterprise
             </button>
           </div>
-          <Link
-            href="/login"
-            className="px-5 py-2 bg-black dark:bg-white text-white dark:text-black rounded-full text-sm font-medium hover:scale-105 active:scale-95 transition-all shadow-lg shadow-black/10 dark:shadow-white/5"
-          >
-            Launch Console
-          </Link>
+          <div className="flex items-center gap-2 sm:gap-3">
+            <Link
+              href="/login"
+              className="px-4 py-2 rounded-full text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-black/5 dark:hover:bg-white/10 transition-all"
+            >
+              Iniciar sesión
+            </Link>
+            <Link
+              href="/login?register=1"
+              className="px-5 py-2 bg-black dark:bg-white text-white dark:text-black rounded-full text-sm font-medium hover:scale-105 active:scale-95 transition-all shadow-lg shadow-black/10 dark:shadow-white/5"
+            >
+              Crear cuenta
+            </Link>
+          </div>
         </div>
       </nav>
 
@@ -191,17 +199,17 @@ export default function Home() {
             variants={itemVariants}
             className="text-6xl md:text-8xl font-bold tracking-tighter mb-8 leading-[1.1]"
           >
-            Industrial Intelligence. <br />
-            <span className="text-gradient-title">Perfected.</span>
+            Toda la planta, <br />
+            <span className="text-gradient-title">un solo sistema.</span>
           </motion.h1>
 
           <motion.p
             variants={itemVariants}
             className="text-xl text-gray-500 dark:text-gray-400 max-w-2xl mx-auto mb-12 font-light"
           >
-            The next-generation Operating System for manufacturing. Real-time
-            MES, intelligent ERP, and predictive logistics in a single premium
-            experience.
+            AXOS OS unifica los departamentos de una manufacturera en una sola
+            aplicación: piso (MES con poka-yoke y backflush), ERP, calidad, inventario
+            y herramientas internas como Office y chat.
           </motion.p>
 
           <motion.div
@@ -292,22 +300,25 @@ export default function Home() {
               Solutions
             </span>
             <h2 className="text-4xl md:text-5xl font-bold tracking-tight mt-2">
-              Por industria.
+              Pensado para manufactura por contrato.
             </h2>
+            <p className="text-gray-500 mt-3 font-light">
+              Capacidades del sistema. Adáptalo a tu proceso.
+            </p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {[
               {
-                title: "Automotriz",
-                body: "Trazabilidad por VIN, sincronización con líneas de ensamble y control de calidad por estación.",
+                title: "Trazabilidad y genealogía",
+                body: "Serie/lote por unidad, registro as-built y where-used para auditorías de cliente y contención.",
               },
               {
-                title: "Aeroespacial",
-                body: "Cumplimiento AS9100, control de procesos especiales y kits de materiales por orden de trabajo.",
+                title: "Plan a piso",
+                body: "Publica la WO, surte el material a estación y ejecútala con backflush y bloqueos en vivo.",
               },
               {
-                title: "Electrónica",
-                body: "BOM dinámico, control de componentes serializados y manejo de revisiones de ingeniería.",
+                title: "BOM e ingeniería",
+                body: "Ruteo por modelo, materiales por estación con factor de uso y control de revisiones.",
               },
             ].map((s) => (
               <div
