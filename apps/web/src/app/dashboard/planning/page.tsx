@@ -11,16 +11,17 @@ import {
   Plus,
   Lock,
   Loader2,
-  CheckCircle2,
   Send,
   Boxes,
   X,
   Warehouse,
   HandHelping,
+  Trash2,
 } from 'lucide-react';
 import { glass } from '@/lib/glass';
 import { useApi } from '@/hooks/useApi';
 import { apiFetch } from '@/lib/apiFetch';
+import { useToast } from '@/contexts/ToastContext';
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000').replace(/\/$/, '');
 
@@ -72,8 +73,9 @@ export default function PlanningPage() {
   const { data: plans, isLoading, forbidden, mutate } = useApi<Plan[]>('/plans');
   const [pickLists, setPickLists] = useState<Record<number, PickList>>({});
   const [busy, setBusy] = useState<number | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
+  const [confirmId, setConfirmId] = useState<number | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const toast = useToast();
 
   const list = Array.isArray(plans) ? plans : [];
   const counts = {
@@ -82,9 +84,23 @@ export default function PlanningPage() {
     active: list.filter((p) => p.status === 'active').length,
   };
 
-  function flash(msg: string) {
-    setToast(msg);
-    setTimeout(() => setToast(null), 2600);
+  async function deletePlan(plan: Plan) {
+    setBusy(plan.id);
+    try {
+      const res = await apiFetch(`${API_BASE}/plans/${plan.id}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        toast.error(data?.message || 'No se pudo borrar el plan.', 'Planeación');
+        return;
+      }
+      toast.success(`Plan ${plan.model} eliminado.`, 'Planeación');
+      setConfirmId(null);
+      mutate();
+    } catch {
+      toast.error('Error de red al borrar.', 'Planeación');
+    } finally {
+      setBusy(null);
+    }
   }
 
   async function publish(plan: Plan) {
@@ -97,14 +113,14 @@ export default function PlanningPage() {
       });
       const data = await res.json();
       if (!res.ok) {
-        flash(data?.message || 'No se pudo publicar el plan.');
+        toast.error(data?.message || 'No se pudo publicar el plan.', 'Planeación');
         return;
       }
       setPickLists((prev) => ({ ...prev, [plan.id]: data }));
-      flash(`Plan ${plan.model} publicado · ${data.lineCount} materiales para almacén`);
+      toast.success(`Plan ${plan.model} publicado · ${data.lineCount} materiales para almacén`, 'Planeación');
       mutate();
     } catch {
-      flash('Error de red al publicar.');
+      toast.error('Error de red al publicar.', 'Planeación');
     } finally {
       setBusy(null);
     }
@@ -112,7 +128,7 @@ export default function PlanningPage() {
 
   async function requestMaterial(plan: Plan) {
     if (!plan.kitId) {
-      flash('Este plan aún no tiene kit. Publícalo primero.');
+      toast.info('Este plan aún no tiene kit. Publícalo primero.', 'Planeación');
       return;
     }
     setBusy(plan.id);
@@ -124,12 +140,12 @@ export default function PlanningPage() {
       });
       const data = await res.json();
       if (!res.ok) {
-        flash(data?.message || 'No se pudo enviar la solicitud.');
+        toast.error(data?.message || 'No se pudo enviar la solicitud.', 'Almacén');
         return;
       }
-      flash(`Solicitud enviada al almacén · ${plan.model}`);
+      toast.success(`Solicitud enviada al almacén · ${plan.model}`, 'Almacén');
     } catch {
-      flash('Error de red al solicitar.');
+      toast.error('Error de red al solicitar.', 'Almacén');
     } finally {
       setBusy(null);
     }
@@ -211,9 +227,9 @@ export default function PlanningPage() {
               onCreated={() => {
                 setShowForm(false);
                 mutate();
-                flash('Plan creado. Ya puedes publicarlo.');
+                toast.success('Plan creado. Ya puedes publicarlo.', 'Planeación');
               }}
-              onError={flash}
+              onError={(m) => toast.error(m, 'Planeación')}
             />
           )}
         </AnimatePresence>
@@ -275,7 +291,25 @@ export default function PlanningPage() {
                     )}
                   </div>
 
-                  <div className="flex-shrink-0">
+                  <div className="flex-shrink-0 flex flex-col items-end gap-2">
+                    {confirmId === plan.id ? (
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => deletePlan(plan)}
+                          disabled={busy === plan.id}
+                          className="flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-full bg-rose-500 text-white hover:bg-rose-600 active:scale-95 transition disabled:opacity-60"
+                        >
+                          {busy === plan.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />} Borrar
+                        </button>
+                        <button onClick={() => setConfirmId(null)} className="text-xs font-medium px-3 py-1.5 rounded-full border border-gray-200 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-white/5 transition">
+                          Cancelar
+                        </button>
+                      </div>
+                    ) : (
+                      <button onClick={() => setConfirmId(plan.id)} aria-label="Borrar plan" className="p-2 rounded-full text-gray-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
                     {plan.status === 'pending' ? (
                       <button
                         onClick={() => publish(plan)}
@@ -348,21 +382,6 @@ export default function PlanningPage() {
           })}
         </div>
       </main>
-
-      {/* Toast */}
-      <AnimatePresence>
-        {toast && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 20 }}
-            className={`${glass} fixed bottom-8 left-1/2 -translate-x-1/2 px-5 py-3 rounded-full shadow-2xl flex items-center gap-2 z-50`}
-          >
-            <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-            <span className="text-sm font-medium">{toast}</span>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   );
 }
