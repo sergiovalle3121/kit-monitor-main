@@ -130,4 +130,27 @@ mergear, el smoke de bootstrap contra Postgres (que carga TODAS las entidades) e
 la única puerta que detecta colisiones de tabla/índice y FKs incompatibles entre
 módulos. Reforzado: el gate de bootstrap es obligatorio.
 
+## 9. Por qué se "revirtieron" los fixes de seguridad (JWT + synchronize)
+
+**Investigación:** el commit `9a1c69f` ("fix(security): no prod synchronize + remove
+insecure JWT_SECRET fallback") **NO es ancestro de `main`**. Vive solo en la rama
+`origin/claude/security-hardening`, que divergió de `main` en `df1ab24` y **nunca
+se mergeó**. No fue un merge posterior que los pisó: simplemente esa rama de
+hardening quedó abandonada/superada por otra línea de trabajo que se volvió `main`,
+así que los fixes jamás aterventeon en la historia de `main` (el helper
+`common/config/jwt-secret.ts` tampoco existía en `main`).
+
+**Acción:** se re-aplican los fixes directamente sobre `main` (esta sesión), con
+**blindaje de tests** para que una reversión silenciosa vuelva a fallar el gate.
+
+## 10. JWT_SECRET sin fallback inseguro (re-aplicado + blindado)
+
+**Decisión:** `common/config/jwt-secret.ts` → `getJwtSecret()`: devuelve
+`JWT_SECRET` si existe y ≥16 chars; **lanza Error si `NODE_ENV==='production'`** y
+falta o es corto (la app NO arranca con secreto inseguro); en dev/test devuelve un
+default explícito y claramente inseguro. Usado en `auth.module.ts` y
+`strategies/jwt.strategy.ts` (se eliminó `|| 'secretKey'`). **Blindaje:**
+`jwt-secret.spec.ts` escanea ambos archivos y **falla** si reaparece cualquier
+patrón `JWT_SECRET || '...'`, además de probar el throw en prod.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
