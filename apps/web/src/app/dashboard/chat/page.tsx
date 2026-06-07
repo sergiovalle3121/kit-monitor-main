@@ -51,11 +51,14 @@ export default function ChatPage() {
   const [search, setSearch] = useState('');
   const [showEmoji, setShowEmoji] = useState(false);
   const [showNewChannel, setShowNewChannel] = useState(false);
+  const [typingConvo, setTypingConvo] = useState<string | null>(null);
 
   const socketRef = useRef<Socket | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
   const activeIdRef = useRef<string | null>(null);
+  const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastTypingEmitRef = useRef(0);
   useEffect(() => {
     activeIdRef.current = activeId;
   }, [activeId]);
@@ -111,6 +114,13 @@ export default function ChatPage() {
       }
       refreshConversations();
     });
+    // Indicador "escribiendo…" (el backend reenvía 'typing' a los miembros).
+    socket.on('typing', (p: { conversationId: string }) => {
+      if (p?.conversationId !== activeIdRef.current) return;
+      setTypingConvo(p.conversationId);
+      if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+      typingTimerRef.current = setTimeout(() => setTypingConvo(null), 2500);
+    });
     socketRef.current = socket;
     return () => {
       socket.disconnect();
@@ -129,6 +139,19 @@ export default function ChatPage() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  // Avisa "escribiendo…" a los otros miembros (throttle ~1.5s).
+  function emitTyping() {
+    const now = Date.now();
+    if (now - lastTypingEmitRef.current < 1500) return;
+    if (!active || !meId || !socketRef.current) return;
+    lastTypingEmitRef.current = now;
+    socketRef.current.emit('typing', {
+      memberIds: active.memberIds,
+      conversationId: active.id,
+      userId: meId,
+    });
+  }
 
   async function handleSendText() {
     const body = draft.trim();
@@ -307,6 +330,18 @@ export default function ChatPage() {
                 <div ref={bottomRef} />
               </div>
 
+              {/* Indicador de "escribiendo…" */}
+              {typingConvo === activeId && (
+                <div className="px-5 pb-1 -mt-1 flex items-center gap-1.5 text-[12px] text-gray-400">
+                  <span className="flex gap-0.5">
+                    <span className="h-1.5 w-1.5 rounded-full bg-gray-400 animate-bounce [animation-delay:-0.2s]" />
+                    <span className="h-1.5 w-1.5 rounded-full bg-gray-400 animate-bounce [animation-delay:-0.1s]" />
+                    <span className="h-1.5 w-1.5 rounded-full bg-gray-400 animate-bounce" />
+                  </span>
+                  escribiendo…
+                </div>
+              )}
+
               {/* Input */}
               <div className="relative border-t border-black/5 p-3 dark:border-white/10">
                 {showEmoji && (
@@ -350,7 +385,7 @@ export default function ChatPage() {
                   />
                   <input
                     value={draft}
-                    onChange={(e) => setDraft(e.target.value)}
+                    onChange={(e) => { setDraft(e.target.value); emitTyping(); }}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' && !e.shiftKey) {
                         e.preventDefault();
