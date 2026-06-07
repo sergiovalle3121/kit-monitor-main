@@ -52,6 +52,7 @@ export function SlidesEditor({ value, onChange, readOnly }: { value: any; onChan
   const [noteDraft, setNoteDraft] = useState<string>(initialNotes[0] ?? '');
   const [transition, setTransition] = useState<string>(value?.transition || 'fade');
   const transitionRef = useRef<string>(transition);
+  const clipboardRef = useRef<any>(null);
   const [presenting, setPresenting] = useState(false);
   const [sorter, setSorter] = useState(false);
   const [selAnim, setSelAnim] = useState<string>('none');
@@ -217,11 +218,47 @@ export function SlidesEditor({ value, onChange, readOnly }: { value: any; onChan
     const c = fabricRef.current; const o = c?.getActiveObject() as any;
     if (!c || !o) return;
     try {
-      const clone = await o.clone();
+      const clone = await o.clone(['anim', 'shape', 'link']);
       clone.set({ left: (o.left || 0) + 20, top: (o.top || 0) + 20 });
       c.add(clone); c.setActiveObject(clone); c.requestRenderAll(); // object:added → capture + sync
     } catch { /* noop */ }
   }
+  async function pasteObj() {
+    const c = fabricRef.current; const src = clipboardRef.current; if (!c || !src) return;
+    try {
+      const clone = await src.clone(['anim', 'shape', 'link']);
+      clone.set({ left: (src.left || 0) + 24, top: (src.top || 0) + 24 });
+      c.add(clone); c.setActiveObject(clone); c.requestRenderAll();
+    } catch { /* noop */ }
+  }
+
+  // Keyboard editing for the active object (nudge, delete, copy/paste, duplicate).
+  useEffect(() => {
+    if (readOnly) return;
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+      const c = fabricRef.current; if (!c) return;
+      const o = c.getActiveObject() as any;
+      const meta = e.ctrlKey || e.metaKey;
+      const k = e.key.toLowerCase();
+      if (meta && k === 'v') { e.preventDefault(); pasteObj(); return; }
+      if (!o || o.isEditing) return;
+      if (meta && k === 'c') { clipboardRef.current = o; return; }
+      if (meta && k === 'd') { e.preventDefault(); dupObj(); return; }
+      if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); c.remove(o); c.requestRenderAll(); capture(); sync(); return; }
+      const step = e.shiftKey ? 10 : 1;
+      if (e.key === 'ArrowUp') o.top -= step;
+      else if (e.key === 'ArrowDown') o.top += step;
+      else if (e.key === 'ArrowLeft') o.left -= step;
+      else if (e.key === 'ArrowRight') o.left += step;
+      else return;
+      e.preventDefault(); o.setCoords(); c.requestRenderAll(); capture(); sync();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [readOnly]);
 
   function addSlide() { capture(); slidesRef.current.splice(cur + 1, 0, blank()); notesRef.current.splice(cur + 1, 0, ''); sync(); loadInto(cur + 1); }
   function dupSlide() { capture(); slidesRef.current.splice(cur + 1, 0, JSON.parse(JSON.stringify(slidesRef.current[cur]))); notesRef.current.splice(cur + 1, 0, notesRef.current[cur] ?? ''); sync(); loadInto(cur + 1); }
