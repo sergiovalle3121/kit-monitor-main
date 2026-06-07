@@ -142,19 +142,33 @@ archivos, decisiones, endpoints/pantallas, KPIs, siguiente paso / bloqueos.
   ("Nest application successfully started", login self-check OK) y
   `npm run smoke:bootstrap` → OK. Build + 66 unit tests + web tsc/lint verdes.
 
+### [legal] Legal / Compliance / Contratos (P2.14) — FUNCIONAL
+- **Backend** (`apps/api/src/modules/legal/`): `Contract` (folio `CON-` vía
+  numeración; máquina de estados DRAFT→ACTIVE→EXPIRED↔ACTIVE(renovación)→
+  TERMINATED + CANCELLED), tipo (CUSTOMER/SUPPLIER/NDA/LEASE/SERVICE), valor +
+  moneda, fechas, auto-renovación, notas. KPIs: activos, por vencer (30/60/90d),
+  vencidos, valor activo. Controller `legal`. Migración aditiva. docType
+  `CONTRACT` (prefijo `CON`).
+- **Frontend** (`dashboard/legal`): KPIs (activos, por vencer 90d, vencidos, valor
+  activo), alta de contrato, lista por estado con badge "vence en Nd" y
+  transiciones (incl. renovación con nueva fecha). Enlace Cmd-K.
+- **Tests:** `contract-state.spec` + `legal.service.spec` (SQLite). Gate completo
+  verde: build, 15 suites / 77 tests, web tsc+lint, **bootstrap smoke (Postgres)**.
+
 <!-- Próximas entradas arriba de esta línea, orden cronológico inverso por bloque -->
 
 ---
 
 ## ▶ RETOMAR AQUÍ (handoff para la próxima sesión)
 
-- **Último ítem terminado:** HOTFIX de seguridad (SecurityModule global) +
-  `feat(maintenance)` CMMS (P2.7), mergeado a `main` vía PR (squash). `main` verde
-  y **prod arranca limpio** (verificado con boot compilado contra Postgres).
+- **Último ítem terminado:** `feat(legal)` — Legal / Contratos (P2.14), mergeado
+  a `main` vía PR (squash). `main` verde.
 - **Estado de plataforma:** en producción: **numeración** (T2), **Mejora
-  Continua** (P2.13), **EHS** (P2.10), **Mantenimiento/TPM** (P2.7), y el
-  **SecurityModule global** que arregla el wiring del guard. API: 13 suites /
-  66 tests. Migraciones solo aditivas.
+  Continua** (P2.13), **EHS** (P2.10), **Mantenimiento/TPM** (P2.7), **Legal**
+  (P2.14), y el **SecurityModule global** (wiring del guard). API: 15 suites /
+  77 tests. Migraciones solo aditivas. Patrón consolidado por módulo: state
+  machine pura + entity + dto + service (scope tenant+plant, usa numeración) +
+  controller + module + migración aditiva + 2 specs + página + Cmd-K.
 - **PUERTAS DE CALIDAD ahora (obligatorio antes de cada merge):**
   1) `cd apps/api && npm run build`  2) `npm test` (unit)  3) `npm run lint`+`tsc`
   en web para archivos tocados  4) **`npm run smoke:bootstrap` con Postgres** —
@@ -169,15 +183,16 @@ archivos, decisiones, endpoints/pantallas, KPIs, siguiente paso / bloqueos.
   # gate:
   cd apps/api && npm run build && DATABASE_URL="postgres://postgres@/axos_smoke?host=/tmp&port=5433" npm run smoke:bootstrap
   ```
-- **Siguiente ítem exacto a hacer:** **Legal / Compliance / Contratos (P2.14)**
-  como rebanada vertical aditiva — entidad `Contract` (folio `CON-` vía
-  `allocate('CONTRACT')`; tipo, contraparte, fechas inicio/fin, valor+moneda,
-  estado DRAFT→ACTIVE→EXPIRED/TERMINATED, alertas de vencimiento), opcional
-  `ComplianceCertification` (ISO9001/IATF16949/…, fecha de expiración). KPIs:
-  contratos activos, por vencer (30/60/90d), valor total. Pantalla
-  `dashboard/legal` + Cmd-K. Tests máquina de estados + servicio (SQLite OK para
-  unit; el bootstrap gate es aparte). Añadir docType `CONTRACT` (prefijo `CON`) a
-  `numbering.defaults.ts`. Patrón a copiar: módulo `maintenance` (el más reciente).
+- **Siguiente ítem exacto a hacer:** **Test Engineering / Yields (P2.8)** como
+  rebanada vertical aditiva — entidad `TestRecord` (estación ICT/FCT, número de
+  serie, resultado PASS/FAIL, código de falla, parámetros) y opcional
+  `TestStation`. Folio `TST-` vía `allocate('TEST_RECORD')`. KPIs: First-Pass
+  Yield, total pruebas, % fallas, Pareto de códigos de falla (top N). Pantalla
+  `dashboard/test-engineering` (captura de resultado + tablero de yields + Pareto)
+  + Cmd-K. Tests servicio (SQLite) — yield calc + Pareto. Añadir docType
+  `TEST_RECORD` (prefijo `TST`). Patrón a copiar: módulo `legal` (el más reciente
+  y limpio). NOTA: este módulo es más de captura/analítica que máquina de estados;
+  puede no necesitar state machine (un TestRecord es inmutable: PASS/FAIL).
 - **Hygiene recomendada (de-riesga el gate):** portar los 14 `jsonb` hardcodeados
   a `JSON_COLUMN_TYPE` y crear `ENUM_COLUMN_TYPE` (`'enum'` en PG / `'simple-enum'`
   en sqlite) para los 4 `type:'enum'`. Es **no-op en Postgres** y haría que el

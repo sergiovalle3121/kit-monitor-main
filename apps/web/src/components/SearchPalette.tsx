@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import {
   Search, LayoutGrid, LineChart, Warehouse, Boxes, Factory, HardHat, ShieldCheck,
   Cpu, DollarSign, Calculator, RadioTower, FileText, Landmark, Users, Building2,
-  ShieldAlert, MessageSquare, CornerDownLeft, Hash, Lightbulb, Wrench,
+  ShieldAlert, MessageSquare, CornerDownLeft, Hash, Lightbulb, Wrench, Scale,
 } from 'lucide-react';
 
 interface Dest {
@@ -32,6 +32,7 @@ const DESTS: Dest[] = [
   { label: 'Mejora continua', sub: 'Kaizen · Lean · 6σ', href: '/dashboard/improvement', keywords: 'mejora continua kaizen lean six sigma opex ahorros iniciativas 5s', icon: Lightbulb },
   { label: 'EHS · Seguridad', sub: 'Incidentes y casi-accidentes', href: '/dashboard/ehs', keywords: 'ehs seguridad medio ambiente incidentes casi accidente near miss safety lesiones recordable', icon: ShieldAlert },
   { label: 'Mantenimiento · TPM', sub: 'Activos y órdenes (CMMS)', href: '/dashboard/maintenance', keywords: 'mantenimiento tpm cmms activos equipos ordenes preventivo correctivo mtbf mttr averias paros', icon: Wrench },
+  { label: 'Legal · Contratos', sub: 'Contratos y vencimientos', href: '/dashboard/legal', keywords: 'legal contratos compliance vencimiento renovacion nda proveedor cliente acuerdos', icon: Scale },
   { label: 'Mission Control', sub: 'Vista ejecutiva', href: '/dashboard/mission-control', keywords: 'mission control kpi ejecutivo metricas', icon: RadioTower },
   { label: 'Office', sub: 'Docs · Hojas · Slides', href: '/dashboard/office', keywords: 'office documentos hojas slides word excel', icon: FileText },
   { label: 'Axos ERP', sub: 'FIN · MM · PP · SD · T-Codes', href: '/dashboard/erp', keywords: 'erp tcode t-code fin mm pp sd sap', icon: Landmark },

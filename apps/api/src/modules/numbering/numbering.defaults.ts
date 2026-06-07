@@ -36,6 +36,7 @@ export const DEFAULT_SEQUENCES: SequenceDefault[] = [
   { docType: 'IMPROVEMENT', name: 'Iniciativa de Mejora', prefix: 'CI', pattern: '{PREFIX}-{YYYY}-{SEQ}', padding: 5, resetPolicy: 'YEARLY', description: 'Iniciativas de mejora continua (Kaizen / Lean / 6σ).' },
   { docType: 'EHS_INCIDENT', name: 'Incidente EHS', prefix: 'INC', pattern: '{PREFIX}-{YYYY}-{SEQ}', padding: 5, resetPolicy: 'YEARLY', description: 'Incidentes de seguridad y medio ambiente.' },
   { docType: 'ASSET', name: 'Activo / Equipo', prefix: 'EQ', pattern: '{PREFIX}-{SEQ}', padding: 5, resetPolicy: 'NEVER', description: 'Activos mantenibles (CMMS).' },
+  { docType: 'CONTRACT', name: 'Contrato', prefix: 'CON', pattern: '{PREFIX}-{YYYY}-{SEQ}', padding: 5, resetPolicy: 'YEARLY', description: 'Contratos legales / compliance.' },
 ];
 
 const PATTERN_FALLBACK = '{PREFIX}-{YYYY}-{SEQ}';
