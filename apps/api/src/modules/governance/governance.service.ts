@@ -5,6 +5,7 @@ import { AuditService } from './audit.service';
 import { ExceptionDomain, ExceptionSeverity, ExceptionStatus } from './entities/operational-exception.entity';
 import { User } from '../users/entities/user.entity';
 import { NotificationService } from './notification.service';
+import { isAppRole, permissionsFor, roleColumnFor } from '../auth/rbac';
 
 @Injectable()
 export class GovernanceService {
@@ -21,7 +22,41 @@ export class GovernanceService {
   }
 
   async updateUser(id: string, dto: any) {
-    return this.usersService.update(id, dto);
+    // When an admin assigns a role, recompute the permission set so the change
+    // actually takes effect (the user's JWT carries these on next login). The
+    // caller can still override permissions explicitly.
+    const patch = { ...(dto ?? {}) };
+    if (patch.role && isAppRole(patch.role)) {
+      const role = patch.role;
+      patch.role = roleColumnFor(role);
+      if (patch.permissions === undefined) patch.permissions = permissionsFor(role);
+    }
+    return this.usersService.update(id, patch);
+  }
+
+  /** Admin-create a user (active) with role-derived permissions. */
+  async createUser(dto: any) {
+    const role = isAppRole(dto?.role) ? dto.role : 'warehouse_operator';
+    const scopes: Record<string, unknown> = {};
+    if (dto?.buildingId) scopes.buildings = [dto.buildingId];
+    if (dto?.line !== undefined && dto?.line !== null && `${dto.line}`.length) {
+      scopes.lines = [Number(dto.line)].filter((n) => !Number.isNaN(n));
+    }
+    if (dto?.programId) scopes.programs = [dto.programId];
+    const email = (dto?.email ?? '').trim().toLowerCase();
+    return this.usersService.create({
+      email,
+      username: email,
+      name: dto?.name ?? null,
+      position: dto?.position ?? null,
+      password: dto?.password || Math.random().toString(36).slice(2) + 'A1!',
+      role: roleColumnFor(role) as User['role'],
+      permissions: permissionsFor(role),
+      scopes,
+      tenantId: dto?.tenantId ?? dto?.buildingId ?? undefined,
+      status: 'active',
+      isActive: true,
+    });
   }
 
   // Master Data Aggregation

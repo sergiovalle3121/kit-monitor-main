@@ -77,6 +77,12 @@ export class GovernanceController {
     return this.governanceService.getUsers();
   }
 
+  @Post('users')
+  @RequirePermissions('ADMIN_ACCESS')
+  createUser(@Body() dto: any) {
+    return this.governanceService.createUser(dto);
+  }
+
   @Patch('users/:id')
   @RequirePermissions('ADMIN_ACCESS')
   updateUser(@Param('id') id: string, @Body() dto: any) {
