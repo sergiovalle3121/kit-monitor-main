@@ -58,6 +58,43 @@ funcional de lo que parecía**; el bloqueo real era el acceso del owner (Bloque 
   **Office** (sistema real `office-documents`). Se deja intacta (no romper); Office es
   el sistema real — se pulirá en Bloque 8. Anotado para no confundir.
 
+### [5] Landing honesta + auth arriba a la derecha — HECHO
+- Header: "Iniciar sesión" + "Crear cuenta" (esquina superior derecha). `/login?register=1`
+  abre directo el formulario de registro.
+- **Quitado lo no verificable/fraudulento:** tarjeta "Aeroespacial / cumplimiento
+  AS9100"; suavizado "AI"/"millisecond latency"/"Perfected".
+- Copy honesto: el hero dice lo que AXOS realmente hace (unir los departamentos de una
+  manufacturera: piso MES con poka-yoke/backflush, ERP, calidad, inventario, Office/chat).
+  Tarjetas enlazan a pantallas reales (operator-terminal, floor-quality…). Estética intacta.
+
+### [4] Admin / gestión de usuarios real — HECHO
+- `settings/users` era una tabla read-only con botones muertos y stats falsos. Ahora
+  consola real (owner/Admin): **crear** usuario (rol + scope planta/línea + password),
+  **editar** (cambia rol → recomputa permisos, scope, nombre), **resetear contraseña**,
+  **activar/desactivar**; stats reales; back-nav.
+- Backend (extiende governance, ADMIN_ACCESS; owner bypass): `updateUser` recomputa
+  permisos al cambiar rol; nuevo `POST /governance/users` (createUser con permisos por rol).
+
+### [6] Profundidad estética (con vida, sin exagerar) — HECHO
+- `NodeNetwork`: red de nodos en movimiento (canvas) muy sutil, baja opacidad, DPR-aware,
+  pausa con pestaña oculta y **estática con prefers-reduced-motion** (perf + accesibilidad).
+  Integrada en `AmbientBackground` (prop `network`) en landing (vívida) y hub (calm).
+- Hub en **bento-grid** (primera área destacada 2x2 + tiles anchos) en vez de cuadrícula
+  uniforme; conserva el stagger fade-in + hover-lift existentes. `next build` verde.
+
+### [7] Chat → indicador "escribiendo…" (extiende, no rehace) — HECHO
+- El backend de messaging ya reenvía el evento socket `typing` pero la UI no lo emitía ni
+  mostraba. Cableado: emite `typing` (throttle ~1.5s) a los miembros al teclear; escucha y
+  muestra "escribiendo…" animado para la conversación activa (auto-limpia a 2.5s). Messaging
+  ya tenía DMs, canales, recibos de lectura (`/read`) y adjuntos de imagen.
+
+### [8] Office — auditado, ya funcional (no se rompe) — HECHO
+- Hallazgo: Office ya está pulido — autosave debounced (800ms) + estado guardado/guardando,
+  Cmd/Ctrl+S, flush al desmontar, historial de versiones, papelera/restaurar + borrado
+  permanente con confirmación, back-nav ("Volver a Office"), **plantillas** (TemplateGallery)
+  y **export/import .xlsx/.csv** (hojas). Cumple los pedidos del bloque; se deja intacto para
+  no regresionar un módulo que ya sirve.
+
 <!-- (resto de bloques de esta sesión se agregan arriba conforme avanza) -->
 
 ## 2026-06-07 — SUITE DE PISO DE PRODUCCIÓN (edición Jabil)
@@ -520,6 +557,22 @@ funcional de lo que parecía**; el bloqueo real era el acceso del owner (Bloque 
 ---
 
 ## ▶ RETOMAR AQUÍ (handoff para la próxima sesión)
+
+> **PULIDO Y FUNCIONALIDAD (sesión más reciente) — rama `claude/hopeful-lovelace-GZEYN`.**
+> Hecho y en verde: [1] acceso del owner (raíz: admin con permisos completos en el JWT +
+> bypass en UI), [2] JWT estable entre deploys (persistido en `app_settings`), [3] auditoría
+> del hub (back-nav universal; confirmaciones de borrado en engineering/organization;
+> inventario en NIGHT_LOG), [5] landing honesta + auth arriba a la derecha, [4] admin de
+> usuarios real (crear/editar/rol/scope/activar/reset), [6] estética (red de nodos + bento),
+> [7] chat "escribiendo…", [8] Office auditado (ya funcional).
+> **Siguiente (si se desea profundizar, opcional):** Teams completo en chat (presencia,
+> reacciones, @menciones con notificación, hilos, búsqueda, recibos de lectura en UI) —
+> el backend ya soporta varios; faltaría UI. Office: export de docs/slides (hojas ya
+> exportan). `documents` (página estática mock) podría unificarse con Office real.
+> **Recordatorio:** lo ideal sigue siendo setear `JWT_SECRET` en Railway (con [2] ya no
+> deslogea en cada deploy aunque falte).
+
+---
 
 > **SHOP FLOOR (edición Jabil) — rama `claude/hopeful-lovelace-GZEYN`.**
 > Entregado y en verde: PRE-2 (RBAC piso) + bloques **A** (disposición de líneas),
