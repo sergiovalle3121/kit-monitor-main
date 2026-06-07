@@ -19,6 +19,7 @@ import { ProcurementModule } from './modules/procurement/procurement.module';
 import { PeopleModule } from './modules/people/people.module';
 import { ControlTowerModule } from './modules/control-tower/control-tower.module';
 import { OutboundModule } from './modules/outbound/outbound.module';
+import { InboundModule } from './modules/inbound/inbound.module';
 
 // AXOS OS Intelligence & Tenancy Infrastructure
 import { EventLedgerInterceptor } from './common/interceptors/event-ledger.interceptor';
@@ -77,6 +78,7 @@ import { AiModule } from './modules/ai/ai.module';
     PeopleModule,
     ControlTowerModule,
     OutboundModule,
+    InboundModule,
     ForecastModule,
     PlansModule,
     BomModule,
