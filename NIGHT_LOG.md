@@ -284,22 +284,34 @@ archivos, decisiones, endpoints/pantallas, KPIs, siguiente paso / bloqueos.
   (SQLite). Gate completo verde: build, **31 suites / 149 tests**, web tsc+lint,
   **bootstrap smoke (PG)**.
 
+### [expenses] Gastos / Viáticos (FIN-AP) — FUNCIONAL
+- **Backend** (`apps/api/src/modules/expenses/`): `ExpenseReport` (folio `EXP-`;
+  empleado denormalizado, categoría, monto + moneda; máquina de estados
+  DRAFT→SUBMITTED→APPROVED|REJECTED→REIMBURSED, REJECTED→DRAFT resubmit,
+  DRAFT→CANCELLED). KPIs: pendientes de aprobación, aprobados sin pagar (+monto),
+  reembolsado, monto promedio. Controller `expenses`. Migración aditiva. docType
+  `EXPENSE` (prefijo `EXP`). Event Ledger.
+- **Frontend** (`dashboard/expenses`): KPIs, alta de gasto, tablero por estado con
+  transiciones (enviar/aprobar/rechazar con motivo/reembolsar). Enlace Cmd-K.
+- **Tests:** `expense-state.spec` + `expenses.service.spec` (SQLite). Gate completo
+  verde: build, **33 suites / 159 tests**, web tsc+lint, **bootstrap smoke (PG)**.
+
 <!-- Próximas entradas arriba de esta línea, orden cronológico inverso por bloque -->
 
 ---
 
 ## ▶ RETOMAR AQUÍ (handoff para la próxima sesión)
 
-- **Último ítem terminado:** `feat(fixed-assets)` — Activos Fijos / Depreciación
-  (P1.1 FIN), mergeado a `main` vía PR (squash). `main` verde.
-- **Estado de plataforma:** en producción 14 entregas nuevas + hotfix:
+- **Último ítem terminado:** `feat(expenses)` — Gastos / Viáticos (FIN-AP),
+  mergeado a `main` vía PR (squash). `main` verde.
+- **Estado de plataforma:** en producción 15 entregas nuevas + hotfix:
   **numeración** (T2), **Mejora Continua** (P2.13), **EHS** (P2.10),
   **Mantenimiento/TPM** (P2.7), **Legal** (P2.14), **Test Engineering** (P2.8),
   **Compras** (P2.4), **RH/Skills** (P2.9), **Torre de Control** (P3.1/P3.2),
   **Logística/Embarque** (P2.6), **Recibo/Inbound+IQC** (P2.5), **Conteos
-  Cíclicos** (P2.3), **CRM/Pipeline** (P1.1), **Activos Fijos** (P1.1 FIN), más el
-  **SecurityModule global** + **smoke de bootstrap**. API: 31 suites / 149 tests.
-  Migraciones solo aditivas. Patrón por
+  Cíclicos** (P2.3), **CRM/Pipeline** (P1.1), **Activos Fijos** (P1.1 FIN),
+  **Gastos/Viáticos** (FIN-AP), más el **SecurityModule global** + **smoke de
+  bootstrap**. API: 33 suites / 159 tests. Migraciones solo aditivas. Patrón por
   módulo: (state machine / derivación pura si aplica) + entity (TABLA PREFIJADA
   para no chocar con legacy) + dto + service (scope tenant+plant, usa numeración) +
   controller + module + migración aditiva + specs + página + Cmd-K.
@@ -317,18 +329,20 @@ archivos, decisiones, endpoints/pantallas, KPIs, siguiente paso / bloqueos.
   # gate:
   cd apps/api && npm run build && DATABASE_URL="postgres://postgres@/axos_smoke?host=/tmp&port=5433" npm run smoke:bootstrap
   ```
-- **Siguiente ítem exacto a hacer:** **Gastos / Viáticos (FIN-AP)** como módulo
-  nuevo `expenses` (100% aditivo, tabla `expense_reports` PREFIJADA). Entidad
-  `ExpenseReport` (folio `EXP-` — añadir docType `EXPENSE` prefijo `EXP`;
-  empleado denormalizado, categoría, monto + moneda, descripción, fecha; máquina
-  de estados DRAFT→SUBMITTED→APPROVED|REJECTED→REIMBURSED; aprobador). KPIs:
-  pendientes de aprobación, aprobados sin reembolsar, total reembolsado,
-  monto promedio. Pantalla `dashboard/expenses` + Cmd-K. Tests máquina de estados
-  + servicio (SQLite). Patrón a copiar: `improvement`/`legal` (estados + montos).
+- **Siguiente ítem exacto a hacer:** **Tooling / Herramentales (P-NPI)** como
+  módulo nuevo `tooling` (100% aditivo, tabla `tooling_assets` PREFIJADA). Entidad
+  `Tool` (folio `TL-` — añadir docType `TOOL` prefijo `TL`; nombre, tipo
+  (MOLD/FIXTURE/STENCIL/GAUGE), número de cavidades, vida en disparos/golpes
+  (`lifeShots`), disparos acumulados (`shotsUsed`), estado AVAILABLE→IN_USE→
+  MAINTENANCE→RETIRED; ubicación). Endpoint para registrar uso (sumar disparos).
+  KPIs: herramentales activos, % vida consumida promedio, en mantenimiento,
+  próximos a EOL (≥80% vida). Pantalla `dashboard/tooling` + Cmd-K. Helper puro de
+  % vida + spec. Patrón a copiar: `maintenance` (activos) + `cycle-counts`
+  (captura de cantidad).
 - **Más backlog aditivo disponible (mismo patrón):** Calidad NCR/CAPA frontend
-  (backend `ncr`/`quality` ya existe — SOLO UI, no romper); Tooling/Moldes
-  (`tooling`, folio `TL-`); Portal de cliente (rol externo — mayor cuidado RBAC);
-  Auditorías por capas LPA (calidad).
+  (backend `ncr`/`quality` ya existe — SOLO UI, no romper); Auditorías por capas
+  LPA (`audits`, folio `LPA-`); Portal de cliente (rol externo — RBAC); Quejas de
+  cliente / RMA (`rma`, folio `RMA-`).
 - **IMPORTANTE — puerta de bootstrap (obligatoria, atrapa colisiones de tabla):**
   levantar Postgres efímero (receta arriba) y `npm run smoke:bootstrap` ANTES de
   cada merge. El contenedor se resetea entre sesiones → re-crear el cluster. Y

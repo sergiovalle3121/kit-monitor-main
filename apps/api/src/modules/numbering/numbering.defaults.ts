@@ -41,6 +41,7 @@ export const DEFAULT_SEQUENCES: SequenceDefault[] = [
   { docType: 'CERTIFICATION', name: 'Certificación', prefix: 'CERT', pattern: '{PREFIX}-{YYYY}-{SEQ}', padding: 5, resetPolicy: 'YEARLY', description: 'Certificaciones de skills (RH).' },
   { docType: 'OPPORTUNITY', name: 'Oportunidad de Venta', prefix: 'OPP', pattern: '{PREFIX}-{YYYY}-{SEQ}', padding: 5, resetPolicy: 'YEARLY', description: 'Oportunidades de venta (CRM / SD).' },
   { docType: 'FIXED_ASSET', name: 'Activo Fijo', prefix: 'FA', pattern: '{PREFIX}-{SEQ}', padding: 5, resetPolicy: 'NEVER', description: 'Activos fijos capitalizados (FIN).' },
+  { docType: 'EXPENSE', name: 'Reporte de Gasto', prefix: 'EXP', pattern: '{PREFIX}-{YYYY}-{SEQ}', padding: 5, resetPolicy: 'YEARLY', description: 'Gastos / viáticos (FIN / AP).' },
 ];
 
 const PATTERN_FALLBACK = '{PREFIX}-{YYYY}-{SEQ}';
