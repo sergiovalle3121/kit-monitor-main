@@ -196,22 +196,39 @@ archivos, decisiones, endpoints/pantallas, KPIs, siguiente paso / bloqueos.
   Gate completo verde: build, **21 suites / 98 tests**, web tsc+lint, **bootstrap
   smoke (PG)**.
 
+### [control-tower] Torre de Control / Cockpit ejecutivo (P3.1/P3.2) — FUNCIONAL
+- **Qué:** capstone aditivo SIN tablas propias. `ControlTowerModule` importa las 8
+  áreas y `ControlTowerService` inyecta sus servicios, llamando `.kpis()` en
+  paralelo (`Promise.all`, defensivo: un área que falle no rompe la vista) y
+  deriva un **semáforo** (green/amber/red) por área + estado global (worst-of).
+- **Backend** (`apps/api/src/modules/control-tower/`): service + controller
+  `GET /control-tower/summary`. Sin entidad, sin migración. Reglas de salud:
+  EHS (registrables→rojo), Compras (vencidas→rojo, por recibir→ámbar),
+  Mantenimiento (vencidas→rojo), Test (FPY<90→rojo, <97→ámbar), Legal/RH
+  (vencidos→rojo, por vencer→ámbar).
+- **Frontend** (`dashboard/control-tower`): banner de estado global + tarjetas por
+  área con semáforo, headline y 3 métricas, enlazadas a cada área. Refresh. Cmd-K.
+- **Tests:** `control-tower.service.spec` (mocks): agregación, bubble-up a rojo,
+  resiliencia ante área que falla. Gate completo verde: build, **22 suites /
+  101 tests**, web tsc+lint, **bootstrap smoke (PG)** — clave aquí por las 7
+  inyecciones cross-módulo.
+
 <!-- Próximas entradas arriba de esta línea, orden cronológico inverso por bloque -->
 
 ---
 
 ## ▶ RETOMAR AQUÍ (handoff para la próxima sesión)
 
-- **Último ítem terminado:** `feat(people)` — RH / Skills & Certificaciones
-  (P2.9), mergeado a `main` vía PR (squash). `main` verde.
-- **Estado de plataforma:** en producción 8 áreas nuevas + hotfix: **numeración**
-  (T2), **Mejora Continua** (P2.13), **EHS** (P2.10), **Mantenimiento/TPM** (P2.7),
-  **Legal** (P2.14), **Test Engineering** (P2.8), **Compras** (P2.4), **RH/Skills**
-  (P2.9), y el **SecurityModule global** (wiring del guard) + **smoke de
-  bootstrap**. API: 21 suites / 98 tests. Migraciones solo aditivas. Patrón por
-  módulo: (state machine/derivación pura si aplica) + entity + dto + service
-  (scope tenant+plant, usa numeración) + controller + module + migración aditiva +
-  specs + página + Cmd-K.
+- **Último ítem terminado:** `feat(control-tower)` — Torre de Control / Cockpit
+  ejecutivo (P3.1/P3.2), mergeado a `main` vía PR (squash). `main` verde.
+- **Estado de plataforma:** en producción 9 entregas nuevas + hotfix:
+  **numeración** (T2), **Mejora Continua** (P2.13), **EHS** (P2.10),
+  **Mantenimiento/TPM** (P2.7), **Legal** (P2.14), **Test Engineering** (P2.8),
+  **Compras** (P2.4), **RH/Skills** (P2.9), **Torre de Control** (P3.1/P3.2), más
+  el **SecurityModule global** + **smoke de bootstrap**. API: 22 suites /
+  101 tests. Migraciones solo aditivas. Patrón por módulo: (state machine /
+  derivación pura si aplica) + entity + dto + service (scope tenant+plant, usa
+  numeración) + controller + module + migración aditiva + specs + página + Cmd-K.
 - **PUERTAS DE CALIDAD ahora (obligatorio antes de cada merge):**
   1) `cd apps/api && npm run build`  2) `npm test` (unit)  3) `npm run lint`+`tsc`
   en web para archivos tocados  4) **`npm run smoke:bootstrap` con Postgres** —
@@ -226,19 +243,22 @@ archivos, decisiones, endpoints/pantallas, KPIs, siguiente paso / bloqueos.
   # gate:
   cd apps/api && npm run build && DATABASE_URL="postgres://postgres@/axos_smoke?host=/tmp&port=5433" npm run smoke:bootstrap
   ```
-- **Siguiente ítem exacto a hacer:** **Torre de Control / Cockpit ejecutivo
-  (P3.1/P3.2)** como capstone aditivo y casi sin backend: un agregador read-only.
-  Opción A (recomendada, simple): página `dashboard/control-tower` que consume en
-  paralelo los `/<area>/kpis` YA existentes (improvement, ehs, maintenance, legal,
-  testing, procurement, people, numbering) con `useApi`, y muestra semáforos por
-  área + los KPIs clave en una sola vista ejecutiva. Opción B (si se quiere
-  backend): módulo `control-tower` con un endpoint `/control-tower/summary` que
-  inyecta los servicios de cada área y agrega sus `.kpis()` en un solo payload
-  (más eficiente, una sola request). Sea cual sea, mantener 100% aditivo. Patrón
-  de front a copiar: cualquier `dashboard/<area>/page.tsx` reciente.
-- **Más backlog aditivo disponible (mismo patrón):** Logística/Embarque como
-  módulo nuevo `outbound` (Shipment/ASN, folio `ASN-`/`SHP-`) SIN tocar el
-  `shipping` existente; Calidad NCR/CAPA frontend; Inbound/Recibo frontend.
+- **Siguiente ítem exacto a hacer:** **Logística / Embarque (P2.6)** como módulo
+  nuevo `outbound` (NO tocar el `shipping` backend existente; mantener 100%
+  aditivo). Entidad `Shipment` (folio `SHP-` o `ASN-` vía `allocate('SHIPMENT')`/
+  `allocate('ASN')` — ambos YA en defaults; cliente/destino denormalizados,
+  incoterm, carrier, tracking, fecha prometida/embarcada; máquina de estados
+  PACKING→READY→SHIPPED→DELIVERED + CANCELLED). KPIs: por embarcar, embarcados,
+  OTD a cliente, en tránsito. Pantalla `dashboard/outbound` + Cmd-K. Tests máquina
+  de estados + servicio (SQLite). Patrón a copiar: módulo `procurement` (muy
+  similar: estados + fechas + OTD).
+- **Más backlog aditivo disponible (mismo patrón, todo aditivo):** Calidad
+  NCR/CAPA frontend (backend `ncr`/`quality` ya existe — solo UI, OJO no romper);
+  Inbound/Recibo (módulo nuevo `inbound` con IQC pasa/no-pasa, folio `RCV-`);
+  Activos fijos/Depreciación; Conteos cíclicos (módulo nuevo).
+- **IMPORTANTE — puerta de bootstrap:** levantar Postgres efímero (receta arriba)
+  y correr `npm run smoke:bootstrap` ANTES de cada merge. El contenedor se resetea
+  entre sesiones, así que hay que re-crear el cluster cada sesión.
 - **Hygiene recomendada (de-riesga el gate):** portar los 14 `jsonb` hardcodeados
   a `JSON_COLUMN_TYPE` y crear `ENUM_COLUMN_TYPE` (`'enum'` en PG / `'simple-enum'`
   en sqlite) para los 4 `type:'enum'`. Es **no-op en Postgres** y haría que el

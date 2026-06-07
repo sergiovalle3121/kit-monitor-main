@@ -17,6 +17,7 @@ import { LegalModule } from './modules/legal/legal.module';
 import { TestingModule } from './modules/testing/testing.module';
 import { ProcurementModule } from './modules/procurement/procurement.module';
 import { PeopleModule } from './modules/people/people.module';
+import { ControlTowerModule } from './modules/control-tower/control-tower.module';
 
 // AXOS OS Intelligence & Tenancy Infrastructure
 import { EventLedgerInterceptor } from './common/interceptors/event-ledger.interceptor';
@@ -73,6 +74,7 @@ import { AiModule } from './modules/ai/ai.module';
     TestingModule,
     ProcurementModule,
     PeopleModule,
+    ControlTowerModule,
     ForecastModule,
     PlansModule,
     BomModule,
