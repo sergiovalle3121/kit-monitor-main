@@ -170,21 +170,33 @@ archivos, decisiones, endpoints/pantallas, KPIs, siguiente paso / bloqueos.
   cálculo de yield + FPY + Pareto. Gate completo verde: build, **17 suites /
   80 tests**, web tsc+lint, **bootstrap smoke (Postgres)**.
 
+### [procurement] Compras / Procurement — Órdenes de Compra (P2.4) — FUNCIONAL
+- **Backend** (`apps/api/src/modules/procurement/`): `PurchaseOrder` (folio `PO-`
+  vía numeración; proveedor denormalizado — NO acoplado a `suppliers`; máquina de
+  estados DRAFT→ISSUED→ACKNOWLEDGED→RECEIVED→CLOSED + CANCELLED; fechas
+  requerida/prometida/recibida para OTD). KPIs: abiertas, por recibir, vencidas,
+  OTD proveedor, valor comprometido. Controller `procurement`. Migración aditiva.
+  Evento al Event Ledger (MATERIALS). `PURCHASE_ORDER` ya existía en defaults.
+- **Frontend** (`dashboard/procurement`): KPIs, alta de PO, tablero por estado con
+  badge "vencida" y transiciones (captura fecha prometida al confirmar). Cmd-K.
+- **Tests:** `po-state.spec` + `procurement.service.spec` (SQLite). Gate completo
+  verde: build, **19 suites / 90 tests**, web tsc+lint, **bootstrap smoke (PG)**.
+
 <!-- Próximas entradas arriba de esta línea, orden cronológico inverso por bloque -->
 
 ---
 
 ## ▶ RETOMAR AQUÍ (handoff para la próxima sesión)
 
-- **Último ítem terminado:** `feat(testing)` — Test Engineering / Yields (P2.8),
-  mergeado a `main` vía PR (squash). `main` verde.
-- **Estado de plataforma:** en producción: **numeración** (T2), **Mejora
-  Continua** (P2.13), **EHS** (P2.10), **Mantenimiento/TPM** (P2.7), **Legal**
-  (P2.14), **Test Engineering** (P2.8), y el **SecurityModule global** (wiring del
-  guard). API: 17 suites / 80 tests. Migraciones solo aditivas. Patrón consolidado
-  por módulo: (state machine pura si aplica) + entity + dto + service (scope
-  tenant+plant, usa numeración) + controller + module + migración aditiva + specs
-  + página + Cmd-K.
+- **Último ítem terminado:** `feat(procurement)` — Compras / PO (P2.4), mergeado
+  a `main` vía PR (squash). `main` verde.
+- **Estado de plataforma:** en producción 7 áreas nuevas + hotfix: **numeración**
+  (T2), **Mejora Continua** (P2.13), **EHS** (P2.10), **Mantenimiento/TPM** (P2.7),
+  **Legal** (P2.14), **Test Engineering** (P2.8), **Compras** (P2.4), y el
+  **SecurityModule global** (wiring del guard) + **smoke de bootstrap**. API: 19
+  suites / 90 tests. Migraciones solo aditivas. Patrón por módulo: (state machine
+  pura si aplica) + entity + dto + service (scope tenant+plant, usa numeración) +
+  controller + module + migración aditiva + specs + página + Cmd-K.
 - **PUERTAS DE CALIDAD ahora (obligatorio antes de cada merge):**
   1) `cd apps/api && npm run build`  2) `npm test` (unit)  3) `npm run lint`+`tsc`
   en web para archivos tocados  4) **`npm run smoke:bootstrap` con Postgres** —
@@ -199,17 +211,19 @@ archivos, decisiones, endpoints/pantallas, KPIs, siguiente paso / bloqueos.
   # gate:
   cd apps/api && npm run build && DATABASE_URL="postgres://postgres@/axos_smoke?host=/tmp&port=5433" npm run smoke:bootstrap
   ```
-- **Siguiente ítem exacto a hacer:** **Compras / Procurement — Órdenes de Compra
-  (P2.4)** como rebanada vertical aditiva — entidad `PurchaseOrder` (folio `PO-`
-  vía `allocate('PURCHASE_ORDER')`; proveedor por nombre/id denormalizado para no
-  acoplar a `suppliers`; líneas como JSON o campos simples: monto total + moneda;
-  máquina de estados DRAFT→ISSUED→ACKNOWLEDGED→RECEIVED→CLOSED + CANCELLED; fecha
-  requerida/prometida para OTD). KPIs: POs abiertas, por recibir, vencidas (OTD),
-  valor comprometido. Pantalla `dashboard/procurement` + Cmd-K. Tests máquina de
-  estados + servicio (SQLite). `PURCHASE_ORDER` (prefijo `PO`) YA existe en
-  defaults. Patrón a copiar: módulo `legal`/`maintenance` (los más recientes).
-  OJO: NO acoplar a `suppliers` existente (denormalizar supplierName); mantener
-  100% aditivo.
+- **Siguiente ítem exacto a hacer:** **RH / Capital Humano — Skills &
+  Certificaciones (P2.9)** como rebanada vertical aditiva y AUTOCONTENIDA (NO
+  acoplar a `users`; denormalizar nombre/email del empleado). Entidad
+  `Certification` (empleado, tipo/skill, estación o área, fecha de obtención y de
+  expiración, estado VALID/EXPIRING/EXPIRED derivado por fecha). Folio opcional.
+  KPIs: certificaciones válidas, por vencer (30/60/90d), vencidas, cobertura por
+  skill. Pantalla `dashboard/rh-skills` (matriz/lista + alta + alertas) + Cmd-K.
+  Tests servicio (SQLite). Si se numera, añadir docType `CERTIFICATION`. Patrón a
+  copiar: módulo `legal` (alertas por fecha) o `testing` (captura/analítica).
+- **Otras opciones de backlog (todas aditivas, mismo patrón):** Control Tower /
+  Cockpit ejecutivo (P3.1/P3.2) como agregador read-only que consume los
+  `/<area>/kpis` ya existentes (numbering/improvement/ehs/maintenance/legal/
+  testing/procurement) — front-end pesado, casi sin backend; gran capstone.
 - **Hygiene recomendada (de-riesga el gate):** portar los 14 `jsonb` hardcodeados
   a `JSON_COLUMN_TYPE` y crear `ENUM_COLUMN_TYPE` (`'enum'` en PG / `'simple-enum'`
   en sqlite) para los 4 `type:'enum'`. Es **no-op en Postgres** y haría que el
