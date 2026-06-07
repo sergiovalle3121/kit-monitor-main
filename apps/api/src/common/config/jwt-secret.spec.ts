@@ -1,13 +1,24 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import { getJwtSecret, DEV_JWT_SECRET } from './jwt-secret';
+import {
+  getJwtSecret,
+  DEV_JWT_SECRET,
+  __resetGeneratedProdSecretForTests,
+} from './jwt-secret';
 
 describe('getJwtSecret', () => {
   const original = { secret: process.env.JWT_SECRET, env: process.env.NODE_ENV };
+  let warnSpy: jest.SpyInstance;
+
+  beforeEach(() => {
+    __resetGeneratedProdSecretForTests();
+    warnSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+  });
 
   afterEach(() => {
     process.env.JWT_SECRET = original.secret;
     process.env.NODE_ENV = original.env;
+    warnSpy.mockRestore();
   });
 
   it('returns a strong JWT_SECRET when set', () => {
@@ -16,16 +27,24 @@ describe('getJwtSecret', () => {
     expect(getJwtSecret()).toBe('this-is-a-long-enough-secret');
   });
 
-  it('throws in production when JWT_SECRET is missing', () => {
+  it('generates a strong random secret in production when missing (no crash, warns)', () => {
     delete process.env.JWT_SECRET;
     process.env.NODE_ENV = 'production';
-    expect(() => getJwtSecret()).toThrow(/JWT_SECRET is required in production/);
+    const s = getJwtSecret();
+    expect(typeof s).toBe('string');
+    expect(s.length).toBeGreaterThanOrEqual(16);
+    expect(s).not.toBe(DEV_JWT_SECRET);
+    // Stable within the process (sign and verify must match).
+    expect(getJwtSecret()).toBe(s);
+    expect(warnSpy).toHaveBeenCalled();
   });
 
-  it('throws in production when JWT_SECRET is too short', () => {
+  it('generates (not the literal) in production when JWT_SECRET is too short', () => {
     process.env.JWT_SECRET = 'short';
     process.env.NODE_ENV = 'production';
-    expect(() => getJwtSecret()).toThrow(/at least 16 characters/);
+    const s = getJwtSecret();
+    expect(s).not.toBe('short');
+    expect(s.length).toBeGreaterThanOrEqual(16);
   });
 
   it('falls back to an explicit dev default outside production', () => {
