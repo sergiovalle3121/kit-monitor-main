@@ -310,23 +310,36 @@ archivos, decisiones, endpoints/pantallas, KPIs, siguiente paso / bloqueos.
   Gate completo verde: build, **35 suites / 167 tests**, web tsc+lint, **bootstrap
   smoke (PG)**.
 
+### [rma] Quejas de Cliente / RMA (P2.2 Calidad) — FUNCIONAL
+- **Backend** (`apps/api/src/modules/rma/`): `RmaCase` (tabla `rma_cases`;
+  cliente/parte/serie denormalizados, falla, severidad; máquina de estados
+  OPEN→INVESTIGATING→DISPOSITION→CLOSED + CANCELLED; disposición
+  REPAIR/REPLACE/CREDIT/REJECT requerida al disponer; causa raíz). Folio `RMA-`.
+  KPIs: abiertas, en investigación, **tiempo de cierre promedio (días)**, por
+  disposición. Controller `rma`. Migración aditiva. docType `RMA`. Event Ledger
+  (QUALITY).
+- **Frontend** (`dashboard/rma`): KPIs, alta de queja, tablero por estado con
+  chips de severidad/disposición y transiciones (captura disposición). Cmd-K.
+- **Tests:** `rma-state.spec` + `rma.service.spec` (SQLite). Gate completo verde:
+  build, **37 suites / 177 tests**, web tsc+lint, **bootstrap smoke (PG)**.
+
 <!-- Próximas entradas arriba de esta línea, orden cronológico inverso por bloque -->
 
 ---
 
 ## ▶ RETOMAR AQUÍ (handoff para la próxima sesión)
 
-- **Último ítem terminado:** `feat(tooling)` — Tooling / Herramentales (NPI),
+- **Último ítem terminado:** `feat(rma)` — Quejas de Cliente / RMA (P2.2),
   mergeado a `main` vía PR (squash). `main` verde.
-- **Estado de plataforma:** en producción 16 entregas nuevas + hotfix:
+- **Estado de plataforma:** en producción 17 entregas nuevas + hotfix:
   **numeración** (T2), **Mejora Continua** (P2.13), **EHS** (P2.10),
   **Mantenimiento/TPM** (P2.7), **Legal** (P2.14), **Test Engineering** (P2.8),
   **Compras** (P2.4), **RH/Skills** (P2.9), **Torre de Control** (P3.1/P3.2),
   **Logística/Embarque** (P2.6), **Recibo/Inbound+IQC** (P2.5), **Conteos
   Cíclicos** (P2.3), **CRM/Pipeline** (P1.1), **Activos Fijos** (P1.1 FIN),
-  **Gastos/Viáticos** (FIN-AP), **Tooling/Herramentales** (NPI), más el
-  **SecurityModule global** + **smoke de bootstrap**. API: 35 suites / 167 tests.
-  Migraciones solo aditivas. Patrón por
+  **Gastos/Viáticos** (FIN-AP), **Tooling/Herramentales** (NPI), **RMA/Quejas**
+  (P2.2), más el **SecurityModule global** + **smoke de bootstrap**. API: 37
+  suites / 177 tests. Migraciones solo aditivas. Patrón por
   módulo: (state machine / derivación pura si aplica) + entity (TABLA PREFIJADA
   para no chocar con legacy) + dto + service (scope tenant+plant, usa numeración) +
   controller + module + migración aditiva + specs + página + Cmd-K.
@@ -344,17 +357,18 @@ archivos, decisiones, endpoints/pantallas, KPIs, siguiente paso / bloqueos.
   # gate:
   cd apps/api && npm run build && DATABASE_URL="postgres://postgres@/axos_smoke?host=/tmp&port=5433" npm run smoke:bootstrap
   ```
-- **Siguiente ítem exacto a hacer:** **Quejas de Cliente / RMA (P2.2 Calidad)**
-  como módulo nuevo `rma` (100% aditivo, tabla `rma_cases` PREFIJADA). Entidad
-  `RmaCase` (folio `RMA-` — añadir docType `RMA` prefijo `RMA`; cliente y parte
-  denormalizados, número de serie, descripción de falla, severidad; máquina de
-  estados OPEN→INVESTIGATING→DISPOSITION→CLOSED + CANCELLED; disposición
-  REPAIR/REPLACE/CREDIT/REJECT). KPIs: abiertas, en investigación, tiempo de
-  cierre promedio (días), por disposición. Pantalla `dashboard/rma` + Cmd-K. Tests
-  máquina de estados + servicio (SQLite). Patrón a copiar: `ehs` (investigación).
-- **Más backlog aditivo disponible (mismo patrón):** Auditorías por capas LPA
-  (`audits`, folio `LPA-`); Calidad NCR/CAPA frontend (backend ya existe — SOLO
-  UI); Portal de cliente (rol externo — RBAC); Acciones 8D (`eight-d`).
+- **Siguiente ítem exacto a hacer:** **Auditorías por Capas / LPA (P2.2 Calidad)**
+  como módulo nuevo `audits` (100% aditivo, tabla `layered_audits` PREFIJADA).
+  Entidad `LayeredAudit` (folio `LPA-` — añadir docType `LPA` prefijo `LPA`; área,
+  capa/nivel del auditor, auditor, total de ítems, ítems conformes; **score
+  derivado** = conformes/total; estado SCHEDULED→IN_PROGRESS→COMPLETED +
+  CANCELLED; findings count). Helper puro de score + spec. KPIs: % cumplimiento
+  promedio, auditorías del periodo, hallazgos abiertos, programadas. Pantalla
+  `dashboard/audits` + Cmd-K. Patrón a copiar: `testing` (captura/score) + `rma`
+  (estados).
+- **Más backlog aditivo disponible (mismo patrón):** Calidad NCR/CAPA frontend
+  (backend ya existe — SOLO UI); Portal de cliente (rol externo — RBAC); Acciones
+  8D (`eight-d`); Capacidad/Planeación CRP; Inventario consignado.
 - **IMPORTANTE — puerta de bootstrap (obligatoria, atrapa colisiones de tabla):**
   levantar Postgres efímero (receta arriba) y `npm run smoke:bootstrap` ANTES de
   cada merge. El contenedor se resetea entre sesiones → re-crear el cluster. Y
