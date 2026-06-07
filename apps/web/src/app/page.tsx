@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { AmbientBackground } from "@/components/AmbientBackground";
+import { EntranceSweep } from "@/components/EntranceSweep";
 import { Reveal } from "@/components/Reveal";
 import { hoverLift, press } from "@/lib/motion";
 import {
@@ -130,6 +131,8 @@ export default function Home() {
     <main className="relative min-h-screen selection:bg-black selection:text-white dark:selection:bg-white dark:selection:text-black">
       {/* Fondo ambiental (aurora + red de nodos en movimiento) detrás del hero */}
       <AmbientBackground network />
+      {/* Ola de luz de izquierda a derecha, una sola pasada al cargar */}
+      <EntranceSweep />
 
       {/* Navigation */}
       <nav className="fixed top-0 w-full z-50 premium-glass px-6 py-4 flex justify-between items-center border-b border-gray-200/50 dark:border-white/5 backdrop-blur-md bg-white/70 dark:bg-black/40">
