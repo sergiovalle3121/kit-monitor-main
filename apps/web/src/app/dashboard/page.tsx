@@ -14,8 +14,11 @@ import {
 import { TCodePalette } from "@/components/TCodePalette";
 import { WorkspaceSwitcher } from "@/components/WorkspaceSwitcher";
 import { glass } from "@/lib/glass";
+import { containerRM, itemRM, hoverRM, pressRM } from "@/lib/motion";
 import { useApi } from "@/hooks/useApi";
 import { positionLabel } from "@/config/positions";
+
+const MotionLink = motion.create(Link);
 
 interface SessionInfo {
   kind: "user" | "demo";
@@ -213,30 +216,30 @@ function DashboardInner() {
         </header>
 
         {/* KPIs — fila simétrica de 3 */}
-        <section className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-10">
+        <motion.section variants={containerRM(reduce)} initial="hidden" animate="show" className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-10">
           {kpis.map((k) => (
-            <Link key={k.label} href={k.href}>
-              <div className={`${glass} rounded-3xl p-5 h-full hover:-translate-y-1 transition-transform`}>
+            <MotionLink key={k.label} href={k.href} variants={itemRM(reduce)} whileHover={hoverRM(reduce)} whileTap={pressRM(reduce)} className="block h-full">
+              <div className={`${glass} rounded-3xl p-5 h-full`}>
                 <div className="flex items-center justify-between mb-3"><k.icon className="w-5 h-5" style={{ color: k.color }} /><ChevronRight className="w-4 h-4 text-gray-300" /></div>
                 <div className="text-4xl font-bold tracking-tight tabular-nums" style={{ color: k.color }}>{k.value}</div>
                 <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">{k.label}</div>
               </div>
-            </Link>
+            </MotionLink>
           ))}
-        </section>
+        </motion.section>
 
         {/* Tus áreas — grid uniforme y simétrico */}
         <section className="mb-10">
           <h2 className="text-sm font-semibold tracking-wide text-gray-500 dark:text-gray-400 mb-4">Tus áreas de trabajo</h2>
           {areas.length > 0 ? (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            <motion.div variants={containerRM(reduce)} initial="hidden" animate="show" className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {areas.map((a) => (
-                <motion.button key={a.name} onClick={() => router.push(a.href)} whileHover={reduce ? undefined : { y: -4 }} whileTap={reduce ? undefined : { scale: 0.97 }} className={`${glass} rounded-3xl p-5 text-left flex flex-col gap-3 aspect-[4/3] justify-between`}>
+                <motion.button key={a.name} variants={itemRM(reduce)} onClick={() => router.push(a.href)} whileHover={hoverRM(reduce)} whileTap={pressRM(reduce)} className={`${glass} rounded-3xl p-5 text-left flex flex-col gap-3 aspect-[4/3] justify-between`}>
                   <div className={`inline-flex p-3 rounded-2xl ${a.tint} w-fit`}><a.icon className={`w-6 h-6 ${a.color}`} strokeWidth={1.5} /></div>
                   <div><div className="font-bold">{a.name}</div><div className="text-xs text-gray-500 dark:text-gray-400">{a.desc}</div></div>
                 </motion.button>
               ))}
-            </div>
+            </motion.div>
           ) : (
             <div className={`${glass} rounded-3xl p-8 text-center text-sm text-gray-400`}>Aún no tienes áreas asignadas. Pide acceso a tu administrador.</div>
           )}

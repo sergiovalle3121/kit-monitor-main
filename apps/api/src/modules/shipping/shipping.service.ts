@@ -38,7 +38,7 @@ export class ShippingService {
 
   async create(dto: Partial<Shipment>, user: User) {
     const count = await this.shipmentRepo.count();
-    const shipmentNumber = `SHP-GDL-${(count + 1).toString().padStart(4, '0')}`;
+    const shipmentNumber = `SHP-${(count + 1).toString().padStart(5, '0')}`;
     const shipment = this.shipmentRepo.create({ ...dto, shipmentNumber, status: ShipmentStatus.PLANNING });
     return this.shipmentRepo.save(shipment);
   }

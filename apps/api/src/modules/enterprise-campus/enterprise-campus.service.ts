@@ -39,7 +39,9 @@ import { EnterpriseLine } from './entities/enterprise-line.entity';
 import { EnterpriseStation } from './entities/enterprise-station.entity';
 import { EnterprisePlanLink } from './entities/enterprise-plan-link.entity';
 
-const CAMPUS_ID = 'jbl-gdl';
+// Generic, vendor-neutral plant identity. Production starts empty and the admin
+// configures the real plant/buildings in-app; no real customer names ship in code.
+const CAMPUS_ID = 'plant-01';
 
 @Injectable()
 export class EnterpriseCampusService implements OnModuleInit {
@@ -559,7 +561,7 @@ export class EnterpriseCampusService implements OnModuleInit {
       {
         label: 'Excepciones Abiertas',
         value: exceptions.length,
-        sub: 'campus Guadalajara',
+        sub: 'planta principal',
         risk:
           exceptions.length > 4
             ? 'critical'
@@ -634,7 +636,7 @@ export class EnterpriseCampusService implements OnModuleInit {
     ];
 
     return {
-      campus: { id: CAMPUS_ID, code: 'JBL-GDL', name: 'Jabil Guadalajara' },
+      campus: { id: CAMPUS_ID, code: 'PLANT-01', name: 'Planta 1' },
       buildings: buildingNodes,
       warehouses: warehouseNodes,
       customers: customerNodes,
@@ -731,7 +733,7 @@ export class EnterpriseCampusService implements OnModuleInit {
       this.buildingRepo.create({
         id: 'bldg-01',
         code: 'BLDG-01',
-        name: 'Edificio Principal',
+        name: 'Edificio 1',
         status: 'active',
         tags: ['assembly'],
         activeShifts: ['A', 'B', 'C'],
@@ -740,7 +742,7 @@ export class EnterpriseCampusService implements OnModuleInit {
       this.buildingRepo.create({
         id: 'bldg-02',
         code: 'BLDG-02',
-        name: 'Edificio SMT',
+        name: 'Edificio 2',
         status: 'active',
         tags: ['smt', 'npi'],
         activeShifts: ['A', 'B'],
@@ -749,7 +751,7 @@ export class EnterpriseCampusService implements OnModuleInit {
       this.buildingRepo.create({
         id: 'bldg-03',
         code: 'BLDG-03',
-        name: 'Edificio Ensamble',
+        name: 'Edificio 3',
         status: 'active',
         tags: ['final-assembly'],
         activeShifts: ['A', 'B', 'C'],
@@ -761,22 +763,22 @@ export class EnterpriseCampusService implements OnModuleInit {
     const customers = await this.customerRepo.save([
       this.customerRepo.create({
         id: 'cust-hpc',
-        code: 'HPC',
-        name: 'Cliente HPC',
+        code: 'CL-01',
+        name: 'Cliente 1',
         industry: 'Computing',
         status: 'active',
       }),
       this.customerRepo.create({
         id: 'cust-auto',
-        code: 'AUTO',
-        name: 'Cliente Automotriz',
+        code: 'CL-02',
+        name: 'Cliente 2',
         industry: 'Automotive',
         status: 'active',
       }),
       this.customerRepo.create({
         id: 'cust-med',
-        code: 'MED',
-        name: 'Cliente Médico',
+        code: 'CL-03',
+        name: 'Cliente 3',
         industry: 'Medical Devices',
         status: 'active',
       }),
@@ -840,28 +842,28 @@ export class EnterpriseCampusService implements OnModuleInit {
       this.programRepo.create({
         id: 'prog-hpc-01',
         customer: customerById.get('cust-hpc')!,
-        code: 'HPC-01',
-        name: 'High Compute Mainboard',
+        code: 'PRJ-01',
+        name: 'Proyecto 1',
         status: 'active',
-        primaryModelPrefix: 'OP-520',
+        primaryModelPrefix: 'MOD-1',
         dedicatedBuilding: byId.get('bldg-01'),
       }),
       this.programRepo.create({
         id: 'prog-auto-01',
         customer: customerById.get('cust-auto')!,
-        code: 'AUTO-01',
-        name: 'Automotive Control Unit',
+        code: 'PRJ-02',
+        name: 'Proyecto 2',
         status: 'ramping',
-        primaryModelPrefix: 'OP-580',
+        primaryModelPrefix: 'MOD-2',
         dedicatedBuilding: byId.get('bldg-02'),
       }),
       this.programRepo.create({
         id: 'prog-med-01',
         customer: customerById.get('cust-med')!,
-        code: 'MED-01',
-        name: 'Medical Controller',
+        code: 'PRJ-03',
+        name: 'Proyecto 3',
         status: 'npi',
-        primaryModelPrefix: 'OP-600',
+        primaryModelPrefix: 'MOD-3',
         dedicatedBuilding: byId.get('bldg-03'),
       }),
     ]);

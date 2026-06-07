@@ -532,8 +532,8 @@ export class DecisionIntelligenceService {
 
     return {
       site: {
-        id: 'GDL-CAMPUS',
-        name: 'Guadalajara Industrial Campus',
+        id: 'PLANT-01',
+        name: 'Planta 1',
         healthScore: this.calculateDeepHealth(ncrs, tasks, wip, fpy, overdueCapas),
         activeBuildings: buildings.length,
       },
