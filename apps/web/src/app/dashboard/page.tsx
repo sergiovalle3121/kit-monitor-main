@@ -53,6 +53,7 @@ const AREAS: { name: string; desc: string; href: string; icon: LucideIcon; color
   { name: "Axos ERP", desc: "FIN · MM · PP · SD · T-Codes", href: "/dashboard/erp", icon: Icons.Landmark, color: "text-violet-500", tint: "bg-violet-50 dark:bg-violet-500/10", roles: ["finance", "planner", "production_supervisor", "buyer"] },
   { name: "Pruebas / Lab", desc: "Inspección y validación", href: "/dashboard/lab", icon: Icons.FlaskConical, color: "text-teal-500", tint: "bg-teal-50 dark:bg-teal-500/10", roles: ["quality_engineer", "engineering"] },
   { name: "Ing. Industrial", desc: "Proceso, capacidad y mejora", href: "/dashboard/industrial-engineering", icon: Icons.Gauge, color: "text-rose-500", tint: "bg-rose-50 dark:bg-rose-500/10", roles: ["engineering", "industrial_engineer", "production_supervisor"] },
+  { name: "Disposición de líneas", desc: "Layout, ruteo y balanceo", href: "/dashboard/line-engineering", icon: Icons.Gauge, color: "text-rose-600", tint: "bg-rose-50 dark:bg-rose-500/10", roles: ["industrial_engineer", "engineering", "production_supervisor"] },
   { name: "Personas (RH)", desc: "Plantilla y accesos", href: "/dashboard/rh", icon: Icons.Users, color: "text-pink-500", tint: "bg-pink-50 dark:bg-pink-500/10", roles: ["hr"] },
   { name: "Office", desc: "Docs · Hojas · Slides", href: "/dashboard/office", icon: FileText, color: "text-gray-500", tint: "bg-gray-100 dark:bg-white/10", roles: ["engineering", "planner", "quality_engineer", "production_supervisor", "warehouse_operator", "finance", "buyer", "hr"] },
 ];
