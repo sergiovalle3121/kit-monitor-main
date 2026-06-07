@@ -5,6 +5,7 @@ import { RmaService } from './rma.service';
 import { RmaController } from './rma.controller';
 import { NumberingModule } from '../numbering/numbering.module';
 import { EventLedgerModule } from '../event-ledger/event-ledger.module';
+import { provideTenantScopedRepository } from '../../common/tenant/tenant-scoped.repository';
 
 /**
  * RMA / customer complaints (Quality). Self-contained additive area (customer
@@ -17,7 +18,7 @@ import { EventLedgerModule } from '../event-ledger/event-ledger.module';
     EventLedgerModule,
   ],
   controllers: [RmaController],
-  providers: [RmaService],
+  providers: [RmaService, provideTenantScopedRepository(RmaCase)],
   exports: [RmaService],
 })
 export class RmaModule {}

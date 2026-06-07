@@ -5,6 +5,7 @@ import { EhsService } from './ehs.service';
 import { EhsController } from './ehs.controller';
 import { NumberingModule } from '../numbering/numbering.module';
 import { EventLedgerModule } from '../event-ledger/event-ledger.module';
+import { provideTenantScopedRepository } from '../../common/tenant/tenant-scoped.repository';
 
 /**
  * EHS — Safety & Environment. Self-contained additive area that consumes the
@@ -17,7 +18,7 @@ import { EventLedgerModule } from '../event-ledger/event-ledger.module';
     EventLedgerModule,
   ],
   controllers: [EhsController],
-  providers: [EhsService],
+  providers: [EhsService, provideTenantScopedRepository(SafetyIncident)],
   exports: [EhsService],
 })
 export class EhsModule {}

@@ -5,6 +5,7 @@ import { ExpensesService } from './expenses.service';
 import { ExpensesController } from './expenses.controller';
 import { NumberingModule } from '../numbering/numbering.module';
 import { EventLedgerModule } from '../event-ledger/event-ledger.module';
+import { provideTenantScopedRepository } from '../../common/tenant/tenant-scoped.repository';
 
 /**
  * Expenses / travel reimbursement (FIN / AP). Self-contained additive area
@@ -17,7 +18,7 @@ import { EventLedgerModule } from '../event-ledger/event-ledger.module';
     EventLedgerModule,
   ],
   controllers: [ExpensesController],
-  providers: [ExpensesService],
+  providers: [ExpensesService, provideTenantScopedRepository(ExpenseReport)],
   exports: [ExpensesService],
 })
 export class ExpensesModule {}
