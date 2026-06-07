@@ -3,6 +3,7 @@ import { join } from 'path';
 import {
   getJwtSecret,
   DEV_JWT_SECRET,
+  ensurePersistentJwtSecret,
   __resetGeneratedProdSecretForTests,
 } from './jwt-secret';
 
@@ -51,6 +52,35 @@ describe('getJwtSecret', () => {
     delete process.env.JWT_SECRET;
     process.env.NODE_ENV = 'development';
     expect(getJwtSecret()).toBe(DEV_JWT_SECRET);
+  });
+});
+
+describe('ensurePersistentJwtSecret', () => {
+  const saved = {
+    secret: process.env.JWT_SECRET,
+    url: process.env.DATABASE_URL,
+    host: process.env.DB_HOST,
+  };
+  afterEach(() => {
+    process.env.JWT_SECRET = saved.secret as string;
+    if (saved.url === undefined) delete process.env.DATABASE_URL;
+    else process.env.DATABASE_URL = saved.url;
+    if (saved.host === undefined) delete process.env.DB_HOST;
+    else process.env.DB_HOST = saved.host;
+  });
+
+  it('is a no-op when a strong JWT_SECRET is already set', async () => {
+    process.env.JWT_SECRET = 'a-strong-enough-secret-value';
+    await expect(ensurePersistentJwtSecret()).resolves.toBeUndefined();
+    expect(process.env.JWT_SECRET).toBe('a-strong-enough-secret-value');
+  });
+
+  it('does nothing (and never throws) when there is no DB configured', async () => {
+    delete process.env.JWT_SECRET;
+    delete process.env.DATABASE_URL;
+    delete process.env.DB_HOST;
+    await expect(ensurePersistentJwtSecret()).resolves.toBeUndefined();
+    expect(process.env.JWT_SECRET).toBeUndefined();
   });
 });
 

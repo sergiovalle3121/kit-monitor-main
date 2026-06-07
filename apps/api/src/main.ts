@@ -8,6 +8,7 @@ import { Request, Response, NextFunction } from 'express';
 import { UsersService } from './modules/users/users.service';
 import { UserRole } from './modules/users/entities/user.entity';
 import { AuthService } from './modules/auth/auth.service';
+import { ensurePersistentJwtSecret } from './common/config/jwt-secret';
 
 function parseAllowedOrigins(raw: string): string[] {
   const value = (raw || '').trim();
@@ -176,6 +177,11 @@ async function seedAdmins(app: INestApplication): Promise<void> {
 }
 
 async function bootstrap() {
+  // Resolve a STABLE JWT secret before the DI graph builds (JwtModule + JwtStrategy
+  // read it synchronously). Persists one in the DB if no env secret is set, so a
+  // redeploy no longer logs everyone out. Never throws — boot is unaffected.
+  await ensurePersistentJwtSecret();
+
   const app = await NestFactory.create(AppModule, { cors: false });
   app.useWebSocketAdapter(new IoAdapter(app));
 
