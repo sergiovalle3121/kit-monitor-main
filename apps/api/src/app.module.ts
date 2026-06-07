@@ -13,6 +13,7 @@ import { NumberingModule } from './modules/numbering/numbering.module';
 import { ImprovementModule } from './modules/improvement/improvement.module';
 import { EhsModule } from './modules/ehs/ehs.module';
 import { MaintenanceModule } from './modules/maintenance/maintenance.module';
+import { LegalModule } from './modules/legal/legal.module';
 
 // AXOS OS Intelligence & Tenancy Infrastructure
 import { EventLedgerInterceptor } from './common/interceptors/event-ledger.interceptor';
@@ -65,6 +66,7 @@ import { AiModule } from './modules/ai/ai.module';
     ImprovementModule,
     EhsModule,
     MaintenanceModule,
+    LegalModule,
     ForecastModule,
     PlansModule,
     BomModule,
