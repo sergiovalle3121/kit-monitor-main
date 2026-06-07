@@ -182,21 +182,36 @@ archivos, decisiones, endpoints/pantallas, KPIs, siguiente paso / bloqueos.
 - **Tests:** `po-state.spec` + `procurement.service.spec` (SQLite). Gate completo
   verde: build, **19 suites / 90 tests**, web tsc+lint, **bootstrap smoke (PG)**.
 
+### [people] RH / Capital Humano — Skills & Certificaciones (P2.9) — FUNCIONAL
+- **Backend** (`apps/api/src/modules/people/`): `Certification` (empleado
+  denormalizado — NO acoplado a `users`; skill, área, estación, fechas; folio
+  `CERT-`). Estatus **derivado** por fecha (VALID/EXPIRING/EXPIRED/NO_EXPIRY) vía
+  helper puro `cert-status.ts`. KPIs: vigentes, por vencer 30/60/90d, vencidas,
+  empleados, skills, cobertura por skill. Controller `people`. Migración aditiva.
+  docType `CERTIFICATION` (prefijo `CERT`).
+- **Frontend** (`dashboard/skills`): KPIs, alta/registro de certificación,
+  cobertura por skill (chips), lista con badge de estatus y botón "Recertificar"
+  (recaptura fecha de expiración). Enlace Cmd-K.
+- **Tests:** `cert-status.spec` (helper puro) + `people.service.spec` (SQLite).
+  Gate completo verde: build, **21 suites / 98 tests**, web tsc+lint, **bootstrap
+  smoke (PG)**.
+
 <!-- Próximas entradas arriba de esta línea, orden cronológico inverso por bloque -->
 
 ---
 
 ## ▶ RETOMAR AQUÍ (handoff para la próxima sesión)
 
-- **Último ítem terminado:** `feat(procurement)` — Compras / PO (P2.4), mergeado
-  a `main` vía PR (squash). `main` verde.
-- **Estado de plataforma:** en producción 7 áreas nuevas + hotfix: **numeración**
+- **Último ítem terminado:** `feat(people)` — RH / Skills & Certificaciones
+  (P2.9), mergeado a `main` vía PR (squash). `main` verde.
+- **Estado de plataforma:** en producción 8 áreas nuevas + hotfix: **numeración**
   (T2), **Mejora Continua** (P2.13), **EHS** (P2.10), **Mantenimiento/TPM** (P2.7),
-  **Legal** (P2.14), **Test Engineering** (P2.8), **Compras** (P2.4), y el
-  **SecurityModule global** (wiring del guard) + **smoke de bootstrap**. API: 19
-  suites / 90 tests. Migraciones solo aditivas. Patrón por módulo: (state machine
-  pura si aplica) + entity + dto + service (scope tenant+plant, usa numeración) +
-  controller + module + migración aditiva + specs + página + Cmd-K.
+  **Legal** (P2.14), **Test Engineering** (P2.8), **Compras** (P2.4), **RH/Skills**
+  (P2.9), y el **SecurityModule global** (wiring del guard) + **smoke de
+  bootstrap**. API: 21 suites / 98 tests. Migraciones solo aditivas. Patrón por
+  módulo: (state machine/derivación pura si aplica) + entity + dto + service
+  (scope tenant+plant, usa numeración) + controller + module + migración aditiva +
+  specs + página + Cmd-K.
 - **PUERTAS DE CALIDAD ahora (obligatorio antes de cada merge):**
   1) `cd apps/api && npm run build`  2) `npm test` (unit)  3) `npm run lint`+`tsc`
   en web para archivos tocados  4) **`npm run smoke:bootstrap` con Postgres** —
@@ -211,19 +226,19 @@ archivos, decisiones, endpoints/pantallas, KPIs, siguiente paso / bloqueos.
   # gate:
   cd apps/api && npm run build && DATABASE_URL="postgres://postgres@/axos_smoke?host=/tmp&port=5433" npm run smoke:bootstrap
   ```
-- **Siguiente ítem exacto a hacer:** **RH / Capital Humano — Skills &
-  Certificaciones (P2.9)** como rebanada vertical aditiva y AUTOCONTENIDA (NO
-  acoplar a `users`; denormalizar nombre/email del empleado). Entidad
-  `Certification` (empleado, tipo/skill, estación o área, fecha de obtención y de
-  expiración, estado VALID/EXPIRING/EXPIRED derivado por fecha). Folio opcional.
-  KPIs: certificaciones válidas, por vencer (30/60/90d), vencidas, cobertura por
-  skill. Pantalla `dashboard/rh-skills` (matriz/lista + alta + alertas) + Cmd-K.
-  Tests servicio (SQLite). Si se numera, añadir docType `CERTIFICATION`. Patrón a
-  copiar: módulo `legal` (alertas por fecha) o `testing` (captura/analítica).
-- **Otras opciones de backlog (todas aditivas, mismo patrón):** Control Tower /
-  Cockpit ejecutivo (P3.1/P3.2) como agregador read-only que consume los
-  `/<area>/kpis` ya existentes (numbering/improvement/ehs/maintenance/legal/
-  testing/procurement) — front-end pesado, casi sin backend; gran capstone.
+- **Siguiente ítem exacto a hacer:** **Torre de Control / Cockpit ejecutivo
+  (P3.1/P3.2)** como capstone aditivo y casi sin backend: un agregador read-only.
+  Opción A (recomendada, simple): página `dashboard/control-tower` que consume en
+  paralelo los `/<area>/kpis` YA existentes (improvement, ehs, maintenance, legal,
+  testing, procurement, people, numbering) con `useApi`, y muestra semáforos por
+  área + los KPIs clave en una sola vista ejecutiva. Opción B (si se quiere
+  backend): módulo `control-tower` con un endpoint `/control-tower/summary` que
+  inyecta los servicios de cada área y agrega sus `.kpis()` en un solo payload
+  (más eficiente, una sola request). Sea cual sea, mantener 100% aditivo. Patrón
+  de front a copiar: cualquier `dashboard/<area>/page.tsx` reciente.
+- **Más backlog aditivo disponible (mismo patrón):** Logística/Embarque como
+  módulo nuevo `outbound` (Shipment/ASN, folio `ASN-`/`SHP-`) SIN tocar el
+  `shipping` existente; Calidad NCR/CAPA frontend; Inbound/Recibo frontend.
 - **Hygiene recomendada (de-riesga el gate):** portar los 14 `jsonb` hardcodeados
   a `JSON_COLUMN_TYPE` y crear `ENUM_COLUMN_TYPE` (`'enum'` en PG / `'simple-enum'`
   en sqlite) para los 4 `type:'enum'`. Es **no-op en Postgres** y haría que el
