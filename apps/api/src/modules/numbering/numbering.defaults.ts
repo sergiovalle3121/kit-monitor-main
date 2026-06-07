@@ -39,6 +39,7 @@ export const DEFAULT_SEQUENCES: SequenceDefault[] = [
   { docType: 'CONTRACT', name: 'Contrato', prefix: 'CON', pattern: '{PREFIX}-{YYYY}-{SEQ}', padding: 5, resetPolicy: 'YEARLY', description: 'Contratos legales / compliance.' },
   { docType: 'TEST_RECORD', name: 'Registro de Prueba', prefix: 'TST', pattern: '{PREFIX}-{YYYY}{MM}-{SEQ}', padding: 6, resetPolicy: 'MONTHLY', description: 'Resultados de prueba (Test Engineering).' },
   { docType: 'CERTIFICATION', name: 'Certificación', prefix: 'CERT', pattern: '{PREFIX}-{YYYY}-{SEQ}', padding: 5, resetPolicy: 'YEARLY', description: 'Certificaciones de skills (RH).' },
+  { docType: 'OPPORTUNITY', name: 'Oportunidad de Venta', prefix: 'OPP', pattern: '{PREFIX}-{YYYY}-{SEQ}', padding: 5, resetPolicy: 'YEARLY', description: 'Oportunidades de venta (CRM / SD).' },
 ];
 
 const PATTERN_FALLBACK = '{PREFIX}-{YYYY}-{SEQ}';
