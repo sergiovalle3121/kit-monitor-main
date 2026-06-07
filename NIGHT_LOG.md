@@ -372,6 +372,12 @@ archivos, decisiones, endpoints/pantallas, KPIs, siguiente paso / bloqueos.
 - **Gate:** build, **191 tests**, **bootstrap smoke (PG)** verdes (valida el DI de
   los 3 providers scoped en la app real).
 
+### [P2.3] Adopción del `TenantScopedRepository` (rma, expenses, ehs) — HECHO
+- Misma recipe de [P2.2] aplicada a `rma`, `expenses`, `ehs` (customer/financial/
+  safety). `getOne`/`findOne`/`update`/`transition` ahora aislados por tenant.
+- **Adoptados hasta ahora (6/16 módulos nuevos):** improvement, legal, procurement,
+  rma, expenses, ehs. Gate: build, **191 tests**, bootstrap smoke (PG) verdes.
+
 <!-- Próximas entradas arriba de esta línea, orden cronológico inverso por bloque -->
 
 ---
@@ -385,12 +391,13 @@ archivos, decisiones, endpoints/pantallas, KPIs, siguiente paso / bloqueos.
 - **Último ítem terminado:** `feat(tenant)` P2.2 — adopción del
   `TenantScopedRepository` en improvement/legal/procurement (anti-fuga del mismo
   servicio). `main` verde (191 tests). P1a (JWT) y P2.1 (infra) ya mergeados.
-- **Siguiente ítem (P2.3 — continuar adopción, mecánico):** replicar la
-  **recipe de [P2.2]** (arriba) en los demás módulos nuevos con `getOne`/`findOne`:
-  ehs, maintenance, testing, people, cycle-counts, crm, fixed-assets, tooling,
-  inbound, outbound, expenses, rma (control-tower no tiene repo; numbering es
-  infra). Cada uno: servicio+módulo+spec, gate verde (incl. **bootstrap smoke**),
-  merge. Luego:
+- **Siguiente ítem (P2.4 — continuar adopción, mecánico):** replicar la
+  **recipe de [P2.2]** (arriba) en los módulos nuevos que faltan:
+  testing, people, cycle-counts, crm, fixed-assets, tooling, inbound, outbound, y
+  **maintenance** (OJO: 2 repos — Asset + MaintenanceOrder; scopear ambos;
+  `getOne` usa el de orders). (control-tower no tiene repo; numbering es infra.)
+  Cada uno: servicio+módulo+spec, gate verde (incl. **bootstrap smoke**), merge.
+  Luego:
   - **P1b (SIN flip):** generar baseline del esquema
     (`npm run migration:generate -- src/migrations/Baseline`), revisar aditivo/
     idempotente (sin DROP), y documentar el **procedimiento de corte** en

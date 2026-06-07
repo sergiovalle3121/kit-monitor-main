@@ -4,6 +4,7 @@ import { ExpenseReport } from './entities/expense-report.entity';
 import { DocumentNumberingService } from '../numbering/document-numbering.service';
 import { DocumentSequence } from '../numbering/entities/document-sequence.entity';
 import { TenantContextService } from '../../common/tenant/tenant-context.service';
+import { createTenantScopedRepository } from '../../common/tenant/tenant-scoped.repository';
 
 describe('ExpensesService (integration)', () => {
   let dataSource: DataSource;
@@ -27,7 +28,7 @@ describe('ExpensesService (integration)', () => {
       ctx,
     );
     service = new ExpensesService(
-      dataSource.getRepository(ExpenseReport),
+      createTenantScopedRepository(ExpenseReport, dataSource.manager, ctx),
       ctx,
       numbering,
     );

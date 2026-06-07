@@ -4,6 +4,7 @@ import { SafetyIncident } from './entities/safety-incident.entity';
 import { DocumentNumberingService } from '../numbering/document-numbering.service';
 import { DocumentSequence } from '../numbering/entities/document-sequence.entity';
 import { TenantContextService } from '../../common/tenant/tenant-context.service';
+import { createTenantScopedRepository } from '../../common/tenant/tenant-scoped.repository';
 
 describe('EhsService (integration)', () => {
   let dataSource: DataSource;
@@ -27,7 +28,7 @@ describe('EhsService (integration)', () => {
       ctx,
     );
     service = new EhsService(
-      dataSource.getRepository(SafetyIncident),
+      createTenantScopedRepository(SafetyIncident, dataSource.manager, ctx),
       ctx,
       numbering,
     );

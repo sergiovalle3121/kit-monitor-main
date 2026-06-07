@@ -4,6 +4,7 @@ import { RmaCase } from './entities/rma-case.entity';
 import { DocumentNumberingService } from '../numbering/document-numbering.service';
 import { DocumentSequence } from '../numbering/entities/document-sequence.entity';
 import { TenantContextService } from '../../common/tenant/tenant-context.service';
+import { createTenantScopedRepository } from '../../common/tenant/tenant-scoped.repository';
 
 describe('RmaService (integration)', () => {
   let dataSource: DataSource;
@@ -27,7 +28,7 @@ describe('RmaService (integration)', () => {
       ctx,
     );
     service = new RmaService(
-      dataSource.getRepository(RmaCase),
+      createTenantScopedRepository(RmaCase, dataSource.manager, ctx),
       ctx,
       numbering,
     );
