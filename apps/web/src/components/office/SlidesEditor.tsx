@@ -4,13 +4,13 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Canvas, StaticCanvas, Textbox, Rect, Circle, Line, Triangle, FabricImage, Polygon,
+  Canvas, StaticCanvas, Textbox, Rect, Circle, Line, Triangle, FabricImage, Polygon, Shadow, Gradient,
 } from 'fabric';
 import {
   Type, ImagePlus, Square, Circle as CircleIcon, Minus, Triangle as TriIcon,
   Trash2, ChevronsUp, ChevronsDown, Plus, Copy, Play, X, Bold, Plus as PlusIcon, Minus as MinusIcon,
   StickyNote, CopyPlus, LayoutGrid, Star, ArrowRight, Diamond,
-  Italic, Underline, AlignLeft, AlignCenter, AlignRight,
+  Italic, Underline, AlignLeft, AlignCenter, AlignRight, Droplet, Blend,
   AlignHorizontalJustifyStart, AlignHorizontalJustifyCenter, AlignHorizontalJustifyEnd,
   AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd,
 } from 'lucide-react';
@@ -167,6 +167,24 @@ export function SlidesEditor({ value, onChange, readOnly }: { value: any; onChan
   function toggleUnderline() { textSet((o) => o.set('underline', !o.underline)); }
   function setTextAlign(a: string) { textSet((o) => o.set('textAlign', a)); }
   function setTextFont(f: string) { textSet((o) => o.set('fontFamily', f)); }
+  function toggleShadow() {
+    const c = fabricRef.current; const o = c?.getActiveObject() as any;
+    if (!c || !o) return;
+    o.set('shadow', o.shadow ? null : new Shadow({ color: 'rgba(0,0,0,0.35)', blur: 14, offsetX: 5, offsetY: 6 }));
+    c.requestRenderAll(); capture(); sync();
+  }
+  function applyGradient() {
+    const c = fabricRef.current; const o = c?.getActiveObject() as any;
+    if (!c || !o || o.type === 'line') return;
+    const w = (o.width || 200) * (o.scaleX || 1);
+    const base = typeof o.fill === 'string' ? o.fill : '#3b82f6';
+    o.set('fill', new Gradient({
+      type: 'linear', gradientUnits: 'pixels',
+      coords: { x1: 0, y1: 0, x2: w, y2: 0 },
+      colorStops: [{ offset: 0, color: base }, { offset: 1, color: '#7c3aed' }],
+    }));
+    c.requestRenderAll(); capture(); sync();
+  }
   function del() { const c = fabricRef.current; const o = c?.getActiveObject(); if (c && o) { c.remove(o); c.requestRenderAll(); } }
   function front() { const c = fabricRef.current; const o = c?.getActiveObject(); if (c && o) { (c as any).bringObjectToFront(o); c.requestRenderAll(); capture(); sync(); } }
   function back() { const c = fabricRef.current; const o = c?.getActiveObject(); if (c && o) { (c as any).sendObjectToBack(o); c.requestRenderAll(); capture(); sync(); } }
@@ -252,6 +270,8 @@ export function SlidesEditor({ value, onChange, readOnly }: { value: any; onChan
         <TBtn on={() => alignObj('vcenter')} title="Centrar vertical"><AlignVerticalJustifyCenter className="w-4 h-4" /></TBtn>
         <TBtn on={() => alignObj('bottom')} title="Alinear abajo"><AlignVerticalJustifyEnd className="w-4 h-4" /></TBtn>
         <span className="w-px h-5 bg-gray-200 dark:bg-white/10 mx-1" />
+        <TBtn on={applyGradient} title="Degradado"><Blend className="w-4 h-4" /></TBtn>
+        <TBtn on={toggleShadow} title="Sombra"><Droplet className="w-4 h-4" /></TBtn>
         <TBtn on={dupObj} title="Duplicar elemento"><CopyPlus className="w-4 h-4" /></TBtn>
         <TBtn on={del} title="Borrar elemento"><Trash2 className="w-4 h-4" /></TBtn>
         {hasSel && (
