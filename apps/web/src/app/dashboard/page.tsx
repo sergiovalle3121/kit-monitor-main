@@ -9,7 +9,7 @@ import type { LucideIcon } from "lucide-react";
 import {
   Bell, User, ShieldAlert, AlertCircle, LogOut, ChevronRight, Megaphone,
   HandHelping, PackageCheck, Warehouse, LineChart, Building2, Settings, Boxes,
-  Factory, ShieldCheck, Cpu, DollarSign, RadioTower, FileText, Search,
+  Factory, ShieldCheck, Cpu, DollarSign, RadioTower, FileText, Search, Pencil, Check, X,
 } from "lucide-react";
 import { WorkspaceSwitcher } from "@/components/WorkspaceSwitcher";
 import { glass } from "@/lib/glass";
@@ -68,6 +68,9 @@ function DashboardInner() {
   const [session, setSession] = useState<SessionInfo | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
+  const [editingName, setEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState("");
+  const [savingName, setSavingName] = useState(false);
   const [notifications, setNotifications] = useState<AdminNotification[]>([]);
   const [pendingCount, setPendingCount] = useState(0);
 
@@ -126,6 +129,24 @@ function DashboardInner() {
     if (!notifOpen && isAdmin) {
       await fetch("/api/admin/notifications", { method: "POST" }).catch(() => {});
       setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    }
+  }
+  async function saveName() {
+    const name = nameDraft.trim();
+    if (!name) return;
+    setSavingName(true);
+    try {
+      const res = await fetch("/api/auth/profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      });
+      if (res.ok) {
+        setSession((s) => (s ? { ...s, name } : s));
+        setEditingName(false);
+      }
+    } finally {
+      setSavingName(false);
     }
   }
 
@@ -188,8 +209,26 @@ function DashboardInner() {
                 <motion.div initial={{ opacity: 0, y: 10, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 10, scale: 0.95 }} className={`${glass} absolute right-0 mt-4 w-72 rounded-[2rem] shadow-2xl p-4 z-[100]`}>
                   <div className="px-4 py-4 border-b border-gray-100 dark:border-white/5 mb-2 flex items-center gap-3">
                     <div className="w-12 h-12 bg-black dark:bg-white rounded-full flex items-center justify-center text-white dark:text-black font-bold">{initials}</div>
-                    <div className="min-w-0">
-                      <p className="font-bold text-sm truncate">{session?.name ?? "Visitor"}</p>
+                    <div className="min-w-0 flex-1">
+                      {editingName ? (
+                        <div className="flex items-center gap-1.5">
+                          <input
+                            autoFocus
+                            value={nameDraft}
+                            onChange={(e) => setNameDraft(e.target.value)}
+                            onKeyDown={(e) => { if (e.key === "Enter") saveName(); if (e.key === "Escape") setEditingName(false); }}
+                            placeholder="Tu nombre"
+                            className="min-w-0 flex-1 bg-gray-100 dark:bg-white/10 rounded-lg px-2 py-1 text-sm outline-none"
+                          />
+                          <button onClick={saveName} disabled={savingName} className="p-1 rounded-md text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 disabled:opacity-50" aria-label="Guardar"><Check className="w-4 h-4" /></button>
+                          <button onClick={() => setEditingName(false)} className="p-1 rounded-md text-gray-400 hover:bg-gray-100 dark:hover:bg-white/10" aria-label="Cancelar"><X className="w-4 h-4" /></button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1.5">
+                          <p className="font-bold text-sm truncate">{session?.name ?? "Visitor"}</p>
+                          <button onClick={() => { setNameDraft(session?.name ?? ""); setEditingName(true); }} className="p-1 rounded-md text-gray-400 hover:text-black dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/10 flex-shrink-0" aria-label="Editar nombre"><Pencil className="w-3.5 h-3.5" /></button>
+                        </div>
+                      )}
                       <p className="text-[11px] text-gray-500 truncate">{session?.email ?? "—"}</p>
                       <span className="inline-block mt-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-violet-100 text-violet-700 dark:bg-violet-500/20 dark:text-violet-300">{roleLabel}</span>
                     </div>
