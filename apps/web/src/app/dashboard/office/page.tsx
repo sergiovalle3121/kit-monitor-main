@@ -94,6 +94,12 @@ export default function OfficeHubPage() {
     const r = await apiFetch(`${API_BASE}/office-documents/${id}/duplicate`, { method: 'POST' });
     if (r.ok) mutate();
   }
+  async function emptyTrash() {
+    if (!docs.length) return;
+    if (!window.confirm(`¿Vaciar la papelera? Se eliminarán ${docs.length} elemento(s) permanentemente.`)) return;
+    await Promise.all(docs.map((d) => apiFetch(`${API_BASE}/office-documents/${d.id}/permanent`, { method: 'DELETE' })));
+    mutate();
+  }
   async function saveRename(id: string) {
     const title = draft.trim() || 'Sin título';
     setEditingId(null);
@@ -142,6 +148,14 @@ export default function OfficeHubPage() {
             <ArrowDownUp className="w-4 h-4" /> {sort === 'recent' ? 'Recientes' : 'Nombre'}
           </button>
         </div>
+
+        {trash && canWrite && docs.length > 0 && (
+          <div className="flex justify-end mb-4">
+            <button onClick={emptyTrash} className="flex items-center gap-2 bg-red-500/10 text-red-500 text-sm font-semibold px-4 py-2 rounded-full hover:bg-red-500/20 transition-colors">
+              <Trash2 className="w-4 h-4" /> Vaciar papelera
+            </button>
+          </div>
+        )}
 
         {!trash && (
           <div className="flex justify-end mb-4">
