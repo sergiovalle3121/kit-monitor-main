@@ -7,6 +7,7 @@
     "license": "UNLICENSED",
     "scripts": {
         "build": "node scripts/build.js",
+        "smoke:bootstrap": "node scripts/bootstrap-smoke.js",
         "start": "node --max-old-space-size=4096 ./node_modules/.bin/nest start",
         "start:prod": "node --max-old-space-size=4096 dist/main.js",
         "postinstall": "node scripts/postinstall.js",

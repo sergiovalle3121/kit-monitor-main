@@ -5,12 +5,14 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { ormOptions } from './orm.options';
 import { HealthController } from './health/health.controller';
 import { TenantModule } from './common/tenant/tenant.module';
+import { SecurityModule } from './common/security/security.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { ForecastModule } from './modules/forecast/forecast.module';
 import { NumberingModule } from './modules/numbering/numbering.module';
 import { ImprovementModule } from './modules/improvement/improvement.module';
 import { EhsModule } from './modules/ehs/ehs.module';
+import { MaintenanceModule } from './modules/maintenance/maintenance.module';
 
 // AXOS OS Intelligence & Tenancy Infrastructure
 import { EventLedgerInterceptor } from './common/interceptors/event-ledger.interceptor';
@@ -56,11 +58,13 @@ import { AiModule } from './modules/ai/ai.module';
   imports: [
     TypeOrmModule.forRoot(ormOptions()),
     TenantModule,
+    SecurityModule,
     AuthModule,
     UsersModule,
     NumberingModule,
     ImprovementModule,
     EhsModule,
+    MaintenanceModule,
     ForecastModule,
     PlansModule,
     BomModule,
