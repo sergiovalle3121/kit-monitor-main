@@ -10,7 +10,7 @@ import {
   Type, ImagePlus, Square, Circle as CircleIcon, Minus, Triangle as TriIcon,
   Trash2, ChevronsUp, ChevronsDown, Plus, Copy, Play, X, Bold, Plus as PlusIcon, Minus as MinusIcon,
   StickyNote, CopyPlus, LayoutGrid, Star, ArrowRight, Diamond,
-  Italic, Underline, AlignLeft, AlignCenter, AlignRight, Droplet, Blend, Link2,
+  Italic, Underline, AlignLeft, AlignCenter, AlignRight, Droplet, Blend, Link2, FlipHorizontal, FlipVertical,
   AlignHorizontalJustifyStart, AlignHorizontalJustifyCenter, AlignHorizontalJustifyEnd,
   AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd,
 } from 'lucide-react';
@@ -56,6 +56,7 @@ export function SlidesEditor({ value, onChange, readOnly }: { value: any; onChan
   const [presenting, setPresenting] = useState(false);
   const [sorter, setSorter] = useState(false);
   const [selAnim, setSelAnim] = useState<string>('none');
+  const [selOpacity, setSelOpacity] = useState(1);
   const [hasSel, setHasSel] = useState(false);
 
   useEffect(() => { curRef.current = cur; }, [cur]);
@@ -86,7 +87,7 @@ export function SlidesEditor({ value, onChange, readOnly }: { value: any; onChan
     canvas.on('object:added', onMod);
     canvas.on('object:modified', onMod);
     canvas.on('object:removed', onMod);
-    const onSel = () => { const o = canvas.getActiveObject() as any; setHasSel(!!o); setSelAnim((o?.anim as string) || 'none'); };
+    const onSel = () => { const o = canvas.getActiveObject() as any; setHasSel(!!o); setSelAnim((o?.anim as string) || 'none'); setSelOpacity(o?.opacity ?? 1); };
     canvas.on('selection:created', onSel);
     canvas.on('selection:updated', onSel);
     canvas.on('selection:cleared', () => { setHasSel(false); setSelAnim('none'); });
@@ -197,6 +198,14 @@ export function SlidesEditor({ value, onChange, readOnly }: { value: any; onChan
     else if (/^https?:\/\//i.test(t)) o.set('link', { type: 'url', href: t });
     else { const n = parseInt(t, 10); if (!Number.isNaN(n) && n > 0) o.set('link', { type: 'slide', index: n - 1 }); else { window.alert('Indica un número de diapositiva o una URL http(s).'); return; } }
     c.requestRenderAll(); capture(); sync();
+  }
+  function flip(axis: 'x' | 'y') {
+    const c = fabricRef.current; const o = c?.getActiveObject() as any;
+    if (c && o) { o.set(axis === 'x' ? 'flipX' : 'flipY', !(axis === 'x' ? o.flipX : o.flipY)); c.requestRenderAll(); capture(); sync(); }
+  }
+  function setOpacity(v: number) {
+    const c = fabricRef.current; const o = c?.getActiveObject() as any;
+    if (c && o) { o.set('opacity', v); c.requestRenderAll(); capture(); sync(); }
   }
   function del() { const c = fabricRef.current; const o = c?.getActiveObject(); if (c && o) { c.remove(o); c.requestRenderAll(); } }
   function front() { const c = fabricRef.current; const o = c?.getActiveObject(); if (c && o) { (c as any).bringObjectToFront(o); c.requestRenderAll(); capture(); sync(); } }
@@ -321,7 +330,16 @@ export function SlidesEditor({ value, onChange, readOnly }: { value: any; onChan
         <span className="w-px h-5 bg-gray-200 dark:bg-white/10 mx-1" />
         <TBtn on={applyGradient} title="Degradado"><Blend className="w-4 h-4" /></TBtn>
         <TBtn on={toggleShadow} title="Sombra"><Droplet className="w-4 h-4" /></TBtn>
+        <TBtn on={() => flip('x')} title="Voltear horizontal"><FlipHorizontal className="w-4 h-4" /></TBtn>
+        <TBtn on={() => flip('y')} title="Voltear vertical"><FlipVertical className="w-4 h-4" /></TBtn>
         <TBtn on={setObjLink} title="Hipervínculo"><Link2 className="w-4 h-4" /></TBtn>
+        {hasSel && (
+          <span className="flex items-center gap-1 ml-1" title="Opacidad">
+            <input type="range" min={0.1} max={1} step={0.05} value={selOpacity}
+              onChange={(e) => { const v = Number(e.target.value); setSelOpacity(v); setOpacity(v); }}
+              className="w-16 accent-amber-500" />
+          </span>
+        )}
         <TBtn on={dupObj} title="Duplicar elemento"><CopyPlus className="w-4 h-4" /></TBtn>
         <TBtn on={del} title="Borrar elemento"><Trash2 className="w-4 h-4" /></TBtn>
         {hasSel && (
