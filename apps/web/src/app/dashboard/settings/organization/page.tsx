@@ -201,6 +201,7 @@ function Section<T extends { id: string }>({
     finally { setBusy(false); }
   }
   async function remove(id: string) {
+    if (!window.confirm('¿Eliminar este registro? Esta acción no se puede deshacer.')) return;
     setDelId(id);
     try { await onDelete(id); }
     catch (e) { onError(e instanceof Error ? e.message : 'Error'); }

@@ -130,8 +130,14 @@ function StepCard({ step, onChange, onError }: { step: Step; onChange: () => voi
     try { await post(`/process/steps/${step.id}/materials`, { partNumber: pn, qtyPerUnit: Number(qty), unit }); setPn(""); setQty(""); setAddMat(false); onChange(); }
     catch (e) { onError(e instanceof Error ? e.message : "Error"); }
   }
-  async function removeMat(id: number) { try { await del(`/process/materials/${id}`); onChange(); } catch (e) { onError(e instanceof Error ? e.message : "Error"); } }
-  async function removeStep() { try { await del(`/process/steps/${step.id}`); onChange(); } catch (e) { onError(e instanceof Error ? e.message : "Error"); } }
+  async function removeMat(id: number) {
+    if (!window.confirm("¿Quitar este material de la estación?")) return;
+    try { await del(`/process/materials/${id}`); onChange(); } catch (e) { onError(e instanceof Error ? e.message : "Error"); }
+  }
+  async function removeStep() {
+    if (!window.confirm(`¿Borrar la estación "${step.name}" y sus materiales? Esta acción no se puede deshacer.`)) return;
+    try { await del(`/process/steps/${step.id}`); onChange(); } catch (e) { onError(e instanceof Error ? e.message : "Error"); }
+  }
 
   return (
     <div className={`${glass} rounded-2xl p-4`}>

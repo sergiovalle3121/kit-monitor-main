@@ -10,6 +10,56 @@ archivos, decisiones, endpoints/pantallas, KPIs, siguiente paso / bloqueos.
 
 ---
 
+## 2026-06-07 — PULIDO Y FUNCIONALIDAD (que lo que existe sirva)
+
+> Sesión de pulido (no features nuevas, no borrar). Rama `claude/hopeful-lovelace-GZEYN`.
+> Orden: 1 acceso owner → 2 JWT estable → 3 auditoría hub → 5 landing → 4 admin →
+> 6 estética → 7 chat → 8 office.
+
+### [1] Acceso del owner (CRÍTICO) — ARREGLADO de raíz
+- **Causa raíz:** `permissionsFor('admin')` devolvía `[]`. El guard del backend ya
+  hace bypass para `role==='Admin'`, pero el **frontend** gatea la UI con el array
+  `permissions` (`hasPermission`) → el owner quedaba bloqueado / "solicitar permiso"
+  / read-only en las apps del hub.
+- **Fix:** `rbac.ts` → `permissionsFor('admin')` ahora devuelve `ALL_PERMISSIONS`
+  (unión de todos los permisos + auth/settings). El JWT del owner carga TODO.
+  `AuthContext.hasPermission/hasRole` además hacen bypass para Admin (case-insensitive)
+  y exponen `isAdmin`. `auth.service.validateUser` refresca al owner a Admin + perms
+  completos de forma idempotente (incluso si tenía perms vacíos por un registro viejo).
+  `main.ts seedAdmins` ya garantizaba el owner como Admin activo (con self-check de login).
+- **Tests:** admin = superset de todos los roles; owner email reconocido.
+
+### [2] JWT estable entre deploys — ARREGLADO
+- **Causa:** sin `JWT_SECRET` en prod, se generaba un secreto aleatorio por proceso
+  → cada redeploy deslogeaba a todos.
+- **Fix:** `ensurePersistentJwtSecret()` corre en `main.ts` ANTES de `NestFactory.create`;
+  si no hay env secret, lee/crea el secreto en la tabla singleton `app_settings`
+  (Postgres) → se reusa entre deploys. SQLite dev = no-op. Nunca tira (fallback a
+  secreto por proceso). Migración aditiva `CreateAppSettings`. **Verificado** contra PG:
+  genera→persiste, y un "redeploy" lee el MISMO secreto.
+
+### [3] Auditoría funcional del hub — INVENTARIO
+Recorrí las ~50 páginas del dashboard. Hallazgo principal: el hub está **más
+funcional de lo que parecía**; el bloqueo real era el acceso del owner (Bloque 1).
+- **Navegación de regreso:** ✅ universal. Las que "parecían" sin botón usan headers
+  compartidos que ya lo traen (`DepartmentWorkspace` → "← Dashboard"; `ErpHeader` →
+  "← ERP"). Ninguna deja atrapado al usuario.
+- **CRUD real + backend:** la mayoría usa `useApi`/`apiFetch` con loading/empty/error
+  y toasts (plan, operador, almacén, calidad, inbound, outbound, procurement, crm,
+  improvement, ehs, maintenance, legal, tooling, fixed-assets, expenses, cycle-counts,
+  rma, skills, test-engineering, numbering, control-tower, + los 6 del piso).
+- **Borrado con confirmación:** ✅ planning, office (papelera + permanente), fixed-assets,
+  organization*, floor-quality. **Arreglado** ⚠️→✅: `engineering` (borrar estación/
+  material ahora confirma) y `settings/organization` (borrar edificio/cliente/proyecto
+  ahora confirma) — antes borraban al instante.
+- **Read-only por diseño (no roto):** `inventory`, `production` (vistas; las mutaciones
+  viven en cycle-counts/staging/operador). `forecast` = simulación client-side.
+- **⚠️ Pendiente menor:** `documents` es una página estática (mock) que duplica a
+  **Office** (sistema real `office-documents`). Se deja intacta (no romper); Office es
+  el sistema real — se pulirá en Bloque 8. Anotado para no confundir.
+
+<!-- (resto de bloques de esta sesión se agregan arriba conforme avanza) -->
+
 ## 2026-06-07 — SUITE DE PISO DE PRODUCCIÓN (edición Jabil)
 
 > Sesión: rama `claude/hopeful-lovelace-GZEYN`. 7 entregas aditivas (PRE-2 + A,B,C,D,F,L).
