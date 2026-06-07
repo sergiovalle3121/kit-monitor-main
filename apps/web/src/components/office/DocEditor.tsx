@@ -9,6 +9,25 @@ import Highlight from '@tiptap/extension-highlight';
 import TaskList from '@tiptap/extension-task-list';
 import TaskItem from '@tiptap/extension-task-item';
 import Image from '@tiptap/extension-image';
+
+// Image with width + alignment (text-wrap) attributes.
+const DocImage = Image.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      width: {
+        default: null,
+        parseHTML: (el: HTMLElement) => el.style.width || null,
+        renderHTML: (attrs: any) => (attrs.width ? { style: `width:${attrs.width}` } : {}),
+      },
+      align: {
+        default: 'center',
+        parseHTML: (el: HTMLElement) => el.getAttribute('data-align') || 'center',
+        renderHTML: (attrs: any) => ({ 'data-align': attrs.align || 'center' }),
+      },
+    };
+  },
+});
 import { TextStyleKit } from '@tiptap/extension-text-style';
 import { TableKit } from '@tiptap/extension-table';
 import Subscript from '@tiptap/extension-subscript';
@@ -97,7 +116,7 @@ export function DocEditor({ value, onChange, readOnly, author, onStats }: { valu
       Highlight.configure({ multicolor: true }),
       TaskList,
       TaskItem.configure({ nested: true }),
-      Image.configure({ inline: false }),
+      DocImage.configure({ inline: false }),
       TextStyleKit.configure({ lineHeight: { types: ['heading', 'paragraph'] } } as any),
       TableKit.configure({ table: { resizable: true } }),
       Subscript,
@@ -216,6 +235,17 @@ export function DocEditor({ value, onChange, readOnly, author, onStats }: { valu
         <EmojiBtn onPick={(e) => c().insertContent(e).run()} />
         <Btn on={() => (c() as any).insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()} title="Tabla"><TableIcon className="w-4 h-4" /></Btn>
         {editor.isActive('table') && <DocTableMenu editor={editor} />}
+        {editor.isActive('image') && (
+          <>
+            <Btn on={() => (c() as any).updateAttributes('image', { align: 'left' }).run()} active={editor.getAttributes('image').align === 'left'} title="Imagen a la izquierda (texto alrededor)"><AlignLeft className="w-4 h-4" /></Btn>
+            <Btn on={() => (c() as any).updateAttributes('image', { align: 'center' }).run()} active={editor.getAttributes('image').align === 'center'} title="Imagen centrada"><AlignCenter className="w-4 h-4" /></Btn>
+            <Btn on={() => (c() as any).updateAttributes('image', { align: 'right' }).run()} active={editor.getAttributes('image').align === 'right'} title="Imagen a la derecha (texto alrededor)"><AlignRight className="w-4 h-4" /></Btn>
+            {['25%', '50%', '75%', '100%'].map((w) => (
+              <button key={w} onMouseDown={(e) => e.preventDefault()} onClick={() => (c() as any).updateAttributes('image', { width: w }).run()}
+                className="px-1.5 h-8 text-[11px] font-semibold rounded-lg hover:bg-gray-100 dark:hover:bg-white/10 text-gray-600 dark:text-gray-300">{w}</button>
+            ))}
+          </>
+        )}
         <Btn on={() => c().setHorizontalRule().run()} title="Separador"><Minus className="w-4 h-4" /></Btn>
         <Btn on={() => (c() as any).setPageBreak().run()} title="Salto de página"><SeparatorHorizontal className="w-4 h-4" /></Btn>
         <Sep />

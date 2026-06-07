@@ -101,3 +101,20 @@ export function roleColumnFor(role: AppRole): string {
 export function permissionsFor(role: AppRole): string[] {
   return ROLE_PERMISSIONS[role] ?? [];
 }
+
+/**
+ * App owner email(s) that should always be full Admin. Configurable via the
+ * OWNER_EMAILS env var (comma-separated); falls back to the project owner so
+ * the owner account is never locked into read-only by accident.
+ */
+export function ownerEmails(): string[] {
+  const fromEnv = (process.env.OWNER_EMAILS || '')
+    .split(',')
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+  return fromEnv.length ? fromEnv : ['sergiovallezarate@gmail.com'];
+}
+
+export function isOwnerEmail(email?: string | null): boolean {
+  return !!email && ownerEmails().includes(email.trim().toLowerCase());
+}

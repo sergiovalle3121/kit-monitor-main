@@ -9,7 +9,7 @@ import * as bcrypt from 'bcrypt';
 import { UsersService } from '../users/users.service';
 import { User } from '../users/entities/user.entity';
 import { RegisterDto } from './dto/register.dto';
-import { AppRole, isAppRole, permissionsFor, roleColumnFor } from './rbac';
+import { AppRole, isAppRole, isOwnerEmail, permissionsFor, roleColumnFor } from './rbac';
 
 @Injectable()
 export class AuthService {
@@ -36,6 +36,15 @@ export class AuthService {
         } passwordMatch=${passwordOk} recvLen=${normalizedPass.length}`,
       );
       throw new UnauthorizedException('Credenciales incorrectas');
+    }
+    // The app owner is always full Admin (and active), regardless of how the
+    // account was originally created. Password still had to match above.
+    if (isOwnerEmail(user.email) && (user.role !== 'Admin' || user.status === 'pending')) {
+      return this.usersService.update(user.id, {
+        role: 'Admin' as User['role'],
+        permissions: permissionsFor('admin'),
+        status: 'active',
+      });
     }
     // Account lifecycle gate (existing users have status null → treated as active).
     if (user.status === 'pending') {
@@ -103,7 +112,10 @@ export class AuthService {
   }) {
     const email = (dto.email ?? '').trim().toLowerCase();
     if (!email) throw new BadRequestException('email es obligatorio.');
-    const role: AppRole = isAppRole(dto.role) ? dto.role : 'warehouse_operator';
+    // The owner email is always Admin even when the frontend session says otherwise.
+    const role: AppRole = isOwnerEmail(email)
+      ? 'admin'
+      : (isAppRole(dto.role) ? dto.role : 'warehouse_operator');
     const tenantId = dto.tenantId ?? dto.buildingId ?? undefined;
 
     const existing = await this.usersService.findOneByEmail(email);
