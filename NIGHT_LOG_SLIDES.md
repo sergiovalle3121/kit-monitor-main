@@ -139,3 +139,14 @@ Verificado: `tsc` ✓, `eslint` ✓, `next build` ✓.
   movidas a `slideAssets.ts` (evita import circular).
 
 Verificado: `tsc` ✓, `eslint` ✓, `next build` ✓.
+
+#### Lote 8 — Zoom/Ajustar + Botones de acción (backlog #14, #10)
+- **Zoom**: Vista ▸ Zoom (alejar/acercar/%, **Ajustar a pantalla**, 100%) usando
+  el zoom de viewport de Fabric (`setZoom` + `setDimensions`); no afecta la
+  serialización.
+- **Botones de acción**: Insertar ▸ Botón de acción → grupo (rect+texto) con
+  hipervínculo de navegación: **Inicio / Anterior / Siguiente / Final / Ir a
+  diapositiva**. El modo presentación resuelve los tipos relativos
+  (`first/prev/next/last/slide/url`).
+
+Verificado: `tsc` ✓, `eslint` ✓, `next build` ✓.

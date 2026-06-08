@@ -19,6 +19,7 @@ import {
   BarChart3, Workflow, Spline, Waypoints,
   List, IndentIncrease, IndentDecrease, MoveHorizontal, AlignVerticalSpaceAround, Sparkles, Search,
   Pointer, Pencil, Eraser, Moon, ListTree,
+  ZoomIn, ZoomOut, Maximize, Scan, MousePointerClick,
 } from 'lucide-react';
 import { SlideSorter } from './SlideSorter';
 import { SlideIconPicker } from './SlideIconPicker';
@@ -105,6 +106,8 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
   const themeRef = useRef<string>(themeId);
   const [showGrid, setShowGrid] = useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
+  const [zoom, setZoom] = useState(1);
+  const stageRef = useRef<HTMLDivElement>(null);
   // Editor de gráfico: { spec } y si edita un objeto existente.
   const [chartEditor, setChartEditor] = useState<{ spec: ChartSpec; editing: boolean } | null>(null);
   const chartTargetRef = useRef<any>(null);
@@ -701,6 +704,40 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
     const [mn] = notesRef.current.splice(from, 1); notesRef.current.splice(to, 0, mn);
     sync(); loadInto(to);
   }
+  // ── Zoom / ajustar a pantalla (zoom de la vista de Fabric) ──────────────────
+  function applyZoom(z: number) {
+    const zz = Math.max(0.25, Math.min(3, z));
+    const c = fabricRef.current;
+    if (c) { c.setZoom(zz); c.setDimensions({ width: CW * zz, height: CH * zz }); c.requestRenderAll(); }
+    setZoom(zz);
+  }
+  function fitZoom() {
+    const el = stageRef.current; if (!el) { applyZoom(1); return; }
+    applyZoom(Math.min((el.clientWidth - 36) / CW, (el.clientHeight - 36) / CH));
+  }
+  // ── Botones de acción (navegación por hipervínculo) ─────────────────────────
+  function addActionButton(kind: 'first' | 'prev' | 'next' | 'last' | 'slide') {
+    const c = fabricRef.current; if (!c) return;
+    let link: any = { type: kind };
+    let label = 'Acción';
+    if (kind === 'first') label = '⏮ Inicio';
+    else if (kind === 'prev') label = '◀ Anterior';
+    else if (kind === 'next') label = 'Siguiente ▶';
+    else if (kind === 'last') label = 'Final ⏭';
+    else {
+      const v = window.prompt('Ir a la diapositiva número:', '1');
+      if (v === null) return; const n = parseInt(v, 10);
+      if (Number.isNaN(n) || n < 1) { window.alert('Indica un número de diapositiva válido.'); return; }
+      link = { type: 'slide', index: n - 1 }; label = `Ir a ${n}`;
+    }
+    const t = theme();
+    const rect = new Rect({ left: 0, top: 0, width: 200, height: 56, rx: 12, ry: 12, fill: t.accent });
+    const txt = new Textbox(label, { left: 0, top: 16, width: 200, fontSize: 20, fill: '#ffffff', textAlign: 'center', fontFamily: t.font, fontWeight: 'bold' });
+    const g = new Group([rect, txt], {} as any);
+    g.set({ left: 380, top: 360 });
+    (g as any).link = link;
+    c.add(g); c.setActiveObject(g); c.requestRenderAll(); capture(); sync();
+  }
 
   // Lista para el panel de animación (se recalcula en cada render desde el lienzo).
   const animList: AnimItem[] = (() => {
@@ -842,6 +879,13 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
             <RibbonSeparator />
             <RibbonGroup label="Vínculos">
               <RibbonButton icon={Link2} label="Hipervínculo" onClick={setObjLink} />
+              <RibbonMenuButton icon={MousePointerClick} label="Botón de acción" menuWidth={190} items={[
+                { label: '⏮ Ir al inicio', onClick: () => addActionButton('first') },
+                { label: '◀ Diapositiva anterior', onClick: () => addActionButton('prev') },
+                { label: '▶ Diapositiva siguiente', onClick: () => addActionButton('next') },
+                { label: '⏭ Ir al final', onClick: () => addActionButton('last') },
+                { label: '# Ir a diapositiva…', onClick: () => addActionButton('slide') },
+              ]} />
             </RibbonGroup>
           </RibbonTab>
         )}
@@ -971,6 +1015,14 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
           <RibbonGroup label="Mostrar">
             <RibbonButton icon={Grid3x3} label="Cuadrícula" active={showGrid} onClick={() => setShowGrid((g) => !g)} />
           </RibbonGroup>
+          <RibbonSeparator />
+          <RibbonGroup label="Zoom">
+            <RibbonButton icon={ZoomOut} label="Alejar" onClick={() => applyZoom(zoom - 0.1)} />
+            <span className="text-xs tabular-nums text-gray-600 dark:text-gray-300 w-10 text-center select-none">{Math.round(zoom * 100)}%</span>
+            <RibbonButton icon={ZoomIn} label="Acercar" onClick={() => applyZoom(zoom + 0.1)} />
+            <RibbonButton icon={Maximize} label="Ajustar a pantalla" onClick={fitZoom} />
+            <RibbonButton icon={Scan} label="100%" onClick={() => applyZoom(1)} />
+          </RibbonGroup>
           {!readOnly && (
             <>
               <RibbonSeparator />
@@ -1013,8 +1065,8 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
         </div>
 
         <div className="flex-1 min-w-0 flex flex-col gap-2 min-h-0">
-          <div className="flex-1 min-h-0 bg-gray-100 dark:bg-[#0b0b0b] rounded-2xl flex items-center justify-center overflow-auto p-4">
-            <div className="shadow-2xl relative" style={{ width: CW, height: CH, maxWidth: '100%' }}>
+          <div ref={stageRef} className="flex-1 min-h-0 bg-gray-100 dark:bg-[#0b0b0b] rounded-2xl flex items-center justify-center overflow-auto p-4">
+            <div className="shadow-2xl relative flex-shrink-0" style={{ width: CW * zoom, height: CH * zoom }}>
               <canvas ref={elRef} width={CW} height={CH} />
               {showGrid && (
                 <div className="pointer-events-none absolute inset-0" aria-hidden style={{
@@ -1201,7 +1253,15 @@ function Present({
               if (!o?.link) return null;
               const w = (o.radius ? o.radius * 2 : (o.width ?? 0)) * (o.scaleX ?? 1);
               const h = (o.radius ? o.radius * 2 : (o.height ?? 0)) * (o.scaleY ?? 1);
-              const go = () => { if (o.link.type === 'slide') setI(Math.max(0, Math.min(slides.length - 1, o.link.index))); else if (o.link.href) window.open(o.link.href, '_blank', 'noopener'); };
+              const go = () => {
+                const L = o.link; setBlacked(false);
+                if (L.type === 'slide') setI(Math.max(0, Math.min(slides.length - 1, L.index)));
+                else if (L.type === 'first') setI(0);
+                else if (L.type === 'last') setI(slides.length - 1);
+                else if (L.type === 'prev') setI(Math.max(0, i - 1));
+                else if (L.type === 'next') setI(Math.min(slides.length - 1, i + 1));
+                else if (L.href) window.open(L.href, '_blank', 'noopener');
+              };
               return <button key={`lnk${j}`} onClick={go} title="Ir al hipervínculo"
                 style={{ position: 'absolute', left: `${((o.left ?? 0) / CW) * 100}%`, top: `${((o.top ?? 0) / CH) * 100}%`, width: `${(w / CW) * 100}%`, height: `${(h / CH) * 100}%` }}
                 className="cursor-pointer hover:ring-2 ring-blue-400/60 rounded-sm" />;
