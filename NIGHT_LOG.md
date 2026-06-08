@@ -10,6 +10,61 @@ archivos, decisiones, endpoints/pantallas, KPIs, siguiente paso / bloqueos.
 
 ---
 
+## 2026-06-08 — GOLDEN PATH · FASE 0: Maestro de Modelo/Producto (la columna vertebral) 🔑
+
+> Rama `claude/sweet-hawking-UQaaU`. Sin auto-merge a `main` (ver `DECISIONS.md §1`):
+> commit + push a la rama para revisión. Objetivo de la sesión: hilo vertical
+> usable (crear modelo → BOM → plan → aguas abajo) reutilizando módulos.
+
+**Problema #1 resuelto:** no existía una entidad canónica de "modelo". El `model`
+era texto libre repetido en `bom_headers.model`, `plans.model` y la ruta de
+proceso. Ahora hay un **maestro** que todos referenciarán.
+
+### Backend — módulo nuevo `product-models` (tabla `pm_product_models`)
+- **`product-model-state.ts`** (+ spec, 8 casos): máquina de estados pura
+  `DRAFT → ACTIVE → OBSOLETE` con reactivación `OBSOLETE → ACTIVE`; rechaza
+  no-ops y saltos ilegales.
+- **`entities/product-model.entity.ts`**: `id` uuid; `modelNumber` (folio
+  `MDL-…` vía `DocumentNumberingService.allocate('MODEL')`); `name`, `customer?`,
+  `revision` (1.0), `status` (varchar), `description?`, `programId?`, `metadata`
+  (`simple-json`), `activatedAt/obsoletedAt` (`DATE_COLUMN_TYPE`); scope
+  tenant+plant (`TenantBaseEntity`). Índice único `(tenant, plant, model_number)`.
+- **dto** (create/update/transition con validación), **service** (tenant-scoped
+  repo, búsqueda `?search`, KPIs, `findByNumber` exportado para Planeación/IE),
+  **controller** `@Controller('product-models')` con `JwtAuthGuard +
+  PermissionsGuard`: `GET /` (`?search`,`?status`), `GET /kpis`, `GET /:id`,
+  `POST /`, `PATCH /:id`, `POST /:id/activate`, `POST /:id/obsolete`.
+- **Migración** `20260608140000-CreateProductModels` aditiva e idempotente
+  (tabla prefijada `pm_`). Registrado en `app.module.ts`. Folio `MODEL` añadido a
+  `numbering.defaults.ts` (prefijo `MDL`, patrón `{PREFIX}-{SEQ}`, sin reset).
+
+### Frontend — entrada de NPI/Ingeniería
+- **`dashboard/models/page.tsx`**: lista + búsqueda + alta (form), KPIs, estados
+  vacíos honestos con CTA ("Crea tu primer modelo"). Sistema Apple (`PageHeader`
+  domain engineering, `IconTile`, `glass`, framer-motion + `useReducedMotion`).
+- **`dashboard/models/[id]/page.tsx`**: detalle/edición + Activar/Obsoleto/
+  Reactivar según la máquina de estados. (La sección **BOM** se añade en Fase 1.)
+- Lectura `useApi('/product-models')`, escritura `apiFetch` (rutas sin `/api`).
+- Nav: tarjeta **"Modelos · NPI"** en `AREAS` (hub) + entrada en `SearchPalette` +
+  link "Modelos / NPI" en el header de Ingeniería.
+
+### Verificación (todo en verde)
+- API: `tsc --noEmit` (0 errores propios), `npm run build`, `jest
+  src/modules/product-models` (8/8). **Bootstrap smoke en Postgres efímero OK**
+  (grafo completo inicializa, sin colisión de tabla). **Smoke funcional** contra
+  Postgres: creó `MDL-00001`/`MDL-00002`, activar→`ACTIVE`+`activatedAt`, guarda
+  de re-activación, búsqueda, obsoleto→`OBSOLETE`, KPIs correctos, **persiste**.
+- Web: `tsc --noEmit` (0), `eslint` (0 errores; warnings preexistentes ajenos),
+  `next build` OK con rutas `/dashboard/models` y `/dashboard/models/[id]`.
+
+### Siguiente paso (Fase 1)
+- Sección BOM en el detalle del modelo reutilizando `bom` (`POST /bom/headers`,
+  `/components`, `approve`, `activate`) + alta en línea de partes
+  (`POST /inventory/master-data`). Apuntar el `model` de la ruta de proceso de
+  `engineering` al maestro (dropdown).
+
+---
+
 ## 2026-06-08 — CIERRE FASE 3: barra superior + dock compartidos en el layout
 
 > Rama `claude/dazzling-dirac-1puYr`. Solo frontend. Cierra el pendiente de la

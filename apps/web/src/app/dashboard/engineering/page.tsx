@@ -1,9 +1,10 @@
 "use client";
 
 import React, { useState } from "react";
+import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Plus, Trash2, Loader2, X, AlertCircle, Workflow, Package,
+  Plus, Trash2, Loader2, X, AlertCircle, Workflow, Package, Boxes,
 } from "lucide-react";
 import { glass } from "@/lib/glass";
 import { useApi } from "@/hooks/useApi";
@@ -57,7 +58,16 @@ export default function EngineeringPage() {
   return (
     <div className="min-h-screen text-black dark:text-white font-sans pb-32">
       <main className="max-w-3xl mx-auto px-6 pt-10">
-        <PageHeader domain="engineering" title="Ingeniería" subtitle="Define la ruta de la línea: estaciones, materiales y cuántos por unidad" />
+        <PageHeader
+          domain="engineering"
+          title="Ingeniería"
+          subtitle="Define la ruta de la línea: estaciones, materiales y cuántos por unidad"
+          right={
+            <Link href="/dashboard/models" className="inline-flex items-center gap-1.5 text-sm font-medium px-3 py-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10">
+              <Boxes className="w-4 h-4" /> Modelos / NPI
+            </Link>
+          }
+        />
 
         <form onSubmit={load} className={`${glass} flex items-center gap-2 p-2 rounded-2xl mb-6`}>
           <input value={model} onChange={(e) => setModel(e.target.value)} placeholder="Número o nombre del modelo…" className="bg-transparent outline-none text-sm w-full px-3" />

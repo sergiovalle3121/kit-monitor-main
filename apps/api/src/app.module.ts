@@ -40,6 +40,7 @@ import { TenantSubscriber } from './common/database/tenant.subscriber';
 // AXOS OS domain modules
 import { PlansModule } from './modules/plans/plans.module';
 import { BomModule } from './modules/bom/bom.module';
+import { ProductModelsModule } from './modules/product-models/product-models.module';
 import { BayLayoutModule } from './modules/bay-layout/bay-layout.module';
 import { KitsModule } from './modules/kits/kits.module';
 import { KitMaterialsModule } from './modules/kit-materials/kit-materials.module';
@@ -106,6 +107,7 @@ import { AiModule } from './modules/ai/ai.module';
     ForecastModule,
     PlansModule,
     BomModule,
+    ProductModelsModule,
     BayLayoutModule,
     KitsModule,
     KitMaterialsModule,
