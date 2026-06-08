@@ -16,7 +16,7 @@ import {
   AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd,
   LayoutTemplate, Table2, Grid3x3, Hash, SquareDashed, MonitorPlay, Brush,
   Shapes, Crop, SunMedium, Contrast, Wand2, Replace, RefreshCw, Group as GroupIcon, Ungroup, RotateCw,
-  BarChart3, Workflow,
+  BarChart3, Workflow, Spline, Waypoints,
 } from 'lucide-react';
 import { SlideSorter } from './SlideSorter';
 import { SlideIconPicker } from './SlideIconPicker';
@@ -30,6 +30,7 @@ import { buildChartGroup, defaultChartSpec, isChart, type ChartSpec } from './sl
 import { SlideChartEditor } from './SlideChartEditor';
 import { buildSmartArt, defaultSmartSpec, isSmart, type SmartSpec } from './slides/smartart';
 import { SlideSmartArtEditor } from './SlideSmartArtEditor';
+import { makeConnector, refreshConnectors, pickTwo, isConnector } from './slides/connectors';
 import {
   OfficeRibbon, RibbonTab, RibbonGroup, RibbonSeparator,
   RibbonButton, RibbonSelect, RibbonColorButton, RibbonMenuButton,
@@ -187,6 +188,16 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
     smartTargetRef.current = null; setSmartEditor(null);
     capture(); sync();
   }
+  // ── Conectores anclados (se pegan a dos formas y se mueven con ellas) ───────
+  function connect(arrow: boolean) {
+    const c = fabricRef.current; if (!c) return;
+    const sel = c.getActiveObject();
+    const pair = pickTwo(sel); if (!pair) return;
+    c.discardActiveObject(); // restaura coords absolutas de las formas
+    const conn = makeConnector(pair[0], pair[1], arrow, theme().accent);
+    c.add(conn); (c as any).sendObjectToBack?.(conn);
+    c.requestRenderAll(); capture(); sync();
+  }
   async function addIcon(svg: string) {
     const c = fabricRef.current; if (!c) return;
     try {
@@ -232,7 +243,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
     sync();
   }
   // Include custom props (anim = entrance animation, shape = .pptx mapping, link = hyperlink, locked).
-  function capture() { const c = fabricRef.current; if (c) slidesRef.current[curRef.current] = c.toObject(['anim', 'animOrder', 'animDur', 'shape', 'link', 'locked', 'imgFx', 'chartSpec', 'smart', 'conn']); }
+  function capture() { const c = fabricRef.current; if (c) slidesRef.current[curRef.current] = c.toObject(['anim', 'animOrder', 'animDur', 'shape', 'link', 'locked', 'imgFx', 'chartSpec', 'smart', 'conn', 'connId']); }
   function applyLock(o: any) {
     const L = !!o.locked;
     o.set({ lockMovementX: L, lockMovementY: L, lockScalingX: L, lockScalingY: L, lockRotation: L, hasControls: !L });
@@ -264,6 +275,11 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
     canvas.on('selection:cleared', () => { setHasSel(false); setSelType(''); setSelCount(0); setSelAnim('none'); });
     // Doble clic en un gráfico o SmartArt → reabre su editor.
     canvas.on('mouse:dblclick', (e: any) => { const o = e?.target; if (readOnly) return; if (isChart(o)) editChartObj(o); else if (isSmart(o)) editSmartObj(o); });
+    // Conectores anclados: recalcular al mover/escalar/rotar formas.
+    const reconn = () => { try { refreshConnectors(canvas); } catch { /* noop */ } };
+    canvas.on('object:moving', reconn);
+    canvas.on('object:scaling', reconn);
+    canvas.on('object:rotating', reconn);
 
     // Guías de alineación + snapping (al centro/bordes del lienzo y a otros objetos).
     const SNAP = 6;
@@ -302,13 +318,17 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
       const json = slidesRef.current[i] || blank();
       await c.loadFromJSON(json);
       c.backgroundColor = (json.background as string) || '#ffffff';
-      c.forEachObject((o: any) => { if (o.type === 'image' && o.imgFx) applyImageEffects(o, readImgFx(o)); });
+      c.forEachObject((o: any) => {
+        if (o.type === 'image' && o.imgFx) applyImageEffects(o, readImgFx(o));
+        if (isConnector(o)) { o.objectCaching = false; o.lockMovementX = true; o.lockMovementY = true; o.hasControls = false; }
+      });
       if (readOnly) {
         c.selection = false;
         c.forEachObject((o: any) => { o.selectable = false; o.evented = false; });
       } else {
         c.forEachObject((o: any) => { if (o.locked) applyLock(o); });
       }
+      try { refreshConnectors(c); } catch { /* noop */ }
       c.requestRenderAll();
     } catch { /* noop */ }
     loadingRef.current = false;
@@ -693,7 +713,11 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
               <RibbonButton icon={FlipVertical} label="Voltear vertical" onClick={() => flip('y')} />
               <RibbonButton icon={selLocked ? Unlock : Lock} label={selLocked ? 'Desbloquear posición' : 'Bloquear posición'} active={selLocked} onClick={toggleLock} />
               {(selType === 'activeselection' || selType === 'activeSelection') && selCount > 1 && (
-                <RibbonButton icon={GroupIcon} label="Agrupar" shortcut="Ctrl+G" onClick={groupSel} />
+                <>
+                  <RibbonButton icon={GroupIcon} label="Agrupar" shortcut="Ctrl+G" onClick={groupSel} />
+                  <RibbonButton icon={Spline} label="Conectar" onClick={() => connect(false)} />
+                  <RibbonButton icon={Waypoints} label="Conectar con flecha" onClick={() => connect(true)} />
+                </>
               )}
               {selType === 'group' && (
                 <RibbonButton icon={Ungroup} label="Desagrupar" shortcut="Ctrl+Shift+G" onClick={ungroupSel} />

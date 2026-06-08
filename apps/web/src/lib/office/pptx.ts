@@ -155,6 +155,23 @@ function addObject(slide: any, o: any, ST: any) {
     slide.addShape(ST.line, { ...box, line: { color: hex(o.stroke) ?? '111827', width: o.strokeWidth ?? 2 } });
     return;
   }
+  // Conector (polyline con extremos absolutos en `conn`) → línea con flecha opcional.
+  if (type === 'polyline' && o.conn && typeof o.conn.x1 === 'number') {
+    const { x1, y1, x2, y2, arrow } = o.conn;
+    const lbox = { x: sx(Math.min(x1, x2)), y: sy(Math.min(y1, y2)), w: Math.max(0.02, sx(Math.abs(x2 - x1))), h: Math.max(0.02, sy(Math.abs(y2 - y1))) };
+    slide.addShape(ST.line, {
+      ...lbox, flipH: x2 < x1, flipV: y2 < y1,
+      line: { color: hex(o.stroke) ?? '64748B', width: o.strokeWidth ?? 2, ...(arrow ? { endArrowType: 'triangle' } : {}) },
+    });
+    return;
+  }
+  if (type === 'polyline' || type === 'polygon') {
+    // Polilíneas/polígonos sin pista de forma: aproximar con su caja (relleno/línea).
+    if (!o.shape) {
+      slide.addShape(ST.rect, { ...box, fill: hex(o.fill) ? { color: hex(o.fill) } : { type: 'none' }, line: hex(o.stroke) ? { color: hex(o.stroke), width: o.strokeWidth ?? 1 } : undefined });
+      return;
+    }
+  }
   // Custom shape hint (star/arrow/diamond/pentágono…) → preset nativo de PowerPoint.
   const hinted = presetFor(o.shape, ST);
   const shape = hinted

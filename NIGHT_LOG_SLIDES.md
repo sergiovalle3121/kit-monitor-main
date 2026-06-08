@@ -89,3 +89,18 @@ Verificado: `tsc` ✓, `eslint` ✓, `next build` ✓.
   texto nativos, exportan a formas reales en .pptx (vía el handler de grupos).
 
 Verificado: `tsc` ✓, `eslint` ✓ (0 errores), `next build` ✓.
+
+#### Lote 4 — Conectores anclados (backlog #2)
+- `slides/connectors.ts` — conector = `Polyline` que une dos formas por sus
+  **puntos de conexión más cercanos** y se recalcula al mover/escalar/rotar las
+  formas (`object:moving/scaling/rotating` → `refreshConnectors`). Soporta
+  flecha (barbas en la punta). Se autoeliminan si una forma desaparece.
+  Geometría en vivo con `setDimensions()` + invariante `left=pathOffset`.
+- En `SlidesEditor.tsx`: con **2 formas seleccionadas** aparecen **Conectar** y
+  **Conectar con flecha** (Formato ▸ Organizar). Reaplica el bloqueo del
+  conector al cargar; refresca conectores tras cargar la diapositiva. Guarda
+  `connId` por forma.
+- En `pptx.ts`: el conector exporta como **línea nativa** con punta de flecha
+  (`endArrowType`) usando los extremos absolutos guardados en `conn`.
+
+Verificado: `tsc` ✓, `eslint` ✓, `next build` ✓.
