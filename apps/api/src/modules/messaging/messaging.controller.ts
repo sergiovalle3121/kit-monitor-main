@@ -67,6 +67,11 @@ export class MessagingController {
     return this.messaging.markRead(this.me(req), id);
   }
 
+  @Get('conversations/:id/reads')
+  listReads(@Req() req: any, @Param('id') id: string) {
+    return this.messaging.listReads(this.me(req), id);
+  }
+
   @Post('messages')
   sendText(
     @Req() req: any,

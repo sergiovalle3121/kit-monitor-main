@@ -170,6 +170,14 @@ export class ChatGateway
     this.emitToMembers(memberIds, 'reaction:update', payload);
   }
 
+  /** Recibo de lectura: un usuario actualizó su `lastReadAt` en la conversación. */
+  emitReadUpdate(
+    memberIds: string[],
+    payload: { conversationId: string; userId: string; lastReadAt: Date },
+  ): void {
+    this.emitToMembers(memberIds, 'read:update', payload);
+  }
+
   // ── helpers ────────────────────────────────────────────────────────────────
 
   /** Emite un evento a los rooms `user:<id>` de los miembros dados. */

@@ -12,6 +12,7 @@ import {
   Hash,
   Plus,
   X,
+  CheckCheck,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { glass } from '@/lib/glass';
@@ -23,6 +24,7 @@ import {
   ChatMessage,
   ChatUser,
   MessageReaction,
+  ReadReceipt,
 } from '@/lib/chatApi';
 
 /** Set corto de reacciones rápidas (mini-picker del toolbar de cada mensaje). */
@@ -57,6 +59,7 @@ export default function ChatPage() {
   const [showNewChannel, setShowNewChannel] = useState(false);
   const [typingConvo, setTypingConvo] = useState<string | null>(null);
   const [onlineIds, setOnlineIds] = useState<Set<string>>(new Set());
+  const [reads, setReads] = useState<ReadReceipt[]>([]);
 
   const socketRef = useRef<Socket | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
@@ -72,6 +75,9 @@ export default function ChatPage() {
     () => conversations.find((c) => c.id === activeId) ?? null,
     [conversations, activeId],
   );
+
+  // Último mensaje MÍO leído por ≥1 otro miembro (para el indicador "Visto").
+  const seenInfo = computeSeenInfo(messages, reads, meId);
 
   const refreshConversations = useCallback(async () => {
     try {
@@ -163,6 +169,17 @@ export default function ChatPage() {
         );
       },
     );
+    // Recibos de lectura ("visto") en vivo.
+    socket.on(
+      'read:update',
+      (p: { conversationId: string; userId: string; lastReadAt: string }) => {
+        if (p.conversationId !== activeIdRef.current) return;
+        setReads((prev) => [
+          ...prev.filter((r) => r.userId !== p.userId),
+          { userId: p.userId, lastReadAt: p.lastReadAt },
+        ]);
+      },
+    );
     socketRef.current = socket;
     return () => {
       socket.disconnect();
@@ -170,10 +187,11 @@ export default function ChatPage() {
     };
   }, [meId, refreshConversations]);
 
-  // Cargar mensajes al cambiar de conversación + marcar leído
+  // Cargar mensajes al cambiar de conversación + marcar leído + cargar lecturas
   useEffect(() => {
     if (!activeId) return;
     chatApi.listMessages(activeId).then(setMessages).catch(() => setMessages([]));
+    chatApi.listReads(activeId).then(setReads).catch(() => setReads([]));
     chatApi.markRead(activeId).then(refreshConversations).catch(() => {});
   }, [activeId, refreshConversations]);
 
@@ -364,15 +382,23 @@ export default function ChatPage() {
 
               {/* Mensajes */}
               <div className="flex-1 space-y-3 overflow-y-auto px-5 py-4">
-                {messages.map((m) => (
-                  <MessageItem
-                    key={m.id}
-                    m={m}
-                    mine={m.senderId === meId}
-                    isChannel={active.type === 'channel'}
-                    users={users}
-                    onReact={handleReact}
-                  />
+                {messages.map((m, i) => (
+                  <React.Fragment key={m.id}>
+                    <MessageItem
+                      m={m}
+                      mine={m.senderId === meId}
+                      isChannel={active.type === 'channel'}
+                      users={users}
+                      onReact={handleReact}
+                    />
+                    {i === seenInfo.index && (
+                      <ReadIndicator
+                        isChannel={active.type === 'channel'}
+                        readerIds={seenInfo.readerIds}
+                        users={users}
+                      />
+                    )}
+                  </React.Fragment>
                 ))}
                 <div ref={bottomRef} />
               </div>
@@ -475,6 +501,30 @@ export default function ChatPage() {
 function senderName(id: string, users: ChatUser[]): string {
   const u = users.find((x) => x.id === id);
   return u?.username || u?.email || 'Usuario';
+}
+
+/** Índice del último mensaje mío leído por otro + quiénes lo leyeron. */
+function computeSeenInfo(
+  messages: ChatMessage[],
+  reads: ReadReceipt[],
+  meId: string,
+): { index: number; readerIds: string[] } {
+  const readBy = new Map<string, number>();
+  for (const r of reads) {
+    if (r.userId === meId || !r.lastReadAt) continue;
+    readBy.set(r.userId, new Date(r.lastReadAt).getTime());
+  }
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i];
+    if (m.senderId !== meId) continue;
+    const t = new Date(m.createdAt).getTime();
+    const readerIds: string[] = [];
+    readBy.forEach((lr, uid) => {
+      if (lr >= t) readerIds.push(uid);
+    });
+    if (readerIds.length > 0) return { index: i, readerIds };
+  }
+  return { index: -1, readerIds: [] };
 }
 
 /** Punto de presencia (verde = en línea, gris = desconectado) sobre un avatar. */
@@ -591,6 +641,44 @@ function MessageItem({
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+/** Indicador "Visto" bajo mi último mensaje leído (DM: texto; canal: avatares). */
+function ReadIndicator({
+  isChannel,
+  readerIds,
+  users,
+}: {
+  isChannel: boolean;
+  readerIds: string[];
+  users: ChatUser[];
+}) {
+  if (readerIds.length === 0) return null;
+  return (
+    <div className="flex justify-end pr-1 -mt-1">
+      {isChannel ? (
+        <div className="flex items-center gap-1 text-[10px] text-gray-400">
+          <span>Visto por</span>
+          <div className="flex -space-x-1.5">
+            {readerIds.slice(0, 5).map((uid) => (
+              <span
+                key={uid}
+                title={senderName(uid, users)}
+                className="flex h-4 w-4 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-violet-500 text-[7px] font-bold text-white ring-1 ring-white dark:ring-gray-900"
+              >
+                {initials(senderName(uid, users))}
+              </span>
+            ))}
+          </div>
+          {readerIds.length > 5 && <span>+{readerIds.length - 5}</span>}
+        </div>
+      ) : (
+        <span className="flex items-center gap-0.5 text-[10px] text-gray-400">
+          <CheckCheck className="h-3 w-3" /> Visto
+        </span>
+      )}
     </div>
   );
 }

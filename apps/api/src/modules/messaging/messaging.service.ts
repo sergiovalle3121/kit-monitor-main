@@ -423,11 +423,22 @@ export class MessagingService {
   // ── marcar leído ─────────────────────────────────────────────────────────
   async markRead(meId: string, conversationId: string) {
     await this.assertMember(conversationId, meId);
-    await this.members.update(
-      { conversationId, userId: meId },
-      { lastReadAt: new Date() },
-    );
+    const lastReadAt = new Date();
+    await this.members.update({ conversationId, userId: meId }, { lastReadAt });
+    const memberIds = await this.memberIdsOf(conversationId);
+    this.gateway.emitReadUpdate(memberIds, {
+      conversationId,
+      userId: meId,
+      lastReadAt,
+    });
     return { ok: true };
+  }
+
+  // ── recibos de lectura ("visto") por miembro ─────────────────────────────
+  async listReads(meId: string, conversationId: string) {
+    await this.assertMember(conversationId, meId);
+    const rows = await this.members.find({ where: { conversationId } });
+    return rows.map((r) => ({ userId: r.userId, lastReadAt: r.lastReadAt }));
   }
 
   // ── internos ─────────────────────────────────────────────────────────────

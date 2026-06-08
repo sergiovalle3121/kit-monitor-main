@@ -53,6 +53,11 @@ export interface ChatMessage {
   reactions?: MessageReaction[];
 }
 
+export interface ReadReceipt {
+  userId: string;
+  lastReadAt: string | null;
+}
+
 export interface ChatConversation {
   id: string;
   type: 'dm' | 'channel';
@@ -118,6 +123,11 @@ export const chatApi = {
       method: 'POST',
       headers: authHeaders(),
       body: JSON.stringify({ emoji }),
+    }),
+
+  listReads: (conversationId: string) =>
+    req<ReadReceipt[]>(`/api/messaging/conversations/${conversationId}/reads`, {
+      headers: authHeaders(),
     }),
 };
 
