@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ChevronLeft,
-  LineChart,
   Megaphone,
   PackageCheck,
   Plus,
@@ -22,6 +21,7 @@ import { glass } from '@/lib/glass';
 import { useApi } from '@/hooks/useApi';
 import { apiFetch } from '@/lib/apiFetch';
 import { useToast } from '@/contexts/ToastContext';
+import { PageHeader } from '@/components/ui/PageHeader';
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000').replace(/\/$/, '');
 
@@ -191,19 +191,11 @@ export default function PlanningPage() {
 
       <main className="max-w-5xl mx-auto px-6 pt-10">
         {/* Header */}
-        <header className="mb-8">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-3 rounded-2xl bg-violet-50 dark:bg-violet-500/10">
-              <LineChart className="w-7 h-7 text-violet-500" strokeWidth={1.5} />
-            </div>
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight">Planeación</h1>
-              <p className="text-gray-500 dark:text-gray-400 text-sm">
-                Muro de publicación · planeación publica, el almacén prepara el kit
-              </p>
-            </div>
-          </div>
-        </header>
+        <PageHeader
+          domain="planning"
+          title="Planeación"
+          subtitle="Muro de publicación · planeación publica, el almacén prepara el kit"
+        />
 
         {/* KPI strip */}
         <div className="grid grid-cols-3 gap-3 mb-8">

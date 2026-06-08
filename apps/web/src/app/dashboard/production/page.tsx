@@ -2,7 +2,8 @@
 
 import React, { useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { ChevronLeft, Factory, Loader2, Lock, Inbox } from "lucide-react";
+import { ChevronLeft, Loader2, Lock, Inbox } from "lucide-react";
+import { PageHeader } from "@/components/ui/PageHeader";
 import Link from "next/link";
 import { glass } from "@/lib/glass";
 import { useApi } from "@/hooks/useApi";
@@ -45,13 +46,7 @@ export default function ProductionPage() {
       </div>
 
       <main className="max-w-4xl mx-auto px-6 pt-10">
-        <header className="flex items-center gap-3 mb-8">
-          <div className="p-3 rounded-2xl bg-amber-50 dark:bg-amber-500/10"><Factory className="w-7 h-7 text-amber-500" strokeWidth={1.5} /></div>
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Producción</h1>
-            <p className="text-gray-500 dark:text-gray-400 text-sm">Órdenes de trabajo desde los planes publicados</p>
-          </div>
-        </header>
+        <PageHeader domain="production" title="Producción" subtitle="Órdenes de trabajo desde los planes publicados" />
 
         <div className={`${glass} inline-flex p-1 rounded-2xl mb-6 gap-1`}>
           {TABS.map((t) => (

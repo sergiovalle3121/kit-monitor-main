@@ -2,10 +2,9 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import {
   ChevronLeft,
-  Warehouse,
   Inbox,
   Check,
   X,
@@ -20,6 +19,7 @@ import { glass } from '@/lib/glass';
 import { useApi } from '@/hooks/useApi';
 import { apiFetch } from '@/lib/apiFetch';
 import { useMaterialSignals } from '@/hooks/useMaterialSignals';
+import { PageHeader } from '@/components/ui/PageHeader';
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000').replace(/\/$/, '');
 
@@ -98,17 +98,11 @@ export default function AlmacenPage() {
       </div>
 
       <main className="max-w-5xl mx-auto px-6 pt-10">
-        <header className="mb-8 flex items-center gap-3">
-          <div className="p-3 rounded-2xl bg-blue-50 dark:bg-blue-500/10">
-            <Warehouse className="w-7 h-7 text-blue-500" strokeWidth={1.5} />
-          </div>
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Almacén · Surtido</h1>
-            <p className="text-gray-500 dark:text-gray-400 text-sm">
-              Solicitudes de producción en tiempo real · autoriza el surtido del kit
-            </p>
-          </div>
-        </header>
+        <PageHeader
+          domain="warehouse"
+          title="Almacén · Surtido"
+          subtitle="Solicitudes de producción en tiempo real · autoriza el surtido del kit"
+        />
 
         {forbidden && (
           <EmptyState icon={<Lock className="w-6 h-6" />} title="Sin acceso al backend" body="Verifica que el servicio de API esté conectado." />
