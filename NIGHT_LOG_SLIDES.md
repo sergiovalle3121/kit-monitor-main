@@ -254,6 +254,13 @@ Verificado: `tsc` ✓, `eslint` ✓, `next build` ✓.
 
 Verificado: `tsc` ✓, `eslint` ✓, `next build` ✓.
 
+#### Lote 20 — Posición/tamaño precisos + etiquetas (backlog #11)
+- `slides/PositionSizeForm.tsx` — popover **Posición y tamaño** (X/Y/Ancho/Alto/
+  Giro) para el objeto seleccionado, con estado local (se remonta por selección).
+- Los paneles de animación/selección ahora etiquetan **Tabla** y **Conector**.
+
+Verificado: `tsc` ✓, `eslint` ✓, `next build` ✓.
+
 ### Diferido (con estimación)
 - **Secciones en el clasificador** y colapsar/expandir: el sorter es una rejilla;
   insertar encabezados de ancho completo + colapso. Estimación: ~0.5 día.

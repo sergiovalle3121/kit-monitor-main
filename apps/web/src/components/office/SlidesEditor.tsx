@@ -20,7 +20,7 @@ import {
   List, IndentIncrease, IndentDecrease, MoveHorizontal, AlignVerticalSpaceAround, Sparkles, Search,
   Pointer, Pencil, Eraser, Moon, ListTree, Layers,
   ZoomIn, ZoomOut, Maximize, Scan, MousePointerClick, Check,
-  AlignHorizontalSpaceAround, Paintbrush, Stamp, Proportions, FolderPlus, Squircle, Pipette,
+  AlignHorizontalSpaceAround, Paintbrush, Stamp, Proportions, FolderPlus, Squircle, Pipette, Move,
 } from 'lucide-react';
 import { SlideSorter } from './SlideSorter';
 import { SlideIconPicker } from './SlideIconPicker';
@@ -36,6 +36,7 @@ import { QUICK_STYLES } from './slides/quickStyles';
 import { QuickStyleGallery } from './slides/QuickStyleGallery';
 import { buildTableGroup, defaultTableSpec, isTable, type TableSpec } from './slides/table';
 import { SlideTableEditor } from './SlideTableEditor';
+import { PositionSizeForm } from './slides/PositionSizeForm';
 import { buildChartGroup, defaultChartSpec, isChart, type ChartSpec } from './slides/chart';
 import { SlideChartEditor } from './SlideChartEditor';
 import { buildSmartArt, defaultSmartSpec, isSmart, type SmartSpec } from './slides/smartart';
@@ -58,6 +59,8 @@ function labelOf(slide: any): string {
 function typeName(o: any): string {
   if (isChart(o)) return 'Gráfico';
   if (isSmart(o)) return 'SmartArt';
+  if (isTable(o)) return 'Tabla';
+  if (isConnector(o)) return 'Conector';
   const t = String(o?.type || '');
   if (t === 'image') return 'Imagen';
   if (t === 'textbox' || t === 'i-text' || t === 'text') return 'Texto';
@@ -804,6 +807,16 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
     const o = fabricRef.current?.getActiveObject() as any;
     if (o) setAngle(Math.round((o.angle ?? 0) + delta));
   }
+  // Posición y tamaño precisos del objeto seleccionado.
+  function setGeom(patch: { x?: number; y?: number; w?: number; h?: number; angle?: number }) {
+    const c = fabricRef.current; const o = c?.getActiveObject() as any; if (!c || !o) return;
+    if (patch.x !== undefined) o.set('left', patch.x);
+    if (patch.y !== undefined) o.set('top', patch.y);
+    if (patch.angle !== undefined) { o.rotate((((patch.angle % 360) + 360) % 360)); setSelAngle(Math.round(o.angle)); }
+    if (patch.w !== undefined && o.width) o.set('scaleX', Math.max(0.01, patch.w / o.width));
+    if (patch.h !== undefined && o.height) o.set('scaleY', Math.max(0.01, patch.h / o.height));
+    o.setCoords(); c.requestRenderAll(); capture(); sync();
+  }
   function del() { const c = fabricRef.current; const o = c?.getActiveObject(); if (c && o) { c.remove(o); c.requestRenderAll(); } }
   function front() { const c = fabricRef.current; const o = c?.getActiveObject(); if (c && o) { (c as any).bringObjectToFront(o); c.requestRenderAll(); capture(); sync(); } }
   function back() { const c = fabricRef.current; const o = c?.getActiveObject(); if (c && o) { (c as any).sendObjectToBack(o); c.requestRenderAll(); capture(); sync(); } }
@@ -1018,6 +1031,10 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
     const c = fabricRef.current; const a = c?.getActiveObject(); if (!c || !a) return -1;
     return c.getObjects().indexOf(a as any);
   })();
+  const selGeom = (() => {
+    const o = fabricRef.current?.getActiveObject() as any; if (!o) return null;
+    return { x: Math.round(o.left || 0), y: Math.round(o.top || 0), w: Math.round(o.getScaledWidth?.() || 0), h: Math.round(o.getScaledHeight?.() || 0), angle: Math.round(o.angle || 0) };
+  })();
 
   return (
     <div className="flex flex-col gap-3 h-full p-3">
@@ -1213,6 +1230,11 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
                   <input type="number" value={selAngle} title="Ángulo (grados)" onChange={(e) => setAngle(Number(e.target.value))}
                     className="w-14 h-7 text-xs rounded-lg bg-black/[0.04] dark:bg-white/[0.06] px-1.5 outline-none border border-transparent focus:border-blue-500/40 text-gray-800 dark:text-gray-100" />
                   <span className="text-[11px] text-gray-400">°</span>
+                  {selGeom && (
+                    <RibbonMenuButton icon={Move} label="Posición y tamaño" menuWidth={236}>
+                      <PositionSizeForm key={activeIdx} initial={selGeom} canSize={selType !== 'line'} onChange={setGeom} />
+                    </RibbonMenuButton>
+                  )}
                 </RibbonGroup>
               </>
             )}
