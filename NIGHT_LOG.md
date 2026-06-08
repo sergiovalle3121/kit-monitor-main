@@ -1215,3 +1215,68 @@ funcional de lo que parecía**; el bloqueo real era el acceso del owner (Bloque 
 - **Pendiente transversal (cuando haya tiempo):** cablear `allocate()` en módulos
   que numeran a mano (WO/plans, kits, NCR, receiving, shipping) — cambio
   incremental por módulo, cuidando no romper parsers de folios existentes en prod.
+
+---
+
+# ════════════════════════════════════════════════════════════════════════════
+# SESIÓN NOCTURNA #2 — Unificar y dar vida a los módulos (rama `claude/modules-unify`)
+# ════════════════════════════════════════════════════════════════════════════
+
+> **Modo de trabajo:** corre EN PARALELO con la sesión de Office. NO toco Office
+> (`components/office/**`, `app/dashboard/office/**`, `lib/office/**`) ni el hub
+> (`app/dashboard/page.tsx`) ni la paleta (`SearchPalette.tsx`). Toda nueva
+> navegación queda anotada abajo en "PENDIENTE: wiring de navegación".
+>
+> **Rama y base:** trabajo en `claude/modules-unify`, **creada desde el HEAD
+> integrado actual** (`claude/clever-lovelace-qfove` @ `4b59414`), NO desde
+> `origin/main`. Motivo: `origin/main` está rezagado (#154) en una línea
+> divergente que **no contiene la espina dorsal** (product-models / bom / plans /
+> pick-lists). Crear desde `main` rompería todo. El PR se abre para revisión SIN
+> mergear; el dueño decide el destino en la mañana.
+
+## Inventario de páginas `dashboard/*/page.tsx` (excepto `office`)
+
+Clasificación: **(a)** lanzadera/vacía o mock · **(b)** lee datos reales ·
+**(c)** además escribe. Endpoint(s) que ya consume entre paréntesis.
+
+### (a) Lanzadera / vacía / mock — candidatas a "dar vida"
+- `forecast` — **MOCK** (Monte Carlo con `Math.random()` + `setTimeout`). El
+  backend `forecast` YA expone `POST /forecast/simulate` + `monte-carlo.service`.
+  → **TARGET ítem #3** (conectar a la simulación real).
+- `documents` — **MOCK** (archivos hardcodeados, "Office Suite Integration").
+  Backend `office-documents` existe, pero el tema roza Office (otra sesión).
+  → NO lo toco para evitar colisión; anotado como candidato futuro.
+- `industrial-engineering` — lanzadera pura (`DepartmentWorkspace`), sin datos.
+- `lab` — lanzadera (`DepartmentWorkspace`) pero lee KPIs reales de `/ncr`.
+- `metrics` — lanzadera pero lee `/plans`.
+- `rh` — lanzadera pero lee `/governance/users`.
+
+### (b) Lee datos reales
+- `control-tower` (`/control-tower/summary`), `line-control-tower`
+  (`/line-control-tower/summary`), `mission-control` (muchos: production-runtime
+  lines/wip/bottleneck, autopilot, governance, inventory), `inventory`
+  (`/inventory/positions`), `finance` (`/accounting/transactions`), `production`
+  (`/plans`), `quality` (`/ncr`), `erp` + sub `mm`/`pp`/`fin`/`sd` (bien
+  conectadas a `/erp/...`), `metrics` (`/plans`).
+
+### (c) Lee y escribe (POST vía apiFetch)
+- `almacen`, `crm`, `cycle-counts`, `ehs`, `engineering` (`/process/routes`,
+  `/product-models`), `expenses`, `fixed-assets`, `floor-quality`, `improvement`,
+  `inbound`, `legal`, `line-engineering` (+`/product-models`), `maintenance`,
+  `material-staging` (`/production-plan`, `/material-staging/...`), `models`
+  (`/product-models`), `operador` (`/mes/executions`), `operator-terminal`
+  (`/production-plan`, `/operator-terminal/kpis`), `outbound`, `planning`
+  (`/plans`, `/product-models`), `procurement`, `production-plan`, `rma`,
+  `skills`, `test-engineering`, `tooling`.
+
+### Quién ya referencia el maestro de Modelo (`/product-models`)
+`engineering`, `line-engineering`, `planning`, `models`. Indirecto vía
+`/plans`/`/production-plan` (traen `model`): `production`, `operator-terminal`,
+`material-staging`. → **Faltan por conectar (ítem #2):** `quality`/`ncr`,
+`production`, `production-plan` donde usen modelo como texto libre.
+
+## Avance por ítem
+_(se va llenando conforme avanza la noche)_
+
+## PENDIENTE: wiring de navegación (para que el dueño lo conecte en hub/paleta)
+_(ninguno aún)_
