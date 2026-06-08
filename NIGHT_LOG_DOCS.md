@@ -96,6 +96,15 @@ CSS de todo lo anterior en `tiptap.css`.
   **muestra en la página** del editor (no sólo en impresión), además de la vista
   paginada (Paged.js) y el export .docx ya existentes.
 
+### Wave 6 — Atajos Word, selector de tabla, imagen por archivo
+- **Atajos de teclado** (`docShortcuts.ts`): Ctrl+Alt+0/1/2/3/4 (Normal / Encabezado
+  1-4), Ctrl+Shift+7/8 (lista numerada / con viñetas) — auténticos de Word,
+  evitando combinaciones que captura el navegador.
+- **Selector visual de tabla** (`DocTableInsert.tsx`): cuadrícula al pasar el ratón
+  (hasta 8×10) en vez del 3×3 fijo.
+- **Insertar imagen por archivo** (`DocImageInsert.tsx`): subir desde archivo (data
+  URL, límite 5 MB) o desde URL.
+
 ### Hardening y verificación
 - Comentarios: al actualizar un hilo (responder/resolver) ahora se quita y vuelve
   a poner la marca para no acumular marcas duplicadas (la marca `comment` permite

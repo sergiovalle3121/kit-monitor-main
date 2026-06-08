@@ -36,7 +36,7 @@ import { CharacterCount } from '@tiptap/extension-character-count';
 import {
   Bold, Italic, Underline, Strikethrough, Code,
   List, ListOrdered, ListChecks, Quote, AlignLeft, AlignCenter, AlignRight, AlignJustify,
-  Highlighter, Link2, Image as ImageIcon, Table as TableIcon, Undo, Redo, Minus, Search, SeparatorHorizontal,
+  Highlighter, Link2, Undo, Redo, Minus, Search, SeparatorHorizontal,
   Subscript as SubIcon, Superscript as SupIcon, RemoveFormatting, Code2, Calendar, Smile, Baseline, FileText,
   PaintRoller, IndentIncrease, IndentDecrease, ListTree,
 } from 'lucide-react';
@@ -63,6 +63,9 @@ import { SignatureLine } from './docs/signatureLine';
 import { Citation, Bibliography } from './docs/citations';
 import { DocCitations } from './docs/DocCitations';
 import { DocHeaderFooter } from './docs/DocHeaderFooter';
+import { DocTableInsert } from './docs/DocTableInsert';
+import { DocImageInsert } from './docs/DocImageInsert';
+import { DocShortcuts } from './docs/docShortcuts';
 import { DocEquation } from './docs/DocEquation';
 import { DocListMenu } from './docs/DocListMenu';
 import { DocViewTools } from './docs/DocViewTools';
@@ -160,6 +163,7 @@ export function DocEditor({ value, onChange, readOnly, author, onStats, fileActi
       SignatureLine,
       Citation,
       Bibliography,
+      DocShortcuts,
     ],
     content: value ?? '<p></p>',
     editable: !readOnly,
@@ -243,7 +247,6 @@ export function DocEditor({ value, onChange, readOnly, author, onStats, fileActi
   const c = () => editor.chain().focus();
   const addLink = () => { const url = window.prompt('URL del enlace'); if (url) c().extendMarkRange('link').setLink({ href: url }).run(); };
   const toggleLink = () => { if (editor.isActive('link')) c().extendMarkRange('link').unsetLink().run(); else addLink(); };
-  const addImage = () => { const url = window.prompt('URL de la imagen'); if (url) (c() as any).setImage({ src: url }).run(); };
 
   const ts = editor.getAttributes('textStyle');
   const curFont = ts.fontFamily ?? '';
@@ -385,12 +388,12 @@ export function DocEditor({ value, onChange, readOnly, author, onStats, fileActi
             </RibbonGroup>
             <RibbonSeparator />
             <RibbonGroup label="Tablas">
-              <RibbonButton icon={TableIcon} label="Insertar tabla" onClick={() => (c() as any).insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()} />
+              <DocTableInsert editor={editor} />
               {editor.isActive('table') && <DocTableMenu editor={editor} />}
             </RibbonGroup>
             <RibbonSeparator />
             <RibbonGroup label="Ilustraciones">
-              <RibbonButton icon={ImageIcon} label="Imagen" onClick={addImage} />
+              <DocImageInsert editor={editor} />
               {editor.isActive('image') && (
                 <>
                   <RibbonButton icon={AlignLeft} label="Imagen a la izquierda" active={imgAlign === 'left'} onClick={() => (c() as any).updateAttributes('image', { align: 'left' }).run()} />
