@@ -675,7 +675,7 @@ function formatDate(d: Date, code: string): string {
 }
 function toFraction(n: number, maxDen = 99): string {
   const sign = n < 0 ? '-' : ''; const x = Math.abs(n);
-  const whole = Math.floor(x); let frac = x - whole;
+  const whole = Math.floor(x); const frac = x - whole;
   if (frac < 1e-9) return `${sign}${whole}`;
   let bestN = 1, bestD = 1, bestErr = Infinity;
   for (let d = 1; d <= maxDen; d++) { const nn = Math.round(frac * d); const err = Math.abs(frac - nn / d); if (err < bestErr && nn > 0) { bestErr = err; bestN = nn; bestD = d; } }
