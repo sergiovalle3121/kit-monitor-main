@@ -1370,9 +1370,27 @@ hago a medias**. (El patrón ya está bien en `product-models`, `line-engineerin
 - _Nota: dejé `numbering.defaults.ts` en su estilo compacto de 1 línea por entrada
   (como sus 28 hermanas) para no inflar el diff; mi entrada va en ese mismo estilo._
 
+### Ítem #6 — Backlog extra (backends sin UI → UI mínima; masters por doquier)
+Backends sin ningún consumidor en `apps/web` (detectados): `/replenishment`,
+`/kits`, `/resupplies`, `/process-routing`, `/suppliers`, `/shipping`,
+`/visual-aids`, `/bay-layouts`, `/cancellation-requests`.
+- **(commit) Proveedor del maestro en el form de Recibo** — el campo "Proveedor"
+  de `dashboard/receiving` pasó de texto libre a **dropdown de `/suppliers`**
+  (valor = `code`), con fallback a texto si no hay maestro. Sigue el tema de
+  "los masters aparecen en todos lados" (Modelo, Almacén, ahora Proveedor).
+- **(commit) Página `dashboard/suppliers`** (backend `/suppliers` no tenía UI) —
+  lista de solo-lectura del maestro de proveedores: código, nombre, categoría,
+  **badge de estatus** y **score de calidad** (con color por umbral) + KPIs
+  (total, activos, calidad promedio) + búsqueda + estado vacío honesto. Reutiliza
+  `/suppliers`. → Falta wiring de navegación (abajo).
+- `tsc` + `eslint` (web) verdes.
+
 ## PENDIENTE: wiring de navegación (para que el dueño lo conecte en hub/paleta)
 > No edito `app/dashboard/page.tsx` (hub) ni `SearchPalette.tsx` (paleta) — los
 > toca la otra sesión. Páginas nuevas accesibles por URL directa; conéctalas tú:
 - **`/dashboard/receiving`** — "Recibo de material" (entrada a inventario / IQC
   pendiente). Sugerencia: dominio Surtido/Almacén, ícono `PackagePlus`. Cmd-K:
   "Recibo de material", "Recibir", "Entrada de almacén".
+- **`/dashboard/suppliers`** — "Proveedores" (maestro de proveedores: estatus +
+  calidad). Sugerencia: dominio ERP/MM, ícono `Truck`. Cmd-K: "Proveedores",
+  "Suppliers", "Vendedores".

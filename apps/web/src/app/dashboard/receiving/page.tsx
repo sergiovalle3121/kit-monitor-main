@@ -13,6 +13,7 @@ const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000").re
 const ACCENT = "#0a84ff"; // dominio "staging/almacén" — entrada de material
 
 interface Warehouse { id: string; code?: string; name?: string }
+interface Supplier { id: number | string; code: string; name?: string; status?: string }
 
 interface Receipt {
   id: number | string;
@@ -46,9 +47,11 @@ export default function ReceivingPage() {
   const toast = useToast();
   const { data, isLoading, forbidden, mutate } = useApi<Receipt[]>("/receiving/events");
   const { data: whData } = useApi<Warehouse[]>("/enterprise/warehouses");
+  const { data: supData } = useApi<Supplier[]>("/suppliers");
 
   const receipts = useMemo(() => (Array.isArray(data) ? data : []), [data]);
   const warehouses = useMemo(() => (Array.isArray(whData) ? whData : []), [whData]);
+  const suppliers = useMemo(() => (Array.isArray(supData) ? supData : []), [supData]);
 
   const [showForm, setShowForm] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -171,7 +174,14 @@ export default function ReceivingPage() {
               </label>
               <label className="block">
                 <span className="block text-[12px] font-medium text-gray-500 mb-1">Proveedor</span>
-                <input value={form.supplierCode} onChange={(e) => setForm({ ...form, supplierCode: e.target.value })} placeholder="SUP-001" className="rc-input" />
+                {suppliers.length > 0 ? (
+                  <select value={form.supplierCode} onChange={(e) => setForm({ ...form, supplierCode: e.target.value })} className="rc-input">
+                    <option value="">(sin proveedor)</option>
+                    {suppliers.map((s) => <option key={s.id} value={s.code}>{s.code}{s.name ? ` · ${s.name}` : ""}</option>)}
+                  </select>
+                ) : (
+                  <input value={form.supplierCode} onChange={(e) => setForm({ ...form, supplierCode: e.target.value })} placeholder="SUP-001" className="rc-input" />
+                )}
               </label>
               <label className="block">
                 <span className="block text-[12px] font-medium text-gray-500 mb-1">Orden de compra (PO)</span>
