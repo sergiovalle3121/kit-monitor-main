@@ -1,0 +1,68 @@
+'use client';
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
+import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import type { Editor } from '@tiptap/react';
+import { GitPullRequestArrow, Check, X, Trash2, Eraser, PenLine } from 'lucide-react';
+import { RibbonGroup, RibbonSeparator, RibbonButton } from '../ribbon';
+import { collectChanges, type ChangeRange } from './trackChanges';
+
+export function DocTrackChanges({ editor, suggesting, setSuggesting }: { editor: Editor; suggesting: boolean; setSuggesting: (v: boolean) => void }) {
+  const [open, setOpen] = useState(false);
+  const [, force] = useState(0);
+  const refresh = () => force((n) => n + 1);
+  const changes = open ? collectChanges(editor.state.doc) : [];
+
+  const quoted = (c: ChangeRange) => { try { return editor.state.doc.textBetween(c.from, c.to, ' '); } catch { return ''; } };
+  const goTo = (c: ChangeRange) => editor.chain().focus().setTextSelection({ from: c.from, to: c.to }).scrollIntoView().run();
+  const accept = (c: ChangeRange) => { (editor.chain().focus() as any).acceptChange(c.from, c.to, c.type).run(); refresh(); };
+  const reject = (c: ChangeRange) => { (editor.chain().focus() as any).rejectChange(c.from, c.to, c.type).run(); refresh(); };
+
+  return (
+    <>
+      <RibbonGroup label="Seguimiento">
+        <RibbonButton icon={PenLine} label="Modo sugerencias" hideLabel={false} active={suggesting} onClick={() => setSuggesting(!suggesting)} />
+        <RibbonButton icon={Trash2} label="Proponer eliminación" onClick={() => (editor.chain().focus() as any).proposeDeletion().run()} />
+      </RibbonGroup>
+      <RibbonSeparator />
+      <RibbonGroup label="Cambios">
+        <RibbonButton icon={GitPullRequestArrow} label="Revisar cambios" hideLabel={false} onClick={() => { setOpen(true); refresh(); }} />
+        <RibbonButton icon={Check} label="Aceptar todo" onClick={() => { (editor.chain().focus() as any).acceptAllChanges().run(); refresh(); }} />
+        <RibbonButton icon={Eraser} label="Rechazar todo" onClick={() => { (editor.chain().focus() as any).rejectAllChanges().run(); refresh(); }} />
+      </RibbonGroup>
+
+      <AnimatePresence>
+        {open && (
+          <>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[54] bg-black/20" onClick={() => setOpen(false)} />
+            <motion.aside initial={{ x: 340 }} animate={{ x: 0 }} exit={{ x: 340 }} transition={{ type: 'spring', stiffness: 320, damping: 32 }}
+              className="fixed inset-y-0 right-0 w-80 z-[55] bg-white dark:bg-[#161616] border-l border-black/10 dark:border-white/10 shadow-2xl flex flex-col">
+              <div className="flex items-center justify-between px-4 h-12 border-b border-black/5 dark:border-white/10 flex-shrink-0">
+                <span className="font-semibold text-sm">Control de cambios</span>
+                <button onClick={() => setOpen(false)} className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-400"><X className="w-4 h-4" /></button>
+              </div>
+              <div className="flex-1 overflow-y-auto p-2 space-y-2">
+                {changes.length === 0 ? (
+                  <p className="text-sm text-gray-400 text-center py-10 px-4">No hay cambios sugeridos. Activa «Modo sugerencias» y escribe, o selecciona texto y «Proponer eliminación».</p>
+                ) : changes.map((c, i) => (
+                  <div key={i} className="rounded-xl border border-black/10 dark:border-white/10 p-3">
+                    <button onClick={() => goTo(c)} className="block w-full text-left">
+                      <span className={`text-[10px] font-bold uppercase tracking-wide ${c.type === 'insertion' ? 'text-emerald-600' : 'text-red-500'}`}>{c.type === 'insertion' ? 'Inserción' : 'Eliminación'}</span>
+                      <p className={`text-sm mt-0.5 ${c.type === 'deletion' ? 'line-through text-red-500' : 'text-emerald-700 dark:text-emerald-400'}`}>“{quoted(c) || '—'}”</p>
+                      {c.author && <p className="text-[11px] text-gray-400 mt-1">{c.author}{c.date ? ` · ${new Date(c.date).toLocaleDateString('es-ES')}` : ''}</p>}
+                    </button>
+                    <div className="flex items-center gap-1 mt-2">
+                      <button onClick={() => accept(c)} className="flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-500/10 text-emerald-600"><Check className="w-3.5 h-3.5" /> Aceptar</button>
+                      <button onClick={() => reject(c)} className="flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-lg hover:bg-red-50 dark:hover:bg-red-500/10 text-red-500 ml-auto"><X className="w-3.5 h-3.5" /> Rechazar</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </motion.aside>
+          </>
+        )}
+      </AnimatePresence>
+    </>
+  );
+}

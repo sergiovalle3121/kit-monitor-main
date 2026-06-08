@@ -1,0 +1,64 @@
+# NIGHT_LOG_DOCS — Editor de Documentos (Word) de AXOS
+
+> Sesión nocturna autónoma. Objetivo: acercar el editor de **Documentos** a Microsoft Word
+> construyendo profundidad sobre TipTap/ProseMirror (MIT). Rama de trabajo:
+> `claude/eloquent-euler-eYstb` (rama designada por el entorno para esta sesión; el texto de
+> la tarea mencionaba `claude/office-docs`, pero el entorno está configurado para esta rama —
+> misma intención de seguridad: rama de feature, sin merge a `main`, PR abierto sin mergear).
+
+## Reglas respetadas
+- No se toca el ribbon compartido (`components/office/ribbon/**`) — sólo se consume.
+- No se toca `OfficeShell.tsx`, `office/[id]/page.tsx`, `Sheet*`, `Slide*`, `slideAssets.ts`,
+  `charts.ts`/`xlsx.ts`/`pptx.ts`/`sheetOps.ts`, `dashboard/page.tsx`, `SearchPalette.tsx`,
+  `globals.css`, `eslint.config.mjs`, ni nada fuera de Docs.
+- Archivos propios editados: `DocEditor.tsx`, `DocStyleGallery.tsx`, `DocPageSetup.tsx`,
+  `DocSymbolPicker.tsx`, `DocComments.tsx`, `DocFindReplace.tsx`, `DocOutline.tsx`,
+  `DocTableMenu.tsx`, `DocPageView.tsx`, `docExtensions.ts`, `docPageExtensions.ts`,
+  `commentMark.ts`, `lib/office/docx.ts`, `styles/tiptap.css`.
+- Archivos nuevos bajo `components/office/docs/` y con prefijo `Doc*`.
+
+## Dependencias nuevas
+- `katex@^0.17.0` (MIT) + `@types/katex@^0.16.8` (MIT) — ecuaciones LaTeX. Sólo se carga en
+  el chunk del editor de Docs (que ya es `dynamic`/`ssr:false`).
+
+## Bitácora (orden cronológico)
+
+### Wave 1 — Motor + profundidad base (tsc + lint + next build en verde)
+Capa de extensiones nuevas (`components/office/docs/`):
+- **listNumbering.ts** — numeración multinivel real: esquema *legal* `1, 1.1, 1.1.1`
+  (counters CSS), esquema *outline* `I, A, 1, a`, y reiniciar/fijar numeración
+  (`setListScheme`, `restartNumbering`).
+- **mathExtension.ts** — ecuaciones LaTeX con **KaTeX**: nodos `mathInline` /
+  `mathBlock` con NodeView, `renderHTML` con KaTeX ya renderizado (la vista de
+  impresión conserva la fórmula), comandos insertar/actualizar. Diálogo
+  `DocEquation.tsx` con vista previa en vivo y paleta de símbolos por categoría.
+- **footnotes.ts** — notas al pie mínimas estables: `footnoteRef` (superíndice
+  autonumerado) + `footnoteList` (área de notas viva, como la TOC). UI
+  `DocFootnotes.tsx` (insertar/editar/área).
+- **insertNodes.ts** — letra capital (`DropCap`), cuadro de texto/llamada
+  (`Callout` con tonos), salto de columna (`ColumnBreak`), marcador (`Bookmark`)
+  y referencia cruzada (`CrossRef`, clic = navegar). UI `DocInsertExtras.tsx`.
+- **trackChanges.ts** — control de cambios mínimo estable: marcas
+  `insertion`/`deletion` (autor+fecha), modo sugerencias (texto escrito se marca
+  como inserción vía `handleTextInput`), proponer eliminación, aceptar/rechazar
+  (todo o por cambio). Panel `DocTrackChanges.tsx`.
+- **tableCellAttrs.ts** — sombreado (color de fondo) y alineación vertical de celda.
+- **searchHighlight.ts** — resaltado en vivo de todas las coincidencias de
+  búsqueda (decoraciones PM, se remapean al editar).
+- **focusLine.ts** — modo enfoque (resalta el bloque activo, atenúa el resto).
+Controles de ribbon nuevos (todos consumiendo el ribbon compartido, sin tocarlo):
+- `DocListMenu`, `DocViewTools` (zoom, marcas ¶, regla, enfoque, lectura,
+  ortografía), `DocWordCount` (palabras/caracteres/frases/párrafos/tiempo de
+  lectura/legibilidad Fernández-Huerta), `DocTemplates` (en blanco, carta, memo,
+  reporte, instrucción de trabajo).
+Integración en `DocEditor.tsx`: encabezados 1-6, estado de vista (zoom/marcas/
+enfoque/lectura/regla/ortografía/sugerencias) aplicado a la página.
+CSS de todo lo anterior en `tiptap.css`.
+
+### Diferido (con estimación)
+- **Control de cambios con interceptación total** (pegar/IME/borrado como
+  sugerencia, fusión de revisiones): subsistema de especialista; sin banco de
+  pruebas en navegador esta noche se entrega la versión mínima estable. Est.
+  1-2 días con pruebas e2e.
+- **Notas al pie por página impresa** (vs. al final del documento): requiere
+  integrar con el paginador. Est. ~1 día.

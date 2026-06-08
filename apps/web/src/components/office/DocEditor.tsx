@@ -51,6 +51,22 @@ import { DocPageSetup } from './DocPageSetup';
 import { CommentMark } from './commentMark';
 import { PageBreak, PageMeta } from './docPageExtensions';
 import { Indent, Toc, NamedStyle } from './docExtensions';
+import { ListNumbering } from './docs/listNumbering';
+import { TableCellAttrs } from './docs/tableCellAttrs';
+import { SearchHighlight } from './docs/searchHighlight';
+import { MathInline, MathBlock, MathCommands } from './docs/mathExtension';
+import { FootnoteRef, FootnoteList } from './docs/footnotes';
+import { DropCap, Callout, ColumnBreak, Bookmark, CrossRef } from './docs/insertNodes';
+import { InsertionMark, DeletionMark, TrackChanges } from './docs/trackChanges';
+import { FocusLine } from './docs/focusLine';
+import { DocEquation } from './docs/DocEquation';
+import { DocListMenu } from './docs/DocListMenu';
+import { DocViewTools } from './docs/DocViewTools';
+import { DocFootnotes } from './docs/DocFootnotes';
+import { DocInsertExtras } from './docs/DocInsertExtras';
+import { DocTrackChanges } from './docs/DocTrackChanges';
+import { DocWordCount } from './docs/DocWordCount';
+import { DocTemplates } from './docs/DocTemplates';
 import {
   OfficeRibbon, RibbonTab, RibbonGroup, RibbonSeparator,
   RibbonButton, RibbonSelect, RibbonColorButton,
@@ -120,6 +136,23 @@ export function DocEditor({ value, onChange, readOnly, author, onStats, fileActi
       Indent,
       NamedStyle,
       Toc,
+      ListNumbering,
+      TableCellAttrs,
+      SearchHighlight,
+      MathInline,
+      MathBlock,
+      MathCommands,
+      FootnoteRef,
+      FootnoteList,
+      DropCap,
+      Callout,
+      ColumnBreak,
+      Bookmark,
+      CrossRef,
+      InsertionMark,
+      DeletionMark,
+      TrackChanges.configure({ author: author ?? '' }),
+      FocusLine,
     ],
     content: value ?? '<p></p>',
     editable: !readOnly,
@@ -135,6 +168,14 @@ export function DocEditor({ value, onChange, readOnly, author, onStats, fileActi
   }, [editor, onStats]);
 
   const [showFind, setShowFind] = React.useState(false);
+  // Estado de la pestaña «Vista» (zoom, marcas de formato, modos) y de control de cambios.
+  const [zoom, setZoom] = React.useState(1);
+  const [showMarks, setShowMarks] = React.useState(false);
+  const [focusMode, setFocusMode] = React.useState(false);
+  const [readingMode, setReadingMode] = React.useState(false);
+  const [showRuler, setShowRuler] = React.useState(false);
+  const [spellcheck, setSpellcheck] = React.useState(false);
+  const [suggesting, setSuggesting] = React.useState(false);
   // Copiar formato (format painter): guarda el formato capturado; se aplica a la
   // siguiente selección no vacía (al soltar el ratón en el editor).
   const [painter, setPainter] = React.useState<Record<string, any> | null>(null);
@@ -142,6 +183,15 @@ export function DocEditor({ value, onChange, readOnly, author, onStats, fileActi
   useEffect(() => { painterRef.current = painter; }, [painter]);
 
   useEffect(() => { editor?.setEditable(!readOnly); }, [editor, readOnly]);
+
+  // Revisión ortográfica nativa del navegador (conmutable desde «Vista»).
+  useEffect(() => { if (editor) editor.view.dom.setAttribute('spellcheck', spellcheck ? 'true' : 'false'); }, [editor, spellcheck]);
+  // Modo sugerencias (control de cambios): el texto escrito se marca como inserción.
+  useEffect(() => { if (editor) (editor.commands as any).setSuggesting(suggesting); }, [editor, suggesting]);
+  // El modo lectura desactiva la edición sin perder el contenido.
+  useEffect(() => { if (editor) editor.setEditable(!readOnly && !readingMode); }, [editor, readOnly, readingMode]);
+  // Modo enfoque: resalta la línea activa.
+  useEffect(() => { if (editor) (editor.commands as any).setFocusLine(focusMode); }, [editor, focusMode]);
 
   // Ctrl/Cmd+F opens in-document find & replace (like Google Docs).
   useEffect(() => {
@@ -194,13 +244,12 @@ export function DocEditor({ value, onChange, readOnly, author, onStats, fileActi
   const curHighlight = editor.getAttributes('highlight').color ?? '';
   const curSize = String(ts.fontSize ?? '').replace('px', '');
   const curLH = String(editor.getAttributes('paragraph').lineHeight ?? editor.getAttributes('heading').lineHeight ?? '');
-  const curStyle = editor.isActive('heading', { level: 1 }) ? 'h1'
-    : editor.isActive('heading', { level: 2 }) ? 'h2'
-    : editor.isActive('heading', { level: 3 }) ? 'h3' : 'p';
+  const curHeadingLevel = ([1, 2, 3, 4, 5, 6] as const).find((l) => editor.isActive('heading', { level: l }));
+  const curStyle = curHeadingLevel ? `h${curHeadingLevel}` : 'p';
 
   const setStyle = (v: string) => {
     if (v === 'p') c().setParagraph().run();
-    else c().setHeading({ level: Number(v[1]) as 1 | 2 | 3 }).run();
+    else c().setHeading({ level: Number(v[1]) as 1 | 2 | 3 | 4 | 5 | 6 }).run();
   };
   const setFont = (v: string) => (v ? (c() as any).setFontFamily(v).run() : (c() as any).unsetFontFamily().run());
   const setSize = (v: string) => (v ? (c() as any).setFontSize(`${v}px`).run() : (c() as any).unsetFontSize().run());
@@ -247,6 +296,9 @@ export function DocEditor({ value, onChange, readOnly, author, onStats, fileActi
     { label: 'Título 1', value: 'h1' },
     { label: 'Título 2', value: 'h2' },
     { label: 'Título 3', value: 'h3' },
+    { label: 'Título 4', value: 'h4' },
+    { label: 'Título 5', value: 'h5' },
+    { label: 'Título 6', value: 'h6' },
   ];
   const fontOptions = FONTS.map((f) => ({ label: f.label, value: f.value, style: (f.value ? { fontFamily: f.value } : undefined) as React.CSSProperties | undefined }));
   const sizeOptions = [{ label: '--', value: '' }, ...SIZES.map((s) => ({ label: s, value: s }))];
@@ -297,6 +349,7 @@ export function DocEditor({ value, onChange, readOnly, author, onStats, fileActi
               <RibbonButton icon={List} label="Viñetas" active={editor.isActive('bulletList')} onClick={() => c().toggleBulletList().run()} />
               <RibbonButton icon={ListOrdered} label="Lista numerada" active={editor.isActive('orderedList')} onClick={() => c().toggleOrderedList().run()} />
               <RibbonButton icon={ListChecks} label="Lista de tareas" active={editor.isActive('taskList')} onClick={() => (c() as any).toggleTaskList().run()} />
+              <DocListMenu editor={editor} />
               <RibbonButton icon={Quote} label="Cita" active={editor.isActive('blockquote')} onClick={() => c().toggleBlockquote().run()} />
               <RibbonButton icon={AlignLeft} label="Alinear a la izquierda" active={editor.isActive({ textAlign: 'left' })} onClick={() => c().setTextAlign('left').run()} />
               <RibbonButton icon={AlignCenter} label="Centrar" active={editor.isActive({ textAlign: 'center' })} onClick={() => c().setTextAlign('center').run()} />
@@ -315,6 +368,10 @@ export function DocEditor({ value, onChange, readOnly, author, onStats, fileActi
 
           {!readOnly && (
           <RibbonTab id="insert" label="Insertar">
+            <RibbonGroup label="Plantillas">
+              <DocTemplates editor={editor} notifyChange={() => onChange(editor.getJSON())} />
+            </RibbonGroup>
+            <RibbonSeparator />
             <RibbonGroup label="Tablas">
               <RibbonButton icon={TableIcon} label="Insertar tabla" onClick={() => (c() as any).insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()} />
               {editor.isActive('table') && <DocTableMenu editor={editor} />}
@@ -346,10 +403,16 @@ export function DocEditor({ value, onChange, readOnly, author, onStats, fileActi
               <RibbonButton icon={SeparatorHorizontal} label="Salto de página" onClick={() => (c() as any).setPageBreak().run()} />
             </RibbonGroup>
             <RibbonSeparator />
+            <RibbonGroup label="Ecuaciones">
+              <DocEquation editor={editor} />
+            </RibbonGroup>
+            <RibbonSeparator />
             <RibbonGroup label="Código">
               <RibbonButton icon={Code2} label="Código en línea" active={editor.isActive('code')} onClick={() => (c() as any).toggleCode().run()} />
               <RibbonButton icon={Code} label="Bloque de código" active={editor.isActive('codeBlock')} onClick={() => c().toggleCodeBlock().run()} />
             </RibbonGroup>
+            <RibbonSeparator />
+            <DocInsertExtras editor={editor} />
           </RibbonTab>
           )}
 
@@ -365,6 +428,10 @@ export function DocEditor({ value, onChange, readOnly, author, onStats, fileActi
               <RibbonButton icon={ListTree} label="Insertar tabla de contenido" hideLabel={false} onClick={() => (c() as any).insertToc().run()} />
             </RibbonGroup>
             <RibbonSeparator />
+            <RibbonGroup label="Notas al pie">
+              <DocFootnotes editor={editor} />
+            </RibbonGroup>
+            <RibbonSeparator />
             <RibbonGroup label="Navegación">
               <DocOutline editor={editor} />
             </RibbonGroup>
@@ -373,9 +440,15 @@ export function DocEditor({ value, onChange, readOnly, author, onStats, fileActi
 
           {!readOnly && (
           <RibbonTab id="review" label="Revisar">
+            <RibbonGroup label="Revisión">
+              <DocWordCount editor={editor} />
+            </RibbonGroup>
+            <RibbonSeparator />
             <RibbonGroup label="Comentarios">
               <DocComments editor={editor} author={author ?? ''} />
             </RibbonGroup>
+            <RibbonSeparator />
+            <DocTrackChanges editor={editor} suggesting={suggesting} setSuggesting={setSuggesting} />
             <RibbonSeparator />
             <RibbonGroup label="Edición">
               <RibbonButton icon={Search} label="Buscar y reemplazar" shortcut="Ctrl+F" onClick={() => setShowFind(true)} />
@@ -384,7 +457,16 @@ export function DocEditor({ value, onChange, readOnly, author, onStats, fileActi
           )}
 
           <RibbonTab id="view" label="Vista">
-            <RibbonGroup label="Mostrar">
+            <DocViewTools
+              showMarks={showMarks} setShowMarks={setShowMarks}
+              focusMode={focusMode} setFocusMode={setFocusMode}
+              readingMode={readingMode} setReadingMode={setReadingMode}
+              showRuler={showRuler} setShowRuler={setShowRuler}
+              zoom={zoom} setZoom={setZoom}
+              spellcheck={spellcheck} setSpellcheck={setSpellcheck}
+            />
+            <RibbonSeparator />
+            <RibbonGroup label="Documento">
               <DocOutline editor={editor} />
               <DocPageView editor={editor} />
             </RibbonGroup>
@@ -393,10 +475,15 @@ export function DocEditor({ value, onChange, readOnly, author, onStats, fileActi
 
       {showFind && !readOnly && <DocFindReplace editor={editor} onClose={() => setShowFind(false)} />}
 
-      <div className="tiptap-page flex-1 min-h-0 overflow-auto bg-gray-100 dark:bg-[#0b0b0b] py-8 px-3">
+      <div className={`tiptap-page flex-1 min-h-0 overflow-auto bg-gray-100 dark:bg-[#0b0b0b] py-8 px-3 ${readingMode ? 'doc-reading-bg' : ''}`}>
+        {showRuler && !readingMode && (
+          <div className="doc-ruler mx-auto mb-2" style={{ width: pageW, maxWidth: '100%' }} aria-hidden>
+            <div className="doc-ruler-margins" style={{ left: pagePad, right: pagePad }} />
+          </div>
+        )}
         <div
-          className={`mx-auto bg-white dark:bg-[#1a1a1a] shadow-xl rounded-sm w-full text-black dark:text-gray-100 relative overflow-hidden ${pgColumns === 2 ? 'doc-cols-2' : pgColumns === 3 ? 'doc-cols-3' : ''}`}
-          style={{ width: pageW, maxWidth: '100%', minHeight: pageMinH, padding: pagePad }}
+          className={`mx-auto bg-white dark:bg-[#1a1a1a] shadow-xl rounded-sm w-full text-black dark:text-gray-100 relative overflow-hidden ${pgColumns === 2 ? 'doc-cols-2' : pgColumns === 3 ? 'doc-cols-3' : ''} ${showMarks ? 'doc-show-marks' : ''} ${focusMode ? 'doc-focus' : ''} ${readingMode ? 'doc-reading' : ''}`}
+          style={{ width: readingMode ? 760 : pageW, maxWidth: '100%', minHeight: readingMode ? undefined : pageMinH, padding: readingMode ? 56 : pagePad, zoom }}
         >
           {pgWatermark && <div className="doc-watermark" aria-hidden>{pgWatermark}</div>}
           <div className="relative z-[1]">
