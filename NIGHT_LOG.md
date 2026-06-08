@@ -1265,5 +1265,28 @@ funcional de lo que parecía**; el bloqueo real era el acceso del owner (Bloque 
   `rules-of-hooks`/`exhaustive-deps` siguen como error). No se tocó código que
   funciona. `apps/api` tiene lint rojo preexistente aparte (fuera de alcance).
 
-### Estado A0: build web ✅ · lint web ✅ · tsc ✅
-### Pendiente: A1 (Docs), A2 (Hojas), A3 (Slides), A4 (pulido), Track B.
+### A1 — Docs: profundidad tipo Word
+- **Copiar formato** (format painter): captura formato y lo aplica a la siguiente
+  selección (al soltar el ratón). En grupo «Portapapeles».
+- **Galería de estilos visual** (`DocStyleGallery`): tarjetas con vista previa
+  (Normal, Título, Subtítulo, Encabezado 1-3, Cita) — estilos con nombre vía
+  extensión `NamedStyle` (`data-style` + clase, viaja en el JSON y al .docx).
+- **Sangría** aumentar/disminuir (extensión `Indent`): en listas promueve/degrada
+  nivel (**multinivel**); fuera, margen del párrafo.
+- **Tabla de contenido viva** (nodo `Toc` con NodeView): se regenera en cada
+  cambio desde los encabezados; clic = saltar. Pestaña **Referencias**.
+- **Diseño de página** (pestaña **Disposición**, `DocPageSetup` + `PageMeta`
+  ampliado): orientación, tamaño (A4/Carta/Oficio), márgenes, columnas (1-3),
+  marca de agua. Se refleja en la vista (dimensiones/relleno/columnas/marca) y en
+  el .docx. Encabezado/pie/números siguen en «Vista de página» (`DocPageView`).
+- **Símbolo / caracteres especiales** (`DocSymbolPicker`): 5 grupos.
+- **Fidelidad .docx** (`lib/office/docx.ts`): estilo Título (HeadingLevel.TITLE),
+  subíndice/superíndice, salto de página, sangría, TOC generada, configuración de
+  página (tamaño/orientación/márgenes/columnas) y encabezado/pie/números.
+- **No viable con MIT (documentado):** *Control de cambios* — TipTap libre no lo
+  trae (la extensión oficial es de pago «Pro»); los **comentarios** ya existentes
+  sirven de puente. *Notas al pie* y *ecuaciones* requieren paquetes extra
+  (KaTeX/Pro); diferidas para no desbalancear la noche entre las 3 apps + Track B.
+
+### Estado: build web ✅ · lint web ✅ · tsc ✅
+### Pendiente: A2 (Hojas), A3 (Slides), A4 (pulido), Track B.
