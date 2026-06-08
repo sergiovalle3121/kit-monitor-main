@@ -24,10 +24,16 @@ export async function exportDocx(json: any, title: string) {
   const {
     Document, Packer, Paragraph, TextRun, ExternalHyperlink, HeadingLevel,
     AlignmentType, Table, TableRow, TableCell, WidthType, ShadingType,
-    Header, Footer, PageNumber, PageBreak, PageOrientation,
+    Header, Footer, PageNumber, PageBreak, PageOrientation, FootnoteReferenceRun,
   } = docx as any;
 
-  const HEADINGS: any = { 1: HeadingLevel.HEADING_1, 2: HeadingLevel.HEADING_2, 3: HeadingLevel.HEADING_3 };
+  const HEADINGS: any = {
+    1: HeadingLevel.HEADING_1, 2: HeadingLevel.HEADING_2, 3: HeadingLevel.HEADING_3,
+    4: HeadingLevel.HEADING_4, 5: HeadingLevel.HEADING_5, 6: HeadingLevel.HEADING_6,
+  };
+  // Notas al pie reales de Word: se acumulan en orden de aparición.
+  let fnCount = 0;
+  const footnotes: Record<number, any> = {};
   const align = (a?: string) => ({ center: AlignmentType.CENTER, right: AlignmentType.RIGHT, justify: AlignmentType.JUSTIFIED }[a ?? 'left'] ?? AlignmentType.LEFT);
   const hex = (c?: string) => (c ? c.replace('#', '').slice(0, 6) : undefined);
   const indentOf = (node: any) => (node.attrs?.indent ? { left: node.attrs.indent * 540 } : undefined);
@@ -52,6 +58,8 @@ export async function exportDocx(json: any, title: string) {
       else if (m.type === 'code') o.font = 'Courier New';
       else if (m.type === 'link') link = m.attrs?.href;
       else if (m.type === 'highlight' && m.attrs?.color) o.shading = { type: ShadingType.CLEAR, fill: hex(m.attrs.color) };
+      else if (m.type === 'deletion') { o.strike = true; o.color = o.color || 'DC2626'; }
+      else if (m.type === 'insertion') { o.underline = o.underline || {}; o.color = o.color || '047857'; }
       else if (m.type === 'textStyle') {
         if (m.attrs?.color) o.color = hex(m.attrs.color);
         if (m.attrs?.fontFamily) o.font = m.attrs.fontFamily.split(',')[0].replace(/["']/g, '').trim();
@@ -64,10 +72,20 @@ export async function exportDocx(json: any, title: string) {
   function inlineRuns(content: any[]): any[] {
     const out: any[] = [];
     for (const n of content ?? []) {
-      if (n.type !== 'text') continue;
-      const { o, link } = runOpts(n);
-      if (link) out.push(new ExternalHyperlink({ link, children: [new TextRun({ ...o, color: '0563C1', underline: {} })] }));
-      else out.push(new TextRun(o));
+      if (n.type === 'text') {
+        const { o, link } = runOpts(n);
+        if (link) out.push(new ExternalHyperlink({ link, children: [new TextRun({ ...o, color: '0563C1', underline: {} })] }));
+        else out.push(new TextRun(o));
+      } else if (n.type === 'footnoteRef') {
+        fnCount += 1;
+        footnotes[fnCount] = { children: [new Paragraph({ children: [new TextRun(String(n.attrs?.content || ''))] })] };
+        if (FootnoteReferenceRun) out.push(new FootnoteReferenceRun(fnCount));
+      } else if (n.type === 'mathInline') {
+        out.push(new TextRun({ text: n.attrs?.latex || '', italics: true }));
+      } else if (n.type === 'crossRef') {
+        out.push(new TextRun(n.attrs?.label || n.attrs?.target || ''));
+      }
+      // bookmark: sin representación textual (se omite).
     }
     return out;
   }
@@ -109,6 +127,10 @@ export async function exportDocx(json: any, title: string) {
       case 'codeBlock': return String((node.content ?? []).map((t: any) => t.text).join('')).split('\n').map((line) => new Paragraph({ children: [new TextRun({ text: line, font: 'Courier New' })] }));
       case 'horizontalRule': return [new Paragraph({ thematicBreak: true })];
       case 'pageBreak': return [new Paragraph({ children: [new PageBreak()] })];
+      case 'columnBreak': return [new Paragraph({ children: [new PageBreak()] })];
+      case 'mathBlock': return [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: node.attrs?.latex || '', italics: true })] })];
+      case 'callout': return (node.content ?? []).flatMap(blockToEls);
+      case 'footnoteList': return []; // las notas reales se exportan por la API de footnotes de Word
       case 'toc': {
         const out: any[] = [new Paragraph({ heading: HEADINGS[1], children: [new TextRun('Tabla de contenido')] })];
         for (const h of collectHeads(json?.content ?? [])) out.push(new Paragraph({ indent: { left: (h.level - 1) * 360 }, children: [new TextRun(h.text || '(sin título)')] }));
@@ -169,7 +191,7 @@ export async function exportDocx(json: any, title: string) {
     section.footers = { default: new Footer({ children: [new Paragraph({ alignment: a.pageNumbers ? AlignmentType.CENTER : AlignmentType.LEFT, children: fch })] }) };
   }
 
-  const doc = new Document({ sections: [section] });
+  const doc = new Document({ sections: [section], ...(Object.keys(footnotes).length ? { footnotes } : {}) });
   download(await Packer.toBlob(doc), `${safe(title)}.docx`);
 }
 

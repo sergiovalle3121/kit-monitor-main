@@ -285,6 +285,8 @@ export function DocEditor({ value, onChange, readOnly, author, onStats, fileActi
   const pgMargin = meta.pageMargin || 'normal';
   const pgColumns = Number(meta.pageColumns || 1);
   const pgWatermark = meta.pageWatermark || '';
+  const pgBorder = meta.pageBorder || '';
+  const pgLineNumbers = !!meta.pageLineNumbers;
   const DIM: Record<string, [number, number]> = { a4: [794, 1123], letter: [816, 1056], legal: [816, 1344] };
   const [dimW, dimH] = DIM[pgSize] || DIM.a4;
   const pageW = pgOrient === 'landscape' ? dimH : dimW;
@@ -482,7 +484,7 @@ export function DocEditor({ value, onChange, readOnly, author, onStats, fileActi
           </div>
         )}
         <div
-          className={`mx-auto bg-white dark:bg-[#1a1a1a] shadow-xl rounded-sm w-full text-black dark:text-gray-100 relative overflow-hidden ${pgColumns === 2 ? 'doc-cols-2' : pgColumns === 3 ? 'doc-cols-3' : ''} ${showMarks ? 'doc-show-marks' : ''} ${focusMode ? 'doc-focus' : ''} ${readingMode ? 'doc-reading' : ''}`}
+          className={`mx-auto bg-white dark:bg-[#1a1a1a] shadow-xl rounded-sm w-full text-black dark:text-gray-100 relative overflow-hidden ${pgColumns === 2 ? 'doc-cols-2' : pgColumns === 3 ? 'doc-cols-3' : ''} ${showMarks ? 'doc-show-marks' : ''} ${focusMode ? 'doc-focus' : ''} ${readingMode ? 'doc-reading' : ''} ${pgBorder ? `doc-border-${pgBorder}` : ''} ${pgLineNumbers ? 'doc-line-numbers' : ''}`}
           style={{ width: readingMode ? 760 : pageW, maxWidth: '100%', minHeight: readingMode ? undefined : pageMinH, padding: readingMode ? 56 : pagePad, zoom }}
         >
           {pgWatermark && <div className="doc-watermark" aria-hidden>{pgWatermark}</div>}

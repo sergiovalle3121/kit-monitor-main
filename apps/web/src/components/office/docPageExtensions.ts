@@ -32,6 +32,9 @@ export const PageMeta = Extension.create({
         pageMargin: { default: 'normal' },        // normal | narrow | wide
         pageColumns: { default: 1 },              // 1 | 2 | 3
         pageWatermark: { default: '' },
+        pageBorder: { default: '' },              // '' | thin | thick | double
+        pageLineNumbers: { default: false },      // numeración de líneas (aprox. por párrafo)
+        pageFirstDifferent: { default: false },   // primera página con encabezado/pie distinto
       },
     }];
   },

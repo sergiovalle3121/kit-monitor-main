@@ -55,6 +55,23 @@ Integración en `DocEditor.tsx`: encabezados 1-6, estado de vista (zoom/marcas/
 enfoque/lectura/regla/ortografía/sugerencias) aplicado a la página.
 CSS de todo lo anterior en `tiptap.css`.
 
+### Wave 2 — Búsqueda avanzada, comentarios con hilos, tablas pro, diseño de página, fidelidad .docx
+- **Buscar y reemplazar avanzado** (`DocFindReplace.tsx`): regex (con retro-referencias
+  `$1`/`$&`), palabra completa, distinguir mayúsculas, resaltado en vivo de todas
+  las coincidencias (vía `searchHighlight`), navegación y reemplazo uno/todo.
+- **Comentarios con hilos** (`commentMark.ts` + `DocComments.tsx`): responder,
+  resolver/reabrir, autor + fecha, panel lateral con el hilo completo.
+- **Tablas pro** (`DocTableMenu.tsx`): sombreado de celda (paleta), alineación
+  vertical (arriba/centro/abajo), fila/columna de encabezado, combinar/dividir,
+  insertar/eliminar — todo contextual a la tabla.
+- **Diseño de página** (`DocPageSetup.tsx` + `docPageExtensions.ts`): bordes de
+  página (fino/grueso/doble), números de línea (aprox. por bloque), y atributo
+  «primera página distinta» (para encabezado/pie).
+- **Fidelidad .docx** (`lib/office/docx.ts`): notas al pie **reales** de Word
+  (API `footnotes` + `FootnoteReferenceRun`), encabezados 1-6, ecuaciones (LaTeX
+  como texto), cuadros de texto (contenido), referencias cruzadas, y marcas de
+  control de cambios (inserción subrayada / eliminación tachada).
+
 ### Diferido (con estimación)
 - **Control de cambios con interceptación total** (pegar/IME/borrado como
   sugerencia, fusión de revisiones): subsistema de especialista; sin banco de
