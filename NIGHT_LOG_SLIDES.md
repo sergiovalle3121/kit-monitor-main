@@ -308,9 +308,17 @@ Verificado: `tsc` ✓, `eslint` ✓, `next build` ✓.
 
 Verificado: `tsc` ✓, `eslint` ✓, `next build` ✓.
 
+#### Lote 26 — Fondos de degradado (backlog #7)
+- `slides/backgrounds.ts` + `BgGallery.tsx` — 10 fondos de **degradado** aplicados
+  como `Rect` a sangre completa, bloqueado y al fondo (`bgFill`). Funciona en
+  editor, presentación, PDF/PNG y .pptx (aproxima al primer color). Aplicar a la
+  actual o a todas; quitar. Excluido de los paneles de capas/animación.
+
+Verificado: `tsc` ✓, `eslint` ✓, `next build` ✓.
+
 ### Diferido (con estimación)
-- **Fondo de degradado/imagen por diapositiva**: requiere convertir el fondo a
-  CSS para la presentación y manejar serialización; estimación ~0.5 día.
+- **Fondo de imagen** por diapositiva (similar a degradado pero con `FabricImage`
+  a sangre completa). Estimación ~0.3 día.
 - **Secciones en el clasificador** y colapsar/expandir: el sorter es una rejilla;
   insertar encabezados de ancho completo + colapso. Estimación: ~0.5 día.
 - **Patrón de diapositivas (master) editable** (backlog #7): editor de

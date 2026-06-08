@@ -37,6 +37,8 @@ import { QuickStyleGallery } from './slides/QuickStyleGallery';
 import { buildTableGroup, defaultTableSpec, isTable, type TableSpec } from './slides/table';
 import { SlideTableEditor } from './SlideTableEditor';
 import { PositionSizeForm } from './slides/PositionSizeForm';
+import { makeBgRect, isBgFill, BG_PRESETS } from './slides/backgrounds';
+import { BgGallery } from './slides/BgGallery';
 import { buildChartGroup, defaultChartSpec, isChart, type ChartSpec } from './slides/chart';
 import { SlideChartEditor } from './SlideChartEditor';
 import { buildSmartArt, defaultSmartSpec, isSmart, type SmartSpec } from './slides/smartart';
@@ -430,6 +432,34 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
     capture(); slidesRef.current[curRef.current].background = color;
     c.backgroundColor = color; c.requestRenderAll(); sync();
   }
+  // Fondo de degradado (Rect a sangre completa, bloqueado, al fondo).
+  function applyBgPreset(id: string, all: boolean) {
+    const c = fabricRef.current; if (!c) return;
+    const preset = BG_PRESETS.find((p) => p.id === id); if (!preset) return;
+    capture();
+    c.getObjects().filter((o: any) => isBgFill(o)).forEach((o) => c.remove(o));
+    const rect = makeBgRect(preset, CW, ch);
+    c.add(rect); (c as any).sendObjectToBack(rect); c.requestRenderAll();
+    capture();
+    if (all) {
+      const json = (rect as any).toObject(['bgFill']);
+      slidesRef.current.forEach((s: any, i: number) => {
+        if (i === curRef.current) return;
+        if (!Array.isArray(s.objects)) s.objects = [];
+        s.objects = s.objects.filter((o: any) => !o.bgFill);
+        s.objects.unshift(JSON.parse(JSON.stringify(json)));
+      });
+    }
+    sync();
+  }
+  function removeBgFill(all: boolean) {
+    const c = fabricRef.current; if (!c) return;
+    capture();
+    c.getObjects().filter((o: any) => isBgFill(o)).forEach((o) => c.remove(o));
+    c.requestRenderAll(); capture();
+    if (all) slidesRef.current.forEach((s: any) => { if (Array.isArray(s.objects)) s.objects = s.objects.filter((o: any) => !o.bgFill); });
+    sync();
+  }
   function setObjAnimOrder(v: number) {
     const c = fabricRef.current; const o = c?.getActiveObject() as any;
     if (!c || !o) return; o.set('animOrder', v); setSelAnimOrder(v); capture(); sync();
@@ -499,7 +529,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
     sync();
   }
   // Include custom props (anim = entrance animation, shape = .pptx mapping, link = hyperlink, locked).
-  function capture() { const c = fabricRef.current; if (c) slidesRef.current[curRef.current] = c.toObject(['anim', 'animOrder', 'animDur', 'animDelay', 'shape', 'link', 'locked', 'imgFx', 'chartSpec', 'smart', 'tableSpec', 'conn', 'connId']); }
+  function capture() { const c = fabricRef.current; if (c) slidesRef.current[curRef.current] = c.toObject(['anim', 'animOrder', 'animDur', 'animDelay', 'shape', 'link', 'locked', 'imgFx', 'chartSpec', 'smart', 'tableSpec', 'conn', 'connId', 'bgFill']); }
   function applyLock(o: any) {
     const L = !!o.locked;
     o.set({ lockMovementX: L, lockMovementY: L, lockScalingX: L, lockScalingY: L, lockRotation: L, hasControls: !L });
@@ -597,6 +627,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
       c.forEachObject((o: any) => {
         if (o.type === 'image' && o.imgFx) applyImageEffects(o, readImgFx(o));
         if (isConnector(o)) { o.objectCaching = false; o.lockMovementX = true; o.lockMovementY = true; o.hasControls = false; }
+        if (isBgFill(o)) { o.selectable = false; o.evented = false; o.hoverCursor = 'default'; }
       });
       if (readOnly) {
         c.selection = false;
@@ -1063,12 +1094,12 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
     const c = fabricRef.current; if (!showAnimPanel || !c) return [];
     return c.getObjects()
       .map((o: any, idx: number) => ({ o, idx }))
-      .filter((x) => !isConnector(x.o))
+      .filter((x) => !isConnector(x.o) && !isBgFill(x.o))
       .map(({ o, idx }) => ({ idx, label: objLabel(o), type: typeName(o), anim: (o.anim as string) || 'none', order: o.animOrder ?? 0, dur: o.animDur ?? 500, delay: o.animDelay ?? 0 }));
   })();
   const layerList: LayerItem[] = (() => {
     const c = fabricRef.current; if (!showLayers || !c) return [];
-    return c.getObjects().map((o: any, idx: number) => ({ idx, label: objLabel(o), type: typeName(o), visible: o.visible !== false, locked: !!o.locked }));
+    return c.getObjects().map((o: any, idx: number) => ({ o, idx })).filter((x) => !isBgFill(x.o)).map(({ o, idx }) => ({ idx, label: objLabel(o), type: typeName(o), visible: o.visible !== false, locked: !!o.locked }));
   })();
   const activeIdx = (() => {
     const c = fabricRef.current; const a = c?.getActiveObject(); if (!c || !a) return -1;
@@ -1161,6 +1192,9 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
             <RibbonGroup label="Fondo">
               <RibbonColorButton icon={Palette} title="Fondo de todas las diapositivas" onChange={applyBgAll} swatchBar={false} />
               <RibbonColorButton icon={PaintBucket} title="Fondo de esta diapositiva" onChange={applyBgCurrent} swatchBar={false} />
+              <RibbonMenuButton icon={Blend} label="Degradados" menuWidth={272}>
+                <BgGallery onApply={applyBgPreset} onRemove={removeBgFill} />
+              </RibbonMenuButton>
             </RibbonGroup>
             <RibbonSeparator />
             <RibbonGroup label="Tamaño">
