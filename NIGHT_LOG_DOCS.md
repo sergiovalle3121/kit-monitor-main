@@ -127,6 +127,10 @@ CSS de todo lo anterior en `tiptap.css`.
   un documento con cada nodo (incl. ecuaciones) **serializa** vía `DOMSerializer`
   sin error y KaTeX renderiza. (Artefacto de verificación, no se versiona.)
 
+### Wave 9 — Accesibilidad (texto alternativo de imagen)
+- Botón «Texto alternativo» al seleccionar una imagen (atributo `alt`, ya soportado
+  por la extensión Image).
+
 ### Diferido (con estimación)
 - **Control de cambios con interceptación total** (pegar/IME/borrado como
   sugerencia, fusión de revisiones): subsistema de especialista; sin banco de
@@ -134,3 +138,20 @@ CSS de todo lo anterior en `tiptap.css`.
   1-2 días con pruebas e2e.
 - **Notas al pie por página impresa** (vs. al final del documento): requiere
   integrar con el paginador. Est. ~1 día.
+- **Imágenes en el export .docx**: requiere leer dimensiones naturales (async) y
+  `ImageRun` con el buffer; se evita exportarlas mal (aspecto/tamaño). En pantalla
+  y en PDF/impresión sí se ven. Est. ~0.5 día.
+- **Numeración multinivel real en .docx** (definiciones de numeración de Word):
+  hoy se exporta numeración manual aproximada. Est. ~0.5 día.
+- **Saltos de sección y encabezado/pie por sección**: hoy un solo "section" por
+  documento. Est. ~1 día.
+
+## Resumen final de la sesión
+Se llevó el editor de Documentos muy cerca de Word, todo con código propio sobre
+TipTap/ProseMirror (MIT) + KaTeX (MIT). **No se tocó** el ribbon compartido,
+OfficeShell, la página del editor, Sheets/Slides, libs compartidas, `globals.css`
+ni nada fuera de Docs. Archivos nuevos bajo `components/office/docs/` (24) + edits
+a los `Doc*`/`docx.ts`/`tiptap.css` permitidos. 9 «waves», cada una con
+`tsc` + `eslint` (mis archivos, 0/0) + `next build` en verde, y verificación
+headless del esquema/serialización (jsdom + getSchema + DOMSerializer).
+Rama `claude/eloquent-euler-eYstb`, **PR #263 abierto sin mergear**.

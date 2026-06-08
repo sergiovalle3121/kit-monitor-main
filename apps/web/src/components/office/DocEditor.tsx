@@ -38,7 +38,7 @@ import {
   List, ListOrdered, ListChecks, Quote, AlignLeft, AlignCenter, AlignRight, AlignJustify,
   Highlighter, Link2, Undo, Redo, Minus, Search, SeparatorHorizontal,
   Subscript as SubIcon, Superscript as SupIcon, RemoveFormatting, Code2, Calendar, Smile, Baseline, FileText,
-  PaintRoller, IndentIncrease, IndentDecrease, ListTree,
+  PaintRoller, IndentIncrease, IndentDecrease, ListTree, Accessibility,
 } from 'lucide-react';
 import { DocFindReplace } from './DocFindReplace';
 import { DocOutline } from './DocOutline';
@@ -410,6 +410,11 @@ export function DocEditor({ value, onChange, readOnly, author, onStats, fileActi
                   {['25%', '50%', '75%', '100%'].map((w) => (
                     <RibbonButton key={w} label={w} hideLabel={false} active={imgWidth === w} onClick={() => (c() as any).updateAttributes('image', { width: w }).run()} />
                   ))}
+                  <RibbonButton icon={Accessibility} label="Texto alternativo" onClick={() => {
+                    const cur = editor.getAttributes('image').alt || '';
+                    const v = window.prompt('Texto alternativo (accesibilidad)', cur);
+                    if (v !== null) (c() as any).updateAttributes('image', { alt: v }).run();
+                  }} />
                 </>
               )}
             </RibbonGroup>
