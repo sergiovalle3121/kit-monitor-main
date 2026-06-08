@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
-import { Loader2, Lock, Inbox, Search, ArrowDownLeft, ArrowUpRight, ArrowLeftRight, SlidersHorizontal } from "lucide-react";
+import { Loader2, Lock, Inbox, Search, ArrowDownLeft, ArrowUpRight, ArrowLeftRight, SlidersHorizontal, Repeat } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { glass } from "@/lib/glass";
 import { useApi } from "@/hooks/useApi";
@@ -32,6 +32,18 @@ interface Movement {
   actorName?: string | null;
   reason?: string | null;
   createdAt?: string | null;
+}
+
+// Regla de resurtido min-max (replenishment_rules) — maestro sin UI previa.
+interface ReplenRule {
+  id: number | string;
+  partNumber: string;
+  warehouseId?: string | null;
+  minStock?: number;
+  maxStock?: number;
+  safetyStock?: number;
+  priority?: string;
+  isActive?: boolean;
 }
 
 // Dirección del movimiento sobre el stock: entrada (+), salida (−) o traslado (=).
@@ -68,15 +80,19 @@ function timeAgo(iso?: string | null): string {
 }
 
 export default function InventoryPage() {
-  const [tab, setTab] = useState<"positions" | "movements">("positions");
+  const [tab, setTab] = useState<"positions" | "movements" | "replenishment">("positions");
   const { data, isLoading, forbidden } = useApi<Position[]>("/inventory/positions");
   // El ledger de movimientos solo se pide cuando la pestaña está activa.
   const { data: movData, isLoading: movLoading, forbidden: movForbidden } =
     useApi<Movement[]>(tab === "movements" ? "/inventory/movements" : null);
+  // Reglas de resurtido (solo lectura) — pedidas al activar su pestaña.
+  const { data: ruleData, isLoading: ruleLoading, forbidden: ruleForbidden } =
+    useApi<ReplenRule[]>(tab === "replenishment" ? "/replenishment/rules" : null);
   const [q, setQ] = useState("");
 
   const positions = useMemo(() => (Array.isArray(data) ? data : []), [data]);
   const movements = useMemo(() => (Array.isArray(movData) ? movData : []), [movData]);
+  const rules = useMemo(() => (Array.isArray(ruleData) ? ruleData : []), [ruleData]);
 
   const posRows = q
     ? positions.filter((p) => `${p.partNumber} ${p.location ?? ""}`.toLowerCase().includes(q.toLowerCase()))
@@ -84,6 +100,9 @@ export default function InventoryPage() {
   const movRows = q
     ? movements.filter((m) => `${m.partNumber} ${m.referenceId ?? ""} ${m.actorName ?? ""}`.toLowerCase().includes(q.toLowerCase()))
     : movements;
+  const ruleRows = q
+    ? rules.filter((r) => `${r.partNumber} ${r.warehouseId ?? ""}`.toLowerCase().includes(q.toLowerCase()))
+    : rules;
 
   // Resumen honesto del flujo recibo→consumo (derivado del ledger en vivo).
   const flow = useMemo(() => {
@@ -96,7 +115,7 @@ export default function InventoryPage() {
     return { received, consumed, total: movements.length };
   }, [movements]);
 
-  const showSearch = tab === "positions" ? positions.length > 0 : movements.length > 0;
+  const showSearch = tab === "positions" ? positions.length > 0 : tab === "movements" ? movements.length > 0 : rules.length > 0;
 
   return (
     <div className="min-h-screen text-black dark:text-white font-sans pb-32">
@@ -107,6 +126,7 @@ export default function InventoryPage() {
         <div className={`${glass} inline-flex items-center gap-1 p-1 rounded-2xl mb-5`}>
           <TabBtn active={tab === "positions"} onClick={() => setTab("positions")} icon={<SlidersHorizontal className="w-4 h-4" />}>Existencias</TabBtn>
           <TabBtn active={tab === "movements"} onClick={() => setTab("movements")} icon={<ArrowLeftRight className="w-4 h-4" />}>Movimientos</TabBtn>
+          <TabBtn active={tab === "replenishment"} onClick={() => setTab("replenishment")} icon={<Repeat className="w-4 h-4" />}>Resurtido</TabBtn>
         </div>
 
         {showSearch && (
@@ -115,7 +135,7 @@ export default function InventoryPage() {
             <input
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder={tab === "positions" ? "Buscar número de parte o ubicación…" : "Buscar parte, referencia u operador…"}
+              placeholder={tab === "positions" ? "Buscar número de parte o ubicación…" : tab === "movements" ? "Buscar parte, referencia u operador…" : "Buscar parte o almacén…"}
               className="bg-transparent outline-none text-sm w-full"
             />
           </div>
@@ -146,7 +166,8 @@ export default function InventoryPage() {
               </div>
             </div>
           )
-        ) : movForbidden ? (
+        ) : tab === "movements" ? (
+          movForbidden ? (
           <Empty icon={<Lock className="w-6 h-6" />} title="Sin acceso al backend" body="Verifica que el servicio de API esté conectado." />
         ) : movLoading ? (
           <Spinner />
@@ -190,6 +211,36 @@ export default function InventoryPage() {
               </div>
             </div>
           </>
+          )
+        ) : (
+          ruleForbidden ? (
+            <Empty icon={<Lock className="w-6 h-6" />} title="Sin acceso al backend" body="Verifica que el servicio de API esté conectado." />
+          ) : ruleLoading ? (
+            <Spinner />
+          ) : rules.length === 0 ? (
+            <Empty icon={<Inbox className="w-6 h-6" />} title="Sin reglas de resurtido" body="Define puntos min-max por parte y almacén para disparar resurtidos. Aún no hay reglas configuradas." />
+          ) : (
+            <div className={`${glass} rounded-2xl p-2`}>
+              <div className="divide-y divide-gray-100 dark:divide-white/5">
+                {ruleRows.map((r) => {
+                  const active = r.isActive !== false;
+                  return (
+                    <div key={r.id} className="flex items-center gap-3 px-3 py-3">
+                      <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: active ? "#16a394" : "#9ca3af" }} title={active ? "activa" : "inactiva"} />
+                      <div className="min-w-0 flex-1">
+                        <p className="font-mono font-semibold text-sm truncate">{r.partNumber}</p>
+                        <p className="text-[11px] text-gray-400 truncate">{r.warehouseId || "—"}{r.priority ? ` · ${r.priority}` : ""}</p>
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <p className="text-sm font-semibold tabular-nums">{fmtQty(r.minStock)} → {fmtQty(r.maxStock)}</p>
+                        <p className="text-[10px] text-gray-400">min → max{r.safetyStock ? ` · ss ${fmtQty(r.safetyStock)}` : ""}</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )
         )}
       </main>
     </div>

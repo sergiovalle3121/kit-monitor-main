@@ -1378,6 +1378,13 @@ Backends sin ningún consumidor en `apps/web` (detectados): `/replenishment`,
   de `dashboard/receiving` pasó de texto libre a **dropdown de `/suppliers`**
   (valor = `code`), con fallback a texto si no hay maestro. Sigue el tema de
   "los masters aparecen en todos lados" (Modelo, Almacén, ahora Proveedor).
+- **(commit) Pestaña "Resurtido" en `dashboard/inventory`** (backend
+  `/replenishment/rules` no tenía UI) — tercera pestaña junto a Existencias y
+  Movimientos: lista de **reglas min-max** (parte, almacén, min→max, safety stock,
+  prioridad, activa/inactiva). Solo-lectura a propósito: NO uso `/replenishment/
+  analyze` porque ese GET tiene efecto secundario (puede crear tareas de
+  traslado) y la página revalida cada 20s. Co-locado en una página YA navegable
+  (sin wiring nuevo). Estado vacío honesto.
 - **(commit) Página `dashboard/suppliers`** (backend `/suppliers` no tenía UI) —
   lista de solo-lectura del maestro de proveedores: código, nombre, categoría,
   **badge de estatus** y **score de calidad** (con color por umbral) + KPIs
