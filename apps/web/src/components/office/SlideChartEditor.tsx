@@ -3,10 +3,10 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { X, Plus, Trash2, BarChart3, LineChart, AreaChart, PieChart } from 'lucide-react';
-import { CHART_TYPES, buildChartGroup, type ChartSpec, type ChartType } from './slides/chart';
+import { X, Plus, Trash2, BarChart3, BarChart2, LineChart, AreaChart, PieChart, CircleDashed } from 'lucide-react';
+import { CHART_TYPES, CHART_PALETTES, buildChartGroup, type ChartSpec, type ChartType } from './slides/chart';
 
-const TYPE_ICON: Record<ChartType, any> = { bar: BarChart3, line: LineChart, area: AreaChart, pie: PieChart };
+const TYPE_ICON: Record<ChartType, any> = { bar: BarChart3, hbar: BarChart2, line: LineChart, area: AreaChart, pie: PieChart, doughnut: CircleDashed };
 
 /** Editor de gráfico: tipo + título + tabla de datos editable con vista previa. */
 export function SlideChartEditor({ spec: initial, onApply, onClose }: {
@@ -17,6 +17,7 @@ export function SlideChartEditor({ spec: initial, onApply, onClose }: {
 
   const rows = spec.labels.length;
   const cols = spec.series.length;
+  const paletteId = CHART_PALETTES.find((p) => p.colors[0] === spec.palette?.[0])?.id ?? 'Marca';
 
   // Vista previa (rasteriza el gráfico fuera de pantalla, con rebote).
   useEffect(() => {
@@ -79,6 +80,20 @@ export function SlideChartEditor({ spec: initial, onApply, onClose }: {
               className="flex-1 min-w-[160px] h-9 px-3 text-sm rounded-xl bg-black/[0.03] dark:bg-white/[0.05] border border-transparent focus:border-blue-500/50 outline-none" />
           </div>
 
+          {/* Opciones */}
+          <div className="flex flex-wrap items-center gap-2">
+            {(spec.type === 'bar' || spec.type === 'hbar' || spec.type === 'area') && (
+              <Toggle label="Apilado" on={!!spec.stacked} onClick={() => setSpec((s) => ({ ...s, stacked: !s.stacked }))} />
+            )}
+            <Toggle label="Leyenda" on={spec.legend !== false} onClick={() => setSpec((s) => ({ ...s, legend: s.legend === false }))} />
+            <Toggle label="Valores" on={!!spec.showValues} onClick={() => setSpec((s) => ({ ...s, showValues: !s.showValues }))} />
+            <span className="text-xs text-gray-400 ml-1">Paleta</span>
+            <select value={paletteId} onChange={(e) => setSpec((s) => ({ ...s, palette: CHART_PALETTES.find((p) => p.id === e.target.value)?.colors }))}
+              className="h-8 text-xs rounded-lg bg-black/[0.03] dark:bg-white/[0.05] px-2 outline-none border border-transparent focus:border-blue-500/50">
+              {CHART_PALETTES.map((p) => <option key={p.id} value={p.id}>{p.id}</option>)}
+            </select>
+          </div>
+
           {/* Vista previa */}
           <div className="rounded-xl bg-gray-50 dark:bg-black/30 border border-black/5 dark:border-white/10 flex items-center justify-center p-2" style={{ minHeight: 170 }}>
             {preview ? <img src={preview} alt="Vista previa" className="max-h-[210px] w-auto" /> : <span className="text-sm text-gray-400">Generando vista previa…</span>}
@@ -133,5 +148,14 @@ export function SlideChartEditor({ spec: initial, onApply, onClose }: {
 }
 
 function clone(s: ChartSpec): ChartSpec {
-  return { type: s.type, title: s.title, labels: s.labels.slice(), series: s.series.map((x) => ({ name: x.name, data: x.data.slice() })), palette: s.palette?.slice() };
+  return { type: s.type, title: s.title, labels: s.labels.slice(), series: s.series.map((x) => ({ name: x.name, data: x.data.slice() })), palette: s.palette?.slice(), stacked: s.stacked, legend: s.legend, showValues: s.showValues };
+}
+
+function Toggle({ label, on, onClick }: { label: string; on: boolean; onClick: () => void }) {
+  return (
+    <button type="button" onClick={onClick}
+      className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors ${on ? 'bg-blue-500 text-white border-blue-500' : 'border-black/10 dark:border-white/15 text-gray-600 dark:text-gray-300 hover:bg-black/5 dark:hover:bg-white/10'}`}>
+      {label}
+    </button>
+  );
 }

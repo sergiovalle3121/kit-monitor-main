@@ -81,16 +81,18 @@ function addChartObject(slide: any, o: any, pptx: any) {
     .map((c: any) => String(c).replace('#', '').toUpperCase());
   const labels: string[] = (spec.labels ?? []).map((x: any) => String(x));
   const T = pptx.ChartType;
-  const common = { ...box, chartColors: colors, showLegend: true, legendPos: 'b', showTitle: !!(spec.title && spec.title.trim()), title: spec.title || '' };
-  if (spec.type === 'pie') {
+  const legend = spec.legend !== false;
+  const common = { ...box, chartColors: colors, showLegend: legend, legendPos: 'b', showTitle: !!(spec.title && spec.title.trim()), title: spec.title || '', showValue: !!spec.showValues };
+  if (spec.type === 'pie' || spec.type === 'doughnut') {
     const s0 = spec.series[0];
-    slide.addChart(T.pie, [{ name: s0?.name || 'Datos', labels, values: (s0?.data ?? []).map((n: any) => Number(n) || 0) }],
-      { ...common, showPercent: true });
+    slide.addChart(spec.type === 'doughnut' ? (T.doughnut ?? T.pie) : T.pie,
+      [{ name: s0?.name || 'Datos', labels, values: (s0?.data ?? []).map((n: any) => Number(n) || 0) }],
+      { ...common, showPercent: !!spec.showValues, ...(spec.type === 'doughnut' ? { holeSize: 55 } : {}) });
     return;
   }
   const data = spec.series.map((s: any) => ({ name: String(s.name ?? ''), labels, values: (s.data ?? []).map((n: any) => Number(n) || 0) }));
   const type = spec.type === 'line' ? T.line : spec.type === 'area' ? T.area : T.bar;
-  slide.addChart(type, data, { ...common, barDir: 'col' });
+  slide.addChart(type, data, { ...common, barDir: spec.type === 'hbar' ? 'bar' : 'col', ...(spec.stacked && (spec.type === 'bar' || spec.type === 'hbar' || spec.type === 'area') ? { barGrouping: 'stacked' } : {}) });
 }
 
 function addObject(slide: any, o: any, ST: any) {

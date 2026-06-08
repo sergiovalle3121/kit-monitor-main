@@ -186,6 +186,17 @@ Verificado: `tsc` ✓, `eslint` ✓, `next build` ✓.
 
 Verificado: `tsc` ✓, `eslint` ✓, `next build` ✓.
 
+#### Lote 13 — Gráficos: dona, barras horizontales/apiladas, opciones (backlog #1)
+- Nuevos tipos: **dona** (pie con hueco) y **barras horizontales**; opción
+  **apilado** (barras/área), **leyenda** on/off, **etiquetas de valor** y
+  **selector de paleta** (5 paletas) en el editor.
+- `chart.ts` reescribe el render cartesiano para soportar orientación, apilado y
+  etiquetas; el pie soporta dona y porcentajes.
+- `pptx.ts` mapea dona (`holeSize`), barras horizontales (`barDir:'bar'`),
+  apilado (`barGrouping:'stacked'`), leyenda y valores al gráfico nativo.
+
+Verificado: `tsc` ✓, `eslint` ✓, `next build` ✓.
+
 ### Diferido (con estimación)
 - **Tamaño de diapositiva 4:3/personalizado** (backlog #7, parte): es transversal
   (CW/CH alimentan snapping, alineación, presentación, PDF, .pptx y el sorter).
