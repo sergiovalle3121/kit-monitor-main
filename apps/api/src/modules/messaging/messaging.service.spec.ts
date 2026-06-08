@@ -1,4 +1,4 @@
-import { aggregateReactions } from './messaging.service';
+import { aggregateReactions, parseMentionTokens } from './messaging.service';
 
 describe('aggregateReactions', () => {
   it('devuelve [] sin filas', () => {
@@ -37,5 +37,34 @@ describe('aggregateReactions', () => {
     expect(out).toEqual([
       { emoji: '✅', count: 1, userIds: ['a'], mine: true },
     ]);
+  });
+});
+
+describe('parseMentionTokens', () => {
+  it('extrae handles en minúsculas, sin duplicados', () => {
+    expect(parseMentionTokens('hola @Alice y @bob, @alice otra vez')).toEqual([
+      'alice',
+      'bob',
+    ]);
+  });
+
+  it('ignora correos (@ pegado a un caracter de palabra)', () => {
+    expect(parseMentionTokens('escribe a foo@bar.com porfa')).toEqual([]);
+  });
+
+  it('matchea al inicio de la cadena', () => {
+    expect(parseMentionTokens('@neo despierta')).toEqual(['neo']);
+  });
+
+  it('soporta handles con punto, guion y guion bajo', () => {
+    expect(parseMentionTokens('cc @ana.maria y @jose-luis y @x_1')).toEqual([
+      'ana.maria',
+      'jose-luis',
+      'x_1',
+    ]);
+  });
+
+  it('sin menciones → []', () => {
+    expect(parseMentionTokens('texto sin menciones')).toEqual([]);
   });
 });

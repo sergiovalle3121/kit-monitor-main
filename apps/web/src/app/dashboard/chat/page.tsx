@@ -13,6 +13,7 @@ import {
   Plus,
   X,
   CheckCheck,
+  AtSign,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { glass } from '@/lib/glass';
@@ -45,6 +46,28 @@ function timeOf(iso: string): string {
   return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
+/** Token `@parcial` al final del borrador (para autocompletar), o null. */
+function getMentionQuery(draft: string): string | null {
+  const m = /(?:^|\s)@([a-zA-Z0-9._-]*)$/.exec(draft);
+  return m ? m[1] : null;
+}
+
+/** Renderiza el cuerpo resaltando los `@handle` (sin dangerouslySetInnerHTML). */
+function renderBody(body: string, mine: boolean): React.ReactNode {
+  const cls = mine
+    ? 'font-semibold rounded bg-white/20 px-0.5'
+    : 'font-semibold text-blue-600 dark:text-blue-400';
+  return body.split(/(@[a-zA-Z0-9._-]+)/g).map((part, i) =>
+    /^@[a-zA-Z0-9._-]+$/.test(part) ? (
+      <span key={i} className={cls}>
+        {part}
+      </span>
+    ) : (
+      part
+    ),
+  );
+}
+
 export default function ChatPage() {
   const { user } = useAuth();
   const meId = user?.id ?? '';
@@ -60,6 +83,11 @@ export default function ChatPage() {
   const [typingConvo, setTypingConvo] = useState<string | null>(null);
   const [onlineIds, setOnlineIds] = useState<Set<string>>(new Set());
   const [reads, setReads] = useState<ReadReceipt[]>([]);
+  const [mentionConvos, setMentionConvos] = useState<Set<string>>(new Set());
+  const [toast, setToast] = useState<{
+    byUserId: string;
+    conversationId: string;
+  } | null>(null);
 
   const socketRef = useRef<Socket | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
@@ -180,6 +208,17 @@ export default function ChatPage() {
         ]);
       },
     );
+    // @menciones: solo llega a los mencionados → badge + toast.
+    socket.on(
+      'mention:new',
+      (p: { conversationId: string; messageId: string; byUserId: string }) => {
+        setMentionConvos((prev) => new Set(prev).add(p.conversationId));
+        if (p.conversationId !== activeIdRef.current) {
+          setToast({ byUserId: p.byUserId, conversationId: p.conversationId });
+        }
+        refreshConversations();
+      },
+    );
     socketRef.current = socket;
     return () => {
       socket.disconnect();
@@ -199,6 +238,13 @@ export default function ChatPage() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  // Auto-dismiss del toast de mención.
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 5000);
+    return () => clearTimeout(t);
+  }, [toast]);
 
   // Avisa "escribiendo…" a los otros miembros (throttle ~1.5s).
   function emitTyping() {
@@ -246,12 +292,48 @@ export default function ChatPage() {
     }
   }
 
+  // Selecciona una conversación y limpia su acento de mención (sin setState
+  // en efecto: el React Compiler lo prohíbe).
+  function openConversation(id: string) {
+    setActiveId(id);
+    setMentionConvos((prev) => {
+      if (!prev.has(id)) return prev;
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+  }
+
   async function startDm(userId: string) {
     const convo = await chatApi.openDm(userId);
     await refreshConversations();
-    setActiveId(convo.id);
+    openConversation(convo.id);
     setSearch('');
   }
+
+  // Reemplaza el token `@parcial` final del borrador por `@username `.
+  function applyMention(username: string) {
+    setDraft((d) => {
+      const atIdx = d.lastIndexOf('@');
+      if (atIdx < 0) return `${d}@${username} `;
+      return `${d.slice(0, atIdx)}@${username} `;
+    });
+  }
+
+  // Autocompletar @ contra los miembros de la conversación activa.
+  const mentionQuery = getMentionQuery(draft);
+  const mentionCandidates =
+    mentionQuery !== null && active
+      ? users
+          .filter(
+            (u) =>
+              active.memberIds.includes(u.id) &&
+              (u.username || u.email || '')
+                .toLowerCase()
+                .includes(mentionQuery.toLowerCase()),
+          )
+          .slice(0, 6)
+      : [];
 
   const filteredUsers = users.filter(
     (u) =>
@@ -318,7 +400,13 @@ export default function ChatPage() {
               <div className="space-y-1">
                 <p className="px-1 text-xs font-medium text-gray-400">Canales</p>
                 {channels.map((c) => (
-                  <ConversationRow key={c.id} convo={c} active={c.id === activeId} onClick={() => setActiveId(c.id)} />
+                  <ConversationRow
+                    key={c.id}
+                    convo={c}
+                    active={c.id === activeId}
+                    mentioned={mentionConvos.has(c.id)}
+                    onClick={() => openConversation(c.id)}
+                  />
                 ))}
               </div>
             )}
@@ -334,6 +422,7 @@ export default function ChatPage() {
                   convo={c}
                   active={c.id === activeId}
                   online={c.counterpartId ? onlineIds.has(c.counterpartId) : undefined}
+                  mentioned={mentionConvos.has(c.id)}
                   onClick={() => setActiveId(c.id)}
                 />
               ))}
@@ -430,6 +519,25 @@ export default function ChatPage() {
                     ))}
                   </div>
                 )}
+                {mentionCandidates.length > 0 && (
+                  <div className={`${glass} absolute bottom-16 left-3 right-3 z-20 max-h-48 overflow-y-auto rounded-2xl p-1`}>
+                    {mentionCandidates.map((u) => (
+                      <button
+                        key={u.id}
+                        onClick={() => applyMention(u.username || u.email)}
+                        className="flex w-full items-center gap-2 rounded-xl p-2 text-left hover:bg-black/5 dark:hover:bg-white/10"
+                      >
+                        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-violet-500 text-[10px] font-bold text-white">
+                          {initials(u.username || u.email)}
+                        </span>
+                        <span className="min-w-0">
+                          <span className="block truncate text-sm font-medium">{u.username || u.email}</span>
+                          <span className="block truncate text-xs text-gray-500">{u.role}</span>
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => setShowEmoji((s) => !s)}
@@ -461,6 +569,13 @@ export default function ChatPage() {
                     onChange={(e) => { setDraft(e.target.value); emitTyping(); }}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' && !e.shiftKey) {
+                        // Si el autocompletado está abierto, Enter elige el 1.º.
+                        if (mentionCandidates.length > 0) {
+                          e.preventDefault();
+                          const first = mentionCandidates[0];
+                          applyMention(first.username || first.email);
+                          return;
+                        }
                         e.preventDefault();
                         handleSendText();
                       }
@@ -490,9 +605,32 @@ export default function ChatPage() {
           onCreated={async (id) => {
             setShowNewChannel(false);
             await refreshConversations();
-            setActiveId(id);
+            openConversation(id);
           }}
         />
+      )}
+
+      {/* Toast de @mención */}
+      {toast && (
+        <button
+          onClick={() => {
+            openConversation(toast.conversationId);
+            setToast(null);
+          }}
+          className={`${glass} fixed bottom-6 right-6 z-[300] flex max-w-xs items-center gap-3 rounded-2xl px-4 py-3 text-left shadow-lg`}
+        >
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-500 text-white">
+            <AtSign className="h-4 w-4" />
+          </span>
+          <span className="min-w-0">
+            <span className="block text-sm font-semibold">
+              {senderName(toast.byUserId, users)} te mencionó
+            </span>
+            <span className="block truncate text-xs text-gray-500">
+              Toca para abrir la conversación
+            </span>
+          </span>
+        </button>
       )}
     </div>
   );
@@ -614,7 +752,9 @@ function MessageItem({
           {m.type === 'image' ? (
             <AuthImage messageId={m.id} />
           ) : (
-            <p className="whitespace-pre-wrap break-words text-sm">{m.body}</p>
+            <p className="whitespace-pre-wrap break-words text-sm">
+              {renderBody(m.body ?? '', mine)}
+            </p>
           )}
           <p className={`mt-1 text-[10px] ${mine ? 'text-white/70' : 'text-gray-500'}`}>
             {timeOf(m.createdAt)}
@@ -687,11 +827,13 @@ function ConversationRow({
   convo,
   active,
   online,
+  mentioned,
   onClick,
 }: {
   convo: ChatConversation;
   active: boolean;
   online?: boolean;
+  mentioned?: boolean;
   onClick: () => void;
 }) {
   return (
@@ -717,8 +859,18 @@ function ConversationRow({
             : 'Sin mensajes'}
         </span>
       </span>
+      {mentioned && (
+        <span
+          className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-blue-500 text-white"
+          title="Te mencionaron"
+        >
+          <AtSign className="h-3 w-3" />
+        </span>
+      )}
       {convo.unread > 0 && (
-        <span className="ml-auto flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+        <span
+          className={`${mentioned ? 'ml-1' : 'ml-auto'} flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white`}
+        >
           {convo.unread}
         </span>
       )}

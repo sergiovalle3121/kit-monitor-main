@@ -178,6 +178,14 @@ export class ChatGateway
     this.emitToMembers(memberIds, 'read:update', payload);
   }
 
+  /** Notifica a cada usuario mencionado en un mensaje (badge/toast). */
+  emitMentionToUsers(
+    userIds: string[],
+    payload: { conversationId: string; messageId: string; byUserId: string },
+  ): void {
+    this.emitToMembers(userIds, 'mention:new', payload);
+  }
+
   // ── helpers ────────────────────────────────────────────────────────────────
 
   /** Emite un evento a los rooms `user:<id>` de los miembros dados. */

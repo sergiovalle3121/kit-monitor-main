@@ -56,6 +56,21 @@ export function aggregateReactions(
   });
 }
 
+/**
+ * Extrae los handles mencionados (`@usuario`) del cuerpo, en minúsculas y sin
+ * duplicados. No matchea correos (el `@` no debe ir pegado a un caracter de
+ * palabra). Pura → fácil de testear.
+ */
+export function parseMentionTokens(body: string): string[] {
+  const out = new Set<string>();
+  const re = /(?<![\w@])@([a-zA-Z0-9._-]{1,50})/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(body)) !== null) {
+    out.add(m[1].toLowerCase());
+  }
+  return Array.from(out);
+}
+
 @Injectable()
 export class MessagingService {
   constructor(
@@ -280,6 +295,7 @@ export class MessagingService {
       imageMime: m.imageMime,
       createdAt: m.createdAt,
       reactions: aggregateReactions(byMessage.get(m.id) ?? [], meId),
+      mentionedUserIds: m.mentionedUserIds ?? [],
     }));
   }
 
@@ -293,16 +309,46 @@ export class MessagingService {
         `Mensaje demasiado largo (máx ${MAX_TEXT_LENGTH} caracteres)`,
       );
     }
+    const mentionedUserIds = await this.resolveMentions(conversationId, text);
     const msg = await this.messages.save(
       this.messages.create({
         conversationId,
         senderId: meId,
         type: 'text',
         body: text,
+        mentionedUserIds: mentionedUserIds.length ? mentionedUserIds : null,
       }),
     );
     await this.touchAndBroadcast(conversationId, msg);
+
+    // Notificar a cada mencionado (excepto a mí) para badge/toast.
+    const toNotify = mentionedUserIds.filter((id) => id !== meId);
+    if (toNotify.length) {
+      this.gateway.emitMentionToUsers(toNotify, {
+        conversationId,
+        messageId: msg.id,
+        byUserId: meId,
+      });
+    }
     return this.toDto(msg);
+  }
+
+  /** Resuelve @handles del cuerpo contra los MIEMBROS de la conversación. */
+  private async resolveMentions(
+    conversationId: string,
+    body: string,
+  ): Promise<string[]> {
+    const tokens = parseMentionTokens(body);
+    if (!tokens.length) return [];
+    const memberIds = await this.memberIdsOf(conversationId);
+    if (!memberIds.length) return [];
+    const members = await this.users.find({ where: { id: In(memberIds) } });
+    const resolved = new Set<string>();
+    for (const u of members) {
+      const uname = (u.username ?? '').toLowerCase();
+      if (uname && tokens.includes(uname)) resolved.add(u.id);
+    }
+    return Array.from(resolved);
   }
 
   // ── enviar imagen (comprimida) ───────────────────────────────────────────
@@ -461,6 +507,7 @@ export class MessagingService {
       createdAt: m.createdAt,
       // Un mensaje recién creado aún no tiene reacciones; forma consistente.
       reactions: [] as AggregatedReaction[],
+      mentionedUserIds: m.mentionedUserIds ?? [],
     };
   }
 }
