@@ -215,5 +215,61 @@ reaplicar, vía `stripIcon` ampliado). Expuesto en `SheetTools` con selector de 
 **Spec**: `cond.spec.ts` (8) — barras de datos (incl. idempotencia), comparación y limpiar.
 
 **Total de aserciones de lógica pura: 162** (11 specs, `npx tsx`).
+
+---
+
+## Resumen para el revisor
+
+**Qué se construyó (todo sobre Fortune-Sheet, MIT, sin tocar el ribbon compartido):**
+
+| # | Función | Lógica pura nueva (`sheetOps.ts` / `charts.ts` / `xlsx.ts`) | UI |
+|---|---------|-----------|----|
+| 1 | **Tablas dinámicas** | `buildPivot`, `aggregate`, `pivotToCelldata`, `readMatrix`, `pivotFields`, `fieldValues`, `usedRange` | `SheetPivot.tsx` (DnD) |
+| 2 | **Formatos de número + estilos** | `formatNumber`, `applyNumberFormat`, `applyCellStyle`, `toDate`, `NUMFMT_PRESETS`, `CELL_STYLES` | `SheetFormatDialog.tsx` |
+| 3 | **Orden multinivel · subtotales · sparklines** | `sortRangeMulti`, `applySubtotals`, `buildSparkline`, `applySparkline` | `SheetDataDialog.tsx` |
+| 4 | **Gráficos pro** | burbuja/combo/eje 2º, `seriesLabels`, `usesSecondaryAxis` | `SheetCharts.tsx` |
+| 5 | **Asistente de funciones** | (datos) ~70 fns + args | `SheetFunctionWizard.tsx` |
+| 6 | **.xlsx alta fidelidad** | `cellToXlsx`, `xlsxToFortuneV`, `fortuneToWs`, `wsToFortune` | `SheetActions.tsx` (CSV opts) |
+| 7 | **Buscar/reemplazar pro** | `findMatches`/`replaceAll` + `FindOpts`, `buildFindRegex` | `SheetFindReplace.tsx` |
+| 8 | **Rellenar series · transponer** | `fillSeries`, `applyFill`, `transposeRange` | `SheetDataDialog.tsx` |
+| 9 | **Rangos con nombre** | `validateRangeName`, `qualifiedRef`, `resolveNamedRange` | `SheetNameManager.tsx` |
+| 10 | **Impresión / diseño** | `buildPrintHtml` | `SheetPrintDialog.tsx` |
+| 11 | **Formato condicional: barras de datos** | regla `databar` en `applyConditional` | `SheetTools.tsx` |
+
+**Cómo correr las specs** (no requieren runner ni dependencias nuevas):
+```
+cd apps/web && npx tsx src/components/office/sheets/<nombre>.spec.ts
+# specs: pivot, numfmt, cellstyle, data, charts, xlsx, findreplace, fill, names, print, cond
+```
+`npx tsx` (transitorio, no se añade a `package.json`) resuelve el alias `@/` y las
+importaciones sin extensión bajo Node 22.
+
+**Verde:** `tsc --noEmit`, `eslint` (sin errores nuevos; los *warnings* de refs en
+`SheetEditor` son preexistentes) y `next build` — validados varias veces durante la sesión.
+
+## Dependencias y licencias
+- **Sin dependencias nuevas.** Todo se apoya en lo ya presente:
+  - `@fortune-sheet/react` — **MIT** (motor de hoja y fórmulas).
+  - `xlsx` (SheetJS) — **Apache-2.0** (import/export).
+  - `chart.js` + `react-chartjs-2` — **MIT** (gráficos).
+  - `framer-motion` (MIT), `lucide-react` (ISC) para la UI.
+- **PROHIBIDO y evitado:** HyperFormula (GPL) y cualquier copyleft. No se introdujo
+  ningún paquete; el motor de fórmulas sigue siendo el de Fortune-Sheet.
+
+## Diferido (con estimación)
+- **Autocompletado de funciones dentro del editor de celda** al escribir `=`
+  (el motor es dueño del input; overlay frágil) — ~0.5–1 día.
+- **Administrador de reglas de formato condicional** persistente (hoy se «hornea») — ~1–1.5 días.
+- **Fidelidad total de estilos en .xlsx** (SheetJS CE no escribe relleno/fuente/color) — ~1–2 días + licencia.
+- **What-if (tabla de datos / buscar objetivo)** y **agrupar/esquema de filas-columnas**
+  nativos — dependen de soporte de Fortune-Sheet; no incluidos para no mergear nada inestable.
+- **Hipervínculos / proteger rango-hoja**: Fortune-Sheet ofrece parte de forma nativa;
+  no se duplicó para evitar comportamiento inconsistente.
+
+## Seguridad / paralelismo
+- Solo se tocaron archivos de **Hojas** (`Sheet*`, `lib/office/sheetOps.ts|xlsx.ts|charts.ts`,
+  `components/office/sheets/**`). **No** se tocó el ribbon compartido, `OfficeShell`,
+  `office/[id]/page.tsx`, Docs/Slides, `globals.css`, `eslint.config.mjs`, ni nada fuera de Office.
+- Rama `claude/wizardly-goodall-LfB7g`, **PR abierto sin mergear** (#261) para revisión del dueño.
 </content>
 </invoke>
