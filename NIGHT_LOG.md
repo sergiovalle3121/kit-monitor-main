@@ -1340,6 +1340,36 @@ texto previo (no bloquea la captura). Cero backend.
   `control-tower`, `line-control-tower`, sub-`erp` ya leían datos reales.
 - `tsc` + `eslint` (web) verdes.
 
+### Ítem #4 — Multi-tenancy (`TenantScopedRepository`) en inventory/erp-core → **DIFERIDO**
+**Motivo (no viable de forma estable sin supervisión):** `TenantScopedRepository`
+solo aplica `WHERE tenant_id = <ctx>` **si la entidad tiene columna `tenant_id`**
+(si no, es no-op seguro). Verifiqué: las entidades de `inventory`
+(material_master, inventory_positions, inventory_movements, warehouse_tasks,
+replenishment_rules) y `erp-core` **NO tienen `tenant_id`**. Para aislamiento
+real haría falta (a) migración aditiva que agregue `tenant_id` a las entidades
+del módulo **más crítico (stock)** y (b) **backfill de las filas de prod
+existentes** a un tenant — un backfill mal hecho **ocultaría todo el inventario
+existente** a los usuarios con tenant en contexto. Eso no es seguro de hacer sin
+supervisión. Adoptar el repo en modo no-op (sin columnas) sería vacío y el test
+anti-fuga no podría ser honesto. → Lo dejo documentado para el dueño; **no lo
+hago a medias**. (El patrón ya está bien en `product-models`, `line-engineering`,
+`rma`, `legal`, cuyas entidades sí tienen `tenant_id`.)
+
+### Ítem #5 — Numeración a mano → `DocumentNumberingService` (incremental, 1 módulo)
+- **(commit) `receiving`** — `recordReceipt` armaba el folio a mano con
+  `REC-${year}-${count+1}` (frágil: **race-condition** y colisión si se borra un
+  recibo). Ahora usa `numbering.allocate('GOODS_RECEIPT')` (atómico, transaccional,
+  scoped por tenant/plant). Añadí el default `GOODS_RECEIPT` con prefijo `REC`,
+  patrón `{PREFIX}-{YYYY}-{SEQ}`, padding 4 → **conserva exactamente el formato
+  `REC-YYYY-NNNN`** (cero cambio cosmético, ningún parser de folio se rompe).
+  **Fallback** al esquema previo si la asignación falla (un recibo nunca se queda
+  sin folio). `NumberingModule` agregado a los imports.
+- **Gate backend OK:** `nest build` ✅ · **bootstrap smoke con Postgres** ✅
+  (grafo de la app inicializa limpio) · `jest numbering` 21/21 ✅ · `eslint --fix`
+  de los archivos tocados verde (quedan solo warnings `any` preexistentes).
+- _Nota: dejé `numbering.defaults.ts` en su estilo compacto de 1 línea por entrada
+  (como sus 28 hermanas) para no inflar el diff; mi entrada va en ese mismo estilo._
+
 ## PENDIENTE: wiring de navegación (para que el dueño lo conecte en hub/paleta)
 > No edito `app/dashboard/page.tsx` (hub) ni `SearchPalette.tsx` (paleta) — los
 > toca la otra sesión. Páginas nuevas accesibles por URL directa; conéctalas tú:

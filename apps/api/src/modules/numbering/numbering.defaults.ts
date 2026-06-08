@@ -29,6 +29,7 @@ export const DEFAULT_SEQUENCES: SequenceDefault[] = [
   { docType: 'ASN', name: 'Aviso de Embarque (ASN)', prefix: 'ASN', pattern: '{PREFIX}-{YYYY}-{SEQ}', padding: 6, resetPolicy: 'YEARLY', description: 'Advance shipping notice (EDI 856).' },
   { docType: 'SHIPMENT', name: 'Embarque', prefix: 'SHP', pattern: '{PREFIX}-{YYYY}-{SEQ}', padding: 6, resetPolicy: 'YEARLY', description: 'Embarques de producto terminado.' },
   { docType: 'RECEIPT', name: 'Recepción de Material', prefix: 'RCV', pattern: '{PREFIX}-{YYYY}-{SEQ}', padding: 6, resetPolicy: 'YEARLY', description: 'Recepciones en almacén (Inbound).' },
+  { docType: 'GOODS_RECEIPT', name: 'Recibo de Material', prefix: 'REC', pattern: '{PREFIX}-{YYYY}-{SEQ}', padding: 4, resetPolicy: 'YEARLY', description: 'Recibos directos a inventario (Receiving) — conserva REC-YYYY-NNNN.' },
   { docType: 'INVOICE', name: 'Factura', prefix: 'INV', pattern: '{PREFIX}-{YYYY}-{SEQ}', padding: 6, resetPolicy: 'YEARLY', description: 'Facturas de venta (AR).' },
   { docType: 'CYCLE_COUNT', name: 'Conteo Cíclico', prefix: 'CC', pattern: '{PREFIX}-{YYYY}{MM}-{SEQ}', padding: 4, resetPolicy: 'MONTHLY', description: 'Conteos cíclicos de inventario.' },
   { docType: 'MAINTENANCE_ORDER', name: 'Orden de Mantenimiento', prefix: 'MO', pattern: '{PREFIX}-{YYYY}-{SEQ}', padding: 6, resetPolicy: 'YEARLY', description: 'Órdenes de mantenimiento (CMMS).' },
