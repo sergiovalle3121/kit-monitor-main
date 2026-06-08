@@ -19,6 +19,7 @@ import { positionLabel } from "@/config/positions";
 import { IconTile } from "@/components/ui/IconTile";
 import { HoverArrow } from "@/components/ui/HoverArrow";
 import { DOMAINS, type DomainKey } from "@/lib/design/domains";
+import { chatApi, type ChatConversation } from "@/lib/chatApi";
 
 const MotionLink = motion.create(Link);
 
@@ -27,6 +28,7 @@ interface SessionInfo {
   name: string; email: string | null; role: string; position?: string | null; userId: string | null;
 }
 interface AdminNotification { id: string; type: string; title: string; body: string; read: boolean; createdAt: string }
+interface UnifiedNotif { id: string; domain: DomainKey; title: string; meta: string; at: string; read: boolean; href?: string }
 interface PlanRow { id: number; model: string; workOrder: string; status: string; publishedBy?: string | null; publishedAt?: string | null }
 interface RequestRow { id: number; model?: string | null; status: string; requestedBy?: string; createdAt?: string }
 
@@ -76,6 +78,70 @@ function timeAgo(iso?: string | null): string {
   return `hace ${Math.floor(h / 24)} d`;
 }
 
+function isToday(iso: string): boolean {
+  const d = new Date(iso);
+  const n = new Date();
+  return d.getFullYear() === n.getFullYear() && d.getMonth() === n.getMonth() && d.getDate() === n.getDate();
+}
+
+/**
+ * Unifica notificaciones de admin + no leídos del chat en una sola lista, con el
+ * dominio (color/ícono) de cada una. Datos reales — sin nada hardcodeado.
+ */
+function buildNotifications(chatConvos: ChatConversation[], admin: AdminNotification[]): UnifiedNotif[] {
+  const items: UnifiedNotif[] = [];
+  for (const c of chatConvos) {
+    if ((c.unread || 0) > 0) {
+      items.push({
+        id: `chat-${c.id}`,
+        domain: "messaging",
+        title: `${c.unread} sin leer · ${c.title || "Conversación"}`,
+        meta: `${DOMAINS.messaging.label} · ${timeAgo(c.lastMessageAt)}`,
+        at: c.lastMessageAt || new Date().toISOString(),
+        read: false,
+        href: "/dashboard/chat",
+      });
+    }
+  }
+  for (const n of admin) {
+    items.push({
+      id: `admin-${n.id}`,
+      domain: "people",
+      title: n.title,
+      meta: `${DOMAINS.people.label} · ${timeAgo(n.createdAt)}`,
+      at: n.createdAt,
+      read: n.read,
+      href: n.type?.startsWith("user.") ? "/dashboard/admin/approvals" : undefined,
+    });
+  }
+  return items.sort((a, b) => +new Date(b.at) - +new Date(a.at));
+}
+
+function NotifGroup({ label, items, onGo }: { label: string; items: UnifiedNotif[]; onGo: (n: UnifiedNotif) => void }) {
+  return (
+    <div>
+      <p className="px-2 mb-1 text-[10px] font-semibold uppercase tracking-wider text-gray-400">{label}</p>
+      <div className="space-y-1">
+        {items.map((n) => (
+          <button
+            key={n.id}
+            onClick={() => onGo(n)}
+            disabled={!n.href}
+            className="w-full flex items-start gap-3 rounded-2xl p-2 text-left transition-colors hover:bg-black/5 dark:hover:bg-white/10 disabled:cursor-default disabled:hover:bg-transparent"
+          >
+            <IconTile domain={n.domain} size={34} />
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-semibold truncate">{n.title}</p>
+              <p className="text-[10px] text-gray-500">{n.meta}</p>
+            </div>
+            {!n.read && <span className="mt-1.5 h-2 w-2 flex-shrink-0 rounded-full bg-violet-500" />}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function DashboardInner() {
   const router = useRouter();
   const params = useSearchParams();
@@ -90,22 +156,32 @@ function DashboardInner() {
   const [savingName, setSavingName] = useState(false);
   const [notifications, setNotifications] = useState<AdminNotification[]>([]);
   const [pendingCount, setPendingCount] = useState(0);
+  const [chatConvos, setChatConvos] = useState<ChatConversation[]>([]);
 
   useEffect(() => {
     fetch("/api/auth/me").then((r) => r.json()).then((d) => setSession(d.session));
   }, []);
 
+  // Carga unificada: el chat es para TODOS; las notificaciones de admin solo si
+  // el rol es admin. Polling cada 20 s (mismo patrón existente).
   useEffect(() => {
-    if (session?.role !== "admin") return;
+    if (!session) return;
     let active = true;
+    const isAdminRole = session.role === "admin";
     async function load() {
-      const [n, p] = await Promise.all([
-        fetch("/api/admin/notifications", { cache: "no-store" }).then((r) => r.json()).catch(() => ({})),
-        fetch("/api/admin/pending", { cache: "no-store" }).then((r) => r.json()).catch(() => ({})),
-      ]);
-      if (!active) return;
-      setNotifications(n.notifications || []);
-      setPendingCount(p.users?.length || 0);
+      try {
+        const convos = await chatApi.listConversations();
+        if (active) setChatConvos(Array.isArray(convos) ? convos : []);
+      } catch { /* sin sesión de chat todavía */ }
+      if (isAdminRole) {
+        const [n, p] = await Promise.all([
+          fetch("/api/admin/notifications", { cache: "no-store" }).then((r) => r.json()).catch(() => ({})),
+          fetch("/api/admin/pending", { cache: "no-store" }).then((r) => r.json()).catch(() => ({})),
+        ]);
+        if (!active) return;
+        setNotifications(n.notifications || []);
+        setPendingCount(p.users?.length || 0);
+      }
     }
     load();
     const t = setInterval(load, 20000);
@@ -131,7 +207,12 @@ function DashboardInner() {
 
   const isAdmin = session?.role === "admin";
   const seesAll = isAdmin || session?.role === "executive";
-  const unread = notifications.filter((n) => !n.read).length;
+  const adminUnread = notifications.filter((n) => !n.read).length;
+  const messagingUnread = chatConvos.reduce((s, c) => s + (c.unread || 0), 0);
+  const badgeTotal = adminUnread + messagingUnread;
+  const notifItems = buildNotifications(chatConvos, notifications);
+  const todayItems = notifItems.filter((n) => isToday(n.at));
+  const earlierItems = notifItems.filter((n) => !isToday(n.at));
   const firstName = session?.name?.split(" ")[0] || "Usuario";
   const initials = (session?.name || "?").split(" ").map((p) => p[0]).slice(0, 2).join("").toUpperCase();
   const roleLabel = positionLabel(session?.position) || ROLE_LABELS[session?.role || ""] || session?.role || "—";
@@ -141,11 +222,22 @@ function DashboardInner() {
     await fetch("/api/auth/logout", { method: "POST" });
     router.push("/login"); router.refresh();
   }
-  async function openNotifs() {
+  function openNotifs() {
     setNotifOpen((o) => !o);
-    if (!notifOpen && isAdmin) {
+  }
+  function goNotif(n: UnifiedNotif) {
+    setNotifOpen(false);
+    if (n.href) router.push(n.href);
+  }
+  async function markAllRead() {
+    if (isAdmin && adminUnread > 0) {
       await fetch("/api/admin/notifications", { method: "POST" }).catch(() => {});
       setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    }
+    const unreadConvos = chatConvos.filter((c) => (c.unread || 0) > 0);
+    if (unreadConvos.length) {
+      await Promise.all(unreadConvos.map((c) => chatApi.markRead(c.id).catch(() => {})));
+      setChatConvos((prev) => prev.map((c) => ({ ...c, unread: 0 })));
     }
   }
   async function saveName() {
@@ -192,29 +284,30 @@ function DashboardInner() {
           <div className="relative">
             <button onClick={openNotifs} className="p-2 hover:bg-gray-200 dark:hover:bg-white/10 rounded-full transition-colors relative" aria-label="Notificaciones">
               <Bell className="w-5 h-5" />
-              {(unread > 0 || pendingCount > 0) && (
-                <span className="absolute top-0 right-0 min-w-[18px] h-[18px] px-1 bg-red-500 rounded-full border-2 border-white dark:border-black text-[9px] font-bold text-white flex items-center justify-center">{Math.max(unread, pendingCount)}</span>
+              {badgeTotal > 0 && (
+                <span className="absolute top-0 right-0 min-w-[18px] h-[18px] px-1 bg-red-500 rounded-full border-2 border-white dark:border-black text-[9px] font-bold text-white flex items-center justify-center">{badgeTotal > 99 ? "99+" : badgeTotal}</span>
               )}
             </button>
             <AnimatePresence>
               {notifOpen && (
-                <motion.div initial={{ opacity: 0, y: 10, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 10, scale: 0.95 }} className={`${glass} absolute right-0 mt-4 w-96 rounded-[2rem] shadow-2xl p-6 z-[100]`}>
-                  <div className="flex justify-between items-center mb-4">
+                <motion.div initial={{ opacity: 0, y: 10, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 10, scale: 0.95 }} className={`${glass} absolute right-0 mt-4 w-96 rounded-[2rem] shadow-2xl p-4 z-[100]`}>
+                  <div className="flex justify-between items-center mb-3 px-2">
                     <h3 className="font-bold">Notificaciones</h3>
-                    {isAdmin && pendingCount > 0 && (
-                      <Link href="/dashboard/admin/approvals" onClick={() => setNotifOpen(false)} className="text-xs font-bold text-rose-500 hover:underline">Revisar {pendingCount}</Link>
+                    {badgeTotal > 0 && (
+                      <button onClick={markAllRead} className="text-xs font-semibold text-violet-500 hover:underline">Marcar leídas</button>
                     )}
                   </div>
-                  {isAdmin && notifications.length > 0 ? (
-                    <div className="space-y-3 max-h-72 overflow-y-auto">
-                      {notifications.slice(0, 8).map((n) => (
-                        <div key={n.id} className="flex gap-3 items-start">
-                          <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${n.type === "user.pending" ? "bg-rose-500" : n.type === "user.approved" ? "bg-green-500" : "bg-gray-400"}`} />
-                          <div className="min-w-0"><p className="text-xs font-bold truncate">{n.title}</p><p className="text-[10px] text-gray-500">{n.body}</p><p className="text-[9px] text-gray-400 mt-0.5">{timeAgo(n.createdAt)}</p></div>
-                        </div>
-                      ))}
+                  {notifItems.length === 0 ? (
+                    <p className="text-xs text-gray-400 px-2 py-8 text-center">Estás al día. Sin notificaciones.</p>
+                  ) : (
+                    <div className="space-y-4 max-h-96 overflow-y-auto">
+                      {todayItems.length > 0 && <NotifGroup label="Hoy" items={todayItems} onGo={goNotif} />}
+                      {earlierItems.length > 0 && <NotifGroup label="Antes" items={earlierItems} onGo={goNotif} />}
                     </div>
-                  ) : <p className="text-xs text-gray-400">Sin notificaciones nuevas.</p>}
+                  )}
+                  {isAdmin && pendingCount > 0 && (
+                    <Link href="/dashboard/admin/approvals" onClick={() => setNotifOpen(false)} className="mt-3 block text-center text-xs font-semibold text-rose-500 hover:underline">Revisar {pendingCount} pendientes</Link>
+                  )}
                 </motion.div>
               )}
             </AnimatePresence>
