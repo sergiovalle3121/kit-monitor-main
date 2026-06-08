@@ -20,7 +20,7 @@ import {
   List, IndentIncrease, IndentDecrease, MoveHorizontal, AlignVerticalSpaceAround, Sparkles, Search,
   Pointer, Pencil, Eraser, Moon, ListTree, Layers,
   ZoomIn, ZoomOut, Maximize, Scan, MousePointerClick, Check,
-  AlignHorizontalSpaceAround, Paintbrush, Stamp, Proportions,
+  AlignHorizontalSpaceAround, Paintbrush, Stamp, Proportions, FolderPlus,
 } from 'lucide-react';
 import { SlideSorter } from './SlideSorter';
 import { SlideIconPicker } from './SlideIconPicker';
@@ -81,8 +81,15 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
     while (n.length < initial.length) n.push('');
     return n;
   })();
+  const initialSections: (string | null)[] = (() => {
+    const s = Array.isArray(value?.sections) ? value.sections.slice(0, initial.length) : [];
+    while (s.length < initial.length) s.push(null);
+    return s;
+  })();
   const slidesRef = useRef<any[]>(initial);
   const notesRef = useRef<string[]>(initialNotes);
+  const sectionsRef = useRef<(string | null)[]>(initialSections);
+  const [sections, setSections] = useState<(string | null)[]>(initialSections);
   const [slides, setSlides] = useState<any[]>(initial); // mirror for rendering
   const [cur, setCur] = useState(0);
   const [noteDraft, setNoteDraft] = useState<string>(initialNotes[0] ?? '');
@@ -142,7 +149,8 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
 
   function sync() {
     setSlides([...slidesRef.current]);
-    onChange({ version: 2, slides: slidesRef.current, notes: notesRef.current, transition: transitionRef.current, theme: themeRef.current, footer: footerRef.current, showNumbers: numbersRef.current, ratio: ratioRef.current });
+    setSections([...sectionsRef.current]);
+    onChange({ version: 2, slides: slidesRef.current, notes: notesRef.current, transition: transitionRef.current, theme: themeRef.current, footer: footerRef.current, showNumbers: numbersRef.current, ratio: ratioRef.current, sections: sectionsRef.current });
   }
   function setTrans(t: string) { setTransition(t); transitionRef.current = t; sync(); }
   function applyBgAll(color: string) {
@@ -395,6 +403,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
     slidesRef.current = content.slides;
     notesRef.current = Array.isArray(content.notes) ? content.notes.slice() : content.slides.map(() => '');
     while (notesRef.current.length < slidesRef.current.length) notesRef.current.push('');
+    sectionsRef.current = content.slides.map(() => null);
     if (content.transition) { transitionRef.current = content.transition; setTransition(content.transition); }
     setCur(0); curRef.current = 0;
     await loadInto(0);
@@ -839,16 +848,32 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [readOnly]);
 
-  function addSlide() { capture(); slidesRef.current.splice(cur + 1, 0, blank()); notesRef.current.splice(cur + 1, 0, ''); sync(); loadInto(cur + 1); }
-  function dupSlide() { capture(); slidesRef.current.splice(cur + 1, 0, JSON.parse(JSON.stringify(slidesRef.current[cur]))); notesRef.current.splice(cur + 1, 0, notesRef.current[cur] ?? ''); sync(); loadInto(cur + 1); }
-  function delSlide(i: number) { if (slidesRef.current.length === 1) return; slidesRef.current.splice(i, 1); notesRef.current.splice(i, 1); sync(); loadInto(Math.max(0, i <= cur ? cur - 1 : cur)); }
+  function addSlide() { capture(); slidesRef.current.splice(cur + 1, 0, blank()); notesRef.current.splice(cur + 1, 0, ''); sectionsRef.current.splice(cur + 1, 0, null); sync(); loadInto(cur + 1); }
+  function dupSlide() { capture(); slidesRef.current.splice(cur + 1, 0, JSON.parse(JSON.stringify(slidesRef.current[cur]))); notesRef.current.splice(cur + 1, 0, notesRef.current[cur] ?? ''); sectionsRef.current.splice(cur + 1, 0, null); sync(); loadInto(cur + 1); }
+  function delSlide(i: number) { if (slidesRef.current.length === 1) return; slidesRef.current.splice(i, 1); notesRef.current.splice(i, 1); sectionsRef.current.splice(i, 1); sync(); loadInto(Math.max(0, i <= cur ? cur - 1 : cur)); }
   function reorderSlides(from: number, to: number) {
     if (from === to) return;
     capture();
     const [m] = slidesRef.current.splice(from, 1); slidesRef.current.splice(to, 0, m);
     const [mn] = notesRef.current.splice(from, 1); notesRef.current.splice(to, 0, mn);
+    const [ms] = sectionsRef.current.splice(from, 1); sectionsRef.current.splice(to, 0, ms);
     sync(); loadInto(to);
   }
+  // ── Secciones (marcas paralelas a las diapositivas) ─────────────────────────
+  function addSection() {
+    const n = sectionsRef.current.filter(Boolean).length + 1;
+    const title = window.prompt('Título de la sección', `Sección ${n}`);
+    if (title === null) return;
+    sectionsRef.current[cur] = title.trim() || `Sección ${n}`;
+    sync();
+  }
+  function renameSection(i: number) {
+    const title = window.prompt('Renombrar sección', sectionsRef.current[i] || '');
+    if (title === null) return;
+    sectionsRef.current[i] = title.trim() || sectionsRef.current[i];
+    sync();
+  }
+  function removeSection(i: number) { sectionsRef.current[i] = null; sync(); }
   // ── Zoom / ajustar a pantalla (zoom de la vista de Fabric) ──────────────────
   function applyZoom(z: number) {
     const zz = Math.max(0.25, Math.min(3, z));
@@ -1218,23 +1243,34 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
       <div className="flex gap-4 flex-1 min-h-0">
         <div className="w-44 flex-shrink-0 overflow-y-auto space-y-2 pr-1">
           {slides.map((s, i) => (
-            <div key={i} className="relative group">
-              <button onClick={() => goto(i)} className={`w-full text-left rounded-lg border-2 transition-all ${i === cur ? 'border-amber-500' : 'border-gray-200 dark:border-white/10 hover:border-gray-300'}`}>
-                <div className="aspect-video bg-white rounded-md overflow-hidden p-2 flex flex-col">
-                  <span className="text-[9px] text-gray-400 font-mono">{i + 1}</span>
-                  <p className="font-bold text-[10px] text-black line-clamp-2 mt-1">{labelOf(s) || 'Diapositiva'}</p>
+            <React.Fragment key={i}>
+              {sections[i] != null && (
+                <div className="flex items-center gap-1 pt-1 group/sec">
+                  <button onClick={() => !readOnly && renameSection(i)} title="Renombrar sección" className="flex-1 min-w-0 text-left text-[11px] font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400 truncate hover:text-gray-800 dark:hover:text-gray-200">▸ {sections[i]}</button>
+                  {!readOnly && <button onClick={() => removeSection(i)} title="Quitar sección" className="p-0.5 rounded text-gray-400 hover:text-red-500 opacity-0 group-hover/sec:opacity-100"><X className="w-3 h-3" /></button>}
                 </div>
-              </button>
-              {!readOnly && slides.length > 1 && (
-                <button onClick={() => delSlide(i)} className="absolute top-1 right-1 p-1 rounded-full bg-white/90 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all shadow"><X className="w-3 h-3" /></button>
               )}
-            </div>
+              <div className="relative group">
+                <button onClick={() => goto(i)} className={`w-full text-left rounded-lg border-2 transition-all ${i === cur ? 'border-amber-500' : 'border-gray-200 dark:border-white/10 hover:border-gray-300'}`}>
+                  <div className="aspect-video bg-white rounded-md overflow-hidden p-2 flex flex-col">
+                    <span className="text-[9px] text-gray-400 font-mono">{i + 1}</span>
+                    <p className="font-bold text-[10px] text-black line-clamp-2 mt-1">{labelOf(s) || 'Diapositiva'}</p>
+                  </div>
+                </button>
+                {!readOnly && slides.length > 1 && (
+                  <button onClick={() => delSlide(i)} className="absolute top-1 right-1 p-1 rounded-full bg-white/90 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all shadow"><X className="w-3 h-3" /></button>
+                )}
+              </div>
+            </React.Fragment>
           ))}
           {!readOnly && (
+          <>
           <div className="flex gap-2">
             <button onClick={addSlide} title="Nueva" className="flex-1 aspect-video rounded-lg border-2 border-dashed border-gray-300 dark:border-white/20 flex items-center justify-center text-gray-400 hover:text-black dark:hover:text-white transition-colors"><Plus className="w-5 h-5" /></button>
             <button onClick={dupSlide} title="Duplicar" className="flex-1 aspect-video rounded-lg border-2 border-dashed border-gray-300 dark:border-white/20 flex items-center justify-center text-gray-400 hover:text-black dark:hover:text-white transition-colors"><Copy className="w-5 h-5" /></button>
           </div>
+          <button onClick={addSection} title="Agregar sección en la diapositiva actual" className="w-full text-[11px] font-medium text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 border border-dashed border-gray-300 dark:border-white/20 rounded-lg py-1 flex items-center justify-center gap-1"><FolderPlus className="w-3.5 h-3.5" /> Sección</button>
+          </>
           )}
         </div>
 

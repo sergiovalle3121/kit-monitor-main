@@ -209,9 +209,17 @@ Verificado: `tsc` ✓, `eslint` ✓, `next build` ✓.
 
 Verificado: `tsc` ✓, `eslint` ✓, `next build` ✓.
 
+#### Lote 15 — Secciones (backlog #7)
+- **Secciones** que agrupan diapositivas con encabezados en la barra de
+  miniaturas. Modelo: arreglo `sections` paralelo a las diapositivas (como
+  `notes`), así no hay corrimiento de índices al agregar/duplicar/borrar/
+  reordenar. Agregar sección en la diapositiva actual, **renombrar** y **quitar**.
+
+Verificado: `tsc` ✓, `eslint` ✓, `next build` ✓.
+
 ### Diferido (con estimación)
-- **Secciones** (backlog #7): agrupar diapositivas con encabezados en la barra y
-  el clasificador. Estimación: ~0.5 día (sin impacto en export).
+- **Secciones en el clasificador** y colapsar/expandir: el sorter es una rejilla;
+  insertar encabezados de ancho completo + colapso. Estimación: ~0.5 día.
 - **Patrón de diapositivas (master) editable** (backlog #7): editor de
   marcadores/placeholders. Estimación: ~1 día.
 - **Video/audio embebido** (backlog #10): Fabric no reproduce media; requiere
