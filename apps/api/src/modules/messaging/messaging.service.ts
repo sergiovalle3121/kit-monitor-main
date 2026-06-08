@@ -15,6 +15,7 @@ import { ChatGateway } from './chat.gateway';
 const MAX_INPUT_BYTES = 5 * 1024 * 1024; // 5 MB de entrada
 const TARGET_MAX_DIMENSION = 1280; // px
 const TARGET_QUALITY = 70; // jpeg quality
+const MAX_TEXT_LENGTH = 4000; // tope de caracteres por mensaje (anti-spam/DoS)
 
 @Injectable()
 export class MessagingService {
@@ -42,9 +43,13 @@ export class MessagingService {
     return rows.map((r) => r.userId);
   }
 
-  private async assertMember(conversationId: string, userId: string): Promise<void> {
+  private async assertMember(
+    conversationId: string,
+    userId: string,
+  ): Promise<void> {
     const m = await this.members.findOne({ where: { conversationId, userId } });
-    if (!m) throw new ForbiddenException('No eres miembro de esta conversación');
+    if (!m)
+      throw new ForbiddenException('No eres miembro de esta conversación');
   }
 
   // ── usuarios del mismo tenant (para iniciar DM / armar canal) ───────────
@@ -56,19 +61,27 @@ export class MessagingService {
     });
     return all
       .filter((u) => u.id !== meId && u.isActive)
-      .map((u) => ({ id: u.id, username: u.username, email: u.email, role: u.role }));
+      .map((u) => ({
+        id: u.id,
+        username: u.username,
+        email: u.email,
+        role: u.role,
+      }));
   }
 
   // ── crear / obtener DM ──────────────────────────────────────────────────
   async getOrCreateDm(meId: string, otherId: string): Promise<Conversation> {
-    if (meId === otherId) throw new BadRequestException('No puedes abrir un DM contigo mismo');
+    if (meId === otherId)
+      throw new BadRequestException('No puedes abrir un DM contigo mismo');
     const me = await this.getUserOrThrow(meId);
     const other = await this.getUserOrThrow(otherId);
 
     // Buscar un DM existente que tenga exactamente a ambos.
     const myDms = await this.members.find({ where: { userId: meId } });
     for (const m of myDms) {
-      const convo = await this.conversations.findOne({ where: { id: m.conversationId } });
+      const convo = await this.conversations.findOne({
+        where: { id: m.conversationId },
+      });
       if (!convo || convo.type !== 'dm') continue;
       const ids = await this.memberIdsOf(convo.id);
       if (ids.length === 2 && ids.includes(meId) && ids.includes(otherId)) {
@@ -92,8 +105,13 @@ export class MessagingService {
   }
 
   // ── crear canal ─────────────────────────────────────────────────────────
-  async createChannel(meId: string, name: string, memberIds: string[]): Promise<Conversation> {
-    if (!name?.trim()) throw new BadRequestException('El canal necesita un nombre');
+  async createChannel(
+    meId: string,
+    name: string,
+    memberIds: string[],
+  ): Promise<Conversation> {
+    if (!name?.trim())
+      throw new BadRequestException('El canal necesita un nombre');
     const me = await this.getUserOrThrow(meId);
     const unique = Array.from(new Set([meId, ...(memberIds || [])]));
 
@@ -106,7 +124,9 @@ export class MessagingService {
       }),
     );
     await this.members.save(
-      unique.map((userId) => this.members.create({ conversationId: convo.id, userId })),
+      unique.map((userId) =>
+        this.members.create({ conversationId: convo.id, userId }),
+      ),
     );
     return convo;
   }
@@ -122,7 +142,9 @@ export class MessagingService {
       });
       if (!convo) continue;
 
-      const memberRows = await this.members.find({ where: { conversationId: convo.id } });
+      const memberRows = await this.members.find({
+        where: { conversationId: convo.id },
+      });
       const memberIds = memberRows.map((m) => m.userId);
 
       // Nombre a mostrar: canal → su nombre; DM → el otro usuario.
@@ -131,7 +153,9 @@ export class MessagingService {
       if (convo.type === 'dm') {
         counterpartId = memberIds.find((id) => id !== meId) ?? null;
         if (counterpartId) {
-          const other = await this.users.findOne({ where: { id: counterpartId } });
+          const other = await this.users.findOne({
+            where: { id: counterpartId },
+          });
           title = other?.username ?? other?.email ?? 'Usuario';
         }
       }
@@ -147,9 +171,7 @@ export class MessagingService {
         .where('m.conversation_id = :cid', { cid: convo.id })
         .andWhere('m.sender_id != :me', { me: meId })
         .andWhere(
-          membership.lastReadAt
-            ? 'm.created_at > :lastRead'
-            : '1=1',
+          membership.lastReadAt ? 'm.created_at > :lastRead' : '1=1',
           membership.lastReadAt ? { lastRead: membership.lastReadAt } : {},
         )
         .getCount();
@@ -161,7 +183,12 @@ export class MessagingService {
         counterpartId,
         memberIds,
         lastMessage: last
-          ? { type: last.type, body: last.body, createdAt: last.createdAt, senderId: last.senderId }
+          ? {
+              type: last.type,
+              body: last.body,
+              createdAt: last.createdAt,
+              senderId: last.senderId,
+            }
           : null,
         lastMessageAt: convo.lastMessageAt,
         unread,
@@ -201,13 +228,19 @@ export class MessagingService {
   // ── enviar texto ─────────────────────────────────────────────────────────
   async sendText(meId: string, conversationId: string, body: string) {
     await this.assertMember(conversationId, meId);
-    if (!body?.trim()) throw new BadRequestException('Mensaje vacío');
+    const text = body?.trim();
+    if (!text) throw new BadRequestException('Mensaje vacío');
+    if (text.length > MAX_TEXT_LENGTH) {
+      throw new BadRequestException(
+        `Mensaje demasiado largo (máx ${MAX_TEXT_LENGTH} caracteres)`,
+      );
+    }
     const msg = await this.messages.save(
       this.messages.create({
         conversationId,
         senderId: meId,
         type: 'text',
-        body: body.trim(),
+        body: text,
       }),
     );
     await this.touchAndBroadcast(conversationId, msg);
@@ -250,13 +283,20 @@ export class MessagingService {
    * Comprime/redimensiona con sharp. Si sharp falla por cualquier motivo en
    * runtime, guarda el original (el límite de 5 MB ya acota el tamaño).
    */
-  private async compressImage(input: Buffer): Promise<{ buffer: Buffer; mime: string }> {
+  private async compressImage(
+    input: Buffer,
+  ): Promise<{ buffer: Buffer; mime: string }> {
     try {
       // Import dinámico: si sharp no estuviera disponible, no tumba el arranque.
       const sharp = (await import('sharp')).default;
       const out = await sharp(input)
         .rotate()
-        .resize({ width: TARGET_MAX_DIMENSION, height: TARGET_MAX_DIMENSION, fit: 'inside', withoutEnlargement: true })
+        .resize({
+          width: TARGET_MAX_DIMENSION,
+          height: TARGET_MAX_DIMENSION,
+          fit: 'inside',
+          withoutEnlargement: true,
+        })
         .jpeg({ quality: TARGET_QUALITY })
         .toBuffer();
       return { buffer: out, mime: 'image/jpeg' };
@@ -272,7 +312,8 @@ export class MessagingService {
       .addSelect('m.image_data')
       .where('m.id = :id', { id: messageId })
       .getOne();
-    if (!msg || !msg.imageData) throw new NotFoundException('Imagen no encontrada');
+    if (!msg || !msg.imageData)
+      throw new NotFoundException('Imagen no encontrada');
     await this.assertMember(msg.conversationId, meId);
     return { data: msg.imageData, mime: msg.imageMime ?? 'image/jpeg' };
   }
@@ -280,13 +321,18 @@ export class MessagingService {
   // ── marcar leído ─────────────────────────────────────────────────────────
   async markRead(meId: string, conversationId: string) {
     await this.assertMember(conversationId, meId);
-    await this.members.update({ conversationId, userId: meId }, { lastReadAt: new Date() });
+    await this.members.update(
+      { conversationId, userId: meId },
+      { lastReadAt: new Date() },
+    );
     return { ok: true };
   }
 
   // ── internos ─────────────────────────────────────────────────────────────
   private async touchAndBroadcast(conversationId: string, msg: Message) {
-    await this.conversations.update(conversationId, { lastMessageAt: msg.createdAt });
+    await this.conversations.update(conversationId, {
+      lastMessageAt: msg.createdAt,
+    });
     const memberIds = await this.memberIdsOf(conversationId);
     this.gateway.emitMessageToMembers(memberIds, this.toDto(msg));
   }

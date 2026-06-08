@@ -103,10 +103,17 @@ export default function ChatPage() {
   // Socket en tiempo real
   useEffect(() => {
     if (!meId) return;
+    const token =
+      typeof window !== 'undefined'
+        ? window.localStorage.getItem('axos_access_token')
+        : null;
     const socket = io(`${CHAT_API_BASE}/chat`, {
       transports: ['websocket', 'polling'],
       reconnection: true,
       reconnectionAttempts: 10,
+      // P0: el servidor autentica el handshake con este JWT y deriva el userId
+      // del token. El payload de `join` ya no otorga acceso a rooms ajenos.
+      auth: { token },
     });
     socket.on('connect', () => socket.emit('join', meId));
     socket.on('message:new', (msg: ChatMessage) => {
@@ -157,11 +164,8 @@ export default function ChatPage() {
     if (now - lastTypingEmitRef.current < 1500) return;
     if (!active || !meId || !socketRef.current) return;
     lastTypingEmitRef.current = now;
-    socketRef.current.emit('typing', {
-      memberIds: active.memberIds,
-      conversationId: active.id,
-      userId: meId,
-    });
+    // El servidor deriva miembros y emisor; solo mandamos la conversación.
+    socketRef.current.emit('typing', { conversationId: active.id });
   }
 
   async function handleSendText() {
