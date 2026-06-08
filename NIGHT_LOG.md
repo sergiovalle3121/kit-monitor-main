@@ -1401,6 +1401,11 @@ Backends sin ningún consumidor en `apps/web` (detectados): `/replenishment`,
   RECEIPT) y responsable; KPIs (pendientes/en proceso/total); toggle Abiertas/
   Todas + búsqueda; estado vacío honesto. Eslabón de ejecución del golden path
   (surtido físico) que faltaba en UI. → Falta wiring de navegación (abajo).
+- **(commit) Página `dashboard/cancellation-requests`** (backend
+  `/cancellation-requests/*` no tenía UI) — cola de aprobación de cancelaciones
+  de kit/WO: pendientes con **Aceptar/Rechazar** (`PATCH /:id/respond`, con
+  confirmación porque Aceptar cancela el kit) + historial reciente con estatus.
+  Reutiliza `/pending` y `/recent`. → Falta wiring de navegación (abajo).
 - `tsc` + `eslint` (web) verdes.
 
 ## PENDIENTE: wiring de navegación (para que el dueño lo conecte en hub/paleta)
@@ -1415,6 +1420,9 @@ Backends sin ningún consumidor en `apps/web` (detectados): `/replenishment`,
 - **`/dashboard/warehouse`** — "Tareas de almacén" (acomodo/traslado/surtido).
   Sugerencia: dominio Almacén, ícono `ClipboardList`. Cmd-K: "Tareas de almacén",
   "Picking", "Surtido físico", "Warehouse tasks".
+- **`/dashboard/cancellation-requests`** — "Solicitudes de cancelación" (aprobar/
+  rechazar cancelación de kit/WO). Sugerencia: dominio Producción, ícono `Ban`.
+  Cmd-K: "Cancelaciones", "Solicitudes de cancelación".
 
 ## RESUMEN / CIERRE (sesión #2)
 - **Rama:** `claude/modules-unify` · **PR #260 → `main`** (diff limpio, sin
