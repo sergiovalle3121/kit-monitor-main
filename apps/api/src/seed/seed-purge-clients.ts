@@ -11,8 +11,10 @@
  * Idempotente y SEGURO: sólo borra lo que coincide con la lista negra; NO toca
  * los datos legítimos del dueño. Imprime cada registro borrado con su motivo.
  *
- * El dueño lo correrá CONTRA PROD para limpiar lo ya desplegado:
- *   DATABASE_URL=<prod> npm run seed:purge-clients
+ * El dueño lo correrá CONTRA PROD para limpiar lo ya desplegado. Es DRY-RUN por
+ * defecto (sólo reporta lo que borraría); para borrar de verdad añade PURGE_CONFIRM=true:
+ *   DATABASE_URL=<prod> npm run seed:purge-clients                     # preview (no borra)
+ *   DATABASE_URL=<prod> PURGE_CONFIRM=true npm run seed:purge-clients  # borra
  * (Revisa/extiende la lista negra en public-domain-guard.ts antes de correrlo.)
  */
 import 'reflect-metadata';
@@ -35,6 +37,7 @@ import { bootSeedContext, runInDemoContext } from './seed-context';
 import { findForbiddenReason, isForbiddenValue } from './public-domain-guard';
 
 let totalRemoved = 0;
+let wasDryRun = false;
 const problems: string[] = [];
 
 /** ¿Alguno de los campos del registro es de cliente real? Devuelve el motivo. */
@@ -88,7 +91,7 @@ async function run(): Promise<void> {
   console.log('════════════════════════════════════════════════════════════');
   console.log(' AXOS OS — PURGA de datos de clientes reales (legal)');
   console.log(`   Destino: ${process.env.DATABASE_URL || 'SQLite local'}`);
-  console.log('   Sólo borra registros que coinciden con la lista negra.');
+  console.log('   Por defecto DRY-RUN (no borra). Borra de verdad sólo con PURGE_CONFIRM=true.');
   console.log('════════════════════════════════════════════════════════════');
 
   const app = await bootSeedContext();
@@ -143,6 +146,19 @@ async function run(): Promise<void> {
         console.log('   (nada — la base ya está limpia)');
       }
 
+      const detected =
+        fModels.length + fMaterials.length + fHeaders.length + fComponents.length +
+        fPlans.length + fPositions.length + fMovements.length + fCustomers.length + fPrograms.length;
+
+      // SALVAGUARDA PROD: por defecto es DRY-RUN (no borra nada). Sólo borra de
+      // verdad con PURGE_CONFIRM=true — así una corrida accidental jamás destruye.
+      if (process.env.PURGE_CONFIRM !== 'true') {
+        wasDryRun = true;
+        console.log(`\n· DRY-RUN: ${detected} registros confidenciales detectados. NO se borró nada.`);
+        console.log('  Para borrar de verdad: PURGE_CONFIRM=true npm run seed:purge-clients');
+        return;
+      }
+
       // ── Borrado en orden de dependencias ────────────────────────────────
       console.log('\n· Borrando:');
       if (fKitIds.length) {
@@ -168,12 +184,16 @@ async function run(): Promise<void> {
     });
 
     console.log('────────────────────────────────────────────────────────────');
-    console.log(` Total purgado: ${totalRemoved} filas de clientes reales.`);
-    if (problems.length) {
-      console.log(' Pasos con problemas (revisar manualmente):');
-      for (const p of problems) console.log(`   - ${p}`);
+    if (wasDryRun) {
+      console.log(' DRY-RUN — no se borró nada. Repite con PURGE_CONFIRM=true para purgar de verdad.');
+    } else {
+      console.log(` Total purgado: ${totalRemoved} filas de clientes reales.`);
+      if (problems.length) {
+        console.log(' Pasos con problemas (revisar manualmente):');
+        for (const p of problems) console.log(`   - ${p}`);
+      }
+      console.log('✅ Purga completada (sólo se borró lo que coincide con la lista negra).');
     }
-    console.log('✅ Purga completada (sólo se borró lo que coincide con la lista negra).');
     console.log('────────────────────────────────────────────────────────────');
   } finally {
     await app.close();
