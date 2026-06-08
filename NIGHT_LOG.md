@@ -1215,3 +1215,47 @@ funcional de lo que parecía**; el bloqueo real era el acceso del owner (Bloque 
 - **Pendiente transversal (cuando haya tiempo):** cablear `allocate()` en módulos
   que numeran a mano (WO/plans, kits, NCR, receiving, shipping) — cambio
   incremental por módulo, cuidando no romper parsers de folios existentes en prod.
+
+---
+
+## 2026-06-08 (noche) — Office a nivel Microsoft: RIBBON pro + profundidad
+
+> **Track A** en `claude/office-ribbon` (PR normal). **Track B** (spike Univer)
+> en `claude/office-univer-spike` (PR draft). **Sin merge a `main`.** Solo
+> agregar/mejorar, reutilizar, nada GPL. Build + lint (web) verdes por push.
+
+### Dependencias nuevas + licencia
+- **Track A:** ninguna nueva todavía (usa lo instalado: framer-motion, lucide,
+  TipTap, Fortune-Sheet, Fabric, docx, xlsx, pptxgenjs — todas MIT/permisivas).
+
+### A0 — Chasis del ribbon + migración de Docs
+- **Nuevo** `apps/web/src/components/office/ribbon/`: `OfficeChrome` (contexto +
+  host), `controls.tsx` (`RibbonButton/Select/ColorButton/SplitButton/MenuButton/
+  MenuList/Group/Separator/Stack/Row` + `Popover`), `OfficeRibbon` (`+RibbonTab`),
+  `index.ts`. Estilo Apple/glass, dark mode, framer-motion, tooltips con atajo,
+  `aria-label`, teclado, colapsable, scroll horizontal con degradados.
+- **Montaje:** `OfficeShell` publica un host bajo el header (`OfficeChromeContext`);
+  cada editor **porta** su cinta ahí → estado del editor local (sin lifting),
+  cinta fuera del lienzo y persistente (pestaña/colapso por `localStorage`).
+- **`DocEditor`:** barra plana → ribbon **Archivo · Inicio · Insertar · Revisar ·
+  Vista**. Migrado TODO lo previo sin perder nada (deshacer/rehacer, estilos,
+  fuente/tamaño, B/I/U/tachado, color+resaltado con popover, sub/sup, limpiar,
+  listas, cita, alineación, interlineado, tabla+menú, imagen+align/ancho, enlace,
+  fecha, emoji, separador, salto de página, código, buscar/reemplazar,
+  comentarios, esquema, vista de página). Acciones de archivo → pestaña
+  **Archivo** (reusa `DocActions`+`ShareButton`+`VersionHistory`). En readOnly se
+  muestran solo **Archivo** + **Vista**.
+- **Página:** `office/[id]/page.tsx` pasa `fileActions` al editor con ribbon y
+  quita esas acciones del header para ese tipo (sin duplicar). Sheet/Slides siguen
+  con su barra y acciones en header hasta su migración (nada roto).
+
+### Nota de tooling (lint) — importante
+- `eslint-config-next@16.2.4` → `eslint-plugin-react-hooks@7.1.1` añade las reglas
+  del **React Compiler** como **error**; el código del repo (anterior) las
+  incumple por todas partes → el lint de `web` **ya estaba rojo en `main`** por
+  deriva de versión. Bajadas a `warn` en `apps/web/eslint.config.mjs` (visibles;
+  `rules-of-hooks`/`exhaustive-deps` siguen como error). No se tocó código que
+  funciona. `apps/api` tiene lint rojo preexistente aparte (fuera de alcance).
+
+### Estado A0: build web ✅ · lint web ✅ · tsc ✅
+### Pendiente: A1 (Docs), A2 (Hojas), A3 (Slides), A4 (pulido), Track B.

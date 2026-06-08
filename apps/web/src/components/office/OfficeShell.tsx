@@ -7,6 +7,7 @@ import {
   ChevronLeft, FileText, Table, Presentation, Check, Loader2, Cloud, CloudOff,
   Lock, Maximize2, Minimize2, Keyboard, X,
 } from 'lucide-react';
+import { OfficeChromeProvider } from './ribbon/OfficeChrome';
 
 export type SaveStatus = 'saved' | 'saving' | 'unsaved' | 'error' | 'readonly';
 export type OfficeType = 'doc' | 'sheet' | 'slides';
@@ -78,6 +79,8 @@ export function OfficeShell({
   const Icon = meta.icon;
   const [isFs, setIsFs] = useState(false);
   const [help, setHelp] = useState(false);
+  // Host del ribbon: los editores portan su cinta aquí (debajo del header).
+  const [ribbonHost, setRibbonHost] = useState<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const h = () => setIsFs(!!document.fullscreenElement);
@@ -91,6 +94,7 @@ export function OfficeShell({
   }
 
   return (
+    <OfficeChromeProvider value={{ ribbonHost }}>
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
@@ -141,12 +145,8 @@ export function OfficeShell({
         {help && <ShortcutsHelp type={type} onClose={() => setHelp(false)} />}
       </AnimatePresence>
 
-      {/* ── Ribbon ────────────────────────────────────────────────────── */}
-      {ribbon != null && (
-        <div className="flex-shrink-0 border-b border-black/5 dark:border-white/10 bg-gray-50/80 dark:bg-[#0e0e0e]/80 backdrop-blur overflow-x-auto">
-          {ribbon}
-        </div>
-      )}
+      {/* ── Ribbon (host del portal: cada editor inyecta su cinta aquí) ─── */}
+      <div ref={setRibbonHost} className="flex-shrink-0 empty:hidden">{ribbon}</div>
 
       {/* ── Canvas ────────────────────────────────────────────────────── */}
       <main className="flex-1 min-h-0 overflow-auto relative">{children}</main>
@@ -163,6 +163,7 @@ export function OfficeShell({
         <div className="ml-auto flex items-center gap-3">{statusBarRight}</div>
       </footer>
     </motion.div>
+    </OfficeChromeProvider>
   );
 }
 

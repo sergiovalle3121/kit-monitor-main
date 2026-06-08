@@ -37,7 +37,7 @@ import {
   Bold, Italic, Underline, Strikethrough, Code,
   List, ListOrdered, ListChecks, Quote, AlignLeft, AlignCenter, AlignRight, AlignJustify,
   Highlighter, Link2, Image as ImageIcon, Table as TableIcon, Undo, Redo, Minus, Search, SeparatorHorizontal,
-  Subscript as SubIcon, Superscript as SupIcon, RemoveFormatting, Code2, Calendar, Smile,
+  Subscript as SubIcon, Superscript as SupIcon, RemoveFormatting, Code2, Calendar, Smile, Baseline, FileText,
 } from 'lucide-react';
 import { DocFindReplace } from './DocFindReplace';
 import { DocOutline } from './DocOutline';
@@ -46,6 +46,10 @@ import { DocPageView } from './DocPageView';
 import { DocTableMenu } from './DocTableMenu';
 import { CommentMark } from './commentMark';
 import { PageBreak, PageMeta } from './docPageExtensions';
+import {
+  OfficeRibbon, RibbonTab, RibbonGroup, RibbonSeparator,
+  RibbonButton, RibbonSelect, RibbonColorButton,
+} from './ribbon';
 import '@/styles/tiptap.css';
 
 const FONTS = [
@@ -68,23 +72,6 @@ const LINE_HEIGHTS = [
   { label: 'Doble', value: '2' },
 ];
 
-function Btn({ on, active, title, children }: { on: () => void; active?: boolean; title?: string; children: React.ReactNode }) {
-  return (
-    <button title={title} onMouseDown={(e) => e.preventDefault()} onClick={on}
-      className={`p-2 rounded-lg transition-colors ${active ? 'bg-black text-white dark:bg-white dark:text-black' : 'hover:bg-gray-100 dark:hover:bg-white/10 text-gray-600 dark:text-gray-300'}`}>
-      {children}
-    </button>
-  );
-}
-function Sel({ value, onChange, title, style, children }: { value: string; onChange: (v: string) => void; title?: string; style?: React.CSSProperties; children: React.ReactNode }) {
-  return (
-    <select title={title} value={value} onChange={(e) => onChange(e.target.value)} style={style}
-      className="h-8 text-xs rounded-lg bg-transparent hover:bg-gray-100 dark:hover:bg-white/10 border border-transparent focus:border-gray-200 dark:focus:border-white/10 px-1.5 outline-none cursor-pointer text-gray-700 dark:text-gray-200">
-      {children}
-    </select>
-  );
-}
-function Sep() { return <span className="w-px h-5 bg-gray-200 dark:bg-white/10 mx-1" />; }
 
 const EMOJIS = ['😀', '😁', '😂', '😍', '🤔', '👍', '👎', '🙏', '🎉', '🚀', '🔥', '⭐', '✅', '❌', '⚠️', '💡', '📌', '📈', '📉', '💰', '🟢', '🟡', '🔴', '➡️'];
 function EmojiBtn({ onPick }: { onPick: (e: string) => void }) {
@@ -108,7 +95,7 @@ function EmojiBtn({ onPick }: { onPick: (e: string) => void }) {
 }
 
 /** Word-like rich text editor (TipTap + MIT extensions). */
-export function DocEditor({ value, onChange, readOnly, author, onStats }: { value: any; onChange: (json: any) => void; readOnly?: boolean; author?: string; onStats?: (s: { words: number; chars: number }) => void }) {
+export function DocEditor({ value, onChange, readOnly, author, onStats, fileActions }: { value: any; onChange: (json: any) => void; readOnly?: boolean; author?: string; onStats?: (s: { words: number; chars: number }) => void; fileActions?: React.ReactNode }) {
   const editor = useEditor({
     extensions: [
       StarterKit,
@@ -162,6 +149,8 @@ export function DocEditor({ value, onChange, readOnly, author, onStats }: { valu
 
   const ts = editor.getAttributes('textStyle');
   const curFont = ts.fontFamily ?? '';
+  const curColor = ts.color ?? '';
+  const curHighlight = editor.getAttributes('highlight').color ?? '';
   const curSize = String(ts.fontSize ?? '').replace('px', '');
   const curLH = String(editor.getAttributes('paragraph').lineHeight ?? editor.getAttributes('heading').lineHeight ?? '');
   const curStyle = editor.isActive('heading', { level: 1 }) ? 'h1'
@@ -176,85 +165,128 @@ export function DocEditor({ value, onChange, readOnly, author, onStats }: { valu
   const setSize = (v: string) => (v ? (c() as any).setFontSize(`${v}px`).run() : (c() as any).unsetFontSize().run());
   const setLH = (v: string) => (v ? (c() as any).setLineHeight(v).run() : (c() as any).unsetLineHeight().run());
 
+  const styleOptions = [
+    { label: 'Normal', value: 'p' },
+    { label: 'Título 1', value: 'h1' },
+    { label: 'Título 2', value: 'h2' },
+    { label: 'Título 3', value: 'h3' },
+  ];
+  const fontOptions = FONTS.map((f) => ({ label: f.label, value: f.value, style: (f.value ? { fontFamily: f.value } : undefined) as React.CSSProperties | undefined }));
+  const sizeOptions = [{ label: '--', value: '' }, ...SIZES.map((s) => ({ label: s, value: s }))];
+  const lhOptions = LINE_HEIGHTS.map((l) => ({ label: l.label, value: l.value }));
+  const imgAlign = editor.getAttributes('image').align;
+  const imgWidth = editor.getAttributes('image').width;
+
   return (
     <div className="flex flex-col h-full">
-      {!readOnly && (
-      <div className="bg-white/90 dark:bg-[#111]/90 backdrop-blur border-b border-gray-100 dark:border-white/10 px-3 py-1.5 flex items-center gap-0.5 flex-wrap flex-shrink-0">
-        <Btn on={() => c().undo().run()} title="Deshacer"><Undo className="w-4 h-4" /></Btn>
-        <Btn on={() => c().redo().run()} title="Rehacer"><Redo className="w-4 h-4" /></Btn>
-        <Sep />
-        <Sel value={curStyle} onChange={setStyle} title="Estilo de párrafo" style={{ width: 104 }}>
-          <option value="p">Normal</option>
-          <option value="h1">Título 1</option>
-          <option value="h2">Título 2</option>
-          <option value="h3">Título 3</option>
-        </Sel>
-        <Sel value={curFont} onChange={setFont} title="Fuente" style={{ width: 116 }}>
-          {FONTS.map((f) => <option key={f.label} value={f.value}>{f.label}</option>)}
-        </Sel>
-        <Sel value={curSize} onChange={setSize} title="Tamaño de fuente" style={{ width: 60 }}>
-          <option value="">--</option>
-          {SIZES.map((s) => <option key={s} value={s}>{s}</option>)}
-        </Sel>
-        <Sep />
-        <Btn on={() => c().toggleBold().run()} active={editor.isActive('bold')} title="Negrita"><Bold className="w-4 h-4" /></Btn>
-        <Btn on={() => c().toggleItalic().run()} active={editor.isActive('italic')} title="Cursiva"><Italic className="w-4 h-4" /></Btn>
-        <Btn on={() => (c() as any).toggleUnderline().run()} active={editor.isActive('underline')} title="Subrayado"><Underline className="w-4 h-4" /></Btn>
-        <Btn on={() => c().toggleStrike().run()} active={editor.isActive('strike')} title="Tachado"><Strikethrough className="w-4 h-4" /></Btn>
-        <Btn on={() => (c() as any).toggleHighlight().run()} active={editor.isActive('highlight')} title="Resaltar"><Highlighter className="w-4 h-4" /></Btn>
-        <label title="Color de resaltado" className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-white/10 cursor-pointer flex items-center">
-          <span className="w-4 h-4 rounded-sm border border-gray-300" style={{ background: 'repeating-linear-gradient(45deg,#fde047,#fde047 3px,#fff 3px,#fff 6px)' }} />
-          <input type="color" defaultValue="#fde047" onChange={(e) => (c() as any).setHighlight({ color: e.target.value }).run()} className="w-0 h-0 opacity-0 absolute" />
-        </label>
-        <Btn on={() => (c() as any).toggleSubscript().run()} active={editor.isActive('subscript')} title="Subíndice"><SubIcon className="w-4 h-4" /></Btn>
-        <Btn on={() => (c() as any).toggleSuperscript().run()} active={editor.isActive('superscript')} title="Superíndice"><SupIcon className="w-4 h-4" /></Btn>
-        <Btn on={() => c().unsetAllMarks().clearNodes().run()} title="Limpiar formato"><RemoveFormatting className="w-4 h-4" /></Btn>
-        <label title="Color de texto" className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-white/10 cursor-pointer flex items-center">
-          <span className="w-4 h-4 rounded-sm border border-gray-300" style={{ background: 'linear-gradient(135deg,#ef4444,#3b82f6)' }} />
-          <input type="color" onChange={(e) => (c() as any).setColor(e.target.value).run()} className="w-0 h-0 opacity-0 absolute" />
-        </label>
-        <Sep />
-        <Btn on={() => c().setTextAlign('left').run()} active={editor.isActive({ textAlign: 'left' })} title="Izquierda"><AlignLeft className="w-4 h-4" /></Btn>
-        <Btn on={() => c().setTextAlign('center').run()} active={editor.isActive({ textAlign: 'center' })} title="Centrar"><AlignCenter className="w-4 h-4" /></Btn>
-        <Btn on={() => c().setTextAlign('right').run()} active={editor.isActive({ textAlign: 'right' })} title="Derecha"><AlignRight className="w-4 h-4" /></Btn>
-        <Btn on={() => c().setTextAlign('justify').run()} active={editor.isActive({ textAlign: 'justify' })} title="Justificar"><AlignJustify className="w-4 h-4" /></Btn>
-        <Sel value={curLH} onChange={setLH} title="Interlineado" style={{ width: 96 }}>
-          {LINE_HEIGHTS.map((l) => <option key={l.label} value={l.value}>{l.label}</option>)}
-        </Sel>
-        <Sep />
-        <Btn on={() => c().toggleBulletList().run()} active={editor.isActive('bulletList')} title="Viñetas"><List className="w-4 h-4" /></Btn>
-        <Btn on={() => c().toggleOrderedList().run()} active={editor.isActive('orderedList')} title="Numerada"><ListOrdered className="w-4 h-4" /></Btn>
-        <Btn on={() => (c() as any).toggleTaskList().run()} active={editor.isActive('taskList')} title="Lista de tareas"><ListChecks className="w-4 h-4" /></Btn>
-        <Btn on={() => c().toggleBlockquote().run()} active={editor.isActive('blockquote')} title="Cita"><Quote className="w-4 h-4" /></Btn>
-        <Btn on={() => (c() as any).toggleCode().run()} active={editor.isActive('code')} title="Código en línea"><Code2 className="w-4 h-4" /></Btn>
-        <Btn on={() => c().toggleCodeBlock().run()} active={editor.isActive('codeBlock')} title="Bloque de código"><Code className="w-4 h-4" /></Btn>
-        <Sep />
-        <Btn on={toggleLink} active={editor.isActive('link')} title={editor.isActive('link') ? 'Quitar enlace' : 'Enlace'}><Link2 className="w-4 h-4" /></Btn>
-        <Btn on={addImage} title="Imagen"><ImageIcon className="w-4 h-4" /></Btn>
-        <Btn on={() => c().insertContent(new Date().toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' })).run()} title="Insertar fecha"><Calendar className="w-4 h-4" /></Btn>
-        <EmojiBtn onPick={(e) => c().insertContent(e).run()} />
-        <Btn on={() => (c() as any).insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()} title="Tabla"><TableIcon className="w-4 h-4" /></Btn>
-        {editor.isActive('table') && <DocTableMenu editor={editor} />}
-        {editor.isActive('image') && (
-          <>
-            <Btn on={() => (c() as any).updateAttributes('image', { align: 'left' }).run()} active={editor.getAttributes('image').align === 'left'} title="Imagen a la izquierda (texto alrededor)"><AlignLeft className="w-4 h-4" /></Btn>
-            <Btn on={() => (c() as any).updateAttributes('image', { align: 'center' }).run()} active={editor.getAttributes('image').align === 'center'} title="Imagen centrada"><AlignCenter className="w-4 h-4" /></Btn>
-            <Btn on={() => (c() as any).updateAttributes('image', { align: 'right' }).run()} active={editor.getAttributes('image').align === 'right'} title="Imagen a la derecha (texto alrededor)"><AlignRight className="w-4 h-4" /></Btn>
-            {['25%', '50%', '75%', '100%'].map((w) => (
-              <button key={w} onMouseDown={(e) => e.preventDefault()} onClick={() => (c() as any).updateAttributes('image', { width: w }).run()}
-                className="px-1.5 h-8 text-[11px] font-semibold rounded-lg hover:bg-gray-100 dark:hover:bg-white/10 text-gray-600 dark:text-gray-300">{w}</button>
-            ))}
-          </>
-        )}
-        <Btn on={() => c().setHorizontalRule().run()} title="Separador"><Minus className="w-4 h-4" /></Btn>
-        <Btn on={() => (c() as any).setPageBreak().run()} title="Salto de página"><SeparatorHorizontal className="w-4 h-4" /></Btn>
-        <Sep />
-        <Btn on={() => setShowFind(true)} title="Buscar y reemplazar (Ctrl+F)"><Search className="w-4 h-4" /></Btn>
-        <DocOutline editor={editor} />
-        <DocComments editor={editor} author={author ?? ''} />
-        <DocPageView editor={editor} />
-      </div>
-      )}
+      <OfficeRibbon storageKey="ribbon:doc">
+          {fileActions != null && (
+            <RibbonTab id="file" label="Archivo" icon={FileText}>
+              <RibbonGroup label="Documento">{fileActions}</RibbonGroup>
+            </RibbonTab>
+          )}
+
+          {!readOnly && (
+          <RibbonTab id="home" label="Inicio">
+            <RibbonGroup label="Deshacer">
+              <RibbonButton icon={Undo} label="Deshacer" shortcut="Ctrl+Z" onClick={() => c().undo().run()} />
+              <RibbonButton icon={Redo} label="Rehacer" shortcut="Ctrl+Y" onClick={() => c().redo().run()} />
+            </RibbonGroup>
+            <RibbonSeparator />
+            <RibbonGroup label="Estilos">
+              <RibbonSelect title="Estilo de párrafo" value={curStyle} onChange={setStyle} width={120} options={styleOptions} />
+            </RibbonGroup>
+            <RibbonSeparator />
+            <RibbonGroup label="Fuente">
+              <RibbonSelect title="Fuente" value={curFont} onChange={setFont} width={132} options={fontOptions} />
+              <RibbonSelect title="Tamaño de fuente" value={curSize} onChange={setSize} width={58} options={sizeOptions} />
+              <RibbonButton icon={Bold} label="Negrita" shortcut="Ctrl+B" active={editor.isActive('bold')} onClick={() => c().toggleBold().run()} />
+              <RibbonButton icon={Italic} label="Cursiva" shortcut="Ctrl+I" active={editor.isActive('italic')} onClick={() => c().toggleItalic().run()} />
+              <RibbonButton icon={Underline} label="Subrayado" shortcut="Ctrl+U" active={editor.isActive('underline')} onClick={() => (c() as any).toggleUnderline().run()} />
+              <RibbonButton icon={Strikethrough} label="Tachado" active={editor.isActive('strike')} onClick={() => c().toggleStrike().run()} />
+              <RibbonColorButton icon={Baseline} title="Color de texto" value={curColor} onChange={(col) => (c() as any).setColor(col).run()} onClear={() => (c() as any).unsetColor().run()} clearLabel="Automático" />
+              <RibbonColorButton icon={Highlighter} title="Color de resaltado" value={curHighlight} onChange={(col) => (c() as any).setHighlight({ color: col }).run()} onClear={() => (c() as any).unsetHighlight().run()} clearLabel="Sin resaltado" />
+              <RibbonButton icon={SubIcon} label="Subíndice" active={editor.isActive('subscript')} onClick={() => (c() as any).toggleSubscript().run()} />
+              <RibbonButton icon={SupIcon} label="Superíndice" active={editor.isActive('superscript')} onClick={() => (c() as any).toggleSuperscript().run()} />
+              <RibbonButton icon={RemoveFormatting} label="Limpiar formato" onClick={() => c().unsetAllMarks().clearNodes().run()} />
+            </RibbonGroup>
+            <RibbonSeparator />
+            <RibbonGroup label="Párrafo">
+              <RibbonButton icon={List} label="Viñetas" active={editor.isActive('bulletList')} onClick={() => c().toggleBulletList().run()} />
+              <RibbonButton icon={ListOrdered} label="Lista numerada" active={editor.isActive('orderedList')} onClick={() => c().toggleOrderedList().run()} />
+              <RibbonButton icon={ListChecks} label="Lista de tareas" active={editor.isActive('taskList')} onClick={() => (c() as any).toggleTaskList().run()} />
+              <RibbonButton icon={Quote} label="Cita" active={editor.isActive('blockquote')} onClick={() => c().toggleBlockquote().run()} />
+              <RibbonButton icon={AlignLeft} label="Alinear a la izquierda" active={editor.isActive({ textAlign: 'left' })} onClick={() => c().setTextAlign('left').run()} />
+              <RibbonButton icon={AlignCenter} label="Centrar" active={editor.isActive({ textAlign: 'center' })} onClick={() => c().setTextAlign('center').run()} />
+              <RibbonButton icon={AlignRight} label="Alinear a la derecha" active={editor.isActive({ textAlign: 'right' })} onClick={() => c().setTextAlign('right').run()} />
+              <RibbonButton icon={AlignJustify} label="Justificar" active={editor.isActive({ textAlign: 'justify' })} onClick={() => c().setTextAlign('justify').run()} />
+              <RibbonSelect title="Interlineado" value={curLH} onChange={setLH} width={92} options={lhOptions} />
+            </RibbonGroup>
+            <RibbonSeparator />
+            <RibbonGroup label="Edición">
+              <RibbonButton icon={Search} label="Buscar y reemplazar" shortcut="Ctrl+F" onClick={() => setShowFind(true)} />
+            </RibbonGroup>
+          </RibbonTab>
+          )}
+
+          {!readOnly && (
+          <RibbonTab id="insert" label="Insertar">
+            <RibbonGroup label="Tablas">
+              <RibbonButton icon={TableIcon} label="Insertar tabla" onClick={() => (c() as any).insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()} />
+              {editor.isActive('table') && <DocTableMenu editor={editor} />}
+            </RibbonGroup>
+            <RibbonSeparator />
+            <RibbonGroup label="Ilustraciones">
+              <RibbonButton icon={ImageIcon} label="Imagen" onClick={addImage} />
+              {editor.isActive('image') && (
+                <>
+                  <RibbonButton icon={AlignLeft} label="Imagen a la izquierda" active={imgAlign === 'left'} onClick={() => (c() as any).updateAttributes('image', { align: 'left' }).run()} />
+                  <RibbonButton icon={AlignCenter} label="Imagen centrada" active={imgAlign === 'center'} onClick={() => (c() as any).updateAttributes('image', { align: 'center' }).run()} />
+                  <RibbonButton icon={AlignRight} label="Imagen a la derecha" active={imgAlign === 'right'} onClick={() => (c() as any).updateAttributes('image', { align: 'right' }).run()} />
+                  {['25%', '50%', '75%', '100%'].map((w) => (
+                    <RibbonButton key={w} label={w} hideLabel={false} active={imgWidth === w} onClick={() => (c() as any).updateAttributes('image', { width: w }).run()} />
+                  ))}
+                </>
+              )}
+            </RibbonGroup>
+            <RibbonSeparator />
+            <RibbonGroup label="Vínculos">
+              <RibbonButton icon={Link2} label={editor.isActive('link') ? 'Quitar enlace' : 'Enlace'} active={editor.isActive('link')} onClick={toggleLink} />
+            </RibbonGroup>
+            <RibbonSeparator />
+            <RibbonGroup label="Símbolos">
+              <RibbonButton icon={Calendar} label="Insertar fecha" onClick={() => c().insertContent(new Date().toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' })).run()} />
+              <EmojiBtn onPick={(e) => c().insertContent(e).run()} />
+              <RibbonButton icon={Minus} label="Separador" onClick={() => c().setHorizontalRule().run()} />
+              <RibbonButton icon={SeparatorHorizontal} label="Salto de página" onClick={() => (c() as any).setPageBreak().run()} />
+            </RibbonGroup>
+            <RibbonSeparator />
+            <RibbonGroup label="Código">
+              <RibbonButton icon={Code2} label="Código en línea" active={editor.isActive('code')} onClick={() => (c() as any).toggleCode().run()} />
+              <RibbonButton icon={Code} label="Bloque de código" active={editor.isActive('codeBlock')} onClick={() => c().toggleCodeBlock().run()} />
+            </RibbonGroup>
+          </RibbonTab>
+          )}
+
+          {!readOnly && (
+          <RibbonTab id="review" label="Revisar">
+            <RibbonGroup label="Comentarios">
+              <DocComments editor={editor} author={author ?? ''} />
+            </RibbonGroup>
+            <RibbonSeparator />
+            <RibbonGroup label="Edición">
+              <RibbonButton icon={Search} label="Buscar y reemplazar" shortcut="Ctrl+F" onClick={() => setShowFind(true)} />
+            </RibbonGroup>
+          </RibbonTab>
+          )}
+
+          <RibbonTab id="view" label="Vista">
+            <RibbonGroup label="Mostrar">
+              <DocOutline editor={editor} />
+              <DocPageView editor={editor} />
+            </RibbonGroup>
+          </RibbonTab>
+      </OfficeRibbon>
 
       {showFind && !readOnly && <DocFindReplace editor={editor} onClose={() => setShowFind(false)} />}
 
