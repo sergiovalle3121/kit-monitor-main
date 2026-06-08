@@ -3,7 +3,7 @@
 
 import React from 'react';
 import type { Editor } from '@tiptap/react';
-import { RectangleVertical, RectangleHorizontal, FileText, StretchHorizontal, Columns2, Columns3, Square, Stamp } from 'lucide-react';
+import { RectangleVertical, RectangleHorizontal, FileText, StretchHorizontal, Columns2, Columns3, Square, Stamp, SquareDashedBottom, Hash, Files } from 'lucide-react';
 import { RibbonGroup, RibbonSeparator, RibbonMenuButton, RibbonButton } from './ribbon';
 
 /** Controles de «Disposición» (diseño de página): se guardan en pageMeta y se
@@ -16,6 +16,7 @@ export function DocPageSetup({ editor }: { editor: Editor }) {
   const size = a.pageSize || 'a4';
   const margin = a.pageMargin || 'normal';
   const columns = a.pageColumns || 1;
+  const border = a.pageBorder || '';
 
   const sizeLabel: Record<string, string> = { a4: 'A4', letter: 'Carta', legal: 'Oficio' };
   const marginLabel: Record<string, string> = { normal: 'Normales', narrow: 'Estrechos', wide: 'Amplios' };
@@ -54,6 +55,17 @@ export function DocPageSetup({ editor }: { editor: Editor }) {
             if (v === null) return;
             set({ pageWatermark: v.trim() });
           }} />
+      </RibbonGroup>
+      <RibbonSeparator />
+      <RibbonGroup label="Bordes y líneas">
+        <RibbonMenuButton icon={SquareDashedBottom} label="Bordes" menuWidth={200} items={[
+          { label: 'Sin borde', active: border === '', onClick: () => set({ pageBorder: '' }) },
+          { label: 'Fino', active: border === 'thin', onClick: () => set({ pageBorder: 'thin' }) },
+          { label: 'Grueso', active: border === 'thick', onClick: () => set({ pageBorder: 'thick' }) },
+          { label: 'Doble', active: border === 'double', onClick: () => set({ pageBorder: 'double' }) },
+        ]} />
+        <RibbonButton icon={Hash} label="Números de línea" active={!!a.pageLineNumbers} onClick={() => set({ pageLineNumbers: !a.pageLineNumbers })} />
+        <RibbonButton icon={Files} label="Primera página distinta" active={!!a.pageFirstDifferent} onClick={() => set({ pageFirstDifferent: !a.pageFirstDifferent })} />
       </RibbonGroup>
       <span className="self-center text-[10px] text-gray-400 px-2 max-w-[150px]" title="Vista de página">{sizeLabel[size]} · {marginLabel[margin]}</span>
     </>

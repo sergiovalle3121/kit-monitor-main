@@ -53,6 +53,24 @@ export function DocStyleGallery({ editor }: { editor: Editor }) {
       active: () => editor.isActive('blockquote'),
       preview: <span className="text-[13px] italic text-gray-500 border-l-2 border-gray-300 pl-2">Cita</span>,
     },
+    {
+      key: 'nospacing', label: 'Sin espaciado',
+      apply: () => (c() as any).setParagraph().updateAttributes('paragraph', { styleName: 'nospacing' }).run(),
+      active: () => editor.isActive('paragraph') && editor.getAttributes('paragraph').styleName === 'nospacing',
+      preview: <span className="text-[13px] text-gray-700 dark:text-gray-200">Sin espaciado</span>,
+    },
+    {
+      key: 'reference', label: 'Referencia',
+      apply: () => (c() as any).setParagraph().updateAttributes('paragraph', { styleName: 'reference' }).run(),
+      active: () => editor.isActive('paragraph') && editor.getAttributes('paragraph').styleName === 'reference',
+      preview: <span className="text-[12px] uppercase tracking-wider font-semibold text-gray-600 dark:text-gray-300">Referencia</span>,
+    },
+    {
+      key: 'caption', label: 'Leyenda',
+      apply: () => (c() as any).setParagraph().updateAttributes('paragraph', { styleName: 'caption' }).run(),
+      active: () => editor.isActive('paragraph') && editor.getAttributes('paragraph').styleName === 'caption',
+      preview: <span className="text-[12px] italic text-gray-500">Figura 1. Leyenda</span>,
+    },
   ];
 
   return (
@@ -69,6 +87,13 @@ export function DocStyleGallery({ editor }: { editor: Editor }) {
           </button>
         ))}
       </div>
+      <button
+        type="button" onMouseDown={(e) => e.preventDefault()}
+        onClick={() => (c() as any).setParagraph().updateAttributes('paragraph', { styleName: '' }).unsetAllMarks().run()}
+        className="mt-1 w-full text-left text-[12px] font-medium px-2.5 py-2 rounded-xl text-gray-600 dark:text-gray-300 hover:bg-black/[0.04] dark:hover:bg-white/[0.06] border-t border-black/5 dark:border-white/10"
+      >
+        Borrar formato (a Normal)
+      </button>
     </RibbonMenuButton>
   );
 }
