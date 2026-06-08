@@ -90,10 +90,22 @@ CSS de todo lo anterior en `tiptap.css`.
 - **Bibliografía**: nodo en vivo que recoge y ordena las fuentes únicas (como la
   TOC). Export .docx con sangría francesa.
 
-### Hardening
+### Wave 5 — Encabezado / pie de página WYSIWYG
+- **Encabezado y pie** (`DocHeaderFooter.tsx`): editor en la pestaña Disposición
+  (texto de encabezado, pie y números de página) que se guarda en `pageMeta` y se
+  **muestra en la página** del editor (no sólo en impresión), además de la vista
+  paginada (Paged.js) y el export .docx ya existentes.
+
+### Hardening y verificación
 - Comentarios: al actualizar un hilo (responder/resolver) ahora se quita y vuelve
   a poner la marca para no acumular marcas duplicadas (la marca `comment` permite
   solaparse, por lo que re-aplicar `setMark` no reemplazaba).
+- **Prueba de humo del esquema (headless)**: como el `next build` NO construye el
+  esquema (eso ocurre al instanciar el editor en el navegador), se validó con
+  jsdom + `getSchema` que: el esquema se construye (31 nodos, 13 marcas), todos los
+  nodos/marcas nuevos existen, los atributos globales caen sobre nodos válidos, y
+  un documento con cada nodo (incl. ecuaciones) **serializa** vía `DOMSerializer`
+  sin error y KaTeX renderiza. (Artefacto de verificación, no se versiona.)
 
 ### Diferido (con estimación)
 - **Control de cambios con interceptación total** (pegar/IME/borrado como

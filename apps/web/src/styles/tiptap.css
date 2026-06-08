@@ -252,6 +252,18 @@
 .tiptap-page .ProseMirror [data-style="nospacing"] { margin-top: 0 !important; line-height: 1.25; }
 .tiptap-page .ProseMirror [data-style="reference"] { font-variant: small-caps; letter-spacing: 0.03em; }
 
+/* Encabezado / pie de página en pantalla (WYSIWYG; el print paginado real va
+   por la Vista de página / Paged.js). */
+.doc-page-header, .doc-page-footer {
+  position: absolute; font-size: 10px; color: #9ca3af; display: flex; align-items: center;
+  gap: 8px; pointer-events: none; z-index: 1; white-space: nowrap; overflow: hidden;
+}
+.doc-page-header { top: 18px; justify-content: center; border-bottom: 1px solid rgba(0,0,0,0.06); padding-bottom: 4px; }
+.doc-page-footer { bottom: 18px; justify-content: space-between; border-top: 1px solid rgba(0,0,0,0.06); padding-top: 4px; }
+.doc-page-num { margin-left: auto; }
+@media (prefers-color-scheme: dark) { .doc-page-header { border-color: rgba(255,255,255,0.1); } .doc-page-footer { border-color: rgba(255,255,255,0.1); } }
+@media print { .doc-page-header, .doc-page-footer { display: none !important; } }
+
 /* Citas y bibliografía */
 .tiptap-page .ProseMirror .doc-citation { color: #2563eb; cursor: pointer; }
 .tiptap-page .ProseMirror .doc-citation:hover { text-decoration: underline; }

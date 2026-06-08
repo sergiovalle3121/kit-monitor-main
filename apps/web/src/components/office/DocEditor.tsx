@@ -62,6 +62,7 @@ import { FocusLine } from './docs/focusLine';
 import { SignatureLine } from './docs/signatureLine';
 import { Citation, Bibliography } from './docs/citations';
 import { DocCitations } from './docs/DocCitations';
+import { DocHeaderFooter } from './docs/DocHeaderFooter';
 import { DocEquation } from './docs/DocEquation';
 import { DocListMenu } from './docs/DocListMenu';
 import { DocViewTools } from './docs/DocViewTools';
@@ -293,6 +294,9 @@ export function DocEditor({ value, onChange, readOnly, author, onStats, fileActi
   const pgWatermark = meta.pageWatermark || '';
   const pgBorder = meta.pageBorder || '';
   const pgLineNumbers = !!meta.pageLineNumbers;
+  const pgHeader = meta.pageHeader || '';
+  const pgFooter = meta.pageFooter || '';
+  const pgNumbers = !!meta.pageNumbers;
   const DIM: Record<string, [number, number]> = { a4: [794, 1123], letter: [816, 1056], legal: [816, 1344] };
   const [dimW, dimH] = DIM[pgSize] || DIM.a4;
   const pageW = pgOrient === 'landscape' ? dimH : dimW;
@@ -427,6 +431,8 @@ export function DocEditor({ value, onChange, readOnly, author, onStats, fileActi
           {!readOnly && (
           <RibbonTab id="layout" label="Disposición">
             <DocPageSetup editor={editor} />
+            <RibbonSeparator />
+            <DocHeaderFooter editor={editor} />
           </RibbonTab>
           )}
 
@@ -498,9 +504,16 @@ export function DocEditor({ value, onChange, readOnly, author, onStats, fileActi
           style={{ width: readingMode ? 760 : pageW, maxWidth: '100%', minHeight: readingMode ? undefined : pageMinH, padding: readingMode ? 56 : pagePad, zoom }}
         >
           {pgWatermark && <div className="doc-watermark" aria-hidden>{pgWatermark}</div>}
+          {!readingMode && pgHeader && <div className="doc-page-header" aria-hidden style={{ left: pagePad, right: pagePad }}>{pgHeader}</div>}
           <div className="relative z-[1]">
             <EditorContent editor={editor} />
           </div>
+          {!readingMode && (pgFooter || pgNumbers) && (
+            <div className="doc-page-footer" aria-hidden style={{ left: pagePad, right: pagePad }}>
+              <span className="truncate">{pgFooter}</span>
+              {pgNumbers && <span className="doc-page-num">Página 1</span>}
+            </div>
+          )}
         </div>
       </div>
     </div>
