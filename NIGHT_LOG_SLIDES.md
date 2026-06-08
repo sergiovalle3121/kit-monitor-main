@@ -197,12 +197,19 @@ Verificado: `tsc` ✓, `eslint` ✓, `next build` ✓.
 
 Verificado: `tsc` ✓, `eslint` ✓, `next build` ✓.
 
+#### Lote 14 — Tamaño de diapositiva 16:9 / 4:3 (backlog #7)
+- Relación de aspecto del mazo (`ratio` en el modelo): **16:9 (960×540)** o
+  **4:3 (960×720)**. Diseño ▸ Tamaño.
+- El lienzo de Fabric gestiona sus dimensiones imperativamente (`setDimensions`)
+  para que React no lo borre; la altura `ch = slideHeight(ratio)` se propaga a
+  guías/snap, alineación, zoom/ajuste, **presentación** (aspecto y deck),
+  **clasificador**, **PDF**, **PNG** y **.pptx** (altura de layout; las
+  posiciones son px@96dpi en ambas relaciones, así que `sx/sy` no cambian).
+  Las posiciones de los objetos se conservan al cambiar de tamaño.
+
+Verificado: `tsc` ✓, `eslint` ✓, `next build` ✓.
+
 ### Diferido (con estimación)
-- **Tamaño de diapositiva 4:3/personalizado** (backlog #7, parte): es transversal
-  (CW/CH alimentan snapping, alineación, presentación, PDF, .pptx y el sorter).
-  Para no arriesgar el build verde con sesiones en paralelo, se difiere. Plan:
-  parametrizar la altura por relación (16:9=540, 4:3=720) y propagarla a
-  `Present`/`slidesPdf`/`pptx`/`SlideSorter` como `ratio`. Estimación: ~0.5 día.
 - **Secciones** (backlog #7): agrupar diapositivas con encabezados en la barra y
   el clasificador. Estimación: ~0.5 día (sin impacto en export).
 - **Patrón de diapositivas (master) editable** (backlog #7): editor de

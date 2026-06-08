@@ -4,6 +4,16 @@
  * usando el tema activo — sin dependencias nuevas.
  */
 
+/** Tamaño de diapositiva. El ancho de diseño es 960; la altura depende de la
+ *  relación de aspecto (16:9 = 540, 4:3 = 720). Compartido por editor, export y
+ *  presentación. */
+export const SLIDE_W = 960;
+export function slideHeight(ratio?: string): number { return ratio === '4:3' ? 720 : 540; }
+export const SLIDE_RATIOS: { label: string; value: string }[] = [
+  { label: '16:9 (panorámica)', value: '16:9' },
+  { label: '4:3 (estándar)', value: '4:3' },
+];
+
 /** Opciones de transición de diapositiva y de animación de entrada (compartidas
  *  por el editor y el panel de animación; evita un import circular). */
 export const SLIDE_TRANSITIONS: { label: string; value: string }[] = [

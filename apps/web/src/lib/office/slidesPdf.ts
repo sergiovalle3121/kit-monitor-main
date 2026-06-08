@@ -6,13 +6,13 @@
  */
 
 const CW = 960;
-const CH = 540;
 
 const safeName = (s: string) => (s || 'presentacion').replace(/[^\p{L}\p{N} _-]/gu, '').trim() || 'presentacion';
 
-export async function exportSlidesPdf(slides: any[], title: string) {
+export async function exportSlidesPdf(slides: any[], title: string, ratio?: string) {
   const list = Array.isArray(slides) ? slides : [];
   if (!list.length) return;
+  const CH = ratio === '4:3' ? 720 : 540;
 
   const [{ StaticCanvas }, jspdf] = await Promise.all([import('fabric'), import('jspdf')]);
   const JsPDF: any = (jspdf as any).jsPDF ?? (jspdf as any).default;

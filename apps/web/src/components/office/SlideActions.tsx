@@ -14,7 +14,8 @@ export function SlideActions({ content, title }: { content: any; title: string }
   const [busy, setBusy] = useState(false);
   const slides: any[] = content?.version === 2 && Array.isArray(content.slides) ? content.slides : [];
   const notes: string[] = content?.version === 2 && Array.isArray(content.notes) ? content.notes : [];
-  const pptxOpts = { footer: content?.footer || '', showNumbers: !!content?.showNumbers };
+  const ratio: string = content?.ratio || '16:9';
+  const pptxOpts = { footer: content?.footer || '', showNumbers: !!content?.showNumbers, ratio };
 
   async function run(fn: () => Promise<void>) {
     setOpen(false);
@@ -41,8 +42,8 @@ export function SlideActions({ content, title }: { content: any; title: string }
               className="absolute right-0 mt-1 z-20 w-48 rounded-xl border border-black/10 dark:border-white/10 bg-white dark:bg-[#1a1a1a] shadow-xl p-1"
             >
               <button onClick={() => run(() => exportPptx(slides, title || 'presentacion', notes, pptxOpts))} className="w-full flex items-center gap-2 text-left text-sm px-3 py-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10"><Presentation className="w-4 h-4 text-amber-500" /> PowerPoint (.pptx)</button>
-              <button onClick={() => run(() => exportSlidesPdf(slides, title || 'presentacion'))} className="w-full flex items-center gap-2 text-left text-sm px-3 py-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10"><FileText className="w-4 h-4 text-gray-500" /> PDF</button>
-              <button onClick={() => run(() => exportAllPng(slides, title || 'presentacion'))} className="w-full flex items-center gap-2 text-left text-sm px-3 py-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10"><ImageIcon className="w-4 h-4 text-emerald-500" /> Imágenes (PNG)</button>
+              <button onClick={() => run(() => exportSlidesPdf(slides, title || 'presentacion', ratio))} className="w-full flex items-center gap-2 text-left text-sm px-3 py-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10"><FileText className="w-4 h-4 text-gray-500" /> PDF</button>
+              <button onClick={() => run(() => exportAllPng(slides, title || 'presentacion', ratio))} className="w-full flex items-center gap-2 text-left text-sm px-3 py-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10"><ImageIcon className="w-4 h-4 text-emerald-500" /> Imágenes (PNG)</button>
             </motion.div>
           </>
         )}

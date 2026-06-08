@@ -5,14 +5,13 @@
  * in PowerPoint (not just an image). Loaded dynamically.
  */
 
-const CW = 960;
-const CH = 540;
-const IN_W = 10;       // 16:9 slide, inches
-const IN_H = 5.625;
+const IN_W = 10;       // ancho de diapositiva en pulgadas (960px @ 96dpi)
+const DPI = 96;        // 960px/10in = 96; las posiciones de objeto son px@96dpi en ambas relaciones
+const inHeight = (ratio?: string) => (ratio === '4:3' ? 7.5 : 5.625);
 
 const safe = (s: string) => (s || 'presentacion').replace(/[^\p{L}\p{N} _-]/gu, '').trim() || 'presentacion';
-const sx = (px: number) => +( (px / CW) * IN_W ).toFixed(3);
-const sy = (px: number) => +( (px / CH) * IN_H ).toFixed(3);
+const sx = (px: number) => +(px / DPI).toFixed(3);
+const sy = (px: number) => +(px / DPI).toFixed(3);
 function hex(c?: any): string | undefined {
   if (!c) return undefined;
   // Gradient fill → approximate with its first color stop.
@@ -38,12 +37,13 @@ function presetFor(hint: any, ST: any): any {
   return name ? ST[name] : undefined;
 }
 
-export async function exportPptx(slides: any[], title: string, notes: string[] = [], opts: { footer?: string; showNumbers?: boolean } = {}) {
+export async function exportPptx(slides: any[], title: string, notes: string[] = [], opts: { footer?: string; showNumbers?: boolean; ratio?: string } = {}) {
   const mod: any = await import('pptxgenjs');
   const PptxGenJS = mod.default ?? mod;
   const pptx: any = new PptxGenJS();
-  pptx.defineLayout({ name: 'AXOS_16x9', width: IN_W, height: IN_H });
-  pptx.layout = 'AXOS_16x9';
+  const IN_H = inHeight(opts.ratio);
+  pptx.defineLayout({ name: 'AXOS', width: IN_W, height: IN_H });
+  pptx.layout = 'AXOS';
   const ST = pptx.ShapeType;
   const total = (slides ?? []).length;
 
