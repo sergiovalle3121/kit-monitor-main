@@ -5,14 +5,15 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { Workbook } from '@fortune-sheet/react';
 import '@fortune-sheet/react/dist/index.css';
-import { ListChecks, Palette, Snowflake, FileText, Sigma, Search, ArrowDownUp, CopyMinus, Columns3, StickyNote } from 'lucide-react';
+import { ListChecks, Palette, Snowflake, FileText, Sigma, Search, ArrowDownUp, CopyMinus, Columns3, StickyNote, Table2 } from 'lucide-react';
 import { SheetCharts } from './SheetCharts';
 import { SheetTools, type ValidationPayload } from './SheetTools';
 import { SheetFunctionWizard } from './SheetFunctionWizard';
 import { SheetFindReplace } from './SheetFindReplace';
 import { SheetDataDialog, type DataMode } from './SheetDataDialog';
+import { SheetPivot } from './SheetPivot';
 import { parseRange, type ChartConfig } from '@/lib/office/charts';
-import { applyConditional, sortRange, removeDuplicates, textToColumns, setCellNote, replaceAll, type CondPayload } from '@/lib/office/sheetOps';
+import { applyConditional, sortRange, removeDuplicates, textToColumns, setCellNote, replaceAll, buildPivot, pivotToCelldata, type CondPayload, type PivotConfig } from '@/lib/office/sheetOps';
 import { OfficeRibbon, RibbonTab, RibbonGroup, RibbonSeparator, RibbonButton, RibbonMenuButton } from './ribbon';
 
 // Content is either the legacy bare sheet array or the new { sheets, charts } shape.
@@ -40,6 +41,7 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
   const [dataMode, setDataMode] = useState<DataMode | null>(null);
   const [showWizard, setShowWizard] = useState(false);
   const [showFind, setShowFind] = useState(false);
+  const [showPivot, setShowPivot] = useState(false);
   const [, setTick] = useState(0);
   const refreshT = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onChangeRef = useRef(onChange);
@@ -165,6 +167,36 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
     return n;
   }
 
+  const activeIndex = () => { const i = sheetsRef.current.findIndex((s: any) => s?.status === 1); return i >= 0 ? i : 0; };
+
+  function applyPivot(cfg: PivotConfig, target: { mode: 'new' | 'cell'; cell?: string }) {
+    const sheets = clone(sheetsRef.current);
+    const src = sheets[cfg.sheetIndex] ?? sheets[0];
+    if (!src) { setShowPivot(false); return; }
+    const res = buildPivot(src, cfg);
+    if (!res.matrix.length) { window.alert(res.warnings[0] || 'No se pudo generar la tabla dinámica.'); return; }
+    if (target.mode === 'cell') {
+      const origin = parseRange(target.cell || 'A1');
+      if (!origin) { window.alert('Celda destino inválida.'); return; }
+      const dst = sheets[activeIndex()] ?? src;
+      const cells = pivotToCelldata(res, origin.r1, origin.c1);
+      const occupied = new Set(cells.map((c: any) => `${c.r}_${c.c}`));
+      dst.celldata = [...(dst.celldata ?? []).filter((c: any) => !occupied.has(`${c.r}_${c.c}`)), ...cells];
+      dst.column = Math.max(dst.column ?? 26, origin.c1 + res.nCols + 2);
+      dst.row = Math.max(dst.row ?? 100, origin.r1 + res.nRows + 5);
+    } else {
+      const n = sheets.filter((s: any) => /Tabla dinámica/.test(s?.name ?? '')).length + 1;
+      sheets.forEach((s: any) => { s.status = 0; });
+      sheets.push({
+        name: `Tabla dinámica ${n}`, celldata: pivotToCelldata(res, 0, 0), order: sheets.length,
+        row: Math.max(100, res.nRows + 8), column: Math.max(26, res.nCols + 4), config: {}, status: 1,
+      });
+    }
+    setShowPivot(false);
+    remount(sheets);
+    if (res.warnings.length) window.setTimeout(() => window.alert(res.warnings.join('\n')), 30);
+  }
+
   return (
     <div className="h-full w-full flex flex-col bg-white dark:bg-[#0e0e0e]">
       <OfficeRibbon storageKey="ribbon:sheet">
@@ -194,6 +226,13 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
                 { label: 'Inmovilizar hasta una celda…', onClick: applyFreezeAt },
                 { label: 'Quitar inmovilización', onClick: () => applyFreeze('') },
               ]} />
+            </RibbonGroup>
+          </RibbonTab>
+        )}
+        {!readOnly && (
+          <RibbonTab id="insert" label="Insertar">
+            <RibbonGroup label="Tablas">
+              <RibbonButton icon={Table2} label="Tabla dinámica" hideLabel={false} onClick={() => setShowPivot(true)} />
             </RibbonGroup>
           </RibbonTab>
         )}
@@ -238,6 +277,15 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
           <SheetDataDialog mode={dataMode} sheetNames={sheetNames()} onApply={applyData} onClose={() => setDataMode(null)} />
         )}
         {showWizard && <SheetFunctionWizard onInsert={insertFunction} onClose={() => setShowWizard(false)} />}
+        {showPivot && (
+          <SheetPivot
+            sheets={sheetsRef.current}
+            sheetNames={sheetNames()}
+            activeSheetIndex={activeIndex()}
+            onApply={applyPivot}
+            onClose={() => setShowPivot(false)}
+          />
+        )}
       </AnimatePresence>
     </div>
   );
