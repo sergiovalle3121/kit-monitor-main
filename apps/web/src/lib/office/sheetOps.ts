@@ -738,3 +738,114 @@ export function applyCellStyle(sheet: any, range: string, style: CellStyle): num
   }
   return count;
 }
+
+// ── Ordenar multinivel ───────────────────────────────────────────────────────
+export interface SortKey { colRel: number; order: 'asc' | 'desc' }
+const cmpVals = (ka: any, kb: any): number => {
+  const na = Number(ka), nb = Number(kb);
+  const bothNum = ka !== '' && ka != null && kb !== '' && kb != null && !Number.isNaN(na) && !Number.isNaN(nb);
+  return bothNum ? na - nb : String(ka ?? '').localeCompare(String(kb ?? ''), 'es', { numeric: true });
+};
+
+/** Ordena un rango por varias columnas (claves) en orden de prioridad. */
+export function sortRangeMulti(sheet: any, p: { range: string; hasHeader: boolean; keys: SortKey[] }): boolean {
+  const rng = parseRange(p.range); if (!rng || !p.keys.length) return false;
+  const { outside, within } = partition(sheet, rng);
+  const startR = p.hasHeader ? rng.r1 + 1 : rng.r1;
+  const header = p.hasHeader ? within.filter((cd) => cd.r === rng.r1) : [];
+  const byRow = new Map<number, Cell[]>();
+  for (const cd of within) { if (cd.r < startR) continue; (byRow.get(cd.r) ?? byRow.set(cd.r, []).get(cd.r)!).push(cd); }
+  const rows = [...byRow.entries()].sort((a, b) => a[0] - b[0]).map((e) => e[1]);
+  const keyOf = (cells: Cell[], colRel: number) => { const cell = cells.find((cd) => cd.c === rng.c1 + colRel); return cell ? rawOf(cell) : null; };
+  rows.sort((a, b) => {
+    for (const k of p.keys) { const c = cmpVals(keyOf(a, k.colRel), keyOf(b, k.colRel)); if (c !== 0) return k.order === 'desc' ? -c : c; }
+    return 0;
+  });
+  const out = [...header]; let rr = startR;
+  for (const cells of rows) { for (const cd of cells) out.push({ ...cd, r: rr }); rr++; }
+  sheet.celldata = [...outside, ...out];
+  return true;
+}
+
+// ── Subtotales por grupos ────────────────────────────────────────────────────
+const styledCell = (r: number, c: number, value: any, num: boolean): Cell => ({
+  r, c, v: { v: value, m: String(value ?? ''), ct: { fa: 'General', t: num ? 'n' : 's' }, bl: 1, bg: '#eef2ff' } as any,
+});
+
+/**
+ * Inserta filas de subtotal por cada grupo consecutivo del campo indicado y un
+ * total general. Recomienda ordenar antes por el campo de grupo. Desplaza hacia
+ * abajo el contenido por debajo del rango.
+ */
+export function applySubtotals(sheet: any, p: { range: string; hasHeader: boolean; groupColRel: number; valueColRels: number[]; fn: AggFn }): number {
+  const rng = parseRange(p.range); if (!rng) return 0;
+  const all: Cell[] = sheet.celldata || [];
+  const above = all.filter((cd) => cd.r < rng.r1);
+  const below = all.filter((cd) => cd.r > rng.r2);
+  const within = all.filter((cd) => cd.r >= rng.r1 && cd.r <= rng.r2 && cd.c >= rng.c1 && cd.c <= rng.c2);
+  const startR = p.hasHeader ? rng.r1 + 1 : rng.r1;
+  const header = p.hasHeader ? within.filter((cd) => cd.r === rng.r1) : [];
+  const byRow = new Map<number, Cell[]>();
+  for (const cd of within) { if (cd.r < startR) continue; (byRow.get(cd.r) ?? byRow.set(cd.r, []).get(cd.r)!).push(cd); }
+  const rows = [...byRow.entries()].sort((a, b) => a[0] - b[0]).map((e) => e[1]);
+  const groupCol = rng.c1 + p.groupColRel;
+  const valCols = p.valueColRels.map((rel) => rng.c1 + rel);
+  const valOf = (cells: Cell[], c: number) => { const cell = cells.find((x) => x.c === c); return cell ? rawOf(cell) : null; };
+
+  const out: Cell[] = [...header]; let rr = startR; let inserted = 0;
+  const groupVals: any[] = []; // valores del grupo actual por columna
+  let curKey: any = undefined; let bucket: Cell[][] = [];
+  const flush = () => {
+    if (!bucket.length) return;
+    for (const cells of bucket) { for (const cd of cells) out.push({ ...cd, r: rr }); rr++; }
+    out.push(styledCell(rr, groupCol, `${curKey} — Total`, false));
+    for (const c of valCols) out.push(styledCell(rr, c, roundNice(aggregate(bucket.map((cells) => valOf(cells, c)), p.fn)), true));
+    rr++; inserted++;
+    bucket = [];
+  };
+  for (const cells of rows) {
+    const key = valOf(cells, groupCol);
+    if (curKey === undefined) curKey = key;
+    if (cmpVals(key, curKey) !== 0) { flush(); curKey = key; }
+    bucket.push(cells);
+    groupVals.push(key);
+  }
+  flush();
+  // Total general.
+  out.push(styledCell(rr, groupCol, 'Total general', false));
+  for (const c of valCols) out.push(styledCell(rr, c, roundNice(aggregate(rows.map((cells) => valOf(cells, c)), p.fn)), true));
+  rr++; inserted++;
+
+  const shift = inserted;
+  const shiftedBelow = below.map((cd) => ({ ...cd, r: cd.r + shift }));
+  sheet.celldata = [...above, ...out, ...shiftedBelow];
+  return inserted;
+}
+
+// ── Minigráficos (sparklines) en celda ───────────────────────────────────────
+const SPARK_BARS = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
+export type SparkType = 'bars' | 'winloss';
+/** Construye un minigráfico unicode a partir de una serie de números. */
+export function buildSparkline(values: number[], type: SparkType = 'bars'): string {
+  const nums = values.filter((n) => typeof n === 'number' && Number.isFinite(n));
+  if (!nums.length) return '';
+  if (type === 'winloss') return nums.map((n) => (n > 0 ? '▲' : n < 0 ? '▼' : '·')).join('');
+  const min = Math.min(...nums), max = Math.max(...nums), span = max - min || 1;
+  return nums.map((n) => SPARK_BARS[Math.min(SPARK_BARS.length - 1, Math.round(((n - min) / span) * (SPARK_BARS.length - 1)))]).join('');
+}
+
+/** Lee los números de un rango (en orden fila→columna) y escribe el sparkline en una celda. */
+export function applySparkline(sheet: any, dataRange: string, targetCell: string, type: SparkType = 'bars'): boolean {
+  const rng = parseRange(dataRange); const tgt = parseRange(targetCell);
+  if (!rng || !tgt || !sheet) return false;
+  const map = new Map<string, any>();
+  for (const cd of sheet.celldata ?? []) map.set(`${cd.r}_${cd.c}`, rawOf(cd));
+  const vals: number[] = [];
+  for (let r = rng.r1; r <= rng.r2; r++) for (let c = rng.c1; c <= rng.c2; c++) { const n = toNumStrict(map.get(`${r}_${c}`)); if (n != null) vals.push(n); }
+  const spark = buildSparkline(vals, type);
+  sheet.celldata = sheet.celldata || [];
+  let cd = sheet.celldata.find((x: Cell) => x.r === tgt.r1 && x.c === tgt.c1);
+  if (!cd) { cd = { r: tgt.r1, c: tgt.c1, v: null }; sheet.celldata.push(cd); }
+  const v = ensureObj(cd); v.v = spark; v.m = spark; v.ct = { fa: 'General', t: 's' };
+  return true;
+}

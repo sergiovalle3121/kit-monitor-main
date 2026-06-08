@@ -87,5 +87,22 @@ alineación/ajuste). Pestaña **Formato** en el ribbon; prefija el rango con la
 **selección actual** del grid (`getSelection`).
 
 **Specs**: `numfmt.spec.ts` (27) y `cellstyle.spec.ts` (9). Verdes.
+
+### 3) Datos: orden multinivel, subtotales y minigráficos  ✅
+**Lógica pura** en `sheetOps.ts`:
+- `sortRangeMulti(sheet, {range, hasHeader, keys[]})` — ordena por **varias columnas**
+  en orden de prioridad (numérico/alfabético `es`).
+- `applySubtotals(sheet, {range, groupColRel, valueColRels[], fn, hasHeader})` — inserta
+  filas de **subtotal por grupo consecutivo** + **total general** (estilizadas) y
+  desplaza el contenido inferior.
+- `buildSparkline(values, type)` / `applySparkline(sheet, dataRange, cell, type)` —
+  **minigráficos en celda** unicode (barras ▁▂▃▅▇ o pérdidas/ganancias ▲▼).
+
+**UI**: `SheetDataDialog` ampliado — orden con hasta **3 niveles** (añadir/quitar),
+**Subtotales** (grupo + columnas de valor + función) y **Sparkline** (rango → celda
+destino + tipo). Botones en el ribbon: **Datos → Subtotales**, **Insertar → Sparkline**;
+«Ordenar rango» ahora es multinivel.
+
+**Spec**: `data.spec.ts` (15). Verde.
 </content>
 </invoke>

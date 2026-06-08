@@ -5,7 +5,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { Workbook } from '@fortune-sheet/react';
 import '@fortune-sheet/react/dist/index.css';
-import { ListChecks, Palette, Snowflake, FileText, Sigma, Search, ArrowDownUp, CopyMinus, Columns3, StickyNote, Table2, Hash } from 'lucide-react';
+import { ListChecks, Palette, Snowflake, FileText, Sigma, Search, ArrowDownUp, CopyMinus, Columns3, StickyNote, Table2, Hash, Rows3, Activity } from 'lucide-react';
 import { SheetCharts } from './SheetCharts';
 import { SheetTools, type ValidationPayload } from './SheetTools';
 import { SheetFunctionWizard } from './SheetFunctionWizard';
@@ -14,7 +14,7 @@ import { SheetDataDialog, type DataMode } from './SheetDataDialog';
 import { SheetPivot } from './SheetPivot';
 import { SheetFormatDialog, type NumberFmtPayload, type StylePayload } from './SheetFormatDialog';
 import { parseRange, type ChartConfig } from '@/lib/office/charts';
-import { applyConditional, sortRange, removeDuplicates, textToColumns, setCellNote, replaceAll, buildPivot, pivotToCelldata, applyNumberFormat, applyCellStyle, colName, type CondPayload, type PivotConfig } from '@/lib/office/sheetOps';
+import { applyConditional, sortRangeMulti, removeDuplicates, textToColumns, setCellNote, replaceAll, buildPivot, pivotToCelldata, applyNumberFormat, applyCellStyle, applySubtotals, applySparkline, colName, type CondPayload, type PivotConfig } from '@/lib/office/sheetOps';
 import { OfficeRibbon, RibbonTab, RibbonGroup, RibbonSeparator, RibbonButton, RibbonMenuButton } from './ribbon';
 
 // Content is either the legacy bare sheet array or the new { sheets, charts } shape.
@@ -138,9 +138,11 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
     const sheet = sheets[payload.sheetIndex] ?? sheets[0];
     if (!sheet) { setDataMode(null); return; }
     let msg = '';
-    if (mode === 'sort') sortRange(sheet, payload);
+    if (mode === 'sort') sortRangeMulti(sheet, payload);
     else if (mode === 'dedup') { const n = removeDuplicates(sheet, payload); msg = `${Math.max(0, n)} fila(s) duplicada(s) eliminada(s).`; }
     else if (mode === 'split') textToColumns(sheet, payload);
+    else if (mode === 'subtotal') { const n = applySubtotals(sheet, payload); msg = `${n} fila(s) de subtotal/total insertadas.`; }
+    else if (mode === 'spark') { if (!applySparkline(sheet, payload.dataRange, payload.cell, payload.type)) msg = 'Rango o celda inválidos.'; }
     else if (mode === 'note') setCellNote(sheet, payload.cell, payload.text);
     setDataMode(null);
     remount(sheets);
@@ -242,9 +244,13 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
             </RibbonGroup>
             <RibbonSeparator />
             <RibbonGroup label="Ordenar y filtrar">
-              <RibbonButton icon={ArrowDownUp} label="Ordenar rango" onClick={() => setDataMode('sort')} />
+              <RibbonButton icon={ArrowDownUp} label="Ordenar rango (multinivel)" onClick={() => setDataMode('sort')} />
               <RibbonButton icon={CopyMinus} label="Quitar duplicados" onClick={() => setDataMode('dedup')} />
               <RibbonButton icon={Columns3} label="Texto en columnas" onClick={() => setDataMode('split')} />
+            </RibbonGroup>
+            <RibbonSeparator />
+            <RibbonGroup label="Esquema">
+              <RibbonButton icon={Rows3} label="Subtotales" onClick={() => setDataMode('subtotal')} />
             </RibbonGroup>
             <RibbonSeparator />
             <RibbonGroup label="Vista">
@@ -262,6 +268,10 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
           <RibbonTab id="insert" label="Insertar">
             <RibbonGroup label="Tablas">
               <RibbonButton icon={Table2} label="Tabla dinámica" hideLabel={false} onClick={() => setShowPivot(true)} />
+            </RibbonGroup>
+            <RibbonSeparator />
+            <RibbonGroup label="Minigráficos">
+              <RibbonButton icon={Activity} label="Sparkline" hideLabel={false} onClick={() => setDataMode('spark')} />
             </RibbonGroup>
           </RibbonTab>
         )}
