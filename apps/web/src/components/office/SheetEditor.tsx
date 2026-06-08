@@ -5,7 +5,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { Workbook } from '@fortune-sheet/react';
 import '@fortune-sheet/react/dist/index.css';
-import { ListChecks, Palette, Snowflake, FileText, Sigma, Search, ArrowDownUp, CopyMinus, Columns3, StickyNote, Table2, Hash, Rows3, Activity, ArrowDownToLine, FlipVertical2, Tag, Printer, ClipboardPaste, Filter } from 'lucide-react';
+import { ListChecks, Palette, Snowflake, FileText, Sigma, Search, ArrowDownUp, CopyMinus, Columns3, StickyNote, Table2, Hash, Rows3, Activity, ArrowDownToLine, FlipVertical2, Tag, Printer, ClipboardPaste, Filter, RefreshCw } from 'lucide-react';
 import { SheetCharts } from './SheetCharts';
 import { SheetTools, type ValidationPayload } from './SheetTools';
 import { SheetFunctionWizard } from './SheetFunctionWizard';
@@ -31,6 +31,10 @@ function chartsOf(v: any): ChartConfig[] {
 function namesOf(v: any): NamedRange[] {
   return v && Array.isArray(v.names) ? v.names : [];
 }
+type StoredPivot = { id: string; config: PivotConfig; sheetName: string };
+function pivotsOf(v: any): StoredPivot[] {
+  return v && Array.isArray(v.pivots) ? v.pivots : [];
+}
 const DEFAULT_SHEET = { name: 'Hoja 1', celldata: [], order: 0, row: 100, column: 30, config: {} };
 const clone = (x: any) => JSON.parse(JSON.stringify(x));
 
@@ -45,6 +49,7 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
   const [charts, setCharts] = useState<ChartConfig[]>(chartsRef.current);
   const namesRef = useRef<NamedRange[]>(namesOf(value));
   const [names, setNames] = useState<NamedRange[]>(namesRef.current);
+  const pivotsRef = useRef<StoredPivot[]>(pivotsOf(value));
   const [showNames, setShowNames] = useState(false);
   const [showPrint, setShowPrint] = useState(false);
   const [tool, setTool] = useState<null | 'validation' | 'condformat'>(null);
@@ -70,7 +75,7 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
   }, [readOnly]);
 
   const emit = useCallback(() => {
-    onChangeRef.current({ sheets: sheetsRef.current, charts: chartsRef.current, names: namesRef.current });
+    onChangeRef.current({ sheets: sheetsRef.current, charts: chartsRef.current, names: namesRef.current, pivots: pivotsRef.current });
   }, []);
 
   const addName = useCallback((nr: NamedRange) => { namesRef.current = [...namesRef.current, nr]; setNames(namesRef.current); emit(); }, [emit]);
@@ -218,6 +223,27 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
 
   const activeIndex = () => { const i = sheetsRef.current.findIndex((s: any) => s?.status === 1); return i >= 0 ? i : 0; };
 
+  // Vuelve a calcular las tablas dinámicas guardadas sobre el origen actual.
+  function refreshPivots() {
+    const stored = pivotsRef.current;
+    if (!stored.length) { window.alert('No hay tablas dinámicas guardadas para actualizar.'); return; }
+    const sheets = clone(sheetsRef.current);
+    let updated = 0;
+    for (const sp of stored) {
+      const target = sheets.find((s: any) => s.name === sp.sheetName);
+      const src = sheets[sp.config.sheetIndex];
+      if (!target || !src) continue; // hoja destino u origen no localizada (renombrada/borrada)
+      const res = buildPivot(src, sp.config);
+      if (!res.matrix.length) continue;
+      target.celldata = pivotToCelldata(res, 0, 0);
+      target.row = Math.max(100, res.nRows + 8);
+      target.column = Math.max(26, res.nCols + 4);
+      updated++;
+    }
+    remount(sheets);
+    window.setTimeout(() => window.alert(`${updated} tabla(s) dinámica(s) actualizada(s).`), 30);
+  }
+
   // Rango A1 de la selección actual del grid (para prefijar diálogos de formato).
   function selectionRange(): string {
     try {
@@ -262,11 +288,14 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
       dst.row = Math.max(dst.row ?? 100, origin.r1 + res.nRows + 5);
     } else {
       const n = sheets.filter((s: any) => /Tabla dinámica/.test(s?.name ?? '')).length + 1;
+      const name = `Tabla dinámica ${n}`;
       sheets.forEach((s: any) => { s.status = 0; });
       sheets.push({
-        name: `Tabla dinámica ${n}`, celldata: pivotToCelldata(res, 0, 0), order: sheets.length,
+        name, celldata: pivotToCelldata(res, 0, 0), order: sheets.length,
         row: Math.max(100, res.nRows + 8), column: Math.max(26, res.nCols + 4), config: {}, status: 1,
       });
+      // Recuerda la definición para poder actualizar la tabla tras cambios en el origen.
+      pivotsRef.current = [...pivotsRef.current, { id: `pv_${Date.now().toString(36)}`, config: cfg, sheetName: name }];
     }
     setShowPivot(false);
     remount(sheets);
@@ -320,6 +349,7 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
           <RibbonTab id="insert" label="Insertar">
             <RibbonGroup label="Tablas">
               <RibbonButton icon={Table2} label="Tabla dinámica" hideLabel={false} onClick={() => setShowPivot(true)} />
+              <RibbonButton icon={RefreshCw} label="Actualizar tablas dinámicas" onClick={refreshPivots} />
             </RibbonGroup>
             <RibbonSeparator />
             <RibbonGroup label="Minigráficos">

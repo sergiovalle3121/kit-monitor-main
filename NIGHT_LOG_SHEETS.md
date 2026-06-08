@@ -70,7 +70,15 @@ Verde. `tsc` y lint sin errores.
 > colisión) en vez de un separador mágico.
 
 > Ampliación posterior: **«Mostrar valores como % del total»** por campo de valor
-> (`showAs: 'pctTotal'`), formateado como porcentaje en la salida. Spec ampliado (26).
+> (`showAs: 'pctTotal'`), formateado como porcentaje en la salida.
+
+> **Actualizable**: cada tabla dinámica creada en hoja nueva guarda su definición
+> (`content.pivots`); el botón **Insertar → Actualizar tablas dinámicas** vuelve a
+> calcularlas sobre el origen actual y reescribe la hoja destino. Si la hoja destino se
+> renombró/borró, se omite sin perder la definición.
+
+> Spec del pivot: **30 aserciones** (incluye el camino combinado columnas × filas
+> anidadas × subtotales × totales, y % del total).
 
 ### 2) Formato de número + estilos de celda  ✅
 **Lógica pura** en `sheetOps.ts`:
