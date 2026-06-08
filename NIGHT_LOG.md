@@ -1322,6 +1322,24 @@ texto previo (no bloquea la captura). Cero backend.
   de modelo); `engineering` y `line-engineering` **ya** usan `/product-models`.
 - `tsc` + `eslint` (web) verdes en las 3 páginas.
 
+### Ítem #3 — Dar vida a pantallas lanzadera/vacías (datos reales que YA existen)
+- **(commit) `forecast`** — era un **mock** (Monte Carlo con `Math.random()` +
+  `setTimeout`, KPIs hardcodeados "92.8%", "Sigma 2.4", texto fijo de "Project-X1").
+  Ahora corre la **simulación real** `POST /forecast/simulate` (servicio
+  `monte-carlo` del backend) alimentada por una **serie real**: cantidades de
+  `/plans` agregadas por fecha. La gráfica muestra la banda **P10–P90** + línea
+  **P50** reales; las tarjetas muestran **media/σ/rango/CV** reales y una lectura
+  honesta de estabilidad (coef. de variación). Estado vacío honesto con CTA
+  ("publica/programa planes") si hay <2 fechas. Cero mock, cero backend nuevo.
+- **(commit) `industrial-engineering`** — era **lanzadera pura** (sin datos).
+  Ahora muestra **KPIs reales** (estaciones de línea `/line-engineering/stations`,
+  WO en ejecución + adherencia al plan + atrasadas de `/production-plan/kpis`)
+  además del lanzador de herramientas. Reutiliza `DepartmentWorkspace`.
+- **No tocado a propósito:** `documents` (mock de "Office Suite" — roza el trabajo
+  de la otra sesión; lo dejo para no colisionar). `mission-control`,
+  `control-tower`, `line-control-tower`, sub-`erp` ya leían datos reales.
+- `tsc` + `eslint` (web) verdes.
+
 ## PENDIENTE: wiring de navegación (para que el dueño lo conecte en hub/paleta)
 > No edito `app/dashboard/page.tsx` (hub) ni `SearchPalette.tsx` (paleta) — los
 > toca la otra sesión. Páginas nuevas accesibles por URL directa; conéctalas tú:
