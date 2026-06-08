@@ -8,13 +8,14 @@ import { BookOpen, X, Printer, Loader2 } from 'lucide-react';
 
 const esc = (s: string) => (s || '').replace(/["\\]/g, '\\$&');
 
-function buildCss(header: string, footer: string, nums: boolean) {
+function buildCss(header: string, footer: string, nums: boolean, firstDiff = false) {
   return `
   @page { size: A4; margin: 22mm 18mm;
     ${header ? `@top-center { content: "${esc(header)}"; font: 10px system-ui, sans-serif; color:#666; }` : ''}
     ${footer ? `@bottom-left { content: "${esc(footer)}"; font: 10px system-ui, sans-serif; color:#666; }` : ''}
     ${nums ? `@bottom-right { content: "Página " counter(page) " / " counter(pages); font: 10px system-ui, sans-serif; color:#666; }` : ''}
   }
+  ${firstDiff ? '@page:first { @top-center { content: none; } @bottom-left { content: none; } @bottom-right { content: none; } }' : ''}
   .pagedjs_page { background:#fff; box-shadow:0 2px 14px rgba(0,0,0,.18); margin:0 auto 18px; }
   .doc-content { font-family: system-ui, -apple-system, sans-serif; color:#111; font-size:11pt; line-height:1.5; }
   .doc-content h1{font-size:22pt;font-weight:700;margin:.5em 0}
@@ -56,8 +57,9 @@ export function DocPageView({ editor }: { editor: Editor }) {
     (editor.chain() as any).setPageMeta({ pageHeader: header, pageFooter: footer, pageNumbers: nums }).run();
     try {
       const { Previewer } = (await import('pagedjs')) as any;
+      const firstDiff = !!(editor.state.doc.attrs as any)?.pageFirstDifferent;
       const html = `<div class="doc-content">${editor.getHTML()}</div>`;
-      await new Previewer().preview(html, [{ paged: buildCss(header, footer, nums) }], container);
+      await new Previewer().preview(html, [{ paged: buildCss(header, footer, nums, firstDiff) }], container);
     } catch {
       container.innerHTML = '<p style="text-align:center;color:#999;padding:40px">No se pudo generar la vista paginada.</p>';
     } finally {
@@ -66,7 +68,10 @@ export function DocPageView({ editor }: { editor: Editor }) {
   }
 
   // Render whenever the view opens.
-  useEffect(() => { if (open) render(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [open]);
+  useEffect(() => {
+    if (open) render();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   function print() {
     document.body.classList.add('preview-printing');

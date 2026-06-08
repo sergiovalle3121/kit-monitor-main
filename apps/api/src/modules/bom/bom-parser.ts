@@ -20,8 +20,15 @@ export interface ParseResult {
   errors: ParseError[];
 }
 
-function isOpCode(value: unknown): value is string {
-  return typeof value === 'string' && value.trim().toUpperCase().startsWith('OP-');
+/**
+ * Valida que un valor tenga FORMA de código de parte/modelo (PREFIJO-…dígitos).
+ * Es client-neutral a propósito: NO codifica ningún prefijo de cliente real;
+ * sólo comprueba el formato genérico (≥2 letras, guión y al menos un dígito),
+ * de modo que `AX-520-0100`, `RES-10K-0402`, etc. sean válidos y los encabezados
+ * (`NOT-VALID`, `N.P`, `F.U`, `Category`) queden fuera.
+ */
+function isPartCode(value: unknown): value is string {
+  return typeof value === 'string' && /^[A-Z]{2,}-\d/.test(value.trim().toUpperCase());
 }
 
 /** Detect flat format: first row has header "model" and "partNumber" (case-insensitive) */
@@ -63,7 +70,7 @@ function parseFlatSheet(raw: (string | number | null)[][], sheetName: string): P
       continue;
     }
 
-    if (!isOpCode(model) || !isOpCode(partNumber)) continue;
+    if (!isPartCode(model) || !isPartCode(partNumber)) continue;
 
     const fuRaw = idx.usageFactor >= 0 ? row[idx.usageFactor] : null;
     const usageFactor = fuRaw !== null && !isNaN(Number(fuRaw)) ? Number(fuRaw) : 1;
@@ -103,14 +110,14 @@ function parseMultiColumnSheet(raw: (string | number | null)[][], sheetName: str
 
   for (let c = 0; c < modelsRow.length; c += 3) {
     const modelCode = modelsRow[c];
-    if (!isOpCode(modelCode)) continue;
+    if (!isPartCode(modelCode)) continue;
 
     for (let r = 3; r < raw.length; r++) {
       const dataRow = raw[r];
       if (!dataRow) continue;
 
       const partNumber = dataRow[c];
-      if (!isOpCode(partNumber)) continue;
+      if (!isPartCode(partNumber)) continue;
 
       const fuRaw = dataRow[c + 1];
       const usageFactor = (fuRaw !== null && fuRaw !== undefined && !isNaN(Number(fuRaw)))

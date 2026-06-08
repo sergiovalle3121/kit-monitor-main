@@ -92,3 +92,190 @@
 .tiptap-page .ProseMirror img[data-align="left"] { float: left; margin: 0.25rem 1rem 0.5rem 0; }
 .tiptap-page .ProseMirror img[data-align="right"] { float: right; margin: 0.25rem 0 0.5rem 1rem; }
 .tiptap-page .ProseMirror img[data-align="center"] { display: block; margin: 0.5rem auto; float: none; }
+
+/* Estilos con nombre (galería de estilos) */
+.tiptap-page .ProseMirror [data-style="title"] { font-size: 2.4em; font-weight: 800; letter-spacing: -0.02em; line-height: 1.1; margin: 0.2em 0 0.1em; }
+.tiptap-page .ProseMirror [data-style="subtitle"] { font-size: 1.4em; font-weight: 500; color: #6b7280; margin: 0 0 0.6em; }
+@media (prefers-color-scheme: dark) { .tiptap-page .ProseMirror [data-style="subtitle"] { color: #9ca3af; } }
+
+/* Tabla de contenido (nodo vivo) */
+.tiptap-page .ProseMirror .doc-toc { border: 1px solid #e5e7eb; border-radius: 10px; padding: 14px 18px; margin: 1em 0; background: #fafafa; }
+@media (prefers-color-scheme: dark) { .tiptap-page .ProseMirror .doc-toc { border-color: rgba(255,255,255,0.12); background: rgba(255,255,255,0.03); } }
+.doc-toc-title { font-weight: 700; font-size: 0.95em; margin-bottom: 6px; }
+.doc-toc-empty { font-size: 0.85em; color: #9ca3af; }
+.doc-toc-item { display: block; font-size: 0.9em; color: #2563eb; padding: 2px 0; cursor: pointer; text-decoration: none; }
+.doc-toc-item:hover { text-decoration: underline; }
+
+/* Marca de agua */
+.doc-watermark {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  pointer-events: none; z-index: 0; font-size: 5rem; font-weight: 800; text-transform: uppercase;
+  color: rgba(0,0,0,0.06); transform: rotate(-30deg); white-space: nowrap; overflow: hidden;
+}
+@media (prefers-color-scheme: dark) { .doc-watermark { color: rgba(255,255,255,0.06); } }
+
+/* Columnas de página */
+.doc-cols-2 .ProseMirror { column-count: 2; column-gap: 2.5rem; }
+.doc-cols-3 .ProseMirror { column-count: 3; column-gap: 2rem; }
+
+/* ───────────────────────── Profundidad «tipo Word» ───────────────────────── */
+
+/* Encabezados 4-6 */
+.tiptap-page .ProseMirror h4 { font-size: 1.05rem; font-weight: 600; }
+.tiptap-page .ProseMirror h5 { font-size: 0.95rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.02em; }
+.tiptap-page .ProseMirror h6 { font-size: 0.9rem; font-weight: 600; color: #6b7280; }
+
+/* Listas multinivel — esquema legal 1, 1.1, 1.1.1 (counters CSS) */
+.tiptap-page .ProseMirror ol.doc-mlist, .tiptap-page .ProseMirror ol.doc-mlist ol { list-style: none; counter-reset: item; padding-left: 1.7rem; }
+.tiptap-page .ProseMirror ol.doc-mlist li { counter-increment: item; }
+.tiptap-page .ProseMirror ol.doc-mlist li > p:first-child::before,
+.tiptap-page .ProseMirror ol.doc-mlist li > h1:first-child::before,
+.tiptap-page .ProseMirror ol.doc-mlist li > h2:first-child::before,
+.tiptap-page .ProseMirror ol.doc-mlist li > h3:first-child::before { content: counters(item, ".") ".  "; font-weight: 600; }
+/* Esquema I, A, 1, a por nivel */
+.tiptap-page .ProseMirror ol.doc-outline { list-style: upper-roman; }
+.tiptap-page .ProseMirror ol.doc-outline ol { list-style: upper-alpha; }
+.tiptap-page .ProseMirror ol.doc-outline ol ol { list-style: decimal; }
+.tiptap-page .ProseMirror ol.doc-outline ol ol ol { list-style: lower-alpha; }
+
+/* Ecuaciones (KaTeX) */
+.tiptap-page .ProseMirror .doc-math-inline { display: inline-block; vertical-align: middle; padding: 0 1px; cursor: pointer; }
+.tiptap-page .ProseMirror .doc-math-block { display: block; text-align: center; margin: 0.8em 0; cursor: pointer; overflow-x: auto; }
+.tiptap-page .ProseMirror .doc-math-inline.ProseMirror-selectednode,
+.tiptap-page .ProseMirror .doc-math-block.ProseMirror-selectednode { outline: 2px solid rgba(37,99,235,0.5); border-radius: 4px; }
+.tiptap-page .ProseMirror .doc-math-empty { color: #9ca3af; font-style: italic; font-size: 0.85em; border: 1px dashed #cbd5e1; border-radius: 6px; padding: 1px 6px; }
+
+/* Notas al pie */
+.tiptap-page .ProseMirror .doc-footnote-ref { color: #2563eb; font-weight: 700; cursor: pointer; padding: 0 1px; font-size: 0.7em; vertical-align: super; }
+.tiptap-page .ProseMirror .doc-footnote-ref:hover { text-decoration: underline; }
+.tiptap-page .ProseMirror .doc-footnote-list { border-top: 1px solid #d1d5db; margin-top: 2em; padding-top: 0.6em; font-size: 0.85em; color: #4b5563; }
+@media (prefers-color-scheme: dark) { .tiptap-page .ProseMirror .doc-footnote-list { border-color: rgba(255,255,255,0.15); color: #9ca3af; } }
+.doc-footnote-title { font-weight: 700; font-size: 0.95em; margin-bottom: 4px; }
+.doc-footnote-empty { color: #9ca3af; font-style: italic; }
+.doc-footnote-item { display: flex; gap: 4px; padding: 1px 0; }
+.doc-footnote-num { font-weight: 700; color: #2563eb; flex-shrink: 0; }
+
+/* Letra capital */
+.tiptap-page .ProseMirror p.doc-dropcap::first-letter {
+  float: left; font-size: 3.1em; line-height: 0.8; font-weight: 700; padding: 0.05em 0.08em 0 0; color: #111;
+}
+@media (prefers-color-scheme: dark) { .tiptap-page .ProseMirror p.doc-dropcap::first-letter { color: #f3f4f6; } }
+
+/* Cuadro de texto / llamada (callout) */
+.tiptap-page .ProseMirror .doc-callout { border: 1px solid #e5e7eb; border-left: 4px solid #9ca3af; border-radius: 10px; padding: 10px 14px; margin: 0.8em 0; background: #fafafa; }
+.tiptap-page .ProseMirror .doc-callout > :first-child { margin-top: 0; }
+.tiptap-page .ProseMirror .doc-callout > :last-child { margin-bottom: 0; }
+.tiptap-page .ProseMirror .doc-callout[data-tone="info"] { border-left-color: #3b82f6; background: #eff6ff; }
+.tiptap-page .ProseMirror .doc-callout[data-tone="success"] { border-left-color: #10b981; background: #ecfdf5; }
+.tiptap-page .ProseMirror .doc-callout[data-tone="warning"] { border-left-color: #f59e0b; background: #fffbeb; }
+.tiptap-page .ProseMirror .doc-callout[data-tone="danger"] { border-left-color: #ef4444; background: #fef2f2; }
+@media (prefers-color-scheme: dark) {
+  .tiptap-page .ProseMirror .doc-callout { background: rgba(255,255,255,0.03); border-color: rgba(255,255,255,0.12); }
+  .tiptap-page .ProseMirror .doc-callout[data-tone="info"] { background: rgba(59,130,246,0.10); }
+  .tiptap-page .ProseMirror .doc-callout[data-tone="success"] { background: rgba(16,185,129,0.10); }
+  .tiptap-page .ProseMirror .doc-callout[data-tone="warning"] { background: rgba(245,158,11,0.10); }
+  .tiptap-page .ProseMirror .doc-callout[data-tone="danger"] { background: rgba(239,68,68,0.10); }
+}
+
+/* Salto de columna */
+.tiptap-page .ProseMirror .doc-column-break { break-after: column; height: 0; border-top: 1px dashed #cbd5e1; margin: 0.5rem 0; position: relative; }
+.tiptap-page .ProseMirror .doc-column-break::after { content: "Salto de columna"; position: absolute; top: -0.7rem; left: 50%; transform: translateX(-50%); background: #fff; color: #94a3b8; font-size: 10px; padding: 0 6px; }
+@media print { .tiptap-page .ProseMirror .doc-column-break::after { display: none; } }
+
+/* Marcador y referencia cruzada */
+.tiptap-page .ProseMirror .doc-bookmark { display: inline-block; width: 0; }
+.tiptap-page .ProseMirror .doc-bookmark::before { content: "🔖"; font-size: 0.8em; opacity: 0.5; }
+.tiptap-page .ProseMirror .doc-xref { color: #2563eb; text-decoration: underline dotted; cursor: pointer; }
+
+/* Control de cambios */
+.tiptap-page .ProseMirror .doc-ins { color: #047857; text-decoration: underline; text-decoration-color: rgba(4,120,87,0.5); }
+.tiptap-page .ProseMirror .doc-del { color: #dc2626; text-decoration: line-through; }
+@media (prefers-color-scheme: dark) { .tiptap-page .ProseMirror .doc-ins { color: #34d399; } .tiptap-page .ProseMirror .doc-del { color: #f87171; } }
+
+/* Resaltado de búsqueda */
+.tiptap-page .ProseMirror .doc-search-hit { background: rgba(250, 204, 21, 0.45); border-radius: 2px; }
+.tiptap-page .ProseMirror .doc-search-hit-active { background: rgba(249, 115, 22, 0.7); box-shadow: 0 0 0 1px rgba(249,115,22,0.9); }
+
+/* Marcas de formato (¶) */
+.doc-show-marks .ProseMirror p::after,
+.doc-show-marks .ProseMirror h1::after, .doc-show-marks .ProseMirror h2::after, .doc-show-marks .ProseMirror h3::after,
+.doc-show-marks .ProseMirror h4::after, .doc-show-marks .ProseMirror h5::after, .doc-show-marks .ProseMirror h6::after {
+  content: "¶"; color: rgba(37, 99, 235, 0.35); margin-left: 2px; font-weight: 400;
+}
+@media print { .doc-show-marks .ProseMirror *::after { content: none !important; } }
+
+/* Modo enfoque (atenúa todo menos la línea activa) */
+.doc-focus .ProseMirror { color: #c2c6cc; }
+.doc-focus .ProseMirror .doc-focus-line, .doc-focus .ProseMirror .doc-focus-line * { color: #111; }
+@media (prefers-color-scheme: dark) { .doc-focus .ProseMirror { color: #54585e; } .doc-focus .ProseMirror .doc-focus-line, .doc-focus .ProseMirror .doc-focus-line * { color: #f3f4f6; } }
+
+/* Modo lectura */
+.doc-reading-bg { background: #f3efe7 !important; }
+@media (prefers-color-scheme: dark) { .doc-reading-bg { background: #0d0d0d !important; } }
+.doc-reading .ProseMirror { font-family: Georgia, "Times New Roman", serif; font-size: 1.125rem; line-height: 1.95; }
+.doc-reading .ProseMirror .tiptap-comment { background: transparent; border: none; }
+
+/* Regla */
+.doc-ruler { height: 22px; background: repeating-linear-gradient(to right, transparent 0, transparent calc(2.54cm/2 - 1px), rgba(0,0,0,0.18) calc(2.54cm/2 - 1px), rgba(0,0,0,0.18) calc(2.54cm/2)); border: 1px solid rgba(0,0,0,0.08); border-radius: 4px; background-color: #fff; position: relative; }
+@media (prefers-color-scheme: dark) { .doc-ruler { background-color: #1a1a1a; border-color: rgba(255,255,255,0.1); } }
+.doc-ruler-margins { position: absolute; top: 0; bottom: 0; border-left: 2px solid rgba(37,99,235,0.5); border-right: 2px solid rgba(37,99,235,0.5); }
+
+/* Sombreado de celdas (color de fondo inline desde tableCellAttrs) ya se aplica
+   por style; aseguramos contraste del borde de selección por encima del fondo. */
+.tiptap-page .ProseMirror td[data-bg], .tiptap-page .ProseMirror th[data-bg] { background-clip: padding-box; }
+.tiptap-page .ProseMirror td[style*="vertical-align"], .tiptap-page .ProseMirror th[style*="vertical-align"] { /* respeta vertical-align inline */ }
+
+/* Bordes de página */
+.doc-border-thin::before, .doc-border-thick::before, .doc-border-double::before {
+  content: ''; position: absolute; inset: 12px; pointer-events: none; z-index: 2; border-style: solid; border-color: #6b7280; border-radius: 2px;
+}
+.doc-border-thin::before { border-width: 1px; }
+.doc-border-thick::before { border-width: 3px; }
+.doc-border-double::before { border-width: 4px; border-style: double; }
+@media (prefers-color-scheme: dark) { .doc-border-thin::before, .doc-border-thick::before, .doc-border-double::before { border-color: #9ca3af; } }
+
+/* Números de línea (aprox. por bloque de nivel superior) */
+.doc-line-numbers .ProseMirror { counter-reset: docline; }
+.doc-line-numbers .ProseMirror > p, .doc-line-numbers .ProseMirror > h1, .doc-line-numbers .ProseMirror > h2,
+.doc-line-numbers .ProseMirror > h3, .doc-line-numbers .ProseMirror > h4, .doc-line-numbers .ProseMirror > h5, .doc-line-numbers .ProseMirror > h6 { position: relative; }
+.doc-line-numbers .ProseMirror > p::before, .doc-line-numbers .ProseMirror > h1::before, .doc-line-numbers .ProseMirror > h2::before,
+.doc-line-numbers .ProseMirror > h3::before, .doc-line-numbers .ProseMirror > h4::before, .doc-line-numbers .ProseMirror > h5::before, .doc-line-numbers .ProseMirror > h6::before {
+  counter-increment: docline; content: counter(docline); position: absolute; left: -2.6em; width: 2em; text-align: right; color: #cbd5e1; font-size: 0.8em; line-height: inherit; user-select: none; pointer-events: none;
+}
+@media (prefers-color-scheme: dark) { .doc-line-numbers .ProseMirror > p::before { color: #4b5563; } }
+
+/* Leyenda de figura (estilo con nombre «caption») */
+.tiptap-page .ProseMirror [data-style="caption"] { font-size: 0.85em; color: #6b7280; text-align: center; font-style: italic; }
+@media (prefers-color-scheme: dark) { .tiptap-page .ProseMirror [data-style="caption"] { color: #9ca3af; } }
+
+/* Estilos con nombre: sin espaciado / referencia */
+.tiptap-page .ProseMirror [data-style="nospacing"] { margin-top: 0 !important; line-height: 1.25; }
+.tiptap-page .ProseMirror [data-style="reference"] { font-variant: small-caps; letter-spacing: 0.03em; }
+
+/* Encabezado / pie de página en pantalla (WYSIWYG; el print paginado real va
+   por la Vista de página / Paged.js). */
+.doc-page-header, .doc-page-footer {
+  position: absolute; font-size: 10px; color: #9ca3af; display: flex; align-items: center;
+  gap: 8px; pointer-events: none; z-index: 1; white-space: nowrap; overflow: hidden;
+}
+.doc-page-header { top: 18px; justify-content: center; border-bottom: 1px solid rgba(0,0,0,0.06); padding-bottom: 4px; }
+.doc-page-footer { bottom: 18px; justify-content: space-between; border-top: 1px solid rgba(0,0,0,0.06); padding-top: 4px; }
+.doc-page-num { margin-left: auto; }
+@media (prefers-color-scheme: dark) { .doc-page-header { border-color: rgba(255,255,255,0.1); } .doc-page-footer { border-color: rgba(255,255,255,0.1); } }
+@media print { .doc-page-header, .doc-page-footer { display: none !important; } }
+
+/* Citas y bibliografía */
+.tiptap-page .ProseMirror .doc-citation { color: #2563eb; cursor: pointer; }
+.tiptap-page .ProseMirror .doc-citation:hover { text-decoration: underline; }
+.tiptap-page .ProseMirror .doc-bibliography { border-top: 1px solid #d1d5db; margin-top: 2em; padding-top: 0.6em; }
+@media (prefers-color-scheme: dark) { .tiptap-page .ProseMirror .doc-bibliography { border-color: rgba(255,255,255,0.15); } }
+.doc-bibliography-title { font-weight: 700; margin-bottom: 6px; }
+.doc-bibliography-empty { color: #9ca3af; font-style: italic; font-size: 0.85em; }
+.doc-bibliography-item { font-size: 0.92em; padding: 3px 0 3px 1.6em; text-indent: -1.6em; }
+
+/* Línea de firma */
+.tiptap-page .ProseMirror .doc-signature { margin: 1.6em 0 0.5em; max-width: 280px; }
+.tiptap-page .ProseMirror .doc-signature-line { border-top: 1px solid #111; margin-bottom: 4px; }
+.tiptap-page .ProseMirror .doc-signature-name { font-weight: 600; font-size: 0.9em; }
+.tiptap-page .ProseMirror .doc-signature-title { font-size: 0.8em; color: #6b7280; }
+@media (prefers-color-scheme: dark) { .tiptap-page .ProseMirror .doc-signature-line { border-color: #f3f4f6; } .tiptap-page .ProseMirror .doc-signature-title { color: #9ca3af; } }

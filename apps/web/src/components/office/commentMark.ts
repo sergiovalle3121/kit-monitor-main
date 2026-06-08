@@ -21,6 +21,8 @@ export const CommentMark = Mark.create({
       text: { default: '', renderHTML: () => ({}) },
       author: { default: '', renderHTML: () => ({}) },
       createdAt: { default: null, renderHTML: () => ({}) },
+      // Hilo de respuestas: [{ author, text, createdAt }]. Viaja en el JSON.
+      replies: { default: [], renderHTML: () => ({}) },
       resolved: {
         default: false,
         parseHTML: (el: HTMLElement) => el.getAttribute('data-resolved') === 'true',

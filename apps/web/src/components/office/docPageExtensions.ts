@@ -27,6 +27,14 @@ export const PageMeta = Extension.create({
         pageHeader: { default: '' },
         pageFooter: { default: '' },
         pageNumbers: { default: false },
+        pageOrientation: { default: 'portrait' }, // portrait | landscape
+        pageSize: { default: 'a4' },              // a4 | letter | legal
+        pageMargin: { default: 'normal' },        // normal | narrow | wide
+        pageColumns: { default: 1 },              // 1 | 2 | 3
+        pageWatermark: { default: '' },
+        pageBorder: { default: '' },              // '' | thin | thick | double
+        pageLineNumbers: { default: false },      // numeración de líneas (aprox. por párrafo)
+        pageFirstDifferent: { default: false },   // primera página con encabezado/pie distinto
       },
     }];
   },

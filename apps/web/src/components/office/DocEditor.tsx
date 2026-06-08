@@ -36,16 +36,52 @@ import { CharacterCount } from '@tiptap/extension-character-count';
 import {
   Bold, Italic, Underline, Strikethrough, Code,
   List, ListOrdered, ListChecks, Quote, AlignLeft, AlignCenter, AlignRight, AlignJustify,
-  Highlighter, Link2, Image as ImageIcon, Table as TableIcon, Undo, Redo, Minus, Search, SeparatorHorizontal,
-  Subscript as SubIcon, Superscript as SupIcon, RemoveFormatting, Code2, Calendar, Smile,
+  Highlighter, Link2, Undo, Redo, Minus, Search, SeparatorHorizontal,
+  Subscript as SubIcon, Superscript as SupIcon, RemoveFormatting, Code2, Calendar, Smile, Baseline, FileText,
+  PaintRoller, IndentIncrease, IndentDecrease, ListTree, Accessibility,
 } from 'lucide-react';
 import { DocFindReplace } from './DocFindReplace';
 import { DocOutline } from './DocOutline';
 import { DocComments } from './DocComments';
 import { DocPageView } from './DocPageView';
 import { DocTableMenu } from './DocTableMenu';
+import { DocStyleGallery } from './DocStyleGallery';
+import { DocSymbolPicker } from './DocSymbolPicker';
+import { DocPageSetup } from './DocPageSetup';
 import { CommentMark } from './commentMark';
 import { PageBreak, PageMeta } from './docPageExtensions';
+import { Indent, Toc, NamedStyle } from './docExtensions';
+import { ListNumbering } from './docs/listNumbering';
+import { TableCellAttrs } from './docs/tableCellAttrs';
+import { SearchHighlight } from './docs/searchHighlight';
+import { MathInline, MathBlock, MathCommands } from './docs/mathExtension';
+import { FootnoteRef, FootnoteList } from './docs/footnotes';
+import { DropCap, Callout, ColumnBreak, Bookmark, CrossRef } from './docs/insertNodes';
+import { InsertionMark, DeletionMark, TrackChanges } from './docs/trackChanges';
+import { FocusLine } from './docs/focusLine';
+import { SignatureLine } from './docs/signatureLine';
+import { Citation, Bibliography } from './docs/citations';
+import { DocCitations } from './docs/DocCitations';
+import { DocHeaderFooter } from './docs/DocHeaderFooter';
+import { DocTableInsert } from './docs/DocTableInsert';
+import { DocImageInsert } from './docs/DocImageInsert';
+import { DocShortcuts } from './docs/docShortcuts';
+import { ParagraphFormat } from './docs/paragraphFormat';
+import { DocParagraphMenu } from './docs/DocParagraphMenu';
+import { ChangeCase } from './docs/changeCase';
+import { DocChangeCase } from './docs/DocChangeCase';
+import { DocEquation } from './docs/DocEquation';
+import { DocListMenu } from './docs/DocListMenu';
+import { DocViewTools } from './docs/DocViewTools';
+import { DocFootnotes } from './docs/DocFootnotes';
+import { DocInsertExtras } from './docs/DocInsertExtras';
+import { DocTrackChanges } from './docs/DocTrackChanges';
+import { DocWordCount } from './docs/DocWordCount';
+import { DocTemplates } from './docs/DocTemplates';
+import {
+  OfficeRibbon, RibbonTab, RibbonGroup, RibbonSeparator,
+  RibbonButton, RibbonSelect, RibbonColorButton,
+} from './ribbon';
 import '@/styles/tiptap.css';
 
 const FONTS = [
@@ -68,23 +104,6 @@ const LINE_HEIGHTS = [
   { label: 'Doble', value: '2' },
 ];
 
-function Btn({ on, active, title, children }: { on: () => void; active?: boolean; title?: string; children: React.ReactNode }) {
-  return (
-    <button title={title} onMouseDown={(e) => e.preventDefault()} onClick={on}
-      className={`p-2 rounded-lg transition-colors ${active ? 'bg-black text-white dark:bg-white dark:text-black' : 'hover:bg-gray-100 dark:hover:bg-white/10 text-gray-600 dark:text-gray-300'}`}>
-      {children}
-    </button>
-  );
-}
-function Sel({ value, onChange, title, style, children }: { value: string; onChange: (v: string) => void; title?: string; style?: React.CSSProperties; children: React.ReactNode }) {
-  return (
-    <select title={title} value={value} onChange={(e) => onChange(e.target.value)} style={style}
-      className="h-8 text-xs rounded-lg bg-transparent hover:bg-gray-100 dark:hover:bg-white/10 border border-transparent focus:border-gray-200 dark:focus:border-white/10 px-1.5 outline-none cursor-pointer text-gray-700 dark:text-gray-200">
-      {children}
-    </select>
-  );
-}
-function Sep() { return <span className="w-px h-5 bg-gray-200 dark:bg-white/10 mx-1" />; }
 
 const EMOJIS = ['😀', '😁', '😂', '😍', '🤔', '👍', '👎', '🙏', '🎉', '🚀', '🔥', '⭐', '✅', '❌', '⚠️', '💡', '📌', '📈', '📉', '💰', '🟢', '🟡', '🔴', '➡️'];
 function EmojiBtn({ onPick }: { onPick: (e: string) => void }) {
@@ -108,7 +127,7 @@ function EmojiBtn({ onPick }: { onPick: (e: string) => void }) {
 }
 
 /** Word-like rich text editor (TipTap + MIT extensions). */
-export function DocEditor({ value, onChange, readOnly, author, onStats }: { value: any; onChange: (json: any) => void; readOnly?: boolean; author?: string; onStats?: (s: { words: number; chars: number }) => void }) {
+export function DocEditor({ value, onChange, readOnly, author, onStats, fileActions }: { value: any; onChange: (json: any) => void; readOnly?: boolean; author?: string; onStats?: (s: { words: number; chars: number }) => void; fileActions?: React.ReactNode }) {
   const editor = useEditor({
     extensions: [
       StarterKit,
@@ -125,6 +144,32 @@ export function DocEditor({ value, onChange, readOnly, author, onStats }: { valu
       CommentMark,
       PageBreak,
       PageMeta,
+      Indent,
+      NamedStyle,
+      Toc,
+      ListNumbering,
+      TableCellAttrs,
+      SearchHighlight,
+      MathInline,
+      MathBlock,
+      MathCommands,
+      FootnoteRef,
+      FootnoteList,
+      DropCap,
+      Callout,
+      ColumnBreak,
+      Bookmark,
+      CrossRef,
+      InsertionMark,
+      DeletionMark,
+      TrackChanges.configure({ author: author ?? '' }),
+      FocusLine,
+      SignatureLine,
+      Citation,
+      Bibliography,
+      ParagraphFormat,
+      ChangeCase,
+      DocShortcuts,
     ],
     content: value ?? '<p></p>',
     editable: !readOnly,
@@ -140,8 +185,30 @@ export function DocEditor({ value, onChange, readOnly, author, onStats }: { valu
   }, [editor, onStats]);
 
   const [showFind, setShowFind] = React.useState(false);
+  // Estado de la pestaña «Vista» (zoom, marcas de formato, modos) y de control de cambios.
+  const [zoom, setZoom] = React.useState(1);
+  const [showMarks, setShowMarks] = React.useState(false);
+  const [focusMode, setFocusMode] = React.useState(false);
+  const [readingMode, setReadingMode] = React.useState(false);
+  const [showRuler, setShowRuler] = React.useState(false);
+  const [spellcheck, setSpellcheck] = React.useState(false);
+  const [suggesting, setSuggesting] = React.useState(false);
+  // Copiar formato (format painter): guarda el formato capturado; se aplica a la
+  // siguiente selección no vacía (al soltar el ratón en el editor).
+  const [painter, setPainter] = React.useState<Record<string, any> | null>(null);
+  const painterRef = React.useRef<Record<string, any> | null>(null);
+  useEffect(() => { painterRef.current = painter; }, [painter]);
 
   useEffect(() => { editor?.setEditable(!readOnly); }, [editor, readOnly]);
+
+  // Revisión ortográfica nativa del navegador (conmutable desde «Vista»).
+  useEffect(() => { if (editor) editor.view.dom.setAttribute('spellcheck', spellcheck ? 'true' : 'false'); }, [editor, spellcheck]);
+  // Modo sugerencias (control de cambios): el texto escrito se marca como inserción.
+  useEffect(() => { if (editor) (editor.commands as any).setSuggesting(suggesting); }, [editor, suggesting]);
+  // El modo lectura desactiva la edición sin perder el contenido.
+  useEffect(() => { if (editor) editor.setEditable(!readOnly && !readingMode); }, [editor, readOnly, readingMode]);
+  // Modo enfoque: resalta la línea activa.
+  useEffect(() => { if (editor) (editor.commands as any).setFocusLine(focusMode); }, [editor, focusMode]);
 
   // Ctrl/Cmd+F opens in-document find & replace (like Google Docs).
   useEffect(() => {
@@ -153,114 +220,316 @@ export function DocEditor({ value, onChange, readOnly, author, onStats }: { valu
     return () => window.removeEventListener('keydown', onKey);
   }, [readOnly]);
 
+  // Format painter: al soltar el ratón sobre el editor con formato capturado y
+  // una selección, lo aplica y se desactiva.
+  useEffect(() => {
+    if (!editor) return;
+    const dom = editor.view.dom as HTMLElement;
+    const onUp = () => {
+      const p = painterRef.current;
+      if (!p) return;
+      const { from, to, empty } = editor.state.selection;
+      if (empty) return;
+      let ch: any = editor.chain().focus().setTextSelection({ from, to })
+        .unsetBold().unsetItalic().unsetStrike();
+      ch = ch.unsetUnderline().unsetHighlight().unsetColor().unsetFontFamily().unsetFontSize();
+      if (p.bold) ch = ch.setBold();
+      if (p.italic) ch = ch.setItalic();
+      if (p.underline) ch = ch.setUnderline();
+      if (p.strike) ch = ch.setStrike();
+      if (p.color) ch = ch.setColor(p.color);
+      if (p.fontFamily) ch = ch.setFontFamily(p.fontFamily);
+      if (p.fontSize) ch = ch.setFontSize(p.fontSize);
+      if (p.highlight) ch = ch.setHighlight({ color: p.highlight });
+      ch.run();
+      setPainter(null);
+    };
+    dom.addEventListener('mouseup', onUp);
+    return () => dom.removeEventListener('mouseup', onUp);
+  }, [editor]);
+
   if (!editor) return <div className="h-full" />;
 
   const c = () => editor.chain().focus();
   const addLink = () => { const url = window.prompt('URL del enlace'); if (url) c().extendMarkRange('link').setLink({ href: url }).run(); };
   const toggleLink = () => { if (editor.isActive('link')) c().extendMarkRange('link').unsetLink().run(); else addLink(); };
-  const addImage = () => { const url = window.prompt('URL de la imagen'); if (url) (c() as any).setImage({ src: url }).run(); };
 
   const ts = editor.getAttributes('textStyle');
   const curFont = ts.fontFamily ?? '';
+  const curColor = ts.color ?? '';
+  const curHighlight = editor.getAttributes('highlight').color ?? '';
   const curSize = String(ts.fontSize ?? '').replace('px', '');
   const curLH = String(editor.getAttributes('paragraph').lineHeight ?? editor.getAttributes('heading').lineHeight ?? '');
-  const curStyle = editor.isActive('heading', { level: 1 }) ? 'h1'
-    : editor.isActive('heading', { level: 2 }) ? 'h2'
-    : editor.isActive('heading', { level: 3 }) ? 'h3' : 'p';
+  const curHeadingLevel = ([1, 2, 3, 4, 5, 6] as const).find((l) => editor.isActive('heading', { level: l }));
+  const curStyle = curHeadingLevel ? `h${curHeadingLevel}` : 'p';
 
   const setStyle = (v: string) => {
     if (v === 'p') c().setParagraph().run();
-    else c().setHeading({ level: Number(v[1]) as 1 | 2 | 3 }).run();
+    else c().setHeading({ level: Number(v[1]) as 1 | 2 | 3 | 4 | 5 | 6 }).run();
   };
   const setFont = (v: string) => (v ? (c() as any).setFontFamily(v).run() : (c() as any).unsetFontFamily().run());
   const setSize = (v: string) => (v ? (c() as any).setFontSize(`${v}px`).run() : (c() as any).unsetFontSize().run());
   const setLH = (v: string) => (v ? (c() as any).setLineHeight(v).run() : (c() as any).unsetLineHeight().run());
 
+  // Copiar formato: captura el formato de la selección actual (o lo desactiva).
+  const captureFormat = () => {
+    if (painter) { setPainter(null); return; }
+    const a = editor.getAttributes('textStyle');
+    setPainter({
+      color: a.color ?? null, fontFamily: a.fontFamily ?? null, fontSize: a.fontSize ?? null,
+      bold: editor.isActive('bold'), italic: editor.isActive('italic'),
+      underline: editor.isActive('underline'), strike: editor.isActive('strike'),
+      highlight: editor.getAttributes('highlight').color ?? null,
+    });
+  };
+  // Sangría: en listas promueve/degrada el nivel (multinivel); fuera, margen.
+  const indentMore = () => {
+    if (editor.isActive('listItem')) c().sinkListItem('listItem').run();
+    else if (editor.isActive('taskItem')) (c() as any).sinkListItem('taskItem').run();
+    else (c() as any).indentMore().run();
+  };
+  const indentLess = () => {
+    if (editor.isActive('listItem')) c().liftListItem('listItem').run();
+    else if (editor.isActive('taskItem')) (c() as any).liftListItem('taskItem').run();
+    else (c() as any).indentLess().run();
+  };
+
+  // Diseño de página (pageMeta) → dimensiones/relleno/columnas/marca de agua.
+  const meta: any = editor.state.doc.attrs || {};
+  const pgOrient = meta.pageOrientation || 'portrait';
+  const pgSize = meta.pageSize || 'a4';
+  const pgMargin = meta.pageMargin || 'normal';
+  const pgColumns = Number(meta.pageColumns || 1);
+  const pgWatermark = meta.pageWatermark || '';
+  const pgBorder = meta.pageBorder || '';
+  const pgLineNumbers = !!meta.pageLineNumbers;
+  const pgHeader = meta.pageHeader || '';
+  const pgFooter = meta.pageFooter || '';
+  const pgNumbers = !!meta.pageNumbers;
+  const DIM: Record<string, [number, number]> = { a4: [794, 1123], letter: [816, 1056], legal: [816, 1344] };
+  const [dimW, dimH] = DIM[pgSize] || DIM.a4;
+  const pageW = pgOrient === 'landscape' ? dimH : dimW;
+  const pageMinH = pgOrient === 'landscape' ? dimW : dimH;
+  const pagePad = pgMargin === 'narrow' ? 36 : pgMargin === 'wide' ? 104 : 64;
+
+  const styleOptions = [
+    { label: 'Normal', value: 'p' },
+    { label: 'Título 1', value: 'h1' },
+    { label: 'Título 2', value: 'h2' },
+    { label: 'Título 3', value: 'h3' },
+    { label: 'Título 4', value: 'h4' },
+    { label: 'Título 5', value: 'h5' },
+    { label: 'Título 6', value: 'h6' },
+  ];
+  const fontOptions = FONTS.map((f) => ({ label: f.label, value: f.value, style: (f.value ? { fontFamily: f.value } : undefined) as React.CSSProperties | undefined }));
+  const sizeOptions = [{ label: '--', value: '' }, ...SIZES.map((s) => ({ label: s, value: s }))];
+  const lhOptions = LINE_HEIGHTS.map((l) => ({ label: l.label, value: l.value }));
+  const imgAlign = editor.getAttributes('image').align;
+  const imgWidth = editor.getAttributes('image').width;
+
   return (
     <div className="flex flex-col h-full">
-      {!readOnly && (
-      <div className="bg-white/90 dark:bg-[#111]/90 backdrop-blur border-b border-gray-100 dark:border-white/10 px-3 py-1.5 flex items-center gap-0.5 flex-wrap flex-shrink-0">
-        <Btn on={() => c().undo().run()} title="Deshacer"><Undo className="w-4 h-4" /></Btn>
-        <Btn on={() => c().redo().run()} title="Rehacer"><Redo className="w-4 h-4" /></Btn>
-        <Sep />
-        <Sel value={curStyle} onChange={setStyle} title="Estilo de párrafo" style={{ width: 104 }}>
-          <option value="p">Normal</option>
-          <option value="h1">Título 1</option>
-          <option value="h2">Título 2</option>
-          <option value="h3">Título 3</option>
-        </Sel>
-        <Sel value={curFont} onChange={setFont} title="Fuente" style={{ width: 116 }}>
-          {FONTS.map((f) => <option key={f.label} value={f.value}>{f.label}</option>)}
-        </Sel>
-        <Sel value={curSize} onChange={setSize} title="Tamaño de fuente" style={{ width: 60 }}>
-          <option value="">--</option>
-          {SIZES.map((s) => <option key={s} value={s}>{s}</option>)}
-        </Sel>
-        <Sep />
-        <Btn on={() => c().toggleBold().run()} active={editor.isActive('bold')} title="Negrita"><Bold className="w-4 h-4" /></Btn>
-        <Btn on={() => c().toggleItalic().run()} active={editor.isActive('italic')} title="Cursiva"><Italic className="w-4 h-4" /></Btn>
-        <Btn on={() => (c() as any).toggleUnderline().run()} active={editor.isActive('underline')} title="Subrayado"><Underline className="w-4 h-4" /></Btn>
-        <Btn on={() => c().toggleStrike().run()} active={editor.isActive('strike')} title="Tachado"><Strikethrough className="w-4 h-4" /></Btn>
-        <Btn on={() => (c() as any).toggleHighlight().run()} active={editor.isActive('highlight')} title="Resaltar"><Highlighter className="w-4 h-4" /></Btn>
-        <label title="Color de resaltado" className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-white/10 cursor-pointer flex items-center">
-          <span className="w-4 h-4 rounded-sm border border-gray-300" style={{ background: 'repeating-linear-gradient(45deg,#fde047,#fde047 3px,#fff 3px,#fff 6px)' }} />
-          <input type="color" defaultValue="#fde047" onChange={(e) => (c() as any).setHighlight({ color: e.target.value }).run()} className="w-0 h-0 opacity-0 absolute" />
-        </label>
-        <Btn on={() => (c() as any).toggleSubscript().run()} active={editor.isActive('subscript')} title="Subíndice"><SubIcon className="w-4 h-4" /></Btn>
-        <Btn on={() => (c() as any).toggleSuperscript().run()} active={editor.isActive('superscript')} title="Superíndice"><SupIcon className="w-4 h-4" /></Btn>
-        <Btn on={() => c().unsetAllMarks().clearNodes().run()} title="Limpiar formato"><RemoveFormatting className="w-4 h-4" /></Btn>
-        <label title="Color de texto" className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-white/10 cursor-pointer flex items-center">
-          <span className="w-4 h-4 rounded-sm border border-gray-300" style={{ background: 'linear-gradient(135deg,#ef4444,#3b82f6)' }} />
-          <input type="color" onChange={(e) => (c() as any).setColor(e.target.value).run()} className="w-0 h-0 opacity-0 absolute" />
-        </label>
-        <Sep />
-        <Btn on={() => c().setTextAlign('left').run()} active={editor.isActive({ textAlign: 'left' })} title="Izquierda"><AlignLeft className="w-4 h-4" /></Btn>
-        <Btn on={() => c().setTextAlign('center').run()} active={editor.isActive({ textAlign: 'center' })} title="Centrar"><AlignCenter className="w-4 h-4" /></Btn>
-        <Btn on={() => c().setTextAlign('right').run()} active={editor.isActive({ textAlign: 'right' })} title="Derecha"><AlignRight className="w-4 h-4" /></Btn>
-        <Btn on={() => c().setTextAlign('justify').run()} active={editor.isActive({ textAlign: 'justify' })} title="Justificar"><AlignJustify className="w-4 h-4" /></Btn>
-        <Sel value={curLH} onChange={setLH} title="Interlineado" style={{ width: 96 }}>
-          {LINE_HEIGHTS.map((l) => <option key={l.label} value={l.value}>{l.label}</option>)}
-        </Sel>
-        <Sep />
-        <Btn on={() => c().toggleBulletList().run()} active={editor.isActive('bulletList')} title="Viñetas"><List className="w-4 h-4" /></Btn>
-        <Btn on={() => c().toggleOrderedList().run()} active={editor.isActive('orderedList')} title="Numerada"><ListOrdered className="w-4 h-4" /></Btn>
-        <Btn on={() => (c() as any).toggleTaskList().run()} active={editor.isActive('taskList')} title="Lista de tareas"><ListChecks className="w-4 h-4" /></Btn>
-        <Btn on={() => c().toggleBlockquote().run()} active={editor.isActive('blockquote')} title="Cita"><Quote className="w-4 h-4" /></Btn>
-        <Btn on={() => (c() as any).toggleCode().run()} active={editor.isActive('code')} title="Código en línea"><Code2 className="w-4 h-4" /></Btn>
-        <Btn on={() => c().toggleCodeBlock().run()} active={editor.isActive('codeBlock')} title="Bloque de código"><Code className="w-4 h-4" /></Btn>
-        <Sep />
-        <Btn on={toggleLink} active={editor.isActive('link')} title={editor.isActive('link') ? 'Quitar enlace' : 'Enlace'}><Link2 className="w-4 h-4" /></Btn>
-        <Btn on={addImage} title="Imagen"><ImageIcon className="w-4 h-4" /></Btn>
-        <Btn on={() => c().insertContent(new Date().toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' })).run()} title="Insertar fecha"><Calendar className="w-4 h-4" /></Btn>
-        <EmojiBtn onPick={(e) => c().insertContent(e).run()} />
-        <Btn on={() => (c() as any).insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()} title="Tabla"><TableIcon className="w-4 h-4" /></Btn>
-        {editor.isActive('table') && <DocTableMenu editor={editor} />}
-        {editor.isActive('image') && (
-          <>
-            <Btn on={() => (c() as any).updateAttributes('image', { align: 'left' }).run()} active={editor.getAttributes('image').align === 'left'} title="Imagen a la izquierda (texto alrededor)"><AlignLeft className="w-4 h-4" /></Btn>
-            <Btn on={() => (c() as any).updateAttributes('image', { align: 'center' }).run()} active={editor.getAttributes('image').align === 'center'} title="Imagen centrada"><AlignCenter className="w-4 h-4" /></Btn>
-            <Btn on={() => (c() as any).updateAttributes('image', { align: 'right' }).run()} active={editor.getAttributes('image').align === 'right'} title="Imagen a la derecha (texto alrededor)"><AlignRight className="w-4 h-4" /></Btn>
-            {['25%', '50%', '75%', '100%'].map((w) => (
-              <button key={w} onMouseDown={(e) => e.preventDefault()} onClick={() => (c() as any).updateAttributes('image', { width: w }).run()}
-                className="px-1.5 h-8 text-[11px] font-semibold rounded-lg hover:bg-gray-100 dark:hover:bg-white/10 text-gray-600 dark:text-gray-300">{w}</button>
-            ))}
-          </>
-        )}
-        <Btn on={() => c().setHorizontalRule().run()} title="Separador"><Minus className="w-4 h-4" /></Btn>
-        <Btn on={() => (c() as any).setPageBreak().run()} title="Salto de página"><SeparatorHorizontal className="w-4 h-4" /></Btn>
-        <Sep />
-        <Btn on={() => setShowFind(true)} title="Buscar y reemplazar (Ctrl+F)"><Search className="w-4 h-4" /></Btn>
-        <DocOutline editor={editor} />
-        <DocComments editor={editor} author={author ?? ''} />
-        <DocPageView editor={editor} />
-      </div>
-      )}
+      <OfficeRibbon storageKey="ribbon:doc">
+          {fileActions != null && (
+            <RibbonTab id="file" label="Archivo" icon={FileText}>
+              <RibbonGroup label="Documento">{fileActions}</RibbonGroup>
+            </RibbonTab>
+          )}
+
+          {!readOnly && (
+          <RibbonTab id="home" label="Inicio">
+            <RibbonGroup label="Deshacer">
+              <RibbonButton icon={Undo} label="Deshacer" shortcut="Ctrl+Z" onClick={() => c().undo().run()} />
+              <RibbonButton icon={Redo} label="Rehacer" shortcut="Ctrl+Y" onClick={() => c().redo().run()} />
+            </RibbonGroup>
+            <RibbonSeparator />
+            <RibbonGroup label="Portapapeles">
+              <RibbonButton icon={PaintRoller} label="Copiar formato" active={!!painter} onClick={captureFormat} />
+            </RibbonGroup>
+            <RibbonSeparator />
+            <RibbonGroup label="Estilos">
+              <DocStyleGallery editor={editor} />
+              <RibbonSelect title="Estilo de párrafo" value={curStyle} onChange={setStyle} width={116} options={styleOptions} />
+            </RibbonGroup>
+            <RibbonSeparator />
+            <RibbonGroup label="Fuente">
+              <RibbonSelect title="Fuente" value={curFont} onChange={setFont} width={132} options={fontOptions} />
+              <RibbonSelect title="Tamaño de fuente" value={curSize} onChange={setSize} width={58} options={sizeOptions} />
+              <RibbonButton icon={Bold} label="Negrita" shortcut="Ctrl+B" active={editor.isActive('bold')} onClick={() => c().toggleBold().run()} />
+              <RibbonButton icon={Italic} label="Cursiva" shortcut="Ctrl+I" active={editor.isActive('italic')} onClick={() => c().toggleItalic().run()} />
+              <RibbonButton icon={Underline} label="Subrayado" shortcut="Ctrl+U" active={editor.isActive('underline')} onClick={() => (c() as any).toggleUnderline().run()} />
+              <RibbonButton icon={Strikethrough} label="Tachado" active={editor.isActive('strike')} onClick={() => c().toggleStrike().run()} />
+              <RibbonColorButton icon={Baseline} title="Color de texto" value={curColor} onChange={(col) => (c() as any).setColor(col).run()} onClear={() => (c() as any).unsetColor().run()} clearLabel="Automático" />
+              <RibbonColorButton icon={Highlighter} title="Color de resaltado" value={curHighlight} onChange={(col) => (c() as any).setHighlight({ color: col }).run()} onClear={() => (c() as any).unsetHighlight().run()} clearLabel="Sin resaltado" />
+              <RibbonButton icon={SubIcon} label="Subíndice" active={editor.isActive('subscript')} onClick={() => (c() as any).toggleSubscript().run()} />
+              <RibbonButton icon={SupIcon} label="Superíndice" active={editor.isActive('superscript')} onClick={() => (c() as any).toggleSuperscript().run()} />
+              <RibbonButton icon={RemoveFormatting} label="Limpiar formato" onClick={() => c().unsetAllMarks().clearNodes().run()} />
+              <DocChangeCase editor={editor} />
+            </RibbonGroup>
+            <RibbonSeparator />
+            <RibbonGroup label="Párrafo">
+              <RibbonButton icon={List} label="Viñetas" active={editor.isActive('bulletList')} onClick={() => c().toggleBulletList().run()} />
+              <RibbonButton icon={ListOrdered} label="Lista numerada" active={editor.isActive('orderedList')} onClick={() => c().toggleOrderedList().run()} />
+              <RibbonButton icon={ListChecks} label="Lista de tareas" active={editor.isActive('taskList')} onClick={() => (c() as any).toggleTaskList().run()} />
+              <DocListMenu editor={editor} />
+              <RibbonButton icon={Quote} label="Cita" active={editor.isActive('blockquote')} onClick={() => c().toggleBlockquote().run()} />
+              <RibbonButton icon={AlignLeft} label="Alinear a la izquierda" active={editor.isActive({ textAlign: 'left' })} onClick={() => c().setTextAlign('left').run()} />
+              <RibbonButton icon={AlignCenter} label="Centrar" active={editor.isActive({ textAlign: 'center' })} onClick={() => c().setTextAlign('center').run()} />
+              <RibbonButton icon={AlignRight} label="Alinear a la derecha" active={editor.isActive({ textAlign: 'right' })} onClick={() => c().setTextAlign('right').run()} />
+              <RibbonButton icon={AlignJustify} label="Justificar" active={editor.isActive({ textAlign: 'justify' })} onClick={() => c().setTextAlign('justify').run()} />
+              <RibbonButton icon={IndentDecrease} label="Disminuir sangría" onClick={indentLess} />
+              <RibbonButton icon={IndentIncrease} label="Aumentar sangría" onClick={indentMore} />
+              <RibbonSelect title="Interlineado" value={curLH} onChange={setLH} width={92} options={lhOptions} />
+              <DocParagraphMenu editor={editor} />
+            </RibbonGroup>
+            <RibbonSeparator />
+            <RibbonGroup label="Edición">
+              <RibbonButton icon={Search} label="Buscar y reemplazar" shortcut="Ctrl+F" onClick={() => setShowFind(true)} />
+            </RibbonGroup>
+          </RibbonTab>
+          )}
+
+          {!readOnly && (
+          <RibbonTab id="insert" label="Insertar">
+            <RibbonGroup label="Plantillas">
+              <DocTemplates editor={editor} notifyChange={() => onChange(editor.getJSON())} />
+            </RibbonGroup>
+            <RibbonSeparator />
+            <RibbonGroup label="Tablas">
+              <DocTableInsert editor={editor} />
+              {editor.isActive('table') && <DocTableMenu editor={editor} />}
+            </RibbonGroup>
+            <RibbonSeparator />
+            <RibbonGroup label="Ilustraciones">
+              <DocImageInsert editor={editor} />
+              {editor.isActive('image') && (
+                <>
+                  <RibbonButton icon={AlignLeft} label="Imagen a la izquierda" active={imgAlign === 'left'} onClick={() => (c() as any).updateAttributes('image', { align: 'left' }).run()} />
+                  <RibbonButton icon={AlignCenter} label="Imagen centrada" active={imgAlign === 'center'} onClick={() => (c() as any).updateAttributes('image', { align: 'center' }).run()} />
+                  <RibbonButton icon={AlignRight} label="Imagen a la derecha" active={imgAlign === 'right'} onClick={() => (c() as any).updateAttributes('image', { align: 'right' }).run()} />
+                  {['25%', '50%', '75%', '100%'].map((w) => (
+                    <RibbonButton key={w} label={w} hideLabel={false} active={imgWidth === w} onClick={() => (c() as any).updateAttributes('image', { width: w }).run()} />
+                  ))}
+                  <RibbonButton icon={Accessibility} label="Texto alternativo" onClick={() => {
+                    const cur = editor.getAttributes('image').alt || '';
+                    const v = window.prompt('Texto alternativo (accesibilidad)', cur);
+                    if (v !== null) (c() as any).updateAttributes('image', { alt: v }).run();
+                  }} />
+                </>
+              )}
+            </RibbonGroup>
+            <RibbonSeparator />
+            <RibbonGroup label="Vínculos">
+              <RibbonButton icon={Link2} label={editor.isActive('link') ? 'Quitar enlace' : 'Enlace'} active={editor.isActive('link')} onClick={toggleLink} />
+            </RibbonGroup>
+            <RibbonSeparator />
+            <RibbonGroup label="Símbolos">
+              <RibbonButton icon={Calendar} label="Insertar fecha" onClick={() => c().insertContent(new Date().toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' })).run()} />
+              <EmojiBtn onPick={(e) => c().insertContent(e).run()} />
+              <DocSymbolPicker editor={editor} />
+              <RibbonButton icon={Minus} label="Separador" onClick={() => c().setHorizontalRule().run()} />
+              <RibbonButton icon={SeparatorHorizontal} label="Salto de página" onClick={() => (c() as any).setPageBreak().run()} />
+            </RibbonGroup>
+            <RibbonSeparator />
+            <RibbonGroup label="Ecuaciones">
+              <DocEquation editor={editor} />
+            </RibbonGroup>
+            <RibbonSeparator />
+            <RibbonGroup label="Código">
+              <RibbonButton icon={Code2} label="Código en línea" active={editor.isActive('code')} onClick={() => (c() as any).toggleCode().run()} />
+              <RibbonButton icon={Code} label="Bloque de código" active={editor.isActive('codeBlock')} onClick={() => c().toggleCodeBlock().run()} />
+            </RibbonGroup>
+            <RibbonSeparator />
+            <DocInsertExtras editor={editor} />
+          </RibbonTab>
+          )}
+
+          {!readOnly && (
+          <RibbonTab id="layout" label="Disposición">
+            <DocPageSetup editor={editor} />
+            <RibbonSeparator />
+            <DocHeaderFooter editor={editor} />
+          </RibbonTab>
+          )}
+
+          {!readOnly && (
+          <RibbonTab id="references" label="Referencias">
+            <RibbonGroup label="Tabla de contenido">
+              <RibbonButton icon={ListTree} label="Insertar tabla de contenido" hideLabel={false} onClick={() => (c() as any).insertToc().run()} />
+            </RibbonGroup>
+            <RibbonSeparator />
+            <RibbonGroup label="Notas al pie">
+              <DocFootnotes editor={editor} />
+            </RibbonGroup>
+            <RibbonSeparator />
+            <RibbonGroup label="Citas y bibliografía">
+              <DocCitations editor={editor} />
+            </RibbonGroup>
+            <RibbonSeparator />
+            <RibbonGroup label="Navegación">
+              <DocOutline editor={editor} />
+            </RibbonGroup>
+          </RibbonTab>
+          )}
+
+          {!readOnly && (
+          <RibbonTab id="review" label="Revisar">
+            <RibbonGroup label="Revisión">
+              <DocWordCount editor={editor} />
+            </RibbonGroup>
+            <RibbonSeparator />
+            <RibbonGroup label="Comentarios">
+              <DocComments editor={editor} author={author ?? ''} />
+            </RibbonGroup>
+            <RibbonSeparator />
+            <DocTrackChanges editor={editor} suggesting={suggesting} setSuggesting={setSuggesting} />
+            <RibbonSeparator />
+            <RibbonGroup label="Edición">
+              <RibbonButton icon={Search} label="Buscar y reemplazar" shortcut="Ctrl+F" onClick={() => setShowFind(true)} />
+            </RibbonGroup>
+          </RibbonTab>
+          )}
+
+          <RibbonTab id="view" label="Vista">
+            <DocViewTools
+              showMarks={showMarks} setShowMarks={setShowMarks}
+              focusMode={focusMode} setFocusMode={setFocusMode}
+              readingMode={readingMode} setReadingMode={setReadingMode}
+              showRuler={showRuler} setShowRuler={setShowRuler}
+              zoom={zoom} setZoom={setZoom}
+              spellcheck={spellcheck} setSpellcheck={setSpellcheck}
+            />
+            <RibbonSeparator />
+            <RibbonGroup label="Documento">
+              <DocOutline editor={editor} />
+              <DocPageView editor={editor} />
+            </RibbonGroup>
+          </RibbonTab>
+      </OfficeRibbon>
 
       {showFind && !readOnly && <DocFindReplace editor={editor} onClose={() => setShowFind(false)} />}
 
-      <div className="tiptap-page flex-1 min-h-0 overflow-auto bg-gray-100 dark:bg-[#0b0b0b] py-8 px-3">
-        <div className="mx-auto bg-white dark:bg-[#1a1a1a] shadow-xl rounded-sm w-full max-w-[820px] min-h-[1040px] px-12 md:px-16 py-14 text-black dark:text-gray-100">
-          <EditorContent editor={editor} />
+      <div className={`tiptap-page flex-1 min-h-0 overflow-auto bg-gray-100 dark:bg-[#0b0b0b] py-8 px-3 ${readingMode ? 'doc-reading-bg' : ''}`}>
+        {showRuler && !readingMode && (
+          <div className="doc-ruler mx-auto mb-2" style={{ width: pageW, maxWidth: '100%' }} aria-hidden>
+            <div className="doc-ruler-margins" style={{ left: pagePad, right: pagePad }} />
+          </div>
+        )}
+        <div
+          className={`mx-auto bg-white dark:bg-[#1a1a1a] shadow-xl rounded-sm w-full text-black dark:text-gray-100 relative overflow-hidden ${pgColumns === 2 ? 'doc-cols-2' : pgColumns === 3 ? 'doc-cols-3' : ''} ${showMarks ? 'doc-show-marks' : ''} ${focusMode ? 'doc-focus' : ''} ${readingMode ? 'doc-reading' : ''} ${pgBorder ? `doc-border-${pgBorder}` : ''} ${pgLineNumbers ? 'doc-line-numbers' : ''}`}
+          style={{ width: readingMode ? 760 : pageW, maxWidth: '100%', minHeight: readingMode ? undefined : pageMinH, padding: readingMode ? 56 : pagePad, zoom }}
+        >
+          {pgWatermark && <div className="doc-watermark" aria-hidden>{pgWatermark}</div>}
+          {!readingMode && pgHeader && <div className="doc-page-header" aria-hidden style={{ left: pagePad, right: pagePad }}>{pgHeader}</div>}
+          <div className="relative z-[1]">
+            <EditorContent editor={editor} />
+          </div>
+          {!readingMode && (pgFooter || pgNumbers) && (
+            <div className="doc-page-footer" aria-hidden style={{ left: pagePad, right: pagePad }}>
+              <span className="truncate">{pgFooter}</span>
+              {pgNumbers && <span className="doc-page-num">Página 1</span>}
+            </div>
+          )}
         </div>
       </div>
     </div>

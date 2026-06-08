@@ -4,25 +4,31 @@
 import React, { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
-  Chart as ChartJS, CategoryScale, LinearScale, BarElement, LineElement,
-  PointElement, ArcElement, Tooltip, Legend, Title,
+  Chart as ChartJS, CategoryScale, LinearScale, RadialLinearScale, BarElement, LineElement,
+  PointElement, ArcElement, BubbleController, Tooltip, Legend, Title, Filler,
+  BarController, LineController, PieController, DoughnutController, ScatterController, RadarController, PolarAreaController,
 } from 'chart.js';
 import { Chart } from 'react-chartjs-2';
-import { BarChart3, Plus, Trash2, ChevronUp, ChevronDown, X } from 'lucide-react';
-import { buildChartData, CHART_TYPES, type ChartConfig, type ChartType } from '@/lib/office/charts';
+import { BarChart3, Plus, Trash2, ChevronUp, ChevronDown, X, Pencil } from 'lucide-react';
+import { buildChartData, chartJsType, usesSecondaryAxis, seriesLabels, CHART_TYPES, PALETTES, type ChartConfig, type ChartType, type LegendPos, type SeriesOpt, type SeriesKind } from '@/lib/office/charts';
 
-ChartJS.register(CategoryScale, LinearScale, BarElement, LineElement, PointElement, ArcElement, Tooltip, Legend, Title);
+ChartJS.register(
+  CategoryScale, LinearScale, RadialLinearScale, BarElement, LineElement, PointElement, ArcElement, BubbleController,
+  Tooltip, Legend, Title, Filler,
+  BarController, LineController, PieController, DoughnutController, ScatterController, RadarController, PolarAreaController,
+);
 
 const uid = () => `c_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
 
 export function SheetCharts({
-  charts, sheets, readOnly, onAdd, onRemove,
+  charts, sheets, readOnly, onAdd, onRemove, onUpdate,
 }: {
   charts: ChartConfig[];
   sheets: any[];
   readOnly?: boolean;
   onAdd: (c: ChartConfig) => void;
   onRemove: (id: string) => void;
+  onUpdate?: (c: ChartConfig) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [adding, setAdding] = useState(false);
@@ -41,16 +47,17 @@ export function SheetCharts({
       <AnimatePresence initial={false}>
         {open && (
           <motion.div
-            initial={{ height: 0 }} animate={{ height: 296 }} exit={{ height: 0 }}
+            initial={{ height: 0 }} animate={{ height: 320 }} exit={{ height: 0 }}
             className="overflow-hidden"
           >
-            <div className="h-[296px] overflow-x-auto overflow-y-hidden flex gap-3 p-3">
+            <div className="h-[320px] overflow-x-auto overflow-y-hidden flex gap-3 p-3">
               {charts.map((cfg) => (
-                <ChartCard key={cfg.id} cfg={cfg} sheet={sheets[cfg.sheetIndex] ?? sheets[0]} readOnly={readOnly} onRemove={() => onRemove(cfg.id)} />
+                <ChartCard key={cfg.id} cfg={cfg} sheets={sheets} sheetsCount={sheets.length} sheet={sheets[cfg.sheetIndex] ?? sheets[0]} readOnly={readOnly}
+                  onRemove={() => onRemove(cfg.id)} onUpdate={onUpdate} />
               ))}
               {!readOnly && (
                 adding
-                  ? <AddForm sheetsCount={sheets.length} onCancel={() => setAdding(false)} onCreate={(c) => { onAdd({ ...c, id: uid() }); setAdding(false); }} />
+                  ? <ChartForm sheets={sheets} sheetsCount={sheets.length} onCancel={() => setAdding(false)} onSubmit={(c) => { onAdd({ ...c, id: uid() }); setAdding(false); }} submitLabel="Crear" />
                   : (
                     <button onClick={() => setAdding(true)} className="flex-shrink-0 w-40 h-full rounded-2xl border-2 border-dashed border-gray-300 dark:border-white/15 flex flex-col items-center justify-center gap-2 text-gray-400 hover:text-emerald-500 hover:border-emerald-400 transition-colors">
                       <Plus className="w-6 h-6" /> <span className="text-xs font-semibold">Nueva gráfica</span>
@@ -68,60 +75,146 @@ export function SheetCharts({
   );
 }
 
-function ChartCard({ cfg, sheet, readOnly, onRemove }: { cfg: ChartConfig; sheet: any; readOnly?: boolean; onRemove: () => void }) {
+function chartOptions(cfg: ChartConfig) {
+  const radial = cfg.type === 'radar' || cfg.type === 'polarArea';
+  const circular = radial || cfg.type === 'pie' || cfg.type === 'doughnut';
+  const axisTitle = (t?: string) => (t ? { display: true, text: t, font: { size: 11 } } : undefined);
+  const cartesian: any = {
+    x: { stacked: !!cfg.stacked, title: axisTitle(cfg.xTitle) },
+    y: { stacked: !!cfg.stacked, beginAtZero: true, title: axisTitle(cfg.yTitle) },
+  };
+  if (usesSecondaryAxis(cfg)) {
+    cartesian.y1 = { position: 'right', beginAtZero: true, grid: { drawOnChartArea: false }, title: axisTitle(cfg.y1Title) };
+  }
+  return {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: cfg.legend === 'none' ? { display: false } : { display: true, position: (cfg.legend || 'bottom') as any, labels: { boxWidth: 10, font: { size: 10 } } },
+      title: cfg.title ? { display: true, text: cfg.title, font: { size: 13 } } : { display: false },
+    },
+    scales: circular ? (radial ? { r: { beginAtZero: true } } : {}) : cartesian,
+  } as any;
+}
+
+function ChartCard({ cfg, sheet, sheets, sheetsCount, readOnly, onRemove, onUpdate }: { cfg: ChartConfig; sheet: any; sheets: any[]; sheetsCount: number; readOnly?: boolean; onRemove: () => void; onUpdate?: (c: ChartConfig) => void }) {
+  const [editing, setEditing] = useState(false);
+  if (editing && onUpdate) {
+    return <ChartForm sheets={sheets} sheetsCount={sheetsCount} initial={cfg} submitLabel="Guardar" onCancel={() => setEditing(false)} onSubmit={(c) => { onUpdate({ ...cfg, ...c }); setEditing(false); }} />;
+  }
   const data = buildChartData(sheet, cfg);
   return (
     <div className="flex-shrink-0 w-80 h-full rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#161616] p-3 flex flex-col">
       <div className="flex items-center gap-2 mb-2">
         <p className="text-sm font-semibold truncate flex-1">{cfg.title || 'Gráfica'}</p>
         <span className="text-[10px] text-gray-400 font-mono">{cfg.range}</span>
+        {!readOnly && onUpdate && <button onClick={() => setEditing(true)} title="Editar" className="p-1 rounded-lg text-gray-300 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-500/10"><Pencil className="w-3.5 h-3.5" /></button>}
         {!readOnly && <button onClick={onRemove} title="Eliminar" className="p-1 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10"><Trash2 className="w-3.5 h-3.5" /></button>}
       </div>
       <div className="flex-1 min-h-0 relative">
         {data
-          ? <Chart type={cfg.type as any} data={data as any} options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { display: cfg.type !== 'bar' || data.datasets.length > 1, position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } } } as any} />
+          ? <Chart type={chartJsType(cfg.type) as any} data={data as any} options={chartOptions(cfg)} />
           : <div className="h-full flex items-center justify-center text-xs text-gray-400 text-center px-2">Rango inválido o sin datos.<br />Ej: A1:B8</div>}
       </div>
     </div>
   );
 }
 
-function AddForm({ sheetsCount, onCreate, onCancel }: { sheetsCount: number; onCreate: (c: Omit<ChartConfig, 'id'>) => void; onCancel: () => void }) {
-  const [type, setType] = useState<ChartType>('bar');
-  const [title, setTitle] = useState('');
-  const [range, setRange] = useState('A1:B8');
-  const [sheetIndex, setSheetIndex] = useState(0);
+function ChartForm({ sheets, sheetsCount, initial, onSubmit, onCancel, submitLabel }: { sheets: any[]; sheetsCount: number; initial?: ChartConfig; onSubmit: (c: Omit<ChartConfig, 'id'>) => void; onCancel: () => void; submitLabel: string }) {
+  const [type, setType] = useState<ChartType>(initial?.type ?? 'bar');
+  const [title, setTitle] = useState(initial?.title ?? '');
+  const [range, setRange] = useState(initial?.range ?? 'A1:B8');
+  const [sheetIndex, setSheetIndex] = useState(initial?.sheetIndex ?? 0);
+  const [legend, setLegend] = useState<LegendPos>(initial?.legend ?? 'bottom');
+  const [palette, setPalette] = useState(initial?.palette ?? 'brand');
+  const [stacked, setStacked] = useState(!!initial?.stacked);
+  const [xTitle, setXTitle] = useState(initial?.xTitle ?? '');
+  const [yTitle, setYTitle] = useState(initial?.yTitle ?? '');
+  const [y1Title, setY1Title] = useState(initial?.y1Title ?? '');
+  const [series, setSeries] = useState<SeriesOpt[]>(initial?.series ?? []);
+  const [showSeries, setShowSeries] = useState(false);
   const field = 'w-full h-8 text-sm rounded-lg bg-gray-100 dark:bg-white/10 px-2 outline-none focus:ring-2 ring-emerald-500/40';
 
+  const labels = seriesLabels(sheets?.[sheetIndex], range);
+  const cartesian = type === 'bar' || type === 'line' || type === 'area' || type === 'combo';
+  const setSeriesAt = (i: number, patch: Partial<SeriesOpt>) => setSeries((p) => { const c = [...p]; c[i] = { ...c[i], ...patch }; return c; });
+  const anySecondary = series.some((s) => s?.axis === 'y1');
+
   return (
-    <div className="flex-shrink-0 w-72 h-full rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#161616] p-3 flex flex-col gap-2">
+    <div className="flex-shrink-0 w-72 h-full rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#161616] p-3 flex flex-col gap-1.5 overflow-y-auto">
       <div className="flex items-center justify-between">
-        <p className="text-sm font-semibold">Nueva gráfica</p>
+        <p className="text-sm font-semibold">{initial ? 'Editar gráfica' : 'Nueva gráfica'}</p>
         <button onClick={onCancel} className="p-1 rounded-lg text-gray-400 hover:bg-black/5 dark:hover:bg-white/10"><X className="w-4 h-4" /></button>
       </div>
-      <label className="text-[11px] text-gray-500">Título
-        <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Mi gráfica" className={field} />
-      </label>
+      <label className="text-[11px] text-gray-500">Título<input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Mi gráfica" className={field} /></label>
       <label className="text-[11px] text-gray-500">Tipo
         <select value={type} onChange={(e) => setType(e.target.value as ChartType)} className={field}>
           {CHART_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
         </select>
       </label>
-      <label className="text-[11px] text-gray-500">Rango de datos
-        <input value={range} onChange={(e) => setRange(e.target.value)} placeholder="A1:B8" className={field} />
-      </label>
+      <label className="text-[11px] text-gray-500">Rango de datos<input value={range} onChange={(e) => setRange(e.target.value)} placeholder="A1:B8" className={field} /></label>
+      <div className="flex gap-2">
+        <label className="text-[11px] text-gray-500 flex-1">Leyenda
+          <select value={legend} onChange={(e) => setLegend(e.target.value as LegendPos)} className={field}>
+            <option value="bottom">Abajo</option><option value="top">Arriba</option>
+            <option value="right">Derecha</option><option value="left">Izquierda</option>
+            <option value="none">Ocultar</option>
+          </select>
+        </label>
+        <label className="text-[11px] text-gray-500 flex-1">Paleta
+          <select value={palette} onChange={(e) => setPalette(e.target.value)} className={field}>
+            {Object.keys(PALETTES).map((p) => <option key={p} value={p}>{p}</option>)}
+          </select>
+        </label>
+      </div>
+      {(type === 'bar' || type === 'area') && (
+        <label className="flex items-center gap-1.5 text-[11px] text-gray-500 cursor-pointer"><input type="checkbox" checked={stacked} onChange={(e) => setStacked(e.target.checked)} /> Apilado</label>
+      )}
+      {cartesian && (
+        <div className="grid grid-cols-2 gap-2">
+          <label className="text-[11px] text-gray-500">Eje X<input value={xTitle} onChange={(e) => setXTitle(e.target.value)} placeholder="Título X" className={field} /></label>
+          <label className="text-[11px] text-gray-500">Eje Y<input value={yTitle} onChange={(e) => setYTitle(e.target.value)} placeholder="Título Y" className={field} /></label>
+          {anySecondary && <label className="text-[11px] text-gray-500 col-span-2">Eje Y secundario<input value={y1Title} onChange={(e) => setY1Title(e.target.value)} placeholder="Título Y2" className={field} /></label>}
+        </div>
+      )}
+      {cartesian && labels.length > 0 && (
+        <div className="rounded-lg border border-gray-200 dark:border-white/10 p-2">
+          <button onClick={() => setShowSeries((s) => !s)} className="w-full flex items-center justify-between text-[11px] font-semibold text-gray-600 dark:text-gray-300">
+            Series y ejes ({labels.length}) {showSeries ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
+          </button>
+          {showSeries && (
+            <div className="mt-1.5 space-y-1.5">
+              {labels.map((lbl, i) => (
+                <div key={i} className="flex items-center gap-1">
+                  <input type="color" value={series[i]?.color ?? PALETTES[palette]?.[i % (PALETTES[palette]?.length || 1)] ?? '#3b82f6'}
+                    onChange={(e) => setSeriesAt(i, { color: e.target.value })} className="w-6 h-6 rounded cursor-pointer bg-transparent flex-shrink-0" title="Color" />
+                  <span className="text-[11px] truncate flex-1" title={lbl}>{lbl}</span>
+                  {type === 'combo' && (
+                    <select value={series[i]?.type ?? (i === 0 ? 'bar' : 'line')} onChange={(e) => setSeriesAt(i, { type: e.target.value as SeriesKind })} className="h-6 text-[10px] rounded bg-gray-100 dark:bg-white/10 px-0.5 outline-none" title="Tipo de serie">
+                      <option value="bar">Barra</option><option value="line">Línea</option><option value="area">Área</option>
+                    </select>
+                  )}
+                  <select value={series[i]?.axis ?? 'y'} onChange={(e) => setSeriesAt(i, { axis: e.target.value as 'y' | 'y1' })} className="h-6 text-[10px] rounded bg-gray-100 dark:bg-white/10 px-0.5 outline-none" title="Eje">
+                    <option value="y">Y</option><option value="y1">Y2</option>
+                  </select>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
       {sheetsCount > 1 && (
         <label className="text-[11px] text-gray-500">Hoja
           <select value={sheetIndex} onChange={(e) => setSheetIndex(Number(e.target.value))} className={field}>
-            {Array.from({ length: sheetsCount }).map((_, i) => <option key={i} value={i}>Hoja {i + 1}</option>)}
+            {Array.from({ length: sheetsCount }).map((_, i) => <option key={i} value={i}>{sheets?.[i]?.name || `Hoja ${i + 1}`}</option>)}
           </select>
         </label>
       )}
-      <button onClick={() => onCreate({ type, title: title.trim(), range: range.trim(), sheetIndex })}
+      <button onClick={() => onSubmit({ type, title: title.trim(), range: range.trim(), sheetIndex, legend, palette, stacked, xTitle: xTitle.trim() || undefined, yTitle: yTitle.trim() || undefined, y1Title: y1Title.trim() || undefined, series: cartesian ? series.slice(0, labels.length) : undefined })}
         className="mt-auto h-8 rounded-lg bg-black dark:bg-white text-white dark:text-black text-sm font-semibold hover:opacity-90">
-        Crear
+        {submitLabel}
       </button>
-      <p className="text-[10px] text-gray-400 leading-tight">La 1ª fila del rango son los títulos de serie; la 1ª columna, las etiquetas.</p>
+      <p className="text-[10px] text-gray-400 leading-tight">{type === 'bubble' ? 'Columnas: X, Y, Tamaño (3 columnas).' : '1ª fila = títulos de serie; 1ª columna = etiquetas.'}</p>
     </div>
   );
 }
