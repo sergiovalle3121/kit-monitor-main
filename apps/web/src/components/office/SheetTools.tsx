@@ -45,6 +45,7 @@ export function SheetTools({
   const [kind, setKind] = useState<CondKind>('compare');
   const [op, setOp] = useState('>');
   const [value, setValue] = useState('0');
+  const [value2, setValue2] = useState('100');
   const [color, setColor] = useState(COLORS[2]);
   const [c1, setC1] = useState('#f8696b');
   const [c2, setC2] = useState('#ffeb84');
@@ -67,7 +68,7 @@ export function SheetTools({
 
   function applyCond() {
     const base = { kind, range, sheetIndex } as CondPayload;
-    if (kind === 'compare') Object.assign(base, { op, value, color });
+    if (kind === 'compare') Object.assign(base, { op, value, value2, color });
     else if (kind === 'scale2') Object.assign(base, { c1, c2 });
     else if (kind === 'scale3') Object.assign(base, { c1, c2, c3 });
     else if (kind === 'top' || kind === 'bottom') Object.assign(base, { n, color });
@@ -121,12 +122,18 @@ export function SheetTools({
                       <option value=">">Mayor que</option><option value=">=">Mayor o igual</option>
                       <option value="<">Menor que</option><option value="<=">Menor o igual</option>
                       <option value="=">Igual a</option><option value="!=">Distinto de</option>
+                      <option value="between">Entre</option><option value="notbetween">No entre</option>
                       <option value="contains">Contiene</option>
                     </select>
                   </label>
-                  <label className="flex-1 text-xs text-gray-500">Valor
+                  <label className="flex-1 text-xs text-gray-500">{op === 'between' || op === 'notbetween' ? 'Mínimo' : 'Valor'}
                     <input value={value} onChange={(e) => setValue(e.target.value)} className={field} />
                   </label>
+                  {(op === 'between' || op === 'notbetween') && (
+                    <label className="flex-1 text-xs text-gray-500">Máximo
+                      <input value={value2} onChange={(e) => setValue2(e.target.value)} className={field} />
+                    </label>
+                  )}
                 </div>
                 <div className="text-xs text-gray-500">Color de relleno<div className="mt-1">{swatches(color, setColor)}</div></div>
               </>

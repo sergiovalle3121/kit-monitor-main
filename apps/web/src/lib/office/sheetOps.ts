@@ -48,7 +48,7 @@ const textOn = (bg: string) => { const [r, g, b] = hexToRgb(bg); return (0.299 *
 export type CondKind = 'compare' | 'scale2' | 'scale3' | 'top' | 'bottom' | 'duplicates' | 'iconset' | 'databar' | 'clear';
 export interface CondPayload {
   kind: CondKind; range: string; sheetIndex: number;
-  op?: string; value?: string; color?: string;            // compare / top / bottom / duplicates
+  op?: string; value?: string; value2?: string; color?: string;  // compare / top / bottom / duplicates / between
   c1?: string; c2?: string; c3?: string;                  // escalas de color
   n?: number;                                             // top/bottom N
   icons?: string[];                                       // conjunto de iconos
@@ -130,6 +130,13 @@ export function applyConditional(sheet: any, p: CondPayload): boolean {
       const num = parseFloat(cmp);
       const matches = (raw: any) => {
         if (p.op === 'contains') return String(raw ?? '').toLowerCase().includes(cmp.toLowerCase());
+        if (p.op === 'between' || p.op === 'notbetween') {
+          const lo = parseFloat(p.value ?? ''), hi = parseFloat(p.value2 ?? '');
+          const nn = typeof raw === 'number' ? raw : parseFloat(raw);
+          if (Number.isNaN(nn) || Number.isNaN(lo) || Number.isNaN(hi)) return false;
+          const inside = nn >= Math.min(lo, hi) && nn <= Math.max(lo, hi);
+          return p.op === 'between' ? inside : !inside;
+        }
         const n = typeof raw === 'number' ? raw : parseFloat(raw);
         if (Number.isNaN(n)) return p.op === '=' ? String(raw) === cmp : p.op === '!=' ? String(raw) !== cmp : false;
         switch (p.op) {

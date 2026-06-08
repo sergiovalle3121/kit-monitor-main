@@ -233,7 +233,11 @@ reaplicar, vía `stripIcon` ampliado). Expuesto en `SheetTools` con selector de 
   formato en la celda; un gestor que reevalúe requeriría separar reglas del modelo y
   reconciliar — estimación 1–1.5 días).
 
-**Spec**: `cond.spec.ts` (8) — barras de datos (incl. idempotencia), comparación y limpiar.
+**Spec**: `cond.spec.ts` (11) — barras de datos (incl. idempotencia), comparación,
+**entre/no entre** y limpiar.
+
+> Ampliación: operador **«Entre» / «No entre»** en la comparación (con mín/máx); UI en
+> `SheetTools` con segundo valor condicional.
 
 **Total de aserciones de lógica pura: 162** (11 specs, `npx tsx`).
 

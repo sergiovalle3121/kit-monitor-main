@@ -31,6 +31,15 @@ const at = (sheet: any, r: number, c: number) => sheet.celldata.find((x: any) =>
   ok(at(sheet, 1, 0).bg == null, 'limpiar quita el relleno');
 }
 
+// ── Entre / No entre ─────────────────────────────────────────────────────────
+{
+  const sheet: any = { celldata: [cell(0, 0, 5), cell(1, 0, 15), cell(2, 0, 25)] };
+  applyConditional(sheet, { kind: 'compare', range: 'A1:A3', sheetIndex: 0, op: 'between', value: '10', value2: '20', color: '#dcfce7' } as any);
+  ok(at(sheet, 0, 0).bg == null, '5 fuera de [10,20]');
+  eq(at(sheet, 1, 0).bg, '#dcfce7', '15 dentro de [10,20]');
+  ok(at(sheet, 2, 0).bg == null, '25 fuera de [10,20]');
+}
+
 console.log(`\nCOND SPEC: ${passed} OK, ${fails.length} fallos`);
 if (fails.length) { for (const f of fails) console.error('  ✗ ' + f); throw new Error(`${fails.length} fallos`); }
 console.log('✓ Todas las aserciones de formato condicional pasan.');
