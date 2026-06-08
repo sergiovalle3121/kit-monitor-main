@@ -269,6 +269,20 @@ Verificado: `tsc` ✓, `eslint` ✓, `next build` ✓.
 
 Verificado: `tsc` ✓, `eslint` ✓, `next build` ✓.
 
+#### Lote 22 — Transiciones por diapositiva (backlog #9)
+- Las transiciones ahora son **por diapositiva** (arreglo `transitions` paralelo,
+  como notas/secciones). La pestaña Transiciones aplica a la diapositiva actual y
+  ofrece **Aplicar a todas**. El modo presentación usa la transición de cada
+  diapositiva. Compatibilidad: se conserva `transition` (deck) como respaldo.
+
+Verificado: `tsc` ✓, `eslint` ✓, `next build` ✓.
+
+#### Verificación de persistencia
+- Test de ida y vuelta (Fabric `toObject`→`fromObject`) confirma que
+  `chartSpec`, `tableSpec`, `smart` (grupos) y `conn` (polilínea) **sobreviven**
+  la serialización → los gráficos, tablas, SmartArt y conectores siguen siendo
+  editables tras recargar.
+
 ### Diferido (con estimación)
 - **Secciones en el clasificador** y colapsar/expandir: el sorter es una rejilla;
   insertar encabezados de ancho completo + colapso. Estimación: ~0.5 día.
