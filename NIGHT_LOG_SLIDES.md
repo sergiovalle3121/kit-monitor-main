@@ -158,3 +158,26 @@ Verificado: `tsc` ✓, `eslint` ✓, `next build` ✓.
   selección (excluyente con el panel de animación). Serializa `visible`.
 
 Verificado: `tsc` ✓, `eslint` ✓, `next build` ✓.
+
+#### Lote 10 — Recorte interactivo de imagen (refina backlog #3)
+- Modo de **recorte con marco arrastrable** sobre la imagen: arrastra/escala el
+  marco y aplica (Enter) o cancela (Esc). Calcula `cropX/cropY/width/height` en
+  píxeles naturales respetando la escala y el recorte previo. Barra flotante con
+  Aplicar/Cancelar. Convive con los recortes por relación de aspecto (lote 1).
+
+Verificado: `tsc` ✓, `eslint` ✓, `next build` ✓.
+
+### Diferido (con estimación)
+- **Tamaño de diapositiva 4:3/personalizado** (backlog #7, parte): es transversal
+  (CW/CH alimentan snapping, alineación, presentación, PDF, .pptx y el sorter).
+  Para no arriesgar el build verde con sesiones en paralelo, se difiere. Plan:
+  parametrizar la altura por relación (16:9=540, 4:3=720) y propagarla a
+  `Present`/`slidesPdf`/`pptx`/`SlideSorter` como `ratio`. Estimación: ~0.5 día.
+- **Secciones** (backlog #7): agrupar diapositivas con encabezados en la barra y
+  el clasificador. Estimación: ~0.5 día (sin impacto en export).
+- **Patrón de diapositivas (master) editable** (backlog #7): editor de
+  marcadores/placeholders. Estimación: ~1 día.
+- **Video/audio embebido** (backlog #10): Fabric no reproduce media; requiere
+  capa HTML sincronizada y export limitado en .pptx. Estimación: ~1–1.5 días.
+- **Import .pptx**: no hay lib permisiva estable de alta fidelidad. Estimación:
+  alto; documentar y evaluar parser propio mínimo (~2–3 días).

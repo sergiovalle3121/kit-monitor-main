@@ -19,7 +19,7 @@ import {
   BarChart3, Workflow, Spline, Waypoints,
   List, IndentIncrease, IndentDecrease, MoveHorizontal, AlignVerticalSpaceAround, Sparkles, Search,
   Pointer, Pencil, Eraser, Moon, ListTree, Layers,
-  ZoomIn, ZoomOut, Maximize, Scan, MousePointerClick,
+  ZoomIn, ZoomOut, Maximize, Scan, MousePointerClick, Check,
 } from 'lucide-react';
 import { SlideSorter } from './SlideSorter';
 import { SlideIconPicker } from './SlideIconPicker';
@@ -103,6 +103,10 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
   const [selCount, setSelCount] = useState(0);
   const [selAngle, setSelAngle] = useState(0);
   const [imgFx, setImgFx] = useState<ImgFx>(readImgFx(null));
+  const [cropping, setCropping] = useState(false);
+  const croppingRef = useRef(false);
+  const cropRefs = useRef<{ img: any; frame: any } | null>(null);
+  useEffect(() => { croppingRef.current = cropping; }, [cropping]);
   // Tema del mazo, cuadrícula, plantillas, pie/números de diapositiva.
   const [themeId, setThemeId] = useState<string>(value?.theme || 'light');
   const themeRef = useRef<string>(themeId);
@@ -546,6 +550,50 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
     const c = fabricRef.current; const o = activeImage(); if (!c || !o) return;
     resetCrop(o); c.requestRenderAll(); capture(); sync();
   }
+  // ── Recorte interactivo: marco arrastrable sobre la imagen ──────────────────
+  function startCrop() {
+    const c = fabricRef.current; const img = activeImage(); if (!c || !img) return;
+    img.set({ angle: 0 }); img.setCoords();
+    const L = img.left, T = img.top, W = img.getScaledWidth(), H = img.getScaledHeight();
+    const frame: any = new Rect({
+      left: L, top: T, width: W, height: H, fill: 'rgba(59,130,246,0.10)', stroke: '#3b82f6', strokeWidth: 2,
+      strokeDashArray: [7, 4], cornerColor: '#3b82f6', cornerStyle: 'circle', transparentCorners: false, lockRotation: true,
+    } as any);
+    frame.setControlsVisibility?.({ mtr: false });
+    const iBounds = () => ({ l: img.left, t: img.top, r: img.left + img.getScaledWidth(), b: img.top + img.getScaledHeight() });
+    frame.on('moving', () => {
+      const B = iBounds();
+      frame.left = Math.max(B.l, Math.min(frame.left, B.r - frame.getScaledWidth()));
+      frame.top = Math.max(B.t, Math.min(frame.top, B.b - frame.getScaledHeight()));
+    });
+    img.selectable = false; img.evented = false;
+    cropRefs.current = { img, frame };
+    c.add(frame); c.setActiveObject(frame); c.requestRenderAll();
+    setCropping(true);
+  }
+  function applyCropFrame() {
+    const c = fabricRef.current; const refs = cropRefs.current; if (!c || !refs) { setCropping(false); return; }
+    const { img, frame } = refs;
+    const sX = img.scaleX || 1, sY = img.scaleY || 1;
+    const iL = img.left, iT = img.top, iR = iL + img.getScaledWidth(), iB = iT + img.getScaledHeight();
+    const fL = Math.max(iL, frame.left), fT = Math.max(iT, frame.top);
+    const fR = Math.min(iR, frame.left + frame.getScaledWidth()), fB = Math.min(iB, frame.top + frame.getScaledHeight());
+    c.remove(frame); img.selectable = true; img.evented = true; cropRefs.current = null; setCropping(false);
+    if (fR - fL < 6 || fB - fT < 6) { c.setActiveObject(img); c.requestRenderAll(); return; }
+    img.set({
+      cropX: (img.cropX || 0) + (fL - iL) / sX,
+      cropY: (img.cropY || 0) + (fT - iT) / sY,
+      width: (fR - fL) / sX,
+      height: (fB - fT) / sY,
+      left: fL, top: fT,
+    });
+    img.setCoords(); c.setActiveObject(img); c.requestRenderAll(); capture(); sync();
+  }
+  function cancelCropFrame() {
+    const c = fabricRef.current; const refs = cropRefs.current; if (!c || !refs) { setCropping(false); return; }
+    c.remove(refs.frame); refs.img.selectable = true; refs.img.evented = true;
+    c.setActiveObject(refs.img); cropRefs.current = null; setCropping(false); c.requestRenderAll();
+  }
   function onReplaceFile(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0]; const o = activeImage(); e.target.value = '';
     if (!f || !o) return;
@@ -689,6 +737,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
       const t = e.target as HTMLElement | null;
       if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
       const c = fabricRef.current; if (!c) return;
+      if (croppingRef.current) { if (e.key === 'Escape') cancelCropFrame(); else if (e.key === 'Enter') applyCropFrame(); return; }
       const o = c.getActiveObject() as any;
       const meta = e.ctrlKey || e.metaKey;
       const k = e.key.toLowerCase();
@@ -986,7 +1035,8 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
               <>
                 <RibbonSeparator />
                 <RibbonGroup label="Imagen">
-                  <RibbonMenuButton icon={Crop} label="Recortar" menuWidth={190} items={[
+                  <RibbonMenuButton icon={Crop} label="Recortar" menuWidth={210} items={[
+                    { label: '✂ Recorte interactivo…', onClick: startCrop },
                     ...CROP_RATIOS.map((r) => ({ label: r.label, onClick: () => cropImage(r.ratio) })),
                     { label: 'Quitar recorte', onClick: uncropImage },
                   ]} />
@@ -1120,6 +1170,14 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
           <SlideLayersPanel items={layerList} activeIdx={activeIdx} onSelect={selectByIndex} onToggleVisible={toggleVisibleIdx} onToggleLock={toggleLockIdx} onForward={forwardIdx} onBackward={backwardIdx} onClose={() => setShowLayers(false)} />
         )}
       </div>
+
+      {cropping && (
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[60] flex items-center gap-2 px-3 py-2 rounded-2xl bg-white dark:bg-[#1a1a1a] border border-black/10 dark:border-white/10 shadow-2xl">
+          <span className="text-xs text-gray-500 px-1 hidden sm:inline">Arrastra el marco para recortar</span>
+          <button onClick={applyCropFrame} className="flex items-center gap-1.5 text-sm font-semibold px-3 py-1.5 rounded-xl bg-blue-500 text-white hover:bg-blue-600"><Check className="w-4 h-4" /> Aplicar</button>
+          <button onClick={cancelCropFrame} className="text-sm px-3 py-1.5 rounded-xl hover:bg-black/5 dark:hover:bg-white/10 text-gray-600 dark:text-gray-300">Cancelar (Esc)</button>
+        </div>
+      )}
 
       {presenting && <Present slides={slides} notes={notesRef.current} transition={transition} footer={footerRef.current} showNumbers={showNumbers} presenter={presenterMode} onClose={() => { setPresenting(false); setPresenterMode(false); }} />}
       <AnimatePresence>
