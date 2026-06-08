@@ -13,6 +13,7 @@ eq(fillSeries([2, 4], 3), [6, 8, 10], 'aritmética paso 2');
 eq(fillSeries([5], 2), [6, 7], 'semilla única → paso 1');
 eq(fillSeries(['enero', 'febrero'], 2), ['marzo', 'abril'], 'meses');
 eq(fillSeries(['Enero'], 2), ['Febrero', 'Marzo'], 'meses con mayúscula');
+eq(fillSeries(['ene', 'feb'], 3), ['mar', 'abr', 'may'], 'meses abreviados (mismo estilo)');
 eq(fillSeries(['lunes'], 1), ['martes'], 'días de la semana');
 eq(fillSeries(['2026-01-01', '2026-01-02'], 2), ['2026-01-03', '2026-01-04'], 'fechas paso 1 día');
 eq(fillSeries(['Item 1'], 2), ['Item 2', 'Item 3'], 'texto con número');

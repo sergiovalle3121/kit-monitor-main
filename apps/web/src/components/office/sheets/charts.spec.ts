@@ -36,6 +36,14 @@ eq(seriesLabels(sheet, 'A1:C3'), ['Ventas', 'Margen'], 'seriesLabels = cabeceras
   ok(usesSecondaryAxis(cfg), 'usesSecondaryAxis true');
 }
 
+// Celda no numérica en una columna de datos → 0 (no NaN)
+{
+  const bad: any = { celldata: [cell(0, 0, 'M'), cell(0, 1, 'V'), cell(1, 0, 'Ene'), cell(1, 1, 'abc'), cell(2, 0, 'Feb'), cell(2, 1, 7)] };
+  const d = buildChartData(bad, { ...base, type: 'bar' } as ChartConfig);
+  eq(d.datasets[0].data[0], 0, 'celda "abc" → 0');
+  eq(d.datasets[0].data[1], 7, 'celda numérica intacta');
+}
+
 // Color por serie
 {
   const d = buildChartData(sheet, { ...base, type: 'bar', series: [{ color: '#123456' }] } as ChartConfig);

@@ -273,6 +273,18 @@ importaciones sin extensión bajo Node 22.
 - **Hipervínculos / proteger rango-hoja**: Fortune-Sheet ofrece parte de forma nativa;
   no se duplicó para evitar comportamiento inconsistente.
 
+## Auto-revisión (code-review multiángulo)
+Se pasó una revisión propia (agentes en paralelo: lógica pura, *wiring* React,
+consistencia de *callers*). Resultado: contratos de payload y firmas consistentes,
+`tsc` 0 errores. **2 bugs reales corregidos** con test de regresión:
+1. `fillSeries` no continuaba **meses abreviados** (`['ene','feb']`) — ahora detecta
+   `MONTHS_FULL`/`MONTHS_ES`/días y conserva el estilo. (test añadido)
+2. `charts.ts num()` devolvía `NaN` (no 0) para celdas no numéricas (`Number('abc') ?? 0`),
+   corrompiendo el escalado de burbujas — ahora `Number.isFinite(n) ? n : 0`. (test añadido)
+
+(El modo `copyRange('values')` conserva el número-formato del origen: es el comportamiento
+de «Valores y formatos de número» de Excel, intencional.)
+
 ## Seguridad / paralelismo
 - Solo se tocaron archivos de **Hojas** (`Sheet*`, `lib/office/sheetOps.ts|xlsx.ts|charts.ts`,
   `components/office/sheets/**`). **No** se tocó el ribbon compartido, `OfficeShell`,

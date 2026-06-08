@@ -892,7 +892,6 @@ export function applySparkline(sheet: any, dataRange: string, targetCell: string
 }
 
 // ── Rellenar series (autollenado) ─────────────────────────────────────────────
-const MONTHS_FILL = MONTHS_FULL;
 const WEEKDAYS_FILL = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'];
 const seqIndex = (seq: string[], val: string) => seq.indexOf(String(val).trim().toLowerCase());
 
@@ -914,8 +913,8 @@ export function fillSeries(seed: any[], count: number): any[] {
     return out;
   }
 
-  // 2) Meses / días de la semana (es).
-  for (const seq of [MONTHS_FILL, WEEKDAYS_FILL]) {
+  // 2) Meses (completos o abreviados) / días de la semana (es); conserva el estilo.
+  for (const seq of [MONTHS_FULL, MONTHS_ES, WEEKDAYS_FILL]) {
     if (clean.every((v) => seqIndex(seq, v) >= 0)) {
       let idx = seqIndex(seq, clean[clean.length - 1]);
       const cap = /^[A-ZÁÉÍÓÚ]/.test(String(clean[clean.length - 1]));

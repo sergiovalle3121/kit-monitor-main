@@ -74,7 +74,7 @@ function cellMap(sheet: any): Map<string, any> {
   }
   return m;
 }
-const num = (v: any) => (typeof v === 'number' ? v : (v == null || v === '' ? null : Number(v))) ?? 0;
+const num = (v: any) => { const n = typeof v === 'number' ? v : (v == null || v === '' ? NaN : Number(v)); return Number.isFinite(n) ? n : 0; };
 
 const hexA = (hex: string, a: number) => {
   const h = hex.replace('#', '');
