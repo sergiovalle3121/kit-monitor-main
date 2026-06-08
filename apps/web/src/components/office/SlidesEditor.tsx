@@ -20,7 +20,7 @@ import {
   List, IndentIncrease, IndentDecrease, MoveHorizontal, AlignVerticalSpaceAround, Sparkles, Search,
   Pointer, Pencil, Eraser, Moon, ListTree, Layers,
   ZoomIn, ZoomOut, Maximize, Scan, MousePointerClick, Check,
-  AlignHorizontalSpaceAround, Paintbrush, Stamp, Proportions, FolderPlus, Squircle, Pipette, Move,
+  AlignHorizontalSpaceAround, Paintbrush, Stamp, Proportions, FolderPlus, Squircle, Pipette, Move, PlayCircle,
 } from 'lucide-react';
 import { SlideSorter } from './SlideSorter';
 import { SlideIconPicker } from './SlideIconPicker';
@@ -110,6 +110,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
   const transitionRef = useRef<string>(transition);
   const clipboardRef = useRef<any>(null);
   const [presenting, setPresenting] = useState(false);
+  const presentStartRef = useRef(0);
   const [sorter, setSorter] = useState(false);
   const [selAnim, setSelAnim] = useState<string>('none');
   const [selAnimOrder, setSelAnimOrder] = useState(0);
@@ -939,6 +940,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
       if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
       const c = fabricRef.current; if (!c) return;
       if (croppingRef.current) { if (e.key === 'Escape') cancelCropFrame(); else if (e.key === 'Enter') applyCropFrame(); return; }
+      if (e.key === 'F5') { e.preventDefault(); capture(); presentStartRef.current = e.shiftKey ? curRef.current : 0; setPresenterMode(false); setPresenting(true); return; }
       const o = c.getActiveObject() as any;
       const meta = e.ctrlKey || e.metaKey;
       const k = e.key.toLowerCase();
@@ -1380,8 +1382,9 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
           )}
           <RibbonSeparator />
           <RibbonGroup label="Presentación">
-            <RibbonButton icon={Play} label="Presentar" hideLabel={false} onClick={() => { capture(); setPresenterMode(false); setPresenting(true); }} />
-            <RibbonButton icon={MonitorPlay} label="Presentador" hideLabel={false} onClick={() => { capture(); setPresenterMode(true); setPresenting(true); }} />
+            <RibbonButton icon={Play} label="Presentar (F5)" hideLabel={false} onClick={() => { capture(); presentStartRef.current = 0; setPresenterMode(false); setPresenting(true); }} />
+            <RibbonButton icon={PlayCircle} label="Desde aquí (Shift+F5)" hideLabel={false} onClick={() => { capture(); presentStartRef.current = cur; setPresenterMode(false); setPresenting(true); }} />
+            <RibbonButton icon={MonitorPlay} label="Presentador" hideLabel={false} onClick={() => { capture(); presentStartRef.current = cur; setPresenterMode(true); setPresenting(true); }} />
             <RibbonButton icon={LayoutGrid} label="Clasificador" hideLabel={false} onClick={() => { capture(); setSorter(true); }} />
             {!readOnly && <RibbonButton icon={ListTree} label="Esquema" hideLabel={false} onClick={() => { capture(); setOutlineOpen(true); }} />}
           </RibbonGroup>
@@ -1461,7 +1464,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
         </div>
       )}
 
-      {presenting && <Present slides={slides} notes={notesRef.current} transition={transition} transitions={transitionsRef.current} footer={footerRef.current} showNumbers={showNumbers} presenter={presenterMode} ratio={ratio} onClose={() => { setPresenting(false); setPresenterMode(false); }} />}
+      {presenting && <Present slides={slides} notes={notesRef.current} transition={transition} transitions={transitionsRef.current} footer={footerRef.current} showNumbers={showNumbers} presenter={presenterMode} ratio={ratio} startAt={presentStartRef.current} onClose={() => { setPresenting(false); setPresenterMode(false); }} />}
       <AnimatePresence>
         {showTemplates && <TemplateGallery type="slides" onPick={applyTemplate} onClose={() => setShowTemplates(false)} />}
       </AnimatePresence>
@@ -1533,12 +1536,12 @@ function StaticDeck({ deck }: { deck?: Deck }) {
 }
 
 function Present({
-  slides, notes, transition, transitions, footer, showNumbers, presenter, ratio, onClose,
+  slides, notes, transition, transitions, footer, showNumbers, presenter, ratio, startAt, onClose,
 }: {
-  slides: any[]; notes?: string[]; transition?: string; transitions?: string[]; footer?: string; showNumbers?: boolean; presenter?: boolean; ratio?: string; onClose: () => void;
+  slides: any[]; notes?: string[]; transition?: string; transitions?: string[]; footer?: string; showNumbers?: boolean; presenter?: boolean; ratio?: string; startAt?: number; onClose: () => void;
 }) {
   const [decks, setDecks] = useState<Deck[]>([]);
-  const [i, setI] = useState(0);
+  const [i, setI] = useState(Math.max(0, Math.min((slides?.length ?? 1) - 1, startAt ?? 0)));
   const [showNotes, setShowNotes] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const variant = TRANSITIONS[transitions?.[i] || transition || 'fade'] ?? TRANSITIONS.fade;
