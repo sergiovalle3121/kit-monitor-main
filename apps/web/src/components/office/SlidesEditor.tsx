@@ -9,17 +9,19 @@ import {
 import {
   Type, ImagePlus, Square, Circle as CircleIcon, Minus, Triangle as TriIcon,
   Trash2, ChevronsUp, ChevronsDown, Plus, Copy, Play, X, Bold, Plus as PlusIcon, Minus as MinusIcon,
-  StickyNote, CopyPlus, LayoutGrid, Star, ArrowRight, Diamond,
+  StickyNote, CopyPlus, LayoutGrid, Star, ArrowRight, Diamond, FileText, Palette, PaintBucket,
   Italic, Underline, AlignLeft, AlignCenter, AlignRight, Droplet, Blend, Link2, FlipHorizontal, FlipVertical, Lock, Unlock,
   AlignHorizontalJustifyStart, AlignHorizontalJustifyCenter, AlignHorizontalJustifyEnd,
   AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd,
 } from 'lucide-react';
 import { SlideSorter } from './SlideSorter';
+import {
+  OfficeRibbon, RibbonTab, RibbonGroup, RibbonSeparator,
+  RibbonButton, RibbonSelect, RibbonColorButton,
+} from './ribbon';
 
 const CW = 960;
 const CH = 540;
-const PALETTE = ['#111827', '#ffffff', '#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#7c3aed', '#ec4899'];
-const BACKGROUNDS = ['#ffffff', '#f1f5f9', '#0f172a', '#1e293b', '#fef3c7', '#ecfeff'];
 
 function blank() { return { version: '7', objects: [], background: '#ffffff' }; }
 function labelOf(slide: any): string {
@@ -27,13 +29,7 @@ function labelOf(slide: any): string {
   return (t?.text || '').split('\n')[0] || '';
 }
 
-function TBtn({ on, title, children }: any) {
-  return (
-    <button onClick={on} title={title} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-white/10 text-gray-600 dark:text-gray-300 transition-colors">{children}</button>
-  );
-}
-
-export function SlidesEditor({ value, onChange, readOnly }: { value: any; onChange: (data: any) => void; readOnly?: boolean }) {
+export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value: any; onChange: (data: any) => void; readOnly?: boolean; fileActions?: React.ReactNode }) {
   const elRef = useRef<HTMLCanvasElement>(null);
   const fabricRef = useRef<Canvas | null>(null);
   const loadingRef = useRef(false);
@@ -295,96 +291,138 @@ export function SlidesEditor({ value, onChange, readOnly }: { value: any; onChan
 
   return (
     <div className="flex flex-col gap-3 h-full p-3">
-      <div className="flex items-center gap-0.5 flex-wrap rounded-2xl border border-gray-100 dark:border-white/10 px-2 py-1.5 bg-white dark:bg-[#111]">
-        {!readOnly && <>
-        <TBtn on={addText} title="Cuadro de texto"><Type className="w-4 h-4" /></TBtn>
-        <label title="Imagen" className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-white/10 text-gray-600 dark:text-gray-300 cursor-pointer flex items-center">
-          <ImagePlus className="w-4 h-4" /><input type="file" accept="image/*" onChange={onFile} className="hidden" />
-        </label>
-        <TBtn on={addRect} title="Rectángulo"><Square className="w-4 h-4" /></TBtn>
-        <TBtn on={addCircle} title="Círculo"><CircleIcon className="w-4 h-4" /></TBtn>
-        <TBtn on={addTriangle} title="Triángulo"><TriIcon className="w-4 h-4" /></TBtn>
-        <TBtn on={addStar} title="Estrella"><Star className="w-4 h-4" /></TBtn>
-        <TBtn on={addArrow} title="Flecha"><ArrowRight className="w-4 h-4" /></TBtn>
-        <TBtn on={addDiamond} title="Rombo"><Diamond className="w-4 h-4" /></TBtn>
-        <TBtn on={addLine} title="Línea"><Minus className="w-4 h-4" /></TBtn>
-        <span className="w-px h-5 bg-gray-200 dark:bg-white/10 mx-1" />
-        <TBtn on={toggleBold} title="Negrita"><Bold className="w-4 h-4" /></TBtn>
-        <TBtn on={toggleItalic} title="Cursiva"><Italic className="w-4 h-4" /></TBtn>
-        <TBtn on={toggleUnderline} title="Subrayado"><Underline className="w-4 h-4" /></TBtn>
-        <TBtn on={() => fontSize(4)} title="Texto más grande"><PlusIcon className="w-4 h-4" /></TBtn>
-        <TBtn on={() => fontSize(-4)} title="Texto más chico"><MinusIcon className="w-4 h-4" /></TBtn>
-        <TBtn on={() => setTextAlign('left')} title="Alinear izquierda"><AlignLeft className="w-4 h-4" /></TBtn>
-        <TBtn on={() => setTextAlign('center')} title="Centrar texto"><AlignCenter className="w-4 h-4" /></TBtn>
-        <TBtn on={() => setTextAlign('right')} title="Alinear derecha"><AlignRight className="w-4 h-4" /></TBtn>
-        <select onChange={(e) => { if (e.target.value) setTextFont(e.target.value); e.target.value = ''; }} title="Fuente del texto" defaultValue=""
-          className="h-8 text-xs rounded-lg bg-transparent hover:bg-gray-100 dark:hover:bg-white/10 border border-gray-200 dark:border-white/10 px-1 outline-none cursor-pointer text-gray-600 dark:text-gray-300">
-          <option value="" disabled>Fuente</option>
-          {['Arial', 'Georgia', 'Times New Roman', 'Verdana', 'Courier New', 'system-ui'].map((f) => <option key={f} value={f}>{f}</option>)}
-        </select>
-        <span className="w-px h-5 bg-gray-200 dark:bg-white/10 mx-1" />
-        {PALETTE.map((col) => (
-          <button key={col} onClick={() => setColor(col)} title={col} className="w-5 h-5 rounded-full border border-gray-300 mx-0.5" style={{ background: col }} />
-        ))}
-        <label title="Más colores" className="cursor-pointer mx-0.5 relative inline-flex">
-          <span className="w-5 h-5 rounded-full border border-gray-300 inline-block" style={{ background: 'conic-gradient(red,orange,yellow,green,blue,violet,red)' }} />
-          <input type="color" onChange={(e) => setColor(e.target.value)} className="w-0 h-0 opacity-0 absolute inset-0" />
-        </label>
-        <span className="w-px h-5 bg-gray-200 dark:bg-white/10 mx-1" />
-        <TBtn on={front} title="Traer al frente"><ChevronsUp className="w-4 h-4" /></TBtn>
-        <TBtn on={back} title="Enviar atrás"><ChevronsDown className="w-4 h-4" /></TBtn>
-        <span className="w-px h-5 bg-gray-200 dark:bg-white/10 mx-1" />
-        <TBtn on={() => alignObj('left')} title="Alinear a la izquierda"><AlignHorizontalJustifyStart className="w-4 h-4" /></TBtn>
-        <TBtn on={() => alignObj('hcenter')} title="Centrar horizontal"><AlignHorizontalJustifyCenter className="w-4 h-4" /></TBtn>
-        <TBtn on={() => alignObj('right')} title="Alinear a la derecha"><AlignHorizontalJustifyEnd className="w-4 h-4" /></TBtn>
-        <TBtn on={() => alignObj('top')} title="Alinear arriba"><AlignVerticalJustifyStart className="w-4 h-4" /></TBtn>
-        <TBtn on={() => alignObj('vcenter')} title="Centrar vertical"><AlignVerticalJustifyCenter className="w-4 h-4" /></TBtn>
-        <TBtn on={() => alignObj('bottom')} title="Alinear abajo"><AlignVerticalJustifyEnd className="w-4 h-4" /></TBtn>
-        <span className="w-px h-5 bg-gray-200 dark:bg-white/10 mx-1" />
-        <TBtn on={applyGradient} title="Degradado"><Blend className="w-4 h-4" /></TBtn>
-        <TBtn on={toggleShadow} title="Sombra"><Droplet className="w-4 h-4" /></TBtn>
-        <TBtn on={() => flip('x')} title="Voltear horizontal"><FlipHorizontal className="w-4 h-4" /></TBtn>
-        <TBtn on={() => flip('y')} title="Voltear vertical"><FlipVertical className="w-4 h-4" /></TBtn>
-        <TBtn on={toggleLock} title={selLocked ? 'Desbloquear' : 'Bloquear posición'}>{selLocked ? <Unlock className="w-4 h-4" /> : <Lock className="w-4 h-4" />}</TBtn>
-        <TBtn on={setObjLink} title="Hipervínculo"><Link2 className="w-4 h-4" /></TBtn>
-        {hasSel && (
-          <span className="flex items-center gap-1 ml-1" title="Opacidad">
-            <input type="range" min={0.1} max={1} step={0.05} value={selOpacity}
-              onChange={(e) => { const v = Number(e.target.value); setSelOpacity(v); setOpacity(v); }}
-              className="w-16 accent-amber-500" />
-          </span>
+      <OfficeRibbon storageKey="ribbon:slides">
+        {fileActions != null && (
+          <RibbonTab id="file" label="Archivo" icon={FileText}>
+            <RibbonGroup label="Presentación">{fileActions}</RibbonGroup>
+          </RibbonTab>
         )}
-        <TBtn on={dupObj} title="Duplicar elemento"><CopyPlus className="w-4 h-4" /></TBtn>
-        <TBtn on={del} title="Borrar elemento"><Trash2 className="w-4 h-4" /></TBtn>
-        {hasSel && (
-          <select value={selAnim} onChange={(e) => setObjAnim(e.target.value)} title="Animación de entrada del objeto"
-            className="h-8 text-xs rounded-lg bg-transparent hover:bg-gray-100 dark:hover:bg-white/10 border border-gray-200 dark:border-white/10 px-1.5 ml-1 outline-none cursor-pointer text-gray-600 dark:text-gray-300">
-            <option value="none">Sin animación</option>
-            <option value="fade">Aparecer</option>
-            <option value="fly">Entrar (abajo)</option>
-            <option value="zoom">Zoom</option>
-          </select>
+
+        {!readOnly && (
+          <RibbonTab id="home" label="Inicio">
+            <RibbonGroup label="Diapositivas">
+              <RibbonButton icon={Plus} label="Nueva diapositiva" onClick={addSlide} />
+              <RibbonButton icon={Copy} label="Duplicar diapositiva" onClick={dupSlide} />
+            </RibbonGroup>
+            <RibbonSeparator />
+            <RibbonGroup label="Fuente">
+              <RibbonSelect title="Fuente del texto" value="" placeholder="Fuente" width={120}
+                onChange={(v) => { if (v) setTextFont(v); }}
+                options={['Arial', 'Georgia', 'Times New Roman', 'Verdana', 'Courier New', 'system-ui'].map((f) => ({ label: f, value: f }))} />
+              <RibbonButton icon={PlusIcon} label="Aumentar tamaño de texto" onClick={() => fontSize(4)} />
+              <RibbonButton icon={MinusIcon} label="Reducir tamaño de texto" onClick={() => fontSize(-4)} />
+              <RibbonButton icon={Bold} label="Negrita" shortcut="Ctrl+B" onClick={toggleBold} />
+              <RibbonButton icon={Italic} label="Cursiva" shortcut="Ctrl+I" onClick={toggleItalic} />
+              <RibbonButton icon={Underline} label="Subrayado" shortcut="Ctrl+U" onClick={toggleUnderline} />
+              <RibbonColorButton icon={PaintBucket} title="Color de relleno / texto" onChange={setColor} swatchBar={false} />
+            </RibbonGroup>
+            <RibbonSeparator />
+            <RibbonGroup label="Párrafo">
+              <RibbonButton icon={AlignLeft} label="Alinear a la izquierda" onClick={() => setTextAlign('left')} />
+              <RibbonButton icon={AlignCenter} label="Centrar texto" onClick={() => setTextAlign('center')} />
+              <RibbonButton icon={AlignRight} label="Alinear a la derecha" onClick={() => setTextAlign('right')} />
+            </RibbonGroup>
+            <RibbonSeparator />
+            <RibbonGroup label="Edición">
+              <RibbonButton icon={CopyPlus} label="Duplicar elemento" shortcut="Ctrl+D" onClick={dupObj} />
+              <RibbonButton icon={Trash2} label="Eliminar elemento" danger onClick={del} />
+            </RibbonGroup>
+          </RibbonTab>
         )}
-        <span className="w-px h-5 bg-gray-200 dark:bg-white/10 mx-1" />
-        <span className="text-[11px] text-gray-400 ml-1 mr-0.5" title="Fondo de todas las diapositivas">Fondo</span>
-        {BACKGROUNDS.map((bg) => (
-          <button key={bg} onClick={() => applyBgAll(bg)} title="Aplicar fondo a todo" className="w-5 h-5 rounded-full border border-gray-300 dark:border-white/20 mx-0.5" style={{ background: bg }} />
-        ))}
-        </>}
-        <div className="ml-auto flex items-center gap-2">
-          <TBtn on={() => { capture(); setSorter(true); }} title="Clasificador de diapositivas"><LayoutGrid className="w-4 h-4" /></TBtn>
-          {!readOnly && (
-            <select value={transition} onChange={(e) => setTrans(e.target.value)} title="Transición entre diapositivas"
-              className="h-8 text-xs rounded-lg bg-transparent hover:bg-gray-100 dark:hover:bg-white/10 border border-gray-200 dark:border-white/10 px-1.5 outline-none cursor-pointer text-gray-600 dark:text-gray-300">
-              <option value="none">Sin transición</option>
-              <option value="fade">Fundido</option>
-              <option value="slide">Deslizar</option>
-              <option value="zoom">Zoom</option>
-            </select>
-          )}
-          <button onClick={() => { capture(); setPresenting(true); }} className="flex items-center gap-1.5 bg-black dark:bg-white text-white dark:text-black text-sm font-semibold px-4 py-2 rounded-full hover:scale-[1.03] active:scale-95 transition-transform"><Play className="w-4 h-4" /> Presentar</button>
-        </div>
-      </div>
+
+        {!readOnly && (
+          <RibbonTab id="insert" label="Insertar">
+            <RibbonGroup label="Texto">
+              <RibbonButton icon={Type} label="Cuadro de texto" onClick={addText} />
+            </RibbonGroup>
+            <RibbonSeparator />
+            <RibbonGroup label="Ilustraciones">
+              <label title="Imagen" className="h-7 w-7 inline-flex items-center justify-center rounded-lg hover:bg-black/[0.06] dark:hover:bg-white/10 text-gray-700 dark:text-gray-200 cursor-pointer">
+                <ImagePlus className="w-[17px] h-[17px]" strokeWidth={1.75} /><input type="file" accept="image/*" onChange={onFile} className="hidden" />
+              </label>
+              <RibbonButton icon={Square} label="Rectángulo" onClick={addRect} />
+              <RibbonButton icon={CircleIcon} label="Círculo" onClick={addCircle} />
+              <RibbonButton icon={TriIcon} label="Triángulo" onClick={addTriangle} />
+              <RibbonButton icon={Star} label="Estrella" onClick={addStar} />
+              <RibbonButton icon={ArrowRight} label="Flecha" onClick={addArrow} />
+              <RibbonButton icon={Diamond} label="Rombo" onClick={addDiamond} />
+              <RibbonButton icon={Minus} label="Línea" onClick={addLine} />
+            </RibbonGroup>
+            <RibbonSeparator />
+            <RibbonGroup label="Vínculos">
+              <RibbonButton icon={Link2} label="Hipervínculo" onClick={setObjLink} />
+            </RibbonGroup>
+          </RibbonTab>
+        )}
+
+        {!readOnly && (
+          <RibbonTab id="format" label="Formato">
+            <RibbonGroup label="Organizar">
+              <RibbonButton icon={ChevronsUp} label="Traer al frente" onClick={front} />
+              <RibbonButton icon={ChevronsDown} label="Enviar atrás" onClick={back} />
+              <RibbonButton icon={AlignHorizontalJustifyStart} label="Alinear a la izquierda" onClick={() => alignObj('left')} />
+              <RibbonButton icon={AlignHorizontalJustifyCenter} label="Centrar horizontal" onClick={() => alignObj('hcenter')} />
+              <RibbonButton icon={AlignHorizontalJustifyEnd} label="Alinear a la derecha" onClick={() => alignObj('right')} />
+              <RibbonButton icon={AlignVerticalJustifyStart} label="Alinear arriba" onClick={() => alignObj('top')} />
+              <RibbonButton icon={AlignVerticalJustifyCenter} label="Centrar vertical" onClick={() => alignObj('vcenter')} />
+              <RibbonButton icon={AlignVerticalJustifyEnd} label="Alinear abajo" onClick={() => alignObj('bottom')} />
+              <RibbonButton icon={FlipHorizontal} label="Voltear horizontal" onClick={() => flip('x')} />
+              <RibbonButton icon={FlipVertical} label="Voltear vertical" onClick={() => flip('y')} />
+              <RibbonButton icon={selLocked ? Unlock : Lock} label={selLocked ? 'Desbloquear posición' : 'Bloquear posición'} active={selLocked} onClick={toggleLock} />
+            </RibbonGroup>
+            <RibbonSeparator />
+            <RibbonGroup label="Estilo de forma">
+              <RibbonColorButton icon={PaintBucket} title="Color de relleno" onChange={setColor} swatchBar={false} />
+              <RibbonButton icon={Blend} label="Degradado" onClick={applyGradient} />
+              <RibbonButton icon={Droplet} label="Sombra" onClick={toggleShadow} />
+              {hasSel && (
+                <span className="inline-flex items-center gap-1 px-1.5" title="Opacidad del objeto">
+                  <input type="range" min={0.1} max={1} step={0.05} value={selOpacity}
+                    onChange={(e) => { const v = Number(e.target.value); setSelOpacity(v); setOpacity(v); }}
+                    className="w-20 accent-blue-500" />
+                </span>
+              )}
+            </RibbonGroup>
+            <RibbonSeparator />
+            <RibbonGroup label="Animación">
+              {hasSel ? (
+                <RibbonSelect title="Animación de entrada del objeto" value={selAnim} onChange={setObjAnim} width={150}
+                  options={[
+                    { label: 'Sin animación', value: 'none' },
+                    { label: 'Aparecer', value: 'fade' },
+                    { label: 'Entrar (abajo)', value: 'fly' },
+                    { label: 'Zoom', value: 'zoom' },
+                  ]} />
+              ) : <span className="text-[11px] text-gray-400 px-2">Selecciona un objeto</span>}
+            </RibbonGroup>
+          </RibbonTab>
+        )}
+
+        {!readOnly && (
+          <RibbonTab id="transitions" label="Transiciones">
+            <RibbonGroup label="Transición de diapositiva">
+              <RibbonSelect title="Transición entre diapositivas" value={transition} onChange={setTrans} width={150}
+                options={[
+                  { label: 'Sin transición', value: 'none' },
+                  { label: 'Fundido', value: 'fade' },
+                  { label: 'Deslizar', value: 'slide' },
+                  { label: 'Zoom', value: 'zoom' },
+                ]} />
+            </RibbonGroup>
+            <RibbonSeparator />
+            <RibbonGroup label="Fondo">
+              <RibbonColorButton icon={Palette} title="Fondo de todas las diapositivas" onChange={applyBgAll} swatchBar={false} />
+            </RibbonGroup>
+          </RibbonTab>
+        )}
+
+        <RibbonTab id="view" label="Vista">
+          <RibbonGroup label="Presentación">
+            <RibbonButton icon={Play} label="Presentar" hideLabel={false} onClick={() => { capture(); setPresenting(true); }} />
+            <RibbonButton icon={LayoutGrid} label="Clasificador" hideLabel={false} onClick={() => { capture(); setSorter(true); }} />
+          </RibbonGroup>
+        </RibbonTab>
+      </OfficeRibbon>
 
       <div className="flex gap-4 flex-1 min-h-0">
         <div className="w-44 flex-shrink-0 overflow-y-auto space-y-2 pr-1">

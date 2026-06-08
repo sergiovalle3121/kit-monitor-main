@@ -5,10 +5,11 @@ import React, { useCallback, useRef, useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { Workbook } from '@fortune-sheet/react';
 import '@fortune-sheet/react/dist/index.css';
-import { ListChecks, Palette } from 'lucide-react';
+import { ListChecks, Palette, Snowflake, FileText } from 'lucide-react';
 import { SheetCharts } from './SheetCharts';
 import { SheetTools, type ValidationPayload, type CondFormatPayload } from './SheetTools';
 import { parseRange, type ChartConfig } from '@/lib/office/charts';
+import { OfficeRibbon, RibbonTab, RibbonGroup, RibbonSeparator, RibbonButton, RibbonMenuButton } from './ribbon';
 
 // Content is either the legacy bare sheet array or the new { sheets, charts } shape.
 function sheetsOf(v: any): any[] | null {
@@ -23,7 +24,7 @@ const DEFAULT_SHEET = { name: 'Hoja 1', celldata: [], order: 0, row: 100, column
 const clone = (x: any) => JSON.parse(JSON.stringify(x));
 
 /** Excel-like spreadsheet (Fortune-sheet, MIT) — formulas, formats, charts, validation, conditional formatting. */
-export function SheetEditor({ value, onChange, readOnly }: { value: any; onChange: (data: any) => void; readOnly?: boolean }) {
+export function SheetEditor({ value, onChange, readOnly, fileActions }: { value: any; onChange: (data: any) => void; readOnly?: boolean; fileActions?: React.ReactNode }) {
   const initSheets = sheetsOf(value)?.length ? (sheetsOf(value) as any[]) : [DEFAULT_SHEET];
   const [liveData, setLiveData] = useState<any[]>(initSheets); // only swapped on a forced remount
   const [wbKey, setWbKey] = useState(0);
@@ -122,25 +123,32 @@ export function SheetEditor({ value, onChange, readOnly }: { value: any; onChang
     remount(sheets);
   }
 
-  const toolBtn = 'flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 text-gray-600 dark:text-gray-300 transition-colors';
-
   return (
     <div className="h-full w-full flex flex-col bg-white dark:bg-[#0e0e0e]">
-      {!readOnly && (
-        <div className="flex items-center gap-1 px-2 h-9 border-b border-gray-200 dark:border-white/10 flex-shrink-0 bg-gray-50 dark:bg-[#0e0e0e]">
-          <button onClick={() => setTool('validation')} className={toolBtn}><ListChecks className="w-4 h-4 text-emerald-500" /> Validación</button>
-          <button onClick={() => setTool('condformat')} className={toolBtn}><Palette className="w-4 h-4 text-blue-500" /> Formato condicional</button>
-          <span className="w-px h-5 bg-gray-200 dark:bg-white/10 mx-1" />
-          <select onChange={(e) => { applyFreeze(e.target.value === 'none' ? '' : e.target.value); e.target.value = ''; }} defaultValue=""
-            title="Inmovilizar paneles" className="h-7 text-xs rounded-lg bg-transparent hover:bg-black/5 dark:hover:bg-white/10 border border-gray-200 dark:border-white/10 px-1.5 outline-none cursor-pointer text-gray-600 dark:text-gray-300">
-            <option value="" disabled>Inmovilizar</option>
-            <option value="row">Fila 1</option>
-            <option value="column">Columna A</option>
-            <option value="both">Fila 1 + Columna A</option>
-            <option value="none">Quitar</option>
-          </select>
-        </div>
-      )}
+      <OfficeRibbon storageKey="ribbon:sheet">
+        {fileActions != null && (
+          <RibbonTab id="file" label="Archivo" icon={FileText}>
+            <RibbonGroup label="Hoja de cálculo">{fileActions}</RibbonGroup>
+          </RibbonTab>
+        )}
+        {!readOnly && (
+          <RibbonTab id="data" label="Datos">
+            <RibbonGroup label="Herramientas de datos">
+              <RibbonButton icon={ListChecks} label="Validación de datos" onClick={() => setTool('validation')} />
+              <RibbonButton icon={Palette} label="Formato condicional" onClick={() => setTool('condformat')} />
+            </RibbonGroup>
+            <RibbonSeparator />
+            <RibbonGroup label="Vista">
+              <RibbonMenuButton icon={Snowflake} label="Inmovilizar" menuWidth={230} items={[
+                { label: 'Inmovilizar fila 1', onClick: () => applyFreeze('row') },
+                { label: 'Inmovilizar columna A', onClick: () => applyFreeze('column') },
+                { label: 'Inmovilizar fila 1 + columna A', onClick: () => applyFreeze('both') },
+                { label: 'Quitar inmovilización', onClick: () => applyFreeze('') },
+              ]} />
+            </RibbonGroup>
+          </RibbonTab>
+        )}
+      </OfficeRibbon>
       <div className="flex-1 min-h-0 bg-white">
         <Workbook key={wbKey} data={liveData as any} lang="es" allowEdit={!readOnly} onChange={handleSheet} />
       </div>

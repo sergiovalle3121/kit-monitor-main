@@ -174,14 +174,16 @@ export default function OfficeEditorPage() {
     : null;
   // Los editores con ribbon muestran las acciones de archivo en su pestaña
   // «Archivo»; el resto las mantiene en el header hasta su migración.
-  const ribbonArchivo = doc.type === 'doc';
+  // Los tres editores llevan ya sus acciones de archivo en la pestaña «Archivo»
+  // del ribbon, así el header queda limpio (título + estado + pantalla completa).
+  const ribbonArchivo = doc.type === 'doc' || doc.type === 'sheet' || doc.type === 'slides';
   const headerActions = ribbonArchivo ? null : actions;
 
   return (
     <OfficeShell type={doc.type} title={title} onTitleChange={onTitle} status={status} savedAt={savedAt} readOnly={readOnly} actions={headerActions} statusBarRight={statusBarRight}>
       {doc.type === 'doc' ? <DocEditor key={editorKey} {...editorProps} author={user?.email ?? ''} onStats={setDocStats} fileActions={actions} />
-        : doc.type === 'sheet' ? <SheetEditor key={editorKey} {...editorProps} />
-        : doc.type === 'slides' ? <SlidesEditor key={editorKey} {...editorProps} />
+        : doc.type === 'sheet' ? <SheetEditor key={editorKey} {...editorProps} fileActions={actions} />
+        : doc.type === 'slides' ? <SlidesEditor key={editorKey} {...editorProps} fileActions={actions} />
         : <div className="py-20 text-center text-sm text-gray-400">Tipo de documento desconocido.</div>}
     </OfficeShell>
   );

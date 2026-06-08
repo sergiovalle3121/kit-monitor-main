@@ -1245,9 +1245,17 @@ funcional de lo que parecía**; el bloqueo real era el acceso del owner (Bloque 
   comentarios, esquema, vista de página). Acciones de archivo → pestaña
   **Archivo** (reusa `DocActions`+`ShareButton`+`VersionHistory`). En readOnly se
   muestran solo **Archivo** + **Vista**.
-- **Página:** `office/[id]/page.tsx` pasa `fileActions` al editor con ribbon y
-  quita esas acciones del header para ese tipo (sin duplicar). Sheet/Slides siguen
-  con su barra y acciones en header hasta su migración (nada roto).
+- **`SheetEditor`:** capa AXOS (validación, formato condicional, inmovilizar) →
+  ribbon **Archivo · Datos**. Se **conserva la toolbar nativa de Fortune-Sheet**
+  (no se duplica). Inmovilizar pasa a menú con 4 opciones.
+- **`SlidesEditor`:** barra plana → ribbon **Archivo · Inicio · Insertar ·
+  Formato · Transiciones · Vista** (todo lo previo: texto/formas/imagen, fuente/
+  tamaño/B/I/U, color con popover, alinear/organizar/voltear/bloquear, degradado/
+  sombra/opacidad, animación de entrada, transición, fondo, hipervínculo,
+  duplicar/eliminar objeto, nueva/duplicar diapositiva, clasificador, presentar).
+- **Página:** `office/[id]/page.tsx` pasa `fileActions` a los tres editores y
+  deja el header limpio (sin duplicar). En solo-lectura cada editor muestra solo
+  **Archivo** + tabs de vista (export/historial siguen accesibles).
 
 ### Nota de tooling (lint) — importante
 - `eslint-config-next@16.2.4` → `eslint-plugin-react-hooks@7.1.1` añade las reglas
