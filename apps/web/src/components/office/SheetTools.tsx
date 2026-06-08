@@ -19,6 +19,7 @@ const KINDS: { value: CondKind; label: string }[] = [
   { value: 'bottom', label: 'Valores inferiores (N)' },
   { value: 'duplicates', label: 'Valores duplicados' },
   { value: 'iconset', label: 'Conjunto de iconos' },
+  { value: 'databar', label: 'Barras de datos' },
   { value: 'clear', label: 'Limpiar formato del rango' },
 ];
 const ICON_SETS: { label: string; icons: string[] }[] = [
@@ -70,7 +71,7 @@ export function SheetTools({
     else if (kind === 'scale2') Object.assign(base, { c1, c2 });
     else if (kind === 'scale3') Object.assign(base, { c1, c2, c3 });
     else if (kind === 'top' || kind === 'bottom') Object.assign(base, { n, color });
-    else if (kind === 'duplicates') Object.assign(base, { color });
+    else if (kind === 'duplicates' || kind === 'databar') Object.assign(base, { color });
     else if (kind === 'iconset') Object.assign(base, { icons: ICON_SETS[iconIdx].icons });
     onApplyCondFormat(base);
   }
@@ -140,6 +141,12 @@ export function SheetTools({
             )}
             {kind === 'duplicates' && (
               <div className="text-xs text-gray-500">Color de relleno<div className="mt-1">{swatches(color, setColor)}</div></div>
+            )}
+            {kind === 'databar' && (
+              <>
+                <div className="text-xs text-gray-500">Color de la barra<div className="mt-1">{swatches(color, setColor)}</div></div>
+                <p className="text-[11px] text-gray-400">Dibuja una barra proporcional (█) en cada celda del rango.</p>
+              </>
             )}
             {kind === 'scale2' && (
               <div className="flex items-center gap-3 text-xs text-gray-500">

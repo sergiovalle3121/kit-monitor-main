@@ -204,6 +204,16 @@ lectura). `doPrint` abre ventana y lanza `print()`.
 
 **Spec**: `print.spec.ts` (9). Verde.
 
-**Total de aserciones de lógica pura: 154** (10 specs, `npx tsx`).
+### 11) Formato condicional: barras de datos  ✅
+`applyConditional` gana la regla **`databar`**: dibuja una barra proporcional (█/░,
+ancho 10) en cada celda numérica del rango, coloreada; **idempotente** (no acumula al
+reaplicar, vía `stripIcon` ampliado). Expuesto en `SheetTools` con selector de color.
+- *Diferido*: **administrador de reglas** persistente (el enfoque actual «hornea» el
+  formato en la celda; un gestor que reevalúe requeriría separar reglas del modelo y
+  reconciliar — estimación 1–1.5 días).
+
+**Spec**: `cond.spec.ts` (8) — barras de datos (incl. idempotencia), comparación y limpiar.
+
+**Total de aserciones de lógica pura: 162** (11 specs, `npx tsx`).
 </content>
 </invoke>

@@ -32,7 +32,7 @@ function ensureObj(cd: Cell): any {
 }
 const ICONS = ['🔴', '🟡', '🟢', '⬆️', '➡️', '⬇️', '▲', '▬', '▼', '★', '☆'];
 const stripIcon = (m: string) => {
-  let s = m;
+  let s = m.replace(/^[█░]+\s/, ''); // quita barra de datos previa
   for (const ic of ICONS) if (s.startsWith(ic + ' ')) { s = s.slice(ic.length + 1); break; }
   return s;
 };
@@ -45,7 +45,7 @@ const lerp = (a: string, b: string, t: number) => {
 };
 const textOn = (bg: string) => { const [r, g, b] = hexToRgb(bg); return (0.299 * r + 0.587 * g + 0.114 * b) < 140 ? '#ffffff' : '#111827'; };
 
-export type CondKind = 'compare' | 'scale2' | 'scale3' | 'top' | 'bottom' | 'duplicates' | 'iconset' | 'clear';
+export type CondKind = 'compare' | 'scale2' | 'scale3' | 'top' | 'bottom' | 'duplicates' | 'iconset' | 'databar' | 'clear';
 export interface CondPayload {
   kind: CondKind; range: string; sheetIndex: number;
   op?: string; value?: string; color?: string;            // compare / top / bottom / duplicates
@@ -109,6 +109,20 @@ export function applyConditional(sheet: any, p: CondPayload): boolean {
       const min = Math.min(...nums), max = Math.max(...nums), t1 = min + (max - min) / 3, t2 = min + 2 * (max - min) / 3;
       const icons = p.icons && p.icons.length === 3 ? p.icons : ['🔴', '🟡', '🟢'];
       for (const x of at) { if (x.n == null) continue; style(x.cd, undefined, undefined, x.n <= t1 ? icons[0] : x.n <= t2 ? icons[1] : icons[2]); }
+      break;
+    }
+    case 'databar': {
+      if (!nums.length) break;
+      const min = Math.min(...nums), max = Math.max(...nums), span = max - min || 1, width = 10;
+      const color = p.color || '#3b82f6';
+      for (const x of at) {
+        if (x.n == null) continue;
+        const filled = Math.max(0, Math.min(width, Math.round(((x.n - min) / span) * width)));
+        const bar = '█'.repeat(filled) + '░'.repeat(width - filled);
+        const v = ensureObj(x.cd);
+        v.m = `${bar} ${stripIcon(String(v.m ?? v.v ?? ''))}`;
+        v.fc = color;
+      }
       break;
     }
     case 'compare': {
