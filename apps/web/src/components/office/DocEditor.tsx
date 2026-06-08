@@ -60,6 +60,8 @@ import { DropCap, Callout, ColumnBreak, Bookmark, CrossRef } from './docs/insert
 import { InsertionMark, DeletionMark, TrackChanges } from './docs/trackChanges';
 import { FocusLine } from './docs/focusLine';
 import { SignatureLine } from './docs/signatureLine';
+import { Citation, Bibliography } from './docs/citations';
+import { DocCitations } from './docs/DocCitations';
 import { DocEquation } from './docs/DocEquation';
 import { DocListMenu } from './docs/DocListMenu';
 import { DocViewTools } from './docs/DocViewTools';
@@ -155,6 +157,8 @@ export function DocEditor({ value, onChange, readOnly, author, onStats, fileActi
       TrackChanges.configure({ author: author ?? '' }),
       FocusLine,
       SignatureLine,
+      Citation,
+      Bibliography,
     ],
     content: value ?? '<p></p>',
     editable: !readOnly,
@@ -434,6 +438,10 @@ export function DocEditor({ value, onChange, readOnly, author, onStats, fileActi
             <RibbonSeparator />
             <RibbonGroup label="Notas al pie">
               <DocFootnotes editor={editor} />
+            </RibbonGroup>
+            <RibbonSeparator />
+            <RibbonGroup label="Citas y bibliografía">
+              <DocCitations editor={editor} />
             </RibbonGroup>
             <RibbonSeparator />
             <RibbonGroup label="Navegación">

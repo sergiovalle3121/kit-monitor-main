@@ -40,8 +40,11 @@ export function DocComments({ editor, author }: { editor: Editor; author: string
   const comments = open ? collect(editor) : [];
 
   // Re-aplica la marca sobre el rango del comentario con atributos nuevos.
+  // Quita primero la marca existente (la marca `comment` no se excluye a sí
+  // misma) para no acumular marcas duplicadas en el mismo rango.
   const update = (c: CommentItem, patch: Partial<{ resolved: boolean; replies: Reply[] }>) => {
     (editor.chain().setTextSelection({ from: c.from, to: c.to }) as any)
+      .unsetComment()
       .setComment({ commentId: c.id, text: c.text, author: c.author, createdAt: c.createdAt, resolved: c.resolved, replies: c.replies, ...patch })
       .run();
     refresh();

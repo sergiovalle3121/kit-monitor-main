@@ -252,6 +252,15 @@
 .tiptap-page .ProseMirror [data-style="nospacing"] { margin-top: 0 !important; line-height: 1.25; }
 .tiptap-page .ProseMirror [data-style="reference"] { font-variant: small-caps; letter-spacing: 0.03em; }
 
+/* Citas y bibliografía */
+.tiptap-page .ProseMirror .doc-citation { color: #2563eb; cursor: pointer; }
+.tiptap-page .ProseMirror .doc-citation:hover { text-decoration: underline; }
+.tiptap-page .ProseMirror .doc-bibliography { border-top: 1px solid #d1d5db; margin-top: 2em; padding-top: 0.6em; }
+@media (prefers-color-scheme: dark) { .tiptap-page .ProseMirror .doc-bibliography { border-color: rgba(255,255,255,0.15); } }
+.doc-bibliography-title { font-weight: 700; margin-bottom: 6px; }
+.doc-bibliography-empty { color: #9ca3af; font-style: italic; font-size: 0.85em; }
+.doc-bibliography-item { font-size: 0.92em; padding: 3px 0 3px 1.6em; text-indent: -1.6em; }
+
 /* Línea de firma */
 .tiptap-page .ProseMirror .doc-signature { margin: 1.6em 0 0.5em; max-width: 280px; }
 .tiptap-page .ProseMirror .doc-signature-line { border-top: 1px solid #111; margin-bottom: 4px; }

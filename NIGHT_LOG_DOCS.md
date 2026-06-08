@@ -83,6 +83,18 @@ CSS de todo lo anterior en `tiptap.css`.
   vista de página (Paged.js `@page:first`) y en el export .docx (`titlePage` + first
   header/footer en blanco).
 
+### Wave 4 — Citas y bibliografía
+- **Citas** (`citations.ts` + `DocCitations.tsx`): nodo de cita en línea
+  «(Autor, año)» con la referencia completa guardada; diálogo de inserción
+  (autor/año/título) con vista previa; clic en la cita salta a la bibliografía.
+- **Bibliografía**: nodo en vivo que recoge y ordena las fuentes únicas (como la
+  TOC). Export .docx con sangría francesa.
+
+### Hardening
+- Comentarios: al actualizar un hilo (responder/resolver) ahora se quita y vuelve
+  a poner la marca para no acumular marcas duplicadas (la marca `comment` permite
+  solaparse, por lo que re-aplicar `setMark` no reemplazaba).
+
 ### Diferido (con estimación)
 - **Control de cambios con interceptación total** (pegar/IME/borrado como
   sugerencia, fusión de revisiones): subsistema de especialista; sin banco de

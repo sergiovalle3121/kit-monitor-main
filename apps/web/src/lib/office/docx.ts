@@ -84,6 +84,8 @@ export async function exportDocx(json: any, title: string) {
         out.push(new TextRun({ text: n.attrs?.latex || '', italics: true }));
       } else if (n.type === 'crossRef') {
         out.push(new TextRun(n.attrs?.label || n.attrs?.target || ''));
+      } else if (n.type === 'citation') {
+        out.push(new TextRun(n.attrs?.inText || ''));
       }
       // bookmark: sin representación textual (se omite).
     }
@@ -139,6 +141,20 @@ export async function exportDocx(json: any, title: string) {
         ...(node.attrs?.title ? [new Paragraph({ children: [new TextRun({ text: node.attrs.title, color: '6B7280', size: 18 })] })] : []),
       ];
       case 'footnoteList': return []; // las notas reales se exportan por la API de footnotes de Word
+      case 'bibliography': {
+        const seen = new Set<string>();
+        const srcs: string[] = [];
+        (function walk(nodes: any[]) {
+          for (const n of nodes ?? []) {
+            if (n.type === 'citation' && n.attrs?.source && !seen.has(n.attrs.source)) { seen.add(n.attrs.source); srcs.push(n.attrs.source); }
+            if (n.content) walk(n.content);
+          }
+        })(json?.content ?? []);
+        srcs.sort((a, b) => a.localeCompare(b, 'es'));
+        const out: any[] = [new Paragraph({ heading: HEADINGS[1], children: [new TextRun('Bibliografía')] })];
+        for (const s of srcs) out.push(new Paragraph({ indent: { left: 360, hanging: 360 }, children: [new TextRun(s)] }));
+        return out;
+      }
       case 'toc': {
         const out: any[] = [new Paragraph({ heading: HEADINGS[1], children: [new TextRun('Tabla de contenido')] })];
         for (const h of collectHeads(json?.content ?? [])) out.push(new Paragraph({ indent: { left: (h.level - 1) * 360 }, children: [new TextRun(h.text || '(sin título)')] }));
