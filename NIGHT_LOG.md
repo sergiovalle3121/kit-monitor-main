@@ -10,6 +10,63 @@ archivos, decisiones, endpoints/pantallas, KPIs, siguiente paso / bloqueos.
 
 ---
 
+## 2026-06-08 — GOLDEN PATH · FASE 5 + CIERRE: barrido anti-maqueta + recorrido probado 🏁
+
+> Rama `claude/sweet-hawking-UQaaU`. SIN auto-merge a `main` (convención
+> `DECISIONS.md §1`): las 6 fases quedaron **commiteadas y pusheadas a la rama**
+> para revisión/merge del equipo.
+
+### Barrido anti-maqueta (golden path)
+- Grep sobre las páginas del hilo (modelos, ingeniería/BOM, planeación,
+  line-engineering, surtido/almacén): **0 datos mock, 0 botones muertos**
+  (`href="#"`, `onClick={() => {}}`), 0 "próximamente". Todo sale del API real;
+  estados vacíos honestos con CTA ("Crea tu primer modelo", "Crear BOM",
+  "Materiales", "Crea uno primero").
+
+### Recorrido del golden path probado de punta a punta (Postgres, folios reales)
+```
+1. Modelo creado: MDL-00001 — "Driver Board EV" (DRAFT)
+2. BOM creado: header #1 rev 1.0 (DRAFT)
+3. Partes en BOM: 3 — rollup $16.20/u   (1×12.5 + 6×0.35 + 2×0.80)
+4. BOM ACTIVE · Modelo ACTIVE
+5. Plan creado: WO 00001 — 25u del modelo MDL-00001 (pending)
+6. Preview de materiales (req. para 25u, hasBom=true):
+     PCB-DRV-01: 25 · MOSFET-40V: 150 (6×25) · CONN-8P: 50 (2×25)
+7. Plan publicado → kit #1, 3 líneas de surtido (mismas cantidades)
+```
+Como admin se puede operar el laboratorio de verdad: meter un modelo + su BOM,
+publicar su plan, y ver los materiales fluir hasta el surtido — **persistido**.
+
+### Módulos reutilizados (para NO duplicar a futuro)
+- **Folios** → `DocumentNumberingService.allocate('MODEL')` (prefijo `MDL`).
+- **Partes** → `MaterialMaster` + `inventory.ensureMaterial` (extendido: persiste
+  `standardCost`/`category` al crear).
+- **BOM** → módulo `bom` (`BomHeader`/`BomComponent`, `/bom/headers…`), ciclo
+  approve→activate y rollup de costo existentes.
+- **Surtido** → `pick-list` (explode) + `Kit`/`KitMaterial` + `/kit-materials`.
+- **Planes** → `plans` + KPIs del hub ya cableados a `/plans`.
+- **Diseño** → `DOMAINS`/`IconTile`/`PageHeader`/`glass`/`motion`, `SearchPalette`.
+- **Puente nuevo (no duplica):** `pick-list.resolveBomInput()` conecta el BOM SAP
+  (Modelos) con el explode de surtido, con fallback al `bom_items` legacy.
+
+### Lanzaderas / deuda anotada (no se borró nada)
+- Finanzas / Costos y métricas / Axos ERP y Mission Control / Torre de línea se
+  **agruparon por sección** en el hub; la fusión en una sola entrada con sub-tabs
+  queda como mejora futura (evita construir contenedores nuevos / ocultar features).
+- `material-staging` sigue derivando de la ruta de IE (e-kanban), no del kit; el
+  surtido por BOM ya es visible en Planeación (pick list) y Almacén (kit). Unificar
+  ambas vistas de surtido es backlog.
+- Dropdown de modelo del maestro aún por propagar a más altas con `model` libre
+  fuera del golden path (forecast, etc.) — incremental por página.
+
+### Estado de fases (todas en verde, pusheadas a la rama)
+- F0 Maestro de Modelo · F1 BOM del modelo · F2 Planeación+puente BOM ·
+  F3 Aguas abajo (IE/surtido/MM) · F4 Nav por flujo · F5 anti-maqueta+recorrido.
+- Puerta de bootstrap (Postgres) verde en cada cambio de backend; web
+  tsc/eslint/next build verde en cada cambio de frontend.
+
+---
+
 ## 2026-06-08 — GOLDEN PATH · FASE 4: Navegación del hub por flujo (re-IA, sin borrar)
 
 > Rama `claude/sweet-hawking-UQaaU`. Solo `dashboard/page.tsx`. Reordenar + agrupar
