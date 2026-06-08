@@ -47,10 +47,14 @@ interface Kpis {
   distinctSerials: number;
   pareto: { failureCode: string; count: number; pct: number }[];
 }
+// Maestro de Modelo (mismo shape que `planning`/`production-plan`) para el dropdown.
+interface ModelOption { id: string; modelNumber: string; name: string; status: string }
 
 export default function TestEngineeringPage() {
   const { data, isLoading, forbidden, mutate } = useApi<TestRecord[]>('/testing/records/recent');
   const { data: kpis, mutate: mutateKpis } = useApi<Kpis>('/testing/kpis');
+  const { data: modelsData } = useApi<ModelOption[]>('/product-models');
+  const models = Array.isArray(modelsData) ? modelsData : [];
   const toast = useToast();
 
   const [busy, setBusy] = useState(false);
@@ -179,7 +183,16 @@ export default function TestEngineeringPage() {
             ) : (
               <label className="block">
                 <span className="block text-[12px] font-medium text-gray-500 mb-1">Modelo</span>
-                <input value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} placeholder="opcional" className="te-input" />
+                {models.length > 0 ? (
+                  <select value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} className="te-input">
+                    <option value="">(opcional)</option>
+                    {models.map((m) => (
+                      <option key={m.id} value={m.modelNumber}>{m.modelNumber} · {m.name}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <input value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} placeholder="opcional" className="te-input" />
+                )}
               </label>
             )}
           </div>

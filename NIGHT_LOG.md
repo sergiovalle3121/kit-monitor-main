@@ -1304,6 +1304,24 @@ CONSUME)`. El hueco real está en el **frontend**: `/inventory/movements` y
   Reutiliza endpoints existentes (cero backend, cero migración). Estado vacío
   honesto. `tsc` + `eslint` verdes. → Falta wiring de navegación (abajo).
 
+### Ítem #2 — Conectar más módulos al maestro de Modelo (`/product-models`)
+Patrón reutilizado de `planning` (que ya lo hacía): `useApi<ModelOption[]>(
+'/product-models')` con shape `{id, modelNumber, name, status}`, valor =
+`modelNumber`. Fallback resiliente: si el maestro está vacío, cae al input de
+texto previo (no bloquea la captura). Cero backend.
+- **(commit) `production-plan`** — el form "Publicar WO" usaba **modelo a texto
+  libre**; ahora es **dropdown del maestro** (placeholder "Selecciona un
+  modelo…"). De paso, quité un import `Clock` sin usar (lint 100% verde).
+- **(commit) `test-engineering`** — el campo "Modelo" de la captura de prueba
+  (opcional) ahora es **dropdown del maestro** (con opción "(opcional)").
+- **(commit) `quality`** — la página es de solo-lectura (sin form de NCR), pero
+  la entidad NCR **sí tiene `model`**. Añadí un **filtro por modelo** (poblado del
+  maestro + de los modelos presentes en las NCRs) y muestro el **badge de modelo**
+  en cada tarjeta. Así el modelo "aparece" también en Calidad.
+- **Verificado (no aplica):** `production` es solo-lectura de `/plans` (sin input
+  de modelo); `engineering` y `line-engineering` **ya** usan `/product-models`.
+- `tsc` + `eslint` (web) verdes en las 3 páginas.
+
 ## PENDIENTE: wiring de navegación (para que el dueño lo conecte en hub/paleta)
 > No edito `app/dashboard/page.tsx` (hub) ni `SearchPalette.tsx` (paleta) — los
 > toca la otra sesión. Páginas nuevas accesibles por URL directa; conéctalas tú:
