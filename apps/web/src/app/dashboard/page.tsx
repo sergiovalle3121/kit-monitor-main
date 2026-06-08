@@ -17,7 +17,6 @@ import { containerRM, itemRM, hoverRM, pressRM } from "@/lib/motion";
 import { useApi } from "@/hooks/useApi";
 import { positionLabel } from "@/config/positions";
 import { IconTile } from "@/components/ui/IconTile";
-import { AuroraBackground } from "@/components/ui/AuroraBackground";
 import { HoverArrow } from "@/components/ui/HoverArrow";
 import { DOMAINS, type DomainKey } from "@/lib/design/domains";
 
@@ -170,7 +169,7 @@ function DashboardInner() {
 
   return (
     <div className="min-h-screen text-black dark:text-white font-sans">
-      <AuroraBackground />
+      {/* Fondo aurora provisto por el layout del dashboard. */}
       {/* Top bar */}
       <nav className={`${glass} fixed top-0 w-full z-50 px-6 py-4 flex justify-between items-center gap-4 rounded-none border-x-0 border-t-0`}>
         <div className="flex items-center gap-3">

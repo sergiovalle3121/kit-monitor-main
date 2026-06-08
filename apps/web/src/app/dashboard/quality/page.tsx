@@ -2,9 +2,10 @@
 
 import React, { useMemo } from "react";
 import Link from "next/link";
-import { ChevronLeft, ShieldCheck, Loader2, Lock, Inbox } from "lucide-react";
+import { ChevronLeft, Loader2, Lock, Inbox } from "lucide-react";
 import { glass } from "@/lib/glass";
 import { useApi } from "@/hooks/useApi";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 interface Ncr {
   id: number | string; code?: string; title?: string; description?: string;
@@ -25,13 +26,7 @@ export default function QualityPage() {
       </div>
 
       <main className="max-w-4xl mx-auto px-6 pt-10">
-        <header className="flex items-center gap-3 mb-8">
-          <div className="p-3 rounded-2xl bg-emerald-50 dark:bg-emerald-500/10"><ShieldCheck className="w-7 h-7 text-emerald-500" strokeWidth={1.5} /></div>
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Calidad</h1>
-            <p className="text-gray-500 dark:text-gray-400 text-sm">No conformidades (NCR) y disposiciones</p>
-          </div>
-        </header>
+        <PageHeader domain="quality" title="Calidad" subtitle="No conformidades (NCR) y disposiciones" />
 
         {forbidden ? (
           <Empty icon={<Lock className="w-6 h-6" />} title="Sin acceso al backend" body="Verifica que el servicio de API esté conectado." />
