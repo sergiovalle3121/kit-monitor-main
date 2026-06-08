@@ -1276,7 +1276,28 @@ Clasificación: **(a)** lanzadera/vacía o mock · **(b)** lee datos reales ·
 `production`, `production-plan` donde usen modelo como texto libre.
 
 ## Avance por ítem
-_(se va llenando conforme avanza la noche)_
+
+### Ítem #1 — Aguas abajo del golden path (recibo → movimiento → consumo → MM)
+**Hallazgo clave:** la cadena del *backend* YA está cableada:
+`receiving.recordReceipt()` → `inventory.recordTransaction(RECEIVE, pending_iqc)`;
+`operator-terminal.confirm()` → `materialStaging.consumeStaged()` (backflush de
+staging); `production-runtime.registerBayEvent()` → `inventory.recordTransaction(
+CONSUME)`. El hueco real está en el **frontend**: `/inventory/movements` y
+`/receiving/*` NO tenían ningún consumidor en `apps/web` (ledger invisible).
+
+- **(commit) Ledger de movimientos en `dashboard/inventory`** — la página ahora
+  tiene pestañas **Existencias** (lo que ya había) y **Movimientos** (nuevo, lee
+  `GET /inventory/movements`). Cada recibo/traslado/consumo aparece con su tipo
+  (color por dirección in/out/move), parte, cantidad con signo, referencia
+  (KIT/WO/PO) y operador. Resumen en vivo derivado del ledger: Recibido /
+  Consumido / # Movimientos. 100% reutilización (cero backend, cero migración).
+  Estado vacío honesto. `tsc` + `eslint` verdes.
+- **Nota (no tocado, riesgo de doble conteo):** `inbound` (UI rica con IQC,
+  `/inbound/*`) y `receiving` (`/receiving/*`, mueve inventario, sin UI) son
+  módulos SEPARADOS. No dupliqué una segunda UI de recibo. Pendiente de evaluar
+  si `inbound.recordReceipt` mueve inventario o no (si no, es un hueco de backend
+  a conectar con cuidado de no doblar el RECEIVE de `receiving`). Ver siguiente
+  commit.
 
 ## PENDIENTE: wiring de navegación (para que el dueño lo conecte en hub/paleta)
 _(ninguno aún)_
