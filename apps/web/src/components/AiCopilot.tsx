@@ -14,6 +14,7 @@ import {
   Wrench,
 } from 'lucide-react';
 import { glass } from '@/lib/glass';
+import { isAdminAccess } from '@/lib/owner';
 
 interface ChatMsg {
   role: 'user' | 'assistant';
@@ -44,7 +45,7 @@ export function AiCopilot() {
   useEffect(() => {
     fetch('/api/auth/me')
       .then((r) => r.json())
-      .then((d) => setIsAdmin(d?.session?.role === 'admin'))
+      .then((d) => setIsAdmin(isAdminAccess(d?.session?.role, d?.session?.email)))
       .catch(() => {});
   }, []);
 

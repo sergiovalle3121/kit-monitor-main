@@ -13,8 +13,16 @@ import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { isOwnerEmail, ALL_PERMISSIONS } from './rbac';
 
-type AuthRequest = { user?: { email?: string; role?: string } };
+type AuthRequest = {
+  user?: {
+    email?: string;
+    role?: string;
+    permissions?: string[];
+    [key: string]: unknown;
+  };
+};
 
 @Controller('auth')
 export class AuthController {
@@ -65,7 +73,13 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @Get('me')
   me(@Request() req: AuthRequest) {
-    return req.user;
+    const user = req.user;
+    // Override duro del owner (por EMAIL): siempre admin + todos los permisos,
+    // aunque el token venga viejo/raro. Belt-and-suspenders del acceso del dueño.
+    if (user && isOwnerEmail(user.email)) {
+      return { ...user, role: 'Admin', permissions: [...ALL_PERMISSIONS] };
+    }
+    return user;
   }
 
   // ── Admin user management ───────────────────────────────────────────────────

@@ -20,6 +20,7 @@ import { IconTile } from "@/components/ui/IconTile";
 import { HoverArrow } from "@/components/ui/HoverArrow";
 import { DOMAINS, type DomainKey } from "@/lib/design/domains";
 import { chatApi, type ChatConversation } from "@/lib/chatApi";
+import { isAdminAccess, seesAllAreas } from "@/lib/owner";
 
 const MotionLink = motion.create(Link);
 
@@ -167,7 +168,7 @@ function DashboardInner() {
   useEffect(() => {
     if (!session) return;
     let active = true;
-    const isAdminRole = session.role === "admin";
+    const isAdminRole = isAdminAccess(session.role, session.email);
     async function load() {
       try {
         const convos = await chatApi.listConversations();
@@ -205,8 +206,10 @@ function DashboardInner() {
     return [...a, ...b].filter((x) => x.at).sort((x, y) => +new Date(y.at) - +new Date(x.at)).slice(0, 5);
   }, [plans, requests]);
 
-  const isAdmin = session?.role === "admin";
-  const seesAll = isAdmin || session?.role === "executive";
+  // Acceso del owner blindado: case-insensitive + override por email (deriva del
+  // email, no del rol almacenado) → nunca cae a "solo lectura".
+  const isAdmin = isAdminAccess(session?.role, session?.email);
+  const seesAll = seesAllAreas(session?.role, session?.email);
   const adminUnread = notifications.filter((n) => !n.read).length;
   const messagingUnread = chatConvos.reduce((s, c) => s + (c.unread || 0), 0);
   const badgeTotal = adminUnread + messagingUnread;

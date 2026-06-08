@@ -10,6 +10,38 @@ archivos, decisiones, endpoints/pantallas, KPIs, siguiente paso / bloqueos.
 
 ---
 
+## 2026-06-08 — BLINDAJE DE ACCESO DEL OWNER (3 capas, deriva del EMAIL)
+
+> Rama `claude/dazzling-dirac-1puYr`. El dueño (`sergiovallezarate@gmail.com`)
+> caía recurrentemente en "solo lectura"/"sin permiso" por un **desajuste de
+> casing**: backend/JWT usan rol `'Admin'` (mayúscula) y el frontend filtraba con
+> `=== 'admin'` (minúscula) → `seesAll=false` → se ocultaban TODAS las áreas.
+> Fix belt-and-suspenders **derivando del EMAIL**, no del rol almacenado, para que
+> un JWT viejo, un reseed o una migración no puedan bloquearlo nunca más.
+
+- **Capa 1 — Hub (`dashboard/page.tsx`) + `AiCopilot`:** comparaciones de rol
+  **case-insensitive** + override por email de owner. Nuevo helper frontend
+  `lib/owner.ts` (`ownerEmails`/`isOwnerEmail`/`isAdminAccess`/`seesAllAreas`,
+  lee `NEXT_PUBLIC_OWNER_EMAILS`, default = dueño; espejo del backend).
+- **Capa 2 — Sesión (`lib/session.ts` `setSessionCookie`):** normaliza el rol a
+  minúscula y, si el email es owner, fija `role:'admin'` — en TODAS las rutas que
+  crean sesión (login/demo/bridge) de una sola vez.
+- **Capa 3 — Backend:** `auth.controller.me()` para owner siempre devuelve
+  `Admin` + `ALL_PERMISSIONS`; `PermissionsGuard` hace override duro por email
+  (`isOwnerEmail`) además de aceptar `admin` case-insensitive → ningún endpoint
+  puede devolver 403 al dueño. El bloque idempotente de owner en `auth.service`
+  se conservó.
+- **Tests (runnables, backend):** `rbac.spec` (owner email + admin=ALL_PERMISSIONS,
+  ya existía y se conservó), `auth.controller.spec` (me ⇒ Admin+ALL_PERMISSIONS aun
+  sin rol/casing raro), `permissions.guard.spec` (owner pasa sin permiso; admin
+  case-insensitive; sin-permiso es 403). Smoke Postgres OK; 285 tests verdes.
+- **Nota:** `apps/web` no tiene runner de tests; el gate (b) del hub queda cubierto
+  por el helper centralizado `seesAllAreas`/`isAdminAccess` (cuya base por email se
+  testea en backend vía `isOwnerEmail`). NO se cambió el casing del rol global de
+  forma destructiva (solo comparaciones case-insensitive + override por email).
+
+---
+
 ## 2026-06-08 — REDISEÑO DEL HUB ESTILO APPLE (sistema de diseño + propagación)
 
 > Rama `claude/dazzling-dirac-1puYr`. Luz verde para PR + merge por fase (squash).
