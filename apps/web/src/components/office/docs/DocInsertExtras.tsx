@@ -3,7 +3,7 @@
 
 import React from 'react';
 import type { Editor } from '@tiptap/react';
-import { Type, SquareDashed, Columns, Bookmark as BookmarkIcon, Link as LinkIcon } from 'lucide-react';
+import { Type, SquareDashed, Columns, Bookmark as BookmarkIcon, Link as LinkIcon, PenTool, Captions } from 'lucide-react';
 import { RibbonGroup, RibbonSeparator, RibbonButton, RibbonMenuButton } from '../ribbon';
 
 const TONES = [
@@ -31,6 +31,14 @@ export function DocInsertExtras({ editor }: { editor: Editor }) {
     if (!name) return;
     (c() as any).insertBookmark(name.trim().replace(/\s+/g, '-')).run();
   };
+  const addSignature = () => {
+    const name = window.prompt('Nombre para la firma');
+    if (name === null) return;
+    const title = window.prompt('Cargo / título (opcional)') || '';
+    (c() as any).insertSignatureLine(name.trim(), title.trim()).run();
+  };
+  const isCaption = editor.getAttributes('paragraph').styleName === 'caption';
+  const toggleCaption = () => (c() as any).updateAttributes('paragraph', { styleName: isCaption ? '' : 'caption' }).run();
 
   return (
     <>
@@ -40,6 +48,8 @@ export function DocInsertExtras({ editor }: { editor: Editor }) {
           { label: editor.isActive('callout') ? 'Quitar cuadro' : 'Insertar cuadro', onClick: () => (c() as any).toggleCallout('neutral').run() },
           ...TONES.map((t) => ({ label: `Estilo: ${t.label}`, active: editor.isActive('callout', { tone: t.key }), onClick: () => (c() as any).setCalloutTone(t.key).run() })),
         ]} />
+        <RibbonButton icon={Captions} label="Leyenda de figura" active={isCaption} onClick={toggleCaption} />
+        <RibbonButton icon={PenTool} label="Línea de firma" onClick={addSignature} />
       </RibbonGroup>
       <RibbonSeparator />
       <RibbonGroup label="Vínculos del documento">

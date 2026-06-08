@@ -3,7 +3,7 @@
 
 import React from 'react';
 import type { Editor } from '@tiptap/react';
-import { RectangleVertical, RectangleHorizontal, FileText, StretchHorizontal, Columns2, Columns3, Square, Stamp, SquareDashedBottom, Hash } from 'lucide-react';
+import { RectangleVertical, RectangleHorizontal, FileText, StretchHorizontal, Columns2, Columns3, Square, Stamp, SquareDashedBottom, Hash, Files } from 'lucide-react';
 import { RibbonGroup, RibbonSeparator, RibbonMenuButton, RibbonButton } from './ribbon';
 
 /** Controles de «Disposición» (diseño de página): se guardan en pageMeta y se
@@ -65,6 +65,7 @@ export function DocPageSetup({ editor }: { editor: Editor }) {
           { label: 'Doble', active: border === 'double', onClick: () => set({ pageBorder: 'double' }) },
         ]} />
         <RibbonButton icon={Hash} label="Números de línea" active={!!a.pageLineNumbers} onClick={() => set({ pageLineNumbers: !a.pageLineNumbers })} />
+        <RibbonButton icon={Files} label="Primera página distinta" active={!!a.pageFirstDifferent} onClick={() => set({ pageFirstDifferent: !a.pageFirstDifferent })} />
       </RibbonGroup>
       <span className="self-center text-[10px] text-gray-400 px-2 max-w-[150px]" title="Vista de página">{sizeLabel[size]} · {marginLabel[margin]}</span>
     </>

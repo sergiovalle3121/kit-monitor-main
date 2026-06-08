@@ -115,10 +115,13 @@ export async function exportDocx(json: any, title: string) {
       }
       case 'paragraph': {
         const sub = node.attrs?.styleName === 'subtitle';
+        const caption = node.attrs?.styleName === 'caption';
         const runs = sub
           ? (node.content ?? []).filter((n: any) => n.type === 'text').map((n: any) => { const { o } = runOpts(n); return new TextRun({ ...o, size: o.size || 30, color: o.color || '6B7280' }); })
-          : inlineRuns(node.content);
-        return [new Paragraph({ alignment: align(node.attrs?.textAlign), indent: indentOf(node), children: runs })];
+          : caption
+            ? (node.content ?? []).filter((n: any) => n.type === 'text').map((n: any) => { const { o } = runOpts(n); return new TextRun({ ...o, italics: true, size: o.size || 18, color: o.color || '6B7280' }); })
+            : inlineRuns(node.content);
+        return [new Paragraph({ alignment: caption ? AlignmentType.CENTER : align(node.attrs?.textAlign), indent: indentOf(node), children: runs })];
       }
       case 'bulletList': return listParas(node, 'bullet', 0);
       case 'orderedList': return listParas(node, 'ordered', 0);
@@ -130,6 +133,11 @@ export async function exportDocx(json: any, title: string) {
       case 'columnBreak': return [new Paragraph({ children: [new PageBreak()] })];
       case 'mathBlock': return [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: node.attrs?.latex || '', italics: true })] })];
       case 'callout': return (node.content ?? []).flatMap(blockToEls);
+      case 'signatureLine': return [
+        new Paragraph({ spacing: { before: 240 }, children: [new TextRun('________________________________')] }),
+        new Paragraph({ children: [new TextRun({ text: node.attrs?.name || '', bold: true })] }),
+        ...(node.attrs?.title ? [new Paragraph({ children: [new TextRun({ text: node.attrs.title, color: '6B7280', size: 18 })] })] : []),
+      ];
       case 'footnoteList': return []; // las notas reales se exportan por la API de footnotes de Word
       case 'toc': {
         const out: any[] = [new Paragraph({ heading: HEADINGS[1], children: [new TextRun('Tabla de contenido')] })];
@@ -189,6 +197,13 @@ export async function exportDocx(json: any, title: string) {
     if (a.pageFooter) fch.push(new TextRun({ text: `${a.pageFooter}   `, size: 18, color: '666666' }));
     if (a.pageNumbers) fch.push(new TextRun({ children: ['Página ', PageNumber.CURRENT, ' / ', PageNumber.TOTAL_PAGES], size: 18, color: '666666' }));
     section.footers = { default: new Footer({ children: [new Paragraph({ alignment: a.pageNumbers ? AlignmentType.CENTER : AlignmentType.LEFT, children: fch })] }) };
+  }
+
+  // Primera página distinta: encabezado/pie en blanco en la página 1.
+  if (a.pageFirstDifferent) {
+    props.titlePage = true;
+    section.headers = { ...(section.headers || {}), first: new Header({ children: [new Paragraph({})] }) };
+    section.footers = { ...(section.footers || {}), first: new Footer({ children: [new Paragraph({})] }) };
   }
 
   const doc = new Document({ sections: [section], ...(Object.keys(footnotes).length ? { footnotes } : {}) });

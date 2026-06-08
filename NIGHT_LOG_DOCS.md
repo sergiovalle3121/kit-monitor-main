@@ -72,6 +72,17 @@ CSS de todo lo anterior en `tiptap.css`.
   como texto), cuadros de texto (contenido), referencias cruzadas, y marcas de
   control de cambios (inserción subrayada / eliminación tachada).
 
+### Wave 3 — Firma, leyendas, símbolos, estilos, primera página distinta
+- **Línea de firma** (`signatureLine.ts`) — nodo con línea + nombre/cargo; export .docx.
+- **Leyenda de figura** — estilo con nombre «caption» (botón en Insertar + galería).
+- **Símbolos ampliados** (`DocSymbolPicker.tsx`) — +categorías Diacríticos y Formas,
+  más caracteres en las existentes.
+- **Galería de estilos ampliada** (`DocStyleGallery.tsx`) — Sin espaciado, Referencia
+  (versalitas), Leyenda, y «Borrar formato (a Normal)».
+- **Primera página distinta** — atributo + toggle en Disposición; aplicado en la
+  vista de página (Paged.js `@page:first`) y en el export .docx (`titlePage` + first
+  header/footer en blanco).
+
 ### Diferido (con estimación)
 - **Control de cambios con interceptación total** (pegar/IME/borrado como
   sugerencia, fusión de revisiones): subsistema de especialista; sin banco de

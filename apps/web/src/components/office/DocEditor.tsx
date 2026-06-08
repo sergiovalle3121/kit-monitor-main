@@ -59,6 +59,7 @@ import { FootnoteRef, FootnoteList } from './docs/footnotes';
 import { DropCap, Callout, ColumnBreak, Bookmark, CrossRef } from './docs/insertNodes';
 import { InsertionMark, DeletionMark, TrackChanges } from './docs/trackChanges';
 import { FocusLine } from './docs/focusLine';
+import { SignatureLine } from './docs/signatureLine';
 import { DocEquation } from './docs/DocEquation';
 import { DocListMenu } from './docs/DocListMenu';
 import { DocViewTools } from './docs/DocViewTools';
@@ -153,6 +154,7 @@ export function DocEditor({ value, onChange, readOnly, author, onStats, fileActi
       DeletionMark,
       TrackChanges.configure({ author: author ?? '' }),
       FocusLine,
+      SignatureLine,
     ],
     content: value ?? '<p></p>',
     editable: !readOnly,

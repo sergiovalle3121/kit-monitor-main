@@ -243,3 +243,18 @@
   counter-increment: docline; content: counter(docline); position: absolute; left: -2.6em; width: 2em; text-align: right; color: #cbd5e1; font-size: 0.8em; line-height: inherit; user-select: none; pointer-events: none;
 }
 @media (prefers-color-scheme: dark) { .doc-line-numbers .ProseMirror > p::before { color: #4b5563; } }
+
+/* Leyenda de figura (estilo con nombre «caption») */
+.tiptap-page .ProseMirror [data-style="caption"] { font-size: 0.85em; color: #6b7280; text-align: center; font-style: italic; }
+@media (prefers-color-scheme: dark) { .tiptap-page .ProseMirror [data-style="caption"] { color: #9ca3af; } }
+
+/* Estilos con nombre: sin espaciado / referencia */
+.tiptap-page .ProseMirror [data-style="nospacing"] { margin-top: 0 !important; line-height: 1.25; }
+.tiptap-page .ProseMirror [data-style="reference"] { font-variant: small-caps; letter-spacing: 0.03em; }
+
+/* Línea de firma */
+.tiptap-page .ProseMirror .doc-signature { margin: 1.6em 0 0.5em; max-width: 280px; }
+.tiptap-page .ProseMirror .doc-signature-line { border-top: 1px solid #111; margin-bottom: 4px; }
+.tiptap-page .ProseMirror .doc-signature-name { font-weight: 600; font-size: 0.9em; }
+.tiptap-page .ProseMirror .doc-signature-title { font-size: 0.8em; color: #6b7280; }
+@media (prefers-color-scheme: dark) { .tiptap-page .ProseMirror .doc-signature-line { border-color: #f3f4f6; } .tiptap-page .ProseMirror .doc-signature-title { color: #9ca3af; } }
