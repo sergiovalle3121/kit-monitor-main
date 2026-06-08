@@ -1227,12 +1227,11 @@ funcional de lo que parecía**; el bloqueo real era el acceso del owner (Bloque 
 > (`app/dashboard/page.tsx`) ni la paleta (`SearchPalette.tsx`). Toda nueva
 > navegación queda anotada abajo en "PENDIENTE: wiring de navegación".
 >
-> **Rama y base:** trabajo en `claude/modules-unify`, **creada desde el HEAD
-> integrado actual** (`claude/clever-lovelace-qfove` @ `4b59414`), NO desde
-> `origin/main`. Motivo: `origin/main` está rezagado (#154) en una línea
-> divergente que **no contiene la espina dorsal** (product-models / bom / plans /
-> pick-lists). Crear desde `main` rompería todo. El PR se abre para revisión SIN
-> mergear; el dueño decide el destino en la mañana.
+> **Rama y base:** trabajo en `claude/modules-unify`, creada desde el HEAD que me
+> entregó el entorno (`4b59414`). **Verificado contra GitHub:** `main` ESTÁ en
+> `4b59414` (mi ref local `origin/main` estaba simplemente desactualizado en
+> `#154`; un `git fetch` lo corrigió). Por eso el **PR #260 va contra `main` con
+> un diff limpio** (solo mis commits). NO se mergea: el dueño revisa en la mañana.
 
 ## Inventario de páginas `dashboard/*/page.tsx` (excepto `office`)
 
@@ -1292,12 +1291,22 @@ CONSUME)`. El hueco real está en el **frontend**: `/inventory/movements` y
   (KIT/WO/PO) y operador. Resumen en vivo derivado del ledger: Recibido /
   Consumido / # Movimientos. 100% reutilización (cero backend, cero migración).
   Estado vacío honesto. `tsc` + `eslint` verdes.
-- **Nota (no tocado, riesgo de doble conteo):** `inbound` (UI rica con IQC,
-  `/inbound/*`) y `receiving` (`/receiving/*`, mueve inventario, sin UI) son
-  módulos SEPARADOS. No dupliqué una segunda UI de recibo. Pendiente de evaluar
-  si `inbound.recordReceipt` mueve inventario o no (si no, es un hueco de backend
-  a conectar con cuidado de no doblar el RECEIVE de `receiving`). Ver siguiente
-  commit.
+- **Verificado:** `inbound` (UI rica con IQC, `/inbound/*`) **NO toca inventario**
+  (su servicio no importa `InventoryService`; solo rastrea recibos+IQC). En
+  cambio `receiving.recordReceipt` (`/receiving/*`) **SÍ** crea el movimiento
+  `RECEIVE` real (`inventory.recordTransaction`, holdStatus `pending_iqc`) pero
+  **no tenía UI**. → No es duplicado: son responsabilidades distintas.
+- **(commit) UI mínima de Recibo `dashboard/receiving`** — lista `/receiving/events`
+  y postea `/receiving/receipt`. Da de alta material al inventario (almacén
+  destino + lote + PO + proveedor; `receivedBy` = email del usuario). Selector de
+  almacén desde `/enterprise/warehouses` (cae a input de texto si no hay lista).
+  El recibo aparece de inmediato en **Inventario → Movimientos** como `Recibo`.
+  Reutiliza endpoints existentes (cero backend, cero migración). Estado vacío
+  honesto. `tsc` + `eslint` verdes. → Falta wiring de navegación (abajo).
 
 ## PENDIENTE: wiring de navegación (para que el dueño lo conecte en hub/paleta)
-_(ninguno aún)_
+> No edito `app/dashboard/page.tsx` (hub) ni `SearchPalette.tsx` (paleta) — los
+> toca la otra sesión. Páginas nuevas accesibles por URL directa; conéctalas tú:
+- **`/dashboard/receiving`** — "Recibo de material" (entrada a inventario / IQC
+  pendiente). Sugerencia: dominio Surtido/Almacén, ícono `PackagePlus`. Cmd-K:
+  "Recibo de material", "Recibir", "Entrada de almacén".
