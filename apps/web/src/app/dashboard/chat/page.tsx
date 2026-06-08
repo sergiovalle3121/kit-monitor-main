@@ -22,7 +22,11 @@ import {
   ChatConversation,
   ChatMessage,
   ChatUser,
+  MessageReaction,
 } from '@/lib/chatApi';
+
+/** Set corto de reacciones rápidas (mini-picker del toolbar de cada mensaje). */
+const REACTION_EMOJIS = ['👍', '❤️', '😂', '🎉', '✅', '👀'];
 
 const EMOJIS = ['😀', '😁', '😂', '😉', '😊', '😍', '👍', '🙏', '🔥', '✅', '⚠️', '❌', '🚀', '🛠️', '📦', '🏭'];
 
@@ -139,6 +143,26 @@ export default function ChatPage() {
         return next;
       });
     });
+    // Reacciones en vivo. `mine` se recalcula localmente (el broadcast trae la
+    // perspectiva del que reaccionó, no la mía).
+    socket.on(
+      'reaction:update',
+      (p: { messageId: string; reactions: MessageReaction[] }) => {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === p.messageId
+              ? {
+                  ...m,
+                  reactions: p.reactions.map((r) => ({
+                    ...r,
+                    mine: r.userIds.includes(meId),
+                  })),
+                }
+              : m,
+          ),
+        );
+      },
+    );
     socketRef.current = socket;
     return () => {
       socket.disconnect();
@@ -179,6 +203,17 @@ export default function ChatPage() {
       refreshConversations();
     } catch {
       setDraft(body); // restaura si falla
+    }
+  }
+
+  async function handleReact(messageId: string, emoji: string) {
+    try {
+      const reactions = await chatApi.toggleReaction(messageId, emoji);
+      setMessages((prev) =>
+        prev.map((m) => (m.id === messageId ? { ...m, reactions } : m)),
+      );
+    } catch {
+      /* ignore: el broadcast corregirá el estado si aplica */
     }
   }
 
@@ -329,34 +364,16 @@ export default function ChatPage() {
 
               {/* Mensajes */}
               <div className="flex-1 space-y-3 overflow-y-auto px-5 py-4">
-                {messages.map((m) => {
-                  const mine = m.senderId === meId;
-                  return (
-                    <div key={m.id} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
-                      <div
-                        className={`max-w-[70%] rounded-[18px] px-4 py-2 ${
-                          mine
-                            ? 'bg-blue-600 text-white'
-                            : 'bg-black/5 text-gray-900 dark:bg-white/10 dark:text-gray-100'
-                        }`}
-                      >
-                        {active.type === 'channel' && !mine && (
-                          <p className="mb-0.5 text-[10px] font-semibold opacity-70">
-                            {senderName(m.senderId, users)}
-                          </p>
-                        )}
-                        {m.type === 'image' ? (
-                          <AuthImage messageId={m.id} />
-                        ) : (
-                          <p className="whitespace-pre-wrap break-words text-sm">{m.body}</p>
-                        )}
-                        <p className={`mt-1 text-[10px] ${mine ? 'text-white/70' : 'text-gray-500'}`}>
-                          {timeOf(m.createdAt)}
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })}
+                {messages.map((m) => (
+                  <MessageItem
+                    key={m.id}
+                    m={m}
+                    mine={m.senderId === meId}
+                    isChannel={active.type === 'channel'}
+                    users={users}
+                    onReact={handleReact}
+                  />
+                ))}
                 <div ref={bottomRef} />
               </div>
 
@@ -470,6 +487,111 @@ function PresenceDot({ online }: { online: boolean }) {
       title={online ? 'En línea' : 'Desconectado'}
       aria-label={online ? 'En línea' : 'Desconectado'}
     />
+  );
+}
+
+/** Una burbuja de mensaje con toolbar (hover), reacciones y chips. */
+function MessageItem({
+  m,
+  mine,
+  isChannel,
+  users,
+  onReact,
+}: {
+  m: ChatMessage;
+  mine: boolean;
+  isChannel: boolean;
+  users: ChatUser[];
+  onReact: (messageId: string, emoji: string) => void;
+}) {
+  const [showPicker, setShowPicker] = useState(false);
+  const reactions = m.reactions ?? [];
+
+  return (
+    <div className={`group flex ${mine ? 'justify-end' : 'justify-start'}`}>
+      <div className="relative max-w-[70%]">
+        {/* Toolbar al pasar el cursor (oculto en touch) */}
+        <div
+          className={`pointer-events-none absolute -top-3 z-10 flex items-center gap-1 ${
+            mine ? 'left-0' : 'right-0'
+          } opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100`}
+        >
+          <div className="relative">
+            <button
+              onClick={() => setShowPicker((s) => !s)}
+              className={`${glass} flex h-7 w-7 items-center justify-center rounded-full text-gray-600 shadow hover:scale-105 dark:text-gray-200`}
+              aria-label="Reaccionar"
+            >
+              <Smile className="h-4 w-4" />
+            </button>
+            {showPicker && (
+              <div
+                className={`${glass} absolute bottom-9 ${
+                  mine ? 'left-0' : 'right-0'
+                } flex gap-0.5 rounded-full p-1 shadow-lg`}
+              >
+                {REACTION_EMOJIS.map((e) => (
+                  <button
+                    key={e}
+                    onClick={() => {
+                      onReact(m.id, e);
+                      setShowPicker(false);
+                    }}
+                    className="rounded-full p-1 text-lg leading-none transition-transform hover:scale-125"
+                    aria-label={`Reaccionar ${e}`}
+                  >
+                    {e}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Burbuja */}
+        <div
+          className={`rounded-[18px] px-4 py-2 ${
+            mine
+              ? 'bg-blue-600 text-white'
+              : 'bg-black/5 text-gray-900 dark:bg-white/10 dark:text-gray-100'
+          }`}
+        >
+          {isChannel && !mine && (
+            <p className="mb-0.5 text-[10px] font-semibold opacity-70">
+              {senderName(m.senderId, users)}
+            </p>
+          )}
+          {m.type === 'image' ? (
+            <AuthImage messageId={m.id} />
+          ) : (
+            <p className="whitespace-pre-wrap break-words text-sm">{m.body}</p>
+          )}
+          <p className={`mt-1 text-[10px] ${mine ? 'text-white/70' : 'text-gray-500'}`}>
+            {timeOf(m.createdAt)}
+          </p>
+        </div>
+
+        {/* Chips de reacción */}
+        {reactions.length > 0 && (
+          <div className={`mt-1 flex flex-wrap gap-1 ${mine ? 'justify-end' : 'justify-start'}`}>
+            {reactions.map((r) => (
+              <button
+                key={r.emoji}
+                onClick={() => onReact(m.id, r.emoji)}
+                className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-xs transition-colors ${
+                  r.mine
+                    ? 'bg-blue-500/15 text-blue-700 ring-1 ring-blue-500/40 dark:text-blue-300'
+                    : 'bg-black/5 text-gray-700 hover:bg-black/10 dark:bg-white/10 dark:text-gray-200'
+                }`}
+              >
+                <span className="leading-none">{r.emoji}</span>
+                <span className="font-medium tabular-nums">{r.count}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 

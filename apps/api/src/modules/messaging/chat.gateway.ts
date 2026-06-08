@@ -162,6 +162,14 @@ export class ChatGateway
     this.emitToMembers(memberIds, 'message:new', message);
   }
 
+  /** Reacciones agregadas actualizadas de un mensaje. */
+  emitReactionUpdate(
+    memberIds: string[],
+    payload: { messageId: string; reactions: unknown },
+  ): void {
+    this.emitToMembers(memberIds, 'reaction:update', payload);
+  }
+
   // ── helpers ────────────────────────────────────────────────────────────────
 
   /** Emite un evento a los rooms `user:<id>` de los miembros dados. */

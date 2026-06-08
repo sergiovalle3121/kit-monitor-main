@@ -35,6 +35,13 @@ export interface ChatUser {
   role: string;
 }
 
+export interface MessageReaction {
+  emoji: string;
+  count: number;
+  userIds: string[];
+  mine: boolean;
+}
+
 export interface ChatMessage {
   id: string;
   conversationId: string;
@@ -43,6 +50,7 @@ export interface ChatMessage {
   body: string | null;
   imageMime: string | null;
   createdAt: string;
+  reactions?: MessageReaction[];
 }
 
 export interface ChatConversation {
@@ -103,6 +111,13 @@ export const chatApi = {
     req<{ ok: boolean }>(`/api/messaging/conversations/${conversationId}/read`, {
       method: 'POST',
       headers: authHeaders(),
+    }),
+
+  toggleReaction: (messageId: string, emoji: string) =>
+    req<MessageReaction[]>(`/api/messaging/messages/${messageId}/reactions`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ emoji }),
     }),
 };
 

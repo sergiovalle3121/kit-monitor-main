@@ -9,6 +9,7 @@ import { Repository, In } from 'typeorm';
 import { Conversation } from './entities/conversation.entity';
 import { ConversationMember } from './entities/conversation-member.entity';
 import { Message } from './entities/message.entity';
+import { ChatMessageReaction } from './entities/chat-message-reaction.entity';
 import { User } from '../users/entities/user.entity';
 import { ChatGateway } from './chat.gateway';
 
@@ -16,6 +17,44 @@ const MAX_INPUT_BYTES = 5 * 1024 * 1024; // 5 MB de entrada
 const TARGET_MAX_DIMENSION = 1280; // px
 const TARGET_QUALITY = 70; // jpeg quality
 const MAX_TEXT_LENGTH = 4000; // tope de caracteres por mensaje (anti-spam/DoS)
+const MAX_EMOJI_LENGTH = 32;
+
+export interface AggregatedReaction {
+  emoji: string;
+  count: number;
+  userIds: string[];
+  mine: boolean;
+}
+
+/**
+ * Agrega filas de reacción de un mensaje en `[{ emoji, count, userIds, mine }]`,
+ * preservando el orden de primera aparición. Pura → fácil de testear.
+ */
+export function aggregateReactions(
+  rows: { emoji: string; userId: string }[],
+  meId: string,
+): AggregatedReaction[] {
+  const order: string[] = [];
+  const byEmoji = new Map<string, string[]>();
+  for (const r of rows) {
+    let users = byEmoji.get(r.emoji);
+    if (!users) {
+      users = [];
+      byEmoji.set(r.emoji, users);
+      order.push(r.emoji);
+    }
+    if (!users.includes(r.userId)) users.push(r.userId);
+  }
+  return order.map((emoji) => {
+    const userIds = byEmoji.get(emoji) ?? [];
+    return {
+      emoji,
+      count: userIds.length,
+      userIds,
+      mine: userIds.includes(meId),
+    };
+  });
+}
 
 @Injectable()
 export class MessagingService {
@@ -26,6 +65,8 @@ export class MessagingService {
     private readonly members: Repository<ConversationMember>,
     @InjectRepository(Message)
     private readonly messages: Repository<Message>,
+    @InjectRepository(ChatMessageReaction)
+    private readonly reactions: Repository<ChatMessageReaction>,
     @InjectRepository(User)
     private readonly users: Repository<User>,
     private readonly gateway: ChatGateway,
@@ -213,6 +254,22 @@ export class MessagingService {
       .take(50);
     if (before) qb.andWhere('m.created_at < :before', { before });
     const rows = await qb.getMany();
+
+    // Reacciones en lote por los ids de la página (evita N+1).
+    const ids = rows.map((m) => m.id);
+    const reactionRows = ids.length
+      ? await this.reactions.find({
+          where: { messageId: In(ids) },
+          order: { createdAt: 'ASC' },
+        })
+      : [];
+    const byMessage = new Map<string, { emoji: string; userId: string }[]>();
+    for (const r of reactionRows) {
+      const list = byMessage.get(r.messageId);
+      if (list) list.push(r);
+      else byMessage.set(r.messageId, [r]);
+    }
+
     // Devolver en orden cronológico ascendente.
     return rows.reverse().map((m) => ({
       id: m.id,
@@ -222,6 +279,7 @@ export class MessagingService {
       body: m.body,
       imageMime: m.imageMime,
       createdAt: m.createdAt,
+      reactions: aggregateReactions(byMessage.get(m.id) ?? [], meId),
     }));
   }
 
@@ -318,6 +376,50 @@ export class MessagingService {
     return { data: msg.imageData, mime: msg.imageMime ?? 'image/jpeg' };
   }
 
+  // ── reacciones (toggle) ──────────────────────────────────────────────────
+  async toggleReaction(meId: string, messageId: string, emojiRaw: string) {
+    const emoji = (emojiRaw ?? '').trim();
+    if (!emoji || emoji.length > MAX_EMOJI_LENGTH || /\s/.test(emoji)) {
+      throw new BadRequestException('Emoji inválido');
+    }
+    const msg = await this.messages.findOne({ where: { id: messageId } });
+    if (!msg) throw new NotFoundException('Mensaje no encontrado');
+    await this.assertMember(msg.conversationId, meId);
+
+    const existing = await this.reactions.findOne({
+      where: { messageId, userId: meId, emoji },
+    });
+    if (existing) {
+      await this.reactions.delete({ id: existing.id });
+    } else {
+      const me = await this.getUserOrThrow(meId);
+      await this.reactions.save(
+        this.reactions.create({
+          messageId,
+          userId: meId,
+          emoji,
+          tenantId: me.tenantId ?? null,
+        }),
+      );
+    }
+
+    const reactions = await this.reactionsForMessage(messageId, meId);
+    const memberIds = await this.memberIdsOf(msg.conversationId);
+    this.gateway.emitReactionUpdate(memberIds, { messageId, reactions });
+    return reactions;
+  }
+
+  private async reactionsForMessage(
+    messageId: string,
+    meId: string,
+  ): Promise<AggregatedReaction[]> {
+    const rows = await this.reactions.find({
+      where: { messageId },
+      order: { createdAt: 'ASC' },
+    });
+    return aggregateReactions(rows, meId);
+  }
+
   // ── marcar leído ─────────────────────────────────────────────────────────
   async markRead(meId: string, conversationId: string) {
     await this.assertMember(conversationId, meId);
@@ -346,6 +448,8 @@ export class MessagingService {
       body: m.body,
       imageMime: m.imageMime,
       createdAt: m.createdAt,
+      // Un mensaje recién creado aún no tiene reacciones; forma consistente.
+      reactions: [] as AggregatedReaction[],
     };
   }
 }
