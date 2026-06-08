@@ -1,10 +1,9 @@
 "use client";
 
 import React, { useState } from "react";
-import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  ChevronLeft, Plus, Trash2, Loader2, X, AlertCircle, Workflow, Package,
+  Plus, Trash2, Loader2, X, AlertCircle, Workflow, Package,
 } from "lucide-react";
 import { glass } from "@/lib/glass";
 import { useApi } from "@/hooks/useApi";
@@ -57,13 +56,6 @@ export default function EngineeringPage() {
 
   return (
     <div className="min-h-screen text-black dark:text-white font-sans pb-32">
-      <div className={`${glass} sticky top-0 z-40 px-6 py-4 rounded-none border-x-0 border-t-0 flex items-center justify-between`}>
-        <Link href="/dashboard" className="flex items-center gap-2 text-sm font-medium text-gray-500 hover:text-black dark:hover:text-white transition-colors">
-          <ChevronLeft className="w-4 h-4" /> Dashboard
-        </Link>
-        <span className="text-sm font-semibold">Ingeniería · Ruta de proceso</span>
-      </div>
-
       <main className="max-w-3xl mx-auto px-6 pt-10">
         <PageHeader domain="engineering" title="Ingeniería" subtitle="Define la ruta de la línea: estaciones, materiales y cuántos por unidad" />
 

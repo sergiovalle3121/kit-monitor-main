@@ -4,7 +4,6 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import {
-  ChevronLeft,
   Inbox,
   Check,
   X,
@@ -82,26 +81,22 @@ export default function AlmacenPage() {
 
   return (
     <div className="min-h-screen text-black dark:text-white font-sans pb-32">
-      <div className={`${glass} sticky top-0 z-40 px-6 py-4 rounded-none border-x-0 border-t-0 flex items-center justify-between`}>
-        <Link href="/dashboard" className="flex items-center gap-2 text-sm font-medium text-gray-500 hover:text-black dark:hover:text-white transition-colors">
-          <ChevronLeft className="w-4 h-4" /> Dashboard
-        </Link>
-        <div className="flex items-center gap-4">
-          <span className="flex items-center gap-1.5 text-xs font-medium" style={{ color: socketStatus === 'connected' ? GREEN : AMBER }}>
-            <Radio className={`w-3.5 h-3.5 ${pulse ? 'animate-ping' : ''}`} />
-            {socketStatus === 'connected' ? 'En vivo' : 'Conectando…'}
-          </span>
-          <Link href="/dashboard/planning" className="flex items-center gap-1.5 text-sm font-medium text-violet-500 hover:text-violet-700 transition-colors">
-            <LineChart className="w-4 h-4" /> Planeación
-          </Link>
-        </div>
-      </div>
-
       <main className="max-w-5xl mx-auto px-6 pt-10">
         <PageHeader
           domain="warehouse"
           title="Almacén · Surtido"
           subtitle="Solicitudes de producción en tiempo real · autoriza el surtido del kit"
+          right={
+            <>
+              <span className="flex items-center gap-1.5 text-xs font-medium" style={{ color: socketStatus === 'connected' ? GREEN : AMBER }}>
+                <Radio className={`w-3.5 h-3.5 ${pulse ? 'animate-ping' : ''}`} />
+                {socketStatus === 'connected' ? 'En vivo' : 'Conectando…'}
+              </span>
+              <Link href="/dashboard/planning" className="hidden sm:flex items-center gap-1.5 text-sm font-medium text-violet-500 hover:text-violet-700 transition-colors">
+                <LineChart className="w-4 h-4" /> Planeación
+              </Link>
+            </>
+          }
         />
 
         {forbidden && (
