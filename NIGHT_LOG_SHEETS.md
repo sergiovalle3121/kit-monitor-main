@@ -69,6 +69,9 @@ Verde. `tsc` y lint sin errores.
 > Nota técnica: las claves de los buckets del pivot usan `JSON.stringify` (libres de
 > colisión) en vez de un separador mágico.
 
+> Ampliación posterior: **«Mostrar valores como % del total»** por campo de valor
+> (`showAs: 'pctTotal'`), formateado como porcentaje en la salida. Spec ampliado (26).
+
 ### 2) Formato de número + estilos de celda  ✅
 **Lógica pura** en `sheetOps.ts`:
 - `formatNumber(value, code, opts)` — subconjunto práctico tipo Excel:

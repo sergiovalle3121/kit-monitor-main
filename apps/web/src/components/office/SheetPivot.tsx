@@ -169,11 +169,19 @@ export function SheetPivot({
                       <div key={f} className="flex items-center gap-1.5 bg-gray-50 dark:bg-white/[0.06] rounded-lg px-2 py-1 text-xs">
                         <span className="flex-1 truncate font-medium">{f}</span>
                         {zm.id === 'values' && (
-                          <select value={values.find((v) => v.field === f)?.agg ?? 'sum'}
-                            onChange={(e) => setValues((p) => p.map((v) => (v.field === f ? { ...v, agg: e.target.value as AggFn } : v)))}
-                            className="h-6 text-[11px] rounded-md bg-white dark:bg-white/10 px-1 outline-none">
-                            {AGGS.map((a) => <option key={a} value={a}>{AGG_LABEL[a]}</option>)}
-                          </select>
+                          <>
+                            <select value={values.find((v) => v.field === f)?.agg ?? 'sum'}
+                              onChange={(e) => setValues((p) => p.map((v) => (v.field === f ? { ...v, agg: e.target.value as AggFn } : v)))}
+                              className="h-6 text-[11px] rounded-md bg-white dark:bg-white/10 px-1 outline-none" title="Función de agregación">
+                              {AGGS.map((a) => <option key={a} value={a}>{AGG_LABEL[a]}</option>)}
+                            </select>
+                            <select value={values.find((v) => v.field === f)?.showAs ?? 'normal'}
+                              onChange={(e) => setValues((p) => p.map((v) => (v.field === f ? { ...v, showAs: e.target.value as any } : v)))}
+                              className="h-6 text-[10px] rounded-md bg-white dark:bg-white/10 px-0.5 outline-none" title="Mostrar valores como">
+                              <option value="normal">Valor</option>
+                              <option value="pctTotal">% total</option>
+                            </select>
+                          </>
                         )}
                         {zm.id === 'filters' && (
                           <button onClick={() => setFilterEditing(filterEditing === f ? null : f)}

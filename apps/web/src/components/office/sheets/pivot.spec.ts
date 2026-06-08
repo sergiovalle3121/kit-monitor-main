@@ -103,6 +103,15 @@ eq(fieldValues(sheet, RANGE, 'Region'), ['Norte', 'Sur'], 'fieldValues Region');
   eq(nums(rowByLabel(res, 'Sur')), [530, 19], 'Sur [sum Ventas, sum Unidades] = [530,19]');
 }
 
+// ── 9) Mostrar valores como % del total ──────────────────────────────────────
+{
+  const cfg: PivotConfig = { range: RANGE, sheetIndex: 0, rows: ['Region'], cols: [], values: [{ field: 'Ventas', agg: 'sum', showAs: 'pctTotal' }], showColTotals: true, showRowTotals: false };
+  const res = buildPivot(sheet, cfg);
+  const norte = nums(rowByLabel(res, 'Norte'))[0];
+  ok(Math.abs(norte - 420 / 950) < 1e-4, `Norte = 420/950 (% del total), obtenido ${norte}`);
+  eq(nums(rowByLabel(res, 'Total general')), [1], 'Total general = 1 (100%)');
+}
+
 // ── Resumen ──────────────────────────────────────────────────────────────────
 console.log(`\nPIVOT SPEC: ${passed} OK, ${fails.length} fallos`);
 if (fails.length) { for (const f of fails) console.error('  ✗ ' + f); throw new Error(`${fails.length} aserciones fallaron`); }

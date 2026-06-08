@@ -308,7 +308,7 @@ export const AGG_LABEL: Record<AggFn, string> = {
   sum: 'Suma', count: 'Cuenta', counta: 'Cuenta (no vacías)', avg: 'Promedio',
   min: 'Mín', max: 'Máx', product: 'Producto', stdev: 'Desv.Est', var: 'Varianza',
 };
-export interface PivotValueField { field: string; agg: AggFn; label?: string }
+export interface PivotValueField { field: string; agg: AggFn; label?: string; showAs?: 'normal' | 'pctTotal' }
 export interface PivotConfig {
   range: string;
   sheetIndex: number;
@@ -321,7 +321,7 @@ export interface PivotConfig {
   showSubtotals?: boolean;        // subtotales del campo de fila más externo
 }
 export type PivotCellType = 'corner' | 'colhdr' | 'rowhdr' | 'value' | 'subtotal' | 'grandtotal' | 'empty';
-export interface PivotCellOut { v: string | number | null; t: PivotCellType; bold?: boolean; num?: boolean }
+export interface PivotCellOut { v: string | number | null; t: PivotCellType; bold?: boolean; num?: boolean; pct?: boolean }
 export interface PivotResult { matrix: PivotCellOut[][]; nRows: number; nCols: number; warnings: string[] }
 
 const toNumStrict = (raw: any): number | null => {
@@ -429,6 +429,14 @@ export function buildPivot(sheet: any, cfg: PivotConfig): PivotResult {
     const ci = idxOf(vf.field); if (ci < 0) return null;
     return roundNice(aggregate(recsArr.map((r) => r[ci]), vf.agg));
   };
+  // «Mostrar valores como»: % del total general del campo.
+  const grandByVf = new Map<PivotValueField, number>();
+  for (const vf of values) grandByVf.set(vf, aggAt(recs, vf) ?? 0);
+  const showAs = (v: number | null, vf: PivotValueField): { v: number | null; pct: boolean } => {
+    if (v == null) return { v: null, pct: false };
+    if (vf.showAs === 'pctTotal') { const g = grandByVf.get(vf) || 0; return { v: g ? roundNice(v / g) : 0, pct: true }; }
+    return { v, pct: false };
+  };
 
   // ── Cabeceras de columna ──────────────────────────────────────────────────
   // Columnas de datos = colKeys × values  (+ totales de fila al final).
@@ -470,12 +478,12 @@ export function buildPivot(sheet: any, cfg: PivotConfig): PivotResult {
     const row: PivotCellOut[] = [];
     for (let lc = 0; lc < leftW; lc++) row.push({ v: label[lc] ?? '', t: type === 'value' ? 'rowhdr' : type, bold: type !== 'value' });
     for (const dc of dataCols) {
-      const v = aggAt(recsFor(dc.ck), dc.vf);
-      row.push({ v: v == null ? null : v, t: type === 'value' ? 'value' : type, num: v != null, bold: type !== 'value' });
+      const s = showAs(aggAt(recsFor(dc.ck), dc.vf), dc.vf);
+      row.push({ v: s.v, t: type === 'value' ? 'value' : type, num: s.v != null, pct: s.pct, bold: type !== 'value' });
     }
     for (const vf of totalCols) {
-      const v = aggAt(totalRecs, vf);
-      row.push({ v: v == null ? null : v, t: type === 'value' ? 'value' : type, num: v != null, bold: true });
+      const s = showAs(aggAt(totalRecs, vf), vf);
+      row.push({ v: s.v, t: type === 'value' ? 'value' : type, num: s.v != null, pct: s.pct, bold: true });
     }
     return row;
   };
@@ -536,8 +544,9 @@ export function pivotToCelldata(res: PivotResult, originR = 0, originC = 0): any
         if (cell.t === 'empty') return;
       }
       const isNum = cell.num && typeof cell.v === 'number';
-      const m = cell.v == null ? '' : (isNum ? String(cell.v) : String(cell.v));
-      const v: any = { v: cell.v ?? '', m, ct: { fa: 'General', t: isNum ? 'n' : 's' } };
+      const fa = cell.pct ? '0.0%' : 'General';
+      const m = cell.v == null ? '' : (cell.pct && isNum ? formatNumber(cell.v, '0.0%') : String(cell.v));
+      const v: any = { v: cell.v ?? '', m, ct: { fa, t: isNum ? 'n' : 's' } };
       if (cell.bold) v.bl = 1;
       if (cell.t === 'corner' || cell.t === 'colhdr') { v.bg = '#1f6feb'; v.fc = '#ffffff'; }
       else if (cell.t === 'rowhdr') { v.bg = '#eef2ff'; }
