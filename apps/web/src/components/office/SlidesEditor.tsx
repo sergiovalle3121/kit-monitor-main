@@ -16,6 +16,7 @@ import {
   AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd,
   LayoutTemplate, Table2, Grid3x3, Hash, SquareDashed, MonitorPlay, Brush,
   Shapes, Crop, SunMedium, Contrast, Wand2, Replace, RefreshCw, Group as GroupIcon, Ungroup, RotateCw,
+  BarChart3,
 } from 'lucide-react';
 import { SlideSorter } from './SlideSorter';
 import { SlideIconPicker } from './SlideIconPicker';
@@ -25,6 +26,8 @@ import { POLY_SHAPES, PATH_SHAPES } from './slides/shapes';
 import { applyImageEffects, readImgFx, cropToRatio, resetCrop, CROP_RATIOS, type ImgFx } from './slides/imageEffects';
 import { ShapeGallery } from './slides/ShapeGallery';
 import { ImageEffectsPanel } from './slides/ImageEffectsPanel';
+import { buildChartGroup, defaultChartSpec, isChart, type ChartSpec } from './slides/chart';
+import { SlideChartEditor } from './SlideChartEditor';
 import {
   OfficeRibbon, RibbonTab, RibbonGroup, RibbonSeparator,
   RibbonButton, RibbonSelect, RibbonColorButton, RibbonMenuButton,
@@ -77,6 +80,9 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
   const themeRef = useRef<string>(themeId);
   const [showGrid, setShowGrid] = useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
+  // Editor de gráfico: { spec } y si edita un objeto existente.
+  const [chartEditor, setChartEditor] = useState<{ spec: ChartSpec; editing: boolean } | null>(null);
+  const chartTargetRef = useRef<any>(null);
   const footerRef = useRef<string>(value?.footer || '');
   const numbersRef = useRef<boolean>(!!value?.showNumbers);
   const [showNumbers, setShowNumbers] = useState<boolean>(!!value?.showNumbers);
@@ -140,6 +146,24 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
     }
     loadingRef.current = false;
     c.requestRenderAll(); capture(); sync();
+  }
+  // ── Gráficos desde datos (Group con chartSpec; export nativo a .pptx) ──────
+  function openChartEditor() { chartTargetRef.current = null; setChartEditor({ spec: defaultChartSpec(), editing: false }); }
+  function editChartObj(g: any) { chartTargetRef.current = g; setChartEditor({ spec: g.chartSpec, editing: true }); }
+  function applyChart(spec: ChartSpec) {
+    const c = fabricRef.current; if (!c) { setChartEditor(null); return; }
+    const t = theme();
+    const old = chartTargetRef.current;
+    const pos = old
+      ? { left: old.left, top: old.top, scaleX: old.scaleX, scaleY: old.scaleY, angle: old.angle }
+      : { left: 240, top: 120, scaleX: 1, scaleY: 1, angle: 0 };
+    if (old) c.remove(old);
+    const g = buildChartGroup(spec, { left: pos.left, top: pos.top, text: t.text, font: t.font });
+    g.set({ scaleX: pos.scaleX || 1, scaleY: pos.scaleY || 1, angle: pos.angle || 0 });
+    g.setCoords();
+    c.add(g); c.setActiveObject(g); c.requestRenderAll();
+    chartTargetRef.current = null; setChartEditor(null);
+    capture(); sync();
   }
   async function addIcon(svg: string) {
     const c = fabricRef.current; if (!c) return;
@@ -216,6 +240,8 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
     canvas.on('selection:created', onSel);
     canvas.on('selection:updated', onSel);
     canvas.on('selection:cleared', () => { setHasSel(false); setSelType(''); setSelCount(0); setSelAnim('none'); });
+    // Doble clic en un gráfico → reabre el editor de datos.
+    canvas.on('mouse:dblclick', (e: any) => { const o = e?.target; if (!readOnly && isChart(o)) editChartObj(o); });
 
     // Guías de alineación + snapping (al centro/bordes del lienzo y a otros objetos).
     const SNAP = 6;
@@ -606,6 +632,10 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
               </RibbonMenuButton>
             </RibbonGroup>
             <RibbonSeparator />
+            <RibbonGroup label="Gráfico">
+              <RibbonButton icon={BarChart3} label="Gráfico" hideLabel={false} onClick={openChartEditor} />
+            </RibbonGroup>
+            <RibbonSeparator />
             <RibbonGroup label="Tablas">
               <RibbonMenuButton icon={Table2} label="Tabla" menuWidth={190} items={[
                 { label: 'Tabla 2 × 2', onClick: () => addTable(2, 2) },
@@ -805,6 +835,9 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
       {presenting && <Present slides={slides} notes={notesRef.current} transition={transition} footer={footerRef.current} showNumbers={showNumbers} presenter={presenterMode} onClose={() => { setPresenting(false); setPresenterMode(false); }} />}
       <AnimatePresence>
         {showTemplates && <TemplateGallery type="slides" onPick={applyTemplate} onClose={() => setShowTemplates(false)} />}
+      </AnimatePresence>
+      <AnimatePresence>
+        {chartEditor && <SlideChartEditor spec={chartEditor.spec} onApply={applyChart} onClose={() => { chartTargetRef.current = null; setChartEditor(null); }} />}
       </AnimatePresence>
       <AnimatePresence>
         {sorter && (

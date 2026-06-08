@@ -53,7 +53,10 @@ export async function exportPptx(slides: any[], title: string, notes: string[] =
     if (bg) slide.background = { color: bg };
 
     for (const o of json?.objects ?? []) {
-      try { addObject(slide, o, ST); } catch { /* skip unsupported object */ }
+      try {
+        if (o && o.chartSpec) addChartObject(slide, o, pptx);
+        else addObject(slide, o, ST);
+      } catch { /* skip unsupported object */ }
     }
     if (opts.footer) { try { slide.addText(String(opts.footer), { x: 0.4, y: IN_H - 0.4, w: 6, h: 0.3, fontSize: 9, color: '888888', align: 'left' }); } catch { /* ignore */ } }
     if (opts.showNumbers) { try { slide.addText(`${i + 1} / ${total}`, { x: IN_W - 1.4, y: IN_H - 0.4, w: 1, h: 0.3, fontSize: 9, color: '888888', align: 'right' }); } catch { /* ignore */ } }
@@ -62,6 +65,32 @@ export async function exportPptx(slides: any[], title: string, notes: string[] =
   });
 
   await pptx.writeFile({ fileName: `${safe(title)}.pptx` });
+}
+
+// Paleta por defecto (espejo de slides/chart.ts) para gráficos sin paleta propia.
+const CHART_PAL = ['3B82F6', '10B981', 'F59E0B', 'EF4444', '7C3AED', 'EC4899', '14B8A6', 'F97316'];
+
+/** Exporta un gráfico (Group con chartSpec) como gráfico NATIVO de PowerPoint. */
+function addChartObject(slide: any, o: any, pptx: any) {
+  const spec = o.chartSpec;
+  if (!spec || !Array.isArray(spec.series) || !spec.series.length) return;
+  const scaleX = o.scaleX ?? 1, scaleY = o.scaleY ?? 1;
+  const w = (o.width ?? 480) * scaleX, h = (o.height ?? 300) * scaleY;
+  const box = { x: sx(o.left ?? 0), y: sy(o.top ?? 0), w: Math.max(0.5, sx(w)), h: Math.max(0.5, sy(h)) };
+  const colors = (Array.isArray(spec.palette) && spec.palette.length ? spec.palette : CHART_PAL)
+    .map((c: any) => String(c).replace('#', '').toUpperCase());
+  const labels: string[] = (spec.labels ?? []).map((x: any) => String(x));
+  const T = pptx.ChartType;
+  const common = { ...box, chartColors: colors, showLegend: true, legendPos: 'b', showTitle: !!(spec.title && spec.title.trim()), title: spec.title || '' };
+  if (spec.type === 'pie') {
+    const s0 = spec.series[0];
+    slide.addChart(T.pie, [{ name: s0?.name || 'Datos', labels, values: (s0?.data ?? []).map((n: any) => Number(n) || 0) }],
+      { ...common, showPercent: true });
+    return;
+  }
+  const data = spec.series.map((s: any) => ({ name: String(s.name ?? ''), labels, values: (s.data ?? []).map((n: any) => Number(n) || 0) }));
+  const type = spec.type === 'line' ? T.line : spec.type === 'area' ? T.area : T.bar;
+  slide.addChart(type, data, { ...common, barDir: 'col' });
 }
 
 function addObject(slide: any, o: any, ST: any) {

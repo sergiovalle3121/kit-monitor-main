@@ -61,3 +61,18 @@ incluidas las formas con curvas (corazón/nube/bocadillo/sol exportan como
 preset, no como imagen). En `SlideActions.tsx`: opción **Imágenes (PNG)**.
 
 Verificado: `tsc` ✓, `eslint` ✓ (sólo warnings preexistentes), `next build` ✓.
+
+#### Lote 2 — Gráficos desde datos (backlog #1)
+- `slides/chart.ts` — motor de gráficos: un gráfico es un `Group` de Fabric con
+  prop `chartSpec` (tipo, título, etiquetas, series). Se dibuja con primitivas
+  nativas (rect/línea/polilínea/path/texto) → barras, líneas, área y pastel,
+  con ejes, cuadrícula, leyenda y título.
+- `SlideChartEditor.tsx` — modal con selector de tipo, título, **tabla de datos
+  editable** (agregar/quitar filas y series) y **vista previa en vivo**.
+- En `SlidesEditor.tsx`: botón **Insertar ▸ Gráfico**; doble clic en un gráfico
+  reabre el editor con sus datos; al aplicar se reconstruye conservando
+  posición/escala/ángulo. Usa color de texto y fuente del tema.
+- En `pptx.ts`: `addChartObject` exporta el gráfico como **gráfico NATIVO de
+  PowerPoint** (`slide.addChart`) — editable en PPT, con colores de la paleta.
+
+Verificado: `tsc` ✓, `eslint` ✓, `next build` ✓.
