@@ -10,6 +10,34 @@ archivos, decisiones, endpoints/pantallas, KPIs, siguiente paso / bloqueos.
 
 ---
 
+## 2026-06-08 — GOLDEN PATH · FASE 4: Navegación del hub por flujo (re-IA, sin borrar)
+
+> Rama `claude/sweet-hawking-UQaaU`. Solo `dashboard/page.tsx`. Reordenar + agrupar
+> — NO se borró ninguna área ni archivo (cumple "solo agregar/mejorar").
+
+- **`AREAS`** ahora lleva un campo `section` y se ordena por el **flujo real**:
+  Diseño · NPI → Planeación → Materiales → Producción → Calidad → Finanzas · ERP →
+  Control e inteligencia → Administración. Se añadió `SECTION_ORDER`.
+- El hub dejó de ser un bento revuelto: ahora renderiza **secciones con
+  encabezado** y una rejilla uniforme por sección (calmado, predecible). El
+  gating por rol intacto (admin/owner ven todo).
+- Duplicados/lanzaderas **agrupados** en su sección lógica en vez de dispersos:
+  Finanzas + Costos y métricas + Axos ERP → sección "Finanzas · ERP"; Mission
+  Control + Torre de control de línea → "Control e inteligencia"; Lab → Calidad.
+  No se eliminó ninguno (los archivos siguen).
+- Cleanup menor: `plans`/`requests` envueltos en `useMemo` → hub sin warnings.
+
+### Deuda anotada (consolidación más profunda, futura)
+- Las lanzaderas duplicadas (Finanzas/Costos/ERP; Mission Control/Torre de línea)
+  podrían fusionarse en UNA entrada con sub-tabs. Aquí se agruparon por sección
+  (re-IA no destructiva); la fusión en sub-tabs queda como mejora posterior para
+  no construir contenedores nuevos ni ocultar features.
+
+### Verificación
+- Web `tsc` (0), `eslint` (0, incl. warnings previos ya corregidos), `next build` OK.
+
+---
+
 ## 2026-06-08 — GOLDEN PATH · FASE 3: Aguas abajo visibles (IE + surtido + MM/valuación)
 
 > Rama `claude/sweet-hawking-UQaaU`. Solo frontend (el puente de datos ya quedó
