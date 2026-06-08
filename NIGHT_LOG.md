@@ -1478,5 +1478,13 @@ warehouse, cancellation-requests). Estos los evalué y **deferí a propósito**:
      + mensaje según si hay búsqueda.
   3. `suppliers/page.tsx`: el mapa de estatus omitía `restricted` (sí emitido) y
      listaba `hold` (no emitido). **Fix:** alineado con la entidad.
+  4. (al escribir el test) `receiving/page.tsx`: `supplierCode` es **NOT NULL** en
+     la entidad, pero el form mandaba `|| undefined` al elegir "(sin proveedor)"
+     → un recibo sin proveedor reventaría con violación NOT NULL. **Fix:** manda
+     `'N/A'` en vez de vacío.
+- **Test nuevo:** `receiving.service.spec.ts` (SQLite en memoria, numbering real,
+  inventory/ledger/audit simulados) — valida folio `REC-YYYY-NNNN`, incremento
+  atómico, cableado del movimiento `RECEIVE` con el folio, y el folio de respaldo
+  único con marca `F`. 3/3 verdes.
 - **Acción del dueño:** wiring de navegación de `/dashboard/receiving`,
   `/dashboard/suppliers` y `/dashboard/warehouse` (arriba) + revisar/mergear el PR.

@@ -91,7 +91,8 @@ export default function ReceivingPage() {
           quantity: Number(form.quantity),
           warehouseId,
           location: form.location.trim() || "DOCK",
-          supplierCode: form.supplierCode.trim() || undefined,
+          // supplierCode es NOT NULL en la entidad → nunca lo mandamos vacío.
+          supplierCode: form.supplierCode.trim() || "N/A",
           lotNumber: form.lotNumber.trim() || undefined,
           poNumber: form.poNumber.trim() || undefined,
           receivedBy: user?.email || "operador",
