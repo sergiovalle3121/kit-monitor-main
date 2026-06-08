@@ -150,3 +150,11 @@ Verificado: `tsc` ✓, `eslint` ✓, `next build` ✓.
   (`first/prev/next/last/slide/url`).
 
 Verificado: `tsc` ✓, `eslint` ✓, `next build` ✓.
+
+#### Lote 9 — Panel de selección / capas (backlog #11)
+- `SlideLayersPanel.tsx` — lista los objetos de la diapositiva (frente arriba)
+  con **visibilidad** (ocultar/mostrar), **bloqueo**, **orden Z** (traer
+  adelante / enviar atrás por pasos) y **seleccionar**. Vista ▸ Panel de
+  selección (excluyente con el panel de animación). Serializa `visible`.
+
+Verificado: `tsc` ✓, `eslint` ✓, `next build` ✓.

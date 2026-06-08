@@ -18,7 +18,7 @@ import {
   Shapes, Crop, SunMedium, Contrast, Wand2, Replace, RefreshCw, Group as GroupIcon, Ungroup, RotateCw,
   BarChart3, Workflow, Spline, Waypoints,
   List, IndentIncrease, IndentDecrease, MoveHorizontal, AlignVerticalSpaceAround, Sparkles, Search,
-  Pointer, Pencil, Eraser, Moon, ListTree,
+  Pointer, Pencil, Eraser, Moon, ListTree, Layers,
   ZoomIn, ZoomOut, Maximize, Scan, MousePointerClick,
 } from 'lucide-react';
 import { SlideSorter } from './SlideSorter';
@@ -26,6 +26,7 @@ import { SlideIconPicker } from './SlideIconPicker';
 import { TemplateGallery } from './TemplateGallery';
 import { SLIDE_THEMES, SLIDE_LAYOUTS, SLIDE_TRANSITIONS, OBJ_ANIM_OPTIONS } from './slideAssets';
 import { SlideAnimationPanel, type AnimItem } from './SlideAnimationPanel';
+import { SlideLayersPanel, type LayerItem } from './SlideLayersPanel';
 import { POLY_SHAPES, PATH_SHAPES } from './slides/shapes';
 import { applyImageEffects, readImgFx, cropToRatio, resetCrop, CROP_RATIOS, type ImgFx } from './slides/imageEffects';
 import { ShapeGallery } from './slides/ShapeGallery';
@@ -93,6 +94,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
   const [selAnimDur, setSelAnimDur] = useState(500);
   const [selAnimDelay, setSelAnimDelay] = useState(0);
   const [showAnimPanel, setShowAnimPanel] = useState(false);
+  const [showLayers, setShowLayers] = useState(false);
   const [presenterMode, setPresenterMode] = useState(false);
   const [selOpacity, setSelOpacity] = useState(1);
   const [selLocked, setSelLocked] = useState(false);
@@ -343,9 +345,28 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
   }
   function selectByIndex(idx: number) {
     const c = fabricRef.current; if (!c) return;
-    const o = c.getObjects()[idx]; if (!o) return;
+    const o = c.getObjects()[idx] as any; if (!o || o.visible === false) return;
     c.setActiveObject(o); c.requestRenderAll();
-    setHasSel(true); setSelType((o as any).type || '');
+    setHasSel(true); setSelType(o.type || '');
+  }
+  // ── Panel de selección (capas) ──────────────────────────────────────────────
+  function toggleVisibleIdx(idx: number) {
+    const c = fabricRef.current; if (!c) return; const o = c.getObjects()[idx] as any; if (!o) return;
+    o.visible = o.visible === false; if (o.visible === false && c.getActiveObject() === o) c.discardActiveObject();
+    c.requestRenderAll(); capture(); sync();
+  }
+  function toggleLockIdx(idx: number) {
+    const c = fabricRef.current; if (!c) return; const o = c.getObjects()[idx] as any; if (!o) return;
+    o.locked = !o.locked; applyLock(o); if (c.getActiveObject() === o) setSelLocked(!!o.locked);
+    c.requestRenderAll(); capture(); sync();
+  }
+  function forwardIdx(idx: number) {
+    const c = fabricRef.current; if (!c) return; const o = c.getObjects()[idx]; if (!o) return;
+    (c as any).bringObjectForward(o); c.requestRenderAll(); capture(); sync();
+  }
+  function backwardIdx(idx: number) {
+    const c = fabricRef.current; if (!c) return; const o = c.getObjects()[idx]; if (!o) return;
+    (c as any).sendObjectBackwards(o); c.requestRenderAll(); capture(); sync();
   }
   function toggleNumbers() { const v = !numbersRef.current; numbersRef.current = v; setShowNumbers(v); sync(); }
   function editFooter() {
@@ -747,6 +768,10 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
       .filter((x) => !isConnector(x.o))
       .map(({ o, idx }) => ({ idx, label: objLabel(o), type: typeName(o), anim: (o.anim as string) || 'none', order: o.animOrder ?? 0, dur: o.animDur ?? 500, delay: o.animDelay ?? 0 }));
   })();
+  const layerList: LayerItem[] = (() => {
+    const c = fabricRef.current; if (!showLayers || !c) return [];
+    return c.getObjects().map((o: any, idx: number) => ({ idx, label: objLabel(o), type: typeName(o), visible: o.visible !== false, locked: !!o.locked }));
+  })();
   const activeIdx = (() => {
     const c = fabricRef.current; const a = c?.getActiveObject(); if (!c || !a) return -1;
     return c.getObjects().indexOf(a as any);
@@ -993,7 +1018,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
                     className="w-14 h-7 text-xs rounded-lg bg-black/[0.04] dark:bg-white/[0.06] px-1.5 outline-none border border-transparent focus:border-blue-500/40 text-gray-800 dark:text-gray-100" />
                 </>
               ) : <span className="text-[11px] text-gray-400 px-2">Selecciona un objeto</span>}
-              <RibbonButton icon={ListTree} label="Panel de animación" active={showAnimPanel} onClick={() => setShowAnimPanel((v) => !v)} />
+              <RibbonButton icon={ListTree} label="Panel de animación" active={showAnimPanel} onClick={() => { setShowAnimPanel((v) => !v); setShowLayers(false); }} />
             </RibbonGroup>
           </RibbonTab>
         )}
@@ -1014,6 +1039,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
         <RibbonTab id="view" label="Vista">
           <RibbonGroup label="Mostrar">
             <RibbonButton icon={Grid3x3} label="Cuadrícula" active={showGrid} onClick={() => setShowGrid((g) => !g)} />
+            {!readOnly && <RibbonButton icon={Layers} label="Panel de selección" active={showLayers} onClick={() => { setShowLayers((v) => !v); setShowAnimPanel(false); }} />}
           </RibbonGroup>
           <RibbonSeparator />
           <RibbonGroup label="Zoom">
@@ -1089,6 +1115,9 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
         </div>
         {showAnimPanel && !readOnly && (
           <SlideAnimationPanel items={animList} activeIdx={activeIdx} onChange={setAnimByIndex} onSelect={selectByIndex} onClose={() => setShowAnimPanel(false)} />
+        )}
+        {showLayers && !readOnly && (
+          <SlideLayersPanel items={layerList} activeIdx={activeIdx} onSelect={selectByIndex} onToggleVisible={toggleVisibleIdx} onToggleLock={toggleLockIdx} onForward={forwardIdx} onBackward={backwardIdx} onClose={() => setShowLayers(false)} />
         )}
       </div>
 
