@@ -19,6 +19,7 @@ import {
 import { useAuth } from '@/hooks/useAuth';
 import { glass } from '@/lib/glass';
 import { AuthImage } from '@/components/AuthImage';
+import { IconTile } from '@/components/ui/IconTile';
 import {
   chatApi,
   CHAT_API_BASE,
@@ -471,6 +472,11 @@ export default function ChatPage() {
             activeId ? 'hidden md:flex' : 'flex'
           } w-full shrink-0 flex-col rounded-[24px] p-4 md:w-80`}
         >
+          {/* Acento de dominio (mensajería) para alinear con el hub */}
+          <div className="mb-3 flex items-center gap-2.5">
+            <IconTile domain="messaging" size={34} />
+            <span className="text-base font-bold tracking-tight">Mensajería</span>
+          </div>
           <div className="mb-4 flex items-center justify-between">
             <Link href="/dashboard" className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-800 dark:hover:text-gray-200">
               <ChevronLeft className="h-4 w-4" /> Inicio

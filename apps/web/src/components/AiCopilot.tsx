@@ -99,7 +99,7 @@ export function AiCopilot() {
       <button
         onClick={() => setOpen(true)}
         aria-label="Abrir Axos Copilot"
-        className="fixed bottom-8 right-8 z-[101] flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-violet-600 to-indigo-600 text-white shadow-2xl ring-1 ring-white/20 transition-all hover:scale-105 active:scale-95"
+        className="fixed bottom-8 right-8 z-[101] flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-violet-600 to-pink-500 text-white shadow-2xl ring-1 ring-white/20 transition-all hover:scale-105 active:scale-95"
       >
         <Sparkles className="h-6 w-6" />
       </button>
@@ -124,7 +124,7 @@ export function AiCopilot() {
               {/* Header */}
               <header className="flex items-center justify-between gap-3 border-b border-white/10 px-5 py-4">
                 <div className="flex items-center gap-2.5">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-violet-600 to-indigo-600 text-white">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-violet-600 to-pink-500 text-white">
                     <Sparkles className="h-5 w-5" />
                   </div>
                   <div>

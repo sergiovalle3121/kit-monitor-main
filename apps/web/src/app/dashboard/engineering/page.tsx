@@ -4,11 +4,12 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  ChevronLeft, Cpu, Plus, Trash2, Loader2, X, AlertCircle, Workflow, Package,
+  ChevronLeft, Plus, Trash2, Loader2, X, AlertCircle, Workflow, Package,
 } from "lucide-react";
 import { glass } from "@/lib/glass";
 import { useApi } from "@/hooks/useApi";
 import { apiFetch } from "@/lib/apiFetch";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000").replace(/\/$/, "");
 
@@ -64,13 +65,7 @@ export default function EngineeringPage() {
       </div>
 
       <main className="max-w-3xl mx-auto px-6 pt-10">
-        <header className="flex items-center gap-3 mb-8">
-          <div className="p-3 rounded-2xl bg-indigo-50 dark:bg-indigo-500/10"><Cpu className="w-7 h-7 text-indigo-500" strokeWidth={1.5} /></div>
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Ingeniería</h1>
-            <p className="text-gray-500 dark:text-gray-400 text-sm">Define la ruta de la línea: estaciones, materiales y cuántos por unidad</p>
-          </div>
-        </header>
+        <PageHeader domain="engineering" title="Ingeniería" subtitle="Define la ruta de la línea: estaciones, materiales y cuántos por unidad" />
 
         <form onSubmit={load} className={`${glass} flex items-center gap-2 p-2 rounded-2xl mb-6`}>
           <input value={model} onChange={(e) => setModel(e.target.value)} placeholder="Número o nombre del modelo…" className="bg-transparent outline-none text-sm w-full px-3" />
