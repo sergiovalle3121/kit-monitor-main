@@ -120,5 +120,18 @@ títulos de eje, y un panel **«Series y ejes»** con color, tipo (en combo) y e
 
 **Spec**: `charts.spec.ts` (14) — barras, combo, eje secundario, color por serie,
 burbuja. Verde.
+
+> Checkpoint: `next build` verde tras los gráficos pro.
+
+### 5) Asistente de funciones ampliado  ✅
+`SheetFunctionWizard.tsx` reescrito: **~70 funciones** en 8 categorías
+(Matemáticas, Estadística, Lógica, Texto, Fecha y hora, Búsqueda, **Financieras**),
+cada una con **sintaxis, descripción y ayuda por argumento** (incluye opcionales).
+Layout maestro-detalle: categorías · lista buscable · panel de detalle con
+**inserción guiada** (`=NOMBRE(`) e **inserción de plantilla** (`=NOMBRE(arg1; arg2)`).
+- *Diferido*: autocompletado **dentro** del editor de celda al escribir `=` — el
+  motor de Fortune-Sheet es dueño del input del grid; interceptarlo es frágil. El
+  asistente cubre el descubrimiento e inserción guiada (estimación: 0.5–1 día para
+  un overlay sobre el editor nativo, a validar contra futuras versiones del paquete).
 </content>
 </invoke>
