@@ -3,9 +3,10 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Download, ChevronDown, Loader2, FileText, Presentation } from 'lucide-react';
+import { Download, ChevronDown, Loader2, FileText, Presentation, Image as ImageIcon } from 'lucide-react';
 import { exportSlidesPdf } from '@/lib/office/slidesPdf';
 import { exportPptx } from '@/lib/office/pptx';
+import { exportAllPng } from './slides/exportImages';
 
 /** Export controls (PDF / PowerPoint) for the slides editor. */
 export function SlideActions({ content, title }: { content: any; title: string }) {
@@ -41,6 +42,7 @@ export function SlideActions({ content, title }: { content: any; title: string }
             >
               <button onClick={() => run(() => exportPptx(slides, title || 'presentacion', notes, pptxOpts))} className="w-full flex items-center gap-2 text-left text-sm px-3 py-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10"><Presentation className="w-4 h-4 text-amber-500" /> PowerPoint (.pptx)</button>
               <button onClick={() => run(() => exportSlidesPdf(slides, title || 'presentacion'))} className="w-full flex items-center gap-2 text-left text-sm px-3 py-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10"><FileText className="w-4 h-4 text-gray-500" /> PDF</button>
+              <button onClick={() => run(() => exportAllPng(slides, title || 'presentacion'))} className="w-full flex items-center gap-2 text-left text-sm px-3 py-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10"><ImageIcon className="w-4 h-4 text-emerald-500" /> Imágenes (PNG)</button>
             </motion.div>
           </>
         )}

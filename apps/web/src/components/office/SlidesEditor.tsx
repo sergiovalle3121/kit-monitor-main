@@ -4,8 +4,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Canvas, StaticCanvas, Textbox, Rect, Circle, Line, Triangle, FabricImage, Polygon, Shadow, Gradient,
-  Group, loadSVGFromString,
+  Canvas, StaticCanvas, Textbox, Rect, Circle, Line, Triangle, FabricImage, Polygon, Path, Shadow, Gradient,
+  Group, ActiveSelection, loadSVGFromString,
 } from 'fabric';
 import {
   Type, ImagePlus, Square, Circle as CircleIcon, Minus, Triangle as TriIcon,
@@ -15,11 +15,16 @@ import {
   AlignHorizontalJustifyStart, AlignHorizontalJustifyCenter, AlignHorizontalJustifyEnd,
   AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd,
   LayoutTemplate, Table2, Grid3x3, Hash, SquareDashed, MonitorPlay, Brush,
+  Shapes, Crop, SunMedium, Contrast, Wand2, Replace, RefreshCw, Group as GroupIcon, Ungroup, RotateCw,
 } from 'lucide-react';
 import { SlideSorter } from './SlideSorter';
 import { SlideIconPicker } from './SlideIconPicker';
 import { TemplateGallery } from './TemplateGallery';
 import { SLIDE_THEMES, SLIDE_LAYOUTS } from './slideAssets';
+import { POLY_SHAPES, PATH_SHAPES } from './slides/shapes';
+import { applyImageEffects, readImgFx, cropToRatio, resetCrop, CROP_RATIOS, type ImgFx } from './slides/imageEffects';
+import { ShapeGallery } from './slides/ShapeGallery';
+import { ImageEffectsPanel } from './slides/ImageEffectsPanel';
 import {
   OfficeRibbon, RibbonTab, RibbonGroup, RibbonSeparator,
   RibbonButton, RibbonSelect, RibbonColorButton, RibbonMenuButton,
@@ -63,6 +68,10 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
   const [selOpacity, setSelOpacity] = useState(1);
   const [selLocked, setSelLocked] = useState(false);
   const [hasSel, setHasSel] = useState(false);
+  const [selType, setSelType] = useState<string>('');
+  const [selCount, setSelCount] = useState(0);
+  const [selAngle, setSelAngle] = useState(0);
+  const [imgFx, setImgFx] = useState<ImgFx>(readImgFx(null));
   // Tema del mazo, cuadrícula, plantillas, pie/números de diapositiva.
   const [themeId, setThemeId] = useState<string>(value?.theme || 'light');
   const themeRef = useRef<string>(themeId);
@@ -177,7 +186,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
     sync();
   }
   // Include custom props (anim = entrance animation, shape = .pptx mapping, link = hyperlink, locked).
-  function capture() { const c = fabricRef.current; if (c) slidesRef.current[curRef.current] = c.toObject(['anim', 'animOrder', 'animDur', 'shape', 'link', 'locked']); }
+  function capture() { const c = fabricRef.current; if (c) slidesRef.current[curRef.current] = c.toObject(['anim', 'animOrder', 'animDur', 'shape', 'link', 'locked', 'imgFx', 'chartSpec', 'smart', 'conn']); }
   function applyLock(o: any) {
     const L = !!o.locked;
     o.set({ lockMovementX: L, lockMovementY: L, lockScalingX: L, lockScalingY: L, lockRotation: L, hasControls: !L });
@@ -197,10 +206,16 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
     canvas.on('object:added', onMod);
     canvas.on('object:modified', onMod);
     canvas.on('object:removed', onMod);
-    const onSel = () => { const o = canvas.getActiveObject() as any; setHasSel(!!o); setSelAnim((o?.anim as string) || 'none'); setSelAnimOrder(o?.animOrder ?? 0); setSelAnimDur(o?.animDur ?? 500); setSelOpacity(o?.opacity ?? 1); setSelLocked(!!o?.locked); };
+    const onSel = () => {
+      const o = canvas.getActiveObject() as any;
+      setHasSel(!!o); setSelType((o?.type as string) || '');
+      setSelCount(o?.type === 'activeselection' || o?.type === 'activeSelection' ? (o._objects?.length ?? 0) : (o ? 1 : 0));
+      setSelAnim((o?.anim as string) || 'none'); setSelAnimOrder(o?.animOrder ?? 0); setSelAnimDur(o?.animDur ?? 500);
+      setSelOpacity(o?.opacity ?? 1); setSelLocked(!!o?.locked); setImgFx(readImgFx(o)); setSelAngle(Math.round(o?.angle ?? 0));
+    };
     canvas.on('selection:created', onSel);
     canvas.on('selection:updated', onSel);
-    canvas.on('selection:cleared', () => { setHasSel(false); setSelAnim('none'); });
+    canvas.on('selection:cleared', () => { setHasSel(false); setSelType(''); setSelCount(0); setSelAnim('none'); });
 
     // Guías de alineación + snapping (al centro/bordes del lienzo y a otros objetos).
     const SNAP = 6;
@@ -239,6 +254,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
       const json = slidesRef.current[i] || blank();
       await c.loadFromJSON(json);
       c.backgroundColor = (json.background as string) || '#ffffff';
+      c.forEachObject((o: any) => { if (o.type === 'image' && o.imgFx) applyImageEffects(o, readImgFx(o)); });
       if (readOnly) {
         c.selection = false;
         c.forEachObject((o: any) => { o.selectable = false; o.evented = false; });
@@ -275,6 +291,19 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
     const pts = [{ x: 70, y: 0 }, { x: 140, y: 70 }, { x: 70, y: 140 }, { x: 0, y: 70 }];
     add(new Polygon(pts, { left: 150, top: 130, fill: '#10b981', shape: 'diamond' } as any));
   }
+  // Biblioteca ampliada de formas (polígonos + curvas) con pista para .pptx.
+  function addShapeByKind(kind: string) {
+    const fill = theme().accent;
+    if (POLY_SHAPES[kind]) {
+      const pts = POLY_SHAPES[kind].map((p) => ({ x: p.x * 1.6, y: p.y * 1.6 }));
+      add(new Polygon(pts, { left: 300, top: 170, fill, shape: kind } as any));
+    } else if (PATH_SHAPES[kind]) {
+      const def = PATH_SHAPES[kind];
+      const obj = new Path(def.d, { left: 300, top: 170, fill, shape: kind } as any);
+      if (typeof (obj as any).scaleToWidth === 'function') (obj as any).scaleToWidth(180);
+      add(obj);
+    }
+  }
   function addImageFromUrl(url: string) {
     FabricImage.fromURL(url, { crossOrigin: 'anonymous' }).then((img: any) => {
       if (!img) return; img.scaleToWidth(360); img.set({ left: 100, top: 100 }); add(img);
@@ -286,6 +315,39 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
     reader.onload = () => { if (typeof reader.result === 'string') addImageFromUrl(reader.result); };
     reader.readAsDataURL(f);
     e.target.value = '';
+  }
+  // ── Efectos de imagen (filtros Fabric), recorte y reemplazo ────────────────
+  const activeImage = (): any => { const o = fabricRef.current?.getActiveObject() as any; return o && o.type === 'image' ? o : null; };
+  function setFx(patch: Partial<ImgFx>) {
+    const c = fabricRef.current; const o = activeImage(); if (!c || !o) return;
+    const next = { ...readImgFx(o), ...patch };
+    setImgFx(next); applyImageEffects(o, next); c.requestRenderAll(); capture(); sync();
+  }
+  function resetFx() {
+    const c = fabricRef.current; const o = activeImage(); if (!c || !o) return;
+    applyImageEffects(o, readImgFx(null)); setImgFx(readImgFx(null)); c.requestRenderAll(); capture(); sync();
+  }
+  function cropImage(ratio: number) {
+    const c = fabricRef.current; const o = activeImage(); if (!c || !o) return;
+    cropToRatio(o, ratio); c.requestRenderAll(); capture(); sync();
+  }
+  function uncropImage() {
+    const c = fabricRef.current; const o = activeImage(); if (!c || !o) return;
+    resetCrop(o); c.requestRenderAll(); capture(); sync();
+  }
+  function onReplaceFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0]; const o = activeImage(); e.target.value = '';
+    if (!f || !o) return;
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const c = fabricRef.current; if (!c || typeof reader.result !== 'string') return;
+      try {
+        await (o as any).setSrc(reader.result, { crossOrigin: 'anonymous' });
+        resetCrop(o); applyImageEffects(o, readImgFx(o));
+        c.requestRenderAll(); capture(); sync();
+      } catch { /* noop */ }
+    };
+    reader.readAsDataURL(f);
   }
   function setColor(color: string) {
     const c = fabricRef.current; const o = c?.getActiveObject() as any;
@@ -345,6 +407,36 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
     const c = fabricRef.current; const o = c?.getActiveObject() as any;
     if (c && o) { o.set('opacity', v); c.requestRenderAll(); capture(); sync(); }
   }
+  // ── Agrupar / desagrupar (Fabric v7: removeAll restaura coords absolutas) ───
+  function groupSel() {
+    const c = fabricRef.current; const sel = c?.getActiveObject() as any;
+    if (!c || !sel || (sel.type !== 'activeselection' && sel.type !== 'activeSelection')) return;
+    const objs = sel.removeAll();
+    objs.forEach((o: any) => c.remove(o));
+    const g = new Group(objs);
+    c.add(g); c.setActiveObject(g); c.requestRenderAll(); capture(); sync();
+    setSelType('group'); setSelCount(1);
+  }
+  function ungroupSel() {
+    const c = fabricRef.current; const g = c?.getActiveObject() as any;
+    if (!c || !g || g.type !== 'group') return;
+    const objs = g.removeAll();
+    c.remove(g);
+    objs.forEach((o: any) => c.add(o));
+    const sel = new ActiveSelection(objs, { canvas: c });
+    c.setActiveObject(sel); c.requestRenderAll(); capture(); sync();
+    setSelType('activeselection'); setSelCount(objs.length);
+  }
+  function setAngle(v: number) {
+    const c = fabricRef.current; const o = c?.getActiveObject() as any;
+    if (!c || !o) return;
+    o.rotate(((v % 360) + 360) % 360); o.setCoords(); setSelAngle(Math.round(o.angle));
+    c.requestRenderAll(); capture(); sync();
+  }
+  function rotateBy(delta: number) {
+    const o = fabricRef.current?.getActiveObject() as any;
+    if (o) setAngle(Math.round((o.angle ?? 0) + delta));
+  }
   function del() { const c = fabricRef.current; const o = c?.getActiveObject(); if (c && o) { c.remove(o); c.requestRenderAll(); } }
   function front() { const c = fabricRef.current; const o = c?.getActiveObject(); if (c && o) { (c as any).bringObjectToFront(o); c.requestRenderAll(); capture(); sync(); } }
   function back() { const c = fabricRef.current; const o = c?.getActiveObject(); if (c && o) { (c as any).sendObjectToBack(o); c.requestRenderAll(); capture(); sync(); } }
@@ -393,6 +485,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
       if (!o || o.isEditing) return;
       if (meta && k === 'c') { clipboardRef.current = o; return; }
       if (meta && k === 'd') { e.preventDefault(); dupObj(); return; }
+      if (meta && k === 'g') { e.preventDefault(); if (e.shiftKey) ungroupSel(); else groupSel(); return; }
       if (meta && k === 'b') { e.preventDefault(); toggleBold(); return; }
       if (meta && k === 'i') { e.preventDefault(); toggleItalic(); return; }
       if (meta && k === 'u') { e.preventDefault(); toggleUnderline(); return; }
@@ -508,6 +601,9 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
               <RibbonButton icon={ArrowRight} label="Flecha" onClick={addArrow} />
               <RibbonButton icon={Diamond} label="Rombo" onClick={addDiamond} />
               <RibbonButton icon={Minus} label="Línea" onClick={addLine} />
+              <RibbonMenuButton icon={Shapes} label="Formas" menuWidth={272}>
+                <ShapeGallery onPick={addShapeByKind} />
+              </RibbonMenuButton>
             </RibbonGroup>
             <RibbonSeparator />
             <RibbonGroup label="Tablas">
@@ -543,7 +639,25 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
               <RibbonButton icon={FlipHorizontal} label="Voltear horizontal" onClick={() => flip('x')} />
               <RibbonButton icon={FlipVertical} label="Voltear vertical" onClick={() => flip('y')} />
               <RibbonButton icon={selLocked ? Unlock : Lock} label={selLocked ? 'Desbloquear posición' : 'Bloquear posición'} active={selLocked} onClick={toggleLock} />
+              {(selType === 'activeselection' || selType === 'activeSelection') && selCount > 1 && (
+                <RibbonButton icon={GroupIcon} label="Agrupar" shortcut="Ctrl+G" onClick={groupSel} />
+              )}
+              {selType === 'group' && (
+                <RibbonButton icon={Ungroup} label="Desagrupar" shortcut="Ctrl+Shift+G" onClick={ungroupSel} />
+              )}
             </RibbonGroup>
+            {hasSel && (
+              <>
+                <RibbonSeparator />
+                <RibbonGroup label="Girar">
+                  <RibbonButton icon={RotateCw} label="Girar 90° derecha" onClick={() => rotateBy(90)} />
+                  <RibbonButton icon={RotateCw} label="Girar 90° izquierda" onClick={() => rotateBy(-90)} />
+                  <input type="number" value={selAngle} title="Ángulo (grados)" onChange={(e) => setAngle(Number(e.target.value))}
+                    className="w-14 h-7 text-xs rounded-lg bg-black/[0.04] dark:bg-white/[0.06] px-1.5 outline-none border border-transparent focus:border-blue-500/40 text-gray-800 dark:text-gray-100" />
+                  <span className="text-[11px] text-gray-400">°</span>
+                </RibbonGroup>
+              </>
+            )}
             <RibbonSeparator />
             <RibbonGroup label="Estilo de forma">
               <RibbonColorButton icon={PaintBucket} title="Color de relleno" onChange={setColor} swatchBar={false} />
@@ -558,6 +672,26 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
                 </span>
               )}
             </RibbonGroup>
+            {selType === 'image' && (
+              <>
+                <RibbonSeparator />
+                <RibbonGroup label="Imagen">
+                  <RibbonMenuButton icon={Crop} label="Recortar" menuWidth={190} items={[
+                    ...CROP_RATIOS.map((r) => ({ label: r.label, onClick: () => cropImage(r.ratio) })),
+                    { label: 'Quitar recorte', onClick: uncropImage },
+                  ]} />
+                  <RibbonMenuButton icon={Wand2} label="Efectos" menuWidth={252}>
+                    <ImageEffectsPanel fx={imgFx} onChange={setFx} onReset={resetFx} />
+                  </RibbonMenuButton>
+                  <RibbonButton icon={SunMedium} label="Más brillo" onClick={() => setFx({ brightness: Math.min(0.6, imgFx.brightness + 0.1) })} />
+                  <RibbonButton icon={Contrast} label="Más contraste" onClick={() => setFx({ contrast: Math.min(0.6, imgFx.contrast + 0.1) })} />
+                  <label title="Reemplazar imagen" className="h-7 w-7 inline-flex items-center justify-center rounded-lg hover:bg-black/[0.06] dark:hover:bg-white/10 text-gray-700 dark:text-gray-200 cursor-pointer">
+                    <Replace className="w-[17px] h-[17px]" strokeWidth={1.75} /><input type="file" accept="image/*" onChange={onReplaceFile} className="hidden" />
+                  </label>
+                  <RibbonButton icon={RefreshCw} label="Restablecer imagen" onClick={() => { resetFx(); uncropImage(); }} />
+                </RibbonGroup>
+              </>
+            )}
             <RibbonSeparator />
             <RibbonGroup label="Animación">
               {hasSel ? (

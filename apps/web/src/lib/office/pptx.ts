@@ -22,6 +22,22 @@ function hex(c?: any): string | undefined {
   return undefined;
 }
 
+// Pista de forma (Fabric) → nombre de preset de PowerPoint (PptxGenJS ShapeType).
+// Si el preset no existe en la versión de la lib, presetFor() devuelve undefined
+// y el llamador cae a un rectángulo (formas) u omite (paths sueltos).
+const HINT_TO_PRESET: Record<string, string> = {
+  star4: 'star4', star5: 'star5', star6: 'star6',
+  rightArrow: 'rightArrow', leftArrow: 'leftArrow', upArrow: 'upArrow', downArrow: 'downArrow', leftRightArrow: 'leftRightArrow',
+  diamond: 'diamond', pentagon: 'pentagon', hexagon: 'hexagon', octagon: 'octagon',
+  trapezoid: 'trapezoid', parallelogram: 'parallelogram', chevron: 'chevron', homePlate: 'homePlate',
+  plus: 'plus', lightningBolt: 'lightningBolt', ribbon: 'ribbon2',
+  heart: 'heart', cloud: 'cloud', sun: 'sun', speech: 'wedgeRectCallout',
+};
+function presetFor(hint: any, ST: any): any {
+  const name = typeof hint === 'string' ? HINT_TO_PRESET[hint] : undefined;
+  return name ? ST[name] : undefined;
+}
+
 export async function exportPptx(slides: any[], title: string, notes: string[] = [], opts: { footer?: string; showNumbers?: boolean } = {}) {
   const mod: any = await import('pptxgenjs');
   const PptxGenJS = mod.default ?? mod;
@@ -69,11 +85,23 @@ function addObject(slide: any, o: any, ST: any) {
     }
     return;
   }
-  // Trazos SVG sueltos (iconos vectoriales): PowerPoint no los reproduce bien → omitir.
-  if (type === 'path') return;
   const w = (o.radius ? o.radius * 2 : (o.width ?? 0)) * scaleX;
   const h = (o.radius ? o.radius * 2 : (o.height ?? 0)) * scaleY;
   const box = { x: sx(o.left ?? 0), y: sy(o.top ?? 0), w: Math.max(0.05, sx(w)), h: Math.max(0.05, sy(h)), rotate: Math.round(o.angle ?? 0) };
+
+  // Path: si lleva pista de forma (corazón, nube, bocadillo…), exporta como
+  // preset nativo de PowerPoint; si no, es un trazo SVG suelto → se omite.
+  if (type === 'path') {
+    const preset = presetFor(o.shape, ST);
+    if (preset) {
+      slide.addShape(preset, {
+        ...box,
+        fill: hex(o.fill) ? { color: hex(o.fill) } : { type: 'none' },
+        line: hex(o.stroke) ? { color: hex(o.stroke), width: o.strokeWidth ?? 1 } : undefined,
+      });
+    }
+    return;
+  }
 
   if (type === 'textbox' || type === 'i-text' || type === 'text') {
     slide.addText(String(o.text ?? ''), {
@@ -98,9 +126,10 @@ function addObject(slide: any, o: any, ST: any) {
     slide.addShape(ST.line, { ...box, line: { color: hex(o.stroke) ?? '111827', width: o.strokeWidth ?? 2 } });
     return;
   }
-  // Custom shape hint (star/arrow/diamond) maps to a native PowerPoint preset.
-  const presetByHint: Record<string, any> = { star5: ST.star5, rightArrow: ST.rightArrow, diamond: ST.diamond };
-  const shape = (o.shape && presetByHint[o.shape]) ? presetByHint[o.shape]
+  // Custom shape hint (star/arrow/diamond/pentágono…) → preset nativo de PowerPoint.
+  const hinted = presetFor(o.shape, ST);
+  const shape = hinted
+    ? hinted
     : type === 'circle' ? ST.ellipse
     : type === 'triangle' ? ST.triangle
     : (o.rx || o.ry) ? ST.roundRect
