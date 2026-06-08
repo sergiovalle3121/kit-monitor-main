@@ -247,6 +247,13 @@ Verificado: `tsc` ✓, `eslint` ✓, `next build` ✓.
 
 Verificado: `tsc` ✓, `eslint` ✓, `next build` ✓.
 
+#### Lote 19 — Vista de esquema (productividad)
+- `SlideOutline.tsx` — vista de **esquema**: lista todas las diapositivas con su
+  **título editable** (actualiza el primer cuadro de texto; lo crea si no
+  existe) y una vista previa del cuerpo; clic para navegar. Vista ▸ Esquema.
+
+Verificado: `tsc` ✓, `eslint` ✓, `next build` ✓.
+
 ### Diferido (con estimación)
 - **Secciones en el clasificador** y colapsar/expandir: el sorter es una rejilla;
   insertar encabezados de ancho completo + colapso. Estimación: ~0.5 día.

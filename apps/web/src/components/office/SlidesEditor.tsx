@@ -42,6 +42,7 @@ import { buildSmartArt, defaultSmartSpec, isSmart, type SmartSpec } from './slid
 import { SlideSmartArtEditor } from './SlideSmartArtEditor';
 import { makeConnector, refreshConnectors, pickTwo, isConnector } from './slides/connectors';
 import { SlideFindReplace } from './SlideFindReplace';
+import { SlideOutline } from './SlideOutline';
 import {
   OfficeRibbon, RibbonTab, RibbonGroup, RibbonSeparator,
   RibbonButton, RibbonSelect, RibbonColorButton, RibbonMenuButton,
@@ -146,6 +147,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
   const tableTargetRef = useRef<any>(null);
   const [findOpen, setFindOpen] = useState(false);
   const findCursorRef = useRef<{ s: number; o: number }>({ s: -1, o: -1 });
+  const [outlineOpen, setOutlineOpen] = useState(false);
   const footerRef = useRef<string>(value?.footer || '');
   const numbersRef = useRef<boolean>(!!value?.showNumbers);
   const [showNumbers, setShowNumbers] = useState<boolean>(!!value?.showNumbers);
@@ -289,6 +291,17 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
     const c = fabricRef.current; if (!c) return;
     const obj = c.getObjects()[next.o];
     if (obj) { c.setActiveObject(obj); setHasSel(true); setSelType((obj as any).type || ''); c.requestRenderAll(); }
+  }
+  function setSlideTitle(i: number, text: string) {
+    capture();
+    const slide = slidesRef.current[i]; if (!slide) return;
+    if (!Array.isArray(slide.objects)) slide.objects = [];
+    const objs = slide.objects;
+    const idx = objs.findIndex((o: any) => o.type === 'textbox' || o.type === 'i-text' || o.type === 'text');
+    if (idx >= 0) { const lines = String(objs[idx].text ?? '').split('\n'); lines[0] = text; objs[idx].text = lines.join('\n'); }
+    else objs.unshift({ type: 'textbox', version: '7', text, left: 60, top: 56, width: 760, fontSize: 40, fontWeight: 'bold', fill: '#111827', fontFamily: 'sans-serif' });
+    if (i === curRef.current) loadInto(i);
+    sync();
   }
   function replaceAllText(q: string, repl: string, cs: boolean): number {
     if (!q) return 0; capture();
@@ -1327,6 +1340,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
             <RibbonButton icon={Play} label="Presentar" hideLabel={false} onClick={() => { capture(); setPresenterMode(false); setPresenting(true); }} />
             <RibbonButton icon={MonitorPlay} label="Presentador" hideLabel={false} onClick={() => { capture(); setPresenterMode(true); setPresenting(true); }} />
             <RibbonButton icon={LayoutGrid} label="Clasificador" hideLabel={false} onClick={() => { capture(); setSorter(true); }} />
+            {!readOnly && <RibbonButton icon={ListTree} label="Esquema" hideLabel={false} onClick={() => { capture(); setOutlineOpen(true); }} />}
           </RibbonGroup>
         </RibbonTab>
       </OfficeRibbon>
@@ -1419,6 +1433,9 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
       </AnimatePresence>
       <AnimatePresence>
         {findOpen && !readOnly && <SlideFindReplace onClose={() => setFindOpen(false)} onCount={countMatches} onNext={findNext} onReplaceAll={replaceAllText} />}
+      </AnimatePresence>
+      <AnimatePresence>
+        {outlineOpen && !readOnly && <SlideOutline slides={slides} current={cur} onTitle={setSlideTitle} onGoto={(i) => { setOutlineOpen(false); goto(i); }} onClose={() => setOutlineOpen(false)} />}
       </AnimatePresence>
       <AnimatePresence>
         {sorter && (
