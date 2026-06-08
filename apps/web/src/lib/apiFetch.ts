@@ -47,5 +47,67 @@ export function withContextHeaders(init?: RequestInit): RequestInit {
 }
 
 export function apiFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
-  return fetch(input, withContextHeaders(init));
+  return fetchWithReauth(input, init);
+}
+
+// ── Self-healing auth ────────────────────────────────────────────────────────
+// If the backend rejects our JWT (401, or 403 from an invalid token) — e.g. the
+// JWT secret rotated on Railway or the stored token went stale — re-exchange the
+// cookie session for a fresh backend JWT via the bridge and retry the original
+// request ONCE. A single in-flight exchange is shared, so a page firing many
+// calls at once re-bridges only one time (no stampede, no loops).
+
+const TOKEN_KEY = 'axos_access_token';
+const BRIDGE_URL = '/api/backend/token';
+let refreshInFlight: Promise<string | null> | null = null;
+
+async function reexchangeToken(): Promise<string | null> {
+  if (typeof window === 'undefined') return null;
+  if (refreshInFlight) return refreshInFlight;
+  refreshInFlight = (async () => {
+    try {
+      window.localStorage.removeItem(TOKEN_KEY);
+      const res = await fetch(BRIDGE_URL, { cache: 'no-store' });
+      if (!res.ok) return null;
+      const data = await res.json().catch(() => null);
+      const token = data?.access_token;
+      if (typeof token === 'string' && token) {
+        window.localStorage.setItem(TOKEN_KEY, token);
+        return token;
+      }
+      return null;
+    } catch {
+      return null;
+    } finally {
+      refreshInFlight = null;
+    }
+  })();
+  return refreshInFlight;
+}
+
+function reauthEligible(input: RequestInfo | URL): boolean {
+  if (typeof window === 'undefined') return false;
+  const url =
+    typeof input === 'string'
+      ? input
+      : input instanceof URL
+        ? input.href
+        : (input as Request).url ?? '';
+  // Never try to self-heal the bridge call itself (would recurse).
+  return !url.includes('/backend/token');
+}
+
+async function fetchWithReauth(
+  input: RequestInfo | URL,
+  init?: RequestInit,
+): Promise<Response> {
+  const res = await fetch(input, withContextHeaders(init));
+  if ((res.status === 401 || res.status === 403) && reauthEligible(input)) {
+    const token = await reexchangeToken();
+    if (token) {
+      // withContextHeaders re-reads the fresh token from localStorage.
+      return fetch(input, withContextHeaders(init));
+    }
+  }
+  return res;
 }
