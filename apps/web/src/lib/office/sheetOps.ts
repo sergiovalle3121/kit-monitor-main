@@ -332,7 +332,7 @@ export function roundNice(n: number): number {
   return Math.round(n * 1e6) / 1e6;
 }
 
-const KEY_SEP = ' ';
+const jk = (arr: unknown): string => JSON.stringify(arr);
 const cmpKey = (a: string[], b: string[]): number => {
   for (let i = 0; i < Math.max(a.length, b.length); i++) {
     const x = a[i] ?? '', y = b[i] ?? '';
@@ -382,9 +382,9 @@ export function buildPivot(sheet: any, cfg: PivotConfig): PivotResult {
 
   for (const rec of recs) {
     const rk = rowKeyOf(rec), ck = colKeyOf(rec);
-    const rkj = rk.join(KEY_SEP), ckj = ck.join(KEY_SEP);
+    const rkj = jk(rk), ckj = jk(ck);
     rowKeySet.set(rkj, rk); colKeySet.set(ckj, ck);
-    push(cellRecs, `${rkj}${KEY_SEP}${KEY_SEP}${ckj}`, rec);
+    push(cellRecs, jk([rk, ck]), rec);
     push(rowRecs, rkj, rec);
     push(colRecs, ckj, rec);
     if (rowFields.length) push(outerRecs, rk[0], rec);
@@ -415,7 +415,6 @@ export function buildPivot(sheet: any, cfg: PivotConfig): PivotResult {
   const colLevels = colFields.length;
   const headerRows = Math.max(1, colLevels + (multiVal || colLevels === 0 ? 1 : 0));
   const matrix: PivotCellOut[][] = [];
-  const blank = (): PivotCellOut => ({ v: null, t: 'empty' });
   const vfLabel = (vf: PivotValueField) => vf.label || `${AGG_LABEL[vf.agg]} de ${vf.field}`;
 
   for (let hr = 0; hr < headerRows; hr++) {
@@ -457,18 +456,18 @@ export function buildPivot(sheet: any, cfg: PivotConfig): PivotResult {
   let prevOuter: string | null = null;
   for (let i = 0; i < rowKeys.length; i++) {
     const rk = rowKeys[i];
-    const rkj = rk.join(KEY_SEP);
+    const rkj = jk(rk);
     // Subtotal del grupo externo anterior, al cambiar de valor externo.
     if (showSub && prevOuter !== null && rk[0] !== prevOuter) {
       matrix.push(bodyRow(
         [`${prevOuter} — Total`], 'subtotal',
-        (ck) => unionRecs(outerRecs.get(prevOuter!), colRecs.get(ck.join(KEY_SEP))),
+        (ck) => unionRecs(outerRecs.get(prevOuter!), colRecs.get(jk(ck))),
         outerRecs.get(prevOuter),
       ));
     }
     matrix.push(bodyRow(
       rk, 'value',
-      (ck) => cellRecs.get(`${rkj}${KEY_SEP}${KEY_SEP}${ck.join(KEY_SEP)}`),
+      (ck) => cellRecs.get(jk([rk, ck])),
       rowRecs.get(rkj),
     ));
     prevOuter = rowFields.length ? rk[0] : null;
@@ -477,7 +476,7 @@ export function buildPivot(sheet: any, cfg: PivotConfig): PivotResult {
   if (showSub && prevOuter !== null) {
     matrix.push(bodyRow(
       [`${prevOuter} — Total`], 'subtotal',
-      (ck) => unionRecs(outerRecs.get(prevOuter!), colRecs.get(ck.join(KEY_SEP))),
+      (ck) => unionRecs(outerRecs.get(prevOuter!), colRecs.get(jk(ck))),
       outerRecs.get(prevOuter),
     ));
   }
@@ -486,7 +485,7 @@ export function buildPivot(sheet: any, cfg: PivotConfig): PivotResult {
   if (showColTotals && rowKeys.length) {
     matrix.push(bodyRow(
       ['Total general'], 'grandtotal',
-      (ck) => colRecs.get(ck.join(KEY_SEP)),
+      (ck) => colRecs.get(jk(ck)),
       recs,
     ));
   }
@@ -551,4 +550,191 @@ export function fieldValues(sheet: any, range: string, field: string): string[] 
   const set = new Set<string>();
   for (const row of read.rows) set.add(String(row[ci] ?? ''));
   return [...set].sort((a, b) => a.localeCompare(b, 'es', { numeric: true }));
+}
+
+// ── Formatos de número (moneda, %, fecha, científico, fracción, personalizado) ─
+export interface NumFmtOpts { currency?: string }
+const MONTHS_ES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+const MONTHS_FULL = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+
+/** Presets nombrados → código de formato real (estilo Excel) que entiende Fortune-Sheet. */
+export const NUMFMT_PRESETS: { id: string; label: string; code: string; sample: string }[] = [
+  { id: 'general', label: 'General', code: 'General', sample: '1234.5' },
+  { id: 'int', label: 'Número', code: '#,##0', sample: '1,235' },
+  { id: 'dec2', label: 'Número (2 dec.)', code: '#,##0.00', sample: '1,234.50' },
+  { id: 'currency', label: 'Moneda', code: '$#,##0.00', sample: '$1,234.50' },
+  { id: 'accounting', label: 'Contable', code: '$ #,##0.00;($ #,##0.00)', sample: '$ 1,234.50' },
+  { id: 'pct0', label: 'Porcentaje', code: '0%', sample: '12%' },
+  { id: 'pct2', label: 'Porcentaje (2 dec.)', code: '0.00%', sample: '12.34%' },
+  { id: 'sci', label: 'Científico', code: '0.00E+00', sample: '1.23E+03' },
+  { id: 'frac', label: 'Fracción', code: '# ??/??', sample: '1 1/2' },
+  { id: 'date', label: 'Fecha corta', code: 'dd/mm/yyyy', sample: '15/01/2026' },
+  { id: 'datel', label: 'Fecha larga', code: 'd "de" mmmm "de" yyyy', sample: '15 de enero de 2026' },
+  { id: 'time', label: 'Hora', code: 'hh:mm', sample: '13:45' },
+  { id: 'datetime', label: 'Fecha y hora', code: 'dd/mm/yyyy hh:mm', sample: '15/01/2026 13:45' },
+];
+
+const decimalsOf = (code: string): number => {
+  const seg = code.split(';')[0];
+  const frac = seg.includes('.') ? seg.split('.')[1] : '';
+  return (frac.match(/[0#]/g) ?? []).length;
+};
+const groupNum = (n: number, dec: number, grouped: boolean): string => {
+  const fixed = n.toFixed(dec);
+  const [int, frac] = fixed.split('.');
+  const gi = grouped ? int.replace(/\B(?=(\d{3})+(?!\d))/g, ',') : int;
+  return frac ? `${gi}.${frac}` : gi;
+};
+/** Convierte un valor (serial Excel, ISO, o Date) a Date UTC; null si no es fecha. */
+export function toDate(value: any): Date | null {
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    if (value < -1 || value > 600000) return null; // fuera del rango de seriales razonables
+    return new Date(Date.UTC(1899, 11, 30) + Math.round(value * 86400000));
+  }
+  if (typeof value === 'string') {
+    const s = value.trim(); if (!/\d/.test(s)) return null;
+    const t = Date.parse(s); if (!Number.isNaN(t)) return new Date(t);
+  }
+  return null;
+}
+function formatDate(d: Date, code: string): string {
+  const Y = d.getUTCFullYear(), Mo = d.getUTCMonth(), D = d.getUTCDate();
+  const H = d.getUTCHours(), Mi = d.getUTCMinutes(), S = d.getUTCSeconds();
+  const p2 = (x: number) => String(x).padStart(2, '0');
+  // Tokeniza en literales (comillas / símbolos) y runs de la misma letra de formato.
+  const tokens: { type: 'lit' | 'fmt'; v: string }[] = [];
+  for (let i = 0; i < code.length;) {
+    const ch = code[i];
+    if (ch === '"') { const end = code.indexOf('"', i + 1); tokens.push({ type: 'lit', v: end < 0 ? code.slice(i + 1) : code.slice(i + 1, end) }); i = end < 0 ? code.length : end + 1; continue; }
+    if (/[a-zA-Z]/.test(ch)) { let j = i; while (j < code.length && code[j].toLowerCase() === ch.toLowerCase()) j++; tokens.push({ type: 'fmt', v: code.slice(i, j) }); i = j; continue; }
+    tokens.push({ type: 'lit', v: ch }); i++;
+  }
+  // 'm' es minutos si esta junto a horas (antes) o segundos (despues); si no, mes.
+  const isMinute = (idx: number): boolean => {
+    for (let k = idx - 1; k >= 0; k--) { const t = tokens[k]; if (t.type === 'fmt') return /^h+$/i.test(t.v); if (t.v.trim() !== '' && t.v !== ':') break; }
+    for (let k = idx + 1; k < tokens.length; k++) { const t = tokens[k]; if (t.type === 'fmt') return /^s+$/i.test(t.v); if (t.v.trim() !== '' && t.v !== ':') break; }
+    return false;
+  };
+  return tokens.map((t, idx) => {
+    if (t.type === 'lit') return t.v;
+    const f = t.v.toLowerCase();
+    if (/^y+$/.test(f)) return f.length <= 2 ? p2(Y % 100) : String(Y);
+    if (/^m+$/.test(f)) {
+      if (f.length >= 4) return MONTHS_FULL[Mo];
+      if (f.length === 3) return MONTHS_ES[Mo];
+      if (isMinute(idx)) return f.length >= 2 ? p2(Mi) : String(Mi);
+      return f.length >= 2 ? p2(Mo + 1) : String(Mo + 1);
+    }
+    if (/^d+$/.test(f)) return f.length >= 2 ? p2(D) : String(D);
+    if (/^h+$/.test(f)) return f.length >= 2 ? p2(H) : String(H);
+    if (/^s+$/.test(f)) return f.length >= 2 ? p2(S) : String(S);
+    return t.v;
+  }).join('');
+}
+function toFraction(n: number, maxDen = 99): string {
+  const sign = n < 0 ? '-' : ''; const x = Math.abs(n);
+  const whole = Math.floor(x); let frac = x - whole;
+  if (frac < 1e-9) return `${sign}${whole}`;
+  let bestN = 1, bestD = 1, bestErr = Infinity;
+  for (let d = 1; d <= maxDen; d++) { const nn = Math.round(frac * d); const err = Math.abs(frac - nn / d); if (err < bestErr && nn > 0) { bestErr = err; bestN = nn; bestD = d; } }
+  return whole > 0 ? `${sign}${whole} ${bestN}/${bestD}` : `${sign}${bestN}/${bestD}`;
+}
+
+/** Formatea un valor según un código tipo Excel. Subconjunto práctico y robusto. */
+export function formatNumber(value: any, code: string, opts: NumFmtOpts = {}): string {
+  const cur = opts.currency ?? '$';
+  if (code == null || code === '' || code === 'General' || code === '@') return value == null ? '' : String(value);
+  const seg = code.split(';')[0];
+  const looksDate = /[ymdhs]/i.test(seg) && !/[#0]/.test(seg.replace(/"[^"]*"/g, ''));
+  if (looksDate) { const d = toDate(value); if (d) return formatDate(d, code); }
+  const n = toNumStrict(value);
+  if (n == null) return value == null ? '' : String(value);
+  if (code.includes('%')) { const dec = decimalsOf(code); return `${groupNum(n * 100, dec, code.includes(','))}%`; }
+  if (/e\+?0/i.test(code)) {
+    const dec = (seg.split(/[eE]/)[0].split('.')[1]?.match(/0/g)?.length) ?? 2;
+    const e = n.toExponential(dec);
+    const mm = /^(-?\d(?:\.\d+)?)e([+-])(\d+)$/i.exec(e);
+    return mm ? `${mm[1]}E${mm[2]}${mm[3].padStart(2, '0')}` : e.toUpperCase();
+  }
+  if (/\?\s*\/\s*\?/.test(code)) return toFraction(n);
+  const isCurrency = code.includes('$') || seg.toLowerCase().includes(cur.toLowerCase());
+  const accounting = code.split(';').length > 1 && code.includes('(');
+  const dec = decimalsOf(code);
+  const grouped = code.includes(',') || isCurrency;
+  const body = groupNum(Math.abs(n), dec, grouped);
+  let s = (isCurrency ? cur + (seg.includes('$ ') ? ' ' : '') : '') + body;
+  if (n < 0) s = accounting ? `(${s})` : `-${s}`;
+  return s;
+}
+
+/** Aplica un código de formato de número a un rango (baked en `m`, código en `ct.fa`). */
+export function applyNumberFormat(sheet: any, range: string, code: string, opts?: NumFmtOpts): number {
+  const rng = parseRange(range); if (!rng || !sheet) return 0;
+  sheet.celldata = sheet.celldata || [];
+  const map = new Map<string, Cell>();
+  for (const cd of sheet.celldata) map.set(`${cd.r}_${cd.c}`, cd);
+  let count = 0;
+  for (let r = rng.r1; r <= rng.r2; r++) {
+    for (let c = rng.c1; c <= rng.c2; c++) {
+      const cd = map.get(`${r}_${c}`); if (!cd) continue;
+      const v = ensureObj(cd);
+      v.ct = v.ct || {};
+      v.ct.fa = code === 'General' ? 'General' : code;
+      if (toNumStrict(v.v) != null) v.ct.t = 'n';
+      v.m = formatNumber(v.v, code, opts);
+      count++;
+    }
+  }
+  return count;
+}
+
+// ── Estilos de celda (presets tipo Excel) + alineación / ajuste ───────────────
+export interface CellStyle {
+  bg?: string | null; fc?: string | null; bold?: boolean; italic?: boolean;
+  align?: 'left' | 'center' | 'right'; valign?: 'top' | 'middle' | 'bottom';
+  wrap?: boolean; fs?: number; clear?: boolean;
+}
+/** Galería de estilos de celda (id → estilo). */
+export const CELL_STYLES: { id: string; label: string; style: CellStyle }[] = [
+  { id: 'normal', label: 'Normal', style: { clear: true } },
+  { id: 'title', label: 'Título', style: { bold: true, fs: 18, fc: '#0f172a' } },
+  { id: 'heading', label: 'Encabezado', style: { bold: true, fs: 13, fc: '#1e3a8a', bg: '#eff6ff' } },
+  { id: 'accent', label: 'Énfasis', style: { bold: true, fc: '#ffffff', bg: '#1f6feb' } },
+  { id: 'total', label: 'Total', style: { bold: true, bg: '#f1f5f9' } },
+  { id: 'good', label: 'Bueno', style: { fc: '#006100', bg: '#c6efce' } },
+  { id: 'bad', label: 'Malo', style: { fc: '#9c0006', bg: '#ffc7ce' } },
+  { id: 'neutral', label: 'Neutral', style: { fc: '#9c6500', bg: '#ffeb9c' } },
+  { id: 'note', label: 'Nota', style: { italic: true, fc: '#475569', bg: '#fffbe6' } },
+];
+const HT: Record<string, number> = { center: 0, left: 1, right: 2 };
+const VT: Record<string, number> = { middle: 0, top: 1, bottom: 2 };
+
+/** Aplica un estilo de celda a un rango. Crea celdas vacías en áreas pequeñas. */
+export function applyCellStyle(sheet: any, range: string, style: CellStyle): number {
+  const rng = parseRange(range); if (!rng || !sheet) return 0;
+  sheet.celldata = sheet.celldata || [];
+  const map = new Map<string, Cell>();
+  for (const cd of sheet.celldata) map.set(`${cd.r}_${cd.c}`, cd);
+  const area = (rng.r2 - rng.r1 + 1) * (rng.c2 - rng.c1 + 1);
+  const createEmpty = area <= 4000; // evita inflar el modelo en rangos enormes
+  let count = 0;
+  for (let r = rng.r1; r <= rng.r2; r++) {
+    for (let c = rng.c1; c <= rng.c2; c++) {
+      let cd = map.get(`${r}_${c}`);
+      if (!cd) { if (!createEmpty) continue; cd = { r, c, v: { v: '', m: '', ct: { fa: 'General', t: 's' } } }; sheet.celldata.push(cd); map.set(`${r}_${c}`, cd); }
+      const v = ensureObj(cd);
+      if (style.clear) { delete v.bg; delete v.fc; delete v.bl; delete v.it; delete v.ht; delete v.vt; delete v.tb; delete v.fs; count++; continue; }
+      if (style.bg !== undefined) { if (style.bg === null) delete v.bg; else v.bg = style.bg; }
+      if (style.fc !== undefined) { if (style.fc === null) delete v.fc; else v.fc = style.fc; }
+      if (style.bold !== undefined) v.bl = style.bold ? 1 : 0;
+      if (style.italic !== undefined) v.it = style.italic ? 1 : 0;
+      if (style.fs !== undefined) v.fs = style.fs;
+      if (style.align) v.ht = HT[style.align];
+      if (style.valign) v.vt = VT[style.valign];
+      if (style.wrap !== undefined) v.tb = style.wrap ? 2 : 1; // 2 = ajustar texto
+      count++;
+    }
+  }
+  return count;
 }

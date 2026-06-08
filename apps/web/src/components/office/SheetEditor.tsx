@@ -5,15 +5,16 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { Workbook } from '@fortune-sheet/react';
 import '@fortune-sheet/react/dist/index.css';
-import { ListChecks, Palette, Snowflake, FileText, Sigma, Search, ArrowDownUp, CopyMinus, Columns3, StickyNote, Table2 } from 'lucide-react';
+import { ListChecks, Palette, Snowflake, FileText, Sigma, Search, ArrowDownUp, CopyMinus, Columns3, StickyNote, Table2, Hash } from 'lucide-react';
 import { SheetCharts } from './SheetCharts';
 import { SheetTools, type ValidationPayload } from './SheetTools';
 import { SheetFunctionWizard } from './SheetFunctionWizard';
 import { SheetFindReplace } from './SheetFindReplace';
 import { SheetDataDialog, type DataMode } from './SheetDataDialog';
 import { SheetPivot } from './SheetPivot';
+import { SheetFormatDialog, type NumberFmtPayload, type StylePayload } from './SheetFormatDialog';
 import { parseRange, type ChartConfig } from '@/lib/office/charts';
-import { applyConditional, sortRange, removeDuplicates, textToColumns, setCellNote, replaceAll, buildPivot, pivotToCelldata, type CondPayload, type PivotConfig } from '@/lib/office/sheetOps';
+import { applyConditional, sortRange, removeDuplicates, textToColumns, setCellNote, replaceAll, buildPivot, pivotToCelldata, applyNumberFormat, applyCellStyle, colName, type CondPayload, type PivotConfig } from '@/lib/office/sheetOps';
 import { OfficeRibbon, RibbonTab, RibbonGroup, RibbonSeparator, RibbonButton, RibbonMenuButton } from './ribbon';
 
 // Content is either the legacy bare sheet array or the new { sheets, charts } shape.
@@ -42,6 +43,7 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
   const [showWizard, setShowWizard] = useState(false);
   const [showFind, setShowFind] = useState(false);
   const [showPivot, setShowPivot] = useState(false);
+  const [showFormat, setShowFormat] = useState(false);
   const [, setTick] = useState(0);
   const refreshT = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onChangeRef = useRef(onChange);
@@ -169,6 +171,33 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
 
   const activeIndex = () => { const i = sheetsRef.current.findIndex((s: any) => s?.status === 1); return i >= 0 ? i : 0; };
 
+  // Rango A1 de la selección actual del grid (para prefijar diálogos de formato).
+  function selectionRange(): string {
+    try {
+      const sel = wbRef.current?.getSelection?.();
+      const first = Array.isArray(sel) ? sel[0] : sel;
+      if (first?.row && first?.column) {
+        const r1 = first.row[0] ?? 0, r2 = first.row[1] ?? r1;
+        const c1 = first.column[0] ?? 0, c2 = first.column[1] ?? c1;
+        return `${colName(c1)}${r1 + 1}:${colName(c2)}${r2 + 1}`;
+      }
+    } catch { /* sin selección */ }
+    return 'A1:A10';
+  }
+
+  function applyNumberFmt(p: NumberFmtPayload) {
+    const sheets = clone(sheetsRef.current);
+    const sheet = sheets[p.sheetIndex] ?? sheets[0]; if (!sheet) { setShowFormat(false); return; }
+    applyNumberFormat(sheet, p.range, p.code, { currency: p.currency });
+    setShowFormat(false); remount(sheets);
+  }
+  function applyStyleFmt(p: StylePayload) {
+    const sheets = clone(sheetsRef.current);
+    const sheet = sheets[p.sheetIndex] ?? sheets[0]; if (!sheet) return;
+    applyCellStyle(sheet, p.range, p.style);
+    remount(sheets);
+  }
+
   function applyPivot(cfg: PivotConfig, target: { mode: 'new' | 'cell'; cell?: string }) {
     const sheets = clone(sheetsRef.current);
     const src = sheets[cfg.sheetIndex] ?? sheets[0];
@@ -237,6 +266,13 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
           </RibbonTab>
         )}
         {!readOnly && (
+          <RibbonTab id="format" label="Formato">
+            <RibbonGroup label="Celdas">
+              <RibbonButton icon={Hash} label="Formato de número y estilos" hideLabel={false} onClick={() => setShowFormat(true)} />
+            </RibbonGroup>
+          </RibbonTab>
+        )}
+        {!readOnly && (
           <RibbonTab id="formulas" label="Fórmulas">
             <RibbonGroup label="Biblioteca de funciones">
               <RibbonButton icon={Sigma} label="Insertar función" hideLabel={false} onClick={() => setShowWizard(true)} />
@@ -284,6 +320,16 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
             activeSheetIndex={activeIndex()}
             onApply={applyPivot}
             onClose={() => setShowPivot(false)}
+          />
+        )}
+        {showFormat && (
+          <SheetFormatDialog
+            sheetNames={sheetNames()}
+            defaultRange={selectionRange()}
+            defaultSheetIndex={activeIndex()}
+            onApplyNumber={applyNumberFmt}
+            onApplyStyle={applyStyleFmt}
+            onClose={() => setShowFormat(false)}
           />
         )}
       </AnimatePresence>

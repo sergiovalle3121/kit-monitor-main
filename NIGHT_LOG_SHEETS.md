@@ -65,5 +65,27 @@ de la región), y re-monta el grid.
 **Spec**: `components/office/sheets/pivot.spec.ts` (24 aserciones, `npx tsx`): cubre
 agregaciones, pivot 1D/2D, promedio, subtotales, filtros y múltiples valores.
 Verde. `tsc` y lint sin errores.
+
+> Nota técnica: las claves de los buckets del pivot usan `JSON.stringify` (libres de
+> colisión) en vez de un separador mágico.
+
+### 2) Formato de número + estilos de celda  ✅
+**Lógica pura** en `sheetOps.ts`:
+- `formatNumber(value, code, opts)` — subconjunto práctico tipo Excel:
+  número/miles, **moneda**, **contable** (negativos entre paréntesis), **porcentaje**,
+  **científico** (exponente con 2 dígitos), **fracción** (aprox. p/q≤99), **fecha/hora**
+  con *tokenizer* propio que distingue `mm` mes vs. minuto y soporta seriales Excel,
+  ISO y `Date`. `NUMFMT_PRESETS` para la UI.
+- `applyNumberFormat(sheet, range, code)` — hornea `m` y guarda el código en `ct.fa`.
+- `applyCellStyle(sheet, range, style)` + `CELL_STYLES` (Normal/Título/Encabezado/
+  Énfasis/Total/Bueno/Malo/Neutral/Nota) y alineación/ajuste de texto (`ht`/`vt`/`tb`).
+  Crea celdas vacías solo en rangos pequeños (≤4000) para no inflar el modelo.
+
+**UI**: `SheetFormatDialog.tsx` — pestañas **Número** (galería de presets + código
+personalizado + símbolo de moneda + **vista previa en vivo**) y **Estilos** (galería +
+alineación/ajuste). Pestaña **Formato** en el ribbon; prefija el rango con la
+**selección actual** del grid (`getSelection`).
+
+**Specs**: `numfmt.spec.ts` (27) y `cellstyle.spec.ts` (9). Verdes.
 </content>
 </invoke>
