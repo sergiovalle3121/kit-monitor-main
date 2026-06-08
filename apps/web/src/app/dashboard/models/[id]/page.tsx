@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import {
   ChevronLeft, Loader2, Lock, Save, CheckCircle2, Archive, RotateCcw, Boxes,
-  Layers, Plus, Trash2, Pencil, Check, X, ShieldCheck, Inbox,
+  Layers, Plus, Trash2, Pencil, Check, X, ShieldCheck, Inbox, Megaphone, ArrowRight,
 } from 'lucide-react';
 import { IconTile } from '@/components/ui/IconTile';
 import { glass } from '@/lib/glass';
@@ -136,8 +136,72 @@ export default function ModelDetailPage() {
 
         {/* BOM — reuses the `bom` module against this model's number. */}
         <BomSection modelNumber={model.modelNumber} productName={model.name} />
+
+        {/* Planes — siguiente eslabón del flujo (Modelo → BOM → Plan). */}
+        <PlansSection modelNumber={model.modelNumber} />
       </main>
     </div>
+  );
+}
+
+/* ──────────────────────────── Planes del modelo ──────────────────────────── */
+
+interface PlanLite { id: number | string; workOrder: string; model?: string; quantity?: number; status: string; line?: number | string | null }
+
+const PLAN_STATUS: Record<string, { label: string; color: string }> = {
+  pending: { label: 'Por publicar', color: '#f59e0b' },
+  published: { label: 'Publicado', color: '#7c3aed' },
+  released: { label: 'Liberado', color: '#7c3aed' },
+  active: { label: 'En producción', color: '#10b981' },
+  completed: { label: 'Completado', color: '#6b7280' },
+  cancelled: { label: 'Cancelado', color: '#ef4444' },
+};
+
+function PlansSection({ modelNumber }: { modelNumber: string }) {
+  // Reutiliza /plans con filtro de modelo; además filtra en cliente por si el
+  // backend ignora el parámetro (cinturón y tirantes — cero cambios de backend).
+  const { data, isLoading } = useApi<PlanLite[]>(`/plans?model=${encodeURIComponent(modelNumber)}`);
+  const plans = (Array.isArray(data) ? data : []).filter((p) => !p.model || p.model === modelNumber);
+
+  return (
+    <section className="mt-8">
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-sm font-semibold tracking-wide text-gray-500 dark:text-gray-400 flex items-center gap-2">
+          <Megaphone className="w-4 h-4" /> Planes de este modelo
+        </h2>
+        <Link href="/dashboard/planning" className="inline-flex items-center gap-1 text-xs font-medium text-violet-500 hover:text-violet-700">
+          Publicar plan <ArrowRight className="w-3 h-3" />
+        </Link>
+      </div>
+      {isLoading ? (
+        <div className="flex justify-center py-10 text-gray-400"><Loader2 className="w-5 h-5 animate-spin" /></div>
+      ) : plans.length === 0 ? (
+        <div className={`${glass} rounded-2xl p-6 text-center`}>
+          <Inbox className="w-6 h-6 mx-auto mb-2 text-gray-400" />
+          <p className="text-sm text-gray-400">Sin planes para este modelo. Publícalo en <Link href="/dashboard/planning" className="underline">Planeación</Link> para surtir y producir.</p>
+        </div>
+      ) : (
+        <div className={`${glass} rounded-2xl p-2`}>
+          <div className="divide-y divide-gray-100 dark:divide-white/5">
+            {plans.map((p) => {
+              const meta = PLAN_STATUS[p.status] ?? { label: p.status, color: '#6b7280' };
+              return (
+                <Link key={p.id} href="/dashboard/production" className="flex items-center justify-between px-3 py-3 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl transition-colors">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-black/5 dark:bg-white/10 text-gray-500">WO {p.workOrder}</span>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded font-medium" style={{ background: `${meta.color}1f`, color: meta.color }}>{meta.label}</span>
+                    </div>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{p.quantity ?? 0} u{p.line ? ` · Línea ${p.line}` : ''}</p>
+                  </div>
+                  <ArrowRight className="w-4 h-4 text-gray-300 flex-shrink-0" />
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </section>
   );
 }
 

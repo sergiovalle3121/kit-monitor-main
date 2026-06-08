@@ -1390,6 +1390,11 @@ Backends sin ningún consumidor en `apps/web` (detectados): `/replenishment`,
   **badge de estatus** y **score de calidad** (con color por umbral) + KPIs
   (total, activos, calidad promedio) + búsqueda + estado vacío honesto. Reutiliza
   `/suppliers`. → Falta wiring de navegación (abajo).
+- **(commit) Cross-link Modelo → Plan en `models/[id]`** — la ficha del modelo ya
+  mostraba el BOM inline; ahora también una sección **"Planes de este modelo"**
+  que lee `/plans?model=X` (+ filtro en cliente por si el backend ignora el
+  parámetro) y enlaza a Planeación/Producción. Completa visualmente el flujo
+  **Modelo → BOM → Plan** en una sola pantalla del maestro. Reutiliza `/plans`.
 - `tsc` + `eslint` (web) verdes.
 
 ## PENDIENTE: wiring de navegación (para que el dueño lo conecte en hub/paleta)
