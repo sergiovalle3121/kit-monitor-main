@@ -5,7 +5,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Canvas, StaticCanvas, Textbox, Rect, Circle, Line, Triangle, FabricImage, Polygon, Path, Shadow, Gradient,
-  Group, ActiveSelection, loadSVGFromString,
+  Group, ActiveSelection, PencilBrush, loadSVGFromString,
 } from 'fabric';
 import {
   Type, ImagePlus, Square, Circle as CircleIcon, Minus, Triangle as TriIcon,
@@ -20,7 +20,7 @@ import {
   List, IndentIncrease, IndentDecrease, MoveHorizontal, AlignVerticalSpaceAround, Sparkles, Search,
   Pointer, Pencil, Eraser, Moon, ListTree, Layers,
   ZoomIn, ZoomOut, Maximize, Scan, MousePointerClick, Check,
-  AlignHorizontalSpaceAround, Paintbrush, Stamp, Proportions, FolderPlus,
+  AlignHorizontalSpaceAround, Paintbrush, Stamp, Proportions, FolderPlus, Squircle,
 } from 'lucide-react';
 import { SlideSorter } from './SlideSorter';
 import { SlideIconPicker } from './SlideIconPicker';
@@ -112,6 +112,9 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
   const [selCount, setSelCount] = useState(0);
   const [selAngle, setSelAngle] = useState(0);
   const [imgFx, setImgFx] = useState<ImgFx>(readImgFx(null));
+  const [drawMode, setDrawMode] = useState(false);
+  const [penColor, setPenColor] = useState('#ef4444');
+  const [penWidth, setPenWidth] = useState(3);
   const [cropping, setCropping] = useState(false);
   const croppingRef = useRef(false);
   const cropRefs = useRef<{ img: any; frame: any } | null>(null);
@@ -342,6 +345,32 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
     if (!c || !o) return;
     const st = QUICK_STYLES.find((s) => s.id === id); if (!st) return;
     st.apply(o, theme().accent); c.requestRenderAll(); capture(); sync();
+  }
+  // Esquinas redondeadas (rectángulos): 0 = rectas; 'pill' = píldora.
+  function setCorners(r: number | 'pill') {
+    const c = fabricRef.current; const o = c?.getActiveObject() as any;
+    if (!c || !o || o.type !== 'rect') return;
+    const radius = r === 'pill' ? (Math.min(o.width, o.height) / 2) : r;
+    o.set({ rx: radius, ry: radius }); c.requestRenderAll(); capture(); sync();
+  }
+  // ── Dibujo libre (lápiz) en el lienzo ───────────────────────────────────────
+  function toggleDraw() {
+    const c = fabricRef.current; if (!c) return;
+    const next = !drawMode; c.isDrawingMode = next;
+    if (next) { const b = new PencilBrush(c); b.color = penColor; b.width = penWidth; c.freeDrawingBrush = b; }
+    setDrawMode(next);
+  }
+  function setBrush(patch: { color?: string; width?: number }) {
+    if (patch.color !== undefined) setPenColor(patch.color);
+    if (patch.width !== undefined) setPenWidth(patch.width);
+    const b: any = fabricRef.current?.freeDrawingBrush;
+    if (b) { if (patch.color !== undefined) b.color = patch.color; if (patch.width !== undefined) b.width = patch.width; }
+  }
+  // Fondo sólo de la diapositiva actual.
+  function applyBgCurrent(color: string) {
+    const c = fabricRef.current; if (!c) return;
+    capture(); slidesRef.current[curRef.current].background = color;
+    c.backgroundColor = color; c.requestRenderAll(); sync();
   }
   function setObjAnimOrder(v: number) {
     const c = fabricRef.current; const o = c?.getActiveObject() as any;
@@ -1014,6 +1043,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
             <RibbonSeparator />
             <RibbonGroup label="Fondo">
               <RibbonColorButton icon={Palette} title="Fondo de todas las diapositivas" onChange={applyBgAll} swatchBar={false} />
+              <RibbonColorButton icon={PaintBucket} title="Fondo de esta diapositiva" onChange={applyBgCurrent} swatchBar={false} />
             </RibbonGroup>
             <RibbonSeparator />
             <RibbonGroup label="Tamaño">
@@ -1073,6 +1103,13 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
                 { label: '# Ir a diapositiva…', onClick: () => addActionButton('slide') },
               ]} />
             </RibbonGroup>
+            <RibbonSeparator />
+            <RibbonGroup label="Dibujar">
+              <RibbonButton icon={Pencil} label="Lápiz (dibujo libre)" active={drawMode} onClick={toggleDraw} />
+              <RibbonColorButton icon={Palette} title="Color del lápiz" value={penColor} onChange={(col) => setBrush({ color: col })} swatchBar />
+              <RibbonSelect title="Grosor del lápiz" value={String(penWidth)} onChange={(v) => setBrush({ width: Number(v) })} width={88}
+                options={[{ label: 'Fino', value: '2' }, { label: 'Medio', value: '4' }, { label: 'Grueso', value: '8' }, { label: 'XL', value: '14' }]} />
+            </RibbonGroup>
           </RibbonTab>
         )}
 
@@ -1130,6 +1167,14 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
               <RibbonButton icon={Blend} label="Degradado" onClick={applyGradient} />
               <RibbonButton icon={Droplet} label="Sombra" onClick={toggleShadow} />
               <RibbonButton icon={SquareDashed} label="Borde" onClick={toggleBorder} />
+              {selType === 'rect' && (
+                <RibbonMenuButton icon={Squircle} label="Esquinas" menuWidth={170} items={[
+                  { label: 'Rectas', onClick: () => setCorners(0) },
+                  { label: 'Suaves', onClick: () => setCorners(10) },
+                  { label: 'Redondeadas', onClick: () => setCorners(24) },
+                  { label: 'Píldora', onClick: () => setCorners('pill') },
+                ]} />
+              )}
               {hasSel && (
                 <span className="inline-flex items-center gap-1 px-1.5" title="Opacidad del objeto">
                   <input type="range" min={0.1} max={1} step={0.05} value={selOpacity}

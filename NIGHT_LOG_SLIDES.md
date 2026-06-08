@@ -217,6 +217,16 @@ Verificado: `tsc` ✓, `eslint` ✓, `next build` ✓.
 
 Verificado: `tsc` ✓, `eslint` ✓, `next build` ✓.
 
+#### Lote 16 — Dibujo libre + esquinas + fondo por diapositiva (backlog #5)
+- **Lápiz / dibujo libre**: Insertar ▸ Dibujar activa `isDrawingMode` con
+  `PencilBrush` (color y grosor configurables); los trazos quedan como objetos
+  Path (se rasterizan en PDF/PNG/presentación).
+- **Esquinas redondeadas** configurables para rectángulos (rectas/suaves/
+  redondeadas/píldora).
+- **Fondo de esta diapositiva** (además del fondo de todas).
+
+Verificado: `tsc` ✓, `eslint` ✓, `next build` ✓.
+
 ### Diferido (con estimación)
 - **Secciones en el clasificador** y colapsar/expandir: el sorter es una rejilla;
   insertar encabezados de ancho completo + colapso. Estimación: ~0.5 día.
