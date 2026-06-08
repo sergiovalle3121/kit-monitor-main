@@ -1424,6 +1424,23 @@ Backends sin ningún consumidor en `apps/web` (detectados): `/replenishment`,
   rechazar cancelación de kit/WO). Sugerencia: dominio Producción, ícono `Ban`.
   Cmd-K: "Cancelaciones", "Solicitudes de cancelación".
 
+## Backends sin UI evaluados pero NO construidos (oportunidades futuras)
+Construí UI para los que eran claros y de alto valor (receiving, suppliers,
+warehouse, cancellation-requests). Estos los evalué y **deferí a propósito**:
+- **`/visual-aids`** — instrucciones de trabajo del operador en **PDF binario**
+  (`pdf_data` BINARY, `GET /visual-aids/file/:filename`). Valioso, pero ver el PDF
+  requiere fetch autenticado a blob + `URL.createObjectURL` en iframe (el endpoint
+  va con JWT en header; un `<iframe src>` directo daría 401). Complejidad/riesgo
+  de un visor a medias → mejor hacerlo con calidad en una iteración dedicada.
+- **`/resupplies`** — flujo de resurtido con `deliver/owner/status`. Riesgo de
+  **sentirse duplicado** con las llamadas de resurtido de `material-staging`
+  (kanban por estación). Conviene aclarar la diferencia conceptual antes de darle
+  UI, para no confundir al usuario (regla "reutiliza, no dupliques").
+- **`/shipping`** — probable solape con la página `outbound` (embarques). Validar
+  si es un nivel distinto antes de duplicar.
+- **`/process-routing`** — `engineering` ya consume `/process/routes` por modelo.
+- **`/bay-layouts`** — configuración de bahías; nicho.
+
 ## RESUMEN / CIERRE (sesión #2)
 - **Rama:** `claude/modules-unify` · **PR #260 → `main`** (diff limpio, sin
   mergear). 9 commits, uno por avance. `tsc`+`eslint`+`next build` (web) verdes;
