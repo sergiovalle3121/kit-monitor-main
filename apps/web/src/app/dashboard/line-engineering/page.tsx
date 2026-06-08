@@ -39,6 +39,7 @@ interface Kpis {
   modelsQualified: number; modelsBalanced: number; pctModelsBalanced: number;
   ctqStations: number; incompleteLayouts: number;
 }
+interface ModelOption { id: string; modelNumber: string; name: string; status: string }
 
 const pct = (n: number) => `${Math.round((n || 0) * 100)}%`;
 
@@ -47,6 +48,9 @@ export default function LineEngineeringPage() {
   const { data: kpis } = useApi<Kpis>('/line-engineering/kpis');
   const { data: stationsData, isLoading, forbidden, mutate } = useApi<Station[]>('/line-engineering/stations');
   const { data: qualsData, mutate: mutateQuals } = useApi<Qual[]>('/line-engineering/qualifications');
+  // Models come from the canonical master (NPI), not free text.
+  const { data: pmData } = useApi<ModelOption[]>('/product-models');
+  const masterModels = (Array.isArray(pmData) ? pmData : []).filter((m) => m.status !== 'OBSOLETE');
 
   const stations = Array.isArray(stationsData) ? stationsData : [];
   const quals = Array.isArray(qualsData) ? qualsData : [];
@@ -238,7 +242,12 @@ export default function LineEngineeringPage() {
       {showStation && (
         <Modal title="Nueva estación" onClose={() => setShowStation(false)}>
           <div className="grid grid-cols-2 gap-4">
-            <Field label="Modelo"><input value={sf.model} onChange={(e) => setSf({ ...sf, model: e.target.value })} className="ci-input" placeholder="AX-1000" /></Field>
+            <Field label="Modelo">
+              <select value={sf.model} onChange={(e) => setSf({ ...sf, model: e.target.value })} className="ci-input">
+                <option value="">Selecciona del maestro…</option>
+                {masterModels.map((m) => <option key={m.id} value={m.modelNumber}>{m.modelNumber} · {m.name}</option>)}
+              </select>
+            </Field>
             <Field label="Revisión"><input value={sf.revision} onChange={(e) => setSf({ ...sf, revision: e.target.value })} className="ci-input" /></Field>
             <Field label="Línea"><input value={sf.line} onChange={(e) => setSf({ ...sf, line: e.target.value })} className="ci-input" /></Field>
             <Field label="Estación"><input value={sf.station} onChange={(e) => setSf({ ...sf, station: e.target.value })} className="ci-input" placeholder="EST-10" /></Field>
@@ -257,7 +266,12 @@ export default function LineEngineeringPage() {
       {showQual && (
         <Modal title="Calificar modelo en línea" onClose={() => setShowQual(false)}>
           <div className="grid grid-cols-2 gap-4">
-            <Field label="Modelo"><input value={qf.model} onChange={(e) => setQf({ ...qf, model: e.target.value })} className="ci-input" placeholder="AX-1000" /></Field>
+            <Field label="Modelo">
+              <select value={qf.model} onChange={(e) => setQf({ ...qf, model: e.target.value })} className="ci-input">
+                <option value="">Selecciona del maestro…</option>
+                {masterModels.map((m) => <option key={m.id} value={m.modelNumber}>{m.modelNumber} · {m.name}</option>)}
+              </select>
+            </Field>
             <Field label="Revisión"><input value={qf.revision} onChange={(e) => setQf({ ...qf, revision: e.target.value })} className="ci-input" /></Field>
             <Field label="Línea"><input value={qf.line} onChange={(e) => setQf({ ...qf, line: e.target.value })} className="ci-input" /></Field>
             <Field label="Changeover (min)"><input type="number" value={qf.changeoverMinutes} onChange={(e) => setQf({ ...qf, changeoverMinutes: Number(e.target.value) })} className="ci-input" /></Field>

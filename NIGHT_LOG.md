@@ -10,6 +10,254 @@ archivos, decisiones, endpoints/pantallas, KPIs, siguiente paso / bloqueos.
 
 ---
 
+## 2026-06-08 — GOLDEN PATH · FASE 5 + CIERRE: barrido anti-maqueta + recorrido probado 🏁
+
+> Rama `claude/sweet-hawking-UQaaU`. SIN auto-merge a `main` (convención
+> `DECISIONS.md §1`): las 6 fases quedaron **commiteadas y pusheadas a la rama**
+> para revisión/merge del equipo.
+
+### Barrido anti-maqueta (golden path)
+- Grep sobre las páginas del hilo (modelos, ingeniería/BOM, planeación,
+  line-engineering, surtido/almacén): **0 datos mock, 0 botones muertos**
+  (`href="#"`, `onClick={() => {}}`), 0 "próximamente". Todo sale del API real;
+  estados vacíos honestos con CTA ("Crea tu primer modelo", "Crear BOM",
+  "Materiales", "Crea uno primero").
+
+### Recorrido del golden path probado de punta a punta (Postgres, folios reales)
+```
+1. Modelo creado: MDL-00001 — "Driver Board EV" (DRAFT)
+2. BOM creado: header #1 rev 1.0 (DRAFT)
+3. Partes en BOM: 3 — rollup $16.20/u   (1×12.5 + 6×0.35 + 2×0.80)
+4. BOM ACTIVE · Modelo ACTIVE
+5. Plan creado: WO 00001 — 25u del modelo MDL-00001 (pending)
+6. Preview de materiales (req. para 25u, hasBom=true):
+     PCB-DRV-01: 25 · MOSFET-40V: 150 (6×25) · CONN-8P: 50 (2×25)
+7. Plan publicado → kit #1, 3 líneas de surtido (mismas cantidades)
+```
+Como admin se puede operar el laboratorio de verdad: meter un modelo + su BOM,
+publicar su plan, y ver los materiales fluir hasta el surtido — **persistido**.
+
+### Módulos reutilizados (para NO duplicar a futuro)
+- **Folios** → `DocumentNumberingService.allocate('MODEL')` (prefijo `MDL`).
+- **Partes** → `MaterialMaster` + `inventory.ensureMaterial` (extendido: persiste
+  `standardCost`/`category` al crear).
+- **BOM** → módulo `bom` (`BomHeader`/`BomComponent`, `/bom/headers…`), ciclo
+  approve→activate y rollup de costo existentes.
+- **Surtido** → `pick-list` (explode) + `Kit`/`KitMaterial` + `/kit-materials`.
+- **Planes** → `plans` + KPIs del hub ya cableados a `/plans`.
+- **Diseño** → `DOMAINS`/`IconTile`/`PageHeader`/`glass`/`motion`, `SearchPalette`.
+- **Puente nuevo (no duplica):** `pick-list.resolveBomInput()` conecta el BOM SAP
+  (Modelos) con el explode de surtido, con fallback al `bom_items` legacy.
+
+### Lanzaderas / deuda anotada (no se borró nada)
+- Finanzas / Costos y métricas / Axos ERP y Mission Control / Torre de línea se
+  **agruparon por sección** en el hub; la fusión en una sola entrada con sub-tabs
+  queda como mejora futura (evita construir contenedores nuevos / ocultar features).
+- `material-staging` sigue derivando de la ruta de IE (e-kanban), no del kit; el
+  surtido por BOM ya es visible en Planeación (pick list) y Almacén (kit). Unificar
+  ambas vistas de surtido es backlog.
+- Dropdown de modelo del maestro aún por propagar a más altas con `model` libre
+  fuera del golden path (forecast, etc.) — incremental por página.
+
+### Estado de fases (todas en verde, pusheadas a la rama)
+- F0 Maestro de Modelo · F1 BOM del modelo · F2 Planeación+puente BOM ·
+  F3 Aguas abajo (IE/surtido/MM) · F4 Nav por flujo · F5 anti-maqueta+recorrido.
+- Puerta de bootstrap (Postgres) verde en cada cambio de backend; web
+  tsc/eslint/next build verde en cada cambio de frontend.
+
+---
+
+## 2026-06-08 — GOLDEN PATH · FASE 4: Navegación del hub por flujo (re-IA, sin borrar)
+
+> Rama `claude/sweet-hawking-UQaaU`. Solo `dashboard/page.tsx`. Reordenar + agrupar
+> — NO se borró ninguna área ni archivo (cumple "solo agregar/mejorar").
+
+- **`AREAS`** ahora lleva un campo `section` y se ordena por el **flujo real**:
+  Diseño · NPI → Planeación → Materiales → Producción → Calidad → Finanzas · ERP →
+  Control e inteligencia → Administración. Se añadió `SECTION_ORDER`.
+- El hub dejó de ser un bento revuelto: ahora renderiza **secciones con
+  encabezado** y una rejilla uniforme por sección (calmado, predecible). El
+  gating por rol intacto (admin/owner ven todo).
+- Duplicados/lanzaderas **agrupados** en su sección lógica en vez de dispersos:
+  Finanzas + Costos y métricas + Axos ERP → sección "Finanzas · ERP"; Mission
+  Control + Torre de control de línea → "Control e inteligencia"; Lab → Calidad.
+  No se eliminó ninguno (los archivos siguen).
+- Cleanup menor: `plans`/`requests` envueltos en `useMemo` → hub sin warnings.
+
+### Deuda anotada (consolidación más profunda, futura)
+- Las lanzaderas duplicadas (Finanzas/Costos/ERP; Mission Control/Torre de línea)
+  podrían fusionarse en UNA entrada con sub-tabs. Aquí se agruparon por sección
+  (re-IA no destructiva); la fusión en sub-tabs queda como mejora posterior para
+  no construir contenedores nuevos ni ocultar features.
+
+### Verificación
+- Web `tsc` (0), `eslint` (0, incl. warnings previos ya corregidos), `next build` OK.
+
+---
+
+## 2026-06-08 — GOLDEN PATH · FASE 3: Aguas abajo visibles (IE + surtido + MM/valuación)
+
+> Rama `claude/sweet-hawking-UQaaU`. Solo frontend (el puente de datos ya quedó
+> en Fase 2). Cierra el hilo aguas abajo sin clicks muertos.
+
+- **IE / `dashboard/line-engineering`**: los campos "Modelo" del alta de estación
+  y de calificación dejaron de ser texto libre → **dropdown del maestro**
+  (`useApi('/product-models')`, sin obsoletos). El layout/ruteo/balanceo ahora
+  referencia el modelo canónico.
+- **Surtido / `dashboard/almacen`**: cada tarjeta de solicitud ahora despliega
+  **"Ver materiales del kit"** → líneas reales del kit (`GET /kit-materials?kitId=`)
+  que vienen del BOM del modelo (vía el puente de Fase 2): partNumber, cantidad
+  requerida y faltante. "Surtido a línea" deja de ser un cascarón.
+- **MM / Finanzas (`erp/mm` valuación)**: verificado — YA muestra datos reales.
+  `GET /erp/mm/valuation` devuelve `qty × unitCost = value` y `totalValue`; la
+  cadena recibo→valuación existe (`POST /erp/mm/purchase-orders/:id/receive`
+  incrementa `totalQty`+`totalValue`) y usa `MaterialMaster.standardCost` como
+  costo base. Sin cambios necesarios; queda conectado al hilo (las partes nuevas
+  creadas en el BOM ya traen `standardCost` desde Fase 1).
+
+### Verificación
+- Web `tsc` (0), `eslint` (0 errores; 1 warning preexistente ajeno), `next build` OK.
+
+### Hilo completo (estado)
+- Crear modelo → BOM (partes con costo) → activar → publicar plan (materiales
+  derivados del BOM) → surtido en almacén (líneas reales del kit) → valuación
+  (standardCost). Sin dead-ends en el camino del golden path.
+
+---
+
+## 2026-06-08 — GOLDEN PATH · FASE 2: Planeación consume el modelo (puente BOM → surtido)
+
+> Rama `claude/sweet-hawking-UQaaU`. Conecta lo que ya existía; el hallazgo clave
+> fue que el "publish" explotaba el BOM **legacy `bom_items`**, NO el BOM SAP
+> (`bom_headers/components`) que captura el detalle del modelo (Fase 1). Estaban
+> desconectados → se construyó el puente.
+
+### Backend — puente BOM (aditivo, no destructivo)
+- **`pick-list.service.ts`**: nuevo `resolveBomInput(model)` que PREFIERE el
+  `BomHeader` **ACTIVE** del modelo (explota sus `components`: req/unidad =
+  `quantity × usageFactor / baseQuantity`) y **cae** al `bom_items` legacy si no
+  hay BOM SAP. Reusa la función pura `explodeBom`. `publishPlan` usa el puente y
+  da un error claro si el modelo no tiene BOM. Registrado `BomHeader` en el módulo.
+- **`previewPlan(planId)`** + `GET /pick-lists/preview/:planId`: explota el BOM
+  contra la cantidad del plan **sin** publicar → la UI muestra el requerimiento
+  real (y si el modelo tiene BOM activo) antes de comprometer.
+
+### Frontend — `dashboard/planning`
+- `NewPlanForm`: el modelo dejó de ser texto libre → **dropdown del maestro**
+  (`/product-models`, sin obsoletos). El plan guarda `model = modelNumber`. Aviso
+  + link "Crea uno primero" si el maestro está vacío.
+- Planes `pending`: botón **Materiales** → muestra las líneas derivadas del BOM
+  (partNumber, descripción, `qtyPerUnit × cantidad = req. total`). Si el modelo no
+  tiene BOM activo, mensaje honesto con link a Modelos.
+- KPI "Publicados" (planeación y hub) ya cableado a `/plans` → sube al publicar.
+
+### Verificación (todo en verde)
+- API `tsc`/`build`, **bootstrap smoke (Postgres)**, y **smoke funcional Fase 2**:
+  modelo + BOM ACTIVE → plan (qty 10) → preview ve el BOM SAP, P-A=3×10=30,
+  P-B=1×10=10 → publish genera pick list desde el BOM SAP (no el legacy) → plan
+  `published`. Caso negativo: modelo sin BOM → preview `hasBom=false` y publish
+  **rechazado**. Web `tsc`/`eslint`/`next build` OK.
+
+### Siguiente paso (Fase 3)
+- Aguas abajo: surtido/`material-staging` y `material-requests` ya leen el kit
+  (que ahora viene del BOM del modelo); IE/`line-engineering` con dropdown de
+  modelo; MM/Finanzas valuación con `standardCost`.
+
+---
+
+## 2026-06-08 — GOLDEN PATH · FASE 1: Partes + BOM del modelo (reusa `bom` + `MaterialMaster`)
+
+> Rama `claude/sweet-hawking-UQaaU`. Reusa el módulo `bom` y el maestro de partes
+> existentes — NO se duplicó nada. Solo se añadió UI y una extensión mínima.
+
+### Backend — extensión mínima y segura
+- **`inventory.service.ts › ensureMaterial`**: al **crear** una parte nueva ahora
+  persiste `standardCost` (y `category`). Es create-only: NUNCA sobrescribe partes
+  existentes. Antes los descartaba → el rollup del BOM y la valuación aguas abajo
+  quedaban en 0. Cambio aditivo (sin tocar firmas ni columnas).
+
+### Frontend — sección BOM en el detalle del modelo
+- **`dashboard/models/[id]/page.tsx`** → `BomSection` + `ComponentRow`:
+  - Si no hay BOM: CTA "Crear BOM" (`POST /bom/headers` con `model = modelNumber`).
+  - Agregar parte: `partNumber` + `qty` + `unit`; si la parte es nueva, expande
+    descripción + costo. Flujo: `POST /inventory/master-data` (idempotente) →
+    `POST /bom/headers/:id/components`. Editar cantidad (`PATCH …/components/:id`)
+    y quitar (`DELETE …/components/:id`) inline (solo en estado DRAFT).
+  - Ciclo de vida: **Aprobar** (`/approve`) → **Activar** (`/activate`); muestra
+    estado del BOM, costo por línea (extendido) y costo total (rollup).
+- **`dashboard/engineering/page.tsx`**: el selector de modelo dejó de ser texto
+  libre → ahora es un **dropdown del maestro** (`useApi('/product-models')`, sin
+  obsoletos). El `POST /process/steps` referencia ese `modelNumber`. Link
+  "Créalo en Modelos" para el caso vacío.
+
+### Verificación (todo en verde)
+- API: `tsc`, `build`, **bootstrap smoke (Postgres)**, y **smoke funcional del
+  golden path**: crear modelo `MDL-00001` → crear BOM → alta de 2 partes nuevas
+  con costo → **rollup = 0.44** (4×0.05 + 2×0.12, confirma que el costo fluye) →
+  aprobar → **ACTIVE**; `findByNumber` resuelve el modelo.
+- Web: `tsc` (0), `eslint` (0 en archivos tocados), `next build` OK.
+
+### Siguiente paso (Fase 2)
+- Planeación: dropdown de modelos del maestro al publicar; vincular el plan al
+  BOM ACTIVE y mostrar materiales (partNumber, qtyPerUnit × cantidad = req. total).
+
+---
+
+## 2026-06-08 — GOLDEN PATH · FASE 0: Maestro de Modelo/Producto (la columna vertebral) 🔑
+
+> Rama `claude/sweet-hawking-UQaaU`. Sin auto-merge a `main` (ver `DECISIONS.md §1`):
+> commit + push a la rama para revisión. Objetivo de la sesión: hilo vertical
+> usable (crear modelo → BOM → plan → aguas abajo) reutilizando módulos.
+
+**Problema #1 resuelto:** no existía una entidad canónica de "modelo". El `model`
+era texto libre repetido en `bom_headers.model`, `plans.model` y la ruta de
+proceso. Ahora hay un **maestro** que todos referenciarán.
+
+### Backend — módulo nuevo `product-models` (tabla `pm_product_models`)
+- **`product-model-state.ts`** (+ spec, 8 casos): máquina de estados pura
+  `DRAFT → ACTIVE → OBSOLETE` con reactivación `OBSOLETE → ACTIVE`; rechaza
+  no-ops y saltos ilegales.
+- **`entities/product-model.entity.ts`**: `id` uuid; `modelNumber` (folio
+  `MDL-…` vía `DocumentNumberingService.allocate('MODEL')`); `name`, `customer?`,
+  `revision` (1.0), `status` (varchar), `description?`, `programId?`, `metadata`
+  (`simple-json`), `activatedAt/obsoletedAt` (`DATE_COLUMN_TYPE`); scope
+  tenant+plant (`TenantBaseEntity`). Índice único `(tenant, plant, model_number)`.
+- **dto** (create/update/transition con validación), **service** (tenant-scoped
+  repo, búsqueda `?search`, KPIs, `findByNumber` exportado para Planeación/IE),
+  **controller** `@Controller('product-models')` con `JwtAuthGuard +
+  PermissionsGuard`: `GET /` (`?search`,`?status`), `GET /kpis`, `GET /:id`,
+  `POST /`, `PATCH /:id`, `POST /:id/activate`, `POST /:id/obsolete`.
+- **Migración** `20260608140000-CreateProductModels` aditiva e idempotente
+  (tabla prefijada `pm_`). Registrado en `app.module.ts`. Folio `MODEL` añadido a
+  `numbering.defaults.ts` (prefijo `MDL`, patrón `{PREFIX}-{SEQ}`, sin reset).
+
+### Frontend — entrada de NPI/Ingeniería
+- **`dashboard/models/page.tsx`**: lista + búsqueda + alta (form), KPIs, estados
+  vacíos honestos con CTA ("Crea tu primer modelo"). Sistema Apple (`PageHeader`
+  domain engineering, `IconTile`, `glass`, framer-motion + `useReducedMotion`).
+- **`dashboard/models/[id]/page.tsx`**: detalle/edición + Activar/Obsoleto/
+  Reactivar según la máquina de estados. (La sección **BOM** se añade en Fase 1.)
+- Lectura `useApi('/product-models')`, escritura `apiFetch` (rutas sin `/api`).
+- Nav: tarjeta **"Modelos · NPI"** en `AREAS` (hub) + entrada en `SearchPalette` +
+  link "Modelos / NPI" en el header de Ingeniería.
+
+### Verificación (todo en verde)
+- API: `tsc --noEmit` (0 errores propios), `npm run build`, `jest
+  src/modules/product-models` (8/8). **Bootstrap smoke en Postgres efímero OK**
+  (grafo completo inicializa, sin colisión de tabla). **Smoke funcional** contra
+  Postgres: creó `MDL-00001`/`MDL-00002`, activar→`ACTIVE`+`activatedAt`, guarda
+  de re-activación, búsqueda, obsoleto→`OBSOLETE`, KPIs correctos, **persiste**.
+- Web: `tsc --noEmit` (0), `eslint` (0 errores; warnings preexistentes ajenos),
+  `next build` OK con rutas `/dashboard/models` y `/dashboard/models/[id]`.
+
+### Siguiente paso (Fase 1)
+- Sección BOM en el detalle del modelo reutilizando `bom` (`POST /bom/headers`,
+  `/components`, `approve`, `activate`) + alta en línea de partes
+  (`POST /inventory/master-data`). Apuntar el `model` de la ruta de proceso de
+  `engineering` al maestro (dropdown).
+
+---
+
 ## 2026-06-08 — CIERRE FASE 3: barra superior + dock compartidos en el layout
 
 > Rama `claude/dazzling-dirac-1puYr`. Solo frontend. Cierra el pendiente de la

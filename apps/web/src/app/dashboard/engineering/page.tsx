@@ -1,9 +1,10 @@
 "use client";
 
 import React, { useState } from "react";
+import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Plus, Trash2, Loader2, X, AlertCircle, Workflow, Package,
+  Plus, Trash2, Loader2, X, AlertCircle, Workflow, Package, Boxes,
 } from "lucide-react";
 import { glass } from "@/lib/glass";
 import { useApi } from "@/hooks/useApi";
@@ -14,6 +15,7 @@ const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000").re
 
 interface StepMaterial { id: number; partNumber: string; description?: string | null; qtyPerUnit: number; unit: string }
 interface Step { id: number; model: string; revision: string; sequence: number; name: string; stationType?: string | null; instructions?: string | null; materials: StepMaterial[] }
+interface ModelOption { id: string; modelNumber: string; name: string; status: string }
 
 const STATION_TYPES = [
   { value: "smt", label: "SMT" },
@@ -43,11 +45,13 @@ export default function EngineeringPage() {
   const { data, isLoading, mutate } = useApi<Step[]>(active ? `/process/routes?model=${encodeURIComponent(active)}` : null);
   const steps = Array.isArray(data) ? data : [];
 
+  // Models come from the canonical master (no more free-text model strings).
+  const { data: modelsData } = useApi<ModelOption[]>("/product-models");
+  const models = (Array.isArray(modelsData) ? modelsData : []).filter((m) => m.status !== "OBSOLETE");
+
   const [stepName, setStepName] = useState("");
   const [stepType, setStepType] = useState("assembly");
   const [adding, setAdding] = useState(false);
-
-  async function load(e: React.FormEvent) { e.preventDefault(); if (model.trim()) setActive(model.trim().toUpperCase()); }
   async function addStep() {
     if (!stepName.trim()) return;
     try { await post("/process/steps", { model: active, name: stepName, stationType: stepType }); setStepName(""); setAdding(false); mutate(); }
@@ -57,12 +61,31 @@ export default function EngineeringPage() {
   return (
     <div className="min-h-screen text-black dark:text-white font-sans pb-32">
       <main className="max-w-3xl mx-auto px-6 pt-10">
-        <PageHeader domain="engineering" title="Ingeniería" subtitle="Define la ruta de la línea: estaciones, materiales y cuántos por unidad" />
+        <PageHeader
+          domain="engineering"
+          title="Ingeniería"
+          subtitle="Define la ruta de la línea: estaciones, materiales y cuántos por unidad"
+          right={
+            <Link href="/dashboard/models" className="inline-flex items-center gap-1.5 text-sm font-medium px-3 py-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10">
+              <Boxes className="w-4 h-4" /> Modelos / NPI
+            </Link>
+          }
+        />
 
-        <form onSubmit={load} className={`${glass} flex items-center gap-2 p-2 rounded-2xl mb-6`}>
-          <input value={model} onChange={(e) => setModel(e.target.value)} placeholder="Número o nombre del modelo…" className="bg-transparent outline-none text-sm w-full px-3" />
-          <button type="submit" className="bg-black dark:bg-white text-white dark:text-black text-sm font-semibold px-4 py-2 rounded-xl hover:scale-[1.03] active:scale-95 transition-transform">Cargar ruta</button>
-        </form>
+        <div className={`${glass} flex flex-col sm:flex-row items-stretch sm:items-center gap-2 p-2 rounded-2xl mb-2`}>
+          <select
+            value={model}
+            onChange={(e) => { setModel(e.target.value); setActive(e.target.value || null); }}
+            className="bg-transparent outline-none text-sm w-full px-3 py-1.5"
+          >
+            <option value="">Selecciona un modelo del maestro…</option>
+            {models.map((m) => (
+              <option key={m.id} value={m.modelNumber}>{m.modelNumber} · {m.name}{m.status === "DRAFT" ? " (borrador)" : ""}</option>
+            ))}
+          </select>
+          <button onClick={() => model && setActive(model)} className="bg-black dark:bg-white text-white dark:text-black text-sm font-semibold px-4 py-2 rounded-xl hover:scale-[1.03] active:scale-95 transition-transform whitespace-nowrap">Cargar ruta</button>
+        </div>
+        <p className="text-[12px] text-gray-400 mb-6 px-1">¿No aparece tu modelo? <Link href="/dashboard/models" className="underline hover:text-gray-600 dark:hover:text-gray-200">Créalo en Modelos · NPI</Link>.</p>
 
         <AnimatePresence>
           {err && <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="flex gap-2 items-center p-3 rounded-2xl bg-red-50 dark:bg-red-500/10 text-red-600 text-sm mb-4"><AlertCircle className="w-4 h-4" /> {err}</motion.div>}

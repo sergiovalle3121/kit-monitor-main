@@ -43,6 +43,7 @@ export const DEFAULT_SEQUENCES: SequenceDefault[] = [
   { docType: 'FIXED_ASSET', name: 'Activo Fijo', prefix: 'FA', pattern: '{PREFIX}-{SEQ}', padding: 5, resetPolicy: 'NEVER', description: 'Activos fijos capitalizados (FIN).' },
   { docType: 'EXPENSE', name: 'Reporte de Gasto', prefix: 'EXP', pattern: '{PREFIX}-{YYYY}-{SEQ}', padding: 5, resetPolicy: 'YEARLY', description: 'Gastos / viáticos (FIN / AP).' },
   { docType: 'TOOL', name: 'Herramental', prefix: 'TL', pattern: '{PREFIX}-{SEQ}', padding: 5, resetPolicy: 'NEVER', description: 'Herramentales / moldes (NPI / Proceso).' },
+  { docType: 'MODEL', name: 'Modelo / Producto', prefix: 'MDL', pattern: '{PREFIX}-{SEQ}', padding: 5, resetPolicy: 'NEVER', description: 'Maestro de modelos / productos (NPI / Ingeniería).' },
   { docType: 'RMA', name: 'Queja / RMA de Cliente', prefix: 'RMA', pattern: '{PREFIX}-{YYYY}-{SEQ}', padding: 5, resetPolicy: 'YEARLY', description: 'Quejas / devoluciones de cliente (Calidad).' },
 ];
 

@@ -219,7 +219,12 @@ export class InventoryService {
       m = this.materialRepo.create({
         partNumber: dto.partNumber,
         description: dto.description || `Part ${dto.partNumber}`,
-        uom: dto.uom || 'EA'
+        uom: dto.uom || 'EA',
+        // Persisted only when creating a new part — existing parts are never
+        // overwritten — so in-line BOM capture can seed a real standard cost
+        // (feeds BOM rollup + downstream valuation) and ABC/category.
+        standardCost: dto.standardCost ?? 0,
+        ...(dto.category ? { category: dto.category } : {}),
       });
       const saved = await this.materialRepo.save(m);
       if (user) {
