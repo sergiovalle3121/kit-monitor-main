@@ -66,6 +66,8 @@ import { DocHeaderFooter } from './docs/DocHeaderFooter';
 import { DocTableInsert } from './docs/DocTableInsert';
 import { DocImageInsert } from './docs/DocImageInsert';
 import { DocShortcuts } from './docs/docShortcuts';
+import { ParagraphFormat } from './docs/paragraphFormat';
+import { DocParagraphMenu } from './docs/DocParagraphMenu';
 import { DocEquation } from './docs/DocEquation';
 import { DocListMenu } from './docs/DocListMenu';
 import { DocViewTools } from './docs/DocViewTools';
@@ -163,6 +165,7 @@ export function DocEditor({ value, onChange, readOnly, author, onStats, fileActi
       SignatureLine,
       Citation,
       Bibliography,
+      ParagraphFormat,
       DocShortcuts,
     ],
     content: value ?? '<p></p>',
@@ -373,6 +376,7 @@ export function DocEditor({ value, onChange, readOnly, author, onStats, fileActi
               <RibbonButton icon={IndentDecrease} label="Disminuir sangría" onClick={indentLess} />
               <RibbonButton icon={IndentIncrease} label="Aumentar sangría" onClick={indentMore} />
               <RibbonSelect title="Interlineado" value={curLH} onChange={setLH} width={92} options={lhOptions} />
+              <DocParagraphMenu editor={editor} />
             </RibbonGroup>
             <RibbonSeparator />
             <RibbonGroup label="Edición">

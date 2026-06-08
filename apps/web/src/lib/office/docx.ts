@@ -36,7 +36,19 @@ export async function exportDocx(json: any, title: string) {
   const footnotes: Record<number, any> = {};
   const align = (a?: string) => ({ center: AlignmentType.CENTER, right: AlignmentType.RIGHT, justify: AlignmentType.JUSTIFIED }[a ?? 'left'] ?? AlignmentType.LEFT);
   const hex = (c?: string) => (c ? c.replace('#', '').slice(0, 6) : undefined);
-  const indentOf = (node: any) => (node.attrs?.indent ? { left: node.attrs.indent * 540 } : undefined);
+  const indentOf = (node: any) => {
+    const ind: any = {};
+    if (node.attrs?.indent) ind.left = node.attrs.indent * 540;
+    if (node.attrs?.firstLineIndent) ind.firstLine = 480;
+    return Object.keys(ind).length ? ind : undefined;
+  };
+  // Espaciado antes/después en twips (px ≈ 15 twips).
+  const spacingOf = (node: any) => {
+    const sp: any = {};
+    if (node.attrs?.spaceBefore) sp.before = node.attrs.spaceBefore * 15;
+    if (node.attrs?.spaceAfter) sp.after = node.attrs.spaceAfter * 15;
+    return Object.keys(sp).length ? sp : undefined;
+  };
   function collectHeads(nodes: any[], out: { level: number; text: string }[] = []) {
     for (const n of nodes ?? []) {
       if (n.type === 'heading') out.push({ level: n.attrs?.level || 1, text: (n.content ?? []).map((t: any) => t.text || '').join('') });
@@ -113,7 +125,7 @@ export async function exportDocx(json: any, title: string) {
     switch (node.type) {
       case 'heading': {
         const heading = node.attrs?.styleName === 'title' ? HeadingLevel.TITLE : HEADINGS[node.attrs?.level || 1];
-        return [new Paragraph({ heading, alignment: align(node.attrs?.textAlign), indent: indentOf(node), children: inlineRuns(node.content) })];
+        return [new Paragraph({ heading, alignment: align(node.attrs?.textAlign), indent: indentOf(node), spacing: spacingOf(node), children: inlineRuns(node.content) })];
       }
       case 'paragraph': {
         const sub = node.attrs?.styleName === 'subtitle';
@@ -123,7 +135,7 @@ export async function exportDocx(json: any, title: string) {
           : caption
             ? (node.content ?? []).filter((n: any) => n.type === 'text').map((n: any) => { const { o } = runOpts(n); return new TextRun({ ...o, italics: true, size: o.size || 18, color: o.color || '6B7280' }); })
             : inlineRuns(node.content);
-        return [new Paragraph({ alignment: caption ? AlignmentType.CENTER : align(node.attrs?.textAlign), indent: indentOf(node), children: runs })];
+        return [new Paragraph({ alignment: caption ? AlignmentType.CENTER : align(node.attrs?.textAlign), indent: indentOf(node), spacing: spacingOf(node), children: runs })];
       }
       case 'bulletList': return listParas(node, 'bullet', 0);
       case 'orderedList': return listParas(node, 'ordered', 0);

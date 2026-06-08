@@ -105,6 +105,12 @@ CSS de todo lo anterior en `tiptap.css`.
 - **Insertar imagen por archivo** (`DocImageInsert.tsx`): subir desde archivo (data
   URL, límite 5 MB) o desde URL.
 
+### Wave 7 — Formato de párrafo (espaciado + sangría de primera línea)
+- **paragraphFormat.ts** + **DocParagraphMenu.tsx**: espaciado antes/después del
+  párrafo y sangría de primera línea (atributos inline sobre párrafo/encabezado),
+  con export .docx (`spacing` + `indent.firstLine`). Verificado que el `style`
+  fusiona con `indent`/`textAlign` (no se pisan).
+
 ### Hardening y verificación
 - Comentarios: al actualizar un hilo (responder/resolver) ahora se quita y vuelve
   a poner la marca para no acumular marcas duplicadas (la marca `comment` permite
