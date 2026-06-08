@@ -316,9 +316,13 @@ Verificado: `tsc` ✓, `eslint` ✓, `next build` ✓.
 
 Verificado: `tsc` ✓, `eslint` ✓, `next build` ✓.
 
+#### Lote 27 — Imagen de fondo (backlog #7)
+- **Imagen de fondo** (modo «cubrir») de la diapositiva actual, como `FabricImage`
+  a sangre completa bloqueada al fondo (reutiliza la infraestructura `bgFill`).
+
+Verificado: `tsc` ✓, `eslint` ✓, `next build` ✓.
+
 ### Diferido (con estimación)
-- **Fondo de imagen** por diapositiva (similar a degradado pero con `FabricImage`
-  a sangre completa). Estimación ~0.3 día.
 - **Secciones en el clasificador** y colapsar/expandir: el sorter es una rejilla;
   insertar encabezados de ancho completo + colapso. Estimación: ~0.5 día.
 - **Patrón de diapositivas (master) editable** (backlog #7): editor de

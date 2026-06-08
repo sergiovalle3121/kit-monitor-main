@@ -452,6 +452,23 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
     }
     sync();
   }
+  // Imagen de fondo (a sangre completa, modo «cubrir») de la diapositiva actual.
+  function onBgImageFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0]; e.target.value = ''; if (!f) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result !== 'string') return;
+      FabricImage.fromURL(reader.result, { crossOrigin: 'anonymous' }).then((img: any) => {
+        const c = fabricRef.current; if (!c || !img) return;
+        capture();
+        c.getObjects().filter((o: any) => isBgFill(o)).forEach((o) => c.remove(o));
+        const sc = Math.max(CW / (img.width || CW), ch / (img.height || ch));
+        img.set({ left: 0, top: 0, scaleX: sc, scaleY: sc, selectable: false, evented: false, hoverCursor: 'default', bgFill: true });
+        c.add(img); (c as any).sendObjectToBack(img); c.requestRenderAll(); capture(); sync();
+      }).catch(() => {});
+    };
+    reader.readAsDataURL(f);
+  }
   function removeBgFill(all: boolean) {
     const c = fabricRef.current; if (!c) return;
     capture();
@@ -1195,6 +1212,9 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
               <RibbonMenuButton icon={Blend} label="Degradados" menuWidth={272}>
                 <BgGallery onApply={applyBgPreset} onRemove={removeBgFill} />
               </RibbonMenuButton>
+              <label title="Imagen de fondo (diapositiva actual)" className="h-7 w-7 inline-flex items-center justify-center rounded-lg hover:bg-black/[0.06] dark:hover:bg-white/10 text-gray-700 dark:text-gray-200 cursor-pointer">
+                <ImagePlus className="w-[17px] h-[17px]" strokeWidth={1.75} /><input type="file" accept="image/*" onChange={onBgImageFile} className="hidden" />
+              </label>
             </RibbonGroup>
             <RibbonSeparator />
             <RibbonGroup label="Tamaño">
