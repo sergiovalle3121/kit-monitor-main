@@ -92,3 +92,28 @@
 .tiptap-page .ProseMirror img[data-align="left"] { float: left; margin: 0.25rem 1rem 0.5rem 0; }
 .tiptap-page .ProseMirror img[data-align="right"] { float: right; margin: 0.25rem 0 0.5rem 1rem; }
 .tiptap-page .ProseMirror img[data-align="center"] { display: block; margin: 0.5rem auto; float: none; }
+
+/* Estilos con nombre (galería de estilos) */
+.tiptap-page .ProseMirror [data-style="title"] { font-size: 2.4em; font-weight: 800; letter-spacing: -0.02em; line-height: 1.1; margin: 0.2em 0 0.1em; }
+.tiptap-page .ProseMirror [data-style="subtitle"] { font-size: 1.4em; font-weight: 500; color: #6b7280; margin: 0 0 0.6em; }
+@media (prefers-color-scheme: dark) { .tiptap-page .ProseMirror [data-style="subtitle"] { color: #9ca3af; } }
+
+/* Tabla de contenido (nodo vivo) */
+.tiptap-page .ProseMirror .doc-toc { border: 1px solid #e5e7eb; border-radius: 10px; padding: 14px 18px; margin: 1em 0; background: #fafafa; }
+@media (prefers-color-scheme: dark) { .tiptap-page .ProseMirror .doc-toc { border-color: rgba(255,255,255,0.12); background: rgba(255,255,255,0.03); } }
+.doc-toc-title { font-weight: 700; font-size: 0.95em; margin-bottom: 6px; }
+.doc-toc-empty { font-size: 0.85em; color: #9ca3af; }
+.doc-toc-item { display: block; font-size: 0.9em; color: #2563eb; padding: 2px 0; cursor: pointer; text-decoration: none; }
+.doc-toc-item:hover { text-decoration: underline; }
+
+/* Marca de agua */
+.doc-watermark {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  pointer-events: none; z-index: 0; font-size: 5rem; font-weight: 800; text-transform: uppercase;
+  color: rgba(0,0,0,0.06); transform: rotate(-30deg); white-space: nowrap; overflow: hidden;
+}
+@media (prefers-color-scheme: dark) { .doc-watermark { color: rgba(255,255,255,0.06); } }
+
+/* Columnas de página */
+.doc-cols-2 .ProseMirror { column-count: 2; column-gap: 2.5rem; }
+.doc-cols-3 .ProseMirror { column-count: 3; column-gap: 2rem; }

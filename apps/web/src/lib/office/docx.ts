@@ -24,11 +24,20 @@ export async function exportDocx(json: any, title: string) {
   const {
     Document, Packer, Paragraph, TextRun, ExternalHyperlink, HeadingLevel,
     AlignmentType, Table, TableRow, TableCell, WidthType, ShadingType,
+    Header, Footer, PageNumber, PageBreak, PageOrientation,
   } = docx as any;
 
   const HEADINGS: any = { 1: HeadingLevel.HEADING_1, 2: HeadingLevel.HEADING_2, 3: HeadingLevel.HEADING_3 };
   const align = (a?: string) => ({ center: AlignmentType.CENTER, right: AlignmentType.RIGHT, justify: AlignmentType.JUSTIFIED }[a ?? 'left'] ?? AlignmentType.LEFT);
   const hex = (c?: string) => (c ? c.replace('#', '').slice(0, 6) : undefined);
+  const indentOf = (node: any) => (node.attrs?.indent ? { left: node.attrs.indent * 540 } : undefined);
+  function collectHeads(nodes: any[], out: { level: number; text: string }[] = []) {
+    for (const n of nodes ?? []) {
+      if (n.type === 'heading') out.push({ level: n.attrs?.level || 1, text: (n.content ?? []).map((t: any) => t.text || '').join('') });
+      if (n.content) collectHeads(n.content, out);
+    }
+    return out;
+  }
 
   function runOpts(node: any) {
     const o: any = { text: node.text || '' };
@@ -38,6 +47,8 @@ export async function exportDocx(json: any, title: string) {
       else if (m.type === 'italic') o.italics = true;
       else if (m.type === 'underline') o.underline = {};
       else if (m.type === 'strike') o.strike = true;
+      else if (m.type === 'subscript') o.subScript = true;
+      else if (m.type === 'superscript') o.superScript = true;
       else if (m.type === 'code') o.font = 'Courier New';
       else if (m.type === 'link') link = m.attrs?.href;
       else if (m.type === 'highlight' && m.attrs?.color) o.shading = { type: ShadingType.CLEAR, fill: hex(m.attrs.color) };
@@ -80,14 +91,29 @@ export async function exportDocx(json: any, title: string) {
 
   function blockToEls(node: any): any[] {
     switch (node.type) {
-      case 'heading': return [new Paragraph({ heading: HEADINGS[node.attrs?.level || 1], alignment: align(node.attrs?.textAlign), children: inlineRuns(node.content) })];
-      case 'paragraph': return [new Paragraph({ alignment: align(node.attrs?.textAlign), children: inlineRuns(node.content) })];
+      case 'heading': {
+        const heading = node.attrs?.styleName === 'title' ? HeadingLevel.TITLE : HEADINGS[node.attrs?.level || 1];
+        return [new Paragraph({ heading, alignment: align(node.attrs?.textAlign), indent: indentOf(node), children: inlineRuns(node.content) })];
+      }
+      case 'paragraph': {
+        const sub = node.attrs?.styleName === 'subtitle';
+        const runs = sub
+          ? (node.content ?? []).filter((n: any) => n.type === 'text').map((n: any) => { const { o } = runOpts(n); return new TextRun({ ...o, size: o.size || 30, color: o.color || '6B7280' }); })
+          : inlineRuns(node.content);
+        return [new Paragraph({ alignment: align(node.attrs?.textAlign), indent: indentOf(node), children: runs })];
+      }
       case 'bulletList': return listParas(node, 'bullet', 0);
       case 'orderedList': return listParas(node, 'ordered', 0);
       case 'taskList': return listParas(node, 'task', 0);
       case 'blockquote': return (node.content ?? []).map((p: any) => new Paragraph({ indent: { left: 480 }, children: inlineRuns(p.content).map((r: any) => r) }));
       case 'codeBlock': return String((node.content ?? []).map((t: any) => t.text).join('')).split('\n').map((line) => new Paragraph({ children: [new TextRun({ text: line, font: 'Courier New' })] }));
       case 'horizontalRule': return [new Paragraph({ thematicBreak: true })];
+      case 'pageBreak': return [new Paragraph({ children: [new PageBreak()] })];
+      case 'toc': {
+        const out: any[] = [new Paragraph({ heading: HEADINGS[1], children: [new TextRun('Tabla de contenido')] })];
+        for (const h of collectHeads(json?.content ?? [])) out.push(new Paragraph({ indent: { left: (h.level - 1) * 360 }, children: [new TextRun(h.text || '(sin título)')] }));
+        return out;
+      }
       case 'table': return [tableToEl(node)];
       default: return node.content ? node.content.flatMap(blockToEls) : [];
     }
@@ -118,7 +144,32 @@ export async function exportDocx(json: any, title: string) {
     if (!children.length) children = [new Paragraph({})];
   }
 
-  const doc = new Document({ sections: [{ children }] });
+  // Configuración de página (desde los atributos del documento / pageMeta).
+  const a: any = (json && typeof json === 'object' ? json.attrs : null) || {};
+  const SIZE: Record<string, [number, number]> = { a4: [11906, 16838], letter: [12240, 15840], legal: [12240, 20160] };
+  const [pw, ph] = SIZE[a.pageSize as string] || SIZE.a4;
+  const landscape = a.pageOrientation === 'landscape';
+  const marginTw = a.pageMargin === 'narrow' ? 720 : a.pageMargin === 'wide' ? 1800 : 1440;
+  const props: any = {
+    page: {
+      size: { width: landscape ? ph : pw, height: landscape ? pw : ph, orientation: landscape ? PageOrientation.LANDSCAPE : PageOrientation.PORTRAIT },
+      margin: { top: marginTw, bottom: marginTw, left: marginTw, right: marginTw },
+    },
+  };
+  if (Number(a.pageColumns) > 1) props.column = { count: Number(a.pageColumns), space: 708 };
+
+  const section: any = { properties: props, children };
+  if (a.pageHeader) {
+    section.headers = { default: new Header({ children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: String(a.pageHeader), size: 18, color: '666666' })] })] }) };
+  }
+  if (a.pageFooter || a.pageNumbers) {
+    const fch: any[] = [];
+    if (a.pageFooter) fch.push(new TextRun({ text: `${a.pageFooter}   `, size: 18, color: '666666' }));
+    if (a.pageNumbers) fch.push(new TextRun({ children: ['Página ', PageNumber.CURRENT, ' / ', PageNumber.TOTAL_PAGES], size: 18, color: '666666' }));
+    section.footers = { default: new Footer({ children: [new Paragraph({ alignment: a.pageNumbers ? AlignmentType.CENTER : AlignmentType.LEFT, children: fch })] }) };
+  }
+
+  const doc = new Document({ sections: [section] });
   download(await Packer.toBlob(doc), `${safe(title)}.docx`);
 }
 

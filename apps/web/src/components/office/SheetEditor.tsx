@@ -1,14 +1,19 @@
 'use client';
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { Workbook } from '@fortune-sheet/react';
 import '@fortune-sheet/react/dist/index.css';
-import { ListChecks, Palette } from 'lucide-react';
+import { ListChecks, Palette, Snowflake, FileText, Sigma, Search, ArrowDownUp, CopyMinus, Columns3, StickyNote } from 'lucide-react';
 import { SheetCharts } from './SheetCharts';
-import { SheetTools, type ValidationPayload, type CondFormatPayload } from './SheetTools';
+import { SheetTools, type ValidationPayload } from './SheetTools';
+import { SheetFunctionWizard } from './SheetFunctionWizard';
+import { SheetFindReplace } from './SheetFindReplace';
+import { SheetDataDialog, type DataMode } from './SheetDataDialog';
 import { parseRange, type ChartConfig } from '@/lib/office/charts';
+import { applyConditional, sortRange, removeDuplicates, textToColumns, setCellNote, replaceAll, type CondPayload } from '@/lib/office/sheetOps';
+import { OfficeRibbon, RibbonTab, RibbonGroup, RibbonSeparator, RibbonButton, RibbonMenuButton } from './ribbon';
 
 // Content is either the legacy bare sheet array or the new { sheets, charts } shape.
 function sheetsOf(v: any): any[] | null {
@@ -23,18 +28,32 @@ const DEFAULT_SHEET = { name: 'Hoja 1', celldata: [], order: 0, row: 100, column
 const clone = (x: any) => JSON.parse(JSON.stringify(x));
 
 /** Excel-like spreadsheet (Fortune-sheet, MIT) — formulas, formats, charts, validation, conditional formatting. */
-export function SheetEditor({ value, onChange, readOnly }: { value: any; onChange: (data: any) => void; readOnly?: boolean }) {
+export function SheetEditor({ value, onChange, readOnly, fileActions }: { value: any; onChange: (data: any) => void; readOnly?: boolean; fileActions?: React.ReactNode }) {
   const initSheets = sheetsOf(value)?.length ? (sheetsOf(value) as any[]) : [DEFAULT_SHEET];
   const [liveData, setLiveData] = useState<any[]>(initSheets); // only swapped on a forced remount
   const [wbKey, setWbKey] = useState(0);
   const sheetsRef = useRef<any[]>(initSheets);
+  const wbRef = useRef<any>(null);
   const chartsRef = useRef<ChartConfig[]>(chartsOf(value));
   const [charts, setCharts] = useState<ChartConfig[]>(chartsRef.current);
   const [tool, setTool] = useState<null | 'validation' | 'condformat'>(null);
+  const [dataMode, setDataMode] = useState<DataMode | null>(null);
+  const [showWizard, setShowWizard] = useState(false);
+  const [showFind, setShowFind] = useState(false);
   const [, setTick] = useState(0);
   const refreshT = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
+
+  // Ctrl/⌘+F abre buscar y reemplazar (coherente con Docs).
+  useEffect(() => {
+    if (readOnly) return;
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') { e.preventDefault(); setShowFind(true); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [readOnly]);
 
   const emit = useCallback(() => {
     onChangeRef.current({ sheets: sheetsRef.current, charts: chartsRef.current });
@@ -49,6 +68,7 @@ export function SheetEditor({ value, onChange, readOnly }: { value: any; onChang
 
   const addChart = useCallback((c: ChartConfig) => { chartsRef.current = [...chartsRef.current, c]; setCharts(chartsRef.current); emit(); }, [emit]);
   const removeChart = useCallback((id: string) => { chartsRef.current = chartsRef.current.filter((x) => x.id !== id); setCharts(chartsRef.current); emit(); }, [emit]);
+  const updateChart = useCallback((c: ChartConfig) => { chartsRef.current = chartsRef.current.map((x) => (x.id === c.id ? c : x)); setCharts(chartsRef.current); emit(); }, [emit]);
 
   // Re-mount Fortune-sheet with new data (it is uncontrolled after mount).
   function remount(newSheets: any[]) {
@@ -57,6 +77,7 @@ export function SheetEditor({ value, onChange, readOnly }: { value: any; onChang
     setWbKey((k) => k + 1);
     emit();
   }
+  const sheetNames = () => liveData.map((s: any) => s?.name ?? '');
 
   function applyValidation({ range, options, sheetIndex }: ValidationPayload) {
     const rng = parseRange(range);
@@ -86,75 +107,137 @@ export function SheetEditor({ value, onChange, readOnly }: { value: any; onChang
     else sheet.frozen = { type, range: { row_focus: 0, column_focus: 0 } };
     remount(sheets);
   }
-
-  function applyCondFormat({ range, op, value: cmp, color, sheetIndex }: CondFormatPayload) {
-    const rng = parseRange(range);
-    if (!rng) { window.alert('Rango inválido. Ej: A1:B20'); return; }
-    const num = parseFloat(cmp);
-    const matches = (raw: any) => {
-      if (op === 'contains') return String(raw ?? '').toLowerCase().includes(cmp.toLowerCase());
-      const n = typeof raw === 'number' ? raw : parseFloat(raw);
-      if (Number.isNaN(n)) return op === '=' ? String(raw) === cmp : op === '!=' ? String(raw) !== cmp : false;
-      switch (op) {
-        case '>': return n > num; case '>=': return n >= num;
-        case '<': return n < num; case '<=': return n <= num;
-        case '=': return n === num; case '!=': return n !== num;
-        default: return false;
-      }
-    };
-    const dark = /^#?(0|1|2|3|4|5)[0-9a-f]/i.test(color.replace('#', '')) && color.length >= 4;
+  function applyFreezeAt() {
+    const v = window.prompt('Inmovilizar filas/columnas ANTES de esta celda (ej.: C4 → filas 1-3 y columnas A-B):', 'B2');
+    if (!v) return;
+    const rng = parseRange(v); if (!rng) { window.alert('Celda inválida.'); return; }
     const sheets = clone(sheetsRef.current);
-    const sheet = sheets[sheetIndex] ?? sheets[0];
+    const sheet = sheets.find((s: any) => s.status === 1) ?? sheets[0];
     if (!sheet) return;
-    sheet.celldata = (sheet.celldata || []).map((cd: any) => {
-      if (cd.r < rng.r1 || cd.r > rng.r2 || cd.c < rng.c1 || cd.c > rng.c2) return cd;
-      const raw = cd.v && typeof cd.v === 'object' ? (cd.v.v ?? cd.v.m) : cd.v;
-      if (raw === undefined || raw === null || raw === '') return cd;
-      if (!matches(raw)) return cd;
-      const v = cd.v && typeof cd.v === 'object'
-        ? { ...cd.v }
-        : { v: cd.v, m: String(cd.v), ct: { fa: 'General', t: typeof cd.v === 'number' ? 'n' : 's' } };
-      v.bg = color;
-      if (dark) v.fc = '#ffffff';
-      return { ...cd, v };
-    });
+    sheet.frozen = { type: 'rangeBoth', range: { row_focus: Math.max(0, rng.r1 - 1), column_focus: Math.max(0, rng.c1 - 1) } };
+    remount(sheets);
+  }
+
+  function applyCondFormat(p: CondPayload) {
+    const rng = parseRange(p.range);
+    if (!rng) { window.alert('Rango inválido. Ej: A1:B20'); return; }
+    const sheets = clone(sheetsRef.current);
+    const sheet = sheets[p.sheetIndex] ?? sheets[0];
+    if (!sheet) return;
+    applyConditional(sheet, p);
     setTool(null);
     remount(sheets);
   }
 
-  const toolBtn = 'flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 text-gray-600 dark:text-gray-300 transition-colors';
+  function applyData(mode: DataMode, payload: any) {
+    const sheets = clone(sheetsRef.current);
+    const sheet = sheets[payload.sheetIndex] ?? sheets[0];
+    if (!sheet) { setDataMode(null); return; }
+    let msg = '';
+    if (mode === 'sort') sortRange(sheet, payload);
+    else if (mode === 'dedup') { const n = removeDuplicates(sheet, payload); msg = `${Math.max(0, n)} fila(s) duplicada(s) eliminada(s).`; }
+    else if (mode === 'split') textToColumns(sheet, payload);
+    else if (mode === 'note') setCellNote(sheet, payload.cell, payload.text);
+    setDataMode(null);
+    remount(sheets);
+    if (msg) window.setTimeout(() => window.alert(msg), 30);
+  }
+
+  function insertFunction(formula: string) {
+    setShowWizard(false);
+    const wb = wbRef.current;
+    try {
+      const sel = wb?.getSelection?.();
+      const first = Array.isArray(sel) ? sel[0] : sel;
+      const r = first?.row?.[0] ?? 0;
+      const c = first?.column?.[0] ?? 0;
+      if (wb?.setCellValue) { wb.setCellValue(r, c, formula); return; }
+    } catch { /* fallback */ }
+    navigator.clipboard?.writeText(formula)
+      .then(() => window.alert(`Función copiada: ${formula}  — pégala en la celda y completa los argumentos.`))
+      .catch(() => window.alert(`Escribe en la celda: ${formula}`));
+  }
+
+  function doReplaceAll(query: string, replacement: string, caseSensitive: boolean): number {
+    const sheets = clone(sheetsRef.current);
+    const n = replaceAll(sheets, query, replacement, caseSensitive);
+    if (n > 0) remount(sheets);
+    return n;
+  }
 
   return (
     <div className="h-full w-full flex flex-col bg-white dark:bg-[#0e0e0e]">
-      {!readOnly && (
-        <div className="flex items-center gap-1 px-2 h-9 border-b border-gray-200 dark:border-white/10 flex-shrink-0 bg-gray-50 dark:bg-[#0e0e0e]">
-          <button onClick={() => setTool('validation')} className={toolBtn}><ListChecks className="w-4 h-4 text-emerald-500" /> Validación</button>
-          <button onClick={() => setTool('condformat')} className={toolBtn}><Palette className="w-4 h-4 text-blue-500" /> Formato condicional</button>
-          <span className="w-px h-5 bg-gray-200 dark:bg-white/10 mx-1" />
-          <select onChange={(e) => { applyFreeze(e.target.value === 'none' ? '' : e.target.value); e.target.value = ''; }} defaultValue=""
-            title="Inmovilizar paneles" className="h-7 text-xs rounded-lg bg-transparent hover:bg-black/5 dark:hover:bg-white/10 border border-gray-200 dark:border-white/10 px-1.5 outline-none cursor-pointer text-gray-600 dark:text-gray-300">
-            <option value="" disabled>Inmovilizar</option>
-            <option value="row">Fila 1</option>
-            <option value="column">Columna A</option>
-            <option value="both">Fila 1 + Columna A</option>
-            <option value="none">Quitar</option>
-          </select>
-        </div>
-      )}
-      <div className="flex-1 min-h-0 bg-white">
-        <Workbook key={wbKey} data={liveData as any} lang="es" allowEdit={!readOnly} onChange={handleSheet} />
+      <OfficeRibbon storageKey="ribbon:sheet">
+        {fileActions != null && (
+          <RibbonTab id="file" label="Archivo" icon={FileText}>
+            <RibbonGroup label="Hoja de cálculo">{fileActions}</RibbonGroup>
+          </RibbonTab>
+        )}
+        {!readOnly && (
+          <RibbonTab id="data" label="Datos">
+            <RibbonGroup label="Herramientas de datos">
+              <RibbonButton icon={ListChecks} label="Validación de datos" onClick={() => setTool('validation')} />
+              <RibbonButton icon={Palette} label="Formato condicional" onClick={() => setTool('condformat')} />
+            </RibbonGroup>
+            <RibbonSeparator />
+            <RibbonGroup label="Ordenar y filtrar">
+              <RibbonButton icon={ArrowDownUp} label="Ordenar rango" onClick={() => setDataMode('sort')} />
+              <RibbonButton icon={CopyMinus} label="Quitar duplicados" onClick={() => setDataMode('dedup')} />
+              <RibbonButton icon={Columns3} label="Texto en columnas" onClick={() => setDataMode('split')} />
+            </RibbonGroup>
+            <RibbonSeparator />
+            <RibbonGroup label="Vista">
+              <RibbonMenuButton icon={Snowflake} label="Inmovilizar" menuWidth={250} items={[
+                { label: 'Inmovilizar fila 1', onClick: () => applyFreeze('row') },
+                { label: 'Inmovilizar columna A', onClick: () => applyFreeze('column') },
+                { label: 'Inmovilizar fila 1 + columna A', onClick: () => applyFreeze('both') },
+                { label: 'Inmovilizar hasta una celda…', onClick: applyFreezeAt },
+                { label: 'Quitar inmovilización', onClick: () => applyFreeze('') },
+              ]} />
+            </RibbonGroup>
+          </RibbonTab>
+        )}
+        {!readOnly && (
+          <RibbonTab id="formulas" label="Fórmulas">
+            <RibbonGroup label="Biblioteca de funciones">
+              <RibbonButton icon={Sigma} label="Insertar función" hideLabel={false} onClick={() => setShowWizard(true)} />
+            </RibbonGroup>
+          </RibbonTab>
+        )}
+        {!readOnly && (
+          <RibbonTab id="review" label="Revisar">
+            <RibbonGroup label="Edición">
+              <RibbonButton icon={Search} label="Buscar y reemplazar" shortcut="Ctrl+F" onClick={() => setShowFind(true)} />
+            </RibbonGroup>
+            <RibbonSeparator />
+            <RibbonGroup label="Comentarios">
+              <RibbonButton icon={StickyNote} label="Nota de celda" onClick={() => setDataMode('note')} />
+            </RibbonGroup>
+          </RibbonTab>
+        )}
+      </OfficeRibbon>
+
+      <div className="flex-1 min-h-0 bg-white relative">
+        <Workbook ref={wbRef} key={wbKey} data={liveData as any} lang="es" allowEdit={!readOnly} onChange={handleSheet} />
+        {showFind && <SheetFindReplace sheets={sheetsRef.current} sheetNames={sheetNames()} onReplaceAll={doReplaceAll} onClose={() => setShowFind(false)} />}
       </div>
-      <SheetCharts charts={charts} sheets={sheetsRef.current} readOnly={readOnly} onAdd={addChart} onRemove={removeChart} />
+
+      <SheetCharts charts={charts} sheets={sheetsRef.current} readOnly={readOnly} onAdd={addChart} onRemove={removeChart} onUpdate={updateChart} />
+
       <AnimatePresence>
         {tool && (
           <SheetTools
             mode={tool}
-            sheetNames={liveData.map((s: any) => s?.name ?? '')}
+            sheetNames={sheetNames()}
             onApplyValidation={applyValidation}
             onApplyCondFormat={applyCondFormat}
             onClose={() => setTool(null)}
           />
         )}
+        {dataMode && (
+          <SheetDataDialog mode={dataMode} sheetNames={sheetNames()} onApply={applyData} onClose={() => setDataMode(null)} />
+        )}
+        {showWizard && <SheetFunctionWizard onInsert={insertFunction} onClose={() => setShowWizard(false)} />}
       </AnimatePresence>
     </div>
   );
