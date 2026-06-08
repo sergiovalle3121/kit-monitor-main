@@ -111,6 +111,11 @@ CSS de todo lo anterior en `tiptap.css`.
   con export .docx (`spacing` + `indent.firstLine`). Verificado que el `style`
   fusiona con `indent`/`textAlign` (no se pisan).
 
+### Wave 8 — Cambiar mayúsculas/minúsculas (Aa)
+- **changeCase.ts** + **DocChangeCase.tsx**: Tipo oración, minúsculas, MAYÚSCULAS,
+  Cada Palabra, aLTERNAR. Preserva las marcas (reemplaza por nodo de texto del
+  mismo largo, con guarda contra cambios de longitud unicode → no corrompe).
+
 ### Hardening y verificación
 - Comentarios: al actualizar un hilo (responder/resolver) ahora se quita y vuelve
   a poner la marca para no acumular marcas duplicadas (la marca `comment` permite
