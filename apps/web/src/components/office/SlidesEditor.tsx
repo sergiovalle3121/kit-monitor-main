@@ -34,6 +34,8 @@ import { ShapeGallery } from './slides/ShapeGallery';
 import { ImageEffectsPanel } from './slides/ImageEffectsPanel';
 import { QUICK_STYLES } from './slides/quickStyles';
 import { QuickStyleGallery } from './slides/QuickStyleGallery';
+import { buildTableGroup, defaultTableSpec, isTable, type TableSpec } from './slides/table';
+import { SlideTableEditor } from './SlideTableEditor';
 import { buildChartGroup, defaultChartSpec, isChart, type ChartSpec } from './slides/chart';
 import { SlideChartEditor } from './SlideChartEditor';
 import { buildSmartArt, defaultSmartSpec, isSmart, type SmartSpec } from './slides/smartart';
@@ -140,6 +142,8 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
   const chartTargetRef = useRef<any>(null);
   const [smartEditor, setSmartEditor] = useState<{ spec: SmartSpec } | null>(null);
   const smartTargetRef = useRef<any>(null);
+  const [tableEditor, setTableEditor] = useState<{ spec: TableSpec } | null>(null);
+  const tableTargetRef = useRef<any>(null);
   const [findOpen, setFindOpen] = useState(false);
   const findCursorRef = useRef<{ s: number; o: number }>({ s: -1, o: -1 });
   const footerRef = useRef<string>(value?.footer || '');
@@ -196,16 +200,26 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
     loadingRef.current = false;
     c.requestRenderAll(); capture(); sync();
   }
-  function addTable(rows: number, cols: number) {
+  // ── Tablas estructuradas (Group con tableSpec; export nativo a .pptx) ───────
+  function insertTable(rows: number, cols: number) {
     const c = fabricRef.current; if (!c) return;
-    const t = theme(); const cw = 150, ch = 46, x0 = 90, y0 = 150;
-    loadingRef.current = true;
-    for (let r = 0; r < rows; r++) for (let col = 0; col < cols; col++) {
-      c.add(new Rect({ left: x0 + col * cw, top: y0 + r * ch, width: cw, height: ch, fill: r === 0 ? t.accent : '#ffffff', stroke: '#cbd5e1', strokeWidth: 1 }));
-      c.add(new Textbox(r === 0 ? `Columna ${col + 1}` : '', { left: x0 + col * cw + 8, top: y0 + r * ch + 13, width: cw - 16, fontSize: 16, fill: r === 0 ? '#ffffff' : t.text, fontFamily: t.font }));
-    }
-    loadingRef.current = false;
-    c.requestRenderAll(); capture(); sync();
+    const t = theme();
+    const g = buildTableGroup({ ...defaultTableSpec(rows, cols), accent: t.accent }, { text: t.text, font: t.font });
+    c.add(g); c.setActiveObject(g); c.requestRenderAll(); capture(); sync();
+  }
+  function openTableEditor() { tableTargetRef.current = null; setTableEditor({ spec: defaultTableSpec(3, 3) }); }
+  function editTableObj(g: any) { tableTargetRef.current = g; setTableEditor({ spec: g.tableSpec }); }
+  function applyTable(spec: TableSpec) {
+    const c = fabricRef.current; if (!c) { setTableEditor(null); return; }
+    const t = theme();
+    const old = tableTargetRef.current;
+    const pos = old ? { left: old.left, top: old.top, scaleX: old.scaleX, scaleY: old.scaleY, angle: old.angle } : { left: 90, top: 150, scaleX: 1, scaleY: 1, angle: 0 };
+    if (old) c.remove(old);
+    const g = buildTableGroup({ ...spec, accent: t.accent }, { left: pos.left, top: pos.top, text: t.text, font: t.font });
+    g.set({ scaleX: pos.scaleX || 1, scaleY: pos.scaleY || 1, angle: pos.angle || 0 });
+    g.setCoords();
+    c.add(g); c.setActiveObject(g); c.requestRenderAll();
+    tableTargetRef.current = null; setTableEditor(null); capture(); sync();
   }
   // ── Gráficos desde datos (Group con chartSpec; export nativo a .pptx) ──────
   function openChartEditor() { chartTargetRef.current = null; setChartEditor({ spec: defaultChartSpec(), editing: false }); }
@@ -451,7 +465,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
     sync();
   }
   // Include custom props (anim = entrance animation, shape = .pptx mapping, link = hyperlink, locked).
-  function capture() { const c = fabricRef.current; if (c) slidesRef.current[curRef.current] = c.toObject(['anim', 'animOrder', 'animDur', 'animDelay', 'shape', 'link', 'locked', 'imgFx', 'chartSpec', 'smart', 'conn', 'connId']); }
+  function capture() { const c = fabricRef.current; if (c) slidesRef.current[curRef.current] = c.toObject(['anim', 'animOrder', 'animDur', 'animDelay', 'shape', 'link', 'locked', 'imgFx', 'chartSpec', 'smart', 'tableSpec', 'conn', 'connId']); }
   function applyLock(o: any) {
     const L = !!o.locked;
     o.set({ lockMovementX: L, lockMovementY: L, lockScalingX: L, lockScalingY: L, lockRotation: L, hasControls: !L });
@@ -482,7 +496,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
     canvas.on('selection:updated', onSel);
     canvas.on('selection:cleared', () => { setHasSel(false); setSelType(''); setSelCount(0); setSelAnim('none'); });
     // Doble clic en un gráfico o SmartArt → reabre su editor.
-    canvas.on('mouse:dblclick', (e: any) => { const o = e?.target; if (readOnly) return; if (isChart(o)) editChartObj(o); else if (isSmart(o)) editSmartObj(o); });
+    canvas.on('mouse:dblclick', (e: any) => { const o = e?.target; if (readOnly) return; if (isChart(o)) editChartObj(o); else if (isSmart(o)) editSmartObj(o); else if (isTable(o)) editTableObj(o); });
     // Conectores anclados: recalcular al mover/escalar/rotar formas.
     const reconn = () => { try { refreshConnectors(canvas); } catch { /* noop */ } };
     canvas.on('object:moving', reconn);
@@ -1111,11 +1125,12 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
             </RibbonGroup>
             <RibbonSeparator />
             <RibbonGroup label="Tablas">
-              <RibbonMenuButton icon={Table2} label="Tabla" menuWidth={190} items={[
-                { label: 'Tabla 2 × 2', onClick: () => addTable(2, 2) },
-                { label: 'Tabla 3 × 3', onClick: () => addTable(3, 3) },
-                { label: 'Tabla 4 × 3', onClick: () => addTable(4, 3) },
-                { label: 'Tabla 5 × 4', onClick: () => addTable(5, 4) },
+              <RibbonMenuButton icon={Table2} label="Tabla" menuWidth={200} items={[
+                { label: 'Tabla 2 × 2', onClick: () => insertTable(2, 2) },
+                { label: 'Tabla 3 × 3', onClick: () => insertTable(3, 3) },
+                { label: 'Tabla 4 × 3', onClick: () => insertTable(3, 4) },
+                { label: 'Tabla 5 × 4', onClick: () => insertTable(4, 5) },
+                { label: 'Personalizar…', onClick: openTableEditor },
               ]} />
             </RibbonGroup>
             <RibbonSeparator />
@@ -1398,6 +1413,9 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
       </AnimatePresence>
       <AnimatePresence>
         {smartEditor && <SlideSmartArtEditor spec={smartEditor.spec} onApply={applySmart} onClose={() => { smartTargetRef.current = null; setSmartEditor(null); }} />}
+      </AnimatePresence>
+      <AnimatePresence>
+        {tableEditor && <SlideTableEditor spec={tableEditor.spec} onApply={applyTable} onClose={() => { tableTargetRef.current = null; setTableEditor(null); }} />}
       </AnimatePresence>
       <AnimatePresence>
         {findOpen && !readOnly && <SlideFindReplace onClose={() => setFindOpen(false)} onCount={countMatches} onNext={findNext} onReplaceAll={replaceAllText} />}

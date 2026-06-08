@@ -235,6 +235,18 @@ Verificado: `tsc` ✓, `eslint` ✓, `next build` ✓.
 
 Verificado: `tsc` ✓, `eslint` ✓, `next build` ✓.
 
+#### Lote 18 — Tablas estructuradas (backlog #10)
+- `slides/table.ts` — la tabla es un `Group` con `tableSpec` (filas/columnas/
+  celdas/encabezado/bandeado/acento). Se dibuja con rect+texto.
+- `SlideTableEditor.tsx` — modal con **celdas editables**, agregar/quitar filas y
+  columnas, y toggles de **fila de encabezado** y **filas alternas**.
+- En `SlidesEditor.tsx`: Insertar ▸ Tabla (presets + Personalizar…); **doble clic
+  edita** la tabla; al aplicar reconstruye conservando posición/escala.
+- En `pptx.ts`: `addTableObject` exporta como **tabla NATIVA de PowerPoint**
+  (`slide.addTable`) con estilos de encabezado/bandeado y bordes.
+
+Verificado: `tsc` ✓, `eslint` ✓, `next build` ✓.
+
 ### Diferido (con estimación)
 - **Secciones en el clasificador** y colapsar/expandir: el sorter es una rejilla;
   insertar encabezados de ancho completo + colapso. Estimación: ~0.5 día.

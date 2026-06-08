@@ -55,6 +55,7 @@ export async function exportPptx(slides: any[], title: string, notes: string[] =
     for (const o of json?.objects ?? []) {
       try {
         if (o && o.chartSpec) addChartObject(slide, o, pptx);
+        else if (o && o.tableSpec) addTableObject(slide, o);
         else addObject(slide, o, ST);
       } catch { /* skip unsupported object */ }
     }
@@ -93,6 +94,27 @@ function addChartObject(slide: any, o: any, pptx: any) {
   const data = spec.series.map((s: any) => ({ name: String(s.name ?? ''), labels, values: (s.data ?? []).map((n: any) => Number(n) || 0) }));
   const type = spec.type === 'line' ? T.line : spec.type === 'area' ? T.area : T.bar;
   slide.addChart(type, data, { ...common, barDir: spec.type === 'hbar' ? 'bar' : 'col', ...(spec.stacked && (spec.type === 'bar' || spec.type === 'hbar' || spec.type === 'area') ? { barGrouping: 'stacked' } : {}) });
+}
+
+/** Exporta una tabla (Group con tableSpec) como TABLA NATIVA de PowerPoint. */
+function addTableObject(slide: any, o: any) {
+  const spec = o.tableSpec; if (!spec || !Array.isArray(spec.cells)) return;
+  const accent = hex(spec.accent) || '2563EB';
+  const scaleX = o.scaleX ?? 1, scaleY = o.scaleY ?? 1;
+  const w = (o.width ?? 450) * scaleX, h = (o.height ?? 132) * scaleY;
+  const rows = spec.cells.map((row: any[], r: number) => row.map((txt: any) => {
+    const isHeader = spec.header && r === 0;
+    const banded = spec.banded && !isHeader && r % 2 === 1;
+    return {
+      text: String(txt ?? ''),
+      options: {
+        bold: isHeader, color: isHeader ? 'FFFFFF' : '1F2937',
+        fill: { color: isHeader ? accent : (banded ? 'EEF2FF' : 'FFFFFF') },
+        align: 'left', valign: 'middle', fontSize: 12,
+      },
+    };
+  }));
+  slide.addTable(rows, { x: sx(o.left ?? 0), y: sy(o.top ?? 0), w: sx(w), h: sy(h), border: { type: 'solid', color: 'CBD5E1', pt: 1 }, autoPage: false });
 }
 
 function addObject(slide: any, o: any, ST: any) {
