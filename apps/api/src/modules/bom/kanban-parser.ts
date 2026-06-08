@@ -19,8 +19,13 @@ function toText(value: unknown): string | undefined {
   return text ? text : undefined;
 }
 
-function isOpCode(value: unknown): value is string {
-  return typeof value === 'string' && value.trim().toUpperCase().startsWith('OP-');
+/**
+ * Valida que un valor tenga FORMA de código de parte (PREFIJO-…dígitos).
+ * Client-neutral a propósito: NO codifica ningún prefijo de cliente real; sólo
+ * comprueba el formato genérico (≥2 letras, guión y al menos un dígito).
+ */
+function isPartCode(value: unknown): value is string {
+  return typeof value === 'string' && /^[A-Z]{2,}-\d/.test(value.trim().toUpperCase());
 }
 
 export function parseKanbanXlsx(buffer: Buffer): ParsedKanbanRow[] {
@@ -48,7 +53,7 @@ export function parseKanbanXlsx(buffer: Buffer): ParsedKanbanRow[] {
   for (let r = 1; r < raw.length; r++) {
     const row = raw[r] ?? [];
     const partNumber = row[partNumberIndex];
-    if (!isOpCode(partNumber)) continue;
+    if (!isPartCode(partNumber)) continue;
 
     const location = [toText(row[locationIndex]), toText(row[location2Index])]
       .filter(Boolean)

@@ -3,13 +3,13 @@ import { explodeBom, BomExplosionInput } from './bom-explosion';
 describe('explodeBom', () => {
   const bom: BomExplosionInput[] = [
     {
-      partNumber: 'OP-520-0100',
+      partNumber: 'AX-520-0100',
       description: 'Cable harness',
       usageFactor: 2,
       unit: 'EA',
     },
     {
-      partNumber: 'OP-520-0101',
+      partNumber: 'AX-520-0101',
       description: 'Screw M3',
       usageFactor: 4,
       unit: 'EA',
@@ -20,13 +20,13 @@ describe('explodeBom', () => {
     const lines = explodeBom(bom, 10);
     expect(lines).toEqual([
       {
-        partNumber: 'OP-520-0100',
+        partNumber: 'AX-520-0100',
         description: 'Cable harness',
         quantityRequired: 20,
         unit: 'EA',
       },
       {
-        partNumber: 'OP-520-0101',
+        partNumber: 'AX-520-0101',
         description: 'Screw M3',
         quantityRequired: 40,
         unit: 'EA',

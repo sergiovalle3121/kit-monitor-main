@@ -40,6 +40,13 @@ import {
   runInDemoContext,
 } from './seed-context';
 import {
+  assertSeedCustomer,
+  assertSeedModel,
+  assertSeedPart,
+  assertSeedText,
+  validateDemoCatalog,
+} from './public-domain-guard';
+import {
   DEMO_ACTOR,
   DEMO_BOM_REVISION,
   DEMO_COMPANY,
@@ -132,6 +139,8 @@ async function seedCustomersAndPrograms(
 
   for (const c of DEMO_CUSTOMERS) {
     try {
+      assertSeedCustomer(c.name);
+      assertSeedText(c.industry, `industria de ${c.code}`);
       const existing = await custRepo.findOne({ where: { code: c.code } });
       if (existing) {
         t.skipped++;
@@ -153,6 +162,7 @@ async function seedCustomersAndPrograms(
 
   for (const p of DEMO_PROGRAMS) {
     try {
+      assertSeedText(p.name, `nombre de programa ${p.code}`);
       const existing = await progRepo.findOne({ where: { code: p.code } });
       if (existing) {
         t.skipped++;
@@ -190,6 +200,8 @@ async function seedMaterials(
 
   for (const part of DEMO_PARTS) {
     try {
+      assertSeedPart(part.partNumber);
+      assertSeedText(part.description, `descripción de ${part.partNumber}`);
       const before = await matRepo.findOne({ where: { partNumber: part.partNumber } });
       const mat = await inventory.ensureMaterial({
         partNumber: part.partNumber,
@@ -270,6 +282,11 @@ async function seedModels(app: INestApplicationContext): Promise<Tally> {
 
   for (const m of DEMO_MODELS) {
     try {
+      assertSeedModel(m.modelNumber);
+      assertSeedCustomer(m.customer);
+      assertSeedText(m.name, `nombre de ${m.modelNumber}`);
+      assertSeedText(m.description, `descripción de ${m.modelNumber}`);
+      for (const line of m.bom) assertSeedPart(line.part);
       const existing = await models.findByNumber(m.modelNumber);
       if (existing) {
         if (existing.status === 'DRAFT') await models.activate(existing.id);
@@ -522,8 +539,13 @@ async function inventoryValuation(ds: DataSource): Promise<number> {
 async function run(): Promise<void> {
   assertNotProduction();
 
+  // CANDADO LEGAL: valida TODO el catálogo (dominio público) ANTES de tocar la BD.
+  // Si algo huele a cliente real (prefijo OP-, nombre de empresa real…), aborta.
+  const checked = validateDemoCatalog();
+
   console.log('════════════════════════════════════════════════════════════');
   console.log(' AXOS OS — Seed DEMO (universo AXOS, datos funcionales)');
+  console.log(`   Candado dominio público: ${checked} campos verificados ✔`);
   console.log('════════════════════════════════════════════════════════════');
 
   const app = await bootSeedContext();
