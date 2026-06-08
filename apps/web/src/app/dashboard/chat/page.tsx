@@ -22,7 +22,7 @@ import { AuthImage } from '@/components/AuthImage';
 import { IconTile } from '@/components/ui/IconTile';
 import {
   chatApi,
-  CHAT_API_BASE,
+  CHAT_API_ORIGIN,
   ChatConversation,
   ChatMessage,
   ChatUser,
@@ -203,7 +203,7 @@ export default function ChatPage() {
       typeof window !== 'undefined'
         ? window.localStorage.getItem('axos_access_token')
         : null;
-    const socket = io(`${CHAT_API_BASE}/chat`, {
+    const socket = io(`${CHAT_API_ORIGIN}/chat`, {
       transports: ['websocket', 'polling'],
       reconnection: true,
       reconnectionAttempts: 10,

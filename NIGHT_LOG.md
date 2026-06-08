@@ -10,6 +10,28 @@ archivos, decisiones, endpoints/pantallas, KPIs, siguiente paso / bloqueos.
 
 ---
 
+## 2026-06-08 — FIX: doble `/api` del chat (REST + WebSocket) en producción
+
+> Rama `claude/dazzling-dirac-1puYr`. Solo frontend, aditivo. El chat no
+> funcionaba en prod: `NEXT_PUBLIC_API_URL` ya termina en `/api` (a propósito,
+> para la convención de `useApi`), pero `chatApi` escribía rutas con `/api/...`
+> → `…/api/api/messaging` (404), y el socket se conectaba a `${base}/chat` →
+> namespace `/api/chat` (el gateway registra `/chat`) → tiempo real muerto.
+
+- **REST (`lib/chatApi.ts`):** se quitó el prefijo `/api` de TODAS las rutas
+  (`/messaging/...`), igual que `useApi`. Con el base que ya trae `/api` resuelven
+  a `…/api/messaging/...` una sola vez. Incluye `fetchImageBlob`.
+- **WebSocket:** nuevo `CHAT_API_ORIGIN = new URL(CHAT_API_BASE).origin` (con
+  try/catch); `dashboard/chat/page.tsx` conecta `io(\`${CHAT_API_ORIGIN}/chat\`)`
+  → namespace `/chat` en el origin (el prefijo HTTP `/api` no aplica a socket.io).
+  Se conservó el handshake JWT (P0) y la lógica de presencia/typing/reacciones.
+- **Verificado (aserción node):** prod `…/up.railway.app/api` → REST
+  `…/api/messaging/conversations` (un solo `/api`) y WS `…/up.railway.app/chat`;
+  local `http://localhost:3000` → `/messaging/...` y `/chat`. Build + lint verdes.
+- **No se tocó** `NEXT_PUBLIC_API_URL` (Railway) — quitarle `/api` rompería el hub.
+
+---
+
 ## 2026-06-08 — BLINDAJE DE ACCESO DEL OWNER (3 capas, deriva del EMAIL)
 
 > Rama `claude/dazzling-dirac-1puYr`. El dueño (`sergiovallezarate@gmail.com`)
