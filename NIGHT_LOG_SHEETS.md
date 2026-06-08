@@ -179,6 +179,20 @@ completa, expresión regular (con aviso de regex inválida) y reemplazar todo.
 
 **Spec**: `fill.spec.ts` (17). Verde.
 
-**Total de aserciones de lógica pura: 133** (8 specs, `npx tsx`).
+### 9) Rangos con nombre + administrador  ✅
+`sheetOps.ts`: `validateRangeName` (reglas tipo Excel: forma de celda, reservados R/C,
+duplicados), `qualifiedRef` (referencia A1 con hoja entrecomillada) y
+`resolveNamedRange` (nombre → rango/hoja, o A1 directo).
+`SheetNameManager.tsx`: alta con validación, eliminación, **insertar referencia** en la
+celda activa y **copiar** al portapapeles. Persistido en el documento (`names` en el
+contenido; `SheetEditor` lo serializa). Ribbon: **Fórmulas → Administrador de nombres**.
+- *Nota*: el uso de nombres **dentro del motor de fórmulas** depende de Fortune-Sheet
+  (no soporta named ranges nativos); AXOS ofrece registro + inserción/copia de la
+  referencia real, y `resolveNamedRange` queda listo para que las funciones propias
+  (pivot/gráficas) acepten nombres en el futuro.
+
+**Spec**: `names.spec.ts` (12). Verde.
+
+**Total de aserciones de lógica pura: 145** (9 specs, `npx tsx`).
 </content>
 </invoke>

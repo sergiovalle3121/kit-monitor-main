@@ -5,7 +5,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { Workbook } from '@fortune-sheet/react';
 import '@fortune-sheet/react/dist/index.css';
-import { ListChecks, Palette, Snowflake, FileText, Sigma, Search, ArrowDownUp, CopyMinus, Columns3, StickyNote, Table2, Hash, Rows3, Activity, ArrowDownToLine, FlipVertical2 } from 'lucide-react';
+import { ListChecks, Palette, Snowflake, FileText, Sigma, Search, ArrowDownUp, CopyMinus, Columns3, StickyNote, Table2, Hash, Rows3, Activity, ArrowDownToLine, FlipVertical2, Tag } from 'lucide-react';
 import { SheetCharts } from './SheetCharts';
 import { SheetTools, type ValidationPayload } from './SheetTools';
 import { SheetFunctionWizard } from './SheetFunctionWizard';
@@ -13,8 +13,9 @@ import { SheetFindReplace } from './SheetFindReplace';
 import { SheetDataDialog, type DataMode } from './SheetDataDialog';
 import { SheetPivot } from './SheetPivot';
 import { SheetFormatDialog, type NumberFmtPayload, type StylePayload } from './SheetFormatDialog';
+import { SheetNameManager } from './SheetNameManager';
 import { parseRange, type ChartConfig } from '@/lib/office/charts';
-import { applyConditional, sortRangeMulti, removeDuplicates, textToColumns, setCellNote, replaceAll, buildPivot, pivotToCelldata, applyNumberFormat, applyCellStyle, applySubtotals, applySparkline, applyFill, transposeRange, colName, type CondPayload, type PivotConfig, type FindOpts } from '@/lib/office/sheetOps';
+import { applyConditional, sortRangeMulti, removeDuplicates, textToColumns, setCellNote, replaceAll, buildPivot, pivotToCelldata, applyNumberFormat, applyCellStyle, applySubtotals, applySparkline, applyFill, transposeRange, colName, type CondPayload, type PivotConfig, type FindOpts, type NamedRange } from '@/lib/office/sheetOps';
 import { OfficeRibbon, RibbonTab, RibbonGroup, RibbonSeparator, RibbonButton, RibbonMenuButton } from './ribbon';
 
 // Content is either the legacy bare sheet array or the new { sheets, charts } shape.
@@ -25,6 +26,9 @@ function sheetsOf(v: any): any[] | null {
 }
 function chartsOf(v: any): ChartConfig[] {
   return v && Array.isArray(v.charts) ? v.charts : [];
+}
+function namesOf(v: any): NamedRange[] {
+  return v && Array.isArray(v.names) ? v.names : [];
 }
 const DEFAULT_SHEET = { name: 'Hoja 1', celldata: [], order: 0, row: 100, column: 30, config: {} };
 const clone = (x: any) => JSON.parse(JSON.stringify(x));
@@ -38,6 +42,9 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
   const wbRef = useRef<any>(null);
   const chartsRef = useRef<ChartConfig[]>(chartsOf(value));
   const [charts, setCharts] = useState<ChartConfig[]>(chartsRef.current);
+  const namesRef = useRef<NamedRange[]>(namesOf(value));
+  const [names, setNames] = useState<NamedRange[]>(namesRef.current);
+  const [showNames, setShowNames] = useState(false);
   const [tool, setTool] = useState<null | 'validation' | 'condformat'>(null);
   const [dataMode, setDataMode] = useState<DataMode | null>(null);
   const [showWizard, setShowWizard] = useState(false);
@@ -60,8 +67,11 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
   }, [readOnly]);
 
   const emit = useCallback(() => {
-    onChangeRef.current({ sheets: sheetsRef.current, charts: chartsRef.current });
+    onChangeRef.current({ sheets: sheetsRef.current, charts: chartsRef.current, names: namesRef.current });
   }, []);
+
+  const addName = useCallback((nr: NamedRange) => { namesRef.current = [...namesRef.current, nr]; setNames(namesRef.current); emit(); }, [emit]);
+  const removeName = useCallback((nm: string) => { namesRef.current = namesRef.current.filter((n) => n.name !== nm); setNames(namesRef.current); emit(); }, [emit]);
 
   const handleSheet = useCallback((d: any) => {
     sheetsRef.current = d;
@@ -151,19 +161,26 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
     if (msg) window.setTimeout(() => window.alert(msg), 30);
   }
 
-  function insertFunction(formula: string) {
-    setShowWizard(false);
+  function insertIntoCell(text: string): boolean {
     const wb = wbRef.current;
     try {
       const sel = wb?.getSelection?.();
       const first = Array.isArray(sel) ? sel[0] : sel;
       const r = first?.row?.[0] ?? 0;
       const c = first?.column?.[0] ?? 0;
-      if (wb?.setCellValue) { wb.setCellValue(r, c, formula); return; }
+      if (wb?.setCellValue) { wb.setCellValue(r, c, text); return true; }
     } catch { /* fallback */ }
+    return false;
+  }
+  function insertFunction(formula: string) {
+    setShowWizard(false);
+    if (insertIntoCell(formula)) return;
     navigator.clipboard?.writeText(formula)
       .then(() => window.alert(`Función copiada: ${formula}  — pégala en la celda y completa los argumentos.`))
       .catch(() => window.alert(`Escribe en la celda: ${formula}`));
+  }
+  function insertNameRef(ref: string) {
+    if (!insertIntoCell(ref)) navigator.clipboard?.writeText(ref).catch(() => {});
   }
 
   function doReplaceAll(query: string, replacement: string, opts: FindOpts): number {
@@ -294,6 +311,10 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
             <RibbonGroup label="Biblioteca de funciones">
               <RibbonButton icon={Sigma} label="Insertar función" hideLabel={false} onClick={() => setShowWizard(true)} />
             </RibbonGroup>
+            <RibbonSeparator />
+            <RibbonGroup label="Nombres definidos">
+              <RibbonButton icon={Tag} label="Administrador de nombres" hideLabel={false} onClick={() => setShowNames(true)} />
+            </RibbonGroup>
           </RibbonTab>
         )}
         {!readOnly && (
@@ -347,6 +368,17 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
             onApplyNumber={applyNumberFmt}
             onApplyStyle={applyStyleFmt}
             onClose={() => setShowFormat(false)}
+          />
+        )}
+        {showNames && (
+          <SheetNameManager
+            names={names}
+            sheetNames={sheetNames()}
+            activeSheetIndex={activeIndex()}
+            onAdd={addName}
+            onRemove={removeName}
+            onInsert={(ref) => { insertNameRef(ref); setShowNames(false); }}
+            onClose={() => setShowNames(false)}
           />
         )}
       </AnimatePresence>

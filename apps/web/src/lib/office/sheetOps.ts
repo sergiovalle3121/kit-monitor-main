@@ -975,3 +975,34 @@ export function transposeRange(sheet: any, srcRange: string, destCell: string): 
   return true;
 }
 const clone = (x: any): any => (x == null ? x : JSON.parse(JSON.stringify(x)));
+
+// ── Rangos con nombre ─────────────────────────────────────────────────────────
+export interface NamedRange { name: string; range: string; sheetIndex: number }
+
+/** Valida un nombre de rango (estilo Excel). Devuelve mensaje de error o null. */
+export function validateRangeName(name: string, existing: string[] = []): string | null {
+  const n = (name || '').trim();
+  if (!n) return 'El nombre no puede estar vacío.';
+  if (n.length > 255) return 'Nombre demasiado largo.';
+  if (!/^[A-Za-z_À-ſ][A-Za-z0-9_.À-ſ]*$/.test(n)) return 'Use letras, dígitos, _ o . (empiece con letra o _).';
+  if (/^[A-Za-z]{1,3}[0-9]+$/.test(n)) return 'No puede tener forma de referencia de celda (ej. A1).';
+  if (/^[RC][0-9]*$/i.test(n)) return 'Nombre reservado (R/C).';
+  if (existing.some((e) => e.toLowerCase() === n.toLowerCase())) return 'Ya existe un nombre igual.';
+  return null;
+}
+
+/** Referencia A1 cualificada con la hoja (entrecomillada si hace falta). */
+export function qualifiedRef(nr: NamedRange, sheetNames: string[]): string {
+  const sn = sheetNames[nr.sheetIndex] || `Hoja ${nr.sheetIndex + 1}`;
+  const sheet = /^[A-Za-z_][A-Za-z0-9_]*$/.test(sn) ? sn : `'${sn.replace(/'/g, "''")}'`;
+  return `${sheet}!${nr.range}`;
+}
+
+/** Resuelve un texto a rango: si coincide con un nombre, usa su rango/hoja. */
+export function resolveNamedRange(input: string, names: NamedRange[], fallbackSheet: number): { range: string; sheetIndex: number } | null {
+  const t = (input || '').trim();
+  const hit = names.find((n) => n.name.toLowerCase() === t.toLowerCase());
+  if (hit) return { range: hit.range, sheetIndex: hit.sheetIndex };
+  if (parseRange(t)) return { range: t, sheetIndex: fallbackSheet };
+  return null;
+}
