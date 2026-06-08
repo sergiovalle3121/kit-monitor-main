@@ -333,7 +333,25 @@ export const DEMO_USER_EMAILS: string[] = DEMO_USERS.map((u) => u.email);
 // ─────────────────────────────────────────────────────────────────────────────
 export const MV_REF_RECEIVE = 'AX-SEED-RCV';
 export const MV_REF_CONSUME = 'AX-SEED-CON';
-export const DEMO_MV_REF_TYPES: string[] = [MV_REF_RECEIVE, MV_REF_CONSUME];
+export const MV_REF_HOLD = 'AX-SEED-QA';
+export const DEMO_MV_REF_TYPES: string[] = [MV_REF_RECEIVE, MV_REF_CONSUME, MV_REF_HOLD];
+
+/**
+ * Existencias en CALIDAD (cuarentena / inspección de entrada). Demuestran el
+ * flujo de holds: material recibido en `AX-WH-NORTE-QA` con `holdStatus` distinto
+ * de `available` (no se puede mover/consumir hasta liberarlo).
+ */
+export interface DemoHold {
+  part: string;
+  quantity: number;
+  holdStatus: 'quarantine' | 'pending_iqc';
+}
+
+export const DEMO_HOLDS: DemoHold[] = [
+  { part: 'PCB-AX200-6L', quantity: 120, holdStatus: 'pending_iqc' },
+  { part: 'IC-MCU-32B', quantity: 300, holdStatus: 'pending_iqc' },
+  { part: 'CONN-RJ45-MAG', quantity: 200, holdStatus: 'quarantine' },
+];
 
 /** Igual que EnterpriseCampusService.slug — para predecir ids de cliente/programa. */
 export function slugCode(code: string): string {

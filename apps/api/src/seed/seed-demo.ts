@@ -51,6 +51,7 @@ import {
   DEMO_BOM_REVISION,
   DEMO_COMPANY,
   DEMO_CUSTOMERS,
+  DEMO_HOLDS,
   DEMO_MODELS,
   DEMO_PARTS,
   DEMO_PLANS,
@@ -59,8 +60,10 @@ import {
   DEMO_USERS,
   DEMO_USER_PASSWORD,
   DEMO_WAREHOUSES,
+  DEMO_WH_QA,
   DEMO_WH_RM,
   MV_REF_CONSUME,
+  MV_REF_HOLD,
   MV_REF_RECEIVE,
   slugCode,
 } from './seed-constants';
@@ -485,6 +488,50 @@ async function seedConsumption(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// 8b. Calidad: existencias en cuarentena / inspección (holdStatus ≠ available)
+// ─────────────────────────────────────────────────────────────────────────────
+async function seedQualityHolds(
+  app: INestApplicationContext,
+  ds: DataSource,
+): Promise<Tally> {
+  const inventory = app.get(InventoryService, { strict: false });
+  const mvRepo = ds.getRepository(InventoryMovement);
+  const t = tally();
+
+  for (const hold of DEMO_HOLDS) {
+    const referenceId = `QA-${hold.part}`;
+    try {
+      const exists = await mvRepo.findOne({
+        where: { referenceType: MV_REF_HOLD, referenceId },
+      });
+      if (exists) {
+        t.skipped++;
+        continue;
+      }
+      await inventory.recordTransaction({
+        type: 'RECEIVE',
+        partNumber: hold.part,
+        quantity: hold.quantity,
+        fromWarehouseId: '',
+        toWarehouseId: DEMO_WH_QA,
+        toLocation: 'QA-HOLD',
+        holdStatus: hold.holdStatus,
+        actorName: DEMO_ACTOR,
+        referenceType: MV_REF_HOLD,
+        referenceId,
+        reason: `Material en ${hold.holdStatus} (inspección de calidad)`,
+      });
+      t.created++;
+    } catch (err) {
+      t.errors++;
+      log('calidad', `ERROR ${hold.part}: ${(err as Error).message}`);
+    }
+  }
+  log('calidad', `holds=${t.created} ya existían=${t.skipped} errores=${t.errors}`);
+  return t;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // 9. Usuarios demo (roles variados) — opcional pero útil para probar permisos
 // ─────────────────────────────────────────────────────────────────────────────
 async function seedUsers(app: INestApplicationContext): Promise<Tally> {
@@ -561,6 +608,7 @@ async function run(): Promise<void> {
       await seedBoms(app, ds);
       await seedPlans(app, ds);
       await seedConsumption(app, ds);
+      await seedQualityHolds(app, ds);
       await seedUsers(app);
     });
 

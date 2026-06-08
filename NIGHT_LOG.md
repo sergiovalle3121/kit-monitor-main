@@ -1302,8 +1302,10 @@ se calculan de verdad.
 - **4 BOM** (12–14 componentes c/u, 52 en total) DRAFT→APPROVED→**ACTIVE** vía el servicio
   (costo rollup real: $7.30–$17.53 por unidad).
 - **8 planes / WO** (`AX-WO-0001…0008`): 4 `published` (kit explotado del BOM) + 4 `pending`.
-- **Inventario:** 28 recepciones (RECEIVE) → 28 posiciones; 52 consumos (CONSUME/backflush)
-  para las WO publicadas → 80 movimientos. **Valuación Σ(onHand×stdCost) = $44,303.04 USD**.
+- **Inventario:** 28 recepciones (RECEIVE) → posiciones; 52 consumos (CONSUME/backflush)
+  para las WO publicadas; **3 existencias en CALIDAD** (cuarentena / inspección IQC) en
+  `AX-WH-NORTE-QA` con `holdStatus` ≠ available. Total **31 posiciones, 83 movimientos**.
+  **Valuación Σ(onHand×stdCost) = $46,530.04 USD**.
 - **4 usuarios demo** con roles variados (Planner, Warehouse Operator, Quality Engineer,
   Materials Lead), correos `@axos.example`.
 
@@ -1312,15 +1314,15 @@ se calculan de verdad.
 
 ### Verificación del golden path (lo que prueba que NO es maqueta)
 
-`npm run seed:demo:verify` → **GOLDEN PATH OK — 19/19** (sale con código ≠ 0 si falla):
+`npm run seed:demo:verify` → **GOLDEN PATH OK — 20/20** (sale con código ≠ 0 si falla):
 - 4/4 modelos `ACTIVE`; 4/4 BOM `ACTIVE` con todos sus componentes.
 - 4/4 planes `published` con kit; **explosión correcta**: cada línea del kit cumple
   `quantityRequired = qtyPorUnidad × cantidadDelPlan` (ej. `PCB-AX300-2L: 200 (=1×200)`).
-- 28 posiciones, 80 movimientos, **valuación $44,303.04 > 0**.
+- 31 posiciones (3 en hold de calidad), 83 movimientos, **valuación $46,530.04 > 0**.
 - **Idempotencia probada:** corrí el seed 2 veces → conteos idénticos
-  (modelos 4, BOM 4, comps 52, planes 8, kits 4, kit_materials 52, partes 28, pos 28,
-  mov 80); todas las fases reportan `creados=0`.
-- **`clear` probado:** `npm run seed:demo:clear` borró **275 filas** demo (sólo lo marcado
+  (modelos 4, BOM 4, comps 52, planes 8, kits 4, kit_materials 52, partes 28, pos 31,
+  mov 83); todas las fases reportan `creados=0`.
+- **`clear` probado:** `npm run seed:demo:clear` borró **281 filas** demo (sólo lo marcado
   como demo) → BD limpia (0 en todas las tablas) → re-seed desde cero reconstruye todo y
   vuelve a pasar 19/19.
 

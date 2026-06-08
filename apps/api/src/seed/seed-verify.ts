@@ -140,8 +140,15 @@ async function run(): Promise<void> {
       .getRawOne<{ value: string }>();
     const valuation = Number(valRow?.value ?? 0);
 
+    const heldCount = await ds
+      .getRepository(InventoryPosition)
+      .createQueryBuilder('pos')
+      .where("pos.holdStatus <> 'available'")
+      .getCount();
+
     check('posiciones de inventario', positionsCount > 0, `${positionsCount} posiciones`);
     check('movimientos de inventario', movementsCount > 0, `${movementsCount} movimientos (recibo/consumo)`);
+    check('existencias en calidad (hold)', heldCount > 0, `${heldCount} posiciones en cuarentena/inspección`);
     check('valuación inventario > 0', valuation > 0, `$${valuation.toFixed(2)} USD sobre ${DEMO_PART_NUMBERS.length} partes demo`);
 
     // ── Resultado ─────────────────────────────────────────────────────────
