@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { AuditService } from '../../governance/audit.service';
+import { isOwnerEmail } from '../rbac';
 
 @Injectable()
 export class PermissionsGuard implements CanActivate {
@@ -32,8 +33,13 @@ export class PermissionsGuard implements CanActivate {
       throw new ForbiddenException('User not authenticated');
     }
 
-    // 1. Admin Bypass
-    if (user.role === 'Admin') {
+    // 1. Admin / Owner Bypass. El owner se reconoce por EMAIL (override duro):
+    // ningún endpoint puede devolver 403 al dueño aunque el token venga viejo o
+    // con el rol mal escrito. Admin se acepta case-insensitive por robustez.
+    if (
+      (user.role || '').toLowerCase() === 'admin' ||
+      isOwnerEmail(user.email)
+    ) {
       return true;
     }
 

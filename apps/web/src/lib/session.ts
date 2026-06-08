@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { isOwnerEmail } from "@/lib/owner";
 
 export type SessionKind = "user" | "demo";
 
@@ -99,8 +100,15 @@ export async function setSessionCookie(
   payload: Omit<SessionPayload, "exp">,
   maxAgeSeconds: number = ONE_DAY,
 ): Promise<void> {
+  // Normaliza el casing del rol a minúscula (valor canónico que espera el
+  // frontend) y, si el email es del owner, fíjalo a 'admin' — derivado del
+  // EMAIL, no del rol almacenado, para que nunca se bloquee al dueño.
+  const role = isOwnerEmail(payload.email)
+    ? "admin"
+    : (payload.role || "").toLowerCase();
   const full: SessionPayload = {
     ...payload,
+    role,
     exp: Math.floor(Date.now() / 1000) + maxAgeSeconds,
   };
   const token = await encodeSession(full);
