@@ -16,7 +16,7 @@ import {
   AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd,
   LayoutTemplate, Table2, Grid3x3, Hash, SquareDashed, MonitorPlay, Brush,
   Shapes, Crop, SunMedium, Contrast, Wand2, Replace, RefreshCw, Group as GroupIcon, Ungroup, RotateCw,
-  BarChart3,
+  BarChart3, Workflow,
 } from 'lucide-react';
 import { SlideSorter } from './SlideSorter';
 import { SlideIconPicker } from './SlideIconPicker';
@@ -28,6 +28,8 @@ import { ShapeGallery } from './slides/ShapeGallery';
 import { ImageEffectsPanel } from './slides/ImageEffectsPanel';
 import { buildChartGroup, defaultChartSpec, isChart, type ChartSpec } from './slides/chart';
 import { SlideChartEditor } from './SlideChartEditor';
+import { buildSmartArt, defaultSmartSpec, isSmart, type SmartSpec } from './slides/smartart';
+import { SlideSmartArtEditor } from './SlideSmartArtEditor';
 import {
   OfficeRibbon, RibbonTab, RibbonGroup, RibbonSeparator,
   RibbonButton, RibbonSelect, RibbonColorButton, RibbonMenuButton,
@@ -83,6 +85,8 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
   // Editor de gráfico: { spec } y si edita un objeto existente.
   const [chartEditor, setChartEditor] = useState<{ spec: ChartSpec; editing: boolean } | null>(null);
   const chartTargetRef = useRef<any>(null);
+  const [smartEditor, setSmartEditor] = useState<{ spec: SmartSpec } | null>(null);
+  const smartTargetRef = useRef<any>(null);
   const footerRef = useRef<string>(value?.footer || '');
   const numbersRef = useRef<boolean>(!!value?.showNumbers);
   const [showNumbers, setShowNumbers] = useState<boolean>(!!value?.showNumbers);
@@ -165,6 +169,24 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
     chartTargetRef.current = null; setChartEditor(null);
     capture(); sync();
   }
+  // ── SmartArt (Group con prop smart; export como formas reales en .pptx) ─────
+  function openSmartEditor() { smartTargetRef.current = null; setSmartEditor({ spec: defaultSmartSpec() }); }
+  function editSmartObj(g: any) { smartTargetRef.current = g; setSmartEditor({ spec: g.smart }); }
+  function applySmart(spec: SmartSpec) {
+    const c = fabricRef.current; if (!c) { setSmartEditor(null); return; }
+    const t = theme();
+    const old = smartTargetRef.current;
+    const pos = old
+      ? { left: old.left, top: old.top, scaleX: old.scaleX, scaleY: old.scaleY, angle: old.angle }
+      : { left: 70, top: 130, scaleX: 1, scaleY: 1, angle: 0 };
+    if (old) c.remove(old);
+    const g = buildSmartArt(spec, { left: pos.left, top: pos.top, text: t.text, font: t.font });
+    g.set({ scaleX: pos.scaleX || 1, scaleY: pos.scaleY || 1, angle: pos.angle || 0 });
+    g.setCoords();
+    c.add(g); c.setActiveObject(g); c.requestRenderAll();
+    smartTargetRef.current = null; setSmartEditor(null);
+    capture(); sync();
+  }
   async function addIcon(svg: string) {
     const c = fabricRef.current; if (!c) return;
     try {
@@ -240,8 +262,8 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
     canvas.on('selection:created', onSel);
     canvas.on('selection:updated', onSel);
     canvas.on('selection:cleared', () => { setHasSel(false); setSelType(''); setSelCount(0); setSelAnim('none'); });
-    // Doble clic en un gráfico → reabre el editor de datos.
-    canvas.on('mouse:dblclick', (e: any) => { const o = e?.target; if (!readOnly && isChart(o)) editChartObj(o); });
+    // Doble clic en un gráfico o SmartArt → reabre su editor.
+    canvas.on('mouse:dblclick', (e: any) => { const o = e?.target; if (readOnly) return; if (isChart(o)) editChartObj(o); else if (isSmart(o)) editSmartObj(o); });
 
     // Guías de alineación + snapping (al centro/bordes del lienzo y a otros objetos).
     const SNAP = 6;
@@ -634,6 +656,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
             <RibbonSeparator />
             <RibbonGroup label="Gráfico">
               <RibbonButton icon={BarChart3} label="Gráfico" hideLabel={false} onClick={openChartEditor} />
+              <RibbonButton icon={Workflow} label="SmartArt" hideLabel={false} onClick={openSmartEditor} />
             </RibbonGroup>
             <RibbonSeparator />
             <RibbonGroup label="Tablas">
@@ -838,6 +861,9 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
       </AnimatePresence>
       <AnimatePresence>
         {chartEditor && <SlideChartEditor spec={chartEditor.spec} onApply={applyChart} onClose={() => { chartTargetRef.current = null; setChartEditor(null); }} />}
+      </AnimatePresence>
+      <AnimatePresence>
+        {smartEditor && <SlideSmartArtEditor spec={smartEditor.spec} onApply={applySmart} onClose={() => { smartTargetRef.current = null; setSmartEditor(null); }} />}
       </AnimatePresence>
       <AnimatePresence>
         {sorter && (

@@ -76,3 +76,16 @@ Verificado: `tsc` ✓, `eslint` ✓ (sólo warnings preexistentes), `next build`
   PowerPoint** (`slide.addChart`) — editable en PPT, con colores de la paleta.
 
 Verificado: `tsc` ✓, `eslint` ✓, `next build` ✓.
+
+#### Lote 3 — SmartArt (backlog #4)
+- `slides/smartart.ts` — genera diagramas desde una lista de texto: **proceso**
+  (pasos →), **lista** (barras numeradas), **ciclo** (nodos en círculo con
+  flechas), **jerarquía** (organigrama 2 niveles) y **pirámide** (niveles). Cada
+  diagrama es un `Group` con prop `smart = { kind, items }`.
+- `SlideSmartArtEditor.tsx` — modal con selector de tipo, textarea (una línea por
+  elemento) y vista previa en vivo.
+- En `SlidesEditor.tsx`: botón **Insertar ▸ SmartArt**; doble clic reabre el
+  editor; al aplicar reconstruye conservando posición/escala. Como son formas y
+  texto nativos, exportan a formas reales en .pptx (vía el handler de grupos).
+
+Verificado: `tsc` ✓, `eslint` ✓ (0 errores), `next build` ✓.
