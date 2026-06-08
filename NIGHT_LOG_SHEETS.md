@@ -133,5 +133,24 @@ Layout maestro-detalle: categorías · lista buscable · panel de detalle con
   motor de Fortune-Sheet es dueño del input del grid; interceptarlo es frágil. El
   asistente cubre el descubrimiento e inserción guiada (estimación: 0.5–1 día para
   un overlay sobre el editor nativo, a validar contra futuras versiones del paquete).
+
+### 6) Import/Export .xlsx de alta fidelidad  ✅
+`lib/office/xlsx.ts` reescrito con mapeo **puro** y testeable:
+- `cellToXlsx` / `xlsxToFortuneV`: valores tipados (n/s/b), **fórmulas** (`f`) y
+  **formatos de número** (`z` ↔ `ct.fa`).
+- `fortuneToWs` / `wsToFortune`: hojas completas con **combinaciones** (`!merges`) y
+  **anchos de columna** (`!cols` ↔ `config.columnlen`). Import con `cellFormula`,
+  `cellNF`, `cellStyles`.
+- CSV con **delimitador** configurable (coma / punto y coma / tabulación) y BOM.
+
+`SheetActions`: menú de exportación con las 3 variantes CSV.
+
+**Spec**: `xlsx.spec.ts` (16) — mapeo puro + **round-trip real con SheetJS**
+(valor, formato de número, fórmula y combinación se conservan).
+- *Límite documentado*: SheetJS **edición comunitaria no escribe estilos** (relleno/
+  fuente/color) al .xlsx; los estilos visuales se mantienen dentro de AXOS. El número-
+  formato, fórmulas, combinaciones y multi-hoja sí round-trip. (Fidelidad total de
+  estilos requeriría SheetJS Pro u otra librería permisiva; estimación 1–2 días + due
+  diligence de licencia.)
 </content>
 </invoke>
