@@ -7,19 +7,21 @@ import { motion } from 'framer-motion';
 import { X, Trash2 } from 'lucide-react';
 
 const CW = 960;
-const CH = 540;
 
 /** Slide-sorter (classifier) overlay: drag thumbnails to reorder. */
 export function SlideSorter({
-  slides, current, onReorder, onDelete, onOpen, onClose,
+  slides, current, ratio, onReorder, onDelete, onOpen, onClose,
 }: {
   slides: any[];
   current: number;
+  ratio?: string;
   onReorder: (from: number, to: number) => void;
   onDelete: (i: number) => void;
   onOpen: (i: number) => void;
   onClose: () => void;
 }) {
+  const CH = ratio === '4:3' ? 720 : 540;
+  const aspect = ratio === '4:3' ? '4 / 3' : '16 / 9';
   const [imgs, setImgs] = useState<string[]>([]);
   const [drag, setDrag] = useState<number | null>(null);
   const [over, setOver] = useState<number | null>(null);
@@ -63,7 +65,7 @@ export function SlideSorter({
               className={`group relative rounded-xl border-2 transition-all cursor-grab active:cursor-grabbing ${over === i && drag !== null ? 'border-amber-500 scale-[1.02]' : i === current ? 'border-amber-400' : 'border-gray-200 dark:border-white/10'} ${drag === i ? 'opacity-40' : ''}`}
             >
               <button onClick={() => onOpen(i)} className="block w-full">
-                <div className="aspect-video rounded-lg overflow-hidden bg-white">
+                <div className="rounded-lg overflow-hidden bg-white" style={{ aspectRatio: aspect }}>
                   {imgs[i] ? <img src={imgs[i]} alt={`Diapositiva ${i + 1}`} className="w-full h-full object-contain" /> : <div className="w-full h-full flex items-center justify-center text-gray-300 text-xs">…</div>}
                 </div>
               </button>

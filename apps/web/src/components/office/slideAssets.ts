@@ -4,6 +4,40 @@
  * usando el tema activo — sin dependencias nuevas.
  */
 
+/** Tamaño de diapositiva. El ancho de diseño es 960; la altura depende de la
+ *  relación de aspecto (16:9 = 540, 4:3 = 720). Compartido por editor, export y
+ *  presentación. */
+export const SLIDE_W = 960;
+export function slideHeight(ratio?: string): number { return ratio === '4:3' ? 720 : 540; }
+export const SLIDE_RATIOS: { label: string; value: string }[] = [
+  { label: '16:9 (panorámica)', value: '16:9' },
+  { label: '4:3 (estándar)', value: '4:3' },
+];
+
+/** Opciones de transición de diapositiva y de animación de entrada (compartidas
+ *  por el editor y el panel de animación; evita un import circular). */
+export const SLIDE_TRANSITIONS: { label: string; value: string }[] = [
+  { label: 'Sin transición', value: 'none' },
+  { label: 'Fundido', value: 'fade' },
+  { label: 'Deslizar', value: 'slide' },
+  { label: 'Deslizar arriba', value: 'slideUp' },
+  { label: 'Empujar', value: 'push' },
+  { label: 'Zoom', value: 'zoom' },
+  { label: 'Revelar', value: 'reveal' },
+  { label: 'Voltear', value: 'flip' },
+];
+export const OBJ_ANIM_OPTIONS: { label: string; value: string }[] = [
+  { label: 'Sin animación', value: 'none' },
+  { label: 'Aparecer', value: 'fade' },
+  { label: 'Entrar (abajo)', value: 'fly' },
+  { label: 'Entrar (arriba)', value: 'flyDown' },
+  { label: 'Entrar (izquierda)', value: 'flyLeft' },
+  { label: 'Entrar (derecha)', value: 'flyRight' },
+  { label: 'Zoom', value: 'zoom' },
+  { label: 'Girar', value: 'rotate' },
+  { label: 'Rebote', value: 'bounce' },
+];
+
 export interface SlideTheme {
   id: string; name: string;
   bg: string; surface: string; text: string; muted: string; accent: string; font: string;
@@ -16,6 +50,12 @@ export const SLIDE_THEMES: SlideTheme[] = [
   { id: 'forest', name: 'Bosque', bg: '#f2fbf5', surface: '#dcfce7', text: '#14532d', muted: '#15803d', accent: '#16a34a', font: 'sans-serif' },
   { id: 'plum', name: 'Ciruela', bg: '#faf5ff', surface: '#f3e8ff', text: '#581c87', muted: '#7e22ce', accent: '#9333ea', font: 'sans-serif' },
   { id: 'mono', name: 'Mono', bg: '#fafafa', surface: '#e7e7e7', text: '#171717', muted: '#525252', accent: '#404040', font: 'ui-monospace, monospace' },
+  { id: 'ocean', name: 'Océano', bg: '#f0f9ff', surface: '#e0f2fe', text: '#0c4a6e', muted: '#0369a1', accent: '#0ea5e9', font: 'sans-serif' },
+  { id: 'slate', name: 'Pizarra', bg: '#f8fafc', surface: '#e2e8f0', text: '#0f172a', muted: '#475569', accent: '#475569', font: 'sans-serif' },
+  { id: 'rose', name: 'Rosa', bg: '#fff1f2', surface: '#ffe4e6', text: '#881337', muted: '#be123c', accent: '#e11d48', font: 'Georgia, serif' },
+  { id: 'sand', name: 'Arena', bg: '#fefce8', surface: '#fef9c3', text: '#713f12', muted: '#a16207', accent: '#ca8a04', font: 'sans-serif' },
+  { id: 'graphite', name: 'Grafito', bg: '#111827', surface: '#1f2937', text: '#f9fafb', muted: '#9ca3af', accent: '#f472b6', font: 'sans-serif' },
+  { id: 'emerald', name: 'Esmeralda', bg: '#022c22', surface: '#064e3b', text: '#ecfdf5', muted: '#6ee7b7', accent: '#34d399', font: 'sans-serif' },
 ];
 
 export type PlaceKind = 'title' | 'subtitle' | 'body' | 'bar' | 'accentBar';
