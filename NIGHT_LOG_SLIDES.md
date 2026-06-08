@@ -167,6 +167,16 @@ Verificado: `tsc` ✓, `eslint` ✓, `next build` ✓.
 
 Verificado: `tsc` ✓, `eslint` ✓, `next build` ✓.
 
+#### Lote 11 — Alinear/distribuir multi-objeto + brocha de formato (backlog #11)
+- **Alinear** ahora es contextual: con 1 objeto, al lienzo; con varios, relativo
+  a la selección (izq/centro/der/arriba/medio/abajo).
+- **Distribuir** horizontal/vertical (espaciado equidistante de centros) con 3+
+  objetos seleccionados.
+- **Brocha de formato**: copiar/pegar formato (relleno, borde, sombra, opacidad,
+  esquinas; y tipografía completa en textos).
+
+Verificado: `tsc` ✓, `eslint` ✓, `next build` ✓.
+
 ### Diferido (con estimación)
 - **Tamaño de diapositiva 4:3/personalizado** (backlog #7, parte): es transversal
   (CW/CH alimentan snapping, alineación, presentación, PDF, .pptx y el sorter).

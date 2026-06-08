@@ -20,6 +20,7 @@ import {
   List, IndentIncrease, IndentDecrease, MoveHorizontal, AlignVerticalSpaceAround, Sparkles, Search,
   Pointer, Pencil, Eraser, Moon, ListTree, Layers,
   ZoomIn, ZoomOut, Maximize, Scan, MousePointerClick, Check,
+  AlignHorizontalSpaceAround, Paintbrush, Stamp,
 } from 'lucide-react';
 import { SlideSorter } from './SlideSorter';
 import { SlideIconPicker } from './SlideIconPicker';
@@ -712,6 +713,68 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
     else if (dir === 'bottom') o.set('top', CH - h);
     o.setCoords(); c.requestRenderAll(); capture(); sync();
   }
+  // Alinear/distribuir: con varios objetos, relativo a la selección; con uno, al lienzo.
+  function doAlign(dir: 'left' | 'hcenter' | 'right' | 'top' | 'vcenter' | 'bottom') {
+    const c = fabricRef.current; const sel = c?.getActiveObject() as any; if (!c || !sel) return;
+    const objs: any[] = sel._objects ? [...sel._objects] : [sel];
+    if (objs.length < 2) { alignObj(dir); return; }
+    c.discardActiveObject();
+    const rects = objs.map((o) => o.getBoundingRect());
+    const minL = Math.min(...rects.map((r) => r.left)), maxR = Math.max(...rects.map((r) => r.left + r.width));
+    const minT = Math.min(...rects.map((r) => r.top)), maxB = Math.max(...rects.map((r) => r.top + r.height));
+    objs.forEach((o, k) => {
+      const r = rects[k];
+      if (dir === 'left') o.left += minL - r.left;
+      else if (dir === 'right') o.left += maxR - (r.left + r.width);
+      else if (dir === 'hcenter') o.left += (minL + maxR) / 2 - (r.left + r.width / 2);
+      else if (dir === 'top') o.top += minT - r.top;
+      else if (dir === 'bottom') o.top += maxB - (r.top + r.height);
+      else if (dir === 'vcenter') o.top += (minT + maxB) / 2 - (r.top + r.height / 2);
+      o.setCoords();
+    });
+    c.setActiveObject(new ActiveSelection(objs, { canvas: c }));
+    c.requestRenderAll(); capture(); sync();
+  }
+  function distribute(axis: 'h' | 'v') {
+    const c = fabricRef.current; const sel = c?.getActiveObject() as any; if (!c || !sel || !sel._objects || sel._objects.length < 3) return;
+    const objs: any[] = [...sel._objects];
+    c.discardActiveObject();
+    const items = objs.map((o) => ({ o, r: o.getBoundingRect() }));
+    items.sort((a, b) => (axis === 'h' ? (a.r.left + a.r.width / 2) - (b.r.left + b.r.width / 2) : (a.r.top + a.r.height / 2) - (b.r.top + b.r.height / 2)));
+    const c0 = axis === 'h' ? items[0].r.left + items[0].r.width / 2 : items[0].r.top + items[0].r.height / 2;
+    const last = items[items.length - 1].r;
+    const cN = axis === 'h' ? last.left + last.width / 2 : last.top + last.height / 2;
+    const step = (cN - c0) / (items.length - 1);
+    items.forEach((it, k) => {
+      const target = c0 + k * step;
+      if (axis === 'h') it.o.left += target - (it.r.left + it.r.width / 2);
+      else it.o.top += target - (it.r.top + it.r.height / 2);
+      it.o.setCoords();
+    });
+    c.setActiveObject(new ActiveSelection(objs, { canvas: c }));
+    c.requestRenderAll(); capture(); sync();
+  }
+  // ── Copiar/pegar formato (brocha de formato) ────────────────────────────────
+  const formatRef = useRef<any>(null);
+  function copyFormat() {
+    const o = fabricRef.current?.getActiveObject() as any; if (!o) return;
+    formatRef.current = {
+      fill: o.fill, stroke: o.stroke, strokeWidth: o.strokeWidth, opacity: o.opacity,
+      shadow: o.shadow ? o.shadow.toObject?.() ?? o.shadow : null, rx: o.rx, ry: o.ry,
+      fontFamily: o.fontFamily, fontSize: o.fontSize, fontWeight: o.fontWeight, fontStyle: o.fontStyle,
+      underline: o.underline, textAlign: o.textAlign, charSpacing: o.charSpacing, lineHeight: o.lineHeight, paintFirst: o.paintFirst,
+    };
+  }
+  function pasteFormat() {
+    const c = fabricRef.current; const o = c?.getActiveObject() as any; const f = formatRef.current;
+    if (!c || !o || !f) return;
+    const common = ['fill', 'stroke', 'strokeWidth', 'opacity', 'shadow', 'paintFirst'];
+    const textProps = ['fontFamily', 'fontSize', 'fontWeight', 'fontStyle', 'underline', 'textAlign', 'charSpacing', 'lineHeight'];
+    for (const k of common) if (f[k] !== undefined) o.set(k, k === 'shadow' && f[k] ? new Shadow(f[k]) : f[k]);
+    if (isText(o)) for (const k of textProps) if (f[k] !== undefined) o.set(k, f[k]);
+    if ((o.type === 'rect') && f.rx !== undefined) o.set({ rx: f.rx, ry: f.ry });
+    c.requestRenderAll(); capture(); sync();
+  }
   async function dupObj() {
     const c = fabricRef.current; const o = c?.getActiveObject() as any;
     if (!c || !o) return;
@@ -969,12 +1032,12 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
             <RibbonGroup label="Organizar">
               <RibbonButton icon={ChevronsUp} label="Traer al frente" onClick={front} />
               <RibbonButton icon={ChevronsDown} label="Enviar atrás" onClick={back} />
-              <RibbonButton icon={AlignHorizontalJustifyStart} label="Alinear a la izquierda" onClick={() => alignObj('left')} />
-              <RibbonButton icon={AlignHorizontalJustifyCenter} label="Centrar horizontal" onClick={() => alignObj('hcenter')} />
-              <RibbonButton icon={AlignHorizontalJustifyEnd} label="Alinear a la derecha" onClick={() => alignObj('right')} />
-              <RibbonButton icon={AlignVerticalJustifyStart} label="Alinear arriba" onClick={() => alignObj('top')} />
-              <RibbonButton icon={AlignVerticalJustifyCenter} label="Centrar vertical" onClick={() => alignObj('vcenter')} />
-              <RibbonButton icon={AlignVerticalJustifyEnd} label="Alinear abajo" onClick={() => alignObj('bottom')} />
+              <RibbonButton icon={AlignHorizontalJustifyStart} label="Alinear a la izquierda" onClick={() => doAlign('left')} />
+              <RibbonButton icon={AlignHorizontalJustifyCenter} label="Centrar horizontal" onClick={() => doAlign('hcenter')} />
+              <RibbonButton icon={AlignHorizontalJustifyEnd} label="Alinear a la derecha" onClick={() => doAlign('right')} />
+              <RibbonButton icon={AlignVerticalJustifyStart} label="Alinear arriba" onClick={() => doAlign('top')} />
+              <RibbonButton icon={AlignVerticalJustifyCenter} label="Centrar vertical" onClick={() => doAlign('vcenter')} />
+              <RibbonButton icon={AlignVerticalJustifyEnd} label="Alinear abajo" onClick={() => doAlign('bottom')} />
               <RibbonButton icon={FlipHorizontal} label="Voltear horizontal" onClick={() => flip('x')} />
               <RibbonButton icon={FlipVertical} label="Voltear vertical" onClick={() => flip('y')} />
               <RibbonButton icon={selLocked ? Unlock : Lock} label={selLocked ? 'Desbloquear posición' : 'Bloquear posición'} active={selLocked} onClick={toggleLock} />
@@ -988,6 +1051,14 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
               {selType === 'group' && (
                 <RibbonButton icon={Ungroup} label="Desagrupar" shortcut="Ctrl+Shift+G" onClick={ungroupSel} />
               )}
+              {(selType === 'activeselection' || selType === 'activeSelection') && selCount >= 3 && (
+                <>
+                  <RibbonButton icon={AlignHorizontalSpaceAround} label="Distribuir horizontal" onClick={() => distribute('h')} />
+                  <RibbonButton icon={AlignVerticalSpaceAround} label="Distribuir vertical" onClick={() => distribute('v')} />
+                </>
+              )}
+              <RibbonButton icon={Paintbrush} label="Copiar formato" onClick={copyFormat} />
+              <RibbonButton icon={Stamp} label="Pegar formato" onClick={pasteFormat} />
             </RibbonGroup>
             {hasSel && (
               <>
