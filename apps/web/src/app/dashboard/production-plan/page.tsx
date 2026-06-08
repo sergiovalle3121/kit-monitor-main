@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import {
   ChevronLeft, Megaphone, Plus, Lock, Loader2, Inbox, X, CheckCircle2,
-  ArrowRight, PackageCheck, ShieldCheck, FlaskConical, UserCheck, Clock,
+  ArrowRight, PackageCheck, ShieldCheck, FlaskConical, UserCheck,
 } from 'lucide-react';
 import { glass } from '@/lib/glass';
 import { useApi } from '@/hooks/useApi';
@@ -33,6 +33,8 @@ interface Kpis {
   total: number; open: number; inExecution: number; unitsPlanned: number; unitsCompleted: number;
   planAdherencePct: number; woWithReadiness: number; pctWithReadiness: number; behindSchedule: number;
 }
+// Maestro de Modelo (mismo shape que usa `planning`) — para el dropdown del form.
+interface ModelOption { id: string; modelNumber: string; name: string; status: string }
 
 const STATUS_META: Record<Status, { label: string; color: string }> = {
   RELEASED: { label: 'Liberado', color: GRAY },
@@ -54,7 +56,9 @@ export default function ProductionPlanPage() {
   const toast = useToast();
   const { data, isLoading, forbidden, mutate } = useApi<WO[]>('/production-plan');
   const { data: kpis, mutate: mutateKpis } = useApi<Kpis>('/production-plan/kpis');
+  const { data: modelsData } = useApi<ModelOption[]>('/product-models');
   const list = Array.isArray(data) ? data : [];
+  const models = Array.isArray(modelsData) ? modelsData : [];
 
   const [showForm, setShowForm] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
@@ -221,7 +225,18 @@ export default function ProductionPlanPage() {
           <div className={`${glass} rounded-2xl p-5 w-full max-w-xl`} onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4"><h3 className="font-semibold">Publicar orden de trabajo</h3><button onClick={() => setShowForm(false)} className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10"><X className="w-4 h-4" /></button></div>
             <div className="grid grid-cols-2 gap-4">
-              <F label="Modelo"><input value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} className="ci-input" placeholder="AX-1000" /></F>
+              <F label="Modelo">
+                {models.length > 0 ? (
+                  <select value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} className="ci-input">
+                    <option value="">Selecciona un modelo…</option>
+                    {models.map((m) => (
+                      <option key={m.id} value={m.modelNumber}>{m.modelNumber} · {m.name}{m.status === 'DRAFT' ? ' (borrador)' : ''}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <input value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} className="ci-input" placeholder="AX-1000" />
+                )}
+              </F>
               <F label="Revisión"><input value={form.revision} onChange={(e) => setForm({ ...form, revision: e.target.value })} className="ci-input" /></F>
               <F label="Línea"><input value={form.line} onChange={(e) => setForm({ ...form, line: e.target.value })} className="ci-input" /></F>
               <F label="Bahía"><input value={form.bay} onChange={(e) => setForm({ ...form, bay: e.target.value })} className="ci-input" placeholder="(opcional)" /></F>

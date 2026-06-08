@@ -1218,6 +1218,280 @@ funcional de lo que parecía**; el bloqueo real era el acceso del owner (Bloque 
 
 ---
 
+# ════════════════════════════════════════════════════════════════════════════
+# SESIÓN NOCTURNA #2 — Unificar y dar vida a los módulos (rama `claude/modules-unify`)
+# ════════════════════════════════════════════════════════════════════════════
+
+> **Modo de trabajo:** corre EN PARALELO con la sesión de Office. NO toco Office
+> (`components/office/**`, `app/dashboard/office/**`, `lib/office/**`) ni el hub
+> (`app/dashboard/page.tsx`) ni la paleta (`SearchPalette.tsx`). Toda nueva
+> navegación queda anotada abajo en "PENDIENTE: wiring de navegación".
+>
+> **Rama y base:** trabajo en `claude/modules-unify`, creada desde el HEAD que me
+> entregó el entorno (`4b59414`). **Verificado contra GitHub:** `main` ESTÁ en
+> `4b59414` (mi ref local `origin/main` estaba simplemente desactualizado en
+> `#154`; un `git fetch` lo corrigió). Por eso el **PR #260 va contra `main` con
+> un diff limpio** (solo mis commits). NO se mergea: el dueño revisa en la mañana.
+
+## Inventario de páginas `dashboard/*/page.tsx` (excepto `office`)
+
+Clasificación: **(a)** lanzadera/vacía o mock · **(b)** lee datos reales ·
+**(c)** además escribe. Endpoint(s) que ya consume entre paréntesis.
+
+### (a) Lanzadera / vacía / mock — candidatas a "dar vida"
+- `forecast` — **MOCK** (Monte Carlo con `Math.random()` + `setTimeout`). El
+  backend `forecast` YA expone `POST /forecast/simulate` + `monte-carlo.service`.
+  → **TARGET ítem #3** (conectar a la simulación real).
+- `documents` — **MOCK** (archivos hardcodeados, "Office Suite Integration").
+  Backend `office-documents` existe, pero el tema roza Office (otra sesión).
+  → NO lo toco para evitar colisión; anotado como candidato futuro.
+- `industrial-engineering` — lanzadera pura (`DepartmentWorkspace`), sin datos.
+- `lab` — lanzadera (`DepartmentWorkspace`) pero lee KPIs reales de `/ncr`.
+- `metrics` — lanzadera pero lee `/plans`.
+- `rh` — lanzadera pero lee `/governance/users`.
+
+### (b) Lee datos reales
+- `control-tower` (`/control-tower/summary`), `line-control-tower`
+  (`/line-control-tower/summary`), `mission-control` (muchos: production-runtime
+  lines/wip/bottleneck, autopilot, governance, inventory), `inventory`
+  (`/inventory/positions`), `finance` (`/accounting/transactions`), `production`
+  (`/plans`), `quality` (`/ncr`), `erp` + sub `mm`/`pp`/`fin`/`sd` (bien
+  conectadas a `/erp/...`), `metrics` (`/plans`).
+
+### (c) Lee y escribe (POST vía apiFetch)
+- `almacen`, `crm`, `cycle-counts`, `ehs`, `engineering` (`/process/routes`,
+  `/product-models`), `expenses`, `fixed-assets`, `floor-quality`, `improvement`,
+  `inbound`, `legal`, `line-engineering` (+`/product-models`), `maintenance`,
+  `material-staging` (`/production-plan`, `/material-staging/...`), `models`
+  (`/product-models`), `operador` (`/mes/executions`), `operator-terminal`
+  (`/production-plan`, `/operator-terminal/kpis`), `outbound`, `planning`
+  (`/plans`, `/product-models`), `procurement`, `production-plan`, `rma`,
+  `skills`, `test-engineering`, `tooling`.
+
+### Quién ya referencia el maestro de Modelo (`/product-models`)
+`engineering`, `line-engineering`, `planning`, `models`. Indirecto vía
+`/plans`/`/production-plan` (traen `model`): `production`, `operator-terminal`,
+`material-staging`. → **Faltan por conectar (ítem #2):** `quality`/`ncr`,
+`production`, `production-plan` donde usen modelo como texto libre.
+
+## Avance por ítem
+
+### Ítem #1 — Aguas abajo del golden path (recibo → movimiento → consumo → MM)
+**Hallazgo clave:** la cadena del *backend* YA está cableada:
+`receiving.recordReceipt()` → `inventory.recordTransaction(RECEIVE, pending_iqc)`;
+`operator-terminal.confirm()` → `materialStaging.consumeStaged()` (backflush de
+staging); `production-runtime.registerBayEvent()` → `inventory.recordTransaction(
+CONSUME)`. El hueco real está en el **frontend**: `/inventory/movements` y
+`/receiving/*` NO tenían ningún consumidor en `apps/web` (ledger invisible).
+
+- **(commit) Ledger de movimientos en `dashboard/inventory`** — la página ahora
+  tiene pestañas **Existencias** (lo que ya había) y **Movimientos** (nuevo, lee
+  `GET /inventory/movements`). Cada recibo/traslado/consumo aparece con su tipo
+  (color por dirección in/out/move), parte, cantidad con signo, referencia
+  (KIT/WO/PO) y operador. Resumen en vivo derivado del ledger: Recibido /
+  Consumido / # Movimientos. 100% reutilización (cero backend, cero migración).
+  Estado vacío honesto. `tsc` + `eslint` verdes.
+- **Verificado:** `inbound` (UI rica con IQC, `/inbound/*`) **NO toca inventario**
+  (su servicio no importa `InventoryService`; solo rastrea recibos+IQC). En
+  cambio `receiving.recordReceipt` (`/receiving/*`) **SÍ** crea el movimiento
+  `RECEIVE` real (`inventory.recordTransaction`, holdStatus `pending_iqc`) pero
+  **no tenía UI**. → No es duplicado: son responsabilidades distintas.
+- **(commit) UI mínima de Recibo `dashboard/receiving`** — lista `/receiving/events`
+  y postea `/receiving/receipt`. Da de alta material al inventario (almacén
+  destino + lote + PO + proveedor; `receivedBy` = email del usuario). Selector de
+  almacén desde `/enterprise/warehouses` (cae a input de texto si no hay lista).
+  El recibo aparece de inmediato en **Inventario → Movimientos** como `Recibo`.
+  Reutiliza endpoints existentes (cero backend, cero migración). Estado vacío
+  honesto. `tsc` + `eslint` verdes. → Falta wiring de navegación (abajo).
+
+### Ítem #2 — Conectar más módulos al maestro de Modelo (`/product-models`)
+Patrón reutilizado de `planning` (que ya lo hacía): `useApi<ModelOption[]>(
+'/product-models')` con shape `{id, modelNumber, name, status}`, valor =
+`modelNumber`. Fallback resiliente: si el maestro está vacío, cae al input de
+texto previo (no bloquea la captura). Cero backend.
+- **(commit) `production-plan`** — el form "Publicar WO" usaba **modelo a texto
+  libre**; ahora es **dropdown del maestro** (placeholder "Selecciona un
+  modelo…"). De paso, quité un import `Clock` sin usar (lint 100% verde).
+- **(commit) `test-engineering`** — el campo "Modelo" de la captura de prueba
+  (opcional) ahora es **dropdown del maestro** (con opción "(opcional)").
+- **(commit) `quality`** — la página es de solo-lectura (sin form de NCR), pero
+  la entidad NCR **sí tiene `model`**. Añadí un **filtro por modelo** (poblado del
+  maestro + de los modelos presentes en las NCRs) y muestro el **badge de modelo**
+  en cada tarjeta. Así el modelo "aparece" también en Calidad.
+- **Verificado (no aplica):** `production` es solo-lectura de `/plans` (sin input
+  de modelo); `engineering` y `line-engineering` **ya** usan `/product-models`.
+- `tsc` + `eslint` (web) verdes en las 3 páginas.
+
+### Ítem #3 — Dar vida a pantallas lanzadera/vacías (datos reales que YA existen)
+- **(commit) `forecast`** — era un **mock** (Monte Carlo con `Math.random()` +
+  `setTimeout`, KPIs hardcodeados "92.8%", "Sigma 2.4", texto fijo de "Project-X1").
+  Ahora corre la **simulación real** `POST /forecast/simulate` (servicio
+  `monte-carlo` del backend) alimentada por una **serie real**: cantidades de
+  `/plans` agregadas por fecha. La gráfica muestra la banda **P10–P90** + línea
+  **P50** reales; las tarjetas muestran **media/σ/rango/CV** reales y una lectura
+  honesta de estabilidad (coef. de variación). Estado vacío honesto con CTA
+  ("publica/programa planes") si hay <2 fechas. Cero mock, cero backend nuevo.
+- **(commit) `industrial-engineering`** — era **lanzadera pura** (sin datos).
+  Ahora muestra **KPIs reales** (estaciones de línea `/line-engineering/stations`,
+  WO en ejecución + adherencia al plan + atrasadas de `/production-plan/kpis`)
+  además del lanzador de herramientas. Reutiliza `DepartmentWorkspace`.
+- **No tocado a propósito:** `documents` (mock de "Office Suite" — roza el trabajo
+  de la otra sesión; lo dejo para no colisionar). `mission-control`,
+  `control-tower`, `line-control-tower`, sub-`erp` ya leían datos reales.
+- `tsc` + `eslint` (web) verdes.
+
+### Ítem #4 — Multi-tenancy (`TenantScopedRepository`) en inventory/erp-core → **DIFERIDO**
+**Motivo (no viable de forma estable sin supervisión):** `TenantScopedRepository`
+solo aplica `WHERE tenant_id = <ctx>` **si la entidad tiene columna `tenant_id`**
+(si no, es no-op seguro). Verifiqué: las entidades de `inventory`
+(material_master, inventory_positions, inventory_movements, warehouse_tasks,
+replenishment_rules) y `erp-core` **NO tienen `tenant_id`**. Para aislamiento
+real haría falta (a) migración aditiva que agregue `tenant_id` a las entidades
+del módulo **más crítico (stock)** y (b) **backfill de las filas de prod
+existentes** a un tenant — un backfill mal hecho **ocultaría todo el inventario
+existente** a los usuarios con tenant en contexto. Eso no es seguro de hacer sin
+supervisión. Adoptar el repo en modo no-op (sin columnas) sería vacío y el test
+anti-fuga no podría ser honesto. → Lo dejo documentado para el dueño; **no lo
+hago a medias**. (El patrón ya está bien en `product-models`, `line-engineering`,
+`rma`, `legal`, cuyas entidades sí tienen `tenant_id`.)
+
+### Ítem #5 — Numeración a mano → `DocumentNumberingService` (incremental, 1 módulo)
+- **(commit) `receiving`** — `recordReceipt` armaba el folio a mano con
+  `REC-${year}-${count+1}` (frágil: **race-condition** y colisión si se borra un
+  recibo). Ahora usa `numbering.allocate('GOODS_RECEIPT')` (atómico, transaccional,
+  scoped por tenant/plant). Añadí el default `GOODS_RECEIPT` con prefijo `REC`,
+  patrón `{PREFIX}-{YYYY}-{SEQ}`, padding 4 → **conserva exactamente el formato
+  `REC-YYYY-NNNN`** (cero cambio cosmético, ningún parser de folio se rompe).
+  **Fallback** al esquema previo si la asignación falla (un recibo nunca se queda
+  sin folio). `NumberingModule` agregado a los imports.
+- **Gate backend OK:** `nest build` ✅ · **bootstrap smoke con Postgres** ✅
+  (grafo de la app inicializa limpio) · `jest numbering` 21/21 ✅ · `eslint --fix`
+  de los archivos tocados verde (quedan solo warnings `any` preexistentes).
+- _Nota: dejé `numbering.defaults.ts` en su estilo compacto de 1 línea por entrada
+  (como sus 28 hermanas) para no inflar el diff; mi entrada va en ese mismo estilo._
+
+### Ítem #6 — Backlog extra (backends sin UI → UI mínima; masters por doquier)
+Backends sin ningún consumidor en `apps/web` (detectados): `/replenishment`,
+`/kits`, `/resupplies`, `/process-routing`, `/suppliers`, `/shipping`,
+`/visual-aids`, `/bay-layouts`, `/cancellation-requests`.
+- **(commit) Proveedor del maestro en el form de Recibo** — el campo "Proveedor"
+  de `dashboard/receiving` pasó de texto libre a **dropdown de `/suppliers`**
+  (valor = `code`), con fallback a texto si no hay maestro. Sigue el tema de
+  "los masters aparecen en todos lados" (Modelo, Almacén, ahora Proveedor).
+- **(commit) Pestaña "Resurtido" en `dashboard/inventory`** (backend
+  `/replenishment/rules` no tenía UI) — tercera pestaña junto a Existencias y
+  Movimientos: lista de **reglas min-max** (parte, almacén, min→max, safety stock,
+  prioridad, activa/inactiva). Solo-lectura a propósito: NO uso `/replenishment/
+  analyze` porque ese GET tiene efecto secundario (puede crear tareas de
+  traslado) y la página revalida cada 20s. Co-locado en una página YA navegable
+  (sin wiring nuevo). Estado vacío honesto.
+- **(commit) Página `dashboard/suppliers`** (backend `/suppliers` no tenía UI) —
+  lista de solo-lectura del maestro de proveedores: código, nombre, categoría,
+  **badge de estatus** y **score de calidad** (con color por umbral) + KPIs
+  (total, activos, calidad promedio) + búsqueda + estado vacío honesto. Reutiliza
+  `/suppliers`. → Falta wiring de navegación (abajo).
+- **(commit) Cross-link Modelo → Plan en `models/[id]`** — la ficha del modelo ya
+  mostraba el BOM inline; ahora también una sección **"Planes de este modelo"**
+  que lee `/plans?model=X` (+ filtro en cliente por si el backend ignora el
+  parámetro) y enlaza a Planeación/Producción. Completa visualmente el flujo
+  **Modelo → BOM → Plan** en una sola pantalla del maestro. Reutiliza `/plans`.
+- **(commit) Página `dashboard/warehouse`** (backend `/warehouse/*` no tenía UI) —
+  tareas de almacén (acomodo/traslado/surtido-picking) de `/warehouse/tasks`:
+  badges de tipo+estatus, parte, cantidad, origen→destino, referencia (KIT/WO/
+  RECEIPT) y responsable; KPIs (pendientes/en proceso/total); toggle Abiertas/
+  Todas + búsqueda; estado vacío honesto. Eslabón de ejecución del golden path
+  (surtido físico) que faltaba en UI. → Falta wiring de navegación (abajo).
+- **(commit) Página `dashboard/cancellation-requests`** (backend
+  `/cancellation-requests/*` no tenía UI) — cola de aprobación de cancelaciones
+  de kit/WO: pendientes con **Aceptar/Rechazar** (`PATCH /:id/respond`, con
+  confirmación porque Aceptar cancela el kit) + historial reciente con estatus.
+  Reutiliza `/pending` y `/recent`. → Falta wiring de navegación (abajo).
+- **(commit) Página `dashboard/visual-aids`** (backend `/visual-aids/*` sin UI) —
+  visor de **instrucciones de trabajo (PDF)** por modelo/proceso: lista
+  (`/visual-aids`) con título, **badge de modelo**, proceso/área, revisión y
+  estatus + búsqueda; botón **Ver PDF** que baja el archivo autenticado como blob
+  y lo abre (object URL, a prueba de bloqueo de popups). Valor MES directo para el
+  operador. → Falta wiring de navegación (abajo).
+- `tsc` + `eslint` (web) verdes.
+
+## PENDIENTE: wiring de navegación (para que el dueño lo conecte en hub/paleta)
+> No edito `app/dashboard/page.tsx` (hub) ni `SearchPalette.tsx` (paleta) — los
+> toca la otra sesión. Páginas nuevas accesibles por URL directa; conéctalas tú:
+- **`/dashboard/receiving`** — "Recibo de material" (entrada a inventario / IQC
+  pendiente). Sugerencia: dominio Surtido/Almacén, ícono `PackagePlus`. Cmd-K:
+  "Recibo de material", "Recibir", "Entrada de almacén".
+- **`/dashboard/suppliers`** — "Proveedores" (maestro de proveedores: estatus +
+  calidad). Sugerencia: dominio ERP/MM, ícono `Truck`. Cmd-K: "Proveedores",
+  "Suppliers", "Vendedores".
+- **`/dashboard/warehouse`** — "Tareas de almacén" (acomodo/traslado/surtido).
+  Sugerencia: dominio Almacén, ícono `ClipboardList`. Cmd-K: "Tareas de almacén",
+  "Picking", "Surtido físico", "Warehouse tasks".
+- **`/dashboard/cancellation-requests`** — "Solicitudes de cancelación" (aprobar/
+  rechazar cancelación de kit/WO). Sugerencia: dominio Producción, ícono `Ban`.
+  Cmd-K: "Cancelaciones", "Solicitudes de cancelación".
+- **`/dashboard/visual-aids`** — "Ayudas visuales" (instrucciones de trabajo PDF
+  por modelo). Sugerencia: dominio Ingeniería, ícono `FileText`. Cmd-K: "Ayudas
+  visuales", "Instrucciones de trabajo", "Work instructions".
+
+## Backends sin UI evaluados pero NO construidos (oportunidades futuras)
+Construí UI para los que eran claros y de alto valor (receiving, suppliers,
+warehouse, cancellation-requests). Estos los evalué y **deferí a propósito**:
+- **`/visual-aids`** — **→ CONSTRUIDO** (ver ítem #6). Resolví el PDF autenticado
+  con fetch a blob + `URL.createObjectURL` (abriendo la pestaña en el gesto para
+  no chocar con el bloqueo de popups), el patrón seguro del codebase.
+- **`/resupplies`** — flujo de resurtido con `deliver/owner/status`. Riesgo de
+  **sentirse duplicado** con las llamadas de resurtido de `material-staging`
+  (kanban por estación). Conviene aclarar la diferencia conceptual antes de darle
+  UI, para no confundir al usuario (regla "reutiliza, no dupliques").
+- **`/shipping`** — probable solape con la página `outbound` (embarques). Validar
+  si es un nivel distinto antes de duplicar.
+- **`/process-routing`** — `engineering` ya consume `/process/routes` por modelo.
+- **`/bay-layouts`** — configuración de bahías; nicho.
+
+## RESUMEN / CIERRE (sesión #2)
+- **Rama:** `claude/modules-unify` · **PR #260 → `main`** (diff limpio, sin
+  mergear). 9 commits, uno por avance. `tsc`+`eslint`+`next build` (web) verdes;
+  el único cambio de backend (#5) pasó `nest build` + **bootstrap smoke Postgres**
+  + `jest numbering`.
+- **Conectado/unificado:**
+  - #1 recibo→inventario→ledger de movimientos (visible de punta a punta).
+  - #2 maestro de Modelo en `production-plan`, `test-engineering`, `quality`.
+  - #3 `forecast` (Monte Carlo real) e `industrial-engineering` (KPIs reales).
+  - #5 folio atómico en `receiving` (conserva `REC-YYYY-NNNN`).
+  - #6 `suppliers` (página + dropdown en recibo), pestaña Resurtido en inventory,
+    cross-link Modelo→Plan en la ficha del modelo.
+- **Revertido/diferido:** #4 (tenant scoping en inventory/erp-core) — sus
+  entidades no tienen `tenant_id`; requeriría migración + backfill de prod
+  riesgoso. Documentado, NO hecho a medias.
+- **NO toqué:** Office (`components/office/**`, `app/dashboard/office/**`,
+  `lib/office/**`), el hub (`app/dashboard/page.tsx`) ni la paleta
+  (`SearchPalette.tsx`). NO mergeé a `main`.
+- **Auto-revisión (code-review adversarial del diff) — 3 hallazgos, corregidos:**
+  1. `receiving.service.ts`: el *fallback* del folio (`count+1`) no estaba
+     sincronizado con el contador atómico → en una falla de `allocate()` podía
+     regenerar un folio ya emitido (borrados/cambio de año) y romper el `unique`.
+     **Fix:** fallback ahora es un folio único por timestamp+aleatorio con marca
+     `F` (forma distinta al secuencial → nunca colisiona). Re-build + smoke ✅.
+  2. `inventory/page.tsx`: en Movimientos/Resurtido el estado vacío se medía con
+     el arreglo SIN filtrar pero se renderizaba el filtrado → una búsqueda sin
+     coincidencias dejaba un panel en blanco. **Fix:** usar `movRows`/`ruleRows`
+     + mensaje según si hay búsqueda.
+  3. `suppliers/page.tsx`: el mapa de estatus omitía `restricted` (sí emitido) y
+     listaba `hold` (no emitido). **Fix:** alineado con la entidad.
+  4. (al escribir el test) `receiving/page.tsx`: `supplierCode` es **NOT NULL** en
+     la entidad, pero el form mandaba `|| undefined` al elegir "(sin proveedor)"
+     → un recibo sin proveedor reventaría con violación NOT NULL. **Fix:** manda
+     `'N/A'` en vez de vacío.
+- **Test nuevo:** `receiving.service.spec.ts` (SQLite en memoria, numbering real,
+  inventory/ledger/audit simulados) — valida folio `REC-YYYY-NNNN`, incremento
+  atómico, cableado del movimiento `RECEIVE` con el folio, y el folio de respaldo
+  único con marca `F`. 3/3 verdes.
+- **Acción del dueño:** wiring de navegación de las 5 páginas nuevas (lista
+  arriba: receiving, suppliers, warehouse, cancellation-requests, visual-aids) +
+  revisar/mergear el PR.
+
+---
+
 ## Sesión NOCTURNA #3 — Datos semilla DEMO funcionales + 🚨 PURGA legal (rama `claude/seed-demo-data`)
 
 > Rama: `claude/seed-demo-data` (desde `main`). PR abierto **SIN mergear**.
