@@ -127,3 +127,15 @@ En el modo presentación (componente `Present`):
 - Barra de herramientas con botones para todo; atajos de teclado coherentes.
 
 Verificado: `tsc` ✓, `eslint` ✓, `next build` ✓.
+
+#### Lote 7 — Transiciones + animaciones + línea de tiempo (backlog #9)
+- **Transiciones**: + Deslizar arriba, Empujar, Revelar, Voltear (además de
+  fundido/deslizar/zoom).
+- **Animaciones de entrada**: + arriba/izquierda/derecha, Girar, Rebote.
+- Nuevo **retraso** por objeto (`animDelay`, ms) usado en la secuencia.
+- `SlideAnimationPanel.tsx` — **panel/línea de tiempo de animación** de la
+  diapositiva: lista los objetos, permite asignar animación, **orden**,
+  **duración** y **retraso**, y seleccionar el objeto. Opciones compartidas
+  movidas a `slideAssets.ts` (evita import circular).
+
+Verificado: `tsc` ✓, `eslint` ✓, `next build` ✓.

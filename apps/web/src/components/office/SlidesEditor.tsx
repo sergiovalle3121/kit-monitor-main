@@ -18,12 +18,13 @@ import {
   Shapes, Crop, SunMedium, Contrast, Wand2, Replace, RefreshCw, Group as GroupIcon, Ungroup, RotateCw,
   BarChart3, Workflow, Spline, Waypoints,
   List, IndentIncrease, IndentDecrease, MoveHorizontal, AlignVerticalSpaceAround, Sparkles, Search,
-  Pointer, Pencil, Eraser, Moon,
+  Pointer, Pencil, Eraser, Moon, ListTree,
 } from 'lucide-react';
 import { SlideSorter } from './SlideSorter';
 import { SlideIconPicker } from './SlideIconPicker';
 import { TemplateGallery } from './TemplateGallery';
-import { SLIDE_THEMES, SLIDE_LAYOUTS } from './slideAssets';
+import { SLIDE_THEMES, SLIDE_LAYOUTS, SLIDE_TRANSITIONS, OBJ_ANIM_OPTIONS } from './slideAssets';
+import { SlideAnimationPanel, type AnimItem } from './SlideAnimationPanel';
 import { POLY_SHAPES, PATH_SHAPES } from './slides/shapes';
 import { applyImageEffects, readImgFx, cropToRatio, resetCrop, CROP_RATIOS, type ImgFx } from './slides/imageEffects';
 import { ShapeGallery } from './slides/ShapeGallery';
@@ -46,6 +47,22 @@ function blank() { return { version: '7', objects: [], background: '#ffffff' }; 
 function labelOf(slide: any): string {
   const t = slide?.objects?.find((o: any) => o.type === 'textbox' || o.type === 'i-text' || o.type === 'text');
   return (t?.text || '').split('\n')[0] || '';
+}
+function typeName(o: any): string {
+  if (isChart(o)) return 'Gráfico';
+  if (isSmart(o)) return 'SmartArt';
+  const t = String(o?.type || '');
+  if (t === 'image') return 'Imagen';
+  if (t === 'textbox' || t === 'i-text' || t === 'text') return 'Texto';
+  if (t === 'group') return 'Grupo';
+  if (t === 'path') return 'Icono';
+  return 'Forma';
+}
+function objLabel(o: any): string {
+  if (isChart(o)) return o.chartSpec?.title || 'Gráfico';
+  if (isSmart(o)) return `SmartArt · ${o.smart?.kind ?? ''}`;
+  if (o?.type === 'textbox' || o?.type === 'i-text' || o?.type === 'text') return (String(o.text || '').split('\n')[0] || 'Texto').slice(0, 26);
+  return typeName(o);
 }
 
 export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value: any; onChange: (data: any) => void; readOnly?: boolean; fileActions?: React.ReactNode }) {
@@ -73,6 +90,8 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
   const [selAnim, setSelAnim] = useState<string>('none');
   const [selAnimOrder, setSelAnimOrder] = useState(0);
   const [selAnimDur, setSelAnimDur] = useState(500);
+  const [selAnimDelay, setSelAnimDelay] = useState(0);
+  const [showAnimPanel, setShowAnimPanel] = useState(false);
   const [presenterMode, setPresenterMode] = useState(false);
   const [selOpacity, setSelOpacity] = useState(1);
   const [selLocked, setSelLocked] = useState(false);
@@ -304,6 +323,27 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
     const c = fabricRef.current; const o = c?.getActiveObject() as any;
     if (!c || !o) return; o.set('animDur', v); setSelAnimDur(v); capture(); sync();
   }
+  function setObjAnimDelay(v: number) {
+    const c = fabricRef.current; const o = c?.getActiveObject() as any;
+    if (!c || !o) return; o.set('animDelay', v); setSelAnimDelay(v); capture(); sync();
+  }
+  // Cambia una propiedad de animación por índice de objeto (panel de animación).
+  function setAnimByIndex(idx: number, key: 'anim' | 'animOrder' | 'animDur' | 'animDelay', value: any) {
+    const c = fabricRef.current; if (!c) return;
+    const o = c.getObjects()[idx] as any; if (!o) return;
+    o.set(key, key === 'anim' && value === 'none' ? undefined : value);
+    if (c.getActiveObject() === o) {
+      if (key === 'anim') setSelAnim(value); if (key === 'animOrder') setSelAnimOrder(value);
+      if (key === 'animDur') setSelAnimDur(value); if (key === 'animDelay') setSelAnimDelay(value);
+    }
+    c.requestRenderAll(); capture(); sync();
+  }
+  function selectByIndex(idx: number) {
+    const c = fabricRef.current; if (!c) return;
+    const o = c.getObjects()[idx]; if (!o) return;
+    c.setActiveObject(o); c.requestRenderAll();
+    setHasSel(true); setSelType((o as any).type || '');
+  }
   function toggleNumbers() { const v = !numbersRef.current; numbersRef.current = v; setShowNumbers(v); sync(); }
   function editFooter() {
     const v = window.prompt('Texto del pie de diapositiva (vacío = quitar)', footerRef.current);
@@ -322,7 +362,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
     sync();
   }
   // Include custom props (anim = entrance animation, shape = .pptx mapping, link = hyperlink, locked).
-  function capture() { const c = fabricRef.current; if (c) slidesRef.current[curRef.current] = c.toObject(['anim', 'animOrder', 'animDur', 'shape', 'link', 'locked', 'imgFx', 'chartSpec', 'smart', 'conn', 'connId']); }
+  function capture() { const c = fabricRef.current; if (c) slidesRef.current[curRef.current] = c.toObject(['anim', 'animOrder', 'animDur', 'animDelay', 'shape', 'link', 'locked', 'imgFx', 'chartSpec', 'smart', 'conn', 'connId']); }
   function applyLock(o: any) {
     const L = !!o.locked;
     o.set({ lockMovementX: L, lockMovementY: L, lockScalingX: L, lockScalingY: L, lockRotation: L, hasControls: !L });
@@ -346,7 +386,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
       const o = canvas.getActiveObject() as any;
       setHasSel(!!o); setSelType((o?.type as string) || '');
       setSelCount(o?.type === 'activeselection' || o?.type === 'activeSelection' ? (o._objects?.length ?? 0) : (o ? 1 : 0));
-      setSelAnim((o?.anim as string) || 'none'); setSelAnimOrder(o?.animOrder ?? 0); setSelAnimDur(o?.animDur ?? 500);
+      setSelAnim((o?.anim as string) || 'none'); setSelAnimOrder(o?.animOrder ?? 0); setSelAnimDur(o?.animDur ?? 500); setSelAnimDelay(o?.animDelay ?? 0);
       setSelOpacity(o?.opacity ?? 1); setSelLocked(!!o?.locked); setImgFx(readImgFx(o)); setSelAngle(Math.round(o?.angle ?? 0));
     };
     canvas.on('selection:created', onSel);
@@ -662,6 +702,19 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
     sync(); loadInto(to);
   }
 
+  // Lista para el panel de animación (se recalcula en cada render desde el lienzo).
+  const animList: AnimItem[] = (() => {
+    const c = fabricRef.current; if (!showAnimPanel || !c) return [];
+    return c.getObjects()
+      .map((o: any, idx: number) => ({ o, idx }))
+      .filter((x) => !isConnector(x.o))
+      .map(({ o, idx }) => ({ idx, label: objLabel(o), type: typeName(o), anim: (o.anim as string) || 'none', order: o.animOrder ?? 0, dur: o.animDur ?? 500, delay: o.animDelay ?? 0 }));
+  })();
+  const activeIdx = (() => {
+    const c = fabricRef.current; const a = c?.getActiveObject(); if (!c || !a) return -1;
+    return c.getObjects().indexOf(a as any);
+  })();
+
   return (
     <div className="flex flex-col gap-3 h-full p-3">
       <OfficeRibbon storageKey="ribbon:slides">
@@ -884,20 +937,19 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
             <RibbonGroup label="Animación">
               {hasSel ? (
                 <>
-                  <RibbonSelect title="Animación de entrada del objeto" value={selAnim} onChange={setObjAnim} width={140}
-                    options={[
-                      { label: 'Sin animación', value: 'none' },
-                      { label: 'Aparecer', value: 'fade' },
-                      { label: 'Entrar (abajo)', value: 'fly' },
-                      { label: 'Zoom', value: 'zoom' },
-                    ]} />
+                  <RibbonSelect title="Animación de entrada del objeto" value={selAnim} onChange={setObjAnim} width={150}
+                    options={OBJ_ANIM_OPTIONS} />
                   <span className="text-[11px] text-gray-500 px-1" title="Orden de aparición">Orden</span>
                   <input type="number" min={0} value={selAnimOrder} onChange={(e) => setObjAnimOrder(Number(e.target.value))} title="Orden de aparición"
                     className="w-12 h-7 text-xs rounded-lg bg-black/[0.04] dark:bg-white/[0.06] px-1.5 outline-none border border-transparent focus:border-blue-500/40 text-gray-800 dark:text-gray-100" />
                   <RibbonSelect title="Duración" value={String(selAnimDur)} onChange={(v) => setObjAnimDur(Number(v))} width={96}
                     options={[{ label: 'Rápida', value: '300' }, { label: 'Normal', value: '500' }, { label: 'Lenta', value: '900' }]} />
+                  <span className="text-[11px] text-gray-500 px-1" title="Retraso en milisegundos">Retraso</span>
+                  <input type="number" min={0} step={100} value={selAnimDelay} onChange={(e) => setObjAnimDelay(Number(e.target.value))} title="Retraso (ms)"
+                    className="w-14 h-7 text-xs rounded-lg bg-black/[0.04] dark:bg-white/[0.06] px-1.5 outline-none border border-transparent focus:border-blue-500/40 text-gray-800 dark:text-gray-100" />
                 </>
               ) : <span className="text-[11px] text-gray-400 px-2">Selecciona un objeto</span>}
+              <RibbonButton icon={ListTree} label="Panel de animación" active={showAnimPanel} onClick={() => setShowAnimPanel((v) => !v)} />
             </RibbonGroup>
           </RibbonTab>
         )}
@@ -906,12 +958,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
           <RibbonTab id="transitions" label="Transiciones">
             <RibbonGroup label="Transición de diapositiva">
               <RibbonSelect title="Transición entre diapositivas" value={transition} onChange={setTrans} width={150}
-                options={[
-                  { label: 'Sin transición', value: 'none' },
-                  { label: 'Fundido', value: 'fade' },
-                  { label: 'Deslizar', value: 'slide' },
-                  { label: 'Zoom', value: 'zoom' },
-                ]} />
+                options={SLIDE_TRANSITIONS} />
             </RibbonGroup>
             <RibbonSeparator />
             <RibbonGroup label="Fondo">
@@ -988,6 +1035,9 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
             />
           </div>
         </div>
+        {showAnimPanel && !readOnly && (
+          <SlideAnimationPanel items={animList} activeIdx={activeIdx} onChange={setAnimByIndex} onSelect={selectByIndex} onClose={() => setShowAnimPanel(false)} />
+        )}
       </div>
 
       {presenting && <Present slides={slides} notes={notesRef.current} transition={transition} footer={footerRef.current} showNumbers={showNumbers} presenter={presenterMode} onClose={() => { setPresenting(false); setPresenterMode(false); }} />}
@@ -1023,16 +1073,25 @@ const TRANSITIONS: Record<string, any> = {
   none: { initial: {}, animate: {}, exit: {} },
   fade: { initial: { opacity: 0 }, animate: { opacity: 1 }, exit: { opacity: 0 } },
   slide: { initial: { x: '100%', opacity: 0 }, animate: { x: 0, opacity: 1 }, exit: { x: '-100%', opacity: 0 } },
+  slideUp: { initial: { y: '100%', opacity: 0 }, animate: { y: 0, opacity: 1 }, exit: { y: '-100%', opacity: 0 } },
+  push: { initial: { x: '60%', opacity: 0 }, animate: { x: 0, opacity: 1 }, exit: { x: '-60%', opacity: 0 } },
   zoom: { initial: { scale: 0.85, opacity: 0 }, animate: { scale: 1, opacity: 1 }, exit: { scale: 1.1, opacity: 0 } },
+  reveal: { initial: { scale: 1.15, opacity: 0 }, animate: { scale: 1, opacity: 1 }, exit: { scale: 0.92, opacity: 0 } },
+  flip: { initial: { rotateY: 90, opacity: 0 }, animate: { rotateY: 0, opacity: 1 }, exit: { rotateY: -90, opacity: 0 } },
 };
 const OBJ_ANIM: Record<string, any> = {
   none: { initial: { opacity: 1 }, animate: { opacity: 1 } },
   fade: { initial: { opacity: 0 }, animate: { opacity: 1 } },
-  fly: { initial: { opacity: 0, y: '6%' }, animate: { opacity: 1, y: 0 } },
+  fly: { initial: { opacity: 0, y: '8%' }, animate: { opacity: 1, y: 0 } },
+  flyDown: { initial: { opacity: 0, y: '-8%' }, animate: { opacity: 1, y: 0 } },
+  flyLeft: { initial: { opacity: 0, x: '-8%' }, animate: { opacity: 1, x: 0 } },
+  flyRight: { initial: { opacity: 0, x: '8%' }, animate: { opacity: 1, x: 0 } },
   zoom: { initial: { opacity: 0, scale: 0.8 }, animate: { opacity: 1, scale: 1 } },
+  rotate: { initial: { opacity: 0, rotate: -12, scale: 0.9 }, animate: { opacity: 1, rotate: 0, scale: 1 } },
+  bounce: { initial: { opacity: 0, y: '-12%' }, animate: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 500, damping: 14 } } },
 };
 
-interface Layer { src: string; anim: string; order: number; dur: number }
+interface Layer { src: string; anim: string; order: number; dur: number; delay?: number }
 interface Deck { bg: string; layers: Layer[] }
 
 /** Capa estática de una diapositiva (sin animación) para miniaturas / presentador. */
@@ -1087,7 +1146,7 @@ function Present({
             const sc = new StaticCanvas(document.createElement('canvas'), { width: CW, height: CH });
             await sc.loadFromJSON({ version: json.version, objects: [o] });
             sc.renderAll();
-            layers.push({ src: sc.toDataURL({ format: 'png', multiplier: 1 } as any), anim: (o.anim as string) || 'none', order: o.animOrder ?? j, dur: o.animDur ?? 500 });
+            layers.push({ src: sc.toDataURL({ format: 'png', multiplier: 1 } as any), anim: (o.anim as string) || 'none', order: o.animOrder ?? j, dur: o.animDur ?? 500, delay: typeof o.animDelay === 'number' ? o.animDelay : undefined });
             sc.dispose();
           } catch { /* skip object */ }
         }
@@ -1136,7 +1195,7 @@ function Present({
             {deck.layers.map((L, j) => (
               <motion.img key={j} src={L.src} alt="" className="absolute inset-0 w-full h-full object-contain"
                 variants={OBJ_ANIM[L.anim] ?? OBJ_ANIM.none} initial="initial" animate="animate"
-                transition={{ duration: (L.dur || 500) / 1000, ease: 'easeOut', delay: L.anim && L.anim !== 'none' ? 0.15 + (rank.get(j) ?? j) * 0.2 : 0 }} />
+                transition={{ duration: (L.dur || 500) / 1000, ease: 'easeOut', delay: L.anim && L.anim !== 'none' ? (typeof L.delay === 'number' ? L.delay / 1000 : 0.15 + (rank.get(j) ?? j) * 0.2) : 0 }} />
             ))}
             {(slides[i]?.objects ?? []).map((o: any, j: number) => {
               if (!o?.link) return null;

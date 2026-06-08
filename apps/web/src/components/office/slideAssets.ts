@@ -4,6 +4,30 @@
  * usando el tema activo — sin dependencias nuevas.
  */
 
+/** Opciones de transición de diapositiva y de animación de entrada (compartidas
+ *  por el editor y el panel de animación; evita un import circular). */
+export const SLIDE_TRANSITIONS: { label: string; value: string }[] = [
+  { label: 'Sin transición', value: 'none' },
+  { label: 'Fundido', value: 'fade' },
+  { label: 'Deslizar', value: 'slide' },
+  { label: 'Deslizar arriba', value: 'slideUp' },
+  { label: 'Empujar', value: 'push' },
+  { label: 'Zoom', value: 'zoom' },
+  { label: 'Revelar', value: 'reveal' },
+  { label: 'Voltear', value: 'flip' },
+];
+export const OBJ_ANIM_OPTIONS: { label: string; value: string }[] = [
+  { label: 'Sin animación', value: 'none' },
+  { label: 'Aparecer', value: 'fade' },
+  { label: 'Entrar (abajo)', value: 'fly' },
+  { label: 'Entrar (arriba)', value: 'flyDown' },
+  { label: 'Entrar (izquierda)', value: 'flyLeft' },
+  { label: 'Entrar (derecha)', value: 'flyRight' },
+  { label: 'Zoom', value: 'zoom' },
+  { label: 'Girar', value: 'rotate' },
+  { label: 'Rebote', value: 'bounce' },
+];
+
 export interface SlideTheme {
   id: string; name: string;
   bg: string; surface: string; text: string; muted: string; accent: string; font: string;
