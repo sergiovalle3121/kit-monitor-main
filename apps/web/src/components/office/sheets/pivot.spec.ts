@@ -112,6 +112,19 @@ eq(fieldValues(sheet, RANGE, 'Region'), ['Norte', 'Sur'], 'fieldValues Region');
   eq(nums(rowByLabel(res, 'Total general')), [1], 'Total general = 1 (100%)');
 }
 
+// ── 10) Combinado: columnas × filas anidadas × subtotales × totales ──────────
+{
+  const cfg: PivotConfig = { range: RANGE, sheetIndex: 0, rows: ['Region', 'Producto'], cols: ['Mes'], values: [{ field: 'Ventas', agg: 'sum' }], showSubtotals: true, showRowTotals: true, showColTotals: true };
+  const res = buildPivot(sheet, cfg);
+  // Fila Norte/A: Ene=100, Feb=120, total fila=220.
+  eq(nums(rowByLabel(res, 'Norte')), [100, 120, 220], 'Norte/A por mes + total fila');
+  // Subtotales del grupo externo (Region) por mes + total.
+  eq(nums(rowByLabel(res, 'Norte — Total')), [300, 120, 420], 'subtotal Norte por mes');
+  eq(nums(rowByLabel(res, 'Sur — Total')), [150, 380, 530], 'subtotal Sur por mes');
+  // Total general por mes + gran total.
+  eq(nums(rowByLabel(res, 'Total general')), [450, 500, 950], 'total general por mes + gran total');
+}
+
 // ── Resumen ──────────────────────────────────────────────────────────────────
 console.log(`\nPIVOT SPEC: ${passed} OK, ${fails.length} fallos`);
 if (fails.length) { for (const f of fails) console.error('  ✗ ' + f); throw new Error(`${fails.length} aserciones fallaron`); }
