@@ -41,6 +41,15 @@ interface MaterialRequest {
   quantity?: number | null;
 }
 
+interface KitMaterialLine {
+  id: number;
+  partNumber: string;
+  description?: string | null;
+  quantityRequired: number;
+  quantityRemaining?: number | null;
+  unit: string;
+}
+
 const STATUS_META: Record<string, { label: string; color: string; bg: string }> = {
   pending: { label: 'Pendiente', color: AMBER, bg: 'rgba(245,158,11,0.12)' },
   authorized: { label: 'Autorizado', color: GREEN, bg: 'rgba(16,185,129,0.12)' },
@@ -181,31 +190,63 @@ function Section({ title, count, color, children }: { title: string; count: numb
 
 function RequestCard({ r, busy, muted, children }: { r: MaterialRequest; busy: boolean; muted?: boolean; children?: React.ReactNode }) {
   const meta = STATUS_META[r.status] ?? STATUS_META.pending;
+  const [open, setOpen] = useState(false);
+  // BOM-derived materials to pick for this kit (exploded from the model's BOM on publish).
+  const { data: matsData } = useApi<KitMaterialLine[]>(open && r.kitId ? `/kit-materials?kitId=${r.kitId}` : null);
+  const mats = Array.isArray(matsData) ? matsData : [];
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: muted ? 0.7 : 1, y: 0 }}
-      className={`${glass} rounded-2xl p-4 flex items-center justify-between gap-4 ${busy ? 'opacity-70' : ''}`}
+      className={`${glass} rounded-2xl p-4 ${busy ? 'opacity-70' : ''}`}
     >
-      <div className="min-w-0">
-        <div className="flex items-center gap-2 mb-1">
-          <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full" style={{ color: meta.color, backgroundColor: meta.bg }}>
-            {meta.label}
-          </span>
-          {r.workOrder && <span className="text-[11px] text-gray-400 font-mono">WO {r.workOrder}</span>}
-        </div>
-        <h3 className="text-lg font-bold tracking-tight truncate">{r.model ?? `Kit #${r.kitId}`}</h3>
-        <p className="text-sm text-gray-500 dark:text-gray-400">
-          {r.quantity ? `${r.quantity} u · ` : ''}{r.line ? `Línea ${r.line} · ` : ''}Solicitó {r.requestedBy}
-        </p>
-        {r.note && <p className="text-xs text-gray-400 mt-1 italic">“{r.note}”</p>}
-        {r.decidedBy && (
-          <p className="text-[11px] text-gray-400 mt-1 flex items-center gap-1">
-            <Clock className="w-3 h-3" /> {meta.label.toLowerCase()} por {r.decidedBy}
+      <div className="flex items-center justify-between gap-4">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full" style={{ color: meta.color, backgroundColor: meta.bg }}>
+              {meta.label}
+            </span>
+            {r.workOrder && <span className="text-[11px] text-gray-400 font-mono">WO {r.workOrder}</span>}
+          </div>
+          <h3 className="text-lg font-bold tracking-tight truncate">{r.model ?? `Kit #${r.kitId}`}</h3>
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            {r.quantity ? `${r.quantity} u · ` : ''}{r.line ? `Línea ${r.line} · ` : ''}Solicitó {r.requestedBy}
           </p>
-        )}
+          {r.note && <p className="text-xs text-gray-400 mt-1 italic">“{r.note}”</p>}
+          {r.decidedBy && (
+            <p className="text-[11px] text-gray-400 mt-1 flex items-center gap-1">
+              <Clock className="w-3 h-3" /> {meta.label.toLowerCase()} por {r.decidedBy}
+            </p>
+          )}
+        </div>
+        {children && <div className="flex items-center gap-2 flex-shrink-0">{children}</div>}
       </div>
-      {children && <div className="flex items-center gap-2 flex-shrink-0">{children}</div>}
+
+      {/* Materials to pick (from the kit, exploded from the model BOM) */}
+      {r.kitId ? (
+        <div className="mt-3 pt-3 border-t border-gray-100 dark:border-white/10">
+          <button onClick={() => setOpen((o) => !o)} className="text-xs font-medium text-gray-500 hover:text-black dark:hover:text-white flex items-center gap-1.5">
+            <PackageCheck className="w-3.5 h-3.5" /> {open ? 'Ocultar materiales' : 'Ver materiales del kit'}
+          </button>
+          {open && (
+            mats.length === 0 ? (
+              <p className="text-xs text-gray-400 mt-2">Sin líneas de material en el kit.</p>
+            ) : (
+              <div className="space-y-1.5 mt-2">
+                {mats.map((m) => (
+                  <div key={m.id} className="flex items-center justify-between text-sm px-3 py-1.5 rounded-lg bg-gray-50 dark:bg-white/5">
+                    <span className="font-mono text-[13px] truncate">{m.partNumber}{m.description ? <span className="text-gray-400 ml-2 text-xs">{m.description}</span> : null}</span>
+                    <span className="tabular-nums text-xs flex-shrink-0">
+                      <span className="font-semibold">{m.quantityRequired} {m.unit}</span>
+                      {typeof m.quantityRemaining === 'number' ? <span className="text-gray-400"> · faltan {m.quantityRemaining}</span> : null}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )
+          )}
+        </div>
+      ) : null}
     </motion.div>
   );
 }

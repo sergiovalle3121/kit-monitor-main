@@ -10,6 +10,36 @@ archivos, decisiones, endpoints/pantallas, KPIs, siguiente paso / bloqueos.
 
 ---
 
+## 2026-06-08 — GOLDEN PATH · FASE 3: Aguas abajo visibles (IE + surtido + MM/valuación)
+
+> Rama `claude/sweet-hawking-UQaaU`. Solo frontend (el puente de datos ya quedó
+> en Fase 2). Cierra el hilo aguas abajo sin clicks muertos.
+
+- **IE / `dashboard/line-engineering`**: los campos "Modelo" del alta de estación
+  y de calificación dejaron de ser texto libre → **dropdown del maestro**
+  (`useApi('/product-models')`, sin obsoletos). El layout/ruteo/balanceo ahora
+  referencia el modelo canónico.
+- **Surtido / `dashboard/almacen`**: cada tarjeta de solicitud ahora despliega
+  **"Ver materiales del kit"** → líneas reales del kit (`GET /kit-materials?kitId=`)
+  que vienen del BOM del modelo (vía el puente de Fase 2): partNumber, cantidad
+  requerida y faltante. "Surtido a línea" deja de ser un cascarón.
+- **MM / Finanzas (`erp/mm` valuación)**: verificado — YA muestra datos reales.
+  `GET /erp/mm/valuation` devuelve `qty × unitCost = value` y `totalValue`; la
+  cadena recibo→valuación existe (`POST /erp/mm/purchase-orders/:id/receive`
+  incrementa `totalQty`+`totalValue`) y usa `MaterialMaster.standardCost` como
+  costo base. Sin cambios necesarios; queda conectado al hilo (las partes nuevas
+  creadas en el BOM ya traen `standardCost` desde Fase 1).
+
+### Verificación
+- Web `tsc` (0), `eslint` (0 errores; 1 warning preexistente ajeno), `next build` OK.
+
+### Hilo completo (estado)
+- Crear modelo → BOM (partes con costo) → activar → publicar plan (materiales
+  derivados del BOM) → surtido en almacén (líneas reales del kit) → valuación
+  (standardCost). Sin dead-ends en el camino del golden path.
+
+---
+
 ## 2026-06-08 — GOLDEN PATH · FASE 2: Planeación consume el modelo (puente BOM → surtido)
 
 > Rama `claude/sweet-hawking-UQaaU`. Conecta lo que ya existía; el hallazgo clave
