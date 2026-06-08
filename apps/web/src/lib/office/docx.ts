@@ -104,19 +104,24 @@ export async function exportDocx(json: any, title: string) {
     return out;
   }
 
-  function listParas(listNode: any, kind: 'bullet' | 'ordered' | 'task', level: number): any[] {
+  function listParas(listNode: any, kind: 'bullet' | 'ordered' | 'task', level: number, scheme = '', prefix = ''): any[] {
     const out: any[] = [];
+    const legal = kind === 'ordered' && scheme === 'doc-mlist';
     let idx = 1;
     for (const item of listNode.content ?? []) {
       const para = (item.content ?? []).find((n: any) => n.type === 'paragraph');
       const runs = inlineRuns(para?.content);
       if (kind === 'bullet') out.push(new Paragraph({ bullet: { level }, children: runs }));
-      else if (kind === 'ordered') out.push(new Paragraph({ indent: { left: (level + 1) * 360 }, children: [new TextRun({ text: `${idx++}. ` }), ...runs] }));
-      else out.push(new Paragraph({ indent: { left: (level + 1) * 360 }, children: [new TextRun({ text: item.attrs?.checked ? '☑ ' : '☐ ' }), ...runs] }));
+      else if (kind === 'ordered') {
+        const num = legal ? `${prefix}${idx}.` : `${idx}.`;
+        out.push(new Paragraph({ indent: { left: (level + 1) * 360 }, children: [new TextRun({ text: `${num} ` }), ...runs] }));
+      } else out.push(new Paragraph({ indent: { left: (level + 1) * 360 }, children: [new TextRun({ text: item.attrs?.checked ? '☑ ' : '☐ ' }), ...runs] }));
+      const childPrefix = legal ? `${prefix}${idx}.` : '';
       for (const child of item.content ?? []) {
-        if (child.type === 'bulletList') out.push(...listParas(child, 'bullet', level + 1));
-        else if (child.type === 'orderedList') out.push(...listParas(child, 'ordered', level + 1));
+        if (child.type === 'bulletList') out.push(...listParas(child, 'bullet', level + 1, child.attrs?.listScheme || '', ''));
+        else if (child.type === 'orderedList') out.push(...listParas(child, 'ordered', level + 1, scheme, childPrefix));
       }
+      idx += 1;
     }
     return out;
   }
@@ -138,7 +143,7 @@ export async function exportDocx(json: any, title: string) {
         return [new Paragraph({ alignment: caption ? AlignmentType.CENTER : align(node.attrs?.textAlign), indent: indentOf(node), spacing: spacingOf(node), children: runs })];
       }
       case 'bulletList': return listParas(node, 'bullet', 0);
-      case 'orderedList': return listParas(node, 'ordered', 0);
+      case 'orderedList': return listParas(node, 'ordered', 0, node.attrs?.listScheme || '', '');
       case 'taskList': return listParas(node, 'task', 0);
       case 'blockquote': return (node.content ?? []).map((p: any) => new Paragraph({ indent: { left: 480 }, children: inlineRuns(p.content).map((r: any) => r) }));
       case 'codeBlock': return String((node.content ?? []).map((t: any) => t.text).join('')).split('\n').map((line) => new Paragraph({ children: [new TextRun({ text: line, font: 'Courier New' })] }));

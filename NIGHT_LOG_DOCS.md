@@ -142,7 +142,9 @@ CSS de todo lo anterior en `tiptap.css`.
   `ImageRun` con el buffer; se evita exportarlas mal (aspecto/tamaño). En pantalla
   y en PDF/impresión sí se ven. Est. ~0.5 día.
 - **Numeración multinivel real en .docx** (definiciones de numeración de Word):
-  hoy se exporta numeración manual aproximada. Est. ~0.5 día.
+  el esquema *legal* ya exporta los números jerárquicos correctos como texto
+  (`1.`, `1.1.`, `1.1.1.`); falta usar campos de numeración nativos de Word para
+  que se renumeren solos al editar en Word. Est. ~0.5 día.
 - **Saltos de sección y encabezado/pie por sección**: hoy un solo "section" por
   documento. Est. ~1 día.
 
