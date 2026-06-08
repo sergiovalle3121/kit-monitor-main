@@ -10,6 +10,44 @@ archivos, decisiones, endpoints/pantallas, KPIs, siguiente paso / bloqueos.
 
 ---
 
+## 2026-06-08 — GOLDEN PATH · FASE 1: Partes + BOM del modelo (reusa `bom` + `MaterialMaster`)
+
+> Rama `claude/sweet-hawking-UQaaU`. Reusa el módulo `bom` y el maestro de partes
+> existentes — NO se duplicó nada. Solo se añadió UI y una extensión mínima.
+
+### Backend — extensión mínima y segura
+- **`inventory.service.ts › ensureMaterial`**: al **crear** una parte nueva ahora
+  persiste `standardCost` (y `category`). Es create-only: NUNCA sobrescribe partes
+  existentes. Antes los descartaba → el rollup del BOM y la valuación aguas abajo
+  quedaban en 0. Cambio aditivo (sin tocar firmas ni columnas).
+
+### Frontend — sección BOM en el detalle del modelo
+- **`dashboard/models/[id]/page.tsx`** → `BomSection` + `ComponentRow`:
+  - Si no hay BOM: CTA "Crear BOM" (`POST /bom/headers` con `model = modelNumber`).
+  - Agregar parte: `partNumber` + `qty` + `unit`; si la parte es nueva, expande
+    descripción + costo. Flujo: `POST /inventory/master-data` (idempotente) →
+    `POST /bom/headers/:id/components`. Editar cantidad (`PATCH …/components/:id`)
+    y quitar (`DELETE …/components/:id`) inline (solo en estado DRAFT).
+  - Ciclo de vida: **Aprobar** (`/approve`) → **Activar** (`/activate`); muestra
+    estado del BOM, costo por línea (extendido) y costo total (rollup).
+- **`dashboard/engineering/page.tsx`**: el selector de modelo dejó de ser texto
+  libre → ahora es un **dropdown del maestro** (`useApi('/product-models')`, sin
+  obsoletos). El `POST /process/steps` referencia ese `modelNumber`. Link
+  "Créalo en Modelos" para el caso vacío.
+
+### Verificación (todo en verde)
+- API: `tsc`, `build`, **bootstrap smoke (Postgres)**, y **smoke funcional del
+  golden path**: crear modelo `MDL-00001` → crear BOM → alta de 2 partes nuevas
+  con costo → **rollup = 0.44** (4×0.05 + 2×0.12, confirma que el costo fluye) →
+  aprobar → **ACTIVE**; `findByNumber` resuelve el modelo.
+- Web: `tsc` (0), `eslint` (0 en archivos tocados), `next build` OK.
+
+### Siguiente paso (Fase 2)
+- Planeación: dropdown de modelos del maestro al publicar; vincular el plan al
+  BOM ACTIVE y mostrar materiales (partNumber, qtyPerUnit × cantidad = req. total).
+
+---
+
 ## 2026-06-08 — GOLDEN PATH · FASE 0: Maestro de Modelo/Producto (la columna vertebral) 🔑
 
 > Rama `claude/sweet-hawking-UQaaU`. Sin auto-merge a `main` (ver `DECISIONS.md §1`):
