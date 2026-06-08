@@ -10,6 +10,58 @@ archivos, decisiones, endpoints/pantallas, KPIs, siguiente paso / bloqueos.
 
 ---
 
+## 2026-06-08 — REDISEÑO DEL HUB ESTILO APPLE (sistema de diseño + propagación)
+
+> Rama `claude/dazzling-dirac-1puYr`. Luz verde para PR + merge por fase (squash).
+> 5 fases, todas **mergeadas en verde** (cada una: `next build` + `tsc --noEmit` +
+> eslint). Solo frontend (ninguna tocó backend/schema). Una sola familia de íconos
+> (lucide), grosor único `1.75`, una sola flecha (`ArrowUpRight` en hover).
+
+- **Fase 1 (#248) — Sistema de diseño:** `lib/design/domains.ts` (`DOMAINS`
+  paleta por dominio + `domainTile()` + `ICON_STROKE`), `components/ui/IconTile`
+  (squircle gradiente + sombra de color + brillo), `AuroraBackground`
+  (`.aurora-bg` en globals.css, claro/oscuro por prefers-color-scheme),
+  `HoverArrow`. Sin cambio visual.
+- **Fase 2 (#249) — Rebuild del HUB:** `dashboard/page.tsx` con AuroraBackground,
+  AREAS con `domain` (paleta consolidada), KPIs/áreas/actividad con IconTile,
+  glow por dominio + HoverArrow en hover, buscador Spotlight (glow violeta).
+  Datos (useApi), roles y motion intactos.
+- **Fase 3 (#250) — Aurora global + PageHeader:** el layout del dashboard monta
+  `AuroraBackground` (reemplaza `AmbientBackground` SOLO en el dashboard; landing/
+  login lo conservan). Nuevo `PageHeader({domain,title,subtitle})`.
+- **Fase 4 (#251) — Centro de notificaciones:** panel frosted agrupado Hoy/Antes
+  con IconTile por dominio; integra `unread` del chat (deep-link a /dashboard/chat);
+  badge = admin + mensajería; para TODOS los usuarios; "Marcar leídas". Sin tablas
+  ni endpoint nuevo (agregación en cliente).
+- **Fase 5 — Propagación de acentos:** FAB de chat con gradiente mensajería; FAB de
+  IA violeta→rosa; header de la lista de chat con IconTile de mensajería.
+
+### `PageHeader` — adopción
+- **Adoptado (7):** Calidad, Almacén, Producción, Planeación (F3) + Inventario,
+  Finanzas, Ingeniería (F5).
+- **Pendiente (resto de `/dashboard/*`):** Operador MES, Terminal de operador,
+  Mission Control, Torre de control de línea, Costos/métricas, Axos ERP, Lab,
+  Ing. Industrial, Disposición de líneas, RH, Office, Calidad de piso/MRB, CRM,
+  RMA, Legal, Outbound, Inbound, Compras, Tooling, Gastos, Activos fijos, Conteos
+  cíclicos, Skills, Settings, etc. Patrón mecánico: importar `PageHeader`,
+  reemplazar el `<header>` (ícono sobre tinte plano) por
+  `<PageHeader domain="<dominio>" title subtitle/>`, quitar el ícono del import.
+
+### DEUDA / PENDIENTE
+- **Top bar + dock globales en el layout (Fase 3 del enunciado): DIFERIDO a
+  propósito.** 34+ páginas de departamento ya tienen su propio header
+  `sticky top-0` (back-link + título); montar un top bar global se encimaría y
+  rompería esas páginas (viola "no romper funcionalidad"). La unificación real
+  requiere primero migrar esas páginas a `PageHeader` (quitando sus headers
+  propios) y luego mover la chrome al layout. Hacerlo por lotes.
+- El dashboard ya no usa el `NodeNetwork` (estaba en `AmbientBackground`); si se
+  quiere de vuelta, superponerlo bajo `AuroraBackground` en el layout.
+- Centro de notificaciones: hoy via polling 20 s + `unread` por conversación;
+  se podría suscribir al socket del chat para tiempo real, y exponer @menciones
+  por separado (hoy van implícitas dentro de `unread`).
+
+---
+
 ## 2026-06-08 — CHAT "TEAMS": Seguridad P0 + Presencia, Reacciones, Recibos, @menciones, Pulido
 
 > Rama `claude/dazzling-dirac-1puYr`. **Esta sesión SÍ tuvo luz verde explícita

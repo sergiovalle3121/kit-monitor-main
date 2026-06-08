@@ -4,12 +4,13 @@ import React, { useMemo } from "react";
 import Link from "next/link";
 import { motion, useReducedMotion } from "framer-motion";
 import {
-  ChevronLeft, DollarSign, Loader2, Lock, Inbox, ChevronRight,
+  ChevronLeft, Loader2, Lock, Inbox, ChevronRight,
   Calculator, Landmark, Boxes, Terminal, Receipt, TrendingUp, Wallet,
 } from "lucide-react";
 import { glass } from "@/lib/glass";
 import { containerRM, itemRM, hoverRM, pressRM } from "@/lib/motion";
 import { useApi } from "@/hooks/useApi";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 const MotionLink = motion.create(Link);
 
@@ -57,13 +58,7 @@ export default function FinancePage() {
       </div>
 
       <main className="max-w-5xl mx-auto px-6 pt-10">
-        <header className="flex items-center gap-3 mb-8">
-          <div className="p-3 rounded-2xl bg-green-50 dark:bg-green-500/10"><DollarSign className="w-7 h-7 text-green-500" strokeWidth={1.5} /></div>
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Finanzas</h1>
-            <p className="text-gray-500 dark:text-gray-400 text-sm">Costos, contabilidad y movimientos · todo el dinero de la operación</p>
-          </div>
-        </header>
+        <PageHeader domain="finance" title="Finanzas" subtitle="Costos, contabilidad y movimientos · todo el dinero de la operación" />
 
         {/* KPIs en vivo */}
         <motion.section variants={containerRM(reduce)} initial="hidden" animate="show" className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">

@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
-import { ChevronLeft, Boxes, Loader2, Lock, Inbox, Search } from "lucide-react";
+import { ChevronLeft, Loader2, Lock, Inbox, Search } from "lucide-react";
+import { PageHeader } from "@/components/ui/PageHeader";
 import Link from "next/link";
 import { glass } from "@/lib/glass";
 import { useApi } from "@/hooks/useApi";
@@ -30,13 +31,7 @@ export default function InventoryPage() {
       </div>
 
       <main className="max-w-4xl mx-auto px-6 pt-10">
-        <header className="flex items-center gap-3 mb-8">
-          <div className="p-3 rounded-2xl bg-sky-50 dark:bg-sky-500/10"><Boxes className="w-7 h-7 text-sky-500" strokeWidth={1.5} /></div>
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Inventario</h1>
-            <p className="text-gray-500 dark:text-gray-400 text-sm">Existencias por ubicación</p>
-          </div>
-        </header>
+        <PageHeader domain="inventory" title="Inventario" subtitle="Existencias por ubicación" />
 
         {positions.length > 0 && (
           <div className={`${glass} flex items-center gap-2 px-4 py-2.5 rounded-2xl mb-5`}>
