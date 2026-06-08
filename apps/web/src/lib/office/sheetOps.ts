@@ -1037,6 +1037,60 @@ export function copyRange(sheet: any, srcRange: string, destCell: string, mode: 
   return true;
 }
 
+// ── Autofiltro (no destructivo) ───────────────────────────────────────────────
+export type FilterOp = '=' | '!=' | '>' | '>=' | '<' | '<=' | 'contains' | 'notcontains' | 'empty' | 'notempty';
+export interface FilterCriterion { colRel: number; op: FilterOp; value: string }
+
+/** ¿`raw` cumple el criterio? Numérico cuando ambos lados son números. */
+export function matchesCriterion(raw: any, op: FilterOp, value: string): boolean {
+  const sraw = raw == null ? '' : String(raw);
+  if (op === 'empty') return sraw.trim() === '';
+  if (op === 'notempty') return sraw.trim() !== '';
+  if (op === 'contains') return sraw.toLowerCase().includes(value.toLowerCase());
+  if (op === 'notcontains') return !sraw.toLowerCase().includes(value.toLowerCase());
+  const n = typeof raw === 'number' ? raw : Number(sraw); const nv = Number(value);
+  const bothNum = sraw !== '' && value !== '' && !Number.isNaN(n) && !Number.isNaN(nv);
+  switch (op) {
+    case '=': return bothNum ? n === nv : sraw === value;
+    case '!=': return bothNum ? n !== nv : sraw !== value;
+    case '>': return bothNum ? n > nv : sraw > value;
+    case '>=': return bothNum ? n >= nv : sraw >= value;
+    case '<': return bothNum ? n < nv : sraw < value;
+    case '<=': return bothNum ? n <= nv : sraw <= value;
+    default: return false;
+  }
+}
+
+/** Filtra un rango por uno o varios criterios (AND) y devuelve celldata para una hoja nueva. */
+export function buildFilter(sheet: any, p: { range: string; hasHeader: boolean; criteria: FilterCriterion[] }): { celldata: any[]; matched: number; nCols: number } | null {
+  const rng = parseRange(p.range); if (!rng || !sheet) return null;
+  const map = new Map<string, any>();
+  for (const cd of sheet.celldata ?? []) map.set(`${cd.r}_${cd.c}`, cd);
+  const nCols = rng.c2 - rng.c1 + 1;
+  const startR = p.hasHeader ? rng.r1 + 1 : rng.r1;
+  const out: any[] = [];
+  let rr = 0;
+  const pushRow = (srcR: number, header: boolean) => {
+    for (let c = rng.c1; c <= rng.c2; c++) {
+      const cd = map.get(`${srcR}_${c}`);
+      if (!cd && !header) continue;
+      const base = cd ? clone(cd.v) : { v: '', m: '', ct: { fa: 'General', t: 's' } };
+      const v = base && typeof base === 'object' ? base : { v: base, m: String(base ?? ''), ct: { fa: 'General', t: 's' } };
+      if (header) v.bl = 1;
+      out.push({ r: rr, c: c - rng.c1, v });
+    }
+    rr++;
+  };
+  if (p.hasHeader) pushRow(rng.r1, true);
+  let matched = 0;
+  for (let r = startR; r <= rng.r2; r++) {
+    const ok = p.criteria.every((cr) => matchesCriterion(rawOf(map.get(`${r}_${rng.c1 + cr.colRel}`) as any), cr.op, cr.value));
+    if (!ok) continue;
+    pushRow(r, false); matched++;
+  }
+  return { celldata: out, matched, nCols };
+}
+
 // ── Rangos con nombre ─────────────────────────────────────────────────────────
 export interface NamedRange { name: string; range: string; sheetIndex: number }
 

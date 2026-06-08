@@ -6,13 +6,20 @@ import { motion } from 'framer-motion';
 import { X, Plus, Trash2 } from 'lucide-react';
 import { AGG_LABEL, type AggFn, type SortKey } from '@/lib/office/sheetOps';
 
-export type DataMode = 'sort' | 'dedup' | 'split' | 'note' | 'subtotal' | 'spark' | 'fill' | 'transpose' | 'paste';
+export type DataMode = 'sort' | 'dedup' | 'split' | 'note' | 'subtotal' | 'spark' | 'fill' | 'transpose' | 'paste' | 'filter';
 const TITLES: Record<DataMode, string> = {
   sort: 'Ordenar rango', dedup: 'Quitar duplicados', split: 'Texto en columnas',
   note: 'Nota de celda', subtotal: 'Subtotales', spark: 'Minigráfico (sparkline)',
-  fill: 'Rellenar serie', transpose: 'Transponer', paste: 'Pegado especial',
+  fill: 'Rellenar serie', transpose: 'Transponer', paste: 'Pegado especial', filter: 'Filtrar (a hoja nueva)',
 };
 const AGGS: AggFn[] = ['sum', 'count', 'counta', 'avg', 'min', 'max'];
+const FILTER_OPS: { v: string; label: string }[] = [
+  { v: '=', label: 'Igual a' }, { v: '!=', label: 'Distinto de' },
+  { v: '>', label: 'Mayor que' }, { v: '>=', label: 'Mayor o igual' },
+  { v: '<', label: 'Menor que' }, { v: '<=', label: 'Menor o igual' },
+  { v: 'contains', label: 'Contiene' }, { v: 'notcontains', label: 'No contiene' },
+  { v: 'empty', label: 'Vacío' }, { v: 'notempty', label: 'No vacío' },
+];
 
 /** Diálogo para operaciones de datos: ordenar (multinivel), quitar duplicados,
  *  texto en columnas, subtotales, minigráficos y notas de celda. */
@@ -32,6 +39,9 @@ export function SheetDataDialog({
   const [direction, setDirection] = useState<'down' | 'right'>('down');
   const [count, setCount] = useState(10);
   const [pasteMode, setPasteMode] = useState<'all' | 'values' | 'formats'>('all');
+  const [filterCol, setFilterCol] = useState(1);
+  const [filterOp, setFilterOp] = useState('=');
+  const [filterValue, setFilterValue] = useState('');
   const [keys, setKeys] = useState<SortKey[]>([{ colRel: 0, order: 'asc' }]);
   const [hasHeader, setHasHeader] = useState(true);
   const [delimiter, setDelimiter] = useState(',');
@@ -53,6 +63,7 @@ export function SheetDataDialog({
     else if (mode === 'fill') onApply('fill', { seedRange: range, sheetIndex, direction, count });
     else if (mode === 'transpose') onApply('transpose', { srcRange: range, sheetIndex, destCell: target });
     else if (mode === 'paste') onApply('paste', { srcRange: range, sheetIndex, destCell: target, mode: pasteMode });
+    else if (mode === 'filter') onApply('filter', { range, sheetIndex, hasHeader, criteria: [{ colRel: filterCol - 1, op: filterOp, value: filterValue }] });
     else onApply('note', { cell: range, sheetIndex, text });
   }
 
@@ -177,6 +188,27 @@ export function SheetDataDialog({
                 <option value="formats">Solo formatos</option>
               </select>
             </label>
+          </>
+        )}
+        {mode === 'filter' && (
+          <>
+            <div className="flex gap-2">
+              <label className="w-24 text-xs text-gray-500">Columna #
+                <input type="number" min={1} value={filterCol} onChange={(e) => setFilterCol(Math.max(1, Number(e.target.value)))} className={field} />
+              </label>
+              <label className="flex-1 text-xs text-gray-500">Condición
+                <select value={filterOp} onChange={(e) => setFilterOp(e.target.value)} className={field}>
+                  {FILTER_OPS.map((o) => <option key={o.v} value={o.v}>{o.label}</option>)}
+                </select>
+              </label>
+            </div>
+            {filterOp !== 'empty' && filterOp !== 'notempty' && (
+              <label className="block text-xs text-gray-500">Valor
+                <input value={filterValue} onChange={(e) => setFilterValue(e.target.value)} className={field} />
+              </label>
+            )}
+            <label className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer"><input type="checkbox" checked={hasHeader} onChange={(e) => setHasHeader(e.target.checked)} /> La primera fila es encabezado</label>
+            <p className="text-[11px] text-gray-400">Crea una hoja nueva con las filas que cumplen el criterio (no modifica el origen).</p>
           </>
         )}
         {mode === 'note' && (

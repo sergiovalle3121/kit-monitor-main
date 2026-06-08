@@ -108,6 +108,12 @@ destino + tipo). Botones en el ribbon: **Datos → Subtotales**, **Insertar → 
 
 **Spec**: `data.spec.ts` (15). Verde.
 
+> Ampliación: **autofiltro no destructivo** — `buildFilter(sheet, {range, hasHeader,
+> criteria[]})` + `matchesCriterion` (=, ≠, >, ≥, <, ≤, contiene, no contiene, vacío,
+> no vacío; AND de criterios). Genera una **hoja nueva «Filtro N»** con las filas que
+> cumplen, sin tocar el origen. UI: modo «Filtrar» en `SheetDataDialog`; ribbon
+> Datos → «Filtrar a hoja». Spec `filter.spec.ts` (13).
+
 > Checkpoint: `next build` verde tras los hitos 1–3.
 
 ### 4) Gráficos pro  ✅
