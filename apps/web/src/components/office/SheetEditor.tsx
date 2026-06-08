@@ -14,7 +14,7 @@ import { SheetDataDialog, type DataMode } from './SheetDataDialog';
 import { SheetPivot } from './SheetPivot';
 import { SheetFormatDialog, type NumberFmtPayload, type StylePayload } from './SheetFormatDialog';
 import { parseRange, type ChartConfig } from '@/lib/office/charts';
-import { applyConditional, sortRangeMulti, removeDuplicates, textToColumns, setCellNote, replaceAll, buildPivot, pivotToCelldata, applyNumberFormat, applyCellStyle, applySubtotals, applySparkline, colName, type CondPayload, type PivotConfig } from '@/lib/office/sheetOps';
+import { applyConditional, sortRangeMulti, removeDuplicates, textToColumns, setCellNote, replaceAll, buildPivot, pivotToCelldata, applyNumberFormat, applyCellStyle, applySubtotals, applySparkline, colName, type CondPayload, type PivotConfig, type FindOpts } from '@/lib/office/sheetOps';
 import { OfficeRibbon, RibbonTab, RibbonGroup, RibbonSeparator, RibbonButton, RibbonMenuButton } from './ribbon';
 
 // Content is either the legacy bare sheet array or the new { sheets, charts } shape.
@@ -164,9 +164,9 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
       .catch(() => window.alert(`Escribe en la celda: ${formula}`));
   }
 
-  function doReplaceAll(query: string, replacement: string, caseSensitive: boolean): number {
+  function doReplaceAll(query: string, replacement: string, opts: FindOpts): number {
     const sheets = clone(sheetsRef.current);
-    const n = replaceAll(sheets, query, replacement, caseSensitive);
+    const n = replaceAll(sheets, query, replacement, opts);
     if (n > 0) remount(sheets);
     return n;
   }
@@ -304,7 +304,7 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
 
       <div className="flex-1 min-h-0 bg-white relative">
         <Workbook ref={wbRef} key={wbKey} data={liveData as any} lang="es" allowEdit={!readOnly} onChange={handleSheet} />
-        {showFind && <SheetFindReplace sheets={sheetsRef.current} sheetNames={sheetNames()} onReplaceAll={doReplaceAll} onClose={() => setShowFind(false)} />}
+        {showFind && <SheetFindReplace sheets={sheetsRef.current} sheetNames={sheetNames()} activeSheetIndex={activeIndex()} onReplaceAll={doReplaceAll} onClose={() => setShowFind(false)} />}
       </div>
 
       <SheetCharts charts={charts} sheets={sheetsRef.current} readOnly={readOnly} onAdd={addChart} onRemove={removeChart} onUpdate={updateChart} />

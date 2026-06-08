@@ -221,36 +221,49 @@ export function setCellNote(sheet: any, cellRef: string, text: string): boolean 
 export interface MatchAddr { sheetIndex: number; r: number; c: number; addr: string }
 
 /** Busca coincidencias de texto en todas las hojas (sin mutar). */
-export function findMatches(sheets: any[], query: string, caseSensitive: boolean): MatchAddr[] {
+export interface FindOpts { caseSensitive?: boolean; wholeCell?: boolean; regex?: boolean; sheetIndex?: number }
+
+/** Construye el RegExp de búsqueda según las opciones (regex, celda completa, mayúsc.). */
+export function buildFindRegex(query: string, opts: FindOpts = {}): RegExp | null {
+  if (!query) return null;
+  const flags = opts.caseSensitive ? 'g' : 'gi';
+  let body = opts.regex ? query : query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  if (opts.wholeCell) body = `^(?:${body})$`;
+  try { return new RegExp(body, flags); } catch { return null; }
+}
+
+/** Busca coincidencias de texto en las hojas (sin mutar). Soporta regex/celda completa/alcance. */
+export function findMatches(sheets: any[], query: string, opts: FindOpts = {}): MatchAddr[] {
   const out: MatchAddr[] = [];
-  if (!query) return out;
-  const needle = caseSensitive ? query : query.toLowerCase();
+  const rx = buildFindRegex(query, opts); if (!rx) return out;
   sheets.forEach((sheet, si) => {
+    if (opts.sheetIndex != null && opts.sheetIndex !== si) return;
     for (const cd of sheet?.celldata ?? []) {
       const raw = rawOf(cd); if (raw == null) continue;
-      const hay = caseSensitive ? String(raw) : String(raw).toLowerCase();
-      if (hay.includes(needle)) out.push({ sheetIndex: si, r: cd.r, c: cd.c, addr: `${colName(cd.c)}${cd.r + 1}` });
+      rx.lastIndex = 0;
+      if (rx.test(String(raw))) out.push({ sheetIndex: si, r: cd.r, c: cd.c, addr: `${colName(cd.c)}${cd.r + 1}` });
     }
   });
   return out;
 }
 
 /** Reemplaza todas las coincidencias (muta las hojas clonadas). Devuelve el conteo. */
-export function replaceAll(sheets: any[], query: string, replacement: string, caseSensitive: boolean): number {
-  if (!query) return 0;
+export function replaceAll(sheets: any[], query: string, replacement: string, opts: FindOpts = {}): number {
+  const rx = buildFindRegex(query, opts); if (!rx) return 0;
   let count = 0;
-  const rx = new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), caseSensitive ? 'g' : 'gi');
-  for (const sheet of sheets) {
+  sheets.forEach((sheet, si) => {
+    if (opts.sheetIndex != null && opts.sheetIndex !== si) return;
     for (const cd of sheet?.celldata ?? []) {
       const raw = rawOf(cd); if (raw == null || typeof raw === 'number') continue;
       const s = String(raw);
+      rx.lastIndex = 0;
       if (!rx.test(s)) continue;
       rx.lastIndex = 0;
-      const next = s.replace(rx, replacement);
       count += (s.match(rx) || []).length;
+      const next = s.replace(rx, replacement);
       const v = ensureObj(cd); v.v = next; v.m = next;
     }
-  }
+  });
   return count;
 }
 

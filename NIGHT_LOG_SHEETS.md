@@ -152,5 +152,18 @@ Layout maestro-detalle: categorías · lista buscable · panel de detalle con
   formato, fórmulas, combinaciones y multi-hoja sí round-trip. (Fidelidad total de
   estilos requeriría SheetJS Pro u otra librería permisiva; estimación 1–2 días + due
   diligence de licencia.)
+
+> Checkpoint: `next build` verde tras el hito .xlsx.
+
+### 7) Buscar y reemplazar pro  ✅
+`sheetOps.ts`: `findMatches` y `replaceAll` reescritos con `FindOpts`
+(`caseSensitive`, **`wholeCell`**, **`regex`**, **`sheetIndex`** para alcance) y
+`buildFindRegex` (escape seguro + regex inválida sin lanzar).
+`SheetFindReplace.tsx`: alcance **Libro/Hoja actual**, distinguir mayúsculas, celda
+completa, expresión regular (con aviso de regex inválida) y reemplazar todo.
+
+**Spec**: `findreplace.spec.ts` (11). Verde.
+
+**Total de aserciones de lógica pura: 116** (7 specs, `npx tsx`).
 </content>
 </invoke>
