@@ -4,7 +4,7 @@ import React, { useMemo } from "react";
 import Link from "next/link";
 import { motion, useReducedMotion } from "framer-motion";
 import {
-  ChevronLeft, Loader2, Lock, Inbox, ChevronRight,
+  Loader2, Lock, Inbox, ChevronRight,
   Calculator, Landmark, Boxes, Terminal, Receipt, TrendingUp, Wallet,
 } from "lucide-react";
 import { glass } from "@/lib/glass";
@@ -50,13 +50,6 @@ export default function FinancePage() {
 
   return (
     <div className="min-h-screen text-black dark:text-white font-sans pb-32">
-      <div className={`${glass} sticky top-0 z-40 px-6 py-4 rounded-none border-x-0 border-t-0 flex items-center justify-between`}>
-        <Link href="/dashboard" className="flex items-center gap-2 text-sm font-medium text-gray-500 hover:text-black dark:hover:text-white transition-colors">
-          <ChevronLeft className="w-4 h-4" /> Dashboard
-        </Link>
-        <span className="text-sm font-semibold">Finanzas</span>
-      </div>
-
       <main className="max-w-5xl mx-auto px-6 pt-10">
         <PageHeader domain="finance" title="Finanzas" subtitle="Costos, contabilidad y movimientos · todo el dinero de la operación" />
 

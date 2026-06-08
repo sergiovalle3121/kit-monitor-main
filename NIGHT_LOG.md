@@ -10,6 +10,46 @@ archivos, decisiones, endpoints/pantallas, KPIs, siguiente paso / bloqueos.
 
 ---
 
+## 2026-06-08 — CIERRE FASE 3: barra superior + dock compartidos en el layout
+
+> Rama `claude/dazzling-dirac-1puYr`. Solo frontend. Cierra el pendiente de la
+> sesión del rediseño: la chrome (barra + dock) vivía inline en el hub y se
+> perdía al entrar a un departamento.
+
+- **`components/DashboardTopBar.tsx`** (extraído del hub): logo→/dashboard,
+  WorkspaceSwitcher, buscador Spotlight (`axos:open-search`), centro de
+  notificaciones (admin + no leídos de chat vía `chatApi`, badge real,
+  agrupado Hoy/Antes) y menú de avatar (editar nombre, logout). Self-contained.
+- **`components/DashboardDock.tsx`** (reusa `DockLink`): marca activo según la
+  ruta; el link de Ajustes respeta gating de admin (+ override owner).
+- **`components/DashboardShell.tsx`**: monta barra + dock + `pt-20` UNA vez. Las
+  páginas a pantalla completa (`/dashboard/chat`, `/dashboard/select-workspace`)
+  van **bare** (sin chrome ni padding) para no romper su layout `h-screen`.
+- **`layout.tsx`**: `AuroraBackground` + `WorkspaceGuard` + `DashboardShell`.
+- **Hub (`page.tsx`)**: se le quitó la `<nav>`, el dock y toda la lógica de
+  notificaciones/avatar (movida a la barra). Quedó delgado (áreas + KPIs +
+  actividad). `pt-28` → `pt-2` (la barra/padding la da el layout).
+- **PageHeader**: nuevo prop `right` (acciones/estado/links). Se quitó el header
+  `sticky top-0` propio (back-link) de las 7 páginas con PageHeader para evitar
+  barras duplicadas: Calidad, Producción, Inventario, Finanzas, Ingeniería
+  (simples); **Almacén** (se preservó el indicador "En vivo" + link Planeación en
+  `right`) y **Planeación** (se preservó "Nuevo plan" + link Almacén en `right`).
+
+### Pendiente / deuda
+- Las páginas que AÚN tienen su header `sticky top-0` propio (las que todavía no
+  adoptan `PageHeader`: operador, terminal, mission-control, line-control-tower,
+  metrics, erp, lab, industrial-engineering, line-engineering, rh, office,
+  floor-quality, crm, rma, legal, outbound, inbound, procurement, tooling,
+  expenses, fixed-assets, cycle-counts, skills, settings, etc.) muestran AHORA la
+  barra global ADEMÁS de su barra propia (doble barra transitoria, funcional). La
+  limpieza es mecánica: adoptar `PageHeader` y quitar su `<div sticky top-0>` (lo
+  que tenga acciones se mueve al `right`). NO se borró ninguna (regla "nunca
+  borrar / si sobra documéntalo").
+- Verificado: hub + Calidad + Almacén + Producción muestran la MISMA barra + dock
+  + su PageHeader por dominio, sin barras duplicadas. Build + tsc + lint verdes.
+
+---
+
 ## 2026-06-08 — FIX: doble `/api` del chat (REST + WebSocket) en producción
 
 > Rama `claude/dazzling-dirac-1puYr`. Solo frontend, aditivo. El chat no

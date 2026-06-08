@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { IconTile } from '@/components/ui/IconTile';
 import type { DomainKey } from '@/lib/design/domains';
@@ -13,23 +14,27 @@ export function PageHeader({
   title,
   subtitle,
   icon,
+  right,
   className = '',
 }: {
   domain: DomainKey;
   title: string;
   subtitle?: string;
   icon?: LucideIcon;
+  /** Contenido a la derecha (acciones, estado en vivo, enlaces rápidos). */
+  right?: ReactNode;
   className?: string;
 }) {
   return (
     <header className={`mb-8 flex items-center gap-4 ${className}`}>
       <IconTile domain={domain} size={52} icon={icon} />
-      <div className="min-w-0">
+      <div className="min-w-0 flex-1">
         <h1 className="truncate text-2xl font-bold tracking-tight md:text-3xl">{title}</h1>
         {subtitle && (
           <p className="text-sm text-gray-500 dark:text-gray-400">{subtitle}</p>
         )}
       </div>
+      {right && <div className="ml-auto flex shrink-0 items-center gap-3">{right}</div>}
     </header>
   );
 }

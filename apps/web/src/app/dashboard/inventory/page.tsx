@@ -1,9 +1,8 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
-import { ChevronLeft, Loader2, Lock, Inbox, Search } from "lucide-react";
+import { Loader2, Lock, Inbox, Search } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
-import Link from "next/link";
 import { glass } from "@/lib/glass";
 import { useApi } from "@/hooks/useApi";
 
@@ -23,13 +22,6 @@ export default function InventoryPage() {
 
   return (
     <div className="min-h-screen text-black dark:text-white font-sans pb-32">
-      <div className={`${glass} sticky top-0 z-40 px-6 py-4 rounded-none border-x-0 border-t-0 flex items-center justify-between`}>
-        <Link href="/dashboard" className="flex items-center gap-2 text-sm font-medium text-gray-500 hover:text-black dark:hover:text-white transition-colors">
-          <ChevronLeft className="w-4 h-4" /> Dashboard
-        </Link>
-        <span className="text-sm font-semibold">Inventario</span>
-      </div>
-
       <main className="max-w-4xl mx-auto px-6 pt-10">
         <PageHeader domain="inventory" title="Inventario" subtitle="Existencias por ubicación" />
 

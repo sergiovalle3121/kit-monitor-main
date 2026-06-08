@@ -4,7 +4,6 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  ChevronLeft,
   Megaphone,
   PackageCheck,
   Plus,
@@ -171,30 +170,25 @@ export default function PlanningPage() {
 
   return (
     <div className="min-h-screen text-black dark:text-white font-sans pb-32">
-      {/* Top bar */}
-      <div className={`${glass} sticky top-0 z-40 px-6 py-4 rounded-none border-x-0 border-t-0 flex items-center justify-between`}>
-        <Link href="/dashboard" className="flex items-center gap-2 text-sm font-medium text-gray-500 hover:text-black dark:hover:text-white transition-colors">
-          <ChevronLeft className="w-4 h-4" /> Dashboard
-        </Link>
-        <div className="flex items-center gap-4">
-          <Link href="/dashboard/almacen" className="flex items-center gap-1.5 text-sm font-medium text-blue-500 hover:text-blue-700 transition-colors">
-            <Warehouse className="w-4 h-4" /> Almacén
-          </Link>
-          <button
-            onClick={() => setShowForm((v) => !v)}
-            className="flex items-center gap-2 bg-black dark:bg-white text-white dark:text-black text-sm font-semibold px-4 py-2 rounded-full hover:scale-[1.03] active:scale-95 transition-transform"
-          >
-            <Plus className="w-4 h-4" /> Nuevo plan
-          </button>
-        </div>
-      </div>
-
       <main className="max-w-5xl mx-auto px-6 pt-10">
         {/* Header */}
         <PageHeader
           domain="planning"
           title="Planeación"
           subtitle="Muro de publicación · planeación publica, el almacén prepara el kit"
+          right={
+            <>
+              <Link href="/dashboard/almacen" className="hidden sm:flex items-center gap-1.5 text-sm font-medium text-blue-500 hover:text-blue-700 transition-colors">
+                <Warehouse className="w-4 h-4" /> Almacén
+              </Link>
+              <button
+                onClick={() => setShowForm((v) => !v)}
+                className="flex items-center gap-2 bg-black dark:bg-white text-white dark:text-black text-sm font-semibold px-4 py-2 rounded-full hover:scale-[1.03] active:scale-95 transition-transform"
+              >
+                <Plus className="w-4 h-4" /> Nuevo plan
+              </button>
+            </>
+          }
         />
 
         {/* KPI strip */}
