@@ -302,7 +302,15 @@ Verificado: `tsc` ✓, `eslint` ✓, `next build` ✓.
 
 Verificado: `tsc` ✓, `eslint` ✓, `next build` ✓.
 
+#### Lote 25 — Seleccionar todo + Tab para ciclar (usabilidad)
+- **Ctrl+A** selecciona todos los objetos visibles de la diapositiva.
+- **Tab / Shift+Tab** cicla la selección entre objetos.
+
+Verificado: `tsc` ✓, `eslint` ✓, `next build` ✓.
+
 ### Diferido (con estimación)
+- **Fondo de degradado/imagen por diapositiva**: requiere convertir el fondo a
+  CSS para la presentación y manejar serialización; estimación ~0.5 día.
 - **Secciones en el clasificador** y colapsar/expandir: el sorter es una rejilla;
   insertar encabezados de ancho completo + colapso. Estimación: ~0.5 día.
 - **Patrón de diapositivas (master) editable** (backlog #7): editor de

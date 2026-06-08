@@ -816,6 +816,26 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
     c.setActiveObject(sel); c.requestRenderAll(); capture(); sync();
     setSelType('activeselection'); setSelCount(objs.length);
   }
+  function selectAll() {
+    const c = fabricRef.current; if (!c) return;
+    const objs = c.getObjects().filter((o: any) => o.selectable !== false && o.visible !== false);
+    if (!objs.length) return;
+    c.discardActiveObject();
+    if (objs.length === 1) c.setActiveObject(objs[0]);
+    else c.setActiveObject(new ActiveSelection(objs, { canvas: c }));
+    c.requestRenderAll();
+    setHasSel(true); setSelType(objs.length === 1 ? (objs[0] as any).type || '' : 'activeselection'); setSelCount(objs.length);
+  }
+  function cycleSelection(dir: number) {
+    const c = fabricRef.current; if (!c) return;
+    const objs = c.getObjects().filter((o: any) => o.selectable !== false && o.visible !== false);
+    if (!objs.length) return;
+    const cur = c.getActiveObject();
+    const idx = cur ? objs.indexOf(cur as any) : -1;
+    const next = objs[((idx + dir) % objs.length + objs.length) % objs.length];
+    c.discardActiveObject(); c.setActiveObject(next); c.requestRenderAll();
+    setHasSel(true); setSelType((next as any).type || ''); setSelCount(1);
+  }
   function setAngle(v: number) {
     const c = fabricRef.current; const o = c?.getActiveObject() as any;
     if (!c || !o) return;
@@ -946,6 +966,8 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
       const k = e.key.toLowerCase();
       if (meta && k === 'v') { e.preventDefault(); pasteObj(); return; }
       if (meta && k === 'h') { e.preventDefault(); capture(); setFindOpen(true); return; }
+      if (meta && k === 'a') { e.preventDefault(); selectAll(); return; }
+      if (e.key === 'Tab') { e.preventDefault(); cycleSelection(e.shiftKey ? -1 : 1); return; }
       if (!o || o.isEditing) return;
       if (meta && k === 'c') { clipboardRef.current = o; return; }
       if (meta && k === 'd') { e.preventDefault(); dupObj(); return; }
