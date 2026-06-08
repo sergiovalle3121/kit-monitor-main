@@ -290,6 +290,18 @@ Verificado: `tsc` ✓, `eslint` ✓, `next build` ✓.
 
 Verificado: `tsc` ✓, `eslint` ✓, `next build` ✓.
 
+#### Lote 24 — Correcciones de la auto-revisión de código
+- `delSlide` ahora hace `capture()` antes de borrar (no se pierden ediciones de
+  la diapositiva actual al borrar otra).
+- La capa de tinta/láser del modo presentación respeta la **relación de
+  aspecto** (antes fija a 16:9; en 4:3 el lápiz/láser caían desplazados).
+- Gráficos: etiqueta de valor en pastel de **una sola porción**; posición
+  correcta de etiquetas en **barras horizontales** (signo y centrado del alto).
+- «Apilado» se ofrece sólo para barras (no para área, donde no se implementa);
+  se quitó el `barGrouping` de área en el export.
+
+Verificado: `tsc` ✓, `eslint` ✓, `next build` ✓.
+
 ### Diferido (con estimación)
 - **Secciones en el clasificador** y colapsar/expandir: el sorter es una rejilla;
   insertar encabezados de ancho completo + colapso. Estimación: ~0.5 día.

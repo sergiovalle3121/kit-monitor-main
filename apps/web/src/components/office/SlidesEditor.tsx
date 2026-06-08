@@ -969,7 +969,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
 
   function addSlide() { capture(); slidesRef.current.splice(cur + 1, 0, blank()); notesRef.current.splice(cur + 1, 0, ''); sectionsRef.current.splice(cur + 1, 0, null); transitionsRef.current.splice(cur + 1, 0, transitionsRef.current[cur] ?? 'fade'); sync(); loadInto(cur + 1); }
   function dupSlide() { capture(); slidesRef.current.splice(cur + 1, 0, JSON.parse(JSON.stringify(slidesRef.current[cur]))); notesRef.current.splice(cur + 1, 0, notesRef.current[cur] ?? ''); sectionsRef.current.splice(cur + 1, 0, null); transitionsRef.current.splice(cur + 1, 0, transitionsRef.current[cur] ?? 'fade'); sync(); loadInto(cur + 1); }
-  function delSlide(i: number) { if (slidesRef.current.length === 1) return; slidesRef.current.splice(i, 1); notesRef.current.splice(i, 1); sectionsRef.current.splice(i, 1); transitionsRef.current.splice(i, 1); sync(); loadInto(Math.max(0, i <= cur ? cur - 1 : cur)); }
+  function delSlide(i: number) { if (slidesRef.current.length === 1) return; capture(); slidesRef.current.splice(i, 1); notesRef.current.splice(i, 1); sectionsRef.current.splice(i, 1); transitionsRef.current.splice(i, 1); sync(); loadInto(Math.max(0, i <= cur ? cur - 1 : cur)); }
   function reorderSlides(from: number, to: number) {
     if (from === to) return;
     capture();
@@ -1548,6 +1548,7 @@ function Present({
   const ch = slideHeight(ratio);
   const aspect = ratio === '4:3' ? '4 / 3' : '16 / 9';
   const stageW = ratio === '4:3' ? 'min(100vw, 133.33vh)' : 'min(100vw, 177.78vh)';
+  const vbH = ratio === '4:3' ? 75 : 56.25; // alto del viewBox del SVG (ancho 100)
   // Herramientas de presentación pro: puntero láser, lápiz/tinta, pantalla en
   // negro y navegador de miniaturas.
   const [tool, setTool] = useState<'none' | 'laser' | 'pen'>('none');
@@ -1714,15 +1715,15 @@ function Present({
       {stage}
 
       {/* Capa de interacción: tinta del lápiz + punto láser (sobre la diapositiva). */}
-      <div ref={boxRef} className="absolute z-30" style={{ width: 'min(100vw, 177.78vh)', aspectRatio: '16 / 9', pointerEvents: tool === 'none' ? 'none' : 'auto', cursor: tool === 'pen' ? 'crosshair' : tool === 'laser' ? 'none' : 'default' }}
+      <div ref={boxRef} className="absolute z-30" style={{ width: stageW, aspectRatio: aspect, pointerEvents: tool === 'none' ? 'none' : 'auto', cursor: tool === 'pen' ? 'crosshair' : tool === 'laser' ? 'none' : 'default' }}
         onPointerDown={(e) => { if (tool !== 'pen') return; (e.target as HTMLElement).setPointerCapture?.(e.pointerId); const [x, y] = slidePt(e); const stroke = [x, y]; drawRef.current = stroke; setInk((p) => ({ ...p, [i]: [...(p[i] || []), stroke] })); }}
         onPointerMove={(e) => { const [x, y] = slidePt(e); if (tool === 'laser') setLaser({ x, y }); else if (tool === 'pen' && drawRef.current) { drawRef.current.push(x, y); setInk((p) => ({ ...p })); } }}
         onPointerUp={() => { drawRef.current = null; }}
         onPointerLeave={() => { if (tool === 'laser') setLaser(null); }}>
-        <svg viewBox="0 0 100 56.25" preserveAspectRatio="none" className="absolute inset-0 w-full h-full pointer-events-none">
+        <svg viewBox={`0 0 100 ${vbH}`} preserveAspectRatio="none" className="absolute inset-0 w-full h-full pointer-events-none">
           {(ink[i] || []).map((stroke, si) => (
             <polyline key={si} fill="none" stroke={inkColor} strokeWidth={0.55} strokeLinecap="round" strokeLinejoin="round"
-              points={stroke.reduce((acc: string, n, idx) => acc + (idx % 2 === 0 ? `${n * 100},` : `${n * 56.25} `), '')} />
+              points={stroke.reduce((acc: string, n, idx) => acc + (idx % 2 === 0 ? `${n * 100},` : `${n * vbH} `), '')} />
           ))}
         </svg>
         {tool === 'laser' && laser && (

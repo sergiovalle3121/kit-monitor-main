@@ -146,8 +146,9 @@ function buildCartesian(spec: ChartSpec, kids: any[], ctx: any) {
         let left: number, w: number, top: number;
         if (stacked) { const x0 = x(acc[ci]), x1 = x(acc[ci] + Math.max(0, v)); left = Math.min(x0, x1); w = Math.abs(x1 - x0); acc[ci] += Math.max(0, v); top = plotT + ci * groupH + (groupH - bh) / 2; }
         else { const xv = x(v); left = Math.min(base, xv); w = Math.abs(xv - base); top = plotT + ci * groupH + groupH * 0.14 + si * bh; }
-        kids.push(new Rect({ left, top, width: Math.max(1, w), height: Math.max(1, bh * (stacked ? 1 : 0.9)), fill: pal[si % pal.length], rx: 2, ry: 2 }));
-        if (showValues && v) valLabel(kids, niceNum(v), left + w + 9, top + bh / 2, font, tc);
+        const barH = bh * (stacked ? 1 : 0.9);
+        kids.push(new Rect({ left, top, width: Math.max(1, w), height: Math.max(1, barH), fill: pal[si % pal.length], rx: 2, ry: 2 }));
+        if (showValues && v && !stacked) valLabel(kids, niceNum(v), v >= 0 ? left + w + 9 : left - 9, top + barH / 2, font, tc);
       }
     });
     spec.labels.forEach((lb, ci) => kids.push(new FabricText(String(lb), { left: plotL - 6, top: plotT + ci * groupH + groupH / 2, fontSize: 10, fill: tc, fontFamily: font, originX: 'right', originY: 'center', opacity: 0.85 })));
@@ -203,6 +204,7 @@ function buildPie(spec: ChartSpec, kids: any[], ctx: any) {
   if (nonZero === 1) {
     const idx = data.findIndex((v) => v > 0);
     kids.push(new Circle({ left: cx, top: cy, radius: r, fill: pal[idx % pal.length], originX: 'center', originY: 'center' }));
+    if (showValues) valLabel(kids, '100%', cx, doughnut ? cy - r * 0.78 : cy, font, doughnut ? tc : '#ffffff');
   } else {
     let a0 = -Math.PI / 2;
     data.forEach((v, i) => {

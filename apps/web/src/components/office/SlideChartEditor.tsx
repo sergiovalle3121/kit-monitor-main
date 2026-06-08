@@ -82,7 +82,7 @@ export function SlideChartEditor({ spec: initial, onApply, onClose }: {
 
           {/* Opciones */}
           <div className="flex flex-wrap items-center gap-2">
-            {(spec.type === 'bar' || spec.type === 'hbar' || spec.type === 'area') && (
+            {(spec.type === 'bar' || spec.type === 'hbar') && (
               <Toggle label="Apilado" on={!!spec.stacked} onClick={() => setSpec((s) => ({ ...s, stacked: !s.stacked }))} />
             )}
             <Toggle label="Leyenda" on={spec.legend !== false} onClick={() => setSpec((s) => ({ ...s, legend: s.legend === false }))} />
