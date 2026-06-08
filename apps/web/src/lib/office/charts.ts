@@ -1,8 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /** Build Chart.js datasets from a Fortune-sheet range (A1 notation). */
 
-export type ChartType = 'bar' | 'line' | 'area' | 'pie' | 'doughnut' | 'scatter' | 'radar' | 'polarArea';
+export type ChartType = 'bar' | 'line' | 'area' | 'pie' | 'doughnut' | 'scatter' | 'radar' | 'polarArea' | 'bubble' | 'combo';
 export type LegendPos = 'top' | 'bottom' | 'left' | 'right' | 'none';
+export type SeriesKind = 'bar' | 'line' | 'area';
+
+/** Ajustes por serie (para combos, eje secundario y color). */
+export interface SeriesOpt { type?: SeriesKind; axis?: 'y' | 'y1'; color?: string }
 
 export interface ChartConfig {
   id: string;
@@ -13,17 +17,23 @@ export interface ChartConfig {
   legend?: LegendPos;  // posición de la leyenda (def. bottom)
   stacked?: boolean;   // barras/area apiladas
   palette?: string;    // nombre de paleta (def. brand)
+  xTitle?: string;     // título del eje X
+  yTitle?: string;     // título del eje Y primario
+  y1Title?: string;    // título del eje Y secundario
+  series?: SeriesOpt[]; // ajustes por serie (combo / eje secundario / color)
 }
 
 export const CHART_TYPES: { value: ChartType; label: string }[] = [
   { value: 'bar', label: 'Barras' },
   { value: 'line', label: 'Líneas' },
   { value: 'area', label: 'Área' },
+  { value: 'combo', label: 'Combinado (barras + líneas)' },
   { value: 'pie', label: 'Pastel' },
   { value: 'doughnut', label: 'Dona' },
   { value: 'radar', label: 'Radar' },
   { value: 'polarArea', label: 'Polar' },
   { value: 'scatter', label: 'Dispersión' },
+  { value: 'bubble', label: 'Burbuja' },
 ];
 
 /** Paletas de color seleccionables para las gráficas. */
@@ -89,11 +99,19 @@ export function buildChartData(sheet: any, cfg: ChartConfig): any | null {
     return { datasets: [{ label: String(get(rng.r1, rng.c1 + 1) ?? 'Datos'), data, backgroundColor: pal[0] }] };
   }
 
+  if (cfg.type === 'bubble') {
+    // Columnas: X, Y, Tamaño. Escala el radio a 4–24 px.
+    const raw: { x: number; y: number; s: number }[] = [];
+    for (let r = rng.r1 + 1; r <= maxRow; r++) raw.push({ x: num(get(r, rng.c1)), y: num(get(r, rng.c1 + 1)), s: num(get(r, rng.c1 + 2)) });
+    const sizes = raw.map((p) => p.s); const smin = sizes.length ? Math.min(...sizes) : 0, smax = sizes.length ? Math.max(...sizes) : 1;
+    const data = raw.map((p) => ({ x: p.x, y: p.y, r: 4 + ((p.s - smin) / (smax - smin || 1)) * 20 }));
+    return { datasets: [{ label: String(get(rng.r1, rng.c1 + 1) ?? 'Datos'), data, backgroundColor: hexA(pal[0], 0.55), borderColor: pal[0] }] };
+  }
+
   const labels: string[] = [];
   for (let r = rng.r1 + 1; r <= maxRow; r++) labels.push(String(get(r, rng.c1) ?? ''));
 
   const isPie = cfg.type === 'pie' || cfg.type === 'doughnut' || cfg.type === 'polarArea';
-  const isArea = cfg.type === 'area';
   const isRadar = cfg.type === 'radar';
   const datasets: any[] = [];
   let si = 0;
@@ -101,25 +119,51 @@ export function buildChartData(sheet: any, cfg: ChartConfig): any | null {
     const data: number[] = [];
     for (let r = rng.r1 + 1; r <= maxRow; r++) data.push(num(get(r, c)));
     const name = String(get(rng.r1, c) ?? `Serie ${c - rng.c1}`);
-    const color = pal[si % pal.length];
-    datasets.push(isPie
-      ? { label: name, data, backgroundColor: data.map((_, i) => pal[i % pal.length]), borderWidth: 1 }
-      : {
-        label: name, data,
-        backgroundColor: (isArea || isRadar) ? hexA(color, 0.25) : color,
-        borderColor: color, borderWidth: 2,
-        fill: isArea || isRadar,
-        tension: isArea || cfg.type === 'line' ? 0.3 : 0,
-        pointRadius: isArea || cfg.type === 'line' ? 2 : 3,
-      });
+    const opt = cfg.series?.[si] ?? {};
+    const color = opt.color || pal[si % pal.length];
+    // Tipo efectivo de la serie: en «combo», cada serie define el suyo (def. barra).
+    const kind: SeriesKind = cfg.type === 'combo' ? (opt.type ?? (si === 0 ? 'bar' : 'line'))
+      : cfg.type === 'area' ? 'area' : cfg.type === 'line' ? 'line' : cfg.type === 'bar' ? 'bar' : 'bar';
+    const isAreaSeries = kind === 'area';
+    if (isPie) {
+      datasets.push({ label: name, data, backgroundColor: data.map((_, i) => pal[i % pal.length]), borderWidth: 1 });
+      break; // pie/doughnut/polar usan una sola serie
+    }
+    if (isRadar) {
+      datasets.push({ label: name, data, backgroundColor: hexA(color, 0.25), borderColor: color, borderWidth: 2, fill: true });
+      si++; continue;
+    }
+    datasets.push({
+      label: name, data,
+      type: cfg.type === 'combo' ? (isAreaSeries ? 'line' : kind) : undefined,
+      backgroundColor: isAreaSeries ? hexA(color, 0.25) : color,
+      borderColor: color, borderWidth: 2,
+      fill: isAreaSeries,
+      tension: isAreaSeries || kind === 'line' ? 0.3 : 0,
+      pointRadius: isAreaSeries || kind === 'line' ? 2 : 3,
+      yAxisID: opt.axis === 'y1' ? 'y1' : 'y',
+    });
     si++;
-    if (isPie) break; // pie/doughnut/polar usan una sola serie
   }
   if (!datasets.length) return null;
   return { labels, datasets };
 }
 
-/** Tipo real de Chart.js para un ChartConfig (área se dibuja como línea rellena). */
+/** ¿Alguna serie usa el eje secundario? */
+export function usesSecondaryAxis(cfg: ChartConfig): boolean {
+  return !!cfg.series?.some((s) => s?.axis === 'y1');
+}
+
+/** Nombres de las series (cabeceras de columnas 2..n del rango). Para el editor. */
+export function seriesLabels(sheet: any, range: string): string[] {
+  const rng = parseRange(range); if (!rng || !sheet) return [];
+  const map = cellMap(sheet);
+  const out: string[] = [];
+  for (let c = rng.c1 + 1; c <= rng.c2; c++) out.push(String(map.get(`${rng.r1},${c}`) ?? `Serie ${c - rng.c1}`));
+  return out;
+}
+
+/** Tipo real de Chart.js para un ChartConfig (área→línea; combo→barra base). */
 export function chartJsType(t: ChartType): string {
-  return t === 'area' ? 'line' : t;
+  return t === 'area' ? 'line' : t === 'combo' ? 'bar' : t;
 }

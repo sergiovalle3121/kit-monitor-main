@@ -104,5 +104,21 @@ destino + tipo). Botones en el ribbon: **Datos → Subtotales**, **Insertar → 
 «Ordenar rango» ahora es multinivel.
 
 **Spec**: `data.spec.ts` (15). Verde.
+
+> Checkpoint: `next build` verde tras los hitos 1–3.
+
+### 4) Gráficos pro  ✅
+**`charts.ts`**: nuevos tipos **burbuja** (X/Y/Tamaño con radio escalado 4–24) y
+**combinado** (barras + líneas por serie). Modelo ampliado: `SeriesOpt` por serie
+(tipo, **eje secundario** Y2, color), títulos de eje X/Y/Y2, `usesSecondaryAxis`,
+`seriesLabels`. `buildChartData` aplica overrides por serie y `yAxisID`.
+
+**`SheetCharts.tsx`**: `chartOptions` con **eje Y secundario** (grid independiente) y
+títulos de ejes; registrado `BubbleController`. Editor de gráfica ampliado:
+títulos de eje, y un panel **«Series y ejes»** con color, tipo (en combo) y eje
+(Y/Y2) por serie; el selector de hoja muestra el nombre real.
+
+**Spec**: `charts.spec.ts` (14) — barras, combo, eje secundario, color por serie,
+burbuja. Verde.
 </content>
 </invoke>

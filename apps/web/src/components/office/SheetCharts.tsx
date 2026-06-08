@@ -5,15 +5,15 @@ import React, { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   Chart as ChartJS, CategoryScale, LinearScale, RadialLinearScale, BarElement, LineElement,
-  PointElement, ArcElement, Tooltip, Legend, Title, Filler,
+  PointElement, ArcElement, BubbleController, Tooltip, Legend, Title, Filler,
   BarController, LineController, PieController, DoughnutController, ScatterController, RadarController, PolarAreaController,
 } from 'chart.js';
 import { Chart } from 'react-chartjs-2';
 import { BarChart3, Plus, Trash2, ChevronUp, ChevronDown, X, Pencil } from 'lucide-react';
-import { buildChartData, chartJsType, CHART_TYPES, PALETTES, type ChartConfig, type ChartType, type LegendPos } from '@/lib/office/charts';
+import { buildChartData, chartJsType, usesSecondaryAxis, seriesLabels, CHART_TYPES, PALETTES, type ChartConfig, type ChartType, type LegendPos, type SeriesOpt, type SeriesKind } from '@/lib/office/charts';
 
 ChartJS.register(
-  CategoryScale, LinearScale, RadialLinearScale, BarElement, LineElement, PointElement, ArcElement,
+  CategoryScale, LinearScale, RadialLinearScale, BarElement, LineElement, PointElement, ArcElement, BubbleController,
   Tooltip, Legend, Title, Filler,
   BarController, LineController, PieController, DoughnutController, ScatterController, RadarController, PolarAreaController,
 );
@@ -52,12 +52,12 @@ export function SheetCharts({
           >
             <div className="h-[320px] overflow-x-auto overflow-y-hidden flex gap-3 p-3">
               {charts.map((cfg) => (
-                <ChartCard key={cfg.id} cfg={cfg} sheetsCount={sheets.length} sheet={sheets[cfg.sheetIndex] ?? sheets[0]} readOnly={readOnly}
+                <ChartCard key={cfg.id} cfg={cfg} sheets={sheets} sheetsCount={sheets.length} sheet={sheets[cfg.sheetIndex] ?? sheets[0]} readOnly={readOnly}
                   onRemove={() => onRemove(cfg.id)} onUpdate={onUpdate} />
               ))}
               {!readOnly && (
                 adding
-                  ? <ChartForm sheetsCount={sheets.length} onCancel={() => setAdding(false)} onSubmit={(c) => { onAdd({ ...c, id: uid() }); setAdding(false); }} submitLabel="Crear" />
+                  ? <ChartForm sheets={sheets} sheetsCount={sheets.length} onCancel={() => setAdding(false)} onSubmit={(c) => { onAdd({ ...c, id: uid() }); setAdding(false); }} submitLabel="Crear" />
                   : (
                     <button onClick={() => setAdding(true)} className="flex-shrink-0 w-40 h-full rounded-2xl border-2 border-dashed border-gray-300 dark:border-white/15 flex flex-col items-center justify-center gap-2 text-gray-400 hover:text-emerald-500 hover:border-emerald-400 transition-colors">
                       <Plus className="w-6 h-6" /> <span className="text-xs font-semibold">Nueva gráfica</span>
@@ -78,6 +78,14 @@ export function SheetCharts({
 function chartOptions(cfg: ChartConfig) {
   const radial = cfg.type === 'radar' || cfg.type === 'polarArea';
   const circular = radial || cfg.type === 'pie' || cfg.type === 'doughnut';
+  const axisTitle = (t?: string) => (t ? { display: true, text: t, font: { size: 11 } } : undefined);
+  const cartesian: any = {
+    x: { stacked: !!cfg.stacked, title: axisTitle(cfg.xTitle) },
+    y: { stacked: !!cfg.stacked, beginAtZero: true, title: axisTitle(cfg.yTitle) },
+  };
+  if (usesSecondaryAxis(cfg)) {
+    cartesian.y1 = { position: 'right', beginAtZero: true, grid: { drawOnChartArea: false }, title: axisTitle(cfg.y1Title) };
+  }
   return {
     responsive: true,
     maintainAspectRatio: false,
@@ -85,16 +93,14 @@ function chartOptions(cfg: ChartConfig) {
       legend: cfg.legend === 'none' ? { display: false } : { display: true, position: (cfg.legend || 'bottom') as any, labels: { boxWidth: 10, font: { size: 10 } } },
       title: cfg.title ? { display: true, text: cfg.title, font: { size: 13 } } : { display: false },
     },
-    scales: circular
-      ? (radial ? { r: { beginAtZero: true } } : {})
-      : { x: { stacked: !!cfg.stacked }, y: { stacked: !!cfg.stacked, beginAtZero: true } },
+    scales: circular ? (radial ? { r: { beginAtZero: true } } : {}) : cartesian,
   } as any;
 }
 
-function ChartCard({ cfg, sheet, sheetsCount, readOnly, onRemove, onUpdate }: { cfg: ChartConfig; sheet: any; sheetsCount: number; readOnly?: boolean; onRemove: () => void; onUpdate?: (c: ChartConfig) => void }) {
+function ChartCard({ cfg, sheet, sheets, sheetsCount, readOnly, onRemove, onUpdate }: { cfg: ChartConfig; sheet: any; sheets: any[]; sheetsCount: number; readOnly?: boolean; onRemove: () => void; onUpdate?: (c: ChartConfig) => void }) {
   const [editing, setEditing] = useState(false);
   if (editing && onUpdate) {
-    return <ChartForm sheetsCount={sheetsCount} initial={cfg} submitLabel="Guardar" onCancel={() => setEditing(false)} onSubmit={(c) => { onUpdate({ ...cfg, ...c }); setEditing(false); }} />;
+    return <ChartForm sheets={sheets} sheetsCount={sheetsCount} initial={cfg} submitLabel="Guardar" onCancel={() => setEditing(false)} onSubmit={(c) => { onUpdate({ ...cfg, ...c }); setEditing(false); }} />;
   }
   const data = buildChartData(sheet, cfg);
   return (
@@ -114,7 +120,7 @@ function ChartCard({ cfg, sheet, sheetsCount, readOnly, onRemove, onUpdate }: { 
   );
 }
 
-function ChartForm({ sheetsCount, initial, onSubmit, onCancel, submitLabel }: { sheetsCount: number; initial?: ChartConfig; onSubmit: (c: Omit<ChartConfig, 'id'>) => void; onCancel: () => void; submitLabel: string }) {
+function ChartForm({ sheets, sheetsCount, initial, onSubmit, onCancel, submitLabel }: { sheets: any[]; sheetsCount: number; initial?: ChartConfig; onSubmit: (c: Omit<ChartConfig, 'id'>) => void; onCancel: () => void; submitLabel: string }) {
   const [type, setType] = useState<ChartType>(initial?.type ?? 'bar');
   const [title, setTitle] = useState(initial?.title ?? '');
   const [range, setRange] = useState(initial?.range ?? 'A1:B8');
@@ -122,7 +128,17 @@ function ChartForm({ sheetsCount, initial, onSubmit, onCancel, submitLabel }: { 
   const [legend, setLegend] = useState<LegendPos>(initial?.legend ?? 'bottom');
   const [palette, setPalette] = useState(initial?.palette ?? 'brand');
   const [stacked, setStacked] = useState(!!initial?.stacked);
+  const [xTitle, setXTitle] = useState(initial?.xTitle ?? '');
+  const [yTitle, setYTitle] = useState(initial?.yTitle ?? '');
+  const [y1Title, setY1Title] = useState(initial?.y1Title ?? '');
+  const [series, setSeries] = useState<SeriesOpt[]>(initial?.series ?? []);
+  const [showSeries, setShowSeries] = useState(false);
   const field = 'w-full h-8 text-sm rounded-lg bg-gray-100 dark:bg-white/10 px-2 outline-none focus:ring-2 ring-emerald-500/40';
+
+  const labels = seriesLabels(sheets?.[sheetIndex], range);
+  const cartesian = type === 'bar' || type === 'line' || type === 'area' || type === 'combo';
+  const setSeriesAt = (i: number, patch: Partial<SeriesOpt>) => setSeries((p) => { const c = [...p]; c[i] = { ...c[i], ...patch }; return c; });
+  const anySecondary = series.some((s) => s?.axis === 'y1');
 
   return (
     <div className="flex-shrink-0 w-72 h-full rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#161616] p-3 flex flex-col gap-1.5 overflow-y-auto">
@@ -154,18 +170,51 @@ function ChartForm({ sheetsCount, initial, onSubmit, onCancel, submitLabel }: { 
       {(type === 'bar' || type === 'area') && (
         <label className="flex items-center gap-1.5 text-[11px] text-gray-500 cursor-pointer"><input type="checkbox" checked={stacked} onChange={(e) => setStacked(e.target.checked)} /> Apilado</label>
       )}
+      {cartesian && (
+        <div className="grid grid-cols-2 gap-2">
+          <label className="text-[11px] text-gray-500">Eje X<input value={xTitle} onChange={(e) => setXTitle(e.target.value)} placeholder="Título X" className={field} /></label>
+          <label className="text-[11px] text-gray-500">Eje Y<input value={yTitle} onChange={(e) => setYTitle(e.target.value)} placeholder="Título Y" className={field} /></label>
+          {anySecondary && <label className="text-[11px] text-gray-500 col-span-2">Eje Y secundario<input value={y1Title} onChange={(e) => setY1Title(e.target.value)} placeholder="Título Y2" className={field} /></label>}
+        </div>
+      )}
+      {cartesian && labels.length > 0 && (
+        <div className="rounded-lg border border-gray-200 dark:border-white/10 p-2">
+          <button onClick={() => setShowSeries((s) => !s)} className="w-full flex items-center justify-between text-[11px] font-semibold text-gray-600 dark:text-gray-300">
+            Series y ejes ({labels.length}) {showSeries ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
+          </button>
+          {showSeries && (
+            <div className="mt-1.5 space-y-1.5">
+              {labels.map((lbl, i) => (
+                <div key={i} className="flex items-center gap-1">
+                  <input type="color" value={series[i]?.color ?? PALETTES[palette]?.[i % (PALETTES[palette]?.length || 1)] ?? '#3b82f6'}
+                    onChange={(e) => setSeriesAt(i, { color: e.target.value })} className="w-6 h-6 rounded cursor-pointer bg-transparent flex-shrink-0" title="Color" />
+                  <span className="text-[11px] truncate flex-1" title={lbl}>{lbl}</span>
+                  {type === 'combo' && (
+                    <select value={series[i]?.type ?? (i === 0 ? 'bar' : 'line')} onChange={(e) => setSeriesAt(i, { type: e.target.value as SeriesKind })} className="h-6 text-[10px] rounded bg-gray-100 dark:bg-white/10 px-0.5 outline-none" title="Tipo de serie">
+                      <option value="bar">Barra</option><option value="line">Línea</option><option value="area">Área</option>
+                    </select>
+                  )}
+                  <select value={series[i]?.axis ?? 'y'} onChange={(e) => setSeriesAt(i, { axis: e.target.value as 'y' | 'y1' })} className="h-6 text-[10px] rounded bg-gray-100 dark:bg-white/10 px-0.5 outline-none" title="Eje">
+                    <option value="y">Y</option><option value="y1">Y2</option>
+                  </select>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
       {sheetsCount > 1 && (
         <label className="text-[11px] text-gray-500">Hoja
           <select value={sheetIndex} onChange={(e) => setSheetIndex(Number(e.target.value))} className={field}>
-            {Array.from({ length: sheetsCount }).map((_, i) => <option key={i} value={i}>Hoja {i + 1}</option>)}
+            {Array.from({ length: sheetsCount }).map((_, i) => <option key={i} value={i}>{sheets?.[i]?.name || `Hoja ${i + 1}`}</option>)}
           </select>
         </label>
       )}
-      <button onClick={() => onSubmit({ type, title: title.trim(), range: range.trim(), sheetIndex, legend, palette, stacked })}
+      <button onClick={() => onSubmit({ type, title: title.trim(), range: range.trim(), sheetIndex, legend, palette, stacked, xTitle: xTitle.trim() || undefined, yTitle: yTitle.trim() || undefined, y1Title: y1Title.trim() || undefined, series: cartesian ? series.slice(0, labels.length) : undefined })}
         className="mt-auto h-8 rounded-lg bg-black dark:bg-white text-white dark:text-black text-sm font-semibold hover:opacity-90">
         {submitLabel}
       </button>
-      <p className="text-[10px] text-gray-400 leading-tight">1ª fila = títulos de serie; 1ª columna = etiquetas.</p>
+      <p className="text-[10px] text-gray-400 leading-tight">{type === 'bubble' ? 'Columnas: X, Y, Tamaño (3 columnas).' : '1ª fila = títulos de serie; 1ª columna = etiquetas.'}</p>
     </div>
   );
 }
