@@ -89,28 +89,30 @@ export function OfficeRibbon({
 
   const ui = (
     <div className="w-full bg-gray-50/90 dark:bg-[#0e0e0e]/90 backdrop-blur border-b border-black/[0.06] dark:border-white/10 select-none">
-      {/* Barra de pestañas */}
-      <div className="flex items-center gap-0.5 px-2 pt-1" role="tablist" aria-label="Cinta de opciones" onKeyDown={onTabKey}>
-        {tabs.map((t) => {
-          const on = t.props.id === activeId;
-          const Icon = t.props.icon;
-          return (
-            <button
-              key={t.props.id} role="tab" aria-selected={on} tabIndex={on ? 0 : -1}
-              onClick={() => { setActive(t.props.id); if (collapsed) setCollapsed(false); }}
-              onDoubleClick={() => setCollapsed((c) => !c)}
-              className={`relative inline-flex items-center gap-1.5 px-3 h-8 text-[13px] rounded-t-lg transition-colors outline-none focus-visible:ring-2 ring-blue-500/40 ${on ? 'text-blue-600 dark:text-blue-400 font-semibold' : 'text-gray-600 dark:text-gray-300 hover:bg-black/[0.04] dark:hover:bg-white/[0.06] font-medium'}`}
-            >
-              {Icon && <Icon className="w-4 h-4" strokeWidth={1.75} />}
-              {t.props.label}
-              {on && <span className="absolute left-2 right-2 -bottom-px h-0.5 rounded-full bg-blue-500" />}
-            </button>
-          );
-        })}
+      {/* Barra de pestañas (desplazable en pantallas angostas / tablet) */}
+      <div className="flex items-center px-2 pt-1">
+        <div className="flex items-center gap-0.5 flex-1 min-w-0 overflow-x-auto ribbon-scroll" role="tablist" aria-label="Cinta de opciones" onKeyDown={onTabKey}>
+          {tabs.map((t) => {
+            const on = t.props.id === activeId;
+            const Icon = t.props.icon;
+            return (
+              <button
+                key={t.props.id} role="tab" aria-selected={on} tabIndex={on ? 0 : -1}
+                onClick={() => { setActive(t.props.id); if (collapsed) setCollapsed(false); }}
+                onDoubleClick={() => setCollapsed((c) => !c)}
+                className={`relative inline-flex items-center gap-1.5 px-3 h-8 text-[13px] rounded-t-lg transition-colors outline-none focus-visible:ring-2 ring-blue-500/40 flex-shrink-0 ${on ? 'text-blue-600 dark:text-blue-400 font-semibold' : 'text-gray-600 dark:text-gray-300 hover:bg-black/[0.04] dark:hover:bg-white/[0.06] font-medium'}`}
+              >
+                {Icon && <Icon className="w-4 h-4" strokeWidth={1.75} />}
+                {t.props.label}
+                {on && <span className="absolute left-2 right-2 -bottom-px h-0.5 rounded-full bg-blue-500" />}
+              </button>
+            );
+          })}
+        </div>
         <button
           onClick={() => setCollapsed((c) => !c)} title={collapsed ? 'Expandir la cinta' : 'Contraer la cinta'}
           aria-label={collapsed ? 'Expandir la cinta' : 'Contraer la cinta'}
-          className="ml-auto p-1.5 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-black/5 dark:hover:bg-white/10"
+          className="flex-shrink-0 ml-1 p-1.5 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-black/5 dark:hover:bg-white/10"
         >
           {collapsed ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
         </button>

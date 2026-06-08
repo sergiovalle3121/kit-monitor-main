@@ -1334,5 +1334,21 @@ funcional de lo que parecía**; el bloqueo real era el acceso del owner (Bloque 
   dinámicos** (anclados) requieren más trabajo; las formas línea/flecha sirven de
   conector simple. Recorte (crop) de imagen: diferido (Fabric crop es complejo).
 
-### Estado: build web ✅ · lint web ✅ · tsc ✅
-### Pendiente: A4 (pulido transversal), Track B (spike Univer).
+### A4 — Pulido transversal
+- **Atajos coherentes:** Docs (TipTap: Ctrl+B/I/U/Z/Y nativos; Ctrl+F buscar;
+  Ctrl+S guardar). Hojas (FS nativos + **Ctrl+F** ahora abre buscar/reemplazar).
+  Slides (**Ctrl+B/I/U** sobre el objeto, + flechas/Supr/Ctrl+C/V/D ya existentes;
+  Ctrl+S guardar). Ctrl+S y el modal de atajos viven en `OfficeShell`.
+- **Ribbon responsive (tablet):** la **barra de pestañas** ahora se desplaza
+  horizontalmente (no se rompe en pantallas angostas); el botón de contraer queda
+  fijo. Los grupos ya tenían scroll con degradados. `aria`/teclado intactos.
+- **Verificado (no roto):** autosave (page `scheduleSave`), compartir
+  (`ShareButton`), comentarios (`DocComments`), historial (`VersionHistory` →
+  remonta por `editorKey`), plantillas, import/export — todo vive ahora en la
+  pestaña **Archivo** del ribbon y sigue funcionando. tsc + lint + build verdes.
+- **Limitación documentada:** Slides no tiene deshacer/rehacer (Fabric no lo trae;
+  sería un añadido grande). El modal de atajos de `OfficeShell` ya lista los
+  comunes; aplica a Docs/Hojas.
+
+### Estado FINAL Track A: build web ✅ · lint web ✅ · tsc ✅ · sin tocar backend.
+### Pendiente: abrir PR Track A (sin merge) · Track B (spike Univer, PR draft).

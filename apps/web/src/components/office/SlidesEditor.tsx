@@ -219,7 +219,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
     canvas.on('mouse:up', clearGuides);
     canvas.on('after:render', () => {
       if (!guides.v.length && !guides.h.length) return;
-      const ctx = (canvas as any).getContext?.() as CanvasRenderingContext2D | undefined;
+      const ctx = ((canvas as any).contextContainer || (canvas as any).getContext?.()) as CanvasRenderingContext2D | undefined;
       if (!ctx) return;
       ctx.save(); ctx.strokeStyle = '#ec4899'; ctx.lineWidth = 1; ctx.setLineDash([4, 4]);
       for (const x of guides.v) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, CH); ctx.stroke(); }
@@ -393,6 +393,9 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
       if (!o || o.isEditing) return;
       if (meta && k === 'c') { clipboardRef.current = o; return; }
       if (meta && k === 'd') { e.preventDefault(); dupObj(); return; }
+      if (meta && k === 'b') { e.preventDefault(); toggleBold(); return; }
+      if (meta && k === 'i') { e.preventDefault(); toggleItalic(); return; }
+      if (meta && k === 'u') { e.preventDefault(); toggleUnderline(); return; }
       if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); c.remove(o); c.requestRenderAll(); capture(); sync(); return; }
       const step = e.shiftKey ? 10 : 1;
       if (e.key === 'ArrowUp') o.top -= step;
