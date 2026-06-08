@@ -22,13 +22,14 @@ function hex(c?: any): string | undefined {
   return undefined;
 }
 
-export async function exportPptx(slides: any[], title: string, notes: string[] = []) {
+export async function exportPptx(slides: any[], title: string, notes: string[] = [], opts: { footer?: string; showNumbers?: boolean } = {}) {
   const mod: any = await import('pptxgenjs');
   const PptxGenJS = mod.default ?? mod;
   const pptx: any = new PptxGenJS();
   pptx.defineLayout({ name: 'AXOS_16x9', width: IN_W, height: IN_H });
   pptx.layout = 'AXOS_16x9';
   const ST = pptx.ShapeType;
+  const total = (slides ?? []).length;
 
   (slides ?? []).forEach((json, i) => {
     const slide = pptx.addSlide();
@@ -38,6 +39,8 @@ export async function exportPptx(slides: any[], title: string, notes: string[] =
     for (const o of json?.objects ?? []) {
       try { addObject(slide, o, ST); } catch { /* skip unsupported object */ }
     }
+    if (opts.footer) { try { slide.addText(String(opts.footer), { x: 0.4, y: IN_H - 0.4, w: 6, h: 0.3, fontSize: 9, color: '888888', align: 'left' }); } catch { /* ignore */ } }
+    if (opts.showNumbers) { try { slide.addText(`${i + 1} / ${total}`, { x: IN_W - 1.4, y: IN_H - 0.4, w: 1, h: 0.3, fontSize: 9, color: '888888', align: 'right' }); } catch { /* ignore */ } }
     const note = notes?.[i];
     if (note && note.trim()) { try { slide.addNotes(note); } catch { /* ignore */ } }
   });
@@ -49,6 +52,25 @@ function addObject(slide: any, o: any, ST: any) {
   const scaleX = o.scaleX ?? 1;
   const scaleY = o.scaleY ?? 1;
   const type = String(o.type || '').toLowerCase();
+
+  // Grupos (iconos/agrupaciones): exportar sus hijos con la transformación del grupo.
+  if (type === 'group' && Array.isArray(o.objects)) {
+    const gw = o.width ?? 0, gh = o.height ?? 0;
+    for (const child of o.objects) {
+      try {
+        addObject(slide, {
+          ...child,
+          left: (o.left ?? 0) + ((child.left ?? 0) + gw / 2) * scaleX,
+          top: (o.top ?? 0) + ((child.top ?? 0) + gh / 2) * scaleY,
+          scaleX: (child.scaleX ?? 1) * scaleX,
+          scaleY: (child.scaleY ?? 1) * scaleY,
+        }, ST);
+      } catch { /* skip */ }
+    }
+    return;
+  }
+  // Trazos SVG sueltos (iconos vectoriales): PowerPoint no los reproduce bien → omitir.
+  if (type === 'path') return;
   const w = (o.radius ? o.radius * 2 : (o.width ?? 0)) * scaleX;
   const h = (o.radius ? o.radius * 2 : (o.height ?? 0)) * scaleY;
   const box = { x: sx(o.left ?? 0), y: sy(o.top ?? 0), w: Math.max(0.05, sx(w)), h: Math.max(0.05, sy(h)), rotate: Math.round(o.angle ?? 0) };

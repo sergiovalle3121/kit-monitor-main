@@ -5,6 +5,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Canvas, StaticCanvas, Textbox, Rect, Circle, Line, Triangle, FabricImage, Polygon, Shadow, Gradient,
+  Group, loadSVGFromString,
 } from 'fabric';
 import {
   Type, ImagePlus, Square, Circle as CircleIcon, Minus, Triangle as TriIcon,
@@ -13,11 +14,15 @@ import {
   Italic, Underline, AlignLeft, AlignCenter, AlignRight, Droplet, Blend, Link2, FlipHorizontal, FlipVertical, Lock, Unlock,
   AlignHorizontalJustifyStart, AlignHorizontalJustifyCenter, AlignHorizontalJustifyEnd,
   AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd,
+  LayoutTemplate, Table2, Grid3x3, Hash, SquareDashed, MonitorPlay, Brush,
 } from 'lucide-react';
 import { SlideSorter } from './SlideSorter';
+import { SlideIconPicker } from './SlideIconPicker';
+import { TemplateGallery } from './TemplateGallery';
+import { SLIDE_THEMES, SLIDE_LAYOUTS } from './slideAssets';
 import {
   OfficeRibbon, RibbonTab, RibbonGroup, RibbonSeparator,
-  RibbonButton, RibbonSelect, RibbonColorButton,
+  RibbonButton, RibbonSelect, RibbonColorButton, RibbonMenuButton,
 } from './ribbon';
 
 const CW = 960;
@@ -52,9 +57,21 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
   const [presenting, setPresenting] = useState(false);
   const [sorter, setSorter] = useState(false);
   const [selAnim, setSelAnim] = useState<string>('none');
+  const [selAnimOrder, setSelAnimOrder] = useState(0);
+  const [selAnimDur, setSelAnimDur] = useState(500);
+  const [presenterMode, setPresenterMode] = useState(false);
   const [selOpacity, setSelOpacity] = useState(1);
   const [selLocked, setSelLocked] = useState(false);
   const [hasSel, setHasSel] = useState(false);
+  // Tema del mazo, cuadrícula, plantillas, pie/números de diapositiva.
+  const [themeId, setThemeId] = useState<string>(value?.theme || 'light');
+  const themeRef = useRef<string>(themeId);
+  const [showGrid, setShowGrid] = useState(false);
+  const [showTemplates, setShowTemplates] = useState(false);
+  const footerRef = useRef<string>(value?.footer || '');
+  const numbersRef = useRef<boolean>(!!value?.showNumbers);
+  const [showNumbers, setShowNumbers] = useState<boolean>(!!value?.showNumbers);
+  const theme = () => SLIDE_THEMES.find((t) => t.id === themeRef.current) || SLIDE_THEMES[0];
 
   useEffect(() => { curRef.current = cur; }, [cur]);
 
@@ -65,7 +82,10 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
     setSelAnim(v); capture(); sync();
   }
 
-  function sync() { setSlides([...slidesRef.current]); onChange({ version: 2, slides: slidesRef.current, notes: notesRef.current, transition: transitionRef.current }); }
+  function sync() {
+    setSlides([...slidesRef.current]);
+    onChange({ version: 2, slides: slidesRef.current, notes: notesRef.current, transition: transitionRef.current, theme: themeRef.current, footer: footerRef.current, showNumbers: numbersRef.current });
+  }
   function setTrans(t: string) { setTransition(t); transitionRef.current = t; sync(); }
   function applyBgAll(color: string) {
     capture();
@@ -73,8 +93,91 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
     const c = fabricRef.current; if (c) { c.backgroundColor = color; c.requestRenderAll(); }
     sync();
   }
+
+  // ── Temas / layouts / tablas / iconos / efectos (profundidad PowerPoint) ────
+  function applyTheme(id: string) {
+    const t = SLIDE_THEMES.find((x) => x.id === id) || SLIDE_THEMES[0];
+    themeRef.current = id; setThemeId(id);
+    capture();
+    for (const s of slidesRef.current) s.background = t.bg;
+    const c = fabricRef.current; if (c) { c.backgroundColor = t.bg; c.requestRenderAll(); }
+    sync();
+  }
+  function applyLayout(id: string) {
+    const c = fabricRef.current; if (!c) return;
+    const layout = SLIDE_LAYOUTS.find((l) => l.id === id); if (!layout) return;
+    if (c.getObjects().length && !window.confirm('Aplicar este diseño reemplazará el contenido de la diapositiva actual. ¿Continuar?')) return;
+    const t = theme();
+    loadingRef.current = true;
+    c.getObjects().slice().forEach((o) => c.remove(o));
+    for (const ph of layout.build()) {
+      if (ph.kind === 'bar' || ph.kind === 'accentBar') {
+        c.add(new Rect({ left: ph.left, top: ph.top, width: ph.width, height: ph.height || 8, fill: t.accent, rx: ph.kind === 'accentBar' ? 4 : 0, ry: ph.kind === 'accentBar' ? 4 : 0 }));
+      } else {
+        c.add(new Textbox(ph.text || '', { left: ph.left, top: ph.top, width: ph.width, fontSize: ph.fontSize || 28, fontWeight: ph.bold ? 'bold' : 'normal', fill: ph.muted ? t.muted : t.text, textAlign: ph.align || 'left', fontFamily: t.font }));
+      }
+    }
+    c.backgroundColor = t.bg;
+    loadingRef.current = false;
+    c.requestRenderAll(); capture(); sync();
+  }
+  function addTable(rows: number, cols: number) {
+    const c = fabricRef.current; if (!c) return;
+    const t = theme(); const cw = 150, ch = 46, x0 = 90, y0 = 150;
+    loadingRef.current = true;
+    for (let r = 0; r < rows; r++) for (let col = 0; col < cols; col++) {
+      c.add(new Rect({ left: x0 + col * cw, top: y0 + r * ch, width: cw, height: ch, fill: r === 0 ? t.accent : '#ffffff', stroke: '#cbd5e1', strokeWidth: 1 }));
+      c.add(new Textbox(r === 0 ? `Columna ${col + 1}` : '', { left: x0 + col * cw + 8, top: y0 + r * ch + 13, width: cw - 16, fontSize: 16, fill: r === 0 ? '#ffffff' : t.text, fontFamily: t.font }));
+    }
+    loadingRef.current = false;
+    c.requestRenderAll(); capture(); sync();
+  }
+  async function addIcon(svg: string) {
+    const c = fabricRef.current; if (!c) return;
+    try {
+      const r: any = await loadSVGFromString(svg);
+      const objs = (r?.objects || []).filter(Boolean);
+      if (!objs.length) return;
+      const obj: any = objs.length === 1 ? objs[0] : new Group(objs);
+      obj.set({ left: 420, top: 220 });
+      if (typeof obj.scaleToWidth === 'function') obj.scaleToWidth(120);
+      c.add(obj); c.setActiveObject(obj); c.requestRenderAll();
+    } catch { /* noop */ }
+  }
+  function toggleBorder() {
+    const c = fabricRef.current; const o = c?.getActiveObject() as any;
+    if (!c || !o) return;
+    if (o.stroke && o.strokeWidth) o.set({ stroke: null, strokeWidth: 0 });
+    else o.set({ stroke: theme().accent, strokeWidth: 3 });
+    c.requestRenderAll(); capture(); sync();
+  }
+  function setObjAnimOrder(v: number) {
+    const c = fabricRef.current; const o = c?.getActiveObject() as any;
+    if (!c || !o) return; o.set('animOrder', v); setSelAnimOrder(v); capture(); sync();
+  }
+  function setObjAnimDur(v: number) {
+    const c = fabricRef.current; const o = c?.getActiveObject() as any;
+    if (!c || !o) return; o.set('animDur', v); setSelAnimDur(v); capture(); sync();
+  }
+  function toggleNumbers() { const v = !numbersRef.current; numbersRef.current = v; setShowNumbers(v); sync(); }
+  function editFooter() {
+    const v = window.prompt('Texto del pie de diapositiva (vacío = quitar)', footerRef.current);
+    if (v === null) return; footerRef.current = v.trim(); sync();
+  }
+  async function applyTemplate(content: any) {
+    setShowTemplates(false);
+    if (!content || content.version !== 2 || !Array.isArray(content.slides) || !content.slides.length) return;
+    capture();
+    slidesRef.current = content.slides;
+    notesRef.current = Array.isArray(content.notes) ? content.notes.slice() : content.slides.map(() => '');
+    while (notesRef.current.length < slidesRef.current.length) notesRef.current.push('');
+    if (content.transition) { transitionRef.current = content.transition; setTransition(content.transition); }
+    setCur(0); curRef.current = 0;
+    await loadInto(0);
+    sync();
+  }
   // Include custom props (anim = entrance animation, shape = .pptx mapping, link = hyperlink, locked).
-  function capture() { const c = fabricRef.current; if (c) slidesRef.current[curRef.current] = c.toObject(['anim', 'shape', 'link', 'locked']); }
+  function capture() { const c = fabricRef.current; if (c) slidesRef.current[curRef.current] = c.toObject(['anim', 'animOrder', 'animDur', 'shape', 'link', 'locked']); }
   function applyLock(o: any) {
     const L = !!o.locked;
     o.set({ lockMovementX: L, lockMovementY: L, lockScalingX: L, lockScalingY: L, lockRotation: L, hasControls: !L });
@@ -94,10 +197,36 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
     canvas.on('object:added', onMod);
     canvas.on('object:modified', onMod);
     canvas.on('object:removed', onMod);
-    const onSel = () => { const o = canvas.getActiveObject() as any; setHasSel(!!o); setSelAnim((o?.anim as string) || 'none'); setSelOpacity(o?.opacity ?? 1); setSelLocked(!!o?.locked); };
+    const onSel = () => { const o = canvas.getActiveObject() as any; setHasSel(!!o); setSelAnim((o?.anim as string) || 'none'); setSelAnimOrder(o?.animOrder ?? 0); setSelAnimDur(o?.animDur ?? 500); setSelOpacity(o?.opacity ?? 1); setSelLocked(!!o?.locked); };
     canvas.on('selection:created', onSel);
     canvas.on('selection:updated', onSel);
     canvas.on('selection:cleared', () => { setHasSel(false); setSelAnim('none'); });
+
+    // Guías de alineación + snapping (al centro/bordes del lienzo y a otros objetos).
+    const SNAP = 6;
+    let guides: { v: number[]; h: number[] } = { v: [], h: [] };
+    canvas.on('object:moving', (e: any) => {
+      const o = e.target; if (!o) return;
+      guides = { v: [], h: [] };
+      const ctr = o.getCenterPoint();
+      const xs = [0, CW / 2, CW]; const ys = [0, CH / 2, CH];
+      for (const other of canvas.getObjects()) { if (other === o) continue; const p = (other as any).getCenterPoint(); xs.push(p.x); ys.push(p.y); }
+      for (const tx of xs) if (Math.abs(ctr.x - tx) < SNAP) { o.set('left', o.left + (tx - ctr.x)); guides.v.push(tx); break; }
+      for (const ty of ys) if (Math.abs(ctr.y - ty) < SNAP) { o.set('top', o.top + (ty - ctr.y)); guides.h.push(ty); break; }
+      o.setCoords();
+    });
+    const clearGuides = () => { if (guides.v.length || guides.h.length) { guides = { v: [], h: [] }; canvas.requestRenderAll(); } };
+    canvas.on('mouse:up', clearGuides);
+    canvas.on('after:render', () => {
+      if (!guides.v.length && !guides.h.length) return;
+      const ctx = (canvas as any).getContext?.() as CanvasRenderingContext2D | undefined;
+      if (!ctx) return;
+      ctx.save(); ctx.strokeStyle = '#ec4899'; ctx.lineWidth = 1; ctx.setLineDash([4, 4]);
+      for (const x of guides.v) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, CH); ctx.stroke(); }
+      for (const y of guides.h) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(CW, y); ctx.stroke(); }
+      ctx.restore();
+    });
+
     loadInto(0);
     return () => { canvas.dispose(); fabricRef.current = null; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -331,6 +460,35 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
         )}
 
         {!readOnly && (
+          <RibbonTab id="design" label="Diseño">
+            <RibbonGroup label="Diseños">
+              <RibbonMenuButton icon={LayoutTemplate} label="Diseño" menuWidth={220} items={SLIDE_LAYOUTS.map((l) => ({ label: l.name, onClick: () => applyLayout(l.id) }))} />
+              <RibbonButton icon={LayoutGrid} label="Plantillas" hideLabel={false} onClick={() => setShowTemplates(true)} />
+            </RibbonGroup>
+            <RibbonSeparator />
+            <RibbonGroup label="Temas">
+              <RibbonMenuButton icon={Brush} label="Temas" menuWidth={280}>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {SLIDE_THEMES.map((t) => (
+                    <button key={t.id} type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => applyTheme(t.id)}
+                      className={`flex items-center gap-2 p-2 rounded-xl border transition-colors ${themeId === t.id ? 'border-blue-500' : 'border-black/10 dark:border-white/10 hover:border-black/20 dark:hover:border-white/20'}`}>
+                      <span className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: t.bg, border: '1px solid rgba(0,0,0,.1)' }}>
+                        <span className="w-4 h-4 rounded-full" style={{ background: t.accent }} />
+                      </span>
+                      <span className="text-xs font-medium" style={{ color: undefined }}>{t.name}</span>
+                    </button>
+                  ))}
+                </div>
+              </RibbonMenuButton>
+            </RibbonGroup>
+            <RibbonSeparator />
+            <RibbonGroup label="Fondo">
+              <RibbonColorButton icon={Palette} title="Fondo de todas las diapositivas" onChange={applyBgAll} swatchBar={false} />
+            </RibbonGroup>
+          </RibbonTab>
+        )}
+
+        {!readOnly && (
           <RibbonTab id="insert" label="Insertar">
             <RibbonGroup label="Texto">
               <RibbonButton icon={Type} label="Cuadro de texto" onClick={addText} />
@@ -347,6 +505,19 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
               <RibbonButton icon={ArrowRight} label="Flecha" onClick={addArrow} />
               <RibbonButton icon={Diamond} label="Rombo" onClick={addDiamond} />
               <RibbonButton icon={Minus} label="Línea" onClick={addLine} />
+            </RibbonGroup>
+            <RibbonSeparator />
+            <RibbonGroup label="Tablas">
+              <RibbonMenuButton icon={Table2} label="Tabla" menuWidth={190} items={[
+                { label: 'Tabla 2 × 2', onClick: () => addTable(2, 2) },
+                { label: 'Tabla 3 × 3', onClick: () => addTable(3, 3) },
+                { label: 'Tabla 4 × 3', onClick: () => addTable(4, 3) },
+                { label: 'Tabla 5 × 4', onClick: () => addTable(5, 4) },
+              ]} />
+            </RibbonGroup>
+            <RibbonSeparator />
+            <RibbonGroup label="Iconos">
+              <SlideIconPicker onPick={addIcon} />
             </RibbonGroup>
             <RibbonSeparator />
             <RibbonGroup label="Vínculos">
@@ -375,6 +546,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
               <RibbonColorButton icon={PaintBucket} title="Color de relleno" onChange={setColor} swatchBar={false} />
               <RibbonButton icon={Blend} label="Degradado" onClick={applyGradient} />
               <RibbonButton icon={Droplet} label="Sombra" onClick={toggleShadow} />
+              <RibbonButton icon={SquareDashed} label="Borde" onClick={toggleBorder} />
               {hasSel && (
                 <span className="inline-flex items-center gap-1 px-1.5" title="Opacidad del objeto">
                   <input type="range" min={0.1} max={1} step={0.05} value={selOpacity}
@@ -386,13 +558,20 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
             <RibbonSeparator />
             <RibbonGroup label="Animación">
               {hasSel ? (
-                <RibbonSelect title="Animación de entrada del objeto" value={selAnim} onChange={setObjAnim} width={150}
-                  options={[
-                    { label: 'Sin animación', value: 'none' },
-                    { label: 'Aparecer', value: 'fade' },
-                    { label: 'Entrar (abajo)', value: 'fly' },
-                    { label: 'Zoom', value: 'zoom' },
-                  ]} />
+                <>
+                  <RibbonSelect title="Animación de entrada del objeto" value={selAnim} onChange={setObjAnim} width={140}
+                    options={[
+                      { label: 'Sin animación', value: 'none' },
+                      { label: 'Aparecer', value: 'fade' },
+                      { label: 'Entrar (abajo)', value: 'fly' },
+                      { label: 'Zoom', value: 'zoom' },
+                    ]} />
+                  <span className="text-[11px] text-gray-500 px-1" title="Orden de aparición">Orden</span>
+                  <input type="number" min={0} value={selAnimOrder} onChange={(e) => setObjAnimOrder(Number(e.target.value))} title="Orden de aparición"
+                    className="w-12 h-7 text-xs rounded-lg bg-black/[0.04] dark:bg-white/[0.06] px-1.5 outline-none border border-transparent focus:border-blue-500/40 text-gray-800 dark:text-gray-100" />
+                  <RibbonSelect title="Duración" value={String(selAnimDur)} onChange={(v) => setObjAnimDur(Number(v))} width={96}
+                    options={[{ label: 'Rápida', value: '300' }, { label: 'Normal', value: '500' }, { label: 'Lenta', value: '900' }]} />
+                </>
               ) : <span className="text-[11px] text-gray-400 px-2">Selecciona un objeto</span>}
             </RibbonGroup>
           </RibbonTab>
@@ -417,8 +596,22 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
         )}
 
         <RibbonTab id="view" label="Vista">
+          <RibbonGroup label="Mostrar">
+            <RibbonButton icon={Grid3x3} label="Cuadrícula" active={showGrid} onClick={() => setShowGrid((g) => !g)} />
+          </RibbonGroup>
+          {!readOnly && (
+            <>
+              <RibbonSeparator />
+              <RibbonGroup label="Diapositiva">
+                <RibbonButton icon={Hash} label="Números de diapositiva" active={showNumbers} onClick={toggleNumbers} />
+                <RibbonButton icon={Type} label="Pie de diapositiva" onClick={editFooter} />
+              </RibbonGroup>
+            </>
+          )}
+          <RibbonSeparator />
           <RibbonGroup label="Presentación">
-            <RibbonButton icon={Play} label="Presentar" hideLabel={false} onClick={() => { capture(); setPresenting(true); }} />
+            <RibbonButton icon={Play} label="Presentar" hideLabel={false} onClick={() => { capture(); setPresenterMode(false); setPresenting(true); }} />
+            <RibbonButton icon={MonitorPlay} label="Presentador" hideLabel={false} onClick={() => { capture(); setPresenterMode(true); setPresenting(true); }} />
             <RibbonButton icon={LayoutGrid} label="Clasificador" hideLabel={false} onClick={() => { capture(); setSorter(true); }} />
           </RibbonGroup>
         </RibbonTab>
@@ -449,8 +642,14 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
 
         <div className="flex-1 min-w-0 flex flex-col gap-2 min-h-0">
           <div className="flex-1 min-h-0 bg-gray-100 dark:bg-[#0b0b0b] rounded-2xl flex items-center justify-center overflow-auto p-4">
-            <div className="shadow-2xl" style={{ width: CW, height: CH, maxWidth: '100%' }}>
+            <div className="shadow-2xl relative" style={{ width: CW, height: CH, maxWidth: '100%' }}>
               <canvas ref={elRef} width={CW} height={CH} />
+              {showGrid && (
+                <div className="pointer-events-none absolute inset-0" aria-hidden style={{
+                  backgroundImage: 'linear-gradient(to right, rgba(0,0,0,.09) 1px, transparent 1px), linear-gradient(to bottom, rgba(0,0,0,.09) 1px, transparent 1px)',
+                  backgroundSize: '48px 48px',
+                }} />
+              )}
             </div>
           </div>
           <div className="flex-shrink-0 flex items-start gap-2">
@@ -466,7 +665,10 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
         </div>
       </div>
 
-      {presenting && <Present slides={slides} notes={notesRef.current} transition={transition} onClose={() => setPresenting(false)} />}
+      {presenting && <Present slides={slides} notes={notesRef.current} transition={transition} footer={footerRef.current} showNumbers={showNumbers} presenter={presenterMode} onClose={() => { setPresenting(false); setPresenterMode(false); }} />}
+      <AnimatePresence>
+        {showTemplates && <TemplateGallery type="slides" onPick={applyTemplate} onClose={() => setShowTemplates(false)} />}
+      </AnimatePresence>
       <AnimatePresence>
         {sorter && (
           <SlideSorter
@@ -496,12 +698,28 @@ const OBJ_ANIM: Record<string, any> = {
   zoom: { initial: { opacity: 0, scale: 0.8 }, animate: { opacity: 1, scale: 1 } },
 };
 
-interface Deck { bg: string; layers: { src: string; anim: string }[] }
+interface Layer { src: string; anim: string; order: number; dur: number }
+interface Deck { bg: string; layers: Layer[] }
 
-function Present({ slides, notes, transition, onClose }: { slides: any[]; notes?: string[]; transition?: string; onClose: () => void }) {
+/** Capa estática de una diapositiva (sin animación) para miniaturas / presentador. */
+function StaticDeck({ deck }: { deck?: Deck }) {
+  if (!deck) return <div className="w-full h-full bg-white" />;
+  return (
+    <div className="absolute inset-0" style={{ background: deck.bg }}>
+      {deck.layers.map((L, j) => <img key={j} src={L.src} alt="" className="absolute inset-0 w-full h-full object-contain" />)}
+    </div>
+  );
+}
+
+function Present({
+  slides, notes, transition, footer, showNumbers, presenter, onClose,
+}: {
+  slides: any[]; notes?: string[]; transition?: string; footer?: string; showNumbers?: boolean; presenter?: boolean; onClose: () => void;
+}) {
   const [decks, setDecks] = useState<Deck[]>([]);
   const [i, setI] = useState(0);
   const [showNotes, setShowNotes] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
   const variant = TRANSITIONS[transition || 'fade'] ?? TRANSITIONS.fade;
 
   useEffect(() => {
@@ -509,13 +727,15 @@ function Present({ slides, notes, transition, onClose }: { slides: any[]; notes?
     (async () => {
       const out: Deck[] = [];
       for (const json of slides) {
-        const layers: { src: string; anim: string }[] = [];
-        for (const o of json?.objects ?? []) {
+        const layers: Layer[] = [];
+        const objs = json?.objects ?? [];
+        for (let j = 0; j < objs.length; j++) {
+          const o = objs[j];
           try {
             const sc = new StaticCanvas(document.createElement('canvas'), { width: CW, height: CH });
             await sc.loadFromJSON({ version: json.version, objects: [o] });
             sc.renderAll();
-            layers.push({ src: sc.toDataURL({ format: 'png', multiplier: 1 } as any), anim: (o.anim as string) || 'none' });
+            layers.push({ src: sc.toDataURL({ format: 'png', multiplier: 1 } as any), anim: (o.anim as string) || 'none', order: o.animOrder ?? j, dur: o.animDur ?? 500 });
             sc.dispose();
           } catch { /* skip object */ }
         }
@@ -533,9 +753,90 @@ function Present({ slides, notes, transition, onClose }: { slides: any[]; notes?
     return () => { active = false; window.removeEventListener('keydown', onKey); };
   }, [slides, onClose]);
 
+  // Temporizador (vista de presentador).
+  useEffect(() => {
+    if (!presenter) return;
+    const t = setInterval(() => setElapsed((e) => e + 1), 1000);
+    return () => clearInterval(t);
+  }, [presenter]);
+  const mmss = `${String(Math.floor(elapsed / 60)).padStart(2, '0')}:${String(elapsed % 60).padStart(2, '0')}`;
+
   const note = notes?.[i]?.trim();
   const hasNotes = (notes ?? []).some((n) => n?.trim());
   const deck = decks[i];
+
+  // Ranking por orden de animación (para secuenciar la entrada de objetos).
+  const rank = new Map<number, number>();
+  if (deck) deck.layers.map((l, idx) => ({ l, idx })).filter((x) => x.l.anim && x.l.anim !== 'none').sort((a, b) => a.l.order - b.l.order).forEach((x, r) => rank.set(x.idx, r));
+
+  const stage = (
+    <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
+      {!deck ? <div className="text-white/60">Generando…</div> : (
+        <AnimatePresence mode="popLayout" initial={false}>
+          <motion.div key={i} variants={variant} initial="initial" animate="animate" exit="exit" transition={{ duration: 0.4, ease: 'easeInOut' }}
+            className="absolute" style={{ width: 'min(100vw, 177.78vh)', aspectRatio: '16 / 9', background: deck.bg }}>
+            {deck.layers.map((L, j) => (
+              <motion.img key={j} src={L.src} alt="" className="absolute inset-0 w-full h-full object-contain"
+                variants={OBJ_ANIM[L.anim] ?? OBJ_ANIM.none} initial="initial" animate="animate"
+                transition={{ duration: (L.dur || 500) / 1000, ease: 'easeOut', delay: L.anim && L.anim !== 'none' ? 0.15 + (rank.get(j) ?? j) * 0.2 : 0 }} />
+            ))}
+            {(slides[i]?.objects ?? []).map((o: any, j: number) => {
+              if (!o?.link) return null;
+              const w = (o.radius ? o.radius * 2 : (o.width ?? 0)) * (o.scaleX ?? 1);
+              const h = (o.radius ? o.radius * 2 : (o.height ?? 0)) * (o.scaleY ?? 1);
+              const go = () => { if (o.link.type === 'slide') setI(Math.max(0, Math.min(slides.length - 1, o.link.index))); else if (o.link.href) window.open(o.link.href, '_blank', 'noopener'); };
+              return <button key={`lnk${j}`} onClick={go} title="Ir al hipervínculo"
+                style={{ position: 'absolute', left: `${((o.left ?? 0) / CW) * 100}%`, top: `${((o.top ?? 0) / CH) * 100}%`, width: `${(w / CW) * 100}%`, height: `${(h / CH) * 100}%` }}
+                className="cursor-pointer hover:ring-2 ring-blue-400/60 rounded-sm" />;
+            })}
+            {(showNumbers || footer) && (
+              <div className="absolute bottom-2 left-0 right-0 flex items-center justify-between px-6 text-[1.1vmin] text-black/50 z-10">
+                <span>{footer}</span>{showNumbers && <span>{i + 1} / {slides.length}</span>}
+              </div>
+            )}
+          </motion.div>
+        </AnimatePresence>
+      )}
+    </div>
+  );
+
+  // ── Vista de presentador: diapositiva actual + siguiente + notas + temporizador.
+  if (presenter) {
+    return (
+      <div className="fixed inset-0 z-[200] bg-[#0a0a0a] text-white flex flex-col">
+        <div className="flex items-center gap-4 px-6 h-14 border-b border-white/10 flex-shrink-0">
+          <span className="text-sm font-semibold">Vista de presentador</span>
+          <span className="ml-2 font-mono text-2xl tabular-nums">{mmss}</span>
+          <button onClick={() => setElapsed(0)} className="text-xs px-2 py-1 rounded-lg bg-white/10 hover:bg-white/20">Reiniciar</button>
+          <span className="ml-auto text-sm text-white/60">Diapositiva {i + 1} de {slides.length}</span>
+          <button onClick={onClose} title="Cerrar (Esc)" className="p-2 rounded-full bg-white/15 hover:bg-white/30"><X className="w-5 h-5" /></button>
+        </div>
+        <div className="flex-1 min-h-0 flex gap-4 p-4">
+          <div className="flex-1 min-w-0 flex flex-col">
+            <div className="relative flex-1 min-h-0 rounded-xl overflow-hidden bg-white" style={{ aspectRatio: '16/9' }}>
+              <StaticDeck deck={deck} />
+            </div>
+            <div className="flex items-center justify-center gap-3 pt-3">
+              <button onClick={() => setI((v) => Math.max(0, v - 1))} disabled={i === 0} className="w-11 h-11 rounded-full bg-white/15 text-2xl hover:bg-white/30 disabled:opacity-20">‹</button>
+              <button onClick={() => setI((v) => Math.min(slides.length - 1, v + 1))} disabled={i === slides.length - 1} className="w-11 h-11 rounded-full bg-white/15 text-2xl hover:bg-white/30 disabled:opacity-20">›</button>
+            </div>
+          </div>
+          <div className="w-80 flex-shrink-0 flex flex-col gap-3">
+            <div>
+              <p className="text-xs text-white/50 mb-1">Siguiente</p>
+              <div className="relative rounded-lg overflow-hidden bg-white border border-white/10" style={{ aspectRatio: '16/9' }}>
+                {i < slides.length - 1 ? <StaticDeck deck={decks[i + 1]} /> : <div className="absolute inset-0 flex items-center justify-center text-gray-400 text-sm">Fin</div>}
+              </div>
+            </div>
+            <div className="flex-1 min-h-0 rounded-lg bg-white/5 border border-white/10 p-3 overflow-y-auto">
+              <p className="text-xs text-white/50 mb-1">Notas</p>
+              <p className="text-sm leading-relaxed whitespace-pre-wrap text-white/90">{note || <span className="text-white/30">Sin notas.</span>}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-[200] bg-black flex items-center justify-center">
@@ -545,29 +846,7 @@ function Present({ slides, notes, transition, onClose }: { slides: any[]; notes?
         )}
         <button onClick={onClose} title="Cerrar (Esc)" className="p-2 rounded-full bg-white/15 text-white hover:bg-white/30"><X className="w-5 h-5" /></button>
       </div>
-      <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
-        {!deck ? <div className="text-white/60">Generando…</div> : (
-          <AnimatePresence mode="popLayout" initial={false}>
-            <motion.div key={i} variants={variant} initial="initial" animate="animate" exit="exit" transition={{ duration: 0.4, ease: 'easeInOut' }}
-              className="absolute" style={{ width: 'min(100vw, 177.78vh)', aspectRatio: '16 / 9', background: deck.bg }}>
-              {deck.layers.map((L, j) => (
-                <motion.img key={j} src={L.src} alt="" className="absolute inset-0 w-full h-full object-contain"
-                  variants={OBJ_ANIM[L.anim] ?? OBJ_ANIM.none} initial="initial" animate="animate"
-                  transition={{ duration: 0.5, ease: 'easeOut', delay: L.anim && L.anim !== 'none' ? 0.15 + j * 0.18 : 0 }} />
-              ))}
-              {(slides[i]?.objects ?? []).map((o: any, j: number) => {
-                if (!o?.link) return null;
-                const w = (o.radius ? o.radius * 2 : (o.width ?? 0)) * (o.scaleX ?? 1);
-                const h = (o.radius ? o.radius * 2 : (o.height ?? 0)) * (o.scaleY ?? 1);
-                const go = () => { if (o.link.type === 'slide') setI(Math.max(0, Math.min(slides.length - 1, o.link.index))); else if (o.link.href) window.open(o.link.href, '_blank', 'noopener'); };
-                return <button key={`lnk${j}`} onClick={go} title="Ir al hipervínculo"
-                  style={{ position: 'absolute', left: `${((o.left ?? 0) / CW) * 100}%`, top: `${((o.top ?? 0) / CH) * 100}%`, width: `${(w / CW) * 100}%`, height: `${(h / CH) * 100}%` }}
-                  className="cursor-pointer hover:ring-2 ring-blue-400/60 rounded-sm" />;
-              })}
-            </motion.div>
-          </AnimatePresence>
-        )}
-      </div>
+      {stage}
       <button onClick={() => setI((v) => Math.max(0, v - 1))} disabled={i === 0} className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/15 text-white text-2xl hover:bg-white/30 disabled:opacity-20 z-20">‹</button>
       <button onClick={() => setI((v) => Math.min(slides.length - 1, v + 1))} disabled={i === slides.length - 1} className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/15 text-white text-2xl hover:bg-white/30 disabled:opacity-20 z-20">›</button>
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/70 text-sm z-20">{i + 1} / {slides.length}</div>

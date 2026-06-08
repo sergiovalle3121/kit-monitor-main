@@ -1310,5 +1310,29 @@ funcional de lo que parecía**; el bloqueo real era el acceso del owner (Bloque 
 - **Tablas dinámicas (pivot):** NO se fuerzan — Fortune-Sheet no las trae de forma
   estable. Documentado como **motivo principal del spike de Univer** (Track B).
 
+### A3 — Slides: profundidad tipo PowerPoint
+> Datos puros nuevos en `slideAssets.ts` (temas + layouts). Sin deps nuevas
+> (los iconos lucide se rasterizan a SVG con `react-dom/server`).
+- **Layouts** (pestaña **Diseño**): Portada, Título y contenido, Dos contenidos,
+  Encabezado de sección, En blanco — aplica placeholders con el tema activo.
+- **Temas** (6: claro/medianoche/cálido/bosque/ciruela/mono): fondo + acento +
+  fuente coordinados; galería de tarjetas. **Plantillas** reutiliza
+  `TemplateGallery`/`templates.ts` (reemplaza el mazo).
+- **Guías de alineación + snapping** al centro/bordes del lienzo y a otros
+  objetos (líneas guía punteadas) + **cuadrícula** conmutable.
+- **Tablas** (rejilla de celdas editable) y **biblioteca de iconos** (lucide →
+  SVG vectorial). **Borde** de objeto (además de sombra/degradado/opacidad ya
+  existentes).
+- **Animaciones con orden y duración** por objeto; la **vista de presentación**
+  secuencia la entrada por orden y respeta la duración.
+- **Vista de presentador** (`MonitorPlay`): diapositiva actual + siguiente +
+  notas + **temporizador**. **Números y pie de diapositiva** (en presentación y
+  en el export .pptx).
+- **Fidelidad .pptx** (`pptx.ts`): recursión de grupos (tablas/iconos),
+  números/pie de diapositiva.
+- **No abordado (documentado):** gráficas embebidas desde datos y **conectores
+  dinámicos** (anclados) requieren más trabajo; las formas línea/flecha sirven de
+  conector simple. Recorte (crop) de imagen: diferido (Fabric crop es complejo).
+
 ### Estado: build web ✅ · lint web ✅ · tsc ✅
-### Pendiente: A3 (Slides), A4 (pulido), Track B.
+### Pendiente: A4 (pulido transversal), Track B (spike Univer).
