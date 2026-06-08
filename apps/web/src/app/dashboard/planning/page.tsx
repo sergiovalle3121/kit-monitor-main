@@ -58,6 +58,14 @@ interface PickList {
   lineCount: number;
   lines: PickListLine[];
 }
+interface Preview {
+  planId: number;
+  quantity: number;
+  hasBom: boolean;
+  lineCount: number;
+  lines: PickListLine[];
+}
+interface ModelOption { id: string; modelNumber: string; name: string; status: string }
 
 const STATUS_META: Record<string, { label: string; color: string; bg: string }> = {
   pending: { label: 'Por publicar', color: AMBER, bg: 'rgba(245,158,11,0.12)' },
@@ -71,6 +79,7 @@ const STATUS_META: Record<string, { label: string; color: string; bg: string }> 
 export default function PlanningPage() {
   const { data: plans, isLoading, forbidden, mutate } = useApi<Plan[]>('/plans');
   const [pickLists, setPickLists] = useState<Record<number, PickList>>({});
+  const [previews, setPreviews] = useState<Record<number, Preview>>({});
   const [busy, setBusy] = useState<number | null>(null);
   const [confirmId, setConfirmId] = useState<number | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -163,6 +172,25 @@ export default function PlanningPage() {
       const res = await apiFetch(`${API_BASE}/pick-lists/${planId}`);
       const data = await res.json();
       if (res.ok) setPickLists((prev) => ({ ...prev, [planId]: data }));
+    } catch {
+      /* ignore */
+    }
+  }
+
+  // Preview the BOM-derived materials for a pending plan (no commit).
+  async function loadPreview(planId: number) {
+    if (previews[planId]) {
+      setPreviews((prev) => {
+        const next = { ...prev };
+        delete next[planId];
+        return next;
+      });
+      return;
+    }
+    try {
+      const res = await apiFetch(`${API_BASE}/pick-lists/preview/${planId}`);
+      const data = await res.json();
+      if (res.ok) setPreviews((prev) => ({ ...prev, [planId]: data }));
     } catch {
       /* ignore */
     }
@@ -297,14 +325,23 @@ export default function PlanningPage() {
                       </button>
                     )}
                     {plan.status === 'pending' ? (
-                      <button
-                        onClick={() => publish(plan)}
-                        disabled={busy === plan.id}
-                        className="flex items-center gap-2 bg-violet-600 text-white text-sm font-semibold px-4 py-2 rounded-full hover:bg-violet-700 active:scale-95 transition-all disabled:opacity-60"
-                      >
-                        {busy === plan.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                        Publicar
-                      </button>
+                      <div className="flex flex-col items-stretch gap-2">
+                        <button
+                          onClick={() => publish(plan)}
+                          disabled={busy === plan.id}
+                          className="flex items-center justify-center gap-2 bg-violet-600 text-white text-sm font-semibold px-4 py-2 rounded-full hover:bg-violet-700 active:scale-95 transition-all disabled:opacity-60"
+                        >
+                          {busy === plan.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                          Publicar
+                        </button>
+                        <button
+                          onClick={() => loadPreview(plan.id)}
+                          className="flex items-center justify-center gap-2 text-violet-600 dark:text-violet-300 text-sm font-semibold px-4 py-2 rounded-full border border-violet-200 dark:border-violet-500/30 hover:bg-violet-50 dark:hover:bg-violet-500/10 transition-colors"
+                        >
+                          <Boxes className="w-4 h-4" />
+                          {previews[plan.id] ? 'Ocultar' : 'Materiales'}
+                        </button>
+                      </div>
                     ) : isPublished ? (
                       <div className="flex flex-col items-stretch gap-2">
                         <button
@@ -363,6 +400,45 @@ export default function PlanningPage() {
                     </motion.div>
                   )}
                 </AnimatePresence>
+
+                {/* BOM-derived materials preview (pending plans, before publish) */}
+                <AnimatePresence>
+                  {previews[plan.id] && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="mt-4 pt-4 border-t border-gray-100 dark:border-white/10">
+                        {previews[plan.id].hasBom ? (
+                          <>
+                            <div className="flex items-center gap-2 mb-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                              <Boxes className="w-4 h-4 text-violet-500" />
+                              Materiales del BOM · {previews[plan.id].lineCount} · requerimiento para {plan.quantity} u
+                            </div>
+                            <div className="space-y-1.5">
+                              {previews[plan.id].lines.map((l) => (
+                                <div key={l.partNumber} className="flex items-center justify-between text-sm px-3 py-2 rounded-xl bg-gray-50 dark:bg-white/5">
+                                  <div className="min-w-0">
+                                    <span className="font-mono font-medium">{l.partNumber}</span>
+                                    {l.description && <span className="text-gray-400 ml-2 text-xs truncate">{l.description}</span>}
+                                  </div>
+                                  <span className="font-semibold tabular-nums flex-shrink-0">{l.quantityRequired} {l.unit}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </>
+                        ) : (
+                          <div className="text-sm text-amber-600 dark:text-amber-400 flex items-start gap-2">
+                            <Boxes className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                            <span>Este modelo no tiene un BOM activo. Defínelo y actívalo en <Link href="/dashboard/models" className="underline">Modelos · NPI</Link> para poder surtir materiales al publicar.</span>
+                          </div>
+                        )}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </motion.article>
             );
           })}
@@ -383,6 +459,10 @@ function NewPlanForm({
 }) {
   const [form, setForm] = useState({ model: '', line: '1', quantity: '', shift: 'T1', bahia: '' });
   const [saving, setSaving] = useState(false);
+
+  // Plans reference models from the canonical master (no free-text models).
+  const { data: modelsData } = useApi<ModelOption[]>('/product-models');
+  const models = (Array.isArray(modelsData) ? modelsData : []).filter((m) => m.status !== 'OBSOLETE');
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -435,7 +515,12 @@ function NewPlanForm({
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
         <div className="col-span-2 md:col-span-1">
           <label className="text-xs text-gray-500 ml-1">Modelo</label>
-          <input className={field} value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} placeholder="Nombre o número de modelo" />
+          <select className={field} value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })}>
+            <option value="">Selecciona un modelo…</option>
+            {models.map((m) => (
+              <option key={m.id} value={m.modelNumber}>{m.modelNumber} · {m.name}{m.status === 'DRAFT' ? ' (borrador)' : ''}</option>
+            ))}
+          </select>
         </div>
         <div>
           <label className="text-xs text-gray-500 ml-1">Cantidad</label>
@@ -458,6 +543,11 @@ function NewPlanForm({
           </select>
         </div>
       </div>
+      {models.length === 0 && (
+        <p className="text-xs text-amber-600 dark:text-amber-400 mt-3">
+          No hay modelos en el maestro. <Link href="/dashboard/models" className="underline">Crea uno primero en Modelos · NPI</Link>.
+        </p>
+      )}
       <div className="flex justify-end mt-4">
         <button
           type="submit"

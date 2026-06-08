@@ -27,6 +27,12 @@ export class PickListController {
     return this.service.publishPlan(dto.planId, actor);
   }
 
+  /** Materials a plan would pull, derived from the model's ACTIVE BOM (no commit). */
+  @Get('preview/:planId')
+  preview(@Param('planId', ParseIntPipe) planId: number) {
+    return this.service.previewPlan(planId);
+  }
+
   @Get(':planId')
   getByPlan(@Param('planId', ParseIntPipe) planId: number) {
     return this.service.getByPlan(planId);

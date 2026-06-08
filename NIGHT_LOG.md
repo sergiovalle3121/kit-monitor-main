@@ -10,6 +10,46 @@ archivos, decisiones, endpoints/pantallas, KPIs, siguiente paso / bloqueos.
 
 ---
 
+## 2026-06-08 — GOLDEN PATH · FASE 2: Planeación consume el modelo (puente BOM → surtido)
+
+> Rama `claude/sweet-hawking-UQaaU`. Conecta lo que ya existía; el hallazgo clave
+> fue que el "publish" explotaba el BOM **legacy `bom_items`**, NO el BOM SAP
+> (`bom_headers/components`) que captura el detalle del modelo (Fase 1). Estaban
+> desconectados → se construyó el puente.
+
+### Backend — puente BOM (aditivo, no destructivo)
+- **`pick-list.service.ts`**: nuevo `resolveBomInput(model)` que PREFIERE el
+  `BomHeader` **ACTIVE** del modelo (explota sus `components`: req/unidad =
+  `quantity × usageFactor / baseQuantity`) y **cae** al `bom_items` legacy si no
+  hay BOM SAP. Reusa la función pura `explodeBom`. `publishPlan` usa el puente y
+  da un error claro si el modelo no tiene BOM. Registrado `BomHeader` en el módulo.
+- **`previewPlan(planId)`** + `GET /pick-lists/preview/:planId`: explota el BOM
+  contra la cantidad del plan **sin** publicar → la UI muestra el requerimiento
+  real (y si el modelo tiene BOM activo) antes de comprometer.
+
+### Frontend — `dashboard/planning`
+- `NewPlanForm`: el modelo dejó de ser texto libre → **dropdown del maestro**
+  (`/product-models`, sin obsoletos). El plan guarda `model = modelNumber`. Aviso
+  + link "Crea uno primero" si el maestro está vacío.
+- Planes `pending`: botón **Materiales** → muestra las líneas derivadas del BOM
+  (partNumber, descripción, `qtyPerUnit × cantidad = req. total`). Si el modelo no
+  tiene BOM activo, mensaje honesto con link a Modelos.
+- KPI "Publicados" (planeación y hub) ya cableado a `/plans` → sube al publicar.
+
+### Verificación (todo en verde)
+- API `tsc`/`build`, **bootstrap smoke (Postgres)**, y **smoke funcional Fase 2**:
+  modelo + BOM ACTIVE → plan (qty 10) → preview ve el BOM SAP, P-A=3×10=30,
+  P-B=1×10=10 → publish genera pick list desde el BOM SAP (no el legacy) → plan
+  `published`. Caso negativo: modelo sin BOM → preview `hasBom=false` y publish
+  **rechazado**. Web `tsc`/`eslint`/`next build` OK.
+
+### Siguiente paso (Fase 3)
+- Aguas abajo: surtido/`material-staging` y `material-requests` ya leen el kit
+  (que ahora viene del BOM del modelo); IE/`line-engineering` con dropdown de
+  modelo; MM/Finanzas valuación con `standardCost`.
+
+---
+
 ## 2026-06-08 — GOLDEN PATH · FASE 1: Partes + BOM del modelo (reusa `bom` + `MaterialMaster`)
 
 > Rama `claude/sweet-hawking-UQaaU`. Reusa el módulo `bom` y el maestro de partes
