@@ -37,7 +37,11 @@ export class MessagingController {
   }
 
   @Get('conversations/:id/messages')
-  listMessages(@Req() req: any, @Param('id') id: string, @Query('before') before?: string) {
+  listMessages(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Query('before') before?: string,
+  ) {
     return this.messaging.listMessages(this.me(req), id, before);
   }
 
@@ -47,8 +51,15 @@ export class MessagingController {
   }
 
   @Post('conversations/channel')
-  createChannel(@Req() req: any, @Body() body: { name: string; memberIds?: string[] }) {
-    return this.messaging.createChannel(this.me(req), body?.name, body?.memberIds ?? []);
+  createChannel(
+    @Req() req: any,
+    @Body() body: { name: string; memberIds?: string[] },
+  ) {
+    return this.messaging.createChannel(
+      this.me(req),
+      body?.name,
+      body?.memberIds ?? [],
+    );
   }
 
   @Post('conversations/:id/read')
@@ -56,9 +67,30 @@ export class MessagingController {
     return this.messaging.markRead(this.me(req), id);
   }
 
+  @Get('conversations/:id/reads')
+  listReads(@Req() req: any, @Param('id') id: string) {
+    return this.messaging.listReads(this.me(req), id);
+  }
+
   @Post('messages')
-  sendText(@Req() req: any, @Body() body: { conversationId: string; body: string }) {
-    return this.messaging.sendText(this.me(req), body?.conversationId, body?.body);
+  sendText(
+    @Req() req: any,
+    @Body() body: { conversationId: string; body: string },
+  ) {
+    return this.messaging.sendText(
+      this.me(req),
+      body?.conversationId,
+      body?.body,
+    );
+  }
+
+  @Post('messages/:id/reactions')
+  toggleReaction(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body() body: { emoji: string },
+  ) {
+    return this.messaging.toggleReaction(this.me(req), id, body?.emoji);
   }
 
   @Post('messages/image')
@@ -77,7 +109,11 @@ export class MessagingController {
   }
 
   @Get('messages/:id/image')
-  async getImage(@Req() req: any, @Param('id') id: string, @Res() res: Response) {
+  async getImage(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Res() res: Response,
+  ) {
     const { data, mime } = await this.messaging.getImage(this.me(req), id);
     res.setHeader('Content-Type', mime);
     res.setHeader('Cache-Control', 'private, max-age=86400');

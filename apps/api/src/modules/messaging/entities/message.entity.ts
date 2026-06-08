@@ -44,6 +44,13 @@ export class Message {
   @Column({ name: 'image_size', type: 'int', nullable: true })
   imageSize: number | null;
 
+  /**
+   * IDs de usuarios mencionados (@username) resueltos contra los miembros de la
+   * conversación. `simple-array` → columna `text` en Postgres/SQLite (aditiva).
+   */
+  @Column({ name: 'mentioned_user_ids', type: 'simple-array', nullable: true })
+  mentionedUserIds: string[] | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 }

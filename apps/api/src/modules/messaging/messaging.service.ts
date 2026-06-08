@@ -9,12 +9,67 @@ import { Repository, In } from 'typeorm';
 import { Conversation } from './entities/conversation.entity';
 import { ConversationMember } from './entities/conversation-member.entity';
 import { Message } from './entities/message.entity';
+import { ChatMessageReaction } from './entities/chat-message-reaction.entity';
 import { User } from '../users/entities/user.entity';
 import { ChatGateway } from './chat.gateway';
 
 const MAX_INPUT_BYTES = 5 * 1024 * 1024; // 5 MB de entrada
 const TARGET_MAX_DIMENSION = 1280; // px
 const TARGET_QUALITY = 70; // jpeg quality
+const MAX_TEXT_LENGTH = 4000; // tope de caracteres por mensaje (anti-spam/DoS)
+const MAX_EMOJI_LENGTH = 32;
+
+export interface AggregatedReaction {
+  emoji: string;
+  count: number;
+  userIds: string[];
+  mine: boolean;
+}
+
+/**
+ * Agrega filas de reacción de un mensaje en `[{ emoji, count, userIds, mine }]`,
+ * preservando el orden de primera aparición. Pura → fácil de testear.
+ */
+export function aggregateReactions(
+  rows: { emoji: string; userId: string }[],
+  meId: string,
+): AggregatedReaction[] {
+  const order: string[] = [];
+  const byEmoji = new Map<string, string[]>();
+  for (const r of rows) {
+    let users = byEmoji.get(r.emoji);
+    if (!users) {
+      users = [];
+      byEmoji.set(r.emoji, users);
+      order.push(r.emoji);
+    }
+    if (!users.includes(r.userId)) users.push(r.userId);
+  }
+  return order.map((emoji) => {
+    const userIds = byEmoji.get(emoji) ?? [];
+    return {
+      emoji,
+      count: userIds.length,
+      userIds,
+      mine: userIds.includes(meId),
+    };
+  });
+}
+
+/**
+ * Extrae los handles mencionados (`@usuario`) del cuerpo, en minúsculas y sin
+ * duplicados. No matchea correos (el `@` no debe ir pegado a un caracter de
+ * palabra). Pura → fácil de testear.
+ */
+export function parseMentionTokens(body: string): string[] {
+  const out = new Set<string>();
+  const re = /(?<![\w@])@([a-zA-Z0-9._-]{1,50})/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(body)) !== null) {
+    out.add(m[1].toLowerCase());
+  }
+  return Array.from(out);
+}
 
 @Injectable()
 export class MessagingService {
@@ -25,6 +80,8 @@ export class MessagingService {
     private readonly members: Repository<ConversationMember>,
     @InjectRepository(Message)
     private readonly messages: Repository<Message>,
+    @InjectRepository(ChatMessageReaction)
+    private readonly reactions: Repository<ChatMessageReaction>,
     @InjectRepository(User)
     private readonly users: Repository<User>,
     private readonly gateway: ChatGateway,
@@ -42,9 +99,13 @@ export class MessagingService {
     return rows.map((r) => r.userId);
   }
 
-  private async assertMember(conversationId: string, userId: string): Promise<void> {
+  private async assertMember(
+    conversationId: string,
+    userId: string,
+  ): Promise<void> {
     const m = await this.members.findOne({ where: { conversationId, userId } });
-    if (!m) throw new ForbiddenException('No eres miembro de esta conversación');
+    if (!m)
+      throw new ForbiddenException('No eres miembro de esta conversación');
   }
 
   // ── usuarios del mismo tenant (para iniciar DM / armar canal) ───────────
@@ -56,19 +117,27 @@ export class MessagingService {
     });
     return all
       .filter((u) => u.id !== meId && u.isActive)
-      .map((u) => ({ id: u.id, username: u.username, email: u.email, role: u.role }));
+      .map((u) => ({
+        id: u.id,
+        username: u.username,
+        email: u.email,
+        role: u.role,
+      }));
   }
 
   // ── crear / obtener DM ──────────────────────────────────────────────────
   async getOrCreateDm(meId: string, otherId: string): Promise<Conversation> {
-    if (meId === otherId) throw new BadRequestException('No puedes abrir un DM contigo mismo');
+    if (meId === otherId)
+      throw new BadRequestException('No puedes abrir un DM contigo mismo');
     const me = await this.getUserOrThrow(meId);
     const other = await this.getUserOrThrow(otherId);
 
     // Buscar un DM existente que tenga exactamente a ambos.
     const myDms = await this.members.find({ where: { userId: meId } });
     for (const m of myDms) {
-      const convo = await this.conversations.findOne({ where: { id: m.conversationId } });
+      const convo = await this.conversations.findOne({
+        where: { id: m.conversationId },
+      });
       if (!convo || convo.type !== 'dm') continue;
       const ids = await this.memberIdsOf(convo.id);
       if (ids.length === 2 && ids.includes(meId) && ids.includes(otherId)) {
@@ -92,8 +161,13 @@ export class MessagingService {
   }
 
   // ── crear canal ─────────────────────────────────────────────────────────
-  async createChannel(meId: string, name: string, memberIds: string[]): Promise<Conversation> {
-    if (!name?.trim()) throw new BadRequestException('El canal necesita un nombre');
+  async createChannel(
+    meId: string,
+    name: string,
+    memberIds: string[],
+  ): Promise<Conversation> {
+    if (!name?.trim())
+      throw new BadRequestException('El canal necesita un nombre');
     const me = await this.getUserOrThrow(meId);
     const unique = Array.from(new Set([meId, ...(memberIds || [])]));
 
@@ -106,7 +180,9 @@ export class MessagingService {
       }),
     );
     await this.members.save(
-      unique.map((userId) => this.members.create({ conversationId: convo.id, userId })),
+      unique.map((userId) =>
+        this.members.create({ conversationId: convo.id, userId }),
+      ),
     );
     return convo;
   }
@@ -122,7 +198,9 @@ export class MessagingService {
       });
       if (!convo) continue;
 
-      const memberRows = await this.members.find({ where: { conversationId: convo.id } });
+      const memberRows = await this.members.find({
+        where: { conversationId: convo.id },
+      });
       const memberIds = memberRows.map((m) => m.userId);
 
       // Nombre a mostrar: canal → su nombre; DM → el otro usuario.
@@ -131,7 +209,9 @@ export class MessagingService {
       if (convo.type === 'dm') {
         counterpartId = memberIds.find((id) => id !== meId) ?? null;
         if (counterpartId) {
-          const other = await this.users.findOne({ where: { id: counterpartId } });
+          const other = await this.users.findOne({
+            where: { id: counterpartId },
+          });
           title = other?.username ?? other?.email ?? 'Usuario';
         }
       }
@@ -147,9 +227,7 @@ export class MessagingService {
         .where('m.conversation_id = :cid', { cid: convo.id })
         .andWhere('m.sender_id != :me', { me: meId })
         .andWhere(
-          membership.lastReadAt
-            ? 'm.created_at > :lastRead'
-            : '1=1',
+          membership.lastReadAt ? 'm.created_at > :lastRead' : '1=1',
           membership.lastReadAt ? { lastRead: membership.lastReadAt } : {},
         )
         .getCount();
@@ -161,7 +239,12 @@ export class MessagingService {
         counterpartId,
         memberIds,
         lastMessage: last
-          ? { type: last.type, body: last.body, createdAt: last.createdAt, senderId: last.senderId }
+          ? {
+              type: last.type,
+              body: last.body,
+              createdAt: last.createdAt,
+              senderId: last.senderId,
+            }
           : null,
         lastMessageAt: convo.lastMessageAt,
         unread,
@@ -186,6 +269,22 @@ export class MessagingService {
       .take(50);
     if (before) qb.andWhere('m.created_at < :before', { before });
     const rows = await qb.getMany();
+
+    // Reacciones en lote por los ids de la página (evita N+1).
+    const ids = rows.map((m) => m.id);
+    const reactionRows = ids.length
+      ? await this.reactions.find({
+          where: { messageId: In(ids) },
+          order: { createdAt: 'ASC' },
+        })
+      : [];
+    const byMessage = new Map<string, { emoji: string; userId: string }[]>();
+    for (const r of reactionRows) {
+      const list = byMessage.get(r.messageId);
+      if (list) list.push(r);
+      else byMessage.set(r.messageId, [r]);
+    }
+
     // Devolver en orden cronológico ascendente.
     return rows.reverse().map((m) => ({
       id: m.id,
@@ -195,23 +294,61 @@ export class MessagingService {
       body: m.body,
       imageMime: m.imageMime,
       createdAt: m.createdAt,
+      reactions: aggregateReactions(byMessage.get(m.id) ?? [], meId),
+      mentionedUserIds: m.mentionedUserIds ?? [],
     }));
   }
 
   // ── enviar texto ─────────────────────────────────────────────────────────
   async sendText(meId: string, conversationId: string, body: string) {
     await this.assertMember(conversationId, meId);
-    if (!body?.trim()) throw new BadRequestException('Mensaje vacío');
+    const text = body?.trim();
+    if (!text) throw new BadRequestException('Mensaje vacío');
+    if (text.length > MAX_TEXT_LENGTH) {
+      throw new BadRequestException(
+        `Mensaje demasiado largo (máx ${MAX_TEXT_LENGTH} caracteres)`,
+      );
+    }
+    const mentionedUserIds = await this.resolveMentions(conversationId, text);
     const msg = await this.messages.save(
       this.messages.create({
         conversationId,
         senderId: meId,
         type: 'text',
-        body: body.trim(),
+        body: text,
+        mentionedUserIds: mentionedUserIds.length ? mentionedUserIds : null,
       }),
     );
     await this.touchAndBroadcast(conversationId, msg);
+
+    // Notificar a cada mencionado (excepto a mí) para badge/toast.
+    const toNotify = mentionedUserIds.filter((id) => id !== meId);
+    if (toNotify.length) {
+      this.gateway.emitMentionToUsers(toNotify, {
+        conversationId,
+        messageId: msg.id,
+        byUserId: meId,
+      });
+    }
     return this.toDto(msg);
+  }
+
+  /** Resuelve @handles del cuerpo contra los MIEMBROS de la conversación. */
+  private async resolveMentions(
+    conversationId: string,
+    body: string,
+  ): Promise<string[]> {
+    const tokens = parseMentionTokens(body);
+    if (!tokens.length) return [];
+    const memberIds = await this.memberIdsOf(conversationId);
+    if (!memberIds.length) return [];
+    const members = await this.users.find({ where: { id: In(memberIds) } });
+    const resolved = new Set<string>();
+    for (const u of members) {
+      const uname = (u.username ?? '').toLowerCase();
+      if (uname && tokens.includes(uname)) resolved.add(u.id);
+    }
+    return Array.from(resolved);
   }
 
   // ── enviar imagen (comprimida) ───────────────────────────────────────────
@@ -250,13 +387,20 @@ export class MessagingService {
    * Comprime/redimensiona con sharp. Si sharp falla por cualquier motivo en
    * runtime, guarda el original (el límite de 5 MB ya acota el tamaño).
    */
-  private async compressImage(input: Buffer): Promise<{ buffer: Buffer; mime: string }> {
+  private async compressImage(
+    input: Buffer,
+  ): Promise<{ buffer: Buffer; mime: string }> {
     try {
       // Import dinámico: si sharp no estuviera disponible, no tumba el arranque.
       const sharp = (await import('sharp')).default;
       const out = await sharp(input)
         .rotate()
-        .resize({ width: TARGET_MAX_DIMENSION, height: TARGET_MAX_DIMENSION, fit: 'inside', withoutEnlargement: true })
+        .resize({
+          width: TARGET_MAX_DIMENSION,
+          height: TARGET_MAX_DIMENSION,
+          fit: 'inside',
+          withoutEnlargement: true,
+        })
         .jpeg({ quality: TARGET_QUALITY })
         .toBuffer();
       return { buffer: out, mime: 'image/jpeg' };
@@ -272,21 +416,82 @@ export class MessagingService {
       .addSelect('m.image_data')
       .where('m.id = :id', { id: messageId })
       .getOne();
-    if (!msg || !msg.imageData) throw new NotFoundException('Imagen no encontrada');
+    if (!msg || !msg.imageData)
+      throw new NotFoundException('Imagen no encontrada');
     await this.assertMember(msg.conversationId, meId);
     return { data: msg.imageData, mime: msg.imageMime ?? 'image/jpeg' };
+  }
+
+  // ── reacciones (toggle) ──────────────────────────────────────────────────
+  async toggleReaction(meId: string, messageId: string, emojiRaw: string) {
+    const emoji = (emojiRaw ?? '').trim();
+    if (!emoji || emoji.length > MAX_EMOJI_LENGTH || /\s/.test(emoji)) {
+      throw new BadRequestException('Emoji inválido');
+    }
+    const msg = await this.messages.findOne({ where: { id: messageId } });
+    if (!msg) throw new NotFoundException('Mensaje no encontrado');
+    await this.assertMember(msg.conversationId, meId);
+
+    const existing = await this.reactions.findOne({
+      where: { messageId, userId: meId, emoji },
+    });
+    if (existing) {
+      await this.reactions.delete({ id: existing.id });
+    } else {
+      const me = await this.getUserOrThrow(meId);
+      await this.reactions.save(
+        this.reactions.create({
+          messageId,
+          userId: meId,
+          emoji,
+          tenantId: me.tenantId ?? null,
+        }),
+      );
+    }
+
+    const reactions = await this.reactionsForMessage(messageId, meId);
+    const memberIds = await this.memberIdsOf(msg.conversationId);
+    this.gateway.emitReactionUpdate(memberIds, { messageId, reactions });
+    return reactions;
+  }
+
+  private async reactionsForMessage(
+    messageId: string,
+    meId: string,
+  ): Promise<AggregatedReaction[]> {
+    const rows = await this.reactions.find({
+      where: { messageId },
+      order: { createdAt: 'ASC' },
+    });
+    return aggregateReactions(rows, meId);
   }
 
   // ── marcar leído ─────────────────────────────────────────────────────────
   async markRead(meId: string, conversationId: string) {
     await this.assertMember(conversationId, meId);
-    await this.members.update({ conversationId, userId: meId }, { lastReadAt: new Date() });
+    const lastReadAt = new Date();
+    await this.members.update({ conversationId, userId: meId }, { lastReadAt });
+    const memberIds = await this.memberIdsOf(conversationId);
+    this.gateway.emitReadUpdate(memberIds, {
+      conversationId,
+      userId: meId,
+      lastReadAt,
+    });
     return { ok: true };
+  }
+
+  // ── recibos de lectura ("visto") por miembro ─────────────────────────────
+  async listReads(meId: string, conversationId: string) {
+    await this.assertMember(conversationId, meId);
+    const rows = await this.members.find({ where: { conversationId } });
+    return rows.map((r) => ({ userId: r.userId, lastReadAt: r.lastReadAt }));
   }
 
   // ── internos ─────────────────────────────────────────────────────────────
   private async touchAndBroadcast(conversationId: string, msg: Message) {
-    await this.conversations.update(conversationId, { lastMessageAt: msg.createdAt });
+    await this.conversations.update(conversationId, {
+      lastMessageAt: msg.createdAt,
+    });
     const memberIds = await this.memberIdsOf(conversationId);
     this.gateway.emitMessageToMembers(memberIds, this.toDto(msg));
   }
@@ -300,6 +505,9 @@ export class MessagingService {
       body: m.body,
       imageMime: m.imageMime,
       createdAt: m.createdAt,
+      // Un mensaje recién creado aún no tiene reacciones; forma consistente.
+      reactions: [] as AggregatedReaction[],
+      mentionedUserIds: m.mentionedUserIds ?? [],
     };
   }
 }

@@ -10,6 +10,94 @@ archivos, decisiones, endpoints/pantallas, KPIs, siguiente paso / bloqueos.
 
 ---
 
+## 2026-06-08 — CHAT "TEAMS": Seguridad P0 + Presencia, Reacciones, Recibos, @menciones, Pulido
+
+> Rama `claude/dazzling-dirac-1puYr`. **Esta sesión SÍ tuvo luz verde explícita
+> del owner para PR + merge a `main`** una vez terminadas las fases (a diferencia
+> del modo por defecto). Orden ejecutado (de menor a mayor riesgo, + un P0 de
+> seguridad insertado por auditoría del owner ANTES de lo bonito):
+> **P0 socket auth → 1 Presencia → 2 Reacciones → 3 Recibos → 4 @menciones → 5 Pulido.**
+>
+> **Puertas de calidad (todas verdes en cada fase):** `apps/api` build + `npx jest`
+> (51 suites / **278 tests**) + eslint (0 errores) + **smoke:bootstrap con Postgres
+> efímero** (puerto 5433, receta de esta bitácora); `apps/web` `tsc --noEmit` +
+> eslint + **`next build`** completo. Migraciones SOLO aditivas e idempotentes;
+> `synchronize` intacto (en prod crea tabla/columna nuevas solas; las migraciones
+> son para el registro/entornos sin sync). Tablas nuevas PREFIJADAS `chat_`.
+
+### [P0] Seguridad del WebSocket — ARREGLADO (era crítico, en prod)
+- **Agujero:** el socket confiaba en un `userId` que mandaba el cliente en `join`
+  → cualquiera podía unirse al room de otro y leer sus mensajes.
+- **Fix (`chat.gateway.ts`):** autenticación en el **handshake** con el MISMO JWT del
+  REST (`getJwtSecret()` resuelto en runtime → idéntico a `JwtStrategy`; `JwtModule`
+  importado en `messaging.module.ts`). El `userId` sale del claim `sub` del token,
+  NUNCA del payload. Handshake sin token válido → `disconnect`. `typing` deriva
+  emisor (token) y destinatarios (server-side, `assertMember`) — anti-spoofing; el
+  cliente solo manda `{ conversationId }`. Tope de longitud de mensaje (4000) en
+  `sendText`. Frontend manda el JWT en `auth.token`.
+- **Tests:** `chat.gateway.spec.ts` (7) — rechazo sin token / token inválido,
+  derivación del userId, no unirse a rooms ajenos, presencia multi-socket, anti-spoof.
+
+### [1] Presencia online/offline (sin schema)
+- `ChatGateway` mantiene `Map<userId, Set<socketId>>`; online mientras haya ≥1 socket.
+  `presence:state` (al conectar) + `presence:update` (transiciones) + `getOnlineUserIds()`.
+- Front: punto verde/gris en avatares de DMs (lista) y header (usa `counterpartId`).
+
+### [2] Reacciones (1 tabla aditiva `chat_message_reactions`)
+- Entity + migración aditiva; `@Unique(messageId,userId,emoji)`. `POST
+  /messages/:id/reactions {emoji}` = toggle (valida acceso + emoji). Devuelve
+  agregado `[{emoji,count,userIds,mine}]`; broadcast `reaction:update`. `listMessages`
+  agrega reacciones **en lote** (sin N+1). Helper puro `aggregateReactions` (+specs).
+- Front: chips bajo la burbuja (resalta `mine`), **toolbar al hover** con mini-picker.
+
+### [3] Recibos de lectura "Visto" (sin schema, reusa `lastReadAt`)
+- `markRead` difunde `read:update`; `GET /conversations/:id/reads`. Front: "Visto"
+  (DM) o avatares de lectores (canal) bajo mi último mensaje leído (`computeSeenInfo`).
+
+### [4] @menciones (1 columna aditiva `messages.mentioned_user_ids`, `simple-array`)
+- `sendText` parsea `@handle` y lo resuelve contra los MIEMBROS (helper puro
+  `parseMentionTokens`, ignora correos; +specs). Broadcast incluye `mentionedUserIds`
+  + emite `mention:new` a cada mencionado. Front: autocompletado `@`, resaltado
+  XSS-safe (sin `dangerouslySetInnerHTML`), toast + acento "@" en la lista.
+
+### [5] Pulido UX nivel Teams (solo frontend)
+- Composer multilínea + autosize + Shift+Enter; separadores por día; agrupado de
+  consecutivos; avatares en canales con presencia; botón "ir al final" + contador;
+  links clickeables; skeletons + estado vacío; badge de no leídos en el título;
+  toasts en vez de `alert()`; responsive (lista↔chat colapsan + botón volver) y
+  a11y (foco visible, aria-labels, región `aria-live`).
+
+### Eventos WS nuevos (todos a `user:<id>` de los miembros)
+`presence:state`, `presence:update`, `reaction:update`, `read:update`, `mention:new`.
+
+### PENDIENTE / DEUDA (NO entró en esta sesión — backlog del chat)
+- **Hilos (threads)** y **búsqueda de mensajes** — explícitamente fuera de alcance.
+- **Editar / borrar / responder-citar** mensajes: requiere columnas aditivas
+  `edited_at`, `deleted_at`, `reply_to_message_id` (nullable) + endpoints + eventos
+  `message:update`/`message:delete` + UI (edición inline, "Mensaje eliminado", cita).
+  Por eso el toolbar de hover hoy solo trae **reaccionar** (no se dejaron botones
+  muertos). Es el siguiente ítem natural.
+- **Adjuntos no-imagen** (PDF/Excel/NCR), **gestión de canal** (renombrar/archivar/
+  salir/miembros/roles/privacidad), **pin/guardar/no-leído manual**, **drafts
+  persistentes** por conversación.
+- **Notificaciones** (módulo): Notification API del navegador, sonido, centro
+  in-app, preferencias mute/DND; a futuro push real. Hoy solo toast + título.
+- **P1 escala:** reescribir `listConversations` (hoy N+1: ~queries por conversación)
+  con JOIN/GROUP BY; **paginación/infinite-scroll** hacia arriba en la UI (la API ya
+  acepta `before`); migrar imágenes `bytea` → S3/Cloudinary (campo ya aislado).
+- **P1 robustez:** `@nestjs/throttler` (rate-limit) en endpoints de envío; **scoping
+  multi-tenant** de las queries de messaging (hoy se gatea por `assertMember`, falta
+  `TenantScopedRepository`); UI optimista de envío; tipar `req: any` del controller;
+  e2e del flujo socket-auth + envío.
+- **P2 diferenciador AXOS:** mensajería contextual ligada a entidades (`#WO-1234`,
+  `#NCR-77`) con preview/unfurl + deep-link; acciones desde el chat (crear NCR, hold,
+  surtido); canales/eventos de sistema (mensajes `type: system`).
+- **@menciones (mejora):** el autocompletado asume cursor al final del borrador;
+  con multilínea convendría usar `selectionStart`. Usuarios cuyo `username` es un
+  correo no resuelven por `@` (limitación conocida).
+
+---
+
 ## 2026-06-07 — PULIDO Y FUNCIONALIDAD (que lo que existe sirva)
 
 > Sesión de pulido (no features nuevas, no borrar). Rama `claude/hopeful-lovelace-GZEYN`.
