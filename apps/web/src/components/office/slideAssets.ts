@@ -40,6 +40,12 @@ export const SLIDE_THEMES: SlideTheme[] = [
   { id: 'forest', name: 'Bosque', bg: '#f2fbf5', surface: '#dcfce7', text: '#14532d', muted: '#15803d', accent: '#16a34a', font: 'sans-serif' },
   { id: 'plum', name: 'Ciruela', bg: '#faf5ff', surface: '#f3e8ff', text: '#581c87', muted: '#7e22ce', accent: '#9333ea', font: 'sans-serif' },
   { id: 'mono', name: 'Mono', bg: '#fafafa', surface: '#e7e7e7', text: '#171717', muted: '#525252', accent: '#404040', font: 'ui-monospace, monospace' },
+  { id: 'ocean', name: 'Océano', bg: '#f0f9ff', surface: '#e0f2fe', text: '#0c4a6e', muted: '#0369a1', accent: '#0ea5e9', font: 'sans-serif' },
+  { id: 'slate', name: 'Pizarra', bg: '#f8fafc', surface: '#e2e8f0', text: '#0f172a', muted: '#475569', accent: '#475569', font: 'sans-serif' },
+  { id: 'rose', name: 'Rosa', bg: '#fff1f2', surface: '#ffe4e6', text: '#881337', muted: '#be123c', accent: '#e11d48', font: 'Georgia, serif' },
+  { id: 'sand', name: 'Arena', bg: '#fefce8', surface: '#fef9c3', text: '#713f12', muted: '#a16207', accent: '#ca8a04', font: 'sans-serif' },
+  { id: 'graphite', name: 'Grafito', bg: '#111827', surface: '#1f2937', text: '#f9fafb', muted: '#9ca3af', accent: '#f472b6', font: 'sans-serif' },
+  { id: 'emerald', name: 'Esmeralda', bg: '#022c22', surface: '#064e3b', text: '#ecfdf5', muted: '#6ee7b7', accent: '#34d399', font: 'sans-serif' },
 ];
 
 export type PlaceKind = 'title' | 'subtitle' | 'body' | 'bar' | 'accentBar';

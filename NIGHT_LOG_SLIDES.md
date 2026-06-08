@@ -177,6 +177,15 @@ Verificado: `tsc` ✓, `eslint` ✓, `next build` ✓.
 
 Verificado: `tsc` ✓, `eslint` ✓, `next build` ✓.
 
+#### Lote 12 — Estilos rápidos de forma + más temas (backlog #5, #8)
+- `slides/quickStyles.ts` + `QuickStyleGallery.tsx` — galería de **estilos
+  rápidos** (sólido, sombra, contorno, tinte, oscuro, degradado, cristal,
+  papel, borde grueso) con previews en vivo según el acento del tema; se aplican
+  a la forma seleccionada (relleno/borde/esquinas/sombra).
+- **Temas**: +6 (Océano, Pizarra, Rosa, Arena, Grafito, Esmeralda) → 12 en total.
+
+Verificado: `tsc` ✓, `eslint` ✓, `next build` ✓.
+
 ### Diferido (con estimación)
 - **Tamaño de diapositiva 4:3/personalizado** (backlog #7, parte): es transversal
   (CW/CH alimentan snapping, alineación, presentación, PDF, .pptx y el sorter).

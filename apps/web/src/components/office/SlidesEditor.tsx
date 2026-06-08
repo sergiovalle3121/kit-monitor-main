@@ -32,6 +32,8 @@ import { POLY_SHAPES, PATH_SHAPES } from './slides/shapes';
 import { applyImageEffects, readImgFx, cropToRatio, resetCrop, CROP_RATIOS, type ImgFx } from './slides/imageEffects';
 import { ShapeGallery } from './slides/ShapeGallery';
 import { ImageEffectsPanel } from './slides/ImageEffectsPanel';
+import { QUICK_STYLES } from './slides/quickStyles';
+import { QuickStyleGallery } from './slides/QuickStyleGallery';
 import { buildChartGroup, defaultChartSpec, isChart, type ChartSpec } from './slides/chart';
 import { SlideChartEditor } from './SlideChartEditor';
 import { buildSmartArt, defaultSmartSpec, isSmart, type SmartSpec } from './slides/smartart';
@@ -324,6 +326,12 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
     if (o.stroke && o.strokeWidth) o.set({ stroke: null, strokeWidth: 0 });
     else o.set({ stroke: theme().accent, strokeWidth: 3 });
     c.requestRenderAll(); capture(); sync();
+  }
+  function applyQuickStyle(id: string) {
+    const c = fabricRef.current; const o = c?.getActiveObject() as any;
+    if (!c || !o) return;
+    const st = QUICK_STYLES.find((s) => s.id === id); if (!st) return;
+    st.apply(o, theme().accent); c.requestRenderAll(); capture(); sync();
   }
   function setObjAnimOrder(v: number) {
     const c = fabricRef.current; const o = c?.getActiveObject() as any;
@@ -1074,6 +1082,9 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
             )}
             <RibbonSeparator />
             <RibbonGroup label="Estilo de forma">
+              <RibbonMenuButton icon={Sparkles} label="Estilos rápidos" menuWidth={284}>
+                <QuickStyleGallery accent={theme().accent} onPick={applyQuickStyle} />
+              </RibbonMenuButton>
               <RibbonColorButton icon={PaintBucket} title="Color de relleno" onChange={setColor} swatchBar={false} />
               <RibbonButton icon={Blend} label="Degradado" onClick={applyGradient} />
               <RibbonButton icon={Droplet} label="Sombra" onClick={toggleShadow} />
