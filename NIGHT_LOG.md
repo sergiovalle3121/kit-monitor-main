@@ -1406,6 +1406,12 @@ Backends sin ningún consumidor en `apps/web` (detectados): `/replenishment`,
   de kit/WO: pendientes con **Aceptar/Rechazar** (`PATCH /:id/respond`, con
   confirmación porque Aceptar cancela el kit) + historial reciente con estatus.
   Reutiliza `/pending` y `/recent`. → Falta wiring de navegación (abajo).
+- **(commit) Página `dashboard/visual-aids`** (backend `/visual-aids/*` sin UI) —
+  visor de **instrucciones de trabajo (PDF)** por modelo/proceso: lista
+  (`/visual-aids`) con título, **badge de modelo**, proceso/área, revisión y
+  estatus + búsqueda; botón **Ver PDF** que baja el archivo autenticado como blob
+  y lo abre (object URL, a prueba de bloqueo de popups). Valor MES directo para el
+  operador. → Falta wiring de navegación (abajo).
 - `tsc` + `eslint` (web) verdes.
 
 ## PENDIENTE: wiring de navegación (para que el dueño lo conecte en hub/paleta)
@@ -1423,15 +1429,16 @@ Backends sin ningún consumidor en `apps/web` (detectados): `/replenishment`,
 - **`/dashboard/cancellation-requests`** — "Solicitudes de cancelación" (aprobar/
   rechazar cancelación de kit/WO). Sugerencia: dominio Producción, ícono `Ban`.
   Cmd-K: "Cancelaciones", "Solicitudes de cancelación".
+- **`/dashboard/visual-aids`** — "Ayudas visuales" (instrucciones de trabajo PDF
+  por modelo). Sugerencia: dominio Ingeniería, ícono `FileText`. Cmd-K: "Ayudas
+  visuales", "Instrucciones de trabajo", "Work instructions".
 
 ## Backends sin UI evaluados pero NO construidos (oportunidades futuras)
 Construí UI para los que eran claros y de alto valor (receiving, suppliers,
 warehouse, cancellation-requests). Estos los evalué y **deferí a propósito**:
-- **`/visual-aids`** — instrucciones de trabajo del operador en **PDF binario**
-  (`pdf_data` BINARY, `GET /visual-aids/file/:filename`). Valioso, pero ver el PDF
-  requiere fetch autenticado a blob + `URL.createObjectURL` en iframe (el endpoint
-  va con JWT en header; un `<iframe src>` directo daría 401). Complejidad/riesgo
-  de un visor a medias → mejor hacerlo con calidad en una iteración dedicada.
+- **`/visual-aids`** — **→ CONSTRUIDO** (ver ítem #6). Resolví el PDF autenticado
+  con fetch a blob + `URL.createObjectURL` (abriendo la pestaña en el gesto para
+  no chocar con el bloqueo de popups), el patrón seguro del codebase.
 - **`/resupplies`** — flujo de resurtido con `deliver/owner/status`. Riesgo de
   **sentirse duplicado** con las llamadas de resurtido de `material-staging`
   (kanban por estación). Conviene aclarar la diferencia conceptual antes de darle
