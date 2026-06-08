@@ -1434,5 +1434,17 @@ Backends sin ningún consumidor en `apps/web` (detectados): `/replenishment`,
 - **NO toqué:** Office (`components/office/**`, `app/dashboard/office/**`,
   `lib/office/**`), el hub (`app/dashboard/page.tsx`) ni la paleta
   (`SearchPalette.tsx`). NO mergeé a `main`.
-- **Acción del dueño:** wiring de navegación de `/dashboard/receiving` y
-  `/dashboard/suppliers` (arriba) + revisar/mergear el PR.
+- **Auto-revisión (code-review adversarial del diff) — 3 hallazgos, corregidos:**
+  1. `receiving.service.ts`: el *fallback* del folio (`count+1`) no estaba
+     sincronizado con el contador atómico → en una falla de `allocate()` podía
+     regenerar un folio ya emitido (borrados/cambio de año) y romper el `unique`.
+     **Fix:** fallback ahora es un folio único por timestamp+aleatorio con marca
+     `F` (forma distinta al secuencial → nunca colisiona). Re-build + smoke ✅.
+  2. `inventory/page.tsx`: en Movimientos/Resurtido el estado vacío se medía con
+     el arreglo SIN filtrar pero se renderizaba el filtrado → una búsqueda sin
+     coincidencias dejaba un panel en blanco. **Fix:** usar `movRows`/`ruleRows`
+     + mensaje según si hay búsqueda.
+  3. `suppliers/page.tsx`: el mapa de estatus omitía `restricted` (sí emitido) y
+     listaba `hold` (no emitido). **Fix:** alineado con la entidad.
+- **Acción del dueño:** wiring de navegación de `/dashboard/receiving`,
+  `/dashboard/suppliers` y `/dashboard/warehouse` (arriba) + revisar/mergear el PR.

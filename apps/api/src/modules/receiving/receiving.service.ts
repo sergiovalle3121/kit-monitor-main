@@ -26,16 +26,18 @@ export class ReceivingService {
 
   /**
    * Folio atómico vía DocumentNumberingService (docType GOODS_RECEIPT → conserva
-   * el formato `REC-YYYY-NNNN`). Si la asignación falla, cae al esquema previo
-   * basado en conteo para que un recibo nunca se quede sin folio.
+   * el formato `REC-YYYY-NNNN`). Si la asignación falla, genera un folio único
+   * por timestamp+aleatorio con marca `F` — con forma distinta al secuencial
+   * para que NUNCA colisione con un folio ya emitido (un recibo no se queda sin
+   * folio y el `save` no rompe por la restricción unique).
    */
   private async nextReceiptNumber(): Promise<string> {
     try {
       return await this.numbering.allocate('GOODS_RECEIPT');
     } catch {
-      const count = await this.receivingRepo.count();
       const year = new Date().getFullYear();
-      return `REC-${year}-${(count + 1).toString().padStart(4, '0')}`;
+      const stamp = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+      return `REC-${year}-F${stamp}`.toUpperCase();
     }
   }
 

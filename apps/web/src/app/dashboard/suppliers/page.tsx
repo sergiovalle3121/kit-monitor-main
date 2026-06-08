@@ -15,10 +15,11 @@ interface Supplier {
   qualityScore?: number;
 }
 
+// Espejo de los estatus del backend (supplier.entity.ts: active/inactive/restricted).
 const STATUS_COLOR: Record<string, string> = {
   active: "#2ec27e",
   inactive: "#6b7280",
-  hold: "#f59e0b",
+  restricted: "#f59e0b",
   blocked: "#ef4444",
 };
 

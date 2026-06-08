@@ -171,8 +171,8 @@ export default function InventoryPage() {
           <Empty icon={<Lock className="w-6 h-6" />} title="Sin acceso al backend" body="Verifica que el servicio de API esté conectado." />
         ) : movLoading ? (
           <Spinner />
-        ) : movements.length === 0 ? (
-          <Empty icon={<Inbox className="w-6 h-6" />} title="Sin movimientos" body="Cada recibo de material, traslado o consumo en la línea aparecerá aquí como un movimiento con su referencia y operador." />
+        ) : movRows.length === 0 ? (
+          <Empty icon={<Inbox className="w-6 h-6" />} title={q ? "Sin coincidencias" : "Sin movimientos"} body={q ? "Ningún movimiento coincide con la búsqueda." : "Cada recibo de material, traslado o consumo en la línea aparecerá aquí como un movimiento con su referencia y operador."} />
         ) : (
           <>
             {/* Resumen del flujo recibo → consumo (en vivo, derivado del ledger) */}
@@ -217,8 +217,8 @@ export default function InventoryPage() {
             <Empty icon={<Lock className="w-6 h-6" />} title="Sin acceso al backend" body="Verifica que el servicio de API esté conectado." />
           ) : ruleLoading ? (
             <Spinner />
-          ) : rules.length === 0 ? (
-            <Empty icon={<Inbox className="w-6 h-6" />} title="Sin reglas de resurtido" body="Define puntos min-max por parte y almacén para disparar resurtidos. Aún no hay reglas configuradas." />
+          ) : ruleRows.length === 0 ? (
+            <Empty icon={<Inbox className="w-6 h-6" />} title={q ? "Sin coincidencias" : "Sin reglas de resurtido"} body={q ? "Ninguna regla coincide con la búsqueda." : "Define puntos min-max por parte y almacén para disparar resurtidos. Aún no hay reglas configuradas."} />
           ) : (
             <div className={`${glass} rounded-2xl p-2`}>
               <div className="divide-y divide-gray-100 dark:divide-white/5">
