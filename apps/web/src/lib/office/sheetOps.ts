@@ -606,7 +606,12 @@ export function toDate(value: any): Date | null {
     return new Date(Date.UTC(1899, 11, 30) + Math.round(value * 86400000));
   }
   if (typeof value === 'string') {
-    const s = value.trim(); if (!/\d/.test(s)) return null;
+    const s = value.trim();
+    // Solo intenta parsear cadenas con pinta de fecha/hora (evita "Item 1", "Q1"…).
+    const dateLike = /^\d{1,4}[-/.]\d{1,2}([-/.]\d{1,4})?(\s+\d{1,2}:\d{2}(:\d{2})?)?$/.test(s)
+      || /^\d{1,2}:\d{2}(:\d{2})?$/.test(s)
+      || /\d{4}-\d{2}-\d{2}T/.test(s);
+    if (!dateLike) return null;
     const t = Date.parse(s); if (!Number.isNaN(t)) return new Date(t);
   }
   return null;
@@ -862,3 +867,111 @@ export function applySparkline(sheet: any, dataRange: string, targetCell: string
   const v = ensureObj(cd); v.v = spark; v.m = spark; v.ct = { fa: 'General', t: 's' };
   return true;
 }
+
+// ── Rellenar series (autollenado) ─────────────────────────────────────────────
+const MONTHS_FILL = MONTHS_FULL;
+const WEEKDAYS_FILL = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'];
+const seqIndex = (seq: string[], val: string) => seq.indexOf(String(val).trim().toLowerCase());
+
+/** Continúa una serie a partir de la semilla y devuelve los `count` valores siguientes. */
+export function fillSeries(seed: any[], count: number): any[] {
+  const out: any[] = [];
+  if (count <= 0) return out;
+  const clean = seed.filter((v) => v != null && v !== '');
+  if (!clean.length) return out;
+
+  // 1) Numérica: progresión aritmética (paso = diferencia media o 1).
+  const nums = clean.map(toNumStrict);
+  if (nums.every((n) => n != null)) {
+    const ns = nums as number[];
+    let step = 1;
+    if (ns.length >= 2) { let s = 0; for (let i = 1; i < ns.length; i++) s += ns[i] - ns[i - 1]; step = s / (ns.length - 1); }
+    let last = ns[ns.length - 1];
+    for (let i = 0; i < count; i++) { last += step; out.push(Number.isInteger(step) && Number.isInteger(ns[0]) ? Math.round(last) : roundNice(last)); }
+    return out;
+  }
+
+  // 2) Meses / días de la semana (es).
+  for (const seq of [MONTHS_FILL, WEEKDAYS_FILL]) {
+    if (clean.every((v) => seqIndex(seq, v) >= 0)) {
+      let idx = seqIndex(seq, clean[clean.length - 1]);
+      const cap = /^[A-ZÁÉÍÓÚ]/.test(String(clean[clean.length - 1]));
+      for (let i = 0; i < count; i++) { idx = (idx + 1) % seq.length; const w = seq[idx]; out.push(cap ? w.charAt(0).toUpperCase() + w.slice(1) : w); }
+      return out;
+    }
+  }
+
+  // 3) Fechas (paso en días).
+  const dates = clean.map(toDate);
+  if (dates.every((d) => d != null)) {
+    const ds = dates as Date[];
+    let stepDays = 1;
+    if (ds.length >= 2) stepDays = Math.round((ds[ds.length - 1].getTime() - ds[0].getTime()) / 86400000 / (ds.length - 1)) || 1;
+    let last = ds[ds.length - 1].getTime();
+    const iso = (t: number) => new Date(t).toISOString().slice(0, 10);
+    for (let i = 0; i < count; i++) { last += stepDays * 86400000; out.push(iso(last)); }
+    return out;
+  }
+
+  // 4) Texto con número final ("Item 1" → "Item 2"…).
+  const m = /^(.*?)(\d+)\s*$/.exec(String(clean[clean.length - 1]));
+  if (m) {
+    let n = parseInt(m[2], 10);
+    for (let i = 0; i < count; i++) { n += 1; out.push(`${m[1]}${n}`); }
+    return out;
+  }
+
+  // 5) Repetir el patrón de la semilla.
+  for (let i = 0; i < count; i++) out.push(clean[i % clean.length]);
+  return out;
+}
+
+/** Rellena una serie a partir de un rango semilla hacia abajo o a la derecha. */
+export function applyFill(sheet: any, p: { seedRange: string; direction: 'down' | 'right'; count: number }): number {
+  const rng = parseRange(p.seedRange); if (!rng || !sheet) return 0;
+  sheet.celldata = sheet.celldata || [];
+  const map = new Map<string, Cell>();
+  for (const cd of sheet.celldata) map.set(`${cd.r}_${cd.c}`, cd);
+  const down = p.direction === 'down';
+  const lines = down ? (rng.c2 - rng.c1 + 1) : (rng.r2 - rng.r1 + 1);
+  let written = 0;
+  for (let li = 0; li < lines; li++) {
+    const seed: any[] = [];
+    if (down) { for (let r = rng.r1; r <= rng.r2; r++) seed.push(rawOf(map.get(`${r}_${rng.c1 + li}`) as any)); }
+    else { for (let c = rng.c1; c <= rng.c2; c++) seed.push(rawOf(map.get(`${rng.r1 + li}_${c}`) as any)); }
+    const next = fillSeries(seed, p.count);
+    next.forEach((val, i) => {
+      const r = down ? rng.r2 + 1 + i : rng.r1 + li;
+      const c = down ? rng.c1 + li : rng.c2 + 1 + i;
+      const t = typeof val === 'number' ? 'n' : 's';
+      let cd = map.get(`${r}_${c}`);
+      if (!cd) { cd = { r, c, v: null }; sheet.celldata.push(cd); map.set(`${r}_${c}`, cd); }
+      cd.v = { v: val, m: String(val), ct: { fa: 'General', t } };
+      written++;
+    });
+  }
+  return written;
+}
+
+// ── Transponer rango (pegado especial) ────────────────────────────────────────
+/** Copia un rango transponiendo filas↔columnas en una celda destino (preserva estilo). */
+export function transposeRange(sheet: any, srcRange: string, destCell: string): boolean {
+  const src = parseRange(srcRange); const dst = parseRange(destCell);
+  if (!src || !dst || !sheet) return false;
+  sheet.celldata = sheet.celldata || [];
+  const map = new Map<string, Cell>();
+  for (const cd of sheet.celldata) map.set(`${cd.r}_${cd.c}`, cd);
+  const writes: Cell[] = [];
+  for (let r = src.r1; r <= src.r2; r++) {
+    for (let c = src.c1; c <= src.c2; c++) {
+      const srcCd = map.get(`${r}_${c}`);
+      const nr = dst.r1 + (c - src.c1);
+      const nc = dst.c1 + (r - src.r1);
+      if (srcCd) writes.push({ r: nr, c: nc, v: clone(srcCd.v) });
+    }
+  }
+  const occupied = new Set(writes.map((w) => `${w.r}_${w.c}`));
+  sheet.celldata = [...sheet.celldata.filter((cd: Cell) => !occupied.has(`${cd.r}_${cd.c}`)), ...writes];
+  return true;
+}
+const clone = (x: any): any => (x == null ? x : JSON.parse(JSON.stringify(x)));

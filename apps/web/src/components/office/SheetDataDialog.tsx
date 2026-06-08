@@ -6,10 +6,11 @@ import { motion } from 'framer-motion';
 import { X, Plus, Trash2 } from 'lucide-react';
 import { AGG_LABEL, type AggFn, type SortKey } from '@/lib/office/sheetOps';
 
-export type DataMode = 'sort' | 'dedup' | 'split' | 'note' | 'subtotal' | 'spark';
+export type DataMode = 'sort' | 'dedup' | 'split' | 'note' | 'subtotal' | 'spark' | 'fill' | 'transpose';
 const TITLES: Record<DataMode, string> = {
   sort: 'Ordenar rango', dedup: 'Quitar duplicados', split: 'Texto en columnas',
   note: 'Nota de celda', subtotal: 'Subtotales', spark: 'Minigráfico (sparkline)',
+  fill: 'Rellenar serie', transpose: 'Transponer',
 };
 const AGGS: AggFn[] = ['sum', 'count', 'counta', 'avg', 'min', 'max'];
 
@@ -25,8 +26,11 @@ export function SheetDataDialog({
 }) {
   const [sheetIndex, setSheetIndex] = useState(0);
   const [range, setRange] = useState(
-    mode === 'note' ? 'A1' : mode === 'split' ? 'A1:A20' : mode === 'spark' ? 'A1:F1' : 'A1:D20',
+    mode === 'note' ? 'A1' : mode === 'split' ? 'A1:A20' : mode === 'spark' ? 'A1:F1'
+      : mode === 'fill' ? 'A1:A3' : mode === 'transpose' ? 'A1:B5' : 'A1:D20',
   );
+  const [direction, setDirection] = useState<'down' | 'right'>('down');
+  const [count, setCount] = useState(10);
   const [keys, setKeys] = useState<SortKey[]>([{ colRel: 0, order: 'asc' }]);
   const [hasHeader, setHasHeader] = useState(true);
   const [delimiter, setDelimiter] = useState(',');
@@ -45,6 +49,8 @@ export function SheetDataDialog({
     else if (mode === 'split') onApply('split', { range, sheetIndex, delimiter });
     else if (mode === 'subtotal') onApply('subtotal', { range, sheetIndex, groupColRel: groupCol - 1, valueColRels: parseCols(valueCols), fn, hasHeader });
     else if (mode === 'spark') onApply('spark', { dataRange: range, sheetIndex, cell: target, type: sparkType });
+    else if (mode === 'fill') onApply('fill', { seedRange: range, sheetIndex, direction, count });
+    else if (mode === 'transpose') onApply('transpose', { srcRange: range, sheetIndex, destCell: target });
     else onApply('note', { cell: range, sheetIndex, text });
   }
 
@@ -66,7 +72,7 @@ export function SheetDataDialog({
           </label>
         )}
 
-        <label className="block text-xs text-gray-500">{mode === 'note' ? 'Celda (A1)' : mode === 'spark' ? 'Rango de datos' : 'Rango (A1)'}
+        <label className="block text-xs text-gray-500">{mode === 'note' ? 'Celda (A1)' : mode === 'spark' ? 'Rango de datos' : mode === 'fill' ? 'Rango semilla' : mode === 'transpose' ? 'Rango origen' : 'Rango (A1)'}
           <input value={range} onChange={(e) => setRange(e.target.value)} placeholder={mode === 'note' ? 'B2' : 'A1:D20'} className={`${field} font-mono`} />
         </label>
 
@@ -136,6 +142,26 @@ export function SheetDataDialog({
             </div>
             <p className="text-[11px] text-gray-400">Crea un minigráfico unicode en la celda destino a partir de los números del rango.</p>
           </>
+        )}
+        {mode === 'fill' && (
+          <>
+            <div className="flex gap-2">
+              <label className="flex-1 text-xs text-gray-500">Dirección
+                <select value={direction} onChange={(e) => setDirection(e.target.value as any)} className={field}>
+                  <option value="down">Hacia abajo</option><option value="right">Hacia la derecha</option>
+                </select>
+              </label>
+              <label className="flex-1 text-xs text-gray-500">Cantidad
+                <input type="number" min={1} value={count} onChange={(e) => setCount(Math.max(1, Number(e.target.value)))} className={field} />
+              </label>
+            </div>
+            <p className="text-[11px] text-gray-400">Continúa la serie de la semilla: números, fechas, meses/días o texto con número final.</p>
+          </>
+        )}
+        {mode === 'transpose' && (
+          <label className="block text-xs text-gray-500">Celda destino (superior izq.)
+            <input value={target} onChange={(e) => setTarget(e.target.value)} placeholder="D1" className={`${field} font-mono`} />
+          </label>
         )}
         {mode === 'note' && (
           <label className="block text-xs text-gray-500">Texto de la nota

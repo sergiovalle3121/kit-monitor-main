@@ -164,6 +164,21 @@ completa, expresión regular (con aviso de regex inválida) y reemplazar todo.
 
 **Spec**: `findreplace.spec.ts` (11). Verde.
 
-**Total de aserciones de lógica pura: 116** (7 specs, `npx tsx`).
+### 8) Productividad: rellenar series y transponer  ✅
+`sheetOps.ts`:
+- `fillSeries(seed, count)` — continúa series: **aritméticas** (paso detectado),
+  **fechas** (paso en días), **meses/días** (es, respeta mayúscula), **texto con
+  número final** ("Item 1"→"Item 2"), o repite el patrón. `applyFill` rellena un
+  rango semilla hacia **abajo/derecha** por columnas/filas.
+- `transposeRange(sheet, src, dest)` — pegado especial **transponer** (preserva
+  estilo y valor).
+- Endurecido `toDate` para no confundir texto con números ("Item 1") con fechas.
+
+**UI**: `SheetDataDialog` con modos **Rellenar serie** (dirección + cantidad) y
+**Transponer** (celda destino). Ribbon: grupo «Rellenar y transponer» en Datos.
+
+**Spec**: `fill.spec.ts` (17). Verde.
+
+**Total de aserciones de lógica pura: 133** (8 specs, `npx tsx`).
 </content>
 </invoke>
