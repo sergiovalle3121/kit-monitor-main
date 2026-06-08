@@ -261,6 +261,14 @@ Verificado: `tsc` ✓, `eslint` ✓, `next build` ✓.
 
 Verificado: `tsc` ✓, `eslint` ✓, `next build` ✓.
 
+#### Lote 21 — Más SmartArt + borrar formato (backlog #4/#5)
+- SmartArt: +**Matriz** (2×2), **Diana** (anillos concéntricos) y **Escalera**
+  (pasos ascendentes) → 8 tipos en total.
+- **Borrar formato**: restablece sombra/borde/opacidad/tipografía al estilo del
+  tema en el objeto seleccionado.
+
+Verificado: `tsc` ✓, `eslint` ✓, `next build` ✓.
+
 ### Diferido (con estimación)
 - **Secciones en el clasificador** y colapsar/expandir: el sorter es una rejilla;
   insertar encabezados de ancho completo + colapso. Estimación: ~0.5 día.

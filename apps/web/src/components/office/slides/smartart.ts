@@ -7,7 +7,7 @@
  */
 import { Group, Rect, Circle, Line, Polygon, FabricText } from 'fabric';
 
-export type SmartKind = 'process' | 'cycle' | 'hierarchy' | 'list' | 'pyramid';
+export type SmartKind = 'process' | 'cycle' | 'hierarchy' | 'list' | 'pyramid' | 'matrix' | 'target' | 'stepUp';
 export interface SmartSpec { kind: SmartKind; items: string[] }
 
 export const SMART_PALETTE = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#7c3aed', '#ec4899', '#14b8a6', '#f97316'];
@@ -18,6 +18,9 @@ export const SMART_KINDS: { value: SmartKind; label: string; hint: string }[] = 
   { value: 'cycle', label: 'Ciclo', hint: 'Flujo circular' },
   { value: 'hierarchy', label: 'Jerarquía', hint: 'Organigrama' },
   { value: 'pyramid', label: 'Pirámide', hint: 'Niveles' },
+  { value: 'matrix', label: 'Matriz', hint: 'Cuadrantes 2×2' },
+  { value: 'target', label: 'Diana', hint: 'Anillos concéntricos' },
+  { value: 'stepUp', label: 'Escalera', hint: 'Pasos ascendentes' },
 ];
 
 export function defaultSmartSpec(): SmartSpec {
@@ -49,6 +52,9 @@ export function buildSmartArt(spec: SmartSpec, opts: Opts = {}): any {
     case 'cycle': cycle(items, kids, ctx); break;
     case 'hierarchy': hierarchy(items, kids, ctx); break;
     case 'pyramid': pyramid(items, kids, ctx); break;
+    case 'matrix': matrix(items, kids, ctx); break;
+    case 'target': target(items, kids, ctx); break;
+    case 'stepUp': stepUp(items, kids, ctx); break;
   }
 
   const g = new Group(kids, { subTargetCheck: false } as any);
@@ -149,6 +155,43 @@ function pyramid(items: string[], kids: any[], c: any) {
       { x: cx + w1 / 2, y: yBot }, { x: cx - w1 / 2, y: yBot },
     ], { fill: pal[i % pal.length], stroke: '#ffffff', strokeWidth: 2 } as any));
     kids.push(text(it, cx, yTop + levelH / 2, w1 - 16, Math.min(20, 14 + n), '#ffffff', font, true));
+  });
+}
+
+function matrix(items: string[], kids: any[], c: any) {
+  const { W, H, font, pal } = c;
+  const cells = items.slice(0, 4);
+  while (cells.length < 4) cells.push('');
+  const gap = 8, cw = (W - gap) / 2, chh = (H - gap) / 2;
+  cells.forEach((it, i) => {
+    const cx = (i % 2) * (cw + gap), cy = Math.floor(i / 2) * (chh + gap);
+    kids.push(new Rect({ left: cx, top: cy, width: cw, height: chh, fill: pal[i % pal.length], rx: 12, ry: 12 }));
+    kids.push(text(it, cx + cw / 2, cy + chh / 2, cw - 20, sizeFor(it, cw), '#ffffff', font, true));
+  });
+}
+
+function target(items: string[], kids: any[], c: any) {
+  const { W, H, font, pal } = c;
+  const n = Math.max(1, items.length);
+  const cx = W / 2, cy = H / 2, maxR = Math.min(W, H) / 2 - 6;
+  for (let i = 0; i < n; i++) {
+    const r = (maxR * (n - i)) / n;
+    kids.push(new Circle({ left: cx, top: cy, radius: r, fill: pal[i % pal.length], stroke: '#ffffff', strokeWidth: 2, originX: 'center', originY: 'center' }));
+  }
+  items.forEach((it, i) => {
+    const r = (maxR * (n - i)) / n, bandTop = cy - r + ((maxR / n) / 2);
+    kids.push(new FabricText(String(it), { left: cx, top: bandTop, fontSize: Math.min(15, (maxR / n) * 0.5), fill: '#ffffff', fontFamily: font, fontWeight: 'bold', originX: 'center', originY: 'center' }));
+  });
+}
+
+function stepUp(items: string[], kids: any[], c: any) {
+  const { W, H, font, pal } = c;
+  const n = Math.max(1, items.length);
+  const sw = W / n;
+  items.forEach((it, i) => {
+    const h = (H * (i + 1)) / n, top = H - h, x = i * sw;
+    kids.push(new Rect({ left: x, top, width: sw - 6, height: h, fill: pal[i % pal.length], rx: 8, ry: 8 }));
+    kids.push(text(it, x + (sw - 6) / 2, top + h / 2, sw - 16, sizeFor(it, sw), '#ffffff', font, true));
   });
 }
 

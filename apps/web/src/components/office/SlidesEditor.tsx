@@ -382,6 +382,13 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
     const st = QUICK_STYLES.find((s) => s.id === id); if (!st) return;
     st.apply(o, theme().accent); c.requestRenderAll(); capture(); sync();
   }
+  function resetFormat() {
+    const c = fabricRef.current; const o = c?.getActiveObject() as any; if (!c || !o) return;
+    o.set({ shadow: null, stroke: null, strokeWidth: 0, opacity: 1, paintFirst: 'fill' });
+    if (isText(o)) o.set({ fontWeight: 'normal', fontStyle: 'normal', underline: false, charSpacing: 0, lineHeight: 1.16, fill: theme().text });
+    else if (o.type !== 'image' && o.type !== 'group') o.set('fill', theme().accent);
+    c.requestRenderAll(); capture(); sync();
+  }
   function startEyedropper() {
     const c = fabricRef.current; const o = c?.getActiveObject();
     if (!c || !o) { window.alert('Selecciona primero la forma o el texto a colorear.'); return; }
@@ -1220,6 +1227,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
               )}
               <RibbonButton icon={Paintbrush} label="Copiar formato" onClick={copyFormat} />
               <RibbonButton icon={Stamp} label="Pegar formato" onClick={pasteFormat} />
+              <RibbonButton icon={Eraser} label="Borrar formato" onClick={resetFormat} />
             </RibbonGroup>
             {hasSel && (
               <>
