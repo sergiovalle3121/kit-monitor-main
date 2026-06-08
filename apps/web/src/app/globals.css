@@ -230,6 +230,28 @@
   }
 }
 
+/* --- Fondo "aurora" (estilo Apple) --- */
+/* Tintes pastel muy tenues en las esquinas sobre base casi blanca; en oscuro,
+   misma idea a ~.10 sobre #0b0b0f. Usado por <AuroraBackground/> (fixed -z-10).
+   Variante oscura por prefers-color-scheme (como el resto de la app). */
+.aurora-bg {
+  background:
+    radial-gradient(1100px 620px at 12% -8%, rgba(124, 92, 255, 0.16), transparent 60%),
+    radial-gradient(1000px 560px at 100% 0%, rgba(10, 132, 255, 0.14), transparent 55%),
+    radial-gradient(900px 600px at 50% 120%, rgba(46, 194, 126, 0.12), transparent 55%),
+    #f6f6fb;
+}
+
+@media (prefers-color-scheme: dark) {
+  .aurora-bg {
+    background:
+      radial-gradient(1100px 620px at 12% -8%, rgba(124, 92, 255, 0.1), transparent 60%),
+      radial-gradient(1000px 560px at 100% 0%, rgba(10, 132, 255, 0.1), transparent 55%),
+      radial-gradient(900px 600px at 50% 120%, rgba(46, 194, 126, 0.1), transparent 55%),
+      #0b0b0f;
+  }
+}
+
 /* --- Degradado de texto sutil (palabra "gris" del título de la landing) --- */
 /* Slate -> índigo suave: añade vida sin saturar. */
 .text-gradient-title {
