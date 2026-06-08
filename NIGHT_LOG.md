@@ -1288,5 +1288,27 @@ funcional de lo que parecía**; el bloqueo real era el acceso del owner (Bloque 
   sirven de puente. *Notas al pie* y *ecuaciones* requieren paquetes extra
   (KaTeX/Pro); diferidas para no desbalancear la noche entre las 3 apps + Track B.
 
+### A2 — Hojas: profundidad tipo Excel
+> Se **conserva la toolbar nativa de Fortune-Sheet** (formato de celda). El ribbon
+> AXOS expone lo que FS no da fácil. Operaciones puras nuevas en
+> `lib/office/sheetOps.ts` (sin deps nuevas).
+- **Formato condicional avanzado** (`SheetTools` reescrito + `applyConditional`):
+  comparación, **escala de 2/3 colores**, **superior/inferior N**, **duplicados**,
+  **conjunto de iconos** (semáforo/flechas/triángulos) y **limpiar** rango.
+- **Asistente de funciones** (`SheetFunctionWizard`): 6 categorías
+  (matemáticas/estadística/lógica/texto/fecha/búsqueda) con sintaxis y ayuda;
+  inserta `=FUNC(` en la celda activa vía ref de FS (o copia al portapapeles).
+- **Buscar y reemplazar** (`SheetFindReplace`): conteo en vivo, lista de
+  direcciones (hoja!A1) y reemplazar todo (`findMatches`/`replaceAll`).
+- **Ordenar** (asc/desc por columna), **quitar duplicados**, **texto en
+  columnas** (`SheetDataDialog` + `sortRange`/`removeDuplicates`/`textToColumns`).
+- **Notas de celda** (`setCellNote` → `ps` de FS).
+- **Inmovilizar flexible**: fila/columna/ambas + **hasta una celda** (rangeBoth).
+- **Gráficas** (`SheetCharts` + `charts.ts`): tipos nuevos (área, radar, polar),
+  **edición** de gráficas existentes, **leyenda** (posición), **paleta** (5) y
+  **apilado**; controladores Chart.js registrados (radar/polar/área/relleno).
+- **Tablas dinámicas (pivot):** NO se fuerzan — Fortune-Sheet no las trae de forma
+  estable. Documentado como **motivo principal del spike de Univer** (Track B).
+
 ### Estado: build web ✅ · lint web ✅ · tsc ✅
-### Pendiente: A2 (Hojas), A3 (Slides), A4 (pulido), Track B.
+### Pendiente: A3 (Slides), A4 (pulido), Track B.
