@@ -1006,3 +1006,53 @@ export function resolveNamedRange(input: string, names: NamedRange[], fallbackSh
   if (parseRange(t)) return { range: t, sheetIndex: fallbackSheet };
   return null;
 }
+
+// ── Impresión / diseño de impresión ───────────────────────────────────────────
+export interface PrintOpts {
+  range?: string; title?: string; header?: string; footer?: string;
+  orientation?: 'portrait' | 'landscape'; gridlines?: boolean; fitToWidth?: boolean;
+}
+const escHtml = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] as string));
+
+/** Genera un documento HTML imprimible del área indicada (respeta valores y estilos básicos). */
+export function buildPrintHtml(sheet: any, opts: PrintOpts = {}): string {
+  const rangeStr = opts.range && parseRange(opts.range) ? opts.range : (usedRange(sheet) || 'A1:A1');
+  const rng = parseRange(rangeStr)!;
+  const map = new Map<string, any>();
+  for (const cd of sheet?.celldata ?? []) map.set(`${cd.r}_${cd.c}`, cd.v);
+  const align = (ht: any) => (ht === 1 ? 'left' : ht === 2 ? 'right' : ht === 0 ? 'center' : '');
+  const gl = opts.gridlines !== false;
+  let body = '';
+  for (let r = rng.r1; r <= rng.r2; r++) {
+    body += '<tr>';
+    for (let c = rng.c1; c <= rng.c2; c++) {
+      const v = map.get(`${r}_${c}`);
+      const obj = v && typeof v === 'object' ? v : null;
+      const raw = obj ? (obj.m ?? obj.v ?? '') : (v ?? '');
+      const st: string[] = [];
+      if (obj?.bg) st.push(`background:${obj.bg}`);
+      if (obj?.fc) st.push(`color:${obj.fc}`);
+      if (obj?.bl) st.push('font-weight:600');
+      if (obj?.it) st.push('font-style:italic');
+      const a = align(obj?.ht); if (a) st.push(`text-align:${a}`);
+      else if (typeof (obj?.v) === 'number') st.push('text-align:right');
+      body += `<td style="${st.join(';')}">${escHtml(String(raw))}</td>`;
+    }
+    body += '</tr>';
+  }
+  const titleHtml = opts.title ? `<h1>${escHtml(opts.title)}</h1>` : '';
+  const headerHtml = opts.header ? `<div class="hf header">${escHtml(opts.header)}</div>` : '';
+  const footerHtml = opts.footer ? `<div class="hf footer">${escHtml(opts.footer)}</div>` : '';
+  const border = gl ? '1px solid #cbd5e1' : 'none';
+  return `<!doctype html><html><head><meta charset="utf-8"><title>${escHtml(opts.title || 'Impresión')}</title>
+<style>
+@page { size: A4 ${opts.orientation === 'landscape' ? 'landscape' : 'portrait'}; margin: 14mm; }
+* { box-sizing: border-box; }
+body { font-family: -apple-system, Segoe UI, Roboto, sans-serif; color: #111; margin: 0; }
+h1 { font-size: 18px; margin: 0 0 8px; }
+.hf { color: #64748b; font-size: 11px; padding: 4px 0; }
+.footer { border-top: 1px solid #e2e8f0; margin-top: 8px; }
+table { border-collapse: collapse; ${opts.fitToWidth ? 'width:100%;' : ''} font-size: 12px; }
+td { border: ${border}; padding: 3px 6px; white-space: nowrap; vertical-align: top; }
+</style></head><body>${headerHtml}${titleHtml}<table>${body}</table>${footerHtml}</body></html>`;
+}

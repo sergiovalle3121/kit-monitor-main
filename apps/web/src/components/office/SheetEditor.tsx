@@ -5,7 +5,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { Workbook } from '@fortune-sheet/react';
 import '@fortune-sheet/react/dist/index.css';
-import { ListChecks, Palette, Snowflake, FileText, Sigma, Search, ArrowDownUp, CopyMinus, Columns3, StickyNote, Table2, Hash, Rows3, Activity, ArrowDownToLine, FlipVertical2, Tag } from 'lucide-react';
+import { ListChecks, Palette, Snowflake, FileText, Sigma, Search, ArrowDownUp, CopyMinus, Columns3, StickyNote, Table2, Hash, Rows3, Activity, ArrowDownToLine, FlipVertical2, Tag, Printer } from 'lucide-react';
 import { SheetCharts } from './SheetCharts';
 import { SheetTools, type ValidationPayload } from './SheetTools';
 import { SheetFunctionWizard } from './SheetFunctionWizard';
@@ -14,8 +14,9 @@ import { SheetDataDialog, type DataMode } from './SheetDataDialog';
 import { SheetPivot } from './SheetPivot';
 import { SheetFormatDialog, type NumberFmtPayload, type StylePayload } from './SheetFormatDialog';
 import { SheetNameManager } from './SheetNameManager';
+import { SheetPrintDialog } from './SheetPrintDialog';
 import { parseRange, type ChartConfig } from '@/lib/office/charts';
-import { applyConditional, sortRangeMulti, removeDuplicates, textToColumns, setCellNote, replaceAll, buildPivot, pivotToCelldata, applyNumberFormat, applyCellStyle, applySubtotals, applySparkline, applyFill, transposeRange, colName, type CondPayload, type PivotConfig, type FindOpts, type NamedRange } from '@/lib/office/sheetOps';
+import { applyConditional, sortRangeMulti, removeDuplicates, textToColumns, setCellNote, replaceAll, buildPivot, pivotToCelldata, applyNumberFormat, applyCellStyle, applySubtotals, applySparkline, applyFill, transposeRange, buildPrintHtml, usedRange, colName, type CondPayload, type PivotConfig, type FindOpts, type NamedRange, type PrintOpts } from '@/lib/office/sheetOps';
 import { OfficeRibbon, RibbonTab, RibbonGroup, RibbonSeparator, RibbonButton, RibbonMenuButton } from './ribbon';
 
 // Content is either the legacy bare sheet array or the new { sheets, charts } shape.
@@ -45,6 +46,7 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
   const namesRef = useRef<NamedRange[]>(namesOf(value));
   const [names, setNames] = useState<NamedRange[]>(namesRef.current);
   const [showNames, setShowNames] = useState(false);
+  const [showPrint, setShowPrint] = useState(false);
   const [tool, setTool] = useState<null | 'validation' | 'condformat'>(null);
   const [dataMode, setDataMode] = useState<DataMode | null>(null);
   const [showWizard, setShowWizard] = useState(false);
@@ -56,10 +58,11 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
 
-  // Ctrl/⌘+F abre buscar y reemplazar (coherente con Docs).
+  // Atajos: Ctrl/⌘+F buscar y reemplazar; Ctrl/⌘+P imprimir.
   useEffect(() => {
-    if (readOnly) return;
     const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'p') { e.preventDefault(); setShowPrint(true); return; }
+      if (readOnly) return;
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') { e.preventDefault(); setShowFind(true); }
     };
     window.addEventListener('keydown', onKey);
@@ -181,6 +184,18 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
   }
   function insertNameRef(ref: string) {
     if (!insertIntoCell(ref)) navigator.clipboard?.writeText(ref).catch(() => {});
+  }
+
+  const printHtml = useCallback((sheetIndex: number, opts: PrintOpts) => {
+    const sheet = sheetsRef.current[sheetIndex] ?? sheetsRef.current[0];
+    return sheet ? buildPrintHtml(sheet, opts) : '<p>Hoja vacía.</p>';
+  }, []);
+  function doPrint(html: string) {
+    setShowPrint(false);
+    const w = window.open('', '_blank');
+    if (!w) { window.alert('Permite las ventanas emergentes para imprimir.'); return; }
+    w.document.open(); w.document.write(html); w.document.close(); w.focus();
+    window.setTimeout(() => { try { w.print(); } catch { /* el usuario puede imprimir manualmente */ } }, 300);
   }
 
   function doReplaceAll(query: string, replacement: string, opts: FindOpts): number {
@@ -306,6 +321,11 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
             </RibbonGroup>
           </RibbonTab>
         )}
+        <RibbonTab id="layout" label="Diseño de página">
+          <RibbonGroup label="Imprimir">
+            <RibbonButton icon={Printer} label="Imprimir / vista previa" shortcut="Ctrl+P" hideLabel={false} onClick={() => setShowPrint(true)} />
+          </RibbonGroup>
+        </RibbonTab>
         {!readOnly && (
           <RibbonTab id="formulas" label="Fórmulas">
             <RibbonGroup label="Biblioteca de funciones">
@@ -379,6 +399,17 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
             onRemove={removeName}
             onInsert={(ref) => { insertNameRef(ref); setShowNames(false); }}
             onClose={() => setShowNames(false)}
+          />
+        )}
+        {showPrint && (
+          <SheetPrintDialog
+            sheetNames={sheetNames()}
+            defaultSheetIndex={activeIndex()}
+            defaultRange={usedRange(sheetsRef.current[activeIndex()]) ?? ''}
+            defaultTitle={sheetNames()[activeIndex()] ?? ''}
+            getHtml={printHtml}
+            onPrint={doPrint}
+            onClose={() => setShowPrint(false)}
           />
         )}
       </AnimatePresence>

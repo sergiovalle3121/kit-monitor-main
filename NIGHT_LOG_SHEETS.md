@@ -193,6 +193,17 @@ contenido; `SheetEditor` lo serializa). Ribbon: **Fórmulas → Administrador de
 
 **Spec**: `names.spec.ts` (12). Verde.
 
-**Total de aserciones de lógica pura: 145** (9 specs, `npx tsx`).
+### 10) Impresión / diseño de página  ✅
+`sheetOps.ts`: `buildPrintHtml(sheet, opts)` — documento HTML imprimible del **área
+de impresión** (rango o área usada), con **encabezado/pie**, **título**,
+**orientación** (vertical/horizontal), **líneas de cuadrícula** y **ajustar al ancho**;
+conserva valores y estilos básicos (fondo, color, negrita, alineación) y **escapa HTML**.
+`SheetPrintDialog.tsx`: opciones + **vista previa** en iframe (`srcDoc`). Atajo
+**Ctrl/⌘+P** y pestaña **Diseño de página → Imprimir** (disponible también en solo
+lectura). `doPrint` abre ventana y lanza `print()`.
+
+**Spec**: `print.spec.ts` (9). Verde.
+
+**Total de aserciones de lógica pura: 154** (10 specs, `npx tsx`).
 </content>
 </invoke>
