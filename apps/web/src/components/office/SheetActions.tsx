@@ -22,10 +22,10 @@ export function SheetActions({
   // Content is either the legacy sheet array or the new { sheets, charts } shape.
   const sheetsOf = (v: any): any[] => (Array.isArray(v) ? v : (Array.isArray(v?.sheets) ? v.sheets : []));
 
-  async function doExport(fmt: 'xlsx' | 'csv') {
+  async function doExport(fmt: 'xlsx' | 'csv', delimiter = ',') {
     setOpen(false);
     setBusy(true);
-    try { await exportSheets(sheetsOf(content), title || 'hoja', fmt); }
+    try { await exportSheets(sheetsOf(content), title || 'hoja', fmt, { delimiter }); }
     catch { /* ignore */ }
     finally { setBusy(false); }
   }
@@ -67,7 +67,9 @@ export function SheetActions({
                 className="absolute right-0 mt-1 z-20 w-44 rounded-xl border border-black/10 dark:border-white/10 bg-white dark:bg-[#1a1a1a] shadow-xl p-1"
               >
                 <MenuItem onClick={() => doExport('xlsx')} label="Excel (.xlsx)" />
-                <MenuItem onClick={() => doExport('csv')} label="CSV (.csv)" />
+                <MenuItem onClick={() => doExport('csv', ',')} label="CSV (coma)" />
+                <MenuItem onClick={() => doExport('csv', ';')} label="CSV (punto y coma)" />
+                <MenuItem onClick={() => doExport('csv', '\t')} label="CSV (tabulación)" />
               </motion.div>
             </>
           )}
