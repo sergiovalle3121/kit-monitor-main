@@ -20,7 +20,7 @@ import {
   List, IndentIncrease, IndentDecrease, MoveHorizontal, AlignVerticalSpaceAround, Sparkles, Search,
   Pointer, Pencil, Eraser, Moon, ListTree, Layers,
   ZoomIn, ZoomOut, Maximize, Scan, MousePointerClick, Check,
-  AlignHorizontalSpaceAround, Paintbrush, Stamp, Proportions, FolderPlus, Squircle,
+  AlignHorizontalSpaceAround, Paintbrush, Stamp, Proportions, FolderPlus, Squircle, Pipette,
 } from 'lucide-react';
 import { SlideSorter } from './SlideSorter';
 import { SlideIconPicker } from './SlideIconPicker';
@@ -115,6 +115,11 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
   const [drawMode, setDrawMode] = useState(false);
   const [penColor, setPenColor] = useState('#ef4444');
   const [penWidth, setPenWidth] = useState(3);
+  const [eyedropper, setEyedropper] = useState(false);
+  const eyedropperRef = useRef(false);
+  const eyedropperTargetRef = useRef<any>(null);
+  const showGridRef = useRef(false);
+  useEffect(() => { eyedropperRef.current = eyedropper; }, [eyedropper]);
   const [cropping, setCropping] = useState(false);
   const croppingRef = useRef(false);
   const cropRefs = useRef<{ img: any; frame: any } | null>(null);
@@ -126,6 +131,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
   const ratioRef = useRef<string>(ratio);
   const ch = slideHeight(ratio);
   const [showGrid, setShowGrid] = useState(false);
+  useEffect(() => { showGridRef.current = showGrid; }, [showGrid]);
   const [showTemplates, setShowTemplates] = useState(false);
   const [zoom, setZoom] = useState(1);
   const stageRef = useRef<HTMLDivElement>(null);
@@ -346,6 +352,12 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
     const st = QUICK_STYLES.find((s) => s.id === id); if (!st) return;
     st.apply(o, theme().accent); c.requestRenderAll(); capture(); sync();
   }
+  function startEyedropper() {
+    const c = fabricRef.current; const o = c?.getActiveObject();
+    if (!c || !o) { window.alert('Selecciona primero la forma o el texto a colorear.'); return; }
+    eyedropperTargetRef.current = o; eyedropperRef.current = true; setEyedropper(true);
+    c.defaultCursor = 'crosshair';
+  }
   // Esquinas redondeadas (rectángulos): 0 = rectas; 'pill' = píldora.
   function setCorners(r: number | 'pill') {
     const c = fabricRef.current; const o = c?.getActiveObject() as any;
@@ -489,7 +501,25 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
       for (const other of canvas.getObjects()) { if (other === o) continue; const p = (other as any).getCenterPoint(); xs.push(p.x); ys.push(p.y); }
       for (const tx of xs) if (Math.abs(ctr.x - tx) < SNAP) { o.set('left', o.left + (tx - ctr.x)); guides.v.push(tx); break; }
       for (const ty of ys) if (Math.abs(ctr.y - ty) < SNAP) { o.set('top', o.top + (ty - ctr.y)); guides.h.push(ty); break; }
+      // Ajustar a la cuadrícula (cuando está visible) si no se enganchó a una guía.
+      if (showGridRef.current) { const G = 48; if (!guides.v.length) o.set('left', Math.round(o.left / G) * G); if (!guides.h.length) o.set('top', Math.round(o.top / G) * G); }
       o.setCoords();
+    });
+    // Cuentagotas: muestrea el color del píxel bajo el cursor y lo aplica.
+    canvas.on('mouse:down', (opt: any) => {
+      if (!eyedropperRef.current) return;
+      const target = eyedropperTargetRef.current; const ev = opt.e as MouseEvent;
+      eyedropperRef.current = false; setEyedropper(false); canvas.defaultCursor = 'default';
+      try {
+        const el = (canvas as any).lowerCanvasEl as HTMLCanvasElement;
+        const rect = el.getBoundingClientRect();
+        const bx = Math.round(((ev.clientX - rect.left) / rect.width) * el.width);
+        const by = Math.round(((ev.clientY - rect.top) / rect.height) * el.height);
+        const ctx2 = el.getContext('2d'); if (!ctx2) return;
+        const d = ctx2.getImageData(bx, by, 1, 1).data;
+        const hexv = `#${[d[0], d[1], d[2]].map((n) => n.toString(16).padStart(2, '0')).join('')}`;
+        if (target) { target.set(target.type === 'line' ? 'stroke' : 'fill', hexv); canvas.requestRenderAll(); capture(); sync(); }
+      } catch { window.alert('No se pudo muestrear el color (imagen externa sin CORS).'); }
     });
     const clearGuides = () => { if (guides.v.length || guides.h.length) { guides = { v: [], h: [] }; canvas.requestRenderAll(); } };
     canvas.on('mouse:up', clearGuides);
@@ -1164,6 +1194,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
                 <QuickStyleGallery accent={theme().accent} onPick={applyQuickStyle} />
               </RibbonMenuButton>
               <RibbonColorButton icon={PaintBucket} title="Color de relleno" onChange={setColor} swatchBar={false} />
+              <RibbonButton icon={Pipette} label="Cuentagotas (color del lienzo)" active={eyedropper} onClick={startEyedropper} />
               <RibbonButton icon={Blend} label="Degradado" onClick={applyGradient} />
               <RibbonButton icon={Droplet} label="Sombra" onClick={toggleShadow} />
               <RibbonButton icon={SquareDashed} label="Borde" onClick={toggleBorder} />

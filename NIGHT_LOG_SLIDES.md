@@ -227,6 +227,14 @@ Verificado: `tsc` ✓, `eslint` ✓, `next build` ✓.
 
 Verificado: `tsc` ✓, `eslint` ✓, `next build` ✓.
 
+#### Lote 17 — Cuentagotas + ajuste a cuadrícula (backlog #11/#5)
+- **Cuentagotas**: muestrea el color del píxel bajo el cursor (lee el backstore
+  del lienzo, robusto ante zoom/retina) y lo aplica al objeto seleccionado.
+- **Ajuste a la cuadrícula**: al mover con la cuadrícula visible, las formas se
+  enganchan a la rejilla de 48px (si no engancharon antes a una guía).
+
+Verificado: `tsc` ✓, `eslint` ✓, `next build` ✓.
+
 ### Diferido (con estimación)
 - **Secciones en el clasificador** y colapsar/expandir: el sorter es una rejilla;
   insertar encabezados de ancho completo + colapso. Estimación: ~0.5 día.
