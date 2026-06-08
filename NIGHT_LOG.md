@@ -10,6 +10,50 @@ archivos, decisiones, endpoints/pantallas, KPIs, siguiente paso / bloqueos.
 
 ---
 
+## 2026-06-08 — FIX PROD: REST del chat (doble /api) + auth auto-reparable
+
+> Rama `claude/fix-chat-rest-and-auth-selfheal` (sobre `origin/main` 41d1cf3).
+> Dos fixes chicos de producción.
+
+### Fix 1 — REST del chat respondía 404 (regresión de #254)
+- Causa: `@Controller('api/messaging')` + prefijo global `api` → se servía en
+  **`/api/api/messaging`**; tras #254 el frontend ya llama `/messaging/…`
+  (= `…/api/messaging`), así que dejaron de coincidir.
+- Fix (1 línea): `messaging.controller.ts` → `@Controller('messaging')`. Ahora se
+  sirve en `/api/messaging` como todos los demás. El namespace WS `/chat` no cambia.
+- **Verificado por mapa de rutas** (boot con `setGlobalPrefix('api')`): las 11
+  rutas quedan en `/api/messaging/...` (single). `chatApi.ts` ya usa `/messaging/…`
+  (incl. `fetchImageBlob`); 0 referencias a `api/messaging` fuera del decorador.
+  Post-deploy: confirmar en vivo abrir chat → listar → enviar texto e imagen (REST)
+  y que llega por WS.
+- **Hallazgo aparte (NO tocado, requiere verificar callers):** otros 5 controllers
+  conservan el patrón `@Controller('api/…')` → `/api/api/…`: `seed`, `users`,
+  `roles`, `plants` (módulo auth) y `accounting`. No tienen callers directos en
+  `apps/web` (se llegan vía rutas proxy de Next / tooling admin), por eso NO se
+  cambiaron aquí: cada uno necesita validar su caller antes de "arreglarlo" para
+  no romper el emparejamiento (mismo riesgo inverso que tuvo el chat).
+
+### Fix 2 — sesión atrapada en "Sin acceso al backend" con token viejo
+- Causa: si el token guardado no está expirado y trae `role`, `initAuth` lo usaba
+  sin revalidar; si el `JWT_SECRET` rotó, el backend daba 401 y la UI quedaba
+  pegada (nunca re-canjeaba).
+- Fix (solo frontend, aditivo):
+  1. **`apiFetch.ts`** ahora auto-repara: ante 401/403 del backend re-canjea el
+     token vía `/api/backend/token` (singleton en vuelo, sin estampida) y
+     **reintenta la petición original UNA vez**. Cubre `useApi` y los `apiFetch`
+     de escritura. No reintenta el propio bridge (evita recursión).
+  2. **`AuthContext.initAuth`** valida el token guardado contra `GET /auth/me`;
+     si responde 401/403 lo descarta y re-canjea por el bridge antes de marcar la
+     sesión lista. Error de red → conserva el token (lo cubre el self-heal del
+     fetch). Se mantiene el bridge y `requireRole` para tokens legacy.
+- **Verificado:** web `tsc`/`eslint`/`next build` en verde. La ruta de
+  auto-reparación (401 → re-bridge → retry) es determinista. Post-deploy: con un
+  token inválido en `localStorage`, abrir Planeación/Modelos y confirmar que la
+  app se recupera sola (sin logout manual) y que no hay bucles (máx. 1 reintento).
+- No se tocó env de Railway (`NEXT_PUBLIC_API_URL` sigue terminando en `/api`).
+
+---
+
 ## 2026-06-08 — GOLDEN PATH · FASE 5 + CIERRE: barrido anti-maqueta + recorrido probado 🏁
 
 > Rama `claude/sweet-hawking-UQaaU`. SIN auto-merge a `main` (convención

@@ -17,7 +17,7 @@ import type { Response } from 'express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { MessagingService } from './messaging.service';
 
-@Controller('api/messaging')
+@Controller('messaging')
 @UseGuards(JwtAuthGuard)
 export class MessagingController {
   constructor(private readonly messaging: MessagingService) {}

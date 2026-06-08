@@ -118,29 +118,51 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    const initAuth = async () => {
-      const token = localStorage.getItem('axos_access_token');
+    const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000').replace(/\/$/, '');
 
-      if (token && applyToken(token, { requireRole: true })) {
-        setIsLoading(false);
-        return;
-      }
-      localStorage.removeItem('axos_access_token');
-
-      // No valid backend token yet. If the user has a frontend session, bridge
-      // it to a backend JWT so data calls become authenticated. Best-effort:
-      // a failure here never blocks the app (it just stays in "sin acceso").
+    // Exchange the frontend cookie session for a fresh backend JWT. Best-effort:
+    // a failure never blocks the app (it just stays in "sin acceso").
+    const bridge = async (): Promise<boolean> => {
       try {
         const res = await fetch('/api/backend/token', { cache: 'no-store' });
         if (res.ok) {
           const data = await res.json();
-          if (data?.access_token) applyToken(data.access_token);
+          if (data?.access_token) return applyToken(data.access_token);
         }
       } catch {
         /* backend unreachable — leave unauthenticated */
-      } finally {
-        setIsLoading(false);
       }
+      return false;
+    };
+
+    const initAuth = async () => {
+      const token = localStorage.getItem('axos_access_token');
+
+      if (token && applyToken(token, { requireRole: true })) {
+        // The token looks valid locally (not expired, carries a role), but the
+        // backend may reject it (e.g. JWT secret rotated on Railway). Confirm it
+        // with a cheap protected call; only on an explicit reject do we discard
+        // and re-bridge, so the user is never stuck on a stale token. A network
+        // error keeps the token (the data-layer self-heal will cover it).
+        try {
+          const check = await fetch(`${API_BASE}/auth/me`, {
+            headers: { Authorization: `Bearer ${token}` },
+            cache: 'no-store',
+          });
+          if (check.status === 401 || check.status === 403) {
+            localStorage.removeItem('axos_access_token');
+            await bridge();
+          }
+        } catch {
+          /* transient network error — keep the token */
+        }
+        setIsLoading(false);
+        return;
+      }
+
+      localStorage.removeItem('axos_access_token');
+      await bridge();
+      setIsLoading(false);
     };
 
     initAuth();
