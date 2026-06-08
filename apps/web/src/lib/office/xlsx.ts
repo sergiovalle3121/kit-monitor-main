@@ -1,86 +1,143 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * Bridge between Fortune-sheet's data model and SheetJS (`xlsx`, Apache-2.0)
- * for faithful .xlsx / .csv round-trips. `xlsx` is imported dynamically so the
- * ~900 KB engine only loads when the user actually imports/exports.
+ * Puente entre el modelo de Fortune-Sheet (celldata) y SheetJS (`xlsx`, Apache-2.0)
+ * para round-trips .xlsx / .csv de alta fidelidad: valores tipados, **fórmulas**,
+ * **formatos de número**, **combinaciones** y **anchos de columna**, en ambos
+ * sentidos. `xlsx` se importa dinámicamente (~900 KB) solo al importar/exportar.
+ *
+ * Nota de fidelidad: SheetJS (edición comunitaria) **no escribe estilos** (relleno,
+ * fuente, color) al .xlsx; sí conserva número-formato (`z`), fórmulas (`f`),
+ * combinaciones y anchos. Los estilos visuales se mantienen dentro de AXOS.
  */
 
+type FortuneCellV = { v?: any; m?: string; f?: string; ct?: { fa?: string; t?: string } } | any;
 type FortuneSheet = {
   name?: string;
   celldata?: { r: number; c: number; v: any }[];
-  row?: number;
-  column?: number;
-  order?: number;
-  config?: any;
-  status?: number;
+  row?: number; column?: number; order?: number; config?: any; status?: number;
 };
 
-/** Pull the concrete value out of a Fortune-sheet cell (which may be a `{v,m,ct}` object). */
-function cellValue(v: any): any {
+/** Valor concreto de una celda Fortune (objeto `{v,m,ct}` o primitivo). */
+export function cellValue(v: any): any {
   if (v === null || v === undefined) return null;
   if (typeof v === 'object') return v.v ?? v.m ?? null;
   return v;
 }
 
-function sheetToAoa(sheet: FortuneSheet): any[][] {
-  const aoa: any[][] = [];
-  for (const cell of sheet.celldata ?? []) {
-    const val = cellValue(cell.v);
-    if (val === null) continue;
-    (aoa[cell.r] ??= [])[cell.c] = val;
-  }
-  return aoa;
+// ── Mapeo puro de celda Fortune → celda SheetJS (sin dependencias) ────────────
+export interface XlsxCell { t: string; v?: any; f?: string; z?: string }
+export function cellToXlsx(cv: FortuneCellV): XlsxCell | null {
+  const raw = cellValue(cv);
+  const obj = cv && typeof cv === 'object' ? cv : null;
+  const f = obj?.f ? String(obj.f).replace(/^=/, '') : undefined;
+  const fa = obj?.ct?.fa;
+  const z = fa && fa !== 'General' ? fa : undefined;
+  let cell: XlsxCell;
+  if (typeof raw === 'number') cell = { t: 'n', v: raw };
+  else if (typeof raw === 'boolean') cell = { t: 'b', v: raw };
+  else if (raw == null) { if (!f) return null; cell = { t: 'n' }; }
+  else cell = { t: 's', v: String(raw) };
+  if (f) cell.f = f;
+  if (z) cell.z = z;
+  return cell;
 }
 
-function aoaToSheet(name: string, aoa: any[][], order: number): FortuneSheet {
-  const celldata: { r: number; c: number; v: any }[] = [];
-  let maxR = 0;
-  let maxC = 0;
-  aoa.forEach((row, r) => {
-    if (!row) return;
-    row.forEach((val, c) => {
-      if (val === null || val === undefined || val === '') return;
-      const t = typeof val === 'number' ? 'n' : typeof val === 'boolean' ? 'b' : 's';
-      celldata.push({ r, c, v: { v: val, m: String(val), ct: { fa: 'General', t } } });
-      maxR = Math.max(maxR, r);
-      maxC = Math.max(maxC, c);
-    });
-  });
-  return {
-    name: (name || 'Hoja').slice(0, 31),
-    celldata,
-    order,
-    row: Math.max(100, maxR + 10),
-    column: Math.max(26, maxC + 5),
-    config: {},
-    status: order === 0 ? 1 : 0,
-  };
+// ── Mapeo puro de celda SheetJS → valor Fortune ───────────────────────────────
+export function xlsxToFortuneV(cell: any): any {
+  if (!cell) return null;
+  const t = cell.t;
+  const v = cell.v;
+  const fa = cell.z && cell.z !== 'General' ? String(cell.z) : 'General';
+  const out: any = { v, m: cell.w != null ? String(cell.w) : (v != null ? String(v) : ''), ct: { fa, t: t === 'n' ? 'n' : t === 'b' ? 'b' : 's' } };
+  if (cell.f) out.f = `=${cell.f}`;
+  return out;
 }
 
 function download(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1500);
 }
-
 const safeName = (s: string) => (s || 'hoja').replace(/[^\p{L}\p{N} _-]/gu, '').trim() || 'hoja';
 
-export async function exportSheets(sheets: FortuneSheet[], title: string, format: 'xlsx' | 'csv') {
+// ── Fortune → worksheet SheetJS ───────────────────────────────────────────────
+export function fortuneToWs(XLSX: any, sheet: FortuneSheet): any {
+  const ws: any = {};
+  let maxR = 0, maxC = 0;
+  for (const cd of sheet.celldata ?? []) {
+    const cell = cellToXlsx(cd.v);
+    if (!cell) continue;
+    ws[XLSX.utils.encode_cell({ r: cd.r, c: cd.c })] = cell;
+    if (cd.r > maxR) maxR = cd.r; if (cd.c > maxC) maxC = cd.c;
+  }
+  ws['!ref'] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: maxR, c: maxC } });
+  // Anchos de columna (config.columnlen: { colIndex: px }).
+  const colLen = sheet.config?.columnlen;
+  if (colLen && typeof colLen === 'object') {
+    ws['!cols'] = Array.from({ length: maxC + 1 }, (_, c) => (colLen[c] ? { wpx: colLen[c] } : {}));
+  }
+  // Combinaciones (config.merge: { "r_c": { r, c, rs, cs } }).
+  const merge = sheet.config?.merge;
+  if (merge && typeof merge === 'object') {
+    const merges: any[] = [];
+    for (const k of Object.keys(merge)) {
+      const m = merge[k]; if (!m) continue;
+      merges.push({ s: { r: m.r, c: m.c }, e: { r: m.r + (m.rs || 1) - 1, c: m.c + (m.cs || 1) - 1 } });
+    }
+    if (merges.length) ws['!merges'] = merges;
+  }
+  return ws;
+}
+
+// ── worksheet SheetJS → Fortune ───────────────────────────────────────────────
+export function wsToFortune(XLSX: any, ws: any, name: string, order: number): FortuneSheet {
+  const ref = ws['!ref'] || 'A1';
+  const range = XLSX.utils.decode_range(ref);
+  const celldata: { r: number; c: number; v: any }[] = [];
+  let maxR = 0, maxC = 0;
+  for (let r = range.s.r; r <= range.e.r; r++) {
+    for (let c = range.s.c; c <= range.e.c; c++) {
+      const cell = ws[XLSX.utils.encode_cell({ r, c })];
+      if (!cell || (cell.v == null && !cell.f)) continue;
+      celldata.push({ r, c, v: xlsxToFortuneV(cell) });
+      if (r > maxR) maxR = r; if (c > maxC) maxC = c;
+    }
+  }
+  const config: any = {};
+  // Anchos de columna.
+  if (Array.isArray(ws['!cols'])) {
+    const columnlen: Record<number, number> = {};
+    ws['!cols'].forEach((col: any, i: number) => { const w = col?.wpx ?? (col?.wch ? Math.round(col.wch * 7) : null); if (w) columnlen[i] = Math.round(w); });
+    if (Object.keys(columnlen).length) config.columnlen = columnlen;
+  }
+  // Combinaciones.
+  if (Array.isArray(ws['!merges']) && ws['!merges'].length) {
+    const merge: Record<string, any> = {};
+    for (const m of ws['!merges']) { const r = m.s.r, c = m.s.c; merge[`${r}_${c}`] = { r, c, rs: m.e.r - m.s.r + 1, cs: m.e.c - m.s.c + 1 }; }
+    config.merge = merge;
+  }
+  return {
+    name: (name || 'Hoja').slice(0, 31), celldata, order,
+    row: Math.max(100, maxR + 10), column: Math.max(26, maxC + 5),
+    config, status: order === 0 ? 1 : 0,
+  };
+}
+
+export interface CsvOpts { delimiter?: string; bom?: boolean }
+export async function exportSheets(sheets: FortuneSheet[], title: string, format: 'xlsx' | 'csv', csv: CsvOpts = {}) {
   const XLSX = await import('xlsx');
   const wb = XLSX.utils.book_new();
   const list = sheets?.length ? sheets : [{ name: 'Hoja 1', celldata: [] }];
   list.forEach((s, i) => {
-    const ws = XLSX.utils.aoa_to_sheet(sheetToAoa(s));
+    const ws = fortuneToWs(XLSX, s);
     XLSX.utils.book_append_sheet(wb, ws, (s.name || `Hoja ${i + 1}`).slice(0, 31));
   });
   if (format === 'csv') {
-    const csv = XLSX.utils.sheet_to_csv(wb.Sheets[wb.SheetNames[0]]);
-    download(new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' }), `${safeName(title)}.csv`);
+    const text = XLSX.utils.sheet_to_csv(wb.Sheets[wb.SheetNames[0]], { FS: csv.delimiter || ',' });
+    const prefix = csv.bom === false ? '' : '﻿';
+    download(new Blob([prefix + text], { type: 'text/csv;charset=utf-8' }), `${safeName(title)}.csv`);
   } else {
     const out = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
     download(new Blob([out], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), `${safeName(title)}.xlsx`);
@@ -90,10 +147,7 @@ export async function exportSheets(sheets: FortuneSheet[], title: string, format
 export async function importSheets(file: File): Promise<FortuneSheet[]> {
   const XLSX = await import('xlsx');
   const buf = await file.arrayBuffer();
-  const wb = XLSX.read(buf, { type: 'array' });
-  const sheets = wb.SheetNames.map((name, i) => {
-    const aoa = XLSX.utils.sheet_to_json<any[]>(wb.Sheets[name], { header: 1, raw: true, defval: null });
-    return aoaToSheet(name, aoa as any[][], i);
-  });
-  return sheets.length ? sheets : [aoaToSheet('Hoja 1', [], 0)];
+  const wb = XLSX.read(buf, { type: 'array', cellFormula: true, cellNF: true, cellStyles: true });
+  const sheets = wb.SheetNames.map((name: string, i: number) => wsToFortune(XLSX, wb.Sheets[name], name, i));
+  return sheets.length ? sheets : [wsToFortune(XLSX, { '!ref': 'A1' }, 'Hoja 1', 0)];
 }

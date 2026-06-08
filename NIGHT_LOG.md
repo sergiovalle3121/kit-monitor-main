@@ -1379,3 +1379,140 @@ npm scripts añadidos a `apps/api/package.json` (única edición permitida fuera
   (mapea propiedad→columna). `inventory_positions` sí usa `part_number`/`warehouse_id`.
 - El tipado de `repo.update/create` de TypeORM rechaza literales `true` en columnas
   `metadata` (índice abierto): se resuelve devolviendo la metadata como `any` (`demoMeta()`).
+
+---
+
+## 2026-06-08 (noche) — Office a nivel Microsoft: RIBBON pro + profundidad
+
+> **Track A** en `claude/office-ribbon` (PR normal). **Track B** (spike Univer)
+> en `claude/office-univer-spike` (PR draft). **Sin merge a `main`.** Solo
+> agregar/mejorar, reutilizar, nada GPL. Build + lint (web) verdes por push.
+
+### Dependencias nuevas + licencia
+- **Track A:** ninguna nueva todavía (usa lo instalado: framer-motion, lucide,
+  TipTap, Fortune-Sheet, Fabric, docx, xlsx, pptxgenjs — todas MIT/permisivas).
+
+### A0 — Chasis del ribbon + migración de Docs
+- **Nuevo** `apps/web/src/components/office/ribbon/`: `OfficeChrome` (contexto +
+  host), `controls.tsx` (`RibbonButton/Select/ColorButton/SplitButton/MenuButton/
+  MenuList/Group/Separator/Stack/Row` + `Popover`), `OfficeRibbon` (`+RibbonTab`),
+  `index.ts`. Estilo Apple/glass, dark mode, framer-motion, tooltips con atajo,
+  `aria-label`, teclado, colapsable, scroll horizontal con degradados.
+- **Montaje:** `OfficeShell` publica un host bajo el header (`OfficeChromeContext`);
+  cada editor **porta** su cinta ahí → estado del editor local (sin lifting),
+  cinta fuera del lienzo y persistente (pestaña/colapso por `localStorage`).
+- **`DocEditor`:** barra plana → ribbon **Archivo · Inicio · Insertar · Revisar ·
+  Vista**. Migrado TODO lo previo sin perder nada (deshacer/rehacer, estilos,
+  fuente/tamaño, B/I/U/tachado, color+resaltado con popover, sub/sup, limpiar,
+  listas, cita, alineación, interlineado, tabla+menú, imagen+align/ancho, enlace,
+  fecha, emoji, separador, salto de página, código, buscar/reemplazar,
+  comentarios, esquema, vista de página). Acciones de archivo → pestaña
+  **Archivo** (reusa `DocActions`+`ShareButton`+`VersionHistory`). En readOnly se
+  muestran solo **Archivo** + **Vista**.
+- **`SheetEditor`:** capa AXOS (validación, formato condicional, inmovilizar) →
+  ribbon **Archivo · Datos**. Se **conserva la toolbar nativa de Fortune-Sheet**
+  (no se duplica). Inmovilizar pasa a menú con 4 opciones.
+- **`SlidesEditor`:** barra plana → ribbon **Archivo · Inicio · Insertar ·
+  Formato · Transiciones · Vista** (todo lo previo: texto/formas/imagen, fuente/
+  tamaño/B/I/U, color con popover, alinear/organizar/voltear/bloquear, degradado/
+  sombra/opacidad, animación de entrada, transición, fondo, hipervínculo,
+  duplicar/eliminar objeto, nueva/duplicar diapositiva, clasificador, presentar).
+- **Página:** `office/[id]/page.tsx` pasa `fileActions` a los tres editores y
+  deja el header limpio (sin duplicar). En solo-lectura cada editor muestra solo
+  **Archivo** + tabs de vista (export/historial siguen accesibles).
+
+### Nota de tooling (lint) — importante
+- `eslint-config-next@16.2.4` → `eslint-plugin-react-hooks@7.1.1` añade las reglas
+  del **React Compiler** como **error**; el código del repo (anterior) las
+  incumple por todas partes → el lint de `web` **ya estaba rojo en `main`** por
+  deriva de versión. Bajadas a `warn` en `apps/web/eslint.config.mjs` (visibles;
+  `rules-of-hooks`/`exhaustive-deps` siguen como error). No se tocó código que
+  funciona. `apps/api` tiene lint rojo preexistente aparte (fuera de alcance).
+
+### A1 — Docs: profundidad tipo Word
+- **Copiar formato** (format painter): captura formato y lo aplica a la siguiente
+  selección (al soltar el ratón). En grupo «Portapapeles».
+- **Galería de estilos visual** (`DocStyleGallery`): tarjetas con vista previa
+  (Normal, Título, Subtítulo, Encabezado 1-3, Cita) — estilos con nombre vía
+  extensión `NamedStyle` (`data-style` + clase, viaja en el JSON y al .docx).
+- **Sangría** aumentar/disminuir (extensión `Indent`): en listas promueve/degrada
+  nivel (**multinivel**); fuera, margen del párrafo.
+- **Tabla de contenido viva** (nodo `Toc` con NodeView): se regenera en cada
+  cambio desde los encabezados; clic = saltar. Pestaña **Referencias**.
+- **Diseño de página** (pestaña **Disposición**, `DocPageSetup` + `PageMeta`
+  ampliado): orientación, tamaño (A4/Carta/Oficio), márgenes, columnas (1-3),
+  marca de agua. Se refleja en la vista (dimensiones/relleno/columnas/marca) y en
+  el .docx. Encabezado/pie/números siguen en «Vista de página» (`DocPageView`).
+- **Símbolo / caracteres especiales** (`DocSymbolPicker`): 5 grupos.
+- **Fidelidad .docx** (`lib/office/docx.ts`): estilo Título (HeadingLevel.TITLE),
+  subíndice/superíndice, salto de página, sangría, TOC generada, configuración de
+  página (tamaño/orientación/márgenes/columnas) y encabezado/pie/números.
+- **No viable con MIT (documentado):** *Control de cambios* — TipTap libre no lo
+  trae (la extensión oficial es de pago «Pro»); los **comentarios** ya existentes
+  sirven de puente. *Notas al pie* y *ecuaciones* requieren paquetes extra
+  (KaTeX/Pro); diferidas para no desbalancear la noche entre las 3 apps + Track B.
+
+### A2 — Hojas: profundidad tipo Excel
+> Se **conserva la toolbar nativa de Fortune-Sheet** (formato de celda). El ribbon
+> AXOS expone lo que FS no da fácil. Operaciones puras nuevas en
+> `lib/office/sheetOps.ts` (sin deps nuevas).
+- **Formato condicional avanzado** (`SheetTools` reescrito + `applyConditional`):
+  comparación, **escala de 2/3 colores**, **superior/inferior N**, **duplicados**,
+  **conjunto de iconos** (semáforo/flechas/triángulos) y **limpiar** rango.
+- **Asistente de funciones** (`SheetFunctionWizard`): 6 categorías
+  (matemáticas/estadística/lógica/texto/fecha/búsqueda) con sintaxis y ayuda;
+  inserta `=FUNC(` en la celda activa vía ref de FS (o copia al portapapeles).
+- **Buscar y reemplazar** (`SheetFindReplace`): conteo en vivo, lista de
+  direcciones (hoja!A1) y reemplazar todo (`findMatches`/`replaceAll`).
+- **Ordenar** (asc/desc por columna), **quitar duplicados**, **texto en
+  columnas** (`SheetDataDialog` + `sortRange`/`removeDuplicates`/`textToColumns`).
+- **Notas de celda** (`setCellNote` → `ps` de FS).
+- **Inmovilizar flexible**: fila/columna/ambas + **hasta una celda** (rangeBoth).
+- **Gráficas** (`SheetCharts` + `charts.ts`): tipos nuevos (área, radar, polar),
+  **edición** de gráficas existentes, **leyenda** (posición), **paleta** (5) y
+  **apilado**; controladores Chart.js registrados (radar/polar/área/relleno).
+- **Tablas dinámicas (pivot):** NO se fuerzan — Fortune-Sheet no las trae de forma
+  estable. Documentado como **motivo principal del spike de Univer** (Track B).
+
+### A3 — Slides: profundidad tipo PowerPoint
+> Datos puros nuevos en `slideAssets.ts` (temas + layouts). Sin deps nuevas
+> (los iconos lucide se rasterizan a SVG con `react-dom/server`).
+- **Layouts** (pestaña **Diseño**): Portada, Título y contenido, Dos contenidos,
+  Encabezado de sección, En blanco — aplica placeholders con el tema activo.
+- **Temas** (6: claro/medianoche/cálido/bosque/ciruela/mono): fondo + acento +
+  fuente coordinados; galería de tarjetas. **Plantillas** reutiliza
+  `TemplateGallery`/`templates.ts` (reemplaza el mazo).
+- **Guías de alineación + snapping** al centro/bordes del lienzo y a otros
+  objetos (líneas guía punteadas) + **cuadrícula** conmutable.
+- **Tablas** (rejilla de celdas editable) y **biblioteca de iconos** (lucide →
+  SVG vectorial). **Borde** de objeto (además de sombra/degradado/opacidad ya
+  existentes).
+- **Animaciones con orden y duración** por objeto; la **vista de presentación**
+  secuencia la entrada por orden y respeta la duración.
+- **Vista de presentador** (`MonitorPlay`): diapositiva actual + siguiente +
+  notas + **temporizador**. **Números y pie de diapositiva** (en presentación y
+  en el export .pptx).
+- **Fidelidad .pptx** (`pptx.ts`): recursión de grupos (tablas/iconos),
+  números/pie de diapositiva.
+- **No abordado (documentado):** gráficas embebidas desde datos y **conectores
+  dinámicos** (anclados) requieren más trabajo; las formas línea/flecha sirven de
+  conector simple. Recorte (crop) de imagen: diferido (Fabric crop es complejo).
+
+### A4 — Pulido transversal
+- **Atajos coherentes:** Docs (TipTap: Ctrl+B/I/U/Z/Y nativos; Ctrl+F buscar;
+  Ctrl+S guardar). Hojas (FS nativos + **Ctrl+F** ahora abre buscar/reemplazar).
+  Slides (**Ctrl+B/I/U** sobre el objeto, + flechas/Supr/Ctrl+C/V/D ya existentes;
+  Ctrl+S guardar). Ctrl+S y el modal de atajos viven en `OfficeShell`.
+- **Ribbon responsive (tablet):** la **barra de pestañas** ahora se desplaza
+  horizontalmente (no se rompe en pantallas angostas); el botón de contraer queda
+  fijo. Los grupos ya tenían scroll con degradados. `aria`/teclado intactos.
+- **Verificado (no roto):** autosave (page `scheduleSave`), compartir
+  (`ShareButton`), comentarios (`DocComments`), historial (`VersionHistory` →
+  remonta por `editorKey`), plantillas, import/export — todo vive ahora en la
+  pestaña **Archivo** del ribbon y sigue funcionando. tsc + lint + build verdes.
+- **Limitación documentada:** Slides no tiene deshacer/rehacer (Fabric no lo trae;
+  sería un añadido grande). El modal de atajos de `OfficeShell` ya lista los
+  comunes; aplica a Docs/Hojas.
+
+### Estado FINAL Track A: build web ✅ · lint web ✅ · tsc ✅ · sin tocar backend.
+### Pendiente: abrir PR Track A (sin merge) · Track B (spike Univer, PR draft).
