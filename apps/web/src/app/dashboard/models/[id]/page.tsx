@@ -161,7 +161,9 @@ function PlansSection({ modelNumber }: { modelNumber: string }) {
   // Reutiliza /plans con filtro de modelo; además filtra en cliente por si el
   // backend ignora el parámetro (cinturón y tirantes — cero cambios de backend).
   const { data, isLoading } = useApi<PlanLite[]>(`/plans?model=${encodeURIComponent(modelNumber)}`);
-  const plans = (Array.isArray(data) ? data : []).filter((p) => !p.model || p.model === modelNumber);
+  // Filtro estricto en cliente: si el backend ignora el parámetro y devuelve
+  // todos los planes, solo mostramos los de este modelo (sin sobre-incluir).
+  const plans = (Array.isArray(data) ? data : []).filter((p) => p.model === modelNumber);
 
   return (
     <section className="mt-8">

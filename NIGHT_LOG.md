@@ -1406,3 +1406,24 @@ Backends sin ningún consumidor en `apps/web` (detectados): `/replenishment`,
 - **`/dashboard/suppliers`** — "Proveedores" (maestro de proveedores: estatus +
   calidad). Sugerencia: dominio ERP/MM, ícono `Truck`. Cmd-K: "Proveedores",
   "Suppliers", "Vendedores".
+
+## RESUMEN / CIERRE (sesión #2)
+- **Rama:** `claude/modules-unify` · **PR #260 → `main`** (diff limpio, sin
+  mergear). 9 commits, uno por avance. `tsc`+`eslint`+`next build` (web) verdes;
+  el único cambio de backend (#5) pasó `nest build` + **bootstrap smoke Postgres**
+  + `jest numbering`.
+- **Conectado/unificado:**
+  - #1 recibo→inventario→ledger de movimientos (visible de punta a punta).
+  - #2 maestro de Modelo en `production-plan`, `test-engineering`, `quality`.
+  - #3 `forecast` (Monte Carlo real) e `industrial-engineering` (KPIs reales).
+  - #5 folio atómico en `receiving` (conserva `REC-YYYY-NNNN`).
+  - #6 `suppliers` (página + dropdown en recibo), pestaña Resurtido en inventory,
+    cross-link Modelo→Plan en la ficha del modelo.
+- **Revertido/diferido:** #4 (tenant scoping en inventory/erp-core) — sus
+  entidades no tienen `tenant_id`; requeriría migración + backfill de prod
+  riesgoso. Documentado, NO hecho a medias.
+- **NO toqué:** Office (`components/office/**`, `app/dashboard/office/**`,
+  `lib/office/**`), el hub (`app/dashboard/page.tsx`) ni la paleta
+  (`SearchPalette.tsx`). NO mergeé a `main`.
+- **Acción del dueño:** wiring de navegación de `/dashboard/receiving` y
+  `/dashboard/suppliers` (arriba) + revisar/mergear el PR.
