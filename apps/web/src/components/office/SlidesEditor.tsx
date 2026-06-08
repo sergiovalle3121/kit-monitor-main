@@ -18,6 +18,7 @@ import {
   Shapes, Crop, SunMedium, Contrast, Wand2, Replace, RefreshCw, Group as GroupIcon, Ungroup, RotateCw,
   BarChart3, Workflow, Spline, Waypoints,
   List, IndentIncrease, IndentDecrease, MoveHorizontal, AlignVerticalSpaceAround, Sparkles, Search,
+  Pointer, Pencil, Eraser, Moon,
 } from 'lucide-react';
 import { SlideSorter } from './SlideSorter';
 import { SlideIconPicker } from './SlideIconPicker';
@@ -1054,6 +1055,24 @@ function Present({
   const [showNotes, setShowNotes] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const variant = TRANSITIONS[transition || 'fade'] ?? TRANSITIONS.fade;
+  // Herramientas de presentación pro: puntero láser, lápiz/tinta, pantalla en
+  // negro y navegador de miniaturas.
+  const [tool, setTool] = useState<'none' | 'laser' | 'pen'>('none');
+  const [blacked, setBlacked] = useState(false);
+  const [gridNav, setGridNav] = useState(false);
+  const [laser, setLaser] = useState<{ x: number; y: number } | null>(null);
+  const [ink, setInk] = useState<Record<number, number[][]>>({});
+  const drawRef = useRef<number[] | null>(null);
+  const boxRef = useRef<HTMLDivElement>(null);
+  const iRef = useRef(0);
+  const gridRef = useRef(false);
+  useEffect(() => { iRef.current = i; setLaser(null); }, [i]);
+  useEffect(() => { gridRef.current = gridNav; }, [gridNav]);
+  const slidePt = (e: React.PointerEvent) => {
+    const r = boxRef.current?.getBoundingClientRect(); if (!r || !r.width) return [0, 0] as const;
+    return [Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)), Math.min(1, Math.max(0, (e.clientY - r.top) / r.height))] as const;
+  };
+  const clearInk = () => setInk((p) => ({ ...p, [i]: [] }));
 
   useEffect(() => {
     let active = true;
@@ -1077,10 +1096,16 @@ function Present({
       if (active) setDecks(out);
     })();
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowRight' || e.key === ' ') setI((v) => Math.min(slides.length - 1, v + 1));
-      if (e.key === 'ArrowLeft') setI((v) => Math.max(0, v - 1));
-      if (e.key.toLowerCase() === 'n') setShowNotes((v) => !v);
-      if (e.key === 'Escape') onClose();
+      const k = e.key.toLowerCase();
+      if (e.key === 'ArrowRight' || e.key === ' ') { setBlacked(false); setI((v) => Math.min(slides.length - 1, v + 1)); }
+      if (e.key === 'ArrowLeft') { setBlacked(false); setI((v) => Math.max(0, v - 1)); }
+      if (k === 'n') setShowNotes((v) => !v);
+      if (k === 'b') setBlacked((v) => !v);
+      if (k === 'l') setTool((t) => (t === 'laser' ? 'none' : 'laser'));
+      if (k === 'p') setTool((t) => (t === 'pen' ? 'none' : 'pen'));
+      if (k === 'e') setInk((p) => ({ ...p, [iRef.current]: [] }));
+      if (k === 'g') setGridNav((v) => !v);
+      if (e.key === 'Escape') { if (gridRef.current) setGridNav(false); else onClose(); }
     };
     window.addEventListener('keydown', onKey);
     return () => { active = false; window.removeEventListener('keydown', onKey); };
@@ -1171,15 +1196,56 @@ function Present({
     );
   }
 
+  const inkColor = '#ef4444';
   return (
     <div className="fixed inset-0 z-[200] bg-black flex items-center justify-center">
-      <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
+      <div className="absolute top-4 right-4 z-50 flex items-center gap-2">
+        <button onClick={() => setTool((t) => (t === 'laser' ? 'none' : 'laser'))} title="Puntero láser (L)" className={`p-2 rounded-full text-white transition-colors ${tool === 'laser' ? 'bg-rose-500/90' : 'bg-white/15 hover:bg-white/30'}`}><Pointer className="w-5 h-5" /></button>
+        <button onClick={() => setTool((t) => (t === 'pen' ? 'none' : 'pen'))} title="Lápiz (P)" className={`p-2 rounded-full text-white transition-colors ${tool === 'pen' ? 'bg-rose-500/90' : 'bg-white/15 hover:bg-white/30'}`}><Pencil className="w-5 h-5" /></button>
+        <button onClick={clearInk} title="Borrar tinta (E)" className="p-2 rounded-full bg-white/15 text-white hover:bg-white/30"><Eraser className="w-5 h-5" /></button>
+        <button onClick={() => setBlacked((v) => !v)} title="Pantalla en negro (B)" className={`p-2 rounded-full text-white transition-colors ${blacked ? 'bg-rose-500/90' : 'bg-white/15 hover:bg-white/30'}`}><Moon className="w-5 h-5" /></button>
+        <button onClick={() => setGridNav((v) => !v)} title="Miniaturas (G)" className={`p-2 rounded-full text-white transition-colors ${gridNav ? 'bg-rose-500/90' : 'bg-white/15 hover:bg-white/30'}`}><LayoutGrid className="w-5 h-5" /></button>
         {hasNotes && (
           <button onClick={() => setShowNotes((v) => !v)} title="Notas del orador (N)" className={`p-2 rounded-full text-white transition-colors ${showNotes ? 'bg-amber-500/80' : 'bg-white/15 hover:bg-white/30'}`}><StickyNote className="w-5 h-5" /></button>
         )}
         <button onClick={onClose} title="Cerrar (Esc)" className="p-2 rounded-full bg-white/15 text-white hover:bg-white/30"><X className="w-5 h-5" /></button>
       </div>
       {stage}
+
+      {/* Capa de interacción: tinta del lápiz + punto láser (sobre la diapositiva). */}
+      <div ref={boxRef} className="absolute z-30" style={{ width: 'min(100vw, 177.78vh)', aspectRatio: '16 / 9', pointerEvents: tool === 'none' ? 'none' : 'auto', cursor: tool === 'pen' ? 'crosshair' : tool === 'laser' ? 'none' : 'default' }}
+        onPointerDown={(e) => { if (tool !== 'pen') return; (e.target as HTMLElement).setPointerCapture?.(e.pointerId); const [x, y] = slidePt(e); const stroke = [x, y]; drawRef.current = stroke; setInk((p) => ({ ...p, [i]: [...(p[i] || []), stroke] })); }}
+        onPointerMove={(e) => { const [x, y] = slidePt(e); if (tool === 'laser') setLaser({ x, y }); else if (tool === 'pen' && drawRef.current) { drawRef.current.push(x, y); setInk((p) => ({ ...p })); } }}
+        onPointerUp={() => { drawRef.current = null; }}
+        onPointerLeave={() => { if (tool === 'laser') setLaser(null); }}>
+        <svg viewBox="0 0 100 56.25" preserveAspectRatio="none" className="absolute inset-0 w-full h-full pointer-events-none">
+          {(ink[i] || []).map((stroke, si) => (
+            <polyline key={si} fill="none" stroke={inkColor} strokeWidth={0.55} strokeLinecap="round" strokeLinejoin="round"
+              points={stroke.reduce((acc: string, n, idx) => acc + (idx % 2 === 0 ? `${n * 100},` : `${n * 56.25} `), '')} />
+          ))}
+        </svg>
+        {tool === 'laser' && laser && (
+          <span className="absolute pointer-events-none" style={{ left: `${laser.x * 100}%`, top: `${laser.y * 100}%`, width: 18, height: 18, transform: 'translate(-50%,-50%)', borderRadius: '50%', background: 'radial-gradient(circle, rgba(239,68,68,0.95) 0%, rgba(239,68,68,0.6) 40%, rgba(239,68,68,0) 70%)', boxShadow: '0 0 12px 4px rgba(239,68,68,0.6)' }} />
+        )}
+      </div>
+
+      {/* Pantalla en negro. */}
+      {blacked && <div className="absolute inset-0 z-40 bg-black" onClick={() => setBlacked(false)} />}
+
+      {/* Navegador de miniaturas. */}
+      {gridNav && (
+        <div className="absolute inset-0 z-40 bg-black/85 backdrop-blur-sm overflow-y-auto p-8" onClick={() => setGridNav(false)}>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 max-w-6xl mx-auto" onClick={(e) => e.stopPropagation()}>
+            {decks.map((d, j) => (
+              <button key={j} onClick={() => { setI(j); setGridNav(false); }}
+                className={`relative rounded-xl overflow-hidden border-2 transition-all ${j === i ? 'border-rose-500 scale-[1.02]' : 'border-white/15 hover:border-white/40'}`} style={{ aspectRatio: '16/9' }}>
+                <StaticDeck deck={d} />
+                <span className="absolute top-1.5 left-2 text-xs font-bold text-white bg-black/50 rounded px-1.5">{j + 1}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
       <button onClick={() => setI((v) => Math.max(0, v - 1))} disabled={i === 0} className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/15 text-white text-2xl hover:bg-white/30 disabled:opacity-20 z-20">‹</button>
       <button onClick={() => setI((v) => Math.min(slides.length - 1, v + 1))} disabled={i === slides.length - 1} className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/15 text-white text-2xl hover:bg-white/30 disabled:opacity-20 z-20">›</button>
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/70 text-sm z-20">{i + 1} / {slides.length}</div>

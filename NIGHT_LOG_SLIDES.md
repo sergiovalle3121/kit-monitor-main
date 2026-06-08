@@ -116,3 +116,14 @@ Verificado: `tsc` ✓, `eslint` ✓, `next build` ✓.
   serialización (lineHeight/charSpacing/stroke son nativas de Fabric).
 
 Verificado: `tsc` ✓, `eslint` ✓ (0 errores), `next build` ✓.
+
+#### Lote 6 — Presentación pro (backlog #12)
+En el modo presentación (componente `Present`):
+- **Puntero láser** (L): punto rojo luminoso que sigue el cursor.
+- **Lápiz/tinta** (P): dibuja anotaciones sobre la diapositiva (SVG, tinta por
+  diapositiva); **borrar** (E).
+- **Pantalla en negro** (B).
+- **Navegador de miniaturas** (G): cuadrícula para saltar a cualquier diapositiva.
+- Barra de herramientas con botones para todo; atajos de teclado coherentes.
+
+Verificado: `tsc` ✓, `eslint` ✓, `next build` ✓.
