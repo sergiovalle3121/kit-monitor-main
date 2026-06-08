@@ -104,3 +104,15 @@ Verificado: `tsc` ✓, `eslint` ✓ (0 errores), `next build` ✓.
   (`endArrowType`) usando los extremos absolutos guardados en `conn`.
 
 Verificado: `tsc` ✓, `eslint` ✓, `next build` ✓.
+
+#### Lote 5 — Texto pro + Buscar/Reemplazar global (backlog #6)
+- `SlideFindReplace.tsx` — panel **buscar y reemplazar en TODAS las
+  diapositivas**: cuenta coincidencias, «Siguiente» (navega y selecciona el
+  objeto), «Reemplazar todo» (devuelve nº de reemplazos). Atajo **Ctrl+H**.
+- En `SlidesEditor.tsx` (texto pro sobre Textbox): **interlineado** (1,0–2,0),
+  **espaciado entre letras** (charSpacing), **viñetas** (toggle por línea),
+  **niveles** (aumentar/disminuir sangría), **contorno de texto** (stroke) y
+  **WordArt** (degradado+sombra / contorno / sombra). Sin props nuevas de
+  serialización (lineHeight/charSpacing/stroke son nativas de Fabric).
+
+Verificado: `tsc` ✓, `eslint` ✓ (0 errores), `next build` ✓.

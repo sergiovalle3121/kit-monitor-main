@@ -17,6 +17,7 @@ import {
   LayoutTemplate, Table2, Grid3x3, Hash, SquareDashed, MonitorPlay, Brush,
   Shapes, Crop, SunMedium, Contrast, Wand2, Replace, RefreshCw, Group as GroupIcon, Ungroup, RotateCw,
   BarChart3, Workflow, Spline, Waypoints,
+  List, IndentIncrease, IndentDecrease, MoveHorizontal, AlignVerticalSpaceAround, Sparkles, Search,
 } from 'lucide-react';
 import { SlideSorter } from './SlideSorter';
 import { SlideIconPicker } from './SlideIconPicker';
@@ -31,6 +32,7 @@ import { SlideChartEditor } from './SlideChartEditor';
 import { buildSmartArt, defaultSmartSpec, isSmart, type SmartSpec } from './slides/smartart';
 import { SlideSmartArtEditor } from './SlideSmartArtEditor';
 import { makeConnector, refreshConnectors, pickTwo, isConnector } from './slides/connectors';
+import { SlideFindReplace } from './SlideFindReplace';
 import {
   OfficeRibbon, RibbonTab, RibbonGroup, RibbonSeparator,
   RibbonButton, RibbonSelect, RibbonColorButton, RibbonMenuButton,
@@ -88,6 +90,8 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
   const chartTargetRef = useRef<any>(null);
   const [smartEditor, setSmartEditor] = useState<{ spec: SmartSpec } | null>(null);
   const smartTargetRef = useRef<any>(null);
+  const [findOpen, setFindOpen] = useState(false);
+  const findCursorRef = useRef<{ s: number; o: number }>({ s: -1, o: -1 });
   const footerRef = useRef<string>(value?.footer || '');
   const numbersRef = useRef<boolean>(!!value?.showNumbers);
   const [showNumbers, setShowNumbers] = useState<boolean>(!!value?.showNumbers);
@@ -196,6 +200,80 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
     c.discardActiveObject(); // restaura coords absolutas de las formas
     const conn = makeConnector(pair[0], pair[1], arrow, theme().accent);
     c.add(conn); (c as any).sendObjectToBack?.(conn);
+    c.requestRenderAll(); capture(); sync();
+  }
+  // ── Buscar y reemplazar en TODAS las diapositivas ──────────────────────────
+  function reEsc(s: string) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+  function isTextObj(o: any) { return o && (o.type === 'textbox' || o.type === 'i-text' || o.type === 'text'); }
+  function countMatches(q: string, cs: boolean): number {
+    if (!q) return 0;
+    const rx = new RegExp(reEsc(q), cs ? 'g' : 'gi'); let n = 0;
+    for (const s of slidesRef.current) for (const o of s?.objects ?? []) if (isTextObj(o) && typeof o.text === 'string') n += (o.text.match(rx) || []).length;
+    return n;
+  }
+  async function findNext(q: string, cs: boolean) {
+    if (!q) return; capture();
+    const rx = new RegExp(reEsc(q), cs ? 'g' : 'gi');
+    const hits: { s: number; o: number }[] = [];
+    slidesRef.current.forEach((s, si) => (s?.objects ?? []).forEach((o: any, oi: number) => { if (isTextObj(o) && typeof o.text === 'string' && rx.test(o.text)) hits.push({ s: si, o: oi }); }));
+    if (!hits.length) return;
+    const cur = findCursorRef.current;
+    const next = hits.find((h) => h.s > cur.s || (h.s === cur.s && h.o > cur.o)) || hits[0];
+    findCursorRef.current = next;
+    if (next.s !== curRef.current) await loadInto(next.s);
+    const c = fabricRef.current; if (!c) return;
+    const obj = c.getObjects()[next.o];
+    if (obj) { c.setActiveObject(obj); setHasSel(true); setSelType((obj as any).type || ''); c.requestRenderAll(); }
+  }
+  function replaceAllText(q: string, repl: string, cs: boolean): number {
+    if (!q) return 0; capture();
+    const rx = new RegExp(reEsc(q), cs ? 'g' : 'gi'); let n = 0;
+    for (const s of slidesRef.current) for (const o of s?.objects ?? []) if (isTextObj(o) && typeof o.text === 'string') { o.text = o.text.replace(rx, () => { n++; return repl; }); }
+    if (n) { loadInto(curRef.current); sync(); }
+    return n;
+  }
+  // ── Texto pro: interlineado, espaciado, viñetas, niveles, contorno, WordArt ─
+  function setLineHeight(v: number) { textSet((o) => o.set('lineHeight', v)); }
+  function changeCharSpacing(delta: number) { textSet((o) => o.set('charSpacing', Math.max(-200, (o.charSpacing || 0) + delta))); }
+  function toggleBullets() {
+    textSet((o) => {
+      const lines = String(o.text || '').split('\n');
+      const allBul = lines.every((l) => l.trim() === '' || /^\s*•\s/.test(l));
+      o.set('text', lines.map((l) => {
+        if (l.trim() === '') return l;
+        const indent = l.match(/^\s*/)?.[0] ?? '';
+        return allBul ? l.replace(/^(\s*)•\s/, '$1') : `${indent}• ${l.slice(indent.length)}`;
+      }).join('\n'));
+    });
+  }
+  function indentLevel(delta: number) {
+    textSet((o) => {
+      const lines = String(o.text || '').split('\n');
+      o.set('text', lines.map((l) => {
+        if (delta > 0) return `  ${l}`;
+        return l.replace(/^ {1,2}/, '');
+      }).join('\n'));
+    });
+  }
+  function toggleTextOutline() {
+    textSet((o) => {
+      if (o.stroke && o.strokeWidth) o.set({ stroke: null, strokeWidth: 0 });
+      else o.set({ stroke: theme().accent, strokeWidth: 1.2, paintFirst: 'stroke', strokeLineJoin: 'round' });
+    });
+  }
+  function applyWordArt(preset: 'gradient' | 'outline' | 'shadow') {
+    const c = fabricRef.current; const o = c?.getActiveObject() as any;
+    if (!c || !isText(o)) return;
+    o.set('fontWeight', 'bold');
+    if (preset === 'gradient') {
+      const w = (o.width || 240) * (o.scaleX || 1);
+      o.set('fill', new Gradient({ type: 'linear', gradientUnits: 'pixels', coords: { x1: 0, y1: 0, x2: w, y2: 0 }, colorStops: [{ offset: 0, color: theme().accent }, { offset: 1, color: '#7c3aed' }] }));
+      o.set('shadow', new Shadow({ color: 'rgba(0,0,0,0.3)', blur: 8, offsetX: 2, offsetY: 3 }));
+    } else if (preset === 'outline') {
+      o.set({ stroke: theme().accent, strokeWidth: 1.4, paintFirst: 'stroke', strokeLineJoin: 'round' });
+    } else {
+      o.set('shadow', new Shadow({ color: 'rgba(0,0,0,0.45)', blur: 10, offsetX: 3, offsetY: 4 }));
+    }
     c.requestRenderAll(); capture(); sync();
   }
   async function addIcon(svg: string) {
@@ -550,6 +628,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
       const meta = e.ctrlKey || e.metaKey;
       const k = e.key.toLowerCase();
       if (meta && k === 'v') { e.preventDefault(); pasteObj(); return; }
+      if (meta && k === 'h') { e.preventDefault(); capture(); setFindOpen(true); return; }
       if (!o || o.isEditing) return;
       if (meta && k === 'c') { clipboardRef.current = o; return; }
       if (meta && k === 'd') { e.preventDefault(); dupObj(); return; }
@@ -607,6 +686,11 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
               <RibbonButton icon={Bold} label="Negrita" shortcut="Ctrl+B" onClick={toggleBold} />
               <RibbonButton icon={Italic} label="Cursiva" shortcut="Ctrl+I" onClick={toggleItalic} />
               <RibbonButton icon={Underline} label="Subrayado" shortcut="Ctrl+U" onClick={toggleUnderline} />
+              <RibbonMenuButton icon={MoveHorizontal} label="Espaciado entre letras" menuWidth={170} items={[
+                { label: 'Más estrecho', onClick: () => changeCharSpacing(-40) },
+                { label: 'Normal', onClick: () => textSet((o) => o.set('charSpacing', 0)) },
+                { label: 'Más amplio', onClick: () => changeCharSpacing(40) },
+              ]} />
               <RibbonColorButton icon={PaintBucket} title="Color de relleno / texto" onChange={setColor} swatchBar={false} />
             </RibbonGroup>
             <RibbonSeparator />
@@ -614,9 +698,19 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
               <RibbonButton icon={AlignLeft} label="Alinear a la izquierda" onClick={() => setTextAlign('left')} />
               <RibbonButton icon={AlignCenter} label="Centrar texto" onClick={() => setTextAlign('center')} />
               <RibbonButton icon={AlignRight} label="Alinear a la derecha" onClick={() => setTextAlign('right')} />
+              <RibbonButton icon={List} label="Viñetas" onClick={toggleBullets} />
+              <RibbonButton icon={IndentIncrease} label="Aumentar nivel" onClick={() => indentLevel(1)} />
+              <RibbonButton icon={IndentDecrease} label="Disminuir nivel" onClick={() => indentLevel(-1)} />
+              <RibbonMenuButton icon={AlignVerticalSpaceAround} label="Interlineado" menuWidth={150} items={[
+                { label: 'Sencillo (1,0)', onClick: () => setLineHeight(1) },
+                { label: '1,15', onClick: () => setLineHeight(1.15) },
+                { label: '1,5', onClick: () => setLineHeight(1.5) },
+                { label: 'Doble (2,0)', onClick: () => setLineHeight(2) },
+              ]} />
             </RibbonGroup>
             <RibbonSeparator />
             <RibbonGroup label="Edición">
+              <RibbonButton icon={Search} label="Buscar y reemplazar" shortcut="Ctrl+H" onClick={() => { capture(); setFindOpen(true); }} />
               <RibbonButton icon={CopyPlus} label="Duplicar elemento" shortcut="Ctrl+D" onClick={dupObj} />
               <RibbonButton icon={Trash2} label="Eliminar elemento" danger onClick={del} />
             </RibbonGroup>
@@ -749,6 +843,22 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
                 </span>
               )}
             </RibbonGroup>
+            {(selType === 'textbox' || selType === 'i-text' || selType === 'text') && (
+              <>
+                <RibbonSeparator />
+                <RibbonGroup label="Texto / WordArt">
+                  <RibbonMenuButton icon={Sparkles} label="WordArt" menuWidth={200} items={[
+                    { label: 'Relleno degradado + sombra', onClick: () => applyWordArt('gradient') },
+                    { label: 'Contorno', onClick: () => applyWordArt('outline') },
+                    { label: 'Sombra', onClick: () => applyWordArt('shadow') },
+                  ]} />
+                  <RibbonButton icon={SquareDashed} label="Contorno de texto" onClick={toggleTextOutline} />
+                  <RibbonButton icon={List} label="Viñetas" onClick={toggleBullets} />
+                  <RibbonButton icon={IndentIncrease} label="Aumentar nivel" onClick={() => indentLevel(1)} />
+                  <RibbonButton icon={IndentDecrease} label="Disminuir nivel" onClick={() => indentLevel(-1)} />
+                </RibbonGroup>
+              </>
+            )}
             {selType === 'image' && (
               <>
                 <RibbonSeparator />
@@ -888,6 +998,9 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
       </AnimatePresence>
       <AnimatePresence>
         {smartEditor && <SlideSmartArtEditor spec={smartEditor.spec} onApply={applySmart} onClose={() => { smartTargetRef.current = null; setSmartEditor(null); }} />}
+      </AnimatePresence>
+      <AnimatePresence>
+        {findOpen && !readOnly && <SlideFindReplace onClose={() => setFindOpen(false)} onCount={countMatches} onNext={findNext} onReplaceAll={replaceAllText} />}
       </AnimatePresence>
       <AnimatePresence>
         {sorter && (
