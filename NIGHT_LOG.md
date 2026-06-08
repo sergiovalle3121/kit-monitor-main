@@ -1395,6 +1395,12 @@ Backends sin ningún consumidor en `apps/web` (detectados): `/replenishment`,
   que lee `/plans?model=X` (+ filtro en cliente por si el backend ignora el
   parámetro) y enlaza a Planeación/Producción. Completa visualmente el flujo
   **Modelo → BOM → Plan** en una sola pantalla del maestro. Reutiliza `/plans`.
+- **(commit) Página `dashboard/warehouse`** (backend `/warehouse/*` no tenía UI) —
+  tareas de almacén (acomodo/traslado/surtido-picking) de `/warehouse/tasks`:
+  badges de tipo+estatus, parte, cantidad, origen→destino, referencia (KIT/WO/
+  RECEIPT) y responsable; KPIs (pendientes/en proceso/total); toggle Abiertas/
+  Todas + búsqueda; estado vacío honesto. Eslabón de ejecución del golden path
+  (surtido físico) que faltaba en UI. → Falta wiring de navegación (abajo).
 - `tsc` + `eslint` (web) verdes.
 
 ## PENDIENTE: wiring de navegación (para que el dueño lo conecte en hub/paleta)
@@ -1406,6 +1412,9 @@ Backends sin ningún consumidor en `apps/web` (detectados): `/replenishment`,
 - **`/dashboard/suppliers`** — "Proveedores" (maestro de proveedores: estatus +
   calidad). Sugerencia: dominio ERP/MM, ícono `Truck`. Cmd-K: "Proveedores",
   "Suppliers", "Vendedores".
+- **`/dashboard/warehouse`** — "Tareas de almacén" (acomodo/traslado/surtido).
+  Sugerencia: dominio Almacén, ícono `ClipboardList`. Cmd-K: "Tareas de almacén",
+  "Picking", "Surtido físico", "Warehouse tasks".
 
 ## RESUMEN / CIERRE (sesión #2)
 - **Rama:** `claude/modules-unify` · **PR #260 → `main`** (diff limpio, sin
