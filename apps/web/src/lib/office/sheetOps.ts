@@ -999,6 +999,45 @@ export function transposeRange(sheet: any, srcRange: string, destCell: string): 
 }
 const clone = (x: any): any => (x == null ? x : JSON.parse(JSON.stringify(x)));
 
+// ── Pegado especial (valores / formatos / todo) ───────────────────────────────
+export type PasteMode = 'all' | 'values' | 'formats';
+const STYLE_KEYS = ['bg', 'fc', 'bl', 'it', 'ht', 'vt', 'tb', 'fs'];
+const asObj = (v: any): any => (v && typeof v === 'object' ? { ...v } : { v: v ?? '', m: v == null ? '' : String(v), ct: { fa: 'General', t: typeof v === 'number' ? 'n' : 's' } });
+
+/** Copia un rango a una celda destino con modo todo/valores/formatos (pegado especial). */
+export function copyRange(sheet: any, srcRange: string, destCell: string, mode: PasteMode = 'all'): boolean {
+  const src = parseRange(srcRange); const dst = parseRange(destCell);
+  if (!src || !dst || !sheet) return false;
+  sheet.celldata = sheet.celldata || [];
+  const map = new Map<string, Cell>();
+  for (const cd of sheet.celldata) map.set(`${cd.r}_${cd.c}`, cd);
+  const h = src.r2 - src.r1, w = src.c2 - src.c1;
+  const writes: Cell[] = [];
+  for (let dr = 0; dr <= h; dr++) {
+    for (let dc = 0; dc <= w; dc++) {
+      const srcCd = map.get(`${src.r1 + dr}_${src.c1 + dc}`);
+      const dstCd = map.get(`${dst.r1 + dr}_${dst.c1 + dc}`);
+      const nr = dst.r1 + dr, nc = dst.c1 + dc;
+      if (mode === 'all') {
+        if (srcCd) writes.push({ r: nr, c: nc, v: clone(srcCd.v) });
+      } else if (mode === 'values') {
+        if (!srcCd) continue;
+        const s = asObj(srcCd.v); const base = dstCd ? asObj(dstCd.v) : {};
+        writes.push({ r: nr, c: nc, v: { ...base, v: s.v, m: s.m, ct: s.ct } });
+      } else { // formats
+        const out = dstCd ? asObj(dstCd.v) : { v: '', m: '', ct: { fa: 'General', t: 's' } };
+        const s = srcCd ? asObj(srcCd.v) : {};
+        for (const k of STYLE_KEYS) { if (s[k] != null) out[k] = s[k]; else delete out[k]; }
+        if (s.ct?.fa) out.ct = { ...(out.ct || {}), fa: s.ct.fa };
+        writes.push({ r: nr, c: nc, v: out });
+      }
+    }
+  }
+  const occupied = new Set(writes.map((x) => `${x.r}_${x.c}`));
+  sheet.celldata = [...sheet.celldata.filter((cd: Cell) => !occupied.has(`${cd.r}_${cd.c}`)), ...writes];
+  return true;
+}
+
 // ── Rangos con nombre ─────────────────────────────────────────────────────────
 export interface NamedRange { name: string; range: string; sheetIndex: number }
 

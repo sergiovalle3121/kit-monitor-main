@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /** Spec de rellenar series y transponer. npx tsx src/components/office/sheets/fill.spec.ts */
-import { fillSeries, applyFill, transposeRange, rawOf } from '@/lib/office/sheetOps';
+import { fillSeries, applyFill, transposeRange, copyRange, rawOf } from '@/lib/office/sheetOps';
 
 let passed = 0; const fails: string[] = [];
 const eq = (a: any, b: any, m: string) => { if (JSON.stringify(a) === JSON.stringify(b)) passed++; else fails.push(`${m} — esp ${JSON.stringify(b)}, obt ${JSON.stringify(a)}`); };
@@ -36,6 +36,27 @@ eq(fillSeries(['a', 'b'], 3), ['a', 'b', 'a'], 'repite patrón cuando no hay ser
   eq(at(sheet, 0, 4), 3, 'E1 = 3 (transpuesto)');
   eq(at(sheet, 1, 3), 2, 'D2 = 2 (transpuesto)');
   eq(at(sheet, 1, 4), 4, 'E2 = 4');
+}
+
+// ── copyRange (pegado especial) ──────────────────────────────────────────────
+{
+  const vAt = (sheet: any, r: number, c: number) => sheet.celldata.find((x: any) => x.r === r && x.c === c)?.v;
+  const mk = () => ({ celldata: [
+    { r: 0, c: 0, v: { v: 5, m: '5', bg: '#ff0000', bl: 1, ct: { fa: 'General', t: 'n' } } },
+    { r: 0, c: 2, v: { v: 1, m: '1', bg: '#0000ff', ct: { fa: 'General', t: 'n' } } },
+    { r: 0, c: 3, v: { v: 'keep', m: 'keep', ct: { fa: 'General', t: 's' } } },
+  ] } as any);
+  let s = mk(); copyRange(s, 'A1', 'C1', 'values');
+  eq(vAt(s, 0, 2).v, 5, 'valores: C1 toma el valor 5');
+  eq(vAt(s, 0, 2).bg, '#0000ff', 'valores: C1 conserva su relleno');
+  eq(vAt(s, 0, 2).bl, undefined, 'valores: no copia negrita');
+  s = mk(); copyRange(s, 'A1', 'D1', 'formats');
+  eq(vAt(s, 0, 3).v, 'keep', 'formatos: D1 conserva su valor');
+  eq(vAt(s, 0, 3).bg, '#ff0000', 'formatos: D1 toma el relleno');
+  eq(vAt(s, 0, 3).bl, 1, 'formatos: D1 toma la negrita');
+  s = mk(); copyRange(s, 'A1', 'E1', 'all');
+  eq(vAt(s, 0, 4).v, 5, 'todo: E1 = valor');
+  eq(vAt(s, 0, 4).bg, '#ff0000', 'todo: E1 = relleno');
 }
 
 console.log(`\nFILL SPEC: ${passed} OK, ${fails.length} fallos`);

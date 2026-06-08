@@ -5,7 +5,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { Workbook } from '@fortune-sheet/react';
 import '@fortune-sheet/react/dist/index.css';
-import { ListChecks, Palette, Snowflake, FileText, Sigma, Search, ArrowDownUp, CopyMinus, Columns3, StickyNote, Table2, Hash, Rows3, Activity, ArrowDownToLine, FlipVertical2, Tag, Printer } from 'lucide-react';
+import { ListChecks, Palette, Snowflake, FileText, Sigma, Search, ArrowDownUp, CopyMinus, Columns3, StickyNote, Table2, Hash, Rows3, Activity, ArrowDownToLine, FlipVertical2, Tag, Printer, ClipboardPaste } from 'lucide-react';
 import { SheetCharts } from './SheetCharts';
 import { SheetTools, type ValidationPayload } from './SheetTools';
 import { SheetFunctionWizard } from './SheetFunctionWizard';
@@ -16,7 +16,7 @@ import { SheetFormatDialog, type NumberFmtPayload, type StylePayload } from './S
 import { SheetNameManager } from './SheetNameManager';
 import { SheetPrintDialog } from './SheetPrintDialog';
 import { parseRange, type ChartConfig } from '@/lib/office/charts';
-import { applyConditional, sortRangeMulti, removeDuplicates, textToColumns, setCellNote, replaceAll, buildPivot, pivotToCelldata, applyNumberFormat, applyCellStyle, applySubtotals, applySparkline, applyFill, transposeRange, buildPrintHtml, usedRange, colName, type CondPayload, type PivotConfig, type FindOpts, type NamedRange, type PrintOpts } from '@/lib/office/sheetOps';
+import { applyConditional, sortRangeMulti, removeDuplicates, textToColumns, setCellNote, replaceAll, buildPivot, pivotToCelldata, applyNumberFormat, applyCellStyle, applySubtotals, applySparkline, applyFill, transposeRange, copyRange, buildPrintHtml, usedRange, colName, type CondPayload, type PivotConfig, type FindOpts, type NamedRange, type PrintOpts } from '@/lib/office/sheetOps';
 import { OfficeRibbon, RibbonTab, RibbonGroup, RibbonSeparator, RibbonButton, RibbonMenuButton } from './ribbon';
 
 // Content is either the legacy bare sheet array or the new { sheets, charts } shape.
@@ -158,6 +158,7 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
     else if (mode === 'spark') { if (!applySparkline(sheet, payload.dataRange, payload.cell, payload.type)) msg = 'Rango o celda inválidos.'; }
     else if (mode === 'fill') { const n = applyFill(sheet, payload); msg = `${n} celda(s) rellenada(s).`; }
     else if (mode === 'transpose') { if (!transposeRange(sheet, payload.srcRange, payload.destCell)) msg = 'Rango o celda inválidos.'; }
+    else if (mode === 'paste') { if (!copyRange(sheet, payload.srcRange, payload.destCell, payload.mode)) msg = 'Rango o celda inválidos.'; }
     else if (mode === 'note') setCellNote(sheet, payload.cell, payload.text);
     setDataMode(null);
     remount(sheets);
@@ -290,6 +291,7 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
             <RibbonGroup label="Rellenar y transponer">
               <RibbonButton icon={ArrowDownToLine} label="Rellenar serie" onClick={() => setDataMode('fill')} />
               <RibbonButton icon={FlipVertical2} label="Transponer" onClick={() => setDataMode('transpose')} />
+              <RibbonButton icon={ClipboardPaste} label="Pegado especial" onClick={() => setDataMode('paste')} />
             </RibbonGroup>
             <RibbonSeparator />
             <RibbonGroup label="Vista">

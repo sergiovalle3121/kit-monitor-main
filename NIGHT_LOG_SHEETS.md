@@ -180,7 +180,11 @@ completa, expresión regular (con aviso de regex inválida) y reemplazar todo.
 **UI**: `SheetDataDialog` con modos **Rellenar serie** (dirección + cantidad) y
 **Transponer** (celda destino). Ribbon: grupo «Rellenar y transponer» en Datos.
 
-**Spec**: `fill.spec.ts` (17). Verde.
+**Spec**: `fill.spec.ts` (25, incl. `copyRange`). Verde.
+
+> Ampliación: **pegado especial** `copyRange(sheet, src, dest, mode)` con modos
+> **todo / solo valores / solo formatos**. UI: modo «Pegado especial» en
+> `SheetDataDialog` + botón en el ribbon.
 
 ### 9) Rangos con nombre + administrador  ✅
 `sheetOps.ts`: `validateRangeName` (reglas tipo Excel: forma de celda, reservados R/C,
