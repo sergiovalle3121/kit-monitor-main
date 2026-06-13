@@ -414,6 +414,7 @@ export default function InventoryPage() {
                         <p className="text-[11px] text-gray-400 truncate mt-0.5">
                           demanda {fmtQty(r.demandQty)} · disponible {fmtQty(r.available)}
                           {r.rule ? ` · min ${fmtQty(r.rule.minStock)}/máx ${fmtQty(r.rule.maxStock)}` : ""}
+                          {r.rule && Number(r.rule.maxStock ?? 0) - r.available > 0 ? ` · pedir ${fmtQty(Math.max(0, Number(r.rule.maxStock) - r.available))}` : ""}
                           {r.wos.length ? ` · ${r.wos.slice(0, 3).join(", ")}${r.wos.length > 3 ? "…" : ""}` : ""}
                         </p>
                       </div>
