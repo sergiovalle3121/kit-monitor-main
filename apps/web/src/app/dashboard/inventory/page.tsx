@@ -294,9 +294,32 @@ export default function InventoryPage() {
   const movRows = q
     ? movements.filter((m) => `${m.partNumber} ${m.referenceId ?? ""} ${m.actorName ?? ""}`.toLowerCase().includes(q.toLowerCase()))
     : movements;
-  const ruleRows = q
-    ? rules.filter((r) => `${r.partNumber} ${r.warehouseId ?? ""}`.toLowerCase().includes(q.toLowerCase()))
-    : rules;
+
+  // Disponible por parte+almacén (liberado) para el estado de quiebre de las reglas.
+  const availByPartWh = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const p of positions) {
+      if ((p.holdStatus ?? "available") !== "available") continue;
+      const key = `${p.partNumber}|${p.warehouseId ?? ""}`;
+      m.set(key, (m.get(key) ?? 0) + (Number(p.onHand ?? 0) - Number(p.allocated ?? 0)));
+    }
+    return m;
+  }, [positions]);
+
+  // Reglas enriquecidas con on-hand actual, quiebre (≤ min) y sugerido de reposición.
+  const ruleRows = useMemo(() => {
+    const base = q
+      ? rules.filter((r) => `${r.partNumber} ${r.warehouseId ?? ""}`.toLowerCase().includes(q.toLowerCase()))
+      : rules;
+    const enriched = base.map((r) => {
+      const available = availByPartWh.get(`${r.partNumber}|${r.warehouseId ?? ""}`) ?? 0;
+      const belowMin = typeof r.minStock === "number" && available <= r.minStock;
+      const suggested = belowMin ? Math.max(0, Number(r.maxStock ?? 0) - available) : 0;
+      return { r, available, belowMin, suggested };
+    });
+    enriched.sort((a, b) => Number(b.belowMin) - Number(a.belowMin) || b.suggested - a.suggested);
+    return enriched;
+  }, [rules, q, availByPartWh]);
 
   // Resumen honesto del flujo recibo→consumo (derivado del ledger en vivo).
   const flow = useMemo(() => {
@@ -464,14 +487,18 @@ export default function InventoryPage() {
           ) : (
             <div className={`${glass} rounded-2xl p-2`}>
               <div className="divide-y divide-gray-100 dark:divide-white/5">
-                {ruleRows.map((r) => {
+                {ruleRows.map(({ r, available, belowMin, suggested }) => {
                   const active = r.isActive !== false;
                   return (
                     <div key={r.id} className="flex items-center gap-3 px-3 py-3">
-                      <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: active ? GREEN : "#9ca3af" }} title={active ? "activa" : "inactiva"} />
+                      <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: belowMin ? RED : active ? GREEN : "#9ca3af" }} title={active ? "activa" : "inactiva"} />
                       <div className="min-w-0 flex-1">
-                        <p className="font-mono font-semibold text-sm truncate">{r.partNumber}</p>
-                        <p className="text-[11px] text-gray-400 truncate">{r.warehouseId || "—"}{r.priority ? ` · ${r.priority}` : ""}</p>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="font-mono font-semibold text-sm truncate">{r.partNumber}</p>
+                          {belowMin && <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: `${RED}1f`, color: RED }}>bajo mínimo</span>}
+                          {belowMin && suggested > 0 && <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: `${BLUE}1f`, color: BLUE }}>pedir {fmtQty(suggested)}</span>}
+                        </div>
+                        <p className="text-[11px] text-gray-400 truncate">{r.warehouseId || "—"}{r.priority ? ` · ${r.priority}` : ""} · on-hand {fmtQty(available)}</p>
                       </div>
                       <div className="text-right flex-shrink-0">
                         <p className="text-sm font-semibold tabular-nums">{fmtQty(r.minStock)} → {fmtQty(r.maxStock)}</p>

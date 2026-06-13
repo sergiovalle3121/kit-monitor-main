@@ -143,3 +143,14 @@ write-capable (antes solo lectura). Flujo real de almacén: "veo el bin → lo m
 contar → captura física → varianza → conciliar/ajustar".
 - **Puertas:** eslint ✅ · tsc ✅ · next build ✅.
 
+> **PR #284 mergeado a main** (squash, CI verde). Rama sincronizada.
+
+### [6] Resurtido en vivo: estado de quiebre por regla — HECHO ✅
+`apps/web/src/app/dashboard/inventory/page.tsx`. La pestaña Resurtido deja de ser
+una lista estática de reglas: cada regla cruza con las posiciones reales
+(disponible liberado por parte+almacén) y muestra **on-hand actual**, badge
+**"bajo mínimo"** (on-hand ≤ min) y **sugerido de reposición** ("pedir N" = máx −
+on-hand). Las reglas en quiebre se ordenan primero (punto rojo). Pure-read (reusa
+las posiciones ya cargadas; no dispara `/replenishment/analyze`).
+- **Puertas:** eslint ✅ · tsc ✅ · next build ✅.
+
