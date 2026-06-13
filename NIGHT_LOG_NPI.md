@@ -131,3 +131,31 @@ mission-control, forecast, erp. Disponible para el yamazumi.
   - **Columna "Ayuda" clicable**: link "Ver" que abre la ayuda (antes solo un ícono).
 - Backend ya soportaba todo (`updateStation`); solo faltaba UI. Cero backend nuevo.
 - Puertas (apps/web): `tsc` 0 · `eslint` 0 (1 warning preexistente ajeno) · `next build` OK.
+- PR #279 → CI verde → merge squash. Rama re-sincronizada a main.
+
+### Rebanada 5 — Takt real en balanceo/yamazumi (line-engineering) ✅
+> Bug detectado: la página llamaba `/balance` **sin takt** → `taktSec=0`, así que
+> el yamazumi no dibujaba la línea de takt, la métrica "Takt" salía 0s y nunca se
+> detectaban cuellos (stationsOverTakt vacío). El balanceo estaba a medias.
+- `dashboard/line-engineering/page.tsx`:
+  - Takt efectivo = **override manual** (input en el panel) → si vacío, el
+    **takt de la calificación** del modelo (model+rev, luego cualquier qual del
+    modelo). Se pasa como `&taktTargetSec=` a `/balance` (auto-refetch).
+  - El input muestra como placeholder el takt de la calificación; botón "Reset".
+  - Si no hay takt (ni override ni calificación) → aviso honesto para definirlo o
+    calificar el modelo. El override se limpia al cambiar de modelo.
+- Ahora el yamazumi dibuja la línea de takt real y resalta cuellos; "Takt"/"Cycle"
+  comparan de verdad. Cero backend nuevo (reusa `/balance` + `/qualifications`).
+- Puertas (apps/web): `tsc` 0 · `eslint` 0 (1 warning preexistente ajeno) · `next build` OK.
+- PR #286 → CI verde → merge squash. Rama re-sincronizada a main.
+
+### Rebanada 6 — Calculadora de capacidad de línea (line-engineering) ✅
+> Siguiente punto débil: `GET /line-engineering/capacity` existía sin UI.
+- `dashboard/line-engineering/page.tsx`: tarjeta colapsable **"Capacidad de línea"**:
+  elige línea + minutos disponibles + demanda → `GET /capacity` → muestra minutos
+  requeridos (con changeover), disponibles, **% utilización** (verde/ámbar/rojo) y
+  veredicto **Cabe / No cabe**. Usa el modelo+revisión seleccionados.
+- Líneas derivadas de estaciones + calificaciones (sin texto libre). Cero backend nuevo.
+- Limpieza: estabilicé `stations`/`quals` con `useMemo` → eliminé el warning de
+  exhaustive-deps preexistente (eslint ahora 0 warnings en el archivo).
+- Puertas (apps/web): `tsc` 0 · `eslint` 0 · `next build` OK.

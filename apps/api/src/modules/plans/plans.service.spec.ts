@@ -17,6 +17,7 @@ describe('PlansService', () => {
     update: jest.Mock;
   };
   let capacityRepo: { find: jest.Mock };
+  let audit: { log: jest.Mock };
 
   beforeEach(() => {
     repo = {
@@ -27,6 +28,7 @@ describe('PlansService', () => {
       update: jest.fn().mockResolvedValue(undefined),
     };
     capacityRepo = { find: jest.fn() };
+    audit = { log: jest.fn().mockResolvedValue(undefined) };
     service = new PlansService(
       repo as never,
       capacityRepo as never,
@@ -34,7 +36,7 @@ describe('PlansService', () => {
       {} as never, // lineRepo
       {} as never, // inventory
       {} as never, // quality
-      {} as never, // audit
+      audit as never,
       {} as never, // dataSource
     );
   });
@@ -83,6 +85,47 @@ describe('PlansService', () => {
       await service.create({ model: 'm', quantity: 1 } as never);
       const created = repo.create.mock.calls[0][0] as { workOrder: string };
       expect(created.workOrder).toBe('00042'); // 41 + 1, padded a 5
+    });
+  });
+
+  describe('update', () => {
+    it('lanza 404 si el plan no existe', async () => {
+      repo.findOne.mockResolvedValue(null);
+      await expect(service.update(1, { model: 'x' } as never)).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+    });
+
+    it('normaliza el modelo a MAYÚSCULAS y persiste el patch', async () => {
+      repo.findOne.mockResolvedValue({ id: 1, model: 'X9', kit: null });
+      await service.update(1, { model: ' x9 ' } as never);
+      expect(repo.update).toHaveBeenCalledWith(1, expect.objectContaining({ model: 'X9' }));
+    });
+  });
+
+  describe('releaseWorkOrder', () => {
+    it('lanza 404 si el plan no existe', async () => {
+      repo.findOne.mockResolvedValue(null);
+      await expect(service.releaseWorkOrder(1, 'mgr')).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('marca released con sello de readiness y registra la auditoría RELEASE_WO', async () => {
+      repo.findOne.mockResolvedValue({ id: 1, model: 'M', status: 'pending', buildingId: 'b1', kit: null });
+      await service.releaseWorkOrder(1, 'mgr');
+
+      const saved = repo.save.mock.calls[0][0] as {
+        status: string;
+        releasedBy: string;
+        releasedAt: Date;
+        readinessSummary: unknown;
+      };
+      expect(saved.status).toBe('released');
+      expect(saved.releasedBy).toBe('mgr');
+      expect(saved.releasedAt).toBeInstanceOf(Date);
+      expect(saved.readinessSummary).toMatchObject({ materials: 'green', quality: 'green' });
+      expect(audit.log).toHaveBeenCalledWith(
+        expect.objectContaining({ action: 'RELEASE_WO', entity: 'Plan', entityId: '1' }),
+      );
     });
   });
 
