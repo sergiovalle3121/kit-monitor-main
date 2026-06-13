@@ -152,6 +152,11 @@ export default function InventoryPage() {
     useApi<StagingLine[]>(tab === "shortage" ? "/material-staging" : null);
 
   const [q, setQ] = useState("");
+  const [tracePart, setTracePart] = useState("");
+
+  // Saltos entre pestañas para operar el flujo (escasez → existencias → traza).
+  const goPositions = (part: string) => { setQ(part); setTab("positions"); };
+  const goTrace = (part: string) => { setTracePart(part); setTab("traceability"); };
 
   const positions = useMemo(() => (Array.isArray(data) ? data : []), [data]);
   const movements = useMemo(() => (Array.isArray(movData) ? movData : []), [movData]);
@@ -321,7 +326,7 @@ export default function InventoryPage() {
             <Empty icon={<Inbox className="w-6 h-6" />} title={q ? "Sin coincidencias" : "Sin existencias"} body={q ? "Ninguna parte coincide con la búsqueda." : "Aún no hay inventario registrado. Se irá poblando con las recepciones y movimientos de almacén."} />
           ) : (
             <div className="space-y-2">
-              {partGroups.map((g) => <PartGroupCard key={g.partNumber} g={g} />)}
+              {partGroups.map((g) => <PartGroupCard key={g.partNumber} g={g} onTrace={goTrace} />)}
             </div>
           )
         )}
@@ -350,7 +355,7 @@ export default function InventoryPage() {
                     <div key={r.part} className="flex items-center gap-3 px-3 py-3">
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-mono font-semibold text-sm truncate">{r.part}</span>
+                          <button onClick={() => goPositions(r.part)} className="font-mono font-semibold text-sm truncate hover:underline" title="Ver existencias de esta parte">{r.part}</button>
                           {r.confirmed && <span className="text-[10px] px-1.5 py-0.5 rounded inline-flex items-center gap-0.5" style={{ background: `${RED}1f`, color: RED }}><AlertTriangle className="w-3 h-3" /> faltante en línea</span>}
                           {r.belowMin && <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: `${AMBER}1f`, color: AMBER }}>bajo mínimo</span>}
                         </div>
@@ -451,32 +456,38 @@ export default function InventoryPage() {
           )
         )}
 
-        {tab === "traceability" && <TraceabilityPanel />}
+        {tab === "traceability" && <TraceabilityPanel key={tracePart} initialPart={tracePart} />}
       </main>
     </div>
   );
 }
 
 // ── Existencias: tarjeta por parte con detalle por ubicación (rack/bin) ────────
-function PartGroupCard({ g }: {
+function PartGroupCard({ g, onTrace }: {
   g: { partNumber: string; description: string; uom: string; onHand: number; allocated: number; available: number; rows: Position[] };
+  onTrace: (part: string) => void;
 }) {
   const [open, setOpen] = useState(false);
   return (
     <div className={`${glass} rounded-2xl`}>
-      <button onClick={() => setOpen((o) => !o)} className="w-full flex items-center gap-3 px-4 py-3 text-left">
-        <ChevronRight className={`w-4 h-4 text-gray-400 flex-shrink-0 transition-transform ${open ? "rotate-90" : ""}`} />
-        <div className="min-w-0 flex-1">
-          <p className="font-mono font-semibold text-sm truncate">{g.partNumber}</p>
-          <p className="text-[11px] text-gray-400 truncate">
-            {g.description || "—"} · {g.rows.length} ubicación{g.rows.length === 1 ? "" : "es"}
-          </p>
-        </div>
-        <div className="text-right flex-shrink-0">
-          <p className="font-semibold tabular-nums">{fmtQty(g.available)}<span className="text-[11px] text-gray-400 ml-1">{g.uom}</span></p>
-          <p className="text-[10px] text-gray-400">disponible{g.allocated > 0 ? ` · ${fmtQty(g.allocated)} asignado` : ""}</p>
-        </div>
-      </button>
+      <div className="flex items-center">
+        <button onClick={() => setOpen((o) => !o)} className="flex items-center gap-3 px-4 py-3 text-left flex-1 min-w-0">
+          <ChevronRight className={`w-4 h-4 text-gray-400 flex-shrink-0 transition-transform ${open ? "rotate-90" : ""}`} />
+          <div className="min-w-0 flex-1">
+            <p className="font-mono font-semibold text-sm truncate">{g.partNumber}</p>
+            <p className="text-[11px] text-gray-400 truncate">
+              {g.description || "—"} · {g.rows.length} ubicación{g.rows.length === 1 ? "" : "es"}
+            </p>
+          </div>
+          <div className="text-right flex-shrink-0">
+            <p className="font-semibold tabular-nums">{fmtQty(g.available)}<span className="text-[11px] text-gray-400 ml-1">{g.uom}</span></p>
+            <p className="text-[10px] text-gray-400">disponible{g.allocated > 0 ? ` · ${fmtQty(g.allocated)} asignado` : ""}</p>
+          </div>
+        </button>
+        <button onClick={() => onTrace(g.partNumber)} title="Trazabilidad (where-used)" className="px-3.5 py-3 text-gray-400 hover:text-[#16a394] flex-shrink-0">
+          <GitBranch className="w-4 h-4" />
+        </button>
+      </div>
       {open && (
         <div className="px-4 pb-3 pt-1 border-t border-gray-100 dark:border-white/5">
           <div className="space-y-1.5 mt-2">
@@ -511,10 +522,12 @@ function PartGroupCard({ g }: {
 }
 
 // ── Trazabilidad: where-used (contención) por parte (+serial opcional) ─────────
-function TraceabilityPanel() {
-  const [partInput, setPartInput] = useState("");
+function TraceabilityPanel({ initialPart = "" }: { initialPart?: string }) {
+  const [partInput, setPartInput] = useState(initialPart);
   const [serialInput, setSerialInput] = useState("");
-  const [query, setQuery] = useState<{ part: string; serial: string } | null>(null);
+  const [query, setQuery] = useState<{ part: string; serial: string } | null>(
+    initialPart ? { part: initialPart, serial: "" } : null,
+  );
 
   const key = query
     ? `/floor-quality/where-used?part=${encodeURIComponent(query.part)}${query.serial ? `&serial=${encodeURIComponent(query.serial)}` : ""}`

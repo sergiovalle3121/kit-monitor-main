@@ -122,3 +122,12 @@ porque la página ya está enlazada en hub y palette).
   surfacear `/resupplies` queda como follow-up si se desea el flujo kit-based.
 - **Puertas:** eslint ✅ · tsc ✅ · next build ✅.
 
+### [4] Profundización: enlaces cruzados operables en el inventario — HECHO ✅
+`apps/web/src/app/dashboard/inventory/page.tsx`. Convierte el centro de control en
+un flujo navegable (todo client-side, sin API extra):
+- Escasez → clic en la parte salta a **Existencias** filtrada (¿dónde está el stock
+  disponible, en qué rack/bin?).
+- Existencias → botón "trazar" (GitBranch) salta a **Trazabilidad** con la parte
+  precargada y la consulta where-used ya ejecutada.
+- **Puertas:** eslint ✅ · tsc ✅ · next build ✅.
+
