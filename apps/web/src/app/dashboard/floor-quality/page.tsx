@@ -3,13 +3,14 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import {
-  ChevronLeft, ShieldX, Plus, Lock, Loader2, Inbox, X, ArrowRight,
+  ChevronLeft, Plus, Lock, Loader2, Inbox, X, ArrowRight,
   Search, AlertTriangle, Camera, FileWarning,
 } from 'lucide-react';
 import { glass } from '@/lib/glass';
 import { useApi } from '@/hooks/useApi';
 import { apiFetch } from '@/lib/apiFetch';
 import { useToast } from '@/contexts/ToastContext';
+import { PageHeader } from '@/components/ui/PageHeader';
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000').replace(/\/$/, '');
 const RED = '#ef4444';
@@ -114,19 +115,18 @@ export default function FloorQualityPage() {
 
   return (
     <div className="min-h-screen text-black dark:text-white">
-      <div className={`${glass} sticky top-0 z-40 px-6 py-4`}>
-        <div className="max-w-6xl mx-auto flex items-center gap-3">
-          <Link href="/dashboard" className="p-2 -ml-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10"><ChevronLeft className="w-5 h-5" /></Link>
-          <span className="w-9 h-9 rounded-xl grid place-items-center" style={{ background: 'rgba(239,68,68,0.14)' }}><ShieldX className="w-5 h-5" style={{ color: RED }} /></span>
-          <div className="flex-1 min-w-0">
-            <h1 className="text-lg font-semibold leading-tight">Calidad de piso · Hold → MRB → Disposición</h1>
-            <p className="text-[12px] text-gray-400 leading-tight">Un hold pone el lote en cuarentena y BLOQUEA el consumo y embarque de la WO.</p>
-          </div>
-          <button onClick={() => setShowForm(true)} className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium text-white" style={{ background: RED }}><Plus className="w-4 h-4" /> Nuevo hold</button>
-        </div>
-      </div>
-
-      <main className="max-w-6xl mx-auto px-6 pt-8 pb-24">
+      <main className="max-w-6xl mx-auto px-6 pt-10 pb-24">
+        <Link href="/dashboard" className="inline-flex items-center gap-1 text-sm text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 mb-4">
+          <ChevronLeft className="w-4 h-4" /> Dashboard
+        </Link>
+        <PageHeader
+          domain="quality"
+          title="Calidad de piso"
+          subtitle="Hold → MRB → Disposición · el hold pone el lote en cuarentena y bloquea consumo y embarque de la WO"
+          right={
+            <button onClick={() => setShowForm(true)} className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium text-white" style={{ background: RED }}><Plus className="w-4 h-4" /> Nuevo hold</button>
+          }
+        />
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-8">
           <Kpi label="Holds abiertos" value={kpis?.openHolds ?? 0} color={RED} />
           <Kpi label="% Use-as-is" value={pct(kpis?.pctUseAsIs ?? 0)} color={AMBER} />
