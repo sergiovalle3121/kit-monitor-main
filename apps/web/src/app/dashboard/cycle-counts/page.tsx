@@ -12,6 +12,7 @@ import {
   ArrowRight,
   ListChecks,
   AlertTriangle,
+  Search,
 } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { glass } from '@/lib/glass';
@@ -72,8 +73,12 @@ export default function CycleCountsPage() {
   const [busy, setBusy] = useState<string | null>(null);
   const [form, setForm] = useState({ partNumber: '', location: '', systemQty: 0, uom: 'PCS' });
   const [countInputs, setCountInputs] = useState<Record<string, string>>({});
+  const [cq, setCq] = useState('');
 
   const list = useMemo(() => (Array.isArray(data) ? data : []), [data]);
+
+  const matchesSearch = (c: Count) =>
+    !cq || `${c.partNumber} ${c.folio ?? ''} ${c.location ?? ''}`.toLowerCase().includes(cq.toLowerCase());
 
   // Discrepancias = conteos ya contados cuya cantidad NO cuadra con el sistema.
   // (ADJUSTED resuelve la varianza a 0 en backend, así que no aparece aquí.)
@@ -84,10 +89,9 @@ export default function CycleCountsPage() {
         .sort((a, b) => Math.abs(Number(b.variance)) - Math.abs(Number(a.variance))),
     [list],
   );
-  const netVariance = useMemo(
-    () => discrepancies.reduce((a, c) => a + Number(c.variance ?? 0), 0),
-    [discrepancies],
-  );
+  // Discrepancias visibles tras la búsqueda (y su varianza neta).
+  const shownDiscrepancies = discrepancies.filter(matchesSearch);
+  const netVariance = shownDiscrepancies.reduce((a, c) => a + Number(c.variance ?? 0), 0);
 
   function refresh() {
     mutate();
@@ -188,6 +192,9 @@ export default function CycleCountsPage() {
           <button onClick={() => recordCount(c)} disabled={busy === c.id} className="px-2.5 py-1.5 rounded-lg text-[12px] font-medium text-white disabled:opacity-50" style={{ background: TEAL }}>
             Contar
           </button>
+          <button onClick={() => transition(c, 'CANCELLED')} disabled={busy === c.id} title="Cancelar conteo" className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 disabled:opacity-50">
+            <X className="w-3.5 h-3.5" />
+          </button>
         </>
       );
     }
@@ -229,11 +236,19 @@ export default function CycleCountsPage() {
         </div>
 
         {/* Toggle de vista */}
-        <div className={`${glass} inline-flex items-center gap-1 p-1 rounded-2xl mb-5`}>
-          <ViewBtn active={view === 'flow'} onClick={() => setView('flow')} icon={<ListChecks className="w-4 h-4" />}>Flujo</ViewBtn>
-          <ViewBtn active={view === 'discrepancies'} onClick={() => setView('discrepancies')} icon={<AlertTriangle className="w-4 h-4" />}>
-            Discrepancias{discrepancies.length > 0 ? ` (${discrepancies.length})` : ''}
-          </ViewBtn>
+        <div className="flex items-center gap-2 mb-5 flex-wrap">
+          <div className={`${glass} inline-flex items-center gap-1 p-1 rounded-2xl`}>
+            <ViewBtn active={view === 'flow'} onClick={() => setView('flow')} icon={<ListChecks className="w-4 h-4" />}>Flujo</ViewBtn>
+            <ViewBtn active={view === 'discrepancies'} onClick={() => setView('discrepancies')} icon={<AlertTriangle className="w-4 h-4" />}>
+              Discrepancias{discrepancies.length > 0 ? ` (${discrepancies.length})` : ''}
+            </ViewBtn>
+          </div>
+          {list.length > 0 && (
+            <div className={`${glass} flex items-center gap-2 px-4 py-2 rounded-2xl flex-1 min-w-[200px]`}>
+              <Search className="w-4 h-4 text-gray-400" />
+              <input value={cq} onChange={(e) => setCq(e.target.value)} placeholder="Buscar parte, folio o ubicación…" className="bg-transparent outline-none text-sm w-full" />
+            </div>
+          )}
         </div>
 
         {showForm && (
@@ -274,22 +289,22 @@ export default function CycleCountsPage() {
             <p className="text-sm text-gray-400 mt-1">Crea un conteo para medir la exactitud de inventario.</p>
           </div>
         ) : view === 'discrepancies' ? (
-          discrepancies.length === 0 ? (
+          shownDiscrepancies.length === 0 ? (
             <div className={`${glass} rounded-3xl p-12 text-center`}>
               <CheckCircle2 className="w-8 h-8 mx-auto mb-3" style={{ color: GREEN }} />
-              <h3 className="font-semibold">Sin discrepancias</h3>
-              <p className="text-sm text-gray-400 mt-1">Todos los conteos registrados cuadran con el sistema.</p>
+              <h3 className="font-semibold">{cq ? 'Sin coincidencias' : 'Sin discrepancias'}</h3>
+              <p className="text-sm text-gray-400 mt-1">{cq ? 'Ningún conteo con diferencia coincide con la búsqueda.' : 'Todos los conteos registrados cuadran con el sistema.'}</p>
             </div>
           ) : (
             <>
               <p className="text-[12px] text-gray-400 mb-3">
-                {discrepancies.length} parte{discrepancies.length === 1 ? '' : 's'} con diferencia · varianza neta{' '}
+                {shownDiscrepancies.length} parte{shownDiscrepancies.length === 1 ? '' : 's'} con diferencia · varianza neta{' '}
                 <span className="font-semibold" style={{ color: netVariance === 0 ? GRAY : netVariance > 0 ? GREEN : RED }}>
                   {netVariance > 0 ? '+' : ''}{netVariance}
                 </span>
               </p>
               <div className="space-y-3">
-                {discrepancies.map((c) => {
+                {shownDiscrepancies.map((c) => {
                   const v = Number(c.variance);
                   const over = v > 0;
                   return (
@@ -323,7 +338,7 @@ export default function CycleCountsPage() {
         ) : (
           <div className="space-y-8">
             {ORDER.map((status) => {
-              const items = list.filter((c) => c.status === status);
+              const items = list.filter((c) => c.status === status && matchesSearch(c));
               if (items.length === 0) return null;
               return (
                 <section key={status}>
