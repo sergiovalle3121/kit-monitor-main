@@ -159,3 +159,15 @@ mission-control, forecast, erp. Disponible para el yamazumi.
 - Limpieza: estabilicé `stations`/`quals` con `useMemo` → eliminé el warning de
   exhaustive-deps preexistente (eslint ahora 0 warnings en el archivo).
 - Puertas (apps/web): `tsc` 0 · `eslint` 0 · `next build` OK.
+- PR #291 → CI verde → merge squash. Rama re-sincronizada a main.
+
+### Rebanada 7 — Launcher de Ing. Industrial: KPIs reales + enlace a la herramienta ✅
+> Hueco: el launcher `industrial-engineering` NO enlazaba a *Disposición de líneas*
+> (la herramienta core de IE que profundicé) y mostraba un simple conteo de estaciones.
+- `dashboard/industrial-engineering/page.tsx`:
+  - KPIs ahora de `/line-engineering/kpis`: estaciones, **% modelos balanceados**,
+    **% ayuda visual**, **layouts incompletos** (señales reales del trabajo de IE).
+  - Nuevo tool **"Disposición de líneas"** (primero) → `/dashboard/line-engineering`
+    (layout, balanceo/yamazumi, capacidad). Se conservan los demás tools.
+- Cero backend nuevo; reusa endpoint de KPIs existente. Sin mock.
+- Puertas (apps/web): `tsc` 0 · `eslint` 0 · `next build` OK.
