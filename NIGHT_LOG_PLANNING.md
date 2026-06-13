@@ -64,4 +64,40 @@ helper puro `wo-board.ts`). Cero backend, cero mock.
   `production-plan`. Queda como tarea backend (CRP) — el muro solo refleja lo
   publicado, no valida capacidad.
 
+---
+
+## Ítem 2 — Semáforo Clear-to-Build por WO ✅
+
+**Archivos:** `production-plan/page.tsx` + `wo-board.ts` (`computeClearToBuild`,
+puro). Compone el veredicto desde **endpoints existentes** (cero backend):
+
+- **BOM activo** → `GET /bom/headers?status=ACTIVE` (mapa modelo→BOM con
+  componentes). `buildActiveBomMap`.
+- **Material disponible** → `GET /inventory/positions` (mapa parte→disponible =
+  `onHand − allocated`, solo `holdStatus='available'`; el getter `available` no
+  se serializa). `buildInventoryMap`. Explota el BOM activo contra la **cantidad
+  por construir** (planeada − hecha): `req/u = quantity × usageFactor /
+  baseQuantity`; faltante = `req − disponible`.
+- **FAI** → flag de la WO (`faiRequired ? faiApproved : n/a`).
+- **Calidad** → `qualityClear` también entra (un hold activo no puede pintar
+  verde).
+
+**Veredicto** (`go`/`caution`/`no-go`/`unknown`): verde solo si BOM activo +
+todo el material cubierto + FAI ok/na + sin hold. Ámbar si material parcial o
+FAI pendiente. Rojo si no hay BOM, faltante total, o hold de calidad.
+
+**UI:** badge-semáforo por WO (clic → detalle expandible) con las 3+1 verificaciones
+(ícono+estado+detalle), tabla de **faltantes** (parte · req · disp · falta, top 6)
+y deep-links honestos (sin BOM → Modelos; con faltante → Almacén). El resumen por
+línea suma `# no listas`. Refresco en vivo (SWR 20s) como el resto del muro.
+
+**Puertas:** `tsc` 0 · `eslint` 0/0 · `next build` ✓.
+
+### Notas backend para mañana (fuera de carril)
+- La disponibilidad se agrega **a través de todos los almacenes/programas** (no
+  filtra por `programId` de la WO). Afinar a disponibilidad por programa requeriría
+  cruzar `programId` (dato hoy mayormente vacío) — mejora futura.
+- `production-plan` ya tiene `materialReady` (lo pone staging C); el semáforo no lo
+  sustituye, lo **complementa** con la verificación real contra inventario/BOM.
+
 <!-- Próximos ítems se agregan abajo -->
