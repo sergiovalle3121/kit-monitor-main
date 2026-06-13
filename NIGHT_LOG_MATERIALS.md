@@ -172,6 +172,13 @@ con regla min/máx muestran "pedir N" (= máx − disponible) justo donde se ve 
 faltante, dando una cantidad de reorden concreta en el punto de acción.
 - **Puertas:** eslint ✅ · tsc ✅ · next build ✅.
 
+### [9] Conteos cíclicos: búsqueda + cancelar conteo OPEN — HECHO ✅
+`apps/web/src/app/dashboard/cycle-counts/page.tsx`. Operabilidad de lista: buscador
+por parte/folio/ubicación (filtra Flujo y Discrepancias; la varianza neta se recalcula
+sobre lo visible) y acción **Cancelar** en conteos OPEN (transición válida
+OPEN→CANCELLED del state machine, antes no expuesta).
+- **Puertas:** eslint ✅ · tsc ✅ · next build ✅.
+
 ---
 
 ## CIERRE DEL CARRIL S3 (estado al cierre)
