@@ -226,3 +226,21 @@ export interface Disposition {
   ncr?: { id: number; ncrNumber?: string } | null;
   createdAt: string;
 }
+
+// Quarantine transfer — apps/api/src/modules/quality/entities/quarantine-transfer.entity.ts
+export type QuarantineTransferStatus = "pending" | "completed" | "cancelled";
+
+export interface QuarantineTransfer {
+  id: number;
+  partNumber: string;
+  quantity: number;
+  sourceWarehouseId: string;
+  sourceLocation: string;
+  destWarehouseId: string;
+  destLocation: string;
+  status: QuarantineTransferStatus;
+  requestedBy: string;
+  completedBy?: string | null;
+  hold?: { id: number } | null;
+  createdAt: string;
+}
