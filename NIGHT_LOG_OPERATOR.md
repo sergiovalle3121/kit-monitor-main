@@ -127,3 +127,21 @@ NO replica esa torre: se queda como **lista operativa de órdenes** y se le aña
 
 ### Puertas (apps/web) — verdes
 - `eslint` (0/0), `tsc --noEmit` (sin errores), `next build` (OK, exit 0).
+
+---
+
+## 2026-06-13 — Terminal: recuerda su estación/WO tras reinicio (kiosko real)
+
+> PR #277 (production) **mergeado en verde** (squash `79ce0f9`). Rama re-sincronizada.
+
+### Cambio (solo `operator-terminal/page.tsx`)
+Una terminal de piso es un kiosko fijo por estación; al reiniciarse debe volver a
+su sitio. Se persiste la **identidad** (estación + última WO) en `localStorage`
+(`axos_operator_terminal`) y se restaura al montar (en `useEffect`, post-hidratación
+→ SSR-safe; sin mismatch). La escritura ocurre en los handlers de selección
+(`chooseWo`/`changeStation`), no en un effect, para no pisar el valor restaurado en
+el primer render. No se persiste el modo pantalla completa (requiere gesto del
+usuario para la Fullscreen API). 0 backend, 0 mock.
+
+### Puertas (apps/web) — verdes
+- `eslint` (0/0), `tsc --noEmit` (sin errores), `next build` (OK, exit 0).

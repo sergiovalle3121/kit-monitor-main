@@ -131,3 +131,15 @@ un flujo navegable (todo client-side, sin API extra):
   precargada y la consulta where-used ya ejecutada.
 - **Puertas:** eslint ✅ · tsc ✅ · next build ✅.
 
+> **PR #271 mergeado a main** (squash, CI verde: build·test·lint·smoke). Rama
+> sincronizada con main para continuar.
+
+### [5] "Contar bin" desde Inventario → crea conteo cíclico — HECHO ✅
+`apps/web/src/app/dashboard/inventory/page.tsx`. Cierra el loop existencias↔conteos:
+cada bin en el detalle de Existencias tiene un botón que crea un conteo cíclico
+(`POST /cycle-counts`) precargado con parte+ubicación+systemQty(on-hand)+uom; toast
+de éxito que apunta a Conteos Cíclicos. Vuelve la página de inventario
+write-capable (antes solo lectura). Flujo real de almacén: "veo el bin → lo mando a
+contar → captura física → varianza → conciliar/ajustar".
+- **Puertas:** eslint ✅ · tsc ✅ · next build ✅.
+

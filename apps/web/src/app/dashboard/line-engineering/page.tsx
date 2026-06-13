@@ -70,8 +70,17 @@ export default function LineEngineeringPage() {
   const activeModel = selModel || (models[0] ? `${models[0].model}|${models[0].revision}` : '');
   const [model, revision] = activeModel ? activeModel.split('|') : ['', 'A'];
 
+  // Takt for balancing: prefer an explicit override, else the model's qualification
+  // (model+revision first, then any qualification of the model with a takt target).
+  const qualTakt =
+    quals.find((q) => q.model === model && q.revision === revision && q.taktTargetSec > 0)?.taktTargetSec ??
+    quals.find((q) => q.model === model && q.taktTargetSec > 0)?.taktTargetSec ??
+    0;
+  const [taktOverride, setTaktOverride] = useState<string>('');
+  const effTakt = taktOverride.trim() !== '' ? Math.max(0, Number(taktOverride) || 0) : qualTakt;
+
   const { data: balance, mutate: mutateBalance } = useApi<Balance>(
-    model ? `/line-engineering/balance?model=${encodeURIComponent(model)}&revision=${revision}` : null,
+    model ? `/line-engineering/balance?model=${encodeURIComponent(model)}&revision=${revision}${effTakt > 0 ? `&taktTargetSec=${effTakt}` : ''}` : null,
   );
 
   const route = stations
@@ -192,7 +201,7 @@ export default function LineEngineeringPage() {
               const key = `${m.model}|${m.revision}`;
               const on = key === activeModel;
               return (
-                <button key={key} onClick={() => setSelModel(key)} className="px-3 py-1.5 rounded-lg text-[13px] font-medium" style={{ background: on ? ROSE : 'rgba(0,0,0,0.05)', color: on ? '#fff' : undefined }}>
+                <button key={key} onClick={() => { setSelModel(key); setTaktOverride(''); }} className="px-3 py-1.5 rounded-lg text-[13px] font-medium" style={{ background: on ? ROSE : 'rgba(0,0,0,0.05)', color: on ? '#fff' : undefined }}>
                   {m.model} · {m.revision}
                 </button>
               );
@@ -203,7 +212,20 @@ export default function LineEngineeringPage() {
         {/* Balance panel */}
         {balance && model && (
           <div className={`${glass} rounded-2xl p-5 mb-6`}>
-            <div className="flex items-center gap-2 mb-4"><Activity className="w-4 h-4" style={{ color: ROSE }} /><h3 className="font-semibold">Balanceo de línea · {balance.model} {balance.revision}</h3></div>
+            <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
+              <div className="flex items-center gap-2"><Activity className="w-4 h-4" style={{ color: ROSE }} /><h3 className="font-semibold">Balanceo de línea · {balance.model} {balance.revision}</h3></div>
+              <div className="flex items-center gap-2 text-[12px]">
+                <span className="text-gray-400">Takt (s):</span>
+                <input
+                  type="number" min={0} value={taktOverride}
+                  onChange={(e) => setTaktOverride(e.target.value)}
+                  placeholder={qualTakt > 0 ? String(qualTakt) : '—'}
+                  className="w-20 rounded-lg px-2 py-1 bg-black/[0.03] dark:bg-white/[0.06] border border-black/10 dark:border-white/10 outline-none tabular-nums"
+                />
+                {taktOverride.trim() !== '' && <button onClick={() => setTaktOverride('')} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">Reset</button>}
+                <span className="text-gray-400">{qualTakt > 0 ? `calificación: ${qualTakt}s` : 'sin takt en calificación'}</span>
+              </div>
+            </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <Mini label="Takt" value={`${balance.taktSec}s`} />
               <Mini label="Cycle (cuello)" value={`${balance.lineCycleTimeSec}s`} sub={balance.bottleneckStation ?? '—'} color={balance.lineCycleTimeSec > balance.taktSec && balance.taktSec > 0 ? ROSE : GREEN} />
@@ -211,6 +233,11 @@ export default function LineEngineeringPage() {
               <Mini label="Throughput" value={`${balance.throughputPerHour}/h`} />
             </div>
             <Yamazumi route={route} taktSec={balance.taktSec} />
+            {effTakt === 0 && (
+              <div className="mt-3 flex items-center gap-2 text-[12px]" style={{ color: AMBER }}>
+                <AlertTriangle className="w-4 h-4" /> Define un takt (arriba) o califica el modelo en una línea para comparar el ciclo contra el ritmo de demanda.
+              </div>
+            )}
             {balance.stationsOverTakt.length > 0 && (
               <div className="mt-3 flex items-center gap-2 text-[12px]" style={{ color: ROSE }}>
                 <AlertTriangle className="w-4 h-4" /> Estaciones sobre takt: {balance.stationsOverTakt.join(', ')} — rebalancear.

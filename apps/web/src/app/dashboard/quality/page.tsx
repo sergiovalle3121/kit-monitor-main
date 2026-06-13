@@ -11,6 +11,7 @@ import {
   Search,
   ShieldAlert,
   BarChart3,
+  PackageCheck,
   ChevronRight,
 } from "lucide-react";
 import { glass } from "@/lib/glass";
@@ -88,6 +89,13 @@ export default function QualityPage() {
           subtitle="No conformidades, disposición y CAPA sobre el backend de calidad"
           right={
             <div className="flex items-center gap-2">
+              <Link
+                href="/dashboard/quality/inspections"
+                className="hidden md:inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-[13px] font-medium hover:bg-black/5 dark:hover:bg-white/10"
+                title="Inspecciones de recibo (IQC) y salida (OQC)"
+              >
+                <PackageCheck className="w-4 h-4" /> Inspecciones
+              </Link>
               <Link
                 href="/dashboard/quality/analytics"
                 className="hidden sm:inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-[13px] font-medium hover:bg-black/5 dark:hover:bg-white/10"
