@@ -1,15 +1,17 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
   ChevronLeft, Megaphone, Plus, Lock, Loader2, Inbox, X, CheckCircle2,
   ArrowRight, PackageCheck, ShieldCheck, FlaskConical, UserCheck,
+  Factory, Layers, CalendarClock, Activity,
 } from 'lucide-react';
 import { glass } from '@/lib/glass';
 import { useApi } from '@/hooks/useApi';
 import { apiFetch } from '@/lib/apiFetch';
 import { useToast } from '@/contexts/ToastContext';
+import { computeSchedule, paceLabel, type ScheduleInfo } from './wo-board';
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000').replace(/\/$/, '');
 const VIOLET = '#7c3aed';
@@ -28,6 +30,7 @@ interface WO {
   consumptionMode: 'BY_UNIT' | 'BY_QTY_FACTOR'; serialControl: 'NONE' | 'BY_UNIT';
   materialReady: boolean; qualityClear: boolean; faiRequired: boolean; faiApproved: boolean;
   authorizedOperators: string[] | null; customer: string | null;
+  taktTargetSec?: number | null; startedAt?: string | null;
 }
 interface Kpis {
   total: number; open: number; inExecution: number; unitsPlanned: number; unitsCompleted: number;
@@ -50,16 +53,28 @@ const NEXT: Record<Status, Status[]> = {
   COMPLETED: [], CANCELLED: [],
 };
 const ORDER: Status[] = ['RELEASED', 'STAGED', 'IN_EXECUTION', 'COMPLETED'];
+const TERMINAL: Status[] = ['COMPLETED', 'CANCELLED'];
 const pct = (n: number) => `${Math.round((n || 0) * 100)}%`;
+const bySequence = (a: WO, b: WO) => a.sequence - b.sequence;
+
+const SCHEDULE_META: Record<ScheduleInfo['state'], { color: string }> = {
+  late: { color: RED },
+  'due-today': { color: AMBER },
+  'on-track': { color: BLUE },
+  done: { color: GREEN },
+  cancelled: { color: GRAY },
+  unscheduled: { color: GRAY },
+};
 
 export default function ProductionPlanPage() {
   const toast = useToast();
   const { data, isLoading, forbidden, mutate } = useApi<WO[]>('/production-plan');
   const { data: kpis, mutate: mutateKpis } = useApi<Kpis>('/production-plan/kpis');
   const { data: modelsData } = useApi<ModelOption[]>('/product-models');
-  const list = Array.isArray(data) ? data : [];
+  const list = useMemo(() => (Array.isArray(data) ? data : []), [data]);
   const models = Array.isArray(modelsData) ? modelsData : [];
 
+  const [view, setView] = useState<'line' | 'status'>('line');
   const [showForm, setShowForm] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [form, setForm] = useState({
@@ -67,6 +82,19 @@ export default function ProductionPlanPage() {
     priority: 'MEDIUM' as WO['priority'], consumptionMode: 'BY_UNIT' as WO['consumptionMode'],
     serialControl: 'NONE' as WO['serialControl'], faiRequired: false, customer: '',
   });
+
+  // WOs grouped by line, each sorted by run sequence (the operational board).
+  const byLine = useMemo(() => {
+    const map = new Map<string, WO[]>();
+    for (const wo of list) {
+      const arr = map.get(wo.line) ?? [];
+      arr.push(wo);
+      map.set(wo.line, arr);
+    }
+    return Array.from(map.entries())
+      .map(([line, wos]) => ({ line, wos: [...wos].sort(bySequence) }))
+      .sort((a, b) => a.line.localeCompare(b.line));
+  }, [list]);
 
   function refresh() { mutate(); mutateKpis(); }
 
@@ -122,6 +150,8 @@ export default function ProductionPlanPage() {
     );
   }
 
+  const cardProps = { busy, onTransition: transition, onAuthorize: authorize };
+
   return (
     <div className="min-h-screen text-black dark:text-white">
       <div className={`${glass} sticky top-0 z-40 px-6 py-4`}>
@@ -129,7 +159,7 @@ export default function ProductionPlanPage() {
           <Link href="/dashboard" className="p-2 -ml-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10"><ChevronLeft className="w-5 h-5" /></Link>
           <span className="w-9 h-9 rounded-xl grid place-items-center" style={{ background: 'rgba(124,58,237,0.14)' }}><Megaphone className="w-5 h-5" style={{ color: VIOLET }} /></span>
           <div className="flex-1 min-w-0">
-            <h1 className="text-lg font-semibold leading-tight">Muro de publicación del plan</h1>
+            <h1 className="text-lg font-semibold leading-tight">Muro de WOs · tablero operativo</h1>
             <p className="text-[12px] text-gray-400 leading-tight">Planeación publica · operadores, materialistas y supervisión ven el mismo plan en vivo.</p>
           </div>
           <button onClick={() => setShowForm(true)} className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium text-white" style={{ background: VIOLET }}><Plus className="w-4 h-4" /> Publicar WO</button>
@@ -137,13 +167,21 @@ export default function ProductionPlanPage() {
       </div>
 
       <main className="max-w-6xl mx-auto px-6 pt-8 pb-24">
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
           <Kpi label="WO abiertas" value={kpis?.open ?? 0} color={VIOLET} />
           <Kpi label="En ejecución" value={kpis?.inExecution ?? 0} color={BLUE} />
           <Kpi label="Adherencia al plan" value={pct(kpis?.planAdherencePct ?? 0)} color={GREEN} />
           <Kpi label="% con readiness" value={pct(kpis?.pctWithReadiness ?? 0)} color={AMBER} />
           <Kpi label="Atrasadas" value={kpis?.behindSchedule ?? 0} color={RED} />
         </div>
+
+        {/* View toggle */}
+        {list.length > 0 && (
+          <div className="flex items-center gap-1 mb-6 p-1 rounded-xl w-fit" style={{ background: 'rgba(0,0,0,0.04)' }}>
+            <ViewTab active={view === 'line'} onClick={() => setView('line')} icon={Factory} label="Por línea / estación" />
+            <ViewTab active={view === 'status'} onClick={() => setView('status')} icon={Layers} label="Por estado" />
+          </div>
+        )}
 
         {isLoading ? (
           <div className="flex justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div>
@@ -153,10 +191,16 @@ export default function ProductionPlanPage() {
             <h3 className="font-semibold">Sin WOs publicadas</h3>
             <p className="text-sm text-gray-400 mt-1">Publica la primera orden de trabajo para que el piso la vea en vivo.</p>
           </div>
+        ) : view === 'line' ? (
+          <div className="space-y-8">
+            {byLine.map(({ line, wos }) => (
+              <LineSection key={line} line={line} wos={wos} {...cardProps} />
+            ))}
+          </div>
         ) : (
           <div className="space-y-8">
             {ORDER.map((status) => {
-              const items = list.filter((w) => w.status === status).sort((a, b) => a.sequence - b.sequence);
+              const items = list.filter((w) => w.status === status).sort(bySequence);
               if (items.length === 0) return null;
               return (
                 <section key={status}>
@@ -166,52 +210,7 @@ export default function ProductionPlanPage() {
                     <span className="text-[11px] text-gray-400">({items.length})</span>
                   </div>
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                    {items.map((wo) => {
-                      const progress = wo.quantityPlanned > 0 ? Math.min(100, Math.round((wo.quantityCompleted / wo.quantityPlanned) * 100)) : 0;
-                      return (
-                        <div key={wo.id} className={`${glass} rounded-2xl p-4`}>
-                          <div className="flex items-start gap-3">
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                {wo.folio && <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-black/5 dark:bg-white/10 text-gray-500">{wo.folio}</span>}
-                                <span className="font-semibold truncate">{wo.model} · {wo.revision}</span>
-                                <span className="text-[11px] px-1.5 py-0.5 rounded" style={{ background: `${BLUE}1f`, color: BLUE }}>{wo.line}{wo.bay ? ` / ${wo.bay}` : ''}</span>
-                                {wo.priority !== 'MEDIUM' && <span className="text-[11px] px-1.5 py-0.5 rounded" style={{ background: `${AMBER}1f`, color: AMBER }}>{wo.priority}</span>}
-                              </div>
-                              <div className="mt-2 flex items-center gap-2 text-[12px] text-gray-400">
-                                <span>{wo.quantityCompleted}/{wo.quantityPlanned} u</span>
-                                <span>•</span>
-                                <span>{wo.consumptionMode === 'BY_UNIT' ? 'por unidad' : 'cant×factor'}</span>
-                                {wo.serialControl === 'BY_UNIT' && <><span>•</span><span>serial</span></>}
-                              </div>
-                              <div className="mt-2 h-1.5 rounded-full bg-black/10 dark:bg-white/10 overflow-hidden">
-                                <div className="h-full rounded-full" style={{ width: `${progress}%`, background: STATUS_META[wo.status].color }} />
-                              </div>
-                              <div className="mt-2 flex items-center gap-1.5 flex-wrap">
-                                <Chip on={wo.materialReady} icon={PackageCheck} label="Material" />
-                                <Chip on={wo.qualityClear} icon={ShieldCheck} label="Calidad" warn />
-                                {wo.faiRequired && <Chip on={wo.faiApproved} icon={FlaskConical} label="FAI" />}
-                                {wo.authorizedOperators && wo.authorizedOperators.length > 0 && (
-                                  <span className="text-[10px] px-1.5 py-0.5 rounded inline-flex items-center gap-1" style={{ background: `${GREEN}1f`, color: GREEN }}><UserCheck className="w-3 h-3" /> {wo.authorizedOperators.length} op.</span>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                          <div className="mt-3 flex items-center gap-1.5 flex-wrap">
-                            {NEXT[wo.status].map((to) => (
-                              <button key={to} onClick={() => transition(wo, to)} disabled={busy === wo.id}
-                                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[12px] font-medium disabled:opacity-50"
-                                style={{ background: `${STATUS_META[to].color}1f`, color: STATUS_META[to].color }}>
-                                {to === 'CANCELLED' ? <X className="w-3 h-3" /> : <ArrowRight className="w-3 h-3" />} {STATUS_META[to].label}
-                              </button>
-                            ))}
-                            <button onClick={() => authorize(wo)} disabled={busy === wo.id} className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[12px] font-medium disabled:opacity-50" style={{ background: 'rgba(0,0,0,0.05)' }}>
-                              <UserCheck className="w-3 h-3" /> Autorizar operador
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
+                    {items.map((wo) => <WOCard key={wo.id} wo={wo} {...cardProps} />)}
                   </div>
                 </section>
               );
@@ -239,7 +238,7 @@ export default function ProductionPlanPage() {
               </F>
               <F label="Revisión"><input value={form.revision} onChange={(e) => setForm({ ...form, revision: e.target.value })} className="ci-input" /></F>
               <F label="Línea"><input value={form.line} onChange={(e) => setForm({ ...form, line: e.target.value })} className="ci-input" /></F>
-              <F label="Bahía"><input value={form.bay} onChange={(e) => setForm({ ...form, bay: e.target.value })} className="ci-input" placeholder="(opcional)" /></F>
+              <F label="Bahía / estación"><input value={form.bay} onChange={(e) => setForm({ ...form, bay: e.target.value })} className="ci-input" placeholder="(opcional)" /></F>
               <F label="Cantidad"><input type="number" min={1} value={form.quantityPlanned} onChange={(e) => setForm({ ...form, quantityPlanned: Number(e.target.value) })} className="ci-input" /></F>
               <F label="Fecha programada"><input type="date" value={form.scheduledDate} onChange={(e) => setForm({ ...form, scheduledDate: e.target.value })} className="ci-input" /></F>
               <F label="Prioridad"><select value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value as WO['priority'] })} className="ci-input"><option value="LOW">Baja</option><option value="MEDIUM">Media</option><option value="HIGH">Alta</option><option value="URGENT">Urgente</option></select></F>
@@ -261,6 +260,131 @@ export default function ProductionPlanPage() {
         :global(.dark) .ci-input { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.1); }
       `}</style>
     </div>
+  );
+}
+
+// ── Line section (board view) ────────────────────────────────────────────────
+interface CardActions {
+  busy: string | null;
+  onTransition: (wo: WO, status: Status) => void;
+  onAuthorize: (wo: WO) => void;
+}
+
+function LineSection({ line, wos, ...actions }: { line: string; wos: WO[] } & CardActions) {
+  const active = wos.filter((w) => !TERMINAL.includes(w.status));
+  const planned = active.reduce((s, w) => s + (w.quantityPlanned || 0), 0);
+  const done = active.reduce((s, w) => s + (w.quantityCompleted || 0), 0);
+  const now = new Date();
+  const late = active.filter((w) => computeSchedule(w, now).state === 'late').length;
+  const running = wos.filter((w) => w.status === 'IN_EXECUTION').length;
+
+  return (
+    <section>
+      <div className="flex items-center gap-2 mb-3 flex-wrap">
+        <span className="w-8 h-8 rounded-xl grid place-items-center" style={{ background: `${BLUE}1f` }}>
+          <Factory className="w-4 h-4" style={{ color: BLUE }} />
+        </span>
+        <h2 className="text-sm font-semibold">Línea {line}</h2>
+        <span className="text-[11px] text-gray-400">({wos.length} WO)</span>
+        <span className="text-[11px] px-2 py-0.5 rounded-full" style={{ background: 'rgba(0,0,0,0.05)' }}>{done}/{planned} u activas</span>
+        {running > 0 && <span className="text-[11px] px-2 py-0.5 rounded-full" style={{ background: `${VIOLET}1f`, color: VIOLET }}>{running} en ejecución</span>}
+        {late > 0 && <span className="text-[11px] px-2 py-0.5 rounded-full" style={{ background: `${RED}1f`, color: RED }}>{late} atrasada{late > 1 ? 's' : ''}</span>}
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+        {wos.map((wo) => <WOCard key={wo.id} wo={wo} showSequence {...actions} />)}
+      </div>
+    </section>
+  );
+}
+
+// ── WO card (shared by both views) ───────────────────────────────────────────
+function WOCard({ wo, showSequence, busy, onTransition, onAuthorize }: { wo: WO; showSequence?: boolean } & CardActions) {
+  const progress = wo.quantityPlanned > 0 ? Math.min(100, Math.round((wo.quantityCompleted / wo.quantityPlanned) * 100)) : 0;
+  const schedule = useMemo(() => computeSchedule(wo), [wo]);
+
+  return (
+    <div className={`${glass} rounded-2xl p-4`}>
+      <div className="flex items-start gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            {showSequence && <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-black/5 dark:bg-white/10 text-gray-400" title="Secuencia en la línea">#{wo.sequence}</span>}
+            {wo.folio && <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-black/5 dark:bg-white/10 text-gray-500">{wo.folio}</span>}
+            <span className="font-semibold truncate">{wo.model} · {wo.revision}</span>
+            <span className="text-[11px] px-1.5 py-0.5 rounded" style={{ background: `${BLUE}1f`, color: BLUE }}>{wo.line}{wo.bay ? ` / ${wo.bay}` : ''}</span>
+            {wo.priority !== 'MEDIUM' && <span className="text-[11px] px-1.5 py-0.5 rounded" style={{ background: `${AMBER}1f`, color: AMBER }}>{wo.priority}</span>}
+          </div>
+          <div className="mt-2 flex items-center gap-2 text-[12px] text-gray-400 flex-wrap">
+            <span className="inline-flex items-center gap-1" style={{ color: STATUS_META[wo.status].color }}>
+              <span className="w-2 h-2 rounded-full" style={{ background: STATUS_META[wo.status].color }} />
+              {STATUS_META[wo.status].label}
+            </span>
+            <span>•</span>
+            <span className="font-medium text-gray-500 dark:text-gray-300 tabular-nums">{wo.quantityCompleted}/{wo.quantityPlanned} u</span>
+            <span>•</span>
+            <span>{wo.consumptionMode === 'BY_UNIT' ? 'por unidad' : 'cant×factor'}</span>
+            {wo.serialControl === 'BY_UNIT' && <><span>•</span><span>serial</span></>}
+          </div>
+          <div className="mt-2 h-1.5 rounded-full bg-black/10 dark:bg-white/10 overflow-hidden">
+            <div className="h-full rounded-full" style={{ width: `${progress}%`, background: STATUS_META[wo.status].color }} />
+          </div>
+          <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+            <ScheduleChip schedule={schedule} />
+            <Chip on={wo.materialReady} icon={PackageCheck} label="Material" />
+            <Chip on={wo.qualityClear} icon={ShieldCheck} label="Calidad" warn />
+            {wo.faiRequired && <Chip on={wo.faiApproved} icon={FlaskConical} label="FAI" />}
+            {wo.authorizedOperators && wo.authorizedOperators.length > 0 && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded inline-flex items-center gap-1" style={{ background: `${GREEN}1f`, color: GREEN }}><UserCheck className="w-3 h-3" /> {wo.authorizedOperators.length} op.</span>
+            )}
+          </div>
+        </div>
+      </div>
+      <div className="mt-3 flex items-center gap-1.5 flex-wrap">
+        {NEXT[wo.status].map((to) => (
+          <button key={to} onClick={() => onTransition(wo, to)} disabled={busy === wo.id}
+            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[12px] font-medium disabled:opacity-50"
+            style={{ background: `${STATUS_META[to].color}1f`, color: STATUS_META[to].color }}>
+            {to === 'CANCELLED' ? <X className="w-3 h-3" /> : <ArrowRight className="w-3 h-3" />} {STATUS_META[to].label}
+          </button>
+        ))}
+        <button onClick={() => onAuthorize(wo)} disabled={busy === wo.id} className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[12px] font-medium disabled:opacity-50" style={{ background: 'rgba(0,0,0,0.05)' }}>
+          <UserCheck className="w-3 h-3" /> Autorizar operador
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ScheduleChip({ schedule }: { schedule: ScheduleInfo }) {
+  const color = SCHEDULE_META[schedule.state].color;
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <span className="text-[10px] px-1.5 py-0.5 rounded inline-flex items-center gap-1" style={{ background: `${color}1f`, color }}>
+        <CalendarClock className="w-3 h-3" /> {schedule.label}
+      </span>
+      {schedule.pace && (
+        <span
+          className="text-[10px] px-1.5 py-0.5 rounded inline-flex items-center gap-1"
+          style={{
+            background: `${schedule.pace.state === 'behind' ? RED : schedule.pace.state === 'ahead' ? GREEN : BLUE}1f`,
+            color: schedule.pace.state === 'behind' ? RED : schedule.pace.state === 'ahead' ? GREEN : BLUE,
+          }}
+          title="Ritmo: unidades producidas vs esperadas por el takt"
+        >
+          <Activity className="w-3 h-3" /> {paceLabel(schedule.pace)}
+        </span>
+      )}
+    </span>
+  );
+}
+
+function ViewTab({ active, onClick, icon: Icon, label }: { active: boolean; onClick: () => void; icon: React.ElementType; label: string }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-medium transition-colors ${active ? 'bg-white dark:bg-white/15 shadow-sm' : 'text-gray-500 hover:text-black dark:hover:text-white'}`}
+    >
+      <Icon className="w-3.5 h-3.5" /> {label}
+    </button>
   );
 }
 
