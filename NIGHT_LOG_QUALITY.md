@@ -1,0 +1,101 @@
+# AXOS OS — Night Log · Carril S2 (Calidad)
+
+Bitácora del carril de **Calidad** (S2). Rama `claude/trusting-dijkstra-do4x0w`.
+Alcance de archivos: `apps/web/src/app/dashboard/quality/**`, `.../floor-quality/**`
+y `.../quality/ncr/**`. Backend reutilizado (cero cambios de backend este turno):
+`ncr`, `quality` (18), `floor-quality` (10), `testing` (5).
+
+> **Reglas que sigo:** trabajo solo en mi carril; cero mock (toda lista del API
+> real, estado vacío con CTA honesto); reuso endpoints existentes (grep del
+> controller antes de cablear); NO toco migraciones, entidades, `app.module.ts`,
+> `dashboard/page.tsx` (nav) ni componentes compartidos (PageHeader, IconTile,
+> glass/motion). Puertas antes de cerrar: `eslint` + `tsc` + `next build` en verde.
+
+---
+
+## Mapa del backend de mi carril (grep de controllers, antes de cablear)
+
+- **NCR** (`/ncr`, sin guards): `GET /ncr?partNumber&status&workOrder` ·
+  `GET /ncr/:id` · `POST /ncr` (el controller usa `@Body() dto: any` → el cuerpo
+  pasa crudo; `createdBy` es NOT NULL en la entidad, hay que enviarlo) ·
+  `PATCH /ncr/:id/status` `{ status, actor }` (la transición NO se valida en el
+  backend → la UI ofrece solo transiciones válidas).
+- **Quality** (`/quality`, `JwtAuthGuard + PermissionsGuard`): holds activos,
+  transfers de cuarentena, **dispositions**, **CAPA** (`GET/POST /quality/capas`,
+  `PATCH /quality/capas/:id`; la CAPA liga a NCR por la relación `ncr`), IQC, OQC.
+  Lecturas sin permiso explícito (cualquier autenticado); escrituras requieren
+  `QUALITY_WRITE`/`QUALITY_APPROVE`.
+- **Floor-quality** (`/floor-quality`): cola de holds (`?status&part`), KPIs,
+  where-used (genealogía), detalle, crear hold, MRB, **disposition**, rework,
+  reinspect, close. Máquina de estados pura `hold-state.ts`.
+- **Testing** (`/testing`): `GET /testing/kpis` (yield, **FPY**, **Pareto** de
+  fallas — ya derivado en backend), `records`, `records/recent`, `records/:id`,
+  `POST /testing/records`.
+
+**Hallazgos clave de no-duplicación:**
+- `dashboard/test-engineering` (FUERA de mi carril) ya cablea la **captura**
+  pass/fail + KPIs de testing, pero dibuja el Pareto con barras CSS, no recharts.
+  → No dupliqué la captura; construí la **analítica** (yield/FPY + Pareto recharts)
+  en mi carril y enlazo a test-engineering para capturar.
+- `dashboard/floor-quality` (MÍO) ya tenía el ciclo hold→MRB→disposición
+  funcional (con `window.prompt`). Lo dejo y lo pulo como punto débil de mi área.
+- `dashboard/lab` (fuera de carril) es una lanzadera que lee KPIs de `/ncr`.
+
+---
+
+## Ítem 1 — NCR: lista + filtros + KPIs + alta (cockpit) ✅
+
+`quality/page.tsx` pasó de ser una lista read-only a un **cockpit de NCR** real:
+- **KPIs derivadas** del API real (`/ncr`): abiertas, críticas abiertas, cerradas,
+  total (no existe `/ncr/kpis`, se derivan en cliente con helper puro).
+- **Filtros** client-side: búsqueda (folio/NP/defecto/categoría), estado,
+  severidad, origen y **modelo** (espina dorsal, `/product-models`). Estado vacío
+  honesto: "Sin NCRs → Levanta la primera" y "Sin resultados → Limpiar filtros".
+- **Alta** (`POST /ncr`): NP, categoría, descripción, severidad, origen, cantidad
+  + contexto opcional (modelo, WO, lote, serial, línea, cliente, programa);
+  inyecta `createdBy` = email del usuario (NOT NULL). Toast + refresh.
+- Cada NCR enlaza a `quality/ncr/:id` (detalle, ítem 2).
+- Tipos/utils reescritos para reflejar el backend REAL (antes eran ficticios):
+  `quality.types.ts` (NCR/CAPA/TestingKpis/ModelOption) + `quality.utils.ts`
+  (metadata estado/severidad/origen, máquina de transiciones, KPIs, Pareto puro)
+  + `quality.ui.tsx` (átomos Kpi/Field/Empty compartidos por las 3 rutas).
+- Puertas: `tsc` 0, `eslint` 0. (build completo tras heredar CI de main.)
+
+## Ítem 2 — NCR: detalle + transiciones de estado + CAPA ✅
+
+`quality/ncr/[id]/page.tsx` (ruta nueva en mi carril, `useParams` como el resto
+del repo):
+- **Detalle completo** de la NCR (`GET /ncr/:id`): descripción, severidad, origen,
+  cantidad, modelo/WO/lote/serial/edificio/almacén/línea/cliente/programa, autor,
+  fechas, notas de disposición (read-only — el backend no expone update genérico,
+  solo `PATCH status`; honesto).
+- **Transiciones válidas** con `PATCH /ncr/:id/status` `{ status, actor }`. La UI
+  solo ofrece el siguiente paso del ciclo (open→under_review→contained→
+  dispositioned→closed) vía la máquina de estados pura; mini-stepper visual.
+- **CAPA ligadas**: `GET /quality/capas` filtrado por la relación `ncr.id`; abrir
+  CAPA con `POST /quality/capas` `{ ncr:{id}, partNumber, problemStatement,
+  priority, createdBy, ... }` (TypeORM fija el FK desde `ncr:{id}`). Prioridad
+  pre-sugerida por severidad de la NCR. Estado honesto si falta permiso
+  (`QUALITY_WRITE`) o sesión.
+- Puertas: `tsc` 0, `eslint` 0. (build verde en CI.)
+
+## Ítem 3 — Test/Lab: yield, FPY y Pareto de defectos (recharts) ✅
+
+`quality/analytics/page.tsx` (ruta nueva en mi carril). No dupliqué la captura
+(vive en `test-engineering`, fuera de carril); construí la **analítica** que
+faltaba con datos reales:
+- **Yield** y **First-Pass Yield** desde `GET /testing/kpis` (ambos derivados en
+  backend) como tarjetas KPI; + fallas de prueba y NCR abiertas/críticas.
+- **Pareto de defectos con recharts** (`ComposedChart`: barras de cantidad + línea
+  de % acumulado + referencia 80/20). Toggle de fuente: **fallas de prueba**
+  (`testing.pareto`) vs **categorías de NCR** (derivado de `/ncr`). Ambas reales.
+- Estado honesto si falta sesión/permiso de calidad (yields ocultos, Pareto de NCR
+  sigue disponible) y estado vacío por fuente sin datos. Enlace a la captura.
+- Bundle con el ítem 2 en el PR #274 (ambos verdes, mismo carril) para mantener el
+  árbol limpio entre turnos. Puertas: `tsc` 0, `eslint` 0, `next build` ✅.
+
+### ▶ RETOMAR AQUÍ (carril S2)
+- Siguiente: ítem 4 — pulir `floor-quality` (punto débil real): reemplazar el
+  `window.prompt`/`window.confirm` de disposición y re-inspección por modales
+  propios + filtro de estado (incl. ver cerrados/cancelados). Después: profundizar
+  el siguiente punto débil de calidad sin salir del carril.
