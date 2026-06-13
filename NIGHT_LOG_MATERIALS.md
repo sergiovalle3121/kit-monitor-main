@@ -154,3 +154,13 @@ on-hand). Las reglas en quiebre se ordenan primero (punto rojo). Pure-read (reus
 las posiciones ya cargadas; no dispara `/replenishment/analyze`).
 - **Puertas:** eslint ✅ · tsc ✅ · next build ✅.
 
+> **PR #290 mergeado a main** (squash, CI verde). Rama sincronizada.
+
+### [7] Almacén · Surtido: ubicación de picking por material — HECHO ✅
+`apps/web/src/app/dashboard/almacen/page.tsx`. Al ver los materiales del kit, cada
+línea muestra **de dónde surtir**: cruza con `/inventory/positions` (disponible
+liberado por parte) y muestra las ubicaciones rack/bin con más stock primero
+(`A-12-03 (250) · …`), o "sin ubicación con stock disponible" honesto. El surtidor
+ya sabe qué tomar Y dónde está. Pure-read sobre el endpoint de posiciones.
+- **Puertas:** eslint ✅ · tsc ✅ · next build ✅.
+

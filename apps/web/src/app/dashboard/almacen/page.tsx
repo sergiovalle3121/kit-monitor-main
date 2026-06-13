@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import {
@@ -13,6 +13,7 @@ import {
   Radio,
   LineChart,
   Clock,
+  MapPin,
 } from 'lucide-react';
 import { glass } from '@/lib/glass';
 import { useApi } from '@/hooks/useApi';
@@ -50,6 +51,18 @@ interface KitMaterialLine {
   unit: string;
 }
 
+interface Position {
+  partNumber: string;
+  location?: string;
+  warehouse?: { name?: string; code?: string } | null;
+  onHand?: number;
+  allocated?: number;
+  holdStatus?: string;
+}
+
+/** Una ubicación de picking sugerida para una parte (rack/bin + disponible). */
+interface PickLoc { location: string; available: number; warehouse?: string }
+
 const STATUS_META: Record<string, { label: string; color: string; bg: string }> = {
   pending: { label: 'Pendiente', color: AMBER, bg: 'rgba(245,158,11,0.12)' },
   authorized: { label: 'Autorizado', color: GREEN, bg: 'rgba(16,185,129,0.12)' },
@@ -60,8 +73,27 @@ const STATUS_META: Record<string, { label: string; color: string; bg: string }> 
 
 export default function AlmacenPage() {
   const { data, isLoading, forbidden, mutate } = useApi<MaterialRequest[]>('/material-requests');
+  // Posiciones reales para sugerir DE DÓNDE surtir cada material del kit.
+  const { data: posData } = useApi<Position[]>('/inventory/positions');
   const [busy, setBusy] = useState<number | null>(null);
   const [pulse, setPulse] = useState(false);
+
+  // Mapa parte → ubicaciones disponibles (rack/bin), mayor disponible primero.
+  const posByPart = useMemo(() => {
+    const m = new Map<string, PickLoc[]>();
+    for (const p of Array.isArray(posData) ? posData : []) {
+      if ((p.holdStatus ?? 'available') !== 'available') continue;
+      const available = Number(p.onHand ?? 0) - Number(p.allocated ?? 0);
+      if (available <= 0) continue;
+      const arr = m.get(p.partNumber) ?? [];
+      arr.push({ location: p.location || 'BULK', available, warehouse: p.warehouse?.name ?? undefined });
+      m.set(p.partNumber, arr);
+    }
+    for (const arr of m.values()) arr.sort((a, b) => b.available - a.available);
+    return m;
+  }, [posData]);
+
+  const pickLocations = (part: string): PickLoc[] => posByPart.get(part) ?? [];
 
   const { status: socketStatus } = useMaterialSignals(() => {
     setPulse(true);
@@ -126,7 +158,7 @@ export default function AlmacenPage() {
         {pending.length > 0 && (
           <Section title="Por autorizar" count={pending.length} color={AMBER}>
             {pending.map((r) => (
-              <RequestCard key={r.id} r={r} busy={busy === r.id}>
+              <RequestCard key={r.id} r={r} busy={busy === r.id} pickLocations={pickLocations}>
                 <button
                   onClick={() => act(r.id, 'authorize')}
                   disabled={busy === r.id}
@@ -150,7 +182,7 @@ export default function AlmacenPage() {
         {authorized.length > 0 && (
           <Section title="Autorizadas · por surtir" count={authorized.length} color={GREEN}>
             {authorized.map((r) => (
-              <RequestCard key={r.id} r={r} busy={busy === r.id}>
+              <RequestCard key={r.id} r={r} busy={busy === r.id} pickLocations={pickLocations}>
                 <button
                   onClick={() => act(r.id, 'fulfill')}
                   disabled={busy === r.id}
@@ -167,7 +199,7 @@ export default function AlmacenPage() {
         {history.length > 0 && (
           <Section title="Historial" count={history.length} color="#6b7280">
             {history.map((r) => (
-              <RequestCard key={r.id} r={r} busy={false} muted />
+              <RequestCard key={r.id} r={r} busy={false} muted pickLocations={pickLocations} />
             ))}
           </Section>
         )}
@@ -188,7 +220,7 @@ function Section({ title, count, color, children }: { title: string; count: numb
   );
 }
 
-function RequestCard({ r, busy, muted, children }: { r: MaterialRequest; busy: boolean; muted?: boolean; children?: React.ReactNode }) {
+function RequestCard({ r, busy, muted, children, pickLocations }: { r: MaterialRequest; busy: boolean; muted?: boolean; children?: React.ReactNode; pickLocations: (part: string) => PickLoc[] }) {
   const meta = STATUS_META[r.status] ?? STATUS_META.pending;
   const [open, setOpen] = useState(false);
   // BOM-derived materials to pick for this kit (exploded from the model's BOM on publish).
@@ -233,15 +265,31 @@ function RequestCard({ r, busy, muted, children }: { r: MaterialRequest; busy: b
               <p className="text-xs text-gray-400 mt-2">Sin líneas de material en el kit.</p>
             ) : (
               <div className="space-y-1.5 mt-2">
-                {mats.map((m) => (
-                  <div key={m.id} className="flex items-center justify-between text-sm px-3 py-1.5 rounded-lg bg-gray-50 dark:bg-white/5">
-                    <span className="font-mono text-[13px] truncate">{m.partNumber}{m.description ? <span className="text-gray-400 ml-2 text-xs">{m.description}</span> : null}</span>
-                    <span className="tabular-nums text-xs flex-shrink-0">
-                      <span className="font-semibold">{m.quantityRequired} {m.unit}</span>
-                      {typeof m.quantityRemaining === 'number' ? <span className="text-gray-400"> · faltan {m.quantityRemaining}</span> : null}
-                    </span>
-                  </div>
-                ))}
+                {mats.map((m) => {
+                  const locs = pickLocations(m.partNumber);
+                  return (
+                    <div key={m.id} className="text-sm px-3 py-1.5 rounded-lg bg-gray-50 dark:bg-white/5">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-mono text-[13px] truncate">{m.partNumber}{m.description ? <span className="text-gray-400 ml-2 text-xs">{m.description}</span> : null}</span>
+                        <span className="tabular-nums text-xs flex-shrink-0">
+                          <span className="font-semibold">{m.quantityRequired} {m.unit}</span>
+                          {typeof m.quantityRemaining === 'number' ? <span className="text-gray-400"> · faltan {m.quantityRemaining}</span> : null}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1.5 mt-1 text-[11px] text-gray-400">
+                        <MapPin className="w-3 h-3 flex-shrink-0" />
+                        {locs.length === 0 ? (
+                          <span>Sin ubicación con stock disponible</span>
+                        ) : (
+                          <span className="truncate">
+                            {locs.slice(0, 2).map((l) => `${l.location} (${l.available})`).join(' · ')}
+                            {locs.length > 2 ? ` +${locs.length - 2}` : ''}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )
           )}
