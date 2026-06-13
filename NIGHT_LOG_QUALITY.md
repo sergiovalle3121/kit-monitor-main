@@ -112,15 +112,31 @@ sin cambiar el contrato del backend:
   en las tarjetas (`DISP_LABELS`).
 - Puertas: `tsc` 0, `eslint` 0, `next build` ✅.
 
+## Ítem 5 — IQC / OQC: inspecciones de recibo y salida ✅
+
+`quality/inspections/page.tsx` (ruta nueva en mi carril, 2 pestañas). Surfaceé el
+engine de inspección que ya existía sin UI:
+- **IQC (recibo)**: lista (`GET /quality/iqc`) con KPIs (pasa/falla/condicional) +
+  filtro por resultado; alta (`POST /quality/iqc`) con NP, lote, resultado,
+  muestra, defectos, almacén, inspector (= usuario), notas. Nota honesta: PASS
+  libera `pending_iqc`; FAIL dispara hold de calidad automático (lo hace el backend).
+- **OQC (salida)**: **backlog** (`GET /quality/oqc/backlog` = posiciones
+  `pending_oqc`) con botón "Inspeccionar" que prellena el alta; **historial**
+  (`GET /quality/oqc/history`); alta (`POST /quality/oqc/inspections`) con WO, NP,
+  cantidad inspeccionada/NG (OK calculado), resultado, defecto, notas. Nota: el
+  resultado aplica al stock `pending_oqc` en WH-FG (PASS→disponible, FAIL→hold,
+  CONDITIONAL→cuarentena).
+- Enlace "Inspecciones" agregado al header del cockpit de NCR. Tipos IQC/OQC
+  centralizados en `quality.types.ts`.
+- Puertas: `tsc` 0, `eslint` 0, `next build` ✅.
+
 ### ▶ RETOMAR AQUÍ (carril S2)
-- Ciclo de calidad cerrado en UI sobre el backend existente: **NCR** (cockpit +
-  detalle + transiciones + CAPA), **MRB/piso** (disposición/retrabajo/scrap/RTV con
-  modales) y **Test/Lab** (yield/FPY + Pareto recharts). Todo verde y mergeado.
+- Cerrado en UI sobre backend existente: **NCR** (cockpit/detalle/transiciones/
+  CAPA), **MRB/piso** (modales de disposición/re-inspección + filtro), **Test/Lab**
+  (yield/FPY + Pareto recharts) e **IQC/OQC** (recibo/salida). Todo verde y mergeado.
 - Próximo punto débil sugerido (mismo carril, backend ya existe — SOLO UI):
-  1) **IQC/OQC** en `quality`: `GET/POST /quality/iqc`, `/quality/oqc/backlog`,
-     `/quality/oqc/inspections`, `/quality/oqc/history` no tienen UI aún.
-  2) **Holds de inventario + transfers de cuarentena** (`/quality/holds/active`,
-     `/quality/transfers`, `/quality/dispositions`) — engine de disposición a nivel
-     inventario, distinto del hold de piso (`floor-quality`).
-  3) Adoptar `PageHeader` en `floor-quality` (hoy header propio; deuda cosmética
-     anotada en NIGHT_LOG principal).
+  1) **Holds de inventario + transfers de cuarentena + dispositions** a nivel
+     inventario (`/quality/holds/active`, `/quality/transfers`,
+     `/quality/dispositions`) — engine distinto del hold de piso (`floor-quality`).
+  2) Adoptar `PageHeader` en `floor-quality` (hoy header propio; deuda cosmética
+     anotada en el NIGHT_LOG principal).
