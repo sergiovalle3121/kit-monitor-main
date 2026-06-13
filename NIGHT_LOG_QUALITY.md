@@ -61,7 +61,26 @@ y `.../quality/ncr/**`. Backend reutilizado (cero cambios de backend este turno)
   + `quality.ui.tsx` (átomos Kpi/Field/Empty compartidos por las 3 rutas).
 - Puertas: `tsc` 0, `eslint` 0. (build completo tras heredar CI de main.)
 
+## Ítem 2 — NCR: detalle + transiciones de estado + CAPA ✅
+
+`quality/ncr/[id]/page.tsx` (ruta nueva en mi carril, `useParams` como el resto
+del repo):
+- **Detalle completo** de la NCR (`GET /ncr/:id`): descripción, severidad, origen,
+  cantidad, modelo/WO/lote/serial/edificio/almacén/línea/cliente/programa, autor,
+  fechas, notas de disposición (read-only — el backend no expone update genérico,
+  solo `PATCH status`; honesto).
+- **Transiciones válidas** con `PATCH /ncr/:id/status` `{ status, actor }`. La UI
+  solo ofrece el siguiente paso del ciclo (open→under_review→contained→
+  dispositioned→closed) vía la máquina de estados pura; mini-stepper visual.
+- **CAPA ligadas**: `GET /quality/capas` filtrado por la relación `ncr.id`; abrir
+  CAPA con `POST /quality/capas` `{ ncr:{id}, partNumber, problemStatement,
+  priority, createdBy, ... }` (TypeORM fija el FK desde `ncr:{id}`). Prioridad
+  pre-sugerida por severidad de la NCR. Estado honesto si falta permiso
+  (`QUALITY_WRITE`) o sesión.
+- Puertas: `tsc` 0, `eslint` 0. (build verde en CI.)
+
 ### ▶ RETOMAR AQUÍ (carril S2)
-- Siguiente: ítem 2 (detalle NCR + transiciones PATCH + CAPA), ítem 3 (analítica
-  yield/FPY + Pareto recharts), ítem 4 (pulir floor-quality: modal de disposición
-  en vez de `window.prompt` + filtro de estado).
+- Siguiente: ítem 3 (analítica yield/FPY + Pareto recharts — ya escrito y gateado
+  localmente), ítem 4 (pulir floor-quality: modal de disposición en vez de
+  `window.prompt` + filtro de estado). Después: profundizar el punto débil
+  restante de calidad sin salir del carril.
