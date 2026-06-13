@@ -1,11 +1,11 @@
 'use client';
 
 import React, { useMemo, useState } from 'react';
-import Link from 'next/link';
 import {
-  ChevronLeft, PackagePlus, Lock, Loader2, Inbox, CheckCircle2, AlertTriangle,
+  PackagePlus, Lock, Loader2, Inbox, CheckCircle2, AlertTriangle,
   Truck, PackageCheck, Boxes, Zap,
 } from 'lucide-react';
+import { PageHeader } from '@/components/ui/PageHeader';
 import { glass } from '@/lib/glass';
 import { useApi } from '@/hooks/useApi';
 import { apiFetch } from '@/lib/apiFetch';
@@ -99,19 +99,14 @@ export default function MaterialStagingPage() {
   }
 
   return (
-    <div className="min-h-screen text-black dark:text-white">
-      <div className={`${glass} sticky top-0 z-40 px-6 py-4`}>
-        <div className="max-w-6xl mx-auto flex items-center gap-3">
-          <Link href="/dashboard" className="p-2 -ml-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10"><ChevronLeft className="w-5 h-5" /></Link>
-          <span className="w-9 h-9 rounded-xl grid place-items-center" style={{ background: 'rgba(59,130,246,0.14)' }}><PackagePlus className="w-5 h-5" style={{ color: BLUE }} /></span>
-          <div className="flex-1 min-w-0">
-            <h1 className="text-lg font-semibold leading-tight">Surtido y e-kanban a línea</h1>
-            <p className="text-[12px] text-gray-400 leading-tight">Materialista monta el kit por estación · el operador ve si falta material.</p>
-          </div>
-        </div>
-      </div>
-
-      <main className="max-w-6xl mx-auto px-6 pt-8 pb-24">
+    <div className="min-h-screen text-black dark:text-white font-sans pb-32">
+      <main className="max-w-6xl mx-auto px-6 pt-10">
+        <PageHeader
+          domain="staging"
+          icon={PackagePlus}
+          title="Surtido y e-kanban a línea"
+          subtitle="El materialista monta el kit por estación · el operador ve si falta material"
+        />
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-8">
           <Kpi label="Fill-rate a línea" value={pct(kpis?.fillRatePct ?? 0)} color={GREEN} />
           <Kpi label="Faltantes" value={kpis?.shortageLines ?? 0} color={RED} />
