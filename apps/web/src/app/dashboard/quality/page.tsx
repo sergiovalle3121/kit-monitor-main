@@ -1,80 +1,429 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
-import { Loader2, Lock, Inbox } from "lucide-react";
+import Link from "next/link";
+import {
+  Loader2,
+  Lock,
+  Inbox,
+  Plus,
+  X,
+  Search,
+  ShieldAlert,
+  BarChart3,
+  ChevronRight,
+} from "lucide-react";
 import { glass } from "@/lib/glass";
 import { useApi } from "@/hooks/useApi";
+import { apiFetch } from "@/lib/apiFetch";
+import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/contexts/ToastContext";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { Empty, Field, Kpi, QInputStyle } from "./quality.ui";
+import type {
+  CreateNcrInput,
+  ModelOption,
+  Ncr,
+  NcrSeverity,
+  NcrSourceType,
+  NcrStatus,
+} from "./quality.types";
+import {
+  deriveNcrKpis,
+  NCR_SEVERITY_META,
+  NCR_SEVERITY_ORDER,
+  NCR_SOURCE_META,
+  NCR_SOURCE_ORDER,
+  NCR_STATUS_META,
+  NCR_STATUS_ORDER,
+} from "./quality.utils";
 
-interface Ncr {
-  id: number | string; code?: string; title?: string; description?: string;
-  status?: string; severity?: string; partNumber?: string; model?: string | null; createdAt?: string;
-}
-// Maestro de Modelo — para el filtro por modelo (referencia la espina dorsal).
-interface ModelOption { id: string; modelNumber: string; name: string; status: string }
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000").replace(/\/$/, "");
 
 export default function QualityPage() {
-  const { data, isLoading, forbidden } = useApi<Ncr[]>("/ncr");
+  const { user } = useAuth();
+  const { data, isLoading, forbidden, mutate } = useApi<Ncr[]>("/ncr");
   const { data: modelsData } = useApi<ModelOption[]>("/product-models");
+
   const all = useMemo(() => (Array.isArray(data) ? data : []), [data]);
   const models = Array.isArray(modelsData) ? modelsData : [];
+  const kpis = useMemo(() => deriveNcrKpis(all), [all]);
 
-  const [modelFilter, setModelFilter] = useState("");
-  const rows = modelFilter ? all.filter((n) => (n.model ?? "") === modelFilter) : all;
+  // Filtros (client-side; la lista de NCR es chica y ya viene completa).
+  const [q, setQ] = useState("");
+  const [status, setStatus] = useState<NcrStatus | "">("");
+  const [severity, setSeverity] = useState<NcrSeverity | "">("");
+  const [source, setSource] = useState<NcrSourceType | "">("");
+  const [model, setModel] = useState("");
 
-  // Modelos presentes en las NCRs (para no ofrecer filtros vacíos).
-  const modelsInUse = useMemo(() => new Set(all.map((n) => n.model).filter(Boolean) as string[]), [all]);
+  const modelsInUse = useMemo(
+    () => Array.from(new Set(all.map((n) => n.model).filter(Boolean) as string[])).sort(),
+    [all],
+  );
+
+  const rows = useMemo(() => {
+    const needle = q.trim().toLowerCase();
+    return all.filter((n) => {
+      if (status && n.status !== status) return false;
+      if (severity && n.severity !== severity) return false;
+      if (source && n.sourceType !== source) return false;
+      if (model && (n.model ?? "") !== model) return false;
+      if (needle) {
+        const hay = `${n.ncrNumber} ${n.partNumber} ${n.description} ${n.category}`.toLowerCase();
+        if (!hay.includes(needle)) return false;
+      }
+      return true;
+    });
+  }, [all, q, status, severity, source, model]);
+
+  const [showForm, setShowForm] = useState(false);
+  const anyFilter = !!(q || status || severity || source || model);
 
   return (
     <div className="min-h-screen text-black dark:text-white font-sans pb-32">
-      <main className="max-w-4xl mx-auto px-6 pt-10">
-        <PageHeader domain="quality" title="Calidad" subtitle="No conformidades (NCR) y disposiciones" />
-
-        {/* Filtro por modelo del maestro (solo cuando hay NCRs con modelo) */}
-        {!forbidden && !isLoading && all.length > 0 && (models.length > 0 || modelsInUse.size > 0) && (
-          <div className={`${glass} flex items-center gap-2 px-4 py-2.5 rounded-2xl mb-5`}>
-            <span className="text-[12px] font-medium text-gray-500">Modelo</span>
-            <select value={modelFilter} onChange={(e) => setModelFilter(e.target.value)} className="bg-transparent outline-none text-sm flex-1">
-              <option value="">Todos</option>
-              {(models.length > 0 ? models.map((m) => m.modelNumber) : Array.from(modelsInUse)).map((mn) => (
-                <option key={mn} value={mn}>{mn}{modelsInUse.has(mn) ? "" : " (sin NCR)"}</option>
-              ))}
-            </select>
-          </div>
-        )}
+      <main className="max-w-5xl mx-auto px-6 pt-10">
+        <PageHeader
+          domain="quality"
+          title="Calidad · NCR"
+          subtitle="No conformidades, disposición y CAPA sobre el backend de calidad"
+          right={
+            <div className="flex items-center gap-2">
+              <Link
+                href="/dashboard/quality/analytics"
+                className="hidden sm:inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-[13px] font-medium hover:bg-black/5 dark:hover:bg-white/10"
+                title="Yield, FPY y Pareto de defectos"
+              >
+                <BarChart3 className="w-4 h-4" /> Analítica
+              </Link>
+              <Link
+                href="/dashboard/floor-quality"
+                className="hidden sm:inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-[13px] font-medium hover:bg-black/5 dark:hover:bg-white/10"
+                title="Material en hold / MRB / disposición de piso"
+              >
+                <ShieldAlert className="w-4 h-4" /> MRB / Piso
+              </Link>
+              {!forbidden && (
+                <button
+                  onClick={() => setShowForm(true)}
+                  className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium text-white"
+                  style={{ background: NCR_SEVERITY_META.critical.color }}
+                >
+                  <Plus className="w-4 h-4" /> Nueva NCR
+                </button>
+              )}
+            </div>
+          }
+        />
 
         {forbidden ? (
-          <Empty icon={<Lock className="w-6 h-6" />} title="Sin acceso al backend" body="Verifica que el servicio de API esté conectado." />
-        ) : isLoading ? (
-          <div className="flex justify-center py-20 text-gray-400"><Loader2 className="w-6 h-6 animate-spin" /></div>
-        ) : rows.length === 0 ? (
-          <Empty icon={<Inbox className="w-6 h-6" />} title={modelFilter ? "Sin NCRs para ese modelo" : "Sin NCRs"} body={modelFilter ? "Ninguna no-conformidad coincide con el modelo seleccionado." : "No hay no-conformidades registradas. Se listarán aquí conforme calidad las levante."} />
+          <Empty
+            icon={<Lock className="w-6 h-6" />}
+            title="Sin acceso al backend"
+            body="Verifica que el servicio de API esté conectado y tu sesión sea válida."
+          />
         ) : (
-          <div className="space-y-3">
-            {rows.map((n) => (
-              <div key={n.id} className={`${glass} rounded-2xl p-4`}>
-                <div className="flex items-center gap-2 mb-1 flex-wrap">
-                  {n.status && <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-gray-100 dark:bg-white/10 text-gray-500">{n.status}</span>}
-                  {n.code && <span className="text-[11px] text-gray-400 font-mono">{n.code}</span>}
-                  {n.model && <span className="text-[10px] px-1.5 py-0.5 rounded font-medium" style={{ background: "#2ec27e1f", color: "#2ec27e" }}>{n.model}</span>}
-                </div>
-                <h3 className="font-bold truncate">{n.title ?? n.partNumber ?? `NCR ${n.id}`}</h3>
-                {n.description && <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{n.description}</p>}
+          <>
+            {/* KPIs derivadas de la lista real */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+              <Kpi label="NCR abiertas" value={kpis.open} color={NCR_STATUS_META.open.color} />
+              <Kpi label="Críticas abiertas" value={kpis.critical} color={NCR_SEVERITY_META.critical.color} />
+              <Kpi label="Cerradas" value={kpis.closed} color={NCR_STATUS_META.closed.color} />
+              <Kpi label="Total" value={kpis.total} color="#6b7280" />
+            </div>
+
+            {/* Filtros */}
+            <div className={`${glass} rounded-2xl p-3 mb-5 flex flex-wrap items-center gap-2`}>
+              <div className="flex items-center gap-2 flex-1 min-w-[180px] px-2">
+                <Search className="w-4 h-4 text-gray-400 shrink-0" />
+                <input
+                  value={q}
+                  onChange={(e) => setQ(e.target.value)}
+                  placeholder="Buscar NCR, NP, defecto…"
+                  className="bg-transparent outline-none text-sm w-full"
+                />
               </div>
-            ))}
-          </div>
+              <Select value={status} onChange={(v) => setStatus(v as NcrStatus | "")} label="Estado">
+                <option value="">Todos</option>
+                {NCR_STATUS_ORDER.map((s) => (
+                  <option key={s} value={s}>{NCR_STATUS_META[s].label}</option>
+                ))}
+              </Select>
+              <Select value={severity} onChange={(v) => setSeverity(v as NcrSeverity | "")} label="Severidad">
+                <option value="">Todas</option>
+                {NCR_SEVERITY_ORDER.map((s) => (
+                  <option key={s} value={s}>{NCR_SEVERITY_META[s].label}</option>
+                ))}
+              </Select>
+              <Select value={source} onChange={(v) => setSource(v as NcrSourceType | "")} label="Origen">
+                <option value="">Todos</option>
+                {NCR_SOURCE_ORDER.map((s) => (
+                  <option key={s} value={s}>{NCR_SOURCE_META[s]}</option>
+                ))}
+              </Select>
+              {modelsInUse.length > 0 && (
+                <Select value={model} onChange={setModel} label="Modelo">
+                  <option value="">Todos</option>
+                  {modelsInUse.map((m) => (
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                </Select>
+              )}
+            </div>
+
+            {isLoading ? (
+              <div className="flex justify-center py-20 text-gray-400">
+                <Loader2 className="w-6 h-6 animate-spin" />
+              </div>
+            ) : all.length === 0 ? (
+              <Empty
+                icon={<Inbox className="w-6 h-6" />}
+                title="Sin NCRs"
+                body="No hay no-conformidades registradas. Levanta la primera para iniciar el ciclo de contención y disposición."
+                cta={
+                  <button
+                    onClick={() => setShowForm(true)}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white"
+                    style={{ background: NCR_SEVERITY_META.critical.color }}
+                  >
+                    <Plus className="w-4 h-4" /> Levantar NCR
+                  </button>
+                }
+              />
+            ) : rows.length === 0 ? (
+              <Empty
+                icon={<Search className="w-6 h-6" />}
+                title="Sin resultados"
+                body="Ninguna NCR coincide con los filtros."
+                cta={
+                  anyFilter ? (
+                    <button
+                      onClick={() => { setQ(""); setStatus(""); setSeverity(""); setSource(""); setModel(""); }}
+                      className="text-sm font-medium px-4 py-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10"
+                    >
+                      Limpiar filtros
+                    </button>
+                  ) : undefined
+                }
+              />
+            ) : (
+              <div className="space-y-2.5">
+                {rows.map((n) => (
+                  <NcrRow key={n.id} ncr={n} />
+                ))}
+              </div>
+            )}
+          </>
         )}
       </main>
+
+      {showForm && (
+        <NewNcrModal
+          models={models}
+          createdBy={user?.email || "QA"}
+          onClose={() => setShowForm(false)}
+          onCreated={() => { setShowForm(false); mutate(); }}
+        />
+      )}
     </div>
   );
 }
 
-function Empty({ icon, title, body }: { icon: React.ReactNode; title: string; body: string }) {
+// ── Row ─────────────────────────────────────────────────────────────────────
+function NcrRow({ ncr }: { ncr: Ncr }) {
+  const st = NCR_STATUS_META[ncr.status] ?? { label: ncr.status, color: "#6b7280" };
+  const sev = NCR_SEVERITY_META[ncr.severity];
   return (
-    <div className="flex flex-col items-center text-center py-16 px-6">
-      <div className="p-4 rounded-2xl bg-gray-100 dark:bg-white/5 text-gray-400 mb-4">{icon}</div>
-      <h3 className="font-bold text-lg mb-1">{title}</h3>
-      <p className="text-sm text-gray-500 dark:text-gray-400 max-w-sm">{body}</p>
+    <Link
+      href={`/dashboard/quality/ncr/${ncr.id}`}
+      className={`${glass} rounded-2xl p-4 flex items-center gap-3 group hover:shadow-sm transition`}
+    >
+      <span
+        className="w-2.5 h-2.5 rounded-full shrink-0"
+        style={{ background: st.color }}
+        title={st.label}
+      />
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2 flex-wrap mb-0.5">
+          <span className="text-[11px] font-mono text-gray-400">{ncr.ncrNumber}</span>
+          <span
+            className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full"
+            style={{ background: `${st.color}1f`, color: st.color }}
+          >
+            {st.label}
+          </span>
+          {sev && (
+            <span
+              className="text-[10px] font-medium px-1.5 py-0.5 rounded"
+              style={{ background: `${sev.color}1f`, color: sev.color }}
+            >
+              {sev.label}
+            </span>
+          )}
+          {ncr.model && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded font-medium" style={{ background: "#2ec27e1f", color: "#2ec27e" }}>
+              {ncr.model}
+            </span>
+          )}
+        </div>
+        <h3 className="font-semibold truncate">
+          <span className="font-mono">{ncr.partNumber}</span>
+          <span className="text-gray-400 font-normal"> · {ncr.category}</span>
+        </h3>
+        <p className="text-[13px] text-gray-500 dark:text-gray-400 truncate">{ncr.description}</p>
+      </div>
+      <div className="text-right shrink-0 hidden sm:block">
+        <div className="text-[12px] text-gray-400">{ncr.quantityAffected} u</div>
+        <div className="text-[11px] text-gray-400">{NCR_SOURCE_META[ncr.sourceType] ?? ncr.sourceType}</div>
+      </div>
+      <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-gray-500 shrink-0" />
+    </Link>
+  );
+}
+
+// ── Create modal ──────────────────────────────────────────────────────────────
+function NewNcrModal({
+  models,
+  createdBy,
+  onClose,
+  onCreated,
+}: {
+  models: ModelOption[];
+  createdBy: string;
+  onClose: () => void;
+  onCreated: () => void;
+}) {
+  const toast = useToast();
+  const [busy, setBusy] = useState(false);
+  const [form, setForm] = useState({
+    partNumber: "",
+    category: "",
+    description: "",
+    severity: "major" as NcrSeverity,
+    sourceType: "in-process" as NcrSourceType,
+    quantityAffected: 1,
+    model: "",
+    workOrder: "",
+    lotNumber: "",
+    serialNumber: "",
+    line: "",
+    customer: "",
+    program: "",
+  });
+
+  async function submit() {
+    if (!form.partNumber.trim()) { toast.error("El número de parte es obligatorio.", "Calidad"); return; }
+    if (!form.category.trim()) { toast.error("La categoría del defecto es obligatoria.", "Calidad"); return; }
+    if (!form.description.trim()) { toast.error("Describe la no-conformidad.", "Calidad"); return; }
+    setBusy(true);
+    try {
+      const payload: CreateNcrInput = {
+        partNumber: form.partNumber.trim(),
+        category: form.category.trim(),
+        description: form.description.trim(),
+        severity: form.severity,
+        sourceType: form.sourceType,
+        quantityAffected: Number(form.quantityAffected) || 0,
+        createdBy,
+        ...(form.model ? { model: form.model } : {}),
+        ...(form.workOrder ? { workOrder: form.workOrder.trim() } : {}),
+        ...(form.lotNumber ? { lotNumber: form.lotNumber.trim() } : {}),
+        ...(form.serialNumber ? { serialNumber: form.serialNumber.trim() } : {}),
+        ...(form.line ? { line: form.line.trim() } : {}),
+        ...(form.customer ? { customer: form.customer.trim() } : {}),
+        ...(form.program ? { program: form.program.trim() } : {}),
+      };
+      const res = await apiFetch(`${API_BASE}/ncr`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        toast.error(d?.message || "No se pudo crear la NCR.", "Calidad");
+        return;
+      }
+      const created = await res.json().catch(() => null);
+      toast.success(`NCR creada${created?.ncrNumber ? ` · ${created.ncrNumber}` : ""}.`, "Calidad");
+      onCreated();
+    } catch {
+      toast.error("Error de red.", "Calidad");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" onClick={onClose}>
+      <div className={`${glass} rounded-2xl p-5 w-full max-w-2xl max-h-[90vh] overflow-y-auto`} onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-semibold flex items-center gap-2">
+            <ShieldAlert className="w-4 h-4" style={{ color: NCR_SEVERITY_META.critical.color }} /> Nueva no-conformidad
+          </h3>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10"><X className="w-4 h-4" /></button>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <Field label="Número de parte *">
+            <input value={form.partNumber} onChange={(e) => setForm({ ...form, partNumber: e.target.value })} className="q-input" placeholder="PCB-2024-A" />
+          </Field>
+          <Field label="Categoría de defecto *">
+            <input value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className="q-input" placeholder="Mecánico / Cosmético / Componente" />
+          </Field>
+          <Field label="Severidad">
+            <select value={form.severity} onChange={(e) => setForm({ ...form, severity: e.target.value as NcrSeverity })} className="q-input">
+              {NCR_SEVERITY_ORDER.map((s) => <option key={s} value={s}>{NCR_SEVERITY_META[s].label}</option>)}
+            </select>
+          </Field>
+          <Field label="Origen">
+            <select value={form.sourceType} onChange={(e) => setForm({ ...form, sourceType: e.target.value as NcrSourceType })} className="q-input">
+              {NCR_SOURCE_ORDER.map((s) => <option key={s} value={s}>{NCR_SOURCE_META[s]}</option>)}
+            </select>
+          </Field>
+          <Field label="Cantidad afectada">
+            <input type="number" min={0} value={form.quantityAffected} onChange={(e) => setForm({ ...form, quantityAffected: Number(e.target.value) })} className="q-input" />
+          </Field>
+          <Field label="Modelo">
+            {models.length > 0 ? (
+              <select value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} className="q-input">
+                <option value="">(opcional)</option>
+                {models.map((m) => <option key={m.id} value={m.modelNumber}>{m.modelNumber} · {m.name}</option>)}
+              </select>
+            ) : (
+              <input value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} className="q-input" placeholder="(opcional)" />
+            )}
+          </Field>
+          <Field label="Descripción del defecto *" full>
+            <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="q-input min-h-[68px] resize-y" placeholder="Componente desalineado en posición J3 del board…" />
+          </Field>
+          <Field label="Orden de trabajo"><input value={form.workOrder} onChange={(e) => setForm({ ...form, workOrder: e.target.value })} className="q-input" placeholder="WO-2024-0042" /></Field>
+          <Field label="Lote"><input value={form.lotNumber} onChange={(e) => setForm({ ...form, lotNumber: e.target.value })} className="q-input" /></Field>
+          <Field label="Serial"><input value={form.serialNumber} onChange={(e) => setForm({ ...form, serialNumber: e.target.value })} className="q-input" /></Field>
+          <Field label="Línea"><input value={form.line} onChange={(e) => setForm({ ...form, line: e.target.value })} className="q-input" /></Field>
+          <Field label="Cliente"><input value={form.customer} onChange={(e) => setForm({ ...form, customer: e.target.value })} className="q-input" /></Field>
+          <Field label="Programa"><input value={form.program} onChange={(e) => setForm({ ...form, program: e.target.value })} className="q-input" /></Field>
+        </div>
+        <div className="mt-5 flex items-center justify-between gap-2">
+          <span className="text-[11px] text-gray-400">Levantada por {createdBy}</span>
+          <div className="flex gap-2">
+            <button onClick={onClose} className="px-4 py-2 rounded-xl text-sm hover:bg-black/5 dark:hover:bg-white/10">Cancelar</button>
+            <button onClick={submit} disabled={busy} className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white disabled:opacity-60" style={{ background: NCR_SEVERITY_META.critical.color }}>
+              {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />} Crear NCR
+            </button>
+          </div>
+        </div>
+      </div>
+      <QInputStyle />
     </div>
+  );
+}
+
+// ── Lane-specific atom ────────────────────────────────────────────────────────
+function Select({ value, onChange, label, children }: { value: string; onChange: (v: string) => void; label: string; children: React.ReactNode }) {
+  return (
+    <label className="inline-flex items-center gap-1.5 text-sm">
+      <span className="text-[11px] font-medium text-gray-400">{label}</span>
+      <select value={value} onChange={(e) => onChange(e.target.value)} className="bg-transparent outline-none text-sm rounded-lg px-1.5 py-1 hover:bg-black/5 dark:hover:bg-white/10">
+        {children}
+      </select>
+    </label>
   );
 }

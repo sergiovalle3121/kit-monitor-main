@@ -5,6 +5,7 @@ import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Plus, Trash2, Loader2, X, AlertCircle, Workflow, Package, Boxes,
+  Image as ImageIcon, ExternalLink, Clock, Search, ChevronDown, Info,
 } from "lucide-react";
 import { glass } from "@/lib/glass";
 import { useApi } from "@/hooks/useApi";
@@ -14,8 +15,11 @@ import { PageHeader } from "@/components/ui/PageHeader";
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000").replace(/\/$/, "");
 
 interface StepMaterial { id: number; partNumber: string; description?: string | null; qtyPerUnit: number; unit: string }
-interface Step { id: number; model: string; revision: string; sequence: number; name: string; stationType?: string | null; instructions?: string | null; materials: StepMaterial[] }
+interface Step { id: number; model: string; revision: string; sequence: number; name: string; stationType?: string | null; instructions?: string | null; visualAidId?: string | null; materials: StepMaterial[] }
 interface ModelOption { id: string; modelNumber: string; name: string; status: string }
+interface VisualAid { id: string; model: string; title: string; process?: string | null; revision?: string | null; pdfUrl: string; isActive?: boolean }
+interface WuComponent { componentNumber: string; description?: string | null; quantity: number; unit: string; usageFactor: number; referenceDesignator?: string | null; extendedCost: number }
+interface WuHeader { id: number; model: string; productName?: string | null; revision: string; status: string; components?: WuComponent[] }
 
 const STATION_TYPES = [
   { value: "smt", label: "SMT" },
@@ -31,9 +35,33 @@ async function post(path: string, body: unknown) {
   if (!res.ok) throw new Error(d?.message || "Error");
   return d;
 }
+async function patch(path: string, body: unknown) {
+  const res = await apiFetch(`${API_BASE}${path}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  const d = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(d?.message || "Error");
+  return d;
+}
 async function del(path: string) {
   const res = await apiFetch(`${API_BASE}${path}`, { method: "DELETE" });
   if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d?.message || "Error"); }
+}
+
+/**
+ * Visual aids are served by an authenticated endpoint; open them by fetching the
+ * blob with the JWT and navigating a tab to its object URL (same pattern as the
+ * Visual Aids screen) so it works whether or not the file route is guarded.
+ */
+async function openAid(filename: string, onError: (m: string) => void) {
+  if (!filename) { onError("Esta ayuda no tiene archivo."); return; }
+  const win = window.open("", "_blank");
+  try {
+    const res = await apiFetch(`${API_BASE}/visual-aids/file/${encodeURIComponent(filename)}`);
+    if (!res.ok) { win?.close(); onError("No se pudo abrir la ayuda visual."); return; }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    if (win) win.location.href = url; else window.open(url, "_blank");
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  } catch { win?.close(); onError("Error de red al abrir la ayuda."); }
 }
 
 export default function EngineeringPage() {
@@ -44,6 +72,10 @@ export default function EngineeringPage() {
 
   const { data, isLoading, mutate } = useApi<Step[]>(active ? `/process/routes?model=${encodeURIComponent(active)}` : null);
   const steps = Array.isArray(data) ? data : [];
+
+  // Visual aids tagged with this model — to attach one per step (backend supports visualAidId).
+  const { data: aidsData } = useApi<VisualAid[]>(active ? `/visual-aids?model=${encodeURIComponent(active)}` : null);
+  const aids = (Array.isArray(aidsData) ? aidsData : []).filter((a) => a.isActive !== false);
 
   // Models come from the canonical master (no more free-text model strings).
   const { data: modelsData } = useApi<ModelOption[]>("/product-models");
@@ -104,6 +136,11 @@ export default function EngineeringPage() {
               </button>
             </div>
 
+            <div className="flex items-start gap-1.5 text-[12px] text-gray-400 mb-3 px-1">
+              <Clock className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+              <span>El tiempo estándar por estación (para takt, balanceo y yamazumi) se captura en <Link href="/dashboard/line-engineering" className="underline hover:text-gray-600 dark:hover:text-gray-200">Disposición de líneas</Link>.</span>
+            </div>
+
             <AnimatePresence>
               {adding && (
                 <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className={`${glass} rounded-2xl p-4 mb-4 overflow-hidden flex flex-col sm:flex-row gap-3`}>
@@ -120,20 +157,120 @@ export default function EngineeringPage() {
               <Empty icon={<Workflow className="w-6 h-6" />} title="Ruta vacía" body="Agrega la primera estación de la línea para este modelo." />
             ) : (
               <div className="space-y-3">
-                {steps.map((s) => <StepCard key={s.id} step={s} onChange={mutate} onError={flash} />)}
+                {steps.map((s) => <StepCard key={s.id} step={s} aids={aids} onChange={mutate} onError={flash} />)}
               </div>
             )}
           </>
         )}
+
+        <WhereUsed />
       </main>
     </div>
   );
 }
 
-function StepCard({ step, onChange, onError }: { step: Step; onChange: () => void; onError: (m: string) => void }) {
+/**
+ * BOM where-used: type a part number to see every BOM (model · rev) that consumes
+ * it, with qty/use-factor and extended cost. Derived client-side from the
+ * existing `GET /bom/headers` (which already returns components) — no new backend.
+ * AVL (approved vendor list) is not exposed by the backend yet → honest note.
+ */
+function WhereUsed() {
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState("");
+  const { data, isLoading } = useApi<WuHeader[]>(open ? "/bom/headers" : null);
+  const headers = Array.isArray(data) ? data : [];
+  const term = q.trim().toUpperCase();
+  const results = term
+    ? headers.flatMap((h) =>
+        (h.components ?? [])
+          .filter((c) => (c.componentNumber || "").toUpperCase().includes(term))
+          .map((c) => ({ h, c })),
+      )
+    : [];
+  const bomCount = new Set(results.map((r) => r.h.id)).size;
+
+  return (
+    <div className={`${glass} rounded-2xl mt-8 overflow-hidden`}>
+      <button onClick={() => setOpen((v) => !v)} className="w-full flex items-center gap-3 px-4 py-3 text-left">
+        <div className="w-8 h-8 rounded-xl bg-amber-100 dark:bg-amber-500/20 text-amber-600 dark:text-amber-300 flex items-center justify-center flex-shrink-0"><Search className="w-4 h-4" /></div>
+        <div className="min-w-0 flex-1">
+          <h3 className="font-bold text-sm">¿Dónde se usa? · Where-used de BOM</h3>
+          <p className="text-[12px] text-gray-400">Encuentra en qué modelos (BOMs) se consume una parte.</p>
+        </div>
+        <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+
+      {open && (
+        <div className="px-4 pb-4 border-t border-black/5 dark:border-white/10 pt-4">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="flex items-center gap-2 flex-1 bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-xl px-3">
+              <Search className="w-4 h-4 text-gray-400" />
+              <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Número de parte (ej. CAP-0402-100NF)" className="bg-transparent outline-none text-sm flex-1 py-2.5" />
+              {q && <button onClick={() => setQ("")} className="text-gray-300 hover:text-gray-500"><X className="w-4 h-4" /></button>}
+            </div>
+          </div>
+
+          {isLoading ? (
+            <div className="flex justify-center py-8 text-gray-400"><Loader2 className="w-5 h-5 animate-spin" /></div>
+          ) : !term ? (
+            <p className="text-[13px] text-gray-400 px-1 py-2">Escribe un número de parte para ver dónde se usa.</p>
+          ) : results.length === 0 ? (
+            <p className="text-[13px] text-gray-400 px-1 py-2">No se encontró <span className="font-mono text-gray-500">{q.trim()}</span> en ningún BOM.</p>
+          ) : (
+            <>
+              <p className="text-[12px] text-gray-400 mb-2 px-1">{results.length} línea(s) en {bomCount} BOM(s).</p>
+              <div className="space-y-1.5">
+                {results.map((r, i) => (
+                  <div key={`${r.h.id}-${r.c.componentNumber}-${i}`} className="flex items-center justify-between gap-3 text-sm px-3 py-2 rounded-lg bg-gray-50 dark:bg-white/5">
+                    <div className="min-w-0">
+                      <div className="font-medium truncate">{r.h.model} · rev {r.h.revision}{r.h.productName ? <span className="text-gray-400 font-normal"> — {r.h.productName}</span> : null}</div>
+                      <div className="text-[12px] text-gray-400 truncate">
+                        <span className="font-mono">{r.c.componentNumber}</span>
+                        {r.c.referenceDesignator ? <span className="ml-2">{r.c.referenceDesignator}</span> : null}
+                      </div>
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <div className="font-semibold tabular-nums">{r.c.quantity}{r.c.usageFactor && r.c.usageFactor !== 1 ? ` ×${r.c.usageFactor}` : ""} {r.c.unit}/u</div>
+                      <span className="text-[11px] px-1.5 py-0.5 rounded" style={statusStyle(r.h.status)}>{r.h.status}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+          <div className="mt-4 flex items-start gap-1.5 text-[12px] text-gray-400 border-t border-black/5 dark:border-white/10 pt-3">
+            <Info className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+            <span><b>AVL</b> (lista de proveedores aprobados por parte) aún no la expone el backend de compras — <span className="opacity-70">tarea backend pendiente</span>.</span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function statusStyle(status: string): React.CSSProperties {
+  const s = (status || "").toUpperCase();
+  if (s === "ACTIVE") return { background: "rgba(16,185,129,0.15)", color: "#059669" };
+  if (s === "APPROVED") return { background: "rgba(59,130,246,0.15)", color: "#2563eb" };
+  if (s === "OBSOLETE") return { background: "rgba(0,0,0,0.06)", color: "#6b7280" };
+  return { background: "rgba(245,158,11,0.15)", color: "#d97706" }; // DRAFT / PENDING
+}
+
+function StepCard({ step, aids, onChange, onError }: { step: Step; aids: VisualAid[]; onChange: () => void; onError: (m: string) => void }) {
   const [addMat, setAddMat] = useState(false);
   const [pn, setPn] = useState(""); const [qty, setQty] = useState(""); const [unit, setUnit] = useState("EA");
+  const [savingAid, setSavingAid] = useState(false);
   const typeLabel = STATION_TYPES.find((t) => t.value === step.stationType)?.label;
+  const aid = step.visualAidId ? aids.find((a) => a.id === step.visualAidId) ?? null : null;
+
+  async function setAid(id: string) {
+    setSavingAid(true);
+    try { await patch(`/process/steps/${step.id}`, { visualAidId: id || null }); onChange(); }
+    catch (e) { onError(e instanceof Error ? e.message : "Error"); }
+    finally { setSavingAid(false); }
+  }
 
   async function add() {
     if (!pn.trim() || !qty) { onError("Número de parte y cantidad obligatorios."); return; }
@@ -159,6 +296,30 @@ function StepCard({ step, onChange, onError }: { step: Step; onChange: () => voi
         </div>
         <button onClick={() => setAddMat((v) => !v)} className="p-2 rounded-full text-gray-400 hover:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 transition-colors" title="Agregar material"><Package className="w-4 h-4" /></button>
         <button onClick={removeStep} className="p-2 rounded-full text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors" title="Borrar estación"><Trash2 className="w-4 h-4" /></button>
+      </div>
+
+      <div className="pl-11 mb-2 flex items-center gap-2 flex-wrap text-sm">
+        <ImageIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
+        {aid ? (
+          <>
+            <button onClick={() => openAid(aid.pdfUrl, onError)} className="font-medium text-indigo-600 dark:text-indigo-300 hover:underline inline-flex items-center gap-1">{aid.title}<ExternalLink className="w-3 h-3" /></button>
+            <span className="text-gray-300 dark:text-gray-600">·</span>
+            <button onClick={() => setAid("")} disabled={savingAid} className="text-xs text-gray-400 hover:text-red-500">Quitar</button>
+          </>
+        ) : step.visualAidId ? (
+          <>
+            <span className="text-gray-500">Ayuda visual adjunta (otro modelo/rev)</span>
+            <button onClick={() => setAid("")} disabled={savingAid} className="text-xs text-gray-400 hover:text-red-500">Quitar</button>
+          </>
+        ) : aids.length > 0 ? (
+          <select value="" onChange={(e) => e.target.value && setAid(e.target.value)} disabled={savingAid} className="bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-lg py-1.5 px-2 text-sm outline-none">
+            <option value="">Adjuntar ayuda visual…</option>
+            {aids.map((a) => <option key={a.id} value={a.id}>{a.title}{a.revision ? ` · rev ${a.revision}` : ""}</option>)}
+          </select>
+        ) : (
+          <span className="text-xs text-gray-400">Sin ayudas para este modelo — <Link href="/dashboard/visual-aids" className="underline hover:text-gray-600 dark:hover:text-gray-200">súbelas</Link></span>
+        )}
+        {savingAid && <Loader2 className="w-3.5 h-3.5 animate-spin text-gray-400" />}
       </div>
 
       <AnimatePresence>
