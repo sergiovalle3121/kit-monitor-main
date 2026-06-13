@@ -4,11 +4,15 @@ import React, { useMemo, useState } from "react";
 import {
   Loader2, Lock, Inbox, Search, ArrowDownLeft, ArrowUpRight, ArrowLeftRight,
   SlidersHorizontal, Repeat, AlertTriangle, ChevronRight, GitBranch, MapPin,
-  PackageSearch,
+  PackageSearch, ClipboardCheck,
 } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { glass } from "@/lib/glass";
 import { useApi } from "@/hooks/useApi";
+import { apiFetch } from "@/lib/apiFetch";
+import { useToast } from "@/contexts/ToastContext";
+
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000").replace(/\/$/, "");
 
 // ── Tipos espejo del backend ────────────────────────────────────────────────
 interface Position {
@@ -153,10 +157,35 @@ export default function InventoryPage() {
 
   const [q, setQ] = useState("");
   const [tracePart, setTracePart] = useState("");
+  const toast = useToast();
+  const [busyCount, setBusyCount] = useState<string | number | null>(null);
 
   // Saltos entre pestañas para operar el flujo (escasez → existencias → traza).
   const goPositions = (part: string) => { setQ(part); setTab("positions"); };
   const goTrace = (part: string) => { setTracePart(part); setTab("traceability"); };
+
+  // Lanza un conteo cíclico de un bin desde existencias (cierra el loop con Conteos).
+  async function countBin(p: Position, uom: string) {
+    setBusyCount(p.id);
+    try {
+      const res = await apiFetch(`${API_BASE}/cycle-counts`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          partNumber: p.partNumber,
+          location: p.location || undefined,
+          systemQty: Number(p.onHand ?? 0),
+          uom: uom || "PCS",
+        }),
+      });
+      if (!res.ok) { toast.error("No se pudo crear el conteo.", "Inventario"); return; }
+      toast.success(`Conteo creado: ${p.partNumber}${p.location ? ` @ ${p.location}` : ""} → revísalo en Conteos Cíclicos.`, "Inventario");
+    } catch {
+      toast.error("Error de red.", "Inventario");
+    } finally {
+      setBusyCount(null);
+    }
+  }
 
   const positions = useMemo(() => (Array.isArray(data) ? data : []), [data]);
   const movements = useMemo(() => (Array.isArray(movData) ? movData : []), [movData]);
@@ -326,7 +355,7 @@ export default function InventoryPage() {
             <Empty icon={<Inbox className="w-6 h-6" />} title={q ? "Sin coincidencias" : "Sin existencias"} body={q ? "Ninguna parte coincide con la búsqueda." : "Aún no hay inventario registrado. Se irá poblando con las recepciones y movimientos de almacén."} />
           ) : (
             <div className="space-y-2">
-              {partGroups.map((g) => <PartGroupCard key={g.partNumber} g={g} onTrace={goTrace} />)}
+              {partGroups.map((g) => <PartGroupCard key={g.partNumber} g={g} onTrace={goTrace} onCount={countBin} busyCount={busyCount} />)}
             </div>
           )
         )}
@@ -463,9 +492,11 @@ export default function InventoryPage() {
 }
 
 // ── Existencias: tarjeta por parte con detalle por ubicación (rack/bin) ────────
-function PartGroupCard({ g, onTrace }: {
+function PartGroupCard({ g, onTrace, onCount, busyCount }: {
   g: { partNumber: string; description: string; uom: string; onHand: number; allocated: number; available: number; rows: Position[] };
   onTrace: (part: string) => void;
+  onCount: (p: Position, uom: string) => void;
+  busyCount: string | number | null;
 }) {
   const [open, setOpen] = useState(false);
   return (
@@ -511,6 +542,14 @@ function PartGroupCard({ g, onTrace }: {
                     <span className="font-semibold">{fmtQty(avail)}</span>
                     {Number(p.allocated ?? 0) > 0 && <span className="text-gray-400"> / {fmtQty(p.onHand)}</span>}
                   </span>
+                  <button
+                    onClick={() => onCount(p, g.uom)}
+                    disabled={busyCount === p.id}
+                    title="Crear conteo cíclico de este bin"
+                    className="flex-shrink-0 p-1.5 rounded-lg text-gray-400 hover:text-[#16a394] hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-50"
+                  >
+                    {busyCount === p.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ClipboardCheck className="w-3.5 h-3.5" />}
+                  </button>
                 </div>
               );
             })}
