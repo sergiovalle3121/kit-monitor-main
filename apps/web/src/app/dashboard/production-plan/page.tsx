@@ -6,6 +6,7 @@ import {
   ChevronLeft, Megaphone, Plus, Lock, Loader2, Inbox, X, CheckCircle2,
   ArrowRight, PackageCheck, ShieldCheck, FlaskConical, UserCheck,
   Factory, Layers, CalendarClock, Activity, Boxes, ChevronDown,
+  ArrowUp, ArrowDown, Flag,
 } from 'lucide-react';
 import { glass } from '@/lib/glass';
 import { useApi } from '@/hooks/useApi';
@@ -156,6 +157,46 @@ export default function ProductionPlanPage() {
     } catch { toast.error('Error de red.', 'Plan'); } finally { setBusy(null); }
   }
 
+  // Re-secuencia dentro de la línea: reasigna secuencia en pasos de 10 (deja huecos)
+  // y solo PATCHea las WOs cuyo número cambió. Robusto ante empates de secuencia.
+  async function reorderLine(wo: WO, dir: 'up' | 'down') {
+    const siblings = list.filter((w) => w.line === wo.line).sort(bySequence);
+    const i = siblings.findIndex((w) => w.id === wo.id);
+    const j = dir === 'up' ? i - 1 : i + 1;
+    if (i < 0 || j < 0 || j >= siblings.length) return;
+    const reordered = [...siblings];
+    [reordered[i], reordered[j]] = [reordered[j], reordered[i]];
+    const patches = reordered
+      .map((w, idx) => ({ w, sequence: (idx + 1) * 10 }))
+      .filter(({ w, sequence }) => w.sequence !== sequence);
+    if (patches.length === 0) return;
+    setBusy(wo.id);
+    try {
+      const results = await Promise.all(
+        patches.map(({ w, sequence }) =>
+          apiFetch(`${API_BASE}/production-plan/${w.id}/resequence`, {
+            method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sequence }),
+          }),
+        ),
+      );
+      if (results.some((r) => !r.ok)) toast.error('No se pudo re-secuenciar la línea.', 'Plan');
+      else toast.success('Secuencia actualizada.', 'Plan');
+      refresh();
+    } catch { toast.error('Error de red.', 'Plan'); } finally { setBusy(null); }
+  }
+
+  async function setPriority(wo: WO, priority: WO['priority']) {
+    if (priority === wo.priority) return;
+    setBusy(wo.id);
+    try {
+      const res = await apiFetch(`${API_BASE}/production-plan/${wo.id}/resequence`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sequence: wo.sequence, priority }),
+      });
+      if (!res.ok) { const d = await res.json().catch(() => ({})); toast.error(d?.message || 'No se pudo cambiar la prioridad.', 'Plan'); return; }
+      toast.success('Prioridad actualizada.', 'Plan'); refresh();
+    } catch { toast.error('Error de red.', 'Plan'); } finally { setBusy(null); }
+  }
+
   if (forbidden) {
     return (
       <div className="min-h-screen grid place-items-center text-black dark:text-white">
@@ -212,7 +253,7 @@ export default function ProductionPlanPage() {
         ) : view === 'line' ? (
           <div className="space-y-8">
             {byLine.map(({ line, wos }) => (
-              <LineSection key={line} line={line} wos={wos} board={board} {...cardProps} />
+              <LineSection key={line} line={line} wos={wos} board={board} onReorder={reorderLine} onSetPriority={setPriority} {...cardProps} />
             ))}
           </div>
         ) : (
@@ -291,8 +332,19 @@ interface BoardData {
   bomByModel: Map<string, BomHeaderLite>;
   invByPart: Map<string, number>;
 }
+// Controles de secuencia (solo en la vista por línea, donde hay contexto de orden).
+interface SequenceControls {
+  index: number;
+  count: number;
+  onReorder: (wo: WO, dir: 'up' | 'down') => void;
+  onSetPriority: (wo: WO, p: WO['priority']) => void;
+}
 
-function LineSection({ line, wos, board, ...actions }: { line: string; wos: WO[]; board: BoardData } & CardActions) {
+function LineSection({ line, wos, board, onReorder, onSetPriority, ...actions }: {
+  line: string; wos: WO[]; board: BoardData;
+  onReorder: (wo: WO, dir: 'up' | 'down') => void;
+  onSetPriority: (wo: WO, p: WO['priority']) => void;
+} & CardActions) {
   const active = wos.filter((w) => !TERMINAL.includes(w.status));
   const planned = active.reduce((s, w) => s + (w.quantityPlanned || 0), 0);
   const done = active.reduce((s, w) => s + (w.quantityCompleted || 0), 0);
@@ -315,14 +367,30 @@ function LineSection({ line, wos, board, ...actions }: { line: string; wos: WO[]
         {notReady > 0 && <span className="text-[11px] px-2 py-0.5 rounded-full" style={{ background: `${RED}1f`, color: RED }}>{notReady} no lista{notReady > 1 ? 's' : ''}</span>}
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-        {wos.map((wo) => <WOCard key={wo.id} wo={wo} board={board} showSequence {...actions} />)}
+        {wos.map((wo, idx) => (
+          <WOCard
+            key={wo.id}
+            wo={wo}
+            board={board}
+            showSequence
+            seq={{ index: idx, count: wos.length, onReorder, onSetPriority }}
+            {...actions}
+          />
+        ))}
       </div>
     </section>
   );
 }
 
+const PRIORITY_OPTS: { value: WO['priority']; label: string }[] = [
+  { value: 'LOW', label: 'Baja' },
+  { value: 'MEDIUM', label: 'Media' },
+  { value: 'HIGH', label: 'Alta' },
+  { value: 'URGENT', label: 'Urgente' },
+];
+
 // ── WO card (shared by both views) ───────────────────────────────────────────
-function WOCard({ wo, board, showSequence, busy, onTransition, onAuthorize }: { wo: WO; board: BoardData; showSequence?: boolean } & CardActions) {
+function WOCard({ wo, board, showSequence, seq, busy, onTransition, onAuthorize }: { wo: WO; board: BoardData; showSequence?: boolean; seq?: SequenceControls } & CardActions) {
   const progress = wo.quantityPlanned > 0 ? Math.min(100, Math.round((wo.quantityCompleted / wo.quantityPlanned) * 100)) : 0;
   const schedule = useMemo(() => computeSchedule(wo), [wo]);
   const ctb = useMemo(() => computeClearToBuild(wo, board.bomByModel, board.invByPart), [wo, board]);
@@ -383,6 +451,42 @@ function WOCard({ wo, board, showSequence, busy, onTransition, onAuthorize }: { 
       {openCtb && <ClearDetail ctb={ctb} />}
 
       <div className="mt-3 flex items-center gap-1.5 flex-wrap">
+        {seq && (
+          <span className="inline-flex items-center gap-1 mr-0.5 pr-1.5 border-r border-black/10 dark:border-white/10">
+            <button
+              onClick={() => seq.onReorder(wo, 'up')}
+              disabled={busy === wo.id || seq.index === 0}
+              title="Subir en la secuencia de la línea"
+              aria-label="Subir en la secuencia"
+              className="p-1.5 rounded-lg disabled:opacity-30 hover:brightness-95"
+              style={{ background: 'rgba(0,0,0,0.05)' }}
+            >
+              <ArrowUp className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={() => seq.onReorder(wo, 'down')}
+              disabled={busy === wo.id || seq.index === seq.count - 1}
+              title="Bajar en la secuencia de la línea"
+              aria-label="Bajar en la secuencia"
+              className="p-1.5 rounded-lg disabled:opacity-30 hover:brightness-95"
+              style={{ background: 'rgba(0,0,0,0.05)' }}
+            >
+              <ArrowDown className="w-3.5 h-3.5" />
+            </button>
+            <span className="inline-flex items-center gap-1 px-2 py-1.5 rounded-lg" style={{ background: 'rgba(0,0,0,0.05)' }} title="Prioridad">
+              <Flag className="w-3 h-3 text-gray-400" />
+              <select
+                value={wo.priority}
+                onChange={(e) => seq.onSetPriority(wo, e.target.value as WO['priority'])}
+                disabled={busy === wo.id}
+                aria-label="Prioridad de la WO"
+                className="bg-transparent text-[12px] font-medium outline-none disabled:opacity-50 cursor-pointer"
+              >
+                {PRIORITY_OPTS.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
+              </select>
+            </span>
+          </span>
+        )}
         {NEXT[wo.status].map((to) => (
           <button key={to} onClick={() => onTransition(wo, to)} disabled={busy === wo.id}
             className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[12px] font-medium disabled:opacity-50"

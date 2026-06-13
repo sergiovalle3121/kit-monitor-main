@@ -20,6 +20,23 @@ describe('QualityService', () => {
   let eventLedger: { recordEvent: jest.Mock };
   let inventory: { recordTransaction: jest.Mock };
   let audit: { recordException: jest.Mock; log: jest.Mock };
+  // QueryRunner transaccional simulado (createHold/releaseHold).
+  let updateBuilder: {
+    update: jest.Mock;
+    set: jest.Mock;
+    where: jest.Mock;
+    andWhere: jest.Mock;
+    execute: jest.Mock;
+  };
+  let qrManager: { save: jest.Mock; createQueryBuilder: jest.Mock };
+  let queryRunner: {
+    connect: jest.Mock;
+    startTransaction: jest.Mock;
+    commitTransaction: jest.Mock;
+    rollbackTransaction: jest.Mock;
+    release: jest.Mock;
+    manager: typeof qrManager;
+  };
 
   type AnyRepo = {
     find: jest.Mock;
@@ -52,6 +69,26 @@ describe('QualityService', () => {
       recordException: jest.fn().mockResolvedValue(undefined),
       log: jest.fn().mockResolvedValue(undefined),
     };
+    updateBuilder = {
+      update: jest.fn().mockReturnThis(),
+      set: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      execute: jest.fn().mockResolvedValue({ affected: 1 }),
+    };
+    qrManager = {
+      save: jest.fn(async (x) => ({ id: 1, ...x })),
+      createQueryBuilder: jest.fn(() => updateBuilder),
+    };
+    queryRunner = {
+      connect: jest.fn().mockResolvedValue(undefined),
+      startTransaction: jest.fn().mockResolvedValue(undefined),
+      commitTransaction: jest.fn().mockResolvedValue(undefined),
+      rollbackTransaction: jest.fn().mockResolvedValue(undefined),
+      release: jest.fn().mockResolvedValue(undefined),
+      manager: qrManager,
+    };
+    const dataSource = { createQueryRunner: jest.fn(() => queryRunner) };
     service = new QualityService(
       holdRepo as never,
       transferRepo as never,
@@ -65,7 +102,7 @@ describe('QualityService', () => {
       {} as never, // ncrService
       {} as never, // suppliersService
       audit as never,
-      {} as never, // dataSource (no usado por estos métodos)
+      dataSource as never,
     );
   });
 
@@ -89,6 +126,65 @@ describe('QualityService', () => {
     it('hold PROGRAM aplica al coincidir el programa', async () => {
       holdRepo.find.mockResolvedValue([{ level: 'PROGRAM', levelValue: 'PR9' }]);
       await expect(service.checkIsHeld('P1', { programId: 'PR9' })).resolves.toBe(true);
+    });
+  });
+
+  describe('createHold / releaseHold (QueryRunner simulado)', () => {
+    it('createHold bloquea las posiciones (holdStatus=hold), registra evento y excepción CRITICAL', async () => {
+      const saved = await service.createHold({
+        partNumber: 'P1',
+        level: 'WAREHOUSE' as never,
+        levelValue: 'WH-1',
+        reason: 'sospecha de mezcla',
+        heldBy: 'qa',
+      });
+      expect(saved.isActive).toBe(true);
+      // Aplica holdStatus='hold' a las posiciones del part number afectado.
+      expect(updateBuilder.set).toHaveBeenCalledWith({ holdStatus: 'hold' });
+      expect(updateBuilder.andWhere).toHaveBeenCalledWith('warehouseId = :val', { val: 'WH-1' });
+      expect(eventLedger.recordEvent).toHaveBeenCalledWith(
+        expect.objectContaining({ action: 'QUALITY_HOLD_APPLIED' }),
+      );
+      expect(audit.recordException).toHaveBeenCalledWith(
+        expect.objectContaining({ severity: 'CRITICAL' }),
+      );
+      expect(queryRunner.commitTransaction).toHaveBeenCalled();
+    });
+
+    it('createHold hace rollback si la persistencia falla', async () => {
+      qrManager.save.mockRejectedValueOnce(new Error('db down'));
+      await expect(
+        service.createHold({ partNumber: 'P1', level: 'PART_NUMBER' as never, reason: 'x', heldBy: 'qa' }),
+      ).rejects.toThrow('db down');
+      expect(queryRunner.rollbackTransaction).toHaveBeenCalled();
+      expect(queryRunner.release).toHaveBeenCalled();
+    });
+
+    it('releaseHold lanza 404 si el hold no existe', async () => {
+      holdRepo.findOne.mockResolvedValue(null);
+      await expect(service.releaseHold(1, 'qa')).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('releaseHold reabre las posiciones (holdStatus=available), desactiva y audita', async () => {
+      holdRepo.findOne.mockResolvedValue({
+        id: 1,
+        partNumber: 'P1',
+        level: 'WAREHOUSE',
+        levelValue: 'WH-1',
+        reason: 'r',
+        isActive: true,
+      });
+      const res = await service.releaseHold(1, 'qa');
+      expect(res.isActive).toBe(false);
+      expect(res.releasedBy).toBe('qa');
+      expect(updateBuilder.set).toHaveBeenCalledWith({ holdStatus: 'available' });
+      expect(eventLedger.recordEvent).toHaveBeenCalledWith(
+        expect.objectContaining({ action: 'QUALITY_HOLD_RELEASED' }),
+      );
+      expect(audit.log).toHaveBeenCalledWith(
+        expect.objectContaining({ action: 'QUALITY_HOLD_RELEASE' }),
+      );
+      expect(queryRunner.commitTransaction).toHaveBeenCalled();
     });
   });
 
