@@ -68,6 +68,35 @@ mission-control, forecast, erp. Disponible para el yamazumi.
 
 ---
 
+## ▶ RESUMEN / HANDOFF (carril S5 · NPI)
+
+**Entregado y mergeado a `main` (CI 4 puertas en verde, squash):**
+- #268 Yamazumi (ciclo/estación vs takt, recharts) en Disposición de líneas.
+- #273 Ingeniería de proceso: ayuda visual por paso (`visualAidId`) + where-used de BOM.
+- #279 Disposición de líneas: editar estaciones (PATCH) + selector de ayuda + link "Ver".
+- #286 Takt real (override / desde calificación) → el yamazumi y el balanceo ya comparan.
+- #291 Calculadora de capacidad de línea (carga vs disponible) + limpieza de warnings.
+- #294 Launcher de Ing. Industrial: KPIs reales + enlace a Disposición de líneas.
+
+**Cobertura del enunciado:**
+- ✅ Ruteo de proceso por modelo + ayuda visual por paso (visual-aids).
+- ✅ Balanceo: yamazumi con recharts desde tiempos existentes (con takt real).
+- ✅ BOM where-used (derivado de `/bom/headers`).
+- ⚠️ **AVL**: el backend NO la expone en el carril → UI con nota honesta (no fake).
+- ⚠️ **Tiempo estándar en process_steps**: entidad sin columna; PROHIBIDO tocarla
+  esta sesión → nota honesta apuntando a Disposición de líneas (que sí lo tiene).
+
+**Tareas backend para mañana (anotadas, fuera de carril/alcance esta sesión):**
+1. `process_steps.stdTimeSec` (aditivo, nullable/default) + DTO + exponerlo en
+   `/process/routes`, para unificar tiempos de proceso con el balanceo.
+2. Endpoint **AVL por parte** (proveedores aprobados, precio, lead time) sobre
+   erp-core/procurement; luego cablear la UI de where-used (ya tiene el gancho).
+
+**Sin tocar:** migraciones, entidades TypeORM, `app.module.ts`, `dashboard/page.tsx`
+(nav), componentes compartidos. Todo frontend, reusando endpoints existentes.
+
+---
+
 ## Avance
 
 ### Rebanada 1 — Yamazumi (line-engineering) ✅
