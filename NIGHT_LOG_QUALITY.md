@@ -61,7 +61,41 @@ y `.../quality/ncr/**`. Backend reutilizado (cero cambios de backend este turno)
   + `quality.ui.tsx` (átomos Kpi/Field/Empty compartidos por las 3 rutas).
 - Puertas: `tsc` 0, `eslint` 0. (build completo tras heredar CI de main.)
 
+## Ítem 2 — NCR: detalle + transiciones de estado + CAPA ✅
+
+`quality/ncr/[id]/page.tsx` (ruta nueva en mi carril, `useParams` como el resto
+del repo):
+- **Detalle completo** de la NCR (`GET /ncr/:id`): descripción, severidad, origen,
+  cantidad, modelo/WO/lote/serial/edificio/almacén/línea/cliente/programa, autor,
+  fechas, notas de disposición (read-only — el backend no expone update genérico,
+  solo `PATCH status`; honesto).
+- **Transiciones válidas** con `PATCH /ncr/:id/status` `{ status, actor }`. La UI
+  solo ofrece el siguiente paso del ciclo (open→under_review→contained→
+  dispositioned→closed) vía la máquina de estados pura; mini-stepper visual.
+- **CAPA ligadas**: `GET /quality/capas` filtrado por la relación `ncr.id`; abrir
+  CAPA con `POST /quality/capas` `{ ncr:{id}, partNumber, problemStatement,
+  priority, createdBy, ... }` (TypeORM fija el FK desde `ncr:{id}`). Prioridad
+  pre-sugerida por severidad de la NCR. Estado honesto si falta permiso
+  (`QUALITY_WRITE`) o sesión.
+- Puertas: `tsc` 0, `eslint` 0. (build verde en CI.)
+
+## Ítem 3 — Test/Lab: yield, FPY y Pareto de defectos (recharts) ✅
+
+`quality/analytics/page.tsx` (ruta nueva en mi carril). No dupliqué la captura
+(vive en `test-engineering`, fuera de carril); construí la **analítica** que
+faltaba con datos reales:
+- **Yield** y **First-Pass Yield** desde `GET /testing/kpis` (ambos derivados en
+  backend) como tarjetas KPI; + fallas de prueba y NCR abiertas/críticas.
+- **Pareto de defectos con recharts** (`ComposedChart`: barras de cantidad + línea
+  de % acumulado + referencia 80/20). Toggle de fuente: **fallas de prueba**
+  (`testing.pareto`) vs **categorías de NCR** (derivado de `/ncr`). Ambas reales.
+- Estado honesto si falta sesión/permiso de calidad (yields ocultos, Pareto de NCR
+  sigue disponible) y estado vacío por fuente sin datos. Enlace a la captura.
+- Bundle con el ítem 2 en el PR #274 (ambos verdes, mismo carril) para mantener el
+  árbol limpio entre turnos. Puertas: `tsc` 0, `eslint` 0, `next build` ✅.
+
 ### ▶ RETOMAR AQUÍ (carril S2)
-- Siguiente: ítem 2 (detalle NCR + transiciones PATCH + CAPA), ítem 3 (analítica
-  yield/FPY + Pareto recharts), ítem 4 (pulir floor-quality: modal de disposición
-  en vez de `window.prompt` + filtro de estado).
+- Siguiente: ítem 4 — pulir `floor-quality` (punto débil real): reemplazar el
+  `window.prompt`/`window.confirm` de disposición y re-inspección por modales
+  propios + filtro de estado (incl. ver cerrados/cancelados). Después: profundizar
+  el siguiente punto débil de calidad sin salir del carril.
