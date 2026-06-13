@@ -229,6 +229,7 @@ export default function ProductionPlanPage() {
             <h1 className="text-lg font-semibold leading-tight">Muro de WOs · tablero operativo</h1>
             <p className="text-[12px] text-gray-400 leading-tight">Planeación publica · operadores, materialistas y supervisión ven el mismo plan en vivo.</p>
           </div>
+          <Link href="/dashboard/planning" className="hidden sm:inline-flex items-center gap-1.5 text-sm font-medium text-blue-500 hover:text-blue-700 transition-colors"><Layers className="w-4 h-4" /> Planeación</Link>
           <button onClick={() => setShowForm(true)} className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium text-white" style={{ background: VIOLET }}><Plus className="w-4 h-4" /> Publicar WO</button>
         </div>
       </div>

@@ -180,4 +180,36 @@ no se consumía en la UI. Cero backend.
 
 **Puertas:** `tsc` 0 · `eslint` 0/0 · `next build` ✓.
 
+---
+
+## Ítem 6 — Flujo: enlazar Planeación ↔ Muro de WOs ✅
+
+**Archivos:** `planning/page.tsx` + `production-plan/page.tsx`. Solo enlaces
+dentro de mis propias páginas (NO toca la nav global / `dashboard/page.tsx`).
+
+- Las dos superficies del carril estaban desconectadas en la UI. Ahora:
+  Planeación (planes legacy) → link **"Muro de WOs"** en su encabezado; el Muro
+  de WOs (SfWorkOrder, piso) → link **"Planeación"** en el suyo. Etiquetas claras
+  para no implicar que son el mismo dato (son sistemas relacionados pero
+  distintos: plan legacy + pick-list vs WO de piso/Block B).
+
+**Puertas:** `tsc` 0 · `eslint` 0/0 · `next build` ✓.
+
+---
+
+## Cierre del carril S4 (resumen)
+
+6 rebanadas, todas en verde y mergeadas a `main` por squash:
+- **#270** Ítem 1 · muro por línea/estación + adelantado/atrasado.
+- **#276** Ítem 2 · semáforo Clear-to-Build (BOM + material + FAI).
+- **#278** Ítem 3 · secuencia (ordenar/priorizar) + publicar.
+- **#282** Ítem 4 · carga vs capacidad por línea (`/plans/intelligence`).
+- **#288** Ítem 5 · resumen Clear-to-Build a nivel tablero.
+- **#288→** Ítem 6 · enlaces Planeación ↔ Muro de WOs.
+
+**Backlog backend anotado (NO tocado, fuera de carril):** poblar `taktTargetSec`
+al publicar (para el ritmo); CRP real / capacidad para el muro `production-plan`
+(string-lines); disponibilidad por `programId`; unificar readiness real en el
+plan legacy (`calculateReadiness` es mock); endpoint batch de resequence.
+
 <!-- Próximos ítems se agregan abajo -->
