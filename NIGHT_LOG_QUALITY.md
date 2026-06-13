@@ -171,9 +171,8 @@ cierra la contención física:
   - **IQC/OQC** (`quality/inspections`): recibo y salida.
   - **Holds de inventario** (`quality/holds`): hold + disposición (proponer→
     aprobar→ejecutar) + **traslado a cuarentena** (solicitar→completar).
-- Deuda menor (cosmética, NO bloqueante): adoptar `PageHeader` en `floor-quality`
-  (hoy header propio). Tareas backend para mañana: ninguna bloqueó este carril
-  (todo se cableó sobre endpoints existentes).
+- Tareas backend para mañana: ninguna bloqueó este carril (todo se cableó sobre
+  endpoints existentes).
 
 ## Ítem 8 — Higiene: `Modal` compartido (de-duplicado) ✅
 
@@ -181,3 +180,13 @@ cierra la contención física:
 `inspections` y `holds` lo importan en vez de tener cada uno su copia local idéntica
 (AGENTS.md §3, espíritu de `/simplify`). Sin cambio funcional; imports muertos
 removidos. Puertas: `tsc` 0, `eslint` 0, `next build` ✅.
+
+## Ítem 9 — `floor-quality` adopta `PageHeader` (mata la doble barra) ✅
+
+Cierra la última deuda cosmética del carril: `floor-quality` tenía su propio header
+`sticky top-0` que se encimaba con la barra global (doble barra transitoria, anotada
+en el NIGHT_LOG principal). Ahora usa `PageHeader domain="quality"` + back-link
+(como cockpit/detalle/analítica/inspecciones/holds), con "Nuevo hold" en `right`.
+Solo cambió la cabecera; toda la lógica (holds, modales, where-used, filtro) intacta.
+Puertas: `tsc` 0, `eslint` 0, `next build` ✅. Toda la familia de páginas de calidad
+comparte ya el mismo sistema de diseño.
