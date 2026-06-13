@@ -1,9 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
-import Link from 'next/link';
+import React, { useMemo, useState } from 'react';
 import {
-  ChevronLeft,
   ClipboardList,
   Plus,
   Lock,
@@ -12,7 +10,10 @@ import {
   X,
   CheckCircle2,
   ArrowRight,
+  ListChecks,
+  AlertTriangle,
 } from 'lucide-react';
+import { PageHeader } from '@/components/ui/PageHeader';
 import { glass } from '@/lib/glass';
 import { useApi } from '@/hooks/useApi';
 import { apiFetch } from '@/lib/apiFetch';
@@ -20,9 +21,10 @@ import { useToast } from '@/contexts/ToastContext';
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000').replace(/\/$/, '');
 
+const TEAL = '#16a394';
 const GREEN = '#10b981';
 const AMBER = '#f59e0b';
-const VIOLET = '#7c3aed';
+const BLUE = '#0a84ff';
 const GRAY = '#6b7280';
 const RED = '#ef4444';
 
@@ -51,24 +53,41 @@ interface Kpis {
 
 const STATUS_META: Record<Status, { label: string; color: string }> = {
   OPEN: { label: 'Abierto', color: AMBER },
-  COUNTED: { label: 'Contado', color: VIOLET },
+  COUNTED: { label: 'Contado', color: BLUE },
   RECONCILED: { label: 'Conciliado', color: GREEN },
   ADJUSTED: { label: 'Ajustado', color: GREEN },
   CANCELLED: { label: 'Cancelado', color: GRAY },
 };
 const ORDER: Status[] = ['OPEN', 'COUNTED', 'ADJUSTED', 'RECONCILED'];
 
+type View = 'flow' | 'discrepancies';
+
 export default function CycleCountsPage() {
   const { data, isLoading, forbidden, mutate } = useApi<Count[]>('/cycle-counts');
   const { data: kpis, mutate: mutateKpis } = useApi<Kpis>('/cycle-counts/kpis');
   const toast = useToast();
 
+  const [view, setView] = useState<View>('flow');
   const [showForm, setShowForm] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [form, setForm] = useState({ partNumber: '', location: '', systemQty: 0, uom: 'PCS' });
   const [countInputs, setCountInputs] = useState<Record<string, string>>({});
 
-  const list = Array.isArray(data) ? data : [];
+  const list = useMemo(() => (Array.isArray(data) ? data : []), [data]);
+
+  // Discrepancias = conteos ya contados cuya cantidad NO cuadra con el sistema.
+  // (ADJUSTED resuelve la varianza a 0 en backend, así que no aparece aquí.)
+  const discrepancies = useMemo(
+    () =>
+      list
+        .filter((c) => c.variance !== null && c.variance !== 0)
+        .sort((a, b) => Math.abs(Number(b.variance)) - Math.abs(Number(a.variance))),
+    [list],
+  );
+  const netVariance = useMemo(
+    () => discrepancies.reduce((a, c) => a + Number(c.variance ?? 0), 0),
+    [discrepancies],
+  );
 
   function refresh() {
     mutate();
@@ -153,32 +172,68 @@ export default function CycleCountsPage() {
     );
   }
 
-  return (
-    <div className="min-h-screen text-black dark:text-white">
-      <div className={`${glass} sticky top-0 z-40 px-6 py-4`}>
-        <div className="max-w-5xl mx-auto flex items-center gap-3">
-          <Link href="/dashboard" className="p-2 -ml-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10">
-            <ChevronLeft className="w-5 h-5" />
-          </Link>
-          <span className="w-9 h-9 rounded-xl grid place-items-center" style={{ background: 'rgba(124,58,237,0.12)' }}>
-            <ClipboardList className="w-5 h-5" style={{ color: VIOLET }} />
-          </span>
-          <div className="flex-1 min-w-0">
-            <h1 className="text-lg font-semibold leading-tight">Conteos Cíclicos</h1>
-            <p className="text-[12px] text-gray-400 leading-tight">Exactitud de inventario y reconciliación</p>
-          </div>
-          <button onClick={() => setShowForm(true)} className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium text-white" style={{ background: VIOLET }}>
-            <Plus className="w-4 h-4" /> Nuevo conteo
+  // Acciones por conteo (reutilizadas en Flujo y Discrepancias).
+  function rowActions(c: Count) {
+    if (c.status === 'OPEN') {
+      return (
+        <>
+          <input
+            type="number"
+            value={countInputs[c.id] ?? ''}
+            onChange={(e) => setCountInputs((s) => ({ ...s, [c.id]: e.target.value }))}
+            onKeyDown={(e) => { if (e.key === 'Enter') recordCount(c); }}
+            placeholder="contado"
+            className="cc-input w-24"
+          />
+          <button onClick={() => recordCount(c)} disabled={busy === c.id} className="px-2.5 py-1.5 rounded-lg text-[12px] font-medium text-white disabled:opacity-50" style={{ background: TEAL }}>
+            Contar
           </button>
-        </div>
-      </div>
+        </>
+      );
+    }
+    if (c.status === 'COUNTED') {
+      return (
+        <>
+          <button onClick={() => transition(c, 'RECONCILED')} disabled={busy === c.id} className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[12px] font-medium disabled:opacity-50" style={{ background: `${GREEN}1f`, color: GREEN }}>
+            <ArrowRight className="w-3 h-3" /> Conciliar
+          </button>
+          <button onClick={() => transition(c, 'ADJUSTED')} disabled={busy === c.id} className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[12px] font-medium disabled:opacity-50" style={{ background: `${AMBER}1f`, color: AMBER }}>
+            <ArrowRight className="w-3 h-3" /> Ajustar
+          </button>
+        </>
+      );
+    }
+    return null;
+  }
 
-      <main className="max-w-5xl mx-auto px-6 pt-8 pb-24">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
+  return (
+    <div className="min-h-screen text-black dark:text-white font-sans pb-32">
+      <main className="max-w-5xl mx-auto px-6 pt-10">
+        <PageHeader
+          domain="inventory"
+          icon={ClipboardList}
+          title="Conteos Cíclicos"
+          subtitle="Exactitud de inventario, varianza y reconciliación"
+          right={
+            <button onClick={() => setShowForm(true)} className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium text-white" style={{ background: TEAL }}>
+              <Plus className="w-4 h-4" /> Nuevo conteo
+            </button>
+          }
+        />
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
           <Kpi label="Exactitud inventario" value={kpis?.inventoryAccuracyPct === null || kpis?.inventoryAccuracyPct === undefined ? '—' : `${kpis.inventoryAccuracyPct}%`} color={(kpis?.inventoryAccuracyPct ?? 100) >= 95 ? GREEN : AMBER} />
           <Kpi label="Conteos abiertos" value={kpis?.open ?? 0} color={AMBER} />
           <Kpi label="Con varianza" value={kpis?.countsWithVariance ?? 0} color={(kpis?.countsWithVariance ?? 0) > 0 ? RED : GREEN} />
-          <Kpi label="Ajustes" value={kpis?.adjustments ?? 0} color={VIOLET} />
+          <Kpi label="Ajustes" value={kpis?.adjustments ?? 0} color={TEAL} />
+        </div>
+
+        {/* Toggle de vista */}
+        <div className={`${glass} inline-flex items-center gap-1 p-1 rounded-2xl mb-5`}>
+          <ViewBtn active={view === 'flow'} onClick={() => setView('flow')} icon={<ListChecks className="w-4 h-4" />}>Flujo</ViewBtn>
+          <ViewBtn active={view === 'discrepancies'} onClick={() => setView('discrepancies')} icon={<AlertTriangle className="w-4 h-4" />}>
+            Discrepancias{discrepancies.length > 0 ? ` (${discrepancies.length})` : ''}
+          </ViewBtn>
         </div>
 
         {showForm && (
@@ -203,7 +258,7 @@ export default function CycleCountsPage() {
             </div>
             <div className="mt-5 flex justify-end gap-2">
               <button onClick={() => setShowForm(false)} className="px-4 py-2 rounded-xl text-sm hover:bg-black/5 dark:hover:bg-white/10">Cancelar</button>
-              <button onClick={createCount} disabled={busy === 'new'} className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white disabled:opacity-60" style={{ background: VIOLET }}>
+              <button onClick={createCount} disabled={busy === 'new'} className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white disabled:opacity-60" style={{ background: TEAL }}>
                 {busy === 'new' ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />} Crear
               </button>
             </div>
@@ -218,6 +273,53 @@ export default function CycleCountsPage() {
             <h3 className="font-semibold">Sin conteos</h3>
             <p className="text-sm text-gray-400 mt-1">Crea un conteo para medir la exactitud de inventario.</p>
           </div>
+        ) : view === 'discrepancies' ? (
+          discrepancies.length === 0 ? (
+            <div className={`${glass} rounded-3xl p-12 text-center`}>
+              <CheckCircle2 className="w-8 h-8 mx-auto mb-3" style={{ color: GREEN }} />
+              <h3 className="font-semibold">Sin discrepancias</h3>
+              <p className="text-sm text-gray-400 mt-1">Todos los conteos registrados cuadran con el sistema.</p>
+            </div>
+          ) : (
+            <>
+              <p className="text-[12px] text-gray-400 mb-3">
+                {discrepancies.length} parte{discrepancies.length === 1 ? '' : 's'} con diferencia · varianza neta{' '}
+                <span className="font-semibold" style={{ color: netVariance === 0 ? GRAY : netVariance > 0 ? GREEN : RED }}>
+                  {netVariance > 0 ? '+' : ''}{netVariance}
+                </span>
+              </p>
+              <div className="space-y-3">
+                {discrepancies.map((c) => {
+                  const v = Number(c.variance);
+                  const over = v > 0;
+                  return (
+                    <div key={c.id} className={`${glass} rounded-2xl p-4`}>
+                      <div className="flex items-start gap-3 flex-wrap">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {c.folio && <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-black/5 dark:bg-white/10 text-gray-500">{c.folio}</span>}
+                            <span className="font-semibold font-mono truncate">{c.partNumber}</span>
+                            {c.location && <span className="text-[11px] text-gray-400">{c.location}</span>}
+                            <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: `${STATUS_META[c.status].color}1f`, color: STATUS_META[c.status].color }}>{STATUS_META[c.status].label}</span>
+                          </div>
+                          <div className="mt-1 text-[12px] text-gray-400">
+                            sistema {c.systemQty} {c.uom} · contado {c.countedQty} {c.uom}
+                          </div>
+                        </div>
+                        <div className="text-right flex-shrink-0">
+                          <div className="text-lg font-bold tabular-nums" style={{ color: over ? GREEN : RED }}>
+                            {over ? '+' : ''}{v} {c.uom}
+                          </div>
+                          <div className="text-[10px] text-gray-400">{over ? 'sobrante' : 'faltante'}</div>
+                        </div>
+                        <div className="flex items-center gap-1.5 flex-shrink-0 w-full justify-end">{rowActions(c)}</div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )
         ) : (
           <div className="space-y-8">
             {ORDER.map((status) => {
@@ -250,33 +352,7 @@ export default function CycleCountsPage() {
                               sistema {c.systemQty} {c.uom}{c.countedQty !== null && <> · contado {c.countedQty} {c.uom}</>}
                             </div>
                           </div>
-                          <div className="flex items-center gap-1.5 flex-shrink-0">
-                            {c.status === 'OPEN' && (
-                              <>
-                                <input
-                                  type="number"
-                                  value={countInputs[c.id] ?? ''}
-                                  onChange={(e) => setCountInputs((s) => ({ ...s, [c.id]: e.target.value }))}
-                                  onKeyDown={(e) => { if (e.key === 'Enter') recordCount(c); }}
-                                  placeholder="contado"
-                                  className="cc-input w-24"
-                                />
-                                <button onClick={() => recordCount(c)} disabled={busy === c.id} className="px-2.5 py-1.5 rounded-lg text-[12px] font-medium text-white disabled:opacity-50" style={{ background: VIOLET }}>
-                                  Contar
-                                </button>
-                              </>
-                            )}
-                            {c.status === 'COUNTED' && (
-                              <>
-                                <button onClick={() => transition(c, 'RECONCILED')} disabled={busy === c.id} className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[12px] font-medium disabled:opacity-50" style={{ background: `${GREEN}1f`, color: GREEN }}>
-                                  <ArrowRight className="w-3 h-3" /> Conciliar
-                                </button>
-                                <button onClick={() => transition(c, 'ADJUSTED')} disabled={busy === c.id} className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[12px] font-medium disabled:opacity-50" style={{ background: `${AMBER}1f`, color: AMBER }}>
-                                  <ArrowRight className="w-3 h-3" /> Ajustar
-                                </button>
-                              </>
-                            )}
-                          </div>
+                          <div className="flex items-center gap-1.5 flex-shrink-0">{rowActions(c)}</div>
                         </div>
                       </div>
                     ))}
@@ -298,13 +374,27 @@ export default function CycleCountsPage() {
           font-size: 0.875rem;
           width: 100%;
         }
-        .cc-input:focus { border-color: #7c3aed; }
+        .cc-input:focus { border-color: ${TEAL}; }
         :global(.dark) .cc-input {
           background: rgba(255, 255, 255, 0.06);
           border-color: rgba(255, 255, 255, 0.1);
         }
       `}</style>
     </div>
+  );
+}
+
+function ViewBtn({ active, onClick, icon, children }: { active: boolean; onClick: () => void; icon: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-sm font-medium transition-colors ${
+        active ? 'bg-white text-black shadow-sm dark:bg-white/15 dark:text-white' : 'text-gray-500 hover:text-black dark:hover:text-white'
+      }`}
+    >
+      {icon}
+      {children}
+    </button>
   );
 }
 
