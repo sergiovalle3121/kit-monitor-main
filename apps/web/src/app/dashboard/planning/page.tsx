@@ -227,6 +227,9 @@ export default function PlanningPage() {
           subtitle="Muro de publicación · planeación publica, el almacén prepara el kit"
           right={
             <>
+              <Link href="/dashboard/production-plan" className="hidden sm:flex items-center gap-1.5 text-sm font-medium text-violet-600 hover:text-violet-800 transition-colors">
+                <Megaphone className="w-4 h-4" /> Muro de WOs
+              </Link>
               <Link href="/dashboard/almacen" className="hidden sm:flex items-center gap-1.5 text-sm font-medium text-blue-500 hover:text-blue-700 transition-colors">
                 <Warehouse className="w-4 h-4" /> Almacén
               </Link>

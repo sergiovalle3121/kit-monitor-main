@@ -102,6 +102,7 @@ export default function OperatorTerminalPage() {
   const [defectNote, setDefectNote] = useState('');
   const [defectSev, setDefectSev] = useState('HIGH');
   const scanRef = useRef<HTMLInputElement>(null);
+  const serialRef = useRef<HTMLInputElement>(null);
 
   const wo = ctx?.workOrder;
   const stationValid = !!ctx?.station;
@@ -430,7 +431,8 @@ export default function OperatorTerminalPage() {
                   <Card>
                     <div className="flex items-center gap-2 mb-3 text-sm font-semibold"><ScanLine className="w-4 h-4" style={{ color: ORANGE }} /> Escanea y confirma</div>
                     <input ref={scanRef} value={scan} disabled={!ctx.runnable || !stationValid}
-                      onChange={(e) => setScan(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && canConfirm) confirm(); }}
+                      onChange={(e) => setScan(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') { if (needsSerial && !serial.trim()) serialRef.current?.focus(); else if (canConfirm) confirm(); } }}
                       placeholder={npExpected ? `Escanea ${npExpected}` : 'Escanea el componente'} className={bigInputCls} />
 
                     {/* live poka-yoke state */}
@@ -446,7 +448,8 @@ export default function OperatorTerminalPage() {
                     <div className="mt-3 grid grid-cols-2 gap-3">
                       <div>
                         <label className="text-[11px] text-white/45 flex items-center gap-1 mb-1"><Hash className="w-3 h-3" /> Serie {needsSerial && <span style={{ color: RED }}>*</span>}</label>
-                        <input value={serial} disabled={!ctx.runnable || !stationValid} onChange={(e) => setSerial(e.target.value)}
+                        <input ref={serialRef} value={serial} disabled={!ctx.runnable || !stationValid} onChange={(e) => setSerial(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === 'Enter' && canConfirm) confirm(); }}
                           placeholder={needsSerial ? 'Serial de la unidad (obligatorio)' : 'Serial (opcional)'} className={inputCls} />
                       </div>
                       <div>
