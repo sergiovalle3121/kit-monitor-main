@@ -5,7 +5,11 @@ import Link from 'next/link';
 import {
   ChevronLeft, Gauge, Plus, Lock, Loader2, Inbox, X, CheckCircle2,
   ListOrdered, Layers, Activity, AlertTriangle, Image as ImageIcon, Star,
+  BarChart3,
 } from 'lucide-react';
+import {
+  Bar, BarChart, CartesianGrid, Cell, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis,
+} from 'recharts';
 import { glass } from '@/lib/glass';
 import { useApi } from '@/hooks/useApi';
 import { apiFetch } from '@/lib/apiFetch';
@@ -171,6 +175,7 @@ export default function LineEngineeringPage() {
               <Mini label="Balance" value={pct(balance.balancePct)} color={balance.balancePct >= 0.85 ? GREEN : AMBER} />
               <Mini label="Throughput" value={`${balance.throughputPerHour}/h`} />
             </div>
+            <Yamazumi route={route} taktSec={balance.taktSec} />
             {balance.stationsOverTakt.length > 0 && (
               <div className="mt-3 flex items-center gap-2 text-[12px]" style={{ color: ROSE }}>
                 <AlertTriangle className="w-4 h-4" /> Estaciones sobre takt: {balance.stationsOverTakt.join(', ')} — rebalancear.
@@ -307,6 +312,78 @@ function Mini({ label, value, sub, color }: { label: string; value: string; sub?
     </div>
   );
 }
+/**
+ * Yamazumi chart: one bar per station (its standard cycle time) against the takt
+ * reference line. Bars above takt are bottlenecks (rose); the rest are within
+ * beat (blue). Built from the same std times the balance math already uses, so
+ * the chart and the KPIs never disagree.
+ */
+function Yamazumi({ route, taktSec }: { route: Station[]; taktSec: number }) {
+  const data = route
+    .filter((s) => Number(s.stdTimeSec) > 0)
+    .sort((a, b) => a.sequence - b.sequence)
+    .map((s) => ({
+      station: s.station,
+      time: Math.round(Number(s.stdTimeSec)),
+      over: taktSec > 0 && Number(s.stdTimeSec) > taktSec + 1e-9,
+    }));
+
+  if (data.length === 0) {
+    return (
+      <div className="mt-4 flex items-center gap-2 text-[12px] text-gray-400">
+        <BarChart3 className="w-4 h-4" />
+        Captura el tiempo estándar de cada estación para ver el yamazumi (ciclo por estación vs takt).
+      </div>
+    );
+  }
+
+  const maxBar = Math.max(...data.map((d) => d.time), taktSec || 0);
+  const angled = data.length > 6;
+
+  return (
+    <div className="mt-5">
+      <div className="flex items-center justify-between mb-2">
+        <h4 className="text-[12px] font-semibold uppercase tracking-wide text-gray-400 flex items-center gap-1.5">
+          <BarChart3 className="w-3.5 h-3.5" /> Yamazumi · ciclo por estación vs takt
+        </h4>
+        {taktSec > 0 && (
+          <span className="text-[11px] flex items-center gap-1" style={{ color: ROSE }}>
+            <span className="inline-block w-4 border-t-2 border-dashed" style={{ borderColor: ROSE }} /> Takt {Math.round(taktSec)}s
+          </span>
+        )}
+      </div>
+      <div style={{ width: '100%', height: 260 }}>
+        <ResponsiveContainer>
+          <BarChart data={data} margin={{ top: 8, right: 12, left: -12, bottom: 4 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="rgba(120,120,120,0.15)" vertical={false} />
+            <XAxis
+              dataKey="station"
+              tick={{ fontSize: 11 }}
+              interval={0}
+              angle={angled ? -30 : 0}
+              textAnchor={angled ? 'end' : 'middle'}
+              height={angled ? 56 : 24}
+            />
+            <YAxis tick={{ fontSize: 11 }} domain={[0, Math.ceil(maxBar * 1.1)]} unit="s" width={46} />
+            <Tooltip
+              cursor={{ fill: 'rgba(120,120,120,0.08)' }}
+              formatter={(v) => [`${v}s`, 'Ciclo']}
+              contentStyle={{ borderRadius: 12, border: '1px solid rgba(0,0,0,0.08)', fontSize: 12 }}
+            />
+            {taktSec > 0 && <ReferenceLine y={taktSec} stroke={ROSE} strokeDasharray="5 4" ifOverflow="extendDomain" />}
+            <Bar dataKey="time" radius={[6, 6, 0, 0]} maxBarSize={64}>
+              {data.map((d) => <Cell key={d.station} fill={d.over ? ROSE : BLUE} />)}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+      <p className="text-[11px] text-gray-400 mt-1">
+        Barras sobre la línea de takt son cuellos de botella: rebalancea moviendo trabajo a estaciones con holgura.
+      </p>
+    </div>
+  );
+}
+
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" onClick={onClose}>
