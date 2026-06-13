@@ -15,6 +15,9 @@ import {
   Warehouse,
   HandHelping,
   Trash2,
+  Gauge,
+  Layers,
+  AlertTriangle,
 } from 'lucide-react';
 import { glass } from '@/lib/glass';
 import { useApi } from '@/hooks/useApi';
@@ -66,6 +69,23 @@ interface Preview {
   lines: PickListLine[];
 }
 interface ModelOption { id: string; modelNumber: string; name: string; status: string }
+// Inteligencia de planeación (GET /plans/intelligence): carga vs capacidad por
+// línea (CRP-lite), backlog y riesgos de readiness. Ya existe en el backend.
+interface LineLoad {
+  line: number | string;
+  buildingId?: string | null;
+  capacity: number;
+  currentLoad: number;
+  loadPercent: number;
+  status: 'optimal' | 'warning' | 'overloaded';
+}
+interface Intelligence { backlog: number; lineLoad: LineLoad[]; readinessRisks: number }
+
+const LOAD_COLOR: Record<LineLoad['status'], string> = {
+  optimal: GREEN,
+  warning: AMBER,
+  overloaded: '#ef4444',
+};
 
 const STATUS_META: Record<string, { label: string; color: string; bg: string }> = {
   pending: { label: 'Por publicar', color: AMBER, bg: 'rgba(245,158,11,0.12)' },
@@ -78,6 +98,7 @@ const STATUS_META: Record<string, { label: string; color: string; bg: string }> 
 
 export default function PlanningPage() {
   const { data: plans, isLoading, forbidden, mutate } = useApi<Plan[]>('/plans');
+  const { data: intel } = useApi<Intelligence>('/plans/intelligence');
   const [pickLists, setPickLists] = useState<Record<number, PickList>>({});
   const [previews, setPreviews] = useState<Record<number, Preview>>({});
   const [busy, setBusy] = useState<number | null>(null);
@@ -232,6 +253,9 @@ export default function PlanningPage() {
             </div>
           ))}
         </div>
+
+        {/* Carga vs capacidad por línea (CRP-lite) — del API /plans/intelligence */}
+        <LineLoadPanel intel={intel} />
 
         {/* New plan form */}
         <AnimatePresence>
@@ -559,6 +583,60 @@ function NewPlanForm({
         </button>
       </div>
     </motion.form>
+  );
+}
+
+function LineLoadPanel({ intel }: { intel?: Intelligence }) {
+  if (!intel) return null;
+  const lines = Array.isArray(intel.lineLoad) ? intel.lineLoad : [];
+  const hasSignal = lines.length > 0 || intel.backlog > 0 || intel.readinessRisks > 0;
+  if (!hasSignal) return null;
+
+  return (
+    <div className={`${glass} rounded-3xl p-5 mb-6`}>
+      <div className="flex items-center gap-2 mb-4 flex-wrap">
+        <span className="w-8 h-8 rounded-xl grid place-items-center" style={{ background: 'rgba(124,58,237,0.12)' }}>
+          <Gauge className="w-4 h-4" style={{ color: VIOLET }} />
+        </span>
+        <h3 className="font-bold">Carga de líneas</h3>
+        <span className="text-xs text-gray-400">capacidad vs carga activa</span>
+        <span className="ml-auto inline-flex items-center gap-2">
+          <span className="text-[11px] px-2 py-0.5 rounded-full inline-flex items-center gap-1" style={{ background: 'rgba(0,0,0,0.05)' }}>
+            <Layers className="w-3 h-3" /> {intel.backlog} en backlog
+          </span>
+          {intel.readinessRisks > 0 && (
+            <span className="text-[11px] px-2 py-0.5 rounded-full inline-flex items-center gap-1" style={{ background: 'rgba(239,68,68,0.12)', color: '#ef4444' }}>
+              <AlertTriangle className="w-3 h-3" /> {intel.readinessRisks} en riesgo
+            </span>
+          )}
+        </span>
+      </div>
+      {lines.length === 0 ? (
+        <p className="text-sm text-gray-500 dark:text-gray-400">
+          Aún no hay capacidades de línea configuradas. Cuando se definan, aquí verás la carga (unidades activas) contra la capacidad diaria de cada línea.
+        </p>
+      ) : (
+        <div className="space-y-3">
+          {lines.map((l) => {
+            const color = LOAD_COLOR[l.status] ?? VIOLET;
+            const width = Math.min(100, Math.max(0, l.loadPercent));
+            return (
+              <div key={`${l.line}-${l.buildingId ?? ''}`}>
+                <div className="flex items-center justify-between text-sm mb-1">
+                  <span className="font-medium">Línea {l.line}</span>
+                  <span className="tabular-nums text-gray-500">
+                    {l.currentLoad}/{l.capacity} u · <span style={{ color }}>{l.loadPercent}%</span>
+                  </span>
+                </div>
+                <div className="h-2 rounded-full bg-black/10 dark:bg-white/10 overflow-hidden">
+                  <div className="h-full rounded-full" style={{ width: `${width}%`, background: color }} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }
 

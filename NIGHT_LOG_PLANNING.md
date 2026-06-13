@@ -137,17 +137,31 @@ Los 3 ítems del carril S4 quedaron en verde y mergeados a `main` (squash):
 - **#276** Ítem 2 · semáforo Clear-to-Build (BOM + material + FAI).
 - **Ítem 3** · secuencia (ordenar/priorizar) + publicar.
 
-### Siguiente punto débil de MI área (a profundizar sin salir del carril)
-- **Página `planning` (legacy `plans`):** `GET /plans/intelligence` (guard
-  `PLANNING_VIEW`) **ya expone capacidad/carga por línea** (`LineCapacity`:
-  `backlog`, `lineLoad[]` con `loadPercent`/`status`, `readinessRisks`) y NO se
-  consume en la UI. Profundización natural: mostrar carga vs capacidad por línea
-  en Planeación (corrige el supuesto de "no hay CRP" — existe para el plan
-  legacy). Nota: `lineLoad` usa la línea entera del plan legacy, no las líneas
-  string del muro `production-plan`.
-- **Nota backend (mock detectado, NO tocado):** `plans.calculateReadiness()`
-  devuelve `materials/quality/shipping = 'green'` hardcodeado; el
-  `readinessSummary` del release legacy es de adorno. El semáforo honesto vive en
-  el muro de WOs (Ítem 2). Unificar readiness real en el plan legacy = backend.
+---
+
+## Ítem 4 — Profundización: carga vs capacidad por línea en `planning` ✅
+
+**Archivos:** `apps/web/src/app/dashboard/planning/page.tsx`. Surfacing del
+endpoint **ya existente** `GET /plans/intelligence` (guard `PLANNING_VIEW`), que
+no se consumía en la UI. Cero backend.
+
+- **Panel "Carga de líneas" (CRP-lite):** barra por línea con `loadPercent`
+  coloreada por `status` (optimal=verde / warning=ámbar / overloaded=rojo) y
+  `currentLoad/capacity u`. Encabezado con **backlog** (planes pendientes) y
+  **riesgos de readiness** (pendientes críticos). Corrige el supuesto previo de
+  "no hay CRP": existe para el plan legacy (tabla `LineCapacity`).
+- **Honesto:** si no hay capacidades configuradas, muestra un texto explicativo
+  en vez de barras vacías. Si el usuario no tiene `PLANNING_VIEW` (o todo está en
+  cero en un sistema limpio), el panel no se renderiza (sin ruido).
+
+**Puertas:** `tsc` 0 · `eslint` 0/0 · `next build` ✓.
+
+### Nota backend para mañana (mock detectado, NO tocado)
+- `plans.calculateReadiness()` devuelve `materials/quality/shipping = 'green'`
+  hardcodeado; el `readinessSummary` del release legacy es de adorno. El semáforo
+  honesto vive en el muro de WOs (Ítem 2, `production-plan`). Unificar readiness
+  real en el plan legacy = tarea backend.
+- `lineLoad` usa la línea entera del plan legacy (`plans.line`), no las líneas
+  string del muro `production-plan`. Unificar ambos modelos de línea = backend.
 
 <!-- Próximos ítems se agregan abajo -->
