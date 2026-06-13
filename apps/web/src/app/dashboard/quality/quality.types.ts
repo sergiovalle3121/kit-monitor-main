@@ -126,3 +126,52 @@ export interface ModelOption {
   name: string;
   status: string;
 }
+
+// IQC — apps/api/src/modules/quality/entities/iqc-inspection.entity.ts
+export type IqcResult = "pass" | "fail" | "conditional" | "pending";
+
+export interface IqcInspection {
+  id: number;
+  inspectionNumber: string;
+  partNumber: string;
+  lotNumber?: string | null;
+  result: IqcResult;
+  sampleSize?: number | null;
+  defectsFound?: number | null;
+  inspector: string;
+  notes?: string | null;
+  warehouseId?: string | null;
+  supplier?: { id: number | string; name?: string } | null;
+  createdAt: string;
+}
+
+// OQC — apps/api/src/modules/quality/entities/final-inspection.entity.ts
+export type OqcResult = "PASS" | "FAIL" | "CONDITIONAL";
+
+export interface FinalInspection {
+  id: number;
+  workOrder: string;
+  partNumber: string;
+  quantityInspected: number;
+  quantityPassed: number;
+  quantityFailed: number;
+  result: OqcResult;
+  inspector?: string | null;
+  defectType?: string | null;
+  defectDescription?: string | null;
+  severity?: string | null;
+  notes?: string | null;
+  createdAt: string;
+}
+
+/** OQC backlog = posiciones de inventario en estado pending_oqc. */
+export interface OqcBacklogRow {
+  id: number;
+  partNumber: string;
+  warehouseId: string;
+  location: string;
+  onHand: number;
+  lotNumber?: string | null;
+  serialNumber?: string | null;
+  programId?: string | null;
+}
