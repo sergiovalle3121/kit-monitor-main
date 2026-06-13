@@ -128,6 +128,11 @@ NO replica esa torre: se queda como **lista operativa de órdenes** y se le aña
 ### Puertas (apps/web) — verdes
 - `eslint` (0/0), `tsc --noEmit` (sin errores), `next build` (OK, exit 0).
 
+### Polish del escáner (mismo PR de persistencia o siguiente)
+- Estaciones serializadas (`serialControl=BY_UNIT`): Enter en el escáner enfoca el
+  campo Serie (en vez de intentar confirmar sin serie); Enter en Serie confirma.
+  Flujo manos-libres: escanea parte → Enter → escanea/teclea serie → Enter → confirma.
+
 ---
 
 ## 2026-06-13 — Terminal: recuerda su estación/WO tras reinicio (kiosko real)
