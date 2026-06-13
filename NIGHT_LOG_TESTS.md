@@ -9,8 +9,8 @@ Bitácora dedicada al endurecimiento de la suite de `apps/api` y la cobertura.
 
 - **Rama:** `claude/kind-ramanujan-khzgco` (se hizo `git merge origin/main` una vez
   para heredar el workflow de CI `#266`; mergeado limpio).
-- **Estado de la suite:** **VERDE — 65 suites / 399 tests** (`npm test`). Antes de
-  la sesión: 56 suites / 305 tests. +9 specs nuevos, +94 tests, 0 rojos, 0 skips.
+- **Estado de la suite:** **VERDE — 65 suites / 403 tests** (`npm test`). Antes de
+  la sesión: 56 suites / 305 tests. +9 specs nuevos, +98 tests, 0 rojos, 0 skips.
 - **Puertas de CI (ci.yml):** mis cambios son **solo `*.spec.ts`**; `tsconfig.build.json`
   excluye `**/*spec.ts`, así que build/web/smoke no se ven afectados. Solo influyo en
   el step de unit tests, que queda verde.
@@ -39,10 +39,10 @@ Bitácora dedicada al endurecimiento de la suite de `apps/api` y la cobertura.
 
 | Métrica     | Antes  | Después | Δ      |
 |-------------|--------|---------|--------|
-| Statements  | 25.02% | 29.76%  | +4.74  |
-| Branches    | 22.30% | 26.99%  | +4.69  |
-| Functions   | 18.20% | 21.59%  | +3.39  |
-| Lines       | 25.29% | 30.11%  | +4.82  |
+| Statements  | 25.02% | 29.85%  | +4.83  |
+| Branches    | 22.30% | 27.03%  | +4.73  |
+| Functions   | 18.20% | 21.70%  | +3.50  |
+| Lines       | 25.29% | 30.21%  | +4.92  |
 
 **Los 5 módulos críticos (statements / lines / functions):**
 
@@ -50,7 +50,7 @@ Bitácora dedicada al endurecimiento de la suite de `apps/api` y la cobertura.
 |---------------|---------------|-----------------|---------------|-------------|
 | auth          | 11.7%         | **35.9%**       | 34.2%         | 17.3%       |
 | inventory     | 16.3%         | **63.6%**       | 65.0%         | 33.3%       |
-| plans         | 12.3%         | **44.8%**       | 45.5%         | 40.0%       |
+| plans         | 12.3%         | **52.4%**       | 53.1%         | 47.5%       |
 | quality       | 10.6%         | **68.3%**       | 69.0%         | 39.6%       |
 | event-ledger  | 58.6%         | **87.1%**       | 88.7%         | 87.5%       |
 
@@ -68,9 +68,11 @@ Bitácora dedicada al endurecimiento de la suite de `apps/api` y la cobertura.
   CRITICAL, RECEIVE y TRANSFER felices) y `ensureMaterial`; ciclo de tareas de
   almacén (folio, candados start/complete, short-pick); análisis de reabasto
   (OUT_OF_STOCK/BELOW_MIN/ninguna + auto-tarea).
-- **plans** (`plans.service.spec.ts` +8): inteligencia de programación (carga por
+- **plans** (`plans.service.spec.ts` +12): inteligencia de programación (carga por
   línea + umbrales + división por capacidad 0 + backlog + riesgos critical),
-  serialización/404 de findOne, generación de folio de WO, candados de borrado.
+  serialización/404 de findOne, generación de folio de WO, candados de borrado,
+  **update** (404 + normalización de modelo) y **releaseWorkOrder** (404 + sello de
+  readiness + auditoría RELEASE_WO).
 - **quality** (`quality.service.spec.ts` +22): checkIsHeld (niveles), motor de CAPA,
   dispositions (propose/approve), transfers de cuarentena (candado de estado +
   movimiento físico + sello quarantine), IQC (PASS libera stock; CONDITIONAL no-op),
