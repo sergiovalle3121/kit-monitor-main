@@ -1,0 +1,93 @@
+name: CI
+
+# Red de seguridad automática: corre las 4 puertas de calidad en cada PR a main
+# y en cada push a main. Ningún cambio llega a producción sin pasar por aquí.
+#   1) build (API)          2) unit tests (API)
+#   3) lint (API + web)     4) smoke de bootstrap (dist compilado vs Postgres)
+# El smoke materializa TODO el esquema (synchronize) sobre un Postgres efímero:
+# es la puerta que atrapa colisiones de tabla/FK entre módulos antes del merge
+# — exactamente el riesgo que vuelve peligroso a `synchronize: true` en prod.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+# Cancela ejecuciones obsoletas si se empuja algo nuevo a la misma rama/PR.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality-gates:
+    name: Build · Test · Lint · Smoke
+    runs-on: ubuntu-latest
+
+    # Postgres efímero para el smoke de bootstrap. La app usa tipos solo-Postgres
+    # (jsonb, enum), así que el smoke debe correr contra Postgres real, no SQLite.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: axos_smoke
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      # `npm ci` instala todos los workspaces. El postinstall de la API compila
+      # el backend (npx nest build), así que un build roto YA falla aquí.
+      - name: Install dependencies
+        run: npm ci
+
+      # Build explícito: garantiza dist/ fresco para el smoke (y deja el gate legible).
+      - name: Build API
+        working-directory: apps/api
+        run: npm run build
+
+      - name: Unit tests (API)
+        working-directory: apps/api
+        run: npm test
+
+      # Lint del API NO-bloqueante: hoy arrastra ~2.9k hallazgos de formato
+      # (prettier, auto-corregibles) preexistentes. Se reporta como señal, pero
+      # no tumba el merge para no mezclar un commit de formato masivo con el
+      # blindaje. Volverlo bloqueante = deuda separada (ver DECISIONS §13).
+      - name: Lint API (no-bloqueante — deuda de formato)
+        working-directory: apps/api
+        continue-on-error: true
+        run: npm run lint
+
+      - name: Lint web
+        working-directory: apps/web
+        run: npm run lint
+
+      - name: Build web
+        working-directory: apps/web
+        run: npm run build
+
+      # Puerta crítica: arranca el grafo de DI completo del dist compilado contra
+      # Postgres. Resuelve providers + guards de ruta y materializa el esquema;
+      # atrapa fallos de DI y colisiones de tabla/índice/FK que tsc y los unit
+      # tests no ven. Si falla, NO se mergea.
+      - name: Bootstrap smoke (compilado vs Postgres)
+        working-directory: apps/api
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/axos_smoke
+        run: npm run smoke:bootstrap
