@@ -94,8 +94,33 @@ faltaba con datos reales:
 - Bundle con el ítem 2 en el PR #274 (ambos verdes, mismo carril) para mantener el
   árbol limpio entre turnos. Puertas: `tsc` 0, `eslint` 0, `next build` ✅.
 
+## Ítem 4 — Floor-quality / MRB: modales de disposición y re-inspección + filtro ✅
+
+`floor-quality/page.tsx` (mío) ya tenía el flujo hold→MRB→disposición funcional,
+pero usaba `window.prompt`/`window.confirm` (UX frágil y propensa a error). Pulido
+sin cambiar el contrato del backend:
+- **Modal de disposición**: select de disposición (con etiquetas ES), firma
+  obligatoria, notas, y campos condicionales **waiver** (USE_AS_IS) / **SCAR**
+  (RTV) con validación en cliente antes de `POST …/disposition`. (El backend
+  igual exige waiver/SCAR; ahora el usuario lo ve y no se pierde el texto si falla.)
+- **Modal de re-inspección**: toggle Pasa/Falla + horas de retrabajo + cantidad a
+  scrap (si falla) → `POST …/reinspect`. Reemplaza el `confirm` binario.
+- **`act()` ahora devuelve boolean**: el modal solo cierra si el POST tuvo éxito
+  (no se pierde lo capturado ante un error de validación/red).
+- **Filtro por estado** (chips con conteos) incl. ver **cancelados** (antes no
+  eran visibles); vista por defecto = flujo activo. Etiqueta de disposición legible
+  en las tarjetas (`DISP_LABELS`).
+- Puertas: `tsc` 0, `eslint` 0, `next build` ✅.
+
 ### ▶ RETOMAR AQUÍ (carril S2)
-- Siguiente: ítem 4 — pulir `floor-quality` (punto débil real): reemplazar el
-  `window.prompt`/`window.confirm` de disposición y re-inspección por modales
-  propios + filtro de estado (incl. ver cerrados/cancelados). Después: profundizar
-  el siguiente punto débil de calidad sin salir del carril.
+- Ciclo de calidad cerrado en UI sobre el backend existente: **NCR** (cockpit +
+  detalle + transiciones + CAPA), **MRB/piso** (disposición/retrabajo/scrap/RTV con
+  modales) y **Test/Lab** (yield/FPY + Pareto recharts). Todo verde y mergeado.
+- Próximo punto débil sugerido (mismo carril, backend ya existe — SOLO UI):
+  1) **IQC/OQC** en `quality`: `GET/POST /quality/iqc`, `/quality/oqc/backlog`,
+     `/quality/oqc/inspections`, `/quality/oqc/history` no tienen UI aún.
+  2) **Holds de inventario + transfers de cuarentena** (`/quality/holds/active`,
+     `/quality/transfers`, `/quality/dispositions`) — engine de disposición a nivel
+     inventario, distinto del hold de piso (`floor-quality`).
+  3) Adoptar `PageHeader` en `floor-quality` (hoy header propio; deuda cosmética
+     anotada en NIGHT_LOG principal).
