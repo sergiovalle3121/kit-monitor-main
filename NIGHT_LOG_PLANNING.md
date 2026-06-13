@@ -100,4 +100,54 @@ línea suma `# no listas`. Refresco en vivo (SWR 20s) como el resto del muro.
 - `production-plan` ya tiene `materialReady` (lo pone staging C); el semáforo no lo
   sustituye, lo **complementa** con la verificación real contra inventario/BOM.
 
+---
+
+## Ítem 3 — Secuencia del plan: ordenar / priorizar + publicar ✅
+
+**Archivos:** `production-plan/page.tsx`. Reusa `PATCH
+/production-plan/:id/resequence` (`{ sequence, priority? }`, guard
+`planning:write`). Cero backend.
+
+- **Ordenar la secuencia** (vista por línea): cada WO trae flechas ↑/↓ que la
+  mueven en la **secuencia de su línea**. `reorderLine` reasigna la secuencia en
+  pasos de 10 (deja huecos) y solo PATCHea las WOs cuyo número cambió → robusto
+  ante empates de secuencia (todas en 100 por default). Deshabilitadas en los
+  extremos. El `#seq` del encabezado refleja el nuevo orden al refrescar.
+- **Priorizar:** selector de prioridad por WO (Baja/Media/Alta/Urgente) que
+  PATCHea `priority` (conservando `sequence`). El badge de prioridad del
+  encabezado y el resumen de línea reaccionan.
+- **Publicar:** ya existía (`POST /production-plan/publish`); el form ya quedó
+  con dropdown del maestro de Modelo y bahía/estación.
+- Los controles de secuencia/prioridad solo aparecen en la **vista por línea**
+  (donde hay contexto de orden); la vista por estado queda de lectura/flujo.
+
+**Puertas:** `tsc` 0 · `eslint` 0/0 · `next build` ✓.
+
+### Nota
+- La re-secuencia hace varios PATCH en paralelo (uno por WO movida). Para líneas
+  muy largas, un endpoint batch de re-secuencia sería más eficiente (tarea
+  backend opcional); hoy es correcto y poco frecuente.
+
+---
+
+## Estado del carril (cierre de la lista)
+
+Los 3 ítems del carril S4 quedaron en verde y mergeados a `main` (squash):
+- **#270** Ítem 1 · muro por línea/estación + adelantado/atrasado.
+- **#276** Ítem 2 · semáforo Clear-to-Build (BOM + material + FAI).
+- **Ítem 3** · secuencia (ordenar/priorizar) + publicar.
+
+### Siguiente punto débil de MI área (a profundizar sin salir del carril)
+- **Página `planning` (legacy `plans`):** `GET /plans/intelligence` (guard
+  `PLANNING_VIEW`) **ya expone capacidad/carga por línea** (`LineCapacity`:
+  `backlog`, `lineLoad[]` con `loadPercent`/`status`, `readinessRisks`) y NO se
+  consume en la UI. Profundización natural: mostrar carga vs capacidad por línea
+  en Planeación (corrige el supuesto de "no hay CRP" — existe para el plan
+  legacy). Nota: `lineLoad` usa la línea entera del plan legacy, no las líneas
+  string del muro `production-plan`.
+- **Nota backend (mock detectado, NO tocado):** `plans.calculateReadiness()`
+  devuelve `materials/quality/shipping = 'green'` hardcodeado; el
+  `readinessSummary` del release legacy es de adorno. El semáforo honesto vive en
+  el muro de WOs (Ítem 2). Unificar readiness real en el plan legacy = backend.
+
 <!-- Próximos ítems se agregan abajo -->
