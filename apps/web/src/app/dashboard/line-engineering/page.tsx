@@ -5,7 +5,7 @@ import Link from 'next/link';
 import {
   ChevronLeft, Gauge, Plus, Lock, Loader2, Inbox, X, CheckCircle2,
   ListOrdered, Layers, Activity, AlertTriangle, Image as ImageIcon, Star,
-  BarChart3, Pencil,
+  BarChart3, Pencil, Calculator, ChevronDown,
 } from 'lucide-react';
 import {
   Bar, BarChart, CartesianGrid, Cell, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis,
@@ -45,6 +45,7 @@ interface Kpis {
 }
 interface ModelOption { id: string; modelNumber: string; name: string; status: string }
 interface VisualAid { id: string; model: string; title: string; revision?: string | null; pdfUrl: string; isActive?: boolean }
+interface Capacity { line: string; model: string; requiredMinutes: number; changeoverMinutes: number; availableMinutes: number; utilizationPct: number; feasible: boolean }
 
 const pct = (n: number) => `${Math.round((n || 0) * 100)}%`;
 
@@ -57,8 +58,8 @@ export default function LineEngineeringPage() {
   const { data: pmData } = useApi<ModelOption[]>('/product-models');
   const masterModels = (Array.isArray(pmData) ? pmData : []).filter((m) => m.status !== 'OBSOLETE');
 
-  const stations = Array.isArray(stationsData) ? stationsData : [];
-  const quals = Array.isArray(qualsData) ? qualsData : [];
+  const stations = useMemo(() => (Array.isArray(stationsData) ? stationsData : []), [stationsData]);
+  const quals = useMemo(() => (Array.isArray(qualsData) ? qualsData : []), [qualsData]);
 
   const models = useMemo(() => {
     const set = new Map<string, { model: string; revision: string }>();
@@ -86,6 +87,11 @@ export default function LineEngineeringPage() {
   const route = stations
     .filter((s) => s.model === model && s.revision === revision)
     .sort((a, b) => a.sequence - b.sequence);
+
+  const lines = useMemo(
+    () => Array.from(new Set([...stations.map((s) => s.line), ...quals.map((q) => q.line)].filter(Boolean))).sort(),
+    [stations, quals],
+  );
 
   const [showStation, setShowStation] = useState(false);
   const [showQual, setShowQual] = useState(false);
@@ -250,6 +256,9 @@ export default function LineEngineeringPage() {
             )}
           </div>
         )}
+
+        {/* Capacity calculator */}
+        {model && <CapacityCalc model={model} revision={revision} lines={lines} />}
 
         {/* Routing table */}
         {isLoading ? (
@@ -454,6 +463,90 @@ function Yamazumi({ route, taktSec }: { route: Station[]; taktSec: number }) {
       <p className="text-[11px] text-gray-400 mt-1">
         Barras sobre la línea de takt son cuellos de botella: rebalancea moviendo trabajo a estaciones con holgura.
       </p>
+    </div>
+  );
+}
+
+/**
+ * Line capacity / load: required minutes (Σ cycle × demand + changeover) vs the
+ * available minutes for a shift, with utilization% and a feasibility verdict.
+ * Surfaces the existing `GET /line-engineering/capacity` (no UI before).
+ */
+function CapacityCalc({ model, revision, lines }: { model: string; revision: string; lines: string[] }) {
+  const [open, setOpen] = useState(false);
+  const [line, setLine] = useState('');
+  const [availableMinutes, setAvailableMinutes] = useState('480');
+  const [demandUnits, setDemandUnits] = useState('500');
+  const [busy, setBusy] = useState(false);
+  const [res, setRes] = useState<Capacity | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+
+  const utilColor = res ? (res.utilizationPct > 100 ? ROSE : res.utilizationPct > 85 ? AMBER : GREEN) : undefined;
+
+  async function calc() {
+    const ln = (line || lines[0] || '').trim();
+    if (!ln) { setErr('Selecciona una línea.'); return; }
+    setBusy(true); setErr(null);
+    try {
+      const q = new URLSearchParams({ model, revision, line: ln, availableMinutes, demandUnits });
+      const r = await apiFetch(`${API_BASE}/line-engineering/capacity?${q.toString()}`);
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) { setErr(d?.message || 'No se pudo calcular.'); setRes(null); return; }
+      setRes(d as Capacity);
+    } catch { setErr('Error de red.'); } finally { setBusy(false); }
+  }
+
+  return (
+    <div className={`${glass} rounded-2xl mb-6 overflow-hidden`}>
+      <button onClick={() => setOpen((v) => !v)} className="w-full flex items-center gap-3 px-5 py-3 text-left">
+        <Calculator className="w-4 h-4" style={{ color: BLUE }} />
+        <div className="flex-1 min-w-0">
+          <h3 className="font-semibold text-sm">Capacidad de línea · {model} {revision}</h3>
+          <p className="text-[12px] text-gray-400">¿Cabe la demanda en el turno? Carga requerida vs disponible.</p>
+        </div>
+        <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+
+      {open && (
+        <div className="px-5 pb-5 border-t border-black/5 dark:border-white/10 pt-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 items-end">
+            <label className="block">
+              <span className="block text-[12px] font-medium text-gray-500 mb-1">Línea</span>
+              <select value={line} onChange={(e) => setLine(e.target.value)} className="ci-input">
+                <option value="">{lines.length ? 'Selecciona línea…' : 'Sin líneas'}</option>
+                {lines.map((l) => <option key={l} value={l}>{l}</option>)}
+              </select>
+            </label>
+            <label className="block">
+              <span className="block text-[12px] font-medium text-gray-500 mb-1">Minutos disponibles</span>
+              <input type="number" min={0} value={availableMinutes} onChange={(e) => setAvailableMinutes(e.target.value)} className="ci-input tabular-nums" />
+            </label>
+            <label className="block">
+              <span className="block text-[12px] font-medium text-gray-500 mb-1">Demanda (u)</span>
+              <input type="number" min={0} value={demandUnits} onChange={(e) => setDemandUnits(e.target.value)} className="ci-input tabular-nums" />
+            </label>
+            <button onClick={calc} disabled={busy} className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium text-white disabled:opacity-60" style={{ background: BLUE }}>
+              {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Calculator className="w-4 h-4" />} Calcular
+            </button>
+          </div>
+
+          {err && <div className="mt-3 text-[12px]" style={{ color: ROSE }}>{err}</div>}
+
+          {res && (
+            <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-3">
+              <Mini label="Req. (min)" value={`${res.requiredMinutes}`} sub={res.changeoverMinutes ? `+${res.changeoverMinutes} changeover` : undefined} />
+              <Mini label="Disponible (min)" value={`${res.availableMinutes}`} />
+              <Mini label="Utilización" value={`${res.utilizationPct}%`} color={utilColor} />
+              <div className="rounded-xl p-3 bg-black/[0.03] dark:bg-white/[0.04] flex flex-col justify-center">
+                <div className="text-[10px] uppercase tracking-wide text-gray-400">Veredicto</div>
+                <div className="text-sm font-semibold mt-0.5 flex items-center gap-1.5" style={{ color: res.feasible ? GREEN : ROSE }}>
+                  {res.feasible ? <><CheckCircle2 className="w-4 h-4" /> Cabe</> : <><AlertTriangle className="w-4 h-4" /> No cabe</>}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
