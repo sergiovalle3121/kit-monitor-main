@@ -115,3 +115,19 @@ mission-control, forecast, erp. Disponible para el yamazumi.
 - Nota: consolidada en el PR #273 (mismo archivo/área que la rebanada 2) como
   segundo commit, para no dejar cambios sin commitear (stop hook) y mantener un
   PR por página. Puertas (apps/web): `tsc` 0 · `eslint` 0 · `next build` OK.
+- PR #273 → CI verde → merge squash. Rama re-sincronizada a main.
+
+### Rebanada 4 — Editar estaciones + selector de ayuda + link clicable (line-engineering) ✅
+> Siguiente punto débil del carril: hoy solo se podían **crear** estaciones, no
+> ajustarlas → no se podían afinar tiempos y ver el yamazumi/balanceo actualizarse.
+- `dashboard/line-engineering/page.tsx`:
+  - **Editar estación**: botón ✎ por fila → abre el modal precargado y hace
+    `PATCH /line-engineering/stations/:id` (campos editables del DTO: secuencia,
+    NP, factor de uso, **tiempo std**, ayuda visual, CTQ). Modelo/línea/estación/rev
+    quedan read-only (el PATCH no los toca). Al guardar, refresca balanceo+yamazumi.
+  - **Selector de ayuda visual** en crear/editar: elige de la biblioteca
+    (`/visual-aids?model=`) y rellena `visualAidUrl` con la URL servida; se mantiene
+    el campo manual para URLs externas.
+  - **Columna "Ayuda" clicable**: link "Ver" que abre la ayuda (antes solo un ícono).
+- Backend ya soportaba todo (`updateStation`); solo faltaba UI. Cero backend nuevo.
+- Puertas (apps/web): `tsc` 0 · `eslint` 0 (1 warning preexistente ajeno) · `next build` OK.
