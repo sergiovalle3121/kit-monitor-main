@@ -81,3 +81,22 @@ mission-control, forecast, erp. Disponible para el yamazumi.
 - Puertas (apps/web): `tsc --noEmit` 0 · `eslint` 0 errores (1 warning preexistente
   ajeno en `models` useMemo) · `next build` OK.
 - Antes del PR: `git merge origin/main` (heredé el workflow CI de main) — fast-forward.
+- PR #268 → CI verde (4 puertas) → merge squash. Rama re-sincronizada a main.
+
+### Rebanada 2 — Ayuda visual por paso (engineering / process-routing) ✅
+- `dashboard/engineering/page.tsx`: cada paso del ruteo ahora puede **adjuntar una
+  ayuda visual** de la biblioteca (`GET /visual-aids?model=`), guardando
+  `visualAidId` vía `PATCH /process/steps/:id` (el backend ya lo soportaba; solo
+  faltaba UI). Muestra el título con link "abrir" (fetch autenticado→blob, igual
+  que la pantalla de Ayudas visuales) y opción "Quitar".
+- Estados honestos: si el modelo no tiene ayudas → link para subirlas; si el paso
+  trae un `visualAidId` que no pertenece al modelo/rev actual → "adjunta (otro
+  modelo/rev)" + Quitar.
+- **Tiempo estándar por paso:** `process_steps` NO tiene columna de tiempo y
+  tocar la entidad está PROHIBIDO esta sesión → en vez de un input falso, una
+  **nota honesta** que apunta a *Disposición de líneas* (donde el ruteo SÍ lleva
+  `stdTimeSec` y alimenta el yamazumi).
+  - **Tarea backend para mañana:** añadir `stdTimeSec` (nullable/default) a
+    `process_steps` + DTO + exponerlo en `/process/routes`, para unificar tiempos
+    de proceso con el balanceo.
+- Puertas (apps/web): `tsc` 0 · `eslint` 0 · `next build` OK.

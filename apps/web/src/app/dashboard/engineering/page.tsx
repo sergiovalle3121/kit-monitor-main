@@ -5,6 +5,7 @@ import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Plus, Trash2, Loader2, X, AlertCircle, Workflow, Package, Boxes,
+  Image as ImageIcon, ExternalLink, Clock,
 } from "lucide-react";
 import { glass } from "@/lib/glass";
 import { useApi } from "@/hooks/useApi";
@@ -14,8 +15,9 @@ import { PageHeader } from "@/components/ui/PageHeader";
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000").replace(/\/$/, "");
 
 interface StepMaterial { id: number; partNumber: string; description?: string | null; qtyPerUnit: number; unit: string }
-interface Step { id: number; model: string; revision: string; sequence: number; name: string; stationType?: string | null; instructions?: string | null; materials: StepMaterial[] }
+interface Step { id: number; model: string; revision: string; sequence: number; name: string; stationType?: string | null; instructions?: string | null; visualAidId?: string | null; materials: StepMaterial[] }
 interface ModelOption { id: string; modelNumber: string; name: string; status: string }
+interface VisualAid { id: string; model: string; title: string; process?: string | null; revision?: string | null; pdfUrl: string; isActive?: boolean }
 
 const STATION_TYPES = [
   { value: "smt", label: "SMT" },
@@ -31,9 +33,33 @@ async function post(path: string, body: unknown) {
   if (!res.ok) throw new Error(d?.message || "Error");
   return d;
 }
+async function patch(path: string, body: unknown) {
+  const res = await apiFetch(`${API_BASE}${path}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  const d = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(d?.message || "Error");
+  return d;
+}
 async function del(path: string) {
   const res = await apiFetch(`${API_BASE}${path}`, { method: "DELETE" });
   if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d?.message || "Error"); }
+}
+
+/**
+ * Visual aids are served by an authenticated endpoint; open them by fetching the
+ * blob with the JWT and navigating a tab to its object URL (same pattern as the
+ * Visual Aids screen) so it works whether or not the file route is guarded.
+ */
+async function openAid(filename: string, onError: (m: string) => void) {
+  if (!filename) { onError("Esta ayuda no tiene archivo."); return; }
+  const win = window.open("", "_blank");
+  try {
+    const res = await apiFetch(`${API_BASE}/visual-aids/file/${encodeURIComponent(filename)}`);
+    if (!res.ok) { win?.close(); onError("No se pudo abrir la ayuda visual."); return; }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    if (win) win.location.href = url; else window.open(url, "_blank");
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  } catch { win?.close(); onError("Error de red al abrir la ayuda."); }
 }
 
 export default function EngineeringPage() {
@@ -44,6 +70,10 @@ export default function EngineeringPage() {
 
   const { data, isLoading, mutate } = useApi<Step[]>(active ? `/process/routes?model=${encodeURIComponent(active)}` : null);
   const steps = Array.isArray(data) ? data : [];
+
+  // Visual aids tagged with this model — to attach one per step (backend supports visualAidId).
+  const { data: aidsData } = useApi<VisualAid[]>(active ? `/visual-aids?model=${encodeURIComponent(active)}` : null);
+  const aids = (Array.isArray(aidsData) ? aidsData : []).filter((a) => a.isActive !== false);
 
   // Models come from the canonical master (no more free-text model strings).
   const { data: modelsData } = useApi<ModelOption[]>("/product-models");
@@ -104,6 +134,11 @@ export default function EngineeringPage() {
               </button>
             </div>
 
+            <div className="flex items-start gap-1.5 text-[12px] text-gray-400 mb-3 px-1">
+              <Clock className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+              <span>El tiempo estándar por estación (para takt, balanceo y yamazumi) se captura en <Link href="/dashboard/line-engineering" className="underline hover:text-gray-600 dark:hover:text-gray-200">Disposición de líneas</Link>.</span>
+            </div>
+
             <AnimatePresence>
               {adding && (
                 <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className={`${glass} rounded-2xl p-4 mb-4 overflow-hidden flex flex-col sm:flex-row gap-3`}>
@@ -120,7 +155,7 @@ export default function EngineeringPage() {
               <Empty icon={<Workflow className="w-6 h-6" />} title="Ruta vacía" body="Agrega la primera estación de la línea para este modelo." />
             ) : (
               <div className="space-y-3">
-                {steps.map((s) => <StepCard key={s.id} step={s} onChange={mutate} onError={flash} />)}
+                {steps.map((s) => <StepCard key={s.id} step={s} aids={aids} onChange={mutate} onError={flash} />)}
               </div>
             )}
           </>
@@ -130,10 +165,19 @@ export default function EngineeringPage() {
   );
 }
 
-function StepCard({ step, onChange, onError }: { step: Step; onChange: () => void; onError: (m: string) => void }) {
+function StepCard({ step, aids, onChange, onError }: { step: Step; aids: VisualAid[]; onChange: () => void; onError: (m: string) => void }) {
   const [addMat, setAddMat] = useState(false);
   const [pn, setPn] = useState(""); const [qty, setQty] = useState(""); const [unit, setUnit] = useState("EA");
+  const [savingAid, setSavingAid] = useState(false);
   const typeLabel = STATION_TYPES.find((t) => t.value === step.stationType)?.label;
+  const aid = step.visualAidId ? aids.find((a) => a.id === step.visualAidId) ?? null : null;
+
+  async function setAid(id: string) {
+    setSavingAid(true);
+    try { await patch(`/process/steps/${step.id}`, { visualAidId: id || null }); onChange(); }
+    catch (e) { onError(e instanceof Error ? e.message : "Error"); }
+    finally { setSavingAid(false); }
+  }
 
   async function add() {
     if (!pn.trim() || !qty) { onError("Número de parte y cantidad obligatorios."); return; }
@@ -159,6 +203,30 @@ function StepCard({ step, onChange, onError }: { step: Step; onChange: () => voi
         </div>
         <button onClick={() => setAddMat((v) => !v)} className="p-2 rounded-full text-gray-400 hover:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 transition-colors" title="Agregar material"><Package className="w-4 h-4" /></button>
         <button onClick={removeStep} className="p-2 rounded-full text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors" title="Borrar estación"><Trash2 className="w-4 h-4" /></button>
+      </div>
+
+      <div className="pl-11 mb-2 flex items-center gap-2 flex-wrap text-sm">
+        <ImageIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
+        {aid ? (
+          <>
+            <button onClick={() => openAid(aid.pdfUrl, onError)} className="font-medium text-indigo-600 dark:text-indigo-300 hover:underline inline-flex items-center gap-1">{aid.title}<ExternalLink className="w-3 h-3" /></button>
+            <span className="text-gray-300 dark:text-gray-600">·</span>
+            <button onClick={() => setAid("")} disabled={savingAid} className="text-xs text-gray-400 hover:text-red-500">Quitar</button>
+          </>
+        ) : step.visualAidId ? (
+          <>
+            <span className="text-gray-500">Ayuda visual adjunta (otro modelo/rev)</span>
+            <button onClick={() => setAid("")} disabled={savingAid} className="text-xs text-gray-400 hover:text-red-500">Quitar</button>
+          </>
+        ) : aids.length > 0 ? (
+          <select value="" onChange={(e) => e.target.value && setAid(e.target.value)} disabled={savingAid} className="bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-lg py-1.5 px-2 text-sm outline-none">
+            <option value="">Adjuntar ayuda visual…</option>
+            {aids.map((a) => <option key={a.id} value={a.id}>{a.title}{a.revision ? ` · rev ${a.revision}` : ""}</option>)}
+          </select>
+        ) : (
+          <span className="text-xs text-gray-400">Sin ayudas para este modelo — <Link href="/dashboard/visual-aids" className="underline hover:text-gray-600 dark:hover:text-gray-200">súbelas</Link></span>
+        )}
+        {savingAid && <Loader2 className="w-3.5 h-3.5 animate-spin text-gray-400" />}
       </div>
 
       <AnimatePresence>
