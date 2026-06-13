@@ -95,3 +95,30 @@ porque la página ya está enlazada en hub y palette).
   `part`). `forbidden` → pide permiso `quality:read`.
 - **Puertas:** eslint ✅ · tsc --noEmit ✅ · next build ✅.
 
+### [2] Conteos cíclicos: lista de discrepancias + PageHeader — HECHO ✅
+`apps/web/src/app/dashboard/cycle-counts/page.tsx`.
+- **Discrepancias (NUEVO):** toggle Flujo/Discrepancias. La vista lista los conteos
+  con `variance != 0` (contados que NO cuadran), ordenados por magnitud, con
+  sobrante/faltante y varianza neta; acciones Conciliar/Ajustar reutilizadas.
+  (ADJUSTED resuelve varianza a 0 en backend → no aparece, correcto.) La captura
+  de conteo y la diferencia vs sistema ya existían (`POST :id/count` → varianza).
+- **PageHeader** (domain inventory) reemplaza el header sticky propio → quita la
+  doble barra (barra global + header de página) y unifica acento al teal de
+  inventario. Botón "Nuevo conteo" movido a `right`.
+- **Puertas:** eslint ✅ · tsc ✅ · next build ✅.
+
+### [3] Surtido/e-kanban: PageHeader — HECHO ✅
+`apps/web/src/app/dashboard/material-staging/page.tsx`.
+- Adopta `PageHeader` (domain staging) en lugar del header sticky → sin doble barra.
+- El surtido **por WO** (líneas por estación = pick list), **marcar surtido**
+  (Montar / `POST :id/confirm`), **manejo de faltantes** (`POST :id/shortage` →
+  llamado) y el **e-kanban** (tablero de reposición `/material-staging/replenish`
+  con transición OPEN→IN_TRANSIT→DELIVERED) ya estaban funcionales; se confirmó
+  que cubren el deliverable de kitting/surtido.
+- **Nota e-kanban / resupplies:** hay dos sistemas — SF `sf_replenish_calls`
+  (`/material-staging/replenish`, ya cableado, es el camino moderno) y el legacy
+  `/resupplies` (ligado a Kit, con integración de inventario TRANSFER/ISSUE). Se
+  mantiene el SF como e-kanban primario para no duplicar el concepto en la UI;
+  surfacear `/resupplies` queda como follow-up si se desea el flujo kit-based.
+- **Puertas:** eslint ✅ · tsc ✅ · next build ✅.
+
