@@ -115,6 +115,14 @@ export default function ProductionPlanPage() {
       .sort((a, b) => a.line.localeCompare(b.line));
   }, [list]);
 
+  // Resumen Clear-to-Build a nivel tablero: WOs abiertas que NO están listas para
+  // construir (no-go = sin BOM, faltante total, o hold). Vistazo de readiness real
+  // (BOM+material+FAI), más honesto que el flag materialReady del backend.
+  const ctbNotReady = useMemo(
+    () => list.filter((w) => !TERMINAL.includes(w.status) && computeClearToBuild(w, bomByModel, invByPart).status === 'no-go').length,
+    [list, bomByModel, invByPart],
+  );
+
   function refresh() { mutate(); mutateKpis(); }
 
   async function publish() {
@@ -226,12 +234,13 @@ export default function ProductionPlanPage() {
       </div>
 
       <main className="max-w-6xl mx-auto px-6 pt-8 pb-24">
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-3 mb-6">
           <Kpi label="WO abiertas" value={kpis?.open ?? 0} color={VIOLET} />
           <Kpi label="En ejecución" value={kpis?.inExecution ?? 0} color={BLUE} />
           <Kpi label="Adherencia al plan" value={pct(kpis?.planAdherencePct ?? 0)} color={GREEN} />
           <Kpi label="% con readiness" value={pct(kpis?.pctWithReadiness ?? 0)} color={AMBER} />
           <Kpi label="Atrasadas" value={kpis?.behindSchedule ?? 0} color={RED} />
+          <Kpi label="No listas (CTB)" value={ctbNotReady} color={RED} title="Clear-to-Build no-go entre WOs abiertas: sin BOM activo, faltante total de material, o retención de calidad." />
         </div>
 
         {/* View toggle */}
@@ -613,9 +622,9 @@ function ViewTab({ active, onClick, icon: Icon, label }: { active: boolean; onCl
   );
 }
 
-function Kpi({ label, value, color }: { label: string; value: number | string; color: string }) {
+function Kpi({ label, value, color, title }: { label: string; value: number | string; color: string; title?: string }) {
   return (
-    <div className={`${glass} rounded-2xl p-4`}>
+    <div className={`${glass} rounded-2xl p-4`} title={title}>
       <div className="text-[11px] uppercase tracking-wide text-gray-400">{label}</div>
       <div className="text-2xl font-semibold mt-1" style={{ color }}>{value}</div>
     </div>
