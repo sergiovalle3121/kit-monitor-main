@@ -164,3 +164,50 @@ liberado por parte) y muestra las ubicaciones rack/bin con más stock primero
 ya sabe qué tomar Y dónde está. Pure-read sobre el endpoint de posiciones.
 - **Puertas:** eslint ✅ · tsc ✅ · next build ✅.
 
+> **PR #295 mergeado a main** (squash, CI verde). Rama sincronizada.
+
+### [8] Escasez: cantidad sugerida a pedir (consistente con Resurtido) — HECHO ✅
+`apps/web/src/app/dashboard/inventory/page.tsx`. En la vista de Escasez, las partes
+con regla min/máx muestran "pedir N" (= máx − disponible) justo donde se ve el
+faltante, dando una cantidad de reorden concreta en el punto de acción.
+- **Puertas:** eslint ✅ · tsc ✅ · next build ✅.
+
+---
+
+## CIERRE DEL CARRIL S3 (estado al cierre)
+
+Los 4 deliverables del carril quedan **operables de verdad** (API real, cero mock,
+estados vacíos honestos), mergeados a `main` con CI verde (build·test·lint·smoke):
+
+1. **Inventario** — centro de control con 5 pestañas: Existencias por ubicación
+   (rack/bin), Escasez (faltantes vs demanda de WO + min/máx + sugerido), Movimientos,
+   Resurtido (quiebre en vivo), Trazabilidad (where-used). + enlaces cruzados y
+   "contar bin" → conteo.
+2. **Kitting/surtido** — material-staging (pick list por WO, montar, faltante,
+   e-kanban de reposición) + Almacén (autorizar/surtir solicitudes con ubicación de
+   picking por material).
+3. **Conteos cíclicos** — captura + varianza vs sistema + lista de discrepancias.
+4. **Trazabilidad** — visor where-used por parte/serial.
+
+**PRs mergeados:** #271 (epic), #284 (contar bin), #290 (resurtido en vivo),
+#295 (ubicación de picking), + este (#? escasez sugerido). 8 rebanadas.
+
+### Pendientes BACKEND para mañana (fuera de carril esta noche)
+- **Genealogía as-built por serial:** el endpoint actual `GET /floor-quality/where-used`
+  exige `part` (es where-used/contención, parte→dónde se consumió). Para "dado un
+  serial, mostrar lotes/partes que lo componen" falta un endpoint `by-serial`
+  (query `unit_serial` sin `part`). Además, `sf_consumption_events` no guarda
+  `lotNumber`, así que "lotes que lo componen" requiere capturar lote en el consumo.
+- **Demanda/escasez tipo MRP:** hoy la escasez se deriva en cliente de
+  `/material-staging` (req. sin surtir) vs posiciones disponibles. Un endpoint de
+  requerimientos netos (demanda de WO − on-hand − en tránsito + reservas) daría
+  netting real sin recomputar en el front.
+- **Resurtido sin footgun:** `GET /replenishment/analyze` crea warehouse-tasks como
+  efecto secundario y no deduplica; para exponer "generar resurtidos" desde la UI
+  conviene un `POST` idempotente. Por eso la UI hoy solo MUESTRA el quiebre (pure-read).
+- **`/resupplies` (legacy, kit-based):** disponible y con integración de inventario,
+  pero sin creadores en el frontend; se prefirió el e-kanban SF (`sf_replenish_calls`)
+  para no duplicar el concepto. Unificar ambos sistemas es decisión de producto.
+- **`dashboard/warehouse`:** página de tareas de almacén funcional pero **huérfana**
+  (sin enlace en hub/palette, que están fuera de carril). Enlazarla la volvería útil.
+
