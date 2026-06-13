@@ -175,3 +175,54 @@ export interface OqcBacklogRow {
   serialNumber?: string | null;
   programId?: string | null;
 }
+
+// Inventory-level quality hold — apps/api/src/modules/quality/entities/quality-hold.entity.ts
+export type QualityHoldLevel =
+  | "PART_NUMBER"
+  | "LOT"
+  | "SERIAL"
+  | "WAREHOUSE"
+  | "BUILDING"
+  | "PROGRAM"
+  | "WORK_ORDER";
+
+export interface QualityHold {
+  id: number;
+  partNumber: string;
+  level: QualityHoldLevel;
+  levelValue?: string | null;
+  isActive: boolean;
+  reason: string;
+  heldBy: string;
+  releasedBy?: string | null;
+  releasedAt?: string | null;
+  notes?: string | null;
+  createdAt: string;
+}
+
+// Disposition engine — apps/api/src/modules/quality/entities/disposition.entity.ts
+export type DispositionType = "release" | "scrap" | "rtv" | "rework" | "use_as_is";
+export type DispositionStatus =
+  | "proposed"
+  | "under_review"
+  | "approved"
+  | "executed"
+  | "closed";
+
+export interface Disposition {
+  id: number;
+  type: DispositionType;
+  status: DispositionStatus;
+  reason: string;
+  quantity: number;
+  partNumber: string;
+  warehouseId: string;
+  location: string;
+  proposedBy: string;
+  approvedBy?: string | null;
+  executedBy?: string | null;
+  notes?: string | null;
+  hold?: { id: number } | null;
+  ncr?: { id: number; ncrNumber?: string } | null;
+  createdAt: string;
+}

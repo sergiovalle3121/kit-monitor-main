@@ -10,6 +10,7 @@ import {
   X,
   Search,
   ShieldAlert,
+  ShieldX,
   BarChart3,
   PackageCheck,
   ChevronRight,
@@ -102,6 +103,13 @@ export default function QualityPage() {
                 title="Yield, FPY y Pareto de defectos"
               >
                 <BarChart3 className="w-4 h-4" /> Analítica
+              </Link>
+              <Link
+                href="/dashboard/quality/holds"
+                className="hidden lg:inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-[13px] font-medium hover:bg-black/5 dark:hover:bg-white/10"
+                title="Holds de inventario y disposición (nivel inventario)"
+              >
+                <ShieldX className="w-4 h-4" /> Holds inv.
               </Link>
               <Link
                 href="/dashboard/floor-quality"
