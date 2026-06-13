@@ -164,4 +164,20 @@ no se consumía en la UI. Cero backend.
 - `lineLoad` usa la línea entera del plan legacy (`plans.line`), no las líneas
   string del muro `production-plan`. Unificar ambos modelos de línea = backend.
 
+---
+
+## Ítem 5 — Profundización: resumen Clear-to-Build a nivel tablero ✅
+
+**Archivos:** `production-plan/page.tsx`. Cero backend.
+
+- KPI nuevo **"No listas (CTB)"** en el strip del muro: cuenta de WOs **abiertas**
+  con veredicto Clear-to-Build `no-go` (sin BOM activo, faltante total de
+  material, o retención de calidad), derivado con `computeClearToBuild` sobre el
+  mapa de BOM activo + inventario que ya carga la página. Conecta el semáforo
+  per-WO (Ítem 2) con un vistazo de readiness del tablero, más honesto que el
+  `% con readiness` del backend (que solo mira flags `materialReady`/`qualityClear`).
+- Tooltip explica el criterio. Reusa el cómputo puro (sin fetches extra).
+
+**Puertas:** `tsc` 0 · `eslint` 0/0 · `next build` ✓.
+
 <!-- Próximos ítems se agregan abajo -->
