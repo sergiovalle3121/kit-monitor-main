@@ -13,7 +13,7 @@ docs/    Documentación de arquitectura
 
 ## Requisitos
 
-- Node.js 18+
+- Node.js 20+ (Next 16 exige Node ≥ 20.9)
 - npm 10+
 - PostgreSQL (producción) / SQLite (desarrollo local)
 
@@ -63,6 +63,14 @@ ALLOWED_ORIGIN=http://localhost:3001
 DATABASE_URL=postgres://user:pass@localhost:5432/axos
 JWT_SECRET=your_secret
 ```
+
+## Integración continua (CI)
+
+Cada PR a `main` y cada push a `main` dispara `.github/workflows/ci.yml`, que corre
+las puertas de calidad: build + tests del API, lint y build de web, y el **smoke de
+bootstrap** (arranca la app compilada contra un Postgres efímero, materializando el
+esquema). Un fallo en cualquiera de estas puertas bloquea el merge. El lint del API
+es por ahora no-bloqueante (deuda de formato preexistente; ver `DECISIONS.md` §13).
 
 ## Notas
 
