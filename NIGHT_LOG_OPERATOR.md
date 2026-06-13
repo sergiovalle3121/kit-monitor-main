@@ -98,3 +98,32 @@ GREP de los 3 controllers + las páginas existentes del hub:
 ### Siguiente punto débil del carril (tras mergear este ítem)
 - `dashboard/production` (mi carril) es una lista read-only de `/plans`; se puede
   profundizar con `production-runtime` (WIP/FG/bottleneck/hourly) sin salir del carril.
+
+---
+
+## 2026-06-13 — `dashboard/production`: avance en vivo por orden (production-runtime)
+
+> PR #272 (terminal de operador) **mergeado en verde** (CI: build·test·lint·smoke OK,
+> squash `c3a97d8`). Rama re-sincronizada con `main`. Siguiente punto débil del carril.
+
+### Decisión (no duplicar mission-control)
+`mission-control` ya consume `/production-runtime/{lines,wip,bottleneck,logistics/
+shortage-risk}` como **torre** (vista de líneas/WIP/cuello). Por eso `production`
+NO replica esa torre: se queda como **lista operativa de órdenes** y se le añade el
+**avance real por WO** uniendo `/plans` (planes legacy) con `/production-runtime/lines`
+(mismo `workOrder` legacy; `buildBackendView` → target/completed/incidencias/bajo stock).
+
+### Cambios (solo `production/page.tsx`, en mi carril)
+- Join `runtimeByWo` por `workOrder`; fetch best-effort de `/production-runtime/lines`
+  (si el rol no tiene acceso, la lista de órdenes sigue funcionando — no bloquea).
+- KPIs derivados honestos (solo si hay runtime): En producción / Con incidencia /
+  Bajo stock.
+- Cada orden activa con runtime muestra **barra de avance real** (completed/target,
+  %), badge **Incidencia** y badge **Bajo stock**. Sin datos de runtime → fila como
+  antes (estado + cantidades). 0 mock; cero endpoints nuevos.
+- NO se enlaza "abrir en terminal": el terminal usa WOs SF (`/production-plan`,
+  uuid/folio) y esta página usa planes legacy (`/plans`) — IDs distintos; un
+  deep-link sería incorrecto. (Puente legacy↔SF = posible tarea backend futura.)
+
+### Puertas (apps/web) — verdes
+- `eslint` (0/0), `tsc --noEmit` (sin errores), `next build` (OK, exit 0).
