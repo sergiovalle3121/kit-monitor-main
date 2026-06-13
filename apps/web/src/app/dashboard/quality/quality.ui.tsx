@@ -4,6 +4,7 @@
 // analytics). Single source so the three routes stay visually consistent without
 // duplicating markup (AGENTS.md §3).
 import React from "react";
+import { Loader2, Plus, X } from "lucide-react";
 import { glass } from "@/lib/glass";
 
 export function Kpi({
@@ -60,6 +61,50 @@ export function Empty({
       <h3 className="font-bold text-lg mb-1">{title}</h3>
       <p className="text-sm text-gray-500 dark:text-gray-400 max-w-sm">{body}</p>
       {cta && <div className="mt-5">{cta}</div>}
+    </div>
+  );
+}
+
+/**
+ * Generic form modal used by the lane's create/record dialogs (inspections,
+ * inventory holds, …). Renders the `.q-input` styles so the forms inside it pick
+ * up the glassy input look without each caller importing QInputStyle.
+ */
+export function Modal({
+  title,
+  icon,
+  accent,
+  busy,
+  onClose,
+  onSubmit,
+  submitLabel,
+  children,
+}: {
+  title: string;
+  icon: React.ReactNode;
+  accent: string;
+  busy: boolean;
+  onClose: () => void;
+  onSubmit: () => void;
+  submitLabel: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" onClick={onClose}>
+      <div className={`${glass} rounded-2xl p-5 w-full max-w-xl max-h-[90vh] overflow-y-auto`} onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-semibold flex items-center gap-2">{icon} {title}</h3>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10"><X className="w-4 h-4" /></button>
+        </div>
+        {children}
+        <div className="mt-5 flex justify-end gap-2">
+          <button onClick={onClose} className="px-4 py-2 rounded-xl text-sm hover:bg-black/5 dark:hover:bg-white/10">Cancelar</button>
+          <button onClick={onSubmit} disabled={busy} className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white disabled:opacity-60" style={{ background: accent }}>
+            {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />} {submitLabel}
+          </button>
+        </div>
+      </div>
+      <QInputStyle />
     </div>
   );
 }

@@ -171,7 +171,13 @@ cierra la contención física:
   - **IQC/OQC** (`quality/inspections`): recibo y salida.
   - **Holds de inventario** (`quality/holds`): hold + disposición (proponer→
     aprobar→ejecutar) + **traslado a cuarentena** (solicitar→completar).
-- Deuda menor (cosmética / refactor, NO bloqueante): adoptar `PageHeader` en
-  `floor-quality` (hoy header propio); extraer el `Modal` compartido (hay copia en
-  `inspections` y `holds`) a `quality.ui`. Tareas backend para mañana: ninguna
-  bloqueó este carril (todo se cableó sobre endpoints existentes).
+- Deuda menor (cosmética, NO bloqueante): adoptar `PageHeader` en `floor-quality`
+  (hoy header propio). Tareas backend para mañana: ninguna bloqueó este carril
+  (todo se cableó sobre endpoints existentes).
+
+## Ítem 8 — Higiene: `Modal` compartido (de-duplicado) ✅
+
+`quality.ui.tsx` ahora exporta un `Modal` genérico (shell + footer + `QInputStyle`).
+`inspections` y `holds` lo importan en vez de tener cada uno su copia local idéntica
+(AGENTS.md §3, espíritu de `/simplify`). Sin cambio funcional; imports muertos
+removidos. Puertas: `tsc` 0, `eslint` 0, `next build` ✅.
