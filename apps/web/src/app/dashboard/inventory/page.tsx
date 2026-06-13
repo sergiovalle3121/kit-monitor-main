@@ -1,16 +1,29 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
-import { Loader2, Lock, Inbox, Search, ArrowDownLeft, ArrowUpRight, ArrowLeftRight, SlidersHorizontal, Repeat } from "lucide-react";
+import {
+  Loader2, Lock, Inbox, Search, ArrowDownLeft, ArrowUpRight, ArrowLeftRight,
+  SlidersHorizontal, Repeat, AlertTriangle, ChevronRight, GitBranch, MapPin,
+  PackageSearch,
+} from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { glass } from "@/lib/glass";
 import { useApi } from "@/hooks/useApi";
 
+// ── Tipos espejo del backend ────────────────────────────────────────────────
 interface Position {
-  id: number | string; partNumber: string; location?: string;
+  id: number | string;
+  partNumber: string;
+  location?: string; // rack/bin/zona (default 'BULK')
+  warehouseId?: string | null;
   warehouse?: { name?: string; code?: string } | null;
-  quantityOnHand?: number; quantityAvailable?: number; quantityAllocated?: number;
-  onHand?: number; available?: number; allocated?: number;
+  material?: { description?: string | null; uom?: string | null } | null;
+  onHand?: number;
+  allocated?: number;
+  inTransit?: number;
+  holdStatus?: string;
+  lotNumber?: string | null;
+  serialNumber?: string | null;
 }
 
 // Espejo de InventoryTransactionType del backend (inventory-movement.entity.ts).
@@ -34,7 +47,7 @@ interface Movement {
   createdAt?: string | null;
 }
 
-// Regla de resurtido min-max (replenishment_rules) — maestro sin UI previa.
+// Regla de resurtido min-max (replenishment_rules).
 interface ReplenRule {
   id: number | string;
   partNumber: string;
@@ -45,6 +58,45 @@ interface ReplenRule {
   priority?: string;
   isActive?: boolean;
 }
+
+// Línea de surtido (sf_staging) — fuente de la demanda de WO.
+interface StagingLine {
+  id: string;
+  woId: string;
+  woFolio: string | null;
+  model: string;
+  station: string;
+  part: string;
+  requiredQty: number;
+  stagedQty: number;
+  status: "PENDING" | "STAGED" | "SHORTAGE";
+}
+
+// Evento de consumo (sf_consumption_events) — genealogía where-used.
+interface ConsumptionEvent {
+  id: string;
+  woId: string;
+  woFolio: string | null;
+  model: string;
+  station: string;
+  part: string | null;
+  units: number;
+  backflushQty: number;
+  unitSerial: string | null;
+  operatorEmail: string | null;
+  createdAt?: string | null;
+}
+
+const HOLD_META: Record<string, { label: string; color: string }> = {
+  available: { label: "Disponible", color: "#16a394" },
+  hold: { label: "Retenido", color: "#f59e0b" },
+  quarantine: { label: "Cuarentena", color: "#ef4444" },
+  expired: { label: "Caducado", color: "#ef4444" },
+  pending_iqc: { label: "IQC pend.", color: "#f59e0b" },
+  pending_oqc: { label: "OQC pend.", color: "#f59e0b" },
+  staged_for_shipping: { label: "Para embarque", color: "#0a84ff" },
+  shipped: { label: "Embarcado", color: "#6b7280" },
+};
 
 // Dirección del movimiento sobre el stock: entrada (+), salida (−) o traslado (=).
 const MOVE_META: Record<MovementType, { label: string; dir: "in" | "out" | "move" | "neutral"; color: string }> = {
@@ -61,7 +113,12 @@ const MOVE_META: Record<MovementType, { label: string; dir: "in" | "out" | "move
   HOLD: { label: "Retención", dir: "neutral", color: "#f59e0b" },
 };
 
-function fmtQty(n: number | undefined): string {
+const GREEN = "#16a394";
+const RED = "#ef4444";
+const AMBER = "#f59e0b";
+const BLUE = "#0a84ff";
+
+function fmtQty(n: number | undefined | null): string {
   const v = n ?? 0;
   return Number.isInteger(v) ? String(v) : v.toFixed(2);
 }
@@ -79,24 +136,127 @@ function timeAgo(iso?: string | null): string {
   return d.toLocaleDateString();
 }
 
+type Tab = "positions" | "shortage" | "movements" | "replenishment" | "traceability";
+
 export default function InventoryPage() {
-  const [tab, setTab] = useState<"positions" | "movements" | "replenishment">("positions");
+  const [tab, setTab] = useState<Tab>("positions");
   const { data, isLoading, forbidden } = useApi<Position[]>("/inventory/positions");
   // El ledger de movimientos solo se pide cuando la pestaña está activa.
   const { data: movData, isLoading: movLoading, forbidden: movForbidden } =
     useApi<Movement[]>(tab === "movements" ? "/inventory/movements" : null);
-  // Reglas de resurtido (solo lectura) — pedidas al activar su pestaña.
+  // Reglas de resurtido (min/máx) — para Resurtido y para la vista de Escasez.
   const { data: ruleData, isLoading: ruleLoading, forbidden: ruleForbidden } =
-    useApi<ReplenRule[]>(tab === "replenishment" ? "/replenishment/rules" : null);
+    useApi<ReplenRule[]>(tab === "replenishment" || tab === "shortage" ? "/replenishment/rules" : null);
+  // Demanda real: líneas de surtido de las WO (solo al ver Escasez).
+  const { data: stagingData, isLoading: stagingLoading } =
+    useApi<StagingLine[]>(tab === "shortage" ? "/material-staging" : null);
+
   const [q, setQ] = useState("");
 
   const positions = useMemo(() => (Array.isArray(data) ? data : []), [data]);
   const movements = useMemo(() => (Array.isArray(movData) ? movData : []), [movData]);
   const rules = useMemo(() => (Array.isArray(ruleData) ? ruleData : []), [ruleData]);
+  const staging = useMemo(() => (Array.isArray(stagingData) ? stagingData : []), [stagingData]);
 
-  const posRows = q
-    ? positions.filter((p) => `${p.partNumber} ${p.location ?? ""}`.toLowerCase().includes(q.toLowerCase()))
-    : positions;
+  // ── Existencias agrupadas por parte (con detalle por ubicación) ─────────────
+  const partGroups = useMemo(() => {
+    const map = new Map<string, {
+      partNumber: string; description: string; uom: string;
+      onHand: number; allocated: number; available: number;
+      rows: Position[];
+    }>();
+    for (const p of positions) {
+      const key = p.partNumber;
+      const onHand = Number(p.onHand ?? 0);
+      const allocated = Number(p.allocated ?? 0);
+      const g = map.get(key) ?? {
+        partNumber: key,
+        description: p.material?.description ?? "",
+        uom: p.material?.uom ?? "",
+        onHand: 0, allocated: 0, available: 0, rows: [],
+      };
+      g.onHand += onHand;
+      g.allocated += allocated;
+      g.available += onHand - allocated;
+      if (!g.description && p.material?.description) g.description = p.material.description;
+      if (!g.uom && p.material?.uom) g.uom = p.material.uom;
+      g.rows.push(p);
+      map.set(key, g);
+    }
+    const arr = Array.from(map.values()).sort((a, b) => a.partNumber.localeCompare(b.partNumber));
+    if (!q) return arr;
+    const needle = q.toLowerCase();
+    return arr.filter((g) =>
+      `${g.partNumber} ${g.description} ${g.rows.map((r) => r.location ?? "").join(" ")}`.toLowerCase().includes(needle),
+    );
+  }, [positions, q]);
+
+  // ── Escasez: demanda de WO (sin surtir) vs disponible en almacén + min/máx ──
+  const shortageRows = useMemo(() => {
+    // Demanda: líneas abiertas (PENDING/SHORTAGE) → req. aún no montado.
+    const demand = new Map<string, { qty: number; wos: Set<string>; confirmed: boolean }>();
+    for (const l of staging) {
+      if (l.status === "STAGED") continue;
+      const open = Math.max(0, Number(l.requiredQty) - Number(l.stagedQty));
+      if (open <= 0 && l.status !== "SHORTAGE") continue;
+      const d = demand.get(l.part) ?? { qty: 0, wos: new Set<string>(), confirmed: false };
+      d.qty += open;
+      if (l.woFolio || l.woId) d.wos.add(l.woFolio || l.woId);
+      if (l.status === "SHORTAGE") d.confirmed = true;
+      demand.set(l.part, d);
+    }
+    // Disponible en almacén (solo holdStatus = available).
+    const avail = new Map<string, number>();
+    for (const p of positions) {
+      if ((p.holdStatus ?? "available") !== "available") continue;
+      const a = Number(p.onHand ?? 0) - Number(p.allocated ?? 0);
+      avail.set(p.partNumber, (avail.get(p.partNumber) ?? 0) + a);
+    }
+    // Reglas min/máx por parte (primera regla activa que matchee).
+    const rule = new Map<string, ReplenRule>();
+    for (const r of rules) {
+      if (r.isActive === false) continue;
+      if (!rule.has(r.partNumber)) rule.set(r.partNumber, r);
+    }
+
+    const parts = new Set<string>([...demand.keys(), ...rule.keys()]);
+    const rows = Array.from(parts).map((part) => {
+      const d = demand.get(part);
+      const r = rule.get(part);
+      const available = avail.get(part) ?? 0;
+      const demandQty = d?.qty ?? 0;
+      const shortage = Math.max(0, demandQty - available);
+      const belowMin = r != null && typeof r.minStock === "number" && available <= r.minStock;
+      return {
+        part,
+        demandQty,
+        available,
+        shortage,
+        belowMin,
+        confirmed: d?.confirmed ?? false,
+        wos: d ? Array.from(d.wos) : [],
+        rule: r,
+      };
+    });
+    // Solo filas accionables: con faltante, bajo mínimo, o faltante confirmado en línea.
+    const actionable = rows.filter((r) => r.shortage > 0 || r.belowMin || r.confirmed);
+    actionable.sort((a, b) => {
+      if (a.confirmed !== b.confirmed) return a.confirmed ? -1 : 1;
+      if (b.shortage !== a.shortage) return b.shortage - a.shortage;
+      return Number(b.belowMin) - Number(a.belowMin);
+    });
+    if (!q) return actionable;
+    const needle = q.toLowerCase();
+    return actionable.filter((r) => `${r.part} ${r.wos.join(" ")}`.toLowerCase().includes(needle));
+  }, [staging, positions, rules, q]);
+
+  const shortageKpis = useMemo(() => ({
+    parts: shortageRows.length,
+    totalShort: shortageRows.reduce((a, r) => a + r.shortage, 0),
+    belowMin: shortageRows.filter((r) => r.belowMin).length,
+    confirmed: shortageRows.filter((r) => r.confirmed).length,
+  }), [shortageRows]);
+
   const movRows = q
     ? movements.filter((m) => `${m.partNumber} ${m.referenceId ?? ""} ${m.actorName ?? ""}`.toLowerCase().includes(q.toLowerCase()))
     : movements;
@@ -115,18 +275,24 @@ export default function InventoryPage() {
     return { received, consumed, total: movements.length };
   }, [movements]);
 
-  const showSearch = tab === "positions" ? positions.length > 0 : tab === "movements" ? movements.length > 0 : rules.length > 0;
+  const showSearch =
+    tab === "positions" ? positions.length > 0 :
+    tab === "shortage" ? true :
+    tab === "movements" ? movements.length > 0 :
+    tab === "replenishment" ? rules.length > 0 : false;
 
   return (
     <div className="min-h-screen text-black dark:text-white font-sans pb-32">
       <main className="max-w-4xl mx-auto px-6 pt-10">
-        <PageHeader domain="inventory" title="Inventario" subtitle="Existencias y movimientos por ubicación" />
+        <PageHeader domain="inventory" title="Inventario" subtitle="Existencias por ubicación, escasez vs demanda y trazabilidad" />
 
         {/* Pestañas */}
-        <div className={`${glass} inline-flex items-center gap-1 p-1 rounded-2xl mb-5`}>
+        <div className={`${glass} inline-flex items-center gap-1 p-1 rounded-2xl mb-5 flex-wrap`}>
           <TabBtn active={tab === "positions"} onClick={() => setTab("positions")} icon={<SlidersHorizontal className="w-4 h-4" />}>Existencias</TabBtn>
+          <TabBtn active={tab === "shortage"} onClick={() => setTab("shortage")} icon={<AlertTriangle className="w-4 h-4" />}>Escasez</TabBtn>
           <TabBtn active={tab === "movements"} onClick={() => setTab("movements")} icon={<ArrowLeftRight className="w-4 h-4" />}>Movimientos</TabBtn>
           <TabBtn active={tab === "replenishment"} onClick={() => setTab("replenishment")} icon={<Repeat className="w-4 h-4" />}>Resurtido</TabBtn>
+          <TabBtn active={tab === "traceability"} onClick={() => setTab("traceability")} icon={<GitBranch className="w-4 h-4" />}>Trazabilidad</TabBtn>
         </div>
 
         {showSearch && (
@@ -135,84 +301,126 @@ export default function InventoryPage() {
             <input
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder={tab === "positions" ? "Buscar número de parte o ubicación…" : tab === "movements" ? "Buscar parte, referencia u operador…" : "Buscar parte o almacén…"}
+              placeholder={
+                tab === "positions" ? "Buscar parte, descripción o ubicación…" :
+                tab === "shortage" ? "Buscar parte o WO…" :
+                tab === "movements" ? "Buscar parte, referencia u operador…" :
+                "Buscar parte o almacén…"
+              }
               className="bg-transparent outline-none text-sm w-full"
             />
           </div>
         )}
 
-        {tab === "positions" ? (
+        {tab === "positions" && (
           forbidden ? (
             <Empty icon={<Lock className="w-6 h-6" />} title="Sin acceso al backend" body="Verifica que el servicio de API esté conectado." />
           ) : isLoading ? (
             <Spinner />
-          ) : posRows.length === 0 ? (
-            <Empty icon={<Inbox className="w-6 h-6" />} title="Sin existencias" body="Aún no hay inventario registrado. Se irá poblando con las recepciones y movimientos de almacén." />
+          ) : partGroups.length === 0 ? (
+            <Empty icon={<Inbox className="w-6 h-6" />} title={q ? "Sin coincidencias" : "Sin existencias"} body={q ? "Ninguna parte coincide con la búsqueda." : "Aún no hay inventario registrado. Se irá poblando con las recepciones y movimientos de almacén."} />
           ) : (
-            <div className={`${glass} rounded-2xl p-2`}>
-              <div className="divide-y divide-gray-100 dark:divide-white/5">
-                {posRows.map((p) => (
-                  <div key={p.id} className="flex items-center justify-between px-3 py-3">
-                    <div className="min-w-0">
-                      <p className="font-mono font-semibold text-sm truncate">{p.partNumber}</p>
-                      <p className="text-[11px] text-gray-400">{p.location ?? "—"}{p.warehouse?.name ? ` · ${p.warehouse.name}` : ""}</p>
-                    </div>
-                    <div className="text-right flex-shrink-0">
-                      <p className="font-semibold tabular-nums">{fmtQty(p.quantityAvailable ?? p.available ?? p.quantityOnHand ?? p.onHand)}</p>
-                      <p className="text-[10px] text-gray-400">disponible</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
+            <div className="space-y-2">
+              {partGroups.map((g) => <PartGroupCard key={g.partNumber} g={g} />)}
             </div>
           )
-        ) : tab === "movements" ? (
-          movForbidden ? (
-          <Empty icon={<Lock className="w-6 h-6" />} title="Sin acceso al backend" body="Verifica que el servicio de API esté conectado." />
-        ) : movLoading ? (
-          <Spinner />
-        ) : movRows.length === 0 ? (
-          <Empty icon={<Inbox className="w-6 h-6" />} title={q ? "Sin coincidencias" : "Sin movimientos"} body={q ? "Ningún movimiento coincide con la búsqueda." : "Cada recibo de material, traslado o consumo en la línea aparecerá aquí como un movimiento con su referencia y operador."} />
-        ) : (
-          <>
-            {/* Resumen del flujo recibo → consumo (en vivo, derivado del ledger) */}
-            <div className="grid grid-cols-3 gap-3 mb-5">
-              <FlowKpi label="Recibido" value={fmtQty(flow.received)} icon={<ArrowDownLeft className="w-3.5 h-3.5" />} color="#16a394" />
-              <FlowKpi label="Consumido" value={fmtQty(flow.consumed)} icon={<ArrowUpRight className="w-3.5 h-3.5" />} color="#ef4444" />
-              <FlowKpi label="Movimientos" value={String(flow.total)} icon={<ArrowLeftRight className="w-3.5 h-3.5" />} color="#0a84ff" />
-            </div>
+        )}
 
-            <div className={`${glass} rounded-2xl p-2`}>
-              <div className="divide-y divide-gray-100 dark:divide-white/5">
-                {movRows.map((m) => {
-                  const meta = MOVE_META[m.type] ?? { label: m.type, dir: "neutral" as const, color: "#6b7280" };
-                  const sign = meta.dir === "in" ? "+" : meta.dir === "out" ? "−" : "";
-                  const where = [m.fromLocation || m.fromWarehouseId, m.toLocation || m.toWarehouseId].filter(Boolean).join(" → ");
-                  return (
-                    <div key={m.id} className="flex items-center gap-3 px-3 py-3">
-                      <span className="text-[10px] font-semibold px-2 py-1 rounded-lg flex-shrink-0" style={{ background: `${meta.color}1f`, color: meta.color }}>
-                        {meta.label}
-                      </span>
+        {tab === "shortage" && (
+          (ruleForbidden) ? (
+            <Empty icon={<Lock className="w-6 h-6" />} title="Sin acceso al backend" body="Verifica que el servicio de API esté conectado." />
+          ) : (stagingLoading || ruleLoading || isLoading) ? (
+            <Spinner />
+          ) : shortageRows.length === 0 ? (
+            <Empty icon={<Inbox className="w-6 h-6" />} title={q ? "Sin coincidencias" : "Sin escasez"} body={q ? "Ninguna parte coincide con la búsqueda." : "La demanda de las WO activas está cubierta por el almacén y nada está bajo su punto mínimo."} />
+          ) : (
+            <>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+                <FlowKpi label="Partes en escasez" value={String(shortageKpis.parts)} icon={<AlertTriangle className="w-3.5 h-3.5" />} color={RED} />
+                <FlowKpi label="Faltante total" value={fmtQty(shortageKpis.totalShort)} icon={<ArrowUpRight className="w-3.5 h-3.5" />} color={RED} />
+                <FlowKpi label="Bajo mínimo" value={String(shortageKpis.belowMin)} icon={<Repeat className="w-3.5 h-3.5" />} color={AMBER} />
+                <FlowKpi label="Confirmadas en línea" value={String(shortageKpis.confirmed)} icon={<PackageSearch className="w-3.5 h-3.5" />} color={RED} />
+              </div>
+              <p className="text-[11px] text-gray-400 mb-3">
+                Demanda = requerido aún sin surtir de las WO activas (líneas de surtido). Disponible = on-hand menos asignado, solo material liberado.
+              </p>
+              <div className={`${glass} rounded-2xl p-2`}>
+                <div className="divide-y divide-gray-100 dark:divide-white/5">
+                  {shortageRows.map((r) => (
+                    <div key={r.part} className="flex items-center gap-3 px-3 py-3">
                       <div className="min-w-0 flex-1">
-                        <p className="font-mono font-semibold text-sm truncate">{m.partNumber}</p>
-                        <p className="text-[11px] text-gray-400 truncate">
-                          {where || "—"}
-                          {m.referenceType ? ` · ${m.referenceType}${m.referenceId ? ` ${m.referenceId}` : ""}` : ""}
-                          {m.actorName ? ` · ${m.actorName}` : ""}
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-mono font-semibold text-sm truncate">{r.part}</span>
+                          {r.confirmed && <span className="text-[10px] px-1.5 py-0.5 rounded inline-flex items-center gap-0.5" style={{ background: `${RED}1f`, color: RED }}><AlertTriangle className="w-3 h-3" /> faltante en línea</span>}
+                          {r.belowMin && <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: `${AMBER}1f`, color: AMBER }}>bajo mínimo</span>}
+                        </div>
+                        <p className="text-[11px] text-gray-400 truncate mt-0.5">
+                          demanda {fmtQty(r.demandQty)} · disponible {fmtQty(r.available)}
+                          {r.rule ? ` · min ${fmtQty(r.rule.minStock)}/máx ${fmtQty(r.rule.maxStock)}` : ""}
+                          {r.wos.length ? ` · ${r.wos.slice(0, 3).join(", ")}${r.wos.length > 3 ? "…" : ""}` : ""}
                         </p>
                       </div>
                       <div className="text-right flex-shrink-0">
-                        <p className="font-semibold tabular-nums" style={{ color: meta.color }}>{sign}{fmtQty(m.quantity)}</p>
-                        <p className="text-[10px] text-gray-400">{timeAgo(m.createdAt)}</p>
+                        <p className="font-semibold tabular-nums" style={{ color: r.shortage > 0 ? RED : AMBER }}>
+                          {r.shortage > 0 ? `−${fmtQty(r.shortage)}` : "OK"}
+                        </p>
+                        <p className="text-[10px] text-gray-400">{r.shortage > 0 ? "faltante" : "stock bajo"}</p>
                       </div>
                     </div>
-                  );
-                })}
+                  ))}
+                </div>
               </div>
-            </div>
-          </>
+            </>
           )
-        ) : (
+        )}
+
+        {tab === "movements" && (
+          movForbidden ? (
+            <Empty icon={<Lock className="w-6 h-6" />} title="Sin acceso al backend" body="Verifica que el servicio de API esté conectado." />
+          ) : movLoading ? (
+            <Spinner />
+          ) : movRows.length === 0 ? (
+            <Empty icon={<Inbox className="w-6 h-6" />} title={q ? "Sin coincidencias" : "Sin movimientos"} body={q ? "Ningún movimiento coincide con la búsqueda." : "Cada recibo de material, traslado o consumo en la línea aparecerá aquí como un movimiento con su referencia y operador."} />
+          ) : (
+            <>
+              <div className="grid grid-cols-3 gap-3 mb-5">
+                <FlowKpi label="Recibido" value={fmtQty(flow.received)} icon={<ArrowDownLeft className="w-3.5 h-3.5" />} color={GREEN} />
+                <FlowKpi label="Consumido" value={fmtQty(flow.consumed)} icon={<ArrowUpRight className="w-3.5 h-3.5" />} color={RED} />
+                <FlowKpi label="Movimientos" value={String(flow.total)} icon={<ArrowLeftRight className="w-3.5 h-3.5" />} color={BLUE} />
+              </div>
+              <div className={`${glass} rounded-2xl p-2`}>
+                <div className="divide-y divide-gray-100 dark:divide-white/5">
+                  {movRows.map((m) => {
+                    const meta = MOVE_META[m.type] ?? { label: m.type, dir: "neutral" as const, color: "#6b7280" };
+                    const sign = meta.dir === "in" ? "+" : meta.dir === "out" ? "−" : "";
+                    const where = [m.fromLocation || m.fromWarehouseId, m.toLocation || m.toWarehouseId].filter(Boolean).join(" → ");
+                    return (
+                      <div key={m.id} className="flex items-center gap-3 px-3 py-3">
+                        <span className="text-[10px] font-semibold px-2 py-1 rounded-lg flex-shrink-0" style={{ background: `${meta.color}1f`, color: meta.color }}>
+                          {meta.label}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-mono font-semibold text-sm truncate">{m.partNumber}</p>
+                          <p className="text-[11px] text-gray-400 truncate">
+                            {where || "—"}
+                            {m.referenceType ? ` · ${m.referenceType}${m.referenceId ? ` ${m.referenceId}` : ""}` : ""}
+                            {m.actorName ? ` · ${m.actorName}` : ""}
+                          </p>
+                        </div>
+                        <div className="text-right flex-shrink-0">
+                          <p className="font-semibold tabular-nums" style={{ color: meta.color }}>{sign}{fmtQty(m.quantity)}</p>
+                          <p className="text-[10px] text-gray-400">{timeAgo(m.createdAt)}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </>
+          )
+        )}
+
+        {tab === "replenishment" && (
           ruleForbidden ? (
             <Empty icon={<Lock className="w-6 h-6" />} title="Sin acceso al backend" body="Verifica que el servicio de API esté conectado." />
           ) : ruleLoading ? (
@@ -226,7 +434,7 @@ export default function InventoryPage() {
                   const active = r.isActive !== false;
                   return (
                     <div key={r.id} className="flex items-center gap-3 px-3 py-3">
-                      <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: active ? "#16a394" : "#9ca3af" }} title={active ? "activa" : "inactiva"} />
+                      <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: active ? GREEN : "#9ca3af" }} title={active ? "activa" : "inactiva"} />
                       <div className="min-w-0 flex-1">
                         <p className="font-mono font-semibold text-sm truncate">{r.partNumber}</p>
                         <p className="text-[11px] text-gray-400 truncate">{r.warehouseId || "—"}{r.priority ? ` · ${r.priority}` : ""}</p>
@@ -242,7 +450,157 @@ export default function InventoryPage() {
             </div>
           )
         )}
+
+        {tab === "traceability" && <TraceabilityPanel />}
       </main>
+    </div>
+  );
+}
+
+// ── Existencias: tarjeta por parte con detalle por ubicación (rack/bin) ────────
+function PartGroupCard({ g }: {
+  g: { partNumber: string; description: string; uom: string; onHand: number; allocated: number; available: number; rows: Position[] };
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className={`${glass} rounded-2xl`}>
+      <button onClick={() => setOpen((o) => !o)} className="w-full flex items-center gap-3 px-4 py-3 text-left">
+        <ChevronRight className={`w-4 h-4 text-gray-400 flex-shrink-0 transition-transform ${open ? "rotate-90" : ""}`} />
+        <div className="min-w-0 flex-1">
+          <p className="font-mono font-semibold text-sm truncate">{g.partNumber}</p>
+          <p className="text-[11px] text-gray-400 truncate">
+            {g.description || "—"} · {g.rows.length} ubicación{g.rows.length === 1 ? "" : "es"}
+          </p>
+        </div>
+        <div className="text-right flex-shrink-0">
+          <p className="font-semibold tabular-nums">{fmtQty(g.available)}<span className="text-[11px] text-gray-400 ml-1">{g.uom}</span></p>
+          <p className="text-[10px] text-gray-400">disponible{g.allocated > 0 ? ` · ${fmtQty(g.allocated)} asignado` : ""}</p>
+        </div>
+      </button>
+      {open && (
+        <div className="px-4 pb-3 pt-1 border-t border-gray-100 dark:border-white/5">
+          <div className="space-y-1.5 mt-2">
+            {g.rows.map((p) => {
+              const hold = HOLD_META[p.holdStatus ?? "available"] ?? { label: p.holdStatus ?? "—", color: "#6b7280" };
+              const avail = Number(p.onHand ?? 0) - Number(p.allocated ?? 0);
+              return (
+                <div key={p.id} className="flex items-center gap-2 text-sm px-3 py-1.5 rounded-lg bg-gray-50 dark:bg-white/5">
+                  <MapPin className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                  <div className="min-w-0 flex-1">
+                    <span className="font-medium">{p.location || "BULK"}</span>
+                    {p.warehouse?.name && <span className="text-[11px] text-gray-400 ml-1.5">{p.warehouse.name}</span>}
+                    {(p.lotNumber || p.serialNumber) && (
+                      <span className="text-[11px] text-gray-400 ml-1.5">
+                        {p.lotNumber ? `lote ${p.lotNumber}` : ""}{p.lotNumber && p.serialNumber ? " · " : ""}{p.serialNumber ? `s/n ${p.serialNumber}` : ""}
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded flex-shrink-0" style={{ background: `${hold.color}1f`, color: hold.color }}>{hold.label}</span>
+                  <span className="tabular-nums text-xs flex-shrink-0 w-20 text-right">
+                    <span className="font-semibold">{fmtQty(avail)}</span>
+                    {Number(p.allocated ?? 0) > 0 && <span className="text-gray-400"> / {fmtQty(p.onHand)}</span>}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Trazabilidad: where-used (contención) por parte (+serial opcional) ─────────
+function TraceabilityPanel() {
+  const [partInput, setPartInput] = useState("");
+  const [serialInput, setSerialInput] = useState("");
+  const [query, setQuery] = useState<{ part: string; serial: string } | null>(null);
+
+  const key = query
+    ? `/floor-quality/where-used?part=${encodeURIComponent(query.part)}${query.serial ? `&serial=${encodeURIComponent(query.serial)}` : ""}`
+    : null;
+  const { data, isLoading, forbidden } = useApi<ConsumptionEvent[]>(key);
+  const events = useMemo(() => (Array.isArray(data) ? data : []), [data]);
+
+  function run() {
+    const part = partInput.trim();
+    if (!part) return;
+    setQuery({ part, serial: serialInput.trim() });
+  }
+
+  return (
+    <div>
+      <div className={`${glass} rounded-2xl p-4 mb-4`}>
+        <div className="flex flex-col sm:flex-row gap-2 sm:items-end">
+          <label className="block flex-1">
+            <span className="block text-[12px] font-medium text-gray-500 mb-1">N° de parte (componente)</span>
+            <input value={partInput} onChange={(e) => setPartInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") run(); }} placeholder="CAP-0402-100NF" className="inv-input font-mono" />
+          </label>
+          <label className="block flex-1">
+            <span className="block text-[12px] font-medium text-gray-500 mb-1">Serial de unidad (opcional)</span>
+            <input value={serialInput} onChange={(e) => setSerialInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") run(); }} placeholder="SN-000123" className="inv-input font-mono" />
+          </label>
+          <button onClick={run} disabled={!partInput.trim()} className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium text-white disabled:opacity-50" style={{ background: GREEN }}>
+            <Search className="w-4 h-4" /> Rastrear
+          </button>
+        </div>
+        <p className="text-[11px] text-gray-400 mt-2">
+          Where-used (contención): dado un componente, muestra en qué unidades/WO se consumió (genealogía del ledger de consumo). La consulta inversa pura por serial (serial → BOM as-built) requiere un endpoint backend dedicado — pendiente backend.
+        </p>
+      </div>
+
+      {forbidden ? (
+        <Empty icon={<Lock className="w-6 h-6" />} title="Sin acceso" body="La trazabilidad lee el ledger de calidad; requiere permiso de Calidad (quality:read)." />
+      ) : !query ? (
+        <Empty icon={<GitBranch className="w-6 h-6" />} title="Rastrea un componente" body="Escribe un número de parte (y opcionalmente un serial) para ver dónde se consumió." />
+      ) : isLoading ? (
+        <Spinner />
+      ) : events.length === 0 ? (
+        <Empty icon={<Inbox className="w-6 h-6" />} title="Sin consumo registrado" body={`No hay eventos de consumo para ${query.part}${query.serial ? ` · serial ${query.serial}` : ""}. Aparecerán cuando el operador confirme producción con genealogía.`} />
+      ) : (
+        <>
+          <p className="text-[11px] text-gray-400 mb-2">{events.length} evento{events.length === 1 ? "" : "s"} de consumo de <span className="font-mono">{query.part}</span>{query.serial ? <> · serial <span className="font-mono">{query.serial}</span></> : null}</p>
+          <div className={`${glass} rounded-2xl p-2`}>
+            <div className="divide-y divide-gray-100 dark:divide-white/5">
+              {events.map((e) => (
+                <div key={e.id} className="flex items-center gap-3 px-3 py-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-mono font-semibold text-sm">{e.woFolio || e.woId}</span>
+                      <span className="text-[11px] px-1.5 py-0.5 rounded bg-black/5 dark:bg-white/10 text-gray-500">{e.station}</span>
+                      {e.unitSerial && <span className="text-[11px] text-gray-400">s/n {e.unitSerial}</span>}
+                    </div>
+                    <p className="text-[11px] text-gray-400 truncate mt-0.5">
+                      {e.model}{e.operatorEmail ? ` · ${e.operatorEmail}` : ""}{e.createdAt ? ` · ${timeAgo(e.createdAt)}` : ""}
+                    </p>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <p className="font-semibold tabular-nums">{fmtQty(e.backflushQty)}</p>
+                    <p className="text-[10px] text-gray-400">{fmtQty(e.units)} u</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+
+      <style jsx global>{`
+        .inv-input {
+          border-radius: 0.75rem;
+          padding: 0.55rem 0.75rem;
+          background: rgba(0, 0, 0, 0.03);
+          border: 1px solid rgba(0, 0, 0, 0.08);
+          outline: none;
+          font-size: 0.875rem;
+          width: 100%;
+        }
+        .inv-input:focus { border-color: ${GREEN}; }
+        :global(.dark) .inv-input {
+          background: rgba(255, 255, 255, 0.06);
+          border-color: rgba(255, 255, 255, 0.1);
+        }
+      `}</style>
     </div>
   );
 }
