@@ -79,8 +79,23 @@ del repo):
   (`QUALITY_WRITE`) o sesión.
 - Puertas: `tsc` 0, `eslint` 0. (build verde en CI.)
 
+## Ítem 3 — Test/Lab: yield, FPY y Pareto de defectos (recharts) ✅
+
+`quality/analytics/page.tsx` (ruta nueva en mi carril). No dupliqué la captura
+(vive en `test-engineering`, fuera de carril); construí la **analítica** que
+faltaba con datos reales:
+- **Yield** y **First-Pass Yield** desde `GET /testing/kpis` (ambos derivados en
+  backend) como tarjetas KPI; + fallas de prueba y NCR abiertas/críticas.
+- **Pareto de defectos con recharts** (`ComposedChart`: barras de cantidad + línea
+  de % acumulado + referencia 80/20). Toggle de fuente: **fallas de prueba**
+  (`testing.pareto`) vs **categorías de NCR** (derivado de `/ncr`). Ambas reales.
+- Estado honesto si falta sesión/permiso de calidad (yields ocultos, Pareto de NCR
+  sigue disponible) y estado vacío por fuente sin datos. Enlace a la captura.
+- Bundle con el ítem 2 en el PR #274 (ambos verdes, mismo carril) para mantener el
+  árbol limpio entre turnos. Puertas: `tsc` 0, `eslint` 0, `next build` ✅.
+
 ### ▶ RETOMAR AQUÍ (carril S2)
-- Siguiente: ítem 3 (analítica yield/FPY + Pareto recharts — ya escrito y gateado
-  localmente), ítem 4 (pulir floor-quality: modal de disposición en vez de
-  `window.prompt` + filtro de estado). Después: profundizar el punto débil
-  restante de calidad sin salir del carril.
+- Siguiente: ítem 4 — pulir `floor-quality` (punto débil real): reemplazar el
+  `window.prompt`/`window.confirm` de disposición y re-inspección por modales
+  propios + filtro de estado (incl. ver cerrados/cancelados). Después: profundizar
+  el siguiente punto débil de calidad sin salir del carril.
