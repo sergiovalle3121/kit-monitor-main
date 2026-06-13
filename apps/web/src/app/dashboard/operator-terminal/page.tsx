@@ -19,6 +19,7 @@ const RED = '#ef4444';
 const AMBER = '#f59e0b';
 const BLUE = '#3b82f6';
 const VIOLET = '#7c3aed';
+const STORE_KEY = 'axos_operator_terminal'; // remembers this station's identity (station + last WO) across reboots
 
 // ── Types (shapes returned by the operator-terminal / production-plan API) ─────
 interface WO { id: string; folio: string | null; model: string; revision: string; line: string; status: string; priority?: string; }
@@ -118,6 +119,25 @@ export default function OperatorTerminalPage() {
 
   useEffect(() => { if (ctx?.runnable && pokaOk) scanRef.current?.focus(); }, [ctx?.runnable, pokaOk, activeWo, station]);
 
+  // Restore the station's identity (station + last WO) on mount so a kiosk reboot
+  // returns to the same place. Client-only (runs after hydration) → SSR-safe.
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(window.localStorage.getItem(STORE_KEY) || '{}');
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time hydration of the saved station identity (SSR-safe)
+      if (typeof saved?.station === 'string' && saved.station) setStation(saved.station);
+      if (typeof saved?.woId === 'string' && saved.woId) setWoId(saved.woId);
+    } catch { /* ignore */ }
+  }, []);
+
+  // Persist on explicit selection (not via an effect, to avoid clobbering the
+  // restored value during the first render pass).
+  function persistSel(next: { woId?: string; station?: string }) {
+    try { window.localStorage.setItem(STORE_KEY, JSON.stringify({ woId, station, ...next })); } catch { /* ignore */ }
+  }
+  function chooseWo(id: string) { setWoId(id); setLastConfirm(null); persistSel({ woId: id }); }
+  function changeStation(s: string) { const v = s.toUpperCase(); setStation(v); setLastConfirm(null); persistSel({ station: v }); }
+
   // Live poka-yoke: the scanned part is validated against the routing via the
   // backend /verify endpoint (debounced). Advance stays blocked until it matches.
   useEffect(() => {
@@ -161,7 +181,7 @@ export default function OperatorTerminalPage() {
     if (!q) return;
     const up = q.toUpperCase();
     const found = wos.find((w) => (w.folio || '').toUpperCase() === up || w.model.toUpperCase() === up || w.id === q);
-    if (found) { setWoId(found.id); setWoScan(''); setLastConfirm(null); }
+    if (found) { chooseWo(found.id); setWoScan(''); }
     else toast.error('WO no encontrada en el plan en vivo.', 'Operador');
   }
 
@@ -283,7 +303,7 @@ export default function OperatorTerminalPage() {
               {wos.slice(0, 10).map((w) => {
                 const on = w.id === activeWo;
                 return (
-                  <button key={w.id} onClick={() => { setWoId(w.id); setLastConfirm(null); }} className="px-3 py-2 rounded-lg text-[13px] font-semibold transition-colors"
+                  <button key={w.id} onClick={() => chooseWo(w.id)} className="px-3 py-2 rounded-lg text-[13px] font-semibold transition-colors"
                     style={{ background: on ? ORANGE : 'rgba(255,255,255,0.07)', color: on ? '#fff' : 'rgba(255,255,255,0.8)' }}>
                     {w.folio || w.model}
                   </button>
@@ -292,7 +312,7 @@ export default function OperatorTerminalPage() {
             </div>
             <input value={woScan} onChange={(e) => setWoScan(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') selectWoByScan(); }}
               placeholder="Escanea WO" className="w-32 rounded-lg px-3 py-2 bg-white/[0.06] border border-white/15 outline-none text-white text-sm placeholder:text-white/35 focus:border-orange-400" />
-            <input value={station} onChange={(e) => { setStation(e.target.value.toUpperCase()); setLastConfirm(null); }}
+            <input value={station} onChange={(e) => changeStation(e.target.value)}
               placeholder="Tu estación (EST-10)" className="w-44 ml-auto rounded-lg px-3 py-2 bg-white/[0.06] border border-white/15 outline-none text-white text-sm placeholder:text-white/35 focus:border-orange-400" />
           </div>
 
