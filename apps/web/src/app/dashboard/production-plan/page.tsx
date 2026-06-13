@@ -5,13 +5,17 @@ import Link from 'next/link';
 import {
   ChevronLeft, Megaphone, Plus, Lock, Loader2, Inbox, X, CheckCircle2,
   ArrowRight, PackageCheck, ShieldCheck, FlaskConical, UserCheck,
-  Factory, Layers, CalendarClock, Activity,
+  Factory, Layers, CalendarClock, Activity, Boxes, ChevronDown,
 } from 'lucide-react';
 import { glass } from '@/lib/glass';
 import { useApi } from '@/hooks/useApi';
 import { apiFetch } from '@/lib/apiFetch';
 import { useToast } from '@/contexts/ToastContext';
-import { computeSchedule, paceLabel, type ScheduleInfo } from './wo-board';
+import {
+  computeSchedule, paceLabel, type ScheduleInfo,
+  buildActiveBomMap, buildInventoryMap, computeClearToBuild,
+  type BomHeaderLite, type InventoryPositionLite, type ClearToBuild, type CheckState,
+} from './wo-board';
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000').replace(/\/$/, '');
 const VIOLET = '#7c3aed';
@@ -66,13 +70,27 @@ const SCHEDULE_META: Record<ScheduleInfo['state'], { color: string }> = {
   unscheduled: { color: GRAY },
 };
 
+const CLEAR_META: Record<ClearToBuild['status'], { color: string; label: string }> = {
+  go: { color: GREEN, label: 'Clear to Build' },
+  caution: { color: AMBER, label: 'Con reservas' },
+  'no-go': { color: RED, label: 'No listo' },
+  unknown: { color: GRAY, label: 'Sin datos' },
+};
+
 export default function ProductionPlanPage() {
   const toast = useToast();
   const { data, isLoading, forbidden, mutate } = useApi<WO[]>('/production-plan');
   const { data: kpis, mutate: mutateKpis } = useApi<Kpis>('/production-plan/kpis');
   const { data: modelsData } = useApi<ModelOption[]>('/product-models');
+  // Clear-to-Build se compone de endpoints existentes (sin backend nuevo):
+  // BOM activo del modelo + disponible en inventario + FAI de la propia WO.
+  const { data: bomData } = useApi<BomHeaderLite[]>('/bom/headers?status=ACTIVE');
+  const { data: invData } = useApi<InventoryPositionLite[]>('/inventory/positions');
   const list = useMemo(() => (Array.isArray(data) ? data : []), [data]);
   const models = Array.isArray(modelsData) ? modelsData : [];
+  const bomByModel = useMemo(() => buildActiveBomMap(Array.isArray(bomData) ? bomData : []), [bomData]);
+  const invByPart = useMemo(() => buildInventoryMap(Array.isArray(invData) ? invData : []), [invData]);
+  const board = useMemo(() => ({ bomByModel, invByPart }), [bomByModel, invByPart]);
 
   const [view, setView] = useState<'line' | 'status'>('line');
   const [showForm, setShowForm] = useState(false);
@@ -194,7 +212,7 @@ export default function ProductionPlanPage() {
         ) : view === 'line' ? (
           <div className="space-y-8">
             {byLine.map(({ line, wos }) => (
-              <LineSection key={line} line={line} wos={wos} {...cardProps} />
+              <LineSection key={line} line={line} wos={wos} board={board} {...cardProps} />
             ))}
           </div>
         ) : (
@@ -210,7 +228,7 @@ export default function ProductionPlanPage() {
                     <span className="text-[11px] text-gray-400">({items.length})</span>
                   </div>
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                    {items.map((wo) => <WOCard key={wo.id} wo={wo} {...cardProps} />)}
+                    {items.map((wo) => <WOCard key={wo.id} wo={wo} board={board} {...cardProps} />)}
                   </div>
                 </section>
               );
@@ -269,14 +287,19 @@ interface CardActions {
   onTransition: (wo: WO, status: Status) => void;
   onAuthorize: (wo: WO) => void;
 }
+interface BoardData {
+  bomByModel: Map<string, BomHeaderLite>;
+  invByPart: Map<string, number>;
+}
 
-function LineSection({ line, wos, ...actions }: { line: string; wos: WO[] } & CardActions) {
+function LineSection({ line, wos, board, ...actions }: { line: string; wos: WO[]; board: BoardData } & CardActions) {
   const active = wos.filter((w) => !TERMINAL.includes(w.status));
   const planned = active.reduce((s, w) => s + (w.quantityPlanned || 0), 0);
   const done = active.reduce((s, w) => s + (w.quantityCompleted || 0), 0);
   const now = new Date();
   const late = active.filter((w) => computeSchedule(w, now).state === 'late').length;
   const running = wos.filter((w) => w.status === 'IN_EXECUTION').length;
+  const notReady = active.filter((w) => computeClearToBuild(w, board.bomByModel, board.invByPart).status === 'no-go').length;
 
   return (
     <section>
@@ -289,18 +312,22 @@ function LineSection({ line, wos, ...actions }: { line: string; wos: WO[] } & Ca
         <span className="text-[11px] px-2 py-0.5 rounded-full" style={{ background: 'rgba(0,0,0,0.05)' }}>{done}/{planned} u activas</span>
         {running > 0 && <span className="text-[11px] px-2 py-0.5 rounded-full" style={{ background: `${VIOLET}1f`, color: VIOLET }}>{running} en ejecución</span>}
         {late > 0 && <span className="text-[11px] px-2 py-0.5 rounded-full" style={{ background: `${RED}1f`, color: RED }}>{late} atrasada{late > 1 ? 's' : ''}</span>}
+        {notReady > 0 && <span className="text-[11px] px-2 py-0.5 rounded-full" style={{ background: `${RED}1f`, color: RED }}>{notReady} no lista{notReady > 1 ? 's' : ''}</span>}
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-        {wos.map((wo) => <WOCard key={wo.id} wo={wo} showSequence {...actions} />)}
+        {wos.map((wo) => <WOCard key={wo.id} wo={wo} board={board} showSequence {...actions} />)}
       </div>
     </section>
   );
 }
 
 // ── WO card (shared by both views) ───────────────────────────────────────────
-function WOCard({ wo, showSequence, busy, onTransition, onAuthorize }: { wo: WO; showSequence?: boolean } & CardActions) {
+function WOCard({ wo, board, showSequence, busy, onTransition, onAuthorize }: { wo: WO; board: BoardData; showSequence?: boolean } & CardActions) {
   const progress = wo.quantityPlanned > 0 ? Math.min(100, Math.round((wo.quantityCompleted / wo.quantityPlanned) * 100)) : 0;
   const schedule = useMemo(() => computeSchedule(wo), [wo]);
+  const ctb = useMemo(() => computeClearToBuild(wo, board.bomByModel, board.invByPart), [wo, board]);
+  const [openCtb, setOpenCtb] = useState(false);
+  const clear = CLEAR_META[ctb.status];
 
   return (
     <div className={`${glass} rounded-2xl p-4`}>
@@ -338,6 +365,23 @@ function WOCard({ wo, showSequence, busy, onTransition, onAuthorize }: { wo: WO;
           </div>
         </div>
       </div>
+
+      {/* Semáforo Clear-to-Build (BOM activo + material + FAI, compuesto del API) */}
+      <button
+        onClick={() => setOpenCtb((v) => !v)}
+        className="mt-3 w-full flex items-center justify-between gap-2 px-3 py-2 rounded-xl text-left transition-colors hover:brightness-95"
+        style={{ background: `${clear.color}14` }}
+        aria-expanded={openCtb}
+      >
+        <span className="inline-flex items-center gap-2 text-[13px] font-semibold min-w-0" style={{ color: clear.color }}>
+          <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: clear.color }} />
+          Clear-to-Build · {clear.label}
+          {ctb.reasons.length > 0 && <span className="text-gray-400 font-normal truncate hidden sm:inline">· {ctb.reasons[0]}</span>}
+        </span>
+        <ChevronDown className={`w-4 h-4 text-gray-400 flex-shrink-0 transition-transform ${openCtb ? 'rotate-180' : ''}`} />
+      </button>
+      {openCtb && <ClearDetail ctb={ctb} />}
+
       <div className="mt-3 flex items-center gap-1.5 flex-wrap">
         {NEXT[wo.status].map((to) => (
           <button key={to} onClick={() => onTransition(wo, to)} disabled={busy === wo.id}
@@ -350,6 +394,83 @@ function WOCard({ wo, showSequence, busy, onTransition, onAuthorize }: { wo: WO;
           <UserCheck className="w-3 h-3" /> Autorizar operador
         </button>
       </div>
+    </div>
+  );
+}
+
+const CHECK_COLOR: Record<CheckState, string> = {
+  ok: GREEN, partial: AMBER, fail: RED, pending: AMBER, na: GRAY, unknown: GRAY,
+};
+
+function ClearDetail({ ctb }: { ctb: ClearToBuild }) {
+  return (
+    <div className="mt-2 rounded-xl border border-black/5 dark:border-white/10 p-3 space-y-2">
+      <CheckRow
+        icon={Boxes}
+        label="BOM activo"
+        state={ctb.bom.state}
+        detail={ctb.bom.state === 'ok' ? `Rev ${ctb.bom.revision ?? '—'}` : 'Sin BOM activo'}
+        link={ctb.bom.state !== 'ok' ? { href: '/dashboard/models', label: 'Modelos' } : undefined}
+      />
+      <CheckRow
+        icon={PackageCheck}
+        label="Material disponible"
+        state={ctb.material.state}
+        detail={
+          ctb.material.state === 'unknown'
+            ? 'Sin BOM para evaluar'
+            : ctb.material.totalParts === 0
+              ? 'Sin componentes'
+              : `${ctb.material.totalParts - ctb.material.shortParts}/${ctb.material.totalParts} partes cubiertas`
+        }
+        link={ctb.material.shortParts > 0 ? { href: '/dashboard/almacen', label: 'Almacén' } : undefined}
+      />
+      <CheckRow
+        icon={FlaskConical}
+        label="Primera pieza (FAI)"
+        state={ctb.fai.state}
+        detail={ctb.fai.state === 'na' ? 'No requerida' : ctb.fai.state === 'ok' ? 'Aprobada' : 'Pendiente'}
+      />
+      {ctb.quality.state !== 'ok' && (
+        <CheckRow icon={ShieldCheck} label="Calidad" state="fail" detail="Retención activa" />
+      )}
+
+      {ctb.material.lines.length > 0 && (
+        <div className="pt-1">
+          <div className="text-[11px] uppercase tracking-wide text-gray-400 mb-1">Faltantes para terminar</div>
+          <div className="space-y-1">
+            {ctb.material.lines.slice(0, 6).map((l) => (
+              <div key={l.partNumber} className="flex items-center justify-between gap-2 text-[12px] px-2 py-1 rounded-lg bg-black/[0.03] dark:bg-white/[0.05]">
+                <span className="font-mono truncate" title={l.description ?? undefined}>{l.partNumber}</span>
+                <span className="tabular-nums text-gray-500 flex-shrink-0">
+                  req {l.required} · disp {l.available} · <span style={{ color: RED }}>falta {l.shortage} {l.unit}</span>
+                </span>
+              </div>
+            ))}
+            {ctb.material.lines.length > 6 && (
+              <div className="text-[11px] text-gray-400">+{ctb.material.lines.length - 6} parte(s) más con faltante</div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CheckRow({ icon: Icon, label, state, detail, link }: { icon: React.ElementType; label: string; state: CheckState; detail: string; link?: { href: string; label: string } }) {
+  const color = CHECK_COLOR[state];
+  return (
+    <div className="flex items-center justify-between gap-2 text-[13px]">
+      <span className="inline-flex items-center gap-2 min-w-0">
+        <span className="w-6 h-6 rounded-lg grid place-items-center flex-shrink-0" style={{ background: `${color}1f` }}>
+          <Icon className="w-3.5 h-3.5" style={{ color }} />
+        </span>
+        <span className="truncate">{label}</span>
+      </span>
+      <span className="inline-flex items-center gap-2 text-gray-500 flex-shrink-0">
+        <span style={{ color }}>{detail}</span>
+        {link && <Link href={link.href} className="text-blue-500 hover:text-blue-700 text-[12px] font-medium">{link.label}</Link>}
+      </span>
     </div>
   );
 }
