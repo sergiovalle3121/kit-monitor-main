@@ -237,4 +237,72 @@ roles-seeder DB se alineó aditivamente (no es fuente de verdad). `rbac.spec.ts`
 blinda las reglas (operator NO publica/autoriza; solo quality/mrb disponen; solo
 quality pone hold).
 
+## 13. Red de seguridad automática — CI en GitHub Actions (blindaje de prod)
+
+**Síntoma/riesgo:** el único workflow era el agente DeepSeek. **No existía CI** que
+corriera las puertas de calidad en cada PR. Las "4 puertas" (build/test/lint/smoke)
+dependían 100% de ejecutarlas a mano, y **cada merge a `main` despliega a prod** —
+nada impedía un merge en rojo.
+
+**Decisión:** `.github/workflows/ci.yml` corre en **PR a `main`** y **push a `main`**.
+Job único (instala una vez con `npm ci`, Node 20, `concurrency: cancel-in-progress`):
+
+- **Puertas BLOQUEANTES** (verificadas en verde al crearlas):
+  1. **Build API** (`apps/api`, `npm run build` = nest build/tsc).
+  2. **Unit tests API** (`npm test` — 56 suites / 305 tests).
+  3. **Lint web** (`apps/web` — 0 errores; solo warnings).
+  4. **Build web** (`next build` — incluye typecheck).
+  5. **Smoke de bootstrap** (`npm run smoke:bootstrap`) contra un **Postgres 16**
+     levantado como *service container*. Es la puerta que materializa TODO el
+     esquema (synchronize) y atrapa colisiones de tabla/FK/DI antes del merge —
+     justo el riesgo que vuelve peligroso a `synchronize: true` (§14).
+
+- **NO bloqueante:** **Lint API** (`continue-on-error: true`). Hoy arrastra ~2.9k
+  hallazgos de formato (prettier, ~2.9k auto-corregibles + ~23 reales)
+  **preexistentes**. Se reporta como señal pero no tumba el merge, para no mezclar
+  un commit de formato masivo con el blindaje. **Deuda separada:** correr
+  `npm run format` (prettier --write) + arreglar los ~23 reales, y luego quitar el
+  `continue-on-error` para volverlo bloqueante.
+
+**Nota Node:** Next 16 exige Node ≥ 20.9 (el README aún dice "18+", desactualizado).
+El CI fija Node 20.
+
+## 14. Tooling de migraciones arreglado + runbook del corte de `synchronize` (SUPERVISADO)
+
+**Bug encontrado y arreglado (aditivo, bajo riesgo):** el script `typeorm` apuntaba a
+`./node_modules/typeorm/cli.js`, que **no existe en este monorepo** — con npm
+workspaces `typeorm` está *hoisted* a la raíz, así que `migration:generate` y
+`migration:run` estaban **rotos** (`Cannot find module './cli.js'`). Cambiado a
+`typeorm-ts-node-commonjs -d src/typeorm-cli.datasource.ts` (resuelve vía el `.bin`
+hoisted; la API no usa path-aliases, así que no hace falta `tsconfig-paths`).
+**Verificado:** ambos comandos ahora cargan y ejecutan.
+
+**Hallazgo crítico (verificado, explica por qué sigue `synchronize: true`):**
+`migration:run` contra una BD **fresca** FALLA en la 1ª migración
+(`KitPlanSchemaUpdate20260401193000`: `ALTER TABLE "kits" ADD COLUMN …` →
+`relation "kits" does not exist`). Las 43 migraciones son **parches incrementales**
+sobre el esquema que `synchronize` materializa — **no construyen el esquema desde
+cero**. ⇒ **NO se puede flipear `SYNCHRONIZE=false` y correr migraciones tal cual**;
+fallaría al arranque. Además los timestamps mezclan formatos (epoch-ms `1713…` vs
+`YYYYMMDDHHMMSS` `2026…`), lo que complica el orden de un baseline.
+
+**Runbook del corte (REQUIERE DEPLOY SUPERVISADO POR SERGIO — no autónomo):**
+1. **Congelar entidades** y generar baseline del esquema completo:
+   `DATABASE_URL=<pg vacío> npm run migration:generate -- src/migrations/Baseline`.
+2. **Ordenarlo primero** (timestamp menor que TODAS, p.ej. `0000000000000-Baseline`)
+   y hacerlo **idempotente** (guard `if (await queryRunner.hasTable('users')) return;`
+   al inicio del `up()`, estilo del repo) → en prod (esquema ya materializado) es
+   no-op; en BD fresca crea las ~137 tablas y las 43 posteriores se auto-skipean.
+3. **Reconciliar las 43 existentes**: confirmar que sus `hasTable`/`ADD COLUMN IF NOT
+   EXISTS` las hacen no-op cuando el baseline ya creó todo (squash opcional a futuro).
+4. **Probar en staging**: (a) BD fresca → `migration:run` construye todo; (b) copia
+   restaurada de prod → `migration:run` es no-op y solo registra (bookmark).
+5. **Corte en prod (supervisado):** desplegar con `SYNCHRONIZE=false` (+ `migrationsRun`
+   ya corre con `isProd`); al arrancar, baseline+43 se registran sin alterar el esquema
+   vivo; de ahí en adelante el esquema cambia **solo** por migraciones revisadas.
+
+**Mitigación ya activa:** el **smoke de CI** (§13) corre `synchronize` sobre un PG
+efímero en cada PR; atrapa el síntoma que más ha tumbado prod (colisiones de
+esquema/DI al arranque) **antes** del merge, aunque el flip definitivo siga pendiente.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
