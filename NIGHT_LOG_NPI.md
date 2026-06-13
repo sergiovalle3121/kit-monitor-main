@@ -100,3 +100,18 @@ mission-control, forecast, erp. Disponible para el yamazumi.
     `process_steps` + DTO + exponerlo en `/process/routes`, para unificar tiempos
     de proceso con el balanceo.
 - Puertas (apps/web): `tsc` 0 · `eslint` 0 · `next build` OK.
+
+### Rebanada 3 — BOM where-used + nota AVL (engineering) ✅
+- `dashboard/engineering/page.tsx`: panel colapsable **"¿Dónde se usa? · Where-used
+  de BOM"**: escribe un número de parte y lista cada BOM (modelo · rev, estado)
+  que lo consume, con cantidad × factor de uso, designador de referencia y estado.
+- **Cero backend nuevo:** derivado en cliente de `GET /bom/headers` (que ya trae
+  `components`); carga perezosa (solo al abrir el panel). Estados vacíos honestos.
+- **AVL:** el backend de compras NO expone lista de proveedores aprobados por
+  parte (hay `erp-supplier-price` en erp-core, fuera de carril). → nota honesta
+  "tarea backend pendiente"; sin UI falsa.
+  - **Tarea backend para mañana:** endpoint AVL por parte (proveedores aprobados,
+    precio, lead time) sobre erp-core/procurement.
+- Nota: consolidada en el PR #273 (mismo archivo/área que la rebanada 2) como
+  segundo commit, para no dejar cambios sin commitear (stop hook) y mantener un
+  PR por página. Puertas (apps/web): `tsc` 0 · `eslint` 0 · `next build` OK.

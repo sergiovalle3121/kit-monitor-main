@@ -5,7 +5,7 @@ import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Plus, Trash2, Loader2, X, AlertCircle, Workflow, Package, Boxes,
-  Image as ImageIcon, ExternalLink, Clock,
+  Image as ImageIcon, ExternalLink, Clock, Search, ChevronDown, Info,
 } from "lucide-react";
 import { glass } from "@/lib/glass";
 import { useApi } from "@/hooks/useApi";
@@ -18,6 +18,8 @@ interface StepMaterial { id: number; partNumber: string; description?: string | 
 interface Step { id: number; model: string; revision: string; sequence: number; name: string; stationType?: string | null; instructions?: string | null; visualAidId?: string | null; materials: StepMaterial[] }
 interface ModelOption { id: string; modelNumber: string; name: string; status: string }
 interface VisualAid { id: string; model: string; title: string; process?: string | null; revision?: string | null; pdfUrl: string; isActive?: boolean }
+interface WuComponent { componentNumber: string; description?: string | null; quantity: number; unit: string; usageFactor: number; referenceDesignator?: string | null; extendedCost: number }
+interface WuHeader { id: number; model: string; productName?: string | null; revision: string; status: string; components?: WuComponent[] }
 
 const STATION_TYPES = [
   { value: "smt", label: "SMT" },
@@ -160,9 +162,100 @@ export default function EngineeringPage() {
             )}
           </>
         )}
+
+        <WhereUsed />
       </main>
     </div>
   );
+}
+
+/**
+ * BOM where-used: type a part number to see every BOM (model · rev) that consumes
+ * it, with qty/use-factor and extended cost. Derived client-side from the
+ * existing `GET /bom/headers` (which already returns components) — no new backend.
+ * AVL (approved vendor list) is not exposed by the backend yet → honest note.
+ */
+function WhereUsed() {
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState("");
+  const { data, isLoading } = useApi<WuHeader[]>(open ? "/bom/headers" : null);
+  const headers = Array.isArray(data) ? data : [];
+  const term = q.trim().toUpperCase();
+  const results = term
+    ? headers.flatMap((h) =>
+        (h.components ?? [])
+          .filter((c) => (c.componentNumber || "").toUpperCase().includes(term))
+          .map((c) => ({ h, c })),
+      )
+    : [];
+  const bomCount = new Set(results.map((r) => r.h.id)).size;
+
+  return (
+    <div className={`${glass} rounded-2xl mt-8 overflow-hidden`}>
+      <button onClick={() => setOpen((v) => !v)} className="w-full flex items-center gap-3 px-4 py-3 text-left">
+        <div className="w-8 h-8 rounded-xl bg-amber-100 dark:bg-amber-500/20 text-amber-600 dark:text-amber-300 flex items-center justify-center flex-shrink-0"><Search className="w-4 h-4" /></div>
+        <div className="min-w-0 flex-1">
+          <h3 className="font-bold text-sm">¿Dónde se usa? · Where-used de BOM</h3>
+          <p className="text-[12px] text-gray-400">Encuentra en qué modelos (BOMs) se consume una parte.</p>
+        </div>
+        <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+
+      {open && (
+        <div className="px-4 pb-4 border-t border-black/5 dark:border-white/10 pt-4">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="flex items-center gap-2 flex-1 bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-xl px-3">
+              <Search className="w-4 h-4 text-gray-400" />
+              <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Número de parte (ej. CAP-0402-100NF)" className="bg-transparent outline-none text-sm flex-1 py-2.5" />
+              {q && <button onClick={() => setQ("")} className="text-gray-300 hover:text-gray-500"><X className="w-4 h-4" /></button>}
+            </div>
+          </div>
+
+          {isLoading ? (
+            <div className="flex justify-center py-8 text-gray-400"><Loader2 className="w-5 h-5 animate-spin" /></div>
+          ) : !term ? (
+            <p className="text-[13px] text-gray-400 px-1 py-2">Escribe un número de parte para ver dónde se usa.</p>
+          ) : results.length === 0 ? (
+            <p className="text-[13px] text-gray-400 px-1 py-2">No se encontró <span className="font-mono text-gray-500">{q.trim()}</span> en ningún BOM.</p>
+          ) : (
+            <>
+              <p className="text-[12px] text-gray-400 mb-2 px-1">{results.length} línea(s) en {bomCount} BOM(s).</p>
+              <div className="space-y-1.5">
+                {results.map((r, i) => (
+                  <div key={`${r.h.id}-${r.c.componentNumber}-${i}`} className="flex items-center justify-between gap-3 text-sm px-3 py-2 rounded-lg bg-gray-50 dark:bg-white/5">
+                    <div className="min-w-0">
+                      <div className="font-medium truncate">{r.h.model} · rev {r.h.revision}{r.h.productName ? <span className="text-gray-400 font-normal"> — {r.h.productName}</span> : null}</div>
+                      <div className="text-[12px] text-gray-400 truncate">
+                        <span className="font-mono">{r.c.componentNumber}</span>
+                        {r.c.referenceDesignator ? <span className="ml-2">{r.c.referenceDesignator}</span> : null}
+                      </div>
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <div className="font-semibold tabular-nums">{r.c.quantity}{r.c.usageFactor && r.c.usageFactor !== 1 ? ` ×${r.c.usageFactor}` : ""} {r.c.unit}/u</div>
+                      <span className="text-[11px] px-1.5 py-0.5 rounded" style={statusStyle(r.h.status)}>{r.h.status}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+          <div className="mt-4 flex items-start gap-1.5 text-[12px] text-gray-400 border-t border-black/5 dark:border-white/10 pt-3">
+            <Info className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+            <span><b>AVL</b> (lista de proveedores aprobados por parte) aún no la expone el backend de compras — <span className="opacity-70">tarea backend pendiente</span>.</span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function statusStyle(status: string): React.CSSProperties {
+  const s = (status || "").toUpperCase();
+  if (s === "ACTIVE") return { background: "rgba(16,185,129,0.15)", color: "#059669" };
+  if (s === "APPROVED") return { background: "rgba(59,130,246,0.15)", color: "#2563eb" };
+  if (s === "OBSOLETE") return { background: "rgba(0,0,0,0.06)", color: "#6b7280" };
+  return { background: "rgba(245,158,11,0.15)", color: "#d97706" }; // DRAFT / PENDING
 }
 
 function StepCard({ step, aids, onChange, onError }: { step: Step; aids: VisualAid[]; onChange: () => void; onError: (m: string) => void }) {
