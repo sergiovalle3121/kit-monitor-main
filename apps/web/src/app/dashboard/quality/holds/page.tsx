@@ -13,6 +13,7 @@ import {
   Gavel,
   ArrowRight,
   CheckCircle2,
+  Move,
 } from "lucide-react";
 import { glass } from "@/lib/glass";
 import { useApi } from "@/hooks/useApi";
@@ -27,6 +28,8 @@ import type {
   DispositionType,
   QualityHold,
   QualityHoldLevel,
+  QuarantineTransfer,
+  QuarantineTransferStatus,
 } from "../quality.types";
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000").replace(/\/$/, "");
@@ -55,6 +58,11 @@ const DSTATUS: Record<DispositionStatus, { label: string; color: string }> = {
   executed: { label: "Ejecutada", color: "#10b981" },
   closed: { label: "Cerrada", color: "#10b981" },
 };
+const TSTATUS: Record<QuarantineTransferStatus, { label: string; color: string }> = {
+  pending: { label: "Pendiente", color: "#f59e0b" },
+  completed: { label: "Completado", color: "#10b981" },
+  cancelled: { label: "Cancelado", color: "#6b7280" },
+};
 
 export default function QualityHoldsPage() {
   const { user } = useAuth();
@@ -62,12 +70,15 @@ export default function QualityHoldsPage() {
   const email = user?.email || "QA";
   const { data: holdsData, isLoading: hLoading, forbidden, mutate: mutateHolds } = useApi<QualityHold[]>("/quality/holds/active");
   const { data: dispoData, mutate: mutateDispo } = useApi<Disposition[]>("/quality/dispositions");
+  const { data: transferData, mutate: mutateTransfers } = useApi<QuarantineTransfer[]>("/quality/transfers");
   const holds = useMemo(() => (Array.isArray(holdsData) ? holdsData : []), [holdsData]);
   const dispos = useMemo(() => (Array.isArray(dispoData) ? dispoData : []), [dispoData]);
+  const transfers = useMemo(() => (Array.isArray(transferData) ? transferData : []), [transferData]);
 
   const [busy, setBusy] = useState<string | null>(null);
   const [newHold, setNewHold] = useState(false);
   const [dispoFor, setDispoFor] = useState<{ hold?: QualityHold } | null>(null);
+  const [transferFor, setTransferFor] = useState<QualityHold | null>(null);
 
   const openDispos = dispos.filter((d) => d.status !== "executed" && d.status !== "closed").length;
 
@@ -91,6 +102,16 @@ export default function QualityHoldsPage() {
       if (!res.ok) { const dd = await res.json().catch(() => ({})); toastErr(dd, res.status); return; }
       toast.success(action === "approve" ? "Disposición aprobada." : "Disposición ejecutada — inventario impactado.", "Calidad");
       mutateDispo(); mutateHolds();
+    } catch { toast.error("Error de red.", "Calidad"); } finally { setBusy(null); }
+  }
+
+  async function completeTransfer(t: QuarantineTransfer) {
+    setBusy(`t${t.id}`);
+    try {
+      const res = await apiFetch(`${API_BASE}/quality/transfers/${t.id}/complete`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ actor: email }) });
+      if (!res.ok) { const d = await res.json().catch(() => ({})); toastErr(d, res.status); return; }
+      toast.success("Traslado completado — material movido a cuarentena.", "Calidad");
+      mutateTransfers();
     } catch { toast.error("Error de red.", "Calidad"); } finally { setBusy(null); }
   }
 
@@ -146,6 +167,7 @@ export default function QualityHoldsPage() {
                       <p className="text-[13px] text-gray-500 dark:text-gray-400">{h.reason}{h.heldBy ? ` · ${h.heldBy}` : ""}{h.createdAt ? ` · ${new Date(h.createdAt).toLocaleDateString()}` : ""}</p>
                       <div className="mt-3 flex items-center gap-1.5 flex-wrap">
                         <button onClick={() => setDispoFor({ hold: h })} className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[12px] font-medium" style={{ background: "#7c3aed1f", color: "#7c3aed" }}><Gavel className="w-3 h-3" /> Proponer disposición</button>
+                        <button onClick={() => setTransferFor(h)} className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[12px] font-medium" style={{ background: "#3b82f61f", color: "#3b82f6" }}><Move className="w-3 h-3" /> Trasladar a cuarentena</button>
                         <button onClick={() => releaseHold(h)} disabled={busy === `h${h.id}`} className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[12px] font-medium disabled:opacity-50" style={{ background: "#10b9811f", color: "#10b981" }}>{busy === `h${h.id}` ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle2 className="w-3 h-3" />} Liberar</button>
                       </div>
                     </div>
@@ -186,12 +208,40 @@ export default function QualityHoldsPage() {
                 })}
               </div>
             )}
+
+            {/* Transfers de cuarentena */}
+            {transfers.length > 0 && (
+              <>
+                <div className="flex items-center gap-2 mb-3 mt-8"><Move className="w-4 h-4 text-blue-500" /><h3 className="font-semibold">Traslados a cuarentena</h3></div>
+                <div className="space-y-2">
+                  {transfers.map((t) => {
+                    const s = TSTATUS[t.status] ?? { label: t.status, color: "#6b7280" };
+                    return (
+                      <div key={t.id} className={`${glass} rounded-2xl p-4 flex items-center gap-3`}>
+                        <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: s.color }} />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                            <span className="font-mono font-semibold">{t.partNumber}</span>
+                            <span className="text-[10px] font-medium px-1.5 py-0.5 rounded" style={{ background: `${s.color}1f`, color: s.color }}>{s.label}</span>
+                          </div>
+                          <p className="text-[12px] text-gray-400 truncate">{t.quantity} u · {t.sourceWarehouseId}/{t.sourceLocation} → {t.destWarehouseId}/{t.destLocation}{t.requestedBy ? ` · ${t.requestedBy}` : ""}</p>
+                        </div>
+                        {t.status === "pending" && (
+                          <button onClick={() => completeTransfer(t)} disabled={busy === `t${t.id}`} className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[12px] font-medium text-white disabled:opacity-50 shrink-0" style={{ background: "#3b82f6" }}>{busy === `t${t.id}` ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle2 className="w-3 h-3" />} Completar</button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            )}
           </>
         )}
       </main>
 
       {newHold && <NewHoldModal heldBy={email} onClose={() => setNewHold(false)} onSaved={() => { setNewHold(false); mutateHolds(); }} />}
       {dispoFor && <NewDispositionModal proposedBy={email} hold={dispoFor.hold} onClose={() => setDispoFor(null)} onSaved={() => { setDispoFor(null); mutateDispo(); }} />}
+      {transferFor && <NewTransferModal requestedBy={email} hold={transferFor} onClose={() => setTransferFor(null)} onSaved={() => { setTransferFor(null); mutateTransfers(); }} />}
     </div>
   );
 }
@@ -287,6 +337,49 @@ function NewDispositionModal({ proposedBy, hold, onClose, onSaved }: { proposedB
         <Field label="Notas" full><textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} className="q-input min-h-[52px] resize-y" /></Field>
       </div>
       <p className="text-[11px] text-gray-400 mt-3">Flujo: propuesta → aprobar → ejecutar. Al ejecutar, SCRAP/RTV decrementan stock y RELEASE/USE_AS_IS liberan; cierra NCR/hold ligados.</p>
+    </Modal>
+  );
+}
+
+function NewTransferModal({ requestedBy, hold, onClose, onSaved }: { requestedBy: string; hold: QualityHold; onClose: () => void; onSaved: () => void }) {
+  const toast = useToast();
+  const [busy, setBusy] = useState(false);
+  const [form, setForm] = useState({ quantity: "", sourceWarehouseId: "", sourceLocation: "BULK", destWarehouseId: "WH-QUARANTINE", destLocation: "QUARANTINE-01" });
+
+  async function submit() {
+    if (!form.sourceWarehouseId.trim()) { toast.error("El almacén origen es obligatorio.", "Traslado"); return; }
+    if (!form.destWarehouseId.trim()) { toast.error("El almacén destino es obligatorio.", "Traslado"); return; }
+    const qty = Number(form.quantity) || 0;
+    if (qty <= 0) { toast.error("Cantidad debe ser mayor a 0.", "Traslado"); return; }
+    setBusy(true);
+    try {
+      const payload = {
+        holdId: hold.id,
+        quantity: qty,
+        sourceWarehouseId: form.sourceWarehouseId.trim(),
+        sourceLocation: form.sourceLocation.trim() || "BULK",
+        destWarehouseId: form.destWarehouseId.trim(),
+        destLocation: form.destLocation.trim() || "QUARANTINE-01",
+        requestedBy,
+      };
+      const res = await apiFetch(`${API_BASE}/quality/transfers`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      if (!res.ok) { const d = await res.json().catch(() => ({})); toast.error(d?.message || (res.status === 403 ? "Necesitas permiso QUALITY_WRITE." : "No se pudo solicitar."), "Traslado"); return; }
+      toast.success("Traslado solicitado (pendiente de completar).", "Traslado");
+      onSaved();
+    } catch { toast.error("Error de red.", "Traslado"); } finally { setBusy(false); }
+  }
+
+  return (
+    <Modal title={`Trasladar a cuarentena · ${hold.partNumber}`} icon={<Move className="w-4 h-4" style={{ color: "#3b82f6" }} />} accent="#3b82f6" busy={busy} onClose={onClose} onSubmit={submit} submitLabel="Solicitar">
+      <div className="grid grid-cols-2 gap-4">
+        <Field label="Cantidad *"><input type="number" min={0} value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} className="q-input" /></Field>
+        <div />
+        <Field label="Almacén origen *"><input value={form.sourceWarehouseId} onChange={(e) => setForm({ ...form, sourceWarehouseId: e.target.value })} className="q-input" placeholder="WH-01" /></Field>
+        <Field label="Ubicación origen"><input value={form.sourceLocation} onChange={(e) => setForm({ ...form, sourceLocation: e.target.value })} className="q-input" /></Field>
+        <Field label="Almacén destino *"><input value={form.destWarehouseId} onChange={(e) => setForm({ ...form, destWarehouseId: e.target.value })} className="q-input" /></Field>
+        <Field label="Ubicación destino"><input value={form.destLocation} onChange={(e) => setForm({ ...form, destLocation: e.target.value })} className="q-input" /></Field>
+      </div>
+      <p className="text-[11px] text-gray-400 mt-3">Al completar, el inventario se mueve físicamente (ledger TRANSFER) y la posición destino queda en <span className="font-mono">quarantine</span>.</p>
     </Modal>
   );
 }

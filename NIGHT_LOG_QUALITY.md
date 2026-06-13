@@ -149,10 +149,29 @@ piso (`sf_quality_holds` en `floor-quality`):
   `quality.ui` si crece el reuso.
 - Puertas: `tsc` 0, `eslint` 0, `next build` ✅.
 
+## Ítem 7 — Traslados de cuarentena (containment completo) ✅
+
+Extiende `quality/holds/page.tsx` con el flujo de **traslado a cuarentena** que
+cierra la contención física:
+- Botón "Trasladar a cuarentena" en cada hold activo → modal (`POST
+  /quality/transfers` con `holdId`, cantidad, almacén/ubicación origen→destino;
+  `requestedBy` = usuario). El backend deriva el NP del hold.
+- Sección **"Traslados a cuarentena"** (`GET /quality/transfers`) con estado y
+  acción **Completar** (`PATCH /quality/transfers/:id/complete`) que mueve el
+  inventario (ledger TRANSFER) y deja la posición destino en `quarantine`.
+- Tipos en quality.types; toasts honestos ante 403.
+- Puertas: `tsc` 0, `eslint` 0, `next build` ✅.
+
 ### ▶ RETOMAR AQUÍ (carril S2)
-- Cubierto en UI sobre backend existente: **NCR** (cockpit/detalle/transiciones/
-  CAPA), **MRB/piso** (modales + filtro), **Test/Lab** (yield/FPY + Pareto recharts),
-  **IQC/OQC** (recibo/salida) y **holds+disposición de inventario**. Todo verde/mergeado.
-- Pendiente menor (mismo carril, SOLO UI): transfers de cuarentena
-  (`/quality/transfers` + complete) como sección del page de holds; adoptar
-  `PageHeader` en `floor-quality`; extraer `Modal` compartido a `quality.ui`.
+- **Loop de calidad cerrado de punta a punta en UI** sobre el backend existente,
+  todo verde y mergeado:
+  - **NCR**: cockpit (lista/filtros/KPIs/alta) + detalle + transiciones + CAPA.
+  - **MRB / piso** (`floor-quality`): hold→MRB→disposición con modales + filtro.
+  - **Test/Lab** (`quality/analytics`): yield/FPY + Pareto de defectos (recharts).
+  - **IQC/OQC** (`quality/inspections`): recibo y salida.
+  - **Holds de inventario** (`quality/holds`): hold + disposición (proponer→
+    aprobar→ejecutar) + **traslado a cuarentena** (solicitar→completar).
+- Deuda menor (cosmética / refactor, NO bloqueante): adoptar `PageHeader` en
+  `floor-quality` (hoy header propio); extraer el `Modal` compartido (hay copia en
+  `inspections` y `holds`) a `quality.ui`. Tareas backend para mañana: ninguna
+  bloqueó este carril (todo se cableó sobre endpoints existentes).
