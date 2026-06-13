@@ -130,13 +130,29 @@ engine de inspección que ya existía sin UI:
   centralizados en `quality.types.ts`.
 - Puertas: `tsc` 0, `eslint` 0, `next build` ✅.
 
+## Ítem 6 — Holds de inventario + engine de disposición (nivel inventario) ✅
+
+`quality/holds/page.tsx` (ruta nueva). Surfaceé el engine de holds/disposición a
+nivel **inventario** (tablas `quality_holds`/`dispositions`), distinto del hold de
+piso (`sf_quality_holds` en `floor-quality`):
+- **Holds activos** (`GET /quality/holds/active`): NP + nivel (NP/lote/serial/
+  almacén/edificio/programa/WO) + razón; crear (`POST /quality/holds`) marca
+  `holdStatus=hold` en las posiciones que coincidan; **liberar**
+  (`PATCH /quality/holds/:id/release`).
+- **Disposiciones** (`GET /quality/dispositions`): flujo **proponer → aprobar →
+  ejecutar** (`POST /quality/dispositions`, `PATCH …/approve`, `PATCH …/execute`).
+  Ejecutar impacta inventario (SCRAP/RTV decrementan; RELEASE/USE_AS_IS liberan) y
+  cierra NCR/hold ligados — nota honesta en UI. Proponer desde un hold lo prellena.
+- Botones de acción gateados por estado; toasts honestos ante 403 (QUALITY_WRITE/
+  APPROVE). Enlace "Holds inv." en el cockpit. Tipos centralizados en quality.types.
+- Deuda menor anotada: hay un `Modal` local aquí y en `inspections`; extraer a
+  `quality.ui` si crece el reuso.
+- Puertas: `tsc` 0, `eslint` 0, `next build` ✅.
+
 ### ▶ RETOMAR AQUÍ (carril S2)
-- Cerrado en UI sobre backend existente: **NCR** (cockpit/detalle/transiciones/
-  CAPA), **MRB/piso** (modales de disposición/re-inspección + filtro), **Test/Lab**
-  (yield/FPY + Pareto recharts) e **IQC/OQC** (recibo/salida). Todo verde y mergeado.
-- Próximo punto débil sugerido (mismo carril, backend ya existe — SOLO UI):
-  1) **Holds de inventario + transfers de cuarentena + dispositions** a nivel
-     inventario (`/quality/holds/active`, `/quality/transfers`,
-     `/quality/dispositions`) — engine distinto del hold de piso (`floor-quality`).
-  2) Adoptar `PageHeader` en `floor-quality` (hoy header propio; deuda cosmética
-     anotada en el NIGHT_LOG principal).
+- Cubierto en UI sobre backend existente: **NCR** (cockpit/detalle/transiciones/
+  CAPA), **MRB/piso** (modales + filtro), **Test/Lab** (yield/FPY + Pareto recharts),
+  **IQC/OQC** (recibo/salida) y **holds+disposición de inventario**. Todo verde/mergeado.
+- Pendiente menor (mismo carril, SOLO UI): transfers de cuarentena
+  (`/quality/transfers` + complete) como sección del page de holds; adoptar
+  `PageHeader` en `floor-quality`; extraer `Modal` compartido a `quality.ui`.
