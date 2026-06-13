@@ -5,7 +5,7 @@ import Link from 'next/link';
 import {
   ChevronLeft, Gauge, Plus, Lock, Loader2, Inbox, X, CheckCircle2,
   ListOrdered, Layers, Activity, AlertTriangle, Image as ImageIcon, Star,
-  BarChart3,
+  BarChart3, Pencil,
 } from 'lucide-react';
 import {
   Bar, BarChart, CartesianGrid, Cell, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis,
@@ -44,6 +44,7 @@ interface Kpis {
   ctqStations: number; incompleteLayouts: number;
 }
 interface ModelOption { id: string; modelNumber: string; name: string; status: string }
+interface VisualAid { id: string; model: string; title: string; revision?: string | null; pdfUrl: string; isActive?: boolean }
 
 const pct = (n: number) => `${Math.round((n || 0) * 100)}%`;
 
@@ -80,10 +81,44 @@ export default function LineEngineeringPage() {
   const [showStation, setShowStation] = useState(false);
   const [showQual, setShowQual] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [sf, setSf] = useState({ model: '', revision: 'A', line: 'SMT-1', station: '', sequence: 10, npExpected: '', useFactor: 1, stdTimeSec: 30, visualAidUrl: '', ctq: false });
   const [qf, setQf] = useState({ model: '', revision: 'A', line: 'SMT-1', changeoverMinutes: 20, taktTargetSec: 60 });
 
+  // Visual aids of the station's model — to pick one instead of pasting a URL.
+  const { data: modalAidsData } = useApi<VisualAid[]>(showStation && sf.model ? `/visual-aids?model=${encodeURIComponent(sf.model)}` : null);
+  const modalAids = (Array.isArray(modalAidsData) ? modalAidsData : []).filter((a) => a.isActive !== false);
+
   function refresh() { mutate(); mutateQuals(); mutateBalance(); }
+
+  function closeStation() { setShowStation(false); setEditingId(null); }
+
+  function openEdit(s: Station) {
+    setSf({
+      model: s.model, revision: s.revision, line: s.line, station: s.station,
+      sequence: s.sequence, npExpected: s.npExpected ?? '', useFactor: s.useFactor,
+      stdTimeSec: s.stdTimeSec, visualAidUrl: s.visualAidUrl ?? '', ctq: s.ctq,
+    });
+    setEditingId(s.id);
+    setShowStation(true);
+  }
+
+  async function updateStation() {
+    if (!editingId) return;
+    setBusy(true);
+    try {
+      const res = await apiFetch(`${API_BASE}/line-engineering/stations/${editingId}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sequence: sf.sequence, npExpected: sf.npExpected, useFactor: sf.useFactor,
+          stdTimeSec: sf.stdTimeSec, visualAidUrl: sf.visualAidUrl, ctq: sf.ctq,
+        }),
+      });
+      if (!res.ok) { const d = await res.json().catch(() => ({})); toast.error(d?.message || 'No se pudo actualizar.', 'Ing. Industrial'); return; }
+      toast.success('Estación actualizada.', 'Ing. Industrial');
+      closeStation(); refresh();
+    } catch { toast.error('Error de red.', 'Ing. Industrial'); } finally { setBusy(false); }
+  }
 
   async function createStation() {
     if (!sf.model.trim() || !sf.station.trim()) { toast.error('Modelo y estación son obligatorios.', 'Ing. Industrial'); return; }
@@ -206,7 +241,7 @@ export default function LineEngineeringPage() {
                 <thead><tr className="text-[11px] uppercase tracking-wide text-gray-400 text-left">
                   <th className="px-4 py-2">Seq</th><th className="px-4 py-2">Estación</th><th className="px-4 py-2">Línea</th>
                   <th className="px-4 py-2">NP esperado</th><th className="px-4 py-2">Factor uso</th><th className="px-4 py-2">Tiempo std</th>
-                  <th className="px-4 py-2">Ayuda</th><th className="px-4 py-2">CTQ</th>
+                  <th className="px-4 py-2">Ayuda</th><th className="px-4 py-2">CTQ</th><th className="px-4 py-2"></th>
                 </tr></thead>
                 <tbody>
                   {route.map((s) => (
@@ -217,8 +252,9 @@ export default function LineEngineeringPage() {
                       <td className="px-4 py-2 font-mono">{s.npExpected || <span className="text-rose-500">— falta —</span>}</td>
                       <td className="px-4 py-2">{s.useFactor}</td>
                       <td className="px-4 py-2">{s.stdTimeSec}s</td>
-                      <td className="px-4 py-2">{s.visualAidUrl ? <ImageIcon className="w-4 h-4" style={{ color: GREEN }} /> : <span className="text-amber-500 text-xs">falta</span>}</td>
+                      <td className="px-4 py-2">{s.visualAidUrl ? <a href={s.visualAidUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs font-medium" style={{ color: GREEN }}><ImageIcon className="w-4 h-4" /> Ver</a> : <span className="text-amber-500 text-xs">falta</span>}</td>
                       <td className="px-4 py-2">{s.ctq ? <Star className="w-4 h-4" style={{ color: AMBER }} fill={AMBER} /> : ''}</td>
+                      <td className="px-4 py-2 text-right"><button onClick={() => openEdit(s)} className="p-1.5 rounded-lg text-gray-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors" title="Editar estación"><Pencil className="w-4 h-4" /></button></td>
                     </tr>
                   ))}
                 </tbody>
@@ -245,25 +281,35 @@ export default function LineEngineeringPage() {
 
       {/* Station modal */}
       {showStation && (
-        <Modal title="Nueva estación" onClose={() => setShowStation(false)}>
+        <Modal title={editingId ? 'Editar estación' : 'Nueva estación'} onClose={closeStation}>
           <div className="grid grid-cols-2 gap-4">
             <Field label="Modelo">
-              <select value={sf.model} onChange={(e) => setSf({ ...sf, model: e.target.value })} className="ci-input">
+              <select value={sf.model} onChange={(e) => setSf({ ...sf, model: e.target.value })} className="ci-input" disabled={!!editingId}>
                 <option value="">Selecciona del maestro…</option>
                 {masterModels.map((m) => <option key={m.id} value={m.modelNumber}>{m.modelNumber} · {m.name}</option>)}
               </select>
             </Field>
-            <Field label="Revisión"><input value={sf.revision} onChange={(e) => setSf({ ...sf, revision: e.target.value })} className="ci-input" /></Field>
-            <Field label="Línea"><input value={sf.line} onChange={(e) => setSf({ ...sf, line: e.target.value })} className="ci-input" /></Field>
-            <Field label="Estación"><input value={sf.station} onChange={(e) => setSf({ ...sf, station: e.target.value })} className="ci-input" placeholder="EST-10" /></Field>
+            <Field label="Revisión"><input value={sf.revision} onChange={(e) => setSf({ ...sf, revision: e.target.value })} className="ci-input" disabled={!!editingId} /></Field>
+            <Field label="Línea"><input value={sf.line} onChange={(e) => setSf({ ...sf, line: e.target.value })} className="ci-input" disabled={!!editingId} /></Field>
+            <Field label="Estación"><input value={sf.station} onChange={(e) => setSf({ ...sf, station: e.target.value })} className="ci-input" placeholder="EST-10" disabled={!!editingId} /></Field>
             <Field label="Secuencia"><input type="number" value={sf.sequence} onChange={(e) => setSf({ ...sf, sequence: Number(e.target.value) })} className="ci-input" /></Field>
             <Field label="NP esperado (poka-yoke)"><input value={sf.npExpected} onChange={(e) => setSf({ ...sf, npExpected: e.target.value })} className="ci-input" placeholder="CAP-0402-100NF" /></Field>
             <Field label="Factor de uso (cant/unidad)"><input type="number" step="0.001" value={sf.useFactor} onChange={(e) => setSf({ ...sf, useFactor: Number(e.target.value) })} className="ci-input" /></Field>
             <Field label="Tiempo std (s)"><input type="number" value={sf.stdTimeSec} onChange={(e) => setSf({ ...sf, stdTimeSec: Number(e.target.value) })} className="ci-input" /></Field>
-            <Field label="Ayuda visual (URL)"><input value={sf.visualAidUrl} onChange={(e) => setSf({ ...sf, visualAidUrl: e.target.value })} className="ci-input" /></Field>
+            <Field label="Ayuda visual">
+              <div className="space-y-1.5">
+                {modalAids.length > 0 && (
+                  <select value="" onChange={(e) => { if (e.target.value) setSf({ ...sf, visualAidUrl: `${API_BASE}/visual-aids/file/${e.target.value}` }); }} className="ci-input">
+                    <option value="">Elegir de la biblioteca…</option>
+                    {modalAids.map((a) => <option key={a.id} value={a.pdfUrl}>{a.title}{a.revision ? ` · rev ${a.revision}` : ''}</option>)}
+                  </select>
+                )}
+                <input value={sf.visualAidUrl} onChange={(e) => setSf({ ...sf, visualAidUrl: e.target.value })} className="ci-input" placeholder="URL de la ayuda (o elige de la biblioteca)" />
+              </div>
+            </Field>
             <label className="flex items-center gap-2 mt-6"><input type="checkbox" checked={sf.ctq} onChange={(e) => setSf({ ...sf, ctq: e.target.checked })} /> <span className="text-sm">Característica crítica (CTQ)</span></label>
           </div>
-          <Actions busy={busy} onCancel={() => setShowStation(false)} onSave={createStation} color={ROSE} />
+          <Actions busy={busy} onCancel={closeStation} onSave={editingId ? updateStation : createStation} color={ROSE} />
         </Modal>
       )}
 
@@ -289,6 +335,7 @@ export default function LineEngineeringPage() {
       <style jsx global>{`
         .ci-input { width: 100%; border-radius: 0.75rem; padding: 0.55rem 0.75rem; background: rgba(0,0,0,0.03); border: 1px solid rgba(0,0,0,0.08); outline: none; font-size: 0.875rem; }
         .ci-input:focus { border-color: ${ROSE}; }
+        .ci-input:disabled { opacity: 0.55; cursor: not-allowed; }
         :global(.dark) .ci-input { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.1); }
       `}</style>
     </div>

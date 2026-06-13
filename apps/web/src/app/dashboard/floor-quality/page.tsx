@@ -36,7 +36,12 @@ const SMETA: Record<HStatus, { label: string; color: string }> = {
   REINSPECT: { label: 'Re-inspección', color: BLUE }, CLOSED: { label: 'Cerrado', color: GREEN }, CANCELLED: { label: 'Cancelado', color: GRAY },
 };
 const ORDER: HStatus[] = ['HELD', 'MRB_REVIEW', 'DISPOSITIONED', 'REWORK', 'REINSPECT', 'CLOSED'];
+const FILTERABLE: HStatus[] = [...ORDER, 'CANCELLED'];
 const DISPS: Disp[] = ['USE_AS_IS', 'REWORK', 'REPAIR', 'SCRAP', 'RTV', 'SORT'];
+const DISP_LABELS: Record<Disp, string> = {
+  USE_AS_IS: 'Usar como está', REWORK: 'Retrabajo', REPAIR: 'Reparar',
+  SCRAP: 'Desecho', RTV: 'Devolver a proveedor', SORT: 'Segregar',
+};
 const pct = (n: number) => `${Math.round((n || 0) * 100)}%`;
 
 export default function FloorQualityPage() {
@@ -50,6 +55,14 @@ export default function FloorQualityPage() {
   const [form, setForm] = useState({ origin: 'IN_PROCESS', part: '', qty: 1, lot: '', serial: '', woId: '', station: '', defectType: '', severity: 'MEDIUM', photoUrl: '' });
   const [wu, setWu] = useState('');
   const [wuRows, setWuRows] = useState<ConsRow[] | null>(null);
+  const [dispoHold, setDispoHold] = useState<Hold | null>(null);
+  const [reinspectHold, setReinspectHold] = useState<Hold | null>(null);
+  const [statusFilter, setStatusFilter] = useState<HStatus | ''>('');
+
+  // Vista por defecto: el flujo activo (ORDER, sin cancelados); con filtro, solo
+  // ese estado. shownCount evita un panel en blanco si todo está cancelado.
+  const visibleOrder: HStatus[] = statusFilter ? [statusFilter] : ORDER;
+  const shownCount = visibleOrder.reduce((n, s) => n + holds.filter((h) => h.status === s).length, 0);
 
   function refresh() { mutate(); mutateKpis(); }
 
@@ -63,29 +76,23 @@ export default function FloorQualityPage() {
     } catch { toast.error('Error de red.', 'Calidad'); } finally { setBusy(null); }
   }
 
-  async function act(hold: Hold, action: string, body?: Record<string, unknown>) {
+  async function act(hold: Hold, action: string, body?: Record<string, unknown>): Promise<boolean> {
     setBusy(hold.id);
     try {
       const res = await apiFetch(`${API_BASE}/floor-quality/holds/${hold.id}/${action}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body ?? {}) });
-      if (!res.ok) { const d = await res.json().catch(() => ({})); toast.error(d?.message || 'No se pudo.', 'Calidad'); return; }
-      toast.success('Actualizado.', 'Calidad'); refresh();
-    } catch { toast.error('Error de red.', 'Calidad'); } finally { setBusy(null); }
+      if (!res.ok) { const d = await res.json().catch(() => ({})); toast.error(d?.message || 'No se pudo.', 'Calidad'); return false; }
+      toast.success('Actualizado.', 'Calidad'); refresh(); return true;
+    } catch { toast.error('Error de red.', 'Calidad'); return false; } finally { setBusy(null); }
   }
 
-  async function disposition(hold: Hold) {
-    const disp = window.prompt(`Disposición (${DISPS.join('/')}):`, 'USE_AS_IS') as Disp | null;
-    if (!disp || !DISPS.includes(disp)) return;
-    const signedBy = window.prompt('Firma (nombre del responsable):', '');
-    if (!signedBy) return;
-    const body: Record<string, unknown> = { disposition: disp, signedBy };
-    if (disp === 'USE_AS_IS') { const w = window.prompt('Desviación/waiver:'); if (!w) return; body.waiver = w; }
-    if (disp === 'RTV') { const s = window.prompt('SCAR / nota de débito:'); if (!s) return; body.scarRef = s; }
-    await act(hold, 'disposition', body);
+  async function submitDisposition(body: Record<string, unknown>) {
+    if (!dispoHold) return;
+    if (await act(dispoHold, 'disposition', body)) setDispoHold(null);
   }
 
-  async function reinspect(hold: Hold) {
-    const pass = window.confirm('¿La re-inspección PASA? (Aceptar = pasa / Cancelar = falla)');
-    await act(hold, 'reinspect', { pass });
+  async function submitReinspect(body: Record<string, unknown>) {
+    if (!reinspectHold) return;
+    if (await act(reinspectHold, 'reinspect', body)) setReinspectHold(null);
   }
 
   async function lookupWhereUsed() {
@@ -151,38 +158,54 @@ export default function FloorQualityPage() {
         ) : holds.length === 0 ? (
           <div className={`${glass} rounded-3xl p-12 text-center`}><Inbox className="w-8 h-8 mx-auto mb-3 text-gray-400" /><h3 className="font-semibold">Sin holds</h3><p className="text-sm text-gray-400 mt-1">Captura un rechazo desde IQC, en-proceso u OQC para iniciar el flujo MRB.</p></div>
         ) : (
-          <div className="space-y-8">
-            {ORDER.map((status) => {
-              const items = holds.filter((h) => h.status === status);
-              if (items.length === 0) return null;
-              return (
-                <section key={status}>
-                  <div className="flex items-center gap-2 mb-3"><span className="w-2.5 h-2.5 rounded-full" style={{ background: SMETA[status].color }} /><h2 className="text-sm font-semibold">{SMETA[status].label}</h2><span className="text-[11px] text-gray-400">({items.length})</span></div>
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                    {items.map((h) => (
-                      <div key={h.id} className={`${glass} rounded-2xl p-4`}>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          {h.folio && <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-black/5 dark:bg-white/10 text-gray-500">{h.folio}</span>}
-                          <span className="font-mono font-semibold">{h.part}</span>
-                          <span className="text-[11px] text-gray-400">{h.qty} u</span>
-                          {(h.severity === 'HIGH' || h.severity === 'CRITICAL') && <span className="text-[10px] px-1.5 py-0.5 rounded inline-flex items-center gap-0.5" style={{ background: `${RED}1f`, color: RED }}><AlertTriangle className="w-3 h-3" /> {h.severity}</span>}
-                          {h.disposition && <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: `${VIOLET}1f`, color: VIOLET }}>{h.disposition}</span>}
-                        </div>
-                        <div className="text-[12px] text-gray-400 mt-1">{h.origin}{h.station ? ` · ${h.station}` : ''}{h.woFolio ? ` · ${h.woFolio}` : ''}{h.defectType ? ` · ${h.defectType}` : ''}{h.lot ? ` · lote ${h.lot}` : ''}{h.serial ? ` · SN ${h.serial}` : ''}</div>
-                        <div className="mt-3 flex items-center gap-1.5 flex-wrap">
-                          {h.status === 'HELD' && <Btn label="A MRB" color={AMBER} onClick={() => act(h, 'mrb')} busy={busy === h.id} />}
-                          {h.status === 'MRB_REVIEW' && <Btn label="Disponer" color={VIOLET} onClick={() => disposition(h)} busy={busy === h.id} />}
-                          {h.status === 'DISPOSITIONED' && (h.disposition === 'REWORK' || h.disposition === 'REPAIR') && <Btn label="Iniciar retrabajo" color={BLUE} onClick={() => act(h, 'rework')} busy={busy === h.id} />}
-                          {h.status === 'DISPOSITIONED' && h.disposition !== 'REWORK' && h.disposition !== 'REPAIR' && <Btn label="Cerrar" color={GREEN} onClick={() => act(h, 'close')} busy={busy === h.id} />}
-                          {(h.status === 'REWORK' || h.status === 'REINSPECT') && <Btn label="Re-inspección" color={BLUE} onClick={() => reinspect(h)} busy={busy === h.id} />}
-                        </div>
+          <>
+            {/* Filtro por estado */}
+            <div className="flex items-center gap-1.5 flex-wrap mb-5">
+              <Chip label="Todos" active={statusFilter === ''} count={holds.filter((h) => h.status !== 'CANCELLED').length} onClick={() => setStatusFilter('')} />
+              {FILTERABLE.map((s) => {
+                const c = holds.filter((h) => h.status === s).length;
+                if (c === 0) return null;
+                return <Chip key={s} label={SMETA[s].label} color={SMETA[s].color} active={statusFilter === s} count={c} onClick={() => setStatusFilter(s)} />;
+              })}
+            </div>
+
+            {shownCount === 0 ? (
+              <div className={`${glass} rounded-3xl p-12 text-center`}><Inbox className="w-8 h-8 mx-auto mb-3 text-gray-400" /><h3 className="font-semibold">Sin holds en este estado</h3><p className="text-sm text-gray-400 mt-1">Cambia el filtro para ver otros estados del flujo.</p></div>
+            ) : (
+              <div className="space-y-8">
+                {visibleOrder.map((status) => {
+                  const items = holds.filter((h) => h.status === status);
+                  if (items.length === 0) return null;
+                  return (
+                    <section key={status}>
+                      <div className="flex items-center gap-2 mb-3"><span className="w-2.5 h-2.5 rounded-full" style={{ background: SMETA[status].color }} /><h2 className="text-sm font-semibold">{SMETA[status].label}</h2><span className="text-[11px] text-gray-400">({items.length})</span></div>
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                        {items.map((h) => (
+                          <div key={h.id} className={`${glass} rounded-2xl p-4`}>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              {h.folio && <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-black/5 dark:bg-white/10 text-gray-500">{h.folio}</span>}
+                              <span className="font-mono font-semibold">{h.part}</span>
+                              <span className="text-[11px] text-gray-400">{h.qty} u</span>
+                              {(h.severity === 'HIGH' || h.severity === 'CRITICAL') && <span className="text-[10px] px-1.5 py-0.5 rounded inline-flex items-center gap-0.5" style={{ background: `${RED}1f`, color: RED }}><AlertTriangle className="w-3 h-3" /> {h.severity}</span>}
+                              {h.disposition && <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: `${VIOLET}1f`, color: VIOLET }}>{DISP_LABELS[h.disposition] ?? h.disposition}</span>}
+                            </div>
+                            <div className="text-[12px] text-gray-400 mt-1">{h.origin}{h.station ? ` · ${h.station}` : ''}{h.woFolio ? ` · ${h.woFolio}` : ''}{h.defectType ? ` · ${h.defectType}` : ''}{h.lot ? ` · lote ${h.lot}` : ''}{h.serial ? ` · SN ${h.serial}` : ''}</div>
+                            <div className="mt-3 flex items-center gap-1.5 flex-wrap">
+                              {h.status === 'HELD' && <Btn label="A MRB" color={AMBER} onClick={() => act(h, 'mrb')} busy={busy === h.id} />}
+                              {h.status === 'MRB_REVIEW' && <Btn label="Disponer" color={VIOLET} onClick={() => setDispoHold(h)} busy={busy === h.id} />}
+                              {h.status === 'DISPOSITIONED' && (h.disposition === 'REWORK' || h.disposition === 'REPAIR') && <Btn label="Iniciar retrabajo" color={BLUE} onClick={() => act(h, 'rework')} busy={busy === h.id} />}
+                              {h.status === 'DISPOSITIONED' && h.disposition !== 'REWORK' && h.disposition !== 'REPAIR' && <Btn label="Cerrar" color={GREEN} onClick={() => act(h, 'close')} busy={busy === h.id} />}
+                              {(h.status === 'REWORK' || h.status === 'REINSPECT') && <Btn label="Re-inspección" color={BLUE} onClick={() => setReinspectHold(h)} busy={busy === h.id} />}
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
-                </section>
-              );
-            })}
-          </div>
+                    </section>
+                  );
+                })}
+              </div>
+            )}
+          </>
         )}
       </main>
 
@@ -210,6 +233,13 @@ export default function FloorQualityPage() {
         </div>
       )}
 
+      {dispoHold && (
+        <DispositionModal hold={dispoHold} busy={busy === dispoHold.id} onClose={() => setDispoHold(null)} onSubmit={submitDisposition} />
+      )}
+      {reinspectHold && (
+        <ReinspectModal hold={reinspectHold} busy={busy === reinspectHold.id} onClose={() => setReinspectHold(null)} onSubmit={submitReinspect} />
+      )}
+
       <style jsx global>{`
         .ci-input { width: 100%; border-radius: 0.75rem; padding: 0.55rem 0.75rem; background: rgba(0,0,0,0.03); border: 1px solid rgba(0,0,0,0.08); outline: none; font-size: 0.875rem; }
         .ci-input:focus { border-color: ${RED}; }
@@ -227,4 +257,116 @@ function Btn({ label, color, onClick, busy }: { label: string; color: string; on
 }
 function F({ label, children }: { label: string; children: React.ReactNode }) {
   return <label className="block"><span className="block text-[12px] font-medium text-gray-500 mb-1">{label}</span>{children}</label>;
+}
+function Chip({ label, count, active, color = GRAY, onClick }: { label: string; count: number; active: boolean; color?: string; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-medium transition border"
+      style={active ? { background: `${color}1f`, color, borderColor: `${color}66` } : { background: 'transparent', color: '#6b7280', borderColor: 'rgba(148,163,184,0.3)' }}
+    >
+      <span className="w-1.5 h-1.5 rounded-full" style={{ background: color }} /> {label}
+      <span className="opacity-60">{count}</span>
+    </button>
+  );
+}
+
+function ModalShell({ title, icon, onClose, children, footer }: { title: string; icon: React.ReactNode; onClose: () => void; children: React.ReactNode; footer: React.ReactNode }) {
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" onClick={onClose}>
+      <div className={`${glass} rounded-2xl p-5 w-full max-w-lg`} onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-semibold flex items-center gap-2">{icon} {title}</h3>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10"><X className="w-4 h-4" /></button>
+        </div>
+        {children}
+        <div className="mt-5 flex justify-end gap-2">{footer}</div>
+      </div>
+    </div>
+  );
+}
+
+function DispositionModal({ hold, busy, onClose, onSubmit }: { hold: Hold; busy: boolean; onClose: () => void; onSubmit: (body: Record<string, unknown>) => void }) {
+  const [disp, setDisp] = useState<Disp>('USE_AS_IS');
+  const [signedBy, setSignedBy] = useState('');
+  const [notes, setNotes] = useState('');
+  const [waiver, setWaiver] = useState('');
+  const [scarRef, setScarRef] = useState('');
+  const needsWaiver = disp === 'USE_AS_IS';
+  const needsScar = disp === 'RTV';
+  const valid = signedBy.trim().length >= 2 && (!needsWaiver || waiver.trim().length > 0) && (!needsScar || scarRef.trim().length > 0);
+
+  function submit() {
+    if (!valid) return;
+    const body: Record<string, unknown> = { disposition: disp, signedBy: signedBy.trim() };
+    if (notes.trim()) body.notes = notes.trim();
+    if (needsWaiver) body.waiver = waiver.trim();
+    if (needsScar) body.scarRef = scarRef.trim();
+    onSubmit(body);
+  }
+
+  return (
+    <ModalShell
+      title={`Disponer · ${hold.part}`}
+      icon={<FileWarning className="w-4 h-4" style={{ color: VIOLET }} />}
+      onClose={onClose}
+      footer={
+        <>
+          <button onClick={onClose} className="px-4 py-2 rounded-xl text-sm hover:bg-black/5 dark:hover:bg-white/10">Cancelar</button>
+          <button onClick={submit} disabled={busy || !valid} className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white disabled:opacity-50" style={{ background: VIOLET }}>{busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />} Firmar disposición</button>
+        </>
+      }
+    >
+      <div className="grid grid-cols-2 gap-4">
+        <F label="Disposición"><select value={disp} onChange={(e) => setDisp(e.target.value as Disp)} className="ci-input">{DISPS.map((d) => <option key={d} value={d}>{DISP_LABELS[d]}</option>)}</select></F>
+        <F label="Firma (responsable)"><input value={signedBy} onChange={(e) => setSignedBy(e.target.value)} className="ci-input" placeholder="Nombre del MRB" /></F>
+        {needsWaiver && <F label="Desviación / waiver"><input value={waiver} onChange={(e) => setWaiver(e.target.value)} className="ci-input" placeholder="N° de desviación" /></F>}
+        {needsScar && <F label="SCAR / nota de débito"><input value={scarRef} onChange={(e) => setScarRef(e.target.value)} className="ci-input" placeholder="SCAR-…" /></F>}
+        <label className="block col-span-2"><span className="block text-[12px] font-medium text-gray-500 mb-1">Notas (opcional)</span><textarea value={notes} onChange={(e) => setNotes(e.target.value)} className="ci-input" style={{ minHeight: 56, resize: 'vertical' }} /></label>
+      </div>
+      <p className="text-[11px] text-gray-400 mt-3">
+        {needsWaiver ? 'USE_AS_IS exige una desviación/waiver firmada.' : needsScar ? 'RTV abre una acción correctiva al proveedor (SCAR) + nota de débito.' : (disp === 'REWORK' || disp === 'REPAIR') ? 'Tras disponer, abre la orden de retrabajo y re-inspecciona.' : 'La firma queda en la bitácora (Event Ledger).'}
+      </p>
+    </ModalShell>
+  );
+}
+
+function ReinspectModal({ hold, busy, onClose, onSubmit }: { hold: Hold; busy: boolean; onClose: () => void; onSubmit: (body: Record<string, unknown>) => void }) {
+  const [pass, setPass] = useState(true);
+  const [reworkHours, setReworkHours] = useState('');
+  const [scrapQty, setScrapQty] = useState('');
+
+  function submit() {
+    const body: Record<string, unknown> = { pass };
+    if (reworkHours !== '') body.reworkHours = Number(reworkHours);
+    if (!pass && scrapQty !== '') body.scrapQty = Number(scrapQty);
+    onSubmit(body);
+  }
+
+  return (
+    <ModalShell
+      title={`Re-inspección · ${hold.part}`}
+      icon={<AlertTriangle className="w-4 h-4" style={{ color: BLUE }} />}
+      onClose={onClose}
+      footer={
+        <>
+          <button onClick={onClose} className="px-4 py-2 rounded-xl text-sm hover:bg-black/5 dark:hover:bg-white/10">Cancelar</button>
+          <button onClick={submit} disabled={busy} className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white disabled:opacity-50" style={{ background: pass ? GREEN : RED }}>{busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />} {pass ? 'Pasa → liberar' : 'Falla → retrabajo'}</button>
+        </>
+      }
+    >
+      <div className="grid grid-cols-2 gap-4">
+        <label className="block col-span-2">
+          <span className="block text-[12px] font-medium text-gray-500 mb-1">Resultado</span>
+          <div className="inline-flex rounded-xl bg-black/5 dark:bg-white/10 p-0.5 text-[13px] w-full">
+            <button onClick={() => setPass(true)} className={`flex-1 px-3 py-1.5 rounded-lg font-medium ${pass ? 'text-white' : 'text-gray-500'}`} style={pass ? { background: GREEN } : undefined}>Pasa</button>
+            <button onClick={() => setPass(false)} className={`flex-1 px-3 py-1.5 rounded-lg font-medium ${!pass ? 'text-white' : 'text-gray-500'}`} style={!pass ? { background: RED } : undefined}>Falla</button>
+          </div>
+        </label>
+        <F label="Horas de retrabajo (opcional)"><input type="number" min={0} step="0.25" value={reworkHours} onChange={(e) => setReworkHours(e.target.value)} className="ci-input" /></F>
+        {!pass && <F label="Cantidad a scrap (opcional)"><input type="number" min={0} value={scrapQty} onChange={(e) => setScrapQty(e.target.value)} className="ci-input" /></F>}
+      </div>
+      <p className="text-[11px] text-gray-400 mt-3">{pass ? 'Pasa: cierra el hold y libera la WO si no quedan más holds abiertos.' : 'Falla: regresa a retrabajo. Registra el scrap si se descarta material.'}</p>
+    </ModalShell>
+  );
 }
