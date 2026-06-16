@@ -40,6 +40,74 @@ const at = (sheet: any, r: number, c: number) => sheet.celldata.find((x: any) =>
   ok(at(sheet, 2, 0).bg == null, '25 fuera de [10,20]');
 }
 
+// ── Reglas de texto: empieza por / termina en / no contiene ──────────────────
+{
+  const sheet: any = { celldata: [cell(0, 0, 'Manzana'), cell(1, 0, 'Mandarina'), cell(2, 0, 'Pera')] };
+  applyConditional(sheet, { kind: 'compare', range: 'A1:A3', sheetIndex: 0, op: 'beginsWith', value: 'Man', color: '#dbeafe' } as any);
+  eq(at(sheet, 0, 0).bg, '#dbeafe', 'Manzana empieza por Man');
+  eq(at(sheet, 1, 0).bg, '#dbeafe', 'Mandarina empieza por Man');
+  ok(at(sheet, 2, 0).bg == null, 'Pera no empieza por Man');
+
+  const sheet2: any = { celldata: [cell(0, 0, 'informe.pdf'), cell(1, 0, 'hoja.xlsx')] };
+  applyConditional(sheet2, { kind: 'compare', range: 'A1:A2', sheetIndex: 0, op: 'endsWith', value: '.pdf', color: '#fee2e2' } as any);
+  eq(at(sheet2, 0, 0).bg, '#fee2e2', 'termina en .pdf');
+  ok(at(sheet2, 1, 0).bg == null, 'no termina en .pdf');
+
+  const sheet3: any = { celldata: [cell(0, 0, 'ok'), cell(1, 0, 'error: x')] };
+  applyConditional(sheet3, { kind: 'compare', range: 'A1:A2', sheetIndex: 0, op: 'notcontains', value: 'error', color: '#dcfce7' } as any);
+  eq(at(sheet3, 0, 0).bg, '#dcfce7', '«ok» no contiene error');
+  ok(at(sheet3, 1, 0).bg == null, '«error: x» sí contiene error');
+}
+
+// ── Valores únicos (complemento de duplicados) ───────────────────────────────
+{
+  const sheet: any = { celldata: [cell(0, 0, 'a'), cell(1, 0, 'b'), cell(2, 0, 'a'), cell(3, 0, 'c')] };
+  applyConditional(sheet, { kind: 'unique', range: 'A1:A4', sheetIndex: 0, color: '#dcfce7' } as any);
+  ok(at(sheet, 0, 0).bg == null, '«a» duplicado, no único');
+  eq(at(sheet, 1, 0).bg, '#dcfce7', '«b» único');
+  ok(at(sheet, 2, 0).bg == null, '«a» duplicado, no único (2)');
+  eq(at(sheet, 3, 0).bg, '#dcfce7', '«c» único');
+}
+
+// ── Top/Bottom por porcentaje ────────────────────────────────────────────────
+{
+  // 10 valores 1..10; top 30% → 3 mayores (8,9,10)
+  const cells = Array.from({ length: 10 }, (_, i) => cell(i, 0, i + 1));
+  const sheet: any = { celldata: cells };
+  applyConditional(sheet, { kind: 'top', range: 'A1:A10', sheetIndex: 0, n: 30, percent: true, color: '#dcfce7' } as any);
+  eq(at(sheet, 9, 0).bg, '#dcfce7', '10 está en el 30% superior');
+  eq(at(sheet, 7, 0).bg, '#dcfce7', '8 está en el 30% superior');
+  ok(at(sheet, 6, 0).bg == null, '7 NO está en el 30% superior');
+
+  const sheet2: any = { celldata: Array.from({ length: 10 }, (_, i) => cell(i, 0, i + 1)) };
+  applyConditional(sheet2, { kind: 'bottom', range: 'A1:A10', sheetIndex: 0, n: 20, percent: true, color: '#fee2e2' } as any);
+  eq(at(sheet2, 0, 0).bg, '#fee2e2', '1 está en el 20% inferior');
+  eq(at(sheet2, 1, 0).bg, '#fee2e2', '2 está en el 20% inferior');
+  ok(at(sheet2, 2, 0).bg == null, '3 NO está en el 20% inferior');
+}
+
+// ── Conjuntos de iconos: 3, 5 iconos, invertir e idempotencia ────────────────
+{
+  const sheet: any = { celldata: [cell(0, 0, 0), cell(1, 0, 50), cell(2, 0, 100)] };
+  applyConditional(sheet, { kind: 'iconset', range: 'A1:A3', sheetIndex: 0, icons: ['🔴', '🟡', '🟢'] } as any);
+  eq(at(sheet, 0, 0).m, '🔴 0', 'mín → primer icono');
+  eq(at(sheet, 2, 0).m, '🟢 100', 'máx → último icono');
+  // Reaplicar es idempotente (no acumula iconos)
+  applyConditional(sheet, { kind: 'iconset', range: 'A1:A3', sheetIndex: 0, icons: ['🔴', '🟡', '🟢'] } as any);
+  eq(at(sheet, 2, 0).m, '🟢 100', 'reaplicar idempotente');
+  // Invertir
+  applyConditional(sheet, { kind: 'iconset', range: 'A1:A3', sheetIndex: 0, icons: ['🔴', '🟡', '🟢'], reverse: true } as any);
+  eq(at(sheet, 0, 0).m, '🟢 0', 'invertido: mín → 🟢');
+  eq(at(sheet, 2, 0).m, '🔴 100', 'invertido: máx → 🔴');
+}
+{
+  // 5 iconos sobre 0..100 → buckets de 20
+  const sheet: any = { celldata: [cell(0, 0, 0), cell(1, 0, 100)] };
+  applyConditional(sheet, { kind: 'iconset', range: 'A1:A2', sheetIndex: 0, icons: ['▁', '▃', '▅', '▆', '▇'] } as any);
+  eq(at(sheet, 0, 0).m, '▁ 0', 'mín → primer icono (5)');
+  eq(at(sheet, 1, 0).m, '▇ 100', 'máx → último icono (5)');
+}
+
 console.log(`\nCOND SPEC: ${passed} OK, ${fails.length} fallos`);
 if (fails.length) { for (const f of fails) console.error('  ✗ ' + f); throw new Error(`${fails.length} fallos`); }
 console.log('✓ Todas las aserciones de formato condicional pasan.');

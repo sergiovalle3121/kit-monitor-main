@@ -308,5 +308,106 @@ de «Valores y formatos de número» de Excel, intencional.)
   `components/office/sheets/**`). **No** se tocó el ribbon compartido, `OfficeShell`,
   `office/[id]/page.tsx`, Docs/Slides, `globals.css`, `eslint.config.mjs`, ni nada fuera de Office.
 - Rama `claude/wizardly-goodall-LfB7g`, **PR abierto sin mergear** (#261) para revisión del dueño.
-</content>
-</invoke>
+
+---
+
+# ════════════════════════════════════════════════════════════════════════════
+# SESIÓN NOCTURNA (carril F1) — rama `claude/zen-meitner-pwl3o3`
+# ════════════════════════════════════════════════════════════════════════════
+
+> Continuación del trabajo de Hojas. Base: todo lo anterior YA está en `main`
+> (formato condicional completo, rangos con nombre, inmovilizar, rellenar series,
+> pivot, etc.). Carril F1: SOLO `components/office/Sheet*.tsx`, `office/sheets/**`
+> y `lib/office/sheetOps.ts`. NO se toca `OfficeShell`, `page.tsx`, ni backend.
+> Verificación: `tsc --noEmit` limpio, `eslint` sin errores nuevos, `next build`
+> verde, y specs de lógica pura ejecutables con `npx tsx`.
+
+## Reconocimiento (qué ya existía vs. huecos)
+- **Formato condicional:** YA completo (comparación con entre/no-entre/contiene,
+  escala 2/3 colores, superiores/inferiores N, duplicados, conjunto de iconos,
+  barras de datos, limpiar). → no se duplica.
+- **Validación de datos:** SOLO lista desplegable. ← **hueco grande**.
+- **Funciones:** el motor es de Fortune-Sheet (MIT); su catálogo es fijo (no se
+  puede extender sin forkear). Soporta INDEX/MATCH/VLOOKUP/HLOOKUP/XMATCH/etc.,
+  pero **no** XLOOKUP/TEXTJOIN/IFS/SWITCH/UNIQUE/FILTER/SORT. → el «motor» no se
+  toca (riesgoso); se profundiza el **asistente** (descubrimiento + inserción).
+- **Rangos con nombre / inmovilizar / rellenar series:** YA existen.
+- **Estilos de tabla (formato como tabla):** NO existía. ← **hueco**.
+
+### 1) Validación de datos — paridad con Excel  ✅
+**Lógica pura** en `sheetOps.ts` (refleja el validador nativo de Fortune-Sheet,
+verificado leyendo `@fortune-sheet/core`):
+- Tipos: lista desplegable (literal **o desde un rango** — `getDropdownList`
+  resuelve referencias nativamente, lista dinámica), **número / entero /
+  decimal**, **fecha**, **longitud de texto** y **contenido de texto**.
+- Operadores por tipo (`DV_OPERATORS`): entre/no entre, =, ≠, >, <, ≥, ≤
+  (números y longitud); contiene/no contiene/igual (texto); anterior/posterior/
+  entre… (fecha).
+- `buildDataVerification(cfg)` → entrada `dataVerification` nativa (`type`,
+  `type2`, `value1/2`, `prohibitInput`, `hintShow/hintText`).
+- `applyDataVerification(sheet, range, cfg)` / `clearDataVerification`.
+- **Mensaje de error:** el motor muestra el aviso en español al teclear un valor
+  inválido; `prohibitInput` lo **rechaza** (estilo «Detener»). `hintText` añade
+  un **mensaje de entrada** al seleccionar la celda.
+- `dvSatisfies(cfg, raw)` (puro) + `markInvalidCells(sheet, range, cfg)` →
+  «rodear datos no válidos» (rellena en rojo las celdas existentes que incumplen).
+
+**UI:** `SheetTools.tsx` (modo `validation`) reescrito: selector de tipo,
+condición, valor(es) (con `input[type=date]`/`number` según el tipo), mensaje de
+entrada, casilla «rechazar», y botones **Aplicar validación** / **Marcar no
+válidos** / **Quitar validación del rango**. `SheetEditor.applyValidation`
+enruta apply/mark/clear.
+
+**Spec:** `sheets/validation.spec.ts` (**42 aserciones**). Verde.
+
+### 2) Dar formato como tabla (estilos de tabla)  ✅
+**Lógica pura** en `sheetOps.ts`:
+- `applyTableStyle(sheet, opts)` — hornea **encabezado** (relleno + negrita +
+  texto en contraste), **filas con bandas** alternas, **fila de totales** opcional,
+  **bordes** (`config.borderInfo` `border-all`) y **autofiltro nativo**
+  (`filter_select` + `filter`) sobre el encabezado. Crea celdas vacías solo en
+  rangos ≤ 8000 (no infla el modelo). Devuelve nº de celdas con estilo.
+- `TABLE_STYLES` — galería (Azul/Verde/Gris/Naranja/Claro).
+
+**UI:** `SheetTableStyle.tsx` (nuevo) — galería visual de estilos, rango,
+encabezado/bandas/autofiltro/bordes/totales como casillas. Ribbon **Insertar →
+Tablas → «Dar formato como tabla»** (junto a Tabla dinámica) en `SheetEditor`.
+
+**Spec:** `sheets/tablestyle.spec.ts` (**20 aserciones**). Verde.
+
+### 3) Formato condicional: reglas de texto + valores únicos  ✅
+`applyConditional` (en `sheetOps.ts`) gana:
+- Operadores de **texto** en la regla de comparación: **empieza por**,
+  **termina en**, **contiene** / **no contiene** (insensible a mayúsculas).
+- Nueva regla **`unique`** (valores únicos), complemento de `duplicates`,
+  reutilizando el mismo conteo.
+- **Top/Bottom por porcentaje** (`percent`): «el 10% superior/inferior» además
+  del top/bottom-N existente.
+- **Conjuntos de iconos de 3/4/5** iconos (antes solo 3) con buckets uniformes e
+  **invertir orden** (`reverse`); `stripIcon` ampliado para idempotencia con los
+  iconos nuevos (↗️↘️ y barras ▁▃▅▆▇).
+- UI en `SheetTools.tsx`: nuevas opciones en el desplegable de condición, la
+  regla «Valores únicos», la casilla «Por porcentaje», 3 conjuntos de iconos
+  nuevos y «Invertir orden de iconos».
+- Specs añadidos a `sheets/cond.spec.ts` (11 → **35 aserciones**). Verde.
+
+## Diferido / honesto
+- **Funciones nuevas en el motor** (XLOOKUP, TEXTJOIN, IFS, SWITCH, UNIQUE,
+  FILTER, SORT como fórmulas de celda): el motor de Fortune-Sheet **no permite**
+  registrarlas sin forkear el paquete (catálogo fijo). NO se fuerza (rompería el
+  build/estabilidad). **REQUIERE FORK del motor** (fuera del carril nocturno).
+  Nota: UNIQUE/FILTER/SORT ya están disponibles como **acciones de datos**
+  (Quitar duplicados / Filtrar a hoja / Ordenar), que cubren el caso de uso.
+- **Asistente de funciones (`SheetFunctionWizard`)**: NO se tocó. Verificar qué
+  funciones computa el motor leyendo el bundle minificado de `@fortune-sheet/core`
+  es **poco fiable** (la `functionlist` está localizada y la introspección por
+  regex da falsos negativos hasta para `SUM`/`AVERAGE`). Para ampliar/depurar el
+  asistente con garantías habría que probar cada función en un Workbook real
+  (DOM), no en Node. Se deja como está para no anunciar funciones no computables.
+
+## Seguridad / paralelismo (esta sesión)
+- Solo se tocaron: `lib/office/sheetOps.ts`, `components/office/SheetTools.tsx`,
+  `components/office/SheetEditor.tsx`, `components/office/SheetTableStyle.tsx` (nuevo),
+  `components/office/sheets/validation.spec.ts` y `tablestyle.spec.ts` (nuevos),
+  `components/office/sheets/cond.spec.ts` (ampliado), y este log. **No** se tocó
+  backend, esquema, `OfficeShell`, `page.tsx` ni el ribbon compartido.
