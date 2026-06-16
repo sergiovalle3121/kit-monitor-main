@@ -5,7 +5,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { Workbook } from '@fortune-sheet/react';
 import '@fortune-sheet/react/dist/index.css';
-import { ListChecks, Palette, Snowflake, FileText, Sigma, Search, ArrowDownUp, CopyMinus, Columns3, StickyNote, Table2, Hash, Rows3, Activity, ArrowDownToLine, FlipVertical2, Tag, Printer, ClipboardPaste, Filter, RefreshCw } from 'lucide-react';
+import { ListChecks, Palette, Snowflake, FileText, Sigma, Search, ArrowDownUp, CopyMinus, Columns3, StickyNote, Table2, Hash, Rows3, Activity, ArrowDownToLine, FlipVertical2, Tag, Printer, ClipboardPaste, Filter, RefreshCw, LayoutGrid } from 'lucide-react';
 import { SheetCharts } from './SheetCharts';
 import { SheetTools, type ValidationPayload } from './SheetTools';
 import { SheetFunctionWizard } from './SheetFunctionWizard';
@@ -15,8 +15,9 @@ import { SheetPivot } from './SheetPivot';
 import { SheetFormatDialog, type NumberFmtPayload, type StylePayload } from './SheetFormatDialog';
 import { SheetNameManager } from './SheetNameManager';
 import { SheetPrintDialog } from './SheetPrintDialog';
+import { SheetTableStyle, type TableStylePayload } from './SheetTableStyle';
 import { parseRange, type ChartConfig } from '@/lib/office/charts';
-import { applyConditional, sortRangeMulti, removeDuplicates, textToColumns, setCellNote, replaceAll, buildPivot, pivotToCelldata, applyNumberFormat, applyCellStyle, applySubtotals, applySparkline, applyFill, transposeRange, copyRange, buildFilter, buildPrintHtml, usedRange, colName, type CondPayload, type PivotConfig, type FindOpts, type NamedRange, type PrintOpts } from '@/lib/office/sheetOps';
+import { applyConditional, sortRangeMulti, removeDuplicates, textToColumns, setCellNote, replaceAll, buildPivot, pivotToCelldata, applyNumberFormat, applyCellStyle, applySubtotals, applySparkline, applyFill, transposeRange, copyRange, buildFilter, buildPrintHtml, usedRange, colName, applyDataVerification, markInvalidCells, applyTableStyle, type CondPayload, type PivotConfig, type FindOpts, type NamedRange, type PrintOpts } from '@/lib/office/sheetOps';
 import { OfficeRibbon, RibbonTab, RibbonGroup, RibbonSeparator, RibbonButton, RibbonMenuButton } from './ribbon';
 
 // Content is either the legacy bare sheet array or the new { sheets, charts } shape.
@@ -57,6 +58,7 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
   const [showWizard, setShowWizard] = useState(false);
   const [showFind, setShowFind] = useState(false);
   const [showPivot, setShowPivot] = useState(false);
+  const [showTable, setShowTable] = useState(false);
   const [showFormat, setShowFormat] = useState(false);
   const [, setTick] = useState(0);
   const refreshT = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -101,24 +103,18 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
   }
   const sheetNames = () => liveData.map((s: any) => s?.name ?? '');
 
-  function applyValidation({ range, options, sheetIndex }: ValidationPayload) {
+  function applyValidation({ range, sheetIndex, cfg, action }: ValidationPayload) {
     const rng = parseRange(range);
     if (!rng) { window.alert('Rango inválido. Ej: A1:A10'); return; }
     const sheets = clone(sheetsRef.current);
     const sheet = sheets[sheetIndex] ?? sheets[0];
     if (!sheet) return;
-    sheet.dataVerification = sheet.dataVerification || {};
-    const value1 = options.split(',').map((s) => s.trim()).filter(Boolean).join(',');
-    for (let r = rng.r1; r <= rng.r2; r++) {
-      for (let c = rng.c1; c <= rng.c2; c++) {
-        sheet.dataVerification[`${r}_${c}`] = {
-          type: 'dropdown', type2: null, value1, value2: '', validity: '',
-          remote: false, prohibitInput: false, hintShow: false, hintText: '', checked: false,
-        };
-      }
-    }
+    let msg = '';
+    if (action === 'mark') { const n = markInvalidCells(sheet, range, cfg); msg = n ? `${n} celda(s) no válida(s) marcada(s) en rojo.` : 'No hay celdas que incumplan la regla.'; }
+    else applyDataVerification(sheet, range, cfg);
     setTool(null);
     remount(sheets);
+    if (msg) window.setTimeout(() => window.alert(msg), 30);
   }
 
   function applyFreeze(type: string) {
@@ -271,6 +267,16 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
     remount(sheets);
   }
 
+  function applyTable({ sheetIndex, opts }: TableStylePayload) {
+    const sheets = clone(sheetsRef.current);
+    const sheet = sheets[sheetIndex] ?? sheets[0];
+    if (!sheet) { setShowTable(false); return; }
+    const n = applyTableStyle(sheet, opts);
+    setShowTable(false);
+    remount(sheets);
+    if (!n) window.setTimeout(() => window.alert('Rango inválido para la tabla.'), 30);
+  }
+
   function applyPivot(cfg: PivotConfig, target: { mode: 'new' | 'cell'; cell?: string }) {
     const sheets = clone(sheetsRef.current);
     const src = sheets[cfg.sheetIndex] ?? sheets[0];
@@ -348,6 +354,7 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
         {!readOnly && (
           <RibbonTab id="insert" label="Insertar">
             <RibbonGroup label="Tablas">
+              <RibbonButton icon={LayoutGrid} label="Dar formato como tabla" hideLabel={false} onClick={() => setShowTable(true)} />
               <RibbonButton icon={Table2} label="Tabla dinámica" hideLabel={false} onClick={() => setShowPivot(true)} />
               <RibbonButton icon={RefreshCw} label="Actualizar tablas dinámicas" onClick={refreshPivots} />
             </RibbonGroup>
@@ -421,6 +428,15 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
             activeSheetIndex={activeIndex()}
             onApply={applyPivot}
             onClose={() => setShowPivot(false)}
+          />
+        )}
+        {showTable && (
+          <SheetTableStyle
+            sheetNames={sheetNames()}
+            defaultRange={selectionRange()}
+            defaultSheetIndex={activeIndex()}
+            onApply={applyTable}
+            onClose={() => setShowTable(false)}
           />
         )}
         {showFormat && (

@@ -787,6 +787,66 @@ export function applyCellStyle(sheet: any, range: string, style: CellStyle): num
   return count;
 }
 
+// ── Dar formato como tabla (encabezado + filas con bandas + autofiltro) ───────
+export interface TableStyleOpts {
+  range: string;
+  hasHeader?: boolean;   // primera fila = encabezado (def. true)
+  banded?: boolean;      // filas con bandas alternas (def. true)
+  withFilter?: boolean;  // autofiltro en el encabezado (def. true)
+  withBorders?: boolean; // borde fino en toda la tabla (def. true)
+  totalRow?: boolean;    // última fila en negrita como totales (def. false)
+  headerBg?: string; headerFc?: string; band1?: string; band2?: string;
+}
+/** Estilos de tabla predefinidos (encabezado + bandas). */
+export const TABLE_STYLES: { id: string; label: string; headerBg: string; headerFc: string; band1: string; band2: string }[] = [
+  { id: 'blue', label: 'Azul', headerBg: '#2563eb', headerFc: '#ffffff', band1: '#ffffff', band2: '#eff6ff' },
+  { id: 'green', label: 'Verde', headerBg: '#059669', headerFc: '#ffffff', band1: '#ffffff', band2: '#ecfdf5' },
+  { id: 'gray', label: 'Gris', headerBg: '#374151', headerFc: '#ffffff', band1: '#ffffff', band2: '#f3f4f6' },
+  { id: 'orange', label: 'Naranja', headerBg: '#ea580c', headerFc: '#ffffff', band1: '#ffffff', band2: '#fff7ed' },
+  { id: 'minimal', label: 'Claro', headerBg: '#e5e7eb', headerFc: '#111827', band1: '#ffffff', band2: '#f9fafb' },
+];
+
+/** Aplica un estilo de tabla a un rango (encabezado, bandas, autofiltro y bordes). Devuelve celdas con estilo. */
+export function applyTableStyle(sheet: any, opts: TableStyleOpts): number {
+  const rng = parseRange(opts.range); if (!rng || !sheet) return 0;
+  sheet.celldata = sheet.celldata || [];
+  const hasHeader = opts.hasHeader !== false;
+  const banded = opts.banded !== false;
+  const headerBg = opts.headerBg ?? '#2563eb';
+  const headerFc = opts.headerFc ?? '#ffffff';
+  const band1 = opts.band1 ?? '#ffffff';
+  const band2 = opts.band2 ?? '#eff6ff';
+  const map = new Map<string, Cell>();
+  for (const cd of sheet.celldata) map.set(`${cd.r}_${cd.c}`, cd);
+  const area = (rng.r2 - rng.r1 + 1) * (rng.c2 - rng.c1 + 1);
+  const createEmpty = area <= 8000; // las bandas necesitan celdas; evita inflar rangos enormes
+  let count = 0;
+  for (let r = rng.r1; r <= rng.r2; r++) {
+    const isHeader = hasHeader && r === rng.r1;
+    const isTotal = !!opts.totalRow && r === rng.r2 && r !== rng.r1 && !isHeader;
+    const dataIdx = r - rng.r1 - (hasHeader ? 1 : 0); // índice de fila de datos (0-based)
+    for (let c = rng.c1; c <= rng.c2; c++) {
+      let cd = map.get(`${r}_${c}`);
+      if (!cd) { if (!createEmpty) continue; cd = { r, c, v: { v: '', m: '', ct: { fa: 'General', t: 's' } } }; sheet.celldata.push(cd); map.set(`${r}_${c}`, cd); }
+      const v = ensureObj(cd);
+      if (isHeader) { v.bg = headerBg; v.fc = headerFc; v.bl = 1; }
+      else if (isTotal) { v.bg = band1; v.bl = 1; delete v.fc; }
+      else { v.bl = 0; delete v.fc; if (banded) v.bg = (dataIdx % 2 === 0 ? band1 : band2); else v.bg = band1; }
+      count++;
+    }
+  }
+  if (opts.withBorders !== false) {
+    sheet.config = sheet.config || {};
+    sheet.config.borderInfo = sheet.config.borderInfo || [];
+    sheet.config.borderInfo.push({ rangeType: 'range', borderType: 'border-all', color: '#d1d5db', style: 1, range: [{ row: [rng.r1, rng.r2], column: [rng.c1, rng.c2] }] });
+  }
+  if (opts.withFilter !== false && hasHeader) {
+    sheet.filter_select = { row: [rng.r1, rng.r2], column: [rng.c1, rng.c2] };
+    sheet.filter = sheet.filter || {};
+  }
+  return count;
+}
+
 // ── Ordenar multinivel ───────────────────────────────────────────────────────
 export interface SortKey { colRel: number; order: 'asc' | 'desc' }
 const cmpVals = (ka: any, kb: any): number => {
@@ -1177,4 +1237,155 @@ h1 { font-size: 18px; margin: 0 0 8px; }
 table { border-collapse: collapse; ${opts.fitToWidth ? 'width:100%;' : ''} font-size: 12px; }
 td { border: ${border}; padding: 3px 6px; white-space: nowrap; vertical-align: top; }
 </style></head><body>${headerHtml}${titleHtml}<table>${body}</table>${footerHtml}</body></html>`;
+}
+
+// ── Validación de datos (dataVerification nativa de Fortune-Sheet) ────────────
+// El motor de Fortune-Sheet valida en la entrada (rechaza o avisa con mensaje en
+// español) según estas estructuras; aquí construimos la entrada y replicamos la
+// lógica de forma pura para poder marcar celdas no válidas existentes.
+
+export type DvType = 'dropdown' | 'checkbox' | 'number' | 'number_integer' | 'number_decimal' | 'text_length' | 'text_content' | 'date';
+export type DvOperator =
+  | 'between' | 'notBetween' | 'equal' | 'notEqualTo'
+  | 'moreThanThe' | 'lessThan' | 'greaterOrEqualTo' | 'lessThanOrEqualTo'  // número / longitud
+  | 'include' | 'exclude'                                                   // texto
+  | 'earlierThan' | 'noEarlierThan' | 'laterThan' | 'noLaterThan';          // fecha
+
+export interface DvConfig {
+  type: DvType;
+  operator?: DvOperator;
+  value1?: string;
+  value2?: string;
+  prohibitInput?: boolean;   // rechazar entradas inválidas (estilo «Detener»)
+  hintText?: string;         // mensaje de entrada al seleccionar la celda
+}
+
+export interface DvEntry {
+  type: string; type2: string | null; value1: string; value2: string; validity: string;
+  remote: boolean; prohibitInput: boolean; hintShow: boolean; hintText: string; checked: boolean;
+}
+
+const DV_TWO_VALUE = new Set<DvOperator>(['between', 'notBetween']);
+/** Operadores válidos por tipo (para que la UI ofrezca solo los aplicables). */
+export const DV_OPERATORS: Record<DvType, DvOperator[]> = {
+  dropdown: [], checkbox: [],
+  number: ['between', 'notBetween', 'equal', 'notEqualTo', 'moreThanThe', 'lessThan', 'greaterOrEqualTo', 'lessThanOrEqualTo'],
+  number_integer: ['between', 'notBetween', 'equal', 'notEqualTo', 'moreThanThe', 'lessThan', 'greaterOrEqualTo', 'lessThanOrEqualTo'],
+  number_decimal: ['between', 'notBetween', 'equal', 'notEqualTo', 'moreThanThe', 'lessThan', 'greaterOrEqualTo', 'lessThanOrEqualTo'],
+  text_length: ['between', 'notBetween', 'equal', 'notEqualTo', 'moreThanThe', 'lessThan', 'greaterOrEqualTo', 'lessThanOrEqualTo'],
+  text_content: ['include', 'exclude', 'equal'],
+  date: ['between', 'notBetween', 'equal', 'notEqualTo', 'earlierThan', 'noEarlierThan', 'laterThan', 'noLaterThan'],
+};
+
+/** Construye una entrada `dataVerification` de Fortune-Sheet a partir de una config. */
+export function buildDataVerification(cfg: DvConfig): DvEntry {
+  const value1 = cfg.type === 'dropdown'
+    ? (cfg.value1 ?? '').split(',').map((s) => s.trim()).filter(Boolean).join(',')
+    : (cfg.value1 ?? '').trim();
+  const needsTwo = cfg.operator != null && DV_TWO_VALUE.has(cfg.operator);
+  const type2 = (cfg.type === 'dropdown' || cfg.type === 'checkbox') ? null : (cfg.operator ?? 'between');
+  const hintText = (cfg.hintText ?? '').trim();
+  return {
+    type: cfg.type, type2,
+    value1, value2: needsTwo ? (cfg.value2 ?? '').trim() : '',
+    validity: '', remote: false,
+    prohibitInput: !!cfg.prohibitInput,
+    hintShow: hintText.length > 0, hintText,
+    checked: false,
+  };
+}
+
+/** Aplica la validación a todas las celdas del rango. Devuelve cuántas celdas se marcaron. */
+export function applyDataVerification(sheet: any, range: string, cfg: DvConfig): number {
+  const rng = parseRange(range); if (!rng || !sheet) return 0;
+  sheet.dataVerification = sheet.dataVerification || {};
+  const entry = buildDataVerification(cfg);
+  let n = 0;
+  for (let r = rng.r1; r <= rng.r2; r++) for (let c = rng.c1; c <= rng.c2; c++) { sheet.dataVerification[`${r}_${c}`] = { ...entry }; n++; }
+  return n;
+}
+
+/** Quita la validación de las celdas del rango. Devuelve cuántas se quitaron. */
+export function clearDataVerification(sheet: any, range: string): number {
+  const rng = parseRange(range); if (!rng || !sheet?.dataVerification) return 0;
+  let n = 0;
+  for (let r = rng.r1; r <= rng.r2; r++) for (let c = rng.c1; c <= rng.c2; c++) { const k = `${r}_${c}`; if (sheet.dataVerification[k]) { delete sheet.dataVerification[k]; n++; } }
+  return n;
+}
+
+function cmpNumber(n: number, op: DvOperator | undefined, v1: number, v2: number): boolean {
+  switch (op) {
+    case 'between': return n >= Math.min(v1, v2) && n <= Math.max(v1, v2);
+    case 'notBetween': return !(n >= Math.min(v1, v2) && n <= Math.max(v1, v2));
+    case 'equal': return n === v1;
+    case 'notEqualTo': return n !== v1;
+    case 'moreThanThe': return n > v1;
+    case 'lessThan': return n < v1;
+    case 'greaterOrEqualTo': return n >= v1;
+    case 'lessThanOrEqualTo': return n <= v1;
+    default: return true;
+  }
+}
+
+/** Comprueba (puro) si un valor cumple la regla. Refleja la lógica del motor. Vacío = válido. */
+export function dvSatisfies(cfg: DvConfig, raw: any): boolean {
+  const s = raw && typeof raw === 'object' ? (raw.v ?? raw.m ?? '') : raw;
+  const str = s == null ? '' : String(s);
+  if (str.trim() === '') return true; // celdas vacías no se marcan (como Excel)
+  const op = cfg.operator;
+  const v1s = (cfg.value1 ?? '').trim();
+  switch (cfg.type) {
+    case 'checkbox': return true;
+    case 'dropdown': {
+      const list = v1s.split(',').map((x) => x.trim()).filter(Boolean);
+      return str.split(',').every((i) => list.includes(i.trim()));
+    }
+    case 'number': case 'number_integer': case 'number_decimal': {
+      const n = Number(str);
+      if (!Number.isFinite(n)) return false;
+      if (cfg.type === 'number_integer' && n % 1 !== 0) return false;
+      if (cfg.type === 'number_decimal' && n % 1 === 0) return false;
+      return cmpNumber(n, op, Number(v1s), Number(cfg.value2 ?? ''));
+    }
+    case 'text_content':
+      if (op === 'include') return str.includes(v1s);
+      if (op === 'exclude') return !str.includes(v1s);
+      if (op === 'equal') return str === v1s;
+      return true;
+    case 'text_length':
+      return cmpNumber(str.length, op, Number(v1s), Number(cfg.value2 ?? ''));
+    case 'date': {
+      const d = toDate(str); if (!d) return false;
+      const t = d.getTime();
+      const d1 = toDate(v1s); const d2 = toDate((cfg.value2 ?? '').trim());
+      const t1 = d1 ? d1.getTime() : NaN; const t2 = d2 ? d2.getTime() : NaN;
+      switch (op) {
+        case 'between': return Number.isFinite(t1) && Number.isFinite(t2) && t >= Math.min(t1, t2) && t <= Math.max(t1, t2);
+        case 'notBetween': return !(Number.isFinite(t1) && Number.isFinite(t2) && t >= Math.min(t1, t2) && t <= Math.max(t1, t2));
+        case 'equal': return t === t1;
+        case 'notEqualTo': return t !== t1;
+        case 'earlierThan': return t < t1;
+        case 'noEarlierThan': return t >= t1;
+        case 'laterThan': return t > t1;
+        case 'noLaterThan': return t <= t1;
+        default: return true;
+      }
+    }
+  }
+  return true;
+}
+
+/** Marca con relleno rojo las celdas del rango que NO cumplen la regla (como «rodear datos no válidos» de Excel). */
+export function markInvalidCells(sheet: any, range: string, cfg: DvConfig): number {
+  const rng = parseRange(range); if (!rng || !sheet) return 0;
+  sheet.celldata = sheet.celldata || [];
+  const inR = (r: number, c: number) => r >= rng.r1 && r <= rng.r2 && c >= rng.c1 && c <= rng.c2;
+  let n = 0;
+  for (const cd of sheet.celldata) {
+    if (!inR(cd.r, cd.c)) continue;
+    const raw = rawOf(cd);
+    if (raw === '' || raw == null) continue;
+    if (!dvSatisfies(cfg, raw)) { const v = ensureObj(cd); v.bg = '#fde2e1'; v.fc = '#b91c1c'; n++; }
+  }
+  return n;
 }

@@ -1,15 +1,33 @@
 'use client';
-/* eslint-disable @typescript-eslint/no-explicit-any */
 
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { X } from 'lucide-react';
-import type { CondKind, CondPayload } from '@/lib/office/sheetOps';
+import { DV_OPERATORS, type CondKind, type CondPayload, type DvType, type DvOperator, type DvConfig } from '@/lib/office/sheetOps';
 
 const COLORS = ['#fee2e2', '#fef9c3', '#dcfce7', '#dbeafe', '#f3e8ff', '#fce7f3', '#ffd54f', '#f8696b', '#63be7b'];
 
-export interface ValidationPayload { range: string; options: string; sheetIndex: number }
+export interface ValidationPayload { range: string; sheetIndex: number; cfg: DvConfig; action: 'apply' | 'mark' }
 export type { CondPayload } from '@/lib/office/sheetOps';
+
+const DV_TYPES: { value: DvType; label: string }[] = [
+  { value: 'dropdown', label: 'Lista desplegable' },
+  { value: 'number', label: 'Número (decimal o entero)' },
+  { value: 'number_integer', label: 'Número entero' },
+  { value: 'number_decimal', label: 'Número decimal' },
+  { value: 'date', label: 'Fecha' },
+  { value: 'text_length', label: 'Longitud del texto' },
+  { value: 'text_content', label: 'Texto' },
+];
+const DV_OP_LABEL: Record<DvOperator, string> = {
+  between: 'está entre', notBetween: 'no está entre',
+  equal: 'es igual a', notEqualTo: 'no es igual a',
+  moreThanThe: 'es mayor que', lessThan: 'es menor que',
+  greaterOrEqualTo: 'es mayor o igual que', lessThanOrEqualTo: 'es menor o igual que',
+  include: 'contiene', exclude: 'no contiene',
+  earlierThan: 'es anterior a', noEarlierThan: 'no es anterior a',
+  laterThan: 'es posterior a', noLaterThan: 'no es posterior a',
+};
 
 const KINDS: { value: CondKind; label: string }[] = [
   { value: 'compare', label: 'Comparación (>, <, =, contiene)' },
@@ -41,6 +59,13 @@ export function SheetTools({
   const [range, setRange] = useState('A1:A10');
   const [options, setOptions] = useState('Sí, No, Pendiente');
   const [sheetIndex, setSheetIndex] = useState(0);
+  // Validación de datos
+  const [dvType, setDvType] = useState<DvType>('dropdown');
+  const [dvOp, setDvOp] = useState<DvOperator>('between');
+  const [dvV1, setDvV1] = useState('');
+  const [dvV2, setDvV2] = useState('');
+  const [dvReject, setDvReject] = useState(true);
+  const [dvHint, setDvHint] = useState('');
   // Formato condicional
   const [kind, setKind] = useState<CondKind>('compare');
   const [op, setOp] = useState('>');
@@ -65,6 +90,17 @@ export function SheetTools({
       </label>
     </div>
   );
+
+  const dvOps = DV_OPERATORS[dvType];
+  const dvNeedsTwo = dvOp === 'between' || dvOp === 'notBetween';
+  const dvCurrentOp = dvOps.includes(dvOp) ? dvOp : (dvOps[0] ?? undefined);
+  function buildDvConfig(): DvConfig {
+    if (dvType === 'dropdown') return { type: 'dropdown', value1: options, prohibitInput: dvReject, hintText: dvHint };
+    return { type: dvType, operator: dvCurrentOp, value1: dvV1, value2: dvV2, prohibitInput: dvReject, hintText: dvHint };
+  }
+  function submitValidation(action: 'apply' | 'mark') {
+    onApplyValidation({ range, sheetIndex, cfg: buildDvConfig(), action });
+  }
 
   function applyCond() {
     const base = { kind, range, sheetIndex } as CondPayload;
@@ -100,11 +136,60 @@ export function SheetTools({
 
         {mode === 'validation' ? (
           <>
-            <label className="block text-xs text-gray-500">Opciones de la lista (separadas por coma)
-              <input value={options} onChange={(e) => setOptions(e.target.value)} placeholder="Sí, No, Pendiente" className={field} />
+            <label className="block text-xs text-gray-500">Permitir
+              <select value={dvType} onChange={(e) => setDvType(e.target.value as DvType)} className={field}>
+                {DV_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+              </select>
             </label>
-            <button onClick={() => onApplyValidation({ range, options, sheetIndex })}
-              className="w-full h-10 rounded-xl bg-black dark:bg-white text-white dark:text-black font-semibold hover:opacity-90">Aplicar lista desplegable</button>
+
+            {dvType === 'dropdown' ? (
+              <label className="block text-xs text-gray-500">Opciones de la lista (separadas por coma)
+                <input value={options} onChange={(e) => setOptions(e.target.value)} placeholder="Sí, No, Pendiente" className={field} />
+              </label>
+            ) : dvType === 'text_content' ? (
+              <div className="flex gap-2">
+                <label className="flex-1 text-xs text-gray-500">Condición
+                  <select value={dvCurrentOp} onChange={(e) => setDvOp(e.target.value as DvOperator)} className={field}>
+                    {dvOps.map((o) => <option key={o} value={o}>{DV_OP_LABEL[o]}</option>)}
+                  </select>
+                </label>
+                <label className="flex-1 text-xs text-gray-500">Texto
+                  <input value={dvV1} onChange={(e) => setDvV1(e.target.value)} placeholder="AXOS" className={field} />
+                </label>
+              </div>
+            ) : (
+              <>
+                <label className="block text-xs text-gray-500">Condición
+                  <select value={dvCurrentOp} onChange={(e) => setDvOp(e.target.value as DvOperator)} className={field}>
+                    {dvOps.map((o) => <option key={o} value={o}>{DV_OP_LABEL[o]}</option>)}
+                  </select>
+                </label>
+                <div className="flex gap-2">
+                  <label className="flex-1 text-xs text-gray-500">{dvNeedsTwo ? 'Mínimo' : 'Valor'}
+                    <input type={dvType === 'date' ? 'date' : 'number'} value={dvV1} onChange={(e) => setDvV1(e.target.value)} className={field} />
+                  </label>
+                  {dvNeedsTwo && (
+                    <label className="flex-1 text-xs text-gray-500">Máximo
+                      <input type={dvType === 'date' ? 'date' : 'number'} value={dvV2} onChange={(e) => setDvV2(e.target.value)} className={field} />
+                    </label>
+                  )}
+                </div>
+              </>
+            )}
+
+            <label className="block text-xs text-gray-500">Mensaje de entrada (opcional)
+              <input value={dvHint} onChange={(e) => setDvHint(e.target.value)} placeholder="Aparece al seleccionar la celda" className={field} />
+            </label>
+            <label className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer">
+              <input type="checkbox" checked={dvReject} onChange={(e) => setDvReject(e.target.checked)} /> Rechazar entradas no válidas
+            </label>
+            <div className="flex gap-2">
+              <button onClick={() => submitValidation('apply')}
+                className="flex-1 h-10 rounded-xl bg-black dark:bg-white text-white dark:text-black font-semibold hover:opacity-90">Aplicar validación</button>
+              <button onClick={() => submitValidation('mark')}
+                className="h-10 px-3 rounded-xl border border-gray-300 dark:border-white/15 text-sm font-semibold hover:bg-black/5 dark:hover:bg-white/10">Marcar no válidos</button>
+            </div>
+            <p className="text-[11px] text-gray-400">«Rechazar» bloquea valores fuera de la regla; si no, solo avisa. «Marcar no válidos» rellena en rojo las celdas existentes que no cumplen.</p>
           </>
         ) : (
           <>
