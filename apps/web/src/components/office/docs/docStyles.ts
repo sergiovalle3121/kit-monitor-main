@@ -78,6 +78,18 @@ export const DOC_EXTRA_CSS = `
 /* ───────────── Columnas: línea entre columnas ───────────── */
 .doc-cols-rule .ProseMirror { column-rule: 1px solid #d1d5db; }
 @media (prefers-color-scheme: dark) { .doc-cols-rule .ProseMirror { column-rule-color: rgba(255,255,255,0.18); } }
+
+/* ───────────── Guías de salto de página (canvas continuo) ───────────── */
+.doc-page-guide {
+  position: absolute; left: 0; right: 0; height: 0; z-index: 3; pointer-events: none;
+  border-top: 1px dashed rgba(37, 99, 235, 0.35);
+}
+.doc-page-guide .doc-page-guide-label {
+  position: absolute; right: 8px; top: 3px; font-size: 9px; font-weight: 600; letter-spacing: 0.03em;
+  color: #93a4c8; background: rgba(255,255,255,0.85); padding: 0 5px; border-radius: 6px;
+}
+@media (prefers-color-scheme: dark) { .doc-page-guide .doc-page-guide-label { background: rgba(20,20,20,0.85); color: #6b7ba6; } }
+@media print { .doc-page-guide { display: none !important; } }
 `;
 
 /** Propiedades de una redefinición de estilo (Word: «redefinir según selección»). */

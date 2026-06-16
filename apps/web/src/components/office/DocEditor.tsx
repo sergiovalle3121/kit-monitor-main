@@ -201,6 +201,9 @@ export function DocEditor({ value, onChange, readOnly, author, onStats, fileActi
   const [suggesting, setSuggesting] = React.useState(false);
   // Cómo mostrar las revisiones (control de cambios): todas / sencillo / final / original.
   const [trackView, setTrackView] = React.useState<TrackView>('markup');
+  // Guías de salto de página (líneas que marcan dónde rompería cada página).
+  const [pageGuides, setPageGuides] = React.useState(false);
+  const [guides, setGuides] = React.useState<number[]>([]);
   // Copiar formato (format painter): guarda el formato capturado; se aplica a la
   // siguiente selección no vacía (al soltar el ratón en el editor).
   const [painter, setPainter] = React.useState<Record<string, any> | null>(null);
@@ -217,6 +220,30 @@ export function DocEditor({ value, onChange, readOnly, author, onStats, fileActi
   useEffect(() => { if (editor) editor.setEditable(!readOnly && !readingMode); }, [editor, readOnly, readingMode]);
   // Modo enfoque: resalta la línea activa.
   useEffect(() => { if (editor) (editor.commands as any).setFocusLine(focusMode); }, [editor, focusMode]);
+
+  // Guías de salto de página: mide la altura del contenido y coloca una línea cada
+  // «altura imprimible» (mismo cálculo que la estimación de páginas de la TOC).
+  useEffect(() => {
+    if (!editor || !pageGuides) return;  // las guías sólo se pintan con pageGuides activo
+    const DIM: Record<string, [number, number]> = { a4: [794, 1123], letter: [816, 1056], legal: [816, 1344] };
+    const measure = () => {
+      const m: any = editor.state.doc.attrs || {};
+      const [w, h] = DIM[m.pageSize as string] || DIM.a4;
+      const minH = m.pageOrientation === 'landscape' ? w : h;
+      const pad = m.pageMargin === 'narrow' ? 36 : m.pageMargin === 'wide' ? 104 : 64;
+      const ph = Math.max(1, minH - pad * 2);
+      const n = Math.max(0, Math.floor(editor.view.dom.scrollHeight / ph));
+      const arr: number[] = [];
+      for (let k = 1; k <= n; k += 1) arr.push(pad + k * ph);
+      setGuides(arr);
+    };
+    let raf = 0;
+    const onUpd = () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(measure); };
+    onUpd();
+    editor.on('update', onUpd);
+    window.addEventListener('resize', onUpd);
+    return () => { cancelAnimationFrame(raf); editor.off('update', onUpd); window.removeEventListener('resize', onUpd); };
+  }, [editor, pageGuides]);
 
   // Ctrl/Cmd+F opens in-document find & replace (like Google Docs).
   useEffect(() => {
@@ -513,6 +540,7 @@ export function DocEditor({ value, onChange, readOnly, author, onStats, fileActi
               showRuler={showRuler} setShowRuler={setShowRuler}
               zoom={zoom} setZoom={setZoom}
               spellcheck={spellcheck} setSpellcheck={setSpellcheck}
+              pageGuides={pageGuides} setPageGuides={setPageGuides}
             />
             <RibbonSeparator />
             <RibbonGroup label="Documento">
@@ -535,6 +563,11 @@ export function DocEditor({ value, onChange, readOnly, author, onStats, fileActi
           style={{ width: readingMode ? 760 : pageW, maxWidth: '100%', minHeight: readingMode ? undefined : pageMinH, padding: readingMode ? 56 : pagePad, zoom }}
         >
           {pgWatermark && <div className="doc-watermark" aria-hidden>{pgWatermark}</div>}
+          {!readingMode && pageGuides && guides.map((y, i) => (
+            <div key={i} className="doc-page-guide" aria-hidden style={{ top: y }}>
+              <span className="doc-page-guide-label">Página {i + 2}</span>
+            </div>
+          ))}
           {!readingMode && pgHeader && <div className="doc-page-header" aria-hidden style={{ left: pagePad, right: pagePad }}>{pgHeader}</div>}
           <div className="relative z-[1]">
             <EditorContent editor={editor} />

@@ -254,6 +254,19 @@ CSS de todo lo anterior en `tiptap.css`.
   `DocEditor.tsx` (segundo `<style>` con las reglas de estilo).
 - Puertas: `tsc` 0, `eslint` carril 0, `next build` verde.
 
+### F2 · Wave 6 — Pulir paginación: guías de salto de página en el lienzo
+- **Guías de salto de página** (toggle en *Vista*): líneas discontinuas en el
+  lienzo continuo que marcan dónde rompería cada página, con etiqueta «Página N».
+  Se miden con el mismo cálculo de altura imprimible que la estimación de la TOC
+  (consistencia entre el índice y las guías). Re-mide en cada cambio/resize vía rAF
+  (sin reflow por tecla) y desaparecen en impresión.
+- La paginación «real» (flujo por páginas con sus márgenes/encabezados) sigue en la
+  *Vista de página* (Paged.js), ahora por sección; estas guías son la pista visual
+  en el editor mientras se escribe.
+- Archivos: `DocEditor.tsx` (estado + efecto de medición + overlays),
+  `docs/DocViewTools.tsx` (toggle), `docs/docStyles.ts` (CSS de las guías).
+- Puertas: `tsc` 0, `eslint` carril 0 (sin warnings), `next build` verde.
+
 ## Resumen final de la sesión
 Se llevó el editor de Documentos muy cerca de Word, todo con código propio sobre
 TipTap/ProseMirror (MIT) + KaTeX (MIT). **No se tocó** el ribbon compartido,
