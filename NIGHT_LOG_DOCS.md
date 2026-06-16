@@ -277,6 +277,19 @@ CSS de todo lo anterior en `tiptap.css`.
   (panel agrupado por autor).
 - Puertas: `tsc` 0, `eslint` carril 0, `next build` verde.
 
+### F2 · Wave 8 — Saltos de línea y de página por párrafo (paginación real)
+- **Atributos de paginación de párrafo** (Word «Líneas y saltos de página»):
+  *conservar con el siguiente* (`break-after:avoid`), *conservar líneas juntas*
+  (`break-inside:avoid`) y *salto de página antes* (`break-before:page`). Atributos
+  globales sobre párrafo/encabezado (estilo inline + `data-*`), con comandos toggle
+  y entradas en el menú de párrafo.
+- **Control de viuda/huérfana** y *encabezados pegados a su texto* por defecto en la
+  vista paginada (`orphans/widows:2`, `h1-h4 { break-after/inside: avoid }`), para
+  que el contenido fluya por páginas como Word.
+- Archivos: `docs/paragraphFormat.ts` (attrs + comandos), `docs/DocParagraphMenu.tsx`
+  (entradas), `DocPageView.tsx` (reglas de fragmentación en `CONTENT_CSS`).
+- Puertas: `tsc` 0, `eslint` carril 0, `next build` verde.
+
 ## Resumen final de la sesión
 Se llevó el editor de Documentos muy cerca de Word, todo con código propio sobre
 TipTap/ProseMirror (MIT) + KaTeX (MIT). **No se tocó** el ribbon compartido,

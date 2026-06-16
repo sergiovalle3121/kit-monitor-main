@@ -23,6 +23,11 @@ const CONTENT_CSS = `
   .doc-content img{max-width:100%}
   .doc-content .page-break{break-before:page;height:0}
   .doc-content [data-section-break]{display:none}
+  .doc-content p,.doc-content li{orphans:2;widows:2}
+  .doc-content [data-break-before]{break-before:page}
+  .doc-content [data-keep-lines]{break-inside:avoid}
+  .doc-content [data-keep-next]{break-after:avoid}
+  .doc-content h1,.doc-content h2,.doc-content h3,.doc-content h4{break-after:avoid;break-inside:avoid}
 `;
 
 const SIZE_KW: Record<string, string> = { a4: 'A4', letter: 'Letter', legal: 'Legal' };
