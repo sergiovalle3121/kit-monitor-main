@@ -31,6 +31,8 @@ import { ProductionPlanModule } from './modules/production-plan/production-plan.
 import { MaterialStagingModule } from './modules/material-staging/material-staging.module';
 import { OperatorTerminalModule } from './modules/operator-terminal/operator-terminal.module';
 import { FloorQualityModule } from './modules/floor-quality/floor-quality.module';
+import { FaiModule } from './modules/fai/fai.module';
+import { ChangeoverModule } from './modules/changeover/changeover.module';
 import { GenealogyModule } from './modules/genealogy/genealogy.module';
 import { LineControlTowerModule } from './modules/line-control-tower/line-control-tower.module';
 import { OeeModule } from './modules/oee/oee.module';
@@ -106,6 +108,8 @@ import { AiModule } from './modules/ai/ai.module';
     MaterialStagingModule,
     OperatorTerminalModule,
     FloorQualityModule,
+    FaiModule,
+    ChangeoverModule,
     GenealogyModule,
     LineControlTowerModule,
     OeeModule,

@@ -46,6 +46,8 @@ export const DEFAULT_SEQUENCES: SequenceDefault[] = [
   { docType: 'TOOL', name: 'Herramental', prefix: 'TL', pattern: '{PREFIX}-{SEQ}', padding: 5, resetPolicy: 'NEVER', description: 'Herramentales / moldes (NPI / Proceso).' },
   { docType: 'MODEL', name: 'Modelo / Producto', prefix: 'MDL', pattern: '{PREFIX}-{SEQ}', padding: 5, resetPolicy: 'NEVER', description: 'Maestro de modelos / productos (NPI / Ingeniería).' },
   { docType: 'RMA', name: 'Queja / RMA de Cliente', prefix: 'RMA', pattern: '{PREFIX}-{YYYY}-{SEQ}', padding: 5, resetPolicy: 'YEARLY', description: 'Quejas / devoluciones de cliente (Calidad).' },
+  { docType: 'FAI', name: 'Inspección de Primera Pieza', prefix: 'FAI', pattern: '{PREFIX}-{YYYY}-{SEQ}', padding: 5, resetPolicy: 'YEARLY', description: 'First Article Inspection (primera pieza).' },
+  { docType: 'CHANGEOVER', name: 'Cambio de Modelo (SMED)', prefix: 'CO', pattern: '{PREFIX}-{YYYY}-{SEQ}', padding: 5, resetPolicy: 'YEARLY', description: 'Cambios de modelo / SMED en línea.' },
 ];
 
 const PATTERN_FALLBACK = '{PREFIX}-{YYYY}-{SEQ}';
