@@ -3,12 +3,46 @@
 
 import React from 'react';
 import type { Editor } from '@tiptap/react';
-import { Type } from 'lucide-react';
+import { Type, Wand2, RotateCcw } from 'lucide-react';
 import { RibbonMenuButton } from './ribbon';
+import type { StyleProps } from './docs/docStyles';
+
+const KEY_LABELS: Record<string, string> = {
+  normal: 'Normal', title: 'Título', subtitle: 'Subtítulo', nospacing: 'Sin espaciado',
+  reference: 'Referencia', caption: 'Leyenda', h1: 'Encabezado 1', h2: 'Encabezado 2',
+  h3: 'Encabezado 3', h4: 'Encabezado 4', h5: 'Encabezado 5', h6: 'Encabezado 6',
+};
 
 /** Galería visual de estilos con nombre (tarjetas), estilo Word. */
 export function DocStyleGallery({ editor }: { editor: Editor }) {
   const c = () => editor.chain().focus();
+
+  // Clave del estilo activo (para redefinir/restablecer): encabezado, estilo con
+  // nombre o «normal». Los estilos de encabezado son los que alimentan la TOC.
+  const headingLevel = ([1, 2, 3, 4, 5, 6] as const).find((l) => editor.isActive('heading', { level: l }));
+  const curKey = headingLevel
+    ? (editor.getAttributes('heading').styleName === 'title' ? 'title' : `h${headingLevel}`)
+    : (editor.getAttributes('paragraph').styleName || 'normal');
+  const curKeyLabel = KEY_LABELS[curKey] || curKey;
+  const defs: Record<string, StyleProps> = (editor.state.doc.attrs as any)?.styleDefs || {};
+
+  // Redefinir el estilo actual según el formato de la selección (Word).
+  const redefineStyle = () => {
+    const ts = editor.getAttributes('textStyle');
+    const align = (['left', 'center', 'right', 'justify'] as const).find((a) => editor.isActive({ textAlign: a }));
+    const lineHeight = (headingLevel ? editor.getAttributes('heading') : editor.getAttributes('paragraph')).lineHeight ?? null;
+    const props: StyleProps = {
+      fontFamily: ts.fontFamily ?? null, fontSize: ts.fontSize ?? null, color: ts.color ?? null,
+      bold: editor.isActive('bold'), italic: editor.isActive('italic'), underline: editor.isActive('underline'),
+      textAlign: align ?? null, lineHeight,
+    };
+    (editor.chain().focus() as any).setPageMeta({ styleDefs: { ...defs, [curKey]: props } }).run();
+  };
+  const resetStyle = () => {
+    const next = { ...defs };
+    delete next[curKey];
+    (editor.chain().focus() as any).setPageMeta({ styleDefs: Object.keys(next).length ? next : null }).run();
+  };
 
   const STYLES: { key: string; label: string; apply: () => void; active: () => boolean; preview: React.ReactNode }[] = [
     {
@@ -87,13 +121,31 @@ export function DocStyleGallery({ editor }: { editor: Editor }) {
           </button>
         ))}
       </div>
-      <button
-        type="button" onMouseDown={(e) => e.preventDefault()}
-        onClick={() => (c() as any).setParagraph().updateAttributes('paragraph', { styleName: '' }).unsetAllMarks().run()}
-        className="mt-1 w-full text-left text-[12px] font-medium px-2.5 py-2 rounded-xl text-gray-600 dark:text-gray-300 hover:bg-black/[0.04] dark:hover:bg-white/[0.06] border-t border-black/5 dark:border-white/10"
-      >
-        Borrar formato (a Normal)
-      </button>
+      <div className="mt-1 border-t border-black/5 dark:border-white/10 pt-1 space-y-0.5">
+        <button
+          type="button" onMouseDown={(e) => e.preventDefault()} onClick={redefineStyle}
+          className="w-full flex items-center gap-2 text-left text-[12px] font-medium px-2.5 py-2 rounded-xl text-gray-700 dark:text-gray-200 hover:bg-black/[0.04] dark:hover:bg-white/[0.06]"
+        >
+          <Wand2 className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />
+          Redefinir «{curKeyLabel}» según la selección
+        </button>
+        {defs[curKey] && (
+          <button
+            type="button" onMouseDown={(e) => e.preventDefault()} onClick={resetStyle}
+            className="w-full flex items-center gap-2 text-left text-[12px] font-medium px-2.5 py-2 rounded-xl text-gray-600 dark:text-gray-300 hover:bg-black/[0.04] dark:hover:bg-white/[0.06]"
+          >
+            <RotateCcw className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+            Restablecer «{curKeyLabel}»
+          </button>
+        )}
+        <button
+          type="button" onMouseDown={(e) => e.preventDefault()}
+          onClick={() => (c() as any).setParagraph().updateAttributes('paragraph', { styleName: '' }).unsetAllMarks().run()}
+          className="w-full text-left text-[12px] font-medium px-2.5 py-2 rounded-xl text-gray-600 dark:text-gray-300 hover:bg-black/[0.04] dark:hover:bg-white/[0.06]"
+        >
+          Borrar formato (a Normal)
+        </button>
+      </div>
     </RibbonMenuButton>
   );
 }

@@ -79,3 +79,38 @@ export const DOC_EXTRA_CSS = `
 .doc-cols-rule .ProseMirror { column-rule: 1px solid #d1d5db; }
 @media (prefers-color-scheme: dark) { .doc-cols-rule .ProseMirror { column-rule-color: rgba(255,255,255,0.18); } }
 `;
+
+/** Propiedades de una redefinición de estilo (Word: «redefinir según selección»). */
+export interface StyleProps {
+  fontFamily?: string | null; fontSize?: string | null; color?: string | null;
+  bold?: boolean; italic?: boolean; underline?: boolean;
+  textAlign?: string | null; lineHeight?: string | null;
+}
+
+const styleSelector = (key: string) => {
+  if (/^h[1-6]$/.test(key)) return `.tiptap-page .ProseMirror ${key}`;
+  if (key === 'normal') return `.tiptap-page .ProseMirror p:not([data-style])`;
+  return `.tiptap-page .ProseMirror [data-style="${key}"]`;
+};
+
+const styleDecls = (p: StyleProps) => {
+  const d: string[] = [];
+  if (p.fontFamily) d.push(`font-family:${p.fontFamily}`);
+  if (p.fontSize) d.push(`font-size:${p.fontSize}`);
+  if (p.color) d.push(`color:${p.color}`);
+  if (p.bold != null) d.push(`font-weight:${p.bold ? 700 : 400}`);
+  if (p.italic) d.push('font-style:italic');
+  if (p.underline) d.push('text-decoration:underline');
+  if (p.textAlign) d.push(`text-align:${p.textAlign}`);
+  if (p.lineHeight) d.push(`line-height:${p.lineHeight}`);
+  return d.join(';');
+};
+
+/** Convierte el mapa de redefiniciones de estilo en reglas CSS inyectables. */
+export function styleDefsToCss(defs: Record<string, StyleProps> | null | undefined): string {
+  if (!defs) return '';
+  return Object.entries(defs)
+    .map(([key, props]) => { const decl = styleDecls(props || {}); return decl ? `${styleSelector(key)} { ${decl}; }` : ''; })
+    .filter(Boolean)
+    .join('\n');
+}

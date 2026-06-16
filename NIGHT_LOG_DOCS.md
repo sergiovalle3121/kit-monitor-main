@@ -240,6 +240,20 @@ CSS de todo lo anterior en `tiptap.css`.
   `DocPageView.tsx` (column-rule), `docs/docStyles.ts` (CSS).
 - Puertas: `tsc` 0, `eslint` carril 0, `next build` verde.
 
+### F2 · Wave 5 — Estilos de párrafo: redefinir según la selección (consistentes)
+- **«Redefinir estilo según la selección»** (Word): captura el formato de la
+  selección (fuente/tamaño/color/negrita/cursiva/subrayado/alineación/interlineado)
+  y lo guarda en `pageMeta.styleDefs[clave]`. La redefinición se aplica a **todos**
+  los bloques de ese estilo del documento (consistencia), inyectando CSS generado
+  desde `styleDefs`. Hay también «Restablecer estilo».
+- Las claves de estilo de encabezado (`h1`-`h6`) son las que alimentan la TOC, así
+  que redefinirlas mantiene el documento y su índice coherentes («ligado a la TOC»).
+- El formato inline explícito sigue ganando sobre el estilo (como en Word).
+- Archivos: `docPageExtensions.ts` (attr `styleDefs`), `docs/docStyles.ts`
+  (`StyleProps` + `styleDefsToCss`), `DocStyleGallery.tsx` (redefinir/restablecer),
+  `DocEditor.tsx` (segundo `<style>` con las reglas de estilo).
+- Puertas: `tsc` 0, `eslint` carril 0, `next build` verde.
+
 ## Resumen final de la sesión
 Se llevó el editor de Documentos muy cerca de Word, todo con código propio sobre
 TipTap/ProseMirror (MIT) + KaTeX (MIT). **No se tocó** el ribbon compartido,

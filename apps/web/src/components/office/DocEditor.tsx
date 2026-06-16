@@ -80,7 +80,7 @@ import { DocInsertExtras } from './docs/DocInsertExtras';
 import { DocTrackChanges, type TrackView } from './docs/DocTrackChanges';
 import { DocWordCount } from './docs/DocWordCount';
 import { DocTemplates } from './docs/DocTemplates';
-import { DOC_EXTRA_CSS } from './docs/docStyles';
+import { DOC_EXTRA_CSS, styleDefsToCss } from './docs/docStyles';
 import {
   OfficeRibbon, RibbonTab, RibbonGroup, RibbonSeparator,
   RibbonButton, RibbonSelect, RibbonColorButton,
@@ -343,6 +343,7 @@ export function DocEditor({ value, onChange, readOnly, author, onStats, fileActi
   return (
     <div className="flex flex-col h-full">
       <style>{DOC_EXTRA_CSS}</style>
+      <style>{styleDefsToCss(meta.styleDefs)}</style>
       <OfficeRibbon storageKey="ribbon:doc">
           {fileActions != null && (
             <RibbonTab id="file" label="Archivo" icon={FileText}>
