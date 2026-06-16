@@ -5,7 +5,7 @@ import Link from "next/link";
 import { motion, useReducedMotion } from "framer-motion";
 import {
   Loader2, Lock, Inbox, ChevronRight,
-  Calculator, Landmark, Boxes, Terminal, Receipt, TrendingUp, Wallet,
+  Calculator, Landmark, Boxes, Terminal, Receipt, TrendingUp, Wallet, Gauge,
 } from "lucide-react";
 import { glass } from "@/lib/glass";
 import { containerRM, itemRM, hoverRM, pressRM } from "@/lib/motion";
@@ -21,6 +21,7 @@ interface Transaction {
 
 // Herramientas reales del dominio financiero (rutas que ya existen en la app).
 const TOOLS: { title: string; desc: string; href: string; icon: React.ElementType; color: string; tint: string }[] = [
+  { title: "Inteligencia de costos", desc: "COGS y variancia en vivo desde el piso · uso, scrap y cierre", href: "/dashboard/finance/cost-intelligence", icon: Gauge, color: "text-teal-500", tint: "bg-teal-50 dark:bg-teal-500/10" },
   { title: "Costeo por orden", desc: "Mano de obra, materiales, energía y overhead por WO", href: "/dashboard/finance/cost-rollup", icon: Calculator, color: "text-emerald-500", tint: "bg-emerald-50 dark:bg-emerald-500/10" },
   { title: "Contabilidad (FIN)", desc: "Cuentas, pólizas y periodos fiscales", href: "/dashboard/erp/fin", icon: Landmark, color: "text-violet-500", tint: "bg-violet-50 dark:bg-violet-500/10" },
   { title: "Materiales (MM)", desc: "Valuación de inventario y movimientos", href: "/dashboard/erp/mm", icon: Boxes, color: "text-sky-500", tint: "bg-sky-50 dark:bg-sky-500/10" },
