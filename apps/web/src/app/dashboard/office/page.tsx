@@ -12,6 +12,7 @@ import {
 import { glass } from '@/lib/glass';
 import { useApi } from '@/hooks/useApi';
 import { useAuth } from '@/hooks/useAuth';
+import { usePermissions } from '@/hooks/usePermissions';
 import { apiFetch } from '@/lib/apiFetch';
 import { TemplateGallery } from '@/components/office/TemplateGallery';
 
@@ -40,9 +41,9 @@ function relTime(iso?: string): string {
 
 export default function OfficeHubPage() {
   const router = useRouter();
-  const { user, roles, permissions } = useAuth();
-  const canWrite = roles.includes('Admin') || permissions.some((p) => p.endsWith(':write'));
-  const isAdmin = roles.includes('Admin');
+  const { user } = useAuth();
+  // Gate de escritura centralizado: robusto para admin/owner (ver usePermissions).
+  const { canWrite, isAdmin } = usePermissions();
 
   const [tab, setTab] = useState<DocType>('doc');
   const [trash, setTrash] = useState(false);
