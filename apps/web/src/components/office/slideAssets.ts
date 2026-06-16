@@ -22,10 +22,24 @@ export const SLIDE_TRANSITIONS: { label: string; value: string }[] = [
   { label: 'Deslizar', value: 'slide' },
   { label: 'Deslizar arriba', value: 'slideUp' },
   { label: 'Empujar', value: 'push' },
+  { label: 'Barrido', value: 'wipe' },
+  { label: 'Cubrir', value: 'cover' },
   { label: 'Zoom', value: 'zoom' },
   { label: 'Revelar', value: 'reveal' },
   { label: 'Voltear', value: 'flip' },
+  { label: 'Transformar (morph)', value: 'morph' },
 ];
+
+/** Duración de transición de diapositiva (ms). Compartida por la pestaña
+ *  Transiciones y el modo presentación. */
+export const TRANS_DURATIONS: { label: string; value: string }[] = [
+  { label: 'Muy rápida (0.25s)', value: '250' },
+  { label: 'Normal (0.5s)', value: '500' },
+  { label: 'Media (0.8s)', value: '800' },
+  { label: 'Lenta (1.2s)', value: '1200' },
+  { label: 'Muy lenta (2s)', value: '2000' },
+];
+export const DEFAULT_TRANS_DUR = 500;
 export const OBJ_ANIM_OPTIONS: { label: string; value: string }[] = [
   { label: 'Sin animación', value: 'none' },
   { label: 'Aparecer', value: 'fade' },

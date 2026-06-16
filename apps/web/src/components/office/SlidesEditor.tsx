@@ -25,7 +25,7 @@ import {
 import { SlideSorter } from './SlideSorter';
 import { SlideIconPicker } from './SlideIconPicker';
 import { TemplateGallery } from './TemplateGallery';
-import { SLIDE_THEMES, SLIDE_LAYOUTS, SLIDE_TRANSITIONS, OBJ_ANIM_OPTIONS, SLIDE_RATIOS, slideHeight, type SlideTheme } from './slideAssets';
+import { SLIDE_THEMES, SLIDE_LAYOUTS, SLIDE_TRANSITIONS, OBJ_ANIM_OPTIONS, SLIDE_RATIOS, slideHeight, TRANS_DURATIONS, DEFAULT_TRANS_DUR, type SlideTheme } from './slideAssets';
 import { SlideAnimationPanel, type AnimItem } from './SlideAnimationPanel';
 import { SlideLayersPanel, type LayerItem } from './SlideLayersPanel';
 import { POLY_SHAPES, PATH_SHAPES } from './slides/shapes';
@@ -128,16 +128,23 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
     while (t.length < initial.length) t.push(def);
     return t;
   })();
+  const initialTransDurs: number[] = (() => {
+    const d = Array.isArray(value?.transDurs) ? value.transDurs.slice(0, initial.length) : [];
+    while (d.length < initial.length) d.push(DEFAULT_TRANS_DUR);
+    return d.map((x: any) => (typeof x === 'number' && x > 0 ? x : DEFAULT_TRANS_DUR));
+  })();
   const slidesRef = useRef<any[]>(initial);
   const notesRef = useRef<string[]>(initialNotes);
   const sectionsRef = useRef<(string | null)[]>(initialSections);
   const transitionsRef = useRef<string[]>(initialTransitions);
+  const transDursRef = useRef<number[]>(initialTransDurs);
   const [sections, setSections] = useState<(string | null)[]>(initialSections);
   const [slides, setSlides] = useState<any[]>(initial); // mirror for rendering
   const [cur, setCur] = useState(0);
   const [noteDraft, setNoteDraft] = useState<string>(initialNotes[0] ?? '');
   const [transition, setTransition] = useState<string>(initialTransitions[0] || 'fade');
   const transitionRef = useRef<string>(transition);
+  const [transDur, setTransDur] = useState<number>(initialTransDurs[0] || DEFAULT_TRANS_DUR);
   const clipboardRef = useRef<any>(null);
   const [presenting, setPresenting] = useState(false);
   const presentStartRef = useRef(0);
@@ -206,10 +213,18 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
   function sync() {
     setSlides([...slidesRef.current]);
     setSections([...sectionsRef.current]);
-    onChange({ version: 2, slides: slidesRef.current, notes: notesRef.current, transition: transitionsRef.current[0] || 'fade', transitions: transitionsRef.current, theme: themeRef.current, footer: footerRef.current, showNumbers: numbersRef.current, ratio: ratioRef.current, sections: sectionsRef.current });
+    onChange({ version: 2, slides: slidesRef.current, notes: notesRef.current, transition: transitionsRef.current[0] || 'fade', transitions: transitionsRef.current, transDurs: transDursRef.current, theme: themeRef.current, footer: footerRef.current, showNumbers: numbersRef.current, ratio: ratioRef.current, sections: sectionsRef.current });
   }
   function setTrans(t: string) { transitionsRef.current[curRef.current] = t; setTransition(t); transitionRef.current = t; sync(); }
-  function applyTransAll(t: string) { transitionsRef.current = transitionsRef.current.map(() => t); setTransition(t); transitionRef.current = t; sync(); }
+  function setTransDuration(ms: number) { transDursRef.current[curRef.current] = ms; setTransDur(ms); sync(); }
+  // «Aplicar a todas»: copia la transición Y la duración de la diapositiva actual
+  // a todo el mazo (como PowerPoint).
+  function applyTransAll(t: string) {
+    const d = transDursRef.current[curRef.current] || DEFAULT_TRANS_DUR;
+    transitionsRef.current = transitionsRef.current.map(() => t);
+    transDursRef.current = transDursRef.current.map(() => d);
+    setTransition(t); transitionRef.current = t; setTransDur(d); sync();
+  }
   function applyBgAll(color: string) {
     capture();
     for (const s of slidesRef.current) s.background = color;
@@ -578,7 +593,9 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
     sectionsRef.current = content.slides.map(() => null);
     transitionsRef.current = Array.isArray(content.transitions) ? content.transitions.slice() : content.slides.map(() => content.transition || 'fade');
     while (transitionsRef.current.length < slidesRef.current.length) transitionsRef.current.push('fade');
-    { const tr = transitionsRef.current[0] || 'fade'; transitionRef.current = tr; setTransition(tr); }
+    transDursRef.current = Array.isArray(content.transDurs) ? content.transDurs.slice() : content.slides.map(() => DEFAULT_TRANS_DUR);
+    while (transDursRef.current.length < slidesRef.current.length) transDursRef.current.push(DEFAULT_TRANS_DUR);
+    { const tr = transitionsRef.current[0] || 'fade'; transitionRef.current = tr; setTransition(tr); setTransDur(transDursRef.current[0] || DEFAULT_TRANS_DUR); }
     setCur(0); curRef.current = 0;
     await loadInto(0);
     sync();
@@ -698,6 +715,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
     setCur(i);
     setNoteDraft(notesRef.current[i] ?? '');
     const tr = transitionsRef.current[i] ?? 'fade'; setTransition(tr); transitionRef.current = tr;
+    setTransDur(transDursRef.current[i] ?? DEFAULT_TRANS_DUR);
     setSlides([...slidesRef.current]);
   }
   function onNote(v: string) { setNoteDraft(v); notesRef.current[curRef.current] = v; sync(); }
@@ -1075,9 +1093,9 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [readOnly]);
 
-  function addSlide() { capture(); slidesRef.current.splice(cur + 1, 0, blank()); notesRef.current.splice(cur + 1, 0, ''); sectionsRef.current.splice(cur + 1, 0, null); transitionsRef.current.splice(cur + 1, 0, transitionsRef.current[cur] ?? 'fade'); sync(); loadInto(cur + 1); }
-  function dupSlide() { capture(); slidesRef.current.splice(cur + 1, 0, JSON.parse(JSON.stringify(slidesRef.current[cur]))); notesRef.current.splice(cur + 1, 0, notesRef.current[cur] ?? ''); sectionsRef.current.splice(cur + 1, 0, null); transitionsRef.current.splice(cur + 1, 0, transitionsRef.current[cur] ?? 'fade'); sync(); loadInto(cur + 1); }
-  function delSlide(i: number) { if (slidesRef.current.length === 1) return; capture(); slidesRef.current.splice(i, 1); notesRef.current.splice(i, 1); sectionsRef.current.splice(i, 1); transitionsRef.current.splice(i, 1); sync(); loadInto(Math.max(0, i <= cur ? cur - 1 : cur)); }
+  function addSlide() { capture(); slidesRef.current.splice(cur + 1, 0, blank()); notesRef.current.splice(cur + 1, 0, ''); sectionsRef.current.splice(cur + 1, 0, null); transitionsRef.current.splice(cur + 1, 0, transitionsRef.current[cur] ?? 'fade'); transDursRef.current.splice(cur + 1, 0, transDursRef.current[cur] ?? DEFAULT_TRANS_DUR); sync(); loadInto(cur + 1); }
+  function dupSlide() { capture(); slidesRef.current.splice(cur + 1, 0, JSON.parse(JSON.stringify(slidesRef.current[cur]))); notesRef.current.splice(cur + 1, 0, notesRef.current[cur] ?? ''); sectionsRef.current.splice(cur + 1, 0, null); transitionsRef.current.splice(cur + 1, 0, transitionsRef.current[cur] ?? 'fade'); transDursRef.current.splice(cur + 1, 0, transDursRef.current[cur] ?? DEFAULT_TRANS_DUR); sync(); loadInto(cur + 1); }
+  function delSlide(i: number) { if (slidesRef.current.length === 1) return; capture(); slidesRef.current.splice(i, 1); notesRef.current.splice(i, 1); sectionsRef.current.splice(i, 1); transitionsRef.current.splice(i, 1); transDursRef.current.splice(i, 1); sync(); loadInto(Math.max(0, i <= cur ? cur - 1 : cur)); }
   function reorderSlides(from: number, to: number) {
     if (from === to) return;
     capture();
@@ -1085,6 +1103,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
     const [mn] = notesRef.current.splice(from, 1); notesRef.current.splice(to, 0, mn);
     const [ms] = sectionsRef.current.splice(from, 1); sectionsRef.current.splice(to, 0, ms);
     const [mt] = transitionsRef.current.splice(from, 1); transitionsRef.current.splice(to, 0, mt);
+    const [md] = transDursRef.current.splice(from, 1); transDursRef.current.splice(to, 0, md);
     sync(); loadInto(to);
   }
   // ── Secciones (marcas paralelas a las diapositivas) ─────────────────────────
@@ -1463,6 +1482,9 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
             <RibbonGroup label="Transición de esta diapositiva">
               <RibbonSelect title="Transición de la diapositiva actual" value={transition} onChange={setTrans} width={150}
                 options={SLIDE_TRANSITIONS} />
+              <span className="text-[11px] text-gray-500 px-1" title="Duración de la transición">Duración</span>
+              <RibbonSelect title="Duración de la transición" value={String(transDur)} onChange={(v) => setTransDuration(Number(v))} width={110}
+                options={TRANS_DURATIONS} />
               <RibbonButton icon={Copy} label="Aplicar a todas" hideLabel={false} onClick={() => applyTransAll(transition)} />
             </RibbonGroup>
             <RibbonSeparator />
@@ -1578,7 +1600,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
         </div>
       )}
 
-      {presenting && <Present slides={slides} notes={notesRef.current} transition={transition} transitions={transitionsRef.current} footer={footerRef.current} showNumbers={showNumbers} presenter={presenterMode} ratio={ratio} startAt={presentStartRef.current} onClose={() => { setPresenting(false); setPresenterMode(false); }} />}
+      {presenting && <Present slides={slides} notes={notesRef.current} transition={transition} transitions={transitionsRef.current} transDurs={transDursRef.current} footer={footerRef.current} showNumbers={showNumbers} presenter={presenterMode} ratio={ratio} startAt={presentStartRef.current} onClose={() => { setPresenting(false); setPresenterMode(false); }} />}
       <AnimatePresence>
         {showTemplates && <TemplateGallery type="slides" onPick={applyTemplate} onClose={() => setShowTemplates(false)} />}
       </AnimatePresence>
@@ -1620,9 +1642,12 @@ const TRANSITIONS: Record<string, any> = {
   slide: { initial: { x: '100%', opacity: 0 }, animate: { x: 0, opacity: 1 }, exit: { x: '-100%', opacity: 0 } },
   slideUp: { initial: { y: '100%', opacity: 0 }, animate: { y: 0, opacity: 1 }, exit: { y: '-100%', opacity: 0 } },
   push: { initial: { x: '60%', opacity: 0 }, animate: { x: 0, opacity: 1 }, exit: { x: '-60%', opacity: 0 } },
+  wipe: { initial: { clipPath: 'inset(0 0 0 100%)' }, animate: { clipPath: 'inset(0 0 0 0%)' }, exit: { opacity: 0 } },
+  cover: { initial: { y: '100%' }, animate: { y: 0 }, exit: { opacity: 1 } },
   zoom: { initial: { scale: 0.85, opacity: 0 }, animate: { scale: 1, opacity: 1 }, exit: { scale: 1.1, opacity: 0 } },
   reveal: { initial: { scale: 1.15, opacity: 0 }, animate: { scale: 1, opacity: 1 }, exit: { scale: 0.92, opacity: 0 } },
   flip: { initial: { rotateY: 90, opacity: 0 }, animate: { rotateY: 0, opacity: 1 }, exit: { rotateY: -90, opacity: 0 } },
+  morph: { initial: { opacity: 0, scale: 1.05 }, animate: { opacity: 1, scale: 1 }, exit: { opacity: 0, scale: 0.97 } },
 };
 const OBJ_ANIM: Record<string, any> = {
   none: { initial: { opacity: 1 }, animate: { opacity: 1 } },
@@ -1650,15 +1675,16 @@ function StaticDeck({ deck }: { deck?: Deck }) {
 }
 
 function Present({
-  slides, notes, transition, transitions, footer, showNumbers, presenter, ratio, startAt, onClose,
+  slides, notes, transition, transitions, transDurs, footer, showNumbers, presenter, ratio, startAt, onClose,
 }: {
-  slides: any[]; notes?: string[]; transition?: string; transitions?: string[]; footer?: string; showNumbers?: boolean; presenter?: boolean; ratio?: string; startAt?: number; onClose: () => void;
+  slides: any[]; notes?: string[]; transition?: string; transitions?: string[]; transDurs?: number[]; footer?: string; showNumbers?: boolean; presenter?: boolean; ratio?: string; startAt?: number; onClose: () => void;
 }) {
   const [decks, setDecks] = useState<Deck[]>([]);
   const [i, setI] = useState(Math.max(0, Math.min((slides?.length ?? 1) - 1, startAt ?? 0)));
   const [showNotes, setShowNotes] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const variant = TRANSITIONS[transitions?.[i] || transition || 'fade'] ?? TRANSITIONS.fade;
+  const transSec = Math.max(0.05, (transDurs?.[i] ?? 500) / 1000);
   const ch = slideHeight(ratio);
   const aspect = ratio === '4:3' ? '4 / 3' : '16 / 9';
   const stageW = ratio === '4:3' ? 'min(100vw, 133.33vh)' : 'min(100vw, 177.78vh)';
@@ -1739,7 +1765,7 @@ function Present({
     <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
       {!deck ? <div className="text-white/60">Generando…</div> : (
         <AnimatePresence mode="popLayout" initial={false}>
-          <motion.div key={i} variants={variant} initial="initial" animate="animate" exit="exit" transition={{ duration: 0.4, ease: 'easeInOut' }}
+          <motion.div key={i} variants={variant} initial="initial" animate="animate" exit="exit" transition={{ duration: transSec, ease: 'easeInOut' }}
             className="absolute" style={{ width: stageW, aspectRatio: aspect, background: deck.bg }}>
             {deck.layers.map((L, j) => (
               <motion.img key={j} src={L.src} alt="" className="absolute inset-0 w-full h-full object-contain"

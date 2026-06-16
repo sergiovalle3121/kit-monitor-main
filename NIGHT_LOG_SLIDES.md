@@ -341,6 +341,19 @@ adopta el modelo de **«colores de tema» tipo PowerPoint**: al cambiar de tema 
 
 Verificado: `tsc` ✓, `eslint` ✓ (0 errores; warnings preexistentes), `next build` ✓.
 
+#### Lote 29 — Transiciones: duración por diapositiva + barrido/cubrir/morph
+- **Duración por diapositiva** (`transDurs`, arreglo paralelo como `transitions`):
+  pestaña Transiciones → selector de duración (0.25s…2s). Antes la transición era
+  fija a 0.4s. **Aplicar a todas** ahora copia la transición **y** la duración de
+  la diapositiva actual a todo el mazo (como PowerPoint).
+- Nuevas transiciones: **Barrido** (wipe con `clip-path`), **Cubrir** (cover desde
+  abajo) y **Transformar (morph básico)** (fundido + escala suave).
+- El modo presentación usa la duración por diapositiva (`transSec`) y los nuevos
+  variants. `transDurs` se mantiene en agregar/duplicar/borrar/reordenar/plantilla
+  y se persiste en el store.
+
+Verificado: `tsc` ✓, `eslint` ✓ (0 errores; warnings preexistentes), `next build` ✓.
+
 ### Diferido (con estimación)
 - **Secciones en el clasificador** y colapsar/expandir: el sorter es una rejilla;
   insertar encabezados de ancho completo + colapso. Estimación: ~0.5 día.
