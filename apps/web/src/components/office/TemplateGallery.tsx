@@ -4,10 +4,10 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { X, Loader2, FileText, Table, Presentation, FilePlus2 } from 'lucide-react';
-import { TEMPLATES, type DocType, type TemplateDef } from '@/lib/office/templates';
+import { TEMPLATES, TEMPLATE_CATEGORIES, type DocType, type TemplateDef } from '@/lib/office/templates';
 
 const ICON: Record<DocType, typeof FileText> = { doc: FileText, sheet: Table, slides: Presentation };
-const ACCENT: Record<DocType, string> = { doc: 'text-blue-500', sheet: 'text-emerald-500', slides: 'text-amber-500' };
+const FALLBACK_ACCENT: Record<DocType, string> = { doc: '#2563eb', sheet: '#10b981', slides: '#f59e0b' };
 
 export function TemplateGallery({
   type, onPick, onClose,
@@ -27,6 +27,46 @@ export function TemplateGallery({
     catch { setBusy(null); }
   }
 
+  // Agrupa por categoría siguiendo el orden declarado; lo no listado va al final.
+  const order = TEMPLATE_CATEGORIES[type] || [];
+  const seen = new Set<string>();
+  const groups: { cat: string; items: TemplateDef[] }[] = [];
+  for (const cat of order) {
+    const items = list.filter((t) => (t.category || 'General') === cat);
+    if (items.length) { groups.push({ cat, items }); items.forEach((t) => seen.add(t.id)); }
+  }
+  const rest = list.filter((t) => !seen.has(t.id));
+  if (rest.length) groups.push({ cat: 'Otras', items: rest });
+  const showHeaders = groups.length > 1;
+
+  const card = (t: TemplateDef) => {
+    const accent = t.accent || FALLBACK_ACCENT[type];
+    const isBlank = t.id === 'blank';
+    return (
+      <button
+        key={t.id}
+        onClick={() => pick(t)}
+        disabled={!!busy}
+        title={t.description}
+        className="group text-left rounded-2xl border border-black/5 dark:border-white/10 hover:border-black/20 dark:hover:border-white/30 p-3 transition-all hover:shadow-md disabled:opacity-60"
+      >
+        <div
+          className="aspect-[4/3] rounded-xl flex items-center justify-center mb-2.5 relative overflow-hidden border border-black/5 dark:border-white/10"
+          style={{ background: isBlank ? undefined : `linear-gradient(135deg, ${accent}26, ${accent}0a)` }}
+        >
+          {!isBlank && <span className="absolute left-0 top-0 bottom-0 w-1.5" style={{ background: accent }} />}
+          {busy === t.id
+            ? <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+            : isBlank
+              ? <FilePlus2 className="w-7 h-7 text-gray-400" />
+              : <Icon className="w-7 h-7" style={{ color: accent }} />}
+        </div>
+        <p className="font-semibold text-sm truncate">{t.title}</p>
+        <p className="text-[11px] text-gray-400 line-clamp-2">{t.description}</p>
+      </button>
+    );
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -36,30 +76,22 @@ export function TemplateGallery({
       <motion.div
         initial={{ opacity: 0, y: 16, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }}
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-2xl rounded-3xl bg-white dark:bg-[#161616] border border-black/5 dark:border-white/10 shadow-2xl p-6"
+        className="w-full max-w-3xl max-h-[88vh] flex flex-col rounded-3xl bg-white dark:bg-[#161616] border border-black/5 dark:border-white/10 shadow-2xl"
       >
-        <div className="flex items-center justify-between mb-5">
+        <div className="flex items-center justify-between px-6 pt-6 pb-4 flex-shrink-0">
           <h2 className="text-lg font-bold">Elige una plantilla</h2>
           <button onClick={onClose} className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-400"><X className="w-5 h-5" /></button>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          {list.map((t) => (
-            <button
-              key={t.id}
-              onClick={() => pick(t)}
-              disabled={!!busy}
-              className="group text-left rounded-2xl border border-black/5 dark:border-white/10 hover:border-black/20 dark:hover:border-white/30 p-4 transition-all hover:shadow-md disabled:opacity-60"
-            >
-              <div className="aspect-[4/3] rounded-xl bg-gray-50 dark:bg-white/5 flex items-center justify-center mb-3 relative overflow-hidden">
-                {busy === t.id
-                  ? <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
-                  : t.id === 'blank'
-                    ? <FilePlus2 className="w-7 h-7 text-gray-400" />
-                    : <Icon className={`w-7 h-7 ${ACCENT[type]} opacity-80`} />}
+        <div className="px-6 pb-6 overflow-y-auto">
+          {groups.map((g) => (
+            <div key={g.cat} className="mb-5 last:mb-0">
+              {showHeaders && (
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 mb-2.5">{g.cat}</p>
+              )}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {g.items.map(card)}
               </div>
-              <p className="font-semibold text-sm truncate">{t.title}</p>
-              <p className="text-[11px] text-gray-400 line-clamp-2">{t.description}</p>
-            </button>
+            </div>
           ))}
         </div>
       </motion.div>
