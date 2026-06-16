@@ -267,6 +267,16 @@ CSS de todo lo anterior en `tiptap.css`.
   `docs/DocViewTools.tsx` (toggle), `docs/docStyles.ts` (CSS de las guías).
 - Puertas: `tsc` 0, `eslint` carril 0 (sin warnings), `next build` verde.
 
+### F2 · Wave 7 — Control de cambios por autor
+- **Aceptar / rechazar por autor**: el panel de revisión agrupa los cambios por
+  autor, con cabecera por grupo (nombre + contador + «Aceptar/Rechazar todo de este
+  autor»). Comandos nuevos `acceptChangesByAuthor` / `rejectChangesByAuthor` y helper
+  `changeAuthors`. Se refactorizó accept/reject-all a un único `resolveChanges`
+  (una transacción, sin cambiar el comportamiento).
+- Archivos: `docs/trackChanges.ts` (helper + comandos), `docs/DocTrackChanges.tsx`
+  (panel agrupado por autor).
+- Puertas: `tsc` 0, `eslint` carril 0, `next build` verde.
+
 ## Resumen final de la sesión
 Se llevó el editor de Documentos muy cerca de Word, todo con código propio sobre
 TipTap/ProseMirror (MIT) + KaTeX (MIT). **No se tocó** el ribbon compartido,
