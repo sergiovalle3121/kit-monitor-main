@@ -201,6 +201,16 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
   const numbersRef = useRef<boolean>(!!value?.showNumbers);
   const [showNumbers, setShowNumbers] = useState<boolean>(!!value?.showNumbers);
   const theme = () => SLIDE_THEMES.find((t) => t.id === themeRef.current) || SLIDE_THEMES[0];
+  // ── Patrón de diapositivas (slide master) ───────────────────────────────────
+  // Modelo: un Fabric JSON con la «mobiliaria» compartida (logo, barras, marcos,
+  // estilos de marcador) que se muestra detrás del contenido de TODAS las
+  // diapositivas. Se edita en un modo dedicado; en modo normal se compone como
+  // `backgroundImage` del lienzo (no se serializa por diapositiva).
+  const masterRef = useRef<any>(value?.master && Array.isArray(value?.master?.objects) ? value.master : { version: '7', objects: [] });
+  const masterModeRef = useRef(false);
+  const masterImgRef = useRef<string>('');
+  const [masterMode, setMasterMode] = useState(false);
+  const [hasMaster, setHasMaster] = useState<boolean>(!!(value?.master?.objects?.length));
 
   useEffect(() => { curRef.current = cur; }, [cur]);
 
@@ -220,7 +230,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
   function sync() {
     setSlides([...slidesRef.current]);
     setSections([...sectionsRef.current]);
-    onChange({ version: 2, slides: slidesRef.current, notes: notesRef.current, transition: transitionsRef.current[0] || 'fade', transitions: transitionsRef.current, transDurs: transDursRef.current, theme: themeRef.current, footer: footerRef.current, showNumbers: numbersRef.current, ratio: ratioRef.current, sections: sectionsRef.current });
+    onChange({ version: 2, slides: slidesRef.current, notes: notesRef.current, transition: transitionsRef.current[0] || 'fade', transitions: transitionsRef.current, transDurs: transDursRef.current, theme: themeRef.current, footer: footerRef.current, showNumbers: numbersRef.current, ratio: ratioRef.current, sections: sectionsRef.current, master: masterRef.current });
   }
   function setTrans(t: string) { transitionsRef.current[curRef.current] = t; setTransition(t); transitionRef.current = t; sync(); }
   function setTransDuration(ms: number) { transDursRef.current[curRef.current] = ms; setTransDur(ms); sync(); }
@@ -233,6 +243,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
     setTransition(t); transitionRef.current = t; setTransDur(d); sync();
   }
   function applyBgAll(color: string) {
+    if (masterModeRef.current) return;
     capture();
     for (const s of slidesRef.current) s.background = color;
     const c = fabricRef.current; if (c) { c.backgroundColor = color; c.requestRenderAll(); }
@@ -245,6 +256,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
   // diapositiva, conservando los colores personalizados. Reestiliza títulos,
   // viñetas, barras de acento, formas y fondos creados a partir del tema.
   async function applyTheme(id: string) {
+    if (masterModeRef.current) return;
     const to = SLIDE_THEMES.find((x) => x.id === id) || SLIDE_THEMES[0];
     const from = theme();
     capture();
@@ -259,6 +271,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
     sync();
   }
   function applyLayout(id: string) {
+    if (masterModeRef.current) return;
     const c = fabricRef.current; if (!c) return;
     const layout = SLIDE_LAYOUTS.find((l) => l.id === id); if (!layout) return;
     if (c.getObjects().length && !window.confirm('Aplicar este diseño reemplazará el contenido de la diapositiva actual. ¿Continuar?')) return;
@@ -488,13 +501,13 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
   }
   // Fondo sólo de la diapositiva actual.
   function applyBgCurrent(color: string) {
-    const c = fabricRef.current; if (!c) return;
+    const c = fabricRef.current; if (!c || masterModeRef.current) return;
     capture(); slidesRef.current[curRef.current].background = color;
     c.backgroundColor = color; c.requestRenderAll(); sync();
   }
   // Fondo de degradado (Rect a sangre completa, bloqueado, al fondo).
   function applyBgPreset(id: string, all: boolean) {
-    const c = fabricRef.current; if (!c) return;
+    const c = fabricRef.current; if (!c || masterModeRef.current) return;
     const preset = BG_PRESETS.find((p) => p.id === id); if (!preset) return;
     capture();
     c.getObjects().filter((o: any) => isBgFill(o)).forEach((o) => c.remove(o));
@@ -514,7 +527,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
   }
   // Imagen de fondo (a sangre completa, modo «cubrir») de la diapositiva actual.
   function onBgImageFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const f = e.target.files?.[0]; e.target.value = ''; if (!f) return;
+    const f = e.target.files?.[0]; e.target.value = ''; if (!f || masterModeRef.current) return;
     const reader = new FileReader();
     reader.onload = () => {
       if (typeof reader.result !== 'string') return;
@@ -530,7 +543,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
     reader.readAsDataURL(f);
   }
   function removeBgFill(all: boolean) {
-    const c = fabricRef.current; if (!c) return;
+    const c = fabricRef.current; if (!c || masterModeRef.current) return;
     capture();
     c.getObjects().filter((o: any) => isBgFill(o)).forEach((o) => c.remove(o));
     c.requestRenderAll(); capture();
@@ -594,6 +607,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
   }
   async function applyTemplate(content: any) {
     setShowTemplates(false);
+    if (masterModeRef.current) return;
     if (!content || content.version !== 2 || !Array.isArray(content.slides) || !content.slides.length) return;
     capture();
     slidesRef.current = content.slides;
@@ -610,7 +624,71 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
     sync();
   }
   // Include custom props (anim = entrance animation, shape = .pptx mapping, link = hyperlink, locked).
-  function capture() { const c = fabricRef.current; if (c) slidesRef.current[curRef.current] = c.toObject(['anim', 'animOrder', 'animDur', 'animDelay', 'animStart', 'shape', 'link', 'locked', 'imgFx', 'chartSpec', 'smart', 'tableSpec', 'conn', 'connId', 'bgFill']); }
+  function capture() {
+    const c = fabricRef.current; if (!c) return;
+    const data: any = c.toObject(['anim', 'animOrder', 'animDur', 'animDelay', 'animStart', 'shape', 'link', 'locked', 'imgFx', 'chartSpec', 'smart', 'tableSpec', 'conn', 'connId', 'bgFill']);
+    // El patrón se compone como backgroundImage en modo normal: no debe quedar
+    // guardado dentro del JSON de la diapositiva.
+    delete data.backgroundImage; delete data.overlayImage;
+    if (masterModeRef.current) masterRef.current = data;
+    else slidesRef.current[curRef.current] = data;
+  }
+  // Renderiza el patrón a una imagen PNG transparente (mobiliaria compartida).
+  async function renderMasterImage() {
+    const m = masterRef.current;
+    setHasMaster(!!(m?.objects?.length));
+    if (!m?.objects?.length) { masterImgRef.current = ''; return; }
+    try {
+      const sc = new StaticCanvas(document.createElement('canvas'), { width: CW, height: slideHeight(ratioRef.current) });
+      await sc.loadFromJSON(m);
+      sc.backgroundColor = ''; sc.renderAll();
+      masterImgRef.current = sc.toDataURL({ format: 'png', multiplier: 1 } as any);
+      sc.dispose();
+    } catch { masterImgRef.current = ''; }
+  }
+  // Aplica (o quita) el patrón como backgroundImage del lienzo actual.
+  async function applyMasterBg() {
+    const c = fabricRef.current; if (!c) return;
+    if (masterModeRef.current || !masterImgRef.current) { c.backgroundImage = undefined as any; c.requestRenderAll(); return; }
+    try {
+      const mImg: any = await FabricImage.fromURL(masterImgRef.current);
+      mImg.set({ left: 0, top: 0, originX: 'left', originY: 'top', selectable: false, evented: false });
+      mImg.scaleX = CW / (mImg.width || CW); mImg.scaleY = slideHeight(ratioRef.current) / (mImg.height || 1);
+      c.backgroundImage = mImg; c.requestRenderAll();
+    } catch { c.backgroundImage = undefined as any; }
+  }
+  async function enterMasterMode() {
+    if (masterModeRef.current) return;
+    const c = fabricRef.current; if (!c) return;
+    capture();
+    masterModeRef.current = true; setMasterMode(true);
+    loadingRef.current = true;
+    c.discardActiveObject(); setHasSel(false);
+    c.getObjects().slice().forEach((o) => c.remove(o));
+    c.backgroundImage = undefined as any;
+    try {
+      await c.loadFromJSON(masterRef.current);
+      c.backgroundColor = theme().bg;
+      if (readOnly) c.forEachObject((o: any) => { o.selectable = false; o.evented = false; });
+    } catch { /* noop */ }
+    loadingRef.current = false; c.requestRenderAll();
+  }
+  async function exitMasterMode() {
+    if (!masterModeRef.current) return;
+    capture();
+    masterModeRef.current = false; setMasterMode(false);
+    await renderMasterImage();
+    await loadInto(curRef.current);
+    sync();
+  }
+  function clearMaster() {
+    masterRef.current = { version: '7', objects: [] };
+    masterImgRef.current = ''; setHasMaster(false);
+    const c = fabricRef.current;
+    if (masterModeRef.current && c) { loadingRef.current = true; c.getObjects().slice().forEach((o) => c.remove(o)); loadingRef.current = false; c.requestRenderAll(); }
+    else if (c) { c.backgroundImage = undefined as any; c.requestRenderAll(); }
+    sync();
+  }
   function applyLock(o: any) {
     const L = !!o.locked;
     o.set({ lockMovementX: L, lockMovementY: L, lockScalingX: L, lockScalingY: L, lockRotation: L, hasControls: !L });
@@ -693,7 +771,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
       ctx.restore();
     });
 
-    loadInto(0);
+    (async () => { await renderMasterImage(); await loadInto(0); })();
     return () => { canvas.dispose(); fabricRef.current = null; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -717,6 +795,15 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
         c.forEachObject((o: any) => { if (o.locked) applyLock(o); });
       }
       try { refreshConnectors(c); } catch { /* noop */ }
+      // Compone el patrón (mobiliaria compartida) detrás del contenido.
+      if (!masterModeRef.current && masterImgRef.current) {
+        try {
+          const mImg: any = await FabricImage.fromURL(masterImgRef.current);
+          mImg.set({ left: 0, top: 0, originX: 'left', originY: 'top', selectable: false, evented: false });
+          mImg.scaleX = CW / (mImg.width || CW); mImg.scaleY = slideHeight(ratioRef.current) / (mImg.height || 1);
+          c.backgroundImage = mImg;
+        } catch { c.backgroundImage = undefined as any; }
+      } else { c.backgroundImage = undefined as any; }
       c.requestRenderAll();
     } catch { /* noop */ }
     loadingRef.current = false;
@@ -728,7 +815,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
     setSlides([...slidesRef.current]);
   }
   function onNote(v: string) { setNoteDraft(v); notesRef.current[curRef.current] = v; sync(); }
-  function goto(i: number) { capture(); loadInto(i); }
+  function goto(i: number) { if (masterModeRef.current) return; capture(); loadInto(i); }
 
   function add(obj: any) { const c = fabricRef.current; if (!c) return; c.add(obj); c.setActiveObject(obj); c.requestRenderAll(); }
   function addText() { add(new Textbox('Texto', { left: 80, top: 80, width: 360, fontSize: 36, fill: '#111827', fontFamily: 'sans-serif' })); }
@@ -1102,11 +1189,11 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [readOnly]);
 
-  function addSlide() { capture(); slidesRef.current.splice(cur + 1, 0, blank()); notesRef.current.splice(cur + 1, 0, ''); sectionsRef.current.splice(cur + 1, 0, null); transitionsRef.current.splice(cur + 1, 0, transitionsRef.current[cur] ?? 'fade'); transDursRef.current.splice(cur + 1, 0, transDursRef.current[cur] ?? DEFAULT_TRANS_DUR); sync(); loadInto(cur + 1); }
-  function dupSlide() { capture(); slidesRef.current.splice(cur + 1, 0, JSON.parse(JSON.stringify(slidesRef.current[cur]))); notesRef.current.splice(cur + 1, 0, notesRef.current[cur] ?? ''); sectionsRef.current.splice(cur + 1, 0, null); transitionsRef.current.splice(cur + 1, 0, transitionsRef.current[cur] ?? 'fade'); transDursRef.current.splice(cur + 1, 0, transDursRef.current[cur] ?? DEFAULT_TRANS_DUR); sync(); loadInto(cur + 1); }
-  function delSlide(i: number) { if (slidesRef.current.length === 1) return; capture(); slidesRef.current.splice(i, 1); notesRef.current.splice(i, 1); sectionsRef.current.splice(i, 1); transitionsRef.current.splice(i, 1); transDursRef.current.splice(i, 1); sync(); loadInto(Math.max(0, i <= cur ? cur - 1 : cur)); }
+  function addSlide() { if (masterModeRef.current) return; capture(); slidesRef.current.splice(cur + 1, 0, blank()); notesRef.current.splice(cur + 1, 0, ''); sectionsRef.current.splice(cur + 1, 0, null); transitionsRef.current.splice(cur + 1, 0, transitionsRef.current[cur] ?? 'fade'); transDursRef.current.splice(cur + 1, 0, transDursRef.current[cur] ?? DEFAULT_TRANS_DUR); sync(); loadInto(cur + 1); }
+  function dupSlide() { if (masterModeRef.current) return; capture(); slidesRef.current.splice(cur + 1, 0, JSON.parse(JSON.stringify(slidesRef.current[cur]))); notesRef.current.splice(cur + 1, 0, notesRef.current[cur] ?? ''); sectionsRef.current.splice(cur + 1, 0, null); transitionsRef.current.splice(cur + 1, 0, transitionsRef.current[cur] ?? 'fade'); transDursRef.current.splice(cur + 1, 0, transDursRef.current[cur] ?? DEFAULT_TRANS_DUR); sync(); loadInto(cur + 1); }
+  function delSlide(i: number) { if (masterModeRef.current || slidesRef.current.length === 1) return; capture(); slidesRef.current.splice(i, 1); notesRef.current.splice(i, 1); sectionsRef.current.splice(i, 1); transitionsRef.current.splice(i, 1); transDursRef.current.splice(i, 1); sync(); loadInto(Math.max(0, i <= cur ? cur - 1 : cur)); }
   function reorderSlides(from: number, to: number) {
-    if (from === to) return;
+    if (from === to || masterModeRef.current) return;
     capture();
     const [m] = slidesRef.current.splice(from, 1); slidesRef.current.splice(to, 0, m);
     const [mn] = notesRef.current.splice(from, 1); notesRef.current.splice(to, 0, mn);
@@ -1142,10 +1229,13 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
     applyZoom(Math.min((el.clientWidth - 36) / CW, (el.clientHeight - 36) / ch));
   }
   function applySlideSize(r: string) {
+    if (masterModeRef.current) return;
     ratioRef.current = r; setRatio(r);
     const nc = slideHeight(r);
     const c = fabricRef.current;
     if (c) { c.setDimensions({ width: CW * zoom, height: nc * zoom }); c.setZoom(zoom); c.requestRenderAll(); }
+    // Re-renderiza el patrón a la nueva altura y lo recompone.
+    (async () => { await renderMasterImage(); await applyMasterBg(); })();
     sync();
   }
   // ── Botones de acción (navegación por hipervínculo) ─────────────────────────
@@ -1254,6 +1344,10 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
             <RibbonGroup label="Diseños">
               <RibbonMenuButton icon={LayoutTemplate} label="Diseño" menuWidth={220} items={SLIDE_LAYOUTS.map((l) => ({ label: l.name, onClick: () => applyLayout(l.id) }))} />
               <RibbonButton icon={LayoutGrid} label="Plantillas" hideLabel={false} onClick={() => setShowTemplates(true)} />
+              <RibbonMenuButton icon={Stamp} label={masterMode ? 'Patrón ✦' : 'Patrón'} menuWidth={250} items={[
+                { label: masterMode ? '✕ Salir del patrón' : '✎ Editar patrón de diapositivas', onClick: () => (masterMode ? exitMasterMode() : enterMasterMode()) },
+                ...(hasMaster ? [{ label: '🗑 Vaciar patrón', onClick: clearMaster }] : []),
+              ]} />
             </RibbonGroup>
             <RibbonSeparator />
             <RibbonGroup label="Temas">
@@ -1541,7 +1635,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
       </OfficeRibbon>
 
       <div className="flex gap-4 flex-1 min-h-0">
-        <div className="w-44 flex-shrink-0 overflow-y-auto space-y-2 pr-1">
+        <div className={`w-44 flex-shrink-0 overflow-y-auto space-y-2 pr-1 transition-opacity ${masterMode ? 'opacity-40 pointer-events-none' : ''}`}>
           {slides.map((s, i) => (
             <React.Fragment key={i}>
               {sections[i] != null && (
@@ -1575,6 +1669,17 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
         </div>
 
         <div className="flex-1 min-w-0 flex flex-col gap-2 min-h-0">
+          {masterMode && (
+            <div className="flex-shrink-0 flex items-center gap-3 rounded-xl bg-amber-500/15 border border-amber-500/30 px-4 py-2 text-sm">
+              <Stamp className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0" />
+              <span className="font-semibold text-amber-700 dark:text-amber-300">Editando el patrón de diapositivas</span>
+              <span className="text-amber-700/70 dark:text-amber-300/70 hidden sm:inline">Lo que agregues aquí (logo, barras, marcos) aparece detrás de todas las diapositivas.</span>
+              <div className="ml-auto flex items-center gap-2">
+                <button onClick={clearMaster} className="text-xs px-2.5 py-1 rounded-lg bg-white/60 dark:bg-white/10 hover:bg-white/80 dark:hover:bg-white/20 text-amber-800 dark:text-amber-200">Vaciar patrón</button>
+                <button onClick={exitMasterMode} className="text-xs px-3 py-1 rounded-lg bg-amber-500 text-white hover:bg-amber-600 font-medium">Salir del patrón</button>
+              </div>
+            </div>
+          )}
           <div ref={stageRef} className="flex-1 min-h-0 bg-gray-100 dark:bg-[#0b0b0b] rounded-2xl flex items-center justify-center overflow-auto p-4">
             <div className="shadow-2xl relative flex-shrink-0" style={{ width: CW * zoom, height: ch * zoom }}>
               <canvas ref={elRef} />
@@ -1613,7 +1718,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
         </div>
       )}
 
-      {presenting && <Present slides={slides} notes={notesRef.current} transition={transition} transitions={transitionsRef.current} transDurs={transDursRef.current} footer={footerRef.current} showNumbers={showNumbers} presenter={presenterMode} ratio={ratio} startAt={presentStartRef.current} onClose={() => { setPresenting(false); setPresenterMode(false); }} />}
+      {presenting && <Present slides={slides} notes={notesRef.current} transition={transition} transitions={transitionsRef.current} transDurs={transDursRef.current} master={masterImgRef.current} footer={footerRef.current} showNumbers={showNumbers} presenter={presenterMode} ratio={ratio} startAt={presentStartRef.current} onClose={() => { setPresenting(false); setPresenterMode(false); }} />}
       <AnimatePresence>
         {showTemplates && <TemplateGallery type="slides" onPick={applyTemplate} onClose={() => setShowTemplates(false)} />}
       </AnimatePresence>
@@ -1711,19 +1816,20 @@ interface Layer { src: string; anim: string; order: number; dur: number; delay?:
 interface Deck { bg: string; layers: Layer[] }
 
 /** Capa estática de una diapositiva (sin animación) para miniaturas / presentador. */
-function StaticDeck({ deck }: { deck?: Deck }) {
+function StaticDeck({ deck, master }: { deck?: Deck; master?: string }) {
   if (!deck) return <div className="w-full h-full bg-white" />;
   return (
     <div className="absolute inset-0" style={{ background: deck.bg }}>
+      {master && <img src={master} alt="" className="absolute inset-0 w-full h-full object-contain" />}
       {deck.layers.map((L, j) => <img key={j} src={L.src} alt="" className="absolute inset-0 w-full h-full object-contain" />)}
     </div>
   );
 }
 
 function Present({
-  slides, notes, transition, transitions, transDurs, footer, showNumbers, presenter, ratio, startAt, onClose,
+  slides, notes, transition, transitions, transDurs, master, footer, showNumbers, presenter, ratio, startAt, onClose,
 }: {
-  slides: any[]; notes?: string[]; transition?: string; transitions?: string[]; transDurs?: number[]; footer?: string; showNumbers?: boolean; presenter?: boolean; ratio?: string; startAt?: number; onClose: () => void;
+  slides: any[]; notes?: string[]; transition?: string; transitions?: string[]; transDurs?: number[]; master?: string; footer?: string; showNumbers?: boolean; presenter?: boolean; ratio?: string; startAt?: number; onClose: () => void;
 }) {
   const [decks, setDecks] = useState<Deck[]>([]);
   const [i, setI] = useState(Math.max(0, Math.min((slides?.length ?? 1) - 1, startAt ?? 0)));
@@ -1827,6 +1933,7 @@ function Present({
         <AnimatePresence mode="popLayout" initial={false}>
           <motion.div key={i} variants={variant} initial="initial" animate="animate" exit="exit" transition={{ duration: transSec, ease: 'easeInOut' }}
             className="absolute" style={{ width: stageW, aspectRatio: aspect, background: deck.bg }}>
+            {master && <img src={master} alt="" className="absolute inset-0 w-full h-full object-contain pointer-events-none" />}
             {deck.layers.map((L, j) => {
               const p = plan.get(j);
               const animated = !!(L.anim && L.anim !== 'none');
@@ -1879,7 +1986,7 @@ function Present({
         <div className="flex-1 min-h-0 flex gap-4 p-4">
           <div className="flex-1 min-w-0 flex flex-col">
             <div className="relative flex-1 min-h-0 rounded-xl overflow-hidden bg-white" style={{ aspectRatio: aspect }}>
-              <StaticDeck deck={deck} />
+              <StaticDeck deck={deck} master={master} />
             </div>
             <div className="flex items-center justify-center gap-3 pt-3">
               <button onClick={() => setI((v) => Math.max(0, v - 1))} disabled={i === 0} className="w-11 h-11 rounded-full bg-white/15 text-2xl hover:bg-white/30 disabled:opacity-20">‹</button>
@@ -1890,7 +1997,7 @@ function Present({
             <div>
               <p className="text-xs text-white/50 mb-1">Siguiente</p>
               <div className="relative rounded-lg overflow-hidden bg-white border border-white/10" style={{ aspectRatio: aspect }}>
-                {i < slides.length - 1 ? <StaticDeck deck={decks[i + 1]} /> : <div className="absolute inset-0 flex items-center justify-center text-gray-400 text-sm">Fin</div>}
+                {i < slides.length - 1 ? <StaticDeck deck={decks[i + 1]} master={master} /> : <div className="absolute inset-0 flex items-center justify-center text-gray-400 text-sm">Fin</div>}
               </div>
             </div>
             <div className="flex-1 min-h-0 rounded-lg bg-white/5 border border-white/10 p-3 overflow-y-auto">
@@ -1947,7 +2054,7 @@ function Present({
             {decks.map((d, j) => (
               <button key={j} onClick={() => { setI(j); setGridNav(false); }}
                 className={`relative rounded-xl overflow-hidden border-2 transition-all ${j === i ? 'border-rose-500 scale-[1.02]' : 'border-white/15 hover:border-white/40'}`} style={{ aspectRatio: aspect }}>
-                <StaticDeck deck={d} />
+                <StaticDeck deck={d} master={master} />
                 <span className="absolute top-1.5 left-2 text-xs font-bold text-white bg-black/50 rounded px-1.5">{j + 1}</span>
               </button>
             ))}

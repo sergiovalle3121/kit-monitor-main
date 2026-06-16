@@ -373,11 +373,37 @@ Verificado: `tsc` ✓, `eslint` ✓ (0 errores; warnings preexistentes), `next b
 
 Verificado: `tsc` ✓, `eslint` ✓ (0 errores; warnings preexistentes), `next build` ✓.
 
+#### Lote 31 — Patrón de diapositivas (slide master) editable
+Cierra el ítem diferido «patrón editable». Modelo: un Fabric JSON `master` con la
+**mobiliaria compartida** (logo, barras, marcos, marcadores) que aparece detrás
+del contenido de **todas** las diapositivas.
+- **Modo patrón**: Diseño ▸ Patrón ▸ «Editar patrón». El lienzo carga los objetos
+  del patrón (editables con todas las herramientas de Insertar/Formato/Inicio);
+  un banner ámbar indica el modo y ofrece **Salir** y **Vaciar patrón**. La barra
+  de miniaturas se atenúa; las operaciones de mazo (tema, diseño, fondo, tamaño,
+  plantilla, reordenar, navegación) se bloquean mientras se edita el patrón para
+  no corromper el estado.
+- **Composición en modo normal**: el patrón se aplana a un PNG transparente
+  (`renderMasterImage`) y se compone como `backgroundImage` del lienzo (detrás del
+  contenido). **No se serializa por diapositiva** (`capture` borra
+  `backgroundImage`/`overlayImage`), así no contamina el JSON de cada slide.
+- **Persistencia**: `master` se guarda en el store (`sync`). Se reconstruye al
+  cargar; se re-renderiza al cambiar de tamaño (16:9 ↔ 4:3).
+- **Presentación**: el patrón se dibuja como capa inferior en el escenario, en las
+  miniaturas del navegador, y en la vista de presentador (actual + siguiente).
+- Los viewers de **solo lectura** ven el patrón (no pueden editarlo).
+- **REQUIERE fuera de carril**: el patrón se ve en editor y presentación, pero **no
+  se incluye en export .pptx/PDF/PNG** (esos viven en `lib/office/**`, fuera del
+  carril F3). Anotado para una sesión que toque export.
+
+Verificado: `tsc` ✓, `eslint` ✓ (0 errores; warnings preexistentes), `next build` ✓.
+
 ### Diferido (con estimación)
 - **Secciones en el clasificador** y colapsar/expandir: el sorter es una rejilla;
   insertar encabezados de ancho completo + colapso. Estimación: ~0.5 día.
-- **Patrón de diapositivas (master) editable** (backlog #7): editor de
-  marcadores/placeholders. Estimación: ~1 día.
+- **Patrón en export** (.pptx/PDF/PNG): el patrón ya existe (Lote 31) y se ve en
+  editor/presentación, pero el export vive en `lib/office/**` (fuera del carril
+  F3). Pendiente para una sesión que toque export. Estimación: ~0.5 día.
 - **Video/audio embebido** (backlog #10): Fabric no reproduce media; requiere
   capa HTML sincronizada y export limitado en .pptx. Estimación: ~1–1.5 días.
 - **Import .pptx**: no hay lib permisiva estable de alta fidelidad. Estimación:
