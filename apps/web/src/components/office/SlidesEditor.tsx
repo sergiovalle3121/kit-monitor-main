@@ -21,6 +21,7 @@ import {
   Pointer, Pencil, Eraser, Moon, ListTree, Layers,
   ZoomIn, ZoomOut, Maximize, Scan, MousePointerClick, Check,
   AlignHorizontalSpaceAround, Paintbrush, Stamp, Proportions, FolderPlus, Squircle, Pipette, Move, PlayCircle,
+  Repeat, Timer, Pause,
 } from 'lucide-react';
 import { SlideSorter } from './SlideSorter';
 import { SlideIconPicker } from './SlideIconPicker';
@@ -134,11 +135,19 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
     while (d.length < initial.length) d.push(DEFAULT_TRANS_DUR);
     return d.map((x: any) => (typeof x === 'number' && x > 0 ? x : DEFAULT_TRANS_DUR));
   })();
+  // Avance automático por diapositiva (segundos; 0 = sólo al hacer clic).
+  const initialAdvance: number[] = (() => {
+    const d = Array.isArray(value?.advanceAfters) ? value.advanceAfters.slice(0, initial.length) : [];
+    while (d.length < initial.length) d.push(0);
+    return d.map((x: any) => (typeof x === 'number' && x >= 0 ? x : 0));
+  })();
   const slidesRef = useRef<any[]>(initial);
   const notesRef = useRef<string[]>(initialNotes);
   const sectionsRef = useRef<(string | null)[]>(initialSections);
   const transitionsRef = useRef<string[]>(initialTransitions);
   const transDursRef = useRef<number[]>(initialTransDurs);
+  const advanceRef = useRef<number[]>(initialAdvance);
+  const loopRef = useRef<boolean>(!!value?.loop);
   const [sections, setSections] = useState<(string | null)[]>(initialSections);
   const [slides, setSlides] = useState<any[]>(initial); // mirror for rendering
   const [cur, setCur] = useState(0);
@@ -146,6 +155,8 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
   const [transition, setTransition] = useState<string>(initialTransitions[0] || 'fade');
   const transitionRef = useRef<string>(transition);
   const [transDur, setTransDur] = useState<number>(initialTransDurs[0] || DEFAULT_TRANS_DUR);
+  const [advanceAfter, setAdvanceAfter] = useState<number>(initialAdvance[0] || 0);
+  const [loop, setLoop] = useState<boolean>(!!value?.loop);
   const clipboardRef = useRef<any>(null);
   const [presenting, setPresenting] = useState(false);
   const presentStartRef = useRef(0);
@@ -232,17 +243,21 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
   function sync() {
     setSlides([...slidesRef.current]);
     setSections([...sectionsRef.current]);
-    onChange({ version: 2, slides: slidesRef.current, notes: notesRef.current, transition: transitionsRef.current[0] || 'fade', transitions: transitionsRef.current, transDurs: transDursRef.current, theme: themeRef.current, footer: footerRef.current, showNumbers: numbersRef.current, ratio: ratioRef.current, sections: sectionsRef.current, master: masterRef.current });
+    onChange({ version: 2, slides: slidesRef.current, notes: notesRef.current, transition: transitionsRef.current[0] || 'fade', transitions: transitionsRef.current, transDurs: transDursRef.current, advanceAfters: advanceRef.current, loop: loopRef.current, theme: themeRef.current, footer: footerRef.current, showNumbers: numbersRef.current, ratio: ratioRef.current, sections: sectionsRef.current, master: masterRef.current });
   }
   function setTrans(t: string) { transitionsRef.current[curRef.current] = t; setTransition(t); transitionRef.current = t; sync(); }
   function setTransDuration(ms: number) { transDursRef.current[curRef.current] = ms; setTransDur(ms); sync(); }
-  // «Aplicar a todas»: copia la transición Y la duración de la diapositiva actual
-  // a todo el mazo (como PowerPoint).
+  function setSlideAdvance(sec: number) { advanceRef.current[curRef.current] = Math.max(0, sec); setAdvanceAfter(Math.max(0, sec)); sync(); }
+  function toggleLoop() { const v = !loopRef.current; loopRef.current = v; setLoop(v); sync(); }
+  // «Aplicar a todas»: copia la transición, la duración Y el avance automático de
+  // la diapositiva actual a todo el mazo (como PowerPoint).
   function applyTransAll(t: string) {
     const d = transDursRef.current[curRef.current] || DEFAULT_TRANS_DUR;
+    const a = advanceRef.current[curRef.current] || 0;
     transitionsRef.current = transitionsRef.current.map(() => t);
     transDursRef.current = transDursRef.current.map(() => d);
-    setTransition(t); transitionRef.current = t; setTransDur(d); sync();
+    advanceRef.current = advanceRef.current.map(() => a);
+    setTransition(t); transitionRef.current = t; setTransDur(d); setAdvanceAfter(a); sync();
   }
   function applyBgAll(color: string) {
     if (masterModeRef.current) return;
@@ -620,6 +635,8 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
     while (transitionsRef.current.length < slidesRef.current.length) transitionsRef.current.push('fade');
     transDursRef.current = Array.isArray(content.transDurs) ? content.transDurs.slice() : content.slides.map(() => DEFAULT_TRANS_DUR);
     while (transDursRef.current.length < slidesRef.current.length) transDursRef.current.push(DEFAULT_TRANS_DUR);
+    advanceRef.current = Array.isArray(content.advanceAfters) ? content.advanceAfters.slice() : content.slides.map(() => 0);
+    while (advanceRef.current.length < slidesRef.current.length) advanceRef.current.push(0);
     { const tr = transitionsRef.current[0] || 'fade'; transitionRef.current = tr; setTransition(tr); setTransDur(transDursRef.current[0] || DEFAULT_TRANS_DUR); }
     setCur(0); curRef.current = 0;
     await loadInto(0);
@@ -814,6 +831,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
     setNoteDraft(notesRef.current[i] ?? '');
     const tr = transitionsRef.current[i] ?? 'fade'; setTransition(tr); transitionRef.current = tr;
     setTransDur(transDursRef.current[i] ?? DEFAULT_TRANS_DUR);
+    setAdvanceAfter(advanceRef.current[i] ?? 0);
     setSlides([...slidesRef.current]);
   }
   function onNote(v: string) { setNoteDraft(v); notesRef.current[curRef.current] = v; sync(); }
@@ -1191,7 +1209,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [readOnly]);
 
-  function addSlide() { if (masterModeRef.current) return; capture(); slidesRef.current.splice(cur + 1, 0, blank()); notesRef.current.splice(cur + 1, 0, ''); sectionsRef.current.splice(cur + 1, 0, null); transitionsRef.current.splice(cur + 1, 0, transitionsRef.current[cur] ?? 'fade'); transDursRef.current.splice(cur + 1, 0, transDursRef.current[cur] ?? DEFAULT_TRANS_DUR); sync(); loadInto(cur + 1); }
+  function addSlide() { if (masterModeRef.current) return; capture(); slidesRef.current.splice(cur + 1, 0, blank()); notesRef.current.splice(cur + 1, 0, ''); sectionsRef.current.splice(cur + 1, 0, null); transitionsRef.current.splice(cur + 1, 0, transitionsRef.current[cur] ?? 'fade'); transDursRef.current.splice(cur + 1, 0, transDursRef.current[cur] ?? DEFAULT_TRANS_DUR); advanceRef.current.splice(cur + 1, 0, 0); sync(); loadInto(cur + 1); }
   // Reutilizar diapositivas: inserta una copia (de este mazo u otro importado)
   // después de la actual, conservando su formato/notas/transición.
   function openReuse() { if (masterModeRef.current) return; capture(); setReuseOpen(true); }
@@ -1204,10 +1222,11 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
     sectionsRef.current.splice(at, 0, null);
     transitionsRef.current.splice(at, 0, item.transition || 'fade');
     transDursRef.current.splice(at, 0, item.transDur || DEFAULT_TRANS_DUR);
+    advanceRef.current.splice(at, 0, 0);
     sync(); loadInto(at);
   }
-  function dupSlide() { if (masterModeRef.current) return; capture(); slidesRef.current.splice(cur + 1, 0, JSON.parse(JSON.stringify(slidesRef.current[cur]))); notesRef.current.splice(cur + 1, 0, notesRef.current[cur] ?? ''); sectionsRef.current.splice(cur + 1, 0, null); transitionsRef.current.splice(cur + 1, 0, transitionsRef.current[cur] ?? 'fade'); transDursRef.current.splice(cur + 1, 0, transDursRef.current[cur] ?? DEFAULT_TRANS_DUR); sync(); loadInto(cur + 1); }
-  function delSlide(i: number) { if (masterModeRef.current || slidesRef.current.length === 1) return; capture(); slidesRef.current.splice(i, 1); notesRef.current.splice(i, 1); sectionsRef.current.splice(i, 1); transitionsRef.current.splice(i, 1); transDursRef.current.splice(i, 1); sync(); loadInto(Math.max(0, i <= cur ? cur - 1 : cur)); }
+  function dupSlide() { if (masterModeRef.current) return; capture(); slidesRef.current.splice(cur + 1, 0, JSON.parse(JSON.stringify(slidesRef.current[cur]))); notesRef.current.splice(cur + 1, 0, notesRef.current[cur] ?? ''); sectionsRef.current.splice(cur + 1, 0, null); transitionsRef.current.splice(cur + 1, 0, transitionsRef.current[cur] ?? 'fade'); transDursRef.current.splice(cur + 1, 0, transDursRef.current[cur] ?? DEFAULT_TRANS_DUR); advanceRef.current.splice(cur + 1, 0, advanceRef.current[cur] ?? 0); sync(); loadInto(cur + 1); }
+  function delSlide(i: number) { if (masterModeRef.current || slidesRef.current.length === 1) return; capture(); slidesRef.current.splice(i, 1); notesRef.current.splice(i, 1); sectionsRef.current.splice(i, 1); transitionsRef.current.splice(i, 1); transDursRef.current.splice(i, 1); advanceRef.current.splice(i, 1); sync(); loadInto(Math.max(0, i <= cur ? cur - 1 : cur)); }
   function reorderSlides(from: number, to: number) {
     if (from === to || masterModeRef.current) return;
     capture();
@@ -1216,6 +1235,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
     const [ms] = sectionsRef.current.splice(from, 1); sectionsRef.current.splice(to, 0, ms);
     const [mt] = transitionsRef.current.splice(from, 1); transitionsRef.current.splice(to, 0, mt);
     const [md] = transDursRef.current.splice(from, 1); transDursRef.current.splice(to, 0, md);
+    const [ma] = advanceRef.current.splice(from, 1); advanceRef.current.splice(to, 0, ma);
     sync(); loadInto(to);
   }
   // ── Secciones (marcas paralelas a las diapositivas) ─────────────────────────
@@ -1612,6 +1632,17 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
               <RibbonButton icon={Copy} label="Aplicar a todas" hideLabel={false} onClick={() => applyTransAll(transition)} />
             </RibbonGroup>
             <RibbonSeparator />
+            <RibbonGroup label="Avanzar diapositiva">
+              <label className="flex items-center gap-1.5 text-[11px] text-gray-600 dark:text-gray-300 cursor-pointer" title="Avanzar automáticamente esta diapositiva">
+                <input type="checkbox" checked={advanceAfter > 0} onChange={(e) => setSlideAdvance(e.target.checked ? 5 : 0)} className="accent-blue-500" />
+                <Timer className="w-3.5 h-3.5" /> Tras
+              </label>
+              <input type="number" min={0} step={1} value={advanceAfter} onChange={(e) => setSlideAdvance(Number(e.target.value))} title="Segundos (0 = sólo al hacer clic)"
+                className="w-14 h-7 text-xs rounded-lg bg-black/[0.04] dark:bg-white/[0.06] px-1.5 outline-none border border-transparent focus:border-blue-500/40 text-gray-800 dark:text-gray-100" />
+              <span className="text-[11px] text-gray-500">s</span>
+              <RibbonButton icon={Repeat} label="Repetir en bucle" active={loop} onClick={toggleLoop} />
+            </RibbonGroup>
+            <RibbonSeparator />
             <RibbonGroup label="Fondo">
               <RibbonColorButton icon={Palette} title="Fondo de todas las diapositivas" onChange={applyBgAll} swatchBar={false} />
             </RibbonGroup>
@@ -1735,7 +1766,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
         </div>
       )}
 
-      {presenting && <Present slides={slides} notes={notesRef.current} transition={transition} transitions={transitionsRef.current} transDurs={transDursRef.current} master={masterImgRef.current} footer={footerRef.current} showNumbers={showNumbers} presenter={presenterMode} ratio={ratio} startAt={presentStartRef.current} onClose={() => { setPresenting(false); setPresenterMode(false); }} />}
+      {presenting && <Present slides={slides} notes={notesRef.current} transition={transition} transitions={transitionsRef.current} transDurs={transDursRef.current} advanceAfters={advanceRef.current} loop={loop} master={masterImgRef.current} footer={footerRef.current} showNumbers={showNumbers} presenter={presenterMode} ratio={ratio} startAt={presentStartRef.current} onClose={() => { setPresenting(false); setPresenterMode(false); }} />}
       <AnimatePresence>
         {showTemplates && <TemplateGallery type="slides" onPick={applyTemplate} onClose={() => setShowTemplates(false)} />}
       </AnimatePresence>
@@ -1854,9 +1885,9 @@ function StaticDeck({ deck, master }: { deck?: Deck; master?: string }) {
 }
 
 function Present({
-  slides, notes, transition, transitions, transDurs, master, footer, showNumbers, presenter, ratio, startAt, onClose,
+  slides, notes, transition, transitions, transDurs, advanceAfters, loop, master, footer, showNumbers, presenter, ratio, startAt, onClose,
 }: {
-  slides: any[]; notes?: string[]; transition?: string; transitions?: string[]; transDurs?: number[]; master?: string; footer?: string; showNumbers?: boolean; presenter?: boolean; ratio?: string; startAt?: number; onClose: () => void;
+  slides: any[]; notes?: string[]; transition?: string; transitions?: string[]; transDurs?: number[]; advanceAfters?: number[]; loop?: boolean; master?: string; footer?: string; showNumbers?: boolean; presenter?: boolean; ratio?: string; startAt?: number; onClose: () => void;
 }) {
   const [decks, setDecks] = useState<Deck[]>([]);
   const [i, setI] = useState(Math.max(0, Math.min((slides?.length ?? 1) - 1, startAt ?? 0)));
@@ -1877,6 +1908,7 @@ function Present({
   const [ink, setInk] = useState<Record<number, number[][]>>({});
   // Paso de animación revelado (construcción por clic, tipo PowerPoint).
   const [revealed, setRevealed] = useState(0);
+  const [paused, setPaused] = useState(false);
   const revealedRef = useRef(0);
   const maxStepRef = useRef(0);
   const drawRef = useRef<number[] | null>(null);
@@ -1931,6 +1963,7 @@ function Present({
       if (k === 'p') setTool((t) => (t === 'pen' ? 'none' : 'pen'));
       if (k === 'e') setInk((p) => ({ ...p, [iRef.current]: [] }));
       if (k === 'g') setGridNav((v) => !v);
+      if (k === 'k') setPaused((v) => !v);
       if (e.key === 'Escape') { if (gridRef.current) setGridNav(false); else onClose(); }
     };
     window.addEventListener('keydown', onKey);
@@ -1947,12 +1980,24 @@ function Present({
 
   const note = notes?.[i]?.trim();
   const hasNotes = (notes ?? []).some((n) => n?.trim());
+  const hasAuto = (advanceAfters ?? []).some((s) => s > 0);
   const deck = decks[i];
 
   // Secuencia de pasos de animación de la diapositiva actual.
   const { plan, maxStep } = planAnim(deck?.layers ?? []);
   useEffect(() => { maxStepRef.current = maxStep; }, [maxStep]);
-  const advance = () => { setBlacked(false); if (revealed < maxStep) setRevealed((r) => r + 1); else setI((v) => Math.min(slides.length - 1, v + 1)); };
+  const nextSlide = () => setI((v) => (v < slides.length - 1 ? v + 1 : (loop ? 0 : v)));
+  const advance = () => { setBlacked(false); if (revealed < maxStep) setRevealed((r) => r + 1); else nextSlide(); };
+
+  // Avance automático (cronometraje de transición / modo kiosco). Espera a que
+  // terminen las construcciones manuales (revealed ≥ maxStep) y respeta el bucle.
+  useEffect(() => {
+    if (presenter || paused || blacked || gridNav) return;
+    const sec = advanceAfters?.[i] || 0;
+    if (sec <= 0 || revealed < maxStep) return;
+    const t = setTimeout(() => { setBlacked(false); setI((v) => (v < slides.length - 1 ? v + 1 : (loop ? 0 : v))); }, sec * 1000);
+    return () => clearTimeout(t);
+  }, [i, revealed, maxStep, paused, blacked, gridNav, presenter, advanceAfters, loop, slides.length]);
 
   const stage = (
     <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
@@ -2047,6 +2092,9 @@ function Present({
         <button onClick={clearInk} title="Borrar tinta (E)" className="p-2 rounded-full bg-white/15 text-white hover:bg-white/30"><Eraser className="w-5 h-5" /></button>
         <button onClick={() => setBlacked((v) => !v)} title="Pantalla en negro (B)" className={`p-2 rounded-full text-white transition-colors ${blacked ? 'bg-rose-500/90' : 'bg-white/15 hover:bg-white/30'}`}><Moon className="w-5 h-5" /></button>
         <button onClick={() => setGridNav((v) => !v)} title="Miniaturas (G)" className={`p-2 rounded-full text-white transition-colors ${gridNav ? 'bg-rose-500/90' : 'bg-white/15 hover:bg-white/30'}`}><LayoutGrid className="w-5 h-5" /></button>
+        {hasAuto && (
+          <button onClick={() => setPaused((v) => !v)} title={paused ? 'Reanudar avance automático (K)' : 'Pausar avance automático (K)'} className={`p-2 rounded-full text-white transition-colors ${paused ? 'bg-amber-500/80' : 'bg-white/15 hover:bg-white/30'}`}>{paused ? <Play className="w-5 h-5" /> : <Pause className="w-5 h-5" />}</button>
+        )}
         {hasNotes && (
           <button onClick={() => setShowNotes((v) => !v)} title="Notas del orador (N)" className={`p-2 rounded-full text-white transition-colors ${showNotes ? 'bg-amber-500/80' : 'bg-white/15 hover:bg-white/30'}`}><StickyNote className="w-5 h-5" /></button>
         )}
@@ -2090,7 +2138,7 @@ function Present({
       )}
       <button onClick={() => { if (revealed > 0) setRevealed((r) => Math.max(0, r - 1)); else setI((v) => Math.max(0, v - 1)); }} disabled={i === 0 && revealed === 0} className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/15 text-white text-2xl hover:bg-white/30 disabled:opacity-20 z-20">‹</button>
       <button onClick={advance} disabled={i === slides.length - 1 && revealed >= maxStep} className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/15 text-white text-2xl hover:bg-white/30 disabled:opacity-20 z-20">›</button>
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/70 text-sm z-20">{i + 1} / {slides.length}{maxStep > 0 && <span className="text-white/40"> · paso {revealed}/{maxStep}</span>}</div>
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/70 text-sm z-20">{i + 1} / {slides.length}{maxStep > 0 && <span className="text-white/40"> · paso {revealed}/{maxStep}</span>}{loop && <span className="text-white/40" title="Bucle"> · ↻</span>}{hasAuto && paused && <span className="text-amber-400" title="En pausa"> · ⏸</span>}</div>
       {showNotes && (
         <div className="absolute bottom-0 left-0 right-0 max-h-[30%] overflow-y-auto bg-black/80 backdrop-blur border-t border-white/10 px-8 py-4 text-white/90 text-sm leading-relaxed whitespace-pre-wrap z-20">
           {note || <span className="text-white/40">Sin notas para esta diapositiva.</span>}

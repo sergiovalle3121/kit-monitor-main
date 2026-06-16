@@ -410,6 +410,19 @@ Verificado: `tsc` ✓, `eslint` ✓ (0 errores; warnings preexistentes), `next b
 
 Verificado: `tsc` ✓, `eslint` ✓ (0 errores; warnings preexistentes), `next build` ✓.
 
+#### Lote 33 — Avance automático (cronometraje) + bucle/kiosco
+- **Avanzar diapositiva automáticamente tras N segundos** (`advanceAfters`,
+  arreglo paralelo): pestaña Transiciones ▸ casilla + segundos. «Aplicar a todas»
+  ahora también copia el avance automático.
+- **Repetir en bucle** (`loop`, nivel de mazo): al terminar vuelve al inicio.
+- En presentación: temporizador por diapositiva que avanza al terminar las
+  construcciones manuales (`revealed ≥ maxStep`); **pausa/reanuda** (tecla **K** o
+  botón, visible si hay avance automático); indicadores de bucle/pausa en el pie.
+  El clic/teclas siguen avanzando manualmente; respeta pantalla en negro y
+  miniaturas.
+
+Verificado: `tsc` ✓, `eslint` ✓ (0 errores; warnings preexistentes), `next build` ✓.
+
 ### Diferido (con estimación)
 - **Secciones en el clasificador** y colapsar/expandir: el sorter es una rejilla;
   insertar encabezados de ancho completo + colapso. Estimación: ~0.5 día.
