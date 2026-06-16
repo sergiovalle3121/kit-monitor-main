@@ -1835,7 +1835,7 @@ const OBJ_ANIM: Record<string, any> = {
   flyRight: { initial: { opacity: 0, x: '8%' }, animate: { opacity: 1, x: 0 } },
   zoom: { initial: { opacity: 0, scale: 0.8 }, animate: { opacity: 1, scale: 1 } },
   rotate: { initial: { opacity: 0, rotate: -12, scale: 0.9 }, animate: { opacity: 1, rotate: 0, scale: 1 } },
-  bounce: { initial: { opacity: 0, y: '-12%' }, animate: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 500, damping: 14 } } },
+  bounce: { initial: { opacity: 0, y: '-14%' }, animate: { opacity: 1, y: ['-14%', '5%', '-2%', '0%'] } },
   // Énfasis (estado inicial visible; al dispararse reproduce un keyframe que
   // regresa al estado base).
   pulse: { initial: { opacity: 1, scale: 1 }, animate: { scale: [1, 1.12, 1] } },
@@ -1906,17 +1906,22 @@ function Present({
   const [gridNav, setGridNav] = useState(false);
   const [laser, setLaser] = useState<{ x: number; y: number } | null>(null);
   const [ink, setInk] = useState<Record<number, number[][]>>({});
-  // Paso de animación revelado (construcción por clic, tipo PowerPoint).
-  const [revealed, setRevealed] = useState(0);
+  // Paso de animación revelado (construcción por clic, tipo PowerPoint). Se
+  // deriva de { i, step } para que al cambiar de diapositiva valga 0 de inmediato
+  // (sin un render intermedio que muestre el paso de la diapositiva anterior).
+  const [reveal, setReveal] = useState<{ i: number; step: number }>({ i: -1, step: 0 });
+  const revealed = reveal.i === i ? reveal.step : 0;
   const [paused, setPaused] = useState(false);
   const revealedRef = useRef(0);
   const maxStepRef = useRef(0);
+  const loopRef = useRef(loop);
   const drawRef = useRef<number[] | null>(null);
   const boxRef = useRef<HTMLDivElement>(null);
   const iRef = useRef(0);
   const gridRef = useRef(false);
-  useEffect(() => { iRef.current = i; setLaser(null); setRevealed(0); }, [i]);
+  useEffect(() => { iRef.current = i; setLaser(null); }, [i]);
   useEffect(() => { revealedRef.current = revealed; }, [revealed]);
+  useEffect(() => { loopRef.current = loop; }, [loop]);
   useEffect(() => { gridRef.current = gridNav; }, [gridNav]);
   const slidePt = (e: React.PointerEvent) => {
     const r = boxRef.current?.getBoundingClientRect(); if (!r || !r.width) return [0, 0] as const;
@@ -1949,12 +1954,12 @@ function Present({
       const k = e.key.toLowerCase();
       if (e.key === 'ArrowRight' || e.key === ' ') {
         setBlacked(false);
-        if (revealedRef.current < maxStepRef.current) setRevealed((r) => r + 1);
-        else setI((v) => Math.min(slides.length - 1, v + 1));
+        if (revealedRef.current < maxStepRef.current) setReveal({ i: iRef.current, step: revealedRef.current + 1 });
+        else setI((v) => (v < slides.length - 1 ? v + 1 : (loopRef.current ? 0 : v)));
       }
       if (e.key === 'ArrowLeft') {
         setBlacked(false);
-        if (revealedRef.current > 0) setRevealed((r) => Math.max(0, r - 1));
+        if (revealedRef.current > 0) setReveal({ i: iRef.current, step: Math.max(0, revealedRef.current - 1) });
         else setI((v) => Math.max(0, v - 1));
       }
       if (k === 'n') setShowNotes((v) => !v);
@@ -1987,15 +1992,21 @@ function Present({
   const { plan, maxStep } = planAnim(deck?.layers ?? []);
   useEffect(() => { maxStepRef.current = maxStep; }, [maxStep]);
   const nextSlide = () => setI((v) => (v < slides.length - 1 ? v + 1 : (loop ? 0 : v)));
-  const advance = () => { setBlacked(false); if (revealed < maxStep) setRevealed((r) => r + 1); else nextSlide(); };
+  const advance = () => { setBlacked(false); if (revealed < maxStep) setReveal({ i, step: revealed + 1 }); else nextSlide(); };
 
-  // Avance automático (cronometraje de transición / modo kiosco). Espera a que
-  // terminen las construcciones manuales (revealed ≥ maxStep) y respeta el bucle.
+  // Avance automático (cronometraje de transición / modo kiosco). Cada disparo
+  // revela el siguiente paso de animación (si lo hay) y, si ya no quedan, pasa a
+  // la siguiente diapositiva; se rearma con cada cambio para no atascarse en
+  // diapositivas con construcciones «al hacer clic». Respeta el bucle.
   useEffect(() => {
     if (presenter || paused || blacked || gridNav) return;
     const sec = advanceAfters?.[i] || 0;
-    if (sec <= 0 || revealed < maxStep) return;
-    const t = setTimeout(() => { setBlacked(false); setI((v) => (v < slides.length - 1 ? v + 1 : (loop ? 0 : v))); }, sec * 1000);
+    if (sec <= 0) return;
+    const t = setTimeout(() => {
+      setBlacked(false);
+      if (revealed < maxStep) setReveal({ i, step: revealed + 1 });
+      else setI((v) => (v < slides.length - 1 ? v + 1 : (loop ? 0 : v)));
+    }, sec * 1000);
     return () => clearTimeout(t);
   }, [i, revealed, maxStep, paused, blacked, gridNav, presenter, advanceAfters, loop, slides.length]);
 
@@ -2136,8 +2147,8 @@ function Present({
           </div>
         </div>
       )}
-      <button onClick={() => { if (revealed > 0) setRevealed((r) => Math.max(0, r - 1)); else setI((v) => Math.max(0, v - 1)); }} disabled={i === 0 && revealed === 0} className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/15 text-white text-2xl hover:bg-white/30 disabled:opacity-20 z-20">‹</button>
-      <button onClick={advance} disabled={i === slides.length - 1 && revealed >= maxStep} className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/15 text-white text-2xl hover:bg-white/30 disabled:opacity-20 z-20">›</button>
+      <button onClick={() => { if (revealed > 0) setReveal({ i, step: Math.max(0, revealed - 1) }); else setI((v) => Math.max(0, v - 1)); }} disabled={i === 0 && revealed === 0} className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/15 text-white text-2xl hover:bg-white/30 disabled:opacity-20 z-20">‹</button>
+      <button onClick={advance} disabled={i === slides.length - 1 && revealed >= maxStep && !loop} className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/15 text-white text-2xl hover:bg-white/30 disabled:opacity-20 z-20">›</button>
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/70 text-sm z-20">{i + 1} / {slides.length}{maxStep > 0 && <span className="text-white/40"> · paso {revealed}/{maxStep}</span>}{loop && <span className="text-white/40" title="Bucle"> · ↻</span>}{hasAuto && paused && <span className="text-amber-400" title="En pausa"> · ⏸</span>}</div>
       {showNotes && (
         <div className="absolute bottom-0 left-0 right-0 max-h-[30%] overflow-y-auto bg-black/80 backdrop-blur border-t border-white/10 px-8 py-4 text-white/90 text-sm leading-relaxed whitespace-pre-wrap z-20">

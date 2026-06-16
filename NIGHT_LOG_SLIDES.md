@@ -423,6 +423,25 @@ Verificado: `tsc` ✓, `eslint` ✓ (0 errores; warnings preexistentes), `next b
 
 Verificado: `tsc` ✓, `eslint` ✓ (0 errores; warnings preexistentes), `next build` ✓.
 
+#### Lote 34 — Correcciones de la auto-revisión de código (lotes 28–33)
+Revisión con agentes (tema/patrón/avance y animación/presentación). El patrón,
+el remapeo de tema, las matrices paralelas y los guards quedaron **confirmados
+correctos**. Se corrigieron 4 bugs reales en el modo presentación:
+- **Paso revelado** ahora se deriva de `{ i, step }` (antes un efecto lo ponía a
+  0 con un render de retraso → al volver atrás o saltar por miniaturas a una
+  diapositiva ya cacheada, sus objetos «parpadeaban» entrando y revirtiendo).
+- **Avance automático** ya no se atasca: cada disparo revela el siguiente paso de
+  animación y, si no quedan, cambia de diapositiva (antes, con construcciones «al
+  hacer clic», el temporizador nunca se armaba y el kiosco se congelaba).
+- **Bucle** ahora respeta teclado (→/espacio) y botón «›» en la última
+  diapositiva (antes sólo se podía dar la vuelta con clic en el fondo o por
+  temporizador).
+- **Rebote**: el efecto llevaba su propia transición *spring* incrustada que
+  anulaba el `delay` de secuencia (con/después de la anterior). Reescrito con
+  keyframes para que respete orden y retraso.
+
+Verificado: `tsc` ✓, `eslint` ✓ (0 errores; warnings preexistentes), `next build` ✓.
+
 ### Diferido (con estimación)
 - **Secciones en el clasificador** y colapsar/expandir: el sorter es una rejilla;
   insertar encabezados de ancho completo + colapso. Estimación: ~0.5 día.
