@@ -17,6 +17,10 @@ describe('PlansService', () => {
     update: jest.Mock;
   };
   let capacityRepo: { find: jest.Mock };
+  let positionRepo: { find: jest.Mock };
+  let kitMaterialsGetMany: jest.Mock;
+  let kitMaterialRepo: { createQueryBuilder: jest.Mock };
+  let quality: { findAllActiveHolds: jest.Mock };
   let audit: { log: jest.Mock };
 
   beforeEach(() => {
@@ -28,14 +32,27 @@ describe('PlansService', () => {
       update: jest.fn().mockResolvedValue(undefined),
     };
     capacityRepo = { find: jest.fn() };
+    positionRepo = { find: jest.fn().mockResolvedValue([]) };
+    // Demand resolves through a join query builder; default to no BOM lines.
+    kitMaterialsGetMany = jest.fn().mockResolvedValue([]);
+    kitMaterialRepo = {
+      createQueryBuilder: jest.fn(() => ({
+        innerJoin: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        getMany: kitMaterialsGetMany,
+      })),
+    };
+    quality = { findAllActiveHolds: jest.fn().mockResolvedValue([]) };
     audit = { log: jest.fn().mockResolvedValue(undefined) };
     service = new PlansService(
       repo as never,
       capacityRepo as never,
       {} as never, // programRepo
       {} as never, // lineRepo
+      positionRepo as never,
+      kitMaterialRepo as never,
       {} as never, // inventory
-      {} as never, // quality
+      quality as never,
       audit as never,
       {} as never, // dataSource
     );
@@ -109,7 +126,8 @@ describe('PlansService', () => {
       await expect(service.releaseWorkOrder(1, 'mgr')).rejects.toBeInstanceOf(NotFoundException);
     });
 
-    it('marca released con sello de readiness y registra la auditoría RELEASE_WO', async () => {
+    it('marca released, sella readiness HONESTO (sin BOM ni fecha = unknown) y audita RELEASE_WO', async () => {
+      // Plan sin kit/BOM y sin fecha compromiso → el semáforo NO miente verde.
       repo.findOne.mockResolvedValue({ id: 1, model: 'M', status: 'pending', buildingId: 'b1', kit: null });
       await service.releaseWorkOrder(1, 'mgr');
 
@@ -117,15 +135,75 @@ describe('PlansService', () => {
         status: string;
         releasedBy: string;
         releasedAt: Date;
-        readinessSummary: unknown;
+        readinessSummary: { materials: string; quality: string; shipping: string };
       };
       expect(saved.status).toBe('released');
       expect(saved.releasedBy).toBe('mgr');
       expect(saved.releasedAt).toBeInstanceOf(Date);
-      expect(saved.readinessSummary).toMatchObject({ materials: 'green', quality: 'green' });
+      // Antes devolvía 'green' hardcodeado; ahora es honesto: sin datos = unknown.
+      expect(saved.readinessSummary).toMatchObject({
+        materials: 'unknown',
+        quality: 'unknown',
+        shipping: 'unknown',
+      });
       expect(audit.log).toHaveBeenCalledWith(
         expect.objectContaining({ action: 'RELEASE_WO', entity: 'Plan', entityId: '1' }),
       );
+    });
+
+    it('computa readiness REAL: faltante parcial=yellow, hold=red, fecha vencida=red', async () => {
+      const pastDue = new Date(Date.now() - 3 * 86_400_000);
+      repo.findOne.mockResolvedValue({
+        id: 7,
+        model: 'M',
+        status: 'pending',
+        buildingId: 'b1',
+        dueDate: pastDue,
+        kit: null,
+      });
+      // Demanda de la WO: 2 partes (BOM surtido del kit).
+      kitMaterialsGetMany.mockResolvedValue([
+        { partNumber: 'P-1', quantityRequired: 10, unit: 'EA' },
+        { partNumber: 'P-2', quantityRequired: 5, unit: 'EA' },
+      ]);
+      // Inventario: P-1 cubierto; P-2 corto (2 de 5). Sólo cuenta 'available'.
+      positionRepo.find.mockResolvedValue([
+        { partNumber: 'P-1', onHand: 10, allocated: 0, holdStatus: 'available' },
+        { partNumber: 'P-2', onHand: 2, allocated: 0, holdStatus: 'available' },
+      ]);
+      // Hold de calidad activo sobre P-2.
+      quality.findAllActiveHolds.mockResolvedValue([{ partNumber: 'P-2' }]);
+
+      await service.releaseWorkOrder(7, 'mgr');
+      const saved = repo.save.mock.calls[0][0] as {
+        readinessSummary: {
+          materials: string;
+          quality: string;
+          shipping: string;
+          detail: { shortParts: number; heldParts: string[]; shortages: Array<{ partNumber: string }> };
+        };
+      };
+      expect(saved.readinessSummary.materials).toBe('yellow'); // 1 de 2 con faltante
+      expect(saved.readinessSummary.quality).toBe('red'); // P-2 retenido
+      expect(saved.readinessSummary.shipping).toBe('red'); // fecha vencida
+      expect(saved.readinessSummary.detail.shortParts).toBe(1);
+      expect(saved.readinessSummary.detail.heldParts).toEqual(['P-2']);
+      expect(saved.readinessSummary.detail.shortages[0].partNumber).toBe('P-2');
+      // Sólo se consultan holds/inventario cuando hay demanda real.
+      expect(positionRepo.find).toHaveBeenCalledTimes(1);
+      expect(quality.findAllActiveHolds).toHaveBeenCalledTimes(1);
+    });
+
+    it('materials=green cuando todo el BOM está cubierto en inventario disponible', async () => {
+      repo.findOne.mockResolvedValue({ id: 8, model: 'M', status: 'pending', kit: null });
+      kitMaterialsGetMany.mockResolvedValue([{ partNumber: 'P-1', quantityRequired: 4, unit: 'EA' }]);
+      positionRepo.find.mockResolvedValue([
+        { partNumber: 'P-1', onHand: 10, allocated: 2, holdStatus: 'available' }, // disp = 8 ≥ 4
+      ]);
+      await service.releaseWorkOrder(8, 'mgr');
+      const saved = repo.save.mock.calls[0][0] as { readinessSummary: { materials: string; quality: string } };
+      expect(saved.readinessSummary.materials).toBe('green');
+      expect(saved.readinessSummary.quality).toBe('green'); // sin holds
     });
   });
 

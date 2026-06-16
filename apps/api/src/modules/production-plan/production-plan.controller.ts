@@ -50,6 +50,22 @@ export class ProductionPlanController {
     return this.service.kpis();
   }
 
+  @Get('crp')
+  @RequirePermissions('production:read')
+  @ApiOperation({
+    summary:
+      'CRP: carga vs capacidad por línea (valida sobreasignación del plan).',
+  })
+  crp(
+    @Query('availableMinutes') availableMinutes?: string,
+    @Query('line') line?: string,
+  ) {
+    return this.service.capacityLoad({
+      availableMinutes: availableMinutes ? Number(availableMinutes) : undefined,
+      line,
+    });
+  }
+
   @Get(':id')
   @RequirePermissions('production:read')
   @ApiOperation({ summary: 'Detalle de una WO.' })
