@@ -313,6 +313,33 @@ CSS de todo lo anterior en `tiptap.css`.
   carril.
 - Puertas: `tsc` 0, `eslint` carril 0, `next build` verde.
 
+### F2 · Cierre de sesión (handoff)
+Entregadas 10 rebanadas, cada una con `tsc` 0 / `eslint` carril 0 / `next build`
+verde, commit + push a `claude/wizardly-babbage-5dtfdj`. Cubre **todas** las
+prioridades de la tarea (control de cambios con/sin marcas; TOC automática +
+actualizar; encabezados/pies + numeración + saltos de sección; notas al pie/al
+final; columnas 1/2/3 + línea; estilos consistentes aplicar/redefinir ligados a la
+TOC; paginación) + 5 profundizaciones (cambios por autor; tabla de ilustraciones;
+saltos de línea/página por párrafo; niveles de esquema; guías de página).
+
+**Auto-revisión** (3 ángulos, agentes): sin bugs confirmados. Candidatos
+descartados (valores `dataset` son strings → "0" es truthy; `null || {}` = `{}`;
+`?? 1` preserva 0; comandos TipTap devuelven true sin `dispatch` por convención
+`can()`; la limpieza de `useEffect` cubre el cambio de `editor`). Sin callers rotos.
+
+**Fuera de carril / diferido** (anotado, no tocado):
+- Fidelidad .docx de los nodos nuevos (saltos de sección con su encabezado/pie,
+  notas al final, nº de página en la TOC exportada, párrafos con nivel de esquema en
+  la TOC del .docx, atributos keep/break de párrafo): requiere `lib/office/docx.ts`
+  (fuera del carril F2). El export actual **degrada con gracia** (los nodos
+  desconocidos se omiten o se recorren por el caso `default`); no rompe el .docx.
+- CSS: `styles/tiptap.css` está fuera del carril; todo el CSS nuevo se inyecta vía
+  `docs/docStyles.ts` (constante + `<style>` en `DocEditor`), sólo selectores nuevos.
+- Reinicio del contador de página por sección en Paged.js: best-effort
+  (`counter-reset: page N-1`), no verificable en build sin navegador.
+- Encabezados/pies pares-impares (mirror) y control de cambios con interceptación
+  total (pegar/IME) siguen diferidos.
+
 ## Resumen final de la sesión
 Se llevó el editor de Documentos muy cerca de Word, todo con código propio sobre
 TipTap/ProseMirror (MIT) + KaTeX (MIT). **No se tocó** el ribbon compartido,
