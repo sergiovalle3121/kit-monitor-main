@@ -459,6 +459,14 @@ de Fabric → se serializan sin cambios en `capture`.
 
 Verificado: `tsc` ✓, `eslint` ✓ (0 errores; warnings preexistentes), `next build` ✓.
 
+#### Lote 37 — Degradado de relleno con dirección
+Antes el degradado era fijo (base → púrpura horizontal). Ahora menú con
+**dirección** (horizontal/vertical/diagonal/**radial**) y degradado de un solo
+tono (`base → aclarado`, helper puro `lightenHex`), que respeta el color de
+relleno actual del objeto. Para rectángulos, círculos y formas.
+
+Verificado: `tsc` ✓, `eslint` ✓ (0 errores; warnings preexistentes), `next build` ✓.
+
 ### Diferido (con estimación)
 - **Secciones en el clasificador** y colapsar/expandir: el sorter es una rejilla;
   insertar encabezados de ancho completo + colapso. Estimación: ~0.5 día.

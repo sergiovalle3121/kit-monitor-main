@@ -84,6 +84,15 @@ function objLabel(o: any): string {
 // con un slot del tema anterior (fondo/superficie/texto/atenuado/acento) se
 // remapea al slot equivalente del tema nuevo. Los colores que el usuario eligió
 // a mano (que no son del tema) se conservan intactos.
+// Aclara un color hex mezclándolo con blanco (para degradados de un solo tono).
+function lightenHex(hex: string, amt = 0.5): string {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+  if (!m) return hex;
+  const n = parseInt(m[1], 16);
+  const mix = (c: number) => Math.round(c + (255 - c) * amt);
+  const r = mix((n >> 16) & 255), g = mix((n >> 8) & 255), b = mix(n & 255);
+  return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
+}
 const THEME_SLOTS: (keyof SlideTheme)[] = ['bg', 'surface', 'text', 'muted', 'accent'];
 function remapThemeColor(col: any, from: SlideTheme, to: SlideTheme): any {
   if (typeof col !== 'string') return col;
@@ -1000,16 +1009,27 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
     o.set('shadow', o.shadow ? null : new Shadow({ color: 'rgba(0,0,0,0.35)', blur: 14, offsetX: 5, offsetY: 6 }));
     c.requestRenderAll(); capture(); sync();
   }
-  function applyGradient() {
+  // Degradado de relleno con dirección (horizontal/vertical/diagonal/radial),
+  // de un solo tono (color base → aclarado), como PowerPoint.
+  function applyGradient(dir: 'h' | 'v' | 'd' | 'r' = 'h') {
     const c = fabricRef.current; const o = c?.getActiveObject() as any;
     if (!c || !o || o.type === 'line') return;
     const w = (o.width || 200) * (o.scaleX || 1);
-    const base = typeof o.fill === 'string' ? o.fill : '#3b82f6';
-    o.set('fill', new Gradient({
-      type: 'linear', gradientUnits: 'pixels',
-      coords: { x1: 0, y1: 0, x2: w, y2: 0 },
-      colorStops: [{ offset: 0, color: base }, { offset: 1, color: '#7c3aed' }],
-    }));
+    const h = ((o.height || (o.radius ? o.radius * 2 : 200))) * (o.scaleY || 1);
+    const base = typeof o.fill === 'string' ? o.fill : theme().accent;
+    const lite = lightenHex(base, 0.55);
+    if (dir === 'r') {
+      o.set('fill', new Gradient({
+        type: 'radial', gradientUnits: 'pixels',
+        coords: { x1: w / 2, y1: h / 2, r1: 0, x2: w / 2, y2: h / 2, r2: Math.max(w, h) / 1.4 },
+        colorStops: [{ offset: 0, color: lite }, { offset: 1, color: base }],
+      }));
+    } else {
+      const coords = dir === 'v' ? { x1: 0, y1: 0, x2: 0, y2: h }
+        : dir === 'd' ? { x1: 0, y1: 0, x2: w, y2: h }
+          : { x1: 0, y1: 0, x2: w, y2: 0 };
+      o.set('fill', new Gradient({ type: 'linear', gradientUnits: 'pixels', coords, colorStops: [{ offset: 0, color: base }, { offset: 1, color: lite }] }));
+    }
     c.requestRenderAll(); capture(); sync();
   }
   function setObjLink() {
@@ -1556,7 +1576,12 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
               </RibbonMenuButton>
               <RibbonColorButton icon={PaintBucket} title="Color de relleno" onChange={setColor} swatchBar={false} />
               <RibbonButton icon={Pipette} label="Cuentagotas (color del lienzo)" active={eyedropper} onClick={startEyedropper} />
-              <RibbonButton icon={Blend} label="Degradado" onClick={applyGradient} />
+              <RibbonMenuButton icon={Blend} label="Degradado" menuWidth={190} items={[
+                { label: 'Horizontal →', onClick: () => applyGradient('h') },
+                { label: 'Vertical ↓', onClick: () => applyGradient('v') },
+                { label: 'Diagonal ↘', onClick: () => applyGradient('d') },
+                { label: 'Radial ◉', onClick: () => applyGradient('r') },
+              ]} />
               <RibbonButton icon={Droplet} label="Sombra" onClick={toggleShadow} />
               <RibbonMenuButton icon={SquareDashed} label="Contorno" menuWidth={190} items={[
                 { label: 'Sin contorno', onClick: () => setOutlineWidth(0) },
