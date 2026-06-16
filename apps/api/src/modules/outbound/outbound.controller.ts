@@ -11,8 +11,10 @@ import {
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { RequirePermissions } from '../auth/decorators/permissions.decorator';
 import { OutboundService } from './outbound.service';
 import {
+  AssignTransportDto,
   CreateShipmentDto,
   TransitionShipmentDto,
   UpdateShipmentDto,
@@ -63,5 +65,19 @@ export class OutboundController {
   @ApiOperation({ summary: 'Avanza el embarque (genera ASN al embarcar).' })
   transition(@Param('id') id: string, @Body() dto: TransitionShipmentDto) {
     return this.service.transition(id, dto);
+  }
+
+  @Post('shipments/:id/assign-transport')
+  @RequirePermissions('logistics:write')
+  @ApiOperation({ summary: 'Asigna transporte (transportista/unidad/chofer/andén) con poka-yoke.' })
+  assignTransport(@Param('id') id: string, @Body() dto: AssignTransportDto) {
+    return this.service.assignTransport(id, dto);
+  }
+
+  @Post('shipments/:id/release-transport')
+  @RequirePermissions('logistics:write')
+  @ApiOperation({ summary: 'Libera el transporte asignado (regresa unidad/chofer/andén a disponible).' })
+  releaseTransport(@Param('id') id: string) {
+    return this.service.releaseTransport(id);
   }
 }

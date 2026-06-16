@@ -73,4 +73,39 @@ export class Shipment extends TenantBaseEntity {
 
   @Column({ type: DATE_COLUMN_TYPE, nullable: true, name: 'delivered_date' })
   deliveredDate: Date | null;
+
+  // ── Transport assignment (Tráfico) ─────────────────────────────────────────
+  // Denormalized snapshot of the carrier/unit/driver/dock tied to this shipment
+  // by traffic. The structured ids point at the `traffic_*` masters; the *_plate/
+  // *_code/driver_name carry a human snapshot so the document/label survives even
+  // if a master row changes later. `carrier` (above) holds the carrier name.
+  @Column({ type: 'varchar', length: 36, nullable: true, name: 'carrier_id' })
+  carrierId: string | null;
+
+  @Column({ type: 'varchar', length: 36, nullable: true, name: 'vehicle_id' })
+  vehicleId: string | null;
+
+  @Column({ type: 'varchar', length: 32, nullable: true, name: 'vehicle_plate' })
+  vehiclePlate: string | null;
+
+  @Column({ type: 'varchar', length: 24, nullable: true, name: 'vehicle_type' })
+  vehicleType: string | null;
+
+  @Column({ type: 'varchar', length: 36, nullable: true, name: 'driver_id' })
+  driverId: string | null;
+
+  @Column({ type: 'varchar', length: 160, nullable: true, name: 'driver_name' })
+  driverName: string | null;
+
+  @Column({ type: 'varchar', length: 36, nullable: true, name: 'dock_id' })
+  dockId: string | null;
+
+  @Column({ type: 'varchar', length: 32, nullable: true, name: 'dock_code' })
+  dockCode: string | null;
+
+  @Column({ type: DATE_COLUMN_TYPE, nullable: true, name: 'transport_assigned_at' })
+  transportAssignedAt: Date | null;
+
+  @Column({ type: 'varchar', length: 255, nullable: true, name: 'transport_assigned_by' })
+  transportAssignedBy: string | null;
 }

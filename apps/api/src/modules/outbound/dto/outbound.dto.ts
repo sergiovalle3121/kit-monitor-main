@@ -118,6 +118,37 @@ export class UpdateShipmentDto {
   notes?: string;
 }
 
+/**
+ * Assign transport (carrier/unit/driver/dock) to a shipment. All optional so
+ * traffic can fill it incrementally; the service validates each provided piece
+ * against the assignment poka-yoke before tying it to the shipment.
+ */
+export class AssignTransportDto {
+  @ApiPropertyOptional({ description: 'Transportista (traffic_carriers.id).' })
+  @IsOptional()
+  @IsString()
+  @Length(0, 36)
+  carrierId?: string;
+
+  @ApiPropertyOptional({ description: 'Unidad (traffic_vehicles.id).' })
+  @IsOptional()
+  @IsString()
+  @Length(0, 36)
+  vehicleId?: string;
+
+  @ApiPropertyOptional({ description: 'Chofer (traffic_drivers.id).' })
+  @IsOptional()
+  @IsString()
+  @Length(0, 36)
+  driverId?: string;
+
+  @ApiPropertyOptional({ description: 'Andén (traffic_docks.id).' })
+  @IsOptional()
+  @IsString()
+  @Length(0, 36)
+  dockId?: string;
+}
+
 export class TransitionShipmentDto {
   @ApiProperty({ enum: SHIPMENT_STATUSES, example: 'SHIPPED' })
   @IsIn(SHIPMENT_STATUSES)
