@@ -110,7 +110,7 @@ export default function ModelDetailPage() {
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
               <span className="text-[13px] font-mono text-gray-500">{model.modelNumber}</span>
-              <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full" style={{ color: meta.color, background: `${meta.color}1a` }}>
+              <span data-testid="model-status-pill" className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full" style={{ color: meta.color, background: `${meta.color}1a` }}>
                 <span className="w-1.5 h-1.5 rounded-full" style={{ background: meta.color }} /> {meta.label}
               </span>
             </div>
@@ -118,7 +118,7 @@ export default function ModelDetailPage() {
           </div>
           <div className="ml-auto flex shrink-0 items-center gap-2">
             {canActivate && (
-              <button onClick={() => transition('activate')} disabled={!!busy} className="inline-flex items-center gap-2 text-sm font-semibold px-4 py-2.5 rounded-full text-white disabled:opacity-60" style={{ background: '#10b981' }}>
+              <button data-testid="model-activate-btn" onClick={() => transition('activate')} disabled={!!busy} className="inline-flex items-center gap-2 text-sm font-semibold px-4 py-2.5 rounded-full text-white disabled:opacity-60" style={{ background: '#10b981' }}>
                 {busy === 'activate' ? <Loader2 className="w-4 h-4 animate-spin" /> : model.status === 'OBSOLETE' ? <RotateCcw className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4" />}
                 {model.status === 'OBSOLETE' ? 'Reactivar' : 'Activar'}
               </button>
@@ -429,7 +429,7 @@ function BomSection({ modelNumber, productName }: { modelNumber: string; product
         <div className="text-center py-8">
           <Inbox className="w-7 h-7 mx-auto mb-2 text-gray-400" />
           <p className="text-sm text-gray-400 mb-4">Este modelo aún no tiene BOM. Créalo para capturar sus partes.</p>
-          <button onClick={createBom} disabled={busy === 'create'} className="inline-flex items-center gap-2 bg-black dark:bg-white text-white dark:text-black text-sm font-semibold px-4 py-2.5 rounded-full disabled:opacity-60">
+          <button data-testid="bom-create-btn" onClick={createBom} disabled={busy === 'create'} className="inline-flex items-center gap-2 bg-black dark:bg-white text-white dark:text-black text-sm font-semibold px-4 py-2.5 rounded-full disabled:opacity-60">
             {busy === 'create' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />} Crear BOM
           </button>
         </div>
@@ -450,10 +450,10 @@ function BomSection({ modelNumber, productName }: { modelNumber: string; product
           {editable && (
             <div className="rounded-xl border border-dashed border-gray-200 dark:border-white/10 p-3">
               <div className="flex flex-col sm:flex-row gap-2">
-                <input value={form.partNumber} onChange={(e) => setForm({ ...form, partNumber: e.target.value })} placeholder="Número de parte" className="bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-lg py-2 px-2.5 text-sm flex-1 outline-none" />
-                <input value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} type="number" min={0.0001} step="any" placeholder="Cant/u" className="bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-lg py-2 px-2.5 text-sm w-24 outline-none" />
+                <input data-testid="bom-part-input" value={form.partNumber} onChange={(e) => setForm({ ...form, partNumber: e.target.value })} placeholder="Número de parte" className="bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-lg py-2 px-2.5 text-sm flex-1 outline-none" />
+                <input data-testid="bom-qty-input" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} type="number" min={0.0001} step="any" placeholder="Cant/u" className="bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-lg py-2 px-2.5 text-sm w-24 outline-none" />
                 <input value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} placeholder="EA" className="bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-lg py-2 px-2.5 text-sm w-16 outline-none" />
-                <button onClick={addComponent} disabled={busy === 'add'} className="bg-emerald-500 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-emerald-600 active:scale-95 transition-all disabled:opacity-60">
+                <button data-testid="bom-add-btn" onClick={addComponent} disabled={busy === 'add'} className="bg-emerald-500 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-emerald-600 active:scale-95 transition-all disabled:opacity-60">
                   {busy === 'add' ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Agregar'}
                 </button>
               </div>
@@ -537,7 +537,7 @@ function ComponentRow({
   }
 
   return (
-    <div className="group flex items-center gap-3 text-sm px-3 py-2 rounded-lg bg-gray-50 dark:bg-white/5">
+    <div data-testid="bom-component-row" data-component={c.componentNumber} className="group flex items-center gap-3 text-sm px-3 py-2 rounded-lg bg-gray-50 dark:bg-white/5">
       <span className="font-mono text-[13px]">{c.componentNumber}</span>
       <span className="text-gray-400 text-xs truncate flex-1">{c.description}</span>
       {editing ? (

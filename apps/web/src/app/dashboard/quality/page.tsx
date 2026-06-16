@@ -120,6 +120,7 @@ export default function QualityPage() {
               </Link>
               {!forbidden && (
                 <button
+                  data-testid="ncr-new-trigger"
                   onClick={() => setShowForm(true)}
                   className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium text-white"
                   style={{ background: NCR_SEVERITY_META.critical.color }}
@@ -250,6 +251,8 @@ function NcrRow({ ncr }: { ncr: Ncr }) {
   const sev = NCR_SEVERITY_META[ncr.severity];
   return (
     <Link
+      data-testid="ncr-row"
+      data-ncr-number={ncr.ncrNumber}
       href={`/dashboard/quality/ncr/${ncr.id}`}
       className={`${glass} rounded-2xl p-4 flex items-center gap-3 group hover:shadow-sm transition`}
     >
@@ -379,10 +382,10 @@ function NewNcrModal({
         </div>
         <div className="grid grid-cols-2 gap-4">
           <Field label="Número de parte *">
-            <input value={form.partNumber} onChange={(e) => setForm({ ...form, partNumber: e.target.value })} className="q-input" placeholder="PCB-2024-A" />
+            <input data-testid="ncr-field-partNumber" value={form.partNumber} onChange={(e) => setForm({ ...form, partNumber: e.target.value })} className="q-input" placeholder="PCB-2024-A" />
           </Field>
           <Field label="Categoría de defecto *">
-            <input value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className="q-input" placeholder="Mecánico / Cosmético / Componente" />
+            <input data-testid="ncr-field-category" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className="q-input" placeholder="Mecánico / Cosmético / Componente" />
           </Field>
           <Field label="Severidad">
             <select value={form.severity} onChange={(e) => setForm({ ...form, severity: e.target.value as NcrSeverity })} className="q-input">
@@ -408,7 +411,7 @@ function NewNcrModal({
             )}
           </Field>
           <Field label="Descripción del defecto *" full>
-            <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="q-input min-h-[68px] resize-y" placeholder="Componente desalineado en posición J3 del board…" />
+            <textarea data-testid="ncr-field-description" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="q-input min-h-[68px] resize-y" placeholder="Componente desalineado en posición J3 del board…" />
           </Field>
           <Field label="Orden de trabajo"><input value={form.workOrder} onChange={(e) => setForm({ ...form, workOrder: e.target.value })} className="q-input" placeholder="WO-2024-0042" /></Field>
           <Field label="Lote"><input value={form.lotNumber} onChange={(e) => setForm({ ...form, lotNumber: e.target.value })} className="q-input" /></Field>
@@ -421,7 +424,7 @@ function NewNcrModal({
           <span className="text-[11px] text-gray-400">Levantada por {createdBy}</span>
           <div className="flex gap-2">
             <button onClick={onClose} className="px-4 py-2 rounded-xl text-sm hover:bg-black/5 dark:hover:bg-white/10">Cancelar</button>
-            <button onClick={submit} disabled={busy} className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white disabled:opacity-60" style={{ background: NCR_SEVERITY_META.critical.color }}>
+            <button data-testid="ncr-create-submit" onClick={submit} disabled={busy} className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white disabled:opacity-60" style={{ background: NCR_SEVERITY_META.critical.color }}>
               {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />} Crear NCR
             </button>
           </div>

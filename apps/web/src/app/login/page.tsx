@@ -258,6 +258,7 @@ function LoginInner() {
                   <input
                     type="text"
                     required
+                    data-testid="login-email"
                     value={formData.email}
                     onChange={(e) =>
                       setFormData({ ...formData, email: e.target.value })
@@ -352,6 +353,7 @@ function LoginInner() {
                   <input
                     type={showPassword ? "text" : "password"}
                     required
+                    data-testid="login-password"
                     minLength={6}
                     value={formData.password}
                     onChange={(e) =>
@@ -376,6 +378,7 @@ function LoginInner() {
 
               <button
                 type="submit"
+                data-testid="login-submit"
                 disabled={loading}
                 className="w-full bg-black dark:bg-white text-white dark:text-black py-4 rounded-2xl font-bold flex items-center justify-center gap-2 hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:hover:scale-100 mt-8"
               >

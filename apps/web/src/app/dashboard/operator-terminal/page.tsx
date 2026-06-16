@@ -313,7 +313,7 @@ export default function OperatorTerminalPage() {
             </div>
             <input value={woScan} onChange={(e) => setWoScan(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') selectWoByScan(); }}
               placeholder="Escanea WO" className="w-32 rounded-lg px-3 py-2 bg-white/[0.06] border border-white/15 outline-none text-white text-sm placeholder:text-white/35 focus:border-orange-400" />
-            <input value={station} onChange={(e) => changeStation(e.target.value)}
+            <input data-testid="station-input" value={station} onChange={(e) => changeStation(e.target.value)}
               placeholder="Tu estación (EST-10)" className="w-44 ml-auto rounded-lg px-3 py-2 bg-white/[0.06] border border-white/15 outline-none text-white text-sm placeholder:text-white/35 focus:border-orange-400" />
           </div>
 
@@ -350,7 +350,7 @@ export default function OperatorTerminalPage() {
                       <div className="min-w-0">
                         <div className="text-[12px] text-white/45 flex items-center gap-2 flex-wrap">
                           <span className="font-mono">{wo?.folio || '—'}</span>
-                          {ctx.station && <span className="px-2 py-0.5 rounded-md font-semibold" style={{ background: 'rgba(249,115,22,0.16)', color: ORANGE }}>Paso {ctx.station.sequence} · {ctx.station.station}</span>}
+                          {ctx.station && <span data-testid="step-badge" className="px-2 py-0.5 rounded-md font-semibold" style={{ background: 'rgba(249,115,22,0.16)', color: ORANGE }}>Paso {ctx.station.sequence} · {ctx.station.station}</span>}
                           {line && <span>Línea {line}</span>}
                         </div>
                         <div className="text-3xl font-semibold mt-1 truncate">{wo?.model} <span className="text-lg text-white/45">rev {wo?.revision}</span></div>
@@ -398,7 +398,7 @@ export default function OperatorTerminalPage() {
                         {isImg(ctx.station.visualAidUrl) ? (
                           <a href={ctx.station.visualAidUrl} target="_blank" rel="noreferrer">
                             {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img src={ctx.station.visualAidUrl} alt="Ayuda visual del paso" className="rounded-xl max-h-64 w-auto border border-white/10" />
+                            <img data-testid="visual-aid-image" src={ctx.station.visualAidUrl} alt="Ayuda visual del paso" className="rounded-xl max-h-64 w-auto border border-white/10" />
                           </a>
                         ) : (
                           <a href={ctx.station.visualAidUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 text-[13px] font-medium" style={{ color: BLUE }}><FileText className="w-4 h-4" /> Abrir ayuda visual del ruteo</a>
