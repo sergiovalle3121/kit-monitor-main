@@ -15,6 +15,10 @@ import {
   CheckCheck,
   AtSign,
   ChevronDown,
+  ChevronUp,
+  Clock,
+  AlertCircle,
+  RotateCcw,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { glass } from '@/lib/glass';
@@ -34,6 +38,44 @@ import {
 const REACTION_EMOJIS = ['👍', '❤️', '😂', '🎉', '✅', '👀'];
 
 const EMOJIS = ['😀', '😁', '😂', '😉', '😊', '😍', '👍', '🙏', '🔥', '✅', '⚠️', '❌', '🚀', '🛠️', '📦', '🏭'];
+
+/**
+ * Mensaje en UI = mensaje del servidor + metadatos optimistas de envío. Los
+ * campos extra solo existen mientras un mensaje está "en vuelo" o falló; al
+ * confirmarse, el temporal se reemplaza por el mensaje real del servidor.
+ */
+type UiMessage = ChatMessage & {
+  status?: 'sending' | 'failed';
+  localPreviewUrl?: string; // object URL para previsualizar la imagen optimista
+  pendingFile?: File; // se conserva para reintentar una imagen fallida
+  pendingText?: string; // se conserva para reintentar un texto fallido
+};
+
+/** Id temporal para el mensaje optimista (se descarta al reconciliar). */
+function makeTempId(): string {
+  return `temp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+/** Tamaño legible para el preview de imagen (B / KB / MB). */
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/**
+ * Reemplaza el temporal `tempId` por el mensaje real del servidor. Si el socket
+ * ya lo había insertado (eco al emisor), solo quita el temporal (sin duplicar).
+ */
+function reconcileSent(
+  prev: UiMessage[],
+  tempId: string,
+  serverMsg: ChatMessage,
+): UiMessage[] {
+  const withoutTemp = prev.filter((m) => m.id !== tempId);
+  if (withoutTemp.some((m) => m.id === serverMsg.id)) return withoutTemp;
+  return [...withoutTemp, serverMsg];
+}
 
 function initials(name: string): string {
   return name
@@ -80,11 +122,38 @@ function getMentionQuery(draft: string): string | null {
   return m ? m[1] : null;
 }
 
+/** Escapa metacaracteres de regex para construir un patrón a partir de texto libre. */
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Envuelve en `<mark>` las coincidencias de `term` dentro de un texto plano (para
+ * la búsqueda dentro de la conversación). XSS-safe: solo nodos de texto.
+ */
+function highlightText(text: string, term: string, mine: boolean): React.ReactNode {
+  if (!term) return text;
+  const markCls = mine
+    ? 'rounded bg-yellow-300/80 px-0.5 text-black'
+    : 'rounded bg-yellow-200 px-0.5 text-black dark:bg-yellow-400/80';
+  const lower = term.toLowerCase();
+  return text.split(new RegExp(`(${escapeRegExp(term)})`, 'gi')).map((part, i) =>
+    part.toLowerCase() === lower ? (
+      <mark key={i} className={markCls}>
+        {part}
+      </mark>
+    ) : (
+      <React.Fragment key={i}>{part}</React.Fragment>
+    ),
+  );
+}
+
 /**
  * Renderiza el cuerpo resaltando `@handle` y haciendo clickeables las URLs.
+ * Si `highlight` viene, también marca las coincidencias de búsqueda en el texto.
  * Sin `dangerouslySetInnerHTML` (XSS-safe): solo nodos de texto/elementos.
  */
-function renderBody(body: string, mine: boolean): React.ReactNode {
+function renderBody(body: string, mine: boolean, highlight = ''): React.ReactNode {
   const mentionCls = mine
     ? 'font-semibold rounded bg-white/20 px-0.5'
     : 'font-semibold text-blue-600 dark:text-blue-400';
@@ -115,7 +184,9 @@ function renderBody(body: string, mine: boolean): React.ReactNode {
           </span>
         );
       }
-      return part;
+      return (
+        <React.Fragment key={i}>{highlightText(part, highlight, mine)}</React.Fragment>
+      );
     });
 }
 
@@ -126,8 +197,10 @@ export default function ChatPage() {
   const [conversations, setConversations] = useState<ChatConversation[]>([]);
   const [users, setUsers] = useState<ChatUser[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [messages, setMessages] = useState<UiMessage[]>([]);
   const [draft, setDraft] = useState('');
+  // Imagen elegida, en preview antes de confirmar el envío.
+  const [pendingImage, setPendingImage] = useState<{ file: File; url: string } | null>(null);
   const [search, setSearch] = useState('');
   const [showEmoji, setShowEmoji] = useState(false);
   const [showNewChannel, setShowNewChannel] = useState(false);
@@ -143,6 +216,10 @@ export default function ChatPage() {
   const [showJump, setShowJump] = useState(false);
   const [newCount, setNewCount] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  // Búsqueda dentro de la conversación abierta (sobre los mensajes cargados).
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [convoSearch, setConvoSearch] = useState('');
+  const [searchIdx, setSearchIdx] = useState(0);
 
   const socketRef = useRef<Socket | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
@@ -164,6 +241,41 @@ export default function ChatPage() {
 
   // Último mensaje MÍO leído por ≥1 otro miembro (para el indicador "Visto").
   const seenInfo = computeSeenInfo(messages, reads, meId);
+
+  // Búsqueda en la conversación: índices de mensajes de texto que contienen el
+  // término (los mensajes ya están cargados en cliente; no requiere backend).
+  const searchTerm = searchOpen ? convoSearch.trim() : '';
+  const searchMatches = useMemo(() => {
+    const q = searchTerm.toLowerCase();
+    if (!q) return [] as number[];
+    const out: number[] = [];
+    messages.forEach((m, i) => {
+      if (m.type !== 'image' && (m.body ?? '').toLowerCase().includes(q)) out.push(i);
+    });
+    return out;
+  }, [messages, searchTerm]);
+  const activeMatchIndex =
+    searchMatches.length > 0 ? Math.min(searchIdx, searchMatches.length - 1) : -1;
+  const currentMatchMsgId =
+    activeMatchIndex >= 0 ? messages[searchMatches[activeMatchIndex]].id : null;
+
+  // Centra el resultado activo al navegar entre coincidencias (solo DOM).
+  useEffect(() => {
+    if (!currentMatchMsgId) return;
+    document
+      .getElementById(`msg-${currentMatchMsgId}`)
+      ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, [currentMatchMsgId]);
+
+  function gotoMatch(dir: 1 | -1) {
+    if (searchMatches.length === 0) return;
+    setSearchIdx((i) => (i + dir + searchMatches.length) % searchMatches.length);
+  }
+  function closeConvoSearch() {
+    setSearchOpen(false);
+    setConvoSearch('');
+    setSearchIdx(0);
+  }
 
   const refreshConversations = useCallback(async () => {
     try {
@@ -339,6 +451,12 @@ export default function ChatPage() {
     return () => clearTimeout(t);
   }, [error]);
 
+  // Libera el object URL del preview al cambiar de imagen o desmontar.
+  useEffect(() => {
+    if (!pendingImage) return;
+    return () => URL.revokeObjectURL(pendingImage.url);
+  }, [pendingImage]);
+
   function handleScroll() {
     const el = scrollRef.current;
     if (!el) return;
@@ -366,18 +484,89 @@ export default function ChatPage() {
     socketRef.current.emit('typing', { conversationId: active.id });
   }
 
-  async function handleSendText() {
+  // Envío optimista de texto: pinta la burbuja "enviando…" al instante y la
+  // reconcilia con el mensaje del servidor (o la marca "no enviado").
+  async function enqueueText(conversationId: string, body: string) {
+    const tempId = makeTempId();
+    const optimistic: UiMessage = {
+      id: tempId,
+      conversationId,
+      senderId: meId,
+      type: 'text',
+      body,
+      imageMime: null,
+      createdAt: new Date().toISOString(),
+      status: 'sending',
+      pendingText: body,
+    };
+    setMessages((prev) => [...prev, optimistic]);
+    try {
+      const msg = await chatApi.sendText(conversationId, body);
+      setMessages((prev) => reconcileSent(prev, tempId, msg));
+      refreshConversations();
+    } catch {
+      setMessages((prev) =>
+        prev.map((m) => (m.id === tempId ? { ...m, status: 'failed' } : m)),
+      );
+    }
+  }
+
+  // Envío optimista de imagen: muestra el preview local mientras sube.
+  async function enqueueImage(conversationId: string, file: File) {
+    const tempId = makeTempId();
+    const localPreviewUrl = URL.createObjectURL(file);
+    const optimistic: UiMessage = {
+      id: tempId,
+      conversationId,
+      senderId: meId,
+      type: 'image',
+      body: null,
+      imageMime: file.type || 'image/*',
+      createdAt: new Date().toISOString(),
+      status: 'sending',
+      localPreviewUrl,
+      pendingFile: file,
+    };
+    setMessages((prev) => [...prev, optimistic]);
+    try {
+      const msg = await chatApi.sendImage(conversationId, file);
+      setMessages((prev) => reconcileSent(prev, tempId, msg));
+      refreshConversations();
+      URL.revokeObjectURL(localPreviewUrl);
+    } catch (e) {
+      setMessages((prev) =>
+        prev.map((m) => (m.id === tempId ? { ...m, status: 'failed' } : m)),
+      );
+      setError(`No se pudo enviar la imagen: ${(e as Error).message}`);
+    }
+  }
+
+  function handleSendText() {
     const body = draft.trim();
     if (!body || !activeId) return;
     setDraft('');
     setShowEmoji(false);
     atBottomRef.current = true; // al enviar, vuelvo al final
-    try {
-      const msg = await chatApi.sendText(activeId, body);
-      setMessages((prev) => [...prev, msg]);
-      refreshConversations();
-    } catch {
-      setDraft(body); // restaura si falla
+    enqueueText(activeId, body);
+  }
+
+  // Confirma el envío de la imagen en preview.
+  function confirmSendImage() {
+    if (!pendingImage || !activeId) return;
+    atBottomRef.current = true;
+    enqueueImage(activeId, pendingImage.file);
+    setPendingImage(null); // el efecto de limpieza libera la URL del preview
+  }
+
+  // Reintenta un mensaje que falló (quita la burbuja fallida y reenvía).
+  function retrySend(m: UiMessage) {
+    setMessages((prev) => prev.filter((x) => x.id !== m.id));
+    if (m.type === 'image' && m.pendingFile) {
+      if (m.localPreviewUrl) URL.revokeObjectURL(m.localPreviewUrl);
+      enqueueImage(m.conversationId, m.pendingFile);
+    } else {
+      const text = m.pendingText ?? m.body;
+      if (text) enqueueText(m.conversationId, text);
     }
   }
 
@@ -392,18 +581,6 @@ export default function ChatPage() {
     }
   }
 
-  async function handleSendImage(file: File) {
-    if (!activeId) return;
-    atBottomRef.current = true;
-    try {
-      const msg = await chatApi.sendImage(activeId, file);
-      setMessages((prev) => [...prev, msg]);
-      refreshConversations();
-    } catch (e) {
-      setError(`No se pudo enviar la imagen: ${(e as Error).message}`);
-    }
-  }
-
   // Selecciona una conversación y limpia su acento de mención (sin setState
   // en efecto: el React Compiler lo prohíbe).
   function openConversation(id: string) {
@@ -414,6 +591,10 @@ export default function ChatPage() {
     atBottomRef.current = true;
     setShowJump(false);
     setNewCount(0);
+    // Cierra la búsqueda del hilo anterior al abrir otro.
+    setSearchOpen(false);
+    setConvoSearch('');
+    setSearchIdx(0);
     setMentionConvos((prev) => {
       if (!prev.has(id)) return prev;
       const next = new Set(prev);
@@ -462,6 +643,12 @@ export default function ChatPage() {
 
   const channels = conversations.filter((c) => c.type === 'channel');
   const dms = conversations.filter((c) => c.type === 'dm');
+
+  // Roster de "en línea": compañeros conectados ahora (sin contarme a mí).
+  const onlineUsers = useMemo(
+    () => users.filter((u) => u.id !== meId && onlineIds.has(u.id)),
+    [users, onlineIds, meId],
+  );
 
   return (
     <div className="min-h-screen text-black dark:text-white font-sans">
@@ -523,6 +710,34 @@ export default function ChatPage() {
               </div>
             )}
 
+            {/* Roster: quién está en línea ahora (clic → DM) */}
+            {onlineUsers.length > 0 && (
+              <div className="space-y-1">
+                <p className="flex items-center gap-1.5 px-1 text-xs font-medium text-gray-400">
+                  <span className="h-2 w-2 rounded-full bg-green-500" />
+                  En línea · {onlineUsers.length}
+                </p>
+                {onlineUsers.map((u) => (
+                  <button
+                    key={u.id}
+                    onClick={() => startDm(u.id)}
+                    className="flex w-full items-center gap-3 rounded-2xl p-2 text-left hover:bg-black/5 dark:hover:bg-white/10"
+                  >
+                    <span className="relative shrink-0">
+                      <span className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-violet-500 text-xs font-bold text-white">
+                        {initials(u.username || u.email)}
+                      </span>
+                      <PresenceDot online />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-medium">{u.username || u.email}</span>
+                      <span className="block truncate text-xs text-gray-500">{u.role}</span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+
             {channels.length > 0 && (
               <div className="space-y-1">
                 <p className="px-1 text-xs font-medium text-gray-400">Canales</p>
@@ -550,7 +765,7 @@ export default function ChatPage() {
                   active={c.id === activeId}
                   online={c.counterpartId ? onlineIds.has(c.counterpartId) : undefined}
                   mentioned={mentionConvos.has(c.id)}
-                  onClick={() => setActiveId(c.id)}
+                  onClick={() => openConversation(c.id)}
                 />
               ))}
             </div>
@@ -573,7 +788,8 @@ export default function ChatPage() {
           ) : (
             <>
               {/* Header */}
-              <div className="flex items-center gap-3 border-b border-black/5 px-5 py-4 dark:border-white/10">
+              <div className="border-b border-black/5 dark:border-white/10">
+                <div className="flex items-center gap-3 px-5 py-4">
                 <button
                   onClick={() => setActiveId(null)}
                   className="-ml-1 rounded-full p-1 text-gray-500 hover:bg-black/5 focus-visible:ring-2 focus-visible:ring-blue-500/40 md:hidden dark:hover:bg-white/10"
@@ -595,8 +811,8 @@ export default function ChatPage() {
                     )}
                   </span>
                 )}
-                <div>
-                  <p className="font-semibold">{active.title || 'Conversación'}</p>
+                <div className="min-w-0">
+                  <p className="truncate font-semibold">{active.title || 'Conversación'}</p>
                   <p className="text-xs text-gray-500">
                     {active.type === 'channel'
                       ? `${active.memberIds.length} miembros`
@@ -605,6 +821,35 @@ export default function ChatPage() {
                         : 'Desconectado'}
                   </p>
                 </div>
+                <button
+                  onClick={() => (searchOpen ? closeConvoSearch() : setSearchOpen(true))}
+                  className={`ml-auto rounded-full p-2 transition-colors focus-visible:ring-2 focus-visible:ring-blue-500/40 ${
+                    searchOpen
+                      ? 'bg-blue-500/15 text-blue-600 dark:text-blue-300'
+                      : 'text-gray-500 hover:bg-black/5 dark:hover:bg-white/10'
+                  }`}
+                  aria-label="Buscar en la conversación"
+                  title="Buscar en la conversación"
+                >
+                  <Search className="h-5 w-5" />
+                </button>
+                </div>
+
+                {/* Búsqueda dentro de la conversación (sobre mensajes cargados) */}
+                {searchOpen && (
+                  <ConvoSearchBar
+                    value={convoSearch}
+                    matchCount={searchMatches.length}
+                    activeIndex={activeMatchIndex}
+                    onChange={(v) => {
+                      setConvoSearch(v);
+                      setSearchIdx(0);
+                    }}
+                    onPrev={() => gotoMatch(-1)}
+                    onNext={() => gotoMatch(1)}
+                    onClose={closeConvoSearch}
+                  />
+                )}
               </div>
 
               {/* Mensajes */}
@@ -639,7 +884,10 @@ export default function ChatPage() {
                           users={users}
                           onlineIds={onlineIds}
                           onReact={handleReact}
+                          onRetry={retrySend}
                           grouped={grouped}
+                          highlight={searchTerm}
+                          isCurrentMatch={m.id === currentMatchMsgId}
                         />
                         {i === seenInfo.index && (
                           <ReadIndicator
@@ -723,6 +971,36 @@ export default function ChatPage() {
                     ))}
                   </div>
                 )}
+                {/* Preview de la imagen elegida (antes de confirmar el envío) */}
+                {pendingImage && (
+                  <div className={`${glass} mb-2 flex items-center gap-3 rounded-2xl p-2`}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={pendingImage.url}
+                      alt="Vista previa"
+                      className="h-16 w-16 rounded-xl object-cover"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium">{pendingImage.file.name}</p>
+                      <p className="text-xs text-gray-500">
+                        {formatBytes(pendingImage.file.size)} · listo para enviar
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setPendingImage(null)}
+                      className="rounded-full p-1.5 text-gray-500 hover:bg-black/5 focus-visible:ring-2 focus-visible:ring-blue-500/40 dark:hover:bg-white/10"
+                      aria-label="Descartar imagen"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={confirmSendImage}
+                      className="flex items-center gap-1.5 rounded-full bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white focus-visible:ring-2 focus-visible:ring-blue-500/40"
+                    >
+                      <Send className="h-3.5 w-3.5" /> Enviar
+                    </button>
+                  </div>
+                )}
                 <div className="flex items-end gap-2">
                   <button
                     onClick={() => setShowEmoji((s) => !s)}
@@ -745,7 +1023,7 @@ export default function ChatPage() {
                     className="hidden"
                     onChange={(e) => {
                       const f = e.target.files?.[0];
-                      if (f) handleSendImage(f);
+                      if (f) setPendingImage({ file: f, url: URL.createObjectURL(f) });
                       e.target.value = '';
                     }}
                   />
@@ -916,26 +1194,38 @@ function MessageItem({
   users,
   onlineIds,
   onReact,
+  onRetry,
   grouped,
+  highlight = '',
+  isCurrentMatch = false,
 }: {
-  m: ChatMessage;
+  m: UiMessage;
   mine: boolean;
   isChannel: boolean;
   users: ChatUser[];
   onlineIds: Set<string>;
   onReact: (messageId: string, emoji: string) => void;
+  onRetry?: (m: UiMessage) => void;
   grouped: boolean;
+  highlight?: string;
+  isCurrentMatch?: boolean;
 }) {
   const [showPicker, setShowPicker] = useState(false);
+  const [showMore, setShowMore] = useState(false);
   const reactions = m.reactions ?? [];
+  const sending = m.status === 'sending';
+  const failed = m.status === 'failed';
   // En canales mostramos avatar + nombre del autor solo al iniciar un grupo.
   const showMeta = isChannel && !mine && !grouped;
 
   return (
     <div
-      className={`group flex items-end gap-2 ${
+      id={`msg-${m.id}`}
+      className={`group flex items-end gap-2 scroll-mt-24 rounded-2xl transition-colors ${
         mine ? 'justify-end' : 'justify-start'
-      } ${grouped ? 'mt-0.5' : 'mt-3'}`}
+      } ${grouped ? 'mt-0.5' : 'mt-3'} ${
+        isCurrentMatch ? 'bg-yellow-300/10 ring-2 ring-yellow-400/70' : ''
+      }`}
     >
       {isChannel && !mine && (
         <div className="w-7 shrink-0">
@@ -950,7 +1240,8 @@ function MessageItem({
         </div>
       )}
       <div className="relative max-w-[70%]">
-        {/* Toolbar al pasar el cursor (oculto en touch) */}
+        {/* Toolbar al pasar el cursor (oculto en touch y en mensajes en vuelo) */}
+        {!sending && !failed && (
         <div
           className={`pointer-events-none absolute -top-3 z-10 flex items-center gap-1 ${
             mine ? 'left-0' : 'right-0'
@@ -958,7 +1249,10 @@ function MessageItem({
         >
           <div className="relative">
             <button
-              onClick={() => setShowPicker((s) => !s)}
+              onClick={() => {
+                setShowPicker((s) => !s);
+                setShowMore(false);
+              }}
               className={`${glass} flex h-7 w-7 items-center justify-center rounded-full text-gray-600 shadow hover:scale-105 dark:text-gray-200`}
               aria-label="Reaccionar"
             >
@@ -966,31 +1260,64 @@ function MessageItem({
             </button>
             {showPicker && (
               <div
-                className={`${glass} absolute bottom-9 ${
+                className={`${glass} absolute bottom-9 z-20 ${
                   mine ? 'left-0' : 'right-0'
-                } flex gap-0.5 rounded-full p-1 shadow-lg`}
+                } rounded-2xl p-1 shadow-lg`}
               >
-                {REACTION_EMOJIS.map((e) => (
+                {/* Reacciones rápidas + "+" para el set completo */}
+                <div className="flex items-center gap-0.5">
+                  {REACTION_EMOJIS.map((e) => (
+                    <button
+                      key={e}
+                      onClick={() => {
+                        onReact(m.id, e);
+                        setShowPicker(false);
+                        setShowMore(false);
+                      }}
+                      className="rounded-full p-1 text-lg leading-none transition-transform hover:scale-125"
+                      aria-label={`Reaccionar ${e}`}
+                    >
+                      {e}
+                    </button>
+                  ))}
                   <button
-                    key={e}
-                    onClick={() => {
-                      onReact(m.id, e);
-                      setShowPicker(false);
-                    }}
-                    className="rounded-full p-1 text-lg leading-none transition-transform hover:scale-125"
-                    aria-label={`Reaccionar ${e}`}
+                    onClick={() => setShowMore((s) => !s)}
+                    className="flex h-7 w-7 items-center justify-center rounded-full text-gray-500 hover:bg-black/5 focus-visible:ring-2 focus-visible:ring-blue-500/40 dark:hover:bg-white/10"
+                    aria-label="Más emojis"
+                    aria-expanded={showMore}
                   >
-                    {e}
+                    <Plus className="h-4 w-4" />
                   </button>
-                ))}
+                </div>
+                {showMore && (
+                  <div className="mt-1 grid w-52 grid-cols-8 gap-0.5 border-t border-black/10 pt-1 dark:border-white/10">
+                    {EMOJIS.map((e) => (
+                      <button
+                        key={e}
+                        onClick={() => {
+                          onReact(m.id, e);
+                          setShowPicker(false);
+                          setShowMore(false);
+                        }}
+                        className="rounded-lg p-1 text-lg leading-none transition-transform hover:scale-125"
+                        aria-label={`Reaccionar ${e}`}
+                      >
+                        {e}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>
         </div>
+        )}
 
         {/* Burbuja */}
         <div
           className={`rounded-[18px] px-4 py-2 ${
+            sending ? 'opacity-70' : ''
+          } ${
             mine
               ? 'bg-blue-600 text-white'
               : 'bg-black/5 text-gray-900 dark:bg-white/10 dark:text-gray-100'
@@ -1002,16 +1329,49 @@ function MessageItem({
             </p>
           )}
           {m.type === 'image' ? (
-            <AuthImage messageId={m.id} />
+            m.localPreviewUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={m.localPreviewUrl}
+                alt="imagen"
+                className="max-h-72 max-w-[18rem] rounded-[18px] object-cover"
+              />
+            ) : (
+              <AuthImage messageId={m.id} />
+            )
           ) : (
             <p className="whitespace-pre-wrap break-words text-sm">
-              {renderBody(m.body ?? '', mine)}
+              {renderBody(m.body ?? '', mine, highlight)}
             </p>
           )}
-          <p className={`mt-1 text-[10px] ${mine ? 'text-white/70' : 'text-gray-500'}`}>
-            {timeOf(m.createdAt)}
-          </p>
+          <div
+            className={`mt-1 flex items-center gap-1 text-[10px] ${
+              mine ? 'justify-end text-white/70' : 'text-gray-500'
+            }`}
+          >
+            <span>{timeOf(m.createdAt)}</span>
+            {sending && (
+              <>
+                <Clock className="h-3 w-3" />
+                <span>Enviando…</span>
+              </>
+            )}
+          </div>
         </div>
+
+        {/* Estado "no enviado" + reintentar */}
+        {failed && (
+          <div className="mt-1 flex items-center justify-end gap-1.5 text-[11px] text-red-500">
+            <AlertCircle className="h-3.5 w-3.5" />
+            <span>No se envió</span>
+            <button
+              onClick={() => onRetry?.(m)}
+              className="inline-flex items-center gap-1 font-semibold underline hover:text-red-600 focus-visible:ring-2 focus-visible:ring-red-500/40"
+            >
+              <RotateCcw className="h-3 w-3" /> Reintentar
+            </button>
+          </div>
+        )}
 
         {/* Chips de reacción */}
         {reactions.length > 0 && (
@@ -1071,6 +1431,79 @@ function ReadIndicator({
           <CheckCheck className="h-3 w-3" /> Visto
         </span>
       )}
+    </div>
+  );
+}
+
+/** Barra de búsqueda dentro de la conversación abierta (sobre mensajes cargados). */
+function ConvoSearchBar({
+  value,
+  matchCount,
+  activeIndex,
+  onChange,
+  onPrev,
+  onNext,
+  onClose,
+}: {
+  value: string;
+  matchCount: number;
+  activeIndex: number;
+  onChange: (v: string) => void;
+  onPrev: () => void;
+  onNext: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <div className="flex items-center gap-2 px-5 pb-3">
+      <div className={`${glass} flex flex-1 items-center gap-2 rounded-full px-3 py-1.5`}>
+        <Search className="h-4 w-4 shrink-0 text-gray-500" />
+        <input
+          autoFocus
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') {
+              e.preventDefault();
+              onClose();
+            } else if (e.key === 'Enter') {
+              e.preventDefault();
+              if (e.shiftKey) onPrev();
+              else onNext();
+            }
+          }}
+          placeholder="Buscar en esta conversación..."
+          aria-label="Buscar en esta conversación"
+          className="w-full bg-transparent text-sm outline-none placeholder:text-gray-500"
+        />
+        {value.trim() !== '' && (
+          <span className="shrink-0 text-xs tabular-nums text-gray-500">
+            {matchCount === 0 ? 'Sin resultados' : `${activeIndex + 1} de ${matchCount}`}
+          </span>
+        )}
+      </div>
+      <button
+        onClick={onPrev}
+        disabled={matchCount === 0}
+        className="rounded-full p-1.5 text-gray-500 hover:bg-black/5 focus-visible:ring-2 focus-visible:ring-blue-500/40 disabled:opacity-30 dark:hover:bg-white/10"
+        aria-label="Resultado anterior"
+      >
+        <ChevronUp className="h-4 w-4" />
+      </button>
+      <button
+        onClick={onNext}
+        disabled={matchCount === 0}
+        className="rounded-full p-1.5 text-gray-500 hover:bg-black/5 focus-visible:ring-2 focus-visible:ring-blue-500/40 disabled:opacity-30 dark:hover:bg-white/10"
+        aria-label="Resultado siguiente"
+      >
+        <ChevronDown className="h-4 w-4" />
+      </button>
+      <button
+        onClick={onClose}
+        className="rounded-full p-1.5 text-gray-500 hover:bg-black/5 focus-visible:ring-2 focus-visible:ring-blue-500/40 dark:hover:bg-white/10"
+        aria-label="Cerrar búsqueda"
+      >
+        <X className="h-4 w-4" />
+      </button>
     </div>
   );
 }
