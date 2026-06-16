@@ -644,6 +644,12 @@ export default function ChatPage() {
   const channels = conversations.filter((c) => c.type === 'channel');
   const dms = conversations.filter((c) => c.type === 'dm');
 
+  // Roster de "en línea": compañeros conectados ahora (sin contarme a mí).
+  const onlineUsers = useMemo(
+    () => users.filter((u) => u.id !== meId && onlineIds.has(u.id)),
+    [users, onlineIds, meId],
+  );
+
   return (
     <div className="min-h-screen text-black dark:text-white font-sans">
       <div className="mx-auto flex h-screen max-w-7xl gap-4 p-4 pt-6">
@@ -694,6 +700,34 @@ export default function ChatPage() {
                   >
                     <span className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-violet-500 text-xs font-bold text-white">
                       {initials(u.username || u.email)}
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-medium">{u.username || u.email}</span>
+                      <span className="block truncate text-xs text-gray-500">{u.role}</span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Roster: quién está en línea ahora (clic → DM) */}
+            {onlineUsers.length > 0 && (
+              <div className="space-y-1">
+                <p className="flex items-center gap-1.5 px-1 text-xs font-medium text-gray-400">
+                  <span className="h-2 w-2 rounded-full bg-green-500" />
+                  En línea · {onlineUsers.length}
+                </p>
+                {onlineUsers.map((u) => (
+                  <button
+                    key={u.id}
+                    onClick={() => startDm(u.id)}
+                    className="flex w-full items-center gap-3 rounded-2xl p-2 text-left hover:bg-black/5 dark:hover:bg-white/10"
+                  >
+                    <span className="relative shrink-0">
+                      <span className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-violet-500 text-xs font-bold text-white">
+                        {initials(u.username || u.email)}
+                      </span>
+                      <PresenceDot online />
                     </span>
                     <span className="min-w-0">
                       <span className="block truncate text-sm font-medium">{u.username || u.email}</span>
@@ -1177,6 +1211,7 @@ function MessageItem({
   isCurrentMatch?: boolean;
 }) {
   const [showPicker, setShowPicker] = useState(false);
+  const [showMore, setShowMore] = useState(false);
   const reactions = m.reactions ?? [];
   const sending = m.status === 'sending';
   const failed = m.status === 'failed';
@@ -1214,7 +1249,10 @@ function MessageItem({
         >
           <div className="relative">
             <button
-              onClick={() => setShowPicker((s) => !s)}
+              onClick={() => {
+                setShowPicker((s) => !s);
+                setShowMore(false);
+              }}
               className={`${glass} flex h-7 w-7 items-center justify-center rounded-full text-gray-600 shadow hover:scale-105 dark:text-gray-200`}
               aria-label="Reaccionar"
             >
@@ -1222,23 +1260,53 @@ function MessageItem({
             </button>
             {showPicker && (
               <div
-                className={`${glass} absolute bottom-9 ${
+                className={`${glass} absolute bottom-9 z-20 ${
                   mine ? 'left-0' : 'right-0'
-                } flex gap-0.5 rounded-full p-1 shadow-lg`}
+                } rounded-2xl p-1 shadow-lg`}
               >
-                {REACTION_EMOJIS.map((e) => (
+                {/* Reacciones rápidas + "+" para el set completo */}
+                <div className="flex items-center gap-0.5">
+                  {REACTION_EMOJIS.map((e) => (
+                    <button
+                      key={e}
+                      onClick={() => {
+                        onReact(m.id, e);
+                        setShowPicker(false);
+                        setShowMore(false);
+                      }}
+                      className="rounded-full p-1 text-lg leading-none transition-transform hover:scale-125"
+                      aria-label={`Reaccionar ${e}`}
+                    >
+                      {e}
+                    </button>
+                  ))}
                   <button
-                    key={e}
-                    onClick={() => {
-                      onReact(m.id, e);
-                      setShowPicker(false);
-                    }}
-                    className="rounded-full p-1 text-lg leading-none transition-transform hover:scale-125"
-                    aria-label={`Reaccionar ${e}`}
+                    onClick={() => setShowMore((s) => !s)}
+                    className="flex h-7 w-7 items-center justify-center rounded-full text-gray-500 hover:bg-black/5 focus-visible:ring-2 focus-visible:ring-blue-500/40 dark:hover:bg-white/10"
+                    aria-label="Más emojis"
+                    aria-expanded={showMore}
                   >
-                    {e}
+                    <Plus className="h-4 w-4" />
                   </button>
-                ))}
+                </div>
+                {showMore && (
+                  <div className="mt-1 grid w-52 grid-cols-8 gap-0.5 border-t border-black/10 pt-1 dark:border-white/10">
+                    {EMOJIS.map((e) => (
+                      <button
+                        key={e}
+                        onClick={() => {
+                          onReact(m.id, e);
+                          setShowPicker(false);
+                          setShowMore(false);
+                        }}
+                        className="rounded-lg p-1 text-lg leading-none transition-transform hover:scale-125"
+                        aria-label={`Reaccionar ${e}`}
+                      >
+                        {e}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>

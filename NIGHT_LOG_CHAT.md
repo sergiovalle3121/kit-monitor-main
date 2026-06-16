@@ -91,3 +91,43 @@ imagen (alternativa actual: mandar un texto aparte). Anotado.
 Puertas: `tsc` 0 · `eslint` 0 · `next build` OK.
 
 ---
+
+## Rebanada 3 — Lista "en línea" (roster) + emoji picker de reacciones completo ✅
+
+- **Roster "En línea · N"** en el sidebar (sobre Canales): lista los compañeros
+  conectados ahora (`onlineUsers` = `users` ∩ `onlineIds`, sin contarme), con punto
+  verde; clic en uno → abre/crea el DM (`startDm`). Cierra el pedido literal
+  "+ lista de en línea" del enunciado; reusa la presencia WS ya existente.
+- **Emoji picker de reacciones más completo**: el mini-picker del hover ahora trae
+  las 6 reacciones rápidas **+ botón "+"** que despliega el set completo (16 emojis,
+  grid 8 col). Antes solo había 6 fijas. Sigue siendo toggle (`POST reactions`).
+
+Puertas: `tsc` 0 · `eslint` 0 · `next build` OK.
+
+---
+
+## Cierre del carril (estado de paridad "Teams")
+
+Cubierto por el enunciado F4, todo sobre el backend existente (0 cambios a `apps/api`):
+- ✅ Presencia + "escribiendo…" en vivo **+ lista de en línea** (Rebanada 3).
+- ✅ Reacciones con **emoji picker** (rápidas + set completo) y conteos.
+- ✅ Recibos de lectura ("Visto" / "Visto por").
+- ✅ @menciones con autocompletar + resaltado.
+- ✅ **Búsqueda dentro de la conversación** (Rebanada 1); canales vs DMs separados;
+  crear canal/DM.
+- ✅ Compartir imagen **con preview + estados de envío** (Rebanada 2).
+
+### REQUIERE BACKEND (no inventado — UI honesta / anotado, NO entró)
+- **Hilos/threads**, **editar/borrar/responder-citar** mensaje (faltan columnas +
+  endpoints + eventos `message:update`/`delete`). Por eso el toolbar de hover solo
+  reacciona (sin botones muertos).
+- **Caption** junto a la imagen (el endpoint de imagen solo acepta `file`).
+- **Notificaciones push** del navegador / centro in-app con preferencias (hoy: toast
+  + título de pestaña).
+- **Adjuntos no-imagen** (PDF/Excel/NCR); **gestión de canal** (renombrar/archivar/
+  salir/miembros); **paginación/scroll infinito** del historial (la búsqueda cubrirá
+  el historial cuando exista).
+
+Estos ya estaban anotados como deuda en `NIGHT_LOG.md` (sesión CHAT TEAMS). No se
+tocó `lib/chatApi.ts` ni `components/AuthImage.tsx` (fuera del carril; se reusan).
+
