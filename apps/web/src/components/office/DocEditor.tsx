@@ -75,9 +75,10 @@ import { DocListMenu } from './docs/DocListMenu';
 import { DocViewTools } from './docs/DocViewTools';
 import { DocFootnotes } from './docs/DocFootnotes';
 import { DocInsertExtras } from './docs/DocInsertExtras';
-import { DocTrackChanges } from './docs/DocTrackChanges';
+import { DocTrackChanges, type TrackView } from './docs/DocTrackChanges';
 import { DocWordCount } from './docs/DocWordCount';
 import { DocTemplates } from './docs/DocTemplates';
+import { DOC_EXTRA_CSS } from './docs/docStyles';
 import {
   OfficeRibbon, RibbonTab, RibbonGroup, RibbonSeparator,
   RibbonButton, RibbonSelect, RibbonColorButton,
@@ -193,6 +194,8 @@ export function DocEditor({ value, onChange, readOnly, author, onStats, fileActi
   const [showRuler, setShowRuler] = React.useState(false);
   const [spellcheck, setSpellcheck] = React.useState(false);
   const [suggesting, setSuggesting] = React.useState(false);
+  // Cómo mostrar las revisiones (control de cambios): todas / sencillo / final / original.
+  const [trackView, setTrackView] = React.useState<TrackView>('markup');
   // Copiar formato (format painter): guarda el formato capturado; se aplica a la
   // siguiente selección no vacía (al soltar el ratón en el editor).
   const [painter, setPainter] = React.useState<Record<string, any> | null>(null);
@@ -329,6 +332,7 @@ export function DocEditor({ value, onChange, readOnly, author, onStats, fileActi
 
   return (
     <div className="flex flex-col h-full">
+      <style>{DOC_EXTRA_CSS}</style>
       <OfficeRibbon storageKey="ribbon:doc">
           {fileActions != null && (
             <RibbonTab id="file" label="Archivo" icon={FileText}>
@@ -482,7 +486,7 @@ export function DocEditor({ value, onChange, readOnly, author, onStats, fileActi
               <DocComments editor={editor} author={author ?? ''} />
             </RibbonGroup>
             <RibbonSeparator />
-            <DocTrackChanges editor={editor} suggesting={suggesting} setSuggesting={setSuggesting} />
+            <DocTrackChanges editor={editor} suggesting={suggesting} setSuggesting={setSuggesting} trackView={trackView} setTrackView={setTrackView} />
             <RibbonSeparator />
             <RibbonGroup label="Edición">
               <RibbonButton icon={Search} label="Buscar y reemplazar" shortcut="Ctrl+F" onClick={() => setShowFind(true)} />
@@ -516,7 +520,7 @@ export function DocEditor({ value, onChange, readOnly, author, onStats, fileActi
           </div>
         )}
         <div
-          className={`mx-auto bg-white dark:bg-[#1a1a1a] shadow-xl rounded-sm w-full text-black dark:text-gray-100 relative overflow-hidden ${pgColumns === 2 ? 'doc-cols-2' : pgColumns === 3 ? 'doc-cols-3' : ''} ${showMarks ? 'doc-show-marks' : ''} ${focusMode ? 'doc-focus' : ''} ${readingMode ? 'doc-reading' : ''} ${pgBorder ? `doc-border-${pgBorder}` : ''} ${pgLineNumbers ? 'doc-line-numbers' : ''}`}
+          className={`mx-auto bg-white dark:bg-[#1a1a1a] shadow-xl rounded-sm w-full text-black dark:text-gray-100 relative overflow-hidden doc-track-${trackView} ${pgColumns === 2 ? 'doc-cols-2' : pgColumns === 3 ? 'doc-cols-3' : ''} ${showMarks ? 'doc-show-marks' : ''} ${focusMode ? 'doc-focus' : ''} ${readingMode ? 'doc-reading' : ''} ${pgBorder ? `doc-border-${pgBorder}` : ''} ${pgLineNumbers ? 'doc-line-numbers' : ''}`}
           style={{ width: readingMode ? 760 : pageW, maxWidth: '100%', minHeight: readingMode ? undefined : pageMinH, padding: readingMode ? 56 : pagePad, zoom }}
         >
           {pgWatermark && <div className="doc-watermark" aria-hidden>{pgWatermark}</div>}

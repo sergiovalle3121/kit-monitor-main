@@ -148,6 +148,33 @@ CSS de todo lo anterior en `tiptap.css`.
 - **Saltos de sección y encabezado/pie por sección**: hoy un solo "section" por
   documento. Est. ~1 día.
 
+## Sesión F2 (rama `claude/wizardly-babbage-5dtfdj`) — paridad con Word, fase 2
+
+> Continúa sobre lo anterior. Carril estricto: SOLO
+> `components/office/Doc*.tsx`, `components/office/docs/**`, `docExtensions.ts`,
+> `docPageExtensions.ts`. **NO** se toca `OfficeShell`, `page.tsx`, `Sheet*`,
+> `Slide*`, ni —a diferencia de la fase 1— `lib/office/docx.ts` ni
+> `styles/tiptap.css` (ambos fuera del carril). El CSS nuevo se inyecta vía un
+> `<style>` desde `DocEditor` con la constante `docs/docStyles.ts` (sólo
+> selectores nuevos, no pisa la hoja compartida). La fidelidad .docx que requiera
+> tocar `lib/office/docx.ts` queda anotada como «fuera de carril».
+
+### F2 · Wave 1 — Control de cambios: modos de visualización + barra de cambio
+- **Modos «Mostrar para revisión»** (como Word) en la pestaña *Revisar*: *Todas las
+  revisiones* (marcas completas), *Revisiones sencillas* (texto final + barra de
+  cambio en el margen), *Sin marcas (final)* (como si se aceptara todo) y
+  *Original* (como si se rechazara todo). Implementado con una clase
+  `doc-track-<modo>` en la página + CSS inyectado (sin marcas inline en final/
+  original). Satisface el «vista con/sin marcas» de la tarea.
+- **Barra de cambio en el margen**: decoración ProseMirror (`changeBarPlugin`) que
+  marca cada bloque con inserciones/eliminaciones; el CSS la pinta sólo en los
+  modos *Todas*/*Sencillo*. Se recalcula sola en cada cambio de estado.
+- **Contador de cambios** en la cabecera del panel de revisión.
+- Archivos: `docs/trackChanges.ts` (decoración + helpers), `docs/DocTrackChanges.tsx`
+  (selector de modo + contador), `docs/docStyles.ts` (nuevo, CSS inyectado),
+  `DocEditor.tsx` (estado `trackView`, clase en la página, `<style>`).
+- Puertas: `tsc` 0, `eslint` carril 0, `next build` verde.
+
 ## Resumen final de la sesión
 Se llevó el editor de Documentos muy cerca de Word, todo con código propio sobre
 TipTap/ProseMirror (MIT) + KaTeX (MIT). **No se tocó** el ribbon compartido,

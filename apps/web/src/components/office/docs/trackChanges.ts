@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { Mark, Extension, mergeAttributes } from '@tiptap/core';
 import { Plugin } from '@tiptap/pm/state';
+import { Decoration, DecorationSet } from '@tiptap/pm/view';
 
 /**
  * Control de cambios / modo sugerencias — versión mínima ESTABLE.
@@ -59,6 +60,36 @@ export function collectChanges(doc: any): ChangeRange[] {
   return [...markRanges(doc, 'insertion'), ...markRanges(doc, 'deletion')].sort((a, b) => a.from - b.from);
 }
 
+/** ¿Un nodo (o su descendencia) contiene texto con marcas de cambio? */
+function nodeHasChange(node: any): boolean {
+  let found = false;
+  const test = (n: any) => n.isText && n.marks.some((m: any) => m.type.name === 'insertion' || m.type.name === 'deletion');
+  if (test(node)) return true;
+  node.descendants?.((child: any) => { if (!found && test(child)) found = true; });
+  return found;
+}
+
+/**
+ * Decoración de «barra de cambio»: marca cada bloque de primer nivel que
+ * contiene inserciones/eliminaciones para pintar una línea en el margen (como
+ * Word). El CSS la muestra sólo en los modos «Todas las marcas» / «Sencillo».
+ */
+function changeBarPlugin() {
+  return new Plugin({
+    props: {
+      decorations(state: any) {
+        const decos: any[] = [];
+        state.doc.forEach((node: any, offset: number) => {
+          if (node.isBlock && nodeHasChange(node)) {
+            decos.push(Decoration.node(offset, offset + node.nodeSize, { class: 'doc-change-bar' }));
+          }
+        });
+        return decos.length ? DecorationSet.create(state.doc, decos) : DecorationSet.empty;
+      },
+    },
+  });
+}
+
 export const TrackChanges = Extension.create({
   name: 'trackChanges',
   addOptions() { return { author: '' }; },
@@ -82,6 +113,7 @@ export const TrackChanges = Extension.create({
           },
         },
       }),
+      changeBarPlugin(),
     ];
   },
 

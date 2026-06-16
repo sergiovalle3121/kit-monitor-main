@@ -4,11 +4,20 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Editor } from '@tiptap/react';
-import { GitPullRequestArrow, Check, X, Trash2, Eraser, PenLine } from 'lucide-react';
-import { RibbonGroup, RibbonSeparator, RibbonButton } from '../ribbon';
+import { GitPullRequestArrow, Check, X, Trash2, Eraser, PenLine, Eye } from 'lucide-react';
+import { RibbonGroup, RibbonSeparator, RibbonButton, RibbonSelect } from '../ribbon';
 import { collectChanges, type ChangeRange } from './trackChanges';
 
-export function DocTrackChanges({ editor, suggesting, setSuggesting }: { editor: Editor; suggesting: boolean; setSuggesting: (v: boolean) => void }) {
+export type TrackView = 'markup' | 'simple' | 'final' | 'original';
+
+const TRACK_VIEW_OPTIONS = [
+  { label: 'Todas las revisiones', value: 'markup' },
+  { label: 'Revisiones sencillas', value: 'simple' },
+  { label: 'Sin marcas (final)', value: 'final' },
+  { label: 'Original', value: 'original' },
+];
+
+export function DocTrackChanges({ editor, suggesting, setSuggesting, trackView, setTrackView }: { editor: Editor; suggesting: boolean; setSuggesting: (v: boolean) => void; trackView: TrackView; setTrackView: (v: TrackView) => void }) {
   const [open, setOpen] = useState(false);
   const [, force] = useState(0);
   const refresh = () => force((n) => n + 1);
@@ -26,6 +35,11 @@ export function DocTrackChanges({ editor, suggesting, setSuggesting }: { editor:
         <RibbonButton icon={Trash2} label="Proponer eliminación" onClick={() => (editor.chain().focus() as any).proposeDeletion().run()} />
       </RibbonGroup>
       <RibbonSeparator />
+      <RibbonGroup label="Mostrar para revisión">
+        <Eye className="w-[17px] h-[17px] text-gray-500 mr-0.5" />
+        <RibbonSelect title="Cómo mostrar las revisiones" value={trackView} onChange={(v) => setTrackView(v as TrackView)} width={156} options={TRACK_VIEW_OPTIONS} />
+      </RibbonGroup>
+      <RibbonSeparator />
       <RibbonGroup label="Cambios">
         <RibbonButton icon={GitPullRequestArrow} label="Revisar cambios" hideLabel={false} onClick={() => { setOpen(true); refresh(); }} />
         <RibbonButton icon={Check} label="Aceptar todo" onClick={() => { (editor.chain().focus() as any).acceptAllChanges().run(); refresh(); }} />
@@ -39,7 +53,9 @@ export function DocTrackChanges({ editor, suggesting, setSuggesting }: { editor:
             <motion.aside initial={{ x: 340 }} animate={{ x: 0 }} exit={{ x: 340 }} transition={{ type: 'spring', stiffness: 320, damping: 32 }}
               className="fixed inset-y-0 right-0 w-80 z-[55] bg-white dark:bg-[#161616] border-l border-black/10 dark:border-white/10 shadow-2xl flex flex-col">
               <div className="flex items-center justify-between px-4 h-12 border-b border-black/5 dark:border-white/10 flex-shrink-0">
-                <span className="font-semibold text-sm">Control de cambios</span>
+                <span className="font-semibold text-sm flex items-center gap-2">Control de cambios
+                  {changes.length > 0 && <span className="text-[11px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300">{changes.length}</span>}
+                </span>
                 <button onClick={() => setOpen(false)} className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-400"><X className="w-4 h-4" /></button>
               </div>
               <div className="flex-1 overflow-y-auto p-2 space-y-2">
