@@ -50,7 +50,7 @@ import { DocSymbolPicker } from './DocSymbolPicker';
 import { DocPageSetup } from './DocPageSetup';
 import { CommentMark } from './commentMark';
 import { PageBreak, PageMeta, SectionBreak, effectiveSection } from './docPageExtensions';
-import { Indent, Toc, NamedStyle } from './docExtensions';
+import { Indent, Toc, TableOfFigures, NamedStyle } from './docExtensions';
 import { ListNumbering } from './docs/listNumbering';
 import { TableCellAttrs } from './docs/tableCellAttrs';
 import { SearchHighlight } from './docs/searchHighlight';
@@ -151,6 +151,7 @@ export function DocEditor({ value, onChange, readOnly, author, onStats, fileActi
       Indent,
       NamedStyle,
       Toc,
+      TableOfFigures,
       ListNumbering,
       TableCellAttrs,
       SearchHighlight,

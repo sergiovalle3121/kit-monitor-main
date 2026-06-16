@@ -290,6 +290,15 @@ CSS de todo lo anterior en `tiptap.css`.
   (entradas), `DocPageView.tsx` (reglas de fragmentación en `CONTENT_CSS`).
 - Puertas: `tsc` 0, `eslint` carril 0, `next build` verde.
 
+### F2 · Wave 9 — Tabla de ilustraciones (lista de figuras)
+- **Nodo `tableOfFigures`** vivo: lista los párrafos con estilo «Leyenda» con número
+  correlativo, puntos guía y nº de página estimado (mismo motor que la TOC). Clic =
+  saltar a la figura. Botón «Tabla de ilustraciones» en *Referencias* (junto a la
+  TOC). Helper `collectCaptions`.
+- Archivos: `docExtensions.ts` (`TableOfFigures` + `collectCaptions`),
+  `docs/DocToc.tsx` (botón), `DocEditor.tsx` (registro). Reusa el CSS `doc-toc`.
+- Puertas: `tsc` 0, `eslint` carril 0, `next build` verde.
+
 ## Resumen final de la sesión
 Se llevó el editor de Documentos muy cerca de Word, todo con código propio sobre
 TipTap/ProseMirror (MIT) + KaTeX (MIT). **No se tocó** el ribbon compartido,

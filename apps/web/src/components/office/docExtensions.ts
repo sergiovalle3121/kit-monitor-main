@@ -210,3 +210,97 @@ export const Toc = Node.create({
     };
   },
 });
+
+/** Recolecta los párrafos con estilo «Leyenda» (figuras/tablas), en orden. */
+export function collectCaptions(doc: any): { text: string; pos: number }[] {
+  const out: { text: string; pos: number }[] = [];
+  doc.descendants((node: any, pos: number) => {
+    if (node.type.name === 'paragraph' && node.attrs?.styleName === 'caption') {
+      out.push({ text: node.textContent || '(sin leyenda)', pos });
+    }
+  });
+  return out;
+}
+
+/**
+ * Tabla de ilustraciones **viva**: nodo atómico que lista los párrafos con estilo
+ * «Leyenda» con número correlativo, puntos guía y nº de página estimado.
+ */
+export const TableOfFigures = Node.create({
+  name: 'tableOfFigures',
+  group: 'block',
+  atom: true,
+  selectable: true,
+  draggable: false,
+
+  parseHTML() { return [{ tag: 'div[data-tof]' }]; },
+  renderHTML() { return ['div', { 'data-tof': 'true', class: 'doc-toc doc-tof' }, 'Tabla de ilustraciones']; },
+
+  addCommands() {
+    return { insertTableOfFigures: () => ({ commands }: any) => commands.insertContent({ type: this.name }) } as any;
+  },
+
+  addNodeView() {
+    return ({ editor }: any) => {
+      const dom = document.createElement('div');
+      dom.className = 'doc-toc doc-tof';
+      dom.setAttribute('contenteditable', 'false');
+      let raf = 0;
+      let rows: { pageEl: HTMLElement; pos: number }[] = [];
+
+      const measure = () => {
+        const meta = editor.state.doc.attrs || {};
+        const pageH = printableHeight(meta);
+        const pageEl = editor.view.dom.closest('[class*="doc-track-"]') as HTMLElement | null;
+        const zoom = pageEl && pageEl.style.zoom ? parseFloat(pageEl.style.zoom) || 1 : 1;
+        const rootTop = editor.view.dom.getBoundingClientRect().top;
+        for (const r of rows) {
+          try {
+            const el = editor.view.nodeDOM(r.pos) as HTMLElement | null;
+            if (!el || !el.getBoundingClientRect) { r.pageEl.textContent = ''; continue; }
+            const offset = (el.getBoundingClientRect().top - rootTop) / zoom;
+            r.pageEl.textContent = String(Math.max(1, Math.floor(offset / pageH) + 1));
+          } catch { r.pageEl.textContent = ''; }
+        }
+      };
+
+      const build = () => {
+        const items = collectCaptions(editor.state.doc);
+        dom.innerHTML = '';
+        rows = [];
+        const title = document.createElement('div');
+        title.className = 'doc-toc-title';
+        title.textContent = 'Tabla de ilustraciones';
+        dom.appendChild(title);
+        if (!items.length) {
+          const empty = document.createElement('div');
+          empty.className = 'doc-toc-empty';
+          empty.textContent = 'Aplica el estilo «Leyenda» a los pies de figura/tabla para generarla.';
+          dom.appendChild(empty);
+          return;
+        }
+        items.forEach((it, i) => {
+          const a = document.createElement('a');
+          a.className = 'doc-toc-item';
+          const text = document.createElement('span');
+          text.className = 'doc-toc-text';
+          text.textContent = `${i + 1}. ${it.text}`;
+          const dots = document.createElement('span');
+          dots.className = 'doc-toc-dots';
+          const page = document.createElement('span');
+          page.className = 'doc-toc-page';
+          a.append(text, dots, page);
+          a.addEventListener('mousedown', (e) => { e.preventDefault(); editor.chain().focus().setTextSelection(it.pos + 1).scrollIntoView().run(); });
+          dom.appendChild(a);
+          rows.push({ pageEl: page, pos: it.pos });
+        });
+        cancelAnimationFrame(raf);
+        raf = requestAnimationFrame(measure);
+      };
+
+      build();
+      editor.on('update', build);
+      return { dom, ignoreMutation: () => true, update: () => { build(); return true; }, destroy: () => { cancelAnimationFrame(raf); editor.off('update', build); } };
+    };
+  },
+});

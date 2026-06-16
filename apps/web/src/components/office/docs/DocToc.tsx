@@ -3,10 +3,10 @@
 
 import React from 'react';
 import type { Editor } from '@tiptap/react';
-import { ListTree, RefreshCw } from 'lucide-react';
+import { ListTree, RefreshCw, Images } from 'lucide-react';
 import { RibbonGroup, RibbonMenuButton, RibbonButton } from '../ribbon';
 
-/** Tabla de contenido automática: insertar (eligiendo niveles) y actualizar. */
+/** Tabla de contenido automática + tabla de ilustraciones: insertar y actualizar. */
 export function DocToc({ editor }: { editor: Editor }) {
   const c = () => editor.chain().focus();
   const hasToc = (() => { let f = false; editor.state.doc.descendants((n: any) => { if (n.type.name === 'toc') f = true; }); return f; })();
@@ -23,6 +23,7 @@ export function DocToc({ editor }: { editor: Editor }) {
           { label: 'Cambiar niveles → todos', onClick: () => (c() as any).setTocLevels(6).run() },
         ] : []),
       ]} />
+      <RibbonButton icon={Images} label="Tabla de ilustraciones" onClick={() => (c() as any).insertTableOfFigures().run()} />
       <RibbonButton icon={RefreshCw} label="Actualizar tabla" hideLabel={false} disabled={!hasToc} onClick={() => (c() as any).updateToc().run()} />
     </RibbonGroup>
   );
