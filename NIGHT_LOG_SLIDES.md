@@ -354,6 +354,25 @@ Verificado: `tsc` ✓, `eslint` ✓ (0 errores; warnings preexistentes), `next b
 
 Verificado: `tsc` ✓, `eslint` ✓ (0 errores; warnings preexistentes), `next build` ✓.
 
+#### Lote 30 — Animaciones: énfasis + salida + secuencia con/después/al clic
+- **Categorías** como PowerPoint: además de **entrada** (existentes), nuevos
+  efectos de **énfasis** (Pulso, Girar, Agrandar, Destello) y de **salida**
+  (Desvanecer, Hacia abajo, Alejar). `animKind()` deriva la categoría; la
+  pestaña Formato ▸ Animación y el **panel de animación** muestran etiqueta de
+  categoría por color.
+- **Inicio de la animación** (`animStart`): «Al hacer clic», «Con la anterior» y
+  «Después de la anterior». Por defecto *después de la anterior* (compatibilidad:
+  los mazos previos siguen reproduciéndose en secuencia al entrar).
+- **Modo presentación = construcción por pasos**: `planAnim()` agrupa los objetos
+  en pasos (cada «al hacer clic» abre un paso) y calcula el retraso relativo
+  (con/después de la anterior). Avanzar (→ / espacio / clic / botón) revela el
+  siguiente paso antes de cambiar de diapositiva; retroceder oculta el paso.
+  Indicador «paso n/total». Los efectos de salida ocultan el objeto; los de
+  énfasis reproducen un keyframe que vuelve al estado base.
+- `animStart` se serializa (`capture`) y se conserva en la persistencia.
+
+Verificado: `tsc` ✓, `eslint` ✓ (0 errores; warnings preexistentes), `next build` ✓.
+
 ### Diferido (con estimación)
 - **Secciones en el clasificador** y colapsar/expandir: el sorter es una rejilla;
   insertar encabezados de ancho completo + colapso. Estimación: ~0.5 día.

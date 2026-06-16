@@ -25,7 +25,7 @@ import {
 import { SlideSorter } from './SlideSorter';
 import { SlideIconPicker } from './SlideIconPicker';
 import { TemplateGallery } from './TemplateGallery';
-import { SLIDE_THEMES, SLIDE_LAYOUTS, SLIDE_TRANSITIONS, OBJ_ANIM_OPTIONS, SLIDE_RATIOS, slideHeight, TRANS_DURATIONS, DEFAULT_TRANS_DUR, type SlideTheme } from './slideAssets';
+import { SLIDE_THEMES, SLIDE_LAYOUTS, SLIDE_TRANSITIONS, OBJ_ANIM_OPTIONS, OBJ_ANIM_START, DEFAULT_ANIM_START, animKind, SLIDE_RATIOS, slideHeight, TRANS_DURATIONS, DEFAULT_TRANS_DUR, type SlideTheme } from './slideAssets';
 import { SlideAnimationPanel, type AnimItem } from './SlideAnimationPanel';
 import { SlideLayersPanel, type LayerItem } from './SlideLayersPanel';
 import { POLY_SHAPES, PATH_SHAPES } from './slides/shapes';
@@ -153,6 +153,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
   const [selAnimOrder, setSelAnimOrder] = useState(0);
   const [selAnimDur, setSelAnimDur] = useState(500);
   const [selAnimDelay, setSelAnimDelay] = useState(0);
+  const [selAnimStart, setSelAnimStart] = useState<string>(DEFAULT_ANIM_START);
   const [showAnimPanel, setShowAnimPanel] = useState(false);
   const [showLayers, setShowLayers] = useState(false);
   const [presenterMode, setPresenterMode] = useState(false);
@@ -207,7 +208,13 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
     const c = fabricRef.current; const o = c?.getActiveObject() as any;
     if (!c || !o) return;
     o.set('anim', v === 'none' ? undefined : v);
+    if (v !== 'none' && !o.animStart) { o.set('animStart', DEFAULT_ANIM_START); setSelAnimStart(DEFAULT_ANIM_START); }
     setSelAnim(v); capture(); sync();
+  }
+  function setObjAnimStart(v: string) {
+    const c = fabricRef.current; const o = c?.getActiveObject() as any;
+    if (!c || !o) return;
+    o.set('animStart', v); setSelAnimStart(v); capture(); sync();
   }
 
   function sync() {
@@ -543,13 +550,15 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
     if (!c || !o) return; o.set('animDelay', v); setSelAnimDelay(v); capture(); sync();
   }
   // Cambia una propiedad de animación por índice de objeto (panel de animación).
-  function setAnimByIndex(idx: number, key: 'anim' | 'animOrder' | 'animDur' | 'animDelay', value: any) {
+  function setAnimByIndex(idx: number, key: 'anim' | 'animOrder' | 'animDur' | 'animDelay' | 'animStart', value: any) {
     const c = fabricRef.current; if (!c) return;
     const o = c.getObjects()[idx] as any; if (!o) return;
     o.set(key, key === 'anim' && value === 'none' ? undefined : value);
+    if (key === 'anim' && value !== 'none' && !o.animStart) o.set('animStart', DEFAULT_ANIM_START);
     if (c.getActiveObject() === o) {
       if (key === 'anim') setSelAnim(value); if (key === 'animOrder') setSelAnimOrder(value);
       if (key === 'animDur') setSelAnimDur(value); if (key === 'animDelay') setSelAnimDelay(value);
+      if (key === 'animStart') setSelAnimStart(value);
     }
     c.requestRenderAll(); capture(); sync();
   }
@@ -601,7 +610,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
     sync();
   }
   // Include custom props (anim = entrance animation, shape = .pptx mapping, link = hyperlink, locked).
-  function capture() { const c = fabricRef.current; if (c) slidesRef.current[curRef.current] = c.toObject(['anim', 'animOrder', 'animDur', 'animDelay', 'shape', 'link', 'locked', 'imgFx', 'chartSpec', 'smart', 'tableSpec', 'conn', 'connId', 'bgFill']); }
+  function capture() { const c = fabricRef.current; if (c) slidesRef.current[curRef.current] = c.toObject(['anim', 'animOrder', 'animDur', 'animDelay', 'animStart', 'shape', 'link', 'locked', 'imgFx', 'chartSpec', 'smart', 'tableSpec', 'conn', 'connId', 'bgFill']); }
   function applyLock(o: any) {
     const L = !!o.locked;
     o.set({ lockMovementX: L, lockMovementY: L, lockScalingX: L, lockScalingY: L, lockRotation: L, hasControls: !L });
@@ -625,7 +634,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
       const o = canvas.getActiveObject() as any;
       setHasSel(!!o); setSelType((o?.type as string) || '');
       setSelCount(o?.type === 'activeselection' || o?.type === 'activeSelection' ? (o._objects?.length ?? 0) : (o ? 1 : 0));
-      setSelAnim((o?.anim as string) || 'none'); setSelAnimOrder(o?.animOrder ?? 0); setSelAnimDur(o?.animDur ?? 500); setSelAnimDelay(o?.animDelay ?? 0);
+      setSelAnim((o?.anim as string) || 'none'); setSelAnimOrder(o?.animOrder ?? 0); setSelAnimDur(o?.animDur ?? 500); setSelAnimDelay(o?.animDelay ?? 0); setSelAnimStart((o?.animStart as string) || DEFAULT_ANIM_START);
       setSelOpacity(o?.opacity ?? 1); setSelLocked(!!o?.locked); setImgFx(readImgFx(o)); setSelAngle(Math.round(o?.angle ?? 0));
     };
     canvas.on('selection:created', onSel);
@@ -1169,7 +1178,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
     return c.getObjects()
       .map((o: any, idx: number) => ({ o, idx }))
       .filter((x) => !isConnector(x.o) && !isBgFill(x.o))
-      .map(({ o, idx }) => ({ idx, label: objLabel(o), type: typeName(o), anim: (o.anim as string) || 'none', order: o.animOrder ?? 0, dur: o.animDur ?? 500, delay: o.animDelay ?? 0 }));
+      .map(({ o, idx }) => ({ idx, label: objLabel(o), type: typeName(o), anim: (o.anim as string) || 'none', order: o.animOrder ?? 0, dur: o.animDur ?? 500, delay: o.animDelay ?? 0, start: (o.animStart as string) || DEFAULT_ANIM_START, kind: animKind(o.anim as string) }));
   })();
   const layerList: LayerItem[] = (() => {
     const c = fabricRef.current; if (!showLayers || !c) return [];
@@ -1460,8 +1469,12 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
             <RibbonGroup label="Animación">
               {hasSel ? (
                 <>
-                  <RibbonSelect title="Animación de entrada del objeto" value={selAnim} onChange={setObjAnim} width={150}
+                  <RibbonSelect title="Animación del objeto (entrada / énfasis / salida)" value={selAnim} onChange={setObjAnim} width={170}
                     options={OBJ_ANIM_OPTIONS} />
+                  {selAnim !== 'none' && (
+                    <RibbonSelect title="Inicio de la animación" value={selAnimStart} onChange={setObjAnimStart} width={140}
+                      options={OBJ_ANIM_START} />
+                  )}
                   <span className="text-[11px] text-gray-500 px-1" title="Orden de aparición">Orden</span>
                   <input type="number" min={0} value={selAnimOrder} onChange={(e) => setObjAnimOrder(Number(e.target.value))} title="Orden de aparición"
                     className="w-12 h-7 text-xs rounded-lg bg-black/[0.04] dark:bg-white/[0.06] px-1.5 outline-none border border-transparent focus:border-blue-500/40 text-gray-800 dark:text-gray-100" />
@@ -1651,6 +1664,7 @@ const TRANSITIONS: Record<string, any> = {
 };
 const OBJ_ANIM: Record<string, any> = {
   none: { initial: { opacity: 1 }, animate: { opacity: 1 } },
+  // Entrada (estado inicial oculto → visible).
   fade: { initial: { opacity: 0 }, animate: { opacity: 1 } },
   fly: { initial: { opacity: 0, y: '8%' }, animate: { opacity: 1, y: 0 } },
   flyDown: { initial: { opacity: 0, y: '-8%' }, animate: { opacity: 1, y: 0 } },
@@ -1659,9 +1673,41 @@ const OBJ_ANIM: Record<string, any> = {
   zoom: { initial: { opacity: 0, scale: 0.8 }, animate: { opacity: 1, scale: 1 } },
   rotate: { initial: { opacity: 0, rotate: -12, scale: 0.9 }, animate: { opacity: 1, rotate: 0, scale: 1 } },
   bounce: { initial: { opacity: 0, y: '-12%' }, animate: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 500, damping: 14 } } },
+  // Énfasis (estado inicial visible; al dispararse reproduce un keyframe que
+  // regresa al estado base).
+  pulse: { initial: { opacity: 1, scale: 1 }, animate: { scale: [1, 1.12, 1] } },
+  spin: { initial: { opacity: 1, rotate: 0 }, animate: { rotate: [0, 360] } },
+  grow: { initial: { opacity: 1, scale: 1 }, animate: { scale: [1, 1.3, 1] } },
+  flash: { initial: { opacity: 1 }, animate: { opacity: [1, 0.15, 1, 0.15, 1] } },
+  // Salida (estado inicial visible → oculto).
+  fadeOut: { initial: { opacity: 1 }, animate: { opacity: 0 } },
+  flyOut: { initial: { opacity: 1, y: 0 }, animate: { opacity: 0, y: '10%' } },
+  zoomOut: { initial: { opacity: 1, scale: 1 }, animate: { opacity: 0, scale: 0.6 } },
 };
 
-interface Layer { src: string; anim: string; order: number; dur: number; delay?: number }
+/** Secuencia de animaciones de una diapositiva (modelo de pasos tipo PowerPoint).
+ *  `step` 0 = se reproduce al entrar; cada «al hacer clic» abre un paso nuevo.
+ *  `start` = retraso (s) relativo al inicio de su paso (with/after previous). */
+function planAnim(layers: Layer[]): { plan: Map<number, { step: number; start: number }>; maxStep: number } {
+  const animated = layers.map((l, idx) => ({ l, idx }))
+    .filter((x) => x.l.anim && x.l.anim !== 'none')
+    .sort((a, b) => a.l.order - b.l.order || a.idx - b.idx);
+  const plan = new Map<number, { step: number; start: number }>();
+  let step = 0; let lastStart = 0; let lastDur = 0;
+  for (const { l, idx } of animated) {
+    const mode = l.start || 'afterPrev';
+    let start: number;
+    if (mode === 'onClick') { step += 1; start = 0; lastStart = 0; lastDur = 0; }
+    else if (mode === 'withPrev') { start = lastStart; }
+    else { start = lastStart + lastDur; }
+    start += (typeof l.delay === 'number' ? l.delay : 0) / 1000;
+    plan.set(idx, { step, start });
+    lastStart = start; lastDur = (l.dur || 500) / 1000;
+  }
+  return { plan, maxStep: step };
+}
+
+interface Layer { src: string; anim: string; order: number; dur: number; delay?: number; start?: string }
 interface Deck { bg: string; layers: Layer[] }
 
 /** Capa estática de una diapositiva (sin animación) para miniaturas / presentador. */
@@ -1696,11 +1742,16 @@ function Present({
   const [gridNav, setGridNav] = useState(false);
   const [laser, setLaser] = useState<{ x: number; y: number } | null>(null);
   const [ink, setInk] = useState<Record<number, number[][]>>({});
+  // Paso de animación revelado (construcción por clic, tipo PowerPoint).
+  const [revealed, setRevealed] = useState(0);
+  const revealedRef = useRef(0);
+  const maxStepRef = useRef(0);
   const drawRef = useRef<number[] | null>(null);
   const boxRef = useRef<HTMLDivElement>(null);
   const iRef = useRef(0);
   const gridRef = useRef(false);
-  useEffect(() => { iRef.current = i; setLaser(null); }, [i]);
+  useEffect(() => { iRef.current = i; setLaser(null); setRevealed(0); }, [i]);
+  useEffect(() => { revealedRef.current = revealed; }, [revealed]);
   useEffect(() => { gridRef.current = gridNav; }, [gridNav]);
   const slidePt = (e: React.PointerEvent) => {
     const r = boxRef.current?.getBoundingClientRect(); if (!r || !r.width) return [0, 0] as const;
@@ -1721,7 +1772,7 @@ function Present({
             const sc = new StaticCanvas(document.createElement('canvas'), { width: CW, height: ch });
             await sc.loadFromJSON({ version: json.version, objects: [o] });
             sc.renderAll();
-            layers.push({ src: sc.toDataURL({ format: 'png', multiplier: 1 } as any), anim: (o.anim as string) || 'none', order: o.animOrder ?? j, dur: o.animDur ?? 500, delay: typeof o.animDelay === 'number' ? o.animDelay : undefined });
+            layers.push({ src: sc.toDataURL({ format: 'png', multiplier: 1 } as any), anim: (o.anim as string) || 'none', order: o.animOrder ?? j, dur: o.animDur ?? 500, delay: typeof o.animDelay === 'number' ? o.animDelay : undefined, start: (o.animStart as string) || 'afterPrev' });
             sc.dispose();
           } catch { /* skip object */ }
         }
@@ -1731,8 +1782,16 @@ function Present({
     })();
     const onKey = (e: KeyboardEvent) => {
       const k = e.key.toLowerCase();
-      if (e.key === 'ArrowRight' || e.key === ' ') { setBlacked(false); setI((v) => Math.min(slides.length - 1, v + 1)); }
-      if (e.key === 'ArrowLeft') { setBlacked(false); setI((v) => Math.max(0, v - 1)); }
+      if (e.key === 'ArrowRight' || e.key === ' ') {
+        setBlacked(false);
+        if (revealedRef.current < maxStepRef.current) setRevealed((r) => r + 1);
+        else setI((v) => Math.min(slides.length - 1, v + 1));
+      }
+      if (e.key === 'ArrowLeft') {
+        setBlacked(false);
+        if (revealedRef.current > 0) setRevealed((r) => Math.max(0, r - 1));
+        else setI((v) => Math.max(0, v - 1));
+      }
       if (k === 'n') setShowNotes((v) => !v);
       if (k === 'b') setBlacked((v) => !v);
       if (k === 'l') setTool((t) => (t === 'laser' ? 'none' : 'laser'));
@@ -1757,9 +1816,10 @@ function Present({
   const hasNotes = (notes ?? []).some((n) => n?.trim());
   const deck = decks[i];
 
-  // Ranking por orden de animación (para secuenciar la entrada de objetos).
-  const rank = new Map<number, number>();
-  if (deck) deck.layers.map((l, idx) => ({ l, idx })).filter((x) => x.l.anim && x.l.anim !== 'none').sort((a, b) => a.l.order - b.l.order).forEach((x, r) => rank.set(x.idx, r));
+  // Secuencia de pasos de animación de la diapositiva actual.
+  const { plan, maxStep } = planAnim(deck?.layers ?? []);
+  useEffect(() => { maxStepRef.current = maxStep; }, [maxStep]);
+  const advance = () => { setBlacked(false); if (revealed < maxStep) setRevealed((r) => r + 1); else setI((v) => Math.min(slides.length - 1, v + 1)); };
 
   const stage = (
     <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
@@ -1767,11 +1827,16 @@ function Present({
         <AnimatePresence mode="popLayout" initial={false}>
           <motion.div key={i} variants={variant} initial="initial" animate="animate" exit="exit" transition={{ duration: transSec, ease: 'easeInOut' }}
             className="absolute" style={{ width: stageW, aspectRatio: aspect, background: deck.bg }}>
-            {deck.layers.map((L, j) => (
-              <motion.img key={j} src={L.src} alt="" className="absolute inset-0 w-full h-full object-contain"
-                variants={OBJ_ANIM[L.anim] ?? OBJ_ANIM.none} initial="initial" animate="animate"
-                transition={{ duration: (L.dur || 500) / 1000, ease: 'easeOut', delay: L.anim && L.anim !== 'none' ? (typeof L.delay === 'number' ? L.delay / 1000 : 0.15 + (rank.get(j) ?? j) * 0.2) : 0 }} />
-            ))}
+            {deck.layers.map((L, j) => {
+              const p = plan.get(j);
+              const animated = !!(L.anim && L.anim !== 'none');
+              const shown = !animated || !p || revealed >= p.step;
+              return (
+                <motion.img key={j} src={L.src} alt="" className="absolute inset-0 w-full h-full object-contain"
+                  variants={OBJ_ANIM[L.anim] ?? OBJ_ANIM.none} initial="initial" animate={shown ? 'animate' : 'initial'}
+                  transition={{ duration: (L.dur || 500) / 1000, ease: 'easeOut', delay: shown && p ? p.start : 0 }} />
+              );
+            })}
             {(slides[i]?.objects ?? []).map((o: any, j: number) => {
               if (!o?.link) return null;
               const w = (o.radius ? o.radius * 2 : (o.width ?? 0)) * (o.scaleX ?? 1);
@@ -1840,7 +1905,8 @@ function Present({
 
   const inkColor = '#ef4444';
   return (
-    <div className="fixed inset-0 z-[200] bg-black flex items-center justify-center">
+    <div className="fixed inset-0 z-[200] bg-black flex items-center justify-center"
+      onClick={(e) => { if (e.target === e.currentTarget) advance(); }}>
       <div className="absolute top-4 right-4 z-50 flex items-center gap-2">
         <button onClick={() => setTool((t) => (t === 'laser' ? 'none' : 'laser'))} title="Puntero láser (L)" className={`p-2 rounded-full text-white transition-colors ${tool === 'laser' ? 'bg-rose-500/90' : 'bg-white/15 hover:bg-white/30'}`}><Pointer className="w-5 h-5" /></button>
         <button onClick={() => setTool((t) => (t === 'pen' ? 'none' : 'pen'))} title="Lápiz (P)" className={`p-2 rounded-full text-white transition-colors ${tool === 'pen' ? 'bg-rose-500/90' : 'bg-white/15 hover:bg-white/30'}`}><Pencil className="w-5 h-5" /></button>
@@ -1888,9 +1954,9 @@ function Present({
           </div>
         </div>
       )}
-      <button onClick={() => setI((v) => Math.max(0, v - 1))} disabled={i === 0} className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/15 text-white text-2xl hover:bg-white/30 disabled:opacity-20 z-20">‹</button>
-      <button onClick={() => setI((v) => Math.min(slides.length - 1, v + 1))} disabled={i === slides.length - 1} className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/15 text-white text-2xl hover:bg-white/30 disabled:opacity-20 z-20">›</button>
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/70 text-sm z-20">{i + 1} / {slides.length}</div>
+      <button onClick={() => { if (revealed > 0) setRevealed((r) => Math.max(0, r - 1)); else setI((v) => Math.max(0, v - 1)); }} disabled={i === 0 && revealed === 0} className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/15 text-white text-2xl hover:bg-white/30 disabled:opacity-20 z-20">‹</button>
+      <button onClick={advance} disabled={i === slides.length - 1 && revealed >= maxStep} className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/15 text-white text-2xl hover:bg-white/30 disabled:opacity-20 z-20">›</button>
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/70 text-sm z-20">{i + 1} / {slides.length}{maxStep > 0 && <span className="text-white/40"> · paso {revealed}/{maxStep}</span>}</div>
       {showNotes && (
         <div className="absolute bottom-0 left-0 right-0 max-h-[30%] overflow-y-auto bg-black/80 backdrop-blur border-t border-white/10 px-8 py-4 text-white/90 text-sm leading-relaxed whitespace-pre-wrap z-20">
           {note || <span className="text-white/40">Sin notas para esta diapositiva.</span>}
