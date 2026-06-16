@@ -38,7 +38,7 @@ import {
   List, ListOrdered, ListChecks, Quote, AlignLeft, AlignCenter, AlignRight, AlignJustify,
   Highlighter, Link2, Undo, Redo, Minus, Search, SeparatorHorizontal,
   Subscript as SubIcon, Superscript as SupIcon, RemoveFormatting, Code2, Calendar, Smile, Baseline, FileText,
-  PaintRoller, IndentIncrease, IndentDecrease, ListTree, Accessibility,
+  PaintRoller, IndentIncrease, IndentDecrease, Accessibility,
 } from 'lucide-react';
 import { DocFindReplace } from './DocFindReplace';
 import { DocOutline } from './DocOutline';
@@ -49,13 +49,13 @@ import { DocStyleGallery } from './DocStyleGallery';
 import { DocSymbolPicker } from './DocSymbolPicker';
 import { DocPageSetup } from './DocPageSetup';
 import { CommentMark } from './commentMark';
-import { PageBreak, PageMeta } from './docPageExtensions';
-import { Indent, Toc, NamedStyle } from './docExtensions';
+import { PageBreak, PageMeta, SectionBreak, effectiveSection } from './docPageExtensions';
+import { Indent, Toc, TableOfFigures, NamedStyle } from './docExtensions';
 import { ListNumbering } from './docs/listNumbering';
 import { TableCellAttrs } from './docs/tableCellAttrs';
 import { SearchHighlight } from './docs/searchHighlight';
 import { MathInline, MathBlock, MathCommands } from './docs/mathExtension';
-import { FootnoteRef, FootnoteList } from './docs/footnotes';
+import { FootnoteRef, FootnoteList, EndnoteRef, EndnoteList } from './docs/footnotes';
 import { DropCap, Callout, ColumnBreak, Bookmark, CrossRef } from './docs/insertNodes';
 import { InsertionMark, DeletionMark, TrackChanges } from './docs/trackChanges';
 import { FocusLine } from './docs/focusLine';
@@ -74,10 +74,13 @@ import { DocEquation } from './docs/DocEquation';
 import { DocListMenu } from './docs/DocListMenu';
 import { DocViewTools } from './docs/DocViewTools';
 import { DocFootnotes } from './docs/DocFootnotes';
+import { DocToc } from './docs/DocToc';
+import { DocSections } from './docs/DocSections';
 import { DocInsertExtras } from './docs/DocInsertExtras';
-import { DocTrackChanges } from './docs/DocTrackChanges';
+import { DocTrackChanges, type TrackView } from './docs/DocTrackChanges';
 import { DocWordCount } from './docs/DocWordCount';
 import { DocTemplates } from './docs/DocTemplates';
+import { DOC_EXTRA_CSS, styleDefsToCss } from './docs/docStyles';
 import {
   OfficeRibbon, RibbonTab, RibbonGroup, RibbonSeparator,
   RibbonButton, RibbonSelect, RibbonColorButton,
@@ -143,10 +146,12 @@ export function DocEditor({ value, onChange, readOnly, author, onStats, fileActi
       CharacterCount.configure({}),
       CommentMark,
       PageBreak,
+      SectionBreak,
       PageMeta,
       Indent,
       NamedStyle,
       Toc,
+      TableOfFigures,
       ListNumbering,
       TableCellAttrs,
       SearchHighlight,
@@ -155,6 +160,8 @@ export function DocEditor({ value, onChange, readOnly, author, onStats, fileActi
       MathCommands,
       FootnoteRef,
       FootnoteList,
+      EndnoteRef,
+      EndnoteList,
       DropCap,
       Callout,
       ColumnBreak,
@@ -193,6 +200,11 @@ export function DocEditor({ value, onChange, readOnly, author, onStats, fileActi
   const [showRuler, setShowRuler] = React.useState(false);
   const [spellcheck, setSpellcheck] = React.useState(false);
   const [suggesting, setSuggesting] = React.useState(false);
+  // Cómo mostrar las revisiones (control de cambios): todas / sencillo / final / original.
+  const [trackView, setTrackView] = React.useState<TrackView>('markup');
+  // Guías de salto de página (líneas que marcan dónde rompería cada página).
+  const [pageGuides, setPageGuides] = React.useState(false);
+  const [guides, setGuides] = React.useState<number[]>([]);
   // Copiar formato (format painter): guarda el formato capturado; se aplica a la
   // siguiente selección no vacía (al soltar el ratón en el editor).
   const [painter, setPainter] = React.useState<Record<string, any> | null>(null);
@@ -209,6 +221,30 @@ export function DocEditor({ value, onChange, readOnly, author, onStats, fileActi
   useEffect(() => { if (editor) editor.setEditable(!readOnly && !readingMode); }, [editor, readOnly, readingMode]);
   // Modo enfoque: resalta la línea activa.
   useEffect(() => { if (editor) (editor.commands as any).setFocusLine(focusMode); }, [editor, focusMode]);
+
+  // Guías de salto de página: mide la altura del contenido y coloca una línea cada
+  // «altura imprimible» (mismo cálculo que la estimación de páginas de la TOC).
+  useEffect(() => {
+    if (!editor || !pageGuides) return;  // las guías sólo se pintan con pageGuides activo
+    const DIM: Record<string, [number, number]> = { a4: [794, 1123], letter: [816, 1056], legal: [816, 1344] };
+    const measure = () => {
+      const m: any = editor.state.doc.attrs || {};
+      const [w, h] = DIM[m.pageSize as string] || DIM.a4;
+      const minH = m.pageOrientation === 'landscape' ? w : h;
+      const pad = m.pageMargin === 'narrow' ? 36 : m.pageMargin === 'wide' ? 104 : 64;
+      const ph = Math.max(1, minH - pad * 2);
+      const n = Math.max(0, Math.floor(editor.view.dom.scrollHeight / ph));
+      const arr: number[] = [];
+      for (let k = 1; k <= n; k += 1) arr.push(pad + k * ph);
+      setGuides(arr);
+    };
+    let raf = 0;
+    const onUpd = () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(measure); };
+    onUpd();
+    editor.on('update', onUpd);
+    window.addEventListener('resize', onUpd);
+    return () => { cancelAnimationFrame(raf); editor.off('update', onUpd); window.removeEventListener('resize', onUpd); };
+  }, [editor, pageGuides]);
 
   // Ctrl/Cmd+F opens in-document find & replace (like Google Docs).
   useEffect(() => {
@@ -300,12 +336,17 @@ export function DocEditor({ value, onChange, readOnly, author, onStats, fileActi
   const pgSize = meta.pageSize || 'a4';
   const pgMargin = meta.pageMargin || 'normal';
   const pgColumns = Number(meta.pageColumns || 1);
+  const pgColumnRule = !!meta.pageColumnRule;
   const pgWatermark = meta.pageWatermark || '';
   const pgBorder = meta.pageBorder || '';
   const pgLineNumbers = !!meta.pageLineNumbers;
-  const pgHeader = meta.pageHeader || '';
-  const pgFooter = meta.pageFooter || '';
-  const pgNumbers = !!meta.pageNumbers;
+  // Encabezado/pie/numeración EFECTIVOS de la sección activa (la del cursor): así
+  // el overlay en pantalla refleja la sección donde se está escribiendo.
+  const activeSection = effectiveSection(editor.state, editor.state.selection.head);
+  const pgHeader = activeSection.meta.header;
+  const pgFooter = activeSection.meta.footer;
+  const pgNumbers = activeSection.meta.pageNumbers || (activeSection.index === 0 && !!meta.pageNumbers);
+  const pgPageNum = activeSection.meta.pageNumberStart ?? 1;
   const DIM: Record<string, [number, number]> = { a4: [794, 1123], letter: [816, 1056], legal: [816, 1344] };
   const [dimW, dimH] = DIM[pgSize] || DIM.a4;
   const pageW = pgOrient === 'landscape' ? dimH : dimW;
@@ -329,6 +370,8 @@ export function DocEditor({ value, onChange, readOnly, author, onStats, fileActi
 
   return (
     <div className="flex flex-col h-full">
+      <style>{DOC_EXTRA_CSS}</style>
+      <style>{styleDefsToCss(meta.styleDefs)}</style>
       <OfficeRibbon storageKey="ribbon:doc">
           {fileActions != null && (
             <RibbonTab id="file" label="Archivo" icon={FileText}>
@@ -448,17 +491,17 @@ export function DocEditor({ value, onChange, readOnly, author, onStats, fileActi
           <RibbonTab id="layout" label="Disposición">
             <DocPageSetup editor={editor} />
             <RibbonSeparator />
+            <DocSections editor={editor} />
+            <RibbonSeparator />
             <DocHeaderFooter editor={editor} />
           </RibbonTab>
           )}
 
           {!readOnly && (
           <RibbonTab id="references" label="Referencias">
-            <RibbonGroup label="Tabla de contenido">
-              <RibbonButton icon={ListTree} label="Insertar tabla de contenido" hideLabel={false} onClick={() => (c() as any).insertToc().run()} />
-            </RibbonGroup>
+            <DocToc editor={editor} />
             <RibbonSeparator />
-            <RibbonGroup label="Notas al pie">
+            <RibbonGroup label="Notas al pie y al final">
               <DocFootnotes editor={editor} />
             </RibbonGroup>
             <RibbonSeparator />
@@ -482,7 +525,7 @@ export function DocEditor({ value, onChange, readOnly, author, onStats, fileActi
               <DocComments editor={editor} author={author ?? ''} />
             </RibbonGroup>
             <RibbonSeparator />
-            <DocTrackChanges editor={editor} suggesting={suggesting} setSuggesting={setSuggesting} />
+            <DocTrackChanges editor={editor} suggesting={suggesting} setSuggesting={setSuggesting} trackView={trackView} setTrackView={setTrackView} />
             <RibbonSeparator />
             <RibbonGroup label="Edición">
               <RibbonButton icon={Search} label="Buscar y reemplazar" shortcut="Ctrl+F" onClick={() => setShowFind(true)} />
@@ -498,6 +541,7 @@ export function DocEditor({ value, onChange, readOnly, author, onStats, fileActi
               showRuler={showRuler} setShowRuler={setShowRuler}
               zoom={zoom} setZoom={setZoom}
               spellcheck={spellcheck} setSpellcheck={setSpellcheck}
+              pageGuides={pageGuides} setPageGuides={setPageGuides}
             />
             <RibbonSeparator />
             <RibbonGroup label="Documento">
@@ -516,18 +560,23 @@ export function DocEditor({ value, onChange, readOnly, author, onStats, fileActi
           </div>
         )}
         <div
-          className={`mx-auto bg-white dark:bg-[#1a1a1a] shadow-xl rounded-sm w-full text-black dark:text-gray-100 relative overflow-hidden ${pgColumns === 2 ? 'doc-cols-2' : pgColumns === 3 ? 'doc-cols-3' : ''} ${showMarks ? 'doc-show-marks' : ''} ${focusMode ? 'doc-focus' : ''} ${readingMode ? 'doc-reading' : ''} ${pgBorder ? `doc-border-${pgBorder}` : ''} ${pgLineNumbers ? 'doc-line-numbers' : ''}`}
+          className={`mx-auto bg-white dark:bg-[#1a1a1a] shadow-xl rounded-sm w-full text-black dark:text-gray-100 relative overflow-hidden doc-track-${trackView} ${pgColumns === 2 ? 'doc-cols-2' : pgColumns === 3 ? 'doc-cols-3' : ''} ${pgColumnRule && pgColumns > 1 ? 'doc-cols-rule' : ''} ${showMarks ? 'doc-show-marks' : ''} ${focusMode ? 'doc-focus' : ''} ${readingMode ? 'doc-reading' : ''} ${pgBorder ? `doc-border-${pgBorder}` : ''} ${pgLineNumbers ? 'doc-line-numbers' : ''}`}
           style={{ width: readingMode ? 760 : pageW, maxWidth: '100%', minHeight: readingMode ? undefined : pageMinH, padding: readingMode ? 56 : pagePad, zoom }}
         >
           {pgWatermark && <div className="doc-watermark" aria-hidden>{pgWatermark}</div>}
+          {!readingMode && pageGuides && guides.map((y, i) => (
+            <div key={i} className="doc-page-guide" aria-hidden style={{ top: y }}>
+              <span className="doc-page-guide-label">Página {i + 2}</span>
+            </div>
+          ))}
           {!readingMode && pgHeader && <div className="doc-page-header" aria-hidden style={{ left: pagePad, right: pagePad }}>{pgHeader}</div>}
           <div className="relative z-[1]">
             <EditorContent editor={editor} />
           </div>
-          {!readingMode && (pgFooter || pgNumbers) && (
+          {!readingMode && (pgFooter || pgNumbers || activeSection.index > 0) && (
             <div className="doc-page-footer" aria-hidden style={{ left: pagePad, right: pagePad }}>
-              <span className="truncate">{pgFooter}</span>
-              {pgNumbers && <span className="doc-page-num">Página 1</span>}
+              <span className="truncate">{pgFooter}{activeSection.index > 0 ? `${pgFooter ? ' · ' : ''}Sección ${activeSection.index + 1}` : ''}</span>
+              {pgNumbers && <span className="doc-page-num">Página {pgPageNum}</span>}
             </div>
           )}
         </div>

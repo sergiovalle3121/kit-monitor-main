@@ -5,17 +5,11 @@ import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Editor } from '@tiptap/react';
 import { BookOpen, X, Printer, Loader2 } from 'lucide-react';
+import { PAGE_FORMAT_CSS } from './docPageExtensions';
 
 const esc = (s: string) => (s || '').replace(/["\\]/g, '\\$&');
 
-function buildCss(header: string, footer: string, nums: boolean, firstDiff = false) {
-  return `
-  @page { size: A4; margin: 22mm 18mm;
-    ${header ? `@top-center { content: "${esc(header)}"; font: 10px system-ui, sans-serif; color:#666; }` : ''}
-    ${footer ? `@bottom-left { content: "${esc(footer)}"; font: 10px system-ui, sans-serif; color:#666; }` : ''}
-    ${nums ? `@bottom-right { content: "Página " counter(page) " / " counter(pages); font: 10px system-ui, sans-serif; color:#666; }` : ''}
-  }
-  ${firstDiff ? '@page:first { @top-center { content: none; } @bottom-left { content: none; } @bottom-right { content: none; } }' : ''}
+const CONTENT_CSS = `
   .pagedjs_page { background:#fff; box-shadow:0 2px 14px rgba(0,0,0,.18); margin:0 auto 18px; }
   .doc-content { font-family: system-ui, -apple-system, sans-serif; color:#111; font-size:11pt; line-height:1.5; }
   .doc-content h1{font-size:22pt;font-weight:700;margin:.5em 0}
@@ -28,7 +22,94 @@ function buildCss(header: string, footer: string, nums: boolean, firstDiff = fal
   .doc-content td,.doc-content th{border:1px solid #ccc;padding:4px 8px}
   .doc-content img{max-width:100%}
   .doc-content .page-break{break-before:page;height:0}
+  .doc-content [data-section-break]{display:none}
+  .doc-content p,.doc-content li{orphans:2;widows:2}
+  .doc-content [data-break-before]{break-before:page}
+  .doc-content [data-keep-lines]{break-inside:avoid}
+  .doc-content [data-keep-next]{break-after:avoid}
+  .doc-content h1,.doc-content h2,.doc-content h3,.doc-content h4{break-after:avoid;break-inside:avoid}
+`;
+
+const SIZE_KW: Record<string, string> = { a4: 'A4', letter: 'Letter', legal: 'Legal' };
+function sizeFor(docAttrs: any, orientation?: string) {
+  const kw = SIZE_KW[docAttrs?.pageSize as string] || 'A4';
+  const o = (orientation || docAttrs?.pageOrientation || 'portrait') === 'landscape' ? 'landscape' : 'portrait';
+  return `${kw} ${o}`;
+}
+function marginFor(docAttrs: any) {
+  return docAttrs?.pageMargin === 'narrow' ? '14mm' : docAttrs?.pageMargin === 'wide' ? '30mm 26mm' : '22mm 18mm';
+}
+/** Cajas de margen @page (encabezado / pie / número con formato). */
+function marginBoxes(header: string, footer: string, nums: boolean, format: string, withTotal: boolean) {
+  let out = '';
+  if (header) out += `@top-center { content: "${esc(header)}"; font: 10px system-ui, sans-serif; color:#666; }`;
+  if (footer) out += `@bottom-left { content: "${esc(footer)}"; font: 10px system-ui, sans-serif; color:#666; }`;
+  if (nums) {
+    const fmt = PAGE_FORMAT_CSS[format] || 'decimal';
+    const content = withTotal ? `"Página " counter(page) " / " counter(pages)` : `"Página " counter(page, ${fmt})`;
+    out += `@bottom-right { content: ${content}; font: 10px system-ui, sans-serif; color:#666; }`;
+  }
+  return out;
+}
+
+/** CSS de una sola sección (fallback sin saltos de sección). */
+function buildCss(header: string, footer: string, nums: boolean, firstDiff = false) {
+  return `
+  @page { size: A4; margin: 22mm 18mm; ${marginBoxes(header, footer, nums, 'decimal', true)} }
+  ${firstDiff ? '@page:first { @top-center { content: none; } @bottom-left { content: none; } @bottom-right { content: none; } }' : ''}
+  ${CONTENT_CSS}
   `;
+}
+
+interface PreviewSection { attrs: any; nodes: HTMLElement[] }
+
+/**
+ * Divide el HTML del editor en secciones (en los `div[data-section-break]`) y
+ * genera HTML + CSS de Paged.js con **páginas con nombre** por sección, cada una
+ * con su encabezado/pie, numeración (formato + reinicio), columnas y orientación.
+ */
+function buildSectioned(rawHtml: string, opts: { header: string; footer: string; nums: boolean; firstDiff: boolean; docAttrs: any }) {
+  const { header, footer, nums, firstDiff, docAttrs } = opts;
+  const tmp = document.createElement('div');
+  tmp.innerHTML = rawHtml;
+  const sections: PreviewSection[] = [{ attrs: null, nodes: [] }];
+  Array.from(tmp.children).forEach((child) => {
+    const el = child as HTMLElement;
+    if (el.matches && el.matches('div[data-section-break]')) {
+      const d = el.dataset;
+      sections.push({
+        attrs: {
+          breakType: d.sectionBreak || 'nextPage', header: d.header || '', footer: d.footer || '',
+          pageNumbers: d.pageNumbers === 'true', pageStart: d.pageStart ? Number(d.pageStart) : null,
+          pageFormat: d.pageFormat || 'decimal', columns: Number(d.columns) || 0, orientation: d.orientation || '',
+        },
+        nodes: [],
+      });
+    } else {
+      sections[sections.length - 1].nodes.push(el);
+    }
+  });
+
+  const htmlBody = sections.map((s, i) => `<section class="doc-section sec${i}">${s.nodes.map((n) => n.outerHTML).join('')}</section>`).join('');
+  const html = `<div class="doc-content">${htmlBody}</div>`;
+
+  let css = `@page { size: ${sizeFor(docAttrs)}; margin: ${marginFor(docAttrs)}; ${marginBoxes(header, footer, nums, 'decimal', true)} }`;
+  if (firstDiff) css += ` @page:first { @top-center { content: none; } @bottom-left { content: none; } @bottom-right { content: none; } }`;
+  const rule = docAttrs?.pageColumnRule ? ' column-rule: 1px solid #ccc;' : '';
+  const baseCols = Number(docAttrs?.pageColumns || 1);
+  if (baseCols > 1) css += ` .doc-section.sec0 { column-count: ${baseCols}; column-gap: 2rem;${rule} }`;
+  sections.forEach((s, i) => {
+    if (i === 0 || !s.attrs) return;
+    const a = s.attrs;
+    const h = a.header || header;
+    const f = a.footer || footer;
+    const n = a.pageNumbers || nums;
+    css += ` @page sec${i} { size: ${sizeFor(docAttrs, a.orientation)}; margin: ${marginFor(docAttrs)}; ${marginBoxes(h, f, n, a.pageFormat, false)} }`;
+    css += ` .doc-section.sec${i} { page: sec${i}; }`;
+    if (a.columns > 1) css += ` .doc-section.sec${i} { column-count: ${a.columns}; column-gap: 2rem;${rule} }`;
+    if (a.pageStart != null) css += ` .doc-section.sec${i} { counter-reset: page ${Math.max(0, a.pageStart - 1)}; }`;
+  });
+  return { html, css: CONTENT_CSS + css };
 }
 
 /** Paginated print preview (Paged.js) with real headers / footers / page numbers. */
@@ -57,11 +138,20 @@ export function DocPageView({ editor }: { editor: Editor }) {
     (editor.chain() as any).setPageMeta({ pageHeader: header, pageFooter: footer, pageNumbers: nums }).run();
     try {
       const { Previewer } = (await import('pagedjs')) as any;
-      const firstDiff = !!(editor.state.doc.attrs as any)?.pageFirstDifferent;
-      const html = `<div class="doc-content">${editor.getHTML()}</div>`;
-      await new Previewer().preview(html, [{ paged: buildCss(header, footer, nums, firstDiff) }], container);
+      const docAttrs = (editor.state.doc.attrs as any) || {};
+      const firstDiff = !!docAttrs.pageFirstDifferent;
+      const { html, css } = buildSectioned(editor.getHTML(), { header, footer, nums, firstDiff, docAttrs });
+      await new Previewer().preview(html, [{ paged: css }], container);
     } catch {
-      container.innerHTML = '<p style="text-align:center;color:#999;padding:40px">No se pudo generar la vista paginada.</p>';
+      // Fallback robusto: vista de una sola sección si algo falla con las secciones.
+      try {
+        const { Previewer } = (await import('pagedjs')) as any;
+        const firstDiff = !!(editor.state.doc.attrs as any)?.pageFirstDifferent;
+        const html = `<div class="doc-content">${editor.getHTML()}</div>`;
+        await new Previewer().preview(html, [{ paged: buildCss(header, footer, nums, firstDiff) }], container);
+      } catch {
+        container.innerHTML = '<p style="text-align:center;color:#999;padding:40px">No se pudo generar la vista paginada.</p>';
+      }
     } finally {
       setBusy(false);
     }

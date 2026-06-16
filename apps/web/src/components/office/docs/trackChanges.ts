@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { Mark, Extension, mergeAttributes } from '@tiptap/core';
 import { Plugin } from '@tiptap/pm/state';
+import { Decoration, DecorationSet } from '@tiptap/pm/view';
 
 /**
  * Control de cambios / modo sugerencias — versión mínima ESTABLE.
@@ -59,6 +60,61 @@ export function collectChanges(doc: any): ChangeRange[] {
   return [...markRanges(doc, 'insertion'), ...markRanges(doc, 'deletion')].sort((a, b) => a.from - b.from);
 }
 
+/** Autores distintos presentes en los cambios (orden de aparición). */
+export function changeAuthors(doc: any): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const c of collectChanges(doc)) { const a = c.author || ''; if (!seen.has(a)) { seen.add(a); out.push(a); } }
+  return out;
+}
+
+/** Resuelve (acepta/rechaza) un conjunto de cambios en una sola transacción. */
+function resolveChanges(state: any, changes: ChangeRange[], accept: boolean): any {
+  const ordered = [...changes].sort((a, b) => b.from - a.from);
+  const tr = state.tr;
+  const insType = state.schema.marks.insertion;
+  const delType = state.schema.marks.deletion;
+  for (const ch of ordered) {
+    const from = tr.mapping.map(ch.from);
+    const to = tr.mapping.map(ch.to);
+    if (accept) {
+      if (ch.type === 'deletion') tr.delete(from, to); else tr.removeMark(from, to, insType);
+    } else if (ch.type === 'insertion') tr.delete(from, to); else tr.removeMark(from, to, delType);
+  }
+  tr.setMeta('trackSkip', true);
+  return tr;
+}
+
+/** ¿Un nodo (o su descendencia) contiene texto con marcas de cambio? */
+function nodeHasChange(node: any): boolean {
+  let found = false;
+  const test = (n: any) => n.isText && n.marks.some((m: any) => m.type.name === 'insertion' || m.type.name === 'deletion');
+  if (test(node)) return true;
+  node.descendants?.((child: any) => { if (!found && test(child)) found = true; });
+  return found;
+}
+
+/**
+ * Decoración de «barra de cambio»: marca cada bloque de primer nivel que
+ * contiene inserciones/eliminaciones para pintar una línea en el margen (como
+ * Word). El CSS la muestra sólo en los modos «Todas las marcas» / «Sencillo».
+ */
+function changeBarPlugin() {
+  return new Plugin({
+    props: {
+      decorations(state: any) {
+        const decos: any[] = [];
+        state.doc.forEach((node: any, offset: number) => {
+          if (node.isBlock && nodeHasChange(node)) {
+            decos.push(Decoration.node(offset, offset + node.nodeSize, { class: 'doc-change-bar' }));
+          }
+        });
+        return decos.length ? DecorationSet.create(state.doc, decos) : DecorationSet.empty;
+      },
+    },
+  });
+}
+
 export const TrackChanges = Extension.create({
   name: 'trackChanges',
   addOptions() { return { author: '' }; },
@@ -82,6 +138,7 @@ export const TrackChanges = Extension.create({
           },
         },
       }),
+      changeBarPlugin(),
     ];
   },
 
@@ -102,29 +159,27 @@ export const TrackChanges = Extension.create({
       },
 
       acceptAllChanges: () => ({ state, dispatch }: any) => {
-        const changes = collectChanges(state.doc).sort((a, b) => b.from - a.from);
+        const changes = collectChanges(state.doc);
         if (!changes.length) return false;
-        const tr = state.tr;
-        const insType = state.schema.marks.insertion;
-        for (const ch of changes) {
-          if (ch.type === 'deletion') tr.delete(tr.mapping.map(ch.from), tr.mapping.map(ch.to));
-          else tr.removeMark(tr.mapping.map(ch.from), tr.mapping.map(ch.to), insType);
-        }
-        tr.setMeta('trackSkip', true);
-        if (dispatch) dispatch(tr);
+        if (dispatch) dispatch(resolveChanges(state, changes, true));
         return true;
       },
       rejectAllChanges: () => ({ state, dispatch }: any) => {
-        const changes = collectChanges(state.doc).sort((a, b) => b.from - a.from);
+        const changes = collectChanges(state.doc);
         if (!changes.length) return false;
-        const tr = state.tr;
-        const delType = state.schema.marks.deletion;
-        for (const ch of changes) {
-          if (ch.type === 'insertion') tr.delete(tr.mapping.map(ch.from), tr.mapping.map(ch.to));
-          else tr.removeMark(tr.mapping.map(ch.from), tr.mapping.map(ch.to), delType);
-        }
-        tr.setMeta('trackSkip', true);
-        if (dispatch) dispatch(tr);
+        if (dispatch) dispatch(resolveChanges(state, changes, false));
+        return true;
+      },
+      acceptChangesByAuthor: (author: string) => ({ state, dispatch }: any) => {
+        const changes = collectChanges(state.doc).filter((c) => (c.author || '') === author);
+        if (!changes.length) return false;
+        if (dispatch) dispatch(resolveChanges(state, changes, true));
+        return true;
+      },
+      rejectChangesByAuthor: (author: string) => ({ state, dispatch }: any) => {
+        const changes = collectChanges(state.doc).filter((c) => (c.author || '') === author);
+        if (!changes.length) return false;
+        if (dispatch) dispatch(resolveChanges(state, changes, false));
         return true;
       },
 

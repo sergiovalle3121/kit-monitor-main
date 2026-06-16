@@ -28,6 +28,22 @@ export const ParagraphFormat = Extension.create({
             parseHTML: (el: HTMLElement) => (parseInt(el.style.textIndent || '0', 10) || 0) > 0,
             renderHTML: (attrs: any) => (attrs.firstLineIndent ? { style: 'text-indent:2.2em' } : {}),
           },
+          // Saltos de línea y de página (Word): aplican en impresión / vista paginada.
+          keepNext: {
+            default: false,
+            parseHTML: (el: HTMLElement) => el.style.breakAfter === 'avoid' || (el.style as any).pageBreakAfter === 'avoid',
+            renderHTML: (attrs: any) => (attrs.keepNext ? { style: 'break-after:avoid', 'data-keep-next': 'true' } : {}),
+          },
+          keepLines: {
+            default: false,
+            parseHTML: (el: HTMLElement) => el.style.breakInside === 'avoid' || (el.style as any).pageBreakInside === 'avoid',
+            renderHTML: (attrs: any) => (attrs.keepLines ? { style: 'break-inside:avoid', 'data-keep-lines': 'true' } : {}),
+          },
+          pageBreakBefore: {
+            default: false,
+            parseHTML: (el: HTMLElement) => el.style.breakBefore === 'page' || (el.style as any).pageBreakBefore === 'always',
+            renderHTML: (attrs: any) => (attrs.pageBreakBefore ? { style: 'break-before:page', 'data-break-before': 'true' } : {}),
+          },
         },
       },
     ];
@@ -50,6 +66,9 @@ export const ParagraphFormat = Extension.create({
           const t = target(editor);
           return chain().updateAttributes(t, { firstLineIndent: !editor.getAttributes(t).firstLineIndent }).run();
         },
+      toggleKeepNext: () => ({ editor, chain }: any) => { const t = target(editor); return chain().updateAttributes(t, { keepNext: !editor.getAttributes(t).keepNext }).run(); },
+      toggleKeepLines: () => ({ editor, chain }: any) => { const t = target(editor); return chain().updateAttributes(t, { keepLines: !editor.getAttributes(t).keepLines }).run(); },
+      togglePageBreakBefore: () => ({ editor, chain }: any) => { const t = target(editor); return chain().updateAttributes(t, { pageBreakBefore: !editor.getAttributes(t).pageBreakBefore }).run(); },
     } as any;
   },
 });

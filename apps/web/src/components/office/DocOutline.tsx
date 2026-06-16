@@ -12,6 +12,7 @@ function collect(editor: Editor): Item[] {
   const out: Item[] = [];
   editor.state.doc.descendants((node: any, pos: number) => {
     if (node.type.name === 'heading') out.push({ level: node.attrs.level ?? 1, text: node.textContent || '(sin título)', pos });
+    else if (node.type.name === 'paragraph' && node.attrs?.outlineLevel) out.push({ level: node.attrs.outlineLevel, text: node.textContent || '(sin título)', pos });
   });
   return out;
 }

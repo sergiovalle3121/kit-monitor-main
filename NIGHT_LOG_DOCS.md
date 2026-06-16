@@ -148,6 +148,198 @@ CSS de todo lo anterior en `tiptap.css`.
 - **Saltos de sección y encabezado/pie por sección**: hoy un solo "section" por
   documento. Est. ~1 día.
 
+## Sesión F2 (rama `claude/wizardly-babbage-5dtfdj`) — paridad con Word, fase 2
+
+> Continúa sobre lo anterior. Carril estricto: SOLO
+> `components/office/Doc*.tsx`, `components/office/docs/**`, `docExtensions.ts`,
+> `docPageExtensions.ts`. **NO** se toca `OfficeShell`, `page.tsx`, `Sheet*`,
+> `Slide*`, ni —a diferencia de la fase 1— `lib/office/docx.ts` ni
+> `styles/tiptap.css` (ambos fuera del carril). El CSS nuevo se inyecta vía un
+> `<style>` desde `DocEditor` con la constante `docs/docStyles.ts` (sólo
+> selectores nuevos, no pisa la hoja compartida). La fidelidad .docx que requiera
+> tocar `lib/office/docx.ts` queda anotada como «fuera de carril».
+
+### F2 · Wave 1 — Control de cambios: modos de visualización + barra de cambio
+- **Modos «Mostrar para revisión»** (como Word) en la pestaña *Revisar*: *Todas las
+  revisiones* (marcas completas), *Revisiones sencillas* (texto final + barra de
+  cambio en el margen), *Sin marcas (final)* (como si se aceptara todo) y
+  *Original* (como si se rechazara todo). Implementado con una clase
+  `doc-track-<modo>` en la página + CSS inyectado (sin marcas inline en final/
+  original). Satisface el «vista con/sin marcas» de la tarea.
+- **Barra de cambio en el margen**: decoración ProseMirror (`changeBarPlugin`) que
+  marca cada bloque con inserciones/eliminaciones; el CSS la pinta sólo en los
+  modos *Todas*/*Sencillo*. Se recalcula sola en cada cambio de estado.
+- **Contador de cambios** en la cabecera del panel de revisión.
+- Archivos: `docs/trackChanges.ts` (decoración + helpers), `docs/DocTrackChanges.tsx`
+  (selector de modo + contador), `docs/docStyles.ts` (nuevo, CSS inyectado),
+  `DocEditor.tsx` (estado `trackView`, clase en la página, `<style>`).
+- Puertas: `tsc` 0, `eslint` carril 0, `next build` verde.
+
+### F2 · Wave 2 — Tabla de contenido automática (niveles + nº de página + actualizar)
+- **Niveles configurables**: el nodo `toc` ahora tiene `maxLevel` (1-6). Se puede
+  insertar a 1-2 / 1-3 / todos, y cambiar los niveles de un TOC existente.
+- **Números de página estimados** con **puntos guía** (leader dots), medidos del
+  DOM (rAF, sin reflow por tecla; normaliza el `zoom` de la página). Es una
+  estimación —como Word hasta repaginar— a partir de la altura imprimible según
+  el tamaño/orientación/márgenes.
+- **«Actualizar tabla»** (comando `updateToc`, incrementa `rev`) y `setTocLevels`,
+  expuestos en un control nuevo `DocToc` (pestaña *Referencias*).
+- Archivos: `docExtensions.ts` (nodo `Toc` reescrito: attrs, comandos, NodeView con
+  medición), `docs/DocToc.tsx` (nuevo), `DocEditor.tsx` (usa `DocToc`, quita el
+  botón suelto y el icono sin uso), `docs/docStyles.ts` (CSS de puntos guía).
+- Puertas: `tsc` 0, `eslint` carril 0, `next build` verde.
+
+### F2 · Wave 3a — Saltos de sección + ajustes por sección (en pantalla)
+- **Nodo `sectionBreak`** (atómico de bloque) con ajustes propios: tipo
+  (`nextPage`/`continuous`), encabezado, pie, números de página (con reinicio en N
+  y formato decimal/romano/alfabético), columnas (hereda/1/2/3) y orientación
+  (hereda/vertical/horizontal). Todo viaja en el JSON (atributos) y se serializa a
+  `data-*` para que la vista paginada lo lea.
+- **Divisor en pantalla** con resumen de los ajustes + botón «Configurar» que abre
+  un modal de edición (patrón de evento, como las notas al pie).
+- **Encabezado/pie/numeración por sección en pantalla**: el overlay de la página
+  ahora muestra la **sección activa** (la del cursor) vía `effectiveSection`, e
+  indica «Sección N» y el número de página de reinicio.
+- En impresión, `nextPage` fuerza salto de página; `continuous` no.
+- Control nuevo `DocSections` en *Disposición* (insertar salto + modal de ajustes).
+- Archivos: `docPageExtensions.ts` (nodo `SectionBreak`, helpers `effectiveSection`,
+  formatos de numeración), `docs/DocSections.tsx` (nuevo), `DocEditor.tsx` (registro
+  + overlay por sección), `docs/docStyles.ts` (CSS del divisor).
+- Puertas: `tsc` 0, `eslint` carril 0, `next build` verde.
+
+### F2 · Wave 3b — Vista paginada por secciones (Paged.js)
+- **`DocPageView` ahora pagina por sección**: divide el HTML en los
+  `div[data-section-break]` y genera **páginas con nombre** (`@page secN`) por
+  sección con su encabezado/pie, numeración (formato decimal/romano/alfabético +
+  reinicio vía `counter-reset: page`), columnas y orientación propias. La sección 0
+  usa el `@page` por defecto (con el encabezado/pie del toolbar / documento).
+- **Fallback robusto**: si algo falla con las secciones, cae a la vista de una sola
+  sección (comportamiento anterior) y, en último caso, a un mensaje. La vista
+  previa nunca queda rota.
+- Helpers extraídos: `CONTENT_CSS`, `sizeFor`, `marginFor`, `marginBoxes`,
+  `buildSectioned`. Los marcadores de salto de sección no se renderizan en el PDF.
+- Archivo: `DocPageView.tsx` (lane). Reusa `PAGE_FORMAT_CSS` de `docPageExtensions`.
+- Nota: el «continuo» en la vista paginada inicia página nueva (limitación de las
+  páginas con nombre de Paged.js); en el editor se respeta como continuo.
+- Puertas: `tsc` 0, `eslint` carril 0, `next build` verde.
+
+### F2 · Wave 4 — Notas al final + línea entre columnas
+- **Notas al final** (endnotes): corriente independiente de las notas al pie, con
+  numeración propia en romanos minúscula (i, ii, iii…). Nodos `endnoteRef`
+  (marcador ◆) y `endnoteList` (área «Notas al final»), insertar/editar/área.
+  Las notas al pie quedan **intactas** (mismo esquema) para no romper documentos.
+- `DocFootnotes` ahora gestiona ambos tipos (pie y final) con un solo diálogo y el
+  menú con las 4 acciones. Grupo de *Referencias* renombrado a «Notas al pie y al
+  final».
+- **Línea entre columnas** (`pageColumnRule`): toggle en *Disposición* (activo sólo
+  con ≥2 columnas), aplicado en pantalla (`doc-cols-rule`) y en la vista paginada
+  (`column-rule`) para la sección 0 y las secciones con columnas propias.
+- Archivos: `docs/footnotes.ts` (nodos endnote + helpers), `docs/DocFootnotes.tsx`
+  (reescrito para 2 tipos), `docPageExtensions.ts` (attr `pageColumnRule`),
+  `DocPageSetup.tsx` (toggle), `DocEditor.tsx` (registro endnotes + clase), 
+  `DocPageView.tsx` (column-rule), `docs/docStyles.ts` (CSS).
+- Puertas: `tsc` 0, `eslint` carril 0, `next build` verde.
+
+### F2 · Wave 5 — Estilos de párrafo: redefinir según la selección (consistentes)
+- **«Redefinir estilo según la selección»** (Word): captura el formato de la
+  selección (fuente/tamaño/color/negrita/cursiva/subrayado/alineación/interlineado)
+  y lo guarda en `pageMeta.styleDefs[clave]`. La redefinición se aplica a **todos**
+  los bloques de ese estilo del documento (consistencia), inyectando CSS generado
+  desde `styleDefs`. Hay también «Restablecer estilo».
+- Las claves de estilo de encabezado (`h1`-`h6`) son las que alimentan la TOC, así
+  que redefinirlas mantiene el documento y su índice coherentes («ligado a la TOC»).
+- El formato inline explícito sigue ganando sobre el estilo (como en Word).
+- Archivos: `docPageExtensions.ts` (attr `styleDefs`), `docs/docStyles.ts`
+  (`StyleProps` + `styleDefsToCss`), `DocStyleGallery.tsx` (redefinir/restablecer),
+  `DocEditor.tsx` (segundo `<style>` con las reglas de estilo).
+- Puertas: `tsc` 0, `eslint` carril 0, `next build` verde.
+
+### F2 · Wave 6 — Pulir paginación: guías de salto de página en el lienzo
+- **Guías de salto de página** (toggle en *Vista*): líneas discontinuas en el
+  lienzo continuo que marcan dónde rompería cada página, con etiqueta «Página N».
+  Se miden con el mismo cálculo de altura imprimible que la estimación de la TOC
+  (consistencia entre el índice y las guías). Re-mide en cada cambio/resize vía rAF
+  (sin reflow por tecla) y desaparecen en impresión.
+- La paginación «real» (flujo por páginas con sus márgenes/encabezados) sigue en la
+  *Vista de página* (Paged.js), ahora por sección; estas guías son la pista visual
+  en el editor mientras se escribe.
+- Archivos: `DocEditor.tsx` (estado + efecto de medición + overlays),
+  `docs/DocViewTools.tsx` (toggle), `docs/docStyles.ts` (CSS de las guías).
+- Puertas: `tsc` 0, `eslint` carril 0 (sin warnings), `next build` verde.
+
+### F2 · Wave 7 — Control de cambios por autor
+- **Aceptar / rechazar por autor**: el panel de revisión agrupa los cambios por
+  autor, con cabecera por grupo (nombre + contador + «Aceptar/Rechazar todo de este
+  autor»). Comandos nuevos `acceptChangesByAuthor` / `rejectChangesByAuthor` y helper
+  `changeAuthors`. Se refactorizó accept/reject-all a un único `resolveChanges`
+  (una transacción, sin cambiar el comportamiento).
+- Archivos: `docs/trackChanges.ts` (helper + comandos), `docs/DocTrackChanges.tsx`
+  (panel agrupado por autor).
+- Puertas: `tsc` 0, `eslint` carril 0, `next build` verde.
+
+### F2 · Wave 8 — Saltos de línea y de página por párrafo (paginación real)
+- **Atributos de paginación de párrafo** (Word «Líneas y saltos de página»):
+  *conservar con el siguiente* (`break-after:avoid`), *conservar líneas juntas*
+  (`break-inside:avoid`) y *salto de página antes* (`break-before:page`). Atributos
+  globales sobre párrafo/encabezado (estilo inline + `data-*`), con comandos toggle
+  y entradas en el menú de párrafo.
+- **Control de viuda/huérfana** y *encabezados pegados a su texto* por defecto en la
+  vista paginada (`orphans/widows:2`, `h1-h4 { break-after/inside: avoid }`), para
+  que el contenido fluya por páginas como Word.
+- Archivos: `docs/paragraphFormat.ts` (attrs + comandos), `docs/DocParagraphMenu.tsx`
+  (entradas), `DocPageView.tsx` (reglas de fragmentación en `CONTENT_CSS`).
+- Puertas: `tsc` 0, `eslint` carril 0, `next build` verde.
+
+### F2 · Wave 9 — Tabla de ilustraciones (lista de figuras)
+- **Nodo `tableOfFigures`** vivo: lista los párrafos con estilo «Leyenda» con número
+  correlativo, puntos guía y nº de página estimado (mismo motor que la TOC). Clic =
+  saltar a la figura. Botón «Tabla de ilustraciones» en *Referencias* (junto a la
+  TOC). Helper `collectCaptions`.
+- Archivos: `docExtensions.ts` (`TableOfFigures` + `collectCaptions`),
+  `docs/DocToc.tsx` (botón), `DocEditor.tsx` (registro). Reusa el CSS `doc-toc`.
+- Puertas: `tsc` 0, `eslint` carril 0, `next build` verde.
+
+### F2 · Wave 10 — Niveles de esquema: párrafos «ligados a la TOC»
+- **Nivel de esquema por párrafo** (`outlineLevel` 1-3, Word «Agregar al índice»):
+  un párrafo con nivel aparece en la **TOC** y en el **esquema** aunque no sea un
+  encabezado. `collectHeadings` y el colector del esquema lo incluyen preservando el
+  orden del documento; la TOC lo respeta con su filtro de niveles. Cierra el
+  requisito «estilos de párrafo… ligados a la TOC».
+- UI en el menú de párrafo (sólo para párrafos): «Índice: nivel 1/2/3» (toggle).
+- Archivos: `docExtensions.ts` (attr `outlineLevel` en `NamedStyle` + colector),
+  `DocOutline.tsx` (colector), `docs/DocParagraphMenu.tsx` (entradas).
+- Nota: el export .docx (fuera de carril, `lib/office/docx.ts`) sólo lista
+  encabezados en su TOC; incluir estos párrafos ahí queda anotado como fuera de
+  carril.
+- Puertas: `tsc` 0, `eslint` carril 0, `next build` verde.
+
+### F2 · Cierre de sesión (handoff)
+Entregadas 10 rebanadas, cada una con `tsc` 0 / `eslint` carril 0 / `next build`
+verde, commit + push a `claude/wizardly-babbage-5dtfdj`. Cubre **todas** las
+prioridades de la tarea (control de cambios con/sin marcas; TOC automática +
+actualizar; encabezados/pies + numeración + saltos de sección; notas al pie/al
+final; columnas 1/2/3 + línea; estilos consistentes aplicar/redefinir ligados a la
+TOC; paginación) + 5 profundizaciones (cambios por autor; tabla de ilustraciones;
+saltos de línea/página por párrafo; niveles de esquema; guías de página).
+
+**Auto-revisión** (3 ángulos, agentes): sin bugs confirmados. Candidatos
+descartados (valores `dataset` son strings → "0" es truthy; `null || {}` = `{}`;
+`?? 1` preserva 0; comandos TipTap devuelven true sin `dispatch` por convención
+`can()`; la limpieza de `useEffect` cubre el cambio de `editor`). Sin callers rotos.
+
+**Fuera de carril / diferido** (anotado, no tocado):
+- Fidelidad .docx de los nodos nuevos (saltos de sección con su encabezado/pie,
+  notas al final, nº de página en la TOC exportada, párrafos con nivel de esquema en
+  la TOC del .docx, atributos keep/break de párrafo): requiere `lib/office/docx.ts`
+  (fuera del carril F2). El export actual **degrada con gracia** (los nodos
+  desconocidos se omiten o se recorren por el caso `default`); no rompe el .docx.
+- CSS: `styles/tiptap.css` está fuera del carril; todo el CSS nuevo se inyecta vía
+  `docs/docStyles.ts` (constante + `<style>` en `DocEditor`), sólo selectores nuevos.
+- Reinicio del contador de página por sección en Paged.js: best-effort
+  (`counter-reset: page N-1`), no verificable en build sin navegador.
+- Encabezados/pies pares-impares (mirror) y control de cambios con interceptación
+  total (pegar/IME) siguen diferidos.
+
 ## Resumen final de la sesión
 Se llevó el editor de Documentos muy cerca de Word, todo con código propio sobre
 TipTap/ProseMirror (MIT) + KaTeX (MIT). **No se tocó** el ribbon compartido,

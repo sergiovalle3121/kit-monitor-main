@@ -3,7 +3,7 @@
 
 import React from 'react';
 import type { Editor } from '@tiptap/react';
-import { RectangleVertical, RectangleHorizontal, FileText, StretchHorizontal, Columns2, Columns3, Square, Stamp, SquareDashedBottom, Hash, Files } from 'lucide-react';
+import { RectangleVertical, RectangleHorizontal, FileText, StretchHorizontal, Columns2, Columns3, Square, Stamp, SquareDashedBottom, Hash, Files, SeparatorVertical } from 'lucide-react';
 import { RibbonGroup, RibbonSeparator, RibbonMenuButton, RibbonButton } from './ribbon';
 
 /** Controles de «Disposición» (diseño de página): se guardan en pageMeta y se
@@ -46,6 +46,7 @@ export function DocPageSetup({ editor }: { editor: Editor }) {
           { label: 'Dos columnas', icon: Columns2, active: columns === 2, onClick: () => set({ pageColumns: 2 }) },
           { label: 'Tres columnas', icon: Columns3, active: columns === 3, onClick: () => set({ pageColumns: 3 }) },
         ]} />
+        <RibbonButton icon={SeparatorVertical} label="Línea entre columnas" active={!!a.pageColumnRule} disabled={columns < 2} onClick={() => set({ pageColumnRule: !a.pageColumnRule })} />
       </RibbonGroup>
       <RibbonSeparator />
       <RibbonGroup label="Fondo de página">

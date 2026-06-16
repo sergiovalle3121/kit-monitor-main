@@ -14,13 +14,28 @@ export function DocParagraphMenu({ editor }: { editor: Editor }) {
   const before = a.spaceBefore || 0;
   const after = a.spaceAfter || 0;
   const fli = !!a.firstLineIndent;
+  const keepNext = !!a.keepNext;
+  const keepLines = !!a.keepLines;
+  const breakBefore = !!a.pageBreakBefore;
+  const isPara = !editor.isActive('heading');
+  const outline = a.outlineLevel || 0;
   const set = (b: number | null, af: number | null) => (editor.chain().focus() as any).setParagraphSpacing(b, af).run();
+  const cmd = (name: string) => (editor.chain().focus() as any)[name]().run();
+  const setOutline = (lvl: number) => (editor.chain().focus() as any).updateAttributes('paragraph', { outlineLevel: lvl }).run();
 
   return (
-    <RibbonMenuButton icon={AlignVerticalSpaceAround} label="Espaciado" menuWidth={240} items={[
+    <RibbonMenuButton icon={AlignVerticalSpaceAround} label="Espaciado" menuWidth={280} items={[
       { label: before ? 'Quitar espacio antes del párrafo' : 'Agregar espacio antes del párrafo', active: !!before, onClick: () => set(before ? 0 : STEP, null) },
       { label: after ? 'Quitar espacio después del párrafo' : 'Agregar espacio después del párrafo', active: !!after, onClick: () => set(null, after ? 0 : STEP) },
       { label: 'Sangría de primera línea', active: fli, onClick: () => (editor.chain().focus() as any).toggleFirstLineIndent().run() },
+      { label: 'Conservar con el siguiente', active: keepNext, onClick: () => cmd('toggleKeepNext') },
+      { label: 'Conservar líneas juntas', active: keepLines, onClick: () => cmd('toggleKeepLines') },
+      { label: 'Salto de página antes', active: breakBefore, onClick: () => cmd('togglePageBreakBefore') },
+      ...(isPara ? [
+        { label: 'Índice: nivel 1', active: outline === 1, onClick: () => setOutline(outline === 1 ? 0 : 1) },
+        { label: 'Índice: nivel 2', active: outline === 2, onClick: () => setOutline(outline === 2 ? 0 : 2) },
+        { label: 'Índice: nivel 3', active: outline === 3, onClick: () => setOutline(outline === 3 ? 0 : 3) },
+      ] : []),
     ]} />
   );
 }
