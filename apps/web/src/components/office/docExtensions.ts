@@ -60,16 +60,25 @@ export const NamedStyle = Extension.create({
           parseHTML: (el: HTMLElement) => el.getAttribute('data-style') || '',
           renderHTML: (attrs: any) => (attrs.styleName ? { 'data-style': attrs.styleName, class: `doc-style-${attrs.styleName}` } : {}),
         },
+        // Nivel de esquema (Word): un párrafo con nivel 1-3 aparece en la TOC aunque
+        // no sea un encabezado («Agregar al índice»).
+        outlineLevel: {
+          default: 0,
+          parseHTML: (el: HTMLElement) => Number(el.getAttribute('data-outline-level')) || 0,
+          renderHTML: (attrs: any) => (attrs.outlineLevel ? { 'data-outline-level': attrs.outlineLevel } : {}),
+        },
       },
     }];
   },
 });
 
-/** Recolecta los encabezados del documento (para índice / esquema). */
+/** Recolecta los encabezados del documento (y párrafos con nivel de esquema) para
+ *  el índice / esquema. Se preserva el orden del documento. */
 export function collectHeadings(doc: any): { level: number; text: string; pos: number }[] {
   const out: { level: number; text: string; pos: number }[] = [];
   doc.descendants((node: any, pos: number) => {
     if (node.type.name === 'heading') out.push({ level: node.attrs.level ?? 1, text: node.textContent || '(sin título)', pos });
+    else if (node.type.name === 'paragraph' && node.attrs?.outlineLevel) out.push({ level: node.attrs.outlineLevel, text: node.textContent || '(sin título)', pos });
   });
   return out;
 }

@@ -299,6 +299,20 @@ CSS de todo lo anterior en `tiptap.css`.
   `docs/DocToc.tsx` (botón), `DocEditor.tsx` (registro). Reusa el CSS `doc-toc`.
 - Puertas: `tsc` 0, `eslint` carril 0, `next build` verde.
 
+### F2 · Wave 10 — Niveles de esquema: párrafos «ligados a la TOC»
+- **Nivel de esquema por párrafo** (`outlineLevel` 1-3, Word «Agregar al índice»):
+  un párrafo con nivel aparece en la **TOC** y en el **esquema** aunque no sea un
+  encabezado. `collectHeadings` y el colector del esquema lo incluyen preservando el
+  orden del documento; la TOC lo respeta con su filtro de niveles. Cierra el
+  requisito «estilos de párrafo… ligados a la TOC».
+- UI en el menú de párrafo (sólo para párrafos): «Índice: nivel 1/2/3» (toggle).
+- Archivos: `docExtensions.ts` (attr `outlineLevel` en `NamedStyle` + colector),
+  `DocOutline.tsx` (colector), `docs/DocParagraphMenu.tsx` (entradas).
+- Nota: el export .docx (fuera de carril, `lib/office/docx.ts`) sólo lista
+  encabezados en su TOC; incluir estos párrafos ahí queda anotado como fuera de
+  carril.
+- Puertas: `tsc` 0, `eslint` carril 0, `next build` verde.
+
 ## Resumen final de la sesión
 Se llevó el editor de Documentos muy cerca de Word, todo con código propio sobre
 TipTap/ProseMirror (MIT) + KaTeX (MIT). **No se tocó** el ribbon compartido,
