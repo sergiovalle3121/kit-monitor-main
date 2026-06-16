@@ -36,6 +36,7 @@ import { ChangeoverModule } from './modules/changeover/changeover.module';
 import { GenealogyModule } from './modules/genealogy/genealogy.module';
 import { LineControlTowerModule } from './modules/line-control-tower/line-control-tower.module';
 import { OeeModule } from './modules/oee/oee.module';
+import { LiveModule } from './modules/live/live.module';
 import { CostIntelligenceModule } from './modules/cost-intelligence/cost-intelligence.module';
 
 // AXOS OS Intelligence & Tenancy Infrastructure
@@ -113,6 +114,7 @@ import { AiModule } from './modules/ai/ai.module';
     GenealogyModule,
     LineControlTowerModule,
     OeeModule,
+    LiveModule,
     CostIntelligenceModule,
     ForecastModule,
     PlansModule,
