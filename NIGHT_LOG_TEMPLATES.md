@@ -74,6 +74,33 @@ de slides contra un mock de Fabric).
 - `TemplateDef` extendido con `category?`/`accent?` (retro-compatible) +
   `TEMPLATE_CATEGORIES` para el orden de secciones.
 
+### Hecho (en verde) — commit 2 (llevar la biblioteca al tope del rango)
+Puertas verdes de nuevo (tsc 0 · eslint 0 · next build OK · smoke headless OK).
+**Totales finales: docs 15 · sheets 12 · slides 23 (89 diapositivas).**
+- Docs +2 (Calidad y planta): **NCR** (no conformidad → contención + disposición
+  MRB + cierre) y **A3** (resolución de problemas Toyota en una hoja).
+- Sheets +1 (Manufactura / MES): **Bitácora de paros (Andon)** con duración por
+  evento y % del total (Pareto) vía fórmulas.
+- Slides +4 (Diapositivas sueltas): Agenda, Contenido, Dos columnas y
+  Timeline/Proceso → ahora **todos** los layouts están disponibles como inicio
+  rápido de una sola diapositiva, además de los mazos completos y por caso de uso.
+
+### Verificación reproducible (headless, sin navegador)
+- `tsc --noEmit -p apps/web/tsconfig.json` → 0.
+- `eslint` sobre los 3 archivos del carril → 0 errores/0 warnings (los warnings de
+  `SlidesEditor.tsx` son **preexistentes** y fuera del carril; no se tocó).
+- `next build` → OK.
+- Smoke propio: se transpila `templates.ts` a CJS y se ejecuta cada `build()` —
+  docs/sheets se validan como JSON puro (tablas bien formadas, fórmulas `=…` con
+  `ct.t='n'`, 1 hoja activa por libro); las slides se renderizan contra un **mock
+  de Fabric** para cazar errores de layout (89 diapositivas, objetos y tipos OK).
+
+### Pendiente / ideas para próximas rebanadas (opcional, no bloqueante)
+- Más temas/variantes de slides (p. ej. portada "split" para todos los temas;
+  layout de imagen + texto; PPAP/Gemba walk en docs; 5S scorecard en sheets).
+- Previews reales (miniatura renderizada) en la galería en vez del acento de color
+  — requeriría render fuera de pantalla; hoy se usa un preview con acento (ligero).
+
 ### Decisiones de diseño
 - `templates.ts` es la **única fuente** de las plantillas de Documento; tanto el
   modal `TemplateGallery` (nuevo documento) como el menú "Plantillas" del ribbon

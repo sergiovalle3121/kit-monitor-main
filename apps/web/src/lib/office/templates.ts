@@ -354,6 +354,61 @@ const DOC_TEMPLATES: TemplateDef[] = [
       callout('warning', 'Avisos de seguridad / 5S antes de iniciar el siguiente turno.'),
     ),
   },
+  {
+    id: 'ncr', title: 'Reporte de no conformidad (NCR)', description: 'Defecto, contención, disposición (MRB) y cierre.', category: 'Calidad y planta', accent: '#ef4444',
+    build: () => docOf(
+      docTitle('Reporte de no conformidad (NCR)'),
+      controlGrid([
+        ['No. de NCR', 'NCR-000'],
+        ['Fecha', new Date().toLocaleDateString('es-ES')],
+        ['Modelo / Parte', '____'],
+        ['WO / Lote', '____'],
+        ['Cantidad afectada', '____'],
+        ['Detectó', '____'],
+      ]),
+      h(2, 'Descripción de la no conformidad'),
+      p('Qué se detectó, dónde (estación / operación) y contra qué especificación.'),
+      callout('danger', 'Contención inmediata: segregar y etiquetar el material no conforme (HOLD).'),
+      h(2, 'Disposición (MRB)'),
+      tableOf([
+        [th('Disposición'), th('Cantidad'), th('Responsable'), th('Justificación')],
+        [td('Usar como está'), td('—'), td('—'), td('—')],
+        [td('Retrabajo'), td('—'), td('—'), td('—')],
+        [td('Reparar'), td('—'), td('—'), td('—')],
+        [td('Desecho (scrap)'), td('—'), td('—'), td('—')],
+        [td('Devolver a proveedor'), td('—'), td('—'), td('—')],
+      ]),
+      h(2, 'Seguimiento'),
+      tasks(['Abrir CAPA / 8D si es recurrente o crítico', 'Disposición ejecutada y verificada', 'NCR cerrada por Calidad']),
+    ),
+  },
+  {
+    id: 'a3', title: 'A3 — Resolución de problemas', description: 'Antecedentes, meta, causa, contramedidas y plan (Toyota A3).', category: 'Calidad y planta', accent: '#9333ea',
+    build: () => docOf(
+      docTitle('A3 — Resolución de problemas'),
+      controlGrid([
+        ['Tema', '____'],
+        ['Dueño', '____'],
+        ['Fecha', new Date().toLocaleDateString('es-ES')],
+      ]),
+      h(2, '1. Antecedentes'),
+      p('Por qué importa este problema (contexto y conexión con los objetivos del negocio).'),
+      h(2, '2. Estado actual'),
+      p('Qué está pasando hoy, con datos. Adjunta gráfico o diagrama del proceso si aplica.'),
+      h(2, '3. Objetivo / Meta'),
+      callout('info', 'Meta medible: de [actual] a [objetivo] para [fecha].'),
+      h(2, '4. Análisis de causa raíz'),
+      p('5 Por qué / Ishikawa hasta llegar a la causa raíz.'),
+      h(2, '5. Contramedidas'),
+      tableOf([
+        [th('No.'), th('Contramedida'), th('Responsable'), th('Fecha')],
+        [td('1'), td('—'), td('—'), td('—')],
+        [td('2'), td('—'), td('—'), td('—')],
+      ]),
+      h(2, '6. Plan y seguimiento'),
+      tasks(['Implementar contramedidas', 'Confirmar efectividad con datos', 'Estandarizar y compartir lecciones aprendidas']),
+    ),
+  },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -528,6 +583,21 @@ const SHEET_TEMPLATES: TemplateDef[] = [
         ['MNT-002', 'Pick & Place L1', 'Correctivo', '2026-06-16', '', { v: 0, fa: '0.0' }, 'Abierta'],
         ['', '', '', '', '', { v: 0, fa: '0.0' }, ''],
         [TOT('MTTR prom.'), '', '', '', '', TF('=AVERAGE(F2:F3)', 1.25, '0.0'), ''],
+      ],
+    }]),
+  },
+  {
+    id: 'downtime', title: 'Bitácora de paros (Andon)', description: 'Eventos de paro, duración y % del total para Pareto.', category: 'Manufactura / MES', accent: '#ef4444',
+    build: () => buildBook([{
+      name: 'Paros', freeze: true,
+      widths: { 0: 100, 1: 70, 2: 120, 3: 200, 4: 80, 5: 110 },
+      rows: [
+        [H('Fecha'), H('Línea'), H('Categoría'), H('Causa'), H('Min', 'r'), H('% del total', 'r')],
+        ['2026-06-16', 'L1', 'Material', 'Faltante en línea', { v: 42, fa: NUM }, { f: '=E2/$E$6', v: 0.365217, fa: PCT }],
+        ['2026-06-16', 'L1', 'Máquina', 'Falla pick & place', { v: 30, fa: NUM }, { f: '=E3/$E$6', v: 0.260870, fa: PCT }],
+        ['2026-06-16', 'L1', 'Cambio', 'Setup de modelo', { v: 25, fa: NUM }, { f: '=E4/$E$6', v: 0.217391, fa: PCT }],
+        ['2026-06-16', 'L1', 'Calidad', 'Defecto de soldadura', { v: 18, fa: NUM }, { f: '=E5/$E$6', v: 0.156522, fa: PCT }],
+        [TOT('Total'), '', '', '', TF('=SUM(E2:E5)', 115, NUM), TF('=SUM(F2:F5)', 1, PCT)],
       ],
     }]),
   },
@@ -939,6 +1009,10 @@ const SLIDE_TEMPLATES: TemplateDef[] = [
   { id: 'one-quote', title: 'Cita destacada', description: 'Cita grande centrada (medianoche).', category: 'Diapositivas sueltas', accent: P_DARK.accent, build: () => renderDeck(P_DARK, [quote({ quote: 'Una cita memorable que captura la idea central.', author: 'Nombre Apellido', role: 'Cargo · Empresa' })]) },
   { id: 'one-team', title: 'Diapositiva de equipo', description: 'Tarjetas de equipo con iniciales.', category: 'Diapositivas sueltas', accent: P_CORP.accent, build: () => renderDeck(P_CORP, [team({ members: [{ name: 'Nombre 1', role: 'Rol', initials: 'N1' }, { name: 'Nombre 2', role: 'Rol', initials: 'N2' }, { name: 'Nombre 3', role: 'Rol', initials: 'N3' }, { name: 'Nombre 4', role: 'Rol', initials: 'N4' }] })]) },
   { id: 'one-closing', title: 'Cierre / Gracias', description: 'Diapositiva de cierre con contacto.', category: 'Diapositivas sueltas', accent: P_CORP.accent, build: () => renderDeck(P_CORP, [closing({ title: 'Gracias', subtitle: 'Preguntas y comentarios', contact: 'nombre@empresa.com · empresa.com' })]) },
+  { id: 'one-agenda', title: 'Agenda', description: 'Lista de agenda numerada.', category: 'Diapositivas sueltas', accent: P_CORP.accent, build: () => renderDeck(P_CORP, [agenda({ items: ['Contexto y objetivos', 'Situación actual', 'Propuesta', 'Plan e impacto', 'Próximos pasos'] })]) },
+  { id: 'one-content', title: 'Contenido (título + viñetas)', description: 'Diapositiva de contenido con viñetas.', category: 'Diapositivas sueltas', accent: P_MIN.accent, build: () => renderDeck(P_MIN, [content({ kicker: 'Punto clave', title: 'Título de contenido', bullets: ['Primera idea de apoyo.', 'Segunda idea con un dato.', 'Tercera idea que cierra.'] })]) },
+  { id: 'one-twocol', title: 'Dos columnas', description: 'Dos paneles de contenido lado a lado.', category: 'Diapositivas sueltas', accent: P_CORP.accent, build: () => renderDeck(P_CORP, [twoCol({ title: 'Dos perspectivas', left: { h: 'Columna A', items: ['Punto 1', 'Punto 2', 'Punto 3'] }, right: { h: 'Columna B', items: ['Punto 1', 'Punto 2', 'Punto 3'] } })]) },
+  { id: 'one-timeline', title: 'Timeline / Proceso', description: 'Línea de tiempo con etapas numeradas.', category: 'Diapositivas sueltas', accent: P_IND.accent, build: () => renderDeck(P_IND, [timeline({ title: 'Proceso', steps: [{ label: 'Etapa 1', desc: 'Descripción' }, { label: 'Etapa 2', desc: 'Descripción' }, { label: 'Etapa 3', desc: 'Descripción' }, { label: 'Etapa 4', desc: 'Descripción' }] })]) },
 ];
 
 export const TEMPLATES: Record<DocType, TemplateDef[]> = {
