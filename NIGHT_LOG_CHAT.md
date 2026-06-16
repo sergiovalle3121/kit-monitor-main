@@ -63,3 +63,31 @@ carga → warning `react-hooks/set-state-in-effect`. Se movió el reset al handl
 Puertas: `tsc` 0 · `eslint` 0 · `next build` OK.
 
 ---
+
+## Rebanada 2 — Imagen con preview + estados de envío (UI optimista) ✅
+
+Antes la imagen se enviaba en el acto (sin ver qué se mandaba) y el texto solo se
+restauraba si fallaba; no había feedback de "enviando"/"no enviado".
+
+- **Preview antes de enviar**: al elegir archivo ya NO se envía; se muestra un panel
+  sobre el composer con la miniatura, nombre y tamaño (`formatBytes`) + **Enviar** /
+  **Descartar**. El object URL del preview se libera con un efecto de limpieza.
+- **Estados de envío (optimista) para texto e imagen**: nuevo tipo local `UiMessage`
+  (= `ChatMessage` + `status`/`localPreviewUrl`/`pendingFile`/`pendingText`).
+  `enqueueText`/`enqueueImage` pintan la burbuja al instante con estado **"Enviando…"**
+  (reloj + opacidad; la imagen usa el preview local mientras sube) y la reconcilian
+  con el mensaje real del servidor (`reconcileSent`, dedup anti-eco del socket).
+- **Fallo + reintento**: si la petición falla, la burbuja queda **"No se envió ·
+  Reintentar"**; el botón quita la burbuja fallida y reenvía (conserva el texto o el
+  `File`). El toolbar de reacción se oculta en mensajes en vuelo/fallidos (aún no hay
+  id de servidor para reaccionar).
+- DM ahora también pasa por `openConversation` (de la Rebanada 1) → reset consistente.
+
+**Sin backend nuevo:** usa `chatApi.sendText` / `chatApi.sendImage` tal cual. El
+backend de imagen no acepta **caption** (solo `conversationId` + `file`), así que el
+preview NO añade texto a la imagen → **REQUIERE BACKEND** para captions junto a la
+imagen (alternativa actual: mandar un texto aparte). Anotado.
+
+Puertas: `tsc` 0 · `eslint` 0 · `next build` OK.
+
+---

@@ -16,6 +16,9 @@ import {
   AtSign,
   ChevronDown,
   ChevronUp,
+  Clock,
+  AlertCircle,
+  RotateCcw,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { glass } from '@/lib/glass';
@@ -35,6 +38,44 @@ import {
 const REACTION_EMOJIS = ['👍', '❤️', '😂', '🎉', '✅', '👀'];
 
 const EMOJIS = ['😀', '😁', '😂', '😉', '😊', '😍', '👍', '🙏', '🔥', '✅', '⚠️', '❌', '🚀', '🛠️', '📦', '🏭'];
+
+/**
+ * Mensaje en UI = mensaje del servidor + metadatos optimistas de envío. Los
+ * campos extra solo existen mientras un mensaje está "en vuelo" o falló; al
+ * confirmarse, el temporal se reemplaza por el mensaje real del servidor.
+ */
+type UiMessage = ChatMessage & {
+  status?: 'sending' | 'failed';
+  localPreviewUrl?: string; // object URL para previsualizar la imagen optimista
+  pendingFile?: File; // se conserva para reintentar una imagen fallida
+  pendingText?: string; // se conserva para reintentar un texto fallido
+};
+
+/** Id temporal para el mensaje optimista (se descarta al reconciliar). */
+function makeTempId(): string {
+  return `temp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+/** Tamaño legible para el preview de imagen (B / KB / MB). */
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/**
+ * Reemplaza el temporal `tempId` por el mensaje real del servidor. Si el socket
+ * ya lo había insertado (eco al emisor), solo quita el temporal (sin duplicar).
+ */
+function reconcileSent(
+  prev: UiMessage[],
+  tempId: string,
+  serverMsg: ChatMessage,
+): UiMessage[] {
+  const withoutTemp = prev.filter((m) => m.id !== tempId);
+  if (withoutTemp.some((m) => m.id === serverMsg.id)) return withoutTemp;
+  return [...withoutTemp, serverMsg];
+}
 
 function initials(name: string): string {
   return name
@@ -156,8 +197,10 @@ export default function ChatPage() {
   const [conversations, setConversations] = useState<ChatConversation[]>([]);
   const [users, setUsers] = useState<ChatUser[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [messages, setMessages] = useState<UiMessage[]>([]);
   const [draft, setDraft] = useState('');
+  // Imagen elegida, en preview antes de confirmar el envío.
+  const [pendingImage, setPendingImage] = useState<{ file: File; url: string } | null>(null);
   const [search, setSearch] = useState('');
   const [showEmoji, setShowEmoji] = useState(false);
   const [showNewChannel, setShowNewChannel] = useState(false);
@@ -408,6 +451,12 @@ export default function ChatPage() {
     return () => clearTimeout(t);
   }, [error]);
 
+  // Libera el object URL del preview al cambiar de imagen o desmontar.
+  useEffect(() => {
+    if (!pendingImage) return;
+    return () => URL.revokeObjectURL(pendingImage.url);
+  }, [pendingImage]);
+
   function handleScroll() {
     const el = scrollRef.current;
     if (!el) return;
@@ -435,18 +484,89 @@ export default function ChatPage() {
     socketRef.current.emit('typing', { conversationId: active.id });
   }
 
-  async function handleSendText() {
+  // Envío optimista de texto: pinta la burbuja "enviando…" al instante y la
+  // reconcilia con el mensaje del servidor (o la marca "no enviado").
+  async function enqueueText(conversationId: string, body: string) {
+    const tempId = makeTempId();
+    const optimistic: UiMessage = {
+      id: tempId,
+      conversationId,
+      senderId: meId,
+      type: 'text',
+      body,
+      imageMime: null,
+      createdAt: new Date().toISOString(),
+      status: 'sending',
+      pendingText: body,
+    };
+    setMessages((prev) => [...prev, optimistic]);
+    try {
+      const msg = await chatApi.sendText(conversationId, body);
+      setMessages((prev) => reconcileSent(prev, tempId, msg));
+      refreshConversations();
+    } catch {
+      setMessages((prev) =>
+        prev.map((m) => (m.id === tempId ? { ...m, status: 'failed' } : m)),
+      );
+    }
+  }
+
+  // Envío optimista de imagen: muestra el preview local mientras sube.
+  async function enqueueImage(conversationId: string, file: File) {
+    const tempId = makeTempId();
+    const localPreviewUrl = URL.createObjectURL(file);
+    const optimistic: UiMessage = {
+      id: tempId,
+      conversationId,
+      senderId: meId,
+      type: 'image',
+      body: null,
+      imageMime: file.type || 'image/*',
+      createdAt: new Date().toISOString(),
+      status: 'sending',
+      localPreviewUrl,
+      pendingFile: file,
+    };
+    setMessages((prev) => [...prev, optimistic]);
+    try {
+      const msg = await chatApi.sendImage(conversationId, file);
+      setMessages((prev) => reconcileSent(prev, tempId, msg));
+      refreshConversations();
+      URL.revokeObjectURL(localPreviewUrl);
+    } catch (e) {
+      setMessages((prev) =>
+        prev.map((m) => (m.id === tempId ? { ...m, status: 'failed' } : m)),
+      );
+      setError(`No se pudo enviar la imagen: ${(e as Error).message}`);
+    }
+  }
+
+  function handleSendText() {
     const body = draft.trim();
     if (!body || !activeId) return;
     setDraft('');
     setShowEmoji(false);
     atBottomRef.current = true; // al enviar, vuelvo al final
-    try {
-      const msg = await chatApi.sendText(activeId, body);
-      setMessages((prev) => [...prev, msg]);
-      refreshConversations();
-    } catch {
-      setDraft(body); // restaura si falla
+    enqueueText(activeId, body);
+  }
+
+  // Confirma el envío de la imagen en preview.
+  function confirmSendImage() {
+    if (!pendingImage || !activeId) return;
+    atBottomRef.current = true;
+    enqueueImage(activeId, pendingImage.file);
+    setPendingImage(null); // el efecto de limpieza libera la URL del preview
+  }
+
+  // Reintenta un mensaje que falló (quita la burbuja fallida y reenvía).
+  function retrySend(m: UiMessage) {
+    setMessages((prev) => prev.filter((x) => x.id !== m.id));
+    if (m.type === 'image' && m.pendingFile) {
+      if (m.localPreviewUrl) URL.revokeObjectURL(m.localPreviewUrl);
+      enqueueImage(m.conversationId, m.pendingFile);
+    } else {
+      const text = m.pendingText ?? m.body;
+      if (text) enqueueText(m.conversationId, text);
     }
   }
 
@@ -458,18 +578,6 @@ export default function ChatPage() {
       );
     } catch {
       /* ignore: el broadcast corregirá el estado si aplica */
-    }
-  }
-
-  async function handleSendImage(file: File) {
-    if (!activeId) return;
-    atBottomRef.current = true;
-    try {
-      const msg = await chatApi.sendImage(activeId, file);
-      setMessages((prev) => [...prev, msg]);
-      refreshConversations();
-    } catch (e) {
-      setError(`No se pudo enviar la imagen: ${(e as Error).message}`);
     }
   }
 
@@ -742,6 +850,7 @@ export default function ChatPage() {
                           users={users}
                           onlineIds={onlineIds}
                           onReact={handleReact}
+                          onRetry={retrySend}
                           grouped={grouped}
                           highlight={searchTerm}
                           isCurrentMatch={m.id === currentMatchMsgId}
@@ -828,6 +937,36 @@ export default function ChatPage() {
                     ))}
                   </div>
                 )}
+                {/* Preview de la imagen elegida (antes de confirmar el envío) */}
+                {pendingImage && (
+                  <div className={`${glass} mb-2 flex items-center gap-3 rounded-2xl p-2`}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={pendingImage.url}
+                      alt="Vista previa"
+                      className="h-16 w-16 rounded-xl object-cover"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium">{pendingImage.file.name}</p>
+                      <p className="text-xs text-gray-500">
+                        {formatBytes(pendingImage.file.size)} · listo para enviar
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setPendingImage(null)}
+                      className="rounded-full p-1.5 text-gray-500 hover:bg-black/5 focus-visible:ring-2 focus-visible:ring-blue-500/40 dark:hover:bg-white/10"
+                      aria-label="Descartar imagen"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={confirmSendImage}
+                      className="flex items-center gap-1.5 rounded-full bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white focus-visible:ring-2 focus-visible:ring-blue-500/40"
+                    >
+                      <Send className="h-3.5 w-3.5" /> Enviar
+                    </button>
+                  </div>
+                )}
                 <div className="flex items-end gap-2">
                   <button
                     onClick={() => setShowEmoji((s) => !s)}
@@ -850,7 +989,7 @@ export default function ChatPage() {
                     className="hidden"
                     onChange={(e) => {
                       const f = e.target.files?.[0];
-                      if (f) handleSendImage(f);
+                      if (f) setPendingImage({ file: f, url: URL.createObjectURL(f) });
                       e.target.value = '';
                     }}
                   />
@@ -1021,22 +1160,26 @@ function MessageItem({
   users,
   onlineIds,
   onReact,
+  onRetry,
   grouped,
   highlight = '',
   isCurrentMatch = false,
 }: {
-  m: ChatMessage;
+  m: UiMessage;
   mine: boolean;
   isChannel: boolean;
   users: ChatUser[];
   onlineIds: Set<string>;
   onReact: (messageId: string, emoji: string) => void;
+  onRetry?: (m: UiMessage) => void;
   grouped: boolean;
   highlight?: string;
   isCurrentMatch?: boolean;
 }) {
   const [showPicker, setShowPicker] = useState(false);
   const reactions = m.reactions ?? [];
+  const sending = m.status === 'sending';
+  const failed = m.status === 'failed';
   // En canales mostramos avatar + nombre del autor solo al iniciar un grupo.
   const showMeta = isChannel && !mine && !grouped;
 
@@ -1062,7 +1205,8 @@ function MessageItem({
         </div>
       )}
       <div className="relative max-w-[70%]">
-        {/* Toolbar al pasar el cursor (oculto en touch) */}
+        {/* Toolbar al pasar el cursor (oculto en touch y en mensajes en vuelo) */}
+        {!sending && !failed && (
         <div
           className={`pointer-events-none absolute -top-3 z-10 flex items-center gap-1 ${
             mine ? 'left-0' : 'right-0'
@@ -1099,10 +1243,13 @@ function MessageItem({
             )}
           </div>
         </div>
+        )}
 
         {/* Burbuja */}
         <div
           className={`rounded-[18px] px-4 py-2 ${
+            sending ? 'opacity-70' : ''
+          } ${
             mine
               ? 'bg-blue-600 text-white'
               : 'bg-black/5 text-gray-900 dark:bg-white/10 dark:text-gray-100'
@@ -1114,16 +1261,49 @@ function MessageItem({
             </p>
           )}
           {m.type === 'image' ? (
-            <AuthImage messageId={m.id} />
+            m.localPreviewUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={m.localPreviewUrl}
+                alt="imagen"
+                className="max-h-72 max-w-[18rem] rounded-[18px] object-cover"
+              />
+            ) : (
+              <AuthImage messageId={m.id} />
+            )
           ) : (
             <p className="whitespace-pre-wrap break-words text-sm">
               {renderBody(m.body ?? '', mine, highlight)}
             </p>
           )}
-          <p className={`mt-1 text-[10px] ${mine ? 'text-white/70' : 'text-gray-500'}`}>
-            {timeOf(m.createdAt)}
-          </p>
+          <div
+            className={`mt-1 flex items-center gap-1 text-[10px] ${
+              mine ? 'justify-end text-white/70' : 'text-gray-500'
+            }`}
+          >
+            <span>{timeOf(m.createdAt)}</span>
+            {sending && (
+              <>
+                <Clock className="h-3 w-3" />
+                <span>Enviando…</span>
+              </>
+            )}
+          </div>
         </div>
+
+        {/* Estado "no enviado" + reintentar */}
+        {failed && (
+          <div className="mt-1 flex items-center justify-end gap-1.5 text-[11px] text-red-500">
+            <AlertCircle className="h-3.5 w-3.5" />
+            <span>No se envió</span>
+            <button
+              onClick={() => onRetry?.(m)}
+              className="inline-flex items-center gap-1 font-semibold underline hover:text-red-600 focus-visible:ring-2 focus-visible:ring-red-500/40"
+            >
+              <RotateCcw className="h-3 w-3" /> Reintentar
+            </button>
+          </div>
+        )}
 
         {/* Chips de reacción */}
         {reactions.length > 0 && (
