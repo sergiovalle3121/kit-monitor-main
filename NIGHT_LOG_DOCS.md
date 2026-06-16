@@ -207,6 +207,22 @@ CSS de todo lo anterior en `tiptap.css`.
   + overlay por sección), `docs/docStyles.ts` (CSS del divisor).
 - Puertas: `tsc` 0, `eslint` carril 0, `next build` verde.
 
+### F2 · Wave 3b — Vista paginada por secciones (Paged.js)
+- **`DocPageView` ahora pagina por sección**: divide el HTML en los
+  `div[data-section-break]` y genera **páginas con nombre** (`@page secN`) por
+  sección con su encabezado/pie, numeración (formato decimal/romano/alfabético +
+  reinicio vía `counter-reset: page`), columnas y orientación propias. La sección 0
+  usa el `@page` por defecto (con el encabezado/pie del toolbar / documento).
+- **Fallback robusto**: si algo falla con las secciones, cae a la vista de una sola
+  sección (comportamiento anterior) y, en último caso, a un mensaje. La vista
+  previa nunca queda rota.
+- Helpers extraídos: `CONTENT_CSS`, `sizeFor`, `marginFor`, `marginBoxes`,
+  `buildSectioned`. Los marcadores de salto de sección no se renderizan en el PDF.
+- Archivo: `DocPageView.tsx` (lane). Reusa `PAGE_FORMAT_CSS` de `docPageExtensions`.
+- Nota: el «continuo» en la vista paginada inicia página nueva (limitación de las
+  páginas con nombre de Paged.js); en el editor se respeta como continuo.
+- Puertas: `tsc` 0, `eslint` carril 0, `next build` verde.
+
 ## Resumen final de la sesión
 Se llevó el editor de Documentos muy cerca de Word, todo con código propio sobre
 TipTap/ProseMirror (MIT) + KaTeX (MIT). **No se tocó** el ribbon compartido,
