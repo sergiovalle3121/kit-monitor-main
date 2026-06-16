@@ -450,6 +450,15 @@ Verificado: `tsc` ✓, `eslint` ✓ (0 errores; warnings preexistentes), `next b
 
 Verificado: `tsc` ✓, `eslint` ✓ (0 errores; warnings preexistentes), `next build` ✓.
 
+#### Lote 36 — Contorno de forma (grosor + estilo de línea + color)
+Antes el borde era un simple toggle. Ahora, menú **Contorno** (Formato ▸ Estilo
+de forma): **sin contorno / fino / medio / grueso** y **estilo de línea**
+(sólido / discontinuo / punteado, con `strokeDashArray`/`strokeLineCap`
+derivados del grosor), más **color de contorno** dedicado. Propiedades nativas
+de Fabric → se serializan sin cambios en `capture`.
+
+Verificado: `tsc` ✓, `eslint` ✓ (0 errores; warnings preexistentes), `next build` ✓.
+
 ### Diferido (con estimación)
 - **Secciones en el clasificador** y colapsar/expandir: el sorter es una rejilla;
   insertar encabezados de ancho completo + colapso. Estimación: ~0.5 día.

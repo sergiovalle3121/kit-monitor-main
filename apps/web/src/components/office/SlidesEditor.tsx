@@ -470,11 +470,27 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
       c.add(obj); c.setActiveObject(obj); c.requestRenderAll();
     } catch { /* noop */ }
   }
-  function toggleBorder() {
+  // ── Contorno de forma (grosor / estilo de línea / color), tipo PowerPoint ────
+  function setOutlineWidth(w: number) {
     const c = fabricRef.current; const o = c?.getActiveObject() as any;
     if (!c || !o) return;
-    if (o.stroke && o.strokeWidth) o.set({ stroke: null, strokeWidth: 0 });
-    else o.set({ stroke: theme().accent, strokeWidth: 3 });
+    if (w <= 0) o.set({ stroke: null, strokeWidth: 0, strokeDashArray: null });
+    else { if (!o.stroke) o.set('stroke', theme().accent); o.set({ strokeWidth: w, paintFirst: 'stroke', strokeLineJoin: 'round' }); }
+    c.requestRenderAll(); capture(); sync();
+  }
+  function setOutlineDash(kind: 'solid' | 'dashed' | 'dotted') {
+    const c = fabricRef.current; const o = c?.getActiveObject() as any;
+    if (!c || !o) return;
+    if (!o.stroke || !o.strokeWidth) o.set({ stroke: theme().accent, strokeWidth: 2, paintFirst: 'stroke' });
+    const w = o.strokeWidth || 2;
+    o.set('strokeDashArray', kind === 'solid' ? null : kind === 'dashed' ? [w * 3, w * 2] : [Math.max(1, w * 0.1), w * 1.6]);
+    o.set('strokeLineCap', kind === 'dotted' ? 'round' : 'butt');
+    c.requestRenderAll(); capture(); sync();
+  }
+  function setOutlineColor(color: string) {
+    const c = fabricRef.current; const o = c?.getActiveObject() as any;
+    if (!c || !o) return;
+    o.set('stroke', color); if (!o.strokeWidth) o.set({ strokeWidth: 2, paintFirst: 'stroke' });
     c.requestRenderAll(); capture(); sync();
   }
   function applyQuickStyle(id: string) {
@@ -1542,7 +1558,16 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
               <RibbonButton icon={Pipette} label="Cuentagotas (color del lienzo)" active={eyedropper} onClick={startEyedropper} />
               <RibbonButton icon={Blend} label="Degradado" onClick={applyGradient} />
               <RibbonButton icon={Droplet} label="Sombra" onClick={toggleShadow} />
-              <RibbonButton icon={SquareDashed} label="Borde" onClick={toggleBorder} />
+              <RibbonMenuButton icon={SquareDashed} label="Contorno" menuWidth={190} items={[
+                { label: 'Sin contorno', onClick: () => setOutlineWidth(0) },
+                { label: 'Contorno fino (1)', onClick: () => setOutlineWidth(1) },
+                { label: 'Contorno medio (3)', onClick: () => setOutlineWidth(3) },
+                { label: 'Contorno grueso (6)', onClick: () => setOutlineWidth(6) },
+                { label: '— Sólido', onClick: () => setOutlineDash('solid') },
+                { label: '— Discontinuo', onClick: () => setOutlineDash('dashed') },
+                { label: '— Punteado', onClick: () => setOutlineDash('dotted') },
+              ]} />
+              <RibbonColorButton icon={Square} title="Color de contorno" onChange={setOutlineColor} swatchBar={false} />
               {selType === 'rect' && (
                 <RibbonMenuButton icon={Squircle} label="Esquinas" menuWidth={170} items={[
                   { label: 'Rectas', onClick: () => setCorners(0) },
