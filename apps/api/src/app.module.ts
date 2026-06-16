@@ -31,8 +31,10 @@ import { ProductionPlanModule } from './modules/production-plan/production-plan.
 import { MaterialStagingModule } from './modules/material-staging/material-staging.module';
 import { OperatorTerminalModule } from './modules/operator-terminal/operator-terminal.module';
 import { FloorQualityModule } from './modules/floor-quality/floor-quality.module';
+import { GenealogyModule } from './modules/genealogy/genealogy.module';
 import { LineControlTowerModule } from './modules/line-control-tower/line-control-tower.module';
 import { OeeModule } from './modules/oee/oee.module';
+import { CostIntelligenceModule } from './modules/cost-intelligence/cost-intelligence.module';
 
 // AXOS OS Intelligence & Tenancy Infrastructure
 import { EventLedgerInterceptor } from './common/interceptors/event-ledger.interceptor';
@@ -104,8 +106,10 @@ import { AiModule } from './modules/ai/ai.module';
     MaterialStagingModule,
     OperatorTerminalModule,
     FloorQualityModule,
+    GenealogyModule,
     LineControlTowerModule,
     OeeModule,
+    CostIntelligenceModule,
     ForecastModule,
     PlansModule,
     BomModule,

@@ -102,6 +102,7 @@ export const ROLE_PERMISSIONS: Record<AppRole, string[]> = {
   operator: [
     'production:read',
     'production:execute',
+    'production:report',
     'quality:report',
     'materials:read',
   ],
@@ -112,6 +113,7 @@ export const ROLE_PERMISSIONS: Record<AppRole, string[]> = {
     'quality:report',
     'quality:disposition',
     'production:read',
+    'production:report',
     'materials:read',
   ],
   // MRB member: dispositions material-review-board cases (no edit of root quality).

@@ -8,6 +8,7 @@ import dynamic from 'next/dynamic';
 import { Loader2, FileWarning } from 'lucide-react';
 import { apiFetch } from '@/lib/apiFetch';
 import { useAuth } from '@/hooks/useAuth';
+import { usePermissions } from '@/hooks/usePermissions';
 import { OfficeShell, OfficeShellMessage, type SaveStatus, type OfficeType } from '@/components/office/OfficeShell';
 import { SheetActions } from '@/components/office/SheetActions';
 import { SlideActions } from '@/components/office/SlideActions';
@@ -31,10 +32,10 @@ interface OfficeDoc { id: string; type: OfficeType; title: string; content: any;
 
 export default function OfficeEditorPage() {
   const { id } = useParams<{ id: string }>();
-  const { user, roles, permissions, isLoading: authLoading } = useAuth();
-  // Mirrors the backend rule: writers are admins or anyone holding a *:write
-  // permission. The read-only `executive` demo account only has *:read perms.
-  const canWrite = roles.includes('Admin') || permissions.some((p) => p.endsWith(':write'));
+  const { user, isLoading: authLoading } = useAuth();
+  // Gate de escritura centralizado: da WRITE robusto a admin/owner y mantiene en
+  // SOLO LECTURA al executive demo (solo *:read). Ver hooks/usePermissions.
+  const { canWrite, isAdmin } = usePermissions();
 
   const [doc, setDoc] = useState<OfficeDoc | null>(null);
   const [title, setTitle] = useState('');
@@ -161,7 +162,7 @@ export default function OfficeEditorPage() {
       : doc.type === 'doc'
         ? <DocActions content={content} title={title} onImport={replaceContent} readOnly={readOnly} />
         : null;
-  const isOwner = roles.includes('Admin') || (!!doc.createdBy && doc.createdBy === user?.email);
+  const isOwner = isAdmin || (!!doc.createdBy && doc.createdBy === user?.email);
   const actions = (
     <>
       {typeActions}
