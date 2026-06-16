@@ -50,7 +50,8 @@ export interface CondPayload {
   kind: CondKind; range: string; sheetIndex: number;
   op?: string; value?: string; value2?: string; color?: string;  // compare / top / bottom / duplicates / between
   c1?: string; c2?: string; c3?: string;                  // escalas de color
-  n?: number;                                             // top/bottom N
+  n?: number;                                             // top/bottom N (o porcentaje si percent)
+  percent?: boolean;                                      // top/bottom por porcentaje
   icons?: string[];                                       // conjunto de iconos
 }
 
@@ -90,7 +91,9 @@ export function applyConditional(sheet: any, p: CondPayload): boolean {
     case 'top':
     case 'bottom': {
       if (!nums.length) break;
-      const k = Math.max(1, p.n || 3);
+      const k = p.percent
+        ? Math.max(1, Math.min(nums.length, Math.ceil(nums.length * (p.n || 10) / 100)))
+        : Math.max(1, p.n || 3);
       const sorted = [...nums].sort((a, b) => (p.kind === 'top' ? b - a : a - b));
       const threshold = sorted[Math.min(k, sorted.length) - 1];
       const color = p.color || '#ffd54f';

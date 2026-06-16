@@ -77,6 +77,7 @@ export function SheetTools({
   const [c2, setC2] = useState('#ffeb84');
   const [c3, setC3] = useState('#63be7b');
   const [n, setN] = useState(3);
+  const [percent, setPercent] = useState(false);
   const [iconIdx, setIconIdx] = useState(0);
   const field = 'w-full h-9 text-sm rounded-xl bg-gray-100 dark:bg-white/10 px-3 outline-none focus:ring-2 ring-emerald-500/40';
 
@@ -108,7 +109,7 @@ export function SheetTools({
     if (kind === 'compare') Object.assign(base, { op, value, value2, color });
     else if (kind === 'scale2') Object.assign(base, { c1, c2 });
     else if (kind === 'scale3') Object.assign(base, { c1, c2, c3 });
-    else if (kind === 'top' || kind === 'bottom') Object.assign(base, { n, color });
+    else if (kind === 'top' || kind === 'bottom') Object.assign(base, { n, color, percent });
     else if (kind === 'duplicates' || kind === 'unique' || kind === 'databar') Object.assign(base, { color });
     else if (kind === 'iconset') Object.assign(base, { icons: ICON_SETS[iconIdx].icons });
     onApplyCondFormat(base);
@@ -229,8 +230,11 @@ export function SheetTools({
             )}
             {(kind === 'top' || kind === 'bottom') && (
               <>
-                <label className="block text-xs text-gray-500">Cantidad (N)
+                <label className="block text-xs text-gray-500">{percent ? 'Porcentaje (%)' : 'Cantidad (N)'}
                   <input type="number" min={1} value={n} onChange={(e) => setN(Math.max(1, Number(e.target.value)))} className={field} />
+                </label>
+                <label className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer">
+                  <input type="checkbox" checked={percent} onChange={(e) => setPercent(e.target.checked)} /> Por porcentaje (p. ej. {kind === 'top' ? 'el 10% superior' : 'el 10% inferior'})
                 </label>
                 <div className="text-xs text-gray-500">Color de relleno<div className="mt-1">{swatches(color, setColor)}</div></div>
               </>

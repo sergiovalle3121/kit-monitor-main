@@ -69,6 +69,23 @@ const at = (sheet: any, r: number, c: number) => sheet.celldata.find((x: any) =>
   eq(at(sheet, 3, 0).bg, '#dcfce7', '«c» único');
 }
 
+// ── Top/Bottom por porcentaje ────────────────────────────────────────────────
+{
+  // 10 valores 1..10; top 30% → 3 mayores (8,9,10)
+  const cells = Array.from({ length: 10 }, (_, i) => cell(i, 0, i + 1));
+  const sheet: any = { celldata: cells };
+  applyConditional(sheet, { kind: 'top', range: 'A1:A10', sheetIndex: 0, n: 30, percent: true, color: '#dcfce7' } as any);
+  eq(at(sheet, 9, 0).bg, '#dcfce7', '10 está en el 30% superior');
+  eq(at(sheet, 7, 0).bg, '#dcfce7', '8 está en el 30% superior');
+  ok(at(sheet, 6, 0).bg == null, '7 NO está en el 30% superior');
+
+  const sheet2: any = { celldata: Array.from({ length: 10 }, (_, i) => cell(i, 0, i + 1)) };
+  applyConditional(sheet2, { kind: 'bottom', range: 'A1:A10', sheetIndex: 0, n: 20, percent: true, color: '#fee2e2' } as any);
+  eq(at(sheet2, 0, 0).bg, '#fee2e2', '1 está en el 20% inferior');
+  eq(at(sheet2, 1, 0).bg, '#fee2e2', '2 está en el 20% inferior');
+  ok(at(sheet2, 2, 0).bg == null, '3 NO está en el 20% inferior');
+}
+
 console.log(`\nCOND SPEC: ${passed} OK, ${fails.length} fallos`);
 if (fails.length) { for (const f of fails) console.error('  ✗ ' + f); throw new Error(`${fails.length} fallos`); }
 console.log('✓ Todas las aserciones de formato condicional pasan.');

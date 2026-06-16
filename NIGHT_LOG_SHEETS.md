@@ -379,9 +379,11 @@ Tablas → «Dar formato como tabla»** (junto a Tabla dinámica) en `SheetEdito
   **termina en**, **contiene** / **no contiene** (insensible a mayúsculas).
 - Nueva regla **`unique`** (valores únicos), complemento de `duplicates`,
   reutilizando el mismo conteo.
-- UI en `SheetTools.tsx`: nuevas opciones en el desplegable de condición y la
-  regla «Valores únicos» con selector de color.
-- Specs añadidos a `sheets/cond.spec.ts` (11 → **22 aserciones**). Verde.
+- **Top/Bottom por porcentaje** (`percent`): «el 10% superior/inferior» además
+  del top/bottom-N existente.
+- UI en `SheetTools.tsx`: nuevas opciones en el desplegable de condición, la
+  regla «Valores únicos» y la casilla «Por porcentaje».
+- Specs añadidos a `sheets/cond.spec.ts` (11 → **28 aserciones**). Verde.
 
 ## Diferido / honesto
 - **Funciones nuevas en el motor** (XLOOKUP, TEXTJOIN, IFS, SWITCH, UNIQUE,
