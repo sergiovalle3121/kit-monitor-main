@@ -337,8 +337,9 @@ de «Valores y formatos de número» de Excel, intencional.)
 ### 1) Validación de datos — paridad con Excel  ✅
 **Lógica pura** en `sheetOps.ts` (refleja el validador nativo de Fortune-Sheet,
 verificado leyendo `@fortune-sheet/core`):
-- Tipos: lista desplegable, **número / entero / decimal**, **fecha**,
-  **longitud de texto** y **contenido de texto**.
+- Tipos: lista desplegable (literal **o desde un rango** — `getDropdownList`
+  resuelve referencias nativamente, lista dinámica), **número / entero /
+  decimal**, **fecha**, **longitud de texto** y **contenido de texto**.
 - Operadores por tipo (`DV_OPERATORS`): entre/no entre, =, ≠, >, <, ≥, ≤
   (números y longitud); contiene/no contiene/igual (texto); anterior/posterior/
   entre… (fecha).

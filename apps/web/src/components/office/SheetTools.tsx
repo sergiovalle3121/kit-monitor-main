@@ -67,6 +67,8 @@ export function SheetTools({
   const [dvV2, setDvV2] = useState('');
   const [dvReject, setDvReject] = useState(true);
   const [dvHint, setDvHint] = useState('');
+  const [dvFromRange, setDvFromRange] = useState(false);
+  const [dvListRange, setDvListRange] = useState('A1:A10');
   // Formato condicional
   const [kind, setKind] = useState<CondKind>('compare');
   const [op, setOp] = useState('>');
@@ -97,7 +99,7 @@ export function SheetTools({
   const dvNeedsTwo = dvOp === 'between' || dvOp === 'notBetween';
   const dvCurrentOp = dvOps.includes(dvOp) ? dvOp : (dvOps[0] ?? undefined);
   function buildDvConfig(): DvConfig {
-    if (dvType === 'dropdown') return { type: 'dropdown', value1: options, prohibitInput: dvReject, hintText: dvHint };
+    if (dvType === 'dropdown') return { type: 'dropdown', value1: dvFromRange ? dvListRange : options, fromRange: dvFromRange, prohibitInput: dvReject, hintText: dvHint };
     return { type: dvType, operator: dvCurrentOp, value1: dvV1, value2: dvV2, prohibitInput: dvReject, hintText: dvHint };
   }
   function submitValidation(action: 'apply' | 'mark') {
@@ -145,9 +147,20 @@ export function SheetTools({
             </label>
 
             {dvType === 'dropdown' ? (
-              <label className="block text-xs text-gray-500">Opciones de la lista (separadas por coma)
-                <input value={options} onChange={(e) => setOptions(e.target.value)} placeholder="Sí, No, Pendiente" className={field} />
-              </label>
+              <>
+                <label className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer">
+                  <input type="checkbox" checked={dvFromRange} onChange={(e) => setDvFromRange(e.target.checked)} /> Tomar la lista de un rango
+                </label>
+                {dvFromRange ? (
+                  <label className="block text-xs text-gray-500">Rango de origen (A1)
+                    <input value={dvListRange} onChange={(e) => setDvListRange(e.target.value)} placeholder="A1:A10 o Hoja2!A1:A10" className={`${field} font-mono`} />
+                  </label>
+                ) : (
+                  <label className="block text-xs text-gray-500">Opciones de la lista (separadas por coma)
+                    <input value={options} onChange={(e) => setOptions(e.target.value)} placeholder="Sí, No, Pendiente" className={field} />
+                  </label>
+                )}
+              </>
             ) : dvType === 'text_content' ? (
               <div className="flex gap-2">
                 <label className="flex-1 text-xs text-gray-500">Condición

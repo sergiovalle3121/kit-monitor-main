@@ -1266,6 +1266,7 @@ export interface DvConfig {
   operator?: DvOperator;
   value1?: string;
   value2?: string;
+  fromRange?: boolean;       // (lista) value1 es una referencia de rango (A1:A10), no una lista literal
   prohibitInput?: boolean;   // rechazar entradas inválidas (estilo «Detener»)
   hintText?: string;         // mensaje de entrada al seleccionar la celda
 }
@@ -1290,7 +1291,7 @@ export const DV_OPERATORS: Record<DvType, DvOperator[]> = {
 /** Construye una entrada `dataVerification` de Fortune-Sheet a partir de una config. */
 export function buildDataVerification(cfg: DvConfig): DvEntry {
   const value1 = cfg.type === 'dropdown'
-    ? (cfg.value1 ?? '').split(',').map((s) => s.trim()).filter(Boolean).join(',')
+    ? (cfg.fromRange ? (cfg.value1 ?? '').trim() : (cfg.value1 ?? '').split(',').map((s) => s.trim()).filter(Boolean).join(','))
     : (cfg.value1 ?? '').trim();
   const needsTwo = cfg.operator != null && DV_TWO_VALUE.has(cfg.operator);
   const type2 = (cfg.type === 'dropdown' || cfg.type === 'checkbox') ? null : (cfg.operator ?? 'between');
@@ -1347,6 +1348,7 @@ export function dvSatisfies(cfg: DvConfig, raw: any): boolean {
   switch (cfg.type) {
     case 'checkbox': return true;
     case 'dropdown': {
+      if (cfg.fromRange) return true; // la lista vive en un rango; el motor la valida, aquí no resolvemos sin la hoja
       const list = v1s.split(',').map((x) => x.trim()).filter(Boolean);
       return str.split(',').every((i) => list.includes(i.trim()));
     }

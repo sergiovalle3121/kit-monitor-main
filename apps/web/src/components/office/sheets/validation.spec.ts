@@ -28,6 +28,17 @@ const at = (sheet: any, r: number, c: number) => sheet.celldata.find((x: any) =>
   eq(buildDataVerification({ type: 'number', operator: 'gt' as any, value1: '5', prohibitInput: true }).prohibitInput, true, 'prohibitInput respetado');
 }
 
+// ── Lista desde un rango (referencia nativa) ─────────────────────────────────
+{
+  const e = buildDataVerification({ type: 'dropdown', fromRange: true, value1: 'A1:A10' });
+  eq(e.type, 'dropdown', 'lista por rango → type dropdown');
+  eq(e.value1, 'A1:A10', 'rango se pasa tal cual (sin partir por comas)');
+  const e2 = buildDataVerification({ type: 'dropdown', fromRange: true, value1: ' Hoja2!B1:B5 ' });
+  eq(e2.value1, 'Hoja2!B1:B5', 'rango con hoja, recortado');
+  // No se valida por rango sin la hoja → siempre válido (el motor lo valida en vivo)
+  ok(dvSatisfies({ type: 'dropdown', fromRange: true, value1: 'A1:A10' }, 'cualquiera'), 'lista por rango: válido en el chequeo puro');
+}
+
 // ── dvSatisfies: número / entero / decimal ───────────────────────────────────
 {
   const c: DvConfig = { type: 'number', operator: 'between', value1: '1', value2: '10' };
