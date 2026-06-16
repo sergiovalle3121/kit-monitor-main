@@ -15,6 +15,7 @@ import {
   CheckCheck,
   AtSign,
   ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { glass } from '@/lib/glass';
@@ -80,11 +81,38 @@ function getMentionQuery(draft: string): string | null {
   return m ? m[1] : null;
 }
 
+/** Escapa metacaracteres de regex para construir un patrón a partir de texto libre. */
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Envuelve en `<mark>` las coincidencias de `term` dentro de un texto plano (para
+ * la búsqueda dentro de la conversación). XSS-safe: solo nodos de texto.
+ */
+function highlightText(text: string, term: string, mine: boolean): React.ReactNode {
+  if (!term) return text;
+  const markCls = mine
+    ? 'rounded bg-yellow-300/80 px-0.5 text-black'
+    : 'rounded bg-yellow-200 px-0.5 text-black dark:bg-yellow-400/80';
+  const lower = term.toLowerCase();
+  return text.split(new RegExp(`(${escapeRegExp(term)})`, 'gi')).map((part, i) =>
+    part.toLowerCase() === lower ? (
+      <mark key={i} className={markCls}>
+        {part}
+      </mark>
+    ) : (
+      <React.Fragment key={i}>{part}</React.Fragment>
+    ),
+  );
+}
+
 /**
  * Renderiza el cuerpo resaltando `@handle` y haciendo clickeables las URLs.
+ * Si `highlight` viene, también marca las coincidencias de búsqueda en el texto.
  * Sin `dangerouslySetInnerHTML` (XSS-safe): solo nodos de texto/elementos.
  */
-function renderBody(body: string, mine: boolean): React.ReactNode {
+function renderBody(body: string, mine: boolean, highlight = ''): React.ReactNode {
   const mentionCls = mine
     ? 'font-semibold rounded bg-white/20 px-0.5'
     : 'font-semibold text-blue-600 dark:text-blue-400';
@@ -115,7 +143,9 @@ function renderBody(body: string, mine: boolean): React.ReactNode {
           </span>
         );
       }
-      return part;
+      return (
+        <React.Fragment key={i}>{highlightText(part, highlight, mine)}</React.Fragment>
+      );
     });
 }
 
@@ -143,6 +173,10 @@ export default function ChatPage() {
   const [showJump, setShowJump] = useState(false);
   const [newCount, setNewCount] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  // Búsqueda dentro de la conversación abierta (sobre los mensajes cargados).
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [convoSearch, setConvoSearch] = useState('');
+  const [searchIdx, setSearchIdx] = useState(0);
 
   const socketRef = useRef<Socket | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
@@ -164,6 +198,41 @@ export default function ChatPage() {
 
   // Último mensaje MÍO leído por ≥1 otro miembro (para el indicador "Visto").
   const seenInfo = computeSeenInfo(messages, reads, meId);
+
+  // Búsqueda en la conversación: índices de mensajes de texto que contienen el
+  // término (los mensajes ya están cargados en cliente; no requiere backend).
+  const searchTerm = searchOpen ? convoSearch.trim() : '';
+  const searchMatches = useMemo(() => {
+    const q = searchTerm.toLowerCase();
+    if (!q) return [] as number[];
+    const out: number[] = [];
+    messages.forEach((m, i) => {
+      if (m.type !== 'image' && (m.body ?? '').toLowerCase().includes(q)) out.push(i);
+    });
+    return out;
+  }, [messages, searchTerm]);
+  const activeMatchIndex =
+    searchMatches.length > 0 ? Math.min(searchIdx, searchMatches.length - 1) : -1;
+  const currentMatchMsgId =
+    activeMatchIndex >= 0 ? messages[searchMatches[activeMatchIndex]].id : null;
+
+  // Centra el resultado activo al navegar entre coincidencias (solo DOM).
+  useEffect(() => {
+    if (!currentMatchMsgId) return;
+    document
+      .getElementById(`msg-${currentMatchMsgId}`)
+      ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, [currentMatchMsgId]);
+
+  function gotoMatch(dir: 1 | -1) {
+    if (searchMatches.length === 0) return;
+    setSearchIdx((i) => (i + dir + searchMatches.length) % searchMatches.length);
+  }
+  function closeConvoSearch() {
+    setSearchOpen(false);
+    setConvoSearch('');
+    setSearchIdx(0);
+  }
 
   const refreshConversations = useCallback(async () => {
     try {
@@ -414,6 +483,10 @@ export default function ChatPage() {
     atBottomRef.current = true;
     setShowJump(false);
     setNewCount(0);
+    // Cierra la búsqueda del hilo anterior al abrir otro.
+    setSearchOpen(false);
+    setConvoSearch('');
+    setSearchIdx(0);
     setMentionConvos((prev) => {
       if (!prev.has(id)) return prev;
       const next = new Set(prev);
@@ -550,7 +623,7 @@ export default function ChatPage() {
                   active={c.id === activeId}
                   online={c.counterpartId ? onlineIds.has(c.counterpartId) : undefined}
                   mentioned={mentionConvos.has(c.id)}
-                  onClick={() => setActiveId(c.id)}
+                  onClick={() => openConversation(c.id)}
                 />
               ))}
             </div>
@@ -573,7 +646,8 @@ export default function ChatPage() {
           ) : (
             <>
               {/* Header */}
-              <div className="flex items-center gap-3 border-b border-black/5 px-5 py-4 dark:border-white/10">
+              <div className="border-b border-black/5 dark:border-white/10">
+                <div className="flex items-center gap-3 px-5 py-4">
                 <button
                   onClick={() => setActiveId(null)}
                   className="-ml-1 rounded-full p-1 text-gray-500 hover:bg-black/5 focus-visible:ring-2 focus-visible:ring-blue-500/40 md:hidden dark:hover:bg-white/10"
@@ -595,8 +669,8 @@ export default function ChatPage() {
                     )}
                   </span>
                 )}
-                <div>
-                  <p className="font-semibold">{active.title || 'Conversación'}</p>
+                <div className="min-w-0">
+                  <p className="truncate font-semibold">{active.title || 'Conversación'}</p>
                   <p className="text-xs text-gray-500">
                     {active.type === 'channel'
                       ? `${active.memberIds.length} miembros`
@@ -605,6 +679,35 @@ export default function ChatPage() {
                         : 'Desconectado'}
                   </p>
                 </div>
+                <button
+                  onClick={() => (searchOpen ? closeConvoSearch() : setSearchOpen(true))}
+                  className={`ml-auto rounded-full p-2 transition-colors focus-visible:ring-2 focus-visible:ring-blue-500/40 ${
+                    searchOpen
+                      ? 'bg-blue-500/15 text-blue-600 dark:text-blue-300'
+                      : 'text-gray-500 hover:bg-black/5 dark:hover:bg-white/10'
+                  }`}
+                  aria-label="Buscar en la conversación"
+                  title="Buscar en la conversación"
+                >
+                  <Search className="h-5 w-5" />
+                </button>
+                </div>
+
+                {/* Búsqueda dentro de la conversación (sobre mensajes cargados) */}
+                {searchOpen && (
+                  <ConvoSearchBar
+                    value={convoSearch}
+                    matchCount={searchMatches.length}
+                    activeIndex={activeMatchIndex}
+                    onChange={(v) => {
+                      setConvoSearch(v);
+                      setSearchIdx(0);
+                    }}
+                    onPrev={() => gotoMatch(-1)}
+                    onNext={() => gotoMatch(1)}
+                    onClose={closeConvoSearch}
+                  />
+                )}
               </div>
 
               {/* Mensajes */}
@@ -640,6 +743,8 @@ export default function ChatPage() {
                           onlineIds={onlineIds}
                           onReact={handleReact}
                           grouped={grouped}
+                          highlight={searchTerm}
+                          isCurrentMatch={m.id === currentMatchMsgId}
                         />
                         {i === seenInfo.index && (
                           <ReadIndicator
@@ -917,6 +1022,8 @@ function MessageItem({
   onlineIds,
   onReact,
   grouped,
+  highlight = '',
+  isCurrentMatch = false,
 }: {
   m: ChatMessage;
   mine: boolean;
@@ -925,6 +1032,8 @@ function MessageItem({
   onlineIds: Set<string>;
   onReact: (messageId: string, emoji: string) => void;
   grouped: boolean;
+  highlight?: string;
+  isCurrentMatch?: boolean;
 }) {
   const [showPicker, setShowPicker] = useState(false);
   const reactions = m.reactions ?? [];
@@ -933,9 +1042,12 @@ function MessageItem({
 
   return (
     <div
-      className={`group flex items-end gap-2 ${
+      id={`msg-${m.id}`}
+      className={`group flex items-end gap-2 scroll-mt-24 rounded-2xl transition-colors ${
         mine ? 'justify-end' : 'justify-start'
-      } ${grouped ? 'mt-0.5' : 'mt-3'}`}
+      } ${grouped ? 'mt-0.5' : 'mt-3'} ${
+        isCurrentMatch ? 'bg-yellow-300/10 ring-2 ring-yellow-400/70' : ''
+      }`}
     >
       {isChannel && !mine && (
         <div className="w-7 shrink-0">
@@ -1005,7 +1117,7 @@ function MessageItem({
             <AuthImage messageId={m.id} />
           ) : (
             <p className="whitespace-pre-wrap break-words text-sm">
-              {renderBody(m.body ?? '', mine)}
+              {renderBody(m.body ?? '', mine, highlight)}
             </p>
           )}
           <p className={`mt-1 text-[10px] ${mine ? 'text-white/70' : 'text-gray-500'}`}>
@@ -1071,6 +1183,79 @@ function ReadIndicator({
           <CheckCheck className="h-3 w-3" /> Visto
         </span>
       )}
+    </div>
+  );
+}
+
+/** Barra de búsqueda dentro de la conversación abierta (sobre mensajes cargados). */
+function ConvoSearchBar({
+  value,
+  matchCount,
+  activeIndex,
+  onChange,
+  onPrev,
+  onNext,
+  onClose,
+}: {
+  value: string;
+  matchCount: number;
+  activeIndex: number;
+  onChange: (v: string) => void;
+  onPrev: () => void;
+  onNext: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <div className="flex items-center gap-2 px-5 pb-3">
+      <div className={`${glass} flex flex-1 items-center gap-2 rounded-full px-3 py-1.5`}>
+        <Search className="h-4 w-4 shrink-0 text-gray-500" />
+        <input
+          autoFocus
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') {
+              e.preventDefault();
+              onClose();
+            } else if (e.key === 'Enter') {
+              e.preventDefault();
+              if (e.shiftKey) onPrev();
+              else onNext();
+            }
+          }}
+          placeholder="Buscar en esta conversación..."
+          aria-label="Buscar en esta conversación"
+          className="w-full bg-transparent text-sm outline-none placeholder:text-gray-500"
+        />
+        {value.trim() !== '' && (
+          <span className="shrink-0 text-xs tabular-nums text-gray-500">
+            {matchCount === 0 ? 'Sin resultados' : `${activeIndex + 1} de ${matchCount}`}
+          </span>
+        )}
+      </div>
+      <button
+        onClick={onPrev}
+        disabled={matchCount === 0}
+        className="rounded-full p-1.5 text-gray-500 hover:bg-black/5 focus-visible:ring-2 focus-visible:ring-blue-500/40 disabled:opacity-30 dark:hover:bg-white/10"
+        aria-label="Resultado anterior"
+      >
+        <ChevronUp className="h-4 w-4" />
+      </button>
+      <button
+        onClick={onNext}
+        disabled={matchCount === 0}
+        className="rounded-full p-1.5 text-gray-500 hover:bg-black/5 focus-visible:ring-2 focus-visible:ring-blue-500/40 disabled:opacity-30 dark:hover:bg-white/10"
+        aria-label="Resultado siguiente"
+      >
+        <ChevronDown className="h-4 w-4" />
+      </button>
+      <button
+        onClick={onClose}
+        className="rounded-full p-1.5 text-gray-500 hover:bg-black/5 focus-visible:ring-2 focus-visible:ring-blue-500/40 dark:hover:bg-white/10"
+        aria-label="Cerrar búsqueda"
+      >
+        <X className="h-4 w-4" />
+      </button>
     </div>
   );
 }
