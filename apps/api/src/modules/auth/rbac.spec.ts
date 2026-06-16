@@ -20,6 +20,15 @@ describe('rbac shop-floor matrix', () => {
     expect(has('operator', 'quality:disposition')).toBe(false);
   });
 
+  it('production-side roles may pull production:report (genealogy/as-built); materialist may not', () => {
+    expect(has('operator', 'production:report')).toBe(true);
+    expect(has('production_supervisor', 'production:report')).toBe(true);
+    expect(has('quality_engineer', 'production:report')).toBe(true);
+    expect(has('plant_manager', 'production:report')).toBe(true);
+    expect(has('planner', 'production:report')).toBe(true);
+    expect(has('materialist', 'production:report')).toBe(false);
+  });
+
   it('materialist can stage material but NOT execute production', () => {
     expect(has('materialist', 'materials:stage')).toBe(true);
     expect(has('materialist', 'materials:request')).toBe(true);
