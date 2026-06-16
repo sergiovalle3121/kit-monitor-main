@@ -189,6 +189,24 @@ CSS de todo lo anterior en `tiptap.css`.
   botón suelto y el icono sin uso), `docs/docStyles.ts` (CSS de puntos guía).
 - Puertas: `tsc` 0, `eslint` carril 0, `next build` verde.
 
+### F2 · Wave 3a — Saltos de sección + ajustes por sección (en pantalla)
+- **Nodo `sectionBreak`** (atómico de bloque) con ajustes propios: tipo
+  (`nextPage`/`continuous`), encabezado, pie, números de página (con reinicio en N
+  y formato decimal/romano/alfabético), columnas (hereda/1/2/3) y orientación
+  (hereda/vertical/horizontal). Todo viaja en el JSON (atributos) y se serializa a
+  `data-*` para que la vista paginada lo lea.
+- **Divisor en pantalla** con resumen de los ajustes + botón «Configurar» que abre
+  un modal de edición (patrón de evento, como las notas al pie).
+- **Encabezado/pie/numeración por sección en pantalla**: el overlay de la página
+  ahora muestra la **sección activa** (la del cursor) vía `effectiveSection`, e
+  indica «Sección N» y el número de página de reinicio.
+- En impresión, `nextPage` fuerza salto de página; `continuous` no.
+- Control nuevo `DocSections` en *Disposición* (insertar salto + modal de ajustes).
+- Archivos: `docPageExtensions.ts` (nodo `SectionBreak`, helpers `effectiveSection`,
+  formatos de numeración), `docs/DocSections.tsx` (nuevo), `DocEditor.tsx` (registro
+  + overlay por sección), `docs/docStyles.ts` (CSS del divisor).
+- Puertas: `tsc` 0, `eslint` carril 0, `next build` verde.
+
 ## Resumen final de la sesión
 Se llevó el editor de Documentos muy cerca de Word, todo con código propio sobre
 TipTap/ProseMirror (MIT) + KaTeX (MIT). **No se tocó** el ribbon compartido,

@@ -49,7 +49,7 @@ import { DocStyleGallery } from './DocStyleGallery';
 import { DocSymbolPicker } from './DocSymbolPicker';
 import { DocPageSetup } from './DocPageSetup';
 import { CommentMark } from './commentMark';
-import { PageBreak, PageMeta } from './docPageExtensions';
+import { PageBreak, PageMeta, SectionBreak, effectiveSection } from './docPageExtensions';
 import { Indent, Toc, NamedStyle } from './docExtensions';
 import { ListNumbering } from './docs/listNumbering';
 import { TableCellAttrs } from './docs/tableCellAttrs';
@@ -75,6 +75,7 @@ import { DocListMenu } from './docs/DocListMenu';
 import { DocViewTools } from './docs/DocViewTools';
 import { DocFootnotes } from './docs/DocFootnotes';
 import { DocToc } from './docs/DocToc';
+import { DocSections } from './docs/DocSections';
 import { DocInsertExtras } from './docs/DocInsertExtras';
 import { DocTrackChanges, type TrackView } from './docs/DocTrackChanges';
 import { DocWordCount } from './docs/DocWordCount';
@@ -145,6 +146,7 @@ export function DocEditor({ value, onChange, readOnly, author, onStats, fileActi
       CharacterCount.configure({}),
       CommentMark,
       PageBreak,
+      SectionBreak,
       PageMeta,
       Indent,
       NamedStyle,
@@ -307,9 +309,13 @@ export function DocEditor({ value, onChange, readOnly, author, onStats, fileActi
   const pgWatermark = meta.pageWatermark || '';
   const pgBorder = meta.pageBorder || '';
   const pgLineNumbers = !!meta.pageLineNumbers;
-  const pgHeader = meta.pageHeader || '';
-  const pgFooter = meta.pageFooter || '';
-  const pgNumbers = !!meta.pageNumbers;
+  // Encabezado/pie/numeración EFECTIVOS de la sección activa (la del cursor): así
+  // el overlay en pantalla refleja la sección donde se está escribiendo.
+  const activeSection = effectiveSection(editor.state, editor.state.selection.head);
+  const pgHeader = activeSection.meta.header;
+  const pgFooter = activeSection.meta.footer;
+  const pgNumbers = activeSection.meta.pageNumbers || (activeSection.index === 0 && !!meta.pageNumbers);
+  const pgPageNum = activeSection.meta.pageNumberStart ?? 1;
   const DIM: Record<string, [number, number]> = { a4: [794, 1123], letter: [816, 1056], legal: [816, 1344] };
   const [dimW, dimH] = DIM[pgSize] || DIM.a4;
   const pageW = pgOrient === 'landscape' ? dimH : dimW;
@@ -453,6 +459,8 @@ export function DocEditor({ value, onChange, readOnly, author, onStats, fileActi
           <RibbonTab id="layout" label="Disposición">
             <DocPageSetup editor={editor} />
             <RibbonSeparator />
+            <DocSections editor={editor} />
+            <RibbonSeparator />
             <DocHeaderFooter editor={editor} />
           </RibbonTab>
           )}
@@ -527,10 +535,10 @@ export function DocEditor({ value, onChange, readOnly, author, onStats, fileActi
           <div className="relative z-[1]">
             <EditorContent editor={editor} />
           </div>
-          {!readingMode && (pgFooter || pgNumbers) && (
+          {!readingMode && (pgFooter || pgNumbers || activeSection.index > 0) && (
             <div className="doc-page-footer" aria-hidden style={{ left: pagePad, right: pagePad }}>
-              <span className="truncate">{pgFooter}</span>
-              {pgNumbers && <span className="doc-page-num">Página 1</span>}
+              <span className="truncate">{pgFooter}{activeSection.index > 0 ? `${pgFooter ? ' · ' : ''}Sección ${activeSection.index + 1}` : ''}</span>
+              {pgNumbers && <span className="doc-page-num">Página {pgPageNum}</span>}
             </div>
           )}
         </div>

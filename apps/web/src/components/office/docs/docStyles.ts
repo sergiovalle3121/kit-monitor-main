@@ -42,4 +42,30 @@ export const DOC_EXTRA_CSS = `
   flex-shrink: 0; color: #4b5563; font-variant-numeric: tabular-nums; font-size: 0.85em; min-width: 1.2em; text-align: right;
 }
 @media (prefers-color-scheme: dark) { .tiptap-page .ProseMirror .doc-toc-item .doc-toc-page { color: #9ca3af; } }
+
+/* ───────────── Saltos de sección ───────────── */
+.tiptap-page .ProseMirror .doc-section-break {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  height: 0; border-top: 2px dashed #818cf8; margin: 1.6rem 0; position: relative; padding: 0 6px;
+}
+.tiptap-page .ProseMirror .doc-section-break[data-break="continuous"] { border-top-style: dotted; }
+.tiptap-page .ProseMirror .doc-section-break .doc-section-break-label {
+  position: relative; top: -0.75rem; background: #fff; color: #6366f1; font-size: 10px; font-weight: 600;
+  padding: 0 8px; text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.tiptap-page .ProseMirror .doc-section-break .doc-section-break-edit {
+  position: relative; top: -0.75rem; background: #eef2ff; color: #4f46e5; font-size: 10px; font-weight: 700;
+  padding: 2px 8px; border-radius: 999px; cursor: pointer; flex-shrink: 0;
+}
+.tiptap-page .ProseMirror .doc-section-break .doc-section-break-edit:hover { background: #e0e7ff; }
+@media (prefers-color-scheme: dark) {
+  .tiptap-page .ProseMirror .doc-section-break .doc-section-break-label { background: #1a1a1a; color: #a5b4fc; }
+  .tiptap-page .ProseMirror .doc-section-break .doc-section-break-edit { background: rgba(99,102,241,0.18); color: #c7d2fe; }
+}
+/* En impresión, «página siguiente» fuerza salto; «continuo» no. */
+@media print {
+  .tiptap-page .ProseMirror .doc-section-break[data-break="nextPage"] { break-before: page; border: none; }
+  .tiptap-page .ProseMirror .doc-section-break .doc-section-break-label,
+  .tiptap-page .ProseMirror .doc-section-break .doc-section-break-edit { display: none; }
+}
 `;
