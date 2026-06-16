@@ -228,8 +228,12 @@ export function DashboardTopBar() {
                     {earlierItems.length > 0 && <NotifGroup label="Antes" items={earlierItems} onGo={goNotif} />}
                   </div>
                 )}
+                {/* UI-NOTIF: enlace mínimo al centro de notificaciones (carril
+                    UI-NOTIF). Solo abre la página dedicada — no rediseña la
+                    campanita ni su panel rápido. */}
+                <Link href="/dashboard/notifications" onClick={() => setNotifOpen(false)} className="mt-3 block text-center text-xs font-semibold text-violet-500 hover:underline">Abrir centro de notificaciones →</Link>
                 {isAdmin && pendingCount > 0 && (
-                  <Link href="/dashboard/admin/approvals" onClick={() => setNotifOpen(false)} className="mt-3 block text-center text-xs font-semibold text-rose-500 hover:underline">Revisar {pendingCount} pendientes</Link>
+                  <Link href="/dashboard/admin/approvals" onClick={() => setNotifOpen(false)} className="mt-1.5 block text-center text-xs font-semibold text-rose-500 hover:underline">Revisar {pendingCount} pendientes</Link>
                 )}
               </motion.div>
             )}
