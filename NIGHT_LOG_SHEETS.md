@@ -355,7 +355,8 @@ verificado leyendo `@fortune-sheet/core`):
 **UI:** `SheetTools.tsx` (modo `validation`) reescrito: selector de tipo,
 condición, valor(es) (con `input[type=date]`/`number` según el tipo), mensaje de
 entrada, casilla «rechazar», y botones **Aplicar validación** / **Marcar no
-válidos**. `SheetEditor.applyValidation` ahora enruta apply/mark.
+válidos** / **Quitar validación del rango**. `SheetEditor.applyValidation`
+enruta apply/mark/clear.
 
 **Spec:** `sheets/validation.spec.ts` (**42 aserciones**). Verde.
 

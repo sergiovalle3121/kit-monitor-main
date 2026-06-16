@@ -17,7 +17,7 @@ import { SheetNameManager } from './SheetNameManager';
 import { SheetPrintDialog } from './SheetPrintDialog';
 import { SheetTableStyle, type TableStylePayload } from './SheetTableStyle';
 import { parseRange, type ChartConfig } from '@/lib/office/charts';
-import { applyConditional, sortRangeMulti, removeDuplicates, textToColumns, setCellNote, replaceAll, buildPivot, pivotToCelldata, applyNumberFormat, applyCellStyle, applySubtotals, applySparkline, applyFill, transposeRange, copyRange, buildFilter, buildPrintHtml, usedRange, colName, applyDataVerification, markInvalidCells, applyTableStyle, type CondPayload, type PivotConfig, type FindOpts, type NamedRange, type PrintOpts } from '@/lib/office/sheetOps';
+import { applyConditional, sortRangeMulti, removeDuplicates, textToColumns, setCellNote, replaceAll, buildPivot, pivotToCelldata, applyNumberFormat, applyCellStyle, applySubtotals, applySparkline, applyFill, transposeRange, copyRange, buildFilter, buildPrintHtml, usedRange, colName, applyDataVerification, clearDataVerification, markInvalidCells, applyTableStyle, type CondPayload, type PivotConfig, type FindOpts, type NamedRange, type PrintOpts } from '@/lib/office/sheetOps';
 import { OfficeRibbon, RibbonTab, RibbonGroup, RibbonSeparator, RibbonButton, RibbonMenuButton } from './ribbon';
 
 // Content is either the legacy bare sheet array or the new { sheets, charts } shape.
@@ -111,6 +111,7 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
     if (!sheet) return;
     let msg = '';
     if (action === 'mark') { const n = markInvalidCells(sheet, range, cfg); msg = n ? `${n} celda(s) no válida(s) marcada(s) en rojo.` : 'No hay celdas que incumplan la regla.'; }
+    else if (action === 'clear') { const n = clearDataVerification(sheet, range); msg = `Validación quitada de ${n} celda(s).`; }
     else applyDataVerification(sheet, range, cfg);
     setTool(null);
     remount(sheets);

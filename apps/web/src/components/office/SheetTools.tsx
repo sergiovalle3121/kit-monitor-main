@@ -7,7 +7,7 @@ import { DV_OPERATORS, type CondKind, type CondPayload, type DvType, type DvOper
 
 const COLORS = ['#fee2e2', '#fef9c3', '#dcfce7', '#dbeafe', '#f3e8ff', '#fce7f3', '#ffd54f', '#f8696b', '#63be7b'];
 
-export interface ValidationPayload { range: string; sheetIndex: number; cfg: DvConfig; action: 'apply' | 'mark' }
+export interface ValidationPayload { range: string; sheetIndex: number; cfg: DvConfig; action: 'apply' | 'mark' | 'clear' }
 export type { CondPayload } from '@/lib/office/sheetOps';
 
 const DV_TYPES: { value: DvType; label: string }[] = [
@@ -106,7 +106,7 @@ export function SheetTools({
     if (dvType === 'dropdown') return { type: 'dropdown', value1: dvFromRange ? dvListRange : options, fromRange: dvFromRange, prohibitInput: dvReject, hintText: dvHint };
     return { type: dvType, operator: dvCurrentOp, value1: dvV1, value2: dvV2, prohibitInput: dvReject, hintText: dvHint };
   }
-  function submitValidation(action: 'apply' | 'mark') {
+  function submitValidation(action: 'apply' | 'mark' | 'clear') {
     onApplyValidation({ range, sheetIndex, cfg: buildDvConfig(), action });
   }
 
@@ -208,6 +208,8 @@ export function SheetTools({
               <button onClick={() => submitValidation('mark')}
                 className="h-10 px-3 rounded-xl border border-gray-300 dark:border-white/15 text-sm font-semibold hover:bg-black/5 dark:hover:bg-white/10">Marcar no válidos</button>
             </div>
+            <button onClick={() => submitValidation('clear')}
+              className="w-full h-9 rounded-xl text-xs font-semibold text-gray-500 hover:bg-black/5 dark:hover:bg-white/10">Quitar validación del rango</button>
             <p className="text-[11px] text-gray-400">«Rechazar» bloquea valores fuera de la regla; si no, solo avisa. «Marcar no válidos» rellena en rojo las celdas existentes que no cumplen.</p>
           </>
         ) : (
