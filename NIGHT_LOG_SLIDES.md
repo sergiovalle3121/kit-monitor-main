@@ -442,6 +442,14 @@ correctos**. Se corrigieron 4 bugs reales en el modo presentación:
 
 Verificado: `tsc` ✓, `eslint` ✓ (0 errores; warnings preexistentes), `next build` ✓.
 
+#### Lote 35 — Pulido de la vista de presentador
+- **Reloj de hora del día** junto al temporizador (útil para no pasarse del
+  horario), actualizado cada segundo.
+- **Tamaño de notas ajustable** (A− / A+, 0.8×–2.2×) en el panel de notas del
+  presentador.
+
+Verificado: `tsc` ✓, `eslint` ✓ (0 errores; warnings preexistentes), `next build` ✓.
+
 ### Diferido (con estimación)
 - **Secciones en el clasificador** y colapsar/expandir: el sorter es una rejilla;
   insertar encabezados de ancho completo + colapso. Estimación: ~0.5 día.

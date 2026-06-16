@@ -1912,6 +1912,8 @@ function Present({
   const [reveal, setReveal] = useState<{ i: number; step: number }>({ i: -1, step: 0 });
   const revealed = reveal.i === i ? reveal.step : 0;
   const [paused, setPaused] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
+  const [notesScale, setNotesScale] = useState(1);
   const revealedRef = useRef(0);
   const maxStepRef = useRef(0);
   const loopRef = useRef(loop);
@@ -1975,13 +1977,14 @@ function Present({
     return () => { active = false; window.removeEventListener('keydown', onKey); };
   }, [slides, onClose]);
 
-  // Temporizador (vista de presentador).
+  // Temporizador + reloj de hora del día (vista de presentador).
   useEffect(() => {
     if (!presenter) return;
-    const t = setInterval(() => setElapsed((e) => e + 1), 1000);
+    const t = setInterval(() => { setElapsed((e) => e + 1); setNow(Date.now()); }, 1000);
     return () => clearInterval(t);
   }, [presenter]);
   const mmss = `${String(Math.floor(elapsed / 60)).padStart(2, '0')}:${String(elapsed % 60).padStart(2, '0')}`;
+  const clock = new Date(now).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
   const note = notes?.[i]?.trim();
   const hasNotes = (notes ?? []).some((n) => n?.trim());
@@ -2061,8 +2064,9 @@ function Present({
       <div className="fixed inset-0 z-[200] bg-[#0a0a0a] text-white flex flex-col">
         <div className="flex items-center gap-4 px-6 h-14 border-b border-white/10 flex-shrink-0">
           <span className="text-sm font-semibold">Vista de presentador</span>
-          <span className="ml-2 font-mono text-2xl tabular-nums">{mmss}</span>
-          <button onClick={() => setElapsed(0)} className="text-xs px-2 py-1 rounded-lg bg-white/10 hover:bg-white/20">Reiniciar</button>
+          <span className="ml-2 font-mono text-2xl tabular-nums" title="Tiempo transcurrido">{mmss}</span>
+          <button onClick={() => setElapsed(0)} title="Reiniciar el temporizador" className="text-xs px-2 py-1 rounded-lg bg-white/10 hover:bg-white/20">Reiniciar</button>
+          <span className="font-mono text-base text-white/70 tabular-nums" title="Hora actual">{clock}</span>
           <span className="ml-auto text-sm text-white/60">Diapositiva {i + 1} de {slides.length}</span>
           <button onClick={onClose} title="Cerrar (Esc)" className="p-2 rounded-full bg-white/15 hover:bg-white/30"><X className="w-5 h-5" /></button>
         </div>
@@ -2084,8 +2088,14 @@ function Present({
               </div>
             </div>
             <div className="flex-1 min-h-0 rounded-lg bg-white/5 border border-white/10 p-3 overflow-y-auto">
-              <p className="text-xs text-white/50 mb-1">Notas</p>
-              <p className="text-sm leading-relaxed whitespace-pre-wrap text-white/90">{note || <span className="text-white/30">Sin notas.</span>}</p>
+              <div className="flex items-center justify-between mb-1">
+                <p className="text-xs text-white/50">Notas</p>
+                <div className="flex items-center gap-1">
+                  <button onClick={() => setNotesScale((s) => Math.max(0.8, +(s - 0.1).toFixed(2)))} title="Reducir tamaño de notas" className="w-6 h-6 rounded bg-white/10 hover:bg-white/20 text-xs leading-none">A−</button>
+                  <button onClick={() => setNotesScale((s) => Math.min(2.2, +(s + 0.1).toFixed(2)))} title="Aumentar tamaño de notas" className="w-6 h-6 rounded bg-white/10 hover:bg-white/20 text-sm leading-none">A+</button>
+                </div>
+              </div>
+              <p className="leading-relaxed whitespace-pre-wrap text-white/90" style={{ fontSize: `${notesScale * 0.875}rem` }}>{note || <span className="text-white/30">Sin notas.</span>}</p>
             </div>
           </div>
         </div>
