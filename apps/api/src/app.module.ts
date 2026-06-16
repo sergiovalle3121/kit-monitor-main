@@ -20,6 +20,7 @@ import { PeopleModule } from './modules/people/people.module';
 import { ControlTowerModule } from './modules/control-tower/control-tower.module';
 import { OutboundModule } from './modules/outbound/outbound.module';
 import { TrafficModule } from './modules/traffic/traffic.module';
+import { PackingModule } from './modules/packing/packing.module';
 import { InboundModule } from './modules/inbound/inbound.module';
 import { CycleCountsModule } from './modules/cycle-counts/cycle-counts.module';
 import { CrmModule } from './modules/crm/crm.module';
@@ -99,6 +100,7 @@ import { AiModule } from './modules/ai/ai.module';
     ControlTowerModule,
     OutboundModule,
     TrafficModule,
+    PackingModule,
     InboundModule,
     CycleCountsModule,
     CrmModule,

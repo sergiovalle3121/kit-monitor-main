@@ -28,6 +28,7 @@ export const DEFAULT_SEQUENCES: SequenceDefault[] = [
   { docType: 'ECO', name: 'Cambio de Ingeniería (ECO / ECN)', prefix: 'ECO', pattern: '{PREFIX}-{YYYY}-{SEQ}', padding: 5, resetPolicy: 'YEARLY', description: 'Control de cambios de ingeniería.' },
   { docType: 'ASN', name: 'Aviso de Embarque (ASN)', prefix: 'ASN', pattern: '{PREFIX}-{YYYY}-{SEQ}', padding: 6, resetPolicy: 'YEARLY', description: 'Advance shipping notice (EDI 856).' },
   { docType: 'SHIPMENT', name: 'Embarque', prefix: 'SHP', pattern: '{PREFIX}-{YYYY}-{SEQ}', padding: 6, resetPolicy: 'YEARLY', description: 'Embarques de producto terminado.' },
+  { docType: 'SSCC', name: 'SSCC (Unidad Logística)', prefix: '', pattern: '{SEQ}', padding: 9, resetPolicy: 'NEVER', description: 'Serial reference del SSCC (GS1) por unidad de manejo.' },
   { docType: 'RECEIPT', name: 'Recepción de Material', prefix: 'RCV', pattern: '{PREFIX}-{YYYY}-{SEQ}', padding: 6, resetPolicy: 'YEARLY', description: 'Recepciones en almacén (Inbound).' },
   { docType: 'GOODS_RECEIPT', name: 'Recibo de Material', prefix: 'REC', pattern: '{PREFIX}-{YYYY}-{SEQ}', padding: 4, resetPolicy: 'YEARLY', description: 'Recibos directos a inventario (Receiving) — conserva REC-YYYY-NNNN.' },
   { docType: 'INVOICE', name: 'Factura', prefix: 'INV', pattern: '{PREFIX}-{YYYY}-{SEQ}', padding: 6, resetPolicy: 'YEARLY', description: 'Facturas de venta (AR).' },
