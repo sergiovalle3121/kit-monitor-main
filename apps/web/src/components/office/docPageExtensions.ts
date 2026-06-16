@@ -191,6 +191,7 @@ export const PageMeta = Extension.create({
         pageSize: { default: 'a4' },              // a4 | letter | legal
         pageMargin: { default: 'normal' },        // normal | narrow | wide
         pageColumns: { default: 1 },              // 1 | 2 | 3
+        pageColumnRule: { default: false },       // línea entre columnas
         pageWatermark: { default: '' },
         pageBorder: { default: '' },              // '' | thin | thick | double
         pageLineNumbers: { default: false },      // numeración de líneas (aprox. por párrafo)

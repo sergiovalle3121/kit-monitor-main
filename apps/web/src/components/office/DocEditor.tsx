@@ -55,7 +55,7 @@ import { ListNumbering } from './docs/listNumbering';
 import { TableCellAttrs } from './docs/tableCellAttrs';
 import { SearchHighlight } from './docs/searchHighlight';
 import { MathInline, MathBlock, MathCommands } from './docs/mathExtension';
-import { FootnoteRef, FootnoteList } from './docs/footnotes';
+import { FootnoteRef, FootnoteList, EndnoteRef, EndnoteList } from './docs/footnotes';
 import { DropCap, Callout, ColumnBreak, Bookmark, CrossRef } from './docs/insertNodes';
 import { InsertionMark, DeletionMark, TrackChanges } from './docs/trackChanges';
 import { FocusLine } from './docs/focusLine';
@@ -159,6 +159,8 @@ export function DocEditor({ value, onChange, readOnly, author, onStats, fileActi
       MathCommands,
       FootnoteRef,
       FootnoteList,
+      EndnoteRef,
+      EndnoteList,
       DropCap,
       Callout,
       ColumnBreak,
@@ -306,6 +308,7 @@ export function DocEditor({ value, onChange, readOnly, author, onStats, fileActi
   const pgSize = meta.pageSize || 'a4';
   const pgMargin = meta.pageMargin || 'normal';
   const pgColumns = Number(meta.pageColumns || 1);
+  const pgColumnRule = !!meta.pageColumnRule;
   const pgWatermark = meta.pageWatermark || '';
   const pgBorder = meta.pageBorder || '';
   const pgLineNumbers = !!meta.pageLineNumbers;
@@ -469,7 +472,7 @@ export function DocEditor({ value, onChange, readOnly, author, onStats, fileActi
           <RibbonTab id="references" label="Referencias">
             <DocToc editor={editor} />
             <RibbonSeparator />
-            <RibbonGroup label="Notas al pie">
+            <RibbonGroup label="Notas al pie y al final">
               <DocFootnotes editor={editor} />
             </RibbonGroup>
             <RibbonSeparator />
@@ -527,7 +530,7 @@ export function DocEditor({ value, onChange, readOnly, author, onStats, fileActi
           </div>
         )}
         <div
-          className={`mx-auto bg-white dark:bg-[#1a1a1a] shadow-xl rounded-sm w-full text-black dark:text-gray-100 relative overflow-hidden doc-track-${trackView} ${pgColumns === 2 ? 'doc-cols-2' : pgColumns === 3 ? 'doc-cols-3' : ''} ${showMarks ? 'doc-show-marks' : ''} ${focusMode ? 'doc-focus' : ''} ${readingMode ? 'doc-reading' : ''} ${pgBorder ? `doc-border-${pgBorder}` : ''} ${pgLineNumbers ? 'doc-line-numbers' : ''}`}
+          className={`mx-auto bg-white dark:bg-[#1a1a1a] shadow-xl rounded-sm w-full text-black dark:text-gray-100 relative overflow-hidden doc-track-${trackView} ${pgColumns === 2 ? 'doc-cols-2' : pgColumns === 3 ? 'doc-cols-3' : ''} ${pgColumnRule && pgColumns > 1 ? 'doc-cols-rule' : ''} ${showMarks ? 'doc-show-marks' : ''} ${focusMode ? 'doc-focus' : ''} ${readingMode ? 'doc-reading' : ''} ${pgBorder ? `doc-border-${pgBorder}` : ''} ${pgLineNumbers ? 'doc-line-numbers' : ''}`}
           style={{ width: readingMode ? 760 : pageW, maxWidth: '100%', minHeight: readingMode ? undefined : pageMinH, padding: readingMode ? 56 : pagePad, zoom }}
         >
           {pgWatermark && <div className="doc-watermark" aria-hidden>{pgWatermark}</div>}

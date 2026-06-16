@@ -223,6 +223,23 @@ CSS de todo lo anterior en `tiptap.css`.
   páginas con nombre de Paged.js); en el editor se respeta como continuo.
 - Puertas: `tsc` 0, `eslint` carril 0, `next build` verde.
 
+### F2 · Wave 4 — Notas al final + línea entre columnas
+- **Notas al final** (endnotes): corriente independiente de las notas al pie, con
+  numeración propia en romanos minúscula (i, ii, iii…). Nodos `endnoteRef`
+  (marcador ◆) y `endnoteList` (área «Notas al final»), insertar/editar/área.
+  Las notas al pie quedan **intactas** (mismo esquema) para no romper documentos.
+- `DocFootnotes` ahora gestiona ambos tipos (pie y final) con un solo diálogo y el
+  menú con las 4 acciones. Grupo de *Referencias* renombrado a «Notas al pie y al
+  final».
+- **Línea entre columnas** (`pageColumnRule`): toggle en *Disposición* (activo sólo
+  con ≥2 columnas), aplicado en pantalla (`doc-cols-rule`) y en la vista paginada
+  (`column-rule`) para la sección 0 y las secciones con columnas propias.
+- Archivos: `docs/footnotes.ts` (nodos endnote + helpers), `docs/DocFootnotes.tsx`
+  (reescrito para 2 tipos), `docPageExtensions.ts` (attr `pageColumnRule`),
+  `DocPageSetup.tsx` (toggle), `DocEditor.tsx` (registro endnotes + clase), 
+  `DocPageView.tsx` (column-rule), `docs/docStyles.ts` (CSS).
+- Puertas: `tsc` 0, `eslint` carril 0, `next build` verde.
+
 ## Resumen final de la sesión
 Se llevó el editor de Documentos muy cerca de Word, todo con código propio sobre
 TipTap/ProseMirror (MIT) + KaTeX (MIT). **No se tocó** el ribbon compartido,

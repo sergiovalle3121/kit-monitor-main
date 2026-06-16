@@ -68,4 +68,14 @@ export const DOC_EXTRA_CSS = `
   .tiptap-page .ProseMirror .doc-section-break .doc-section-break-label,
   .tiptap-page .ProseMirror .doc-section-break .doc-section-break-edit { display: none; }
 }
+
+/* ───────────── Notas al final ───────────── */
+.tiptap-page .ProseMirror .doc-endnote-ref { color: #7c3aed; font-weight: 700; cursor: pointer; padding: 0 1px; font-size: 0.7em; vertical-align: super; }
+.tiptap-page .ProseMirror .doc-endnote-ref:hover { text-decoration: underline; }
+.tiptap-page .ProseMirror .doc-endnote-list { border-top: 1px solid #d1d5db; margin-top: 2em; padding-top: 0.6em; font-size: 0.85em; color: #4b5563; }
+@media (prefers-color-scheme: dark) { .tiptap-page .ProseMirror .doc-endnote-list { border-color: rgba(255,255,255,0.15); color: #9ca3af; } }
+
+/* ───────────── Columnas: línea entre columnas ───────────── */
+.doc-cols-rule .ProseMirror { column-rule: 1px solid #d1d5db; }
+@media (prefers-color-scheme: dark) { .doc-cols-rule .ProseMirror { column-rule-color: rgba(255,255,255,0.18); } }
 `;

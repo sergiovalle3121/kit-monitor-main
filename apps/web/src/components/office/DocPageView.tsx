@@ -90,8 +90,9 @@ function buildSectioned(rawHtml: string, opts: { header: string; footer: string;
 
   let css = `@page { size: ${sizeFor(docAttrs)}; margin: ${marginFor(docAttrs)}; ${marginBoxes(header, footer, nums, 'decimal', true)} }`;
   if (firstDiff) css += ` @page:first { @top-center { content: none; } @bottom-left { content: none; } @bottom-right { content: none; } }`;
+  const rule = docAttrs?.pageColumnRule ? ' column-rule: 1px solid #ccc;' : '';
   const baseCols = Number(docAttrs?.pageColumns || 1);
-  if (baseCols > 1) css += ` .doc-section.sec0 { column-count: ${baseCols}; column-gap: 2rem; }`;
+  if (baseCols > 1) css += ` .doc-section.sec0 { column-count: ${baseCols}; column-gap: 2rem;${rule} }`;
   sections.forEach((s, i) => {
     if (i === 0 || !s.attrs) return;
     const a = s.attrs;
@@ -100,7 +101,7 @@ function buildSectioned(rawHtml: string, opts: { header: string; footer: string;
     const n = a.pageNumbers || nums;
     css += ` @page sec${i} { size: ${sizeFor(docAttrs, a.orientation)}; margin: ${marginFor(docAttrs)}; ${marginBoxes(h, f, n, a.pageFormat, false)} }`;
     css += ` .doc-section.sec${i} { page: sec${i}; }`;
-    if (a.columns > 1) css += ` .doc-section.sec${i} { column-count: ${a.columns}; column-gap: 2rem; }`;
+    if (a.columns > 1) css += ` .doc-section.sec${i} { column-count: ${a.columns}; column-gap: 2rem;${rule} }`;
     if (a.pageStart != null) css += ` .doc-section.sec${i} { counter-reset: page ${Math.max(0, a.pageStart - 1)}; }`;
   });
   return { html, css: CONTENT_CSS + css };
