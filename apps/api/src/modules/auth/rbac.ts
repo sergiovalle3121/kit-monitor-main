@@ -39,7 +39,7 @@ const READ_ALL = [
 
 export const ROLE_PERMISSIONS: Record<AppRole, string[]> = {
   admin: [], // role 'Admin' bypasses the guard; explicit perms not needed
-  executive: READ_ALL,
+  executive: [...READ_ALL, 'production:report'],
   // Plant manager / ops manager — broad read + the operational authorizations
   // needed to run a plant (publish plans, authorize WOs, dispositions).
   plant_manager: [
@@ -47,8 +47,8 @@ export const ROLE_PERMISSIONS: Record<AppRole, string[]> = {
     'planning:write',
     'planning:publish',
     'production:write',
-    'production:authorize',
     'production:report',
+    'production:authorize',
     'quality:write',
     'quality:hold',
     'quality:disposition',
@@ -134,6 +134,7 @@ export const ROLE_PERMISSIONS: Record<AppRole, string[]> = {
     'engineering:read',
     'engineering:write',
     'production:read',
+    'production:report',
     'materials:read',
   ],
   // Cycle-count analyst: reconciles inventory variances from backflush vs count.
