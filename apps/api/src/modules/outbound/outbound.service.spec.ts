@@ -4,10 +4,16 @@ import { Shipment } from './entities/shipment.entity';
 import { DocumentNumberingService } from '../numbering/document-numbering.service';
 import { DocumentSequence } from '../numbering/entities/document-sequence.entity';
 import { TenantContextService } from '../../common/tenant/tenant-context.service';
+import { TrafficService } from '../traffic/traffic.service';
+import { Carrier } from '../traffic/entities/carrier.entity';
+import { Vehicle } from '../traffic/entities/vehicle.entity';
+import { Driver } from '../traffic/entities/driver.entity';
+import { LoadingDock } from '../traffic/entities/loading-dock.entity';
 
 describe('OutboundService (integration)', () => {
   let dataSource: DataSource;
   let service: OutboundService;
+  let traffic: TrafficService;
   const year = new Date().getFullYear();
 
   beforeEach(async () => {
@@ -16,7 +22,7 @@ describe('OutboundService (integration)', () => {
       database: ':memory:',
       dropSchema: true,
       synchronize: true,
-      entities: [Shipment, DocumentSequence],
+      entities: [Shipment, DocumentSequence, Carrier, Vehicle, Driver, LoadingDock],
     });
     await dataSource.initialize();
 
@@ -26,10 +32,18 @@ describe('OutboundService (integration)', () => {
       dataSource,
       ctx,
     );
+    traffic = new TrafficService(
+      dataSource.getRepository(Carrier),
+      dataSource.getRepository(Vehicle),
+      dataSource.getRepository(Driver),
+      dataSource.getRepository(LoadingDock),
+      ctx,
+    );
     service = new OutboundService(
       dataSource.getRepository(Shipment),
       ctx,
       numbering,
+      traffic,
     );
   });
 
@@ -76,5 +90,54 @@ describe('OutboundService (integration)', () => {
     expect(kpis.overdue).toBe(1);
     expect(kpis.delivered).toBe(1);
     expect(kpis.otdPct).toBe(100); // delivered before promised
+  });
+
+  it('assigns transport (carrier/unit/driver/dock) and flips them to busy', async () => {
+    const s = await service.create({ title: 'Con unidad' });
+    const carrier = await traffic.createCarrier({ code: 'DHL', name: 'DHL Supply Chain' });
+    const vehicle = await traffic.createVehicle({ plate: 'ABC-123', type: 'DRY_VAN' });
+    const driver = await traffic.createDriver({ name: 'Juan Pérez' });
+    const dock = await traffic.createDock({ code: 'D-1', type: 'shipping' });
+
+    const assigned = await service.assignTransport(s.id, {
+      carrierId: carrier.id,
+      vehicleId: vehicle.id,
+      driverId: driver.id,
+      dockId: dock.id,
+    });
+    expect(assigned.carrier).toBe('DHL Supply Chain');
+    expect(assigned.vehiclePlate).toBe('ABC-123');
+    expect(assigned.driverName).toBe('Juan Pérez');
+    expect(assigned.dockCode).toBe('D-1');
+    expect(assigned.transportAssignedAt).toBeTruthy();
+
+    expect((await traffic.getVehicle(vehicle.id)).status).toBe('assigned');
+    expect((await traffic.getDriver(driver.id)).status).toBe('assigned');
+    expect((await traffic.getDock(dock.id)).status).toBe('occupied');
+
+    const released = await service.releaseTransport(s.id);
+    expect(released.vehiclePlate).toBeNull();
+    expect(released.dockCode).toBeNull();
+    expect((await traffic.getVehicle(vehicle.id)).status).toBe('available');
+    expect((await traffic.getDock(dock.id)).status).toBe('available');
+  });
+
+  it('blocks assigning a unit in maintenance (poka-yoke)', async () => {
+    const s = await service.create({ title: 'Bloqueo' });
+    const v = await traffic.createVehicle({ plate: 'XYZ-9', type: 'DRY_VAN' });
+    await traffic.updateVehicle(v.id, { status: 'maintenance' });
+    await expect(
+      service.assignTransport(s.id, { vehicleId: v.id }),
+    ).rejects.toThrow(/mantenimiento/i);
+  });
+
+  it('blocks assigning a unit already tied to another shipment', async () => {
+    const a = await service.create({ title: 'A' });
+    const b = await service.create({ title: 'B' });
+    const v = await traffic.createVehicle({ plate: 'DUP-1', type: 'DRY_VAN' });
+    await service.assignTransport(a.id, { vehicleId: v.id });
+    await expect(
+      service.assignTransport(b.id, { vehicleId: v.id }),
+    ).rejects.toThrow(/otro embarque/i);
   });
 });

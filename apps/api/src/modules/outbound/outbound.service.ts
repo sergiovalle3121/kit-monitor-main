@@ -13,11 +13,19 @@ import { DocumentNumberingService } from '../numbering/document-numbering.servic
 import { EventLedgerService } from '../event-ledger/event-ledger.service';
 import { EventDomain } from '../event-ledger/entities/ledger-event.entity';
 import {
+  AssignTransportDto,
   CreateShipmentDto,
   TransitionShipmentDto,
   UpdateShipmentDto,
 } from './dto/outbound.dto';
 import { assertTransition, ShipmentStatus } from './shipment-state';
+import { TrafficService } from '../traffic/traffic.service';
+import {
+  checkCarrierAssignable,
+  checkDockAssignable,
+  checkDriverAssignable,
+  checkVehicleAssignable,
+} from '../traffic/traffic.rules';
 
 export interface OutboundKpis {
   toShip: number;
@@ -37,6 +45,7 @@ export class OutboundService {
     private readonly repo: Repository<Shipment>,
     private readonly tenantCtx: TenantContextService,
     private readonly numbering: DocumentNumberingService,
+    private readonly traffic: TrafficService,
     @Optional() private readonly ledger?: EventLedgerService,
   ) {}
 
@@ -158,6 +167,99 @@ export class OutboundService {
       before: { status: from },
       after: { status: dto.status },
     });
+    return saved;
+  }
+
+  /**
+   * Traffic assigns transport (carrier / unit / driver / dock) to a shipment.
+   * Each provided piece is validated against the assignment poka-yoke (must exist,
+   * be active, not in maintenance, not already tied to another shipment, and the
+   * dock must be a shipping door). On success the piece is flipped to assigned/
+   * occupied and a denormalized snapshot is stored on the shipment.
+   */
+  async assignTransport(id: string, dto: AssignTransportDto): Promise<Shipment> {
+    const s = await this.getOne(id);
+
+    if (dto.carrierId) {
+      const c = await this.traffic.getCarrier(dto.carrierId);
+      const issue = checkCarrierAssignable(c);
+      if (issue) throw new BadRequestException(issue.reason);
+      s.carrierId = c.id;
+      s.carrier = c.name;
+    }
+
+    if (dto.vehicleId) {
+      const v = await this.traffic.getVehicle(dto.vehicleId);
+      const same = s.vehicleId === v.id;
+      const issue = checkVehicleAssignable(v, { allowReassignSame: same });
+      if (issue) throw new BadRequestException(issue.reason);
+      if (s.vehicleId && s.vehicleId !== v.id) {
+        await this.traffic.setVehicleStatus(s.vehicleId, 'available').catch(() => undefined);
+      }
+      s.vehicleId = v.id;
+      s.vehiclePlate = v.plate;
+      s.vehicleType = v.type;
+      if (v.status !== 'assigned') await this.traffic.setVehicleStatus(v.id, 'assigned');
+    }
+
+    if (dto.driverId) {
+      const d = await this.traffic.getDriver(dto.driverId);
+      const same = s.driverId === d.id;
+      const issue = checkDriverAssignable(d, { allowReassignSame: same });
+      if (issue) throw new BadRequestException(issue.reason);
+      if (s.driverId && s.driverId !== d.id) {
+        await this.traffic.setDriverStatus(s.driverId, 'available').catch(() => undefined);
+      }
+      s.driverId = d.id;
+      s.driverName = d.name;
+      if (d.status !== 'assigned') await this.traffic.setDriverStatus(d.id, 'assigned');
+    }
+
+    if (dto.dockId) {
+      const k = await this.traffic.getDock(dto.dockId);
+      const same = s.dockId === k.id;
+      const issue = checkDockAssignable(k, { allowReassignSame: same });
+      if (issue) throw new BadRequestException(issue.reason);
+      if (s.dockId && s.dockId !== k.id) {
+        await this.traffic.setDockStatus(s.dockId, 'available').catch(() => undefined);
+      }
+      s.dockId = k.id;
+      s.dockCode = k.code;
+      if (k.status !== 'occupied') await this.traffic.setDockStatus(k.id, 'occupied');
+    }
+
+    s.transportAssignedAt = new Date();
+    s.transportAssignedBy = this.tenantCtx.getUserEmail();
+    const saved = await this.repo.save(s);
+    await this.recordLedger('SHIPMENT_TRANSPORT_ASSIGNED', saved, {
+      after: {
+        carrier: saved.carrier,
+        vehiclePlate: saved.vehiclePlate,
+        driverName: saved.driverName,
+        dockCode: saved.dockCode,
+      },
+    });
+    return saved;
+  }
+
+  /** Releases the assigned transport, freeing the unit/driver/dock back to available. */
+  async releaseTransport(id: string): Promise<Shipment> {
+    const s = await this.getOne(id);
+    if (s.vehicleId) await this.traffic.setVehicleStatus(s.vehicleId, 'available').catch(() => undefined);
+    if (s.driverId) await this.traffic.setDriverStatus(s.driverId, 'available').catch(() => undefined);
+    if (s.dockId) await this.traffic.setDockStatus(s.dockId, 'available').catch(() => undefined);
+    s.carrierId = null;
+    s.vehicleId = null;
+    s.vehiclePlate = null;
+    s.vehicleType = null;
+    s.driverId = null;
+    s.driverName = null;
+    s.dockId = null;
+    s.dockCode = null;
+    s.transportAssignedAt = null;
+    s.transportAssignedBy = null;
+    const saved = await this.repo.save(s);
+    await this.recordLedger('SHIPMENT_TRANSPORT_RELEASED', saved, { after: { released: true } });
     return saved;
   }
 

@@ -34,6 +34,7 @@ const READ_ALL = [
   'inventory:read',
   'planning:read',
   'engineering:read',
+  'logistics:read',
   'reports:read',
 ];
 
@@ -56,6 +57,7 @@ export const ROLE_PERMISSIONS: Record<AppRole, string[]> = {
     'materials:stage',
     'inventory:write',
     'inventory:reconcile',
+    'logistics:write',
     'maintenance:write',
   ],
   planner: [
@@ -77,6 +79,8 @@ export const ROLE_PERMISSIONS: Record<AppRole, string[]> = {
     'materials:stage',
     'inventory:read',
     'inventory:write',
+    'logistics:read',
+    'logistics:write',
     'production:read',
   ],
   // Materialist / line-feeder: stages kits to stations & raises replenishment.
