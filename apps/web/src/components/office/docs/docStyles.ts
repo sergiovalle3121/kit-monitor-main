@@ -30,4 +30,16 @@ export const DOC_EXTRA_CSS = `
   .doc-track-markup .ProseMirror .doc-change-bar::before,
   .doc-track-simple .ProseMirror .doc-change-bar::before { display: none; }
 }
+
+/* ───────────── Tabla de contenido: puntos guía + nº de página ───────────── */
+.tiptap-page .ProseMirror .doc-toc-item { display: flex; align-items: baseline; }
+.tiptap-page .ProseMirror .doc-toc-item .doc-toc-text { flex-shrink: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tiptap-page .ProseMirror .doc-toc-item .doc-toc-dots {
+  flex: 1 1 auto; align-self: flex-end; margin: 0 6px 0.18em; min-width: 14px;
+  border-bottom: 1px dotted currentColor; opacity: 0.45; height: 0;
+}
+.tiptap-page .ProseMirror .doc-toc-item .doc-toc-page {
+  flex-shrink: 0; color: #4b5563; font-variant-numeric: tabular-nums; font-size: 0.85em; min-width: 1.2em; text-align: right;
+}
+@media (prefers-color-scheme: dark) { .tiptap-page .ProseMirror .doc-toc-item .doc-toc-page { color: #9ca3af; } }
 `;

@@ -175,6 +175,20 @@ CSS de todo lo anterior en `tiptap.css`.
   `DocEditor.tsx` (estado `trackView`, clase en la página, `<style>`).
 - Puertas: `tsc` 0, `eslint` carril 0, `next build` verde.
 
+### F2 · Wave 2 — Tabla de contenido automática (niveles + nº de página + actualizar)
+- **Niveles configurables**: el nodo `toc` ahora tiene `maxLevel` (1-6). Se puede
+  insertar a 1-2 / 1-3 / todos, y cambiar los niveles de un TOC existente.
+- **Números de página estimados** con **puntos guía** (leader dots), medidos del
+  DOM (rAF, sin reflow por tecla; normaliza el `zoom` de la página). Es una
+  estimación —como Word hasta repaginar— a partir de la altura imprimible según
+  el tamaño/orientación/márgenes.
+- **«Actualizar tabla»** (comando `updateToc`, incrementa `rev`) y `setTocLevels`,
+  expuestos en un control nuevo `DocToc` (pestaña *Referencias*).
+- Archivos: `docExtensions.ts` (nodo `Toc` reescrito: attrs, comandos, NodeView con
+  medición), `docs/DocToc.tsx` (nuevo), `DocEditor.tsx` (usa `DocToc`, quita el
+  botón suelto y el icono sin uso), `docs/docStyles.ts` (CSS de puntos guía).
+- Puertas: `tsc` 0, `eslint` carril 0, `next build` verde.
+
 ## Resumen final de la sesión
 Se llevó el editor de Documentos muy cerca de Word, todo con código propio sobre
 TipTap/ProseMirror (MIT) + KaTeX (MIT). **No se tocó** el ribbon compartido,

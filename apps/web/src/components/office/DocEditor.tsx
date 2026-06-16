@@ -38,7 +38,7 @@ import {
   List, ListOrdered, ListChecks, Quote, AlignLeft, AlignCenter, AlignRight, AlignJustify,
   Highlighter, Link2, Undo, Redo, Minus, Search, SeparatorHorizontal,
   Subscript as SubIcon, Superscript as SupIcon, RemoveFormatting, Code2, Calendar, Smile, Baseline, FileText,
-  PaintRoller, IndentIncrease, IndentDecrease, ListTree, Accessibility,
+  PaintRoller, IndentIncrease, IndentDecrease, Accessibility,
 } from 'lucide-react';
 import { DocFindReplace } from './DocFindReplace';
 import { DocOutline } from './DocOutline';
@@ -74,6 +74,7 @@ import { DocEquation } from './docs/DocEquation';
 import { DocListMenu } from './docs/DocListMenu';
 import { DocViewTools } from './docs/DocViewTools';
 import { DocFootnotes } from './docs/DocFootnotes';
+import { DocToc } from './docs/DocToc';
 import { DocInsertExtras } from './docs/DocInsertExtras';
 import { DocTrackChanges, type TrackView } from './docs/DocTrackChanges';
 import { DocWordCount } from './docs/DocWordCount';
@@ -458,9 +459,7 @@ export function DocEditor({ value, onChange, readOnly, author, onStats, fileActi
 
           {!readOnly && (
           <RibbonTab id="references" label="Referencias">
-            <RibbonGroup label="Tabla de contenido">
-              <RibbonButton icon={ListTree} label="Insertar tabla de contenido" hideLabel={false} onClick={() => (c() as any).insertToc().run()} />
-            </RibbonGroup>
+            <DocToc editor={editor} />
             <RibbonSeparator />
             <RibbonGroup label="Notas al pie">
               <DocFootnotes editor={editor} />
