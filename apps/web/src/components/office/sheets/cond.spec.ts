@@ -86,6 +86,28 @@ const at = (sheet: any, r: number, c: number) => sheet.celldata.find((x: any) =>
   ok(at(sheet2, 2, 0).bg == null, '3 NO está en el 20% inferior');
 }
 
+// ── Conjuntos de iconos: 3, 5 iconos, invertir e idempotencia ────────────────
+{
+  const sheet: any = { celldata: [cell(0, 0, 0), cell(1, 0, 50), cell(2, 0, 100)] };
+  applyConditional(sheet, { kind: 'iconset', range: 'A1:A3', sheetIndex: 0, icons: ['🔴', '🟡', '🟢'] } as any);
+  eq(at(sheet, 0, 0).m, '🔴 0', 'mín → primer icono');
+  eq(at(sheet, 2, 0).m, '🟢 100', 'máx → último icono');
+  // Reaplicar es idempotente (no acumula iconos)
+  applyConditional(sheet, { kind: 'iconset', range: 'A1:A3', sheetIndex: 0, icons: ['🔴', '🟡', '🟢'] } as any);
+  eq(at(sheet, 2, 0).m, '🟢 100', 'reaplicar idempotente');
+  // Invertir
+  applyConditional(sheet, { kind: 'iconset', range: 'A1:A3', sheetIndex: 0, icons: ['🔴', '🟡', '🟢'], reverse: true } as any);
+  eq(at(sheet, 0, 0).m, '🟢 0', 'invertido: mín → 🟢');
+  eq(at(sheet, 2, 0).m, '🔴 100', 'invertido: máx → 🔴');
+}
+{
+  // 5 iconos sobre 0..100 → buckets de 20
+  const sheet: any = { celldata: [cell(0, 0, 0), cell(1, 0, 100)] };
+  applyConditional(sheet, { kind: 'iconset', range: 'A1:A2', sheetIndex: 0, icons: ['▁', '▃', '▅', '▆', '▇'] } as any);
+  eq(at(sheet, 0, 0).m, '▁ 0', 'mín → primer icono (5)');
+  eq(at(sheet, 1, 0).m, '▇ 100', 'máx → último icono (5)');
+}
+
 console.log(`\nCOND SPEC: ${passed} OK, ${fails.length} fallos`);
 if (fails.length) { for (const f of fails) console.error('  ✗ ' + f); throw new Error(`${fails.length} fallos`); }
 console.log('✓ Todas las aserciones de formato condicional pasan.');

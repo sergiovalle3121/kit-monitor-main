@@ -42,9 +42,12 @@ const KINDS: { value: CondKind; label: string }[] = [
   { value: 'clear', label: 'Limpiar formato del rango' },
 ];
 const ICON_SETS: { label: string; icons: string[] }[] = [
-  { label: 'Semáforo 🔴🟡🟢', icons: ['🔴', '🟡', '🟢'] },
-  { label: 'Flechas ⬇️➡️⬆️', icons: ['⬇️', '➡️', '⬆️'] },
-  { label: 'Triángulos ▼▬▲', icons: ['▼', '▬', '▲'] },
+  { label: 'Semáforo 🔴🟡🟢 (3)', icons: ['🔴', '🟡', '🟢'] },
+  { label: 'Flechas ⬇️➡️⬆️ (3)', icons: ['⬇️', '➡️', '⬆️'] },
+  { label: 'Triángulos ▼▬▲ (3)', icons: ['▼', '▬', '▲'] },
+  { label: 'Flechas ⬇️↘️↗️⬆️ (4)', icons: ['⬇️', '↘️', '↗️', '⬆️'] },
+  { label: 'Flechas ⬇️↘️➡️↗️⬆️ (5)', icons: ['⬇️', '↘️', '➡️', '↗️', '⬆️'] },
+  { label: 'Barras ▁▃▅▆▇ (5)', icons: ['▁', '▃', '▅', '▆', '▇'] },
 ];
 
 /** Validación de datos (listas) y formato condicional avanzado. */
@@ -81,6 +84,7 @@ export function SheetTools({
   const [n, setN] = useState(3);
   const [percent, setPercent] = useState(false);
   const [iconIdx, setIconIdx] = useState(0);
+  const [iconReverse, setIconReverse] = useState(false);
   const field = 'w-full h-9 text-sm rounded-xl bg-gray-100 dark:bg-white/10 px-3 outline-none focus:ring-2 ring-emerald-500/40';
 
   const swatches = (cur: string, set: (c: string) => void) => (
@@ -113,7 +117,7 @@ export function SheetTools({
     else if (kind === 'scale3') Object.assign(base, { c1, c2, c3 });
     else if (kind === 'top' || kind === 'bottom') Object.assign(base, { n, color, percent });
     else if (kind === 'duplicates' || kind === 'unique' || kind === 'databar') Object.assign(base, { color });
-    else if (kind === 'iconset') Object.assign(base, { icons: ICON_SETS[iconIdx].icons });
+    else if (kind === 'iconset') Object.assign(base, { icons: ICON_SETS[iconIdx].icons, reverse: iconReverse });
     onApplyCondFormat(base);
   }
 
@@ -275,11 +279,16 @@ export function SheetTools({
               </div>
             )}
             {kind === 'iconset' && (
-              <label className="block text-xs text-gray-500">Conjunto
-                <select value={iconIdx} onChange={(e) => setIconIdx(Number(e.target.value))} className={field}>
-                  {ICON_SETS.map((s, i) => <option key={i} value={i}>{s.label}</option>)}
-                </select>
-              </label>
+              <>
+                <label className="block text-xs text-gray-500">Conjunto
+                  <select value={iconIdx} onChange={(e) => setIconIdx(Number(e.target.value))} className={field}>
+                    {ICON_SETS.map((s, i) => <option key={i} value={i}>{s.label}</option>)}
+                  </select>
+                </label>
+                <label className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer">
+                  <input type="checkbox" checked={iconReverse} onChange={(e) => setIconReverse(e.target.checked)} /> Invertir orden de iconos
+                </label>
+              </>
             )}
             {kind === 'clear' && <p className="text-xs text-gray-400">Quita relleno, color de texto e iconos del rango indicado.</p>}
 

@@ -382,9 +382,13 @@ Tablas → «Dar formato como tabla»** (junto a Tabla dinámica) en `SheetEdito
   reutilizando el mismo conteo.
 - **Top/Bottom por porcentaje** (`percent`): «el 10% superior/inferior» además
   del top/bottom-N existente.
+- **Conjuntos de iconos de 3/4/5** iconos (antes solo 3) con buckets uniformes e
+  **invertir orden** (`reverse`); `stripIcon` ampliado para idempotencia con los
+  iconos nuevos (↗️↘️ y barras ▁▃▅▆▇).
 - UI en `SheetTools.tsx`: nuevas opciones en el desplegable de condición, la
-  regla «Valores únicos» y la casilla «Por porcentaje».
-- Specs añadidos a `sheets/cond.spec.ts` (11 → **28 aserciones**). Verde.
+  regla «Valores únicos», la casilla «Por porcentaje», 3 conjuntos de iconos
+  nuevos y «Invertir orden de iconos».
+- Specs añadidos a `sheets/cond.spec.ts` (11 → **35 aserciones**). Verde.
 
 ## Diferido / honesto
 - **Funciones nuevas en el motor** (XLOOKUP, TEXTJOIN, IFS, SWITCH, UNIQUE,

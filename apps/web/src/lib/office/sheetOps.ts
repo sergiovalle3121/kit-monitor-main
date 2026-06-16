@@ -30,7 +30,7 @@ function ensureObj(cd: Cell): any {
   cd.v = v;
   return v;
 }
-const ICONS = ['🔴', '🟡', '🟢', '⬆️', '➡️', '⬇️', '▲', '▬', '▼', '★', '☆'];
+const ICONS = ['🔴', '🟡', '🟢', '⬆️', '↗️', '➡️', '↘️', '⬇️', '▲', '▬', '▼', '★', '☆', '▁', '▃', '▅', '▆', '▇'];
 const stripIcon = (m: string) => {
   let s = m.replace(/^[█░]+\s/, ''); // quita barra de datos previa
   for (const ic of ICONS) if (s.startsWith(ic + ' ')) { s = s.slice(ic.length + 1); break; }
@@ -52,7 +52,8 @@ export interface CondPayload {
   c1?: string; c2?: string; c3?: string;                  // escalas de color
   n?: number;                                             // top/bottom N (o porcentaje si percent)
   percent?: boolean;                                      // top/bottom por porcentaje
-  icons?: string[];                                       // conjunto de iconos
+  icons?: string[];                                       // conjunto de iconos (2..5)
+  reverse?: boolean;                                      // invertir el orden de los iconos
 }
 
 /** Aplica (hornea) formato condicional sobre las celdas del rango. */
@@ -111,9 +112,12 @@ export function applyConditional(sheet: any, p: CondPayload): boolean {
     }
     case 'iconset': {
       if (!nums.length) break;
-      const min = Math.min(...nums), max = Math.max(...nums), t1 = min + (max - min) / 3, t2 = min + 2 * (max - min) / 3;
-      const icons = p.icons && p.icons.length === 3 ? p.icons : ['🔴', '🟡', '🟢'];
-      for (const x of at) { if (x.n == null) continue; style(x.cd, undefined, undefined, x.n <= t1 ? icons[0] : x.n <= t2 ? icons[1] : icons[2]); }
+      let icons = (p.icons && p.icons.length >= 2) ? p.icons.slice() : ['🔴', '🟡', '🟢'];
+      if (p.reverse) icons = icons.slice().reverse();
+      const k = icons.length;
+      const min = Math.min(...nums), max = Math.max(...nums), span = max - min || 1;
+      const pick = (n: number) => { const idx = Math.min(k - 1, Math.max(0, Math.floor(((n - min) / span) * k))); return icons[idx]; };
+      for (const x of at) { if (x.n == null) continue; style(x.cd, undefined, undefined, pick(x.n)); }
       break;
     }
     case 'databar': {
