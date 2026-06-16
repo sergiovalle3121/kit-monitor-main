@@ -46,6 +46,7 @@ import { SlideSmartArtEditor } from './SlideSmartArtEditor';
 import { makeConnector, refreshConnectors, pickTwo, isConnector } from './slides/connectors';
 import { SlideFindReplace } from './SlideFindReplace';
 import { SlideOutline } from './SlideOutline';
+import { SlideReusePanel, type ReuseItem } from './SlideReusePanel';
 import {
   OfficeRibbon, RibbonTab, RibbonGroup, RibbonSeparator,
   RibbonButton, RibbonSelect, RibbonColorButton, RibbonMenuButton,
@@ -194,6 +195,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
   const smartTargetRef = useRef<any>(null);
   const [tableEditor, setTableEditor] = useState<{ spec: TableSpec } | null>(null);
   const tableTargetRef = useRef<any>(null);
+  const [reuseOpen, setReuseOpen] = useState(false);
   const [findOpen, setFindOpen] = useState(false);
   const findCursorRef = useRef<{ s: number; o: number }>({ s: -1, o: -1 });
   const [outlineOpen, setOutlineOpen] = useState(false);
@@ -1190,6 +1192,20 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
   }, [readOnly]);
 
   function addSlide() { if (masterModeRef.current) return; capture(); slidesRef.current.splice(cur + 1, 0, blank()); notesRef.current.splice(cur + 1, 0, ''); sectionsRef.current.splice(cur + 1, 0, null); transitionsRef.current.splice(cur + 1, 0, transitionsRef.current[cur] ?? 'fade'); transDursRef.current.splice(cur + 1, 0, transDursRef.current[cur] ?? DEFAULT_TRANS_DUR); sync(); loadInto(cur + 1); }
+  // Reutilizar diapositivas: inserta una copia (de este mazo u otro importado)
+  // después de la actual, conservando su formato/notas/transición.
+  function openReuse() { if (masterModeRef.current) return; capture(); setReuseOpen(true); }
+  function insertReused(item: ReuseItem) {
+    if (masterModeRef.current) return;
+    capture();
+    const at = curRef.current + 1;
+    slidesRef.current.splice(at, 0, JSON.parse(JSON.stringify(item.slide)));
+    notesRef.current.splice(at, 0, item.note || '');
+    sectionsRef.current.splice(at, 0, null);
+    transitionsRef.current.splice(at, 0, item.transition || 'fade');
+    transDursRef.current.splice(at, 0, item.transDur || DEFAULT_TRANS_DUR);
+    sync(); loadInto(at);
+  }
   function dupSlide() { if (masterModeRef.current) return; capture(); slidesRef.current.splice(cur + 1, 0, JSON.parse(JSON.stringify(slidesRef.current[cur]))); notesRef.current.splice(cur + 1, 0, notesRef.current[cur] ?? ''); sectionsRef.current.splice(cur + 1, 0, null); transitionsRef.current.splice(cur + 1, 0, transitionsRef.current[cur] ?? 'fade'); transDursRef.current.splice(cur + 1, 0, transDursRef.current[cur] ?? DEFAULT_TRANS_DUR); sync(); loadInto(cur + 1); }
   function delSlide(i: number) { if (masterModeRef.current || slidesRef.current.length === 1) return; capture(); slidesRef.current.splice(i, 1); notesRef.current.splice(i, 1); sectionsRef.current.splice(i, 1); transitionsRef.current.splice(i, 1); transDursRef.current.splice(i, 1); sync(); loadInto(Math.max(0, i <= cur ? cur - 1 : cur)); }
   function reorderSlides(from: number, to: number) {
@@ -1297,6 +1313,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
             <RibbonGroup label="Diapositivas">
               <RibbonButton icon={Plus} label="Nueva diapositiva" onClick={addSlide} />
               <RibbonButton icon={Copy} label="Duplicar diapositiva" onClick={dupSlide} />
+              <RibbonButton icon={Layers} label="Reutilizar diapositivas" hideLabel={false} onClick={openReuse} />
             </RibbonGroup>
             <RibbonSeparator />
             <RibbonGroup label="Fuente">
@@ -1721,6 +1738,16 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
       {presenting && <Present slides={slides} notes={notesRef.current} transition={transition} transitions={transitionsRef.current} transDurs={transDursRef.current} master={masterImgRef.current} footer={footerRef.current} showNumbers={showNumbers} presenter={presenterMode} ratio={ratio} startAt={presentStartRef.current} onClose={() => { setPresenting(false); setPresenterMode(false); }} />}
       <AnimatePresence>
         {showTemplates && <TemplateGallery type="slides" onPick={applyTemplate} onClose={() => setShowTemplates(false)} />}
+      </AnimatePresence>
+      <AnimatePresence>
+        {reuseOpen && !readOnly && (
+          <SlideReusePanel
+            ratio={ratio}
+            current={slidesRef.current.map((s, i) => ({ slide: s, note: notesRef.current[i] || '', transition: transitionsRef.current[i] || 'fade', transDur: transDursRef.current[i] || DEFAULT_TRANS_DUR }))}
+            onInsert={(item) => { insertReused(item); setReuseOpen(false); }}
+            onClose={() => setReuseOpen(false)}
+          />
+        )}
       </AnimatePresence>
       <AnimatePresence>
         {chartEditor && <SlideChartEditor spec={chartEditor.spec} onApply={applyChart} onClose={() => { chartTargetRef.current = null; setChartEditor(null); }} />}

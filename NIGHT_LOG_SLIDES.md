@@ -398,6 +398,18 @@ del contenido de **todas** las diapositivas.
 
 Verificado: `tsc` ✓, `eslint` ✓ (0 errores; warnings preexistentes), `next build` ✓.
 
+#### Lote 32 — Reutilizar diapositivas (de este mazo o de otro .json)
+- `SlideReusePanel.tsx` — modal «Reutilizar diapositivas» (Inicio ▸ Diapositivas):
+  - Pestaña **Esta presentación**: miniaturas reales (render Fabric) de todas las
+    diapositivas; «Insertar» añade una **copia** después de la actual.
+  - Pestaña **Otra presentación**: **importa un .json** de presentación AXOS y
+    lista sus diapositivas para insertarlas individualmente (reutilización entre
+    mazos, 100% client-side; conserva formato + notas + transición + duración).
+- `insertReused()` inserta la copia y mantiene en paralelo notas/secciones/
+  transiciones/duraciones. Bloqueado en modo patrón.
+
+Verificado: `tsc` ✓, `eslint` ✓ (0 errores; warnings preexistentes), `next build` ✓.
+
 ### Diferido (con estimación)
 - **Secciones en el clasificador** y colapsar/expandir: el sorter es una rejilla;
   insertar encabezados de ancho completo + colapso. Estimación: ~0.5 día.
