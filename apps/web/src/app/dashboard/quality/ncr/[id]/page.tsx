@@ -143,7 +143,7 @@ export default function NcrDetailPage() {
         </div>
 
         {/* Ficha de la NCR */}
-        <div className={`${glass} rounded-2xl p-5 mb-5`}>
+        <div data-testid="ncr-detail" className={`${glass} rounded-2xl p-5 mb-5`}>
           <h3 className="font-semibold mb-3 flex items-center gap-2"><ShieldAlert className="w-4 h-4" style={{ color: sev?.color ?? "#6b7280" }} /> No conformidad</h3>
           <p className="text-sm text-gray-600 dark:text-gray-300 mb-4 whitespace-pre-wrap">{ncr.description}</p>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-3 text-sm">

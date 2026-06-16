@@ -230,7 +230,7 @@ export default function ProductionPlanPage() {
             <p className="text-[12px] text-gray-400 leading-tight">Planeación publica · operadores, materialistas y supervisión ven el mismo plan en vivo.</p>
           </div>
           <Link href="/dashboard/planning" className="hidden sm:inline-flex items-center gap-1.5 text-sm font-medium text-blue-500 hover:text-blue-700 transition-colors"><Layers className="w-4 h-4" /> Planeación</Link>
-          <button onClick={() => setShowForm(true)} className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium text-white" style={{ background: VIOLET }}><Plus className="w-4 h-4" /> Publicar WO</button>
+          <button data-testid="wo-publish-open" onClick={() => setShowForm(true)} className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium text-white" style={{ background: VIOLET }}><Plus className="w-4 h-4" /> Publicar WO</button>
         </div>
       </div>
 
@@ -295,14 +295,14 @@ export default function ProductionPlanPage() {
             <div className="grid grid-cols-2 gap-4">
               <F label="Modelo">
                 {models.length > 0 ? (
-                  <select value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} className="ci-input">
+                  <select data-testid="wo-model-select" value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} className="ci-input">
                     <option value="">Selecciona un modelo…</option>
                     {models.map((m) => (
                       <option key={m.id} value={m.modelNumber}>{m.modelNumber} · {m.name}{m.status === 'DRAFT' ? ' (borrador)' : ''}</option>
                     ))}
                   </select>
                 ) : (
-                  <input value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} className="ci-input" placeholder="AX-1000" />
+                  <input data-testid="wo-model-input" value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} className="ci-input" placeholder="AX-1000" />
                 )}
               </F>
               <F label="Revisión"><input value={form.revision} onChange={(e) => setForm({ ...form, revision: e.target.value })} className="ci-input" /></F>
@@ -317,7 +317,7 @@ export default function ProductionPlanPage() {
             </div>
             <div className="mt-5 flex justify-end gap-2">
               <button onClick={() => setShowForm(false)} className="px-4 py-2 rounded-xl text-sm hover:bg-black/5 dark:hover:bg-white/10">Cancelar</button>
-              <button onClick={publish} disabled={busy === 'new'} className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white disabled:opacity-60" style={{ background: VIOLET }}>{busy === 'new' ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />} Publicar</button>
+              <button data-testid="wo-publish-submit" onClick={publish} disabled={busy === 'new'} className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white disabled:opacity-60" style={{ background: VIOLET }}>{busy === 'new' ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />} Publicar</button>
             </div>
           </div>
         </div>
@@ -408,7 +408,7 @@ function WOCard({ wo, board, showSequence, seq, busy, onTransition, onAuthorize 
   const clear = CLEAR_META[ctb.status];
 
   return (
-    <div className={`${glass} rounded-2xl p-4`}>
+    <div data-testid="wo-card" data-model={wo.model} data-folio={wo.folio ?? ''} className={`${glass} rounded-2xl p-4`}>
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
@@ -446,6 +446,8 @@ function WOCard({ wo, board, showSequence, seq, busy, onTransition, onAuthorize 
 
       {/* Semáforo Clear-to-Build (BOM activo + material + FAI, compuesto del API) */}
       <button
+        data-testid="wo-ctb"
+        data-ctb-status={ctb.status}
         onClick={() => setOpenCtb((v) => !v)}
         className="mt-3 w-full flex items-center justify-between gap-2 px-3 py-2 rounded-xl text-left transition-colors hover:brightness-95"
         style={{ background: `${clear.color}14` }}

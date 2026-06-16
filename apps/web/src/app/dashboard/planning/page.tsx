@@ -234,6 +234,7 @@ export default function PlanningPage() {
                 <Warehouse className="w-4 h-4" /> Almacén
               </Link>
               <button
+                data-testid="plan-new-btn"
                 onClick={() => setShowForm((v) => !v)}
                 className="flex items-center gap-2 bg-black dark:bg-white text-white dark:text-black text-sm font-semibold px-4 py-2 rounded-full hover:scale-[1.03] active:scale-95 transition-transform"
               >
@@ -354,6 +355,7 @@ export default function PlanningPage() {
                     {plan.status === 'pending' ? (
                       <div className="flex flex-col items-stretch gap-2">
                         <button
+                          data-testid="plan-publish"
                           onClick={() => publish(plan)}
                           disabled={busy === plan.id}
                           className="flex items-center justify-center gap-2 bg-violet-600 text-white text-sm font-semibold px-4 py-2 rounded-full hover:bg-violet-700 active:scale-95 transition-all disabled:opacity-60"
@@ -542,7 +544,7 @@ function NewPlanForm({
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
         <div className="col-span-2 md:col-span-1">
           <label className="text-xs text-gray-500 ml-1">Modelo</label>
-          <select className={field} value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })}>
+          <select data-testid="plan-model-select" className={field} value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })}>
             <option value="">Selecciona un modelo…</option>
             {models.map((m) => (
               <option key={m.id} value={m.modelNumber}>{m.modelNumber} · {m.name}{m.status === 'DRAFT' ? ' (borrador)' : ''}</option>
@@ -578,6 +580,7 @@ function NewPlanForm({
       <div className="flex justify-end mt-4">
         <button
           type="submit"
+          data-testid="plan-create-submit"
           disabled={saving}
           className="flex items-center gap-2 bg-black dark:bg-white text-white dark:text-black text-sm font-semibold px-5 py-2.5 rounded-full hover:scale-[1.02] active:scale-95 transition-transform disabled:opacity-60"
         >
