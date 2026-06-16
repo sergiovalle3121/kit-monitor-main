@@ -373,16 +373,33 @@ Tablas → «Dar formato como tabla»** (junto a Tabla dinámica) en `SheetEdito
 
 **Spec:** `sheets/tablestyle.spec.ts` (**20 aserciones**). Verde.
 
+### 3) Formato condicional: reglas de texto + valores únicos  ✅
+`applyConditional` (en `sheetOps.ts`) gana:
+- Operadores de **texto** en la regla de comparación: **empieza por**,
+  **termina en**, **contiene** / **no contiene** (insensible a mayúsculas).
+- Nueva regla **`unique`** (valores únicos), complemento de `duplicates`,
+  reutilizando el mismo conteo.
+- UI en `SheetTools.tsx`: nuevas opciones en el desplegable de condición y la
+  regla «Valores únicos» con selector de color.
+- Specs añadidos a `sheets/cond.spec.ts` (11 → **22 aserciones**). Verde.
+
 ## Diferido / honesto
 - **Funciones nuevas en el motor** (XLOOKUP, TEXTJOIN, IFS, SWITCH, UNIQUE,
-  FILTER, SORT): el motor de Fortune-Sheet **no permite** registrarlas sin forkear
-  el paquete (catálogo fijo). NO se fuerza (rompería el build/estabilidad). El
-  motor SÍ computa INDEX/MATCH/VLOOKUP/HLOOKUP/XMATCH, ya presentes en el
-  asistente. **REQUIERE FORK del motor** (fuera del carril nocturno).
+  FILTER, SORT como fórmulas de celda): el motor de Fortune-Sheet **no permite**
+  registrarlas sin forkear el paquete (catálogo fijo). NO se fuerza (rompería el
+  build/estabilidad). **REQUIERE FORK del motor** (fuera del carril nocturno).
+  Nota: UNIQUE/FILTER/SORT ya están disponibles como **acciones de datos**
+  (Quitar duplicados / Filtrar a hoja / Ordenar), que cubren el caso de uso.
+- **Asistente de funciones (`SheetFunctionWizard`)**: NO se tocó. Verificar qué
+  funciones computa el motor leyendo el bundle minificado de `@fortune-sheet/core`
+  es **poco fiable** (la `functionlist` está localizada y la introspección por
+  regex da falsos negativos hasta para `SUM`/`AVERAGE`). Para ampliar/depurar el
+  asistente con garantías habría que probar cada función en un Workbook real
+  (DOM), no en Node. Se deja como está para no anunciar funciones no computables.
 
 ## Seguridad / paralelismo (esta sesión)
 - Solo se tocaron: `lib/office/sheetOps.ts`, `components/office/SheetTools.tsx`,
   `components/office/SheetEditor.tsx`, `components/office/SheetTableStyle.tsx` (nuevo),
   `components/office/sheets/validation.spec.ts` y `tablestyle.spec.ts` (nuevos),
-  y este log. **No** se tocó backend, esquema, `OfficeShell`, `page.tsx` ni el
-  ribbon compartido.
+  `components/office/sheets/cond.spec.ts` (ampliado), y este log. **No** se tocó
+  backend, esquema, `OfficeShell`, `page.tsx` ni el ribbon compartido.

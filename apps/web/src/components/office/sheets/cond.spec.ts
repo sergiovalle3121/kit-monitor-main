@@ -40,6 +40,35 @@ const at = (sheet: any, r: number, c: number) => sheet.celldata.find((x: any) =>
   ok(at(sheet, 2, 0).bg == null, '25 fuera de [10,20]');
 }
 
+// ── Reglas de texto: empieza por / termina en / no contiene ──────────────────
+{
+  const sheet: any = { celldata: [cell(0, 0, 'Manzana'), cell(1, 0, 'Mandarina'), cell(2, 0, 'Pera')] };
+  applyConditional(sheet, { kind: 'compare', range: 'A1:A3', sheetIndex: 0, op: 'beginsWith', value: 'Man', color: '#dbeafe' } as any);
+  eq(at(sheet, 0, 0).bg, '#dbeafe', 'Manzana empieza por Man');
+  eq(at(sheet, 1, 0).bg, '#dbeafe', 'Mandarina empieza por Man');
+  ok(at(sheet, 2, 0).bg == null, 'Pera no empieza por Man');
+
+  const sheet2: any = { celldata: [cell(0, 0, 'informe.pdf'), cell(1, 0, 'hoja.xlsx')] };
+  applyConditional(sheet2, { kind: 'compare', range: 'A1:A2', sheetIndex: 0, op: 'endsWith', value: '.pdf', color: '#fee2e2' } as any);
+  eq(at(sheet2, 0, 0).bg, '#fee2e2', 'termina en .pdf');
+  ok(at(sheet2, 1, 0).bg == null, 'no termina en .pdf');
+
+  const sheet3: any = { celldata: [cell(0, 0, 'ok'), cell(1, 0, 'error: x')] };
+  applyConditional(sheet3, { kind: 'compare', range: 'A1:A2', sheetIndex: 0, op: 'notcontains', value: 'error', color: '#dcfce7' } as any);
+  eq(at(sheet3, 0, 0).bg, '#dcfce7', '«ok» no contiene error');
+  ok(at(sheet3, 1, 0).bg == null, '«error: x» sí contiene error');
+}
+
+// ── Valores únicos (complemento de duplicados) ───────────────────────────────
+{
+  const sheet: any = { celldata: [cell(0, 0, 'a'), cell(1, 0, 'b'), cell(2, 0, 'a'), cell(3, 0, 'c')] };
+  applyConditional(sheet, { kind: 'unique', range: 'A1:A4', sheetIndex: 0, color: '#dcfce7' } as any);
+  ok(at(sheet, 0, 0).bg == null, '«a» duplicado, no único');
+  eq(at(sheet, 1, 0).bg, '#dcfce7', '«b» único');
+  ok(at(sheet, 2, 0).bg == null, '«a» duplicado, no único (2)');
+  eq(at(sheet, 3, 0).bg, '#dcfce7', '«c» único');
+}
+
 console.log(`\nCOND SPEC: ${passed} OK, ${fails.length} fallos`);
 if (fails.length) { for (const f of fails) console.error('  ✗ ' + f); throw new Error(`${fails.length} fallos`); }
 console.log('✓ Todas las aserciones de formato condicional pasan.');

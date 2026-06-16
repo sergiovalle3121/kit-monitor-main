@@ -36,6 +36,7 @@ const KINDS: { value: CondKind; label: string }[] = [
   { value: 'top', label: 'Valores superiores (N)' },
   { value: 'bottom', label: 'Valores inferiores (N)' },
   { value: 'duplicates', label: 'Valores duplicados' },
+  { value: 'unique', label: 'Valores únicos' },
   { value: 'iconset', label: 'Conjunto de iconos' },
   { value: 'databar', label: 'Barras de datos' },
   { value: 'clear', label: 'Limpiar formato del rango' },
@@ -108,7 +109,7 @@ export function SheetTools({
     else if (kind === 'scale2') Object.assign(base, { c1, c2 });
     else if (kind === 'scale3') Object.assign(base, { c1, c2, c3 });
     else if (kind === 'top' || kind === 'bottom') Object.assign(base, { n, color });
-    else if (kind === 'duplicates' || kind === 'databar') Object.assign(base, { color });
+    else if (kind === 'duplicates' || kind === 'unique' || kind === 'databar') Object.assign(base, { color });
     else if (kind === 'iconset') Object.assign(base, { icons: ICON_SETS[iconIdx].icons });
     onApplyCondFormat(base);
   }
@@ -208,7 +209,10 @@ export function SheetTools({
                       <option value="<">Menor que</option><option value="<=">Menor o igual</option>
                       <option value="=">Igual a</option><option value="!=">Distinto de</option>
                       <option value="between">Entre</option><option value="notbetween">No entre</option>
-                      <option value="contains">Contiene</option>
+                      <option value="contains">Contiene el texto</option>
+                      <option value="notcontains">No contiene el texto</option>
+                      <option value="beginsWith">Empieza por</option>
+                      <option value="endsWith">Termina en</option>
                     </select>
                   </label>
                   <label className="flex-1 text-xs text-gray-500">{op === 'between' || op === 'notbetween' ? 'Mínimo' : 'Valor'}
@@ -231,7 +235,7 @@ export function SheetTools({
                 <div className="text-xs text-gray-500">Color de relleno<div className="mt-1">{swatches(color, setColor)}</div></div>
               </>
             )}
-            {kind === 'duplicates' && (
+            {(kind === 'duplicates' || kind === 'unique') && (
               <div className="text-xs text-gray-500">Color de relleno<div className="mt-1">{swatches(color, setColor)}</div></div>
             )}
             {kind === 'databar' && (

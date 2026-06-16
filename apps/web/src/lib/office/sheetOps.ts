@@ -45,7 +45,7 @@ const lerp = (a: string, b: string, t: number) => {
 };
 const textOn = (bg: string) => { const [r, g, b] = hexToRgb(bg); return (0.299 * r + 0.587 * g + 0.114 * b) < 140 ? '#ffffff' : '#111827'; };
 
-export type CondKind = 'compare' | 'scale2' | 'scale3' | 'top' | 'bottom' | 'duplicates' | 'iconset' | 'databar' | 'clear';
+export type CondKind = 'compare' | 'scale2' | 'scale3' | 'top' | 'bottom' | 'duplicates' | 'unique' | 'iconset' | 'databar' | 'clear';
 export interface CondPayload {
   kind: CondKind; range: string; sheetIndex: number;
   op?: string; value?: string; value2?: string; color?: string;  // compare / top / bottom / duplicates / between
@@ -97,11 +97,13 @@ export function applyConditional(sheet: any, p: CondPayload): boolean {
       for (const x of at) { if (x.n == null) continue; if (p.kind === 'top' ? x.n >= threshold : x.n <= threshold) style(x.cd, color, textOn(color)); }
       break;
     }
-    case 'duplicates': {
+    case 'duplicates':
+    case 'unique': {
       const counts = new Map<string, number>();
       for (const x of at) { if (x.raw === '' || x.raw == null) continue; const key = String(x.raw); counts.set(key, (counts.get(key) || 0) + 1); }
-      const color = p.color || '#f8696b';
-      for (const x of at) { if (x.raw === '' || x.raw == null) continue; if ((counts.get(String(x.raw)) || 0) > 1) style(x.cd, color, textOn(color)); }
+      const color = p.color || (p.kind === 'unique' ? '#dcfce7' : '#f8696b');
+      const wantDup = p.kind === 'duplicates';
+      for (const x of at) { if (x.raw === '' || x.raw == null) continue; const cnt = counts.get(String(x.raw)) || 0; if (wantDup ? cnt > 1 : cnt === 1) style(x.cd, color, textOn(color)); }
       break;
     }
     case 'iconset': {
@@ -128,8 +130,13 @@ export function applyConditional(sheet: any, p: CondPayload): boolean {
     case 'compare': {
       const cmp = p.value ?? '';
       const num = parseFloat(cmp);
+      const lc = cmp.toLowerCase();
       const matches = (raw: any) => {
-        if (p.op === 'contains') return String(raw ?? '').toLowerCase().includes(cmp.toLowerCase());
+        const s = String(raw ?? '').toLowerCase();
+        if (p.op === 'contains') return s.includes(lc);
+        if (p.op === 'notcontains') return !s.includes(lc);
+        if (p.op === 'beginsWith') return s.startsWith(lc);
+        if (p.op === 'endsWith') return s.endsWith(lc);
         if (p.op === 'between' || p.op === 'notbetween') {
           const lo = parseFloat(p.value ?? ''), hi = parseFloat(p.value2 ?? '');
           const nn = typeof raw === 'number' ? raw : parseFloat(raw);
