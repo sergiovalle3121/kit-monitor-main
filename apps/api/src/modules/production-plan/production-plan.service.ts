@@ -16,6 +16,7 @@ import {
 import { DocumentNumberingService } from '../numbering/document-numbering.service';
 import { EventLedgerService } from '../event-ledger/event-ledger.service';
 import { EventDomain } from '../event-ledger/entities/ledger-event.entity';
+import { LineEngineeringService } from '../line-engineering/line-engineering.service';
 import {
   AuthorizeOperatorsDto,
   PublishWorkOrderDto,
@@ -23,6 +24,12 @@ import {
   TransitionWorkOrderDto,
 } from './dto/production-plan.dto';
 import { assertTransition, WorkOrderStatus } from './wo-state';
+import {
+  DEFAULT_SHIFT_MINUTES,
+  LineCapacityLoad,
+  ModelLoad,
+  rollUpLine,
+} from './crp';
 
 export interface WorkOrderBlockers {
   runnable: boolean;
@@ -52,6 +59,7 @@ export class ProductionPlanService {
     private readonly tenantCtx: TenantContextService,
     private readonly numbering: DocumentNumberingService,
     @Optional() private readonly ledger?: EventLedgerService,
+    @Optional() private readonly lineEng?: LineEngineeringService,
   ) {}
 
   private applyScope(qb: SelectQueryBuilder<SfWorkOrder>, alias: string): SelectQueryBuilder<SfWorkOrder> {
@@ -264,6 +272,81 @@ export class ProductionPlanService {
       pctWithReadiness: all.length ? round(woWithReadiness / all.length, 4) : 0,
       behindSchedule: behind,
     };
+  }
+
+  // ── CRP / capacity ───────────────────────────────────────────────────────────
+  /**
+   * Per-line load vs capacity from the open published WOs. Reuses the
+   * line-engineering capacity calculator (routing std times + model↔line
+   * changeover) and aggregates by line so the wall can VALIDATE the plan
+   * (overbooked lines), not just reflect it. Read-only; no schema changes.
+   *
+   * `availableMinutes` is the run time each line is validated against (defaults
+   * to one shift). Demand is the still-to-build remainder (planned − completed),
+   * grouped per model+revision so changeover is counted once per model.
+   */
+  async capacityLoad(
+    params: { availableMinutes?: number; line?: string } = {},
+  ): Promise<{ availableMinutes: number; generatedAt: Date; lines: LineCapacityLoad[] }> {
+    const availableMinutes =
+      params.availableMinutes && params.availableMinutes > 0 ? params.availableMinutes : DEFAULT_SHIFT_MINUTES;
+
+    const open = (await this.list(params.line ? { line: params.line } : {})).filter(
+      (wo) => wo.status !== 'COMPLETED' && wo.status !== 'CANCELLED',
+    );
+
+    // Group remaining demand by line → model|revision.
+    type Group = { model: string; revision: string; unitsRemaining: number; woCount: number };
+    const byLine = new Map<string, Map<string, Group>>();
+    for (const wo of open) {
+      const remaining = Math.max(0, (Number(wo.quantityPlanned) || 0) - (Number(wo.quantityCompleted) || 0));
+      const revision = wo.revision || 'A';
+      const key = `${wo.model}|${revision}`;
+      const groups = byLine.get(wo.line) ?? new Map<string, Group>();
+      const g = groups.get(key) ?? { model: wo.model, revision, unitsRemaining: 0, woCount: 0 };
+      g.unitsRemaining += remaining;
+      g.woCount += 1;
+      groups.set(key, g);
+      byLine.set(wo.line, groups);
+    }
+
+    const lines: LineCapacityLoad[] = [];
+    for (const [line, groups] of byLine) {
+      const models: ModelLoad[] = [];
+      for (const [, g] of groups) {
+        let runMinutes = 0;
+        let changeoverMinutes = 0;
+        // Nothing to run ⇒ trivially "known" (zero load); otherwise the
+        // calculator tells us, and a 0 result means the model has no std time.
+        let hasStdTime = g.unitsRemaining === 0;
+        if (this.lineEng) {
+          const cap = await this.lineEng.capacity({
+            model: g.model,
+            revision: g.revision,
+            line,
+            availableMinutes,
+            demandUnits: g.unitsRemaining,
+          });
+          runMinutes = cap.requiredMinutes;
+          changeoverMinutes = cap.changeoverMinutes;
+          hasStdTime = g.unitsRemaining === 0 || cap.requiredMinutes > 0;
+        }
+        models.push({
+          model: g.model,
+          revision: g.revision,
+          woCount: g.woCount,
+          unitsRemaining: g.unitsRemaining,
+          runMinutes,
+          changeoverMinutes,
+          hasStdTime,
+        });
+      }
+      lines.push(rollUpLine(line, models, availableMinutes));
+    }
+
+    // Worst-loaded lines first so the wall surfaces the constraints up top.
+    lines.sort((a, b) => b.utilizationPct - a.utilizationPct);
+    return { availableMinutes, generatedAt: new Date(), lines };
   }
 
   private async record(action: string, wo: SfWorkOrder, states: { before?: unknown; after?: unknown }): Promise<void> {

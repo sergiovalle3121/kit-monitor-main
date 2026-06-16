@@ -6,13 +6,22 @@ import { PlansService } from './plans.service';
 import { PlansController } from './plans.controller';
 import { EnterpriseProgram } from '../enterprise-campus/entities/enterprise-program.entity';
 import { EnterpriseLine } from '../enterprise-campus/entities/enterprise-line.entity';
+import { InventoryPosition } from '../inventory/entities/inventory-position.entity';
+import { KitMaterial } from '../kit-materials/entities/kit-material.entity';
 import { InventoryModule } from '../inventory/inventory.module';
 import { QualityModule } from '../quality/quality.module';
 import { GovernanceModule } from '../governance/governance.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Plan, LineCapacity, EnterpriseProgram, EnterpriseLine]),
+    TypeOrmModule.forFeature([
+      Plan,
+      LineCapacity,
+      EnterpriseProgram,
+      EnterpriseLine,
+      InventoryPosition,
+      KitMaterial,
+    ]),
     InventoryModule,
     QualityModule,
     GovernanceModule,

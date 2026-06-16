@@ -11,8 +11,10 @@ import { KitMaterial } from '../kit-materials/entities/kit-material.entity';
 
 import { LineCapacity } from './entities/line-capacity.entity';
 import { InventoryService } from '../inventory/inventory.service';
+import { InventoryPosition } from '../inventory/entities/inventory-position.entity';
 import { QualityService } from '../quality/quality.service';
 import { AuditService } from '../governance/audit.service';
+import { deriveReadiness, ReadinessDemandLine, ReadinessSummary } from './readiness';
 
 @Injectable()
 export class PlansService {
@@ -23,6 +25,8 @@ export class PlansService {
     private readonly capacityRepo: Repository<LineCapacity>,
     @InjectRepository(EnterpriseProgram) private readonly programRepo: Repository<EnterpriseProgram>,
     @InjectRepository(EnterpriseLine) private readonly lineRepo: Repository<EnterpriseLine>,
+    @InjectRepository(InventoryPosition) private readonly positionRepo: Repository<InventoryPosition>,
+    @InjectRepository(KitMaterial) private readonly kitMaterialRepo: Repository<KitMaterial>,
     private readonly inventory: InventoryService,
     private readonly quality: QualityService,
     private readonly audit: AuditService,
@@ -105,9 +109,10 @@ export class PlansService {
     const plan = await this.repo.findOne({ where: { id } });
     if (!plan) throw new NotFoundException('Plan not found');
 
-    // 1. Check Readiness (Simplified Mock for now, would use real inventory/quality check)
+    // 1. Real Clear-to-Build readiness (material vs inventory, quality holds,
+    //    schedule) — computed from existing tables, no longer a hard-coded mock.
     const readiness = await this.calculateReadiness(plan);
-    
+
     const before = { ...plan };
     plan.status = 'released';
     plan.releasedAt = new Date();
@@ -160,14 +165,64 @@ export class PlansService {
     };
   }
 
-  private async calculateReadiness(plan: Plan) {
-    // Real logic would check BOM shortages and Quality Holds
-    return {
-      materials: 'green',
-      quality: 'green',
-      shipping: 'green',
-      timestamp: new Date()
-    };
+  /**
+   * REAL Clear-to-Build readiness for a plan/WO, read from existing tables (no
+   * new columns): the WO's picked BOM (`kit_materials`) is the material demand,
+   * checked against available `inventory_positions`; active `quality_holds` on
+   * those parts gate quality; the plan's due date gates shipping. The pure
+   * verdict lives in `deriveReadiness` so the rules are unit-testable. Replaces
+   * the previous mock that always returned green and made the floor semaphore lie.
+   */
+  private async calculateReadiness(plan: Plan): Promise<ReadinessSummary> {
+    // Demand = the WO's picked BOM (kit_materials), persisted when the plan was
+    // published. Joined through the kit so it resolves from just the plan id.
+    const materials = await this.kitMaterialRepo
+      .createQueryBuilder('km')
+      .innerJoin('km.kit', 'kit')
+      .innerJoin('kit.plan', 'plan')
+      .where('plan.id = :id', { id: plan.id })
+      .getMany();
+
+    const demand: ReadinessDemandLine[] = materials
+      .filter((m) => !!m.partNumber)
+      .map((m) => ({
+        partNumber: m.partNumber,
+        quantityRequired: Number(m.quantityRequired) || 0,
+        description: m.description ?? null,
+        unit: m.unit ?? 'EA',
+      }));
+
+    const partNumbers = [...new Set(demand.map((d) => d.partNumber))];
+
+    // Available inventory for those parts: only `available` stock counts, net of
+    // what's already allocated (mirrors the floor's Clear-to-Build map).
+    const availableByPart = new Map<string, number>();
+    if (partNumbers.length) {
+      const positions = await this.positionRepo.find({
+        where: { partNumber: In(partNumbers), holdStatus: 'available' },
+      });
+      for (const p of positions) {
+        const avail = Math.max(0, (Number(p.onHand) || 0) - (Number(p.allocated) || 0));
+        availableByPart.set(p.partNumber, (availableByPart.get(p.partNumber) ?? 0) + avail);
+      }
+    }
+
+    // Active quality holds touching the WO's parts (reuses the exported service).
+    const heldParts = new Set<string>();
+    if (partNumbers.length) {
+      const demandSet = new Set(partNumbers);
+      const holds = await this.quality.findAllActiveHolds();
+      for (const h of holds) {
+        if (h?.partNumber && demandSet.has(h.partNumber)) heldParts.add(h.partNumber);
+      }
+    }
+
+    return deriveReadiness({
+      demand,
+      availableByPart,
+      heldParts,
+      dueDate: plan.dueDate ?? null,
+    });
   }
 
   private async applyScopeToQb(
