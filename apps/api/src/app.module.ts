@@ -33,6 +33,7 @@ import { OperatorTerminalModule } from './modules/operator-terminal/operator-ter
 import { FloorQualityModule } from './modules/floor-quality/floor-quality.module';
 import { GenealogyModule } from './modules/genealogy/genealogy.module';
 import { LineControlTowerModule } from './modules/line-control-tower/line-control-tower.module';
+import { CostIntelligenceModule } from './modules/cost-intelligence/cost-intelligence.module';
 
 // AXOS OS Intelligence & Tenancy Infrastructure
 import { EventLedgerInterceptor } from './common/interceptors/event-ledger.interceptor';
@@ -106,6 +107,7 @@ import { AiModule } from './modules/ai/ai.module';
     FloorQualityModule,
     GenealogyModule,
     LineControlTowerModule,
+    CostIntelligenceModule,
     ForecastModule,
     PlansModule,
     BomModule,
