@@ -21,11 +21,12 @@ import {
   Pointer, Pencil, Eraser, Moon, ListTree, Layers,
   ZoomIn, ZoomOut, Maximize, Scan, MousePointerClick, Check,
   AlignHorizontalSpaceAround, Paintbrush, Stamp, Proportions, FolderPlus, Squircle, Pipette, Move, PlayCircle,
+  Repeat, Timer, Pause,
 } from 'lucide-react';
 import { SlideSorter } from './SlideSorter';
 import { SlideIconPicker } from './SlideIconPicker';
 import { TemplateGallery } from './TemplateGallery';
-import { SLIDE_THEMES, SLIDE_LAYOUTS, SLIDE_TRANSITIONS, OBJ_ANIM_OPTIONS, SLIDE_RATIOS, slideHeight } from './slideAssets';
+import { SLIDE_THEMES, SLIDE_LAYOUTS, SLIDE_TRANSITIONS, OBJ_ANIM_OPTIONS, OBJ_ANIM_START, DEFAULT_ANIM_START, animKind, SLIDE_RATIOS, slideHeight, TRANS_DURATIONS, DEFAULT_TRANS_DUR, type SlideTheme } from './slideAssets';
 import { SlideAnimationPanel, type AnimItem } from './SlideAnimationPanel';
 import { SlideLayersPanel, type LayerItem } from './SlideLayersPanel';
 import { POLY_SHAPES, PATH_SHAPES } from './slides/shapes';
@@ -46,6 +47,7 @@ import { SlideSmartArtEditor } from './SlideSmartArtEditor';
 import { makeConnector, refreshConnectors, pickTwo, isConnector } from './slides/connectors';
 import { SlideFindReplace } from './SlideFindReplace';
 import { SlideOutline } from './SlideOutline';
+import { SlideReusePanel, type ReuseItem } from './SlideReusePanel';
 import {
   OfficeRibbon, RibbonTab, RibbonGroup, RibbonSeparator,
   RibbonButton, RibbonSelect, RibbonColorButton, RibbonMenuButton,
@@ -77,6 +79,43 @@ function objLabel(o: any): string {
   return typeName(o);
 }
 
+// ── Colores de tema (modelo «theme colors» tipo PowerPoint) ──────────────────
+// Cambiar el tema reestiliza TODO el mazo: cualquier color literal que coincida
+// con un slot del tema anterior (fondo/superficie/texto/atenuado/acento) se
+// remapea al slot equivalente del tema nuevo. Los colores que el usuario eligió
+// a mano (que no son del tema) se conservan intactos.
+// Aclara un color hex mezclándolo con blanco (para degradados de un solo tono).
+function lightenHex(hex: string, amt = 0.5): string {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+  if (!m) return hex;
+  const n = parseInt(m[1], 16);
+  const mix = (c: number) => Math.round(c + (255 - c) * amt);
+  const r = mix((n >> 16) & 255), g = mix((n >> 8) & 255), b = mix(n & 255);
+  return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
+}
+const THEME_SLOTS: (keyof SlideTheme)[] = ['bg', 'surface', 'text', 'muted', 'accent'];
+function remapThemeColor(col: any, from: SlideTheme, to: SlideTheme): any {
+  if (typeof col !== 'string') return col;
+  const c = col.toLowerCase();
+  for (const k of THEME_SLOTS) {
+    const slot = from[k];
+    if (typeof slot === 'string' && c === slot.toLowerCase()) return to[k];
+  }
+  return col;
+}
+function remapThemeObject(o: any, from: SlideTheme, to: SlideTheme): void {
+  if (!o || typeof o !== 'object') return;
+  for (const key of ['fill', 'stroke', 'backgroundColor'] as const) {
+    const v = o[key];
+    if (typeof v === 'string') o[key] = remapThemeColor(v, from, to);
+    else if (v && typeof v === 'object' && Array.isArray(v.colorStops)) {
+      v.colorStops = v.colorStops.map((s: any) => ({ ...s, color: remapThemeColor(s.color, from, to) }));
+    }
+  }
+  if (typeof o.fontFamily === 'string' && o.fontFamily.toLowerCase() === from.font.toLowerCase()) o.fontFamily = to.font;
+  if (Array.isArray(o.objects)) for (const child of o.objects) remapThemeObject(child, from, to);
+}
+
 export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value: any; onChange: (data: any) => void; readOnly?: boolean; fileActions?: React.ReactNode }) {
   const elRef = useRef<HTMLCanvasElement>(null);
   const fabricRef = useRef<Canvas | null>(null);
@@ -100,16 +139,33 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
     while (t.length < initial.length) t.push(def);
     return t;
   })();
+  const initialTransDurs: number[] = (() => {
+    const d = Array.isArray(value?.transDurs) ? value.transDurs.slice(0, initial.length) : [];
+    while (d.length < initial.length) d.push(DEFAULT_TRANS_DUR);
+    return d.map((x: any) => (typeof x === 'number' && x > 0 ? x : DEFAULT_TRANS_DUR));
+  })();
+  // Avance automático por diapositiva (segundos; 0 = sólo al hacer clic).
+  const initialAdvance: number[] = (() => {
+    const d = Array.isArray(value?.advanceAfters) ? value.advanceAfters.slice(0, initial.length) : [];
+    while (d.length < initial.length) d.push(0);
+    return d.map((x: any) => (typeof x === 'number' && x >= 0 ? x : 0));
+  })();
   const slidesRef = useRef<any[]>(initial);
   const notesRef = useRef<string[]>(initialNotes);
   const sectionsRef = useRef<(string | null)[]>(initialSections);
   const transitionsRef = useRef<string[]>(initialTransitions);
+  const transDursRef = useRef<number[]>(initialTransDurs);
+  const advanceRef = useRef<number[]>(initialAdvance);
+  const loopRef = useRef<boolean>(!!value?.loop);
   const [sections, setSections] = useState<(string | null)[]>(initialSections);
   const [slides, setSlides] = useState<any[]>(initial); // mirror for rendering
   const [cur, setCur] = useState(0);
   const [noteDraft, setNoteDraft] = useState<string>(initialNotes[0] ?? '');
   const [transition, setTransition] = useState<string>(initialTransitions[0] || 'fade');
   const transitionRef = useRef<string>(transition);
+  const [transDur, setTransDur] = useState<number>(initialTransDurs[0] || DEFAULT_TRANS_DUR);
+  const [advanceAfter, setAdvanceAfter] = useState<number>(initialAdvance[0] || 0);
+  const [loop, setLoop] = useState<boolean>(!!value?.loop);
   const clipboardRef = useRef<any>(null);
   const [presenting, setPresenting] = useState(false);
   const presentStartRef = useRef(0);
@@ -118,6 +174,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
   const [selAnimOrder, setSelAnimOrder] = useState(0);
   const [selAnimDur, setSelAnimDur] = useState(500);
   const [selAnimDelay, setSelAnimDelay] = useState(0);
+  const [selAnimStart, setSelAnimStart] = useState<string>(DEFAULT_ANIM_START);
   const [showAnimPanel, setShowAnimPanel] = useState(false);
   const [showLayers, setShowLayers] = useState(false);
   const [presenterMode, setPresenterMode] = useState(false);
@@ -158,6 +215,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
   const smartTargetRef = useRef<any>(null);
   const [tableEditor, setTableEditor] = useState<{ spec: TableSpec } | null>(null);
   const tableTargetRef = useRef<any>(null);
+  const [reuseOpen, setReuseOpen] = useState(false);
   const [findOpen, setFindOpen] = useState(false);
   const findCursorRef = useRef<{ s: number; o: number }>({ s: -1, o: -1 });
   const [outlineOpen, setOutlineOpen] = useState(false);
@@ -165,6 +223,16 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
   const numbersRef = useRef<boolean>(!!value?.showNumbers);
   const [showNumbers, setShowNumbers] = useState<boolean>(!!value?.showNumbers);
   const theme = () => SLIDE_THEMES.find((t) => t.id === themeRef.current) || SLIDE_THEMES[0];
+  // ── Patrón de diapositivas (slide master) ───────────────────────────────────
+  // Modelo: un Fabric JSON con la «mobiliaria» compartida (logo, barras, marcos,
+  // estilos de marcador) que se muestra detrás del contenido de TODAS las
+  // diapositivas. Se edita en un modo dedicado; en modo normal se compone como
+  // `backgroundImage` del lienzo (no se serializa por diapositiva).
+  const masterRef = useRef<any>(value?.master && Array.isArray(value?.master?.objects) ? value.master : { version: '7', objects: [] });
+  const masterModeRef = useRef(false);
+  const masterImgRef = useRef<string>('');
+  const [masterMode, setMasterMode] = useState(false);
+  const [hasMaster, setHasMaster] = useState<boolean>(!!(value?.master?.objects?.length));
 
   useEffect(() => { curRef.current = cur; }, [cur]);
 
@@ -172,17 +240,36 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
     const c = fabricRef.current; const o = c?.getActiveObject() as any;
     if (!c || !o) return;
     o.set('anim', v === 'none' ? undefined : v);
+    if (v !== 'none' && !o.animStart) { o.set('animStart', DEFAULT_ANIM_START); setSelAnimStart(DEFAULT_ANIM_START); }
     setSelAnim(v); capture(); sync();
+  }
+  function setObjAnimStart(v: string) {
+    const c = fabricRef.current; const o = c?.getActiveObject() as any;
+    if (!c || !o) return;
+    o.set('animStart', v); setSelAnimStart(v); capture(); sync();
   }
 
   function sync() {
     setSlides([...slidesRef.current]);
     setSections([...sectionsRef.current]);
-    onChange({ version: 2, slides: slidesRef.current, notes: notesRef.current, transition: transitionsRef.current[0] || 'fade', transitions: transitionsRef.current, theme: themeRef.current, footer: footerRef.current, showNumbers: numbersRef.current, ratio: ratioRef.current, sections: sectionsRef.current });
+    onChange({ version: 2, slides: slidesRef.current, notes: notesRef.current, transition: transitionsRef.current[0] || 'fade', transitions: transitionsRef.current, transDurs: transDursRef.current, advanceAfters: advanceRef.current, loop: loopRef.current, theme: themeRef.current, footer: footerRef.current, showNumbers: numbersRef.current, ratio: ratioRef.current, sections: sectionsRef.current, master: masterRef.current });
   }
   function setTrans(t: string) { transitionsRef.current[curRef.current] = t; setTransition(t); transitionRef.current = t; sync(); }
-  function applyTransAll(t: string) { transitionsRef.current = transitionsRef.current.map(() => t); setTransition(t); transitionRef.current = t; sync(); }
+  function setTransDuration(ms: number) { transDursRef.current[curRef.current] = ms; setTransDur(ms); sync(); }
+  function setSlideAdvance(sec: number) { advanceRef.current[curRef.current] = Math.max(0, sec); setAdvanceAfter(Math.max(0, sec)); sync(); }
+  function toggleLoop() { const v = !loopRef.current; loopRef.current = v; setLoop(v); sync(); }
+  // «Aplicar a todas»: copia la transición, la duración Y el avance automático de
+  // la diapositiva actual a todo el mazo (como PowerPoint).
+  function applyTransAll(t: string) {
+    const d = transDursRef.current[curRef.current] || DEFAULT_TRANS_DUR;
+    const a = advanceRef.current[curRef.current] || 0;
+    transitionsRef.current = transitionsRef.current.map(() => t);
+    transDursRef.current = transDursRef.current.map(() => d);
+    advanceRef.current = advanceRef.current.map(() => a);
+    setTransition(t); transitionRef.current = t; setTransDur(d); setAdvanceAfter(a); sync();
+  }
   function applyBgAll(color: string) {
+    if (masterModeRef.current) return;
     capture();
     for (const s of slidesRef.current) s.background = color;
     const c = fabricRef.current; if (c) { c.backgroundColor = color; c.requestRenderAll(); }
@@ -190,15 +277,27 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
   }
 
   // ── Temas / layouts / tablas / iconos / efectos (profundidad PowerPoint) ────
-  function applyTheme(id: string) {
-    const t = SLIDE_THEMES.find((x) => x.id === id) || SLIDE_THEMES[0];
-    themeRef.current = id; setThemeId(id);
+  // Aplica el tema a TODO el mazo: remapea la paleta (fondo/texto/atenuado/
+  // acento/superficie) y la tipografía del tema anterior al nuevo en cada
+  // diapositiva, conservando los colores personalizados. Reestiliza títulos,
+  // viñetas, barras de acento, formas y fondos creados a partir del tema.
+  async function applyTheme(id: string) {
+    if (masterModeRef.current) return;
+    const to = SLIDE_THEMES.find((x) => x.id === id) || SLIDE_THEMES[0];
+    const from = theme();
     capture();
-    for (const s of slidesRef.current) s.background = t.bg;
-    const c = fabricRef.current; if (c) { c.backgroundColor = t.bg; c.requestRenderAll(); }
+    if (to.id !== from.id) {
+      for (const s of slidesRef.current) {
+        if (typeof s.background === 'string') s.background = remapThemeColor(s.background, from, to);
+        for (const o of (s.objects || [])) remapThemeObject(o, from, to);
+      }
+    }
+    themeRef.current = id; setThemeId(id);
+    await loadInto(curRef.current);
     sync();
   }
   function applyLayout(id: string) {
+    if (masterModeRef.current) return;
     const c = fabricRef.current; if (!c) return;
     const layout = SLIDE_LAYOUTS.find((l) => l.id === id); if (!layout) return;
     if (c.getObjects().length && !window.confirm('Aplicar este diseño reemplazará el contenido de la diapositiva actual. ¿Continuar?')) return;
@@ -380,11 +479,27 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
       c.add(obj); c.setActiveObject(obj); c.requestRenderAll();
     } catch { /* noop */ }
   }
-  function toggleBorder() {
+  // ── Contorno de forma (grosor / estilo de línea / color), tipo PowerPoint ────
+  function setOutlineWidth(w: number) {
     const c = fabricRef.current; const o = c?.getActiveObject() as any;
     if (!c || !o) return;
-    if (o.stroke && o.strokeWidth) o.set({ stroke: null, strokeWidth: 0 });
-    else o.set({ stroke: theme().accent, strokeWidth: 3 });
+    if (w <= 0) o.set({ stroke: null, strokeWidth: 0, strokeDashArray: null });
+    else { if (!o.stroke) o.set('stroke', theme().accent); o.set({ strokeWidth: w, paintFirst: 'stroke', strokeLineJoin: 'round' }); }
+    c.requestRenderAll(); capture(); sync();
+  }
+  function setOutlineDash(kind: 'solid' | 'dashed' | 'dotted') {
+    const c = fabricRef.current; const o = c?.getActiveObject() as any;
+    if (!c || !o) return;
+    if (!o.stroke || !o.strokeWidth) o.set({ stroke: theme().accent, strokeWidth: 2, paintFirst: 'stroke' });
+    const w = o.strokeWidth || 2;
+    o.set('strokeDashArray', kind === 'solid' ? null : kind === 'dashed' ? [w * 3, w * 2] : [Math.max(1, w * 0.1), w * 1.6]);
+    o.set('strokeLineCap', kind === 'dotted' ? 'round' : 'butt');
+    c.requestRenderAll(); capture(); sync();
+  }
+  function setOutlineColor(color: string) {
+    const c = fabricRef.current; const o = c?.getActiveObject() as any;
+    if (!c || !o) return;
+    o.set('stroke', color); if (!o.strokeWidth) o.set({ strokeWidth: 2, paintFirst: 'stroke' });
     c.requestRenderAll(); capture(); sync();
   }
   function applyQuickStyle(id: string) {
@@ -428,13 +543,13 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
   }
   // Fondo sólo de la diapositiva actual.
   function applyBgCurrent(color: string) {
-    const c = fabricRef.current; if (!c) return;
+    const c = fabricRef.current; if (!c || masterModeRef.current) return;
     capture(); slidesRef.current[curRef.current].background = color;
     c.backgroundColor = color; c.requestRenderAll(); sync();
   }
   // Fondo de degradado (Rect a sangre completa, bloqueado, al fondo).
   function applyBgPreset(id: string, all: boolean) {
-    const c = fabricRef.current; if (!c) return;
+    const c = fabricRef.current; if (!c || masterModeRef.current) return;
     const preset = BG_PRESETS.find((p) => p.id === id); if (!preset) return;
     capture();
     c.getObjects().filter((o: any) => isBgFill(o)).forEach((o) => c.remove(o));
@@ -454,7 +569,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
   }
   // Imagen de fondo (a sangre completa, modo «cubrir») de la diapositiva actual.
   function onBgImageFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const f = e.target.files?.[0]; e.target.value = ''; if (!f) return;
+    const f = e.target.files?.[0]; e.target.value = ''; if (!f || masterModeRef.current) return;
     const reader = new FileReader();
     reader.onload = () => {
       if (typeof reader.result !== 'string') return;
@@ -470,7 +585,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
     reader.readAsDataURL(f);
   }
   function removeBgFill(all: boolean) {
-    const c = fabricRef.current; if (!c) return;
+    const c = fabricRef.current; if (!c || masterModeRef.current) return;
     capture();
     c.getObjects().filter((o: any) => isBgFill(o)).forEach((o) => c.remove(o));
     c.requestRenderAll(); capture();
@@ -490,13 +605,15 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
     if (!c || !o) return; o.set('animDelay', v); setSelAnimDelay(v); capture(); sync();
   }
   // Cambia una propiedad de animación por índice de objeto (panel de animación).
-  function setAnimByIndex(idx: number, key: 'anim' | 'animOrder' | 'animDur' | 'animDelay', value: any) {
+  function setAnimByIndex(idx: number, key: 'anim' | 'animOrder' | 'animDur' | 'animDelay' | 'animStart', value: any) {
     const c = fabricRef.current; if (!c) return;
     const o = c.getObjects()[idx] as any; if (!o) return;
     o.set(key, key === 'anim' && value === 'none' ? undefined : value);
+    if (key === 'anim' && value !== 'none' && !o.animStart) o.set('animStart', DEFAULT_ANIM_START);
     if (c.getActiveObject() === o) {
       if (key === 'anim') setSelAnim(value); if (key === 'animOrder') setSelAnimOrder(value);
       if (key === 'animDur') setSelAnimDur(value); if (key === 'animDelay') setSelAnimDelay(value);
+      if (key === 'animStart') setSelAnimStart(value);
     }
     c.requestRenderAll(); capture(); sync();
   }
@@ -532,6 +649,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
   }
   async function applyTemplate(content: any) {
     setShowTemplates(false);
+    if (masterModeRef.current) return;
     if (!content || content.version !== 2 || !Array.isArray(content.slides) || !content.slides.length) return;
     capture();
     slidesRef.current = content.slides;
@@ -540,13 +658,81 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
     sectionsRef.current = content.slides.map(() => null);
     transitionsRef.current = Array.isArray(content.transitions) ? content.transitions.slice() : content.slides.map(() => content.transition || 'fade');
     while (transitionsRef.current.length < slidesRef.current.length) transitionsRef.current.push('fade');
-    { const tr = transitionsRef.current[0] || 'fade'; transitionRef.current = tr; setTransition(tr); }
+    transDursRef.current = Array.isArray(content.transDurs) ? content.transDurs.slice() : content.slides.map(() => DEFAULT_TRANS_DUR);
+    while (transDursRef.current.length < slidesRef.current.length) transDursRef.current.push(DEFAULT_TRANS_DUR);
+    advanceRef.current = Array.isArray(content.advanceAfters) ? content.advanceAfters.slice() : content.slides.map(() => 0);
+    while (advanceRef.current.length < slidesRef.current.length) advanceRef.current.push(0);
+    { const tr = transitionsRef.current[0] || 'fade'; transitionRef.current = tr; setTransition(tr); setTransDur(transDursRef.current[0] || DEFAULT_TRANS_DUR); }
     setCur(0); curRef.current = 0;
     await loadInto(0);
     sync();
   }
   // Include custom props (anim = entrance animation, shape = .pptx mapping, link = hyperlink, locked).
-  function capture() { const c = fabricRef.current; if (c) slidesRef.current[curRef.current] = c.toObject(['anim', 'animOrder', 'animDur', 'animDelay', 'shape', 'link', 'locked', 'imgFx', 'chartSpec', 'smart', 'tableSpec', 'conn', 'connId', 'bgFill']); }
+  function capture() {
+    const c = fabricRef.current; if (!c) return;
+    const data: any = c.toObject(['anim', 'animOrder', 'animDur', 'animDelay', 'animStart', 'shape', 'link', 'locked', 'imgFx', 'chartSpec', 'smart', 'tableSpec', 'conn', 'connId', 'bgFill']);
+    // El patrón se compone como backgroundImage en modo normal: no debe quedar
+    // guardado dentro del JSON de la diapositiva.
+    delete data.backgroundImage; delete data.overlayImage;
+    if (masterModeRef.current) masterRef.current = data;
+    else slidesRef.current[curRef.current] = data;
+  }
+  // Renderiza el patrón a una imagen PNG transparente (mobiliaria compartida).
+  async function renderMasterImage() {
+    const m = masterRef.current;
+    setHasMaster(!!(m?.objects?.length));
+    if (!m?.objects?.length) { masterImgRef.current = ''; return; }
+    try {
+      const sc = new StaticCanvas(document.createElement('canvas'), { width: CW, height: slideHeight(ratioRef.current) });
+      await sc.loadFromJSON(m);
+      sc.backgroundColor = ''; sc.renderAll();
+      masterImgRef.current = sc.toDataURL({ format: 'png', multiplier: 1 } as any);
+      sc.dispose();
+    } catch { masterImgRef.current = ''; }
+  }
+  // Aplica (o quita) el patrón como backgroundImage del lienzo actual.
+  async function applyMasterBg() {
+    const c = fabricRef.current; if (!c) return;
+    if (masterModeRef.current || !masterImgRef.current) { c.backgroundImage = undefined as any; c.requestRenderAll(); return; }
+    try {
+      const mImg: any = await FabricImage.fromURL(masterImgRef.current);
+      mImg.set({ left: 0, top: 0, originX: 'left', originY: 'top', selectable: false, evented: false });
+      mImg.scaleX = CW / (mImg.width || CW); mImg.scaleY = slideHeight(ratioRef.current) / (mImg.height || 1);
+      c.backgroundImage = mImg; c.requestRenderAll();
+    } catch { c.backgroundImage = undefined as any; }
+  }
+  async function enterMasterMode() {
+    if (masterModeRef.current) return;
+    const c = fabricRef.current; if (!c) return;
+    capture();
+    masterModeRef.current = true; setMasterMode(true);
+    loadingRef.current = true;
+    c.discardActiveObject(); setHasSel(false);
+    c.getObjects().slice().forEach((o) => c.remove(o));
+    c.backgroundImage = undefined as any;
+    try {
+      await c.loadFromJSON(masterRef.current);
+      c.backgroundColor = theme().bg;
+      if (readOnly) c.forEachObject((o: any) => { o.selectable = false; o.evented = false; });
+    } catch { /* noop */ }
+    loadingRef.current = false; c.requestRenderAll();
+  }
+  async function exitMasterMode() {
+    if (!masterModeRef.current) return;
+    capture();
+    masterModeRef.current = false; setMasterMode(false);
+    await renderMasterImage();
+    await loadInto(curRef.current);
+    sync();
+  }
+  function clearMaster() {
+    masterRef.current = { version: '7', objects: [] };
+    masterImgRef.current = ''; setHasMaster(false);
+    const c = fabricRef.current;
+    if (masterModeRef.current && c) { loadingRef.current = true; c.getObjects().slice().forEach((o) => c.remove(o)); loadingRef.current = false; c.requestRenderAll(); }
+    else if (c) { c.backgroundImage = undefined as any; c.requestRenderAll(); }
+    sync();
+  }
   function applyLock(o: any) {
     const L = !!o.locked;
     o.set({ lockMovementX: L, lockMovementY: L, lockScalingX: L, lockScalingY: L, lockRotation: L, hasControls: !L });
@@ -570,7 +756,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
       const o = canvas.getActiveObject() as any;
       setHasSel(!!o); setSelType((o?.type as string) || '');
       setSelCount(o?.type === 'activeselection' || o?.type === 'activeSelection' ? (o._objects?.length ?? 0) : (o ? 1 : 0));
-      setSelAnim((o?.anim as string) || 'none'); setSelAnimOrder(o?.animOrder ?? 0); setSelAnimDur(o?.animDur ?? 500); setSelAnimDelay(o?.animDelay ?? 0);
+      setSelAnim((o?.anim as string) || 'none'); setSelAnimOrder(o?.animOrder ?? 0); setSelAnimDur(o?.animDur ?? 500); setSelAnimDelay(o?.animDelay ?? 0); setSelAnimStart((o?.animStart as string) || DEFAULT_ANIM_START);
       setSelOpacity(o?.opacity ?? 1); setSelLocked(!!o?.locked); setImgFx(readImgFx(o)); setSelAngle(Math.round(o?.angle ?? 0));
     };
     canvas.on('selection:created', onSel);
@@ -629,7 +815,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
       ctx.restore();
     });
 
-    loadInto(0);
+    (async () => { await renderMasterImage(); await loadInto(0); })();
     return () => { canvas.dispose(); fabricRef.current = null; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -653,6 +839,15 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
         c.forEachObject((o: any) => { if (o.locked) applyLock(o); });
       }
       try { refreshConnectors(c); } catch { /* noop */ }
+      // Compone el patrón (mobiliaria compartida) detrás del contenido.
+      if (!masterModeRef.current && masterImgRef.current) {
+        try {
+          const mImg: any = await FabricImage.fromURL(masterImgRef.current);
+          mImg.set({ left: 0, top: 0, originX: 'left', originY: 'top', selectable: false, evented: false });
+          mImg.scaleX = CW / (mImg.width || CW); mImg.scaleY = slideHeight(ratioRef.current) / (mImg.height || 1);
+          c.backgroundImage = mImg;
+        } catch { c.backgroundImage = undefined as any; }
+      } else { c.backgroundImage = undefined as any; }
       c.requestRenderAll();
     } catch { /* noop */ }
     loadingRef.current = false;
@@ -660,10 +855,12 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
     setCur(i);
     setNoteDraft(notesRef.current[i] ?? '');
     const tr = transitionsRef.current[i] ?? 'fade'; setTransition(tr); transitionRef.current = tr;
+    setTransDur(transDursRef.current[i] ?? DEFAULT_TRANS_DUR);
+    setAdvanceAfter(advanceRef.current[i] ?? 0);
     setSlides([...slidesRef.current]);
   }
   function onNote(v: string) { setNoteDraft(v); notesRef.current[curRef.current] = v; sync(); }
-  function goto(i: number) { capture(); loadInto(i); }
+  function goto(i: number) { if (masterModeRef.current) return; capture(); loadInto(i); }
 
   function add(obj: any) { const c = fabricRef.current; if (!c) return; c.add(obj); c.setActiveObject(obj); c.requestRenderAll(); }
   function addText() { add(new Textbox('Texto', { left: 80, top: 80, width: 360, fontSize: 36, fill: '#111827', fontFamily: 'sans-serif' })); }
@@ -812,16 +1009,27 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
     o.set('shadow', o.shadow ? null : new Shadow({ color: 'rgba(0,0,0,0.35)', blur: 14, offsetX: 5, offsetY: 6 }));
     c.requestRenderAll(); capture(); sync();
   }
-  function applyGradient() {
+  // Degradado de relleno con dirección (horizontal/vertical/diagonal/radial),
+  // de un solo tono (color base → aclarado), como PowerPoint.
+  function applyGradient(dir: 'h' | 'v' | 'd' | 'r' = 'h') {
     const c = fabricRef.current; const o = c?.getActiveObject() as any;
     if (!c || !o || o.type === 'line') return;
     const w = (o.width || 200) * (o.scaleX || 1);
-    const base = typeof o.fill === 'string' ? o.fill : '#3b82f6';
-    o.set('fill', new Gradient({
-      type: 'linear', gradientUnits: 'pixels',
-      coords: { x1: 0, y1: 0, x2: w, y2: 0 },
-      colorStops: [{ offset: 0, color: base }, { offset: 1, color: '#7c3aed' }],
-    }));
+    const h = ((o.height || (o.radius ? o.radius * 2 : 200))) * (o.scaleY || 1);
+    const base = typeof o.fill === 'string' ? o.fill : theme().accent;
+    const lite = lightenHex(base, 0.55);
+    if (dir === 'r') {
+      o.set('fill', new Gradient({
+        type: 'radial', gradientUnits: 'pixels',
+        coords: { x1: w / 2, y1: h / 2, r1: 0, x2: w / 2, y2: h / 2, r2: Math.max(w, h) / 1.4 },
+        colorStops: [{ offset: 0, color: lite }, { offset: 1, color: base }],
+      }));
+    } else {
+      const coords = dir === 'v' ? { x1: 0, y1: 0, x2: 0, y2: h }
+        : dir === 'd' ? { x1: 0, y1: 0, x2: w, y2: h }
+          : { x1: 0, y1: 0, x2: w, y2: 0 };
+      o.set('fill', new Gradient({ type: 'linear', gradientUnits: 'pixels', coords, colorStops: [{ offset: 0, color: base }, { offset: 1, color: lite }] }));
+    }
     c.requestRenderAll(); capture(); sync();
   }
   function setObjLink() {
@@ -1037,16 +1245,33 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [readOnly]);
 
-  function addSlide() { capture(); slidesRef.current.splice(cur + 1, 0, blank()); notesRef.current.splice(cur + 1, 0, ''); sectionsRef.current.splice(cur + 1, 0, null); transitionsRef.current.splice(cur + 1, 0, transitionsRef.current[cur] ?? 'fade'); sync(); loadInto(cur + 1); }
-  function dupSlide() { capture(); slidesRef.current.splice(cur + 1, 0, JSON.parse(JSON.stringify(slidesRef.current[cur]))); notesRef.current.splice(cur + 1, 0, notesRef.current[cur] ?? ''); sectionsRef.current.splice(cur + 1, 0, null); transitionsRef.current.splice(cur + 1, 0, transitionsRef.current[cur] ?? 'fade'); sync(); loadInto(cur + 1); }
-  function delSlide(i: number) { if (slidesRef.current.length === 1) return; capture(); slidesRef.current.splice(i, 1); notesRef.current.splice(i, 1); sectionsRef.current.splice(i, 1); transitionsRef.current.splice(i, 1); sync(); loadInto(Math.max(0, i <= cur ? cur - 1 : cur)); }
+  function addSlide() { if (masterModeRef.current) return; capture(); slidesRef.current.splice(cur + 1, 0, blank()); notesRef.current.splice(cur + 1, 0, ''); sectionsRef.current.splice(cur + 1, 0, null); transitionsRef.current.splice(cur + 1, 0, transitionsRef.current[cur] ?? 'fade'); transDursRef.current.splice(cur + 1, 0, transDursRef.current[cur] ?? DEFAULT_TRANS_DUR); advanceRef.current.splice(cur + 1, 0, 0); sync(); loadInto(cur + 1); }
+  // Reutilizar diapositivas: inserta una copia (de este mazo u otro importado)
+  // después de la actual, conservando su formato/notas/transición.
+  function openReuse() { if (masterModeRef.current) return; capture(); setReuseOpen(true); }
+  function insertReused(item: ReuseItem) {
+    if (masterModeRef.current) return;
+    capture();
+    const at = curRef.current + 1;
+    slidesRef.current.splice(at, 0, JSON.parse(JSON.stringify(item.slide)));
+    notesRef.current.splice(at, 0, item.note || '');
+    sectionsRef.current.splice(at, 0, null);
+    transitionsRef.current.splice(at, 0, item.transition || 'fade');
+    transDursRef.current.splice(at, 0, item.transDur || DEFAULT_TRANS_DUR);
+    advanceRef.current.splice(at, 0, 0);
+    sync(); loadInto(at);
+  }
+  function dupSlide() { if (masterModeRef.current) return; capture(); slidesRef.current.splice(cur + 1, 0, JSON.parse(JSON.stringify(slidesRef.current[cur]))); notesRef.current.splice(cur + 1, 0, notesRef.current[cur] ?? ''); sectionsRef.current.splice(cur + 1, 0, null); transitionsRef.current.splice(cur + 1, 0, transitionsRef.current[cur] ?? 'fade'); transDursRef.current.splice(cur + 1, 0, transDursRef.current[cur] ?? DEFAULT_TRANS_DUR); advanceRef.current.splice(cur + 1, 0, advanceRef.current[cur] ?? 0); sync(); loadInto(cur + 1); }
+  function delSlide(i: number) { if (masterModeRef.current || slidesRef.current.length === 1) return; capture(); slidesRef.current.splice(i, 1); notesRef.current.splice(i, 1); sectionsRef.current.splice(i, 1); transitionsRef.current.splice(i, 1); transDursRef.current.splice(i, 1); advanceRef.current.splice(i, 1); sync(); loadInto(Math.max(0, i <= cur ? cur - 1 : cur)); }
   function reorderSlides(from: number, to: number) {
-    if (from === to) return;
+    if (from === to || masterModeRef.current) return;
     capture();
     const [m] = slidesRef.current.splice(from, 1); slidesRef.current.splice(to, 0, m);
     const [mn] = notesRef.current.splice(from, 1); notesRef.current.splice(to, 0, mn);
     const [ms] = sectionsRef.current.splice(from, 1); sectionsRef.current.splice(to, 0, ms);
     const [mt] = transitionsRef.current.splice(from, 1); transitionsRef.current.splice(to, 0, mt);
+    const [md] = transDursRef.current.splice(from, 1); transDursRef.current.splice(to, 0, md);
+    const [ma] = advanceRef.current.splice(from, 1); advanceRef.current.splice(to, 0, ma);
     sync(); loadInto(to);
   }
   // ── Secciones (marcas paralelas a las diapositivas) ─────────────────────────
@@ -1076,10 +1301,13 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
     applyZoom(Math.min((el.clientWidth - 36) / CW, (el.clientHeight - 36) / ch));
   }
   function applySlideSize(r: string) {
+    if (masterModeRef.current) return;
     ratioRef.current = r; setRatio(r);
     const nc = slideHeight(r);
     const c = fabricRef.current;
     if (c) { c.setDimensions({ width: CW * zoom, height: nc * zoom }); c.setZoom(zoom); c.requestRenderAll(); }
+    // Re-renderiza el patrón a la nueva altura y lo recompone.
+    (async () => { await renderMasterImage(); await applyMasterBg(); })();
     sync();
   }
   // ── Botones de acción (navegación por hipervínculo) ─────────────────────────
@@ -1112,7 +1340,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
     return c.getObjects()
       .map((o: any, idx: number) => ({ o, idx }))
       .filter((x) => !isConnector(x.o) && !isBgFill(x.o))
-      .map(({ o, idx }) => ({ idx, label: objLabel(o), type: typeName(o), anim: (o.anim as string) || 'none', order: o.animOrder ?? 0, dur: o.animDur ?? 500, delay: o.animDelay ?? 0 }));
+      .map(({ o, idx }) => ({ idx, label: objLabel(o), type: typeName(o), anim: (o.anim as string) || 'none', order: o.animOrder ?? 0, dur: o.animDur ?? 500, delay: o.animDelay ?? 0, start: (o.animStart as string) || DEFAULT_ANIM_START, kind: animKind(o.anim as string) }));
   })();
   const layerList: LayerItem[] = (() => {
     const c = fabricRef.current; if (!showLayers || !c) return [];
@@ -1141,6 +1369,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
             <RibbonGroup label="Diapositivas">
               <RibbonButton icon={Plus} label="Nueva diapositiva" onClick={addSlide} />
               <RibbonButton icon={Copy} label="Duplicar diapositiva" onClick={dupSlide} />
+              <RibbonButton icon={Layers} label="Reutilizar diapositivas" hideLabel={false} onClick={openReuse} />
             </RibbonGroup>
             <RibbonSeparator />
             <RibbonGroup label="Fuente">
@@ -1188,6 +1417,10 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
             <RibbonGroup label="Diseños">
               <RibbonMenuButton icon={LayoutTemplate} label="Diseño" menuWidth={220} items={SLIDE_LAYOUTS.map((l) => ({ label: l.name, onClick: () => applyLayout(l.id) }))} />
               <RibbonButton icon={LayoutGrid} label="Plantillas" hideLabel={false} onClick={() => setShowTemplates(true)} />
+              <RibbonMenuButton icon={Stamp} label={masterMode ? 'Patrón ✦' : 'Patrón'} menuWidth={250} items={[
+                { label: masterMode ? '✕ Salir del patrón' : '✎ Editar patrón de diapositivas', onClick: () => (masterMode ? exitMasterMode() : enterMasterMode()) },
+                ...(hasMaster ? [{ label: '🗑 Vaciar patrón', onClick: clearMaster }] : []),
+              ]} />
             </RibbonGroup>
             <RibbonSeparator />
             <RibbonGroup label="Temas">
@@ -1343,9 +1576,23 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
               </RibbonMenuButton>
               <RibbonColorButton icon={PaintBucket} title="Color de relleno" onChange={setColor} swatchBar={false} />
               <RibbonButton icon={Pipette} label="Cuentagotas (color del lienzo)" active={eyedropper} onClick={startEyedropper} />
-              <RibbonButton icon={Blend} label="Degradado" onClick={applyGradient} />
+              <RibbonMenuButton icon={Blend} label="Degradado" menuWidth={190} items={[
+                { label: 'Horizontal →', onClick: () => applyGradient('h') },
+                { label: 'Vertical ↓', onClick: () => applyGradient('v') },
+                { label: 'Diagonal ↘', onClick: () => applyGradient('d') },
+                { label: 'Radial ◉', onClick: () => applyGradient('r') },
+              ]} />
               <RibbonButton icon={Droplet} label="Sombra" onClick={toggleShadow} />
-              <RibbonButton icon={SquareDashed} label="Borde" onClick={toggleBorder} />
+              <RibbonMenuButton icon={SquareDashed} label="Contorno" menuWidth={190} items={[
+                { label: 'Sin contorno', onClick: () => setOutlineWidth(0) },
+                { label: 'Contorno fino (1)', onClick: () => setOutlineWidth(1) },
+                { label: 'Contorno medio (3)', onClick: () => setOutlineWidth(3) },
+                { label: 'Contorno grueso (6)', onClick: () => setOutlineWidth(6) },
+                { label: '— Sólido', onClick: () => setOutlineDash('solid') },
+                { label: '— Discontinuo', onClick: () => setOutlineDash('dashed') },
+                { label: '— Punteado', onClick: () => setOutlineDash('dotted') },
+              ]} />
+              <RibbonColorButton icon={Square} title="Color de contorno" onChange={setOutlineColor} swatchBar={false} />
               {selType === 'rect' && (
                 <RibbonMenuButton icon={Squircle} label="Esquinas" menuWidth={170} items={[
                   { label: 'Rectas', onClick: () => setCorners(0) },
@@ -1403,8 +1650,12 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
             <RibbonGroup label="Animación">
               {hasSel ? (
                 <>
-                  <RibbonSelect title="Animación de entrada del objeto" value={selAnim} onChange={setObjAnim} width={150}
+                  <RibbonSelect title="Animación del objeto (entrada / énfasis / salida)" value={selAnim} onChange={setObjAnim} width={170}
                     options={OBJ_ANIM_OPTIONS} />
+                  {selAnim !== 'none' && (
+                    <RibbonSelect title="Inicio de la animación" value={selAnimStart} onChange={setObjAnimStart} width={140}
+                      options={OBJ_ANIM_START} />
+                  )}
                   <span className="text-[11px] text-gray-500 px-1" title="Orden de aparición">Orden</span>
                   <input type="number" min={0} value={selAnimOrder} onChange={(e) => setObjAnimOrder(Number(e.target.value))} title="Orden de aparición"
                     className="w-12 h-7 text-xs rounded-lg bg-black/[0.04] dark:bg-white/[0.06] px-1.5 outline-none border border-transparent focus:border-blue-500/40 text-gray-800 dark:text-gray-100" />
@@ -1425,7 +1676,21 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
             <RibbonGroup label="Transición de esta diapositiva">
               <RibbonSelect title="Transición de la diapositiva actual" value={transition} onChange={setTrans} width={150}
                 options={SLIDE_TRANSITIONS} />
+              <span className="text-[11px] text-gray-500 px-1" title="Duración de la transición">Duración</span>
+              <RibbonSelect title="Duración de la transición" value={String(transDur)} onChange={(v) => setTransDuration(Number(v))} width={110}
+                options={TRANS_DURATIONS} />
               <RibbonButton icon={Copy} label="Aplicar a todas" hideLabel={false} onClick={() => applyTransAll(transition)} />
+            </RibbonGroup>
+            <RibbonSeparator />
+            <RibbonGroup label="Avanzar diapositiva">
+              <label className="flex items-center gap-1.5 text-[11px] text-gray-600 dark:text-gray-300 cursor-pointer" title="Avanzar automáticamente esta diapositiva">
+                <input type="checkbox" checked={advanceAfter > 0} onChange={(e) => setSlideAdvance(e.target.checked ? 5 : 0)} className="accent-blue-500" />
+                <Timer className="w-3.5 h-3.5" /> Tras
+              </label>
+              <input type="number" min={0} step={1} value={advanceAfter} onChange={(e) => setSlideAdvance(Number(e.target.value))} title="Segundos (0 = sólo al hacer clic)"
+                className="w-14 h-7 text-xs rounded-lg bg-black/[0.04] dark:bg-white/[0.06] px-1.5 outline-none border border-transparent focus:border-blue-500/40 text-gray-800 dark:text-gray-100" />
+              <span className="text-[11px] text-gray-500">s</span>
+              <RibbonButton icon={Repeat} label="Repetir en bucle" active={loop} onClick={toggleLoop} />
             </RibbonGroup>
             <RibbonSeparator />
             <RibbonGroup label="Fondo">
@@ -1468,7 +1733,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
       </OfficeRibbon>
 
       <div className="flex gap-4 flex-1 min-h-0">
-        <div className="w-44 flex-shrink-0 overflow-y-auto space-y-2 pr-1">
+        <div className={`w-44 flex-shrink-0 overflow-y-auto space-y-2 pr-1 transition-opacity ${masterMode ? 'opacity-40 pointer-events-none' : ''}`}>
           {slides.map((s, i) => (
             <React.Fragment key={i}>
               {sections[i] != null && (
@@ -1502,6 +1767,17 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
         </div>
 
         <div className="flex-1 min-w-0 flex flex-col gap-2 min-h-0">
+          {masterMode && (
+            <div className="flex-shrink-0 flex items-center gap-3 rounded-xl bg-amber-500/15 border border-amber-500/30 px-4 py-2 text-sm">
+              <Stamp className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0" />
+              <span className="font-semibold text-amber-700 dark:text-amber-300">Editando el patrón de diapositivas</span>
+              <span className="text-amber-700/70 dark:text-amber-300/70 hidden sm:inline">Lo que agregues aquí (logo, barras, marcos) aparece detrás de todas las diapositivas.</span>
+              <div className="ml-auto flex items-center gap-2">
+                <button onClick={clearMaster} className="text-xs px-2.5 py-1 rounded-lg bg-white/60 dark:bg-white/10 hover:bg-white/80 dark:hover:bg-white/20 text-amber-800 dark:text-amber-200">Vaciar patrón</button>
+                <button onClick={exitMasterMode} className="text-xs px-3 py-1 rounded-lg bg-amber-500 text-white hover:bg-amber-600 font-medium">Salir del patrón</button>
+              </div>
+            </div>
+          )}
           <div ref={stageRef} className="flex-1 min-h-0 bg-gray-100 dark:bg-[#0b0b0b] rounded-2xl flex items-center justify-center overflow-auto p-4">
             <div className="shadow-2xl relative flex-shrink-0" style={{ width: CW * zoom, height: ch * zoom }}>
               <canvas ref={elRef} />
@@ -1540,9 +1816,19 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
         </div>
       )}
 
-      {presenting && <Present slides={slides} notes={notesRef.current} transition={transition} transitions={transitionsRef.current} footer={footerRef.current} showNumbers={showNumbers} presenter={presenterMode} ratio={ratio} startAt={presentStartRef.current} onClose={() => { setPresenting(false); setPresenterMode(false); }} />}
+      {presenting && <Present slides={slides} notes={notesRef.current} transition={transition} transitions={transitionsRef.current} transDurs={transDursRef.current} advanceAfters={advanceRef.current} loop={loop} master={masterImgRef.current} footer={footerRef.current} showNumbers={showNumbers} presenter={presenterMode} ratio={ratio} startAt={presentStartRef.current} onClose={() => { setPresenting(false); setPresenterMode(false); }} />}
       <AnimatePresence>
         {showTemplates && <TemplateGallery type="slides" onPick={applyTemplate} onClose={() => setShowTemplates(false)} />}
+      </AnimatePresence>
+      <AnimatePresence>
+        {reuseOpen && !readOnly && (
+          <SlideReusePanel
+            ratio={ratio}
+            current={slidesRef.current.map((s, i) => ({ slide: s, note: notesRef.current[i] || '', transition: transitionsRef.current[i] || 'fade', transDur: transDursRef.current[i] || DEFAULT_TRANS_DUR }))}
+            onInsert={(item) => { insertReused(item); setReuseOpen(false); }}
+            onClose={() => setReuseOpen(false)}
+          />
+        )}
       </AnimatePresence>
       <AnimatePresence>
         {chartEditor && <SlideChartEditor spec={chartEditor.spec} onApply={applyChart} onClose={() => { chartTargetRef.current = null; setChartEditor(null); }} />}
@@ -1582,12 +1868,16 @@ const TRANSITIONS: Record<string, any> = {
   slide: { initial: { x: '100%', opacity: 0 }, animate: { x: 0, opacity: 1 }, exit: { x: '-100%', opacity: 0 } },
   slideUp: { initial: { y: '100%', opacity: 0 }, animate: { y: 0, opacity: 1 }, exit: { y: '-100%', opacity: 0 } },
   push: { initial: { x: '60%', opacity: 0 }, animate: { x: 0, opacity: 1 }, exit: { x: '-60%', opacity: 0 } },
+  wipe: { initial: { clipPath: 'inset(0 0 0 100%)' }, animate: { clipPath: 'inset(0 0 0 0%)' }, exit: { opacity: 0 } },
+  cover: { initial: { y: '100%' }, animate: { y: 0 }, exit: { opacity: 1 } },
   zoom: { initial: { scale: 0.85, opacity: 0 }, animate: { scale: 1, opacity: 1 }, exit: { scale: 1.1, opacity: 0 } },
   reveal: { initial: { scale: 1.15, opacity: 0 }, animate: { scale: 1, opacity: 1 }, exit: { scale: 0.92, opacity: 0 } },
   flip: { initial: { rotateY: 90, opacity: 0 }, animate: { rotateY: 0, opacity: 1 }, exit: { rotateY: -90, opacity: 0 } },
+  morph: { initial: { opacity: 0, scale: 1.05 }, animate: { opacity: 1, scale: 1 }, exit: { opacity: 0, scale: 0.97 } },
 };
 const OBJ_ANIM: Record<string, any> = {
   none: { initial: { opacity: 1 }, animate: { opacity: 1 } },
+  // Entrada (estado inicial oculto → visible).
   fade: { initial: { opacity: 0 }, animate: { opacity: 1 } },
   fly: { initial: { opacity: 0, y: '8%' }, animate: { opacity: 1, y: 0 } },
   flyDown: { initial: { opacity: 0, y: '-8%' }, animate: { opacity: 1, y: 0 } },
@@ -1595,32 +1885,66 @@ const OBJ_ANIM: Record<string, any> = {
   flyRight: { initial: { opacity: 0, x: '8%' }, animate: { opacity: 1, x: 0 } },
   zoom: { initial: { opacity: 0, scale: 0.8 }, animate: { opacity: 1, scale: 1 } },
   rotate: { initial: { opacity: 0, rotate: -12, scale: 0.9 }, animate: { opacity: 1, rotate: 0, scale: 1 } },
-  bounce: { initial: { opacity: 0, y: '-12%' }, animate: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 500, damping: 14 } } },
+  bounce: { initial: { opacity: 0, y: '-14%' }, animate: { opacity: 1, y: ['-14%', '5%', '-2%', '0%'] } },
+  // Énfasis (estado inicial visible; al dispararse reproduce un keyframe que
+  // regresa al estado base).
+  pulse: { initial: { opacity: 1, scale: 1 }, animate: { scale: [1, 1.12, 1] } },
+  spin: { initial: { opacity: 1, rotate: 0 }, animate: { rotate: [0, 360] } },
+  grow: { initial: { opacity: 1, scale: 1 }, animate: { scale: [1, 1.3, 1] } },
+  flash: { initial: { opacity: 1 }, animate: { opacity: [1, 0.15, 1, 0.15, 1] } },
+  // Salida (estado inicial visible → oculto).
+  fadeOut: { initial: { opacity: 1 }, animate: { opacity: 0 } },
+  flyOut: { initial: { opacity: 1, y: 0 }, animate: { opacity: 0, y: '10%' } },
+  zoomOut: { initial: { opacity: 1, scale: 1 }, animate: { opacity: 0, scale: 0.6 } },
 };
 
-interface Layer { src: string; anim: string; order: number; dur: number; delay?: number }
+/** Secuencia de animaciones de una diapositiva (modelo de pasos tipo PowerPoint).
+ *  `step` 0 = se reproduce al entrar; cada «al hacer clic» abre un paso nuevo.
+ *  `start` = retraso (s) relativo al inicio de su paso (with/after previous). */
+function planAnim(layers: Layer[]): { plan: Map<number, { step: number; start: number }>; maxStep: number } {
+  const animated = layers.map((l, idx) => ({ l, idx }))
+    .filter((x) => x.l.anim && x.l.anim !== 'none')
+    .sort((a, b) => a.l.order - b.l.order || a.idx - b.idx);
+  const plan = new Map<number, { step: number; start: number }>();
+  let step = 0; let lastStart = 0; let lastDur = 0;
+  for (const { l, idx } of animated) {
+    const mode = l.start || 'afterPrev';
+    let start: number;
+    if (mode === 'onClick') { step += 1; start = 0; lastStart = 0; lastDur = 0; }
+    else if (mode === 'withPrev') { start = lastStart; }
+    else { start = lastStart + lastDur; }
+    start += (typeof l.delay === 'number' ? l.delay : 0) / 1000;
+    plan.set(idx, { step, start });
+    lastStart = start; lastDur = (l.dur || 500) / 1000;
+  }
+  return { plan, maxStep: step };
+}
+
+interface Layer { src: string; anim: string; order: number; dur: number; delay?: number; start?: string }
 interface Deck { bg: string; layers: Layer[] }
 
 /** Capa estática de una diapositiva (sin animación) para miniaturas / presentador. */
-function StaticDeck({ deck }: { deck?: Deck }) {
+function StaticDeck({ deck, master }: { deck?: Deck; master?: string }) {
   if (!deck) return <div className="w-full h-full bg-white" />;
   return (
     <div className="absolute inset-0" style={{ background: deck.bg }}>
+      {master && <img src={master} alt="" className="absolute inset-0 w-full h-full object-contain" />}
       {deck.layers.map((L, j) => <img key={j} src={L.src} alt="" className="absolute inset-0 w-full h-full object-contain" />)}
     </div>
   );
 }
 
 function Present({
-  slides, notes, transition, transitions, footer, showNumbers, presenter, ratio, startAt, onClose,
+  slides, notes, transition, transitions, transDurs, advanceAfters, loop, master, footer, showNumbers, presenter, ratio, startAt, onClose,
 }: {
-  slides: any[]; notes?: string[]; transition?: string; transitions?: string[]; footer?: string; showNumbers?: boolean; presenter?: boolean; ratio?: string; startAt?: number; onClose: () => void;
+  slides: any[]; notes?: string[]; transition?: string; transitions?: string[]; transDurs?: number[]; advanceAfters?: number[]; loop?: boolean; master?: string; footer?: string; showNumbers?: boolean; presenter?: boolean; ratio?: string; startAt?: number; onClose: () => void;
 }) {
   const [decks, setDecks] = useState<Deck[]>([]);
   const [i, setI] = useState(Math.max(0, Math.min((slides?.length ?? 1) - 1, startAt ?? 0)));
   const [showNotes, setShowNotes] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const variant = TRANSITIONS[transitions?.[i] || transition || 'fade'] ?? TRANSITIONS.fade;
+  const transSec = Math.max(0.05, (transDurs?.[i] ?? 500) / 1000);
   const ch = slideHeight(ratio);
   const aspect = ratio === '4:3' ? '4 / 3' : '16 / 9';
   const stageW = ratio === '4:3' ? 'min(100vw, 133.33vh)' : 'min(100vw, 177.78vh)';
@@ -1632,11 +1956,24 @@ function Present({
   const [gridNav, setGridNav] = useState(false);
   const [laser, setLaser] = useState<{ x: number; y: number } | null>(null);
   const [ink, setInk] = useState<Record<number, number[][]>>({});
+  // Paso de animación revelado (construcción por clic, tipo PowerPoint). Se
+  // deriva de { i, step } para que al cambiar de diapositiva valga 0 de inmediato
+  // (sin un render intermedio que muestre el paso de la diapositiva anterior).
+  const [reveal, setReveal] = useState<{ i: number; step: number }>({ i: -1, step: 0 });
+  const revealed = reveal.i === i ? reveal.step : 0;
+  const [paused, setPaused] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
+  const [notesScale, setNotesScale] = useState(1);
+  const revealedRef = useRef(0);
+  const maxStepRef = useRef(0);
+  const loopRef = useRef(loop);
   const drawRef = useRef<number[] | null>(null);
   const boxRef = useRef<HTMLDivElement>(null);
   const iRef = useRef(0);
   const gridRef = useRef(false);
   useEffect(() => { iRef.current = i; setLaser(null); }, [i]);
+  useEffect(() => { revealedRef.current = revealed; }, [revealed]);
+  useEffect(() => { loopRef.current = loop; }, [loop]);
   useEffect(() => { gridRef.current = gridNav; }, [gridNav]);
   const slidePt = (e: React.PointerEvent) => {
     const r = boxRef.current?.getBoundingClientRect(); if (!r || !r.width) return [0, 0] as const;
@@ -1657,7 +1994,7 @@ function Present({
             const sc = new StaticCanvas(document.createElement('canvas'), { width: CW, height: ch });
             await sc.loadFromJSON({ version: json.version, objects: [o] });
             sc.renderAll();
-            layers.push({ src: sc.toDataURL({ format: 'png', multiplier: 1 } as any), anim: (o.anim as string) || 'none', order: o.animOrder ?? j, dur: o.animDur ?? 500, delay: typeof o.animDelay === 'number' ? o.animDelay : undefined });
+            layers.push({ src: sc.toDataURL({ format: 'png', multiplier: 1 } as any), anim: (o.anim as string) || 'none', order: o.animOrder ?? j, dur: o.animDur ?? 500, delay: typeof o.animDelay === 'number' ? o.animDelay : undefined, start: (o.animStart as string) || 'afterPrev' });
             sc.dispose();
           } catch { /* skip object */ }
         }
@@ -1667,47 +2004,82 @@ function Present({
     })();
     const onKey = (e: KeyboardEvent) => {
       const k = e.key.toLowerCase();
-      if (e.key === 'ArrowRight' || e.key === ' ') { setBlacked(false); setI((v) => Math.min(slides.length - 1, v + 1)); }
-      if (e.key === 'ArrowLeft') { setBlacked(false); setI((v) => Math.max(0, v - 1)); }
+      if (e.key === 'ArrowRight' || e.key === ' ') {
+        setBlacked(false);
+        if (revealedRef.current < maxStepRef.current) setReveal({ i: iRef.current, step: revealedRef.current + 1 });
+        else setI((v) => (v < slides.length - 1 ? v + 1 : (loopRef.current ? 0 : v)));
+      }
+      if (e.key === 'ArrowLeft') {
+        setBlacked(false);
+        if (revealedRef.current > 0) setReveal({ i: iRef.current, step: Math.max(0, revealedRef.current - 1) });
+        else setI((v) => Math.max(0, v - 1));
+      }
       if (k === 'n') setShowNotes((v) => !v);
       if (k === 'b') setBlacked((v) => !v);
       if (k === 'l') setTool((t) => (t === 'laser' ? 'none' : 'laser'));
       if (k === 'p') setTool((t) => (t === 'pen' ? 'none' : 'pen'));
       if (k === 'e') setInk((p) => ({ ...p, [iRef.current]: [] }));
       if (k === 'g') setGridNav((v) => !v);
+      if (k === 'k') setPaused((v) => !v);
       if (e.key === 'Escape') { if (gridRef.current) setGridNav(false); else onClose(); }
     };
     window.addEventListener('keydown', onKey);
     return () => { active = false; window.removeEventListener('keydown', onKey); };
   }, [slides, onClose]);
 
-  // Temporizador (vista de presentador).
+  // Temporizador + reloj de hora del día (vista de presentador).
   useEffect(() => {
     if (!presenter) return;
-    const t = setInterval(() => setElapsed((e) => e + 1), 1000);
+    const t = setInterval(() => { setElapsed((e) => e + 1); setNow(Date.now()); }, 1000);
     return () => clearInterval(t);
   }, [presenter]);
   const mmss = `${String(Math.floor(elapsed / 60)).padStart(2, '0')}:${String(elapsed % 60).padStart(2, '0')}`;
+  const clock = new Date(now).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
   const note = notes?.[i]?.trim();
   const hasNotes = (notes ?? []).some((n) => n?.trim());
+  const hasAuto = (advanceAfters ?? []).some((s) => s > 0);
   const deck = decks[i];
 
-  // Ranking por orden de animación (para secuenciar la entrada de objetos).
-  const rank = new Map<number, number>();
-  if (deck) deck.layers.map((l, idx) => ({ l, idx })).filter((x) => x.l.anim && x.l.anim !== 'none').sort((a, b) => a.l.order - b.l.order).forEach((x, r) => rank.set(x.idx, r));
+  // Secuencia de pasos de animación de la diapositiva actual.
+  const { plan, maxStep } = planAnim(deck?.layers ?? []);
+  useEffect(() => { maxStepRef.current = maxStep; }, [maxStep]);
+  const nextSlide = () => setI((v) => (v < slides.length - 1 ? v + 1 : (loop ? 0 : v)));
+  const advance = () => { setBlacked(false); if (revealed < maxStep) setReveal({ i, step: revealed + 1 }); else nextSlide(); };
+
+  // Avance automático (cronometraje de transición / modo kiosco). Cada disparo
+  // revela el siguiente paso de animación (si lo hay) y, si ya no quedan, pasa a
+  // la siguiente diapositiva; se rearma con cada cambio para no atascarse en
+  // diapositivas con construcciones «al hacer clic». Respeta el bucle.
+  useEffect(() => {
+    if (presenter || paused || blacked || gridNav) return;
+    const sec = advanceAfters?.[i] || 0;
+    if (sec <= 0) return;
+    const t = setTimeout(() => {
+      setBlacked(false);
+      if (revealed < maxStep) setReveal({ i, step: revealed + 1 });
+      else setI((v) => (v < slides.length - 1 ? v + 1 : (loop ? 0 : v)));
+    }, sec * 1000);
+    return () => clearTimeout(t);
+  }, [i, revealed, maxStep, paused, blacked, gridNav, presenter, advanceAfters, loop, slides.length]);
 
   const stage = (
     <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
       {!deck ? <div className="text-white/60">Generando…</div> : (
         <AnimatePresence mode="popLayout" initial={false}>
-          <motion.div key={i} variants={variant} initial="initial" animate="animate" exit="exit" transition={{ duration: 0.4, ease: 'easeInOut' }}
+          <motion.div key={i} variants={variant} initial="initial" animate="animate" exit="exit" transition={{ duration: transSec, ease: 'easeInOut' }}
             className="absolute" style={{ width: stageW, aspectRatio: aspect, background: deck.bg }}>
-            {deck.layers.map((L, j) => (
-              <motion.img key={j} src={L.src} alt="" className="absolute inset-0 w-full h-full object-contain"
-                variants={OBJ_ANIM[L.anim] ?? OBJ_ANIM.none} initial="initial" animate="animate"
-                transition={{ duration: (L.dur || 500) / 1000, ease: 'easeOut', delay: L.anim && L.anim !== 'none' ? (typeof L.delay === 'number' ? L.delay / 1000 : 0.15 + (rank.get(j) ?? j) * 0.2) : 0 }} />
-            ))}
+            {master && <img src={master} alt="" className="absolute inset-0 w-full h-full object-contain pointer-events-none" />}
+            {deck.layers.map((L, j) => {
+              const p = plan.get(j);
+              const animated = !!(L.anim && L.anim !== 'none');
+              const shown = !animated || !p || revealed >= p.step;
+              return (
+                <motion.img key={j} src={L.src} alt="" className="absolute inset-0 w-full h-full object-contain"
+                  variants={OBJ_ANIM[L.anim] ?? OBJ_ANIM.none} initial="initial" animate={shown ? 'animate' : 'initial'}
+                  transition={{ duration: (L.dur || 500) / 1000, ease: 'easeOut', delay: shown && p ? p.start : 0 }} />
+              );
+            })}
             {(slides[i]?.objects ?? []).map((o: any, j: number) => {
               if (!o?.link) return null;
               const w = (o.radius ? o.radius * 2 : (o.width ?? 0)) * (o.scaleX ?? 1);
@@ -1742,15 +2114,16 @@ function Present({
       <div className="fixed inset-0 z-[200] bg-[#0a0a0a] text-white flex flex-col">
         <div className="flex items-center gap-4 px-6 h-14 border-b border-white/10 flex-shrink-0">
           <span className="text-sm font-semibold">Vista de presentador</span>
-          <span className="ml-2 font-mono text-2xl tabular-nums">{mmss}</span>
-          <button onClick={() => setElapsed(0)} className="text-xs px-2 py-1 rounded-lg bg-white/10 hover:bg-white/20">Reiniciar</button>
+          <span className="ml-2 font-mono text-2xl tabular-nums" title="Tiempo transcurrido">{mmss}</span>
+          <button onClick={() => setElapsed(0)} title="Reiniciar el temporizador" className="text-xs px-2 py-1 rounded-lg bg-white/10 hover:bg-white/20">Reiniciar</button>
+          <span className="font-mono text-base text-white/70 tabular-nums" title="Hora actual">{clock}</span>
           <span className="ml-auto text-sm text-white/60">Diapositiva {i + 1} de {slides.length}</span>
           <button onClick={onClose} title="Cerrar (Esc)" className="p-2 rounded-full bg-white/15 hover:bg-white/30"><X className="w-5 h-5" /></button>
         </div>
         <div className="flex-1 min-h-0 flex gap-4 p-4">
           <div className="flex-1 min-w-0 flex flex-col">
             <div className="relative flex-1 min-h-0 rounded-xl overflow-hidden bg-white" style={{ aspectRatio: aspect }}>
-              <StaticDeck deck={deck} />
+              <StaticDeck deck={deck} master={master} />
             </div>
             <div className="flex items-center justify-center gap-3 pt-3">
               <button onClick={() => setI((v) => Math.max(0, v - 1))} disabled={i === 0} className="w-11 h-11 rounded-full bg-white/15 text-2xl hover:bg-white/30 disabled:opacity-20">‹</button>
@@ -1761,12 +2134,18 @@ function Present({
             <div>
               <p className="text-xs text-white/50 mb-1">Siguiente</p>
               <div className="relative rounded-lg overflow-hidden bg-white border border-white/10" style={{ aspectRatio: aspect }}>
-                {i < slides.length - 1 ? <StaticDeck deck={decks[i + 1]} /> : <div className="absolute inset-0 flex items-center justify-center text-gray-400 text-sm">Fin</div>}
+                {i < slides.length - 1 ? <StaticDeck deck={decks[i + 1]} master={master} /> : <div className="absolute inset-0 flex items-center justify-center text-gray-400 text-sm">Fin</div>}
               </div>
             </div>
             <div className="flex-1 min-h-0 rounded-lg bg-white/5 border border-white/10 p-3 overflow-y-auto">
-              <p className="text-xs text-white/50 mb-1">Notas</p>
-              <p className="text-sm leading-relaxed whitespace-pre-wrap text-white/90">{note || <span className="text-white/30">Sin notas.</span>}</p>
+              <div className="flex items-center justify-between mb-1">
+                <p className="text-xs text-white/50">Notas</p>
+                <div className="flex items-center gap-1">
+                  <button onClick={() => setNotesScale((s) => Math.max(0.8, +(s - 0.1).toFixed(2)))} title="Reducir tamaño de notas" className="w-6 h-6 rounded bg-white/10 hover:bg-white/20 text-xs leading-none">A−</button>
+                  <button onClick={() => setNotesScale((s) => Math.min(2.2, +(s + 0.1).toFixed(2)))} title="Aumentar tamaño de notas" className="w-6 h-6 rounded bg-white/10 hover:bg-white/20 text-sm leading-none">A+</button>
+                </div>
+              </div>
+              <p className="leading-relaxed whitespace-pre-wrap text-white/90" style={{ fontSize: `${notesScale * 0.875}rem` }}>{note || <span className="text-white/30">Sin notas.</span>}</p>
             </div>
           </div>
         </div>
@@ -1776,13 +2155,17 @@ function Present({
 
   const inkColor = '#ef4444';
   return (
-    <div className="fixed inset-0 z-[200] bg-black flex items-center justify-center">
+    <div className="fixed inset-0 z-[200] bg-black flex items-center justify-center"
+      onClick={(e) => { if (e.target === e.currentTarget) advance(); }}>
       <div className="absolute top-4 right-4 z-50 flex items-center gap-2">
         <button onClick={() => setTool((t) => (t === 'laser' ? 'none' : 'laser'))} title="Puntero láser (L)" className={`p-2 rounded-full text-white transition-colors ${tool === 'laser' ? 'bg-rose-500/90' : 'bg-white/15 hover:bg-white/30'}`}><Pointer className="w-5 h-5" /></button>
         <button onClick={() => setTool((t) => (t === 'pen' ? 'none' : 'pen'))} title="Lápiz (P)" className={`p-2 rounded-full text-white transition-colors ${tool === 'pen' ? 'bg-rose-500/90' : 'bg-white/15 hover:bg-white/30'}`}><Pencil className="w-5 h-5" /></button>
         <button onClick={clearInk} title="Borrar tinta (E)" className="p-2 rounded-full bg-white/15 text-white hover:bg-white/30"><Eraser className="w-5 h-5" /></button>
         <button onClick={() => setBlacked((v) => !v)} title="Pantalla en negro (B)" className={`p-2 rounded-full text-white transition-colors ${blacked ? 'bg-rose-500/90' : 'bg-white/15 hover:bg-white/30'}`}><Moon className="w-5 h-5" /></button>
         <button onClick={() => setGridNav((v) => !v)} title="Miniaturas (G)" className={`p-2 rounded-full text-white transition-colors ${gridNav ? 'bg-rose-500/90' : 'bg-white/15 hover:bg-white/30'}`}><LayoutGrid className="w-5 h-5" /></button>
+        {hasAuto && (
+          <button onClick={() => setPaused((v) => !v)} title={paused ? 'Reanudar avance automático (K)' : 'Pausar avance automático (K)'} className={`p-2 rounded-full text-white transition-colors ${paused ? 'bg-amber-500/80' : 'bg-white/15 hover:bg-white/30'}`}>{paused ? <Play className="w-5 h-5" /> : <Pause className="w-5 h-5" />}</button>
+        )}
         {hasNotes && (
           <button onClick={() => setShowNotes((v) => !v)} title="Notas del orador (N)" className={`p-2 rounded-full text-white transition-colors ${showNotes ? 'bg-amber-500/80' : 'bg-white/15 hover:bg-white/30'}`}><StickyNote className="w-5 h-5" /></button>
         )}
@@ -1817,16 +2200,16 @@ function Present({
             {decks.map((d, j) => (
               <button key={j} onClick={() => { setI(j); setGridNav(false); }}
                 className={`relative rounded-xl overflow-hidden border-2 transition-all ${j === i ? 'border-rose-500 scale-[1.02]' : 'border-white/15 hover:border-white/40'}`} style={{ aspectRatio: aspect }}>
-                <StaticDeck deck={d} />
+                <StaticDeck deck={d} master={master} />
                 <span className="absolute top-1.5 left-2 text-xs font-bold text-white bg-black/50 rounded px-1.5">{j + 1}</span>
               </button>
             ))}
           </div>
         </div>
       )}
-      <button onClick={() => setI((v) => Math.max(0, v - 1))} disabled={i === 0} className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/15 text-white text-2xl hover:bg-white/30 disabled:opacity-20 z-20">‹</button>
-      <button onClick={() => setI((v) => Math.min(slides.length - 1, v + 1))} disabled={i === slides.length - 1} className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/15 text-white text-2xl hover:bg-white/30 disabled:opacity-20 z-20">›</button>
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/70 text-sm z-20">{i + 1} / {slides.length}</div>
+      <button onClick={() => { if (revealed > 0) setReveal({ i, step: Math.max(0, revealed - 1) }); else setI((v) => Math.max(0, v - 1)); }} disabled={i === 0 && revealed === 0} className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/15 text-white text-2xl hover:bg-white/30 disabled:opacity-20 z-20">‹</button>
+      <button onClick={advance} disabled={i === slides.length - 1 && revealed >= maxStep && !loop} className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/15 text-white text-2xl hover:bg-white/30 disabled:opacity-20 z-20">›</button>
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/70 text-sm z-20">{i + 1} / {slides.length}{maxStep > 0 && <span className="text-white/40"> · paso {revealed}/{maxStep}</span>}{loop && <span className="text-white/40" title="Bucle"> · ↻</span>}{hasAuto && paused && <span className="text-amber-400" title="En pausa"> · ⏸</span>}</div>
       {showNotes && (
         <div className="absolute bottom-0 left-0 right-0 max-h-[30%] overflow-y-auto bg-black/80 backdrop-blur border-t border-white/10 px-8 py-4 text-white/90 text-sm leading-relaxed whitespace-pre-wrap z-20">
           {note || <span className="text-white/40">Sin notas para esta diapositiva.</span>}

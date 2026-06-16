@@ -322,11 +322,157 @@ Verificado: `tsc` ✓, `eslint` ✓, `next build` ✓.
 
 Verificado: `tsc` ✓, `eslint` ✓, `next build` ✓.
 
+### Sesión 2026-06-16 — Paridad PowerPoint (rama `claude/epic-pasteur-xvyuhp`)
+Carril F3. Sólo `SlidesEditor.tsx`, `SlideAnimationPanel.tsx`, `slideAssets.ts`
+y `slides/**`. Gates por rebanada: `tsc` + `eslint` (0 errores) + `next build`.
+
+#### Lote 28 — El tema reestiliza TODO el mazo (paleta + tipografía)
+Antes, cambiar de tema sólo cambiaba el color de fondo de las diapositivas. Ahora
+adopta el modelo de **«colores de tema» tipo PowerPoint**: al cambiar de tema se
+**remapea cada color literal** que coincida con un slot del tema anterior
+(fondo/superficie/texto/atenuado/acento) → al slot equivalente del tema nuevo, en
+**todas** las diapositivas, y la **tipografía** del tema (`fontFamily`) también.
+- Helpers puros `remapThemeColor` / `remapThemeObject` (recursivos: grupos,
+  SmartArt, tablas, gráficos; gradientes vía `colorStops`; relleno/borde/fondo).
+- Los colores que el usuario eligió a mano (que no son del tema) se **conservan**.
+- `applyTheme` ahora captura, remapea `slidesRef` y **recarga la diapositiva
+  actual** (antes sólo tocaba el fondo en vivo). Reestiliza títulos, viñetas,
+  barras de acento, formas y fondos creados desde el tema en una sola acción.
+
+Verificado: `tsc` ✓, `eslint` ✓ (0 errores; warnings preexistentes), `next build` ✓.
+
+#### Lote 29 — Transiciones: duración por diapositiva + barrido/cubrir/morph
+- **Duración por diapositiva** (`transDurs`, arreglo paralelo como `transitions`):
+  pestaña Transiciones → selector de duración (0.25s…2s). Antes la transición era
+  fija a 0.4s. **Aplicar a todas** ahora copia la transición **y** la duración de
+  la diapositiva actual a todo el mazo (como PowerPoint).
+- Nuevas transiciones: **Barrido** (wipe con `clip-path`), **Cubrir** (cover desde
+  abajo) y **Transformar (morph básico)** (fundido + escala suave).
+- El modo presentación usa la duración por diapositiva (`transSec`) y los nuevos
+  variants. `transDurs` se mantiene en agregar/duplicar/borrar/reordenar/plantilla
+  y se persiste en el store.
+
+Verificado: `tsc` ✓, `eslint` ✓ (0 errores; warnings preexistentes), `next build` ✓.
+
+#### Lote 30 — Animaciones: énfasis + salida + secuencia con/después/al clic
+- **Categorías** como PowerPoint: además de **entrada** (existentes), nuevos
+  efectos de **énfasis** (Pulso, Girar, Agrandar, Destello) y de **salida**
+  (Desvanecer, Hacia abajo, Alejar). `animKind()` deriva la categoría; la
+  pestaña Formato ▸ Animación y el **panel de animación** muestran etiqueta de
+  categoría por color.
+- **Inicio de la animación** (`animStart`): «Al hacer clic», «Con la anterior» y
+  «Después de la anterior». Por defecto *después de la anterior* (compatibilidad:
+  los mazos previos siguen reproduciéndose en secuencia al entrar).
+- **Modo presentación = construcción por pasos**: `planAnim()` agrupa los objetos
+  en pasos (cada «al hacer clic» abre un paso) y calcula el retraso relativo
+  (con/después de la anterior). Avanzar (→ / espacio / clic / botón) revela el
+  siguiente paso antes de cambiar de diapositiva; retroceder oculta el paso.
+  Indicador «paso n/total». Los efectos de salida ocultan el objeto; los de
+  énfasis reproducen un keyframe que vuelve al estado base.
+- `animStart` se serializa (`capture`) y se conserva en la persistencia.
+
+Verificado: `tsc` ✓, `eslint` ✓ (0 errores; warnings preexistentes), `next build` ✓.
+
+#### Lote 31 — Patrón de diapositivas (slide master) editable
+Cierra el ítem diferido «patrón editable». Modelo: un Fabric JSON `master` con la
+**mobiliaria compartida** (logo, barras, marcos, marcadores) que aparece detrás
+del contenido de **todas** las diapositivas.
+- **Modo patrón**: Diseño ▸ Patrón ▸ «Editar patrón». El lienzo carga los objetos
+  del patrón (editables con todas las herramientas de Insertar/Formato/Inicio);
+  un banner ámbar indica el modo y ofrece **Salir** y **Vaciar patrón**. La barra
+  de miniaturas se atenúa; las operaciones de mazo (tema, diseño, fondo, tamaño,
+  plantilla, reordenar, navegación) se bloquean mientras se edita el patrón para
+  no corromper el estado.
+- **Composición en modo normal**: el patrón se aplana a un PNG transparente
+  (`renderMasterImage`) y se compone como `backgroundImage` del lienzo (detrás del
+  contenido). **No se serializa por diapositiva** (`capture` borra
+  `backgroundImage`/`overlayImage`), así no contamina el JSON de cada slide.
+- **Persistencia**: `master` se guarda en el store (`sync`). Se reconstruye al
+  cargar; se re-renderiza al cambiar de tamaño (16:9 ↔ 4:3).
+- **Presentación**: el patrón se dibuja como capa inferior en el escenario, en las
+  miniaturas del navegador, y en la vista de presentador (actual + siguiente).
+- Los viewers de **solo lectura** ven el patrón (no pueden editarlo).
+- **REQUIERE fuera de carril**: el patrón se ve en editor y presentación, pero **no
+  se incluye en export .pptx/PDF/PNG** (esos viven en `lib/office/**`, fuera del
+  carril F3). Anotado para una sesión que toque export.
+
+Verificado: `tsc` ✓, `eslint` ✓ (0 errores; warnings preexistentes), `next build` ✓.
+
+#### Lote 32 — Reutilizar diapositivas (de este mazo o de otro .json)
+- `SlideReusePanel.tsx` — modal «Reutilizar diapositivas» (Inicio ▸ Diapositivas):
+  - Pestaña **Esta presentación**: miniaturas reales (render Fabric) de todas las
+    diapositivas; «Insertar» añade una **copia** después de la actual.
+  - Pestaña **Otra presentación**: **importa un .json** de presentación AXOS y
+    lista sus diapositivas para insertarlas individualmente (reutilización entre
+    mazos, 100% client-side; conserva formato + notas + transición + duración).
+- `insertReused()` inserta la copia y mantiene en paralelo notas/secciones/
+  transiciones/duraciones. Bloqueado en modo patrón.
+
+Verificado: `tsc` ✓, `eslint` ✓ (0 errores; warnings preexistentes), `next build` ✓.
+
+#### Lote 33 — Avance automático (cronometraje) + bucle/kiosco
+- **Avanzar diapositiva automáticamente tras N segundos** (`advanceAfters`,
+  arreglo paralelo): pestaña Transiciones ▸ casilla + segundos. «Aplicar a todas»
+  ahora también copia el avance automático.
+- **Repetir en bucle** (`loop`, nivel de mazo): al terminar vuelve al inicio.
+- En presentación: temporizador por diapositiva que avanza al terminar las
+  construcciones manuales (`revealed ≥ maxStep`); **pausa/reanuda** (tecla **K** o
+  botón, visible si hay avance automático); indicadores de bucle/pausa en el pie.
+  El clic/teclas siguen avanzando manualmente; respeta pantalla en negro y
+  miniaturas.
+
+Verificado: `tsc` ✓, `eslint` ✓ (0 errores; warnings preexistentes), `next build` ✓.
+
+#### Lote 34 — Correcciones de la auto-revisión de código (lotes 28–33)
+Revisión con agentes (tema/patrón/avance y animación/presentación). El patrón,
+el remapeo de tema, las matrices paralelas y los guards quedaron **confirmados
+correctos**. Se corrigieron 4 bugs reales en el modo presentación:
+- **Paso revelado** ahora se deriva de `{ i, step }` (antes un efecto lo ponía a
+  0 con un render de retraso → al volver atrás o saltar por miniaturas a una
+  diapositiva ya cacheada, sus objetos «parpadeaban» entrando y revirtiendo).
+- **Avance automático** ya no se atasca: cada disparo revela el siguiente paso de
+  animación y, si no quedan, cambia de diapositiva (antes, con construcciones «al
+  hacer clic», el temporizador nunca se armaba y el kiosco se congelaba).
+- **Bucle** ahora respeta teclado (→/espacio) y botón «›» en la última
+  diapositiva (antes sólo se podía dar la vuelta con clic en el fondo o por
+  temporizador).
+- **Rebote**: el efecto llevaba su propia transición *spring* incrustada que
+  anulaba el `delay` de secuencia (con/después de la anterior). Reescrito con
+  keyframes para que respete orden y retraso.
+
+Verificado: `tsc` ✓, `eslint` ✓ (0 errores; warnings preexistentes), `next build` ✓.
+
+#### Lote 35 — Pulido de la vista de presentador
+- **Reloj de hora del día** junto al temporizador (útil para no pasarse del
+  horario), actualizado cada segundo.
+- **Tamaño de notas ajustable** (A− / A+, 0.8×–2.2×) en el panel de notas del
+  presentador.
+
+Verificado: `tsc` ✓, `eslint` ✓ (0 errores; warnings preexistentes), `next build` ✓.
+
+#### Lote 36 — Contorno de forma (grosor + estilo de línea + color)
+Antes el borde era un simple toggle. Ahora, menú **Contorno** (Formato ▸ Estilo
+de forma): **sin contorno / fino / medio / grueso** y **estilo de línea**
+(sólido / discontinuo / punteado, con `strokeDashArray`/`strokeLineCap`
+derivados del grosor), más **color de contorno** dedicado. Propiedades nativas
+de Fabric → se serializan sin cambios en `capture`.
+
+Verificado: `tsc` ✓, `eslint` ✓ (0 errores; warnings preexistentes), `next build` ✓.
+
+#### Lote 37 — Degradado de relleno con dirección
+Antes el degradado era fijo (base → púrpura horizontal). Ahora menú con
+**dirección** (horizontal/vertical/diagonal/**radial**) y degradado de un solo
+tono (`base → aclarado`, helper puro `lightenHex`), que respeta el color de
+relleno actual del objeto. Para rectángulos, círculos y formas.
+
+Verificado: `tsc` ✓, `eslint` ✓ (0 errores; warnings preexistentes), `next build` ✓.
+
 ### Diferido (con estimación)
 - **Secciones en el clasificador** y colapsar/expandir: el sorter es una rejilla;
   insertar encabezados de ancho completo + colapso. Estimación: ~0.5 día.
-- **Patrón de diapositivas (master) editable** (backlog #7): editor de
-  marcadores/placeholders. Estimación: ~1 día.
+- **Patrón en export** (.pptx/PDF/PNG): el patrón ya existe (Lote 31) y se ve en
+  editor/presentación, pero el export vive en `lib/office/**` (fuera del carril
+  F3). Pendiente para una sesión que toque export. Estimación: ~0.5 día.
 - **Video/audio embebido** (backlog #10): Fabric no reproduce media; requiere
   capa HTML sincronizada y export limitado en .pptx. Estimación: ~1–1.5 días.
 - **Import .pptx**: no hay lib permisiva estable de alta fidelidad. Estimación:

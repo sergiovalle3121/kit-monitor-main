@@ -22,21 +22,67 @@ export const SLIDE_TRANSITIONS: { label: string; value: string }[] = [
   { label: 'Deslizar', value: 'slide' },
   { label: 'Deslizar arriba', value: 'slideUp' },
   { label: 'Empujar', value: 'push' },
+  { label: 'Barrido', value: 'wipe' },
+  { label: 'Cubrir', value: 'cover' },
   { label: 'Zoom', value: 'zoom' },
   { label: 'Revelar', value: 'reveal' },
   { label: 'Voltear', value: 'flip' },
+  { label: 'Transformar (morph)', value: 'morph' },
 ];
+
+/** Duración de transición de diapositiva (ms). Compartida por la pestaña
+ *  Transiciones y el modo presentación. */
+export const TRANS_DURATIONS: { label: string; value: string }[] = [
+  { label: 'Muy rápida (0.25s)', value: '250' },
+  { label: 'Normal (0.5s)', value: '500' },
+  { label: 'Media (0.8s)', value: '800' },
+  { label: 'Lenta (1.2s)', value: '1200' },
+  { label: 'Muy lenta (2s)', value: '2000' },
+];
+export const DEFAULT_TRANS_DUR = 500;
+// Animaciones de objeto, agrupadas por categoría (entrada/énfasis/salida) como
+// en PowerPoint. Los `value` de entrada se conservan para no romper mazos ya
+// guardados; las categorías nuevas añaden efectos de énfasis y de salida.
 export const OBJ_ANIM_OPTIONS: { label: string; value: string }[] = [
   { label: 'Sin animación', value: 'none' },
-  { label: 'Aparecer', value: 'fade' },
-  { label: 'Entrar (abajo)', value: 'fly' },
-  { label: 'Entrar (arriba)', value: 'flyDown' },
-  { label: 'Entrar (izquierda)', value: 'flyLeft' },
-  { label: 'Entrar (derecha)', value: 'flyRight' },
-  { label: 'Zoom', value: 'zoom' },
-  { label: 'Girar', value: 'rotate' },
-  { label: 'Rebote', value: 'bounce' },
+  { label: 'Entrada · Aparecer', value: 'fade' },
+  { label: 'Entrada · Desde abajo', value: 'fly' },
+  { label: 'Entrada · Desde arriba', value: 'flyDown' },
+  { label: 'Entrada · Desde la izquierda', value: 'flyLeft' },
+  { label: 'Entrada · Desde la derecha', value: 'flyRight' },
+  { label: 'Entrada · Zoom', value: 'zoom' },
+  { label: 'Entrada · Girar', value: 'rotate' },
+  { label: 'Entrada · Rebote', value: 'bounce' },
+  { label: 'Énfasis · Pulso', value: 'pulse' },
+  { label: 'Énfasis · Girar', value: 'spin' },
+  { label: 'Énfasis · Agrandar', value: 'grow' },
+  { label: 'Énfasis · Destello', value: 'flash' },
+  { label: 'Salida · Desvanecer', value: 'fadeOut' },
+  { label: 'Salida · Hacia abajo', value: 'flyOut' },
+  { label: 'Salida · Alejar', value: 'zoomOut' },
 ];
+
+/** Cuándo se dispara la animación de un objeto (secuencia tipo PowerPoint). */
+export const OBJ_ANIM_START: { label: string; value: string }[] = [
+  { label: 'Al hacer clic', value: 'onClick' },
+  { label: 'Con la anterior', value: 'withPrev' },
+  { label: 'Después de la anterior', value: 'afterPrev' },
+];
+/** Por defecto «después de la anterior» = los objetos animados se reproducen en
+ *  secuencia al entrar a la diapositiva (compatibilidad con mazos previos). */
+export const DEFAULT_ANIM_START = 'afterPrev';
+const EMPHASIS = new Set(['pulse', 'spin', 'grow', 'flash']);
+const EXIT = new Set(['fadeOut', 'flyOut', 'zoomOut']);
+export type AnimKind = 'entrance' | 'emphasis' | 'exit' | 'none';
+export function animKind(effect?: string): AnimKind {
+  if (!effect || effect === 'none') return 'none';
+  if (EMPHASIS.has(effect)) return 'emphasis';
+  if (EXIT.has(effect)) return 'exit';
+  return 'entrance';
+}
+export const ANIM_KIND_LABEL: Record<AnimKind, string> = {
+  entrance: 'Entrada', emphasis: 'Énfasis', exit: 'Salida', none: '—',
+};
 
 export interface SlideTheme {
   id: string; name: string;
