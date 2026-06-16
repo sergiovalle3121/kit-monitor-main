@@ -1,13 +1,17 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Search, LayoutGrid, LineChart, Warehouse, Boxes, Factory, HardHat, ShieldCheck,
   Cpu, DollarSign, Calculator, RadioTower, FileText, Landmark, Users, Building2,
   ShieldAlert, MessageSquare, CornerDownLeft, Hash, Lightbulb, Wrench, Scale, FlaskConical, ShoppingCart, GraduationCap, Truck, PackageCheck, ClipboardList, Target, Building, Receipt, Hammer, PackageX,
-  Gauge, Megaphone, PackagePlus, ScanLine, ShieldX,
+  Gauge, Megaphone, PackagePlus, ScanLine, ShieldX, Loader2,
 } from 'lucide-react';
+import {
+  ENTITY_ORDER, ensureSearchIndex, filterSearchIndex,
+  type SearchHit, type SearchKind,
+} from './searchSources';
 
 interface Dest {
   label: string;
@@ -68,11 +72,48 @@ const DESTS: Dest[] = [
   { label: 'Chat', sub: 'Mensajería', href: '/dashboard/chat', keywords: 'chat mensajes mensajeria', icon: MessageSquare },
 ];
 
+// Shape shared by record hits (from searchSources) and navigation hits (from DESTS).
+type RenderKind = SearchKind | 'nav';
+interface RenderHit {
+  kind: RenderKind;
+  id: string;
+  title: string;
+  subtitle: string;
+  href: string;
+  badge?: string;
+  icon?: React.ElementType;
+}
+
+// Label + fallback icon per group. Records first, navigation ("Ir a…") last.
+const KIND_META: Record<RenderKind, { label: string; icon: React.ElementType }> = {
+  wo: { label: 'Órdenes de trabajo', icon: Factory },
+  ncr: { label: 'Calidad · NCR', icon: ShieldAlert },
+  part: { label: 'Partes y modelos', icon: Boxes },
+  person: { label: 'Personas', icon: Users },
+  doc: { label: 'Documentos', icon: FileText },
+  nav: { label: 'Ir a…', icon: CornerDownLeft },
+};
+
+type SearchStatus = 'idle' | 'loading' | 'ready';
+interface SearchState {
+  hits: SearchHit[];
+  status: SearchStatus;
+  degraded: SearchKind[];
+  authError: boolean;
+}
+const EMPTY_SEARCH: SearchState = { hits: [], status: 'idle', degraded: [], authError: false };
+
 export function SearchPalette() {
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState(0);
+
+  // Record search (WO / NCR / parts / people / docs) — held in one atom that is
+  // only ever written from async callbacks, so the effect never setStates
+  // synchronously (avoids cascading renders).
+  const [search, setSearch] = useState<SearchState>(EMPTY_SEARCH);
+  const { hits: entityHits, status, degraded, authError } = search;
 
   useEffect(() => {
     const reset = () => { setQuery(''); setSelected(0); };
@@ -93,15 +134,67 @@ export function SearchPalette() {
     };
   }, []);
 
-  const results = useMemo(() => {
+  // ── Cross-entity search: debounce, then load (cached) index and filter ──────
+  useEffect(() => {
+    if (!isOpen) return;
+    const q = query.trim();
+    if (q.length < 2) {
+      // Defer the reset so it doesn't run synchronously inside the effect body.
+      const t = setTimeout(() => setSearch(EMPTY_SEARCH), 0);
+      return () => clearTimeout(t);
+    }
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => {
+      setSearch((s) => ({ ...s, status: 'loading' }));
+      ensureSearchIndex(ctrl.signal)
+        .then((idx) => {
+          if (ctrl.signal.aborted) return;
+          setSearch({ hits: filterSearchIndex(idx, q), status: 'ready', degraded: idx.degraded, authError: idx.authError });
+        })
+        .catch(() => {
+          if (ctrl.signal.aborted) return;
+          setSearch({ hits: [], status: 'ready', degraded: [], authError: true });
+        });
+    }, 180);
+    return () => { ctrl.abort(); clearTimeout(timer); };
+  }, [query, isOpen]);
+
+  const searching = query.trim().length > 0;
+
+  // Navigation hits from the static destination catalog (synchronous, instant).
+  const navHits = useMemo<RenderHit[]>(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return DESTS;
-    const terms = q.split(/\s+/);
-    return DESTS.filter((d) => {
-      const hay = `${d.label} ${d.sub} ${d.keywords}`.toLowerCase();
-      return terms.every((t) => hay.includes(t));
-    });
-  }, [query]);
+    const terms = q.split(/\s+/).filter(Boolean);
+    const base = !q
+      ? DESTS
+      : DESTS.filter((d) => {
+          const hay = `${d.label} ${d.sub} ${d.keywords}`.toLowerCase();
+          return terms.every((t) => hay.includes(t));
+        });
+    const mapped: RenderHit[] = base.map((d) => ({
+      kind: 'nav', id: `nav:${d.href}`, title: d.label, subtitle: d.sub, href: d.href, icon: d.icon,
+    }));
+    return searching ? mapped.slice(0, 8) : mapped;
+  }, [query, searching]);
+
+  // Display groups: records first (in ENTITY_ORDER), navigation appended last.
+  const groups = useMemo(() => {
+    const defs: { kind: RenderKind; label: string; icon: React.ElementType; items: RenderHit[] }[] = [];
+    // Records only matter once the query is long enough to have triggered a search;
+    // gating here keeps any stale hits from a previous query off-screen.
+    if (query.trim().length >= 2) {
+      for (const k of ENTITY_ORDER) {
+        const items = entityHits.filter((h) => h.kind === k);
+        if (items.length) defs.push({ kind: k, label: KIND_META[k].label, icon: KIND_META[k].icon, items });
+      }
+    }
+    if (navHits.length) defs.push({ kind: 'nav', label: KIND_META.nav.label, icon: KIND_META.nav.icon, items: navHits });
+    return defs;
+  }, [entityHits, navHits, query]);
+
+  const flat = useMemo(() => groups.flatMap((g) => g.items), [groups]);
+  const indexById = useMemo(() => new Map(flat.map((h, i) => [h.id, i])), [flat]);
+  const sel = flat.length ? Math.max(0, Math.min(selected, flat.length - 1)) : -1;
 
   const go = useCallback((href: string) => {
     setIsOpen(false);
@@ -109,12 +202,20 @@ export function SearchPalette() {
   }, [router]);
 
   const onKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'ArrowDown') { e.preventDefault(); setSelected((p) => Math.min(p + 1, results.length - 1)); }
+    if (e.key === 'ArrowDown') { e.preventDefault(); setSelected((p) => Math.min(p + 1, flat.length - 1)); }
     else if (e.key === 'ArrowUp') { e.preventDefault(); setSelected((p) => Math.max(p - 1, 0)); }
-    else if (e.key === 'Enter' && results[selected]) { e.preventDefault(); go(results[selected].href); }
+    else if (e.key === 'Enter' && flat[sel]) { e.preventDefault(); go(flat[sel].href); }
   };
 
+  // Keep the highlighted row in view as the user arrows through groups.
+  const selectedRef = useRef<HTMLButtonElement | null>(null);
+  useEffect(() => { selectedRef.current?.scrollIntoView({ block: 'nearest' }); }, [sel]);
+
   if (!isOpen) return null;
+
+  const q = query.trim();
+  const showLoading = searching && q.length >= 2 && status === 'loading' && entityHits.length === 0;
+  const noResults = searching && flat.length === 0;
 
   return (
     <div className="fixed inset-0 z-[200] flex items-start justify-center pt-[12vh] bg-black/40 backdrop-blur-sm" onClick={() => setIsOpen(false)}>
@@ -126,33 +227,70 @@ export function SearchPalette() {
             value={query}
             onChange={(e) => { setQuery(e.target.value); setSelected(0); }}
             onKeyDown={onKeyDown}
-            placeholder="Buscar o ir a… (áreas, ERP, ajustes)"
+            placeholder="Buscar órdenes, NCR, partes, personas, documentos… o ir a un área"
             className="flex-1 bg-transparent outline-none text-base placeholder:text-gray-400"
           />
+          {showLoading && <Loader2 className="w-4 h-4 text-gray-400 animate-spin flex-shrink-0" />}
           <kbd className="hidden sm:inline text-[10px] font-mono px-1.5 py-0.5 rounded bg-black/5 dark:bg-white/10 text-gray-400">ESC</kbd>
         </div>
 
         <div className="max-h-[55vh] overflow-y-auto p-2">
-          {results.length === 0 ? (
-            <div className="px-4 py-10 text-center text-sm text-gray-400">Sin resultados. Prueba otro término.</div>
+          {noResults ? (
+            <EmptyState q={q} short={q.length < 2} authError={authError} loading={showLoading} />
           ) : (
-            results.map((d, i) => (
-              <button
-                key={d.href}
-                onMouseEnter={() => setSelected(i)}
-                onClick={() => go(d.href)}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-2xl text-left transition-colors ${i === selected ? 'bg-black/5 dark:bg-white/10' : ''}`}
-              >
-                <span className="w-9 h-9 rounded-xl bg-black/5 dark:bg-white/10 grid place-items-center flex-shrink-0">
-                  <d.icon className="w-4.5 h-4.5 text-gray-600 dark:text-gray-300" />
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-semibold truncate">{d.label}</span>
-                  <span className="block text-[11px] text-gray-400 truncate">{d.sub}</span>
-                </span>
-                {i === selected && <CornerDownLeft className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />}
-              </button>
-            ))
+            <>
+              {showLoading && (
+                <div className="flex items-center gap-2 px-3 py-2.5 text-[13px] text-gray-400">
+                  <Loader2 className="w-4 h-4 animate-spin flex-shrink-0" />
+                  Buscando en órdenes, calidad, inventario, personas y documentos…
+                </div>
+              )}
+
+              {groups.map((group) => (
+                <div key={group.kind} className="mb-1">
+                  {searching && (
+                    <div className="flex items-center gap-1.5 px-3 pt-2 pb-1 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                      <group.icon className="w-3 h-3" />
+                      {group.label}
+                      <span className="font-normal normal-case text-gray-300 dark:text-gray-600">· {group.items.length}</span>
+                    </div>
+                  )}
+                  {group.items.map((item) => {
+                    const i = indexById.get(item.id) ?? -1;
+                    const Icon = item.icon ?? group.icon;
+                    return (
+                      <button
+                        key={item.id}
+                        ref={i === sel ? selectedRef : undefined}
+                        onMouseEnter={() => setSelected(i)}
+                        onClick={() => go(item.href)}
+                        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-2xl text-left transition-colors ${i === sel ? 'bg-black/5 dark:bg-white/10' : ''}`}
+                      >
+                        <span className="w-9 h-9 rounded-xl bg-black/5 dark:bg-white/10 grid place-items-center flex-shrink-0">
+                          <Icon className="w-4.5 h-4.5 text-gray-600 dark:text-gray-300" />
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-sm font-semibold truncate">{item.title}</span>
+                          {item.subtitle && <span className="block text-[11px] text-gray-400 truncate">{item.subtitle}</span>}
+                        </span>
+                        {item.badge && (
+                          <span className="hidden sm:inline text-[10px] font-medium px-2 py-0.5 rounded-full bg-black/5 dark:bg-white/10 text-gray-500 flex-shrink-0 capitalize">
+                            {item.badge.replace(/_/g, ' ').toLowerCase()}
+                          </span>
+                        )}
+                        {i === sel && <CornerDownLeft className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              ))}
+
+              {searching && status === 'ready' && degraded.length > 0 && (
+                <div className="px-3 py-2 text-[11px] text-amber-600 dark:text-amber-400">
+                  No se pudo consultar: {degraded.map((k) => KIND_META[k].label).join(', ')}. Mostrando el resto.
+                </div>
+              )}
+            </>
           )}
         </div>
 
@@ -161,6 +299,35 @@ export function SearchPalette() {
           <span className="ml-auto">Para T-Codes, entra a Axos ERP</span>
         </div>
       </div>
+    </div>
+  );
+}
+
+function EmptyState({ q, short, authError, loading }: { q: string; short: boolean; authError: boolean; loading: boolean }) {
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center gap-2 px-4 py-10 text-sm text-gray-400">
+        <Loader2 className="w-4 h-4 animate-spin" /> Buscando…
+      </div>
+    );
+  }
+  if (short) {
+    return (
+      <div className="px-4 py-10 text-center text-sm text-gray-400">
+        Escribe al menos 2 caracteres para buscar órdenes, NCR, partes, personas y documentos.
+      </div>
+    );
+  }
+  if (authError) {
+    return (
+      <div className="px-4 py-10 text-center text-sm text-gray-400">
+        No se pudo buscar. Revisa tu conexión o vuelve a iniciar sesión.
+      </div>
+    );
+  }
+  return (
+    <div className="px-4 py-10 text-center text-sm text-gray-400">
+      Sin resultados para «{q}». Prueba con un folio, número de parte, NCR o nombre.
     </div>
   );
 }
