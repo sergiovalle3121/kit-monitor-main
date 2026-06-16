@@ -25,7 +25,7 @@ import {
 import { SlideSorter } from './SlideSorter';
 import { SlideIconPicker } from './SlideIconPicker';
 import { TemplateGallery } from './TemplateGallery';
-import { SLIDE_THEMES, SLIDE_LAYOUTS, SLIDE_TRANSITIONS, OBJ_ANIM_OPTIONS, SLIDE_RATIOS, slideHeight } from './slideAssets';
+import { SLIDE_THEMES, SLIDE_LAYOUTS, SLIDE_TRANSITIONS, OBJ_ANIM_OPTIONS, SLIDE_RATIOS, slideHeight, type SlideTheme } from './slideAssets';
 import { SlideAnimationPanel, type AnimItem } from './SlideAnimationPanel';
 import { SlideLayersPanel, type LayerItem } from './SlideLayersPanel';
 import { POLY_SHAPES, PATH_SHAPES } from './slides/shapes';
@@ -75,6 +75,34 @@ function objLabel(o: any): string {
   if (isSmart(o)) return `SmartArt · ${o.smart?.kind ?? ''}`;
   if (o?.type === 'textbox' || o?.type === 'i-text' || o?.type === 'text') return (String(o.text || '').split('\n')[0] || 'Texto').slice(0, 26);
   return typeName(o);
+}
+
+// ── Colores de tema (modelo «theme colors» tipo PowerPoint) ──────────────────
+// Cambiar el tema reestiliza TODO el mazo: cualquier color literal que coincida
+// con un slot del tema anterior (fondo/superficie/texto/atenuado/acento) se
+// remapea al slot equivalente del tema nuevo. Los colores que el usuario eligió
+// a mano (que no son del tema) se conservan intactos.
+const THEME_SLOTS: (keyof SlideTheme)[] = ['bg', 'surface', 'text', 'muted', 'accent'];
+function remapThemeColor(col: any, from: SlideTheme, to: SlideTheme): any {
+  if (typeof col !== 'string') return col;
+  const c = col.toLowerCase();
+  for (const k of THEME_SLOTS) {
+    const slot = from[k];
+    if (typeof slot === 'string' && c === slot.toLowerCase()) return to[k];
+  }
+  return col;
+}
+function remapThemeObject(o: any, from: SlideTheme, to: SlideTheme): void {
+  if (!o || typeof o !== 'object') return;
+  for (const key of ['fill', 'stroke', 'backgroundColor'] as const) {
+    const v = o[key];
+    if (typeof v === 'string') o[key] = remapThemeColor(v, from, to);
+    else if (v && typeof v === 'object' && Array.isArray(v.colorStops)) {
+      v.colorStops = v.colorStops.map((s: any) => ({ ...s, color: remapThemeColor(s.color, from, to) }));
+    }
+  }
+  if (typeof o.fontFamily === 'string' && o.fontFamily.toLowerCase() === from.font.toLowerCase()) o.fontFamily = to.font;
+  if (Array.isArray(o.objects)) for (const child of o.objects) remapThemeObject(child, from, to);
 }
 
 export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value: any; onChange: (data: any) => void; readOnly?: boolean; fileActions?: React.ReactNode }) {
@@ -190,12 +218,22 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
   }
 
   // ── Temas / layouts / tablas / iconos / efectos (profundidad PowerPoint) ────
-  function applyTheme(id: string) {
-    const t = SLIDE_THEMES.find((x) => x.id === id) || SLIDE_THEMES[0];
-    themeRef.current = id; setThemeId(id);
+  // Aplica el tema a TODO el mazo: remapea la paleta (fondo/texto/atenuado/
+  // acento/superficie) y la tipografía del tema anterior al nuevo en cada
+  // diapositiva, conservando los colores personalizados. Reestiliza títulos,
+  // viñetas, barras de acento, formas y fondos creados a partir del tema.
+  async function applyTheme(id: string) {
+    const to = SLIDE_THEMES.find((x) => x.id === id) || SLIDE_THEMES[0];
+    const from = theme();
     capture();
-    for (const s of slidesRef.current) s.background = t.bg;
-    const c = fabricRef.current; if (c) { c.backgroundColor = t.bg; c.requestRenderAll(); }
+    if (to.id !== from.id) {
+      for (const s of slidesRef.current) {
+        if (typeof s.background === 'string') s.background = remapThemeColor(s.background, from, to);
+        for (const o of (s.objects || [])) remapThemeObject(o, from, to);
+      }
+    }
+    themeRef.current = id; setThemeId(id);
+    await loadInto(curRef.current);
     sync();
   }
   function applyLayout(id: string) {

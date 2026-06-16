@@ -322,6 +322,25 @@ Verificado: `tsc` ✓, `eslint` ✓, `next build` ✓.
 
 Verificado: `tsc` ✓, `eslint` ✓, `next build` ✓.
 
+### Sesión 2026-06-16 — Paridad PowerPoint (rama `claude/epic-pasteur-xvyuhp`)
+Carril F3. Sólo `SlidesEditor.tsx`, `SlideAnimationPanel.tsx`, `slideAssets.ts`
+y `slides/**`. Gates por rebanada: `tsc` + `eslint` (0 errores) + `next build`.
+
+#### Lote 28 — El tema reestiliza TODO el mazo (paleta + tipografía)
+Antes, cambiar de tema sólo cambiaba el color de fondo de las diapositivas. Ahora
+adopta el modelo de **«colores de tema» tipo PowerPoint**: al cambiar de tema se
+**remapea cada color literal** que coincida con un slot del tema anterior
+(fondo/superficie/texto/atenuado/acento) → al slot equivalente del tema nuevo, en
+**todas** las diapositivas, y la **tipografía** del tema (`fontFamily`) también.
+- Helpers puros `remapThemeColor` / `remapThemeObject` (recursivos: grupos,
+  SmartArt, tablas, gráficos; gradientes vía `colorStops`; relleno/borde/fondo).
+- Los colores que el usuario eligió a mano (que no son del tema) se **conservan**.
+- `applyTheme` ahora captura, remapea `slidesRef` y **recarga la diapositiva
+  actual** (antes sólo tocaba el fondo en vivo). Reestiliza títulos, viñetas,
+  barras de acento, formas y fondos creados desde el tema en una sola acción.
+
+Verificado: `tsc` ✓, `eslint` ✓ (0 errores; warnings preexistentes), `next build` ✓.
+
 ### Diferido (con estimación)
 - **Secciones en el clasificador** y colapsar/expandir: el sorter es una rejilla;
   insertar encabezados de ancho completo + colapso. Estimación: ~0.5 día.
