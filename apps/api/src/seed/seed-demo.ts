@@ -15,7 +15,7 @@
  */
 import 'reflect-metadata';
 import { INestApplicationContext } from '@nestjs/common';
-import { DataSource } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 
 import { ProductModelsService } from '../modules/product-models/product-models.service';
 import { BomService } from '../modules/bom/bom.service';
@@ -33,6 +33,15 @@ import { EnterpriseCustomer } from '../modules/enterprise-campus/entities/enterp
 import { EnterpriseProgram } from '../modules/enterprise-campus/entities/enterprise-program.entity';
 import { UsersService } from '../modules/users/users.service';
 import { User } from '../modules/users/entities/user.entity';
+import { SuppliersService } from '../modules/suppliers/suppliers.service';
+import { Supplier } from '../modules/suppliers/entities/supplier.entity';
+import { ErpMmService } from '../modules/erp-core/services/erp-mm.service';
+import { ProductionPlanService } from '../modules/production-plan/production-plan.service';
+import { SfWorkOrder } from '../modules/production-plan/entities/sf-work-order.entity';
+import { FloorQualityService } from '../modules/floor-quality/floor-quality.service';
+import { SfQualityHold } from '../modules/floor-quality/entities/sf-quality-hold.entity';
+import { OeeService } from '../modules/oee/oee.service';
+import { SfDowntimeEvent } from '../modules/oee/entities/sf-downtime-event.entity';
 
 import {
   assertNotProduction,
@@ -46,6 +55,7 @@ import {
   assertSeedText,
   validateDemoCatalog,
 } from './public-domain-guard';
+import { assertDatabasePublicDomain } from './forbidden-scan';
 import {
   DEMO_ACTOR,
   DEMO_BOM_REVISION,
@@ -57,6 +67,16 @@ import {
   DEMO_PLANS,
   DEMO_PLANT,
   DEMO_PROGRAMS,
+  DEMO_SF_DOWNTIME,
+  DEMO_SF_HOLDS,
+  DEMO_SF_WORK_ORDERS,
+  DEMO_SUBASSEMBLIES,
+  DEMO_SUBASSEMBLY_PARTS,
+  DEMO_SUPPLIERS,
+  DEMO_SUPPLIER_PRICES,
+  SF_DOWNTIME_PREFIX,
+  SF_HOLD_LOT,
+  SF_WO_NOTE,
   DEMO_USERS,
   DEMO_USER_PASSWORD,
   DEMO_WAREHOUSES,
@@ -201,7 +221,8 @@ async function seedMaterials(
   const matRepo = ds.getRepository(MaterialMaster);
   const t = tally();
 
-  for (const part of DEMO_PARTS) {
+  // Partes hoja (commodities) + sub-ensambles (PCBAs/sub-módulos) como materiales.
+  for (const part of [...DEMO_PARTS, ...DEMO_SUBASSEMBLY_PARTS]) {
     try {
       assertSeedPart(part.partNumber);
       assertSeedText(part.description, `descripción de ${part.partNumber}`);
@@ -213,10 +234,11 @@ async function seedMaterials(
         standardCost: part.standardCost,
         category: part.category,
       });
-      // Marca demo + clase ABC (ensureMaterial no las toca). Idempotente.
-      if (!mat.metadata?.demo || mat.abcClass !== part.abcClass) {
+      // Marca demo + clase ABC + AVL (fabricante/MPN ficticios). ensureMaterial no
+      // las toca, así que se persisten aquí. Idempotente.
+      if (!mat.metadata?.demo || mat.abcClass !== part.abcClass || !mat.metadata?.avl) {
         await matRepo.update(part.partNumber, {
-          metadata: demoMeta(),
+          metadata: demoMeta({ avl: part.avl }),
           abcClass: part.abcClass,
         });
       }
@@ -227,6 +249,79 @@ async function seedMaterials(
     }
   }
   log('partes', `creadas=${t.created} ya existían=${t.skipped} errores=${t.errors}`);
+  return t;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 3b. Proveedores ficticios (Supplier) + precios (ErpSupplierPrice)
+// ─────────────────────────────────────────────────────────────────────────────
+async function seedSuppliers(
+  app: INestApplicationContext,
+  ds: DataSource,
+): Promise<Tally> {
+  const suppliersSvc = app.get(SuppliersService, { strict: false });
+  const repo = ds.getRepository(Supplier);
+  const t = tally();
+  for (const s of DEMO_SUPPLIERS) {
+    try {
+      assertSeedText(s.name, `nombre de proveedor ${s.code}`);
+      const existing = await repo.findOne({ where: { code: s.code } });
+      if (existing) {
+        t.skipped++;
+        continue;
+      }
+      await suppliersSvc.create({
+        code: s.code,
+        name: s.name,
+        country: s.country,
+        status: 'active',
+        qualityScore: s.qualityScore,
+        notes: 'Proveedor demo AXOS (dominio público)',
+      });
+      t.created++;
+    } catch (err) {
+      t.errors++;
+      log('proveedores', `ERROR ${s.code}: ${(err as Error).message}`);
+    }
+  }
+  log('proveedores', `creados=${t.created} ya existían=${t.skipped} errores=${t.errors}`);
+  return t;
+}
+
+async function seedSupplierPrices(
+  app: INestApplicationContext,
+  ds: DataSource,
+): Promise<Tally> {
+  const erpMm = app.get(ErpMmService, { strict: false });
+  const repo = ds.getRepository(Supplier);
+  const t = tally();
+  const idByCode = new Map((await repo.find()).map((s) => [s.code, s.id]));
+
+  for (const p of DEMO_SUPPLIER_PRICES) {
+    try {
+      const supplierId = idByCode.get(p.supplierCode);
+      if (!supplierId) {
+        t.skipped++;
+        continue;
+      }
+      // upsert idempotente (clave única supplierId+partNumber).
+      await erpMm.upsertSupplierPrice({
+        supplierId,
+        partNumber: p.partNumber,
+        unitPrice: p.unitPrice,
+        currency: p.currency,
+        moq: p.moq,
+        leadTimeDays: p.leadTimeDays,
+        preferred: p.preferred,
+        active: true,
+      });
+      t.created++;
+    } catch (err) {
+      t.errors++;
+      log('precios', `ERROR ${p.partNumber}/${p.supplierCode}: ${(err as Error).message}`);
+    }
+  }
+  log('precios prov.', `upserts=${t.created} omitidos=${t.skipped} errores=${t.errors}`);
   return t;
 }
 
@@ -336,42 +431,79 @@ async function ensureBomActive(
   await bomSvc.activateBom(header.id);
 }
 
+/** Crea (idempotente) y activa un BOM para `model` con sus líneas. Soporta multinivel
+ *  (line.level se pasa tal cual: 2 = referencia a sub-ensamble). */
+async function ensureBomFor(
+  bomSvc: BomService,
+  headerRepo: Repository<BomHeader>,
+  spec: {
+    model: string;
+    productName: string;
+    description: string;
+    bom: Array<{ part: string; qty: number; ref?: string; level?: number }>;
+  },
+): Promise<'created' | 'skipped'> {
+  const existing = await headerRepo.findOne({
+    where: { model: spec.model, revision: DEMO_BOM_REVISION },
+    relations: ['components'],
+  });
+  if (existing) {
+    await ensureBomActive(bomSvc, existing);
+    return 'skipped';
+  }
+  const header = await bomSvc.createBomWithComponents({
+    model: spec.model,
+    productName: spec.productName,
+    revision: DEMO_BOM_REVISION,
+    bomType: 'Manufacturing',
+    baseQuantity: 1,
+    baseUnit: 'EA',
+    description: spec.description,
+    createdBy: DEMO_ACTOR,
+    components: spec.bom.map((line) => ({
+      componentNumber: line.part,
+      quantity: line.qty,
+      unit: 'EA',
+      usageFactor: 1,
+      referenceDesignator: line.ref,
+      level: line.level,
+    })),
+  });
+  await headerRepo.update(header.id, { metadata: demoMeta() });
+  await ensureBomActive(bomSvc, await headerRepo.findOneOrFail({ where: { id: header.id } }));
+  return 'created';
+}
+
 async function seedBoms(app: INestApplicationContext, ds: DataSource): Promise<Tally> {
   const bomSvc = app.get(BomService, { strict: false });
   const headerRepo = ds.getRepository(BomHeader);
   const t = tally();
 
+  // Sub-ensambles primero (sus BOMs existen antes de que los modelos los referencien).
+  for (const sa of DEMO_SUBASSEMBLIES) {
+    try {
+      const r = await ensureBomFor(bomSvc, headerRepo, {
+        model: sa.partNumber,
+        productName: sa.name,
+        description: `BOM sub-ensamble ${sa.partNumber} — ${sa.name}`,
+        bom: sa.bom,
+      });
+      r === 'created' ? t.created++ : t.skipped++;
+    } catch (err) {
+      t.errors++;
+      log('bom', `ERROR ${sa.partNumber}: ${(err as Error).message}`);
+    }
+  }
+
   for (const m of DEMO_MODELS) {
     try {
-      const existing = await headerRepo.findOne({
-        where: { model: m.modelNumber, revision: DEMO_BOM_REVISION },
-        relations: ['components'],
-      });
-      if (existing) {
-        await ensureBomActive(bomSvc, existing);
-        t.skipped++;
-        continue;
-      }
-      const header = await bomSvc.createBomWithComponents({
+      const r = await ensureBomFor(bomSvc, headerRepo, {
         model: m.modelNumber,
         productName: m.name,
-        revision: DEMO_BOM_REVISION,
-        bomType: 'Manufacturing',
-        baseQuantity: 1,
-        baseUnit: 'EA',
         description: `BOM demo ${m.modelNumber} — ${m.name}`,
-        createdBy: DEMO_ACTOR,
-        components: m.bom.map((line) => ({
-          componentNumber: line.part,
-          quantity: line.qty,
-          unit: 'EA',
-          usageFactor: 1,
-          referenceDesignator: line.ref,
-        })),
+        bom: m.bom,
       });
-      await headerRepo.update(header.id, { metadata: demoMeta() });
-      await ensureBomActive(bomSvc, await headerRepo.findOneOrFail({ where: { id: header.id } }));
-      t.created++;
+      r === 'created' ? t.created++ : t.skipped++;
     } catch (err) {
       t.errors++;
       log('bom', `ERROR ${m.modelNumber}: ${(err as Error).message}`);
@@ -566,6 +698,109 @@ async function seedUsers(app: INestApplicationContext): Promise<Tally> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// 10. Piso de producción: WOs sf_work_orders en distintos estados + historia
+//     (avances, holds de calidad, downtime). Usa los servicios reales del piso.
+// ─────────────────────────────────────────────────────────────────────────────
+async function seedShopFloor(
+  app: INestApplicationContext,
+  ds: DataSource,
+): Promise<Tally> {
+  const planSvc = app.get(ProductionPlanService, { strict: false });
+  const qualitySvc = app.get(FloorQualityService, { strict: false });
+  const oeeSvc = app.get(OeeService, { strict: false });
+  const woRepo = ds.getRepository(SfWorkOrder);
+  const holdRepo = ds.getRepository(SfQualityHold);
+  const dtRepo = ds.getRepository(SfDowntimeEvent);
+  const programByModel = new Map(DEMO_MODELS.map((m) => [m.modelNumber, slugCode(m.programCode)]));
+  const t = tally();
+  const woIdByRef = new Map<string, string>();
+
+  // ── Work orders (publicar + llevar a su estado objetivo) ──
+  for (const w of DEMO_SF_WORK_ORDERS) {
+    try {
+      const note = SF_WO_NOTE(w.ref);
+      let wo = await woRepo.findOne({ where: { notes: note } });
+      if (!wo) {
+        wo = await planSvc.publish({
+          model: w.model,
+          line: w.line,
+          quantityPlanned: w.quantityPlanned,
+          customer: w.customer,
+          priority: w.priority,
+          taktTargetSec: w.taktTargetSec,
+          faiRequired: w.faiRequired ?? false,
+          notes: note,
+          programId: programByModel.get(w.model) ?? undefined,
+        });
+        if (w.faiRequired) await planSvc.setFaiApproved(wo.id, true);
+        if (w.state !== 'RELEASED') await planSvc.setMaterialReady(wo.id, true); // → STAGED
+        if (w.state === 'IN_EXECUTION') {
+          await planSvc.incrementCompleted(wo.id, Math.min(w.completed ?? 1, Math.max(1, w.quantityPlanned - 1)));
+        }
+        if (w.state === 'COMPLETED') await planSvc.incrementCompleted(wo.id, w.quantityPlanned);
+        t.created++;
+      } else {
+        t.skipped++;
+      }
+      woIdByRef.set(w.ref, wo.id);
+    } catch (err) {
+      t.errors++;
+      log('work orders', `ERROR ${w.ref}: ${(err as Error).message}`);
+    }
+  }
+  log('work orders', `creadas=${t.created} ya existían=${t.skipped} errores=${t.errors}`);
+
+  // ── Holds de calidad (bloquean su WO) ──
+  let holds = 0;
+  for (const h of DEMO_SF_HOLDS) {
+    try {
+      const lot = SF_HOLD_LOT(h.woRef);
+      if (await holdRepo.findOne({ where: { lot } })) continue;
+      await qualitySvc.createHold({
+        part: h.part,
+        qty: h.qty,
+        woId: woIdByRef.get(h.woRef),
+        lot,
+        origin: 'IN_PROCESS',
+        defectType: h.defectType,
+        severity: h.severity,
+      });
+      holds++;
+    } catch (err) {
+      log('holds', `ERROR ${h.woRef}: ${(err as Error).message}`);
+    }
+  }
+  log('holds', `creados=${holds} (de ${DEMO_SF_HOLDS.length})`);
+
+  // ── Downtime / paros (cerrados con duración, o un OPEN en curso) ──
+  let downtime = 0;
+  for (const d of DEMO_SF_DOWNTIME) {
+    try {
+      const reasonNote = `${SF_DOWNTIME_PREFIX} ${d.note}`;
+      if (await dtRepo.findOne({ where: { reasonNote } })) continue;
+      const ev = await oeeSvc.openDowntime({
+        line: d.line,
+        reasonCode: d.reasonCode,
+        reasonNote,
+        startAt: new Date(Date.now() - d.startMinAgo * 60_000).toISOString(),
+      });
+      if (d.durationMin > 0) {
+        await oeeSvc.closeDowntime(ev.id, {
+          endAt: new Date(Date.now() - (d.startMinAgo - d.durationMin) * 60_000).toISOString(),
+        });
+      }
+      downtime++;
+    } catch (err) {
+      log('downtime', `ERROR ${d.line}: ${(err as Error).message}`);
+    }
+  }
+  log('downtime', `creados=${downtime} (de ${DEMO_SF_DOWNTIME.length})`);
+
+  t.created += holds + downtime;
+  return t;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Valuación rápida de inventario (SUM(onHand × standardCost)) para el resumen.
 // ─────────────────────────────────────────────────────────────────────────────
 async function inventoryValuation(ds: DataSource): Promise<number> {
@@ -603,6 +838,8 @@ async function run(): Promise<void> {
       await seedWarehouses(ds);
       await seedCustomersAndPrograms(app, ds);
       await seedMaterials(app, ds);
+      await seedSuppliers(app, ds);
+      await seedSupplierPrices(app, ds);
       await seedReceipts(app, ds);
       await seedModels(app);
       await seedBoms(app, ds);
@@ -610,16 +847,27 @@ async function run(): Promise<void> {
       await seedConsumption(app, ds);
       await seedQualityHolds(app, ds);
       await seedUsers(app);
+      await seedShopFloor(app, ds);
     });
+
+    // CANDADO LEGAL (post-seed): re-escanea TODA la base y FALLA ruidosamente si
+    // algo prohibido se coló (que no se vuelva a colar). El detector es el mismo
+    // del guard. Escape para casos límite: SKIP_PUBLIC_DOMAIN_ASSERT=true.
+    if (process.env.SKIP_PUBLIC_DOMAIN_ASSERT !== 'true') {
+      await runInDemoContext(app, () => assertDatabasePublicDomain(ds));
+      console.log('   Candado dominio público (post-seed): base limpia ✔');
+    }
 
     const valuation = await inventoryValuation(ds);
     console.log('────────────────────────────────────────────────────────────');
     console.log(' Resumen:');
     console.log(`   Almacenes demo:   ${DEMO_WAREHOUSES.length}`);
     console.log(`   Clientes/Prog:    ${DEMO_CUSTOMERS.length}/${DEMO_PROGRAMS.length}`);
+    console.log(`   Proveedores:      ${DEMO_SUPPLIERS.length} (precios: ${DEMO_SUPPLIER_PRICES.length})`);
     console.log(`   Partes (MM):      ${DEMO_PARTS.length}`);
     console.log(`   Modelos (AX-):    ${DEMO_MODELS.length}`);
     console.log(`   Planes:           ${DEMO_PLANS.length} (${DEMO_PLANS.filter((p) => p.publish).length} publicados)`);
+    console.log(`   WOs piso:         ${DEMO_SF_WORK_ORDERS.length} (holds: ${DEMO_SF_HOLDS.length}, paros: ${DEMO_SF_DOWNTIME.length})`);
     console.log(`   Usuarios demo:    ${DEMO_USERS.length}`);
     console.log(`   Valuación inv.:   $${valuation.toFixed(2)} USD`);
     console.log('   Folios ejemplo:   modelos ' + DEMO_MODELS.map((m) => m.modelNumber).join(', '));

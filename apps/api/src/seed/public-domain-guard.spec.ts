@@ -5,6 +5,7 @@ import {
   assertSeedPart,
   findForbiddenReason,
   isForbiddenValue,
+  scrubForbidden,
   validateDemoCatalog,
 } from './public-domain-guard';
 
@@ -64,6 +65,30 @@ describe('public-domain-guard (candado legal del seed)', () => {
       expect(() => assertSeedCustomer('ACME Robotics')).not.toThrow();
       expect(() => assertSeedCustomer('Motorola')).toThrow();
       expect(() => assertSeedCustomer('Cliente Genérico')).toThrow(/universo Axos/);
+    });
+  });
+
+  describe('scrubForbidden (anonimización para la purga)', () => {
+    it('redacta el identificador completo si empieza con prefijo prohibido', () => {
+      expect(scrubForbidden('OP-520-0100')).toBe('[REDACTED]');
+    });
+
+    it('redacta sólo el nombre de empresa real en texto libre', () => {
+      expect(scrubForbidden('Resistencia para programa Optics')).toBe('Resistencia para programa [REDACTED]');
+      expect(scrubForbidden('placa Motorola y Nvidia')).toBe('placa [REDACTED] y [REDACTED]');
+    });
+
+    it('NO toca texto de dominio público', () => {
+      expect(scrubForbidden('AX-DRIVE-100')).toBe('AX-DRIVE-100');
+      expect(scrubForbidden('ACME Robotics')).toBe('ACME Robotics');
+    });
+
+    it('el resultado YA NO es prohibido y es idempotente', () => {
+      for (const v of ['OP-520-0100', 'placa Motorola', 'cliente Optics 2024']) {
+        const once = scrubForbidden(v);
+        expect(findForbiddenReason(once)).toBeNull();
+        expect(scrubForbidden(once)).toBe(once);
+      }
     });
   });
 

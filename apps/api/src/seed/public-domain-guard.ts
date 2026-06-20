@@ -20,6 +20,10 @@ import {
   DEMO_MODELS,
   DEMO_PARTS,
   DEMO_PROGRAMS,
+  DEMO_SUBASSEMBLIES,
+  DEMO_SUBASSEMBLY_PARTS,
+  DEMO_SUPPLIERS,
+  DEMO_SUPPLIER_PRICES,
 } from './seed-constants';
 
 /**
@@ -52,6 +56,9 @@ export const REAL_COMPANY_BLACKLIST: string[] = [
 export const ALLOWED_PART_PREFIXES: string[] = [
   'AX-', 'RES-', 'CAP-', 'IND-', 'LED-', 'CRYSTAL-', 'MOS-', 'IC-', 'PCB-',
   'CONN-', 'HDR-', 'SCR-', 'STANDOFF-', 'LABEL-', 'ENC-',
+  // Familias de commodity adicionales del catálogo demo expandido:
+  'FB-', 'XFMR-', 'DIO-', 'TVS-', 'BJT-', 'OSC-', 'TERM-', 'NUT-', 'WASH-',
+  'THM-', 'HS-', 'SUB-', 'FUSE-', 'SW-', 'RLY-', 'POT-', 'FFC-',
 ];
 
 function escapeRegex(s: string): string {
@@ -84,6 +91,31 @@ export function findForbiddenReason(value: string | null | undefined): string | 
 
 export function isForbiddenValue(value: string | null | undefined): boolean {
   return findForbiddenReason(value) !== null;
+}
+
+/** Marcador de redacción usado al anonimizar texto no-dominio-público. */
+export const REDACTION_MARK = '[REDACTED]';
+
+/**
+ * Devuelve `value` con TODO lo prohibido removido (anonimizado):
+ *   • nombres de empresas reales (palabra completa) → `[REDACTED]`.
+ *   • si el valor EMPIEZA con un prefijo de cliente prohibido (p. ej. `OP-`) es un
+ *     identificador completo de cliente → se redacta entero.
+ * Lo usa la purga cuando una fila NO se puede borrar (FK desde datos legítimos):
+ * se conserva la fila pero el texto de cliente real desaparece. Idempotente
+ * (re-aplicarlo no cambia un valor ya limpio).
+ */
+export function scrubForbidden(value: string | null | undefined): string {
+  if (value === null || value === undefined) return '';
+  const trimmed = String(value).trim();
+  for (const prefix of FORBIDDEN_PREFIXES) {
+    if (trimmed.toUpperCase().startsWith(prefix.toUpperCase())) return REDACTION_MARK;
+  }
+  let out = String(value);
+  for (const name of REAL_COMPANY_BLACKLIST) {
+    out = out.replace(new RegExp(`\\b${escapeRegex(name)}\\b`, 'gi'), REDACTION_MARK);
+  }
+  return out;
 }
 
 /** Lanza si `value` no es de dominio público. Centinela legal del seed. */
@@ -142,9 +174,28 @@ export function validateDemoCatalog(): number {
     checked++;
   };
 
-  for (const part of DEMO_PARTS) {
+  for (const part of [...DEMO_PARTS, ...DEMO_SUBASSEMBLY_PARTS]) {
     bump(() => assertSeedPart(part.partNumber));
     bump(() => assertSeedText(part.description, `descripción de ${part.partNumber}`));
+    for (const v of part.avl ?? []) {
+      bump(() => assertSeedText(v.manufacturer, `fabricante (AVL) de ${part.partNumber}`));
+      bump(() => assertSeedText(v.mpn, `MPN (AVL) de ${part.partNumber}`));
+    }
+  }
+
+  for (const sa of DEMO_SUBASSEMBLIES) {
+    bump(() => assertSeedPart(sa.partNumber));
+    bump(() => assertSeedText(sa.description, `descripción de sub-ensamble ${sa.partNumber}`));
+    for (const line of sa.bom) bump(() => assertSeedPart(line.part));
+  }
+
+  for (const s of DEMO_SUPPLIERS) {
+    bump(() => assertSeedText(s.name, `nombre de proveedor ${s.code}`));
+    bump(() => assertSeedText(s.country, `país de proveedor ${s.code}`));
+  }
+
+  for (const sp of DEMO_SUPPLIER_PRICES) {
+    bump(() => assertSeedPart(sp.partNumber));
   }
 
   for (const model of DEMO_MODELS) {
