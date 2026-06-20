@@ -15,6 +15,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { usePermissions } from '@/hooks/usePermissions';
 import { apiFetch } from '@/lib/apiFetch';
 import { TemplateGallery } from '@/components/office/TemplateGallery';
+import { useConfirm } from '@/components/ui/ConfirmDialog';
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000').replace(/\/$/, '');
 
@@ -44,6 +45,7 @@ export default function OfficeHubPage() {
   const { user } = useAuth();
   // Gate de escritura centralizado: robusto para admin/owner (ver usePermissions).
   const { canWrite, isAdmin } = usePermissions();
+  const confirm = useConfirm();
 
   const [tab, setTab] = useState<DocType>('doc');
   const [trash, setTrash] = useState(false);
@@ -90,14 +92,14 @@ export default function OfficeHubPage() {
   }
   const toTrash = (id: string) => act(`${id}`, 'DELETE');
   const restore = (id: string) => act(`${id}/restore`, 'PATCH');
-  const destroy = (id: string) => { if (window.confirm('¿Eliminar permanentemente? Esta acción no se puede deshacer.')) act(`${id}/permanent`, 'DELETE'); };
+  const destroy = async (id: string) => { if (await confirm({ message: '¿Eliminar permanentemente? Esta acción no se puede deshacer.', tone: 'danger', confirmLabel: 'Eliminar' })) act(`${id}/permanent`, 'DELETE'); };
   async function duplicate(id: string) {
     const r = await apiFetch(`${API_BASE}/office-documents/${id}/duplicate`, { method: 'POST' });
     if (r.ok) mutate();
   }
   async function emptyTrash() {
     if (!docs.length) return;
-    if (!window.confirm(`¿Vaciar la papelera? Se eliminarán ${docs.length} elemento(s) permanentemente.`)) return;
+    if (!(await confirm({ message: `¿Vaciar la papelera? Se eliminarán ${docs.length} elemento(s) permanentemente.`, tone: 'danger', confirmLabel: 'Vaciar papelera' }))) return;
     await Promise.all(docs.map((d) => apiFetch(`${API_BASE}/office-documents/${d.id}/permanent`, { method: 'DELETE' })));
     mutate();
   }

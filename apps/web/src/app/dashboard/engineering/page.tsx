@@ -11,6 +11,7 @@ import { glass } from "@/lib/glass";
 import { useApi } from "@/hooks/useApi";
 import { apiFetch } from "@/lib/apiFetch";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000").replace(/\/$/, "");
 
@@ -262,6 +263,7 @@ function StepCard({ step, aids, onChange, onError }: { step: Step; aids: VisualA
   const [addMat, setAddMat] = useState(false);
   const [pn, setPn] = useState(""); const [qty, setQty] = useState(""); const [unit, setUnit] = useState("EA");
   const [savingAid, setSavingAid] = useState(false);
+  const confirm = useConfirm();
   const typeLabel = STATION_TYPES.find((t) => t.value === step.stationType)?.label;
   const aid = step.visualAidId ? aids.find((a) => a.id === step.visualAidId) ?? null : null;
 
@@ -278,11 +280,11 @@ function StepCard({ step, aids, onChange, onError }: { step: Step; aids: VisualA
     catch (e) { onError(e instanceof Error ? e.message : "Error"); }
   }
   async function removeMat(id: number) {
-    if (!window.confirm("¿Quitar este material de la estación?")) return;
+    if (!(await confirm({ message: "¿Quitar este material de la estación?", tone: 'danger', confirmLabel: 'Quitar' }))) return;
     try { await del(`/process/materials/${id}`); onChange(); } catch (e) { onError(e instanceof Error ? e.message : "Error"); }
   }
   async function removeStep() {
-    if (!window.confirm(`¿Borrar la estación "${step.name}" y sus materiales? Esta acción no se puede deshacer.`)) return;
+    if (!(await confirm({ message: `¿Borrar la estación "${step.name}" y sus materiales? Esta acción no se puede deshacer.`, tone: 'danger', confirmLabel: 'Borrar estación' }))) return;
     try { await del(`/process/steps/${step.id}`); onChange(); } catch (e) { onError(e instanceof Error ? e.message : "Error"); }
   }
 

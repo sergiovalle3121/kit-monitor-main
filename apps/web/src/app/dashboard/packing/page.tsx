@@ -26,6 +26,7 @@ import { glass } from "@/lib/glass";
 import { useApi } from "@/hooks/useApi";
 import { apiFetch } from "@/lib/apiFetch";
 import { useToast } from "@/contexts/ToastContext";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000").replace(/\/$/, "");
 const ACCENT = "#6366f1";
@@ -195,6 +196,7 @@ async function openLabel(hu: HandlingUnit, setLabel: (v: { hu: HandlingUnit; zpl
 
 function HuRow({ hu, onEdit, onLabel, onChanged }: { hu: HandlingUnit; onEdit: () => void; onLabel: () => void; onChanged: () => void }) {
   const toast = useToast();
+  const confirm = useConfirm();
   const [busy, setBusy] = useState<string | null>(null);
   const summary = (hu.contents ?? []).map((c) => `${c.partNumber}×${c.quantity}`).join(" · ");
 
@@ -207,7 +209,7 @@ function HuRow({ hu, onEdit, onLabel, onChanged }: { hu: HandlingUnit; onEdit: (
     } catch { toast.error("Error de red.", "SSCC"); } finally { setBusy(null); }
   }
   async function del() {
-    if (!window.confirm("¿Eliminar esta unidad de manejo?")) return;
+    if (!(await confirm({ message: "¿Eliminar esta unidad de manejo?", tone: 'danger', confirmLabel: 'Eliminar' }))) return;
     setBusy("del");
     try {
       const res = await call(`/packing/handling-units/${hu.id}`, "DELETE");

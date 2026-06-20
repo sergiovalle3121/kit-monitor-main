@@ -7,6 +7,7 @@ import { glass } from "@/lib/glass";
 import { useApi } from "@/hooks/useApi";
 import { apiFetch } from "@/lib/apiFetch";
 import { useToast } from "@/contexts/ToastContext";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { useAuth } from "@/hooks/useAuth";
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000").replace(/\/$/, "");
@@ -40,6 +41,7 @@ function fmtWhen(iso?: string | null): string {
 export default function CancellationRequestsPage() {
   const { user } = useAuth();
   const toast = useToast();
+  const confirm = useConfirm();
   const { data: pendData, isLoading, forbidden, mutate } = useApi<CancelReq[]>("/cancellation-requests/pending");
   const { data: recentData, mutate: mutateRecent } = useApi<CancelReq[]>("/cancellation-requests/recent");
 
@@ -50,7 +52,7 @@ export default function CancellationRequestsPage() {
   async function respond(req: CancelReq, action: "accept" | "reject") {
     if (action === "accept") {
       const wo = req.publication?.workOrder ? `WO ${req.publication.workOrder}` : "la orden";
-      if (!window.confirm(`¿Aceptar la cancelación? Esto cancela el kit de ${wo} y no se puede deshacer.`)) return;
+      if (!(await confirm({ message: `¿Aceptar la cancelación? Esto cancela el kit de ${wo} y no se puede deshacer.`, tone: 'danger', confirmLabel: 'Aceptar cancelación' }))) return;
     }
     setBusy(req.id);
     try {

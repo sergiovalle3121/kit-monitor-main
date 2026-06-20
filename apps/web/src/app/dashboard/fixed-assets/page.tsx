@@ -17,6 +17,7 @@ import { glass } from '@/lib/glass';
 import { useApi } from '@/hooks/useApi';
 import { apiFetch } from '@/lib/apiFetch';
 import { useToast } from '@/contexts/ToastContext';
+import { useConfirm } from '@/components/ui/ConfirmDialog';
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000').replace(/\/$/, '');
 
@@ -63,6 +64,7 @@ export default function FixedAssetsPage() {
   const { data, isLoading, forbidden, mutate } = useApi<Asset[]>('/fixed-assets');
   const { data: kpis, mutate: mutateKpis } = useApi<Kpis>('/fixed-assets/kpis');
   const toast = useToast();
+  const confirm = useConfirm();
 
   const [showForm, setShowForm] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
@@ -100,7 +102,7 @@ export default function FixedAssetsPage() {
   }
 
   async function dispose(a: Asset) {
-    if (!window.confirm(`¿Dar de baja "${a.name}"?`)) return;
+    if (!(await confirm({ message: `¿Dar de baja "${a.name}"?`, tone: 'danger', confirmLabel: 'Dar de baja' }))) return;
     setBusy(a.id);
     try {
       const res = await apiFetch(`${API_BASE}/fixed-assets/${a.id}/dispose`, {

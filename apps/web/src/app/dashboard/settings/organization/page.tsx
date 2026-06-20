@@ -9,6 +9,7 @@ import {
 import { glass } from '@/lib/glass';
 import { useApi } from '@/hooks/useApi';
 import { apiFetch } from '@/lib/apiFetch';
+import { useConfirm } from '@/components/ui/ConfirmDialog';
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000').replace(/\/$/, '');
 
@@ -191,6 +192,7 @@ function Section<T extends { id: string }>({
   const [form, setForm] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [delId, setDelId] = useState<string | null>(null);
+  const confirm = useConfirm();
 
   const field = 'w-full bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-xl py-2.5 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-black/10 transition-all';
 
@@ -201,7 +203,7 @@ function Section<T extends { id: string }>({
     finally { setBusy(false); }
   }
   async function remove(id: string) {
-    if (!window.confirm('¿Eliminar este registro? Esta acción no se puede deshacer.')) return;
+    if (!(await confirm({ message: '¿Eliminar este registro? Esta acción no se puede deshacer.', tone: 'danger', confirmLabel: 'Eliminar' }))) return;
     setDelId(id);
     try { await onDelete(id); }
     catch (e) { onError(e instanceof Error ? e.message : 'Error'); }
