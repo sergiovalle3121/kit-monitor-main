@@ -129,6 +129,45 @@ export class OutboundLinesService {
   }
 
   /**
+   * Demo helper: stock the shipment's parts as finished goods at WH-FG so the
+   * goods-issue at ship time is visible. Idempotent material master + a RECEIVE
+   * per line. Best-effort; clearly a demo/seed convenience, not a receiving flow.
+   */
+  async receiveStock(shipmentId: string): Promise<{ received: number }> {
+    if (!this.inventory) return { received: 0 };
+    const actor = this.tenantCtx.getUserEmail() ?? 'Outbound';
+    const lines = await this.listLines(shipmentId);
+    let received = 0;
+    for (const line of lines) {
+      if (!(line.quantity > 0)) continue;
+      try {
+        await this.inventory.ensureMaterial({
+          partNumber: line.partNumber,
+          description: line.description ?? undefined,
+        });
+        await this.inventory.recordTransaction({
+          type: 'RECEIVE',
+          partNumber: line.partNumber,
+          quantity: line.quantity,
+          toWarehouseId: line.warehouseId || 'WH-FG',
+          toLocation: line.location || 'BULK',
+          actorName: actor,
+          holdStatus: 'available',
+          referenceType: 'DEMO_FG_RECEIPT',
+          referenceId: shipmentId,
+          reason: `Alta de existencia PT (demo) — embarque ${shipmentId}`,
+        });
+        received += 1;
+      } catch (err) {
+        this.logger.warn(
+          `Demo FG receipt skipped for ${line.partNumber}: ${(err as Error)?.message}`,
+        );
+      }
+    }
+    return { received };
+  }
+
+  /**
    * Mark every line as shipped without issuing inventory here — used when the
    * goods-issue is posted elsewhere (e.g. the linked sales order's shipSO, which
    * already issues FG + posts COGS) so we don't double-decrement.
