@@ -20,6 +20,8 @@ import {
   DEMO_MODELS,
   DEMO_PARTS,
   DEMO_PROGRAMS,
+  DEMO_SUBASSEMBLIES,
+  DEMO_SUBASSEMBLY_PARTS,
   DEMO_SUPPLIERS,
   DEMO_SUPPLIER_PRICES,
 } from './seed-constants';
@@ -172,13 +174,19 @@ export function validateDemoCatalog(): number {
     checked++;
   };
 
-  for (const part of DEMO_PARTS) {
+  for (const part of [...DEMO_PARTS, ...DEMO_SUBASSEMBLY_PARTS]) {
     bump(() => assertSeedPart(part.partNumber));
     bump(() => assertSeedText(part.description, `descripción de ${part.partNumber}`));
     for (const v of part.avl ?? []) {
       bump(() => assertSeedText(v.manufacturer, `fabricante (AVL) de ${part.partNumber}`));
       bump(() => assertSeedText(v.mpn, `MPN (AVL) de ${part.partNumber}`));
     }
+  }
+
+  for (const sa of DEMO_SUBASSEMBLIES) {
+    bump(() => assertSeedPart(sa.partNumber));
+    bump(() => assertSeedText(sa.description, `descripción de sub-ensamble ${sa.partNumber}`));
+    for (const line of sa.bom) bump(() => assertSeedPart(line.part));
   }
 
   for (const s of DEMO_SUPPLIERS) {

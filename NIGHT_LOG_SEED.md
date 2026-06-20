@@ -14,10 +14,13 @@ sensible; todo en 2 pasos (DRY-RUN → `--apply`) y nunca se borra sin OK explí
   Postgres efímero desechable (11 borradas + 1 anonimizada → 0). **La purga contra
   PROD la corre el owner** (este entorno no tiene `DATABASE_URL` de prod).
 - **FASE 2 (enriquecer seed) — EN CURSO.**
-  - **2a ✅ DONE**: 87 partes (con AVL fabricante+MPN ficticio), 12 proveedores, 105
+  - **2a ✅ DONE**: 91 partes (con AVL fabricante+MPN ficticio), 12 proveedores, 105
     precios de proveedor. Idempotente; legal-lock post-seed verde.
-  - **2b (siguiente)**: 6–10 modelos + BOMs multinivel (PCBA→sub-ensamble→final).
-  - **2c**: WOs (sf_work_orders) en varios estados + historia (avances/holds/downtime).
+  - **2b ✅ DONE**: 8 modelos (4 nuevos con BOM MULTINIVEL real: ensamble final→PCBA→
+    sub-módulo, 3 niveles en AX-MOTOR-500), 5 sub-ensambles (PCBAs + etapa de
+    potencia) registrados como materiales con costo = rollup. Golden path 28/28.
+  - **2c (siguiente)**: WOs (sf_work_orders) en varios estados + historia
+    (avances/holds/downtime) para que planeación/operador/almacén tengan qué mostrar.
 
 ---
 

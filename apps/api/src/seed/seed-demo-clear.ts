@@ -38,6 +38,7 @@ import {
   DEMO_MV_REF_TYPES,
   DEMO_PART_NUMBERS,
   DEMO_PROGRAM_CODES,
+  DEMO_SUBASSEMBLY_NUMBERS,
   DEMO_SUPPLIER_CODES,
   DEMO_USER_EMAILS,
   DEMO_WAREHOUSES,
@@ -119,7 +120,9 @@ async function run(): Promise<void> {
       const planIds = demoPlans.map((p) => p.id);
       const kitIds = demoPlans.map((p) => p.kit?.id).filter((id): id is number => !!id);
 
-      const demoHeaders = await headerRepo.find({ where: { model: In(DEMO_MODEL_NUMBERS) } });
+      // Modelos finales + sub-ensambles (ambos tienen BOM header propio).
+      const bomModels = [...DEMO_MODEL_NUMBERS, ...DEMO_SUBASSEMBLY_NUMBERS];
+      const demoHeaders = await headerRepo.find({ where: { model: In(bomModels) } });
       const headerIds = demoHeaders.map((h) => h.id);
 
       console.log(`\n· Identificados: ${planIds.length} planes, ${kitIds.length} kits, ${headerIds.length} BOMs demo\n`);
@@ -164,8 +167,8 @@ async function run(): Promise<void> {
         await removeBy(ds.getRepository(BomComponent), { bomHeaderId: In(headerIds) }, 'bom_components');
       }
 
-      // 7) Cabeceras de BOM
-      await removeBy(ds.getRepository(BomHeader), { model: In(DEMO_MODEL_NUMBERS) }, 'bom_headers');
+      // 7) Cabeceras de BOM (modelos finales + sub-ensambles)
+      await removeBy(ds.getRepository(BomHeader), { model: In(bomModels) }, 'bom_headers');
 
       // 8) Modelos
       await removeBy(ds.getRepository(ProductModel), { modelNumber: In(DEMO_MODEL_NUMBERS) }, 'pm_product_models');
@@ -188,8 +191,12 @@ async function run(): Promise<void> {
       await removeBy(ds.getRepository(ErpSupplierPrice), { partNumber: In(DEMO_PART_NUMBERS) }, 'erp_supplier_prices');
       await removeBy(ds.getRepository(Supplier), { code: In(DEMO_SUPPLIER_CODES) }, 'suppliers');
 
-      // 12) Materiales (después de posiciones)
-      await removeBy(ds.getRepository(MaterialMaster), { partNumber: In(DEMO_PART_NUMBERS) }, 'material_master');
+      // 12) Materiales (partes hoja + sub-ensambles) — después de posiciones
+      await removeBy(
+        ds.getRepository(MaterialMaster),
+        { partNumber: In([...DEMO_PART_NUMBERS, ...DEMO_SUBASSEMBLY_NUMBERS]) },
+        'material_master',
+      );
 
       // 12) Almacenes (después de posiciones)
       await removeBy(ds.getRepository(EnterpriseWarehouse), { id: In(DEMO_WH_IDS) }, 'enterprise_warehouses');

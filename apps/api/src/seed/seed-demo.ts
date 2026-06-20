@@ -15,7 +15,7 @@
  */
 import 'reflect-metadata';
 import { INestApplicationContext } from '@nestjs/common';
-import { DataSource } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 
 import { ProductModelsService } from '../modules/product-models/product-models.service';
 import { BomService } from '../modules/bom/bom.service';
@@ -61,6 +61,8 @@ import {
   DEMO_PLANS,
   DEMO_PLANT,
   DEMO_PROGRAMS,
+  DEMO_SUBASSEMBLIES,
+  DEMO_SUBASSEMBLY_PARTS,
   DEMO_SUPPLIERS,
   DEMO_SUPPLIER_PRICES,
   DEMO_USERS,
@@ -207,7 +209,8 @@ async function seedMaterials(
   const matRepo = ds.getRepository(MaterialMaster);
   const t = tally();
 
-  for (const part of DEMO_PARTS) {
+  // Partes hoja (commodities) + sub-ensambles (PCBAs/sub-módulos) como materiales.
+  for (const part of [...DEMO_PARTS, ...DEMO_SUBASSEMBLY_PARTS]) {
     try {
       assertSeedPart(part.partNumber);
       assertSeedText(part.description, `descripción de ${part.partNumber}`);
@@ -416,42 +419,79 @@ async function ensureBomActive(
   await bomSvc.activateBom(header.id);
 }
 
+/** Crea (idempotente) y activa un BOM para `model` con sus líneas. Soporta multinivel
+ *  (line.level se pasa tal cual: 2 = referencia a sub-ensamble). */
+async function ensureBomFor(
+  bomSvc: BomService,
+  headerRepo: Repository<BomHeader>,
+  spec: {
+    model: string;
+    productName: string;
+    description: string;
+    bom: Array<{ part: string; qty: number; ref?: string; level?: number }>;
+  },
+): Promise<'created' | 'skipped'> {
+  const existing = await headerRepo.findOne({
+    where: { model: spec.model, revision: DEMO_BOM_REVISION },
+    relations: ['components'],
+  });
+  if (existing) {
+    await ensureBomActive(bomSvc, existing);
+    return 'skipped';
+  }
+  const header = await bomSvc.createBomWithComponents({
+    model: spec.model,
+    productName: spec.productName,
+    revision: DEMO_BOM_REVISION,
+    bomType: 'Manufacturing',
+    baseQuantity: 1,
+    baseUnit: 'EA',
+    description: spec.description,
+    createdBy: DEMO_ACTOR,
+    components: spec.bom.map((line) => ({
+      componentNumber: line.part,
+      quantity: line.qty,
+      unit: 'EA',
+      usageFactor: 1,
+      referenceDesignator: line.ref,
+      level: line.level,
+    })),
+  });
+  await headerRepo.update(header.id, { metadata: demoMeta() });
+  await ensureBomActive(bomSvc, await headerRepo.findOneOrFail({ where: { id: header.id } }));
+  return 'created';
+}
+
 async function seedBoms(app: INestApplicationContext, ds: DataSource): Promise<Tally> {
   const bomSvc = app.get(BomService, { strict: false });
   const headerRepo = ds.getRepository(BomHeader);
   const t = tally();
 
+  // Sub-ensambles primero (sus BOMs existen antes de que los modelos los referencien).
+  for (const sa of DEMO_SUBASSEMBLIES) {
+    try {
+      const r = await ensureBomFor(bomSvc, headerRepo, {
+        model: sa.partNumber,
+        productName: sa.name,
+        description: `BOM sub-ensamble ${sa.partNumber} — ${sa.name}`,
+        bom: sa.bom,
+      });
+      r === 'created' ? t.created++ : t.skipped++;
+    } catch (err) {
+      t.errors++;
+      log('bom', `ERROR ${sa.partNumber}: ${(err as Error).message}`);
+    }
+  }
+
   for (const m of DEMO_MODELS) {
     try {
-      const existing = await headerRepo.findOne({
-        where: { model: m.modelNumber, revision: DEMO_BOM_REVISION },
-        relations: ['components'],
-      });
-      if (existing) {
-        await ensureBomActive(bomSvc, existing);
-        t.skipped++;
-        continue;
-      }
-      const header = await bomSvc.createBomWithComponents({
+      const r = await ensureBomFor(bomSvc, headerRepo, {
         model: m.modelNumber,
         productName: m.name,
-        revision: DEMO_BOM_REVISION,
-        bomType: 'Manufacturing',
-        baseQuantity: 1,
-        baseUnit: 'EA',
         description: `BOM demo ${m.modelNumber} — ${m.name}`,
-        createdBy: DEMO_ACTOR,
-        components: m.bom.map((line) => ({
-          componentNumber: line.part,
-          quantity: line.qty,
-          unit: 'EA',
-          usageFactor: 1,
-          referenceDesignator: line.ref,
-        })),
+        bom: m.bom,
       });
-      await headerRepo.update(header.id, { metadata: demoMeta() });
-      await ensureBomActive(bomSvc, await headerRepo.findOneOrFail({ where: { id: header.id } }));
-      t.created++;
+      r === 'created' ? t.created++ : t.skipped++;
     } catch (err) {
       t.errors++;
       log('bom', `ERROR ${m.modelNumber}: ${(err as Error).message}`);

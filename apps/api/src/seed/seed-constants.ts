@@ -223,6 +223,10 @@ const RAW_PARTS: Array<Omit<DemoPart, 'avl'>> = [
   { partNumber: 'PCB-AX200-6L', description: 'PCB 6 capas FR4 — AX-POWER-200', uom: 'EA', category: 'PCB', standardCost: 11.2, abcClass: 'A', recvQty: 800 },
   { partNumber: 'PCB-AX300-2L', description: 'PCB 2 capas FR4 — AX-SENSE-300', uom: 'EA', category: 'PCB', standardCost: 2.4, abcClass: 'A', recvQty: 800 },
   { partNumber: 'PCB-AX400-4L', description: 'PCB 4 capas FR4 — AX-COMM-400', uom: 'EA', category: 'PCB', standardCost: 5.8, abcClass: 'A', recvQty: 800 },
+  { partNumber: 'PCB-AX500-6L', description: 'PCB 6 capas FR4 — AX-MOTOR-500', uom: 'EA', category: 'PCB', standardCost: 9.4, abcClass: 'A', recvQty: 600 },
+  { partNumber: 'PCB-AX600-4L', description: 'PCB 4 capas FR4 — AX-GATE-600', uom: 'EA', category: 'PCB', standardCost: 6.1, abcClass: 'A', recvQty: 600 },
+  { partNumber: 'PCB-AX700-4L', description: 'PCB 4 capas FR4 — AX-METER-700', uom: 'EA', category: 'PCB', standardCost: 4.9, abcClass: 'A', recvQty: 600 },
+  { partNumber: 'PCB-AX800-2L', description: 'PCB 2 capas FR4 — AX-NODE-800', uom: 'EA', category: 'PCB', standardCost: 2.1, abcClass: 'A', recvQty: 600 },
   // ── Conectores ──
   { partNumber: 'CONN-2540-08', description: 'Conector header 2.54mm 8 pines', uom: 'EA', category: 'Conector', standardCost: 0.15, abcClass: 'B', recvQty: 8000 },
   { partNumber: 'CONN-USB-C', description: 'Conector USB-C SMD', uom: 'EA', category: 'Conector', standardCost: 0.42, abcClass: 'B', recvQty: 4000 },
@@ -366,9 +370,10 @@ export const DEMO_PROGRAM_CODES: string[] = DEMO_PROGRAMS.map((p) => p.code);
 // Modelos (ProductModel) + su BOM (componentes por unidad terminada).
 // ─────────────────────────────────────────────────────────────────────────────
 export interface DemoBomLine {
-  part: string; // debe existir en DEMO_PARTS
+  part: string; // debe existir en DEMO_PARTS o DEMO_SUBASSEMBLIES
   qty: number; // cantidad por unidad terminada
   ref?: string; // designadores de referencia
+  level?: number; // 2 = referencia a sub-ensamble (se explota en su propio BOM); hoja = default
 }
 
 export interface DemoModel {
@@ -380,6 +385,161 @@ export interface DemoModel {
   description: string;
   bom: DemoBomLine[];
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Sub-ensambles intermedios (buildables) para BOMs MULTINIVEL. Se registran como
+// materiales (para validar componentes) con costo = rollup de su BOM, y tienen su
+// PROPIO BOM. ORDEN: los más profundos primero (su costo se usa aguas arriba).
+// ─────────────────────────────────────────────────────────────────────────────
+export interface DemoSubAssembly {
+  partNumber: string;
+  name: string;
+  description: string;
+  category: string;
+  abcClass: 'A' | 'B' | 'C';
+  recvQty: number;
+  bom: DemoBomLine[];
+}
+
+const RAW_SUBASSEMBLIES: DemoSubAssembly[] = [
+  // Nivel más profundo: sub-módulo de potencia (usado dentro del PCBA-500).
+  {
+    partNumber: 'AX-PWRSTAGE-500',
+    name: 'Sub-módulo Etapa de Potencia Trifásica',
+    description: 'Etapa de potencia (3 medios puentes) para controlador de motor (universo demo AXOS).',
+    category: 'Sub-módulo',
+    abcClass: 'A',
+    recvQty: 300,
+    bom: [
+      { part: 'MOS-NCH-60V', qty: 6, ref: 'Q1-Q6' },
+      { part: 'IC-GATE-DRV', qty: 3, ref: 'U1-U3' },
+      { part: 'DIO-SCH-40V', qty: 6, ref: 'D1-D6' },
+      { part: 'RES-SHUNT-5M', qty: 3, ref: 'RS1-RS3' },
+      { part: 'CAP-10U-0805', qty: 6, ref: 'C1-C6' },
+      { part: 'CAP-100N-0603', qty: 6, ref: 'C7-C12' },
+    ],
+  },
+  // PCBAs (uno por modelo nuevo).
+  {
+    partNumber: 'AX-PCBA-500',
+    name: 'PCBA Controlador de Motor',
+    description: 'Tarjeta ensamblada del controlador de motor (universo demo AXOS).',
+    category: 'Sub-ensamble PCBA',
+    abcClass: 'A',
+    recvQty: 400,
+    bom: [
+      { part: 'PCB-AX500-6L', qty: 1, ref: 'PCB1' },
+      { part: 'AX-PWRSTAGE-500', qty: 1, ref: 'ASSY-PWR', level: 2 },
+      { part: 'IC-MCU-32B-LQFP64', qty: 1, ref: 'U10' },
+      { part: 'IC-CURR-SENSE', qty: 3, ref: 'U11-U13' },
+      { part: 'IC-LDO-3V3', qty: 1, ref: 'U14' },
+      { part: 'CAP-10U-0805', qty: 8, ref: 'C20-C27' },
+      { part: 'CAP-1U-0402', qty: 10, ref: 'C28-C37' },
+      { part: 'RES-10K-0402', qty: 12, ref: 'R1-R12' },
+      { part: 'CRYSTAL-16M', qty: 1, ref: 'Y1' },
+      { part: 'CONN-2540-08', qty: 2, ref: 'J1-J2' },
+    ],
+  },
+  {
+    partNumber: 'AX-PCBA-600',
+    name: 'PCBA Gateway Industrial',
+    description: 'Tarjeta ensamblada del gateway industrial Ethernet/RS-485 (universo demo AXOS).',
+    category: 'Sub-ensamble PCBA',
+    abcClass: 'A',
+    recvQty: 400,
+    bom: [
+      { part: 'PCB-AX600-4L', qty: 1, ref: 'PCB1' },
+      { part: 'IC-MCU-32B-LQFP64', qty: 1, ref: 'U1' },
+      { part: 'IC-ETH-PHY', qty: 1, ref: 'U2' },
+      { part: 'IC-XCVR-485', qty: 1, ref: 'U3' },
+      { part: 'IC-EEPROM-256K', qty: 1, ref: 'U4' },
+      { part: 'IC-LDO-3V3', qty: 1, ref: 'U5' },
+      { part: 'CONN-RJ45-MAG', qty: 1, ref: 'J1' },
+      { part: 'CONN-USB-C', qty: 1, ref: 'J2' },
+      { part: 'OSC-25M-CMOS', qty: 1, ref: 'Y1' },
+      { part: 'CAP-100N-0603', qty: 12, ref: 'C1-C12' },
+      { part: 'CAP-10U-0805', qty: 3, ref: 'C13-C15' },
+      { part: 'RES-10K-0402', qty: 8, ref: 'R1-R8' },
+      { part: 'RES-4K7-0603', qty: 4, ref: 'R9-R12' },
+      { part: 'LED-GRN-0603', qty: 2, ref: 'D1-D2' },
+      { part: 'LED-RED-0603', qty: 1, ref: 'D3' },
+    ],
+  },
+  {
+    partNumber: 'AX-PCBA-700',
+    name: 'PCBA Medidor de Energía',
+    description: 'Tarjeta ensamblada del medidor de energía multicanal (universo demo AXOS).',
+    category: 'Sub-ensamble PCBA',
+    abcClass: 'A',
+    recvQty: 400,
+    bom: [
+      { part: 'PCB-AX700-4L', qty: 1, ref: 'PCB1' },
+      { part: 'IC-MCU-32B', qty: 1, ref: 'U1' },
+      { part: 'IC-ADC-12B', qty: 2, ref: 'U2-U3' },
+      { part: 'IC-CURR-SENSE', qty: 3, ref: 'U4-U6' },
+      { part: 'IC-VREF-2V5', qty: 1, ref: 'U7' },
+      { part: 'IC-OPAMP-DUAL', qty: 2, ref: 'U8-U9' },
+      { part: 'IC-RTC-I2C', qty: 1, ref: 'U10' },
+      { part: 'IC-LDO-3V3', qty: 1, ref: 'U11' },
+      { part: 'CRYSTAL-32K768', qty: 1, ref: 'Y1' },
+      { part: 'RES-SHUNT-5M', qty: 3, ref: 'RS1-RS3' },
+      { part: 'CAP-100N-0603', qty: 10, ref: 'C1-C10' },
+      { part: 'CAP-1U-0402', qty: 4, ref: 'C11-C14' },
+      { part: 'RES-10K-0402', qty: 12, ref: 'R1-R12' },
+      { part: 'CONN-2540-08', qty: 2, ref: 'J1-J2' },
+    ],
+  },
+  {
+    partNumber: 'AX-PCBA-800',
+    name: 'PCBA Nodo de Sensores',
+    description: 'Tarjeta ensamblada del nodo de sensores IoT (universo demo AXOS).',
+    category: 'Sub-ensamble PCBA',
+    abcClass: 'A',
+    recvQty: 400,
+    bom: [
+      { part: 'PCB-AX800-2L', qty: 1, ref: 'PCB1' },
+      { part: 'IC-MCU-32B', qty: 1, ref: 'U1' },
+      { part: 'IC-ACCEL-3AX', qty: 1, ref: 'U2' },
+      { part: 'IC-PRESS-SENSE', qty: 1, ref: 'U3' },
+      { part: 'IC-SENSOR-TEMP', qty: 2, ref: 'U4-U5' },
+      { part: 'IC-LDO-3V3', qty: 1, ref: 'U6' },
+      { part: 'CAP-100N-0603', qty: 8, ref: 'C1-C8' },
+      { part: 'CAP-1U-0402', qty: 3, ref: 'C9-C11' },
+      { part: 'RES-10K-0402', qty: 6, ref: 'R1-R6' },
+      { part: 'LED-RGB-PLCC', qty: 1, ref: 'D1' },
+      { part: 'CONN-JST-PH-2', qty: 2, ref: 'J1-J2' },
+      { part: 'CONN-USB-C', qty: 1, ref: 'J3' },
+      { part: 'HDR-TEST-04', qty: 1, ref: 'TP1' },
+    ],
+  },
+];
+
+const PART_COST = new Map(DEMO_PARTS.map((p) => [p.partNumber, p.standardCost]));
+
+/** Rollup de costo de un BOM (resuelve sub-ensambles por su costo ya calculado). */
+function rollupCost(bom: DemoBomLine[], subCost: Map<string, number>): number {
+  let c = 0;
+  for (const l of bom) c += l.qty * (subCost.get(l.part) ?? PART_COST.get(l.part) ?? 0);
+  return round6(c);
+}
+
+const SUBASM_COST = new Map<string, number>();
+for (const sa of RAW_SUBASSEMBLIES) SUBASM_COST.set(sa.partNumber, rollupCost(sa.bom, SUBASM_COST));
+
+export const DEMO_SUBASSEMBLIES: DemoSubAssembly[] = RAW_SUBASSEMBLIES;
+export const DEMO_SUBASSEMBLY_NUMBERS: string[] = RAW_SUBASSEMBLIES.map((s) => s.partNumber);
+
+/** Sub-ensambles como "partes" (material_master) — para validar componentes + costo rollup. */
+export const DEMO_SUBASSEMBLY_PARTS: DemoPart[] = RAW_SUBASSEMBLIES.map((s) => ({
+  partNumber: s.partNumber,
+  description: s.description,
+  uom: 'EA',
+  category: s.category,
+  standardCost: SUBASM_COST.get(s.partNumber) ?? 0,
+  abcClass: s.abcClass,
+  recvQty: s.recvQty,
+  avl: [{ manufacturer: 'Axos Manufacturing', mpn: s.partNumber }],
+}));
 
 export const DEMO_MODELS: DemoModel[] = [
   {
@@ -471,6 +631,66 @@ export const DEMO_MODELS: DemoModel[] = [
       { part: 'IC-LDO-3V3', qty: 1, ref: 'U3' },
       { part: 'CRYSTAL-16M', qty: 1, ref: 'Y1' },
       { part: 'LED-GRN-0603', qty: 2, ref: 'D1-D2' },
+      { part: 'LABEL-QR-AX', qty: 1, ref: 'LBL1' },
+    ],
+  },
+  // ── Modelos con BOM MULTINIVEL (ensamble final → PCBA → [sub-módulo]) ──
+  {
+    modelNumber: 'AX-MOTOR-500',
+    name: 'Controlador de Motor Trifásico',
+    customer: 'Axos Mobility',
+    programCode: 'AX-MOBILITY-P',
+    revision: 'A',
+    description: 'Controlador de motor trifásico con etapa de potencia (3 niveles: sub-módulo→PCBA→final; universo demo AXOS).',
+    bom: [
+      { part: 'AX-PCBA-500', qty: 1, ref: 'ASSY1', level: 2 },
+      { part: 'ENC-AX-ALU', qty: 1, ref: 'ENC1' },
+      { part: 'HS-TO220-CLIP', qty: 2, ref: 'HS1-HS2' },
+      { part: 'THM-PAD-1MM', qty: 2, ref: 'TH1-TH2' },
+      { part: 'SCR-M3-8', qty: 6, ref: 'HW1-HW6' },
+      { part: 'LABEL-QR-AX', qty: 1, ref: 'LBL1' },
+    ],
+  },
+  {
+    modelNumber: 'AX-GATE-600',
+    name: 'Gateway Industrial',
+    customer: 'Axos Aero',
+    programCode: 'AX-AERO-P',
+    revision: 'A',
+    description: 'Gateway industrial Ethernet/RS-485 (ensamble final → PCBA; universo demo AXOS).',
+    bom: [
+      { part: 'AX-PCBA-600', qty: 1, ref: 'ASSY1', level: 2 },
+      { part: 'ENC-AX-ALU', qty: 1, ref: 'ENC1' },
+      { part: 'STANDOFF-M3', qty: 4, ref: 'HW1-HW4' },
+      { part: 'SCR-M3-8', qty: 4, ref: 'HW5-HW8' },
+      { part: 'LABEL-QR-AX', qty: 1, ref: 'LBL1' },
+    ],
+  },
+  {
+    modelNumber: 'AX-METER-700',
+    name: 'Medidor de Energía Trifásico',
+    customer: 'Axos Power',
+    programCode: 'AX-POWER-P',
+    revision: 'B',
+    description: 'Medidor de energía multicanal con RTC (ensamble final → PCBA; universo demo AXOS).',
+    bom: [
+      { part: 'AX-PCBA-700', qty: 1, ref: 'ASSY1', level: 2 },
+      { part: 'ENC-GASKET-IP65', qty: 1, ref: 'ENC1' },
+      { part: 'SCR-M2-6', qty: 4, ref: 'HW1-HW4' },
+      { part: 'LABEL-QR-AX', qty: 1, ref: 'LBL1' },
+    ],
+  },
+  {
+    modelNumber: 'AX-NODE-800',
+    name: 'Nodo de Sensores IoT',
+    customer: 'Axos Medical',
+    programCode: 'AX-MEDICAL-P',
+    revision: 'A',
+    description: 'Nodo de sensores IoT (acelerómetro/presión/temp) (ensamble final → PCBA; universo demo AXOS).',
+    bom: [
+      { part: 'AX-PCBA-800', qty: 1, ref: 'ASSY1', level: 2 },
+      { part: 'ENC-GASKET-IP65', qty: 1, ref: 'ENC1' },
+      { part: 'SCR-M2-6', qty: 4, ref: 'HW1-HW4' },
       { part: 'LABEL-QR-AX', qty: 1, ref: 'LBL1' },
     ],
   },
