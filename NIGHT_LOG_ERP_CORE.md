@@ -294,4 +294,38 @@ PG · web tsc · eslint · `next build`.
 **Usable:** abrir un BOM → pestaña Costo → ver material+labor+overhead y costo unitario
 del producto, ajustar tarifa/overhead, y fijarlo como costo estándar del material.
 
-### Siguiente sugerido: **#2 backflush real** (rt_operation_material → terminal/inventario).
+> **PR #334 mergeado a `main`** (squash · `a95f05a`, CI verde).
+
+---
+
+## POST-NÚCLEO #2 — BACKFLUSH POR RUTEO — ✅ EN VERDE
+
+**Módulo nuevo:** `apps/api/src/modules/routing-backflush` (endpoints
+`/routing-backflush`). Vuelve **operacional** el puente BOM↔ruteo: confirmar N
+unidades en una operación consume del inventario los materiales asignados a esa
+operación (`rt_operation_material` × N). **Aditivo, sin tablas nuevas** y **sin tocar
+el terminal de operador vivo** — usa el API público `InventoryService.recordTransaction
+('CONSUME')` (como ya hacen warehouse/production-runtime).
+
+**Hallazgo:** el backflush actual del terminal consume **una sola parte × use-factor**
+por estación; NO usa la lista por operación del ruteo. Este módulo cubre ese hueco.
+
+**Diseño seguro (preview + commit):**
+- `preview` (read-only): `computeBackflush(materiales_op, unidades)` → consumo por
+  material. Lógica pura `backflush.ts` + spec (3 tests).
+- `commit`: resuelve `materialId → partNumber` y postea `CONSUME` por almacén. Como
+  `recordTransaction` valida contra el `material_master` legacy y exige stock
+  `available`, las partes sin stock/sin alta se **reportan por línea** (commit parcial,
+  nunca silencioso). Evento al ledger (PRODUCTION).
+
+**Frontend:** `/dashboard/backflush` — elige ruteo → operación → unidades →
+**previsualizar consumo** → almacén/ubicación/WO → **confirmar** (reporte
+consumidos/errores por línea). Descubrible: tile en hub (Producción) + SearchPalette.
+
+**Puertas (verdes):** API build · `npm test` (94 suites / **623 tests**, +3) · smoke
+PG · web tsc · eslint · `next build`.
+
+**Usable:** un supervisor confirma producción de una operación y descuenta del
+inventario exactamente los materiales que esa operación consume, según el ruteo.
+
+### Siguientes sugeridos: MRP/netting (demanda vs existencias) · ECO/efectividad · el corte legacy→nuevo (supervisado).

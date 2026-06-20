@@ -58,6 +58,7 @@ const AREAS: { name: string; desc: string; href: string; icon: LucideIcon; domai
   { name: "Producción", desc: "Órdenes y piso", href: "/dashboard/production", icon: Factory, domain: "production", roles: ["production_supervisor", "operator", "warehouse_operator"], section: "Producción" },
   { name: "Operador MES", desc: "Ejecución en estación", href: "/dashboard/operador", icon: Icons.HardHat, domain: "production", roles: ["production_supervisor", "operator"], section: "Producción" },
   { name: "Terminal de operador", desc: "Poka-yoke, backflush, andon", href: "/dashboard/operator-terminal", icon: Icons.ScanLine, domain: "production", roles: ["operator", "production_supervisor"], section: "Producción" },
+  { name: "Backflush por ruteo", desc: "Consumo por operación del ruteo", href: "/dashboard/backflush", icon: Icons.PackageMinus, domain: "production", roles: ["production_supervisor", "materialist", "operator"], section: "Producción" },
 
   // ── Calidad ──
   { name: "Calidad", desc: "Inspección y NCR", href: "/dashboard/quality", icon: ShieldCheck, domain: "quality", roles: ["quality_engineer", "mrb_member"], section: "Calidad" },
