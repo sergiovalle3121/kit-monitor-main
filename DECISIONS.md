@@ -305,4 +305,32 @@ fallaría al arranque. Además los timestamps mezclan formatos (epoch-ms `1713�
 efímero en cada PR; atrapa el síntoma que más ha tumbado prod (colisiones de
 esquema/DI al arranque) **antes** del merge, aunque el flip definitivo siga pendiente.
 
+## 15. Núcleo ERP de manufactura — MM/BOM/Routing nuevos en paralelo (aditivo)
+
+**Contexto:** el brief pide construir el núcleo que compita con SAP — Maestro de
+Materiales + BOM multinivel + Routing — siendo **aditivo estricto**: tablas nuevas
+prefijadas (`mm_`, `bom_`, `rt_`), sin tocar columnas de `bom_headers`,
+`bom_components` ni `pm_product_models`, y **sin migrar/deprecar** lo viejo (el corte
+lo hace Sergio, supervisado).
+
+**Hallazgo (GREP previo):** YA existe `material_master` (módulo inventory) pero es
+mínimo e inadecuado para EMS: **PK global `partNumber`** (varchar), **sin `tenant_id`**,
+sin tipo de item / make-buy / AVL / alternantes / peso / ciclo de vida. Convertirlo
+(agregar tenant a la PK, narrowing) sería un cambio **destructivo** prohibido por §2.
+
+**Decisión:** se construye un **maestro NUEVO** `mm_material` (+ `mm_avl`,
+`mm_material_alt`), tenant-scoped y rico (estilo SAP), como **fuente única de partes**
+del BOM multinivel y el routing nuevos. El `material_master` legacy y el BOM plano
+**siguen vivos en paralelo**. Es exactamente el precedente de `pm_product_models`
+(maestro canónico que convive con los `model` de texto libre) — patrón ya probado en
+este repo. Cuando Sergio decida el corte, se mapea/migra del legacy al nuevo bajo
+supervisión.
+
+**Forma:** entidades extienden `TenantBaseEntity` (UUID, `tenant_id`/`plant_id`,
+`created_*`), tablas prefijadas, `DATE_COLUMN_TYPE` + `simple-json` (portable
+sqlite/PG), folios vía `DocumentNumberingService` (docType `MATERIAL` → `MAT-#####`),
+repos `provideTenantScopedRepository`, eventos al Event Ledger, máquina de estados
+pura + spec. Migración aditiva idempotente (`hasTable`). Puerta obligatoria: smoke de
+bootstrap contra Postgres (atrapa colisiones de tabla/FK/DI).
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
