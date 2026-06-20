@@ -95,6 +95,20 @@ export function Content({
     }
   }
 
+  async function receiveStock() {
+    setBusy(true);
+    try {
+      const res = await apiFetch(`${API_BASE}/outbound/shipments/${shipment.id}/receive-stock`, { method: 'POST' });
+      const d = await res.json().catch(() => ({}));
+      if (res.ok) toast.success(`Existencia de PT dada de alta (${d?.received ?? 0} partes). Al embarcar se descontará.`, 'Inventario');
+      else toast.error(d?.message || 'No se pudo.', 'Inventario');
+    } catch {
+      toast.error('Error de red.', 'Inventario');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="fixed inset-0 z-[120] flex justify-end bg-black/40" onClick={onClose}>
       <div className={`${glass} h-full w-full max-w-md overflow-y-auto`} onClick={(e) => e.stopPropagation()}>
@@ -129,10 +143,15 @@ export function Content({
           </div>
 
           {rows.length > 0 && (
-            <div className="flex items-center gap-2 flex-wrap text-[11px] text-gray-500 dark:text-gray-400 mb-2">
-              <span>{totals.lines} líneas</span><span className="text-gray-300 dark:text-gray-600">·</span>
-              <span>{totals.pieces} pzs</span><span className="text-gray-300 dark:text-gray-600">·</span>
-              <span>{totals.posted}/{totals.lines} con PT emitido</span>
+            <div className="flex items-center justify-between gap-2 flex-wrap mb-2">
+              <div className="flex items-center gap-2 flex-wrap text-[11px] text-gray-500 dark:text-gray-400">
+                <span>{totals.lines} líneas</span><span className="text-gray-300 dark:text-gray-600">·</span>
+                <span>{totals.pieces} pzs</span><span className="text-gray-300 dark:text-gray-600">·</span>
+                <span>{totals.posted}/{totals.lines} con PT emitido</span>
+              </div>
+              <button onClick={receiveStock} disabled={busy} title="Da de alta existencia de PT para ver el descuento al embarcar" className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium disabled:opacity-60" style={{ background: `${GREEN}1f`, color: GREEN }}>
+                <Boxes className="w-3.5 h-3.5" /> Recibir PT (demo)
+              </button>
             </div>
           )}
 

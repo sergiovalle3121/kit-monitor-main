@@ -8,6 +8,7 @@ describe('OutboundLinesService', () => {
   let dataSource: DataSource;
   let lines: OutboundLinesService;
   let recordTransaction: jest.Mock;
+  let ensureMaterial: jest.Mock;
 
   function build(inventory?: Partial<InventoryService>) {
     lines = new OutboundLinesService(
@@ -27,7 +28,8 @@ describe('OutboundLinesService', () => {
     });
     await dataSource.initialize();
     recordTransaction = jest.fn().mockResolvedValue({});
-    build({ recordTransaction } as unknown as Partial<InventoryService>);
+    ensureMaterial = jest.fn().mockResolvedValue({});
+    build({ recordTransaction, ensureMaterial } as unknown as Partial<InventoryService>);
   });
 
   afterEach(async () => {
@@ -112,6 +114,17 @@ describe('OutboundLinesService', () => {
     const res = await lines.postShipmentInventory('ship-1', 'tester');
     expect(res).toEqual({ posted: 0, failed: 0, skipped: 1 });
     expect(recordTransaction).not.toHaveBeenCalled();
+  });
+
+  it('receiveStock stocks each line as FG (ensureMaterial + RECEIVE into WH-FG)', async () => {
+    await lines.addLine('ship-1', { partNumber: 'FG-1', quantity: 10 });
+    await lines.addLine('ship-1', { partNumber: 'FG-2', quantity: 4 });
+    const res = await lines.receiveStock('ship-1');
+    expect(res).toEqual({ received: 2 });
+    expect(ensureMaterial).toHaveBeenCalledTimes(2);
+    expect(recordTransaction).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'RECEIVE', partNumber: 'FG-1', quantity: 10, toWarehouseId: 'WH-FG' }),
+    );
   });
 
   it('no-ops when inventory is not wired in', async () => {

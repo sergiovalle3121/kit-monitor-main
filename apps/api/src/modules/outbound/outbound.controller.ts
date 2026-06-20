@@ -117,6 +117,13 @@ export class OutboundController {
     return this.linesService.removeLine(lineId);
   }
 
+  @Post('shipments/:id/receive-stock')
+  @RequirePermissions('logistics:write')
+  @ApiOperation({ summary: 'Demo: da de alta existencia de PT (WH-FG) para las líneas del embarque.' })
+  receiveStock(@Param('id') id: string) {
+    return this.linesService.receiveStock(id);
+  }
+
   @Get('shipments/:id/asn')
   @ApiOperation({ summary: 'ASN jerárquico (embarque → tarima → caja → ítem) + totales.' })
   asn(@Param('id') id: string) {
