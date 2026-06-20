@@ -5,6 +5,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Editor } from '@tiptap/react';
 import { MessageSquare, MessageSquarePlus, X, Check, Trash2, CornerDownRight, Send } from 'lucide-react';
+import { useToast } from '@/contexts/ToastContext';
 
 interface Reply { author: string; text: string; createdAt: number }
 interface CommentItem { id: string; text: string; author: string; createdAt: number | null; resolved: boolean; replies: Reply[]; from: number; to: number; quoted: string }
@@ -32,6 +33,7 @@ function collect(editor: Editor): CommentItem[] {
 
 /** Comentarios con hilos: responder, resolver, autor/fecha (guardados en la marca). */
 export function DocComments({ editor, author }: { editor: Editor; author: string }) {
+  const toast = useToast();
   const [open, setOpen] = useState(false);
   const [, force] = useState(0);
   const [replyTo, setReplyTo] = useState<string | null>(null);
@@ -52,7 +54,7 @@ export function DocComments({ editor, author }: { editor: Editor; author: string
 
   function addComment() {
     const { from, to } = editor.state.selection;
-    if (from === to) { window.alert('Selecciona el texto que quieres comentar.'); return; }
+    if (from === to) { toast.info('Selecciona el texto que quieres comentar.'); return; }
     const text = window.prompt('Comentario');
     if (!text || !text.trim()) return;
     (editor.chain().focus() as any).setComment({ commentId: uid(), text: text.trim(), author, createdAt: Date.now(), resolved: false, replies: [] }).run();
