@@ -270,7 +270,7 @@ export default function MissionControlPage() {
               <ChevronLeft className="h-5 w-5" />
             </Link>
             <div>
-              <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+              <p className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
                 Mission control
               </p>
               <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">War room</h1>
@@ -288,7 +288,7 @@ export default function MissionControlPage() {
             <span className="text-sm font-medium" style={{ color: overallColor }}>
               {overallLabel}
             </span>
-            <span className="flex items-center gap-1 text-xs text-gray-500">
+            <span className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
               <Radio
                 className="h-3 w-3"
                 style={{ color: socketStatus === 'connected' ? GREEN : '#9ca3af' }}
@@ -428,7 +428,7 @@ export default function MissionControlPage() {
                         <p className="min-w-0 flex-1 truncate text-sm font-medium">
                           {p.title || p.category || 'Alerta'}
                         </p>
-                        <span className="text-[10px] uppercase tracking-wide text-gray-500">
+                        <span className="text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400">
                           {p.status}
                         </span>
                       </div>

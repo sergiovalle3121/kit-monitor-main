@@ -327,3 +327,19 @@
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   background-repeat: repeat;
 }
+
+/* Recharts: su tooltip por defecto trae un fondo claro embebido (estilo inline)
+   que en modo oscuro queda como una caja blanca ilegible sobre el tablero. Lo
+   alineamos al tema oscuro del sistema. El modo oscuro de la app se rige por
+   prefers-color-scheme (igual que el resto de este archivo) y el !important es
+   necesario para ganarle al estilo inline que recharts aplica al tooltip. */
+@media (prefers-color-scheme: dark) {
+  .recharts-default-tooltip {
+    background: rgba(20, 20, 22, 0.96) !important;
+    border: 1px solid rgba(255, 255, 255, 0.14) !important;
+    border-radius: 12px !important;
+  }
+  .recharts-default-tooltip .recharts-tooltip-label {
+    color: #e5e7eb !important;
+  }
+}
