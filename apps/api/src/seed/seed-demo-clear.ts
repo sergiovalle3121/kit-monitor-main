@@ -28,6 +28,8 @@ import { EnterpriseCustomer } from '../modules/enterprise-campus/entities/enterp
 import { EnterpriseProgram } from '../modules/enterprise-campus/entities/enterprise-program.entity';
 import { EnterprisePlanLink } from '../modules/enterprise-campus/entities/enterprise-plan-link.entity';
 import { User } from '../modules/users/entities/user.entity';
+import { Supplier } from '../modules/suppliers/entities/supplier.entity';
+import { ErpSupplierPrice } from '../modules/erp-core/entities/erp-supplier-price.entity';
 
 import { bootSeedContext, runInDemoContext } from './seed-context';
 import {
@@ -36,6 +38,7 @@ import {
   DEMO_MV_REF_TYPES,
   DEMO_PART_NUMBERS,
   DEMO_PROGRAM_CODES,
+  DEMO_SUPPLIER_CODES,
   DEMO_USER_EMAILS,
   DEMO_WAREHOUSES,
   DEMO_WORK_ORDERS,
@@ -181,7 +184,11 @@ async function run(): Promise<void> {
         'inventory_positions',
       );
 
-      // 11) Materiales (después de posiciones)
+      // 11) Precios de proveedor + proveedores demo (antes que materiales)
+      await removeBy(ds.getRepository(ErpSupplierPrice), { partNumber: In(DEMO_PART_NUMBERS) }, 'erp_supplier_prices');
+      await removeBy(ds.getRepository(Supplier), { code: In(DEMO_SUPPLIER_CODES) }, 'suppliers');
+
+      // 12) Materiales (después de posiciones)
       await removeBy(ds.getRepository(MaterialMaster), { partNumber: In(DEMO_PART_NUMBERS) }, 'material_master');
 
       // 12) Almacenes (después de posiciones)

@@ -33,6 +33,9 @@ import { EnterpriseCustomer } from '../modules/enterprise-campus/entities/enterp
 import { EnterpriseProgram } from '../modules/enterprise-campus/entities/enterprise-program.entity';
 import { UsersService } from '../modules/users/users.service';
 import { User } from '../modules/users/entities/user.entity';
+import { SuppliersService } from '../modules/suppliers/suppliers.service';
+import { Supplier } from '../modules/suppliers/entities/supplier.entity';
+import { ErpMmService } from '../modules/erp-core/services/erp-mm.service';
 
 import {
   assertNotProduction,
@@ -58,6 +61,8 @@ import {
   DEMO_PLANS,
   DEMO_PLANT,
   DEMO_PROGRAMS,
+  DEMO_SUPPLIERS,
+  DEMO_SUPPLIER_PRICES,
   DEMO_USERS,
   DEMO_USER_PASSWORD,
   DEMO_WAREHOUSES,
@@ -214,10 +219,11 @@ async function seedMaterials(
         standardCost: part.standardCost,
         category: part.category,
       });
-      // Marca demo + clase ABC (ensureMaterial no las toca). Idempotente.
-      if (!mat.metadata?.demo || mat.abcClass !== part.abcClass) {
+      // Marca demo + clase ABC + AVL (fabricante/MPN ficticios). ensureMaterial no
+      // las toca, así que se persisten aquí. Idempotente.
+      if (!mat.metadata?.demo || mat.abcClass !== part.abcClass || !mat.metadata?.avl) {
         await matRepo.update(part.partNumber, {
-          metadata: demoMeta(),
+          metadata: demoMeta({ avl: part.avl }),
           abcClass: part.abcClass,
         });
       }
@@ -228,6 +234,79 @@ async function seedMaterials(
     }
   }
   log('partes', `creadas=${t.created} ya existían=${t.skipped} errores=${t.errors}`);
+  return t;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 3b. Proveedores ficticios (Supplier) + precios (ErpSupplierPrice)
+// ─────────────────────────────────────────────────────────────────────────────
+async function seedSuppliers(
+  app: INestApplicationContext,
+  ds: DataSource,
+): Promise<Tally> {
+  const suppliersSvc = app.get(SuppliersService, { strict: false });
+  const repo = ds.getRepository(Supplier);
+  const t = tally();
+  for (const s of DEMO_SUPPLIERS) {
+    try {
+      assertSeedText(s.name, `nombre de proveedor ${s.code}`);
+      const existing = await repo.findOne({ where: { code: s.code } });
+      if (existing) {
+        t.skipped++;
+        continue;
+      }
+      await suppliersSvc.create({
+        code: s.code,
+        name: s.name,
+        country: s.country,
+        status: 'active',
+        qualityScore: s.qualityScore,
+        notes: 'Proveedor demo AXOS (dominio público)',
+      });
+      t.created++;
+    } catch (err) {
+      t.errors++;
+      log('proveedores', `ERROR ${s.code}: ${(err as Error).message}`);
+    }
+  }
+  log('proveedores', `creados=${t.created} ya existían=${t.skipped} errores=${t.errors}`);
+  return t;
+}
+
+async function seedSupplierPrices(
+  app: INestApplicationContext,
+  ds: DataSource,
+): Promise<Tally> {
+  const erpMm = app.get(ErpMmService, { strict: false });
+  const repo = ds.getRepository(Supplier);
+  const t = tally();
+  const idByCode = new Map((await repo.find()).map((s) => [s.code, s.id]));
+
+  for (const p of DEMO_SUPPLIER_PRICES) {
+    try {
+      const supplierId = idByCode.get(p.supplierCode);
+      if (!supplierId) {
+        t.skipped++;
+        continue;
+      }
+      // upsert idempotente (clave única supplierId+partNumber).
+      await erpMm.upsertSupplierPrice({
+        supplierId,
+        partNumber: p.partNumber,
+        unitPrice: p.unitPrice,
+        currency: p.currency,
+        moq: p.moq,
+        leadTimeDays: p.leadTimeDays,
+        preferred: p.preferred,
+        active: true,
+      });
+      t.created++;
+    } catch (err) {
+      t.errors++;
+      log('precios', `ERROR ${p.partNumber}/${p.supplierCode}: ${(err as Error).message}`);
+    }
+  }
+  log('precios prov.', `upserts=${t.created} omitidos=${t.skipped} errores=${t.errors}`);
   return t;
 }
 
@@ -604,6 +683,8 @@ async function run(): Promise<void> {
       await seedWarehouses(ds);
       await seedCustomersAndPrograms(app, ds);
       await seedMaterials(app, ds);
+      await seedSuppliers(app, ds);
+      await seedSupplierPrices(app, ds);
       await seedReceipts(app, ds);
       await seedModels(app);
       await seedBoms(app, ds);
@@ -626,6 +707,7 @@ async function run(): Promise<void> {
     console.log(' Resumen:');
     console.log(`   Almacenes demo:   ${DEMO_WAREHOUSES.length}`);
     console.log(`   Clientes/Prog:    ${DEMO_CUSTOMERS.length}/${DEMO_PROGRAMS.length}`);
+    console.log(`   Proveedores:      ${DEMO_SUPPLIERS.length} (precios: ${DEMO_SUPPLIER_PRICES.length})`);
     console.log(`   Partes (MM):      ${DEMO_PARTS.length}`);
     console.log(`   Modelos (AX-):    ${DEMO_MODELS.length}`);
     console.log(`   Planes:           ${DEMO_PLANS.length} (${DEMO_PLANS.filter((p) => p.publish).length} publicados)`);

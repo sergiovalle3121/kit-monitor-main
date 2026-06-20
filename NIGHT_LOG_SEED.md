@@ -9,12 +9,15 @@ sensible; todo en 2 pasos (DRY-RUN → `--apply`) y nunca se borra sin OK explí
 
 ## ▶ RETOMAR AQUÍ (handoff)
 
-- **FASE 1 (purga legal) — CÓDIGO COMPLETO y en verde.** Entregado el **reporte del
-  paso 1** (auditoría DRY-RUN). **PENDIENTE: OK del owner** para (a) correr la purga
-  con `--apply` contra prod y (b) arrancar la **FASE 2** (enriquecer el seed).
-- **No se tocó prod.** Este entorno no tiene `DATABASE_URL` de prod; la purga real la
-  corre el owner. Todo se validó en un **Postgres efímero local desechable**.
-- **NUNCA se corrió `--apply`** (ni local ni prod). Sólo DRY-RUN.
+- **FASE 1 (purga legal) — COMPLETA y validada.** Auditoría + purga
+  (borra/anonimiza) + guard endurecido. Validada `--apply` end-to-end en el
+  Postgres efímero desechable (11 borradas + 1 anonimizada → 0). **La purga contra
+  PROD la corre el owner** (este entorno no tiene `DATABASE_URL` de prod).
+- **FASE 2 (enriquecer seed) — EN CURSO.**
+  - **2a ✅ DONE**: 87 partes (con AVL fabricante+MPN ficticio), 12 proveedores, 105
+    precios de proveedor. Idempotente; legal-lock post-seed verde.
+  - **2b (siguiente)**: 6–10 modelos + BOMs multinivel (PCBA→sub-ensamble→final).
+  - **2c**: WOs (sf_work_orders) en varios estados + historia (avances/holds/downtime).
 
 ---
 

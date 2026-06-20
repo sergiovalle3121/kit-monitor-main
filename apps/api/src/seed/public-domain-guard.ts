@@ -20,6 +20,8 @@ import {
   DEMO_MODELS,
   DEMO_PARTS,
   DEMO_PROGRAMS,
+  DEMO_SUPPLIERS,
+  DEMO_SUPPLIER_PRICES,
 } from './seed-constants';
 
 /**
@@ -52,6 +54,9 @@ export const REAL_COMPANY_BLACKLIST: string[] = [
 export const ALLOWED_PART_PREFIXES: string[] = [
   'AX-', 'RES-', 'CAP-', 'IND-', 'LED-', 'CRYSTAL-', 'MOS-', 'IC-', 'PCB-',
   'CONN-', 'HDR-', 'SCR-', 'STANDOFF-', 'LABEL-', 'ENC-',
+  // Familias de commodity adicionales del catálogo demo expandido:
+  'FB-', 'XFMR-', 'DIO-', 'TVS-', 'BJT-', 'OSC-', 'TERM-', 'NUT-', 'WASH-',
+  'THM-', 'HS-', 'SUB-', 'FUSE-', 'SW-', 'RLY-', 'POT-', 'FFC-',
 ];
 
 function escapeRegex(s: string): string {
@@ -170,6 +175,19 @@ export function validateDemoCatalog(): number {
   for (const part of DEMO_PARTS) {
     bump(() => assertSeedPart(part.partNumber));
     bump(() => assertSeedText(part.description, `descripción de ${part.partNumber}`));
+    for (const v of part.avl ?? []) {
+      bump(() => assertSeedText(v.manufacturer, `fabricante (AVL) de ${part.partNumber}`));
+      bump(() => assertSeedText(v.mpn, `MPN (AVL) de ${part.partNumber}`));
+    }
+  }
+
+  for (const s of DEMO_SUPPLIERS) {
+    bump(() => assertSeedText(s.name, `nombre de proveedor ${s.code}`));
+    bump(() => assertSeedText(s.country, `país de proveedor ${s.code}`));
+  }
+
+  for (const sp of DEMO_SUPPLIER_PRICES) {
+    bump(() => assertSeedPart(sp.partNumber));
   }
 
   for (const model of DEMO_MODELS) {

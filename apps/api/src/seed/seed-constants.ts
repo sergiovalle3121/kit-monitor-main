@@ -78,7 +78,13 @@ export const DEMO_WH_QA = 'AX-WH-NORTE-QA';
 // ─────────────────────────────────────────────────────────────────────────────
 // Partes (MaterialMaster) — componentes electrónicos genéricos (commodities).
 // standardCost en USD (float). recvQty = cantidad a recibir para tener existencias.
+// Cada parte lleva un AVL ficticio (fabricante + MPN) — ver buildAvl().
 // ─────────────────────────────────────────────────────────────────────────────
+export interface DemoAvl {
+  manufacturer: string; // fabricante FICTICIO (dominio público)
+  mpn: string; // número de parte del fabricante (ficticio)
+}
+
 export interface DemoPart {
   partNumber: string;
   description: string;
@@ -87,45 +93,240 @@ export interface DemoPart {
   standardCost: number;
   abcClass: 'A' | 'B' | 'C';
   recvQty: number;
+  avl: DemoAvl[]; // lista de fabricantes aprobados (Approved Vendor List)
 }
 
-export const DEMO_PARTS: DemoPart[] = [
-  // Pasivos
+/**
+ * Fabricantes FICTICIOS del universo AXOS (cero marcas reales). Se asignan por
+ * familia de componente para armar un AVL plausible (fabricante + MPN) por parte.
+ */
+export const DEMO_MANUFACTURERS: Record<string, { name: string; code: string }> = {
+  passive: { name: 'Ferrum Passives', code: 'FRM' },
+  capacitor: { name: 'Voltaic Components', code: 'VLT' },
+  magnetic: { name: 'Kestrel Magnetics', code: 'KST' },
+  semi: { name: 'Norvel Semiconductors', code: 'NVL' },
+  ic: { name: 'Axon Microelectronics', code: 'AXN' },
+  opto: { name: 'Lumina Optoelectronics', code: 'LMN' },
+  sensor: { name: 'Sentinel Sensors', code: 'SNT' },
+  timing: { name: 'Quartzon Timing', code: 'QTZ' },
+  connector: { name: 'Cobalt Connectors', code: 'CBT' },
+  mech: { name: 'Granite Hardware', code: 'GRN' },
+  pcb: { name: 'Strataboard Fab', code: 'STB' },
+};
+
+/** Mapea categoría → familia de fabricante para el AVL. */
+function mfgFamily(category: string): keyof typeof DEMO_MANUFACTURERS {
+  const c = category.toLowerCase();
+  if (c.includes('resist')) return 'passive';
+  if (c.includes('capacitor')) return 'capacitor';
+  if (c.includes('inductor') || c.includes('ferrite') || c.includes('transformador')) return 'magnetic';
+  if (c.includes('mosfet') || c.includes('diodo') || c.includes('transistor')) return 'semi';
+  if (c.includes('sensor')) return 'sensor';
+  if (c === 'ic' || c.includes('regulador') || c.includes('memoria')) return 'ic';
+  if (c.includes('opto') || c.includes('led')) return 'opto';
+  if (c.includes('frecuencia') || c.includes('oscilador') || c.includes('cristal')) return 'timing';
+  if (c.includes('conector')) return 'connector';
+  if (c.includes('pcb')) return 'pcb';
+  return 'mech';
+}
+
+/** Construye un AVL ficticio (fabricante + MPN derivado del partNumber). */
+function buildAvl(part: Omit<DemoPart, 'avl'>): DemoAvl[] {
+  const fam = DEMO_MANUFACTURERS[mfgFamily(part.category)];
+  const suffix = part.partNumber.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(-9);
+  const avl: DemoAvl[] = [{ manufacturer: fam.name, mpn: `${fam.code}-${suffix}` }];
+  // Las partes A reciben una 2ª fuente aprobada (alterna) para que el AVL sea lista.
+  if (part.abcClass === 'A') {
+    avl.push({ manufacturer: DEMO_MANUFACTURERS.ic.name, mpn: `AXN2-${suffix}` });
+  }
+  return avl;
+}
+
+const RAW_PARTS: Array<Omit<DemoPart, 'avl'>> = [
+  // ── Resistores ──
+  { partNumber: 'RES-0R-0402', description: 'Resistencia 0Ω 0402 (jumper)', uom: 'EA', category: 'Resistor', standardCost: 0.003, abcClass: 'C', recvQty: 20000 },
   { partNumber: 'RES-10K-0402', description: 'Resistencia 10kΩ 0402 1%', uom: 'EA', category: 'Resistor', standardCost: 0.004, abcClass: 'C', recvQty: 20000 },
   { partNumber: 'RES-1K-0402', description: 'Resistencia 1kΩ 0402 1%', uom: 'EA', category: 'Resistor', standardCost: 0.004, abcClass: 'C', recvQty: 20000 },
   { partNumber: 'RES-100R-0603', description: 'Resistencia 100Ω 0603 1%', uom: 'EA', category: 'Resistor', standardCost: 0.005, abcClass: 'C', recvQty: 20000 },
+  { partNumber: 'RES-220R-0402', description: 'Resistencia 220Ω 0402 1%', uom: 'EA', category: 'Resistor', standardCost: 0.004, abcClass: 'C', recvQty: 18000 },
+  { partNumber: 'RES-470R-0402', description: 'Resistencia 470Ω 0402 1%', uom: 'EA', category: 'Resistor', standardCost: 0.004, abcClass: 'C', recvQty: 18000 },
+  { partNumber: 'RES-2K2-0402', description: 'Resistencia 2.2kΩ 0402 1%', uom: 'EA', category: 'Resistor', standardCost: 0.004, abcClass: 'C', recvQty: 18000 },
+  { partNumber: 'RES-4K7-0603', description: 'Resistencia 4.7kΩ 0603 1%', uom: 'EA', category: 'Resistor', standardCost: 0.005, abcClass: 'C', recvQty: 16000 },
+  { partNumber: 'RES-47K-0402', description: 'Resistencia 47kΩ 0402 1%', uom: 'EA', category: 'Resistor', standardCost: 0.004, abcClass: 'C', recvQty: 16000 },
+  { partNumber: 'RES-100K-0402', description: 'Resistencia 100kΩ 0402 1%', uom: 'EA', category: 'Resistor', standardCost: 0.004, abcClass: 'C', recvQty: 16000 },
+  { partNumber: 'RES-1M-0603', description: 'Resistencia 1MΩ 0603 1%', uom: 'EA', category: 'Resistor', standardCost: 0.006, abcClass: 'C', recvQty: 12000 },
+  { partNumber: 'RES-SHUNT-5M', description: 'Resistencia shunt 5mΩ 2512 1W', uom: 'EA', category: 'Resistor', standardCost: 0.12, abcClass: 'B', recvQty: 6000 },
+  // ── Capacitores ──
   { partNumber: 'CAP-100N-0603', description: 'Capacitor 100nF 0603 X7R', uom: 'EA', category: 'Capacitor', standardCost: 0.012, abcClass: 'C', recvQty: 20000 },
-  { partNumber: 'CAP-10U-0805', description: 'Capacitor 10µF 0805 X5R', uom: 'EA', category: 'Capacitor', standardCost: 0.03, abcClass: 'C', recvQty: 15000 },
+  { partNumber: 'CAP-1N-0402', description: 'Capacitor 1nF 0402 C0G', uom: 'EA', category: 'Capacitor', standardCost: 0.01, abcClass: 'C', recvQty: 18000 },
+  { partNumber: 'CAP-10N-0603', description: 'Capacitor 10nF 0603 X7R', uom: 'EA', category: 'Capacitor', standardCost: 0.011, abcClass: 'C', recvQty: 18000 },
   { partNumber: 'CAP-1U-0402', description: 'Capacitor 1µF 0402 X5R', uom: 'EA', category: 'Capacitor', standardCost: 0.018, abcClass: 'C', recvQty: 15000 },
+  { partNumber: 'CAP-2U2-0805', description: 'Capacitor 2.2µF 0805 X5R', uom: 'EA', category: 'Capacitor', standardCost: 0.024, abcClass: 'C', recvQty: 14000 },
+  { partNumber: 'CAP-10U-0805', description: 'Capacitor 10µF 0805 X5R', uom: 'EA', category: 'Capacitor', standardCost: 0.03, abcClass: 'C', recvQty: 15000 },
+  { partNumber: 'CAP-22U-1206', description: 'Capacitor 22µF 1206 X5R', uom: 'EA', category: 'Capacitor', standardCost: 0.055, abcClass: 'B', recvQty: 9000 },
+  { partNumber: 'CAP-47U-1210', description: 'Capacitor 47µF 1210 X5R', uom: 'EA', category: 'Capacitor', standardCost: 0.11, abcClass: 'B', recvQty: 7000 },
+  { partNumber: 'CAP-100U-ELEC', description: 'Capacitor electrolítico 100µF 25V', uom: 'EA', category: 'Capacitor', standardCost: 0.14, abcClass: 'B', recvQty: 6000 },
+  { partNumber: 'CAP-470U-ELEC', description: 'Capacitor electrolítico 470µF 35V', uom: 'EA', category: 'Capacitor', standardCost: 0.26, abcClass: 'B', recvQty: 4000 },
+  // ── Inductores / magnéticos ──
+  { partNumber: 'IND-1U0-0805', description: 'Inductor 1.0µH 0805 blindado', uom: 'EA', category: 'Inductor', standardCost: 0.06, abcClass: 'B', recvQty: 8000 },
   { partNumber: 'IND-4U7-1210', description: 'Inductor 4.7µH 1210 blindado', uom: 'EA', category: 'Inductor', standardCost: 0.085, abcClass: 'B', recvQty: 8000 },
-  { partNumber: 'LED-GRN-0603', description: 'LED verde 0603', uom: 'EA', category: 'Optoelectrónica', standardCost: 0.025, abcClass: 'C', recvQty: 10000 },
-  { partNumber: 'CRYSTAL-16M', description: 'Cristal 16MHz HC-49 SMD', uom: 'EA', category: 'Frecuencia', standardCost: 0.22, abcClass: 'B', recvQty: 6000 },
-  // Semiconductores
+  { partNumber: 'IND-10U-1210', description: 'Inductor 10µH 1210 blindado', uom: 'EA', category: 'Inductor', standardCost: 0.11, abcClass: 'B', recvQty: 6000 },
+  { partNumber: 'FB-600R-0805', description: 'Ferrite bead 600Ω@100MHz 0805', uom: 'EA', category: 'Ferrite', standardCost: 0.02, abcClass: 'C', recvQty: 12000 },
+  { partNumber: 'XFMR-FLYBACK-5W', description: 'Transformador flyback 5W genérico', uom: 'EA', category: 'Transformador', standardCost: 1.45, abcClass: 'A', recvQty: 1500 },
+  // ── Diodos / protección ──
+  { partNumber: 'DIO-SCH-40V', description: 'Diodo Schottky 40V 1A SMA', uom: 'EA', category: 'Diodo', standardCost: 0.05, abcClass: 'B', recvQty: 10000 },
+  { partNumber: 'DIO-RECT-1A', description: 'Diodo rectificador 1A 100V', uom: 'EA', category: 'Diodo', standardCost: 0.04, abcClass: 'C', recvQty: 10000 },
+  { partNumber: 'DIO-ZEN-5V1', description: 'Diodo Zener 5.1V SOD-323', uom: 'EA', category: 'Diodo', standardCost: 0.035, abcClass: 'C', recvQty: 9000 },
+  { partNumber: 'TVS-5V0-SOD', description: 'Diodo TVS/ESD 5V unidireccional SOD-523', uom: 'EA', category: 'Diodo', standardCost: 0.06, abcClass: 'B', recvQty: 9000 },
+  // ── Transistores ──
   { partNumber: 'MOS-NCH-30V', description: 'MOSFET canal N 30V SOT-23', uom: 'EA', category: 'MOSFET', standardCost: 0.09, abcClass: 'B', recvQty: 8000 },
   { partNumber: 'MOS-PCH-20V', description: 'MOSFET canal P 20V SOT-23', uom: 'EA', category: 'MOSFET', standardCost: 0.11, abcClass: 'B', recvQty: 6000 },
+  { partNumber: 'MOS-NCH-60V', description: 'MOSFET canal N 60V potencia PPAK', uom: 'EA', category: 'MOSFET', standardCost: 0.34, abcClass: 'A', recvQty: 5000 },
+  { partNumber: 'BJT-NPN-SOT23', description: 'Transistor NPN 40V SOT-23', uom: 'EA', category: 'Transistor', standardCost: 0.03, abcClass: 'C', recvQty: 10000 },
+  { partNumber: 'BJT-PNP-SOT23', description: 'Transistor PNP 40V SOT-23', uom: 'EA', category: 'Transistor', standardCost: 0.03, abcClass: 'C', recvQty: 10000 },
+  // ── Circuitos integrados ──
   { partNumber: 'IC-MCU-32B', description: 'Microcontrolador 32-bit genérico LQFP48', uom: 'EA', category: 'IC', standardCost: 2.35, abcClass: 'A', recvQty: 3000 },
+  { partNumber: 'IC-MCU-32B-LQFP64', description: 'Microcontrolador 32-bit genérico LQFP64', uom: 'EA', category: 'IC', standardCost: 3.1, abcClass: 'A', recvQty: 2500 },
   { partNumber: 'IC-OPAMP-DUAL', description: 'Amplificador operacional dual SOIC-8', uom: 'EA', category: 'IC', standardCost: 0.31, abcClass: 'B', recvQty: 4000 },
-  { partNumber: 'IC-LDO-3V3', description: 'Regulador LDO 3.3V SOT-223', uom: 'EA', category: 'IC', standardCost: 0.18, abcClass: 'B', recvQty: 5000 },
+  { partNumber: 'IC-OPAMP-SINGLE', description: 'Amplificador operacional sencillo SOT-23-5', uom: 'EA', category: 'IC', standardCost: 0.19, abcClass: 'C', recvQty: 5000 },
+  { partNumber: 'IC-COMP-DUAL', description: 'Comparador dual SOIC-8', uom: 'EA', category: 'IC', standardCost: 0.28, abcClass: 'B', recvQty: 4000 },
+  { partNumber: 'IC-LDO-3V3', description: 'Regulador LDO 3.3V SOT-223', uom: 'EA', category: 'Regulador', standardCost: 0.18, abcClass: 'B', recvQty: 5000 },
+  { partNumber: 'IC-BUCK-2A', description: 'Regulador buck síncrono 2A QFN', uom: 'EA', category: 'Regulador', standardCost: 0.62, abcClass: 'A', recvQty: 3000 },
+  { partNumber: 'IC-BOOST-1A', description: 'Regulador boost 1A TSOT', uom: 'EA', category: 'Regulador', standardCost: 0.48, abcClass: 'B', recvQty: 3000 },
+  { partNumber: 'IC-GATE-DRV', description: 'Driver de compuerta medio puente SOIC-8', uom: 'EA', category: 'IC', standardCost: 0.74, abcClass: 'A', recvQty: 3000 },
   { partNumber: 'IC-XCVR-CAN', description: 'Transceptor CAN genérico SOIC-8', uom: 'EA', category: 'IC', standardCost: 0.56, abcClass: 'A', recvQty: 3000 },
-  { partNumber: 'IC-SENSOR-TEMP', description: 'Sensor de temperatura digital genérico', uom: 'EA', category: 'IC', standardCost: 0.48, abcClass: 'A', recvQty: 4000 },
-  // PCBs (placas desnudas)
+  { partNumber: 'IC-XCVR-485', description: 'Transceptor RS-485 half-duplex SOIC-8', uom: 'EA', category: 'IC', standardCost: 0.45, abcClass: 'B', recvQty: 3000 },
+  { partNumber: 'IC-USB-XCVR', description: 'Transceptor USB full-speed QFN', uom: 'EA', category: 'IC', standardCost: 0.66, abcClass: 'B', recvQty: 2500 },
+  { partNumber: 'IC-ETH-PHY', description: 'PHY Ethernet 10/100 genérico QFN-32', uom: 'EA', category: 'IC', standardCost: 1.2, abcClass: 'A', recvQty: 2000 },
+  { partNumber: 'IC-EEPROM-256K', description: 'EEPROM I2C 256kbit SOIC-8', uom: 'EA', category: 'Memoria', standardCost: 0.16, abcClass: 'B', recvQty: 4000 },
+  { partNumber: 'IC-ADC-12B', description: 'ADC 12-bit SPI MSOP-10', uom: 'EA', category: 'IC', standardCost: 1.05, abcClass: 'A', recvQty: 2500 },
+  { partNumber: 'IC-DAC-10B', description: 'DAC 10-bit I2C SOT-23-6', uom: 'EA', category: 'IC', standardCost: 0.72, abcClass: 'B', recvQty: 2500 },
+  { partNumber: 'IC-VREF-2V5', description: 'Referencia de voltaje 2.5V SOT-23', uom: 'EA', category: 'IC', standardCost: 0.34, abcClass: 'B', recvQty: 3000 },
+  { partNumber: 'IC-CURR-SENSE', description: 'Amplificador de corriente bidireccional MSOP', uom: 'EA', category: 'IC', standardCost: 0.58, abcClass: 'B', recvQty: 3000 },
+  { partNumber: 'IC-RTC-I2C', description: 'Reloj de tiempo real I2C SOIC-8', uom: 'EA', category: 'IC', standardCost: 0.52, abcClass: 'B', recvQty: 3000 },
+  // ── Sensores ──
+  { partNumber: 'IC-SENSOR-TEMP', description: 'Sensor de temperatura digital genérico', uom: 'EA', category: 'Sensor', standardCost: 0.48, abcClass: 'A', recvQty: 4000 },
+  { partNumber: 'IC-ACCEL-3AX', description: 'Acelerómetro 3 ejes I2C LGA', uom: 'EA', category: 'Sensor', standardCost: 0.95, abcClass: 'A', recvQty: 2500 },
+  { partNumber: 'IC-PRESS-SENSE', description: 'Sensor de presión barométrico genérico', uom: 'EA', category: 'Sensor', standardCost: 1.1, abcClass: 'A', recvQty: 2000 },
+  { partNumber: 'IC-HALL-SW', description: 'Sensor Hall de conmutación SOT-23', uom: 'EA', category: 'Sensor', standardCost: 0.22, abcClass: 'B', recvQty: 4000 },
+  // ── Optoelectrónica ──
+  { partNumber: 'LED-GRN-0603', description: 'LED verde 0603', uom: 'EA', category: 'Optoelectrónica', standardCost: 0.025, abcClass: 'C', recvQty: 10000 },
+  { partNumber: 'LED-RED-0603', description: 'LED rojo 0603', uom: 'EA', category: 'Optoelectrónica', standardCost: 0.025, abcClass: 'C', recvQty: 10000 },
+  { partNumber: 'LED-RGB-PLCC', description: 'LED RGB PLCC-6', uom: 'EA', category: 'Optoelectrónica', standardCost: 0.11, abcClass: 'B', recvQty: 6000 },
+  // ── Frecuencia / timing ──
+  { partNumber: 'CRYSTAL-16M', description: 'Cristal 16MHz HC-49 SMD', uom: 'EA', category: 'Frecuencia', standardCost: 0.22, abcClass: 'B', recvQty: 6000 },
+  { partNumber: 'CRYSTAL-8M', description: 'Cristal 8MHz SMD 3.2x2.5', uom: 'EA', category: 'Frecuencia', standardCost: 0.2, abcClass: 'B', recvQty: 6000 },
+  { partNumber: 'CRYSTAL-32K768', description: 'Cristal 32.768kHz para RTC', uom: 'EA', category: 'Frecuencia', standardCost: 0.18, abcClass: 'B', recvQty: 6000 },
+  { partNumber: 'OSC-25M-CMOS', description: 'Oscilador CMOS 25MHz SMD', uom: 'EA', category: 'Oscilador', standardCost: 0.55, abcClass: 'B', recvQty: 3000 },
+  // ── PCBs (placas desnudas) ──
   { partNumber: 'PCB-AX100-4L', description: 'PCB 4 capas FR4 — AX-DRIVE-100', uom: 'EA', category: 'PCB', standardCost: 6.5, abcClass: 'A', recvQty: 800 },
   { partNumber: 'PCB-AX200-6L', description: 'PCB 6 capas FR4 — AX-POWER-200', uom: 'EA', category: 'PCB', standardCost: 11.2, abcClass: 'A', recvQty: 800 },
   { partNumber: 'PCB-AX300-2L', description: 'PCB 2 capas FR4 — AX-SENSE-300', uom: 'EA', category: 'PCB', standardCost: 2.4, abcClass: 'A', recvQty: 800 },
   { partNumber: 'PCB-AX400-4L', description: 'PCB 4 capas FR4 — AX-COMM-400', uom: 'EA', category: 'PCB', standardCost: 5.8, abcClass: 'A', recvQty: 800 },
-  // Conectores
+  // ── Conectores ──
   { partNumber: 'CONN-2540-08', description: 'Conector header 2.54mm 8 pines', uom: 'EA', category: 'Conector', standardCost: 0.15, abcClass: 'B', recvQty: 8000 },
   { partNumber: 'CONN-USB-C', description: 'Conector USB-C SMD', uom: 'EA', category: 'Conector', standardCost: 0.42, abcClass: 'B', recvQty: 4000 },
   { partNumber: 'CONN-RJ45-MAG', description: 'Conector RJ45 con magnetics', uom: 'EA', category: 'Conector', standardCost: 0.89, abcClass: 'A', recvQty: 2000 },
+  { partNumber: 'CONN-JST-PH-2', description: 'Conector JST-PH 2 pines paso 2.0mm', uom: 'EA', category: 'Conector', standardCost: 0.09, abcClass: 'C', recvQty: 8000 },
+  { partNumber: 'CONN-B2B-20', description: 'Conector board-to-board 20 pines 0.5mm', uom: 'EA', category: 'Conector', standardCost: 0.55, abcClass: 'B', recvQty: 3000 },
+  { partNumber: 'TERM-2P-508', description: 'Bloque terminal 2 pines paso 5.08mm', uom: 'EA', category: 'Conector', standardCost: 0.21, abcClass: 'C', recvQty: 5000 },
   { partNumber: 'HDR-TEST-04', description: 'Header de prueba 4 pines', uom: 'EA', category: 'Conector', standardCost: 0.08, abcClass: 'C', recvQty: 6000 },
-  // Mecánica / etiquetado / carcasa
+  // ── Mecánica / térmico / etiquetado / carcasa ──
   { partNumber: 'SCR-M3-8', description: 'Tornillo M3x8 acero inoxidable', uom: 'EA', category: 'Tornillería', standardCost: 0.015, abcClass: 'C', recvQty: 20000 },
+  { partNumber: 'SCR-M2-6', description: 'Tornillo M2x6 acero inoxidable', uom: 'EA', category: 'Tornillería', standardCost: 0.012, abcClass: 'C', recvQty: 20000 },
+  { partNumber: 'NUT-M3-HEX', description: 'Tuerca hexagonal M3 acero', uom: 'EA', category: 'Tornillería', standardCost: 0.01, abcClass: 'C', recvQty: 20000 },
+  { partNumber: 'WASH-M3-FLAT', description: 'Arandela plana M3 acero', uom: 'EA', category: 'Tornillería', standardCost: 0.008, abcClass: 'C', recvQty: 20000 },
   { partNumber: 'STANDOFF-M3', description: 'Separador M3 nylon', uom: 'EA', category: 'Tornillería', standardCost: 0.04, abcClass: 'C', recvQty: 12000 },
+  { partNumber: 'THM-PAD-1MM', description: 'Almohadilla térmica 1mm 20x20', uom: 'EA', category: 'Térmico', standardCost: 0.18, abcClass: 'C', recvQty: 5000 },
+  { partNumber: 'HS-TO220-CLIP', description: 'Disipador con clip TO-220', uom: 'EA', category: 'Térmico', standardCost: 0.28, abcClass: 'B', recvQty: 4000 },
   { partNumber: 'LABEL-QR-AX', description: 'Etiqueta QR de trazabilidad', uom: 'EA', category: 'Etiqueta', standardCost: 0.03, abcClass: 'C', recvQty: 15000 },
   { partNumber: 'ENC-AX-ALU', description: 'Carcasa de aluminio extruido genérica', uom: 'EA', category: 'Carcasa', standardCost: 3.2, abcClass: 'A', recvQty: 800 },
+  { partNumber: 'ENC-GASKET-IP65', description: 'Empaque sellador IP65 genérico', uom: 'EA', category: 'Carcasa', standardCost: 0.42, abcClass: 'C', recvQty: 3000 },
 ];
 
+export const DEMO_PARTS: DemoPart[] = RAW_PARTS.map((p) => ({ ...p, avl: buildAvl(p) }));
+
 export const DEMO_PART_NUMBERS: string[] = DEMO_PARTS.map((p) => p.partNumber);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Proveedores ficticios (Supplier) + precios (ErpSupplierPrice) — para que
+// compras / requisiciones / sourcing se vean vivos. Nombres FICTICIOS (no
+// clientes Axos; se validan como texto de dominio público, no como customer).
+// ─────────────────────────────────────────────────────────────────────────────
+export interface DemoSupplier {
+  code: string;
+  name: string;
+  country: string;
+  qualityScore: number;
+}
+
+export const DEMO_SUPPLIERS: DemoSupplier[] = [
+  { code: 'AX-SUP-FERRUM', name: 'Ferrum Passives', country: 'México', qualityScore: 98 },
+  { code: 'AX-SUP-VOLTAIC', name: 'Voltaic Components', country: 'México', qualityScore: 97 },
+  { code: 'AX-SUP-NORVEL', name: 'Norvel Semiconductors', country: 'Estados Unidos', qualityScore: 95 },
+  { code: 'AX-SUP-AXON', name: 'Axon Microelectronics', country: 'Estados Unidos', qualityScore: 96 },
+  { code: 'AX-SUP-COBALT', name: 'Cobalt Connectors', country: 'Alemania', qualityScore: 94 },
+  { code: 'AX-SUP-KESTREL', name: 'Kestrel Magnetics', country: 'Japón', qualityScore: 93 },
+  { code: 'AX-SUP-QUARTZON', name: 'Quartzon Timing', country: 'Japón', qualityScore: 95 },
+  { code: 'AX-SUP-LUMINA', name: 'Lumina Optoelectronics', country: 'Corea del Sur', qualityScore: 94 },
+  { code: 'AX-SUP-SENTINEL', name: 'Sentinel Sensors', country: 'Estados Unidos', qualityScore: 96 },
+  { code: 'AX-SUP-GRANITE', name: 'Granite Hardware', country: 'México', qualityScore: 99 },
+  { code: 'AX-SUP-STRATA', name: 'Strataboard Fab', country: 'México', qualityScore: 97 },
+  { code: 'AX-SUP-ORION', name: 'Orion Global Distribution', country: 'Singapur', qualityScore: 92 },
+];
+
+export const DEMO_SUPPLIER_CODES: string[] = DEMO_SUPPLIERS.map((s) => s.code);
+
+export interface DemoSupplierPrice {
+  partNumber: string;
+  supplierCode: string;
+  unitPrice: number;
+  currency: string;
+  moq: number;
+  leadTimeDays: number;
+  preferred: boolean;
+}
+
+const round6 = (n: number): number => Math.round(n * 1e6) / 1e6;
+const SUPPLIER_BY_MFG = new Map(DEMO_SUPPLIERS.map((s) => [s.name, s.code]));
+const ALT_SUPPLIER = 'AX-SUP-ORION'; // distribuidor alterno (segunda fuente)
+
+/**
+ * Construye precios de proveedor por parte: una fuente PREFERIDA (el fabricante
+ * del AVL, con markup ~18%) y, para partes A, una segunda fuente (distribuidor
+ * Orion, markup ~32%, mayor lead time). MOQ/lead time por clase ABC.
+ */
+function buildSupplierPrices(): DemoSupplierPrice[] {
+  const moqByAbc = { A: 500, B: 2000, C: 10000 } as const;
+  const leadByAbc = { A: 21, B: 14, C: 7 } as const;
+  const prices: DemoSupplierPrice[] = [];
+  for (const part of DEMO_PARTS) {
+    const preferredCode = SUPPLIER_BY_MFG.get(part.avl[0]?.manufacturer ?? '') ?? ALT_SUPPLIER;
+    prices.push({
+      partNumber: part.partNumber,
+      supplierCode: preferredCode,
+      unitPrice: round6(Math.max(part.standardCost * 1.18, 0.001)),
+      currency: 'USD',
+      moq: moqByAbc[part.abcClass],
+      leadTimeDays: leadByAbc[part.abcClass],
+      preferred: true,
+    });
+    if (part.abcClass === 'A' && preferredCode !== ALT_SUPPLIER) {
+      prices.push({
+        partNumber: part.partNumber,
+        supplierCode: ALT_SUPPLIER,
+        unitPrice: round6(Math.max(part.standardCost * 1.32, 0.001)),
+        currency: 'USD',
+        moq: moqByAbc[part.abcClass],
+        leadTimeDays: leadByAbc[part.abcClass] + 7,
+        preferred: false,
+      });
+    }
+  }
+  return prices;
+}
+
+export const DEMO_SUPPLIER_PRICES: DemoSupplierPrice[] = buildSupplierPrices();
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Clientes / Programas (EnterpriseCustomer + EnterpriseProgram) — sub-marcas AXOS.
