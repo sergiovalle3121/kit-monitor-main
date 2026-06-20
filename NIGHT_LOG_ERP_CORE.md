@@ -148,5 +148,45 @@ del maestro (incluido un sub-ensamble que ya tiene su propio BOM), y explotar el
 
 ---
 
-## FASE 3 — ROUTING (rt_) — pendiente
+## FASE 3 — ROUTING (rt_) — ✅ EN VERDE
+
+**Módulo nuevo:** `apps/api/src/modules/routing` (endpoints `/routing`). 100%
+aditivo, tablas prefijadas `rt_`, coexisten con el `process_steps` legacy. Tenant-scoped.
+
+**Entidades (3 tablas nuevas):**
+- `rt_routing` — header del ruteo por ensamble + revisión (FK `materialId` →
+  mm_material; único por tenant+plant+material+revisión; estado DRAFT/ACTIVE/OBSOLETE).
+- `rt_operation` — operación ordenada: `sequence` (10,20,30…), nombre, **centro de
+  trabajo**, **setup time** (min/lote), **run time/unidad** (min), descripción,
+  ref de visual-aid/instrucción. Único por (routing, sequence).
+- `rt_operation_material` — **puente BOM↔ruteo**: material consumido en la operación
+  (FK `materialId` → mm_material, FK opcional `bomLineId`, qty/unidad, UoM) → habilita
+  **backflush correcto** (confirmar N piezas en la op consume qty×N).
+
+**Lógica pura testeable (`routing-logic.ts` + spec, 5 tests):** máquina de estados +
+**rollup de tiempo estándar** (Σsetup una vez + Σrun/unidad × qty = tiempo del lote).
+
+**Backend:** servicio con CRUD de ruteo/operaciones/materiales-por-operación (valida
+material en MM, auto-secuencia ×10, evita secuencias duplicadas), totales de tiempo,
+eventos al ledger (ENGINEERING). Reusa `MaterialMasterService`. Migración aditiva
+idempotente (`hasTable`). Registrado en `app.module.ts`.
+
+**Frontend:**
+- `/dashboard/routing` — lista + crear (elige ensamble del maestro).
+- `/dashboard/routing/[id]` — editor: KPIs (ops, setup total, run/unidad) +
+  operaciones ordenadas (agregar/editar/borrar con secuencia, centro de trabajo,
+  tiempos, descripción, visual-aid) + por operación, **materiales consumidos**
+  (asignar del maestro con qty/unidad, para backflush) en panel expandible.
+- Descubrible: tile en hub + entrada en `SearchPalette`.
+
+**Puertas FASE 3 (todas verdes):**
+- API `npm run build` ✅ · `npm test` ✅ (86 suites / 574 tests, +5 nuevos) ·
+  smoke bootstrap **Postgres** ✅ (rt_ sin colisión)
+- web `tsc` ✅ · `eslint` ✅ (0) · `next build` ✅
+
+**Usable por un ingeniero real:** definir el ruteo de un ensamble — operaciones
+ordenadas con centro de trabajo y tiempos, y qué materiales se consumen en cada una.
+
+---
+
 ## FASE 4 — IMPORTADORES — pendiente
