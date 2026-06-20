@@ -6,6 +6,7 @@ import { OutboundController } from './outbound.controller';
 import { NumberingModule } from '../numbering/numbering.module';
 import { EventLedgerModule } from '../event-ledger/event-ledger.module';
 import { TrafficModule } from '../traffic/traffic.module';
+import { PackingModule } from '../packing/packing.module';
 
 /**
  * Logistics / Outbound (Embarque): finished-goods shipments + ASN. Self-contained
@@ -19,6 +20,7 @@ import { TrafficModule } from '../traffic/traffic.module';
     NumberingModule,
     EventLedgerModule,
     TrafficModule,
+    PackingModule,
   ],
   controllers: [OutboundController],
   providers: [OutboundService],

@@ -12,11 +12,13 @@ import {
   X,
   CheckCircle2,
   ArrowRight,
+  ScanLine,
 } from 'lucide-react';
 import { glass } from '@/lib/glass';
 import { useApi } from '@/hooks/useApi';
 import { apiFetch } from '@/lib/apiFetch';
 import { useToast } from '@/contexts/ToastContext';
+import { DockLoading } from './DockLoading';
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000').replace(/\/$/, '');
 
@@ -75,6 +77,7 @@ export default function OutboundPage() {
 
   const [showForm, setShowForm] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
+  const [loadingShipment, setLoadingShipment] = useState<Shipment | null>(null);
   const [form, setForm] = useState({
     title: '',
     customerName: '',
@@ -274,6 +277,16 @@ export default function OutboundPage() {
                               </div>
                             </div>
                             <div className="flex items-center gap-1.5 flex-shrink-0">
+                              {(s.status === 'PACKING' || s.status === 'READY') && (
+                                <button
+                                  onClick={() => setLoadingShipment(s)}
+                                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[12px] font-medium"
+                                  style={{ background: `${BLUE}1f`, color: BLUE }}
+                                  title="Carga verificada por escaneo (SSCC)"
+                                >
+                                  <ScanLine className="w-3 h-3" /> Carga
+                                </button>
+                              )}
                               {NEXT[s.status].map((to) => (
                                 <button
                                   key={to}
@@ -299,6 +312,14 @@ export default function OutboundPage() {
           </div>
         )}
       </main>
+
+      {loadingShipment && (
+        <DockLoading
+          shipment={loadingShipment}
+          onClose={() => setLoadingShipment(null)}
+          onChanged={refresh}
+        />
+      )}
 
       <style jsx global>{`
         .ob-input {

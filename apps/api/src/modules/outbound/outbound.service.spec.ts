@@ -9,11 +9,14 @@ import { Carrier } from '../traffic/entities/carrier.entity';
 import { Vehicle } from '../traffic/entities/vehicle.entity';
 import { Driver } from '../traffic/entities/driver.entity';
 import { LoadingDock } from '../traffic/entities/loading-dock.entity';
+import { PackingService } from '../packing/packing.service';
+import { HandlingUnit } from '../packing/entities/handling-unit.entity';
 
 describe('OutboundService (integration)', () => {
   let dataSource: DataSource;
   let service: OutboundService;
   let traffic: TrafficService;
+  let packing: PackingService;
   const year = new Date().getFullYear();
 
   beforeEach(async () => {
@@ -22,7 +25,7 @@ describe('OutboundService (integration)', () => {
       database: ':memory:',
       dropSchema: true,
       synchronize: true,
-      entities: [Shipment, DocumentSequence, Carrier, Vehicle, Driver, LoadingDock],
+      entities: [Shipment, DocumentSequence, Carrier, Vehicle, Driver, LoadingDock, HandlingUnit],
     });
     await dataSource.initialize();
 
@@ -39,11 +42,14 @@ describe('OutboundService (integration)', () => {
       dataSource.getRepository(LoadingDock),
       ctx,
     );
+    packing = new PackingService(dataSource.getRepository(HandlingUnit), ctx, numbering);
     service = new OutboundService(
       dataSource.getRepository(Shipment),
       ctx,
       numbering,
       traffic,
+      undefined,
+      packing,
     );
   });
 
@@ -74,6 +80,27 @@ describe('OutboundService (integration)', () => {
     await expect(
       service.transition(s.id, { status: 'SHIPPED' }),
     ).rejects.toThrow(/Cannot move a shipment/);
+  });
+
+  it('blocks READY until every packed unit is scan-verified (Carga verificada)', async () => {
+    const s = await service.create({ title: 'Con carga' });
+    const unit = await packing.create({
+      shipmentId: s.id,
+      shipmentFolio: s.folio ?? undefined,
+      type: 'CARTON',
+      contents: [{ partNumber: 'PN-1', quantity: 1 }],
+    });
+
+    // Unscanned → the dock-loading poka-yoke blocks the READY transition.
+    await expect(
+      service.transition(s.id, { status: 'READY' }),
+    ).rejects.toThrow(/faltan/i);
+    expect((await service.getOne(s.id)).status).toBe('PACKING');
+
+    // Scan it onto the truck → READY is now allowed.
+    await packing.verifyScan(s.id, unit.sscc!);
+    const ready = await service.transition(s.id, { status: 'READY' });
+    expect(ready.status).toBe('READY');
   });
 
   it('computes outbound KPIs (to-ship, in-transit, overdue, OTD)', async () => {
