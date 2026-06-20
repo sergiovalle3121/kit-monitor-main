@@ -1,5 +1,6 @@
 import { NestFactory } from '@nestjs/core';
 import { INestApplication } from '@nestjs/common';
+import { DataSource } from 'typeorm';
 import { AppModule } from './app.module';
 import { IoAdapter } from '@nestjs/platform-socket.io';
 import helmet from 'helmet';
@@ -9,6 +10,7 @@ import { UsersService } from './modules/users/users.service';
 import { UserRole } from './modules/users/entities/user.entity';
 import { AuthService } from './modules/auth/auth.service';
 import { ensurePersistentJwtSecret } from './common/config/jwt-secret';
+import { scanForbidden, formatScanReport } from './seed/forbidden-scan';
 
 function parseAllowedOrigins(raw: string): string[] {
   const value = (raw || '').trim();
@@ -176,6 +178,37 @@ async function seedAdmins(app: INestApplication): Promise<void> {
   }
 }
 
+/**
+ * Candado de DOMINIO PÚBLICO en arranque (Fase 1, paso 3). OPT-IN para no pegarle
+ * a la disponibilidad de prod (escanear toda la base en cada boot es caro; ver
+ * DECISIONS §10 — disponibilidad > hard-fail). Sólo corre con
+ * `CHECK_PUBLIC_DOMAIN=true`; reporta RUIDOSAMENTE si encuentra datos de cliente
+ * real (prefijo OP-/empresa real) y, sólo con `STRICT_PUBLIC_DOMAIN=true`, aborta
+ * el arranque. Nunca tumba el boot por sí solo (default = no-op).
+ */
+async function checkPublicDomainAtStartup(app: INestApplication): Promise<void> {
+  if (process.env.CHECK_PUBLIC_DOMAIN !== 'true') return;
+  const strict = process.env.STRICT_PUBLIC_DOMAIN === 'true';
+  try {
+    const res = await scanForbidden(app.get(DataSource));
+    if (res.totalMatchedRows === 0) {
+      console.log('✅ [public-domain] Base limpia: 0 prefijos OP-/empresas reales.');
+      return;
+    }
+    console.error('🚫🚫🚫 [public-domain] DATOS PROHIBIDOS EN LA BASE 🚫🚫🚫');
+    console.error(formatScanReport(res, { examplesPerTable: 3 }));
+    console.error('   → npm run seed:audit-forbidden (reporte) · npm run seed:purge-clients -- --apply (purga)');
+    if (strict) {
+      console.error('   STRICT_PUBLIC_DOMAIN=true → abortando arranque.');
+      await app.close();
+      process.exit(1);
+    }
+  } catch (err) {
+    // Nunca fatal por sí mismo: un fallo del chequeo no debe tumbar el arranque.
+    console.error('[public-domain] Chequeo de arranque falló (no fatal):', (err as Error).message);
+  }
+}
+
 async function bootstrap() {
   // Resolve a STABLE JWT secret before the DI graph builds (JwtModule + JwtStrategy
   // read it synchronously). Persists one in the DB if no env secret is set, so a
@@ -310,6 +343,9 @@ async function bootstrap() {
   } catch (err) {
     console.error('❌ Auto-seed failed:', err);
   }
+
+  // Candado legal opcional de arranque (off por default; ver función arriba).
+  await checkPublicDomainAtStartup(app);
 
   console.log(
     `[CORS] NODE_ENV=${env} ALLOWED_ORIGIN_RAW="${allowedOriginEnv}" ALLOWED_ORIGINS_RESOLVED=${JSON.stringify(originsToValidate)}`,

@@ -26,6 +26,7 @@
         "seed:demo": "ts-node -r tsconfig-paths/register src/seed/seed-demo.ts",
         "seed:demo:clear": "ts-node -r tsconfig-paths/register src/seed/seed-demo-clear.ts",
         "seed:demo:verify": "ts-node -r tsconfig-paths/register src/seed/seed-verify.ts",
+        "seed:audit-forbidden": "ts-node -r tsconfig-paths/register src/seed/seed-audit-forbidden.ts",
         "seed:purge-clients": "ts-node -r tsconfig-paths/register src/seed/seed-purge-clients.ts",
         "typeorm": "typeorm-ts-node-commonjs -d src/typeorm-cli.datasource.ts",
         "migration:generate": "npm run typeorm -- migration:generate",

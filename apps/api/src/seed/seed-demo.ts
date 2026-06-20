@@ -46,6 +46,7 @@ import {
   assertSeedText,
   validateDemoCatalog,
 } from './public-domain-guard';
+import { assertDatabasePublicDomain } from './forbidden-scan';
 import {
   DEMO_ACTOR,
   DEMO_BOM_REVISION,
@@ -611,6 +612,14 @@ async function run(): Promise<void> {
       await seedQualityHolds(app, ds);
       await seedUsers(app);
     });
+
+    // CANDADO LEGAL (post-seed): re-escanea TODA la base y FALLA ruidosamente si
+    // algo prohibido se coló (que no se vuelva a colar). El detector es el mismo
+    // del guard. Escape para casos límite: SKIP_PUBLIC_DOMAIN_ASSERT=true.
+    if (process.env.SKIP_PUBLIC_DOMAIN_ASSERT !== 'true') {
+      await runInDemoContext(app, () => assertDatabasePublicDomain(ds));
+      console.log('   Candado dominio público (post-seed): base limpia ✔');
+    }
 
     const valuation = await inventoryValuation(ds);
     console.log('────────────────────────────────────────────────────────────');

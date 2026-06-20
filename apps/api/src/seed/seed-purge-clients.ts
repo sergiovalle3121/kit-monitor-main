@@ -1,73 +1,97 @@
 /**
  * AXOS OS — PURGA de datos de clientes reales (legal / confidencialidad).
  *
- * Elimina de la base CUALQUIER registro que NO sea de dominio público:
- *   • partNumber / model con prefijo de cliente prohibido (p. ej. `OP-`), o
- *   • customer / name / description con un nombre de empresa real (lista negra).
+ * Elimina de la base CUALQUIER fila que NO sea de dominio público: número de
+ * parte / modelo / cliente / programa / proveedor / descripción con un prefijo de
+ * cliente prohibido (p. ej. `OP-`) o un nombre de empresa real (lista negra).
  *
- * Recorre material_master, pm_product_models, bom_headers/components, plans,
- * kits/pick-lists e inventario, en orden de dependencias (hijos → padres).
+ * DETECCIÓN: usa el MOTOR COMPARTIDO `scanForbidden()` (que a su vez usa el
+ * detector legal del guard `findForbiddenReason`). Cubre TODAS las tablas con
+ * texto (materials, requisiciones, POs, BOMs, models, shipments, inventario,
+ * RMA, CRM, genealogía, sf_*, ERP…), no sólo el núcleo histórico.
  *
- * Idempotente y SEGURO: sólo borra lo que coincide con la lista negra; NO toca
- * los datos legítimos del dueño. Imprime cada registro borrado con su motivo.
+ * BORRADO en dos planos, respetando llaves foráneas:
+ *   1) Cascada CURADA del núcleo con FKs reales (plan→kit→materiales/dependientes,
+ *      header→componentes, modelos, inventario, programas→clientes).
+ *   2) Barrido COMPRENSIVO del resto (POs, requisiciones, embarques, RMA, CRM…)
+ *      con pasadas de reintento por si hubiera FKs; lo que no se pueda borrar se
+ *      REPORTA (nunca se deja un huérfano silencioso ni se fuerza sobre datos
+ *      legítimos).
  *
- * El dueño lo correrá CONTRA PROD para limpiar lo ya desplegado. Es DRY-RUN por
- * defecto (sólo reporta lo que borraría); para borrar de verdad añade PURGE_CONFIRM=true:
- *   DATABASE_URL=<prod> npm run seed:purge-clients                     # preview (no borra)
- *   DATABASE_URL=<prod> PURGE_CONFIRM=true npm run seed:purge-clients  # borra
+ * Idempotente y SEGURO. *** Por defecto es DRY-RUN (no borra) ***; sólo borra de
+ * verdad con el flag explícito `--apply` (o `PURGE_CONFIRM=true`):
+ *   DATABASE_URL=<prod> npm run seed:purge-clients             # preview (no borra)
+ *   DATABASE_URL=<prod> npm run seed:purge-clients -- --apply  # borra de verdad
  * (Revisa/extiende la lista negra en public-domain-guard.ts antes de correrlo.)
  */
 import 'reflect-metadata';
-import { DataSource, In, ObjectLiteral, Repository } from 'typeorm';
+import { DataSource, In, ObjectLiteral } from 'typeorm';
 
-import { ProductModel } from '../modules/product-models/entities/product-model.entity';
-import { BomHeader } from '../modules/bom/entities/bom-header.entity';
-import { BomComponent } from '../modules/bom/entities/bom-component.entity';
 import { Plan } from '../modules/plans/entities/plan.entity';
 import { Kit } from '../modules/kits/entities/kit.entity';
 import { KitMaterial } from '../modules/kit-materials/entities/kit-material.entity';
-import { InventoryPosition } from '../modules/inventory/entities/inventory-position.entity';
-import { InventoryMovement } from '../modules/inventory/entities/inventory-movement.entity';
-import { MaterialMaster } from '../modules/inventory/entities/material-master.entity';
-import { EnterpriseCustomer } from '../modules/enterprise-campus/entities/enterprise-customer.entity';
-import { EnterpriseProgram } from '../modules/enterprise-campus/entities/enterprise-program.entity';
 import { EnterprisePlanLink } from '../modules/enterprise-campus/entities/enterprise-plan-link.entity';
 
 import { bootSeedContext, runInDemoContext } from './seed-context';
-import { findForbiddenReason, isForbiddenValue } from './public-domain-guard';
+import { scanForbidden, formatScanReport, type ScanResult } from './forbidden-scan';
 
-let totalRemoved = 0;
-let wasDryRun = false;
+/** Tablas que cubre la cascada CURADA (el barrido las omite para no duplicar). */
+const CURATED_TABLES = new Set<string>([
+  'plans',
+  'kits',
+  'kit_materials',
+  'enterprise_plan_links',
+  'bom_components',
+  'bom_headers',
+  'pm_product_models',
+  'inventory_movements',
+  'inventory_positions',
+  'material_master',
+  'enterprise_programs',
+  'enterprise_customers',
+]);
+
+interface SummaryRow {
+  label: string;
+  removed: number;
+  note?: string;
+}
+
+const summary: SummaryRow[] = [];
 const problems: string[] = [];
 
-/** ¿Alguno de los campos del registro es de cliente real? Devuelve el motivo. */
-function rowReason(row: ObjectLiteral, fields: string[]): string | null {
-  for (const f of fields) {
-    const reason = findForbiddenReason(row[f]);
-    if (reason) return `${f}="${row[f]}" → ${reason}`;
+function record(label: string, removed: number, note?: string): void {
+  summary.push({ label, removed, note });
+  if (note) {
+    console.log(`  ✖ ${label}: ${note}`);
+  } else if (removed) {
+    console.log(`  ✔ ${label}: ${removed} eliminada(s)`);
   }
-  return null;
 }
 
-async function removeEntities<T extends ObjectLiteral>(
-  repo: Repository<T>,
-  rows: T[],
+/** Borra un lote de filas (entidades cargadas) vía el repo de su `target`. */
+async function removeRows(
+  ds: DataSource,
+  target: unknown,
+  rows: ObjectLiteral[],
   label: string,
-): Promise<void> {
-  if (!rows.length) {
-    console.log(`  · ${label}: 0 coincidencias`);
-    return;
+): Promise<boolean> {
+  if (!target || !rows.length) {
+    if (rows.length) record(label, 0, 'sin target consultable');
+    return true;
   }
   try {
-    await repo.remove(rows);
-    totalRemoved += rows.length;
-    console.log(`  ✔ ${label}: ${rows.length} eliminadas`);
+    await ds.getRepository(target as new () => ObjectLiteral).remove(rows as ObjectLiteral[]);
+    record(label, rows.length);
+    return true;
   } catch (err) {
+    record(label, 0, (err as Error).message);
     problems.push(`${label}: ${(err as Error).message}`);
-    console.log(`  ✖ ${label}: ${(err as Error).message}`);
+    return false;
   }
 }
 
+/** Borra dependientes de kits prohibidos por columna kitId (defensivo; raw + try/catch). */
 async function purgeKitDependents(ds: DataSource, kitIds: number[]): Promise<void> {
   if (!kitIds.length) return;
   const targets: Array<{ table: string; col: string }> = [
@@ -80,18 +104,114 @@ async function purgeKitDependents(ds: DataSource, kitIds: number[]): Promise<voi
   ];
   for (const t of targets) {
     try {
-      await ds.createQueryBuilder().delete().from(t.table).where(`"${t.col}" IN (:...ids)`, { ids: kitIds }).execute();
+      const res = await ds
+        .createQueryBuilder()
+        .delete()
+        .from(t.table)
+        .where(`"${t.col}" IN (:...ids)`, { ids: kitIds })
+        .execute();
+      if (res.affected) console.log(`  ✔ ${t.table}: ${res.affected} eliminada(s) (dependiente de kit prohibido)`);
     } catch {
-      /* defensivo: tabla/columna ausente */
+      /* tabla/columna ausente o sin filas: ignorar (defensivo) */
     }
   }
 }
 
+/** Cantidad de FKs entrantes por tabla (heurística de orden de borrado: hojas primero). */
+function inboundFkCount(ds: DataSource): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const meta of ds.entityMetadatas) {
+    for (const fk of meta.foreignKeys) {
+      const ref = fk.referencedEntityMetadata?.tableName;
+      if (ref) counts.set(ref, (counts.get(ref) ?? 0) + 1);
+    }
+  }
+  return counts;
+}
+
+/**
+ * Barrido comprensivo: borra las filas prohibidas de TODAS las tablas no curadas,
+ * con pasadas de reintento para resolver dependencias de FK. Lo que no se pueda
+ * borrar tras N pasadas se reporta como problema (no se fuerza).
+ */
+async function sweepRemaining(ds: DataSource, res: ScanResult): Promise<void> {
+  const inbound = inboundFkCount(ds);
+  let work = res.withHits
+    .filter((f) => !CURATED_TABLES.has(f.table))
+    .map((f) => ({ f, rows: f.rows.map((r) => r.entity) as ObjectLiteral[] }))
+    // Hojas (menos FKs entrantes) primero → menos reintentos.
+    .sort((a, b) => (inbound.get(a.f.table) ?? 0) - (inbound.get(b.f.table) ?? 0));
+
+  for (let pass = 1; pass <= 5 && work.length; pass++) {
+    let progressed = false;
+    for (const item of work) {
+      if (!item.rows.length) continue;
+      try {
+        await ds.getRepository(item.f.target as new () => ObjectLiteral).remove(item.rows);
+        record(item.f.table, item.rows.length);
+        item.rows = [];
+        progressed = true;
+      } catch (err) {
+        // Probable FK pendiente; reintentar en la próxima pasada.
+        if (pass === 5) {
+          record(item.f.table, 0, (err as Error).message);
+          problems.push(`${item.f.table}: ${(err as Error).message}`);
+        }
+      }
+    }
+    work = work.filter((w) => w.rows.length);
+    if (!progressed) break;
+  }
+}
+
+/** Cascada curada del núcleo (FKs reales). Toma las filas prohibidas del scan. */
+async function purgeCuratedCore(ds: DataSource, res: ScanResult): Promise<void> {
+  const byTable = new Map(res.findings.map((f) => [f.table, f]));
+  const rowsOf = (t: string): ObjectLiteral[] => byTable.get(t)?.rows.map((r) => r.entity) ?? [];
+  const targetOf = (t: string): unknown => byTable.get(t)?.target;
+
+  // ── Planes prohibidos → kits/materiales/dependientes/enlaces → planes ───────
+  const fPlans = rowsOf('plans');
+  const fPlanIds = fPlans.map((p) => (p as { id: number }).id).filter((id) => id != null);
+  if (fPlanIds.length) {
+    const kits = await ds.getRepository(Kit).find({ where: { plan: { id: In(fPlanIds) } } as any });
+    const kitIds = kits.map((k) => k.id);
+    if (kitIds.length) {
+      const kms = await ds.getRepository(KitMaterial).find({ where: { kit: { id: In(kitIds) } } as any });
+      await removeRows(ds, KitMaterial, kms, 'kit_materials');
+      await purgeKitDependents(ds, kitIds);
+    }
+    const links = await ds.getRepository(EnterprisePlanLink).find({ where: { plan: { id: In(fPlanIds) } } as any });
+    await removeRows(ds, EnterprisePlanLink, links, 'enterprise_plan_links');
+    await removeRows(ds, Kit, kits, 'kits');
+  }
+  await removeRows(ds, targetOf('plans'), fPlans, 'plans');
+
+  // ── BOM: componentes prohibidos, luego cabeceras (cascade borra los demás) ──
+  await removeRows(ds, targetOf('bom_components'), rowsOf('bom_components'), 'bom_components');
+  await removeRows(ds, targetOf('bom_headers'), rowsOf('bom_headers'), 'bom_headers');
+
+  // ── Modelos ────────────────────────────────────────────────────────────────
+  await removeRows(ds, targetOf('pm_product_models'), rowsOf('pm_product_models'), 'pm_product_models');
+
+  // ── Inventario: movimientos y posiciones antes que el maestro de material ───
+  await removeRows(ds, targetOf('inventory_movements'), rowsOf('inventory_movements'), 'inventory_movements');
+  await removeRows(ds, targetOf('inventory_positions'), rowsOf('inventory_positions'), 'inventory_positions');
+  await removeRows(ds, targetOf('material_master'), rowsOf('material_master'), 'material_master');
+
+  // ── Enterprise: programas (FK a cliente) antes que clientes ─────────────────
+  await removeRows(ds, targetOf('enterprise_programs'), rowsOf('enterprise_programs'), 'enterprise_programs');
+  await removeRows(ds, targetOf('enterprise_customers'), rowsOf('enterprise_customers'), 'enterprise_customers');
+}
+
 async function run(): Promise<void> {
+  const apply = process.argv.includes('--apply') || process.env.PURGE_CONFIRM === 'true';
+
   console.log('════════════════════════════════════════════════════════════');
   console.log(' AXOS OS — PURGA de datos de clientes reales (legal)');
-  console.log(`   Destino: ${process.env.DATABASE_URL || 'SQLite local'}`);
-  console.log('   Por defecto DRY-RUN (no borra). Borra de verdad sólo con PURGE_CONFIRM=true.');
+  console.log(`   Destino: ${process.env.DATABASE_URL ? process.env.DATABASE_URL.replace(/\/\/[^@]*@/, '//***@') : 'SQLite local'}`);
+  console.log(`   Modo: ${apply ? '🔥 APPLY (BORRA de verdad)' : 'DRY-RUN (no borra)'}`);
+  console.log('   Detección: scanForbidden → findForbiddenReason (prefijos + lista negra)');
   console.log('════════════════════════════════════════════════════════════');
 
   const app = await bootSeedContext();
@@ -99,100 +219,52 @@ async function run(): Promise<void> {
 
   try {
     await runInDemoContext(app, async () => {
-      // ── Detección (carga + filtro en JS; robusto entre motores) ──────────
-      const matRepo = ds.getRepository(MaterialMaster);
-      const modelRepo = ds.getRepository(ProductModel);
-      const headerRepo = ds.getRepository(BomHeader);
-      const compRepo = ds.getRepository(BomComponent);
-      const planRepo = ds.getRepository(Plan);
+      const res = await scanForbidden(ds);
 
-      const fMaterials = (await matRepo.find()).filter((m) => rowReason(m, ['partNumber', 'description', 'category']));
-      const fPartSet = new Set(fMaterials.map((m) => m.partNumber));
+      console.log('');
+      console.log(formatScanReport(res, { examplesPerTable: 3 }));
+      console.log('');
 
-      const fModels = (await modelRepo.find()).filter((m) => rowReason(m, ['modelNumber', 'name', 'customer', 'description']));
-      const fModelSet = new Set(fModels.map((m) => m.modelNumber));
-
-      const allHeaders = await headerRepo.find();
-      const fHeaders = allHeaders.filter((h) => rowReason(h, ['model', 'productName', 'description']) || fModelSet.has(h.model));
-      const fHeaderIds = fHeaders.map((h) => h.id);
-
-      const allComponents = await compRepo.find();
-      const fComponents = allComponents.filter(
-        (c) => rowReason(c, ['componentNumber', 'description']) || fPartSet.has(c.componentNumber) || fHeaderIds.includes(c.bomHeaderId),
-      );
-
-      const allPlans = await planRepo.find({ relations: ['kit'] });
-      const fPlans = allPlans.filter((p) => rowReason(p, ['model', 'workOrder']) || fModelSet.has(p.model));
-      const fPlanIds = fPlans.map((p) => p.id);
-      const fKitIds = fPlans.map((p) => p.kit?.id).filter((id): id is number => !!id);
-
-      const posRepo = ds.getRepository(InventoryPosition);
-      const movRepo = ds.getRepository(InventoryMovement);
-      const fPositions = (await posRepo.find()).filter((p) => isForbiddenValue(p.partNumber) || fPartSet.has(p.partNumber));
-      const fMovements = (await movRepo.find()).filter((m) => isForbiddenValue(m.partNumber) || fPartSet.has(m.partNumber));
-
-      const custRepo = ds.getRepository(EnterpriseCustomer);
-      const progRepo = ds.getRepository(EnterpriseProgram);
-      const fPrograms = (await progRepo.find()).filter((p) => rowReason(p, ['code', 'name', 'primaryModelPrefix']));
-      const fCustomers = (await custRepo.find()).filter((c) => rowReason(c, ['code', 'name', 'industry']));
-
-      // ── Reporte de lo detectado (auditable) ─────────────────────────────
-      console.log('\n· Detectado (cliente real / confidencial):');
-      for (const m of fModels) console.log(`   modelo  ${m.modelNumber} — ${rowReason(m, ['modelNumber', 'name', 'customer', 'description'])}`);
-      for (const m of fMaterials) console.log(`   parte   ${m.partNumber} — ${rowReason(m, ['partNumber', 'description', 'category'])}`);
-      for (const p of fPlans) console.log(`   plan    ${p.workOrder ?? p.id} (${p.model}) — ${rowReason(p, ['model', 'workOrder']) ?? 'modelo confidencial'}`);
-      for (const c of fCustomers) console.log(`   cliente ${c.code} — ${rowReason(c, ['code', 'name', 'industry'])}`);
-      if (!fModels.length && !fMaterials.length && !fPlans.length && !fCustomers.length && !fHeaders.length) {
-        console.log('   (nada — la base ya está limpia)');
-      }
-
-      const detected =
-        fModels.length + fMaterials.length + fHeaders.length + fComponents.length +
-        fPlans.length + fPositions.length + fMovements.length + fCustomers.length + fPrograms.length;
-
-      // SALVAGUARDA PROD: por defecto es DRY-RUN (no borra nada). Sólo borra de
-      // verdad con PURGE_CONFIRM=true — así una corrida accidental jamás destruye.
-      if (process.env.PURGE_CONFIRM !== 'true') {
-        wasDryRun = true;
-        console.log(`\n· DRY-RUN: ${detected} registros confidenciales detectados. NO se borró nada.`);
-        console.log('  Para borrar de verdad: PURGE_CONFIRM=true npm run seed:purge-clients');
+      if (res.totalMatchedRows === 0) {
+        console.log('· Nada que purgar — la base ya está limpia.');
         return;
       }
 
-      // ── Borrado en orden de dependencias ────────────────────────────────
-      console.log('\n· Borrando:');
-      if (fKitIds.length) {
-        const kms = await ds.getRepository(KitMaterial).find({ where: { kit: { id: In(fKitIds) } } as any });
-        await removeEntities(ds.getRepository(KitMaterial), kms, 'kit_materials');
-        await purgeKitDependents(ds, fKitIds);
+      if (!apply) {
+        console.log(`· DRY-RUN: ${res.totalMatchedRows} fila(s) prohibida(s) en ${res.withHits.length} tabla(s). NO se borró nada.`);
+        console.log('  Para borrar de verdad: npm run seed:purge-clients -- --apply');
+        return;
       }
-      if (fPlanIds.length) {
-        const links = await ds.getRepository(EnterprisePlanLink).find({ where: { plan: { id: In(fPlanIds) } } as any });
-        await removeEntities(ds.getRepository(EnterprisePlanLink), links, 'enterprise_plan_links');
-        const kits = await ds.getRepository(Kit).find({ where: { plan: { id: In(fPlanIds) } } as any });
-        await removeEntities(ds.getRepository(Kit), kits, 'kits');
+
+      console.log('· Borrando (cascada curada del núcleo):');
+      await purgeCuratedCore(ds, res);
+      console.log('· Borrando (barrido comprensivo del resto):');
+      await sweepRemaining(ds, res);
+
+      // Verificación final: re-escanea para confirmar que no quedó nada (idempotencia).
+      const after = await scanForbidden(ds);
+      console.log('');
+      if (after.totalMatchedRows === 0) {
+        console.log('· Verificación post-purga: 0 filas prohibidas restantes ✔');
+      } else {
+        console.log(`· Verificación post-purga: AÚN quedan ${after.totalMatchedRows} fila(s) en ${after.withHits.length} tabla(s):`);
+        for (const f of after.withHits) {
+          console.log(`    - ${f.table}: ${f.matched} (FK desde datos legítimos / revisar manualmente)`);
+        }
       }
-      await removeEntities(planRepo, fPlans, 'plans');
-      await removeEntities(compRepo, fComponents, 'bom_components');
-      await removeEntities(headerRepo, fHeaders, 'bom_headers');
-      await removeEntities(modelRepo, fModels, 'pm_product_models');
-      await removeEntities(movRepo, fMovements, 'inventory_movements');
-      await removeEntities(posRepo, fPositions, 'inventory_positions');
-      await removeEntities(matRepo, fMaterials, 'material_master');
-      await removeEntities(progRepo, fPrograms, 'enterprise_programs');
-      await removeEntities(custRepo, fCustomers, 'enterprise_customers');
     });
 
+    const total = summary.reduce((a, s) => a + s.removed, 0);
     console.log('────────────────────────────────────────────────────────────');
-    if (wasDryRun) {
-      console.log(' DRY-RUN — no se borró nada. Repite con PURGE_CONFIRM=true para purgar de verdad.');
+    if (!apply) {
+      console.log(' DRY-RUN — no se borró nada. Repite con `-- --apply` para purgar de verdad.');
     } else {
-      console.log(` Total purgado: ${totalRemoved} filas de clientes reales.`);
+      console.log(` Total purgado: ${total} fila(s) de clientes reales.`);
       if (problems.length) {
         console.log(' Pasos con problemas (revisar manualmente):');
         for (const p of problems) console.log(`   - ${p}`);
       }
-      console.log('✅ Purga completada (sólo se borró lo que coincide con la lista negra).');
+      console.log('✅ Purga completada (sólo se borró lo que coincide con prefijos/lista negra).');
     }
     console.log('────────────────────────────────────────────────────────────');
   } finally {
