@@ -64,6 +64,13 @@ export class OutboundShipmentLine extends TenantBaseEntity {
   @Column({ type: 'boolean', default: false, name: 'inventory_posted' })
   inventoryPosted: boolean;
 
+  // Pricing (optional) — drives the commercial invoice.
+  @Column({ type: 'float', nullable: true, name: 'unit_price' })
+  unitPrice: number | null;
+
+  @Column({ type: 'varchar', length: 3, default: 'MXN' })
+  currency: string;
+
   @Column({ type: 'text', nullable: true })
   notes: string | null;
 }

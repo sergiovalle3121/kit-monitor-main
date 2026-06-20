@@ -130,6 +130,24 @@ export class OutboundController {
     return this.service.packingListCsvText(id);
   }
 
+  @Get('shipments/:id/bol')
+  @ApiOperation({ summary: 'Bill of Lading (carta de embarque).' })
+  bol(@Param('id') id: string) {
+    return this.service.assembleBol(id);
+  }
+
+  @Get('shipments/:id/carta-porte')
+  @ApiOperation({ summary: 'Carta Porte (MX, CFDI 3.1) — datos + requisitos de configuración.' })
+  cartaPorte(@Param('id') id: string) {
+    return this.service.assembleCartaPorte(id);
+  }
+
+  @Get('shipments/:id/invoice')
+  @ApiOperation({ summary: 'Factura comercial (desde líneas con precio).' })
+  invoice(@Param('id') id: string) {
+    return this.service.assembleInvoice(id);
+  }
+
   @Post('shipments/:id/assign-transport')
   @RequirePermissions('logistics:write')
   @ApiOperation({ summary: 'Asigna transporte (transportista/unidad/chofer/andén) con poka-yoke.' })

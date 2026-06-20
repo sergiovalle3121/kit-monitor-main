@@ -83,6 +83,8 @@ export class OutboundLinesService {
       location: dto.location ?? null,
       salesOrder: dto.salesOrder ?? null,
       salesOrderLine: dto.salesOrderLine ?? null,
+      unitPrice: dto.unitPrice ?? null,
+      currency: dto.currency ?? 'MXN',
       inventoryPosted: false,
       notes: dto.notes ?? null,
       tenant_id: this.tenantCtx.getTenantId(),
@@ -113,6 +115,8 @@ export class OutboundLinesService {
       ...(dto.salesOrderLine !== undefined && {
         salesOrderLine: dto.salesOrderLine || null,
       }),
+      ...(dto.unitPrice !== undefined && { unitPrice: dto.unitPrice }),
+      ...(dto.currency !== undefined && { currency: dto.currency }),
       ...(dto.notes !== undefined && { notes: dto.notes || null }),
     });
     return this.repo.save(l);
