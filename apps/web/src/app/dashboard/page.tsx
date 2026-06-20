@@ -51,6 +51,7 @@ const AREAS: { name: string; desc: string; href: string; icon: LucideIcon; domai
   { name: "MRP · Requerimiento neto", desc: "Demanda vs existencias → órdenes", href: "/dashboard/mrp", icon: Icons.Calculator, domain: "planning", roles: ["planner", "buyer", "production_supervisor", "materialist"], section: "Planeación" },
 
   // ── Materiales ──
+  { name: "Recibo", desc: "Recepción, IQC y putaway", href: "/dashboard/inbound", icon: PackageCheck, domain: "warehouse", roles: ["warehouse_operator", "materialist", "quality_engineer"], section: "Materiales" },
   { name: "Inventario", desc: "Existencias y kitting", href: "/dashboard/inventory", icon: Boxes, domain: "inventory", roles: ["warehouse_operator", "materialist", "cycle_count_analyst", "planner"], section: "Materiales" },
   { name: "Surtido a línea", desc: "Kitting y e-kanban", href: "/dashboard/material-staging", icon: Icons.PackagePlus, domain: "staging", roles: ["materialist", "warehouse_operator", "production_supervisor"], section: "Materiales" },
   { name: "Almacén", desc: "Surtir y autorizar", href: "/dashboard/almacen", icon: Warehouse, domain: "warehouse", roles: ["warehouse_operator", "materialist"], section: "Materiales" },

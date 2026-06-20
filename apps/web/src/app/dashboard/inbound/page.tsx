@@ -39,6 +39,7 @@ interface Receipt {
   status: Status;
   iqcResult?: 'PASS' | 'FAIL' | null;
   rejectCode?: string | null;
+  inventoryPosted?: boolean;
 }
 
 interface Kpis {
@@ -248,6 +249,7 @@ export default function InboundPage() {
                               {r.folio && <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-black/5 dark:bg-white/10 text-gray-500">{r.folio}</span>}
                               <span className="font-semibold font-mono truncate">{r.partNumber}</span>
                               {r.iqcResult && <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: `${r.iqcResult === 'PASS' ? GREEN : RED}1f`, color: r.iqcResult === 'PASS' ? GREEN : RED }}>{r.iqcResult}</span>}
+                              {r.inventoryPosted && <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: `${BLUE}1f`, color: BLUE }}>en inventario</span>}
                             </div>
                             <div className="mt-1 flex items-center gap-3 text-[12px] text-gray-400 flex-wrap">
                               <span>{r.quantity} {r.uom}</span>

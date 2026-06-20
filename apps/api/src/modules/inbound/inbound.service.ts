@@ -14,6 +14,7 @@ import { EventLedgerService } from '../event-ledger/event-ledger.service';
 import { EventDomain } from '../event-ledger/entities/ledger-event.entity';
 import { CreateReceiptDto, TransitionReceiptDto } from './dto/inbound.dto';
 import { assertTransition, ReceiptStatus } from './receipt-state';
+import { InventoryService } from '../inventory/inventory.service';
 
 export interface InboundKpis {
   total: number;
@@ -36,6 +37,7 @@ export class InboundService {
     private readonly tenantCtx: TenantContextService,
     private readonly numbering: DocumentNumberingService,
     @Optional() private readonly ledger?: EventLedgerService,
+    @Optional() private readonly inventory?: InventoryService,
   ) {}
 
   private applyScope(
@@ -74,6 +76,9 @@ export class InboundService {
       iqcResult: null,
       receivedBy: this.tenantCtx.getUserEmail(),
       programId: dto.programId ?? null,
+      warehouseId: dto.warehouseId ?? 'WH-RAW',
+      location: dto.location ?? null,
+      inventoryPosted: false,
       receivedAt: new Date(),
       tenant_id: this.tenantCtx.getTenantId(),
       plant_id: this.tenantCtx.getPlantId(),
@@ -120,6 +125,8 @@ export class InboundService {
     if (dto.status === 'RELEASED') {
       if (from === 'INSPECTING' || from === 'RECEIVED') r.iqcResult = 'PASS';
       if (!r.releasedAt) r.releasedAt = now;
+      // IQC gate: only RELEASED material is put away into available inventory.
+      await this.putaway(r);
     }
 
     const saved = await this.repo.save(r);
@@ -128,6 +135,40 @@ export class InboundService {
       after: { status: dto.status },
     });
     return saved;
+  }
+
+  /**
+   * Put away a released receipt into available inventory (best-effort, idempotent).
+   * Receiving raises stock — the mirror of the outbound goods-issue. QUARANTINE /
+   * REJECTED never reach here, so only IQC-passed material becomes available.
+   */
+  private async putaway(r: Receipt): Promise<void> {
+    if (!this.inventory || r.inventoryPosted || !(r.quantity > 0)) return;
+    try {
+      await this.inventory.ensureMaterial({
+        partNumber: r.partNumber,
+        description: r.description ?? undefined,
+      });
+      await this.inventory.recordTransaction({
+        type: 'RECEIVE',
+        partNumber: r.partNumber,
+        quantity: r.quantity,
+        toWarehouseId: r.warehouseId || 'WH-RAW',
+        toLocation: r.location || 'BULK',
+        actorName: this.tenantCtx.getUserEmail() ?? 'Inbound',
+        holdStatus: 'available',
+        lotNumber: r.lotNumber ?? undefined,
+        serialNumber: r.serialNumber ?? undefined,
+        referenceType: 'INBOUND_RECEIPT',
+        referenceId: r.folio ?? r.id,
+        reason: `Putaway recibo ${r.folio ?? r.id}`,
+      });
+      r.inventoryPosted = true;
+    } catch (err) {
+      this.logger.warn(
+        `Putaway skipped for ${r.partNumber} (${r.id}): ${(err as Error)?.message}`,
+      );
+    }
   }
 
   async kpis(): Promise<InboundKpis> {

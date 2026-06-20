@@ -4,6 +4,7 @@ import { Receipt } from './entities/receipt.entity';
 import { DocumentNumberingService } from '../numbering/document-numbering.service';
 import { DocumentSequence } from '../numbering/entities/document-sequence.entity';
 import { TenantContextService } from '../../common/tenant/tenant-context.service';
+import type { InventoryService } from '../inventory/inventory.service';
 
 describe('InboundService (integration)', () => {
   let dataSource: DataSource;
@@ -67,6 +68,41 @@ describe('InboundService (integration)', () => {
     await expect(
       service.transition(r.id, { status: 'QUARANTINE' }),
     ).rejects.toThrow(/Cannot move a receipt/);
+  });
+
+  it('puts away released stock into inventory (IQC gate); quarantine/reject do not', async () => {
+    const recordTransaction = jest.fn().mockResolvedValue({});
+    const ensureMaterial = jest.fn().mockResolvedValue({});
+    const ctx = new TenantContextService();
+    const numbering = new DocumentNumberingService(
+      dataSource.getRepository(DocumentSequence),
+      dataSource,
+      ctx,
+    );
+    const svc = new InboundService(
+      dataSource.getRepository(Receipt),
+      ctx,
+      numbering,
+      undefined,
+      { ensureMaterial, recordTransaction } as unknown as InventoryService,
+    );
+
+    // RELEASED → putaway into available inventory.
+    const a = await svc.create({ partNumber: 'RM-1', quantity: 100, lotNumber: 'L9', warehouseId: 'WH-RAW' });
+    const rel = await svc.transition(a.id, { status: 'RELEASED' });
+    expect(rel.inventoryPosted).toBe(true);
+    expect(recordTransaction).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'RECEIVE', partNumber: 'RM-1', quantity: 100, toWarehouseId: 'WH-RAW', lotNumber: 'L9', holdStatus: 'available' }),
+    );
+
+    // QUARANTINE → REJECTED never puts away.
+    recordTransaction.mockClear();
+    const b = await svc.create({ partNumber: 'RM-2', quantity: 50 });
+    await svc.transition(b.id, { status: 'INSPECTING' });
+    await svc.transition(b.id, { status: 'QUARANTINE' });
+    const brej = await svc.transition(b.id, { status: 'REJECTED' });
+    expect(brej.inventoryPosted).toBe(false);
+    expect(recordTransaction).not.toHaveBeenCalled();
   });
 
   it('computes inbound KPIs (reject rate, pending IQC)', async () => {

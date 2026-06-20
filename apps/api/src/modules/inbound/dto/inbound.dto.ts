@@ -64,6 +64,18 @@ export class CreateReceiptDto {
   @Length(0, 32)
   dateCode?: string;
 
+  @ApiPropertyOptional({ example: 'WH-RAW' })
+  @IsOptional()
+  @IsString()
+  @Length(0, 32)
+  warehouseId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @Length(0, 64)
+  location?: string;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
