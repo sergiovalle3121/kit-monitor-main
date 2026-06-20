@@ -56,6 +56,7 @@ import { ImportDataModule } from './modules/import-data/import-data.module';
 import { ProductCostingModule } from './modules/product-costing/product-costing.module';
 import { RoutingBackflushModule } from './modules/routing-backflush/routing-backflush.module';
 import { MrpModule } from './modules/mrp/mrp.module';
+import { PurchasePlanningModule } from './modules/purchase-planning/purchase-planning.module';
 import { BayLayoutModule } from './modules/bay-layout/bay-layout.module';
 import { KitsModule } from './modules/kits/kits.module';
 import { KitMaterialsModule } from './modules/kit-materials/kit-materials.module';
@@ -138,6 +139,7 @@ import { AiModule } from './modules/ai/ai.module';
     ProductCostingModule,
     RoutingBackflushModule,
     MrpModule,
+    PurchasePlanningModule,
     BayLayoutModule,
     KitsModule,
     KitMaterialsModule,

@@ -1,9 +1,9 @@
 import { computeNetting, MrpDemandLine, MrpSupply } from './mrp';
 
 const demand: MrpDemandLine[] = [
-  { partNumber: 'RES-1', description: 'Resistor', uom: 'EA', grossQty: 100, unitCost: 0.01, makeBuy: 'BUY' },
-  { partNumber: 'CAP-1', description: 'Cap', uom: 'EA', grossQty: 50, unitCost: 0.02, makeBuy: 'BUY' },
-  { partNumber: 'BOLT-1', description: 'Bolt', uom: 'EA', grossQty: 40, unitCost: 0.05, makeBuy: 'BUY' },
+  { materialId: 'm-res', partNumber: 'RES-1', description: 'Resistor', uom: 'EA', grossQty: 100, unitCost: 0.01, makeBuy: 'BUY' },
+  { materialId: 'm-cap', partNumber: 'CAP-1', description: 'Cap', uom: 'EA', grossQty: 50, unitCost: 0.02, makeBuy: 'BUY' },
+  { materialId: 'm-bolt', partNumber: 'BOLT-1', description: 'Bolt', uom: 'EA', grossQty: 40, unitCost: 0.05, makeBuy: 'BUY' },
 ];
 
 describe('computeNetting', () => {

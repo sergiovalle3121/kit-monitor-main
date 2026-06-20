@@ -42,6 +42,7 @@ export class MrpService {
     );
 
     const demand: MrpDemandLine[] = exploded.flat.map((f) => ({
+      materialId: f.materialId,
       partNumber: f.partNumber,
       description: f.description,
       uom: f.uom,
