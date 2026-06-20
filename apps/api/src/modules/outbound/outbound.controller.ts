@@ -7,6 +7,7 @@ import {
   Param,
   Patch,
   Post,
+  Put,
   Query,
   UseGuards,
 } from '@nestjs/common';
@@ -16,6 +17,7 @@ import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { RequirePermissions } from '../auth/decorators/permissions.decorator';
 import { OutboundService } from './outbound.service';
 import { OutboundLinesService } from './outbound-lines.service';
+import { OutboundFiscalService } from './outbound-fiscal.service';
 import {
   AssignTransportDto,
   CreateOutboundLineDto,
@@ -23,6 +25,7 @@ import {
   TransitionShipmentDto,
   UpdateOutboundLineDto,
   UpdateShipmentDto,
+  UpsertFiscalProfileDto,
 } from './dto/outbound.dto';
 
 @ApiTags('Outbound')
@@ -33,7 +36,23 @@ export class OutboundController {
   constructor(
     private readonly service: OutboundService,
     private readonly linesService: OutboundLinesService,
+    private readonly fiscalService: OutboundFiscalService,
   ) {}
+
+  // ── Perfil fiscal (Carta Porte / CFDI) ──────────────────────────────────────
+
+  @Get('fiscal-profile')
+  @ApiOperation({ summary: 'Perfil fiscal/SAT del emisor para la Carta Porte.' })
+  fiscalProfile() {
+    return this.fiscalService.get();
+  }
+
+  @Put('fiscal-profile')
+  @RequirePermissions('logistics:write')
+  @ApiOperation({ summary: 'Configura el perfil fiscal/SAT del emisor.' })
+  upsertFiscalProfile(@Body() dto: UpsertFiscalProfileDto) {
+    return this.fiscalService.upsert(dto);
+  }
 
   @Get('kpis')
   @ApiOperation({ summary: 'KPIs de embarque: por embarcar, en tránsito, OTD.' })
@@ -160,6 +179,13 @@ export class OutboundController {
   @ApiOperation({ summary: 'Carta Porte (MX, CFDI 3.1) — datos + requisitos de configuración.' })
   cartaPorte(@Param('id') id: string) {
     return this.service.assembleCartaPorte(id);
+  }
+
+  @Get('shipments/:id/carta-porte.xml')
+  @Header('Content-Type', 'application/xml; charset=utf-8')
+  @ApiOperation({ summary: 'Carta Porte como XML CFDI 4.0 + complemento 3.1 (pre-timbrado).' })
+  cartaPorteXml(@Param('id') id: string) {
+    return this.service.cartaPorteXml(id);
   }
 
   @Get('shipments/:id/invoice')
