@@ -5,16 +5,19 @@ import { InboundService } from './inbound.service';
 import { InboundController } from './inbound.controller';
 import { NumberingModule } from '../numbering/numbering.module';
 import { EventLedgerModule } from '../event-ledger/event-ledger.module';
+import { InventoryModule } from '../inventory/inventory.module';
 
 /**
  * Inbound / Receiving + IQC (Recibo). Self-contained additive area (supplier/PO
  * denormalized) that consumes the central numbering service for receipt folios.
+ * Imports InventoryModule to put away released (IQC-passed) stock.
  */
 @Module({
   imports: [
     TypeOrmModule.forFeature([Receipt]),
     NumberingModule,
     EventLedgerModule,
+    InventoryModule,
   ],
   controllers: [InboundController],
   providers: [InboundService],

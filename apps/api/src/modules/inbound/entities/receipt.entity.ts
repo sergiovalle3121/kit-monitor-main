@@ -70,4 +70,14 @@ export class Receipt extends TenantBaseEntity {
 
   @Column({ type: DATE_COLUMN_TYPE, nullable: true, name: 'released_at' })
   releasedAt: Date | null;
+
+  // Putaway target + whether the released stock was posted to inventory.
+  @Column({ type: 'varchar', length: 32, default: 'WH-RAW', name: 'warehouse_id' })
+  warehouseId: string;
+
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  location: string | null;
+
+  @Column({ type: 'boolean', default: false, name: 'inventory_posted' })
+  inventoryPosted: boolean;
 }
