@@ -1,6 +1,7 @@
 import {
   buildBol,
   buildCartaPorte,
+  buildCoc,
   buildCommercialInvoice,
   type DocLineLike,
   type DocShipmentLike,
@@ -96,5 +97,25 @@ describe('buildCommercialInvoice', () => {
       false,
     );
     expect(inv.subtotal).toBe(150); // (10+5) × 10
+  });
+});
+
+describe('buildCoc', () => {
+  it('certifies lots/quantities and collects shipped serials', () => {
+    const withSerials: DocUnitLike[] = [
+      {
+        sscc: 's',
+        type: 'CARTON',
+        weightKg: 5,
+        contents: [{ partNumber: 'FG-1', serials: ['SN-1', 'SN-2'] }],
+      },
+    ];
+    const coc = buildCoc(shipment, lines, withSerials);
+    expect(coc.certNumber).toBe('COC-SHP-2026-000001');
+    expect(coc.items.map((i) => i.partNumber)).toEqual(['FG-1', 'FG-2']);
+    expect(coc.serials).toEqual(['SN-1', 'SN-2']);
+    expect(coc.totals.pieces).toBe(15);
+    expect(coc.statement).toMatch(/certifica/i);
+    expect(coc.requiresConfig.length).toBeGreaterThan(0);
   });
 });

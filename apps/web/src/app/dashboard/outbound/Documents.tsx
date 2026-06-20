@@ -5,7 +5,7 @@
 // (GET /outbound/shipments/:id/{packing-list,asn,bol,carta-porte,invoice}); aquí se
 // muestran y se descargan/imprimen (EDI 856, CSV, o impresión a PDF del navegador).
 import React, { useState } from 'react';
-import { Boxes, Download, FileText, Layers, Loader2, Package, Printer, ScanLine, Truck, X } from 'lucide-react';
+import { Boxes, Download, FileText, Layers, Loader2, Package, Printer, ScanLine, ShieldCheck, Truck, X } from 'lucide-react';
 import { glass } from '@/lib/glass';
 import { useApi } from '@/hooks/useApi';
 import { apiFetch } from '@/lib/apiFetch';
@@ -47,7 +47,13 @@ interface CommercialInvoice {
   incoterm: string; currency: string; lines: InvLine[]; subtotal: number; total: number; requiresConfig: string[];
 }
 
-type Tab = 'packing' | 'asn' | 'bol' | 'carta' | 'factura';
+interface CocItem { partNumber: string; description: string | null; lotNumber: string | null; quantity: number; uom: string; }
+interface Coc {
+  certNumber: string | null; date: string; customer: string | null; destination: string | null; poRef: string | null;
+  statement: string; items: CocItem[]; serials: string[]; totals: { lines: number; pieces: number }; requiresConfig: string[];
+}
+
+type Tab = 'packing' | 'asn' | 'bol' | 'carta' | 'factura' | 'coc';
 const TYPE_LABEL: Record<string, string> = { PALLET: 'Tarima', CARTON: 'Caja', BOX: 'Bulto' };
 
 async function download(path: string, filename: string) {
@@ -98,6 +104,7 @@ export function Documents({
   const { data: bol } = useApi<Bol>(tab === 'bol' ? `/outbound/shipments/${id}/bol` : null);
   const { data: carta } = useApi<CartaPorte>(tab === 'carta' ? `/outbound/shipments/${id}/carta-porte` : null);
   const { data: inv } = useApi<CommercialInvoice>(tab === 'factura' ? `/outbound/shipments/${id}/invoice` : null);
+  const { data: coc } = useApi<Coc>(tab === 'coc' ? `/outbound/shipments/${id}/coc` : null);
   const base = shipment.folio ?? id;
 
   function printBol(b: Bol) {
@@ -128,6 +135,16 @@ export function Documents({
       `<tr><td colspan="4" class="tot">Total (${esc(f.currency)})</td><td class="tot">${f.total.toFixed(2)}</td></tr></tbody></table>` +
       warnHtml(f.requiresConfig));
   }
+  function printCoc(c: Coc) {
+    const rows = c.items.map((i) => `<tr><td>${v(i.partNumber)}</td><td>${v(i.description)}</td><td>${v(i.lotNumber)}</td><td>${v(i.quantity)} ${v(i.uom)}</td></tr>`).join('');
+    const serials = c.serials.length ? `<h2>Series (${c.serials.length})</h2><p style="font-family:monospace;font-size:11px">${c.serials.map(esc).join(', ')}</p>` : '';
+    printDoc(`CoC ${base}`,
+      `<h1>Certificado de Conformancia</h1><p class="sub">${v(c.certNumber)} · ${v(c.date)}</p>` +
+      `<div class="row"><div><h2>Cliente</h2>${v(c.customer)}<br>${v(c.destination)}</div><div><h2>Referencia</h2><span class="k">OV:</span> ${v(c.poRef)}</div></div>` +
+      `<p style="margin-top:14px">${esc(c.statement)}</p>` +
+      `<h2>Productos</h2><table><thead><tr><th>Parte</th><th>Descripción</th><th>Lote</th><th>Cantidad</th></tr></thead><tbody>${rows}</tbody></table>` +
+      serials + warnHtml(c.requiresConfig));
+  }
 
   return (
     <div className="fixed inset-0 z-[120] flex justify-end bg-black/40" onClick={onClose}>
@@ -149,6 +166,7 @@ export function Documents({
           <TabBtn active={tab === 'bol'} onClick={() => setTab('bol')} icon={<Truck className="w-4 h-4" />}>BOL</TabBtn>
           <TabBtn active={tab === 'carta'} onClick={() => setTab('carta')} icon={<FileText className="w-4 h-4" />}>Carta Porte</TabBtn>
           <TabBtn active={tab === 'factura'} onClick={() => setTab('factura')} icon={<FileText className="w-4 h-4" />}>Factura</TabBtn>
+          <TabBtn active={tab === 'coc'} onClick={() => setTab('coc')} icon={<ShieldCheck className="w-4 h-4" />}>CoC</TabBtn>
         </div>
 
         <div className="px-5 py-4">
@@ -219,6 +237,11 @@ export function Documents({
           {tab === 'factura' && (!inv ? <Spinner /> : (
             <DocView onPrint={() => printInvoice(inv)} fields={[['Cliente', inv.buyer.name], ['Destino', inv.buyer.address], ['Incoterm', inv.incoterm], ['Moneda', inv.currency], ['Folio', inv.invoiceNumber]]}
               totals={[`${inv.lines.length} conceptos`, `Total ${inv.total.toFixed(2)} ${inv.currency}`]} requiresConfig={inv.requiresConfig} />
+          ))}
+
+          {tab === 'coc' && (!coc ? <Spinner /> : (
+            <DocView onPrint={() => printCoc(coc)} fields={[['Cliente', coc.customer], ['Destino', coc.destination], ['Folio', coc.certNumber], ['Ref OV', coc.poRef]]}
+              totals={[`${coc.totals.lines} líneas`, `${coc.totals.pieces} pzs`, `${coc.serials.length} series`]} requiresConfig={coc.requiresConfig} note={coc.statement} />
           ))}
         </div>
 
