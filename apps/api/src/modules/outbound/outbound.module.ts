@@ -10,6 +10,7 @@ import { EventLedgerModule } from '../event-ledger/event-ledger.module';
 import { TrafficModule } from '../traffic/traffic.module';
 import { PackingModule } from '../packing/packing.module';
 import { InventoryModule } from '../inventory/inventory.module';
+import { GenealogyModule } from '../genealogy/genealogy.module';
 
 /**
  * Logistics / Outbound (Embarque): finished-goods shipments + ASN. Self-contained
@@ -25,6 +26,7 @@ import { InventoryModule } from '../inventory/inventory.module';
     TrafficModule,
     PackingModule,
     InventoryModule,
+    GenealogyModule,
   ],
   controllers: [OutboundController],
   providers: [OutboundService, OutboundLinesService],

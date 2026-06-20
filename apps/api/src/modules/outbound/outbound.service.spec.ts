@@ -11,12 +11,14 @@ import { Driver } from '../traffic/entities/driver.entity';
 import { LoadingDock } from '../traffic/entities/loading-dock.entity';
 import { PackingService } from '../packing/packing.service';
 import { HandlingUnit } from '../packing/entities/handling-unit.entity';
+import type { GenealogyService } from '../genealogy/genealogy.service';
 
 describe('OutboundService (integration)', () => {
   let dataSource: DataSource;
   let service: OutboundService;
   let traffic: TrafficService;
   let packing: PackingService;
+  let linkShipment: jest.Mock;
   const year = new Date().getFullYear();
 
   beforeEach(async () => {
@@ -25,7 +27,15 @@ describe('OutboundService (integration)', () => {
       database: ':memory:',
       dropSchema: true,
       synchronize: true,
-      entities: [Shipment, DocumentSequence, Carrier, Vehicle, Driver, LoadingDock, HandlingUnit],
+      entities: [
+        Shipment,
+        DocumentSequence,
+        Carrier,
+        Vehicle,
+        Driver,
+        LoadingDock,
+        HandlingUnit,
+      ],
     });
     await dataSource.initialize();
 
@@ -42,7 +52,12 @@ describe('OutboundService (integration)', () => {
       dataSource.getRepository(LoadingDock),
       ctx,
     );
-    packing = new PackingService(dataSource.getRepository(HandlingUnit), ctx, numbering);
+    packing = new PackingService(
+      dataSource.getRepository(HandlingUnit),
+      ctx,
+      numbering,
+    );
+    linkShipment = jest.fn().mockResolvedValue({});
     service = new OutboundService(
       dataSource.getRepository(Shipment),
       ctx,
@@ -50,6 +65,8 @@ describe('OutboundService (integration)', () => {
       traffic,
       undefined,
       packing,
+      undefined,
+      { linkShipment } as unknown as GenealogyService,
     );
   });
 
@@ -58,7 +75,10 @@ describe('OutboundService (integration)', () => {
   });
 
   it('creates a shipment with an SHP folio and PACKING status', async () => {
-    const s = await service.create({ title: 'PT Modelo X', customerName: 'Cliente A' });
+    const s = await service.create({
+      title: 'PT Modelo X',
+      customerName: 'Cliente A',
+    });
     expect(s.folio).toBe(`SHP-${year}-000001`);
     expect(s.status).toBe('PACKING');
     expect(s.asn).toBeNull();
@@ -67,7 +87,10 @@ describe('OutboundService (integration)', () => {
   it('generates an ASN and stamps dates through the lifecycle', async () => {
     const s = await service.create({ title: 'Embarque' });
     await service.transition(s.id, { status: 'READY' });
-    const shipped = await service.transition(s.id, { status: 'SHIPPED', trackingNumber: '1Z999' });
+    const shipped = await service.transition(s.id, {
+      status: 'SHIPPED',
+      trackingNumber: '1Z999',
+    });
     expect(shipped.shippedDate).toBeTruthy();
     expect(shipped.asn).toBe(`ASN-${year}-000001`);
     expect(shipped.trackingNumber).toBe('1Z999');
@@ -92,9 +115,9 @@ describe('OutboundService (integration)', () => {
     });
 
     // Unscanned → the dock-loading poka-yoke blocks the READY transition.
-    await expect(
-      service.transition(s.id, { status: 'READY' }),
-    ).rejects.toThrow(/faltan/i);
+    await expect(service.transition(s.id, { status: 'READY' })).rejects.toThrow(
+      /faltan/i,
+    );
     expect((await service.getOne(s.id)).status).toBe('PACKING');
 
     // Scan it onto the truck → READY is now allowed.
@@ -103,11 +126,41 @@ describe('OutboundService (integration)', () => {
     expect(ready.status).toBe('READY');
   });
 
+  it('links shipped serials to the shipment for recall (genealogy)', async () => {
+    const s = await service.create({
+      title: 'Con series',
+      customerName: 'Cliente A',
+    });
+    const unit = await packing.create({
+      shipmentId: s.id,
+      shipmentFolio: s.folio ?? undefined,
+      type: 'CARTON',
+      contents: [
+        { partNumber: 'FG-1', quantity: 2, serials: ['SN-1', 'SN-2'] },
+      ],
+    });
+    await packing.verifyScan(s.id, unit.sscc!);
+    await service.transition(s.id, { status: 'READY' });
+    await service.transition(s.id, { status: 'SHIPPED' });
+
+    expect(linkShipment).toHaveBeenCalledTimes(2);
+    expect(linkShipment).toHaveBeenCalledWith(
+      expect.objectContaining({
+        builtSerial: 'SN-1',
+        shipmentId: s.id,
+        customerName: 'Cliente A',
+      }),
+    );
+  });
+
   it('computes outbound KPIs (to-ship, in-transit, overdue, OTD)', async () => {
     // Overdue shipment still packing (promised in the past).
     await service.create({ title: 'Tarde', promisedDate: '2020-01-01' });
     // One delivered on time.
-    const ok = await service.create({ title: 'A tiempo', promisedDate: '2999-01-01' });
+    const ok = await service.create({
+      title: 'A tiempo',
+      promisedDate: '2999-01-01',
+    });
     await service.transition(ok.id, { status: 'READY' });
     await service.transition(ok.id, { status: 'SHIPPED' });
     await service.transition(ok.id, { status: 'DELIVERED' });
@@ -121,8 +174,14 @@ describe('OutboundService (integration)', () => {
 
   it('assigns transport (carrier/unit/driver/dock) and flips them to busy', async () => {
     const s = await service.create({ title: 'Con unidad' });
-    const carrier = await traffic.createCarrier({ code: 'DHL', name: 'DHL Supply Chain' });
-    const vehicle = await traffic.createVehicle({ plate: 'ABC-123', type: 'DRY_VAN' });
+    const carrier = await traffic.createCarrier({
+      code: 'DHL',
+      name: 'DHL Supply Chain',
+    });
+    const vehicle = await traffic.createVehicle({
+      plate: 'ABC-123',
+      type: 'DRY_VAN',
+    });
     const driver = await traffic.createDriver({ name: 'Juan Pérez' });
     const dock = await traffic.createDock({ code: 'D-1', type: 'shipping' });
 

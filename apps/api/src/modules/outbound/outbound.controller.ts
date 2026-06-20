@@ -148,6 +148,12 @@ export class OutboundController {
     return this.service.assembleInvoice(id);
   }
 
+  @Get('shipments/:id/coc')
+  @ApiOperation({ summary: 'Certificado de Conformancia (CoC) del embarque.' })
+  coc(@Param('id') id: string) {
+    return this.service.assembleCoc(id);
+  }
+
   @Post('shipments/:id/assign-transport')
   @RequirePermissions('logistics:write')
   @ApiOperation({ summary: 'Asigna transporte (transportista/unidad/chofer/andén) con poka-yoke.' })

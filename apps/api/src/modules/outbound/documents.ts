@@ -32,11 +32,15 @@ export interface DocLineLike {
   lotNumber: string | null;
   unitPrice: number | null;
   currency: string | null;
+  salesOrder?: string | null;
 }
 export interface DocUnitLike {
   sscc: string | null;
   type: string;
   weightKg: number | null;
+  contents?:
+    | { partNumber: string; quantity?: number; serials?: string[] }[]
+    | null;
 }
 
 function isoDate(d: Date | string | null): string {
@@ -265,5 +269,66 @@ export function buildCommercialInvoice(
     subtotal,
     total: subtotal,
     requiresConfig,
+  };
+}
+
+// ── Certificate of Conformance (CoC) ─────────────────────────────────────────
+
+export interface CocItem {
+  partNumber: string;
+  description: string | null;
+  lotNumber: string | null;
+  quantity: number;
+  uom: string;
+}
+export interface Coc {
+  certNumber: string | null;
+  date: string;
+  customer: string | null;
+  destination: string | null;
+  poRef: string | null;
+  statement: string;
+  items: CocItem[];
+  serials: string[];
+  totals: { lines: number; pieces: number };
+  requiresConfig: string[];
+}
+
+const COC_STATEMENT =
+  'Se certifica que los productos descritos fueron fabricados e inspeccionados ' +
+  'conforme a las especificaciones, planos y requisitos aplicables del cliente, ' +
+  'y que cumplen con los criterios de aceptación acordados.';
+
+/** Certificate of Conformance — lot/qty level, with any serials shipped. */
+export function buildCoc(
+  shipment: DocShipmentLike,
+  lines: DocLineLike[],
+  units: DocUnitLike[],
+): Coc {
+  const serials = Array.from(
+    new Set(
+      units.flatMap((u) => (u.contents ?? []).flatMap((c) => c.serials ?? [])),
+    ),
+  );
+  return {
+    certNumber: shipment.folio ? `COC-${shipment.folio}` : null,
+    date: isoDate(shipment.shippedDate),
+    customer: shipment.customerName,
+    destination: shipment.destination,
+    poRef: lines.find((l) => l.salesOrder)?.salesOrder ?? null,
+    statement: COC_STATEMENT,
+    items: lines.map((l) => ({
+      partNumber: l.partNumber,
+      description: l.description,
+      lotNumber: l.lotNumber,
+      quantity: l.quantity,
+      uom: l.uom,
+    })),
+    serials,
+    totals: { lines: lines.length, pieces: sumPieces(lines) },
+    requiresConfig: [
+      'Firma autorizada de Calidad',
+      'Referencia a registros de inspección / resultados de prueba',
+    ],
   };
 }

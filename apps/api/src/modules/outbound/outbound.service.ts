@@ -33,11 +33,14 @@ import {
 import {
   buildBol,
   buildCartaPorte,
+  buildCoc,
   buildCommercialInvoice,
   type Bol,
   type CartaPorte,
+  type Coc,
   type CommercialInvoice,
 } from './documents';
+import { GenealogyService } from '../genealogy/genealogy.service';
 import {
   checkCarrierAssignable,
   checkDockAssignable,
@@ -67,6 +70,7 @@ export class OutboundService {
     @Optional() private readonly ledger?: EventLedgerService,
     @Optional() private readonly packing?: PackingService,
     @Optional() private readonly lines?: OutboundLinesService,
+    @Optional() private readonly genealogy?: GenealogyService,
   ) {}
 
   private applyScope(
@@ -111,12 +115,16 @@ export class OutboundService {
     return saved;
   }
 
-  async list(filters: {
-    status?: string;
-    customerName?: string;
-    programId?: string;
-  } = {}): Promise<Shipment[]> {
-    const qb = this.repo.createQueryBuilder('s').orderBy('s.created_at', 'DESC');
+  async list(
+    filters: {
+      status?: string;
+      customerName?: string;
+      programId?: string;
+    } = {},
+  ): Promise<Shipment[]> {
+    const qb = this.repo
+      .createQueryBuilder('s')
+      .orderBy('s.created_at', 'DESC');
     this.applyScope(qb, 's');
     if (filters.status) qb.andWhere('s.status = :st', { st: filters.status });
     if (filters.customerName)
@@ -154,10 +162,7 @@ export class OutboundService {
     return saved;
   }
 
-  async transition(
-    id: string,
-    dto: TransitionShipmentDto,
-  ): Promise<Shipment> {
+  async transition(id: string, dto: TransitionShipmentDto): Promise<Shipment> {
     const s = await this.getOne(id);
     const from = s.status;
     try {
@@ -198,6 +203,8 @@ export class OutboundService {
         s.id,
         this.tenantCtx.getUserEmail() ?? 'Outbound',
       );
+      // Link shipped serials → shipment → customer for recall/where-used.
+      await this.linkGenealogy(s);
     }
     if (dto.status === 'DELIVERED' && !s.deliveredDate) s.deliveredDate = now;
 
@@ -216,7 +223,10 @@ export class OutboundService {
    * dock must be a shipping door). On success the piece is flipped to assigned/
    * occupied and a denormalized snapshot is stored on the shipment.
    */
-  async assignTransport(id: string, dto: AssignTransportDto): Promise<Shipment> {
+  async assignTransport(
+    id: string,
+    dto: AssignTransportDto,
+  ): Promise<Shipment> {
     const s = await this.getOne(id);
 
     if (dto.carrierId) {
@@ -233,12 +243,15 @@ export class OutboundService {
       const issue = checkVehicleAssignable(v, { allowReassignSame: same });
       if (issue) throw new BadRequestException(issue.reason);
       if (s.vehicleId && s.vehicleId !== v.id) {
-        await this.traffic.setVehicleStatus(s.vehicleId, 'available').catch(() => undefined);
+        await this.traffic
+          .setVehicleStatus(s.vehicleId, 'available')
+          .catch(() => undefined);
       }
       s.vehicleId = v.id;
       s.vehiclePlate = v.plate;
       s.vehicleType = v.type;
-      if (v.status !== 'assigned') await this.traffic.setVehicleStatus(v.id, 'assigned');
+      if (v.status !== 'assigned')
+        await this.traffic.setVehicleStatus(v.id, 'assigned');
     }
 
     if (dto.driverId) {
@@ -247,11 +260,14 @@ export class OutboundService {
       const issue = checkDriverAssignable(d, { allowReassignSame: same });
       if (issue) throw new BadRequestException(issue.reason);
       if (s.driverId && s.driverId !== d.id) {
-        await this.traffic.setDriverStatus(s.driverId, 'available').catch(() => undefined);
+        await this.traffic
+          .setDriverStatus(s.driverId, 'available')
+          .catch(() => undefined);
       }
       s.driverId = d.id;
       s.driverName = d.name;
-      if (d.status !== 'assigned') await this.traffic.setDriverStatus(d.id, 'assigned');
+      if (d.status !== 'assigned')
+        await this.traffic.setDriverStatus(d.id, 'assigned');
     }
 
     if (dto.dockId) {
@@ -260,11 +276,14 @@ export class OutboundService {
       const issue = checkDockAssignable(k, { allowReassignSame: same });
       if (issue) throw new BadRequestException(issue.reason);
       if (s.dockId && s.dockId !== k.id) {
-        await this.traffic.setDockStatus(s.dockId, 'available').catch(() => undefined);
+        await this.traffic
+          .setDockStatus(s.dockId, 'available')
+          .catch(() => undefined);
       }
       s.dockId = k.id;
       s.dockCode = k.code;
-      if (k.status !== 'occupied') await this.traffic.setDockStatus(k.id, 'occupied');
+      if (k.status !== 'occupied')
+        await this.traffic.setDockStatus(k.id, 'occupied');
     }
 
     s.transportAssignedAt = new Date();
@@ -284,9 +303,18 @@ export class OutboundService {
   /** Releases the assigned transport, freeing the unit/driver/dock back to available. */
   async releaseTransport(id: string): Promise<Shipment> {
     const s = await this.getOne(id);
-    if (s.vehicleId) await this.traffic.setVehicleStatus(s.vehicleId, 'available').catch(() => undefined);
-    if (s.driverId) await this.traffic.setDriverStatus(s.driverId, 'available').catch(() => undefined);
-    if (s.dockId) await this.traffic.setDockStatus(s.dockId, 'available').catch(() => undefined);
+    if (s.vehicleId)
+      await this.traffic
+        .setVehicleStatus(s.vehicleId, 'available')
+        .catch(() => undefined);
+    if (s.driverId)
+      await this.traffic
+        .setDriverStatus(s.driverId, 'available')
+        .catch(() => undefined);
+    if (s.dockId)
+      await this.traffic
+        .setDockStatus(s.dockId, 'available')
+        .catch(() => undefined);
     s.carrierId = null;
     s.vehicleId = null;
     s.vehiclePlate = null;
@@ -298,7 +326,9 @@ export class OutboundService {
     s.transportAssignedAt = null;
     s.transportAssignedBy = null;
     const saved = await this.repo.save(s);
-    await this.recordLedger('SHIPMENT_TRANSPORT_RELEASED', saved, { after: { released: true } });
+    await this.recordLedger('SHIPMENT_TRANSPORT_RELEASED', saved, {
+      after: { released: true },
+    });
     return saved;
   }
 
@@ -349,7 +379,9 @@ export class OutboundService {
       delivered,
       overdue,
       otdPct:
-        otdEligible > 0 ? Math.round((otdOnTime / otdEligible) * 1000) / 10 : null,
+        otdEligible > 0
+          ? Math.round((otdOnTime / otdEligible) * 1000) / 10
+          : null,
       byStatus,
     };
   }
@@ -406,6 +438,51 @@ export class OutboundService {
   async assembleInvoice(id: string): Promise<CommercialInvoice> {
     const s = await this.getOne(id);
     return buildCommercialInvoice(s, await this.linesFor(id));
+  }
+
+  /** Certificate of Conformance. */
+  async assembleCoc(id: string): Promise<Coc> {
+    const s = await this.getOne(id);
+    return buildCoc(s, await this.linesFor(id), await this.unitsFor(id));
+  }
+
+  /**
+   * Cradle-to-grave tomb link: at ship time, tie every shipped serial (from the
+   * handling units' contents) to this shipment + customer so a defective lot can
+   * be traced forward to the shipments/customers that received it. Best-effort and
+   * idempotent (the genealogy module dedups by serial+shipment).
+   */
+  private async linkGenealogy(s: Shipment): Promise<number> {
+    if (!this.genealogy) return 0;
+    const units = await this.unitsFor(s.id);
+    const shippedAt = s.shippedDate
+      ? new Date(s.shippedDate).toISOString()
+      : new Date().toISOString();
+    let linked = 0;
+    for (const u of units) {
+      for (const c of u.contents ?? []) {
+        for (const serial of c.serials ?? []) {
+          try {
+            await this.genealogy.linkShipment({
+              builtSerial: serial,
+              shipmentId: s.id,
+              shipmentFolio: s.folio ?? undefined,
+              asn: s.asn ?? undefined,
+              customerName: s.customerName ?? undefined,
+              destination: s.destination ?? undefined,
+              shippedAt,
+              programId: s.programId ?? undefined,
+            });
+            linked += 1;
+          } catch (err) {
+            this.logger.warn(
+              `Genealogy link skipped for serial ${serial} (${s.id}): ${(err as Error)?.message}`,
+            );
+          }
+        }
+      }
+    }
+    return linked;
   }
 
   private async recordLedger(
