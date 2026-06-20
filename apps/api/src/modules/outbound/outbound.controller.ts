@@ -63,6 +63,19 @@ export class OutboundController {
     return this.service.create(dto);
   }
 
+  @Get('sales-orders')
+  @ApiOperation({ summary: 'Órdenes de venta embarcables (para crear un embarque).' })
+  salesOrders() {
+    return this.service.listOpenSalesOrders();
+  }
+
+  @Post('from-sales-order')
+  @RequirePermissions('logistics:write')
+  @ApiOperation({ summary: 'Crea un embarque desde una orden de venta (jala líneas abiertas).' })
+  fromSalesOrder(@Body('soId') soId: number) {
+    return this.service.createFromSalesOrder(Number(soId));
+  }
+
   @Patch('shipments/:id')
   @ApiOperation({ summary: 'Actualiza un embarque.' })
   update(@Param('id') id: string, @Body() dto: UpdateShipmentDto) {
