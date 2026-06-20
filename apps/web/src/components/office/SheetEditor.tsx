@@ -20,6 +20,7 @@ import { parseRange, type ChartConfig } from '@/lib/office/charts';
 import { applyConditional, sortRangeMulti, removeDuplicates, textToColumns, setCellNote, replaceAll, buildPivot, pivotToCelldata, applyNumberFormat, applyCellStyle, applySubtotals, applySparkline, applyFill, transposeRange, copyRange, buildFilter, buildPrintHtml, usedRange, colName, applyDataVerification, clearDataVerification, markInvalidCells, applyTableStyle, type CondPayload, type PivotConfig, type FindOpts, type NamedRange, type PrintOpts } from '@/lib/office/sheetOps';
 import { normalizeCellInput } from './sheets/sheetFormula';
 import { OfficeRibbon, RibbonTab, RibbonGroup, RibbonSeparator, RibbonButton, RibbonMenuButton } from './ribbon';
+import { useToast } from '@/contexts/ToastContext';
 
 // Content is either the legacy bare sheet array or the new { sheets, charts } shape.
 function sheetsOf(v: any): any[] | null {
@@ -42,6 +43,7 @@ const clone = (x: any) => JSON.parse(JSON.stringify(x));
 
 /** Excel-like spreadsheet (Fortune-sheet, MIT) — formulas, formats, charts, validation, conditional formatting. */
 export function SheetEditor({ value, onChange, readOnly, fileActions }: { value: any; onChange: (data: any) => void; readOnly?: boolean; fileActions?: React.ReactNode }) {
+  const toast = useToast();
   const initSheets = sheetsOf(value)?.length ? (sheetsOf(value) as any[]) : [DEFAULT_SHEET];
   const [liveData, setLiveData] = useState<any[]>(initSheets); // only swapped on a forced remount
   const [wbKey, setWbKey] = useState(0);
@@ -165,7 +167,7 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
 
   function applyValidation({ range, sheetIndex, cfg, action }: ValidationPayload) {
     const rng = parseRange(range);
-    if (!rng) { window.alert('Rango inválido. Ej: A1:A10'); return; }
+    if (!rng) { toast.error('Rango inválido. Ej: A1:A10'); return; }
     const sheets = clone(sheetsRef.current);
     const sheet = sheets[sheetIndex] ?? sheets[0];
     if (!sheet) return;
@@ -175,7 +177,7 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
     else applyDataVerification(sheet, range, cfg);
     setTool(null);
     remount(sheets);
-    if (msg) window.setTimeout(() => window.alert(msg), 30);
+    if (msg) window.setTimeout(() => toast.info(msg), 30);
   }
 
   function applyFreeze(type: string) {
@@ -189,7 +191,7 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
   function applyFreezeAt() {
     const v = window.prompt('Inmovilizar filas/columnas ANTES de esta celda (ej.: C4 → filas 1-3 y columnas A-B):', 'B2');
     if (!v) return;
-    const rng = parseRange(v); if (!rng) { window.alert('Celda inválida.'); return; }
+    const rng = parseRange(v); if (!rng) { toast.error('Celda inválida.'); return; }
     const sheets = clone(sheetsRef.current);
     const sheet = sheets.find((s: any) => s.status === 1) ?? sheets[0];
     if (!sheet) return;
@@ -199,7 +201,7 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
 
   function applyCondFormat(p: CondPayload) {
     const rng = parseRange(p.range);
-    if (!rng) { window.alert('Rango inválido. Ej: A1:B20'); return; }
+    if (!rng) { toast.error('Rango inválido. Ej: A1:B20'); return; }
     const sheets = clone(sheetsRef.current);
     const sheet = sheets[p.sheetIndex] ?? sheets[0];
     if (!sheet) return;
@@ -234,7 +236,7 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
     else if (mode === 'note') setCellNote(sheet, payload.cell, payload.text);
     setDataMode(null);
     remount(sheets);
-    if (msg) window.setTimeout(() => window.alert(msg), 30);
+    if (msg) window.setTimeout(() => toast.info(msg), 30);
   }
 
   function insertIntoCell(text: string): boolean {
@@ -255,8 +257,8 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
     setShowWizard(false);
     if (insertIntoCell(formula)) return;
     navigator.clipboard?.writeText(formula)
-      .then(() => window.alert(`Función copiada: ${formula}  — pégala en la celda y completa los argumentos.`))
-      .catch(() => window.alert(`Escribe en la celda: ${formula}`));
+      .then(() => toast.success(`Función copiada: ${formula}  — pégala en la celda y completa los argumentos.`))
+      .catch(() => toast.info(`Escribe en la celda: ${formula}`));
   }
   function insertNameRef(ref: string) {
     if (!insertIntoCell(ref)) navigator.clipboard?.writeText(ref).catch(() => {});
@@ -269,7 +271,7 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
   function doPrint(html: string) {
     setShowPrint(false);
     const w = window.open('', '_blank');
-    if (!w) { window.alert('Permite las ventanas emergentes para imprimir.'); return; }
+    if (!w) { toast.error('Permite las ventanas emergentes para imprimir.'); return; }
     w.document.open(); w.document.write(html); w.document.close(); w.focus();
     window.setTimeout(() => { try { w.print(); } catch { /* el usuario puede imprimir manualmente */ } }, 300);
   }
@@ -286,7 +288,7 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
   // Vuelve a calcular las tablas dinámicas guardadas sobre el origen actual.
   function refreshPivots() {
     const stored = pivotsRef.current;
-    if (!stored.length) { window.alert('No hay tablas dinámicas guardadas para actualizar.'); return; }
+    if (!stored.length) { toast.info('No hay tablas dinámicas guardadas para actualizar.'); return; }
     const sheets = clone(sheetsRef.current);
     let updated = 0;
     for (const sp of stored) {
@@ -301,7 +303,7 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
       updated++;
     }
     remount(sheets);
-    window.setTimeout(() => window.alert(`${updated} tabla(s) dinámica(s) actualizada(s).`), 30);
+    window.setTimeout(() => toast.success(`${updated} tabla(s) dinámica(s) actualizada(s).`), 30);
   }
 
   // Rango A1 de la selección actual del grid (para prefijar diálogos de formato).
@@ -338,7 +340,7 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
     const n = applyTableStyle(sheet, opts);
     setShowTable(false);
     remount(sheets);
-    if (!n) window.setTimeout(() => window.alert('Rango inválido para la tabla.'), 30);
+    if (!n) window.setTimeout(() => toast.error('Rango inválido para la tabla.'), 30);
   }
 
   function applyPivot(cfg: PivotConfig, target: { mode: 'new' | 'cell'; cell?: string }) {
@@ -346,10 +348,10 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
     const src = sheets[cfg.sheetIndex] ?? sheets[0];
     if (!src) { setShowPivot(false); return; }
     const res = buildPivot(src, cfg);
-    if (!res.matrix.length) { window.alert(res.warnings[0] || 'No se pudo generar la tabla dinámica.'); return; }
+    if (!res.matrix.length) { toast.error(res.warnings[0] || 'No se pudo generar la tabla dinámica.'); return; }
     if (target.mode === 'cell') {
       const origin = parseRange(target.cell || 'A1');
-      if (!origin) { window.alert('Celda destino inválida.'); return; }
+      if (!origin) { toast.error('Celda destino inválida.'); return; }
       const dst = sheets[activeIndex()] ?? src;
       const cells = pivotToCelldata(res, origin.r1, origin.c1);
       const occupied = new Set(cells.map((c: any) => `${c.r}_${c.c}`));
@@ -369,7 +371,7 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
     }
     setShowPivot(false);
     remount(sheets);
-    if (res.warnings.length) window.setTimeout(() => window.alert(res.warnings.join('\n')), 30);
+    if (res.warnings.length) window.setTimeout(() => toast.info(res.warnings.join('\n')), 30);
   }
 
   return (

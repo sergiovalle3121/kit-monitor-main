@@ -5,6 +5,7 @@ import React, { useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Download, Upload, ChevronDown, Loader2 } from 'lucide-react';
 import { exportSheets, importSheets } from '@/lib/office/xlsx';
+import { useToast } from '@/contexts/ToastContext';
 
 /** Export (.xlsx/.csv) + Import controls for the spreadsheet editor's ribbon. */
 export function SheetActions({
@@ -15,6 +16,7 @@ export function SheetActions({
   onImport: (sheets: any[]) => void;
   readOnly?: boolean;
 }) {
+  const toast = useToast();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -36,7 +38,7 @@ export function SheetActions({
     if (!f) return;
     setBusy(true);
     try { onImport(await importSheets(f)); }
-    catch { window.alert('No se pudo importar el archivo. Verifica que sea un .xlsx o .csv válido.'); }
+    catch { toast.error('No se pudo importar el archivo. Verifica que sea un .xlsx o .csv válido.'); }
     finally { setBusy(false); }
   }
 

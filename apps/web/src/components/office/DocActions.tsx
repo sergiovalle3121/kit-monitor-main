@@ -5,6 +5,7 @@ import React, { useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Printer, FileText, Upload, ChevronDown, Download, Loader2 } from 'lucide-react';
 import { exportDocx, importDocx } from '@/lib/office/docx';
+import { useToast } from '@/contexts/ToastContext';
 
 /** Export (PDF / Word) + Import (.docx) for the document editor. */
 export function DocActions({
@@ -15,6 +16,7 @@ export function DocActions({
   onImport: (html: string) => void;
   readOnly?: boolean;
 }) {
+  const toast = useToast();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -34,7 +36,7 @@ export function DocActions({
     if (!f) return;
     setBusy(true);
     try { onImport(await importDocx(f)); }
-    catch { window.alert('No se pudo importar el archivo .docx.'); }
+    catch { toast.error('No se pudo importar el archivo .docx.'); }
     finally { setBusy(false); }
   }
 
