@@ -328,4 +328,37 @@ PG · web tsc · eslint · `next build`.
 **Usable:** un supervisor confirma producción de una operación y descuenta del
 inventario exactamente los materiales que esa operación consume, según el ruteo.
 
-### Siguientes sugeridos: MRP/netting (demanda vs existencias) · ECO/efectividad · el corte legacy→nuevo (supervisado).
+> **PR #336 mergeado a `main`** (squash · `f9329b6`, CI verde).
+
+---
+
+## POST-NÚCLEO #3 — MRP / REQUERIMIENTO NETO — ✅ EN VERDE
+
+**Módulo nuevo:** `apps/api/src/modules/mrp` (endpoint `/mrp`). **Solo lectura, sin
+tablas nuevas.** El motor de planeación clásico sobre el núcleo: explota un BOM por
+cantidad, neta la demanda bruta contra existencias + en tránsito, y sugiere qué ordenar.
+
+- **Demanda bruta** = explosión de BOM (FASE 2) → demanda de hojas × qty.
+- **Oferta** = posiciones de inventario (read-only): disponible = Σ(on-hand − asignado)
+  con `holdStatus='available'`, + en tránsito. Agregado por parte (filtro almacén opc.).
+- **Neto** = max(0, bruto − disponible − tránsito); sugerido = neto; **make/buy** del
+  maestro (fabricar vs comprar); valor del faltante = neto × costo.
+- Lógica pura `mrp.ts` (`computeNetting`) + spec (3 tests): netting, orden por escasez/
+  valor, oferta faltante = 0.
+
+**Backend:** `MrpService.netting(bomNodeId, qty, warehouseId?)` reusa BomTreeService +
+MaterialMasterService + lee `InventoryPosition` (repo, read-only). `GET
+/mrp/:bomNodeId/netting`.
+
+**Frontend:** `/dashboard/mrp` — elige ensamble + cantidad (+ almacén opcional) →
+tabla por material (bruto/disponible/tránsito/**neto**/ordenar/valor) con escasez
+resaltada y KPIs (materiales, en escasez, valor faltante). Descubrible: tile en hub
+(Planeación) + SearchPalette. Generar POs reales = follow-up.
+
+**Puertas (verdes):** API build · `npm test` (95 suites / **626 tests**, +3) · smoke
+PG · web tsc · eslint · `next build`.
+
+**Usable:** un planeador elige "construir N de este ensamble" y ve al instante qué
+falta y cuánto pedir, distinguiendo comprar vs fabricar.
+
+### Siguientes sugeridos: ECO/efectividad (control de cambios) · generar POs desde MRP · el corte legacy→nuevo (supervisado).

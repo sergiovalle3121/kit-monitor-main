@@ -37,6 +37,7 @@ const DESTS: Dest[] = [
   { label: 'Ruteo de Manufactura', sub: 'Operaciones · tiempos · centro de trabajo', href: '/dashboard/routing', keywords: 'ruteo routing ruta proceso operaciones secuencia centro de trabajo work center tiempo estandar setup run backflush consumo manufactura rt', icon: Workflow },
   { label: 'Importar Datos', sub: 'Migración SAP · CSV/Excel/staging', href: '/dashboard/import', keywords: 'importar import migracion sap csv excel xlsx staging idoc api mapeo columnas material bom ruteo carga masiva subir archivo', icon: Upload },
   { label: 'Backflush por ruteo', sub: 'Consumo por operación', href: '/dashboard/backflush', keywords: 'backflush consumo operacion ruteo routing inventario descontar material rt_operation_material produccion unidades', icon: PackageMinus },
+  { label: 'MRP · Requerimiento neto', sub: 'Demanda vs existencias', href: '/dashboard/mrp', keywords: 'mrp requerimiento neto netting demanda existencias escasez faltante explosion bom sugerencia orden compra fabricacion planeacion material', icon: Calculator },
   { label: 'Ingeniería', sub: 'BOM y proceso', href: '/dashboard/engineering', keywords: 'ingenieria engineering bom ruta proceso npi', icon: Cpu },
   { label: 'Finanzas', sub: 'Costos y P&L', href: '/dashboard/finance', keywords: 'finanzas finance costos dinero movimientos', icon: DollarSign },
   { label: 'Costeo por orden', sub: 'Cost rollup', href: '/dashboard/finance/cost-rollup', keywords: 'costo costeo rollup wo mano de obra material', icon: Calculator },

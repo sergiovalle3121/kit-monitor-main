@@ -48,6 +48,7 @@ const AREAS: { name: string; desc: string; href: string; icon: LucideIcon; domai
   // ── Planeación ──
   { name: "Planeación", desc: "Publicar planes", href: "/dashboard/planning", icon: LineChart, domain: "planning", roles: ["planner"], section: "Planeación" },
   { name: "Muro del plan", desc: "Publicar WOs en vivo", href: "/dashboard/production-plan", icon: Megaphone, domain: "plan", roles: ["planner", "production_supervisor", "operator", "materialist"], section: "Planeación" },
+  { name: "MRP · Requerimiento neto", desc: "Demanda vs existencias → órdenes", href: "/dashboard/mrp", icon: Icons.Calculator, domain: "planning", roles: ["planner", "buyer", "production_supervisor", "materialist"], section: "Planeación" },
 
   // ── Materiales ──
   { name: "Inventario", desc: "Existencias y kitting", href: "/dashboard/inventory", icon: Boxes, domain: "inventory", roles: ["warehouse_operator", "materialist", "cycle_count_analyst", "planner"], section: "Materiales" },
