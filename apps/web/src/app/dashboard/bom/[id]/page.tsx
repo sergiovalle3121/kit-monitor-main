@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import {
   ChevronLeft, ChevronRight, ChevronDown, Loader2, Lock, Plus, Trash2, Check, X,
-  Network, ListTree, Layers, Factory, AlertTriangle, Pencil, Save,
+  Network, ListTree, Layers, Factory, AlertTriangle, Pencil, Save, DollarSign,
 } from 'lucide-react';
 import { IconTile } from '@/components/ui/IconTile';
 import { glass } from '@/lib/glass';
@@ -66,7 +66,7 @@ export default function BomEditorPage() {
   const { data: materials } = useApi<Material[]>('/material-master');
   const { data: allNodes } = useApi<BomNodeLite[]>('/bom-tree');
 
-  const [tab, setTab] = useState<'struct' | 'explode'>('struct');
+  const [tab, setTab] = useState<'struct' | 'explode' | 'cost'>('struct');
   const [busy, setBusy] = useState<string | null>(null);
 
   const nodeByMaterial = useMemo(() => {
@@ -128,13 +128,14 @@ export default function BomEditorPage() {
         <div className="flex gap-1 mb-6 border-b border-gray-100 dark:border-white/10">
           <TabBtn active={tab === 'struct'} onClick={() => setTab('struct')} icon={ListTree} label={`Estructura (${node.lines.length})`} />
           <TabBtn active={tab === 'explode'} onClick={() => setTab('explode')} icon={Layers} label="Explosión" />
+          <TabBtn active={tab === 'cost'} onClick={() => setTab('cost')} icon={DollarSign} label="Costo" />
         </div>
 
-        {tab === 'struct' ? (
+        {tab === 'struct' && (
           <StructureTab node={node} materials={Array.isArray(materials) ? materials : []} nodeByMaterial={nodeByMaterial} onChange={mutate} />
-        ) : (
-          <ExplodeTab nodeId={id} baseQty={node.baseQuantity} />
         )}
+        {tab === 'explode' && <ExplodeTab nodeId={id} baseQty={node.baseQuantity} />}
+        {tab === 'cost' && <CostTab nodeId={id} baseQty={node.baseQuantity} onApplied={mutate} />}
       </main>
     </div>
   );
@@ -395,6 +396,135 @@ function TreeRow({ node, path, expanded, toggle }: { node: ExplodedNode; path: s
       {hasChildren && isOpen && node.children.map((c, i) => (
         <TreeRow key={`${path}-${i}`} node={c} path={`${path}-${i}`} expanded={expanded} toggle={toggle} />
       ))}
+    </div>
+  );
+}
+
+// ── Cost tab (standard cost roll-up) ──────────────────────────────────────────
+interface CostResult {
+  materialCost: number; laborCost: number; laborMinutes: number; overheadCost: number;
+  totalCost: number; unitCost: number; qty: number; laborRatePerHour: number; overheadPct: number;
+  hasRouting: boolean;
+  breakdown: { category: 'MATERIAL' | 'LABOR' | 'OVERHEAD'; amount: number; percentage: number }[];
+  laborDetail: { materialId: string; partNumber: string; qty: number; minutes: number }[];
+  flat: { partNumber: string; description: string; totalQty: number; uom: string; extendedCost: number }[];
+}
+
+const CAT_META: Record<'MATERIAL' | 'LABOR' | 'OVERHEAD', { label: string; color: string }> = {
+  MATERIAL: { label: 'Material', color: '#0a84ff' },
+  LABOR: { label: 'Mano de obra', color: '#7c5cff' },
+  OVERHEAD: { label: 'Overhead', color: '#f59e0b' },
+};
+
+function CostTab({ nodeId, baseQty, onApplied }: { nodeId: string; baseQty: number; onApplied: () => void }) {
+  const toast = useToast();
+  const [qty, setQty] = useState(String(baseQty || 1));
+  const [rate, setRate] = useState('30');
+  const [oh, setOh] = useState('15');
+  const [params, setParams] = useState({ qty: baseQty || 1, rate: 30, oh: 15 });
+  const [busy, setBusy] = useState(false);
+  const { data, isLoading } = useApi<CostResult>(
+    `/product-costing/${nodeId}/rollup?qty=${params.qty}&laborRatePerHour=${params.rate}&overheadPct=${params.oh}`,
+  );
+
+  function recalc() {
+    setParams({ qty: Number(qty) || 1, rate: Number(rate) || 0, oh: Number(oh) || 0 });
+  }
+
+  async function apply() {
+    setBusy(true);
+    try {
+      const res = await apiFetch(`${API_BASE}/product-costing/${nodeId}/apply`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ qty: params.qty, laborRatePerHour: params.rate, overheadPct: params.oh }),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) { toast.error(d?.message || 'No se pudo guardar.', 'Costo'); return; }
+      toast.success(`Costo estándar ${money(data?.unitCost ?? 0)}/u guardado en el material.`, 'Costo');
+      onApplied();
+    } catch { toast.error('Error de red.', 'Costo'); } finally { setBusy(false); }
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className={`${glass} rounded-2xl p-4`}>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 items-end">
+          <label className="block"><span className="block text-[11px] font-medium text-gray-500 mb-1">Construir (unidades)</span><input className={field} type="number" step="any" value={qty} onChange={(e) => setQty(e.target.value)} /></label>
+          <label className="block"><span className="block text-[11px] font-medium text-gray-500 mb-1">Tarifa labor ($/h)</span><input className={field} type="number" step="any" value={rate} onChange={(e) => setRate(e.target.value)} /></label>
+          <label className="block"><span className="block text-[11px] font-medium text-gray-500 mb-1">Overhead (% directo)</span><input className={field} type="number" step="any" value={oh} onChange={(e) => setOh(e.target.value)} /></label>
+          <button onClick={recalc} className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold border border-gray-200 dark:border-white/10 hover:bg-black/5 dark:hover:bg-white/10">Calcular</button>
+        </div>
+      </div>
+
+      {isLoading || !data ? (
+        <div className="flex justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <CostKpi label="Material" value={money(data.materialCost)} color={CAT_META.MATERIAL.color} />
+            <CostKpi label="Mano de obra" value={money(data.laborCost)} color={CAT_META.LABOR.color} />
+            <CostKpi label="Overhead" value={money(data.overheadCost)} color={CAT_META.OVERHEAD.color} />
+            <CostKpi label={`Total (${data.qty} u)`} value={money(data.totalCost)} color="#10b981" />
+          </div>
+
+          <div className={`${glass} rounded-2xl p-4`}>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-semibold">Costo unitario</span>
+              <span className="text-xl font-bold text-emerald-500 tabular-nums">{money(data.unitCost)}</span>
+            </div>
+            {/* Stacked bar */}
+            <div className="flex h-3 rounded-full overflow-hidden mb-2">
+              {data.breakdown.map((b) => (
+                <div key={b.category} style={{ width: `${b.percentage}%`, background: CAT_META[b.category].color }} title={`${CAT_META[b.category].label} ${b.percentage}%`} />
+              ))}
+            </div>
+            <div className="flex gap-4 text-[11px] text-gray-400">
+              {data.breakdown.map((b) => (
+                <span key={b.category} className="inline-flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full" style={{ background: CAT_META[b.category].color }} /> {CAT_META[b.category].label} {b.percentage}%
+                </span>
+              ))}
+            </div>
+          </div>
+
+          {!data.hasRouting && (
+            <div className={`${glass} rounded-xl p-3 flex items-center gap-2 text-sm text-amber-600 dark:text-amber-400`}>
+              <AlertTriangle className="w-4 h-4 shrink-0" /> Sin ruteo: la mano de obra es 0. Crea un{' '}
+              <Link href="/dashboard/routing" className="underline font-medium">ruteo</Link> para este ensamble.
+            </div>
+          )}
+
+          {data.laborDetail.length > 0 && (
+            <div className={`${glass} rounded-2xl overflow-hidden`}>
+              <div className="px-4 py-2 text-[11px] uppercase tracking-wide text-gray-400 border-b border-gray-100 dark:border-white/10">Mano de obra por ensamble (ruteo)</div>
+              <div className="divide-y divide-gray-100 dark:divide-white/10">
+                {data.laborDetail.map((l) => (
+                  <div key={l.materialId} className="flex items-center gap-3 px-4 py-2 text-sm">
+                    <span className="font-mono text-xs text-gray-500 shrink-0">{l.partNumber}</span>
+                    <span className="text-gray-400 text-xs ml-auto">{l.qty} u</span>
+                    <span className="tabular-nums w-24 text-right">{l.minutes.toLocaleString()} min</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="flex justify-end">
+            <button onClick={apply} disabled={busy} className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white dark:text-black bg-black dark:bg-white disabled:opacity-60">
+              {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Guardar como costo estándar
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function CostKpi({ label, value, color }: { label: string; value: string; color: string }) {
+  return (
+    <div className={`${glass} rounded-2xl p-4`}>
+      <div className="text-[11px] uppercase tracking-wide text-gray-400">{label}</div>
+      <div className="text-lg font-semibold mt-1 tabular-nums" style={{ color }}>{value}</div>
     </div>
   );
 }
