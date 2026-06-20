@@ -260,5 +260,38 @@ fase (API build · npm test · smoke PG · web tsc · eslint · next build).
 **Ganchos para el corte supervisado (REQUIERE SUPERVISIÓN — no autónomo):**
 - Mapear/migrar `material_master` legacy → `mm_material` y BOM plano → `bom_*`.
 - Conector real IDoc/API (interfaz lista).
-- Cablear costo estándar del rollup de BOM al `cost-rollup` por WO.
 - Backflush real consumiendo `rt_operation_material` en el terminal de operador.
+
+> **PR #332 mergeado a `main`** (squash · `b33eecb`, CI verde). El núcleo está en prod.
+
+---
+
+## POST-NÚCLEO #1 — COSTEO DE PRODUCTO (costo estándar) — ✅ EN VERDE
+
+**Módulo nuevo:** `apps/api/src/modules/product-costing` (endpoints `/product-costing`).
+**Sin tablas nuevas** — calcula on-demand reusando los servicios del núcleo. Es el
+**costo ESTÁNDAR** (lo que *debería* costar desde datos maestros), complementario al
+`cost-rollup` legacy (costos REALES por WO con `cost_items`).
+
+- **Material** = `totalCost` de la explosión de BOM (FASE 2, ya costea con
+  `mm_material.standardCost`, recursivo).
+- **Mano de obra** = tiempos del ruteo (FASE 3) × tarifa $/h. Recursivo: ruteo del
+  ensamble raíz (por qty) + ruteo de cada sub-ensamble del árbol (por su qty
+  acumulada). Nuevo `RoutingService.operationsForMaterials()` (lectura en bloque,
+  ruteo efectivo ACTIVE-preferido).
+- **Overhead** = % del costo directo (material + labor).
+- Lógica pura `costing.ts` + spec (4 tests). `rollup(bomNodeId, qty, {tarifa, oh%})`
+  → desglose + costo unitario; `applyStandardCost()` escribe el unitario en el
+  `standardCost` del material (cierra el loop) + evento al ledger.
+
+**Frontend:** pestaña **Costo** en el editor de BOM (`/dashboard/bom/[id]`): inputs
+qty/tarifa/overhead, KPIs material/labor/overhead/total, **costo unitario** con barra
+apilada %, mano de obra por ensamble, y botón **"Guardar como costo estándar"**.
+
+**Puertas (verdes):** API build · `npm test` (91 suites / **611 tests**, +4) · smoke
+PG · web tsc · eslint · `next build`.
+
+**Usable:** abrir un BOM → pestaña Costo → ver material+labor+overhead y costo unitario
+del producto, ajustar tarifa/overhead, y fijarlo como costo estándar del material.
+
+### Siguiente sugerido: **#2 backflush real** (rt_operation_material → terminal/inventario).

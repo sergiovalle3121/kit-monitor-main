@@ -177,6 +177,71 @@ export class RoutingService {
     return out;
   }
 
+  /**
+   * Effective operations per material (ACTIVE-preferred routing, else latest).
+   * Read-only bulk helper for costing / planning. Materials without a routing are
+   * simply absent from the map.
+   */
+  async operationsForMaterials(
+    materialIds: string[],
+  ): Promise<Map<string, RtOperation[]>> {
+    const out = new Map<string, RtOperation[]>();
+    const wanted = new Set(materialIds.filter(Boolean));
+    if (!wanted.size) return out;
+
+    const rQb = this.routings.createQueryBuilder('r');
+    this.applyScope(rQb, 'r');
+    const allRoutings = await rQb.getMany();
+
+    const effective = new Map<string, RtRouting>();
+    for (const r of allRoutings) {
+      if (!wanted.has(r.materialId)) continue;
+      const cur = effective.get(r.materialId);
+      if (!cur) {
+        effective.set(r.materialId, r);
+      } else if (r.status === 'ACTIVE' && cur.status !== 'ACTIVE') {
+        effective.set(r.materialId, r);
+      } else if (
+        r.status === cur.status &&
+        (r.updated_at?.getTime?.() ?? 0) > (cur.updated_at?.getTime?.() ?? 0)
+      ) {
+        effective.set(r.materialId, r);
+      }
+    }
+    if (!effective.size) return out;
+
+    const routingByMaterial = new Map(
+      Array.from(effective.entries()).map(([m, r]) => [r.id, m]),
+    );
+    const opsByRouting = await this.materialsByRoutingOps(
+      Array.from(routingByMaterial.keys()),
+    );
+    for (const [routingId, ops] of opsByRouting) {
+      const materialId = routingByMaterial.get(routingId);
+      if (materialId) out.set(materialId, ops);
+    }
+    return out;
+  }
+
+  private async materialsByRoutingOps(
+    routingIds: string[],
+  ): Promise<Map<string, RtOperation[]>> {
+    const out = new Map<string, RtOperation[]>();
+    if (!routingIds.length) return out;
+    const qb = this.ops
+      .createQueryBuilder('o')
+      .where('o.routingId IN (:...ids)', { ids: routingIds })
+      .orderBy('o.sequence', 'ASC');
+    this.applyScope(qb, 'o');
+    const rows = await qb.getMany();
+    for (const o of rows) {
+      const arr = out.get(o.routingId) ?? [];
+      arr.push(o);
+      out.set(o.routingId, arr);
+    }
+    return out;
+  }
+
   /** Standard-time roll-up for a lot of `qty`. */
   async totals(id: string, qty: number): Promise<RoutingTotals> {
     await this.requireRouting(id);
