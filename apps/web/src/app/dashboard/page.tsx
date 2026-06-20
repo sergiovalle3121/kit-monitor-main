@@ -60,6 +60,11 @@ const AREAS: { name: string; desc: string; href: string; icon: LucideIcon; domai
   { name: "Calidad de piso · MRB", desc: "Holds y disposición", href: "/dashboard/floor-quality", icon: Icons.ShieldX, domain: "quality", roles: ["quality_engineer", "mrb_member", "production_supervisor"], section: "Calidad" },
   { name: "Pruebas / Lab", desc: "Inspección y validación", href: "/dashboard/lab", icon: Icons.FlaskConical, domain: "quality", roles: ["quality_engineer", "engineering"], section: "Calidad" },
 
+  // ── Logística ── (suite de embarques: surtido → empaque → tráfico → despacho)
+  { name: "Embarques", desc: "Surtido, manifiesto y despacho", href: "/dashboard/shipping", icon: Icons.Truck, domain: "logistics", roles: ["warehouse_operator", "materialist", "production_supervisor", "planner"], section: "Logística" },
+  { name: "Empaque", desc: "Tarimas, SSCC y etiqueta GS1", href: "/dashboard/packing", icon: Icons.Package, domain: "logistics", roles: ["warehouse_operator", "materialist"], section: "Logística" },
+  { name: "Tráfico", desc: "Transportistas, unidades y andenes", href: "/dashboard/traffic", icon: Icons.Route, domain: "logistics", roles: ["warehouse_operator", "planner", "production_supervisor"], section: "Logística" },
+
   // ── Finanzas · ERP ──
   { name: "Finanzas", desc: "Costos y P&L", href: "/dashboard/finance", icon: DollarSign, domain: "finance", roles: ["finance"], section: "Finanzas · ERP" },
   { name: "Costos y métricas", desc: "Dinero y eficiencia", href: "/dashboard/metrics", icon: Icons.Activity, domain: "finance", roles: ["finance", "planner", "production_supervisor"], section: "Finanzas · ERP" },
@@ -77,7 +82,7 @@ const AREAS: { name: string; desc: string; href: string; icon: LucideIcon; domai
 // Order the flow sections render in.
 const SECTION_ORDER = [
   "Diseño · NPI", "Planeación", "Materiales", "Producción",
-  "Calidad", "Finanzas · ERP", "Control e inteligencia", "Administración",
+  "Calidad", "Logística", "Finanzas · ERP", "Control e inteligencia", "Administración",
 ];
 
 function DashboardInner() {
