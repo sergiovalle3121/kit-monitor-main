@@ -1,7 +1,7 @@
 'use client';
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { Workbook } from '@fortune-sheet/react';
 import '@fortune-sheet/react/dist/index.css';
@@ -18,6 +18,7 @@ import { SheetPrintDialog } from './SheetPrintDialog';
 import { SheetTableStyle, type TableStylePayload } from './SheetTableStyle';
 import { parseRange, type ChartConfig } from '@/lib/office/charts';
 import { applyConditional, sortRangeMulti, removeDuplicates, textToColumns, setCellNote, replaceAll, buildPivot, pivotToCelldata, applyNumberFormat, applyCellStyle, applySubtotals, applySparkline, applyFill, transposeRange, copyRange, buildFilter, buildPrintHtml, usedRange, colName, applyDataVerification, clearDataVerification, markInvalidCells, applyTableStyle, type CondPayload, type PivotConfig, type FindOpts, type NamedRange, type PrintOpts } from '@/lib/office/sheetOps';
+import { normalizeCellInput } from './sheets/sheetFormula';
 import { OfficeRibbon, RibbonTab, RibbonGroup, RibbonSeparator, RibbonButton, RibbonMenuButton } from './ribbon';
 
 // Content is either the legacy bare sheet array or the new { sheets, charts } shape.
@@ -79,6 +80,24 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
   const emit = useCallback(() => {
     onChangeRef.current({ sheets: sheetsRef.current, charts: chartsRef.current, names: namesRef.current, pivots: pivotsRef.current });
   }, []);
+
+  // Entrada de celda estilo Excel para lo que se TECLEA directamente en la rejilla.
+  // Fortune-Sheet sólo evalúa lo que empieza por «=»; aquí puenteamos el atajo Lotus
+  // «+…»/«-…» (p. ej. +1+1, -A1*2): si la normalización cambia el texto, cancelamos
+  // la escritura cruda y reaplicamos la fórmula normalizada con la API (fuera de este
+  // ciclo de actualización para no anidar setContext), de modo que el motor calcule
+  // f + v y recalcule dependientes. Objeto estable (definido una vez).
+  const wbHooks = useMemo(() => ({
+    beforeUpdateCell: (r: number, c: number, value: any): boolean => {
+      if (typeof value !== 'string' || value.indexOf('\n') >= 0) return true;
+      const norm = normalizeCellInput(value);
+      if (norm === value) return true; // nada que reescribir → flujo normal
+      const wb = wbRef.current;
+      if (!wb?.setCellValue) return true;
+      window.setTimeout(() => { try { wb.setCellValue(r, c, norm); } catch { /* noop */ } }, 0);
+      return false; // cancela la escritura del texto crudo
+    },
+  }), []);
 
   const addName = useCallback((nr: NamedRange) => { namesRef.current = [...namesRef.current, nr]; setNames(namesRef.current); emit(); }, [emit]);
   const removeName = useCallback((nm: string) => { namesRef.current = namesRef.current.filter((n) => n.name !== nm); setNames(namesRef.current); emit(); }, [emit]);
@@ -184,7 +203,10 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
       const first = Array.isArray(sel) ? sel[0] : sel;
       const r = first?.row?.[0] ?? 0;
       const c = first?.column?.[0] ?? 0;
-      if (wb?.setCellValue) { wb.setCellValue(r, c, text); return true; }
+      // Normaliza al estilo Excel: «=…» y los atajos «+…»/«-…» pasan por el motor
+      // de Fortune-Sheet (que calcula y guarda f + v y recalcula dependientes);
+      // el texto normal queda como texto.
+      if (wb?.setCellValue) { wb.setCellValue(r, c, normalizeCellInput(text)); return true; }
     } catch { /* fallback */ }
     return false;
   }
@@ -402,7 +424,7 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
       </OfficeRibbon>
 
       <div className="flex-1 min-h-0 bg-white relative">
-        <Workbook ref={wbRef} key={wbKey} data={liveData as any} lang="es" allowEdit={!readOnly} onChange={handleSheet} />
+        <Workbook ref={wbRef} key={wbKey} data={liveData as any} lang="es" allowEdit={!readOnly} onChange={handleSheet} hooks={wbHooks} />
         {showFind && <SheetFindReplace sheets={sheetsRef.current} sheetNames={sheetNames()} activeSheetIndex={activeIndex()} onReplaceAll={doReplaceAll} onClose={() => setShowFind(false)} />}
       </div>
 
