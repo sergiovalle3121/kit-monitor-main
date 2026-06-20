@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { apiFetch } from "@/lib/apiFetch";
 import { useToast } from "@/contexts/ToastContext";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { Field, Modal } from "./traffic.ui";
 import {
   ACCENT,
@@ -494,9 +495,10 @@ export function DeleteButton({
   onDeleted: () => void;
 }) {
   const toast = useToast();
+  const confirm = useConfirm();
   const [busy, setBusy] = useState(false);
   async function run() {
-    if (!window.confirm(`¿Eliminar ${label}?`)) return;
+    if (!(await confirm({ message: `¿Eliminar ${label}?`, tone: 'danger', confirmLabel: 'Eliminar' }))) return;
     setBusy(true);
     try {
       const res = await call(`/traffic/${kind}/${id}`, "DELETE");

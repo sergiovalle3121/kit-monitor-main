@@ -52,6 +52,8 @@ import {
   OfficeRibbon, RibbonTab, RibbonGroup, RibbonSeparator,
   RibbonButton, RibbonSelect, RibbonColorButton, RibbonMenuButton,
 } from './ribbon';
+import { useToast } from '@/contexts/ToastContext';
+import { useConfirm } from '@/components/ui/ConfirmDialog';
 
 const CW = 960;
 
@@ -117,6 +119,8 @@ function remapThemeObject(o: any, from: SlideTheme, to: SlideTheme): void {
 }
 
 export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value: any; onChange: (data: any) => void; readOnly?: boolean; fileActions?: React.ReactNode }) {
+  const toast = useToast();
+  const confirm = useConfirm();
   const elRef = useRef<HTMLCanvasElement>(null);
   const fabricRef = useRef<Canvas | null>(null);
   const loadingRef = useRef(false);
@@ -296,11 +300,11 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
     await loadInto(curRef.current);
     sync();
   }
-  function applyLayout(id: string) {
+  async function applyLayout(id: string) {
     if (masterModeRef.current) return;
     const c = fabricRef.current; if (!c) return;
     const layout = SLIDE_LAYOUTS.find((l) => l.id === id); if (!layout) return;
-    if (c.getObjects().length && !window.confirm('Aplicar este diseño reemplazará el contenido de la diapositiva actual. ¿Continuar?')) return;
+    if (c.getObjects().length && !(await confirm({ message: 'Aplicar este diseño reemplazará el contenido de la diapositiva actual. ¿Continuar?', confirmLabel: 'Reemplazar' }))) return;
     const t = theme();
     loadingRef.current = true;
     c.getObjects().slice().forEach((o) => c.remove(o));
@@ -517,7 +521,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
   }
   function startEyedropper() {
     const c = fabricRef.current; const o = c?.getActiveObject();
-    if (!c || !o) { window.alert('Selecciona primero la forma o el texto a colorear.'); return; }
+    if (!c || !o) { toast.info('Selecciona primero la forma o el texto a colorear.'); return; }
     eyedropperTargetRef.current = o; eyedropperRef.current = true; setEyedropper(true);
     c.defaultCursor = 'crosshair';
   }
@@ -800,7 +804,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
         const d = ctx2.getImageData(bx, by, 1, 1).data;
         const hexv = `#${[d[0], d[1], d[2]].map((n) => n.toString(16).padStart(2, '0')).join('')}`;
         if (target) { target.set(target.type === 'line' ? 'stroke' : 'fill', hexv); canvas.requestRenderAll(); capture(); sync(); }
-      } catch { window.alert('No se pudo muestrear el color (imagen externa sin CORS).'); }
+      } catch { toast.error('No se pudo muestrear el color (imagen externa sin CORS).'); }
     });
     const clearGuides = () => { if (guides.v.length || guides.h.length) { guides = { v: [], h: [] }; canvas.requestRenderAll(); } };
     canvas.on('mouse:up', clearGuides);
@@ -1041,7 +1045,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
     const t = v.trim();
     if (!t) o.set('link', null);
     else if (/^https?:\/\//i.test(t)) o.set('link', { type: 'url', href: t });
-    else { const n = parseInt(t, 10); if (!Number.isNaN(n) && n > 0) o.set('link', { type: 'slide', index: n - 1 }); else { window.alert('Indica un número de diapositiva o una URL http(s).'); return; } }
+    else { const n = parseInt(t, 10); if (!Number.isNaN(n) && n > 0) o.set('link', { type: 'slide', index: n - 1 }); else { toast.error('Indica un número de diapositiva o una URL http(s).'); return; } }
     c.requestRenderAll(); capture(); sync();
   }
   function flip(axis: 'x' | 'y') {
@@ -1322,7 +1326,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
     else {
       const v = window.prompt('Ir a la diapositiva número:', '1');
       if (v === null) return; const n = parseInt(v, 10);
-      if (Number.isNaN(n) || n < 1) { window.alert('Indica un número de diapositiva válido.'); return; }
+      if (Number.isNaN(n) || n < 1) { toast.error('Indica un número de diapositiva válido.'); return; }
       link = { type: 'slide', index: n - 1 }; label = `Ir a ${n}`;
     }
     const t = theme();

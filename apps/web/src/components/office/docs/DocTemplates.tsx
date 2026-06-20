@@ -8,6 +8,7 @@ import {
   Wrench, ShieldCheck, ListChecks, FileSignature, Repeat, Table2,
 } from 'lucide-react';
 import { RibbonMenuButton } from '../ribbon';
+import { useConfirm } from '@/components/ui/ConfirmDialog';
 import { TEMPLATES, TEMPLATE_CATEGORIES, type TemplateDef } from '@/lib/office/templates';
 
 // Icono por plantilla (cae a uno por defecto). Las definiciones viven en
@@ -22,8 +23,9 @@ const EMPTY_DOC = { type: 'doc', content: [{ type: 'paragraph' }] };
 
 /** Galería de plantillas de documento (menú del ribbon). Reemplaza el contenido. */
 export function DocTemplates({ editor, notifyChange }: { editor: Editor; notifyChange: () => void }) {
-  const apply = (t: TemplateDef) => {
-    if (!window.confirm('Esto reemplazará el contenido actual del documento. ¿Continuar?')) return;
+  const confirm = useConfirm();
+  const apply = async (t: TemplateDef) => {
+    if (!(await confirm({ message: 'Esto reemplazará el contenido actual del documento. ¿Continuar?', confirmLabel: 'Reemplazar' }))) return;
     const doc = (t.build() as any) || EMPTY_DOC;
     (editor.chain() as any).setContent(doc, { emitUpdate: true }).focus().run();
     notifyChange();

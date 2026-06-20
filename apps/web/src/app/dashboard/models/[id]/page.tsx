@@ -12,6 +12,7 @@ import { glass } from '@/lib/glass';
 import { useApi } from '@/hooks/useApi';
 import { apiFetch } from '@/lib/apiFetch';
 import { useToast } from '@/contexts/ToastContext';
+import { useConfirm } from '@/components/ui/ConfirmDialog';
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000').replace(/\/$/, '');
 
@@ -506,6 +507,7 @@ function ComponentRow({
   const [editing, setEditing] = useState(false);
   const [qty, setQty] = useState(String(c.quantity));
   const [busy, setBusy] = useState(false);
+  const confirm = useConfirm();
 
   async function saveQty() {
     const q = Number(qty);
@@ -526,7 +528,7 @@ function ComponentRow({
   }
 
   async function remove() {
-    if (!window.confirm(`¿Quitar ${c.componentNumber} del BOM?`)) return;
+    if (!(await confirm({ message: `¿Quitar ${c.componentNumber} del BOM?`, tone: 'danger', confirmLabel: 'Quitar' }))) return;
     setBusy(true);
     try {
       const res = await apiFetch(`${API_BASE}/bom/headers/${bomId}/components/${c.id}`, { method: 'DELETE' });
