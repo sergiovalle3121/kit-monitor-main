@@ -189,4 +189,76 @@ ordenadas con centro de trabajo y tiempos, y qué materiales se consumen en cada
 
 ---
 
-## FASE 4 — IMPORTADORES — pendiente
+## FASE 4 — IMPORTADORES (migración SAP) — ✅ EN VERDE
+
+**Módulo nuevo:** `apps/api/src/modules/import-data` (endpoints `/import-data`).
+**Sin tablas nuevas:** escribe a través de los servicios mm_/bom_/rt_ (no duplica
+persistencia). Audita cada commit en el Event Ledger (IMPORT_COMMITTED).
+
+**Pipeline genérico (mismo flujo para los 3 formatos):** parsear → mapear → validar
+→ previsualizar → confirmar.
+- **CSV/Excel (subida de archivo):** el frontend parsea con `xlsx` (lee .csv/.xlsx/
+  .xls) → manda filas JSON + headers al API.
+- **SQL/staging:** filas JSON directas (una integración SQL POSTea el extract de la
+  tabla de staging). Mismo camino que CSV.
+- **IDoc/API:** **esqueleto listo** — `ExternalFeedAdapter` (token DI) +
+  `NotConfiguredFeedAdapter` que reporta claro "no configurado (follow-up)". Cuando
+  se cablee un conector real (SAP IDoc MATMAS/BOMMAT/ROUTING u OData/REST), sus filas
+  pasan por el MISMO pipeline.
+
+**Lógica pura testeable (`import-logic.ts` + spec, 7 tests):** specs de campos por
+destino (MATERIAL/BOM/ROUTING) con aliases (auto-mapeo robusto a acentos/espacios/
+guiones — reconoce nombres tipo SAP: MATNR, IDNRK, MENGE, POSNR, VORNR…), validación
++ coerción por fila (numérico/enum/booleano), y reporte de errores por fila.
+
+**Destinos (respetando posición/categoría):**
+- MATERIAL → upsert por partNumber (crea/actualiza mm_material).
+- BOM → padre+componente+cantidad+posición+categoría+scrap+refDes; get-or-create del
+  `bom_node` por (material, revisión) + agrega `bom_line` (dedup por posición+material).
+- ROUTING → ensamble+secuencia+operación+centro+tiempos; get-or-create `rt_routing` +
+  agrega `rt_operation` (dedup por secuencia).
+- Opción `createMissingMaterials`: crea stubs DRAFT para partes faltantes en BOM/
+  Routing; si está apagado, las partes faltantes se reportan como error de fila.
+- **No importa basura en silencio:** filas inválidas se reportan y NO se persisten;
+  las válidas sí. Reporte: creados/actualizados/omitidos/errores por fila.
+
+**Backend:** `import-data.service` orquesta reusando MaterialMasterService,
+BomTreeService (+ `findOrCreateNode` nuevo), RoutingService (+ `findOrCreateRouting`
+nuevo). `GET /fields/:target`, `POST /suggest`, `POST /preview`, `POST /commit`.
+
+**Frontend:** `/dashboard/import` — asistente de 4 pasos: **Origen** (elige destino +
+formato; subir archivo CSV/Excel, pegar staging, o nota IDoc/API) → **Mapear**
+(auto-sugerido, marca obligatorios) → **Previsualizar** (KPIs válidas/error + tabla
+con estado por fila + toggle crear-faltantes) → **Confirmar** (reporte creados/
+actualizados/omitidos + errores por fila). Descubrible: tile en hub + SearchPalette.
+
+**Puertas FASE 4 (todas verdes):**
+- API `npm run build` ✅ · `npm test` ✅ (87 suites / 581 tests, +7 nuevos) ·
+  smoke bootstrap **Postgres** ✅
+- web `tsc` ✅ · `eslint` ✅ (0) · `next build` ✅
+
+**Usable por un ingeniero real:** subir un export de SAP (CSV/Excel) de materiales,
+BOM o ruteo, mapear columnas, ver qué entra y qué falla, y confirmar la carga.
+
+---
+
+## CIERRE — NÚCLEO ERP DE MANUFACTURA (4 fases en verde)
+
+Las 4 fases quedan **operables de punta a punta** por un ingeniero real y **100%
+aditivas** (lo viejo sigue vivo en paralelo; el corte lo hace Sergio):
+1. **Maestro de Materiales** (mm_) — fuente única de partes + AVL + alternantes.
+2. **BOM Multinivel** (bom_) — estructuras N niveles + explosión + where-used.
+3. **Ruteo** (rt_) — operaciones, tiempos, centro de trabajo + puente BOM↔ruteo.
+4. **Importadores** — migración (CSV/Excel/staging + esqueleto IDoc/API) con
+   validación y reporte por fila.
+
+Total nuevo: 4 módulos API + 11 tablas prefijadas (mm_3, bom_2, rt_3 + 0 de import) +
+6 páginas web + 4 tiles en hub + 4 entradas en SearchPalette. **27 tests nuevos**
+(state machines + explosión + tiempos + validación de import). Puertas verdes en cada
+fase (API build · npm test · smoke PG · web tsc · eslint · next build).
+
+**Ganchos para el corte supervisado (REQUIERE SUPERVISIÓN — no autónomo):**
+- Mapear/migrar `material_master` legacy → `mm_material` y BOM plano → `bom_*`.
+- Conector real IDoc/API (interfaz lista).
+- Cablear costo estándar del rollup de BOM al `cost-rollup` por WO.
+- Backflush real consumiendo `rt_operation_material` en el terminal de operador.

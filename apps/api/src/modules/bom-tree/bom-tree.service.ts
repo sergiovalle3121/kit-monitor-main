@@ -179,6 +179,19 @@ export class BomTreeService {
     return qb.getOne();
   }
 
+  /** Get the BOM node for a material+revision, creating it if absent (importers). */
+  async findOrCreateNode(materialId: string, revision = '1.0'): Promise<BomNode> {
+    const rev = revision?.trim() || '1.0';
+    const qb = this.nodes
+      .createQueryBuilder('n')
+      .where('n.materialId = :m', { m: materialId })
+      .andWhere('n.revision = :r', { r: rev });
+    this.applyScope(qb, 'n');
+    const existing = await qb.getOne();
+    if (existing) return existing;
+    return this.createNode({ materialId, revision: rev });
+  }
+
   async createNode(dto: CreateBomNodeDto): Promise<BomNode> {
     const material = await this.materials.getOne(dto.materialId); // scope + exists
     const revision = dto.revision?.trim() || '1.0';

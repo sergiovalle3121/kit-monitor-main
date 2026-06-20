@@ -188,6 +188,19 @@ export class RoutingService {
     return rollupRoutingTime(operations, qty);
   }
 
+  /** Get the routing for a material+revision, creating it if absent (importers). */
+  async findOrCreateRouting(materialId: string, revision = '1.0'): Promise<RtRouting> {
+    const rev = revision?.trim() || '1.0';
+    const qb = this.routings
+      .createQueryBuilder('r')
+      .where('r.materialId = :m', { m: materialId })
+      .andWhere('r.revision = :rev', { rev });
+    this.applyScope(qb, 'r');
+    const existing = await qb.getOne();
+    if (existing) return existing;
+    return this.createRouting({ materialId, revision: rev });
+  }
+
   async createRouting(dto: CreateRoutingDto): Promise<RtRouting> {
     const material = await this.materials.getOne(dto.materialId);
     const revision = dto.revision?.trim() || '1.0';
