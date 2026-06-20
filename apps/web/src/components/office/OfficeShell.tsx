@@ -98,7 +98,10 @@ export function OfficeShell({
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="fixed inset-0 z-50 flex flex-col bg-white dark:bg-[#0b0b0b] text-black dark:text-white font-sans"
+      // z por encima de los botones flotantes globales (chat z-100, IA z-101) para que
+      // el editor a pantalla completa no quede tapado por ellos; sigue por debajo de
+      // toasts (z-120) y la paleta de búsqueda (z-200), que sí deben verse encima.
+      className="fixed inset-0 z-[110] flex flex-col bg-white dark:bg-[#0b0b0b] text-black dark:text-white font-sans"
     >
       {/* ── Top app bar ───────────────────────────────────────────────── */}
       <header className="flex items-center gap-2 px-3 h-12 flex-shrink-0 border-b border-black/5 dark:border-white/10 bg-white/80 dark:bg-[#111]/80 backdrop-blur">
