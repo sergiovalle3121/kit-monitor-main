@@ -47,6 +47,7 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
   const [wbKey, setWbKey] = useState(0);
   const sheetsRef = useRef<any[]>(initSheets);
   const wbRef = useRef<any>(null);
+  const gridRef = useRef<HTMLDivElement>(null); // contenedor de la rejilla (foco/atajos)
   const chartsRef = useRef<ChartConfig[]>(chartsOf(value));
   const [charts, setCharts] = useState<ChartConfig[]>(chartsRef.current);
   const namesRef = useRef<NamedRange[]>(namesOf(value));
@@ -66,16 +67,56 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
 
-  // Atajos: Ctrl/⌘+F buscar y reemplazar; Ctrl/⌘+P imprimir.
+  // Atajos de teclado estilo Excel/Sheets. Ctrl/⌘+P imprimir y Ctrl/⌘+F buscar (los de
+  // antes) + deshacer/rehacer y portapapeles CABLEADOS AL MOTOR de Fortune-Sheet.
+  // Fortune-Sheet ya gestiona estas teclas cuando la rejilla tiene el foco (su listener
+  // vive en el contenedor de la rejilla); el problema —«el deshacer no funcionaba»— es
+  // que al usar la cinta o cerrar un diálogo el foco sale de la rejilla y ese listener
+  // deja de recibirlas. Aquí las cubrimos a nivel ventana SÓLO cuando el foco está
+  // FUERA de la rejilla (si está dentro, dejamos que el motor lo haga → sin doble disparo).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'p') { e.preventDefault(); setShowPrint(true); return; }
+      if (!(e.ctrlKey || e.metaKey)) return;
+      const k = e.key.toLowerCase();
+      if (k === 'p') { e.preventDefault(); setShowPrint(true); return; }
       if (readOnly) return;
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') { e.preventDefault(); setShowFind(true); }
+      if (k === 'f') { e.preventDefault(); setShowFind(true); return; }
+
+      const grid = gridRef.current;
+      if (grid && grid.contains(document.activeElement)) return; // la rejilla ya lo hará
+      const wb = wbRef.current;
+      if (!wb) return;
+      if (k === 'z') { e.preventDefault(); if (e.shiftKey) wb.handleRedo?.(); else wb.handleUndo?.(); return; }
+      if (k === 'y') { e.preventDefault(); wb.handleRedo?.(); return; }
+      if (k === 'c' || k === 'x' || k === 'v') {
+        // Copiar/cortar/pegar requieren el foco dentro de la rejilla para que el motor
+        // los capture; se lo devolvemos. El pegado se resuelve en este mismo evento
+        // porque su listener vive en `document` y comprueba el elemento activo.
+        const input = grid?.querySelector('.luckysheet-cell-input') as HTMLElement | null;
+        input?.focus();
+      }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [readOnly]);
+
+  // Fortune-Sheet sólo recalcula su layout (rejilla + scrollbars + barra de hojas) al
+  // redimensionar la VENTANA, no su contenedor. Cuando el panel de «Gráficas» se abre o
+  // cierra (o cambia el alto del editor) el contenedor de la rejilla cambia de tamaño SIN
+  // un resize de ventana → su barra de scroll/hojas quedaba descolocada encima de la
+  // cuadrícula. Observamos el contenedor y disparamos un «resize» (debounced) para que la
+  // hoja reacomode su área y los scrollbars queden limpios bajo la rejilla.
+  useEffect(() => {
+    const el = gridRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    let t: ReturnType<typeof setTimeout> | null = null;
+    const ro = new ResizeObserver(() => {
+      if (t) clearTimeout(t);
+      t = setTimeout(() => window.dispatchEvent(new Event('resize')), 80);
+    });
+    ro.observe(el);
+    return () => { if (t) clearTimeout(t); ro.disconnect(); };
+  }, []);
 
   const emit = useCallback(() => {
     onChangeRef.current({ sheets: sheetsRef.current, charts: chartsRef.current, names: namesRef.current, pivots: pivotsRef.current });
@@ -423,7 +464,7 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
         )}
       </OfficeRibbon>
 
-      <div className="flex-1 min-h-0 bg-white relative">
+      <div ref={gridRef} className="flex-1 min-h-0 bg-white relative">
         <Workbook ref={wbRef} key={wbKey} data={liveData as any} lang="es" allowEdit={!readOnly} onChange={handleSheet} hooks={wbHooks} />
         {showFind && <SheetFindReplace sheets={sheetsRef.current} sheetNames={sheetNames()} activeSheetIndex={activeIndex()} onReplaceAll={doReplaceAll} onClose={() => setShowFind(false)} />}
       </div>

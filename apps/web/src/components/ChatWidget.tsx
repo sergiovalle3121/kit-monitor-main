@@ -14,8 +14,14 @@ import { DOMAINS, ICON_STROKE } from '@/lib/design/domains';
 export function ChatWidget() {
   const pathname = usePathname();
 
-  // No mostrar el botón dentro del propio chat ni fuera del dashboard.
-  if (!pathname?.startsWith('/dashboard') || pathname?.startsWith('/dashboard/chat')) {
+  // No mostrar el botón dentro del propio chat ni fuera del dashboard, ni encima del
+  // editor de Office a pantalla completa (`/dashboard/office/<id>`): ahí taparía la
+  // hoja y sus controles. La lista de Office (`/dashboard/office`) sí lo conserva.
+  if (
+    !pathname?.startsWith('/dashboard') ||
+    pathname?.startsWith('/dashboard/chat') ||
+    pathname?.startsWith('/dashboard/office/')
+  ) {
     return null;
   }
 
