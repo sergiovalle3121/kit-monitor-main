@@ -20,6 +20,7 @@ import {
 } from './dto/outbound.dto';
 import { assertTransition, ShipmentStatus } from './shipment-state';
 import { TrafficService } from '../traffic/traffic.service';
+import { PackingService } from '../packing/packing.service';
 import {
   checkCarrierAssignable,
   checkDockAssignable,
@@ -47,6 +48,7 @@ export class OutboundService {
     private readonly numbering: DocumentNumberingService,
     private readonly traffic: TrafficService,
     @Optional() private readonly ledger?: EventLedgerService,
+    @Optional() private readonly packing?: PackingService,
   ) {}
 
   private applyScope(
@@ -145,6 +147,20 @@ export class OutboundService {
     } catch (err) {
       throw new BadRequestException((err as Error).message);
     }
+
+    // Carga verificada (Fase 2b): a shipment can only become READY once every
+    // packed handling unit has been scan-verified onto the truck at the dock.
+    if (from === 'PACKING' && dto.status === 'READY' && this.packing) {
+      try {
+        await this.packing.assertLoadingComplete(s.id);
+      } catch (err) {
+        await this.recordLedger('SHIPMENT_READY_BLOCKED', s, {
+          after: { reason: (err as Error).message },
+        });
+        throw err;
+      }
+    }
+
     const now = new Date();
     s.status = dto.status;
     if (dto.carrier) s.carrier = dto.carrier;
