@@ -22,6 +22,14 @@ import { assertTransition, ShipmentStatus } from './shipment-state';
 import { TrafficService } from '../traffic/traffic.service';
 import { PackingService } from '../packing/packing.service';
 import {
+  buildAsn,
+  buildPackingList,
+  packingListCsv,
+  toEdi856,
+  type Asn,
+  type PackingList,
+} from './asn';
+import {
   checkCarrierAssignable,
   checkDockAssignable,
   checkDriverAssignable,
@@ -329,6 +337,36 @@ export class OutboundService {
         otdEligible > 0 ? Math.round((otdOnTime / otdEligible) * 1000) / 10 : null,
       byStatus,
     };
+  }
+
+  // ── Documents: ASN (EDI 856) + packing list, assembled from the load ────────
+
+  /** Handling units packed for this shipment (empty if packing isn't wired in). */
+  private async unitsFor(shipmentId: string) {
+    if (!this.packing) return [];
+    return this.packing.list({ shipmentId });
+  }
+
+  /** Hierarchical Advance Ship Notice (Shipment → Tare → Pack → Item) + totals. */
+  async assembleAsn(id: string): Promise<Asn> {
+    const s = await this.getOne(id);
+    return buildAsn(s, await this.unitsFor(id));
+  }
+
+  /** Simplified EDI 856 flat file for the ASN (download). */
+  async asnEdi(id: string): Promise<string> {
+    return toEdi856(await this.assembleAsn(id));
+  }
+
+  /** Flat packing list (one row per content line) + totals. */
+  async assemblePackingList(id: string): Promise<PackingList> {
+    const s = await this.getOne(id);
+    return buildPackingList(s, await this.unitsFor(id));
+  }
+
+  /** Packing list as CSV (download). */
+  async packingListCsvText(id: string): Promise<string> {
+    return packingListCsv(await this.assemblePackingList(id));
   }
 
   private async recordLedger(
