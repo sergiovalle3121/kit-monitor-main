@@ -50,6 +50,7 @@ import { PlansModule } from './modules/plans/plans.module';
 import { BomModule } from './modules/bom/bom.module';
 import { ProductModelsModule } from './modules/product-models/product-models.module';
 import { MaterialMasterModule } from './modules/material-master/material-master.module';
+import { BomTreeModule } from './modules/bom-tree/bom-tree.module';
 import { BayLayoutModule } from './modules/bay-layout/bay-layout.module';
 import { KitsModule } from './modules/kits/kits.module';
 import { KitMaterialsModule } from './modules/kit-materials/kit-materials.module';
@@ -126,6 +127,7 @@ import { AiModule } from './modules/ai/ai.module';
     BomModule,
     ProductModelsModule,
     MaterialMasterModule,
+    BomTreeModule,
     BayLayoutModule,
     KitsModule,
     KitMaterialsModule,

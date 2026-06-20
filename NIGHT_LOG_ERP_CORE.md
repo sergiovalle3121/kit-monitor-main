@@ -97,6 +97,56 @@ Módulo con `provideTenantScopedRepository` para las 3 entidades. Registrado en
 
 ---
 
-## FASE 2 — BOM MULTINIVEL (bom_) — pendiente
+## FASE 2 — BOM MULTINIVEL (bom_) — ✅ EN VERDE
+
+**Módulo nuevo:** `apps/api/src/modules/bom-tree` (endpoints `/bom-tree`). 100%
+aditivo, tablas prefijadas `bom_` que NO colisionan con el BOM plano legacy
+(`bom_headers`/`bom_components`/`bom_items`). Tenant-scoped.
+
+**Modelo (multinivel real):** el multinivel emerge de materiales que referencian
+materiales: una línea apunta a un material; si ese material es un ENSAMBLE con su
+propio `bom_node`, la explosión recursa. Esto es el modelo SAP normalizado (BOMs de
+un nivel que encadenan), no un árbol denormalizado.
+- `bom_node` — header del BOM por ensamble + revisión (FK `materialId` → mm_material;
+  único por tenant+plant+material+revisión; estado DRAFT/ACTIVE/OBSOLETE).
+- `bom_line` — componente: FK `materialId` → mm_material (NUNCA texto libre),
+  find-number (0010,0020…), cantidad, UoM, refDes, **itemCategory**, **scrap %**,
+  make/buy (override opcional), **phantom**, **alternateGroup** (alternantes en la
+  misma posición), notas.
+
+**Lógica pura testeable (`bom-explode.ts` + spec, 6 tests):** explosión recursiva con
+acumulación de cantidades (qty × (1+scrap%) × multiplicador del padre), **rollup de
+costo** (hoja: standardCost × extendido; ensamble: suma de hijos), **demanda neta**
+de hojas, **profundidad** y **detección de ciclos** (corta la rama, no cuelga).
+
+**Backend:** servicio con CRUD de nodos y líneas (valida que el material exista en MM
+y que un ensamble no se contenga a sí mismo; auto find-number), `explode(nodeId,qty)`
+(resuelve el nodo efectivo por material — ACTIVE preferido — y honra la revisión del
+root), `whereUsed(materialId)` (directo + ancestría multinivel, guard de ciclos),
+eventos al ledger (ENGINEERING). Reusa `MaterialMasterService` (fuente única de
+partes). Migración aditiva idempotente (`hasTable`). Registrado en `app.module.ts`.
+
+**Frontend:**
+- `/dashboard/bom` — lista de BOMs + KPI de líneas + crear (elige ensamble del
+  maestro) + **herramienta where-used** (elige material → ensambles donde aparece,
+  multinivel).
+- `/dashboard/bom/[id]` — editor con pestañas: **Estructura** (líneas editables;
+  agregar componente eligiéndolo del maestro; editar pos/cant/scrap/refDes/phantom;
+  marca **sub-ensamble** con enlace a su BOM) + **Explosión** (árbol multinivel
+  expandir/colapsar, cantidades y costo extendido por nodo, total, demanda neta de
+  hojas, aviso de ciclos; "construir N unidades"). NADA de texto libre.
+- Descubrible: tile en hub + entrada en `SearchPalette`.
+
+**Puertas FASE 2 (todas verdes):**
+- API `npm run build` ✅ · `npm test` ✅ (85 suites / 569 tests, +6 nuevos) ·
+  smoke bootstrap **Postgres** ✅ (bom_node/bom_line sin colisión con legacy)
+- web `tsc` ✅ · `eslint` ✅ (0) · `next build` ✅
+
+**Usable por un ingeniero real:** crear el BOM de un ensamble, agregar componentes
+del maestro (incluido un sub-ensamble que ya tiene su propio BOM), y explotar el
+árbol completo con cantidades y costo acumulados + ver dónde se usa cada parte.
+
+---
+
 ## FASE 3 — ROUTING (rt_) — pendiente
 ## FASE 4 — IMPORTADORES — pendiente
