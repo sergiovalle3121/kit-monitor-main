@@ -21,6 +21,7 @@ import {
 import { assertTransition, ShipmentStatus } from './shipment-state';
 import { TrafficService } from '../traffic/traffic.service';
 import { PackingService } from '../packing/packing.service';
+import { OutboundLinesService } from './outbound-lines.service';
 import {
   buildAsn,
   buildPackingList,
@@ -57,6 +58,7 @@ export class OutboundService {
     private readonly traffic: TrafficService,
     @Optional() private readonly ledger?: EventLedgerService,
     @Optional() private readonly packing?: PackingService,
+    @Optional() private readonly lines?: OutboundLinesService,
   ) {}
 
   private applyScope(
@@ -183,6 +185,11 @@ export class OutboundService {
           this.logger.warn(`ASN allocation failed: ${(err as Error)?.message}`);
         }
       }
+      // Post the finished-goods goods-issue for the shipment's lines (best-effort).
+      await this.lines?.postShipmentInventory(
+        s.id,
+        this.tenantCtx.getUserEmail() ?? 'Outbound',
+      );
     }
     if (dto.status === 'DELIVERED' && !s.deliveredDate) s.deliveredDate = now;
 

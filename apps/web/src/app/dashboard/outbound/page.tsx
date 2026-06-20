@@ -14,6 +14,7 @@ import {
   ArrowRight,
   ScanLine,
   FileText,
+  ListChecks,
 } from 'lucide-react';
 import { glass } from '@/lib/glass';
 import { useApi } from '@/hooks/useApi';
@@ -21,6 +22,7 @@ import { apiFetch } from '@/lib/apiFetch';
 import { useToast } from '@/contexts/ToastContext';
 import { DockLoading } from './DockLoading';
 import { Documents } from './Documents';
+import { Content } from './Content';
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000').replace(/\/$/, '');
 
@@ -81,6 +83,7 @@ export default function OutboundPage() {
   const [busy, setBusy] = useState<string | null>(null);
   const [loadingShipment, setLoadingShipment] = useState<Shipment | null>(null);
   const [docsShipment, setDocsShipment] = useState<Shipment | null>(null);
+  const [contentShipment, setContentShipment] = useState<Shipment | null>(null);
   const [form, setForm] = useState({
     title: '',
     customerName: '',
@@ -282,6 +285,16 @@ export default function OutboundPage() {
                             <div className="flex items-center gap-1.5 flex-shrink-0">
                               {s.status !== 'CANCELLED' && (
                                 <button
+                                  onClick={() => setContentShipment(s)}
+                                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[12px] font-medium"
+                                  style={{ background: `${GRAY}1f`, color: GRAY }}
+                                  title="Contenido del embarque (líneas de PT)"
+                                >
+                                  <ListChecks className="w-3 h-3" /> Contenido
+                                </button>
+                              )}
+                              {s.status !== 'CANCELLED' && (
+                                <button
                                   onClick={() => setDocsShipment(s)}
                                   className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[12px] font-medium"
                                   style={{ background: `${GRAY}1f`, color: GRAY }}
@@ -336,6 +349,10 @@ export default function OutboundPage() {
 
       {docsShipment && (
         <Documents shipment={docsShipment} onClose={() => setDocsShipment(null)} />
+      )}
+
+      {contentShipment && (
+        <Content shipment={contentShipment} onClose={() => { setContentShipment(null); refresh(); }} />
       )}
 
       <style jsx global>{`
