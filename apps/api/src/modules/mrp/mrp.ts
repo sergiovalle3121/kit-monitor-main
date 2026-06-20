@@ -5,6 +5,7 @@
  */
 
 export interface MrpDemandLine {
+  materialId: string;
   partNumber: string;
   description: string;
   uom: string;
@@ -19,6 +20,7 @@ export interface MrpSupply {
 }
 
 export interface MrpRow {
+  materialId: string;
   partNumber: string;
   description: string;
   uom: string;
@@ -51,6 +53,7 @@ export function computeNetting(
     const inTransit = Math.max(0, supply.inTransit || 0);
     const net = round(Math.max(0, (d.grossQty || 0) - available - inTransit));
     return {
+      materialId: d.materialId,
       partNumber: d.partNumber,
       description: d.description,
       uom: d.uom,

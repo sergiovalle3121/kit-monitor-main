@@ -361,4 +361,34 @@ PG · web tsc · eslint · `next build`.
 **Usable:** un planeador elige "construir N de este ensamble" y ve al instante qué
 falta y cuánto pedir, distinguiendo comprar vs fabricar.
 
-### Siguientes sugeridos: ECO/efectividad (control de cambios) · generar POs desde MRP · el corte legacy→nuevo (supervisado).
+> **PR #338 mergeado a `main`** (squash · `7b024af`, CI verde).
+
+---
+
+## POST-NÚCLEO #4 — PLANEACIÓN DE COMPRAS (POs desde MRP) — ✅ EN VERDE
+
+**Módulo nuevo:** `apps/api/src/modules/purchase-planning` (endpoints
+`/purchase-planning`). Cierra el loop **planeación → compras**. Aditivo, sin tablas
+nuevas: reusa `MrpService` (faltantes), `MaterialMasterService` (AVL) y
+`ProcurementService` (crear PO).
+
+- `suggest(bomNodeId, qty, wh)`: toma los faltantes del MRP (net>0), resuelve el
+  **proveedor = fabricante AVL preferido (APPROVED, menor preferencia)** por material,
+  y agrupa en borradores de PO (uno por proveedor; sin AVL → "Por asignar").
+- `generate(...)`: crea un PO por grupo vía `ProcurementService.create` (folio PO-,
+  título, proveedor, total, notas con el detalle de partes — el PO es header-only).
+  Evento al ledger (MATERIALS). 
+- Lógica pura `po-grouping.ts` (`groupBySupplier`) + spec (4 tests). Se agregó
+  `materialId` a las filas del MRP (aditivo) para resolver el AVL.
+
+**Frontend:** la página `/dashboard/mrp` gana la sección **"Órdenes de compra desde el
+MRP"**: botón *Sugerir órdenes* (agrupa por proveedor con total y partes) → *Generar
+N órdenes* → muestra folios creados + enlace a Compras.
+
+**Puertas (verdes):** API build · `npm test` (96 suites / **632 tests**, +6) · smoke
+PG · web tsc · eslint · `next build`.
+
+**Usable:** del MRP, un comprador genera con un clic las órdenes de compra de los
+faltantes, agrupadas por proveedor, y las ve en el módulo de Compras.
+
+### Siguientes sugeridos: ECO/efectividad (control de cambios) · el corte legacy→nuevo (supervisado).

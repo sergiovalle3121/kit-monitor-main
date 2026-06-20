@@ -4,13 +4,20 @@ import React, { useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
   Loader2, Lock, Calculator, ArrowRight, AlertTriangle, Factory, ShoppingCart,
+  CheckCircle2, FileText,
 } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { glass } from '@/lib/glass';
 import { useApi } from '@/hooks/useApi';
+import { apiFetch } from '@/lib/apiFetch';
 import { useToast } from '@/contexts/ToastContext';
 
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000').replace(/\/$/, '');
+
 interface Material { id: string; partNumber: string; description: string; }
+interface PoDraft { supplierName: string; lineCount: number; totalValue: number; currency: string; parts: { partNumber: string; description: string; qty: number; uom: string; value: number }[]; }
+interface PoSuggest { root: { partNumber: string; qty: number }; drafts: PoDraft[]; shortageCount: number; }
+interface PoGenerated { created: { folio: string | null; supplierName: string; totalValue: number; lineCount: number }[]; count: number; }
 interface BomLite { id: string; revision: string; material?: Material | null; lineCount: number; }
 interface MrpRow {
   partNumber: string; description: string; uom: string; makeBuy: string;
@@ -43,9 +50,41 @@ export default function MrpPage() {
     : null;
   const { data: result, isLoading: running } = useApi<MrpResult>(key);
 
+  const [poSuggest, setPoSuggest] = useState<PoSuggest | null>(null);
+  const [poGenerated, setPoGenerated] = useState<PoGenerated | null>(null);
+  const [poBusy, setPoBusy] = useState<string | null>(null);
+
   function run() {
     if (!bomNodeId) { toast.error('Elige un ensamble.', 'MRP'); return; }
     setParams({ id: bomNodeId, qty: Number(qty) || 1, wh: warehouseId.trim() });
+    setPoSuggest(null); setPoGenerated(null);
+  }
+
+  async function suggestPOs() {
+    if (!params) return;
+    setPoBusy('suggest');
+    try {
+      const url = `${API_BASE}/purchase-planning/${params.id}/suggest?qty=${params.qty}${params.wh ? `&warehouseId=${encodeURIComponent(params.wh)}` : ''}`;
+      const res = await apiFetch(url);
+      const d = await res.json().catch(() => null);
+      if (!res.ok || !d) { toast.error(d?.message || 'No se pudo sugerir.', 'Compras'); return; }
+      setPoSuggest(d); setPoGenerated(null);
+    } catch { toast.error('Error de red.', 'Compras'); } finally { setPoBusy(null); }
+  }
+
+  async function generatePOs() {
+    if (!params) return;
+    setPoBusy('generate');
+    try {
+      const res = await apiFetch(`${API_BASE}/purchase-planning/${params.id}/generate`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ qty: params.qty, warehouseId: params.wh || undefined }),
+      });
+      const d = await res.json().catch(() => null);
+      if (!res.ok || !d) { toast.error(d?.message || 'No se pudo generar.', 'Compras'); return; }
+      setPoGenerated(d);
+      toast.success(`${d.count} orden(es) de compra creada(s).`, 'Compras');
+    } catch { toast.error('Error de red.', 'Compras'); } finally { setPoBusy(null); }
   }
 
   if (forbidden) {
@@ -149,8 +188,69 @@ export default function MrpPage() {
               </div>
             )}
             <div className="mt-3 text-[11px] text-gray-400 flex items-center gap-1.5">
-              <AlertTriangle className="w-3.5 h-3.5" /> Disponible = on-hand − asignado (solo stock <b>available</b>). Generar órdenes de compra reales es un follow-up.
+              <AlertTriangle className="w-3.5 h-3.5" /> Disponible = on-hand − asignado (solo stock <b>available</b>).
             </div>
+
+            {/* Purchase orders from MRP shortages */}
+            {result.summary.shortageParts > 0 && (
+              <div className={`${glass} rounded-2xl p-5 mt-4`}>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <ShoppingCart className="w-4 h-4 text-blue-500" />
+                    <h3 className="font-semibold text-sm">Órdenes de compra desde el MRP</h3>
+                  </div>
+                  {!poSuggest && (
+                    <button onClick={suggestPOs} disabled={poBusy === 'suggest'} className="inline-flex items-center gap-2 text-sm font-semibold px-4 py-2 rounded-full border border-gray-200 dark:border-white/10 hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-50">
+                      {poBusy === 'suggest' ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />} Sugerir órdenes
+                    </button>
+                  )}
+                </div>
+
+                {poSuggest && (
+                  <>
+                    <p className="text-xs text-gray-400 mb-3">{poSuggest.drafts.length} orden(es) agrupadas por proveedor (fabricante AVL preferido).</p>
+                    <div className="space-y-2">
+                      {poSuggest.drafts.map((d, i) => (
+                        <div key={i} className="rounded-xl border border-gray-100 dark:border-white/10 p-3">
+                          <div className="flex items-center justify-between">
+                            <span className="font-medium text-sm">{d.supplierName}</span>
+                            <span className="text-sm tabular-nums text-gray-500">{money(d.totalValue)} · {d.lineCount} parte(s)</span>
+                          </div>
+                          <div className="text-xs text-gray-400 mt-1 truncate">{d.parts.map((p) => `${p.partNumber}×${p.qty}`).join(' · ')}</div>
+                        </div>
+                      ))}
+                    </div>
+                    {!poGenerated && (
+                      <div className="mt-4 flex justify-end">
+                        <button onClick={generatePOs} disabled={poBusy === 'generate'} className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white dark:text-black bg-blue-500 disabled:opacity-60">
+                          {poBusy === 'generate' ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />} Generar {poSuggest.drafts.length} orden(es)
+                        </button>
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {poGenerated && (
+                  <div className="mt-4 rounded-xl bg-emerald-500/10 p-3">
+                    <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 text-sm font-medium mb-2">
+                      <CheckCircle2 className="w-4 h-4" /> {poGenerated.count} orden(es) creada(s)
+                    </div>
+                    <div className="space-y-1">
+                      {poGenerated.created.map((c, i) => (
+                        <div key={i} className="flex items-center gap-2 text-sm">
+                          <span className="font-mono text-xs text-gray-500">{c.folio ?? '(sin folio)'}</span>
+                          <span className="truncate flex-1">{c.supplierName}</span>
+                          <span className="tabular-nums text-gray-500">{money(c.totalValue)}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <Link href="/dashboard/procurement" className="inline-flex items-center gap-1.5 text-xs font-medium text-blue-500 hover:underline mt-3">
+                      Ver en Compras <ArrowRight className="w-3.5 h-3.5" />
+                    </Link>
+                  </div>
+                )}
+              </div>
+            )}
           </>
         ) : (
           <div className={`${glass} rounded-3xl p-10 text-center text-sm text-gray-400`}>Elige un ensamble y calcula el requerimiento neto.</div>
