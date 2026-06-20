@@ -54,6 +54,7 @@ import { BomTreeModule } from './modules/bom-tree/bom-tree.module';
 import { RoutingModule } from './modules/routing/routing.module';
 import { ImportDataModule } from './modules/import-data/import-data.module';
 import { ProductCostingModule } from './modules/product-costing/product-costing.module';
+import { RoutingBackflushModule } from './modules/routing-backflush/routing-backflush.module';
 import { BayLayoutModule } from './modules/bay-layout/bay-layout.module';
 import { KitsModule } from './modules/kits/kits.module';
 import { KitMaterialsModule } from './modules/kit-materials/kit-materials.module';
@@ -134,6 +135,7 @@ import { AiModule } from './modules/ai/ai.module';
     RoutingModule,
     ImportDataModule,
     ProductCostingModule,
+    RoutingBackflushModule,
     BayLayoutModule,
     KitsModule,
     KitMaterialsModule,
