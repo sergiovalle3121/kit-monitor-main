@@ -203,6 +203,18 @@ export class CreateOutboundLineDto {
   @Length(0, 16)
   salesOrderLine?: string;
 
+  @ApiPropertyOptional({ description: 'Precio unitario (factura comercial).' })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  unitPrice?: number;
+
+  @ApiPropertyOptional({ example: 'MXN' })
+  @IsOptional()
+  @IsString()
+  @Length(0, 3)
+  currency?: string;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
@@ -263,6 +275,18 @@ export class UpdateOutboundLineDto {
   @IsString()
   @Length(0, 16)
   salesOrderLine?: string;
+
+  @ApiPropertyOptional({ description: 'Precio unitario (factura comercial).' })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  unitPrice?: number;
+
+  @ApiPropertyOptional({ example: 'MXN' })
+  @IsOptional()
+  @IsString()
+  @Length(0, 3)
+  currency?: string;
 
   @ApiPropertyOptional()
   @IsOptional()

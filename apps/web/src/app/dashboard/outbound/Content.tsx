@@ -26,6 +26,8 @@ interface Line {
   lotNumber: string | null;
   salesOrder: string | null;
   salesOrderLine: string | null;
+  unitPrice: number | null;
+  currency: string | null;
   inventoryPosted: boolean;
 }
 
@@ -41,7 +43,7 @@ export function Content({
   const rows = useMemo(() => (Array.isArray(data) ? data : []), [data]);
 
   const [busy, setBusy] = useState(false);
-  const [form, setForm] = useState({ partNumber: '', quantity: '', uom: 'EA', lotNumber: '', salesOrder: '' });
+  const [form, setForm] = useState({ partNumber: '', quantity: '', uom: 'EA', lotNumber: '', salesOrder: '', unitPrice: '' });
 
   const totals = useMemo(() => {
     const pieces = rows.reduce((a, r) => a + (Number(r.quantity) || 0), 0);
@@ -67,6 +69,7 @@ export function Content({
           uom: form.uom.trim() || 'EA',
           lotNumber: form.lotNumber.trim() || undefined,
           salesOrder: form.salesOrder.trim() || undefined,
+          unitPrice: form.unitPrice ? Number(form.unitPrice) : undefined,
         }),
       });
       if (!res.ok) {
@@ -74,7 +77,7 @@ export function Content({
         toast.error(d?.message || 'No se pudo agregar.', 'Contenido');
         return;
       }
-      setForm({ partNumber: '', quantity: '', uom: form.uom, lotNumber: '', salesOrder: '' });
+      setForm({ partNumber: '', quantity: '', uom: form.uom, lotNumber: '', salesOrder: '', unitPrice: '' });
       mutate();
     } catch {
       toast.error('Error de red.', 'Contenido');
@@ -118,6 +121,7 @@ export function Content({
               <input value={form.uom} onChange={(e) => setForm({ ...form, uom: e.target.value })} placeholder="UoM" className="ct-input" />
               <input value={form.lotNumber} onChange={(e) => setForm({ ...form, lotNumber: e.target.value })} placeholder="Lote (opcional)" className="ct-input" />
               <input value={form.salesOrder} onChange={(e) => setForm({ ...form, salesOrder: e.target.value })} placeholder="Orden de venta (opcional)" className="ct-input" />
+              <input value={form.unitPrice} onChange={(e) => setForm({ ...form, unitPrice: e.target.value })} type="number" min={0} step="0.01" placeholder="Precio unit. (opcional)" className="ct-input" />
             </div>
             <button onClick={addLine} disabled={busy} className="mt-2 w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-60" style={{ background: BLUE }}>
               {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />} Agregar línea
@@ -151,7 +155,7 @@ export function Content({
                   <div className="min-w-0 flex-1">
                     <div className="text-[13px] font-medium truncate">{l.partNumber} <span className="text-gray-400 font-normal">×{l.quantity} {l.uom}</span></div>
                     <div className="text-[11px] text-gray-400 truncate">
-                      {[l.lotNumber && `Lote ${l.lotNumber}`, l.salesOrder && `OV ${l.salesOrder}`, l.inventoryPosted ? 'PT emitido' : 'pendiente de emitir'].filter(Boolean).join(' · ')}
+                      {[l.lotNumber && `Lote ${l.lotNumber}`, l.salesOrder && `OV ${l.salesOrder}`, l.unitPrice != null && `${l.unitPrice} ${l.currency ?? ''}`.trim(), l.inventoryPosted ? 'PT emitido' : 'pendiente de emitir'].filter(Boolean).join(' · ')}
                     </div>
                   </div>
                   {!l.inventoryPosted && (

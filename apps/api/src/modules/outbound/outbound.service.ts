@@ -31,6 +31,14 @@ import {
   type PackingList,
 } from './asn';
 import {
+  buildBol,
+  buildCartaPorte,
+  buildCommercialInvoice,
+  type Bol,
+  type CartaPorte,
+  type CommercialInvoice,
+} from './documents';
+import {
   checkCarrierAssignable,
   checkDockAssignable,
   checkDriverAssignable,
@@ -374,6 +382,30 @@ export class OutboundService {
   /** Packing list as CSV (download). */
   async packingListCsvText(id: string): Promise<string> {
     return packingListCsv(await this.assemblePackingList(id));
+  }
+
+  /** Content lines for this shipment (empty if lines aren't wired in). */
+  private async linesFor(shipmentId: string) {
+    if (!this.lines) return [];
+    return this.lines.listLines(shipmentId);
+  }
+
+  /** Bill of Lading. */
+  async assembleBol(id: string): Promise<Bol> {
+    const s = await this.getOne(id);
+    return buildBol(s, await this.linesFor(id), await this.unitsFor(id));
+  }
+
+  /** Carta Porte (MX, CFDI complemento 3.1) — datos + requisitos de configuración. */
+  async assembleCartaPorte(id: string): Promise<CartaPorte> {
+    const s = await this.getOne(id);
+    return buildCartaPorte(s, await this.linesFor(id), await this.unitsFor(id));
+  }
+
+  /** Commercial invoice (from priced content lines). */
+  async assembleInvoice(id: string): Promise<CommercialInvoice> {
+    const s = await this.getOne(id);
+    return buildCommercialInvoice(s, await this.linesFor(id));
   }
 
   private async recordLedger(
