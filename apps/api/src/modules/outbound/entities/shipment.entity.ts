@@ -34,6 +34,15 @@ export class Shipment extends TenantBaseEntity {
   @Column({ type: 'varchar', length: 32, nullable: true })
   asn: string | null;
 
+  // Demand link (SD): the sales order this shipment fulfils. When set, shipping
+  // routes the goods-issue + COGS + fulfilment through the ERP sales order.
+  @Index()
+  @Column({ type: 'int', nullable: true, name: 'sales_order_id' })
+  salesOrderId: number | null;
+
+  @Column({ type: 'varchar', length: 32, nullable: true, name: 'sales_order_number' })
+  salesOrderNumber: string | null;
+
   @Column({ type: 'varchar', length: 200 })
   title: string;
 

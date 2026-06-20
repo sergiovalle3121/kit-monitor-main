@@ -129,6 +129,21 @@ export class OutboundLinesService {
   }
 
   /**
+   * Mark every line as shipped without issuing inventory here — used when the
+   * goods-issue is posted elsewhere (e.g. the linked sales order's shipSO, which
+   * already issues FG + posts COGS) so we don't double-decrement.
+   */
+  async markShipped(shipmentId: string): Promise<void> {
+    const lines = await this.listLines(shipmentId);
+    for (const line of lines) {
+      if (line.inventoryPosted) continue;
+      line.inventoryPosted = true;
+      line.quantityShipped = line.quantity;
+      await this.repo.save(line);
+    }
+  }
+
+  /**
    * Post the finished-goods goods-issue for every not-yet-posted line at ship
    * time. Best-effort: a line whose part isn't inventory-tracked (or is short)
    * is left unposted (the inventory module logs the exception) and the shipment

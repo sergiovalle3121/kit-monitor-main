@@ -41,6 +41,7 @@ import {
   type CommercialInvoice,
 } from './documents';
 import { GenealogyService } from '../genealogy/genealogy.service';
+import { ErpSdService } from '../erp-core/services/erp-sd.service';
 import {
   checkCarrierAssignable,
   checkDockAssignable,
@@ -71,6 +72,7 @@ export class OutboundService {
     @Optional() private readonly packing?: PackingService,
     @Optional() private readonly lines?: OutboundLinesService,
     @Optional() private readonly genealogy?: GenealogyService,
+    @Optional() private readonly sd?: ErpSdService,
   ) {}
 
   private applyScope(
@@ -140,6 +142,67 @@ export class OutboundService {
     return found;
   }
 
+  // ── Demand link: create an outbound shipment from a sales order (SD) ─────────
+
+  /** Shippable sales orders (confirmed / in production / partially shipped). */
+  async listOpenSalesOrders(): Promise<
+    {
+      id: number;
+      soNumber: string;
+      customerName: string | null;
+      status: string;
+    }[]
+  > {
+    if (!this.sd) return [];
+    const sos = await this.sd.listSOs();
+    return sos
+      .filter((o) =>
+        ['confirmed', 'in_production', 'partially_shipped'].includes(o.status),
+      )
+      .map((o) => ({
+        id: o.id,
+        soNumber: o.soNumber,
+        customerName: o.customerName,
+        status: o.status,
+      }));
+  }
+
+  /**
+   * Create an outbound shipment from a sales order: pulls the customer and the
+   * still-open lines (qty − qtyShipped) as content lines, and links the shipment
+   * to the SO so shipping later posts fulfilment + COGS back to it.
+   */
+  async createFromSalesOrder(soId: number): Promise<Shipment> {
+    if (!this.sd)
+      throw new BadRequestException('Módulo de ventas no disponible.');
+    const so = await this.sd.getSO(soId);
+    const shipment = await this.create({
+      title: `Pedido ${so.soNumber}`,
+      customerName: so.customerName ?? so.customerCode,
+    });
+    shipment.salesOrderId = so.id;
+    shipment.salesOrderNumber = so.soNumber;
+    await this.repo.save(shipment);
+
+    if (this.lines) {
+      for (const l of so.lines ?? []) {
+        const open = (Number(l.quantity) || 0) - (Number(l.qtyShipped) || 0);
+        if (open <= 0) continue;
+        await this.lines.addLine(shipment.id, {
+          partNumber: l.model,
+          description: l.description ?? undefined,
+          quantity: open,
+          uom: 'EA',
+          salesOrder: so.soNumber,
+          salesOrderLine: String(l.lineNo),
+          unitPrice: l.unitPrice ?? undefined,
+          currency: so.currency ?? undefined,
+        });
+      }
+    }
+    return this.getOne(shipment.id);
+  }
+
   async update(id: string, dto: UpdateShipmentDto): Promise<Shipment> {
     const s = await this.getOne(id);
     Object.assign(s, {
@@ -198,11 +261,32 @@ export class OutboundService {
           this.logger.warn(`ASN allocation failed: ${(err as Error)?.message}`);
         }
       }
-      // Post the finished-goods goods-issue for the shipment's lines (best-effort).
-      await this.lines?.postShipmentInventory(
-        s.id,
-        this.tenantCtx.getUserEmail() ?? 'Outbound',
-      );
+      const actor = this.tenantCtx.getUserEmail() ?? 'Outbound';
+      // Goods-issue: if this shipment fulfils a sales order, route it through the
+      // SO ship (it posts FG issue + COGS + fulfilment) so we don't double-issue;
+      // otherwise issue FG straight from the shipment's lines. Both best-effort.
+      if (s.salesOrderId && this.sd) {
+        try {
+          const soLines = (await this.linesFor(s.id))
+            .filter((l) => l.salesOrderLine && l.quantity > 0)
+            .map((l) => ({
+              lineNo: Number(l.salesOrderLine),
+              qty: l.quantity,
+            }));
+          await this.sd.shipSO(
+            s.salesOrderId,
+            soLines.length ? { lines: soLines } : undefined,
+            actor,
+          );
+          await this.lines?.markShipped(s.id);
+        } catch (err) {
+          this.logger.warn(
+            `SO fulfilment failed for ${s.salesOrderNumber}: ${(err as Error)?.message}`,
+          );
+        }
+      } else {
+        await this.lines?.postShipmentInventory(s.id, actor);
+      }
       // Link shipped serials → shipment → customer for recall/where-used.
       await this.linkGenealogy(s);
     }

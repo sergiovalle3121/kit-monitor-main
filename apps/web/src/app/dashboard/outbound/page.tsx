@@ -34,10 +34,17 @@ const RED = '#ef4444';
 
 type Status = 'PACKING' | 'READY' | 'SHIPPED' | 'DELIVERED' | 'CANCELLED';
 
+interface SalesOrderLite {
+  id: number;
+  soNumber: string;
+  customerName: string | null;
+  status: string;
+}
 interface Shipment {
   id: string;
   folio: string | null;
   asn: string | null;
+  salesOrderNumber?: string | null;
   title: string;
   customerName?: string | null;
   destination?: string | null;
@@ -84,6 +91,7 @@ export default function OutboundPage() {
   const [loadingShipment, setLoadingShipment] = useState<Shipment | null>(null);
   const [docsShipment, setDocsShipment] = useState<Shipment | null>(null);
   const [contentShipment, setContentShipment] = useState<Shipment | null>(null);
+  const [soPicker, setSoPicker] = useState<SalesOrderLite[] | null>(null);
   const [form, setForm] = useState({
     title: '',
     customerName: '',
@@ -99,6 +107,40 @@ export default function OutboundPage() {
   function refresh() {
     mutate();
     mutateKpis();
+  }
+
+  async function openSoPicker() {
+    setSoPicker([]);
+    try {
+      const res = await apiFetch(`${API_BASE}/outbound/sales-orders`);
+      const d = await res.json().catch(() => []);
+      setSoPicker(Array.isArray(d) ? d : []);
+    } catch {
+      setSoPicker([]);
+    }
+  }
+
+  async function createFromSo(soId: number) {
+    setBusy(`so-${soId}`);
+    try {
+      const res = await apiFetch(`${API_BASE}/outbound/from-sales-order`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ soId }),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        toast.error(d?.message || 'No se pudo crear desde la OV.', 'Embarque');
+        return;
+      }
+      toast.success('Embarque creado desde la orden de venta.', 'Embarque');
+      setSoPicker(null);
+      refresh();
+    } catch {
+      toast.error('Error de red.', 'Embarque');
+    } finally {
+      setBusy(null);
+    }
   }
 
   async function createShipment() {
@@ -183,6 +225,9 @@ export default function OutboundPage() {
             <h1 className="text-lg font-semibold leading-tight">Logística · Embarque</h1>
             <p className="text-[12px] text-gray-400 leading-tight">Empaque, embarque y entrega (ASN)</p>
           </div>
+          <button onClick={openSoPicker} className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium" style={{ background: `${BLUE}1f`, color: BLUE }}>
+            <ListChecks className="w-4 h-4" /> <span className="hidden sm:inline">Desde OV</span>
+          </button>
           <button onClick={() => setShowForm(true)} className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium text-white" style={{ background: BLUE }}>
             <Plus className="w-4 h-4" /> Nuevo embarque
           </button>
@@ -270,6 +315,7 @@ export default function OutboundPage() {
                               <div className="flex items-center gap-2 flex-wrap">
                                 {s.folio && <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-black/5 dark:bg-white/10 text-gray-500">{s.folio}</span>}
                                 {s.asn && <span className="text-[10px] font-mono px-1.5 py-0.5 rounded" style={{ background: `${BLUE}1f`, color: BLUE }}>{s.asn}</span>}
+                                {s.salesOrderNumber && <span className="text-[10px] font-mono px-1.5 py-0.5 rounded" style={{ background: `${GREEN}1f`, color: GREEN }}>{s.salesOrderNumber}</span>}
                                 <span className="font-semibold truncate">{s.title}</span>
                                 {overdue && <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: `${RED}1f`, color: RED }}>vencida</span>}
                               </div>
@@ -353,6 +399,34 @@ export default function OutboundPage() {
 
       {contentShipment && (
         <Content shipment={contentShipment} onClose={() => { setContentShipment(null); refresh(); }} />
+      )}
+
+      {soPicker !== null && (
+        <div className="fixed inset-0 z-[120] grid place-items-center bg-black/40 p-4" onClick={() => setSoPicker(null)}>
+          <div className={`${glass} rounded-2xl p-5 w-full max-w-md max-h-[80vh] overflow-y-auto`} onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-semibold">Embarcar desde orden de venta</h3>
+              <button onClick={() => setSoPicker(null)} className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10"><X className="w-4 h-4" /></button>
+            </div>
+            {soPicker.length === 0 ? (
+              <p className="text-sm text-gray-400 py-8 text-center">No hay órdenes de venta embarcables (confirmadas o en producción).</p>
+            ) : (
+              <div className="space-y-2">
+                {soPicker.map((so) => (
+                  <div key={so.id} className={`${glass} rounded-xl p-3 flex items-center gap-3`}>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[13px] font-medium truncate">{so.soNumber}</div>
+                      <div className="text-[11px] text-gray-400 truncate">{so.customerName ?? '—'} · {so.status}</div>
+                    </div>
+                    <button onClick={() => createFromSo(so.id)} disabled={busy === `so-${so.id}`} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium text-white disabled:opacity-60" style={{ background: BLUE }}>
+                      {busy === `so-${so.id}` ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />} Crear
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
       )}
 
       <style jsx global>{`

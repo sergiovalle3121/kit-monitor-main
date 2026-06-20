@@ -11,6 +11,7 @@ import { TrafficModule } from '../traffic/traffic.module';
 import { PackingModule } from '../packing/packing.module';
 import { InventoryModule } from '../inventory/inventory.module';
 import { GenealogyModule } from '../genealogy/genealogy.module';
+import { ErpCoreModule } from '../erp-core/erp-core.module';
 
 /**
  * Logistics / Outbound (Embarque): finished-goods shipments + ASN. Self-contained
@@ -27,6 +28,7 @@ import { GenealogyModule } from '../genealogy/genealogy.module';
     PackingModule,
     InventoryModule,
     GenealogyModule,
+    ErpCoreModule,
   ],
   controllers: [OutboundController],
   providers: [OutboundService, OutboundLinesService],
