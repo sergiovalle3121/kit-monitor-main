@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Command } from 'lucide-react';
+import { useToast } from '@/contexts/ToastContext';
 
 interface TCodeResult {
   success: boolean;
@@ -19,6 +20,7 @@ interface TCodeInfo {
 
 export function TCodePalette() {
   const router = useRouter();
+  const toast = useToast();
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<TCodeInfo[]>([]);
@@ -103,19 +105,16 @@ export function TCodePalette() {
         // Mostrar resultado según el tipo de acción
         if (result.action === 'VIEW_STOCK') {
           // Aquí se podría abrir un modal o panel con los datos de stock
-          alert(`Stock:\n${JSON.stringify(result.data?.materials, null, 2)}`);
-        } else if (result.action === 'HELP') {
-          // Mostrar lista completa
-          console.log('T-Codes disponibles:', result.data?.tcodes);
+          toast.info(`Stock:\n${JSON.stringify(result.data?.materials, null, 2)}`);
         }
-        
+
         setIsOpen(false);
         setQuery('');
       }
     } catch (error) {
       console.error('Error executing T-Code:', error);
     }
-  }, [router]);
+  }, [router, toast]);
 
   // Navegación por teclado
   const handleKeyDown = (e: React.KeyboardEvent) => {
