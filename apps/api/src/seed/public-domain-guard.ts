@@ -86,6 +86,31 @@ export function isForbiddenValue(value: string | null | undefined): boolean {
   return findForbiddenReason(value) !== null;
 }
 
+/** Marcador de redacción usado al anonimizar texto no-dominio-público. */
+export const REDACTION_MARK = '[REDACTED]';
+
+/**
+ * Devuelve `value` con TODO lo prohibido removido (anonimizado):
+ *   • nombres de empresas reales (palabra completa) → `[REDACTED]`.
+ *   • si el valor EMPIEZA con un prefijo de cliente prohibido (p. ej. `OP-`) es un
+ *     identificador completo de cliente → se redacta entero.
+ * Lo usa la purga cuando una fila NO se puede borrar (FK desde datos legítimos):
+ * se conserva la fila pero el texto de cliente real desaparece. Idempotente
+ * (re-aplicarlo no cambia un valor ya limpio).
+ */
+export function scrubForbidden(value: string | null | undefined): string {
+  if (value === null || value === undefined) return '';
+  const trimmed = String(value).trim();
+  for (const prefix of FORBIDDEN_PREFIXES) {
+    if (trimmed.toUpperCase().startsWith(prefix.toUpperCase())) return REDACTION_MARK;
+  }
+  let out = String(value);
+  for (const name of REAL_COMPANY_BLACKLIST) {
+    out = out.replace(new RegExp(`\\b${escapeRegex(name)}\\b`, 'gi'), REDACTION_MARK);
+  }
+  return out;
+}
+
 /** Lanza si `value` no es de dominio público. Centinela legal del seed. */
 export function assertPublicDomain(value: string | null | undefined, label = 'valor'): void {
   const reason = findForbiddenReason(value);

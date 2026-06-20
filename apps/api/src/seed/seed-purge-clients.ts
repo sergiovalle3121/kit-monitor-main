@@ -34,6 +34,7 @@ import { EnterprisePlanLink } from '../modules/enterprise-campus/entities/enterp
 
 import { bootSeedContext, runInDemoContext } from './seed-context';
 import { scanForbidden, formatScanReport, type ScanResult } from './forbidden-scan';
+import { scrubForbidden } from './public-domain-guard';
 
 /** Tablas que cubre la cascada CURADA (el barrido las omite para no duplicar). */
 const CURATED_TABLES = new Set<string>([
@@ -59,6 +60,7 @@ interface SummaryRow {
 
 const summary: SummaryRow[] = [];
 const problems: string[] = [];
+let anonymizedCount = 0;
 
 function record(label: string, removed: number, note?: string): void {
   summary.push({ label, removed, note });
@@ -85,8 +87,9 @@ async function removeRows(
     record(label, rows.length);
     return true;
   } catch (err) {
-    record(label, 0, (err as Error).message);
-    problems.push(`${label}: ${(err as Error).message}`);
+    // Bloqueo por FK desde datos legítimos: no es un error final — el paso de
+    // anonimización lo resolverá. La verificación post-purga es la fuente de verdad.
+    record(label, 0, `bloqueado por FK (se anonimizará): ${(err as Error).message}`);
     return false;
   }
 }
@@ -152,11 +155,9 @@ async function sweepRemaining(ds: DataSource, res: ScanResult): Promise<void> {
         item.rows = [];
         progressed = true;
       } catch (err) {
-        // Probable FK pendiente; reintentar en la próxima pasada.
-        if (pass === 5) {
-          record(item.f.table, 0, (err as Error).message);
-          problems.push(`${item.f.table}: ${(err as Error).message}`);
-        }
+        // Probable FK pendiente; reintentar en la próxima pasada. Si persiste
+        // tras la última pasada, la anonimización + verificación final lo cubren.
+        if (pass === 5) record(item.f.table, 0, `bloqueado por FK (se anonimizará): ${(err as Error).message}`);
       }
     }
     work = work.filter((w) => w.rows.length);
@@ -204,6 +205,58 @@ async function purgeCuratedCore(ds: DataSource, res: ScanResult): Promise<void> 
   await removeRows(ds, targetOf('enterprise_customers'), rowsOf('enterprise_customers'), 'enterprise_customers');
 }
 
+/**
+ * Anonimiza (en sitio) las filas que NO se pudieron borrar porque un dato
+ * LEGÍTIMO las referencia por FK (p. ej. un material cuya descripción menciona un
+ * cliente real, pero con posiciones de inventario válidas). Scrubea SÓLO los
+ * campos prohibidos (no-PK) con `scrubForbidden`, conservando la fila y su
+ * integridad referencial. Garantiza que el TEXTO de cliente real desaparezca.
+ * Opt-out: `NO_ANONYMIZE=true` (entonces se reportan como pendientes manuales).
+ */
+async function anonymizeRemaining(ds: DataSource, res: ScanResult): Promise<void> {
+  for (const f of res.withHits) {
+    const meta = ds.getMetadata(f.target as new () => ObjectLiteral);
+    const pkProps = new Set(meta.primaryColumns.map((c) => c.propertyName));
+    const repo = ds.getRepository(f.target as new () => ObjectLiteral);
+
+    for (const r of f.rows) {
+      const entity = r.entity as Record<string, unknown>;
+      let scrubbed = 0;
+      let pkBlocked = false;
+      for (const hit of r.hits) {
+        if (pkProps.has(hit.field)) {
+          pkBlocked = true; // no se puede tocar una PK (la referencian FKs)
+          continue;
+        }
+        const cur = entity[hit.field];
+        if (cur == null) continue;
+        if (hit.kind === 'array') {
+          entity[hit.field] = (Array.isArray(cur) ? cur : String(cur).split(',')).map((x) => scrubForbidden(String(x)));
+        } else if (hit.kind === 'json') {
+          entity[hit.field] = { redacted: true }; // caso muy raro: redacta el JSON entero
+        } else {
+          entity[hit.field] = scrubForbidden(String(cur));
+        }
+        scrubbed++;
+      }
+
+      if (!scrubbed) {
+        // Sólo había prohibido en la PK (la referencian FKs) → la verificación
+        // final lo reportará como pendiente manual.
+        console.log(`  ✖ ${f.table} [${r.pk}]: prohibido en PK — revisar manualmente`);
+        continue;
+      }
+      try {
+        await repo.save(entity);
+        anonymizedCount++;
+        console.log(`  ✎ ${f.table} [${r.pk}]: anonimizado${pkBlocked ? ' (parcial; PK intacta)' : ''}`);
+      } catch (err) {
+        console.log(`  ✖ ${f.table} (anonimizar): ${(err as Error).message}`);
+      }
+    }
+  }
+}
+
 async function run(): Promise<void> {
   const apply = process.argv.includes('--apply') || process.env.PURGE_CONFIRM === 'true';
 
@@ -241,15 +294,27 @@ async function run(): Promise<void> {
       console.log('· Borrando (barrido comprensivo del resto):');
       await sweepRemaining(ds, res);
 
-      // Verificación final: re-escanea para confirmar que no quedó nada (idempotencia).
+      // Lo que NO se pudo borrar (FK desde datos legítimos): anonimizar en sitio
+      // para que el texto de cliente real desaparezca sin romper integridad.
+      const afterDelete = await scanForbidden(ds);
+      if (afterDelete.totalMatchedRows > 0 && process.env.NO_ANONYMIZE !== 'true') {
+        console.log(`· Anonimizando ${afterDelete.totalMatchedRows} fila(s) no-borrables (FK desde datos legítimos):`);
+        await anonymizeRemaining(ds, afterDelete);
+      }
+
+      // Verificación final: re-escanea para confirmar que no quedó NADA prohibido.
       const after = await scanForbidden(ds);
       console.log('');
       if (after.totalMatchedRows === 0) {
-        console.log('· Verificación post-purga: 0 filas prohibidas restantes ✔');
+        console.log('· Verificación post-purga: 0 filas prohibidas restantes ✔ (borradas + anonimizadas)');
       } else {
         console.log(`· Verificación post-purga: AÚN quedan ${after.totalMatchedRows} fila(s) en ${after.withHits.length} tabla(s):`);
         for (const f of after.withHits) {
-          console.log(`    - ${f.table}: ${f.matched} (FK desde datos legítimos / revisar manualmente)`);
+          console.log(`    - ${f.table}: ${f.matched} (revisar manualmente${process.env.NO_ANONYMIZE === 'true' ? '; anonimización desactivada' : ''})`);
+          for (const r of f.rows) {
+            const h = r.hits[0];
+            problems.push(`${f.table} [${r.pk}]: ${h?.field}="${h?.value}" (${h?.reason})`);
+          }
         }
       }
     });
@@ -259,7 +324,7 @@ async function run(): Promise<void> {
     if (!apply) {
       console.log(' DRY-RUN — no se borró nada. Repite con `-- --apply` para purgar de verdad.');
     } else {
-      console.log(` Total purgado: ${total} fila(s) de clientes reales.`);
+      console.log(` Total purgado: ${total} fila(s) borrada(s)${anonymizedCount ? ` + ${anonymizedCount} anonimizada(s)` : ''} de clientes reales.`);
       if (problems.length) {
         console.log(' Pasos con problemas (revisar manualmente):');
         for (const p of problems) console.log(`   - ${p}`);

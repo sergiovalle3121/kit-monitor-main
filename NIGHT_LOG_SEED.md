@@ -73,16 +73,28 @@ parte/modelo/cliente/programa/proveedor, sin hardcodear nombres.
 - **DRY-RUN por defecto** (igual que antes); borra de verdad SÓLO con `--apply`
   (alias retro-compatible: `PURGE_CONFIRM=true`). Detección por el **motor compartido**
   (un solo detector).
-- Borrado en dos planos respetando FKs:
+- Borrado en tres planos respetando FKs:
   1. **Cascada CURADA del núcleo** (FKs reales): plan→kit→materiales/dependientes,
      header→componentes (cascade), modelos, inventario (movs/posiciones→material),
      programas→clientes.
   2. **Barrido COMPRENSIVO** del resto (POs, requisiciones, embarques, RMA, CRM…) con
-     **pasadas de reintento** por si hubiera FKs; lo que no se pueda borrar se
-     **REPORTA** (nunca se fuerza sobre datos legítimos ni se deja huérfano silencioso).
-  3. **Verificación post-purga**: re-escanea y confirma 0 restantes (idempotente).
-- **Validado en DRY-RUN** contra el Postgres efímero: mismo reporte de 12 tablas +
-  "NO se borró nada" + conteos sin cambios. **`--apply` NO se corrió** (espera OK).
+     **pasadas de reintento** por si hubiera FKs.
+  3. **ANONIMIZACIÓN de respaldo** (`scrubForbidden`): si una fila NO se puede borrar
+     porque un dato **legítimo** la referencia por FK (p. ej. un material cuya
+     `description` menciona un cliente real, pero con posiciones de inventario
+     válidas), se **scrubea el texto prohibido en sitio** (empresa real→`[REDACTED]`;
+     identificador con prefijo→`[REDACTED]`), conservando la fila y la integridad. La
+     PK nunca se toca. Opt-out: `NO_ANONYMIZE=true`. Garantiza que el texto de cliente
+     real **siempre** desaparezca.
+  4. **Verificación post-purga**: re-escanea y confirma **0 restantes**; lo único que
+     se reporta como "pendiente manual" es lo que de verdad siga prohibido.
+- **Validado `--apply` end-to-end en el Postgres efímero desechable** (con OK del
+  owner; NO es prod — este entorno no tiene `DATABASE_URL` de prod): de 12 filas
+  inyectadas → **11 borradas + 1 anonimizada** (`material_master RES-1K-0402` quedó
+  como `"Resistencia para programa [REDACTED]"`, con su inventario intacto) →
+  **post-purga 0** → 2ª corrida **idempotente** ("Nada que purgar"). Hallazgo clave:
+  el caso FK-bloqueado real (texto contaminado en fila legítima) lo resolvió la
+  anonimización, no el borrado — por eso se validó en local antes de prod.
 
 ### [Paso 3] Endurecer el guard — rechazo ruidoso en arranque/seed
 - `forbidden-scan.ts` → `assertDatabasePublicDomain(ds)`: **LANZA** con resumen si hay
