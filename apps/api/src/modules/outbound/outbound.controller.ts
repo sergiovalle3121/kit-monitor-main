@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Header,
   Param,
@@ -14,10 +15,13 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { RequirePermissions } from '../auth/decorators/permissions.decorator';
 import { OutboundService } from './outbound.service';
+import { OutboundLinesService } from './outbound-lines.service';
 import {
   AssignTransportDto,
+  CreateOutboundLineDto,
   CreateShipmentDto,
   TransitionShipmentDto,
+  UpdateOutboundLineDto,
   UpdateShipmentDto,
 } from './dto/outbound.dto';
 
@@ -26,7 +30,10 @@ import {
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller('outbound')
 export class OutboundController {
-  constructor(private readonly service: OutboundService) {}
+  constructor(
+    private readonly service: OutboundService,
+    private readonly linesService: OutboundLinesService,
+  ) {}
 
   @Get('kpis')
   @ApiOperation({ summary: 'KPIs de embarque: por embarcar, en tránsito, OTD.' })
@@ -66,6 +73,35 @@ export class OutboundController {
   @ApiOperation({ summary: 'Avanza el embarque (genera ASN al embarcar).' })
   transition(@Param('id') id: string, @Body() dto: TransitionShipmentDto) {
     return this.service.transition(id, dto);
+  }
+
+  // ── Contenido (líneas del embarque) ────────────────────────────────────────
+
+  @Get('shipments/:id/lines')
+  @ApiOperation({ summary: 'Líneas (contenido) del embarque.' })
+  lines(@Param('id') id: string) {
+    return this.linesService.listLines(id);
+  }
+
+  @Post('shipments/:id/lines')
+  @RequirePermissions('logistics:write')
+  @ApiOperation({ summary: 'Agrega una línea de contenido al embarque.' })
+  addLine(@Param('id') id: string, @Body() dto: CreateOutboundLineDto) {
+    return this.linesService.addLine(id, dto);
+  }
+
+  @Patch('lines/:lineId')
+  @RequirePermissions('logistics:write')
+  @ApiOperation({ summary: 'Actualiza una línea de contenido.' })
+  updateLine(@Param('lineId') lineId: string, @Body() dto: UpdateOutboundLineDto) {
+    return this.linesService.updateLine(lineId, dto);
+  }
+
+  @Delete('lines/:lineId')
+  @RequirePermissions('logistics:write')
+  @ApiOperation({ summary: 'Elimina una línea de contenido.' })
+  removeLine(@Param('lineId') lineId: string) {
+    return this.linesService.removeLine(lineId);
   }
 
   @Get('shipments/:id/asn')

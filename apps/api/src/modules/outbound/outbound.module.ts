@@ -1,12 +1,15 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Shipment } from './entities/shipment.entity';
+import { OutboundShipmentLine } from './entities/outbound-shipment-line.entity';
 import { OutboundService } from './outbound.service';
+import { OutboundLinesService } from './outbound-lines.service';
 import { OutboundController } from './outbound.controller';
 import { NumberingModule } from '../numbering/numbering.module';
 import { EventLedgerModule } from '../event-ledger/event-ledger.module';
 import { TrafficModule } from '../traffic/traffic.module';
 import { PackingModule } from '../packing/packing.module';
+import { InventoryModule } from '../inventory/inventory.module';
 
 /**
  * Logistics / Outbound (Embarque): finished-goods shipments + ASN. Self-contained
@@ -16,14 +19,15 @@ import { PackingModule } from '../packing/packing.module';
  */
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Shipment]),
+    TypeOrmModule.forFeature([Shipment, OutboundShipmentLine]),
     NumberingModule,
     EventLedgerModule,
     TrafficModule,
     PackingModule,
+    InventoryModule,
   ],
   controllers: [OutboundController],
-  providers: [OutboundService],
-  exports: [OutboundService],
+  providers: [OutboundService, OutboundLinesService],
+  exports: [OutboundService, OutboundLinesService],
 })
 export class OutboundModule {}

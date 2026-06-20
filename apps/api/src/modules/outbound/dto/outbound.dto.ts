@@ -1,6 +1,7 @@
 import {
   IsIn,
   IsInt,
+  IsNumber,
   IsOptional,
   IsString,
   Length,
@@ -147,6 +148,126 @@ export class AssignTransportDto {
   @IsString()
   @Length(0, 36)
   dockId?: string;
+}
+
+export class CreateOutboundLineDto {
+  @ApiProperty({ example: 'FG-1001' })
+  @IsString()
+  @Length(1, 64)
+  partNumber: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @Length(0, 200)
+  description?: string;
+
+  @ApiProperty({ example: 100 })
+  @IsNumber()
+  @Min(0)
+  quantity: number;
+
+  @ApiPropertyOptional({ example: 'EA' })
+  @IsOptional()
+  @IsString()
+  @Length(0, 12)
+  uom?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @Length(0, 64)
+  lotNumber?: string;
+
+  @ApiPropertyOptional({ example: 'WH-FG' })
+  @IsOptional()
+  @IsString()
+  @Length(0, 32)
+  warehouseId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @Length(0, 64)
+  location?: string;
+
+  @ApiPropertyOptional({ description: 'Orden de venta que cumple (SD).' })
+  @IsOptional()
+  @IsString()
+  @Length(0, 32)
+  salesOrder?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @Length(0, 16)
+  salesOrderLine?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  notes?: string;
+}
+
+export class UpdateOutboundLineDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @Length(1, 64)
+  partNumber?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @Length(0, 200)
+  description?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  quantity?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @Length(0, 12)
+  uom?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @Length(0, 64)
+  lotNumber?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @Length(0, 32)
+  warehouseId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @Length(0, 64)
+  location?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @Length(0, 32)
+  salesOrder?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @Length(0, 16)
+  salesOrderLine?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  notes?: string;
 }
 
 export class TransitionShipmentDto {
