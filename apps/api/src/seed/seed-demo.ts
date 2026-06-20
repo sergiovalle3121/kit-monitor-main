@@ -36,6 +36,12 @@ import { User } from '../modules/users/entities/user.entity';
 import { SuppliersService } from '../modules/suppliers/suppliers.service';
 import { Supplier } from '../modules/suppliers/entities/supplier.entity';
 import { ErpMmService } from '../modules/erp-core/services/erp-mm.service';
+import { ProductionPlanService } from '../modules/production-plan/production-plan.service';
+import { SfWorkOrder } from '../modules/production-plan/entities/sf-work-order.entity';
+import { FloorQualityService } from '../modules/floor-quality/floor-quality.service';
+import { SfQualityHold } from '../modules/floor-quality/entities/sf-quality-hold.entity';
+import { OeeService } from '../modules/oee/oee.service';
+import { SfDowntimeEvent } from '../modules/oee/entities/sf-downtime-event.entity';
 
 import {
   assertNotProduction,
@@ -61,10 +67,16 @@ import {
   DEMO_PLANS,
   DEMO_PLANT,
   DEMO_PROGRAMS,
+  DEMO_SF_DOWNTIME,
+  DEMO_SF_HOLDS,
+  DEMO_SF_WORK_ORDERS,
   DEMO_SUBASSEMBLIES,
   DEMO_SUBASSEMBLY_PARTS,
   DEMO_SUPPLIERS,
   DEMO_SUPPLIER_PRICES,
+  SF_DOWNTIME_PREFIX,
+  SF_HOLD_LOT,
+  SF_WO_NOTE,
   DEMO_USERS,
   DEMO_USER_PASSWORD,
   DEMO_WAREHOUSES,
@@ -686,6 +698,109 @@ async function seedUsers(app: INestApplicationContext): Promise<Tally> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// 10. Piso de producción: WOs sf_work_orders en distintos estados + historia
+//     (avances, holds de calidad, downtime). Usa los servicios reales del piso.
+// ─────────────────────────────────────────────────────────────────────────────
+async function seedShopFloor(
+  app: INestApplicationContext,
+  ds: DataSource,
+): Promise<Tally> {
+  const planSvc = app.get(ProductionPlanService, { strict: false });
+  const qualitySvc = app.get(FloorQualityService, { strict: false });
+  const oeeSvc = app.get(OeeService, { strict: false });
+  const woRepo = ds.getRepository(SfWorkOrder);
+  const holdRepo = ds.getRepository(SfQualityHold);
+  const dtRepo = ds.getRepository(SfDowntimeEvent);
+  const programByModel = new Map(DEMO_MODELS.map((m) => [m.modelNumber, slugCode(m.programCode)]));
+  const t = tally();
+  const woIdByRef = new Map<string, string>();
+
+  // ── Work orders (publicar + llevar a su estado objetivo) ──
+  for (const w of DEMO_SF_WORK_ORDERS) {
+    try {
+      const note = SF_WO_NOTE(w.ref);
+      let wo = await woRepo.findOne({ where: { notes: note } });
+      if (!wo) {
+        wo = await planSvc.publish({
+          model: w.model,
+          line: w.line,
+          quantityPlanned: w.quantityPlanned,
+          customer: w.customer,
+          priority: w.priority,
+          taktTargetSec: w.taktTargetSec,
+          faiRequired: w.faiRequired ?? false,
+          notes: note,
+          programId: programByModel.get(w.model) ?? undefined,
+        });
+        if (w.faiRequired) await planSvc.setFaiApproved(wo.id, true);
+        if (w.state !== 'RELEASED') await planSvc.setMaterialReady(wo.id, true); // → STAGED
+        if (w.state === 'IN_EXECUTION') {
+          await planSvc.incrementCompleted(wo.id, Math.min(w.completed ?? 1, Math.max(1, w.quantityPlanned - 1)));
+        }
+        if (w.state === 'COMPLETED') await planSvc.incrementCompleted(wo.id, w.quantityPlanned);
+        t.created++;
+      } else {
+        t.skipped++;
+      }
+      woIdByRef.set(w.ref, wo.id);
+    } catch (err) {
+      t.errors++;
+      log('work orders', `ERROR ${w.ref}: ${(err as Error).message}`);
+    }
+  }
+  log('work orders', `creadas=${t.created} ya existían=${t.skipped} errores=${t.errors}`);
+
+  // ── Holds de calidad (bloquean su WO) ──
+  let holds = 0;
+  for (const h of DEMO_SF_HOLDS) {
+    try {
+      const lot = SF_HOLD_LOT(h.woRef);
+      if (await holdRepo.findOne({ where: { lot } })) continue;
+      await qualitySvc.createHold({
+        part: h.part,
+        qty: h.qty,
+        woId: woIdByRef.get(h.woRef),
+        lot,
+        origin: 'IN_PROCESS',
+        defectType: h.defectType,
+        severity: h.severity,
+      });
+      holds++;
+    } catch (err) {
+      log('holds', `ERROR ${h.woRef}: ${(err as Error).message}`);
+    }
+  }
+  log('holds', `creados=${holds} (de ${DEMO_SF_HOLDS.length})`);
+
+  // ── Downtime / paros (cerrados con duración, o un OPEN en curso) ──
+  let downtime = 0;
+  for (const d of DEMO_SF_DOWNTIME) {
+    try {
+      const reasonNote = `${SF_DOWNTIME_PREFIX} ${d.note}`;
+      if (await dtRepo.findOne({ where: { reasonNote } })) continue;
+      const ev = await oeeSvc.openDowntime({
+        line: d.line,
+        reasonCode: d.reasonCode,
+        reasonNote,
+        startAt: new Date(Date.now() - d.startMinAgo * 60_000).toISOString(),
+      });
+      if (d.durationMin > 0) {
+        await oeeSvc.closeDowntime(ev.id, {
+          endAt: new Date(Date.now() - (d.startMinAgo - d.durationMin) * 60_000).toISOString(),
+        });
+      }
+      downtime++;
+    } catch (err) {
+      log('downtime', `ERROR ${d.line}: ${(err as Error).message}`);
+    }
+  }
+  log('downtime', `creados=${downtime} (de ${DEMO_SF_DOWNTIME.length})`);
+
+  t.created += holds + downtime;
+  return t;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Valuación rápida de inventario (SUM(onHand × standardCost)) para el resumen.
 // ─────────────────────────────────────────────────────────────────────────────
 async function inventoryValuation(ds: DataSource): Promise<number> {
@@ -732,6 +847,7 @@ async function run(): Promise<void> {
       await seedConsumption(app, ds);
       await seedQualityHolds(app, ds);
       await seedUsers(app);
+      await seedShopFloor(app, ds);
     });
 
     // CANDADO LEGAL (post-seed): re-escanea TODA la base y FALLA ruidosamente si
@@ -751,6 +867,7 @@ async function run(): Promise<void> {
     console.log(`   Partes (MM):      ${DEMO_PARTS.length}`);
     console.log(`   Modelos (AX-):    ${DEMO_MODELS.length}`);
     console.log(`   Planes:           ${DEMO_PLANS.length} (${DEMO_PLANS.filter((p) => p.publish).length} publicados)`);
+    console.log(`   WOs piso:         ${DEMO_SF_WORK_ORDERS.length} (holds: ${DEMO_SF_HOLDS.length}, paros: ${DEMO_SF_DOWNTIME.length})`);
     console.log(`   Usuarios demo:    ${DEMO_USERS.length}`);
     console.log(`   Valuación inv.:   $${valuation.toFixed(2)} USD`);
     console.log('   Folios ejemplo:   modelos ' + DEMO_MODELS.map((m) => m.modelNumber).join(', '));

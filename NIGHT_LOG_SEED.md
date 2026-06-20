@@ -13,14 +13,17 @@ sensible; todo en 2 pasos (DRY-RUN → `--apply`) y nunca se borra sin OK explí
   (borra/anonimiza) + guard endurecido. Validada `--apply` end-to-end en el
   Postgres efímero desechable (11 borradas + 1 anonimizada → 0). **La purga contra
   PROD la corre el owner** (este entorno no tiene `DATABASE_URL` de prod).
-- **FASE 2 (enriquecer seed) — EN CURSO.**
-  - **2a ✅ DONE**: 91 partes (con AVL fabricante+MPN ficticio), 12 proveedores, 105
-    precios de proveedor. Idempotente; legal-lock post-seed verde.
-  - **2b ✅ DONE**: 8 modelos (4 nuevos con BOM MULTINIVEL real: ensamble final→PCBA→
-    sub-módulo, 3 niveles en AX-MOTOR-500), 5 sub-ensambles (PCBAs + etapa de
-    potencia) registrados como materiales con costo = rollup. Golden path 28/28.
-  - **2c (siguiente)**: WOs (sf_work_orders) en varios estados + historia
-    (avances/holds/downtime) para que planeación/operador/almacén tengan qué mostrar.
+- **FASE 2 (enriquecer seed) — ✅ COMPLETA.**
+  - **2a**: 91 partes (con AVL fabricante+MPN ficticio), 12 proveedores, 105 precios.
+  - **2b**: 8 modelos (4 nuevos con BOM MULTINIVEL real: ensamble final→PCBA→
+    sub-módulo, 3 niveles en AX-MOTOR-500), 5 sub-ensambles con costo = rollup.
+  - **2c**: 10 WOs `sf_work_orders` en los 4 estados (RELEASED/STAGED/IN_EXECUTION/
+    COMPLETED) con avances reales, 2 holds de calidad (bloquean su WO), 5 paros
+    (4 cerrados + 1 abierto). Servicios reales del piso (publish/incrementCompleted/
+    createHold/openDowntime).
+  - Ciclo completo verde: **seed (idempotente) → verify (golden path 28/28) → clear
+    (teardown limpio, 707 filas → 0)**. Legal-lock post-seed verde en cada corrida.
+- **PENDIENTE**: el **OK del owner para correr la purga `--apply` contra PROD** (Fase 1).
 
 ---
 
@@ -140,13 +143,65 @@ DATABASE_URL=<prod> npm run seed:purge-clients
 DATABASE_URL=<prod> npm run seed:purge-clients -- --apply
 ```
 
-### PENDIENTE
-- **OK del owner** para `--apply` contra prod.
-- **FASE 2 — enriquecer `seed-constants.ts`** (tras la purga): catálogo ficticio rico
-  (6–10 modelos, BOMs multinivel, 60–100 partes con AVL, WOs en varios estados +
-  historia, proveedores + precios), todo validado por `validateDemoCatalog()`. **No
-  iniciada** (espera OK).
+### PENDIENTE (Fase 1)
+- **OK del owner** para correr `--apply` contra PROD (lo corre el owner; este entorno
+  no tiene `DATABASE_URL` de prod). El tooling ya está validado end-to-end en local.
 
 ### Notas
 - `pg` emite un `DeprecationWarning` cosmético ("client already executing a query")
   durante el escaneo; 0 errores de lectura y conteos correctos — benigno.
+
+---
+
+## 2026-06-20 — FASE 2: Enriquecer el seed de dominio público (COMPLETA)
+
+> Tras la Fase 1, se expandió `seed-constants.ts` + `seed-demo.ts` con un catálogo
+> ficticio rico del universo AXOS. TODO pasa por `validateDemoCatalog()` antes de
+> insertar y por la aserción `assertDatabasePublicDomain()` después (legal-lock).
+> Cero cambios de esquema/entidad; cero migraciones. Se reusan los SERVICIOS reales.
+
+### 2a — Partes + AVL + proveedores + precios
+- **91 partes** commodity (de 28) en más familias (diodos, BJT, ferrites, reguladores,
+  sensores, timing, conectores, mecánica, térmico). Cada una con **AVL ficticio**
+  (fabricante + MPN) construido por categoría, persistido en `MaterialMaster.metadata`
+  (no hay entidad AVL → se usa metadata, sin tocar esquema).
+- **12 proveedores** ficticios (`suppliers`) + **105 precios** (`erp_supplier_prices`):
+  fuente preferida por parte + alterna (Orion) para partes A; MOQ/lead time por ABC.
+- Guard: `ALLOWED_PART_PREFIXES` extendido con commodities; `validateDemoCatalog`
+  valida AVL (fabricante/MPN), proveedores (nombre/país) y precios.
+
+### 2b — Modelos + BOMs MULTINIVEL
+- **8 modelos** (de 4). Los 4 nuevos (AX-MOTOR-500/GATE-600/METER-700/NODE-800) tienen
+  **BOM multinivel real** (headers separados por buildable): ensamble final → **PCBA**
+  → (en AX-MOTOR-500) **sub-módulo de potencia** = 3 niveles.
+- **5 sub-ensambles** (4 PCBAs + 1 etapa de potencia) registrados como materiales
+  (requisito: `BomService` valida que cada componente exista en `material_master`) con
+  `standardCost` = **rollup** de su propio BOM (calculado en orden de dependencias:
+  PWRSTAGE $5.17 → PCBA-500 $20.58). Los 4 modelos originales y el golden path
+  quedaron **intactos**.
+
+### 2c — WOs en distintos estados + historia
+- **10 `sf_work_orders`** en los 4 estados (RELEASED/STAGED/IN_EXECUTION/COMPLETED) con
+  folio real y avances (`incrementCompleted`), vía `ProductionPlanService.publish`.
+- **2 holds de calidad** (`FloorQualityService.createHold`) que **bloquean** su WO
+  (`qualityClear=false`).
+- **5 paros/downtime** (`OeeService.openDowntime/closeDowntime`): 4 cerrados con
+  duración + 1 abierto en curso, con reason codes variados (EQUIPMENT/MATERIAL/
+  CHANGEOVER/NO_OPERATOR) → la torre/OEE tiene disponibilidad que masticar.
+- Idempotencia por marcadores (`AX-SEED-WO:`, `AX-SEED-H:`, `AX-SEED ·`).
+
+### Verificación (ciclo completo, Postgres efímero)
+- **seed:demo** idempotente (2ª corrida: creadas=0). Legal-lock post-seed verde
+  (748 campos del catálogo verificados; base limpia tras sembrar).
+- **seed:demo:verify**: golden path **28/28** (8 modelos ACTIVE, 8 BOMs ACTIVE,
+  planes publicados + explosión correcta, valuación $120k).
+- **seed:demo:clear**: teardown limpio (**707 filas demo → 0**, sin errores).
+- Puertas: build + **565 unit tests** + bootstrap smoke (PG) verdes.
+
+### Archivos (Fase 2)
+- `apps/api/src/seed/seed-constants.ts` (catálogo expandido: partes/AVL/proveedores/
+  precios/sub-ensambles/modelos/WOs/holds/downtime)
+- `apps/api/src/seed/seed-demo.ts` (seedSuppliers/seedSupplierPrices/seedShopFloor +
+  sub-ensambles como materiales + BOMs multinivel)
+- `apps/api/src/seed/seed-demo-clear.ts` (teardown de lo nuevo)
+- `apps/api/src/seed/public-domain-guard.ts` (prefijos + validación del catálogo nuevo)

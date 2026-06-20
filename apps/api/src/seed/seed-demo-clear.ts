@@ -12,7 +12,7 @@
  * Uso: DATABASE_URL=... npm run seed:demo:clear
  */
 import 'reflect-metadata';
-import { DataSource, In, ObjectLiteral, Repository } from 'typeorm';
+import { DataSource, In, Like, ObjectLiteral, Repository } from 'typeorm';
 
 import { ProductModel } from '../modules/product-models/entities/product-model.entity';
 import { BomHeader } from '../modules/bom/entities/bom-header.entity';
@@ -30,6 +30,9 @@ import { EnterprisePlanLink } from '../modules/enterprise-campus/entities/enterp
 import { User } from '../modules/users/entities/user.entity';
 import { Supplier } from '../modules/suppliers/entities/supplier.entity';
 import { ErpSupplierPrice } from '../modules/erp-core/entities/erp-supplier-price.entity';
+import { SfWorkOrder } from '../modules/production-plan/entities/sf-work-order.entity';
+import { SfQualityHold } from '../modules/floor-quality/entities/sf-quality-hold.entity';
+import { SfDowntimeEvent } from '../modules/oee/entities/sf-downtime-event.entity';
 
 import { bootSeedContext, runInDemoContext } from './seed-context';
 import {
@@ -38,11 +41,16 @@ import {
   DEMO_MV_REF_TYPES,
   DEMO_PART_NUMBERS,
   DEMO_PROGRAM_CODES,
+  DEMO_SF_HOLDS,
+  DEMO_SF_WORK_ORDERS,
   DEMO_SUBASSEMBLY_NUMBERS,
   DEMO_SUPPLIER_CODES,
   DEMO_USER_EMAILS,
   DEMO_WAREHOUSES,
   DEMO_WORK_ORDERS,
+  SF_DOWNTIME_PREFIX,
+  SF_HOLD_LOT,
+  SF_WO_NOTE,
 } from './seed-constants';
 
 const DEMO_WH_IDS = DEMO_WAREHOUSES.map((w) => w.id);
@@ -207,7 +215,24 @@ async function run(): Promise<void> {
       // 14) Clientes
       await removeBy(ds.getRepository(EnterpriseCustomer), { code: In(DEMO_CUSTOMER_CODES) }, 'enterprise_customers');
 
-      // 15) Usuarios demo
+      // 15) Piso de producción: holds + downtime (referencian WO por string) → WOs
+      await removeBy(
+        ds.getRepository(SfQualityHold),
+        { lot: In(DEMO_SF_HOLDS.map((h) => SF_HOLD_LOT(h.woRef))) },
+        'sf_quality_holds',
+      );
+      await removeBy(
+        ds.getRepository(SfDowntimeEvent),
+        { reasonNote: Like(`${SF_DOWNTIME_PREFIX}%`) },
+        'sf_downtime_events',
+      );
+      await removeBy(
+        ds.getRepository(SfWorkOrder),
+        { notes: In(DEMO_SF_WORK_ORDERS.map((w) => SF_WO_NOTE(w.ref))) },
+        'sf_work_orders',
+      );
+
+      // 16) Usuarios demo
       await removeBy(ds.getRepository(User), { email: In(DEMO_USER_EMAILS) }, 'users');
     });
 

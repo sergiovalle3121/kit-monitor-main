@@ -774,6 +774,73 @@ export const DEMO_HOLDS: DemoHold[] = [
   { part: 'CONN-RJ45-MAG', quantity: 200, holdStatus: 'quarantine' },
 ];
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Piso de producción (shop floor): WOs `sf_work_orders` en distintos estados +
+// historia simulada (avances, holds de calidad, paros/downtime). Da QUÉ mostrar a
+// planeación/operador/almacén y datos para decision-intelligence (OEE/adherencia).
+// ─────────────────────────────────────────────────────────────────────────────
+export type SfState = 'RELEASED' | 'STAGED' | 'IN_EXECUTION' | 'COMPLETED';
+
+export interface DemoSfWorkOrder {
+  ref: string; // marcador idempotente (va en notes via SF_WO_NOTE)
+  model: string;
+  line: string;
+  quantityPlanned: number;
+  customer: string;
+  priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
+  taktTargetSec: number;
+  state: SfState;
+  completed?: number; // unidades avanzadas (IN_EXECUTION); COMPLETED usa quantityPlanned
+  faiRequired?: boolean;
+}
+
+export const DEMO_SF_WORK_ORDERS: DemoSfWorkOrder[] = [
+  { ref: 'D100-A', model: 'AX-DRIVE-100', line: 'L1', quantityPlanned: 50, customer: 'Axos Mobility', priority: 'HIGH', taktTargetSec: 95, state: 'COMPLETED' },
+  { ref: 'D100-B', model: 'AX-DRIVE-100', line: 'L1', quantityPlanned: 120, customer: 'Axos Mobility', priority: 'MEDIUM', taktTargetSec: 95, state: 'IN_EXECUTION', completed: 45 },
+  { ref: 'P200-A', model: 'AX-POWER-200', line: 'L2', quantityPlanned: 30, customer: 'Axos Power', priority: 'URGENT', taktTargetSec: 120, state: 'IN_EXECUTION', completed: 12 },
+  { ref: 'P200-B', model: 'AX-POWER-200', line: 'L2', quantityPlanned: 75, customer: 'Axos Power', priority: 'MEDIUM', taktTargetSec: 120, state: 'STAGED' },
+  { ref: 'S300-A', model: 'AX-SENSE-300', line: 'L5', quantityPlanned: 200, customer: 'Axos Medical', priority: 'MEDIUM', taktTargetSec: 60, state: 'COMPLETED' },
+  { ref: 'C400-A', model: 'AX-COMM-400', line: 'L7', quantityPlanned: 40, customer: 'Axos Aero', priority: 'MEDIUM', taktTargetSec: 110, state: 'RELEASED' },
+  { ref: 'M500-A', model: 'AX-MOTOR-500', line: 'L3', quantityPlanned: 25, customer: 'Axos Mobility', priority: 'HIGH', taktTargetSec: 150, state: 'IN_EXECUTION', completed: 8, faiRequired: true },
+  { ref: 'G600-A', model: 'AX-GATE-600', line: 'L4', quantityPlanned: 60, customer: 'Axos Aero', priority: 'MEDIUM', taktTargetSec: 100, state: 'STAGED' },
+  { ref: 'E700-A', model: 'AX-METER-700', line: 'L6', quantityPlanned: 100, customer: 'Axos Power', priority: 'LOW', taktTargetSec: 80, state: 'RELEASED' },
+  { ref: 'N800-A', model: 'AX-NODE-800', line: 'L8', quantityPlanned: 150, customer: 'Axos Medical', priority: 'MEDIUM', taktTargetSec: 70, state: 'IN_EXECUTION', completed: 60 },
+];
+
+export interface DemoSfHold {
+  woRef: string; // liga a DEMO_SF_WORK_ORDERS.ref
+  part: string;
+  qty: number;
+  defectType: string;
+  severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+}
+
+export const DEMO_SF_HOLDS: DemoSfHold[] = [
+  { woRef: 'D100-B', part: 'PCB-AX100-4L', qty: 5, defectType: 'Soldadura insuficiente en QFP', severity: 'HIGH' },
+  { woRef: 'M500-A', part: 'AX-PCBA-500', qty: 2, defectType: 'Falla en prueba funcional de potencia', severity: 'CRITICAL' },
+];
+
+export interface DemoSfDowntime {
+  line: string;
+  reasonCode: 'EQUIPMENT' | 'MATERIAL' | 'QUALITY' | 'CHANGEOVER' | 'NO_OPERATOR' | 'OTHER';
+  note: string;
+  startMinAgo: number; // inicio = ahora − startMinAgo (minutos)
+  durationMin: number; // > 0 → cerrado con esa duración; 0 → queda OPEN
+}
+
+export const DEMO_SF_DOWNTIME: DemoSfDowntime[] = [
+  { line: 'L1', reasonCode: 'EQUIPMENT', note: 'Cambio de boquilla en SMT', startMinAgo: 200, durationMin: 25 },
+  { line: 'L2', reasonCode: 'MATERIAL', note: 'Espera de componente surtido', startMinAgo: 150, durationMin: 18 },
+  { line: 'L3', reasonCode: 'CHANGEOVER', note: 'Cambio de modelo (SMED)', startMinAgo: 110, durationMin: 32 },
+  { line: 'L7', reasonCode: 'NO_OPERATOR', note: 'Falta de operador certificado', startMinAgo: 75, durationMin: 20 },
+  { line: 'L5', reasonCode: 'EQUIPMENT', note: 'Mantenimiento no programado en horno', startMinAgo: 40, durationMin: 0 },
+];
+
+/** Marcadores idempotentes / de borrado para los datos de piso. */
+export const SF_WO_NOTE = (ref: string): string => `AX-SEED-WO:${ref}`;
+export const SF_HOLD_LOT = (ref: string): string => `AX-SEED-H:${ref}`;
+export const SF_DOWNTIME_PREFIX = 'AX-SEED ·';
+
 /** Igual que EnterpriseCampusService.slug — para predecir ids de cliente/programa. */
 export function slugCode(code: string): string {
   return code
