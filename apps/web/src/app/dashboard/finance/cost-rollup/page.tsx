@@ -37,6 +37,8 @@ import {
   type CostItem,
   useCostRollup,
 } from '@/hooks/useCostRollup';
+import { glass } from '@/lib/glass';
+import { PageHeader } from '@/components/ui/PageHeader';
 
 type CategoryMeta = {
   label: string;
@@ -60,29 +62,32 @@ const CATEGORY_ORDER: CostCategory[] = [
   'gastos_fijos',
 ];
 
+// Colores categóricos de la visualización (datos, no "chrome"): se mantienen
+// porque distinguen las barras/segmentos; el resto de la pantalla usa los
+// tokens semánticos del tema (claro/oscuro).
 const CATEGORY_META: Record<CostCategory, CategoryMeta> = {
   mano_de_obra: {
-    label: 'Mano de Obra',
-    color: '#FFB800',
-    tint: 'text-amber-300',
+    label: 'Mano de obra',
+    color: '#f59e0b',
+    tint: 'text-amber-500',
     Icon: UsersRound,
   },
   materia_prima: {
-    label: 'Materia Prima',
-    color: '#10B981',
-    tint: 'text-emerald-300',
+    label: 'Materia prima',
+    color: '#10b981',
+    tint: 'text-emerald-500',
     Icon: Boxes,
   },
   energia: {
-    label: 'Energia',
-    color: '#3B82F6',
-    tint: 'text-blue-300',
+    label: 'Energía',
+    color: '#3b82f6',
+    tint: 'text-blue-500',
     Icon: Zap,
   },
   gastos_fijos: {
-    label: 'Gastos Fijos',
-    color: '#8B5CF6',
-    tint: 'text-violet-300',
+    label: 'Gastos fijos',
+    color: '#8b5cf6',
+    tint: 'text-violet-500',
     Icon: Building2,
   },
 };
@@ -138,7 +143,7 @@ function formatCompactCurrency(value: number) {
 }
 
 function formatDate(value: string) {
-  return new Intl.DateTimeFormat('en-US', {
+  return new Intl.DateTimeFormat('es-MX', {
     month: 'short',
     day: '2-digit',
     hour: '2-digit',
@@ -148,11 +153,11 @@ function formatDate(value: string) {
 
 function CostRollupShell({ children }: { children: ReactNode }) {
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(0,242,234,0.14),transparent_34%),linear-gradient(135deg,#050505_0%,#101010_48%,#050505_100%)] px-4 py-6 text-white md:px-8 lg:px-10">
-      <div className="mx-auto flex w-full max-w-[1680px] flex-col gap-6">
-        {children}
-      </div>
-    </main>
+    <div className="min-h-screen text-black dark:text-white font-sans pb-32">
+      <main className="mx-auto w-full max-w-[1680px] px-4 pt-8 md:px-8 lg:px-10">
+        <div className="flex w-full flex-col gap-6">{children}</div>
+      </main>
+    </div>
   );
 }
 
@@ -168,30 +173,30 @@ function PremiumSkeleton() {
         <motion.div
           key={index}
           variants={cardVariants}
-          className="h-36 rounded-3xl border border-white/20 bg-white/10 p-5 shadow-2xl shadow-black/25 backdrop-blur-xl"
+          className={`${glass} h-36 rounded-3xl p-5`}
         >
-          <div className="h-4 w-24 animate-pulse rounded-full bg-white/20" />
-          <div className="mt-8 h-8 w-36 animate-pulse rounded-full bg-white/15" />
-          <div className="mt-5 h-3 w-full animate-pulse rounded-full bg-white/10" />
+          <div className="h-4 w-24 animate-pulse rounded-full bg-black/10 dark:bg-white/15" />
+          <div className="mt-8 h-8 w-36 animate-pulse rounded-full bg-black/10 dark:bg-white/15" />
+          <div className="mt-5 h-3 w-full animate-pulse rounded-full bg-black/5 dark:bg-white/10" />
         </motion.div>
       ))}
       <motion.div
         variants={cardVariants}
-        className="h-[360px] rounded-3xl border border-white/20 bg-white/10 p-6 shadow-2xl shadow-black/25 backdrop-blur-xl lg:col-span-2"
+        className={`${glass} h-[360px] rounded-3xl p-6 lg:col-span-2`}
       >
-        <div className="h-4 w-36 animate-pulse rounded-full bg-white/20" />
-        <div className="mx-auto mt-12 h-48 w-48 animate-pulse rounded-full bg-white/10" />
+        <div className="h-4 w-36 animate-pulse rounded-full bg-black/10 dark:bg-white/15" />
+        <div className="mx-auto mt-12 h-48 w-48 animate-pulse rounded-full bg-black/5 dark:bg-white/10" />
       </motion.div>
       <motion.div
         variants={cardVariants}
-        className="h-[360px] rounded-3xl border border-white/20 bg-white/10 p-6 shadow-2xl shadow-black/25 backdrop-blur-xl lg:col-span-2"
+        className={`${glass} h-[360px] rounded-3xl p-6 lg:col-span-2`}
       >
-        <div className="h-4 w-36 animate-pulse rounded-full bg-white/20" />
+        <div className="h-4 w-36 animate-pulse rounded-full bg-black/10 dark:bg-white/15" />
         <div className="mt-12 grid h-48 grid-cols-4 items-end gap-4">
           {[55, 80, 42, 64].map((height) => (
             <div
               key={height}
-              className="animate-pulse rounded-t-2xl bg-white/10"
+              className="animate-pulse rounded-t-2xl bg-black/5 dark:bg-white/10"
               style={{ height: `${height}%` }}
             />
           ))}
@@ -204,15 +209,19 @@ function PremiumSkeleton() {
 function AccessDenied() {
   return (
     <CostRollupShell>
-      <section className="mx-auto mt-24 max-w-xl rounded-3xl border border-white/20 bg-white/10 p-8 text-center shadow-2xl shadow-black/30 backdrop-blur-xl">
+      <section
+        className={`${glass} mx-auto mt-24 max-w-xl rounded-3xl p-8 text-center`}
+      >
         <ShieldAlert
-          className="mx-auto h-12 w-12 text-[#FF005C]"
+          className="mx-auto h-12 w-12 text-red-500"
           strokeWidth={1.5}
         />
-        <h1 className="mt-5 text-2xl font-semibold">Finance access required</h1>
-        <p className="mt-3 text-sm leading-6 text-white/65">
-          This module is protected by RBAC. Ask an administrator for the
-          finance:read permission to view cost rollup data.
+        <h1 className="mt-5 text-2xl font-semibold">
+          Se requiere acceso a Finanzas
+        </h1>
+        <p className="mt-3 text-sm leading-6 text-gray-500 dark:text-gray-400">
+          Este módulo está protegido por RBAC. Pide a un administrador el
+          permiso finance:read para ver el costeo por orden.
         </p>
       </section>
     </CostRollupShell>
@@ -233,41 +242,41 @@ function MetricTile({
   return (
     <motion.section
       variants={cardVariants}
-      whileHover={{ y: -4, borderColor: 'rgba(0,242,234,0.36)' }}
-      className="rounded-3xl border border-white/20 bg-white/10 p-5 shadow-2xl shadow-black/25 backdrop-blur-xl transition-colors duration-300"
+      whileHover={{ y: -4, borderColor: 'rgba(124,92,255,0.35)' }}
+      className={`${glass} rounded-3xl p-5 transition-colors duration-300`}
     >
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-white/45">
+          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-400 dark:text-gray-500">
             {label}
           </p>
-          <p className="mt-4 text-2xl font-semibold tracking-tight text-white md:text-3xl">
+          <p className="mt-4 text-2xl font-semibold tracking-tight md:text-3xl">
             {value}
           </p>
         </div>
-        <div className="rounded-2xl border border-white/15 bg-black/30 p-3">
-          <Icon className="h-5 w-5 text-[#00F2EA]" strokeWidth={1.5} />
+        <div className="rounded-2xl bg-black/5 p-3 dark:bg-white/5">
+          <Icon className="h-5 w-5 text-violet-500" strokeWidth={1.5} />
         </div>
       </div>
-      <p className="mt-4 text-sm text-white/55">{detail}</p>
+      <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">{detail}</p>
     </motion.section>
   );
 }
 
 function CategoryBreakdown({ rows }: { rows: ChartRow[] }) {
   return (
-    <motion.section
-      variants={cardVariants}
-      className="rounded-3xl border border-white/20 bg-white/10 p-5 shadow-2xl shadow-black/25 backdrop-blur-xl"
-    >
+    <motion.section variants={cardVariants} className={`${glass} rounded-3xl p-5`}>
       <div className="mb-5 flex items-center justify-between gap-4">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-white/45">
-            Breakdown
+          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-400 dark:text-gray-500">
+            Desglose
           </p>
-          <h2 className="mt-2 text-lg font-semibold">Cost categories</h2>
+          <h2 className="mt-2 text-lg font-semibold">Categorías de costo</h2>
         </div>
-        <BarChart3 className="h-5 w-5 text-white/50" strokeWidth={1.5} />
+        <BarChart3
+          className="h-5 w-5 text-gray-400 dark:text-gray-500"
+          strokeWidth={1.5}
+        />
       </div>
       <div className="space-y-4">
         {rows.map((row) => {
@@ -282,7 +291,7 @@ function CategoryBreakdown({ rows }: { rows: ChartRow[] }) {
                     className={`h-4 w-4 shrink-0 ${meta.tint}`}
                     strokeWidth={1.5}
                   />
-                  <span className="truncate text-sm text-white/78">
+                  <span className="truncate text-sm text-gray-600 dark:text-gray-300">
                     {row.label}
                   </span>
                 </div>
@@ -290,12 +299,12 @@ function CategoryBreakdown({ rows }: { rows: ChartRow[] }) {
                   <p className="text-sm font-semibold">
                     {formatCurrency(row.amount)}
                   </p>
-                  <p className="text-xs text-white/45">
+                  <p className="text-xs text-gray-400 dark:text-gray-500">
                     {row.percentage.toFixed(1)}%
                   </p>
                 </div>
               </div>
-              <div className="h-2 overflow-hidden rounded-full bg-white/10">
+              <div className="h-2 overflow-hidden rounded-full bg-black/5 dark:bg-white/10">
                 <motion.div
                   initial={{ width: 0 }}
                   animate={{ width: `${Math.min(row.percentage, 100)}%` }}
@@ -314,37 +323,37 @@ function CategoryBreakdown({ rows }: { rows: ChartRow[] }) {
 
 function CostItemsTable({ items }: { items: CostItem[] }) {
   return (
-    <motion.section
-      variants={cardVariants}
-      className="rounded-3xl border border-white/20 bg-white/10 p-5 shadow-2xl shadow-black/25 backdrop-blur-xl"
-    >
+    <motion.section variants={cardVariants} className={`${glass} rounded-3xl p-5`}>
       <div className="mb-5 flex items-center justify-between gap-4">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-white/45">
-            Work Order Drilldown
+          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-400 dark:text-gray-500">
+            Detalle por orden
           </p>
-          <h2 className="mt-2 text-lg font-semibold">Individual cost records</h2>
+          <h2 className="mt-2 text-lg font-semibold">Registros de costo</h2>
         </div>
-        <Database className="h-5 w-5 text-white/50" strokeWidth={1.5} />
+        <Database
+          className="h-5 w-5 text-gray-400 dark:text-gray-500"
+          strokeWidth={1.5}
+        />
       </div>
       <div className="overflow-x-auto">
         <table className="min-w-full text-left text-sm">
-          <thead className="border-b border-white/10 text-xs uppercase tracking-[0.18em] text-white/42">
+          <thead className="border-b border-black/5 text-xs uppercase tracking-[0.18em] text-gray-400 dark:border-white/10 dark:text-gray-500">
             <tr>
               <th className="whitespace-nowrap px-3 py-3 font-medium">
-                Work Order
+                Orden de trabajo
               </th>
               <th className="whitespace-nowrap px-3 py-3 font-medium">
-                Category
+                Categoría
               </th>
               <th className="min-w-[220px] px-3 py-3 font-medium">
-                Description
+                Descripción
               </th>
               <th className="whitespace-nowrap px-3 py-3 text-right font-medium">
-                Amount
+                Monto
               </th>
               <th className="whitespace-nowrap px-3 py-3 text-right font-medium">
-                Recorded
+                Registrado
               </th>
             </tr>
           </thead>
@@ -352,7 +361,7 @@ function CostItemsTable({ items }: { items: CostItem[] }) {
             variants={containerVariants}
             initial="hidden"
             animate="visible"
-            className="divide-y divide-white/10"
+            className="divide-y divide-black/5 dark:divide-white/10"
           >
             {items.map((item) => {
               const meta = CATEGORY_META[item.category];
@@ -361,26 +370,24 @@ function CostItemsTable({ items }: { items: CostItem[] }) {
                 <motion.tr
                   key={item.id}
                   variants={rowVariants}
-                  className="text-white/72 transition-colors duration-300 hover:bg-white/5"
+                  className="text-gray-600 transition-colors duration-300 hover:bg-black/5 dark:text-gray-300 dark:hover:bg-white/5"
                 >
-                  <td className="whitespace-nowrap px-3 py-4 font-medium text-white">
-                    {item.workOrderId ?? 'Unassigned'}
+                  <td className="whitespace-nowrap px-3 py-4 font-medium text-black dark:text-white">
+                    {item.workOrderId ?? 'Sin asignar'}
                   </td>
                   <td className="whitespace-nowrap px-3 py-4">
                     <span
-                      className="inline-flex items-center rounded-full border border-white/10 px-3 py-1 text-xs font-medium"
+                      className="inline-flex items-center rounded-full border border-black/10 px-3 py-1 text-xs font-medium dark:border-white/10"
                       style={{ color: meta.color }}
                     >
                       {meta.label}
                     </span>
                   </td>
-                  <td className="px-3 py-4 text-white/68">
-                    {item.description}
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-4 text-right font-semibold text-white">
+                  <td className="px-3 py-4">{item.description}</td>
+                  <td className="whitespace-nowrap px-3 py-4 text-right font-semibold text-black dark:text-white">
                     {formatCurrency(item.amount)}
                   </td>
-                  <td className="whitespace-nowrap px-3 py-4 text-right text-white/48">
+                  <td className="whitespace-nowrap px-3 py-4 text-right text-gray-400 dark:text-gray-500">
                     {formatDate(item.recordedAt)}
                   </td>
                 </motion.tr>
@@ -390,8 +397,8 @@ function CostItemsTable({ items }: { items: CostItem[] }) {
         </table>
       </div>
       {!items.length && (
-        <div className="py-12 text-center text-sm text-white/55">
-          No cost records match this work order filter.
+        <div className="py-12 text-center text-sm text-gray-500 dark:text-gray-400">
+          Ningún registro coincide con este filtro de orden.
         </div>
       )}
     </motion.section>
@@ -462,74 +469,64 @@ export default function CostRollupPage() {
         variants={containerVariants}
         initial="hidden"
         animate="visible"
-        className="rounded-3xl border border-white/20 bg-white/10 p-5 shadow-2xl shadow-black/30 backdrop-blur-xl md:p-6"
+        className="flex flex-col gap-5"
       >
-        <motion.div variants={cardVariants} className="flex flex-wrap gap-3">
+        <motion.div variants={cardVariants}>
           <Link href="/dashboard/finance">
             <motion.span
-              whileHover={{ x: -3, borderColor: 'rgba(0,242,234,0.35)' }}
+              whileHover={{ x: -3 }}
               whileTap={{ scale: 0.98 }}
-              className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-black/25 px-4 py-2 text-sm text-white/76 transition-colors duration-300"
+              className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-black/5 px-4 py-2 text-sm text-gray-600 transition-colors duration-300 hover:text-black dark:border-white/10 dark:bg-white/5 dark:text-gray-300 dark:hover:text-white"
             >
               <ArrowLeft className="h-4 w-4" strokeWidth={1.5} />
-              Finance Hub
+              Finanzas
             </motion.span>
           </Link>
         </motion.div>
 
         <motion.div
           variants={cardVariants}
-          className="mt-6 grid gap-5 lg:grid-cols-[1fr_minmax(320px,520px)] lg:items-end"
+          className="grid gap-5 lg:grid-cols-[1fr_minmax(320px,520px)] lg:items-end"
         >
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-[#00F2EA]/75">
-              Industrial Accounting
-            </p>
-            <h1 className="mt-3 text-3xl font-semibold tracking-tight text-white md:text-5xl">
-              Cost Rollup Command Desk
-            </h1>
-            <p className="mt-4 max-w-3xl text-sm leading-6 text-white/60 md:text-base">
-              Live tenant-scoped costs grouped by labor, materials, energy, and
-              fixed overhead.
-            </p>
-          </div>
+          <PageHeader
+            domain="finance"
+            title="Costeo por orden"
+            subtitle="Costos por tenant en vivo, agrupados en mano de obra, materiales, energía y overhead."
+          />
 
-          <div className="rounded-3xl border border-white/20 bg-black/25 p-3 backdrop-blur-xl">
+          <div className={`${glass} rounded-3xl p-3`}>
             <label
               htmlFor="work-order-filter"
-              className="mb-2 block px-2 text-xs font-semibold uppercase tracking-[0.2em] text-white/45"
+              className="mb-2 block px-2 text-xs font-semibold uppercase tracking-[0.2em] text-gray-400 dark:text-gray-500"
             >
-              Work Order Filter
+              Filtro por orden de trabajo
             </label>
             <div className="flex items-center gap-2">
               <Search
-                className="ml-2 h-5 w-5 shrink-0 text-[#00F2EA]"
+                className="ml-2 h-5 w-5 shrink-0 text-violet-500"
                 strokeWidth={1.5}
               />
               <input
                 id="work-order-filter"
                 value={workOrderQuery}
                 onChange={(event) => handleWorkOrderChange(event.target.value)}
-                placeholder="Search WO-9012"
-                className="min-w-0 flex-1 bg-transparent px-2 py-3 text-sm text-white outline-none placeholder:text-white/32"
+                placeholder="Buscar WO-9012"
+                className="min-w-0 flex-1 bg-transparent px-2 py-3 text-sm outline-none placeholder:text-gray-400 dark:placeholder:text-gray-500"
               />
               {isBusy && (
                 <RefreshCw
-                  className="h-4 w-4 animate-spin text-white/45"
+                  className="h-4 w-4 animate-spin text-gray-400 dark:text-gray-500"
                   strokeWidth={1.5}
                 />
               )}
               {activeWorkOrder && (
                 <motion.button
                   type="button"
-                  whileHover={{
-                    scale: 1.05,
-                    backgroundColor: 'rgba(255,255,255,0.12)',
-                  }}
+                  whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={clearWorkOrderFilter}
-                  className="rounded-full border border-white/10 bg-white/5 p-2 text-white/70 transition-colors duration-300"
-                  aria-label="Clear work order filter"
+                  className="rounded-full border border-black/10 bg-black/5 p-2 text-gray-500 transition-colors duration-300 hover:text-black dark:border-white/10 dark:bg-white/5 dark:text-gray-300 dark:hover:text-white"
+                  aria-label="Limpiar filtro de orden"
                 >
                   <FilterX className="h-4 w-4" strokeWidth={1.5} />
                 </motion.button>
@@ -551,40 +548,40 @@ export default function CostRollupPage() {
           {error && (
             <motion.section
               variants={cardVariants}
-              className="rounded-3xl border border-[#FF005C]/30 bg-[#FF005C]/10 p-5 text-sm text-rose-100 shadow-2xl shadow-black/25 backdrop-blur-xl"
+              className="rounded-3xl border border-red-500/30 bg-red-500/10 p-5 text-sm text-red-600 dark:text-red-300"
             >
-              Cost rollup data could not be loaded. Confirm that the API is
-              running and that your token includes finance:read.
+              No se pudieron cargar los datos de costeo. Verifica que la API esté
+              corriendo y que tu token incluya finance:read.
             </motion.section>
           )}
 
           <section className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
             <MetricTile
-              label="Total Cost"
+              label="Costo total"
               value={formatCurrency(totalCost)}
               detail={
                 activeWorkOrder
-                  ? `Filtered by ${activeWorkOrder}`
-                  : 'All visible work orders'
+                  ? `Filtrado por ${activeWorkOrder}`
+                  : 'Todas las órdenes visibles'
               }
               Icon={DollarSign}
             />
             <MetricTile
-              label="Largest Bucket"
-              value={topCategory?.label ?? 'No Data'}
+              label="Mayor categoría"
+              value={topCategory?.label ?? 'Sin datos'}
               detail={formatCurrency(topCategory?.amount ?? 0)}
               Icon={Factory}
             />
             <MetricTile
-              label="Cost Records"
+              label="Registros de costo"
               value={String(items.length)}
-              detail="Tenant-scoped ledger items"
+              detail="Movimientos del libro por tenant"
               Icon={Database}
             />
             <MetricTile
-              label="Active Filter"
-              value={activeWorkOrder || 'All WOs'}
-              detail="Updates through SWR revalidation"
+              label="Filtro activo"
+              value={activeWorkOrder || 'Todas las WO'}
+              detail="Se actualiza con la revalidación SWR"
               Icon={Search}
             />
           </section>
@@ -594,19 +591,19 @@ export default function CostRollupPage() {
 
             <motion.section
               variants={cardVariants}
-              className="rounded-3xl border border-white/20 bg-white/10 p-5 shadow-2xl shadow-black/25 backdrop-blur-xl"
+              className={`${glass} rounded-3xl p-5`}
             >
               <div className="mb-4 flex items-center justify-between gap-4">
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-white/45">
-                    Pie Rollup
+                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-400 dark:text-gray-500">
+                    Distribución
                   </p>
                   <h2 className="mt-2 text-lg font-semibold">
-                    Category distribution
+                    Por categoría (pastel)
                   </h2>
                 </div>
                 <DollarSign
-                  className="h-5 w-5 text-white/50"
+                  className="h-5 w-5 text-gray-400 dark:text-gray-500"
                   strokeWidth={1.5}
                 />
               </div>
@@ -633,22 +630,22 @@ export default function CostRollupPage() {
                         <Cell
                           key={row.category}
                           fill={row.color}
-                          stroke="rgba(255,255,255,0.16)"
-                          strokeWidth={1}
+                          stroke="hsl(var(--card))"
+                          strokeWidth={2}
                         />
                       ))}
                     </Pie>
                     <Tooltip
                       contentStyle={{
-                        background: 'rgba(0,0,0,0.86)',
-                        border: '1px solid rgba(255,255,255,0.14)',
+                        background: 'hsl(var(--popover))',
+                        border: '1px solid hsl(var(--border))',
                         borderRadius: '16px',
-                        color: 'white',
+                        color: 'hsl(var(--popover-foreground))',
                         backdropFilter: 'blur(18px)',
                       }}
                       formatter={(value) => [
                         formatCurrency(Number(value)),
-                        'Cost',
+                        'Costo',
                       ]}
                     />
                   </PieChart>
@@ -658,7 +655,7 @@ export default function CostRollupPage() {
                 {chartRows.map((row) => (
                   <div
                     key={row.category}
-                    className="flex items-center gap-2 text-xs text-white/60"
+                    className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400"
                   >
                     <span
                       className="h-2.5 w-2.5 rounded-full"
@@ -672,19 +669,19 @@ export default function CostRollupPage() {
 
             <motion.section
               variants={cardVariants}
-              className="rounded-3xl border border-white/20 bg-white/10 p-5 shadow-2xl shadow-black/25 backdrop-blur-xl"
+              className={`${glass} rounded-3xl p-5`}
             >
               <div className="mb-4 flex items-center justify-between gap-4">
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-white/45">
-                    Bar Rollup
+                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-400 dark:text-gray-500">
+                    Comparativo
                   </p>
                   <h2 className="mt-2 text-lg font-semibold">
-                    Cost comparison
+                    Por categoría (barras)
                   </h2>
                 </div>
                 <BarChart3
-                  className="h-5 w-5 text-white/50"
+                  className="h-5 w-5 text-gray-400 dark:text-gray-500"
                   strokeWidth={1.5}
                 />
               </div>
@@ -701,7 +698,7 @@ export default function CostRollupPage() {
                     margin={{ top: 16, right: 10, left: -18, bottom: 12 }}
                   >
                     <CartesianGrid
-                      stroke="rgba(255,255,255,0.07)"
+                      stroke="hsl(var(--border))"
                       vertical={false}
                     />
                     <XAxis
@@ -709,28 +706,28 @@ export default function CostRollupPage() {
                       axisLine={false}
                       tickLine={false}
                       interval={0}
-                      tick={{ fill: 'rgba(255,255,255,0.52)', fontSize: 11 }}
+                      tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
                     />
                     <YAxis
                       axisLine={false}
                       tickLine={false}
-                      tick={{ fill: 'rgba(255,255,255,0.52)', fontSize: 11 }}
+                      tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
                       tickFormatter={(value) =>
                         formatCompactCurrency(Number(value))
                       }
                     />
                     <Tooltip
-                      cursor={{ fill: 'rgba(255,255,255,0.05)' }}
+                      cursor={{ fill: 'hsl(var(--muted))' }}
                       contentStyle={{
-                        background: 'rgba(0,0,0,0.86)',
-                        border: '1px solid rgba(255,255,255,0.14)',
+                        background: 'hsl(var(--popover))',
+                        border: '1px solid hsl(var(--border))',
                         borderRadius: '16px',
-                        color: 'white',
+                        color: 'hsl(var(--popover-foreground))',
                         backdropFilter: 'blur(18px)',
                       }}
                       formatter={(value) => [
                         formatCurrency(Number(value)),
-                        'Cost',
+                        'Costo',
                       ]}
                     />
                     <Bar dataKey="amount" radius={[14, 14, 4, 4]}>

@@ -13,13 +13,23 @@ export const metadata: Metadata = {
   description: "White-label manufacturing operations platform",
 };
 
+/**
+ * Anti-flash: fija la clase `.dark` en <html> ANTES del primer paint, leyendo
+ * la preferencia guardada (`axos_theme`) o, en su defecto, la del sistema. Así
+ * el modo correcto se aplica sin parpadeo y el ThemeContext sólo re-sincroniza.
+ */
+const themeInitScript = `(function(){try{var s=localStorage.getItem('axos_theme');var d=s==='dark'||((!s||s==='system')&&window.matchMedia('(prefers-color-scheme: dark)').matches);var r=document.documentElement;r.classList.toggle('dark',d);r.style.colorScheme=d?'dark':'light';}catch(e){}})();`;
+
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="h-full antialiased">
+    <html lang="en" className="h-full antialiased" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+      </head>
       <body className="min-h-full flex flex-col">
         <ThemeProvider>
           <AuthProvider>

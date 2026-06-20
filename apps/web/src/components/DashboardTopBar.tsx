@@ -1,13 +1,15 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useSyncExternalStore } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   Bell, User, ShieldAlert, LogOut, Building2, Search, Pencil, Check, X,
+  Sun, Moon, Monitor,
 } from 'lucide-react';
 import { WorkspaceSwitcher } from '@/components/WorkspaceSwitcher';
+import { useTheme, type ColorScheme } from '@/contexts/ThemeContext';
 import { glass } from '@/lib/glass';
 import { positionLabel } from '@/config/positions';
 import { IconTile } from '@/components/ui/IconTile';
@@ -83,6 +85,65 @@ function NotifGroup({ label, items, onGo }: { label: string; items: UnifiedNotif
             {!n.read && <span className="mt-1.5 h-2 w-2 flex-shrink-0 rounded-full bg-violet-500" />}
           </button>
         ))}
+      </div>
+    </div>
+  );
+}
+
+// `mounted` seguro para hidratación (server=false, cliente=true) sin setState en
+// efecto — mismo patrón que WorkspaceContext (useSyncExternalStore). Evita el
+// mismatch del icono cuando la preferencia guardada difiere del render del SSR.
+const subscribeNoop = () => () => {};
+function useMounted() {
+  return useSyncExternalStore(subscribeNoop, () => true, () => false);
+}
+
+/** Botón rápido claro↔oscuro para la barra. Accesible (aria-pressed). El icono
+ *  se mantiene estable hasta montar para no romper la hidratación. */
+function ThemeToggle() {
+  const { resolvedScheme, toggleTheme } = useTheme();
+  const mounted = useMounted();
+  const isDark = mounted && resolvedScheme === 'dark';
+  return (
+    <button
+      onClick={toggleTheme}
+      aria-label={isDark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+      aria-pressed={isDark}
+      title={isDark ? 'Modo claro' : 'Modo oscuro'}
+      className="p-2 rounded-full transition-colors hover:bg-gray-200 dark:hover:bg-white/10 text-gray-600 dark:text-gray-300"
+    >
+      {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+    </button>
+  );
+}
+
+/** Selector de apariencia (Claro / Oscuro / Auto) para el menú de avatar. */
+function ThemeChoice() {
+  const { colorScheme, setColorScheme } = useTheme();
+  const opts: { value: ColorScheme; label: string; Icon: typeof Sun }[] = [
+    { value: 'light', label: 'Claro', Icon: Sun },
+    { value: 'dark', label: 'Oscuro', Icon: Moon },
+    { value: 'system', label: 'Auto', Icon: Monitor },
+  ];
+  return (
+    <div className="px-2 pb-2">
+      <p className="px-2 mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">Apariencia</p>
+      <div role="radiogroup" aria-label="Tema de la interfaz" className="grid grid-cols-3 gap-1 rounded-xl bg-black/5 dark:bg-white/10 p-1">
+        {opts.map(({ value, label, Icon }) => {
+          const active = colorScheme === value;
+          return (
+            <button
+              key={value}
+              role="radio"
+              aria-checked={active}
+              onClick={() => setColorScheme(value)}
+              className={`flex flex-col items-center gap-1 rounded-lg px-2 py-2 text-[11px] font-medium transition-colors ${active ? 'bg-white text-violet-600 shadow-sm dark:bg-white/15 dark:text-violet-300' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'}`}
+            >
+              <Icon className="w-4 h-4" strokeWidth={1.75} />
+              {label}
+            </button>
+          );
+        })}
       </div>
     </div>
   );
@@ -204,6 +265,7 @@ export function DashboardTopBar() {
       </button>
 
       <div className="flex items-center gap-3 relative">
+        <ThemeToggle />
         <div className="relative">
           <button onClick={openNotifs} className="p-2 hover:bg-gray-200 dark:hover:bg-white/10 rounded-full transition-colors relative" aria-label="Notificaciones">
             <Bell className="w-5 h-5" />
@@ -271,6 +333,7 @@ export function DashboardTopBar() {
                     <span className="inline-block mt-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-violet-100 text-violet-700 dark:bg-violet-500/20 dark:text-violet-300">{roleLabel}</span>
                   </div>
                 </div>
+                <ThemeChoice />
                 <div className="space-y-1">
                   {isAdmin && <Link href="/dashboard/admin/approvals" onClick={() => setMenuOpen(false)} className="w-full px-4 py-2 hover:bg-gray-100 dark:hover:bg-white/5 rounded-xl text-xs flex items-center gap-3"><ShieldAlert className="w-4 h-4" /> Aprobaciones{pendingCount > 0 && <span className="ml-auto px-2 py-0.5 rounded-full bg-rose-500 text-white text-[9px] font-bold">{pendingCount}</span>}</Link>}
                   {isAdmin && <Link href="/dashboard/settings/users" onClick={() => setMenuOpen(false)} className="w-full px-4 py-2 hover:bg-gray-100 dark:hover:bg-white/5 rounded-xl text-xs flex items-center gap-3"><User className="w-4 h-4" /> Usuarios y accesos</Link>}

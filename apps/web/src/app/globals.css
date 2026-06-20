@@ -1,26 +1,77 @@
 @import "tailwindcss";
 
+/* ===========================================================================
+   AXOS OS — SISTEMA DE DISEÑO · CLARO / OSCURO (una sola fuente de verdad)
+   ---------------------------------------------------------------------------
+   El modo OSCURO es el INVERSO FIEL del claro: mismos componentes, misma
+   jerarquía y los MISMOS acentos de marca (índigo) — sólo cambian fondo y
+   texto. CERO neón, cero gradientes llamativos.
+   El toggle (ThemeContext) añade/quita la clase `.dark` en <html>; este
+   `@custom-variant` hace que TODA utilidad `dark:` siga esa clase (en vez de
+   `prefers-color-scheme`), de modo que un único switch gobierna toda la app.
+   La preferencia del sistema se respeta en el primer render (script en
+   layout.tsx fija la clase desde `prefers-color-scheme` si no hay elección).
+   =========================================================================== */
+@custom-variant dark (&:where(.dark, .dark *));
+
 @layer base {
   :root {
+    /* === Paleta semántica (canales HSL → usar con hsl(var(--token))) ======
+       CLARO: sobrio estilo banca — blancos, gris pizarra, acento índigo. */
+    --background: 220 33% 99%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --surface: 0 0% 100%;
+    --surface-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+    --muted: 220 16% 96%;
+    --muted-foreground: 220 9% 43%;
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+
+    /* Acento de marca (índigo) — IDÉNTICO en claro y oscuro. Nada de cyan. */
+    --primary: 239 84% 67%;
+    --primary-foreground: 0 0% 100%;
+    --ring: 239 84% 67%;
+
+    /* Estados semánticos */
+    --success: 160 84% 36%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 222 47% 11%;
+    --danger: 0 84% 60%;
+    --danger-foreground: 0 0% 100%;
+
+    /* Alias de compatibilidad (shadcn/ui) — apuntan al mismo sistema. */
+    --secondary: 220 16% 96%;
+    --secondary-foreground: 222 47% 11%;
+    --accent: 239 84% 67%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* === Marca white-label (el tenant la sobrescribe vía ThemeContext) ====
+       El default = acento índigo de la app (NO cyan). */
     --axos-primary: #1a1a1a;
-    --axos-accent: #00f2ea;
-    --axos-warning: #ffb800;
-    --axos-danger: #ff005c;
+    --axos-accent: #6366f1;
+    --axos-warning: #f59e0b;
+    --axos-danger: #ef4444;
     --brand-primary: var(--axos-accent);
     --brand-logo: none;
     --border-radius-custom: 1rem;
     --glass-opacity: 0.34;
+    --radius: var(--border-radius-custom);
 
-    /* --- Acento de marca "vivo y cristalino" (índigo/violeta) --- */
-    --accent: #6366f1; /* indigo-500 */
+    /* Acento "vivo" + easings (compat con utilidades previas). */
     --accent-strong: #4f46e5; /* indigo-600 */
     --accent-soft: #a5b4fc; /* indigo-300 */
     --accent-glow: rgba(99, 102, 241, 0.18);
-    /* Easing global para transiciones no-spring (Apple/Linear feel). */
     --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
     --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
 
-    /* --- Apple White Premium Tokens --- */
+    /* Apple White Premium (compat) */
     --apple-bg: #f5f5f7;
     --apple-card: rgba(255, 255, 255, 0.72);
     --apple-text: #1d1d1f;
@@ -28,83 +79,118 @@
     --apple-border: rgba(0, 0, 0, 0.08);
     --apple-blue: #0071e3;
     --apple-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.04);
-
-    --background: 0 0% 100%;
-    --foreground: 240 10% 3.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 240 10% 3.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 3.9%;
-    --primary: 0 0% 10%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 180 100% 95%;
-    --secondary-foreground: 0 0% 10%;
-    --muted: 240 4.8% 95.9%;
-    --muted-foreground: 240 3.8% 46.1%;
-    --accent: 178 100% 47%;
-    --accent-foreground: 0 0% 4%;
-    --destructive: 338 100% 50%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 240 5.9% 90%;
-    --input: 240 5.9% 90%;
-    --ring: 178 100% 47%;
-    --radius: var(--border-radius-custom);
   }
 
+  /* INVERSO FIEL: oscuro sobrio (deep slate), MISMOS acentos índigo. */
   .dark {
-    --background: 222 42% 3%;
-    --foreground: 0 0% 98%;
-    --card: 0 0% 10%;
-    --card-foreground: 0 0% 98%;
-    --popover: 0 0% 8%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 10%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 222 34% 10%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 222 28% 12%;
-    --muted-foreground: 220 12% 66%;
-    --accent: 178 100% 47%;
-    --accent-foreground: 0 0% 4%;
-    --destructive: 338 100% 50%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 100% / 0.1;
-    --input: 0 0% 100% / 0.1;
-    --ring: 178 100% 47%;
+    --background: 222 30% 7%;
+    --foreground: 210 20% 96%;
+    --card: 222 24% 10%;
+    --card-foreground: 210 20% 96%;
+    --surface: 222 24% 10%;
+    --surface-foreground: 210 20% 96%;
+    --popover: 222 26% 9%;
+    --popover-foreground: 210 20% 96%;
+    --muted: 220 18% 15%;
+    --muted-foreground: 218 14% 68%;
+    --border: 220 16% 22%;
+    --input: 220 16% 22%;
+
+    --primary: 239 84% 71%;
+    --primary-foreground: 0 0% 100%;
+    --ring: 239 84% 71%;
+
+    --success: 158 64% 45%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 55%;
+    --warning-foreground: 222 47% 11%;
+    --danger: 0 84% 65%;
+    --danger-foreground: 0 0% 100%;
+
+    --secondary: 220 18% 15%;
+    --secondary-foreground: 210 20% 96%;
+    --accent: 239 84% 71%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84% 65%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* Apple-compat en oscuro */
+    --apple-bg: #0b0b0f;
+    --apple-card: rgba(255, 255, 255, 0.06);
+    --apple-text: #f5f5f7;
+    --apple-text-secondary: #9aa6b8;
+    --apple-border: rgba(255, 255, 255, 0.1);
+    --apple-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.36);
   }
 
   * {
     border-color: hsl(var(--border));
   }
 
+  /* Fondo base = token semántico (claro u oscuro según `.dark`). Sin neón
+     hardcodeado: el <AuroraBackground/> del dashboard pinta su gradiente sutil
+     encima, y landing/login traen el suyo. */
   html {
     min-height: 100%;
-    background: #020409;
+    background: hsl(var(--background));
     scroll-behavior: smooth;
   }
 
   body {
     min-height: 100%;
-    background:
-      radial-gradient(circle at top left, rgba(0, 242, 234, 0.08), transparent 32rem),
-      radial-gradient(circle at top right, rgba(255, 0, 92, 0.06), transparent 28rem),
-      hsl(var(--background));
+    background: hsl(var(--background));
     color: hsl(var(--foreground));
     font-family: Arial, Helvetica, sans-serif;
     font-feature-settings: "rlig" 1, "calt" 1;
   }
 
   ::selection {
-    background: color-mix(in srgb, var(--brand-primary) 55%, transparent);
-    color: white;
+    background: color-mix(in srgb, var(--brand-primary) 28%, transparent);
+    color: hsl(var(--foreground));
   }
 
-  /* Foco accesible y elegante con el acento de marca (sólo teclado). */
+  /* Foco accesible con el acento de marca (sólo teclado). */
   :focus-visible {
-    outline: 2px solid color-mix(in srgb, var(--accent) 70%, transparent);
+    outline: 2px solid color-mix(in srgb, hsl(var(--primary)) 70%, transparent);
     outline-offset: 2px;
     border-radius: 6px;
   }
+}
+
+/* ===========================================================================
+   Mapeo de tokens → utilidades Tailwind v4 (bg-background, text-foreground,
+   bg-card, text-muted-foreground, border-border, bg-primary, text-primary,
+   bg-success / -warning / -danger, …). `inline` ⇒ la utilidad referencia la
+   variable en el elemento, así que el cambio a `.dark` se refleja en vivo.
+   =========================================================================== */
+@theme inline {
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-surface: hsl(var(--surface));
+  --color-surface-foreground: hsl(var(--surface-foreground));
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-success: hsl(var(--success));
+  --color-success-foreground: hsl(var(--success-foreground));
+  --color-warning: hsl(var(--warning));
+  --color-warning-foreground: hsl(var(--warning-foreground));
+  --color-danger: hsl(var(--danger));
+  --color-danger-foreground: hsl(var(--danger-foreground));
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
 }
 
 /* Respeta prefers-reduced-motion en TODA animación (CSS + scroll). Framer Motion
@@ -168,29 +254,9 @@
   }
 }
 
-@keyframes axos-running-glow {
-  0%,
-  100% {
-    filter: drop-shadow(0 0 8px rgba(0, 242, 234, 0.28));
-  }
-  50% {
-    filter: drop-shadow(0 0 18px rgba(0, 242, 234, 0.72));
-  }
-}
-
-@keyframes axos-critical-aura {
-  0%,
-  100% {
-    filter: drop-shadow(0 0 10px rgba(255, 184, 0, 0.3));
-  }
-  50% {
-    filter: drop-shadow(0 0 26px rgba(255, 0, 92, 0.68));
-  }
-}
-
 /* --- Material translúcido (glassmorphism) --- */
-/* La variante oscura usa prefers-color-scheme para alinearse con las
-   utilidades dark: de Tailwind v4 (no hay clase .dark activa en esta app). */
+/* La variante oscura sigue la clase `.dark` (toggle del ThemeContext), igual
+   que todas las utilidades dark: de la app. */
 .glass {
   background: rgba(255, 255, 255, 0.66);
   -webkit-backdrop-filter: blur(22px) saturate(135%);
@@ -207,15 +273,13 @@
     transform 0.35s var(--ease-out-expo);
 }
 
-@media (prefers-color-scheme: dark) {
-  .glass {
-    background: rgba(255, 255, 255, 0.06);
-    border-color: rgba(255, 255, 255, 0.08);
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.06),
-      0 16px 40px -16px rgba(99, 102, 241, 0.18),
-      0 2px 8px rgba(0, 0, 0, 0.28);
-  }
+.dark .glass {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 16px 40px -16px rgba(99, 102, 241, 0.18),
+    0 2px 8px rgba(0, 0, 0, 0.28);
 }
 
 /* Fallback para navegadores sin backdrop-filter: superficie sólida legible. */
@@ -223,10 +287,8 @@
   .glass {
     background: rgba(255, 255, 255, 0.9);
   }
-  @media (prefers-color-scheme: dark) {
-    .glass {
-      background: rgba(28, 28, 30, 0.9);
-    }
+  .dark .glass {
+    background: rgba(28, 28, 30, 0.9);
   }
 }
 
@@ -238,31 +300,27 @@
 .ribbon-scroll::-webkit-scrollbar { height: 6px; }
 .ribbon-scroll::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.18); border-radius: 9999px; }
 .ribbon-scroll::-webkit-scrollbar-track { background: transparent; }
-@media (prefers-color-scheme: dark) {
-  .ribbon-scroll { scrollbar-color: rgba(255, 255, 255, 0.18) transparent; }
-  .ribbon-scroll::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.18); }
-}
+.dark .ribbon-scroll { scrollbar-color: rgba(255, 255, 255, 0.18) transparent; }
+.dark .ribbon-scroll::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.18); }
 
 /* --- Fondo "aurora" (estilo Apple) --- */
-/* Tintes pastel muy tenues en las esquinas sobre base casi blanca; en oscuro,
-   misma idea a ~.10 sobre #0b0b0f. Usado por <AuroraBackground/> (fixed -z-10).
-   Variante oscura por prefers-color-scheme (como el resto de la app). */
+/* Tintes pastel muy tenues en las esquinas sobre el fondo base del tema; en
+   oscuro, misma idea a ~.10 de alfa. Base anclada a `--background` (una sola
+   fuente de verdad). Usado por <AuroraBackground/> (fixed -z-10); sigue `.dark`. */
 .aurora-bg {
   background:
     radial-gradient(1100px 620px at 12% -8%, rgba(124, 92, 255, 0.16), transparent 60%),
     radial-gradient(1000px 560px at 100% 0%, rgba(10, 132, 255, 0.14), transparent 55%),
     radial-gradient(900px 600px at 50% 120%, rgba(46, 194, 126, 0.12), transparent 55%),
-    #f6f6fb;
+    hsl(var(--background));
 }
 
-@media (prefers-color-scheme: dark) {
-  .aurora-bg {
-    background:
-      radial-gradient(1100px 620px at 12% -8%, rgba(124, 92, 255, 0.1), transparent 60%),
-      radial-gradient(1000px 560px at 100% 0%, rgba(10, 132, 255, 0.1), transparent 55%),
-      radial-gradient(900px 600px at 50% 120%, rgba(46, 194, 126, 0.1), transparent 55%),
-      #0b0b0f;
-  }
+.dark .aurora-bg {
+  background:
+    radial-gradient(1100px 620px at 12% -8%, rgba(124, 92, 255, 0.1), transparent 60%),
+    radial-gradient(1000px 560px at 100% 0%, rgba(10, 132, 255, 0.1), transparent 55%),
+    radial-gradient(900px 600px at 50% 120%, rgba(46, 194, 126, 0.1), transparent 55%),
+    hsl(var(--background));
 }
 
 /* --- Degradado de texto sutil (palabra "gris" del título de la landing) --- */
