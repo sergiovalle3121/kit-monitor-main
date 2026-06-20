@@ -14,6 +14,7 @@ import {
   FileText,
   Landmark,
   MessageCircle,
+  Truck,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -38,6 +39,7 @@ export type DomainKey =
   | 'people'
   | 'office'
   | 'erp'
+  | 'logistics'
   | 'messaging';
 
 export interface DomainStyle {
@@ -66,6 +68,7 @@ export const DOMAINS: Record<DomainKey, DomainStyle> = {
   people: { label: 'Personas', from: '#ff7db0', to: '#ff4d8d', solid: '#ff4d8d', text: '#ff4d8d', icon: Users },
   office: { label: 'Office', from: '#aab2c0', to: '#7e8796', solid: '#7e8796', text: '#6b7280', icon: FileText },
   erp: { label: 'Axos ERP', from: '#9a7bff', to: '#7c5cff', solid: '#7c5cff', text: '#7c5cff', icon: Landmark },
+  logistics: { label: 'Logística', from: '#60a5fa', to: '#3b82f6', solid: '#3b82f6', text: '#3b82f6', icon: Truck },
   messaging: { label: 'Mensajería', from: '#4aa3ff', to: '#0a84ff', solid: '#0a84ff', text: '#0a84ff', icon: MessageCircle },
 };
 

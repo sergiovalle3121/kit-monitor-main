@@ -1,4 +1,9 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ObjectLiteral, Repository, SelectQueryBuilder } from 'typeorm';
 import { TenantContextService } from '../../common/tenant/tenant-context.service';
@@ -8,6 +13,13 @@ import { CreateHandlingUnitDto, UpdateHandlingUnitDto } from './dto/packing.dto'
 import { buildSscc } from './packing.sscc';
 import { ssccLabelZpl } from './packing.zpl';
 import { sanitizeContents, summarizeContents } from './packing.rules';
+import {
+  classifyScan,
+  computeLoadingState,
+  normalizeSscc,
+  type LoadingState,
+  type ScanOutcome,
+} from './packing.loading';
 
 /**
  * Packing service — handling units (pallets/cartons) with GS1 SSCC + ZPL labels.
@@ -126,6 +138,84 @@ export class PackingService {
     h.sscc = sscc;
     h.ssccPlaceholder = placeholder;
     return this.repo.save(h);
+  }
+
+  // ── Scan-verified dock loading (Carga verificada) ──────────────────────────
+
+  /** Find a handling unit by its SSCC within the current tenant scope. */
+  private async findBySscc(sscc: string): Promise<HandlingUnit | null> {
+    const qb = this.repo.createQueryBuilder('h').where('h.sscc = :sscc', { sscc });
+    this.applyScope(qb, 'h');
+    return (await qb.getOne()) ?? null;
+  }
+
+  /** The loading checklist for a shipment: expected units + loaded/pending tally. */
+  async loadingState(shipmentId: string): Promise<LoadingState> {
+    const units = await this.list({ shipmentId });
+    return computeLoadingState(shipmentId, units);
+  }
+
+  /**
+   * Verify a scanned SSCC against a shipment at the dock. Marks the matched unit
+   * LOADED; rejects (poka-yoke) a unit that is unknown or belongs to another
+   * shipment so the wrong material never gets loaded onto the truck. Re-scanning a
+   * unit already loaded is idempotent.
+   */
+  async verifyScan(
+    shipmentId: string,
+    rawSscc: string,
+  ): Promise<{ outcome: ScanOutcome; state: LoadingState }> {
+    const sscc = normalizeSscc(rawSscc);
+    if (!sscc) throw new BadRequestException('Escanea un SSCC válido.');
+
+    const unit = await this.findBySscc(sscc);
+    const outcome = classifyScan(unit, shipmentId, sscc);
+
+    if (outcome.result === 'unknown') {
+      throw new BadRequestException(
+        `SSCC ${sscc} no corresponde a ninguna unidad de manejo.`,
+      );
+    }
+    if (outcome.result === 'wrong-shipment') {
+      const where = outcome.belongsToFolio ?? 'otro embarque';
+      throw new BadRequestException(
+        `Esta unidad pertenece a ${where}. No la cargues en este embarque.`,
+      );
+    }
+    if (outcome.result === 'matched' && unit) {
+      unit.status = 'LOADED';
+      await this.repo.save(unit);
+    }
+
+    const state = await this.loadingState(shipmentId);
+    return { outcome, state };
+  }
+
+  /** Undo a scan: revert a LOADED unit back to PACKED (operator correction). */
+  async resetScan(shipmentId: string, handlingUnitId: string): Promise<LoadingState> {
+    const h = await this.getOne(handlingUnitId);
+    if (h.shipmentId !== shipmentId) {
+      throw new BadRequestException('La unidad no pertenece a este embarque.');
+    }
+    if (h.status === 'LOADED') {
+      h.status = 'PACKED';
+      await this.repo.save(h);
+    }
+    return this.loadingState(shipmentId);
+  }
+
+  /**
+   * Gate for advancing a shipment to READY: every assigned handling unit must be
+   * scan-verified (LOADED). No-op when the shipment uses no packing units, so
+   * shipments without handling units keep their existing flow. Throws otherwise.
+   */
+  async assertLoadingComplete(shipmentId: string): Promise<void> {
+    const state = await this.loadingState(shipmentId);
+    if (state.hasUnits && !state.complete) {
+      throw new BadRequestException(
+        `No se puede marcar LISTO: faltan ${state.pending} de ${state.total} unidades por escanear en el andén.`,
+      );
+    }
   }
 
   /** Render the GS1-128 SSCC label for a handling unit as ZPL (Zebra). */

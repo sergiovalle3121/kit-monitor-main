@@ -75,6 +75,32 @@ export class PackingController {
     return this.service.label(id);
   }
 
+  // ── Carga verificada por escaneo (SSCC ↔ embarque) ─────────────────────────
+
+  @Get('loading/:shipmentId')
+  @RequirePermissions('logistics:read')
+  @ApiOperation({ summary: 'Checklist de carga del embarque: unidades esperadas + cargadas/pendientes.' })
+  loadingState(@Param('shipmentId') shipmentId: string) {
+    return this.service.loadingState(shipmentId);
+  }
+
+  @Post('loading/:shipmentId/scan')
+  @RequirePermissions('logistics:write')
+  @ApiOperation({ summary: 'Verifica un SSCC contra el embarque y lo marca cargado (poka-yoke).' })
+  scan(@Param('shipmentId') shipmentId: string, @Body('sscc') sscc: string) {
+    return this.service.verifyScan(shipmentId, sscc);
+  }
+
+  @Post('loading/:shipmentId/reset')
+  @RequirePermissions('logistics:write')
+  @ApiOperation({ summary: 'Revierte una unidad cargada a empacada (corrección del operador).' })
+  resetScan(
+    @Param('shipmentId') shipmentId: string,
+    @Body('handlingUnitId') handlingUnitId: string,
+  ) {
+    return this.service.resetScan(shipmentId, handlingUnitId);
+  }
+
   @Get('handling-units/:id/label.zpl')
   @RequirePermissions('logistics:read')
   @Header('Content-Type', 'text/plain; charset=utf-8')

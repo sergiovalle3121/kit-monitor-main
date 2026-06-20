@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Header,
   Param,
   Patch,
   Post,
@@ -65,6 +66,32 @@ export class OutboundController {
   @ApiOperation({ summary: 'Avanza el embarque (genera ASN al embarcar).' })
   transition(@Param('id') id: string, @Body() dto: TransitionShipmentDto) {
     return this.service.transition(id, dto);
+  }
+
+  @Get('shipments/:id/asn')
+  @ApiOperation({ summary: 'ASN jerárquico (embarque → tarima → caja → ítem) + totales.' })
+  asn(@Param('id') id: string) {
+    return this.service.assembleAsn(id);
+  }
+
+  @Get('shipments/:id/asn.edi')
+  @Header('Content-Type', 'text/plain; charset=utf-8')
+  @ApiOperation({ summary: 'ASN como EDI 856 (archivo plano) para descarga.' })
+  asnEdi(@Param('id') id: string) {
+    return this.service.asnEdi(id);
+  }
+
+  @Get('shipments/:id/packing-list')
+  @ApiOperation({ summary: 'Lista de empaque (una fila por línea de contenido) + totales.' })
+  packingList(@Param('id') id: string) {
+    return this.service.assemblePackingList(id);
+  }
+
+  @Get('shipments/:id/packing-list.csv')
+  @Header('Content-Type', 'text/csv; charset=utf-8')
+  @ApiOperation({ summary: 'Lista de empaque en CSV para descarga.' })
+  packingListCsv(@Param('id') id: string) {
+    return this.service.packingListCsvText(id);
   }
 
   @Post('shipments/:id/assign-transport')
