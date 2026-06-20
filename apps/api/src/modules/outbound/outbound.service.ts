@@ -42,6 +42,8 @@ import {
 } from './documents';
 import { GenealogyService } from '../genealogy/genealogy.service';
 import { ErpSdService } from '../erp-core/services/erp-sd.service';
+import { OutboundFiscalService } from './outbound-fiscal.service';
+import { buildCartaPorteXml } from './carta-porte-xml';
 import {
   checkCarrierAssignable,
   checkDockAssignable,
@@ -73,6 +75,7 @@ export class OutboundService {
     @Optional() private readonly lines?: OutboundLinesService,
     @Optional() private readonly genealogy?: GenealogyService,
     @Optional() private readonly sd?: ErpSdService,
+    @Optional() private readonly fiscal?: OutboundFiscalService,
   ) {}
 
   private applyScope(
@@ -528,6 +531,27 @@ export class OutboundService {
   async assembleCoc(id: string): Promise<Coc> {
     const s = await this.getOne(id);
     return buildCoc(s, await this.linesFor(id), await this.unitsFor(id));
+  }
+
+  /** Carta Porte as CFDI 4.0 + complemento 3.1 XML (pre-timbrado). */
+  async cartaPorteXml(id: string): Promise<string> {
+    const carta = await this.assembleCartaPorte(id);
+    const fiscalData = this.fiscal
+      ? await this.fiscal.getData()
+      : {
+          emisorRfc: null,
+          emisorNombre: null,
+          regimenFiscal: null,
+          lugarExpedicion: null,
+          origenDomicilio: null,
+          permSct: null,
+          numPermisoSct: null,
+          configVehicular: null,
+          aseguraRespCivil: null,
+          polizaRespCivil: null,
+          claveProdServDefault: null,
+        };
+    return buildCartaPorteXml(carta, fiscalData);
   }
 
   /**

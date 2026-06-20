@@ -294,6 +294,74 @@ export class UpdateOutboundLineDto {
   notes?: string;
 }
 
+export class UpsertFiscalProfileDto {
+  @ApiPropertyOptional({ example: 'AAA010101AAA' })
+  @IsOptional()
+  @IsString()
+  @Length(0, 13)
+  emisorRfc?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @Length(0, 254)
+  emisorNombre?: string;
+
+  @ApiPropertyOptional({ description: 'SAT c_RegimenFiscal', example: '601' })
+  @IsOptional()
+  @IsString()
+  @Length(0, 5)
+  regimenFiscal?: string;
+
+  @ApiPropertyOptional({ description: 'CP de expedición', example: '44100' })
+  @IsOptional()
+  @IsString()
+  @Length(0, 5)
+  lugarExpedicion?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @Length(0, 254)
+  origenDomicilio?: string;
+
+  @ApiPropertyOptional({ description: 'SAT c_TipoPermiso', example: 'TPAF01' })
+  @IsOptional()
+  @IsString()
+  @Length(0, 8)
+  permSct?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @Length(0, 50)
+  numPermisoSct?: string;
+
+  @ApiPropertyOptional({ description: 'SAT c_ConfigAutotransporte', example: 'C2' })
+  @IsOptional()
+  @IsString()
+  @Length(0, 8)
+  configVehicular?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @Length(0, 254)
+  aseguraRespCivil?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @Length(0, 50)
+  polizaRespCivil?: string;
+
+  @ApiPropertyOptional({ description: 'SAT c_ClaveProdServ por mercancía' })
+  @IsOptional()
+  @IsString()
+  @Length(0, 8)
+  claveProdServDefault?: string;
+}
+
 export class TransitionShipmentDto {
   @ApiProperty({ enum: SHIPMENT_STATUSES, example: 'SHIPPED' })
   @IsIn(SHIPMENT_STATUSES)

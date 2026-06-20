@@ -2,8 +2,10 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Shipment } from './entities/shipment.entity';
 import { OutboundShipmentLine } from './entities/outbound-shipment-line.entity';
+import { OutboundFiscalProfile } from './entities/outbound-fiscal-profile.entity';
 import { OutboundService } from './outbound.service';
 import { OutboundLinesService } from './outbound-lines.service';
+import { OutboundFiscalService } from './outbound-fiscal.service';
 import { OutboundController } from './outbound.controller';
 import { NumberingModule } from '../numbering/numbering.module';
 import { EventLedgerModule } from '../event-ledger/event-ledger.module';
@@ -21,7 +23,11 @@ import { ErpCoreModule } from '../erp-core/erp-core.module';
  */
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Shipment, OutboundShipmentLine]),
+    TypeOrmModule.forFeature([
+      Shipment,
+      OutboundShipmentLine,
+      OutboundFiscalProfile,
+    ]),
     NumberingModule,
     EventLedgerModule,
     TrafficModule,
@@ -31,7 +37,7 @@ import { ErpCoreModule } from '../erp-core/erp-core.module';
     ErpCoreModule,
   ],
   controllers: [OutboundController],
-  providers: [OutboundService, OutboundLinesService],
+  providers: [OutboundService, OutboundLinesService, OutboundFiscalService],
   exports: [OutboundService, OutboundLinesService],
 })
 export class OutboundModule {}

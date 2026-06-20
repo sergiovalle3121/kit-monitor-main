@@ -5,10 +5,11 @@
 // (GET /outbound/shipments/:id/{packing-list,asn,bol,carta-porte,invoice}); aquí se
 // muestran y se descargan/imprimen (EDI 856, CSV, o impresión a PDF del navegador).
 import React, { useState } from 'react';
-import { Boxes, Download, FileText, Layers, Loader2, Package, Printer, ScanLine, ShieldCheck, Truck, X } from 'lucide-react';
+import { Boxes, Download, FileText, Layers, Loader2, Package, Printer, ScanLine, Settings, ShieldCheck, Truck, X } from 'lucide-react';
 import { glass } from '@/lib/glass';
 import { useApi } from '@/hooks/useApi';
 import { apiFetch } from '@/lib/apiFetch';
+import { FiscalConfig } from './FiscalConfig';
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000').replace(/\/$/, '');
 const BLUE = '#3b82f6';
@@ -98,6 +99,7 @@ export function Documents({
   onClose: () => void;
 }) {
   const [tab, setTab] = useState<Tab>('packing');
+  const [fiscalOpen, setFiscalOpen] = useState(false);
   const id = shipment.id;
   const { data: pl } = useApi<PackingList>(tab === 'packing' ? `/outbound/shipments/${id}/packing-list` : null);
   const { data: asn } = useApi<Asn>(tab === 'asn' ? `/outbound/shipments/${id}/asn` : null);
@@ -147,6 +149,7 @@ export function Documents({
   }
 
   return (
+    <>
     <div className="fixed inset-0 z-[120] flex justify-end bg-black/40" onClick={onClose}>
       <div className={`${glass} h-full w-full max-w-lg overflow-y-auto`} onClick={(e) => e.stopPropagation()}>
         <div className="sticky top-0 z-10 px-5 py-4 flex items-center gap-3 backdrop-blur" style={{ background: 'rgba(0,0,0,0.02)' }}>
@@ -230,8 +233,14 @@ export function Documents({
           ))}
 
           {tab === 'carta' && (!carta ? <Spinner /> : (
-            <DocView onPrint={() => printCarta(carta)} fields={[['Receptor', carta.receptor.nombre], ['Domicilio', carta.receptor.domicilio], ['Transportista', carta.transporte.transportista], ['Placa', carta.transporte.placaVM], ['Operador', carta.transporte.operador], ['CFDI', `Carta Porte ${carta.version}`]]}
-              totals={[`${carta.numTotalMercancias} mercancías`, `${carta.pesoBrutoTotal} kg bruto`]} requiresConfig={carta.requiresConfig} note={carta.note} />
+            <>
+              <div className="flex justify-end gap-2 mb-3">
+                <button onClick={() => download(`/outbound/shipments/${id}/carta-porte.xml`, `${base}-cartaporte.xml`)} className="btn-doc"><Download className="w-3.5 h-3.5" /> XML CFDI</button>
+                <button onClick={() => setFiscalOpen(true)} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium" style={{ background: `${GRAY}1f`, color: GRAY }}><Settings className="w-3.5 h-3.5" /> Perfil fiscal</button>
+              </div>
+              <DocView onPrint={() => printCarta(carta)} fields={[['Receptor', carta.receptor.nombre], ['Domicilio', carta.receptor.domicilio], ['Transportista', carta.transporte.transportista], ['Placa', carta.transporte.placaVM], ['Operador', carta.transporte.operador], ['CFDI', `Carta Porte ${carta.version}`]]}
+                totals={[`${carta.numTotalMercancias} mercancías`, `${carta.pesoBrutoTotal} kg bruto`]} requiresConfig={carta.requiresConfig} note={carta.note} />
+            </>
           ))}
 
           {tab === 'factura' && (!inv ? <Spinner /> : (
@@ -250,6 +259,8 @@ export function Documents({
         `}</style>
       </div>
     </div>
+    {fiscalOpen && <FiscalConfig onClose={() => setFiscalOpen(false)} />}
+    </>
   );
 }
 
