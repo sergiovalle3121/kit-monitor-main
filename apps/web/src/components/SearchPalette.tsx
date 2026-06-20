@@ -5,8 +5,8 @@ import { useRouter } from 'next/navigation';
 import {
   Search, LayoutGrid, LineChart, Warehouse, Boxes, Factory, HardHat, ShieldCheck,
   Cpu, DollarSign, Calculator, RadioTower, FileText, Landmark, Users, Building2,
-  ShieldAlert, MessageSquare, CornerDownLeft, Hash, Lightbulb, Wrench, Scale, FlaskConical, ShoppingCart, GraduationCap, Truck, PackageCheck, ClipboardList, Target, Building, Receipt, Hammer, PackageX,
-  Gauge, Megaphone, PackagePlus, ScanLine, ShieldX, Loader2,
+  ShieldAlert, MessageSquare, CornerDownLeft, Hash, Lightbulb, Wrench, Scale, FlaskConical, ShoppingCart, GraduationCap, Truck, PackageCheck, ClipboardList, Target, Building, Receipt, Hammer, PackageX, Package,
+  Gauge, Megaphone, PackagePlus, ScanLine, ShieldX, Loader2, Network, Workflow, Upload,
 } from 'lucide-react';
 import {
   ENTITY_ORDER, ensureSearchIndex, filterSearchIndex,
@@ -32,6 +32,10 @@ const DESTS: Dest[] = [
   { label: 'Operador MES', sub: 'Ejecución en estación', href: '/dashboard/operador', keywords: 'mes operador escanear estacion montar wo', icon: HardHat },
   { label: 'Calidad', sub: 'Inspección y NCR', href: '/dashboard/quality', keywords: 'calidad quality ncr inspeccion capa holds', icon: ShieldCheck },
   { label: 'Modelos · NPI', sub: 'Maestro de productos', href: '/dashboard/models', keywords: 'modelos modelo producto productos npi master maestro mdl numero de parte folio nuevo modelo', icon: Boxes },
+  { label: 'Maestro de Materiales', sub: 'Partes · AVL · alternantes', href: '/dashboard/materials', keywords: 'materiales material maestro parte partes mm avl fabricante mpn alternante sustituto comprado fabricado phantom uom make buy numero de parte mat', icon: Package },
+  { label: 'BOM Multinivel', sub: 'Estructura · explosión · where-used', href: '/dashboard/bom', keywords: 'bom estructura producto multinivel explosion explotar where used donde se usa ensamble subensamble componentes lista de materiales arbol niveles', icon: Network },
+  { label: 'Ruteo de Manufactura', sub: 'Operaciones · tiempos · centro de trabajo', href: '/dashboard/routing', keywords: 'ruteo routing ruta proceso operaciones secuencia centro de trabajo work center tiempo estandar setup run backflush consumo manufactura rt', icon: Workflow },
+  { label: 'Importar Datos', sub: 'Migración SAP · CSV/Excel/staging', href: '/dashboard/import', keywords: 'importar import migracion sap csv excel xlsx staging idoc api mapeo columnas material bom ruteo carga masiva subir archivo', icon: Upload },
   { label: 'Ingeniería', sub: 'BOM y proceso', href: '/dashboard/engineering', keywords: 'ingenieria engineering bom ruta proceso npi', icon: Cpu },
   { label: 'Finanzas', sub: 'Costos y P&L', href: '/dashboard/finance', keywords: 'finanzas finance costos dinero movimientos', icon: DollarSign },
   { label: 'Costeo por orden', sub: 'Cost rollup', href: '/dashboard/finance/cost-rollup', keywords: 'costo costeo rollup wo mano de obra material', icon: Calculator },
