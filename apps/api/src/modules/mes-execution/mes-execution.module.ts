@@ -25,6 +25,7 @@ import { InventoryModule } from '../inventory/inventory.module';
 import { MaterialRequestsModule } from '../material-requests/material-requests.module';
 import { VisualAidsModule } from '../visual-aids/visual-aids.module';
 import { GovernanceModule } from '../governance/governance.module';
+import { TestFlowModule } from '../test-flow/test-flow.module';
 
 @Module({
   imports: [
@@ -49,6 +50,7 @@ import { GovernanceModule } from '../governance/governance.module';
     MaterialRequestsModule,
     VisualAidsModule,
     GovernanceModule, // provides AuditService required by PermissionsGuard
+    TestFlowModule, // Eslabón 1: hand finished serials off to the Pruebas queue
   ],
   controllers: [MesExecutionController],
   providers: [MesExecutionService],
