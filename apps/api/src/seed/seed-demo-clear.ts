@@ -33,6 +33,15 @@ import { ErpSupplierPrice } from '../modules/erp-core/entities/erp-supplier-pric
 import { SfWorkOrder } from '../modules/production-plan/entities/sf-work-order.entity';
 import { SfQualityHold } from '../modules/floor-quality/entities/sf-quality-hold.entity';
 import { SfDowntimeEvent } from '../modules/oee/entities/sf-downtime-event.entity';
+import { SfLineStation } from '../modules/line-engineering/entities/sf-line-station.entity';
+import { ProcessStep } from '../modules/process-routing/entities/process-step.entity';
+import { ProcessStepMaterial } from '../modules/process-routing/entities/process-step-material.entity';
+import { WorkOrderExecution } from '../modules/mes-execution/entities/work-order-execution.entity';
+import { ExecutionStep } from '../modules/mes-execution/entities/execution-step.entity';
+import { ExecutionStepMaterial } from '../modules/mes-execution/entities/execution-step-material.entity';
+import { ExecutionEvent } from '../modules/mes-execution/entities/execution-event.entity';
+import { VisualAid } from '../modules/visual-aids/entities/visual-aid.entity';
+import { BayLayout } from '../modules/bay-layout/entities/bay-layout.entity';
 
 import { bootSeedContext, runInDemoContext } from './seed-context';
 import {
@@ -134,6 +143,34 @@ async function run(): Promise<void> {
       const headerIds = demoHeaders.map((h) => h.id);
 
       console.log(`\n· Identificados: ${planIds.length} planes, ${kitIds.length} kits, ${headerIds.length} BOMs demo\n`);
+
+      // ── 0) Sustrato de piso (aditivo del Paso 1): ejecución MES + ruteo +
+      //       ayudas visuales + bahías. Se quita ANTES que planes/modelos.
+      const execRepo = ds.getRepository(WorkOrderExecution);
+      const demoExecs = await execRepo.find({
+        where: [{ planId: In(planIds.length ? planIds : [-1]) }, { workOrder: In(DEMO_WORK_ORDERS) }],
+      });
+      const execIds = demoExecs.map((e) => e.id);
+      if (execIds.length) {
+        await removeBy(ds.getRepository(ExecutionEvent), { executionId: In(execIds) }, 'mes_execution_events');
+        await removeBy(ds.getRepository(ExecutionStepMaterial), { executionId: In(execIds) }, 'mes_execution_step_materials');
+        await removeBy(ds.getRepository(ExecutionStep), { executionId: In(execIds) }, 'mes_execution_steps');
+        await removeBy(execRepo, { id: In(execIds) }, 'mes_work_order_executions');
+      }
+
+      // Ruta de proceso (process_steps + sus materiales) por modelo demo.
+      const psRepo = ds.getRepository(ProcessStep);
+      const demoSteps = await psRepo.find({ where: { model: In(DEMO_MODEL_NUMBERS) } });
+      const stepIds = demoSteps.map((s) => s.id);
+      if (stepIds.length) {
+        await removeBy(ds.getRepository(ProcessStepMaterial), { stepId: In(stepIds) }, 'process_step_materials');
+        await removeBy(psRepo, { id: In(stepIds) }, 'process_steps');
+      }
+
+      // Ruteo de ingeniería + ayudas visuales + bahías (por modelo demo).
+      await removeBy(ds.getRepository(SfLineStation), { model: In(DEMO_MODEL_NUMBERS) }, 'sf_line_stations');
+      await removeBy(ds.getRepository(VisualAid), { model: In(DEMO_MODEL_NUMBERS) }, 'visual_aids');
+      await removeBy(ds.getRepository(BayLayout), { model: In(DEMO_MODEL_NUMBERS) }, 'bay_layouts');
 
       // ── Orden de dependencias: hijos → padres ───────────────────────────
       // 1) Materiales de kit

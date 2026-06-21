@@ -42,6 +42,16 @@ import { FloorQualityService } from '../modules/floor-quality/floor-quality.serv
 import { SfQualityHold } from '../modules/floor-quality/entities/sf-quality-hold.entity';
 import { OeeService } from '../modules/oee/oee.service';
 import { SfDowntimeEvent } from '../modules/oee/entities/sf-downtime-event.entity';
+import { LineEngineeringService } from '../modules/line-engineering/line-engineering.service';
+import { SfLineStation } from '../modules/line-engineering/entities/sf-line-station.entity';
+import { ProcessRoutingService } from '../modules/process-routing/process-routing.service';
+import { ProcessStep } from '../modules/process-routing/entities/process-step.entity';
+import { ProcessStepMaterial } from '../modules/process-routing/entities/process-step-material.entity';
+import { MesExecutionService } from '../modules/mes-execution/mes-execution.service';
+import { WorkOrderExecution } from '../modules/mes-execution/entities/work-order-execution.entity';
+import { ExecutionStep } from '../modules/mes-execution/entities/execution-step.entity';
+import { VisualAid } from '../modules/visual-aids/entities/visual-aid.entity';
+import { BayLayout } from '../modules/bay-layout/entities/bay-layout.entity';
 
 import {
   assertNotProduction,
@@ -62,11 +72,17 @@ import {
   DEMO_COMPANY,
   DEMO_CUSTOMERS,
   DEMO_HOLDS,
+  DEMO_MES_WALK_UNITS,
+  DEMO_MES_WORK_ORDERS,
   DEMO_MODELS,
   DEMO_PARTS,
   DEMO_PLANS,
   DEMO_PLANT,
   DEMO_PROGRAMS,
+  DEMO_PROCESS_REVISION,
+  DEMO_ROUTING_REVISION,
+  DEMO_ROUTINGS,
+  MES_SEED_CRID,
   DEMO_SF_DOWNTIME,
   DEMO_SF_HOLDS,
   DEMO_SF_WORK_ORDERS,
@@ -801,6 +817,228 @@ async function seedShopFloor(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// 11. Ayudas visuales (VisualAid) por modelo+estación AX.
+//     Asset placeholder de dominio público (filename) enlazado desde el ruteo.
+// ─────────────────────────────────────────────────────────────────────────────
+async function seedVisualAids(ds: DataSource): Promise<Tally> {
+  const repo = ds.getRepository(VisualAid);
+  const t = tally();
+  for (const route of DEMO_ROUTINGS) {
+    for (const s of route.stations) {
+      try {
+        assertSeedModel(route.model);
+        assertSeedText(s.visualAidTitle, `título de ayuda visual ${s.visualAidId}`);
+        const existing = await repo.findOne({ where: { id: s.visualAidId } });
+        if (existing) {
+          t.skipped++;
+          continue;
+        }
+        await repo.save(
+          repo.create({
+            id: s.visualAidId,
+            model: route.model,
+            title: s.visualAidTitle,
+            process: s.name,
+            area: s.station,
+            revision: DEMO_ROUTING_REVISION,
+            pdfUrl: s.visualAidFile, // columna `filename` (placeholder dominio público)
+            isActive: true,
+            uploadedBy: DEMO_ACTOR,
+            notes: 'Ayuda visual demo AXOS (dominio público)',
+          }),
+        );
+        t.created++;
+      } catch (err) {
+        t.errors++;
+        log('ayudas visuales', `ERROR ${s.visualAidId}: ${(err as Error).message}`);
+      }
+    }
+  }
+  log('ayudas visuales', `creadas=${t.created} ya existían=${t.skipped} errores=${t.errors}`);
+  return t;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 12. Ruteo / layout por estación (keystone). Dos vistas consistentes del MISMO
+//     catálogo (DEMO_ROUTINGS), bajo el MISMO tenant demo (ámbito nulo):
+//       • SfLineStation (line-engineering, rev 'A')  → stationRequirements()/surtido.
+//       • ProcessStep + ProcessStepMaterial (rev '1.0') → lo que explota mes-execution.
+// ─────────────────────────────────────────────────────────────────────────────
+async function seedRouting(app: INestApplicationContext, ds: DataSource): Promise<Tally> {
+  const lineEng = app.get(LineEngineeringService, { strict: false });
+  const routingSvc = app.get(ProcessRoutingService, { strict: false });
+  const stepRepo = ds.getRepository(ProcessStep);
+  const matRepo = ds.getRepository(ProcessStepMaterial);
+  const t = tally();
+  let steps = 0;
+
+  for (const route of DEMO_ROUTINGS) {
+    // ── (a) SfLineStation (rev 'A') — el ruteo que lee el surtido ──
+    const existingStations = await lineEng.listStations({
+      model: route.model,
+      revision: DEMO_ROUTING_REVISION,
+    });
+    const haveStation = new Set(existingStations.map((s) => s.station));
+    for (const s of route.stations) {
+      try {
+        assertSeedPart(s.npExpected);
+        if (haveStation.has(s.station)) {
+          t.skipped++;
+          continue;
+        }
+        await lineEng.createStation({
+          model: route.model,
+          revision: DEMO_ROUTING_REVISION,
+          line: route.line,
+          station: s.station,
+          sequence: s.sequence,
+          npExpected: s.npExpected,
+          useFactor: s.useFactor,
+          stdTimeSec: s.stdTimeSec,
+          feederPosition: s.feederPosition,
+          visualAidUrl: s.visualAidUrl,
+          ctq: s.ctq,
+          programId: route.programId || undefined,
+          notes: `Ruteo demo AXOS · ${s.name}`,
+        });
+        t.created++;
+      } catch (err) {
+        t.errors++;
+        log('ruteo', `ERROR ${route.model}/${s.station}: ${(err as Error).message}`);
+      }
+    }
+
+    // ── (b) ProcessStep + material (rev '1.0') — lo que explota mes-execution ──
+    for (const s of route.stations) {
+      try {
+        let step = await stepRepo.findOne({
+          where: { model: route.model, sequence: s.sequence },
+        });
+        if (!step) {
+          step = await routingSvc.createStep({
+            model: route.model,
+            revision: DEMO_PROCESS_REVISION,
+            sequence: s.sequence,
+            name: s.name,
+            stationType: s.stationType,
+            visualAidId: s.visualAidId,
+            instructions: `Estación ${s.station} · consumir ${s.npExpected} (${s.useFactor}/u).`,
+          });
+          steps++;
+        }
+        const haveMat = await matRepo.findOne({
+          where: { stepId: step.id, partNumber: s.npExpected },
+        });
+        if (!haveMat) {
+          await routingSvc.addMaterial(step.id, {
+            partNumber: s.npExpected,
+            description: `NP de estación ${s.station} (demo AXOS)`,
+            qtyPerUnit: s.useFactor,
+            unit: 'EA',
+          });
+        }
+      } catch (err) {
+        t.errors++;
+        log('ruteo proceso', `ERROR ${route.model}/${s.station}: ${(err as Error).message}`);
+      }
+    }
+  }
+  log('ruteo', `estaciones Sf creadas=${t.created} ya existían=${t.skipped} · pasos proceso nuevos=${steps} errores=${t.errors}`);
+  return t;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 13. Colocación en bahía (BayLayout): NP del ruteo → bahía (1–6) + stock mínimo.
+// ─────────────────────────────────────────────────────────────────────────────
+async function seedBayLayouts(ds: DataSource): Promise<Tally> {
+  const repo = ds.getRepository(BayLayout);
+  const t = tally();
+  for (const route of DEMO_ROUTINGS) {
+    for (const s of route.stations) {
+      try {
+        assertSeedPart(s.npExpected);
+        const existing = await repo.findOne({
+          where: { model: route.model, partNumber: s.npExpected, bahia: s.bahia },
+        });
+        if (existing) {
+          t.skipped++;
+          continue;
+        }
+        await repo.save(
+          repo.create({
+            model: route.model,
+            partNumber: s.npExpected,
+            bahia: s.bahia,
+            minStock: s.minStock,
+          }),
+        );
+        t.created++;
+      } catch (err) {
+        t.errors++;
+        log('bahías', `ERROR ${route.model}/${s.npExpected}: ${(err as Error).message}`);
+      }
+    }
+  }
+  log('bahías', `creadas=${t.created} ya existían=${t.skipped} errores=${t.errors}`);
+  return t;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 14. Ejecución MES en curso: abre WorkOrderExecution para planes AX publicados
+//     (explota el ruteo de proceso en pasos reales) y deja la 1ª estación
+//     in_process vía el avance REAL del operador (idempotente por clientRequestId).
+// ─────────────────────────────────────────────────────────────────────────────
+async function seedMesExecutions(app: INestApplicationContext, ds: DataSource): Promise<Tally> {
+  const mes = app.get(MesExecutionService, { strict: false });
+  const planRepo = ds.getRepository(Plan);
+  const execRepo = ds.getRepository(WorkOrderExecution);
+  const stepRepo = ds.getRepository(ExecutionStep);
+  const t = tally();
+  let walked = 0;
+
+  for (const workOrder of DEMO_MES_WORK_ORDERS) {
+    try {
+      const plan = await planRepo.findOne({ where: { workOrder } });
+      if (!plan) {
+        t.skipped++;
+        continue;
+      }
+      // Abrir ejecución (idempotente: openExecution devuelve la existente).
+      let exec = await execRepo.findOne({ where: { planId: plan.id } });
+      if (!exec) {
+        await mes.openExecution({ workOrder }, DEMO_ACTOR);
+        exec = await execRepo.findOne({ where: { planId: plan.id } });
+        if (exec) t.created++;
+      } else {
+        t.skipped++;
+      }
+      if (!exec) continue;
+
+      // Dejar la 1ª estación in_process: avance parcial (< cantidad) del operador.
+      const first = await stepRepo.findOne({
+        where: { executionId: exec.id },
+        order: { sequence: 'ASC' },
+      });
+      if (first && first.status === 'pending') {
+        const qty = Math.max(1, Math.min(DEMO_MES_WALK_UNITS, (exec.quantity || 1) - 1));
+        await mes.confirmAdvance(
+          exec.id,
+          first.stepId,
+          { quantity: qty, clientRequestId: MES_SEED_CRID(workOrder), operator: DEMO_ACTOR },
+          DEMO_ACTOR,
+        );
+        walked++;
+      }
+    } catch (err) {
+      t.errors++;
+      log('ejecución mes', `ERROR ${workOrder}: ${(err as Error).message}`);
+    }
+  }
+  log('ejecución mes', `ejecuciones=${t.created} ya existían=${t.skipped} pasos in_process=${walked} errores=${t.errors}`);
+  return t;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Valuación rápida de inventario (SUM(onHand × standardCost)) para el resumen.
 // ─────────────────────────────────────────────────────────────────────────────
 async function inventoryValuation(ds: DataSource): Promise<number> {
@@ -848,6 +1086,10 @@ async function run(): Promise<void> {
       await seedQualityHolds(app, ds);
       await seedUsers(app);
       await seedShopFloor(app, ds);
+      await seedVisualAids(ds);
+      await seedRouting(app, ds);
+      await seedBayLayouts(ds);
+      await seedMesExecutions(app, ds);
     });
 
     // CANDADO LEGAL (post-seed): re-escanea TODA la base y FALLA ruidosamente si
@@ -868,6 +1110,8 @@ async function run(): Promise<void> {
     console.log(`   Modelos (AX-):    ${DEMO_MODELS.length}`);
     console.log(`   Planes:           ${DEMO_PLANS.length} (${DEMO_PLANS.filter((p) => p.publish).length} publicados)`);
     console.log(`   WOs piso:         ${DEMO_SF_WORK_ORDERS.length} (holds: ${DEMO_SF_HOLDS.length}, paros: ${DEMO_SF_DOWNTIME.length})`);
+    console.log(`   Ruteo (estac.):   ${DEMO_ROUTINGS.reduce((a, r) => a + r.stations.length, 0)} en ${DEMO_ROUTINGS.length} modelos (rev ${DEMO_ROUTING_REVISION})`);
+    console.log(`   Ejecución MES:    ${DEMO_MES_WORK_ORDERS.length} WO publicadas (1ª estación in_process)`);
     console.log(`   Usuarios demo:    ${DEMO_USERS.length}`);
     console.log(`   Valuación inv.:   $${valuation.toFixed(2)} USD`);
     console.log('   Folios ejemplo:   modelos ' + DEMO_MODELS.map((m) => m.modelNumber).join(', '));

@@ -21,13 +21,18 @@ import { Plan } from '../modules/plans/entities/plan.entity';
 import { InventoryPosition } from '../modules/inventory/entities/inventory-position.entity';
 import { InventoryMovement } from '../modules/inventory/entities/inventory-movement.entity';
 import { MaterialMaster } from '../modules/inventory/entities/material-master.entity';
+import { LineEngineeringService } from '../modules/line-engineering/line-engineering.service';
+import { WorkOrderExecution } from '../modules/mes-execution/entities/work-order-execution.entity';
+import { ExecutionStep } from '../modules/mes-execution/entities/execution-step.entity';
+import { VisualAid } from '../modules/visual-aids/entities/visual-aid.entity';
 
-import { bootSeedContext } from './seed-context';
+import { bootSeedContext, runInDemoContext } from './seed-context';
 import {
   DEMO_BOM_REVISION,
   DEMO_MODELS,
   DEMO_PART_NUMBERS,
   DEMO_PLANS,
+  DEMO_ROUTING_REVISION,
 } from './seed-constants';
 
 interface Check {
@@ -150,6 +155,48 @@ async function run(): Promise<void> {
     check('movimientos de inventario', movementsCount > 0, `${movementsCount} movimientos (recibo/consumo)`);
     check('existencias en calidad (hold)', heldCount > 0, `${heldCount} posiciones en cuarentena/inspección`);
     check('valuación inventario > 0', valuation > 0, `$${valuation.toFixed(2)} USD sobre ${DEMO_PART_NUMBERS.length} partes demo`);
+
+    // ── 5. Ruteo por estación: NP esperado por modelo AX (sustrato de surtido) ──
+    // SfLineStation es tenant-scoped → se consulta en el MISMO ámbito demo (nulo)
+    // que usó la siembra, para que stationRequirements case (si no, saldría vacío).
+    console.log('\n· Ruteo / layout por estación (NP por estación)');
+    const lineEng = app.get(LineEngineeringService, { strict: false });
+    let modelsWithRoute = 0;
+    await runInDemoContext(app, async () => {
+      for (const m of DEMO_MODELS) {
+        const reqs = await lineEng.stationRequirements(m.modelNumber, DEMO_ROUTING_REVISION);
+        const withNp = reqs.filter((r) => !!r.npExpected);
+        const ok = withNp.length > 0;
+        if (ok) modelsWithRoute++;
+        check(
+          `ruteo ${m.modelNumber}`,
+          ok,
+          reqs.length
+            ? `${withNp.length}/${reqs.length} estaciones con NP · ej. ${withNp[0]?.station}:${withNp[0]?.npExpected}`
+            : 'sin ruteo (stationRequirements vacío)',
+        );
+      }
+    });
+    check('ruteo con NP por modelo AX', modelsWithRoute === DEMO_MODELS.length, `${modelsWithRoute}/${DEMO_MODELS.length}`);
+
+    // ── 6. Ejecución MES en curso: ≥1 paso in_process (operador con WO viva) ──
+    console.log('\n· Ejecución MES en curso');
+    const execOpen = await ds.getRepository(WorkOrderExecution).count({ where: { status: 'open' } });
+    const inProcessSteps = await ds.getRepository(ExecutionStep).count({ where: { status: 'in_process' } });
+    check('≥1 ejecución MES abierta', execOpen >= 1, `${execOpen} ejecución(es) abierta(s)`);
+    check('≥1 paso in_process', inProcessSteps >= 1, `${inProcessSteps} paso(s) en proceso (operador puede dar consumo)`);
+
+    // ── 7. Ayudas visuales por modelo (enlazadas desde el ruteo) ──
+    console.log('\n· Ayudas visuales por modelo');
+    const vaRepo = ds.getRepository(VisualAid);
+    let modelsWithAid = 0;
+    for (const m of DEMO_MODELS) {
+      const aids = await vaRepo.count({ where: { model: m.modelNumber, isActive: true } });
+      const ok = aids > 0;
+      if (ok) modelsWithAid++;
+      check(`ayudas visuales ${m.modelNumber}`, ok, `${aids} activa(s)`);
+    }
+    check('ayudas visuales por modelo AX', modelsWithAid === DEMO_MODELS.length, `${modelsWithAid}/${DEMO_MODELS.length}`);
 
     // ── Resultado ─────────────────────────────────────────────────────────
     const failed = checks.filter((c) => !c.ok);
