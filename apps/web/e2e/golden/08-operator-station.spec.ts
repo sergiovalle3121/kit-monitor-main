@@ -6,9 +6,8 @@ import { API_ORIGIN } from '../fixtures/constants';
 /**
  * Operador · abrir estación (MES board).
  *
- * Distinct from the operator-terminal page covered by 04: this is the MES
- * shop-floor board at /dashboard/operador (/mes/executions + /mes/board). The
- * operator opens a work order — by picking one of the live orders or by scanning
+ * The MES shop-floor board at /dashboard/operador (/mes/executions + /mes/board).
+ * The operator opens a work order — by picking one of the live orders or by scanning
  * its WO — and lands on the live station board (rail, current step, action bar).
  * The MES realtime socket has no server here and is aborted to avoid a noisy
  * reconnect loop.

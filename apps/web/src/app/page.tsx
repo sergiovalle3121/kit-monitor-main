@@ -54,10 +54,10 @@ const FEATURES: Feature[] = [
   {
     icon: <Activity />,
     title: "Ejecución en piso (MES)",
-    desc: "Terminal de operador: poka-yoke, backflush de material y andon por estación.",
+    desc: "Operador MES: poka-yoke, backflush de material y andon por estación.",
     details:
       "El operador escanea, el sistema valida el NP (poka-yoke), descuenta material (backflush) y registra el avance. Bloqueos por calidad, skill y faltante.",
-    href: "/dashboard/operator-terminal",
+    href: "/dashboard/operador",
   },
   {
     icon: <Zap />,

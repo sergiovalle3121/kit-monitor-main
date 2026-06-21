@@ -78,7 +78,7 @@ export function OverviewTab({
               </h3>
               <p className="text-[12px] text-gray-500 dark:text-gray-400">
                 En el piso, una máquina caída dispara un andon de Mantto (ANDON_MACHINE).{" "}
-                <Link href="/dashboard/operator-terminal" className="underline underline-offset-2 hover:opacity-80">
+                <Link href="/dashboard/operador" className="underline underline-offset-2 hover:opacity-80">
                   Ver terminal de piso
                 </Link>
                 . Levanta una orden correctiva y, al resolver, marca el activo operativo.
