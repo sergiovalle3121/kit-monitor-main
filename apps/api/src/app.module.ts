@@ -31,6 +31,7 @@ import { RmaModule } from './modules/rma/rma.module';
 import { LineEngineeringModule } from './modules/line-engineering/line-engineering.module';
 import { ProductionPlanModule } from './modules/production-plan/production-plan.module';
 import { MaterialStagingModule } from './modules/material-staging/material-staging.module';
+import { MaterialStagingMesModule } from './modules/material-staging/material-staging-mes.module';
 import { OperatorTerminalModule } from './modules/operator-terminal/operator-terminal.module';
 import { FloorQualityModule } from './modules/floor-quality/floor-quality.module';
 import { FaiModule } from './modules/fai/fai.module';
@@ -119,6 +120,7 @@ import { AiModule } from './modules/ai/ai.module';
     LineEngineeringModule,
     ProductionPlanModule,
     MaterialStagingModule,
+    MaterialStagingMesModule,
     OperatorTerminalModule,
     FloorQualityModule,
     FaiModule,
