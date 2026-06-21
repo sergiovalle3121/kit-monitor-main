@@ -7,7 +7,7 @@ import {
   Search, LayoutGrid, LineChart, Warehouse, Boxes, Factory, HardHat, ShieldCheck,
   Cpu, DollarSign, Calculator, RadioTower, FileText, Landmark, Users, Building2,
   ShieldAlert, MessageSquare, CornerDownLeft, Hash, Lightbulb, Wrench, Scale, FlaskConical, ShoppingCart, GraduationCap, Truck, PackageCheck, ClipboardList, Target, Building, Receipt, Hammer, PackageX, Package,
-  Gauge, Megaphone, PackagePlus, ScanLine, ShieldX, Loader2, Network, Workflow, Upload, PackageMinus,
+  Gauge, Megaphone, PackagePlus, ShieldX, Loader2, Network, Workflow, Upload, PackageMinus,
 } from 'lucide-react';
 import {
   ENTITY_ORDER, ensureSearchIndex, filterSearchIndex,
@@ -73,7 +73,6 @@ const DESTS: Dest[] = [
   { label: 'Disposición de líneas', sub: 'Ing. Industrial · layout y balanceo', href: '/dashboard/line-engineering', keywords: 'disposicion lineas industrial ie layout estacion ruteo routing balanceo takt cycle cuello botella factor de uso poka yoke ayuda visual ctq changeover', icon: Gauge },
   { label: 'Muro del plan', sub: 'Planeación · publicar WOs en vivo', href: '/dashboard/production-plan', keywords: 'plan muro publicacion planeacion wo orden de trabajo work order liberar secuencia prioridad readiness adherencia operador autorizar acceso montado ejecucion', icon: Megaphone },
   { label: 'Surtido y e-kanban', sub: 'Materialista · montar kit a estación', href: '/dashboard/material-staging', keywords: 'surtido staging kitting materialista almacen montar material estacion kanban reposicion pull faltante shortage fill rate cola scanner llamado', icon: PackagePlus },
-  { label: 'Terminal de operador', sub: 'Producción · ejecutar en estación', href: '/dashboard/operator-terminal', keywords: 'terminal operador ejecucion estacion escanear poka yoke backflush consumo confirmar serial genealogia andon defecto takt skill certificado bloqueo faltante hora por hora', icon: ScanLine },
   { label: 'Calidad de piso · MRB', sub: 'Holds, disposición y where-used', href: '/dashboard/floor-quality', keywords: 'calidad piso hold retencion cuarentena mrb disposicion use as is rework repair scrap rtv scar sort ncr retrabajo reinspeccion where used genealogia contencion ppm', icon: ShieldX },
   { label: 'Torre de control de línea', sub: 'Readiness y semáforo por línea', href: '/dashboard/line-control-tower', keywords: 'torre control linea readiness plan vs real andon holds reposicion semaforo gerente operaciones turno oee adherencia cross linea', icon: RadioTower },
   { label: 'Chat', sub: 'Mensajería', href: '/dashboard/chat', keywords: 'chat mensajes mensajeria', icon: MessageSquare },
@@ -110,7 +109,7 @@ function areaFor(href: string): AreaKey {
   const p = href.replace('/dashboard', '') || '/';
   if (p.startsWith('/erp')) return 'erp';
   if (p === '/' || p === '/mission-control' || p === '/control-tower' || p === '/line-control-tower') return 'home';
-  if (p === '/planning' || p === '/production' || p === '/operador' || p === '/production-plan' || p === '/line-engineering' || p === '/operator-terminal') return 'production';
+  if (p === '/planning' || p === '/production' || p === '/operador' || p === '/production-plan' || p === '/line-engineering') return 'production';
   if (p === '/almacen' || p === '/inventory' || p === '/material-staging' || p === '/cycle-counts' || p === '/inbound' || p === '/outbound' || p === '/procurement') return 'supply';
   if (p === '/quality' || p === '/floor-quality' || p === '/test-engineering' || p === '/rma') return 'quality';
   if (p === '/models' || p === '/materials' || p === '/bom' || p === '/routing' || p === '/engineering' || p === '/backflush' || p === '/mrp' || p === '/tooling') return 'materials';

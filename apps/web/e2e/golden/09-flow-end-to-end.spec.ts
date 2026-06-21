@@ -19,13 +19,10 @@ import { API_ORIGIN } from '../fixtures/constants';
  *   5. Publicar plan (muro)    → el MODELO recién creado sale en el selector del planeador
  *   6. Ver WO en el muro       → la WO lleva el modelo; su Clear-to-Build ya marca el
  *                                faltante de la parte sin stock (BOM → muro)
- *   7. Terminal de operador    → la WO del muro aparece; la estación espera la parte
- *                                del BOM (muro/BOM → operador)
- *   8. Surtir como almacén     → el surtido se explota del BOM de la WO; se monta la
+ *   7. Surtir como almacén     → el surtido se explota del BOM de la WO; se monta la
  *                                parte con stock y se marca faltante la otra
- *   9. Ver faltante            → KPI de faltantes + llamado de reposición de la MISMA
- *                                parte; y el operador queda BLOQUEADO por ese faltante
- *                                (almacén → operador, cerrando el lazo)
+ *   8. Ver faltante            → KPI de faltantes + llamado de reposición de la MISMA
+ *                                parte (almacén cierra el lazo del faltante del muro)
  *
  * Determinista: backend fresco por test ⇒ IDs fijos. Modelo MDL-FLOW-001, parte
  * CMP-FLOW-A (con stock → se monta) y CMP-FLOW-B (sin stock → faltante).
@@ -34,10 +31,9 @@ import { API_ORIGIN } from '../fixtures/constants';
 const MODEL = 'MDL-FLOW-001';
 const PART_OK = 'CMP-FLOW-A'; // hay stock en almacén → se monta a línea
 const PART_SHORT = 'CMP-FLOW-B'; // sin stock → faltante / shortage
-const STATION = 'EST-10';
 
 test.describe('Golden path · flujo end-to-end (conecta el camino real)', () => {
-  test('login → modelo → BOM → activar → publicar → muro → operador → surtir → faltante', async ({
+  test('login → modelo → BOM → activar → publicar → muro → surtir → faltante', async ({
     page,
     context,
   }) => {
@@ -68,7 +64,7 @@ test.describe('Golden path · flujo end-to-end (conecta el camino real)', () => 
     // El Master ve las áreas que vamos a recorrer (Diseño · NPI, Materiales, Producción).
     await expect(page.getByRole('button', { name: /Modelos · NPI/ })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Surtido a línea' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Terminal de operador' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Operador MES' })).toBeVisible();
 
     // 1→2: entramos a Modelos DESDE el hub (no por URL: probamos que el hub conecta).
     await page.getByRole('button', { name: /Modelos · NPI/ }).click();
@@ -127,24 +123,7 @@ test.describe('Golden path · flujo end-to-end (conecta el camino real)', () => 
     await expect(card.getByText(PART_SHORT)).toBeVisible();
     await expect(card.getByText(/falta/).first()).toBeVisible();
 
-    // ── 7) TERMINAL DE OPERADOR ──────────────────────────────────────────────
-    await page.goto('/dashboard/operator-terminal');
-    await expect(page.getByRole('heading', { name: /Terminal de operador/ })).toBeVisible();
-    // CONECTA (muro → operador): la WO publicada aparece como botón seleccionable.
-    await expect(page.getByRole('button', { name: folio! })).toBeVisible();
-    await page.getByTestId('station-input').fill(STATION);
-    // CONECTA: el trabajo cargado es el de NUESTRA WO (su modelo) en la estación.
-    await expect(page.getByText(MODEL).first()).toBeVisible();
-    const step = page.getByTestId('step-badge');
-    await expect(step).toContainText('Paso');
-    await expect(step).toContainText(STATION);
-    // CONECTA (BOM → operador): la estación espera la parte del BOM.
-    await expect(page.getByText('NP esperado (poka-yoke)')).toBeVisible();
-    await expect(page.getByText(PART_SHORT).first()).toBeVisible();
-    // Antes de surtir, el operador NO está bloqueado (aún no hay faltante reportado).
-    await expect(page.getByText('No puedes avanzar')).toHaveCount(0);
-
-    // ── 8) SURTIR COMO ALMACÉN ───────────────────────────────────────────────
+    // ── 7) SURTIR COMO ALMACÉN ───────────────────────────────────────────────
     await page.goto('/dashboard/material-staging');
     await expect(page.getByRole('heading', { name: /Surtido y e-kanban/ })).toBeVisible();
     // CONECTA (muro → almacén): la WO publicada es la WO activa en surtido.
@@ -162,22 +141,12 @@ test.describe('Golden path · flujo end-to-end (conecta el camino real)', () => 
     // Marcar faltante la parte sin stock.
     await lineShort.getByRole('button', { name: 'Faltante' }).click();
 
-    // ── 9) VER FALTANTE ──────────────────────────────────────────────────────
+    // ── 8) VER FALTANTE ──────────────────────────────────────────────────────
     // KPI de faltantes = 1 (la etiqueta "Faltantes" es plural ⇒ única en la página).
     await expect(kpiTile(page, 'Faltantes')).toContainText('1');
     // CONECTA: el faltante levantó un llamado de reposición de la MISMA parte, así
     // que CMP-FLOW-B aparece ahora dos veces (la línea de surtido + el llamado).
     await expect(page.getByText(PART_SHORT)).toHaveCount(2);
-
-    // ── 9b) CIERRE DEL LAZO (almacén → operador): el operador VE el faltante ──
-    await page.goto('/dashboard/operator-terminal');
-    await page.getByTestId('station-input').fill(STATION);
-    await expect(page.getByText(MODEL).first()).toBeVisible();
-    // El material en línea de la estación quedó en SHORTAGE…
-    await expect(page.getByText('SHORTAGE').first()).toBeVisible();
-    // …y por eso el operador queda bloqueado, citando la parte EXACTA que el almacén no pudo surtir.
-    await expect(page.getByText('No puedes avanzar')).toBeVisible();
-    await expect(page.getByText(new RegExp(`Falta material.*${PART_SHORT}`))).toBeVisible();
   });
 });
 
