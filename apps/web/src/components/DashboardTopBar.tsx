@@ -260,7 +260,7 @@ export function DashboardTopBar() {
         className="hidden sm:flex items-center gap-2 rounded-full px-3.5 py-2 text-sm text-gray-500 dark:text-gray-400 w-full max-w-md bg-violet-500/[0.06] dark:bg-violet-400/10 border border-violet-500/15 dark:border-violet-400/15 hover:border-violet-500/30 hover:text-gray-700 dark:hover:text-gray-200 hover:shadow-[0_0_0_4px_rgba(124,92,255,0.08)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/40 transition-all"
       >
         <Search className="w-4 h-4 flex-shrink-0 text-violet-500" strokeWidth={1.75} />
-        <span className="flex-1 text-left">Buscar departamento, WO, NCR, persona…</span>
+        <span className="flex-1 text-left">Ir a un área o pantalla…</span>
         <kbd className="hidden md:inline text-[10px] font-mono px-1.5 py-0.5 rounded bg-violet-500/10 dark:bg-violet-400/15 text-violet-500/80">⌘K</kbd>
       </button>
 
