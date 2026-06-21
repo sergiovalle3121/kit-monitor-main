@@ -3,7 +3,7 @@
 import React, { useMemo, useState } from 'react';
 import {
   PackagePlus, Lock, Loader2, Inbox, CheckCircle2, AlertTriangle,
-  Truck, PackageCheck, Boxes, Zap,
+  Truck, PackageCheck, Boxes, Zap, ClipboardList, ListChecks, RotateCcw,
 } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { glass } from '@/lib/glass';
@@ -20,34 +20,61 @@ const GRAY = '#6b7280';
 
 type SStatus = 'PENDING' | 'STAGED' | 'SHORTAGE';
 type RStatus = 'OPEN' | 'IN_TRANSIT' | 'DELIVERED' | 'CANCELLED';
+// Carril 1 = planes publicados (plans → pick-list). Carril 2 = WO (SfWorkOrder).
+type Source = 'plan' | 'wo';
 
 interface WO { id: string; folio: string | null; model: string; revision: string; line: string; status: string; quantityPlanned: number; materialReady: boolean; }
 interface Line { id: string; woId: string; station: string; sequence: number; part: string; requiredQty: number; stagedQty: number; minQty: number; status: SStatus; feederPosition: string | null; }
 interface Call { id: string; woFolio: string | null; station: string; part: string; qty: number; priority: string; status: RStatus; reason: string | null; raisedAt: string | null; }
 interface Kpis { totalLines: number; stagedLines: number; shortageLines: number; fillRatePct: number; openCalls: number; avgReplenishMinutes: number; stationsShort: number; }
 
+// Carril 1 — planes publicados como cola de surtido + su pick-list.
+interface PlanWO { planId: number; workOrder: string; model: string; line: number; quantity: number; priority: string; status: string; publishedAt: string | null; kitId: number | null; totalLines: number; stagedLines: number; shortageLines: number; fillRatePct: number; allStaged: boolean; }
+interface PickLine { id: number; partNumber: string; description: string | null; unit: string; quantityRequired: number; requiredQty: number; stagedQty: number; stagingStatus: SStatus; staged: boolean; }
+interface PlanPick { planId: number; workOrder: string; model: string; quantity: number; status: string; lines: PickLine[]; summary: { totalLines: number; stagedLines: number; shortageLines: number; fillRatePct: number; allStaged: boolean; }; }
+
 const SMETA: Record<SStatus, { label: string; color: string }> = {
   PENDING: { label: 'Pendiente', color: GRAY }, STAGED: { label: 'Montado', color: GREEN }, SHORTAGE: { label: 'Faltante', color: RED },
+};
+// Carril 1 usa "Surtido" en vez de "Montado" para la línea del pick-list.
+const PMETA: Record<SStatus, { label: string; color: string }> = {
+  PENDING: { label: 'Pendiente', color: GRAY }, STAGED: { label: 'Surtido', color: GREEN }, SHORTAGE: { label: 'Faltante', color: RED },
 };
 const pct = (n: number) => `${Math.round((n || 0) * 100)}%`;
 
 export default function MaterialStagingPage() {
   const toast = useToast();
-  const { data: kpis, mutate: mutateKpis } = useApi<Kpis>('/material-staging/kpis');
-  const { data: wosData } = useApi<WO[]>('/production-plan');
-  const { data: callsData, mutate: mutateCalls } = useApi<Call[]>('/material-staging/replenish');
+  // Carril 1 por defecto (los planes del planeador); el carril 2 sigue accesible.
+  const [source, setSource] = useState<Source>('plan');
+
+  // ── Carril 1 (planes publicados → pick-list por planId) ──────────────────────
+  const { data: plansData, forbidden: plansForbidden, mutate: mutatePlans } = useApi<PlanWO[]>(source === 'plan' ? '/material-staging/mes/plans' : null);
+  const plans = Array.isArray(plansData) ? plansData : [];
+  const [selPlan, setSelPlan] = useState<number | null>(null);
+  const activePlan = selPlan ?? plans[0]?.planId ?? null;
+  const { data: pickData, isLoading: pickLoading, forbidden: pickForbidden, mutate: mutatePick } = useApi<PlanPick>(source === 'plan' && activePlan ? `/material-staging/mes/plans/${activePlan}` : null);
+  const pickLines = Array.isArray(pickData?.lines) ? pickData!.lines : [];
+
+  // ── Carril 2 (WO / SfWorkOrder) — intacto, sólo se omite cuando no está activo ─
+  const { data: kpis, mutate: mutateKpis } = useApi<Kpis>(source === 'wo' ? '/material-staging/kpis' : null);
+  const { data: wosData } = useApi<WO[]>(source === 'wo' ? '/production-plan' : null);
+  const { data: callsData, mutate: mutateCalls } = useApi<Call[]>(source === 'wo' ? '/material-staging/replenish' : null);
   const wos = useMemo(() => (Array.isArray(wosData) ? wosData.filter((w) => w.status !== 'COMPLETED' && w.status !== 'CANCELLED') : []), [wosData]);
   const calls = Array.isArray(callsData) ? callsData : [];
 
   const [selWo, setSelWo] = useState<string>('');
   const activeWo = selWo || wos[0]?.id || '';
-  const { data: linesData, isLoading, forbidden, mutate } = useApi<Line[]>(activeWo ? `/material-staging/wo/${activeWo}` : null);
+  const { data: linesData, isLoading, forbidden: linesForbidden, mutate } = useApi<Line[]>(source === 'wo' && activeWo ? `/material-staging/wo/${activeWo}` : null);
   const lines = Array.isArray(linesData) ? linesData : [];
   const [busy, setBusy] = useState<string | null>(null);
   const [draft, setDraft] = useState<Record<string, number>>({});
 
-  function refresh() { mutate(); mutateKpis(); mutateCalls(); }
+  const forbidden = source === 'plan' ? (plansForbidden || pickForbidden) : linesForbidden;
 
+  function refresh() { mutate(); mutateKpis(); mutateCalls(); }          // carril 2
+  function refreshPlan() { mutatePick(); mutatePlans(); }               // carril 1
+
+  // ── Carril 2 actions (sin cambios) ───────────────────────────────────────────
   async function generate() {
     if (!activeWo) return;
     setBusy('gen');
@@ -86,6 +113,38 @@ export default function MaterialStagingPage() {
     } catch { toast.error('Error de red.', 'Surtido'); } finally { setBusy(null); }
   }
 
+  // ── Carril 1 actions (puente MES) ────────────────────────────────────────────
+  async function stagePlanAll() {
+    if (!activePlan) return;
+    setBusy('stage-all');
+    try {
+      const res = await apiFetch(`${API_BASE}/material-staging/mes/plans/${activePlan}/stage-all`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+      if (!res.ok) { const d = await res.json().catch(() => ({})); toast.error(d?.message || 'No se pudo surtir.', 'Surtido'); return; }
+      toast.success('Plan surtido completo.', 'Surtido'); refreshPlan();
+    } catch { toast.error('Error de red.', 'Surtido'); } finally { setBusy(null); }
+  }
+
+  async function stagePlanLine(line: PickLine) {
+    if (!activePlan) return;
+    const qty = draft[`p${line.id}`] ?? line.requiredQty;
+    setBusy(`p${line.id}`);
+    try {
+      const res = await apiFetch(`${API_BASE}/material-staging/mes/plans/${activePlan}/lines/${line.id}/stage`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ stagedQty: qty }) });
+      if (!res.ok) { const d = await res.json().catch(() => ({})); toast.error(d?.message || 'No se pudo surtir.', 'Surtido'); return; }
+      toast.success(`${line.partNumber} surtido.`, 'Surtido'); refreshPlan();
+    } catch { toast.error('Error de red.', 'Surtido'); } finally { setBusy(null); }
+  }
+
+  async function unstagePlanLine(line: PickLine) {
+    if (!activePlan) return;
+    setBusy(`p${line.id}`);
+    try {
+      const res = await apiFetch(`${API_BASE}/material-staging/mes/plans/${activePlan}/lines/${line.id}/unstage`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+      if (!res.ok) { const d = await res.json().catch(() => ({})); toast.error(d?.message || 'No se pudo revertir.', 'Surtido'); return; }
+      toast.success(`${line.partNumber} de vuelta a pendiente.`, 'Surtido'); refreshPlan();
+    } catch { toast.error('Error de red.', 'Surtido'); } finally { setBusy(null); }
+  }
+
   if (forbidden) {
     return (
       <div className="min-h-screen grid place-items-center text-black dark:text-white">
@@ -98,6 +157,8 @@ export default function MaterialStagingPage() {
     );
   }
 
+  const activePlanWO = plans.find((p) => p.planId === activePlan) ?? null;
+
   return (
     <div className="min-h-screen text-black dark:text-white font-sans pb-32">
       <main className="max-w-6xl mx-auto px-6 pt-10">
@@ -107,100 +168,231 @@ export default function MaterialStagingPage() {
           title="Surtido y e-kanban a línea"
           subtitle="El materialista monta el kit por estación · el operador ve si falta material"
         />
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-8">
-          <Kpi label="Fill-rate a línea" value={pct(kpis?.fillRatePct ?? 0)} color={GREEN} />
-          <Kpi label="Faltantes" value={kpis?.shortageLines ?? 0} color={RED} />
-          <Kpi label="Llamados abiertos" value={kpis?.openCalls ?? 0} color={AMBER} />
-          <Kpi label="Tiempo reposición" value={`${kpis?.avgReplenishMinutes ?? 0} min`} color={BLUE} />
-          <Kpi label="Estaciones cortas" value={kpis?.stationsShort ?? 0} color={RED} />
+
+        {/* Fuente: carril 1 (planes) vs carril 2 (WO) */}
+        <div className="flex items-center gap-3 mb-6 flex-wrap">
+          <div className="inline-flex rounded-xl p-1 bg-black/5 dark:bg-white/10">
+            <button
+              onClick={() => setSource('plan')}
+              className="px-3 py-1.5 rounded-lg text-[13px] font-medium inline-flex items-center gap-1.5 transition-colors"
+              style={{ background: source === 'plan' ? BLUE : 'transparent', color: source === 'plan' ? '#fff' : undefined }}
+            >
+              <ClipboardList className="w-4 h-4" /> Carril 1 · Planes
+            </button>
+            <button
+              onClick={() => setSource('wo')}
+              className="px-3 py-1.5 rounded-lg text-[13px] font-medium inline-flex items-center gap-1.5 transition-colors"
+              style={{ background: source === 'wo' ? BLUE : 'transparent', color: source === 'wo' ? '#fff' : undefined }}
+            >
+              <Boxes className="w-4 h-4" /> Carril 2 · WO
+            </button>
+          </div>
+          <span className="text-[12px] text-gray-400">
+            {source === 'plan'
+              ? 'Surtiendo los planes publicados por el planeador (pick-list por plan).'
+              : 'Surtiendo las órdenes de trabajo del plan de producción (por estación).'}
+          </span>
         </div>
 
-        {/* WO selector */}
-        <div className="flex items-center gap-2 mb-5 flex-wrap">
-          <span className="text-[12px] text-gray-400">WO:</span>
-          {wos.length === 0 && <span className="text-[12px] text-gray-400">No hay WOs activas — publica una en el muro del plan.</span>}
-          {wos.map((w) => {
-            const on = w.id === activeWo;
-            return (
-              <button key={w.id} onClick={() => setSelWo(w.id)} className="px-3 py-1.5 rounded-lg text-[13px] font-medium inline-flex items-center gap-1.5" style={{ background: on ? BLUE : 'rgba(0,0,0,0.05)', color: on ? '#fff' : undefined }}>
-                {w.folio || w.model} {w.materialReady && <PackageCheck className="w-3.5 h-3.5" style={{ color: on ? '#fff' : GREEN }} />}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Staging lines */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="font-semibold text-sm flex items-center gap-2"><Boxes className="w-4 h-4 text-gray-400" /> Material por estación</h3>
-              {activeWo && lines.length === 0 && (
-                <button onClick={generate} disabled={busy === 'gen'} className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-[13px] font-medium text-white disabled:opacity-60" style={{ background: BLUE }}>
-                  {busy === 'gen' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />} Generar surtido
-                </button>
-              )}
+        {source === 'plan' ? (
+          /* ─────────────── Carril 1 · Planes publicados ─────────────── */
+          <>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
+              <Kpi label="Fill-rate del plan" value={pct(pickData?.summary?.fillRatePct ?? 0)} color={GREEN} />
+              <Kpi label="Planes publicados" value={plans.length} color={BLUE} />
+              <Kpi label="Líneas surtidas" value={`${pickData?.summary?.stagedLines ?? 0}/${pickData?.summary?.totalLines ?? 0}`} color={GREEN} />
+              <Kpi label="Estado del plan" value={activePlanWO?.allStaged ? 'Listo' : 'Pendiente'} color={activePlanWO?.allStaged ? GREEN : AMBER} />
             </div>
-            {isLoading ? (
-              <div className="flex justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div>
-            ) : lines.length === 0 ? (
-              <div className={`${glass} rounded-2xl p-10 text-center`}>
-                <Inbox className="w-7 h-7 mx-auto mb-2 text-gray-400" />
-                <p className="text-sm text-gray-400">Sin líneas de surtido. Genera el kit desde el ruteo de IE.</p>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {lines.map((l) => (
-                  <div key={l.id} className={`${glass} rounded-xl p-3.5`}>
-                    <div className="flex items-center gap-3">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-[11px] px-1.5 py-0.5 rounded bg-black/5 dark:bg-white/10 text-gray-500">{l.station}</span>
-                          <span className="font-mono font-medium">{l.part}</span>
-                          {l.feederPosition && <span className="text-[11px] text-gray-400">feeder {l.feederPosition}</span>}
-                          <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: `${SMETA[l.status].color}1f`, color: SMETA[l.status].color }}>{SMETA[l.status].label}</span>
-                        </div>
-                        <div className="text-[12px] text-gray-400 mt-1">Requerido {l.requiredQty} · en línea {l.stagedQty} · kanban {l.minQty}</div>
-                      </div>
-                      <input
-                        type="number" defaultValue={l.requiredQty}
-                        onChange={(e) => setDraft({ ...draft, [l.id]: Number(e.target.value) })}
-                        onKeyDown={(e) => { if (e.key === 'Enter') confirm(l); }}
-                        className="ci-input w-24" />
-                      <button onClick={() => confirm(l)} disabled={busy === l.id} className="px-2.5 py-1.5 rounded-lg text-[12px] font-medium text-white disabled:opacity-50" style={{ background: GREEN }}>Montar</button>
-                      <button onClick={() => shortage(l)} disabled={busy === l.id} className="px-2.5 py-1.5 rounded-lg text-[12px] font-medium disabled:opacity-50" style={{ background: `${RED}1f`, color: RED }}>Faltante</button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
 
-          {/* Replenish board */}
-          <div>
-            <h3 className="font-semibold text-sm mb-3 flex items-center gap-2"><Truck className="w-4 h-4 text-gray-400" /> Llamados de reposición</h3>
-            {calls.filter((c) => c.status === 'OPEN' || c.status === 'IN_TRANSIT').length === 0 ? (
-              <div className={`${glass} rounded-2xl p-8 text-center`}><CheckCircle2 className="w-6 h-6 mx-auto mb-2" style={{ color: GREEN }} /><p className="text-[12px] text-gray-400">Sin llamados pendientes.</p></div>
-            ) : (
-              <div className="space-y-2">
-                {calls.filter((c) => c.status === 'OPEN' || c.status === 'IN_TRANSIT').map((c) => (
-                  <div key={c.id} className={`${glass} rounded-xl p-3`}>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-mono text-sm font-medium">{c.part}</span>
-                      <span className="text-[11px] px-1.5 py-0.5 rounded" style={{ background: `${AMBER}1f`, color: AMBER }}>{c.station}</span>
-                      {(c.priority === 'URGENT' || c.priority === 'HIGH') && <span className="text-[10px] px-1.5 py-0.5 rounded inline-flex items-center gap-0.5" style={{ background: `${RED}1f`, color: RED }}><AlertTriangle className="w-3 h-3" /> {c.priority}</span>}
-                      {c.reason && <span className="text-[10px] text-gray-400">{c.reason}</span>}
-                    </div>
-                    <div className="text-[12px] text-gray-400 mt-1">{c.qty} u {c.woFolio ? `· ${c.woFolio}` : ''}</div>
-                    <div className="mt-2 flex gap-1.5">
-                      {c.status === 'OPEN' && <button onClick={() => moveCall(c, 'IN_TRANSIT')} disabled={busy === c.id} className="px-2 py-1 rounded text-[11px] font-medium disabled:opacity-50" style={{ background: `${BLUE}1f`, color: BLUE }}>En tránsito</button>}
-                      <button onClick={() => moveCall(c, 'DELIVERED')} disabled={busy === c.id} className="px-2 py-1 rounded text-[11px] font-medium text-white disabled:opacity-50" style={{ background: GREEN }}>Entregado</button>
-                    </div>
+            {/* Plan selector */}
+            <div className="flex items-center gap-2 mb-5 flex-wrap">
+              <span className="text-[12px] text-gray-400">Plan:</span>
+              {plans.length === 0 && <span className="text-[12px] text-gray-400">No hay planes publicados — publica uno desde Planeación.</span>}
+              {plans.map((p) => {
+                const on = p.planId === activePlan;
+                return (
+                  <button key={p.planId} onClick={() => setSelPlan(p.planId)} className="px-3 py-1.5 rounded-lg text-[13px] font-medium inline-flex items-center gap-1.5" style={{ background: on ? BLUE : 'rgba(0,0,0,0.05)', color: on ? '#fff' : undefined }}>
+                    {p.workOrder} {p.allStaged && <PackageCheck className="w-3.5 h-3.5" style={{ color: on ? '#fff' : GREEN }} />}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Pick-list del plan */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="lg:col-span-2">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-semibold text-sm flex items-center gap-2"><Boxes className="w-4 h-4 text-gray-400" /> Pick-list del plan {activePlanWO ? `· ${activePlanWO.model}` : ''}</h3>
+                  {activePlan && pickLines.length > 0 && (
+                    <button onClick={stagePlanAll} disabled={busy === 'stage-all'} className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-[13px] font-medium text-white disabled:opacity-60" style={{ background: GREEN }}>
+                      {busy === 'stage-all' ? <Loader2 className="w-4 h-4 animate-spin" /> : <ListChecks className="w-4 h-4" />} Surtir todo
+                    </button>
+                  )}
+                </div>
+                {pickLoading ? (
+                  <div className="flex justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div>
+                ) : !activePlan ? (
+                  <div className={`${glass} rounded-2xl p-10 text-center`}>
+                    <Inbox className="w-7 h-7 mx-auto mb-2 text-gray-400" />
+                    <p className="text-sm text-gray-400">Selecciona un plan publicado para ver su pick-list.</p>
                   </div>
-                ))}
+                ) : pickLines.length === 0 ? (
+                  <div className={`${glass} rounded-2xl p-10 text-center`}>
+                    <Inbox className="w-7 h-7 mx-auto mb-2 text-gray-400" />
+                    <p className="text-sm text-gray-400">Este plan no tiene pick-list (¿BOM sin explotar al publicar?).</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {pickLines.map((l) => (
+                      <div key={l.id} className={`${glass} rounded-xl p-3.5`}>
+                        <div className="flex items-center gap-3">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-mono font-medium">{l.partNumber}</span>
+                              {l.description && <span className="text-[11px] text-gray-400 truncate">{l.description}</span>}
+                              <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: `${PMETA[l.stagingStatus].color}1f`, color: PMETA[l.stagingStatus].color }}>{PMETA[l.stagingStatus].label}</span>
+                            </div>
+                            <div className="text-[12px] text-gray-400 mt-1">Requerido {l.requiredQty} {l.unit} · surtido {l.stagedQty}</div>
+                          </div>
+                          <input
+                            type="number" defaultValue={l.requiredQty}
+                            onChange={(e) => setDraft({ ...draft, [`p${l.id}`]: Number(e.target.value) })}
+                            onKeyDown={(e) => { if (e.key === 'Enter') stagePlanLine(l); }}
+                            className="ci-input w-24" />
+                          <button onClick={() => stagePlanLine(l)} disabled={busy === `p${l.id}`} className="px-2.5 py-1.5 rounded-lg text-[12px] font-medium text-white disabled:opacity-50" style={{ background: GREEN }}>Surtir</button>
+                          {l.staged && (
+                            <button onClick={() => unstagePlanLine(l)} disabled={busy === `p${l.id}`} className="px-2.5 py-1.5 rounded-lg text-[12px] font-medium disabled:opacity-50 inline-flex items-center gap-1" style={{ background: `${GRAY}1f`, color: GRAY }}><RotateCcw className="w-3 h-3" /> Revertir</button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-        </div>
+
+              {/* Resumen del plan */}
+              <div>
+                <h3 className="font-semibold text-sm mb-3 flex items-center gap-2"><ClipboardList className="w-4 h-4 text-gray-400" /> Planes publicados</h3>
+                {plans.length === 0 ? (
+                  <div className={`${glass} rounded-2xl p-8 text-center`}><Inbox className="w-6 h-6 mx-auto mb-2 text-gray-400" /><p className="text-[12px] text-gray-400">Sin planes publicados.</p></div>
+                ) : (
+                  <div className="space-y-2">
+                    {plans.map((p) => (
+                      <button key={p.planId} onClick={() => setSelPlan(p.planId)} className={`${glass} rounded-xl p-3 w-full text-left ${p.planId === activePlan ? 'ring-2' : ''}`} style={p.planId === activePlan ? { boxShadow: `inset 0 0 0 2px ${BLUE}` } : undefined}>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-mono text-sm font-medium">{p.workOrder}</span>
+                          <span className="text-[11px] px-1.5 py-0.5 rounded bg-black/5 dark:bg-white/10 text-gray-500">{p.model}</span>
+                          {p.allStaged
+                            ? <span className="text-[10px] px-1.5 py-0.5 rounded inline-flex items-center gap-0.5" style={{ background: `${GREEN}1f`, color: GREEN }}><CheckCircle2 className="w-3 h-3" /> Listo</span>
+                            : <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: `${AMBER}1f`, color: AMBER }}>{pct(p.fillRatePct)}</span>}
+                        </div>
+                        <div className="text-[12px] text-gray-400 mt-1">{p.stagedLines}/{p.totalLines} líneas · {p.quantity} u · línea {p.line}</div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </>
+        ) : (
+          /* ─────────────── Carril 2 · WO (sin cambios) ─────────────── */
+          <>
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-8">
+              <Kpi label="Fill-rate a línea" value={pct(kpis?.fillRatePct ?? 0)} color={GREEN} />
+              <Kpi label="Faltantes" value={kpis?.shortageLines ?? 0} color={RED} />
+              <Kpi label="Llamados abiertos" value={kpis?.openCalls ?? 0} color={AMBER} />
+              <Kpi label="Tiempo reposición" value={`${kpis?.avgReplenishMinutes ?? 0} min`} color={BLUE} />
+              <Kpi label="Estaciones cortas" value={kpis?.stationsShort ?? 0} color={RED} />
+            </div>
+
+            {/* WO selector */}
+            <div className="flex items-center gap-2 mb-5 flex-wrap">
+              <span className="text-[12px] text-gray-400">WO:</span>
+              {wos.length === 0 && <span className="text-[12px] text-gray-400">No hay WOs activas — publica una en el muro del plan.</span>}
+              {wos.map((w) => {
+                const on = w.id === activeWo;
+                return (
+                  <button key={w.id} onClick={() => setSelWo(w.id)} className="px-3 py-1.5 rounded-lg text-[13px] font-medium inline-flex items-center gap-1.5" style={{ background: on ? BLUE : 'rgba(0,0,0,0.05)', color: on ? '#fff' : undefined }}>
+                    {w.folio || w.model} {w.materialReady && <PackageCheck className="w-3.5 h-3.5" style={{ color: on ? '#fff' : GREEN }} />}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Staging lines */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="lg:col-span-2">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-semibold text-sm flex items-center gap-2"><Boxes className="w-4 h-4 text-gray-400" /> Material por estación</h3>
+                  {activeWo && lines.length === 0 && (
+                    <button onClick={generate} disabled={busy === 'gen'} className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-[13px] font-medium text-white disabled:opacity-60" style={{ background: BLUE }}>
+                      {busy === 'gen' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />} Generar surtido
+                    </button>
+                  )}
+                </div>
+                {isLoading ? (
+                  <div className="flex justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div>
+                ) : lines.length === 0 ? (
+                  <div className={`${glass} rounded-2xl p-10 text-center`}>
+                    <Inbox className="w-7 h-7 mx-auto mb-2 text-gray-400" />
+                    <p className="text-sm text-gray-400">Sin líneas de surtido. Genera el kit desde el ruteo de IE.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {lines.map((l) => (
+                      <div key={l.id} className={`${glass} rounded-xl p-3.5`}>
+                        <div className="flex items-center gap-3">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-[11px] px-1.5 py-0.5 rounded bg-black/5 dark:bg-white/10 text-gray-500">{l.station}</span>
+                              <span className="font-mono font-medium">{l.part}</span>
+                              {l.feederPosition && <span className="text-[11px] text-gray-400">feeder {l.feederPosition}</span>}
+                              <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: `${SMETA[l.status].color}1f`, color: SMETA[l.status].color }}>{SMETA[l.status].label}</span>
+                            </div>
+                            <div className="text-[12px] text-gray-400 mt-1">Requerido {l.requiredQty} · en línea {l.stagedQty} · kanban {l.minQty}</div>
+                          </div>
+                          <input
+                            type="number" defaultValue={l.requiredQty}
+                            onChange={(e) => setDraft({ ...draft, [l.id]: Number(e.target.value) })}
+                            onKeyDown={(e) => { if (e.key === 'Enter') confirm(l); }}
+                            className="ci-input w-24" />
+                          <button onClick={() => confirm(l)} disabled={busy === l.id} className="px-2.5 py-1.5 rounded-lg text-[12px] font-medium text-white disabled:opacity-50" style={{ background: GREEN }}>Montar</button>
+                          <button onClick={() => shortage(l)} disabled={busy === l.id} className="px-2.5 py-1.5 rounded-lg text-[12px] font-medium disabled:opacity-50" style={{ background: `${RED}1f`, color: RED }}>Faltante</button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Replenish board */}
+              <div>
+                <h3 className="font-semibold text-sm mb-3 flex items-center gap-2"><Truck className="w-4 h-4 text-gray-400" /> Llamados de reposición</h3>
+                {calls.filter((c) => c.status === 'OPEN' || c.status === 'IN_TRANSIT').length === 0 ? (
+                  <div className={`${glass} rounded-2xl p-8 text-center`}><CheckCircle2 className="w-6 h-6 mx-auto mb-2" style={{ color: GREEN }} /><p className="text-[12px] text-gray-400">Sin llamados pendientes.</p></div>
+                ) : (
+                  <div className="space-y-2">
+                    {calls.filter((c) => c.status === 'OPEN' || c.status === 'IN_TRANSIT').map((c) => (
+                      <div key={c.id} className={`${glass} rounded-xl p-3`}>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-mono text-sm font-medium">{c.part}</span>
+                          <span className="text-[11px] px-1.5 py-0.5 rounded" style={{ background: `${AMBER}1f`, color: AMBER }}>{c.station}</span>
+                          {(c.priority === 'URGENT' || c.priority === 'HIGH') && <span className="text-[10px] px-1.5 py-0.5 rounded inline-flex items-center gap-0.5" style={{ background: `${RED}1f`, color: RED }}><AlertTriangle className="w-3 h-3" /> {c.priority}</span>}
+                          {c.reason && <span className="text-[10px] text-gray-400">{c.reason}</span>}
+                        </div>
+                        <div className="text-[12px] text-gray-400 mt-1">{c.qty} u {c.woFolio ? `· ${c.woFolio}` : ''}</div>
+                        <div className="mt-2 flex gap-1.5">
+                          {c.status === 'OPEN' && <button onClick={() => moveCall(c, 'IN_TRANSIT')} disabled={busy === c.id} className="px-2 py-1 rounded text-[11px] font-medium disabled:opacity-50" style={{ background: `${BLUE}1f`, color: BLUE }}>En tránsito</button>}
+                          <button onClick={() => moveCall(c, 'DELIVERED')} disabled={busy === c.id} className="px-2 py-1 rounded text-[11px] font-medium text-white disabled:opacity-50" style={{ background: GREEN }}>Entregado</button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </>
+        )}
       </main>
 
       <style jsx global>{`
