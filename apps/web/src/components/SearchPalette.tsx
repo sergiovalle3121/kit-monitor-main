@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef, Fragment } from 'react';
 import { useRouter } from 'next/navigation';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import {
   Search, LayoutGrid, LineChart, Warehouse, Boxes, Factory, HardHat, ShieldCheck,
   Cpu, DollarSign, Calculator, RadioTower, FileText, Landmark, Users, Building2,
@@ -78,6 +79,48 @@ const DESTS: Dest[] = [
   { label: 'Chat', sub: 'Mensajería', href: '/dashboard/chat', keywords: 'chat mensajes mensajeria', icon: MessageSquare },
 ];
 
+// ── Áreas: agrupan el catálogo de destinos para dar jerarquía visual y un color
+// por sección (mismo lenguaje de "losetas" del hub: nunca íconos sobre gris plano).
+type AreaKey = 'home' | 'production' | 'supply' | 'quality' | 'materials' | 'finance' | 'people' | 'comms' | 'erp' | 'admin';
+
+/** Tono de marca de una loseta/encabezado: gradiente 135° (from→to) + sólido para sombra. */
+interface Tone { from: string; to: string; solid: string }
+
+/** Orden en que aparecen las áreas (vista inicial = catálogo completo, ordenado). */
+const AREA_ORDER: AreaKey[] = ['home', 'production', 'supply', 'quality', 'materials', 'finance', 'people', 'comms', 'erp', 'admin'];
+
+const AREA_META: Record<AreaKey, { label: string } & Tone> = {
+  home:       { label: 'Inicio y tableros',              from: '#818cf8', to: '#6366f1', solid: '#6366f1' },
+  production: { label: 'Planeación y producción',        from: '#ff9a66', to: '#ff7a45', solid: '#ff7a45' },
+  supply:     { label: 'Almacén y cadena de suministro', from: '#ffc24d', to: '#f5a524', solid: '#f59e0b' },
+  quality:    { label: 'Calidad',                        from: '#4ad991', to: '#2ec27e', solid: '#2ec27e' },
+  materials:  { label: 'Materiales e ingeniería',        from: '#7c84ff', to: '#5b63e0', solid: '#5b63e0' },
+  finance:    { label: 'Finanzas',                       from: '#34d1bf', to: '#0fb39a', solid: '#0fb39a' },
+  people:     { label: 'Personas y soporte',             from: '#ff7db0', to: '#ff4d8d', solid: '#ff4d8d' },
+  comms:      { label: 'Office y comunicación',          from: '#4aa3ff', to: '#0a84ff', solid: '#0a84ff' },
+  erp:        { label: 'ERP · T-Codes',                  from: '#9a7bff', to: '#7c5cff', solid: '#7c5cff' },
+  admin:      { label: 'Administración y datos',         from: '#94a3b8', to: '#64748b', solid: '#64748b' },
+};
+
+/** Tono neutro para el encabezado del bloque "Ir a un área" durante la búsqueda. */
+const NAV_TONE: Tone = { from: '#94a3b8', to: '#64748b', solid: '#64748b' };
+
+/** Clasifica un destino en su área por la ruta — mantiene DESTS intacto (cero riesgo de navegación). */
+function areaFor(href: string): AreaKey {
+  const p = href.replace('/dashboard', '') || '/';
+  if (p.startsWith('/erp')) return 'erp';
+  if (p === '/' || p === '/mission-control' || p === '/control-tower' || p === '/line-control-tower') return 'home';
+  if (p === '/planning' || p === '/production' || p === '/operador' || p === '/production-plan' || p === '/line-engineering' || p === '/operator-terminal') return 'production';
+  if (p === '/almacen' || p === '/inventory' || p === '/material-staging' || p === '/cycle-counts' || p === '/inbound' || p === '/outbound' || p === '/procurement') return 'supply';
+  if (p === '/quality' || p === '/floor-quality' || p === '/test-engineering' || p === '/rma') return 'quality';
+  if (p === '/models' || p === '/materials' || p === '/bom' || p === '/routing' || p === '/engineering' || p === '/backflush' || p === '/mrp' || p === '/tooling') return 'materials';
+  if (p === '/finance' || p.startsWith('/finance/') || p === '/fixed-assets' || p === '/expenses') return 'finance';
+  if (p === '/skills' || p === '/ehs' || p === '/maintenance' || p === '/legal' || p === '/improvement' || p === '/crm') return 'people';
+  if (p === '/office' || p === '/chat') return 'comms';
+  if (p === '/import' || p.startsWith('/settings') || p.startsWith('/admin')) return 'admin';
+  return 'home';
+}
+
 // Shape shared by record hits (from searchSources) and navigation hits (from DESTS).
 type RenderKind = SearchKind | 'nav';
 interface RenderHit {
@@ -87,18 +130,32 @@ interface RenderHit {
   subtitle: string;
   href: string;
   badge?: string;
-  icon?: React.ElementType;
+  icon: React.ElementType;
+  tone: Tone;
+  area?: AreaKey;
+  haystack?: string;
 }
 
-// Label + fallback icon per group. Records first, navigation ("Ir a…") last.
-const KIND_META: Record<RenderKind, { label: string; icon: React.ElementType }> = {
-  wo: { label: 'Órdenes de trabajo', icon: Factory },
-  ncr: { label: 'Calidad · NCR', icon: ShieldAlert },
-  part: { label: 'Partes y modelos', icon: Boxes },
-  person: { label: 'Personas', icon: Users },
-  doc: { label: 'Documentos', icon: FileText },
-  nav: { label: 'Ir a…', icon: CornerDownLeft },
+interface RenderGroup {
+  key: string;
+  kind: RenderKind;
+  label: string;
+  tone: Tone;
+  items: RenderHit[];
+}
+
+// Etiqueta + ícono + tono por tipo de registro (área de resultados, lista para el backend).
+const KIND_META: Record<RenderKind, { label: string; short: string; icon: React.ElementType } & Tone> = {
+  wo:     { label: 'Órdenes de trabajo', short: 'Órdenes',    icon: Factory,       from: '#ff9a66', to: '#ff7a45', solid: '#ff7a45' },
+  ncr:    { label: 'Calidad · NCR',      short: 'NCR',        icon: ShieldAlert,   from: '#fb7185', to: '#f43f5e', solid: '#f43f5e' },
+  part:   { label: 'Partes y modelos',   short: 'Partes',     icon: Boxes,         from: '#7c84ff', to: '#5b63e0', solid: '#5b63e0' },
+  person: { label: 'Personas',           short: 'Personas',   icon: Users,         from: '#ff7db0', to: '#ff4d8d', solid: '#ff4d8d' },
+  doc:    { label: 'Documentos',         short: 'Documentos', icon: FileText,      from: '#aab2c0', to: '#7e8796', solid: '#7e8796' },
+  nav:    { label: 'Ir a un área',       short: 'Áreas',      icon: CornerDownLeft, from: '#94a3b8', to: '#64748b', solid: '#64748b' },
 };
+
+/** Cuántos destinos de navegación se muestran durante una búsqueda (la vista inicial los muestra todos). */
+const NAV_CAP = 8;
 
 type SearchStatus = 'idle' | 'loading' | 'ready';
 interface SearchState {
@@ -109,8 +166,12 @@ interface SearchState {
 }
 const EMPTY_SEARCH: SearchState = { hits: [], status: 'idle', degraded: [], authError: false };
 
+/** Id de DOM seguro para `aria-activedescendant` a partir del id del hit. */
+const optId = (id: string) => 'axos-opt-' + id.replace(/[^a-zA-Z0-9_-]/g, '-');
+
 export function SearchPalette() {
   const router = useRouter();
+  const reduce = useReducedMotion();
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState(0);
@@ -140,6 +201,14 @@ export function SearchPalette() {
     };
   }, []);
 
+  // Bloquea el scroll del fondo mientras la paleta está abierta.
+  useEffect(() => {
+    if (!isOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
+  }, [isOpen]);
+
   // ── Cross-entity search: debounce, then load (cached) index and filter ──────
   useEffect(() => {
     if (!isOpen) return;
@@ -165,38 +234,51 @@ export function SearchPalette() {
     return () => { ctrl.abort(); clearTimeout(timer); };
   }, [query, isOpen]);
 
-  const searching = query.trim().length > 0;
+  const q = query.trim();
+  const searching = q.length > 0;
+  const terms = useMemo(() => q.toLowerCase().split(/\s+/).filter(Boolean), [q]);
 
-  // Navigation hits from the static destination catalog (synchronous, instant).
-  const navHits = useMemo<RenderHit[]>(() => {
-    const q = query.trim().toLowerCase();
-    const terms = q.split(/\s+/).filter(Boolean);
-    const base = !q
-      ? DESTS
-      : DESTS.filter((d) => {
-          const hay = `${d.label} ${d.sub} ${d.keywords}`.toLowerCase();
-          return terms.every((t) => hay.includes(t));
-        });
-    const mapped: RenderHit[] = base.map((d) => ({
-      kind: 'nav', id: `nav:${d.href}`, title: d.label, subtitle: d.sub, href: d.href, icon: d.icon,
-    }));
-    return searching ? mapped.slice(0, 8) : mapped;
-  }, [query, searching]);
+  // Catálogo de navegación normalizado una sola vez (con su área, tono y haystack).
+  const allNav = useMemo<RenderHit[]>(() =>
+    DESTS.map((d) => {
+      const area = areaFor(d.href);
+      return {
+        kind: 'nav' as const,
+        id: `nav:${d.href}`,
+        title: d.label,
+        subtitle: d.sub,
+        href: d.href,
+        icon: d.icon,
+        tone: AREA_META[area],
+        area,
+        haystack: `${d.label} ${d.sub} ${d.keywords}`.toLowerCase(),
+      };
+    }), []);
 
-  // Display groups: records first (in ENTITY_ORDER), navigation appended last.
-  const groups = useMemo(() => {
-    const defs: { kind: RenderKind; label: string; icon: React.ElementType; items: RenderHit[] }[] = [];
-    // Records only matter once the query is long enough to have triggered a search;
-    // gating here keeps any stale hits from a previous query off-screen.
-    if (query.trim().length >= 2) {
+  // Grupos a renderizar (y orden de navegación con teclado):
+  //  • sin query  → todo el catálogo agrupado por área (jerarquía clara)
+  //  • con query  → "Ir a un área" (destinos que matchean) + registros por tipo
+  const groups = useMemo<RenderGroup[]>(() => {
+    const out: RenderGroup[] = [];
+    if (!terms.length) {
+      for (const area of AREA_ORDER) {
+        const items = allNav.filter((d) => d.area === area);
+        if (items.length) out.push({ key: `area:${area}`, kind: 'nav', label: AREA_META[area].label, tone: AREA_META[area], items });
+      }
+      return out;
+    }
+    const navHits = allNav.filter((d) => terms.every((t) => d.haystack!.includes(t))).slice(0, NAV_CAP);
+    if (navHits.length) out.push({ key: 'nav', kind: 'nav', label: KIND_META.nav.label, tone: NAV_TONE, items: navHits });
+    if (q.length >= 2) {
       for (const k of ENTITY_ORDER) {
-        const items = entityHits.filter((h) => h.kind === k);
-        if (items.length) defs.push({ kind: k, label: KIND_META[k].label, icon: KIND_META[k].icon, items });
+        const items = entityHits
+          .filter((h) => h.kind === k)
+          .map<RenderHit>((h) => ({ kind: h.kind, id: h.id, title: h.title, subtitle: h.subtitle, href: h.href, badge: h.badge, icon: KIND_META[h.kind].icon, tone: KIND_META[h.kind] }));
+        if (items.length) out.push({ key: `rec:${k}`, kind: k, label: KIND_META[k].label, tone: KIND_META[k], items });
       }
     }
-    if (navHits.length) defs.push({ kind: 'nav', label: KIND_META.nav.label, icon: KIND_META.nav.icon, items: navHits });
-    return defs;
-  }, [entityHits, navHits, query]);
+    return out;
+  }, [terms, allNav, entityHits, q]);
 
   const flat = useMemo(() => groups.flatMap((g) => g.items), [groups]);
   const indexById = useMemo(() => new Map(flat.map((h, i) => [h.id, i])), [flat]);
@@ -208,8 +290,12 @@ export function SearchPalette() {
   }, [router]);
 
   const onKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'ArrowDown') { e.preventDefault(); setSelected((p) => Math.min(p + 1, flat.length - 1)); }
-    else if (e.key === 'ArrowUp') { e.preventDefault(); setSelected((p) => Math.max(p - 1, 0)); }
+    const n = flat.length;
+    // Base movement on the clamped `sel` (not raw `selected`) so a shrunk list can't jump.
+    if (e.key === 'ArrowDown') { e.preventDefault(); if (n) setSelected((Math.max(sel, 0) + 1) % n); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); if (n) setSelected((Math.max(sel, 0) - 1 + n) % n); }
+    else if (e.key === 'Home') { e.preventDefault(); setSelected(0); }
+    else if (e.key === 'End') { e.preventDefault(); if (n) setSelected(n - 1); }
     else if (e.key === 'Enter' && flat[sel]) { e.preventDefault(); go(flat[sel].href); }
   };
 
@@ -217,123 +303,250 @@ export function SearchPalette() {
   const selectedRef = useRef<HTMLButtonElement | null>(null);
   useEffect(() => { selectedRef.current?.scrollIntoView({ block: 'nearest' }); }, [sel]);
 
-  if (!isOpen) return null;
-
-  const q = query.trim();
-  const showLoading = searching && q.length >= 2 && status === 'loading' && entityHits.length === 0;
-  const noResults = searching && flat.length === 0;
+  // Estado del área de registros (honesto: refleja si la búsqueda de registros pudo
+  // siquiera ejecutarse). Hoy no hay backend → normalmente "aún no conectada".
+  const recordsLoading = q.length >= 2 && status !== 'ready';
+  const recordHitCount = entityHits.length;
+  const showRecordsSlot = q.length >= 2 && !(status === 'ready' && recordHitCount > 0);
+  const hasNavMatch = !searching || groups.some((g) => g.kind === 'nav' && g.items.length > 0);
+  const activeId = sel >= 0 && flat[sel] ? optId(flat[sel].id) : undefined;
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-start justify-center pt-[12vh] bg-black/40 backdrop-blur-sm" onClick={() => setIsOpen(false)}>
-      <div className="w-full max-w-xl mx-4 rounded-3xl overflow-hidden shadow-2xl bg-white/98 dark:bg-neutral-900/95 backdrop-blur-2xl border border-black/5 dark:border-white/10 ring-1 ring-black/[0.04]" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center gap-3 px-4 py-3.5 border-b border-black/[0.06] dark:border-white/10">
-          <Search className="w-5 h-5 text-gray-400 flex-shrink-0" />
-          <input
-            autoFocus
-            value={query}
-            onChange={(e) => { setQuery(e.target.value); setSelected(0); }}
-            onKeyDown={onKeyDown}
-            placeholder="Buscar órdenes, NCR, partes, personas, documentos… o ir a un área"
-            className="flex-1 bg-transparent outline-none text-base placeholder:text-gray-400"
-          />
-          {showLoading && <Loader2 className="w-4 h-4 text-gray-400 animate-spin flex-shrink-0" />}
-          <kbd className="hidden sm:inline text-[10px] font-mono px-1.5 py-0.5 rounded bg-black/5 dark:bg-white/10 text-gray-400">ESC</kbd>
-        </div>
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div
+          key="overlay"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.16 }}
+          className="fixed inset-0 z-[200] flex items-start justify-center pt-[12vh] bg-black/40 backdrop-blur-sm"
+          onClick={() => setIsOpen(false)}
+        >
+          <motion.div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Buscar y navegar"
+            initial={reduce ? { opacity: 0 } : { opacity: 0, y: 14, scale: 0.975 }}
+            animate={reduce ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1 }}
+            exit={reduce ? { opacity: 0 } : { opacity: 0, y: 8, scale: 0.985 }}
+            transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+            className="w-full max-w-2xl mx-4 rounded-3xl overflow-hidden shadow-[0_30px_80px_-20px_rgba(0,0,0,0.5)] bg-white/95 dark:bg-neutral-900/95 backdrop-blur-2xl border border-black/[0.07] dark:border-white/10 ring-1 ring-black/[0.03]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Cabecera: ícono + input + spinner + ESC */}
+            <div className="flex items-center gap-3 px-4 py-3.5 border-b border-black/[0.06] dark:border-white/10">
+              <Search className="w-5 h-5 text-violet-500 flex-shrink-0" strokeWidth={1.9} />
+              <input
+                autoFocus
+                role="combobox"
+                aria-expanded
+                aria-controls="axos-search-listbox"
+                aria-activedescendant={activeId}
+                value={query}
+                onChange={(e) => { setQuery(e.target.value); setSelected(0); }}
+                onKeyDown={onKeyDown}
+                placeholder="Ir a un área o pantalla…  Planeación, Calidad, Almacén, ERP"
+                className="flex-1 bg-transparent outline-none text-base text-gray-900 dark:text-gray-100 placeholder:text-gray-400"
+              />
+              {recordsLoading && <Loader2 className="w-4 h-4 text-violet-500 animate-spin flex-shrink-0" />}
+              <kbd className="hidden sm:inline text-[10px] font-mono px-1.5 py-0.5 rounded bg-black/5 dark:bg-white/10 text-gray-400">ESC</kbd>
+            </div>
 
-        <div className="max-h-[55vh] overflow-y-auto p-2">
-          {noResults ? (
-            <EmptyState q={q} short={q.length < 2} authError={authError} loading={showLoading} />
-          ) : (
-            <>
-              {showLoading && (
-                <div className="flex items-center gap-2 px-3 py-2.5 text-[13px] text-gray-400">
-                  <Loader2 className="w-4 h-4 animate-spin flex-shrink-0" />
-                  Buscando en órdenes, calidad, inventario, personas y documentos…
-                </div>
+            {/* Resultados */}
+            <div id="axos-search-listbox" role="listbox" aria-label="Resultados" className="max-h-[58vh] overflow-y-auto p-2">
+              {/* Pista honesta en la vista inicial: hoy esto navega; la búsqueda de registros llegará después. */}
+              {!searching && (
+                <p className="px-3 pt-1.5 pb-2 text-[11.5px] text-gray-400">
+                  Salta a cualquier área. La búsqueda de órdenes, NCR y partes llegará pronto.
+                </p>
               )}
 
               {groups.map((group) => (
-                <div key={group.kind} className="mb-1">
-                  {searching && (
-                    <div className="flex items-center gap-1.5 px-3 pt-2 pb-1 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
-                      <group.icon className="w-3 h-3" />
-                      {group.label}
-                      <span className="font-normal normal-case text-gray-300 dark:text-gray-600">· {group.items.length}</span>
-                    </div>
-                  )}
+                <div key={group.key} className="mb-1.5 last:mb-0">
+                  <GroupHeader label={group.label} tone={group.tone} count={group.items.length} />
                   {group.items.map((item) => {
                     const i = indexById.get(item.id) ?? -1;
-                    const Icon = item.icon ?? group.icon;
+                    const active = i === sel;
+                    const Icon = item.icon;
                     return (
                       <button
                         key={item.id}
-                        ref={i === sel ? selectedRef : undefined}
-                        onMouseEnter={() => setSelected(i)}
+                        id={optId(item.id)}
+                        role="option"
+                        aria-selected={active}
+                        tabIndex={-1}
+                        ref={active ? selectedRef : undefined}
+                        onMouseMove={() => { if (!active) setSelected(i); }}
                         onClick={() => go(item.href)}
-                        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-2xl text-left transition-colors ${i === sel ? 'bg-black/5 dark:bg-white/10' : ''}`}
+                        className={`group/row w-full flex items-center gap-3 px-2.5 py-2 rounded-xl text-left transition-colors ${
+                          active
+                            ? 'bg-violet-500/[0.09] dark:bg-violet-400/[0.12] ring-1 ring-inset ring-violet-500/25 dark:ring-violet-400/20'
+                            : 'hover:bg-black/[0.035] dark:hover:bg-white/[0.05]'
+                        }`}
                       >
-                        <span className="w-9 h-9 rounded-xl bg-black/5 dark:bg-white/10 grid place-items-center flex-shrink-0">
-                          <Icon className="w-4.5 h-4.5 text-gray-600 dark:text-gray-300" />
-                        </span>
+                        <Tile tone={item.tone} icon={Icon} active={active} />
                         <span className="min-w-0 flex-1">
-                          <span className="block text-sm font-semibold truncate">{item.title}</span>
-                          {item.subtitle && <span className="block text-[11px] text-gray-400 truncate">{item.subtitle}</span>}
+                          <span className="block text-[13.5px] font-medium text-gray-900 dark:text-gray-100 truncate">
+                            {highlight(item.title, terms)}
+                          </span>
+                          {item.subtitle && (
+                            <span className="block text-[11.5px] text-gray-500 dark:text-gray-400 truncate">{item.subtitle}</span>
+                          )}
                         </span>
                         {item.badge && (
-                          <span className="hidden sm:inline text-[10px] font-medium px-2 py-0.5 rounded-full bg-black/5 dark:bg-white/10 text-gray-500 flex-shrink-0 capitalize">
+                          <span className="hidden sm:inline text-[10px] font-medium px-2 py-0.5 rounded-full bg-black/5 dark:bg-white/10 text-gray-500 dark:text-gray-400 flex-shrink-0 capitalize">
                             {item.badge.replace(/_/g, ' ').toLowerCase()}
                           </span>
                         )}
-                        {i === sel && <CornerDownLeft className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />}
+                        <span className={`flex-shrink-0 items-center gap-1 text-[10px] font-semibold text-violet-500 dark:text-violet-300 ${active ? 'flex' : 'hidden'}`}>
+                          <CornerDownLeft className="w-3 h-3" />
+                          <span className="hidden md:inline">Enter</span>
+                        </span>
                       </button>
                     );
                   })}
                 </div>
               ))}
 
-              {searching && status === 'ready' && degraded.length > 0 && (
-                <div className="px-3 py-2 text-[11px] text-amber-600 dark:text-amber-400">
-                  No se pudo consultar: {degraded.map((k) => KIND_META[k].label).join(', ')}. Mostrando el resto.
-                </div>
+              {/* Sin áreas que coincidan (pero el slot de registros sigue presente abajo). */}
+              {searching && !hasNavMatch && (
+                <p className="px-3 py-2 text-[12.5px] text-gray-500 dark:text-gray-400">
+                  Ninguna área coincide con «{q}».
+                </p>
               )}
-            </>
-          )}
-        </div>
 
-        <div className="px-4 py-2 border-t border-black/5 dark:border-white/10 flex items-center gap-4 text-[11px] text-gray-400">
-          <span>↑↓ navegar</span><span>↵ abrir</span><span>esc cerrar</span>
-          <span className="ml-auto">Para T-Codes, entra a Axos ERP</span>
-        </div>
-      </div>
+              {/* Área de resultados de registros: diseñada y lista para cuando llegue el backend. */}
+              {showRecordsSlot && (
+                <RecordsSlot q={q} loading={recordsLoading} authError={authError} degraded={degraded} />
+              )}
+
+              {/* Aviso honesto cuando algunas fuentes responden y otras no. */}
+              {searching && status === 'ready' && recordHitCount > 0 && degraded.length > 0 && (
+                <p className="px-3 py-2 text-[11px] text-amber-600 dark:text-amber-400">
+                  No se pudo consultar: {degraded.map((k) => KIND_META[k].label).join(', ')}. Mostrando el resto.
+                </p>
+              )}
+            </div>
+
+            {/* Pie: atajos de teclado + nota de T-Codes */}
+            <div className="px-4 py-2.5 border-t border-black/5 dark:border-white/10 flex items-center gap-3 text-[11px] text-gray-400">
+              <FooterKey k="↑↓" label="navegar" />
+              <FooterKey k="↵" label="abrir" />
+              <FooterKey k="esc" label="cerrar" />
+              <span className="ml-auto hidden sm:inline">¿T-Codes? Entra a <span className="text-gray-500 dark:text-gray-300 font-medium">Axos ERP</span></span>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
+/** Encabezado de grupo: punto de color del área + etiqueta + conteo. */
+function GroupHeader({ label, tone, count }: { label: string; tone: Tone; count: number }) {
+  return (
+    <div className="flex items-center gap-2 px-3 pt-2 pb-1">
+      <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: tone.solid }} />
+      <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{label}</span>
+      <span className="text-[11px] font-normal text-gray-300 dark:text-gray-600">{count}</span>
     </div>
   );
 }
 
-function EmptyState({ q, short, authError, loading }: { q: string; short: boolean; authError: boolean; loading: boolean }) {
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center gap-2 px-4 py-10 text-sm text-gray-400">
-        <Loader2 className="w-4 h-4 animate-spin" /> Buscando…
-      </div>
-    );
-  }
-  if (short) {
-    return (
-      <div className="px-4 py-10 text-center text-sm text-gray-400">
-        Escribe al menos 2 caracteres para buscar órdenes, NCR, partes, personas y documentos.
-      </div>
-    );
-  }
-  if (authError) {
-    return (
-      <div className="px-4 py-10 text-center text-sm text-gray-400">
-        No se pudo buscar. Revisa tu conexión o vuelve a iniciar sesión.
-      </div>
-    );
-  }
+/** Loseta squircle con gradiente del dominio (lenguaje visual del hub: nunca gris plano). */
+function Tile({ tone, icon: Icon, active }: { tone: Tone; icon: React.ElementType; active: boolean }) {
   return (
-    <div className="px-4 py-10 text-center text-sm text-gray-400">
-      Sin resultados para «{q}». Prueba con un folio, número de parte, NCR o nombre.
+    <span
+      aria-hidden
+      className="grid place-items-center w-9 h-9 rounded-[11px] flex-shrink-0"
+      style={{
+        background: `linear-gradient(135deg, ${tone.from}, ${tone.to})`,
+        boxShadow: active
+          ? `0 5px 14px ${tone.solid}66, inset 0 1px 0 rgba(255,255,255,.35)`
+          : `0 2px 7px ${tone.solid}33, inset 0 1px 0 rgba(255,255,255,.3)`,
+      }}
+    >
+      <Icon className="w-[18px] h-[18px] text-white" strokeWidth={1.9} />
+    </span>
+  );
+}
+
+/** Resalta los términos buscados dentro del título. */
+function highlight(text: string, terms: string[]): React.ReactNode {
+  const esc = terms.filter(Boolean).map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+  if (!esc.length) return text;
+  const re = new RegExp(`(${esc.join('|')})`, 'ig');
+  const parts = text.split(re);
+  const set = new Set(terms);
+  return parts.map((part, i) =>
+    part && set.has(part.toLowerCase())
+      ? <mark key={i} className="bg-transparent text-violet-600 dark:text-violet-300 font-semibold">{part}</mark>
+      : <Fragment key={i}>{part}</Fragment>,
+  );
+}
+
+function FooterKey({ k, label }: { k: string; label: string }) {
+  return (
+    <span className="flex items-center gap-1.5">
+      <kbd className="font-mono px-1.5 py-0.5 rounded bg-black/5 dark:bg-white/10 text-gray-500 dark:text-gray-400 text-[10px]">{k}</kbd>
+      <span>{label}</span>
+    </span>
+  );
+}
+
+/**
+ * Slot de resultados de registros — diseñado y listo para cuando exista el backend
+ * de búsqueda. Hoy navega-solo: el copy es honesto y refleja el estado real
+ * (cargando / sin coincidencias / aún no conectada). Las "fichas fantasma" muestran
+ * qué aparecerá aquí (órdenes, NCR, partes, personas, documentos).
+ */
+function RecordsSlot({ q, loading, authError, degraded }: { q: string; loading: boolean; authError: boolean; degraded: SearchKind[] }) {
+  return (
+    <div className="mt-1 mx-1 mb-1 rounded-2xl border border-dashed border-black/[0.1] dark:border-white/[0.12] bg-black/[0.015] dark:bg-white/[0.02] p-3">
+      <div className="flex items-center gap-2 mb-2">
+        <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Registros</span>
+        {loading && <Loader2 className="w-3.5 h-3.5 animate-spin text-gray-400" />}
+      </div>
+
+      {loading ? (
+        <div className="space-y-1.5" aria-hidden>
+          {[0, 1].map((i) => (
+            <div key={i} className="flex items-center gap-3">
+              <span className="w-9 h-9 rounded-[11px] bg-black/[0.06] dark:bg-white/[0.07] animate-pulse flex-shrink-0" />
+              <span className="flex-1 space-y-1.5">
+                <span className="block h-2.5 w-2/5 rounded bg-black/[0.06] dark:bg-white/[0.07] animate-pulse" />
+                <span className="block h-2 w-3/5 rounded bg-black/[0.05] dark:bg-white/[0.05] animate-pulse" />
+              </span>
+            </div>
+          ))}
+        </div>
+      ) : authError ? (
+        <p className="text-[12.5px] leading-snug text-gray-500 dark:text-gray-400">
+          La búsqueda de registros aún no está conectada. Aparecerá aquí en cuanto el backend esté listo.
+        </p>
+      ) : (
+        <p className="text-[12.5px] leading-snug text-gray-500 dark:text-gray-400">
+          Sin registros que coincidan con «{q}».
+          {degraded.length > 0 && ` No se pudo consultar: ${degraded.map((k) => KIND_META[k].label).join(', ')}.`}
+        </p>
+      )}
+
+      <div className="mt-2.5 flex flex-wrap gap-1.5">
+        {ENTITY_ORDER.map((k) => {
+          const m = KIND_META[k];
+          const Icon = m.icon;
+          return (
+            <span
+              key={k}
+              className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[10.5px] font-medium text-gray-500 dark:text-gray-400 bg-black/[0.04] dark:bg-white/[0.05] border border-black/[0.05] dark:border-white/[0.06]"
+            >
+              <Icon className="w-3 h-3" style={{ color: m.solid }} />
+              {m.short}
+            </span>
+          );
+        })}
+      </div>
     </div>
   );
 }
