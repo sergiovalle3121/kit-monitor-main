@@ -849,3 +849,140 @@ export function slugCode(code: string): string {
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RUTEO / LAYOUT POR ESTACIÓN (sustrato de piso de producción).
+//
+// Pieza maestra del paso: por cada modelo AX se define una RUTA de estaciones
+// (sequence, NP esperado tomado del BOM REAL del modelo, factor de uso = qty/u,
+// tiempo estándar para balanceo, CTQ, feeder y ayuda visual). De este ÚNICO
+// catálogo cuelgan, de forma consistente:
+//   • SfLineStation  (line-engineering, revisión 'A')  → stationRequirements()
+//                      → surtido / Material Staging (C) y Operador (D).
+//   • ProcessStep + ProcessStepMaterial (process-routing, revisión '1.0')
+//                      → lo que mes-execution explota en pasos reales.
+//   • VisualAid      (una por modelo+estación)          → enlazada desde el ruteo.
+//   • BayLayout      (colocación NP→bahía con stock mín).
+//
+// 100% universo AXOS: todos los NP provienen del BOM del modelo (DEMO_MODELS),
+// sin prefijo OP- ni marcas reales (pasa assertDatabasePublicDomain).
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Revisión del ruteo de ingeniería (SfLineStation). Igual al default de
+ *  SfWorkOrder.revision ('A') para que stationRequirements(model,'A') case el
+ *  surtido de la WO de piso. */
+export const DEMO_ROUTING_REVISION = 'A';
+
+/** Revisión de la ruta de proceso (ProcessStep) que explota mes-execution. */
+export const DEMO_PROCESS_REVISION = '1.0';
+
+/** Tipos de estación (mes_execution_steps.stationType / process_steps.stationType). */
+export type DemoStationType = 'smt' | 'assembly' | 'inspection' | 'test' | 'packing';
+
+export interface DemoRoutingStation {
+  sequence: number;
+  station: string; // código corto (≤32), p. ej. 'EST-10'
+  name: string; // nombre legible del paso
+  stationType: DemoStationType;
+  npExpected: string; // NP REAL del BOM del modelo (poka-yoke)
+  useFactor: number; // qty por unidad terminada (= línea de BOM) → backflush
+  stdTimeSec: number; // tiempo estándar (≤ takt) para balanceo
+  ctq: boolean; // característica crítica de calidad
+  feederPosition: string; // p. ej. 'F-01'
+  bahia: number; // 1–6 (BayLayout)
+  minStock: number; // punto de reorden manual (BayLayout)
+  visualAidId: string; // VisualAid.id
+  visualAidFile: string; // VisualAid.pdfUrl / filename (placeholder de dominio público)
+  visualAidUrl: string; // SfLineStation.visualAidUrl (ruta servida) — enlace al asset
+  visualAidTitle: string;
+}
+
+export interface DemoRouting {
+  model: string;
+  line: string;
+  programId: string;
+  stations: DemoRoutingStation[];
+}
+
+/**
+ * Arquetipos de estación (hasta 6) usados para armar una ruta plausible sobre el
+ * BOM real de cada modelo. `taktRatio` escala el tiempo estándar contra el takt
+ * del modelo (estaciones siempre por debajo del takt → balanceo realista).
+ * Nombres neutrales que sirven tanto a una línea SMT como a un box-build.
+ */
+const STATION_ARCHETYPES: ReadonlyArray<{
+  station: string;
+  name: string;
+  stationType: DemoStationType;
+  ctq: boolean;
+  taktRatio: number;
+}> = [
+  { station: 'EST-10', name: 'Preparación y carga de tarjeta', stationType: 'smt', ctq: false, taktRatio: 0.35 },
+  { station: 'EST-20', name: 'Colocación de componentes clave', stationType: 'smt', ctq: true, taktRatio: 0.62 },
+  { station: 'EST-30', name: 'Integración de subensamble', stationType: 'assembly', ctq: false, taktRatio: 0.52 },
+  { station: 'EST-40', name: 'Inspección de calidad (AOI/visual)', stationType: 'inspection', ctq: true, taktRatio: 0.44 },
+  { station: 'EST-50', name: 'Ensamble final y fijación', stationType: 'assembly', ctq: false, taktRatio: 0.66 },
+  { station: 'EST-60', name: 'Prueba funcional y etiquetado', stationType: 'test', ctq: false, taktRatio: 0.50 },
+];
+
+/** Identidad determinística de la ayuda visual de un modelo+estación. */
+export const VISUAL_AID_ID = (model: string, station: string): string => `AX-VA-${model}-${station}`;
+export const VISUAL_AID_FILE = (model: string, station: string): string =>
+  `${model.toLowerCase()}-${station.toLowerCase()}.pdf`;
+/** Ruta servida por VisualAidsController (GET /visual-aids/file/:filename). */
+export const VISUAL_AID_URL = (model: string, station: string): string =>
+  `/visual-aids/file/${VISUAL_AID_FILE(model, station)}`;
+
+/** Primer WO de piso por modelo → presta línea y takt al ruteo (mismos de DEMO_SF_WORK_ORDERS). */
+const sfWoByModel = new Map<string, DemoSfWorkOrder>();
+for (const w of DEMO_SF_WORK_ORDERS) if (!sfWoByModel.has(w.model)) sfWoByModel.set(w.model, w);
+const programByModelCode = new Map(DEMO_MODELS.map((m) => [m.modelNumber, slugCode(m.programCode)]));
+
+function buildRouting(model: DemoModel): DemoRouting {
+  const sfwo = sfWoByModel.get(model.modelNumber);
+  const line = sfwo?.line ?? 'L1';
+  const takt = sfwo?.taktTargetSec ?? 90;
+  // Hasta 6 estaciones, una por línea de BOM (parte REAL del modelo).
+  const count = Math.min(STATION_ARCHETYPES.length, model.bom.length);
+  const stations: DemoRoutingStation[] = [];
+  for (let i = 0; i < count; i++) {
+    const arch = STATION_ARCHETYPES[i];
+    const line0 = model.bom[i];
+    const useFactor = line0.qty;
+    stations.push({
+      sequence: (i + 1) * 10,
+      station: arch.station,
+      name: arch.name,
+      stationType: arch.stationType,
+      npExpected: line0.part,
+      useFactor,
+      stdTimeSec: Math.max(15, Math.round(takt * arch.taktRatio)),
+      ctq: arch.ctq,
+      feederPosition: `F-${String(i + 1).padStart(2, '0')}`,
+      bahia: i + 1, // 1–6
+      minStock: Math.max(10, Math.ceil(useFactor * 6)),
+      visualAidId: VISUAL_AID_ID(model.modelNumber, arch.station),
+      visualAidFile: VISUAL_AID_FILE(model.modelNumber, arch.station),
+      visualAidUrl: VISUAL_AID_URL(model.modelNumber, arch.station),
+      visualAidTitle: `Ayuda visual ${arch.station} — ${arch.name}`,
+    });
+  }
+  return {
+    model: model.modelNumber,
+    line,
+    programId: programByModelCode.get(model.modelNumber) ?? '',
+    stations,
+  };
+}
+
+/** Ruteo por modelo AX (keystone). Derivado del BOM real → NP siempre válido. */
+export const DEMO_ROUTINGS: DemoRouting[] = DEMO_MODELS.map(buildRouting);
+
+/** Planes AX publicados que se abren en mes-execution (≥1 con paso in_process). */
+export const DEMO_MES_WORK_ORDERS: string[] = DEMO_PLANS.filter((p) => p.publish).map((p) => p.workOrder);
+
+/** Unidades a "caminar" en la 1ª estación para dejarla in_process (operador con WO viva). */
+export const DEMO_MES_WALK_UNITS = 8;
+
+/** Token idempotente del avance de operador sembrado (mes_execution_events.clientRequestId). */
+export const MES_SEED_CRID = (workOrder: string): string => `AX-SEED-MES:${workOrder}:S1`;
