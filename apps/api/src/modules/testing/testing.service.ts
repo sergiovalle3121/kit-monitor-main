@@ -1,4 +1,9 @@
-import { Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  Optional,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, SelectQueryBuilder } from 'typeorm';
 import { TestRecord } from './entities/test-record.entity';
@@ -6,6 +11,7 @@ import { TenantContextService } from '../../common/tenant/tenant-context.service
 import { DocumentNumberingService } from '../numbering/document-numbering.service';
 import { EventLedgerService } from '../event-ledger/event-ledger.service';
 import { EventDomain } from '../event-ledger/entities/ledger-event.entity';
+import { TestFlowService } from '../test-flow/test-flow.service';
 import { CreateTestRecordDto } from './dto/testing.dto';
 
 export interface ParetoBucket {
@@ -36,6 +42,8 @@ export class TestingService {
     private readonly tenantCtx: TenantContextService,
     private readonly numbering: DocumentNumberingService,
     @Optional() private readonly ledger?: EventLedgerService,
+    // Eslabón 1 (additive, optional): route the result to its destination.
+    @Optional() private readonly testFlow?: TestFlowService,
   ) {}
 
   private applyScope(
@@ -65,7 +73,8 @@ export class TestingService {
       result: dto.result,
       station: dto.station ?? 'FINAL',
       model: dto.model ?? null,
-      failureCode: dto.result === 'FAIL' ? (dto.failureCode ?? 'UNKNOWN') : null,
+      failureCode:
+        dto.result === 'FAIL' ? (dto.failureCode ?? 'UNKNOWN') : null,
       failureDescription: dto.failureDescription ?? null,
       operator: this.tenantCtx.getUserEmail(),
       programId: dto.programId ?? null,
@@ -86,21 +95,47 @@ export class TestingService {
           program: saved.programId ?? undefined,
           plant: saved.plant_id ?? undefined,
           context: { serial: saved.serialNumber },
-          metadata: { result: saved.result, failureCode: saved.failureCode, station: saved.station },
+          metadata: {
+            result: saved.result,
+            failureCode: saved.failureCode,
+            station: saved.station,
+          },
         });
       } catch (err) {
         this.logger.warn(`Ledger write skipped: ${(err as Error)?.message}`);
       }
     }
+    // Eslabón 1 (additive): route the unit by its result — PASS → Empaque,
+    // FAIL → Disposición. Best-effort: a routing hiccup never fails the capture.
+    if (this.testFlow) {
+      try {
+        await this.testFlow.routeFromTest({
+          serialNumber: saved.serialNumber,
+          result: saved.result,
+          model: saved.model,
+          failureCode: saved.failureCode,
+          failureDescription: saved.failureDescription,
+          station: saved.station,
+          testRecordId: saved.id,
+          programId: saved.programId,
+        });
+      } catch (err) {
+        this.logger.warn(
+          `Test-flow routing skipped: ${(err as Error)?.message}`,
+        );
+      }
+    }
     return saved;
   }
 
-  async list(filters: {
-    result?: string;
-    station?: string;
-    serialNumber?: string;
-    model?: string;
-  } = {}): Promise<TestRecord[]> {
+  async list(
+    filters: {
+      result?: string;
+      station?: string;
+      serialNumber?: string;
+      model?: string;
+    } = {},
+  ): Promise<TestRecord[]> {
     const qb = this.repo.createQueryBuilder('t').orderBy('t.tested_at', 'DESC');
     this.applyScope(qb, 't');
     if (filters.result) qb.andWhere('t.result = :r', { r: filters.result });
@@ -113,7 +148,8 @@ export class TestingService {
 
   async getOne(id: string): Promise<TestRecord> {
     const found = await this.repo.findOne({ where: { id } });
-    if (!found) throw new NotFoundException('Registro de prueba no encontrado.');
+    if (!found)
+      throw new NotFoundException('Registro de prueba no encontrado.');
     return found;
   }
 

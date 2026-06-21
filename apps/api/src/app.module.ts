@@ -90,6 +90,7 @@ import { OfficeModule } from './modules/office/office.module';
 import { MesExecutionModule } from './modules/mes-execution/mes-execution.module';
 import { ErpCoreModule } from './modules/erp-core/erp-core.module';
 import { AiModule } from './modules/ai/ai.module';
+import { TestFlowModule } from './modules/test-flow/test-flow.module';
 
 @Module({
   imports: [
@@ -174,6 +175,7 @@ import { AiModule } from './modules/ai/ai.module';
     MesExecutionModule,
     ErpCoreModule,
     AiModule,
+    TestFlowModule,
     ScheduleModule.forRoot(),
   ],
   controllers: [HealthController],

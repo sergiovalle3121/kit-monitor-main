@@ -4,6 +4,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, FindOptionsWhere, IsNull, Repository } from 'typeorm';
@@ -28,6 +29,7 @@ import { EventDomain } from '../event-ledger/entities/ledger-event.entity';
 import { SignalGateway } from '../../common/gateway/signal.gateway';
 import { MaterialRequestsService } from '../material-requests/material-requests.service';
 import { VisualAidsService } from '../visual-aids/visual-aids.service';
+import { TestFlowService } from '../test-flow/test-flow.service';
 
 import {
   AssignStationDto,
@@ -90,6 +92,8 @@ export class MesExecutionService {
     private readonly materialRequests: MaterialRequestsService,
     private readonly visualAids: VisualAidsService,
     private readonly dataSource: DataSource,
+    // Eslabón 1 (additive, optional): off-ramp a finished serial to Pruebas.
+    @Optional() private readonly testFlow?: TestFlowService,
   ) {}
 
   // ──────────────────────────────────────────────────────────────────────────
@@ -586,6 +590,8 @@ export class MesExecutionService {
         eventId: event.id,
         stepDbId: step.id,
         stepName: step.name,
+        // Final station in the route (highest sequence) = end of the MES line.
+        isLastStep: idx === steps.length - 1,
         shortageParts,
         consumption,
         remainingTargetUnits: round6(step.unitsTarget - step.unitsCompleted),
@@ -648,6 +654,26 @@ export class MesExecutionService {
         metadata: { stepId, scrap },
       },
     );
+
+    // ── Eslabón 1 (additive): off-ramp a finished serial to the Pruebas queue ──
+    // Only fires when a serial is scanned at the final assembly station. The
+    // quantity-only flow (no serial) is untouched, and a failure here is logged
+    // best-effort so it can never block or roll back the line.
+    if (this.testFlow && dto.serial?.trim() && outcome.isLastStep) {
+      try {
+        await this.testFlow.enqueueFromAssembly({
+          serialNumber: dto.serial.trim(),
+          workOrder: execution.workOrder,
+          executionId,
+          model: execution.model,
+          station: outcome.stepName,
+        });
+      } catch (err) {
+        this.logger.warn(
+          `Test-flow enqueue skipped: ${(err as Error)?.message}`,
+        );
+      }
+    }
 
     const board = await this.getBoard({ executionId, stepId });
     return { ...board, lastEvent: { id: outcome.eventId, quantity, scrap } };

@@ -59,6 +59,7 @@ const AREAS: { name: string; desc: string; href: string; icon: LucideIcon; domai
   // ── Producción ──
   { name: "Producción", desc: "Órdenes y piso", href: "/dashboard/production", icon: Factory, domain: "production", roles: ["production_supervisor", "operator", "warehouse_operator"], section: "Producción" },
   { name: "Operador MES", desc: "Ejecución en estación", href: "/dashboard/operador", icon: Icons.HardHat, domain: "production", roles: ["production_supervisor", "operator"], section: "Producción" },
+  { name: "Flujo de Pruebas", desc: "Serie: ensamble → prueba → destino", href: "/dashboard/test-flow", icon: Icons.Workflow, domain: "production", roles: ["production_supervisor", "operator", "quality_engineer"], section: "Producción" },
   { name: "Backflush por ruteo", desc: "Consumo por operación del ruteo", href: "/dashboard/backflush", icon: Icons.PackageMinus, domain: "production", roles: ["production_supervisor", "materialist", "operator"], section: "Producción" },
 
   // ── Calidad ──
