@@ -14,6 +14,8 @@ import {
 import {
   UNIQUE, SORT, SORTBY, FILTER, SEQUENCE, TAKE, DROP, TRANSPOSE,
   TEXTBEFORE, TEXTAFTER, TEXTSPLIT, ARRAYTOTEXT, VALUETOTEXT,
+  VSTACK, HSTACK, TOCOL, TOROW, CHOOSEROWS, CHOOSECOLS, EXPAND, WRAPROWS, WRAPCOLS,
+  REGEXTEST, REGEXREPLACE, REGEXEXTRACT,
 } from './modernFunctions';
 
 installFormulaEngine();
@@ -96,6 +98,38 @@ eq(ARRAYTOTEXT([[['a'], ['b']], 1]), '{"a";"b"}', 'ARRAYTOTEXT estricto');
 eq(VALUETOTEXT(['hola', 1]), '"hola"', 'VALUETOTEXT estricto');
 eq(VALUETOTEXT([42]), '42', 'VALUETOTEXT número');
 
+// ───────────────────────── VSTACK / HSTACK ─────────────────────────
+eq(VSTACK([[[1], [2]], [[3]]]), [[1], [2], [3]], 'VSTACK columnas');
+eq(VSTACK([[[1, 2]], [[3, 4], [5, 6]]]), [[1, 2], [3, 4], [5, 6]], 'VSTACK matrices');
+eq(VSTACK([[[1, 2]], [[3]]]), [[1, 2], [3, '#N/A']], 'VSTACK rellena columnas faltantes');
+eq(HSTACK([[[1], [2]], [[3], [4]]]), [[1, 3], [2, 4]], 'HSTACK columnas');
+eq(HSTACK([[[1], [2]], [[3]]]), [[1, 3], [2, '#N/A']], 'HSTACK rellena filas faltantes');
+
+// ───────────────────────── TOCOL / TOROW ─────────────────────────
+eq(TOCOL([[[1, 2], [3, 4]]]), [[1], [2], [3], [4]], 'TOCOL por filas');
+eq(TOROW([[[1, 2], [3, 4]]]), [[1, 2, 3, 4]], 'TOROW por filas');
+eq(TOROW([[[1, 2], [3, 4]], 0, true]), [[1, 3, 2, 4]], 'TOROW por columnas');
+eq(TOCOL([[[1, null], ['', 4]], 1]), [[1], [4]], 'TOCOL ignora vacíos');
+
+// ───────────────────────── CHOOSEROWS / CHOOSECOLS / EXPAND / WRAP ─────────────────────────
+eq(CHOOSEROWS([[[1, 2], [3, 4], [5, 6]], 1, 3]), [[1, 2], [5, 6]], 'CHOOSEROWS 1 y 3');
+eq(CHOOSEROWS([[[1], [2], [3]], -1]), [[3]], 'CHOOSEROWS última');
+eq(CHOOSECOLS([[[1, 2, 3], [4, 5, 6]], 1, 3]), [[1, 3], [4, 6]], 'CHOOSECOLS 1 y 3');
+eq(EXPAND([[[1, 2]], 2, 3, 0]), [[1, 2, 0], [0, 0, 0]], 'EXPAND con relleno 0');
+eq(WRAPROWS([[1, 2, 3, 4, 5], 2, 'x']), [[1, 2], [3, 4], [5, 'x']], 'WRAPROWS ancho 2');
+eq(WRAPCOLS([[1, 2, 3, 4, 5], 2, 'x']), [[1, 3, 5], [2, 4, 'x']], 'WRAPCOLS alto 2');
+
+// ───────────────────────── REGEX ─────────────────────────
+eq(REGEXTEST(['abc123', '\\d+']), true, 'REGEXTEST dígitos');
+eq(REGEXTEST(['abcdef', '\\d+']), false, 'REGEXTEST sin dígitos');
+eq(REGEXTEST(['ABC', 'abc', 1]), true, 'REGEXTEST case-insensitive');
+eq(REGEXEXTRACT(['pedido 42 de 7', '\\d+']), '42', 'REGEXEXTRACT primera');
+eq(REGEXEXTRACT(['a1 b2 c3', '\\d', 1]), [['1'], ['2'], ['3']], 'REGEXEXTRACT todas (columna)');
+eq(REGEXEXTRACT(['2026-06-22', '(\\d+)-(\\d+)-(\\d+)', 2]), [['2026', '06', '22']], 'REGEXEXTRACT grupos (fila)');
+eq(REGEXREPLACE(['a1b2c3', '\\d', '#']), 'a#b#c#', 'REGEXREPLACE todas');
+eq(REGEXREPLACE(['a1b2c3', '\\d', '#', 2]), 'a1b#c3', 'REGEXREPLACE 2ª ocurrencia');
+eq(REGEXREPLACE(['John Smith', '(\\w+)\\s(\\w+)', '$2 $1']), 'Smith John', 'REGEXREPLACE con grupos');
+
 // ───────────────────────── Integración: el MOTOR REAL las resuelve y COMPONEN ─────────────────────────
 eq(ev('=SUM(FILTER(A1:A5,C1:C5))'), 80, 'motor: SUM(FILTER(A,máscara)) = 30+20+30');
 eq(ev('=COUNT(UNIQUE(A1:A5))'), 3, 'motor: COUNT(UNIQUE) = 3 distintos');
@@ -107,6 +141,12 @@ eq(ev('=SUM(TAKE(A1:A5,2))'), 40, 'motor: SUM(TAKE 2) = 30+10');
 eq(ev('=TEXTBEFORE("a-b-c","-",2)'), 'a-b', 'motor: TEXTBEFORE');
 eq(ev('=SUM(FILTER(A1:A5,C1:C5))+1'), 81, 'motor: arithmetic sobre array-fn');
 ok(typeof ev('=SORT(A1:A5)') !== 'string' || !String(ev('=SORT(A1:A5)')).startsWith('#'), 'motor: SORT no es error');
+eq(ev('=SUM(VSTACK(A1:A2,A4:A5))'), 80, 'motor: SUM(VSTACK) = 30+10+10+30');
+eq(ev('=COUNTA(TOCOL(A1:B2))'), 4, 'motor: COUNTA(TOCOL(A1:B2))');
+eq(ev('=INDEX(CHOOSEROWS(A1:A5,2),1)'), 10, 'motor: INDEX(CHOOSEROWS,2)');
+eq(ev('=REGEXEXTRACT("orden #9001","\\d+")'), '9001', 'motor: REGEXEXTRACT');
+eq(ev('=REGEXREPLACE("a-b-c","-","_")'), 'a_b_c', 'motor: REGEXREPLACE');
+eq(ev('=SUM(TOCOL(SEQUENCE(2,2)))'), 10, 'motor: SUM(TOCOL(SEQUENCE 2x2)) = 1+2+3+4');
 
 // ───────────────────────── Resumen ─────────────────────────
 const total = passed + fails.length;

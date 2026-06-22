@@ -266,8 +266,162 @@ export function VALUETOTEXT(params: any[]): any {
   return strict && typeof v === 'string' ? `"${v}"` : cellStr(v);
 }
 
+// ── Apilar / remodelar matrices ───────────────────────────────────────────────
+
+/** VSTACK(a; b; …) — apila verticalmente; rellena columnas faltantes con #N/A. */
+export function VSTACK(params: any[]): any {
+  const mats = params.filter((p) => p !== undefined).map((p) => rectify(to2D(p)));
+  const cols = mats.reduce((m, a) => Math.max(m, a.reduce((mm, r) => Math.max(mm, r.length), 0)), 0);
+  const out: any[][] = [];
+  for (const a of mats) for (const r of a) out.push(r.length === cols ? r : [...r, ...Array(cols - r.length).fill('#N/A')]);
+  return out.length ? out : '#CALC!';
+}
+
+/** HSTACK(a; b; …) — apila horizontalmente; rellena filas faltantes con #N/A. */
+export function HSTACK(params: any[]): any {
+  const mats = params.filter((p) => p !== undefined).map((p) => rectify(to2D(p)));
+  const rows = mats.reduce((m, a) => Math.max(m, a.length), 0);
+  const out: any[][] = Array.from({ length: rows }, () => [] as any[]);
+  for (const a of mats) {
+    const c = a.reduce((mm, r) => Math.max(mm, r.length), 0);
+    for (let i = 0; i < rows; i++) {
+      const r = a[i] ?? [];
+      const padded = r.length === c ? r : [...r, ...Array(c - r.length).fill('#N/A')];
+      out[i].push(...padded);
+    }
+  }
+  return out.length ? out : '#CALC!';
+}
+
+/** Aplana por filas (o columnas si `scanByCol`); `ignore`: 1 vacíos, 2 errores, 3 ambos. */
+function scanFlatten(a: any[][], ignore: number, scanByCol: boolean): any[] {
+  const src = scanByCol ? transpose(a) : a;
+  const flat: any[] = [];
+  for (const row of src) for (const v of row) flat.push(v);
+  return flat.filter((v) => {
+    const isEmpty = v == null || v === '';
+    const isErr = typeof v === 'string' && /^#[A-Z/0-9]+[!?]$/.test(v);
+    if ((ignore === 1 || ignore === 3) && isEmpty) return false;
+    if ((ignore === 2 || ignore === 3) && isErr) return false;
+    return true;
+  });
+}
+/** TOCOL(array; [ignorar]; [por_columna]) — aplana a una sola columna. */
+export function TOCOL(params: any[]): any {
+  const flat = scanFlatten(rectify(to2D(params[0])), Math.trunc(toNum(params[1]) ?? 0), truthy(params[2]));
+  return flat.length ? flat.map((v) => [v]) : '#CALC!';
+}
+/** TOROW(array; [ignorar]; [por_columna]) — aplana a una sola fila. */
+export function TOROW(params: any[]): any {
+  const flat = scanFlatten(rectify(to2D(params[0])), Math.trunc(toNum(params[1]) ?? 0), truthy(params[2]));
+  return flat.length ? [flat] : '#CALC!';
+}
+
+/** CHOOSEROWS(array; fila1; …) — selecciona filas (1-based, negativo = desde el final). */
+export function CHOOSEROWS(params: any[]): any {
+  const a = rectify(to2D(params[0]));
+  const picks = params.slice(1).flatMap((p) => flatten(p)).map((n) => Math.trunc(toNum(n) ?? 0)).filter((n) => n !== 0);
+  const out = picks.map((n) => a[n > 0 ? n - 1 : a.length + n]).filter((r) => r !== undefined);
+  return out.length ? out : '#VALUE!';
+}
+/** CHOOSECOLS(array; col1; …) — selecciona columnas (1-based, negativo = desde el final). */
+export function CHOOSECOLS(params: any[]): any {
+  const a = rectify(to2D(params[0]));
+  const cols = a[0]?.length ?? 0;
+  const picks = params.slice(1).flatMap((p) => flatten(p)).map((n) => Math.trunc(toNum(n) ?? 0)).filter((n) => n !== 0);
+  const out = a.map((r) => picks.map((n) => r[n > 0 ? n - 1 : cols + n]));
+  return out.length && out[0].length ? out : '#VALUE!';
+}
+
+/** EXPAND(array; filas; [cols]; [relleno]) — crece la matriz al tamaño dado con relleno. */
+export function EXPAND(params: any[]): any {
+  const a = rectify(to2D(params[0]));
+  const rows = params[1] == null || params[1] === '' ? a.length : Math.trunc(toNum(params[1]) ?? a.length);
+  const cols = params[2] == null || params[2] === '' ? (a[0]?.length ?? 1) : Math.trunc(toNum(params[2]) ?? (a[0]?.length ?? 1));
+  const pad = params[3] !== undefined ? params[3] : '#N/A';
+  const out: any[][] = [];
+  for (let i = 0; i < rows; i++) { const row: any[] = []; for (let j = 0; j < cols; j++) row.push(a[i]?.[j] !== undefined ? a[i][j] : pad); out.push(row); }
+  return out;
+}
+
+/** WRAPROWS(vector; ancho; [relleno]) — envuelve un vector en filas de `ancho`. */
+export function WRAPROWS(params: any[]): any {
+  const vec = flatten(params[0]);
+  const w = Math.max(1, Math.trunc(toNum(params[1]) ?? 1));
+  const pad = params[2] !== undefined ? params[2] : '#N/A';
+  const out: any[][] = [];
+  for (let i = 0; i < vec.length; i += w) { const row = vec.slice(i, i + w); while (row.length < w) row.push(pad); out.push(row); }
+  return out.length ? out : '#CALC!';
+}
+/** WRAPCOLS(vector; alto; [relleno]) — envuelve un vector en columnas de `alto`. */
+export function WRAPCOLS(params: any[]): any {
+  const vec = flatten(params[0]);
+  const h = Math.max(1, Math.trunc(toNum(params[1]) ?? 1));
+  const pad = params[2] !== undefined ? params[2] : '#N/A';
+  const ncols = Math.max(1, Math.ceil(vec.length / h));
+  const out: any[][] = Array.from({ length: h }, () => [] as any[]);
+  for (let c = 0; c < ncols; c++) for (let r = 0; r < h; r++) { const idx = c * h + r; out[r].push(idx < vec.length ? vec[idx] : pad); }
+  return out.length ? out : '#CALC!';
+}
+
+// ── Expresiones regulares (Excel 365, 2024) ───────────────────────────────────
+
+/** Compila un patrón a RegExp JS; si es inválido, lo escapa como literal. */
+function buildRegex(pattern: string, ci: boolean, global: boolean): RegExp {
+  let flags = 'u';
+  if (ci) flags += 'i';
+  if (global) flags += 'g';
+  try { return new RegExp(pattern, flags); }
+  catch { return new RegExp(pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), flags); }
+}
+/** REGEXTEST(texto; patrón; [no_distinguir_may]) — ¿el texto coincide con el patrón? */
+export function REGEXTEST(params: any[]): any {
+  try { return buildRegex(cellStr(params[1]), (toNum(params[2]) ?? 0) === 1, false).test(cellStr(params[0])); }
+  catch { return '#VALUE!'; }
+}
+/** REGEXREPLACE(texto; patrón; reemplazo; [ocurrencia]; [no_distinguir_may]) — 0/omitido = todas. */
+export function REGEXREPLACE(params: any[]): any {
+  const text = cellStr(params[0]);
+  const repl = cellStr(params[2]);
+  const occurrence = params[3] == null || params[3] === '' ? 0 : Math.trunc(toNum(params[3]) ?? 0);
+  const ci = (toNum(params[4]) ?? 0) === 1;
+  try {
+    const reG = buildRegex(cellStr(params[1]), ci, true);
+    if (occurrence <= 0) return text.replace(reG, repl);
+    let count = 0;
+    return text.replace(reG, (match: string, ...rest: any[]) => {
+      count++;
+      if (count !== occurrence) return match;
+      return repl.replace(/\$(\d+)/g, (_: string, d: string) => { const g = rest[Number(d) - 1]; return g == null ? '' : String(g); });
+    });
+  } catch { return '#VALUE!'; }
+}
+/** REGEXEXTRACT(texto; patrón; [modo]; [no_distinguir_may]) — 0 primera, 1 todas (col), 2 grupos (fila). */
+export function REGEXEXTRACT(params: any[]): any {
+  const text = cellStr(params[0]);
+  const pattern = cellStr(params[1]);
+  const mode = params[2] == null || params[2] === '' ? 0 : Math.trunc(toNum(params[2]) ?? 0);
+  const ci = (toNum(params[3]) ?? 0) === 1;
+  try {
+    if (mode === 1) {
+      const all = [...text.matchAll(buildRegex(pattern, ci, true))].map((mm) => mm[0]);
+      return all.length ? all.map((v) => [v]) : '#N/A';
+    }
+    const m = buildRegex(pattern, ci, false).exec(text);
+    if (!m) return '#N/A';
+    if (mode === 2) { const groups = m.slice(1); return groups.length ? [groups] : [[m[0]]]; }
+    return m[0];
+  } catch { return '#VALUE!'; }
+}
+
 /** Registro de funciones modernas (clave en MAYÚSCULAS) que se mezcla en `CUSTOM_FUNCTIONS`. */
 export const MODERN_FUNCTIONS: Record<string, (params: any[]) => any> = {
+  // Matrices dinámicas (filtro/orden/secuencia)
   UNIQUE, SORT, SORTBY, FILTER, SEQUENCE, TAKE, DROP, TRANSPOSE,
+  // Apilar / remodelar
+  VSTACK, HSTACK, TOCOL, TOROW, CHOOSEROWS, CHOOSECOLS, EXPAND, WRAPROWS, WRAPCOLS,
+  // Texto moderno
   TEXTBEFORE, TEXTAFTER, TEXTSPLIT, ARRAYTOTEXT, VALUETOTEXT,
+  // Expresiones regulares (Excel 365)
+  REGEXTEST, REGEXREPLACE, REGEXEXTRACT,
 };
