@@ -955,4 +955,26 @@ incluye `word/numbering.xml`, los párrafos llevan `<w:numPr>` con `<w:numId>` +
 **Roadmap:** import .docx más fiel (style map de mammoth, imágenes embebidas); sangrías de
 tabla; estilos de carácter nombrados.
 
+## 34. Office/Sheets — formato de número fiel a Excel (literales, secciones, relleno, escalado)
+
+**Contexto.** `formatNumber` (usado en la visualización de celdas, `TEXT()` y
+`applyNumberFormat`) era un «subconjunto práctico» que **ignoraba el texto literal** del código
+(`0" kg"` salía «5», no «5 kg»), no hacía **relleno de ceros** (`00000`), no soportaba las
+**4 secciones** (`positivo;negativo;cero;texto`) salvo por una heurística contable, ni el
+**escalado por miles** (coma final), y se confundía con **etiquetas** `[Red]`/`[$€-409]`.
+
+**Decisión (sólo `apps/web`, aditiva — reescritura del núcleo con tokenizador):**
+- **Secciones.** Se elige la sección por signo/cero (texto = 4ª con `@`); cada una se procesa
+  por separado tras **quitar etiquetas** de color/condición y extraer el símbolo de `[$X-…]`.
+- **Tokenizador de sección.** Recorre el patrón intercalando **literales** (texto
+  entrecomillado, `\x`, paréntesis, símbolos) con el número: la primera tirada de marcadores
+  `#0?` se sustituye por el valor; `$`→símbolo de moneda; `%` escala ×100.
+- **Número.** Relleno de ceros a la izquierda (`minInt`), agrupación de miles, decimales, y
+  **escalado** por cada coma final (÷1000), además de porcentaje/científico/fracción/fecha.
+
+**Verificación:** las **27 aserciones previas** de `numfmt.spec.ts` siguen verdes (cero
+regresión) + **13 nuevas** (literales, relleno, secciones, `[color]`/`[$moneda]`, escalado
+×1000/×millón) → **40**; `formulaEngine.spec` 67/67 (`TEXT`), 18/18 suites de hoja verdes;
+`lint web` 0 errores; `build web` ✓.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->

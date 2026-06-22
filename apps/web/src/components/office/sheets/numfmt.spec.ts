@@ -47,6 +47,29 @@ eq(formatNumber('hola', 'General'), 'hola', 'texto General');
 eq(formatNumber(42, 'General'), '42', 'número General');
 eq(formatNumber('hola', '#,##0'), 'hola', 'texto con código numérico se respeta');
 
+// ── Texto literal en el formato (antes se perdía) ────────────────────────────
+eq(formatNumber(5, '0" kg"'), '5 kg', 'literal sufijo " kg"');
+eq(formatNumber(1234, '"$"#,##0'), '$1,234', 'literal prefijo entrecomillado');
+eq(formatNumber(0.5, '0%" done"'), '50% done', 'porcentaje + literal');
+eq(formatNumber(72, '0" °C"'), '72 °C', 'literal con símbolo');
+
+// ── Relleno de ceros a la izquierda ──────────────────────────────────────────
+eq(formatNumber(42, '00000'), '00042', 'relleno a 5 dígitos');
+eq(formatNumber(7, '000'), '007', 'relleno a 3 dígitos');
+
+// ── Secciones positivo;negativo;cero;texto ───────────────────────────────────
+eq(formatNumber(-1234, '#,##0;(#,##0)'), '(1,234)', 'negativo entre paréntesis (sección)');
+eq(formatNumber(0, '0.00;-0.00;"—"'), '—', 'sección de cero personalizada');
+eq(formatNumber(1234, '#,##0;(#,##0)'), '1,234', 'positivo con 2 secciones');
+
+// ── Etiquetas [color]/[condición]/[$moneda] ──────────────────────────────────
+eq(formatNumber(5, '[Red]0.00'), '5.00', 'etiqueta de color ignorada');
+eq(formatNumber(5, '[$€-407]#,##0.00'), '€5.00', 'símbolo de moneda desde [$€-…]');
+
+// ── Escalado por miles (coma final) ──────────────────────────────────────────
+eq(formatNumber(1500000, '#,##0,'), '1,500', 'coma final divide entre mil');
+eq(formatNumber(2500000, '0.0,,'), '2.5', 'dos comas finales dividen entre millón');
+
 // ── applyNumberFormat sobre una hoja ─────────────────────────────────────────
 {
   const sheet: any = { celldata: [{ r: 0, c: 0, v: { v: 0.5, m: '0.5', ct: { fa: 'General', t: 'n' } } }] };
