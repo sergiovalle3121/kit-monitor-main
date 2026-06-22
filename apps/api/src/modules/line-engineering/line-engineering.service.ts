@@ -9,7 +9,10 @@ import {
 import { ObjectLiteral, SelectQueryBuilder } from 'typeorm';
 import { SfLineStation } from './entities/sf-line-station.entity';
 import { SfModelLine } from './entities/sf-model-line.entity';
-import { SfLineLayout } from './entities/sf-line-layout.entity';
+import {
+  SfLineLayout,
+  LayoutConnector,
+} from './entities/sf-line-layout.entity';
 import { TenantContextService } from '../../common/tenant/tenant-context.service';
 import {
   TenantScopedRepository,
@@ -85,6 +88,7 @@ export interface LineLayout {
   footprint: LayoutFootprint;
   stations: LayoutStation[];
   dxf: LayoutDxf | null;
+  connectors: LayoutConnector[];
 }
 
 export interface LineEngineeringKpis {
@@ -420,6 +424,7 @@ export class LineEngineeringService {
         : { ...LineEngineeringService.DEFAULT_FOOTPRINT },
       stations: stations.map((s) => this.toLayoutStation(s)),
       dxf: layout ? this.toDxf(layout) : null,
+      connectors: layout?.connectors ?? [],
     };
   }
 
@@ -433,9 +438,19 @@ export class LineEngineeringService {
     const revision = (dto.revision ?? 'A').trim() || 'A';
     if (!model) throw new BadRequestException('model es obligatorio.');
 
-    // 1) Footprint config + DXF placement (find-or-create within scope). The DXF
-    //    data itself is never touched here — only its placement metadata.
-    if (dto.footprint || dto.dxf) {
+    // Load the model's stations once (scoped) and index by id, so a bad/foreign
+    // id in positions or connectors is simply ignored (never escapes scope).
+    const sQb = this.stations.createQueryBuilder('s');
+    this.applyScope(sQb, 's');
+    sQb
+      .andWhere('s.model = :m', { m: model })
+      .andWhere('s.revision = :r', { r: revision });
+    const stations = await sQb.getMany();
+    const byId = new Map(stations.map((s) => [s.id, s]));
+
+    // 1) Footprint config + DXF placement + flow connectors (find-or-create
+    //    within scope). The DXF data itself is never touched here.
+    if (dto.footprint || dto.dxf || dto.connectors) {
       const layout = await this.ensureLayout(model, revision);
       const f = dto.footprint;
       if (f) {
@@ -448,18 +463,14 @@ export class LineEngineeringService {
           layout.gridSize = clampPos(f.gridSize, layout.gridSize);
       }
       if (dto.dxf) this.applyDxfMeta(layout, dto.dxf);
+      if (dto.connectors) {
+        // keep only links whose endpoints are real stations in this scope
+        layout.connectors = dto.connectors
+          .filter((c) => c.from !== c.to && byId.has(c.from) && byId.has(c.to))
+          .map((c) => ({ from: c.from, to: c.to, kind: c.kind || 'flow' }));
+      }
       await this.requireLayouts().save(layout);
     }
-
-    // 2) Station placements. Load the model's stations once (scoped) and index
-    //    by id, so a bad/foreign id is simply ignored (never escapes scope).
-    const sQb = this.stations.createQueryBuilder('s');
-    this.applyScope(sQb, 's');
-    sQb
-      .andWhere('s.model = :m', { m: model })
-      .andWhere('s.revision = :r', { r: revision });
-    const stations = await sQb.getMany();
-    const byId = new Map(stations.map((s) => [s.id, s]));
 
     const dirty = new Set<SfLineStation>();
     for (const p of dto.positions ?? []) {

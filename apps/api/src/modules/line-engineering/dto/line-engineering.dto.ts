@@ -328,6 +328,27 @@ export class DxfMetaDto {
   opacity?: number;
 }
 
+/** A directed material-flow link between two stations (Fase 4). */
+export class LayoutConnectorDto {
+  @ApiProperty({ description: 'Source station id.' })
+  @IsString()
+  @Length(1, 64)
+  from: string;
+
+  @ApiProperty({ description: 'Target station id.' })
+  @IsString()
+  @Length(1, 64)
+  to: string;
+
+  @ApiPropertyOptional({
+    example: 'flow',
+    enum: ['flow', 'conveyor', 'return'],
+  })
+  @IsOptional()
+  @IsIn(['flow', 'conveyor', 'return'])
+  kind?: string;
+}
+
 /** Persist a model+revision layout: footprint config + station placements. */
 export class SaveLayoutDto {
   @ApiProperty({ example: 'AX-1000' })
@@ -374,6 +395,16 @@ export class SaveLayoutDto {
   @ValidateNested()
   @Type(() => DxfMetaDto)
   dxf?: DxfMetaDto;
+
+  @ApiPropertyOptional({
+    type: [LayoutConnectorDto],
+    description: 'Directed flow links between stations.',
+  })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => LayoutConnectorDto)
+  connectors?: LayoutConnectorDto[];
 }
 
 /** Upload/replace the DXF background of a model+revision layout. */
