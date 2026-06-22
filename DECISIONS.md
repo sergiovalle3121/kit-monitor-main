@@ -791,4 +791,36 @@ sincronizó con `npm install` antes del build del web.
 de métricas para tendencia de KPIs (no solo del ledger); borrado lógico de
 métricas/objetos/links desde la UI.
 
+## 28. Snapshots de métricas — tendencia de KPIs (Fase 10 CIDE)
+
+**Contexto.** Las métricas mostraban solo su valor **actual**. Para análisis de
+decisiones hace falta saber si un KPI **mejora o empeora** — es decir, su serie
+temporal, no un número suelto.
+
+**Decisión.** Substrato de snapshots, aditivo:
+- **Entidad** `sem_metric_snapshot` (prefijada, sin FK, `value` como `float`
+  portable — patrón probado §4): un punto por `tenant+metric+day`.
+- **Captura idempotente.** `SemanticService.captureSnapshots` resuelve cada
+  métrica con resolver como **actor sistema** (captura todo) y guarda un punto/día
+  si no existe. Un **@Cron diario** (2 AM) la dispara para el tenant por defecto.
+  En la primera lectura, si no hay snapshots se hace un *lazy-seed* (un punto)
+  para que la UI no salga vacía en un deploy nuevo.
+- **Lectura RBAC-gated.** `metricHistoryBatch` devuelve el historial **solo de las
+  métricas que el usuario puede ver** (gate por el permiso del resolver, igual que
+  el valor en vivo) — una sola consulta de snapshots. Endpoint
+  `GET /api/semantic/history?days=30`.
+- **Frontend.** Cada tarjeta de métrica del Centro de Inteligencia muestra un
+  **sparkline** (SVG inline, verde si sube / rojo si baja) cuando hay ≥2 puntos.
+
+**Nota.** El multi-tenant del cron se limita al tenant por defecto (el snapshot
+por-tenant queda como mejora futura). La tendencia real se construye con los días;
+el deploy arranca con 1 punto (lazy-seed).
+
+**Verificación:** build API ✓, build web ✓, lint web (0 errores) ✓, **704/704**
+tests ✓. La entidad nueva (`float`, prefijada, sin FK) la materializa el smoke de
+bootstrap en CI.
+
+**Pendiente (Fase 11):** snapshots por tenant; alertas cuando un KPI cruza un
+umbral/dirección adversa; persistir tarjetas del chat; borrado lógico en el editor.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
