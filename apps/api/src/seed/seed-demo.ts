@@ -55,6 +55,27 @@ import { ExecutionStep } from '../modules/mes-execution/entities/execution-step.
 import { VisualAid } from '../modules/visual-aids/entities/visual-aid.entity';
 import { BayLayout } from '../modules/bay-layout/entities/bay-layout.entity';
 
+// Dominios de negocio (para que cada módulo del hub muestre datos reales).
+import { CrmService } from '../modules/crm/crm.service';
+import { Opportunity } from '../modules/crm/entities/opportunity.entity';
+import { EhsService } from '../modules/ehs/ehs.service';
+import { SafetyIncident } from '../modules/ehs/entities/safety-incident.entity';
+import { MaintenanceService } from '../modules/maintenance/maintenance.service';
+import { Asset } from '../modules/maintenance/entities/asset.entity';
+import { MaintenanceOrder } from '../modules/maintenance/entities/maintenance-order.entity';
+import { LegalService } from '../modules/legal/legal.service';
+import { Contract } from '../modules/legal/entities/contract.entity';
+import { ExpensesService } from '../modules/expenses/expenses.service';
+import { ExpenseReport } from '../modules/expenses/entities/expense-report.entity';
+import { FixedAssetsService } from '../modules/fixed-assets/fixed-assets.service';
+import { FixedAsset } from '../modules/fixed-assets/entities/fixed-asset.entity';
+import { ToolingService } from '../modules/tooling/tooling.service';
+import { Tool } from '../modules/tooling/entities/tool.entity';
+import { ProcurementService } from '../modules/procurement/procurement.service';
+import { PurchaseOrder } from '../modules/procurement/entities/purchase-order.entity';
+import { RmaService } from '../modules/rma/rma.service';
+import { RmaCase } from '../modules/rma/entities/rma-case.entity';
+
 import {
   assertNotProduction,
   bootSeedContext,
@@ -1249,6 +1270,128 @@ async function seedPeopleHr(app: INestApplicationContext, ds: DataSource): Promi
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Dominios de negocio (CMMS, EHS, CRM, legal, gastos, activos fijos, tooling,
+// compras, RMA): demo FUNCIONAL vía los servicios reales — folio y estatus se
+// auto-asignan, igual que si un usuario los capturara. Así cada módulo del hub
+// abre con contenido real en vez de vacío. Idempotente por clave natural; el
+// texto es genérico/ficticio (pasa el candado de dominio público). Se invoca con
+// los servicios resueltos del contenedor; los DTOs van como `any` porque la
+// validación class-validator sólo corre por HTTP, no al llamar el servicio.
+// ─────────────────────────────────────────────────────────────────────────────
+async function seedBusinessDomains(app: INestApplicationContext): Promise<Tally> {
+  const t = tally();
+  const ds = app.get(DataSource);
+
+  async function ensure(
+    entity: any,
+    where: Record<string, unknown>,
+    create: () => Promise<unknown>,
+  ): Promise<void> {
+    try {
+      const existing = await ds.getRepository(entity).findOne({ where: where as any });
+      if (existing) {
+        t.skipped++;
+        return;
+      }
+      await create();
+      t.created++;
+    } catch (err) {
+      t.errors++;
+      log('negocio', `ERROR (${JSON.stringify(where)}): ${(err as Error).message}`);
+    }
+  }
+
+  const crm = app.get(CrmService);
+  for (const title of [
+    'Programa wearable XR — nueva línea SMT',
+    'Expansión de volumen — módulo de potencia',
+    'Cotización: controlador IoT (piloto)',
+  ]) {
+    await ensure(Opportunity, { title }, () => crm.create({ title } as any));
+  }
+
+  const ehs = app.get(EhsService);
+  for (const r of [
+    { title: 'Casi-accidente: derrame menor de pasta de soldadura', type: 'NEAR_MISS', severity: 'LOW' },
+    { title: 'Primeros auxilios: corte leve al pelar cable', type: 'FIRST_AID', severity: 'LOW' },
+    { title: 'Ambiental: fuga menor de aire comprimido', type: 'ENVIRONMENTAL', severity: 'MEDIUM' },
+  ]) {
+    await ensure(SafetyIncident, { title: r.title }, () => ehs.create(r as any));
+  }
+
+  const maint = app.get(MaintenanceService);
+  for (const a of [
+    { name: 'Horno de reflujo SMT-1', criticality: 'HIGH', category: 'SMT', location: 'Línea 1' },
+    { name: 'Pick & Place P1', criticality: 'CRITICAL', category: 'SMT', location: 'Línea 1' },
+    { name: 'Compresor central', criticality: 'MEDIUM', category: 'Utilidades', location: 'Cuarto de máquinas' },
+  ]) {
+    await ensure(Asset, { name: a.name }, () => maint.createAsset(a as any));
+  }
+  for (const o of [
+    { title: 'Preventivo mensual: horno de reflujo', type: 'PREVENTIVE', priority: 'MEDIUM' },
+    { title: 'Correctivo: boquilla tapada en P&P', type: 'CORRECTIVE', priority: 'HIGH' },
+  ]) {
+    await ensure(MaintenanceOrder, { title: o.title }, () => maint.createOrder(o as any));
+  }
+
+  const legal = app.get(LegalService);
+  for (const c of [
+    { title: 'NDA mutuo con proveedor de estructurales', type: 'NDA' },
+    { title: 'Contrato de servicio de calibración', type: 'SERVICE' },
+    { title: 'Arrendamiento de nave 2', type: 'LEASE' },
+  ]) {
+    await ensure(Contract, { title: c.title }, () => legal.create(c as any));
+  }
+
+  const expenses = app.get(ExpensesService);
+  for (const e of [
+    { description: 'Viáticos: visita a proveedor', amount: 4200, category: 'TRAVEL' },
+    { description: 'Capacitación IPC-A-610', amount: 8800, category: 'TRAINING' },
+    { description: 'Consumibles de laboratorio', amount: 1500, category: 'SUPPLIES' },
+  ]) {
+    await ensure(ExpenseReport, { description: e.description }, () => expenses.create(e as any));
+  }
+
+  const fixedAssets = app.get(FixedAssetsService);
+  for (const f of [
+    { name: 'Horno de reflujo SMT-1', acquisitionCost: 1_800_000, usefulLifeMonths: 120 },
+    { name: 'AOI inline', acquisitionCost: 950_000, usefulLifeMonths: 84 },
+    { name: 'Montacargas eléctrico', acquisitionCost: 420_000, usefulLifeMonths: 96 },
+  ]) {
+    await ensure(FixedAsset, { name: f.name }, () => fixedAssets.create(f as any));
+  }
+
+  const tooling = app.get(ToolingService);
+  for (const tl of [
+    { name: 'Stencil SMT AX-100', lifeShots: 50_000, type: 'STENCIL' },
+    { name: 'Fixture ICT AX-200', lifeShots: 200_000, type: 'FIXTURE' },
+    { name: 'Molde de carcasa AX-300', lifeShots: 500_000, type: 'MOLD' },
+  ]) {
+    await ensure(Tool, { name: tl.name }, () => tooling.create(tl as any));
+  }
+
+  const procurement = app.get(ProcurementService);
+  for (const p of [
+    { title: 'OC resistencias 0402 (reposición)', priority: 'MEDIUM' },
+    { title: 'OC conectores board-to-board', priority: 'HIGH' },
+    { title: 'OC etiquetas térmicas', priority: 'LOW' },
+  ]) {
+    await ensure(PurchaseOrder, { title: p.title }, () => procurement.create(p as any));
+  }
+
+  const rma = app.get(RmaService);
+  for (const r of [
+    { failureDescription: 'Unidad no enciende — falla intermitente de fuente', severity: 'HIGH' },
+    { failureDescription: 'Conector USB flojo reportado por cliente', severity: 'MEDIUM' },
+  ]) {
+    await ensure(RmaCase, { failureDescription: r.failureDescription }, () => rma.create(r as any));
+  }
+
+  log('negocio', `registros nuevos=${t.created} ya existían=${t.skipped} errores=${t.errors}`);
+  return t;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Valuación rápida de inventario (SUM(onHand × standardCost)) para el resumen.
 // ─────────────────────────────────────────────────────────────────────────────
 async function inventoryValuation(ds: DataSource): Promise<number> {
@@ -1301,6 +1444,7 @@ async function run(): Promise<void> {
       await seedRouting(app, ds);
       await seedBayLayouts(ds);
       await seedMesExecutions(app, ds);
+      await seedBusinessDomains(app);
     });
 
     // CANDADO LEGAL (post-seed): re-escanea TODA la base y FALLA ruidosamente si

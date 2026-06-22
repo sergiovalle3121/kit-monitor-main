@@ -78,6 +78,19 @@ export class EventLedgerService {
     }
   }
 
+  /**
+   * Feed global de la bitácora: los eventos más recientes (orden DESC), con un
+   * tope acotado. El frontend filtra por dominio/entidad/fecha del lado cliente,
+   * así que aquí solo devolvemos la ventana reciente. `limit` se sanea a [1,1000].
+   */
+  async findRecent(limit = 200): Promise<LedgerEvent[]> {
+    const take = Math.min(Math.max(Number.isFinite(limit) ? limit : 200, 1), 1000);
+    return this.ledgerRepository.find({
+      order: { timestamp: 'DESC' },
+      take,
+    });
+  }
+
   async getEventsByReference(referenceType: string, referenceId: string): Promise<LedgerEvent[]> {
     return this.ledgerRepository.find({
       where: { referenceType, referenceId },

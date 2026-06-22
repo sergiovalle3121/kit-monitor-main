@@ -25,7 +25,10 @@ import {
   CRITICALITY_META,
   TYPE_META,
   TYPE_ORDER,
+  fleetMtbfHours,
+  fmtHours,
   fmtMinutes,
+  mtbfByAsset,
   openOrdersByAsset,
   typeMix,
 } from "./maintenance.utils";
@@ -59,6 +62,8 @@ export function OverviewTab({
   const maxLoad = load.reduce((m, r) => Math.max(m, r.total), 0);
   const mix = typeMix(orders);
   const totalMix = mix.PREVENTIVE + mix.CORRECTIVE + mix.PREDICTIVE;
+  const fleetMtbf = fleetMtbfHours(orders);
+  const topFailures = mtbfByAsset(orders).slice(0, 3);
 
   return (
     <div className="space-y-6">
@@ -142,9 +147,9 @@ export function OverviewTab({
         />
         <Kpi
           label="MTBF"
-          value="—"
-          color={COLORS.gray}
-          hint="Requiere backend"
+          value={fmtHours(fleetMtbf)}
+          sub={fleetMtbf == null ? "≥2 fallas por equipo" : "entre fallas"}
+          color={fleetMtbf == null ? COLORS.gray : COLORS.violet}
         />
         <Kpi
           label="% PM cumplido"
@@ -216,13 +221,27 @@ export function OverviewTab({
               ))}
             </div>
           )}
-          <div className="mt-5 pt-4 border-t border-black/5 dark:border-white/10 space-y-2">
+          <div className="mt-5 pt-4 border-t border-black/5 dark:border-white/10 space-y-3">
             <NewOrderButton onClick={() => onNewOrder()} className="w-full justify-center" />
+            {topFailures.length > 0 && (
+              <div className="space-y-1.5">
+                <div className="text-[11px] font-medium text-gray-500 dark:text-gray-400">Fallas por equipo</div>
+                {topFailures.map((r) => (
+                  <div key={r.key} className="flex items-center justify-between text-[12px]">
+                    <span className="truncate text-gray-600 dark:text-gray-300">{r.assetName}</span>
+                    <span className="text-gray-400 tabular-nums flex-shrink-0 ml-2">
+                      {r.failures} {r.failures === 1 ? "falla" : "fallas"}
+                      {r.mtbfHours != null ? ` · MTBF ${fmtHours(r.mtbfHours)}` : ""}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
             <div className="flex items-start gap-2 text-[11px] text-gray-400">
               <Gauge className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
               <span>
-                MTTR sale de los paros registrados al cerrar órdenes. MTBF aún{" "}
-                <span className="font-medium">requiere backend</span> (no expone fallas por equipo).
+                MTTR sale de los paros al cerrar órdenes; MTBF se deriva del tiempo
+                entre órdenes correctivas por equipo.
               </span>
             </div>
           </div>

@@ -234,6 +234,71 @@ export function typeMix(
   return out;
 }
 
+// ── MTBF / fallas por equipo (derivado de órdenes correctivas reales) ─────────
+// Una "falla" = una orden CORRECTIVA. El MTBF (tiempo medio entre fallas) se
+// calcula con el delta entre fallas consecutivas de un activo (por `created_at`,
+// el momento en que se levantó la orden). Sólo se reporta MTBF con ≥2 fallas;
+// con una sola se reporta el conteo. Todo del lado cliente sobre datos reales:
+// no inventa uptime ni telemetría que el sistema no captura.
+export interface AssetMtbfRow {
+  key: string;
+  assetId: string | null;
+  assetName: string;
+  failures: number;
+  mtbfHours: number | null;
+  lastFailureAt: string | null;
+}
+
+export function mtbfByAsset(orders: MaintenanceOrder[]): AssetMtbfRow[] {
+  const byAsset = new Map<string, MaintenanceOrder[]>();
+  for (const o of orders) {
+    if (o.type !== "CORRECTIVE") continue;
+    const key = o.assetId ?? `name:${o.assetName ?? ""}`;
+    const arr = byAsset.get(key) ?? [];
+    arr.push(o);
+    byAsset.set(key, arr);
+  }
+  const rows: AssetMtbfRow[] = [];
+  for (const [key, list] of byAsset) {
+    const times = list
+      .map((o) => (o.created_at ? new Date(o.created_at).getTime() : NaN))
+      .filter((t) => Number.isFinite(t))
+      .sort((a, b) => a - b);
+    let mtbfHours: number | null = null;
+    if (times.length >= 2) {
+      let sum = 0;
+      for (let i = 1; i < times.length; i++) sum += times[i] - times[i - 1];
+      mtbfHours = Math.round((sum / (times.length - 1) / 3_600_000) * 10) / 10;
+    }
+    rows.push({
+      key,
+      assetId: list[0].assetId,
+      assetName: list[0].assetName ?? "Sin activo",
+      failures: list.length,
+      mtbfHours,
+      lastFailureAt: times.length
+        ? new Date(times[times.length - 1]).toISOString()
+        : null,
+    });
+  }
+  return rows.sort((a, b) => b.failures - a.failures);
+}
+
+/** MTBF de flota: promedio de los MTBF por activo que tienen ≥2 fallas (o null). */
+export function fleetMtbfHours(orders: MaintenanceOrder[]): number | null {
+  const rows = mtbfByAsset(orders).filter((r) => r.mtbfHours != null);
+  if (!rows.length) return null;
+  const sum = rows.reduce((s, r) => s + (r.mtbfHours as number), 0);
+  return Math.round((sum / rows.length) * 10) / 10;
+}
+
+/** Horas legibles: bajo 48 h en horas, arriba en días. */
+export function fmtHours(h?: number | null): string {
+  if (h == null) return "—";
+  if (h < 48) return `${h} h`;
+  return `${Math.round((h / 24) * 10) / 10} d`;
+}
+
 // ── Agenda preventiva (a partir de dueDate real, sin programador en backend) ──
 export type DueBucketKey =
   | "overdue"
