@@ -5,7 +5,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence } from 'framer-motion';
 import { Workbook } from '@fortune-sheet/react';
 import '@fortune-sheet/react/dist/index.css';
-import { ListChecks, Palette, Snowflake, FileText, Sigma, Search, ArrowDownUp, CopyMinus, Columns3, StickyNote, Table2, Hash, Rows3, Activity, ArrowDownToLine, FlipVertical2, Tag, Printer, ClipboardPaste, Filter, RefreshCw, LayoutGrid, Sparkles, Target, Grid3x3, Layers, Crosshair } from 'lucide-react';
+import { ListChecks, Palette, Snowflake, FileText, Sigma, Search, ArrowDownUp, CopyMinus, Columns3, StickyNote, Table2, Hash, Rows3, Activity, ArrowDownToLine, FlipVertical2, Tag, Printer, ClipboardPaste, Filter, RefreshCw, LayoutGrid, Sparkles, Target, Grid3x3, Layers, Crosshair, Combine } from 'lucide-react';
 import { SheetCharts } from './SheetCharts';
 import { SheetTools, type ValidationPayload } from './SheetTools';
 import { SheetFunctionWizard } from './SheetFunctionWizard';
@@ -30,6 +30,8 @@ import { applyScenario, scenarioSummary, type Scenario } from './sheets/scenario
 import { SheetScenarios } from './SheetScenarios';
 import { solve, type SolverVar } from './sheets/solver';
 import { SheetSolver, type SolverPayload } from './SheetSolver';
+import { consolidateByPosition, consolidateByCategory } from './sheets/consolidate';
+import { SheetConsolidate, type ConsolidatePayload } from './SheetConsolidate';
 import { OfficeRibbon, RibbonTab, RibbonGroup, RibbonSeparator, RibbonButton, RibbonMenuButton } from './ribbon';
 import { useToast } from '@/contexts/ToastContext';
 
@@ -89,6 +91,7 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
   const [showGoalSeek, setShowGoalSeek] = useState(false);
   const [showDataTable, setShowDataTable] = useState(false);
   const [showSolver, setShowSolver] = useState(false);
+  const [showConsolidate, setShowConsolidate] = useState(false);
   const [, setTick] = useState(0);
   const refreshT = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onChangeRef = useRef(onChange);
@@ -389,6 +392,39 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
     return { ok: true, text: `Resumen generado en una hoja nueva (${cells.length} celda(s) × ${sum.headers.length} escenario(s)).` };
   }
 
+  // Consolidar datos: lee varios rangos (admite «Hoja!A1:C4») y los combina en una hoja nueva.
+  function readRangeGrid(sheets: any[], spec: string): any[][] | null {
+    let sheetName: string | null = null; let rangeStr = spec;
+    const bang = spec.indexOf('!');
+    if (bang >= 0) { sheetName = spec.slice(0, bang).replace(/^'|'$/g, ''); rangeStr = spec.slice(bang + 1); }
+    const sheet = sheetName ? sheets.find((s: any) => (s.name || '') === sheetName) : (sheets[activeIndex()] ?? sheets[0]);
+    if (!sheet) return null;
+    const rng = parseRange(rangeStr);
+    if (!rng) return null;
+    const map = new Map<string, any>((sheet.celldata ?? []).map((cd: any) => [`${cd.r}_${cd.c}`, cd]));
+    const grid: any[][] = [];
+    for (let r = rng.r1; r <= rng.r2; r++) {
+      const row: any[] = [];
+      for (let c = rng.c1; c <= rng.c2; c++) { const cd = map.get(`${r}_${c}`); const raw = cd?.v && typeof cd.v === 'object' ? (cd.v.v ?? cd.v.m) : cd?.v; row.push(raw ?? ''); }
+      grid.push(row);
+    }
+    return grid;
+  }
+  function doConsolidate(p: ConsolidatePayload): { ok: boolean; text: string } {
+    const sheets = clone(sheetsRef.current);
+    const specs = p.ranges.split(/[\n;]+/).map((s) => s.trim()).filter(Boolean);
+    const tables: any[][][] = [];
+    for (const spec of specs) { const g = readRangeGrid(sheets, spec); if (!g) return { ok: false, text: `Rango inválido: ${spec}` }; tables.push(g); }
+    const result = p.mode === 'category' ? consolidateByCategory(tables, p.agg) : consolidateByPosition(tables, p.agg);
+    if (!result.length) return { ok: false, text: 'No hay datos para consolidar.' };
+    const cd: any[] = [];
+    result.forEach((row, r) => row.forEach((v, c) => { if (v !== '' && v != null) cd.push({ r, c, v: { v, m: String(v), ...(r === 0 || (p.mode === 'category' && c === 0) ? { bl: 1 } : {}) } }); }));
+    const n = sheets.filter((s: any) => /Consolidado/.test(s?.name ?? '')).length + 1;
+    pushResultSheet(sheets, `Consolidado ${n}`, cd, result.length + 3, (result[0]?.length ?? 4) + 3);
+    remount(sheets);
+    return { ok: true, text: `Consolidado de ${tables.length} rango(s) en «Consolidado ${n}».` };
+  }
+
   // Solver: optimiza una celda objetivo cambiando varias variables (con restricciones >=/<=).
   function doSolve(p: SolverPayload): { ok: boolean; text: string } {
     const sheets = clone(sheetsRef.current);
@@ -563,6 +599,7 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
               <RibbonButton icon={Filter} label="Filtrar a hoja" onClick={() => setDataMode('filter')} />
               <RibbonButton icon={CopyMinus} label="Quitar duplicados" onClick={() => setDataMode('dedup')} />
               <RibbonButton icon={Columns3} label="Texto en columnas" onClick={() => setDataMode('split')} />
+              <RibbonButton icon={Combine} label="Consolidar" onClick={() => setShowConsolidate(true)} />
             </RibbonGroup>
             <RibbonSeparator />
             <RibbonGroup label="Esquema">
@@ -688,6 +725,9 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
         )}
         {showSolver && (
           <SheetSolver defaultObjective={selectionRange().split(':')[0]} onApply={doSolve} onClose={() => setShowSolver(false)} />
+        )}
+        {showConsolidate && (
+          <SheetConsolidate onApply={doConsolidate} onClose={() => setShowConsolidate(false)} />
         )}
         {showPivot && (
           <SheetPivot
