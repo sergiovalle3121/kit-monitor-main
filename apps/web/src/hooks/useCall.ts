@@ -8,23 +8,30 @@ import {
   mediaConstraints,
   newCallId,
 } from '@/lib/chat/webrtc';
+import { chatApi } from '@/lib/chatApi';
 
 export type CallStatus =
   | 'ringing-out' // yo llamo, esperando que contesten
   | 'ringing-in' // me llaman, esperando que yo conteste
   | 'connecting' // aceptada, negociando WebRTC
-  | 'active' // media conectado
-  | 'ended'; // terminó (se desmonta solo)
+  | 'active' // ≥1 par conectado
+  | 'ended';
 
 export interface CallState {
   callId: string;
   conversationId: string;
-  peerUserId: string;
   media: CallMedia;
   role: 'caller' | 'callee';
   status: CallStatus;
-  /** Motivo del fin, para el mensaje final (rechazada, terminada, error…). */
+  /** Quién inició la llamada (para la tarjeta de entrante). */
+  initiatorId?: string;
   endReason?: string;
+}
+
+/** Par remoto con su stream (para la rejilla de la llamada en grupo). */
+export interface RemotePeer {
+  userId: string;
+  stream: MediaStream;
 }
 
 interface SignalPayload {
@@ -32,14 +39,20 @@ interface SignalPayload {
   fromUserId?: string;
   conversationId?: string;
   media?: CallMedia;
+  participants?: string[];
+  userId?: string;
   data?: { sdp?: RTCSessionDescriptionInit; candidate?: RTCIceCandidateInit };
 }
 
+const RING_TIMEOUT_MS = 45000; // auto-cuelga si nadie contesta
+
 /**
- * Orquesta llamadas 1:1 WebRTC sobre el socket del chat. El servidor solo
- * retransmite la señalización (offer/answer/ICE + ciclo de vida). Toda la
- * lógica de medios vive aquí. Se apoya en refs para que los handlers del socket
- * lean siempre el estado más reciente (sin closures obsoletos).
+ * Orquesta llamadas WebRTC en MALLA (1:N) sobre el socket del chat. Cada par
+ * tiene su propia RTCPeerConnection. El servidor lleva la sala (participantes) y
+ * solo retransmite señalización. Regla anti-glare: los participantes EXISTENTES
+ * ofertan al recién llegado; el recién llegado solo responde.
+ *
+ * El INICIADOR registra el historial de la llamada (mensaje `call`) al terminar.
  */
 export function useCall({
   socket,
@@ -50,15 +63,20 @@ export function useCall({
 }) {
   const [call, setCall] = useState<CallState | null>(null);
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
-  const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
+  const [remotes, setRemotes] = useState<RemotePeer[]>([]);
   const [micOn, setMicOn] = useState(true);
   const [camOn, setCamOn] = useState(true);
 
-  const pcRef = useRef<RTCPeerConnection | null>(null);
+  const pcsRef = useRef<Map<string, RTCPeerConnection>>(new Map());
+  const pendingRef = useRef<Map<string, RTCIceCandidateInit[]>>(new Map());
+  const remoteSetRef = useRef<Set<string>>(new Set());
   const localStreamRef = useRef<MediaStream | null>(null);
   const callRef = useRef<CallState | null>(null);
-  const pendingCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
-  const remoteSetRef = useRef(false);
+  const wasActiveRef = useRef(false);
+  const activeSinceRef = useRef(0);
+  const declinedRef = useRef(false);
+  const postedRef = useRef(false);
+  const ringTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     callRef.current = call;
@@ -71,158 +89,200 @@ export function useCall({
     [socket],
   );
 
-  // Limpia medios y conexión. `reason` se conserva para la pantalla final.
-  const cleanup = useCallback((reason?: string) => {
-    pcRef.current?.getSenders().forEach((s) => s.track?.stop());
-    try {
-      pcRef.current?.close();
-    } catch {
-      /* noop */
+  const setRemoteFor = useCallback((userId: string, stream: MediaStream) => {
+    setRemotes((prev) => {
+      const others = prev.filter((p) => p.userId !== userId);
+      return [...others, { userId, stream }];
+    });
+  }, []);
+
+  const dropPeer = useCallback((userId: string) => {
+    const pc = pcsRef.current.get(userId);
+    if (pc) {
+      try {
+        pc.close();
+      } catch {
+        /* noop */
+      }
+      pcsRef.current.delete(userId);
     }
-    pcRef.current = null;
+    pendingRef.current.delete(userId);
+    remoteSetRef.current.delete(userId);
+    setRemotes((prev) => prev.filter((p) => p.userId !== userId));
+  }, []);
+
+  // Registra el historial (solo el iniciador) y limpia todo.
+  const cleanup = useCallback((reason?: string) => {
+    if (ringTimerRef.current) {
+      clearTimeout(ringTimerRef.current);
+      ringTimerRef.current = null;
+    }
+    const c = callRef.current;
+    if (c && c.role === 'caller' && !postedRef.current) {
+      postedRef.current = true;
+      const status = wasActiveRef.current
+        ? 'completed'
+        : declinedRef.current
+          ? 'declined'
+          : 'missed';
+      const durationSec =
+        wasActiveRef.current && activeSinceRef.current
+          ? Math.round((Date.now() - activeSinceRef.current) / 1000)
+          : 0;
+      chatApi
+        .sendCallLog(c.conversationId, { media: c.media, status, durationSec })
+        .catch(() => {});
+    }
+    for (const pc of pcsRef.current.values()) {
+      try {
+        pc.close();
+      } catch {
+        /* noop */
+      }
+    }
+    pcsRef.current.clear();
+    pendingRef.current.clear();
+    remoteSetRef.current.clear();
     localStreamRef.current?.getTracks().forEach((t) => t.stop());
     localStreamRef.current = null;
-    pendingCandidatesRef.current = [];
-    remoteSetRef.current = false;
     setLocalStream(null);
-    setRemoteStream(null);
+    setRemotes([]);
     setMicOn(true);
     setCamOn(true);
-    setCall((prev) =>
-      prev ? { ...prev, status: 'ended', endReason: reason } : null,
-    );
-    // Desmonta el overlay tras un instante para mostrar el estado final.
+    setCall((prev) => (prev ? { ...prev, status: 'ended', endReason: reason } : null));
     window.setTimeout(() => {
       setCall((prev) => (prev?.status === 'ended' ? null : prev));
     }, 1500);
   }, []);
 
-  // Crea la conexión WebRTC y cablea ICE + tracks remotos.
-  const createPeer = useCallback(
-    (callId: string, conversationId: string, peerUserId: string) => {
+  const markActive = useCallback(() => {
+    if (!wasActiveRef.current) {
+      wasActiveRef.current = true;
+      activeSinceRef.current = Date.now();
+    }
+    setCall((prev) => (prev ? { ...prev, status: 'active' } : prev));
+  }, []);
+
+  // Pide cámara/micrófono una sola vez.
+  const ensureLocalMedia = useCallback(async (media: CallMedia) => {
+    if (localStreamRef.current) return localStreamRef.current;
+    const stream = await navigator.mediaDevices.getUserMedia(
+      mediaConstraints(media),
+    );
+    localStreamRef.current = stream;
+    setLocalStream(stream);
+    setMicOn(true);
+    setCamOn(media === 'video');
+    return stream;
+  }, []);
+
+  // Crea (o reutiliza) la conexión hacia un par y le añade mis pistas.
+  const getOrCreatePc = useCallback(
+    (peerUserId: string) => {
+      const existing = pcsRef.current.get(peerUserId);
+      if (existing) return existing;
+      const c = callRef.current;
       const pc = new RTCPeerConnection({ iceServers: getIceServers() });
       pc.onicecandidate = (e) => {
-        if (e.candidate) {
+        if (e.candidate && c) {
           emit('call:signal', {
-            conversationId,
-            callId,
+            conversationId: c.conversationId,
+            callId: c.callId,
             toUserId: peerUserId,
             data: { candidate: e.candidate.toJSON() },
           });
         }
       };
       pc.ontrack = (e) => {
-        setRemoteStream(e.streams[0] ?? null);
+        if (e.streams[0]) setRemoteFor(peerUserId, e.streams[0]);
       };
       pc.onconnectionstatechange = () => {
         const st = pc.connectionState;
-        if (st === 'connected') {
-          setCall((prev) => (prev ? { ...prev, status: 'active' } : prev));
-        } else if (st === 'failed') {
-          cleanup('Conexión perdida');
-        }
+        if (st === 'connected') markActive();
+        else if (st === 'failed' || st === 'closed') dropPeer(peerUserId);
       };
-      pcRef.current = pc;
+      const local = localStreamRef.current;
+      if (local) local.getTracks().forEach((t) => pc.addTrack(t, local));
+      pcsRef.current.set(peerUserId, pc);
       return pc;
     },
-    [emit, cleanup],
+    [emit, setRemoteFor, markActive, dropPeer],
   );
 
-  // Pide cámara/micrófono y agrega las pistas a la conexión.
-  const attachLocalMedia = useCallback(
-    async (pc: RTCPeerConnection, media: CallMedia) => {
-      const stream = await navigator.mediaDevices.getUserMedia(
-        mediaConstraints(media),
-      );
-      localStreamRef.current = stream;
-      setLocalStream(stream);
-      setMicOn(true);
-      setCamOn(media === 'video');
-      stream.getTracks().forEach((t) => pc.addTrack(t, stream));
-      return stream;
-    },
-    [],
-  );
-
-  const drainCandidates = useCallback(async () => {
-    const pc = pcRef.current;
-    if (!pc) return;
-    for (const c of pendingCandidatesRef.current) {
+  const drainCandidates = useCallback(async (userId: string) => {
+    const pc = pcsRef.current.get(userId);
+    const queued = pendingRef.current.get(userId);
+    if (!pc || !queued) return;
+    for (const cand of queued) {
       try {
-        await pc.addIceCandidate(c);
+        await pc.addIceCandidate(cand);
       } catch {
-        /* candidato inválido: ignorar */
+        /* candidato inválido */
       }
     }
-    pendingCandidatesRef.current = [];
+    pendingRef.current.delete(userId);
   }, []);
 
   // ── API pública ────────────────────────────────────────────────────────────
 
   const startCall = useCallback(
-    async (conversationId: string, peerUserId: string, media: CallMedia) => {
+    async (conversationId: string, media: CallMedia) => {
       if (callRef.current || !socket) return;
       const callId = newCallId();
-      const next: CallState = {
+      wasActiveRef.current = false;
+      declinedRef.current = false;
+      postedRef.current = false;
+      setCall({
         callId,
         conversationId,
-        peerUserId,
         media,
         role: 'caller',
         status: 'ringing-out',
-      };
-      setCall(next);
+        initiatorId: meId,
+      });
       try {
-        const pc = createPeer(callId, conversationId, peerUserId);
-        await attachLocalMedia(pc, media);
+        await ensureLocalMedia(media);
         emit('call:invite', { conversationId, callId, media });
+        ringTimerRef.current = setTimeout(() => {
+          if (!wasActiveRef.current) {
+            emit('call:cancel', { conversationId, callId });
+            cleanup('Sin respuesta');
+          }
+        }, RING_TIMEOUT_MS);
       } catch {
         cleanup('No se pudo acceder a la cámara/micrófono');
       }
     },
-    [socket, createPeer, attachLocalMedia, emit, cleanup],
+    [socket, meId, ensureLocalMedia, emit, cleanup],
   );
 
   const acceptCall = useCallback(async () => {
     const c = callRef.current;
     if (!c || c.role !== 'callee' || c.status !== 'ringing-in') return;
     try {
-      const pc = createPeer(c.callId, c.conversationId, c.peerUserId);
-      await attachLocalMedia(pc, c.media);
+      await ensureLocalMedia(c.media);
       setCall((prev) => (prev ? { ...prev, status: 'connecting' } : prev));
-      emit('call:accept', {
-        conversationId: c.conversationId,
-        callId: c.callId,
-        toUserId: c.peerUserId,
-      });
+      emit('call:join', { conversationId: c.conversationId, callId: c.callId });
     } catch {
-      emit('call:reject', {
-        conversationId: c.conversationId,
-        callId: c.callId,
-        toUserId: c.peerUserId,
-      });
+      emit('call:reject', { conversationId: c.conversationId, callId: c.callId });
       cleanup('No se pudo acceder a la cámara/micrófono');
     }
-  }, [createPeer, attachLocalMedia, emit, cleanup]);
+  }, [ensureLocalMedia, emit, cleanup]);
 
   const rejectCall = useCallback(() => {
     const c = callRef.current;
     if (!c) return;
-    emit('call:reject', {
-      conversationId: c.conversationId,
-      callId: c.callId,
-      toUserId: c.peerUserId,
-    });
+    emit('call:reject', { conversationId: c.conversationId, callId: c.callId });
     cleanup('Llamada rechazada');
   }, [emit, cleanup]);
 
   const hangup = useCallback(() => {
     const c = callRef.current;
     if (!c) return;
-    if (c.status === 'ringing-out') {
+    if (c.role === 'caller' && c.status === 'ringing-out') {
       emit('call:cancel', { conversationId: c.conversationId, callId: c.callId });
     } else {
-      emit('call:end', { conversationId: c.conversationId, callId: c.callId });
+      emit('call:leave', { callId: c.callId });
     }
     cleanup('Llamada finalizada');
   }, [emit, cleanup]);
@@ -251,119 +311,149 @@ export function useCall({
 
     const onIncoming = (p: SignalPayload) => {
       if (!p.callId || !p.fromUserId || !p.conversationId) return;
-      // Ya estoy en una llamada → rechazo automático (ocupado).
       if (callRef.current) {
         socket.emit('call:reject', {
           conversationId: p.conversationId,
           callId: p.callId,
-          toUserId: p.fromUserId,
         });
         return;
       }
+      wasActiveRef.current = false;
+      declinedRef.current = false;
+      postedRef.current = false;
       setCall({
         callId: p.callId,
         conversationId: p.conversationId,
-        peerUserId: p.fromUserId,
         media: p.media === 'video' ? 'video' : 'audio',
         role: 'callee',
         status: 'ringing-in',
+        initiatorId: p.fromUserId,
       });
     };
 
-    const onAccepted = async (p: SignalPayload) => {
+    // Soy el recién llegado: me dan la lista (los existentes me ofertan).
+    const onParticipants = (p: SignalPayload) => {
       const c = callRef.current;
-      if (!c || c.callId !== p.callId || c.role !== 'caller') return;
+      if (!c || c.callId !== p.callId) return;
       setCall((prev) => (prev ? { ...prev, status: 'connecting' } : prev));
-      const pc = pcRef.current;
-      if (!pc) return;
+    };
+
+    // Existe un nuevo par y YO ya estaba dentro → le hago la oferta.
+    const onPeerJoined = async (p: SignalPayload) => {
+      const c = callRef.current;
+      if (!c || c.callId !== p.callId || !p.userId) return;
+      // Alguien contestó → ya no es "sin respuesta".
+      if (ringTimerRef.current) {
+        clearTimeout(ringTimerRef.current);
+        ringTimerRef.current = null;
+      }
+      setCall((prev) =>
+        prev && prev.status === 'ringing-out'
+          ? { ...prev, status: 'connecting' }
+          : prev,
+      );
+      const pc = getOrCreatePc(p.userId);
       try {
         const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
         socket.emit('call:signal', {
           conversationId: c.conversationId,
           callId: c.callId,
-          toUserId: c.peerUserId,
+          toUserId: p.userId,
           data: { sdp: pc.localDescription },
         });
       } catch {
-        cleanup('Error al iniciar la llamada');
+        /* reintento por renegociación si aplica */
+      }
+    };
+
+    const onPeerLeft = (p: SignalPayload) => {
+      const c = callRef.current;
+      if (!c || c.callId !== p.callId || !p.userId) return;
+      dropPeer(p.userId);
+      // Si ya no queda nadie y la llamada estaba en curso, termina.
+      if (pcsRef.current.size === 0 && (wasActiveRef.current || c.status === 'connecting')) {
+        cleanup('Llamada finalizada');
       }
     };
 
     const onSignal = async (p: SignalPayload) => {
       const c = callRef.current;
-      const pc = pcRef.current;
-      if (!c || !pc || c.callId !== p.callId) return;
-      const data = p.data;
-      if (!data) return;
+      if (!c || c.callId !== p.callId || !p.fromUserId || !p.data) return;
+      const peer = p.fromUserId;
+      const pc = getOrCreatePc(peer);
       try {
-        if (data.sdp) {
-          if (data.sdp.type === 'offer') {
-            await pc.setRemoteDescription(data.sdp);
-            remoteSetRef.current = true;
-            await drainCandidates();
+        if (p.data.sdp) {
+          if (p.data.sdp.type === 'offer') {
+            await pc.setRemoteDescription(p.data.sdp);
+            remoteSetRef.current.add(peer);
+            await drainCandidates(peer);
             const answer = await pc.createAnswer();
             await pc.setLocalDescription(answer);
             socket.emit('call:signal', {
               conversationId: c.conversationId,
               callId: c.callId,
-              toUserId: c.peerUserId,
+              toUserId: peer,
               data: { sdp: pc.localDescription },
             });
-          } else if (data.sdp.type === 'answer') {
-            await pc.setRemoteDescription(data.sdp);
-            remoteSetRef.current = true;
-            await drainCandidates();
+          } else if (p.data.sdp.type === 'answer') {
+            await pc.setRemoteDescription(p.data.sdp);
+            remoteSetRef.current.add(peer);
+            await drainCandidates(peer);
           }
-        } else if (data.candidate) {
-          if (remoteSetRef.current) {
-            await pc.addIceCandidate(data.candidate);
+        } else if (p.data.candidate) {
+          if (remoteSetRef.current.has(peer)) {
+            await pc.addIceCandidate(p.data.candidate);
           } else {
-            pendingCandidatesRef.current.push(data.candidate);
+            const q = pendingRef.current.get(peer) ?? [];
+            q.push(p.data.candidate);
+            pendingRef.current.set(peer, q);
           }
         }
       } catch {
-        /* señal inválida/orden inesperado: tolerar */
+        /* señal fuera de orden: tolerar */
       }
     };
 
     const onRejected = (p: SignalPayload) => {
       const c = callRef.current;
-      if (!c || c.callId !== p.callId) return;
-      cleanup('Llamada rechazada');
+      if (!c || c.callId !== p.callId || c.role !== 'caller') return;
+      // En 1:1 (nadie conectado) termina como "rechazada"; en grupo, informativo.
+      if (pcsRef.current.size === 0 && !wasActiveRef.current) {
+        declinedRef.current = true;
+        cleanup('Llamada rechazada');
+      }
     };
+
     const onCanceled = (p: SignalPayload) => {
       const c = callRef.current;
       if (!c || c.callId !== p.callId) return;
       cleanup('Llamada cancelada');
     };
-    const onEnded = (p: SignalPayload) => {
-      const c = callRef.current;
-      if (!c || c.callId !== p.callId) return;
-      cleanup('Llamada finalizada');
-    };
 
     socket.on('call:incoming', onIncoming);
-    socket.on('call:accepted', onAccepted);
+    socket.on('call:participants', onParticipants);
+    socket.on('call:peer-joined', onPeerJoined);
+    socket.on('call:peer-left', onPeerLeft);
     socket.on('call:signal', onSignal);
     socket.on('call:rejected', onRejected);
     socket.on('call:canceled', onCanceled);
-    socket.on('call:ended', onEnded);
 
     return () => {
       socket.off('call:incoming', onIncoming);
-      socket.off('call:accepted', onAccepted);
+      socket.off('call:participants', onParticipants);
+      socket.off('call:peer-joined', onPeerJoined);
+      socket.off('call:peer-left', onPeerLeft);
       socket.off('call:signal', onSignal);
       socket.off('call:rejected', onRejected);
       socket.off('call:canceled', onCanceled);
-      socket.off('call:ended', onEnded);
     };
-  }, [socket, drainCandidates, cleanup]);
+  }, [socket, getOrCreatePc, drainCandidates, dropPeer, cleanup]);
 
-  // Al desmontar: corta medios (no emite; el otro lado lo detecta por ICE).
+  // Al desmontar: corta medios (sin emitir; el otro lado lo detecta por ICE).
   useEffect(() => {
     return () => {
-      pcRef.current?.close();
+      for (const pc of pcsRef.current.values()) pc.close();
       localStreamRef.current?.getTracks().forEach((t) => t.stop());
     };
   }, []);
@@ -371,7 +461,7 @@ export function useCall({
   return {
     call,
     localStream,
-    remoteStream,
+    remotes,
     micOn,
     camOn,
     startCall,

@@ -9,7 +9,7 @@ import {
 } from 'typeorm';
 import { Conversation } from './conversation.entity';
 
-export type MessageType = 'text' | 'image' | 'file';
+export type MessageType = 'text' | 'image' | 'file' | 'call';
 
 @Entity('messages')
 export class Message {

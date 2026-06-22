@@ -5,6 +5,7 @@ import { Search, Smile, Sticker, Clock } from 'lucide-react';
 import { glass } from '@/lib/glass';
 import { EMOJI_CATEGORIES, searchEmojis } from '@/lib/chat/emojis';
 import { STICKER_PACKS } from '@/lib/chat/stickers';
+import { IMAGE_STICKERS, stickerToken } from '@/lib/chat/stickerImages';
 
 const RECENTS_KEY = 'axos_chat_emoji_recents';
 
@@ -157,8 +158,23 @@ export function EmojiStickerPicker({
         </>
       ) : (
         <>
-          {/* Stickers del pack activo */}
+          {/* Stickers ilustrados + pack de emoji activo */}
           <div className="min-h-0 flex-1 overflow-y-auto p-2">
+            <CategoryLabel text="Ilustrados" />
+            <div className="mb-2 grid grid-cols-3 gap-2">
+              {IMAGE_STICKERS.map((s) => (
+                <button
+                  key={s.id}
+                  onClick={() => onPickSticker(stickerToken(s.id))}
+                  className="aspect-square rounded-2xl p-1 transition-transform hover:scale-105 hover:bg-black/5 dark:hover:bg-white/10"
+                  title={`Enviar sticker: ${s.label}`}
+                  aria-label={`Sticker ${s.label}`}
+                >
+                  {s.node}
+                </button>
+              ))}
+            </div>
+            <CategoryLabel text="Emoji" />
             <div className="grid grid-cols-3 gap-2">
               {activePack.stickers.map((s, i) => (
                 <button

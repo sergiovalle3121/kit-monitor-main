@@ -477,6 +477,40 @@ export class MessagingService {
     };
   }
 
+  // ── registro de llamada (historial / perdidas) ───────────────────────────
+  /**
+   * Crea un mensaje de tipo `call` con el resultado de una llamada. El cuerpo es
+   * JSON `{ media, status, durationSec }`. Lo publica el INICIADOR de la llamada
+   * (una sola fuente), y aparece en el hilo para todos los miembros.
+   */
+  async sendCallLog(
+    meId: string,
+    conversationId: string,
+    payload: { media?: string; status?: string; durationSec?: number },
+  ) {
+    await this.assertMember(conversationId, meId);
+    const media = payload?.media === 'video' ? 'video' : 'audio';
+    const allowed = ['completed', 'missed', 'declined', 'canceled'];
+    const status = allowed.includes(payload?.status ?? '')
+      ? (payload!.status as string)
+      : 'completed';
+    const durationSec = Math.max(
+      0,
+      Math.min(86400, Math.floor(Number(payload?.durationSec) || 0)),
+    );
+    const body = JSON.stringify({ media, status, durationSec });
+    const msg = await this.messages.save(
+      this.messages.create({
+        conversationId,
+        senderId: meId,
+        type: 'call',
+        body,
+      }),
+    );
+    await this.touchAndBroadcast(conversationId, msg);
+    return this.toDto(msg);
+  }
+
   // ── reacciones (toggle) ──────────────────────────────────────────────────
   async toggleReaction(meId: string, messageId: string, emojiRaw: string) {
     const emoji = (emojiRaw ?? '').trim();
