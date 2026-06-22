@@ -13,6 +13,7 @@ import { ErpSdService } from '../erp-core/services/erp-sd.service';
 import { ErpPpService } from '../erp-core/services/erp-pp.service';
 import { EventLedgerService } from '../event-ledger/event-ledger.service';
 import { SemanticService } from '../semantic/semantic.service';
+import { AnalyticsService } from '../analytics/analytics.service';
 import { CideToolSpec } from './cide-provider';
 
 /** JSON-Schema shape for a tool input (OpenAI/Anthropic-compatible). */
@@ -315,6 +316,51 @@ export class AiToolsService {
             tenantOf(ctx),
           );
         },
+      },
+      {
+        name: 'analyze_trend',
+        description:
+          'Tendencia de actividad en el tiempo a partir del Event Ledger: serie diaria de eventos, variación semana-contra-semana y una narrativa. Úsalo para preguntas de evolución/tendencia ("¿cómo ha ido…?", "¿subió o bajó…?"). Filtros: days (1–90, default 14), domain.',
+        requiredPermission: null,
+        mockTriggers: [
+          'tendencia',
+          'evolución',
+          'evolucion',
+          'cómo ha ido',
+          'como ha ido',
+          'subió',
+          'subio',
+          'bajó',
+          'bajo',
+          'últimos días',
+          'ultimos dias',
+          'semana',
+        ],
+        input_schema: schema({
+          days: {
+            type: 'number',
+            description: 'Días hacia atrás (1–90, default 14)',
+          },
+          domain: {
+            type: 'string',
+            description:
+              'Dominio del evento: MATERIALS, PLANNING, PRODUCTION, ENGINEERING, QUALITY, SHIPPING o SYSTEM.',
+            enum: [
+              'MATERIALS',
+              'PLANNING',
+              'PRODUCTION',
+              'ENGINEERING',
+              'QUALITY',
+              'SHIPPING',
+              'SYSTEM',
+            ],
+          },
+        }),
+        run: (i) =>
+          this.svc(AnalyticsService).ledgerTrend({
+            days: typeof i.days === 'number' ? i.days : undefined,
+            domain: str(i.domain),
+          }),
       },
       {
         name: 'list_inventory',

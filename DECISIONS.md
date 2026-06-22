@@ -466,4 +466,35 @@ smoke de bootstrap (Postgres efímero) materializa las tablas `sem_*` en CI.
 generada; *drill-down* por objeto; *what-if*/simulación ligados a
 `decision-intelligence` + `autopilot`; editor de ontología en la UI.
 
+## 19. Analítica conversacional + dashboard visual (Fase 3 CIDE)
+
+**Contexto.** Con la capa semántica (§18) ya había métricas y ontología, pero CIDE
+solo devolvía texto y el Centro de Inteligencia no mostraba *evolución*. Para el
+salto tipo Palantir/MicroStrategy faltaba **analítica en el tiempo, visual y
+narrada**, compartida entre la UI y la IA.
+
+**Decisión.** Nuevo módulo `analytics` (aditivo, read-only, **sin entidades
+nuevas** — compone datos existentes):
+- `EventLedgerService.dailyActivity()` — serie diaria de eventos (buckets
+  zero-padded; agregación en JS para ser portable sqlite/PG).
+- `AnalyticsService` — `ledgerTrend` (serie + variación semana-contra-semana +
+  **narrativa determinista**, no-LLM, para que UI y chat lean igual) y
+  `domainBreakdown` (actividad por dominio + narrativa). Endpoints
+  `/api/analytics/ledger-trend` y `/api/analytics/domain-breakdown` (JWT,
+  agregado → cualquier usuario).
+- **CIDE conectado:** nueva herramienta read-only `analyze_trend` para responder
+  preguntas de evolución ("¿subió o bajó…?") con datos reales y narrarlos.
+- **Visible en la app:** el Centro de Inteligencia (`/dashboard/intelligence`)
+  gana una sección **"Pulso operacional"** con narrativa + **gráficas Recharts**
+  (área de tendencia diaria + barras por dominio). Tooltip propio en Tailwind
+  para legibilidad en modo oscuro (lección §"recharts dark").
+
+**Verificación:** build API ✓, build web ✓, lint web (0 errores) ✓, **697/697**
+tests ✓. Sin tablas nuevas → el smoke de bootstrap no cambia de superficie.
+
+**Pendiente (Fase 4):** *drill-down* navegable por objeto de la ontología;
+*what-if*/simulación ligados a `decision-intelligence` + `autopilot`; narrativa
+generada por CIDE embebida como tarjetas en el chat; editor de métricas/ontología
+en la UI.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->

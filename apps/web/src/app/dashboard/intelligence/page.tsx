@@ -11,7 +11,23 @@ import {
   Lock,
   Loader2,
   Sparkles,
+  Activity,
+  TrendingUp,
+  TrendingDown,
+  Minus,
 } from 'lucide-react';
+import {
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Cell,
+} from 'recharts';
 import { glass } from '@/lib/glass';
 
 interface MetricDef {
@@ -53,6 +69,34 @@ interface MetricValue {
   definitionOnly: boolean;
   error?: string;
 }
+interface Trend {
+  series: { date: string; count: number }[];
+  total: number;
+  window: { days: number };
+  recent7: number;
+  prior7: number;
+  deltaPct: number | null;
+  narrative: string;
+}
+interface Breakdown {
+  buckets: { domain: string; count: number }[];
+  total: number;
+  window: { sinceHours: number };
+  narrative: string;
+}
+
+const DOMAIN_COLOR: Record<string, string> = {
+  MATERIALS: '#14b8a6',
+  PRODUCTION: '#f97316',
+  QUALITY: '#10b981',
+  FINANCE: '#f59e0b',
+  SALES: '#ec4899',
+  PLANNING: '#6366f1',
+  SHIPPING: '#0ea5e9',
+  SYSTEM: '#64748b',
+  ENGINEERING: '#8b5cf6',
+};
+const domainColor = (d: string) => DOMAIN_COLOR[d] || '#7c5cff';
 
 function fmtValue(v: number | null, unit: string | null): string {
   if (v === null || v === undefined) return '—';
@@ -83,20 +127,28 @@ const tint = (d: string | null) =>
 export default function IntelligencePage() {
   const [catalog, setCatalog] = useState<Catalog | null>(null);
   const [values, setValues] = useState<Record<string, MetricValue>>({});
+  const [trend, setTrend] = useState<Trend | null>(null);
+  const [breakdown, setBreakdown] = useState<Breakdown | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function load() {
       try {
-        const [c, v] = await Promise.all([
+        const [c, v, t, b] = await Promise.all([
           fetch('/api/semantic/catalog', { cache: 'no-store' }),
           fetch('/api/semantic/values', { cache: 'no-store' }),
+          fetch('/api/analytics/ledger-trend?days=14', { cache: 'no-store' }),
+          fetch('/api/analytics/domain-breakdown?sinceHours=168', {
+            cache: 'no-store',
+          }),
         ]);
         if (c.ok) setCatalog(await c.json());
         if (v.ok) {
           const rows: MetricValue[] = await v.json();
           setValues(Object.fromEntries(rows.map((r) => [r.key, r])));
         }
+        if (t.ok) setTrend(await t.json());
+        if (b.ok) setBreakdown(await b.json());
       } finally {
         setLoading(false);
       }
@@ -137,7 +189,7 @@ export default function IntelligencePage() {
         <div>
           <h1 className="text-xl font-semibold">Centro de Inteligencia</h1>
           <p className="text-sm text-black/55 dark:text-white/55">
-            Capa semántica · catálogo de métricas y ontología del negocio
+            Analítica · catálogo de métricas · ontología del negocio
           </p>
         </div>
       </div>
@@ -150,6 +202,121 @@ export default function IntelligencePage() {
           para responder con cifras gobernadas y consistentes.
         </p>
       </div>
+
+      {/* ── Pulso operacional (analítica) ── */}
+      {(trend || breakdown) && (
+        <section className="mb-8">
+          <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold">
+            <Activity className="h-4 w-4 text-violet-500" /> Pulso operacional
+            <span className="text-black/40 dark:text-white/40">
+              · analítica del Event Ledger
+            </span>
+          </h2>
+
+          <div className="mb-3 grid gap-3 sm:grid-cols-2">
+            {trend && <NarrativeCard text={trend.narrative} delta={trend.deltaPct} />}
+            {breakdown && <NarrativeCard text={breakdown.narrative} />}
+          </div>
+
+          <div className="grid gap-3 lg:grid-cols-2">
+            {trend && (
+              <div className={`${glass} rounded-2xl p-4`}>
+                <p className="mb-2 text-xs font-medium text-black/55 dark:text-white/55">
+                  Eventos por día · últimos {trend.window.days} días
+                </p>
+                <div className="h-44">
+                  <ResponsiveContainer>
+                    <AreaChart
+                      data={trend.series}
+                      margin={{ top: 6, right: 8, left: -18, bottom: 0 }}
+                    >
+                      <defs>
+                        <linearGradient id="cideTrend" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#7c5cff" stopOpacity={0.4} />
+                          <stop offset="100%" stopColor="#7c5cff" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid
+                        strokeDasharray="3 3"
+                        stroke="rgba(120,120,120,0.15)"
+                        vertical={false}
+                      />
+                      <XAxis
+                        dataKey="date"
+                        tickFormatter={shortDate}
+                        tick={{ fontSize: 10, fill: 'rgba(120,120,120,0.85)' }}
+                        tickLine={false}
+                        axisLine={false}
+                        minTickGap={20}
+                      />
+                      <YAxis
+                        tick={{ fontSize: 10, fill: 'rgba(120,120,120,0.85)' }}
+                        tickLine={false}
+                        axisLine={false}
+                        allowDecimals={false}
+                        width={28}
+                      />
+                      <Tooltip content={<ChartTooltip labelFormatter={shortDate} />} />
+                      <Area
+                        type="monotone"
+                        dataKey="count"
+                        stroke="#7c5cff"
+                        strokeWidth={2}
+                        fill="url(#cideTrend)"
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            )}
+
+            {breakdown && breakdown.buckets.length > 0 && (
+              <div className={`${glass} rounded-2xl p-4`}>
+                <p className="mb-2 text-xs font-medium text-black/55 dark:text-white/55">
+                  Actividad por dominio · últimos 7 días
+                </p>
+                <div className="h-44">
+                  <ResponsiveContainer>
+                    <BarChart
+                      data={breakdown.buckets}
+                      margin={{ top: 6, right: 8, left: -18, bottom: 0 }}
+                    >
+                      <CartesianGrid
+                        strokeDasharray="3 3"
+                        stroke="rgba(120,120,120,0.15)"
+                        vertical={false}
+                      />
+                      <XAxis
+                        dataKey="domain"
+                        tick={{ fontSize: 9, fill: 'rgba(120,120,120,0.85)' }}
+                        tickLine={false}
+                        axisLine={false}
+                        interval={0}
+                        angle={-20}
+                        textAnchor="end"
+                        height={44}
+                      />
+                      <YAxis
+                        tick={{ fontSize: 10, fill: 'rgba(120,120,120,0.85)' }}
+                        tickLine={false}
+                        axisLine={false}
+                        allowDecimals={false}
+                        width={28}
+                      />
+                      <Tooltip content={<ChartTooltip />} />
+                      <Bar dataKey="count" radius={[4, 4, 0, 0]}>
+                        {breakdown.buckets.map((b) => (
+                          <Cell key={b.domain} fill={domainColor(b.domain)} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
 
       {/* ── Métricas ── */}
       <section className="mb-8">
@@ -259,6 +426,53 @@ export default function IntelligencePage() {
           ))}
         </div>
       </section>
+    </div>
+  );
+}
+
+/** YYYY-MM-DD → DD/MM for compact axis labels. */
+function shortDate(d: string): string {
+  const parts = d.split('-');
+  return parts.length === 3 ? `${parts[2]}/${parts[1]}` : d;
+}
+
+interface TooltipProps {
+  active?: boolean;
+  label?: string | number;
+  payload?: { value: number | string }[];
+  labelFormatter?: (label: string) => string;
+}
+
+/** Tailwind-styled chart tooltip (readable in light and dark mode). */
+function ChartTooltip({ active, payload, label, labelFormatter }: TooltipProps) {
+  if (!active || !payload || payload.length === 0) return null;
+  const rawLabel = label === undefined ? '' : String(label);
+  return (
+    <div className="rounded-lg border border-black/10 bg-white/95 px-2.5 py-1.5 text-xs shadow-lg dark:border-white/10 dark:bg-zinc-900/95">
+      <p className="font-medium">
+        {labelFormatter ? labelFormatter(rawLabel) : rawLabel}
+      </p>
+      <p className="text-black/60 dark:text-white/60">
+        {payload[0].value} eventos
+      </p>
+    </div>
+  );
+}
+
+/** A one-line deterministic insight, with a trend arrow when a delta is given. */
+function NarrativeCard({ text, delta }: { text: string; delta?: number | null }) {
+  const Icon =
+    delta === undefined || delta === null
+      ? Activity
+      : delta > 0
+        ? TrendingUp
+        : delta < 0
+          ? TrendingDown
+          : Minus;
+  return (
+    <div className={`${glass} flex items-start gap-2 rounded-2xl p-3 text-sm`}>
+      <Icon className="mt-0.5 h-4 w-4 shrink-0 text-violet-500" />
+      <p className="text-black/70 dark:text-white/70">{text}</p>
     </div>
   );
 }
