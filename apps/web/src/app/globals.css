@@ -96,9 +96,11 @@
     --border: 220 16% 22%;
     --input: 220 16% 22%;
 
-    --primary: 239 84% 71%;
+    /* Acento índigo: en oscuro se baja la saturación para atenuar el "neón"
+       sobre el fondo profundo — mismo tono índigo, brillo casi idéntico. */
+    --primary: 239 72% 70%;
     --primary-foreground: 0 0% 100%;
-    --ring: 239 84% 71%;
+    --ring: 239 72% 70%;
 
     --success: 158 64% 45%;
     --success-foreground: 0 0% 100%;
@@ -109,7 +111,7 @@
 
     --secondary: 220 18% 15%;
     --secondary-foreground: 210 20% 96%;
-    --accent: 239 84% 71%;
+    --accent: 239 72% 70%;
     --accent-foreground: 0 0% 100%;
     --destructive: 0 84% 65%;
     --destructive-foreground: 0 0% 100%;
@@ -276,9 +278,10 @@
 .dark .glass {
   background: rgba(255, 255, 255, 0.06);
   border-color: rgba(255, 255, 255, 0.08);
+  /* Halo índigo más tenue (0.12 vs 0.18): conserva el brillo, menos neón. */
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.06),
-    0 16px 40px -16px rgba(99, 102, 241, 0.18),
+    0 16px 40px -16px rgba(99, 102, 241, 0.12),
     0 2px 8px rgba(0, 0, 0, 0.28);
 }
 
@@ -305,7 +308,7 @@
 
 /* --- Fondo "aurora" (estilo Apple) --- */
 /* Tintes pastel muy tenues en las esquinas sobre el fondo base del tema; en
-   oscuro, misma idea a ~.10 de alfa. Base anclada a `--background` (una sola
+   oscuro, misma idea a ~.07 de alfa. Base anclada a `--background` (una sola
    fuente de verdad). Usado por <AuroraBackground/> (fixed -z-10); sigue `.dark`. */
 .aurora-bg {
   background:
@@ -317,9 +320,9 @@
 
 .dark .aurora-bg {
   background:
-    radial-gradient(1100px 620px at 12% -8%, rgba(124, 92, 255, 0.1), transparent 60%),
-    radial-gradient(1000px 560px at 100% 0%, rgba(10, 132, 255, 0.1), transparent 55%),
-    radial-gradient(900px 600px at 50% 120%, rgba(46, 194, 126, 0.1), transparent 55%),
+    radial-gradient(1100px 620px at 12% -8%, rgba(124, 92, 255, 0.07), transparent 60%),
+    radial-gradient(1000px 560px at 100% 0%, rgba(10, 132, 255, 0.07), transparent 55%),
+    radial-gradient(900px 600px at 50% 120%, rgba(46, 194, 126, 0.07), transparent 55%),
     hsl(var(--background));
 }
 
