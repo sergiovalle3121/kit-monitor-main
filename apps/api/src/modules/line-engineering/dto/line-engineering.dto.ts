@@ -349,6 +349,48 @@ export class LayoutConnectorDto {
   kind?: string;
 }
 
+/** A non-station equipment/asset placed on the plan (Fase 5). */
+export class LayoutAssetDto {
+  @ApiProperty()
+  @IsString()
+  @Length(1, 64)
+  id: string;
+
+  @ApiProperty({ example: 'workbench' })
+  @IsString()
+  @Length(1, 24)
+  kind: string;
+
+  @ApiProperty({ example: 1000 })
+  @IsNumber()
+  x: number;
+
+  @ApiProperty({ example: 2000 })
+  @IsNumber()
+  y: number;
+
+  @ApiProperty({ example: 1200 })
+  @IsNumber()
+  @Min(1)
+  w: number;
+
+  @ApiProperty({ example: 800 })
+  @IsNumber()
+  @Min(1)
+  h: number;
+
+  @ApiPropertyOptional({ example: 0 })
+  @IsOptional()
+  @IsNumber()
+  rotation?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @Length(0, 64)
+  label?: string;
+}
+
 /** Persist a model+revision layout: footprint config + station placements. */
 export class SaveLayoutDto {
   @ApiProperty({ example: 'AX-1000' })
@@ -405,6 +447,16 @@ export class SaveLayoutDto {
   @ValidateNested({ each: true })
   @Type(() => LayoutConnectorDto)
   connectors?: LayoutConnectorDto[];
+
+  @ApiPropertyOptional({
+    type: [LayoutAssetDto],
+    description: 'Equipment/assets placed on the plan.',
+  })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => LayoutAssetDto)
+  assets?: LayoutAssetDto[];
 }
 
 /** Upload/replace the DXF background of a model+revision layout. */

@@ -227,6 +227,38 @@ describe('LineEngineeringService (integration)', () => {
     expect(after.connectors[1]).toMatchObject({ kind: 'conveyor' });
   });
 
+  it('persists equipment assets on the plan (Fase 5)', async () => {
+    await seedRoute();
+    expect((await service.getLayout('AX-1000')).assets).toEqual([]);
+    await service.saveLayout({
+      model: 'AX-1000',
+      assets: [
+        {
+          id: 'a1',
+          kind: 'workbench',
+          x: 100,
+          y: 200,
+          w: 1200,
+          h: 800,
+          rotation: 90,
+          label: 'Mesa 1',
+        },
+        { id: 'a2', kind: 'rack', x: 0, y: 0, w: 600, h: 400 },
+      ],
+    });
+    const after = await service.getLayout('AX-1000');
+    expect(after.assets).toHaveLength(2);
+    expect(after.assets[0]).toMatchObject({
+      id: 'a1',
+      kind: 'workbench',
+      x: 100,
+      w: 1200,
+      rotation: 90,
+      label: 'Mesa 1',
+    });
+    expect(after.assets[1]).toMatchObject({ kind: 'rack', rotation: 0 });
+  });
+
   it('scopes the layout by tenant', async () => {
     const mk = (tenant: string) =>
       ctx.run(ctxFor(tenant), async () => {
