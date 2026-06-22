@@ -50,9 +50,9 @@ export function pct(part: number, total: number): number {
 }
 
 // ── Document control numbers ─────────────────────────────────────────────────
-// The plant has no CoC/cert numbering service yet (REQUIERE BACKEND). So the doc
-// number is a deterministic, clearly-marked DRAFT control id derived from the
-// subject + a date stamp — never presented as an official allocated folio.
+// Fallback DRAFT control id, used WHILE no official folio has been issued. The CoC
+// can now issue a real folio via POST /numbering/issue (docType COC); this
+// client-derived number is just the draft state shown before that issuance.
 export function draftDocNumber(prefix: string, subject: string, when = new Date()): string {
   const stamp = `${when.getFullYear()}${String(when.getMonth() + 1).padStart(2, "0")}${String(
     when.getDate(),

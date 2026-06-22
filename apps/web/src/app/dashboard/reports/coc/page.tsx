@@ -1,9 +1,77 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Lock, MousePointerClick, Ship, ClipboardList } from "lucide-react";
+import { BadgeCheck, Lock, MousePointerClick, Ship, ClipboardList } from "lucide-react";
 import { useApi } from "@/hooks/useApi";
+import { apiFetch } from "@/lib/apiFetch";
 import { useAuth } from "@/contexts/AuthContext";
+
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000").replace(/\/$/, "");
+
+/** Emite (reserva) un folio OFICIAL COC- del servicio de numeración. Se dispara
+ *  con un gesto explícito (no en cada render) porque consume un consecutivo. */
+function useOfficialFolio() {
+  const [folio, setFolio] = useState<string | null>(null);
+  const [issuing, setIssuing] = useState(false);
+  const [error, setError] = useState(false);
+  async function issue(subject: string) {
+    setIssuing(true);
+    setError(false);
+    try {
+      const res = await apiFetch(`${API_BASE}/numbering/issue`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ docType: "COC", subject }),
+      });
+      const d = res.ok ? await res.json().catch(() => null) : null;
+      if (d?.folio) setFolio(d.folio as string);
+      else setError(true);
+    } catch {
+      setError(true);
+    } finally {
+      setIssuing(false);
+    }
+  }
+  return { folio, issuing, error, issue };
+}
+
+function IssueFolioButton({
+  folio,
+  issuing,
+  error,
+  onIssue,
+}: {
+  folio: string | null;
+  issuing: boolean;
+  error: boolean;
+  onIssue: () => void;
+}) {
+  if (folio) return null;
+  return (
+    <div className="print:hidden mb-4 flex flex-wrap items-center gap-2">
+      <button
+        onClick={onIssue}
+        disabled={issuing}
+        className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-[13px] font-medium text-white transition hover:bg-emerald-700 disabled:opacity-50"
+      >
+        <BadgeCheck className="h-4 w-4" /> {issuing ? "Emitiendo…" : "Emitir folio oficial"}
+      </button>
+      <span className="text-[12px] text-gray-400">
+        Reserva un folio COC- consecutivo del servicio de numeración (oficial).
+      </span>
+      {error && <span className="text-[12px] text-rose-500">No se pudo emitir. Reintenta.</span>}
+    </div>
+  );
+}
+
+interface ShipLine {
+  id: string;
+  partNumber: string;
+  description?: string | null;
+  quantity: number;
+  uom?: string;
+  lotNumber?: string | null;
+}
 import { ReportChrome } from "../_components/ReportChrome";
 import { DocLetterhead } from "../_components/DocLetterhead";
 import { DocSection } from "../_components/DocSection";
@@ -158,6 +226,7 @@ function WoCoc({
   const woNcrs = ncrsForWorkOrder(ncrs, wo.workOrder);
   const openNcrs = woNcrs.filter((n) => n.status !== "closed");
   const { verdict, reasons } = assessConformance(latestOqc, woNcrs);
+  const officialFolio = useOfficialFolio();
 
   // Cliente/programa NO viven en la entidad Plan → se intentan derivar de una NCR
   // de la misma WO; si no hay, se muestra el hueco honesto.
@@ -175,11 +244,18 @@ function WoCoc({
 
   return (
     <>
+      <IssueFolioButton
+        folio={officialFolio.folio}
+        issuing={officialFolio.issuing}
+        error={officialFolio.error}
+        onIssue={() => officialFolio.issue(wo.workOrder)}
+      />
       <DocLetterhead
         domain="quality"
         title="Certificado de Conformancia"
         subtitle="Certificate of Conformance (CoC) — por orden de trabajo"
-        docNumber={draftDocNumber("COC-WO", wo.workOrder)}
+        docNumber={officialFolio.folio ?? draftDocNumber("COC-WO", wo.workOrder)}
+        official={!!officialFolio.folio}
         meta={[
           { label: "Orden de trabajo", value: orDash(wo.workOrder), mono: true },
           { label: "Modelo / Parte", value: orDash(wo.model), mono: true },
@@ -265,7 +341,6 @@ function WoCoc({
 
       <BackendNote
         items={[
-          "Folio oficial del certificado (servicio de numeración tipo SHP-/ASN-) — aquí es un número de control BORRADOR derivado en cliente.",
           "Firma electrónica y registro inmutable del CoC en el Event Ledger (la firma manuscrita es el sustituto provisional).",
           "Endpoint de conformidad por WO que agregue OQC + NCR + yield del lado servidor (hoy se agrega en cliente sobre /plans, /quality/oqc/history, /ncr).",
         ]}
@@ -277,13 +352,32 @@ function WoCoc({
 // ── CoC por embarque ─────────────────────────────────────────────────────────
 function ShipmentCoc({ ship, generatedBy }: { ship: Shipment; generatedBy: string }) {
   const shipped = ship.status === "SHIPPED" || ship.status === "DELIVERED";
+  const officialFolio = useOfficialFolio();
+  // Contenido real del embarque: líneas (parte/cantidad/lote) del módulo outbound.
+  const { data: linesData } = useApi<ShipLine[]>(`/outbound/shipments/${ship.id}/lines`, {
+    refreshInterval: 60000,
+  });
+  const lines = useMemo(() => (Array.isArray(linesData) ? linesData : []), [linesData]);
+  const lineCols: DocColumn<ShipLine>[] = [
+    { key: "p", header: "Parte", cell: (l) => l.partNumber, mono: true },
+    { key: "d", header: "Descripción", cell: (l) => orDash(l.description) },
+    { key: "q", header: "Cantidad", cell: (l) => `${l.quantity} ${l.uom ?? "EA"}`, align: "right" },
+    { key: "lot", header: "Lote", cell: (l) => orDash(l.lotNumber), mono: true },
+  ];
   return (
     <>
+      <IssueFolioButton
+        folio={officialFolio.folio}
+        issuing={officialFolio.issuing}
+        error={officialFolio.error}
+        onIssue={() => officialFolio.issue(ship.folio || ship.id)}
+      />
       <DocLetterhead
         domain="quality"
         title="Certificado de Conformancia"
         subtitle="Certificate of Conformance (CoC) — por embarque"
-        docNumber={draftDocNumber("COC-SHP", ship.folio || ship.id.slice(0, 8))}
+        docNumber={officialFolio.folio ?? draftDocNumber("COC-SHP", ship.folio || ship.id.slice(0, 8))}
+        official={!!officialFolio.folio}
         meta={[
           { label: "Folio embarque", value: orDash(ship.folio), mono: true },
           { label: "ASN", value: orDash(ship.asn), mono: true },
@@ -306,6 +400,17 @@ function ShipmentCoc({ ship, generatedBy }: { ship: Shipment; generatedBy: strin
           <span className="font-semibold">{orDash(ship.customerName)}</span> contiene producto liberado
           conforme a los requisitos del cliente y a los controles de calidad de salida aplicables.
         </p>
+      </DocSection>
+
+      <DocSection title="Contenido del embarque" right={`${lines.length} línea(s)`}>
+        {lines.length === 0 ? (
+          <p className="text-[13px] text-gray-500">
+            Sin líneas de contenido registradas para este embarque. Captura el contenido en Embarques
+            para detallar parte, cantidad y lote.
+          </p>
+        ) : (
+          <DocTable columns={lineCols} rows={lines} rowKey={(l) => l.id} />
+        )}
       </DocSection>
 
       <DocSection title="Fechas del embarque">
@@ -337,9 +442,8 @@ function ShipmentCoc({ ship, generatedBy }: { ship: Shipment; generatedBy: strin
 
       <BackendNote
         items={[
-          "Contenido a nivel serie/parte del embarque: la entidad outbound NO lleva renglones; el desglose de unidades embarcadas requiere backend (tabla de líneas de embarque).",
           "Enlace embarque ⇄ inspección OQC ⇄ genealogía por serie para certificar conformidad unidad por unidad.",
-          "Folio oficial del CoC + firma electrónica + registro inmutable (aquí: número de control BORRADOR + firma manuscrita).",
+          "Firma electrónica e inmutabilidad del CoC en el Event Ledger (la firma manuscrita es el sustituto provisional).",
         ]}
       />
     </>

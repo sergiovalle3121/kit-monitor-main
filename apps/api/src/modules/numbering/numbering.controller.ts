@@ -70,4 +70,16 @@ export class NumberingController {
     const numbers = await this.numbering.allocateBlock(dto.docType, dto.count ?? 1);
     return { docType: dto.docType.toUpperCase().trim(), numbers, count: numbers.length };
   }
+
+  // Emisión de un folio OFICIAL para un documento (CoC, certificado…). A
+  // diferencia de `allocate` (datos maestros), basta con estar autenticado: es la
+  // acción de "emitir folio" que dispara el usuario desde un reporte. Reserva un
+  // número real de la secuencia (lo consume), así que el front la llama sólo en un
+  // gesto explícito, no en cada render.
+  @Post('issue')
+  @ApiOperation({ summary: 'Emite (reserva) un folio oficial para un documento.' })
+  async issue(@Body() dto: AllocateDto) {
+    const folio = await this.numbering.allocate(dto.docType);
+    return { docType: dto.docType.toUpperCase().trim(), folio };
+  }
 }
