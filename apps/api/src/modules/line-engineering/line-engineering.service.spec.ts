@@ -110,6 +110,46 @@ describe('LineEngineeringService (integration)', () => {
     expect(b.completeness.completenessPct).toBe(1); // all have np + factor + aid
   });
 
+  it('builds a per-station cycle-time heatmap vs takt (Fase 9)', async () => {
+    await seedRoute();
+    const hm = await service.getHeatmap({
+      model: 'AX-1000',
+      taktTargetSec: 60,
+    });
+    expect(hm.bottleneckStation).toBe('EST-20');
+    expect(hm.taktSec).toBe(60);
+    const byName = new Map(hm.stations.map((s) => [s.station, s]));
+    // 55/60 ≈ 0.92 → hot + bottleneck; 40/60 ≈ 0.67 → warm; 30/60 = 0.5 → cool
+    expect(byName.get('EST-20')).toMatchObject({
+      level: 'hot',
+      bottleneck: true,
+      overTakt: false,
+      line: 'SMT-1',
+    });
+    expect(byName.get('EST-10')?.level).toBe('warm');
+    expect(byName.get('EST-30')?.level).toBe('cool');
+    expect(byName.get('EST-20')?.utilizationPct).toBeCloseTo(91.7, 0);
+  });
+
+  it('flags over-takt stations and falls back to the bottleneck with no takt (Fase 9)', async () => {
+    await seedRoute();
+    // Tight takt: the 55s bottleneck now exceeds takt → over.
+    const tight = await service.getHeatmap({
+      model: 'AX-1000',
+      taktTargetSec: 45,
+    });
+    const est20 = tight.stations.find((s) => s.station === 'EST-20');
+    expect(est20).toMatchObject({ level: 'over', overTakt: true });
+
+    // No takt at all → ramp normalizes against the bottleneck (load 0..1).
+    const noTakt = await service.getHeatmap({ model: 'AX-1000' });
+    expect(noTakt.taktSec).toBe(0);
+    const byName = new Map(noTakt.stations.map((s) => [s.station, s]));
+    expect(byName.get('EST-20')).toMatchObject({ loadPct: 100, level: 'hot' });
+    expect(byName.get('EST-20')?.overTakt).toBe(false);
+    expect(byName.get('EST-10')?.loadPct).toBeCloseTo(72.7, 0);
+  });
+
   it('computes capacity/load including changeover', async () => {
     await seedRoute();
     await service.qualify({

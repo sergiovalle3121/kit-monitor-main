@@ -206,6 +206,28 @@ export class LineEngineeringController {
     return this.statusService.getStatus(model, revision ?? 'A');
   }
 
+  @Get('layout/heatmap')
+  @RequirePermissions('engineering:read')
+  @ApiOperation({
+    summary:
+      'Mapa de calor por estación (tiempo de ciclo / utilización vs takt) para el overlay del layout.',
+  })
+  layoutHeatmap(
+    @Query('model') model: string,
+    @Query('revision') revision?: string,
+    @Query('availableTimeSec') availableTimeSec?: string,
+    @Query('demandUnits') demandUnits?: string,
+    @Query('taktTargetSec') taktTargetSec?: string,
+  ) {
+    return this.service.getHeatmap({
+      model,
+      revision: revision ?? 'A',
+      availableTimeSec: availableTimeSec ? Number(availableTimeSec) : undefined,
+      demandUnits: demandUnits ? Number(demandUnits) : undefined,
+      taktTargetSec: taktTargetSec ? Number(taktTargetSec) : undefined,
+    });
+  }
+
   @Get('stations/:id')
   @RequirePermissions('engineering:read')
   @ApiOperation({ summary: 'Detalle de una estación.' })
