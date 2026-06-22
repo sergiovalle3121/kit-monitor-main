@@ -904,4 +904,34 @@ tocar, media `s/COUNT`). 18/18 suites de hoja verdes; `lint web` 0 errores; `bui
 **Roadmap:** F5 **spilling** real del rango `#`; luego `LAMBDA`/`MAP`/`REDUCE` (requieren
 pasar funciones como valor — diseño aparte).
 
+## 32. Office/Docs — fidelidad del export .docx (imágenes + tablas + interlineado)
+
+**Contexto.** El export a Word (`lib/office/docx.ts`, TipTap JSON → librería `docx`) ya cubría
+párrafos, estilos de texto, listas, encabezados/pie, notas al pie reales, TOC y bibliografía,
+PERO **perdía las imágenes** (no había mapeo del nodo `image`), las tablas salían sin
+**sombreado de celda / anchos / combinaciones / encabezado**, y no se exportaba el
+**interlineado**. Tres huecos visibles frente a Word.
+
+**Decisión (sólo `apps/web`, aditiva):**
+1. **Imágenes.** Nuevos helpers PUROS (`parseDataUrl`, `imageSize`, `targetWidth`,
+   `base64ToBytes`) decodifican los `data:` URLs y **leen las dimensiones naturales de la
+   cabecera del binario** (PNG/JPEG/GIF/BMP, sin librerías) para no deformar la imagen; el nodo
+   `image` se mapea a `ImageRun` (ancho desde `"50%"/"300px"`, alto por proporción).
+2. **Tablas «tipo Word».** `tableToEl` ahora aplica **sombreado** de celda
+   (`backgroundColor`, y gris claro en encabezados), **anchos** de columna (`colwidth` px→twips),
+   **combinaciones** (`colspan`/`rowspan`), **alineación vertical**, **bordes** finos y
+   **encabezados en negrita**.
+3. **Interlineado.** `lineHeight` (múltiplo) → `spacing.line` en 240avos con `lineRule auto`.
+4. **Testabilidad.** El armado se extrae a `buildDocx(docx, json, title)` **pura** (recibe el
+   módulo `docx`, sin DOM); `exportDocx` la envuelve con `Packer` + descarga.
+
+**Verificación:** nueva suite `lib/office/docx.spec.ts` (**16 aserciones**) que EMPAQUETA el
+.docx a un Buffer real (`Packer.toBuffer`), lo descomprime con JSZip e inspecciona
+`word/document.xml` + `word/media/`: confirma imagen embebida (`<w:drawing>`), sombreados
+`#FF0000`/`#00FF00`, bordes, negrita de cabecera e interlineado `w:line="360"`. `lint web`
+0 errores; `build web` ✓.
+
+**Roadmap:** import .docx más fiel (mapa de estilos de mammoth); numeración nativa de listas
+de Word; sangrías de tabla.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
