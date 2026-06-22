@@ -42,6 +42,9 @@ import {
   LayoutCompleteness,
   stationHeatmap,
   StationHeat,
+  stationCompleteness,
+  StationCompletenessResult,
+  StationCompletenessRow,
 } from './line-balance';
 import { flowAnalysis, FlowAnalysis } from './line-flow';
 import { layoutCollisions, CollisionResult, RectBox } from './line-collision';
@@ -1100,6 +1103,46 @@ export class LineEngineeringService {
       stations: heat.stations.map((h) => ({
         ...h,
         line: lineByStation.get(h.station) ?? '',
+      })),
+    };
+  }
+
+  /**
+   * Per-station documentation readiness (Fase 19): which stations declare a
+   * part number, use factor and visual aid — the "is this line ready to run?"
+   * gate, station by station, for the layout overlay. Read-only.
+   */
+  async getCompleteness(
+    model: string,
+    revision = 'A',
+  ): Promise<
+    StationCompletenessResult & {
+      model: string;
+      revision: string;
+      stations: (StationCompletenessRow & { line: string })[];
+    }
+  > {
+    const m = (model ?? '').trim();
+    const r = (revision ?? 'A').trim() || 'A';
+    const route = await this.routing(m, r);
+    const result = stationCompleteness(
+      route.map((s) => ({
+        station: s.station,
+        sequence: s.sequence,
+        npExpected: s.npExpected,
+        useFactor: s.useFactor === null ? null : Number(s.useFactor),
+        visualAidUrl: s.visualAidUrl,
+        ctq: !!s.ctq,
+      })),
+    );
+    const lineByStation = new Map(route.map((s) => [s.station, s.line]));
+    return {
+      ...result,
+      model: m,
+      revision: r,
+      stations: result.stations.map((s) => ({
+        ...s,
+        line: lineByStation.get(s.station) ?? '',
       })),
     };
   }
