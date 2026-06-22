@@ -26,12 +26,12 @@ interface ChatMsg {
 
 const SUGGESTIONS = [
   '¿Cómo va la planta hoy?',
-  '¿Qué órdenes de producción están abiertas?',
+  '¿Qué cambió en producción en las últimas 24 h?',
   '¿Cómo está el inventario?',
   'Muéstrame el estado de resultados',
 ];
 
-export function AiCopilot() {
+export function Cide() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState('');
@@ -73,7 +73,7 @@ export function AiCopilot() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data?.message || 'No se pudo contactar al asistente.');
+        setError(data?.message || 'No se pudo contactar a CIDE.');
         return;
       }
       setConversationId(data.conversationId ?? null);
@@ -88,7 +88,7 @@ export function AiCopilot() {
         },
       ]);
     } catch {
-      setError('Error de red al contactar al asistente.');
+      setError('Error de red al contactar a CIDE.');
     } finally {
       setLoading(false);
     }
@@ -99,7 +99,7 @@ export function AiCopilot() {
       {/* Floating launcher */}
       <button
         onClick={() => setOpen(true)}
-        aria-label="Abrir Axos Copilot"
+        aria-label="Abrir CIDE"
         className="fixed bottom-8 right-8 z-[101] flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-violet-600 to-pink-500 text-white shadow-2xl ring-1 ring-white/20 transition-all hover:scale-105 active:scale-95"
       >
         <Sparkles className="h-6 w-6" />
@@ -129,11 +129,9 @@ export function AiCopilot() {
                     <Sparkles className="h-5 w-5" />
                   </div>
                   <div>
-                    <h2 className="text-sm font-semibold leading-tight">
-                      Axos Copilot
-                    </h2>
+                    <h2 className="text-sm font-semibold leading-tight">CIDE</h2>
                     <p className="text-xs text-black/50 dark:text-white/50">
-                      Pregúntame sobre tus datos
+                      Tu analista de datos · IA propia
                     </p>
                   </div>
                 </div>
@@ -142,7 +140,7 @@ export function AiCopilot() {
                     <Link
                       href="/dashboard/admin/ai"
                       onClick={() => setOpen(false)}
-                      aria-label="Configurar IA"
+                      aria-label="Configurar CIDE"
                       className="rounded-lg p-2 text-black/50 transition-colors hover:bg-black/5 hover:text-black dark:text-white/50 dark:hover:bg-white/10 dark:hover:text-white"
                     >
                       <Settings className="h-4 w-4" />
@@ -169,8 +167,9 @@ export function AiCopilot() {
                       <Bot className="h-6 w-6" />
                     </div>
                     <p className="text-sm text-black/60 dark:text-white/60">
-                      Soy tu copiloto. Consulto inventario, producción, MRP,
-                      calidad y finanzas — respetando tus permisos.
+                      Soy CIDE, la IA propia de Axos OS. Analizo inventario,
+                      producción, MRP, calidad, finanzas y la bitácora de eventos
+                      — respetando tus permisos.
                     </p>
                     <div className="flex flex-col gap-2">
                       {SUGGESTIONS.map((s) => (
@@ -220,7 +219,7 @@ export function AiCopilot() {
                         )}
                       {m.role === 'assistant' && m.mock && (
                         <p className="mt-1.5 text-[10px] text-amber-600 dark:text-amber-400">
-                          modo demo · sin API key
+                          modo demo · motor CIDE no disponible
                         </p>
                       )}
                     </div>
@@ -231,7 +230,7 @@ export function AiCopilot() {
                   <div className="flex justify-start">
                     <div className="flex items-center gap-2 rounded-2xl bg-black/5 px-4 py-3 text-sm dark:bg-white/10">
                       <Loader2 className="h-4 w-4 animate-spin" />
-                      Pensando…
+                      Analizando…
                     </div>
                   </div>
                 )}
@@ -245,7 +244,7 @@ export function AiCopilot() {
                         onClick={() => setOpen(false)}
                         className="ml-1 underline"
                       >
-                        Configurar IA
+                        Configurar CIDE
                       </Link>
                     )}
                   </div>
@@ -271,7 +270,7 @@ export function AiCopilot() {
                       }
                     }}
                     rows={1}
-                    placeholder="Escribe tu pregunta…"
+                    placeholder="Pregúntale a CIDE…"
                     className="max-h-32 flex-1 resize-none rounded-xl border border-black/10 bg-white/60 px-3 py-2.5 text-sm outline-none focus:border-violet-400 dark:border-white/10 dark:bg-white/5"
                   />
                   <button

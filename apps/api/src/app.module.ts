@@ -91,6 +91,7 @@ import { OfficeModule } from './modules/office/office.module';
 import { MesExecutionModule } from './modules/mes-execution/mes-execution.module';
 import { ErpCoreModule } from './modules/erp-core/erp-core.module';
 import { AiModule } from './modules/ai/ai.module';
+import { SemanticModule } from './modules/semantic/semantic.module';
 import { TestFlowModule } from './modules/test-flow/test-flow.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 
@@ -178,6 +179,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
     MesExecutionModule,
     ErpCoreModule,
     AiModule,
+    SemanticModule,
     TestFlowModule,
     NotificationsModule,
     ScheduleModule.forRoot(),

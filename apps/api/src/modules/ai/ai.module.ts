@@ -9,10 +9,11 @@ import { AiService } from './ai.service';
 import { AiToolsService } from './ai-tools.service';
 
 /**
- * Axos AI Copilot. Provider-agnostic AI layer (today: Anthropic Claude) grounded
- * over the real MES + ERP services via RBAC-filtered tools, with per-tenant keys,
- * monthly budgets, rate limits and usage metering. Cross-module services are
- * resolved lazily via ModuleRef, so no domain module needs to export them.
+ * CIDE — Axos OS's own AI. A self-hosted, OpenAI-compatible AI layer (no external
+ * vendor) grounded over the real MES + ERP services via RBAC-filtered tools, with
+ * per-tenant config, monthly usage guardrails, rate limits and usage metering.
+ * Cross-module services are resolved lazily via ModuleRef, so no domain module
+ * needs to export them.
  */
 @Module({
   imports: [

@@ -104,4 +104,71 @@ export class EventLedgerService {
       .orderBy('event.timestamp', 'DESC')
       .getMany();
   }
+
+  /**
+   * Analytical roll-up of recent ledger activity — the read primitive behind
+   * CIDE's "operations pulse". Aggregates the immutable event stream over a time
+   * window into counts by domain / action / line, plus a recent sample. All
+   * read-only; the ledger itself is append-only.
+   */
+  async summarizeActivity(opts: {
+    domain?: string;
+    line?: string;
+    program?: string;
+    sinceHours?: number;
+    limit?: number;
+  } = {}): Promise<{
+    window: { sinceHours: number; since: string };
+    totalEvents: number;
+    byDomain: Record<string, number>;
+    byAction: Record<string, number>;
+    byLine: Record<string, number>;
+    recent: Array<Record<string, unknown>>;
+  }> {
+    const sinceHours = Math.min(Math.max(opts.sinceHours ?? 24, 1), 24 * 30);
+    const since = new Date(Date.now() - sinceHours * 3_600_000);
+    const take = Math.min(Math.max(opts.limit ?? 500, 1), 2000);
+
+    const qb = this.ledgerRepository
+      .createQueryBuilder('event')
+      .where('event.timestamp >= :since', { since })
+      .orderBy('event.timestamp', 'DESC')
+      .take(take);
+    if (opts.domain) qb.andWhere('event.domain = :domain', { domain: opts.domain });
+    if (opts.line) qb.andWhere('event.line = :line', { line: opts.line });
+    if (opts.program)
+      qb.andWhere('event.program = :program', { program: opts.program });
+
+    const rows = await qb.getMany();
+    const tally = (key: keyof LedgerEvent): Record<string, number> => {
+      const out: Record<string, number> = {};
+      for (const r of rows) {
+        const k = (r[key] as string) || `(sin ${String(key)})`;
+        out[k] = (out[k] ?? 0) + 1;
+      }
+      return out;
+    };
+
+    return {
+      window: { sinceHours, since: since.toISOString() },
+      totalEvents: rows.length,
+      byDomain: tally('domain'),
+      byAction: tally('action'),
+      byLine: tally('line'),
+      recent: rows.slice(0, 30).map((r) => ({
+        timestamp: r.timestamp,
+        domain: r.domain,
+        action: r.action,
+        line: r.line,
+        program: r.program,
+        model: r.model,
+        workOrder: r.workOrder,
+        ref:
+          r.referenceType && r.referenceId
+            ? `${r.referenceType}:${r.referenceId}`
+            : null,
+        actor: r.actorName || null,
+      })),
+    };
+  }
 }

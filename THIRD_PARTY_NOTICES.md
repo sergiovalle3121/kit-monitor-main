@@ -17,5 +17,28 @@ seguir las convenciones del repo.
 
 ## Dependencias npm añadidas en esta sesión
 
-_Ninguna hasta ahora._ El trabajo reutiliza dependencias ya presentes en el
-monorepo (NestJS, TypeORM, class-validator, etc.), todas permisivas.
+_Ninguna._ El cliente de CIDE (`cide-provider.ts`) usa el `fetch` nativo de
+Node 20+, sin SDK externo. De hecho esta sesión **retira** una dependencia:
+`@anthropic-ai/sdk` (ya no se usa; CIDE no llama a Anthropic).
+
+## Modelos de IA (CIDE) — pesos descargados en runtime
+
+CIDE corre sobre modelos **open-source** servidos por un motor self-hosted
+(Ollama por defecto). Los pesos **no se incluyen en el repo**; el motor los
+descarga en el deploy. Todos los modelos por defecto son permisivos:
+
+| Modelo | Licencia | Origen |
+|---|---|---|
+| Qwen2.5-Instruct (7B / 14B / 32B) | Apache-2.0 | https://huggingface.co/Qwen |
+| Mistral-7B-Instruct | Apache-2.0 | https://huggingface.co/mistralai |
+
+El motor de inferencia recomendado, **Ollama** (https://ollama.com), es MIT y se
+ejecuta como contenedor (`infra/cide/docker-compose.yml`); no es una dependencia
+npm del monorepo.
+
+## Integraciones retiradas en esta sesión
+
+- **Anthropic Claude** (`@anthropic-ai/sdk`, `ANTHROPIC_API_KEY`, llaves BYO):
+  eliminado a favor de CIDE self-hosted.
+- **Agente DeepSeek** (GitHub Action + script Python con `openai`/`requests`
+  contra la API de DeepSeek): eliminado por completo.

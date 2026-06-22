@@ -1,60 +1,85 @@
-# Axos AI Copilot
+# CIDE — Cognitive Intelligence & Decision Engine
 
-Provider-agnostic AI layer for Axos OS. Today it talks to **Anthropic Claude**;
-the design isolates the provider so another (self-hosted Llama/Mistral, etc.)
-can be added without touching the rest of the app.
+CIDE is **Axos OS's own AI** — the in-app data analyst for an EMS. It runs on a
+**self-hosted, open-weight model** served through an **OpenAI-compatible**
+endpoint (Ollama, vLLM, llama.cpp, TGI) that you control. There is **no external
+AI vendor** in the loop — no Anthropic, no DeepSeek, no OpenAI cloud — so the
+whole conversation and all business data stay inside your own infrastructure.
 
-It is a **grounded** assistant: it answers from the real MES + ERP data via
+It is a **grounded** analyst: it answers from the real MES + ERP data via
 read-only *tools*, filtered by the caller's RBAC permissions and scoped to their
-tenant — it can never read data the user couldn't read in the UI.
+tenant — it can never read data the user couldn't read in the UI. Beyond simple
+lookups, CIDE can chain tools to analyze causes and trends (e.g. the immutable
+**Event Ledger** via `operations_pulse` / `ledger_trace`) and propose decisions.
 
-## Billing model (hybrid)
+## Why self-hosted
 
-Per tenant (`ai_tenant_config`):
+- **Data sovereignty** — prompts and grounded data never leave your servers.
+- **No per-token billing** — inference cost is your own compute; cost metering is
+  retained as a capacity signal, not an invoice.
+- **Portable** — the engine is just a URL. Dev on CPU Ollama, scale to a GPU
+  vLLM cluster in prod by changing `CIDE_BASE_URL`. No code change.
 
-- **BYO key** — the tenant stores its own Anthropic API key (encrypted,
-  AES-256-GCM). It pays its own usage; no budget is enforced. Ideal for
-  multi-tenant: each customer covers its own cost (platform cost = $0).
-- **Platform key** — when a tenant has no BYO key, the platform key
-  (`ANTHROPIC_API_KEY`) is used and the **monthly token budget** caps spend so
-  cost can never run away. Default model is the cheap tier (Haiku).
+## Models
 
-Every turn is metered in `ai_usage_log` (tokens + estimated cost, attributed to
-tenant + user) and visible to admins at **/dashboard/admin/ai**.
+Default models are **Apache-2.0** licensed (permissive, per
+`THIRD_PARTY_NOTICES.md`). Pick per hardware in **/dashboard/admin/ai**:
+
+| Tag | License | Notes |
+|---|---|---|
+| `qwen2.5:7b` (default) | Apache-2.0 | Runs on CPU or a small GPU. Strong tool-use + Spanish. |
+| `qwen2.5:14b` | Apache-2.0 | Stronger reasoning, needs a GPU. |
+| `qwen2.5:32b` (escalation) | Apache-2.0 | Heavy reasoning, GPU. |
+| `mistral:7b` | Apache-2.0 | Lightweight alternative. |
+
+## Running the engine
+
+The simplest engine is **Ollama**, which exposes the OpenAI-compatible API at
+`http://localhost:11434/v1`. A ready-to-run compose file lives at
+[`infra/cide/docker-compose.yml`](../../../../../infra/cide/docker-compose.yml):
+
+```bash
+# from repo root
+docker compose -f infra/cide/docker-compose.yml up -d   # starts Ollama
+docker exec -it cide-ollama ollama pull qwen2.5:7b        # pull the model once
+```
+
+Then point the API at it (defaults already match local Ollama):
+
+```bash
+CIDE_BASE_URL=http://localhost:11434/v1
+# CIDE_API_KEY=    # only if your engine requires a bearer token
+```
 
 ## Environment variables (backend)
 
 | Var | Required | Purpose |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | optional | Platform key. Used for any tenant without a BYO key. If unset and no BYO key, chat returns a clear "not configured" error. |
-| `AI_KEY_SECRET` | recommended | Secret used to encrypt BYO keys at rest. Falls back to `JWT_SECRET` if unset. |
-| `AI_DEFAULT_MONTHLY_BUDGET_TOKENS` | optional | Default monthly token cap for new tenant configs (default `1000000`). |
-| `AI_MOCK` | optional | `1` → demo mode: runs the real grounding tools but returns a canned, clearly-labelled reply without calling Anthropic (and without cost). Lets the UI be tried before any key is added. |
+| `CIDE_BASE_URL` | optional | OpenAI-compatible engine URL. Default `http://localhost:11434/v1` (local Ollama). |
+| `CIDE_API_KEY` | optional | Bearer token if your engine requires one (local Ollama does not). |
+| `AI_MAX_OUTPUT_TOKENS` | optional | Output-token cap per turn (default 700). |
+| `AI_DEFAULT_MONTHLY_BUDGET_TOKENS` | optional | Default monthly **usage guardrail** for new tenants (default `1000000`). |
+| `AI_MOCK` | optional | `1` → demo mode: runs the real grounding tools but returns a canned reply without calling the engine. Lets the UI be tried before the engine is up. |
 
-No personal credentials live in the repo — keys are provided only via env vars
-(platform) or the encrypted per-tenant store (BYO).
+No credentials live in the repo. Model weights are **pulled by the engine at
+deploy time**, never committed to git.
 
 ## Endpoints (all under `/api/ai`, JWT-guarded)
 
 | Method | Path | Who | Purpose |
 |---|---|---|---|
-| POST | `/chat` | any user | One copilot turn `{ message, conversationId?, model? }` → `{ reply, conversationId, toolsUsed, usage, costUsd, model, mock }` |
+| POST | `/chat` | any user | One CIDE turn `{ message, conversationId?, model? }` → `{ reply, conversationId, toolsUsed, usage, model, mock }` |
 | GET | `/conversations` | any user | The caller's threads |
 | GET | `/conversations/:id` | owner/admin | Thread + messages |
-| GET | `/config` | admin | Per-tenant config (never returns the key, only last-4) |
-| POST | `/config` | admin | Update `{ enabled?, apiKey?, defaultModel?, escalationModel?, monthlyTokenBudget?, rateLimitPerHour? }` (send `apiKey:""` to clear) |
-| GET | `/usage` | admin | Token + cost totals, by-model breakdown, recent rows |
-
-## Models & tiering
-
-Default `claude-haiku-4-5` (cheap, <1¢/turn) for routine queries; admins can set
-the escalation tier to `claude-opus-4-8` for hard reasoning. Pricing lives in
-`ai-pricing.ts` and drives the cost estimates.
+| GET | `/config` | admin | Per-tenant config + engine status |
+| POST | `/config` | admin | Update `{ enabled?, defaultModel?, escalationModel?, monthlyTokenBudget?, rateLimitPerHour? }` |
+| GET | `/usage` | admin | Token totals, by-model breakdown, recent rows |
 
 ## Safety / limits
 
 - Tools are RBAC-filtered before being offered to the model **and** re-checked
-  on execution.
+  on execution. All grounding tools are **read-only**.
 - Per-user hourly rate limit (`rateLimitPerHour`).
-- Monthly token budget (platform key only) → HTTP 429 when exhausted.
-- All grounding tools are **read-only**.
+- Monthly token **usage guardrail** → HTTP 429 when exhausted.
+- Agentic tool loop is bounded (`MAX_TOOL_ROUNDS` / `MAX_TOTAL_ROUNDS`) to
+  prevent runaway calls.
