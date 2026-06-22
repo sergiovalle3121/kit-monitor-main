@@ -46,6 +46,35 @@ export class Opportunity extends TenantBaseEntity {
   @Column({ type: 'varchar', length: 64, nullable: true, name: 'program_id' })
   programId: string | null;
 
+  // ── Account linkage + commercial qualification (additive) ──
+  /** FK (by id) to the owning crm_accounts row. */
+  @Index()
+  @Column({ type: 'varchar', length: 36, nullable: true, name: 'account_id' })
+  accountId: string | null;
+
+  /** Where the opportunity came from: RFQ | REFERRAL | INBOUND | TRADESHOW | OUTBOUND | EXISTING. */
+  @Column({ type: 'varchar', length: 40, nullable: true })
+  source: string | null;
+
+  /** Incumbent / competing EMS we are displacing. */
+  @Column({ type: 'varchar', length: 120, nullable: true })
+  competitor: string | null;
+
+  /** Product line / commodity, e.g. "PCBA", "Box-Build", "Cable & Harness". */
+  @Column({ type: 'varchar', length: 80, nullable: true, name: 'product_line' })
+  productLine: string | null;
+
+  /** The agreed next action and when it is due (keeps the pipeline alive). */
+  @Column({ type: 'varchar', length: 200, nullable: true, name: 'next_step' })
+  nextStep: string | null;
+
+  @Column({ type: DATE_COLUMN_TYPE, nullable: true, name: 'next_step_date' })
+  nextStepDate: Date | null;
+
+  /** Reason captured when an opportunity is marked LOST. */
+  @Column({ type: 'varchar', length: 120, nullable: true, name: 'loss_reason' })
+  lossReason: string | null;
+
   @Column({ type: 'text', nullable: true })
   notes: string | null;
 

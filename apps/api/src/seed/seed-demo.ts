@@ -58,6 +58,14 @@ import { BayLayout } from '../modules/bay-layout/entities/bay-layout.entity';
 // Dominios de negocio (para que cada módulo del hub muestre datos reales).
 import { CrmService } from '../modules/crm/crm.service';
 import { Opportunity } from '../modules/crm/entities/opportunity.entity';
+import { AccountsService } from '../modules/crm/services/accounts.service';
+import { ContactsService } from '../modules/crm/services/contacts.service';
+import { QuotesService } from '../modules/crm/services/quotes.service';
+import { ActivitiesService } from '../modules/crm/services/activities.service';
+import { CrmAccount } from '../modules/crm/entities/crm-account.entity';
+import { CrmContact } from '../modules/crm/entities/crm-contact.entity';
+import { CrmQuote } from '../modules/crm/entities/crm-quote.entity';
+import { CrmActivity } from '../modules/crm/entities/crm-activity.entity';
 import { EhsService } from '../modules/ehs/ehs.service';
 import { SafetyIncident } from '../modules/ehs/entities/safety-incident.entity';
 import { MaintenanceService } from '../modules/maintenance/maintenance.service';
@@ -1270,6 +1278,223 @@ async function seedPeopleHr(app: INestApplicationContext, ds: DataSource): Promi
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// CRM — Suite comercial: cuentas (cliente 360), contactos (buying center),
+// oportunidades en todas las etapas, cotizaciones con líneas y actividades con
+// tareas (algunas vencidas). Datos ficticios del universo AXOS (.example).
+// ─────────────────────────────────────────────────────────────────────────────
+const CRM_ACCOUNTS = [
+  { code: 'AX-MOBILITY', name: 'Axos Mobility', type: 'CUSTOMER', tier: 'STRATEGIC', industry: 'Movilidad Eléctrica', segment: 'Automotive Tier-1', region: 'NAM', country: 'México', city: 'Guadalajara', website: 'axos-mobility.example', currency: 'USD', paymentTerms: 'NET45', incoterm: 'DAP', creditLimit: 5_000_000, annualRevenue: 1_200_000_000, employees: 8200, healthScore: 88, riskLevel: 'LOW', enterpriseCustomerCode: 'AX-MOBILITY', ownerEmail: 'ventas.mobility@axos-demo.example', tags: ['EV', 'Tier-1', 'Estratégico'] },
+  { code: 'AX-POWER', name: 'Axos Power', type: 'CUSTOMER', tier: 'A', industry: 'Sistemas de Potencia', segment: 'Industrial Power', region: 'NAM', country: 'México', city: 'Monterrey', website: 'axos-power.example', currency: 'USD', paymentTerms: 'NET30', incoterm: 'FCA', creditLimit: 3_000_000, annualRevenue: 640_000_000, employees: 4100, healthScore: 81, riskLevel: 'MEDIUM', enterpriseCustomerCode: 'AX-POWER', ownerEmail: 'ventas.power@axos-demo.example', tags: ['Box-Build', 'Industrial'] },
+  { code: 'AX-MEDICAL', name: 'Axos Medical', type: 'CUSTOMER', tier: 'A', industry: 'Dispositivos Médicos', segment: 'Class-II Medical', region: 'NAM', country: 'Estados Unidos', city: 'San Diego', website: 'axos-medical.example', currency: 'USD', paymentTerms: 'NET60', incoterm: 'DDP', creditLimit: 2_500_000, annualRevenue: 430_000_000, employees: 2600, healthScore: 85, riskLevel: 'LOW', enterpriseCustomerCode: 'AX-MEDICAL', ownerEmail: 'ventas.medical@axos-demo.example', tags: ['ISO-13485', 'Class-II'] },
+  { code: 'AX-AERO', name: 'Axos Aero', type: 'PROSPECT', tier: 'B', industry: 'Aeroespacial', segment: 'Aerospace & Defense', region: 'NAM', country: 'Estados Unidos', city: 'Phoenix', website: 'axos-aero.example', currency: 'USD', paymentTerms: 'NET45', incoterm: 'DAP', creditLimit: 1_500_000, annualRevenue: 900_000_000, employees: 5400, healthScore: 64, riskLevel: 'MEDIUM', enterpriseCustomerCode: 'AX-AERO', ownerEmail: 'ventas.aero@axos-demo.example', tags: ['AS9100', 'Defensa'] },
+  { code: 'AX-PROS-HELIOS', name: 'Helios Robotics', type: 'PROSPECT', tier: 'C', industry: 'Robótica Industrial', segment: 'Industrial Automation', region: 'NAM', country: 'México', city: 'Querétaro', website: 'helios-robotics.example', currency: 'USD', paymentTerms: 'NET30', incoterm: 'FCA', creditLimit: 500_000, annualRevenue: 85_000_000, employees: 540, healthScore: 58, riskLevel: 'MEDIUM', ownerEmail: 'ventas.namanaging@axos-demo.example', tags: ['Robótica'] },
+  { code: 'AX-PROS-NIMBUS', name: 'Nimbus IoT', type: 'PROSPECT', tier: 'C', industry: 'IoT / Conectividad', segment: 'Consumer IoT', region: 'NAM', country: 'México', city: 'Guadalajara', website: 'nimbus-iot.example', currency: 'USD', paymentTerms: 'NET30', incoterm: 'FCA', creditLimit: 350_000, annualRevenue: 42_000_000, employees: 210, healthScore: 62, riskLevel: 'LOW', ownerEmail: 'ventas.iot@axos-demo.example', tags: ['IoT', 'Volumen'] },
+] as const;
+
+const CRM_CONTACTS: Record<string, Array<Record<string, unknown>>> = {
+  'AX-MOBILITY': [
+    { firstName: 'Laura', lastName: 'Méndez', title: 'Gerente de Commodity — Electrónica', department: 'PROCUREMENT', buyingRole: 'DECISION_MAKER', email: 'laura.mendez@axos-mobility.example', phone: '+52 33 5550 1001', isPrimary: true },
+    { firstName: 'Diego', lastName: 'Fuentes', title: 'Líder de Ingeniería NPI', department: 'ENGINEERING', buyingRole: 'CHAMPION', email: 'diego.fuentes@axos-mobility.example', phone: '+52 33 5550 1002' },
+    { firstName: 'Patricia', lastName: 'Soto', title: 'Ingeniera de Calidad de Proveedores (SQE)', department: 'QUALITY', buyingRole: 'INFLUENCER', email: 'patricia.soto@axos-mobility.example' },
+  ],
+  'AX-POWER': [
+    { firstName: 'Ramón', lastName: 'Cárdenas', title: 'Director de Compras', department: 'PROCUREMENT', buyingRole: 'DECISION_MAKER', email: 'ramon.cardenas@axos-power.example', phone: '+52 81 5550 2001', isPrimary: true },
+    { firstName: 'Sofía', lastName: 'Herrera', title: 'Gerente de Cadena de Suministro', department: 'SUPPLY_CHAIN', buyingRole: 'INFLUENCER', email: 'sofia.herrera@axos-power.example' },
+  ],
+  'AX-MEDICAL': [
+    { firstName: 'Andrés', lastName: 'Villalobos', title: 'VP de Operaciones', department: 'EXECUTIVE', buyingRole: 'DECISION_MAKER', email: 'andres.villalobos@axos-medical.example', isPrimary: true },
+    { firstName: 'Karen', lastName: 'Ibáñez', title: 'Gerente de Aseguramiento de Calidad', department: 'QUALITY', buyingRole: 'GATEKEEPER', email: 'karen.ibanez@axos-medical.example' },
+  ],
+  'AX-AERO': [
+    { firstName: 'Gerardo', lastName: 'Pineda', title: 'Comprador Sr. — Electrónica', department: 'PROCUREMENT', buyingRole: 'INFLUENCER', email: 'gerardo.pineda@axos-aero.example', isPrimary: true },
+  ],
+  'AX-PROS-HELIOS': [
+    { firstName: 'Mariana', lastName: 'Quintero', title: 'Cofundadora / CTO', department: 'EXECUTIVE', buyingRole: 'DECISION_MAKER', email: 'mariana.quintero@helios-robotics.example', isPrimary: true },
+  ],
+  'AX-PROS-NIMBUS': [
+    { firstName: 'Tomás', lastName: 'Aguirre', title: 'Gerente de Producto', department: 'OPERATIONS', buyingRole: 'CHAMPION', email: 'tomas.aguirre@nimbus-iot.example', isPrimary: true },
+  ],
+};
+
+const CRM_OPPS = [
+  { account: 'AX-MOBILITY', title: 'BMS Gen-3 — transferencia de NPI a producción', status: 'PROPOSAL', estimatedValue: 4_800_000, source: 'EXISTING', productLine: 'PCBA', competitor: 'Línea interna del cliente', nextStep: 'Cerrar DFM y enviar cotización formal' },
+  { account: 'AX-MOBILITY', title: 'Arnés de potencia — segunda fuente (dual-source)', status: 'QUALIFIED', estimatedValue: 1_350_000, source: 'RFQ', productLine: 'Cable & Harness', nextStep: 'Recibir muestras de validación' },
+  { account: 'AX-POWER', title: 'Inversor industrial 30 kW — caja completa (box-build)', status: 'PROPOSAL', estimatedValue: 6_200_000, source: 'RFQ', productLine: 'Box-Build', competitor: 'EMS regional', nextStep: 'Revisión de costos de gabinete' },
+  { account: 'AX-MEDICAL', title: 'Monitor de signos — PCBA clase II (IPC-A-610 III)', status: 'QUALIFIED', estimatedValue: 2_900_000, source: 'REFERRAL', productLine: 'PCBA', nextStep: 'Auditoría de proceso ISO 13485' },
+  { account: 'AX-AERO', title: 'Módulo aviónico — calificación AS9100', status: 'LEAD', estimatedValue: 3_500_000, source: 'TRADESHOW', productLine: 'PCBA', nextStep: 'Plan de calificación AS9100' },
+  { account: 'AX-PROS-HELIOS', title: 'Controlador de robot — piloto 5k u/año', status: 'LEAD', estimatedValue: 780_000, source: 'INBOUND', productLine: 'PCBA', nextStep: 'NDA + paquete de RFQ' },
+  { account: 'AX-PROS-NIMBUS', title: 'Gateway IoT — programa de volumen', status: 'QUALIFIED', estimatedValue: 1_100_000, source: 'OUTBOUND', productLine: 'Box-Build', nextStep: 'Definir EAU y escalones de precio' },
+  { account: 'AX-POWER', title: 'Módulo de potencia — expansión de volumen', status: 'WON', estimatedValue: 2_400_000, source: 'EXISTING', productLine: 'PCBA' },
+  { account: 'AX-MEDICAL', title: 'Bomba de infusión — segunda fuente', status: 'LOST', estimatedValue: 1_800_000, source: 'RFQ', productLine: 'PCBA', lossReason: 'Precio fuera de objetivo' },
+] as const;
+
+const CRM_QUOTES = [
+  {
+    account: 'AX-MOBILITY', title: 'Cotización BMS Gen-3 — PCBA + ensamble final', oppTitle: 'BMS Gen-3 — transferencia de NPI a producción', paymentTerms: 'NET45', incoterm: 'DAP', leadTimeDays: 42, status: 'SENT', discountPct: 3,
+    lines: [
+      { description: 'PCBA BMS Gen-3 (SMT doble cara + AOI)', partNumber: 'AX-PCBA-BMS3', eau: 120000, quantity: 120000, unitCost: 38.5, unitPrice: 52.0, leadTimeDays: 42 },
+      { description: 'Ensamble final + prueba funcional (ICT/FCT)', partNumber: 'AX-FA-BMS3', eau: 120000, quantity: 120000, unitCost: 9.2, unitPrice: 13.5 },
+      { description: 'Empaque ESD + serialización', eau: 120000, quantity: 120000, unitCost: 1.1, unitPrice: 1.8 },
+    ],
+  },
+  {
+    account: 'AX-POWER', title: 'Cotización inversor 30 kW — box-build', oppTitle: 'Inversor industrial 30 kW — caja completa (box-build)', paymentTerms: 'NET30', incoterm: 'FCA', leadTimeDays: 56, status: 'DRAFT', discountPct: 0,
+    lines: [
+      { description: 'PCBA control + driver (SMT + THT)', partNumber: 'AX-PCBA-INV30', eau: 18000, quantity: 18000, unitCost: 142, unitPrice: 188 },
+      { description: 'Ensamble de gabinete + cableado', eau: 18000, quantity: 18000, unitCost: 96, unitPrice: 131 },
+      { description: 'Prueba HiPot + burn-in 4 h', eau: 18000, quantity: 18000, unitCost: 21, unitPrice: 29 },
+    ],
+  },
+] as const;
+
+const CRM_ACTIVITIES = [
+  { account: 'AX-MOBILITY', type: 'MEETING', subject: 'Kickoff técnico BMS Gen-3', body: 'Revisión de gerbers, stack-up y DFM con ingeniería del cliente.', direction: 'OUTBOUND', daysAgo: 6 },
+  { account: 'AX-MOBILITY', type: 'TASK', subject: 'Enviar cotización formal BMS Gen-3', dueInDays: 2, status: 'OPEN' },
+  { account: 'AX-POWER', type: 'CALL', subject: 'Negociación de precio — inversor 30 kW', body: 'El cliente pide -6 %; contrapropuesta con escalón a 25k u.', direction: 'OUTBOUND', daysAgo: 3 },
+  { account: 'AX-POWER', type: 'TASK', subject: 'Cargar BOM costeado del inversor', dueInDays: -1, status: 'OPEN' },
+  { account: 'AX-MEDICAL', type: 'VISIT', subject: 'Auditoría de proceso ISO 13485', body: 'Recorrido de línea y revisión de control de cambios.', direction: 'OUTBOUND', daysAgo: 10 },
+  { account: 'AX-AERO', type: 'TASK', subject: 'Preparar plan de calificación AS9100', dueInDays: 5, status: 'OPEN' },
+  { account: 'AX-PROS-HELIOS', type: 'EMAIL', subject: 'Seguimiento RFQ controlador de robot', direction: 'OUTBOUND', daysAgo: 1 },
+] as const;
+
+function crmDay(offsetDays: number): Date {
+  return new Date(Date.now() + offsetDays * 86_400_000);
+}
+
+async function seedCrmSuite(app: INestApplicationContext): Promise<Tally> {
+  const t = tally();
+  const ds = app.get(DataSource);
+  const accountsSvc = app.get(AccountsService);
+  const contactsSvc = app.get(ContactsService);
+  const crm = app.get(CrmService);
+  const quotesSvc = app.get(QuotesService);
+  const activitiesSvc = app.get(ActivitiesService);
+
+  const acctRepo = ds.getRepository(CrmAccount);
+  const idByCode = new Map<string, string>();
+  const nameByCode = new Map(CRM_ACCOUNTS.map((a) => [a.code, a.name]));
+
+  // 1) Cuentas
+  for (const a of CRM_ACCOUNTS) {
+    try {
+      let row = await acctRepo.findOne({ where: { code: a.code } });
+      if (!row) {
+        row = await accountsSvc.create(a as any);
+        t.created++;
+      } else {
+        t.skipped++;
+      }
+      idByCode.set(a.code, row.id);
+    } catch (err) {
+      t.errors++;
+      log('crm', `ERROR cuenta ${a.code}: ${(err as Error).message}`);
+    }
+  }
+
+  // 2) Contactos (idempotente por cuenta+nombre)
+  const contactRepo = ds.getRepository(CrmContact);
+  for (const [code, contacts] of Object.entries(CRM_CONTACTS)) {
+    const accountId = idByCode.get(code);
+    if (!accountId) continue;
+    for (const c of contacts) {
+      try {
+        const exists = await contactRepo.findOne({
+          where: { account_id: accountId, firstName: c.firstName as string },
+        });
+        if (exists) { t.skipped++; continue; }
+        await contactsSvc.create({ accountId, ...c } as any);
+        t.created++;
+      } catch (err) {
+        t.errors++;
+        log('crm', `ERROR contacto ${String(c.firstName)}: ${(err as Error).message}`);
+      }
+    }
+  }
+
+  // 3) Oportunidades (idempotente por título); avanza por el pipeline
+  const oppRepo = ds.getRepository(Opportunity);
+  const oppIdByTitle = new Map<string, string>();
+  const PATH: Record<string, string[]> = {
+    LEAD: [], QUALIFIED: ['QUALIFIED'], PROPOSAL: ['QUALIFIED', 'PROPOSAL'],
+    WON: ['QUALIFIED', 'PROPOSAL', 'WON'], LOST: ['QUALIFIED', 'LOST'],
+  };
+  for (const o of CRM_OPPS) {
+    try {
+      const accountId = idByCode.get(o.account);
+      let row = await oppRepo.findOne({ where: { title: o.title } });
+      if (!row) {
+        row = await crm.create({
+          title: o.title, accountId, customerName: nameByCode.get(o.account),
+          estimatedValue: o.estimatedValue, source: o.source,
+          productLine: o.productLine, competitor: (o as any).competitor,
+          nextStep: (o as any).nextStep,
+        } as any);
+        for (const step of PATH[o.status] ?? []) {
+          await crm.transition(row.id, {
+            status: step as any,
+            lossReason: step === 'LOST' ? (o as any).lossReason : undefined,
+          } as any);
+        }
+        t.created++;
+      } else {
+        t.skipped++;
+      }
+      oppIdByTitle.set(o.title, row.id);
+    } catch (err) {
+      t.errors++;
+      log('crm', `ERROR oportunidad ${o.title}: ${(err as Error).message}`);
+    }
+  }
+
+  // 4) Cotizaciones con líneas (idempotente por cuenta+título)
+  const quoteRepo = ds.getRepository(CrmQuote);
+  for (const q of CRM_QUOTES) {
+    try {
+      const accountId = idByCode.get(q.account);
+      if (!accountId) continue;
+      const exists = await quoteRepo.findOne({ where: { account_id: accountId, title: q.title } });
+      if (exists) { t.skipped++; continue; }
+      const created = await quotesSvc.create({
+        accountId, title: q.title, opportunityId: oppIdByTitle.get(q.oppTitle),
+        paymentTerms: q.paymentTerms, incoterm: q.incoterm, leadTimeDays: q.leadTimeDays,
+        discountPct: q.discountPct, lines: q.lines as any,
+      } as any);
+      if (q.status === 'SENT') await quotesSvc.transition(created.id, 'SENT');
+      t.created++;
+    } catch (err) {
+      t.errors++;
+      log('crm', `ERROR cotización ${q.title}: ${(err as Error).message}`);
+    }
+  }
+
+  // 5) Actividades (idempotente por cuenta+asunto); backdatea el timeline
+  const activityRepo = ds.getRepository(CrmActivity);
+  for (const a of CRM_ACTIVITIES) {
+    try {
+      const accountId = idByCode.get(a.account);
+      if (!accountId) continue;
+      const exists = await activityRepo.findOne({ where: { account_id: accountId, subject: a.subject } });
+      if (exists) { t.skipped++; continue; }
+      const saved = await activitiesSvc.create({
+        accountId, type: a.type, subject: a.subject, body: (a as any).body,
+        direction: (a as any).direction, status: (a as any).status,
+        dueAt: (a as any).dueInDays != null ? crmDay((a as any).dueInDays).toISOString() : undefined,
+      } as any);
+      if ((a as any).daysAgo != null) {
+        await activityRepo.update(saved.id, { created_at: crmDay(-(a as any).daysAgo) });
+      }
+      t.created++;
+    } catch (err) {
+      t.errors++;
+      log('crm', `ERROR actividad ${a.subject}: ${(err as Error).message}`);
+    }
+  }
+
+  log('crm', `nuevos=${t.created} ya existían=${t.skipped} errores=${t.errors}`);
+  return t;
+}
+
 // Dominios de negocio (CMMS, EHS, CRM, legal, gastos, activos fijos, tooling,
 // compras, RMA): demo FUNCIONAL vía los servicios reales — folio y estatus se
 // auto-asignan, igual que si un usuario los capturara. Así cada módulo del hub
@@ -1301,14 +1526,9 @@ async function seedBusinessDomains(app: INestApplicationContext): Promise<Tally>
     }
   }
 
-  const crm = app.get(CrmService);
-  for (const title of [
-    'Programa wearable XR — nueva línea SMT',
-    'Expansión de volumen — módulo de potencia',
-    'Cotización: controlador IoT (piloto)',
-  ]) {
-    await ensure(Opportunity, { title }, () => crm.create({ title } as any));
-  }
+  // CRM: la suite comercial completa (cuentas, contactos, oportunidades,
+  // cotizaciones, actividades) se siembra en seedCrmSuite() — aquí ya no van
+  // oportunidades sueltas.
 
   const ehs = app.get(EhsService);
   for (const r of [
@@ -1445,6 +1665,7 @@ async function run(): Promise<void> {
       await seedBayLayouts(ds);
       await seedMesExecutions(app, ds);
       await seedBusinessDomains(app);
+      await seedCrmSuite(app);
     });
 
     // CANDADO LEGAL (post-seed): re-escanea TODA la base y FALLA ruidosamente si

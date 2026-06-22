@@ -80,6 +80,12 @@ export class CrmService {
       probability: dto.probability ?? defaultProbability('LEAD'),
       ownerEmail: this.tenantCtx.getUserEmail(),
       programId: dto.programId ?? null,
+      accountId: dto.accountId ?? null,
+      source: dto.source ?? null,
+      competitor: dto.competitor ?? null,
+      productLine: dto.productLine ?? null,
+      nextStep: dto.nextStep ?? null,
+      nextStepDate: dto.nextStepDate ? new Date(dto.nextStepDate) : null,
       notes: dto.notes ?? null,
       expectedCloseDate: dto.expectedCloseDate
         ? new Date(dto.expectedCloseDate)
@@ -93,14 +99,16 @@ export class CrmService {
     return saved;
   }
 
-  async list(filters: { status?: string; customerName?: string } = {}): Promise<
-    Opportunity[]
-  > {
+  async list(
+    filters: { status?: string; customerName?: string; accountId?: string } = {},
+  ): Promise<Opportunity[]> {
     const qb = this.repo.createQueryBuilder('o').orderBy('o.created_at', 'DESC');
     this.applyScope(qb, 'o');
     if (filters.status) qb.andWhere('o.status = :s', { s: filters.status });
     if (filters.customerName)
       qb.andWhere('o.customer_name = :cn', { cn: filters.customerName });
+    if (filters.accountId)
+      qb.andWhere('o.account_id = :aid', { aid: filters.accountId });
     return qb.getMany();
   }
 
@@ -121,6 +129,14 @@ export class CrmService {
       }),
       ...(dto.currency !== undefined && { currency: dto.currency.toUpperCase() }),
       ...(dto.probability !== undefined && { probability: dto.probability }),
+      ...(dto.accountId !== undefined && { accountId: dto.accountId }),
+      ...(dto.source !== undefined && { source: dto.source }),
+      ...(dto.competitor !== undefined && { competitor: dto.competitor }),
+      ...(dto.productLine !== undefined && { productLine: dto.productLine }),
+      ...(dto.nextStep !== undefined && { nextStep: dto.nextStep }),
+      ...(dto.nextStepDate !== undefined && {
+        nextStepDate: dto.nextStepDate ? new Date(dto.nextStepDate) : null,
+      }),
       ...(dto.notes !== undefined && { notes: dto.notes }),
       ...(dto.expectedCloseDate !== undefined && {
         expectedCloseDate: dto.expectedCloseDate
@@ -147,6 +163,7 @@ export class CrmService {
     o.status = dto.status;
     o.probability = defaultProbability(dto.status);
     if (dto.status === 'WON' || dto.status === 'LOST') o.closedAt = new Date();
+    if (dto.status === 'LOST' && dto.lossReason) o.lossReason = dto.lossReason;
     const saved = await this.repo.save(o);
     await this.recordLedger('OPPORTUNITY_TRANSITIONED', saved, {
       before: { status: from },
