@@ -330,6 +330,27 @@ describe('LineEngineeringService (integration)', () => {
     expect(withClear.outOfBounds).toBe(0);
   });
 
+  it('auto-arranges stations in routing order without persisting (Fase 12)', async () => {
+    await seedRoute(); // EST-10, EST-20, EST-30
+    const arranged = await service.autoArrangeLayout('AX-1000');
+    expect(arranged.positions).toHaveLength(3);
+    // Suggestion only — the stored layout is untouched (all still unplaced).
+    const stored = await service.getLayout('AX-1000');
+    expect(stored.stations.every((s) => s.x === null)).toBe(true);
+
+    // Positions follow the route order EST-10 → EST-20 → EST-30.
+    const byId = new Map(stored.stations.map((s) => [s.id, s.station]));
+    expect(arranged.positions.map((p) => byId.get(p.id))).toEqual([
+      'EST-10',
+      'EST-20',
+      'EST-30',
+    ]);
+    // First row, left to right: x is non-decreasing along the route.
+    expect(arranged.positions[0].x).toBeLessThanOrEqual(
+      arranged.positions[1].x,
+    );
+  });
+
   it('persists equipment assets on the plan (Fase 5)', async () => {
     await seedRoute();
     expect((await service.getLayout('AX-1000')).assets).toEqual([]);

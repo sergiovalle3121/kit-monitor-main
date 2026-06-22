@@ -259,6 +259,26 @@ export class LineEngineeringController {
     );
   }
 
+  @Get('layout/auto-arrange')
+  @RequirePermissions('engineering:read')
+  @ApiOperation({
+    summary:
+      'Sugiere posiciones (serpentina por ruteo) para acomodar las estaciones en el footprint. No persiste.',
+  })
+  layoutAutoArrange(
+    @Query('model') model: string,
+    @Query('revision') revision?: string,
+    @Query('serpentine') serpentine?: string,
+    @Query('margin') margin?: string,
+    @Query('gap') gap?: string,
+  ) {
+    return this.service.autoArrangeLayout(model, revision ?? 'A', {
+      serpentine: serpentine === undefined ? true : serpentine !== 'false',
+      margin: margin ? Number(margin) : undefined,
+      gap: gap ? Number(gap) : undefined,
+    });
+  }
+
   @Get('stations/:id')
   @RequirePermissions('engineering:read')
   @ApiOperation({ summary: 'Detalle de una estación.' })

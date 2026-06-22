@@ -44,6 +44,7 @@ import {
 } from './line-balance';
 import { flowAnalysis, FlowAnalysis } from './line-flow';
 import { layoutCollisions, CollisionResult, RectBox } from './line-collision';
+import { autoArrange, ArrangedPosition } from './line-autoarrange';
 
 /** One station's material/work requirement for a unit of a model — the bridge
  * that Material Staging (C) and the Operator Terminal (D) consume. */
@@ -896,6 +897,35 @@ export class LineEngineeringService {
       unit: layout.footprint.unit,
       minClearance: Math.max(0, minClearance),
     };
+  }
+
+  /**
+   * Auto-arrange (Fase 12): suggest serpentine positions for every station in
+   * routing order, packed into the footprint. Read-only — it returns positions
+   * for the editor to apply; the engineer reviews and saves. Existing box sizes
+   * are preserved; only placement changes.
+   */
+  async autoArrangeLayout(
+    model: string,
+    revision = 'A',
+    opts: { margin?: number; gap?: number; serpentine?: boolean } = {},
+  ): Promise<{
+    model: string;
+    revision: string;
+    positions: ArrangedPosition[];
+  }> {
+    const layout = await this.getLayout(model, revision);
+    const positions = autoArrange(
+      layout.stations.map((s) => ({
+        id: s.id,
+        sequence: s.sequence,
+        w: s.w,
+        h: s.h,
+      })),
+      layout.footprint,
+      opts,
+    );
+    return { model, revision, positions };
   }
 
   /**

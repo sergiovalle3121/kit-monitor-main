@@ -10,7 +10,7 @@ import {
   AlignHorizontalSpaceAround, AlignVerticalSpaceAround, Trash2, MapPin, RotateCcw,
   Upload, Eye, EyeOff, Map as MapIcon, Activity, Workflow, Wand2, Boxes,
   Download, Printer, Ruler, Type, MoveHorizontal, CopyPlus, X, Flame, Waypoints,
-  ShieldCheck, ShieldAlert,
+  ShieldCheck, ShieldAlert, LayoutGrid,
 } from 'lucide-react';
 import { glass } from '@/lib/glass';
 import { apiFetch } from '@/lib/apiFetch';
@@ -208,6 +208,7 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
   const [validateOn, setValidateOn] = useState(false);
   const [validateData, setValidateData] = useState<CollisionSummary | null>(null);
   const [clearanceInput, setClearanceInput] = useState('');
+  const [arranging, setArranging] = useState(false);
   const [linkMode, setLinkMode] = useState(false);
   const [connCount, setConnCount] = useState(0);
   const [measureMode, setMeasureMode] = useState(false);
@@ -742,6 +743,32 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
     markDirty();
     requestAnimationFrame(() => { rebuild(); const o = objByIdRef.current.get(s.id); if (o) { c.setActiveObject(o); c.requestRenderAll(); } });
   }, [markDirty, rebuild]);
+
+  // Auto-arrange every station in a serpentine grid (Fase 12). Suggestion only —
+  // the editor applies it and the engineer reviews; reload discards if unsaved.
+  const runAutoArrange = useCallback(async () => {
+    if (!model) return;
+    setArranging(true);
+    try {
+      const r = await apiFetch(`${API_BASE}/line-engineering/layout/auto-arrange?model=${encodeURIComponent(model)}&revision=${encodeURIComponent(revision)}`);
+      if (!r.ok) { toast.error('No se pudo auto-acomodar.', 'Ing. Industrial'); return; }
+      const d = (await r.json()) as { positions: { id: string; x: number; y: number; w: number; h: number; rotation: number }[] };
+      if (!d.positions.length) { toast.error('No hay estaciones para acomodar.', 'Ing. Industrial'); return; }
+      const ids = new Set<string>();
+      d.positions.forEach((p) => {
+        placementsRef.current.set(p.id, { x: p.x, y: p.y, w: p.w, h: p.h, rotation: p.rotation });
+        ids.add(p.id);
+      });
+      setPlacedIds(ids);
+      markDirty();
+      requestAnimationFrame(() => rebuild());
+      toast.success('Estaciones acomodadas en serpentina — revisa y guarda.', 'Ing. Industrial');
+    } catch {
+      toast.error('No se pudo auto-acomodar.', 'Ing. Industrial');
+    } finally {
+      setArranging(false);
+    }
+  }, [model, revision, markDirty, rebuild, toast]);
 
   const unplaceSelected = useCallback(() => {
     const c = fcRef.current; if (!c) return;
@@ -1288,6 +1315,7 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
         <button onClick={() => { setHeatOn((v) => !v); setMesOn(false); }} title="Mapa de calor (tiempo de ciclo / utilización)" className={`p-1.5 rounded-lg transition-colors ${heatOn ? 'text-white' : 'text-gray-500 hover:bg-black/5 dark:hover:bg-white/10'}`} style={heatOn ? { background: '#f97316' } : undefined}><Flame className="w-4 h-4" /></button>
         <button onClick={() => setFlowOn((v) => !v)} title="Diagrama de flujo (distancias y cruces)" className={`p-1.5 rounded-lg transition-colors ${flowOn ? 'text-white' : 'text-gray-500 hover:bg-black/5 dark:hover:bg-white/10'}`} style={flowOn ? { background: '#3b82f6' } : undefined}><Waypoints className="w-4 h-4" /></button>
         <button onClick={() => setValidateOn((v) => !v)} title="Validar layout (solapes, holgura, fuera de límites)" className={`p-1.5 rounded-lg transition-colors ${validateOn ? 'text-white' : 'text-gray-500 hover:bg-black/5 dark:hover:bg-white/10'}`} style={validateOn ? { background: validateData && !validateData.ok ? '#ef4444' : '#10b981' } : undefined}>{validateOn && validateData && !validateData.ok ? <ShieldAlert className="w-4 h-4" /> : <ShieldCheck className="w-4 h-4" />}</button>
+        <button onClick={runAutoArrange} disabled={arranging} title="Auto-acomodar estaciones en serpentina por ruteo" className="p-1.5 rounded-lg text-gray-500 hover:bg-black/5 dark:hover:bg-white/10 transition-colors disabled:opacity-40">{arranging ? <Loader2 className="w-4 h-4 animate-spin" /> : <LayoutGrid className="w-4 h-4" />}</button>
         <Sep />
         <div className={`flex items-center gap-1 ${selCount < 2 ? 'opacity-40 pointer-events-none' : ''}`}>
           <TBtn onClick={() => align('left')} title="Alinear izquierda"><AlignHorizontalJustifyStart className="w-4 h-4" /></TBtn>
