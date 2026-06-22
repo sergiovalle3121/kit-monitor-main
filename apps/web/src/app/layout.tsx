@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
@@ -12,6 +12,13 @@ import { SearchPalette } from "@/components/SearchPalette";
 export const metadata: Metadata = {
   title: "AXOS OS",
   description: "White-label manufacturing operations platform",
+  manifest: "/manifest.webmanifest",
+  icons: { icon: "/icon.svg", apple: "/icon.svg" },
+  appleWebApp: { capable: true, title: "AXOS OS", statusBarStyle: "default" },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#7c3aed",
 };
 
 /**
