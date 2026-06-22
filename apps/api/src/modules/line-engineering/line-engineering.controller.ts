@@ -277,6 +277,19 @@ export class LineEngineeringController {
     return this.service.getFlowAnalysis(model, revision ?? 'A');
   }
 
+  @Get('layout/flow-direction')
+  @RequirePermissions('engineering:read')
+  @ApiOperation({
+    summary:
+      'Dirección de flujo / retrocesos: eficiencia direccional y tramos que van contra el flujo.',
+  })
+  layoutFlowDirection(
+    @Query('model') model: string,
+    @Query('revision') revision?: string,
+  ) {
+    return this.service.getFlowDirection(model, revision ?? 'A');
+  }
+
   @Get('layout/collisions')
   @RequirePermissions('engineering:read')
   @ApiOperation({
