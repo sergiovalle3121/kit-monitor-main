@@ -10,6 +10,7 @@ import {
   AlignHorizontalSpaceAround, AlignVerticalSpaceAround, Trash2, MapPin, RotateCcw,
   Upload, Eye, EyeOff, Map as MapIcon, Activity, Workflow, Wand2, Boxes,
   Download, Printer, Ruler, Type, MoveHorizontal, CopyPlus, X, Flame, Waypoints,
+  ShieldCheck, ShieldAlert,
 } from 'lucide-react';
 import { glass } from '@/lib/glass';
 import { apiFetch } from '@/lib/apiFetch';
@@ -68,6 +69,16 @@ const flowColor = (d: number, max: number): string => {
   if (t >= 0.4) return '#f59e0b';
   return '#10b981';
 };
+
+// Layout validation (Fase 11): overlaps / clearance / out-of-bounds.
+type ConflictType = 'overlap' | 'clearance' | 'out_of_bounds';
+interface Conflict { type: ConflictType; a: string; aLabel: string; b: string | null; bLabel: string | null }
+interface CollisionSummary {
+  conflicts: Conflict[]; overlaps: number; clearanceIssues: number;
+  outOfBounds: number; ok: boolean; unit: string; minClearance: number;
+}
+const CONFLICT_RANK: Record<ConflictType, number> = { out_of_bounds: 3, overlap: 2, clearance: 1 };
+const conflictColor = (t: ConflictType) => (t === 'clearance' ? '#f59e0b' : '#ef4444');
 
 // Equipment / asset palette (Fase 5). `w`/`h` are default sizes in layout units.
 const ASSET_KINDS: { kind: string; label: string; color: string; fill: string; w: number; h: number }[] = [
@@ -153,6 +164,10 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
   const heatOnRef = useRef(false);
   const heatRef = useRef<Map<string, StationHeat>>(new Map());
   const flowOnRef = useRef(false);
+  const validateOnRef = useRef(false);
+  const validateConflictsRef = useRef<Conflict[]>([]);
+  const validateObjsRef = useRef<any[]>([]);
+  const drawValidationRef = useRef<() => void>(() => {});
   const connectorsRef = useRef<LayoutConnector[]>([]);
   const connObjsRef = useRef<any[]>([]);
   const linkRef = useRef(false);
@@ -190,6 +205,9 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
   const [taktInput, setTaktInput] = useState('');
   const [flowOn, setFlowOn] = useState(false);
   const [flowData, setFlowData] = useState<FlowSummary | null>(null);
+  const [validateOn, setValidateOn] = useState(false);
+  const [validateData, setValidateData] = useState<CollisionSummary | null>(null);
+  const [clearanceInput, setClearanceInput] = useState('');
   const [linkMode, setLinkMode] = useState(false);
   const [connCount, setConnCount] = useState(0);
   const [measureMode, setMeasureMode] = useState(false);
@@ -475,6 +493,7 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
     });
     drawConnectors(); // arrows on top of the stations
     drawAnnotations(); // text labels + dimensions on top
+    drawValidationRef.current(); // conflict halos on top of everything
     c.requestRenderAll();
   }, [computeFit, drawScene, drawDxf, drawConnectors, drawAnnotations, makeBox, makeAsset]);
 
@@ -566,6 +585,7 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
     });
     markDirty();
     drawConnRef.current(); // keep arrows attached as the box moves
+    drawValidationRef.current(); // keep conflict halos attached too
   }, [markDirty]);
 
   // ── Load layout for the current scope ───────────────────────────────────────
@@ -1039,6 +1059,80 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
     return () => { alive = false; };
   }, [flowOn, model, revision, connCount]);
 
+  // ── Layout validation overlay (Fase 11) ─────────────────────────────────────
+  // Draws a dashed halo around every conflicting box (red = overlap/out-of-bounds,
+  // amber = clearance) plus a link between the offending pair. Positioned in the
+  // same world→px space as the boxes, so it pans/zooms with them.
+  const drawValidation = useCallback(() => {
+    const c = fcRef.current; if (!c) return;
+    validateObjsRef.current.forEach((o) => c.remove(o));
+    validateObjsRef.current = [];
+    if (!validateOnRef.current) { c.requestRenderAll(); return; }
+    const rectFor = (id: string): Placement | null => {
+      const pl = placementsRef.current.get(id);
+      if (pl) return pl;
+      const a = assetsRef.current.find((x) => x.id === id);
+      return a ? { x: a.x, y: a.y, w: a.w, h: a.h, rotation: a.rotation } : null;
+    };
+    const center = (id: string) => {
+      const r = rectFor(id);
+      return r ? { x: worldToPx(r.x + r.w / 2), y: worldToPx(r.y + r.h / 2) } : null;
+    };
+    // Worst conflict type per box id → one halo each.
+    const worst = new Map<string, ConflictType>();
+    validateConflictsRef.current.forEach((cf) => {
+      [cf.a, cf.b].forEach((id) => {
+        if (!id) return;
+        const prev = worst.get(id);
+        if (!prev || CONFLICT_RANK[cf.type] > CONFLICT_RANK[prev]) worst.set(id, cf.type);
+      });
+    });
+    worst.forEach((t, id) => {
+      const r = rectFor(id); if (!r) return;
+      const halo = new Rect({
+        left: worldToPx(r.x), top: worldToPx(r.y), width: worldToPx(r.w), height: worldToPx(r.h),
+        angle: r.rotation || 0, originX: 'left', originY: 'top', fill: 'transparent',
+        stroke: conflictColor(t), strokeWidth: 3, strokeDashArray: [7, 4], strokeUniform: true,
+        selectable: false, evented: false, objectCaching: false, rx: 6, ry: 6,
+      });
+      validateObjsRef.current.push(halo); c.add(halo);
+    });
+    // Link the offending pairs (overlap / clearance) with a thin dashed line.
+    validateConflictsRef.current.forEach((cf) => {
+      if (!cf.b) return;
+      const p1 = center(cf.a); const p2 = center(cf.b);
+      if (!p1 || !p2) return;
+      const link = new Line([p1.x, p1.y, p2.x, p2.y], {
+        stroke: conflictColor(cf.type), strokeWidth: 1.5, strokeDashArray: [3, 3],
+        selectable: false, evented: false, strokeUniform: true, opacity: 0.8,
+      });
+      validateObjsRef.current.push(link); c.add(link);
+    });
+    c.requestRenderAll();
+  }, []);
+  useEffect(() => { drawValidationRef.current = drawValidation; }, [drawValidation]);
+  useEffect(() => { validateOnRef.current = validateOn; drawValidation(); }, [validateOn, drawValidation]);
+
+  // Fetch the validation report on toggle, scope change, clearance change, or
+  // whenever the plan is edited (dirty) — so conflicts track the live layout.
+  useEffect(() => {
+    if (!validateOn || !model) return;
+    let alive = true;
+    (async () => {
+      try {
+        const cl = Number(clearanceInput);
+        const q = cl > 0 ? `&minClearance=${cl}` : '';
+        const r = await apiFetch(`${API_BASE}/line-engineering/layout/collisions?model=${encodeURIComponent(model)}&revision=${encodeURIComponent(revision)}${q}`);
+        if (!r.ok || !alive) return;
+        const d = (await r.json()) as CollisionSummary;
+        validateConflictsRef.current = d.conflicts;
+        setValidateData(d);
+        drawValidation();
+      } catch { /* transient */ }
+    })();
+    return () => { alive = false; };
+  }, [validateOn, model, revision, clearanceInput, dirty, drawValidation]);
+
   // ── Flow connector controls (Fase 4) ───────────────────────────────────────
   const highlightSource = useCallback((id: string | null) => {
     const c = fcRef.current; if (!c) return;
@@ -1193,6 +1287,7 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
         <button onClick={() => { setMesOn((v) => !v); setHeatOn(false); }} title="MES en vivo (estado de estaciones)" className={`p-1.5 rounded-lg transition-colors ${mesOn ? 'text-white' : 'text-gray-500 hover:bg-black/5 dark:hover:bg-white/10'}`} style={mesOn ? { background: '#10b981' } : undefined}><Activity className="w-4 h-4" /></button>
         <button onClick={() => { setHeatOn((v) => !v); setMesOn(false); }} title="Mapa de calor (tiempo de ciclo / utilización)" className={`p-1.5 rounded-lg transition-colors ${heatOn ? 'text-white' : 'text-gray-500 hover:bg-black/5 dark:hover:bg-white/10'}`} style={heatOn ? { background: '#f97316' } : undefined}><Flame className="w-4 h-4" /></button>
         <button onClick={() => setFlowOn((v) => !v)} title="Diagrama de flujo (distancias y cruces)" className={`p-1.5 rounded-lg transition-colors ${flowOn ? 'text-white' : 'text-gray-500 hover:bg-black/5 dark:hover:bg-white/10'}`} style={flowOn ? { background: '#3b82f6' } : undefined}><Waypoints className="w-4 h-4" /></button>
+        <button onClick={() => setValidateOn((v) => !v)} title="Validar layout (solapes, holgura, fuera de límites)" className={`p-1.5 rounded-lg transition-colors ${validateOn ? 'text-white' : 'text-gray-500 hover:bg-black/5 dark:hover:bg-white/10'}`} style={validateOn ? { background: validateData && !validateData.ok ? '#ef4444' : '#10b981' } : undefined}>{validateOn && validateData && !validateData.ok ? <ShieldAlert className="w-4 h-4" /> : <ShieldCheck className="w-4 h-4" />}</button>
         <Sep />
         <div className={`flex items-center gap-1 ${selCount < 2 ? 'opacity-40 pointer-events-none' : ''}`}>
           <TBtn onClick={() => align('left')} title="Alinear izquierda"><AlignHorizontalJustifyStart className="w-4 h-4" /></TBtn>
@@ -1341,6 +1436,31 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
               </>
             ) : 'cargando…'}
           </span>
+        </div>
+      )}
+
+      {validateOn && (
+        <div className="flex items-center gap-3 px-4 py-2 border-b border-black/5 dark:border-white/10 text-[12px] flex-wrap">
+          <span className="inline-flex items-center gap-1.5 font-medium" style={{ color: validateData && !validateData.ok ? '#ef4444' : '#10b981' }}>
+            {validateData && !validateData.ok ? <ShieldAlert className="w-3.5 h-3.5" /> : <ShieldCheck className="w-3.5 h-3.5" />} Validación
+          </span>
+          <label className="inline-flex items-center gap-1 text-gray-500" title="Holgura mínima entre objetos (pasillos / seguridad). Vacío desactiva la comprobación.">
+            holgura
+            <input type="number" min={0} value={clearanceInput} onChange={(e) => setClearanceInput(e.target.value)} placeholder="0" className="w-16 px-1.5 py-0.5 rounded border border-black/10 dark:border-white/15 bg-transparent text-[12px]" />
+            {footprint.unit}
+          </label>
+          {validateData ? (
+            validateData.ok ? (
+              <span className="text-emerald-600 font-medium">Sin conflictos ✓</span>
+            ) : (
+              <span className="inline-flex items-center gap-3">
+                {validateData.overlaps > 0 && <LegendDot color="#ef4444" label={`Solapes ${validateData.overlaps}`} />}
+                {validateData.clearanceIssues > 0 && <LegendDot color="#f59e0b" label={`Holgura ${validateData.clearanceIssues}`} />}
+                {validateData.outOfBounds > 0 && <LegendDot color="#ef4444" label={`Fuera ${validateData.outOfBounds}`} />}
+              </span>
+            )
+          ) : 'cargando…'}
+          <span className="text-gray-400 ml-auto">sobre el plano guardado</span>
         </div>
       )}
 

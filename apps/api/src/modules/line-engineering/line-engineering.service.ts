@@ -43,6 +43,7 @@ import {
   StationHeat,
 } from './line-balance';
 import { flowAnalysis, FlowAnalysis } from './line-flow';
+import { layoutCollisions, CollisionResult, RectBox } from './line-collision';
 
 /** One station's material/work requirement for a unit of a model — the bridge
  * that Material Staging (C) and the Operator Terminal (D) consume. */
@@ -831,6 +832,69 @@ export class LineEngineeringService {
       model,
       revision,
       unit: layout.footprint.unit,
+    };
+  }
+
+  /**
+   * Layout validation (Fase 11): does the plan physically work? Checks placed
+   * stations and equipment for overlaps, optional minimum clearance (aisles /
+   * safety) and out-of-bounds placement. Read-only oriented-bounding-box
+   * geometry via `layoutCollisions` — rotation aware.
+   */
+  async getCollisions(
+    model: string,
+    revision = 'A',
+    minClearance = 0,
+  ): Promise<
+    CollisionResult & {
+      model: string;
+      revision: string;
+      unit: string;
+      minClearance: number;
+    }
+  > {
+    const layout = await this.getLayout(model, revision);
+    const defW = layout.footprint.footprintW * 0.06;
+    const defH = layout.footprint.footprintH * 0.08;
+    const boxes: RectBox[] = [];
+    for (const s of layout.stations) {
+      if (s.x === null || s.y === null) continue;
+      const w = s.w ?? defW;
+      const h = s.h ?? defH;
+      boxes.push({
+        id: s.id,
+        label: s.station,
+        kind: 'station',
+        cx: s.x + w / 2,
+        cy: s.y + h / 2,
+        w,
+        h,
+        angle: s.rotation ?? 0,
+      });
+    }
+    for (const a of layout.assets) {
+      boxes.push({
+        id: a.id,
+        label: a.label || a.kind,
+        kind: 'asset',
+        cx: a.x + a.w / 2,
+        cy: a.y + a.h / 2,
+        w: a.w,
+        h: a.h,
+        angle: a.rotation ?? 0,
+      });
+    }
+    const result = layoutCollisions(boxes, {
+      footprintW: layout.footprint.footprintW,
+      footprintH: layout.footprint.footprintH,
+      minClearance,
+    });
+    return {
+      ...result,
+      model,
+      revision,
+      unit: layout.footprint.unit,
+      minClearance: Math.max(0, minClearance),
     };
   }
 

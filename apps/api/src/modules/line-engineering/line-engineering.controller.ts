@@ -241,6 +241,24 @@ export class LineEngineeringController {
     return this.service.getFlowAnalysis(model, revision ?? 'A');
   }
 
+  @Get('layout/collisions')
+  @RequirePermissions('engineering:read')
+  @ApiOperation({
+    summary:
+      'Validación del layout: solapes, holgura mínima (pasillos) y objetos fuera del footprint.',
+  })
+  layoutCollisions(
+    @Query('model') model: string,
+    @Query('revision') revision?: string,
+    @Query('minClearance') minClearance?: string,
+  ) {
+    return this.service.getCollisions(
+      model,
+      revision ?? 'A',
+      minClearance ? Number(minClearance) : 0,
+    );
+  }
+
   @Get('stations/:id')
   @RequirePermissions('engineering:read')
   @ApiOperation({ summary: 'Detalle de una estación.' })
