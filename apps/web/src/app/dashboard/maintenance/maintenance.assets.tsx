@@ -7,6 +7,8 @@
 // read-only on edit — honest about the backend's update surface.
 import React, { useMemo, useState } from "react";
 import {
+  ClipboardList,
+  Clock,
   HardDrive,
   Inbox,
   MapPin,
@@ -21,11 +23,21 @@ import { glass } from "@/lib/glass";
 import { apiFetch } from "@/lib/apiFetch";
 import { useToast } from "@/contexts/ToastContext";
 import {
+  DetailDrawer,
+  DrawerField,
+  DrawerSection,
+  ExportButton,
+  type ExportColumn,
+} from "@/components/workspace";
+import {
+  AssetStatusPill,
   CriticalityPill,
   Empty,
   Field,
   Modal,
   Pill,
+  StatusPill,
+  TypePill,
 } from "./maintenance.ui";
 import { AssetStatusSelect } from "./maintenance.actions";
 import {
@@ -34,7 +46,12 @@ import {
   COLORS,
   CRITICALITY_META,
   CRITICALITY_ORDER,
+  dueLabel,
+  fmtDateTime,
+  fmtHours,
+  fmtMinutes,
   isOrderActive,
+  mtbfByAsset,
 } from "./maintenance.utils";
 import type {
   Asset,
@@ -63,6 +80,7 @@ export function AssetsTab({
   const [criticality, setCriticality] = useState<AssetCriticality | "">("");
   const [editing, setEditing] = useState<Asset | null>(null);
   const [creating, setCreating] = useState(false);
+  const [detail, setDetail] = useState<Asset | null>(null);
 
   // Órdenes vivas por activo (derivado del listado).
   const openByAsset = useMemo(() => {
@@ -89,6 +107,24 @@ export function AssetsTab({
 
   const anyFilter = !!(q || status || criticality);
 
+  // Exportación del registro de activos (respeta los filtros vía `rows`). Incluye
+  // las órdenes vivas derivadas para que el CSV sirva como inventario accionable.
+  const assetColumns = useMemo<ExportColumn<Asset>[]>(
+    () => [
+      { key: "code", header: "Código", value: (a) => a.code ?? "" },
+      { key: "name", header: "Nombre" },
+      { key: "category", header: "Categoría", value: (a) => a.category ?? "" },
+      { key: "location", header: "Ubicación", value: (a) => a.location ?? "" },
+      { key: "criticality", header: "Criticidad", value: (a) => CRITICALITY_META[a.criticality].label },
+      { key: "status", header: "Estado", value: (a) => ASSET_STATUS_META[a.status].label },
+      { key: "manufacturer", header: "Fabricante", value: (a) => a.manufacturer ?? "" },
+      { key: "model", header: "Modelo", value: (a) => a.model ?? "" },
+      { key: "serialNumber", header: "No. de serie", value: (a) => a.serialNumber ?? "" },
+      { key: "openOrders", header: "Órdenes abiertas", value: (a) => openByAsset.get(a.id) ?? 0 },
+    ],
+    [openByAsset],
+  );
+
   return (
     <div className="space-y-5">
       {/* Filtros + alta */}
@@ -114,6 +150,7 @@ export function AssetsTab({
             <option key={c} value={c}>{CRITICALITY_META[c].label}</option>
           ))}
         </select>
+        <ExportButton<Asset> rows={rows} columns={assetColumns} filename="activos-mantenimiento" />
         <button
           onClick={() => setCreating(true)}
           className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium text-white"
@@ -159,7 +196,7 @@ export function AssetsTab({
                 style={down ? { boxShadow: `inset 0 0 0 1px ${COLORS.red}55` } : undefined}
               >
                 <div className="flex items-start gap-2">
-                  <div className="min-w-0 flex-1">
+                  <button onClick={() => setDetail(a)} className="min-w-0 flex-1 text-left" title="Ver detalle e historial">
                     <div className="flex items-center gap-2 flex-wrap">
                       {a.code && <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-black/5 dark:bg-white/10 text-gray-500">{a.code}</span>}
                       <span className="font-semibold truncate">{a.name}</span>
@@ -171,7 +208,7 @@ export function AssetsTab({
                       {(a.manufacturer || a.model) && <span>{[a.manufacturer, a.model].filter(Boolean).join(" ")}</span>}
                       {a.serialNumber && <span className="font-mono">S/N {a.serialNumber}</span>}
                     </div>
-                  </div>
+                  </button>
                   <button
                     onClick={() => setEditing(a)}
                     className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 text-gray-400"
@@ -209,6 +246,179 @@ export function AssetsTab({
 
       {creating && <AssetFormModal onClose={() => setCreating(false)} onSaved={refresh} />}
       {editing && <AssetFormModal asset={editing} onClose={() => setEditing(null)} onSaved={refresh} />}
+      {detail && (
+        <AssetDetailDrawer
+          asset={detail}
+          orders={orders}
+          onClose={() => setDetail(null)}
+          onNewOrder={onNewOrder}
+          onEdit={(a) => {
+            setDetail(null);
+            setEditing(a);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+// ── Detalle del activo (drawer): identidad + indicadores + historial de órdenes ─
+// Reutiliza el DetailDrawer accesible del Workspace (Esc / foco atrapado / scroll
+// bloqueado) en vez de rodar otro panel. El historial sale del listado de órdenes
+// ya cargado (filtrado por activo), así que no hay round-trip extra.
+function AssetDetailDrawer({
+  asset,
+  orders,
+  onClose,
+  onNewOrder,
+  onEdit,
+}: {
+  asset: Asset;
+  orders: MaintenanceOrder[];
+  onClose: () => void;
+  onNewOrder: (prefill?: Partial<CreateOrderInput>) => void;
+  onEdit: (asset: Asset) => void;
+}) {
+  const history = useMemo(
+    () =>
+      orders
+        .filter((o) => o.assetId === asset.id)
+        .sort(
+          (a, b) =>
+            new Date(b.created_at ?? 0).getTime() -
+            new Date(a.created_at ?? 0).getTime(),
+        ),
+    [orders, asset.id],
+  );
+  const openCount = history.filter((o) => isOrderActive(o.status)).length;
+  const downtime = history.reduce((s, o) => s + (o.downtimeMinutes ?? 0), 0);
+  // mtbfByAsset agrupa sólo correctivas → con un único activo devuelve 0/1 fila.
+  const mtbf = mtbfByAsset(history)[0];
+  const failures = mtbf?.failures ?? 0;
+  const down = asset.status === "DOWN";
+
+  return (
+    <DetailDrawer
+      open
+      onClose={onClose}
+      title={asset.name}
+      subtitle={[asset.code, asset.category, asset.location].filter(Boolean).join(" · ") || undefined}
+      icon={HardDrive}
+      accent={CRITICALITY_META[asset.criticality].color}
+      actions={
+        <>
+          <button
+            onClick={() => onEdit(asset)}
+            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium hover:bg-black/5 dark:hover:bg-white/10"
+          >
+            <Pencil className="w-4 h-4" /> Editar activo
+          </button>
+          <button
+            onClick={() => {
+              onNewOrder({
+                assetId: asset.id,
+                type: down ? "CORRECTIVE" : "PREVENTIVE",
+                priority: down ? "HIGH" : "MEDIUM",
+                title: down ? `Avería: ${asset.name}` : "",
+              });
+              onClose();
+            }}
+            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium text-white"
+            style={{ background: COLORS.violet }}
+          >
+            <Wrench className="w-4 h-4" /> Nueva orden
+          </button>
+        </>
+      }
+    >
+      <DrawerSection title="Equipo">
+        <DrawerField label="Estado"><AssetStatusPill status={asset.status} /></DrawerField>
+        <DrawerField label="Criticidad"><CriticalityPill criticality={asset.criticality} /></DrawerField>
+        {asset.code && <DrawerField label="Código">{asset.code}</DrawerField>}
+        {asset.category && <DrawerField label="Categoría">{asset.category}</DrawerField>}
+        {asset.location && <DrawerField label="Ubicación">{asset.location}</DrawerField>}
+        {(asset.manufacturer || asset.model) && (
+          <DrawerField label="Equipo">{[asset.manufacturer, asset.model].filter(Boolean).join(" ")}</DrawerField>
+        )}
+        {asset.serialNumber && <DrawerField label="No. de serie">{asset.serialNumber}</DrawerField>}
+      </DrawerSection>
+
+      <DrawerSection title="Indicadores">
+        <div className="grid grid-cols-2 gap-2">
+          <MiniStat label="Órdenes" value={history.length} />
+          <MiniStat label="Abiertas" value={openCount} color={openCount > 0 ? COLORS.amber : undefined} />
+          <MiniStat
+            label="Fallas"
+            value={failures}
+            sub={mtbf?.mtbfHours != null ? `MTBF ${fmtHours(mtbf.mtbfHours)}` : undefined}
+          />
+          <MiniStat label="Paro total" value={fmtMinutes(downtime)} />
+        </div>
+      </DrawerSection>
+
+      <DrawerSection title={`Historial de órdenes${history.length ? ` (${history.length})` : ""}`}>
+        {history.length === 0 ? (
+          <div className="flex flex-col items-center text-center py-6 px-4">
+            <div className="p-3 rounded-2xl bg-gray-100 dark:bg-white/5 text-gray-400 mb-3">
+              <ClipboardList className="w-6 h-6" />
+            </div>
+            <p className="text-sm text-gray-500 dark:text-gray-400 max-w-xs">
+              Sin órdenes para este activo todavía. Crea la primera (preventiva o
+              correctiva) para empezar su historial y medir MTBF/MTTR por equipo.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {history.map((o) => (
+              <AssetOrderRow key={o.id} order={o} />
+            ))}
+          </div>
+        )}
+      </DrawerSection>
+    </DetailDrawer>
+  );
+}
+
+function MiniStat({
+  label,
+  value,
+  sub,
+  color,
+}: {
+  label: string;
+  value: number | string;
+  sub?: string;
+  color?: string;
+}) {
+  return (
+    <div className="rounded-xl bg-black/[0.03] dark:bg-white/[0.04] px-3 py-2">
+      <div className="text-[11px] text-gray-400">{label}</div>
+      <div className="text-base font-semibold tabular-nums" style={color ? { color } : undefined}>{value}</div>
+      {sub && <div className="text-[11px] text-gray-400 truncate">{sub}</div>}
+    </div>
+  );
+}
+
+function AssetOrderRow({ order }: { order: MaintenanceOrder }) {
+  return (
+    <div className="rounded-xl border border-black/5 dark:border-white/10 p-3">
+      <div className="flex items-center gap-2 flex-wrap">
+        {order.folio && (
+          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-black/5 dark:bg-white/10 text-gray-500">{order.folio}</span>
+        )}
+        <span className="font-medium text-sm truncate">{order.title}</span>
+        <StatusPill status={order.status} />
+      </div>
+      <div className="mt-1 flex items-center gap-2 text-[12px] text-gray-400 flex-wrap">
+        <TypePill type={order.type} />
+        <span>{fmtDateTime(order.created_at)}</span>
+        {order.downtimeMinutes > 0 && (
+          <span className="inline-flex items-center gap-1"><Clock className="w-3 h-3" />{fmtMinutes(order.downtimeMinutes)} paro</span>
+        )}
+        {order.dueDate && order.status !== "COMPLETED" && order.status !== "CANCELLED" && (
+          <span>{dueLabel(order.dueDate)}</span>
+        )}
+      </div>
     </div>
   );
 }
