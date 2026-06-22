@@ -26,7 +26,7 @@ import {
 import { SlideSorter } from './SlideSorter';
 import { SlideIconPicker } from './SlideIconPicker';
 import { TemplateGallery } from './TemplateGallery';
-import { SLIDE_THEMES, SLIDE_LAYOUTS, SLIDE_TRANSITIONS, OBJ_ANIM_OPTIONS, OBJ_ANIM_START, DEFAULT_ANIM_START, animKind, SLIDE_RATIOS, slideHeight, TRANS_DURATIONS, DEFAULT_TRANS_DUR, type SlideTheme } from './slideAssets';
+import { SLIDE_THEMES, SLIDE_LAYOUTS, SLIDE_TRANSITIONS, OBJ_ANIM_OPTIONS, OBJ_ANIM_START, DEFAULT_ANIM_START, animKind, SLIDE_RATIOS, slideHeight, TRANS_DURATIONS, DEFAULT_TRANS_DUR, themeHeading, type SlideTheme } from './slideAssets';
 import { SlideAnimationPanel, type AnimItem } from './SlideAnimationPanel';
 import { SlideLayersPanel, type LayerItem } from './SlideLayersPanel';
 import { POLY_SHAPES, PATH_SHAPES } from './slides/shapes';
@@ -114,8 +114,23 @@ function remapThemeObject(o: any, from: SlideTheme, to: SlideTheme): void {
       v.colorStops = v.colorStops.map((s: any) => ({ ...s, color: remapThemeColor(s.color, from, to) }));
     }
   }
-  if (typeof o.fontFamily === 'string' && o.fontFamily.toLowerCase() === from.font.toLowerCase()) o.fontFamily = to.font;
+  // Tipografía: remapea cuerpo (font) y títulos (headingFont) del tema anterior
+  // al nuevo, conservando fuentes que el usuario eligió a mano.
+  if (typeof o.fontFamily === 'string') {
+    const ff = o.fontFamily.toLowerCase();
+    if (ff === from.font.toLowerCase()) o.fontFamily = to.font;
+    else if (from.headingFont && ff === from.headingFont.toLowerCase()) o.fontFamily = themeHeading(to);
+  }
   if (Array.isArray(o.objects)) for (const child of o.objects) remapThemeObject(child, from, to);
+}
+// Los marcadores de posición (placeholders, prop `ph`) siguen la tipografía del
+// tema: título/subtítulo usan la fuente de títulos; el contenido, la de cuerpo.
+// Así el cambio de tema reestiliza las fuentes de los placeholders de forma
+// consistente (los cuadros de texto sueltos conservan su fuente manual).
+function applyPlaceholderFont(o: any, t: SlideTheme): void {
+  if (!o || typeof o !== 'object') return;
+  if (o.ph === 'title' || o.ph === 'subtitle') o.fontFamily = themeHeading(t);
+  else if (o.ph === 'body') o.fontFamily = t.font;
 }
 
 export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value: any; onChange: (data: any) => void; readOnly?: boolean; fileActions?: React.ReactNode }) {
@@ -293,7 +308,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
     if (to.id !== from.id) {
       for (const s of slidesRef.current) {
         if (typeof s.background === 'string') s.background = remapThemeColor(s.background, from, to);
-        for (const o of (s.objects || [])) remapThemeObject(o, from, to);
+        for (const o of (s.objects || [])) { remapThemeObject(o, from, to); applyPlaceholderFont(o, to); }
       }
     }
     themeRef.current = id; setThemeId(id);
@@ -310,9 +325,12 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
     c.getObjects().slice().forEach((o) => c.remove(o));
     for (const ph of layout.build()) {
       if (ph.kind === 'bar' || ph.kind === 'accentBar') {
-        c.add(new Rect({ left: ph.left, top: ph.top, width: ph.width, height: ph.height || 8, fill: t.accent, rx: ph.kind === 'accentBar' ? 4 : 0, ry: ph.kind === 'accentBar' ? 4 : 0 }));
+        c.add(new Rect({ left: ph.left, top: ph.top, width: ph.width, height: ph.height || 8, fill: t.accent, rx: ph.kind === 'accentBar' ? 4 : 0, ry: ph.kind === 'accentBar' ? 4 : 0, ph: ph.kind } as any));
       } else {
-        c.add(new Textbox(ph.text || '', { left: ph.left, top: ph.top, width: ph.width, fontSize: ph.fontSize || 28, fontWeight: ph.bold ? 'bold' : 'normal', fill: ph.muted ? t.muted : t.text, textAlign: ph.align || 'left', fontFamily: t.font }));
+        // Los marcadores de título/subtítulo usan la tipografía de títulos del
+        // tema (mayor); el cuerpo usa la de cuerpo (menor). `ph` marca el rol.
+        const heading = ph.kind === 'title' || ph.kind === 'subtitle';
+        c.add(new Textbox(ph.text || '', { left: ph.left, top: ph.top, width: ph.width, fontSize: ph.fontSize || 28, fontWeight: ph.bold ? 'bold' : 'normal', fill: ph.muted ? t.muted : t.text, textAlign: ph.align || 'left', fontFamily: heading ? themeHeading(t) : t.font, ph: ph.kind } as any));
       }
     }
     c.backgroundColor = t.bg;
@@ -646,6 +664,23 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
     const c = fabricRef.current; if (!c) return; const o = c.getObjects()[idx]; if (!o) return;
     (c as any).sendObjectBackwards(o); c.requestRenderAll(); capture(); sync();
   }
+  function frontIdx(idx: number) {
+    const c = fabricRef.current; if (!c) return; const o = c.getObjects()[idx]; if (!o) return;
+    (c as any).bringObjectToFront(o); c.requestRenderAll(); capture(); sync();
+  }
+  function backIdx(idx: number) {
+    const c = fabricRef.current; if (!c) return; const o = c.getObjects()[idx]; if (!o) return;
+    (c as any).sendObjectToBack(o); c.requestRenderAll(); capture(); sync();
+  }
+  // Reordena el orden Z arrastrando en el panel de selección (mueve `from`→`to`
+  // un paso a la vez usando la API confirmada de Fabric).
+  function reorderObject(from: number, to: number) {
+    const c = fabricRef.current; if (!c || from === to) return;
+    const o = c.getObjects()[from]; if (!o) return;
+    const n = to - from;
+    for (let i = 0; i < Math.abs(n); i++) { if (n > 0) (c as any).bringObjectForward(o); else (c as any).sendObjectBackwards(o); }
+    c.requestRenderAll(); capture(); sync();
+  }
   function toggleNumbers() { const v = !numbersRef.current; numbersRef.current = v; setShowNumbers(v); sync(); }
   function editFooter() {
     const v = window.prompt('Texto del pie de diapositiva (vacío = quitar)', footerRef.current);
@@ -674,7 +709,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
   // Include custom props (anim = entrance animation, shape = .pptx mapping, link = hyperlink, locked).
   function capture() {
     const c = fabricRef.current; if (!c) return;
-    const data: any = c.toObject(['anim', 'animOrder', 'animDur', 'animDelay', 'animStart', 'shape', 'link', 'locked', 'imgFx', 'chartSpec', 'smart', 'tableSpec', 'conn', 'connId', 'bgFill']);
+    const data: any = c.toObject(['anim', 'animOrder', 'animDur', 'animDelay', 'animStart', 'shape', 'link', 'locked', 'imgFx', 'chartSpec', 'smart', 'tableSpec', 'conn', 'connId', 'bgFill', 'ph']);
     // El patrón se compone como backgroundImage en modo normal: no debe quedar
     // guardado dentro del JSON de la diapositiva.
     delete data.backgroundImage; delete data.overlayImage;
@@ -774,20 +809,39 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
     canvas.on('object:scaling', reconn);
     canvas.on('object:rotating', reconn);
 
-    // Guías de alineación + snapping (al centro/bordes del lienzo y a otros objetos).
-    const SNAP = 6;
+    // Guías inteligentes + snapping (tipo PowerPoint): engancha los bordes
+    // izquierdo/centro/derecho y superior/medio/inferior del objeto que se mueve
+    // a los bordes y centro del lienzo Y a los bordes/centros de los demás
+    // objetos. Dibuja las guías rosas en `after:render`.
+    const SNAP = 7;
     let guides: { v: number[]; h: number[] } = { v: [], h: [] };
     canvas.on('object:moving', (e: any) => {
       const o = e.target; if (!o) return;
       guides = { v: [], h: [] };
-      const ctr = o.getCenterPoint();
       const H = slideHeight(ratioRef.current);
+      o.setCoords();
+      const r = o.getBoundingRect();
+      // Anclas del objeto que se mueve (izq/centro/der · arr/medio/aba).
+      const ax = [r.left, r.left + r.width / 2, r.left + r.width];
+      const ay = [r.top, r.top + r.height / 2, r.top + r.height];
+      // Objetivos: lienzo + cada otro objeto (excluye sus propios miembros y fondos).
+      const members: any[] = Array.isArray((o as any)._objects) ? (o as any)._objects : [];
       const xs = [0, CW / 2, CW]; const ys = [0, H / 2, H];
-      for (const other of canvas.getObjects()) { if (other === o) continue; const p = (other as any).getCenterPoint(); xs.push(p.x); ys.push(p.y); }
-      for (const tx of xs) if (Math.abs(ctr.x - tx) < SNAP) { o.set('left', o.left + (tx - ctr.x)); guides.v.push(tx); break; }
-      for (const ty of ys) if (Math.abs(ctr.y - ty) < SNAP) { o.set('top', o.top + (ty - ctr.y)); guides.h.push(ty); break; }
-      // Ajustar a la cuadrícula (cuando está visible) si no se enganchó a una guía.
-      if (showGridRef.current) { const G = 48; if (!guides.v.length) o.set('left', Math.round(o.left / G) * G); if (!guides.h.length) o.set('top', Math.round(o.top / G) * G); }
+      for (const other of canvas.getObjects()) {
+        if (other === o || members.includes(other) || (other as any).visible === false || isBgFill(other)) continue;
+        const b = (other as any).getBoundingRect();
+        xs.push(b.left, b.left + b.width / 2, b.left + b.width);
+        ys.push(b.top, b.top + b.height / 2, b.top + b.height);
+      }
+      // Mejor enganche por eje = menor distancia entre cualquier ancla y objetivo.
+      let bx: { at: number; d: number; delta: number } | null = null;
+      for (const a of ax) for (const tx of xs) { const d = Math.abs(a - tx); if (d <= SNAP && (!bx || d < bx.d)) bx = { at: tx, d, delta: tx - a }; }
+      let by: { at: number; d: number; delta: number } | null = null;
+      for (const a of ay) for (const ty of ys) { const d = Math.abs(a - ty); if (d <= SNAP && (!by || d < by.d)) by = { at: ty, d, delta: ty - a }; }
+      if (bx) { o.set('left', o.left + bx.delta); guides.v.push(bx.at); }
+      else if (showGridRef.current) { const G = 48; o.set('left', Math.round(o.left / G) * G); }
+      if (by) { o.set('top', o.top + by.delta); guides.h.push(by.at); }
+      else if (showGridRef.current) { const G = 48; o.set('top', Math.round(o.top / G) * G); }
       o.setCoords();
     });
     // Cuentagotas: muestrea el color del píxel bajo el cursor y lo aplica.
@@ -1808,7 +1862,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
           <SlideAnimationPanel items={animList} activeIdx={activeIdx} onChange={setAnimByIndex} onSelect={selectByIndex} onClose={() => setShowAnimPanel(false)} />
         )}
         {showLayers && !readOnly && (
-          <SlideLayersPanel items={layerList} activeIdx={activeIdx} onSelect={selectByIndex} onToggleVisible={toggleVisibleIdx} onToggleLock={toggleLockIdx} onForward={forwardIdx} onBackward={backwardIdx} onClose={() => setShowLayers(false)} />
+          <SlideLayersPanel items={layerList} activeIdx={activeIdx} onSelect={selectByIndex} onToggleVisible={toggleVisibleIdx} onToggleLock={toggleLockIdx} onForward={forwardIdx} onBackward={backwardIdx} onFront={frontIdx} onBack={backIdx} onReorder={reorderObject} onClose={() => setShowLayers(false)} />
         )}
       </div>
 
