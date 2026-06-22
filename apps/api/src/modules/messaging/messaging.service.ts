@@ -13,6 +13,7 @@ import { Message, MessageType } from './entities/message.entity';
 import { ChatMessageReaction } from './entities/chat-message-reaction.entity';
 import { PollVote } from './entities/poll-vote.entity';
 import { ScheduledMessage } from './entities/scheduled-message.entity';
+import { ConversationLabel } from './entities/conversation-label.entity';
 import { User } from '../users/entities/user.entity';
 import { ChatGateway } from './chat.gateway';
 
@@ -104,6 +105,8 @@ export class MessagingService {
     private readonly pollVotes: Repository<PollVote>,
     @InjectRepository(ScheduledMessage)
     private readonly scheduled: Repository<ScheduledMessage>,
+    @InjectRepository(ConversationLabel)
+    private readonly labels: Repository<ConversationLabel>,
     @InjectRepository(User)
     private readonly users: Repository<User>,
     private readonly gateway: ChatGateway,
@@ -334,6 +337,13 @@ export class MessagingService {
       });
     }
 
+    // Etiquetas personales de cada conversación (en lote).
+    const labelMap = await this.labelsByConversation(
+      meId,
+      result.map((r) => r.id),
+    );
+    for (const r of result) r.labels = labelMap.get(r.id) ?? [];
+
     result.sort((a, b) => {
       const ta = a.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0;
       const tb = b.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0;
@@ -395,6 +405,9 @@ export class MessagingService {
       }
     }
 
+    // Nº de respuestas (hilo) por mensaje, en una sola consulta.
+    const threadCounts = await this.threadCountsFor(ids);
+
     // Devolver en orden cronológico ascendente.
     return rows.reverse().map((m) =>
       this.toDto(m, {
@@ -404,8 +417,62 @@ export class MessagingService {
           m.type === 'poll'
             ? this.aggregatePollDto(m, votesByMsg.get(m.id) ?? [])
             : null,
+        threadCount: threadCounts.get(m.id) ?? 0,
       }),
     );
+  }
+
+  /** Cuenta respuestas directas (no eliminadas) por cada id de mensaje raíz. */
+  private async threadCountsFor(ids: string[]): Promise<Map<string, number>> {
+    const counts = new Map<string, number>();
+    if (!ids.length) return counts;
+    const rows = await this.messages
+      .createQueryBuilder('m')
+      .select('m.reply_to_id', 'rid')
+      .addSelect('COUNT(*)', 'cnt')
+      .where('m.reply_to_id IN (:...ids)', { ids })
+      .andWhere('m.deleted_at IS NULL')
+      .groupBy('m.reply_to_id')
+      .getRawMany<{ rid: string; cnt: string }>();
+    for (const r of rows) counts.set(r.rid, Number(r.cnt));
+    return counts;
+  }
+
+  /** Devuelve el mensaje raíz + sus respuestas (hilo completo). */
+  async getThread(meId: string, rootId: string) {
+    const root = await this.messages.findOne({ where: { id: rootId } });
+    if (!root) throw new NotFoundException('Mensaje no encontrado');
+    await this.assertMember(root.conversationId, meId);
+    const replies = await this.messages.find({
+      where: { replyToId: rootId },
+      order: { createdAt: 'ASC' },
+    });
+
+    const all = [root, ...replies];
+    const ids = all.map((m) => m.id);
+    const reactionRows = await this.reactions.find({
+      where: { messageId: In(ids) },
+      order: { createdAt: 'ASC' },
+    });
+    const byMessage = new Map<string, { emoji: string; userId: string }[]>();
+    for (const r of reactionRows) {
+      const list = byMessage.get(r.messageId);
+      if (list) list.push(r);
+      else byMessage.set(r.messageId, [r]);
+    }
+    const reactionsOf = (id: string) =>
+      aggregateReactions(byMessage.get(id) ?? [], meId);
+    const rootPreview = this.replyPreviewOf(root);
+
+    return {
+      root: this.toDto(root, {
+        reactions: reactionsOf(root.id),
+        threadCount: replies.length,
+      }),
+      replies: replies.map((m) =>
+        this.toDto(m, { reactions: reactionsOf(m.id), replyTo: rootPreview }),
+      ),
+    };
   }
 
   // ── enviar texto ─────────────────────────────────────────────────────────
@@ -1166,6 +1233,7 @@ export class MessagingService {
       reactions?: AggregatedReaction[];
       replyTo?: ReplyPreview | null;
       poll?: PollDto | null;
+      threadCount?: number;
     },
   ) {
     const deleted = !!m.deletedAt;
@@ -1190,6 +1258,52 @@ export class MessagingService {
       pinnedAt: m.pinnedAt ?? null,
       expiresAt: m.expiresAt ?? null,
       forwarded: !!m.forwarded,
+      threadCount: extras?.threadCount ?? 0,
     };
+  }
+
+  // ── etiquetas / carpetas (organización personal de conversaciones) ────────
+  /** Reemplaza el conjunto de etiquetas del usuario para una conversación. */
+  async setConversationLabels(
+    meId: string,
+    conversationId: string,
+    rawLabels: string[],
+  ) {
+    await this.assertMember(conversationId, meId);
+    const clean = Array.from(
+      new Set(
+        (rawLabels ?? [])
+          .map((l) => (l ?? '').trim().slice(0, 40))
+          .filter(Boolean),
+      ),
+    ).slice(0, 12);
+    await this.labels.delete({ userId: meId, conversationId });
+    if (clean.length) {
+      await this.labels.save(
+        clean.map((label) =>
+          this.labels.create({ userId: meId, conversationId, label }),
+        ),
+      );
+    }
+    return { conversationId, labels: clean };
+  }
+
+  /** Mapa conversación → etiquetas del usuario (para adjuntar a la lista). */
+  private async labelsByConversation(
+    meId: string,
+    conversationIds: string[],
+  ): Promise<Map<string, string[]>> {
+    const map = new Map<string, string[]>();
+    if (!conversationIds.length) return map;
+    const rows = await this.labels.find({
+      where: { userId: meId, conversationId: In(conversationIds) },
+      order: { label: 'ASC' },
+    });
+    for (const r of rows) {
+      const list = map.get(r.conversationId);
+      if (list) list.push(r.label);
+      else map.set(r.conversationId, [r.label]);
+    }
+    return map;
   }
 }

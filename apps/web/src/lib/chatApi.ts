@@ -117,6 +117,14 @@ export interface ChatMessage {
   forwarded?: boolean;
   /** Solo para `type: 'poll'`. */
   poll?: PollData | null;
+  /** Nº de respuestas directas a este mensaje (hilo). */
+  threadCount?: number;
+}
+
+/** Hilo: mensaje raíz + sus respuestas. */
+export interface ThreadData {
+  root: ChatMessage;
+  replies: ChatMessage[];
 }
 
 export interface ReadReceipt {
@@ -135,6 +143,8 @@ export interface ChatConversation {
   lastMessage: { type: string; body: string | null; createdAt: string; senderId: string } | null;
   lastMessageAt: string | null;
   unread: number;
+  /** Etiquetas/carpetas personales del usuario para esta conversación. */
+  labels?: string[];
 }
 
 // ── Endpoints ──────────────────────────────────────────────────────────
@@ -331,6 +341,21 @@ export const chatApi = {
     req<ReadReceipt[]>(`/messaging/conversations/${conversationId}/reads`, {
       headers: authHeaders(),
     }),
+
+  getThread: (messageId: string) =>
+    req<ThreadData>(`/messaging/messages/${messageId}/thread`, {
+      headers: authHeaders(),
+    }),
+
+  setLabels: (conversationId: string, labels: string[]) =>
+    req<{ conversationId: string; labels: string[] }>(
+      `/messaging/conversations/${conversationId}/labels`,
+      {
+        method: 'PUT',
+        headers: authHeaders(),
+        body: JSON.stringify({ labels }),
+      },
+    ),
 };
 
 /** Trae una imagen protegida (con Bearer) y la devuelve como object URL. */

@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Patch,
+  Put,
   Delete,
   Param,
   Body,
@@ -115,6 +116,24 @@ export class MessagingController {
   @Get('conversations/:id/pinned')
   listPinned(@Req() req: any, @Param('id') id: string) {
     return this.messaging.listPinned(this.me(req), id);
+  }
+
+  @Put('conversations/:id/labels')
+  setLabels(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body() body: { labels?: string[] },
+  ) {
+    return this.messaging.setConversationLabels(
+      this.me(req),
+      id,
+      body?.labels ?? [],
+    );
+  }
+
+  @Get('messages/:id/thread')
+  getThread(@Req() req: any, @Param('id') id: string) {
+    return this.messaging.getThread(this.me(req), id);
   }
 
   @Post('messages')

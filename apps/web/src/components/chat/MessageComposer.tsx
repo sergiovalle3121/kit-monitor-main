@@ -16,6 +16,9 @@ import {
   Trash2,
   BarChart3,
   Clock,
+  Film,
+  MapPin,
+  Contact,
 } from 'lucide-react';
 import { glass } from '@/lib/glass';
 import type { ChatUser } from '@/lib/chatApi';
@@ -48,6 +51,12 @@ interface MessageComposerProps {
   onCreatePoll?: () => void;
   /** Abrir el programador de mensajes (desde el menú "+"). */
   onSchedule?: () => void;
+  /** Abrir el selector de GIFs. */
+  onPickGif?: () => void;
+  /** Compartir mi ubicación actual. */
+  onShareLocation?: () => void;
+  /** Compartir el contacto de un compañero. */
+  onShareContact?: () => void;
 }
 
 function initials(name: string): string {
@@ -87,6 +96,9 @@ export function MessageComposer({
   autoFocusKey,
   onCreatePoll,
   onSchedule,
+  onPickGif,
+  onShareLocation,
+  onShareContact,
 }: MessageComposerProps) {
   const [showPicker, setShowPicker] = useState(false);
   const [showActions, setShowActions] = useState(false);
@@ -542,6 +554,42 @@ export function MessageComposer({
               >
                 <Paperclip className="h-4 w-4 text-violet-500" /> Archivo
               </button>
+              {onPickGif && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onPickGif();
+                    setShowActions(false);
+                  }}
+                  className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm hover:bg-black/5 dark:hover:bg-white/10"
+                >
+                  <Film className="h-4 w-4 text-fuchsia-500" /> GIF
+                </button>
+              )}
+              {onShareLocation && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onShareLocation();
+                    setShowActions(false);
+                  }}
+                  className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm hover:bg-black/5 dark:hover:bg-white/10"
+                >
+                  <MapPin className="h-4 w-4 text-rose-500" /> Ubicación
+                </button>
+              )}
+              {onShareContact && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onShareContact();
+                    setShowActions(false);
+                  }}
+                  className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm hover:bg-black/5 dark:hover:bg-white/10"
+                >
+                  <Contact className="h-4 w-4 text-teal-500" /> Contacto
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => {
