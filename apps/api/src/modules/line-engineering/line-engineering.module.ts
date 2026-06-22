@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { SfLineStation } from './entities/sf-line-station.entity';
 import { SfModelLine } from './entities/sf-model-line.entity';
+import { SfLineLayout } from './entities/sf-line-layout.entity';
 import { LineEngineeringService } from './line-engineering.service';
 import { LineEngineeringController } from './line-engineering.controller';
 import { EventLedgerModule } from '../event-ledger/event-ledger.module';
@@ -14,7 +15,7 @@ import { provideTenantScopedRepository } from '../../common/tenant/tenant-scoped
  */
 @Module({
   imports: [
-    TypeOrmModule.forFeature([SfLineStation, SfModelLine]),
+    TypeOrmModule.forFeature([SfLineStation, SfModelLine, SfLineLayout]),
     EventLedgerModule,
   ],
   controllers: [LineEngineeringController],
@@ -22,6 +23,7 @@ import { provideTenantScopedRepository } from '../../common/tenant/tenant-scoped
     LineEngineeringService,
     provideTenantScopedRepository(SfLineStation),
     provideTenantScopedRepository(SfModelLine),
+    provideTenantScopedRepository(SfLineLayout),
   ],
   exports: [LineEngineeringService],
 })

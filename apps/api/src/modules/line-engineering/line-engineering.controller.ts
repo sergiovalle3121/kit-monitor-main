@@ -5,6 +5,7 @@ import {
   Param,
   Patch,
   Post,
+  Put,
   Query,
   UseGuards,
 } from '@nestjs/common';
@@ -16,6 +17,7 @@ import { LineEngineeringService } from './line-engineering.service';
 import {
   CreateStationDto,
   QualifyModelLineDto,
+  SaveLayoutDto,
   UpdateModelLineDto,
   UpdateStationDto,
 } from './dto/line-engineering.dto';
@@ -52,8 +54,14 @@ export class LineEngineeringController {
 
   @Get('requirements')
   @RequirePermissions('engineering:read')
-  @ApiOperation({ summary: 'Requerimientos por estación (NP, factor de uso) — puente a surtido/operador.' })
-  requirements(@Query('model') model: string, @Query('revision') revision?: string) {
+  @ApiOperation({
+    summary:
+      'Requerimientos por estación (NP, factor de uso) — puente a surtido/operador.',
+  })
+  requirements(
+    @Query('model') model: string,
+    @Query('revision') revision?: string,
+  ) {
     return this.service.stationRequirements(model, revision ?? 'A');
   }
 
@@ -66,7 +74,9 @@ export class LineEngineeringController {
 
   @Get('balance')
   @RequirePermissions('engineering:read')
-  @ApiOperation({ summary: 'Balanceo de línea (takt vs cycle, cuello de botella).' })
+  @ApiOperation({
+    summary: 'Balanceo de línea (takt vs cycle, cuello de botella).',
+  })
   balance(
     @Query('model') model: string,
     @Query('revision') revision?: string,
@@ -85,7 +95,9 @@ export class LineEngineeringController {
 
   @Get('capacity')
   @RequirePermissions('engineering:read')
-  @ApiOperation({ summary: 'Capacidad/carga de línea (requerido vs disponible).' })
+  @ApiOperation({
+    summary: 'Capacidad/carga de línea (requerido vs disponible).',
+  })
   capacity(
     @Query('model') model: string,
     @Query('line') line: string,
@@ -104,9 +116,35 @@ export class LineEngineeringController {
 
   @Get('kpis')
   @RequirePermissions('engineering:read')
-  @ApiOperation({ summary: 'KPIs de IE: %ayuda visual, %modelos balanceados, layouts incompletos.' })
+  @ApiOperation({
+    summary:
+      'KPIs de IE: %ayuda visual, %modelos balanceados, layouts incompletos.',
+  })
   kpis() {
     return this.service.kpis();
+  }
+
+  @Get('layout')
+  @RequirePermissions('engineering:read')
+  @ApiOperation({
+    summary:
+      'Layout 2D de un modelo+revisión: footprint + estaciones (posición o sin colocar).',
+  })
+  getLayout(
+    @Query('model') model: string,
+    @Query('revision') revision?: string,
+  ) {
+    return this.service.getLayout(model, revision ?? 'A');
+  }
+
+  @Put('layout')
+  @RequirePermissions('engineering:write')
+  @ApiOperation({
+    summary:
+      'Guarda el layout 2D (footprint + posiciones x/y/w/h/rotación por estación). Aditivo.',
+  })
+  saveLayout(@Body() dto: SaveLayoutDto) {
+    return this.service.saveLayout(dto);
   }
 
   @Get('stations/:id')
@@ -118,7 +156,10 @@ export class LineEngineeringController {
 
   @Post('stations')
   @RequirePermissions('engineering:write')
-  @ApiOperation({ summary: 'Crea una estación de layout (NP, factor de uso, tiempo, ayuda visual, CTQ).' })
+  @ApiOperation({
+    summary:
+      'Crea una estación de layout (NP, factor de uso, tiempo, ayuda visual, CTQ).',
+  })
   createStation(@Body() dto: CreateStationDto) {
     return this.service.createStation(dto);
   }
@@ -132,7 +173,9 @@ export class LineEngineeringController {
 
   @Post('qualifications')
   @RequirePermissions('engineering:write')
-  @ApiOperation({ summary: 'Califica un modelo en una línea (changeover, takt target).' })
+  @ApiOperation({
+    summary: 'Califica un modelo en una línea (changeover, takt target).',
+  })
   qualify(@Body() dto: QualifyModelLineDto) {
     return this.service.qualify(dto);
   }
@@ -140,7 +183,10 @@ export class LineEngineeringController {
   @Patch('qualifications/:id')
   @RequirePermissions('engineering:write')
   @ApiOperation({ summary: 'Actualiza una calificación modelo↔línea.' })
-  updateQualification(@Param('id') id: string, @Body() dto: UpdateModelLineDto) {
+  updateQualification(
+    @Param('id') id: string,
+    @Body() dto: UpdateModelLineDto,
+  ) {
     return this.service.updateQualification(id, dto);
   }
 }
