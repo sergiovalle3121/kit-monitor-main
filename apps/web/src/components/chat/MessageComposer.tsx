@@ -8,10 +8,13 @@ import {
   Table as TableIcon,
   Send,
   SpellCheck,
+  Plus,
+  Check,
   X,
 } from 'lucide-react';
 import { glass } from '@/lib/glass';
 import type { ChatUser } from '@/lib/chatApi';
+import { avatarStyle } from '@/lib/chat/avatar';
 import { EmojiStickerPicker } from './EmojiStickerPicker';
 import { autocorrectText, getWordCompletions } from '@/lib/chat/autocorrect';
 import { searchEmojis } from '@/lib/chat/emojis';
@@ -34,6 +37,8 @@ interface MessageComposerProps {
   disabled?: boolean;
   placeholder?: string;
   compact?: boolean;
+  /** Al cambiar (p. ej. id de conversación), enfoca el campo de texto. */
+  autoFocusKey?: string;
 }
 
 function initials(name: string): string {
@@ -70,12 +75,28 @@ export function MessageComposer({
   disabled = false,
   placeholder = 'Escribe un mensaje…',
   compact = false,
+  autoFocusKey,
 }: MessageComposerProps) {
   const [showPicker, setShowPicker] = useState(false);
+  const [showActions, setShowActions] = useState(false);
   const [caret, setCaret] = useState(0);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const rootRef = useRef<HTMLDivElement | null>(null);
+
+  // Cierra el picker / menú "+" al hacer clic fuera del composer.
+  useEffect(() => {
+    if (!showPicker && !showActions) return;
+    const onDown = (e: MouseEvent) => {
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
+        setShowPicker(false);
+        setShowActions(false);
+      }
+    };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [showPicker, showActions]);
 
   // Autosize del textarea.
   useEffect(() => {
@@ -84,6 +105,11 @@ export function MessageComposer({
     el.style.height = 'auto';
     el.style.height = `${Math.min(el.scrollHeight, compact ? 120 : 160)}px`;
   }, [value, compact]);
+
+  // Enfoca el campo al abrir/cambiar de conversación (comodidad: escribir ya).
+  useEffect(() => {
+    if (autoFocusKey) textareaRef.current?.focus();
+  }, [autoFocusKey]);
 
   function syncCaret() {
     const el = textareaRef.current;
@@ -214,7 +240,7 @@ export function MessageComposer({
     'rounded-full p-2 text-gray-500 hover:bg-black/5 focus-visible:ring-2 focus-visible:ring-blue-500/40 dark:hover:bg-white/10 disabled:opacity-40';
 
   return (
-    <div className="relative">
+    <div className="relative" ref={rootRef}>
       {/* Selector de emojis/stickers */}
       {showPicker && (
         <div className="absolute bottom-14 left-2 z-30">
@@ -242,7 +268,10 @@ export function MessageComposer({
               }}
               className="flex w-full items-center gap-2 rounded-xl p-2 text-left hover:bg-black/5 dark:hover:bg-white/10"
             >
-              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-violet-500 text-[10px] font-bold text-white">
+              <span
+                className="flex h-7 w-7 items-center justify-center rounded-full text-[10px] font-bold text-white"
+                style={avatarStyle(u.id)}
+              >
                 {initials(u.username || u.email)}
               </span>
               <span className="min-w-0">
@@ -307,7 +336,10 @@ export function MessageComposer({
       <div className="flex items-end gap-1">
         <button
           type="button"
-          onClick={() => setShowPicker((s) => !s)}
+          onClick={() => {
+            setShowPicker((s) => !s);
+            setShowActions(false);
+          }}
           className={iconBtn}
           aria-label="Emojis y stickers"
           aria-expanded={showPicker}
@@ -315,52 +347,73 @@ export function MessageComposer({
         >
           {showPicker ? <X className="h-5 w-5" /> : <Smile className="h-5 w-5" />}
         </button>
-        <button
-          type="button"
-          onClick={() => fileInputRef.current?.click()}
-          className={iconBtn}
-          aria-label="Adjuntar archivo"
-          disabled={disabled}
-        >
-          <Paperclip className="h-5 w-5" />
-        </button>
-        {!compact && (
+
+        {/* Menú "+" de adjuntos y herramientas (descongestiona la barra) */}
+        <div className="relative">
           <button
             type="button"
-            onClick={() => imageInputRef.current?.click()}
-            className={iconBtn}
-            aria-label="Adjuntar imagen"
+            onClick={() => {
+              setShowActions((s) => !s);
+              setShowPicker(false);
+            }}
+            className={`${iconBtn} ${showActions ? 'bg-black/10 dark:bg-white/15' : ''}`}
+            aria-label="Adjuntar y más"
+            aria-expanded={showActions}
             disabled={disabled}
           >
-            <ImageIcon className="h-5 w-5" />
+            <Plus
+              className={`h-5 w-5 transition-transform ${showActions ? 'rotate-45' : ''}`}
+            />
           </button>
-        )}
-        <button
-          type="button"
-          onClick={() => {
-            const prefix = value && !value.endsWith('\n') ? '\n' : '';
-            insertAtCaret(`${prefix}${tableTemplate(2, 2)}\n`);
-          }}
-          className={iconBtn}
-          aria-label="Insertar tabla"
-          title="Insertar tabla"
-          disabled={disabled}
-        >
-          <TableIcon className="h-5 w-5" />
-        </button>
-        <button
-          type="button"
-          onClick={() => onAutocorrectChange(!autocorrect)}
-          className={`${iconBtn} ${
-            autocorrect ? 'bg-blue-500/15 text-blue-600 dark:text-blue-300' : ''
-          }`}
-          aria-label="Autocorrector"
-          aria-pressed={autocorrect}
-          title={autocorrect ? 'Autocorrector activado' : 'Autocorrector desactivado'}
-          disabled={disabled}
-        >
-          <SpellCheck className="h-5 w-5" />
-        </button>
+          {showActions && (
+            <div
+              className={`${glass} absolute bottom-12 left-0 z-30 w-48 rounded-2xl p-1 shadow-xl`}
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  imageInputRef.current?.click();
+                  setShowActions(false);
+                }}
+                className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm hover:bg-black/5 dark:hover:bg-white/10"
+              >
+                <ImageIcon className="h-4 w-4 text-blue-500" /> Foto
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  fileInputRef.current?.click();
+                  setShowActions(false);
+                }}
+                className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm hover:bg-black/5 dark:hover:bg-white/10"
+              >
+                <Paperclip className="h-4 w-4 text-violet-500" /> Archivo
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const prefix = value && !value.endsWith('\n') ? '\n' : '';
+                  insertAtCaret(`${prefix}${tableTemplate(2, 2)}\n`);
+                  setShowActions(false);
+                }}
+                className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm hover:bg-black/5 dark:hover:bg-white/10"
+              >
+                <TableIcon className="h-4 w-4 text-emerald-500" /> Tabla
+              </button>
+              <div className="my-1 h-px bg-black/10 dark:bg-white/10" />
+              <button
+                type="button"
+                onClick={() => onAutocorrectChange(!autocorrect)}
+                className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm hover:bg-black/5 dark:hover:bg-white/10"
+                aria-pressed={autocorrect}
+              >
+                <SpellCheck className="h-4 w-4 text-amber-500" />
+                <span className="flex-1">Autocorrector</span>
+                {autocorrect && <Check className="h-4 w-4 text-blue-500" />}
+              </button>
+            </div>
+          )}
+        </div>
 
         <textarea
           ref={textareaRef}
