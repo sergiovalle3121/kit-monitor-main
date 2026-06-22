@@ -9,6 +9,7 @@ import {
   AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd,
   AlignHorizontalSpaceAround, AlignVerticalSpaceAround, Trash2, MapPin, RotateCcw,
   Upload, Eye, EyeOff, Map as MapIcon, Activity, Workflow, Wand2, Boxes,
+  Download, Printer, Ruler,
 } from 'lucide-react';
 import { glass } from '@/lib/glass';
 import { apiFetch } from '@/lib/apiFetch';
@@ -118,6 +119,10 @@ export function LayoutEditor({ model, revision }: { model: string; revision: str
   const linkClickRef = useRef<(t: any) => void>(() => {});
   const assetsRef = useRef<LayoutAsset[]>([]);
   const objByAssetRef = useRef<Map<string, StationBox>>(new Map());
+  const measureRef = useRef(false);
+  const measureP1Ref = useRef<{ x: number; y: number } | null>(null);
+  const measureObjsRef = useRef<any[]>([]);
+  const measureClickRef = useRef<(p: { x: number; y: number }) => void>(() => {});
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -134,6 +139,9 @@ export function LayoutEditor({ model, revision }: { model: string; revision: str
   const [mesData, setMesData] = useState<StatusSummary | null>(null);
   const [linkMode, setLinkMode] = useState(false);
   const [connCount, setConnCount] = useState(0);
+  const [measureMode, setMeasureMode] = useState(false);
+  const [measureVal, setMeasureVal] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
   const snapRef = useRef(snap);
   const panRef = useRef(panMode);
   useEffect(() => { snapRef.current = snap; }, [snap]);
@@ -514,6 +522,7 @@ export function LayoutEditor({ model, revision }: { model: string; revision: str
     // Pan (pan-mode toggle, or Alt/middle drag)
     let panning = false; let lastX = 0; let lastY = 0;
     c.on('mouse:down', (opt) => {
+      if (measureRef.current) { measureClickRef.current(c.getScenePoint(opt.e)); return; }
       if (linkRef.current) { linkClickRef.current((opt as any).target); return; }
       const ev = opt.e as MouseEvent;
       if (panRef.current || ev.altKey || (ev as any).button === 1) {
@@ -652,6 +661,97 @@ export function LayoutEditor({ model, revision }: { model: string; revision: str
   // ── Zoom helpers ────────────────────────────────────────────────────────────
   const zoomBy = (f: number) => { const c = fcRef.current; if (!c) return; const z = Math.min(8, Math.max(0.1, c.getZoom() * f)); c.zoomToPoint({ x: c.getWidth() / 2, y: c.getHeight() / 2 } as any, z); };
   const fitView = useCallback(() => { const c = fcRef.current; if (!c) return; c.setViewportTransform([1, 0, 0, 1, PAD + 40, PAD + 8]); fitRef.current = computeFit(); rebuild(); }, [computeFit, rebuild]);
+
+  // ── Measure tool (ephemeral, Fase 6) ────────────────────────────────────────
+  const clearMeasure = useCallback(() => {
+    const c = fcRef.current; if (!c) return;
+    measureObjsRef.current.forEach((o) => c.remove(o));
+    measureObjsRef.current = [];
+    c.requestRenderAll();
+  }, []);
+
+  const handleMeasureClick = useCallback((scenePt: { x: number; y: number }) => {
+    const c = fcRef.current; if (!c) return;
+    const S = fitRef.current;
+    const wpt = { x: scenePt.x / S, y: scenePt.y / S };
+    if (!measureP1Ref.current) { measureP1Ref.current = wpt; clearMeasure(); setMeasureVal(null); return; }
+    const p1 = measureP1Ref.current, p2 = wpt;
+    const dist = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+    clearMeasure();
+    const u = footprintRef.current.unit;
+    const meters = u === 'm' ? dist : dist / 1000;
+    const label = `${Math.round(dist)} ${u} · ${meters.toFixed(2)} m`;
+    const line = new Line([p1.x * S, p1.y * S, p2.x * S, p2.y * S], { stroke: '#0ea5e9', strokeWidth: 1.5, strokeDashArray: [5, 4], selectable: false, evented: false, strokeUniform: true });
+    const mid = new Textbox(label, { left: ((p1.x + p2.x) / 2) * S - 60, top: ((p1.y + p2.y) / 2) * S - 18, width: 120, fontSize: 12, fill: '#0ea5e9', textAlign: 'center', selectable: false, evented: false, backgroundColor: 'rgba(255,255,255,0.85)' });
+    measureObjsRef.current.push(line, mid); c.add(line); c.add(mid); c.requestRenderAll();
+    setMeasureVal(label);
+    measureP1Ref.current = null; // next click starts a fresh measure
+  }, [clearMeasure]);
+  useEffect(() => { measureClickRef.current = handleMeasureClick; }, [handleMeasureClick]);
+  useEffect(() => {
+    measureRef.current = measureMode;
+    measureP1Ref.current = null;
+    if (!measureMode) { clearMeasure(); setMeasureVal(null); }
+  }, [measureMode, clearMeasure]);
+
+  // ── Export / print (Fase 6) ─────────────────────────────────────────────────
+  const downloadBlob = (data: Blob | string, filename: string) => {
+    const url = typeof data === 'string' ? data : URL.createObjectURL(data);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
+    if (typeof data !== 'string') setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+  const exportName = (ext: string) => `layout-${model}-${revision}.${ext}`.replace(/[^\w.\-]+/g, '_');
+
+  // Render the whole footprint (not just the current viewport) and run `fn`.
+  const withFitted = useCallback(<T,>(fn: () => T): T => {
+    const c = fcRef.current!;
+    const prev = c.viewportTransform!.slice() as any;
+    c.setViewportTransform([1, 0, 0, 1, 70, 36]); // include the ruler labels
+    c.renderAll();
+    const out = fn();
+    c.setViewportTransform(prev);
+    c.requestRenderAll();
+    return out;
+  }, []);
+
+  const exportPNG = useCallback(() => {
+    const c = fcRef.current; if (!c) return;
+    const data = withFitted(() => c.toDataURL({ format: 'png', multiplier: 2, enableRetinaScaling: true } as any));
+    downloadBlob(data, exportName('png'));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [withFitted, model, revision]);
+
+  const exportSVG = useCallback(() => {
+    const c = fcRef.current; if (!c) return;
+    const svg = c.toSVG();
+    downloadBlob(new Blob([svg], { type: 'image/svg+xml' }), exportName('svg'));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [model, revision]);
+
+  const exportPDF = useCallback(async () => {
+    const c = fcRef.current; if (!c) return;
+    setExporting(true);
+    try {
+      const data = withFitted(() => c.toDataURL({ format: 'png', multiplier: 2, enableRetinaScaling: true } as any));
+      const { jsPDF } = await import('jspdf');
+      const w = c.getWidth(), h = c.getHeight();
+      const pdf = new jsPDF({ orientation: w >= h ? 'landscape' : 'portrait', unit: 'pt', format: [w, h] });
+      pdf.addImage(data, 'PNG', 0, 0, w, h);
+      pdf.save(exportName('pdf'));
+    } catch { toast.error('No se pudo exportar el PDF.', 'Ing. Industrial'); }
+    finally { setExporting(false); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [withFitted, model, revision, toast]);
+
+  const printPlan = useCallback(() => {
+    const c = fcRef.current; if (!c) return;
+    const data = withFitted(() => c.toDataURL({ format: 'png', multiplier: 2, enableRetinaScaling: true } as any));
+    const w = window.open('', '_blank');
+    if (!w) { toast.error('Permite las ventanas emergentes para imprimir.', 'Ing. Industrial'); return; }
+    w.document.write(`<html><head><title>Layout ${model} ${revision}</title></head><body style="margin:0"><img src="${data}" style="width:100%" onload="setTimeout(()=>{window.print();},150)"/></body></html>`);
+    w.document.close();
+  }, [withFitted, model, revision, toast]);
 
   // ── Footprint config edits ──────────────────────────────────────────────────
   const updateFootprint = (patch: Partial<Footprint>) => {
@@ -860,7 +960,14 @@ export function LayoutEditor({ model, revision }: { model: string; revision: str
         </div>
         <Sep />
         <TBtn onClick={unplaceSelected} title="Quitar del plano (Supr)"><Trash2 className="w-4 h-4" /></TBtn>
+        <Sep />
+        <button onClick={() => setMeasureMode((v) => !v)} title="Medir distancia" className={`p-1.5 rounded-lg transition-colors ${measureMode ? 'text-white' : 'text-gray-500 hover:bg-black/5 dark:hover:bg-white/10'}`} style={measureMode ? { background: '#0ea5e9' } : undefined}><Ruler className="w-4 h-4" /></button>
+        <TBtn onClick={exportPNG} title="Exportar PNG"><Download className="w-4 h-4" /></TBtn>
+        <TBtn onClick={exportSVG} title="Exportar SVG"><Workflow className="w-4 h-4" /></TBtn>
+        <TBtn onClick={exportPDF} title="Exportar PDF">{exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <span className="text-[11px] font-bold leading-none">PDF</span>}</TBtn>
+        <TBtn onClick={printPlan} title="Imprimir"><Printer className="w-4 h-4" /></TBtn>
         <div className="flex-1" />
+        {measureMode && measureVal && <span className="text-[12px] font-medium mr-2" style={{ color: '#0ea5e9' }}>{measureVal}</span>}
         <button onClick={save} disabled={saving || !dirty} className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-sm font-medium text-white disabled:opacity-50" style={{ background: ROSE }}>
           {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Guardar
         </button>
