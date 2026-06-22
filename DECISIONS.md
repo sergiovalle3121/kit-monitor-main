@@ -561,4 +561,37 @@ tests ✓. Sin entidades nuevas; el smoke no cambia de superficie.
 `decision-intelligence` + propuestas de `autopilot`; editor de métricas/ontología
 en la UI; persistir tarjetas en el historial de conversación.
 
+## 22. What-if Monte Carlo + acciones de Autopilot/Decision-Intelligence (Fase 6)
+
+**Contexto.** El what-if (§20) era una proyección lineal de un solo trazo, sin
+incertidumbre, y el Centro de Inteligencia no surfaceaba las **acciones** que el
+sistema ya recomienda (`autopilot`) ni los **escenarios** de planeación
+(`decision-intelligence`).
+
+**Decisión.**
+- **Monte Carlo en el what-if.** `AnalyticsService.project` ahora corre una
+  simulación autocontenida (300 paths) por **bootstrap de los deltas diarios** de
+  la serie real → bandas **P10/P50/P90** por día de horizonte; la palanca (`adj`)
+  desplaza el *drift* y el ruido histórico se preserva. *Por qué propio y no el
+  `MonteCarloService` de decision-intelligence:* ese MC es específico de un
+  `PlanScenario` (necesita `scenarioId` + entidades); para la serie de actividad
+  se usa el mismo método estadístico (resampleo + percentiles) sin acoplar.
+- **Integración por lectura de los módulos de decisión existentes.** CIDE gana
+  `autopilot_proposals` (acciones correctivas de `AutopilotService.listProposals`)
+  y `decision_scenarios` (`DecisionIntelligenceService.listPlanScenarios`). Nueva
+  tarjeta de chat tipo `actions` (lista priorizada por severidad).
+- **Visible en la app:**
+  - El simulador what-if del objeto grafica la **banda P10–P90** + **P50** (Monte
+    Carlo) además del histórico, con leyenda y nº de simulaciones.
+  - El Centro de Inteligencia añade **"Acciones sugeridas"** leyendo
+    `GET /api/autopilot/proposals?status=pending` (tarjetas con severidad).
+
+**Verificación:** build API ✓, build web ✓, lint web (0 errores) ✓, **697/697**
+tests ✓. Sin entidades nuevas; el smoke no cambia de superficie.
+
+**Pendiente (Fase 7):** ejecutar propuestas de autopilot desde el Centro de
+Inteligencia (acción, no solo lectura); editor de métricas/ontología en la UI;
+persistir tarjetas en el historial; conectar el what-if a `runStressTest` cuando
+exista un PlanScenario asociado.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->

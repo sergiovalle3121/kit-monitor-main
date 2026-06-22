@@ -14,7 +14,19 @@ export type CideCard =
       series: { x: string; y: number }[];
       projection?: { x: string; y: number }[];
     }
-  | { type: 'bars'; title: string; bars: { label: string; value: number }[] };
+  | { type: 'bars'; title: string; bars: { label: string; value: number }[] }
+  | {
+      type: 'actions';
+      title: string;
+      items: { title: string; severity: string }[];
+    };
+
+const SEVERITY_ORDER: Record<string, number> = {
+  critical: 0,
+  high: 1,
+  medium: 2,
+  low: 3,
+};
 
 function asObj(v: unknown): Record<string, unknown> | null {
   return v && typeof v === 'object' && !Array.isArray(v)
@@ -51,6 +63,25 @@ function toBars(v: unknown, top = 7): { label: string; value: number }[] {
 
 /** Build a card for a tool result, or null if the tool isn't card-worthy. */
 export function buildCard(tool: string, out: unknown): CideCard | null {
+  // Autopilot returns an array of proposals → an "actions" card.
+  if (tool === 'autopilot_proposals') {
+    if (!Array.isArray(out) || out.length === 0) return null;
+    const items = out
+      .map((p) => {
+        const r = asObj(p);
+        return {
+          title: r && typeof r.title === 'string' ? r.title : 'Acción',
+          severity: r && typeof r.severity === 'string' ? r.severity : 'medium',
+        };
+      })
+      .sort(
+        (a, b) =>
+          (SEVERITY_ORDER[a.severity] ?? 9) - (SEVERITY_ORDER[b.severity] ?? 9),
+      )
+      .slice(0, 5);
+    return { type: 'actions', title: 'Acciones recomendadas', items };
+  }
+
   const o = asObj(out);
   if (!o || 'error' in o) return null;
 

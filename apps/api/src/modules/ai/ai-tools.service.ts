@@ -14,6 +14,8 @@ import { ErpPpService } from '../erp-core/services/erp-pp.service';
 import { EventLedgerService } from '../event-ledger/event-ledger.service';
 import { SemanticService } from '../semantic/semantic.service';
 import { AnalyticsService } from '../analytics/analytics.service';
+import { AutopilotService } from '../autopilot/autopilot.service';
+import { DecisionIntelligenceService } from '../decision-intelligence/decision-intelligence.service';
 import { CideToolSpec } from './cide-provider';
 
 /** JSON-Schema shape for a tool input (OpenAI/Anthropic-compatible). */
@@ -439,6 +441,47 @@ export class AiToolsService {
             adjustmentPct:
               typeof i.adjustmentPct === 'number' ? i.adjustmentPct : undefined,
           }),
+      },
+      {
+        name: 'autopilot_proposals',
+        description:
+          'Acciones correctivas que el sistema (Autopilot) recomienda: cuellos de botella, rebalanceo de WIP, resurtido, auditorías de estabilidad. Cada propuesta trae título, descripción, severidad (low/medium/high/critical) y línea/modelo. Úsalo para "¿qué acciones me recomienda el sistema?" o "¿qué debo atender primero?". Filtro: status (pending por defecto).',
+        requiredPermission: null,
+        mockTriggers: [
+          'recomienda',
+          'recomendaci',
+          'acción',
+          'accion',
+          'qué hago',
+          'que hago',
+          'atender',
+          'propuesta',
+          'autopilot',
+          'sugerencia',
+        ],
+        input_schema: schema({
+          status: {
+            type: 'string',
+            enum: ['pending', 'executed', 'dismissed', 'expired'],
+            description: 'Estado de la propuesta (default pending).',
+          },
+        }),
+        run: (i, ctx) =>
+          this.svc(AutopilotService)
+            .listProposals(str(i.status) ?? 'pending', tenantOf(ctx))
+            .then((d) => clip(d, 50)),
+      },
+      {
+        name: 'decision_scenarios',
+        description:
+          'Escenarios de planeación de Decision Intelligence (con su corrida de forecast asociada) para comparar alternativas de plan. Úsalo cuando pregunten por escenarios, simulaciones de plan o comparación de planes.',
+        requiredPermission: 'planning:read',
+        mockTriggers: ['escenario', 'simulaci', 'plan alterno', 'comparar plan'],
+        input_schema: schema(),
+        run: () =>
+          this.svc(DecisionIntelligenceService)
+            .listPlanScenarios()
+            .then((d) => clip(d, 30)),
       },
       {
         name: 'list_inventory',
