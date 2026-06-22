@@ -251,6 +251,19 @@ export class LineEngineeringController {
     });
   }
 
+  @Get('layout/completeness')
+  @RequirePermissions('engineering:read')
+  @ApiOperation({
+    summary:
+      'Completitud documental por estación (NP, factor de uso, ayuda visual) para el overlay del layout.',
+  })
+  layoutCompleteness(
+    @Query('model') model: string,
+    @Query('revision') revision?: string,
+  ) {
+    return this.service.getCompleteness(model, revision ?? 'A');
+  }
+
   @Get('layout/flow')
   @RequirePermissions('engineering:read')
   @ApiOperation({

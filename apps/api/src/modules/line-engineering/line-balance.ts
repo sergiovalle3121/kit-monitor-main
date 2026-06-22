@@ -33,7 +33,10 @@ export interface BalanceResult {
 }
 
 /** Takt time in seconds. Returns 0 when demand is non-positive. */
-export function computeTaktSec(availableTimeSec: number, demandUnits: number): number {
+export function computeTaktSec(
+  availableTimeSec: number,
+  demandUnits: number,
+): number {
   const t = Number(availableTimeSec) || 0;
   const d = Number(demandUnits) || 0;
   if (d <= 0 || t <= 0) return 0;
@@ -63,11 +66,12 @@ export function balanceLine(
 
   const stationsOverTakt =
     taktSec > 0
-      ? valid.filter((s) => Number(s.stdTimeSec) > taktSec + 1e-9).map((s) => s.station)
+      ? valid
+          .filter((s) => Number(s.stdTimeSec) > taktSec + 1e-9)
+          .map((s) => s.station)
       : [];
 
-  const throughputPerHour =
-    lineCycleTimeSec > 0 ? 3600 / lineCycleTimeSec : 0;
+  const throughputPerHour = lineCycleTimeSec > 0 ? 3600 / lineCycleTimeSec : 0;
 
   const theoreticalMinStations =
     taktSec > 0 ? Math.ceil(totalWorkSec / taktSec) : stationCount;
@@ -235,6 +239,74 @@ export function layoutCompleteness(items: LayoutItem[]): LayoutCompleteness {
     ctqCount,
     completenessPct: total > 0 ? round(complete / total, 4) : 0,
     incompleteStations: total - complete,
+  };
+}
+
+/** Per-station documentation readiness (Fase 19). */
+export interface CompletenessItem {
+  station: string;
+  sequence: number;
+  npExpected: string | null;
+  useFactor: number | null;
+  visualAidUrl: string | null;
+  ctq: boolean;
+}
+
+export interface StationCompletenessRow {
+  station: string;
+  sequence: number;
+  hasNp: boolean;
+  hasUseFactor: boolean;
+  hasVisualAid: boolean;
+  ctq: boolean;
+  complete: boolean;
+}
+
+export interface StationCompletenessResult {
+  total: number;
+  complete: number;
+  completePct: number;
+  missingNp: number;
+  missingUseFactor: number;
+  missingVisualAid: number;
+  ctqCount: number;
+  stations: StationCompletenessRow[];
+}
+
+/**
+ * Per-station documentation readiness: which stations declare the expected part
+ * number (poka-yoke), a use factor (backflush) and a visual aid (work
+ * instruction). Same "complete" rule as `layoutCompleteness`, but broken down
+ * station by station so the layout can be painted by readiness. Pure.
+ */
+export function stationCompleteness(
+  items: CompletenessItem[],
+): StationCompletenessResult {
+  const rows: StationCompletenessRow[] = (items ?? []).map((i) => {
+    const hasNp = !!i.npExpected;
+    const hasUseFactor = Number(i.useFactor) > 0;
+    const hasVisualAid = !!i.visualAidUrl;
+    return {
+      station: i.station,
+      sequence: i.sequence,
+      hasNp,
+      hasUseFactor,
+      hasVisualAid,
+      ctq: !!i.ctq,
+      complete: hasNp && hasUseFactor && hasVisualAid,
+    };
+  });
+  const total = rows.length;
+  const complete = rows.filter((r) => r.complete).length;
+  return {
+    total,
+    complete,
+    completePct: total > 0 ? round(complete / total, 4) : 0,
+    missingNp: rows.filter((r) => !r.hasNp).length,
+    missingUseFactor: rows.filter((r) => !r.hasUseFactor).length,
+    missingVisualAid: rows.filter((r) => !r.hasVisualAid).length,
+    ctqCount: rows.filter((r) => r.ctq).length,
+    stations: rows,
   };
 }
 

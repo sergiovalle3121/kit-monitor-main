@@ -174,6 +174,32 @@ describe('LineEngineeringService (integration)', () => {
     );
   });
 
+  it('reports per-station documentation completeness (Fase 19)', async () => {
+    await seedRoute(); // 3 stations, all with NP + factor + aid → complete
+    // Add a station missing its visual aid.
+    await service.createStation({
+      model: 'AX-1000',
+      line: 'SMT-1',
+      station: 'EST-40',
+      sequence: 40,
+      npExpected: 'P4',
+      useFactor: 1,
+      // no visualAidUrl → incomplete
+    });
+    const c = await service.getCompleteness('AX-1000');
+    expect(c.total).toBe(4);
+    expect(c.complete).toBe(3);
+    expect(c.missingVisualAid).toBe(1);
+    const est40 = c.stations.find((s) => s.station === 'EST-40')!;
+    expect(est40).toMatchObject({
+      hasNp: true,
+      hasUseFactor: true,
+      hasVisualAid: false,
+      complete: false,
+      line: 'SMT-1',
+    });
+  });
+
   it('computes capacity/load including changeover', async () => {
     await seedRoute();
     await service.qualify({
