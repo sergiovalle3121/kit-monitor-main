@@ -306,6 +306,11 @@ export class ChatGateway
     this.emitToMembers(memberIds, 'message:new', message);
   }
 
+  /** Mensaje ACTUALIZADO (editado/eliminado/fijado) a todos los miembros. */
+  emitMessageUpdate(memberIds: string[], message: unknown): void {
+    this.emitToMembers(memberIds, 'message:updated', message);
+  }
+
   /** Reacciones agregadas actualizadas de un mensaje. */
   emitReactionUpdate(
     memberIds: string[],

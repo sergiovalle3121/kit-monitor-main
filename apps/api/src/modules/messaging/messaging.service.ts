@@ -5,10 +5,10 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In } from 'typeorm';
+import { Repository, In, Not, IsNull } from 'typeorm';
 import { Conversation } from './entities/conversation.entity';
 import { ConversationMember } from './entities/conversation-member.entity';
-import { Message } from './entities/message.entity';
+import { Message, MessageType } from './entities/message.entity';
 import { ChatMessageReaction } from './entities/chat-message-reaction.entity';
 import { User } from '../users/entities/user.entity';
 import { ChatGateway } from './chat.gateway';
@@ -25,6 +25,13 @@ export interface AggregatedReaction {
   count: number;
   userIds: string[];
   mine: boolean;
+}
+
+export interface ReplyPreview {
+  id: string;
+  senderId: string;
+  type: MessageType;
+  snippet: string;
 }
 
 /**
@@ -286,25 +293,32 @@ export class MessagingService {
       else byMessage.set(r.messageId, [r]);
     }
 
+    // Previews de los mensajes citados (en lote, evita N+1).
+    const replyIds = Array.from(
+      new Set(rows.map((m) => m.replyToId).filter((x): x is string => !!x)),
+    );
+    const replyMap = new Map<string, ReplyPreview>();
+    if (replyIds.length) {
+      const replied = await this.messages.find({ where: { id: In(replyIds) } });
+      for (const r of replied) replyMap.set(r.id, this.replyPreviewOf(r));
+    }
+
     // Devolver en orden cronológico ascendente.
-    return rows.reverse().map((m) => ({
-      id: m.id,
-      conversationId: m.conversationId,
-      senderId: m.senderId,
-      type: m.type,
-      body: m.body,
-      imageMime: m.imageMime,
-      fileName: m.fileName,
-      fileMime: m.fileMime,
-      fileSize: m.fileSize,
-      createdAt: m.createdAt,
-      reactions: aggregateReactions(byMessage.get(m.id) ?? [], meId),
-      mentionedUserIds: m.mentionedUserIds ?? [],
-    }));
+    return rows.reverse().map((m) =>
+      this.toDto(m, {
+        reactions: aggregateReactions(byMessage.get(m.id) ?? [], meId),
+        replyTo: m.replyToId ? (replyMap.get(m.replyToId) ?? null) : null,
+      }),
+    );
   }
 
   // ── enviar texto ─────────────────────────────────────────────────────────
-  async sendText(meId: string, conversationId: string, body: string) {
+  async sendText(
+    meId: string,
+    conversationId: string,
+    body: string,
+    replyToId?: string,
+  ) {
     await this.assertMember(conversationId, meId);
     const text = body?.trim();
     if (!text) throw new BadRequestException('Mensaje vacío');
@@ -313,6 +327,7 @@ export class MessagingService {
         `Mensaje demasiado largo (máx ${MAX_TEXT_LENGTH} caracteres)`,
       );
     }
+    const replied = await this.resolveReplyTo(conversationId, replyToId);
     const mentionedUserIds = await this.resolveMentions(conversationId, text);
     const msg = await this.messages.save(
       this.messages.create({
@@ -320,10 +335,14 @@ export class MessagingService {
         senderId: meId,
         type: 'text',
         body: text,
+        replyToId: replied?.id ?? null,
         mentionedUserIds: mentionedUserIds.length ? mentionedUserIds : null,
       }),
     );
-    await this.touchAndBroadcast(conversationId, msg);
+    const dto = this.toDto(msg, {
+      replyTo: replied ? this.replyPreviewOf(replied) : null,
+    });
+    await this.touchAndBroadcast(conversationId, msg, dto);
 
     // Notificar a cada mencionado (excepto a mí) para badge/toast.
     const toNotify = mentionedUserIds.filter((id) => id !== meId);
@@ -334,7 +353,34 @@ export class MessagingService {
         byUserId: meId,
       });
     }
-    return this.toDto(msg);
+    return dto;
+  }
+
+  /** Valida que el mensaje citado exista y sea de la misma conversación. */
+  private async resolveReplyTo(
+    conversationId: string,
+    replyToId?: string,
+  ): Promise<Message | null> {
+    if (!replyToId) return null;
+    const r = await this.messages.findOne({ where: { id: replyToId } });
+    if (!r || r.conversationId !== conversationId) {
+      throw new BadRequestException('El mensaje citado no es válido');
+    }
+    return r;
+  }
+
+  /** Preview compacto de un mensaje citado (para mostrar sobre la respuesta). */
+  private replyPreviewOf(r: Message): ReplyPreview {
+    const snippet = r.deletedAt
+      ? 'Mensaje eliminado'
+      : r.type === 'image'
+        ? '📷 Imagen'
+        : r.type === 'file'
+          ? r.fileName || '📎 Archivo'
+          : r.type === 'call'
+            ? '📞 Llamada'
+            : (r.body ?? '').slice(0, 140);
+    return { id: r.id, senderId: r.senderId, type: r.type, snippet };
   }
 
   /** Resuelve @handles del cuerpo contra los MIEMBROS de la conversación. */
@@ -360,6 +406,7 @@ export class MessagingService {
     meId: string,
     conversationId: string,
     file: { buffer: Buffer; mimetype: string; size: number } | undefined,
+    replyToId?: string,
   ) {
     await this.assertMember(conversationId, meId);
     if (!file) throw new BadRequestException('No se recibió archivo');
@@ -369,6 +416,7 @@ export class MessagingService {
     if (file.size > MAX_INPUT_BYTES) {
       throw new BadRequestException('La imagen supera el límite de 5 MB');
     }
+    const replied = await this.resolveReplyTo(conversationId, replyToId);
 
     const { buffer, mime } = await this.compressImage(file.buffer);
 
@@ -381,10 +429,14 @@ export class MessagingService {
         imageData: buffer,
         imageMime: mime,
         imageSize: buffer.length,
+        replyToId: replied?.id ?? null,
       }),
     );
-    await this.touchAndBroadcast(conversationId, msg);
-    return this.toDto(msg);
+    const dto = this.toDto(msg, {
+      replyTo: replied ? this.replyPreviewOf(replied) : null,
+    });
+    await this.touchAndBroadcast(conversationId, msg, dto);
+    return dto;
   }
 
   /**
@@ -433,12 +485,14 @@ export class MessagingService {
     file:
       | { buffer: Buffer; mimetype: string; size: number; originalname?: string }
       | undefined,
+    replyToId?: string,
   ) {
     await this.assertMember(conversationId, meId);
     if (!file) throw new BadRequestException('No se recibió archivo');
     if (file.size > MAX_FILE_BYTES) {
       throw new BadRequestException('El archivo supera el límite de 25 MB');
     }
+    const replied = await this.resolveReplyTo(conversationId, replyToId);
     // Nombre seguro: recorta a 255 y elimina rutas (defensa de path traversal).
     const safeName = (file.originalname || 'archivo')
       .replace(/[\\/]/g, '_')
@@ -454,10 +508,14 @@ export class MessagingService {
         fileMime: file.mimetype || 'application/octet-stream',
         fileName: safeName,
         fileSize: file.size,
+        replyToId: replied?.id ?? null,
       }),
     );
-    await this.touchAndBroadcast(conversationId, msg);
-    return this.toDto(msg);
+    const dto = this.toDto(msg, {
+      replyTo: replied ? this.replyPreviewOf(replied) : null,
+    });
+    await this.touchAndBroadcast(conversationId, msg, dto);
+    return dto;
   }
 
   // ── descarga de archivo ───────────────────────────────────────────────────
@@ -576,30 +634,180 @@ export class MessagingService {
     return rows.map((r) => ({ userId: r.userId, lastReadAt: r.lastReadAt }));
   }
 
+  // ── editar / eliminar / fijar / reenviar ─────────────────────────────────
+  async editMessage(meId: string, messageId: string, body: string) {
+    const msg = await this.messages.findOne({ where: { id: messageId } });
+    if (!msg) throw new NotFoundException('Mensaje no encontrado');
+    await this.assertMember(msg.conversationId, meId);
+    if (msg.senderId !== meId) {
+      throw new ForbiddenException('Solo puedes editar tus mensajes');
+    }
+    if (msg.type !== 'text') {
+      throw new BadRequestException('Solo se puede editar texto');
+    }
+    if (msg.deletedAt) throw new BadRequestException('Mensaje eliminado');
+    const text = body?.trim();
+    if (!text) throw new BadRequestException('Mensaje vacío');
+    if (text.length > MAX_TEXT_LENGTH) {
+      throw new BadRequestException(
+        `Mensaje demasiado largo (máx ${MAX_TEXT_LENGTH} caracteres)`,
+      );
+    }
+    const mentioned = await this.resolveMentions(msg.conversationId, text);
+    msg.body = text;
+    msg.editedAt = new Date();
+    msg.mentionedUserIds = mentioned.length ? mentioned : null;
+    await this.messages.save(msg);
+    const dto = await this.dtoWithReply(msg);
+    await this.broadcastUpdate(msg.conversationId, dto);
+    return dto;
+  }
+
+  async deleteMessage(meId: string, messageId: string) {
+    const msg = await this.messages.findOne({ where: { id: messageId } });
+    if (!msg) throw new NotFoundException('Mensaje no encontrado');
+    await this.assertMember(msg.conversationId, meId);
+    if (msg.senderId !== meId) {
+      throw new ForbiddenException('Solo puedes eliminar tus mensajes');
+    }
+    // Borrado lógico + purga de contenido (texto y binarios).
+    await this.messages.update(messageId, {
+      deletedAt: new Date(),
+      body: null,
+      imageData: null,
+      imageMime: null,
+      imageSize: null,
+      fileData: null,
+      fileName: null,
+      fileMime: null,
+      fileSize: null,
+      pinnedAt: null,
+      mentionedUserIds: null,
+    });
+    await this.reactions.delete({ messageId });
+    const fresh = await this.messages.findOne({ where: { id: messageId } });
+    const dto = this.toDto(fresh as Message);
+    await this.broadcastUpdate(msg.conversationId, dto);
+    return dto;
+  }
+
+  async pinMessage(meId: string, messageId: string, pinned: boolean) {
+    const msg = await this.messages.findOne({ where: { id: messageId } });
+    if (!msg) throw new NotFoundException('Mensaje no encontrado');
+    await this.assertMember(msg.conversationId, meId);
+    if (msg.deletedAt) throw new BadRequestException('Mensaje eliminado');
+    await this.messages.update(messageId, {
+      pinnedAt: pinned ? new Date() : null,
+    });
+    const fresh = await this.messages.findOne({ where: { id: messageId } });
+    const dto = await this.dtoWithReply(fresh as Message);
+    await this.broadcastUpdate(msg.conversationId, dto);
+    return dto;
+  }
+
+  async listPinned(meId: string, conversationId: string) {
+    await this.assertMember(conversationId, meId);
+    const rows = await this.messages.find({
+      where: { conversationId, pinnedAt: Not(IsNull()) },
+      order: { pinnedAt: 'DESC' },
+      take: 50,
+    });
+    return Promise.all(rows.map((m) => this.dtoWithReply(m)));
+  }
+
+  async forwardMessage(
+    meId: string,
+    messageId: string,
+    targetConversationId: string,
+  ) {
+    const src = await this.messages
+      .createQueryBuilder('m')
+      .addSelect('m.image_data')
+      .addSelect('m.file_data')
+      .where('m.id = :id', { id: messageId })
+      .getOne();
+    if (!src) throw new NotFoundException('Mensaje no encontrado');
+    await this.assertMember(src.conversationId, meId); // miembro del origen
+    if (src.deletedAt) throw new BadRequestException('Mensaje eliminado');
+    if (src.type === 'call') {
+      throw new BadRequestException('No se puede reenviar este mensaje');
+    }
+    await this.assertMember(targetConversationId, meId); // miembro del destino
+
+    const msg = await this.messages.save(
+      this.messages.create({
+        conversationId: targetConversationId,
+        senderId: meId,
+        type: src.type,
+        forwarded: true,
+        body: src.type === 'text' ? src.body : null,
+        imageData: src.type === 'image' ? src.imageData : null,
+        imageMime: src.type === 'image' ? src.imageMime : null,
+        imageSize: src.type === 'image' ? src.imageSize : null,
+        fileData: src.type === 'file' ? src.fileData : null,
+        fileName: src.type === 'file' ? src.fileName : null,
+        fileMime: src.type === 'file' ? src.fileMime : null,
+        fileSize: src.type === 'file' ? src.fileSize : null,
+      }),
+    );
+    const dto = this.toDto(msg);
+    await this.touchAndBroadcast(targetConversationId, msg, dto);
+    return dto;
+  }
+
   // ── internos ─────────────────────────────────────────────────────────────
-  private async touchAndBroadcast(conversationId: string, msg: Message) {
+  private async touchAndBroadcast(
+    conversationId: string,
+    msg: Message,
+    dto?: unknown,
+  ) {
     await this.conversations.update(conversationId, {
       lastMessageAt: msg.createdAt,
     });
     const memberIds = await this.memberIdsOf(conversationId);
-    this.gateway.emitMessageToMembers(memberIds, this.toDto(msg));
+    this.gateway.emitMessageToMembers(memberIds, dto ?? this.toDto(msg));
   }
 
-  private toDto(m: Message) {
+  /** Difunde un mensaje ACTUALIZADO (editado/eliminado/fijado) a los miembros. */
+  private async broadcastUpdate(conversationId: string, dto: unknown) {
+    const memberIds = await this.memberIdsOf(conversationId);
+    this.gateway.emitMessageUpdate(memberIds, dto);
+  }
+
+  /** DTO de un mensaje resolviendo su cita (si la tiene). */
+  private async dtoWithReply(m: Message) {
+    const replied = m.replyToId
+      ? await this.messages.findOne({ where: { id: m.replyToId } })
+      : null;
+    return this.toDto(m, {
+      replyTo: replied ? this.replyPreviewOf(replied) : null,
+    });
+  }
+
+  private toDto(
+    m: Message,
+    extras?: { reactions?: AggregatedReaction[]; replyTo?: ReplyPreview | null },
+  ) {
+    const deleted = !!m.deletedAt;
     return {
       id: m.id,
       conversationId: m.conversationId,
       senderId: m.senderId,
       type: m.type,
-      body: m.body,
-      imageMime: m.imageMime,
-      fileName: m.fileName ?? null,
-      fileMime: m.fileMime ?? null,
-      fileSize: m.fileSize ?? null,
+      body: deleted ? null : m.body,
+      imageMime: deleted ? null : (m.imageMime ?? null),
+      fileName: deleted ? null : (m.fileName ?? null),
+      fileMime: deleted ? null : (m.fileMime ?? null),
+      fileSize: deleted ? null : (m.fileSize ?? null),
       createdAt: m.createdAt,
-      // Un mensaje recién creado aún no tiene reacciones; forma consistente.
-      reactions: [] as AggregatedReaction[],
-      mentionedUserIds: m.mentionedUserIds ?? [],
+      reactions: extras?.reactions ?? ([] as AggregatedReaction[]),
+      mentionedUserIds: deleted ? [] : (m.mentionedUserIds ?? []),
+      replyToId: m.replyToId ?? null,
+      replyTo: extras?.replyTo ?? null,
+      editedAt: m.editedAt ?? null,
+      deletedAt: m.deletedAt ?? null,
+      pinnedAt: m.pinnedAt ?? null,
+      forwarded: !!m.forwarded,
     };
   }
 }

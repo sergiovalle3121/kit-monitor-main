@@ -2,6 +2,8 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
+  Delete,
   Param,
   Body,
   Query,
@@ -72,16 +74,54 @@ export class MessagingController {
     return this.messaging.listReads(this.me(req), id);
   }
 
+  @Get('conversations/:id/pinned')
+  listPinned(@Req() req: any, @Param('id') id: string) {
+    return this.messaging.listPinned(this.me(req), id);
+  }
+
   @Post('messages')
   sendText(
     @Req() req: any,
-    @Body() body: { conversationId: string; body: string },
+    @Body() body: { conversationId: string; body: string; replyToId?: string },
   ) {
     return this.messaging.sendText(
       this.me(req),
       body?.conversationId,
       body?.body,
+      body?.replyToId,
     );
+  }
+
+  @Patch('messages/:id')
+  editMessage(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body() body: { body: string },
+  ) {
+    return this.messaging.editMessage(this.me(req), id, body?.body);
+  }
+
+  @Delete('messages/:id')
+  deleteMessage(@Req() req: any, @Param('id') id: string) {
+    return this.messaging.deleteMessage(this.me(req), id);
+  }
+
+  @Post('messages/:id/pin')
+  pinMessage(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body() body: { pinned?: boolean },
+  ) {
+    return this.messaging.pinMessage(this.me(req), id, body?.pinned !== false);
+  }
+
+  @Post('messages/:id/forward')
+  forwardMessage(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body() body: { conversationId: string },
+  ) {
+    return this.messaging.forwardMessage(this.me(req), id, body?.conversationId);
   }
 
   @Post('messages/call')
@@ -120,10 +160,15 @@ export class MessagingController {
   )
   sendImage(
     @Req() req: any,
-    @Body() body: { conversationId: string },
+    @Body() body: { conversationId: string; replyToId?: string },
     @UploadedFile() file: { buffer: Buffer; mimetype: string; size: number },
   ) {
-    return this.messaging.sendImage(this.me(req), body?.conversationId, file);
+    return this.messaging.sendImage(
+      this.me(req),
+      body?.conversationId,
+      file,
+      body?.replyToId,
+    );
   }
 
   @Get('messages/:id/image')
@@ -147,7 +192,7 @@ export class MessagingController {
   )
   sendFile(
     @Req() req: any,
-    @Body() body: { conversationId: string },
+    @Body() body: { conversationId: string; replyToId?: string },
     @UploadedFile()
     file: {
       buffer: Buffer;
@@ -156,7 +201,12 @@ export class MessagingController {
       originalname?: string;
     },
   ) {
-    return this.messaging.sendFile(this.me(req), body?.conversationId, file);
+    return this.messaging.sendFile(
+      this.me(req),
+      body?.conversationId,
+      file,
+      body?.replyToId,
+    );
   }
 
   @Get('messages/:id/file')

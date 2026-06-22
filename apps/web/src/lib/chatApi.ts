@@ -56,6 +56,13 @@ export interface MessageReaction {
   mine: boolean;
 }
 
+export interface ReplyPreview {
+  id: string;
+  senderId: string;
+  type: 'text' | 'image' | 'file' | 'call';
+  snippet: string;
+}
+
 export interface ChatMessage {
   id: string;
   conversationId: string;
@@ -69,6 +76,13 @@ export interface ChatMessage {
   fileSize?: number | null;
   createdAt: string;
   reactions?: MessageReaction[];
+  /** Acciones de hilo: cita, edición, eliminación, fijado, reenvío. */
+  replyToId?: string | null;
+  replyTo?: ReplyPreview | null;
+  editedAt?: string | null;
+  deletedAt?: string | null;
+  pinnedAt?: string | null;
+  forwarded?: boolean;
 }
 
 export interface ReadReceipt {
@@ -112,17 +126,18 @@ export const chatApi = {
       body: JSON.stringify({ name, memberIds }),
     }),
 
-  sendText: (conversationId: string, body: string) =>
+  sendText: (conversationId: string, body: string, replyToId?: string) =>
     req<ChatMessage>('/messaging/messages', {
       method: 'POST',
       headers: authHeaders(),
-      body: JSON.stringify({ conversationId, body }),
+      body: JSON.stringify({ conversationId, body, replyToId }),
     }),
 
-  sendImage: (conversationId: string, file: File) => {
+  sendImage: (conversationId: string, file: File, replyToId?: string) => {
     const fd = new FormData();
     fd.append('conversationId', conversationId);
     fd.append('file', file);
+    if (replyToId) fd.append('replyToId', replyToId);
     return req<ChatMessage>('/messaging/messages/image', {
       method: 'POST',
       headers: authHeaders(false), // sin Content-Type: lo pone el navegador con boundary
@@ -130,16 +145,49 @@ export const chatApi = {
     });
   },
 
-  sendFile: (conversationId: string, file: File) => {
+  sendFile: (conversationId: string, file: File, replyToId?: string) => {
     const fd = new FormData();
     fd.append('conversationId', conversationId);
     fd.append('file', file);
+    if (replyToId) fd.append('replyToId', replyToId);
     return req<ChatMessage>('/messaging/messages/file', {
       method: 'POST',
       headers: authHeaders(false),
       body: fd,
     });
   },
+
+  editText: (messageId: string, body: string) =>
+    req<ChatMessage>(`/messaging/messages/${messageId}`, {
+      method: 'PATCH',
+      headers: authHeaders(),
+      body: JSON.stringify({ body }),
+    }),
+
+  deleteMessage: (messageId: string) =>
+    req<ChatMessage>(`/messaging/messages/${messageId}`, {
+      method: 'DELETE',
+      headers: authHeaders(),
+    }),
+
+  pinMessage: (messageId: string, pinned: boolean) =>
+    req<ChatMessage>(`/messaging/messages/${messageId}/pin`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ pinned }),
+    }),
+
+  listPinned: (conversationId: string) =>
+    req<ChatMessage[]>(`/messaging/conversations/${conversationId}/pinned`, {
+      headers: authHeaders(),
+    }),
+
+  forwardMessage: (messageId: string, conversationId: string) =>
+    req<ChatMessage>(`/messaging/messages/${messageId}/forward`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ conversationId }),
+    }),
 
   sendCallLog: (
     conversationId: string,
