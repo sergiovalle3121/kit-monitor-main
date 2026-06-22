@@ -3,8 +3,9 @@
 // Shared presentational atoms for the quality lane (cockpit · NCR detail ·
 // analytics). Single source so the three routes stay visually consistent without
 // duplicating markup (AGENTS.md §3).
-import React from "react";
+import React, { useId } from "react";
 import { Loader2, Plus, X } from "lucide-react";
+import { useDialogA11y } from "@/hooks/useDialogA11y";
 import { glass } from "@/lib/glass";
 
 export function Kpi({
@@ -89,12 +90,14 @@ export function Modal({
   submitLabel: string;
   children: React.ReactNode;
 }) {
+  const titleId = useId();
+  const panelRef = useDialogA11y<HTMLDivElement>(onClose);
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" onClick={onClose}>
-      <div className={`${glass} rounded-2xl p-5 w-full max-w-xl max-h-[90vh] overflow-y-auto`} onClick={(e) => e.stopPropagation()}>
+      <div ref={panelRef} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1} className={`${glass} rounded-2xl p-5 w-full max-w-xl max-h-[90vh] overflow-y-auto`} onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
-          <h3 className="font-semibold flex items-center gap-2">{icon} {title}</h3>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10"><X className="w-4 h-4" /></button>
+          <h3 id={titleId} className="font-semibold flex items-center gap-2">{icon} {title}</h3>
+          <button onClick={onClose} aria-label="Cerrar" className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10"><X className="w-4 h-4" /></button>
         </div>
         {children}
         <div className="mt-5 flex justify-end gap-2">
