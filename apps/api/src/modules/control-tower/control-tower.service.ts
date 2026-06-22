@@ -6,6 +6,7 @@ import { LegalService } from '../legal/legal.service';
 import { TestingService } from '../testing/testing.service';
 import { ProcurementService } from '../procurement/procurement.service';
 import { PeopleService } from '../people/people.service';
+import { HrService } from '../hr/hr.service';
 
 export type Health = 'green' | 'amber' | 'red';
 
@@ -41,6 +42,7 @@ export class ControlTowerService {
     private readonly testing: TestingService,
     private readonly procurement: ProcurementService,
     private readonly people: PeopleService,
+    private readonly hr: HrService,
   ) {}
 
   private worst(a: Health, b: Health): Health {
@@ -50,7 +52,7 @@ export class ControlTowerService {
 
   /** Each card is computed defensively so one failing area never breaks the view. */
   async summary(): Promise<ControlTowerSummary> {
-    const [improvement, ehs, maintenance, legal, testing, procurement, people] =
+    const [improvement, ehs, maintenance, legal, testing, procurement, people, workforce, staffing] =
       await Promise.all([
         this.safe(() => this.improvement.kpis()),
         this.safe(() => this.ehs.kpis()),
@@ -59,6 +61,8 @@ export class ControlTowerService {
         this.safe(() => this.testing.kpis()),
         this.safe(() => this.procurement.kpis()),
         this.safe(() => this.people.kpis()),
+        this.safe(() => this.hr.workforceOverview()),
+        this.safe(() => this.hr.staffingRisk()),
       ]);
 
     const areas: AreaCard[] = [];
@@ -169,6 +173,38 @@ export class ControlTowerService {
           { label: 'Por vencer 30d', value: people.expiring30 },
           { label: 'Vencidas', value: people.expired },
           { label: 'Skills', value: people.skills },
+        ],
+      });
+    }
+
+    if (workforce) {
+      const cells = staffing ?? [];
+      const critical = cells.filter((c) => c.band === 'CRITICAL').length;
+      const high = cells.filter((c) => c.band === 'HIGH').length;
+      const health: Health =
+        critical > 0
+          ? 'red'
+          : high > 0 || workforce.turnoverPct >= 25 || workforce.absenteeismPct >= 5
+            ? 'amber'
+            : 'green';
+      const headline =
+        critical > 0
+          ? `${critical} ${critical === 1 ? 'área' : 'áreas'} en riesgo crítico`
+          : high > 0
+            ? `${high} ${high === 1 ? 'área' : 'áreas'} en riesgo de staffing`
+            : workforce.turnoverPct >= 25
+              ? `Rotación elevada ${workforce.turnoverPct}%`
+              : `${workforce.headcount} colaboradores`;
+      areas.push({
+        key: 'workforce',
+        label: 'Fuerza Laboral',
+        href: '/dashboard/rh/analitica',
+        health,
+        headline,
+        metrics: [
+          { label: 'Rotación', value: `${workforce.turnoverPct}%` },
+          { label: 'Ausentismo', value: `${workforce.absenteeismPct}%` },
+          { label: 'Vacantes', value: workforce.openOpenings },
         ],
       });
     }
