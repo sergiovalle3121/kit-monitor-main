@@ -859,4 +859,27 @@ las nuevas de texto, para descubrirlas.
 **Roadmap:** F3 **spilling** real (la celda con `=UNIQUE(…)` derrama el rango `#` a las
 vecinas); luego `LET`/`LAMBDA` (preprocesado de cadena) y broadcasting de operadores.
 
+## 30. Office/Sheets — apilar/remodelar matrices + REGEX (Fase 3)
+
+**Contexto.** §29 (Fase 2) trajo las matrices dinámicas de filtro/orden y el texto
+moderno. Faltaban dos familias muy presentes en Excel 365: **apilar/remodelar** matrices
+(`VSTACK`/`HSTACK`/`TOCOL`/`TOROW`/`CHOOSEROWS`/`CHOOSECOLS`/`EXPAND`/`WRAPROWS`/`WRAPCOLS`)
+y las **expresiones regulares** (`REGEXTEST`/`REGEXEXTRACT`/`REGEXREPLACE`, añadidas por
+Microsoft en 2024) — ninguna en `@formulajs/formulajs`.
+
+**Decisión (Fase 3 — sólo `apps/web`, aditiva):** se amplía `modernFunctions.ts` con esas
+12 funciones (mismo mecanismo: registradas en `CUSTOM_FUNCTIONS`, ganan al built-in). Las de
+apilado rellenan huecos con `#N/A` como Excel; `TOCOL`/`TOROW` soportan `ignorar`
+(vacíos/errores) y barrido por columnas; las REGEX mapean el patrón a `RegExp` de JS
+(flag unicode; `i` para «sin mayúsculas»; `$1` en el reemplazo) y degradan a literal escapado
+si el patrón es inválido. El asistente gana las nuevas en «Matrices dinámicas» y una
+categoría **«Texto avanzado (Regex)»**.
+
+**Verificación:** `modernFunctions.spec.ts` ampliado a **80 aserciones** (incl. integración
+por el motor real: `SUM(VSTACK…)`, `COUNTA(TOCOL…)`, `INDEX(CHOOSEROWS…)`, `REGEXEXTRACT`,
+`REGEXREPLACE`). 17/17 suites de hoja verdes; `lint web` 0 errores; `build web` ✓.
+
+**Roadmap:** F4 **spilling** real (derramar el rango `#` a celdas vecinas) — lo que vuelve
+estas matrices usables sueltas en una celda, no sólo anidadas.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
