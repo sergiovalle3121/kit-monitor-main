@@ -19,6 +19,7 @@ import { SheetTableStyle, type TableStylePayload } from './SheetTableStyle';
 import { parseRange, type ChartConfig } from '@/lib/office/charts';
 import { applyConditional, sortRangeMulti, removeDuplicates, textToColumns, setCellNote, replaceAll, buildPivot, pivotToCelldata, applyNumberFormat, applyCellStyle, applySubtotals, applySparkline, applyFill, transposeRange, copyRange, buildFilter, buildPrintHtml, usedRange, colName, applyDataVerification, clearDataVerification, markInvalidCells, applyTableStyle, type CondPayload, type PivotConfig, type FindOpts, type NamedRange, type PrintOpts } from '@/lib/office/sheetOps';
 import { normalizeCellInput } from './sheets/sheetFormula';
+import { installFormulaEngine } from './sheets/formulaEngine';
 import { OfficeRibbon, RibbonTab, RibbonGroup, RibbonSeparator, RibbonButton, RibbonMenuButton } from './ribbon';
 import { useToast } from '@/contexts/ToastContext';
 
@@ -40,6 +41,11 @@ function pivotsOf(v: any): StoredPivot[] {
 }
 const DEFAULT_SHEET = { name: 'Hoja 1', celldata: [], order: 0, row: 100, column: 30, config: {} };
 const clone = (x: any) => JSON.parse(JSON.stringify(x));
+
+// Robustece el motor de fórmulas de la rejilla (booleanos sueltos + funciones registradas:
+// XLOOKUP, TEXTJOIN, MAXIFS/MINIFS, TEXT, SI.ERROR sobre #DIV/0!…). Parchea el `Parser`
+// COMPARTIDO una sola vez, en cuanto se carga el editor y ANTES de que la rejilla evalúe.
+installFormulaEngine();
 
 /** Excel-like spreadsheet (Fortune-sheet, MIT) — formulas, formats, charts, validation, conditional formatting. */
 export function SheetEditor({ value, onChange, readOnly, fileActions }: { value: any; onChange: (data: any) => void; readOnly?: boolean; fileActions?: React.ReactNode }) {

@@ -2,13 +2,16 @@
 /**
  * Puente entre el modelo de Fortune-Sheet (celldata) y SheetJS (`xlsx`, Apache-2.0)
  * para round-trips .xlsx / .csv de alta fidelidad: valores tipados, **fórmulas**,
- * **formatos de número**, **combinaciones** y **anchos de columna**, en ambos
+ * **formatos de número**, **combinaciones**, **anchos de columna**, **altos de fila**,
+ * **varias hojas** (con referencias entre hojas) y **nombres definidos**, en ambos
  * sentidos. `xlsx` se importa dinámicamente (~900 KB) solo al importar/exportar.
  *
  * Nota de fidelidad: SheetJS (edición comunitaria) **no escribe estilos** (relleno,
  * fuente, color) al .xlsx; sí conserva número-formato (`z`), fórmulas (`f`),
- * combinaciones y anchos. Los estilos visuales se mantienen dentro de AXOS.
+ * combinaciones, anchos/altos y nombres definidos. Los estilos visuales se mantienen
+ * dentro de AXOS.
  */
+import type { NamedRange } from './sheetOps';
 
 type FortuneCellV = { v?: any; m?: string; f?: string; ct?: { fa?: string; t?: string } } | any;
 type FortuneSheet = {
@@ -78,6 +81,11 @@ export function fortuneToWs(XLSX: any, sheet: FortuneSheet): any {
   if (colLen && typeof colLen === 'object') {
     ws['!cols'] = Array.from({ length: maxC + 1 }, (_, c) => (colLen[c] ? { wpx: colLen[c] } : {}));
   }
+  // Altos de fila (config.rowlen: { rowIndex: px }).
+  const rowLen = sheet.config?.rowlen;
+  if (rowLen && typeof rowLen === 'object') {
+    ws['!rows'] = Array.from({ length: maxR + 1 }, (_, r) => (rowLen[r] ? { hpx: rowLen[r] } : {}));
+  }
   // Combinaciones (config.merge: { "r_c": { r, c, rs, cs } }).
   const merge = sheet.config?.merge;
   if (merge && typeof merge === 'object') {
@@ -112,6 +120,12 @@ export function wsToFortune(XLSX: any, ws: any, name: string, order: number): Fo
     ws['!cols'].forEach((col: any, i: number) => { const w = col?.wpx ?? (col?.wch ? Math.round(col.wch * 7) : null); if (w) columnlen[i] = Math.round(w); });
     if (Object.keys(columnlen).length) config.columnlen = columnlen;
   }
+  // Altos de fila (hpx directo o hpt en puntos → px a 96 dpi).
+  if (Array.isArray(ws['!rows'])) {
+    const rowlen: Record<number, number> = {};
+    ws['!rows'].forEach((row: any, i: number) => { const h = row?.hpx ?? (row?.hpt ? Math.round((row.hpt * 96) / 72) : null); if (h) rowlen[i] = Math.round(h); });
+    if (Object.keys(rowlen).length) config.rowlen = rowlen;
+  }
   // Combinaciones.
   if (Array.isArray(ws['!merges']) && ws['!merges'].length) {
     const merge: Record<string, any> = {};
@@ -125,15 +139,51 @@ export function wsToFortune(XLSX: any, ws: any, name: string, order: number): Fo
   };
 }
 
+// ── Nombres definidos (workbook) ↔ NamedRange de AXOS ─────────────────────────
+const quoteSheet = (sn: string) => (/^[A-Za-z_][A-Za-z0-9_]*$/.test(sn) ? sn : `'${sn.replace(/'/g, "''")}'`);
+const absRange = (range: string) => range.split(':').map((p) => p.replace(/^([A-Za-z]+)(\d+)$/, '$$$1$$$2')).join(':');
+
+/** NamedRange[] → entradas `Workbook.Names` de SheetJS (`{ Name, Ref }`, ref absoluta). */
+export function namesToDefined(names: NamedRange[] | undefined, sheetNames: string[]): { Name: string; Ref: string }[] {
+  return (names ?? [])
+    .filter((n) => n && n.name && n.range)
+    .map((n) => ({ Name: n.name, Ref: `${quoteSheet(sheetNames[n.sheetIndex] || sheetNames[0] || 'Hoja 1')}!${absRange(n.range)}` }));
+}
+
+/** Entradas `Workbook.Names` de SheetJS → NamedRange[] (sólo rangos A1, no fórmulas). */
+export function definedToNames(defined: any[] | undefined, sheetNames: string[]): NamedRange[] {
+  const out: NamedRange[] = [];
+  for (const d of defined ?? []) {
+    if (!d || !d.Name || !d.Ref) continue;
+    const ref = String(d.Ref).split(',')[0].trim();
+    const m = /^(?:'((?:[^']|'')*)'|([^'!]+))!(.+)$/.exec(ref);
+    const sheetName = m ? (m[1] != null ? m[1].replace(/''/g, "'") : m[2]) : null;
+    const range = (m ? m[3] : ref).replace(/\$/g, '').toUpperCase();
+    if (!/^[A-Z]+\d+(:[A-Z]+\d+)?$/.test(range)) continue; // descarta nombres que son fórmulas/constantes
+    let idx = sheetName ? sheetNames.findIndex((s) => s === sheetName) : (typeof d.Sheet === 'number' ? d.Sheet : 0);
+    if (idx < 0) idx = 0;
+    out.push({ name: String(d.Name), range, sheetIndex: idx });
+  }
+  return out;
+}
+
 export interface CsvOpts { delimiter?: string; bom?: boolean }
-export async function exportSheets(sheets: FortuneSheet[], title: string, format: 'xlsx' | 'csv', csv: CsvOpts = {}) {
+export async function exportSheets(sheets: FortuneSheet[], title: string, format: 'xlsx' | 'csv', csv: CsvOpts = {}, names?: NamedRange[]) {
   const XLSX = await import('xlsx');
   const wb = XLSX.utils.book_new();
   const list = sheets?.length ? sheets : [{ name: 'Hoja 1', celldata: [] }];
+  const titles: string[] = [];
   list.forEach((s, i) => {
     const ws = fortuneToWs(XLSX, s);
-    XLSX.utils.book_append_sheet(wb, ws, (s.name || `Hoja ${i + 1}`).slice(0, 31));
+    const nm = (s.name || `Hoja ${i + 1}`).slice(0, 31);
+    titles.push(nm);
+    XLSX.utils.book_append_sheet(wb, ws, nm);
   });
+  // Nombres definidos a nivel libro (sólo .xlsx; el CSV es una sola hoja plana).
+  if (format !== 'csv' && names?.length) {
+    const defined = namesToDefined(names, titles);
+    if (defined.length) wb.Workbook = { ...(wb.Workbook || {}), Names: defined };
+  }
   if (format === 'csv') {
     const text = XLSX.utils.sheet_to_csv(wb.Sheets[wb.SheetNames[0]], { FS: csv.delimiter || ',' });
     const prefix = csv.bom === false ? '' : '﻿';
@@ -144,10 +194,13 @@ export async function exportSheets(sheets: FortuneSheet[], title: string, format
   }
 }
 
-export async function importSheets(file: File): Promise<FortuneSheet[]> {
+export interface ImportedWorkbook { sheets: FortuneSheet[]; names: NamedRange[] }
+export async function importSheets(file: File): Promise<ImportedWorkbook> {
   const XLSX = await import('xlsx');
   const buf = await file.arrayBuffer();
   const wb = XLSX.read(buf, { type: 'array', cellFormula: true, cellNF: true, cellStyles: true });
   const sheets = wb.SheetNames.map((name: string, i: number) => wsToFortune(XLSX, wb.Sheets[name], name, i));
-  return sheets.length ? sheets : [wsToFortune(XLSX, { '!ref': 'A1' }, 'Hoja 1', 0)];
+  const list = sheets.length ? sheets : [wsToFortune(XLSX, { '!ref': 'A1' }, 'Hoja 1', 0)];
+  const names = definedToNames(wb.Workbook?.Names as any[], list.map((s) => s.name || ''));
+  return { sheets: list, names };
 }
