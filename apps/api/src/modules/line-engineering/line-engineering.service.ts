@@ -42,6 +42,7 @@ import {
   stationHeatmap,
   StationHeat,
 } from './line-balance';
+import { flowAnalysis, FlowAnalysis } from './line-flow';
 
 /** One station's material/work requirement for a unit of a model — the bridge
  * that Material Staging (C) and the Operator Terminal (D) consume. */
@@ -800,6 +801,36 @@ export class LineEngineeringService {
         ...h,
         line: lineByStation.get(h.station) ?? '',
       })),
+    };
+  }
+
+  /**
+   * Material-flow "spaghetti diagram" for the 2D layout (Fase 10). Read-only
+   * geometry: it takes the placed stations and the flow connectors already on
+   * the plan and measures how far material travels, the longest hop, and how
+   * many flow lines cross (the tangle). Pure math via `flowAnalysis`.
+   */
+  async getFlowAnalysis(
+    model: string,
+    revision = 'A',
+  ): Promise<FlowAnalysis & { model: string; revision: string; unit: string }> {
+    const layout = await this.getLayout(model, revision);
+    const halfW = layout.footprint.footprintW * 0.03; // = (W*0.06)/2 default box
+    const halfH = layout.footprint.footprintH * 0.04; // = (H*0.08)/2 default box
+    const nodes = layout.stations
+      .filter((s) => s.x !== null && s.y !== null)
+      .map((s) => ({
+        id: s.id,
+        station: s.station,
+        x: (s.x as number) + (s.w !== null ? s.w / 2 : halfW),
+        y: (s.y as number) + (s.h !== null ? s.h / 2 : halfH),
+      }));
+    const analysis = flowAnalysis(nodes, layout.connectors);
+    return {
+      ...analysis,
+      model,
+      revision,
+      unit: layout.footprint.unit,
     };
   }
 
