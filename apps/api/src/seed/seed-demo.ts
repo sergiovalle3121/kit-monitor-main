@@ -39,6 +39,7 @@ import { SuppliersService } from '../modules/suppliers/suppliers.service';
 import { Supplier } from '../modules/suppliers/entities/supplier.entity';
 import { SupplierContact } from '../modules/suppliers/entities/supplier-contact.entity';
 import { SupplierCertification } from '../modules/suppliers/entities/supplier-certification.entity';
+import { ErpSalesOrder } from '../modules/erp-core/entities/erp-sales-order.entity';
 import { ErpMmService } from '../modules/erp-core/services/erp-mm.service';
 import { ProductionPlanService } from '../modules/production-plan/production-plan.service';
 import { SfWorkOrder } from '../modules/production-plan/entities/sf-work-order.entity';
@@ -1487,6 +1488,40 @@ function crmDay(offsetDays: number): Date {
   return new Date(Date.now() + offsetDays * 86_400_000);
 }
 
+// Órdenes de venta demo por cliente (para el Cliente 360 / finanzas).
+const CUSTOMER_SALES_ORDERS: Array<{ customerCode: string; customerName: string; soNumber: string; status: string; total: number; daysAgo: number }> = [
+  { customerCode: 'AX-MOBILITY', customerName: 'Axos Mobility', soNumber: 'SO-DEMO-MOB-01', status: 'in_production', total: 1_240_000, daysAgo: 18 },
+  { customerCode: 'AX-MOBILITY', customerName: 'Axos Mobility', soNumber: 'SO-DEMO-MOB-02', status: 'shipped', total: 880_000, daysAgo: 40 },
+  { customerCode: 'AX-POWER', customerName: 'Axos Power', soNumber: 'SO-DEMO-POW-01', status: 'confirmed', total: 1_560_000, daysAgo: 12 },
+  { customerCode: 'AX-MEDICAL', customerName: 'Axos Medical', soNumber: 'SO-DEMO-MED-01', status: 'invoiced', total: 640_000, daysAgo: 55 },
+  { customerCode: 'AX-MEDICAL', customerName: 'Axos Medical', soNumber: 'SO-DEMO-MED-02', status: 'in_production', total: 410_000, daysAgo: 8 },
+];
+
+async function seedCustomerSalesOrders(app: INestApplicationContext): Promise<Tally> {
+  const t = tally();
+  const repo = app.get(DataSource).getRepository(ErpSalesOrder);
+  for (const o of CUSTOMER_SALES_ORDERS) {
+    try {
+      const exists = await repo.findOne({ where: { soNumber: o.soNumber } });
+      if (exists) { t.skipped++; continue; }
+      const subtotal = Math.round((o.total / 1.16) * 100) / 100;
+      await repo.save(repo.create({
+        soNumber: o.soNumber, customerCode: o.customerCode, customerName: o.customerName,
+        orderDate: crmDay(-o.daysAgo), requestedDate: crmDay(-o.daysAgo + 45),
+        status: o.status as any, currency: 'USD',
+        subtotal, taxAmount: Math.round((o.total - subtotal) * 100) / 100, total: o.total,
+        createdBy: 'seed-demo',
+      }));
+      t.created++;
+    } catch (err) {
+      t.errors++;
+      log('ventas', `ERROR ${o.soNumber}: ${(err as Error).message}`);
+    }
+  }
+  log('ventas', `órdenes nuevas=${t.created} ya existían=${t.skipped} errores=${t.errors}`);
+  return t;
+}
+
 async function seedCrmSuite(app: INestApplicationContext): Promise<Tally> {
   const t = tally();
   const ds = app.get(DataSource);
@@ -1726,8 +1761,10 @@ async function seedBusinessDomains(app: INestApplicationContext): Promise<Tally>
 
   const rma = app.get(RmaService);
   for (const r of [
-    { failureDescription: 'Unidad no enciende — falla intermitente de fuente', severity: 'HIGH' },
-    { failureDescription: 'Conector USB flojo reportado por cliente', severity: 'MEDIUM' },
+    { failureDescription: 'Unidad no enciende — falla intermitente de fuente', severity: 'HIGH', customerName: 'Axos Mobility', partNumber: 'AX-PCBA-BMS3' },
+    { failureDescription: 'Conector USB flojo reportado por cliente', severity: 'MEDIUM', customerName: 'Axos Power', partNumber: 'AX-PCBA-INV30' },
+    { failureDescription: 'Falla de soldadura fría en módulo de sensor', severity: 'HIGH', customerName: 'Axos Medical' },
+    { failureDescription: 'Etiqueta de trazabilidad ilegible en lote', severity: 'LOW', customerName: 'Axos Mobility' },
   ]) {
     await ensure(RmaCase, { failureDescription: r.failureDescription }, () => rma.create(r as any));
   }
@@ -1792,6 +1829,7 @@ async function run(): Promise<void> {
       await seedMesExecutions(app, ds);
       await seedBusinessDomains(app);
       await seedCrmSuite(app);
+      await seedCustomerSalesOrders(app);
     });
 
     // CANDADO LEGAL (post-seed): re-escanea TODA la base y FALLA ruidosamente si

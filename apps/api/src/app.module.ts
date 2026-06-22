@@ -73,6 +73,7 @@ import { CancellationRequestsModule } from './modules/cancellation-requests/canc
 import { VisualAidsModule } from './modules/visual-aids/visual-aids.module';
 import { EventLedgerModule } from './modules/event-ledger/event-ledger.module';
 import { EnterpriseCampusModule } from './modules/enterprise-campus/enterprise-campus.module';
+import { CustomerInsightsModule } from './modules/customer-insights/customer-insights.module';
 import { InventoryModule } from './modules/inventory/inventory.module';
 import { QualityModule } from './modules/quality/quality.module';
 import { NcrModule } from './modules/ncr/ncr.module';
@@ -159,6 +160,7 @@ import { TestFlowModule } from './modules/test-flow/test-flow.module';
     VisualAidsModule,
     EventLedgerModule,
     EnterpriseCampusModule,
+    CustomerInsightsModule,
     InventoryModule,
     QualityModule,
     NcrModule,
