@@ -15,6 +15,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { RequirePermissions } from '../auth/decorators/permissions.decorator';
 import { LineEngineeringService } from './line-engineering.service';
+import { StationStatusService } from './station-status.service';
 import {
   CreateStationDto,
   QualifyModelLineDto,
@@ -34,7 +35,10 @@ import {
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller('line-engineering')
 export class LineEngineeringController {
-  constructor(private readonly service: LineEngineeringService) {}
+  constructor(
+    private readonly service: LineEngineeringService,
+    private readonly statusService: StationStatusService,
+  ) {}
 
   @Get('stations')
   @RequirePermissions('engineering:read')
@@ -176,6 +180,19 @@ export class LineEngineeringController {
     @Query('revision') revision?: string,
   ) {
     return this.service.clearDxf(model, revision ?? 'A');
+  }
+
+  @Get('layout/status')
+  @RequirePermissions('engineering:read')
+  @ApiOperation({
+    summary:
+      'Estado MES en vivo por estación (verde/ámbar/rojo) para el overlay del layout.',
+  })
+  layoutStatus(
+    @Query('model') model: string,
+    @Query('revision') revision?: string,
+  ) {
+    return this.statusService.getStatus(model, revision ?? 'A');
   }
 
   @Get('stations/:id')

@@ -8,7 +8,7 @@ import {
   AlignHorizontalJustifyStart, AlignHorizontalJustifyCenter, AlignHorizontalJustifyEnd,
   AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd,
   AlignHorizontalSpaceAround, AlignVerticalSpaceAround, Trash2, MapPin, RotateCcw,
-  Upload, Eye, EyeOff, Map as MapIcon,
+  Upload, Eye, EyeOff, Map as MapIcon, Activity,
 } from 'lucide-react';
 import { glass } from '@/lib/glass';
 import { apiFetch } from '@/lib/apiFetch';
@@ -21,6 +21,15 @@ const AMBER = '#f59e0b';
 const VIEW_H = 560;
 const PAD = 44; // px of breathing room around the footprint at zoom 1
 
+// Live MES overlay colours (Fase 3).
+const MES_COLORS: Record<string, { fill: string; stroke: string }> = {
+  down: { fill: 'rgba(239,68,68,0.22)', stroke: '#ef4444' },
+  warn: { fill: 'rgba(245,158,11,0.20)', stroke: '#f59e0b' },
+  ok: { fill: 'rgba(16,185,129,0.18)', stroke: '#10b981' },
+  idle: { fill: 'rgba(148,163,184,0.14)', stroke: '#94a3b8' },
+  unknown: { fill: 'rgba(148,163,184,0.10)', stroke: '#cbd5e1' },
+};
+
 interface LayoutStation {
   id: string; station: string; line: string; sequence: number; ctq: boolean;
   x: number | null; y: number | null; w: number | null; h: number | null; rotation: number | null;
@@ -29,6 +38,9 @@ interface Footprint { footprintW: number; footprintH: number; unit: string; grid
 interface DxfMeta { name: string; offsetX: number; offsetY: number; scale: number; rotation: number; visible: boolean; opacity: number }
 interface LineLayout { model: string; revision: string; footprint: Footprint; stations: LayoutStation[]; dxf: DxfMeta | null }
 interface Placement { x: number; y: number; w: number; h: number; rotation: number }
+type MesLevel = 'down' | 'warn' | 'ok' | 'idle' | 'unknown';
+interface StationLiveStatus { station: string; line: string; status: MesLevel; label: string; severity: string | null; since: string | null }
+interface StatusSummary { running: boolean; updatedAt: string; counts: Record<MesLevel, number>; stations: StationLiveStatus[] }
 
 /**
  * Labeled, resizable, rotatable station box. The label is drawn counter-scaled so
@@ -80,6 +92,8 @@ export function LayoutEditor({ model, revision }: { model: string; revision: str
   const dxfModelRef = useRef<DxfModel | null>(null); // parsed geometry (normalised)
   const dxfMetaRef = useRef<DxfMeta | null>(null);
   const dxfGroupRef = useRef<Group | null>(null);
+  const mesOnRef = useRef(false);
+  const statusRef = useRef<Map<string, StationLiveStatus>>(new Map());
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -92,6 +106,8 @@ export function LayoutEditor({ model, revision }: { model: string; revision: str
   const [footprint, setFootprint] = useState<Footprint>(footprintRef.current);
   const [dxf, setDxf] = useState<DxfMeta | null>(null);
   const [dxfBusy, setDxfBusy] = useState(false);
+  const [mesOn, setMesOn] = useState(false);
+  const [mesData, setMesData] = useState<StatusSummary | null>(null);
   const snapRef = useRef(snap);
   const panRef = useRef(panMode);
   useEffect(() => { snapRef.current = snap; }, [snap]);
@@ -201,17 +217,20 @@ export function LayoutEditor({ model, revision }: { model: string; revision: str
   // ── Build an interactive station box from a placement ───────────────────────
   const makeBox = useCallback((s: LayoutStation, p: Placement) => {
     const c = fcRef.current; if (!c) return;
+    const st = mesOnRef.current ? statusRef.current.get(s.station) : undefined;
+    const col = st ? MES_COLORS[st.status] : null;
     const box = new StationBox({
       left: worldToPx(p.x), top: worldToPx(p.y), width: worldToPx(p.w), height: worldToPx(p.h),
       angle: p.rotation || 0, originX: 'left', originY: 'top',
-      fill: s.ctq ? 'rgba(245,158,11,0.16)' : 'rgba(244,63,94,0.12)',
-      stroke: s.ctq ? AMBER : ROSE, strokeWidth: 1.5, rx: 6, ry: 6,
+      fill: col ? col.fill : (s.ctq ? 'rgba(245,158,11,0.16)' : 'rgba(244,63,94,0.12)'),
+      stroke: col ? col.stroke : (s.ctq ? AMBER : ROSE), strokeWidth: col ? 2 : 1.5, rx: 6, ry: 6,
       cornerColor: '#fff', cornerStrokeColor: ROSE, borderColor: ROSE, transparentCorners: false,
       cornerSize: 9, lockScalingFlip: true, objectCaching: false,
     });
     box.labelText = s.station;
     box.seqText = `#${s.sequence}`;
     (box as any).stationId = s.id;
+    (box as any).stationName = s.station;
     box.setControlsVisibility({ mtr: true });
     objByIdRef.current.set(s.id, box);
     c.add(box);
@@ -568,6 +587,43 @@ export function LayoutEditor({ model, revision }: { model: string; revision: str
     finally { setDxfBusy(false); }
   }, [model, revision, rebuild, toast]);
 
+  // ── Live MES overlay (Fase 3) ───────────────────────────────────────────────
+  const applyMesColors = useCallback(() => {
+    const c = fcRef.current; if (!c) return;
+    objByIdRef.current.forEach((box) => {
+      const s = stationsRef.current.find((x) => x.id === (box as any).stationId);
+      const st = mesOnRef.current ? statusRef.current.get((box as any).stationName) : undefined;
+      const col = st ? MES_COLORS[st.status] : null;
+      box.set({
+        fill: col ? col.fill : (s?.ctq ? 'rgba(245,158,11,0.16)' : 'rgba(244,63,94,0.12)'),
+        stroke: col ? col.stroke : (s?.ctq ? AMBER : ROSE),
+        strokeWidth: col ? 2 : 1.5,
+      });
+    });
+    c.requestRenderAll();
+  }, []);
+
+  useEffect(() => { mesOnRef.current = mesOn; applyMesColors(); }, [mesOn, applyMesColors]);
+
+  // Poll the live status every 5s while the overlay is on.
+  useEffect(() => {
+    if (!mesOn || !model) return;
+    let alive = true;
+    const tick = async () => {
+      try {
+        const r = await apiFetch(`${API_BASE}/line-engineering/layout/status?model=${encodeURIComponent(model)}&revision=${encodeURIComponent(revision)}`);
+        if (!r.ok || !alive) return;
+        const d = (await r.json()) as StatusSummary;
+        statusRef.current = new Map(d.stations.map((s) => [s.station, s]));
+        setMesData(d);
+        applyMesColors();
+      } catch { /* transient — keep polling */ }
+    };
+    tick();
+    const id = setInterval(tick, 5000);
+    return () => { alive = false; clearInterval(id); };
+  }, [mesOn, model, revision, applyMesColors]);
+
   // ── Save ────────────────────────────────────────────────────────────────────
   const save = useCallback(async () => {
     if (!model) return;
@@ -611,6 +667,7 @@ export function LayoutEditor({ model, revision }: { model: string; revision: str
         <TBtn onClick={() => zoomBy(1 / 1.2)} title="Alejar"><ZoomOut className="w-4 h-4" /></TBtn>
         <TBtn onClick={fitView} title="Ajustar"><Maximize2 className="w-4 h-4" /></TBtn>
         <TBtn active={snap} onClick={() => setSnap((v) => !v)} title="Snap a grilla"><Grid3x3 className="w-4 h-4" /></TBtn>
+        <button onClick={() => setMesOn((v) => !v)} title="MES en vivo (estado de estaciones)" className={`p-1.5 rounded-lg transition-colors ${mesOn ? 'text-white' : 'text-gray-500 hover:bg-black/5 dark:hover:bg-white/10'}`} style={mesOn ? { background: '#10b981' } : undefined}><Activity className="w-4 h-4" /></button>
         <Sep />
         <div className={`flex items-center gap-1 ${selCount < 2 ? 'opacity-40 pointer-events-none' : ''}`}>
           <TBtn onClick={() => align('left')} title="Alinear izquierda"><AlignHorizontalJustifyStart className="w-4 h-4" /></TBtn>
@@ -666,6 +723,20 @@ export function LayoutEditor({ model, revision }: { model: string; revision: str
           </>
         )}
       </div>
+
+      {mesOn && (
+        <div className="flex items-center gap-3 px-4 py-2 border-b border-black/5 dark:border-white/10 text-[12px] flex-wrap">
+          <span className="inline-flex items-center gap-1.5 font-medium" style={{ color: '#10b981' }}>
+            <span className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-60" style={{ background: '#10b981' }} /><span className="relative inline-flex rounded-full h-2 w-2" style={{ background: '#10b981' }} /></span>
+            MES en vivo
+          </span>
+          <LegendDot color="#10b981" label={`OK ${mesData?.counts.ok ?? 0}`} />
+          <LegendDot color="#f59e0b" label={`Aviso ${mesData?.counts.warn ?? 0}`} />
+          <LegendDot color="#ef4444" label={`Paro ${mesData?.counts.down ?? 0}`} />
+          <LegendDot color="#94a3b8" label={`Inactivo ${mesData?.counts.idle ?? 0}`} />
+          <span className="text-gray-400 ml-auto">{mesData ? `actualizado ${new Date(mesData.updatedAt).toLocaleTimeString()}` : 'cargando…'}</span>
+        </div>
+      )}
 
       <div className="flex">
         {/* Tray of stations not yet placed */}
@@ -731,3 +802,10 @@ function TBtn({ children, onClick, active, title }: { children: React.ReactNode;
   );
 }
 function Sep() { return <span className="w-px h-5 bg-black/10 dark:bg-white/10 mx-0.5" />; }
+function LegendDot({ color, label }: { color: string; label: string }) {
+  return (
+    <span className="inline-flex items-center gap-1 text-gray-500 dark:text-gray-400">
+      <span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: color }} /> {label}
+    </span>
+  );
+}
