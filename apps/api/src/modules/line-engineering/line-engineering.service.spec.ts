@@ -351,6 +351,44 @@ describe('LineEngineeringService (integration)', () => {
     );
   });
 
+  it('snapshots and restores a layout version (Fase 13)', async () => {
+    await seedRoute();
+    const before = await service.getLayout('AX-1000');
+    const est10 = before.stations.find((s) => s.station === 'EST-10')!;
+
+    // Place EST-10, then capture the arrangement as a named version.
+    await service.saveLayout({
+      model: 'AX-1000',
+      positions: [
+        { id: est10.id, x: 100, y: 200, w: 300, h: 200, rotation: 0 },
+      ],
+    });
+    const snap = await service.createSnapshot('AX-1000', 'A', 'v1');
+    expect(snap.name).toBe('v1');
+    expect(snap.stationCount).toBe(1);
+    expect(await service.listSnapshots('AX-1000')).toHaveLength(1);
+
+    // Move EST-10 elsewhere, then restore the version → it comes back.
+    await service.saveLayout({
+      model: 'AX-1000',
+      positions: [
+        { id: est10.id, x: 4000, y: 4000, w: 300, h: 200, rotation: 0 },
+      ],
+    });
+    const moved = await service.getLayout('AX-1000');
+    expect(moved.stations.find((s) => s.station === 'EST-10')!.x).toBe(4000);
+
+    const restored = await service.restoreSnapshot('AX-1000', 'A', snap.id);
+    expect(restored.stations.find((s) => s.station === 'EST-10')!.x).toBe(100);
+
+    // Delete the version → none left.
+    const left = await service.deleteSnapshot('AX-1000', 'A', snap.id);
+    expect(left).toHaveLength(0);
+    await expect(
+      service.restoreSnapshot('AX-1000', 'A', snap.id),
+    ).rejects.toThrow(/no encontrada/);
+  });
+
   it('persists equipment assets on the plan (Fase 5)', async () => {
     await seedRoute();
     expect((await service.getLayout('AX-1000')).assets).toEqual([]);

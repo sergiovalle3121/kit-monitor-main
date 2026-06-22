@@ -559,3 +559,22 @@ export class CloneLayoutDto {
   @Length(1, 16)
   toRevision?: string;
 }
+
+export class CreateSnapshotDto {
+  @ApiProperty({ example: 'AX-1000' })
+  @IsString()
+  @Length(1, 64)
+  model: string;
+
+  @ApiPropertyOptional({ example: 'A' })
+  @IsOptional()
+  @IsString()
+  @Length(1, 16)
+  revision?: string;
+
+  @ApiPropertyOptional({ example: 'Antes de mover SMT-3' })
+  @IsOptional()
+  @IsString()
+  @Length(1, 80)
+  name?: string;
+}
