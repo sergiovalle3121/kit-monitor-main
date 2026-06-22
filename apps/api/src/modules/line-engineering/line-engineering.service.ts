@@ -103,6 +103,38 @@ export interface LineLayout {
   annotations: LayoutAnnotation[];
 }
 
+/** Consolidated layout dossier (Fase 14). */
+export interface LayoutReport {
+  model: string;
+  revision: string;
+  unit: string;
+  stations: {
+    total: number;
+    placed: number;
+    unplaced: number;
+    readinessPct: number;
+  };
+  space: {
+    footprintArea: number;
+    occupiedArea: number;
+    utilizationPct: number;
+    assetCount: number;
+  };
+  flow: {
+    totalDistance: number;
+    longestSegment: number;
+    crossings: number;
+    connectorCount: number;
+  };
+  validation: { overlaps: number; outOfBounds: number; ok: boolean };
+  balance: {
+    balancePct: number;
+    bottleneckStation: string | null;
+    lineCycleTimeSec: number;
+    stationCount: number;
+  } | null;
+}
+
 /** Lightweight metadata for a saved layout version (Fase 13). */
 export interface SnapshotSummary {
   id: string;
@@ -1107,6 +1139,92 @@ export class LineEngineeringService {
       opts,
     );
     return { model, revision, positions };
+  }
+
+  /**
+   * Consolidated read-only layout dossier (Fase 14): a one-look summary an
+   * engineer reviews before signing off — placement readiness, floor-space
+   * utilization, material flow, physical conflicts and line balance. Pure
+   * aggregation over the analyses already on file; writes nothing.
+   */
+  async getLayoutReport(model: string, revision = 'A'): Promise<LayoutReport> {
+    const m = (model ?? '').trim();
+    const r = (revision ?? 'A').trim() || 'A';
+    const layout = await this.getLayout(m, r);
+    const fp = layout.footprint;
+    const defW = fp.footprintW * 0.06;
+    const defH = fp.footprintH * 0.08;
+
+    const total = layout.stations.length;
+    const placedStations = layout.stations.filter(
+      (s) => s.x !== null && s.y !== null,
+    );
+    const placed = placedStations.length;
+    const stationArea = placedStations.reduce(
+      (a, s) => a + (s.w ?? defW) * (s.h ?? defH),
+      0,
+    );
+    const assetArea = layout.assets.reduce((a, x) => a + x.w * x.h, 0);
+    const footprintArea = fp.footprintW * fp.footprintH;
+    const occupiedArea = stationArea + assetArea;
+
+    const [flow, collisions] = await Promise.all([
+      this.getFlowAnalysis(m, r),
+      this.getCollisions(m, r, 0),
+    ]);
+
+    const route = await this.routing(m, r);
+    const balanceResult =
+      route.length > 0
+        ? balanceLine(
+            route.map((s) => ({
+              station: s.station,
+              sequence: s.sequence,
+              stdTimeSec: Number(s.stdTimeSec),
+            })),
+            0,
+          )
+        : null;
+
+    return {
+      model: m,
+      revision: r,
+      unit: fp.unit,
+      stations: {
+        total,
+        placed,
+        unplaced: total - placed,
+        readinessPct: total > 0 ? round((placed / total) * 100, 1) : 0,
+      },
+      space: {
+        footprintArea: round(footprintArea),
+        occupiedArea: round(occupiedArea),
+        utilizationPct:
+          footprintArea > 0
+            ? round((occupiedArea / footprintArea) * 100, 1)
+            : 0,
+        assetCount: layout.assets.length,
+      },
+      flow: {
+        totalDistance: flow.totalDistance,
+        longestSegment: flow.longestSegment?.distance ?? 0,
+        crossings: flow.crossings,
+        connectorCount: flow.segmentCount,
+      },
+      validation: {
+        overlaps: collisions.overlaps,
+        outOfBounds: collisions.outOfBounds,
+        ok: collisions.ok,
+      },
+      balance: balanceResult
+        ? {
+            balancePct: balanceResult.balancePct,
+            bottleneckStation: balanceResult.bottleneckStation,
+            lineCycleTimeSec: balanceResult.lineCycleTimeSec,
+            stationCount: balanceResult.stationCount,
+          }
+        : null,
+    };
   }
 
   /**

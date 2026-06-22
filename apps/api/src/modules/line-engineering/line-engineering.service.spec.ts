@@ -389,6 +389,40 @@ describe('LineEngineeringService (integration)', () => {
     ).rejects.toThrow(/no encontrada/);
   });
 
+  it('builds a consolidated layout report (Fase 14)', async () => {
+    await seedRoute(); // 3 stations
+    const before = await service.getLayout('AX-1000');
+    const id = Object.fromEntries(
+      before.stations.map((s) => [s.station, s.id]),
+    );
+    await service.saveLayout({
+      model: 'AX-1000',
+      footprint: {
+        footprintW: 1000,
+        footprintH: 1000,
+        unit: 'mm',
+        gridSize: 100,
+      },
+      positions: [
+        { id: id['EST-10'], x: 0, y: 0, w: 100, h: 100, rotation: 0 },
+        { id: id['EST-20'], x: 300, y: 0, w: 100, h: 100, rotation: 0 },
+      ],
+      connectors: [{ from: id['EST-10'], to: id['EST-20'] }],
+    });
+
+    const rep = await service.getLayoutReport('AX-1000');
+    expect(rep.stations).toMatchObject({ total: 3, placed: 2, unplaced: 1 });
+    expect(rep.stations.readinessPct).toBeCloseTo(66.7, 0);
+    // 2 boxes of 100×100 = 20000 over a 1,000,000 footprint = 2%.
+    expect(rep.space.footprintArea).toBe(1_000_000);
+    expect(rep.space.utilizationPct).toBeCloseTo(2, 1);
+    expect(rep.flow.connectorCount).toBe(1);
+    expect(rep.flow.totalDistance).toBe(300); // center-to-center
+    expect(rep.validation.ok).toBe(true);
+    expect(rep.balance?.bottleneckStation).toBe('EST-20'); // 55s is slowest
+    expect(rep.balance?.stationCount).toBe(3);
+  });
+
   it('persists equipment assets on the plan (Fase 5)', async () => {
     await seedRoute();
     expect((await service.getLayout('AX-1000')).assets).toEqual([]);

@@ -10,7 +10,7 @@ import {
   AlignHorizontalSpaceAround, AlignVerticalSpaceAround, Trash2, MapPin, RotateCcw,
   Upload, Eye, EyeOff, Map as MapIcon, Activity, Workflow, Wand2, Boxes,
   Download, Printer, Ruler, Type, MoveHorizontal, CopyPlus, X, Flame, Waypoints,
-  ShieldCheck, ShieldAlert, LayoutGrid, History, RotateCw,
+  ShieldCheck, ShieldAlert, LayoutGrid, History, RotateCw, ClipboardList,
 } from 'lucide-react';
 import { glass } from '@/lib/glass';
 import { apiFetch } from '@/lib/apiFetch';
@@ -84,6 +84,16 @@ const conflictColor = (t: ConflictType) => (t === 'clearance' ? '#f59e0b' : '#ef
 interface SnapshotSummary {
   id: string; name: string; createdAt: string; createdBy?: string | null;
   stationCount: number; assetCount: number; connectorCount: number; annotationCount: number;
+}
+
+// Consolidated layout dossier (Fase 14).
+interface LayoutReport {
+  model: string; revision: string; unit: string;
+  stations: { total: number; placed: number; unplaced: number; readinessPct: number };
+  space: { footprintArea: number; occupiedArea: number; utilizationPct: number; assetCount: number };
+  flow: { totalDistance: number; longestSegment: number; crossings: number; connectorCount: number };
+  validation: { overlaps: number; outOfBounds: number; ok: boolean };
+  balance: { balancePct: number; bottleneckStation: string | null; lineCycleTimeSec: number; stationCount: number } | null;
 }
 
 // Equipment / asset palette (Fase 5). `w`/`h` are default sizes in layout units.
@@ -229,6 +239,8 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
   const [versions, setVersions] = useState<SnapshotSummary[]>([]);
   const [versName, setVersName] = useState('');
   const [versBusy, setVersBusy] = useState(false);
+  const [showReport, setShowReport] = useState(false);
+  const [reportData, setReportData] = useState<LayoutReport | null>(null);
   const snapRef = useRef(snap);
   const panRef = useRef(panMode);
   useEffect(() => { snapRef.current = snap; }, [snap]);
@@ -1346,6 +1358,17 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
     } catch { /* transient */ }
   }, [model, scopeQs]);
 
+  // ── Consolidated report / dossier (Fase 14) ─────────────────────────────────
+  const openReport = useCallback(async () => {
+    if (!model) return;
+    setShowReport(true);
+    setReportData(null);
+    try {
+      const r = await apiFetch(`${API_BASE}/line-engineering/layout/report?${scopeQs()}`);
+      if (r.ok) setReportData((await r.json()) as LayoutReport);
+    } catch { /* transient */ }
+  }, [model, scopeQs]);
+
   if (!model) {
     return (
       <div className={`${glass} rounded-3xl p-12 text-center`}>
@@ -1394,6 +1417,7 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
         <Sep />
         <TBtn onClick={() => { setCloneSrc(''); setShowClone(true); }} title="Plantilla: clonar desde otro modelo"><CopyPlus className="w-4 h-4" /></TBtn>
         <TBtn onClick={openVersions} title="Versiones del layout (guardar / restaurar)"><History className="w-4 h-4" /></TBtn>
+        <TBtn onClick={openReport} title="Resumen del layout (readiness, uso de piso, flujo, conflictos, balance)"><ClipboardList className="w-4 h-4" /></TBtn>
         <div className="flex-1" />
         {measureMode && measureVal && <span className="text-[12px] font-medium mr-2" style={{ color: '#0ea5e9' }}>{measureVal}</span>}
         <button onClick={save} disabled={saving || !dirty} className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-sm font-medium text-white disabled:opacity-50" style={{ background: ROSE }}>
@@ -1664,6 +1688,30 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
           </div>
         </div>
       )}
+
+      {showReport && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" onClick={() => setShowReport(false)}>
+          <div className={`${glass} rounded-2xl p-5 w-full max-w-lg`} onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-semibold inline-flex items-center gap-2"><ClipboardList className="w-4 h-4" style={{ color: ROSE }} /> Resumen del layout · {model} · {revision}</h3>
+              <button onClick={() => setShowReport(false)} className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10"><X className="w-4 h-4" /></button>
+            </div>
+            {!reportData ? (
+              <div className="py-10 grid place-items-center text-gray-400"><Loader2 className="w-5 h-5 animate-spin" /></div>
+            ) : (
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <ReportCard title="Readiness" main={`${reportData.stations.readinessPct}%`} sub={`${reportData.stations.placed}/${reportData.stations.total} colocadas · ${reportData.stations.unplaced} pendientes`} tone={reportData.stations.unplaced === 0 ? 'ok' : 'warn'} />
+                <ReportCard title="Uso de piso" main={`${reportData.space.utilizationPct}%`} sub={`${Math.round(reportData.space.occupiedArea).toLocaleString()} / ${Math.round(reportData.space.footprintArea).toLocaleString()} ${reportData.unit}² · ${reportData.space.assetCount} equipos`} tone="info" />
+                <ReportCard title="Flujo" main={`${Math.round(reportData.flow.totalDistance).toLocaleString()} ${reportData.unit}`} sub={`${reportData.flow.connectorCount} tramos · tramo máx ${Math.round(reportData.flow.longestSegment)} · ${reportData.flow.crossings} cruces`} tone={reportData.flow.crossings > 0 ? 'warn' : 'ok'} />
+                <ReportCard title="Validación" main={reportData.validation.ok ? 'OK' : `${reportData.validation.overlaps + reportData.validation.outOfBounds} ⚠`} sub={`${reportData.validation.overlaps} solapes · ${reportData.validation.outOfBounds} fuera de límites`} tone={reportData.validation.ok ? 'ok' : 'bad'} />
+                <div className="col-span-2">
+                  <ReportCard title="Balanceo de línea" main={reportData.balance ? `${Math.round(reportData.balance.balancePct * 100)}%` : '—'} sub={reportData.balance ? `cuello: ${reportData.balance.bottleneckStation ?? '—'} · ciclo ${reportData.balance.lineCycleTimeSec}s · ${reportData.balance.stationCount} estaciones` : 'sin ruteo'} tone={reportData.balance && reportData.balance.balancePct >= 0.85 ? 'ok' : 'warn'} />
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1681,5 +1729,16 @@ function LegendDot({ color, label }: { color: string; label: string }) {
     <span className="inline-flex items-center gap-1 text-gray-500 dark:text-gray-400">
       <span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: color }} /> {label}
     </span>
+  );
+}
+
+function ReportCard({ title, main, sub, tone }: { title: string; main: string; sub: string; tone: 'ok' | 'warn' | 'bad' | 'info' }) {
+  const color = tone === 'ok' ? '#10b981' : tone === 'warn' ? '#f59e0b' : tone === 'bad' ? '#ef4444' : '#3b82f6';
+  return (
+    <div className="rounded-xl p-3 bg-black/[0.03] dark:bg-white/[0.05] border border-black/5 dark:border-white/10">
+      <div className="text-[11px] uppercase tracking-wide text-gray-400">{title}</div>
+      <div className="text-xl font-semibold mt-0.5" style={{ color }}>{main}</div>
+      <div className="text-[11px] text-gray-500 mt-1 leading-snug">{sub}</div>
+    </div>
   );
 }

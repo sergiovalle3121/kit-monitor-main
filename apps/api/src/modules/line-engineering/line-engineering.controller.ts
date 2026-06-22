@@ -280,6 +280,19 @@ export class LineEngineeringController {
     });
   }
 
+  @Get('layout/report')
+  @RequirePermissions('engineering:read')
+  @ApiOperation({
+    summary:
+      'Resumen consolidado del layout: readiness, uso de piso, flujo, conflictos y balance.',
+  })
+  layoutReport(
+    @Query('model') model: string,
+    @Query('revision') revision?: string,
+  ) {
+    return this.service.getLayoutReport(model, revision ?? 'A');
+  }
+
   @Get('layout/snapshots')
   @RequirePermissions('engineering:read')
   @ApiOperation({
