@@ -155,6 +155,91 @@ export class ChatGateway
     }
   }
 
+  // ── Señalización de llamadas (WebRTC) ──────────────────────────────────────
+  //
+  // El servidor SOLO retransmite (no toca el media). El emisor sale del token; la
+  // pertenencia a la conversación se valida en el servidor (anti-spoofing). El
+  // SDP/ICE viaja por `call:signal` hacia un destinatario concreto (`toUserId`).
+
+  /** A invita a una llamada → avisa al resto de miembros de la conversación. */
+  @SubscribeMessage('call:invite')
+  async handleCallInvite(
+    @ConnectedSocket() client: Socket,
+    @MessageBody()
+    payload: {
+      conversationId?: string;
+      callId?: string;
+      media?: 'audio' | 'video';
+    },
+  ): Promise<void> {
+    const fromUserId = (client.data as ChatSocketData).userId;
+    const { conversationId, callId } = payload ?? {};
+    if (!this.server || !fromUserId || !conversationId || !callId) return;
+    const memberIds = await this.membersOf(conversationId);
+    if (!memberIds.includes(fromUserId)) return; // no es miembro → ignorar
+    const media = payload?.media === 'video' ? 'video' : 'audio';
+    for (const memberId of memberIds) {
+      if (memberId === fromUserId) continue;
+      this.server.to(`user:${memberId}`).emit('call:incoming', {
+        conversationId,
+        callId,
+        fromUserId,
+        media,
+      });
+    }
+  }
+
+  /** B acepta → avisa SOLO a quien llamó (toUserId). */
+  @SubscribeMessage('call:accept')
+  handleCallAccept(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() payload: { conversationId?: string; callId?: string; toUserId?: string },
+  ): Promise<void> {
+    return this.relayToUser(client, 'call:accepted', payload);
+  }
+
+  /** B rechaza → avisa a quien llamó. */
+  @SubscribeMessage('call:reject')
+  handleCallReject(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() payload: { conversationId?: string; callId?: string; toUserId?: string },
+  ): Promise<void> {
+    return this.relayToUser(client, 'call:rejected', payload);
+  }
+
+  /** Intercambio de SDP/ICE entre dos pares (offer/answer/candidate). */
+  @SubscribeMessage('call:signal')
+  handleCallSignal(
+    @ConnectedSocket() client: Socket,
+    @MessageBody()
+    payload: {
+      conversationId?: string;
+      callId?: string;
+      toUserId?: string;
+      data?: unknown;
+    },
+  ): Promise<void> {
+    return this.relayToUser(client, 'call:signal', payload);
+  }
+
+  /** A cancela antes de que contesten → avisa al resto. */
+  @SubscribeMessage('call:cancel')
+  handleCallCancel(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() payload: { conversationId?: string; callId?: string },
+  ): Promise<void> {
+    return this.relayToOthers(client, 'call:canceled', payload);
+  }
+
+  /** Cualquiera cuelga una llamada en curso → avisa al resto. */
+  @SubscribeMessage('call:end')
+  handleCallEnd(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() payload: { conversationId?: string; callId?: string },
+  ): Promise<void> {
+    return this.relayToOthers(client, 'call:ended', payload);
+  }
+
   // ── Emisores llamados por MessagingService tras persistir ──────────────────
 
   /** Mensaje nuevo a todos los miembros de la conversación. */
@@ -203,6 +288,49 @@ export class ChatGateway
   /** Lista de userIds actualmente en línea (≥1 socket conectado). */
   getOnlineUserIds(): string[] {
     return Array.from(this.online.keys());
+  }
+
+  /** IDs de los miembros de una conversación. */
+  private async membersOf(conversationId: string): Promise<string[]> {
+    const rows = await this.members.find({ where: { conversationId } });
+    return rows.map((m) => m.userId);
+  }
+
+  /**
+   * Retransmite un evento a UN destinatario concreto (`toUserId`), añadiendo
+   * `fromUserId` desde el token. Exige que AMBOS sean miembros (anti-spoofing).
+   */
+  private async relayToUser(
+    client: Socket,
+    event: string,
+    payload: { conversationId?: string; toUserId?: string; [k: string]: unknown },
+  ): Promise<void> {
+    const fromUserId = (client.data as ChatSocketData).userId;
+    const { conversationId, toUserId } = payload ?? {};
+    if (!this.server || !fromUserId || !conversationId || !toUserId) return;
+    const memberIds = await this.membersOf(conversationId);
+    if (!memberIds.includes(fromUserId) || !memberIds.includes(toUserId)) return;
+    this.server.to(`user:${toUserId}`).emit(event, { ...payload, fromUserId });
+  }
+
+  /**
+   * Retransmite un evento al RESTO de miembros de la conversación (no al emisor),
+   * añadiendo `fromUserId` desde el token. Exige que el emisor sea miembro.
+   */
+  private async relayToOthers(
+    client: Socket,
+    event: string,
+    payload: { conversationId?: string; [k: string]: unknown },
+  ): Promise<void> {
+    const fromUserId = (client.data as ChatSocketData).userId;
+    const { conversationId } = payload ?? {};
+    if (!this.server || !fromUserId || !conversationId) return;
+    const memberIds = await this.membersOf(conversationId);
+    if (!memberIds.includes(fromUserId)) return;
+    for (const memberId of memberIds) {
+      if (memberId === fromUserId) continue;
+      this.server.to(`user:${memberId}`).emit(event, { ...payload, fromUserId });
+    }
   }
 
   /** Verifica el JWT del handshake y devuelve el userId (claim `sub`). */
