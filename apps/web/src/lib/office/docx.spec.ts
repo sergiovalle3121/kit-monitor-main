@@ -34,6 +34,8 @@ ok(parseDataUrl('https://x/y.png') === null, 'parseDataUrl ignora URLs no-data')
 const json = {
   type: 'doc', attrs: { pageSize: 'a4' },
   content: [
+    { type: 'toc' },
+    { type: 'heading', attrs: { level: 1 }, content: [{ type: 'text', text: 'Capítulo uno' }] },
     { type: 'paragraph', attrs: { lineHeight: '1.5' }, content: [{ type: 'text', text: 'Hola mundo' }] },
     { type: 'image', attrs: { src: DATA, width: '50%', align: 'center' } },
     { type: 'table', content: [
@@ -110,6 +112,9 @@ const json = {
   const commentsXml = await zip.file('word/comments.xml')!.async('string');
   ok(/w:author="Marta"/.test(commentsXml) && /Revisar esto/.test(commentsXml), 'el comentario es de Marta con su texto');
   ok(/De acuerdo/.test(commentsXml), 'la respuesta del hilo se incluye');
+
+  // Tabla de contenido → campo TOC REAL de Word (páginas + clicable), no texto estático.
+  ok(/<w:instrText[^>]*>\s*TOC\b/.test(xml) || /\bTOC \\o/.test(xml), 'la TOC es un campo TOC real de Word');
 
   const total = passed + fails.length;
   if (fails.length) { console.error(`\n❌ ${fails.length}/${total} fallos:\n` + fails.map((f) => '   • ' + f).join('\n')); process.exit(1); }
