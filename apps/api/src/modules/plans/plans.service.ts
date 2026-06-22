@@ -14,7 +14,7 @@ import { InventoryService } from '../inventory/inventory.service';
 import { InventoryPosition } from '../inventory/entities/inventory-position.entity';
 import { QualityService } from '../quality/quality.service';
 import { AuditService } from '../governance/audit.service';
-import { deriveReadiness, ReadinessDemandLine, ReadinessSummary } from './readiness';
+import { deriveReadiness, ReadinessDemandLine, ReadinessSummary } from '@axos/contracts';
 
 @Injectable()
 export class PlansService {

@@ -1,4 +1,4 @@
-import { deriveReadiness, ReadinessDemandLine } from './readiness';
+import { deriveReadiness, ReadinessDemandLine } from '@axos/contracts';
 
 /**
  * Pure-logic coverage for the Clear-to-Build readiness derivation that replaced
