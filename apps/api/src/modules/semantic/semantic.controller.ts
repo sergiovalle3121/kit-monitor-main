@@ -11,6 +11,7 @@ import {
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { SemanticPrincipal, SemanticService } from './semantic.service';
 import { UpsertMetricDto } from './dto/upsert-metric.dto';
+import { UpsertObjectDto } from './dto/upsert-object.dto';
 
 interface ReqUser {
   userId: string;
@@ -62,11 +63,22 @@ export class SemanticController {
   /** Create/update a metric definition. Admin only. */
   @Post('metrics')
   upsertMetric(@Request() req: AuthReq, @Body() dto: UpsertMetricDto) {
+    this.assertAdmin(req);
+    return this.semantic.upsertMetric(this.tenant(req), dto);
+  }
+
+  /** Create/update an ontology object type. Admin only. */
+  @Post('objects')
+  upsertObject(@Request() req: AuthReq, @Body() dto: UpsertObjectDto) {
+    this.assertAdmin(req);
+    return this.semantic.upsertObject(this.tenant(req), dto);
+  }
+
+  private assertAdmin(req: AuthReq) {
     if (req.user?.role !== 'Admin') {
       throw new ForbiddenException(
-        'Solo un administrador puede editar el catálogo de métricas.',
+        'Solo un administrador puede editar el catálogo semántico.',
       );
     }
-    return this.semantic.upsertMetric(this.tenant(req), dto);
   }
 }

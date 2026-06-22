@@ -18,6 +18,7 @@ import {
   Lightbulb,
   Zap,
   X,
+  Pencil,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -32,6 +33,7 @@ import {
   Cell,
 } from 'recharts';
 import { glass } from '@/lib/glass';
+import { isAdminAccess } from '@/lib/owner';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
 import { useToast } from '@/contexts/ToastContext';
 
@@ -151,9 +153,17 @@ export default function IntelligencePage() {
   const [breakdown, setBreakdown] = useState<Breakdown | null>(null);
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [acting, setActing] = useState<number | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const confirm = useConfirm();
   const toast = useToast();
+
+  useEffect(() => {
+    fetch('/api/auth/me')
+      .then((r) => r.json())
+      .then((d) => setIsAdmin(isAdminAccess(d?.session?.role, d?.session?.email)))
+      .catch(() => {});
+  }, []);
 
   async function actOnProposal(p: Proposal, action: 'execute' | 'dismiss') {
     const ok = await confirm(
@@ -251,6 +261,14 @@ export default function IntelligencePage() {
             Analítica · catálogo de métricas · ontología del negocio
           </p>
         </div>
+        {isAdmin && (
+          <Link
+            href="/dashboard/intelligence/editor"
+            className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-black/10 px-3 py-1.5 text-xs font-medium text-black/70 transition-colors hover:bg-black/5 dark:border-white/10 dark:text-white/70 dark:hover:bg-white/10"
+          >
+            <Pencil className="h-3.5 w-3.5" /> Editar catálogo
+          </Link>
+        )}
       </div>
 
       <div className={`${glass} mb-6 rounded-2xl p-4 text-sm`}>

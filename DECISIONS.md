@@ -636,7 +636,7 @@ permisos nuevos.
 **Aditivo.** El kit no obliga a migrar las páginas que ya rodaron su tabla; un
 segundo módulo puede consumir los primitivos sin cambios.
 
-## 23. Bucle de acción: ejecutar/descartar propuestas + fix RBAC (Fase 7)
+## 24. Bucle de acción: ejecutar/descartar propuestas + fix RBAC (Fase 7)
 
 **Contexto.** Hasta §22 todo el stack de CIDE/Inteligencia era **read-only**: el
 sistema recomendaba acciones (`autopilot`) pero no se podía **actuar** sobre
@@ -665,5 +665,37 @@ resolución); el smoke no cambia de superficie.
 
 **Pendiente (Fase 8):** editor de métricas/ontología en la UI; persistir tarjetas
 en el historial; conectar el what-if a `runStressTest` con un PlanScenario.
+
+## 25. Editor del catálogo semántico — self-serve (Fase 8)
+
+**Contexto.** Métricas y ontología (§18) solo se podían crear/editar en código
+(seed). Para una plataforma de análisis self-serve (estilo MicroStrategy) un admin
+debe poder **definir KPIs y objetos del negocio desde la UI**, sin deploy.
+
+**Decisión.** Editor aditivo sobre la capa semántica existente:
+- **Backend.** Ya existía `POST /api/semantic/metrics` (upsert de métrica). Se
+  añade `SemanticService.upsertObject` + `POST /api/semantic/objects` (ambos
+  **admin-only**). Se factoriza `assertAdmin` en el controlador. El upsert de
+  objeto sanea `properties` (filtra/normaliza). **Sin entidades nuevas.**
+- **Boundary deliberado.** El editor define **qué significa** una métrica
+  (nombre, unidad, dominio, grain, fórmula, dirección), **no su `resolver`**: el
+  cableado a un cálculo en vivo sigue en código (registro de resolvers). Así un
+  admin no puede "inventar" un valor en vivo inexistente; las métricas creadas en
+  UI quedan como *definición* hasta que ingeniería cablee su resolver.
+- **Frontend.** Nueva ruta admin `/dashboard/intelligence/editor`: tablas de
+  métricas y objetos con alta/edición en panel (la `key` es inmutable al editar),
+  con toasts. El Centro de Inteligencia muestra un botón **"Editar catálogo"**
+  solo a admins.
+
+**Nota de entorno.** El build del web falló al inicio por una **dependencia nueva
+en `main`** (`@tanstack/react-table`, del PR "Workspace Industrial") ausente en
+`node_modules`; se resolvió con `npm install`. No fue código de esta fase.
+
+**Verificación:** build API ✓, build web ✓, lint web (0 errores) ✓, **704/704**
+tests ✓. El smoke no cambia de superficie (sin tablas nuevas).
+
+**Pendiente (Fase 9):** edición de relaciones (links) de la ontología en la UI;
+persistir tarjetas del chat en el historial; permitir asociar un `resolver`
+existente a una métrica desde la UI (lista cerrada).
 
 <!-- Nuevas decisiones se agregan al final con número incremental -->

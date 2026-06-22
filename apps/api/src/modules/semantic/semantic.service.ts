@@ -17,6 +17,7 @@ import { QualityService } from '../quality/quality.service';
 import { SuppliersService } from '../suppliers/suppliers.service';
 import { EventLedgerService } from '../event-ledger/event-ledger.service';
 import { UpsertMetricDto } from './dto/upsert-metric.dto';
+import { UpsertObjectDto } from './dto/upsert-object.dto';
 
 const DEFAULT_TENANT = '__default__';
 
@@ -199,6 +200,50 @@ export class SemanticService {
         formula: dto.formula ?? null,
         direction: dto.direction ?? null,
         version: 1,
+        active: true,
+      }),
+    );
+  }
+
+  /** Create or update an ontology object type (admin). Keyed by tenant + key. */
+  async upsertObject(
+    tenantId: string,
+    dto: UpsertObjectDto,
+  ): Promise<OntologyObjectType> {
+    await this.ensureSeeded(tenantId);
+    const properties = Array.isArray(dto.properties)
+      ? dto.properties
+          .filter((p) => p && typeof p.name === 'string' && p.name.trim())
+          .map((p) => ({
+            name: String(p.name).trim(),
+            type: String(p.type ?? 'string'),
+            description: p.description ? String(p.description) : undefined,
+          }))
+      : undefined;
+    const existing = await this.objectRepo.findOne({
+      where: { tenantId, key: dto.key },
+    });
+    if (existing) {
+      Object.assign(existing, {
+        name: dto.name ?? existing.name,
+        description: dto.description ?? existing.description,
+        domain: dto.domain ?? existing.domain,
+        sourceEntity: dto.sourceEntity ?? existing.sourceEntity,
+        primaryKey: dto.primaryKey ?? existing.primaryKey,
+        ...(properties ? { properties } : {}),
+      });
+      return this.objectRepo.save(existing);
+    }
+    return this.objectRepo.save(
+      this.objectRepo.create({
+        tenantId,
+        key: dto.key,
+        name: dto.name ?? dto.key,
+        description: dto.description ?? null,
+        domain: dto.domain ?? null,
+        sourceEntity: dto.sourceEntity ?? null,
+        primaryKey: dto.primaryKey ?? null,
+        properties: properties ?? null,
         active: true,
       }),
     );
