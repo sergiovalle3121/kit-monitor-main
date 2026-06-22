@@ -61,12 +61,20 @@ agrupan por Domain-Driven Design:
 | **Logística & Embarques** | empaque, tráfico, salida, listas de surtido | `shipping`, `packing`, `outbound`, `traffic`, `pick-lists` | `/shipping`, `/packing`, `/outbound`, `/traffic` |
 | **Finanzas & Costos** | contabilidad, costeo de producto, COGS / cost intelligence, gastos, activos fijos | `accounting`, `product-costing`, `cost-intelligence`, `cost-rollup`, `expenses`, `fixed-assets`, `erp-core` | `/finance`, `/erp/fin`, `/expenses`, `/fixed-assets` |
 | **Trazabilidad** | genealogía cuna-a-tumba, Event Ledger inmutable | `genealogy`, `event-ledger` | `/genealogy` |
-| **Torre de control & Inteligencia** | agregadores globales, forecast, decision intelligence, autopilot, **CIDE** (IA propia self-hosted), **capa semántica** (catálogo de métricas + ontología), **analítica** (tendencias + narrativa) | `control-tower`, `line-control-tower`, `forecast`, `decision-intelligence`, `autopilot`, `ai` (CIDE), `semantic`, `analytics` | `/control-tower`, `/forecast`, `/mission-control`, `/intelligence`, `/admin/ai` |
+| **Torre de control & Inteligencia** | agregadores globales, forecast, decision intelligence, autopilot, **CIDE** (IA propia self-hosted), **capa semántica** (catálogo de métricas + ontología), **analítica** (tendencias + narrativa), **Cliente 360 cross-área** | `control-tower`, `line-control-tower`, `forecast`, `decision-intelligence`, `autopilot`, `ai` (CIDE), `semantic`, `analytics`, `customer-insights` | `/control-tower`, `/forecast`, `/mission-control`, `/intelligence`, `/admin/ai`, `/customers` |
 | **Plataforma** | usuarios/RBAC, governance/auditoría, numeración de folios, settings, búsqueda, chat, notificaciones, suite Office | `users`, `auth`, `governance`, `numbering`, `messaging`, `office`, `import-data` | `/settings`, `/admin`, `/chat`, `/documents` |
 
 > Hay más módulos transversales (`crm`, `people`, `maintenance`, `ehs`,
 > `engineering`, `visual-aids`, `tooling`, `legal`…). La lista completa vive en
 > [`apps/api/src/modules/`](apps/api/src/modules).
+
+> **Suite comercial (profundidad de negocio).** El **CRM** es ahora una suite
+> (cuentas/Cliente 360, contactos, oportunidades, cotizaciones RFQ→Quote con
+> líneas y margen, actividades) y **Proveedores** un maestro de cadena de
+> suministro (calificación, certificaciones con vencimiento, scorecard, AVL,
+> SCARs). La vista **Cliente 360** (`/customers`) une a un cliente a través de
+> ventas, programas, calidad, entrega y finanzas. Detalle y patrón reutilizable
+> en [`docs/commercial-suite.md`](docs/commercial-suite.md).
 
 ## CIDE — la IA propia
 
@@ -157,6 +165,7 @@ es no-bloqueante** por ahora (deuda de formato preexistente; ver
 | Documento | Para qué |
 | --- | --- |
 | [`AXOS_OS_ARCHITECTURE.md`](AXOS_OS_ARCHITECTURE.md) | Topología, módulos por dominio (DDD), Event Ledger, design system. |
+| [`docs/commercial-suite.md`](docs/commercial-suite.md) | Suite comercial (CRM 360 · Proveedores 360 · Cliente 360) y el patrón de profundidad reutilizable. |
 | [`DECISIONS.md`](DECISIONS.md) | ADR ligero: rationale, supuestos, deuda técnica y rieles de seguridad. |
 | [`docs/`](docs) | Blueprint de manufactura, arquitectura back/front, visión de producto, plan de multi-tenencia. |
 | [`docs/archive/night-logs/INDEX.md`](docs/archive/night-logs/INDEX.md) | Bitácoras históricas del build autónomo (índice). |

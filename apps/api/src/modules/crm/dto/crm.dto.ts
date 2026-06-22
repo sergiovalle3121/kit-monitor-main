@@ -55,6 +55,37 @@ export class CreateOpportunityDto {
   @Length(0, 64)
   programId?: string;
 
+  @ApiPropertyOptional({ description: 'Owning crm_accounts id.' })
+  @IsOptional()
+  @IsString()
+  @Length(0, 36)
+  accountId?: string;
+
+  @ApiPropertyOptional({ example: 'RFQ' })
+  @IsOptional()
+  @IsString()
+  source?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  competitor?: string;
+
+  @ApiPropertyOptional({ example: 'PCBA' })
+  @IsOptional()
+  @IsString()
+  productLine?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  nextStep?: string;
+
+  @ApiPropertyOptional({ example: '2026-08-01' })
+  @IsOptional()
+  @IsString()
+  nextStepDate?: string;
+
   @ApiPropertyOptional({ example: '2026-09-30' })
   @IsOptional()
   @IsString()
@@ -107,6 +138,36 @@ export class UpdateOpportunityDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  accountId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  source?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  competitor?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  productLine?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  nextStep?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  nextStepDate?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
   expectedCloseDate?: string;
 
   @ApiPropertyOptional()
@@ -119,4 +180,9 @@ export class TransitionOpportunityDto {
   @ApiProperty({ enum: OPPORTUNITY_STATUSES, example: 'QUALIFIED' })
   @IsIn(OPPORTUNITY_STATUSES)
   status: OpportunityStatus;
+
+  @ApiPropertyOptional({ description: 'Captured when moving to LOST.' })
+  @IsOptional()
+  @IsString()
+  lossReason?: string;
 }

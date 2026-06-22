@@ -36,8 +36,9 @@ export class CrmController {
   list(
     @Query('status') status?: string,
     @Query('customerName') customerName?: string,
+    @Query('accountId') accountId?: string,
   ) {
-    return this.service.list({ status, customerName });
+    return this.service.list({ status, customerName, accountId });
   }
 
   @Get('opportunities/:id')
