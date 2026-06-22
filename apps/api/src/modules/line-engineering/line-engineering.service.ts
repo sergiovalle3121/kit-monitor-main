@@ -14,6 +14,7 @@ import {
   LayoutConnector,
   LayoutAsset,
   LayoutAnnotation,
+  LayoutSnapshot,
 } from './entities/sf-line-layout.entity';
 import { TenantContextService } from '../../common/tenant/tenant-context.service';
 import {
@@ -100,6 +101,18 @@ export interface LineLayout {
   connectors: LayoutConnector[];
   assets: LayoutAsset[];
   annotations: LayoutAnnotation[];
+}
+
+/** Lightweight metadata for a saved layout version (Fase 13). */
+export interface SnapshotSummary {
+  id: string;
+  name: string;
+  createdAt: string;
+  createdBy?: string | null;
+  stationCount: number;
+  assetCount: number;
+  connectorCount: number;
+  annotationCount: number;
 }
 
 export interface LineEngineeringKpis {
@@ -551,6 +564,174 @@ export class LineEngineeringService {
     });
 
     return this.getLayout(model, revision);
+  }
+
+  // ── Snapshots / versions (Fase 13) ─────────────────────────────────────────
+  private static readonly MAX_SNAPSHOTS = 30;
+
+  private toSnapshotSummary(s: LayoutSnapshot): SnapshotSummary {
+    return {
+      id: s.id,
+      name: s.name,
+      createdAt: s.createdAt,
+      createdBy: s.createdBy ?? null,
+      stationCount: s.positions?.length ?? 0,
+      assetCount: s.assets?.length ?? 0,
+      connectorCount: s.connectors?.length ?? 0,
+      annotationCount: s.annotations?.length ?? 0,
+    };
+  }
+
+  /** List saved versions of a layout (newest first), metadata only. */
+  async listSnapshots(
+    model: string,
+    revision = 'A',
+  ): Promise<SnapshotSummary[]> {
+    const layout = await this.findLayout(
+      (model ?? '').trim(),
+      (revision ?? 'A').trim() || 'A',
+    );
+    return (layout?.snapshots ?? [])
+      .map((s) => this.toSnapshotSummary(s))
+      .reverse();
+  }
+
+  /** Capture the current arrangement as a named, restorable version. */
+  async createSnapshot(
+    model: string,
+    revision = 'A',
+    name?: string,
+  ): Promise<SnapshotSummary> {
+    const m = (model ?? '').trim();
+    const r = (revision ?? 'A').trim() || 'A';
+    if (!m) throw new BadRequestException('model es obligatorio.');
+    const cur = await this.getLayout(m, r);
+    const snap: LayoutSnapshot = {
+      id: `snap_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`,
+      name: (name?.trim() || `Versión ${new Date().toISOString()}`).slice(
+        0,
+        80,
+      ),
+      createdAt: new Date().toISOString(),
+      createdBy: this.tenantCtx.getUserEmail() ?? null,
+      footprint: cur.footprint,
+      positions: cur.stations
+        .filter((s) => s.x !== null && s.y !== null)
+        .map((s) => ({
+          id: s.id,
+          x: s.x as number,
+          y: s.y as number,
+          w: s.w ?? Math.round(cur.footprint.footprintW * 0.06),
+          h: s.h ?? Math.round(cur.footprint.footprintH * 0.08),
+          rotation: s.rotation ?? 0,
+        })),
+      dxf: cur.dxf
+        ? {
+            offsetX: cur.dxf.offsetX,
+            offsetY: cur.dxf.offsetY,
+            scale: cur.dxf.scale,
+            rotation: cur.dxf.rotation,
+            visible: cur.dxf.visible,
+            opacity: cur.dxf.opacity,
+          }
+        : null,
+      connectors: cur.connectors,
+      assets: cur.assets,
+      annotations: cur.annotations,
+    };
+    const layout = await this.ensureLayout(m, r);
+    const list = [...(layout.snapshots ?? []), snap];
+    layout.snapshots = list.slice(-LineEngineeringService.MAX_SNAPSHOTS);
+    await this.requireLayouts().save(layout);
+    await this.record('SF_LINE_LAYOUT_SNAPSHOT', `${m}|${r}`, null, {
+      after: { id: snap.id, name: snap.name },
+    });
+    return this.toSnapshotSummary(snap);
+  }
+
+  /** Restore a saved version onto the live layout (positions, footprint, flow,
+   * equipment, annotations and DXF placement). Faithful: stations absent from
+   * the version are un-placed. The raw DXF drawing is left as-is. */
+  async restoreSnapshot(
+    model: string,
+    revision = 'A',
+    snapshotId = '',
+  ): Promise<LineLayout> {
+    const m = (model ?? '').trim();
+    const r = (revision ?? 'A').trim() || 'A';
+    const layout = await this.findLayout(m, r);
+    const snap = layout?.snapshots?.find((s) => s.id === snapshotId);
+    if (!layout || !snap) {
+      throw new NotFoundException('Versión no encontrada.');
+    }
+    const sQb = this.stations.createQueryBuilder('s');
+    this.applyScope(sQb, 's');
+    sQb.andWhere('s.model = :m', { m }).andWhere('s.revision = :r', { r });
+    const stations = await sQb.getMany();
+    const byId = new Map(stations.map((s) => [s.id, s]));
+    const inSnap = new Map(snap.positions.map((p) => [p.id, p]));
+    const dirty = new Set<SfLineStation>();
+    for (const s of stations) {
+      const p = inSnap.get(s.id);
+      if (p) {
+        s.layoutX = Number(p.x) || 0;
+        s.layoutY = Number(p.y) || 0;
+        s.layoutW = clampPos(p.w, 1);
+        s.layoutH = clampPos(p.h, 1);
+        s.layoutRotation = Number(p.rotation) || 0;
+      } else {
+        s.layoutX = null;
+        s.layoutY = null;
+        s.layoutW = null;
+        s.layoutH = null;
+        s.layoutRotation = null;
+      }
+      dirty.add(s);
+    }
+    if (dirty.size > 0) await this.stations.save([...dirty]);
+
+    layout.footprintW = clampPos(snap.footprint.footprintW, layout.footprintW);
+    layout.footprintH = clampPos(snap.footprint.footprintH, layout.footprintH);
+    layout.unit = snap.footprint.unit === 'm' ? 'm' : 'mm';
+    layout.gridSize = clampPos(snap.footprint.gridSize, layout.gridSize);
+    layout.connectors = (snap.connectors ?? [])
+      .filter((c) => c.from !== c.to && byId.has(c.from) && byId.has(c.to))
+      .map((c) => ({ from: c.from, to: c.to, kind: c.kind || 'flow' }));
+    layout.assets = snap.assets ?? [];
+    layout.annotations = snap.annotations ?? [];
+    if (snap.dxf) {
+      layout.dxfOffsetX = snap.dxf.offsetX;
+      layout.dxfOffsetY = snap.dxf.offsetY;
+      layout.dxfScale = snap.dxf.scale;
+      layout.dxfRotation = snap.dxf.rotation;
+      layout.dxfVisible = snap.dxf.visible;
+      layout.dxfOpacity = snap.dxf.opacity;
+    }
+    await this.requireLayouts().save(layout);
+    await this.record('SF_LINE_LAYOUT_RESTORED', `${m}|${r}`, null, {
+      after: { id: snap.id, name: snap.name },
+    });
+    return this.getLayout(m, r);
+  }
+
+  /** Delete a saved version. Returns the remaining versions (newest first). */
+  async deleteSnapshot(
+    model: string,
+    revision = 'A',
+    snapshotId = '',
+  ): Promise<SnapshotSummary[]> {
+    const m = (model ?? '').trim();
+    const r = (revision ?? 'A').trim() || 'A';
+    const layout = await this.findLayout(m, r);
+    if (!layout) throw new NotFoundException('Layout no encontrado.');
+    const before = layout.snapshots ?? [];
+    const after = before.filter((s) => s.id !== snapshotId);
+    if (after.length === before.length) {
+      throw new NotFoundException('Versión no encontrada.');
+    }
+    layout.snapshots = after;
+    await this.requireLayouts().save(layout);
+    return after.map((s) => this.toSnapshotSummary(s)).reverse();
   }
 
   /** Raw DXF (name + content) for rendering the background — fetched apart so

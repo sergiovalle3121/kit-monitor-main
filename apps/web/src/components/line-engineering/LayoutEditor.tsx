@@ -10,7 +10,7 @@ import {
   AlignHorizontalSpaceAround, AlignVerticalSpaceAround, Trash2, MapPin, RotateCcw,
   Upload, Eye, EyeOff, Map as MapIcon, Activity, Workflow, Wand2, Boxes,
   Download, Printer, Ruler, Type, MoveHorizontal, CopyPlus, X, Flame, Waypoints,
-  ShieldCheck, ShieldAlert, LayoutGrid,
+  ShieldCheck, ShieldAlert, LayoutGrid, History, RotateCw,
 } from 'lucide-react';
 import { glass } from '@/lib/glass';
 import { apiFetch } from '@/lib/apiFetch';
@@ -79,6 +79,12 @@ interface CollisionSummary {
 }
 const CONFLICT_RANK: Record<ConflictType, number> = { out_of_bounds: 3, overlap: 2, clearance: 1 };
 const conflictColor = (t: ConflictType) => (t === 'clearance' ? '#f59e0b' : '#ef4444');
+
+// Saved layout versions (Fase 13).
+interface SnapshotSummary {
+  id: string; name: string; createdAt: string; createdBy?: string | null;
+  stationCount: number; assetCount: number; connectorCount: number; annotationCount: number;
+}
 
 // Equipment / asset palette (Fase 5). `w`/`h` are default sizes in layout units.
 const ASSET_KINDS: { kind: string; label: string; color: string; fill: string; w: number; h: number }[] = [
@@ -219,6 +225,10 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
   const [showClone, setShowClone] = useState(false);
   const [cloneSrc, setCloneSrc] = useState('');
   const [cloneBusy, setCloneBusy] = useState(false);
+  const [showVersions, setShowVersions] = useState(false);
+  const [versions, setVersions] = useState<SnapshotSummary[]>([]);
+  const [versName, setVersName] = useState('');
+  const [versBusy, setVersBusy] = useState(false);
   const snapRef = useRef(snap);
   const panRef = useRef(panMode);
   useEffect(() => { snapRef.current = snap; }, [snap]);
@@ -1290,6 +1300,52 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
     } catch { toast.error('Error de red.', 'Ing. Industrial'); } finally { setCloneBusy(false); }
   }, [cloneSrc, model, revision, load, toast]);
 
+  // ── Versions / snapshots (Fase 13) ──────────────────────────────────────────
+  const scopeQs = useCallback(
+    () => `model=${encodeURIComponent(model)}&revision=${encodeURIComponent(revision)}`,
+    [model, revision],
+  );
+  const loadVersions = useCallback(async () => {
+    if (!model) return;
+    try {
+      const r = await apiFetch(`${API_BASE}/line-engineering/layout/snapshots?${scopeQs()}`);
+      if (r.ok) setVersions((await r.json()) as SnapshotSummary[]);
+    } catch { /* transient */ }
+  }, [model, scopeQs]);
+  const openVersions = useCallback(() => { setShowVersions(true); loadVersions(); }, [loadVersions]);
+  const saveVersion = useCallback(async () => {
+    if (!model) return;
+    setVersBusy(true);
+    try {
+      const r = await apiFetch(`${API_BASE}/line-engineering/layout/snapshots`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model, revision, name: versName.trim() || undefined }),
+      });
+      if (!r.ok) { toast.error('No se pudo guardar la versión.', 'Ing. Industrial'); return; }
+      setVersName('');
+      toast.success('Versión guardada.', 'Ing. Industrial');
+      loadVersions();
+    } catch { toast.error('Error de red.', 'Ing. Industrial'); } finally { setVersBusy(false); }
+  }, [model, revision, versName, loadVersions, toast]);
+  const restoreVersion = useCallback(async (id: string) => {
+    if (!model) return;
+    setVersBusy(true);
+    try {
+      const r = await apiFetch(`${API_BASE}/line-engineering/layout/snapshots/${id}/restore?${scopeQs()}`, { method: 'POST' });
+      if (!r.ok) { toast.error('No se pudo restaurar la versión.', 'Ing. Industrial'); return; }
+      toast.success('Versión restaurada.', 'Ing. Industrial');
+      setShowVersions(false);
+      load();
+    } catch { toast.error('Error de red.', 'Ing. Industrial'); } finally { setVersBusy(false); }
+  }, [model, scopeQs, load, toast]);
+  const deleteVersion = useCallback(async (id: string) => {
+    if (!model) return;
+    try {
+      const r = await apiFetch(`${API_BASE}/line-engineering/layout/snapshots/${id}?${scopeQs()}`, { method: 'DELETE' });
+      if (r.ok) setVersions((await r.json()) as SnapshotSummary[]);
+    } catch { /* transient */ }
+  }, [model, scopeQs]);
+
   if (!model) {
     return (
       <div className={`${glass} rounded-3xl p-12 text-center`}>
@@ -1337,6 +1393,7 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
         <TBtn onClick={printPlan} title="Imprimir"><Printer className="w-4 h-4" /></TBtn>
         <Sep />
         <TBtn onClick={() => { setCloneSrc(''); setShowClone(true); }} title="Plantilla: clonar desde otro modelo"><CopyPlus className="w-4 h-4" /></TBtn>
+        <TBtn onClick={openVersions} title="Versiones del layout (guardar / restaurar)"><History className="w-4 h-4" /></TBtn>
         <div className="flex-1" />
         {measureMode && measureVal && <span className="text-[12px] font-medium mr-2" style={{ color: '#0ea5e9' }}>{measureVal}</span>}
         <button onClick={save} disabled={saving || !dirty} className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-sm font-medium text-white disabled:opacity-50" style={{ background: ROSE }}>
@@ -1567,6 +1624,42 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
               <button onClick={cloneFrom} disabled={!cloneSrc || cloneBusy} className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white disabled:opacity-50" style={{ background: ROSE }}>
                 {cloneBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <CopyPlus className="w-4 h-4" />} Clonar aquí
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showVersions && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" onClick={() => setShowVersions(false)}>
+          <div className={`${glass} rounded-2xl p-5 w-full max-w-lg`} onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-semibold inline-flex items-center gap-2"><History className="w-4 h-4" style={{ color: ROSE }} /> Versiones del layout</h3>
+              <button onClick={() => setShowVersions(false)} className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10"><X className="w-4 h-4" /></button>
+            </div>
+            <p className="text-[12px] text-gray-400 mb-3">Guarda la disposición actual ({model} · {revision}) como una versión con nombre y restáurala cuando quieras. Restaurar reemplaza posiciones, footprint, flujo, equipos y notas.</p>
+            <div className="flex gap-2 mb-4">
+              <input value={versName} onChange={(e) => setVersName(e.target.value)} placeholder="Nombre de la versión (opcional)" className="flex-1 rounded-lg px-2.5 py-2 bg-black/[0.03] dark:bg-white/[0.06] border border-black/10 dark:border-white/10 text-sm" />
+              <button onClick={saveVersion} disabled={versBusy} className="inline-flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium text-white disabled:opacity-50 shrink-0" style={{ background: ROSE }}>
+                {versBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Guardar
+              </button>
+            </div>
+            <div className="max-h-72 overflow-y-auto -mx-1 px-1">
+              {versions.length === 0 ? (
+                <p className="text-[12px] text-gray-400 py-6 text-center">Aún no hay versiones guardadas.</p>
+              ) : (
+                <div className="space-y-1.5">
+                  {versions.map((v) => (
+                    <div key={v.id} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-black/[0.03] dark:bg-white/[0.05]">
+                      <div className="min-w-0 flex-1">
+                        <div className="text-sm font-medium truncate">{v.name}</div>
+                        <div className="text-[11px] text-gray-400">{new Date(v.createdAt).toLocaleString()} · {v.stationCount} est · {v.connectorCount} flujo · {v.assetCount} eq</div>
+                      </div>
+                      <button onClick={() => restoreVersion(v.id)} disabled={versBusy} title="Restaurar esta versión" className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[12px] font-medium border border-black/10 dark:border-white/10 hover:bg-black/[0.05] dark:hover:bg-white/[0.08] disabled:opacity-50 shrink-0"><RotateCw className="w-3.5 h-3.5" /> Restaurar</button>
+                      <button onClick={() => deleteVersion(v.id)} title="Eliminar versión" className="p-1.5 rounded-lg text-gray-400 hover:text-rose-500 hover:bg-rose-500/10 shrink-0"><Trash2 className="w-3.5 h-3.5" /></button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>

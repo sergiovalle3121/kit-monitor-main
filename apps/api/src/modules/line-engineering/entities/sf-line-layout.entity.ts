@@ -33,6 +33,47 @@ export interface LayoutAnnotation {
   color?: string;
 }
 
+/** A station placement captured inside a snapshot (Fase 13). */
+export interface SnapshotPosition {
+  id: string; // sf_line_stations.id
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  rotation: number;
+}
+
+/**
+ * A named, point-in-time copy of the layout arrangement (Fase 13) — a design
+ * alternative the engineer can keep and restore. It stores the footprint,
+ * station placements, flow, equipment and annotations, plus the DXF placement
+ * metadata (NOT the raw drawing, which stays on the row to avoid bloat).
+ */
+export interface LayoutSnapshot {
+  id: string;
+  name: string;
+  createdAt: string;
+  createdBy?: string | null;
+  footprint: {
+    footprintW: number;
+    footprintH: number;
+    unit: string;
+    gridSize: number;
+  };
+  positions: SnapshotPosition[];
+  dxf?: {
+    offsetX: number;
+    offsetY: number;
+    scale: number;
+    rotation: number;
+    visible: boolean;
+    opacity: number;
+  } | null;
+  connectors: LayoutConnector[];
+  assets: LayoutAsset[];
+  annotations: LayoutAnnotation[];
+}
+
 /**
  * 2D layout canvas config for a model+revision (the "plano" the Industrial
  * Engineer arranges stations on): footprint size, working unit and grid step.
@@ -119,4 +160,10 @@ export class SfLineLayout extends TenantBaseEntity {
   // Free-text labels and dimension lines (cotas) drawn on the plan. Additive.
   @Column({ type: JSON_COLUMN_TYPE, nullable: true })
   annotations: LayoutAnnotation[] | null;
+
+  // ── Snapshots / versions (Fase 13) ─────────────────────────────────────────
+  // Named, point-in-time copies of the arrangement the engineer can restore.
+  // Additive & nullable: NULL/empty = no saved versions.
+  @Column({ type: JSON_COLUMN_TYPE, nullable: true })
+  snapshots: LayoutSnapshot[] | null;
 }

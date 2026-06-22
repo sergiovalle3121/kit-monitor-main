@@ -18,6 +18,7 @@ import { LineEngineeringService } from './line-engineering.service';
 import { StationStatusService } from './station-status.service';
 import {
   CloneLayoutDto,
+  CreateSnapshotDto,
   CreateStationDto,
   QualifyModelLineDto,
   SaveLayoutDto,
@@ -277,6 +278,55 @@ export class LineEngineeringController {
       margin: margin ? Number(margin) : undefined,
       gap: gap ? Number(gap) : undefined,
     });
+  }
+
+  @Get('layout/snapshots')
+  @RequirePermissions('engineering:read')
+  @ApiOperation({
+    summary: 'Lista las versiones guardadas del layout (más reciente primero).',
+  })
+  listSnapshots(
+    @Query('model') model: string,
+    @Query('revision') revision?: string,
+  ) {
+    return this.service.listSnapshots(model, revision ?? 'A');
+  }
+
+  @Post('layout/snapshots')
+  @RequirePermissions('engineering:write')
+  @ApiOperation({
+    summary: 'Guarda la disposición actual como una versión con nombre.',
+  })
+  createSnapshot(@Body() dto: CreateSnapshotDto) {
+    return this.service.createSnapshot(
+      dto.model,
+      dto.revision ?? 'A',
+      dto.name,
+    );
+  }
+
+  @Post('layout/snapshots/:id/restore')
+  @RequirePermissions('engineering:write')
+  @ApiOperation({
+    summary: 'Restaura una versión guardada sobre el layout en vivo.',
+  })
+  restoreSnapshot(
+    @Param('id') id: string,
+    @Query('model') model: string,
+    @Query('revision') revision?: string,
+  ) {
+    return this.service.restoreSnapshot(model, revision ?? 'A', id);
+  }
+
+  @Delete('layout/snapshots/:id')
+  @RequirePermissions('engineering:write')
+  @ApiOperation({ summary: 'Elimina una versión guardada del layout.' })
+  deleteSnapshot(
+    @Param('id') id: string,
+    @Query('model') model: string,
+    @Query('revision') revision?: string,
+  ) {
+    return this.service.deleteSnapshot(model, revision ?? 'A', id);
   }
 
   @Get('stations/:id')
