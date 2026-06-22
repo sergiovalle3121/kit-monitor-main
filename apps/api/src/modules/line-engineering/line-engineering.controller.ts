@@ -16,6 +16,7 @@ import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { RequirePermissions } from '../auth/decorators/permissions.decorator';
 import { LineEngineeringService } from './line-engineering.service';
 import { StationStatusService } from './station-status.service';
+import { StationBayService } from './station-bay.service';
 import {
   CloneLayoutDto,
   CreateSnapshotDto,
@@ -40,6 +41,7 @@ export class LineEngineeringController {
   constructor(
     private readonly service: LineEngineeringService,
     private readonly statusService: StationStatusService,
+    private readonly bayService: StationBayService,
   ) {}
 
   @Get('stations')
@@ -205,6 +207,19 @@ export class LineEngineeringController {
     @Query('revision') revision?: string,
   ) {
     return this.statusService.getStatus(model, revision ?? 'A');
+  }
+
+  @Get('layout/bays')
+  @RequirePermissions('engineering:read')
+  @ApiOperation({
+    summary:
+      'Bahía (1–6) que surte cada estación, cruzando su NP esperado con bay_layouts.',
+  })
+  layoutBays(
+    @Query('model') model: string,
+    @Query('revision') revision?: string,
+  ) {
+    return this.bayService.getStationBays(model, revision ?? 'A');
   }
 
   @Get('layout/heatmap')
