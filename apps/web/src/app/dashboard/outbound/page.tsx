@@ -307,7 +307,15 @@ export default function OutboundPage() {
                   </div>
                   <div className="space-y-3">
                     {items.map((s) => {
-                      const overdue = (s.status === 'PACKING' || s.status === 'READY') && s.promisedDate && new Date(s.promisedDate).getTime() < Date.now();
+                      // Comparar por DÍA local: promisedDate es fecha-sólo (YYYY-MM-DD);
+                      // parsearla como medianoche LOCAL evita marcar "vencida" un embarque
+                      // que aún vence hoy en zonas UTC negativas (p. ej. México, UTC-6).
+                      const overdue = (s.status === 'PACKING' || s.status === 'READY') && !!s.promisedDate && (() => {
+                        const d = new Date(`${String(s.promisedDate).slice(0, 10)}T00:00:00`);
+                        if (Number.isNaN(d.getTime())) return false;
+                        const t = new Date(); t.setHours(0, 0, 0, 0);
+                        return d.getTime() < t.getTime();
+                      })();
                       return (
                         <div key={s.id} className={`${glass} rounded-2xl p-4`}>
                           <div className="flex items-start gap-3">

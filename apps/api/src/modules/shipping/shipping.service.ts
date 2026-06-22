@@ -90,7 +90,10 @@ export class ShippingService {
       toWarehouseId: 'WH-FG',
       toLocation: 'SHIPPING_DOCK',
       actorName: 'Shipping Agent',
-      holdStatus: 'hold' as any, // staged_for_shipping is not in current union, using hold for now or cast
+      // Reserva para embarque: NO cuenta como 'available' (evita doble asignación)
+      // pero el lock de inventario permite despacharla. Antes era 'hold', que
+      // bloqueaba el dispatch para siempre (stage sí, dispatch nunca).
+      holdStatus: 'staged_for_shipping' as any,
       referenceType: 'SHIPMENT_STAGING',
       referenceId: shipment.shipmentNumber,
       reason: `Staged for Shipment ${shipment.shipmentNumber}`

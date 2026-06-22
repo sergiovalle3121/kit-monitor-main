@@ -128,8 +128,10 @@ export class InventoryService {
           throw new BadRequestException(`Insufficient stock in ${dto.fromWarehouseId} for ${dto.partNumber}`);
         }
 
-        // OPERATIONAL HARD LOCK: Only 'available' stock can be moved from source
-        if (sourcePos.holdStatus !== 'available') {
+        // OPERATIONAL HARD LOCK: solo stock 'available' — o 'staged_for_shipping',
+        // que existe justo para el despacho de embarques — puede moverse de la
+        // fuente. Holds, cuarentena y pendientes de inspección siguen bloqueados.
+        if (sourcePos.holdStatus !== 'available' && sourcePos.holdStatus !== 'staged_for_shipping') {
           await this.audit.recordException({
             severity: ExceptionSeverity.CRITICAL,
             domain: ExceptionDomain.INVENTORY,
