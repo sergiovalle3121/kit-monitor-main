@@ -8,7 +8,7 @@ import {
   AlignHorizontalJustifyStart, AlignHorizontalJustifyCenter, AlignHorizontalJustifyEnd,
   AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd,
   AlignHorizontalSpaceAround, AlignVerticalSpaceAround, Trash2, MapPin, RotateCcw,
-  Upload, Eye, EyeOff, Map as MapIcon, Activity, Workflow, Wand2,
+  Upload, Eye, EyeOff, Map as MapIcon, Activity, Workflow, Wand2, Boxes,
 } from 'lucide-react';
 import { glass } from '@/lib/glass';
 import { apiFetch } from '@/lib/apiFetch';
@@ -30,6 +30,21 @@ const MES_COLORS: Record<string, { fill: string; stroke: string }> = {
   unknown: { fill: 'rgba(148,163,184,0.10)', stroke: '#cbd5e1' },
 };
 
+// Equipment / asset palette (Fase 5). `w`/`h` are default sizes in layout units.
+const ASSET_KINDS: { kind: string; label: string; color: string; fill: string; w: number; h: number }[] = [
+  { kind: 'workbench', label: 'Mesa', color: '#3b82f6', fill: 'rgba(59,130,246,0.10)', w: 1200, h: 800 },
+  { kind: 'conveyor', label: 'Transportador', color: '#7c3aed', fill: 'rgba(124,58,237,0.10)', w: 2400, h: 500 },
+  { kind: 'rack', label: 'Rack', color: '#f59e0b', fill: 'rgba(245,158,11,0.10)', w: 900, h: 450 },
+  { kind: 'robot', label: 'Robot', color: '#ef4444', fill: 'rgba(239,68,68,0.10)', w: 700, h: 700 },
+  { kind: 'aoi', label: 'AOI', color: '#10b981', fill: 'rgba(16,185,129,0.10)', w: 900, h: 700 },
+  { kind: 'oven', label: 'Horno', color: '#f97316', fill: 'rgba(249,115,22,0.10)', w: 1800, h: 900 },
+  { kind: 'printer', label: 'Impresora', color: '#64748b', fill: 'rgba(100,116,139,0.10)', w: 600, h: 500 },
+  { kind: 'wall', label: 'Muro', color: '#94a3b8', fill: 'rgba(148,163,184,0.20)', w: 3000, h: 150 },
+  { kind: 'zone', label: 'Zona', color: '#0ea5e9', fill: 'rgba(14,165,233,0.06)', w: 3000, h: 2000 },
+];
+const ASSET_META = (kind: string) => ASSET_KINDS.find((k) => k.kind === kind) ?? ASSET_KINDS[0];
+
+interface LayoutAsset { id: string; kind: string; x: number; y: number; w: number; h: number; rotation: number; label?: string }
 interface LayoutStation {
   id: string; station: string; line: string; sequence: number; ctq: boolean;
   x: number | null; y: number | null; w: number | null; h: number | null; rotation: number | null;
@@ -37,7 +52,7 @@ interface LayoutStation {
 interface Footprint { footprintW: number; footprintH: number; unit: string; gridSize: number }
 interface DxfMeta { name: string; offsetX: number; offsetY: number; scale: number; rotation: number; visible: boolean; opacity: number }
 interface LayoutConnector { from: string; to: string; kind?: string }
-interface LineLayout { model: string; revision: string; footprint: Footprint; stations: LayoutStation[]; dxf: DxfMeta | null; connectors: LayoutConnector[] }
+interface LineLayout { model: string; revision: string; footprint: Footprint; stations: LayoutStation[]; dxf: DxfMeta | null; connectors: LayoutConnector[]; assets: LayoutAsset[] }
 interface Placement { x: number; y: number; w: number; h: number; rotation: number }
 type MesLevel = 'down' | 'warn' | 'ok' | 'idle' | 'unknown';
 interface StationLiveStatus { station: string; line: string; status: MesLevel; label: string; severity: string | null; since: string | null }
@@ -101,6 +116,8 @@ export function LayoutEditor({ model, revision }: { model: string; revision: str
   const linkSourceRef = useRef<string | null>(null);
   const drawConnRef = useRef<() => void>(() => {});
   const linkClickRef = useRef<(t: any) => void>(() => {});
+  const assetsRef = useRef<LayoutAsset[]>([]);
+  const objByAssetRef = useRef<Map<string, StationBox>>(new Map());
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -284,21 +301,45 @@ export function LayoutEditor({ model, revision }: { model: string; revision: str
     c.add(box);
   }, []);
 
+  // ── Build an equipment/asset box (Fase 5) ───────────────────────────────────
+  const makeAsset = useCallback((a: LayoutAsset) => {
+    const c = fcRef.current; if (!c) return;
+    const meta = ASSET_META(a.kind);
+    const box = new StationBox({
+      left: worldToPx(a.x), top: worldToPx(a.y), width: worldToPx(a.w), height: worldToPx(a.h),
+      angle: a.rotation || 0, originX: 'left', originY: 'top',
+      fill: meta.fill, stroke: meta.color, strokeWidth: 1.5, rx: 4, ry: 4, strokeDashArray: [6, 4],
+      cornerColor: '#fff', cornerStrokeColor: meta.color, borderColor: meta.color, transparentCorners: false,
+      cornerSize: 9, lockScalingFlip: true, objectCaching: false,
+      selectable: !linkRef.current, evented: !linkRef.current,
+    });
+    box.labelText = a.label || meta.label;
+    box.seqText = '';
+    box.labelColor = '#334155';
+    (box as any).assetId = a.id;
+    box.setControlsVisibility({ mtr: true });
+    objByAssetRef.current.set(a.id, box);
+    c.add(box);
+  }, []);
+
   // ── Full redraw of interactive objects from refs (structural changes only) ──
   const rebuild = useCallback(() => {
     const c = fcRef.current; if (!c) return;
     objByIdRef.current.forEach((o) => c.remove(o));
     objByIdRef.current.clear();
+    objByAssetRef.current.forEach((o) => c.remove(o));
+    objByAssetRef.current.clear();
     fitRef.current = computeFit();
     drawScene();
     drawDxf();
+    assetsRef.current.forEach((a) => makeAsset(a)); // equipment under the stations
     placementsRef.current.forEach((p, id) => {
       const s = stationsRef.current.find((x) => x.id === id);
       if (s) makeBox(s, p);
     });
     drawConnectors(); // arrows on top of the stations
     c.requestRenderAll();
-  }, [computeFit, drawScene, drawDxf, drawConnectors, makeBox]);
+  }, [computeFit, drawScene, drawDxf, drawConnectors, makeBox, makeAsset]);
 
   const stationsRef = useRef<LayoutStation[]>([]);
   useEffect(() => { stationsRef.current = stations; }, [stations]);
@@ -350,10 +391,26 @@ export function LayoutEditor({ model, revision }: { model: string; revision: str
 
   // ── Persist a placement from an object back into the world-state ref ─────────
   const syncFromObj = useCallback((obj: StationBox) => {
+    const w = obj.getScaledWidth(), h = obj.getScaledHeight();
+    // Equipment/asset boxes (Fase 5) live in their own ref.
+    const aid = (obj as any).assetId as string | undefined;
+    if (aid) {
+      obj.set({ width: w, height: h, scaleX: 1, scaleY: 1 });
+      obj.setCoords();
+      const a = assetsRef.current.find((x) => x.id === aid);
+      if (a) {
+        a.x = Math.max(0, Math.round(pxToWorld(obj.left!)));
+        a.y = Math.max(0, Math.round(pxToWorld(obj.top!)));
+        a.w = Math.max(1, Math.round(pxToWorld(w)));
+        a.h = Math.max(1, Math.round(pxToWorld(h)));
+        a.rotation = Math.round(obj.angle || 0);
+      }
+      markDirty();
+      return;
+    }
     const id = (obj as any).stationId as string;
     if (!id) return;
     // normalize scale → width/height so future reads are clean
-    const w = obj.getScaledWidth(), h = obj.getScaledHeight();
     obj.set({ width: w, height: h, scaleX: 1, scaleY: 1 });
     obj.setCoords();
     placementsRef.current.set(id, {
@@ -396,6 +453,7 @@ export function LayoutEditor({ model, revision }: { model: string; revision: str
       setPlacedIds(placedSet);
       connectorsRef.current = Array.isArray(d.connectors) ? d.connectors : [];
       setConnCount(connectorsRef.current.length);
+      assetsRef.current = Array.isArray(d.assets) ? d.assets : [];
       setDirty(false);
 
       // DXF background: the placement meta arrives with the layout; the raw
@@ -514,11 +572,28 @@ export function LayoutEditor({ model, revision }: { model: string; revision: str
     const c = fcRef.current; if (!c) return;
     const objs = c.getActiveObjects() as StationBox[];
     const ids = objs.map((o) => (o as any).stationId as string).filter(Boolean);
-    if (ids.length === 0) return;
+    const assetIds = objs.map((o) => (o as any).assetId as string).filter(Boolean);
+    if (ids.length === 0 && assetIds.length === 0) return;
     c.discardActiveObject();
-    setPlacedIds((prev) => { const n = new Set(prev); ids.forEach((id) => { n.delete(id); placementsRef.current.delete(id); }); return n; });
+    if (assetIds.length) assetsRef.current = assetsRef.current.filter((a) => !assetIds.includes(a.id));
+    if (ids.length) {
+      setPlacedIds((prev) => { const n = new Set(prev); ids.forEach((id) => { n.delete(id); placementsRef.current.delete(id); }); return n; });
+    }
     markDirty();
     requestAnimationFrame(() => rebuild());
+  }, [markDirty, rebuild]);
+
+  // Drop a new equipment asset at the centre of the current viewport.
+  const addAsset = useCallback((kind: string) => {
+    const c = fcRef.current; if (!c) return;
+    const meta = ASSET_META(kind);
+    const center = c.getVpCenter();
+    const x = Math.max(0, Math.round(pxToWorld(center.x) - meta.w / 2));
+    const y = Math.max(0, Math.round(pxToWorld(center.y) - meta.h / 2));
+    const id = `as_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+    assetsRef.current = [...assetsRef.current, { id, kind, x, y, w: meta.w, h: meta.h, rotation: 0 }];
+    markDirty();
+    requestAnimationFrame(() => { rebuild(); const o = objByAssetRef.current.get(id); if (o) { c.setActiveObject(o); c.requestRenderAll(); } });
   }, [markDirty, rebuild]);
 
   // ── Align / distribute (on the active multi-selection) ──────────────────────
@@ -741,7 +816,7 @@ export function LayoutEditor({ model, revision }: { model: string; revision: str
         : undefined;
       const r = await apiFetch(`${API_BASE}/line-engineering/layout`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model, revision, footprint: footprintRef.current, positions, cleared, connectors: connectorsRef.current, ...(dxfMeta ? { dxf: dxfMeta } : {}) }),
+        body: JSON.stringify({ model, revision, footprint: footprintRef.current, positions, cleared, connectors: connectorsRef.current, assets: assetsRef.current, ...(dxfMeta ? { dxf: dxfMeta } : {}) }),
       });
       if (!r.ok) { const d = await r.json().catch(() => ({})); toast.error(d?.message || 'No se pudo guardar.', 'Ing. Industrial'); return; }
       toast.success('Layout guardado.', 'Ing. Industrial');
@@ -837,6 +912,16 @@ export function LayoutEditor({ model, revision }: { model: string; revision: str
         <button onClick={autoConnect} title="Conectar según la secuencia de ruteo" className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-black/10 dark:border-white/10 hover:bg-black/[0.05] dark:hover:bg-white/[0.08]"><Wand2 className="w-3.5 h-3.5" /> Auto secuencia</button>
         <button onClick={clearConnectors} disabled={connCount === 0} title="Quitar todas las conexiones" className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-gray-400 hover:text-rose-500 disabled:opacity-40"><Trash2 className="w-3.5 h-3.5" /> Limpiar</button>
         <span className="text-gray-400">· {connCount} {connCount === 1 ? 'conexión' : 'conexiones'}{linkMode ? ' · clic en una flecha para borrarla' : ''}</span>
+      </div>
+
+      {/* Equipment palette (Fase 5) */}
+      <div className="flex items-center gap-2 px-4 py-2 border-b border-black/5 dark:border-white/10 text-[12px] text-gray-500 flex-wrap">
+        <span className="font-medium inline-flex items-center gap-1"><Boxes className="w-3.5 h-3.5" /> Equipos:</span>
+        {ASSET_KINDS.map((k) => (
+          <button key={k.kind} onClick={() => addAsset(k.kind)} title={`Agregar ${k.label}`} className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md border border-black/10 dark:border-white/10 hover:bg-black/[0.05] dark:hover:bg-white/[0.08]">
+            <span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: k.color }} /> {k.label}
+          </button>
+        ))}
       </div>
 
       {mesOn && (

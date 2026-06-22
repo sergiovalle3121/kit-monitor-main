@@ -9,6 +9,18 @@ export interface LayoutConnector {
   kind?: string; // 'flow' | 'conveyor' | 'return'
 }
 
+/** A non-station equipment/asset dropped on the plan (Fase 5). */
+export interface LayoutAsset {
+  id: string; // client-generated id
+  kind: string; // workbench | conveyor | rack | robot | aoi | oven | printer | wall | zone | label
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  rotation: number;
+  label?: string;
+}
+
 /**
  * 2D layout canvas config for a model+revision (the "plano" the Industrial
  * Engineer arranges stations on): footprint size, working unit and grid step.
@@ -84,4 +96,10 @@ export class SfLineLayout extends TenantBaseEntity {
   // Additive & nullable: NULL/empty = no flow drawn.
   @Column({ type: JSON_COLUMN_TYPE, nullable: true })
   connectors: LayoutConnector[] | null;
+
+  // ── Equipment / assets (Fase 5) ────────────────────────────────────────────
+  // Non-station objects placed on the plan (benches, conveyors, racks, robots,
+  // walls, zones, labels…). Additive & nullable.
+  @Column({ type: JSON_COLUMN_TYPE, nullable: true })
+  assets: LayoutAsset[] | null;
 }

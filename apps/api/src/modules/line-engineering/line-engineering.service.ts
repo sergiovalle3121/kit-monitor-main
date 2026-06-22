@@ -12,6 +12,7 @@ import { SfModelLine } from './entities/sf-model-line.entity';
 import {
   SfLineLayout,
   LayoutConnector,
+  LayoutAsset,
 } from './entities/sf-line-layout.entity';
 import { TenantContextService } from '../../common/tenant/tenant-context.service';
 import {
@@ -89,6 +90,7 @@ export interface LineLayout {
   stations: LayoutStation[];
   dxf: LayoutDxf | null;
   connectors: LayoutConnector[];
+  assets: LayoutAsset[];
 }
 
 export interface LineEngineeringKpis {
@@ -425,6 +427,7 @@ export class LineEngineeringService {
       stations: stations.map((s) => this.toLayoutStation(s)),
       dxf: layout ? this.toDxf(layout) : null,
       connectors: layout?.connectors ?? [],
+      assets: layout?.assets ?? [],
     };
   }
 
@@ -448,9 +451,9 @@ export class LineEngineeringService {
     const stations = await sQb.getMany();
     const byId = new Map(stations.map((s) => [s.id, s]));
 
-    // 1) Footprint config + DXF placement + flow connectors (find-or-create
-    //    within scope). The DXF data itself is never touched here.
-    if (dto.footprint || dto.dxf || dto.connectors) {
+    // 1) Footprint config + DXF placement + flow connectors + assets
+    //    (find-or-create within scope). The DXF data itself is never touched.
+    if (dto.footprint || dto.dxf || dto.connectors || dto.assets) {
       const layout = await this.ensureLayout(model, revision);
       const f = dto.footprint;
       if (f) {
@@ -468,6 +471,18 @@ export class LineEngineeringService {
         layout.connectors = dto.connectors
           .filter((c) => c.from !== c.to && byId.has(c.from) && byId.has(c.to))
           .map((c) => ({ from: c.from, to: c.to, kind: c.kind || 'flow' }));
+      }
+      if (dto.assets) {
+        layout.assets = dto.assets.map((a) => ({
+          id: String(a.id).slice(0, 64),
+          kind: String(a.kind || 'box').slice(0, 24),
+          x: Number(a.x) || 0,
+          y: Number(a.y) || 0,
+          w: clampPos(a.w, 1),
+          h: clampPos(a.h, 1),
+          rotation: Number(a.rotation) || 0,
+          ...(a.label ? { label: String(a.label).slice(0, 64) } : {}),
+        }));
       }
       await this.requireLayouts().save(layout);
     }
