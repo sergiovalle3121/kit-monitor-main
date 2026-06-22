@@ -8,58 +8,83 @@ import { useAuth } from "@/contexts/AuthContext";
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000").replace(/\/$/, "");
 
-/** Emite (reserva) un folio OFICIAL COC- del servicio de numeración. Se dispara
- *  con un gesto explícito (no en cada render) porque consume un consecutivo. */
-function useOfficialFolio() {
-  const [folio, setFolio] = useState<string | null>(null);
+/** Hash de contenido no-criptográfico (djb2) → huella estable del documento. */
+function contentFingerprint(content: unknown): string {
+  const s = JSON.stringify(content ?? {});
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) >>> 0;
+  return h.toString(16).padStart(8, "0");
+}
+
+export interface CocCert {
+  folio: string;
+  certifiedBy: string;
+  certifiedAt: string;
+  contentHash: string | null;
+}
+
+/**
+ * Certifica (firma electrónica) un CoC: emite folio oficial COC-, lo firma con la
+ * identidad de la sesión y lo registra inmutablemente en el Event Ledger. Se
+ * dispara con un gesto explícito (consume un consecutivo y deja rastro).
+ */
+function useCocCertification() {
+  const [cert, setCert] = useState<CocCert | null>(null);
   const [issuing, setIssuing] = useState(false);
   const [error, setError] = useState(false);
-  async function issue(subject: string) {
+  async function certify(subjectType: "WO" | "SHIPMENT", subject: string, content: unknown) {
     setIssuing(true);
     setError(false);
     try {
-      const res = await apiFetch(`${API_BASE}/numbering/issue`, {
+      const contentHash = contentFingerprint(content);
+      const res = await apiFetch(`${API_BASE}/quality/coc/certify`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ docType: "COC", subject }),
+        body: JSON.stringify({ subjectType, subject, contentHash }),
       });
       const d = res.ok ? await res.json().catch(() => null) : null;
-      if (d?.folio) setFolio(d.folio as string);
-      else setError(true);
+      if (d?.folio) {
+        setCert({
+          folio: d.folio as string,
+          certifiedBy: (d.certifiedBy as string) || "—",
+          certifiedAt: (d.certifiedAt as string) || new Date().toISOString(),
+          contentHash: (d.contentHash as string) ?? contentHash,
+        });
+      } else setError(true);
     } catch {
       setError(true);
     } finally {
       setIssuing(false);
     }
   }
-  return { folio, issuing, error, issue };
+  return { cert, issuing, error, certify };
 }
 
-function IssueFolioButton({
-  folio,
+function CertifyButton({
+  cert,
   issuing,
   error,
-  onIssue,
+  onCertify,
 }: {
-  folio: string | null;
+  cert: CocCert | null;
   issuing: boolean;
   error: boolean;
-  onIssue: () => void;
+  onCertify: () => void;
 }) {
-  if (folio) return null;
+  if (cert) return null;
   return (
     <div className="print:hidden mb-4 flex flex-wrap items-center gap-2">
       <button
-        onClick={onIssue}
+        onClick={onCertify}
         disabled={issuing}
         className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-[13px] font-medium text-white transition hover:bg-emerald-700 disabled:opacity-50"
       >
-        <BadgeCheck className="h-4 w-4" /> {issuing ? "Emitiendo…" : "Emitir folio oficial"}
+        <BadgeCheck className="h-4 w-4" /> {issuing ? "Certificando…" : "Certificar y firmar"}
       </button>
       <span className="text-[12px] text-gray-400">
-        Reserva un folio COC- consecutivo del servicio de numeración (oficial).
+        Emite folio oficial COC-, firma con tu identidad y lo registra en la bitácora inmutable.
       </span>
-      {error && <span className="text-[12px] text-rose-500">No se pudo emitir. Reintenta.</span>}
+      {error && <span className="text-[12px] text-rose-500">No se pudo certificar. Reintenta.</span>}
     </div>
   );
 }
@@ -226,7 +251,7 @@ function WoCoc({
   const woNcrs = ncrsForWorkOrder(ncrs, wo.workOrder);
   const openNcrs = woNcrs.filter((n) => n.status !== "closed");
   const { verdict, reasons } = assessConformance(latestOqc, woNcrs);
-  const officialFolio = useOfficialFolio();
+  const coc = useCocCertification();
 
   // Cliente/programa NO viven en la entidad Plan → se intentan derivar de una NCR
   // de la misma WO; si no hay, se muestra el hueco honesto.
@@ -244,18 +269,19 @@ function WoCoc({
 
   return (
     <>
-      <IssueFolioButton
-        folio={officialFolio.folio}
-        issuing={officialFolio.issuing}
-        error={officialFolio.error}
-        onIssue={() => officialFolio.issue(wo.workOrder)}
+      <CertifyButton
+        cert={coc.cert}
+        issuing={coc.issuing}
+        error={coc.error}
+        onCertify={() => coc.certify("WO", wo.workOrder, { wo: wo.workOrder, model: wo.model, qty: wo.quantity, verdict, oqc: latestOqc?.result ?? null, ncrs: woNcrs.length })}
       />
       <DocLetterhead
         domain="quality"
         title="Certificado de Conformancia"
         subtitle="Certificate of Conformance (CoC) — por orden de trabajo"
-        docNumber={officialFolio.folio ?? draftDocNumber("COC-WO", wo.workOrder)}
-        official={!!officialFolio.folio}
+        docNumber={coc.cert?.folio ?? draftDocNumber("COC-WO", wo.workOrder)}
+        official={!!coc.cert}
+        attestation={coc.cert ? { by: coc.cert.certifiedBy, at: coc.cert.certifiedAt, hash: coc.cert.contentHash } : undefined}
         meta={[
           { label: "Orden de trabajo", value: orDash(wo.workOrder), mono: true },
           { label: "Modelo / Parte", value: orDash(wo.model), mono: true },
@@ -341,7 +367,6 @@ function WoCoc({
 
       <BackendNote
         items={[
-          "Firma electrónica y registro inmutable del CoC en el Event Ledger (la firma manuscrita es el sustituto provisional).",
           "Endpoint de conformidad por WO que agregue OQC + NCR + yield del lado servidor (hoy se agrega en cliente sobre /plans, /quality/oqc/history, /ncr).",
         ]}
       />
@@ -352,7 +377,7 @@ function WoCoc({
 // ── CoC por embarque ─────────────────────────────────────────────────────────
 function ShipmentCoc({ ship, generatedBy }: { ship: Shipment; generatedBy: string }) {
   const shipped = ship.status === "SHIPPED" || ship.status === "DELIVERED";
-  const officialFolio = useOfficialFolio();
+  const coc = useCocCertification();
   // Contenido real del embarque: líneas (parte/cantidad/lote) del módulo outbound.
   const { data: linesData } = useApi<ShipLine[]>(`/outbound/shipments/${ship.id}/lines`, {
     refreshInterval: 60000,
@@ -366,18 +391,19 @@ function ShipmentCoc({ ship, generatedBy }: { ship: Shipment; generatedBy: strin
   ];
   return (
     <>
-      <IssueFolioButton
-        folio={officialFolio.folio}
-        issuing={officialFolio.issuing}
-        error={officialFolio.error}
-        onIssue={() => officialFolio.issue(ship.folio || ship.id)}
+      <CertifyButton
+        cert={coc.cert}
+        issuing={coc.issuing}
+        error={coc.error}
+        onCertify={() => coc.certify("SHIPMENT", ship.folio || ship.id, { folio: ship.folio, id: ship.id, customer: ship.customerName, status: ship.status, lines: lines.length })}
       />
       <DocLetterhead
         domain="quality"
         title="Certificado de Conformancia"
         subtitle="Certificate of Conformance (CoC) — por embarque"
-        docNumber={officialFolio.folio ?? draftDocNumber("COC-SHP", ship.folio || ship.id.slice(0, 8))}
-        official={!!officialFolio.folio}
+        docNumber={coc.cert?.folio ?? draftDocNumber("COC-SHP", ship.folio || ship.id.slice(0, 8))}
+        official={!!coc.cert}
+        attestation={coc.cert ? { by: coc.cert.certifiedBy, at: coc.cert.certifiedAt, hash: coc.cert.contentHash } : undefined}
         meta={[
           { label: "Folio embarque", value: orDash(ship.folio), mono: true },
           { label: "ASN", value: orDash(ship.asn), mono: true },
@@ -443,7 +469,6 @@ function ShipmentCoc({ ship, generatedBy }: { ship: Shipment; generatedBy: strin
       <BackendNote
         items={[
           "Enlace embarque ⇄ inspección OQC ⇄ genealogía por serie para certificar conformidad unidad por unidad.",
-          "Firma electrónica e inmutabilidad del CoC en el Event Ledger (la firma manuscrita es el sustituto provisional).",
         ]}
       />
     </>

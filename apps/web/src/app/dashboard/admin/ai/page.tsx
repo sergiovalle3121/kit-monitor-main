@@ -3,7 +3,6 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
-  ArrowLeft,
   Sparkles,
   Server,
   Gauge,
@@ -136,13 +135,6 @@ export default function AiAdminPage() {
 
   return (
     <div className="mx-auto max-w-4xl px-5 py-8">
-      <Link
-        href="/dashboard"
-        className="mb-6 inline-flex items-center gap-1.5 text-sm text-black/60 hover:text-black dark:text-white/60 dark:hover:text-white"
-      >
-        <ArrowLeft className="h-4 w-4" /> Dashboard
-      </Link>
-
       <div className="mb-6 flex items-center gap-3">
         <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-600 to-indigo-600 text-white">
           <Sparkles className="h-6 w-6" />

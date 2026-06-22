@@ -15,6 +15,7 @@ import {
   TrendingUp,
   TrendingDown,
   Minus,
+  Lightbulb,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -84,6 +85,21 @@ interface Breakdown {
   window: { sinceHours: number };
   narrative: string;
 }
+interface Proposal {
+  id: number;
+  title: string;
+  description: string;
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  line?: string | null;
+  model?: string | null;
+}
+
+const SEVERITY_STYLE: Record<string, string> = {
+  critical: 'bg-red-500/10 text-red-600 dark:text-red-300',
+  high: 'bg-orange-500/10 text-orange-600 dark:text-orange-300',
+  medium: 'bg-amber-500/10 text-amber-600 dark:text-amber-300',
+  low: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-300',
+};
 
 const DOMAIN_COLOR: Record<string, string> = {
   MATERIALS: '#14b8a6',
@@ -129,16 +145,20 @@ export default function IntelligencePage() {
   const [values, setValues] = useState<Record<string, MetricValue>>({});
   const [trend, setTrend] = useState<Trend | null>(null);
   const [breakdown, setBreakdown] = useState<Breakdown | null>(null);
+  const [proposals, setProposals] = useState<Proposal[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function load() {
       try {
-        const [c, v, t, b] = await Promise.all([
+        const [c, v, t, b, p] = await Promise.all([
           fetch('/api/semantic/catalog', { cache: 'no-store' }),
           fetch('/api/semantic/values', { cache: 'no-store' }),
           fetch('/api/analytics/ledger-trend?days=14', { cache: 'no-store' }),
           fetch('/api/analytics/domain-breakdown?sinceHours=168', {
+            cache: 'no-store',
+          }),
+          fetch('/api/autopilot/proposals?status=pending', {
             cache: 'no-store',
           }),
         ]);
@@ -149,6 +169,10 @@ export default function IntelligencePage() {
         }
         if (t.ok) setTrend(await t.json());
         if (b.ok) setBreakdown(await b.json());
+        if (p.ok) {
+          const rows = await p.json();
+          setProposals(Array.isArray(rows) ? rows : []);
+        }
       } finally {
         setLoading(false);
       }
@@ -202,6 +226,40 @@ export default function IntelligencePage() {
           para responder con cifras gobernadas y consistentes.
         </p>
       </div>
+
+      {/* ── Acciones sugeridas (autopilot) ── */}
+      {proposals.length > 0 && (
+        <section className="mb-8">
+          <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold">
+            <Lightbulb className="h-4 w-4 text-violet-500" /> Acciones sugeridas
+            <span className="text-black/40 dark:text-white/40">
+              · recomendadas por el sistema ({proposals.length})
+            </span>
+          </h2>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {proposals.slice(0, 6).map((p) => (
+              <div key={p.id} className={`${glass} rounded-2xl p-4`}>
+                <div className="mb-1 flex items-start justify-between gap-2">
+                  <span className="text-sm font-medium leading-snug">{p.title}</span>
+                  <span
+                    className={`shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-semibold ${SEVERITY_STYLE[p.severity] ?? ''}`}
+                  >
+                    {p.severity}
+                  </span>
+                </div>
+                <p className="text-xs leading-snug text-black/55 dark:text-white/55">
+                  {p.description}
+                </p>
+                {(p.line || p.model) && (
+                  <p className="mt-1.5 text-[10px] text-black/40 dark:text-white/40">
+                    {[p.line, p.model].filter(Boolean).join(' · ')}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* ── Pulso operacional (analítica) ── */}
       {(trend || breakdown) && (

@@ -69,6 +69,27 @@ export class Message {
   @Column({ name: 'mentioned_user_ids', type: 'simple-array', nullable: true })
   mentionedUserIds: string[] | null;
 
+  /** Mensaje al que este responde (cita), o null. */
+  @Index()
+  @Column({ name: 'reply_to_id', type: 'uuid', nullable: true })
+  replyToId: string | null;
+
+  /** Cuándo se editó por última vez (null = no editado). */
+  @Column({ name: 'edited_at', type: 'timestamptz', nullable: true })
+  editedAt: Date | null;
+
+  /** Borrado lógico: si está, el mensaje se muestra como "eliminado". */
+  @Column({ name: 'deleted_at', type: 'timestamptz', nullable: true })
+  deletedAt: Date | null;
+
+  /** Cuándo se fijó (null = no fijado). */
+  @Column({ name: 'pinned_at', type: 'timestamptz', nullable: true })
+  pinnedAt: Date | null;
+
+  /** Marca de mensaje reenviado (para mostrar "Reenviado"). */
+  @Column({ type: 'boolean', default: false })
+  forwarded: boolean;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 }

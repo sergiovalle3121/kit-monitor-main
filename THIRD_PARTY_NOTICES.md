@@ -28,7 +28,7 @@ dependencia: `@anthropic-ai/sdk` (ya no se usa; CIDE no llama a Anthropic).
 | `@tanstack/react-table` | MIT | Núcleo **headless** de la `DataTable` del kit (orden, filtro por columna, búsqueda, paginación, selección). Solo lógica de tabla; el estilo es propio (Tailwind + token `glass`). | https://github.com/TanStack/table |
 
 Permisiva (MIT). Arrastra `@tanstack/table-core` (mismo proyecto, también MIT).
-Justificación en `DECISIONS.md` §21.
+Justificación en `DECISIONS.md` §23.
 
 ## Modelos de IA (CIDE) — pesos descargados en runtime
 

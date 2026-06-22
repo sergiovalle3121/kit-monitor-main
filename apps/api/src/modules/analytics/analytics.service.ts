@@ -36,9 +36,17 @@ export interface DomainBreakdown {
  * elaborates on top of them.
  */
 /** A forward projection of a daily series, with an optional what-if lever. */
+export interface ProjectionBand {
+  date: string;
+  p10: number;
+  p50: number;
+  p90: number;
+}
 export interface Projection {
   history: TrendPoint[];
   projection: { date: string; count: number; projected: true }[];
+  bands: ProjectionBand[];
+  simulations: number;
   slopePerDay: number;
   horizonDays: number;
   adjustmentPct: number;
@@ -212,16 +220,64 @@ export class AnalyticsService {
     const endRate = projection.length
       ? projection[projection.length - 1].count
       : todayRate;
+
+    // ── Monte Carlo: bootstrap the daily deltas to get P10/P50/P90 bands. ──
+    // The decision-intelligence MonteCarloService is plan-scenario specific
+    // (needs a PlanScenario); here we run a self-contained simulation on the
+    // real activity series so the what-if shows honest uncertainty, not a single
+    // line. The lever (`adj`) shifts the drift; historical noise is preserved.
+    const SIMS = 300;
+    const deltas: number[] = [];
+    for (let i = 1; i < n; i++) deltas.push(series[i].count - series[i - 1].count);
+    const muDelta =
+      deltas.length > 0 ? deltas.reduce((s, d) => s + d, 0) / deltas.length : 0;
+    const lastActual = n > 0 ? series[n - 1].count : 0;
+    const drift = slope * factor;
+
+    // paths[h][sim] = simulated value at horizon day h.
+    const paths: number[][] = Array.from({ length: horizon }, () => []);
+    for (let sim = 0; sim < SIMS; sim++) {
+      let value = lastActual;
+      for (let h = 0; h < horizon; h++) {
+        const noise =
+          deltas.length > 0
+            ? deltas[Math.floor(Math.random() * deltas.length)] - muDelta
+            : 0;
+        value = Math.max(0, value + noise + drift);
+        paths[h].push(value);
+      }
+    }
+    const pct = (sorted: number[], p: number): number => {
+      if (sorted.length === 0) return 0;
+      const idx = clamp(Math.round((p / 100) * (sorted.length - 1)), 0, sorted.length - 1);
+      return Math.round(sorted[idx]);
+    };
+    const bands: ProjectionBand[] = paths.map((vals, h) => {
+      const sorted = [...vals].sort((a, b) => a - b);
+      return {
+        date: projection[h]?.date ?? '',
+        p10: pct(sorted, 10),
+        p50: pct(sorted, 50),
+        p90: pct(sorted, 90),
+      };
+    });
+
+    const endBand = bands[bands.length - 1];
     const dir =
       endRate > todayRate ? 'al alza' : endRate < todayRate ? 'a la baja' : 'estable';
     const scope = opts.domain ? ` de ${opts.domain}` : '';
     const adjNote =
       adj !== 0 ? ` con un ajuste hipotético de ${adj > 0 ? '+' : ''}${adj}%` : '';
-    const narrative = `Al ritmo actual${scope}${adjNote}, la actividad proyectada a ${horizon} días es ~${endRate}/día (tendencia ${dir}; hoy ~${todayRate}/día).`;
+    const bandNote = endBand
+      ? ` Escenario a ${horizon}d: P50 ~${endBand.p50}/día (P10–P90: ${endBand.p10}–${endBand.p90}).`
+      : '';
+    const narrative = `Al ritmo actual${scope}${adjNote}, la actividad proyectada a ${horizon} días es ~${endRate}/día (tendencia ${dir}; hoy ~${todayRate}/día).${bandNote}`;
 
     return {
       history: series,
       projection,
+      bands,
+      simulations: SIMS,
       slopePerDay: Math.round(slope * 100) / 100,
       horizonDays: horizon,
       adjustmentPct: adj,

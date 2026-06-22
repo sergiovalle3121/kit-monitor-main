@@ -533,7 +533,67 @@ tests ✓. Sin tablas nuevas → el smoke de bootstrap no cambia de superficie.
 `decision-intelligence` + propuestas de `autopilot`; tarjetas de análisis con
 mini-gráficas embebidas en el chat de CIDE; editor de métricas/ontología en la UI.
 
-## 21. Kit "Workspace Industrial" (primitivos de UI) + Legal de referencia
+## 21. Tarjetas de análisis en el chat de CIDE (Fase 5)
+
+**Contexto.** CIDE respondía solo texto; las herramientas analíticas (Fases 2–4)
+devuelven datos estructurados que quedaban "planos" en el chat. Para un asistente
+de análisis de datos faltaba **mostrar el dato** (KPI, sparkline, barras) inline.
+
+**Decisión.** Construcción de tarjetas **server-side y determinista** — el modelo
+elige las herramientas, pero la *tarjeta* se arma del **resultado real** de la
+herramienta, no de texto del modelo (cero alucinación de cifras):
+- `ai-cards.ts` — `buildCard(tool, out)` mapea salidas a una unión tipada
+  `CideCard` (`metric` | `line` | `bars`): `analyze_trend`/`object_insight` →
+  sparkline; `simulate_projection` → histórico + proyección punteada;
+  `metric_value`/`inventory_valuation` → KPI; `operations_pulse` → barras por
+  dominio. `collectCards` dedupe + tope (3).
+- `ai.service` captura las salidas de las tools en `runCide` **y** `runMock`
+  (así las tarjetas también se ven en modo demo, sin motor) y las devuelve en la
+  respuesta del chat (`cards`). Efímeras: solo del turno en vivo, no se persisten.
+- **Frontend (`Cide.tsx`):** render de tarjetas bajo la respuesta, con
+  **sparklines en SVG inline** y barras en CSS — **sin meter una librería de
+  charts al bundle global** del widget (que está montado en todo el dashboard).
+
+**Verificación:** build API ✓, build web ✓, lint web (0 errores) ✓, **697/697**
+tests ✓. Sin entidades nuevas; el smoke no cambia de superficie.
+
+**Pendiente (Fase 6):** integrar el what-if con el Monte Carlo de
+`decision-intelligence` + propuestas de `autopilot`; editor de métricas/ontología
+en la UI; persistir tarjetas en el historial de conversación.
+
+## 22. What-if Monte Carlo + acciones de Autopilot/Decision-Intelligence (Fase 6)
+
+**Contexto.** El what-if (§20) era una proyección lineal de un solo trazo, sin
+incertidumbre, y el Centro de Inteligencia no surfaceaba las **acciones** que el
+sistema ya recomienda (`autopilot`) ni los **escenarios** de planeación
+(`decision-intelligence`).
+
+**Decisión.**
+- **Monte Carlo en el what-if.** `AnalyticsService.project` ahora corre una
+  simulación autocontenida (300 paths) por **bootstrap de los deltas diarios** de
+  la serie real → bandas **P10/P50/P90** por día de horizonte; la palanca (`adj`)
+  desplaza el *drift* y el ruido histórico se preserva. *Por qué propio y no el
+  `MonteCarloService` de decision-intelligence:* ese MC es específico de un
+  `PlanScenario` (necesita `scenarioId` + entidades); para la serie de actividad
+  se usa el mismo método estadístico (resampleo + percentiles) sin acoplar.
+- **Integración por lectura de los módulos de decisión existentes.** CIDE gana
+  `autopilot_proposals` (acciones correctivas de `AutopilotService.listProposals`)
+  y `decision_scenarios` (`DecisionIntelligenceService.listPlanScenarios`). Nueva
+  tarjeta de chat tipo `actions` (lista priorizada por severidad).
+- **Visible en la app:**
+  - El simulador what-if del objeto grafica la **banda P10–P90** + **P50** (Monte
+    Carlo) además del histórico, con leyenda y nº de simulaciones.
+  - El Centro de Inteligencia añade **"Acciones sugeridas"** leyendo
+    `GET /api/autopilot/proposals?status=pending` (tarjetas con severidad).
+
+**Verificación:** build API ✓, build web ✓, lint web (0 errores) ✓, **697/697**
+tests ✓. Sin entidades nuevas; el smoke no cambia de superficie.
+
+**Pendiente (Fase 7):** ejecutar propuestas de autopilot desde el Centro de
+Inteligencia (acción, no solo lectura); editor de métricas/ontología en la UI;
+persistir tarjetas en el historial; conectar el what-if a `runStressTest` cuando
+exista un PlanScenario asociado.
+## 23. Kit "Workspace Industrial" (primitivos de UI) + Legal de referencia
 
 **Contexto.** Conviven módulos profundos (operador, planning, quality/holds) y
 módulos austeros que se sienten como "un + y unos campos". Causa estructural: no
@@ -566,11 +626,12 @@ referencia, **sin tocar backend** (solo se consume lo que `/legal` ya expone):
 vinculados y alertas-que-disparan = follow-up (requieren backend).
 
 **Corrección de premisa (verificada en código).** El brief asumía que Legal "no
-está en el hub". **Sí lo está**: se cableó en `dashboard/page.tsx` (catálogo
-`AREAS`, sección "Administración") en el PR #361. No existe `lib/dashboardAreas.ts`
-— `AREAS` vive en la página. Por tanto **no se duplica** la entrada; se ajusta la
-existente añadiendo el rol `plant_manager` a `["finance","hr"]` (admin/owner ya la
-ven vía `seesAllAreas`, sin permisos nuevos).
+está en el hub". **Sí lo está** desde el PR #361. Además, al hacer rebase/merge
+con `main`, el catálogo `AREAS` **ya fue extraído** a `apps/web/src/lib/dashboardAreas.ts`
+por el PR de wayfinding (#379) — `dashboard/page.tsx` ahora lo importa. Por tanto
+**no se duplica** la entrada: el ajuste (añadir `plant_manager` a `["finance","hr"]`)
+se aplica en `dashboardAreas.ts`. Admin/owner ya la ven vía `seesAllAreas`, sin
+permisos nuevos.
 
 **Aditivo.** El kit no obliga a migrar las páginas que ya rodaron su tabla; un
 segundo módulo puede consumir los primitivos sin cambios.
