@@ -33,6 +33,8 @@ import { EnterpriseCustomer } from '../modules/enterprise-campus/entities/enterp
 import { EnterpriseProgram } from '../modules/enterprise-campus/entities/enterprise-program.entity';
 import { UsersService } from '../modules/users/users.service';
 import { User } from '../modules/users/entities/user.entity';
+import { HrService } from '../modules/hr/hr.service';
+import { HrRequisition } from '../modules/hr/entities/hr-requisition.entity';
 import { SuppliersService } from '../modules/suppliers/suppliers.service';
 import { Supplier } from '../modules/suppliers/entities/supplier.entity';
 import { ErpMmService } from '../modules/erp-core/services/erp-mm.service';
@@ -1060,6 +1062,214 @@ async function seedMesExecutions(app: INestApplicationContext, ds: DataSource): 
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// RH / Capital Humano: plantilla, bajas (rotación), requisiciones, candidatos,
+// evaluaciones (9-box) y ausentismo. Nombres sintéticos (universo AXOS, dominio
+// público). Usa el servicio real de RH; idempotente por conteo de plantilla.
+// ─────────────────────────────────────────────────────────────────────────────
+const HR_DEPT: Record<string, string> = {
+  SMT: 'Producción', THT: 'Producción', 'Ensamble Final': 'Producción', Pruebas: 'Producción',
+  Almacén: 'Materiales', Calidad: 'Calidad', Ingeniería: 'Ingeniería',
+};
+const HR_CC: Record<string, string> = {
+  SMT: 'CC-SMT-510', THT: 'CC-THT-520', 'Ensamble Final': 'CC-ENS-530', Pruebas: 'CC-TST-540',
+  Almacén: 'CC-WH-600', Calidad: 'CC-QA-700', Ingeniería: 'CC-ENG-800',
+};
+
+async function seedPeopleHr(app: INestApplicationContext, ds: DataSource): Promise<Tally> {
+  const hr = app.get(HrService, { strict: false });
+  const t = tally();
+
+  const existing = await hr.listEmployees();
+  if (existing.length > 0) {
+    log('rh', `ya existían ${existing.length} colaboradores; se omite`);
+    t.skipped = existing.length;
+    return t;
+  }
+
+  const now = Date.now();
+  const dAgo = (n: number) => new Date(now - n * 86_400_000).toISOString().slice(0, 10);
+
+  // [first, last, area, shift, labor, position, monthlyCost, hireDaysAgo, engagement]
+  const ACTIVE: [string, string, string, string, 'DIRECT' | 'INDIRECT', string, number, number, number][] = [
+    ['Juan', 'Pérez', 'SMT', 'A', 'DIRECT', 'Operador SMT', 13500, 420, 78],
+    ['María', 'López', 'SMT', 'A', 'DIRECT', 'Operador SMT', 13200, 380, 71],
+    ['Pedro', 'Ramírez', 'SMT', 'A', 'INDIRECT', 'Líder de línea SMT', 23000, 1100, 84],
+    ['Lucía', 'Hernández', 'SMT', 'B', 'DIRECT', 'Operador SMT', 13500, 55, 46],
+    ['Carlos', 'García', 'SMT', 'B', 'DIRECT', 'Operador SMT', 13500, 38, 41],
+    ['Ana', 'Martínez', 'SMT', 'B', 'DIRECT', 'Operador SMT', 13200, 210, 58],
+    ['Jorge', 'Sánchez', 'SMT', 'C', 'DIRECT', 'Operador SMT', 14000, 25, 39],
+    ['Diana', 'Flores', 'SMT', 'C', 'DIRECT', 'Operador SMT', 14000, 72, 44],
+    ['Raúl', 'Torres', 'THT', 'A', 'DIRECT', 'Operador THT', 12800, 640, 75],
+    ['Sofía', 'Reyes', 'THT', 'A', 'DIRECT', 'Operador THT', 12800, 300, 69],
+    ['Miguel', 'Cruz', 'THT', 'B', 'DIRECT', 'Operador THT', 12800, 150, 63],
+    ['Elena', 'Morales', 'Ensamble Final', 'A', 'DIRECT', 'Ensamblador', 12500, 510, 80],
+    ['Hugo', 'Ortiz', 'Ensamble Final', 'A', 'DIRECT', 'Ensamblador', 12500, 95, 66],
+    ['Paola', 'Gutiérrez', 'Ensamble Final', 'B', 'DIRECT', 'Ensamblador', 12500, 47, 52],
+    ['Iván', 'Mendoza', 'Ensamble Final', 'B', 'DIRECT', 'Ensamblador', 12500, 28, 43],
+    ['Karla', 'Vázquez', 'Pruebas', 'A', 'DIRECT', 'Técnico de prueba', 16500, 720, 82],
+    ['Luis', 'Romero', 'Pruebas', 'B', 'DIRECT', 'Técnico de prueba', 16500, 260, 70],
+    ['Daniela', 'Castillo', 'Almacén', 'A', 'DIRECT', 'Almacenista', 12000, 900, 77],
+    ['Óscar', 'Jiménez', 'Almacén', 'B', 'DIRECT', 'Surtidor de línea', 12200, 180, 60],
+    ['Patricia', 'Núñez', 'Calidad', 'A', 'INDIRECT', 'Inspector de calidad', 17500, 1300, 86],
+    ['Andrés', 'Rojas', 'Calidad', 'A', 'INDIRECT', 'Ingeniero de calidad', 35000, 1500, 88],
+    ['Gabriela', 'Domínguez', 'Ingeniería', 'A', 'INDIRECT', 'Ingeniero de proceso', 38000, 1650, 90],
+    ['Fernando', 'Aguilar', 'Ingeniería', 'A', 'INDIRECT', 'Ingeniero industrial', 37000, 540, 83],
+    ['Mónica', 'Salazar', 'SMT', 'A', 'INDIRECT', 'Supervisor de producción', 42000, 1900, 87],
+  ];
+
+  for (let i = 0; i < ACTIVE.length; i++) {
+    const [first, last, area, shift, labor, pos, cost, hire, eng] = ACTIVE[i];
+    const isManager = pos.startsWith('Líder') || pos.startsWith('Supervisor');
+    try {
+      await hr.createEmployee({
+        firstName: first, lastName: last, employeeNumber: String(1001 + i),
+        position: pos, area, department: HR_DEPT[area], costCenter: HR_CC[area],
+        shift, line: area === 'SMT' ? 'L-SMT-1' : area === 'THT' ? 'L-THT-1' : undefined,
+        laborType: labor, hireDate: dAgo(hire), monthlyCost: cost, engagementScore: eng,
+        // tramo de control: operadores reportan al líder SMT (1003) o al supervisor (1024)
+        managerEmployeeNumber: isManager ? undefined : area === 'SMT' ? '1003' : '1024',
+        supervisorName: isManager ? undefined : area === 'SMT' ? 'Pedro Ramírez' : 'Mónica Salazar',
+      });
+      t.created++;
+    } catch (err) {
+      t.errors++;
+      log('rh', `ERROR alta ${first} ${last}: ${(err as Error).message}`);
+    }
+  }
+
+  // Bajas (últimos 12 meses) — concentradas en SMT noche para rotación realista.
+  // [first, last, area, shift, labor, hireDaysAgo, termDaysAgo, type, reason]
+  const TERMS: [string, string, string, string, 'DIRECT' | 'INDIRECT', number, number, 'VOLUNTARY' | 'INVOLUNTARY', string][] = [
+    ['Roberto', 'Díaz', 'SMT', 'C', 'DIRECT', 95, 35, 'VOLUNTARY', 'Mejor oferta'],
+    ['Adriana', 'Campos', 'SMT', 'C', 'DIRECT', 40, 12, 'VOLUNTARY', 'Abandono de empleo'],
+    ['Víctor', 'Luna', 'SMT', 'B', 'DIRECT', 70, 30, 'INVOLUNTARY', 'Ausentismo'],
+    ['Brenda', 'Ríos', 'SMT', 'B', 'DIRECT', 55, 20, 'VOLUNTARY', 'Personal'],
+    ['Sergio', 'Fuentes', 'Ensamble Final', 'B', 'DIRECT', 200, 60, 'VOLUNTARY', 'Mejor oferta'],
+    ['Tania', 'Cordero', 'THT', 'B', 'DIRECT', 30, 8, 'VOLUNTARY', 'Abandono de empleo'],
+    ['Emilio', 'Padilla', 'Almacén', 'B', 'DIRECT', 320, 90, 'INVOLUNTARY', 'Reestructura'],
+    ['Natalia', 'Vega', 'Pruebas', 'A', 'DIRECT', 150, 110, 'VOLUNTARY', 'Reubicación'],
+  ];
+  for (let i = 0; i < TERMS.length; i++) {
+    const [first, last, area, shift, labor, hire, term, type, reason] = TERMS[i];
+    try {
+      const emp = await hr.createEmployee({
+        firstName: first, lastName: last, employeeNumber: String(2001 + i),
+        position: 'Operador', area, department: HR_DEPT[area], costCenter: HR_CC[area],
+        shift, laborType: labor, hireDate: dAgo(hire),
+      });
+      await hr.terminateEmployee(emp.id, { terminationType: type, reason, terminationDate: dAgo(term) });
+      t.created++;
+    } catch (err) {
+      t.errors++;
+      log('rh', `ERROR baja ${first} ${last}: ${(err as Error).message}`);
+    }
+  }
+
+  // Requisiciones + pipeline.
+  const reqRepo = ds.getRepository(HrRequisition);
+  const mkReq = async (
+    title: string, area: string, shift: string, openings: number,
+    priority: string, reason: string, openedAgo: number, program?: string,
+  ) => {
+    const r = await hr.createRequisition({
+      title, area, shift, openings, laborType: 'DIRECT',
+      priority: priority as 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL',
+      reason: reason as 'GROWTH' | 'REPLACEMENT' | 'RAMP', program,
+    });
+    await reqRepo.update(r.id, { openedDate: new Date(now - openedAgo * 86_400_000) });
+    return r;
+  };
+  try {
+    const r1 = await mkReq('Operador SMT (turno C)', 'SMT', 'C', 6, 'CRITICAL', 'RAMP', 52, 'Axos Mobility');
+    const r2 = await mkReq('Operador SMT (turno B)', 'SMT', 'B', 3, 'HIGH', 'REPLACEMENT', 18);
+    await mkReq('Ensamblador (turno B)', 'Ensamble Final', 'B', 2, 'MEDIUM', 'GROWTH', 9);
+    const rHold = await hr.createRequisition({ title: 'Técnico de prueba', area: 'Pruebas', shift: 'A', openings: 1, priority: 'LOW', reason: 'REPLACEMENT' });
+    await hr.transitionRequisition(rHold.id, { to: 'ON_HOLD' });
+    // Cubierta (para time-to-fill): abierta hace 40d, cubierta hace 8d.
+    const rFilled = await mkReq('Almacenista', 'Almacén', 'B', 1, 'MEDIUM', 'GROWTH', 40);
+    await hr.transitionRequisition(rFilled.id, { to: 'FILLED' });
+    await reqRepo.update(rFilled.id, { filledDate: new Date(now - 8 * 86_400_000), filledCount: 1 });
+
+    // Candidatos en distintas etapas sobre las vacantes abiertas.
+    const pipeline: [string, string, string][] = [
+      [r1.id, 'Esteban Mora', 'APPLIED'], [r1.id, 'Valeria Ponce', 'SCREEN'],
+      [r1.id, 'Ricardo Salas', 'INTERVIEW'], [r1.id, 'Cecilia Bravo', 'APPLIED'],
+      [r2.id, 'Marcos Téllez', 'SCREEN'], [r2.id, 'Lorena Vidal', 'INTERVIEW'],
+      [r2.id, 'Hernán Cantú', 'OFFER'], [r1.id, 'Pamela Quiroz', 'APPLIED'],
+      [r2.id, 'Iris Lozano', 'APPLIED'],
+    ];
+    const STEPS: Record<string, string[]> = {
+      APPLIED: [], SCREEN: ['SCREEN'], INTERVIEW: ['SCREEN', 'INTERVIEW'], OFFER: ['SCREEN', 'INTERVIEW', 'OFFER'],
+    };
+    for (const [reqId, name, stage] of pipeline) {
+      const c = await hr.createCandidate({ name, requisitionId: reqId, source: 'JOB_BOARD' });
+      for (const step of STEPS[stage]) await hr.advanceCandidate(c.id, { to: step as 'SCREEN' | 'INTERVIEW' | 'OFFER' });
+      t.created++;
+    }
+  } catch (err) {
+    t.errors++;
+    log('rh', `ERROR requisiciones: ${(err as Error).message}`);
+  }
+
+  // Evaluaciones de desempeño (distribuidas en el 9-box).
+  // [name, area, performance(1-5), potential, succession]
+  const REVIEWS: [string, string, number, 'LOW' | 'MED' | 'HIGH', string][] = [
+    ['Gabriela Domínguez', 'Ingeniería', 5, 'HIGH', 'READY_NOW'],
+    ['Fernando Aguilar', 'Ingeniería', 5, 'HIGH', 'READY_NOW'],
+    ['Andrés Rojas', 'Calidad', 4, 'HIGH', 'ONE_TWO_YEARS'],
+    ['Mónica Salazar', 'SMT', 5, 'MED', 'ONE_TWO_YEARS'],
+    ['Karla Vázquez', 'Pruebas', 4, 'MED', 'ONE_TWO_YEARS'],
+    ['Pedro Ramírez', 'SMT', 4, 'MED', 'NOT_READY'],
+    ['Juan Pérez', 'SMT', 3, 'MED', 'NOT_READY'],
+    ['Raúl Torres', 'THT', 3, 'LOW', 'NOT_READY'],
+    ['Elena Morales', 'Ensamble Final', 3, 'HIGH', 'ONE_TWO_YEARS'],
+    ['Carlos García', 'SMT', 2, 'MED', 'NOT_READY'],
+    ['Jorge Sánchez', 'SMT', 2, 'LOW', 'NOT_READY'],
+    ['Iván Mendoza', 'Ensamble Final', 1, 'LOW', 'NOT_READY'],
+  ];
+  for (const [name, area, perf, pot, succ] of REVIEWS) {
+    try {
+      await hr.createReview({
+        employeeName: name, area, period: '2026-H1', reviewer: 'RH',
+        performanceScore: perf, potential: pot, goalsMetPct: perf * 18 + 10,
+        successionReadiness: succ as 'READY_NOW' | 'ONE_TWO_YEARS' | 'NOT_READY',
+      });
+      t.created++;
+    } catch (err) {
+      t.errors++;
+    }
+  }
+
+  // Ausentismo últimos 45 días — concentrado en SMT noche (B/C) para señal real.
+  // [name, area, shift, type, daysAgo, hours]
+  const ABS: [string, string, string, string, number, number][] = [
+    ['Carlos García', 'SMT', 'B', 'ABSENCE', 3, 8], ['Carlos García', 'SMT', 'B', 'LATE', 9, 1],
+    ['Lucía Hernández', 'SMT', 'B', 'ABSENCE', 5, 8], ['Lucía Hernández', 'SMT', 'B', 'SICK', 14, 8],
+    ['Jorge Sánchez', 'SMT', 'C', 'ABSENCE', 2, 8], ['Jorge Sánchez', 'SMT', 'C', 'ABSENCE', 11, 8],
+    ['Jorge Sánchez', 'SMT', 'C', 'LATE', 6, 1], ['Diana Flores', 'SMT', 'C', 'ABSENCE', 7, 8],
+    ['Diana Flores', 'SMT', 'C', 'LATE', 1, 1], ['Iván Mendoza', 'Ensamble Final', 'B', 'ABSENCE', 4, 8],
+    ['Iván Mendoza', 'Ensamble Final', 'B', 'ABSENCE', 18, 8], ['Paola Gutiérrez', 'Ensamble Final', 'B', 'SICK', 10, 8],
+    ['Miguel Cruz', 'THT', 'B', 'ABSENCE', 8, 8], ['Óscar Jiménez', 'Almacén', 'B', 'LATE', 12, 1],
+    ['Ana Martínez', 'SMT', 'B', 'ABSENCE', 22, 8], ['Hugo Ortiz', 'Ensamble Final', 'A', 'SICK', 16, 8],
+    ['Sofía Reyes', 'THT', 'A', 'ABSENCE', 28, 8], ['Luis Romero', 'Pruebas', 'B', 'LATE', 6, 1],
+  ];
+  for (const [name, area, shift, type, ago, hours] of ABS) {
+    try {
+      await hr.createAbsence({
+        employeeName: name, area, shift, type: type as 'ABSENCE' | 'LATE' | 'SICK',
+        date: dAgo(ago), hours, justified: type === 'SICK',
+      });
+      t.created++;
+    } catch (err) {
+      t.errors++;
+    }
+  }
+
+  log('rh', `colaboradores+eventos creados=${t.created} errores=${t.errors}`);
+  return t;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Dominios de negocio (CMMS, EHS, CRM, legal, gastos, activos fijos, tooling,
 // compras, RMA): demo FUNCIONAL vía los servicios reales — folio y estatus se
 // auto-asignan, igual que si un usuario los capturara. Así cada módulo del hub
@@ -1228,6 +1438,7 @@ async function run(): Promise<void> {
       await seedConsumption(app, ds);
       await seedQualityHolds(app, ds);
       await seedUsers(app);
+      await seedPeopleHr(app, ds);
       await seedShopFloor(app, ds);
       await seedVisualAids(ds);
       await seedRouting(app, ds);
