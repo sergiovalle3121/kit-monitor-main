@@ -37,6 +37,8 @@ import { HrService } from '../modules/hr/hr.service';
 import { HrRequisition } from '../modules/hr/entities/hr-requisition.entity';
 import { SuppliersService } from '../modules/suppliers/suppliers.service';
 import { Supplier } from '../modules/suppliers/entities/supplier.entity';
+import { SupplierContact } from '../modules/suppliers/entities/supplier-contact.entity';
+import { SupplierCertification } from '../modules/suppliers/entities/supplier-certification.entity';
 import { ErpMmService } from '../modules/erp-core/services/erp-mm.service';
 import { ProductionPlanService } from '../modules/production-plan/production-plan.service';
 import { SfWorkOrder } from '../modules/production-plan/entities/sf-work-order.entity';
@@ -369,6 +371,129 @@ async function seedSupplierPrices(
     }
   }
   log('precios prov.', `upserts=${t.created} omitidos=${t.skipped} errores=${t.errors}`);
+  return t;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 3c. Enriquecimiento de proveedores: calificación, OTD/PPM, riesgo,
+// certificaciones (con vencimientos) y contactos. Para que el Proveedor 360 abra
+// con un maestro real, no una tabla de 4 campos. Idempotente.
+// ─────────────────────────────────────────────────────────────────────────────
+const SUPPLIER_EXTRAS: Record<string, Record<string, unknown>> = {
+  'AX-SUP-FERRUM': { type: 'COMPONENT', commodity: 'Pasivos (R/C/L)', region: 'NAM', qualificationStatus: 'APPROVED', paymentTerms: 'NET45', incoterm: 'FCA', leadTimeDays: 21, otdPct: 98.6, ppm: 18, responsivenessScore: 95, riskLevel: 'LOW', financialHealth: 'STRONG', singleSource: false, ownerEmail: 'sqe.pasivos@axos-demo.example' },
+  'AX-SUP-VOLTAIC': { type: 'COMPONENT', commodity: 'Discretos / Power', region: 'NAM', qualificationStatus: 'APPROVED', paymentTerms: 'NET30', incoterm: 'FCA', leadTimeDays: 28, otdPct: 97.2, ppm: 30, responsivenessScore: 90, riskLevel: 'LOW', financialHealth: 'STABLE', singleSource: false, ownerEmail: 'sqe.power@axos-demo.example' },
+  'AX-SUP-NORVEL': { type: 'COMPONENT', commodity: 'Semiconductores (MCU)', region: 'NAM', qualificationStatus: 'APPROVED', paymentTerms: 'NET30', incoterm: 'EXW', leadTimeDays: 84, otdPct: 91.5, ppm: 55, responsivenessScore: 78, riskLevel: 'MEDIUM', financialHealth: 'STABLE', singleSource: true, ownerEmail: 'sqe.semi@axos-demo.example' },
+  'AX-SUP-AXON': { type: 'COMPONENT', commodity: 'Microelectrónica', region: 'NAM', qualificationStatus: 'APPROVED', paymentTerms: 'NET45', incoterm: 'FCA', leadTimeDays: 70, otdPct: 95.8, ppm: 22, responsivenessScore: 88, riskLevel: 'LOW', financialHealth: 'STRONG', singleSource: false, ownerEmail: 'sqe.semi@axos-demo.example' },
+  'AX-SUP-COBALT': { type: 'COMPONENT', commodity: 'Conectores', region: 'EMEA', qualificationStatus: 'APPROVED', paymentTerms: 'NET60', incoterm: 'DAP', leadTimeDays: 49, otdPct: 94.0, ppm: 40, responsivenessScore: 82, riskLevel: 'MEDIUM', financialHealth: 'STABLE', singleSource: false, ownerEmail: 'sqe.interconnect@axos-demo.example' },
+  'AX-SUP-KESTREL': { type: 'COMPONENT', commodity: 'Magnéticos', region: 'APAC', qualificationStatus: 'CONDITIONAL', paymentTerms: 'NET30', incoterm: 'FOB', leadTimeDays: 56, otdPct: 88.3, ppm: 120, responsivenessScore: 70, riskLevel: 'HIGH', financialHealth: 'WATCH', singleSource: true, ownerEmail: 'sqe.magnetics@axos-demo.example' },
+  'AX-SUP-QUARTZON': { type: 'COMPONENT', commodity: 'Timing / Cristales', region: 'APAC', qualificationStatus: 'APPROVED', paymentTerms: 'NET30', incoterm: 'FOB', leadTimeDays: 63, otdPct: 96.1, ppm: 35, responsivenessScore: 85, riskLevel: 'LOW', financialHealth: 'STABLE', singleSource: false, ownerEmail: 'sqe.timing@axos-demo.example' },
+  'AX-SUP-LUMINA': { type: 'COMPONENT', commodity: 'Optoelectrónica', region: 'APAC', qualificationStatus: 'APPROVED', paymentTerms: 'NET45', incoterm: 'FOB', leadTimeDays: 42, otdPct: 95.0, ppm: 28, responsivenessScore: 86, riskLevel: 'LOW', financialHealth: 'STRONG', singleSource: false, ownerEmail: 'sqe.opto@axos-demo.example' },
+  'AX-SUP-SENTINEL': { type: 'COMPONENT', commodity: 'Sensores', region: 'NAM', qualificationStatus: 'APPROVED', paymentTerms: 'NET30', incoterm: 'FCA', leadTimeDays: 35, otdPct: 96.7, ppm: 24, responsivenessScore: 89, riskLevel: 'LOW', financialHealth: 'STRONG', singleSource: false, ownerEmail: 'sqe.sensors@axos-demo.example' },
+  'AX-SUP-GRANITE': { type: 'COMPONENT', commodity: 'Hardware / Estructurales', region: 'NAM', qualificationStatus: 'APPROVED', paymentTerms: 'NET45', incoterm: 'FCA', leadTimeDays: 14, otdPct: 99.1, ppm: 12, responsivenessScore: 96, riskLevel: 'LOW', financialHealth: 'STRONG', singleSource: false, ownerEmail: 'sqe.mechanical@axos-demo.example' },
+  'AX-SUP-STRATA': { type: 'RAW_MATERIAL', commodity: 'PCB Fab', region: 'NAM', qualificationStatus: 'APPROVED', paymentTerms: 'NET60', incoterm: 'DAP', leadTimeDays: 35, otdPct: 93.4, ppm: 65, responsivenessScore: 80, riskLevel: 'MEDIUM', financialHealth: 'STABLE', singleSource: true, ownerEmail: 'sqe.pcb@axos-demo.example' },
+  'AX-SUP-ORION': { type: 'DISTRIBUTOR', commodity: 'Distribución multilínea', region: 'APAC', qualificationStatus: 'CONDITIONAL', paymentTerms: 'NET30', incoterm: 'FOB', leadTimeDays: 45, otdPct: 90.2, ppm: 80, responsivenessScore: 74, riskLevel: 'MEDIUM', financialHealth: 'WATCH', singleSource: false, ownerEmail: 'buyer.distribution@axos-demo.example' },
+};
+
+// Vencimientos relativos (días): la mayoría vigentes; una por vencer y una vencida
+// para mostrar las alertas de compliance.
+const SUPPLIER_CERTS: Record<string, Array<{ standard: string; certNumber: string; issuedBy: string; issuedInDays: number; expiresInDays: number }>> = {
+  'AX-SUP-FERRUM': [
+    { standard: 'ISO9001', certNumber: 'Q1-FER-2023', issuedBy: 'TÜV (demo)', issuedInDays: -540, expiresInDays: 540 },
+    { standard: 'IATF16949', certNumber: 'TS-FER-2023', issuedBy: 'TÜV (demo)', issuedInDays: -400, expiresInDays: 320 },
+  ],
+  'AX-SUP-VOLTAIC': [{ standard: 'ISO9001', certNumber: 'Q1-VOL-2024', issuedBy: 'SGS (demo)', issuedInDays: -300, expiresInDays: 430 }],
+  'AX-SUP-NORVEL': [{ standard: 'ISO9001', certNumber: 'Q1-NOR-2022', issuedBy: 'BV (demo)', issuedInDays: -700, expiresInDays: 55 }],
+  'AX-SUP-COBALT': [
+    { standard: 'IATF16949', certNumber: 'TS-COB-2023', issuedBy: 'DEKRA (demo)', issuedInDays: -450, expiresInDays: 270 },
+    { standard: 'ISO14001', certNumber: 'E1-COB-2023', issuedBy: 'DEKRA (demo)', issuedInDays: -450, expiresInDays: 270 },
+  ],
+  'AX-SUP-KESTREL': [{ standard: 'ISO9001', certNumber: 'Q1-KES-2021', issuedBy: 'JQA (demo)', issuedInDays: -800, expiresInDays: -30 }],
+  'AX-SUP-SENTINEL': [
+    { standard: 'ISO9001', certNumber: 'Q1-SEN-2024', issuedBy: 'NSF (demo)', issuedInDays: -250, expiresInDays: 480 },
+    { standard: 'ISO13485', certNumber: 'MD-SEN-2024', issuedBy: 'NSF (demo)', issuedInDays: -250, expiresInDays: 480 },
+  ],
+  'AX-SUP-STRATA': [
+    { standard: 'ISO9001', certNumber: 'Q1-STR-2023', issuedBy: 'UL (demo)', issuedInDays: -380, expiresInDays: 350 },
+    { standard: 'UL', certNumber: 'UL-STR-94V0', issuedBy: 'UL (demo)', issuedInDays: -380, expiresInDays: 350 },
+  ],
+  'AX-SUP-ORION': [{ standard: 'ISO9001', certNumber: 'Q1-ORI-2022', issuedBy: 'SGS (demo)', issuedInDays: -650, expiresInDays: 80 }],
+  'AX-SUP-GRANITE': [{ standard: 'ISO9001', certNumber: 'Q1-GRA-2024', issuedBy: 'BV (demo)', issuedInDays: -200, expiresInDays: 530 }],
+};
+
+const SUPPLIER_CONTACTS: Record<string, Array<Record<string, unknown>>> = {
+  'AX-SUP-FERRUM': [
+    { name: 'Elena Ruiz', title: 'Key Account Manager', role: 'SALES', email: 'elena.ruiz@ferrum.example', phone: '+52 33 5551 7001', isPrimary: true },
+    { name: 'Marco Téllez', title: 'Gerente de Calidad', role: 'QUALITY', email: 'marco.tellez@ferrum.example' },
+  ],
+  'AX-SUP-NORVEL': [{ name: 'Janet Cole', title: 'Distributor Sales', role: 'SALES', email: 'janet.cole@norvel.example', isPrimary: true }],
+  'AX-SUP-KESTREL': [{ name: 'Hiro Tanaka', title: 'Quality Engineer', role: 'QUALITY', email: 'hiro.tanaka@kestrel.example', isPrimary: true }],
+  'AX-SUP-COBALT': [{ name: 'Anke Vogt', title: 'Account Manager', role: 'SALES', email: 'anke.vogt@cobalt.example', isPrimary: true }],
+  'AX-SUP-STRATA': [{ name: 'Luis Carrillo', title: 'Gerente de Planta', role: 'OPERATIONS', email: 'luis.carrillo@strata.example', isPrimary: true }],
+  'AX-SUP-ORION': [{ name: 'Wei Lim', title: 'Regional Sales APAC', role: 'SALES', email: 'wei.lim@orion.example', isPrimary: true }],
+};
+
+async function seedSupplierExtras(app: INestApplicationContext): Promise<Tally> {
+  const t = tally();
+  const ds = app.get(DataSource);
+  const repo = ds.getRepository(Supplier);
+  const certRepo = ds.getRepository(SupplierCertification);
+  const contactRepo = ds.getRepository(SupplierContact);
+  const suppliers = await repo.find();
+  const idByCode = new Map(suppliers.map((s) => [s.code, s.id]));
+
+  // 1) Enriquece el maestro
+  for (const [code, extras] of Object.entries(SUPPLIER_EXTRAS)) {
+    try {
+      const id = idByCode.get(code);
+      if (!id) { t.skipped++; continue; }
+      await repo.update(id, extras as any);
+      t.created++;
+    } catch (err) {
+      t.errors++;
+      log('prov.360', `ERROR extras ${code}: ${(err as Error).message}`);
+    }
+  }
+
+  // 2) Certificaciones (idempotente por proveedor+estándar)
+  for (const [code, certs] of Object.entries(SUPPLIER_CERTS)) {
+    const supplierId = idByCode.get(code);
+    if (!supplierId) continue;
+    for (const c of certs) {
+      try {
+        const exists = await certRepo.findOne({ where: { supplierId, standard: c.standard } });
+        if (exists) { t.skipped++; continue; }
+        const expiresAt = crmDay(c.expiresInDays);
+        const status = c.expiresInDays < 0 ? 'EXPIRED' : c.expiresInDays <= 90 ? 'EXPIRING' : 'VALID';
+        await certRepo.save(certRepo.create({
+          supplierId, standard: c.standard, certNumber: c.certNumber, issuedBy: c.issuedBy,
+          issuedAt: crmDay(c.issuedInDays), expiresAt, status,
+        }));
+        t.created++;
+      } catch (err) {
+        t.errors++;
+        log('prov.360', `ERROR cert ${code}/${c.standard}: ${(err as Error).message}`);
+      }
+    }
+  }
+
+  // 3) Contactos (idempotente por proveedor+nombre)
+  for (const [code, contacts] of Object.entries(SUPPLIER_CONTACTS)) {
+    const supplierId = idByCode.get(code);
+    if (!supplierId) continue;
+    for (const c of contacts) {
+      try {
+        const exists = await contactRepo.findOne({ where: { supplierId, name: c.name as string } });
+        if (exists) { t.skipped++; continue; }
+        await contactRepo.save(contactRepo.create({ supplierId, ...c } as any));
+        t.created++;
+      } catch (err) {
+        t.errors++;
+        log('prov.360', `ERROR contacto ${code}/${String(c.name)}: ${(err as Error).message}`);
+      }
+    }
+  }
+
+  log('prov.360', `nuevos=${t.created} ya existían=${t.skipped} errores=${t.errors}`);
   return t;
 }
 
@@ -1651,6 +1776,7 @@ async function run(): Promise<void> {
       await seedMaterials(app, ds);
       await seedSuppliers(app, ds);
       await seedSupplierPrices(app, ds);
+      await seedSupplierExtras(app);
       await seedReceipts(app, ds);
       await seedModels(app);
       await seedBoms(app, ds);
