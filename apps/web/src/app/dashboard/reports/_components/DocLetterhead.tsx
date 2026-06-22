@@ -18,6 +18,7 @@ export function DocLetterhead({
   docNumber,
   meta,
   official = false,
+  attestation,
 }: {
   domain: DomainKey;
   title: string;
@@ -27,6 +28,9 @@ export function DocLetterhead({
   /** True cuando `docNumber` es un folio OFICIAL emitido por el servicio de
    *  numeración (no un borrador derivado en cliente). Cambia el sello. */
   official?: boolean;
+  /** Firma electrónica: quién certificó, cuándo y el hash del contenido. Cuando
+   *  está presente, el documento queda atestado + registrado en la bitácora. */
+  attestation?: { by: string; at: string; hash?: string | null };
 }) {
   return (
     <header className="axos-avoid-break border-b border-gray-200 pb-5">
@@ -57,6 +61,18 @@ export function DocLetterhead({
       <div className="mt-4">
         <KeyValueGrid items={meta} cols={3} />
       </div>
+      {attestation && (
+        <div className="mt-3 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] leading-snug text-emerald-800">
+          <span className="font-semibold">Firma electrónica:</span> {attestation.by} ·{" "}
+          {new Date(attestation.at).toLocaleString()}
+          {attestation.hash ? (
+            <>
+              {" "}· <span className="font-mono">hash {attestation.hash}</span>
+            </>
+          ) : null}{" "}
+          · registrado en la bitácora inmutable (Event Ledger).
+        </div>
+      )}
     </header>
   );
 }

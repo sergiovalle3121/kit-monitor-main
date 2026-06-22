@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, Patch, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Patch, Query, Req, UseGuards } from '@nestjs/common';
 import { QualityService } from './quality.service';
 import { QualityHoldLevel } from './entities/quality-hold.entity';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -13,6 +13,18 @@ export class QualityController {
   @Get('holds/active')
   async getActiveHolds() {
     return this.qualityService.findAllActiveHolds();
+  }
+
+  // Certifica (firma electrónica + folio oficial + registro inmutable) un CoC. El
+  // firmante es la identidad de la SESIÓN (no del body): así la atestación del
+  // ledger es atribuible de verdad. Solo requiere sesión (como los GET de calidad).
+  @Post('coc/certify')
+  async certifyCoc(
+    @Req() req: any,
+    @Body() dto: { subjectType?: string; subject?: string; contentHash?: string },
+  ) {
+    const actor = req.user?.email || req.user?.name || req.user?.userId || 'sistema';
+    return this.qualityService.certifyCoc(dto, actor);
   }
 
   @Post('holds')

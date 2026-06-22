@@ -10,6 +10,7 @@ import { QualityService } from './quality.service';
 import { QualityController } from './quality.controller';
 import { InventoryPosition } from '../inventory/entities/inventory-position.entity';
 import { EventLedgerModule } from '../event-ledger/event-ledger.module';
+import { NumberingModule } from '../numbering/numbering.module';
 import { InventoryModule } from '../inventory/inventory.module';
 import { NcrModule } from '../ncr/ncr.module';
 import { SuppliersModule } from '../suppliers/suppliers.module';
@@ -27,6 +28,7 @@ import { GovernanceModule } from '../governance/governance.module';
       InventoryPosition
     ]),
     EventLedgerModule,
+    NumberingModule,
     InventoryModule,
     NcrModule,
     SuppliersModule,
