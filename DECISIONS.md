@@ -1187,4 +1187,18 @@ método sin derivadas (con doble arranque + pulido para robustez).
 (3,5) obj 0; máximo de parábola → 2 obj 10; valor objetivo 100 multivariable; **restricción**
 con recorte a 5; errores). `lint web` 0 errores; `build web` ✓.
 
+## 46. Office/Docs — control de cambios → revisiones reales de Word en .docx
+
+**Contexto.** El editor tiene control de cambios (marcas `insertion`/`deletion` con `author`/
+`date`), pero el export a Word las pintaba como **texto coloreado/tachado** — no como revisiones
+de verdad, así que en Word no se podían **aceptar/rechazar** desde el panel «Revisar».
+
+**Decisión (sólo `apps/web`, aditiva):** `runOpts` detecta las marcas `insertion`/`deletion` y
+`inlineRuns` genera `InsertedTextRun`/`DeletedTextRun` de la librería `docx` (revisiones reales
+`<w:ins>`/`<w:del>` con `author`/`date` y `<w:delText>`), con un `revId` incremental. La
+librería ya exporta estos runs nativamente.
+
+**Verificación:** `docx.spec.ts` ampliado a **27 aserciones** (+3: `<w:ins w:author="Ana">`,
+`<w:del w:author="Luis">`, `<w:delText>`). Round-trip 8/8; `lint web` 0 errores; `build web` ✓.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
