@@ -1043,4 +1043,25 @@ imágenes de §32. `docx.spec` 21/21; `lint web` 0 errores; `build web` ✓.
 **Nota.** La librería `docx` numera las listas de un modo que mammoth aplana a párrafos (sin
 pérdida de TEXTO); la estructura `ul/ol` del export ya se verifica en `docx.spec` vía `<w:numPr>`.
 
+## 38. Office/Slides — test del export .pptx + arreglo de hipervínculos rotos
+
+**Contexto.** El export a PowerPoint (`lib/office/pptx.ts`, Fabric → PptxGenJS) mapeaba cada
+objeto a una forma/imagen/tabla/gráfico NATIVO, pero **no tenía test automatizado**. Auditando
+el .pptx generado salió un **bug real**: el hipervínculo de un cuadro de texto salía como
+`r:id="rIdundefined"` —sin relación en `slideN.xml.rels`— es decir, un **enlace roto** en
+PowerPoint. PptxGenJS sólo crea la relación `r:id` del enlace a nivel de **run** de texto, no
+en las opciones del shape.
+
+**Decisión (sólo `apps/web`, aditiva):**
+1. **Arreglo.** El hipervínculo se mueve a cada tirada de texto (`textParagraphs(o, link)` →
+   `options.hyperlink`), no a las opciones de `addText`. Ahora genera una relación válida.
+2. **Cobertura.** Nueva suite `pptx.spec.ts` que arma el .pptx con `pptxArrayBuffer`, lo
+   descomprime con JSZip e inspecciona los XML.
+
+**Verificación:** `pptx.spec.ts` (**19 aserciones**): 2 diapositivas; texto en negrita;
+**viñetas** nativas (`a:buChar`); **hipervínculo con relación válida** (no `rIdundefined`);
+formas preset (`star5`, `ellipse`); **tabla** nativa (`a:tbl`) con encabezados; **gráfico**
+nativo (`graphicFrame` + `c:barChart` con la serie); pie y numeración; **imagen** embebida en
+`ppt/media/`; y **notas del orador**. `lint web` 0 errores; `build web` ✓.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
