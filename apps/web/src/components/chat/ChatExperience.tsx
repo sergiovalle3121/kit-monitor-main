@@ -35,6 +35,11 @@ import {
   UserPlus,
   LogOut,
   Check,
+  BarChart3,
+  Timer,
+  CalendarClock,
+  CheckCircle2,
+  Circle,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { glass } from '@/lib/glass';
@@ -50,10 +55,12 @@ import {
   ReadReceipt,
   ReplyPreview,
   SearchResult,
+  ScheduledItem,
 } from '@/lib/chatApi';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
 import { MessageComposer } from '@/components/chat/MessageComposer';
 import { FileAttachment } from '@/components/chat/FileAttachment';
+import { AuthAudio } from '@/components/chat/AuthAudio';
 import { CallOverlay } from '@/components/chat/CallOverlay';
 import { useCall } from '@/hooks/useCall';
 import { callsSupported } from '@/lib/chat/webrtc';
@@ -223,6 +230,12 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
   const [channelSettings, setChannelSettings] = useState<ChatConversation | null>(
     null,
   );
+  // Encuestas / programados / temporales.
+  const [pollOpen, setPollOpen] = useState(false);
+  const [scheduleOpen, setScheduleOpen] = useState(false);
+  const [scheduled, setScheduled] = useState<ScheduledItem[]>([]);
+  const [showScheduled, setShowScheduled] = useState(false);
+  const [showDisappearMenu, setShowDisappearMenu] = useState(false);
   // Socket en estado (además del ref) para que useCall enganche sus listeners.
   const [socket, setSocket] = useState<Socket | null>(null);
 
@@ -463,6 +476,10 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
       }
       refreshConversations();
     });
+    // Mensaje temporal expirado: quitarlo del hilo.
+    s.on('message:removed', (p: { id: string; conversationId: string }) => {
+      setMessages((prev) => prev.filter((m) => m.id !== p.id));
+    });
     s.on('typing', (p: { conversationId: string }) => {
       if (p?.conversationId !== activeIdRef.current) return;
       setTypingConvo(p.conversationId);
@@ -567,6 +584,7 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
       .finally(() => setLoadingMessages(false));
     chatApi.listReads(activeId).then(setReads).catch(() => setReads([]));
     chatApi.listPinned(activeId).then(setPinned).catch(() => setPinned([]));
+    chatApi.listScheduled(activeId).then(setScheduled).catch(() => setScheduled([]));
     chatApi.markRead(activeId).then(refreshConversations).catch(() => {});
   }, [activeId, refreshConversations]);
 
@@ -823,6 +841,34 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
       setError(`No se pudo fijar: ${(e as Error).message}`);
     }
   }
+  async function handleVote(messageId: string, optionId: string) {
+    try {
+      const updated = await chatApi.votePoll(messageId, optionId);
+      setMessages((prev) =>
+        prev.map((m) => (m.id === messageId ? { ...m, ...updated } : m)),
+      );
+    } catch (e) {
+      setError(`No se pudo votar: ${(e as Error).message}`);
+    }
+  }
+  async function setDisappearing(seconds: number) {
+    if (!activeId) return;
+    setShowDisappearMenu(false);
+    try {
+      await chatApi.setDisappearing(activeId, seconds);
+      refreshConversations();
+    } catch (e) {
+      setError(`No se pudo cambiar: ${(e as Error).message}`);
+    }
+  }
+  async function cancelScheduledMsg(id: string) {
+    try {
+      await chatApi.cancelScheduled(id);
+      setScheduled((prev) => prev.filter((s) => s.id !== id));
+    } catch (e) {
+      setError(`No se pudo cancelar: ${(e as Error).message}`);
+    }
+  }
 
   // ── notificaciones de escritorio ───────────────────────────────────────────
   function requestNotifyPermission() {
@@ -887,6 +933,9 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
     setReads([]);
     setPinned([]);
     setShowPinned(false);
+    setScheduled([]);
+    setShowScheduled(false);
+    setShowDisappearMenu(false);
     setReplyingTo(null);
     setEditingId(null);
     setDraft(loadDraft(id));
@@ -1297,6 +1346,46 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
                     <Users className="h-5 w-5" />
                   </button>
                 )}
+                <div className="relative">
+                  <button
+                    onClick={() => setShowDisappearMenu((s) => !s)}
+                    className={`rounded-full p-2 transition-colors focus-visible:ring-2 focus-visible:ring-blue-500/40 ${
+                      active.disappearingSeconds
+                        ? 'bg-blue-500/15 text-blue-600 dark:text-blue-300'
+                        : 'text-gray-500 hover:bg-black/5 dark:hover:bg-white/10'
+                    }`}
+                    aria-label="Mensajes temporales"
+                    title="Mensajes temporales"
+                  >
+                    <Timer className="h-5 w-5" />
+                  </button>
+                  {showDisappearMenu && (
+                    <div
+                      className={`${glass} absolute right-0 top-11 z-30 w-44 rounded-2xl p-1 shadow-xl`}
+                    >
+                      <p className="px-3 py-1 text-[10px] font-medium uppercase tracking-wide text-gray-400">
+                        Mensajes temporales
+                      </p>
+                      {[
+                        { l: 'Desactivado', s: 0 },
+                        { l: '1 hora', s: 3600 },
+                        { l: '24 horas', s: 86400 },
+                        { l: '7 días', s: 604800 },
+                      ].map((opt) => (
+                        <button
+                          key={opt.s}
+                          onClick={() => setDisappearing(opt.s)}
+                          className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm hover:bg-black/5 dark:hover:bg-white/10"
+                        >
+                          {opt.l}
+                          {(active.disappearingSeconds || 0) === opt.s && (
+                            <Check className="ml-auto h-4 w-4 text-blue-500" />
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -1411,6 +1500,8 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
                       onPin={handlePin}
                       onEdit={handleEdit}
                       onDelete={handleDelete}
+                      onVote={handleVote}
+                      meId={meId}
                       grouped={grouped}
                       highlight={searchTerm}
                       isCurrentMatch={m.id === currentMatchMsgId}
@@ -1465,6 +1556,54 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
 
           {/* Composer */}
           <div className="border-t border-black/5 p-3 dark:border-white/10">
+            {/* Mensajes programados pendientes */}
+            {scheduled.length > 0 && (
+              <div className="mb-2">
+                <button
+                  onClick={() => setShowScheduled((s) => !s)}
+                  className="flex w-full items-center gap-2 rounded-2xl bg-black/5 px-3 py-1.5 text-xs dark:bg-white/10"
+                >
+                  <CalendarClock className="h-3.5 w-3.5 text-sky-500" />
+                  <span className="font-medium">
+                    {scheduled.length} programado{scheduled.length > 1 ? 's' : ''}
+                  </span>
+                  {showScheduled ? (
+                    <ChevronDown className="ml-auto h-3.5 w-3.5" />
+                  ) : (
+                    <ChevronUp className="ml-auto h-3.5 w-3.5" />
+                  )}
+                </button>
+                {showScheduled && (
+                  <div className="mt-1 space-y-1">
+                    {scheduled.map((s) => (
+                      <div
+                        key={s.id}
+                        className={`${glass} flex items-center gap-2 rounded-xl px-3 py-1.5 text-xs`}
+                      >
+                        <span className="shrink-0 font-medium text-sky-600 dark:text-sky-400">
+                          {new Date(s.sendAt).toLocaleString([], {
+                            day: '2-digit',
+                            month: '2-digit',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </span>
+                        <span className="min-w-0 flex-1 truncate text-gray-500">
+                          {s.body}
+                        </span>
+                        <button
+                          onClick={() => cancelScheduledMsg(s.id)}
+                          aria-label="Cancelar programado"
+                          className="shrink-0 text-gray-400 hover:text-red-500"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
             {/* Banner de responder / editar */}
             {(replyingTo || editingId) && (
               <div className={`${glass} mb-2 flex items-center gap-2 rounded-2xl px-3 py-2`}>
@@ -1537,6 +1676,8 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
               compact={single}
               autoFocusKey={activeId ?? undefined}
               placeholder={editingId ? 'Edita tu mensaje…' : undefined}
+              onCreatePoll={() => setPollOpen(true)}
+              onSchedule={() => setScheduleOpen(true)}
             />
           </div>
         </>
@@ -1629,6 +1770,42 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
             refreshConversations();
           }}
           onError={(msg) => setError(msg)}
+        />
+      )}
+
+      {pollOpen && activeId && (
+        <PollModal
+          onClose={() => setPollOpen(false)}
+          onCreate={async (q, opts, multi) => {
+            setPollOpen(false);
+            try {
+              await chatApi.createPoll(activeId, q, opts, multi);
+            } catch (e) {
+              setError(`No se pudo crear la encuesta: ${(e as Error).message}`);
+            }
+          }}
+        />
+      )}
+
+      {scheduleOpen && activeId && (
+        <ScheduleModal
+          initialText={draft}
+          onClose={() => setScheduleOpen(false)}
+          onSchedule={async (b, iso) => {
+            setScheduleOpen(false);
+            try {
+              const it = await chatApi.scheduleMessage(activeId, b, iso);
+              setScheduled((prev) =>
+                [...prev, it].sort((a, z) => a.sendAt.localeCompare(z.sendAt)),
+              );
+              if (b.trim() === draft.trim()) {
+                setDraft('');
+                saveDraft(activeId, '');
+              }
+            } catch (e) {
+              setError(`No se pudo programar: ${(e as Error).message}`);
+            }
+          }}
         />
       )}
 
@@ -1843,6 +2020,64 @@ function CallLogItem({ m, mine }: { m: UiMessage; mine: boolean }) {
 }
 
 /** Una burbuja de mensaje con toolbar (hover), reacciones y chips. */
+/** Render de una encuesta: pregunta + opciones con barras y voto (toggle). */
+function PollView({
+  m,
+  meId,
+  onVote,
+}: {
+  m: ChatMessage;
+  meId: string;
+  onVote?: (messageId: string, optionId: string) => void;
+}) {
+  const poll = m.poll;
+  if (!poll) return null;
+  const total = poll.totalVoters;
+  return (
+    <div className="w-72 max-w-full rounded-2xl bg-black/5 p-3 dark:bg-white/10">
+      <p className="mb-2 flex items-start gap-1.5 text-sm font-semibold">
+        <BarChart3 className="mt-0.5 h-4 w-4 shrink-0 text-pink-500" />
+        <span className="break-words">{poll.question}</span>
+      </p>
+      <div className="space-y-1.5">
+        {poll.options.map((o) => {
+          const voted = o.userIds.includes(meId);
+          const pct = total > 0 ? Math.round((o.count / total) * 100) : 0;
+          return (
+            <button
+              key={o.id}
+              onClick={() => onVote?.(m.id, o.id)}
+              className="relative block w-full overflow-hidden rounded-xl text-left ring-1 ring-black/10 dark:ring-white/10"
+            >
+              <span
+                className={`absolute inset-y-0 left-0 transition-all ${
+                  voted ? 'bg-pink-500/25' : 'bg-pink-500/10'
+                }`}
+                style={{ width: `${pct}%` }}
+              />
+              <span className="relative flex items-center gap-2 px-3 py-1.5 text-sm">
+                {voted ? (
+                  <CheckCircle2 className="h-4 w-4 shrink-0 text-pink-600 dark:text-pink-400" />
+                ) : (
+                  <Circle className="h-4 w-4 shrink-0 text-gray-400" />
+                )}
+                <span className="min-w-0 flex-1 truncate">{o.text}</span>
+                <span className="shrink-0 text-xs tabular-nums text-gray-500">
+                  {pct}%
+                </span>
+              </span>
+            </button>
+          );
+        })}
+      </div>
+      <p className="mt-2 text-[11px] text-gray-400">
+        {total} voto{total !== 1 ? 's' : ''}
+        {poll.multi ? ' · opción múltiple' : ''}
+      </p>
+    </div>
+  );
+}
+
 /** Ítem del menú de acciones de un mensaje. */
 function MenuItem({
   icon,
@@ -1923,6 +2158,8 @@ function MessageItem({
   onPin,
   onEdit,
   onDelete,
+  onVote,
+  meId,
   grouped,
   highlight = '',
   isCurrentMatch = false,
@@ -1939,6 +2176,8 @@ function MessageItem({
   onPin?: (m: ChatMessage) => void;
   onEdit?: (m: ChatMessage) => void;
   onDelete?: (m: ChatMessage) => void;
+  onVote?: (messageId: string, optionId: string) => void;
+  meId: string;
   grouped: boolean;
   highlight?: string;
   isCurrentMatch?: boolean;
@@ -1973,10 +2212,12 @@ function MessageItem({
   const body = m.body ?? '';
   const isFile = m.type === 'file';
   const isImage = m.type === 'image';
+  const isPoll = m.type === 'poll';
   const stickerId = m.type === 'text' ? parseStickerId(body) : null;
   const emojiOnly = m.type === 'text' && !stickerId && isEmojiOnly(body);
   const bare = emojiOnly || !!stickerId; // sin fondo de burbuja
-  const wide = m.type === 'text' && !stickerId && !!body && hasTable(body);
+  const wide =
+    isPoll || (m.type === 'text' && !stickerId && !!body && hasTable(body));
   const onColored = !isFile && !bare && mine; // texto blanco sobre burbuja azul
   const forwardedTag = m.forwarded ? (
     <p
@@ -2180,10 +2421,14 @@ function MessageItem({
                   <Paperclip className="h-5 w-5" />
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-medium">{m.fileName}</span>
+                  <span className="block truncate text-sm font-medium">
+                    {m.fileMime?.startsWith('audio/') ? 'Nota de voz' : m.fileName}
+                  </span>
                   <span className="block text-xs text-gray-500">Enviando…</span>
                 </span>
               </div>
+            ) : m.fileMime?.startsWith('audio/') ? (
+              <AuthAudio messageId={m.id} mine={mine} />
             ) : (
               <FileAttachment
                 messageId={m.id}
@@ -2200,6 +2445,24 @@ function MessageItem({
             >
               <span>{timeOf(m.createdAt)}</span>
               {m.editedAt && <span>· editado</span>}
+            </div>
+          </div>
+        ) : isPoll ? (
+          <div>
+            {showMeta && (
+              <p className="mb-0.5 text-[10px] font-semibold text-gray-500">
+                {senderName(m.senderId, users)}
+              </p>
+            )}
+            {forwardedTag}
+            {replyQuote}
+            <PollView m={m} meId={meId} onVote={onVote} />
+            <div
+              className={`mt-1 flex items-center gap-1 text-[10px] text-gray-500 ${
+                mine ? 'justify-end' : ''
+              }`}
+            >
+              <span>{timeOf(m.createdAt)}</span>
             </div>
           </div>
         ) : (
@@ -2431,9 +2694,11 @@ function ConversationRow({
         ? '📎 Archivo'
         : convo.lastMessage.type === 'call'
           ? '📞 Llamada'
-          : convo.lastMessage.body && parseStickerId(convo.lastMessage.body)
-            ? '🎟️ Sticker'
-            : convo.lastMessage.body
+          : convo.lastMessage.type === 'poll'
+            ? '📊 Encuesta'
+            : convo.lastMessage.body && parseStickerId(convo.lastMessage.body)
+              ? '🎟️ Sticker'
+              : convo.lastMessage.body
     : 'Sin mensajes';
   const unread = convo.unread > 0;
   const when = relativeTime(convo.lastMessageAt);
@@ -2488,6 +2753,156 @@ function ConversationRow({
         </span>
       )}
     </button>
+  );
+}
+
+function PollModal({
+  onClose,
+  onCreate,
+}: {
+  onClose: () => void;
+  onCreate: (question: string, options: string[], multi: boolean) => void;
+}) {
+  const [question, setQuestion] = useState('');
+  const [options, setOptions] = useState<string[]>(['', '']);
+  const [multi, setMulti] = useState(false);
+  const clean = options.map((o) => o.trim()).filter(Boolean);
+  const valid = question.trim().length > 0 && clean.length >= 2;
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 p-4">
+      <div className={`${glass} w-full max-w-md rounded-[24px] p-6`}>
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="text-lg font-semibold">Nueva encuesta</h3>
+          <button
+            onClick={onClose}
+            className="rounded-full p-1 hover:bg-black/5 dark:hover:bg-white/10"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <input
+          value={question}
+          onChange={(e) => setQuestion(e.target.value)}
+          placeholder="Pregunta…"
+          className="mb-3 w-full rounded-xl bg-black/5 px-4 py-2 text-sm outline-none dark:bg-white/10"
+        />
+        <div className="space-y-2">
+          {options.map((o, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <input
+                value={o}
+                onChange={(e) =>
+                  setOptions((prev) =>
+                    prev.map((x, idx) => (idx === i ? e.target.value : x)),
+                  )
+                }
+                placeholder={`Opción ${i + 1}`}
+                className="flex-1 rounded-xl bg-black/5 px-4 py-2 text-sm outline-none dark:bg-white/10"
+              />
+              {options.length > 2 && (
+                <button
+                  onClick={() =>
+                    setOptions((prev) => prev.filter((_, idx) => idx !== i))
+                  }
+                  aria-label="Quitar opción"
+                  className="rounded-full p-1.5 text-gray-400 hover:bg-black/5 hover:text-red-500 dark:hover:bg-white/10"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+        {options.length < 10 && (
+          <button
+            onClick={() => setOptions((prev) => [...prev, ''])}
+            className="mt-2 flex items-center gap-1 text-xs font-semibold text-blue-600 dark:text-blue-400"
+          >
+            <Plus className="h-3.5 w-3.5" /> Añadir opción
+          </button>
+        )}
+        <label className="mt-4 flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={multi}
+            onChange={(e) => setMulti(e.target.checked)}
+          />
+          Permitir varias respuestas
+        </label>
+        <button
+          onClick={() => onCreate(question.trim(), clean, multi)}
+          disabled={!valid}
+          className="mt-4 w-full rounded-full bg-blue-600 py-2.5 text-sm font-semibold text-white disabled:opacity-40"
+        >
+          Crear encuesta
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** Valor para <input type="datetime-local"> a partir de una fecha local. */
+function localDatetimeValue(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(
+    d.getHours(),
+  )}:${pad(d.getMinutes())}`;
+}
+
+function ScheduleModal({
+  initialText,
+  onClose,
+  onSchedule,
+}: {
+  initialText: string;
+  onClose: () => void;
+  onSchedule: (body: string, sendAtISO: string) => void;
+}) {
+  const [text, setText] = useState(initialText);
+  const [when, setWhen] = useState(() =>
+    localDatetimeValue(new Date(Date.now() + 3600000)),
+  );
+  const valid =
+    text.trim().length > 0 &&
+    !!when &&
+    new Date(when).getTime() > Date.now() + 10000;
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 p-4">
+      <div className={`${glass} w-full max-w-md rounded-[24px] p-6`}>
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="text-lg font-semibold">Programar mensaje</h3>
+          <button
+            onClick={onClose}
+            className="rounded-full p-1 hover:bg-black/5 dark:hover:bg-white/10"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <textarea
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          rows={3}
+          placeholder="Mensaje…"
+          className="mb-3 w-full resize-none rounded-xl bg-black/5 px-4 py-2 text-sm outline-none dark:bg-white/10"
+        />
+        <label className="mb-1 block text-xs font-medium text-gray-400">
+          Enviar el
+        </label>
+        <input
+          type="datetime-local"
+          value={when}
+          onChange={(e) => setWhen(e.target.value)}
+          className="mb-4 w-full rounded-xl bg-black/5 px-4 py-2 text-sm outline-none dark:bg-white/10"
+        />
+        <button
+          onClick={() => onSchedule(text.trim(), new Date(when).toISOString())}
+          disabled={!valid}
+          className="w-full rounded-full bg-blue-600 py-2.5 text-sm font-semibold text-white disabled:opacity-40"
+        >
+          Programar
+        </button>
+      </div>
+    </div>
   );
 }
 
