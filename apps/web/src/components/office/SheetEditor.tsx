@@ -5,7 +5,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence } from 'framer-motion';
 import { Workbook } from '@fortune-sheet/react';
 import '@fortune-sheet/react/dist/index.css';
-import { ListChecks, Palette, Snowflake, FileText, Sigma, Search, ArrowDownUp, CopyMinus, Columns3, StickyNote, Table2, Hash, Rows3, Activity, ArrowDownToLine, FlipVertical2, Tag, Printer, ClipboardPaste, Filter, RefreshCw, LayoutGrid, Sparkles, Target, Grid3x3 } from 'lucide-react';
+import { ListChecks, Palette, Snowflake, FileText, Sigma, Search, ArrowDownUp, CopyMinus, Columns3, StickyNote, Table2, Hash, Rows3, Activity, ArrowDownToLine, FlipVertical2, Tag, Printer, ClipboardPaste, Filter, RefreshCw, LayoutGrid, Sparkles, Target, Grid3x3, Layers } from 'lucide-react';
 import { SheetCharts } from './SheetCharts';
 import { SheetTools, type ValidationPayload } from './SheetTools';
 import { SheetFunctionWizard } from './SheetFunctionWizard';
@@ -26,6 +26,8 @@ import { SheetGoalSeek, type GoalSeekPayload } from './SheetGoalSeek';
 import { dataTable1, dataTable2 } from './sheets/dataTable';
 import { SheetDataTable, type DataTablePayload } from './SheetDataTable';
 import { autoSumPlan, type AggFn } from './sheets/autoSum';
+import { applyScenario, scenarioSummary, type Scenario } from './sheets/scenarios';
+import { SheetScenarios } from './SheetScenarios';
 import { OfficeRibbon, RibbonTab, RibbonGroup, RibbonSeparator, RibbonButton, RibbonMenuButton } from './ribbon';
 import { useToast } from '@/contexts/ToastContext';
 
@@ -44,6 +46,9 @@ function namesOf(v: any): NamedRange[] {
 type StoredPivot = { id: string; config: PivotConfig; sheetName: string };
 function pivotsOf(v: any): StoredPivot[] {
   return v && Array.isArray(v.pivots) ? v.pivots : [];
+}
+function scenariosOf(v: any): Scenario[] {
+  return v && Array.isArray(v.scenarios) ? v.scenarios : [];
 }
 const DEFAULT_SHEET = { name: 'Hoja 1', celldata: [], order: 0, row: 100, column: 30, config: {} };
 const clone = (x: any) => JSON.parse(JSON.stringify(x));
@@ -67,6 +72,9 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
   const namesRef = useRef<NamedRange[]>(namesOf(value));
   const [names, setNames] = useState<NamedRange[]>(namesRef.current);
   const pivotsRef = useRef<StoredPivot[]>(pivotsOf(value));
+  const scenariosRef = useRef<Scenario[]>(scenariosOf(value));
+  const [scenarios, setScenarios] = useState<Scenario[]>(scenariosRef.current);
+  const [showScenarios, setShowScenarios] = useState(false);
   const [showNames, setShowNames] = useState(false);
   const [showPrint, setShowPrint] = useState(false);
   const [tool, setTool] = useState<null | 'validation' | 'condformat'>(null);
@@ -135,7 +143,7 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
   }, []);
 
   const emit = useCallback(() => {
-    onChangeRef.current({ sheets: sheetsRef.current, charts: chartsRef.current, names: namesRef.current, pivots: pivotsRef.current });
+    onChangeRef.current({ sheets: sheetsRef.current, charts: chartsRef.current, names: namesRef.current, pivots: pivotsRef.current, scenarios: scenariosRef.current });
   }, []);
 
   // Entrada de celda estilo Excel para lo que se TECLEA directamente en la rejilla.
@@ -347,6 +355,37 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
     return { ok: true, text: `${p.variableCell} = ${res.value} hace que ${p.formulaCell} ≈ ${res.result} (${res.iterations} iteraciones).` };
   }
 
+  // Administrador de escenarios: guarda/aplica conjuntos de valores de entrada y genera un
+  // informe de resumen (cada celda de resultado bajo cada escenario) en una hoja nueva.
+  const addScenario = useCallback((sc: Scenario) => { scenariosRef.current = [...scenariosRef.current.filter((s) => s.name !== sc.name), sc]; setScenarios(scenariosRef.current); emit(); }, [emit]);
+  const removeScenario = useCallback((name: string) => { scenariosRef.current = scenariosRef.current.filter((s) => s.name !== name); setScenarios(scenariosRef.current); emit(); }, [emit]);
+  function applyScenarioToActive(sc: Scenario) {
+    const sheets = clone(sheetsRef.current);
+    const sheet = sheets[activeIndex()] ?? sheets[0];
+    if (!sheet) return;
+    applyScenario(sheet, sc);
+    remount(sheets);
+    window.setTimeout(() => toast.success(`Escenario «${sc.name}» aplicado.`), 30);
+  }
+  function doScenarioSummary(resultCellsText: string): { ok: boolean; text: string } {
+    const cells = resultCellsText.split(/[,;\s]+/).filter(Boolean).map((s) => s.toUpperCase());
+    if (!cells.length) return { ok: false, text: 'Indica al menos una celda de resultado (p. ej. B5).' };
+    if (!scenariosRef.current.length) return { ok: false, text: 'No hay escenarios guardados.' };
+    const sheets = clone(sheetsRef.current);
+    const sheet = sheets[activeIndex()] ?? sheets[0];
+    const sum = scenarioSummary(sheet, scenariosRef.current, cells);
+    const cd: any[] = [{ r: 0, c: 0, v: { v: 'Celda de resultado', m: 'Celda de resultado', bl: 1 } }];
+    sum.headers.forEach((h, j) => cd.push({ r: 0, c: j + 1, v: { v: h, m: h, bl: 1 } }));
+    sum.rows.forEach((row, i) => {
+      cd.push({ r: i + 1, c: 0, v: { v: row.cell, m: row.cell, bl: 1 } });
+      row.values.forEach((v, j) => cd.push({ r: i + 1, c: j + 1, v: { v, m: String(v) } }));
+    });
+    const n = sheets.filter((s: any) => /Resumen de escenarios/.test(s?.name ?? '')).length + 1;
+    pushResultSheet(sheets, `Resumen de escenarios ${n}`, cd, sum.rows.length + 3, sum.headers.length + 3);
+    remount(sheets);
+    return { ok: true, text: `Resumen generado en una hoja nueva (${cells.length} celda(s) × ${sum.headers.length} escenario(s)).` };
+  }
+
   // Autosuma: inserta =FN(rango seleccionado) en la celda contigua (debajo/derecha).
   function doAutoSum(fn: AggFn) {
     const plan = autoSumPlan(selectionRange(), fn);
@@ -507,6 +546,7 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
             <RibbonGroup label="Análisis de hipótesis">
               <RibbonButton icon={Target} label="Buscar objetivo" hideLabel={false} onClick={() => setShowGoalSeek(true)} />
               <RibbonButton icon={Grid3x3} label="Tabla de datos" hideLabel={false} onClick={() => setShowDataTable(true)} />
+              <RibbonButton icon={Layers} label="Administrador de escenarios" hideLabel={false} onClick={() => setShowScenarios(true)} />
             </RibbonGroup>
             <RibbonSeparator />
             <RibbonGroup label="Rellenar y transponer">
@@ -615,6 +655,9 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
         )}
         {showDataTable && (
           <SheetDataTable defaultFormulaCell={selectionRange().split(':')[0]} onApply={doDataTable} onClose={() => setShowDataTable(false)} />
+        )}
+        {showScenarios && (
+          <SheetScenarios scenarios={scenarios} onAdd={addScenario} onRemove={removeScenario} onApply={applyScenarioToActive} onSummary={doScenarioSummary} onClose={() => setShowScenarios(false)} />
         )}
         {showPivot && (
           <SheetPivot
