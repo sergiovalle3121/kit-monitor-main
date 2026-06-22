@@ -50,6 +50,9 @@ export const DEFAULT_SEQUENCES: SequenceDefault[] = [
   { docType: 'RMA', name: 'Queja / RMA de Cliente', prefix: 'RMA', pattern: '{PREFIX}-{YYYY}-{SEQ}', padding: 5, resetPolicy: 'YEARLY', description: 'Quejas / devoluciones de cliente (Calidad).' },
   { docType: 'FAI', name: 'Inspección de Primera Pieza', prefix: 'FAI', pattern: '{PREFIX}-{YYYY}-{SEQ}', padding: 5, resetPolicy: 'YEARLY', description: 'First Article Inspection (primera pieza).' },
   { docType: 'CHANGEOVER', name: 'Cambio de Modelo (SMED)', prefix: 'CO', pattern: '{PREFIX}-{YYYY}-{SEQ}', padding: 5, resetPolicy: 'YEARLY', description: 'Cambios de modelo / SMED en línea.' },
+  { docType: 'EMPLOYEE', name: 'Colaborador', prefix: 'EMP', pattern: '{PREFIX}-{SEQ}', padding: 5, resetPolicy: 'NEVER', description: 'Maestro de colaboradores (RH / Capital Humano).' },
+  { docType: 'HR_REQUISITION', name: 'Requisición de Personal', prefix: 'VAC', pattern: '{PREFIX}-{YYYY}-{SEQ}', padding: 4, resetPolicy: 'YEARLY', description: 'Vacantes / requisiciones de personal (RH).' },
+  { docType: 'PERFORMANCE_REVIEW', name: 'Evaluación de Desempeño', prefix: 'EVAL', pattern: '{PREFIX}-{YYYY}-{SEQ}', padding: 5, resetPolicy: 'YEARLY', description: 'Evaluaciones de desempeño / 9-box (RH).' },
 ];
 
 const PATTERN_FALLBACK = '{PREFIX}-{YYYY}-{SEQ}';

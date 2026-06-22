@@ -17,6 +17,7 @@ import { LegalModule } from './modules/legal/legal.module';
 import { TestingModule } from './modules/testing/testing.module';
 import { ProcurementModule } from './modules/procurement/procurement.module';
 import { PeopleModule } from './modules/people/people.module';
+import { HrModule } from './modules/hr/hr.module';
 import { ControlTowerModule } from './modules/control-tower/control-tower.module';
 import { OutboundModule } from './modules/outbound/outbound.module';
 import { TrafficModule } from './modules/traffic/traffic.module';
@@ -107,6 +108,7 @@ import { TestFlowModule } from './modules/test-flow/test-flow.module';
     TestingModule,
     ProcurementModule,
     PeopleModule,
+    HrModule,
     ControlTowerModule,
     OutboundModule,
     TrafficModule,

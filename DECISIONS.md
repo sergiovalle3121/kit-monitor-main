@@ -333,4 +333,51 @@ repos `provideTenantScopedRepository`, eventos al Event Ledger, máquina de esta
 pura + spec. Migración aditiva idempotente (`hasTable`). Puerta obligatoria: smoke de
 bootstrap contra Postgres (atrapa colisiones de tabla/FK/DI).
 
+## 16. Suite de RH / Capital Humano — módulo nuevo (aditivo) + people analytics
+
+**Contexto:** la pantalla `/dashboard/rh` solo contaba **usuarios del sistema**
+(`governance/users`) y enlazaba a accesos/aprobaciones/organización. No existía el
+trabajo real de un analista/generalista de RH (plantilla, rotación, ausentismo,
+reclutamiento, desempeño) ni el cruce de datos de personas con la operación. El
+módulo `people` existente cubre solo skills/certificaciones; `ehs`, seguridad.
+
+**Hallazgo (hueco de fondo):** **no existía un "colaborador" como entidad** — RH
+contaba cuentas de `user`, no personas con puesto/turno/centro de costo/antigüedad/
+directo-indirecto. Sin ese maestro, ninguna métrica de RH es construible.
+
+**Decisión — módulo nuevo `hr` (Capital Humano), 100% aditivo, tablas `hr_`:**
+- `hr_employees` (backbone — el maestro de personal, análogo a cómo `mm_material`
+  es el backbone de materiales; precedente §15). `hr_requisitions` + `hr_candidates`
+  (adquisición de talento / ATS), `hr_performance_reviews` (9-box), `hr_absences`
+  (asistencia). Todo denormalizado (sin FKs a users/org) como el resto del repo.
+- **Por qué un maestro NUEVO y no reusar `users`:** un `user` es una credencial de
+  acceso (RBAC), no una persona de nómina; mezclarlos acoplaría auth con RH y
+  obligaría a narrowing destructivo (prohibido §2). Conviven en paralelo, igual
+  que `pm_product_models`/`mm_material` conviven con sus equivalentes legacy.
+
+**People analytics (el "Palantir" de RH):** la matemática vive en un módulo PURO
+y testeado (`hr-analytics.ts` + spec): rotación anualizada, **rotación temprana
+<90d** (la métrica cara en EMS), ausentismo, antigüedad, tramo de control, 9-box,
+**flight-risk** explicable por colaborador y el cruce inter-dominio **STAFFING-RISK**
+por área/turno (fusiona brecha de vacantes + rotación + ausentismo + cobertura de
+skills de `PeopleService` → ¿habrá gente certificada para correr el plan?). Las
+máquinas de estado (requisición/candidato/evaluación) también son puras + spec
+(patrón `cert-status`/`incident-state`).
+
+**Acoplamiento por servicios, no por tablas:** `HrModule` importa `PeopleModule` e
+inyecta `PeopleService` (cobertura de skills por área) de forma `@Optional()`;
+consume numeración central (`EMPLOYEE`→EMP-, `HR_REQUISITION`→VAC-,
+`PERFORMANCE_REVIEW`→EVAL-) y Event Ledger (dominio SYSTEM). RBAC igual que
+people/ehs: autenticado captura/lee, admin omite scope (RH es participativo).
+
+**Frontend:** `/dashboard/rh` pasa a hub con KPIs reales (headcount/rotación/
+ausentismo/vacantes) + 4 herramientas nuevas: Plantilla, Analítica de fuerza
+laboral (cockpit), Reclutamiento (pipeline) y Desempeño/9-box. Registradas en
+Cmd-K y el departamento "Personas y SST" habilitado en el alta de usuarios.
+
+**Puertas verificadas:** API build + 691 unit tests (incl. 23 nuevos) + web build +
+web lint (0 errores) + **smoke de bootstrap contra Postgres** (5 tablas `hr_`
+materializadas sin colisión, DI/guards OK) + seed demo end-to-end (71 registros,
+candado de dominio público limpio) + ejercicio de los 7 endpoints de analítica.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
