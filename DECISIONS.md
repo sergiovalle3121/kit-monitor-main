@@ -1217,4 +1217,21 @@ id numérico estable.
 `<w:commentRangeStart/End>`, `<w:commentReference>`, autor «Marta» con su texto, y la respuesta
 del hilo). Round-trip 8/8; `lint web` 0 errores; `build web` ✓.
 
+## 48. Office/Sheets — Consolidar datos (Data → Consolidate)
+
+**Contexto.** «Consolidar» (combinar varios rangos —de distintas hojas— en una tabla agregada)
+es una herramienta de la pestaña Datos de Excel que faltaba.
+
+**Decisión (sólo `apps/web`, aditiva):** `components/office/sheets/consolidate.ts` con
+`consolidateByPosition` (rangos de la misma forma → agregado celda a celda) y
+`consolidateByCategory` (alinea por **etiquetas** de fila + **cabeceras** de columna, uniendo
+las que difieren), con SUM/AVERAGE/COUNT/MAX/MIN. UI: diálogo `SheetConsolidate` (modo, función,
+rangos uno por línea, admite **`Hoja2!A1:C4`** entre hojas) en la cinta (Datos → «Consolidar»);
+el resultado se escribe en una hoja nueva «Consolidado N». La lectura de rangos resuelve hojas
+por nombre.
+
+**Verificación:** nueva suite `consolidate.spec.ts` (**9 aserciones**: por posición
+suma/promedio/máx y formas distintas; por categoría alineando etiquetas —Luis suma Q1 de dos
+tablas, columnas/filas exclusivas con huecos— y promedio). `lint web` 0 errores; `build web` ✓.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
