@@ -228,6 +228,19 @@ export class LineEngineeringController {
     });
   }
 
+  @Get('layout/flow')
+  @RequirePermissions('engineering:read')
+  @ApiOperation({
+    summary:
+      'Diagrama de flujo (spaghetti): distancia de recorrido, tramo más largo y cruces entre conexiones.',
+  })
+  layoutFlow(
+    @Query('model') model: string,
+    @Query('revision') revision?: string,
+  ) {
+    return this.service.getFlowAnalysis(model, revision ?? 'A');
+  }
+
   @Get('stations/:id')
   @RequirePermissions('engineering:read')
   @ApiOperation({ summary: 'Detalle de una estación.' })

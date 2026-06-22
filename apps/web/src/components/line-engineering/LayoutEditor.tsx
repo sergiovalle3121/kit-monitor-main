@@ -9,7 +9,7 @@ import {
   AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd,
   AlignHorizontalSpaceAround, AlignVerticalSpaceAround, Trash2, MapPin, RotateCcw,
   Upload, Eye, EyeOff, Map as MapIcon, Activity, Workflow, Wand2, Boxes,
-  Download, Printer, Ruler, Type, MoveHorizontal, CopyPlus, X, Flame,
+  Download, Printer, Ruler, Type, MoveHorizontal, CopyPlus, X, Flame, Waypoints,
 } from 'lucide-react';
 import { glass } from '@/lib/glass';
 import { apiFetch } from '@/lib/apiFetch';
@@ -53,6 +53,21 @@ interface HeatSummary {
   maxCycleTimeSec: number; avgCycleTimeSec: number; balancePct: number;
   updatedAt: string; stations: StationHeat[];
 }
+
+// Material-flow analysis (Fase 10). Per-segment distances render live on the
+// canvas; this summary (totals + crossings) comes from the backend geometry.
+interface FlowSegment { from: string; to: string; fromStation: string; toStation: string; distance: number; kind?: string }
+interface FlowSummary {
+  totalDistance: number; segmentCount: number; longestSegment: FlowSegment | null;
+  avgDistance: number; unplacedLinks: number; crossings: number; unit: string; segments: FlowSegment[];
+}
+// Short hops green, long hauls red — the spaghetti ramp, normalized to the longest.
+const flowColor = (d: number, max: number): string => {
+  const t = max > 0 ? d / max : 0;
+  if (t >= 0.7) return '#ef4444';
+  if (t >= 0.4) return '#f59e0b';
+  return '#10b981';
+};
 
 // Equipment / asset palette (Fase 5). `w`/`h` are default sizes in layout units.
 const ASSET_KINDS: { kind: string; label: string; color: string; fill: string; w: number; h: number }[] = [
@@ -137,6 +152,7 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
   const statusRef = useRef<Map<string, StationLiveStatus>>(new Map());
   const heatOnRef = useRef(false);
   const heatRef = useRef<Map<string, StationHeat>>(new Map());
+  const flowOnRef = useRef(false);
   const connectorsRef = useRef<LayoutConnector[]>([]);
   const connObjsRef = useRef<any[]>([]);
   const linkRef = useRef(false);
@@ -172,6 +188,8 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
   const [heatOn, setHeatOn] = useState(false);
   const [heatData, setHeatData] = useState<HeatSummary | null>(null);
   const [taktInput, setTaktInput] = useState('');
+  const [flowOn, setFlowOn] = useState(false);
+  const [flowData, setFlowData] = useState<FlowSummary | null>(null);
   const [linkMode, setLinkMode] = useState(false);
   const [connCount, setConnCount] = useState(0);
   const [measureMode, setMeasureMode] = useState(false);
@@ -296,10 +314,21 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
     connObjsRef.current.forEach((o) => c.remove(o));
     connObjsRef.current = [];
     const S = fitRef.current;
+    const flow = flowOnRef.current;
     const edge = (cx: number, cy: number, hw: number, hh: number, dx: number, dy: number) => {
       const t = 1 / Math.max(Math.abs(dx) / (hw || 1), Math.abs(dy) / (hh || 1), 1e-6);
       return { x: cx + dx * t, y: cy + dy * t };
     };
+    // In flow mode, color hops by length relative to the longest currently drawn.
+    const worldDist = (conn: LayoutConnector) => {
+      const a = placementsRef.current.get(conn.from);
+      const b = placementsRef.current.get(conn.to);
+      if (!a || !b) return 0;
+      return Math.hypot((b.x + b.w / 2) - (a.x + a.w / 2), (b.y + b.h / 2) - (a.y + a.h / 2));
+    };
+    const flowMax = flow
+      ? connectorsRef.current.reduce((m, conn) => Math.max(m, worldDist(conn)), 0)
+      : 0;
     connectorsRef.current.forEach((conn, idx) => {
       const a = placementsRef.current.get(conn.from);
       const b = placementsRef.current.get(conn.to);
@@ -310,9 +339,12 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
       const len = Math.hypot(dx, dy) || 1; dx /= len; dy /= len;
       const p1 = edge(ac.x, ac.y, (a.w / 2) * S, (a.h / 2) * S, dx, dy);
       const p2 = edge(bc.x, bc.y, (b.w / 2) * S, (b.h / 2) * S, -dx, -dy);
-      const color = conn.kind === 'conveyor' ? '#7c3aed' : conn.kind === 'return' ? '#94a3b8' : '#3b82f6';
+      const wd = flow ? worldDist(conn) : 0;
+      const color = flow
+        ? flowColor(wd, flowMax)
+        : (conn.kind === 'conveyor' ? '#7c3aed' : conn.kind === 'return' ? '#94a3b8' : '#3b82f6');
       const line = new Line([p1.x, p1.y, p2.x, p2.y], {
-        stroke: color, strokeWidth: 2, selectable: false, evented: linkRef.current,
+        stroke: color, strokeWidth: flow ? 2.5 : 2, selectable: false, evented: linkRef.current,
         hoverCursor: 'pointer', strokeDashArray: conn.kind === 'return' ? [6, 4] : undefined, strokeUniform: true,
       });
       (line as any).connIdx = idx;
@@ -324,6 +356,15 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
       ], { fill: color, selectable: false, evented: false, objectCaching: false });
       connObjsRef.current.push(line, head);
       c.add(line); c.add(head);
+      if (flow) {
+        const lbl = new Textbox(`${Math.round(wd)} ${footprintRef.current.unit}`, {
+          left: (p1.x + p2.x) / 2 - 40, top: (p1.y + p2.y) / 2 - 8, width: 80, fontSize: 11,
+          fill: color, textAlign: 'center', selectable: false, evented: false,
+          backgroundColor: 'rgba(255,255,255,0.82)',
+        });
+        connObjsRef.current.push(lbl);
+        c.add(lbl);
+      }
     });
   }, []);
   useEffect(() => { drawConnRef.current = drawConnectors; }, [drawConnectors]);
@@ -980,6 +1021,24 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
     return () => { alive = false; };
   }, [heatOn, model, revision, taktInput, applyOverlay]);
 
+  // ── Material-flow analysis overlay (Fase 10) ────────────────────────────────
+  // Per-segment distances/colors are drawn live by drawConnectors; here we just
+  // restyle on toggle and pull the authoritative summary (totals + crossings).
+  useEffect(() => { flowOnRef.current = flowOn; drawConnRef.current(); }, [flowOn]);
+  useEffect(() => {
+    if (!flowOn || !model) return;
+    let alive = true;
+    (async () => {
+      try {
+        const r = await apiFetch(`${API_BASE}/line-engineering/layout/flow?model=${encodeURIComponent(model)}&revision=${encodeURIComponent(revision)}`);
+        if (!r.ok || !alive) return;
+        const d = (await r.json()) as FlowSummary;
+        setFlowData(d);
+      } catch { /* transient */ }
+    })();
+    return () => { alive = false; };
+  }, [flowOn, model, revision, connCount]);
+
   // ── Flow connector controls (Fase 4) ───────────────────────────────────────
   const highlightSource = useCallback((id: string | null) => {
     const c = fcRef.current; if (!c) return;
@@ -1133,6 +1192,7 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
         <TBtn active={snap} onClick={() => setSnap((v) => !v)} title="Snap a grilla"><Grid3x3 className="w-4 h-4" /></TBtn>
         <button onClick={() => { setMesOn((v) => !v); setHeatOn(false); }} title="MES en vivo (estado de estaciones)" className={`p-1.5 rounded-lg transition-colors ${mesOn ? 'text-white' : 'text-gray-500 hover:bg-black/5 dark:hover:bg-white/10'}`} style={mesOn ? { background: '#10b981' } : undefined}><Activity className="w-4 h-4" /></button>
         <button onClick={() => { setHeatOn((v) => !v); setMesOn(false); }} title="Mapa de calor (tiempo de ciclo / utilización)" className={`p-1.5 rounded-lg transition-colors ${heatOn ? 'text-white' : 'text-gray-500 hover:bg-black/5 dark:hover:bg-white/10'}`} style={heatOn ? { background: '#f97316' } : undefined}><Flame className="w-4 h-4" /></button>
+        <button onClick={() => setFlowOn((v) => !v)} title="Diagrama de flujo (distancias y cruces)" className={`p-1.5 rounded-lg transition-colors ${flowOn ? 'text-white' : 'text-gray-500 hover:bg-black/5 dark:hover:bg-white/10'}`} style={flowOn ? { background: '#3b82f6' } : undefined}><Waypoints className="w-4 h-4" /></button>
         <Sep />
         <div className={`flex items-center gap-1 ${selCount < 2 ? 'opacity-40 pointer-events-none' : ''}`}>
           <TBtn onClick={() => align('left')} title="Alinear izquierda"><AlignHorizontalJustifyStart className="w-4 h-4" /></TBtn>
@@ -1259,6 +1319,27 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
             {heatData
               ? `Cuello: ${heatData.bottleneckStation ?? '—'} · ciclo ${heatData.lineCycleTimeSec}s · balance ${Math.round(heatData.balancePct * 100)}%${heatData.taktSec > 0 ? ` · takt ${heatData.taktSec}s` : ' · sin takt (carga relativa)'}`
               : 'cargando…'}
+          </span>
+        </div>
+      )}
+
+      {flowOn && (
+        <div className="flex items-center gap-3 px-4 py-2 border-b border-black/5 dark:border-white/10 text-[12px] flex-wrap">
+          <span className="inline-flex items-center gap-1.5 font-medium" style={{ color: '#3b82f6' }}>
+            <Waypoints className="w-3.5 h-3.5" /> Flujo
+          </span>
+          <LegendDot color="#10b981" label="Corto" />
+          <LegendDot color="#f59e0b" label="Medio" />
+          <LegendDot color="#ef4444" label="Largo" />
+          <span className="text-gray-500 ml-auto inline-flex items-center gap-3">
+            {flowData ? (
+              <>
+                <span>Recorrido total <b>{Math.round(flowData.totalDistance)} {flowData.unit}</b></span>
+                <span>· tramo más largo {Math.round(flowData.longestSegment?.distance ?? 0)} {flowData.unit}</span>
+                <span className={flowData.crossings > 0 ? 'text-rose-500 font-medium' : ''}>· cruces {flowData.crossings}</span>
+                {flowData.unplacedLinks > 0 && <span className="text-amber-500">· {flowData.unplacedLinks} sin colocar</span>}
+              </>
+            ) : 'cargando…'}
           </span>
         </div>
       )}

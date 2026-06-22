@@ -267,6 +267,35 @@ describe('LineEngineeringService (integration)', () => {
     expect(after.connectors[1]).toMatchObject({ kind: 'conveyor' });
   });
 
+  it('analyzes material flow: distance, longest hop and crossings (Fase 10)', async () => {
+    await seedRoute(); // EST-10, EST-20, EST-30
+    const before = await service.getLayout('AX-1000');
+    const id = Object.fromEntries(
+      before.stations.map((s) => [s.station, s.id]),
+    );
+    // Place stations with explicit boxes so centers are exact (center = x+w/2).
+    await service.saveLayout({
+      model: 'AX-1000',
+      positions: [
+        { id: id['EST-10'], x: 0, y: 0, w: 200, h: 200, rotation: 0 }, // c(100,100)
+        { id: id['EST-20'], x: 700, y: 0, w: 200, h: 200, rotation: 0 }, // c(800,100)
+        { id: id['EST-30'], x: 700, y: 700, w: 200, h: 200, rotation: 0 }, // c(800,800)
+      ],
+      connectors: [
+        { from: id['EST-10'], to: id['EST-20'] }, // horizontal 700
+        { from: id['EST-20'], to: id['EST-30'] }, // vertical 700
+      ],
+    });
+
+    const flow = await service.getFlowAnalysis('AX-1000');
+    expect(flow.unit).toBe('mm');
+    expect(flow.segmentCount).toBe(2);
+    expect(flow.totalDistance).toBe(1400);
+    expect(flow.longestSegment?.distance).toBe(700);
+    expect(flow.crossings).toBe(0); // L-shaped path sharing EST-20
+    expect(flow.unplacedLinks).toBe(0);
+  });
+
   it('persists equipment assets on the plan (Fase 5)', async () => {
     await seedRoute();
     expect((await service.getLayout('AX-1000')).assets).toEqual([]);
