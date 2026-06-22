@@ -761,4 +761,34 @@ financieras, referencias **entre hojas** y errores— y el round-trip ampliado e
 condicional, validación con listas); F3 pivotes/charts más profundos; F4 hojas
 ligadas en vivo (BOM desde maestro de materiales, validación desde AVL).
 
+## 27. Editor de relaciones de la ontología (Fase 9 CIDE)
+
+**Contexto.** El editor self-serve (§25, Fase 8) cubría **métricas** y **objetos**
+pero no las **relaciones** (links) — el tercer primitivo de la ontología, lo que
+convierte un catálogo de objetos en un **grafo** (estilo Palantir).
+
+**Decisión.** Cierre del CRUD de ontología desde la UI, aditivo y admin-only:
+- **Backend.** `SemanticService.upsertLink` + `POST /api/semantic/links`
+  (admin, vía `assertAdmin`). `UpsertLinkDto` valida `cardinality` contra la lista
+  cerrada (`one_to_one`/`one_to_many`/`many_to_one`/`many_to_many`). **Sin
+  entidades nuevas** (la tabla `sem_ontology_link` ya existía de §18).
+- **Frontend.** El editor (`/dashboard/intelligence/editor`) gana la sección
+  **"Relaciones"**: alta/edición en el mismo panel, con **selects de objeto
+  origen/destino poblados desde los objetos existentes** (los links solo apuntan a
+  objetos reales), cardinalidad, verbo y descripción. La `key` es inmutable al
+  editar.
+
+Con esto, un admin gestiona los **tres** primitivos semánticos (métricas, objetos,
+relaciones) sin tocar código; CIDE y los tableros consumen el grafo resultante.
+
+**Verificación:** build API ✓, build web ✓, lint web (0 errores) ✓, **704/704**
+tests ✓. El smoke no cambia de superficie.
+
+**Nota de entorno.** `main` añadió dependencias nuevas (`web-push`, PWA); se
+sincronizó con `npm install` antes del build del web.
+
+**Pendiente (Fase 10):** persistir tarjetas del chat en el historial; snapshots
+de métricas para tendencia de KPIs (no solo del ledger); borrado lógico de
+métricas/objetos/links desde la UI.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
