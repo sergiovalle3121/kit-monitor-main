@@ -115,6 +115,7 @@ export function buildDocx(docx: any, json: any, title: string): any {
     Header, Footer, PageNumber, PageBreak, PageOrientation, FootnoteReferenceRun,
     ImageRun, VerticalAlign, BorderStyle, LineRuleType, LevelFormat,
     InsertedTextRun, DeletedTextRun, CommentRangeStart, CommentRangeEnd, CommentReference,
+    TableOfContents,
   } = docx as any;
 
   const HEADINGS: any = {
@@ -352,7 +353,11 @@ export function buildDocx(docx: any, json: any, title: string): any {
         return out;
       }
       case 'toc': {
-        const out: any[] = [new Paragraph({ heading: HEADINGS[1], children: [new TextRun('Tabla de contenido')] })];
+        const title = new Paragraph({ heading: HEADINGS[1], children: [new TextRun('Tabla de contenido')] });
+        // Campo TOC REAL de Word: se actualiza con los títulos y SUS NÚMEROS DE PÁGINA, y es
+        // clicable. (El estático no tenía páginas ni enlaces.) Fallback a texto si la API falta.
+        if (TableOfContents) return [title, new TableOfContents('Contenido', { hyperlink: true, headingStyleRange: '1-5' })];
+        const out: any[] = [title];
         for (const h of collectHeads(json?.content ?? [])) out.push(new Paragraph({ indent: { left: (h.level - 1) * 360 }, children: [new TextRun(h.text || '(sin título)')] }));
         return out;
       }

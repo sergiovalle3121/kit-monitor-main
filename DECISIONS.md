@@ -1234,4 +1234,19 @@ por nombre.
 suma/promedio/máx y formas distintas; por categoría alineando etiquetas —Luis suma Q1 de dos
 tablas, columnas/filas exclusivas con huecos— y promedio). `lint web` 0 errores; `build web` ✓.
 
+## 49. Office/Docs — tabla de contenido como campo TOC real de Word
+
+**Contexto.** El nodo `toc` se exportaba a Word como **texto estático** (lista de títulos sin
+números de página ni enlaces). Word tiene un campo TOC nativo que se **actualiza** con los
+títulos y SUS PÁGINAS y es **clicable**.
+
+**Decisión (sólo `apps/web`, aditiva):** el `case 'toc'` genera un `TableOfContents` real de la
+librería `docx` (`{ hyperlink: true, headingStyleRange: '1-5' }`) — Word lo rellena con los
+párrafos con estilo de título y sus números de página. Fallback defensivo al texto estático si
+la API faltara.
+
+**Verificación:** `docx.spec.ts` ampliado a **33 aserciones** (+1: el cuerpo lleva el campo
+`TOC` real —`<w:instrText>… TOC …</w:instrText>`—). Round-trip 8/8; `lint web` 0 errores;
+`build web` ✓.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
