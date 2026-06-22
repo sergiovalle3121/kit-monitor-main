@@ -446,7 +446,8 @@ export class AiToolsService {
         name: 'autopilot_proposals',
         description:
           'Acciones correctivas que el sistema (Autopilot) recomienda: cuellos de botella, rebalanceo de WIP, resurtido, auditorías de estabilidad. Cada propuesta trae título, descripción, severidad (low/medium/high/critical) y línea/modelo. Úsalo para "¿qué acciones me recomienda el sistema?" o "¿qué debo atender primero?". Filtro: status (pending por defecto).',
-        requiredPermission: null,
+        // Gated to ADMIN_ACCESS to match the /api/autopilot/proposals endpoint.
+        requiredPermission: 'ADMIN_ACCESS',
         mockTriggers: [
           'recomienda',
           'recomendaci',
