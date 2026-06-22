@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { io, Socket } from 'socket.io-client';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   ChevronLeft,
   Search,
@@ -45,7 +46,8 @@ import { callsSupported } from '@/lib/chat/webrtc';
 import { renderMessageText, hasTable } from '@/lib/chat/markdown';
 import { isEmojiOnly, emojiGlyphCount } from '@/lib/chat/stickers';
 import { parseStickerId, getSticker } from '@/lib/chat/stickerImages';
-import { formatBytes } from '@/lib/chat/format';
+import { formatBytes, relativeTime } from '@/lib/chat/format';
+import { avatarStyle } from '@/lib/chat/avatar';
 import { QUICK_REACTIONS } from '@/lib/chat/emojis';
 
 /** Set corto de reacciones rápidas (mini-picker del toolbar de cada mensaje). */
@@ -606,6 +608,19 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
     setSearch('');
   }
 
+  // Continuidad al ampliar desde el dock: /dashboard/chat?c=<id> abre ese hilo.
+  const openedFromQueryRef = useRef(false);
+  useEffect(() => {
+    if (single || openedFromQueryRef.current || !meId) return;
+    const c = new URLSearchParams(window.location.search).get('c');
+    if (c) {
+      openedFromQueryRef.current = true;
+      openConversation(c);
+    }
+    // openConversation es estable en la práctica; el ref evita reejecuciones.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [single, meId]);
+
   const filteredUsers = users.filter(
     (u) =>
       search.trim() &&
@@ -635,14 +650,8 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
   const aside = (
     <aside
       className={`${surface} ${
-        single
-          ? activeId
-            ? 'hidden'
-            : 'flex'
-          : activeId
-            ? 'hidden md:flex'
-            : 'flex'
-      } w-full shrink-0 flex-col ${single ? 'min-h-0 p-3' : 'rounded-[24px] p-4 md:w-80'}`}
+        single ? 'flex' : activeId ? 'hidden md:flex' : 'flex'
+      } h-full w-full shrink-0 flex-col ${single ? 'min-h-0 p-3' : 'rounded-[24px] p-4 md:w-80'}`}
     >
       {/* Acento de dominio (mensajería) */}
       <div className="mb-3 flex items-center gap-2.5">
@@ -651,7 +660,7 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
         {single && (
           <div className="ml-auto flex items-center gap-1">
             <Link
-              href="/dashboard/chat"
+              href={activeId ? `/dashboard/chat?c=${activeId}` : '/dashboard/chat'}
               onClick={onClose}
               aria-label="Abrir en pantalla completa"
               title="Abrir en pantalla completa"
@@ -709,7 +718,10 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
                 onClick={() => startDm(u.id)}
                 className="flex w-full items-center gap-3 rounded-2xl p-2 text-left hover:bg-black/5 dark:hover:bg-white/10"
               >
-                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-violet-500 text-xs font-bold text-white">
+                <span
+                  className="flex h-9 w-9 items-center justify-center rounded-full text-xs font-bold text-white"
+                  style={avatarStyle(u.id)}
+                >
                   {initials(u.username || u.email)}
                 </span>
                 <span className="min-w-0">
@@ -734,7 +746,10 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
                 className="flex w-full items-center gap-3 rounded-2xl p-2 text-left hover:bg-black/5 dark:hover:bg-white/10"
               >
                 <span className="relative shrink-0">
-                  <span className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-violet-500 text-xs font-bold text-white">
+                  <span
+                    className="flex h-9 w-9 items-center justify-center rounded-full text-xs font-bold text-white"
+                    style={avatarStyle(u.id)}
+                  >
                     {initials(u.username || u.email)}
                   </span>
                   <PresenceDot online />
@@ -786,14 +801,8 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
   const section = (
     <section
       className={`${surface} relative ${
-        single
-          ? activeId
-            ? 'flex'
-            : 'hidden'
-          : activeId
-            ? 'flex'
-            : 'hidden md:flex'
-      } min-w-0 flex-1 flex-col ${single ? 'min-h-0' : 'rounded-[24px]'}`}
+        single ? 'flex' : activeId ? 'flex' : 'hidden md:flex'
+      } h-full min-w-0 flex-1 flex-col ${single ? 'min-h-0' : 'rounded-[24px]'}`}
     >
       {!active ? (
         <div className="flex flex-1 items-center justify-center text-center text-gray-400">
@@ -822,7 +831,10 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
                 </span>
               ) : (
                 <span className="relative">
-                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-violet-500 text-sm font-bold text-white">
+                  <span
+                    className="flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold text-white"
+                    style={avatarStyle(active.counterpartId || active.id)}
+                  >
                     {initials(active.title || '?')}
                   </span>
                   {active.counterpartId && (
@@ -1022,6 +1034,7 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
               autocorrect={autocorrect}
               onAutocorrectChange={changeAutocorrect}
               compact={single}
+              autoFocusKey={activeId ?? undefined}
             />
           </div>
         </>
@@ -1038,10 +1051,33 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
       }
     >
       {single ? (
-        <>
-          {aside}
-          {section}
-        </>
+        <div className="relative flex h-full min-h-0 w-full overflow-hidden">
+          <AnimatePresence initial={false}>
+            {!activeId ? (
+              <motion.div
+                key="list"
+                className="absolute inset-0 flex"
+                initial={{ x: '-22%', opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                exit={{ x: '-22%', opacity: 0 }}
+                transition={{ type: 'tween', duration: 0.22, ease: 'easeOut' }}
+              >
+                {aside}
+              </motion.div>
+            ) : (
+              <motion.div
+                key="thread"
+                className="absolute inset-0 flex"
+                initial={{ x: '22%', opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                exit={{ x: '22%', opacity: 0 }}
+                transition={{ type: 'tween', duration: 0.22, ease: 'easeOut' }}
+              >
+                {section}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       ) : (
         <div className="mx-auto flex h-screen max-w-7xl gap-4 p-4 pt-6">
           {aside}
@@ -1328,7 +1364,10 @@ function MessageItem({
         <div className="w-7 shrink-0">
           {showMeta && (
             <span className="relative inline-block">
-              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-violet-500 text-[10px] font-bold text-white">
+              <span
+                className="flex h-7 w-7 items-center justify-center rounded-full text-[10px] font-bold text-white"
+                style={avatarStyle(m.senderId)}
+              >
                 {initials(senderName(m.senderId, users))}
               </span>
               <PresenceDot online={onlineIds.has(m.senderId)} />
@@ -1674,6 +1713,8 @@ function ConversationRow({
             ? '🎟️ Sticker'
             : convo.lastMessage.body
     : 'Sin mensajes';
+  const unread = convo.unread > 0;
+  const when = relativeTime(convo.lastMessageAt);
   return (
     <button
       onClick={onClick}
@@ -1682,27 +1723,45 @@ function ConversationRow({
       }`}
     >
       <span className="relative shrink-0">
-        <span className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-violet-500 text-xs font-bold text-white">
+        <span
+          className="flex h-10 w-10 items-center justify-center rounded-full text-xs font-bold text-white"
+          style={avatarStyle(convo.counterpartId || convo.id)}
+        >
           {convo.type === 'channel' ? <Hash className="h-4 w-4" /> : initials(convo.title || '?')}
         </span>
         {online !== undefined && <PresenceDot online={online} />}
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm font-medium">{convo.title || 'Conversación'}</span>
-        <span className="block truncate text-xs text-gray-500">{lastPreview}</span>
+        <span className="flex items-center gap-2">
+          <span
+            className={`min-w-0 flex-1 truncate text-sm ${unread ? 'font-bold' : 'font-medium'}`}
+          >
+            {convo.title || 'Conversación'}
+          </span>
+          {when && (
+            <span
+              className={`shrink-0 text-[10px] ${unread ? 'font-semibold text-blue-600 dark:text-blue-400' : 'text-gray-400'}`}
+            >
+              {when}
+            </span>
+          )}
+        </span>
+        <span
+          className={`block truncate text-xs ${unread ? 'font-medium text-gray-700 dark:text-gray-200' : 'text-gray-500'}`}
+        >
+          {lastPreview}
+        </span>
       </span>
       {mentioned && (
         <span
-          className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-blue-500 text-white"
+          className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-blue-500 text-white"
           title="Te mencionaron"
         >
           <AtSign className="h-3 w-3" />
         </span>
       )}
-      {convo.unread > 0 && (
-        <span
-          className={`${mentioned ? 'ml-1' : 'ml-auto'} flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white`}
-        >
+      {unread && (
+        <span className="flex h-5 min-w-[20px] shrink-0 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
           {convo.unread}
         </span>
       )}
@@ -1766,7 +1825,10 @@ function NewChannelModal({
                 selected.includes(u.id) ? 'bg-blue-500/15' : 'hover:bg-black/5 dark:hover:bg-white/10'
               }`}
             >
-              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-violet-500 text-[10px] font-bold text-white">
+              <span
+                className="flex h-8 w-8 items-center justify-center rounded-full text-[10px] font-bold text-white"
+                style={avatarStyle(u.id)}
+              >
                 {initials(u.username || u.email)}
               </span>
               <span className="text-sm">{u.username || u.email}</span>
