@@ -9,7 +9,7 @@ import {
 } from 'typeorm';
 import { Conversation } from './conversation.entity';
 
-export type MessageType = 'text' | 'image';
+export type MessageType = 'text' | 'image' | 'file';
 
 @Entity('messages')
 export class Message {
@@ -43,6 +43,24 @@ export class Message {
 
   @Column({ name: 'image_size', type: 'int', nullable: true })
   imageSize: number | null;
+
+  /**
+   * Archivo genérico adjunto (PDF, Word, Excel, zip…) para mensajes de
+   * `type: 'file'`. Mismo enfoque que las imágenes: el binario vive en Postgres
+   * (`bytea`) con `select: false` para no traerlo en las listas. Para migrar a
+   * S3/Cloudinary luego, basta cambiar `fileData` por una URL.
+   */
+  @Column({ name: 'file_data', type: 'bytea', nullable: true, select: false })
+  fileData: Buffer | null;
+
+  @Column({ name: 'file_name', type: 'varchar', length: 255, nullable: true })
+  fileName: string | null;
+
+  @Column({ name: 'file_mime', type: 'varchar', length: 150, nullable: true })
+  fileMime: string | null;
+
+  @Column({ name: 'file_size', type: 'int', nullable: true })
+  fileSize: number | null;
 
   /**
    * IDs de usuarios mencionados (@username) resueltos contra los miembros de la
