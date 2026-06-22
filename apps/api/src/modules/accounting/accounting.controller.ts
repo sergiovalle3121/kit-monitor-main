@@ -39,7 +39,7 @@ export interface ProductCostRollup {
   totalCost: number;
 }
 
-@Controller('api/accounting')
+@Controller('accounting')
 export class AccountingController {
   constructor(private readonly accountingService: AccountingService) {}
 

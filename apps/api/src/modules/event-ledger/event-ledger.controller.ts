@@ -6,6 +6,13 @@ import { LedgerEvent } from './entities/ledger-event.entity';
 export class EventLedgerController {
   constructor(private readonly ledgerService: EventLedgerService) {}
 
+  /** Feed global: eventos recientes de toda la bitácora (para el timeline). */
+  @Get()
+  async list(@Query('limit') limit?: string): Promise<LedgerEvent[]> {
+    const n = limit ? parseInt(limit, 10) : 200;
+    return this.ledgerService.findRecent(Number.isFinite(n) ? n : 200);
+  }
+
   @Get('reference/:type/:id')
   async getByReference(
     @Param('type') type: string,
