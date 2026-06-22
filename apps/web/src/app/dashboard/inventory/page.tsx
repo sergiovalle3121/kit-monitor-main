@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
+import Link from "next/link";
 import {
   Loader2, Lock, Inbox, Search, ArrowDownLeft, ArrowUpRight, ArrowLeftRight,
   SlidersHorizontal, Repeat, AlertTriangle, ChevronRight, GitBranch, MapPin,
@@ -625,7 +626,14 @@ function TraceabilityPanel({ initialPart = "" }: { initialPart?: string }) {
           </button>
         </div>
         <p className="text-[11px] text-gray-400 mt-2">
-          Where-used (contención): dado un componente, muestra en qué unidades/WO se consumió (genealogía del ledger de consumo). La consulta inversa pura por serial (serial → BOM as-built) requiere un endpoint backend dedicado — pendiente backend.
+          Where-used (contención): dado un componente, muestra en qué unidades/WO se consumió (genealogía del ledger de consumo). Para la vista inversa (unidad → componentes as-built), abre{" "}
+          <Link
+            href={serialInput.trim() ? `/dashboard/genealogy?serial=${encodeURIComponent(serialInput.trim())}` : "/dashboard/genealogy"}
+            className="underline underline-offset-2 hover:text-gray-600 dark:hover:text-gray-300"
+          >
+            Genealogía
+          </Link>
+          .
         </p>
       </div>
 

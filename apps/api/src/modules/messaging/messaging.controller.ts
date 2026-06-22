@@ -119,4 +119,38 @@ export class MessagingController {
     res.setHeader('Cache-Control', 'private, max-age=86400');
     res.send(data);
   }
+
+  @Post('messages/file')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: memoryStorage(),
+      limits: { fileSize: 25 * 1024 * 1024 },
+    }),
+  )
+  sendFile(
+    @Req() req: any,
+    @Body() body: { conversationId: string },
+    @UploadedFile()
+    file: {
+      buffer: Buffer;
+      mimetype: string;
+      size: number;
+      originalname?: string;
+    },
+  ) {
+    return this.messaging.sendFile(this.me(req), body?.conversationId, file);
+  }
+
+  @Get('messages/:id/file')
+  async getFile(@Req() req: any, @Param('id') id: string, @Res() res: Response) {
+    const { data, mime, name } = await this.messaging.getFile(this.me(req), id);
+    res.setHeader('Content-Type', mime);
+    // RFC 5987: filename* admite UTF-8; el fallback ASCII evita romper clientes.
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${name.replace(/[^\x20-\x7e]/g, '_')}"; filename*=UTF-8''${encodeURIComponent(name)}`,
+    );
+    res.setHeader('Cache-Control', 'private, max-age=86400');
+    res.send(data);
+  }
 }

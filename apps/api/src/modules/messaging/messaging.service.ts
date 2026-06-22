@@ -13,7 +13,8 @@ import { ChatMessageReaction } from './entities/chat-message-reaction.entity';
 import { User } from '../users/entities/user.entity';
 import { ChatGateway } from './chat.gateway';
 
-const MAX_INPUT_BYTES = 5 * 1024 * 1024; // 5 MB de entrada
+const MAX_INPUT_BYTES = 5 * 1024 * 1024; // 5 MB de entrada (imágenes)
+const MAX_FILE_BYTES = 25 * 1024 * 1024; // 25 MB de entrada (archivos genéricos)
 const TARGET_MAX_DIMENSION = 1280; // px
 const TARGET_QUALITY = 70; // jpeg quality
 const MAX_TEXT_LENGTH = 4000; // tope de caracteres por mensaje (anti-spam/DoS)
@@ -293,6 +294,9 @@ export class MessagingService {
       type: m.type,
       body: m.body,
       imageMime: m.imageMime,
+      fileName: m.fileName,
+      fileMime: m.fileMime,
+      fileSize: m.fileSize,
       createdAt: m.createdAt,
       reactions: aggregateReactions(byMessage.get(m.id) ?? [], meId),
       mentionedUserIds: m.mentionedUserIds ?? [],
@@ -422,6 +426,57 @@ export class MessagingService {
     return { data: msg.imageData, mime: msg.imageMime ?? 'image/jpeg' };
   }
 
+  // ── enviar archivo genérico (PDF, Word, Excel, zip…) ──────────────────────
+  async sendFile(
+    meId: string,
+    conversationId: string,
+    file:
+      | { buffer: Buffer; mimetype: string; size: number; originalname?: string }
+      | undefined,
+  ) {
+    await this.assertMember(conversationId, meId);
+    if (!file) throw new BadRequestException('No se recibió archivo');
+    if (file.size > MAX_FILE_BYTES) {
+      throw new BadRequestException('El archivo supera el límite de 25 MB');
+    }
+    // Nombre seguro: recorta a 255 y elimina rutas (defensa de path traversal).
+    const safeName = (file.originalname || 'archivo')
+      .replace(/[\\/]/g, '_')
+      .slice(0, 255);
+
+    const msg = await this.messages.save(
+      this.messages.create({
+        conversationId,
+        senderId: meId,
+        type: 'file',
+        body: null,
+        fileData: file.buffer,
+        fileMime: file.mimetype || 'application/octet-stream',
+        fileName: safeName,
+        fileSize: file.size,
+      }),
+    );
+    await this.touchAndBroadcast(conversationId, msg);
+    return this.toDto(msg);
+  }
+
+  // ── descarga de archivo ───────────────────────────────────────────────────
+  async getFile(meId: string, messageId: string) {
+    const msg = await this.messages
+      .createQueryBuilder('m')
+      .addSelect('m.file_data')
+      .where('m.id = :id', { id: messageId })
+      .getOne();
+    if (!msg || !msg.fileData)
+      throw new NotFoundException('Archivo no encontrado');
+    await this.assertMember(msg.conversationId, meId);
+    return {
+      data: msg.fileData,
+      mime: msg.fileMime ?? 'application/octet-stream',
+      name: msg.fileName ?? 'archivo',
+    };
+  }
+
   // ── reacciones (toggle) ──────────────────────────────────────────────────
   async toggleReaction(meId: string, messageId: string, emojiRaw: string) {
     const emoji = (emojiRaw ?? '').trim();
@@ -504,6 +559,9 @@ export class MessagingService {
       type: m.type,
       body: m.body,
       imageMime: m.imageMime,
+      fileName: m.fileName ?? null,
+      fileMime: m.fileMime ?? null,
+      fileSize: m.fileSize ?? null,
       createdAt: m.createdAt,
       // Un mensaje recién creado aún no tiene reacciones; forma consistente.
       reactions: [] as AggregatedReaction[],

@@ -60,9 +60,13 @@ export interface ChatMessage {
   id: string;
   conversationId: string;
   senderId: string;
-  type: 'text' | 'image';
+  type: 'text' | 'image' | 'file';
   body: string | null;
   imageMime: string | null;
+  /** Solo para `type: 'file'`: nombre, mime y tamaño del adjunto. */
+  fileName?: string | null;
+  fileMime?: string | null;
+  fileSize?: number | null;
   createdAt: string;
   reactions?: MessageReaction[];
 }
@@ -126,6 +130,17 @@ export const chatApi = {
     });
   },
 
+  sendFile: (conversationId: string, file: File) => {
+    const fd = new FormData();
+    fd.append('conversationId', conversationId);
+    fd.append('file', file);
+    return req<ChatMessage>('/messaging/messages/file', {
+      method: 'POST',
+      headers: authHeaders(false),
+      body: fd,
+    });
+  },
+
   markRead: (conversationId: string) =>
     req<{ ok: boolean }>(`/messaging/conversations/${conversationId}/read`, {
       method: 'POST',
@@ -153,4 +168,29 @@ export async function fetchImageBlob(messageId: string): Promise<string> {
   if (!res.ok) throw new Error('No se pudo cargar la imagen');
   const blob = await res.blob();
   return URL.createObjectURL(blob);
+}
+
+/**
+ * Descarga un archivo protegido (con Bearer) y dispara el "Guardar como" del
+ * navegador con su nombre original. Usa object URL temporal (se libera al
+ * terminar). Lanza si la respuesta no es OK.
+ */
+export async function downloadFile(
+  messageId: string,
+  fileName: string,
+): Promise<void> {
+  const res = await fetch(`${CHAT_API_BASE}/messaging/messages/${messageId}/file`, {
+    headers: authHeaders(false),
+  });
+  if (!res.ok) throw new Error('No se pudo descargar el archivo');
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fileName || 'archivo';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  // Da margen al navegador para iniciar la descarga antes de revocar la URL.
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
 }

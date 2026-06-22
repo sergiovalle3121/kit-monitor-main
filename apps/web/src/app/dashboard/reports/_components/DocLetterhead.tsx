@@ -17,12 +17,16 @@ export function DocLetterhead({
   subtitle,
   docNumber,
   meta,
+  official = false,
 }: {
   domain: DomainKey;
   title: string;
   subtitle?: string;
   docNumber: string;
   meta: KeyValue[];
+  /** True cuando `docNumber` es un folio OFICIAL emitido por el servicio de
+   *  numeración (no un borrador derivado en cliente). Cambia el sello. */
+  official?: boolean;
 }) {
   return (
     <header className="axos-avoid-break border-b border-gray-200 pb-5">
@@ -38,9 +42,15 @@ export function DocLetterhead({
           </div>
         </div>
         <div className="text-right">
-          <span className="inline-block rounded-md border border-amber-400 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-600">
-            Borrador · sin folio oficial
-          </span>
+          {official ? (
+            <span className="inline-block rounded-md border border-emerald-500 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-600">
+              Folio oficial
+            </span>
+          ) : (
+            <span className="inline-block rounded-md border border-amber-400 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-600">
+              Borrador · sin folio oficial
+            </span>
+          )}
           <div className="mt-1.5 font-mono text-[13px] font-semibold text-gray-900">{docNumber}</div>
         </div>
       </div>

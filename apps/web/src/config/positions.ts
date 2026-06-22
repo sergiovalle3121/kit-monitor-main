@@ -63,7 +63,7 @@ export const DEPARTMENTS: Department[] = [
   { id: 'compras', label: 'Compras', description: 'Sourcing y proveedores', comingSoon: true },
   { id: 'logistica', label: 'Logística', description: 'Embarques y aduana', comingSoon: true },
   { id: 'mantenimiento', label: 'Mantenimiento', description: 'Activos y TPM', comingSoon: true },
-  { id: 'personas', label: 'Personas y SST', description: 'Plantilla y seguridad', comingSoon: true },
+  { id: 'personas', label: 'Personas y SST', description: 'Plantilla, talento y seguridad' },
 ];
 
 export const POSITIONS: Position[] = [
@@ -111,6 +111,8 @@ export const POSITIONS: Position[] = [
   { id: 'logistics_coordinator', label: 'Coordinador de logística', departmentId: 'logistica', level: 2, role: 'warehouse_operator' },
   { id: 'maintenance_tech', label: 'Técnico de mantenimiento', departmentId: 'mantenimiento', level: 1, role: 'maintenance_tech' },
   { id: 'hr_analyst', label: 'Analista de RH', departmentId: 'personas', level: 2, role: 'hr' },
+  { id: 'hr_generalist', label: 'Generalista de RH', departmentId: 'personas', level: 3, role: 'hr' },
+  { id: 'hr_manager', label: 'Gerente de RH', departmentId: 'personas', level: 4, role: 'hr' },
 ];
 
 const POS_BY_ID = new Map(POSITIONS.map((p) => [p.id, p]));
