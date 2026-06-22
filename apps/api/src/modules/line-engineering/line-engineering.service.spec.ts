@@ -199,6 +199,34 @@ describe('LineEngineeringService (integration)', () => {
     expect(cleared.stations.every((s) => s.x === null)).toBe(true);
   });
 
+  it('persists flow connectors, dropping invalid links (Fase 4)', async () => {
+    await seedRoute(); // EST-10, EST-20, EST-30
+    const before = await service.getLayout('AX-1000');
+    expect(before.connectors).toEqual([]);
+    const id = Object.fromEntries(
+      before.stations.map((s) => [s.station, s.id]),
+    );
+
+    await service.saveLayout({
+      model: 'AX-1000',
+      connectors: [
+        { from: id['EST-10'], to: id['EST-20'] },
+        { from: id['EST-20'], to: id['EST-30'], kind: 'conveyor' },
+        { from: id['EST-30'], to: 'ghost' }, // dropped: unknown target
+        { from: id['EST-10'], to: id['EST-10'] }, // dropped: self-link
+      ],
+    });
+
+    const after = await service.getLayout('AX-1000');
+    expect(after.connectors).toHaveLength(2);
+    expect(after.connectors[0]).toMatchObject({
+      from: id['EST-10'],
+      to: id['EST-20'],
+      kind: 'flow',
+    });
+    expect(after.connectors[1]).toMatchObject({ kind: 'conveyor' });
+  });
+
   it('scopes the layout by tenant', async () => {
     const mk = (tenant: string) =>
       ctx.run(ctxFor(tenant), async () => {

@@ -2,13 +2,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Canvas, Rect, Textbox, Line, Polyline, Group } from 'fabric';
+import { Canvas, Rect, Textbox, Line, Polyline, Polygon, Group } from 'fabric';
 import {
   Loader2, Save, Inbox, Hand, MousePointer2, Maximize2, ZoomIn, ZoomOut, Grid3x3,
   AlignHorizontalJustifyStart, AlignHorizontalJustifyCenter, AlignHorizontalJustifyEnd,
   AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd,
   AlignHorizontalSpaceAround, AlignVerticalSpaceAround, Trash2, MapPin, RotateCcw,
-  Upload, Eye, EyeOff, Map as MapIcon, Activity,
+  Upload, Eye, EyeOff, Map as MapIcon, Activity, Workflow, Wand2,
 } from 'lucide-react';
 import { glass } from '@/lib/glass';
 import { apiFetch } from '@/lib/apiFetch';
@@ -36,7 +36,8 @@ interface LayoutStation {
 }
 interface Footprint { footprintW: number; footprintH: number; unit: string; gridSize: number }
 interface DxfMeta { name: string; offsetX: number; offsetY: number; scale: number; rotation: number; visible: boolean; opacity: number }
-interface LineLayout { model: string; revision: string; footprint: Footprint; stations: LayoutStation[]; dxf: DxfMeta | null }
+interface LayoutConnector { from: string; to: string; kind?: string }
+interface LineLayout { model: string; revision: string; footprint: Footprint; stations: LayoutStation[]; dxf: DxfMeta | null; connectors: LayoutConnector[] }
 interface Placement { x: number; y: number; w: number; h: number; rotation: number }
 type MesLevel = 'down' | 'warn' | 'ok' | 'idle' | 'unknown';
 interface StationLiveStatus { station: string; line: string; status: MesLevel; label: string; severity: string | null; since: string | null }
@@ -94,6 +95,12 @@ export function LayoutEditor({ model, revision }: { model: string; revision: str
   const dxfGroupRef = useRef<Group | null>(null);
   const mesOnRef = useRef(false);
   const statusRef = useRef<Map<string, StationLiveStatus>>(new Map());
+  const connectorsRef = useRef<LayoutConnector[]>([]);
+  const connObjsRef = useRef<any[]>([]);
+  const linkRef = useRef(false);
+  const linkSourceRef = useRef<string | null>(null);
+  const drawConnRef = useRef<() => void>(() => {});
+  const linkClickRef = useRef<(t: any) => void>(() => {});
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -108,6 +115,8 @@ export function LayoutEditor({ model, revision }: { model: string; revision: str
   const [dxfBusy, setDxfBusy] = useState(false);
   const [mesOn, setMesOn] = useState(false);
   const [mesData, setMesData] = useState<StatusSummary | null>(null);
+  const [linkMode, setLinkMode] = useState(false);
+  const [connCount, setConnCount] = useState(0);
   const snapRef = useRef(snap);
   const panRef = useRef(panMode);
   useEffect(() => { snapRef.current = snap; }, [snap]);
@@ -214,6 +223,44 @@ export function LayoutEditor({ model, revision }: { model: string; revision: str
     sceneRef.current.forEach((o) => c.sendObjectToBack(o));
   }, []);
 
+  // ── Flow connectors: arrows between placed stations (Fase 4) ────────────────
+  const drawConnectors = useCallback(() => {
+    const c = fcRef.current; if (!c) return;
+    connObjsRef.current.forEach((o) => c.remove(o));
+    connObjsRef.current = [];
+    const S = fitRef.current;
+    const edge = (cx: number, cy: number, hw: number, hh: number, dx: number, dy: number) => {
+      const t = 1 / Math.max(Math.abs(dx) / (hw || 1), Math.abs(dy) / (hh || 1), 1e-6);
+      return { x: cx + dx * t, y: cy + dy * t };
+    };
+    connectorsRef.current.forEach((conn, idx) => {
+      const a = placementsRef.current.get(conn.from);
+      const b = placementsRef.current.get(conn.to);
+      if (!a || !b) return; // only draw when both ends are placed
+      const ac = { x: (a.x + a.w / 2) * S, y: (a.y + a.h / 2) * S };
+      const bc = { x: (b.x + b.w / 2) * S, y: (b.y + b.h / 2) * S };
+      let dx = bc.x - ac.x, dy = bc.y - ac.y;
+      const len = Math.hypot(dx, dy) || 1; dx /= len; dy /= len;
+      const p1 = edge(ac.x, ac.y, (a.w / 2) * S, (a.h / 2) * S, dx, dy);
+      const p2 = edge(bc.x, bc.y, (b.w / 2) * S, (b.h / 2) * S, -dx, -dy);
+      const color = conn.kind === 'conveyor' ? '#7c3aed' : conn.kind === 'return' ? '#94a3b8' : '#3b82f6';
+      const line = new Line([p1.x, p1.y, p2.x, p2.y], {
+        stroke: color, strokeWidth: 2, selectable: false, evented: linkRef.current,
+        hoverCursor: 'pointer', strokeDashArray: conn.kind === 'return' ? [6, 4] : undefined, strokeUniform: true,
+      });
+      (line as any).connIdx = idx;
+      const ang = Math.atan2(dy, dx), H = 10;
+      const head = new Polygon([
+        { x: p2.x, y: p2.y },
+        { x: p2.x - H * Math.cos(ang - Math.PI / 7), y: p2.y - H * Math.sin(ang - Math.PI / 7) },
+        { x: p2.x - H * Math.cos(ang + Math.PI / 7), y: p2.y - H * Math.sin(ang + Math.PI / 7) },
+      ], { fill: color, selectable: false, evented: false, objectCaching: false });
+      connObjsRef.current.push(line, head);
+      c.add(line); c.add(head);
+    });
+  }, []);
+  useEffect(() => { drawConnRef.current = drawConnectors; }, [drawConnectors]);
+
   // ── Build an interactive station box from a placement ───────────────────────
   const makeBox = useCallback((s: LayoutStation, p: Placement) => {
     const c = fcRef.current; if (!c) return;
@@ -226,6 +273,7 @@ export function LayoutEditor({ model, revision }: { model: string; revision: str
       stroke: col ? col.stroke : (s.ctq ? AMBER : ROSE), strokeWidth: col ? 2 : 1.5, rx: 6, ry: 6,
       cornerColor: '#fff', cornerStrokeColor: ROSE, borderColor: ROSE, transparentCorners: false,
       cornerSize: 9, lockScalingFlip: true, objectCaching: false,
+      selectable: !linkRef.current, // in link mode, clicks pick endpoints (no drag)
     });
     box.labelText = s.station;
     box.seqText = `#${s.sequence}`;
@@ -248,8 +296,9 @@ export function LayoutEditor({ model, revision }: { model: string; revision: str
       const s = stationsRef.current.find((x) => x.id === id);
       if (s) makeBox(s, p);
     });
+    drawConnectors(); // arrows on top of the stations
     c.requestRenderAll();
-  }, [computeFit, drawScene, drawDxf, makeBox]);
+  }, [computeFit, drawScene, drawDxf, drawConnectors, makeBox]);
 
   const stationsRef = useRef<LayoutStation[]>([]);
   useEffect(() => { stationsRef.current = stations; }, [stations]);
@@ -315,6 +364,7 @@ export function LayoutEditor({ model, revision }: { model: string; revision: str
       rotation: Math.round(obj.angle || 0),
     });
     markDirty();
+    drawConnRef.current(); // keep arrows attached as the box moves
   }, [markDirty]);
 
   // ── Load layout for the current scope ───────────────────────────────────────
@@ -344,6 +394,8 @@ export function LayoutEditor({ model, revision }: { model: string; revision: str
       setStations(d.stations);
       stationsRef.current = d.stations;
       setPlacedIds(placedSet);
+      connectorsRef.current = Array.isArray(d.connectors) ? d.connectors : [];
+      setConnCount(connectorsRef.current.length);
       setDirty(false);
 
       // DXF background: the placement meta arrives with the layout; the raw
@@ -404,6 +456,7 @@ export function LayoutEditor({ model, revision }: { model: string; revision: str
     // Pan (pan-mode toggle, or Alt/middle drag)
     let panning = false; let lastX = 0; let lastY = 0;
     c.on('mouse:down', (opt) => {
+      if (linkRef.current) { linkClickRef.current((opt as any).target); return; }
       const ev = opt.e as MouseEvent;
       if (panRef.current || ev.altKey || (ev as any).button === 1) {
         panning = true; c.selection = false; lastX = ev.clientX; lastY = ev.clientY; c.setCursor('grabbing');
@@ -624,6 +677,57 @@ export function LayoutEditor({ model, revision }: { model: string; revision: str
     return () => { alive = false; clearInterval(id); };
   }, [mesOn, model, revision, applyMesColors]);
 
+  // ── Flow connector controls (Fase 4) ───────────────────────────────────────
+  const highlightSource = useCallback((id: string | null) => {
+    const c = fcRef.current; if (!c) return;
+    objByIdRef.current.forEach((box) => {
+      if (id && (box as any).stationId === id) box.set({ stroke: '#7c3aed', strokeWidth: 3 });
+    });
+    c.requestRenderAll();
+  }, []);
+
+  const handleLinkTarget = useCallback((target: any) => {
+    // Click an existing arrow → delete that connector.
+    if (target && target.connIdx !== undefined) {
+      connectorsRef.current = connectorsRef.current.filter((_, i) => i !== target.connIdx);
+      setConnCount(connectorsRef.current.length); markDirty();
+      requestAnimationFrame(() => rebuild());
+      return;
+    }
+    const id = target && (target.stationId as string);
+    if (!id) { linkSourceRef.current = null; return; }
+    if (!linkSourceRef.current) { linkSourceRef.current = id; highlightSource(id); return; }
+    if (linkSourceRef.current === id) { linkSourceRef.current = null; requestAnimationFrame(() => rebuild()); return; }
+    const from = linkSourceRef.current, to = id;
+    if (!connectorsRef.current.some((c) => c.from === from && c.to === to)) {
+      connectorsRef.current = [...connectorsRef.current, { from, to, kind: 'flow' }];
+      setConnCount(connectorsRef.current.length); markDirty();
+    }
+    linkSourceRef.current = null;
+    requestAnimationFrame(() => rebuild());
+  }, [markDirty, rebuild, highlightSource]);
+  useEffect(() => { linkClickRef.current = handleLinkTarget; }, [handleLinkTarget]);
+
+  // Toggling link mode rebuilds so boxes/arrows pick up the right interactivity.
+  useEffect(() => { linkRef.current = linkMode; linkSourceRef.current = null; requestAnimationFrame(() => rebuild()); }, [linkMode, rebuild]);
+
+  // Auto-connect placed stations following their routing sequence.
+  const autoConnect = useCallback(() => {
+    const placedSeq = stationsRef.current
+      .filter((s) => placementsRef.current.has(s.id))
+      .sort((a, b) => a.sequence - b.sequence);
+    const links: LayoutConnector[] = [];
+    for (let i = 0; i + 1 < placedSeq.length; i++) links.push({ from: placedSeq[i].id, to: placedSeq[i + 1].id, kind: 'flow' });
+    connectorsRef.current = links;
+    setConnCount(links.length); markDirty();
+    requestAnimationFrame(() => rebuild());
+  }, [markDirty, rebuild]);
+
+  const clearConnectors = useCallback(() => {
+    connectorsRef.current = []; setConnCount(0); markDirty();
+    requestAnimationFrame(() => rebuild());
+  }, [markDirty, rebuild]);
+
   // ── Save ────────────────────────────────────────────────────────────────────
   const save = useCallback(async () => {
     if (!model) return;
@@ -637,7 +741,7 @@ export function LayoutEditor({ model, revision }: { model: string; revision: str
         : undefined;
       const r = await apiFetch(`${API_BASE}/line-engineering/layout`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model, revision, footprint: footprintRef.current, positions, cleared, ...(dxfMeta ? { dxf: dxfMeta } : {}) }),
+        body: JSON.stringify({ model, revision, footprint: footprintRef.current, positions, cleared, connectors: connectorsRef.current, ...(dxfMeta ? { dxf: dxfMeta } : {}) }),
       });
       if (!r.ok) { const d = await r.json().catch(() => ({})); toast.error(d?.message || 'No se pudo guardar.', 'Ing. Industrial'); return; }
       toast.success('Layout guardado.', 'Ing. Industrial');
@@ -722,6 +826,17 @@ export function LayoutEditor({ model, revision }: { model: string; revision: str
             <button onClick={removeDxf} disabled={dxfBusy} title="Quitar plano" className="p-1 rounded text-gray-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10">{dxfBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}</button>
           </>
         )}
+      </div>
+
+      {/* Flow connectors (Fase 4) */}
+      <div className="flex items-center gap-2.5 px-4 py-2 border-b border-black/5 dark:border-white/10 text-[12px] text-gray-500 flex-wrap">
+        <span className="font-medium inline-flex items-center gap-1"><Workflow className="w-3.5 h-3.5" /> Flujo:</span>
+        <button onClick={() => setLinkMode((v) => !v)} className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border transition-colors ${linkMode ? 'text-white border-transparent' : 'border-black/10 dark:border-white/10 hover:bg-black/[0.05] dark:hover:bg-white/[0.08]'}`} style={linkMode ? { background: '#3b82f6' } : undefined}>
+          <Workflow className="w-3.5 h-3.5" /> {linkMode ? 'Conectando… (clic origen → destino)' : 'Conectar estaciones'}
+        </button>
+        <button onClick={autoConnect} title="Conectar según la secuencia de ruteo" className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-black/10 dark:border-white/10 hover:bg-black/[0.05] dark:hover:bg-white/[0.08]"><Wand2 className="w-3.5 h-3.5" /> Auto secuencia</button>
+        <button onClick={clearConnectors} disabled={connCount === 0} title="Quitar todas las conexiones" className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-gray-400 hover:text-rose-500 disabled:opacity-40"><Trash2 className="w-3.5 h-3.5" /> Limpiar</button>
+        <span className="text-gray-400">· {connCount} {connCount === 1 ? 'conexión' : 'conexiones'}{linkMode ? ' · clic en una flecha para borrarla' : ''}</span>
       </div>
 
       {mesOn && (

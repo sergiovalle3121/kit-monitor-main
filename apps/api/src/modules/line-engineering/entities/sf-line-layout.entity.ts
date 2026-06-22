@@ -1,5 +1,13 @@
 import { Column, Entity, Index, PrimaryGeneratedColumn } from 'typeorm';
 import { TenantBaseEntity } from '../../../common/entities/tenant-base.entity';
+import { JSON_COLUMN_TYPE } from '../../../common/database/json-column-type';
+
+/** A directed material-flow link between two stations (Fase 4). */
+export interface LayoutConnector {
+  from: string; // sf_line_stations.id
+  to: string; // sf_line_stations.id
+  kind?: string; // 'flow' | 'conveyor' | 'return'
+}
 
 /**
  * 2D layout canvas config for a model+revision (the "plano" the Industrial
@@ -70,4 +78,10 @@ export class SfLineLayout extends TenantBaseEntity {
 
   @Column({ type: 'float', default: 0.5, name: 'dxf_opacity' })
   dxfOpacity: number;
+
+  // ── Flow connectors (Fase 4) ───────────────────────────────────────────────
+  // Directed material-flow links between stations, drawn as arrows on the plan.
+  // Additive & nullable: NULL/empty = no flow drawn.
+  @Column({ type: JSON_COLUMN_TYPE, nullable: true })
+  connectors: LayoutConnector[] | null;
 }
