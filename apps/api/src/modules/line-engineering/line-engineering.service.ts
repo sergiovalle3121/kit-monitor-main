@@ -148,6 +148,22 @@ export interface SnapshotSummary {
   annotationCount: number;
 }
 
+/** What changed between a saved version and the live layout (Fase 17). */
+export interface SnapshotDiff {
+  snapshotId: string;
+  name: string;
+  movedCount: number;
+  addedCount: number;
+  removedCount: number;
+  moved: { station: string; distance: number }[];
+  added: string[];
+  removed: string[];
+  footprintChanged: boolean;
+  connectorsDelta: number;
+  assetsDelta: number;
+  annotationsDelta: number;
+}
+
 export interface LineEngineeringKpis {
   stationsTotal: number;
   stationsWithVisualAid: number;
@@ -765,6 +781,74 @@ export class LineEngineeringService {
     layout.snapshots = after;
     await this.requireLayouts().save(layout);
     return after.map((s) => this.toSnapshotSummary(s)).reverse();
+  }
+
+  /** Compare a saved version against the live layout (Fase 17): which stations
+   * moved (and how far), which were added/removed, whether the footprint
+   * changed, and the flow/equipment/annotation deltas. Read-only. */
+  async diffSnapshot(
+    model: string,
+    revision = 'A',
+    snapshotId = '',
+  ): Promise<SnapshotDiff> {
+    const m = (model ?? '').trim();
+    const r = (revision ?? 'A').trim() || 'A';
+    const layout = await this.findLayout(m, r);
+    const snap = layout?.snapshots?.find((s) => s.id === snapshotId);
+    if (!layout || !snap) {
+      throw new NotFoundException('Versión no encontrada.');
+    }
+    const cur = await this.getLayout(m, r);
+    const nameById = new Map(cur.stations.map((s) => [s.id, s.station]));
+    const curPos = new Map(
+      cur.stations
+        .filter((s) => s.x !== null && s.y !== null)
+        .map((s) => [s.id, { x: s.x as number, y: s.y as number }]),
+    );
+    const snapPos = new Map(
+      snap.positions.map((p) => [p.id, { x: p.x, y: p.y }]),
+    );
+
+    const moved: { station: string; distance: number }[] = [];
+    const added: string[] = [];
+    for (const [id, c] of curPos) {
+      const s = snapPos.get(id);
+      if (!s) {
+        added.push(nameById.get(id) ?? id);
+        continue;
+      }
+      const dist = Math.hypot(c.x - s.x, c.y - s.y);
+      if (dist > 1) {
+        moved.push({ station: nameById.get(id) ?? id, distance: round(dist) });
+      }
+    }
+    const removed: string[] = [];
+    for (const [id] of snapPos) {
+      if (!curPos.has(id)) removed.push(nameById.get(id) ?? id);
+    }
+    moved.sort((a, b) => b.distance - a.distance);
+
+    const footprintChanged =
+      round(snap.footprint.footprintW) !== round(cur.footprint.footprintW) ||
+      round(snap.footprint.footprintH) !== round(cur.footprint.footprintH) ||
+      snap.footprint.unit !== cur.footprint.unit ||
+      round(snap.footprint.gridSize) !== round(cur.footprint.gridSize);
+
+    return {
+      snapshotId: snap.id,
+      name: snap.name,
+      movedCount: moved.length,
+      addedCount: added.length,
+      removedCount: removed.length,
+      moved,
+      added,
+      removed,
+      footprintChanged,
+      connectorsDelta: cur.connectors.length - (snap.connectors?.length ?? 0),
+      assetsDelta: cur.assets.length - (snap.assets?.length ?? 0),
+      annotationsDelta:
+        cur.annotations.length - (snap.annotations?.length ?? 0),
+    };
   }
 
   /** Raw DXF (name + content) for rendering the background — fetched apart so

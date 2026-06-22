@@ -364,6 +364,20 @@ export class LineEngineeringController {
     return this.service.deleteSnapshot(model, revision ?? 'A', id);
   }
 
+  @Get('layout/snapshots/:id/diff')
+  @RequirePermissions('engineering:read')
+  @ApiOperation({
+    summary:
+      'Compara una versión guardada con el layout en vivo: movidas, altas, bajas y cambios.',
+  })
+  diffSnapshot(
+    @Param('id') id: string,
+    @Query('model') model: string,
+    @Query('revision') revision?: string,
+  ) {
+    return this.service.diffSnapshot(model, revision ?? 'A', id);
+  }
+
   @Get('stations/:id')
   @RequirePermissions('engineering:read')
   @ApiOperation({ summary: 'Detalle de una estación.' })
