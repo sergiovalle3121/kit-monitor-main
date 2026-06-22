@@ -259,13 +259,41 @@ export function buildDocx(docx: any, json: any, title: string): any {
       case 'bulletList': return listParas(node, 'bullet', 0);
       case 'orderedList': return listParas(node, 'ordered', 0, newOrderedRef((node.attrs?.listScheme || '') === 'doc-mlist'));
       case 'taskList': return listParas(node, 'task', 0);
-      case 'blockquote': return (node.content ?? []).map((p: any) => new Paragraph({ indent: { left: 480 }, children: inlineRuns(p.content).map((r: any) => r) }));
+      case 'blockquote': return (node.content ?? []).map((p: any) => new Paragraph({
+        indent: { left: 480 },
+        border: { left: { style: BorderStyle.SINGLE, size: 18, color: '9CA3AF', space: 12 } },
+        spacing: { before: 40, after: 40 },
+        children: inlineRuns(p.content).map((r: any) => r),
+      }));
       case 'codeBlock': return String((node.content ?? []).map((t: any) => t.text).join('')).split('\n').map((line) => new Paragraph({ children: [new TextRun({ text: line, font: 'Courier New' })] }));
       case 'horizontalRule': return [new Paragraph({ thematicBreak: true })];
       case 'pageBreak': return [new Paragraph({ children: [new PageBreak()] })];
       case 'columnBreak': return [new Paragraph({ children: [new PageBreak()] })];
       case 'mathBlock': return [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: node.attrs?.latex || '', italics: true })] })];
-      case 'callout': return (node.content ?? []).flatMap(blockToEls);
+      case 'callout': {
+        // Recuadro «tipo Word»: sombreado + borde del color del tono, en cada párrafo del
+        // bloque (borde superior/inferior solo en el primero/último para cerrar la caja).
+        const TONES: Record<string, { fill: string; color: string }> = {
+          neutral: { fill: 'F3F4F6', color: '9CA3AF' }, info: { fill: 'EFF6FF', color: '3B82F6' },
+          success: { fill: 'ECFDF5', color: '10B981' }, warning: { fill: 'FFFBEB', color: 'F59E0B' },
+          danger: { fill: 'FEF2F2', color: 'EF4444' }, error: { fill: 'FEF2F2', color: 'EF4444' },
+        };
+        const t = TONES[node.attrs?.tone as string] || TONES.neutral;
+        const kids: any[] = node.content ?? [];
+        const out: any[] = [];
+        kids.forEach((child: any, i: number) => {
+          if (child.type === 'paragraph' || child.type === 'heading') {
+            const edge = { style: BorderStyle.SINGLE, size: 4, color: t.color, space: 4 };
+            out.push(new Paragraph({
+              shading: { type: ShadingType.CLEAR, color: 'auto', fill: t.fill },
+              border: { left: { style: BorderStyle.SINGLE, size: 18, color: t.color, space: 10 }, top: i === 0 ? edge : undefined, bottom: i === kids.length - 1 ? edge : undefined },
+              spacing: { before: i === 0 ? 80 : 0, after: i === kids.length - 1 ? 80 : 0 },
+              children: inlineRuns(child.content),
+            }));
+          } else out.push(...blockToEls(child));
+        });
+        return out.length ? out : [new Paragraph({ shading: { type: ShadingType.CLEAR, color: 'auto', fill: t.fill }, children: [] })];
+      }
       case 'signatureLine': return [
         new Paragraph({ spacing: { before: 240 }, children: [new TextRun('________________________________')] }),
         new Paragraph({ children: [new TextRun({ text: node.attrs?.name || '', bold: true })] }),

@@ -1134,4 +1134,19 @@ celda contigua vía `setCellValue` (con respaldo al portapapeles).
 **Verificación:** nueva suite `autoSum.spec.ts` (**10 aserciones**: columna→debajo, fila→derecha,
 bloque, cruces de letra de columna Z/AA, rango inválido). `lint web` 0 errores; `build web` ✓.
 
+## 43. Office/Docs — citas con borde y llamadas (callouts) con recuadro de color en .docx
+
+**Contexto.** Al exportar a Word, las **citas** (`blockquote`) salían sólo con sangría y las
+**llamadas** (`callout`, con `tone` neutral/info/success/warning/danger) se **aplanaban** a
+párrafos sueltos, perdiendo su caja de color.
+
+**Decisión (sólo `apps/web`, aditiva):** `blockToEls` da a la cita un **borde izquierdo** gris
+(estilo Word) con su sangría; y a la llamada un **recuadro**: sombreado + borde del color del
+tono en cada párrafo (borde superior/inferior sólo en el primero/último para cerrar la caja),
+con una paleta tono→color (info `#EFF6FF`/`#3B82F6`, success, warning, danger…).
+
+**Verificación:** `docx.spec.ts` ampliado a **24 aserciones** (+3: `<w:pBdr>` de cita/llamada,
+sombreado `#EFF6FF` de la llamada «info», textos presentes). Round-trip 8/8; `lint web`
+0 errores; `build web` ✓.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->

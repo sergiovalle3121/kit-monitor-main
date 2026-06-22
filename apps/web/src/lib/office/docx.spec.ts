@@ -53,6 +53,8 @@ const json = {
       ] },
       { type: 'listItem', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Segundo' }] }] },
     ] },
+    { type: 'blockquote', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Una cita célebre.' }] }] },
+    { type: 'callout', attrs: { tone: 'info' }, content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Aviso importante.' }] }] },
   ],
 };
 
@@ -79,6 +81,11 @@ const json = {
   ok(/<w:numId\b/.test(xml) && /<w:ilvl\b/.test(xml), 'numId + nivel de lista presentes');
   ok(/Primero/.test(xml) && /Anidado/.test(xml) && /Segundo/.test(xml), 'los ítems de la lista están');
   ok(!/<w:t[^>]*>\s*1\.\s/.test(xml), 'no hay prefijo "1." como texto (lo pone Word)');
+
+  // Cita con borde izquierdo y llamada con recuadro de color (antes se aplanaban).
+  ok(/<w:pBdr>/.test(xml), 'la cita/llamada lleva borde de párrafo (<w:pBdr>)');
+  ok(/<w:shd[^>]*w:fill="EFF6FF"/i.test(xml), 'la llamada «info» lleva su sombreado (#EFF6FF)');
+  ok(/Una cita célebre/.test(xml) && /Aviso importante/.test(xml), 'el texto de cita y llamada está');
 
   const total = passed + fails.length;
   if (fails.length) { console.error(`\n❌ ${fails.length}/${total} fallos:\n` + fails.map((f) => '   • ' + f).join('\n')); process.exit(1); }
