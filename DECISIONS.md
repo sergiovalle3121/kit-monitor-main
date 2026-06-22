@@ -698,4 +698,67 @@ tests ✓. El smoke no cambia de superficie (sin tablas nuevas).
 persistir tarjetas del chat en el historial; permitir asociar un `resolver`
 existente a una métrica desde la UI (lista cerrada).
 
+## 26. Office/Sheets — motor de fórmulas robusto + fidelidad .xlsx (Fase 1)
+
+**Contexto.** El editor de hoja de cálculo (`SheetEditor.tsx`) usa
+`@fortune-sheet/react` (rejilla, MIT) + `xlsx`/SheetJS (I/O, Apache-2.0) y persiste
+JSON en `office_documents`. El gap de «no se siente Excel» estaba en (a) la
+correctitud del motor de fórmulas y (b) la fidelidad del round-trip .xlsx.
+
+**Verificación obligatoria (corrida contra el motor REAL, no de memoria):**
+- **V1 — cobertura de funciones.** La rejilla evalúa cada celda con
+  `@fortune-sheet/formula-parser@0.2.13`, que delega las funciones con nombre en
+  `@formulajs/formulajs@2.9.3` (451 funciones registradas). Auditando el motor real
+  (`formulaEngine.spec.ts`) salieron **dos huecos que duelen**: (1) el parser **no
+  tokeniza `TRUE`/`FALSE` sueltos** → `VLOOKUP(...;FALSE)`, `IF(TRUE;…)`,
+  `AND/OR/NOT(...)` fallan con `#NAME?` (sólo valían `TRUE()`/`FALSE()`); y (2)
+  faltan/rotas `XLOOKUP`, `TEXTJOIN`, `MAXIFS`/`MINIFS` y `TEXT(valor;formato)`
+  (lanza error). Además, `IFERROR` de formulajs **no atrapaba** los errores
+  aritméticos del parser (`1/0` → cadena `'DIV/0'`, no objeto error), rompiendo el
+  patrón EMS `=SI.ERROR(a/b;0)`.
+- **V2 — salud de mantenimiento de @fortune-sheet.** `@fortune-sheet/react` está en
+  **1.0.4** (última publicación ~nov-2024; ≈18 meses sin release a jun-2026). Snyk
+  reporta salud 90 % y **sin CVEs**; el motor `formula-parser` sigue clavado en
+  `formulajs` 2.9.3 (la 3.x ya trae XLOOKUP/TEXTJOIN/MAXIFS, pero el parser no las
+  expone). **Veredicto:** estancado pero **no abandonado** y **no pelea** con la
+  fidelidad .xlsx (SheetJS hace el I/O por su cuenta). → **No se cambia de librería
+  en esta fase** (la alternativa, Univer Sheets OSS core, tiene xlsx/print de pago).
+  Riesgo anotado aquí para que el owner decida un swap futuro con datos.
+- **V3 — round-trip .xlsx hoy.** `lib/office/xlsx.ts` ya mapeaba en ambos sentidos
+  valores tipados, **fórmulas** (`f`), **formato de número** (`z`), **combinaciones**
+  y **anchos de columna**. Faltaban **nombres definidos**, **altos de fila** y tests
+  de **varias hojas con referencias entre hojas**.
+
+**Decisión (Fase 1 — sólo `apps/web`, aditivo, sin tocar esquema ni docs/slides):**
+1. **Funciones registradas, sin reinventar el motor ni vendorizar.** El core importa
+   el `Parser` de `@fortune-sheet/formula-parser` como módulo **externo** (copia única
+   hoisteada). `components/office/sheets/formulaEngine.ts` parchea **una sola vez** el
+   `Parser.prototype` con los puntos de extensión propios de la librería:
+   - `parse` → normaliza `TRUE`/`FALSE` sueltos a `TRUE()`/`FALSE()` **fuera** de
+     literales de texto (toda fórmula —tecleada, cargada o importada— se beneficia).
+   - `getFunction` → resuelve `XLOOKUP`, `XMATCH`, `TEXTJOIN`, `MAXIFS`, `MINIFS`,
+     `TEXT` (este último vía el `formatNumber` ya probado) y unifica el manejo de
+     errores (`IFERROR`/`IFNA`/`ISERROR`/`ISERR`/`ISNA` atrapan tanto los objetos
+     `Error` de formulajs como las cadenas crudas del parser), cayendo al built-in si
+     no es nuestra. Parche idempotente y defensivo; se instala desde `SheetEditor`.
+2. **Round-trip .xlsx más fiel.** `xlsx.ts` ahora preserva **nombres definidos**
+   (`Workbook.Names` ↔ `NamedRange[]`, ref absoluta y entrecomillado de hoja) y
+   **altos de fila** (`config.rowlen` ↔ `ws['!rows']`), además de lo previo.
+   `exportSheets`/`importSheets` enhebran los nombres; `SheetActions` los pasa al
+   exportar y los conserva al importar.
+3. **No romper hojas guardadas.** Todo es aditivo: el shape de contenido
+   (`{sheets,charts,names,pivots}`) no cambia y `sheetsOf`/`namesOf` siguen aceptando
+   el array legacy. Las fórmulas que ya valían siguen igual; sólo se **añaden**
+   capacidades.
+
+**Verificación:** suite de specs de hoja **16/16** verde (incl. la nueva auditoría
+`formulaEngine.spec.ts` —67 aserciones: búsqueda, condicionales, texto, fecha,
+financieras, referencias **entre hojas** y errores— y el round-trip ampliado en
+`xlsx.spec.ts` —multi-hoja, fórmula entre hojas y nombres definidos). `lint web`
+0 errores; `build web` verde. Sin entidades nuevas; el smoke no cambia de superficie.
+
+**Roadmap (PRs aparte):** F2 interacciones Excel (autofill, inmovilizar, formato
+condicional, validación con listas); F3 pivotes/charts más profundos; F4 hojas
+ligadas en vivo (BOM desde maestro de materiales, validación desde AVL).
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
