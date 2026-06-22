@@ -17,7 +17,7 @@ import type { NotifKind, ResolvedNotification } from './_lib/types';
 
 const VIOLET = '#7c3aed';
 const GRAY = '#6b7280';
-const KINDS: NotifKind[] = ['andon', 'hold', 'approval', 'ncr'];
+const KINDS: NotifKind[] = ['andon', 'hold', 'approval', 'ncr', 'system'];
 
 function isToday(iso: string): boolean {
   const d = new Date(iso);
@@ -154,9 +154,10 @@ export default function NotificationsPage() {
             actualizan el feed al instante por el socket de planta; el resto se refresca cada 20 s.
           </p>
           <p className="mt-1">
-            <b className="text-gray-500 dark:text-gray-300">Estado de leído:</b> se guarda en este dispositivo
-            (localStorage). Un buzón por-usuario persistente en servidor y push real (web-push/PWA) requieren
-            backend nuevo — pendiente.
+            <b className="text-gray-500 dark:text-gray-300">Estado de leído:</b> los avisos del{' '}
+            <b className="text-gray-500 dark:text-gray-300">Buzón</b> usan estado de leído del servidor (se
+            sincroniza entre dispositivos); los eventos vivos del piso (andon/holds/…) lo guardan por
+            dispositivo (localStorage). El push real (web-push/PWA) sigue pendiente.
           </p>
         </div>
       </main>

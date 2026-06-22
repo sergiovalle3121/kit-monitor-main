@@ -5,13 +5,12 @@ import { useCallback, useMemo, useSyncExternalStore } from 'react';
 /**
  * Carril UI-NOTIF — estado de "leído" del centro de notificaciones.
  *
- * NOTA HONESTA DE ALCANCE: el backend no expone un buzón de notificaciones
- * por-usuario (no hay tabla de notificaciones con estado leído/no-leído ni
- * endpoint de "marcar leído" para andones/holds/NCRs). Mientras no exista ese
- * modelo de lectura en servidor, guardamos el estado de leído POR DISPOSITIVO
- * en localStorage. Es honesto y útil (no se pierde al refrescar y se sincroniza
- * entre pestañas), pero no se sincroniza entre dispositivos ni con la campanita
- * compartida del header.
+ * ALCANCE: el buzón persistente por-usuario YA existe en servidor
+ * (`/notifications`, con estado de leído real que se sincroniza entre
+ * dispositivos). Este store local cubre solo las fuentes DERIVADAS del centro
+ * (andon/holds/NCR…), que son eventos vivos del piso sin fila propia en el buzón:
+ * su estado de leído se guarda POR DISPOSITIVO en localStorage (no se pierde al
+ * refrescar y se sincroniza entre pestañas).
  *
  * Implementado con `useSyncExternalStore` (SSR-safe, sin parpadeo de hidratación
  * ni setState-en-effect). Migración futura: cuando exista un read-model por
