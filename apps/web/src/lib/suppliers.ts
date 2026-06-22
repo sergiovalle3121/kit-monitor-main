@@ -99,6 +99,21 @@ export interface SupplierKpis {
   expiringCerts: number; openScars: number;
 }
 
+/** SCAR del listado global `/suppliers/scars` (proveedor incrustado). */
+export interface ScarRow {
+  id: number;
+  scarNumber: string;
+  status: string;
+  severity: string;
+  partNumber: string;
+  lotNumber?: string | null;
+  issueSummary?: string | null;
+  quantityAffected?: number | null;
+  createdAt?: string | null;
+  closedAt?: string | null;
+  supplier?: { id: number; code: string; name: string } | null;
+}
+
 async function post<T>(path: string, body?: unknown): Promise<T> {
   const res = await apiFetch(`${API_BASE}${path}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -135,6 +150,34 @@ export const RISK_META: Record<string, { label: string; color: string }> = {
   MEDIUM: { label: 'Medio', color: '#f59e0b' },
   HIGH: { label: 'Alto', color: '#ef4444' },
 };
+export const TYPE_LABEL: Record<string, string> = {
+  COMPONENT: 'Componente',
+  CONTRACT: 'Maquila',
+  SERVICE: 'Servicio',
+  DISTRIBUTOR: 'Distribuidor',
+  RAW_MATERIAL: 'Materia prima',
+};
+/** Estados de un SCAR (8D de proveedor) — espejo de ScarStatus en el backend. */
+export const SCAR_STATUS_META: Record<string, { label: string; color: string; open: boolean }> = {
+  open: { label: 'Abierta', color: '#ef4444', open: true },
+  sent_to_supplier: { label: 'Enviada', color: '#f59e0b', open: true },
+  awaiting_response: { label: 'Esperando respuesta', color: '#f59e0b', open: true },
+  response_under_review: { label: 'En revisión', color: '#3b82f6', open: true },
+  action_accepted: { label: 'Acción aceptada', color: '#6366f1', open: true },
+  effectiveness_review: { label: 'Verificando eficacia', color: '#6366f1', open: true },
+  closed: { label: 'Cerrada', color: '#10b981', open: false },
+};
+export const SCAR_SEV_META: Record<string, { label: string; color: string }> = {
+  minor: { label: 'Menor', color: '#6b7280' },
+  major: { label: 'Mayor', color: '#f59e0b' },
+  critical: { label: 'Crítica', color: '#ef4444' },
+};
+export function ppmColor(p?: number | null): string {
+  if (p == null) return '#6b7280';
+  if (p > 100) return '#ef4444';
+  if (p > 50) return '#f59e0b';
+  return '#10b981';
+}
 export const CERT_META: Record<string, { label: string; color: string }> = {
   VALID: { label: 'Vigente', color: '#10b981' },
   EXPIRING: { label: 'Por vencer', color: '#f59e0b' },
