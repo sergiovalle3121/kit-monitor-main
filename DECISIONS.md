@@ -882,4 +882,26 @@ por el motor real: `SUM(VSTACK…)`, `COUNTA(TOCOL…)`, `INDEX(CHOOSEROWS…)`,
 **Roadmap:** F4 **spilling** real (derramar el rango `#` a celdas vecinas) — lo que vuelve
 estas matrices usables sueltas en una celda, no sólo anidadas.
 
+## 31. Office/Sheets — `LET` por preprocesado de cadena (Fase 4)
+
+**Contexto.** `LET(nombre1; valor1; …; cálculo)` es de las funciones estrella de Excel 365
+(nombra subexpresiones: legibilidad + sin recálculo). NO puede ser una función registrada
+porque el parser evalúa cada argumento ANTES de llamar a la función: `LET(x; 5; x+1)`
+intentaría evaluar `x+1` con `x` indefinido.
+
+**Decisión (Fase 4 — sólo `apps/web`, aditiva):** se implementa como **preprocesado de
+cadena** (misma técnica que la normalización de booleanos de §26): el nuevo `letExpand.ts`
+sustituye cada nombre por su expresión-valor —entre paréntesis— en los valores posteriores y
+en el cálculo, de izquierda a derecha. Se engancha en el parche de `parse`:
+`normalizeFormula(expandLet(expr))`, así el parser sólo ve la expresión ya resuelta. Robusto:
+respeta literales de texto, sólo sustituye identificadores COMPLETOS (no `xy` por `x`), no
+toca usos `nombre(` y soporta **`LET` anidado**; defensivo (sintaxis inválida → intacta).
+
+**Verificación:** nueva suite `letExpand.spec.ts` (**16 aserciones**: expansión pura +
+evaluación por el motor real — nombres encadenados, anidamiento, `LET` con `UNIQUE`, texto sin
+tocar, media `s/COUNT`). 18/18 suites de hoja verdes; `lint web` 0 errores; `build web` ✓.
+
+**Roadmap:** F5 **spilling** real del rango `#`; luego `LAMBDA`/`MAP`/`REDUCE` (requieren
+pasar funciones como valor — diseño aparte).
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->

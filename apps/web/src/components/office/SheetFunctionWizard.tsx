@@ -57,6 +57,7 @@ const CATEGORIES: { label: string; fns: Fn[] }[] = [
     { name: 'NOT', syntax: 'NOT(cond)', desc: 'Invierte un valor lógico.', args: [A('cond', 'Valor lógico.')] },
     { name: 'XOR', syntax: 'XOR(cond1; …)', desc: 'O exclusivo.', args: [A('cond1', 'Condición.')] },
     { name: 'SWITCH', syntax: 'SWITCH(expr; caso1; val1; …; [def])', desc: 'Compara una expresión con casos.', args: [A('expr', 'Expresión.'), A('caso1', 'Valor a comparar.'), A('val1', 'Resultado.')] },
+    { name: 'LET', syntax: 'LET(nombre1; valor1; …; cálculo)', desc: 'Define nombres locales y los usa en el cálculo final (evita repetir subexpresiones).', args: [A('nombre1', 'Nombre de la variable.'), A('valor1', 'Valor o expresión que nombra.'), A('cálculo', 'Expresión final que usa los nombres.')] },
   ] },
   { label: 'Texto', fns: [
     { name: 'CONCATENATE', syntax: 'CONCATENATE(texto1; …)', desc: 'Une textos.', args: [A('texto1', 'Texto o referencia.')] },
