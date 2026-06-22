@@ -61,6 +61,11 @@ const json = {
       { type: 'text', text: ' y ' },
       { type: 'text', marks: [{ type: 'deletion', attrs: { author: 'Luis', date: 1700000000000 } }], text: 'borrado' },
     ] },
+    { type: 'paragraph', content: [
+      { type: 'text', text: 'Frase con ' },
+      { type: 'text', marks: [{ type: 'comment', attrs: { commentId: 'c1', author: 'Marta', text: 'Revisar esto', createdAt: 1700000000000, replies: [{ author: 'Ana', text: 'De acuerdo' }] } }], text: 'parte comentada' },
+      { type: 'text', text: ' final.' },
+    ] },
   ],
 };
 
@@ -97,6 +102,14 @@ const json = {
   ok(/<w:ins\b[^>]*w:author="Ana"/.test(xml), 'la inserción es una revisión <w:ins> de Ana');
   ok(/<w:del\b[^>]*w:author="Luis"/.test(xml), 'la eliminación es una revisión <w:del> de Luis');
   ok(/<w:delText/.test(xml), 'el texto borrado usa <w:delText>');
+
+  // Comentarios → comentarios REALES de Word (word/comments.xml + rango en el cuerpo).
+  ok(!!zip.file('word/comments.xml'), 'se genera word/comments.xml');
+  ok(/<w:commentRangeStart/.test(xml) && /<w:commentRangeEnd/.test(xml), 'el cuerpo marca el rango del comentario');
+  ok(/<w:commentReference/.test(xml), 'el cuerpo lleva la referencia del comentario');
+  const commentsXml = await zip.file('word/comments.xml')!.async('string');
+  ok(/w:author="Marta"/.test(commentsXml) && /Revisar esto/.test(commentsXml), 'el comentario es de Marta con su texto');
+  ok(/De acuerdo/.test(commentsXml), 'la respuesta del hilo se incluye');
 
   const total = passed + fails.length;
   if (fails.length) { console.error(`\n❌ ${fails.length}/${total} fallos:\n` + fails.map((f) => '   • ' + f).join('\n')); process.exit(1); }
