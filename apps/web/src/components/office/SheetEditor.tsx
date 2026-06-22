@@ -5,7 +5,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence } from 'framer-motion';
 import { Workbook } from '@fortune-sheet/react';
 import '@fortune-sheet/react/dist/index.css';
-import { ListChecks, Palette, Snowflake, FileText, Sigma, Search, ArrowDownUp, CopyMinus, Columns3, StickyNote, Table2, Hash, Rows3, Activity, ArrowDownToLine, FlipVertical2, Tag, Printer, ClipboardPaste, Filter, RefreshCw, LayoutGrid, Sparkles } from 'lucide-react';
+import { ListChecks, Palette, Snowflake, FileText, Sigma, Search, ArrowDownUp, CopyMinus, Columns3, StickyNote, Table2, Hash, Rows3, Activity, ArrowDownToLine, FlipVertical2, Tag, Printer, ClipboardPaste, Filter, RefreshCw, LayoutGrid, Sparkles, Target } from 'lucide-react';
 import { SheetCharts } from './SheetCharts';
 import { SheetTools, type ValidationPayload } from './SheetTools';
 import { SheetFunctionWizard } from './SheetFunctionWizard';
@@ -21,6 +21,8 @@ import { applyConditional, sortRangeMulti, removeDuplicates, textToColumns, setC
 import { normalizeCellInput } from './sheets/sheetFormula';
 import { installFormulaEngine } from './sheets/formulaEngine';
 import { applySpill } from './sheets/arraySpill';
+import { goalSeek } from './sheets/goalSeek';
+import { SheetGoalSeek, type GoalSeekPayload } from './SheetGoalSeek';
 import { OfficeRibbon, RibbonTab, RibbonGroup, RibbonSeparator, RibbonButton, RibbonMenuButton } from './ribbon';
 import { useToast } from '@/contexts/ToastContext';
 
@@ -71,6 +73,7 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
   const [showPivot, setShowPivot] = useState(false);
   const [showTable, setShowTable] = useState(false);
   const [showFormat, setShowFormat] = useState(false);
+  const [showGoalSeek, setShowGoalSeek] = useState(false);
   const [, setTick] = useState(0);
   const refreshT = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onChangeRef = useRef(onChange);
@@ -326,6 +329,20 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
     window.setTimeout(() => toast.success(`Matriz derramada en ${res.rows}×${res.cols} celdas desde ${cell}.`), 30);
   }
 
+  // Buscar objetivo (Goal Seek): resuelve el valor de la celda variable que hace que la
+  // fórmula alcance el objetivo, y lo escribe en la hoja.
+  function doGoalSeek(p: GoalSeekPayload): { ok: boolean; text: string } {
+    const tgt = Number(p.target.replace(',', '.'));
+    if (!Number.isFinite(tgt)) return { ok: false, text: 'El valor objetivo debe ser un número.' };
+    const sheets = clone(sheetsRef.current);
+    const sheet = sheets[activeIndex()] ?? sheets[0];
+    if (!sheet) return { ok: false, text: 'No hay hoja activa.' };
+    const res = goalSeek(sheet, p.formulaCell, tgt, p.variableCell);
+    if (!res.ok) return { ok: false, text: res.error || 'No se encontró solución.' };
+    remount(sheets);
+    return { ok: true, text: `${p.variableCell} = ${res.value} hace que ${p.formulaCell} ≈ ${res.result} (${res.iterations} iteraciones).` };
+  }
+
   // Rango A1 de la selección actual del grid (para prefijar diálogos de formato).
   function selectionRange(): string {
     try {
@@ -420,6 +437,10 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
               <RibbonButton icon={Rows3} label="Subtotales" onClick={() => setDataMode('subtotal')} />
             </RibbonGroup>
             <RibbonSeparator />
+            <RibbonGroup label="Análisis de hipótesis">
+              <RibbonButton icon={Target} label="Buscar objetivo" hideLabel={false} onClick={() => setShowGoalSeek(true)} />
+            </RibbonGroup>
+            <RibbonSeparator />
             <RibbonGroup label="Rellenar y transponer">
               <RibbonButton icon={ArrowDownToLine} label="Rellenar serie" onClick={() => setDataMode('fill')} />
               <RibbonButton icon={FlipVertical2} label="Transponer" onClick={() => setDataMode('transpose')} />
@@ -511,6 +532,9 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
           <SheetDataDialog mode={dataMode} sheetNames={sheetNames()} onApply={applyData} onClose={() => setDataMode(null)} />
         )}
         {showWizard && <SheetFunctionWizard onInsert={insertFunction} onClose={() => setShowWizard(false)} />}
+        {showGoalSeek && (
+          <SheetGoalSeek defaultFormulaCell={selectionRange().split(':')[0]} onApply={doGoalSeek} onClose={() => setShowGoalSeek(false)} />
+        )}
         {showPivot && (
           <SheetPivot
             sheets={sheetsRef.current}
