@@ -1249,4 +1249,25 @@ la API faltara.
 `TOC` real —`<w:instrText>… TOC …</w:instrText>`—). Round-trip 8/8; `lint web` 0 errores;
 `build web` ✓.
 
+## 50. Office/Sheets — referencias estructuradas de tabla (`Tabla[Columna]`)
+
+**Contexto.** Las referencias estructuradas (`=SUM(Ventas[Importe])`) son una función emblemática
+de Excel que faltaba; la fórmula apunta a una **tabla con nombre** por el nombre de su columna en
+vez de por coordenadas, y se mantiene aunque la tabla crezca.
+
+**Decisión (sólo `apps/web`, aditiva):** como `LET` (§31), se resuelven por **preprocesado de
+cadena**. `components/office/sheets/tableRefs.ts` expone `expandStructuredRefs(formula, tablas)`
+(sustituye `Nombre[…]` por su rango A1 calificado con la hoja) y un **registro global**
+(`setTableRegistry`). Soporta `T[Col]`, `T[]`/`T[#Datos]`, `T[#Encabezados]`, `T[#Todo]` y la
+forma con dobles corchetes. Se engancha en el parche de `parse`:
+`normalizeFormula(expandLet(expandStructuredRefs(expr)))`. `SheetEditor` mantiene el registro:
+al **dar formato como tabla** (con encabezado) se crea una tabla con nombre `TablaN` (rango +
+cabeceras leídas de la fila superior), persistida en el contenido (`tables`, hilado en `emit`) y
+publicada con `rebuildTableRegistry` al montar y al crearla.
+
+**Verificación:** nueva suite `tableRefs.spec.ts` (**13 aserciones**: expansión pura —columna,
+`#Encabezados`, `#Todo`, `[]`, dobles corchetes, respeto de comillas/identificadores— y motor
+REAL: `SUM(Ventas[Importe])`=600, `AVERAGE`, `SUMIF` con dos columnas de tabla, `MAX`). 26 suites
+de hoja verdes; `lint web` 0 errores; `build web` ✓.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->

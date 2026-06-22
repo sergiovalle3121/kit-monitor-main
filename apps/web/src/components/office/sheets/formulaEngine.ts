@@ -35,6 +35,7 @@ import { Parser } from '@fortune-sheet/formula-parser';
 import { formatNumber } from '@/lib/office/sheetOps';
 import { MODERN_FUNCTIONS } from './modernFunctions';
 import { expandLet } from './letExpand';
+import { expandStructuredRefs } from './tableRefs';
 
 // ── Utilidades de coerción / aplanado de argumentos ──────────────────────────
 // Las funciones reciben `params`: un array donde cada argumento ya viene evaluado.
@@ -316,9 +317,9 @@ export function installFormulaEngine(): void {
   if (!proto.__axosParsePatched && typeof proto.parse === 'function') {
     const origParse = proto.parse;
     proto.parse = function patchedParse(expression: any, options: any) {
-      // Preprocesa la cadena: primero expande LET (nombres locales → su valor), luego normaliza
-      // los booleanos sueltos. El parser sólo ve la expresión ya resuelta.
-      return origParse.call(this, typeof expression === 'string' ? normalizeFormula(expandLet(expression)) : expression, options);
+      // Preprocesa la cadena: 1) referencias estructuradas `Tabla[Col]` → rangos; 2) LET (nombres
+      // locales → su valor); 3) normaliza los booleanos sueltos. El parser sólo ve lo ya resuelto.
+      return origParse.call(this, typeof expression === 'string' ? normalizeFormula(expandLet(expandStructuredRefs(expression))) : expression, options);
     };
     proto.__axosParsePatched = true;
   }

@@ -32,6 +32,7 @@ import { solve, type SolverVar } from './sheets/solver';
 import { SheetSolver, type SolverPayload } from './SheetSolver';
 import { consolidateByPosition, consolidateByCategory } from './sheets/consolidate';
 import { SheetConsolidate, type ConsolidatePayload } from './SheetConsolidate';
+import { setTableRegistry, type TableDef } from './sheets/tableRefs';
 import { OfficeRibbon, RibbonTab, RibbonGroup, RibbonSeparator, RibbonButton, RibbonMenuButton } from './ribbon';
 import { useToast } from '@/contexts/ToastContext';
 
@@ -53,6 +54,10 @@ function pivotsOf(v: any): StoredPivot[] {
 }
 function scenariosOf(v: any): Scenario[] {
   return v && Array.isArray(v.scenarios) ? v.scenarios : [];
+}
+type StoredTable = { name: string; sheetIndex: number; range: string };
+function tablesOf(v: any): StoredTable[] {
+  return v && Array.isArray(v.tables) ? v.tables : [];
 }
 const DEFAULT_SHEET = { name: 'Hoja 1', celldata: [], order: 0, row: 100, column: 30, config: {} };
 const clone = (x: any) => JSON.parse(JSON.stringify(x));
@@ -78,6 +83,7 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
   const pivotsRef = useRef<StoredPivot[]>(pivotsOf(value));
   const scenariosRef = useRef<Scenario[]>(scenariosOf(value));
   const [scenarios, setScenarios] = useState<Scenario[]>(scenariosRef.current);
+  const tablesRef = useRef<StoredTable[]>(tablesOf(value));
   const [showScenarios, setShowScenarios] = useState(false);
   const [showNames, setShowNames] = useState(false);
   const [showPrint, setShowPrint] = useState(false);
@@ -149,8 +155,27 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
   }, []);
 
   const emit = useCallback(() => {
-    onChangeRef.current({ sheets: sheetsRef.current, charts: chartsRef.current, names: namesRef.current, pivots: pivotsRef.current, scenarios: scenariosRef.current });
+    onChangeRef.current({ sheets: sheetsRef.current, charts: chartsRef.current, names: namesRef.current, pivots: pivotsRef.current, scenarios: scenariosRef.current, tables: tablesRef.current });
   }, []);
+
+  // Registro de tablas con nombre para las referencias estructuradas `Tabla[Columna]`. Se
+  // resuelve a TableDef[] (con nombre de hoja, rango y cabeceras leídas de la fila superior) y se
+  // publica en el motor (registro global que consulta el parche del parser).
+  function rebuildTableRegistry() {
+    const sheets = sheetsRef.current;
+    const defs: TableDef[] = [];
+    for (const t of tablesRef.current) {
+      const sheet = sheets[t.sheetIndex]; if (!sheet) continue;
+      const rng = parseRange(t.range); if (!rng) continue;
+      const map = new Map<string, any>((sheet.celldata ?? []).map((cd: any) => [`${cd.r}_${cd.c}`, cd]));
+      const headers: string[] = [];
+      for (let c = rng.c1; c <= rng.c2; c++) { const cd = map.get(`${rng.r1}_${c}`); const raw = cd?.v && typeof cd.v === 'object' ? (cd.v.v ?? cd.v.m) : cd?.v; headers.push(String(raw ?? '')); }
+      defs.push({ name: t.name, sheetName: sheet.name || `Hoja ${t.sheetIndex + 1}`, r1: rng.r1, c1: rng.c1, r2: rng.r2, c2: rng.c2, headers });
+    }
+    setTableRegistry(defs);
+  }
+  // Publica el registro al montar (y cuando se recarga el documento).
+  useEffect(() => { rebuildTableRegistry(); }, []);
 
   // Entrada de celda estilo Excel para lo que se TECLEA directamente en la rejilla.
   // Fortune-Sheet sólo evalúa lo que empieza por «=»; aquí puenteamos el atajo Lotus
@@ -544,8 +569,16 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
     if (!sheet) { setShowTable(false); return; }
     const n = applyTableStyle(sheet, opts);
     setShowTable(false);
+    // Tabla con nombre → referencias estructuradas `TablaN[Columna]` (sólo si tiene encabezado).
+    let created = '';
+    if (n && opts.hasHeader !== false && parseRange(opts.range)) {
+      created = `Tabla${tablesRef.current.length + 1}`;
+      tablesRef.current = [...tablesRef.current, { name: created, sheetIndex, range: opts.range }];
+      rebuildTableRegistry();
+    }
     remount(sheets);
     if (!n) window.setTimeout(() => toast.error('Rango inválido para la tabla.'), 30);
+    else if (created) window.setTimeout(() => toast.success(`Tabla creada: ${created} — usa ${created}[Columna] en fórmulas.`), 30);
   }
 
   function applyPivot(cfg: PivotConfig, target: { mode: 'new' | 'cell'; cell?: string }) {
