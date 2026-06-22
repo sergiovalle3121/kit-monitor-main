@@ -1576,7 +1576,7 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
           ))}
           <span className="text-gray-500 ml-auto">
             {heatData
-              ? `Cuello: ${heatData.bottleneckStation ?? '—'} · ciclo ${heatData.lineCycleTimeSec}s · balance ${Math.round(heatData.balancePct * 100)}%${heatData.taktSec > 0 ? ` · takt ${heatData.taktSec}s` : ' · sin takt (carga relativa)'}`
+              ? `Cuello: ${heatData.bottleneckStation ?? '—'} · ciclo ${heatData.lineCycleTimeSec}s · balance ${Math.round(heatData.balancePct * 100)}%${heatData.taktSec > 0 ? ` · takt ${heatData.taktSec}s · ${heatData.stations.reduce((a, s) => a + Math.max(1, Math.ceil(s.utilizationPct / 100)), 0)} operadores` : ' · sin takt (carga relativa)'}`
               : 'cargando…'}
           </span>
         </div>

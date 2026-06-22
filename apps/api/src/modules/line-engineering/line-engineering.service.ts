@@ -46,6 +46,7 @@ import {
 import { flowAnalysis, FlowAnalysis } from './line-flow';
 import { layoutCollisions, CollisionResult, RectBox } from './line-collision';
 import { autoArrange, ArrangedPosition } from './line-autoarrange';
+import { staffingPlan, StaffingResult, StationStaffing } from './line-staffing';
 
 /** One station's material/work requirement for a unit of a model — the bridge
  * that Material Staging (C) and the Operator Terminal (D) consume. */
@@ -1015,6 +1016,55 @@ export class LineEngineeringService {
       stations: heat.stations.map((h) => ({
         ...h,
         line: lineByStation.get(h.station) ?? '',
+      })),
+    };
+  }
+
+  /**
+   * Manning / staffing estimate (Fase 16): how many operators each station and
+   * the whole line need to hold takt. A station whose cycle exceeds takt needs
+   * parallel operators (⌈cycle/takt⌉). Read-only; reuses the routing on file.
+   */
+  async getStaffing(params: {
+    model: string;
+    revision?: string;
+    availableTimeSec?: number;
+    demandUnits?: number;
+    taktTargetSec?: number;
+  }): Promise<
+    StaffingResult & {
+      model: string;
+      revision: string;
+      stations: (StationStaffing & { line: string })[];
+    }
+  > {
+    const revision = params.revision ?? 'A';
+    const route = await this.routing(params.model, revision);
+    if (route.length === 0) {
+      throw new NotFoundException(
+        `Sin ruteo para ${params.model} rev ${revision}.`,
+      );
+    }
+    const takt =
+      params.taktTargetSec && params.taktTargetSec > 0
+        ? params.taktTargetSec
+        : computeTaktSec(params.availableTimeSec ?? 0, params.demandUnits ?? 0);
+    const plan = staffingPlan(
+      route.map((s) => ({
+        station: s.station,
+        sequence: s.sequence,
+        stdTimeSec: Number(s.stdTimeSec),
+      })),
+      takt,
+    );
+    const lineByStation = new Map(route.map((s) => [s.station, s.line]));
+    return {
+      ...plan,
+      model: params.model,
+      revision,
+      stations: plan.stations.map((s) => ({
+        ...s,
+        line: lineByStation.get(s.station) ?? '',
       })),
     };
   }

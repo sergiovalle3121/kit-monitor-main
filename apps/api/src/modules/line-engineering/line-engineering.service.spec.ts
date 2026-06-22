@@ -150,6 +150,30 @@ describe('LineEngineeringService (integration)', () => {
     expect(byName.get('EST-10')?.loadPct).toBeCloseTo(72.7, 0);
   });
 
+  it('estimates line staffing at a takt (Fase 16)', async () => {
+    await seedRoute(); // EST-10 40s, EST-20 55s, EST-30 30s
+    // At 60s takt every cycle fits → one operator each.
+    const easy = await service.getStaffing({
+      model: 'AX-1000',
+      taktTargetSec: 60,
+    });
+    expect(easy.totalOperators).toBe(3);
+    expect(easy.stations.find((s) => s.station === 'EST-20')).toMatchObject({
+      operators: 1,
+      line: 'SMT-1',
+    });
+
+    // Tight 25s takt → EST-10 ⌈40/25⌉=2, EST-20 ⌈55/25⌉=3, EST-30 ⌈30/25⌉=2 = 7.
+    const tight = await service.getStaffing({
+      model: 'AX-1000',
+      taktTargetSec: 25,
+    });
+    expect(tight.totalOperators).toBe(7);
+    expect(tight.stations.find((s) => s.station === 'EST-20')?.operators).toBe(
+      3,
+    );
+  });
+
   it('computes capacity/load including changeover', async () => {
     await seedRoute();
     await service.qualify({
