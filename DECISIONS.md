@@ -1085,4 +1085,23 @@ la variable directamente o vía celdas de valor (el caso habitual).
 → |4|; interés compuesto → 1000; con celda de valor → 25; ya-en-objetivo 0 iteraciones; errores).
 `lint web` 0 errores; `build web` ✓.
 
+## 40. Office/Docs — Combinar correspondencia (Mail Merge)
+
+**Contexto.** «Combinar correspondencia» (plantilla + tabla de datos → un documento por
+registro) es una función emblemática de Word que faltaba. La transformación es PURA sobre el
+JSON de TipTap, así que se verifica entera sin navegador.
+
+**Decisión (sólo `apps/web`, aditiva):** `components/office/docs/mailMerge.ts` con
+`parseDelimited` (CSV/TSV con comillas y comillas escapadas, autodetección de delimitador),
+`findMergeFields` (campos `{{campo}}` únicos en orden), `mergeDoc` (sustituye campos en una
+COPIA, sin mutar la plantilla; campo ausente conserva el marcador) y `mailMergeDocs` (combina
+todos los registros con saltos de página). UI: diálogo `DocMailMerge` en la cinta (Insertar →
+«Correspondencia») para insertar campos, pegar los datos y **descargar el .docx combinado**
+(reutiliza `exportDocx`).
+
+**Verificación:** nueva suite `mailMerge.spec.ts` (**16 aserciones**: CSV con comas
+entrecomilladas, TSV, comillas escapadas; campos únicos; sustitución múltiple/repetida sin
+mutar; combinado de 2 registros con salto de página; sin marcadores residuales). `lint web`
+0 errores; `build web` ✓.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
