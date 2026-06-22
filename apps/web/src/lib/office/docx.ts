@@ -401,9 +401,32 @@ export async function exportDocx(json: any, title: string) {
   download(await (docx as any).Packer.toBlob(doc), `${safe(title)}.docx`);
 }
 
-export async function importDocx(file: File): Promise<string> {
+// Mapa de estilos de Word → HTML semántico que TipTap entiende. Mammoth ya mapea
+// Heading 1–6, negrita, cursiva, listas y tablas; aquí añadimos los estilos con NOMBRE
+// que de otro modo se aplanarían a un párrafo suelto (Título, Subtítulo, Cita, etc.).
+const DOCX_STYLE_MAP = [
+  "p[style-name='Title'] => h1:fresh",
+  "p[style-name='Título'] => h1:fresh",
+  "p[style-name='Subtitle'] => h2:fresh",
+  "p[style-name='Subtítulo'] => h2:fresh",
+  "p[style-name='Quote'] => blockquote:fresh",
+  "p[style-name='Cita'] => blockquote:fresh",
+  "p[style-name='Intense Quote'] => blockquote:fresh",
+  "p[style-name='Caption'] => p.doc-caption:fresh",
+  "p[style-name='List Paragraph'] => p:fresh",
+  "r[style-name='Strong'] => strong",
+  "r[style-name='Emphasis'] => em",
+];
+
+/** Convierte los bytes de un .docx a HTML (mammoth + style map). Núcleo testeable sin DOM. */
+export async function importDocxBuffer(arrayBuffer: ArrayBuffer): Promise<string> {
   const mammoth: any = await import('mammoth');
-  const arrayBuffer = await file.arrayBuffer();
-  const result = await mammoth.convertToHtml({ arrayBuffer });
+  // En el navegador mammoth toma `{ arrayBuffer }`; en Node (tests/SSR) toma `{ buffer }`.
+  const input = typeof window === 'undefined' ? { buffer: Buffer.from(arrayBuffer) } : { arrayBuffer };
+  const result = await mammoth.convertToHtml(input, { styleMap: DOCX_STYLE_MAP });
   return result?.value || '<p></p>';
+}
+
+export async function importDocx(file: File): Promise<string> {
+  return importDocxBuffer(await file.arrayBuffer());
 }
