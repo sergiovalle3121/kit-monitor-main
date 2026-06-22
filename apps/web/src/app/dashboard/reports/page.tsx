@@ -79,10 +79,11 @@ export default function ReportsHubPage() {
             <div className="flex items-start gap-2.5">
               <ServerCog className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
               <p className="text-[13px] text-gray-600 dark:text-gray-300">
-                <span className="font-semibold">REQUIERE BACKEND:</span> folios oficiales, firma
-                electrónica y registro inmutable no existen aún. Los documentos salen como{" "}
-                <span className="font-medium">BORRADOR</span> con número de control en cliente, y lo
-                indican expresamente.
+                <span className="font-semibold">Folio oficial:</span> el Certificado de Conformancia ya
+                puede <span className="font-medium">emitir un folio oficial</span> (servicio de
+                numeración, COC-). Hasta emitirlo, el documento sale como{" "}
+                <span className="font-medium">BORRADOR</span>. La firma electrónica y el registro
+                inmutable en el ledger siguen pendientes.
               </p>
             </div>
           </div>
