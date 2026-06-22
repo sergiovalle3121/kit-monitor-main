@@ -1,10 +1,16 @@
 /**
- * Model pricing + cost estimation for usage metering.
+ * CIDE model catalog + cost estimation for usage metering.
  *
- * Prices are USD per 1,000,000 tokens. cacheRead/cacheWrite mirror Anthropic's
- * prompt-caching multipliers (~0.1x input for reads, ~1.25x input for 5-min
- * writes). These figures drive the per-tenant budget and the admin usage view;
- * they are estimates for cost attribution, not an invoice.
+ * CIDE runs on a **self-hosted, open-weight** model served through an
+ * OpenAI-compatible endpoint (Ollama / vLLM / llama.cpp) that the operator
+ * controls — no external AI provider, no per-token billing. Because inference
+ * runs on your own infrastructure, the marginal **cost per token is $0**; the
+ * prices below are therefore zero. Token counts are still metered (in
+ * `ai_usage_log`) as a capacity/usage signal and to drive the monthly usage
+ * guardrail, not an invoice.
+ *
+ * All default models are **Apache-2.0** licensed (Qwen2.5 / Mistral), which
+ * satisfies the repo's permissive-only policy (see THIRD_PARTY_NOTICES.md).
  */
 export interface ModelPrice {
   input: number;
@@ -13,23 +19,27 @@ export interface ModelPrice {
   cacheWrite: number;
 }
 
+/** USD per 1,000,000 tokens. Self-hosted ⇒ $0; kept for the metering interface. */
+const FREE: ModelPrice = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
+
+/**
+ * Open-weight models CIDE can run. Keys are the model tags passed straight to
+ * the inference engine (e.g. an Ollama tag or a vLLM `--served-model-name`).
+ * Keep every entry permissively licensed (Apache-2.0 / MIT / BSD).
+ */
 export const MODEL_PRICES: Record<string, ModelPrice> = {
-  'claude-opus-4-8': { input: 5, output: 25, cacheRead: 0.5, cacheWrite: 6.25 },
-  'claude-opus-4-7': { input: 5, output: 25, cacheRead: 0.5, cacheWrite: 6.25 },
-  'claude-opus-4-6': { input: 5, output: 25, cacheRead: 0.5, cacheWrite: 6.25 },
-  'claude-sonnet-4-6': {
-    input: 3,
-    output: 15,
-    cacheRead: 0.3,
-    cacheWrite: 3.75,
-  },
-  'claude-haiku-4-5': { input: 1, output: 5, cacheRead: 0.1, cacheWrite: 1.25 },
+  // Qwen2.5 Instruct — Apache-2.0. Strong tool-use + excellent Spanish.
+  'qwen2.5:7b': FREE, // default: runs on CPU or a small GPU
+  'qwen2.5:14b': FREE, // stronger reasoning, needs a GPU
+  'qwen2.5:32b': FREE, // escalation tier, heavy reasoning (GPU)
+  // Mistral 7B Instruct — Apache-2.0. Lightweight alternative.
+  'mistral:7b': FREE,
 };
 
-/** Cheap default for routine grounded queries (user-directed cost control). */
-export const DEFAULT_MODEL = 'claude-haiku-4-5';
-/** High-capability tier for hard reasoning, used on demand. */
-export const ESCALATION_MODEL = 'claude-opus-4-8';
+/** Cheap, CPU-capable default for routine grounded queries. */
+export const DEFAULT_MODEL = 'qwen2.5:7b';
+/** High-capability tier for hard reasoning, used on demand (GPU recommended). */
+export const ESCALATION_MODEL = 'qwen2.5:32b';
 export const ALLOWED_MODELS = Object.keys(MODEL_PRICES);
 
 export interface TokenUsage {
@@ -48,6 +58,11 @@ export function emptyUsage(): TokenUsage {
   };
 }
 
+/**
+ * Estimated USD cost of a turn. Self-hosted inference is $0/token, so this is
+ * 0 by design; the function is retained so the metering pipeline (and the admin
+ * usage view) keep a stable shape if a paid model is ever wired in.
+ */
 export function estimateCostUsd(model: string, u: TokenUsage): number {
   const p = MODEL_PRICES[model] ?? MODEL_PRICES[DEFAULT_MODEL];
   return (
@@ -59,7 +74,7 @@ export function estimateCostUsd(model: string, u: TokenUsage): number {
   );
 }
 
-/** Total tokens that count against a tenant's monthly budget. */
+/** Total tokens that count against a tenant's monthly usage guardrail. */
 export function billableTokens(u: TokenUsage): number {
   return (
     u.inputTokens + u.outputTokens + u.cacheReadTokens + u.cacheWriteTokens

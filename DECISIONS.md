@@ -333,4 +333,53 @@ repos `provideTenantScopedRepository`, eventos al Event Ledger, máquina de esta
 pura + spec. Migración aditiva idempotente (`hasTable`). Puerta obligatoria: smoke de
 bootstrap contra Postgres (atrapa colisiones de tabla/FK/DI).
 
+## 16. CIDE — IA propia self-hosted (reemplaza Anthropic Claude + agente DeepSeek)
+
+**Contexto.** El asistente de la app ("Axos Copilot") dependía de **Anthropic
+Claude** por API: una llave de plataforma (`ANTHROPIC_API_KEY`) y/o una llave
+**BYO** por organización (la cuenta Claude del dueño), facturadas por token. En
+paralelo existía un **agente DeepSeek** de desarrollo (GitHub Action
+`/deepseek` → PR) que llamaba a la API de DeepSeek. Objetivo del salto: que Axos
+OS tenga su **propia IA**, llamada **CIDE** (Cognitive Intelligence & Decision
+Engine), sobre un modelo **open-source** que corre en infraestructura propia, sin
+proveedor externo y con control total del dato.
+
+**Decisión.**
+- **Proveedor desacoplado y self-hosted.** Nuevo `cide-provider.ts`: cliente
+  **compatible-OpenAI** basado en `fetch` nativo (sin dependencias nuevas) que
+  habla con un motor de inferencia que el operador controla (Ollama por defecto;
+  vLLM/llama.cpp/TGI intercambiables). Cambiar de motor = cambiar
+  `CIDE_BASE_URL`; **cero cambios de código**.
+- **Modelos open-source permisivos.** Catálogo en `ai-pricing.ts` = **Qwen2.5**
+  (`7b`/`14b`/`32b`) y **Mistral 7B**, todos **Apache-2.0** (cumple
+  THIRD_PARTY_NOTICES). Default `qwen2.5:7b` (corre en CPU). Costo por token =
+  **$0** (cómputo propio); el "presupuesto mensual" pasa a ser **guardia de
+  capacidad**, no de gasto.
+- **Se elimina la dependencia de cuentas personales.** Fuera el SDK
+  `@anthropic-ai/sdk`, la llave BYO (UI + cifrado `ai-crypto.ts`) y
+  `ANTHROPIC_API_KEY`. Las columnas `byo*` de `ai_tenant_config` se **conservan
+  sin usar** (regla aditiva §2; no se hace DROP).
+- **Se elimina el agente DeepSeek.** Borrados `.github/workflows/deepseek-agent.yml`,
+  `.github/scripts/deepseek_agent.py` y `requirements.txt`. El secret
+  `DEEPSEEK_API_KEY` queda obsoleto (puede retirarse de GitHub).
+- **Semilla analítica (tipo Palantir/MicroStrategy).** CIDE deja de ser solo
+  lookup: nuevas herramientas read-only sobre el **Event Ledger** —
+  `operations_pulse` (agregación de actividad por dominio/acción/línea en una
+  ventana) y `ledger_trace` (trazabilidad cuna-a-tumba por WO o entidad)— vía el
+  nuevo `EventLedgerService.summarizeActivity()`. Todo sigue filtrado por RBAC.
+- **Infra incluida.** `infra/cide/docker-compose.yml` levanta Ollama
+  (compatible-OpenAI en `:11434/v1`); los **pesos se descargan en el deploy**, no
+  se commitean a git.
+
+**Variables nuevas:** `CIDE_BASE_URL` (default `http://localhost:11434/v1`),
+`CIDE_API_KEY` (opcional). Se retiran `ANTHROPIC_API_KEY` y `AI_KEY_SECRET`.
+
+**Verificación:** build API ✓, build web ✓, lint web ✓, **668/668** pruebas
+unitarias del API ✓.
+
+**Pendiente (fases siguientes del salto):** capa semántica/ontología y catálogo
+de métricas versionadas sobre el ledger; analítica conversacional con
+tablas/gráficas y narrativa; workbench exploratorio; *what-if* / simulación
+ligados a `decision-intelligence` + `autopilot`.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->

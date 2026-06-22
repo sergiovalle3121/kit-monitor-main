@@ -6,7 +6,7 @@ import { WorkspaceProvider } from "@/contexts/WorkspaceContext";
 import { ToastProvider } from "@/contexts/ToastContext";
 import { ConfirmProvider } from "@/components/ui/ConfirmDialog";
 import { ChatWidget } from "@/components/ChatWidget";
-import { AiCopilot } from "@/components/AiCopilot";
+import { Cide } from "@/components/Cide";
 import { SearchPalette } from "@/components/SearchPalette";
 
 export const metadata: Metadata = {
@@ -39,7 +39,7 @@ export default function RootLayout({
                 <ConfirmProvider>
                   {children}
                   <ChatWidget />
-                  <AiCopilot />
+                  <Cide />
                   <SearchPalette />
                 </ConfirmProvider>
               </ToastProvider>

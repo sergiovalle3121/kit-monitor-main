@@ -11,8 +11,10 @@ import { ErpFinService } from '../erp-core/services/erp-fin.service';
 import { ErpMmService } from '../erp-core/services/erp-mm.service';
 import { ErpSdService } from '../erp-core/services/erp-sd.service';
 import { ErpPpService } from '../erp-core/services/erp-pp.service';
+import { EventLedgerService } from '../event-ledger/event-ledger.service';
+import { CideToolSpec } from './cide-provider';
 
-/** JSON-Schema shape for a tool input (Anthropic-compatible). */
+/** JSON-Schema shape for a tool input (OpenAI/Anthropic-compatible). */
 export interface JsonObjectSchema {
   type: 'object';
   properties: Record<
@@ -20,11 +22,11 @@ export interface JsonObjectSchema {
     { type: string; description?: string; enum?: string[] }
   >;
   required?: string[];
-  // Index signature so this is structurally assignable to Anthropic's InputSchema.
+  // Index signature so this is structurally assignable to the engine's schema type.
   [key: string]: unknown;
 }
 
-/** Tool spec sent to the model (matches Anthropic's Tool shape structurally). */
+/** Internal tool spec (Anthropic-style `input_schema`; mapped to OpenAI `parameters`). */
 export interface AiToolSpec {
   name: string;
   description: string;
@@ -80,14 +82,18 @@ export class AiToolsService {
     return ctx.permissions.includes(def.requiredPermission);
   }
 
-  /** Anthropic tool specs the caller is allowed to use. */
-  toolSpecs(ctx: ToolContext): AiToolSpec[] {
+  /**
+   * Tool specs (OpenAI function-calling shape) the caller is allowed to use.
+   * Internally the defs carry an Anthropic-style `input_schema`; we expose it as
+   * `parameters` so CIDE's OpenAI-compatible engine can consume it directly.
+   */
+  toolSpecs(ctx: ToolContext): CideToolSpec[] {
     return this.defs()
       .filter((d) => this.allowed(d, ctx))
       .map(({ name, description, input_schema }) => ({
         name,
         description,
-        input_schema,
+        parameters: input_schema,
       }));
   }
 
@@ -155,6 +161,102 @@ export class AiToolsService {
           this.svc(EnterpriseCampusService)
             .getCampusState()
             .then((d) => clip(d)),
+      },
+      {
+        name: 'operations_pulse',
+        description:
+          'Pulso operacional sobre el Event Ledger inmutable: agrega la actividad reciente (eventos por dominio, acción y línea) en una ventana de tiempo. Úsalo para "¿qué ha pasado / qué cambió / dónde hay más actividad?", detectar picos de incidentes o comparar líneas/programas. Filtros: domain, line, program, sinceHours (default 24, máx 720), limit.',
+        requiredPermission: null,
+        mockTriggers: [
+          'qué pasó',
+          'que paso',
+          'qué ha pasado',
+          'actividad',
+          'pulso',
+          'tendencia',
+          'cambió',
+          'cambio',
+          'movimiento',
+          'bitácora',
+          'bitacora',
+          'ledger',
+          'eventos',
+        ],
+        input_schema: schema({
+          domain: {
+            type: 'string',
+            description:
+              'Dominio del evento: MATERIALS, PLANNING, PRODUCTION, ENGINEERING, QUALITY, SHIPPING o SYSTEM.',
+            enum: [
+              'MATERIALS',
+              'PLANNING',
+              'PRODUCTION',
+              'ENGINEERING',
+              'QUALITY',
+              'SHIPPING',
+              'SYSTEM',
+            ],
+          },
+          line: { type: 'string', description: 'Línea de producción' },
+          program: { type: 'string', description: 'Programa / proyecto' },
+          sinceHours: {
+            type: 'number',
+            description: 'Ventana hacia atrás en horas (default 24, máx 720)',
+          },
+        }),
+        run: (i) =>
+          this.svc(EventLedgerService).summarizeActivity({
+            domain: str(i.domain),
+            line: str(i.line),
+            program: str(i.program),
+            sinceHours:
+              typeof i.sinceHours === 'number' ? i.sinceHours : undefined,
+          }),
+      },
+      {
+        name: 'ledger_trace',
+        description:
+          'Trazabilidad cuna-a-tumba: historial cronológico de eventos del ledger para una orden de trabajo (workOrder) o para una entidad específica (referenceType + referenceId, p. ej. KIT, SERIAL, MATERIAL). Úsalo para auditar "qué le pasó a esta WO/serial/kit y cuándo".',
+        requiredPermission: null,
+        mockTriggers: [
+          'trazabilidad',
+          'historial',
+          'genealog',
+          'rastrea',
+          'auditor',
+          'qué le pasó',
+          'que le paso',
+        ],
+        input_schema: schema({
+          workOrder: {
+            type: 'string',
+            description: 'Número de orden de trabajo a rastrear',
+          },
+          referenceType: {
+            type: 'string',
+            description: 'Tipo de entidad (KIT, SERIAL, MATERIAL, WORK_ORDER…)',
+          },
+          referenceId: {
+            type: 'string',
+            description: 'ID de la entidad a rastrear (requiere referenceType)',
+          },
+        }),
+        run: async (i) => {
+          const ledger = this.svc(EventLedgerService);
+          const wo = str(i.workOrder);
+          const refType = str(i.referenceType);
+          const refId = str(i.referenceId);
+          if (refType && refId) {
+            return clip(await ledger.getEventsByReference(refType, refId), 80);
+          }
+          if (wo) {
+            return clip(await ledger.getEventsByWorkOrder(wo), 80);
+          }
+          return {
+            error:
+              'Indica una orden de trabajo (workOrder) o un par referenceType + referenceId para rastrear.',
+          };
+        },
       },
       {
         name: 'list_inventory',

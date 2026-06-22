@@ -61,12 +61,32 @@ agrupan por Domain-Driven Design:
 | **Logística & Embarques** | empaque, tráfico, salida, listas de surtido | `shipping`, `packing`, `outbound`, `traffic`, `pick-lists` | `/shipping`, `/packing`, `/outbound`, `/traffic` |
 | **Finanzas & Costos** | contabilidad, costeo de producto, COGS / cost intelligence, gastos, activos fijos | `accounting`, `product-costing`, `cost-intelligence`, `cost-rollup`, `expenses`, `fixed-assets`, `erp-core` | `/finance`, `/erp/fin`, `/expenses`, `/fixed-assets` |
 | **Trazabilidad** | genealogía cuna-a-tumba, Event Ledger inmutable | `genealogy`, `event-ledger` | `/genealogy` |
-| **Torre de control & Inteligencia** | agregadores globales, forecast, decision intelligence, autopilot | `control-tower`, `line-control-tower`, `forecast`, `decision-intelligence`, `autopilot`, `ai` | `/control-tower`, `/forecast`, `/mission-control` |
+| **Torre de control & Inteligencia** | agregadores globales, forecast, decision intelligence, autopilot, **CIDE** (IA propia self-hosted que analiza los datos para decidir) | `control-tower`, `line-control-tower`, `forecast`, `decision-intelligence`, `autopilot`, `ai` (CIDE) | `/control-tower`, `/forecast`, `/mission-control`, `/admin/ai` |
 | **Plataforma** | usuarios/RBAC, governance/auditoría, numeración de folios, settings, búsqueda, chat, notificaciones, suite Office | `users`, `auth`, `governance`, `numbering`, `messaging`, `office`, `import-data` | `/settings`, `/admin`, `/chat`, `/documents` |
 
 > Hay más módulos transversales (`crm`, `people`, `maintenance`, `ehs`,
 > `engineering`, `visual-aids`, `tooling`, `legal`…). La lista completa vive en
 > [`apps/api/src/modules/`](apps/api/src/modules).
+
+## CIDE — la IA propia
+
+**CIDE** (Cognitive Intelligence & Decision Engine) es el analista de datos
+integrado: corre sobre un modelo **open-source self-hosted** (Qwen2.5,
+Apache-2.0) servido por un motor **compatible-OpenAI** (Ollama por defecto) que
+**tú controlas** — sin Anthropic, sin DeepSeek, sin proveedor externo, con la
+data dentro de tu infraestructura. Responde **fundamentado en los datos reales**
+de MES/ERP vía herramientas read-only filtradas por RBAC, incluida la analítica
+sobre el **Event Ledger** (`operations_pulse`, `ledger_trace`).
+
+```bash
+# levantar el motor (una vez)
+docker compose -f infra/cide/docker-compose.yml up -d
+docker exec -it cide-ollama ollama pull qwen2.5:7b
+# apuntar el API al motor (default ya coincide con Ollama local)
+#   CIDE_BASE_URL=http://localhost:11434/v1
+```
+
+Detalle y operación en [`apps/api/src/modules/ai/README.md`](apps/api/src/modules/ai/README.md).
 
 ## Desarrollo local
 
