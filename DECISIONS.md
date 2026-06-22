@@ -382,4 +382,41 @@ de métricas versionadas sobre el ledger; analítica conversacional con
 tablas/gráficas y narrativa; workbench exploratorio; *what-if* / simulación
 ligados a `decision-intelligence` + `autopilot`.
 
+## 17. Capa semántica — catálogo de métricas versionadas + ontología (Fase 2 CIDE)
+
+**Contexto.** Para el salto a software de análisis de decisiones (estilo
+Palantir/MicroStrategy) falta una **capa semántica**: una sola fuente de verdad
+de *qué* se mide y *qué objetos* tiene el negocio, que la UI y CIDE compartan
+(evita métricas inconsistentes entre pantallas).
+
+**Decisión.** Nuevo módulo `semantic` (aditivo), con tres entidades prefijadas
+`sem_` (sin FKs, tipos portables) para no chocar con el smoke de bootstrap (§8):
+- `sem_metric_definition` — **catálogo de métricas versionado** (key, nombre,
+  unidad, dominio, grain, fórmula, `direction`, `version`, `resolver`). Editar
+  una definición **incrementa la versión** (auditoría de *metric drift*).
+- `sem_ontology_object` — **object types** de la ontología (WorkOrder, Material,
+  Supplier, BOM, QualityHold, Customer, LedgerEvent) mapeados a su `sourceEntity`.
+- `sem_ontology_link` — **link types** (p. ej. WorkOrder —consume→ Material).
+
+`SemanticService` siembra un baseline **idempotente por tenant** en el primer
+acceso (sin migración/seed manual) y resuelve **valores en vivo** vía un registro
+de *resolvers* que delega en servicios ya existentes (inventoryValuation, holds de
+calidad, SOs, proveedores, corridas MRP, pulso del ledger), **filtrado por RBAC**
+(cada métrica declara su permiso; admin lo omite).
+
+- **Visible en la app:** nueva pantalla `/dashboard/intelligence` ("Centro de
+  Inteligencia") enlazada en el hub (sección *Control e inteligencia*): tarjetas
+  de métricas con valor en vivo + ontología (objetos y relaciones).
+- **CIDE conectado:** nuevas herramientas read-only `list_metrics` y
+  `metric_value` para que la IA responda con las mismas métricas gobernadas.
+- **Endpoints** (`/api/semantic`, JWT): `GET /catalog`, `GET /values`,
+  `GET /metrics/:key/value`, `POST /metrics` (admin, upsert).
+
+**Verificación:** build API ✓, build web ✓, lint web ✓, **668/668** tests ✓. El
+smoke de bootstrap (Postgres efímero) materializa las tablas `sem_*` en CI.
+
+**Pendiente (Fase 3+):** analítica conversacional con tablas/gráficas y narrativa
+generada; *drill-down* por objeto; *what-if*/simulación ligados a
+`decision-intelligence` + `autopilot`; editor de ontología en la UI.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->

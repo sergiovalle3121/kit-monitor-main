@@ -12,6 +12,7 @@ import { ErpMmService } from '../erp-core/services/erp-mm.service';
 import { ErpSdService } from '../erp-core/services/erp-sd.service';
 import { ErpPpService } from '../erp-core/services/erp-pp.service';
 import { EventLedgerService } from '../event-ledger/event-ledger.service';
+import { SemanticService } from '../semantic/semantic.service';
 import { CideToolSpec } from './cide-provider';
 
 /** JSON-Schema shape for a tool input (OpenAI/Anthropic-compatible). */
@@ -60,6 +61,11 @@ function schema(
   required: string[] = [],
 ): JsonObjectSchema {
   return { type: 'object', properties, required };
+}
+
+/** Best-effort tenant of the caller (falls back to the service default). */
+function tenantOf(ctx: ToolContext): string | undefined {
+  return (ctx.user as { tenant_id?: string | null }).tenant_id ?? undefined;
 }
 
 /**
@@ -256,6 +262,58 @@ export class AiToolsService {
             error:
               'Indica una orden de trabajo (workOrder) o un par referenceType + referenceId para rastrear.',
           };
+        },
+      },
+      {
+        name: 'list_metrics',
+        description:
+          'Catálogo semántico de métricas/KPIs de la empresa: clave, nombre, unidad, dominio y definición. Úsalo para saber qué se puede medir antes de pedir un valor.',
+        requiredPermission: null,
+        mockTriggers: [
+          'métrica',
+          'metrica',
+          'kpi',
+          'indicador',
+          'catálogo',
+          'catalogo',
+          'qué puedo medir',
+          'que puedo medir',
+        ],
+        input_schema: schema(),
+        run: (_i, ctx) =>
+          this.svc(SemanticService)
+            .listMetrics(tenantOf(ctx))
+            .then((d) => clip(d, 60)),
+      },
+      {
+        name: 'metric_value',
+        description:
+          'Valor actual de una métrica del catálogo por su clave (key), p. ej. inventory_value, active_quality_holds, open_sales_orders, suppliers_count, mrp_runs, ledger_events_24h. Respeta los permisos del usuario.',
+        requiredPermission: null,
+        mockTriggers: ['valor de', 'cuánto', 'cuanto', 'oee', 'otd'],
+        input_schema: schema(
+          {
+            key: {
+              type: 'string',
+              description:
+                'Clave de la métrica (usa list_metrics para descubrirlas).',
+            },
+          },
+          ['key'],
+        ),
+        run: (i, ctx) => {
+          const key = str(i.key);
+          if (!key) {
+            return Promise.resolve({
+              error:
+                'Indica la clave (key) de la métrica, p. ej. inventory_value.',
+            });
+          }
+          return this.svc(SemanticService).resolveMetric(
+            { isAdmin: ctx.isAdmin, permissions: ctx.permissions },
+            key,
+            tenantOf(ctx),
+          );
         },
       },
       {

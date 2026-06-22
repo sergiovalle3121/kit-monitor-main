@@ -92,6 +92,7 @@ const AREAS: { name: string; desc: string; href: string; icon: LucideIcon; domai
   { name: "Axos ERP", desc: "FIN · MM · PP · SD · T-Codes", href: "/dashboard/erp", icon: Icons.Landmark, domain: "erp", roles: ["finance", "planner", "production_supervisor", "buyer"], section: "Finanzas · ERP" },
 
   // ── Control e inteligencia ──
+  { name: "Centro de Inteligencia", desc: "Capa semántica: métricas y ontología (CIDE)", href: "/dashboard/intelligence", icon: Icons.BrainCircuit, domain: "mes", roles: ["plant_manager", "planner", "production_supervisor", "finance", "quality_engineer", "engineering"], section: "Control e inteligencia" },
   { name: "Mission Control", desc: "Vista ejecutiva", href: "/dashboard/mission-control", icon: RadioTower, domain: "mes", roles: ["planner", "production_supervisor", "finance"], section: "Control e inteligencia" },
   { name: "Torre de Control", desc: "Cockpit ejecutivo cross-área", href: "/dashboard/control-tower", icon: RadioTower, domain: "mes", roles: ["plant_manager", "planner", "production_supervisor", "finance"], section: "Control e inteligencia" },
   { name: "Torre de control de línea", desc: "Readiness y semáforo por línea", href: "/dashboard/line-control-tower", icon: RadioTower, domain: "mes", roles: ["production_supervisor", "planner", "plant_manager"], section: "Control e inteligencia" },
