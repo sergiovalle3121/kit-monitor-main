@@ -229,6 +229,28 @@ export class LineEngineeringController {
     });
   }
 
+  @Get('layout/staffing')
+  @RequirePermissions('engineering:read')
+  @ApiOperation({
+    summary:
+      'Estimación de personal: operadores por estación y total de la línea para sostener el takt.',
+  })
+  layoutStaffing(
+    @Query('model') model: string,
+    @Query('revision') revision?: string,
+    @Query('availableTimeSec') availableTimeSec?: string,
+    @Query('demandUnits') demandUnits?: string,
+    @Query('taktTargetSec') taktTargetSec?: string,
+  ) {
+    return this.service.getStaffing({
+      model,
+      revision: revision ?? 'A',
+      availableTimeSec: availableTimeSec ? Number(availableTimeSec) : undefined,
+      demandUnits: demandUnits ? Number(demandUnits) : undefined,
+      taktTargetSec: taktTargetSec ? Number(taktTargetSec) : undefined,
+    });
+  }
+
   @Get('layout/flow')
   @RequirePermissions('engineering:read')
   @ApiOperation({
