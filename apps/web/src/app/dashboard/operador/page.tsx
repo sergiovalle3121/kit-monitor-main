@@ -28,6 +28,7 @@ import {
 import { glass } from '@/lib/glass';
 import { useApi } from '@/hooks/useApi';
 import { apiFetch } from '@/lib/apiFetch';
+import { useToast } from '@/contexts/ToastContext';
 import { useMesSignals } from '@/hooks/useMesSignals';
 
 const API_BASE = (
@@ -731,15 +732,23 @@ function MaterialRow({ m }: { m: Material }) {
 
 function IncidentRow({ i, refresh }: { i: Incident; refresh: () => void }) {
   const [busy, setBusy] = useState<string | null>(null);
+  const toast = useToast();
   async function disposition(d: 'rework' | 'scrap' | 'use_as_is') {
     setBusy(d);
     try {
-      await apiFetch(`${API_BASE}/mes/incidents/${i.id}/disposition`, {
+      const res = await apiFetch(`${API_BASE}/mes/incidents/${i.id}/disposition`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ disposition: d }),
       });
+      if (!res.ok) {
+        const j = (await res.json().catch(() => ({}))) as { message?: string };
+        toast.error(typeof j.message === 'string' ? j.message : 'No se pudo registrar la disposición.', 'Calidad');
+        return;
+      }
       refresh();
+    } catch {
+      toast.error('No se pudo contactar el backend.', 'Calidad');
     } finally {
       setBusy(null);
     }
@@ -966,11 +975,12 @@ function IncidentForm({
   const [blocks, setBlocks] = useState(false);
   const [desc, setDesc] = useState('');
   const [busy, setBusy] = useState(false);
+  const toast = useToast();
 
   async function submit() {
     setBusy(true);
     try {
-      await apiFetch(
+      const res = await apiFetch(
         `${API_BASE}/mes/executions/${board.execution.id}/steps/${step.stepId}/incidents`,
         {
           method: 'POST',
@@ -985,7 +995,14 @@ function IncidentForm({
           }),
         },
       );
+      if (!res.ok) {
+        const j = (await res.json().catch(() => ({}))) as { message?: string };
+        toast.error(typeof j.message === 'string' ? j.message : 'No se pudo reportar el incidente.', 'Calidad');
+        return;
+      }
       onDone();
+    } catch {
+      toast.error('No se pudo contactar el backend.', 'Calidad');
     } finally {
       setBusy(false);
     }
@@ -1063,10 +1080,11 @@ function AndonForm({
   onDone: () => void;
 }) {
   const [busy, setBusy] = useState<string | null>(null);
+  const toast = useToast();
   async function call(type: string) {
     setBusy(type);
     try {
-      await apiFetch(`${API_BASE}/mes/executions/${board.execution.id}/andon`, {
+      const res = await apiFetch(`${API_BASE}/mes/executions/${board.execution.id}/andon`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1075,7 +1093,14 @@ function AndonForm({
           raisedBy: operator,
         }),
       });
+      if (!res.ok) {
+        const j = (await res.json().catch(() => ({}))) as { message?: string };
+        toast.error(typeof j.message === 'string' ? j.message : 'No se pudo levantar el andon.', 'Andon');
+        return;
+      }
       onDone();
+    } catch {
+      toast.error('No se pudo contactar el backend.', 'Andon');
     } finally {
       setBusy(null);
     }

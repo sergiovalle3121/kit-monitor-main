@@ -385,7 +385,7 @@ export default function InventoryPage() {
         )}
 
         {tab === "shortage" && (
-          (ruleForbidden) ? (
+          (ruleForbidden || forbidden) ? (
             <Empty icon={<Lock className="w-6 h-6" />} title="Sin acceso al backend" body="Verifica que el servicio de API esté conectado." />
           ) : (stagingLoading || ruleLoading || isLoading) ? (
             <Spinner />

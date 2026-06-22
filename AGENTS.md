@@ -27,3 +27,23 @@ You are part of the AXOS OS Engineering Team. This project is an Industrial OS (
 1. Read the relevant document in `/docs` before starting a task.
 2. If unsure about a design decision, ask the User to consult Antigravity.
 3. Commit often with descriptive messages (Conventional Commits preferred).
+
+## 5. Git & PR Workflow (commit verification + merge method)
+- **Commit identity**: configure git as `Claude <noreply@anthropic.com>` at the
+  start of every session (`git config user.email noreply@anthropic.com && git
+  config user.name Claude`) so authored commits are attributable/verified.
+- **Branch → PR → squash**: develop on the assigned feature branch, open a PR to
+  `main`, and **merge with "Squash and merge"** (repo convention — history reads
+  as one `feat(scope): … (#N)` commit per PR). Keep `main` linear.
+  - GitHub creates the squash commit, so its *committer* shows as GitHub
+    (`noreply@github.com`) and may read as "Unverified". That is expected for
+    server-side merges and is NOT a commit to rewrite (it is already on `main`).
+    To get verified merge commits, enable commit signing at the
+    repo/account level in GitHub settings (owner action, not an in-repo change).
+  - Recommended GitHub repo setting: **default merge method = Squash** (and
+    disable merge-commit/rebase) so every PR merges consistently.
+- **Green before merge**: the CI check `Build · Test · Lint · Smoke` must pass
+  before merging. **Every merge to `main` deploys to production** — never merge
+  red. Verify locally (`tsc`, `nest build`, `next build`; run the demo seed
+  against a local Postgres when touching entities/seed) before pushing.
+

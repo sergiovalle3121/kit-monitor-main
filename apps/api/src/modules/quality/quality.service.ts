@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { QualityHold, QualityHoldLevel } from './entities/quality-hold.entity';
@@ -317,6 +317,14 @@ export class QualityService {
   async approveDisposition(id: number, actor: string): Promise<Disposition> {
     const disposition = await this.dispositionRepo.findOne({ where: { id } });
     if (!disposition) throw new NotFoundException('Disposition not found');
+    // Solo se aprueba desde PROPOSED. Sin este guard, re-aprobar una disposición
+    // ya EXECUTED la regresaba a APPROVED y executeDisposition volvía a correr →
+    // doble goods-issue (SCRAP/RTV) y re-cierre de la NCR.
+    if (disposition.status !== DispositionStatus.PROPOSED) {
+      throw new BadRequestException(
+        `Solo se pueden aprobar disposiciones en estado PROPOSED (actual: ${disposition.status}).`,
+      );
+    }
 
     const before = { ...disposition };
     disposition.status = DispositionStatus.APPROVED;
