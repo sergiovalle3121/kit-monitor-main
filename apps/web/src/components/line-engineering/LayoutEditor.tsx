@@ -9,7 +9,7 @@ import {
   AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd,
   AlignHorizontalSpaceAround, AlignVerticalSpaceAround, Trash2, MapPin, RotateCcw,
   Upload, Eye, EyeOff, Map as MapIcon, Activity, Workflow, Wand2, Boxes,
-  Download, Printer, Ruler, Type, MoveHorizontal,
+  Download, Printer, Ruler, Type, MoveHorizontal, CopyPlus, X,
 } from 'lucide-react';
 import { glass } from '@/lib/glass';
 import { apiFetch } from '@/lib/apiFetch';
@@ -93,7 +93,7 @@ class StationBox extends Rect {
   }
 }
 
-export function LayoutEditor({ model, revision }: { model: string; revision: string }) {
+export function LayoutEditor({ model, revision, models = [] }: { model: string; revision: string; models?: { model: string; revision: string }[] }) {
   const toast = useToast();
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const elRef = useRef<HTMLCanvasElement | null>(null);
@@ -151,6 +151,9 @@ export function LayoutEditor({ model, revision }: { model: string; revision: str
   const [exporting, setExporting] = useState(false);
   const [annTool, setAnnTool] = useState<'text' | 'dim' | null>(null);
   const [annCount, setAnnCount] = useState(0);
+  const [showClone, setShowClone] = useState(false);
+  const [cloneSrc, setCloneSrc] = useState('');
+  const [cloneBusy, setCloneBusy] = useState(false);
   const snapRef = useRef(snap);
   const panRef = useRef(panMode);
   useEffect(() => { snapRef.current = snap; }, [snap]);
@@ -1029,6 +1032,23 @@ export function LayoutEditor({ model, revision }: { model: string; revision: str
     } catch { toast.error('Error de red.', 'Ing. Industrial'); } finally { setSaving(false); }
   }, [model, revision, toast]);
 
+  // ── Clone / template (Fase 8) ───────────────────────────────────────────────
+  const cloneFrom = useCallback(async () => {
+    if (!cloneSrc || !model) return;
+    const [fromModel, fromRevision] = cloneSrc.split('|');
+    setCloneBusy(true);
+    try {
+      const r = await apiFetch(`${API_BASE}/line-engineering/layout/clone`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fromModel, fromRevision, toModel: model, toRevision: revision }),
+      });
+      if (!r.ok) { const d = await r.json().catch(() => ({})); toast.error(d?.message || 'No se pudo clonar.', 'Ing. Industrial'); return; }
+      toast.success('Layout clonado desde la plantilla.', 'Ing. Industrial');
+      setShowClone(false);
+      load();
+    } catch { toast.error('Error de red.', 'Ing. Industrial'); } finally { setCloneBusy(false); }
+  }, [cloneSrc, model, revision, load, toast]);
+
   if (!model) {
     return (
       <div className={`${glass} rounded-3xl p-12 text-center`}>
@@ -1070,6 +1090,8 @@ export function LayoutEditor({ model, revision }: { model: string; revision: str
         <TBtn onClick={exportSVG} title="Exportar SVG"><Workflow className="w-4 h-4" /></TBtn>
         <TBtn onClick={exportPDF} title="Exportar PDF">{exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <span className="text-[11px] font-bold leading-none">PDF</span>}</TBtn>
         <TBtn onClick={printPlan} title="Imprimir"><Printer className="w-4 h-4" /></TBtn>
+        <Sep />
+        <TBtn onClick={() => { setCloneSrc(''); setShowClone(true); }} title="Plantilla: clonar desde otro modelo"><CopyPlus className="w-4 h-4" /></TBtn>
         <div className="flex-1" />
         {measureMode && measureVal && <span className="text-[12px] font-medium mr-2" style={{ color: '#0ea5e9' }}>{measureVal}</span>}
         <button onClick={save} disabled={saving || !dirty} className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-sm font-medium text-white disabled:opacity-50" style={{ background: ROSE }}>
@@ -1210,6 +1232,33 @@ export function LayoutEditor({ model, revision }: { model: string; revision: str
         <span>· Rueda: zoom · Espacio/Pan: desplazar</span>
         {dirty && <span className="ml-auto text-rose-500 font-medium">Cambios sin guardar</span>}
       </div>
+
+      {/* Clone / template modal (Fase 8) */}
+      {showClone && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" onClick={() => setShowClone(false)}>
+          <div className={`${glass} rounded-2xl p-5 w-full max-w-md`} onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-semibold inline-flex items-center gap-2"><CopyPlus className="w-4 h-4" style={{ color: ROSE }} /> Clonar layout desde plantilla</h3>
+              <button onClick={() => setShowClone(false)} className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10"><X className="w-4 h-4" /></button>
+            </div>
+            <p className="text-[12px] text-gray-400 mb-3">Copia footprint, plano DXF, equipos y notas. Las posiciones y el flujo se reasignan por nombre de estación (revisiones del mismo modelo se copian completas).</p>
+            <label className="block text-[12px] font-medium text-gray-500 mb-1">Modelo origen</label>
+            <select value={cloneSrc} onChange={(e) => setCloneSrc(e.target.value)} className="w-full rounded-lg px-2.5 py-2 bg-black/[0.03] dark:bg-white/[0.06] border border-black/10 dark:border-white/10 text-sm">
+              <option value="">Selecciona…</option>
+              {models.filter((m) => !(m.model === model && m.revision === revision)).map((m) => (
+                <option key={`${m.model}|${m.revision}`} value={`${m.model}|${m.revision}`}>{m.model} · {m.revision}</option>
+              ))}
+            </select>
+            <div className="mt-3 text-[12px] text-gray-400">Destino: <span className="font-medium text-gray-600 dark:text-gray-300">{model} · {revision}</span></div>
+            <div className="mt-5 flex justify-end gap-2">
+              <button onClick={() => setShowClone(false)} className="px-4 py-2 rounded-xl text-sm hover:bg-black/5 dark:hover:bg-white/10">Cancelar</button>
+              <button onClick={cloneFrom} disabled={!cloneSrc || cloneBusy} className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white disabled:opacity-50" style={{ background: ROSE }}>
+                {cloneBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <CopyPlus className="w-4 h-4" />} Clonar aquí
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

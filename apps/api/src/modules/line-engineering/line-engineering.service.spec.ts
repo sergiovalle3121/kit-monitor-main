@@ -279,6 +279,59 @@ describe('LineEngineeringService (integration)', () => {
     expect(after.annotations[1]).toMatchObject({ type: 'dim', x2: 1000 });
   });
 
+  it('clones a layout to another model, remapping by station name (Fase 8)', async () => {
+    await seedRoute(); // AX-1000: EST-10/20/30
+    await service.createStation({
+      model: 'AX-2000',
+      line: 'SMT-1',
+      station: 'EST-10',
+      sequence: 10,
+      stdTimeSec: 30,
+    });
+    await service.createStation({
+      model: 'AX-2000',
+      line: 'SMT-1',
+      station: 'EST-20',
+      sequence: 20,
+      stdTimeSec: 30,
+    });
+
+    const src = await service.getLayout('AX-1000');
+    const id = Object.fromEntries(src.stations.map((s) => [s.station, s.id]));
+    await service.saveLayout({
+      model: 'AX-1000',
+      footprint: { footprintW: 9000, gridSize: 300 },
+      positions: [
+        { id: id['EST-10'], x: 100, y: 100, w: 500, h: 400 },
+        { id: id['EST-20'], x: 700, y: 100, w: 500, h: 400 },
+        { id: id['EST-30'], x: 1300, y: 100, w: 500, h: 400 },
+      ],
+      connectors: [
+        { from: id['EST-10'], to: id['EST-20'] },
+        { from: id['EST-20'], to: id['EST-30'] },
+      ],
+      assets: [{ id: 'a1', kind: 'rack', x: 0, y: 0, w: 600, h: 400 }],
+    });
+
+    const out = await service.cloneLayout({
+      fromModel: 'AX-1000',
+      toModel: 'AX-2000',
+    });
+    expect(out.model).toBe('AX-2000');
+    expect(out.footprint).toMatchObject({ footprintW: 9000, gridSize: 300 });
+    expect(out.assets).toHaveLength(1);
+    const placed = out.stations.filter((s) => s.x !== null);
+    expect(placed.map((s) => s.station).sort()).toEqual(['EST-10', 'EST-20']);
+    expect(out.stations.find((s) => s.station === 'EST-10')!.x).toBe(100);
+    // EST-10→EST-20 remaps to target ids; EST-20→EST-30 drops (no EST-30 here).
+    expect(out.connectors).toHaveLength(1);
+    const tid = Object.fromEntries(out.stations.map((s) => [s.station, s.id]));
+    expect(out.connectors[0]).toMatchObject({
+      from: tid['EST-10'],
+      to: tid['EST-20'],
+    });
+  });
+
   it('scopes the layout by tenant', async () => {
     const mk = (tenant: string) =>
       ctx.run(ctxFor(tenant), async () => {
