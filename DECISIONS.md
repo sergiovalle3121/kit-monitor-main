@@ -934,4 +934,25 @@ PERO **perdía las imágenes** (no había mapeo del nodo `image`), las tablas sa
 **Roadmap:** import .docx más fiel (mapa de estilos de mammoth); numeración nativa de listas
 de Word; sangrías de tabla.
 
+## 33. Office/Docs — numeración NATIVA de Word para listas ordenadas
+
+**Contexto.** §32 dejó las listas ordenadas exportándose como **texto literal** («1. », «2. »):
+se ven bien pero en Word NO son una lista editable (no renumeran al insertar/borrar, no
+continúan). Las viñetas ya usaban numeración nativa (`bullet`); faltaba hacerlo con las
+ordenadas.
+
+**Decisión (sólo `apps/web`, aditiva):** cada **árbol** de lista ordenada registra una
+definición de numeración propia (`newOrderedRef` → reinicia en 1) con 9 niveles decimales;
+los párrafos la referencian con `numbering: { reference, level }`. El esquema **legal**
+(`doc-mlist`) usa la ruta completa por nivel (`%1.%2.%3` → «1.1.1»); el normal, `%n.` por
+nivel. Una ordenada anidada bajo otra ordenada **comparte** la referencia (jerarquía); bajo
+viñetas abre la suya. Las definiciones se pasan al `Document` como `numbering.config`.
+
+**Verificación:** `docx.spec.ts` ampliado a **21 aserciones** — el .docx empaquetado ahora
+incluye `word/numbering.xml`, los párrafos llevan `<w:numPr>` con `<w:numId>` + `<w:ilvl>`, y
+**ya no** aparece el prefijo «1. » como texto. `lint web` 0 errores; `build web` ✓.
+
+**Roadmap:** import .docx más fiel (style map de mammoth, imágenes embebidas); sangrías de
+tabla; estilos de carácter nombrados.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
