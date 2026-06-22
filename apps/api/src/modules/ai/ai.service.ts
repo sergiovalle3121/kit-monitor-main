@@ -25,6 +25,7 @@ import {
   CideProvider,
   CideToolSpec,
 } from './cide-provider';
+import { CideCard, collectCards } from './ai-cards';
 import {
   ALLOWED_MODELS,
   DEFAULT_MODEL,
@@ -66,6 +67,7 @@ interface RunResult {
   text: string;
   usage: TokenUsage;
   toolsUsed: string[];
+  cards: CideCard[];
 }
 
 function summarize(out: unknown): string {
@@ -387,6 +389,7 @@ export class AiService {
       model,
       mock,
       toolsUsed: uniqueTools,
+      cards: result.cards,
       usage: result.usage,
       costUsd: cost,
     };
@@ -439,6 +442,7 @@ export class AiService {
     ];
     const usage = emptyUsage();
     const toolsUsed: string[] = [];
+    const toolOutputs: { tool: string; out: unknown }[] = [];
     let finalText = '';
 
     try {
@@ -469,6 +473,7 @@ export class AiService {
           for (const tc of comp.toolCalls) {
             toolsUsed.push(tc.name);
             const out = await this.tools.execute(tc.name, tc.arguments, ctx);
+            toolOutputs.push({ tool: tc.name, out });
             messages.push({
               role: 'tool',
               tool_call_id: tc.id,
@@ -495,6 +500,7 @@ export class AiService {
       text: finalText || 'No pude generar una respuesta.',
       usage,
       toolsUsed,
+      cards: collectCards(toolOutputs),
     };
   }
 
@@ -507,10 +513,12 @@ export class AiService {
   private async runMock(message: string, ctx: ToolContext): Promise<RunResult> {
     const picks = this.tools.pickMockTools(message, ctx);
     const toolsUsed: string[] = [];
+    const toolOutputs: { tool: string; out: unknown }[] = [];
     const lines: string[] = [];
     for (const def of picks) {
       toolsUsed.push(def.name);
       const out = await this.tools.execute(def.name, {}, ctx);
+      toolOutputs.push({ tool: def.name, out });
       lines.push(`• ${def.name}: ${summarize(out)}`);
     }
     const text =
@@ -527,6 +535,7 @@ export class AiService {
         cacheWriteTokens: 0,
       },
       toolsUsed,
+      cards: collectCards(toolOutputs),
     };
   }
 }

@@ -533,4 +533,32 @@ tests ✓. Sin tablas nuevas → el smoke de bootstrap no cambia de superficie.
 `decision-intelligence` + propuestas de `autopilot`; tarjetas de análisis con
 mini-gráficas embebidas en el chat de CIDE; editor de métricas/ontología en la UI.
 
+## 21. Tarjetas de análisis en el chat de CIDE (Fase 5)
+
+**Contexto.** CIDE respondía solo texto; las herramientas analíticas (Fases 2–4)
+devuelven datos estructurados que quedaban "planos" en el chat. Para un asistente
+de análisis de datos faltaba **mostrar el dato** (KPI, sparkline, barras) inline.
+
+**Decisión.** Construcción de tarjetas **server-side y determinista** — el modelo
+elige las herramientas, pero la *tarjeta* se arma del **resultado real** de la
+herramienta, no de texto del modelo (cero alucinación de cifras):
+- `ai-cards.ts` — `buildCard(tool, out)` mapea salidas a una unión tipada
+  `CideCard` (`metric` | `line` | `bars`): `analyze_trend`/`object_insight` →
+  sparkline; `simulate_projection` → histórico + proyección punteada;
+  `metric_value`/`inventory_valuation` → KPI; `operations_pulse` → barras por
+  dominio. `collectCards` dedupe + tope (3).
+- `ai.service` captura las salidas de las tools en `runCide` **y** `runMock`
+  (así las tarjetas también se ven en modo demo, sin motor) y las devuelve en la
+  respuesta del chat (`cards`). Efímeras: solo del turno en vivo, no se persisten.
+- **Frontend (`Cide.tsx`):** render de tarjetas bajo la respuesta, con
+  **sparklines en SVG inline** y barras en CSS — **sin meter una librería de
+  charts al bundle global** del widget (que está montado en todo el dashboard).
+
+**Verificación:** build API ✓, build web ✓, lint web (0 errores) ✓, **697/697**
+tests ✓. Sin entidades nuevas; el smoke no cambia de superficie.
+
+**Pendiente (Fase 6):** integrar el what-if con el Monte Carlo de
+`decision-intelligence` + propuestas de `autopilot`; editor de métricas/ontología
+en la UI; persistir tarjetas en el historial de conversación.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
