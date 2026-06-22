@@ -171,4 +171,49 @@ export class EventLedgerService {
       })),
     };
   }
+
+  /**
+   * Daily event counts over a window — the time-series primitive behind CIDE's
+   * conversational analytics and the Intelligence Center charts. Buckets are
+   * pre-filled (zero-padded) so the series is continuous for plotting. Bucketing
+   * is done in JS to stay portable across SQLite (dev) and Postgres (prod).
+   */
+  async dailyActivity(
+    opts: { days?: number; domain?: string; line?: string } = {},
+  ): Promise<{
+    series: { date: string; count: number }[];
+    total: number;
+    window: { days: number };
+  }> {
+    const days = Math.min(Math.max(opts.days ?? 14, 1), 90);
+    const now = new Date();
+    const startDay = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()) -
+        (days - 1) * 86_400_000,
+    );
+
+    const qb = this.ledgerRepository
+      .createQueryBuilder('event')
+      .where('event.timestamp >= :since', { since: startDay })
+      .orderBy('event.timestamp', 'ASC')
+      .take(20_000);
+    if (opts.domain) qb.andWhere('event.domain = :domain', { domain: opts.domain });
+    if (opts.line) qb.andWhere('event.line = :line', { line: opts.line });
+
+    const rows = await qb.getMany();
+    const buckets = new Map<string, number>();
+    for (let i = 0; i < days; i++) {
+      const d = new Date(startDay.getTime() + i * 86_400_000);
+      buckets.set(d.toISOString().slice(0, 10), 0);
+    }
+    for (const r of rows) {
+      const key = new Date(r.timestamp).toISOString().slice(0, 10);
+      if (buckets.has(key)) buckets.set(key, (buckets.get(key) ?? 0) + 1);
+    }
+    return {
+      series: [...buckets.entries()].map(([date, count]) => ({ date, count })),
+      total: rows.length,
+      window: { days },
+    };
+  }
 }
