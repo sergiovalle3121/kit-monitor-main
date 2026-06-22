@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useId, useState } from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import { glass } from '@/lib/glass';
 import { useApi } from '@/hooks/useApi';
+import { useDialogA11y } from '@/hooks/useDialogA11y';
 import { apiFetch } from '@/lib/apiFetch';
 import { useToast } from '@/contexts/ToastContext';
 import { useMesSignals } from '@/hooks/useMesSignals';
@@ -789,6 +790,7 @@ function ActionSheet({
   children: React.ReactNode;
   onClose: () => void;
 }) {
+  const panelRef = useDialogA11y<HTMLDivElement>(onClose);
   return (
     <motion.div
       className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm"
@@ -798,6 +800,11 @@ function ActionSheet({
       onClick={onClose}
     >
       <motion.div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Acciones"
+        tabIndex={-1}
         className={`${glass} w-full sm:max-w-md rounded-t-[2rem] sm:rounded-[2rem] p-6 max-h-[90vh] overflow-y-auto`}
         initial={{ y: 40, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}

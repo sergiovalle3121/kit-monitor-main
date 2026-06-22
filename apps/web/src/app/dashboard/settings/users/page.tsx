@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useId, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import {
@@ -9,6 +9,7 @@ import {
   Lock, Crown, Info,
 } from 'lucide-react';
 import { useApi } from '@/hooks/useApi';
+import { useDialogA11y } from '@/hooks/useDialogA11y';
 import { apiFetch } from '@/lib/apiFetch';
 import { useToast } from '@/contexts/ToastContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -205,10 +206,12 @@ export default function UsersManagementPage() {
 }
 
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
+  const titleId = useId();
+  const panelRef = useDialogA11y<HTMLDivElement>(onClose);
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" onClick={onClose}>
-      <motion.div initial={{ opacity: 0, y: 20, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} className="bg-white dark:bg-[#111] rounded-3xl w-full max-w-lg p-6 shadow-2xl border border-[#F2F2F7] dark:border-white/10 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between mb-5"><h3 className="text-lg font-semibold text-[#1D1D1F] dark:text-white">{title}</h3><button onClick={onClose} className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10"><X className="w-4 h-4" /></button></div>
+      <motion.div ref={panelRef} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1} initial={{ opacity: 0, y: 20, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} className="bg-white dark:bg-[#111] rounded-3xl w-full max-w-lg p-6 shadow-2xl border border-[#F2F2F7] dark:border-white/10 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-5"><h3 id={titleId} className="text-lg font-semibold text-[#1D1D1F] dark:text-white">{title}</h3><button onClick={onClose} aria-label="Cerrar" className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10"><X className="w-4 h-4" /></button></div>
         {children}
       </motion.div>
     </div>
