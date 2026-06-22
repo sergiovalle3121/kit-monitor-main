@@ -11,7 +11,7 @@ import {
   Upload, Eye, EyeOff, Map as MapIcon, Activity, Workflow, Wand2, Boxes,
   Download, Printer, Ruler, Type, MoveHorizontal, CopyPlus, X, Flame, Waypoints,
   ShieldCheck, ShieldAlert, LayoutGrid, History, RotateCw, ClipboardList, GitCompare,
-  ClipboardCheck,
+  ClipboardCheck, Warehouse,
 } from 'lucide-react';
 import { glass } from '@/lib/glass';
 import { apiFetch } from '@/lib/apiFetch';
@@ -70,6 +70,23 @@ interface ComplSummary {
 const COMPL_COLORS = {
   complete: { fill: 'rgba(16,185,129,0.16)', stroke: '#10b981' },
   incomplete: { fill: 'rgba(245,158,11,0.20)', stroke: '#f59e0b' },
+};
+
+// Supplier-bay overlay (Fase 22): which bahía (1–6) feeds each station's NP.
+interface StationBay {
+  station: string; line: string; sequence: number;
+  npExpected: string | null; bahia: number | null; placed: boolean;
+}
+interface BaySummary {
+  total: number; mapped: number; unmapped: number; baysUsed: number[]; stations: StationBay[];
+}
+const BAY_STROKES: Record<number, string> = {
+  1: '#3b82f6', 2: '#8b5cf6', 3: '#ec4899', 4: '#f59e0b', 5: '#10b981', 6: '#06b6d4',
+};
+const bayColor = (bahia: number | null): { fill: string; stroke: string } => {
+  if (bahia === null || !BAY_STROKES[bahia]) return { fill: 'rgba(148,163,184,0.16)', stroke: '#94a3b8' };
+  const s = BAY_STROKES[bahia];
+  return { fill: `${s}28`, stroke: s }; // 28 = ~16% alpha hex suffix
 };
 
 // Material-flow analysis (Fase 10). Per-segment distances render live on the
@@ -210,6 +227,8 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
   const heatRef = useRef<Map<string, StationHeat>>(new Map());
   const complOnRef = useRef(false);
   const complRef = useRef<Map<string, StationCompl>>(new Map());
+  const bayOnRef = useRef(false);
+  const bayRef = useRef<Map<string, number | null>>(new Map());
   const flowOnRef = useRef(false);
   const validateOnRef = useRef(false);
   const validateConflictsRef = useRef<Conflict[]>([]);
@@ -252,6 +271,8 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
   const [taktInput, setTaktInput] = useState('');
   const [complOn, setComplOn] = useState(false);
   const [complData, setComplData] = useState<ComplSummary | null>(null);
+  const [bayOn, setBayOn] = useState(false);
+  const [bayData, setBayData] = useState<BaySummary | null>(null);
   const [flowOn, setFlowOn] = useState(false);
   const [flowData, setFlowData] = useState<FlowSummary | null>(null);
   const [flowDirData, setFlowDirData] = useState<FlowDirSummary | null>(null);
@@ -488,6 +509,10 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
     if (complOnRef.current) {
       const c = complRef.current.get(stationName);
       return c ? (c.complete ? COMPL_COLORS.complete : COMPL_COLORS.incomplete) : null;
+    }
+    if (bayOnRef.current) {
+      const b = bayRef.current.get(stationName);
+      return b === undefined ? null : bayColor(b);
     }
     if (mesOnRef.current) {
       const st = statusRef.current.get(stationName);
@@ -1165,6 +1190,7 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
   useEffect(() => { mesOnRef.current = mesOn; applyOverlay(); }, [mesOn, applyOverlay]);
   useEffect(() => { heatOnRef.current = heatOn; applyOverlay(); }, [heatOn, applyOverlay]);
   useEffect(() => { complOnRef.current = complOn; applyOverlay(); }, [complOn, applyOverlay]);
+  useEffect(() => { bayOnRef.current = bayOn; applyOverlay(); }, [bayOn, applyOverlay]);
 
   // Fetch documentation completeness when the overlay is toggled / scope changes.
   useEffect(() => {
@@ -1182,6 +1208,23 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
     })();
     return () => { alive = false; };
   }, [complOn, model, revision, applyOverlay]);
+
+  // Fetch supplier-bay mapping when the bay overlay is toggled / scope changes.
+  useEffect(() => {
+    if (!bayOn || !model) return;
+    let alive = true;
+    (async () => {
+      try {
+        const r = await apiFetch(`${API_BASE}/line-engineering/layout/bays?model=${encodeURIComponent(model)}&revision=${encodeURIComponent(revision)}`);
+        if (!r.ok || !alive) return;
+        const d = (await r.json()) as BaySummary;
+        bayRef.current = new Map(d.stations.map((s) => [s.station, s.bahia]));
+        setBayData(d);
+        applyOverlay();
+      } catch { /* transient */ }
+    })();
+    return () => { alive = false; };
+  }, [bayOn, model, revision, applyOverlay]);
 
   // Poll the live status every 5s while the MES overlay is on.
   useEffect(() => {
@@ -1534,9 +1577,10 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
         <TBtn onClick={() => zoomBy(1 / 1.2)} title="Alejar"><ZoomOut className="w-4 h-4" /></TBtn>
         <TBtn onClick={fitView} title="Ajustar"><Maximize2 className="w-4 h-4" /></TBtn>
         <TBtn active={snap} onClick={() => setSnap((v) => !v)} title="Snap a grilla"><Grid3x3 className="w-4 h-4" /></TBtn>
-        <button onClick={() => { setMesOn((v) => !v); setHeatOn(false); setComplOn(false); }} title="MES en vivo (estado de estaciones)" className={`p-1.5 rounded-lg transition-colors ${mesOn ? 'text-white' : 'text-gray-500 hover:bg-black/5 dark:hover:bg-white/10'}`} style={mesOn ? { background: '#10b981' } : undefined}><Activity className="w-4 h-4" /></button>
-        <button onClick={() => { setHeatOn((v) => !v); setMesOn(false); setComplOn(false); }} title="Mapa de calor (tiempo de ciclo / utilización)" className={`p-1.5 rounded-lg transition-colors ${heatOn ? 'text-white' : 'text-gray-500 hover:bg-black/5 dark:hover:bg-white/10'}`} style={heatOn ? { background: '#f97316' } : undefined}><Flame className="w-4 h-4" /></button>
-        <button onClick={() => { setComplOn((v) => !v); setMesOn(false); setHeatOn(false); }} title="Completitud documental (NP / factor / ayuda visual)" className={`p-1.5 rounded-lg transition-colors ${complOn ? 'text-white' : 'text-gray-500 hover:bg-black/5 dark:hover:bg-white/10'}`} style={complOn ? { background: '#0ea5e9' } : undefined}><ClipboardCheck className="w-4 h-4" /></button>
+        <button onClick={() => { setMesOn((v) => !v); setHeatOn(false); setComplOn(false); setBayOn(false); }} title="MES en vivo (estado de estaciones)" className={`p-1.5 rounded-lg transition-colors ${mesOn ? 'text-white' : 'text-gray-500 hover:bg-black/5 dark:hover:bg-white/10'}`} style={mesOn ? { background: '#10b981' } : undefined}><Activity className="w-4 h-4" /></button>
+        <button onClick={() => { setHeatOn((v) => !v); setMesOn(false); setComplOn(false); setBayOn(false); }} title="Mapa de calor (tiempo de ciclo / utilización)" className={`p-1.5 rounded-lg transition-colors ${heatOn ? 'text-white' : 'text-gray-500 hover:bg-black/5 dark:hover:bg-white/10'}`} style={heatOn ? { background: '#f97316' } : undefined}><Flame className="w-4 h-4" /></button>
+        <button onClick={() => { setComplOn((v) => !v); setMesOn(false); setHeatOn(false); setBayOn(false); }} title="Completitud documental (NP / factor / ayuda visual)" className={`p-1.5 rounded-lg transition-colors ${complOn ? 'text-white' : 'text-gray-500 hover:bg-black/5 dark:hover:bg-white/10'}`} style={complOn ? { background: '#0ea5e9' } : undefined}><ClipboardCheck className="w-4 h-4" /></button>
+        <button onClick={() => { setBayOn((v) => !v); setMesOn(false); setHeatOn(false); setComplOn(false); }} title="Bahía que surte cada estación (1–6)" className={`p-1.5 rounded-lg transition-colors ${bayOn ? 'text-white' : 'text-gray-500 hover:bg-black/5 dark:hover:bg-white/10'}`} style={bayOn ? { background: '#8b5cf6' } : undefined}><Warehouse className="w-4 h-4" /></button>
         <button onClick={() => setFlowOn((v) => !v)} title="Diagrama de flujo (distancias y cruces)" className={`p-1.5 rounded-lg transition-colors ${flowOn ? 'text-white' : 'text-gray-500 hover:bg-black/5 dark:hover:bg-white/10'}`} style={flowOn ? { background: '#3b82f6' } : undefined}><Waypoints className="w-4 h-4" /></button>
         <button onClick={() => setValidateOn((v) => !v)} title="Validar layout (solapes, holgura, fuera de límites)" className={`p-1.5 rounded-lg transition-colors ${validateOn ? 'text-white' : 'text-gray-500 hover:bg-black/5 dark:hover:bg-white/10'}`} style={validateOn ? { background: validateData && !validateData.ok ? '#ef4444' : '#10b981' } : undefined}>{validateOn && validateData && !validateData.ok ? <ShieldAlert className="w-4 h-4" /> : <ShieldCheck className="w-4 h-4" />}</button>
         <button onClick={runAutoArrange} disabled={arranging} title="Auto-acomodar estaciones en serpentina por ruteo" className="p-1.5 rounded-lg text-gray-500 hover:bg-black/5 dark:hover:bg-white/10 transition-colors disabled:opacity-40">{arranging ? <Loader2 className="w-4 h-4 animate-spin" /> : <LayoutGrid className="w-4 h-4" />}</button>
@@ -1684,6 +1728,23 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
           <span className="text-gray-500 ml-auto">
             {complData
               ? `${Math.round(complData.completePct * 100)}% documentadas · faltan: NP ${complData.missingNp} · factor ${complData.missingUseFactor} · ayuda ${complData.missingVisualAid}`
+              : 'cargando…'}
+          </span>
+        </div>
+      )}
+
+      {bayOn && (
+        <div className="flex items-center gap-3 px-4 py-2 border-b border-black/5 dark:border-white/10 text-[12px] flex-wrap">
+          <span className="inline-flex items-center gap-1.5 font-medium" style={{ color: '#8b5cf6' }}>
+            <Warehouse className="w-3.5 h-3.5" /> Bahías
+          </span>
+          {[1, 2, 3, 4, 5, 6].map((b) => (
+            <LegendDot key={b} color={BAY_STROKES[b]} label={`B${b}`} />
+          ))}
+          <LegendDot color="#94a3b8" label="sin bahía" />
+          <span className="text-gray-500 ml-auto">
+            {bayData
+              ? `${bayData.mapped}/${bayData.total} con bahía · bahías usadas: ${bayData.baysUsed.join(', ') || '—'}${bayData.unmapped > 0 ? ` · ${bayData.unmapped} NP sin asignar` : ''}`
               : 'cargando…'}
           </span>
         </div>
