@@ -200,6 +200,28 @@ describe('LineEngineeringService (integration)', () => {
     });
   });
 
+  it('detects flow back-tracking against the routing order (Fase 21)', async () => {
+    await seedRoute(); // EST-10 (10), EST-20 (20), EST-30 (30)
+    const before = await service.getLayout('AX-1000');
+    const id = Object.fromEntries(
+      before.stations.map((s) => [s.station, s.id]),
+    );
+    // Place EST-30 physically behind EST-20 → the 20→30 hop back-tracks.
+    await service.saveLayout({
+      model: 'AX-1000',
+      positions: [
+        { id: id['EST-10'], x: 0, y: 0, w: 100, h: 100, rotation: 0 }, // cx 50
+        { id: id['EST-20'], x: 300, y: 0, w: 100, h: 100, rotation: 0 }, // cx 350
+        { id: id['EST-30'], x: 100, y: 0, w: 100, h: 100, rotation: 0 }, // cx 150 (back)
+      ],
+    });
+    const fd = await service.getFlowDirection('AX-1000');
+    expect(fd.hasDirection).toBe(true);
+    expect(fd.backtrackCount).toBe(1);
+    expect(fd.backtrackHops[0]).toMatchObject({ from: 'EST-20', to: 'EST-30' });
+    expect(fd.directionalEfficiencyPct).toBeCloseTo(60, 0);
+  });
+
   it('computes capacity/load including changeover', async () => {
     await seedRoute();
     await service.qualify({

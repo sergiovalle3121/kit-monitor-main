@@ -47,6 +47,7 @@ import {
   StationCompletenessRow,
 } from './line-balance';
 import { flowAnalysis, FlowAnalysis } from './line-flow';
+import { flowDirection, FlowDirectionResult } from './line-flowdir';
 import { layoutCollisions, CollisionResult, RectBox } from './line-collision';
 import { autoArrange, ArrangedPosition } from './line-autoarrange';
 import { staffingPlan, StaffingResult, StationStaffing } from './line-staffing';
@@ -1224,6 +1225,34 @@ export class LineEngineeringService {
       revision,
       unit: layout.footprint.unit,
     };
+  }
+
+  /**
+   * Flow-direction / back-tracking analysis (Fase 21). Measures how much the
+   * material advances vs. travels back against the net first→last direction
+   * along the routing order, and lists the hops that back-track. Read-only.
+   */
+  async getFlowDirection(
+    model: string,
+    revision = 'A',
+  ): Promise<
+    FlowDirectionResult & { model: string; revision: string; unit: string }
+  > {
+    const m = (model ?? '').trim();
+    const r = (revision ?? 'A').trim() || 'A';
+    const layout = await this.getLayout(m, r);
+    const defW = layout.footprint.footprintW * 0.03;
+    const defH = layout.footprint.footprintH * 0.04;
+    const placed = layout.stations
+      .filter((s) => s.x !== null && s.y !== null)
+      .map((s) => ({
+        station: s.station,
+        sequence: s.sequence,
+        cx: (s.x as number) + (s.w !== null ? s.w / 2 : defW),
+        cy: (s.y as number) + (s.h !== null ? s.h / 2 : defH),
+      }));
+    const result = flowDirection(placed);
+    return { ...result, model: m, revision: r, unit: layout.footprint.unit };
   }
 
   /**

@@ -79,6 +79,11 @@ interface FlowSummary {
   totalDistance: number; segmentCount: number; longestSegment: FlowSegment | null;
   avgDistance: number; unplacedLinks: number; crossings: number; unit: string; segments: FlowSegment[];
 }
+// Flow direction / back-tracking (Fase 21).
+interface FlowDirSummary {
+  hasDirection: boolean; directionalEfficiencyPct: number; backtrackCount: number;
+  backtrackDistance: number; backtrackHops: { from: string; to: string; distance: number; backtrack: number }[]; unit: string;
+}
 // Short hops green, long hauls red — the spaghetti ramp, normalized to the longest.
 const flowColor = (d: number, max: number): string => {
   const t = max > 0 ? d / max : 0;
@@ -249,6 +254,7 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
   const [complData, setComplData] = useState<ComplSummary | null>(null);
   const [flowOn, setFlowOn] = useState(false);
   const [flowData, setFlowData] = useState<FlowSummary | null>(null);
+  const [flowDirData, setFlowDirData] = useState<FlowDirSummary | null>(null);
   const [validateOn, setValidateOn] = useState(false);
   const [validateData, setValidateData] = useState<CollisionSummary | null>(null);
   const [clearanceInput, setClearanceInput] = useState('');
@@ -1225,10 +1231,13 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
     let alive = true;
     (async () => {
       try {
-        const r = await apiFetch(`${API_BASE}/line-engineering/layout/flow?model=${encodeURIComponent(model)}&revision=${encodeURIComponent(revision)}`);
-        if (!r.ok || !alive) return;
-        const d = (await r.json()) as FlowSummary;
-        setFlowData(d);
+        const [r, rd] = await Promise.all([
+          apiFetch(`${API_BASE}/line-engineering/layout/flow?model=${encodeURIComponent(model)}&revision=${encodeURIComponent(revision)}`),
+          apiFetch(`${API_BASE}/line-engineering/layout/flow-direction?model=${encodeURIComponent(model)}&revision=${encodeURIComponent(revision)}`),
+        ]);
+        if (!alive) return;
+        if (r.ok) setFlowData((await r.json()) as FlowSummary);
+        if (rd.ok) setFlowDirData((await rd.json()) as FlowDirSummary);
       } catch { /* transient */ }
     })();
     return () => { alive = false; };
@@ -1695,6 +1704,9 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
                 <span>· tramo más largo {Math.round(flowData.longestSegment?.distance ?? 0)} {flowData.unit}</span>
                 <span className={flowData.crossings > 0 ? 'text-rose-500 font-medium' : ''}>· cruces {flowData.crossings}</span>
                 {flowData.unplacedLinks > 0 && <span className="text-amber-500">· {flowData.unplacedLinks} sin colocar</span>}
+                {flowDirData?.hasDirection && (
+                  <span className={flowDirData.backtrackCount > 0 ? 'text-amber-500' : 'text-emerald-600'}>· dirección {flowDirData.directionalEfficiencyPct}% ({flowDirData.backtrackCount} {flowDirData.backtrackCount === 1 ? 'retroceso' : 'retrocesos'})</span>
+                )}
               </>
             ) : 'cargando…'}
           </span>
