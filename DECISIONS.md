@@ -533,4 +533,46 @@ tests ✓. Sin tablas nuevas → el smoke de bootstrap no cambia de superficie.
 `decision-intelligence` + propuestas de `autopilot`; tarjetas de análisis con
 mini-gráficas embebidas en el chat de CIDE; editor de métricas/ontología en la UI.
 
+## 21. Kit "Workspace Industrial" (primitivos de UI) + Legal de referencia
+
+**Contexto.** Conviven módulos profundos (operador, planning, quality/holds) y
+módulos austeros que se sienten como "un + y unos campos". Causa estructural: no
+había primitivos de UI compartidos para datos — `components/ui/` solo tenía
+`ConfirmDialog`, `HoverArrow`, `IconTile`, `PageHeader`, `AuroraBackground`. Cada
+página profunda rodó su propia tabla/filtros/KPIs a mano (p.ej. `quality.ui` con
+`Empty/Field/Kpi/Modal`). Resultado: duplicación + austeridad.
+
+**Decisión.** Construir **una vez** un kit reutilizable en
+`apps/web/src/components/workspace/` y aplicarlo a Legal como implementación de
+referencia, **sin tocar backend** (solo se consume lo que `/legal` ya expone):
+
+- **Primitivos genéricos** (no acoplados a Legal): `EmptyState`, `DataTable<T>`,
+  `FilterBar`, `DetailDrawer` (+ `DrawerSection`/`DrawerField`), `ExportButton<T>`,
+  `StatCard`/`KpiRow`, `Toolbar`. Reutilizan `IconTile`/`PageHeader`/`ConfirmDialog`
+  existentes; estilo con el token `glass`, lucide, acento, dark mode.
+- **DataTable** sobre **`@tanstack/react-table`** (headless, MIT — ver
+  `THIRD_PARTY_NOTICES.md`): orden, filtro por columna, búsqueda global
+  (controlable desde el Toolbar), paginación, selección múltiple + barra en lote,
+  visibilidad de columnas, densidad y skeleton. El estilo es propio.
+- **Legal** (`/dashboard/legal`) reescrito como composición del kit: `KpiRow`
+  (4 KPIs ya calculados), `Toolbar` con búsqueda + `FilterBar` (tipo/estado/rango
+  de vencimiento) + `ExportButton` (CSV/XLSX, respeta filtros) + "Nuevo contrato"
+  (en drawer, no inline), `DataTable<Contract>` con columna calculada de
+  "días para vencer" (ámbar <30d, rojo vencidos) y `DetailDrawer` con línea de
+  tiempo de estado + transiciones existentes (`/legal/contracts/:id/transition`)
+  bajo `ConfirmDialog`.
+
+**Backend intacto.** Cero endpoints/entidad/esquema/migración nuevos. Documentos
+vinculados y alertas-que-disparan = follow-up (requieren backend).
+
+**Corrección de premisa (verificada en código).** El brief asumía que Legal "no
+está en el hub". **Sí lo está**: se cableó en `dashboard/page.tsx` (catálogo
+`AREAS`, sección "Administración") en el PR #361. No existe `lib/dashboardAreas.ts`
+— `AREAS` vive en la página. Por tanto **no se duplica** la entrada; se ajusta la
+existente añadiendo el rol `plant_manager` a `["finance","hr"]` (admin/owner ya la
+ven vía `seesAllAreas`, sin permisos nuevos).
+
+**Aditivo.** El kit no obliga a migrar las páginas que ya rodaron su tabla; un
+segundo módulo puede consumir los primitivos sin cambios.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->

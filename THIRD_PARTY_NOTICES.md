@@ -15,11 +15,20 @@ permisivas: MIT, Apache-2.0, BSD-2/3, ISC. Prohibido copyleft (GPL/AGPL/LGPL).
 _Ninguno hasta ahora._ Todo el código de esta sesión es original, escrito para
 seguir las convenciones del repo.
 
-## Dependencias npm añadidas en esta sesión
+## Dependencias npm añadidas
 
-_Ninguna._ El cliente de CIDE (`cide-provider.ts`) usa el `fetch` nativo de
-Node 20+, sin SDK externo. De hecho esta sesión **retira** una dependencia:
-`@anthropic-ai/sdk` (ya no se usa; CIDE no llama a Anthropic).
+**Sesión CIDE:** _Ninguna._ El cliente de CIDE (`cide-provider.ts`) usa el `fetch`
+nativo de Node 20+, sin SDK externo. De hecho esa sesión **retira** una
+dependencia: `@anthropic-ai/sdk` (ya no se usa; CIDE no llama a Anthropic).
+
+**PR "Workspace Industrial" (kit de UI):**
+
+| Dependencia | Licencia | Uso | URL |
+|---|---|---|---|
+| `@tanstack/react-table` | MIT | Núcleo **headless** de la `DataTable` del kit (orden, filtro por columna, búsqueda, paginación, selección). Solo lógica de tabla; el estilo es propio (Tailwind + token `glass`). | https://github.com/TanStack/table |
+
+Permisiva (MIT). Arrastra `@tanstack/table-core` (mismo proyecto, también MIT).
+Justificación en `DECISIONS.md` §21.
 
 ## Modelos de IA (CIDE) — pesos descargados en runtime
 
