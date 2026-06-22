@@ -9,7 +9,7 @@ import {
   AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd,
   AlignHorizontalSpaceAround, AlignVerticalSpaceAround, Trash2, MapPin, RotateCcw,
   Upload, Eye, EyeOff, Map as MapIcon, Activity, Workflow, Wand2, Boxes,
-  Download, Printer, Ruler,
+  Download, Printer, Ruler, Type, MoveHorizontal,
 } from 'lucide-react';
 import { glass } from '@/lib/glass';
 import { apiFetch } from '@/lib/apiFetch';
@@ -46,6 +46,7 @@ const ASSET_KINDS: { kind: string; label: string; color: string; fill: string; w
 const ASSET_META = (kind: string) => ASSET_KINDS.find((k) => k.kind === kind) ?? ASSET_KINDS[0];
 
 interface LayoutAsset { id: string; kind: string; x: number; y: number; w: number; h: number; rotation: number; label?: string }
+interface LayoutAnnotation { id: string; type: 'text' | 'dim'; x: number; y: number; x2?: number; y2?: number; text?: string; color?: string }
 interface LayoutStation {
   id: string; station: string; line: string; sequence: number; ctq: boolean;
   x: number | null; y: number | null; w: number | null; h: number | null; rotation: number | null;
@@ -53,7 +54,7 @@ interface LayoutStation {
 interface Footprint { footprintW: number; footprintH: number; unit: string; gridSize: number }
 interface DxfMeta { name: string; offsetX: number; offsetY: number; scale: number; rotation: number; visible: boolean; opacity: number }
 interface LayoutConnector { from: string; to: string; kind?: string }
-interface LineLayout { model: string; revision: string; footprint: Footprint; stations: LayoutStation[]; dxf: DxfMeta | null; connectors: LayoutConnector[]; assets: LayoutAsset[] }
+interface LineLayout { model: string; revision: string; footprint: Footprint; stations: LayoutStation[]; dxf: DxfMeta | null; connectors: LayoutConnector[]; assets: LayoutAsset[]; annotations: LayoutAnnotation[] }
 interface Placement { x: number; y: number; w: number; h: number; rotation: number }
 type MesLevel = 'down' | 'warn' | 'ok' | 'idle' | 'unknown';
 interface StationLiveStatus { station: string; line: string; status: MesLevel; label: string; severity: string | null; since: string | null }
@@ -123,6 +124,12 @@ export function LayoutEditor({ model, revision }: { model: string; revision: str
   const measureP1Ref = useRef<{ x: number; y: number } | null>(null);
   const measureObjsRef = useRef<any[]>([]);
   const measureClickRef = useRef<(p: { x: number; y: number }) => void>(() => {});
+  const annotationsRef = useRef<LayoutAnnotation[]>([]);
+  const objByAnnRef = useRef<Map<string, any>>(new Map());
+  const annToolRef = useRef<'text' | 'dim' | null>(null);
+  const annDimP1Ref = useRef<{ x: number; y: number } | null>(null);
+  const annClickRef = useRef<(scene: { x: number; y: number }, target: any) => void>(() => {});
+  const drawAnnRef = useRef<() => void>(() => {});
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -142,6 +149,8 @@ export function LayoutEditor({ model, revision }: { model: string; revision: str
   const [measureMode, setMeasureMode] = useState(false);
   const [measureVal, setMeasureVal] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
+  const [annTool, setAnnTool] = useState<'text' | 'dim' | null>(null);
+  const [annCount, setAnnCount] = useState(0);
   const snapRef = useRef(snap);
   const panRef = useRef(panMode);
   useEffect(() => { snapRef.current = snap; }, [snap]);
@@ -157,6 +166,8 @@ export function LayoutEditor({ model, revision }: { model: string; revision: str
   const tray = useMemo(() => stations.filter((s) => !placedIds.has(s.id)), [stations, placedIds]);
 
   const markDirty = useCallback(() => setDirty(true), []);
+  // Any interaction tool active → station/asset boxes yield clicks to the tool.
+  const toolActive = useCallback(() => linkRef.current || measureRef.current || !!annToolRef.current, []);
 
   // ── Fit scale: footprint fills the viewport (minus padding) at zoom 1 ───────
   const computeFit = useCallback(() => {
@@ -286,6 +297,37 @@ export function LayoutEditor({ model, revision }: { model: string; revision: str
   }, []);
   useEffect(() => { drawConnRef.current = drawConnectors; }, [drawConnectors]);
 
+  // ── Annotations: text labels + dimension lines (Fase 7) ─────────────────────
+  const drawAnnotations = useCallback(() => {
+    const c = fcRef.current; if (!c) return;
+    objByAnnRef.current.forEach((o) => c.remove(o));
+    objByAnnRef.current.clear();
+    const S = fitRef.current;
+    const tool = annToolRef.current;
+    annotationsRef.current.forEach((a) => {
+      if (a.type === 'text') {
+        const t = new Textbox(a.text || 'Texto', {
+          left: a.x * S, top: a.y * S, width: 220, fontSize: 16, fill: a.color || '#0f172a',
+          fontFamily: 'ui-sans-serif, system-ui, sans-serif', editable: true,
+          selectable: !tool, evented: true, backgroundColor: 'rgba(255,255,255,0.55)',
+        });
+        (t as any).annId = a.id; (t as any).annType = 'text';
+        objByAnnRef.current.set(a.id, t); c.add(t);
+      } else {
+        const x1 = a.x * S, y1 = a.y * S, x2 = (a.x2 ?? a.x) * S, y2 = (a.y2 ?? a.y) * S;
+        const dist = Math.hypot((a.x2 ?? a.x) - a.x, (a.y2 ?? a.y) - a.y);
+        const color = a.color || '#0ea5e9';
+        const line = new Line([x1, y1, x2, y2], { stroke: color, strokeWidth: 1.5, strokeDashArray: [5, 4], selectable: false, evented: tool === 'dim', hoverCursor: 'pointer', strokeUniform: true });
+        (line as any).annId = a.id;
+        const label = new Textbox(`${Math.round(dist)} ${footprintRef.current.unit}`, { left: (x1 + x2) / 2 - 50, top: (y1 + y2) / 2 - 16, width: 100, fontSize: 12, fill: color, textAlign: 'center', selectable: false, evented: false, backgroundColor: 'rgba(255,255,255,0.85)' });
+        objByAnnRef.current.set(a.id, line);
+        objByAnnRef.current.set(`${a.id}:lbl`, label);
+        c.add(line); c.add(label);
+      }
+    });
+  }, []);
+  useEffect(() => { drawAnnRef.current = drawAnnotations; }, [drawAnnotations]);
+
   // ── Build an interactive station box from a placement ───────────────────────
   const makeBox = useCallback((s: LayoutStation, p: Placement) => {
     const c = fcRef.current; if (!c) return;
@@ -298,7 +340,7 @@ export function LayoutEditor({ model, revision }: { model: string; revision: str
       stroke: col ? col.stroke : (s.ctq ? AMBER : ROSE), strokeWidth: col ? 2 : 1.5, rx: 6, ry: 6,
       cornerColor: '#fff', cornerStrokeColor: ROSE, borderColor: ROSE, transparentCorners: false,
       cornerSize: 9, lockScalingFlip: true, objectCaching: false,
-      selectable: !linkRef.current, // in link mode, clicks pick endpoints (no drag)
+      selectable: !toolActive(), // tools (link/measure/text/dim) take the click
     });
     box.labelText = s.station;
     box.seqText = `#${s.sequence}`;
@@ -307,19 +349,20 @@ export function LayoutEditor({ model, revision }: { model: string; revision: str
     box.setControlsVisibility({ mtr: true });
     objByIdRef.current.set(s.id, box);
     c.add(box);
-  }, []);
+  }, [toolActive]);
 
   // ── Build an equipment/asset box (Fase 5) ───────────────────────────────────
   const makeAsset = useCallback((a: LayoutAsset) => {
     const c = fcRef.current; if (!c) return;
     const meta = ASSET_META(a.kind);
+    const inactive = !toolActive();
     const box = new StationBox({
       left: worldToPx(a.x), top: worldToPx(a.y), width: worldToPx(a.w), height: worldToPx(a.h),
       angle: a.rotation || 0, originX: 'left', originY: 'top',
       fill: meta.fill, stroke: meta.color, strokeWidth: 1.5, rx: 4, ry: 4, strokeDashArray: [6, 4],
       cornerColor: '#fff', cornerStrokeColor: meta.color, borderColor: meta.color, transparentCorners: false,
       cornerSize: 9, lockScalingFlip: true, objectCaching: false,
-      selectable: !linkRef.current, evented: !linkRef.current,
+      selectable: inactive, evented: inactive,
     });
     box.labelText = a.label || meta.label;
     box.seqText = '';
@@ -328,7 +371,7 @@ export function LayoutEditor({ model, revision }: { model: string; revision: str
     box.setControlsVisibility({ mtr: true });
     objByAssetRef.current.set(a.id, box);
     c.add(box);
-  }, []);
+  }, [toolActive]);
 
   // ── Full redraw of interactive objects from refs (structural changes only) ──
   const rebuild = useCallback(() => {
@@ -346,8 +389,9 @@ export function LayoutEditor({ model, revision }: { model: string; revision: str
       if (s) makeBox(s, p);
     });
     drawConnectors(); // arrows on top of the stations
+    drawAnnotations(); // text labels + dimensions on top
     c.requestRenderAll();
-  }, [computeFit, drawScene, drawDxf, drawConnectors, makeBox, makeAsset]);
+  }, [computeFit, drawScene, drawDxf, drawConnectors, drawAnnotations, makeBox, makeAsset]);
 
   const stationsRef = useRef<LayoutStation[]>([]);
   useEffect(() => { stationsRef.current = stations; }, [stations]);
@@ -400,6 +444,13 @@ export function LayoutEditor({ model, revision }: { model: string; revision: str
   // ── Persist a placement from an object back into the world-state ref ─────────
   const syncFromObj = useCallback((obj: StationBox) => {
     const w = obj.getScaledWidth(), h = obj.getScaledHeight();
+    // Text annotation moved (Fase 7).
+    const annId = (obj as any).annId as string | undefined;
+    if (annId) {
+      const a = annotationsRef.current.find((x) => x.id === annId);
+      if (a) { a.x = Math.max(0, Math.round(pxToWorld(obj.left!))); a.y = Math.max(0, Math.round(pxToWorld(obj.top!))); markDirty(); }
+      return;
+    }
     // Equipment/asset boxes (Fase 5) live in their own ref.
     const aid = (obj as any).assetId as string | undefined;
     if (aid) {
@@ -462,6 +513,8 @@ export function LayoutEditor({ model, revision }: { model: string; revision: str
       connectorsRef.current = Array.isArray(d.connectors) ? d.connectors : [];
       setConnCount(connectorsRef.current.length);
       assetsRef.current = Array.isArray(d.assets) ? d.assets : [];
+      annotationsRef.current = Array.isArray(d.annotations) ? d.annotations : [];
+      setAnnCount(annotationsRef.current.length);
       setDirty(false);
 
       // DXF background: the placement meta arrives with the layout; the raw
@@ -509,6 +562,13 @@ export function LayoutEditor({ model, revision }: { model: string; revision: str
     c.on('selection:created', () => setSelCount(c.getActiveObjects().length));
     c.on('selection:updated', () => setSelCount(c.getActiveObjects().length));
     c.on('selection:cleared', () => setSelCount(0));
+    // Persist edited annotation text.
+    c.on('text:editing:exited', (e) => {
+      const o = e.target as any;
+      if (!o?.annId || o.annType !== 'text') return;
+      const a = annotationsRef.current.find((x) => x.id === o.annId);
+      if (a) { a.text = (o.text || '').slice(0, 240); setDirty(true); }
+    });
 
     // Wheel zoom to pointer
     c.on('mouse:wheel', (opt) => {
@@ -523,6 +583,7 @@ export function LayoutEditor({ model, revision }: { model: string; revision: str
     let panning = false; let lastX = 0; let lastY = 0;
     c.on('mouse:down', (opt) => {
       if (measureRef.current) { measureClickRef.current(c.getScenePoint(opt.e)); return; }
+      if (annToolRef.current) { annClickRef.current(c.getScenePoint(opt.e), (opt as any).target); return; }
       if (linkRef.current) { linkClickRef.current((opt as any).target); return; }
       const ev = opt.e as MouseEvent;
       if (panRef.current || ev.altKey || (ev as any).button === 1) {
@@ -582,9 +643,11 @@ export function LayoutEditor({ model, revision }: { model: string; revision: str
     const objs = c.getActiveObjects() as StationBox[];
     const ids = objs.map((o) => (o as any).stationId as string).filter(Boolean);
     const assetIds = objs.map((o) => (o as any).assetId as string).filter(Boolean);
-    if (ids.length === 0 && assetIds.length === 0) return;
+    const annIds = objs.map((o) => (o as any).annId as string).filter(Boolean);
+    if (ids.length === 0 && assetIds.length === 0 && annIds.length === 0) return;
     c.discardActiveObject();
     if (assetIds.length) assetsRef.current = assetsRef.current.filter((a) => !assetIds.includes(a.id));
+    if (annIds.length) { annotationsRef.current = annotationsRef.current.filter((a) => !annIds.includes(a.id)); setAnnCount(annotationsRef.current.length); }
     if (ids.length) {
       setPlacedIds((prev) => { const n = new Set(prev); ids.forEach((id) => { n.delete(id); placementsRef.current.delete(id); }); return n; });
     }
@@ -692,7 +755,8 @@ export function LayoutEditor({ model, revision }: { model: string; revision: str
     measureRef.current = measureMode;
     measureP1Ref.current = null;
     if (!measureMode) { clearMeasure(); setMeasureVal(null); }
-  }, [measureMode, clearMeasure]);
+    requestAnimationFrame(() => rebuild()); // refresh box interactivity for the tool
+  }, [measureMode, clearMeasure, rebuild]);
 
   // ── Export / print (Fase 6) ─────────────────────────────────────────────────
   const downloadBlob = (data: Blob | string, filename: string) => {
@@ -903,6 +967,46 @@ export function LayoutEditor({ model, revision }: { model: string; revision: str
     requestAnimationFrame(() => rebuild());
   }, [markDirty, rebuild]);
 
+  // ── Annotation interactions (Fase 7) ────────────────────────────────────────
+  const handleAnnClick = useCallback((scene: { x: number; y: number }, target: any) => {
+    const tool = annToolRef.current;
+    const S = fitRef.current;
+    const wpt = { x: Math.max(0, Math.round(scene.x / S)), y: Math.max(0, Math.round(scene.y / S)) };
+    const nid = () => `an_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 5)}`;
+    if (tool === 'text') {
+      const id = nid();
+      annotationsRef.current = [...annotationsRef.current, { id, type: 'text', x: wpt.x, y: wpt.y, text: 'Texto' }];
+      setAnnCount(annotationsRef.current.length); markDirty();
+      requestAnimationFrame(() => { rebuild(); const o = objByAnnRef.current.get(id); if (o) { fcRef.current?.setActiveObject(o); fcRef.current?.requestRenderAll(); } });
+      return;
+    }
+    if (tool === 'dim') {
+      if (target && target.annId) {
+        annotationsRef.current = annotationsRef.current.filter((a) => a.id !== target.annId);
+        setAnnCount(annotationsRef.current.length); markDirty();
+        requestAnimationFrame(() => rebuild());
+        return;
+      }
+      if (!annDimP1Ref.current) { annDimP1Ref.current = wpt; return; }
+      const p1 = annDimP1Ref.current; annDimP1Ref.current = null;
+      annotationsRef.current = [...annotationsRef.current, { id: nid(), type: 'dim', x: p1.x, y: p1.y, x2: wpt.x, y2: wpt.y }];
+      setAnnCount(annotationsRef.current.length); markDirty();
+      requestAnimationFrame(() => rebuild());
+    }
+  }, [markDirty, rebuild]);
+  useEffect(() => { annClickRef.current = handleAnnClick; }, [handleAnnClick]);
+  useEffect(() => {
+    annToolRef.current = annTool;
+    annDimP1Ref.current = null;
+    requestAnimationFrame(() => rebuild());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [annTool]);
+
+  const clearAnnotations = useCallback(() => {
+    annotationsRef.current = []; setAnnCount(0); markDirty();
+    requestAnimationFrame(() => rebuild());
+  }, [markDirty, rebuild]);
+
   // ── Save ────────────────────────────────────────────────────────────────────
   const save = useCallback(async () => {
     if (!model) return;
@@ -916,7 +1020,7 @@ export function LayoutEditor({ model, revision }: { model: string; revision: str
         : undefined;
       const r = await apiFetch(`${API_BASE}/line-engineering/layout`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model, revision, footprint: footprintRef.current, positions, cleared, connectors: connectorsRef.current, assets: assetsRef.current, ...(dxfMeta ? { dxf: dxfMeta } : {}) }),
+        body: JSON.stringify({ model, revision, footprint: footprintRef.current, positions, cleared, connectors: connectorsRef.current, assets: assetsRef.current, annotations: annotationsRef.current, ...(dxfMeta ? { dxf: dxfMeta } : {}) }),
       });
       if (!r.ok) { const d = await r.json().catch(() => ({})); toast.error(d?.message || 'No se pudo guardar.', 'Ing. Industrial'); return; }
       toast.success('Layout guardado.', 'Ing. Industrial');
@@ -1029,6 +1133,15 @@ export function LayoutEditor({ model, revision }: { model: string; revision: str
             <span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: k.color }} /> {k.label}
           </button>
         ))}
+      </div>
+
+      {/* Annotations: text + dimensions (Fase 7) */}
+      <div className="flex items-center gap-2.5 px-4 py-2 border-b border-black/5 dark:border-white/10 text-[12px] text-gray-500 flex-wrap">
+        <span className="font-medium inline-flex items-center gap-1"><Type className="w-3.5 h-3.5" /> Notas:</span>
+        <button onClick={() => setAnnTool((t) => (t === 'text' ? null : 'text'))} className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border transition-colors ${annTool === 'text' ? 'text-white border-transparent' : 'border-black/10 dark:border-white/10 hover:bg-black/[0.05] dark:hover:bg-white/[0.08]'}`} style={annTool === 'text' ? { background: '#0f172a' } : undefined}><Type className="w-3.5 h-3.5" /> Texto</button>
+        <button onClick={() => setAnnTool((t) => (t === 'dim' ? null : 'dim'))} className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border transition-colors ${annTool === 'dim' ? 'text-white border-transparent' : 'border-black/10 dark:border-white/10 hover:bg-black/[0.05] dark:hover:bg-white/[0.08]'}`} style={annTool === 'dim' ? { background: '#0ea5e9' } : undefined}><MoveHorizontal className="w-3.5 h-3.5" /> Cota</button>
+        <button onClick={clearAnnotations} disabled={annCount === 0} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-gray-400 hover:text-rose-500 disabled:opacity-40"><Trash2 className="w-3.5 h-3.5" /> Limpiar</button>
+        <span className="text-gray-400">· {annCount} {annCount === 1 ? 'nota' : 'notas'}{annTool === 'text' ? ' · clic para colocar (doble clic edita)' : annTool === 'dim' ? ' · clic en 2 puntos; clic en una cota la borra' : ''}</span>
       </div>
 
       {mesOn && (

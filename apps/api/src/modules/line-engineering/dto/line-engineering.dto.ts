@@ -391,6 +391,48 @@ export class LayoutAssetDto {
   label?: string;
 }
 
+/** A free-text label or a dimension line on the plan (Fase 7). */
+export class LayoutAnnotationDto {
+  @ApiProperty()
+  @IsString()
+  @Length(1, 64)
+  id: string;
+
+  @ApiProperty({ enum: ['text', 'dim'] })
+  @IsIn(['text', 'dim'])
+  type: string;
+
+  @ApiProperty({ example: 1000 })
+  @IsNumber()
+  x: number;
+
+  @ApiProperty({ example: 2000 })
+  @IsNumber()
+  y: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
+  x2?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
+  y2?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @Length(0, 240)
+  text?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @Length(0, 16)
+  color?: string;
+}
+
 /** Persist a model+revision layout: footprint config + station placements. */
 export class SaveLayoutDto {
   @ApiProperty({ example: 'AX-1000' })
@@ -457,6 +499,16 @@ export class SaveLayoutDto {
   @ValidateNested({ each: true })
   @Type(() => LayoutAssetDto)
   assets?: LayoutAssetDto[];
+
+  @ApiPropertyOptional({
+    type: [LayoutAnnotationDto],
+    description: 'Text labels / dimension lines on the plan.',
+  })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => LayoutAnnotationDto)
+  annotations?: LayoutAnnotationDto[];
 }
 
 /** Upload/replace the DXF background of a model+revision layout. */

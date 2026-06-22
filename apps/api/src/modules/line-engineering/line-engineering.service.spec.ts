@@ -259,6 +259,26 @@ describe('LineEngineeringService (integration)', () => {
     expect(after.assets[1]).toMatchObject({ kind: 'rack', rotation: 0 });
   });
 
+  it('persists annotations: text labels and dimensions (Fase 7)', async () => {
+    await seedRoute();
+    expect((await service.getLayout('AX-1000')).annotations).toEqual([]);
+    await service.saveLayout({
+      model: 'AX-1000',
+      annotations: [
+        { id: 'n1', type: 'text', x: 500, y: 600, text: 'Celda A' },
+        { id: 'n2', type: 'dim', x: 0, y: 0, x2: 1000, y2: 0 },
+      ],
+    });
+    const after = await service.getLayout('AX-1000');
+    expect(after.annotations).toHaveLength(2);
+    expect(after.annotations[0]).toMatchObject({
+      id: 'n1',
+      type: 'text',
+      text: 'Celda A',
+    });
+    expect(after.annotations[1]).toMatchObject({ type: 'dim', x2: 1000 });
+  });
+
   it('scopes the layout by tenant', async () => {
     const mk = (tenant: string) =>
       ctx.run(ctxFor(tenant), async () => {
