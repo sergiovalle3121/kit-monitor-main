@@ -25,6 +25,7 @@ import { goalSeek } from './sheets/goalSeek';
 import { SheetGoalSeek, type GoalSeekPayload } from './SheetGoalSeek';
 import { dataTable1, dataTable2 } from './sheets/dataTable';
 import { SheetDataTable, type DataTablePayload } from './SheetDataTable';
+import { autoSumPlan, type AggFn } from './sheets/autoSum';
 import { OfficeRibbon, RibbonTab, RibbonGroup, RibbonSeparator, RibbonButton, RibbonMenuButton } from './ribbon';
 import { useToast } from '@/contexts/ToastContext';
 
@@ -346,6 +347,19 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
     return { ok: true, text: `${p.variableCell} = ${res.value} hace que ${p.formulaCell} ≈ ${res.result} (${res.iterations} iteraciones).` };
   }
 
+  // Autosuma: inserta =FN(rango seleccionado) en la celda contigua (debajo/derecha).
+  function doAutoSum(fn: AggFn) {
+    const plan = autoSumPlan(selectionRange(), fn);
+    if (!plan) { toast.error('Selecciona un rango para la autosuma.'); return; }
+    const t = parseRange(plan.targetCell);
+    const wb = wbRef.current;
+    if (t && wb?.setCellValue) {
+      try { wb.setCellValue(t.r1, t.c1, plan.formula); toast.success(`${plan.formula} → ${plan.targetCell}`); return; }
+      catch { /* fallback al portapapeles */ }
+    }
+    navigator.clipboard?.writeText(plan.formula).then(() => toast.info(`Copiado: ${plan.formula}`)).catch(() => toast.info(plan.formula));
+  }
+
   // Tabla de datos (análisis de hipótesis): evalúa la fórmula para cada valor de entrada y
   // escribe la rejilla de resultados en una hoja nueva.
   function readValues(sheet: any, text: string): number[] {
@@ -543,6 +557,16 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
         </RibbonTab>
         {!readOnly && (
           <RibbonTab id="formulas" label="Fórmulas">
+            <RibbonGroup label="Autosuma">
+              <RibbonMenuButton icon={Sigma} label="Autosuma" menuWidth={200} items={[
+                { label: 'Suma', onClick: () => doAutoSum('SUM') },
+                { label: 'Promedio', onClick: () => doAutoSum('AVERAGE') },
+                { label: 'Contar números', onClick: () => doAutoSum('COUNT') },
+                { label: 'Máximo', onClick: () => doAutoSum('MAX') },
+                { label: 'Mínimo', onClick: () => doAutoSum('MIN') },
+              ]} />
+            </RibbonGroup>
+            <RibbonSeparator />
             <RibbonGroup label="Biblioteca de funciones">
               <RibbonButton icon={Sigma} label="Insertar función" hideLabel={false} onClick={() => setShowWizard(true)} />
             </RibbonGroup>

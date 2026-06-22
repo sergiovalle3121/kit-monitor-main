@@ -1120,4 +1120,18 @@ cinta (Datos → «Análisis de hipótesis → Tabla de datos»), que escribe la
 una variable; suma y tabla de multiplicar de dos variables; no muta la hoja; errores). `lint
 web` 0 errores; `build web` ✓.
 
+## 42. Office/Sheets — Autosuma (Σ) con SUM/AVERAGE/COUNT/MAX/MIN
+
+**Contexto.** La «Autosuma» (Σ) es uno de los botones más usados de Excel y faltaba; el asistente
+de funciones existía, pero no el atajo de un clic para agregar el rango seleccionado.
+
+**Decisión (sólo `apps/web`, aditiva):** `components/office/sheets/autoSum.ts` con `autoSumPlan`
+(puro): según el rango propone la fórmula y la celda destino — **fila** (varias columnas) →
+resultado a la **derecha**; **columna/bloque** → **debajo** de la primera columna. La cinta
+(Fórmulas → «Autosuma») ofrece un menú SUM/AVERAGE/COUNT/MAX/MIN que escribe `=FN(rango)` en la
+celda contigua vía `setCellValue` (con respaldo al portapapeles).
+
+**Verificación:** nueva suite `autoSum.spec.ts` (**10 aserciones**: columna→debajo, fila→derecha,
+bloque, cruces de letra de columna Z/AA, rango inválido). `lint web` 0 errores; `build web` ✓.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
