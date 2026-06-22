@@ -114,7 +114,7 @@ export function buildDocx(docx: any, json: any, title: string): any {
     AlignmentType, Table, TableRow, TableCell, WidthType, ShadingType,
     Header, Footer, PageNumber, PageBreak, PageOrientation, FootnoteReferenceRun,
     ImageRun, VerticalAlign, BorderStyle, LineRuleType, LevelFormat,
-    InsertedTextRun, DeletedTextRun,
+    InsertedTextRun, DeletedTextRun, CommentRangeStart, CommentRangeEnd, CommentReference,
   } = docx as any;
 
   const HEADINGS: any = {
@@ -126,6 +126,10 @@ export function buildDocx(docx: any, json: any, title: string): any {
   const footnotes: Record<number, any> = {};
   // Id incremental de revisiones (control de cambios → <w:ins>/<w:del>).
   let revId = 1;
+  // Comentarios de Word: commentId (string del editor) → id numérico, y definiciones del hilo.
+  const commentIdMap = new Map<string, number>();
+  const commentDefs = new Map<number, any>();
+  let nextCommentId = 0;
   // Mientras se construye una celda de encabezado, su texto sale en negrita (como Word).
   let inHeaderCell = false;
   // Numeración NATIVA de Word para listas ordenadas: cada árbol de lista registra una
@@ -198,15 +202,41 @@ export function buildDocx(docx: any, json: any, title: string): any {
     return { o, link, rev };
   }
 
+  // Construye el run de un nodo de texto (hipervínculo / revisión ins-del / texto normal).
+  function buildTextRun(n: any): any {
+    const { o, link, rev } = runOpts(n);
+    if (link) return new ExternalHyperlink({ link, children: [new TextRun({ ...o, color: '0563C1', underline: {} })] });
+    if (rev?.type === 'ins') return new InsertedTextRun({ ...o, id: revId++, author: rev.author, date: rev.date });
+    if (rev?.type === 'del') return new DeletedTextRun({ ...o, id: revId++, author: rev.author, date: rev.date });
+    return new TextRun(o);
+  }
+  const commentMarkOf = (n: any) => (n?.type === 'text' ? (n.marks ?? []).find((m: any) => m.type === 'comment' && m.attrs?.commentId) : null);
+
   function inlineRuns(content: any[]): any[] {
     const out: any[] = [];
-    for (const n of content ?? []) {
+    const items = content ?? [];
+    for (let i = 0; i < items.length; i++) {
+      const n = items[i];
+      // Comentarios → comentarios REALES de Word: agrupa los runs contiguos con el mismo
+      // commentId en un único rango <w:commentRangeStart…End> + referencia, y registra el hilo.
+      const cmark = CommentRangeStart ? commentMarkOf(n) : null;
+      if (cmark) {
+        const cid = cmark.attrs.commentId;
+        let id = commentIdMap.get(cid);
+        if (id === undefined) { id = nextCommentId++; commentIdMap.set(cid, id); }
+        let j = i; const runs: any[] = [];
+        for (; j < items.length; j++) { const c = commentMarkOf(items[j]); if (!c || c.attrs.commentId !== cid) break; runs.push(buildTextRun(items[j])); }
+        if (!commentDefs.has(id)) {
+          const body: any[] = [new Paragraph({ children: [new TextRun(String(cmark.attrs.text || ''))] })];
+          for (const rep of (cmark.attrs.replies ?? [])) body.push(new Paragraph({ children: [new TextRun({ text: `${rep.author ? rep.author + ': ' : ''}${rep.text || ''}`, italics: true })] }));
+          commentDefs.set(id, { id, author: cmark.attrs.author || 'Autor', date: new Date(cmark.attrs.createdAt || Date.now()), children: body });
+        }
+        out.push(new CommentRangeStart(id), ...runs, new CommentRangeEnd(id), new TextRun({ children: [new CommentReference(id)] }));
+        i = j - 1;
+        continue;
+      }
       if (n.type === 'text') {
-        const { o, link, rev } = runOpts(n);
-        if (link) out.push(new ExternalHyperlink({ link, children: [new TextRun({ ...o, color: '0563C1', underline: {} })] }));
-        else if (rev?.type === 'ins') out.push(new InsertedTextRun({ ...o, id: revId++, author: rev.author, date: rev.date }));
-        else if (rev?.type === 'del') out.push(new DeletedTextRun({ ...o, id: revId++, author: rev.author, date: rev.date }));
-        else out.push(new TextRun(o));
+        out.push(buildTextRun(n));
       } else if (n.type === 'footnoteRef') {
         fnCount += 1;
         footnotes[fnCount] = { children: [new Paragraph({ children: [new TextRun(String(n.attrs?.content || ''))] })] };
@@ -427,6 +457,7 @@ export function buildDocx(docx: any, json: any, title: string): any {
     sections: [section],
     ...(Object.keys(footnotes).length ? { footnotes } : {}),
     ...(numbering.length ? { numbering: { config: numbering } } : {}),
+    ...(commentDefs.size ? { comments: { children: [...commentDefs.values()] } } : {}),
   });
 }
 

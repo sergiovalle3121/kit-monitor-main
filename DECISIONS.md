@@ -1201,4 +1201,20 @@ librería ya exporta estos runs nativamente.
 **Verificación:** `docx.spec.ts` ampliado a **27 aserciones** (+3: `<w:ins w:author="Ana">`,
 `<w:del w:author="Luis">`, `<w:delText>`). Round-trip 8/8; `lint web` 0 errores; `build web` ✓.
 
+## 47. Office/Docs — comentarios → comentarios reales de Word en .docx
+
+**Contexto.** Los comentarios del editor (marca `comment` con `commentId`/`author`/`text`/
+`replies`, hilo dentro del JSON) no se exportaban a Word; se perdían al descargar el .docx.
+
+**Decisión (sólo `apps/web`, aditiva):** `inlineRuns` **agrupa** los runs contiguos con el mismo
+`commentId` en un único rango (`CommentRangeStart`…`CommentRangeEnd` + `CommentReference`) —
+necesario para que el OOXML sea válido (un comentario = un rango)— y registra la definición del
+hilo una sola vez (`commentDefs`): el texto del comentario + cada **respuesta** como párrafo.
+Las definiciones se pasan al `Document` como `comments.children`. Mapea `commentId` (string) a un
+id numérico estable.
+
+**Verificación:** `docx.spec.ts` ampliado a **32 aserciones** (+5: `word/comments.xml`,
+`<w:commentRangeStart/End>`, `<w:commentReference>`, autor «Marta» con su texto, y la respuesta
+del hilo). Round-trip 8/8; `lint web` 0 errores; `build web` ✓.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
