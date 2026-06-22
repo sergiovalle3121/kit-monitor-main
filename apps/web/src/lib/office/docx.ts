@@ -8,6 +8,91 @@
 
 const safe = (s: string) => (s || 'documento').replace(/[^\p{L}\p{N} _-]/gu, '').trim() || 'documento';
 
+// ── Imágenes embebidas (data URLs) → bytes + dimensiones naturales ─────────────
+// Word necesita ancho Y alto en EMU; sin alto natural deformaría la imagen, así que
+// leemos las dimensiones de la cabecera del binario (PNG/JPEG/GIF/BMP) sin librerías.
+const USABLE_PX = 600; // ancho útil aproximado de la página (A4, márgenes normales)
+
+/** base64 → bytes, funciona en navegador (`atob`) y en Node (`Buffer`). */
+export function base64ToBytes(b64: string): Uint8Array {
+  if (typeof atob === 'function') {
+    const bin = atob(b64); const len = bin.length; const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) bytes[i] = bin.charCodeAt(i);
+    return bytes;
+  }
+  return new Uint8Array((globalThis as any).Buffer.from(b64, 'base64'));
+}
+
+/** `data:image/...;base64,...` → `{ type, bytes }` (jpeg→jpg, svg+xml→svg). */
+export function parseDataUrl(src: string): { type: string; bytes: Uint8Array } | null {
+  const m = /^data:image\/(png|jpe?g|gif|bmp|svg\+xml);base64,(.*)$/i.exec(src);
+  if (!m) return null;
+  let type = m[1].toLowerCase();
+  if (type === 'jpeg') type = 'jpg';
+  if (type === 'svg+xml') type = 'svg';
+  try { return { type, bytes: base64ToBytes(m[2]) }; } catch { return null; }
+}
+
+/** Dimensiones naturales (px) leídas de la cabecera del binario; null si no se reconoce. */
+export function imageSize(b: Uint8Array, type: string): { w: number; h: number } | null {
+  try {
+    if (type === 'png' && b.length > 24) {
+      const w = b[16] * 0x1000000 + (b[17] << 16) + (b[18] << 8) + b[19];
+      const h = b[20] * 0x1000000 + (b[21] << 16) + (b[22] << 8) + b[23];
+      if (w > 0 && h > 0) return { w, h };
+    }
+    if (type === 'gif' && b.length > 10) {
+      const w = b[6] | (b[7] << 8); const h = b[8] | (b[9] << 8);
+      if (w > 0 && h > 0) return { w, h };
+    }
+    if (type === 'bmp' && b.length > 26) {
+      const w = b[18] | (b[19] << 8) | (b[20] << 16) | (b[21] << 24);
+      const h = b[22] | (b[23] << 8) | (b[24] << 16) | (b[25] << 24);
+      if (w > 0 && h !== 0) return { w, h: Math.abs(h) };
+    }
+    if (type === 'jpg') {
+      let i = 2;
+      while (i + 9 < b.length) {
+        if (b[i] !== 0xFF) { i++; continue; }
+        const marker = b[i + 1];
+        if (marker >= 0xC0 && marker <= 0xCF && marker !== 0xC4 && marker !== 0xC8 && marker !== 0xCC) {
+          const h = (b[i + 5] << 8) | b[i + 6]; const w = (b[i + 7] << 8) | b[i + 8];
+          if (w > 0 && h > 0) return { w, h };
+          break;
+        }
+        const len = (b[i + 2] << 8) | b[i + 3];
+        if (len <= 0) break;
+        i += 2 + len;
+      }
+    }
+  } catch { /* cabecera ilegible → sin tamaño */ }
+  return null;
+}
+
+/** Ancho objetivo (px) desde el atributo del editor ("300px"/"50%"); cae al natural acotado. */
+export function targetWidth(widthAttr: any, naturalW: number): number {
+  if (typeof widthAttr === 'string') {
+    const px = /^(\d+(?:\.\d+)?)px$/.exec(widthAttr.trim());
+    if (px) return Math.min(USABLE_PX, parseFloat(px[1]));
+    const pct = /^(\d+(?:\.\d+)?)%$/.exec(widthAttr.trim());
+    if (pct) return Math.max(1, Math.round((parseFloat(pct[1]) / 100) * USABLE_PX));
+  }
+  return Math.min(USABLE_PX, naturalW || 480);
+}
+
+/** Atributos de imagen de TipTap → `ImageRun` de Word (sólo data URLs embebibles). */
+function imageRun(ImageRun: any, attrs: any): any {
+  const src = attrs?.src;
+  if (!ImageRun || typeof src !== 'string' || !src.startsWith('data:')) return null;
+  const parsed = parseDataUrl(src);
+  if (!parsed || parsed.type === 'svg') return null; // svg necesita dimensiones explícitas
+  const nat = imageSize(parsed.bytes, parsed.type) || { w: 480, h: 360 };
+  const w = targetWidth(attrs?.width, nat.w);
+  const h = Math.max(1, Math.round((nat.h / nat.w) * w));
+  try { return new ImageRun({ data: parsed.bytes, type: parsed.type, transformation: { width: Math.round(w), height: h } }); }
+  catch { return null; }
+}
+
 function download(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -19,12 +104,16 @@ function download(blob: Blob, filename: string) {
   setTimeout(() => URL.revokeObjectURL(url), 1500);
 }
 
-export async function exportDocx(json: any, title: string) {
-  const docx = await import('docx');
+/**
+ * Construye el `Document` de la librería `docx` a partir del JSON de TipTap (función PURA:
+ * recibe el módulo `docx` ya cargado, sin tocar el DOM, para poder probarla sin navegador).
+ */
+export function buildDocx(docx: any, json: any, title: string): any {
   const {
-    Document, Packer, Paragraph, TextRun, ExternalHyperlink, HeadingLevel,
+    Document, Paragraph, TextRun, ExternalHyperlink, HeadingLevel,
     AlignmentType, Table, TableRow, TableCell, WidthType, ShadingType,
     Header, Footer, PageNumber, PageBreak, PageOrientation, FootnoteReferenceRun,
+    ImageRun, VerticalAlign, BorderStyle, LineRuleType,
   } = docx as any;
 
   const HEADINGS: any = {
@@ -34,6 +123,11 @@ export async function exportDocx(json: any, title: string) {
   // Notas al pie reales de Word: se acumulan en orden de aparición.
   let fnCount = 0;
   const footnotes: Record<number, any> = {};
+  // Mientras se construye una celda de encabezado, su texto sale en negrita (como Word).
+  let inHeaderCell = false;
+  // Bordes finos y grises para que las tablas se vean «tipo Word».
+  const tableBorder = { style: BorderStyle.SINGLE, size: 4, color: 'D1D5DB' };
+  const tableBorders = { top: tableBorder, bottom: tableBorder, left: tableBorder, right: tableBorder, insideHorizontal: tableBorder, insideVertical: tableBorder };
   const align = (a?: string) => ({ center: AlignmentType.CENTER, right: AlignmentType.RIGHT, justify: AlignmentType.JUSTIFIED }[a ?? 'left'] ?? AlignmentType.LEFT);
   const hex = (c?: string) => (c ? c.replace('#', '').slice(0, 6) : undefined);
   const indentOf = (node: any) => {
@@ -42,11 +136,13 @@ export async function exportDocx(json: any, title: string) {
     if (node.attrs?.firstLineIndent) ind.firstLine = 480;
     return Object.keys(ind).length ? ind : undefined;
   };
-  // Espaciado antes/después en twips (px ≈ 15 twips).
+  // Espaciado antes/después en twips (px ≈ 15 twips) + interlineado (múltiplo → 240avos).
   const spacingOf = (node: any) => {
     const sp: any = {};
     if (node.attrs?.spaceBefore) sp.before = node.attrs.spaceBefore * 15;
     if (node.attrs?.spaceAfter) sp.after = node.attrs.spaceAfter * 15;
+    const lh = node.attrs?.lineHeight;
+    if (lh) { const mult = parseFloat(String(lh)); if (mult > 0) { sp.line = Math.round(mult * 240); sp.lineRule = LineRuleType.AUTO; } }
     return Object.keys(sp).length ? sp : undefined;
   };
   function collectHeads(nodes: any[], out: { level: number; text: string }[] = []) {
@@ -59,6 +155,7 @@ export async function exportDocx(json: any, title: string) {
 
   function runOpts(node: any) {
     const o: any = { text: node.text || '' };
+    if (inHeaderCell) o.bold = true; // celdas de encabezado en negrita
     let link: string | undefined;
     for (const m of node.marks ?? []) {
       if (m.type === 'bold') o.bold = true;
@@ -98,6 +195,9 @@ export async function exportDocx(json: any, title: string) {
         out.push(new TextRun(n.attrs?.label || n.attrs?.target || ''));
       } else if (n.type === 'citation') {
         out.push(new TextRun(n.attrs?.inText || ''));
+      } else if (n.type === 'image') {
+        const ir = imageRun(ImageRun, n.attrs);
+        if (ir) out.push(ir);
       }
       // bookmark: sin representación textual (se omite).
     }
@@ -177,19 +277,39 @@ export async function exportDocx(json: any, title: string) {
         for (const h of collectHeads(json?.content ?? [])) out.push(new Paragraph({ indent: { left: (h.level - 1) * 360 }, children: [new TextRun(h.text || '(sin título)')] }));
         return out;
       }
+      case 'image': {
+        const ir = imageRun(ImageRun, node.attrs);
+        return ir ? [new Paragraph({ alignment: align(node.attrs?.align), children: [ir] })] : [];
+      }
       case 'table': return [tableToEl(node)];
       default: return node.content ? node.content.flatMap(blockToEls) : [];
     }
   }
 
+  // Tabla «tipo Word»: sombreado de celda, anchos de columna, combinaciones
+  // (colspan/rowspan), alineación vertical, encabezados en negrita y bordes finos.
   function tableToEl(node: any) {
+    const VALIGN: any = { middle: VerticalAlign.CENTER, center: VerticalAlign.CENTER, bottom: VerticalAlign.BOTTOM, top: VerticalAlign.TOP };
     const rows = (node.content ?? []).map((row: any) => new TableRow({
+      tableHeader: (row.content ?? []).length > 0 && (row.content ?? []).every((c: any) => c.type === 'tableHeader') ? true : undefined,
       children: (row.content ?? []).map((cell: any) => {
+        const isHeader = cell.type === 'tableHeader';
+        const prev = inHeaderCell;
+        inHeaderCell = isHeader;
         const paras = (cell.content ?? []).flatMap(blockToEls);
-        return new TableCell({ children: paras.length ? paras : [new Paragraph({})] });
+        inHeaderCell = prev;
+        const opts: any = { children: paras.length ? paras : [new Paragraph({})] };
+        const bg = cell.attrs?.backgroundColor ? hex(cell.attrs.backgroundColor) : (isHeader ? 'F3F4F6' : undefined);
+        if (bg) opts.shading = { type: ShadingType.CLEAR, color: 'auto', fill: bg };
+        if (Number(cell.attrs?.colspan) > 1) opts.columnSpan = Number(cell.attrs.colspan);
+        if (Number(cell.attrs?.rowspan) > 1) opts.rowSpan = Number(cell.attrs.rowspan);
+        if (cell.attrs?.verticalAlign && VALIGN[cell.attrs.verticalAlign]) opts.verticalAlign = VALIGN[cell.attrs.verticalAlign];
+        const cw = Array.isArray(cell.attrs?.colwidth) ? cell.attrs.colwidth[0] : null;
+        if (cw) opts.width = { size: Math.round(cw * 15), type: WidthType.DXA }; // px → twips
+        return new TableCell(opts);
       }),
     }));
-    return new Table({ rows, width: { size: 100, type: WidthType.PERCENTAGE } });
+    return new Table({ rows, width: { size: 100, type: WidthType.PERCENTAGE }, borders: tableBorders });
   }
 
   let children: any[];
@@ -254,8 +374,13 @@ export async function exportDocx(json: any, title: string) {
     section.footers = { ...(section.footers || {}), first: new Footer({ children: [new Paragraph({})] }) };
   }
 
-  const doc = new Document({ sections: [section], ...(Object.keys(footnotes).length ? { footnotes } : {}) });
-  download(await Packer.toBlob(doc), `${safe(title)}.docx`);
+  return new Document({ sections: [section], ...(Object.keys(footnotes).length ? { footnotes } : {}) });
+}
+
+export async function exportDocx(json: any, title: string) {
+  const docx = await import('docx');
+  const doc = buildDocx(docx, json, title);
+  download(await (docx as any).Packer.toBlob(doc), `${safe(title)}.docx`);
 }
 
 export async function importDocx(file: File): Promise<string> {
