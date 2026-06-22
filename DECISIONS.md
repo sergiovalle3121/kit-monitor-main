@@ -1064,4 +1064,25 @@ formas preset (`star5`, `ellipse`); **tabla** nativa (`a:tbl`) con encabezados; 
 nativo (`graphicFrame` + `c:barChart` con la serie); pie y numeración; **imagen** embebida en
 `ppt/media/`; y **notas del orador**. `lint web` 0 errores; `build web` ✓.
 
+## 39. Office/Sheets — «Buscar objetivo» (Goal Seek / análisis de hipótesis)
+
+**Contexto.** El análisis de hipótesis de Excel («Buscar objetivo») —encontrar el valor de una
+celda que hace que una fórmula alcance un objetivo— no existía. Es una de las funciones más
+reconocibles de Excel y, al ser numérica, es 100 % verificable sin navegador.
+
+**Decisión (sólo `apps/web`, aditiva):** `components/office/sheets/goalSeek.ts`. `goalSeek(sheet,
+fórmula, objetivo, variable)` reutiliza `evalOverSheet` (§36) para evaluar la fórmula con
+valores de prueba de la variable y resuelve `f(x)=objetivo` con el **método de la secante**
+(reinicios + recentrado si diverge). Es PURO sobre una COPIA de la hoja hasta tener solución.
+UI: diálogo `SheetGoalSeek` (3 casillas estilo Excel) en la cinta (Datos → «Análisis de
+hipótesis → Buscar objetivo»), que escribe el valor hallado y reporta iteraciones.
+
+**Límite (documentado):** recalcula SOLO la fórmula objetivo; si ésta depende de la variable a
+través de OTRAS celdas con fórmula, esas no se recalculan. Funciona cuando la fórmula depende de
+la variable directamente o vía celdas de valor (el caso habitual).
+
+**Verificación:** nueva suite `goalSeek.spec.ts` (**13 aserciones**: lineal → 22.5; cuadrática
+→ |4|; interés compuesto → 1000; con celda de valor → 25; ya-en-objetivo 0 iteraciones; errores).
+`lint web` 0 errores; `build web` ✓.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
