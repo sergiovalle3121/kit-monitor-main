@@ -17,6 +17,7 @@ import { glass } from '@/lib/glass';
 import { apiFetch } from '@/lib/apiFetch';
 import { useToast } from '@/contexts/ToastContext';
 import { parseDxf, type DxfModel } from './dxf';
+import Minimap from './Minimap';
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000').replace(/\/$/, '');
 const ROSE = '#f43f5e';
@@ -1767,6 +1768,9 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
             </div>
           )}
           <canvas ref={elRef} />
+          {!loading && placed.length > 0 && (
+            <Minimap canvasRef={fcRef} fitRef={fitRef} placementsRef={placementsRef} footprintRef={footprintRef} />
+          )}
         </div>
       </div>
 
