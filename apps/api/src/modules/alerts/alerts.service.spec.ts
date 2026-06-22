@@ -132,7 +132,12 @@ describe('AlertsService.scanReadinessAndNotify', () => {
       plan({ id: 9, model: 'M-OK', workOrder: 'WO-9', status: 'active' }),
     ]);
     plans.computeReadiness.mockResolvedValue(
-      mkReadiness({ materials: 'green', quality: 'green', shipping: 'green', daysToDue: 30 }),
+      mkReadiness({
+        materials: 'green',
+        quality: 'green',
+        shipping: 'green',
+        daysToDue: 30,
+      }),
     );
 
     const res = await service.scanReadinessAndNotify();

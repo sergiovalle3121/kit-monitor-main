@@ -65,8 +65,13 @@ export class AlertsService {
    * (por `dedupe_key`) vive en `NotificationsService.create`, de modo que una
    * segunda corrida el mismo día reusa la fila existente: no se duplica.
    */
-  async scanReadinessAndNotify(): Promise<{ scanned: number; notified: number }> {
-    const plans = await this.planRepo.find({ where: { status: In(ACTIVE_STATUSES) } });
+  async scanReadinessAndNotify(): Promise<{
+    scanned: number;
+    notified: number;
+  }> {
+    const plans = await this.planRepo.find({
+      where: { status: In(ACTIVE_STATUSES) },
+    });
     const day = AlertsService.ymd(new Date());
     let notified = 0;
 
@@ -125,13 +130,16 @@ export class AlertsService {
     const materialsRed = r.materials === 'red';
     const qualityRed = r.quality === 'red';
     const overdue = daysToDue != null && daysToDue < 0;
-    const dueSoon = daysToDue != null && daysToDue >= 0 && daysToDue <= this.dueSoonDays;
+    const dueSoon =
+      daysToDue != null && daysToDue >= 0 && daysToDue <= this.dueSoonDays;
     const anyRed = materialsRed || qualityRed || r.shipping === 'red';
 
     if (!anyRed && !dueSoon) return null;
 
     const critical = materialsRed || qualityRed || overdue;
-    const severity: ReadinessVerdict['severity'] = critical ? 'critical' : 'high';
+    const severity: ReadinessVerdict['severity'] = critical
+      ? 'critical'
+      : 'high';
 
     const model = plan.model ?? `Plan ${plan.id}`;
     let title: string;
