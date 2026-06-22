@@ -16,16 +16,9 @@ import { IconTile } from '@/components/ui/IconTile';
 import { DOMAINS, type DomainKey } from '@/lib/design/domains';
 import { chatApi, type ChatConversation } from '@/lib/chatApi';
 import { isAdminAccess } from '@/lib/owner';
+import { useDashboardSession, mutateDashboardSession } from '@/hooks/useDashboardSession';
 import { timeAgo, ROLE_LABELS } from '@/lib/dashboardShared';
 
-interface SessionInfo {
-  kind: 'user' | 'demo';
-  name: string;
-  email: string | null;
-  role: string;
-  position?: string | null;
-  userId: string | null;
-}
 interface AdminNotification { id: string; type: string; title: string; body: string; read: boolean; createdAt: string }
 interface UnifiedNotif { id: string; domain: DomainKey; title: string; meta: string; at: string; read: boolean; href?: string }
 
@@ -156,7 +149,7 @@ function ThemeChoice() {
  */
 export function DashboardTopBar() {
   const router = useRouter();
-  const [session, setSession] = useState<SessionInfo | null>(null);
+  const { session } = useDashboardSession();
   const [menuOpen, setMenuOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [editingName, setEditingName] = useState(false);
@@ -165,10 +158,6 @@ export function DashboardTopBar() {
   const [notifications, setNotifications] = useState<AdminNotification[]>([]);
   const [pendingCount, setPendingCount] = useState(0);
   const [chatConvos, setChatConvos] = useState<ChatConversation[]>([]);
-
-  useEffect(() => {
-    fetch('/api/auth/me').then((r) => r.json()).then((d) => setSession(d.session)).catch(() => {});
-  }, []);
 
   useEffect(() => {
     if (!session) return;
@@ -238,7 +227,7 @@ export function DashboardTopBar() {
         body: JSON.stringify({ name }),
       });
       if (res.ok) {
-        setSession((s) => (s ? { ...s, name } : s));
+        mutateDashboardSession((s) => (s ? { ...s, name } : s));
         setEditingName(false);
       }
     } finally {

@@ -8,6 +8,7 @@ import { ArrowLeft, ChevronDown, ChevronRight } from 'lucide-react';
 import { glass } from '@/lib/glass';
 import { seesAllAreas } from '@/lib/owner';
 import { AREAS, type DashboardArea } from '@/lib/dashboardAreas';
+import { useDashboardSession } from '@/hooks/useDashboardSession';
 
 /**
  * Tira de wayfinding del shell del dashboard. Montada UNA vez en DashboardShell,
@@ -26,11 +27,6 @@ import { AREAS, type DashboardArea } from '@/lib/dashboardAreas';
 // Mismas rutas "bare" que DashboardShell: defensa extra aunque el shell ya las
 // excluya. Mantener en sync con DashboardShell.BARE_PREFIXES.
 const BARE_PREFIXES = ['/dashboard/chat', '/dashboard/select-workspace'];
-
-interface SessionInfo {
-  role: string;
-  email: string | null;
-}
 
 // Overrides para que los segmentos sin área lean bien en español.
 const SEGMENT_LABELS: Record<string, string> = {
@@ -189,20 +185,7 @@ export function DashboardWayfinding() {
   const pathname =
     rawPathname.length > 1 ? rawPathname.replace(/\/+$/, '') : rawPathname;
   const reduce = useReducedMotion();
-  const [session, setSession] = useState<SessionInfo | null>(null);
-
-  useEffect(() => {
-    let active = true;
-    fetch('/api/auth/me')
-      .then((r) => r.json())
-      .then((d) => {
-        if (active) setSession(d.session);
-      })
-      .catch(() => {});
-    return () => {
-      active = false;
-    };
-  }, []);
+  const { session } = useDashboardSession();
 
   // Área cuyo href es el prefijo (por segmento) MÁS LARGO que coincide.
   const area = useMemo<DashboardArea | null>(() => {
