@@ -296,6 +296,40 @@ describe('LineEngineeringService (integration)', () => {
     expect(flow.unplacedLinks).toBe(0);
   });
 
+  it('validates the layout: overlaps, clearance and out-of-bounds (Fase 11)', async () => {
+    await seedRoute(); // EST-10, EST-20, EST-30
+    const before = await service.getLayout('AX-1000');
+    const id = Object.fromEntries(
+      before.stations.map((s) => [s.station, s.id]),
+    );
+    await service.saveLayout({
+      model: 'AX-1000',
+      footprint: {
+        footprintW: 5000,
+        footprintH: 5000,
+        unit: 'mm',
+        gridSize: 100,
+      },
+      positions: [
+        { id: id['EST-10'], x: 100, y: 100, w: 200, h: 200, rotation: 0 },
+        { id: id['EST-20'], x: 250, y: 100, w: 200, h: 200, rotation: 0 }, // overlaps EST-10
+        { id: id['EST-30'], x: 2000, y: 2000, w: 200, h: 200, rotation: 0 }, // clear
+      ],
+    });
+
+    const r = await service.getCollisions('AX-1000');
+    expect(r.overlaps).toBe(1);
+    expect(r.ok).toBe(false);
+    const pair = r.conflicts.find((c) => c.type === 'overlap')!;
+    expect([pair.aLabel, pair.bLabel].sort()).toEqual(['EST-10', 'EST-20']);
+
+    // With a 600-unit clearance, EST-30 is now too close to nothing but the two
+    // already-overlapping boxes stay an overlap; a generous footprint keeps all in.
+    const withClear = await service.getCollisions('AX-1000', 'A', 600);
+    expect(withClear.overlaps).toBe(1);
+    expect(withClear.outOfBounds).toBe(0);
+  });
+
   it('persists equipment assets on the plan (Fase 5)', async () => {
     await seedRoute();
     expect((await service.getLayout('AX-1000')).assets).toEqual([]);
