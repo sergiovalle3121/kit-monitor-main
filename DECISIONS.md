@@ -1104,4 +1104,20 @@ entrecomilladas, TSV, comillas escapadas; campos únicos; sustitución múltiple
 mutar; combinado de 2 registros con salto de página; sin marcadores residuales). `lint web`
 0 errores; `build web` ✓.
 
+## 41. Office/Sheets — «Tabla de datos» (Data Table, análisis de hipótesis)
+
+**Contexto.** Completa el trío de análisis de hipótesis de Excel junto a «Buscar objetivo»
+(§39): evaluar una fórmula para muchos valores de una (o dos) celdas de entrada.
+
+**Decisión (sólo `apps/web`, aditiva):** `components/office/sheets/dataTable.ts` con
+`dataTable1` (una variable → vector de resultados) y `dataTable2` (dos variables → matriz),
+reutilizando `evalOverSheet` (§36) sobre una COPIA de la hoja (no muta la original). UI:
+diálogo `SheetDataTable` (modo 1/2 variables; valores por rango `E1:E10` o lista `1,2,3`) en la
+cinta (Datos → «Análisis de hipótesis → Tabla de datos»), que escribe la rejilla de resultados
+(con cabeceras) en una **hoja nueva** «Tabla de datos N» (mismo patrón que las dinámicas).
+
+**Verificación:** nueva suite `dataTable.spec.ts` (**9 aserciones**: cuadrados y porcentajes de
+una variable; suma y tabla de multiplicar de dos variables; no muta la hoja; errores). `lint
+web` 0 errores; `build web` ✓.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
