@@ -1,8 +1,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Export a Fabric-based deck to .pptx using PptxGenJS (MIT). Each Fabric object
- * is mapped to a native PowerPoint shape/text/image so the result is editable
- * in PowerPoint (not just an image). Loaded dynamically.
+ * is mapped to a native PowerPoint shape/text/image/chart/table so the result
+ * is editable in PowerPoint (not just an image). Loaded dynamically.
+ *
+ * Fase 2 (round-trip): fidelidad ampliada — hipervínculos, opacidad
+ * (transparencia), sombra, viñetas/indentado en texto y la «mobiliaria» del
+ * patrón compuesta como fondo. `buildPptx`/`pptxArrayBuffer` exponen los bytes
+ * para el test de fidelidad (export → import → comparación).
  */
 
 const IN_W = 10;       // ancho de diapositiva en pulgadas (960px @ 96dpi)
@@ -12,12 +17,43 @@ const inHeight = (ratio?: string) => (ratio === '4:3' ? 7.5 : 5.625);
 const safe = (s: string) => (s || 'presentacion').replace(/[^\p{L}\p{N} _-]/gu, '').trim() || 'presentacion';
 const sx = (px: number) => +(px / DPI).toFixed(3);
 const sy = (px: number) => +(px / DPI).toFixed(3);
+const pxToPt = (px: number) => +(px * 0.75).toFixed(2); // 96dpi px → puntos
 function hex(c?: any): string | undefined {
   if (!c) return undefined;
   // Gradient fill → approximate with its first color stop.
   if (typeof c === 'object' && Array.isArray(c.colorStops) && c.colorStops[0]) return hex(c.colorStops[0].color);
   if (typeof c !== 'string') return undefined;
-  if (c.startsWith('#')) return c.slice(1, 7).toUpperCase();
+  const s = c.trim();
+  if (s.startsWith('#')) return s.slice(1, 7).toUpperCase();
+  // rgb()/rgba() → hex (sombras de Fabric llegan como rgba()).
+  const m = /^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i.exec(s);
+  if (m) return [m[1], m[2], m[3]].map((n) => Number(n).toString(16).padStart(2, '0')).join('').toUpperCase();
+  return undefined;
+}
+// Opacidad (0..1) → transparencia PptxGenJS (0..100). Sólo si hay transparencia.
+const transp = (op: any): number | undefined => (typeof op === 'number' && op >= 0 && op < 1 ? Math.round((1 - op) * 100) : undefined);
+
+// Sombra de Fabric { color, blur, offsetX, offsetY } → sombra externa de PowerPoint.
+function shadowOpt(sh: any): any {
+  if (!sh || typeof sh !== 'object') return undefined;
+  const color = hex(sh.color) || '000000';
+  const offX = typeof sh.offsetX === 'number' ? sh.offsetX : 3;
+  const offY = typeof sh.offsetY === 'number' ? sh.offsetY : 3;
+  const offset = Math.max(1, Math.round(pxToPt(Math.hypot(offX, offY))));
+  const angle = ((Math.round((Math.atan2(offY, offX) * 180) / Math.PI) % 360) + 360) % 360;
+  const blur = Math.max(0, Math.round(pxToPt(typeof sh.blur === 'number' ? sh.blur : 8)));
+  // La opacidad de la sombra de Fabric va embebida en el alfa del color rgba().
+  let opacity = 0.5;
+  const am = /^rgba\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*,\s*([\d.]+)\s*\)/i.exec(String(sh.color || ''));
+  if (am) opacity = Math.min(1, Math.max(0, parseFloat(am[1])));
+  return { type: 'outer', color, blur, offset, angle, opacity };
+}
+// Hipervínculo de objeto { type:'url'|'slide', href|index } → opción de PptxGenJS.
+function linkOpt(o: any): any {
+  const L = o?.link;
+  if (!L || typeof L !== 'object') return undefined;
+  if (L.type === 'url' && typeof L.href === 'string') return { url: L.href };
+  if (L.type === 'slide' && typeof L.index === 'number') return { slide: L.index + 1 };
   return undefined;
 }
 
@@ -37,7 +73,11 @@ function presetFor(hint: any, ST: any): any {
   return name ? ST[name] : undefined;
 }
 
-export async function exportPptx(slides: any[], title: string, notes: string[] = [], opts: { footer?: string; showNumbers?: boolean; ratio?: string } = {}) {
+export interface PptxOpts { footer?: string; showNumbers?: boolean; ratio?: string; masterImg?: string }
+
+/** Construye la presentación PptxGenJS (sin escribirla). Reutilizable por el
+ *  export (writeFile) y por el test de fidelidad (bytes en memoria). */
+export async function buildPptx(slides: any[], notes: string[] = [], opts: PptxOpts = {}): Promise<any> {
   const mod: any = await import('pptxgenjs');
   const PptxGenJS = mod.default ?? mod;
   const pptx: any = new PptxGenJS();
@@ -52,6 +92,11 @@ export async function exportPptx(slides: any[], title: string, notes: string[] =
     const bg = hex(json?.background);
     if (bg) slide.background = { color: bg };
 
+    // Mobiliaria del patrón (logo/barras/marcos) compuesta detrás del contenido.
+    if (opts.masterImg) {
+      try { slide.addImage({ data: opts.masterImg, x: 0, y: 0, w: IN_W, h: IN_H }); } catch { /* ignore */ }
+    }
+
     for (const o of json?.objects ?? []) {
       try {
         if (o && o.chartSpec) addChartObject(slide, o, pptx);
@@ -64,8 +109,18 @@ export async function exportPptx(slides: any[], title: string, notes: string[] =
     const note = notes?.[i];
     if (note && note.trim()) { try { slide.addNotes(note); } catch { /* ignore */ } }
   });
+  return pptx;
+}
 
+export async function exportPptx(slides: any[], title: string, notes: string[] = [], opts: PptxOpts = {}) {
+  const pptx = await buildPptx(slides, notes, opts);
   await pptx.writeFile({ fileName: `${safe(title)}.pptx` });
+}
+
+/** Bytes .pptx en memoria (para el test de fidelidad round-trip). */
+export async function pptxArrayBuffer(slides: any[], notes: string[] = [], opts: PptxOpts = {}): Promise<ArrayBuffer> {
+  const pptx = await buildPptx(slides, notes, opts);
+  return pptx.write({ outputType: 'arraybuffer' });
 }
 
 // Paleta por defecto (espejo de slides/chart.ts) para gráficos sin paleta propia.
@@ -117,6 +172,23 @@ function addTableObject(slide: any, o: any) {
   slide.addTable(rows, { x: sx(o.left ?? 0), y: sy(o.top ?? 0), w: sx(w), h: sy(h), border: { type: 'solid', color: 'CBD5E1', pt: 1 }, autoPage: false });
 }
 
+// Construye los párrafos de un texto con viñetas/indentado a partir de las
+// líneas (• → bullet; sangría de 2 espacios = un nivel), como en el editor.
+function textParagraphs(o: any): any[] {
+  const raw = String(o.text ?? '');
+  return raw.split('\n').map((line) => {
+    const indent = line.match(/^\s*/)?.[0].length ?? 0;
+    const m = /^(\s*)•\s?(.*)$/.exec(line);
+    const isBullet = !!m;
+    const body = isBullet ? m![2] : line.replace(/^\s+/, '');
+    const options: any = { breakLine: true };
+    const level = Math.min(8, Math.floor(indent / 2));
+    if (isBullet) { options.bullet = true; if (level) options.indentLevel = level; }
+    else if (level) options.indentLevel = level;
+    return { text: body, options };
+  });
+}
+
 function addObject(slide: any, o: any, ST: any) {
   const scaleX = o.scaleX ?? 1;
   const scaleY = o.scaleY ?? 1;
@@ -141,6 +213,10 @@ function addObject(slide: any, o: any, ST: any) {
   const w = (o.radius ? o.radius * 2 : (o.width ?? 0)) * scaleX;
   const h = (o.radius ? o.radius * 2 : (o.height ?? 0)) * scaleY;
   const box = { x: sx(o.left ?? 0), y: sy(o.top ?? 0), w: Math.max(0.05, sx(w)), h: Math.max(0.05, sy(h)), rotate: Math.round(o.angle ?? 0) };
+  const link = linkOpt(o);
+  const shadow = shadowOpt(o.shadow);
+  const tr = transp(o.opacity);
+  const fillOf = (c: any) => (hex(c) ? { color: hex(c), ...(tr !== undefined ? { transparency: tr } : {}) } : { type: 'none' });
 
   // Path: si lleva pista de forma (corazón, nube, bocadillo…), exporta como
   // preset nativo de PowerPoint; si no, es un trazo SVG suelto → se omite.
@@ -148,35 +224,41 @@ function addObject(slide: any, o: any, ST: any) {
     const preset = presetFor(o.shape, ST);
     if (preset) {
       slide.addShape(preset, {
-        ...box,
-        fill: hex(o.fill) ? { color: hex(o.fill) } : { type: 'none' },
+        ...box, fill: fillOf(o.fill),
         line: hex(o.stroke) ? { color: hex(o.stroke), width: o.strokeWidth ?? 1 } : undefined,
+        ...(shadow ? { shadow } : {}), ...(link ? { hyperlink: link } : {}),
       });
     }
     return;
   }
 
   if (type === 'textbox' || type === 'i-text' || type === 'text') {
-    slide.addText(String(o.text ?? ''), {
+    slide.addText(textParagraphs(o), {
       ...box,
       fontSize: Math.round((o.fontSize ?? 18) * scaleY * 0.75),
       color: hex(o.fill) ?? '111827',
       bold: o.fontWeight === 'bold' || o.fontWeight === 700,
       italic: o.fontStyle === 'italic',
+      underline: o.underline ? { style: 'sng' } : undefined,
       align: (o.textAlign as any) ?? 'left',
       fontFace: String(o.fontFamily ?? 'Arial').split(',')[0].replace(/["']/g, '').trim() || 'Arial',
       valign: 'top',
       margin: 0,
+      ...(typeof o.lineHeight === 'number' ? { lineSpacingMultiple: +o.lineHeight.toFixed(2) } : {}),
+      ...(typeof o.charSpacing === 'number' && o.charSpacing ? { charSpacing: Math.round(o.charSpacing / 10) } : {}),
+      ...(tr !== undefined ? { transparency: tr } : {}),
+      ...(shadow ? { shadow } : {}),
+      ...(link ? { hyperlink: link } : {}),
     });
     return;
   }
   if (type === 'image' && o.src) {
     const isData = String(o.src).startsWith('data:');
-    slide.addImage({ ...box, ...(isData ? { data: o.src } : { path: o.src }) });
+    slide.addImage({ ...box, ...(isData ? { data: o.src } : { path: o.src }), ...(tr !== undefined ? { transparency: tr } : {}), ...(link ? { hyperlink: link } : {}) });
     return;
   }
   if (type === 'line') {
-    slide.addShape(ST.line, { ...box, line: { color: hex(o.stroke) ?? '111827', width: o.strokeWidth ?? 2 } });
+    slide.addShape(ST.line, { ...box, line: { color: hex(o.stroke) ?? '111827', width: o.strokeWidth ?? 2 }, ...(link ? { hyperlink: link } : {}) });
     return;
   }
   // Conector (polyline con extremos absolutos en `conn`) → línea con flecha opcional.
@@ -192,7 +274,7 @@ function addObject(slide: any, o: any, ST: any) {
   if (type === 'polyline' || type === 'polygon') {
     // Polilíneas/polígonos sin pista de forma: aproximar con su caja (relleno/línea).
     if (!o.shape) {
-      slide.addShape(ST.rect, { ...box, fill: hex(o.fill) ? { color: hex(o.fill) } : { type: 'none' }, line: hex(o.stroke) ? { color: hex(o.stroke), width: o.strokeWidth ?? 1 } : undefined });
+      slide.addShape(ST.rect, { ...box, fill: fillOf(o.fill), line: hex(o.stroke) ? { color: hex(o.stroke), width: o.strokeWidth ?? 1 } : undefined, ...(shadow ? { shadow } : {}), ...(link ? { hyperlink: link } : {}) });
       return;
     }
   }
@@ -201,12 +283,13 @@ function addObject(slide: any, o: any, ST: any) {
   const shape = hinted
     ? hinted
     : type === 'circle' ? ST.ellipse
+    : type === 'ellipse' ? ST.ellipse
     : type === 'triangle' ? ST.triangle
     : (o.rx || o.ry) ? ST.roundRect
     : ST.rect;
   slide.addShape(shape, {
-    ...box,
-    fill: hex(o.fill) ? { color: hex(o.fill) } : { type: 'none' },
+    ...box, fill: fillOf(o.fill),
     line: hex(o.stroke) ? { color: hex(o.stroke), width: o.strokeWidth ?? 1 } : undefined,
+    ...(shadow ? { shadow } : {}), ...(link ? { hyperlink: link } : {}),
   });
 }

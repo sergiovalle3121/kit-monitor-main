@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ChevronLeft, FileText, Table, Presentation, Plus, Trash2, Loader2, Lock, AlertCircle,
-  Copy, Pencil, RotateCcw, Check, X, Clock, Users, Search, ArrowDownUp,
+  Copy, Pencil, RotateCcw, Check, X, Clock, Users, Search, ArrowDownUp, Upload,
 } from 'lucide-react';
 import { glass } from '@/lib/glass';
 import { useApi } from '@/hooks/useApi';
@@ -64,12 +64,12 @@ export default function OfficeHubPage() {
       ? (a.title || '').localeCompare(b.title || '')
       : (new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime()));
 
-  async function createFrom(content: any) {
+  async function createFrom(content: any, title?: string) {
     setBusy(true); setErr(null);
     try {
       const res = await apiFetch(`${API_BASE}/office-documents`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: tab, title: 'Sin título', content: content ?? undefined }),
+        body: JSON.stringify({ type: tab, title: title || 'Sin título', content: content ?? undefined }),
       });
       if (!res.ok) {
         const d = await res.json().catch(() => ({}));
@@ -84,6 +84,24 @@ export default function OfficeHubPage() {
       setErr('Error de red al crear el documento. Revisa la conexión con el backend.');
       setGallery(false);
     } finally { setBusy(false); }
+  }
+
+  // Importar .pptx (round-trip Fase 2): se parsea en el cliente y se crea la
+  // presentación con el contenido resultante.
+  async function onImportPptx(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0]; e.target.value = ''; if (!f) return;
+    setErr(null); setBusy(true);
+    let deck: any;
+    try {
+      const buf = await f.arrayBuffer();
+      const { importPptx } = await import('@/lib/office/pptxImport');
+      deck = await importPptx(buf);
+    } catch {
+      setErr('No se pudo leer el .pptx. Puede que use funciones aún no soportadas en la importación.');
+      setBusy(false); return;
+    }
+    setBusy(false);
+    await createFrom(deck, f.name.replace(/\.pptx$/i, '') || 'Importada');
   }
 
   async function act(path: string, method: string) {
@@ -161,7 +179,13 @@ export default function OfficeHubPage() {
         )}
 
         {!trash && (
-          <div className="flex justify-end mb-4">
+          <div className="flex justify-end items-center gap-2 mb-4">
+            {canWrite && tab === 'slides' && (
+              <label title="Importar una presentación de PowerPoint (.pptx)" className={`flex items-center gap-2 ${glass} text-sm font-semibold px-4 py-2 rounded-full hover:scale-[1.03] active:scale-95 transition-transform cursor-pointer ${busy ? 'opacity-60 pointer-events-none' : ''}`}>
+                <Upload className="w-4 h-4" /> Importar .pptx
+                <input type="file" accept=".pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation" onChange={onImportPptx} className="hidden" disabled={busy} />
+              </label>
+            )}
             {canWrite ? (
               <button onClick={() => setGallery(true)} disabled={busy} className="flex items-center gap-2 bg-black dark:bg-white text-white dark:text-black text-sm font-semibold px-4 py-2 rounded-full hover:scale-[1.03] active:scale-95 transition-transform disabled:opacity-60">
                 {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />} Nuevo {meta.label.toLowerCase()}
