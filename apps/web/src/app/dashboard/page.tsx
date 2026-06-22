@@ -1,6 +1,6 @@
 "use client";
 
-import React, { Suspense, useEffect, useMemo, useState } from "react";
+import React, { Suspense, useMemo } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -15,13 +15,10 @@ import { DOMAINS, type DomainKey } from "@/lib/design/domains";
 import { seesAllAreas } from "@/lib/owner";
 import { timeAgo, ROLE_LABELS } from "@/lib/dashboardShared";
 import { AREAS, SECTION_ORDER } from "@/lib/dashboardAreas";
+import { useDashboardSession } from "@/hooks/useDashboardSession";
 
 const MotionLink = motion.create(Link);
 
-interface SessionInfo {
-  kind: "user" | "demo";
-  name: string; email: string | null; role: string; position?: string | null; userId: string | null;
-}
 interface PlanRow { id: number; model: string; workOrder: string; status: string; publishedBy?: string | null; publishedAt?: string | null }
 interface RequestRow { id: number; model?: string | null; status: string; requestedBy?: string; createdAt?: string }
 
@@ -31,11 +28,7 @@ function DashboardInner() {
   const blocked = params.get("blocked");
   const reduce = useReducedMotion();
 
-  const [session, setSession] = useState<SessionInfo | null>(null);
-
-  useEffect(() => {
-    fetch("/api/auth/me").then((r) => r.json()).then((d) => setSession(d.session)).catch(() => {});
-  }, []);
+  const { session } = useDashboardSession();
 
   const { data: plansData } = useApi<PlanRow[]>("/plans");
   const { data: reqData } = useApi<RequestRow[]>("/material-requests");

@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { glass } from '@/lib/glass';
 import { isAdminAccess } from '@/lib/owner';
+import { useDashboardSession } from '@/hooks/useDashboardSession';
 
 type CideCard =
   | { type: 'metric'; title: string; value: number; unit?: string | null }
@@ -49,16 +50,10 @@ export function Cide() {
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [loading, setLoading] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
-  const [isAdmin, setIsAdmin] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    fetch('/api/auth/me')
-      .then((r) => r.json())
-      .then((d) => setIsAdmin(isAdminAccess(d?.session?.role, d?.session?.email)))
-      .catch(() => {});
-  }, []);
+  const { session } = useDashboardSession();
+  const isAdmin = isAdminAccess(session?.role, session?.email);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({

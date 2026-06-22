@@ -1,11 +1,11 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { LayoutGrid, LineChart, Warehouse, Settings, type LucideIcon } from 'lucide-react';
 import { glass } from '@/lib/glass';
 import { isAdminAccess } from '@/lib/owner';
+import { useDashboardSession } from '@/hooks/useDashboardSession';
 
 /**
  * Dock inferior compartido del dashboard. Vive en el layout para que toda
@@ -14,14 +14,8 @@ import { isAdminAccess } from '@/lib/owner';
  */
 export function DashboardDock() {
   const pathname = usePathname();
-  const [isAdmin, setIsAdmin] = useState(false);
-
-  useEffect(() => {
-    fetch('/api/auth/me')
-      .then((r) => r.json())
-      .then((d) => setIsAdmin(isAdminAccess(d?.session?.role, d?.session?.email)))
-      .catch(() => {});
-  }, []);
+  const { session } = useDashboardSession();
+  const isAdmin = isAdminAccess(session?.role, session?.email);
 
   const active = (href: string) =>
     href === '/dashboard' ? pathname === '/dashboard' : !!pathname?.startsWith(href);
