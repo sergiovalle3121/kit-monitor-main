@@ -24,7 +24,19 @@ type CideCard =
       series: { x: string; y: number }[];
       projection?: { x: string; y: number }[];
     }
-  | { type: 'bars'; title: string; bars: { label: string; value: number }[] };
+  | { type: 'bars'; title: string; bars: { label: string; value: number }[] }
+  | {
+      type: 'actions';
+      title: string;
+      items: { title: string; severity: string }[];
+    };
+
+const SEVERITY_DOT: Record<string, string> = {
+  critical: 'bg-red-500',
+  high: 'bg-orange-500',
+  medium: 'bg-amber-500',
+  low: 'bg-emerald-500',
+};
 
 interface ChatMsg {
   role: 'user' | 'assistant';
@@ -417,6 +429,25 @@ function CardView({ card }: { card: CideCard }) {
         {card.projection && (
           <p className="mt-1 text-[10px] text-pink-500">— — proyección</p>
         )}
+      </div>
+    );
+  }
+  if (card.type === 'actions') {
+    return (
+      <div className="rounded-xl border border-black/10 bg-white/60 px-3 py-2 dark:border-white/10 dark:bg-white/5">
+        <p className="mb-1.5 text-[11px] text-black/55 dark:text-white/55">
+          {card.title}
+        </p>
+        <ul className="space-y-1">
+          {card.items.map((it, i) => (
+            <li key={i} className="flex items-start gap-2 text-xs">
+              <span
+                className={`mt-1 h-2 w-2 shrink-0 rounded-full ${SEVERITY_DOT[it.severity] ?? 'bg-zinc-400'}`}
+              />
+              <span className="leading-snug">{it.title}</span>
+            </li>
+          ))}
+        </ul>
       </div>
     );
   }

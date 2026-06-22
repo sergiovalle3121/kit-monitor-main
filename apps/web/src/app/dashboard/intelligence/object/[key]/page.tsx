@@ -67,6 +67,8 @@ interface Insight {
 interface Projection {
   history: { date: string; count: number }[];
   projection: { date: string; count: number }[];
+  bands: { date: string; p10: number; p50: number; p90: number }[];
+  simulations: number;
   todayRate: number;
   endRate: number;
   adjustmentPct: number;
@@ -184,26 +186,39 @@ export default function ObjectDrilldownPage() {
     .sort((a, b) => b.v - a.v)
     .slice(0, 8);
 
-  // Merge history + projection into one series for the what-if chart.
-  const merged: { date: string; actual: number | null; projected: number | null }[] =
-    proj
-      ? [
-          ...proj.history.map((p) => ({
-            date: p.date,
-            actual: p.count,
-            projected: null as number | null,
-          })),
-          ...proj.projection.map((p) => ({
-            date: p.date,
-            actual: null as number | null,
-            projected: p.count,
-          })),
-        ]
-      : [];
+  // Merge history + Monte Carlo bands (P10/P50/P90) into one series for the chart.
+  type Row = {
+    date: string;
+    actual: number | null;
+    p50: number | null;
+    p10: number | null;
+    p90: number | null;
+  };
+  const merged: Row[] = proj
+    ? [
+        ...proj.history.map((p) => ({
+          date: p.date,
+          actual: p.count,
+          p50: null as number | null,
+          p10: null as number | null,
+          p90: null as number | null,
+        })),
+        ...proj.bands.map((b) => ({
+          date: b.date,
+          actual: null as number | null,
+          p50: b.p50,
+          p10: b.p10,
+          p90: b.p90,
+        })),
+      ]
+    : [];
   if (proj && proj.history.length && merged.length > proj.history.length) {
-    // Connect the dashed projection to the last real point.
-    merged[proj.history.length - 1].projected =
-      proj.history[proj.history.length - 1].count;
+    // Connect the projection lines to the last real point.
+    const lastReal = proj.history[proj.history.length - 1].count;
+    const join = merged[proj.history.length - 1];
+    join.p50 = lastReal;
+    join.p10 = lastReal;
+    join.p90 = lastReal;
   }
 
   return (
@@ -322,18 +337,28 @@ export default function ObjectDrilldownPage() {
               <XAxis dataKey="date" tickFormatter={shortDate} tick={{ fontSize: 10, fill: 'rgba(120,120,120,0.85)' }} tickLine={false} axisLine={false} minTickGap={24} />
               <YAxis tick={{ fontSize: 10, fill: 'rgba(120,120,120,0.85)' }} tickLine={false} axisLine={false} allowDecimals={false} width={28} />
               <Tooltip content={<ChartTip />} />
+              <Line type="monotone" dataKey="p90" stroke="rgba(120,120,120,0.55)" strokeWidth={1} strokeDasharray="2 3" dot={false} connectNulls />
+              <Line type="monotone" dataKey="p10" stroke="rgba(120,120,120,0.55)" strokeWidth={1} strokeDasharray="2 3" dot={false} connectNulls />
               <Line type="monotone" dataKey="actual" stroke="#7c5cff" strokeWidth={2} dot={false} connectNulls />
-              <Line type="monotone" dataKey="projected" stroke="#ec4899" strokeWidth={2} strokeDasharray="5 4" dot={false} connectNulls />
+              <Line type="monotone" dataKey="p50" stroke="#ec4899" strokeWidth={2} strokeDasharray="5 4" dot={false} connectNulls />
             </LineChart>
           </ResponsiveContainer>
         </div>
-        <div className="mt-2 flex items-center gap-4 text-[11px] text-black/50 dark:text-white/50">
+        <div className="mt-2 flex flex-wrap items-center gap-4 text-[11px] text-black/50 dark:text-white/50">
           <span className="inline-flex items-center gap-1">
             <span className="inline-block h-0.5 w-4 bg-[#7c5cff]" /> histórico
           </span>
           <span className="inline-flex items-center gap-1">
-            <span className="inline-block h-0.5 w-4 border-t-2 border-dashed border-[#ec4899]" /> proyección what-if
+            <span className="inline-block h-0.5 w-4 border-t-2 border-dashed border-[#ec4899]" /> proyección (P50)
           </span>
+          <span className="inline-flex items-center gap-1">
+            <span className="inline-block h-0.5 w-4 border-t-2 border-dotted border-zinc-400" /> banda P10–P90
+          </span>
+          {proj && (
+            <span className="ml-auto text-black/40 dark:text-white/40">
+              Monte Carlo · {proj.simulations} sims
+            </span>
+          )}
         </div>
       </section>
 
