@@ -9,7 +9,7 @@ import {
   AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd,
   AlignHorizontalSpaceAround, AlignVerticalSpaceAround, Trash2, MapPin, RotateCcw,
   Upload, Eye, EyeOff, Map as MapIcon, Activity, Workflow, Wand2, Boxes,
-  Download, Printer, Ruler, Type, MoveHorizontal, CopyPlus, X,
+  Download, Printer, Ruler, Type, MoveHorizontal, CopyPlus, X, Flame,
 } from 'lucide-react';
 import { glass } from '@/lib/glass';
 import { apiFetch } from '@/lib/apiFetch';
@@ -30,6 +30,29 @@ const MES_COLORS: Record<string, { fill: string; stroke: string }> = {
   idle: { fill: 'rgba(148,163,184,0.14)', stroke: '#94a3b8' },
   unknown: { fill: 'rgba(148,163,184,0.10)', stroke: '#cbd5e1' },
 };
+
+// Cycle-time / utilization heatmap ramp (Fase 9). cold → over (cool blue to hot red).
+type HeatLevel = 'cold' | 'cool' | 'warm' | 'hot' | 'over';
+const HEAT_COLORS: Record<HeatLevel, { fill: string; stroke: string }> = {
+  cold: { fill: 'rgba(59,130,246,0.20)', stroke: '#3b82f6' },
+  cool: { fill: 'rgba(6,182,212,0.20)', stroke: '#06b6d4' },
+  warm: { fill: 'rgba(245,158,11,0.22)', stroke: '#f59e0b' },
+  hot: { fill: 'rgba(249,115,22,0.26)', stroke: '#f97316' },
+  over: { fill: 'rgba(239,68,68,0.30)', stroke: '#ef4444' },
+};
+const HEAT_LABEL: Record<HeatLevel, string> = {
+  cold: 'Holgado', cool: 'Ligero', warm: 'Medio', hot: 'Alto', over: 'Sobre takt',
+};
+interface StationHeat {
+  station: string; line: string; sequence: number; cycleTimeSec: number;
+  utilizationPct: number; loadPct: number; heat: number; level: HeatLevel;
+  bottleneck: boolean; overTakt: boolean;
+}
+interface HeatSummary {
+  taktSec: number; lineCycleTimeSec: number; bottleneckStation: string | null;
+  maxCycleTimeSec: number; avgCycleTimeSec: number; balancePct: number;
+  updatedAt: string; stations: StationHeat[];
+}
 
 // Equipment / asset palette (Fase 5). `w`/`h` are default sizes in layout units.
 const ASSET_KINDS: { kind: string; label: string; color: string; fill: string; w: number; h: number }[] = [
@@ -112,6 +135,8 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
   const dxfGroupRef = useRef<Group | null>(null);
   const mesOnRef = useRef(false);
   const statusRef = useRef<Map<string, StationLiveStatus>>(new Map());
+  const heatOnRef = useRef(false);
+  const heatRef = useRef<Map<string, StationHeat>>(new Map());
   const connectorsRef = useRef<LayoutConnector[]>([]);
   const connObjsRef = useRef<any[]>([]);
   const linkRef = useRef(false);
@@ -144,6 +169,9 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
   const [dxfBusy, setDxfBusy] = useState(false);
   const [mesOn, setMesOn] = useState(false);
   const [mesData, setMesData] = useState<StatusSummary | null>(null);
+  const [heatOn, setHeatOn] = useState(false);
+  const [heatData, setHeatData] = useState<HeatSummary | null>(null);
+  const [taktInput, setTaktInput] = useState('');
   const [linkMode, setLinkMode] = useState(false);
   const [connCount, setConnCount] = useState(0);
   const [measureMode, setMeasureMode] = useState(false);
@@ -331,11 +359,24 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
   }, []);
   useEffect(() => { drawAnnRef.current = drawAnnotations; }, [drawAnnotations]);
 
+  // Overlay tint for a station box: heatmap (Fase 9) wins over live MES (Fase 3)
+  // when both are toggled; null means the default CTQ/normal styling applies.
+  const overlayFor = useCallback((stationName: string): { fill: string; stroke: string } | null => {
+    if (heatOnRef.current) {
+      const h = heatRef.current.get(stationName);
+      return h ? HEAT_COLORS[h.level] : null;
+    }
+    if (mesOnRef.current) {
+      const st = statusRef.current.get(stationName);
+      return st ? MES_COLORS[st.status] : null;
+    }
+    return null;
+  }, []);
+
   // ── Build an interactive station box from a placement ───────────────────────
   const makeBox = useCallback((s: LayoutStation, p: Placement) => {
     const c = fcRef.current; if (!c) return;
-    const st = mesOnRef.current ? statusRef.current.get(s.station) : undefined;
-    const col = st ? MES_COLORS[st.status] : null;
+    const col = overlayFor(s.station);
     const box = new StationBox({
       left: worldToPx(p.x), top: worldToPx(p.y), width: worldToPx(p.w), height: worldToPx(p.h),
       angle: p.rotation || 0, originX: 'left', originY: 'top',
@@ -352,7 +393,7 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
     box.setControlsVisibility({ mtr: true });
     objByIdRef.current.set(s.id, box);
     c.add(box);
-  }, [toolActive]);
+  }, [toolActive, overlayFor]);
 
   // ── Build an equipment/asset box (Fase 5) ───────────────────────────────────
   const makeAsset = useCallback((a: LayoutAsset) => {
@@ -882,13 +923,12 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
     finally { setDxfBusy(false); }
   }, [model, revision, rebuild, toast]);
 
-  // ── Live MES overlay (Fase 3) ───────────────────────────────────────────────
-  const applyMesColors = useCallback(() => {
+  // ── Station overlays: live MES (Fase 3) + cycle-time heatmap (Fase 9) ────────
+  const applyOverlay = useCallback(() => {
     const c = fcRef.current; if (!c) return;
     objByIdRef.current.forEach((box) => {
       const s = stationsRef.current.find((x) => x.id === (box as any).stationId);
-      const st = mesOnRef.current ? statusRef.current.get((box as any).stationName) : undefined;
-      const col = st ? MES_COLORS[st.status] : null;
+      const col = overlayFor((box as any).stationName);
       box.set({
         fill: col ? col.fill : (s?.ctq ? 'rgba(245,158,11,0.16)' : 'rgba(244,63,94,0.12)'),
         stroke: col ? col.stroke : (s?.ctq ? AMBER : ROSE),
@@ -896,11 +936,12 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
       });
     });
     c.requestRenderAll();
-  }, []);
+  }, [overlayFor]);
 
-  useEffect(() => { mesOnRef.current = mesOn; applyMesColors(); }, [mesOn, applyMesColors]);
+  useEffect(() => { mesOnRef.current = mesOn; applyOverlay(); }, [mesOn, applyOverlay]);
+  useEffect(() => { heatOnRef.current = heatOn; applyOverlay(); }, [heatOn, applyOverlay]);
 
-  // Poll the live status every 5s while the overlay is on.
+  // Poll the live status every 5s while the MES overlay is on.
   useEffect(() => {
     if (!mesOn || !model) return;
     let alive = true;
@@ -911,13 +952,33 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
         const d = (await r.json()) as StatusSummary;
         statusRef.current = new Map(d.stations.map((s) => [s.station, s]));
         setMesData(d);
-        applyMesColors();
+        applyOverlay();
       } catch { /* transient — keep polling */ }
     };
     tick();
     const id = setInterval(tick, 5000);
     return () => { alive = false; clearInterval(id); };
-  }, [mesOn, model, revision, applyMesColors]);
+  }, [mesOn, model, revision, applyOverlay]);
+
+  // Fetch the cycle-time heatmap when toggled or when the (optional) takt
+  // changes. It's design-time engineering data — fetch once, no polling.
+  useEffect(() => {
+    if (!heatOn || !model) return;
+    let alive = true;
+    (async () => {
+      try {
+        const takt = Number(taktInput);
+        const q = takt > 0 ? `&taktTargetSec=${takt}` : '';
+        const r = await apiFetch(`${API_BASE}/line-engineering/layout/heatmap?model=${encodeURIComponent(model)}&revision=${encodeURIComponent(revision)}${q}`);
+        if (!r.ok || !alive) return;
+        const d = (await r.json()) as HeatSummary;
+        heatRef.current = new Map(d.stations.map((s) => [s.station, s]));
+        setHeatData(d);
+        applyOverlay();
+      } catch { /* transient */ }
+    })();
+    return () => { alive = false; };
+  }, [heatOn, model, revision, taktInput, applyOverlay]);
 
   // ── Flow connector controls (Fase 4) ───────────────────────────────────────
   const highlightSource = useCallback((id: string | null) => {
@@ -1070,7 +1131,8 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
         <TBtn onClick={() => zoomBy(1 / 1.2)} title="Alejar"><ZoomOut className="w-4 h-4" /></TBtn>
         <TBtn onClick={fitView} title="Ajustar"><Maximize2 className="w-4 h-4" /></TBtn>
         <TBtn active={snap} onClick={() => setSnap((v) => !v)} title="Snap a grilla"><Grid3x3 className="w-4 h-4" /></TBtn>
-        <button onClick={() => setMesOn((v) => !v)} title="MES en vivo (estado de estaciones)" className={`p-1.5 rounded-lg transition-colors ${mesOn ? 'text-white' : 'text-gray-500 hover:bg-black/5 dark:hover:bg-white/10'}`} style={mesOn ? { background: '#10b981' } : undefined}><Activity className="w-4 h-4" /></button>
+        <button onClick={() => { setMesOn((v) => !v); setHeatOn(false); }} title="MES en vivo (estado de estaciones)" className={`p-1.5 rounded-lg transition-colors ${mesOn ? 'text-white' : 'text-gray-500 hover:bg-black/5 dark:hover:bg-white/10'}`} style={mesOn ? { background: '#10b981' } : undefined}><Activity className="w-4 h-4" /></button>
+        <button onClick={() => { setHeatOn((v) => !v); setMesOn(false); }} title="Mapa de calor (tiempo de ciclo / utilización)" className={`p-1.5 rounded-lg transition-colors ${heatOn ? 'text-white' : 'text-gray-500 hover:bg-black/5 dark:hover:bg-white/10'}`} style={heatOn ? { background: '#f97316' } : undefined}><Flame className="w-4 h-4" /></button>
         <Sep />
         <div className={`flex items-center gap-1 ${selCount < 2 ? 'opacity-40 pointer-events-none' : ''}`}>
           <TBtn onClick={() => align('left')} title="Alinear izquierda"><AlignHorizontalJustifyStart className="w-4 h-4" /></TBtn>
@@ -1177,6 +1239,27 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
           <LegendDot color="#ef4444" label={`Paro ${mesData?.counts.down ?? 0}`} />
           <LegendDot color="#94a3b8" label={`Inactivo ${mesData?.counts.idle ?? 0}`} />
           <span className="text-gray-400 ml-auto">{mesData ? `actualizado ${new Date(mesData.updatedAt).toLocaleTimeString()}` : 'cargando…'}</span>
+        </div>
+      )}
+
+      {heatOn && (
+        <div className="flex items-center gap-3 px-4 py-2 border-b border-black/5 dark:border-white/10 text-[12px] flex-wrap">
+          <span className="inline-flex items-center gap-1.5 font-medium" style={{ color: '#f97316' }}>
+            <Flame className="w-3.5 h-3.5" /> Calor
+          </span>
+          <label className="inline-flex items-center gap-1 text-gray-500" title="Takt objetivo: con valor se colorea por utilización; vacío, por carga relativa al cuello de botella.">
+            takt
+            <input type="number" min={0} value={taktInput} onChange={(e) => setTaktInput(e.target.value)} placeholder="auto" className="w-16 px-1.5 py-0.5 rounded border border-black/10 dark:border-white/15 bg-transparent text-[12px]" />
+            s
+          </label>
+          {(['cold', 'cool', 'warm', 'hot', 'over'] as HeatLevel[]).map((lv) => (
+            <LegendDot key={lv} color={HEAT_COLORS[lv].stroke} label={HEAT_LABEL[lv]} />
+          ))}
+          <span className="text-gray-500 ml-auto">
+            {heatData
+              ? `Cuello: ${heatData.bottleneckStation ?? '—'} · ciclo ${heatData.lineCycleTimeSec}s · balance ${Math.round(heatData.balancePct * 100)}%${heatData.taktSec > 0 ? ` · takt ${heatData.taktSec}s` : ' · sin takt (carga relativa)'}`
+              : 'cargando…'}
+          </span>
         </div>
       )}
 

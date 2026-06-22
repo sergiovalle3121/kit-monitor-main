@@ -36,8 +36,11 @@ import {
   balanceLine,
   BalanceResult,
   computeTaktSec,
+  HeatmapResult,
   layoutCompleteness,
   LayoutCompleteness,
+  stationHeatmap,
+  StationHeat,
 } from './line-balance';
 
 /** One station's material/work requirement for a unit of a model — the bridge
@@ -745,6 +748,59 @@ export class LineEngineeringService {
       })),
     );
     return { ...result, completeness, model: params.model, revision };
+  }
+
+  /**
+   * Per-station cycle-time / utilization heatmap for the 2D layout overlay
+   * (Fase 9). Pure engineering analysis: it ranks each station's standard time
+   * against takt (when demand/time are supplied) or against the line bottleneck,
+   * so the layout can be painted with a load ramp and the bottleneck spotted at
+   * a glance. Read-only; reuses the routing already on file.
+   */
+  async getHeatmap(params: {
+    model: string;
+    revision?: string;
+    availableTimeSec?: number;
+    demandUnits?: number;
+    taktTargetSec?: number;
+  }): Promise<
+    HeatmapResult & {
+      model: string;
+      revision: string;
+      updatedAt: string;
+      stations: (StationHeat & { line: string })[];
+    }
+  > {
+    const revision = params.revision ?? 'A';
+    const route = await this.routing(params.model, revision);
+    if (route.length === 0) {
+      throw new NotFoundException(
+        `Sin ruteo para ${params.model} rev ${revision}.`,
+      );
+    }
+    const takt =
+      params.taktTargetSec && params.taktTargetSec > 0
+        ? params.taktTargetSec
+        : computeTaktSec(params.availableTimeSec ?? 0, params.demandUnits ?? 0);
+    const heat = stationHeatmap(
+      route.map((s) => ({
+        station: s.station,
+        sequence: s.sequence,
+        stdTimeSec: Number(s.stdTimeSec),
+      })),
+      takt,
+    );
+    const lineByStation = new Map(route.map((s) => [s.station, s.line]));
+    return {
+      ...heat,
+      model: params.model,
+      revision,
+      updatedAt: new Date().toISOString(),
+      stations: heat.stations.map((h) => ({
+        ...h,
+        line: lineByStation.get(h.station) ?? '',
+      })),
+    };
   }
 
   /**
