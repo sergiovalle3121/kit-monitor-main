@@ -993,4 +993,29 @@ unidad antes de partir por letras.
 minúscula, medianoche/mediodía, 24h intacto). 18/18 suites de hoja verdes; `lint web`
 0 errores; `build web` ✓.
 
+## 36. Office/Sheets — «Derramar matriz» (spill de fórmulas dinámicas a celdas)
+
+**Contexto.** §29–31 añadieron las funciones de matriz (UNIQUE/SORT/FILTER/SEQUENCE/…), pero
+componían sólo anidadas: la rejilla (Fortune-Sheet) **no derrama** sola el resultado a las
+celdas contiguas (el «spill range #» de Excel 365). El motor además **no intercepta** la
+evaluación en vivo de la celda, así que el spilling reactivo iría contra el runtime de la
+rejilla (no verificable sin navegador → riesgo en prod).
+
+**Decisión (sólo `apps/web`, aditiva — operación de UN paso, como «transponer»/«dinámica»):**
+nuevo `components/office/sheets/arraySpill.ts`. `applySpill(sheet, ancla)` evalúa la fórmula de
+la celda ancla con el **mismo motor parcheado** (un `Parser` con resolutores `callCellValue`/
+`callRangeValue` que leen los valores YA calculados de `celldata`) y ESCRIBE el bloque
+resultante: el ancla conserva su fórmula (valor = esquina) y las vecinas reciben valores
+estáticos marcados (`spillFrom`). Detecta **#SPILL!** si el destino está ocupado y **limpia el
+derrame anterior** al re-derramar. Botón en la cinta (Insertar → «Matrices dinámicas →
+Derramar matriz (#)»). Es **PURA** sobre el objeto de hoja → 100 % probada sin navegador.
+
+**Verificación:** nueva suite `arraySpill.spec.ts` (**15 aserciones**: `evalOverSheet`,
+derrame de `SORT`/`UNIQUE`/`SEQUENCE` 2×3, conservación de la fórmula del ancla, **#SPILL!**
+sin sobrescribir, limpieza al re-derramar, error sin fórmula). 19/19 suites de hoja verdes;
+`lint web` 0 errores; `build web` ✓.
+
+**Nota.** Es un derrame de UN paso (no reactivo): al cambiar el origen, se vuelve a pulsar
+«Derramar». El spilling en vivo queda como mejora futura (requiere QA interactivo de la rejilla).
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
