@@ -956,6 +956,25 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [model, revision]);
 
+  // Export the station schedule (with placements) as CSV for Excel / handoff.
+  const exportCSV = useCallback(() => {
+    const esc = (v: string | number) => {
+      const s = String(v);
+      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const unit = footprintRef.current.unit;
+    const header = ['estacion', 'linea', 'secuencia', 'colocada', `x_${unit}`, `y_${unit}`, `w_${unit}`, `h_${unit}`, 'rotacion_deg', 'ctq'];
+    const rows = [...stationsRef.current]
+      .sort((a, b) => a.sequence - b.sequence)
+      .map((s) => {
+        const p = placementsRef.current.get(s.id);
+        return [s.station, s.line, s.sequence, p ? 'si' : 'no', p?.x ?? '', p?.y ?? '', p?.w ?? '', p?.h ?? '', p?.rotation ?? '', s.ctq ? 'si' : 'no'].map(esc).join(',');
+      });
+    const csv = [header.join(','), ...rows].join('\r\n');
+    downloadBlob(new Blob([csv], { type: 'text/csv;charset=utf-8' }), exportName('csv'));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [model, revision]);
+
   const exportPDF = useCallback(async () => {
     const c = fcRef.current; if (!c) return;
     setExporting(true);
@@ -1486,6 +1505,7 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
         <TBtn onClick={exportSVG} title="Exportar SVG"><Workflow className="w-4 h-4" /></TBtn>
         <TBtn onClick={exportPDF} title="Exportar PDF">{exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <span className="text-[11px] font-bold leading-none">PDF</span>}</TBtn>
         <TBtn onClick={exportDossier} title="Exportar dossier (plano + resumen KPI)"><span className="text-[10px] font-bold leading-none">DOC</span></TBtn>
+        <TBtn onClick={exportCSV} title="Exportar estaciones a CSV"><span className="text-[10px] font-bold leading-none">CSV</span></TBtn>
         <TBtn onClick={printPlan} title="Imprimir"><Printer className="w-4 h-4" /></TBtn>
         <Sep />
         <TBtn onClick={() => { setCloneSrc(''); setShowClone(true); }} title="Plantilla: clonar desde otro modelo"><CopyPlus className="w-4 h-4" /></TBtn>
