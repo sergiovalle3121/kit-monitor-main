@@ -962,6 +962,60 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [withFitted, model, revision, toast]);
 
+  // One-page sign-off dossier (Fase 15): the plan plus the layout report KPIs.
+  const exportDossier = useCallback(async () => {
+    const c = fcRef.current; if (!c) return;
+    setExporting(true);
+    try {
+      let rep: LayoutReport | null = null;
+      try {
+        const rr = await apiFetch(`${API_BASE}/line-engineering/layout/report?model=${encodeURIComponent(model)}&revision=${encodeURIComponent(revision)}`);
+        if (rr.ok) rep = (await rr.json()) as LayoutReport;
+      } catch { /* report optional */ }
+      const data = withFitted(() => c.toDataURL({ format: 'png', multiplier: 2, enableRetinaScaling: true } as any));
+      const { jsPDF } = await import('jspdf');
+      const pageW = 842, pageH = 595, margin = 32;
+      const pdf = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+      pdf.setFontSize(16); pdf.setTextColor(15, 23, 42);
+      pdf.text(`Layout · ${model} · ${revision}`, margin, margin + 6);
+      pdf.setFontSize(9); pdf.setTextColor(120, 120, 120);
+      pdf.text(new Date().toLocaleString(), pageW - margin, margin + 6, { align: 'right' });
+
+      const stripH = rep ? 72 : 0;
+      const stripY = pageH - margin - stripH;
+      const imgTop = margin + 22;
+      const imgAreaH = stripY - imgTop - (rep ? 12 : 0);
+      const imgAreaW = pageW - 2 * margin;
+      const cw = c.getWidth(), ch = c.getHeight();
+      const scale = Math.min(imgAreaW / cw, imgAreaH / ch);
+      const iw = cw * scale, ih = ch * scale;
+      const ix = margin + (imgAreaW - iw) / 2, iy = imgTop + (imgAreaH - ih) / 2;
+      pdf.addImage(data, 'PNG', ix, iy, iw, ih);
+      pdf.setDrawColor(220, 220, 220); pdf.rect(ix, iy, iw, ih);
+
+      if (rep) {
+        const cells: [string, string, string][] = [
+          ['READINESS', `${rep.stations.readinessPct}%`, `${rep.stations.placed}/${rep.stations.total} colocadas`],
+          ['USO DE PISO', `${rep.space.utilizationPct}%`, `${rep.space.assetCount} equipos`],
+          ['FLUJO', `${Math.round(rep.flow.totalDistance)} ${rep.unit}`, `${rep.flow.crossings} cruces`],
+          ['VALIDACIÓN', rep.validation.ok ? 'OK' : `${rep.validation.overlaps + rep.validation.outOfBounds}`, `${rep.validation.overlaps} solapes`],
+          ['BALANCEO', rep.balance ? `${Math.round(rep.balance.balancePct * 100)}%` : '—', rep.balance ? `cuello ${rep.balance.bottleneckStation ?? '—'}` : 'sin ruteo'],
+        ];
+        const cellW = (pageW - 2 * margin) / cells.length;
+        cells.forEach((cell, i) => {
+          const x = margin + i * cellW;
+          pdf.setDrawColor(230, 230, 230); pdf.rect(x, stripY, cellW, stripH);
+          pdf.setFontSize(8); pdf.setTextColor(140, 140, 140); pdf.text(cell[0], x + 8, stripY + 16);
+          pdf.setFontSize(15); pdf.setTextColor(15, 23, 42); pdf.text(cell[1], x + 8, stripY + 40);
+          pdf.setFontSize(8); pdf.setTextColor(120, 120, 120); pdf.text(cell[2], x + 8, stripY + 58);
+        });
+      }
+      pdf.save(exportName('pdf'));
+    } catch { toast.error('No se pudo exportar el dossier.', 'Ing. Industrial'); }
+    finally { setExporting(false); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [withFitted, model, revision, toast]);
+
   const printPlan = useCallback(() => {
     const c = fcRef.current; if (!c) return;
     const data = withFitted(() => c.toDataURL({ format: 'png', multiplier: 2, enableRetinaScaling: true } as any));
@@ -1413,6 +1467,7 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
         <TBtn onClick={exportPNG} title="Exportar PNG"><Download className="w-4 h-4" /></TBtn>
         <TBtn onClick={exportSVG} title="Exportar SVG"><Workflow className="w-4 h-4" /></TBtn>
         <TBtn onClick={exportPDF} title="Exportar PDF">{exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <span className="text-[11px] font-bold leading-none">PDF</span>}</TBtn>
+        <TBtn onClick={exportDossier} title="Exportar dossier (plano + resumen KPI)"><span className="text-[10px] font-bold leading-none">DOC</span></TBtn>
         <TBtn onClick={printPlan} title="Imprimir"><Printer className="w-4 h-4" /></TBtn>
         <Sep />
         <TBtn onClick={() => { setCloneSrc(''); setShowClone(true); }} title="Plantilla: clonar desde otro modelo"><CopyPlus className="w-4 h-4" /></TBtn>
