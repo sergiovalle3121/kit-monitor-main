@@ -6,6 +6,7 @@ import {
   getTenantRepositoryToken,
 } from '../../common/tenant/tenant-scoped.repository';
 import { SignalGateway } from '../../common/gateway/signal.gateway';
+import { PushService } from './push.service';
 
 export interface CreateNotificationInput {
   userId: string;
@@ -28,6 +29,7 @@ export class NotificationsService {
     private readonly repo: TenantScopedRepository<UserNotification>,
     private readonly tenantCtx: TenantContextService,
     @Optional() private readonly signals?: SignalGateway,
+    @Optional() private readonly push?: PushService,
   ) {}
 
   async list(
@@ -121,6 +123,18 @@ export class NotificationsService {
     } catch (err) {
       this.logger.warn(`No se pudo emitir notification:new: ${(err as Error)?.message}`);
     }
+    // Web push best-effort: no-op si VAPID no está configurado o el usuario no
+    // tiene navegadores suscritos. Nunca debe romper la creación del aviso.
+    this.push
+      ?.sendToUser(saved.userId, {
+        title: saved.title,
+        body: saved.body,
+        href: saved.href,
+        kind: saved.kind,
+      })
+      .catch((err) =>
+        this.logger.warn(`No se pudo enviar web push: ${(err as Error)?.message}`),
+      );
     return saved;
   }
 }

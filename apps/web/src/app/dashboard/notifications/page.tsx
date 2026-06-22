@@ -4,9 +4,10 @@ import React, { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
-  ChevronLeft, Bell, Loader2, Inbox, Lock, RefreshCw, Check, ArrowRight, Radio,
+  ChevronLeft, Bell, BellOff, Loader2, Inbox, Lock, RefreshCw, Check, ArrowRight, Radio,
 } from 'lucide-react';
 import { glass } from '@/lib/glass';
+import { useWebPush } from '@/hooks/useWebPush';
 import { IconTile } from '@/components/ui/IconTile';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { timeAgo } from '@/lib/dashboardShared';
@@ -30,6 +31,7 @@ export default function NotificationsPage() {
   const router = useRouter();
   const center = useNotificationCenter();
   const { items, loading, realtime, unavailable, counts } = center;
+  const push = useWebPush();
 
   const [kind, setKind] = useState<NotifKind | 'all'>('all');
   const [unreadOnly, setUnreadOnly] = useState(false);
@@ -157,8 +159,15 @@ export default function NotificationsPage() {
             <b className="text-gray-500 dark:text-gray-300">Estado de leído:</b> los avisos del{' '}
             <b className="text-gray-500 dark:text-gray-300">Buzón</b> usan estado de leído del servidor (se
             sincroniza entre dispositivos); los eventos vivos del piso (andon/holds/…) lo guardan por
-            dispositivo (localStorage). El push real (web-push/PWA) sigue pendiente.
+            dispositivo (localStorage).
           </p>
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <span>
+              <b className="text-gray-500 dark:text-gray-300">Push del navegador (PWA):</b>{' '}
+              recibe los avisos del Buzón aunque la pestaña esté cerrada.
+            </span>
+            <PushToggle push={push} />
+          </div>
         </div>
       </main>
     </div>
@@ -166,6 +175,44 @@ export default function NotificationsPage() {
 }
 
 // ── Subcomponentes locales ───────────────────────────────────────────────────
+function PushToggle({ push }: { push: ReturnType<typeof useWebPush> }) {
+  const { status, busy, enable, disable } = push;
+  if (status === 'loading')
+    return (
+      <span className="inline-flex items-center gap-1.5 text-gray-400">
+        <Loader2 className="w-3.5 h-3.5 animate-spin" /> Comprobando…
+      </span>
+    );
+  if (status === 'unsupported')
+    return <span className="text-gray-400">Tu navegador no soporta push.</span>;
+  if (status === 'unconfigured')
+    return <span className="text-gray-400">Requiere configurar VAPID en el servidor.</span>;
+  if (status === 'denied')
+    return <span className="text-gray-400">Notificaciones bloqueadas en el navegador.</span>;
+
+  const on = status === 'subscribed';
+  return (
+    <button
+      onClick={on ? disable : enable}
+      disabled={busy}
+      aria-pressed={on}
+      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-medium border transition disabled:opacity-50"
+      style={on
+        ? { background: `${VIOLET}1f`, color: VIOLET, borderColor: `${VIOLET}66` }
+        : { background: 'transparent', color: GRAY, borderColor: 'rgba(148,163,184,0.3)' }}
+    >
+      {busy ? (
+        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+      ) : on ? (
+        <BellOff className="w-3.5 h-3.5" />
+      ) : (
+        <Bell className="w-3.5 h-3.5" />
+      )}
+      {on ? 'Desactivar push' : 'Activar push'}
+    </button>
+  );
+}
+
 function RealtimePill({ status }: { status: string }) {
   const live = status === 'connected';
   const color = live ? '#10b981' : status === 'error' || status === 'disconnected' ? '#9ca3af' : '#f59e0b';
