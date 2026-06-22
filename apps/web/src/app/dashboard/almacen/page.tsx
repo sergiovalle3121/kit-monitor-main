@@ -18,6 +18,7 @@ import {
 import { glass } from '@/lib/glass';
 import { useApi } from '@/hooks/useApi';
 import { apiFetch } from '@/lib/apiFetch';
+import { useToast } from '@/contexts/ToastContext';
 import { useMaterialSignals } from '@/hooks/useMaterialSignals';
 import { PageHeader } from '@/components/ui/PageHeader';
 
@@ -100,6 +101,7 @@ export default function AlmacenPage() {
     setTimeout(() => setPulse(false), 1200);
     mutate();
   });
+  const toast = useToast();
 
   const list = Array.isArray(data) ? data : [];
   const pending = list.filter((r) => r.status === 'pending');
@@ -109,12 +111,19 @@ export default function AlmacenPage() {
   async function act(id: number, action: 'authorize' | 'reject' | 'fulfill') {
     setBusy(id);
     try {
-      await apiFetch(`${API_BASE}/material-requests/${id}/${action}`, {
+      const res = await apiFetch(`${API_BASE}/material-requests/${id}/${action}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({}),
       });
+      if (!res.ok) {
+        const d = (await res.json().catch(() => ({}))) as { message?: string };
+        toast.error(typeof d.message === 'string' ? d.message : 'No se pudo completar la acción.', 'Almacén');
+        return;
+      }
       mutate();
+    } catch {
+      toast.error('No se pudo contactar el backend.', 'Almacén');
     } finally {
       setBusy(null);
     }

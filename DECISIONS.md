@@ -380,4 +380,218 @@ web lint (0 errores) + **smoke de bootstrap contra Postgres** (5 tablas `hr_`
 materializadas sin colisión, DI/guards OK) + seed demo end-to-end (71 registros,
 candado de dominio público limpio) + ejercicio de los 7 endpoints de analítica.
 
+## 17. CIDE — IA propia self-hosted (reemplaza Anthropic Claude + agente DeepSeek)
+
+**Contexto.** El asistente de la app ("Axos Copilot") dependía de **Anthropic
+Claude** por API: una llave de plataforma (`ANTHROPIC_API_KEY`) y/o una llave
+**BYO** por organización (la cuenta Claude del dueño), facturadas por token. En
+paralelo existía un **agente DeepSeek** de desarrollo (GitHub Action
+`/deepseek` → PR) que llamaba a la API de DeepSeek. Objetivo del salto: que Axos
+OS tenga su **propia IA**, llamada **CIDE** (Cognitive Intelligence & Decision
+Engine), sobre un modelo **open-source** que corre en infraestructura propia, sin
+proveedor externo y con control total del dato.
+
+**Decisión.**
+- **Proveedor desacoplado y self-hosted.** Nuevo `cide-provider.ts`: cliente
+  **compatible-OpenAI** basado en `fetch` nativo (sin dependencias nuevas) que
+  habla con un motor de inferencia que el operador controla (Ollama por defecto;
+  vLLM/llama.cpp/TGI intercambiables). Cambiar de motor = cambiar
+  `CIDE_BASE_URL`; **cero cambios de código**.
+- **Modelos open-source permisivos.** Catálogo en `ai-pricing.ts` = **Qwen2.5**
+  (`7b`/`14b`/`32b`) y **Mistral 7B**, todos **Apache-2.0** (cumple
+  THIRD_PARTY_NOTICES). Default `qwen2.5:7b` (corre en CPU). Costo por token =
+  **$0** (cómputo propio); el "presupuesto mensual" pasa a ser **guardia de
+  capacidad**, no de gasto.
+- **Se elimina la dependencia de cuentas personales.** Fuera el SDK
+  `@anthropic-ai/sdk`, la llave BYO (UI + cifrado `ai-crypto.ts`) y
+  `ANTHROPIC_API_KEY`. Las columnas `byo*` de `ai_tenant_config` se **conservan
+  sin usar** (regla aditiva §2; no se hace DROP).
+- **Se elimina el agente DeepSeek.** Borrados `.github/workflows/deepseek-agent.yml`,
+  `.github/scripts/deepseek_agent.py` y `requirements.txt`. El secret
+  `DEEPSEEK_API_KEY` queda obsoleto (puede retirarse de GitHub).
+- **Semilla analítica (tipo Palantir/MicroStrategy).** CIDE deja de ser solo
+  lookup: nuevas herramientas read-only sobre el **Event Ledger** —
+  `operations_pulse` (agregación de actividad por dominio/acción/línea en una
+  ventana) y `ledger_trace` (trazabilidad cuna-a-tumba por WO o entidad)— vía el
+  nuevo `EventLedgerService.summarizeActivity()`. Todo sigue filtrado por RBAC.
+- **Infra incluida.** `infra/cide/docker-compose.yml` levanta Ollama
+  (compatible-OpenAI en `:11434/v1`); los **pesos se descargan en el deploy**, no
+  se commitean a git.
+
+**Variables nuevas:** `CIDE_BASE_URL` (default `http://localhost:11434/v1`),
+`CIDE_API_KEY` (opcional). Se retiran `ANTHROPIC_API_KEY` y `AI_KEY_SECRET`.
+
+**Verificación:** build API ✓, build web ✓, lint web ✓, **668/668** pruebas
+unitarias del API ✓.
+
+**Pendiente (fases siguientes del salto):** capa semántica/ontología y catálogo
+de métricas versionadas sobre el ledger; analítica conversacional con
+tablas/gráficas y narrativa; workbench exploratorio; *what-if* / simulación
+ligados a `decision-intelligence` + `autopilot`.
+
+## 18. Capa semántica — catálogo de métricas versionadas + ontología (Fase 2 CIDE)
+
+**Contexto.** Para el salto a software de análisis de decisiones (estilo
+Palantir/MicroStrategy) falta una **capa semántica**: una sola fuente de verdad
+de *qué* se mide y *qué objetos* tiene el negocio, que la UI y CIDE compartan
+(evita métricas inconsistentes entre pantallas).
+
+**Decisión.** Nuevo módulo `semantic` (aditivo), con tres entidades prefijadas
+`sem_` (sin FKs, tipos portables) para no chocar con el smoke de bootstrap (§8):
+- `sem_metric_definition` — **catálogo de métricas versionado** (key, nombre,
+  unidad, dominio, grain, fórmula, `direction`, `version`, `resolver`). Editar
+  una definición **incrementa la versión** (auditoría de *metric drift*).
+- `sem_ontology_object` — **object types** de la ontología (WorkOrder, Material,
+  Supplier, BOM, QualityHold, Customer, LedgerEvent) mapeados a su `sourceEntity`.
+- `sem_ontology_link` — **link types** (p. ej. WorkOrder —consume→ Material).
+
+`SemanticService` siembra un baseline **idempotente por tenant** en el primer
+acceso (sin migración/seed manual) y resuelve **valores en vivo** vía un registro
+de *resolvers* que delega en servicios ya existentes (inventoryValuation, holds de
+calidad, SOs, proveedores, corridas MRP, pulso del ledger), **filtrado por RBAC**
+(cada métrica declara su permiso; admin lo omite).
+
+- **Visible en la app:** nueva pantalla `/dashboard/intelligence` ("Centro de
+  Inteligencia") enlazada en el hub (sección *Control e inteligencia*): tarjetas
+  de métricas con valor en vivo + ontología (objetos y relaciones).
+- **CIDE conectado:** nuevas herramientas read-only `list_metrics` y
+  `metric_value` para que la IA responda con las mismas métricas gobernadas.
+- **Endpoints** (`/api/semantic`, JWT): `GET /catalog`, `GET /values`,
+  `GET /metrics/:key/value`, `POST /metrics` (admin, upsert).
+
+**Verificación:** build API ✓, build web ✓, lint web ✓, **668/668** tests ✓. El
+smoke de bootstrap (Postgres efímero) materializa las tablas `sem_*` en CI.
+
+**Pendiente (Fase 3+):** analítica conversacional con tablas/gráficas y narrativa
+generada; *drill-down* por objeto; *what-if*/simulación ligados a
+`decision-intelligence` + `autopilot`; editor de ontología en la UI.
+
+## 19. Analítica conversacional + dashboard visual (Fase 3 CIDE)
+
+**Contexto.** Con la capa semántica (§18) ya había métricas y ontología, pero CIDE
+solo devolvía texto y el Centro de Inteligencia no mostraba *evolución*. Para el
+salto tipo Palantir/MicroStrategy faltaba **analítica en el tiempo, visual y
+narrada**, compartida entre la UI y la IA.
+
+**Decisión.** Nuevo módulo `analytics` (aditivo, read-only, **sin entidades
+nuevas** — compone datos existentes):
+- `EventLedgerService.dailyActivity()` — serie diaria de eventos (buckets
+  zero-padded; agregación en JS para ser portable sqlite/PG).
+- `AnalyticsService` — `ledgerTrend` (serie + variación semana-contra-semana +
+  **narrativa determinista**, no-LLM, para que UI y chat lean igual) y
+  `domainBreakdown` (actividad por dominio + narrativa). Endpoints
+  `/api/analytics/ledger-trend` y `/api/analytics/domain-breakdown` (JWT,
+  agregado → cualquier usuario).
+- **CIDE conectado:** nueva herramienta read-only `analyze_trend` para responder
+  preguntas de evolución ("¿subió o bajó…?") con datos reales y narrarlos.
+- **Visible en la app:** el Centro de Inteligencia (`/dashboard/intelligence`)
+  gana una sección **"Pulso operacional"** con narrativa + **gráficas Recharts**
+  (área de tendencia diaria + barras por dominio). Tooltip propio en Tailwind
+  para legibilidad en modo oscuro (lección §"recharts dark").
+
+**Verificación:** build API ✓, build web ✓, lint web (0 errores) ✓, **697/697**
+tests ✓. Sin tablas nuevas → el smoke de bootstrap no cambia de superficie.
+
+**Pendiente (Fase 4):** *drill-down* navegable por objeto de la ontología;
+*what-if*/simulación ligados a `decision-intelligence` + `autopilot`; narrativa
+generada por CIDE embebida como tarjetas en el chat; editor de métricas/ontología
+en la UI.
+
+## 20. Drill-down por objeto + simulador what-if (Fase 4 CIDE)
+
+**Contexto.** La ontología (§18) definía objetos pero no eran explorables, y la
+analítica (§19) no permitía *proyectar* ni preguntar "¿qué pasaría si…?". Faltaba
+el explorador centrado-en-objeto (estilo Palantir) y la simulación de decisiones.
+
+**Decisión.** Se extiende el módulo `analytics` (sin entidades nuevas):
+- **Drill-down (`objectInsight`)** — dado un objeto de la ontología, compone su
+  actividad real (pulso + tendencia de su dominio vía el ledger), sus métricas
+  relacionadas (valores **RBAC-gated**), sus vínculos (grafo) y una muestra de
+  entidades recientes del ledger. `SemanticService` gana `getObject`, `linksFor`
+  y `metricsForDomain`.
+- **What-if (`project`)** — ajuste lineal por mínimos cuadrados sobre la actividad
+  diaria reciente, proyectada a un horizonte con una **palanca hipotética**
+  (`adjustmentPct`). Honesto y transparente: el usuario controla la palanca y se
+  muestra la matemática; reutilizable para cualquier serie diaria futura.
+- **Endpoints:** `GET /api/analytics/object/:key` y `GET /api/analytics/project`.
+- **CIDE conectado:** herramientas `object_insight` y `simulate_projection` (la IA
+  ya razona escenarios y explora objetos con datos reales).
+- **Visible en la app:** nueva ruta navegable `/dashboard/intelligence/object/[key]`
+  (pulso, tendencia, **simulador what-if** con slider + gráfica histórico/proyección,
+  métricas relacionadas, relaciones navegables y entidades). Las tarjetas de objeto
+  del Centro de Inteligencia ahora enlazan al drill-down.
+
+**Nota de acoplamiento.** El what-if se basó en la serie real del Event Ledger (no
+en `decision-intelligence`/`autopilot`) para entregar una simulación honesta y
+autocontenida sin tocar esos módulos; integrarlos (Monte Carlo, propuestas
+correctivas) queda para una iteración siguiente.
+
+**Verificación:** build API ✓, build web ✓, lint web (0 errores) ✓, **697/697**
+tests ✓. Sin tablas nuevas → el smoke de bootstrap no cambia de superficie.
+
+**Pendiente (Fase 5):** integrar el what-if con Monte Carlo de
+`decision-intelligence` + propuestas de `autopilot`; tarjetas de análisis con
+mini-gráficas embebidas en el chat de CIDE; editor de métricas/ontología en la UI.
+
+## 21. Tarjetas de análisis en el chat de CIDE (Fase 5)
+
+**Contexto.** CIDE respondía solo texto; las herramientas analíticas (Fases 2–4)
+devuelven datos estructurados que quedaban "planos" en el chat. Para un asistente
+de análisis de datos faltaba **mostrar el dato** (KPI, sparkline, barras) inline.
+
+**Decisión.** Construcción de tarjetas **server-side y determinista** — el modelo
+elige las herramientas, pero la *tarjeta* se arma del **resultado real** de la
+herramienta, no de texto del modelo (cero alucinación de cifras):
+- `ai-cards.ts` — `buildCard(tool, out)` mapea salidas a una unión tipada
+  `CideCard` (`metric` | `line` | `bars`): `analyze_trend`/`object_insight` →
+  sparkline; `simulate_projection` → histórico + proyección punteada;
+  `metric_value`/`inventory_valuation` → KPI; `operations_pulse` → barras por
+  dominio. `collectCards` dedupe + tope (3).
+- `ai.service` captura las salidas de las tools en `runCide` **y** `runMock`
+  (así las tarjetas también se ven en modo demo, sin motor) y las devuelve en la
+  respuesta del chat (`cards`). Efímeras: solo del turno en vivo, no se persisten.
+- **Frontend (`Cide.tsx`):** render de tarjetas bajo la respuesta, con
+  **sparklines en SVG inline** y barras en CSS — **sin meter una librería de
+  charts al bundle global** del widget (que está montado en todo el dashboard).
+
+**Verificación:** build API ✓, build web ✓, lint web (0 errores) ✓, **697/697**
+tests ✓. Sin entidades nuevas; el smoke no cambia de superficie.
+
+**Pendiente (Fase 6):** integrar el what-if con el Monte Carlo de
+`decision-intelligence` + propuestas de `autopilot`; editor de métricas/ontología
+en la UI; persistir tarjetas en el historial de conversación.
+
+## 22. What-if Monte Carlo + acciones de Autopilot/Decision-Intelligence (Fase 6)
+
+**Contexto.** El what-if (§20) era una proyección lineal de un solo trazo, sin
+incertidumbre, y el Centro de Inteligencia no surfaceaba las **acciones** que el
+sistema ya recomienda (`autopilot`) ni los **escenarios** de planeación
+(`decision-intelligence`).
+
+**Decisión.**
+- **Monte Carlo en el what-if.** `AnalyticsService.project` ahora corre una
+  simulación autocontenida (300 paths) por **bootstrap de los deltas diarios** de
+  la serie real → bandas **P10/P50/P90** por día de horizonte; la palanca (`adj`)
+  desplaza el *drift* y el ruido histórico se preserva. *Por qué propio y no el
+  `MonteCarloService` de decision-intelligence:* ese MC es específico de un
+  `PlanScenario` (necesita `scenarioId` + entidades); para la serie de actividad
+  se usa el mismo método estadístico (resampleo + percentiles) sin acoplar.
+- **Integración por lectura de los módulos de decisión existentes.** CIDE gana
+  `autopilot_proposals` (acciones correctivas de `AutopilotService.listProposals`)
+  y `decision_scenarios` (`DecisionIntelligenceService.listPlanScenarios`). Nueva
+  tarjeta de chat tipo `actions` (lista priorizada por severidad).
+- **Visible en la app:**
+  - El simulador what-if del objeto grafica la **banda P10–P90** + **P50** (Monte
+    Carlo) además del histórico, con leyenda y nº de simulaciones.
+  - El Centro de Inteligencia añade **"Acciones sugeridas"** leyendo
+    `GET /api/autopilot/proposals?status=pending` (tarjetas con severidad).
+
+**Verificación:** build API ✓, build web ✓, lint web (0 errores) ✓, **697/697**
+tests ✓. Sin entidades nuevas; el smoke no cambia de superficie.
+
+**Pendiente (Fase 7):** ejecutar propuestas de autopilot desde el Centro de
+Inteligencia (acción, no solo lectura); editor de métricas/ontología en la UI;
+persistir tarjetas en el historial; conectar el what-if a `runStressTest` cuando
+exista un PlanScenario asociado.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->

@@ -15,9 +15,11 @@ import {
   AlertTriangle,
   CheckCircle2,
   ClipboardList,
+  FileText,
   Loader2,
   PackagePlus,
   Send,
+  Tag,
   Truck,
   Lock,
 } from "lucide-react";
@@ -59,6 +61,62 @@ async function call(path: string, method: string, body?: unknown): Promise<Respo
 function useActor(): string {
   const { user } = useAuth();
   return user?.email || "Shipping Agent";
+}
+
+// Etiqueta GS1 (ZPL) + ASN (EDI 856): descargan el documento REAL que genera el
+// backend (shipping). apiFetch añade el JWT, así que se baja como blob y se
+// dispara la descarga (un <a href> directo daría 401). El SSCC sale con prefijo
+// placeholder hasta configurar GS1_COMPANY_PREFIX, pero el documento es real.
+export function LabelAsnActions({ shipmentId }: { shipmentId: number }) {
+  const toast = useToast();
+  const [busy, setBusy] = useState<null | "label" | "asn">(null);
+
+  async function grab(path: string, filename: string, which: "label" | "asn", okMsg: string) {
+    setBusy(which);
+    try {
+      const res = await call(path, "GET");
+      if (!res.ok) throw new Error(String(res.status));
+      const text = await res.text();
+      const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      toast.success(okMsg, "Embarques");
+    } catch {
+      toast.error("No se pudo generar el documento. Revisa tus permisos.", "Embarques");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  const btn =
+    "inline-flex items-center justify-center gap-1.5 w-full px-2.5 py-1.5 rounded-lg text-[12px] font-medium transition disabled:opacity-50 bg-black/5 dark:bg-white/10 text-gray-700 dark:text-gray-200 hover:bg-black/10 dark:hover:bg-white/15";
+
+  return (
+    <div className="flex flex-col gap-2">
+      <button
+        onClick={() => grab(`/shipping/${shipmentId}/label.zpl`, `etiqueta-SHP-${shipmentId}.zpl`, "label", "Etiqueta GS1 (ZPL) generada")}
+        disabled={busy !== null}
+        className={btn}
+      >
+        {busy === "label" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Tag className="w-3.5 h-3.5" />}
+        Imprimir etiqueta (GS1 / ZPL)
+      </button>
+      <button
+        onClick={() => grab(`/shipping/${shipmentId}/asn.edi`, `asn-SHP-${shipmentId}.edi`, "asn", "ASN (EDI 856) generado")}
+        disabled={busy !== null}
+        className={btn}
+      >
+        {busy === "asn" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileText className="w-3.5 h-3.5" />}
+        Generar ASN (EDI 856)
+      </button>
+    </div>
+  );
 }
 
 // ── Botón de acción compacto (tinte semántico) ───────────────────────────────

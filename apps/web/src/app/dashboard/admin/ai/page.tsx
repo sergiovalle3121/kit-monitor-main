@@ -3,14 +3,13 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
-  ArrowLeft,
   Sparkles,
-  KeyRound,
+  Server,
   Gauge,
   ShieldCheck,
   Loader2,
   Save,
-  Trash2,
+  Cpu,
 } from 'lucide-react';
 import { glass } from '@/lib/glass';
 
@@ -23,8 +22,12 @@ interface AiConfig {
   tokensUsedThisPeriod: number;
   rateLimitPerHour: number;
   periodStart: string | null;
-  byoKey: { configured: boolean; last4: string | null };
-  platformKeyAvailable: boolean;
+  engine: {
+    name: string;
+    selfHosted: boolean;
+    baseUrl: string;
+    apiKeyConfigured: boolean;
+  };
   mock: boolean;
   availableModels: string[];
 }
@@ -54,7 +57,6 @@ interface Usage {
 }
 
 const fmtNum = (n: number) => Number(n || 0).toLocaleString();
-const fmtUsd = (n: number) => `$${Number(n || 0).toFixed(4)}`;
 
 export default function AiAdminPage() {
   const [cfg, setCfg] = useState<AiConfig | null>(null);
@@ -62,7 +64,6 @@ export default function AiAdminPage() {
   const [denied, setDenied] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [keyInput, setKeyInput] = useState('');
   const [msg, setMsg] = useState<string | null>(null);
 
   useEffect(() => {
@@ -119,7 +120,7 @@ export default function AiAdminPage() {
       <div className="mx-auto max-w-2xl px-6 py-16 text-center">
         <p className="text-lg font-semibold">Acceso restringido</p>
         <p className="mt-2 text-sm text-black/60 dark:text-white/60">
-          Solo un administrador puede configurar la IA.
+          Solo un administrador puede configurar CIDE.
         </p>
         <Link href="/dashboard" className="mt-4 inline-block text-violet-600 underline">
           Volver
@@ -134,21 +135,14 @@ export default function AiAdminPage() {
 
   return (
     <div className="mx-auto max-w-4xl px-5 py-8">
-      <Link
-        href="/dashboard"
-        className="mb-6 inline-flex items-center gap-1.5 text-sm text-black/60 hover:text-black dark:text-white/60 dark:hover:text-white"
-      >
-        <ArrowLeft className="h-4 w-4" /> Dashboard
-      </Link>
-
       <div className="mb-6 flex items-center gap-3">
         <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-600 to-indigo-600 text-white">
           <Sparkles className="h-6 w-6" />
         </div>
         <div>
-          <h1 className="text-xl font-semibold">Configuración de IA</h1>
+          <h1 className="text-xl font-semibold">Configuración de CIDE</h1>
           <p className="text-sm text-black/55 dark:text-white/55">
-            Axos Copilot · modelo híbrido de costo
+            IA propia · modelo open-source self-hosted
           </p>
         </div>
       </div>
@@ -161,19 +155,12 @@ export default function AiAdminPage() {
             Estado:{' '}
             <strong>{cfg.enabled ? 'Habilitada' : 'Deshabilitada'}</strong>
           </span>
-          <span>
-            Llave de plataforma:{' '}
-            <strong>
-              {cfg.platformKeyAvailable ? 'configurada' : 'no configurada'}
-            </strong>
+          <span className="inline-flex items-center gap-1.5">
+            <Server className="h-4 w-4 text-indigo-500" />
+            Motor: <strong>{cfg.engine.selfHosted ? 'self-hosted' : 'externo'}</strong>
           </span>
           <span>
-            Llave propia (BYO):{' '}
-            <strong>
-              {cfg.byoKey.configured
-                ? `•••• ${cfg.byoKey.last4}`
-                : 'no configurada'}
-            </strong>
+            Modelo activo: <strong>{cfg.defaultModel}</strong>
           </span>
           {cfg.mock && (
             <span className="rounded-md bg-amber-500/15 px-2 py-0.5 text-xs font-medium text-amber-600 dark:text-amber-300">
@@ -182,21 +169,22 @@ export default function AiAdminPage() {
           )}
         </div>
         <p className="mt-2 text-xs text-black/50 dark:text-white/50">
-          Si esta organización tiene su propia llave (BYO), paga su propio
-          consumo y no se le aplica presupuesto. Si no, usa la llave de
-          plataforma con el tope mensual de abajo.
+          CIDE corre en tu propia infraestructura ({cfg.engine.baseUrl}) sobre un
+          modelo open-source. No se usa ningún proveedor externo de IA y los
+          datos nunca salen de tus servidores. El tope mensual es una guardia de
+          capacidad, no un costo.
         </p>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
-        {/* Provider + key */}
+        {/* Engine + models */}
         <section className={`${glass} rounded-2xl p-5`}>
           <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold">
-            <KeyRound className="h-4 w-4 text-violet-500" /> Proveedor y llave
+            <Cpu className="h-4 w-4 text-violet-500" /> Motor y modelos
           </h2>
 
           <label className="mb-3 flex items-center justify-between text-sm">
-            <span>Asistente habilitado</span>
+            <span>CIDE habilitado</span>
             <input
               type="checkbox"
               checked={cfg.enabled}
@@ -207,41 +195,26 @@ export default function AiAdminPage() {
             />
           </label>
 
-          <label className="mb-1 block text-xs text-black/55 dark:text-white/55">
-            API key de Anthropic (BYO) — se guarda cifrada
-          </label>
-          <div className="flex gap-2">
-            <input
-              type="password"
-              value={keyInput}
-              onChange={(e) => setKeyInput(e.target.value)}
-              placeholder="sk-ant-…"
-              className="flex-1 rounded-lg border border-black/10 bg-white/60 px-3 py-2 text-sm outline-none focus:border-violet-400 dark:border-white/10 dark:bg-white/5"
-            />
-            <button
-              onClick={() => {
-                if (keyInput.trim()) {
-                  patch({ apiKey: keyInput.trim() }, 'Llave guardada.');
-                  setKeyInput('');
-                }
-              }}
-              disabled={saving || !keyInput.trim()}
-              className="rounded-lg bg-indigo-600 px-3 py-2 text-sm text-white disabled:opacity-40"
-            >
-              Guardar
-            </button>
+          <div className="mb-4 rounded-lg border border-black/10 bg-white/40 px-3 py-2.5 text-xs dark:border-white/10 dark:bg-white/5">
+            <div className="flex items-center justify-between">
+              <span className="text-black/55 dark:text-white/55">Endpoint</span>
+              <span className="font-mono">{cfg.engine.baseUrl}</span>
+            </div>
+            <div className="mt-1 flex items-center justify-between">
+              <span className="text-black/55 dark:text-white/55">
+                Token de motor
+              </span>
+              <span>
+                {cfg.engine.apiKeyConfigured ? 'configurado' : 'no requerido'}
+              </span>
+            </div>
+            <p className="mt-2 text-[11px] text-black/45 dark:text-white/45">
+              Se ajusta por variables de entorno (CIDE_BASE_URL / CIDE_API_KEY),
+              no desde aquí.
+            </p>
           </div>
-          {cfg.byoKey.configured && (
-            <button
-              onClick={() => patch({ apiKey: '' }, 'Llave eliminada.')}
-              disabled={saving}
-              className="mt-2 inline-flex items-center gap-1 text-xs text-red-500 hover:underline"
-            >
-              <Trash2 className="h-3 w-3" /> Quitar llave (usar plataforma)
-            </button>
-          )}
 
-          <div className="mt-4 grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="mb-1 block text-xs text-black/55 dark:text-white/55">
                 Modelo por defecto
@@ -290,17 +263,17 @@ export default function AiAdminPage() {
         {/* Budget + limits */}
         <section className={`${glass} rounded-2xl p-5`}>
           <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold">
-            <Gauge className="h-4 w-4 text-violet-500" /> Presupuesto y límites
+            <Gauge className="h-4 w-4 text-violet-500" /> Uso y límites
           </h2>
 
           <label className="mb-1 block text-xs text-black/55 dark:text-white/55">
-            Presupuesto mensual (tokens, llave de plataforma)
+            Tope mensual de uso (tokens)
           </label>
           <BudgetEditor
             value={cfg.monthlyTokenBudget}
             disabled={saving}
             onSave={(v) =>
-              patch({ monthlyTokenBudget: v }, 'Presupuesto actualizado.')
+              patch({ monthlyTokenBudget: v }, 'Tope actualizado.')
             }
           />
 
@@ -335,7 +308,7 @@ export default function AiAdminPage() {
 
       {/* Usage */}
       <section className={`${glass} mt-6 rounded-2xl p-5`}>
-        <h2 className="mb-4 text-sm font-semibold">Uso y costo (estimado)</h2>
+        <h2 className="mb-4 text-sm font-semibold">Uso (tokens)</h2>
         {usage ? (
           <>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -348,7 +321,12 @@ export default function AiAdminPage() {
                 label="Tokens salida"
                 value={fmtNum(usage.totals.outputTokens)}
               />
-              <Stat label="Costo estimado" value={fmtUsd(usage.totals.costUsd)} />
+              <Stat
+                label="Tokens totales"
+                value={fmtNum(
+                  usage.totals.inputTokens + usage.totals.outputTokens,
+                )}
+              />
             </div>
 
             {usage.recent.length > 0 && (
@@ -360,7 +338,6 @@ export default function AiAdminPage() {
                       <th className="py-1 pr-3">Usuario</th>
                       <th className="py-1 pr-3">Modelo</th>
                       <th className="py-1 pr-3">Tokens</th>
-                      <th className="py-1 pr-3">Costo</th>
                       <th className="py-1">Origen</th>
                     </tr>
                   </thead>
@@ -378,10 +355,7 @@ export default function AiAdminPage() {
                         <td className="py-1.5 pr-3">
                           {fmtNum(r.inputTokens + r.outputTokens)}
                         </td>
-                        <td className="py-1.5 pr-3">{fmtUsd(r.costUsd)}</td>
-                        <td className="py-1.5">
-                          {r.mock ? 'demo' : r.usedByoKey ? 'BYO' : 'plataforma'}
-                        </td>
+                        <td className="py-1.5">{r.mock ? 'demo' : 'CIDE'}</td>
                       </tr>
                     ))}
                   </tbody>

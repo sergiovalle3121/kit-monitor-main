@@ -17,10 +17,9 @@
  */
 
 import React, { useMemo, useState } from 'react';
-import Link from 'next/link';
 import { motion, useReducedMotion } from 'framer-motion';
 import {
-  ArrowLeft, Loader2, Lock, Inbox, Search, X, Factory, Boxes, Users, Zap,
+  Loader2, Lock, Inbox, Search, X, Factory, Boxes, Users, Zap,
   Wallet, Scale, AlertTriangle, ChevronRight, Gauge, PackageX, Layers,
   TrendingUp, TrendingDown, Coins, CalendarClock, Archive, CircleDashed,
 } from 'lucide-react';
@@ -310,14 +309,6 @@ export default function CostIntelligencePage() {
           title="Inteligencia de Costos"
           subtitle="COGS y variancia en vivo desde el piso · uso de material, scrap y cierre de periodo"
           icon={Gauge}
-          right={
-            <Link
-              href="/dashboard/finance"
-              className="inline-flex items-center gap-2 rounded-full border border-black/10 dark:border-white/10 px-3 py-1.5 text-sm text-gray-600 dark:text-gray-300 hover:bg-black/5 dark:hover:bg-white/5"
-            >
-              <ArrowLeft className="w-4 h-4" /> Finanzas
-            </Link>
-          }
         />
 
         <p className="text-sm text-gray-500 dark:text-gray-400 -mt-3 mb-6 max-w-3xl">

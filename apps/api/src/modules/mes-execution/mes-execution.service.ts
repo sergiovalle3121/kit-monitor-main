@@ -717,7 +717,10 @@ export class MesExecutionService {
     if (qtyAffected > 0) {
       const moved = Math.min(qtyAffected, step.unitsCompleted);
       step.unitsCompleted = round6(step.unitsCompleted - moved);
-      step.segregatedQty = round6(step.segregatedQty + qtyAffected);
+      // Segregar SOLO lo realmente movido del flujo bueno (clampeado). Usar
+      // qtyAffected sin clampear inflaba `segregatedQty` con unidades fantasma
+      // cuando se reportaban más afectadas que las completadas en el paso.
+      step.segregatedQty = round6(step.segregatedQty + moved);
     }
     if (dto.blocksFlow) {
       step.status = 'blocked';

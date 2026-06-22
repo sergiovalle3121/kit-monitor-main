@@ -7,19 +7,16 @@
 // labels/ASN panel for the capabilities the backend does not yet expose.
 import React from "react";
 import {
-  AlertTriangle,
   Boxes,
   Calendar,
   CheckCircle2,
   ClipboardList,
-  FileText,
   Hash,
   Loader2,
   MapPin,
   Package,
   ScanLine,
   Send,
-  Tag,
   Truck,
   X,
 } from "lucide-react";
@@ -31,6 +28,7 @@ import {
   CloseButton,
   DispatchButton,
   GeneratePackingListButton,
+  LabelAsnActions,
   ReportDiscrepancyButton,
   StartLoadingButton,
 } from "./shipping.actions";
@@ -219,7 +217,7 @@ export function ShipmentDrawer({
             )}
 
             {/* Etiquetas y ASN — honesto: el módulo shipping no expone estos endpoints */}
-            <LabelsAsnPanel trackingNumber={data.trackingNumber} />
+            <LabelsAsnPanel shipmentId={data.id} trackingNumber={data.trackingNumber} />
           </div>
         )}
       </div>
@@ -252,12 +250,11 @@ function TimelineRow({
   );
 }
 
-// ── Etiquetas / ASN — estado honesto ─────────────────────────────────────────
-// El módulo `shipping` (9 endpoints) NO tiene impresión de etiquetas ni
-// generación/transmisión de ASN (EDI 856). Lo dejamos visible pero deshabilitado,
-// con la nota de que requiere backend nuevo. El `trackingNumber` SÍ es real
-// (se captura en el manifiesto de carga) y se muestra cuando existe.
-function LabelsAsnPanel({ trackingNumber }: { trackingNumber?: string | null }) {
+// ── Etiquetas / ASN ──────────────────────────────────────────────────────────
+// El módulo `shipping` ya genera la etiqueta GS1 (SSCC/ZPL) y el ASN (EDI 856) a
+// partir de los renglones reales del embarque (header + líneas planas). El
+// `trackingNumber` se captura en el manifiesto de carga.
+function LabelsAsnPanel({ shipmentId, trackingNumber }: { shipmentId: number; trackingNumber?: string | null }) {
   return (
     <section className="pt-1">
       <SectionLabel>Etiquetas y ASN</SectionLabel>
@@ -268,25 +265,11 @@ function LabelsAsnPanel({ trackingNumber }: { trackingNumber?: string | null }) 
           value={trackingNumber || "Sin capturar"}
           sub={trackingNumber ? "Capturado en el manifiesto de carga" : "Se captura al iniciar la carga"}
         />
-        <div className="flex flex-col gap-2">
-          <button
-            disabled
-            title="Requiere backend (no implementado)"
-            className="inline-flex items-center justify-center gap-1.5 w-full px-2.5 py-1.5 rounded-lg text-[12px] font-medium opacity-50 cursor-not-allowed bg-black/5 dark:bg-white/10 text-gray-500"
-          >
-            <Tag className="w-3.5 h-3.5" /> Imprimir etiqueta de embarque
-          </button>
-          <button
-            disabled
-            title="Requiere backend (no implementado)"
-            className="inline-flex items-center justify-center gap-1.5 w-full px-2.5 py-1.5 rounded-lg text-[12px] font-medium opacity-50 cursor-not-allowed bg-black/5 dark:bg-white/10 text-gray-500"
-          >
-            <FileText className="w-3.5 h-3.5" /> Generar / enviar ASN (EDI 856)
-          </button>
-        </div>
-        <p className="text-[11px] text-gray-400 inline-flex items-start gap-1.5">
-          <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
-          <span>Etiquetas y ASN requieren backend nuevo: el módulo <code>shipping</code> aún no expone esos endpoints. No se simula la acción.</span>
+        <LabelAsnActions shipmentId={shipmentId} />
+        <p className="text-[11px] text-gray-400">
+          La etiqueta usa el prefijo GS1 de la empresa (configurable con
+          <code> GS1_COMPANY_PREFIX</code>); hasta entonces el SSCC sale con un
+          prefijo de marcador, pero el ZPL y el ASN son reales.
         </p>
       </div>
     </section>

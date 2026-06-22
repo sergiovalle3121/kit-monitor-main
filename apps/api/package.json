@@ -33,7 +33,6 @@
         "migration:run": "npm run typeorm -- migration:run"
     },
     "dependencies": {
-        "@anthropic-ai/sdk": "^0.102.0",
         "@axos/contracts": "*",
         "@nestjs/common": "^11.0.1",
         "@nestjs/config": "^4.0.2",

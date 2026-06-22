@@ -1,0 +1,43 @@
+# CIDE engine — self-hosted, OpenAI-compatible inference for Axos OS.
+#
+# This runs Ollama, which serves an open-weight model behind an
+# OpenAI-compatible API at http://localhost:11434/v1. The Axos OS backend talks
+# to it via CIDE_BASE_URL — no external AI vendor is involved, and prompts /
+# business data never leave your infrastructure.
+#
+# Quick start (from the repo root):
+#   docker compose -f infra/cide/docker-compose.yml up -d
+#   docker exec -it cide-ollama ollama pull qwen2.5:7b   # one-time model pull
+#
+# Then set in the API environment:
+#   CIDE_BASE_URL=http://localhost:11434/v1
+#
+# GPU note: the default config is CPU-only (works for qwen2.5:7b, just slower).
+# For production, run this on a GPU host and uncomment the `deploy` block below
+# (requires the NVIDIA Container Toolkit), or point CIDE_BASE_URL at a vLLM/TGI
+# cluster — the app code is identical either way.
+
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: cide-ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - cide-models:/root/.ollama
+    environment:
+      # Keep a model resident so the first request each session is not cold.
+      OLLAMA_KEEP_ALIVE: "30m"
+    # --- GPU (uncomment on an NVIDIA host with the Container Toolkit) ---
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+
+volumes:
+  cide-models:
+    name: cide-models

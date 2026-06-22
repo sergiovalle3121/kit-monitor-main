@@ -104,4 +104,116 @@ export class EventLedgerService {
       .orderBy('event.timestamp', 'DESC')
       .getMany();
   }
+
+  /**
+   * Analytical roll-up of recent ledger activity — the read primitive behind
+   * CIDE's "operations pulse". Aggregates the immutable event stream over a time
+   * window into counts by domain / action / line, plus a recent sample. All
+   * read-only; the ledger itself is append-only.
+   */
+  async summarizeActivity(opts: {
+    domain?: string;
+    line?: string;
+    program?: string;
+    sinceHours?: number;
+    limit?: number;
+  } = {}): Promise<{
+    window: { sinceHours: number; since: string };
+    totalEvents: number;
+    byDomain: Record<string, number>;
+    byAction: Record<string, number>;
+    byLine: Record<string, number>;
+    recent: Array<Record<string, unknown>>;
+  }> {
+    const sinceHours = Math.min(Math.max(opts.sinceHours ?? 24, 1), 24 * 30);
+    const since = new Date(Date.now() - sinceHours * 3_600_000);
+    const take = Math.min(Math.max(opts.limit ?? 500, 1), 2000);
+
+    const qb = this.ledgerRepository
+      .createQueryBuilder('event')
+      .where('event.timestamp >= :since', { since })
+      .orderBy('event.timestamp', 'DESC')
+      .take(take);
+    if (opts.domain) qb.andWhere('event.domain = :domain', { domain: opts.domain });
+    if (opts.line) qb.andWhere('event.line = :line', { line: opts.line });
+    if (opts.program)
+      qb.andWhere('event.program = :program', { program: opts.program });
+
+    const rows = await qb.getMany();
+    const tally = (key: keyof LedgerEvent): Record<string, number> => {
+      const out: Record<string, number> = {};
+      for (const r of rows) {
+        const k = (r[key] as string) || `(sin ${String(key)})`;
+        out[k] = (out[k] ?? 0) + 1;
+      }
+      return out;
+    };
+
+    return {
+      window: { sinceHours, since: since.toISOString() },
+      totalEvents: rows.length,
+      byDomain: tally('domain'),
+      byAction: tally('action'),
+      byLine: tally('line'),
+      recent: rows.slice(0, 30).map((r) => ({
+        timestamp: r.timestamp,
+        domain: r.domain,
+        action: r.action,
+        line: r.line,
+        program: r.program,
+        model: r.model,
+        workOrder: r.workOrder,
+        ref:
+          r.referenceType && r.referenceId
+            ? `${r.referenceType}:${r.referenceId}`
+            : null,
+        actor: r.actorName || null,
+      })),
+    };
+  }
+
+  /**
+   * Daily event counts over a window — the time-series primitive behind CIDE's
+   * conversational analytics and the Intelligence Center charts. Buckets are
+   * pre-filled (zero-padded) so the series is continuous for plotting. Bucketing
+   * is done in JS to stay portable across SQLite (dev) and Postgres (prod).
+   */
+  async dailyActivity(
+    opts: { days?: number; domain?: string; line?: string } = {},
+  ): Promise<{
+    series: { date: string; count: number }[];
+    total: number;
+    window: { days: number };
+  }> {
+    const days = Math.min(Math.max(opts.days ?? 14, 1), 90);
+    const now = new Date();
+    const startDay = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()) -
+        (days - 1) * 86_400_000,
+    );
+
+    const qb = this.ledgerRepository
+      .createQueryBuilder('event')
+      .where('event.timestamp >= :since', { since: startDay })
+      .orderBy('event.timestamp', 'ASC')
+      .take(20_000);
+    if (opts.domain) qb.andWhere('event.domain = :domain', { domain: opts.domain });
+    if (opts.line) qb.andWhere('event.line = :line', { line: opts.line });
+
+    const rows = await qb.getMany();
+    const buckets = new Map<string, number>();
+    for (let i = 0; i < days; i++) {
+      const d = new Date(startDay.getTime() + i * 86_400_000);
+      buckets.set(d.toISOString().slice(0, 10), 0);
+    }
+    for (const r of rows) {
+      const key = new Date(r.timestamp).toISOString().slice(0, 10);
+      if (buckets.has(key)) buckets.set(key, (buckets.get(key) ?? 0) + 1);
+    }
+    return {
+      series: [...buckets.entries()].map(([date, count]) => ({ date, count })),
+      total: rows.length,
+      window: { days },
+    };
+  }
 }

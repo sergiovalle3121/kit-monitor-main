@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, Patch, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Patch, UseGuards, Request, Header } from '@nestjs/common';
 import { ShippingService } from './shipping.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
@@ -60,9 +60,36 @@ export class ShippingController {
   @Post(':id/discrepancy')
   @RequirePermissions('materials:write')
   async reportDiscrepancy(
-    @Param('id') id: number, 
+    @Param('id') id: number,
     @Body() body: { type: string, detail: string, actor: string }
   ) {
     return this.shippingService.reportPackingDiscrepancy(id, body);
+  }
+
+  // ── ASN (EDI 856) + etiqueta GS1 ──
+  @Get(':id/asn')
+  @RequirePermissions('materials:read')
+  async asn(@Param('id') id: number) {
+    return this.shippingService.assembleAsn(id);
+  }
+
+  @Get(':id/asn.edi')
+  @Header('Content-Type', 'text/plain; charset=utf-8')
+  @RequirePermissions('materials:read')
+  async asnEdi(@Param('id') id: number) {
+    return this.shippingService.asnEdi(id);
+  }
+
+  @Get(':id/label')
+  @RequirePermissions('materials:read')
+  async label(@Param('id') id: number) {
+    return this.shippingService.label(id);
+  }
+
+  @Get(':id/label.zpl')
+  @Header('Content-Type', 'text/plain; charset=utf-8')
+  @RequirePermissions('materials:read')
+  async labelZpl(@Param('id') id: number) {
+    return this.shippingService.labelRaw(id);
   }
 }

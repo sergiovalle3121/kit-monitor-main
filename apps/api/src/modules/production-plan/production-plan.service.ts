@@ -196,6 +196,14 @@ export class ProductionPlanService {
   /** Called by the operator terminal after a confirmed unit/quantity. */
   async incrementCompleted(id: string, qty: number): Promise<SfWorkOrder> {
     const wo = await this.getOne(id);
+    // No acumular contra una WO terminal: confirmar sobre una WO ya COMPLETED /
+    // CANCELLED sobre-contaba la producción (el auto-complete solo corre desde
+    // IN_EXECUTION, así que ni bloqueaba ni se re-disparaba).
+    if (wo.status === 'COMPLETED' || wo.status === 'CANCELLED') {
+      throw new BadRequestException(
+        `La WO ${wo.folio ?? id} no está en ejecución (estado ${wo.status}).`,
+      );
+    }
     const now = new Date();
     wo.quantityCompleted = (wo.quantityCompleted ?? 0) + Math.max(0, qty);
     if (wo.status === 'RELEASED' || wo.status === 'STAGED') {

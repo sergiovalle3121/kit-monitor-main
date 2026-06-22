@@ -86,6 +86,8 @@ import { ProcurementService } from '../modules/procurement/procurement.service';
 import { PurchaseOrder } from '../modules/procurement/entities/purchase-order.entity';
 import { RmaService } from '../modules/rma/rma.service';
 import { RmaCase } from '../modules/rma/entities/rma-case.entity';
+import { NotificationsService } from '../modules/notifications/notifications.service';
+import { UserNotification } from '../modules/notifications/entities/notification.entity';
 
 import {
   assertNotProduction,
@@ -1774,6 +1776,66 @@ async function seedBusinessDomains(app: INestApplicationContext): Promise<Tally>
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Buzón de notificaciones: avisos demo por usuario (para que la campanita y el
+// centro de notificaciones tengan contenido real con estado de leído de servidor).
+// Idempotente por dedupeKey. Se crean con tenant nulo (mismo ámbito del demo), así
+// el usuario los ve. Crea unos pocos por cada usuario existente.
+// ─────────────────────────────────────────────────────────────────────────────
+async function seedNotifications(app: INestApplicationContext): Promise<Tally> {
+  const t = tally();
+  const ds = app.get(DataSource);
+  const notifications = app.get(NotificationsService);
+  const users = await ds.getRepository(User).find({ take: 50 });
+  const templates = [
+    {
+      kind: 'approval',
+      severity: 'high',
+      domain: 'planning',
+      title: 'WOs publicadas pendientes de surtido',
+      body: 'Hay órdenes en el muro del plan esperando kit. Revisa y autoriza el surtido.',
+      href: '/dashboard/production-plan',
+    },
+    {
+      kind: 'hold',
+      severity: 'medium',
+      domain: 'quality',
+      title: 'Hold de calidad en MRB',
+      body: 'Un lote quedó retenido y espera disposición del MRB.',
+      href: '/dashboard/floor-quality',
+    },
+    {
+      kind: 'system',
+      severity: 'info',
+      domain: 'office',
+      title: 'Tu buzón de notificaciones está activo',
+      body: 'Aquí llegan avisos del piso (andon, holds, aprobaciones) y del sistema, con estado de leído que se sincroniza entre dispositivos.',
+      href: '/dashboard/notifications',
+    },
+  ];
+  for (const u of users) {
+    for (let i = 0; i < templates.length; i++) {
+      const dedupeKey = `demo:notif:${u.id}:${i}`;
+      try {
+        const before = await ds
+          .getRepository(UserNotification)
+          .findOne({ where: { dedupeKey, userId: u.id } });
+        if (before) {
+          t.skipped++;
+          continue;
+        }
+        await notifications.create({ userId: u.id, dedupeKey, ...templates[i] });
+        t.created++;
+      } catch (err) {
+        t.errors++;
+        log('avisos', `ERROR usuario ${u.id}: ${(err as Error).message}`);
+      }
+    }
+  }
+  log('avisos', `nuevos=${t.created} ya existían=${t.skipped} errores=${t.errors}`);
+  return t;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Valuación rápida de inventario (SUM(onHand × standardCost)) para el resumen.
 // ─────────────────────────────────────────────────────────────────────────────
 async function inventoryValuation(ds: DataSource): Promise<number> {
@@ -1830,6 +1892,7 @@ async function run(): Promise<void> {
       await seedBusinessDomains(app);
       await seedCrmSuite(app);
       await seedCustomerSalesOrders(app);
+      await seedNotifications(app);
     });
 
     // CANDADO LEGAL (post-seed): re-escanea TODA la base y FALLA ruidosamente si

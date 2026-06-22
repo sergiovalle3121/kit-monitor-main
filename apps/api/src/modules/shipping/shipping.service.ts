@@ -8,6 +8,10 @@ import { InventoryService } from '../inventory/inventory.service';
 import { AuditService } from '../governance/audit.service';
 import { User } from '../users/entities/user.entity';
 import { ExceptionSeverity, ExceptionDomain } from '../governance/entities/operational-exception.entity';
+import { DocumentNumberingService } from '../numbering/document-numbering.service';
+import { Asn, AsnTare, toEdi856 } from '../outbound/asn';
+import { buildSscc, normalizePrefix } from '../packing/packing.sscc';
+import { ssccLabelZpl } from '../packing/packing.zpl';
 
 @Injectable()
 export class ShippingService {
@@ -20,6 +24,7 @@ export class ShippingService {
     private readonly packingRepo: Repository<PackingList>,
     private readonly inventory: InventoryService,
     private readonly audit: AuditService,
+    private readonly numbering: DocumentNumberingService,
   ) {}
 
   async findAll(user: User) {
@@ -85,7 +90,10 @@ export class ShippingService {
       toWarehouseId: 'WH-FG',
       toLocation: 'SHIPPING_DOCK',
       actorName: 'Shipping Agent',
-      holdStatus: 'hold' as any, // staged_for_shipping is not in current union, using hold for now or cast
+      // Reserva para embarque: NO cuenta como 'available' (evita doble asignación)
+      // pero el lock de inventario permite despacharla. Antes era 'hold', que
+      // bloqueaba el dispatch para siempre (stage sí, dispatch nunca).
+      holdStatus: 'staged_for_shipping' as any,
       referenceType: 'SHIPMENT_STAGING',
       referenceId: shipment.shipmentNumber,
       reason: `Staged for Shipment ${shipment.shipmentNumber}`
@@ -206,5 +214,101 @@ export class ShippingService {
     });
 
     return { success: true };
+  }
+
+  // ── ASN (EDI 856) + etiqueta GS1 ────────────────────────────────────────────
+  // El embarque legacy lleva renglones planos (ShipmentItem): sin jerarquía de
+  // tarimas/cajas ni SSCC por bulto. Se arma un ASN de una sola "tarima" (sin
+  // SSCC) con las líneas y se reutiliza el render EDI 856 de outbound. La etiqueta
+  // GS1 es a nivel embarque (un SSCC). El folio ASN y el SSCC se emiten UNA vez y
+  // se persisten (idempotente). El SSCC sale con prefijo placeholder hasta que se
+  // configure GS1_COMPANY_PREFIX (se reporta honestamente con `placeholder`).
+
+  private async loadForDocs(id: number): Promise<{ shipment: Shipment; items: ShipmentItem[] }> {
+    const shipment = await this.shipmentRepo.findOne({ where: { id } });
+    if (!shipment) throw new NotFoundException('Shipment not found');
+    const items = await this.itemRepo.find({ where: { shipment: { id } } });
+    return { shipment, items };
+  }
+
+  private buildAsnObject(shipment: Shipment, items: ShipmentItem[]): Asn {
+    const lines = items.map((i) => ({
+      partNumber: i.partNumber,
+      quantity: Number(i.quantity) || 0,
+      serials: [] as string[],
+    }));
+    const pieces = lines.reduce((a, l) => a + l.quantity, 0);
+    const parts = new Set(lines.map((l) => l.partNumber)).size;
+    const loaded =
+      shipment.status === ShipmentStatus.DISPATCHED || shipment.status === ShipmentStatus.CLOSED;
+    const shipDateSrc = shipment.dispatchedAt ?? shipment.scheduledAt ?? null;
+    const tare: AsnTare = {
+      id: String(shipment.id),
+      sscc: null,
+      type: 'SHIPMENT',
+      loaded,
+      weightKg: null,
+      lines,
+      packs: [],
+    };
+    return {
+      asn: shipment.asn ?? null,
+      folio: shipment.shipmentNumber,
+      shipDate: shipDateSrc ? new Date(shipDateSrc).toISOString().slice(0, 10) : null,
+      shipTo: { name: shipment.customer ?? null, destination: shipment.route ?? null },
+      carrier: shipment.carrier ?? null,
+      tracking: shipment.trackingNumber ?? null,
+      incoterm: 'N/A',
+      status: shipment.status,
+      hierarchy: [tare],
+      totals: { tares: 1, packs: 0, units: 1, pieces, parts, weightKg: 0, loaded: loaded ? 1 : 0 },
+    };
+  }
+
+  /** Emite (una vez) el folio ASN y devuelve el ASN jerárquico (1 tarima, líneas planas). */
+  async assembleAsn(id: number): Promise<Asn> {
+    const { shipment, items } = await this.loadForDocs(id);
+    if (!shipment.asn) {
+      shipment.asn = await this.numbering.allocate('ASN');
+      await this.shipmentRepo.save(shipment);
+    }
+    return this.buildAsnObject(shipment, items);
+  }
+
+  /** ASN como archivo EDI 856 (texto plano) para descarga. */
+  async asnEdi(id: number): Promise<string> {
+    return toEdi856(await this.assembleAsn(id));
+  }
+
+  /** Etiqueta logística GS1 (SSCC) del embarque: ZPL + el SSCC legible. */
+  async label(id: number): Promise<{ sscc: string; placeholder: boolean; zpl: string }> {
+    const { shipment, items } = await this.loadForDocs(id);
+    const { placeholder } = normalizePrefix(process.env.GS1_COMPANY_PREFIX);
+    if (!shipment.sscc) {
+      const serialStr = await this.numbering.allocate('SSCC');
+      const serial = Number(String(serialStr).replace(/\D/g, '')) || Date.now() % 1_000_000_000;
+      shipment.sscc = buildSscc(process.env.GS1_COMPANY_PREFIX, serial).sscc;
+      await this.shipmentRepo.save(shipment);
+    }
+    const contents = items
+      .map((i) => `${i.partNumber} x${Number(i.quantity) || 0}`)
+      .join(' · ')
+      .slice(0, 120);
+    const zpl = ssccLabelZpl({
+      sscc: shipment.sscc,
+      shipToName: shipment.customer ?? null,
+      shipToAddress: shipment.route ?? null,
+      fromName: 'AXOS OS',
+      poNumber: null,
+      contents: contents || null,
+      weightKg: null,
+      cartonOf: null,
+    });
+    return { sscc: shipment.sscc, placeholder, zpl };
+  }
+
+  /** Solo el ZPL (descarga .zpl directa). */
+  async labelRaw(id: number): Promise<string> {
+    return (await this.label(id)).zpl;
   }
 }

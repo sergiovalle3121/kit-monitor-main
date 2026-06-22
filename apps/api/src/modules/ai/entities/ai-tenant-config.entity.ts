@@ -11,12 +11,14 @@ import { decimalToNumber } from '../../erp-core/entities/money';
 import { DEFAULT_MODEL, ESCALATION_MODEL } from '../ai-pricing';
 
 /**
- * Per-tenant AI configuration. One row per tenant; the sentinel '__default__'
+ * Per-tenant CIDE configuration. One row per tenant; the sentinel '__default__'
  * row holds the platform-wide defaults used when a tenant has no own row.
  *
- * Hybrid billing: if `byoApiKeyCipher` is set the tenant pays its own usage on
- * its own key (no budget enforced). Otherwise the platform key is used and the
- * monthly token budget caps spend so cost can never run away.
+ * CIDE runs on a self-hosted, open-weight model (no external AI vendor, no
+ * per-token billing), so there is no API key to store. The monthly token figure
+ * is now a **usage guardrail** (capacity), not a spend cap. The `byo*` columns
+ * below are legacy from the previous Anthropic integration and are retained,
+ * unused, only to keep the schema additive (see DECISIONS.md §2).
  */
 @Entity('ai_tenant_config')
 export class AiTenantConfig {
@@ -30,7 +32,7 @@ export class AiTenantConfig {
   @Column({ default: true })
   enabled: boolean;
 
-  /** Encrypted BYO Anthropic API key (AES-256-GCM). Null → use platform key. */
+  /** @deprecated Legacy Anthropic BYO key column. Unused under CIDE (self-hosted). */
   @Column({ type: 'text', nullable: true })
   byoApiKeyCipher: string | null;
 

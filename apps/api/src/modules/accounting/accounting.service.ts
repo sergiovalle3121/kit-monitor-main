@@ -280,7 +280,13 @@ export class AccountingService {
     limit?: number;
   }): Promise<Transaction[]> {
     const query = this.transactionRepo.createQueryBuilder('transaction');
-    
+
+    // Scope por tenant (la entidad Transaction lleva tenant_id). Sin tenant en
+    // contexto → solo filas sin tenant (consistente con el resto del seed/demo).
+    const tenantId = this.tenantContext.getTenantId();
+    if (tenantId) query.andWhere('transaction.tenant_id = :tenantId', { tenantId });
+    else query.andWhere('transaction.tenant_id IS NULL');
+
     if (filters.materialPartNumber) {
       query.andWhere('transaction.materialPartNumber = :materialPartNumber', {
         materialPartNumber: filters.materialPartNumber,
@@ -299,10 +305,14 @@ export class AccountingService {
   }
 
   async calculateCostRollup(sku: string): Promise<ProductCostRollup> {
-    const transactions = await this.transactionRepo.find({
-      where: { materialPartNumber: sku },
-      order: { postedAt: 'DESC' },
-    });
+    const tenantId = this.tenantContext.getTenantId();
+    const rollupQb = this.transactionRepo
+      .createQueryBuilder('transaction')
+      .where('transaction.materialPartNumber = :sku', { sku })
+      .orderBy('transaction.postedAt', 'DESC');
+    if (tenantId) rollupQb.andWhere('transaction.tenant_id = :tenantId', { tenantId });
+    else rollupQb.andWhere('transaction.tenant_id IS NULL');
+    const transactions = await rollupQb.getMany();
 
     const categoryMapping: Record<string, IndustrialAccountCode[]> = {
       labor: [IndustrialAccountCode.WIP_INVENTORY],

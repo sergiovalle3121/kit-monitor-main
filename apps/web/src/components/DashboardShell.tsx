@@ -4,6 +4,7 @@ import React from 'react';
 import { usePathname } from 'next/navigation';
 import { DashboardTopBar } from '@/components/DashboardTopBar';
 import { DashboardDock } from '@/components/DashboardDock';
+import { DashboardWayfinding } from '@/components/DashboardWayfinding';
 
 /**
  * Chrome compartida del dashboard: monta la barra superior + el dock UNA vez
@@ -22,7 +23,10 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   return (
     <>
       <DashboardTopBar />
-      <div className="pt-20">{children}</div>
+      <div className="pt-20">
+        <DashboardWayfinding />
+        {children}
+      </div>
       <DashboardDock />
     </>
   );

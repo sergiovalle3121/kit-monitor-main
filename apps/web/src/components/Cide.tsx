@@ -16,22 +16,45 @@ import {
 import { glass } from '@/lib/glass';
 import { isAdminAccess } from '@/lib/owner';
 
+type CideCard =
+  | { type: 'metric'; title: string; value: number; unit?: string | null }
+  | {
+      type: 'line';
+      title: string;
+      series: { x: string; y: number }[];
+      projection?: { x: string; y: number }[];
+    }
+  | { type: 'bars'; title: string; bars: { label: string; value: number }[] }
+  | {
+      type: 'actions';
+      title: string;
+      items: { title: string; severity: string }[];
+    };
+
+const SEVERITY_DOT: Record<string, string> = {
+  critical: 'bg-red-500',
+  high: 'bg-orange-500',
+  medium: 'bg-amber-500',
+  low: 'bg-emerald-500',
+};
+
 interface ChatMsg {
   role: 'user' | 'assistant';
   content: string;
   tools?: string[];
+  cards?: CideCard[];
   model?: string;
   mock?: boolean;
 }
 
 const SUGGESTIONS = [
   '¿Cómo va la planta hoy?',
-  '¿Qué órdenes de producción están abiertas?',
+  '¿Qué cambió en producción en las últimas 24 h?',
   '¿Cómo está el inventario?',
   'Muéstrame el estado de resultados',
 ];
 
-export function AiCopilot() {
+export function Cide() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState('');
@@ -73,7 +96,7 @@ export function AiCopilot() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data?.message || 'No se pudo contactar al asistente.');
+        setError(data?.message || 'No se pudo contactar a CIDE.');
         return;
       }
       setConversationId(data.conversationId ?? null);
@@ -83,12 +106,13 @@ export function AiCopilot() {
           role: 'assistant',
           content: data.reply ?? '—',
           tools: data.toolsUsed,
+          cards: data.cards,
           model: data.model,
           mock: data.mock,
         },
       ]);
     } catch {
-      setError('Error de red al contactar al asistente.');
+      setError('Error de red al contactar a CIDE.');
     } finally {
       setLoading(false);
     }
@@ -99,7 +123,7 @@ export function AiCopilot() {
       {/* Floating launcher */}
       <button
         onClick={() => setOpen(true)}
-        aria-label="Abrir Axos Copilot"
+        aria-label="Abrir CIDE"
         className="fixed bottom-8 right-8 z-[101] flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-violet-600 to-pink-500 text-white shadow-2xl ring-1 ring-white/20 transition-all hover:scale-105 active:scale-95"
       >
         <Sparkles className="h-6 w-6" />
@@ -129,11 +153,9 @@ export function AiCopilot() {
                     <Sparkles className="h-5 w-5" />
                   </div>
                   <div>
-                    <h2 className="text-sm font-semibold leading-tight">
-                      Axos Copilot
-                    </h2>
+                    <h2 className="text-sm font-semibold leading-tight">CIDE</h2>
                     <p className="text-xs text-black/50 dark:text-white/50">
-                      Pregúntame sobre tus datos
+                      Tu analista de datos · IA propia
                     </p>
                   </div>
                 </div>
@@ -142,7 +164,7 @@ export function AiCopilot() {
                     <Link
                       href="/dashboard/admin/ai"
                       onClick={() => setOpen(false)}
-                      aria-label="Configurar IA"
+                      aria-label="Configurar CIDE"
                       className="rounded-lg p-2 text-black/50 transition-colors hover:bg-black/5 hover:text-black dark:text-white/50 dark:hover:bg-white/10 dark:hover:text-white"
                     >
                       <Settings className="h-4 w-4" />
@@ -169,8 +191,9 @@ export function AiCopilot() {
                       <Bot className="h-6 w-6" />
                     </div>
                     <p className="text-sm text-black/60 dark:text-white/60">
-                      Soy tu copiloto. Consulto inventario, producción, MRP,
-                      calidad y finanzas — respetando tus permisos.
+                      Soy CIDE, la IA propia de Axos OS. Analizo inventario,
+                      producción, MRP, calidad, finanzas y la bitácora de eventos
+                      — respetando tus permisos.
                     </p>
                     <div className="flex flex-col gap-2">
                       {SUGGESTIONS.map((s) => (
@@ -203,6 +226,13 @@ export function AiCopilot() {
                       <p className="whitespace-pre-wrap leading-relaxed">
                         {m.content}
                       </p>
+                      {m.role === 'assistant' && m.cards && m.cards.length > 0 && (
+                        <div className="mt-2.5 space-y-2">
+                          {m.cards.map((c, ci) => (
+                            <CardView key={ci} card={c} />
+                          ))}
+                        </div>
+                      )}
                       {m.role === 'assistant' &&
                         m.tools &&
                         m.tools.length > 0 && (
@@ -220,7 +250,7 @@ export function AiCopilot() {
                         )}
                       {m.role === 'assistant' && m.mock && (
                         <p className="mt-1.5 text-[10px] text-amber-600 dark:text-amber-400">
-                          modo demo · sin API key
+                          modo demo · motor CIDE no disponible
                         </p>
                       )}
                     </div>
@@ -231,7 +261,7 @@ export function AiCopilot() {
                   <div className="flex justify-start">
                     <div className="flex items-center gap-2 rounded-2xl bg-black/5 px-4 py-3 text-sm dark:bg-white/10">
                       <Loader2 className="h-4 w-4 animate-spin" />
-                      Pensando…
+                      Analizando…
                     </div>
                   </div>
                 )}
@@ -245,7 +275,7 @@ export function AiCopilot() {
                         onClick={() => setOpen(false)}
                         className="ml-1 underline"
                       >
-                        Configurar IA
+                        Configurar CIDE
                       </Link>
                     )}
                   </div>
@@ -271,7 +301,7 @@ export function AiCopilot() {
                       }
                     }}
                     rows={1}
-                    placeholder="Escribe tu pregunta…"
+                    placeholder="Pregúntale a CIDE…"
                     className="max-h-32 flex-1 resize-none rounded-xl border border-black/10 bg-white/60 px-3 py-2.5 text-sm outline-none focus:border-violet-400 dark:border-white/10 dark:bg-white/5"
                   />
                   <button
@@ -289,5 +319,163 @@ export function AiCopilot() {
         )}
       </AnimatePresence>
     </>
+  );
+}
+
+// ── Inline analysis cards (lightweight; no chart lib in the global bundle) ──
+
+function fmtNum(v: number, unit?: string | null): string {
+  if (unit === 'USD')
+    return v.toLocaleString('es-MX', {
+      style: 'currency',
+      currency: 'USD',
+      maximumFractionDigits: 0,
+    });
+  if (unit === '%') return `${v.toLocaleString('es-MX')}%`;
+  return v.toLocaleString('es-MX');
+}
+
+/** Build an SVG polyline path for a series scaled into a [w,h] box. */
+function pathFor(
+  values: number[],
+  w: number,
+  h: number,
+  pad = 2,
+  min?: number,
+  max?: number,
+): string {
+  if (values.length === 0) return '';
+  const lo = min ?? Math.min(...values);
+  const hi = max ?? Math.max(...values);
+  const span = hi - lo || 1;
+  const stepX = values.length > 1 ? (w - pad * 2) / (values.length - 1) : 0;
+  return values
+    .map((v, i) => {
+      const x = pad + i * stepX;
+      const y = pad + (h - pad * 2) * (1 - (v - lo) / span);
+      return `${i === 0 ? 'M' : 'L'}${x.toFixed(1)} ${y.toFixed(1)}`;
+    })
+    .join(' ');
+}
+
+function Sparkline({
+  series,
+  projection,
+}: {
+  series: { x: string; y: number }[];
+  projection?: { x: string; y: number }[];
+}) {
+  const w = 240;
+  const h = 56;
+  const histVals = series.map((p) => p.y);
+  const projVals = projection?.map((p) => p.y) ?? [];
+  const all = [...histVals, ...projVals];
+  const lo = Math.min(...all);
+  const hi = Math.max(...all);
+  const histPath = pathFor(histVals, w, h, 3, lo, hi);
+  // Projection shares the x-grid continuing after history (offset by hist length).
+  const combinedForProj = projection
+    ? [...histVals.slice(-1), ...projVals]
+    : [];
+  const projPath = projection
+    ? pathFor(combinedForProj, w, h, 3, lo, hi)
+    : '';
+  return (
+    <svg
+      viewBox={`0 0 ${w} ${h}`}
+      preserveAspectRatio="none"
+      className="h-14 w-full"
+    >
+      <path d={histPath} fill="none" stroke="#7c5cff" strokeWidth={2} />
+      {projPath && (
+        <path
+          d={projPath}
+          fill="none"
+          stroke="#ec4899"
+          strokeWidth={2}
+          strokeDasharray="4 3"
+        />
+      )}
+    </svg>
+  );
+}
+
+function CardView({ card }: { card: CideCard }) {
+  if (card.type === 'metric') {
+    return (
+      <div className="rounded-xl border border-black/10 bg-white/60 px-3 py-2 dark:border-white/10 dark:bg-white/5">
+        <p className="text-[11px] text-black/55 dark:text-white/55">
+          {card.title}
+        </p>
+        <p className="text-xl font-semibold tracking-tight">
+          {fmtNum(card.value, card.unit)}
+        </p>
+      </div>
+    );
+  }
+  if (card.type === 'line') {
+    const last = card.series[card.series.length - 1]?.y ?? 0;
+    return (
+      <div className="rounded-xl border border-black/10 bg-white/60 px-3 py-2 dark:border-white/10 dark:bg-white/5">
+        <div className="mb-1 flex items-center justify-between">
+          <p className="text-[11px] text-black/55 dark:text-white/55">
+            {card.title}
+          </p>
+          <p className="text-[11px] font-medium text-black/70 dark:text-white/70">
+            {fmtNum(last)}
+          </p>
+        </div>
+        <Sparkline series={card.series} projection={card.projection} />
+        {card.projection && (
+          <p className="mt-1 text-[10px] text-pink-500">— — proyección</p>
+        )}
+      </div>
+    );
+  }
+  if (card.type === 'actions') {
+    return (
+      <div className="rounded-xl border border-black/10 bg-white/60 px-3 py-2 dark:border-white/10 dark:bg-white/5">
+        <p className="mb-1.5 text-[11px] text-black/55 dark:text-white/55">
+          {card.title}
+        </p>
+        <ul className="space-y-1">
+          {card.items.map((it, i) => (
+            <li key={i} className="flex items-start gap-2 text-xs">
+              <span
+                className={`mt-1 h-2 w-2 shrink-0 rounded-full ${SEVERITY_DOT[it.severity] ?? 'bg-zinc-400'}`}
+              />
+              <span className="leading-snug">{it.title}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
+  }
+  // bars
+  const max = Math.max(...card.bars.map((b) => b.value), 1);
+  return (
+    <div className="rounded-xl border border-black/10 bg-white/60 px-3 py-2 dark:border-white/10 dark:bg-white/5">
+      <p className="mb-1.5 text-[11px] text-black/55 dark:text-white/55">
+        {card.title}
+      </p>
+      <div className="space-y-1">
+        {card.bars.map((b) => (
+          <div key={b.label} className="flex items-center gap-2">
+            <span className="w-20 shrink-0 truncate text-[10px] text-black/60 dark:text-white/60">
+              {b.label}
+            </span>
+            <div className="h-2 flex-1 overflow-hidden rounded-full bg-black/5 dark:bg-white/10">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-violet-500 to-indigo-500"
+                style={{ width: `${(b.value / max) * 100}%` }}
+              />
+            </div>
+            <span className="w-8 shrink-0 text-right text-[10px] font-medium">
+              {b.value}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }

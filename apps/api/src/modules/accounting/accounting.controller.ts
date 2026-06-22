@@ -1,4 +1,7 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { RequirePermission } from '../auth/decorators/permissions.decorator';
 import { AccountingService } from './accounting.service';
 import { Transaction } from './entities/transaction.entity';
 
@@ -39,11 +42,13 @@ export interface ProductCostRollup {
   totalCost: number;
 }
 
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller('accounting')
 export class AccountingController {
   constructor(private readonly accountingService: AccountingService) {}
 
   @Get('transactions')
+  @RequirePermission('finance', 'read')
   async getTransactions(
     @Query('materialPartNumber') materialPartNumber?: string,
     @Query('workOrder') workOrder?: string,
@@ -57,6 +62,7 @@ export class AccountingController {
   }
 
   @Get('cost-rollup')
+  @RequirePermission('finance', 'read')
   async getCostRollup(
     @Query('sku') sku: string,
   ): Promise<ProductCostRollup> {

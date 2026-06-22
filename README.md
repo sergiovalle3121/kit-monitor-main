@@ -61,7 +61,7 @@ agrupan por Domain-Driven Design:
 | **Logística & Embarques** | empaque, tráfico, salida, listas de surtido | `shipping`, `packing`, `outbound`, `traffic`, `pick-lists` | `/shipping`, `/packing`, `/outbound`, `/traffic` |
 | **Finanzas & Costos** | contabilidad, costeo de producto, COGS / cost intelligence, gastos, activos fijos | `accounting`, `product-costing`, `cost-intelligence`, `cost-rollup`, `expenses`, `fixed-assets`, `erp-core` | `/finance`, `/erp/fin`, `/expenses`, `/fixed-assets` |
 | **Trazabilidad** | genealogía cuna-a-tumba, Event Ledger inmutable | `genealogy`, `event-ledger` | `/genealogy` |
-| **Torre de control & Inteligencia** | agregadores globales, forecast, decision intelligence, autopilot, **Cliente 360 cross-área** | `control-tower`, `line-control-tower`, `forecast`, `decision-intelligence`, `autopilot`, `ai`, `customer-insights` | `/control-tower`, `/forecast`, `/mission-control`, `/customers` |
+| **Torre de control & Inteligencia** | agregadores globales, forecast, decision intelligence, autopilot, **CIDE** (IA propia self-hosted), **capa semántica** (catálogo de métricas + ontología), **analítica** (tendencias + narrativa), **Cliente 360 cross-área** | `control-tower`, `line-control-tower`, `forecast`, `decision-intelligence`, `autopilot`, `ai` (CIDE), `semantic`, `analytics`, `customer-insights` | `/control-tower`, `/forecast`, `/mission-control`, `/intelligence`, `/admin/ai`, `/customers` |
 | **Plataforma** | usuarios/RBAC, governance/auditoría, numeración de folios, settings, búsqueda, chat, notificaciones, suite Office | `users`, `auth`, `governance`, `numbering`, `messaging`, `office`, `import-data` | `/settings`, `/admin`, `/chat`, `/documents` |
 
 > Hay más módulos transversales (`crm`, `people`, `maintenance`, `ehs`,
@@ -75,6 +75,26 @@ agrupan por Domain-Driven Design:
 > SCARs). La vista **Cliente 360** (`/customers`) une a un cliente a través de
 > ventas, programas, calidad, entrega y finanzas. Detalle y patrón reutilizable
 > en [`docs/commercial-suite.md`](docs/commercial-suite.md).
+
+## CIDE — la IA propia
+
+**CIDE** (Cognitive Intelligence & Decision Engine) es el analista de datos
+integrado: corre sobre un modelo **open-source self-hosted** (Qwen2.5,
+Apache-2.0) servido por un motor **compatible-OpenAI** (Ollama por defecto) que
+**tú controlas** — sin Anthropic, sin DeepSeek, sin proveedor externo, con la
+data dentro de tu infraestructura. Responde **fundamentado en los datos reales**
+de MES/ERP vía herramientas read-only filtradas por RBAC, incluida la analítica
+sobre el **Event Ledger** (`operations_pulse`, `ledger_trace`).
+
+```bash
+# levantar el motor (una vez)
+docker compose -f infra/cide/docker-compose.yml up -d
+docker exec -it cide-ollama ollama pull qwen2.5:7b
+# apuntar el API al motor (default ya coincide con Ollama local)
+#   CIDE_BASE_URL=http://localhost:11434/v1
+```
+
+Detalle y operación en [`apps/api/src/modules/ai/README.md`](apps/api/src/modules/ai/README.md).
 
 ## Desarrollo local
 

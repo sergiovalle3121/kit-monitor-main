@@ -2,7 +2,6 @@
 
 import { motion, type Variants } from 'framer-motion';
 import {
-  ArrowLeft,
   BarChart3,
   Boxes,
   Building2,
@@ -17,7 +16,6 @@ import {
   Zap,
   type LucideIcon,
 } from 'lucide-react';
-import Link from 'next/link';
 import { type ReactNode, useMemo, useState, useTransition } from 'react';
 import {
   Bar,
@@ -471,19 +469,6 @@ export default function CostRollupPage() {
         animate="visible"
         className="flex flex-col gap-5"
       >
-        <motion.div variants={cardVariants}>
-          <Link href="/dashboard/finance">
-            <motion.span
-              whileHover={{ x: -3 }}
-              whileTap={{ scale: 0.98 }}
-              className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-black/5 px-4 py-2 text-sm text-gray-600 transition-colors duration-300 hover:text-black dark:border-white/10 dark:bg-white/5 dark:text-gray-300 dark:hover:text-white"
-            >
-              <ArrowLeft className="h-4 w-4" strokeWidth={1.5} />
-              Finanzas
-            </motion.span>
-          </Link>
-        </motion.div>
-
         <motion.div
           variants={cardVariants}
           className="grid gap-5 lg:grid-cols-[1fr_minmax(320px,520px)] lg:items-end"

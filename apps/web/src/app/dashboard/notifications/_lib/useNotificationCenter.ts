@@ -2,10 +2,12 @@
 
 import { useEffect, useMemo } from 'react';
 import { useApi } from '@/hooks/useApi';
+import { apiFetch } from '@/lib/apiFetch';
 import { useMesSignals } from '@/hooks/useMesSignals';
 import { useReadState } from './readState';
 import {
   normalizeAndon, normalizeHolds, normalizeDispositions, normalizeCancellations, normalizeNcr,
+  normalizeMailbox,
 } from './sources';
 import type { AxosNotification, NotifKind, ResolvedNotification } from './types';
 
@@ -13,15 +15,22 @@ import type { AxosNotification, NotifKind, ResolvedNotification } from './types'
  * Carril UI-NOTIF — agregador del centro de notificaciones.
  *
  * Lee cada fuente real con `useApi` (SWR, auto-refresh 20 s) y las funde en una
- * sola lista normalizada y ordenada. Además engancha el socket de planta
- * existente (`useMesSignals`): un andon / incidente EN VIVO revalida el feed al
- * instante — tiempo real aprovechando infra existente, sin backend nuevo.
+ * sola lista normalizada y ordenada. Incluye el BUZÓN persistente del servidor
+ * (`/notifications`): sus avisos traen estado de leído REAL (`readAt`), que se
+ * sincroniza entre dispositivos; las demás fuentes (andon/holds/…) son eventos
+ * vivos del piso cuyo "leído" se guarda por-dispositivo (localStorage).
+ *
+ * Además engancha el socket de planta existente (`useMesSignals`): un andon /
+ * incidente EN VIVO revalida el feed al instante.
  *
  * Fuentes con 403 (sin permiso) no rompen la vista: aportan 0 ítems y se
  * reportan en `unavailable` para mostrar una nota honesta.
  */
 
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000').replace(/\/$/, '');
+
 const SOURCES: Array<{ key: string; path: string; label: string }> = [
+  { key: 'mailbox', path: '/notifications', label: 'Buzón (avisos)' },
   { key: 'andon', path: '/operator-terminal/floor-events?status=OPEN', label: 'Andon (producción)' },
   { key: 'hold', path: '/floor-quality/holds', label: 'Holds de calidad' },
   { key: 'disp', path: '/quality/dispositions', label: 'Aprobaciones de disposición' },
@@ -44,15 +53,21 @@ export interface NotificationCenter {
   refresh: () => void;
 }
 
+/** ¿El id pertenece al buzón persistente del servidor? Devuelve el id real o null. */
+function mailboxRealId(id: string): string | null {
+  return id.startsWith('mailbox:') ? id.slice('mailbox:'.length) : null;
+}
+
 export function useNotificationCenter(): NotificationCenter {
   // Una llamada fija por fuente (respeta las reglas de hooks).
-  const andon = useApi<unknown>(SOURCES[0].path);
-  const holds = useApi<unknown>(SOURCES[1].path);
-  const disp = useApi<unknown>(SOURCES[2].path);
-  const cancel = useApi<unknown>(SOURCES[3].path);
-  const ncr = useApi<unknown>(SOURCES[4].path);
+  const mailbox = useApi<unknown>(SOURCES[0].path);
+  const andon = useApi<unknown>(SOURCES[1].path);
+  const holds = useApi<unknown>(SOURCES[2].path);
+  const disp = useApi<unknown>(SOURCES[3].path);
+  const cancel = useApi<unknown>(SOURCES[4].path);
+  const ncr = useApi<unknown>(SOURCES[5].path);
 
-  const { isRead, markRead, markUnread, prune } = useReadState();
+  const { isRead, markRead: markReadLocal, markUnread: markUnreadLocal, prune } = useReadState();
 
   // Tiempo real: refrescamos el feed de andon ante señales de piso en vivo.
   const { status: realtime } = useMesSignals((e) => {
@@ -69,6 +84,7 @@ export function useNotificationCenter(): NotificationCenter {
 
   const items = useMemo<ResolvedNotification[]>(() => {
     const all: AxosNotification[] = [
+      ...(mailbox.forbidden ? [] : normalizeMailbox(mailbox.data)),
       ...(andon.forbidden ? [] : normalizeAndon(andon.data)),
       ...(holds.forbidden ? [] : normalizeHolds(holds.data)),
       ...(disp.forbidden ? [] : normalizeDispositions(disp.data)),
@@ -76,23 +92,26 @@ export function useNotificationCenter(): NotificationCenter {
       ...(ncr.forbidden ? [] : normalizeNcr(ncr.data)),
     ];
     all.sort((a, b) => +new Date(b.at) - +new Date(a.at));
-    return all.map((n) => ({ ...n, read: isRead(n.id) }));
+    // Buzón: estado de leído del servidor (n.read). Fuentes derivadas: estado local.
+    return all.map((n) => ({ ...n, read: n.read ?? isRead(n.id) }));
   }, [
+    mailbox.data, mailbox.forbidden,
     andon.data, andon.forbidden, holds.data, holds.forbidden, disp.data, disp.forbidden,
     cancel.data, cancel.forbidden, ncr.data, ncr.forbidden, isRead,
   ]);
 
-  // Poda de ids leídos obsoletos. Se dispara solo cuando cambia el CONJUNTO de
-  // ids vivos (firma string), no cuando cambian las banderas de leído → sin bucle.
-  const liveSig = items.map((i) => i.id).join('|');
+  // Poda de ids LOCALES leídos obsoletos. Solo aplica a ids no-buzón (los del
+  // buzón viven en servidor, nunca en localStorage). Se dispara cuando cambia el
+  // conjunto de ids locales vivos (firma string), no por banderas de leído.
+  const liveLocalSig = items.filter((i) => !mailboxRealId(i.id)).map((i) => i.id).join('|');
   useEffect(() => {
-    prune(items.map((i) => i.id));
+    prune(items.filter((i) => !mailboxRealId(i.id)).map((i) => i.id));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [liveSig]);
+  }, [liveLocalSig]);
 
   const counts = useMemo(() => {
     const c: Record<NotifKind | 'all' | 'unread', number> = {
-      all: items.length, unread: 0, andon: 0, hold: 0, approval: 0, ncr: 0,
+      all: items.length, unread: 0, andon: 0, hold: 0, approval: 0, ncr: 0, system: 0,
     };
     for (const i of items) {
       c[i.kind] += 1;
@@ -103,20 +122,46 @@ export function useNotificationCenter(): NotificationCenter {
 
   const unavailable = useMemo(() => {
     const out: string[] = [];
-    if (andon.forbidden) out.push(SOURCES[0].label);
-    if (holds.forbidden) out.push(SOURCES[1].label);
-    if (disp.forbidden) out.push(SOURCES[2].label);
-    if (cancel.forbidden) out.push(SOURCES[3].label);
-    if (ncr.forbidden) out.push(SOURCES[4].label);
+    if (mailbox.forbidden) out.push(SOURCES[0].label);
+    if (andon.forbidden) out.push(SOURCES[1].label);
+    if (holds.forbidden) out.push(SOURCES[2].label);
+    if (disp.forbidden) out.push(SOURCES[3].label);
+    if (cancel.forbidden) out.push(SOURCES[4].label);
+    if (ncr.forbidden) out.push(SOURCES[5].label);
     return out;
-  }, [andon.forbidden, holds.forbidden, disp.forbidden, cancel.forbidden, ncr.forbidden]);
+  }, [mailbox.forbidden, andon.forbidden, holds.forbidden, disp.forbidden, cancel.forbidden, ncr.forbidden]);
 
-  const feeds = [andon, holds, disp, cancel, ncr];
+  const feeds = [mailbox, andon, holds, disp, cancel, ncr];
   const loading = feeds.every((f) => f.isLoading);
+
+  // Marca leído/no-leído en el SERVIDOR para los avisos del buzón y revalida.
+  async function postMailbox(realIds: string[], action: 'read' | 'unread') {
+    await Promise.all(
+      realIds.map((rid) =>
+        apiFetch(`${API_BASE}/notifications/${rid}/${action}`, { method: 'POST' }).catch(() => null),
+      ),
+    );
+    mailbox.mutate();
+  }
+
+  function markRead(arg: string | string[]) {
+    const list = Array.isArray(arg) ? arg : [arg];
+    const mailboxIds = list.map(mailboxRealId).filter((x): x is string => !!x);
+    const localIds = list.filter((id) => !mailboxRealId(id));
+    if (localIds.length) markReadLocal(localIds);
+    if (mailboxIds.length) void postMailbox(mailboxIds, 'read');
+  }
+
+  function markUnread(id: string) {
+    const rid = mailboxRealId(id);
+    if (rid) void postMailbox([rid], 'unread');
+    else markUnreadLocal(id);
+  }
 
   function markAllRead() {
     markRead(items.filter((i) => !i.read).map((i) => i.id));
   }
+
   function refresh() {
     feeds.forEach((f) => f.mutate());
   }
