@@ -977,4 +977,20 @@ regresión) + **13 nuevas** (literales, relleno, secciones, `[color]`/`[$moneda]
 ×1000/×millón) → **40**; `formulaEngine.spec` 67/67 (`TEXT`), 18/18 suites de hoja verdes;
 `lint web` 0 errores; `build web` ✓.
 
+## 35. Office/Sheets — fechas: día de la semana + reloj de 12 horas (AM/PM)
+
+**Contexto.** `formatDate` resolvía año/mes/día/hora/minuto/segundo, pero `ddd`/`dddd`
+devolvían el **día del mes** (no el de la semana) y no existía el **reloj de 12 horas**
+(`AM/PM`/`A/P`) — ambos muy comunes en Excel.
+
+**Decisión (sólo `apps/web`, aditiva):** `dddd`→día de la semana completo (`jueves`),
+`ddd`→abreviado (`jue`) con tablas `WEEKDAYS_ES`/`WEEKDAYS_FULL`; si el código trae
+`AM/PM`/`A/P`, la `h` cuenta 1–12 (medianoche y mediodía = 12) y el marcador se sustituye por
+`AM`/`PM` (o `A`/`P`), respetando mayúsc./minúsc. El tokenizador reconoce `AM/PM` como una
+unidad antes de partir por letras.
+
+**Verificación:** `numfmt.spec.ts` ampliado a **47 aserciones** (+7: `dddd`/`ddd`, 12h PM/AM,
+minúscula, medianoche/mediodía, 24h intacto). 18/18 suites de hoja verdes; `lint web`
+0 errores; `build web` ✓.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->

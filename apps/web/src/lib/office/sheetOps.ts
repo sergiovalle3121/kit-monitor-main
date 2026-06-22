@@ -613,6 +613,8 @@ export function fieldValues(sheet: any, range: string, field: string): string[] 
 export interface NumFmtOpts { currency?: string }
 const MONTHS_ES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 const MONTHS_FULL = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+const WEEKDAYS_ES = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb']; // ddd (getUTCDay: 0=domingo)
+const WEEKDAYS_FULL = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado']; // dddd
 
 /** Presets nombrados → código de formato real (estilo Excel) que entiende Fortune-Sheet. */
 export const NUMFMT_PRESETS: { id: string; label: string; code: string; sample: string }[] = [
@@ -684,12 +686,17 @@ export function toDate(value: any): Date | null {
   return null;
 }
 function formatDate(d: Date, code: string): string {
-  const Y = d.getUTCFullYear(), Mo = d.getUTCMonth(), D = d.getUTCDate();
+  const Y = d.getUTCFullYear(), Mo = d.getUTCMonth(), D = d.getUTCDate(), Wd = d.getUTCDay();
   const H = d.getUTCHours(), Mi = d.getUTCMinutes(), S = d.getUTCSeconds();
   const p2 = (x: number) => String(x).padStart(2, '0');
-  // Tokeniza en literales (comillas / símbolos) y runs de la misma letra de formato.
-  const tokens: { type: 'lit' | 'fmt'; v: string }[] = [];
+  // Reloj de 12 horas si el código trae AM/PM (o A/P): la 'h' cuenta 1–12.
+  const hasAmPm = /(AM\/PM|A\/P)/i.test(code);
+  const h12 = ((H % 12) === 0) ? 12 : (H % 12);
+  // Tokeniza en literales (comillas/símbolos), el marcador AM/PM y runs de la misma letra.
+  const tokens: { type: 'lit' | 'fmt' | 'ampm'; v: string }[] = [];
   for (let i = 0; i < code.length;) {
+    const am = /^(AM\/PM|A\/P)/i.exec(code.slice(i));
+    if (am) { tokens.push({ type: 'ampm', v: am[1] }); i += am[1].length; continue; }
     const ch = code[i];
     if (ch === '"') { const end = code.indexOf('"', i + 1); tokens.push({ type: 'lit', v: end < 0 ? code.slice(i + 1) : code.slice(i + 1, end) }); i = end < 0 ? code.length : end + 1; continue; }
     if (/[a-zA-Z]/.test(ch)) { let j = i; while (j < code.length && code[j].toLowerCase() === ch.toLowerCase()) j++; tokens.push({ type: 'fmt', v: code.slice(i, j) }); i = j; continue; }
@@ -703,6 +710,11 @@ function formatDate(d: Date, code: string): string {
   };
   return tokens.map((t, idx) => {
     if (t.type === 'lit') return t.v;
+    if (t.type === 'ampm') {
+      const lower = t.v[0] === t.v[0].toLowerCase();
+      const s = t.v.length <= 3 ? (H >= 12 ? 'P' : 'A') : (H >= 12 ? 'PM' : 'AM'); // A/P vs AM/PM
+      return lower ? s.toLowerCase() : s;
+    }
     const f = t.v.toLowerCase();
     if (/^y+$/.test(f)) return f.length <= 2 ? p2(Y % 100) : String(Y);
     if (/^m+$/.test(f)) {
@@ -711,8 +723,12 @@ function formatDate(d: Date, code: string): string {
       if (isMinute(idx)) return f.length >= 2 ? p2(Mi) : String(Mi);
       return f.length >= 2 ? p2(Mo + 1) : String(Mo + 1);
     }
-    if (/^d+$/.test(f)) return f.length >= 2 ? p2(D) : String(D);
-    if (/^h+$/.test(f)) return f.length >= 2 ? p2(H) : String(H);
+    if (/^d+$/.test(f)) {
+      if (f.length >= 4) return WEEKDAYS_FULL[Wd];  // dddd → día de la semana completo
+      if (f.length === 3) return WEEKDAYS_ES[Wd];   // ddd  → día abreviado
+      return f.length >= 2 ? p2(D) : String(D);     // dd/d → día del mes
+    }
+    if (/^h+$/.test(f)) { const hh = hasAmPm ? h12 : H; return f.length >= 2 ? p2(hh) : String(hh); }
     if (/^s+$/.test(f)) return f.length >= 2 ? p2(S) : String(S);
     return t.v;
   }).join('');

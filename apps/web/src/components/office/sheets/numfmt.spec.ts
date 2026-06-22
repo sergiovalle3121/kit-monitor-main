@@ -38,6 +38,15 @@ eq(formatNumber('2026-01-15T13:45:00Z', 'hh:mm'), '13:45', 'hora (mm = minutos)'
 eq(formatNumber('2026-01-15T13:45:09Z', 'dd/mm/yyyy hh:mm:ss'), '15/01/2026 13:45:09', 'fecha+hora (mm mes vs minuto)');
 eq(formatNumber('2026-03-09', 'mmm yyyy'), 'mar 2026', 'mes abreviado');
 
+// ── Día de la semana + reloj de 12 horas (AM/PM) ─────────────────────────────
+eq(formatNumber('2026-01-15', 'dddd'), 'jueves', 'día de la semana completo (dddd)');
+eq(formatNumber('2026-01-15', 'ddd'), 'jue', 'día de la semana abreviado (ddd)');
+eq(formatNumber('2026-01-15T13:45:00Z', 'hh:mm AM/PM'), '01:45 PM', '12 horas PM');
+eq(formatNumber('2026-01-15T09:05:00Z', 'h:mm am/pm'), '9:05 am', '12 horas am en minúscula');
+eq(formatNumber('2026-01-15T00:30:00Z', 'h:mm AM/PM'), '12:30 AM', 'medianoche = 12 AM');
+eq(formatNumber('2026-01-15T12:00:00Z', 'h AM/PM'), '12 PM', 'mediodía = 12 PM');
+eq(formatNumber('2026-01-15T13:00:00Z', 'h "en punto"'), '13 en punto', '24 horas sin AM/PM intacto');
+
 // ── Fechas (serial Excel) ────────────────────────────────────────────────────
 const serial = Math.round((Date.UTC(2026, 0, 15) - Date.UTC(1899, 11, 30)) / 86400000);
 eq(formatNumber(serial, 'dd/mm/yyyy'), '15/01/2026', 'serial Excel → fecha');
