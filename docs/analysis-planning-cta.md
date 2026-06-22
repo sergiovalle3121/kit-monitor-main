@@ -1,5 +1,6 @@
 # Análisis — Bug de planeación: ¿qué carril conecta al piso? (`plans` vs `production-plan`)
 
+> **✅ RESUELTO (2026-06-22):** el CTA del header de `/dashboard/planning` ya apunta a `/dashboard/operador` ("Piso (MES)", ícono `Factory`); lo de abajo queda como contexto histórico de la decisión de producto (a/b/c).
 > **Tipo de documento:** análisis / recomendación. **No** implementa nada.
 > El cambio de CTA descrito abajo es **decisión de producto de Sergio**; aquí solo
 > se deja la evidencia y el cambio exacto que haría falta. El código del CTA **no
