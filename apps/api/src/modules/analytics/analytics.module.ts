@@ -1,15 +1,17 @@
 import { Module } from '@nestjs/common';
 import { EventLedgerModule } from '../event-ledger/event-ledger.module';
+import { SemanticModule } from '../semantic/semantic.module';
 import { AnalyticsService } from './analytics.service';
 import { AnalyticsController } from './analytics.controller';
 
 /**
- * Conversational-analytics layer over the Event Ledger — chartable, narrated
- * insights (trends, breakdowns) for the Intelligence Center UI and CIDE. Pure
- * read-only; depends only on the ledger (and, transitively, the semantic layer).
+ * Conversational-analytics + decision layer over the Event Ledger and semantic
+ * model — chartable, narrated insights (trends, breakdowns), object-centric
+ * drill-down and what-if projection, for the Intelligence Center UI and CIDE.
+ * Pure read-only.
  */
 @Module({
-  imports: [EventLedgerModule],
+  imports: [EventLedgerModule, SemanticModule],
   controllers: [AnalyticsController],
   providers: [AnalyticsService],
   exports: [AnalyticsService],

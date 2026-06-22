@@ -497,4 +497,40 @@ tests ✓. Sin tablas nuevas → el smoke de bootstrap no cambia de superficie.
 generada por CIDE embebida como tarjetas en el chat; editor de métricas/ontología
 en la UI.
 
+## 20. Drill-down por objeto + simulador what-if (Fase 4 CIDE)
+
+**Contexto.** La ontología (§18) definía objetos pero no eran explorables, y la
+analítica (§19) no permitía *proyectar* ni preguntar "¿qué pasaría si…?". Faltaba
+el explorador centrado-en-objeto (estilo Palantir) y la simulación de decisiones.
+
+**Decisión.** Se extiende el módulo `analytics` (sin entidades nuevas):
+- **Drill-down (`objectInsight`)** — dado un objeto de la ontología, compone su
+  actividad real (pulso + tendencia de su dominio vía el ledger), sus métricas
+  relacionadas (valores **RBAC-gated**), sus vínculos (grafo) y una muestra de
+  entidades recientes del ledger. `SemanticService` gana `getObject`, `linksFor`
+  y `metricsForDomain`.
+- **What-if (`project`)** — ajuste lineal por mínimos cuadrados sobre la actividad
+  diaria reciente, proyectada a un horizonte con una **palanca hipotética**
+  (`adjustmentPct`). Honesto y transparente: el usuario controla la palanca y se
+  muestra la matemática; reutilizable para cualquier serie diaria futura.
+- **Endpoints:** `GET /api/analytics/object/:key` y `GET /api/analytics/project`.
+- **CIDE conectado:** herramientas `object_insight` y `simulate_projection` (la IA
+  ya razona escenarios y explora objetos con datos reales).
+- **Visible en la app:** nueva ruta navegable `/dashboard/intelligence/object/[key]`
+  (pulso, tendencia, **simulador what-if** con slider + gráfica histórico/proyección,
+  métricas relacionadas, relaciones navegables y entidades). Las tarjetas de objeto
+  del Centro de Inteligencia ahora enlazan al drill-down.
+
+**Nota de acoplamiento.** El what-if se basó en la serie real del Event Ledger (no
+en `decision-intelligence`/`autopilot`) para entregar una simulación honesta y
+autocontenida sin tocar esos módulos; integrarlos (Monte Carlo, propuestas
+correctivas) queda para una iteración siguiente.
+
+**Verificación:** build API ✓, build web ✓, lint web (0 errores) ✓, **697/697**
+tests ✓. Sin tablas nuevas → el smoke de bootstrap no cambia de superficie.
+
+**Pendiente (Fase 5):** integrar el what-if con Monte Carlo de
+`decision-intelligence` + propuestas de `autopilot`; tarjetas de análisis con
+mini-gráficas embebidas en el chat de CIDE; editor de métricas/ontología en la UI.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->

@@ -133,6 +133,37 @@ export class SemanticService {
     });
   }
 
+  /** A single ontology object type by key (for the drill-down explorer). */
+  async getObject(
+    key: string,
+    tenantId = DEFAULT_TENANT,
+  ): Promise<OntologyObjectType | null> {
+    await this.ensureSeeded(tenantId);
+    return this.objectRepo.findOne({ where: { tenantId, key, active: true } });
+  }
+
+  /** Link types touching an object (either end) — its neighborhood in the graph. */
+  async linksFor(
+    key: string,
+    tenantId = DEFAULT_TENANT,
+  ): Promise<OntologyLinkType[]> {
+    await this.ensureSeeded(tenantId);
+    const all = await this.linkRepo.find({ where: { tenantId, active: true } });
+    return all.filter((l) => l.fromObject === key || l.toObject === key);
+  }
+
+  /** Active metric definitions for a domain (related metrics on a drill-down). */
+  async metricsForDomain(
+    domain: string,
+    tenantId = DEFAULT_TENANT,
+  ): Promise<MetricDefinition[]> {
+    await this.ensureSeeded(tenantId);
+    return this.metricRepo.find({
+      where: { tenantId, domain, active: true },
+      order: { name: 'ASC' },
+    });
+  }
+
   /** Create or update a metric definition (admin). Keyed by tenant + key. */
   async upsertMetric(
     tenantId: string,

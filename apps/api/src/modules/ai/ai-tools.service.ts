@@ -363,6 +363,84 @@ export class AiToolsService {
           }),
       },
       {
+        name: 'object_insight',
+        description:
+          'Drill-down de un objeto del negocio (ontología): actividad reciente, tendencia, métricas relacionadas, vínculos y entidades recientes. objectKey: WorkOrder, Material, Supplier, BOM, QualityHold, Customer o LedgerEvent. Úsalo para "analiza/explora <objeto>".',
+        requiredPermission: null,
+        mockTriggers: ['objeto', 'explora', 'analiza el', 'detalle de', 'drill'],
+        input_schema: schema(
+          {
+            objectKey: {
+              type: 'string',
+              description:
+                'Clave del objeto: WorkOrder, Material, Supplier, BOM, QualityHold, Customer, LedgerEvent.',
+            },
+          },
+          ['objectKey'],
+        ),
+        run: (i, ctx) => {
+          const objectKey = str(i.objectKey);
+          if (!objectKey) {
+            return Promise.resolve({
+              error: 'Indica el objeto (objectKey), p. ej. WorkOrder.',
+            });
+          }
+          return this.svc(AnalyticsService).objectInsight(
+            { isAdmin: ctx.isAdmin, permissions: ctx.permissions },
+            objectKey,
+            tenantOf(ctx),
+          );
+        },
+      },
+      {
+        name: 'simulate_projection',
+        description:
+          'Simulación what-if: proyecta la actividad a futuro a partir de su tendencia y un ajuste hipotético (adjustmentPct). Úsalo para "¿qué pasaría si…?", escenarios y proyecciones. Filtros: domain, horizonDays (1–30), adjustmentPct (−100 a 200).',
+        requiredPermission: null,
+        mockTriggers: [
+          'qué pasaría',
+          'que pasaria',
+          'what if',
+          'simula',
+          'escenario',
+          'proyecta',
+          'a futuro',
+        ],
+        input_schema: schema({
+          domain: {
+            type: 'string',
+            description:
+              'Dominio: MATERIALS, PLANNING, PRODUCTION, ENGINEERING, QUALITY, SHIPPING o SYSTEM.',
+            enum: [
+              'MATERIALS',
+              'PLANNING',
+              'PRODUCTION',
+              'ENGINEERING',
+              'QUALITY',
+              'SHIPPING',
+              'SYSTEM',
+            ],
+          },
+          horizonDays: {
+            type: 'number',
+            description: 'Horizonte de proyección en días (1–30, default 7)',
+          },
+          adjustmentPct: {
+            type: 'number',
+            description:
+              'Ajuste hipotético al ritmo proyectado, en % (−100 a 200, default 0)',
+          },
+        }),
+        run: (i) =>
+          this.svc(AnalyticsService).project({
+            domain: str(i.domain),
+            horizonDays:
+              typeof i.horizonDays === 'number' ? i.horizonDays : undefined,
+            adjustmentPct:
+              typeof i.adjustmentPct === 'number' ? i.adjustmentPct : undefined,
+          }),
+      },
+      {
         name: 'list_inventory',
         description:
           'Existencias de inventario por número de parte y almacén. Filtros opcionales: partNumber, warehouseId, programId.',
