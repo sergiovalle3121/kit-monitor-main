@@ -17,6 +17,7 @@ import { RequirePermissions } from '../auth/decorators/permissions.decorator';
 import { LineEngineeringService } from './line-engineering.service';
 import { StationStatusService } from './station-status.service';
 import {
+  CloneLayoutDto,
   CreateStationDto,
   QualifyModelLineDto,
   SaveLayoutDto,
@@ -151,6 +152,16 @@ export class LineEngineeringController {
   })
   saveLayout(@Body() dto: SaveLayoutDto) {
     return this.service.saveLayout(dto);
+  }
+
+  @Post('layout/clone')
+  @RequirePermissions('engineering:write')
+  @ApiOperation({
+    summary:
+      'Clona el layout (footprint/DXF/equipos/notas + posiciones por nombre) a otro modelo+revisión.',
+  })
+  cloneLayout(@Body() dto: CloneLayoutDto) {
+    return this.service.cloneLayout(dto);
   }
 
   @Get('layout/dxf')

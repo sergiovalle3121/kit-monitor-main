@@ -243,7 +243,7 @@ export default function LineEngineeringPage() {
         </div>
 
         {/* Layout 2D editor — additive, reusa las estaciones existentes */}
-        {view === 'layout' && <LayoutEditor model={model} revision={revision} />}
+        {view === 'layout' && <LayoutEditor model={model} revision={revision} models={models} />}
 
         {view === 'balance' && (<>
         {/* Balance panel */}

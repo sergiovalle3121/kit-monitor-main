@@ -23,6 +23,7 @@ import {
 import { EventLedgerService } from '../event-ledger/event-ledger.service';
 import { EventDomain } from '../event-ledger/entities/ledger-event.entity';
 import {
+  CloneLayoutDto,
   CreateStationDto,
   DxfMetaDto,
   QualifyModelLineDto,
@@ -602,6 +603,102 @@ export class LineEngineeringService {
       });
     }
     return this.getLayout(m, r);
+  }
+
+  private async scopedStations(
+    model: string,
+    revision: string,
+  ): Promise<SfLineStation[]> {
+    const qb = this.stations.createQueryBuilder('s');
+    this.applyScope(qb, 's');
+    qb.andWhere('s.model = :m', { m: model }).andWhere('s.revision = :r', {
+      r: revision,
+    });
+    return qb.getMany();
+  }
+
+  /**
+   * Clone a layout from one model+revision onto another (Fase 8). Copies the
+   * canvas config (footprint, DXF, equipment, annotations); station positions and
+   * flow connectors are remapped by matching station name+line, so revisions of
+   * the same model copy fully while different models keep what makes sense.
+   */
+  async cloneLayout(dto: CloneLayoutDto): Promise<LineLayout> {
+    const fromModel = (dto.fromModel ?? '').trim();
+    const fromRev = (dto.fromRevision ?? 'A').trim() || 'A';
+    const toModel = (dto.toModel ?? '').trim();
+    const toRev = (dto.toRevision ?? 'A').trim() || 'A';
+    if (!fromModel || !toModel) {
+      throw new BadRequestException(
+        'Modelo origen y destino son obligatorios.',
+      );
+    }
+    if (fromModel === toModel && fromRev === toRev) {
+      throw new BadRequestException('El origen y el destino son el mismo.');
+    }
+
+    const source = await this.findLayout(fromModel, fromRev);
+    const target = await this.ensureLayout(toModel, toRev);
+    const [srcStations, tgtStations] = await Promise.all([
+      this.scopedStations(fromModel, fromRev),
+      this.scopedStations(toModel, toRev),
+    ]);
+    const tgtByName = new Map(
+      tgtStations.map((s) => [`${s.line}|${s.station}`, s]),
+    );
+    const srcNameById = new Map(
+      srcStations.map((s) => [s.id, `${s.line}|${s.station}`]),
+    );
+
+    if (source) {
+      target.footprintW = source.footprintW;
+      target.footprintH = source.footprintH;
+      target.unit = source.unit;
+      target.gridSize = source.gridSize;
+      target.dxfData = source.dxfData;
+      target.dxfName = source.dxfName;
+      target.dxfOffsetX = source.dxfOffsetX;
+      target.dxfOffsetY = source.dxfOffsetY;
+      target.dxfScale = source.dxfScale;
+      target.dxfRotation = source.dxfRotation;
+      target.dxfVisible = source.dxfVisible;
+      target.dxfOpacity = source.dxfOpacity;
+      target.assets = source.assets
+        ? source.assets.map((a) => ({ ...a }))
+        : null;
+      target.annotations = source.annotations
+        ? source.annotations.map((a) => ({ ...a }))
+        : null;
+      // Remap connectors by station name → target id (drop unmatched ends).
+      const remapped: LayoutConnector[] = [];
+      for (const c of source.connectors ?? []) {
+        const ft = tgtByName.get(srcNameById.get(c.from) ?? '');
+        const tt = tgtByName.get(srcNameById.get(c.to) ?? '');
+        if (ft && tt) remapped.push({ from: ft.id, to: tt.id, kind: c.kind });
+      }
+      target.connectors = remapped;
+    }
+    await this.requireLayouts().save(target);
+
+    // Copy station positions where a same-named station exists in the target.
+    const dirty = new Set<SfLineStation>();
+    for (const s of srcStations) {
+      if (s.layoutX == null) continue;
+      const t = tgtByName.get(`${s.line}|${s.station}`);
+      if (!t) continue;
+      t.layoutX = s.layoutX;
+      t.layoutY = s.layoutY;
+      t.layoutW = s.layoutW;
+      t.layoutH = s.layoutH;
+      t.layoutRotation = s.layoutRotation;
+      dirty.add(t);
+    }
+    if (dirty.size > 0) await this.stations.save([...dirty]);
+
+    await this.record('SF_LINE_LAYOUT_CLONED', `${toModel}|${toRev}`, null, {
+      after: { from: `${fromModel}|${fromRev}`, to: `${toModel}|${toRev}` },
+    });
+    return this.getLayout(toModel, toRev);
   }
 
   // ── Calculations ───────────────────────────────────────────────────────────

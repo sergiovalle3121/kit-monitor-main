@@ -534,3 +534,28 @@ export class UploadDxfDto {
   @MaxLength(12_000_000)
   data: string;
 }
+
+/** Clone a layout from one model+revision onto another (Fase 8). */
+export class CloneLayoutDto {
+  @ApiProperty({ example: 'AX-1000' })
+  @IsString()
+  @Length(1, 64)
+  fromModel: string;
+
+  @ApiPropertyOptional({ example: 'A' })
+  @IsOptional()
+  @IsString()
+  @Length(1, 16)
+  fromRevision?: string;
+
+  @ApiProperty({ example: 'AX-2000' })
+  @IsString()
+  @Length(1, 64)
+  toModel: string;
+
+  @ApiPropertyOptional({ example: 'A' })
+  @IsOptional()
+  @IsString()
+  @Length(1, 16)
+  toRevision?: string;
+}
