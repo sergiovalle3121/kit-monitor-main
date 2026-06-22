@@ -279,3 +279,37 @@
 .tiptap-page .ProseMirror .doc-signature-name { font-weight: 600; font-size: 0.9em; }
 .tiptap-page .ProseMirror .doc-signature-title { font-size: 0.8em; color: #6b7280; }
 @media (prefers-color-scheme: dark) { .tiptap-page .ProseMirror .doc-signature-line { border-color: #f3f4f6; } .tiptap-page .ProseMirror .doc-signature-title { color: #9ca3af; } }
+
+/* ───────────────────── Vista paginada (diseño de impresión) ─────────────────────
+   Hojas discretas (Carta / A4 / Oficio) con márgenes reales detrás del flujo de
+   contenido. Los «espaciadores» (decoraciones del plugin de paginación) empujan
+   cada página al borde superior del área de contenido de la hoja siguiente, de
+   modo que el texto se alinea con los marcos sin modificar el documento. */
+.doc-pg-frames { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
+.doc-page-sheet {
+  position: absolute; left: 0;
+  background: #fff; border-radius: 2px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 10px 26px rgba(0,0,0,0.10);
+}
+@media (prefers-color-scheme: dark) { .doc-page-sheet { background: #1a1a1a; box-shadow: 0 1px 3px rgba(0,0,0,0.5), 0 10px 26px rgba(0,0,0,0.45); } }
+.doc-pg-flow { position: relative; z-index: 1; background: transparent; }
+.doc-pg-flow .ProseMirror { min-height: 0; }
+/* El espaciador no aporta márgenes propios; el bloque que le sigue arranca a ras
+   (el hueco lo da exactamente la altura del espaciador). */
+.doc-pg-spacer { margin: 0 !important; padding: 0; user-select: none; pointer-events: none; }
+.doc-pg-flow .ProseMirror > .doc-pg-spacer + * { margin-top: 0 !important; }
+/* En vista paginada el salto manual lo realiza el espaciador: ocultamos el divisor
+   en pantalla (en impresión sigue valiendo break-before: page). */
+.doc-paginated .ProseMirror div[data-page-break] { border: none; margin: 0; height: 0; }
+.doc-paginated .ProseMirror div[data-page-break]::after { display: none; }
+
+@media print {
+  /* La impresión nativa usa el flujo continuo con saltos reales (.doc-print-break)
+     + @page (tamaño/márgenes desde pageMeta). Los marcos/espaciadores son sólo de
+     pantalla. La impresión fiel con encabezados/pies/numeración por página es la
+     «Vista de página» (Paged.js). */
+  body:not(.preview-printing) .doc-pg-frames,
+  body:not(.preview-printing) .doc-pg-spacer { display: none !important; }
+  body:not(.preview-printing) .doc-paginated { width: 100% !important; min-height: 0 !important; zoom: 1 !important; }
+  body:not(.preview-printing) .doc-pg-flow { padding: 0 !important; min-height: 0 !important; }
+}

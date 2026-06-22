@@ -28,6 +28,10 @@ export function DocActions({
     catch { /* ignore */ }
     finally { setBusy(false); }
   }
+  // Impresión nativa del lienzo: con la vista paginada activa, el CSS de impresión
+  // (printPageCss) fija tamaño de papel y márgenes y rompe en los saltos reales
+  // (.doc-print-break). La salida fiel con encabezado/pie/numeración por página es
+  // la «Vista de página» (Paged.js), accesible desde la pestaña Vista.
   function pdf() { setOpen(false); window.print(); }
 
   async function onFile(e: React.ChangeEvent<HTMLInputElement>) {

@@ -50,6 +50,8 @@ import { DocSymbolPicker } from './DocSymbolPicker';
 import { DocPageSetup } from './DocPageSetup';
 import { CommentMark } from './commentMark';
 import { PageBreak, PageMeta, SectionBreak, effectiveSection } from './docPageExtensions';
+import { Pagination } from './docs/paginationExtension';
+import { pageGeom, resolveFields, hasPageField, printPageCss, type PaginationLayout } from './docs/pagination';
 import { Indent, Toc, TableOfFigures, NamedStyle } from './docExtensions';
 import { ListNumbering } from './docs/listNumbering';
 import { TableCellAttrs } from './docs/tableCellAttrs';
@@ -130,7 +132,7 @@ function EmojiBtn({ onPick }: { onPick: (e: string) => void }) {
 }
 
 /** Word-like rich text editor (TipTap + MIT extensions). */
-export function DocEditor({ value, onChange, readOnly, author, onStats, fileActions }: { value: any; onChange: (json: any) => void; readOnly?: boolean; author?: string; onStats?: (s: { words: number; chars: number }) => void; fileActions?: React.ReactNode }) {
+export function DocEditor({ value, onChange, readOnly, author, onStats, fileActions, title }: { value: any; onChange: (json: any) => void; readOnly?: boolean; author?: string; onStats?: (s: { words: number; chars: number }) => void; fileActions?: React.ReactNode; title?: string }) {
   const editor = useEditor({
     extensions: [
       StarterKit,
@@ -148,6 +150,7 @@ export function DocEditor({ value, onChange, readOnly, author, onStats, fileActi
       PageBreak,
       SectionBreak,
       PageMeta,
+      Pagination,
       Indent,
       NamedStyle,
       Toc,
@@ -205,6 +208,10 @@ export function DocEditor({ value, onChange, readOnly, author, onStats, fileActi
   // Guías de salto de página (líneas que marcan dónde rompería cada página).
   const [pageGuides, setPageGuides] = React.useState(false);
   const [guides, setGuides] = React.useState<number[]>([]);
+  // Vista paginada (diseño de impresión): hojas discretas con márgenes reales.
+  // El layout (hojas + geometría) lo publica el plugin de paginación tras medir.
+  const [pagesMode, setPagesMode] = React.useState(true);
+  const [layout, setLayout] = React.useState<PaginationLayout | null>(null);
   // Copiar formato (format painter): guarda el formato capturado; se aplica a la
   // siguiente selección no vacía (al soltar el ratón en el editor).
   const [painter, setPainter] = React.useState<Record<string, any> | null>(null);
@@ -283,6 +290,22 @@ export function DocEditor({ value, onChange, readOnly, author, onStats, fileActi
     dom.addEventListener('mouseup', onUp);
     return () => dom.removeEventListener('mouseup', onUp);
   }, [editor]);
+
+  // Vista paginada: el plugin publica el layout (hojas + geometría) aquí, y
+  // reflejamos el estado/título en su storage. `wantPaginated` desactiva la
+  // paginación cuando no aplica (columnas múltiples o modo lectura): en esos
+  // casos se vuelve al lienzo continuo de siempre.
+  const mdAttrs: any = editor?.state.doc.attrs || {};
+  const wantPaginated = !!editor && pagesMode && Number(mdAttrs.pageColumns || 1) === 1 && !readingMode;
+  useEffect(() => {
+    if (!editor) return;
+    (editor.commands as any).setPaginationSink((l: PaginationLayout) => setLayout(l));
+    return () => { if (editor) (editor.commands as any).setPaginationSink(null); };
+  }, [editor]);
+  useEffect(() => {
+    if (!editor) return;
+    (editor.commands as any).configurePagination(wantPaginated, title || '');
+  }, [editor, wantPaginated, title, mdAttrs.pageSize, mdAttrs.pageOrientation, mdAttrs.pageMargin]);
 
   if (!editor) return <div className="h-full" />;
 
@@ -368,10 +391,28 @@ export function DocEditor({ value, onChange, readOnly, author, onStats, fileActi
   const imgAlign = editor.getAttributes('image').align;
   const imgWidth = editor.getAttributes('image').width;
 
+  // ── Vista paginada: marcos de hoja (encabezado/pie/numeración por página) ──
+  // Geometría e hojas medidas por el plugin. El encabezado/pie de los marcos usa
+  // la configuración a nivel de documento (estable por página); soporta campos
+  // {page} {pages} {title} {date}. La impresión fiel sigue siendo la Vista de
+  // página (Paged.js); aquí es el WYSIWYG de edición.
+  const geom = pageGeom(meta);
+  const framePages = wantPaginated && layout?.pages?.length ? layout.pages : [{ top: 0, height: pageMinH }];
+  const totalPages = framePages.length;
+  const framesHeight = totalPages * pageMinH + (totalPages - 1) * geom.gutter;
+  const docHeaderTpl = meta.pageHeader || '';
+  const docFooterTpl = meta.pageFooter || '';
+  const docNumbers = !!meta.pageNumbers;
+  const firstDiff = !!meta.pageFirstDifferent;
+  const fieldDate = new Date().toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' });
+  const footerHasNum = hasPageField(docFooterTpl) || hasPageField(docHeaderTpl);
+  const frameField = (tpl: string, page: number) => resolveFields(tpl, { page, pages: totalPages, title: title || '', date: fieldDate });
+
   return (
     <div className="flex flex-col h-full">
       <style>{DOC_EXTRA_CSS}</style>
       <style>{styleDefsToCss(meta.styleDefs)}</style>
+      <style>{printPageCss(meta)}</style>
       <OfficeRibbon storageKey="ribbon:doc">
           {fileActions != null && (
             <RibbonTab id="file" label="Archivo" icon={FileText}>
@@ -542,11 +583,12 @@ export function DocEditor({ value, onChange, readOnly, author, onStats, fileActi
               zoom={zoom} setZoom={setZoom}
               spellcheck={spellcheck} setSpellcheck={setSpellcheck}
               pageGuides={pageGuides} setPageGuides={setPageGuides}
+              paginated={pagesMode} setPaginated={setPagesMode}
             />
             <RibbonSeparator />
             <RibbonGroup label="Documento">
               <DocOutline editor={editor} />
-              <DocPageView editor={editor} />
+              <DocPageView editor={editor} title={title} />
             </RibbonGroup>
           </RibbonTab>
       </OfficeRibbon>
@@ -559,27 +601,60 @@ export function DocEditor({ value, onChange, readOnly, author, onStats, fileActi
             <div className="doc-ruler-margins" style={{ left: pagePad, right: pagePad }} />
           </div>
         )}
-        <div
-          className={`mx-auto bg-white dark:bg-[#1a1a1a] shadow-xl rounded-sm w-full text-black dark:text-gray-100 relative overflow-hidden doc-track-${trackView} ${pgColumns === 2 ? 'doc-cols-2' : pgColumns === 3 ? 'doc-cols-3' : ''} ${pgColumnRule && pgColumns > 1 ? 'doc-cols-rule' : ''} ${showMarks ? 'doc-show-marks' : ''} ${focusMode ? 'doc-focus' : ''} ${readingMode ? 'doc-reading' : ''} ${pgBorder ? `doc-border-${pgBorder}` : ''} ${pgLineNumbers ? 'doc-line-numbers' : ''}`}
-          style={{ width: readingMode ? 760 : pageW, maxWidth: '100%', minHeight: readingMode ? undefined : pageMinH, padding: readingMode ? 56 : pagePad, zoom }}
-        >
-          {pgWatermark && <div className="doc-watermark" aria-hidden>{pgWatermark}</div>}
-          {!readingMode && pageGuides && guides.map((y, i) => (
-            <div key={i} className="doc-page-guide" aria-hidden style={{ top: y }}>
-              <span className="doc-page-guide-label">Página {i + 2}</span>
+        {wantPaginated ? (
+          // Vista paginada: hojas discretas (marcos) detrás del flujo de contenido.
+          // Los espaciadores del plugin alinean cada página con su marco.
+          <div className="doc-paginated mx-auto relative" style={{ width: pageW, maxWidth: '100%', minHeight: framesHeight, zoom }}>
+            <div className="doc-pg-frames" aria-hidden>
+              {framePages.map((pg, i) => {
+                const hide = firstDiff && i === 0;
+                const hdr = hide ? '' : frameField(docHeaderTpl, i + 1);
+                const ftr = hide ? '' : frameField(docFooterTpl, i + 1);
+                const showNum = !hide && docNumbers && !footerHasNum;
+                return (
+                  <div key={i} className={`doc-page-sheet ${pgBorder ? `doc-border-${pgBorder}` : ''}`} style={{ top: pg.top, height: pageMinH, width: pageW }}>
+                    {pgWatermark && <div className="doc-watermark">{pgWatermark}</div>}
+                    {hdr && <div className="doc-page-header" style={{ left: pagePad, right: pagePad, top: Math.max(10, pagePad * 0.42) }}>{hdr}</div>}
+                    {(ftr || showNum) && (
+                      <div className="doc-page-footer" style={{ left: pagePad, right: pagePad, bottom: Math.max(10, pagePad * 0.42) }}>
+                        <span className="truncate">{ftr}</span>
+                        {showNum && <span className="doc-page-num">Página {i + 1} de {totalPages}</span>}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
-          ))}
-          {!readingMode && pgHeader && <div className="doc-page-header" aria-hidden style={{ left: pagePad, right: pagePad }}>{pgHeader}</div>}
-          <div className="relative z-[1]">
-            <EditorContent editor={editor} />
+            <div
+              className={`doc-pg-flow relative text-black dark:text-gray-100 doc-track-${trackView} ${showMarks ? 'doc-show-marks' : ''} ${focusMode ? 'doc-focus' : ''} ${pgLineNumbers ? 'doc-line-numbers' : ''}`}
+              style={{ paddingLeft: pagePad, paddingRight: pagePad, paddingTop: geom.marginTop, paddingBottom: geom.marginBottom, minHeight: framesHeight }}
+            >
+              <EditorContent editor={editor} />
+            </div>
           </div>
-          {!readingMode && (pgFooter || pgNumbers || activeSection.index > 0) && (
-            <div className="doc-page-footer" aria-hidden style={{ left: pagePad, right: pagePad }}>
-              <span className="truncate">{pgFooter}{activeSection.index > 0 ? `${pgFooter ? ' · ' : ''}Sección ${activeSection.index + 1}` : ''}</span>
-              {pgNumbers && <span className="doc-page-num">Página {pgPageNum}</span>}
+        ) : (
+          <div
+            className={`mx-auto bg-white dark:bg-[#1a1a1a] shadow-xl rounded-sm w-full text-black dark:text-gray-100 relative overflow-hidden doc-track-${trackView} ${pgColumns === 2 ? 'doc-cols-2' : pgColumns === 3 ? 'doc-cols-3' : ''} ${pgColumnRule && pgColumns > 1 ? 'doc-cols-rule' : ''} ${showMarks ? 'doc-show-marks' : ''} ${focusMode ? 'doc-focus' : ''} ${readingMode ? 'doc-reading' : ''} ${pgBorder ? `doc-border-${pgBorder}` : ''} ${pgLineNumbers ? 'doc-line-numbers' : ''}`}
+            style={{ width: readingMode ? 760 : pageW, maxWidth: '100%', minHeight: readingMode ? undefined : pageMinH, padding: readingMode ? 56 : pagePad, zoom }}
+          >
+            {pgWatermark && <div className="doc-watermark" aria-hidden>{pgWatermark}</div>}
+            {!readingMode && pageGuides && guides.map((y, i) => (
+              <div key={i} className="doc-page-guide" aria-hidden style={{ top: y }}>
+                <span className="doc-page-guide-label">Página {i + 2}</span>
+              </div>
+            ))}
+            {!readingMode && pgHeader && <div className="doc-page-header" aria-hidden style={{ left: pagePad, right: pagePad }}>{pgHeader}</div>}
+            <div className="relative z-[1]">
+              <EditorContent editor={editor} />
             </div>
-          )}
-        </div>
+            {!readingMode && (pgFooter || pgNumbers || activeSection.index > 0) && (
+              <div className="doc-page-footer" aria-hidden style={{ left: pagePad, right: pagePad }}>
+                <span className="truncate">{pgFooter}{activeSection.index > 0 ? `${pgFooter ? ' · ' : ''}Sección ${activeSection.index + 1}` : ''}</span>
+                {pgNumbers && <span className="doc-page-num">Página {pgPageNum}</span>}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
