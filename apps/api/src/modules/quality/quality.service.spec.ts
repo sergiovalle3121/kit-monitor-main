@@ -103,6 +103,7 @@ describe('QualityService', () => {
       {} as never, // suppliersService
       audit as never,
       dataSource as never,
+      { allocate: jest.fn().mockResolvedValue('COC-2026-000001') } as never, // numbering
     );
   });
 

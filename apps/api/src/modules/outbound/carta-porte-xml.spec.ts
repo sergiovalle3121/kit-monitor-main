@@ -1,8 +1,8 @@
 import { buildCartaPorteXml, type FiscalProfileData } from './carta-porte-xml';
 import {
   buildCartaPorte,
-  type AsnShipmentLike,
-  type AsnUnitLike,
+  type DocShipmentLike,
+  type DocUnitLike,
   type DocLineLike,
 } from './documents';
 
@@ -10,7 +10,7 @@ const lines: DocLineLike[] = [
   { partNumber: 'FG-1', description: 'Tablero', quantity: 10, uom: 'EA', lotNumber: 'L1', unitPrice: 25, currency: 'USD' },
 ];
 
-const shipment: AsnShipmentLike = {
+const shipment: DocShipmentLike = {
   folio: 'SHP-2026-000001',
   asn: 'ASN-2026-000001',
   customerName: 'Cliente A',
@@ -25,13 +25,10 @@ const shipment: AsnShipmentLike = {
   shippedDate: '2026-06-20',
   status: 'SHIPPED',
 };
-const units: AsnUnitLike[] = [
+const units: DocUnitLike[] = [
   {
-    id: 'c1',
     sscc: '000000000000000017',
     type: 'CARTON',
-    parentId: null,
-    status: 'LOADED',
     weightKg: 12,
     contents: [{ partNumber: 'FG-1', quantity: 10, serials: ['S1'] }],
   },

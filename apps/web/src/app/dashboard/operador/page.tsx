@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -30,6 +30,7 @@ import { useApi } from '@/hooks/useApi';
 import { apiFetch } from '@/lib/apiFetch';
 import { useToast } from '@/contexts/ToastContext';
 import { useMesSignals } from '@/hooks/useMesSignals';
+import { useDashboardSession } from '@/hooks/useDashboardSession';
 
 const API_BASE = (
   process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'
@@ -152,13 +153,6 @@ interface Board {
   materialRequests: { id: number; status: string; note?: string | null }[];
   downtimeSummarySec: number;
 }
-interface SessionInfo {
-  name?: string;
-  email?: string;
-  position?: string;
-  role?: string;
-}
-
 function reqId(): string {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
     return crypto.randomUUID();
@@ -174,13 +168,7 @@ const STEP_META: Record<StepStatus, { label: string; color: string }> = {
 };
 
 export default function OperadorPage() {
-  const [session, setSession] = useState<SessionInfo | null>(null);
-  useEffect(() => {
-    fetch('/api/auth/me')
-      .then((r) => r.json())
-      .then((d) => setSession(d.session))
-      .catch(() => setSession(null));
-  }, []);
+  const { session } = useDashboardSession();
   const operator = session?.name || session?.email || 'Operador';
 
   const [executionId, setExecutionId] = useState<number | null>(null);

@@ -28,4 +28,14 @@ export class AutopilotController {
     const actor = req.user?.username || req.user?.email;
     return this.autopilot.executeProposal(+id, actor);
   }
+
+  @Post('proposals/:id/dismiss')
+  @RequirePermissions('ADMIN_ACCESS')
+  dismissProposal(
+    @Param('id') id: string,
+    @Request() req?: any,
+  ) {
+    const actor = req.user?.username || req.user?.email;
+    return this.autopilot.dismissProposal(+id, actor);
+  }
 }

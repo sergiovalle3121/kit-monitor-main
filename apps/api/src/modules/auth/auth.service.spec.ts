@@ -111,7 +111,7 @@ describe('AuthService', () => {
     it('owner con rol/permiso stale ⇒ se auto-promueve a Admin con permisos completos', async () => {
       const owner = baseUser({
         email: 'sergiovallezarate@gmail.com',
-        role: 'warehouse_operator',
+        role: 'warehouse_operator' as never,
         permissions: [],
         status: 'pending',
       });

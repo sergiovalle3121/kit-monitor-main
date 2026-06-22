@@ -593,5 +593,77 @@ tests ✓. Sin entidades nuevas; el smoke no cambia de superficie.
 Inteligencia (acción, no solo lectura); editor de métricas/ontología en la UI;
 persistir tarjetas en el historial; conectar el what-if a `runStressTest` cuando
 exista un PlanScenario asociado.
+## 23. Kit "Workspace Industrial" (primitivos de UI) + Legal de referencia
+
+**Contexto.** Conviven módulos profundos (operador, planning, quality/holds) y
+módulos austeros que se sienten como "un + y unos campos". Causa estructural: no
+había primitivos de UI compartidos para datos — `components/ui/` solo tenía
+`ConfirmDialog`, `HoverArrow`, `IconTile`, `PageHeader`, `AuroraBackground`. Cada
+página profunda rodó su propia tabla/filtros/KPIs a mano (p.ej. `quality.ui` con
+`Empty/Field/Kpi/Modal`). Resultado: duplicación + austeridad.
+
+**Decisión.** Construir **una vez** un kit reutilizable en
+`apps/web/src/components/workspace/` y aplicarlo a Legal como implementación de
+referencia, **sin tocar backend** (solo se consume lo que `/legal` ya expone):
+
+- **Primitivos genéricos** (no acoplados a Legal): `EmptyState`, `DataTable<T>`,
+  `FilterBar`, `DetailDrawer` (+ `DrawerSection`/`DrawerField`), `ExportButton<T>`,
+  `StatCard`/`KpiRow`, `Toolbar`. Reutilizan `IconTile`/`PageHeader`/`ConfirmDialog`
+  existentes; estilo con el token `glass`, lucide, acento, dark mode.
+- **DataTable** sobre **`@tanstack/react-table`** (headless, MIT — ver
+  `THIRD_PARTY_NOTICES.md`): orden, filtro por columna, búsqueda global
+  (controlable desde el Toolbar), paginación, selección múltiple + barra en lote,
+  visibilidad de columnas, densidad y skeleton. El estilo es propio.
+- **Legal** (`/dashboard/legal`) reescrito como composición del kit: `KpiRow`
+  (4 KPIs ya calculados), `Toolbar` con búsqueda + `FilterBar` (tipo/estado/rango
+  de vencimiento) + `ExportButton` (CSV/XLSX, respeta filtros) + "Nuevo contrato"
+  (en drawer, no inline), `DataTable<Contract>` con columna calculada de
+  "días para vencer" (ámbar <30d, rojo vencidos) y `DetailDrawer` con línea de
+  tiempo de estado + transiciones existentes (`/legal/contracts/:id/transition`)
+  bajo `ConfirmDialog`.
+
+**Backend intacto.** Cero endpoints/entidad/esquema/migración nuevos. Documentos
+vinculados y alertas-que-disparan = follow-up (requieren backend).
+
+**Corrección de premisa (verificada en código).** El brief asumía que Legal "no
+está en el hub". **Sí lo está** desde el PR #361. Además, al hacer rebase/merge
+con `main`, el catálogo `AREAS` **ya fue extraído** a `apps/web/src/lib/dashboardAreas.ts`
+por el PR de wayfinding (#379) — `dashboard/page.tsx` ahora lo importa. Por tanto
+**no se duplica** la entrada: el ajuste (añadir `plant_manager` a `["finance","hr"]`)
+se aplica en `dashboardAreas.ts`. Admin/owner ya la ven vía `seesAllAreas`, sin
+permisos nuevos.
+
+**Aditivo.** El kit no obliga a migrar las páginas que ya rodaron su tabla; un
+segundo módulo puede consumir los primitivos sin cambios.
+
+## 23. Bucle de acción: ejecutar/descartar propuestas + fix RBAC (Fase 7)
+
+**Contexto.** Hasta §22 todo el stack de CIDE/Inteligencia era **read-only**: el
+sistema recomendaba acciones (`autopilot`) pero no se podía **actuar** sobre
+ellas desde el Centro de Inteligencia. Cerrar el bucle detectar→recomendar→actuar
+es el corazón de una plataforma de decisiones.
+
+**Decisión.**
+- **Acción humana, con confirmación, gateada a admin.** Se añade
+  `AutopilotService.dismissProposal` (triage: cierra la recomendación sin cambio
+  operativo; guard de idempotencia: solo `pending`) y la ruta
+  `POST /api/autopilot/proposals/:id/dismiss` (igual que `execute`, ambas con
+  `@RequirePermissions('ADMIN_ACCESS')`). El Centro de Inteligencia gana botones
+  **Ejecutar** (con diálogo de confirmación, porque aplica un cambio operativo
+  real) y **Descartar** en cada tarjeta de "Acciones sugeridas".
+- **CIDE sigue estrictamente read-only.** La ejecución es **acción humana en la
+  UI**, nunca de la IA — riel de seguridad deliberado (la IA observa y recomienda;
+  el humano decide y ejecuta).
+- **Fix de RBAC (deuda de §22).** El tool `autopilot_proposals` de CIDE quedó con
+  `requiredPermission: null`, exponiendo a cualquier usuario datos que el endpoint
+  `/api/autopilot/proposals` gatea a `ADMIN_ACCESS`. Se corrige a `ADMIN_ACCESS`
+  para alinear la IA con el endpoint.
+
+**Verificación:** build API ✓, build web ✓, lint web (0 errores) ✓, **697/697**
+tests ✓. Sin entidades nuevas (reusa `executedAt/executedBy` como sello de
+resolución); el smoke no cambia de superficie.
+
+**Pendiente (Fase 8):** editor de métricas/ontología en la UI; persistir tarjetas
+en el historial; conectar el what-if a `runStressTest` con un PlanScenario.
 
 <!-- Nuevas decisiones se agregan al final con número incremental -->

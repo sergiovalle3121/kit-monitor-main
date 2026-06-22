@@ -1,4 +1,9 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { Cron, CronExpression } from '@nestjs/schedule';
@@ -56,6 +61,28 @@ export class AutopilotService {
       order: { createdAt: 'DESC' },
       take: 100,
     });
+  }
+
+  /**
+   * Dismiss a pending proposal (human triage: "no aplica / ya resuelto"). Unlike
+   * execute, this performs no operational change — it just closes the
+   * recommendation. Idempotency guard: only `pending` proposals can be dismissed.
+   */
+  async dismissProposal(
+    id: number,
+    actor?: string,
+  ): Promise<CorrectiveProposal> {
+    const proposal = await this.proposalRepo.findOne({ where: { id } });
+    if (!proposal) throw new NotFoundException(`Proposal #${id} not found`);
+    if (proposal.status !== 'pending') {
+      throw new BadRequestException(
+        `Proposal #${id} is already ${proposal.status}`,
+      );
+    }
+    proposal.status = 'dismissed';
+    proposal.executedBy = actor ?? null;
+    proposal.executedAt = new Date();
+    return this.proposalRepo.save(proposal);
   }
 
   async executeProposal(

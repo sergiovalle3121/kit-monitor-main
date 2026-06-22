@@ -403,7 +403,7 @@ export class OeeService {
     );
 
     const pieces = await this.sumUnits([woId], w);
-    const scrap = await this.scrapForWoIds([woId]);
+    const scrap = await this.scrapForWoIds([woId], w);
     const down = await this.downtimeRollup(wo.line, w);
     const plannedTimeMin =
       opts.plannedMinutes != null
@@ -453,7 +453,7 @@ export class OeeService {
     }));
     const totalPieces = parts.reduce((a, p) => a + p.pieces, 0);
     const idealCycleSec = weightedIdealCycleSec(parts);
-    const scrap = await this.scrapForWoIds(woIds);
+    const scrap = await this.scrapForWoIds(woIds, w);
     const down = await this.downtimeRollup(line, w);
     const plannedTimeMin =
       opts.plannedMinutes != null
@@ -643,14 +643,24 @@ export class OeeService {
     return m;
   }
 
-  private async scrapForWoIds(woIds: string[]): Promise<number> {
+  private async scrapForWoIds(woIds: string[], w: Window): Promise<number> {
     if (woIds.length === 0) return 0;
     const qb = this.holds.createQueryBuilder('h');
     this.applyScope(qb, 'h');
     qb.andWhere('h.wo_id IN (:...ids)', { ids: woIds });
     const rows = await qb.getMany();
+    // Filtrar a la MISMA ventana que las piezas (en JS, portable sqlite/PG). Sin
+    // esto, el scrap de días previos de una WO multi-día se restaba de las piezas
+    // de HOY → quality/OEE subestimados. Se usa raisedAt y, si falta, created_at.
+    const s = w.start.getTime();
+    const e = w.end.getTime();
     return round(
-      rows.reduce((a, h) => a + Number(h.scrapQty ?? 0), 0),
+      rows
+        .filter((h) => {
+          const t = new Date(h.raisedAt ?? h.created_at).getTime();
+          return Number.isFinite(t) && t >= s && t <= e;
+        })
+        .reduce((a, h) => a + Number(h.scrapQty ?? 0), 0),
       2,
     );
   }

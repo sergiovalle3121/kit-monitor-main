@@ -96,6 +96,7 @@ import { SemanticModule } from './modules/semantic/semantic.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { TestFlowModule } from './modules/test-flow/test-flow.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
+import { AlertsModule } from './modules/alerts/alerts.module';
 
 @Module({
   imports: [
@@ -186,6 +187,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
     AnalyticsModule,
     TestFlowModule,
     NotificationsModule,
+    AlertsModule,
     ScheduleModule.forRoot(),
   ],
   controllers: [HealthController],
