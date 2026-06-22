@@ -36,9 +36,10 @@ type Preset = 'today' | '7d' | '30d' | 'all';
  * endpoint de listado (incluso uno que no filtre todavía) y responde al instante
  * sin re-fetch por cada tecla.
  *
- * Consume `GET /ledger` (forma REST natural). Mientras el backend no exponga ese
- * listado, el componente lo dice con claridad ("pendiente backend") en vez de
- * fingir datos — el historial por entidad ya corre contra la bitácora real.
+ * Consume `GET /ledger` (forma REST natural), que ya expone el listado reciente
+ * de la bitácora. Si por alguna razón no respondiera (404), el componente lo dice
+ * con claridad en vez de fingir datos; el historial por entidad corre contra la
+ * misma bitácora real.
  */
 export function TimelineView({
   onPickReference,
