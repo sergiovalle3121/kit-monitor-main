@@ -10,7 +10,7 @@ import type { LucideIcon } from 'lucide-react';
  */
 
 /** Tipo de evento — alimenta el filtro por tipo. */
-export type NotifKind = 'andon' | 'hold' | 'approval' | 'ncr';
+export type NotifKind = 'andon' | 'hold' | 'approval' | 'ncr' | 'system';
 
 /** Severidad normalizada entre todas las fuentes. */
 export type NotifSeverity = 'critical' | 'high' | 'medium' | 'low' | 'info';
@@ -37,6 +37,13 @@ export interface AxosNotification {
   at: string;
   /** Deep-link a la página dueña del dato ("link al origen"). */
   href?: string;
+  /**
+   * Estado de leído resuelto en SERVIDOR (buzón persistente). Cuando está
+   * presente prevalece sobre el estado local por-dispositivo: los avisos del
+   * buzón llevan su `readAt` real; las fuentes derivadas (andon/holds/…) lo
+   * dejan `undefined` y usan el estado local.
+   */
+  read?: boolean;
 }
 
 /** Notificación con el estado de leído (local) ya resuelto. */

@@ -92,6 +92,7 @@ import { MesExecutionModule } from './modules/mes-execution/mes-execution.module
 import { ErpCoreModule } from './modules/erp-core/erp-core.module';
 import { AiModule } from './modules/ai/ai.module';
 import { TestFlowModule } from './modules/test-flow/test-flow.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 
 @Module({
   imports: [
@@ -178,6 +179,7 @@ import { TestFlowModule } from './modules/test-flow/test-flow.module';
     ErpCoreModule,
     AiModule,
     TestFlowModule,
+    NotificationsModule,
     ScheduleModule.forRoot(),
   ],
   controllers: [HealthController],

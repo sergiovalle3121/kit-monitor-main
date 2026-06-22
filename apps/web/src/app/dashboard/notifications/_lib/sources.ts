@@ -1,5 +1,5 @@
 import {
-  Siren, Wrench, Package, Hand, ShieldAlert, ShieldX, ShieldCheck, Clock, FileWarning,
+  Siren, Wrench, Package, Hand, ShieldAlert, ShieldX, ShieldCheck, Clock, FileWarning, Bell,
   type LucideIcon,
 } from 'lucide-react';
 import type { DomainKey } from '@/lib/design/domains';
@@ -61,6 +61,7 @@ export const KIND_META: Record<NotifKind, { label: string; color: string; domain
   hold: { label: 'Holds de calidad', color: '#f59e0b', domain: 'quality' },
   approval: { label: 'Aprobaciones', color: '#7c3aed', domain: 'planning' },
   ncr: { label: 'NCR', color: '#2ec27e', domain: 'quality' },
+  system: { label: 'Sistema', color: '#6b7280', domain: 'office' },
 };
 
 export const SEV_META: Record<NotifSeverity, { label: string; color: string }> = {
@@ -70,6 +71,54 @@ export const SEV_META: Record<NotifSeverity, { label: string; color: string }> =
   low: { label: 'Bajo', color: '#3b82f6' },
   info: { label: '', color: '#6b7280' },
 };
+
+// ── 0) Buzón persistente — /notifications (estado de leído de servidor) ───────
+interface RawMailbox {
+  id: string;
+  kind?: string | null;
+  severity?: string | null;
+  title?: string | null;
+  body?: string | null;
+  source?: string | null;
+  domain?: string | null;
+  href?: string | null;
+  readAt?: string | null;
+  created_at?: string | null;
+}
+
+function mailboxKind(k?: string | null): NotifKind {
+  switch ((k || '').toLowerCase()) {
+    case 'andon': return 'andon';
+    case 'hold': return 'hold';
+    case 'approval': return 'approval';
+    case 'ncr': return 'ncr';
+    default: return 'system';
+  }
+}
+
+const MAILBOX_ICON: Record<NotifKind, LucideIcon> = {
+  andon: Siren, hold: ShieldX, approval: ShieldCheck, ncr: FileWarning, system: Bell,
+};
+
+/** Buzón persistente del backend → modelo unificado. `read` viene del servidor. */
+export function normalizeMailbox(raw: unknown): AxosNotification[] {
+  return asArray<RawMailbox>(raw).map((n) => {
+    const kind = mailboxKind(n.kind);
+    return {
+      id: `mailbox:${n.id}`,
+      kind,
+      source: n.source || 'Aviso',
+      domain: (n.domain as DomainKey) || KIND_META[kind].domain,
+      icon: MAILBOX_ICON[kind],
+      title: n.title || 'Notificación',
+      body: clip(n.body) || '',
+      severity: normSev(n.severity),
+      at: pickAt(n.created_at),
+      href: n.href || undefined,
+      read: !!n.readAt,
+    };
+  });
+}
 
 // ── 1) Andon — /operator-terminal/floor-events?status=OPEN ───────────────────
 interface RawFloorEvent {
