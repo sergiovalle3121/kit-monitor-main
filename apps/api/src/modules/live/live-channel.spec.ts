@@ -107,7 +107,7 @@ describe('live-channel routing', () => {
         tenantId: 'acme',
         timestamp: when.toISOString(),
       });
-      expect((dto as Record<string, unknown>).context).toBeUndefined();
+      expect((dto as unknown as Record<string, unknown>).context).toBeUndefined();
     });
 
     it('tolerates a string timestamp and null optionals', () => {
