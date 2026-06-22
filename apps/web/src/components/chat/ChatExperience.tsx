@@ -20,6 +20,7 @@ import {
   RotateCcw,
   Phone,
   Video,
+  PhoneMissed,
   Maximize2,
   Paperclip,
 } from 'lucide-react';
@@ -43,6 +44,7 @@ import { useCall } from '@/hooks/useCall';
 import { callsSupported } from '@/lib/chat/webrtc';
 import { renderMessageText, hasTable } from '@/lib/chat/markdown';
 import { isEmojiOnly, emojiGlyphCount } from '@/lib/chat/stickers';
+import { parseStickerId, getSticker } from '@/lib/chat/stickerImages';
 import { formatBytes } from '@/lib/chat/format';
 import { QUICK_REACTIONS } from '@/lib/chat/emojis';
 
@@ -197,7 +199,7 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
   const {
     call,
     localStream,
-    remoteStream,
+    remotes,
     micOn,
     camOn,
     startCall,
@@ -627,8 +629,8 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
   );
 
   const surface = single ? '' : glass;
-  const canCall =
-    callsSupported() && active?.type === 'dm' && !!active?.counterpartId;
+  // Llamadas: DMs y canales (grupo). Necesita ≥2 miembros.
+  const canCall = callsSupported() && !!active && active.memberIds.length >= 2;
 
   const aside = (
     <aside
@@ -842,20 +844,20 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
                 {canCall && (
                   <>
                     <button
-                      onClick={() => startCall(active.id, active.counterpartId!, 'audio')}
+                      onClick={() => startCall(active.id, 'audio')}
                       disabled={!!call}
                       className="rounded-full p-2 text-gray-500 transition-colors hover:bg-black/5 focus-visible:ring-2 focus-visible:ring-blue-500/40 disabled:opacity-40 dark:hover:bg-white/10"
                       aria-label="Llamar"
-                      title="Llamada de voz"
+                      title={active.type === 'channel' ? 'Llamada de grupo' : 'Llamada de voz'}
                     >
                       <Phone className="h-5 w-5" />
                     </button>
                     <button
-                      onClick={() => startCall(active.id, active.counterpartId!, 'video')}
+                      onClick={() => startCall(active.id, 'video')}
                       disabled={!!call}
                       className="rounded-full p-2 text-gray-500 transition-colors hover:bg-black/5 focus-visible:ring-2 focus-visible:ring-blue-500/40 disabled:opacity-40 dark:hover:bg-white/10"
                       aria-label="Videollamada"
-                      title="Videollamada"
+                      title={active.type === 'channel' ? 'Videollamada de grupo' : 'Videollamada'}
                     >
                       <Video className="h-5 w-5" />
                     </button>
@@ -1059,16 +1061,30 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
         />
       )}
 
-      {/* Overlay de llamada (WebRTC) */}
+      {/* Overlay de llamada (WebRTC, 1:1 y grupo) */}
       {call && (
         <CallOverlay
           call={call}
           localStream={localStream}
-          remoteStream={remoteStream}
+          remotes={remotes.map((r) => ({
+            ...r,
+            name: senderName(r.userId, users),
+            initials: initials(senderName(r.userId, users)),
+          }))}
           micOn={micOn}
           camOn={camOn}
-          peerName={senderName(call.peerUserId, users)}
-          peerInitials={initials(senderName(call.peerUserId, users))}
+          title={
+            conversations.find((c) => c.id === call.conversationId)?.title ||
+            'Llamada'
+          }
+          incomingName={
+            call.initiatorId ? senderName(call.initiatorId, users) : 'Llamada'
+          }
+          incomingInitials={
+            call.initiatorId
+              ? initials(senderName(call.initiatorId, users))
+              : '··'
+          }
           onAccept={acceptCall}
           onReject={rejectCall}
           onHangup={hangup}
@@ -1192,6 +1208,70 @@ function jumboClass(body: string): string {
   return n <= 1 ? 'text-5xl' : n <= 3 ? 'text-4xl' : 'text-3xl';
 }
 
+/** Parsea el cuerpo JSON de un mensaje de llamada (`type: 'call'`). */
+function parseCallLog(body: string | null): {
+  media: 'audio' | 'video';
+  status: string;
+  durationSec: number;
+} {
+  try {
+    const o = JSON.parse(body ?? '{}');
+    return {
+      media: o.media === 'video' ? 'video' : 'audio',
+      status: typeof o.status === 'string' ? o.status : 'completed',
+      durationSec: Number(o.durationSec) || 0,
+    };
+  } catch {
+    return { media: 'audio', status: 'completed', durationSec: 0 };
+  }
+}
+
+function formatCallDuration(sec: number): string {
+  if (sec <= 0) return '';
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return m > 0 ? `${m} min ${s}s` : `${s}s`;
+}
+
+/** Chip centrado con el resultado de una llamada (historial / perdidas). */
+function CallLogItem({ m, mine }: { m: UiMessage; mine: boolean }) {
+  const info = parseCallLog(m.body);
+  const missed = info.status === 'missed';
+  const Icon = missed
+    ? PhoneMissed
+    : info.media === 'video'
+      ? Video
+      : Phone;
+  let label: string;
+  if (info.status === 'completed') {
+    const dur = formatCallDuration(info.durationSec);
+    label =
+      (info.media === 'video' ? 'Videollamada' : 'Llamada') +
+      (dur ? ` · ${dur}` : '');
+  } else if (info.status === 'declined') {
+    label = 'Llamada rechazada';
+  } else if (info.status === 'canceled') {
+    label = 'Llamada cancelada';
+  } else {
+    label = mine ? 'Llamada sin respuesta' : 'Llamada perdida';
+  }
+  return (
+    <div className="my-3 flex justify-center">
+      <span
+        className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs ${
+          missed
+            ? 'bg-red-500/10 text-red-600 dark:text-red-300'
+            : 'bg-black/5 text-gray-600 dark:bg-white/10 dark:text-gray-300'
+        }`}
+      >
+        <Icon className="h-3.5 w-3.5" />
+        {label}
+        <span className="opacity-60">{timeOf(m.createdAt)}</span>
+      </span>
+    </div>
+  );
+}
+
 /** Una burbuja de mensaje con toolbar (hover), reacciones y chips. */
 function MessageItem({
   m,
@@ -1218,6 +1298,10 @@ function MessageItem({
 }) {
   const [showPicker, setShowPicker] = useState(false);
   const [showMore, setShowMore] = useState(false);
+
+  // Registro de llamada: chip centrado tipo sistema (no es una burbuja normal).
+  if (m.type === 'call') return <CallLogItem m={m} mine={mine} />;
+
   const reactions = m.reactions ?? [];
   const sending = m.status === 'sending';
   const failed = m.status === 'failed';
@@ -1226,8 +1310,10 @@ function MessageItem({
   const body = m.body ?? '';
   const isFile = m.type === 'file';
   const isImage = m.type === 'image';
-  const emojiOnly = m.type === 'text' && isEmojiOnly(body);
-  const wide = m.type === 'text' && !!body && hasTable(body);
+  const stickerId = m.type === 'text' ? parseStickerId(body) : null;
+  const emojiOnly = m.type === 'text' && !stickerId && isEmojiOnly(body);
+  const bare = emojiOnly || !!stickerId; // sin fondo de burbuja
+  const wide = m.type === 'text' && !stickerId && !!body && hasTable(body);
 
   return (
     <div
@@ -1361,9 +1447,9 @@ function MessageItem({
         ) : (
           <div
             className={`rounded-[18px] ${sending ? 'opacity-70' : ''} ${
-              isImage ? 'p-1' : emojiOnly ? 'px-1 py-0.5' : 'px-4 py-2'
+              isImage ? 'p-1' : bare ? 'px-1 py-0.5' : 'px-4 py-2'
             } ${
-              emojiOnly
+              bare
                 ? ''
                 : mine
                   ? 'bg-blue-600 text-white'
@@ -1386,6 +1472,8 @@ function MessageItem({
               ) : (
                 <AuthImage messageId={m.id} />
               )
+            ) : stickerId ? (
+              <span className="block h-32 w-32">{getSticker(stickerId)?.node}</span>
             ) : emojiOnly ? (
               <p className={`${jumboClass(body)} leading-tight`}>{body}</p>
             ) : (
@@ -1395,12 +1483,12 @@ function MessageItem({
             )}
             <div
               className={`mt-1 flex items-center gap-1 text-[10px] ${
-                emojiOnly
+                bare
                   ? 'text-gray-500'
                   : mine
                     ? 'justify-end text-white/70'
                     : 'text-gray-500'
-              } ${emojiOnly && mine ? 'justify-end' : ''}`}
+              } ${bare && mine ? 'justify-end' : ''}`}
             >
               <span>{timeOf(m.createdAt)}</span>
               {sending && (
@@ -1580,7 +1668,11 @@ function ConversationRow({
       ? '📷 Imagen'
       : convo.lastMessage.type === 'file'
         ? '📎 Archivo'
-        : convo.lastMessage.body
+        : convo.lastMessage.type === 'call'
+          ? '📞 Llamada'
+          : convo.lastMessage.body && parseStickerId(convo.lastMessage.body)
+            ? '🎟️ Sticker'
+            : convo.lastMessage.body
     : 'Sin mensajes';
   return (
     <button

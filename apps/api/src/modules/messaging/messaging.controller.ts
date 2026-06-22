@@ -84,6 +84,24 @@ export class MessagingController {
     );
   }
 
+  @Post('messages/call')
+  sendCallLog(
+    @Req() req: any,
+    @Body()
+    body: {
+      conversationId: string;
+      media?: string;
+      status?: string;
+      durationSec?: number;
+    },
+  ) {
+    return this.messaging.sendCallLog(this.me(req), body?.conversationId, {
+      media: body?.media,
+      status: body?.status,
+      durationSec: body?.durationSec,
+    });
+  }
+
   @Post('messages/:id/reactions')
   toggleReaction(
     @Req() req: any,

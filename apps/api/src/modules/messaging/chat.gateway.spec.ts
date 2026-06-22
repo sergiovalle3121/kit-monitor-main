@@ -154,21 +154,41 @@ describe('ChatGateway (auth + presence)', () => {
     expect(server.to).not.toHaveBeenCalled();
   });
 
-  it('call:accept retransmite a quien llamó, con fromUserId del token', async () => {
-    members.find.mockResolvedValue([{ userId: 'u1' }, { userId: 'u2' }]);
-    const client = makeSocket('s1', 'good');
-    client.data.userId = 'u2';
-    await gateway.handleCallAccept(client as never, {
+  it('call:join registra al que entra, le da la lista y avisa a los presentes', async () => {
+    members.find.mockResolvedValue([
+      { userId: 'u1' },
+      { userId: 'u2' },
+      { userId: 'u3' },
+    ]);
+    const a = makeSocket('s1', 'good');
+    a.data.userId = 'u1';
+    await gateway.handleCallInvite(a as never, {
       conversationId: 'c1',
       callId: 'k1',
-      toUserId: 'u1',
+      media: 'audio',
     });
-    expect(server.to).toHaveBeenCalledWith('user:u1');
-    expect(roomEmit).toHaveBeenCalledWith('call:accepted', {
+    server.to.mockClear();
+    roomEmit.mockClear();
+
+    const b = makeSocket('s2', 'good');
+    b.data.userId = 'u2';
+    await gateway.handleCallJoin(b as never, {
       conversationId: 'c1',
       callId: 'k1',
-      toUserId: 'u1',
-      fromUserId: 'u2',
+    });
+    // El que entra recibe la lista de presentes ([u1]).
+    expect(server.to).toHaveBeenCalledWith('user:u2');
+    expect(roomEmit).toHaveBeenCalledWith('call:participants', {
+      callId: 'k1',
+      conversationId: 'c1',
+      participants: ['u1'],
+    });
+    // Los presentes reciben aviso del nuevo.
+    expect(server.to).toHaveBeenCalledWith('user:u1');
+    expect(roomEmit).toHaveBeenCalledWith('call:peer-joined', {
+      callId: 'k1',
+      conversationId: 'c1',
+      userId: 'u2',
     });
   });
 
@@ -185,24 +205,28 @@ describe('ChatGateway (auth + presence)', () => {
     expect(server.to).not.toHaveBeenCalled();
   });
 
-  it('call:end avisa al resto de miembros (no a sí mismo)', async () => {
-    members.find.mockResolvedValue([
-      { userId: 'u1' },
-      { userId: 'u2' },
-      { userId: 'u3' },
-    ]);
-    const client = makeSocket('s1', 'good');
-    client.data.userId = 'u1';
-    await gateway.handleCallEnd(client as never, {
+  it('call:end (salir) avisa peer-left a los que quedan en la sala', async () => {
+    members.find.mockResolvedValue([{ userId: 'u1' }, { userId: 'u2' }]);
+    const a = makeSocket('s1', 'good');
+    a.data.userId = 'u1';
+    await gateway.handleCallInvite(a as never, {
       conversationId: 'c1',
       callId: 'k1',
     });
-    const targets = server.to.mock.calls.map((c) => c[0]);
-    expect(targets).toEqual(['user:u2', 'user:u3']);
-    expect(roomEmit).toHaveBeenCalledWith('call:ended', {
+    const b = makeSocket('s2', 'good');
+    b.data.userId = 'u2';
+    await gateway.handleCallJoin(b as never, {
       conversationId: 'c1',
       callId: 'k1',
-      fromUserId: 'u1',
+    });
+    server.to.mockClear();
+    roomEmit.mockClear();
+
+    gateway.handleCallEnd(a as never, { callId: 'k1' }); // u1 sale
+    expect(server.to).toHaveBeenCalledWith('user:u2');
+    expect(roomEmit).toHaveBeenCalledWith('call:peer-left', {
+      callId: 'k1',
+      userId: 'u1',
     });
   });
 });

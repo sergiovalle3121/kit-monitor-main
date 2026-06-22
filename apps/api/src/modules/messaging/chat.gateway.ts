@@ -57,6 +57,9 @@ export class ChatGateway
   /** Usuarios en línea → conjunto de sockets activos de cada uno. */
   private readonly online = new Map<string, Set<string>>();
 
+  /** Llamadas en curso → participantes (userIds). callId → Set<userId>. */
+  private readonly callRooms = new Map<string, Set<string>>();
+
   constructor(
     private readonly jwt: JwtService,
     @InjectRepository(ConversationMember)
@@ -110,6 +113,12 @@ export class ChatGateway
       this.online.delete(userId);
       // Último socket cerrado → el usuario pasa a offline.
       this.server?.emit('presence:update', { userId, online: false });
+      // Si estaba en alguna llamada, lo sacamos y avisamos a sus pares.
+      for (const callId of Array.from(this.callRooms.keys())) {
+        if (this.callRooms.get(callId)?.has(userId)) {
+          this.leaveCall(userId, callId);
+        }
+      }
     }
   }
 
@@ -155,13 +164,17 @@ export class ChatGateway
     }
   }
 
-  // ── Señalización de llamadas (WebRTC) ──────────────────────────────────────
+  // ── Señalización de llamadas (WebRTC, malla 1:N) ──────────────────────────
   //
-  // El servidor SOLO retransmite (no toca el media). El emisor sale del token; la
-  // pertenencia a la conversación se valida en el servidor (anti-spoofing). El
-  // SDP/ICE viaja por `call:signal` hacia un destinatario concreto (`toUserId`).
+  // El servidor SOLO retransmite y lleva el registro de PARTICIPANTES por llamada
+  // (`callRooms`: callId → userIds). Una llamada 1:1 es una sala de 2. El emisor
+  // sale del token; la pertenencia a la conversación se valida (anti-spoofing).
+  // El SDP/ICE viaja por `call:signal` hacia un destinatario concreto.
+  //
+  // Negociación sin glare: cuando alguien se une, los participantes EXISTENTES
+  // inician la oferta hacia el recién llegado; el recién llegado solo responde.
 
-  /** A invita a una llamada → avisa al resto de miembros de la conversación. */
+  /** A inicia una llamada → crea la sala y avisa al resto de miembros. */
   @SubscribeMessage('call:invite')
   async handleCallInvite(
     @ConnectedSocket() client: Socket,
@@ -178,6 +191,7 @@ export class ChatGateway
     const memberIds = await this.membersOf(conversationId);
     if (!memberIds.includes(fromUserId)) return; // no es miembro → ignorar
     const media = payload?.media === 'video' ? 'video' : 'audio';
+    this.callRooms.set(callId, new Set([fromUserId]));
     for (const memberId of memberIds) {
       if (memberId === fromUserId) continue;
       this.server.to(`user:${memberId}`).emit('call:incoming', {
@@ -189,22 +203,36 @@ export class ChatGateway
     }
   }
 
-  /** B acepta → avisa SOLO a quien llamó (toUserId). */
-  @SubscribeMessage('call:accept')
-  handleCallAccept(
+  /** Me uno a la llamada → me registran, me dan la lista y avisan a los demás. */
+  @SubscribeMessage('call:join')
+  async handleCallJoin(
     @ConnectedSocket() client: Socket,
-    @MessageBody() payload: { conversationId?: string; callId?: string; toUserId?: string },
+    @MessageBody() payload: { conversationId?: string; callId?: string },
   ): Promise<void> {
-    return this.relayToUser(client, 'call:accepted', payload);
-  }
+    const fromUserId = (client.data as ChatSocketData).userId;
+    const { conversationId, callId } = payload ?? {};
+    if (!this.server || !fromUserId || !conversationId || !callId) return;
+    const memberIds = await this.membersOf(conversationId);
+    if (!memberIds.includes(fromUserId)) return; // no es miembro → ignorar
 
-  /** B rechaza → avisa a quien llamó. */
-  @SubscribeMessage('call:reject')
-  handleCallReject(
-    @ConnectedSocket() client: Socket,
-    @MessageBody() payload: { conversationId?: string; callId?: string; toUserId?: string },
-  ): Promise<void> {
-    return this.relayToUser(client, 'call:rejected', payload);
+    let room = this.callRooms.get(callId);
+    if (!room) {
+      room = new Set();
+      this.callRooms.set(callId, room);
+    }
+    const existing = Array.from(room).filter((id) => id !== fromUserId);
+    room.add(fromUserId);
+
+    // Al que se une: quiénes ya están dentro.
+    this.server
+      .to(`user:${fromUserId}`)
+      .emit('call:participants', { callId, conversationId, participants: existing });
+    // A los que ya estaban: hay un nuevo (ellos inician la oferta).
+    for (const id of existing) {
+      this.server
+        .to(`user:${id}`)
+        .emit('call:peer-joined', { callId, conversationId, userId: fromUserId });
+    }
   }
 
   /** Intercambio de SDP/ICE entre dos pares (offer/answer/candidate). */
@@ -222,22 +250,53 @@ export class ChatGateway
     return this.relayToUser(client, 'call:signal', payload);
   }
 
-  /** A cancela antes de que contesten → avisa al resto. */
+  /** Rechazo de la invitación (en 1:1 termina; en grupo es informativo). */
+  @SubscribeMessage('call:reject')
+  handleCallReject(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() payload: { conversationId?: string; callId?: string },
+  ): Promise<void> {
+    return this.relayToOthers(client, 'call:rejected', payload);
+  }
+
+  /** A cancela antes de que contesten → avisa al resto y limpia la sala. */
   @SubscribeMessage('call:cancel')
   handleCallCancel(
     @ConnectedSocket() client: Socket,
     @MessageBody() payload: { conversationId?: string; callId?: string },
   ): Promise<void> {
+    if (payload?.callId) this.callRooms.delete(payload.callId);
     return this.relayToOthers(client, 'call:canceled', payload);
   }
 
-  /** Cualquiera cuelga una llamada en curso → avisa al resto. */
+  /** Salgo/cuelgo → me quitan de la sala y avisan a los que quedan. */
+  @SubscribeMessage('call:leave')
+  handleCallLeave(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() payload: { callId?: string },
+  ): void {
+    this.leaveCall((client.data as ChatSocketData).userId, payload?.callId);
+  }
+
+  /** Alias de salida (compatibilidad): colgar = salir de la sala. */
   @SubscribeMessage('call:end')
   handleCallEnd(
     @ConnectedSocket() client: Socket,
-    @MessageBody() payload: { conversationId?: string; callId?: string },
-  ): Promise<void> {
-    return this.relayToOthers(client, 'call:ended', payload);
+    @MessageBody() payload: { callId?: string },
+  ): void {
+    this.leaveCall((client.data as ChatSocketData).userId, payload?.callId);
+  }
+
+  /** Quita a un usuario de la sala y avisa 'call:peer-left' a los que quedan. */
+  private leaveCall(userId?: string, callId?: string): void {
+    if (!this.server || !userId || !callId) return;
+    const room = this.callRooms.get(callId);
+    if (!room || !room.has(userId)) return;
+    room.delete(userId);
+    for (const id of room) {
+      this.server.to(`user:${id}`).emit('call:peer-left', { callId, userId });
+    }
+    if (room.size === 0) this.callRooms.delete(callId);
   }
 
   // ── Emisores llamados por MessagingService tras persistir ──────────────────

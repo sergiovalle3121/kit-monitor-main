@@ -60,7 +60,7 @@ export interface ChatMessage {
   id: string;
   conversationId: string;
   senderId: string;
-  type: 'text' | 'image' | 'file';
+  type: 'text' | 'image' | 'file' | 'call';
   body: string | null;
   imageMime: string | null;
   /** Solo para `type: 'file'`: nombre, mime y tamaño del adjunto. */
@@ -140,6 +140,16 @@ export const chatApi = {
       body: fd,
     });
   },
+
+  sendCallLog: (
+    conversationId: string,
+    payload: { media: 'audio' | 'video'; status: string; durationSec: number },
+  ) =>
+    req<ChatMessage>('/messaging/messages/call', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ conversationId, ...payload }),
+    }),
 
   markRead: (conversationId: string) =>
     req<{ ok: boolean }>(`/messaging/conversations/${conversationId}/read`, {

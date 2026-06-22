@@ -1,25 +1,28 @@
 'use client';
 
 import React, { useEffect, useRef } from 'react';
-import {
-  Phone,
-  PhoneOff,
-  Video,
-  VideoOff,
-  Mic,
-  MicOff,
-} from 'lucide-react';
+import { Phone, PhoneOff, Video, VideoOff, Mic, MicOff } from 'lucide-react';
 import { glass } from '@/lib/glass';
 import type { CallState } from '@/hooks/useCall';
+
+export interface OverlayRemote {
+  userId: string;
+  stream: MediaStream;
+  name: string;
+  initials: string;
+}
 
 interface CallOverlayProps {
   call: CallState;
   localStream: MediaStream | null;
-  remoteStream: MediaStream | null;
+  remotes: OverlayRemote[];
   micOn: boolean;
   camOn: boolean;
-  peerName: string;
-  peerInitials: string;
+  /** Título del encabezado (nombre del par en 1:1, o del canal en grupo). */
+  title: string;
+  /** Para la tarjeta de llamada entrante. */
+  incomingName: string;
+  incomingInitials: string;
   onAccept: () => void;
   onReject: () => void;
   onHangup: () => void;
@@ -27,7 +30,7 @@ interface CallOverlayProps {
   onToggleCam: () => void;
 }
 
-/** Adjunta un MediaStream a un <video>/<audio> (srcObject, no posible en JSX). */
+/** Adjunta un MediaStream a un <video>/<audio> (srcObject no es posible en JSX). */
 function useStreamMedia<T extends HTMLMediaElement>(stream: MediaStream | null) {
   const ref = useRef<T | null>(null);
   useEffect(() => {
@@ -38,15 +41,71 @@ function useStreamMedia<T extends HTMLMediaElement>(stream: MediaStream | null) 
   return ref;
 }
 
+function Avatar({
+  initials,
+  pulse,
+  size = 'md',
+}: {
+  initials: string;
+  pulse?: boolean;
+  size?: 'sm' | 'md' | 'lg';
+}) {
+  const cls =
+    size === 'lg'
+      ? 'h-28 w-28 text-3xl'
+      : size === 'sm'
+        ? 'h-16 w-16 text-xl'
+        : 'h-20 w-20 text-2xl';
+  return (
+    <span className="relative inline-flex">
+      {pulse && (
+        <span className="absolute inset-0 animate-ping rounded-full bg-blue-500/40" />
+      )}
+      <span
+        className={`relative flex items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-violet-500 font-bold text-white ${cls}`}
+      >
+        {initials}
+      </span>
+    </span>
+  );
+}
+
+/** Tile de un participante remoto: video (silenciado) o avatar + audio aparte. */
+function RemoteTile({ remote }: { remote: OverlayRemote }) {
+  const videoRef = useStreamMedia<HTMLVideoElement>(remote.stream);
+  const audioRef = useStreamMedia<HTMLAudioElement>(remote.stream);
+  const hasVideo = remote.stream.getVideoTracks().length > 0;
+  return (
+    <div className="relative flex items-center justify-center overflow-hidden rounded-2xl bg-gray-900">
+      <audio ref={audioRef} autoPlay className="hidden" />
+      {hasVideo ? (
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          muted
+          className="h-full w-full object-cover"
+        />
+      ) : (
+        <Avatar initials={remote.initials} />
+      )}
+      <span className="absolute bottom-2 left-2 max-w-[80%] truncate rounded-full bg-black/45 px-2 py-0.5 text-xs text-white">
+        {remote.name}
+      </span>
+    </div>
+  );
+}
+
 export function CallOverlay(props: CallOverlayProps) {
   const {
     call,
     localStream,
-    remoteStream,
+    remotes,
     micOn,
     camOn,
-    peerName,
-    peerInitials,
+    title,
+    incomingName,
+    incomingInitials,
     onAccept,
     onReject,
     onHangup,
@@ -54,37 +113,27 @@ export function CallOverlay(props: CallOverlayProps) {
     onToggleCam,
   } = props;
 
-  const remoteRef = useStreamMedia<HTMLVideoElement>(remoteStream);
   const localRef = useStreamMedia<HTMLVideoElement>(localStream);
-  const remoteAudioRef = useStreamMedia<HTMLAudioElement>(remoteStream);
   const isVideo = call.media === 'video';
 
-  // ── Llamada entrante: tarjeta de aceptar/rechazar ──────────────────────────
+  // ── Llamada entrante ───────────────────────────────────────────────────────
   if (call.status === 'ringing-in') {
     return (
       <div className="fixed inset-0 z-[400] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
         <div className={`${glass} w-full max-w-sm rounded-[28px] p-6 text-center`}>
-          <Avatar initials={peerInitials} pulse />
-          <p className="mt-4 text-lg font-semibold">{peerName}</p>
+          <Avatar initials={incomingInitials} pulse size="lg" />
+          <p className="mt-4 text-lg font-semibold">{incomingName}</p>
           <p className="text-sm text-gray-500">
             {isVideo ? 'Videollamada entrante…' : 'Llamada entrante…'}
           </p>
           <div className="mt-8 flex items-center justify-center gap-10">
-            <button
-              onClick={onReject}
-              className="flex flex-col items-center gap-1.5"
-              aria-label="Rechazar"
-            >
+            <button onClick={onReject} className="flex flex-col items-center gap-1.5" aria-label="Rechazar">
               <span className="flex h-16 w-16 items-center justify-center rounded-full bg-red-500 text-white shadow-lg transition-transform hover:scale-105 active:scale-95">
                 <PhoneOff className="h-7 w-7" />
               </span>
               <span className="text-xs text-gray-500">Rechazar</span>
             </button>
-            <button
-              onClick={onAccept}
-              className="flex flex-col items-center gap-1.5"
-              aria-label="Aceptar"
-            >
+            <button onClick={onAccept} className="flex flex-col items-center gap-1.5" aria-label="Aceptar">
               <span className="flex h-16 w-16 animate-bounce items-center justify-center rounded-full bg-green-500 text-white shadow-lg transition-transform hover:scale-105 active:scale-95">
                 {isVideo ? <Video className="h-7 w-7" /> : <Phone className="h-7 w-7" />}
               </span>
@@ -102,43 +151,35 @@ export function CallOverlay(props: CallOverlayProps) {
       : call.status === 'connecting'
         ? 'Conectando…'
         : call.status === 'active'
-          ? isVideo
-            ? 'Videollamada en curso'
-            : 'Llamada en curso'
+          ? `${remotes.length + 1} en la llamada`
           : call.endReason || 'Llamada finalizada';
 
-  const showRemoteVideo = isVideo && call.status === 'active' && !!remoteStream;
+  const gridCols =
+    remotes.length <= 1 ? 'grid-cols-1' : remotes.length <= 4 ? 'grid-cols-2' : 'grid-cols-3';
 
   // ── Llamada saliente / en curso / finalizada ───────────────────────────────
   return (
     <div className="fixed inset-0 z-[400] flex flex-col bg-gray-950 text-white">
-      {/* Video remoto (o avatar para audio / aún sin video) */}
-      <div className="relative flex flex-1 items-center justify-center overflow-hidden">
-        {/* Sumidero de audio remoto (siempre, para que se oiga en voz y video). */}
-        {remoteStream && call.status !== 'ended' && (
-          <audio ref={remoteAudioRef} autoPlay className="hidden" />
-        )}
+      <div className="flex items-center justify-between px-5 py-3">
+        <div className="min-w-0">
+          <p className="truncate text-base font-semibold">{title}</p>
+          <p className="text-xs text-white/60">{statusLabel}</p>
+        </div>
+      </div>
 
-        {showRemoteVideo ? (
-          <video
-            ref={remoteRef}
-            autoPlay
-            playsInline
-            muted
-            className="h-full w-full object-cover"
-          />
+      {/* Área de participantes */}
+      <div className="relative flex flex-1 items-center justify-center overflow-hidden p-3">
+        {remotes.length > 0 ? (
+          <div className={`grid h-full w-full gap-3 ${gridCols}`}>
+            {remotes.map((r) => (
+              <RemoteTile key={r.userId} remote={r} />
+            ))}
+          </div>
         ) : (
           <div className="flex flex-col items-center gap-4">
-            <Avatar initials={peerInitials} pulse={call.status !== 'ended'} large />
-            <p className="text-xl font-semibold">{peerName}</p>
+            <Avatar initials={incomingInitials || '··'} pulse={call.status !== 'ended'} size="lg" />
+            <p className="text-xl font-semibold">{title}</p>
             <p className="text-sm text-white/60">{statusLabel}</p>
-          </div>
-        )}
-
-        {/* Etiqueta de estado superpuesta cuando hay video remoto */}
-        {showRemoteVideo && (
-          <div className="absolute left-4 top-4 rounded-full bg-black/40 px-3 py-1 text-sm">
-            {peerName} · {statusLabel}
           </div>
         )}
 
@@ -149,7 +190,7 @@ export function CallOverlay(props: CallOverlayProps) {
             autoPlay
             playsInline
             muted
-            className={`absolute bottom-4 right-4 h-40 w-28 rounded-2xl border border-white/20 object-cover shadow-xl ${
+            className={`absolute bottom-4 right-4 h-36 w-26 rounded-2xl border border-white/20 object-cover shadow-xl ${
               camOn ? '' : 'opacity-30'
             }`}
           />
@@ -169,7 +210,6 @@ export function CallOverlay(props: CallOverlayProps) {
             >
               {micOn ? <Mic className="h-6 w-6" /> : <MicOff className="h-6 w-6" />}
             </button>
-
             {isVideo && (
               <button
                 onClick={onToggleCam}
@@ -178,16 +218,11 @@ export function CallOverlay(props: CallOverlayProps) {
                   camOn ? 'bg-white/15 hover:bg-white/25' : 'bg-white text-gray-900'
                 }`}
               >
-                {camOn ? (
-                  <Video className="h-6 w-6" />
-                ) : (
-                  <VideoOff className="h-6 w-6" />
-                )}
+                {camOn ? <Video className="h-6 w-6" /> : <VideoOff className="h-6 w-6" />}
               </button>
             )}
           </>
         )}
-
         <button
           onClick={onHangup}
           aria-label="Colgar"
@@ -197,30 +232,5 @@ export function CallOverlay(props: CallOverlayProps) {
         </button>
       </div>
     </div>
-  );
-}
-
-function Avatar({
-  initials,
-  pulse,
-  large,
-}: {
-  initials: string;
-  pulse?: boolean;
-  large?: boolean;
-}) {
-  return (
-    <span className="relative inline-flex">
-      {pulse && (
-        <span className="absolute inset-0 animate-ping rounded-full bg-blue-500/40" />
-      )}
-      <span
-        className={`relative flex items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-violet-500 font-bold text-white ${
-          large ? 'h-28 w-28 text-3xl' : 'h-20 w-20 text-2xl'
-        }`}
-      >
-        {initials}
-      </span>
-    </span>
   );
 }
