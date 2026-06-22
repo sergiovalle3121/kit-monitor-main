@@ -25,6 +25,7 @@ export function DocHeaderFooter({ editor }: { editor: Editor }) {
             <label className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Pie de página</label>
             <input value={a.pageFooter || ''} onChange={(e) => set({ pageFooter: e.target.value })} placeholder="Texto del pie" className={field} />
           </div>
+          <p className="text-[10px] text-gray-400 leading-snug">Campos: <code>{'{page}'}</code> <code>{'{pages}'}</code> <code>{'{title}'}</code> <code>{'{date}'}</code></p>
           <label className="flex items-center gap-2 text-sm pt-1 cursor-pointer">
             <input type="checkbox" checked={!!a.pageNumbers} onChange={(e) => set({ pageNumbers: e.target.checked })} />
             <Hash className="w-3.5 h-3.5 text-gray-400" /> Números de página

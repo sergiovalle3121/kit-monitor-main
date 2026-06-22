@@ -221,15 +221,30 @@ export async function exportDocx(json: any, title: string) {
   };
   if (Number(a.pageColumns) > 1) props.column = { count: Number(a.pageColumns), space: 708 };
 
+  // Campos de encabezado/pie: {title}/{date} → literales; {page}/{pages} → campos
+  // reales de Word (número de página / total). Coincide con la vista paginada.
+  const fieldDate = new Date().toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' });
+  const hasPageField = (t: string) => /\{(page|pages)\}/.test(t || '');
+  const fieldChildren = (text: string): any[] => {
+    const lit = String(text || '').replace(/\{title\}/g, title || '').replace(/\{date\}/g, fieldDate);
+    const parts = lit.split(/(\{page\}|\{pages\})/g).filter((s) => s !== '');
+    return parts.map((p) => (p === '{page}' ? PageNumber.CURRENT : p === '{pages}' ? PageNumber.TOTAL_PAGES : p));
+  };
+
   const section: any = { properties: props, children };
   if (a.pageHeader) {
-    section.headers = { default: new Header({ children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: String(a.pageHeader), size: 18, color: '666666' })] })] }) };
+    section.headers = { default: new Header({ children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ children: fieldChildren(a.pageHeader), size: 18, color: '666666' })] })] }) };
   }
   if (a.pageFooter || a.pageNumbers) {
+    const footerHasField = hasPageField(a.pageFooter);
     const fch: any[] = [];
-    if (a.pageFooter) fch.push(new TextRun({ text: `${a.pageFooter}   `, size: 18, color: '666666' }));
-    if (a.pageNumbers) fch.push(new TextRun({ children: ['Página ', PageNumber.CURRENT, ' / ', PageNumber.TOTAL_PAGES], size: 18, color: '666666' }));
-    section.footers = { default: new Footer({ children: [new Paragraph({ alignment: a.pageNumbers ? AlignmentType.CENTER : AlignmentType.LEFT, children: fch })] }) };
+    if (a.pageFooter) fch.push(new TextRun({ children: fieldChildren(a.pageFooter), size: 18, color: '666666' }));
+    // Numeración automática sólo si se pide y el texto del pie no la trae ya.
+    if (a.pageNumbers && !footerHasField) {
+      if (a.pageFooter) fch.push(new TextRun({ text: '   ', size: 18, color: '666666' }));
+      fch.push(new TextRun({ children: ['Página ', PageNumber.CURRENT, ' / ', PageNumber.TOTAL_PAGES], size: 18, color: '666666' }));
+    }
+    section.footers = { default: new Footer({ children: [new Paragraph({ alignment: (a.pageNumbers && !footerHasField) ? AlignmentType.CENTER : AlignmentType.LEFT, children: fch })] }) };
   }
 
   // Primera página distinta: encabezado/pie en blanco en la página 1.
