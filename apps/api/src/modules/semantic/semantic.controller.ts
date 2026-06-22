@@ -5,6 +5,7 @@ import {
   Get,
   Param,
   Post,
+  Query,
   Request,
   UseGuards,
 } from '@nestjs/common';
@@ -53,6 +54,17 @@ export class SemanticController {
   @Get('values')
   values(@Request() req: AuthReq) {
     return this.semantic.values(this.principal(req), this.tenant(req));
+  }
+
+  /** KPI value history (snapshots) per metric the caller may see. */
+  @Get('history')
+  history(@Request() req: AuthReq, @Query('days') days?: string) {
+    const d = days ? parseInt(days, 10) : 30;
+    return this.semantic.metricHistoryBatch(
+      this.principal(req),
+      this.tenant(req),
+      Number.isFinite(d) ? d : 30,
+    );
   }
 
   /** Live value for one metric. */
