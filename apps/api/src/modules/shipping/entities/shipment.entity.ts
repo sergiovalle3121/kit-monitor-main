@@ -56,6 +56,14 @@ export class Shipment {
   @Column({ type: 'jsonb', nullable: true })
   manifestData?: any;
 
+  // Folio ASN (EDI 856) emitido al generar el aviso de embarque (aditivo, nullable).
+  @Column({ type: 'varchar', length: 32, nullable: true })
+  asn?: string;
+
+  // SSCC GS1 (18 dígitos) de la etiqueta logística del embarque (aditivo, nullable).
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  sscc?: string;
+
   @CreateDateColumn()
   createdAt: Date;
 

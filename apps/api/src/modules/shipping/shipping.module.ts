@@ -7,12 +7,14 @@ import { ShippingService } from './shipping.service';
 import { ShippingController } from './shipping.controller';
 import { InventoryModule } from '../inventory/inventory.module';
 import { GovernanceModule } from '../governance/governance.module';
+import { NumberingModule } from '../numbering/numbering.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Shipment, ShipmentItem, PackingList]),
     InventoryModule,
-    GovernanceModule
+    GovernanceModule,
+    NumberingModule,
   ],
   controllers: [ShippingController],
   providers: [ShippingService],
