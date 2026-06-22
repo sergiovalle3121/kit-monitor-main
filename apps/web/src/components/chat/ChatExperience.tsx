@@ -24,6 +24,13 @@ import {
   PhoneMissed,
   Maximize2,
   Paperclip,
+  MoreHorizontal,
+  Reply,
+  CornerUpRight,
+  Pin,
+  PinOff,
+  Pencil,
+  Trash2,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { glass } from '@/lib/glass';
@@ -37,7 +44,9 @@ import {
   ChatUser,
   MessageReaction,
   ReadReceipt,
+  ReplyPreview,
 } from '@/lib/chatApi';
+import { useConfirm } from '@/components/ui/ConfirmDialog';
 import { MessageComposer } from '@/components/chat/MessageComposer';
 import { FileAttachment } from '@/components/chat/FileAttachment';
 import { CallOverlay } from '@/components/chat/CallOverlay';
@@ -96,6 +105,20 @@ function initials(name: string): string {
     .toUpperCase();
 }
 
+/** Texto corto que representa un mensaje al citarlo/responderlo. */
+function replySnippet(m: ChatMessage): string {
+  if (m.deletedAt) return 'Mensaje eliminado';
+  if (m.type === 'image') return '📷 Imagen';
+  if (m.type === 'file') return m.fileName || '📎 Archivo';
+  if (m.type === 'call') return '📞 Llamada';
+  if (m.body && parseStickerId(m.body)) return '🎟️ Sticker';
+  return (m.body ?? '').slice(0, 140);
+}
+
+function toReplyPreview(m: ChatMessage): ReplyPreview {
+  return { id: m.id, senderId: m.senderId, type: m.type, snippet: replySnippet(m) };
+}
+
 function timeOf(iso: string): string {
   return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
@@ -137,6 +160,7 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
   const single = variant === 'dock';
   const { user } = useAuth();
   const meId = user?.id ?? '';
+  const confirm = useConfirm();
 
   const [conversations, setConversations] = useState<ChatConversation[]>([]);
   const [users, setUsers] = useState<ChatUser[]>([]);
@@ -165,6 +189,12 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
   const [searchIdx, setSearchIdx] = useState(0);
   // Autocorrector del composer (persistido).
   const [autocorrect, setAutocorrect] = useState(true);
+  // Acciones de hilo: responder, editar, reenviar, fijados.
+  const [replyingTo, setReplyingTo] = useState<ChatMessage | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [forwarding, setForwarding] = useState<ChatMessage | null>(null);
+  const [pinned, setPinned] = useState<ChatMessage[]>([]);
+  const [showPinned, setShowPinned] = useState(false);
   // Socket en estado (además del ref) para que useCall enganche sus listeners.
   const [socket, setSocket] = useState<Socket | null>(null);
 
@@ -173,11 +203,15 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const atBottomRef = useRef(true);
   const activeIdRef = useRef<string | null>(null);
+  const usersRef = useRef<ChatUser[]>([]);
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastTypingEmitRef = useRef(0);
   useEffect(() => {
     activeIdRef.current = activeId;
   }, [activeId]);
+  useEffect(() => {
+    usersRef.current = users;
+  }, [users]);
 
   // Hidrata la preferencia de autocorrector.
   useEffect(() => {
@@ -307,6 +341,22 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
           setNewCount((c) => c + 1);
         }
       }
+      // Notificación de escritorio si no es mío y no lo estoy viendo ahora.
+      if (
+        msg.senderId !== meId &&
+        (msg.conversationId !== activeIdRef.current ||
+          (typeof document !== 'undefined' && document.hidden))
+      ) {
+        notifyDesktop(msg);
+      }
+      refreshConversations();
+    });
+    // Mensaje editado / eliminado / fijado: reemplazar en sitio.
+    s.on('message:updated', (msg: ChatMessage) => {
+      setMessages((prev) => prev.map((m) => (m.id === msg.id ? { ...m, ...msg } : m)));
+      if (msg.conversationId === activeIdRef.current) {
+        chatApi.listPinned(msg.conversationId).then(setPinned).catch(() => {});
+      }
       refreshConversations();
     });
     s.on('typing', (p: { conversationId: string }) => {
@@ -380,6 +430,7 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
       .catch(() => setMessages([]))
       .finally(() => setLoadingMessages(false));
     chatApi.listReads(activeId).then(setReads).catch(() => setReads([]));
+    chatApi.listPinned(activeId).then(setPinned).catch(() => setPinned([]));
     chatApi.markRead(activeId).then(refreshConversations).catch(() => {});
   }, [activeId, refreshConversations]);
 
@@ -446,8 +497,12 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
     socketRef.current.emit('typing', { conversationId: active.id });
   }
 
-  // Envío optimista de texto.
-  async function enqueueText(conversationId: string, body: string) {
+  // Envío optimista de texto (con cita opcional).
+  async function enqueueText(
+    conversationId: string,
+    body: string,
+    reply?: ChatMessage | null,
+  ) {
     const tempId = makeTempId();
     const optimistic: UiMessage = {
       id: tempId,
@@ -459,10 +514,12 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
       createdAt: new Date().toISOString(),
       status: 'sending',
       pendingText: body,
+      replyToId: reply?.id ?? null,
+      replyTo: reply ? toReplyPreview(reply) : null,
     };
     setMessages((prev) => [...prev, optimistic]);
     try {
-      const msg = await chatApi.sendText(conversationId, body);
+      const msg = await chatApi.sendText(conversationId, body, reply?.id);
       setMessages((prev) => reconcileSent(prev, tempId, msg));
       refreshConversations();
     } catch {
@@ -472,8 +529,12 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
     }
   }
 
-  // Envío optimista de imagen.
-  async function enqueueImage(conversationId: string, file: File) {
+  // Envío optimista de imagen (con cita opcional).
+  async function enqueueImage(
+    conversationId: string,
+    file: File,
+    reply?: ChatMessage | null,
+  ) {
     const tempId = makeTempId();
     const localPreviewUrl = URL.createObjectURL(file);
     const optimistic: UiMessage = {
@@ -487,10 +548,12 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
       status: 'sending',
       localPreviewUrl,
       pendingFile: file,
+      replyToId: reply?.id ?? null,
+      replyTo: reply ? toReplyPreview(reply) : null,
     };
     setMessages((prev) => [...prev, optimistic]);
     try {
-      const msg = await chatApi.sendImage(conversationId, file);
+      const msg = await chatApi.sendImage(conversationId, file, reply?.id);
       setMessages((prev) => reconcileSent(prev, tempId, msg));
       refreshConversations();
       URL.revokeObjectURL(localPreviewUrl);
@@ -502,8 +565,12 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
     }
   }
 
-  // Envío optimista de archivo genérico.
-  async function enqueueFile(conversationId: string, file: File) {
+  // Envío optimista de archivo genérico (con cita opcional).
+  async function enqueueFile(
+    conversationId: string,
+    file: File,
+    reply?: ChatMessage | null,
+  ) {
     const tempId = makeTempId();
     const optimistic: UiMessage = {
       id: tempId,
@@ -518,10 +585,12 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
       createdAt: new Date().toISOString(),
       status: 'sending',
       pendingFile: file,
+      replyToId: reply?.id ?? null,
+      replyTo: reply ? toReplyPreview(reply) : null,
     };
     setMessages((prev) => [...prev, optimistic]);
     try {
-      const msg = await chatApi.sendFile(conversationId, file);
+      const msg = await chatApi.sendFile(conversationId, file, reply?.id);
       setMessages((prev) => reconcileSent(prev, tempId, msg));
       refreshConversations();
     } catch (e) {
@@ -532,10 +601,26 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
     }
   }
 
+  // Enviar: si estoy editando, guarda la edición; si no, envía (con cita).
   function submitText(text: string) {
     if (!activeId) return;
+    if (editingId) {
+      const id = editingId;
+      setEditingId(null);
+      chatApi
+        .editText(id, text)
+        .then((updated) =>
+          setMessages((prev) =>
+            prev.map((m) => (m.id === id ? { ...m, ...updated } : m)),
+          ),
+        )
+        .catch((e) => setError(`No se pudo editar: ${(e as Error).message}`));
+      return;
+    }
     atBottomRef.current = true;
-    enqueueText(activeId, text);
+    const reply = replyingTo;
+    setReplyingTo(null);
+    enqueueText(activeId, text, reply);
   }
 
   function attachImage(file: File) {
@@ -545,15 +630,87 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
   function attachFile(file: File) {
     if (!activeId) return;
     atBottomRef.current = true;
-    enqueueFile(activeId, file);
+    const reply = replyingTo;
+    setReplyingTo(null);
+    enqueueFile(activeId, file, reply);
   }
 
   // Confirma el envío de la imagen en preview.
   function confirmSendImage() {
     if (!pendingImage || !activeId) return;
     atBottomRef.current = true;
-    enqueueImage(activeId, pendingImage.file);
+    const reply = replyingTo;
+    setReplyingTo(null);
+    enqueueImage(activeId, pendingImage.file, reply);
     setPendingImage(null);
+  }
+
+  // ── acciones de mensaje (responder / editar / eliminar / fijar / reenviar) ──
+  function handleReply(m: ChatMessage) {
+    setEditingId(null);
+    setReplyingTo(m);
+  }
+  function handleEdit(m: ChatMessage) {
+    if (m.type !== 'text' || m.deletedAt) return;
+    setReplyingTo(null);
+    setEditingId(m.id);
+    setDraft(m.body ?? '');
+  }
+  function cancelCompose() {
+    setReplyingTo(null);
+    setEditingId(null);
+    setDraft('');
+  }
+  async function handleDelete(m: ChatMessage) {
+    const ok = await confirm({
+      title: 'Eliminar mensaje',
+      message: 'Esta acción no se puede deshacer.',
+      confirmLabel: 'Eliminar',
+      tone: 'danger',
+    });
+    if (!ok) return;
+    try {
+      const updated = await chatApi.deleteMessage(m.id);
+      setMessages((prev) =>
+        prev.map((x) => (x.id === m.id ? { ...x, ...updated } : x)),
+      );
+    } catch (e) {
+      setError(`No se pudo eliminar: ${(e as Error).message}`);
+    }
+  }
+  async function handlePin(m: ChatMessage) {
+    try {
+      await chatApi.pinMessage(m.id, !m.pinnedAt);
+      if (activeId) chatApi.listPinned(activeId).then(setPinned).catch(() => {});
+    } catch (e) {
+      setError(`No se pudo fijar: ${(e as Error).message}`);
+    }
+  }
+
+  // ── notificaciones de escritorio ───────────────────────────────────────────
+  function requestNotifyPermission() {
+    if (typeof window === 'undefined' || !('Notification' in window)) return;
+    if (Notification.permission === 'default') {
+      Notification.requestPermission().catch(() => {});
+    }
+  }
+  function notifyDesktop(msg: ChatMessage) {
+    if (typeof window === 'undefined' || !('Notification' in window)) return;
+    if (Notification.permission !== 'granted') return;
+    const name = senderName(msg.senderId, usersRef.current);
+    try {
+      const n = new Notification(name, {
+        body: replySnippet(msg),
+        tag: msg.conversationId,
+      });
+      n.onclick = () => {
+        window.focus();
+        openConversation(msg.conversationId);
+        n.close();
+      };
+    } catch {
+      /* el navegador puede bloquear notificaciones: ignorar */
+    }
   }
 
   // Reintenta un mensaje que falló (quita la burbuja fallida y reenvía).
@@ -587,6 +744,12 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
     setLoadingMessages(true);
     setMessages([]);
     setReads([]);
+    setPinned([]);
+    setShowPinned(false);
+    setReplyingTo(null);
+    setEditingId(null);
+    setDraft('');
+    requestNotifyPermission();
     atBottomRef.current = true;
     setShowJump(false);
     setNewCount(0);
@@ -906,6 +1069,63 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
             )}
           </div>
 
+          {/* Barra de mensajes fijados */}
+          {pinned.length > 0 && (
+            <div className="border-b border-black/5 dark:border-white/10">
+              <button
+                onClick={() => setShowPinned((s) => !s)}
+                className="flex w-full items-center gap-2 px-5 py-2 text-left text-xs hover:bg-black/5 dark:hover:bg-white/10"
+              >
+                <Pin className="h-3.5 w-3.5 shrink-0 text-blue-500" />
+                <span className="shrink-0 font-medium">
+                  {pinned.length}{' '}
+                  {pinned.length === 1 ? 'fijado' : 'fijados'}
+                </span>
+                <span className="min-w-0 flex-1 truncate text-gray-500">
+                  · {replySnippet(pinned[0])}
+                </span>
+                {showPinned ? (
+                  <ChevronUp className="h-3.5 w-3.5 shrink-0" />
+                ) : (
+                  <ChevronDown className="h-3.5 w-3.5 shrink-0" />
+                )}
+              </button>
+              {showPinned && (
+                <div className="max-h-40 overflow-y-auto px-3 pb-2">
+                  {pinned.map((p) => (
+                    <div
+                      key={p.id}
+                      className="flex items-center gap-2 rounded-xl px-2 py-1.5 hover:bg-black/5 dark:hover:bg-white/10"
+                    >
+                      <button
+                        onClick={() =>
+                          document
+                            .getElementById(`msg-${p.id}`)
+                            ?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                        }
+                        className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                      >
+                        <span className="shrink-0 text-[11px] font-semibold">
+                          {senderName(p.senderId, users)}
+                        </span>
+                        <span className="min-w-0 flex-1 truncate text-xs text-gray-500">
+                          {replySnippet(p)}
+                        </span>
+                      </button>
+                      <button
+                        onClick={() => handlePin(p)}
+                        aria-label="Desfijar"
+                        className="shrink-0 rounded-full p-1 text-gray-400 hover:bg-black/5 dark:hover:bg-white/10"
+                      >
+                        <PinOff className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Mensajes */}
           <div
             ref={scrollRef}
@@ -939,6 +1159,11 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
                       onlineIds={onlineIds}
                       onReact={handleReact}
                       onRetry={retrySend}
+                      onReply={handleReply}
+                      onForward={setForwarding}
+                      onPin={handlePin}
+                      onEdit={handleEdit}
+                      onDelete={handleDelete}
                       grouped={grouped}
                       highlight={searchTerm}
                       isCurrentMatch={m.id === currentMatchMsgId}
@@ -993,6 +1218,35 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
 
           {/* Composer */}
           <div className="border-t border-black/5 p-3 dark:border-white/10">
+            {/* Banner de responder / editar */}
+            {(replyingTo || editingId) && (
+              <div className={`${glass} mb-2 flex items-center gap-2 rounded-2xl px-3 py-2`}>
+                {editingId ? (
+                  <Pencil className="h-4 w-4 shrink-0 text-blue-500" />
+                ) : (
+                  <Reply className="h-4 w-4 shrink-0 text-blue-500" />
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-semibold">
+                    {editingId
+                      ? 'Editando mensaje'
+                      : `Respondiendo a ${senderName(replyingTo!.senderId, users)}`}
+                  </p>
+                  {replyingTo && (
+                    <p className="truncate text-xs text-gray-500">
+                      {replySnippet(replyingTo)}
+                    </p>
+                  )}
+                </div>
+                <button
+                  onClick={cancelCompose}
+                  aria-label="Cancelar"
+                  className="rounded-full p-1 text-gray-500 hover:bg-black/5 dark:hover:bg-white/10"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            )}
             {/* Preview de la imagen elegida (antes de confirmar el envío) */}
             {pendingImage && (
               <div className={`${glass} mb-2 flex items-center gap-3 rounded-2xl p-2`}>
@@ -1035,6 +1289,7 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
               onAutocorrectChange={changeAutocorrect}
               compact={single}
               autoFocusKey={activeId ?? undefined}
+              placeholder={editingId ? 'Edita tu mensaje…' : undefined}
             />
           </div>
         </>
@@ -1093,6 +1348,23 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
             setShowNewChannel(false);
             await refreshConversations();
             openConversation(id);
+          }}
+        />
+      )}
+
+      {forwarding && (
+        <ForwardModal
+          conversations={conversations}
+          onClose={() => setForwarding(null)}
+          onSelect={async (cid) => {
+            const msg = forwarding;
+            setForwarding(null);
+            try {
+              await chatApi.forwardMessage(msg.id, cid);
+              refreshConversations();
+            } catch (e) {
+              setError(`No se pudo reenviar: ${(e as Error).message}`);
+            }
           }}
         />
       )}
@@ -1309,6 +1581,73 @@ function CallLogItem({ m, mine }: { m: UiMessage; mine: boolean }) {
 }
 
 /** Una burbuja de mensaje con toolbar (hover), reacciones y chips. */
+/** Ítem del menú de acciones de un mensaje. */
+function MenuItem({
+  icon,
+  label,
+  onClick,
+  danger,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  onClick: () => void;
+  danger?: boolean;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-sm hover:bg-black/5 dark:hover:bg-white/10 ${
+        danger ? 'text-red-600 dark:text-red-400' : ''
+      }`}
+    >
+      {icon}
+      {label}
+    </button>
+  );
+}
+
+/** Cita del mensaje al que se responde (clic → salta al original). */
+function ReplyQuote({
+  reply,
+  users,
+  onColored,
+}: {
+  reply: ReplyPreview;
+  users: ChatUser[];
+  onColored: boolean;
+}) {
+  return (
+    <button
+      onClick={(e) => {
+        e.stopPropagation();
+        document
+          .getElementById(`msg-${reply.id}`)
+          ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }}
+      className={`mb-1 flex w-full items-start gap-2 rounded-lg border-l-2 px-2 py-1 text-left text-xs ${
+        onColored
+          ? 'border-white/70 bg-white/15'
+          : 'border-blue-400 bg-black/5 dark:bg-white/10'
+      }`}
+    >
+      <span className="min-w-0">
+        <span
+          className={`block text-[11px] font-semibold ${
+            onColored ? 'text-white' : 'text-blue-600 dark:text-blue-300'
+          }`}
+        >
+          {senderName(reply.senderId, users)}
+        </span>
+        <span
+          className={`block truncate ${onColored ? 'text-white/80' : 'text-gray-500'}`}
+        >
+          {reply.snippet}
+        </span>
+      </span>
+    </button>
+  );
+}
+
 function MessageItem({
   m,
   mine,
@@ -1317,6 +1656,11 @@ function MessageItem({
   onlineIds,
   onReact,
   onRetry,
+  onReply,
+  onForward,
+  onPin,
+  onEdit,
+  onDelete,
   grouped,
   highlight = '',
   isCurrentMatch = false,
@@ -1328,20 +1672,41 @@ function MessageItem({
   onlineIds: Set<string>;
   onReact: (messageId: string, emoji: string) => void;
   onRetry?: (m: UiMessage) => void;
+  onReply?: (m: ChatMessage) => void;
+  onForward?: (m: ChatMessage) => void;
+  onPin?: (m: ChatMessage) => void;
+  onEdit?: (m: ChatMessage) => void;
+  onDelete?: (m: ChatMessage) => void;
   grouped: boolean;
   highlight?: string;
   isCurrentMatch?: boolean;
 }) {
   const [showPicker, setShowPicker] = useState(false);
   const [showMore, setShowMore] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
 
   // Registro de llamada: chip centrado tipo sistema (no es una burbuja normal).
   if (m.type === 'call') return <CallLogItem m={m} mine={mine} />;
+
+  // Mensaje eliminado: lápida discreta, sin acciones.
+  if (m.deletedAt) {
+    return (
+      <div
+        id={`msg-${m.id}`}
+        className={`mt-3 flex scroll-mt-24 ${mine ? 'justify-end' : 'justify-start'}`}
+      >
+        <span className="inline-flex items-center gap-1.5 rounded-[18px] bg-black/5 px-4 py-2 text-sm italic text-gray-400 dark:bg-white/5">
+          <Trash2 className="h-3.5 w-3.5" /> Mensaje eliminado
+        </span>
+      </div>
+    );
+  }
 
   const reactions = m.reactions ?? [];
   const sending = m.status === 'sending';
   const failed = m.status === 'failed';
   const showMeta = isChannel && !mine && !grouped;
+  const canModify = mine && !sending && !failed;
 
   const body = m.body ?? '';
   const isFile = m.type === 'file';
@@ -1350,6 +1715,19 @@ function MessageItem({
   const emojiOnly = m.type === 'text' && !stickerId && isEmojiOnly(body);
   const bare = emojiOnly || !!stickerId; // sin fondo de burbuja
   const wide = m.type === 'text' && !stickerId && !!body && hasTable(body);
+  const onColored = !isFile && !bare && mine; // texto blanco sobre burbuja azul
+  const forwardedTag = m.forwarded ? (
+    <p
+      className={`mb-0.5 flex items-center gap-1 text-[10px] italic ${
+        onColored ? 'text-white/70' : 'text-gray-400'
+      }`}
+    >
+      <CornerUpRight className="h-3 w-3" /> Reenviado
+    </p>
+  ) : null;
+  const replyQuote = m.replyTo ? (
+    <ReplyQuote reply={m.replyTo} users={users} onColored={onColored} />
+  ) : null;
 
   return (
     <div
@@ -1445,6 +1823,80 @@ function MessageItem({
                 </div>
               )}
             </div>
+
+            {/* Menú de acciones (responder / reenviar / fijar / editar / eliminar) */}
+            <div className="relative">
+              <button
+                onClick={() => {
+                  setShowMenu((s) => !s);
+                  setShowPicker(false);
+                }}
+                className={`${glass} flex h-7 w-7 items-center justify-center rounded-full text-gray-600 shadow hover:scale-105 dark:text-gray-200`}
+                aria-label="Más acciones"
+                aria-expanded={showMenu}
+              >
+                <MoreHorizontal className="h-4 w-4" />
+              </button>
+              {showMenu && (
+                <div
+                  className={`${glass} absolute bottom-9 z-20 ${
+                    mine ? 'left-0' : 'right-0'
+                  } w-44 rounded-2xl p-1 shadow-lg`}
+                >
+                  <MenuItem
+                    icon={<Reply className="h-4 w-4" />}
+                    label="Responder"
+                    onClick={() => {
+                      onReply?.(m);
+                      setShowMenu(false);
+                    }}
+                  />
+                  <MenuItem
+                    icon={<CornerUpRight className="h-4 w-4" />}
+                    label="Reenviar"
+                    onClick={() => {
+                      onForward?.(m);
+                      setShowMenu(false);
+                    }}
+                  />
+                  <MenuItem
+                    icon={
+                      m.pinnedAt ? (
+                        <PinOff className="h-4 w-4" />
+                      ) : (
+                        <Pin className="h-4 w-4" />
+                      )
+                    }
+                    label={m.pinnedAt ? 'Desfijar' : 'Fijar'}
+                    onClick={() => {
+                      onPin?.(m);
+                      setShowMenu(false);
+                    }}
+                  />
+                  {canModify && m.type === 'text' && (
+                    <MenuItem
+                      icon={<Pencil className="h-4 w-4" />}
+                      label="Editar"
+                      onClick={() => {
+                        onEdit?.(m);
+                        setShowMenu(false);
+                      }}
+                    />
+                  )}
+                  {canModify && (
+                    <MenuItem
+                      icon={<Trash2 className="h-4 w-4" />}
+                      label="Eliminar"
+                      danger
+                      onClick={() => {
+                        onDelete?.(m);
+                        setShowMenu(false);
+                      }}
+                    />
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         )}
 
@@ -1456,6 +1908,8 @@ function MessageItem({
                 {senderName(m.senderId, users)}
               </p>
             )}
+            {forwardedTag}
+            {replyQuote}
             {sending ? (
               <div className="flex w-60 max-w-full items-center gap-3 rounded-2xl bg-black/5 p-2.5 opacity-70 dark:bg-white/10">
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-black/10 dark:bg-white/15">
@@ -1481,6 +1935,7 @@ function MessageItem({
               }`}
             >
               <span>{timeOf(m.createdAt)}</span>
+              {m.editedAt && <span>· editado</span>}
             </div>
           </div>
         ) : (
@@ -1500,6 +1955,8 @@ function MessageItem({
                 {senderName(m.senderId, users)}
               </p>
             )}
+            {forwardedTag}
+            {replyQuote}
             {isImage ? (
               m.localPreviewUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -1530,6 +1987,7 @@ function MessageItem({
               } ${bare && mine ? 'justify-end' : ''}`}
             >
               <span>{timeOf(m.createdAt)}</span>
+              {m.editedAt && !sending && <span>· editado</span>}
               {sending && (
                 <>
                   <Clock className="h-3 w-3" />
@@ -1766,6 +2224,74 @@ function ConversationRow({
         </span>
       )}
     </button>
+  );
+}
+
+function ForwardModal({
+  conversations,
+  onClose,
+  onSelect,
+}: {
+  conversations: ChatConversation[];
+  onClose: () => void;
+  onSelect: (conversationId: string) => void;
+}) {
+  const [q, setQ] = useState('');
+  const list = conversations.filter((c) =>
+    (c.title || '').toLowerCase().includes(q.toLowerCase()),
+  );
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 p-4">
+      <div className={`${glass} w-full max-w-md rounded-[24px] p-6`}>
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="text-lg font-semibold">Reenviar a…</h3>
+          <button
+            onClick={onClose}
+            className="rounded-full p-1 hover:bg-black/5 dark:hover:bg-white/10"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <div className={`${glass} mb-3 flex items-center gap-2 rounded-full px-3 py-2`}>
+          <Search className="h-4 w-4 text-gray-500" />
+          <input
+            autoFocus
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Buscar conversación…"
+            className="w-full bg-transparent text-sm outline-none placeholder:text-gray-500"
+          />
+        </div>
+        <div className="max-h-72 space-y-1 overflow-y-auto">
+          {list.length === 0 && (
+            <p className="px-1 text-xs text-gray-400">Sin conversaciones</p>
+          )}
+          {list.map((c) => (
+            <button
+              key={c.id}
+              onClick={() => onSelect(c.id)}
+              className="flex w-full items-center gap-3 rounded-2xl p-2 text-left hover:bg-black/5 dark:hover:bg-white/10"
+            >
+              <span
+                className="flex h-9 w-9 items-center justify-center rounded-full text-xs font-bold text-white"
+                style={avatarStyle(c.counterpartId || c.id)}
+              >
+                {c.type === 'channel' ? (
+                  <Hash className="h-4 w-4" />
+                ) : (
+                  initials(c.title || '?')
+                )}
+              </span>
+              <span className="min-w-0">
+                <span className="block truncate text-sm font-medium">
+                  {c.title || 'Conversación'}
+                </span>
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
   );
 }
 
