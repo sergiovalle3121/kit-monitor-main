@@ -174,7 +174,10 @@ function addTableObject(slide: any, o: any) {
 
 // Construye los párrafos de un texto con viñetas/indentado a partir de las
 // líneas (• → bullet; sangría de 2 espacios = un nivel), como en el editor.
-function textParagraphs(o: any): any[] {
+// El hipervínculo va en CADA tirada de texto (run), no en las opciones del shape:
+// PptxGenJS sólo crea la relación r:id del enlace a nivel de run (a nivel de shape
+// quedaba como `rIdundefined`, un enlace roto).
+function textParagraphs(o: any, link?: any): any[] {
   const raw = String(o.text ?? '');
   return raw.split('\n').map((line) => {
     const indent = line.match(/^\s*/)?.[0].length ?? 0;
@@ -185,6 +188,7 @@ function textParagraphs(o: any): any[] {
     const level = Math.min(8, Math.floor(indent / 2));
     if (isBullet) { options.bullet = true; if (level) options.indentLevel = level; }
     else if (level) options.indentLevel = level;
+    if (link) options.hyperlink = link;
     return { text: body, options };
   });
 }
@@ -233,7 +237,7 @@ function addObject(slide: any, o: any, ST: any) {
   }
 
   if (type === 'textbox' || type === 'i-text' || type === 'text') {
-    slide.addText(textParagraphs(o), {
+    slide.addText(textParagraphs(o, link), {
       ...box,
       fontSize: Math.round((o.fontSize ?? 18) * scaleY * 0.75),
       color: hex(o.fill) ?? '111827',
@@ -248,7 +252,6 @@ function addObject(slide: any, o: any, ST: any) {
       ...(typeof o.charSpacing === 'number' && o.charSpacing ? { charSpacing: Math.round(o.charSpacing / 10) } : {}),
       ...(tr !== undefined ? { transparency: tr } : {}),
       ...(shadow ? { shadow } : {}),
-      ...(link ? { hyperlink: link } : {}),
     });
     return;
   }
