@@ -97,7 +97,7 @@ export const AREAS: DashboardArea[] = [
   { name: "Personas (RH)", desc: "Plantilla y accesos", href: "/dashboard/rh", icon: Icons.Users, domain: "people", roles: ["hr"], section: "Administración" },
   { name: "Skills · Certificaciones", desc: "Matriz de habilidades y recerts", href: "/dashboard/skills", icon: Icons.GraduationCap, domain: "people", roles: ["hr", "production_supervisor", "quality_engineer"], section: "Administración" },
   { name: "EHS · Seguridad", desc: "Incidentes y casi-accidentes", href: "/dashboard/ehs", icon: Icons.ShieldAlert, domain: "people", roles: ["hr", "production_supervisor", "maintenance_tech"], section: "Administración" },
-  { name: "Legal · Contratos", desc: "Contratos y vencimientos", href: "/dashboard/legal", icon: Icons.Scale, domain: "office", roles: ["finance", "hr"], section: "Administración" },
+  { name: "Legal · Contratos", desc: "Contratos, vencimientos y renovaciones", href: "/dashboard/legal", icon: Icons.Scale, domain: "office", roles: ["finance", "hr", "plant_manager"], section: "Administración" },
   { name: "CRM · Pipeline", desc: "Oportunidades de venta", href: "/dashboard/crm", icon: Icons.Target, domain: "finance", roles: ["finance"], section: "Administración" },
   { name: "Office", desc: "Docs · Hojas · Slides", href: "/dashboard/office", icon: FileText, domain: "office", roles: ["engineering", "planner", "quality_engineer", "production_supervisor", "warehouse_operator", "finance", "buyer", "hr"], section: "Administración" },
 ];
