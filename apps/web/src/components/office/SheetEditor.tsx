@@ -5,7 +5,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence } from 'framer-motion';
 import { Workbook } from '@fortune-sheet/react';
 import '@fortune-sheet/react/dist/index.css';
-import { ListChecks, Palette, Snowflake, FileText, Sigma, Search, ArrowDownUp, CopyMinus, Columns3, StickyNote, Table2, Hash, Rows3, Activity, ArrowDownToLine, FlipVertical2, Tag, Printer, ClipboardPaste, Filter, RefreshCw, LayoutGrid } from 'lucide-react';
+import { ListChecks, Palette, Snowflake, FileText, Sigma, Search, ArrowDownUp, CopyMinus, Columns3, StickyNote, Table2, Hash, Rows3, Activity, ArrowDownToLine, FlipVertical2, Tag, Printer, ClipboardPaste, Filter, RefreshCw, LayoutGrid, Sparkles } from 'lucide-react';
 import { SheetCharts } from './SheetCharts';
 import { SheetTools, type ValidationPayload } from './SheetTools';
 import { SheetFunctionWizard } from './SheetFunctionWizard';
@@ -20,6 +20,7 @@ import { parseRange, type ChartConfig } from '@/lib/office/charts';
 import { applyConditional, sortRangeMulti, removeDuplicates, textToColumns, setCellNote, replaceAll, buildPivot, pivotToCelldata, applyNumberFormat, applyCellStyle, applySubtotals, applySparkline, applyFill, transposeRange, copyRange, buildFilter, buildPrintHtml, usedRange, colName, applyDataVerification, clearDataVerification, markInvalidCells, applyTableStyle, type CondPayload, type PivotConfig, type FindOpts, type NamedRange, type PrintOpts } from '@/lib/office/sheetOps';
 import { normalizeCellInput } from './sheets/sheetFormula';
 import { installFormulaEngine } from './sheets/formulaEngine';
+import { applySpill } from './sheets/arraySpill';
 import { OfficeRibbon, RibbonTab, RibbonGroup, RibbonSeparator, RibbonButton, RibbonMenuButton } from './ribbon';
 import { useToast } from '@/contexts/ToastContext';
 
@@ -312,6 +313,19 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
     window.setTimeout(() => toast.success(`${updated} tabla(s) dinámica(s) actualizada(s).`), 30);
   }
 
+  // Derrama (spill) la fórmula matricial de la celda seleccionada a las celdas vecinas
+  // (UNIQUE/SORT/FILTER/SEQUENCE…), estilo Excel 365, con detección de #SPILL!.
+  function doSpill() {
+    const cell = selectionRange().split(':')[0];
+    const sheets = clone(sheetsRef.current);
+    const sheet = sheets[activeIndex()] ?? sheets[0];
+    if (!sheet) return;
+    const res = applySpill(sheet, cell);
+    if (!res.ok) { toast.error(res.error || 'No se pudo derramar la matriz.'); return; }
+    remount(sheets);
+    window.setTimeout(() => toast.success(`Matriz derramada en ${res.rows}×${res.cols} celdas desde ${cell}.`), 30);
+  }
+
   // Rango A1 de la selección actual del grid (para prefijar diálogos de formato).
   function selectionRange(): string {
     try {
@@ -433,6 +447,10 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
             <RibbonSeparator />
             <RibbonGroup label="Minigráficos">
               <RibbonButton icon={Activity} label="Sparkline" hideLabel={false} onClick={() => setDataMode('spark')} />
+            </RibbonGroup>
+            <RibbonSeparator />
+            <RibbonGroup label="Matrices dinámicas">
+              <RibbonButton icon={Sparkles} label="Derramar matriz (#)" hideLabel={false} onClick={doSpill} />
             </RibbonGroup>
           </RibbonTab>
         )}
