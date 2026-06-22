@@ -79,6 +79,7 @@ import { DocFootnotes } from './docs/DocFootnotes';
 import { DocToc } from './docs/DocToc';
 import { DocSections } from './docs/DocSections';
 import { DocInsertExtras } from './docs/DocInsertExtras';
+import { DocMailMerge } from './docs/DocMailMerge';
 import { DocTrackChanges, type TrackView } from './docs/DocTrackChanges';
 import { DocWordCount } from './docs/DocWordCount';
 import { DocTemplates } from './docs/DocTemplates';
@@ -522,6 +523,10 @@ export function DocEditor({ value, onChange, readOnly, author, onStats, fileActi
             <RibbonGroup label="Código">
               <RibbonButton icon={Code2} label="Código en línea" active={editor.isActive('code')} onClick={() => (c() as any).toggleCode().run()} />
               <RibbonButton icon={Code} label="Bloque de código" active={editor.isActive('codeBlock')} onClick={() => c().toggleCodeBlock().run()} />
+            </RibbonGroup>
+            <RibbonSeparator />
+            <RibbonGroup label="Correspondencia">
+              <DocMailMerge editor={editor} title={title} />
             </RibbonGroup>
             <RibbonSeparator />
             <DocInsertExtras editor={editor} />
