@@ -10,6 +10,7 @@ import { InventoryPosition } from '../inventory/entities/inventory-position.enti
 import { InventoryService } from '../inventory/inventory.service';
 import { EventLedgerService } from '../event-ledger/event-ledger.service';
 import { EventDomain } from '../event-ledger/entities/ledger-event.entity';
+import { DocumentNumberingService } from '../numbering/document-numbering.service';
 import { NcrService } from '../ncr/ncr.service';
 import { NcrStatus } from '../ncr/entities/ncr.entity';
 import { SuppliersService } from '../suppliers/suppliers.service';
@@ -41,7 +42,40 @@ export class QualityService {
     private readonly suppliersService: SuppliersService,
     private readonly audit: AuditService,
     private readonly dataSource: DataSource,
+    private readonly numbering: DocumentNumberingService,
   ) {}
+
+  /**
+   * Certifica (firma electrónicamente) un Certificado de Conformancia. Emite un
+   * folio oficial COC- y registra una ATESTACIÓN INMUTABLE en el Event Ledger:
+   * quién certifica (identidad de la sesión, no del body), cuándo, el folio y un
+   * hash del contenido del documento. No es PKI legal, pero es una firma
+   * electrónica atribuible + un registro inmutable real (el ledger es append-only).
+   */
+  async certifyCoc(
+    dto: { subjectType?: string; subject?: string; contentHash?: string },
+    actor: string,
+  ): Promise<{ folio: string; certifiedBy: string; certifiedAt: string; contentHash: string | null }> {
+    const folio = await this.numbering.allocate('COC');
+    const certifiedAt = new Date().toISOString();
+    const referenceType = (dto.subjectType || 'COC').toUpperCase();
+    const referenceId = (dto.subject || folio).toString();
+    const contentHash = dto.contentHash ?? null;
+    await this.eventLedger.recordEvent({
+      domain: EventDomain.QUALITY,
+      action: 'COC_CERTIFIED',
+      actorName: actor,
+      referenceType,
+      referenceId,
+      metadata: {
+        document: 'Certificate of Conformance',
+        folio,
+        contentHash,
+        certifiedAt,
+      },
+    });
+    return { folio, certifiedBy: actor, certifiedAt, contentHash };
+  }
 
   async findAllActiveHolds(): Promise<QualityHold[]> {
     return this.holdRepo.find({ where: { isActive: true }, order: { createdAt: 'DESC' } });
