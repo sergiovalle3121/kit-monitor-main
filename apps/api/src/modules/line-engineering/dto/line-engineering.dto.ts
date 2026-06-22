@@ -1,12 +1,16 @@
 import {
+  IsArray,
   IsBoolean,
+  IsIn,
   IsInt,
   IsNumber,
   IsOptional,
   IsString,
   Length,
   Min,
+  ValidateNested,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateStationDto {
@@ -37,19 +41,28 @@ export class CreateStationDto {
   @Min(1)
   sequence?: number;
 
-  @ApiPropertyOptional({ example: 'CAP-0402-100NF', description: 'Expected NP (poka-yoke).' })
+  @ApiPropertyOptional({
+    example: 'CAP-0402-100NF',
+    description: 'Expected NP (poka-yoke).',
+  })
   @IsOptional()
   @IsString()
   @Length(0, 64)
   npExpected?: string;
 
-  @ApiPropertyOptional({ example: 2, description: 'Qty per unit (supports fractions).' })
+  @ApiPropertyOptional({
+    example: 2,
+    description: 'Qty per unit (supports fractions).',
+  })
   @IsOptional()
   @IsNumber()
   @Min(0)
   useFactor?: number;
 
-  @ApiPropertyOptional({ example: 45, description: 'Standard time per unit (sec).' })
+  @ApiPropertyOptional({
+    example: 45,
+    description: 'Standard time per unit (sec).',
+  })
   @IsOptional()
   @IsNumber()
   @Min(0)
@@ -204,4 +217,113 @@ export class UpdateModelLineDto {
   @IsString()
   @Length(0, 255)
   notes?: string;
+}
+
+// ── 2D layout editor (additive) ──────────────────────────────────────────────
+
+/** Canvas/footprint config for a model+revision layout. */
+export class LayoutFootprintDto {
+  @ApiPropertyOptional({
+    example: 20000,
+    description: 'Footprint width along X (in unit).',
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  footprintW?: number;
+
+  @ApiPropertyOptional({
+    example: 10000,
+    description: 'Footprint length along Y (in unit).',
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  footprintH?: number;
+
+  @ApiPropertyOptional({ example: 'mm', enum: ['mm', 'm'] })
+  @IsOptional()
+  @IsIn(['mm', 'm'])
+  unit?: string;
+
+  @ApiPropertyOptional({
+    example: 500,
+    description: 'Grid / snap step (in unit).',
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  gridSize?: number;
+}
+
+/** One station's physical placement on the layout. */
+export class LayoutPositionDto {
+  @ApiProperty({ description: 'Station id (sf_line_stations.id).' })
+  @IsString()
+  @Length(1, 64)
+  id: string;
+
+  @ApiProperty({ example: 1000 })
+  @IsNumber()
+  x: number;
+
+  @ApiProperty({ example: 2000 })
+  @IsNumber()
+  y: number;
+
+  @ApiPropertyOptional({ example: 1200 })
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  w?: number;
+
+  @ApiPropertyOptional({ example: 800 })
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  h?: number;
+
+  @ApiPropertyOptional({ example: 0, description: 'Rotation in degrees.' })
+  @IsOptional()
+  @IsNumber()
+  rotation?: number;
+}
+
+/** Persist a model+revision layout: footprint config + station placements. */
+export class SaveLayoutDto {
+  @ApiProperty({ example: 'AX-1000' })
+  @IsString()
+  @Length(1, 64)
+  model: string;
+
+  @ApiPropertyOptional({ example: 'A' })
+  @IsOptional()
+  @IsString()
+  @Length(1, 16)
+  revision?: string;
+
+  @ApiPropertyOptional({ type: LayoutFootprintDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => LayoutFootprintDto)
+  footprint?: LayoutFootprintDto;
+
+  @ApiPropertyOptional({
+    type: [LayoutPositionDto],
+    description: 'Placed stations.',
+  })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => LayoutPositionDto)
+  positions?: LayoutPositionDto[];
+
+  @ApiPropertyOptional({
+    type: [String],
+    description: 'Station ids to unplace (clear coords).',
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  cleared?: string[];
 }

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useId, useMemo, useState } from 'react';
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import {
   ChevronLeft, Gauge, Plus, Lock, Loader2, Inbox, X, CheckCircle2,
@@ -15,6 +16,13 @@ import { useApi } from '@/hooks/useApi';
 import { useDialogA11y } from '@/hooks/useDialogA11y';
 import { apiFetch } from '@/lib/apiFetch';
 import { useToast } from '@/contexts/ToastContext';
+
+// The 2D layout editor stands on `fabric` (canvas), so it is browser-only —
+// loaded with ssr:false, the same pattern the Office editors use.
+const LayoutEditor = dynamic(
+  () => import('@/components/line-engineering/LayoutEditor').then((m) => m.LayoutEditor),
+  { ssr: false, loading: () => <div className="flex justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div> },
+);
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000').replace(/\/$/, '');
 const ROSE = '#f43f5e';
@@ -69,6 +77,7 @@ export default function LineEngineeringPage() {
   }, [stations]);
 
   const [selModel, setSelModel] = useState<string>('');
+  const [view, setView] = useState<'balance' | 'layout'>('balance');
   const activeModel = selModel || (models[0] ? `${models[0].model}|${models[0].revision}` : '');
   const [model, revision] = activeModel ? activeModel.split('|') : ['', 'A'];
 
@@ -216,6 +225,27 @@ export default function LineEngineeringPage() {
           </div>
         )}
 
+        {/* View tabs — Balanceo (lista actual) coexiste con el Layout 2D, no lo reemplaza */}
+        <div className="flex items-center gap-1 mb-5 p-1 rounded-xl bg-black/[0.04] dark:bg-white/[0.05] w-fit">
+          {([['balance', 'Balanceo', BarChart3], ['layout', 'Layout 2D', Layers]] as const).map(([key, label, Icon]) => {
+            const on = view === key;
+            return (
+              <button
+                key={key}
+                onClick={() => setView(key)}
+                className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-[13px] font-medium transition-colors ${on ? 'bg-white dark:bg-white/10 shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
+                style={on ? { color: ROSE } : undefined}
+              >
+                <Icon className="w-4 h-4" /> {label}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Layout 2D editor — additive, reusa las estaciones existentes */}
+        {view === 'layout' && <LayoutEditor model={model} revision={revision} />}
+
+        {view === 'balance' && (<>
         {/* Balance panel */}
         {balance && model && (
           <div className={`${glass} rounded-2xl p-5 mb-6`}>
@@ -314,6 +344,7 @@ export default function LineEngineeringPage() {
             </div>
           </div>
         )}
+        </>)}
       </main>
 
       {/* Station modal */}

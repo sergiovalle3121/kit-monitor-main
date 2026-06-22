@@ -9,6 +9,7 @@ import {
 import { ObjectLiteral, SelectQueryBuilder } from 'typeorm';
 import { SfLineStation } from './entities/sf-line-station.entity';
 import { SfModelLine } from './entities/sf-model-line.entity';
+import { SfLineLayout } from './entities/sf-line-layout.entity';
 import { TenantContextService } from '../../common/tenant/tenant-context.service';
 import {
   TenantScopedRepository,
@@ -19,6 +20,7 @@ import { EventDomain } from '../event-ledger/entities/ledger-event.entity';
 import {
   CreateStationDto,
   QualifyModelLineDto,
+  SaveLayoutDto,
   UpdateModelLineDto,
   UpdateStationDto,
 } from './dto/line-engineering.dto';
@@ -41,6 +43,34 @@ export interface StationRequirement {
   visualAidUrl: string | null;
   ctq: boolean;
   feederPosition: string | null;
+}
+
+/** A station as the 2D layout editor consumes it (placement may be null). */
+export interface LayoutStation {
+  id: string;
+  station: string;
+  line: string;
+  sequence: number;
+  ctq: boolean;
+  x: number | null;
+  y: number | null;
+  w: number | null;
+  h: number | null;
+  rotation: number | null;
+}
+
+export interface LayoutFootprint {
+  footprintW: number;
+  footprintH: number;
+  unit: string;
+  gridSize: number;
+}
+
+export interface LineLayout {
+  model: string;
+  revision: string;
+  footprint: LayoutFootprint;
+  stations: LayoutStation[];
 }
 
 export interface LineEngineeringKpis {
@@ -66,11 +96,28 @@ export class LineEngineeringService {
     @Inject(getTenantRepositoryToken(SfModelLine))
     private readonly modelLines: TenantScopedRepository<SfModelLine>,
     private readonly tenantCtx: TenantContextService,
+    // `layouts` is optional and placed after `tenantCtx` on purpose: existing
+    // callers that build this service positionally with (stations, modelLines,
+    // ctx) keep working untouched. Production DI still injects it by token.
+    @Optional()
+    @Inject(getTenantRepositoryToken(SfLineLayout))
+    private readonly layouts?: TenantScopedRepository<SfLineLayout>,
     @Optional() private readonly ledger?: EventLedgerService,
   ) {}
 
+  /** The layout repo, guaranteed present (DI always provides it in real use). */
+  private requireLayouts(): TenantScopedRepository<SfLineLayout> {
+    if (!this.layouts) {
+      throw new Error('SfLineLayout repository is not available.');
+    }
+    return this.layouts;
+  }
+
   // ── Scope ────────────────────────────────────────────────────────────────
-  private applyScope<T extends ObjectLiteral>(qb: SelectQueryBuilder<T>, alias: string): SelectQueryBuilder<T> {
+  private applyScope<T extends ObjectLiteral>(
+    qb: SelectQueryBuilder<T>,
+    alias: string,
+  ): SelectQueryBuilder<T> {
     const tenant = this.tenantCtx.getTenantId();
     const plant = this.tenantCtx.getPlantId();
     if (tenant) qb.andWhere(`${alias}.tenant_id = :tenant`, { tenant });
@@ -108,17 +155,25 @@ export class LineEngineeringService {
       ...this.scopeFields(),
     });
     const saved = await this.stations.save(entity);
-    await this.record('SF_STATION_LAYOUT_CREATED', saved.id, saved.programId, { after: saved });
+    await this.record('SF_STATION_LAYOUT_CREATED', saved.id, saved.programId, {
+      after: saved,
+    });
     return saved;
   }
 
-  async listStations(filters: { model?: string; line?: string; revision?: string } = {}): Promise<SfLineStation[]> {
+  async listStations(
+    filters: { model?: string; line?: string; revision?: string } = {},
+  ): Promise<SfLineStation[]> {
     const qb = this.stations.createQueryBuilder('s');
     this.applyScope(qb, 's');
     if (filters.model) qb.andWhere('s.model = :m', { m: filters.model });
     if (filters.line) qb.andWhere('s.line = :l', { l: filters.line });
-    if (filters.revision) qb.andWhere('s.revision = :r', { r: filters.revision });
-    return qb.orderBy('s.line', 'ASC').addOrderBy('s.sequence', 'ASC').getMany();
+    if (filters.revision)
+      qb.andWhere('s.revision = :r', { r: filters.revision });
+    return qb
+      .orderBy('s.line', 'ASC')
+      .addOrderBy('s.sequence', 'ASC')
+      .getMany();
   }
 
   async getStation(id: string): Promise<SfLineStation> {
@@ -127,22 +182,34 @@ export class LineEngineeringService {
     return found;
   }
 
-  async updateStation(id: string, dto: UpdateStationDto): Promise<SfLineStation> {
+  async updateStation(
+    id: string,
+    dto: UpdateStationDto,
+  ): Promise<SfLineStation> {
     const s = await this.getStation(id);
     const before = { ...s };
     Object.assign(s, {
       ...(dto.sequence !== undefined && { sequence: dto.sequence }),
-      ...(dto.npExpected !== undefined && { npExpected: dto.npExpected.trim() || null }),
+      ...(dto.npExpected !== undefined && {
+        npExpected: dto.npExpected.trim() || null,
+      }),
       ...(dto.useFactor !== undefined && { useFactor: dto.useFactor }),
       ...(dto.stdTimeSec !== undefined && { stdTimeSec: dto.stdTimeSec }),
-      ...(dto.feederPosition !== undefined && { feederPosition: dto.feederPosition.trim() || null }),
-      ...(dto.visualAidUrl !== undefined && { visualAidUrl: dto.visualAidUrl.trim() || null }),
+      ...(dto.feederPosition !== undefined && {
+        feederPosition: dto.feederPosition.trim() || null,
+      }),
+      ...(dto.visualAidUrl !== undefined && {
+        visualAidUrl: dto.visualAidUrl.trim() || null,
+      }),
       ...(dto.ctq !== undefined && { ctq: dto.ctq }),
       ...(dto.notes !== undefined && { notes: dto.notes }),
       ...(dto.active !== undefined && { active: dto.active }),
     });
     const saved = await this.stations.save(s);
-    await this.record('SF_STATION_LAYOUT_UPDATED', saved.id, saved.programId, { before, after: saved });
+    await this.record('SF_STATION_LAYOUT_UPDATED', saved.id, saved.programId, {
+      before,
+      after: saved,
+    });
     return saved;
   }
 
@@ -157,7 +224,10 @@ export class LineEngineeringService {
   }
 
   /** Station-by-station requirements for a unit — bridge to staging/operator. */
-  async stationRequirements(model: string, revision = 'A'): Promise<StationRequirement[]> {
+  async stationRequirements(
+    model: string,
+    revision = 'A',
+  ): Promise<StationRequirement[]> {
     const route = await this.routing(model, revision);
     return route.map((s) => ({
       station: s.station,
@@ -180,7 +250,9 @@ export class LineEngineeringService {
       .andWhere('q.revision = :r', { r: dto.revision ?? 'A' });
     const existing = await qb.getOne();
     if (existing) {
-      throw new BadRequestException('Ese modelo ya está calificado en esa línea.');
+      throw new BadRequestException(
+        'Ese modelo ya está calificado en esa línea.',
+      );
     }
     const entity = this.modelLines.create({
       model: dto.model.trim(),
@@ -194,11 +266,15 @@ export class LineEngineeringService {
       ...this.scopeFields(),
     });
     const saved = await this.modelLines.save(entity);
-    await this.record('SF_MODEL_LINE_QUALIFIED', saved.id, saved.programId, { after: saved });
+    await this.record('SF_MODEL_LINE_QUALIFIED', saved.id, saved.programId, {
+      after: saved,
+    });
     return saved;
   }
 
-  async listQualifications(filters: { line?: string; model?: string } = {}): Promise<SfModelLine[]> {
+  async listQualifications(
+    filters: { line?: string; model?: string } = {},
+  ): Promise<SfModelLine[]> {
     const qb = this.modelLines.createQueryBuilder('q');
     this.applyScope(qb, 'q');
     if (filters.line) qb.andWhere('q.line = :l', { l: filters.line });
@@ -206,18 +282,167 @@ export class LineEngineeringService {
     return qb.orderBy('q.line', 'ASC').addOrderBy('q.model', 'ASC').getMany();
   }
 
-  async updateQualification(id: string, dto: UpdateModelLineDto): Promise<SfModelLine> {
+  async updateQualification(
+    id: string,
+    dto: UpdateModelLineDto,
+  ): Promise<SfModelLine> {
     const q = await this.modelLines.findOne({ where: { id } });
     if (!q) throw new NotFoundException('Calificación no encontrada.');
     Object.assign(q, {
-      ...(dto.changeoverMinutes !== undefined && { changeoverMinutes: dto.changeoverMinutes }),
-      ...(dto.taktTargetSec !== undefined && { taktTargetSec: dto.taktTargetSec }),
+      ...(dto.changeoverMinutes !== undefined && {
+        changeoverMinutes: dto.changeoverMinutes,
+      }),
+      ...(dto.taktTargetSec !== undefined && {
+        taktTargetSec: dto.taktTargetSec,
+      }),
       ...(dto.active !== undefined && { active: dto.active }),
       ...(dto.notes !== undefined && { notes: dto.notes }),
     });
     const saved = await this.modelLines.save(q);
-    await this.record('SF_MODEL_LINE_UPDATED', saved.id, saved.programId, { after: saved });
+    await this.record('SF_MODEL_LINE_UPDATED', saved.id, saved.programId, {
+      after: saved,
+    });
     return saved;
+  }
+
+  // ── Layout (2D physical placement) ─────────────────────────────────────────
+
+  private static readonly DEFAULT_FOOTPRINT: LayoutFootprint = {
+    footprintW: 20000,
+    footprintH: 10000,
+    unit: 'mm',
+    gridSize: 500,
+  };
+
+  private toLayoutStation(s: SfLineStation): LayoutStation {
+    return {
+      id: s.id,
+      station: s.station,
+      line: s.line,
+      sequence: s.sequence,
+      ctq: !!s.ctq,
+      x: s.layoutX ?? null,
+      y: s.layoutY ?? null,
+      w: s.layoutW ?? null,
+      h: s.layoutH ?? null,
+      rotation: s.layoutRotation ?? null,
+    };
+  }
+
+  /** Hydrate the 2D layout editor: footprint config + stations (placed or not). */
+  async getLayout(model: string, revision = 'A'): Promise<LineLayout> {
+    const layouts = this.requireLayouts();
+    const m = (model ?? '').trim();
+    const r = (revision ?? 'A').trim() || 'A';
+    const sQb = this.stations.createQueryBuilder('s');
+    this.applyScope(sQb, 's');
+    sQb.andWhere('s.model = :m', { m }).andWhere('s.revision = :r', { r });
+    const stations = await sQb.orderBy('s.sequence', 'ASC').getMany();
+
+    const lQb = layouts.createQueryBuilder('l');
+    this.applyScope(lQb, 'l');
+    lQb.andWhere('l.model = :m', { m }).andWhere('l.revision = :r', { r });
+    const layout = await lQb.getOne();
+
+    return {
+      model: m,
+      revision: r,
+      footprint: layout
+        ? {
+            footprintW: Number(layout.footprintW),
+            footprintH: Number(layout.footprintH),
+            unit: layout.unit || 'mm',
+            gridSize: Number(layout.gridSize),
+          }
+        : { ...LineEngineeringService.DEFAULT_FOOTPRINT },
+      stations: stations.map((s) => this.toLayoutStation(s)),
+    };
+  }
+
+  /**
+   * Persist a model+revision layout additively: upsert the footprint config and
+   * write each station's x/y/w/h/rotation. Only stations already in scope for
+   * this model+revision are touched — the routing/balance data is never altered.
+   */
+  async saveLayout(dto: SaveLayoutDto): Promise<LineLayout> {
+    const layouts = this.requireLayouts();
+    const model = (dto.model ?? '').trim();
+    const revision = (dto.revision ?? 'A').trim() || 'A';
+    if (!model) throw new BadRequestException('model es obligatorio.');
+
+    // 1) Footprint config (find-or-create within scope).
+    if (dto.footprint) {
+      const qb = layouts.createQueryBuilder('l');
+      this.applyScope(qb, 'l');
+      qb.andWhere('l.model = :m', { m: model }).andWhere('l.revision = :r', {
+        r: revision,
+      });
+      let layout = await qb.getOne();
+      if (!layout) {
+        layout = layouts.create({
+          model,
+          revision,
+          ...LineEngineeringService.DEFAULT_FOOTPRINT,
+          ...this.scopeFields(),
+        });
+      }
+      const f = dto.footprint;
+      if (f.footprintW !== undefined)
+        layout.footprintW = clampPos(f.footprintW, layout.footprintW);
+      if (f.footprintH !== undefined)
+        layout.footprintH = clampPos(f.footprintH, layout.footprintH);
+      if (f.unit !== undefined) layout.unit = f.unit === 'm' ? 'm' : 'mm';
+      if (f.gridSize !== undefined)
+        layout.gridSize = clampPos(f.gridSize, layout.gridSize);
+      await layouts.save(layout);
+    }
+
+    // 2) Station placements. Load the model's stations once (scoped) and index
+    //    by id, so a bad/foreign id is simply ignored (never escapes scope).
+    const sQb = this.stations.createQueryBuilder('s');
+    this.applyScope(sQb, 's');
+    sQb
+      .andWhere('s.model = :m', { m: model })
+      .andWhere('s.revision = :r', { r: revision });
+    const stations = await sQb.getMany();
+    const byId = new Map(stations.map((s) => [s.id, s]));
+
+    const dirty = new Set<SfLineStation>();
+    for (const p of dto.positions ?? []) {
+      const s = byId.get(p.id);
+      if (!s) continue;
+      s.layoutX = Number(p.x) || 0;
+      s.layoutY = Number(p.y) || 0;
+      s.layoutW = p.w !== undefined ? clampPos(p.w, s.layoutW ?? 1) : s.layoutW;
+      s.layoutH = p.h !== undefined ? clampPos(p.h, s.layoutH ?? 1) : s.layoutH;
+      s.layoutRotation =
+        p.rotation !== undefined
+          ? Number(p.rotation) || 0
+          : (s.layoutRotation ?? 0);
+      dirty.add(s);
+    }
+    for (const id of dto.cleared ?? []) {
+      const s = byId.get(id);
+      if (!s) continue;
+      s.layoutX = null;
+      s.layoutY = null;
+      s.layoutW = null;
+      s.layoutH = null;
+      s.layoutRotation = null;
+      dirty.add(s);
+    }
+    if (dirty.size > 0) await this.stations.save([...dirty]);
+
+    await this.record('SF_LINE_LAYOUT_SAVED', `${model}|${revision}`, null, {
+      after: {
+        model,
+        revision,
+        placed: dto.positions?.length ?? 0,
+        cleared: dto.cleared?.length ?? 0,
+      },
+    });
+
+    return this.getLayout(model, revision);
   }
 
   // ── Calculations ───────────────────────────────────────────────────────────
@@ -229,18 +454,30 @@ export class LineEngineeringService {
     availableTimeSec?: number;
     demandUnits?: number;
     taktTargetSec?: number;
-  }): Promise<BalanceResult & { completeness: LayoutCompleteness; model: string; revision: string }> {
+  }): Promise<
+    BalanceResult & {
+      completeness: LayoutCompleteness;
+      model: string;
+      revision: string;
+    }
+  > {
     const revision = params.revision ?? 'A';
     const route = await this.routing(params.model, revision);
     if (route.length === 0) {
-      throw new NotFoundException(`Sin ruteo para ${params.model} rev ${revision}.`);
+      throw new NotFoundException(
+        `Sin ruteo para ${params.model} rev ${revision}.`,
+      );
     }
     const takt =
       params.taktTargetSec && params.taktTargetSec > 0
         ? params.taktTargetSec
         : computeTaktSec(params.availableTimeSec ?? 0, params.demandUnits ?? 0);
     const result = balanceLine(
-      route.map((s) => ({ station: s.station, sequence: s.sequence, stdTimeSec: Number(s.stdTimeSec) })),
+      route.map((s) => ({
+        station: s.station,
+        sequence: s.sequence,
+        stdTimeSec: Number(s.stdTimeSec),
+      })),
       takt,
     );
     const completeness = layoutCompleteness(
@@ -282,7 +519,9 @@ export class LineEngineeringService {
     const requiredMinutes = (cycleSecPerUnit * (params.demandUnits || 0)) / 60;
     const qb = this.modelLines.createQueryBuilder('q');
     this.applyScope(qb, 'q');
-    qb.andWhere('q.model = :m', { m: params.model }).andWhere('q.line = :l', { l: params.line });
+    qb.andWhere('q.model = :m', { m: params.model }).andWhere('q.line = :l', {
+      l: params.line,
+    });
     const ql = await qb.getOne();
     const changeover = ql ? Number(ql.changeoverMinutes) || 0 : 0;
     const totalRequired = requiredMinutes + changeover;
@@ -318,16 +557,31 @@ export class LineEngineeringService {
     let modelsBalanced = 0;
     let incompleteLayouts = 0;
     for (const [, list] of groups) {
-      const takt = list
-        .map((s) => quals.find((q) => q.model === s.model && q.taktTargetSec > 0)?.taktTargetSec ?? 0)
-        .find((t) => t > 0) ?? 0;
+      const takt =
+        list
+          .map(
+            (s) =>
+              quals.find((q) => q.model === s.model && q.taktTargetSec > 0)
+                ?.taktTargetSec ?? 0,
+          )
+          .find((t) => t > 0) ?? 0;
       const res = balanceLine(
-        list.map((s) => ({ station: s.station, sequence: s.sequence, stdTimeSec: Number(s.stdTimeSec) })),
+        list.map((s) => ({
+          station: s.station,
+          sequence: s.sequence,
+          stdTimeSec: Number(s.stdTimeSec),
+        })),
         takt,
       );
-      if (res.balancePct >= BALANCE_OK && res.stationsOverTakt.length === 0) modelsBalanced++;
+      if (res.balancePct >= BALANCE_OK && res.stationsOverTakt.length === 0)
+        modelsBalanced++;
       const comp = layoutCompleteness(
-        list.map((s) => ({ npExpected: s.npExpected, useFactor: Number(s.useFactor), visualAidUrl: s.visualAidUrl, ctq: !!s.ctq })),
+        list.map((s) => ({
+          npExpected: s.npExpected,
+          useFactor: Number(s.useFactor),
+          visualAidUrl: s.visualAidUrl,
+          ctq: !!s.ctq,
+        })),
       );
       if (comp.incompleteStations > 0) incompleteLayouts++;
     }
@@ -335,10 +589,14 @@ export class LineEngineeringService {
     return {
       stationsTotal: active.length,
       stationsWithVisualAid,
-      pctVisualAid: active.length ? round(stationsWithVisualAid / active.length, 4) : 0,
+      pctVisualAid: active.length
+        ? round(stationsWithVisualAid / active.length, 4)
+        : 0,
       modelsQualified: quals.filter((q) => q.active).length,
       modelsBalanced,
-      pctModelsBalanced: groups.size ? round(modelsBalanced / groups.size, 4) : 0,
+      pctModelsBalanced: groups.size
+        ? round(modelsBalanced / groups.size, 4)
+        : 0,
       ctqStations,
       incompleteLayouts,
     };
@@ -364,7 +622,9 @@ export class LineEngineeringService {
         metadata: { beforeState: states.before, afterState: states.after },
       });
     } catch (err) {
-      this.logger.warn(`Ledger skipped for ${action}: ${(err as Error)?.message}`);
+      this.logger.warn(
+        `Ledger skipped for ${action}: ${(err as Error)?.message}`,
+      );
     }
   }
 }
@@ -372,4 +632,10 @@ export class LineEngineeringService {
 function round(n: number, dp = 2): number {
   const f = Math.pow(10, dp);
   return Math.round((Number(n) || 0) * f) / f;
+}
+
+/** Coerce to a positive finite number, falling back to `fallback` otherwise. */
+function clampPos(n: number, fallback: number): number {
+  const v = Number(n);
+  return Number.isFinite(v) && v > 0 ? v : fallback;
 }

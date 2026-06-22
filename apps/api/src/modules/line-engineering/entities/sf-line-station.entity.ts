@@ -48,10 +48,20 @@ export class SfLineStation extends TenantBaseEntity {
   @Column({ type: 'float', default: 0, name: 'std_time_sec' })
   stdTimeSec: number;
 
-  @Column({ type: 'varchar', length: 48, nullable: true, name: 'feeder_position' })
+  @Column({
+    type: 'varchar',
+    length: 48,
+    nullable: true,
+    name: 'feeder_position',
+  })
   feederPosition: string | null;
 
-  @Column({ type: 'varchar', length: 512, nullable: true, name: 'visual_aid_url' })
+  @Column({
+    type: 'varchar',
+    length: 512,
+    nullable: true,
+    name: 'visual_aid_url',
+  })
   visualAidUrl: string | null;
 
   /** Critical-to-quality characteristic flag. */
@@ -66,4 +76,25 @@ export class SfLineStation extends TenantBaseEntity {
 
   @Column({ type: 'boolean', default: true })
   active: boolean;
+
+  // ── 2D layout (physical placement on the line/cell floor) ──────────────────
+  // Additive, nullable: a station's position on the visual layout editor. NULL =
+  // "not yet placed" (the station still lives in the list/balance untouched).
+  // These coordinates are physical (x/y/size/rotation in the layout's unit) and
+  // are independent from the logical `bay_layouts` (NP→bahía) assignment.
+  @Column({ type: 'float', nullable: true, name: 'layout_x' })
+  layoutX: number | null;
+
+  @Column({ type: 'float', nullable: true, name: 'layout_y' })
+  layoutY: number | null;
+
+  @Column({ type: 'float', nullable: true, name: 'layout_w' })
+  layoutW: number | null;
+
+  @Column({ type: 'float', nullable: true, name: 'layout_h' })
+  layoutH: number | null;
+
+  /** Rotation in degrees (clockwise). */
+  @Column({ type: 'float', nullable: true, name: 'layout_rotation' })
+  layoutRotation: number | null;
 }
