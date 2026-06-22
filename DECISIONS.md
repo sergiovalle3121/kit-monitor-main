@@ -1018,4 +1018,29 @@ sin sobrescribir, limpieza al re-derramar, error sin fórmula). 19/19 suites de 
 **Nota.** Es un derrame de UN paso (no reactivo): al cambiar el origen, se vuelve a pulsar
 «Derramar». El spilling en vivo queda como mejora futura (requiere QA interactivo de la rejilla).
 
+## 37. Office/Docs — round-trip .docx (import con style map + test de ida y vuelta)
+
+**Contexto.** §32–33 hicieron fiel el EXPORT a Word; el IMPORT (`importDocx`) era `mammoth`
+con opciones por defecto (perdía el mapeo de estilos con NOMBRE de Word —Título/Subtítulo/Cita—
+que se aplanaban a párrafo) y no tenía test automatizado (sólo la página interactiva
+`/dev/pptx-roundtrip`… para slides). El import de slides usa `DOMParser`/`fabric`
+(sólo-navegador) y no es testeable headless, pero el de Word SÍ: `mammoth` corre en Node.
+
+**Decisión (sólo `apps/web`, aditiva):**
+1. **Style map.** `importDocx` aplica un `DOCX_STYLE_MAP` que mapea estilos nombrados de Word
+   (Title/Título, Subtitle/Subtítulo, Quote/Cita, Intense Quote, Caption, Strong, Emphasis) a
+   HTML semántico que TipTap entiende.
+2. **Núcleo testeable.** Se extrae `importDocxBuffer(arrayBuffer)` (mammoth → HTML), que detecta
+   entorno (`{ arrayBuffer }` en navegador, `{ buffer }` en Node/SSR); `importDocx(file)` la
+   envuelve.
+
+**Verificación:** nueva suite `docxRoundtrip.spec.ts` (**8 aserciones**) que empaqueta un .docx
+real con `buildDocx` + `Packer.toBuffer` y lo **re-importa** con `importDocxBuffer`: confirma que
+sobreviven títulos (h1/h2), negrita/cursiva, el **texto** de las listas, la **tabla** con sus
+celdas y —de extremo a extremo— la **imagen embebida** (data URL), validando también el export de
+imágenes de §32. `docx.spec` 21/21; `lint web` 0 errores; `build web` ✓.
+
+**Nota.** La librería `docx` numera las listas de un modo que mammoth aplana a párrafos (sin
+pérdida de TEXTO); la estructura `ul/ol` del export ya se verifica en `docx.spec` vía `<w:numPr>`.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
