@@ -221,6 +221,45 @@ describe('LineEngineeringService (integration)', () => {
     expect(a.stations[0].x).toBe(5);
   });
 
+  it('stores, transforms and clears a DXF background (Fase 2)', async () => {
+    await seedRoute();
+    const dxf = ['0', 'SECTION', '2', 'ENTITIES', '0', 'EOF'].join('\n');
+
+    // No background initially.
+    expect((await service.getLayout('AX-1000')).dxf).toBeNull();
+    expect(await service.getDxf('AX-1000')).toBeNull();
+
+    // Upload: data + name stored, placement defaults applied.
+    await service.setDxf({ model: 'AX-1000', name: 'planta.dxf', data: dxf });
+    const raw = await service.getDxf('AX-1000');
+    expect(raw).toMatchObject({ name: 'planta.dxf' });
+    expect(raw!.data).toContain('SECTION');
+    expect((await service.getLayout('AX-1000')).dxf).toMatchObject({
+      name: 'planta.dxf',
+      scale: 1,
+      visible: true,
+      opacity: 0.5,
+    });
+
+    // Transform via the normal save (does not touch the DXF data).
+    await service.saveLayout({
+      model: 'AX-1000',
+      dxf: { offsetX: 100, scale: 2.5, opacity: 0.3, visible: false },
+    });
+    expect((await service.getLayout('AX-1000')).dxf).toMatchObject({
+      offsetX: 100,
+      scale: 2.5,
+      opacity: 0.3,
+      visible: false,
+    });
+    expect((await service.getDxf('AX-1000'))!.data).toContain('SECTION');
+
+    // Clear removes the background entirely.
+    await service.clearDxf('AX-1000');
+    expect((await service.getLayout('AX-1000')).dxf).toBeNull();
+    expect(await service.getDxf('AX-1000')).toBeNull();
+  });
+
   it('isolates stations by tenant', async () => {
     await ctx.run(ctxFor('T_A'), () =>
       service.createStation({

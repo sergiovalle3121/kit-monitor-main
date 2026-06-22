@@ -33,6 +33,7 @@
     "chart.js": "^4.5.1",
     "clsx": "^2.1.1",
     "docx": "^9.7.1",
+    "dxf-parser": "^1.1.2",
     "embla-carousel-react": "^8.6.0",
     "embla-carousel-wheel-gestures": "^8.1.0",
     "fabric": "^7.4.0",

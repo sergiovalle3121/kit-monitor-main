@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -20,6 +21,7 @@ import {
   SaveLayoutDto,
   UpdateModelLineDto,
   UpdateStationDto,
+  UploadDxfDto,
 } from './dto/line-engineering.dto';
 
 /**
@@ -145,6 +147,35 @@ export class LineEngineeringController {
   })
   saveLayout(@Body() dto: SaveLayoutDto) {
     return this.service.saveLayout(dto);
+  }
+
+  @Get('layout/dxf')
+  @RequirePermissions('engineering:read')
+  @ApiOperation({
+    summary: 'Plano DXF de fondo (nombre + contenido) de un modelo+revisión.',
+  })
+  getDxf(@Query('model') model: string, @Query('revision') revision?: string) {
+    return this.service.getDxf(model, revision ?? 'A');
+  }
+
+  @Put('layout/dxf')
+  @RequirePermissions('engineering:write')
+  @ApiOperation({
+    summary:
+      'Carga/reemplaza el plano DXF de fondo (solo lectura sobre el plano).',
+  })
+  setDxf(@Body() dto: UploadDxfDto) {
+    return this.service.setDxf(dto);
+  }
+
+  @Delete('layout/dxf')
+  @RequirePermissions('engineering:write')
+  @ApiOperation({ summary: 'Quita el plano DXF de fondo del layout.' })
+  clearDxf(
+    @Query('model') model: string,
+    @Query('revision') revision?: string,
+  ) {
+    return this.service.clearDxf(model, revision ?? 'A');
   }
 
   @Get('stations/:id')

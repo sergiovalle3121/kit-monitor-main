@@ -41,4 +41,33 @@ export class SfLineLayout extends TenantBaseEntity {
   /** Grid/snap step in `unit`. */
   @Column({ type: 'float', default: 500, name: 'grid_size' })
   gridSize: number;
+
+  // ── DXF background (Fase 2) ────────────────────────────────────────────────
+  // A read-only client/plant floor plan rendered behind the stations. Additive &
+  // nullable: NULL `dxf_data` = no background. The placement columns position the
+  // drawing over the footprint (in the layout's unit) and are inert when absent.
+  @Column({ type: 'text', nullable: true, name: 'dxf_data' })
+  dxfData: string | null;
+
+  @Column({ type: 'varchar', length: 255, nullable: true, name: 'dxf_name' })
+  dxfName: string | null;
+
+  @Column({ type: 'float', default: 0, name: 'dxf_offset_x' })
+  dxfOffsetX: number;
+
+  @Column({ type: 'float', default: 0, name: 'dxf_offset_y' })
+  dxfOffsetY: number;
+
+  @Column({ type: 'float', default: 1, name: 'dxf_scale' })
+  dxfScale: number;
+
+  /** Rotation of the DXF in degrees (clockwise). */
+  @Column({ type: 'float', default: 0, name: 'dxf_rotation' })
+  dxfRotation: number;
+
+  @Column({ type: 'boolean', default: true, name: 'dxf_visible' })
+  dxfVisible: boolean;
+
+  @Column({ type: 'float', default: 0.5, name: 'dxf_opacity' })
+  dxfOpacity: number;
 }

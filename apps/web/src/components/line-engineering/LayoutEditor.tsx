@@ -2,16 +2,18 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Canvas, Rect, Textbox, Line } from 'fabric';
+import { Canvas, Rect, Textbox, Line, Polyline, Group } from 'fabric';
 import {
   Loader2, Save, Inbox, Hand, MousePointer2, Maximize2, ZoomIn, ZoomOut, Grid3x3,
   AlignHorizontalJustifyStart, AlignHorizontalJustifyCenter, AlignHorizontalJustifyEnd,
   AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd,
   AlignHorizontalSpaceAround, AlignVerticalSpaceAround, Trash2, MapPin, RotateCcw,
+  Upload, Eye, EyeOff, Map as MapIcon,
 } from 'lucide-react';
 import { glass } from '@/lib/glass';
 import { apiFetch } from '@/lib/apiFetch';
 import { useToast } from '@/contexts/ToastContext';
+import { parseDxf, type DxfModel } from './dxf';
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000').replace(/\/$/, '');
 const ROSE = '#f43f5e';
@@ -24,7 +26,8 @@ interface LayoutStation {
   x: number | null; y: number | null; w: number | null; h: number | null; rotation: number | null;
 }
 interface Footprint { footprintW: number; footprintH: number; unit: string; gridSize: number }
-interface LineLayout { model: string; revision: string; footprint: Footprint; stations: LayoutStation[] }
+interface DxfMeta { name: string; offsetX: number; offsetY: number; scale: number; rotation: number; visible: boolean; opacity: number }
+interface LineLayout { model: string; revision: string; footprint: Footprint; stations: LayoutStation[]; dxf: DxfMeta | null }
 interface Placement { x: number; y: number; w: number; h: number; rotation: number }
 
 /**
@@ -74,6 +77,9 @@ export function LayoutEditor({ model, revision }: { model: string; revision: str
   const fitRef = useRef(1); // px per world-unit at zoom 1
   const footprintRef = useRef<Footprint>({ footprintW: 20000, footprintH: 10000, unit: 'mm', gridSize: 500 });
   const loadedPlacedRef = useRef<Set<string>>(new Set());
+  const dxfModelRef = useRef<DxfModel | null>(null); // parsed geometry (normalised)
+  const dxfMetaRef = useRef<DxfMeta | null>(null);
+  const dxfGroupRef = useRef<Group | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -84,6 +90,8 @@ export function LayoutEditor({ model, revision }: { model: string; revision: str
   const [stations, setStations] = useState<LayoutStation[]>([]);
   const [placedIds, setPlacedIds] = useState<Set<string>>(new Set());
   const [footprint, setFootprint] = useState<Footprint>(footprintRef.current);
+  const [dxf, setDxf] = useState<DxfMeta | null>(null);
+  const [dxfBusy, setDxfBusy] = useState(false);
   const snapRef = useRef(snap);
   const panRef = useRef(panMode);
   useEffect(() => { snapRef.current = snap; }, [snap]);
@@ -150,6 +158,46 @@ export function LayoutEditor({ model, revision }: { model: string; revision: str
     sceneRef.current.forEach((o) => c.sendObjectToBack(o));
   }, [fmt]);
 
+  // ── DXF background: map the parsed plan to scene px and draw it (read-only) ──
+  const drawDxf = useCallback(() => {
+    const c = fcRef.current;
+    if (dxfGroupRef.current) { c?.remove(dxfGroupRef.current); dxfGroupRef.current = null; }
+    const model = dxfModelRef.current;
+    const meta = dxfMetaRef.current;
+    if (!c || !model || !meta || !meta.visible) return;
+
+    const S = fitRef.current;
+    const { scale, offsetX: ox, offsetY: oy } = meta;
+    const cx = (model.width * scale) / 2 + ox; // rotation pivot (world units)
+    const cy = (model.height * scale) / 2 + oy;
+    const rad = ((meta.rotation || 0) * Math.PI) / 180;
+    const cos = Math.cos(rad), sin = Math.sin(rad);
+    const map = (px: number, py: number) => {
+      const wx0 = px * scale + ox, wy0 = py * scale + oy;
+      const dx = wx0 - cx, dy = wy0 - cy;
+      return {
+        x: (cx + dx * cos - dy * sin) * S,
+        y: (cy + dx * sin + dy * cos) * S,
+      };
+    };
+    const polylines = model.polylines.map((flat) => {
+      const pts: { x: number; y: number }[] = [];
+      for (let i = 0; i + 1 < flat.length; i += 2) pts.push(map(flat[i], flat[i + 1]));
+      return new Polyline(pts, {
+        stroke: 'rgba(51,65,85,0.85)', strokeWidth: 1, fill: '',
+        selectable: false, evented: false, objectCaching: false, strokeUniform: true,
+      });
+    });
+    const group = new Group(polylines, {
+      selectable: false, evented: false, hoverCursor: 'default',
+      opacity: Math.min(1, Math.max(0, meta.opacity)),
+    });
+    dxfGroupRef.current = group;
+    c.add(group);
+    // Above the grid/footprint, below the stations (added after this in rebuild).
+    sceneRef.current.forEach((o) => c.sendObjectToBack(o));
+  }, []);
+
   // ── Build an interactive station box from a placement ───────────────────────
   const makeBox = useCallback((s: LayoutStation, p: Placement) => {
     const c = fcRef.current; if (!c) return;
@@ -176,12 +224,13 @@ export function LayoutEditor({ model, revision }: { model: string; revision: str
     objByIdRef.current.clear();
     fitRef.current = computeFit();
     drawScene();
+    drawDxf();
     placementsRef.current.forEach((p, id) => {
       const s = stationsRef.current.find((x) => x.id === id);
       if (s) makeBox(s, p);
     });
     c.requestRenderAll();
-  }, [computeFit, drawScene, makeBox]);
+  }, [computeFit, drawScene, drawDxf, makeBox]);
 
   const stationsRef = useRef<LayoutStation[]>([]);
   useEffect(() => { stationsRef.current = stations; }, [stations]);
@@ -277,6 +326,25 @@ export function LayoutEditor({ model, revision }: { model: string; revision: str
       stationsRef.current = d.stations;
       setPlacedIds(placedSet);
       setDirty(false);
+
+      // DXF background: the placement meta arrives with the layout; the raw
+      // drawing is fetched apart (kept light) and parsed for rendering.
+      if (d.dxf) {
+        dxfMetaRef.current = d.dxf;
+        setDxf(d.dxf);
+        dxfModelRef.current = null;
+        try {
+          const rd = await apiFetch(`${API_BASE}/line-engineering/layout/dxf?model=${encodeURIComponent(model)}&revision=${encodeURIComponent(revision)}`);
+          if (rd.ok) {
+            const raw = (await rd.json()) as { name: string; data: string } | null;
+            dxfModelRef.current = raw?.data ? parseDxf(raw.data) : null;
+          }
+        } catch { /* the background is optional — ignore */ }
+      } else {
+        dxfMetaRef.current = null;
+        dxfModelRef.current = null;
+        setDxf(null);
+      }
       // defer rebuild until canvas is ready / state applied
       requestAnimationFrame(() => rebuild());
     } catch {
@@ -445,6 +513,61 @@ export function LayoutEditor({ model, revision }: { model: string; revision: str
     requestAnimationFrame(() => { fitRef.current = computeFit(); rebuild(); });
   };
 
+  // ── DXF background controls ─────────────────────────────────────────────────
+  const updateDxf = (patch: Partial<DxfMeta>, geometry: boolean) => {
+    const cur = dxfMetaRef.current; if (!cur) return;
+    const next = { ...cur, ...patch };
+    dxfMetaRef.current = next; setDxf(next); markDirty();
+    // Opacity is a cheap in-place prop; geometry (scale/offset/rotation) and
+    // toggling visibility on require a redraw.
+    if (geometry || patch.visible !== undefined || !dxfGroupRef.current) {
+      requestAnimationFrame(() => rebuild());
+      return;
+    }
+    dxfGroupRef.current.set({ opacity: Math.min(1, Math.max(0, next.opacity)) });
+    fcRef.current?.requestRenderAll();
+  };
+
+  const onDxfFile = useCallback(async (file: File) => {
+    setDxfBusy(true);
+    try {
+      const text = await file.text();
+      if (text.length > 12_000_000) { toast.error('El DXF supera 12 MB.', 'Ing. Industrial'); return; }
+      const dxfModel = parseDxf(text);
+      if (!dxfModel) { toast.error('No se reconocieron líneas en el DXF.', 'Ing. Industrial'); return; }
+      const res = await apiFetch(`${API_BASE}/line-engineering/layout/dxf`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model, revision, name: file.name, data: text }),
+      });
+      if (!res.ok) { const e = await res.json().catch(() => ({})); toast.error(e?.message || 'No se pudo guardar el DXF.', 'Ing. Industrial'); return; }
+      // Auto-fit the drawing to the footprint (centred); mark dirty so the
+      // placement persists on the next Save.
+      const fp = footprintRef.current;
+      const scale = Math.min(fp.footprintW / dxfModel.width, fp.footprintH / dxfModel.height) * 0.9 || 1;
+      const meta: DxfMeta = {
+        name: file.name, scale, rotation: 0, visible: true, opacity: 0.5,
+        offsetX: Math.max(0, (fp.footprintW - dxfModel.width * scale) / 2),
+        offsetY: Math.max(0, (fp.footprintH - dxfModel.height * scale) / 2),
+      };
+      dxfModelRef.current = dxfModel; dxfMetaRef.current = meta; setDxf(meta); markDirty();
+      requestAnimationFrame(() => rebuild());
+      toast.success('Plano DXF cargado de fondo.', 'Ing. Industrial');
+    } catch { toast.error('No se pudo leer el archivo DXF.', 'Ing. Industrial'); }
+    finally { setDxfBusy(false); }
+  }, [model, revision, markDirty, rebuild, toast]);
+
+  const removeDxf = useCallback(async () => {
+    setDxfBusy(true);
+    try {
+      const res = await apiFetch(`${API_BASE}/line-engineering/layout/dxf?model=${encodeURIComponent(model)}&revision=${encodeURIComponent(revision)}`, { method: 'DELETE' });
+      if (!res.ok) { toast.error('No se pudo quitar el DXF.', 'Ing. Industrial'); return; }
+      dxfModelRef.current = null; dxfMetaRef.current = null; setDxf(null);
+      requestAnimationFrame(() => rebuild());
+      toast.success('Plano DXF quitado.', 'Ing. Industrial');
+    } catch { toast.error('Error de red.', 'Ing. Industrial'); }
+    finally { setDxfBusy(false); }
+  }, [model, revision, rebuild, toast]);
+
   // ── Save ────────────────────────────────────────────────────────────────────
   const save = useCallback(async () => {
     if (!model) return;
@@ -452,9 +575,13 @@ export function LayoutEditor({ model, revision }: { model: string; revision: str
     try {
       const positions = [...placementsRef.current.entries()].map(([id, p]) => ({ id, ...p }));
       const cleared = [...loadedPlacedRef.current].filter((id) => !placementsRef.current.has(id));
+      const m = dxfMetaRef.current;
+      const dxfMeta = m
+        ? { offsetX: m.offsetX, offsetY: m.offsetY, scale: m.scale, rotation: m.rotation, visible: m.visible, opacity: m.opacity }
+        : undefined;
       const r = await apiFetch(`${API_BASE}/line-engineering/layout`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model, revision, footprint: footprintRef.current, positions, cleared }),
+        body: JSON.stringify({ model, revision, footprint: footprintRef.current, positions, cleared, ...(dxfMeta ? { dxf: dxfMeta } : {}) }),
       });
       if (!r.ok) { const d = await r.json().catch(() => ({})); toast.error(d?.message || 'No se pudo guardar.', 'Ing. Industrial'); return; }
       toast.success('Layout guardado.', 'Ing. Industrial');
@@ -516,6 +643,28 @@ export function LayoutEditor({ model, revision }: { model: string; revision: str
         </label>
         <label className="flex items-center gap-1">Grilla<input type="number" min={1} value={footprint.gridSize} onChange={(e) => updateFootprint({ gridSize: Math.max(1, Number(e.target.value) || 1) })} className="w-16 rounded-md px-1.5 py-0.5 bg-black/[0.04] dark:bg-white/[0.06] border border-black/10 dark:border-white/10 tabular-nums" /></label>
         <span className="text-gray-400">· {grid}{unit} por celda</span>
+      </div>
+
+      {/* DXF background (Fase 2) — read-only client/plant floor plan */}
+      <div className="flex items-center gap-2.5 px-4 py-2 border-b border-black/5 dark:border-white/10 text-[12px] text-gray-500 flex-wrap">
+        <span className="font-medium inline-flex items-center gap-1"><MapIcon className="w-3.5 h-3.5" /> Plano DXF:</span>
+        {!dxf ? (
+          <label className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md cursor-pointer bg-black/[0.04] dark:bg-white/[0.06] border border-black/10 dark:border-white/10 hover:bg-black/[0.07] dark:hover:bg-white/[0.1]">
+            {dxfBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />} Cargar de fondo
+            <input type="file" accept=".dxf" className="hidden" disabled={dxfBusy} onChange={(e) => { const f = e.target.files?.[0]; if (f) onDxfFile(f); e.currentTarget.value = ''; }} />
+          </label>
+        ) : (
+          <>
+            <span className="truncate max-w-[150px] font-medium text-gray-600 dark:text-gray-300" title={dxf.name}>{dxf.name}</span>
+            <button onClick={() => updateDxf({ visible: !dxf.visible }, false)} title={dxf.visible ? 'Ocultar' : 'Mostrar'} className="p-1 rounded hover:bg-black/5 dark:hover:bg-white/10">{dxf.visible ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}</button>
+            <label className="flex items-center gap-1">Opacidad<input type="range" min={0} max={1} step={0.05} value={dxf.opacity} onChange={(e) => updateDxf({ opacity: Number(e.target.value) }, false)} className="w-16 accent-rose-500" /></label>
+            <label className="flex items-center gap-1">Escala<input type="number" step="0.01" min={0.0001} value={dxf.scale} onChange={(e) => updateDxf({ scale: Math.max(0.0001, Number(e.target.value) || 1) }, true)} className="w-16 rounded-md px-1.5 py-0.5 bg-black/[0.04] dark:bg-white/[0.06] border border-black/10 dark:border-white/10 tabular-nums" /></label>
+            <label className="flex items-center gap-1">Rot°<input type="number" value={dxf.rotation} onChange={(e) => updateDxf({ rotation: Number(e.target.value) || 0 }, true)} className="w-14 rounded-md px-1.5 py-0.5 bg-black/[0.04] dark:bg-white/[0.06] border border-black/10 dark:border-white/10 tabular-nums" /></label>
+            <label className="flex items-center gap-1">ΔX<input type="number" value={Math.round(dxf.offsetX)} onChange={(e) => updateDxf({ offsetX: Number(e.target.value) || 0 }, true)} className="w-16 rounded-md px-1.5 py-0.5 bg-black/[0.04] dark:bg-white/[0.06] border border-black/10 dark:border-white/10 tabular-nums" /></label>
+            <label className="flex items-center gap-1">ΔY<input type="number" value={Math.round(dxf.offsetY)} onChange={(e) => updateDxf({ offsetY: Number(e.target.value) || 0 }, true)} className="w-16 rounded-md px-1.5 py-0.5 bg-black/[0.04] dark:bg-white/[0.06] border border-black/10 dark:border-white/10 tabular-nums" /></label>
+            <button onClick={removeDxf} disabled={dxfBusy} title="Quitar plano" className="p-1 rounded text-gray-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10">{dxfBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}</button>
+          </>
+        )}
       </div>
 
       <div className="flex">

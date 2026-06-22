@@ -19,10 +19,12 @@ import { EventLedgerService } from '../event-ledger/event-ledger.service';
 import { EventDomain } from '../event-ledger/entities/ledger-event.entity';
 import {
   CreateStationDto,
+  DxfMetaDto,
   QualifyModelLineDto,
   SaveLayoutDto,
   UpdateModelLineDto,
   UpdateStationDto,
+  UploadDxfDto,
 } from './dto/line-engineering.dto';
 import {
   balanceLine,
@@ -66,11 +68,23 @@ export interface LayoutFootprint {
   gridSize: number;
 }
 
+/** DXF background placement (metadata only — the raw DXF is fetched apart). */
+export interface LayoutDxf {
+  name: string;
+  offsetX: number;
+  offsetY: number;
+  scale: number;
+  rotation: number;
+  visible: boolean;
+  opacity: number;
+}
+
 export interface LineLayout {
   model: string;
   revision: string;
   footprint: LayoutFootprint;
   stations: LayoutStation[];
+  dxf: LayoutDxf | null;
 }
 
 export interface LineEngineeringKpis {
@@ -329,9 +343,61 @@ export class LineEngineeringService {
     };
   }
 
+  private toDxf(layout: SfLineLayout): LayoutDxf | null {
+    if (!layout.dxfData) return null;
+    return {
+      name: layout.dxfName || 'plano.dxf',
+      offsetX: Number(layout.dxfOffsetX) || 0,
+      offsetY: Number(layout.dxfOffsetY) || 0,
+      scale: Number(layout.dxfScale) || 1,
+      rotation: Number(layout.dxfRotation) || 0,
+      visible: layout.dxfVisible !== false,
+      opacity: Number(layout.dxfOpacity ?? 0.5),
+    };
+  }
+
+  private applyDxfMeta(layout: SfLineLayout, meta: DxfMetaDto): void {
+    if (meta.offsetX !== undefined)
+      layout.dxfOffsetX = Number(meta.offsetX) || 0;
+    if (meta.offsetY !== undefined)
+      layout.dxfOffsetY = Number(meta.offsetY) || 0;
+    if (meta.scale !== undefined)
+      layout.dxfScale = clampPos(meta.scale, layout.dxfScale || 1);
+    if (meta.rotation !== undefined)
+      layout.dxfRotation = Number(meta.rotation) || 0;
+    if (meta.visible !== undefined) layout.dxfVisible = !!meta.visible;
+    if (meta.opacity !== undefined)
+      layout.dxfOpacity = Math.min(1, Math.max(0, Number(meta.opacity) || 0));
+  }
+
+  private async findLayout(
+    model: string,
+    revision: string,
+  ): Promise<SfLineLayout | null> {
+    const qb = this.requireLayouts().createQueryBuilder('l');
+    this.applyScope(qb, 'l');
+    qb.andWhere('l.model = :m', { m: model }).andWhere('l.revision = :r', {
+      r: revision,
+    });
+    return qb.getOne();
+  }
+
+  private async ensureLayout(
+    model: string,
+    revision: string,
+  ): Promise<SfLineLayout> {
+    const existing = await this.findLayout(model, revision);
+    if (existing) return existing;
+    return this.requireLayouts().create({
+      model,
+      revision,
+      ...LineEngineeringService.DEFAULT_FOOTPRINT,
+      ...this.scopeFields(),
+    });
+  }
+
   /** Hydrate the 2D layout editor: footprint config + stations (placed or not). */
   async getLayout(model: string, revision = 'A'): Promise<LineLayout> {
-    const layouts = this.requireLayouts();
     const m = (model ?? '').trim();
     const r = (revision ?? 'A').trim() || 'A';
     const sQb = this.stations.createQueryBuilder('s');
@@ -339,10 +405,7 @@ export class LineEngineeringService {
     sQb.andWhere('s.model = :m', { m }).andWhere('s.revision = :r', { r });
     const stations = await sQb.orderBy('s.sequence', 'ASC').getMany();
 
-    const lQb = layouts.createQueryBuilder('l');
-    this.applyScope(lQb, 'l');
-    lQb.andWhere('l.model = :m', { m }).andWhere('l.revision = :r', { r });
-    const layout = await lQb.getOne();
+    const layout = await this.findLayout(m, r);
 
     return {
       model: m,
@@ -356,6 +419,7 @@ export class LineEngineeringService {
           }
         : { ...LineEngineeringService.DEFAULT_FOOTPRINT },
       stations: stations.map((s) => this.toLayoutStation(s)),
+      dxf: layout ? this.toDxf(layout) : null,
     };
   }
 
@@ -365,36 +429,26 @@ export class LineEngineeringService {
    * this model+revision are touched — the routing/balance data is never altered.
    */
   async saveLayout(dto: SaveLayoutDto): Promise<LineLayout> {
-    const layouts = this.requireLayouts();
     const model = (dto.model ?? '').trim();
     const revision = (dto.revision ?? 'A').trim() || 'A';
     if (!model) throw new BadRequestException('model es obligatorio.');
 
-    // 1) Footprint config (find-or-create within scope).
-    if (dto.footprint) {
-      const qb = layouts.createQueryBuilder('l');
-      this.applyScope(qb, 'l');
-      qb.andWhere('l.model = :m', { m: model }).andWhere('l.revision = :r', {
-        r: revision,
-      });
-      let layout = await qb.getOne();
-      if (!layout) {
-        layout = layouts.create({
-          model,
-          revision,
-          ...LineEngineeringService.DEFAULT_FOOTPRINT,
-          ...this.scopeFields(),
-        });
-      }
+    // 1) Footprint config + DXF placement (find-or-create within scope). The DXF
+    //    data itself is never touched here — only its placement metadata.
+    if (dto.footprint || dto.dxf) {
+      const layout = await this.ensureLayout(model, revision);
       const f = dto.footprint;
-      if (f.footprintW !== undefined)
-        layout.footprintW = clampPos(f.footprintW, layout.footprintW);
-      if (f.footprintH !== undefined)
-        layout.footprintH = clampPos(f.footprintH, layout.footprintH);
-      if (f.unit !== undefined) layout.unit = f.unit === 'm' ? 'm' : 'mm';
-      if (f.gridSize !== undefined)
-        layout.gridSize = clampPos(f.gridSize, layout.gridSize);
-      await layouts.save(layout);
+      if (f) {
+        if (f.footprintW !== undefined)
+          layout.footprintW = clampPos(f.footprintW, layout.footprintW);
+        if (f.footprintH !== undefined)
+          layout.footprintH = clampPos(f.footprintH, layout.footprintH);
+        if (f.unit !== undefined) layout.unit = f.unit === 'm' ? 'm' : 'mm';
+        if (f.gridSize !== undefined)
+          layout.gridSize = clampPos(f.gridSize, layout.gridSize);
+      }
+      if (dto.dxf) this.applyDxfMeta(layout, dto.dxf);
+      await this.requireLayouts().save(layout);
     }
 
     // 2) Station placements. Load the model's stations once (scoped) and index
@@ -443,6 +497,64 @@ export class LineEngineeringService {
     });
 
     return this.getLayout(model, revision);
+  }
+
+  /** Raw DXF (name + content) for rendering the background — fetched apart so
+   * the main layout payload stays light. */
+  async getDxf(
+    model: string,
+    revision = 'A',
+  ): Promise<{ name: string; data: string } | null> {
+    const layout = await this.findLayout(
+      (model ?? '').trim(),
+      (revision ?? 'A').trim() || 'A',
+    );
+    if (!layout?.dxfData) return null;
+    return { name: layout.dxfName || 'plano.dxf', data: layout.dxfData };
+  }
+
+  /** Upload/replace the DXF background; resets its placement to defaults. */
+  async setDxf(dto: UploadDxfDto): Promise<LineLayout> {
+    const model = (dto.model ?? '').trim();
+    const revision = (dto.revision ?? 'A').trim() || 'A';
+    if (!model) throw new BadRequestException('model es obligatorio.');
+    if (!dto.data?.trim()) throw new BadRequestException('El DXF está vacío.');
+    const layout = await this.ensureLayout(model, revision);
+    layout.dxfData = dto.data;
+    layout.dxfName = (dto.name || 'plano.dxf').slice(0, 255);
+    layout.dxfOffsetX = 0;
+    layout.dxfOffsetY = 0;
+    layout.dxfScale = 1;
+    layout.dxfRotation = 0;
+    layout.dxfVisible = true;
+    layout.dxfOpacity = 0.5;
+    await this.requireLayouts().save(layout);
+    await this.record('SF_LINE_LAYOUT_DXF_SET', `${model}|${revision}`, null, {
+      after: { model, revision, name: layout.dxfName, bytes: dto.data.length },
+    });
+    return this.getLayout(model, revision);
+  }
+
+  /** Remove the DXF background (data + placement) from the layout. */
+  async clearDxf(model: string, revision = 'A'): Promise<LineLayout> {
+    const m = (model ?? '').trim();
+    const r = (revision ?? 'A').trim() || 'A';
+    const layout = await this.findLayout(m, r);
+    if (layout?.dxfData) {
+      layout.dxfData = null;
+      layout.dxfName = null;
+      layout.dxfOffsetX = 0;
+      layout.dxfOffsetY = 0;
+      layout.dxfScale = 1;
+      layout.dxfRotation = 0;
+      layout.dxfVisible = true;
+      layout.dxfOpacity = 0.5;
+      await this.requireLayouts().save(layout);
+      await this.record('SF_LINE_LAYOUT_DXF_CLEARED', `${m}|${r}`, null, {
+        after: { model: m, revision: r },
+      });
+    }
+    return this.getLayout(m, r);
   }
 
   // ── Calculations ───────────────────────────────────────────────────────────

@@ -7,6 +7,7 @@ import {
   IsOptional,
   IsString,
   Length,
+  MaxLength,
   Min,
   ValidateNested,
 } from 'class-validator';
@@ -289,6 +290,44 @@ export class LayoutPositionDto {
   rotation?: number;
 }
 
+/** Placement of the DXF background over the footprint (Fase 2). */
+export class DxfMetaDto {
+  @ApiPropertyOptional({ example: 0 })
+  @IsOptional()
+  @IsNumber()
+  offsetX?: number;
+
+  @ApiPropertyOptional({ example: 0 })
+  @IsOptional()
+  @IsNumber()
+  offsetY?: number;
+
+  @ApiPropertyOptional({ example: 1 })
+  @IsOptional()
+  @IsNumber()
+  @Min(0.0001)
+  scale?: number;
+
+  @ApiPropertyOptional({ example: 0, description: 'Rotation in degrees.' })
+  @IsOptional()
+  @IsNumber()
+  rotation?: number;
+
+  @ApiPropertyOptional({ example: true })
+  @IsOptional()
+  @IsBoolean()
+  visible?: boolean;
+
+  @ApiPropertyOptional({
+    example: 0.5,
+    description: 'Background opacity 0..1.',
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  opacity?: number;
+}
+
 /** Persist a model+revision layout: footprint config + station placements. */
 export class SaveLayoutDto {
   @ApiProperty({ example: 'AX-1000' })
@@ -326,4 +365,37 @@ export class SaveLayoutDto {
   @IsArray()
   @IsString({ each: true })
   cleared?: string[];
+
+  @ApiPropertyOptional({
+    type: DxfMetaDto,
+    description: 'DXF background placement (does not touch the DXF data).',
+  })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => DxfMetaDto)
+  dxf?: DxfMetaDto;
+}
+
+/** Upload/replace the DXF background of a model+revision layout. */
+export class UploadDxfDto {
+  @ApiProperty({ example: 'AX-1000' })
+  @IsString()
+  @Length(1, 64)
+  model: string;
+
+  @ApiPropertyOptional({ example: 'A' })
+  @IsOptional()
+  @IsString()
+  @Length(1, 16)
+  revision?: string;
+
+  @ApiProperty({ example: 'planta-smt.dxf' })
+  @IsString()
+  @Length(1, 255)
+  name: string;
+
+  @ApiProperty({ description: 'Raw DXF text content.' })
+  @IsString()
+  @MaxLength(12_000_000)
+  data: string;
 }
