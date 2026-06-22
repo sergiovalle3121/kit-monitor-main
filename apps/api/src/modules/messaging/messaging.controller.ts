@@ -38,6 +38,11 @@ export class MessagingController {
     return this.messaging.listConversations(this.me(req));
   }
 
+  @Get('search')
+  search(@Req() req: any, @Query('q') q: string) {
+    return this.messaging.searchMessages(this.me(req), q ?? '');
+  }
+
   @Get('conversations/:id/messages')
   listMessages(
     @Req() req: any,
@@ -62,6 +67,39 @@ export class MessagingController {
       body?.name,
       body?.memberIds ?? [],
     );
+  }
+
+  // ── administración de canales ──────────────────────────────────────────────
+  @Post('conversations/:id/members')
+  addMembers(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body() body: { userIds?: string[] },
+  ) {
+    return this.messaging.addMembers(this.me(req), id, body?.userIds ?? []);
+  }
+
+  @Delete('conversations/:id/members/:userId')
+  removeMember(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Param('userId') userId: string,
+  ) {
+    return this.messaging.removeMember(this.me(req), id, userId);
+  }
+
+  @Patch('conversations/:id')
+  renameChannel(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body() body: { name: string },
+  ) {
+    return this.messaging.renameChannel(this.me(req), id, body?.name);
+  }
+
+  @Post('conversations/:id/leave')
+  leaveChannel(@Req() req: any, @Param('id') id: string) {
+    return this.messaging.removeMember(this.me(req), id, this.me(req));
   }
 
   @Post('conversations/:id/read')

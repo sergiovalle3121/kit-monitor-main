@@ -14,11 +14,18 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { ConversationMember } from './entities/conversation-member.entity';
+import { User } from '../users/entities/user.entity';
 import { getJwtSecret } from '../../common/config/jwt-secret';
 
 /** Datos que adjuntamos al socket tras autenticar el handshake. */
 interface ChatSocketData {
   userId?: string;
+}
+
+export type PresenceStatus = 'available' | 'busy' | 'away';
+
+function normalizeStatus(s: unknown): PresenceStatus {
+  return s === 'busy' || s === 'away' ? s : 'available';
 }
 
 /**
@@ -57,6 +64,9 @@ export class ChatGateway
   /** Usuarios en línea → conjunto de sockets activos de cada uno. */
   private readonly online = new Map<string, Set<string>>();
 
+  /** Estado de disponibilidad por usuario (en memoria, mientras está online). */
+  private readonly statuses = new Map<string, PresenceStatus>();
+
   /** Llamadas en curso → participantes (userIds). callId → Set<userId>. */
   private readonly callRooms = new Map<string, Set<string>>();
 
@@ -64,7 +74,21 @@ export class ChatGateway
     private readonly jwt: JwtService,
     @InjectRepository(ConversationMember)
     private readonly members: Repository<ConversationMember>,
+    @InjectRepository(User)
+    private readonly users: Repository<User>,
   ) {}
+
+  private statusOf(userId: string): PresenceStatus {
+    return this.statuses.get(userId) ?? 'available';
+  }
+
+  /** Estado de presencia actual: usuarios online con su estado. */
+  private getPresenceState(): { userId: string; status: PresenceStatus }[] {
+    return Array.from(this.online.keys()).map((userId) => ({
+      userId,
+      status: this.statusOf(userId),
+    }));
+  }
 
   afterInit(): void {
     this.logger.log('ChatGateway initialized on namespace /chat');
@@ -95,10 +119,14 @@ export class ChatGateway
     }
 
     // Estado actual de presencia para el que acaba de entrar.
-    client.emit('presence:state', this.getOnlineUserIds());
+    client.emit('presence:state', this.getPresenceState());
     // Primer socket de este usuario → pasa a online; avisar a todos.
     if (wasOffline) {
-      this.server?.emit('presence:update', { userId, online: true });
+      this.server?.emit('presence:update', {
+        userId,
+        online: true,
+        status: this.statusOf(userId),
+      });
     }
     this.logger.debug(`Chat client authed: ${client.id} user=${userId}`);
   }
@@ -111,6 +139,11 @@ export class ChatGateway
     sockets.delete(client.id);
     if (sockets.size === 0) {
       this.online.delete(userId);
+      this.statuses.delete(userId);
+      // Persiste "visto por última vez" (mejor esfuerzo).
+      void this.users
+        .update(userId, { lastSeenAt: new Date() })
+        .catch(() => undefined);
       // Último socket cerrado → el usuario pasa a offline.
       this.server?.emit('presence:update', { userId, online: false });
       // Si estaba en alguna llamada, lo sacamos y avisamos a sus pares.
@@ -120,6 +153,19 @@ export class ChatGateway
         }
       }
     }
+  }
+
+  /** El usuario fija su estado (disponible/ocupado/ausente); se difunde a todos. */
+  @SubscribeMessage('presence:set-status')
+  handleSetStatus(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() payload: { status?: string },
+  ): void {
+    const userId = (client.data as ChatSocketData).userId;
+    if (!this.server || !userId) return;
+    const status = normalizeStatus(payload?.status);
+    this.statuses.set(userId, status);
+    this.server.emit('presence:update', { userId, online: true, status });
   }
 
   /**
@@ -134,7 +180,7 @@ export class ChatGateway
     const room = `user:${userId}`;
     client.join(room);
     client.emit('joined', { room });
-    client.emit('presence:state', this.getOnlineUserIds());
+    client.emit('presence:state', this.getPresenceState());
   }
 
   /**
@@ -309,6 +355,11 @@ export class ChatGateway
   /** Mensaje ACTUALIZADO (editado/eliminado/fijado) a todos los miembros. */
   emitMessageUpdate(memberIds: string[], message: unknown): void {
     this.emitToMembers(memberIds, 'message:updated', message);
+  }
+
+  /** Conversación cambió (miembros/nombre) → los clientes refrescan su lista. */
+  emitConversationUpdate(memberIds: string[], conversationId: string): void {
+    this.emitToMembers(memberIds, 'conversation:updated', { conversationId });
   }
 
   /** Reacciones agregadas actualizadas de un mensaje. */
