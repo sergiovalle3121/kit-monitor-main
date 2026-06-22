@@ -13,6 +13,7 @@ import {
   SfLineLayout,
   LayoutConnector,
   LayoutAsset,
+  LayoutAnnotation,
 } from './entities/sf-line-layout.entity';
 import { TenantContextService } from '../../common/tenant/tenant-context.service';
 import {
@@ -91,6 +92,7 @@ export interface LineLayout {
   dxf: LayoutDxf | null;
   connectors: LayoutConnector[];
   assets: LayoutAsset[];
+  annotations: LayoutAnnotation[];
 }
 
 export interface LineEngineeringKpis {
@@ -428,6 +430,7 @@ export class LineEngineeringService {
       dxf: layout ? this.toDxf(layout) : null,
       connectors: layout?.connectors ?? [],
       assets: layout?.assets ?? [],
+      annotations: layout?.annotations ?? [],
     };
   }
 
@@ -451,9 +454,15 @@ export class LineEngineeringService {
     const stations = await sQb.getMany();
     const byId = new Map(stations.map((s) => [s.id, s]));
 
-    // 1) Footprint config + DXF placement + flow connectors + assets
-    //    (find-or-create within scope). The DXF data itself is never touched.
-    if (dto.footprint || dto.dxf || dto.connectors || dto.assets) {
+    // 1) Footprint config + DXF placement + flow connectors + assets +
+    //    annotations (find-or-create within scope). DXF data is never touched.
+    if (
+      dto.footprint ||
+      dto.dxf ||
+      dto.connectors ||
+      dto.assets ||
+      dto.annotations
+    ) {
       const layout = await this.ensureLayout(model, revision);
       const f = dto.footprint;
       if (f) {
@@ -482,6 +491,18 @@ export class LineEngineeringService {
           h: clampPos(a.h, 1),
           rotation: Number(a.rotation) || 0,
           ...(a.label ? { label: String(a.label).slice(0, 64) } : {}),
+        }));
+      }
+      if (dto.annotations) {
+        layout.annotations = dto.annotations.map((a) => ({
+          id: String(a.id).slice(0, 64),
+          type: a.type === 'dim' ? ('dim' as const) : ('text' as const),
+          x: Number(a.x) || 0,
+          y: Number(a.y) || 0,
+          ...(a.x2 !== undefined ? { x2: Number(a.x2) || 0 } : {}),
+          ...(a.y2 !== undefined ? { y2: Number(a.y2) || 0 } : {}),
+          ...(a.text ? { text: String(a.text).slice(0, 240) } : {}),
+          ...(a.color ? { color: String(a.color).slice(0, 16) } : {}),
         }));
       }
       await this.requireLayouts().save(layout);

@@ -21,6 +21,18 @@ export interface LayoutAsset {
   label?: string;
 }
 
+/** A persistent annotation on the plan (Fase 7): free text or a dimension. */
+export interface LayoutAnnotation {
+  id: string;
+  type: 'text' | 'dim'; // text label | dimension line (cota)
+  x: number;
+  y: number;
+  x2?: number; // dim end point
+  y2?: number;
+  text?: string;
+  color?: string;
+}
+
 /**
  * 2D layout canvas config for a model+revision (the "plano" the Industrial
  * Engineer arranges stations on): footprint size, working unit and grid step.
@@ -102,4 +114,9 @@ export class SfLineLayout extends TenantBaseEntity {
   // walls, zones, labels…). Additive & nullable.
   @Column({ type: JSON_COLUMN_TYPE, nullable: true })
   assets: LayoutAsset[] | null;
+
+  // ── Annotations (Fase 7) ───────────────────────────────────────────────────
+  // Free-text labels and dimension lines (cotas) drawn on the plan. Additive.
+  @Column({ type: JSON_COLUMN_TYPE, nullable: true })
+  annotations: LayoutAnnotation[] | null;
 }
