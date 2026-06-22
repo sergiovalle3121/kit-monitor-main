@@ -130,6 +130,7 @@ export class MessagingService {
         username: u.username,
         email: u.email,
         role: u.role,
+        lastSeenAt: u.lastSeenAt ?? null,
       }));
   }
 
@@ -195,6 +196,64 @@ export class MessagingService {
     return convo;
   }
 
+  // ── administración de canales (miembros / nombre / salir) ─────────────────
+  private async getChannelOrThrow(
+    conversationId: string,
+  ): Promise<Conversation> {
+    const convo = await this.conversations.findOne({
+      where: { id: conversationId },
+    });
+    if (!convo || convo.type !== 'channel') {
+      throw new BadRequestException('Solo aplica a canales');
+    }
+    return convo;
+  }
+
+  async addMembers(meId: string, conversationId: string, userIds: string[]) {
+    await this.assertMember(conversationId, meId);
+    await this.getChannelOrThrow(conversationId);
+    const existing = new Set(await this.memberIdsOf(conversationId));
+    const toAdd = (userIds || []).filter((id) => id && !existing.has(id));
+    if (toAdd.length) {
+      await this.members.save(
+        toAdd.map((userId) => this.members.create({ conversationId, userId })),
+      );
+    }
+    this.gateway.emitConversationUpdate(
+      Array.from(new Set([...existing, ...toAdd])),
+      conversationId,
+    );
+    return { ok: true };
+  }
+
+  async removeMember(meId: string, conversationId: string, userId: string) {
+    await this.assertMember(conversationId, meId);
+    const convo = await this.getChannelOrThrow(conversationId);
+    if (userId !== meId && convo.createdById !== meId) {
+      throw new ForbiddenException('Solo el creador puede quitar a otros');
+    }
+    const before = await this.memberIdsOf(conversationId);
+    await this.members.delete({ conversationId, userId });
+    // Avisa también al que sale para que actualice su lista.
+    this.gateway.emitConversationUpdate(before, conversationId);
+    return { ok: true };
+  }
+
+  async renameChannel(meId: string, conversationId: string, name: string) {
+    await this.assertMember(conversationId, meId);
+    await this.getChannelOrThrow(conversationId);
+    const trimmed = (name ?? '').trim();
+    if (!trimmed) throw new BadRequestException('El canal necesita un nombre');
+    await this.conversations.update(conversationId, {
+      name: trimmed.slice(0, 120),
+    });
+    this.gateway.emitConversationUpdate(
+      await this.memberIdsOf(conversationId),
+      conversationId,
+    );
+    return { ok: true };
+  }
+
   // ── listar mis conversaciones con último mensaje y no leídos ─────────────
   async listConversations(meId: string) {
     const myMemberships = await this.members.find({ where: { userId: meId } });
@@ -245,6 +304,7 @@ export class MessagingService {
         type: convo.type,
         title,
         counterpartId,
+        createdById: convo.createdById,
         memberIds,
         lastMessage: last
           ? {
@@ -753,6 +813,66 @@ export class MessagingService {
     const dto = this.toDto(msg);
     await this.touchAndBroadcast(targetConversationId, msg, dto);
     return dto;
+  }
+
+  // ── búsqueda global de mensajes (en mis conversaciones) ───────────────────
+  async searchMessages(meId: string, query: string) {
+    const q = (query ?? '').trim().toLowerCase();
+    if (q.length < 2) return [];
+    const myMemberships = await this.members.find({ where: { userId: meId } });
+    const convoIds = myMemberships.map((m) => m.conversationId);
+    if (!convoIds.length) return [];
+
+    const rows = await this.messages
+      .createQueryBuilder('m')
+      .where('m.conversation_id IN (:...cids)', { cids: convoIds })
+      .andWhere("m.type = 'text'")
+      .andWhere('m.deleted_at IS NULL')
+      .andWhere('LOWER(m.body) LIKE :q', { q: `%${q}%` })
+      .orderBy('m.created_at', 'DESC')
+      .take(30)
+      .getMany();
+    if (!rows.length) return [];
+
+    // Títulos: canal → nombre; DM → el otro miembro.
+    const matchedIds = Array.from(new Set(rows.map((r) => r.conversationId)));
+    const convos = await this.conversations.find({
+      where: { id: In(matchedIds) },
+    });
+    const convoById = new Map(convos.map((c) => [c.id, c]));
+    const memberRows = await this.members.find({
+      where: { conversationId: In(matchedIds) },
+    });
+    const otherByConvo = new Map<string, string>();
+    for (const mr of memberRows) {
+      const c = convoById.get(mr.conversationId);
+      if (c?.type === 'dm' && mr.userId !== meId) {
+        otherByConvo.set(mr.conversationId, mr.userId);
+      }
+    }
+    const otherIds = Array.from(new Set(otherByConvo.values()));
+    const others = otherIds.length
+      ? await this.users.find({ where: { id: In(otherIds) } })
+      : [];
+    const userById = new Map(others.map((u) => [u.id, u]));
+
+    return rows.map((r) => {
+      const c = convoById.get(r.conversationId);
+      let title = c?.name ?? 'Conversación';
+      if (c?.type === 'dm') {
+        const other = userById.get(otherByConvo.get(r.conversationId) ?? '');
+        title = other?.username ?? other?.email ?? 'Usuario';
+      }
+      return {
+        id: r.id,
+        conversationId: r.conversationId,
+        conversationTitle: title,
+        conversationType: c?.type ?? 'dm',
+        senderId: r.senderId,
+        snippet: (r.body ?? '').slice(0, 160),
+        createdAt: r.createdAt,
+      };
+    });
   }
 
   // ── internos ─────────────────────────────────────────────────────────────

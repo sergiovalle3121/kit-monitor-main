@@ -87,21 +87,26 @@ export const ANIM_KIND_LABEL: Record<AnimKind, string> = {
 export interface SlideTheme {
   id: string; name: string;
   bg: string; surface: string; text: string; muted: string; accent: string; font: string;
+  /** Tipografía de títulos (mayor). Opcional: si falta, se usa `font` (compat.
+   *  con temas/mazos previos). `font` es la tipografía de cuerpo (menor). */
+  headingFont?: string;
 }
+/** Tipografía de títulos del tema (cae a la de cuerpo si no se definió). */
+export function themeHeading(t: SlideTheme): string { return t.headingFont || t.font; }
 
 export const SLIDE_THEMES: SlideTheme[] = [
-  { id: 'light', name: 'Claro', bg: '#ffffff', surface: '#eef2ff', text: '#111827', muted: '#6b7280', accent: '#2563eb', font: 'sans-serif' },
-  { id: 'midnight', name: 'Medianoche', bg: '#0f172a', surface: '#1e293b', text: '#f8fafc', muted: '#94a3b8', accent: '#38bdf8', font: 'sans-serif' },
-  { id: 'warm', name: 'Cálido', bg: '#fffaf3', surface: '#ffedd5', text: '#7c2d12', muted: '#b45309', accent: '#ea580c', font: 'Georgia, serif' },
-  { id: 'forest', name: 'Bosque', bg: '#f2fbf5', surface: '#dcfce7', text: '#14532d', muted: '#15803d', accent: '#16a34a', font: 'sans-serif' },
-  { id: 'plum', name: 'Ciruela', bg: '#faf5ff', surface: '#f3e8ff', text: '#581c87', muted: '#7e22ce', accent: '#9333ea', font: 'sans-serif' },
-  { id: 'mono', name: 'Mono', bg: '#fafafa', surface: '#e7e7e7', text: '#171717', muted: '#525252', accent: '#404040', font: 'ui-monospace, monospace' },
-  { id: 'ocean', name: 'Océano', bg: '#f0f9ff', surface: '#e0f2fe', text: '#0c4a6e', muted: '#0369a1', accent: '#0ea5e9', font: 'sans-serif' },
-  { id: 'slate', name: 'Pizarra', bg: '#f8fafc', surface: '#e2e8f0', text: '#0f172a', muted: '#475569', accent: '#475569', font: 'sans-serif' },
-  { id: 'rose', name: 'Rosa', bg: '#fff1f2', surface: '#ffe4e6', text: '#881337', muted: '#be123c', accent: '#e11d48', font: 'Georgia, serif' },
-  { id: 'sand', name: 'Arena', bg: '#fefce8', surface: '#fef9c3', text: '#713f12', muted: '#a16207', accent: '#ca8a04', font: 'sans-serif' },
-  { id: 'graphite', name: 'Grafito', bg: '#111827', surface: '#1f2937', text: '#f9fafb', muted: '#9ca3af', accent: '#f472b6', font: 'sans-serif' },
-  { id: 'emerald', name: 'Esmeralda', bg: '#022c22', surface: '#064e3b', text: '#ecfdf5', muted: '#6ee7b7', accent: '#34d399', font: 'sans-serif' },
+  { id: 'light', name: 'Claro', bg: '#ffffff', surface: '#eef2ff', text: '#111827', muted: '#6b7280', accent: '#2563eb', font: 'sans-serif', headingFont: 'Georgia, serif' },
+  { id: 'midnight', name: 'Medianoche', bg: '#0f172a', surface: '#1e293b', text: '#f8fafc', muted: '#94a3b8', accent: '#38bdf8', font: 'sans-serif', headingFont: 'Georgia, serif' },
+  { id: 'warm', name: 'Cálido', bg: '#fffaf3', surface: '#ffedd5', text: '#7c2d12', muted: '#b45309', accent: '#ea580c', font: 'Georgia, serif', headingFont: 'Trebuchet MS, sans-serif' },
+  { id: 'forest', name: 'Bosque', bg: '#f2fbf5', surface: '#dcfce7', text: '#14532d', muted: '#15803d', accent: '#16a34a', font: 'sans-serif', headingFont: 'Georgia, serif' },
+  { id: 'plum', name: 'Ciruela', bg: '#faf5ff', surface: '#f3e8ff', text: '#581c87', muted: '#7e22ce', accent: '#9333ea', font: 'sans-serif', headingFont: 'Georgia, serif' },
+  { id: 'mono', name: 'Mono', bg: '#fafafa', surface: '#e7e7e7', text: '#171717', muted: '#525252', accent: '#404040', font: 'ui-monospace, monospace', headingFont: 'ui-monospace, monospace' },
+  { id: 'ocean', name: 'Océano', bg: '#f0f9ff', surface: '#e0f2fe', text: '#0c4a6e', muted: '#0369a1', accent: '#0ea5e9', font: 'sans-serif', headingFont: 'Georgia, serif' },
+  { id: 'slate', name: 'Pizarra', bg: '#f8fafc', surface: '#e2e8f0', text: '#0f172a', muted: '#475569', accent: '#475569', font: 'sans-serif', headingFont: 'Georgia, serif' },
+  { id: 'rose', name: 'Rosa', bg: '#fff1f2', surface: '#ffe4e6', text: '#881337', muted: '#be123c', accent: '#e11d48', font: 'Georgia, serif', headingFont: 'Trebuchet MS, sans-serif' },
+  { id: 'sand', name: 'Arena', bg: '#fefce8', surface: '#fef9c3', text: '#713f12', muted: '#a16207', accent: '#ca8a04', font: 'sans-serif', headingFont: 'Georgia, serif' },
+  { id: 'graphite', name: 'Grafito', bg: '#111827', surface: '#1f2937', text: '#f9fafb', muted: '#9ca3af', accent: '#f472b6', font: 'sans-serif', headingFont: 'Georgia, serif' },
+  { id: 'emerald', name: 'Esmeralda', bg: '#022c22', surface: '#064e3b', text: '#ecfdf5', muted: '#6ee7b7', accent: '#34d399', font: 'sans-serif', headingFont: 'Georgia, serif' },
 ];
 
 export type PlaceKind = 'title' | 'subtitle' | 'body' | 'bar' | 'accentBar';
@@ -145,6 +150,31 @@ export const SLIDE_LAYOUTS: SlideLayout[] = [
       { kind: 'accentBar', left: 80, top: 250, width: 120, height: 10 },
       { kind: 'title', text: 'Sección', left: 80, top: 270, width: 800, fontSize: 52, bold: true },
       { kind: 'subtitle', text: 'Descripción breve de la sección', left: 80, top: 360, width: 800, fontSize: 24, muted: true },
+    ],
+  },
+  {
+    id: 'titleOnly', name: 'Solo el título',
+    build: () => [
+      { kind: 'accentBar', left: 56, top: 64, width: 90, height: 8 },
+      { kind: 'title', text: 'Título', left: 56, top: 80, width: 840, fontSize: 40, bold: true },
+    ],
+  },
+  {
+    id: 'comparison', name: 'Comparación',
+    build: () => [
+      { kind: 'title', text: 'Comparación', left: 56, top: 56, width: 840, fontSize: 38, bold: true },
+      { kind: 'subtitle', text: 'Opción A', left: 56, top: 150, width: 400, fontSize: 24, bold: true },
+      { kind: 'body', text: '• Punto\n• Punto', left: 56, top: 200, width: 400, fontSize: 22 },
+      { kind: 'subtitle', text: 'Opción B', left: 504, top: 150, width: 400, fontSize: 24, bold: true },
+      { kind: 'body', text: '• Punto\n• Punto', left: 504, top: 200, width: 400, fontSize: 22 },
+    ],
+  },
+  {
+    id: 'quote', name: 'Cita',
+    build: () => [
+      { kind: 'accentBar', left: 120, top: 200, width: 80, height: 8 },
+      { kind: 'title', text: '«Una cita memorable que resume la idea.»', left: 120, top: 224, width: 720, fontSize: 38, bold: true },
+      { kind: 'subtitle', text: '— Autor / Fuente', left: 120, top: 360, width: 720, fontSize: 22, muted: true },
     ],
   },
   {
