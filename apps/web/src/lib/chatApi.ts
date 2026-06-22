@@ -47,6 +47,17 @@ export interface ChatUser {
   username: string;
   email: string;
   role: string;
+  lastSeenAt?: string | null;
+}
+
+export interface SearchResult {
+  id: string;
+  conversationId: string;
+  conversationTitle: string;
+  conversationType: 'dm' | 'channel';
+  senderId: string;
+  snippet: string;
+  createdAt: string;
 }
 
 export interface MessageReaction {
@@ -95,6 +106,7 @@ export interface ChatConversation {
   type: 'dm' | 'channel';
   title: string | null;
   counterpartId: string | null;
+  createdById?: string | null;
   memberIds: string[];
   lastMessage: { type: string; body: string | null; createdAt: string; senderId: string } | null;
   lastMessageAt: string | null;
@@ -124,6 +136,37 @@ export const chatApi = {
       method: 'POST',
       headers: authHeaders(),
       body: JSON.stringify({ name, memberIds }),
+    }),
+
+  searchMessages: (q: string) =>
+    req<SearchResult[]>(`/messaging/search?q=${encodeURIComponent(q)}`, {
+      headers: authHeaders(),
+    }),
+
+  addMembers: (conversationId: string, userIds: string[]) =>
+    req<{ ok: boolean }>(`/messaging/conversations/${conversationId}/members`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ userIds }),
+    }),
+
+  removeMember: (conversationId: string, userId: string) =>
+    req<{ ok: boolean }>(
+      `/messaging/conversations/${conversationId}/members/${userId}`,
+      { method: 'DELETE', headers: authHeaders() },
+    ),
+
+  renameChannel: (conversationId: string, name: string) =>
+    req<{ ok: boolean }>(`/messaging/conversations/${conversationId}`, {
+      method: 'PATCH',
+      headers: authHeaders(),
+      body: JSON.stringify({ name }),
+    }),
+
+  leaveChannel: (conversationId: string) =>
+    req<{ ok: boolean }>(`/messaging/conversations/${conversationId}/leave`, {
+      method: 'POST',
+      headers: authHeaders(),
     }),
 
   sendText: (conversationId: string, body: string, replyToId?: string) =>

@@ -31,6 +31,10 @@ import {
   PinOff,
   Pencil,
   Trash2,
+  Users,
+  UserPlus,
+  LogOut,
+  Check,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { glass } from '@/lib/glass';
@@ -45,6 +49,7 @@ import {
   MessageReaction,
   ReadReceipt,
   ReplyPreview,
+  SearchResult,
 } from '@/lib/chatApi';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
 import { MessageComposer } from '@/components/chat/MessageComposer';
@@ -55,12 +60,25 @@ import { callsSupported } from '@/lib/chat/webrtc';
 import { renderMessageText, hasTable } from '@/lib/chat/markdown';
 import { isEmojiOnly, emojiGlyphCount } from '@/lib/chat/stickers';
 import { parseStickerId, getSticker } from '@/lib/chat/stickerImages';
-import { formatBytes, relativeTime } from '@/lib/chat/format';
+import { formatBytes, relativeTime, lastSeenLabel } from '@/lib/chat/format';
 import { avatarStyle } from '@/lib/chat/avatar';
+import { loadDraft, saveDraft } from '@/lib/chat/drafts';
 import { QUICK_REACTIONS } from '@/lib/chat/emojis';
 
 /** Set corto de reacciones rápidas (mini-picker del toolbar de cada mensaje). */
 const REACTION_EMOJIS = QUICK_REACTIONS;
+
+type PresenceStatus = 'available' | 'busy' | 'away';
+const STATUS_META: Record<
+  PresenceStatus | 'offline',
+  { label: string; dot: string }
+> = {
+  available: { label: 'Disponible', dot: 'bg-green-500' },
+  busy: { label: 'Ocupado', dot: 'bg-red-500' },
+  away: { label: 'Ausente', dot: 'bg-amber-500' },
+  offline: { label: 'Desconectado', dot: 'bg-gray-400' },
+};
+const STATUS_KEY = 'axos_chat_status';
 
 /** Emojis del grid "más" del picker de reacciones de cada mensaje. */
 const EMOJIS = ['😀', '😁', '😂', '😉', '😊', '😍', '👍', '🙏', '🔥', '✅', '⚠️', '❌', '🚀', '🛠️', '📦', '🏭'];
@@ -195,6 +213,16 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
   const [forwarding, setForwarding] = useState<ChatMessage | null>(null);
   const [pinned, setPinned] = useState<ChatMessage[]>([]);
   const [showPinned, setShowPinned] = useState(false);
+  // Presencia con estado (disponible/ocupado/ausente) por usuario.
+  const [statuses, setStatuses] = useState<Map<string, PresenceStatus>>(new Map());
+  const [myStatus, setMyStatus] = useState<PresenceStatus>('available');
+  const [showStatusMenu, setShowStatusMenu] = useState(false);
+  // Búsqueda global de mensajes.
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  // Administración del canal abierto.
+  const [channelSettings, setChannelSettings] = useState<ChatConversation | null>(
+    null,
+  );
   // Socket en estado (además del ref) para que useCall enganche sus listeners.
   const [socket, setSocket] = useState<Socket | null>(null);
 
@@ -206,12 +234,28 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
   const usersRef = useRef<ChatUser[]>([]);
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastTypingEmitRef = useRef(0);
+  const draftRef = useRef('');
+  const editingRef = useRef<string | null>(null);
   useEffect(() => {
     activeIdRef.current = activeId;
   }, [activeId]);
   useEffect(() => {
     usersRef.current = users;
   }, [users]);
+  useEffect(() => {
+    draftRef.current = draft;
+  }, [draft]);
+  useEffect(() => {
+    editingRef.current = editingId;
+  }, [editingId]);
+  // Al desmontar (cerrar dock / cambiar de ruta), guarda el borrador en curso.
+  useEffect(
+    () => () => {
+      const aid = activeIdRef.current;
+      if (aid && !editingRef.current) saveDraft(aid, draftRef.current);
+    },
+    [],
+  );
 
   // Hidrata la preferencia de autocorrector.
   useEffect(() => {
@@ -230,6 +274,38 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
       /* ignore */
     }
   }, []);
+
+  // Estado de presencia propio (persistido + difundido por socket).
+  const myStatusRef = useRef<PresenceStatus>('available');
+  useEffect(() => {
+    myStatusRef.current = myStatus;
+  }, [myStatus]);
+  useEffect(() => {
+    try {
+      const v = window.localStorage.getItem(STATUS_KEY);
+      if (v === 'busy' || v === 'away' || v === 'available') setMyStatus(v);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+  function changeMyStatus(s: PresenceStatus) {
+    setMyStatus(s);
+    setShowStatusMenu(false);
+    try {
+      window.localStorage.setItem(STATUS_KEY, s);
+    } catch {
+      /* ignore */
+    }
+    socketRef.current?.emit('presence:set-status', { status: s });
+    // Reflejo local inmediato.
+    setStatuses((prev) => new Map(prev).set(meId, s));
+  }
+
+  /** Estado a mostrar para un usuario: su estado si está online, o 'offline'. */
+  function statusFor(userId: string): PresenceStatus | 'offline' {
+    if (userId === meId) return myStatus;
+    return onlineIds.has(userId) ? (statuses.get(userId) ?? 'available') : 'offline';
+  }
 
   // Llamadas WebRTC (1:1 en DMs).
   const {
@@ -320,6 +396,28 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
     };
   }, [meId]);
 
+  // Búsqueda global de mensajes (debounced).
+  useEffect(() => {
+    const q = search.trim();
+    if (q.length < 2) {
+      setSearchResults([]);
+      return;
+    }
+    let alive = true;
+    const t = setTimeout(() => {
+      chatApi
+        .searchMessages(q)
+        .then((r) => {
+          if (alive) setSearchResults(r);
+        })
+        .catch(() => {});
+    }, 300);
+    return () => {
+      alive = false;
+      clearTimeout(t);
+    };
+  }, [search]);
+
   // Socket en tiempo real
   useEffect(() => {
     if (!meId) return;
@@ -333,7 +431,13 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
       reconnectionAttempts: 10,
       auth: { token },
     });
-    s.on('connect', () => s.emit('join', meId));
+    s.on('connect', () => {
+      s.emit('join', meId);
+      // Reanuncia mi estado de presencia al (re)conectar.
+      if (myStatusRef.current !== 'available') {
+        s.emit('presence:set-status', { status: myStatusRef.current });
+      }
+    });
     s.on('message:new', (msg: ChatMessage) => {
       if (msg.conversationId === activeIdRef.current) {
         setMessages((prev) => (prev.some((m) => m.id === msg.id) ? prev : [...prev, msg]));
@@ -365,14 +469,46 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
       if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
       typingTimerRef.current = setTimeout(() => setTypingConvo(null), 2500);
     });
-    s.on('presence:state', (ids: string[]) => setOnlineIds(new Set(ids)));
-    s.on('presence:update', (p: { userId: string; online: boolean }) => {
-      setOnlineIds((prev) => {
-        const next = new Set(prev);
-        if (p.online) next.add(p.userId);
-        else next.delete(p.userId);
-        return next;
-      });
+    s.on(
+      'presence:state',
+      (arr: { userId: string; status: PresenceStatus }[]) => {
+        setOnlineIds(new Set(arr.map((x) => x.userId)));
+        setStatuses(new Map(arr.map((x) => [x.userId, x.status])));
+      },
+    );
+    s.on(
+      'presence:update',
+      (p: { userId: string; online: boolean; status?: PresenceStatus }) => {
+        setOnlineIds((prev) => {
+          const next = new Set(prev);
+          if (p.online) next.add(p.userId);
+          else next.delete(p.userId);
+          return next;
+        });
+        setStatuses((prev) => {
+          const next = new Map(prev);
+          if (p.online) next.set(p.userId, p.status ?? 'available');
+          else next.delete(p.userId);
+          return next;
+        });
+        // Al desconectarse en vivo, recuerda "visto hace" ahora.
+        if (!p.online) {
+          const now = new Date().toISOString();
+          setUsers((prev) =>
+            prev.map((u) => (u.id === p.userId ? { ...u, lastSeenAt: now } : u)),
+          );
+        }
+      },
+    );
+    // Conversación cambió (miembros/nombre) → refrescar y recargar si es la activa.
+    s.on('conversation:updated', (p: { conversationId: string }) => {
+      refreshConversations();
+      if (p?.conversationId === activeIdRef.current) {
+        chatApi
+          .listMessages(p.conversationId)
+          .then(setMessages)
+          .catch(() => {});
+      }
     });
     s.on(
       'reaction:update',
@@ -621,6 +757,7 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
     const reply = replyingTo;
     setReplyingTo(null);
     enqueueText(activeId, text, reply);
+    saveDraft(activeId, ''); // limpia el borrador al enviar
   }
 
   function attachImage(file: File) {
@@ -740,6 +877,10 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
 
   // Selecciona una conversación y limpia su acento de mención.
   function openConversation(id: string) {
+    // Guarda el borrador de la conversación que dejo (salvo si estaba editando).
+    if (activeIdRef.current && activeIdRef.current !== id && !editingRef.current) {
+      saveDraft(activeIdRef.current, draftRef.current);
+    }
     setActiveId(id);
     setLoadingMessages(true);
     setMessages([]);
@@ -748,7 +889,7 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
     setShowPinned(false);
     setReplyingTo(null);
     setEditingId(null);
-    setDraft('');
+    setDraft(loadDraft(id));
     requestNotifyPermission();
     atBottomRef.current = true;
     setShowJump(false);
@@ -769,6 +910,18 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
     await refreshConversations();
     openConversation(convo.id);
     setSearch('');
+  }
+
+  // Abre un resultado de búsqueda global y salta al mensaje (si está cargado).
+  function openSearchResult(r: SearchResult) {
+    openConversation(r.conversationId);
+    setSearch('');
+    setSearchResults([]);
+    setTimeout(() => {
+      document
+        .getElementById(`msg-${r.id}`)
+        ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 450);
   }
 
   // Continuidad al ampliar desde el dock: /dashboard/chat?c=<id> abre ese hilo.
@@ -841,6 +994,36 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
           </div>
         )}
       </div>
+
+      {/* Selector de mi estado de presencia */}
+      <div className="relative mb-3">
+        <button
+          onClick={() => setShowStatusMenu((s) => !s)}
+          className="flex items-center gap-2 rounded-full px-2 py-1 text-xs hover:bg-black/5 dark:hover:bg-white/10"
+        >
+          <span className={`h-2.5 w-2.5 rounded-full ${STATUS_META[myStatus].dot}`} />
+          <span className="font-medium">{STATUS_META[myStatus].label}</span>
+          <ChevronDown className="h-3 w-3 text-gray-400" />
+        </button>
+        {showStatusMenu && (
+          <div
+            className={`${glass} absolute left-0 top-9 z-30 w-44 rounded-2xl p-1 shadow-xl`}
+          >
+            {(['available', 'busy', 'away'] as PresenceStatus[]).map((s) => (
+              <button
+                key={s}
+                onClick={() => changeMyStatus(s)}
+                className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm hover:bg-black/5 dark:hover:bg-white/10"
+              >
+                <span className={`h-2.5 w-2.5 rounded-full ${STATUS_META[s].dot}`} />
+                {STATUS_META[s].label}
+                {myStatus === s && <Check className="ml-auto h-4 w-4 text-blue-500" />}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
       <div className="mb-4 flex items-center justify-between">
         {single ? (
           <span className="text-xs text-gray-400">Tu chat interno</span>
@@ -866,9 +1049,18 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Buscar empleado para chatear..."
+          placeholder="Buscar empleados o mensajes…"
           className="w-full bg-transparent text-sm outline-none placeholder:text-gray-500"
         />
+        {search && (
+          <button
+            onClick={() => setSearch('')}
+            aria-label="Limpiar búsqueda"
+            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        )}
       </div>
 
       <div className="flex-1 space-y-4 overflow-y-auto">
@@ -896,6 +1088,44 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
           </div>
         )}
 
+        {/* Resultados de búsqueda global de mensajes */}
+        {searchResults.length > 0 && (
+          <div className="space-y-1">
+            <p className="px-1 text-xs font-medium text-gray-400">Mensajes</p>
+            {searchResults.map((r) => (
+              <button
+                key={r.id}
+                onClick={() => openSearchResult(r)}
+                className="flex w-full items-start gap-3 rounded-2xl p-2 text-left hover:bg-black/5 dark:hover:bg-white/10"
+              >
+                <span
+                  className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
+                  style={avatarStyle(r.conversationId)}
+                >
+                  {r.conversationType === 'channel' ? (
+                    <Hash className="h-4 w-4" />
+                  ) : (
+                    initials(r.conversationTitle)
+                  )}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-center gap-2">
+                    <span className="min-w-0 flex-1 truncate text-sm font-medium">
+                      {r.conversationTitle}
+                    </span>
+                    <span className="shrink-0 text-[10px] text-gray-400">
+                      {relativeTime(r.createdAt)}
+                    </span>
+                  </span>
+                  <span className="block truncate text-xs text-gray-500">
+                    {senderName(r.senderId, users)}: {r.snippet}
+                  </span>
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+
         {onlineUsers.length > 0 && (
           <div className="space-y-1">
             <p className="flex items-center gap-1.5 px-1 text-xs font-medium text-gray-400">
@@ -915,7 +1145,7 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
                   >
                     {initials(u.username || u.email)}
                   </span>
-                  <PresenceDot online />
+                  <PresenceDot status={statusFor(u.id)} />
                 </span>
                 <span className="min-w-0">
                   <span className="block truncate text-sm font-medium">{u.username || u.email}</span>
@@ -951,7 +1181,7 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
               key={c.id}
               convo={c}
               active={c.id === activeId}
-              online={c.counterpartId ? onlineIds.has(c.counterpartId) : undefined}
+              status={c.counterpartId ? statusFor(c.counterpartId) : undefined}
               mentioned={mentionConvos.has(c.id)}
               onClick={() => openConversation(c.id)}
             />
@@ -1001,7 +1231,7 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
                     {initials(active.title || '?')}
                   </span>
                   {active.counterpartId && (
-                    <PresenceDot online={onlineIds.has(active.counterpartId)} />
+                    <PresenceDot status={statusFor(active.counterpartId)} />
                   )}
                 </span>
               )}
@@ -1011,8 +1241,15 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
                   {active.type === 'channel'
                     ? `${active.memberIds.length} miembros`
                     : active.counterpartId && onlineIds.has(active.counterpartId)
-                      ? 'En línea'
-                      : 'Desconectado'}
+                      ? STATUS_META[statusFor(active.counterpartId)].label
+                      : (() => {
+                          const u = active.counterpartId
+                            ? users.find((x) => x.id === active.counterpartId)
+                            : null;
+                          return (
+                            (u && lastSeenLabel(u.lastSeenAt)) || 'Desconectado'
+                          );
+                        })()}
                 </p>
               </div>
               <div className="ml-auto flex items-center gap-1">
@@ -1050,6 +1287,16 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
                 >
                   <Search className="h-5 w-5" />
                 </button>
+                {active.type === 'channel' && (
+                  <button
+                    onClick={() => setChannelSettings(active)}
+                    className="rounded-full p-2 text-gray-500 transition-colors hover:bg-black/5 focus-visible:ring-2 focus-visible:ring-blue-500/40 dark:hover:bg-white/10"
+                    aria-label="Información del canal"
+                    title="Miembros y ajustes"
+                  >
+                    <Users className="h-5 w-5" />
+                  </button>
+                )}
               </div>
             </div>
 
@@ -1369,6 +1616,22 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
         />
       )}
 
+      {channelSettings && (
+        <ChannelSettingsModal
+          convo={channelSettings}
+          users={users}
+          meId={meId}
+          onClose={() => setChannelSettings(null)}
+          onChanged={refreshConversations}
+          onLeft={() => {
+            setChannelSettings(null);
+            setActiveId(null);
+            refreshConversations();
+          }}
+          onError={(msg) => setError(msg)}
+        />
+      )}
+
       {/* Overlay de llamada (WebRTC, 1:1 y grupo) */}
       {call && (
         <CallOverlay
@@ -1466,15 +1729,14 @@ function computeSeenInfo(
   return { index: -1, readerIds: [] };
 }
 
-/** Punto de presencia (verde = en línea, gris = desconectado) sobre un avatar. */
-function PresenceDot({ online }: { online: boolean }) {
+/** Punto de presencia con color por estado (disponible/ocupado/ausente/offline). */
+function PresenceDot({ status }: { status: PresenceStatus | 'offline' }) {
+  const meta = STATUS_META[status];
   return (
     <span
-      className={`absolute -bottom-0.5 -right-0.5 block h-3 w-3 rounded-full border-2 border-white dark:border-gray-900 ${
-        online ? 'bg-green-500' : 'bg-gray-400'
-      }`}
-      title={online ? 'En línea' : 'Desconectado'}
-      aria-label={online ? 'En línea' : 'Desconectado'}
+      className={`absolute -bottom-0.5 -right-0.5 block h-3 w-3 rounded-full border-2 border-white dark:border-gray-900 ${meta.dot}`}
+      title={meta.label}
+      aria-label={meta.label}
     />
   );
 }
@@ -1748,7 +2010,9 @@ function MessageItem({
               >
                 {initials(senderName(m.senderId, users))}
               </span>
-              <PresenceDot online={onlineIds.has(m.senderId)} />
+              <PresenceDot
+                status={onlineIds.has(m.senderId) ? 'available' : 'offline'}
+              />
             </span>
           )}
         </div>
@@ -2150,13 +2414,13 @@ function ConvoSearchBar({
 function ConversationRow({
   convo,
   active,
-  online,
+  status,
   mentioned,
   onClick,
 }: {
   convo: ChatConversation;
   active: boolean;
-  online?: boolean;
+  status?: PresenceStatus | 'offline';
   mentioned?: boolean;
   onClick: () => void;
 }) {
@@ -2187,7 +2451,7 @@ function ConversationRow({
         >
           {convo.type === 'channel' ? <Hash className="h-4 w-4" /> : initials(convo.title || '?')}
         </span>
-        {online !== undefined && <PresenceDot online={online} />}
+        {status && <PresenceDot status={status} />}
       </span>
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-2">
@@ -2224,6 +2488,209 @@ function ConversationRow({
         </span>
       )}
     </button>
+  );
+}
+
+function ChannelSettingsModal({
+  convo,
+  users,
+  meId,
+  onClose,
+  onChanged,
+  onLeft,
+  onError,
+}: {
+  convo: ChatConversation;
+  users: ChatUser[];
+  meId: string;
+  onClose: () => void;
+  onChanged: () => void;
+  onLeft: () => void;
+  onError: (msg: string) => void;
+}) {
+  const [name, setName] = useState(convo.title || '');
+  const [memberIds, setMemberIds] = useState<string[]>(convo.memberIds);
+  const [adding, setAdding] = useState(false);
+  const [addQuery, setAddQuery] = useState('');
+  const [busy, setBusy] = useState(false);
+  const isCreator = (convo.createdById ?? null) === meId;
+  const memberUsers = users.filter((u) => memberIds.includes(u.id));
+  const nonMembers = users.filter(
+    (u) =>
+      !memberIds.includes(u.id) &&
+      (u.username || u.email || '')
+        .toLowerCase()
+        .includes(addQuery.toLowerCase()),
+  );
+
+  async function rename() {
+    const n = name.trim();
+    if (!n || n === convo.title) return;
+    setBusy(true);
+    try {
+      await chatApi.renameChannel(convo.id, n);
+      onChanged();
+    } catch (e) {
+      onError(`No se pudo renombrar: ${(e as Error).message}`);
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function addOne(userId: string) {
+    try {
+      await chatApi.addMembers(convo.id, [userId]);
+      setMemberIds((ids) => [...ids, userId]);
+      onChanged();
+    } catch (e) {
+      onError(`No se pudo agregar: ${(e as Error).message}`);
+    }
+  }
+  async function removeOne(userId: string) {
+    try {
+      await chatApi.removeMember(convo.id, userId);
+      setMemberIds((ids) => ids.filter((i) => i !== userId));
+      onChanged();
+    } catch (e) {
+      onError(`No se pudo quitar: ${(e as Error).message}`);
+    }
+  }
+  async function leave() {
+    try {
+      await chatApi.leaveChannel(convo.id);
+      onLeft();
+    } catch (e) {
+      onError(`No se pudo salir: ${(e as Error).message}`);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 p-4">
+      <div className={`${glass} flex max-h-[85vh] w-full max-w-md flex-col rounded-[24px] p-6`}>
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="text-lg font-semibold">Ajustes del canal</h3>
+          <button
+            onClick={onClose}
+            className="rounded-full p-1 hover:bg-black/5 dark:hover:bg-white/10"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        {/* Nombre */}
+        <label className="mb-1 block text-xs font-medium text-gray-400">Nombre</label>
+        <div className="mb-4 flex items-center gap-2">
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="flex-1 rounded-xl bg-black/5 px-4 py-2 text-sm outline-none dark:bg-white/10"
+          />
+          <button
+            onClick={rename}
+            disabled={busy || !name.trim() || name.trim() === convo.title}
+            className="rounded-xl bg-blue-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-40"
+          >
+            Guardar
+          </button>
+        </div>
+
+        {/* Miembros */}
+        <div className="mb-2 flex items-center justify-between">
+          <p className="text-xs font-medium text-gray-400">
+            Miembros · {memberIds.length}
+          </p>
+          <button
+            onClick={() => setAdding((a) => !a)}
+            className="flex items-center gap-1 text-xs font-semibold text-blue-600 dark:text-blue-400"
+          >
+            <UserPlus className="h-3.5 w-3.5" /> Añadir
+          </button>
+        </div>
+
+        {adding && (
+          <div className="mb-3 rounded-2xl bg-black/5 p-2 dark:bg-white/10">
+            <input
+              autoFocus
+              value={addQuery}
+              onChange={(e) => setAddQuery(e.target.value)}
+              placeholder="Buscar para añadir…"
+              className="mb-1 w-full rounded-lg bg-transparent px-2 py-1 text-sm outline-none"
+            />
+            <div className="max-h-32 overflow-y-auto">
+              {nonMembers.length === 0 && (
+                <p className="px-2 py-1 text-xs text-gray-400">Sin resultados</p>
+              )}
+              {nonMembers.slice(0, 20).map((u) => (
+                <button
+                  key={u.id}
+                  onClick={() => addOne(u.id)}
+                  className="flex w-full items-center gap-2 rounded-xl p-1.5 text-left hover:bg-black/5 dark:hover:bg-white/10"
+                >
+                  <span
+                    className="flex h-7 w-7 items-center justify-center rounded-full text-[10px] font-bold text-white"
+                    style={avatarStyle(u.id)}
+                  >
+                    {initials(u.username || u.email)}
+                  </span>
+                  <span className="truncate text-sm">{u.username || u.email}</span>
+                  <UserPlus className="ml-auto h-4 w-4 text-blue-500" />
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="min-h-0 flex-1 space-y-1 overflow-y-auto">
+          {/* Yo */}
+          <div className="flex items-center gap-2 rounded-xl p-1.5">
+            <span
+              className="flex h-8 w-8 items-center justify-center rounded-full text-[10px] font-bold text-white"
+              style={avatarStyle(meId)}
+            >
+              {initials('Tú')}
+            </span>
+            <span className="text-sm font-medium">Tú</span>
+            {isCreator && (
+              <span className="ml-auto text-[10px] text-gray-400">Creador</span>
+            )}
+          </div>
+          {memberUsers.map((u) => (
+            <div
+              key={u.id}
+              className="flex items-center gap-2 rounded-xl p-1.5 hover:bg-black/5 dark:hover:bg-white/10"
+            >
+              <span
+                className="flex h-8 w-8 items-center justify-center rounded-full text-[10px] font-bold text-white"
+                style={avatarStyle(u.id)}
+              >
+                {initials(u.username || u.email)}
+              </span>
+              <span className="min-w-0">
+                <span className="block truncate text-sm font-medium">
+                  {u.username || u.email}
+                </span>
+                <span className="block truncate text-xs text-gray-500">{u.role}</span>
+              </span>
+              {isCreator && (
+                <button
+                  onClick={() => removeOne(u.id)}
+                  aria-label="Quitar del canal"
+                  className="ml-auto rounded-full p-1.5 text-gray-400 hover:bg-red-500/10 hover:text-red-500"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+
+        <button
+          onClick={leave}
+          className="mt-4 flex items-center justify-center gap-2 rounded-full border border-red-500/30 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-500/10 dark:text-red-400"
+        >
+          <LogOut className="h-4 w-4" /> Salir del canal
+        </button>
+      </div>
+    </div>
   );
 }
 

@@ -75,6 +75,10 @@ export class User {
   @Column({ default: true })
   isActive: boolean;
 
+  /** Última vez que estuvo conectado al chat (para "visto hace…"). */
+  @Column({ name: 'last_seen_at', type: DATE_COLUMN_TYPE, nullable: true })
+  lastSeenAt: Date | null;
+
   @CreateDateColumn()
   createdAt: Date;
 

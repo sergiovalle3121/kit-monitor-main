@@ -26,3 +26,19 @@ export function relativeTime(iso: string | null | undefined): string {
   return d.toLocaleDateString([], { day: '2-digit', month: '2-digit' });
 }
 
+/** "visto hace…" para usuarios desconectados (a partir de lastSeenAt). */
+export function lastSeenLabel(iso: string | null | undefined): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '';
+  const min = Math.floor((Date.now() - d.getTime()) / 60000);
+  if (min < 1) return 'visto hace un momento';
+  if (min < 60) return `visto hace ${min} min`;
+  const h = Math.floor(min / 60);
+  if (h < 24) return `visto hace ${h} h`;
+  const days = Math.floor(h / 24);
+  if (days === 1) return 'visto ayer';
+  if (days < 7) return `visto hace ${days} d`;
+  return `visto el ${d.toLocaleDateString([], { day: '2-digit', month: '2-digit' })}`;
+}
+

@@ -1,5 +1,6 @@
 import { ChatGateway } from './chat.gateway';
 import { ConversationMember } from './entities/conversation-member.entity';
+import { User } from '../users/entities/user.entity';
 import { JwtService } from '@nestjs/jwt';
 import type { Repository } from 'typeorm';
 
@@ -12,15 +13,18 @@ describe('ChatGateway (auth + presence)', () => {
   let gateway: ChatGateway;
   let jwt: { verify: jest.Mock };
   let members: { find: jest.Mock };
+  let usersRepo: { update: jest.Mock };
   let roomEmit: jest.Mock;
   let server: { emit: jest.Mock; to: jest.Mock };
 
   beforeEach(() => {
     jwt = { verify: jest.fn() };
     members = { find: jest.fn() };
+    usersRepo = { update: jest.fn().mockResolvedValue(undefined) };
     gateway = new ChatGateway(
       jwt as unknown as JwtService,
       members as unknown as Repository<ConversationMember>,
+      usersRepo as unknown as Repository<User>,
     );
     roomEmit = jest.fn();
     server = { emit: jest.fn(), to: jest.fn(() => ({ emit: roomEmit })) };
@@ -62,10 +66,13 @@ describe('ChatGateway (auth + presence)', () => {
     expect(client.disconnect).not.toHaveBeenCalled();
     expect(client.join).toHaveBeenCalledWith('user:u1');
     expect(client.data.userId).toBe('u1');
-    expect(client.emit).toHaveBeenCalledWith('presence:state', ['u1']);
+    expect(client.emit).toHaveBeenCalledWith('presence:state', [
+      { userId: 'u1', status: 'available' },
+    ]);
     expect(server.emit).toHaveBeenCalledWith('presence:update', {
       userId: 'u1',
       online: true,
+      status: 'available',
     });
     expect(gateway.getOnlineUserIds()).toEqual(['u1']);
   });
@@ -98,6 +105,30 @@ describe('ChatGateway (auth + presence)', () => {
       userId: 'u1',
       online: false,
     });
+  });
+
+  it('presence:set-status difunde el estado a todos', () => {
+    jwt.verify.mockReturnValue({ sub: 'u1' });
+    const client = makeSocket('s1', 'good');
+    gateway.handleConnection(client as never);
+    server.emit.mockClear();
+    gateway.handleSetStatus(client as never, { status: 'busy' });
+    expect(server.emit).toHaveBeenCalledWith('presence:update', {
+      userId: 'u1',
+      online: true,
+      status: 'busy',
+    });
+  });
+
+  it('al cerrar el último socket guarda lastSeenAt', () => {
+    jwt.verify.mockReturnValue({ sub: 'u1' });
+    const a = makeSocket('s1', 'good');
+    gateway.handleConnection(a as never);
+    gateway.handleDisconnect(a as never);
+    expect(usersRepo.update).toHaveBeenCalledWith(
+      'u1',
+      expect.objectContaining({ lastSeenAt: expect.any(Date) }),
+    );
   });
 
   it('typing: ignora a quien no es miembro (anti-spoof)', async () => {
