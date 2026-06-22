@@ -380,7 +380,11 @@ export default function IntelligencePage() {
         </h2>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {objects.map((o) => (
-            <div key={o.key} className={`${glass} rounded-2xl p-4`}>
+            <Link
+              key={o.key}
+              href={`/dashboard/intelligence/object/${o.key}`}
+              className={`${glass} block rounded-2xl p-4 transition-colors hover:bg-black/[0.03] dark:hover:bg-white/[0.04]`}
+            >
               <div className="mb-1 flex items-center justify-between gap-2">
                 <span className="text-sm font-semibold">{o.name}</span>
                 <span className={`rounded-md px-1.5 py-0.5 text-[10px] font-medium ${tint(o.domain)}`}>
@@ -402,7 +406,10 @@ export default function IntelligencePage() {
                   ))}
                 </div>
               )}
-            </div>
+              <p className="mt-2 text-[10px] font-medium text-violet-500">
+                Explorar →
+              </p>
+            </Link>
           ))}
         </div>
       </section>
