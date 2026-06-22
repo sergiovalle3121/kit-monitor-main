@@ -53,10 +53,6 @@ export function DepartmentWorkspace({
 
   return (
     <div className="min-h-screen text-black dark:text-white font-sans pb-32">
-      <div className={`${glass} sticky top-0 z-40 px-6 py-4 rounded-none border-x-0 border-t-0 flex items-center`}>
-        <span className="text-sm font-semibold">{title}</span>
-      </div>
-
       <main className="max-w-5xl mx-auto px-6 pt-10">
         <header className="flex items-center gap-3 mb-8">
           <div className={`p-3 rounded-2xl ${iconTint}`}><Icon className={`w-7 h-7 ${iconClass}`} strokeWidth={1.5} /></div>
