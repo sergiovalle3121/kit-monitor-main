@@ -33,6 +33,7 @@
  */
 import { Parser } from '@fortune-sheet/formula-parser';
 import { formatNumber } from '@/lib/office/sheetOps';
+import { MODERN_FUNCTIONS } from './modernFunctions';
 
 // ── Utilidades de coerción / aplanado de argumentos ──────────────────────────
 // Las funciones reciben `params`: un array donde cada argumento ya viene evaluado.
@@ -257,6 +258,8 @@ export function ISNA(params: any[]): any { return isNAValue(params[0]); }
 export const CUSTOM_FUNCTIONS: Record<string, (params: any[]) => any> = {
   XLOOKUP, XMATCH, TEXTJOIN, MAXIFS, MINIFS, TEXT,
   IFERROR, IFNA, ISERROR, ISERR, ISNA,
+  // Funciones modernas de Excel 365 (matrices dinámicas + texto) — ver `modernFunctions.ts`.
+  ...MODERN_FUNCTIONS,
 };
 
 // ── Normalización de literales booleanos en la cadena de fórmula ──────────────

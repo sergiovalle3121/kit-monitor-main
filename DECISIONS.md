@@ -823,4 +823,40 @@ bootstrap en CI.
 **Pendiente (Fase 11):** snapshots por tenant; alertas cuando un KPI cruza un
 umbral/dirección adversa; persistir tarjetas del chat; borrado lógico en el editor.
 
+## 29. Office/Sheets — funciones modernas de Excel 365 (Fase 2: matrices dinámicas + texto)
+
+**Contexto.** §26 (Fase 1) blindó el motor (booleanos sueltos, `XLOOKUP`/`TEXTJOIN`/
+`MAXIFS`/`MINIFS`/`TEXT`, errores unificados). El siguiente hueco visible frente a Excel
+365 son las **funciones modernas**: `@formulajs/formulajs@2.9.3` NO trae
+`SORT`/`SORTBY`/`FILTER`/`SEQUENCE`/`TAKE`/`DROP`/`TEXTBEFORE`/`TEXTAFTER`/`TEXTSPLIT`
+(y su `UNIQUE`/`TRANSPOSE` no son fieles).
+
+**Verificación (contra el motor REAL, no de memoria):**
+- El parser **resuelve nuestra versión antes** que el built-in (el parche de `getFunction`
+  cae a `CUSTOM_FUNCTIONS` cuando `getFunction` nativo devuelve `undefined`, que es el caso
+  de TODAS estas — incluidas `UNIQUE`/`TRANSPOSE`, que viven en `evaluateByOperator`). Así
+  ganan nuestras versiones fieles a Excel.
+- Un rango llega a la función como **matriz 2D** (filas × columnas) y las matrices que
+  devolvemos **componen** con `SUM`/`COUNT`/`INDEX`/`TEXTJOIN` (probado en el motor real).
+- **Límite documentado:** el parser **no hace broadcasting** de operadores sobre rangos
+  (`A1:A10>5` colapsa a escalar), por eso `FILTER` recibe una **máscara ya evaluada**
+  (rango de 1/0 o V/F), no una comparación de rango. El **spilling** a celdas vecinas es
+  fase aparte (las funciones ya devuelven 2D listo para derramar).
+
+**Decisión (Fase 2 — sólo `apps/web`, aditiva, sin tocar esquema):** nuevo módulo
+`components/office/sheets/modernFunctions.ts` con 13 funciones (matrices dinámicas:
+`UNIQUE`, `SORT`, `SORTBY`, `FILTER`, `SEQUENCE`, `TAKE`, `DROP`, `TRANSPOSE`; texto:
+`TEXTBEFORE`, `TEXTAFTER`, `TEXTSPLIT`, `ARRAYTOTEXT`, `VALUETOTEXT`), mezcladas en
+`CUSTOM_FUNCTIONS` (formulaEngine) — un único punto de parche del `Parser` compartido. El
+asistente de funciones (`SheetFunctionWizard`) gana la categoría **«Matrices dinámicas»** y
+las nuevas de texto, para descubrirlas.
+
+**Verificación:** nueva suite `modernFunctions.spec.ts` (**50 aserciones**: semántica pura
++ integración por el motor real — `SUM(FILTER…)`, `COUNT(UNIQUE…)`, `INDEX(SORT…)`,
+`TEXTJOIN(…,UNIQUE…)`, aritmética sobre array-fn). Las **17 suites** de hoja siguen verdes,
+`formulaEngine.spec` **67/67**. `lint web` 0 errores; `build web` ✓.
+
+**Roadmap:** F3 **spilling** real (la celda con `=UNIQUE(…)` derrama el rango `#` a las
+vecinas); luego `LET`/`LAMBDA` (preprocesado de cadena) y broadcasting de operadores.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
