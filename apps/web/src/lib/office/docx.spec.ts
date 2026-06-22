@@ -55,6 +55,12 @@ const json = {
     ] },
     { type: 'blockquote', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Una cita célebre.' }] }] },
     { type: 'callout', attrs: { tone: 'info' }, content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Aviso importante.' }] }] },
+    { type: 'paragraph', content: [
+      { type: 'text', text: 'Texto ' },
+      { type: 'text', marks: [{ type: 'insertion', attrs: { author: 'Ana', date: 1700000000000 } }], text: 'añadido' },
+      { type: 'text', text: ' y ' },
+      { type: 'text', marks: [{ type: 'deletion', attrs: { author: 'Luis', date: 1700000000000 } }], text: 'borrado' },
+    ] },
   ],
 };
 
@@ -86,6 +92,11 @@ const json = {
   ok(/<w:pBdr>/.test(xml), 'la cita/llamada lleva borde de párrafo (<w:pBdr>)');
   ok(/<w:shd[^>]*w:fill="EFF6FF"/i.test(xml), 'la llamada «info» lleva su sombreado (#EFF6FF)');
   ok(/Una cita célebre/.test(xml) && /Aviso importante/.test(xml), 'el texto de cita y llamada está');
+
+  // Control de cambios → revisiones REALES de Word (antes salían como texto coloreado).
+  ok(/<w:ins\b[^>]*w:author="Ana"/.test(xml), 'la inserción es una revisión <w:ins> de Ana');
+  ok(/<w:del\b[^>]*w:author="Luis"/.test(xml), 'la eliminación es una revisión <w:del> de Luis');
+  ok(/<w:delText/.test(xml), 'el texto borrado usa <w:delText>');
 
   const total = passed + fails.length;
   if (fails.length) { console.error(`\n❌ ${fails.length}/${total} fallos:\n` + fails.map((f) => '   • ' + f).join('\n')); process.exit(1); }

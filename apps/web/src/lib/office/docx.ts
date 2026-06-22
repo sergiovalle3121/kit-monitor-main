@@ -114,6 +114,7 @@ export function buildDocx(docx: any, json: any, title: string): any {
     AlignmentType, Table, TableRow, TableCell, WidthType, ShadingType,
     Header, Footer, PageNumber, PageBreak, PageOrientation, FootnoteReferenceRun,
     ImageRun, VerticalAlign, BorderStyle, LineRuleType, LevelFormat,
+    InsertedTextRun, DeletedTextRun,
   } = docx as any;
 
   const HEADINGS: any = {
@@ -123,6 +124,8 @@ export function buildDocx(docx: any, json: any, title: string): any {
   // Notas al pie reales de Word: se acumulan en orden de aparición.
   let fnCount = 0;
   const footnotes: Record<number, any> = {};
+  // Id incremental de revisiones (control de cambios → <w:ins>/<w:del>).
+  let revId = 1;
   // Mientras se construye una celda de encabezado, su texto sale en negrita (como Word).
   let inHeaderCell = false;
   // Numeración NATIVA de Word para listas ordenadas: cada árbol de lista registra una
@@ -172,6 +175,7 @@ export function buildDocx(docx: any, json: any, title: string): any {
     const o: any = { text: node.text || '' };
     if (inHeaderCell) o.bold = true; // celdas de encabezado en negrita
     let link: string | undefined;
+    let rev: { type: 'ins' | 'del'; author: string; date: any } | null = null;
     for (const m of node.marks ?? []) {
       if (m.type === 'bold') o.bold = true;
       else if (m.type === 'italic') o.italics = true;
@@ -182,23 +186,26 @@ export function buildDocx(docx: any, json: any, title: string): any {
       else if (m.type === 'code') o.font = 'Courier New';
       else if (m.type === 'link') link = m.attrs?.href;
       else if (m.type === 'highlight' && m.attrs?.color) o.shading = { type: ShadingType.CLEAR, fill: hex(m.attrs.color) };
-      else if (m.type === 'deletion') { o.strike = true; o.color = o.color || 'DC2626'; }
-      else if (m.type === 'insertion') { o.underline = o.underline || {}; o.color = o.color || '047857'; }
+      // Control de cambios → REVISIONES reales de Word (aceptables/rechazables en el panel Revisar).
+      else if (m.type === 'deletion') rev = { type: 'del', author: m.attrs?.author || 'Autor', date: new Date(m.attrs?.date || Date.now()) };
+      else if (m.type === 'insertion') rev = { type: 'ins', author: m.attrs?.author || 'Autor', date: new Date(m.attrs?.date || Date.now()) };
       else if (m.type === 'textStyle') {
         if (m.attrs?.color) o.color = hex(m.attrs.color);
         if (m.attrs?.fontFamily) o.font = m.attrs.fontFamily.split(',')[0].replace(/["']/g, '').trim();
         if (m.attrs?.fontSize) { const px = parseInt(String(m.attrs.fontSize), 10); if (px) o.size = Math.round(px * 1.5); }
       }
     }
-    return { o, link };
+    return { o, link, rev };
   }
 
   function inlineRuns(content: any[]): any[] {
     const out: any[] = [];
     for (const n of content ?? []) {
       if (n.type === 'text') {
-        const { o, link } = runOpts(n);
+        const { o, link, rev } = runOpts(n);
         if (link) out.push(new ExternalHyperlink({ link, children: [new TextRun({ ...o, color: '0563C1', underline: {} })] }));
+        else if (rev?.type === 'ins') out.push(new InsertedTextRun({ ...o, id: revId++, author: rev.author, date: rev.date }));
+        else if (rev?.type === 'del') out.push(new DeletedTextRun({ ...o, id: revId++, author: rev.author, date: rev.date }));
         else out.push(new TextRun(o));
       } else if (n.type === 'footnoteRef') {
         fnCount += 1;
