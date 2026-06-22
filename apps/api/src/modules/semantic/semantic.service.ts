@@ -18,6 +18,7 @@ import { SuppliersService } from '../suppliers/suppliers.service';
 import { EventLedgerService } from '../event-ledger/event-ledger.service';
 import { UpsertMetricDto } from './dto/upsert-metric.dto';
 import { UpsertObjectDto } from './dto/upsert-object.dto';
+import { UpsertLinkDto } from './dto/upsert-link.dto';
 
 const DEFAULT_TENANT = '__default__';
 
@@ -244,6 +245,39 @@ export class SemanticService {
         sourceEntity: dto.sourceEntity ?? null,
         primaryKey: dto.primaryKey ?? null,
         properties: properties ?? null,
+        active: true,
+      }),
+    );
+  }
+
+  /** Create or update an ontology link type (admin). Keyed by tenant + key. */
+  async upsertLink(
+    tenantId: string,
+    dto: UpsertLinkDto,
+  ): Promise<OntologyLinkType> {
+    await this.ensureSeeded(tenantId);
+    const existing = await this.linkRepo.findOne({
+      where: { tenantId, key: dto.key },
+    });
+    if (existing) {
+      Object.assign(existing, {
+        fromObject: dto.fromObject ?? existing.fromObject,
+        toObject: dto.toObject ?? existing.toObject,
+        cardinality: dto.cardinality ?? existing.cardinality,
+        verb: dto.verb ?? existing.verb,
+        description: dto.description ?? existing.description,
+      });
+      return this.linkRepo.save(existing);
+    }
+    return this.linkRepo.save(
+      this.linkRepo.create({
+        tenantId,
+        key: dto.key,
+        fromObject: dto.fromObject,
+        toObject: dto.toObject,
+        cardinality: dto.cardinality ?? null,
+        verb: dto.verb ?? null,
+        description: dto.description ?? null,
         active: true,
       }),
     );

@@ -12,6 +12,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { SemanticPrincipal, SemanticService } from './semantic.service';
 import { UpsertMetricDto } from './dto/upsert-metric.dto';
 import { UpsertObjectDto } from './dto/upsert-object.dto';
+import { UpsertLinkDto } from './dto/upsert-link.dto';
 
 interface ReqUser {
   userId: string;
@@ -72,6 +73,13 @@ export class SemanticController {
   upsertObject(@Request() req: AuthReq, @Body() dto: UpsertObjectDto) {
     this.assertAdmin(req);
     return this.semantic.upsertObject(this.tenant(req), dto);
+  }
+
+  /** Create/update an ontology link type. Admin only. */
+  @Post('links')
+  upsertLink(@Request() req: AuthReq, @Body() dto: UpsertLinkDto) {
+    this.assertAdmin(req);
+    return this.semantic.upsertLink(this.tenant(req), dto);
   }
 
   private assertAdmin(req: AuthReq) {

@@ -6,6 +6,7 @@ import {
   ArrowLeft,
   Gauge,
   Boxes,
+  GitFork,
   Plus,
   Pencil,
   Loader2,
@@ -47,10 +48,26 @@ interface ObjectDef {
   primaryKey: string | null;
   properties: { name: string; type: string }[] | null;
 }
+interface LinkDef {
+  key: string;
+  fromObject: string;
+  toObject: string;
+  cardinality: string | null;
+  verb: string | null;
+  description: string | null;
+}
+
+const CARDINALITIES = [
+  'one_to_one',
+  'one_to_many',
+  'many_to_one',
+  'many_to_many',
+];
 
 type Panel =
   | { kind: 'metric'; isNew: boolean }
   | { kind: 'object'; isNew: boolean }
+  | { kind: 'link'; isNew: boolean }
   | null;
 
 const input =
@@ -61,6 +78,7 @@ export default function SemanticEditorPage() {
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
   const [metrics, setMetrics] = useState<MetricDef[]>([]);
   const [objects, setObjects] = useState<ObjectDef[]>([]);
+  const [links, setLinks] = useState<LinkDef[]>([]);
   const [loading, setLoading] = useState(true);
   const [panel, setPanel] = useState<Panel>(null);
   const [saving, setSaving] = useState(false);
@@ -80,6 +98,7 @@ export default function SemanticEditorPage() {
       const d = await r.json();
       setMetrics(d.metrics ?? []);
       setObjects(d.objects ?? []);
+      setLinks(d.links ?? []);
     }
     setLoading(false);
   }
@@ -111,6 +130,17 @@ export default function SemanticEditorPage() {
     });
     setPanel({ kind: 'object', isNew: !o });
   }
+  function openLink(l?: LinkDef) {
+    setForm({
+      key: l?.key ?? '',
+      fromObject: l?.fromObject ?? (objects[0]?.key ?? ''),
+      toObject: l?.toObject ?? (objects[1]?.key ?? objects[0]?.key ?? ''),
+      cardinality: l?.cardinality ?? 'one_to_many',
+      verb: l?.verb ?? '',
+      description: l?.description ?? '',
+    });
+    setPanel({ kind: 'link', isNew: !l });
+  }
 
   async function save() {
     if (!panel) return;
@@ -133,7 +163,7 @@ export default function SemanticEditorPage() {
           formula: form.formula || undefined,
           direction: form.direction || undefined,
         };
-      } else {
+      } else if (panel.kind === 'object') {
         url = '/api/semantic/objects';
         body = {
           key: form.key.trim(),
@@ -147,6 +177,21 @@ export default function SemanticEditorPage() {
             .map((s) => s.trim())
             .filter(Boolean)
             .map((name) => ({ name, type: 'string' })),
+        };
+      } else {
+        if (!form.fromObject || !form.toObject) {
+          toast.error('Elige el objeto origen y destino.');
+          setSaving(false);
+          return;
+        }
+        url = '/api/semantic/links';
+        body = {
+          key: form.key.trim(),
+          fromObject: form.fromObject,
+          toObject: form.toObject,
+          cardinality: form.cardinality || undefined,
+          verb: form.verb || undefined,
+          description: form.description || undefined,
         };
       }
       const res = await fetch(url, {
@@ -217,7 +262,11 @@ export default function SemanticEditorPage() {
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-sm font-semibold">
               {panel.isNew ? 'Nuevo' : 'Editar'}{' '}
-              {panel.kind === 'metric' ? 'métrica' : 'objeto'}
+              {panel.kind === 'metric'
+                ? 'métrica'
+                : panel.kind === 'object'
+                  ? 'objeto'
+                  : 'relación'}
             </h2>
             <button
               onClick={() => setPanel(null)}
@@ -237,27 +286,33 @@ export default function SemanticEditorPage() {
                 onChange={(e) => setForm({ ...form, key: e.target.value })}
               />
             </Field>
-            <Field label="Nombre">
-              <input
-                className={input}
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
-              />
-            </Field>
-            <Field label="Dominio">
-              <select
-                className={input}
-                value={form.domain}
-                onChange={(e) => setForm({ ...form, domain: e.target.value })}
-              >
-                <option value="">—</option>
-                {DOMAINS.map((d) => (
-                  <option key={d} value={d}>
-                    {d}
-                  </option>
-                ))}
-              </select>
-            </Field>
+            {panel.kind !== 'link' && (
+              <>
+                <Field label="Nombre">
+                  <input
+                    className={input}
+                    value={form.name}
+                    onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  />
+                </Field>
+                <Field label="Dominio">
+                  <select
+                    className={input}
+                    value={form.domain}
+                    onChange={(e) =>
+                      setForm({ ...form, domain: e.target.value })
+                    }
+                  >
+                    <option value="">—</option>
+                    {DOMAINS.map((d) => (
+                      <option key={d} value={d}>
+                        {d}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+              </>
+            )}
 
             {panel.kind === 'metric' ? (
               <>
@@ -300,7 +355,7 @@ export default function SemanticEditorPage() {
                   />
                 </Field>
               </>
-            ) : (
+            ) : panel.kind === 'object' ? (
               <>
                 <Field label="Fuente (sourceEntity)">
                   <input
@@ -327,6 +382,71 @@ export default function SemanticEditorPage() {
                     value={form.props}
                     placeholder="workOrder, model, status"
                     onChange={(e) => setForm({ ...form, props: e.target.value })}
+                  />
+                </Field>
+                <Field label="Descripción" full>
+                  <textarea
+                    className={`${input} min-h-16`}
+                    value={form.description}
+                    onChange={(e) =>
+                      setForm({ ...form, description: e.target.value })
+                    }
+                  />
+                </Field>
+              </>
+            ) : (
+              <>
+                <Field label="Objeto origen (from)">
+                  <select
+                    className={input}
+                    value={form.fromObject}
+                    onChange={(e) =>
+                      setForm({ ...form, fromObject: e.target.value })
+                    }
+                  >
+                    {objects.map((o) => (
+                      <option key={o.key} value={o.key}>
+                        {o.name}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="Objeto destino (to)">
+                  <select
+                    className={input}
+                    value={form.toObject}
+                    onChange={(e) =>
+                      setForm({ ...form, toObject: e.target.value })
+                    }
+                  >
+                    {objects.map((o) => (
+                      <option key={o.key} value={o.key}>
+                        {o.name}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="Cardinalidad">
+                  <select
+                    className={input}
+                    value={form.cardinality}
+                    onChange={(e) =>
+                      setForm({ ...form, cardinality: e.target.value })
+                    }
+                  >
+                    {CARDINALITIES.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="Verbo (relación)">
+                  <input
+                    className={input}
+                    value={form.verb}
+                    placeholder="consume · se surte de"
+                    onChange={(e) => setForm({ ...form, verb: e.target.value })}
                   />
                 </Field>
                 <Field label="Descripción" full>
@@ -418,6 +538,41 @@ export default function SemanticEditorPage() {
               </span>
               <button
                 onClick={() => openObject(o)}
+                className="ml-auto inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-violet-600 hover:bg-violet-500/10 dark:text-violet-300"
+              >
+                <Pencil className="h-3 w-3" /> Editar
+              </button>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Links */}
+      <section className="mt-8">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="flex items-center gap-2 text-sm font-semibold">
+            <GitFork className="h-4 w-4 text-violet-500" /> Relaciones (
+            {links.length})
+          </h2>
+          <button
+            onClick={() => openLink()}
+            disabled={objects.length < 1}
+            className="inline-flex items-center gap-1 rounded-lg bg-violet-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-violet-700 disabled:opacity-40"
+          >
+            <Plus className="h-3 w-3" /> Añadir relación
+          </button>
+        </div>
+        <div className={`${glass} divide-y divide-black/5 rounded-2xl dark:divide-white/5`}>
+          {links.map((l) => (
+            <div key={l.key} className="flex items-center gap-2 px-4 py-2.5 text-sm">
+              <span className="font-medium">{l.fromObject}</span>
+              <span className="text-violet-500">— {l.verb || 'relaciona'} →</span>
+              <span className="font-medium">{l.toObject}</span>
+              <span className="font-mono text-[10px] text-black/40 dark:text-white/40">
+                {l.cardinality ?? ''}
+              </span>
+              <button
+                onClick={() => openLink(l)}
                 className="ml-auto inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-violet-600 hover:bg-violet-500/10 dark:text-violet-300"
               >
                 <Pencil className="h-3 w-3" /> Editar
