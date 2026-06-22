@@ -113,7 +113,7 @@ export function buildDocx(docx: any, json: any, title: string): any {
     Document, Paragraph, TextRun, ExternalHyperlink, HeadingLevel,
     AlignmentType, Table, TableRow, TableCell, WidthType, ShadingType,
     Header, Footer, PageNumber, PageBreak, PageOrientation, FootnoteReferenceRun,
-    ImageRun, VerticalAlign, BorderStyle, LineRuleType,
+    ImageRun, VerticalAlign, BorderStyle, LineRuleType, LevelFormat,
   } = docx as any;
 
   const HEADINGS: any = {
@@ -125,6 +125,21 @@ export function buildDocx(docx: any, json: any, title: string): any {
   const footnotes: Record<number, any> = {};
   // Mientras se construye una celda de encabezado, su texto sale en negrita (como Word).
   let inHeaderCell = false;
+  // Numeración NATIVA de Word para listas ordenadas: cada árbol de lista registra una
+  // definición (reinicia en 1) y los párrafos la referencian con su nivel.
+  const numbering: any[] = [];
+  let numSeq = 0;
+  // Niveles de una lista ordenada: decimal por nivel («1.»), o ruta completa («1.1.1») en
+  // el esquema legal (doc-mlist); sangría colgante por nivel.
+  const orderedLevels = (legal: boolean) => Array.from({ length: 9 }, (_, l) => ({
+    level: l,
+    format: LevelFormat.DECIMAL,
+    text: legal ? Array.from({ length: l + 1 }, (_, i) => `%${i + 1}`).join('.') : `%${l + 1}.`,
+    alignment: AlignmentType.LEFT,
+    style: { paragraph: { indent: { left: (l + 1) * 360, hanging: 360 } } },
+  }));
+  // Crea (si hace falta) una referencia de numeración para un árbol de lista ordenada.
+  const newOrderedRef = (legal: boolean) => { const reference = `axos-num-${++numSeq}`; numbering.push({ reference, levels: orderedLevels(legal) }); return reference; };
   // Bordes finos y grises para que las tablas se vean «tipo Word».
   const tableBorder = { style: BorderStyle.SINGLE, size: 4, color: 'D1D5DB' };
   const tableBorders = { top: tableBorder, bottom: tableBorder, left: tableBorder, right: tableBorder, insideHorizontal: tableBorder, insideVertical: tableBorder };
@@ -204,24 +219,23 @@ export function buildDocx(docx: any, json: any, title: string): any {
     return out;
   }
 
-  function listParas(listNode: any, kind: 'bullet' | 'ordered' | 'task', level: number, scheme = '', prefix = ''): any[] {
+  function listParas(listNode: any, kind: 'bullet' | 'ordered' | 'task', level: number, ref = ''): any[] {
     const out: any[] = [];
-    const legal = kind === 'ordered' && scheme === 'doc-mlist';
-    let idx = 1;
     for (const item of listNode.content ?? []) {
       const para = (item.content ?? []).find((n: any) => n.type === 'paragraph');
       const runs = inlineRuns(para?.content);
       if (kind === 'bullet') out.push(new Paragraph({ bullet: { level }, children: runs }));
-      else if (kind === 'ordered') {
-        const num = legal ? `${prefix}${idx}.` : `${idx}.`;
-        out.push(new Paragraph({ indent: { left: (level + 1) * 360 }, children: [new TextRun({ text: `${num} ` }), ...runs] }));
-      } else out.push(new Paragraph({ indent: { left: (level + 1) * 360 }, children: [new TextRun({ text: item.attrs?.checked ? '☑ ' : '☐ ' }), ...runs] }));
-      const childPrefix = legal ? `${prefix}${idx}.` : '';
+      else if (kind === 'ordered') out.push(new Paragraph({ numbering: { reference: ref, level }, children: runs }));
+      else out.push(new Paragraph({ indent: { left: (level + 1) * 360 }, children: [new TextRun({ text: item.attrs?.checked ? '☑ ' : '☐ ' }), ...runs] }));
       for (const child of item.content ?? []) {
-        if (child.type === 'bulletList') out.push(...listParas(child, 'bullet', level + 1, child.attrs?.listScheme || '', ''));
-        else if (child.type === 'orderedList') out.push(...listParas(child, 'ordered', level + 1, scheme, childPrefix));
+        if (child.type === 'bulletList') out.push(...listParas(child, 'bullet', level + 1));
+        else if (child.type === 'orderedList') {
+          // Una lista ordenada anidada bajo otra ordenada comparte su referencia
+          // (numeración jerárquica); bajo viñetas, abre una numeración propia.
+          const childRef = ref || newOrderedRef((child.attrs?.listScheme || '') === 'doc-mlist');
+          out.push(...listParas(child, 'ordered', level + 1, childRef));
+        }
       }
-      idx += 1;
     }
     return out;
   }
@@ -243,7 +257,7 @@ export function buildDocx(docx: any, json: any, title: string): any {
         return [new Paragraph({ alignment: caption ? AlignmentType.CENTER : align(node.attrs?.textAlign), indent: indentOf(node), spacing: spacingOf(node), children: runs })];
       }
       case 'bulletList': return listParas(node, 'bullet', 0);
-      case 'orderedList': return listParas(node, 'ordered', 0, node.attrs?.listScheme || '', '');
+      case 'orderedList': return listParas(node, 'ordered', 0, newOrderedRef((node.attrs?.listScheme || '') === 'doc-mlist'));
       case 'taskList': return listParas(node, 'task', 0);
       case 'blockquote': return (node.content ?? []).map((p: any) => new Paragraph({ indent: { left: 480 }, children: inlineRuns(p.content).map((r: any) => r) }));
       case 'codeBlock': return String((node.content ?? []).map((t: any) => t.text).join('')).split('\n').map((line) => new Paragraph({ children: [new TextRun({ text: line, font: 'Courier New' })] }));
@@ -374,7 +388,11 @@ export function buildDocx(docx: any, json: any, title: string): any {
     section.footers = { ...(section.footers || {}), first: new Footer({ children: [new Paragraph({})] }) };
   }
 
-  return new Document({ sections: [section], ...(Object.keys(footnotes).length ? { footnotes } : {}) });
+  return new Document({
+    sections: [section],
+    ...(Object.keys(footnotes).length ? { footnotes } : {}),
+    ...(numbering.length ? { numbering: { config: numbering } } : {}),
+  });
 }
 
 export async function exportDocx(json: any, title: string) {

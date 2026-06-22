@@ -44,6 +44,15 @@ const json = {
         { type: 'tableCell', attrs: { backgroundColor: '#00FF00' }, content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Celda' }] }] },
       ] },
     ] },
+    { type: 'orderedList', content: [
+      { type: 'listItem', content: [
+        { type: 'paragraph', content: [{ type: 'text', text: 'Primero' }] },
+        { type: 'orderedList', content: [
+          { type: 'listItem', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Anidado' }] }] },
+        ] },
+      ] },
+      { type: 'listItem', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Segundo' }] }] },
+    ] },
   ],
 };
 
@@ -63,6 +72,13 @@ const json = {
   ok(/<w:tblBorders>/.test(xml), 'la tabla lleva bordes');
   ok(/<w:b\/>/.test(xml), 'la cabecera de tabla sale en negrita');
   ok(/Hola mundo/.test(xml), 'el texto del párrafo está presente');
+
+  // Numeración NATIVA de Word (antes salía como texto literal "1. ").
+  ok(!!zip.file('word/numbering.xml'), 'se genera word/numbering.xml');
+  ok(/<w:numPr>/.test(xml), 'los párrafos de lista llevan <w:numPr> (numeración real)');
+  ok(/<w:numId\b/.test(xml) && /<w:ilvl\b/.test(xml), 'numId + nivel de lista presentes');
+  ok(/Primero/.test(xml) && /Anidado/.test(xml) && /Segundo/.test(xml), 'los ítems de la lista están');
+  ok(!/<w:t[^>]*>\s*1\.\s/.test(xml), 'no hay prefijo "1." como texto (lo pone Word)');
 
   const total = passed + fails.length;
   if (fails.length) { console.error(`\n❌ ${fails.length}/${total} fallos:\n` + fails.map((f) => '   • ' + f).join('\n')); process.exit(1); }
