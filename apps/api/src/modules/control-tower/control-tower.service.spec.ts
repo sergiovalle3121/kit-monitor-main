@@ -14,6 +14,10 @@ describe('ControlTowerService', () => {
     const testing = kpi({ totalTests: 100, fail: 1, yieldPct: 99, firstPassYieldPct: 98 });
     const procurement = kpi({ open: 0, awaitingReceipt: 0, overdue: 0, otdPct: 95 });
     const people = kpi({ valid: 10, expiring30: 0, expired: 0, skills: 4 });
+    const hr = {
+      workforceOverview: async () => ({ headcount: 24, turnoverPct: 8, absenteeismPct: 2, openOpenings: 0 }),
+      staffingRisk: async () => [{ band: 'LOW' }, { band: 'MEDIUM' }],
+    };
     return new ControlTowerService(
       overrides.improvement ?? (improvement as any),
       overrides.ehs ?? (ehs as any),
@@ -22,15 +26,28 @@ describe('ControlTowerService', () => {
       overrides.testing ?? (testing as any),
       overrides.procurement ?? (procurement as any),
       overrides.people ?? (people as any),
+      overrides.hr ?? (hr as any),
     );
   }
 
   it('aggregates all areas with green overall when healthy', async () => {
     const summary = await build().summary();
-    expect(summary.areas.length).toBe(7);
+    expect(summary.areas.length).toBe(8);
     expect(summary.overall).toBe('green');
     const ehsCard = summary.areas.find((a) => a.key === 'ehs');
     expect(ehsCard?.headline).toMatch(/120 días/);
+  });
+
+  it('escalates the workforce pillar to red when a staffing cell is critical', async () => {
+    const hr = {
+      workforceOverview: async () => ({ headcount: 20, turnoverPct: 40, absenteeismPct: 8, openOpenings: 6 }),
+      staffingRisk: async () => [{ band: 'CRITICAL' }, { band: 'HIGH' }],
+    };
+    const summary = await build({ hr }).summary();
+    const wf = summary.areas.find((a) => a.key === 'workforce');
+    expect(wf?.health).toBe('red');
+    expect(wf?.headline).toMatch(/crítico/);
+    expect(summary.overall).toBe('red');
   });
 
   it('turns an area red and bubbles up to overall', async () => {
@@ -44,8 +61,8 @@ describe('ControlTowerService', () => {
   it('survives a failing area (defensive) without breaking the rest', async () => {
     const ehs = { kpis: async () => { throw new Error('boom'); } };
     const summary = await build({ ehs }).summary();
-    // EHS card is dropped, the other six remain.
+    // EHS card is dropped, the other seven remain.
     expect(summary.areas.find((a) => a.key === 'ehs')).toBeUndefined();
-    expect(summary.areas.length).toBe(6);
+    expect(summary.areas.length).toBe(7);
   });
 });
