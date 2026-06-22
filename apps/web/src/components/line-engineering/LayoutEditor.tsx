@@ -10,7 +10,7 @@ import {
   AlignHorizontalSpaceAround, AlignVerticalSpaceAround, Trash2, MapPin, RotateCcw,
   Upload, Eye, EyeOff, Map as MapIcon, Activity, Workflow, Wand2, Boxes,
   Download, Printer, Ruler, Type, MoveHorizontal, CopyPlus, X, Flame, Waypoints,
-  ShieldCheck, ShieldAlert, LayoutGrid, History, RotateCw, ClipboardList,
+  ShieldCheck, ShieldAlert, LayoutGrid, History, RotateCw, ClipboardList, GitCompare,
 } from 'lucide-react';
 import { glass } from '@/lib/glass';
 import { apiFetch } from '@/lib/apiFetch';
@@ -84,6 +84,13 @@ const conflictColor = (t: ConflictType) => (t === 'clearance' ? '#f59e0b' : '#ef
 interface SnapshotSummary {
   id: string; name: string; createdAt: string; createdBy?: string | null;
   stationCount: number; assetCount: number; connectorCount: number; annotationCount: number;
+}
+
+// Diff between a saved version and the live layout (Fase 17).
+interface SnapshotDiff {
+  snapshotId: string; name: string; movedCount: number; addedCount: number; removedCount: number;
+  moved: { station: string; distance: number }[]; added: string[]; removed: string[];
+  footprintChanged: boolean; connectorsDelta: number; assetsDelta: number; annotationsDelta: number;
 }
 
 // Consolidated layout dossier (Fase 14).
@@ -241,6 +248,8 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
   const [versBusy, setVersBusy] = useState(false);
   const [showReport, setShowReport] = useState(false);
   const [reportData, setReportData] = useState<LayoutReport | null>(null);
+  const [diffFor, setDiffFor] = useState<string | null>(null);
+  const [diffData, setDiffData] = useState<SnapshotDiff | null>(null);
   const snapRef = useRef(snap);
   const panRef = useRef(panMode);
   useEffect(() => { snapRef.current = snap; }, [snap]);
@@ -1411,6 +1420,15 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
       if (r.ok) setVersions((await r.json()) as SnapshotSummary[]);
     } catch { /* transient */ }
   }, [model, scopeQs]);
+  const compareVersion = useCallback(async (id: string) => {
+    if (!model) return;
+    if (diffFor === id) { setDiffFor(null); setDiffData(null); return; } // toggle off
+    setDiffFor(id); setDiffData(null);
+    try {
+      const r = await apiFetch(`${API_BASE}/line-engineering/layout/snapshots/${id}/diff?${scopeQs()}`);
+      if (r.ok) setDiffData((await r.json()) as SnapshotDiff);
+    } catch { /* transient */ }
+  }, [model, scopeQs, diffFor]);
 
   // ── Consolidated report / dossier (Fase 14) ─────────────────────────────────
   const openReport = useCallback(async () => {
@@ -1728,13 +1746,35 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
               ) : (
                 <div className="space-y-1.5">
                   {versions.map((v) => (
-                    <div key={v.id} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-black/[0.03] dark:bg-white/[0.05]">
-                      <div className="min-w-0 flex-1">
-                        <div className="text-sm font-medium truncate">{v.name}</div>
-                        <div className="text-[11px] text-gray-400">{new Date(v.createdAt).toLocaleString()} · {v.stationCount} est · {v.connectorCount} flujo · {v.assetCount} eq</div>
+                    <div key={v.id} className="rounded-lg bg-black/[0.03] dark:bg-white/[0.05]">
+                      <div className="flex items-center gap-2 px-3 py-2">
+                        <div className="min-w-0 flex-1">
+                          <div className="text-sm font-medium truncate">{v.name}</div>
+                          <div className="text-[11px] text-gray-400">{new Date(v.createdAt).toLocaleString()} · {v.stationCount} est · {v.connectorCount} flujo · {v.assetCount} eq</div>
+                        </div>
+                        <button onClick={() => compareVersion(v.id)} title="Comparar con el layout actual" className={`p-1.5 rounded-lg shrink-0 transition-colors ${diffFor === v.id ? 'text-white' : 'text-gray-400 hover:bg-black/5 dark:hover:bg-white/10'}`} style={diffFor === v.id ? { background: '#0ea5e9' } : undefined}><GitCompare className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => restoreVersion(v.id)} disabled={versBusy} title="Restaurar esta versión" className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[12px] font-medium border border-black/10 dark:border-white/10 hover:bg-black/[0.05] dark:hover:bg-white/[0.08] disabled:opacity-50 shrink-0"><RotateCw className="w-3.5 h-3.5" /> Restaurar</button>
+                        <button onClick={() => deleteVersion(v.id)} title="Eliminar versión" className="p-1.5 rounded-lg text-gray-400 hover:text-rose-500 hover:bg-rose-500/10 shrink-0"><Trash2 className="w-3.5 h-3.5" /></button>
                       </div>
-                      <button onClick={() => restoreVersion(v.id)} disabled={versBusy} title="Restaurar esta versión" className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[12px] font-medium border border-black/10 dark:border-white/10 hover:bg-black/[0.05] dark:hover:bg-white/[0.08] disabled:opacity-50 shrink-0"><RotateCw className="w-3.5 h-3.5" /> Restaurar</button>
-                      <button onClick={() => deleteVersion(v.id)} title="Eliminar versión" className="p-1.5 rounded-lg text-gray-400 hover:text-rose-500 hover:bg-rose-500/10 shrink-0"><Trash2 className="w-3.5 h-3.5" /></button>
+                      {diffFor === v.id && (
+                        <div className="px-3 pb-2.5 text-[11px] text-gray-500 border-t border-black/5 dark:border-white/10 pt-2">
+                          {!diffData ? 'comparando…' : (
+                            (diffData.movedCount + diffData.addedCount + diffData.removedCount === 0 && !diffData.footprintChanged && diffData.connectorsDelta === 0 && diffData.assetsDelta === 0 && diffData.annotationsDelta === 0) ? (
+                              <span className="text-emerald-600">El layout actual es idéntico a esta versión.</span>
+                            ) : (
+                              <div className="flex flex-wrap gap-x-3 gap-y-0.5">
+                                <span><b>{diffData.movedCount}</b> movidas</span>
+                                <span><b>{diffData.addedCount}</b> nuevas</span>
+                                <span><b>{diffData.removedCount}</b> quitadas</span>
+                                {diffData.footprintChanged && <span className="text-amber-500">footprint cambió</span>}
+                                {diffData.connectorsDelta !== 0 && <span>flujo {diffData.connectorsDelta > 0 ? '+' : ''}{diffData.connectorsDelta}</span>}
+                                {diffData.assetsDelta !== 0 && <span>equipos {diffData.assetsDelta > 0 ? '+' : ''}{diffData.assetsDelta}</span>}
+                                {diffData.moved.length > 0 && <span className="w-full text-gray-400">mayor movimiento: {diffData.moved[0].station} ({Math.round(diffData.moved[0].distance)} {footprint.unit})</span>}
+                              </div>
+                            )
+                          )}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>

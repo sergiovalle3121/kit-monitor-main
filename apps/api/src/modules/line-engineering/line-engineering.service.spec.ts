@@ -413,6 +413,39 @@ describe('LineEngineeringService (integration)', () => {
     ).rejects.toThrow(/no encontrada/);
   });
 
+  it('diffs a version against the live layout (Fase 17)', async () => {
+    await seedRoute();
+    const before = await service.getLayout('AX-1000');
+    const id = Object.fromEntries(
+      before.stations.map((s) => [s.station, s.id]),
+    );
+    // Snapshot with only EST-10 placed.
+    await service.saveLayout({
+      model: 'AX-1000',
+      positions: [
+        { id: id['EST-10'], x: 0, y: 0, w: 200, h: 200, rotation: 0 },
+      ],
+    });
+    const snap = await service.createSnapshot('AX-1000', 'A', 'base');
+
+    // Move EST-10 far and add EST-20.
+    await service.saveLayout({
+      model: 'AX-1000',
+      positions: [
+        { id: id['EST-10'], x: 1000, y: 0, w: 200, h: 200, rotation: 0 },
+        { id: id['EST-20'], x: 500, y: 500, w: 200, h: 200, rotation: 0 },
+      ],
+    });
+
+    const diff = await service.diffSnapshot('AX-1000', 'A', snap.id);
+    expect(diff.movedCount).toBe(1);
+    expect(diff.moved[0]).toMatchObject({ station: 'EST-10', distance: 1000 });
+    expect(diff.addedCount).toBe(1);
+    expect(diff.added).toEqual(['EST-20']);
+    expect(diff.removedCount).toBe(0);
+    expect(diff.footprintChanged).toBe(false);
+  });
+
   it('builds a consolidated layout report (Fase 14)', async () => {
     await seedRoute(); // 3 stations
     const before = await service.getLayout('AX-1000');
