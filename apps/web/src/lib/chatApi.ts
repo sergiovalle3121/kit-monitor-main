@@ -70,15 +70,35 @@ export interface MessageReaction {
 export interface ReplyPreview {
   id: string;
   senderId: string;
-  type: 'text' | 'image' | 'file' | 'call';
+  type: 'text' | 'image' | 'file' | 'call' | 'poll';
   snippet: string;
+}
+
+export interface PollOption {
+  id: string;
+  text: string;
+  count: number;
+  userIds: string[];
+}
+export interface PollData {
+  question: string;
+  multi: boolean;
+  totalVoters: number;
+  options: PollOption[];
+}
+
+export interface ScheduledItem {
+  id: string;
+  conversationId: string;
+  body: string;
+  sendAt: string;
 }
 
 export interface ChatMessage {
   id: string;
   conversationId: string;
   senderId: string;
-  type: 'text' | 'image' | 'file' | 'call';
+  type: 'text' | 'image' | 'file' | 'call' | 'poll';
   body: string | null;
   imageMime: string | null;
   /** Solo para `type: 'file'`: nombre, mime y tamaño del adjunto. */
@@ -93,7 +113,10 @@ export interface ChatMessage {
   editedAt?: string | null;
   deletedAt?: string | null;
   pinnedAt?: string | null;
+  expiresAt?: string | null;
   forwarded?: boolean;
+  /** Solo para `type: 'poll'`. */
+  poll?: PollData | null;
 }
 
 export interface ReadReceipt {
@@ -107,6 +130,7 @@ export interface ChatConversation {
   title: string | null;
   counterpartId: string | null;
   createdById?: string | null;
+  disappearingSeconds?: number;
   memberIds: string[];
   lastMessage: { type: string; body: string | null; createdAt: string; senderId: string } | null;
   lastMessageAt: string | null;
@@ -166,6 +190,54 @@ export const chatApi = {
   leaveChannel: (conversationId: string) =>
     req<{ ok: boolean }>(`/messaging/conversations/${conversationId}/leave`, {
       method: 'POST',
+      headers: authHeaders(),
+    }),
+
+  setDisappearing: (conversationId: string, seconds: number) =>
+    req<{ ok: boolean; disappearingSeconds: number }>(
+      `/messaging/conversations/${conversationId}/disappearing`,
+      {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ seconds }),
+      },
+    ),
+
+  createPoll: (
+    conversationId: string,
+    question: string,
+    options: string[],
+    multi: boolean,
+  ) =>
+    req<ChatMessage>('/messaging/messages/poll', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ conversationId, question, options, multi }),
+    }),
+
+  votePoll: (messageId: string, optionId: string) =>
+    req<ChatMessage>(`/messaging/messages/${messageId}/vote`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ optionId }),
+    }),
+
+  scheduleMessage: (conversationId: string, body: string, sendAt: string) =>
+    req<ScheduledItem>('/messaging/messages/schedule', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ conversationId, body, sendAt }),
+    }),
+
+  listScheduled: (conversationId: string) =>
+    req<ScheduledItem[]>(
+      `/messaging/conversations/${conversationId}/scheduled`,
+      { headers: authHeaders() },
+    ),
+
+  cancelScheduled: (id: string) =>
+    req<{ ok: boolean }>(`/messaging/scheduled/${id}`, {
+      method: 'DELETE',
       headers: authHeaders(),
     }),
 
@@ -267,6 +339,16 @@ export async function fetchImageBlob(messageId: string): Promise<string> {
     headers: authHeaders(false),
   });
   if (!res.ok) throw new Error('No se pudo cargar la imagen');
+  const blob = await res.blob();
+  return URL.createObjectURL(blob);
+}
+
+/** Trae un archivo protegido (con Bearer) como object URL (p. ej. audio). */
+export async function fetchFileBlobUrl(messageId: string): Promise<string> {
+  const res = await fetch(`${CHAT_API_BASE}/messaging/messages/${messageId}/file`, {
+    headers: authHeaders(false),
+  });
+  if (!res.ok) throw new Error('No se pudo cargar el archivo');
   const blob = await res.blob();
   return URL.createObjectURL(blob);
 }

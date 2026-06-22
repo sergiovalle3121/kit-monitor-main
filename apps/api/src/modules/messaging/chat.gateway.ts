@@ -362,6 +362,14 @@ export class ChatGateway
     this.emitToMembers(memberIds, 'conversation:updated', { conversationId });
   }
 
+  /** Mensaje eliminado del todo (temporal expirado) → quitar del hilo. */
+  emitMessageRemoved(
+    memberIds: string[],
+    payload: { id: string; conversationId: string },
+  ): void {
+    this.emitToMembers(memberIds, 'message:removed', payload);
+  }
+
   /** Reacciones agregadas actualizadas de un mensaje. */
   emitReactionUpdate(
     memberIds: string[],

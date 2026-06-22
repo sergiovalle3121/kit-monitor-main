@@ -162,6 +162,67 @@ export class MessagingController {
     return this.messaging.forwardMessage(this.me(req), id, body?.conversationId);
   }
 
+  @Post('conversations/:id/disappearing')
+  setDisappearing(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body() body: { seconds?: number },
+  ) {
+    return this.messaging.setDisappearing(this.me(req), id, body?.seconds ?? 0);
+  }
+
+  @Get('conversations/:id/scheduled')
+  listScheduled(@Req() req: any, @Param('id') id: string) {
+    return this.messaging.listScheduled(this.me(req), id);
+  }
+
+  @Post('messages/poll')
+  createPoll(
+    @Req() req: any,
+    @Body()
+    body: {
+      conversationId: string;
+      question: string;
+      options: string[];
+      multi?: boolean;
+    },
+  ) {
+    return this.messaging.createPoll(
+      this.me(req),
+      body?.conversationId,
+      body?.question,
+      body?.options ?? [],
+      !!body?.multi,
+    );
+  }
+
+  @Post('messages/:id/vote')
+  votePoll(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body() body: { optionId: string },
+  ) {
+    return this.messaging.votePoll(this.me(req), id, body?.optionId);
+  }
+
+  @Post('messages/schedule')
+  scheduleMessage(
+    @Req() req: any,
+    @Body() body: { conversationId: string; body: string; sendAt: string },
+  ) {
+    return this.messaging.scheduleMessage(
+      this.me(req),
+      body?.conversationId,
+      body?.body,
+      body?.sendAt,
+    );
+  }
+
+  @Delete('scheduled/:id')
+  cancelScheduled(@Req() req: any, @Param('id') id: string) {
+    return this.messaging.cancelScheduled(this.me(req), id);
+  }
+
   @Post('messages/call')
   sendCallLog(
     @Req() req: any,

@@ -9,7 +9,7 @@ import {
 } from 'typeorm';
 import { Conversation } from './conversation.entity';
 
-export type MessageType = 'text' | 'image' | 'file' | 'call';
+export type MessageType = 'text' | 'image' | 'file' | 'call' | 'poll';
 
 @Entity('messages')
 export class Message {
@@ -89,6 +89,11 @@ export class Message {
   /** Marca de mensaje reenviado (para mostrar "Reenviado"). */
   @Column({ type: 'boolean', default: false })
   forwarded: boolean;
+
+  /** Caducidad (mensajes temporales): si pasa, el mensaje se elimina solo. */
+  @Index()
+  @Column({ name: 'expires_at', type: 'timestamptz', nullable: true })
+  expiresAt: Date | null;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
