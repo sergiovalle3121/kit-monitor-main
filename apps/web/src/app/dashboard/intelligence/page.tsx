@@ -16,6 +16,8 @@ import {
   TrendingDown,
   Minus,
   Lightbulb,
+  Zap,
+  X,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -30,6 +32,8 @@ import {
   Cell,
 } from 'recharts';
 import { glass } from '@/lib/glass';
+import { useConfirm } from '@/components/ui/ConfirmDialog';
+import { useToast } from '@/contexts/ToastContext';
 
 interface MetricDef {
   key: string;
@@ -146,7 +150,38 @@ export default function IntelligencePage() {
   const [trend, setTrend] = useState<Trend | null>(null);
   const [breakdown, setBreakdown] = useState<Breakdown | null>(null);
   const [proposals, setProposals] = useState<Proposal[]>([]);
+  const [acting, setActing] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
+  const confirm = useConfirm();
+  const toast = useToast();
+
+  async function actOnProposal(p: Proposal, action: 'execute' | 'dismiss') {
+    const ok = await confirm(
+      action === 'execute'
+        ? `¿Ejecutar la acción "${p.title}"? Aplicará el cambio operativo recomendado.`
+        : `¿Descartar la recomendación "${p.title}"?`,
+    );
+    if (!ok) return;
+    setActing(p.id);
+    try {
+      const res = await fetch(`/api/autopilot/proposals/${p.id}/${action}`, {
+        method: 'POST',
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        toast.error(d?.message || 'No se pudo completar la acción.');
+        return;
+      }
+      setProposals((list) => list.filter((x) => x.id !== p.id));
+      toast.success(
+        action === 'execute' ? 'Acción ejecutada.' : 'Recomendación descartada.',
+      );
+    } catch {
+      toast.error('Error de red.');
+    } finally {
+      setActing(null);
+    }
+  }
 
   useEffect(() => {
     async function load() {
@@ -255,6 +290,27 @@ export default function IntelligencePage() {
                     {[p.line, p.model].filter(Boolean).join(' · ')}
                   </p>
                 )}
+                <div className="mt-2.5 flex items-center gap-2">
+                  <button
+                    onClick={() => actOnProposal(p, 'execute')}
+                    disabled={acting === p.id}
+                    className="inline-flex items-center gap-1 rounded-lg bg-indigo-600 px-2.5 py-1 text-xs font-medium text-white transition-colors hover:bg-indigo-700 disabled:opacity-40"
+                  >
+                    {acting === p.id ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <Zap className="h-3 w-3" />
+                    )}
+                    Ejecutar
+                  </button>
+                  <button
+                    onClick={() => actOnProposal(p, 'dismiss')}
+                    disabled={acting === p.id}
+                    className="inline-flex items-center gap-1 rounded-lg border border-black/10 px-2.5 py-1 text-xs text-black/60 transition-colors hover:bg-black/5 disabled:opacity-40 dark:border-white/10 dark:text-white/60 dark:hover:bg-white/10"
+                  >
+                    <X className="h-3 w-3" /> Descartar
+                  </button>
+                </div>
               </div>
             ))}
           </div>

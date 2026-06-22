@@ -636,4 +636,34 @@ permisos nuevos.
 **Aditivo.** El kit no obliga a migrar las páginas que ya rodaron su tabla; un
 segundo módulo puede consumir los primitivos sin cambios.
 
+## 23. Bucle de acción: ejecutar/descartar propuestas + fix RBAC (Fase 7)
+
+**Contexto.** Hasta §22 todo el stack de CIDE/Inteligencia era **read-only**: el
+sistema recomendaba acciones (`autopilot`) pero no se podía **actuar** sobre
+ellas desde el Centro de Inteligencia. Cerrar el bucle detectar→recomendar→actuar
+es el corazón de una plataforma de decisiones.
+
+**Decisión.**
+- **Acción humana, con confirmación, gateada a admin.** Se añade
+  `AutopilotService.dismissProposal` (triage: cierra la recomendación sin cambio
+  operativo; guard de idempotencia: solo `pending`) y la ruta
+  `POST /api/autopilot/proposals/:id/dismiss` (igual que `execute`, ambas con
+  `@RequirePermissions('ADMIN_ACCESS')`). El Centro de Inteligencia gana botones
+  **Ejecutar** (con diálogo de confirmación, porque aplica un cambio operativo
+  real) y **Descartar** en cada tarjeta de "Acciones sugeridas".
+- **CIDE sigue estrictamente read-only.** La ejecución es **acción humana en la
+  UI**, nunca de la IA — riel de seguridad deliberado (la IA observa y recomienda;
+  el humano decide y ejecuta).
+- **Fix de RBAC (deuda de §22).** El tool `autopilot_proposals` de CIDE quedó con
+  `requiredPermission: null`, exponiendo a cualquier usuario datos que el endpoint
+  `/api/autopilot/proposals` gatea a `ADMIN_ACCESS`. Se corrige a `ADMIN_ACCESS`
+  para alinear la IA con el endpoint.
+
+**Verificación:** build API ✓, build web ✓, lint web (0 errores) ✓, **697/697**
+tests ✓. Sin entidades nuevas (reusa `executedAt/executedBy` como sello de
+resolución); el smoke no cambia de superficie.
+
+**Pendiente (Fase 8):** editor de métricas/ontología en la UI; persistir tarjetas
+en el historial; conectar el what-if a `runStressTest` con un PlanScenario.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
