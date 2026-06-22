@@ -166,6 +166,16 @@ export class PlansService {
   }
 
   /**
+   * Reusable Clear-to-Build readiness for a plan — the SAME computation
+   * `releaseWorkOrder` seals at release time, exposed so out-of-request callers
+   * (e.g. the readiness alerts engine) can evaluate a plan without recomputing
+   * the rules by hand. Pure delegation to `calculateReadiness`; no behavior change.
+   */
+  async computeReadiness(plan: Plan): Promise<ReadinessSummary> {
+    return this.calculateReadiness(plan);
+  }
+
+  /**
    * REAL Clear-to-Build readiness for a plan/WO, read from existing tables (no
    * new columns): the WO's picked BOM (`kit_materials`) is the material demand,
    * checked against available `inventory_positions`; active `quality_holds` on
