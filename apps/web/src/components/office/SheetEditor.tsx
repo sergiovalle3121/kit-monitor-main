@@ -5,7 +5,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence } from 'framer-motion';
 import { Workbook } from '@fortune-sheet/react';
 import '@fortune-sheet/react/dist/index.css';
-import { ListChecks, Palette, Snowflake, FileText, Sigma, Search, ArrowDownUp, CopyMinus, Columns3, StickyNote, Table2, Hash, Rows3, Activity, ArrowDownToLine, FlipVertical2, Tag, Printer, ClipboardPaste, Filter, RefreshCw, LayoutGrid, Sparkles, Target, Grid3x3, Layers } from 'lucide-react';
+import { ListChecks, Palette, Snowflake, FileText, Sigma, Search, ArrowDownUp, CopyMinus, Columns3, StickyNote, Table2, Hash, Rows3, Activity, ArrowDownToLine, FlipVertical2, Tag, Printer, ClipboardPaste, Filter, RefreshCw, LayoutGrid, Sparkles, Target, Grid3x3, Layers, Crosshair } from 'lucide-react';
 import { SheetCharts } from './SheetCharts';
 import { SheetTools, type ValidationPayload } from './SheetTools';
 import { SheetFunctionWizard } from './SheetFunctionWizard';
@@ -28,6 +28,8 @@ import { SheetDataTable, type DataTablePayload } from './SheetDataTable';
 import { autoSumPlan, type AggFn } from './sheets/autoSum';
 import { applyScenario, scenarioSummary, type Scenario } from './sheets/scenarios';
 import { SheetScenarios } from './SheetScenarios';
+import { solve, type SolverVar } from './sheets/solver';
+import { SheetSolver, type SolverPayload } from './SheetSolver';
 import { OfficeRibbon, RibbonTab, RibbonGroup, RibbonSeparator, RibbonButton, RibbonMenuButton } from './ribbon';
 import { useToast } from '@/contexts/ToastContext';
 
@@ -86,6 +88,7 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
   const [showFormat, setShowFormat] = useState(false);
   const [showGoalSeek, setShowGoalSeek] = useState(false);
   const [showDataTable, setShowDataTable] = useState(false);
+  const [showSolver, setShowSolver] = useState(false);
   const [, setTick] = useState(0);
   const refreshT = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onChangeRef = useRef(onChange);
@@ -386,6 +389,29 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
     return { ok: true, text: `Resumen generado en una hoja nueva (${cells.length} celda(s) × ${sum.headers.length} escenario(s)).` };
   }
 
+  // Solver: optimiza una celda objetivo cambiando varias variables (con restricciones >=/<=).
+  function doSolve(p: SolverPayload): { ok: boolean; text: string } {
+    const sheets = clone(sheetsRef.current);
+    const sheet = sheets[activeIndex()] ?? sheets[0];
+    if (!sheet) return { ok: false, text: 'No hay hoja activa.' };
+    const cells = p.variables.split(/[,;\s]+/).filter(Boolean).map((s) => s.toUpperCase());
+    if (!cells.length) return { ok: false, text: 'Indica al menos una celda variable.' };
+    const bounds = new Map<string, { min?: number; max?: number }>();
+    (p.bounds || '').split(/[,;]+/).map((s) => s.trim()).filter(Boolean).forEach((b) => {
+      const m = /^([A-Za-z]+\d+)\s*(<=|>=|≤|≥)\s*(-?\d+(?:[.,]\d+)?)$/.exec(b);
+      if (!m) return;
+      const cell = m[1].toUpperCase(); const val = Number(m[3].replace(',', '.')); const cur = bounds.get(cell) || {};
+      if (m[2] === '>=' || m[2] === '≥') cur.min = val; else cur.max = val;
+      bounds.set(cell, cur);
+    });
+    const variables: SolverVar[] = cells.map((c) => ({ cell: c, ...(bounds.get(c) || {}) }));
+    const target = Number((p.target || '0').replace(',', '.'));
+    const res = solve(sheet, p.objective, p.goal, target, variables);
+    if (!res.ok || !res.values) return { ok: false, text: res.error || 'No se encontró solución.' };
+    remount(sheets);
+    return { ok: true, text: `Óptimo: ${res.values.map((v) => `${v.cell}=${v.value}`).join(', ')} → objetivo ${res.objective} (${res.iterations} it).` };
+  }
+
   // Autosuma: inserta =FN(rango seleccionado) en la celda contigua (debajo/derecha).
   function doAutoSum(fn: AggFn) {
     const plan = autoSumPlan(selectionRange(), fn);
@@ -547,6 +573,7 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
               <RibbonButton icon={Target} label="Buscar objetivo" hideLabel={false} onClick={() => setShowGoalSeek(true)} />
               <RibbonButton icon={Grid3x3} label="Tabla de datos" hideLabel={false} onClick={() => setShowDataTable(true)} />
               <RibbonButton icon={Layers} label="Administrador de escenarios" hideLabel={false} onClick={() => setShowScenarios(true)} />
+              <RibbonButton icon={Crosshair} label="Solver" hideLabel={false} onClick={() => setShowSolver(true)} />
             </RibbonGroup>
             <RibbonSeparator />
             <RibbonGroup label="Rellenar y transponer">
@@ -658,6 +685,9 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
         )}
         {showScenarios && (
           <SheetScenarios scenarios={scenarios} onAdd={addScenario} onRemove={removeScenario} onApply={applyScenarioToActive} onSummary={doScenarioSummary} onClose={() => setShowScenarios(false)} />
+        )}
+        {showSolver && (
+          <SheetSolver defaultObjective={selectionRange().split(':')[0]} onApply={doSolve} onClose={() => setShowSolver(false)} />
         )}
         {showPivot && (
           <SheetPivot

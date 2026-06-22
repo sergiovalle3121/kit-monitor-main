@@ -1166,4 +1166,25 @@ alta con nombre + cambios, e **informe de resumen** en una hoja nueva) en la cin
 resumen con recálculo de suma/producto bajo 2 escenarios, sin mutar la hoja base). `lint web`
 0 errores; `build web` ✓.
 
+## 45. Office/Sheets — Solver (optimización multivariable con restricciones)
+
+**Contexto.** El «Solver» de Excel —maximizar/minimizar/fijar una celda objetivo cambiando
+VARIAS celdas a la vez, con límites— es la pieza de optimización que faltaba. Va más allá de
+«Buscar objetivo» §39 (una variable).
+
+**Decisión (sólo `apps/web`, aditiva):** `components/office/sheets/solver.ts`. `solve(sheet,
+objetivo, meta, valor, variables)` reutiliza `evalOverSheet` (§36) y minimiza el coste
+(`-f` para máx, `(f-objetivo)²` para valor, `f` para mín) con **Nelder–Mead** (símplex, sin
+derivadas, doble arranque) + un **pulido por descenso de coordenadas** con paso que se reduce
+(afina cimas/valles planos). Límites por **recorte** (clamp). Puro sobre una COPIA. UI: diálogo
+`SheetSolver` (objetivo, Máx/Mín/Valor, variables `A1, C1`, restricciones `A1>=0, A1<=100`) en
+la cinta (Datos → «Análisis de hipótesis → Solver»). Cierra el menú de Análisis de hipótesis.
+
+**Límite (documentado):** recalcula sólo la fórmula objetivo (como §39); óptimo local de un
+método sin derivadas (con doble arranque + pulido para robustez).
+
+**Verificación:** nueva suite `solver.spec.ts` (**14 aserciones**: mínimo de paraboloide 2D →
+(3,5) obj 0; máximo de parábola → 2 obj 10; valor objetivo 100 multivariable; **restricción**
+con recorte a 5; errores). `lint web` 0 errores; `build web` ✓.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
