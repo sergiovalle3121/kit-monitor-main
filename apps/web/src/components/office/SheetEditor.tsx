@@ -5,7 +5,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence } from 'framer-motion';
 import { Workbook } from '@fortune-sheet/react';
 import '@fortune-sheet/react/dist/index.css';
-import { ListChecks, Palette, Snowflake, FileText, Sigma, Search, ArrowDownUp, CopyMinus, Columns3, StickyNote, Table2, Hash, Rows3, Activity, ArrowDownToLine, FlipVertical2, Tag, Printer, ClipboardPaste, Filter, RefreshCw, LayoutGrid, Sparkles, Target } from 'lucide-react';
+import { ListChecks, Palette, Snowflake, FileText, Sigma, Search, ArrowDownUp, CopyMinus, Columns3, StickyNote, Table2, Hash, Rows3, Activity, ArrowDownToLine, FlipVertical2, Tag, Printer, ClipboardPaste, Filter, RefreshCw, LayoutGrid, Sparkles, Target, Grid3x3 } from 'lucide-react';
 import { SheetCharts } from './SheetCharts';
 import { SheetTools, type ValidationPayload } from './SheetTools';
 import { SheetFunctionWizard } from './SheetFunctionWizard';
@@ -23,6 +23,8 @@ import { installFormulaEngine } from './sheets/formulaEngine';
 import { applySpill } from './sheets/arraySpill';
 import { goalSeek } from './sheets/goalSeek';
 import { SheetGoalSeek, type GoalSeekPayload } from './SheetGoalSeek';
+import { dataTable1, dataTable2 } from './sheets/dataTable';
+import { SheetDataTable, type DataTablePayload } from './SheetDataTable';
 import { OfficeRibbon, RibbonTab, RibbonGroup, RibbonSeparator, RibbonButton, RibbonMenuButton } from './ribbon';
 import { useToast } from '@/contexts/ToastContext';
 
@@ -74,6 +76,7 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
   const [showTable, setShowTable] = useState(false);
   const [showFormat, setShowFormat] = useState(false);
   const [showGoalSeek, setShowGoalSeek] = useState(false);
+  const [showDataTable, setShowDataTable] = useState(false);
   const [, setTick] = useState(0);
   const refreshT = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onChangeRef = useRef(onChange);
@@ -343,6 +346,56 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
     return { ok: true, text: `${p.variableCell} = ${res.value} hace que ${p.formulaCell} ≈ ${res.result} (${res.iterations} iteraciones).` };
   }
 
+  // Tabla de datos (análisis de hipótesis): evalúa la fórmula para cada valor de entrada y
+  // escribe la rejilla de resultados en una hoja nueva.
+  function readValues(sheet: any, text: string): number[] {
+    const rng = parseRange(text);
+    if (rng) {
+      const out: number[] = [];
+      const map = new Map<string, any>((sheet.celldata ?? []).map((cd: any) => [`${cd.r}_${cd.c}`, cd]));
+      for (let r = rng.r1; r <= rng.r2; r++) for (let c = rng.c1; c <= rng.c2; c++) {
+        const cd = map.get(`${r}_${c}`); const raw = cd?.v && typeof cd.v === 'object' ? (cd.v.v ?? cd.v.m) : cd?.v;
+        const n = Number(raw); if (Number.isFinite(n) && raw !== '' && raw != null) out.push(n);
+      }
+      return out;
+    }
+    return text.split(/[,;\s]+/).filter(Boolean).map((s) => Number(s.replace(',', '.'))).filter((n) => Number.isFinite(n));
+  }
+  function pushResultSheet(sheets: any[], name: string, celldata: any[], rows: number, cols: number) {
+    sheets.forEach((s: any) => { s.status = 0; });
+    sheets.push({ name, celldata, order: sheets.length, row: Math.max(100, rows + 8), column: Math.max(26, cols + 4), config: {}, status: 1 });
+  }
+  function doDataTable(p: DataTablePayload): { ok: boolean; text: string } {
+    const sheets = clone(sheetsRef.current);
+    const sheet = sheets[activeIndex()] ?? sheets[0];
+    if (!sheet) return { ok: false, text: 'No hay hoja activa.' };
+    const colVals = readValues(sheet, p.colValues);
+    if (!colVals.length) return { ok: false, text: 'No hay valores de entrada válidos.' };
+    const n = sheets.filter((s: any) => /Tabla de datos/.test(s?.name ?? '')).length + 1;
+    const name = `Tabla de datos ${n}`;
+    if (p.mode === 'one') {
+      const res = dataTable1(sheet, p.formulaCell, p.colInputCell, colVals);
+      if (!res.ok || !res.results) return { ok: false, text: res.error || 'No se pudo calcular.' };
+      const cd: any[] = [{ r: 0, c: 0, v: { v: 'Valor', m: 'Valor', bl: 1 } }, { r: 0, c: 1, v: { v: 'Resultado', m: 'Resultado', bl: 1 } }];
+      colVals.forEach((v, i) => { cd.push({ r: i + 1, c: 0, v: { v, m: String(v) } }, { r: i + 1, c: 1, v: { v: res.results![i], m: String(res.results![i]) } }); });
+      pushResultSheet(sheets, name, cd, colVals.length + 2, 4);
+    } else {
+      const rowVals = readValues(sheet, p.rowValues);
+      if (!rowVals.length) return { ok: false, text: 'No hay valores de fila válidos.' };
+      const res = dataTable2(sheet, p.formulaCell, p.rowInputCell, p.colInputCell, rowVals, colVals);
+      if (!res.ok || !res.matrix) return { ok: false, text: res.error || 'No se pudo calcular.' };
+      const cd: any[] = [];
+      colVals.forEach((cv, j) => cd.push({ r: 0, c: j + 1, v: { v: cv, m: String(cv), bl: 1 } }));
+      rowVals.forEach((rv, i) => {
+        cd.push({ r: i + 1, c: 0, v: { v: rv, m: String(rv), bl: 1 } });
+        colVals.forEach((_, j) => cd.push({ r: i + 1, c: j + 1, v: { v: res.matrix![i][j], m: String(res.matrix![i][j]) } }));
+      });
+      pushResultSheet(sheets, name, cd, rowVals.length + 2, colVals.length + 3);
+    }
+    remount(sheets);
+    return { ok: true, text: `Tabla de datos generada en «${name}».` };
+  }
+
   // Rango A1 de la selección actual del grid (para prefijar diálogos de formato).
   function selectionRange(): string {
     try {
@@ -439,6 +492,7 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
             <RibbonSeparator />
             <RibbonGroup label="Análisis de hipótesis">
               <RibbonButton icon={Target} label="Buscar objetivo" hideLabel={false} onClick={() => setShowGoalSeek(true)} />
+              <RibbonButton icon={Grid3x3} label="Tabla de datos" hideLabel={false} onClick={() => setShowDataTable(true)} />
             </RibbonGroup>
             <RibbonSeparator />
             <RibbonGroup label="Rellenar y transponer">
@@ -534,6 +588,9 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
         {showWizard && <SheetFunctionWizard onInsert={insertFunction} onClose={() => setShowWizard(false)} />}
         {showGoalSeek && (
           <SheetGoalSeek defaultFormulaCell={selectionRange().split(':')[0]} onApply={doGoalSeek} onClose={() => setShowGoalSeek(false)} />
+        )}
+        {showDataTable && (
+          <SheetDataTable defaultFormulaCell={selectionRange().split(':')[0]} onApply={doDataTable} onClose={() => setShowDataTable(false)} />
         )}
         {showPivot && (
           <SheetPivot
