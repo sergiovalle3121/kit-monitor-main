@@ -23,7 +23,10 @@ import {
   getTenantRepositoryToken,
 } from '../../common/tenant/tenant-scoped.repository';
 import { EventLedgerService } from '../event-ledger/event-ledger.service';
-import { EventDomain } from '../event-ledger/entities/ledger-event.entity';
+import {
+  EventDomain,
+  LedgerEvent,
+} from '../event-ledger/entities/ledger-event.entity';
 import {
   CloneLayoutDto,
   CreateStationDto,
@@ -107,6 +110,28 @@ export interface LayoutApproval {
   by: string | null;
   at: string | null;
   note: string | null;
+}
+
+/** Category of a layout history event — drives the icon/color in the UI. */
+export type LayoutHistoryKind =
+  | 'save'
+  | 'approval'
+  | 'snapshot'
+  | 'restore'
+  | 'dxf'
+  | 'clone'
+  | 'other';
+
+/** One entry in a layout's audit timeline (Fase 32) — a human-readable view of
+ * a ledger event already recorded for this layout. */
+export interface LayoutHistoryEntry {
+  id: string;
+  action: string;
+  kind: LayoutHistoryKind;
+  actor: string;
+  at: string;
+  title: string;
+  detail: string;
 }
 
 export interface LineLayout {
@@ -564,6 +589,38 @@ export class LineEngineeringService {
       after: { status, by: layout.approvedBy },
     });
     return this.getLayout(m, r);
+  }
+
+  /**
+   * Audit timeline for a layout (Fase 32): the chronological log of who saved,
+   * approved, snapshotted, restored, cloned or attached a plan — read straight
+   * from the event ledger that the mutating methods already write to. Read-only
+   * and degrades gracefully (empty list) when the ledger isn't wired in.
+   */
+  async getLayoutHistory(
+    model: string,
+    revision = 'A',
+    limit = 50,
+  ): Promise<LayoutHistoryEntry[]> {
+    const m = (model ?? '').trim();
+    const r = (revision ?? 'A').trim() || 'A';
+    if (!m) throw new BadRequestException('model es obligatorio.');
+    if (!this.ledger) return [];
+    const ref = `${m}|${r}`;
+    let events: LedgerEvent[];
+    try {
+      events = await this.ledger.getEventsByReference(
+        'SF_LINE_ENGINEERING',
+        ref,
+      );
+    } catch (err) {
+      this.logger.warn(
+        `Historial no disponible para ${ref}: ${(err as Error)?.message}`,
+      );
+      return [];
+    }
+    const n = Math.min(Math.max(1, Math.floor(Number(limit) || 50)), 200);
+    return events.slice(0, n).map((e) => toHistoryEntry(e));
   }
 
   /**
@@ -1856,6 +1913,101 @@ export class LineEngineeringService {
 function round(n: number, dp = 2): number {
   const f = Math.pow(10, dp);
   return Math.round((Number(n) || 0) * f) / f;
+}
+
+const APPROVAL_LABEL: Record<string, string> = {
+  draft: 'borrador',
+  in_review: 'en revisión',
+  approved: 'aprobado',
+};
+
+/** Turn a stored ledger event into a human-readable timeline entry (Fase 32). */
+function toHistoryEntry(e: LedgerEvent): LayoutHistoryEntry {
+  const after = (e.metadata?.afterState ?? {}) as Record<string, unknown>;
+  const { title, detail, kind } = describeLayoutEvent(e.action, after);
+  const at =
+    e.timestamp instanceof Date
+      ? e.timestamp.toISOString()
+      : String(e.timestamp ?? '');
+  return {
+    id: e.id,
+    action: e.action,
+    kind,
+    actor: e.actorName || 'anónimo',
+    at,
+    title,
+    detail,
+  };
+}
+
+/** Stringify a ledger after-state field that is typed `unknown`, without
+ * stringifying objects (keeps the no-base-to-string lint honest). */
+function asText(v: unknown): string {
+  if (typeof v === 'string') return v;
+  if (typeof v === 'number' && Number.isFinite(v)) return String(v);
+  return '';
+}
+
+/** Map a layout event action + its recorded after-state to a Spanish summary. */
+function describeLayoutEvent(
+  action: string,
+  after: Record<string, unknown>,
+): { title: string; detail: string; kind: LayoutHistoryKind } {
+  switch (action) {
+    case 'SF_LINE_LAYOUT_SAVED': {
+      const placed = Math.max(0, Math.floor(Number(after.placed) || 0));
+      const cleared = Math.max(0, Math.floor(Number(after.cleared) || 0));
+      const parts: string[] = [];
+      if (placed) parts.push(`${placed} colocada${placed === 1 ? '' : 's'}`);
+      if (cleared) parts.push(`${cleared} retirada${cleared === 1 ? '' : 's'}`);
+      return {
+        title: 'Guardó el layout',
+        detail: parts.join(' · ') || 'sin cambios de posición',
+        kind: 'save',
+      };
+    }
+    case 'SF_LINE_LAYOUT_APPROVAL': {
+      const status = asText(after.status).toLowerCase();
+      const label = APPROVAL_LABEL[status] ?? status ?? '—';
+      return {
+        title: `Cambió aprobación a ${label}`,
+        detail: '',
+        kind: 'approval',
+      };
+    }
+    case 'SF_LINE_LAYOUT_SNAPSHOT':
+      return {
+        title: 'Creó un snapshot',
+        detail: asText(after.name),
+        kind: 'snapshot',
+      };
+    case 'SF_LINE_LAYOUT_RESTORED':
+      return {
+        title: 'Restauró un snapshot',
+        detail: asText(after.name),
+        kind: 'restore',
+      };
+    case 'SF_LINE_LAYOUT_DXF_SET': {
+      const name = asText(after.name);
+      const bytes = Math.max(0, Math.floor(Number(after.bytes) || 0));
+      const detail = [name, bytes ? `${(bytes / 1024).toFixed(0)} KB` : '']
+        .filter(Boolean)
+        .join(' · ');
+      return { title: 'Cargó un plano DXF', detail, kind: 'dxf' };
+    }
+    case 'SF_LINE_LAYOUT_DXF_CLEARED':
+      return { title: 'Quitó el plano DXF', detail: '', kind: 'dxf' };
+    case 'SF_LINE_LAYOUT_CLONED': {
+      const from = asText(after.from);
+      return {
+        title: 'Clonó el layout',
+        detail: from ? `desde ${from}` : '',
+        kind: 'clone',
+      };
+    }
+    default:
+      return { title: action, detail: '', kind: 'other' };
+  }
 }
 
 /** Coerce to a positive finite number, falling back to `fallback` otherwise. */
