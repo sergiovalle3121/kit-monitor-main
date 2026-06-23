@@ -136,6 +136,17 @@ export class UpdateIncidentDto {
   @IsOptional()
   @IsString()
   correctiveAction?: string;
+
+  @ApiPropertyOptional({ description: 'Responsable de la CAPA (acción correctiva).' })
+  @IsOptional()
+  @IsString()
+  @Length(0, 200)
+  capaOwner?: string;
+
+  @ApiPropertyOptional({ description: 'Fecha de compromiso de la CAPA (ISO; vacío para limpiar).' })
+  @IsOptional()
+  @IsString()
+  capaDueDate?: string;
 }
 
 export class TransitionIncidentDto {
@@ -158,4 +169,15 @@ export class TransitionIncidentDto {
   @IsInt()
   @Min(0)
   lostDays?: number;
+
+  @ApiPropertyOptional({ description: 'Responsable de la CAPA (al definir la acción).' })
+  @IsOptional()
+  @IsString()
+  @Length(0, 200)
+  capaOwner?: string;
+
+  @ApiPropertyOptional({ description: 'Fecha de compromiso de la CAPA (ISO).' })
+  @IsOptional()
+  @IsString()
+  capaDueDate?: string;
 }
