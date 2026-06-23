@@ -131,3 +131,73 @@ export async function styledXlsxBuffer(ExcelJS: any, sheets: FortuneSheet[], nam
   const wb = buildStyledWorkbook(ExcelJS, sheets, names);
   return wb.xlsx.writeBuffer();
 }
+
+// ── LECTURA de estilos (inverso): ExcelJS → claves de estilo Fortune ──────────
+// SheetJS comunitario tampoco LEE estilos, así que al importar se complementa con ExcelJS para que un
+// libro con formato vuelva a entrar con sus colores/negritas (round-trip simétrico de §109).
+
+const H_INV: Record<string, number> = { center: 0, left: 1, right: 2, justify: 1 };
+const V_INV: Record<string, number> = { middle: 0, top: 1, bottom: 2 };
+
+/** `FFRRGGBB`/`RRGGBB` (ARGB de ExcelJS) → `#rrggbb`. `null` si no es un color rgb directo. */
+export function argbToHex(argb: any): string | null {
+  if (typeof argb !== 'string') return null;
+  const h = argb.length === 8 ? argb.slice(2) : argb.length === 6 ? argb : '';
+  return /^[0-9a-fA-F]{6}$/.test(h) ? '#' + h.toLowerCase() : null;
+}
+
+/** Estilo de una celda ExcelJS → claves de estilo Fortune (`{bl,it,fc,bg,…}`); `{}` si no hay estilo. */
+export function fortuneStyleFromCell(cell: any): any {
+  if (!cell || typeof cell !== 'object') return {};
+  const out: any = {};
+  const font = cell.font;
+  if (font) {
+    if (font.bold) out.bl = 1;
+    if (font.italic) out.it = 1;
+    if (font.underline) out.un = 1;
+    if (font.strike) out.cl = 1;
+    if (typeof font.size === 'number') out.fs = font.size;
+    if (typeof font.name === 'string' && font.name) out.ff = font.name;
+    const fc = argbToHex(font.color?.argb);
+    if (fc) out.fc = fc;
+  }
+  const bg = argbToHex(cell.fill?.fgColor?.argb);
+  if (cell.fill?.pattern === 'solid' && bg) out.bg = bg;
+  const al = cell.alignment;
+  if (al) {
+    if (al.horizontal && H_INV[al.horizontal] != null) out.ht = H_INV[al.horizontal];
+    if (al.vertical && V_INV[al.vertical] != null) out.vt = V_INV[al.vertical];
+    if (al.wrapText) out.tb = 2;
+  }
+  return out;
+}
+
+/**
+ * Fusiona los estilos leídos por ExcelJS en las hojas Fortune ya pobladas por SheetJS (valores +
+ * fórmulas). Empareja por índice de hoja y por celda (r,c). Aditivo: solo añade claves de estilo y el
+ * formato de número; no toca valores ni fórmulas. Tolerante a fallos (si ExcelJS no lee algo, no rompe).
+ */
+export async function readStylesIntoSheets(ExcelJS: any, buffer: ArrayBuffer, sheets: FortuneSheet[]): Promise<void> {
+  const wb = new ExcelJS.Workbook();
+  try { await wb.xlsx.load(buffer as any); } catch { return; }
+  wb.eachSheet((ws: any, id: number) => {
+    const sheet = sheets[id - 1];
+    if (!sheet) return;
+    sheet.celldata = sheet.celldata || [];
+    const index = new Map<string, any>();
+    for (const cd of sheet.celldata) index.set(`${cd.r}_${cd.c}`, cd);
+    ws.eachRow({ includeEmpty: false }, (row: any, rowNumber: number) => {
+      row.eachCell({ includeEmpty: false }, (cell: any, colNumber: number) => {
+        const r = rowNumber - 1, c = colNumber - 1;
+        const st = fortuneStyleFromCell(cell);
+        const nf = typeof cell.numFmt === 'string' && cell.numFmt !== 'General' ? cell.numFmt : undefined;
+        if (!Object.keys(st).length && !nf) return;
+        let cd = index.get(`${r}_${c}`);
+        if (!cd) { cd = { r, c, v: { v: '', m: '', ct: { fa: 'General', t: 's' } } }; sheet.celldata!.push(cd); index.set(`${r}_${c}`, cd); }
+        if (!cd.v || typeof cd.v !== 'object') cd.v = { v: cd.v ?? '', m: cd.v == null ? '' : String(cd.v), ct: { fa: 'General', t: 's' } };
+        Object.assign(cd.v, st);
+        if (nf) cd.v.ct = { ...(cd.v.ct || {}), fa: nf };
+      });
+    });
+  });
+}
