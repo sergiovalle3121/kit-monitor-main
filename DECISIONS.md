@@ -2117,4 +2117,24 @@ lo demás. (`HEX2DEC` ya acepta ambas cajas.)
 negativo `FFFFFFFFFF`, `0`, `ABC`, sin letras intacto, roundtrip `HEX2DEC(DEC2HEX(123))`). Sin
 regresiones: las 58 suites de spec de Office verdes; `lint web` 0 errores; `build web` ✓.
 
+## 92. Office/Sheets — INDEX/MATCH horizontal (INDEX sobre vectores de una fila)
+
+**Contexto.** Una segunda ronda de la auditoría de fidelidad destapó un fallo **común y serio**:
+`INDEX(A1:C1, 2)` sobre un **rango de una sola fila** devolvía `#REF!` en vez de `20`, lo que **rompe
+el patrón `INDEX(A1:C1, MATCH(x, A1:C1, 0))`** —la búsqueda horizontal clásica, omnipresente—. En
+Excel, `INDEX(vector, n)` devuelve el n-ésimo elemento sea fila o columna; con una sola fila el índice
+es la **columna**. `@formulajs/formulajs@2.9.3` lo trataba como número de fila → fuera de rango. (El
+caso de una sola **columna** ya funcionaba.)
+
+**Decisión (sólo `apps/web`, aditiva — riesgo cero):** `components/office/sheets/lookupFidelity.ts`
+registra `INDEX` que **intercepta únicamente** el patrón roto —un solo índice (sin `col_num`) sobre un
+vector 1D o una matriz de una fila— devolviendo el elemento por posición (e índice `0` → fila
+completa, fuera de rango → `#REF!`); **todo lo demás se delega** en el mismo `formulajs` sin tocarlo
+(`INDEX(rango, fila, col)`, columnas, matrices 2D…).
+
+**Verificación:** nueva suite `lookupFidelity.spec.ts` (**10 aserciones**: `INDEX(fila,2)`,
+`INDEX/MATCH` horizontal, constante `{fila}`, índice `0`→fila completa, fuera de rango→`#REF!`, y los
+casos delegados —columna y matriz 2D— intactos). Sin regresiones: las **59 suites** de spec de Office
+verdes (incluida la del motor de fórmulas); `lint web` 0 errores; `build web` ✓.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
