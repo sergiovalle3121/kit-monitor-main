@@ -2137,4 +2137,20 @@ completa, fuera de rango → `#REF!`); **todo lo demás se delega** en el mismo 
 casos delegados —columna y matriz 2D— intactos). Sin regresiones: las **59 suites** de spec de Office
 verdes (incluida la del motor de fórmulas); `lint web` 0 errores; `build web` ✓.
 
+## 93. Office/Sheets — BIN2HEX y OCT2HEX en mayúsculas (extiende §91)
+
+**Contexto.** Otra ronda de la auditoría (texto/fecha/matemáticas/ingeniería, 41/44) confirmó que el
+defecto de minúsculas de §91 no era exclusivo de `DEC2HEX`: **`BIN2HEX`** y **`OCT2HEX`** también
+devuelven el hexadecimal en minúsculas (`BIN2HEX(11111111)`=`"ff"`, `OCT2HEX(777)`=`"1ff"`), mientras
+Excel los da en MAYÚSCULAS. (Aparte, la auditoría destapó que `CONVERT` no soporta temperatura
+`"C"`/`"F"` —limitación de formulajs—; queda pendiente por ser más invasivo.)
+
+**Decisión (sólo `apps/web`, aditiva — riesgo cero):** se generaliza `hexFidelity.ts` con un
+envoltorio `upper(name)` que delega en `formulajs` y sólo pasa la cadena a mayúsculas; se registran
+así las tres conversiones a hex (`DEC2HEX`, `BIN2HEX`, `OCT2HEX`).
+
+**Verificación:** `hexFidelity.spec.ts` ampliado (**14 aserciones**, +6: `BIN2HEX(11111111)`=`FF`,
+relleno, sin letras intacto, `OCT2HEX(777)`=`1FF`, `OCT2HEX(10)`=`8`, roundtrip `HEX2DEC(BIN2HEX)`).
+Sin regresiones: las 59 suites de spec de Office verdes; `lint web` 0 errores; `build web` ✓.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
