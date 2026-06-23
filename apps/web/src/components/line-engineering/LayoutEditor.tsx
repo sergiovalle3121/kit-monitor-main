@@ -2,6 +2,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { Canvas, Rect, Textbox, Line, Polyline, Polygon, Group } from 'fabric';
 import {
   Loader2, Save, Inbox, Hand, MousePointer2, Maximize2, ZoomIn, ZoomOut, Grid3x3,
@@ -11,7 +12,7 @@ import {
   Upload, Eye, EyeOff, Map as MapIcon, Activity, Workflow, Wand2, Boxes,
   Download, Printer, Ruler, Type, MoveHorizontal, CopyPlus, X, Flame, Waypoints,
   ShieldCheck, ShieldAlert, LayoutGrid, History, RotateCw, ClipboardList, GitCompare,
-  ClipboardCheck, Warehouse, Sparkles, Bug, SlidersHorizontal, BarChart3, Frame,
+  ClipboardCheck, Warehouse, Sparkles, Bug, SlidersHorizontal, BarChart3, Frame, Box,
 } from 'lucide-react';
 import { glass } from '@/lib/glass';
 import { apiFetch } from '@/lib/apiFetch';
@@ -20,6 +21,8 @@ import { parseDxf, type DxfModel } from './dxf';
 import Minimap from './Minimap';
 import WhatIfSimulator from './WhatIfSimulator';
 import YamazumiChart from './YamazumiChart';
+// three.js is heavy — lazy-load the 3D view so it only ships when opened.
+const Layout3D = dynamic(() => import('./Layout3D'), { ssr: false });
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000').replace(/\/$/, '');
 const ROSE = '#f43f5e';
@@ -339,6 +342,7 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
   const [showSim, setShowSim] = useState(false);
   const [showYama, setShowYama] = useState(false);
   const [showCells, setShowCells] = useState(false);
+  const [show3d, setShow3d] = useState(false);
   const [approval, setApproval] = useState<LayoutApproval | null>(null);
   const [approvalBusy, setApprovalBusy] = useState(false);
   const [reportData, setReportData] = useState<LayoutReport | null>(null);
@@ -1796,6 +1800,7 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
         <TBtn onClick={() => setShowSim(true)} title="Simulador de capacidad (qué pasa si…)"><SlidersHorizontal className="w-4 h-4" /></TBtn>
         <TBtn onClick={() => setShowYama(true)} title="Yamazumi (gráfico de balanceo)"><BarChart3 className="w-4 h-4" /></TBtn>
         <TBtn onClick={() => setShowCells(true)} title="Celdas / zonas (agrupar estaciones)"><Frame className="w-4 h-4" /></TBtn>
+        <TBtn onClick={() => setShow3d(true)} title="Vista 3D del layout"><Box className="w-4 h-4" /></TBtn>
         <div className="flex-1" />
         {measureMode && measureVal && <span className="text-[12px] font-medium mr-2" style={{ color: '#0ea5e9' }}>{measureVal}</span>}
         {approval && (
@@ -2182,6 +2187,7 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
 
       <WhatIfSimulator model={model} revision={revision} open={showSim} onClose={() => setShowSim(false)} />
       <YamazumiChart model={model} revision={revision} open={showYama} onClose={() => setShowYama(false)} />
+      {show3d && <Layout3D model={model} revision={revision} open={show3d} onClose={() => setShow3d(false)} />}
 
       {showCells && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" onClick={() => setShowCells(false)}>
