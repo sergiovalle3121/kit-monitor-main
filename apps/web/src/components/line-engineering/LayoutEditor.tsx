@@ -118,6 +118,11 @@ interface FlowDirSummary {
   hasDirection: boolean; directionalEfficiencyPct: number; backtrackCount: number;
   backtrackDistance: number; backtrackHops: { from: string; to: string; distance: number; backtrack: number }[]; unit: string;
 }
+// Inter-cell flow (Fase 28).
+interface CellFlowSummary {
+  intraCount: number; interCount: number; unassignedCount: number;
+  intraDistance: number; interDistance: number; interPct: number; cellCount: number;
+}
 // Short hops green, long hauls red — the spaghetti ramp, normalized to the longest.
 const flowColor = (d: number, max: number): string => {
   const t = max > 0 ? d / max : 0;
@@ -302,6 +307,7 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
   const [flowOn, setFlowOn] = useState(false);
   const [flowData, setFlowData] = useState<FlowSummary | null>(null);
   const [flowDirData, setFlowDirData] = useState<FlowDirSummary | null>(null);
+  const [cellFlowData, setCellFlowData] = useState<CellFlowSummary | null>(null);
   const [validateOn, setValidateOn] = useState(false);
   const [validateData, setValidateData] = useState<CollisionSummary | null>(null);
   const [clearanceInput, setClearanceInput] = useState('');
@@ -1422,13 +1428,15 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
     let alive = true;
     (async () => {
       try {
-        const [r, rd] = await Promise.all([
+        const [r, rd, rc] = await Promise.all([
           apiFetch(`${API_BASE}/line-engineering/layout/flow?model=${encodeURIComponent(model)}&revision=${encodeURIComponent(revision)}`),
           apiFetch(`${API_BASE}/line-engineering/layout/flow-direction?model=${encodeURIComponent(model)}&revision=${encodeURIComponent(revision)}`),
+          apiFetch(`${API_BASE}/line-engineering/layout/cell-flow?model=${encodeURIComponent(model)}&revision=${encodeURIComponent(revision)}`),
         ]);
         if (!alive) return;
         if (r.ok) setFlowData((await r.json()) as FlowSummary);
         if (rd.ok) setFlowDirData((await rd.json()) as FlowDirSummary);
+        if (rc.ok) setCellFlowData((await rc.json()) as CellFlowSummary);
       } catch { /* transient */ }
     })();
     return () => { alive = false; };
@@ -1936,6 +1944,9 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
                 {flowData.unplacedLinks > 0 && <span className="text-amber-500">· {flowData.unplacedLinks} sin colocar</span>}
                 {flowDirData?.hasDirection && (
                   <span className={flowDirData.backtrackCount > 0 ? 'text-amber-500' : 'text-emerald-600'}>· dirección {flowDirData.directionalEfficiencyPct}% ({flowDirData.backtrackCount} {flowDirData.backtrackCount === 1 ? 'retroceso' : 'retrocesos'})</span>
+                )}
+                {cellFlowData && cellFlowData.cellCount > 0 && (cellFlowData.intraCount + cellFlowData.interCount) > 0 && (
+                  <span className={cellFlowData.interPct > 0 ? 'text-amber-500' : 'text-emerald-600'}>· inter-celda {cellFlowData.interPct}% ({cellFlowData.interCount} de {cellFlowData.intraCount + cellFlowData.interCount})</span>
                 )}
               </>
             ) : 'cargando…'}
