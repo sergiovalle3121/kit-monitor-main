@@ -191,6 +191,21 @@ describe('LineEngineeringService (integration)', () => {
     expect(plan.model).toBe('AX-1000');
   });
 
+  it('balances stations into operator loops capped at takt (Fase 34)', async () => {
+    await seedRoute(); // EST-10 40s, EST-20 55s, EST-30 30s (by sequence)
+    // At 100s takt, 40+55 = 95 ≤ 100 → one loop; 30 → second loop.
+    const plan = await service.getOperatorLoops({
+      model: 'AX-1000',
+      taktTargetSec: 100,
+    });
+    expect(plan.cadenceSec).toBe(100);
+    expect(plan.operatorCount).toBe(2);
+    expect(plan.loops[0].stations).toEqual(['EST-10', 'EST-20']);
+    expect(plan.loops[1].stations).toEqual(['EST-30']);
+    expect(plan.stationCount).toBe(3);
+    expect(plan.model).toBe('AX-1000');
+  });
+
   it('reports per-station documentation completeness (Fase 19)', async () => {
     await seedRoute(); // 3 stations, all with NP + factor + aid → complete
     // Add a station missing its visual aid.

@@ -58,6 +58,7 @@ import { autoArrange, ArrangedPosition } from './line-autoarrange';
 import { optimizeFlowOrder } from './line-optimize';
 import { staffingPlan, StaffingResult, StationStaffing } from './line-staffing';
 import { bufferPlan, BufferPlan } from './line-buffer';
+import { balanceLoops, LoopPlan } from './line-loops';
 
 /** One station's material/work requirement for a unit of a model — the bridge
  * that Material Staging (C) and the Operator Terminal (D) consume. */
@@ -1440,6 +1441,41 @@ export class LineEngineeringService {
             ? params.coverageSec
             : undefined,
       },
+    );
+    return { ...plan, model: params.model, revision };
+  }
+
+  /**
+   * Operator-loop balancing for the line (Fase 34). Read-only: greedily packs
+   * consecutive stations into operator loops capped at the takt, answering "how
+   * few operators run this line if one can tend several quick adjacent stations"
+   * — the assignment complement to per-station staffing. Pure via `balanceLoops`.
+   */
+  async getOperatorLoops(params: {
+    model: string;
+    revision?: string;
+    availableTimeSec?: number;
+    demandUnits?: number;
+    taktTargetSec?: number;
+  }): Promise<LoopPlan & { model: string; revision: string }> {
+    const revision = params.revision ?? 'A';
+    const route = await this.routing(params.model, revision);
+    if (route.length === 0) {
+      throw new NotFoundException(
+        `Sin ruteo para ${params.model} rev ${revision}.`,
+      );
+    }
+    const takt =
+      params.taktTargetSec && params.taktTargetSec > 0
+        ? params.taktTargetSec
+        : computeTaktSec(params.availableTimeSec ?? 0, params.demandUnits ?? 0);
+    const plan = balanceLoops(
+      route.map((s) => ({
+        station: s.station,
+        sequence: s.sequence,
+        cycleTimeSec: Number(s.stdTimeSec),
+      })),
+      { taktSec: takt },
     );
     return { ...plan, model: params.model, revision };
   }
