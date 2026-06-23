@@ -61,6 +61,7 @@ import { LOOKUP_FIDELITY_FUNCTIONS } from './lookupFidelity';
 import { CONVERT_TEMP_FUNCTIONS } from './convertTemp';
 import { VALUE_FIDELITY_FUNCTIONS } from './valueFidelity';
 import { PROPER_FIDELITY_FUNCTIONS } from './properFidelity';
+import { BYTE_TEXT_FUNCTIONS } from './byteFunctions';
 import { applyScalarBroadcast } from './scalarBroadcast';
 
 // ── Utilidades de coerción / aplanado de argumentos ──────────────────────────
@@ -336,6 +337,8 @@ export const CUSTOM_FUNCTIONS: Record<string, (params: any[]) => any> = {
   ...VALUE_FIDELITY_FUNCTIONS,
   // Fidelidad de PROPER (mayúscula tras apóstrofo/dígito, como Excel) — ver `properFidelity.ts`.
   ...PROPER_FIDELITY_FUNCTIONS,
+  // Funciones de texto por bytes (LENB/LEFTB/… = sus versiones por carácter en locale latino) — ver `byteFunctions.ts`.
+  ...BYTE_TEXT_FUNCTIONS,
 };
 
 // Difusión de funciones escalares (ROUND/ABS/TEXT…) sobre matrices — ver `scalarBroadcast.ts`.
