@@ -12,9 +12,12 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { PeopleService } from './people.service';
+import { PeopleAlertsService } from './people-alerts.service';
 import {
   CreateCertificationDto,
+  CreateSkillDto,
   UpdateCertificationDto,
+  UpdateSkillDto,
 } from './dto/people.dto';
 
 @ApiTags('People')
@@ -22,12 +25,28 @@ import {
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller('people')
 export class PeopleController {
-  constructor(private readonly service: PeopleService) {}
+  constructor(
+    private readonly service: PeopleService,
+    private readonly alerts: PeopleAlertsService,
+  ) {}
 
   @Get('kpis')
   @ApiOperation({ summary: 'KPIs de skills: válidas, por vencer, cobertura.' })
   kpis() {
     return this.service.kpis();
+  }
+
+  @Get('certification-check')
+  @ApiOperation({
+    summary:
+      'Gate operador↔estación (read-only): ¿el operador tiene certificación vigente para la estación? Sólo advierte, no bloquea.',
+  })
+  certificationCheck(
+    @Query('employeeId') employeeId?: string,
+    @Query('employee') employee?: string,
+    @Query('station') station?: string,
+  ) {
+    return this.service.certificationCheck({ employeeId, employee, station });
   }
 
   @Get('certifications')
@@ -56,5 +75,33 @@ export class PeopleController {
   @ApiOperation({ summary: 'Actualiza / recertifica (nueva fecha de expiración).' })
   update(@Param('id') id: string, @Body() dto: UpdateCertificationDto) {
     return this.service.update(id, dto);
+  }
+
+  // ── Skill catalog ──────────────────────────────────────────────────────────
+  @Get('skills')
+  @ApiOperation({ summary: 'Catálogo de skills (vocabulario curado de RH).' })
+  listSkills(@Query('includeInactive') includeInactive?: string) {
+    return this.service.listSkills(includeInactive === 'true');
+  }
+
+  @Post('skills')
+  @ApiOperation({ summary: 'Agrega un skill al catálogo (idempotente por nombre).' })
+  createSkill(@Body() dto: CreateSkillDto) {
+    return this.service.createSkill(dto);
+  }
+
+  @Patch('skills/:id')
+  @ApiOperation({ summary: 'Edita / archiva un skill del catálogo.' })
+  updateSkill(@Param('id') id: string, @Body() dto: UpdateSkillDto) {
+    return this.service.updateSkill(id, dto);
+  }
+
+  @Post('recert-alerts/run')
+  @ApiOperation({
+    summary:
+      'Dispara el barrido de recertificaciones (por vencer / vencidas) y deja avisos en el buzón. Idéntico al cron, bajo demanda.',
+  })
+  runRecertAlerts() {
+    return this.alerts.scanRecertAndNotify();
   }
 }

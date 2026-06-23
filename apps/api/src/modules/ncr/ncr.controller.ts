@@ -38,4 +38,17 @@ export class NcrController {
   ) {
     return this.ncrService.updateStatus(id, status, actor);
   }
+
+  // Aditivo: clasifica una NCR existente con un código de defecto del catálogo.
+  // Enviar defectCodeId=null la regresa a «Sin clasificar». No altera el alta ni
+  // el ciclo de la NCR.
+  @Patch(':id/classify')
+  @RequirePermissions('QUALITY_WRITE')
+  async classify(
+    @Param('id') id: number,
+    @Body('defectCodeId') defectCodeId: number | null,
+    @Body('actor') actor: string
+  ) {
+    return this.ncrService.classify(id, defectCodeId ?? null, actor);
+  }
 }

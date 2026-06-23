@@ -1,4 +1,5 @@
 import {
+  IsDateString,
   IsIn,
   IsInt,
   IsOptional,
@@ -62,4 +63,98 @@ export class SetToolStatusDto {
   @ApiProperty({ enum: TOOL_STATUSES, example: 'IN_USE' })
   @IsIn(TOOL_STATUSES as unknown as string[])
   status: ToolStatus;
+}
+
+export class CheckoutToolDto {
+  @ApiPropertyOptional({ description: 'Id de la WO destino (preferido — enriquece folio/modelo).' })
+  @IsOptional()
+  @IsString()
+  @Length(1, 36)
+  workOrderId?: string;
+
+  @ApiPropertyOptional({ description: 'Folio de la WO si no se tiene el id.' })
+  @IsOptional()
+  @IsString()
+  @Length(1, 32)
+  workOrderFolio?: string;
+
+  @ApiPropertyOptional({ description: 'Quién presta (cribbero). Default: usuario en sesión.' })
+  @IsOptional()
+  @IsString()
+  @Length(0, 255)
+  by?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @Length(0, 255)
+  notes?: string;
+}
+
+export class CheckinToolDto {
+  @ApiPropertyOptional({ description: 'Quién recibe. Default: usuario en sesión.' })
+  @IsOptional()
+  @IsString()
+  @Length(0, 255)
+  by?: string;
+
+  @ApiPropertyOptional({ description: 'Disparos consumidos durante el préstamo (se suman a la vida vía la lógica de usage).' })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  shots?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @Length(0, 255)
+  notes?: string;
+}
+
+export class RecordCalibrationDto {
+  @ApiPropertyOptional({ description: 'Fecha de esta calibración (ISO). Default: hoy.' })
+  @IsOptional()
+  @IsDateString()
+  calibratedAt?: string;
+
+  @ApiPropertyOptional({ description: 'Próxima calibración (ISO).' })
+  @IsOptional()
+  @IsDateString()
+  nextDate?: string;
+
+  @ApiPropertyOptional({ description: 'Intervalo en días; deriva la próxima si no se da nextDate.' })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  intervalDays?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @Length(0, 255)
+  notes?: string;
+}
+
+export class RecordPmDto {
+  @ApiPropertyOptional({ description: 'Fecha de este mantenimiento preventivo (ISO). Default: hoy.' })
+  @IsOptional()
+  @IsDateString()
+  performedAt?: string;
+
+  @ApiPropertyOptional({ description: 'Próximo PM (ISO).' })
+  @IsOptional()
+  @IsDateString()
+  nextDate?: string;
+
+  @ApiPropertyOptional({ description: 'Intervalo en días; deriva el próximo si no se da nextDate.' })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  intervalDays?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @Length(0, 255)
+  notes?: string;
 }

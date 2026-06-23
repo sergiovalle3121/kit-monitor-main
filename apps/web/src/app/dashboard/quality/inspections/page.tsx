@@ -11,6 +11,8 @@ import {
   PackageCheck,
   Truck,
   ArrowRight,
+  Crosshair,
+  X,
 } from "lucide-react";
 import { glass } from "@/lib/glass";
 import { useApi } from "@/hooks/useApi";
@@ -25,6 +27,7 @@ import type {
   IqcResult,
   OqcBacklogRow,
   OqcResult,
+  QualityCharacteristic,
 } from "../quality.types";
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000").replace(/\/$/, "");
@@ -279,6 +282,51 @@ function OqcModal({ inspector, prefill, onClose, onSaved }: { inspector: string;
   const failed = Number(form.quantityFailed) || 0;
   const passed = Math.max(0, inspected - failed);
 
+  // ── Additive (optional): capture VARIABLE CTQ readings alongside the OQC.
+  // This NEVER blocks or alters the existing final_inspections save: it only
+  // adds quality_measurements (source FINAL_INSPECTION) after the OQC succeeds.
+  const { data: charsData } = useApi<QualityCharacteristic[]>("/quality/characteristics?active=true");
+  const variableChars = useMemo(
+    () => (Array.isArray(charsData) ? charsData.filter((c) => c.type === "VARIABLE") : []),
+    [charsData],
+  );
+  const [ctq, setCtq] = useState<{ characteristicId: string; value: string }[]>([]);
+  const addCtqRow = () => setCtq((r) => [...r, { characteristicId: variableChars[0]?.id ?? "", value: "" }]);
+  const updateCtqRow = (i: number, patch: Partial<{ characteristicId: string; value: string }>) =>
+    setCtq((r) => r.map((row, idx) => (idx === i ? { ...row, ...patch } : row)));
+  const removeCtqRow = (i: number) => setCtq((r) => r.filter((_, idx) => idx !== i));
+
+  async function postCtqMeasurements(reference: string) {
+    const valid = ctq.filter((r) => r.characteristicId && r.value.trim() !== "" && Number.isFinite(Number(r.value)));
+    if (valid.length === 0) return;
+    const byChar = new Map<string, number[]>();
+    for (const r of valid) {
+      const arr = byChar.get(r.characteristicId) ?? [];
+      arr.push(Number(r.value));
+      byChar.set(r.characteristicId, arr);
+    }
+    try {
+      for (const [characteristicId, values] of byChar) {
+        await apiFetch(`${API_BASE}/quality/measurements`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            characteristicId,
+            source: "FINAL_INSPECTION",
+            reference,
+            subgroupId: reference,
+            subgroupLabel: reference,
+            measuredBy: inspector,
+            readings: values.map((value) => ({ value })),
+          }),
+        });
+      }
+    } catch {
+      // Non-blocking: the OQC already saved. Surface softly, do not fail.
+      toast.error("OQC guardada, pero no se registraron algunas mediciones CTQ.", "OQC");
+    }
+  }
+
   async function submit() {
     if (!form.workOrder.trim()) { toast.error("La orden de trabajo es obligatoria.", "OQC"); return; }
     if (!form.partNumber.trim()) { toast.error("El número de parte es obligatorio.", "OQC"); return; }
@@ -299,6 +347,8 @@ function OqcModal({ inspector, prefill, onClose, onSaved }: { inspector: string;
       };
       const res = await apiFetch(`${API_BASE}/quality/oqc/inspections`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
       if (!res.ok) { const d = await res.json().catch(() => ({})); toast.error(d?.message || (res.status === 403 ? "Necesitas permiso QUALITY_WRITE." : "No se pudo registrar."), "OQC"); return; }
+      // Additive CTQ capture — runs only after the OQC saved; never blocks it.
+      await postCtqMeasurements(form.workOrder.trim());
       toast.success("OQC registrada.", "OQC");
       onSaved();
     } catch { toast.error("Error de red.", "OQC"); } finally { setBusy(false); }
@@ -316,6 +366,33 @@ function OqcModal({ inspector, prefill, onClose, onSaved }: { inspector: string;
         {form.result !== "PASS" && <Field label="Tipo de defecto"><input value={form.defectType} onChange={(e) => setForm({ ...form, defectType: e.target.value })} className="q-input" /></Field>}
         <Field label="Notas" full><textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} className="q-input min-h-[52px] resize-y" /></Field>
       </div>
+
+      {variableChars.length > 0 && (
+        <div className="mt-4 border-t border-black/5 dark:border-white/10 pt-3">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[12px] font-semibold flex items-center gap-1.5"><Crosshair className="w-3.5 h-3.5" style={{ color: "#2ec27e" }} /> Características CTQ medidas (opcional)</span>
+            <button type="button" onClick={addCtqRow} className="text-[12px] inline-flex items-center gap-1 font-medium" style={{ color: "#2ec27e" }}>
+              <Plus className="w-3.5 h-3.5" /> Agregar
+            </button>
+          </div>
+          {ctq.length === 0 ? (
+            <p className="text-[11px] text-gray-400">Opcional: captura el valor medido de las CTQ del modelo. Se guardan como mediciones (fuente: inspección final) ligadas a la WO — sin afectar el guardado de la inspección.</p>
+          ) : (
+            <div className="space-y-2">
+              {ctq.map((row, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <select value={row.characteristicId} onChange={(e) => updateCtqRow(i, { characteristicId: e.target.value })} className="q-input flex-1">
+                    {variableChars.map((c) => <option key={c.id} value={c.id}>{c.code} · {c.name}{c.unit ? ` (${c.unit})` : ""}</option>)}
+                  </select>
+                  <input type="number" step="any" value={row.value} onChange={(e) => updateCtqRow(i, { value: e.target.value })} className="q-input w-28" placeholder="valor" />
+                  <button type="button" onClick={() => removeCtqRow(i)} aria-label="Quitar" className="p-1.5 rounded-lg hover:bg-red-500/10 text-red-500"><X className="w-4 h-4" /></button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       <p className="text-[11px] text-gray-400 mt-3">El resultado aplica al stock <span className="font-mono">pending_oqc</span> en WH-FG: PASS→disponible, FAIL→hold, CONDITIONAL→cuarentena.</p>
     </Modal>
   );

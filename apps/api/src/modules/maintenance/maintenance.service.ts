@@ -9,18 +9,27 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, SelectQueryBuilder, ObjectLiteral } from 'typeorm';
 import { Asset } from './entities/asset.entity';
 import { MaintenanceOrder } from './entities/maintenance-order.entity';
+import { MaintenancePmPlan } from './entities/pm-plan.entity';
 import { TenantContextService } from '../../common/tenant/tenant-context.service';
 import { DocumentNumberingService } from '../numbering/document-numbering.service';
 import { EventLedgerService } from '../event-ledger/event-ledger.service';
 import { EventDomain } from '../event-ledger/entities/ledger-event.entity';
+import { NotificationsService } from '../notifications/notifications.service';
+import { UsersService } from '../users/users.service';
+import { UserRole } from '../users/entities/user.entity';
 import {
   CreateAssetDto,
   CreateMaintenanceOrderDto,
+  CreatePmPlanDto,
   TransitionMaintenanceOrderDto,
   UpdateAssetDto,
   UpdateMaintenanceOrderDto,
+  UpdatePmPlanDto,
 } from './dto/maintenance.dto';
 import { assertTransition, MaintenanceOrderStatus } from './order-state';
+import { computeNextDueDate, pmDueStatus } from './pm-frequency';
+import { assetReliabilityFrom, mttrHoursFrom } from './reliability';
+import type { AssetReliability } from './reliability';
 
 export interface MaintenanceKpis {
   ordersOpen: number;
@@ -32,6 +41,18 @@ export interface MaintenanceKpis {
   totalDowntimeMinutes: number;
   assetsTotal: number;
   assetsDown: number;
+  /** Planes de PM activos. */
+  pmPlansActive: number;
+  /** Planes de PM con next_due_date pasada (sin atender). */
+  pmOverdue: number;
+  /** Planes de PM que vencen dentro de la ventana (por defecto 7 días). */
+  pmDueSoon: number;
+}
+
+export interface AssetDetail {
+  asset: Asset;
+  orders: MaintenanceOrder[];
+  reliability: AssetReliability;
 }
 
 @Injectable()
@@ -46,6 +67,13 @@ export class MaintenanceService {
     private readonly tenantCtx: TenantContextService,
     private readonly numbering: DocumentNumberingService,
     @Optional() private readonly ledger?: EventLedgerService,
+    // Additive deps — `@Optional` so existing unit tests (que construyen el
+    // servicio con repos + ctx + numbering) siguen compilando y corriendo.
+    @Optional()
+    @InjectRepository(MaintenancePmPlan)
+    private readonly pmRepo?: Repository<MaintenancePmPlan>,
+    @Optional() private readonly notifications?: NotificationsService,
+    @Optional() private readonly users?: UsersService,
   ) {}
 
   private scope<T extends ObjectLiteral>(
@@ -120,10 +148,9 @@ export class MaintenanceService {
       this.logger.warn(`Folio allocation failed: ${(err as Error)?.message}`);
     }
 
-    let assetName: string | null = null;
+    let asset: Asset | null = null;
     if (dto.assetId) {
-      const asset = await this.assetRepo.findOne({ where: { id: dto.assetId } });
-      assetName = asset?.name ?? null;
+      asset = await this.assetRepo.findOne({ where: { id: dto.assetId } });
     }
 
     const order = this.orderRepo.create({
@@ -134,7 +161,7 @@ export class MaintenanceService {
       priority: dto.priority ?? 'MEDIUM',
       status: 'OPEN',
       assetId: dto.assetId ?? null,
-      assetName,
+      assetName: asset?.name ?? null,
       assignedTo: dto.assignedTo ?? null,
       downtimeMinutes: 0,
       dueDate: dto.dueDate ? new Date(dto.dueDate) : null,
@@ -142,6 +169,7 @@ export class MaintenanceService {
     });
     const saved = await this.orderRepo.save(order);
     await this.ledgerEvent('MAINTENANCE_ORDER_CREATED', 'MAINTENANCE_ORDER', saved.id, { after: saved });
+    await this.maybeAlertCriticalCorrective(saved, asset);
     return saved;
   }
 
@@ -218,9 +246,10 @@ export class MaintenanceService {
   // ── KPIs ─────────────────────────────────────────────────────────────────
 
   async kpis(): Promise<MaintenanceKpis> {
-    const [orders, assets] = await Promise.all([
+    const [orders, assets, pmPlans] = await Promise.all([
       this.listOrders(),
       this.listAssets(),
+      this.safeListPmPlans(),
     ]);
     const now = Date.now();
 
@@ -231,8 +260,6 @@ export class MaintenanceService {
     let totalDowntimeMinutes = 0;
     let pmTotal = 0;
     let pmCompleted = 0;
-    let mttrSum = 0;
-    let mttrCount = 0;
 
     for (const o of orders) {
       if (o.status === 'OPEN') ordersOpen += 1;
@@ -247,18 +274,16 @@ export class MaintenanceService {
         pmTotal += 1;
         if (o.status === 'COMPLETED') pmCompleted += 1;
       }
-      if (o.status === 'COMPLETED' && o.completedAt) {
-        const start = o.startedAt ?? o.created_at;
-        if (start) {
-          const hrs =
-            (new Date(o.completedAt).getTime() - new Date(start).getTime()) /
-            3_600_000;
-          if (hrs >= 0) {
-            mttrSum += hrs;
-            mttrCount += 1;
-          }
-        }
-      }
+    }
+
+    // PM plan health (semáforo de programación recurrente).
+    const activePlans = pmPlans.filter((p) => p.active);
+    let pmOverdue = 0;
+    let pmDueSoon = 0;
+    for (const p of activePlans) {
+      const due = pmDueStatus(p.nextDueDate, now);
+      if (due === 'OVERDUE') pmOverdue += 1;
+      else if (due === 'DUE_SOON') pmDueSoon += 1;
     }
 
     return {
@@ -267,11 +292,279 @@ export class MaintenanceService {
       ordersOverdue,
       ordersCompleted,
       pmCompliance: pmTotal > 0 ? Math.round((pmCompleted / pmTotal) * 100) : null,
-      mttrHours: mttrCount > 0 ? Math.round((mttrSum / mttrCount) * 10) / 10 : null,
+      // MTTR reusa el helper compartido (mismo cálculo que el detalle por activo).
+      mttrHours: mttrHoursFrom(orders),
       totalDowntimeMinutes,
       assetsTotal: assets.length,
       assetsDown: assets.filter((a) => a.status === 'DOWN').length,
+      pmPlansActive: activePlans.length,
+      pmOverdue,
+      pmDueSoon,
     };
+  }
+
+  // ── Asset detail + reliability (MTTR / MTBF por activo) ──────────────────────
+
+  /**
+   * Detalle de un activo con su historial de órdenes (más recientes primero) y su
+   * confiabilidad derivada: MTTR (igual que el KPI global, pero del activo), MTBF
+   * (tiempo entre fallas correctivas), paro acumulado y fallas. El backend es la
+   * fuente de verdad de la confiabilidad por activo.
+   */
+  async getAssetDetail(id: string): Promise<AssetDetail> {
+    const asset = await this.assetRepo.findOne({ where: { id } });
+    if (!asset) throw new NotFoundException('Activo no encontrado.');
+    const orders = await this.listOrders({ assetId: id });
+    return { asset, orders, reliability: assetReliabilityFrom(orders) };
+  }
+
+  // ── Preventive-maintenance plans (PM) ───────────────────────────────────────
+
+  private requirePmRepo(): Repository<MaintenancePmPlan> {
+    if (!this.pmRepo) {
+      throw new BadRequestException(
+        'El módulo de mantenimiento preventivo no está disponible.',
+      );
+    }
+    return this.pmRepo;
+  }
+
+  /** Lista PM plans sin reventar si el repo no está cableado (p.ej. en KPIs/tests). */
+  private async safeListPmPlans(): Promise<MaintenancePmPlan[]> {
+    if (!this.pmRepo) return [];
+    return this.listPmPlans();
+  }
+
+  async listPmPlans(
+    filters: { assetId?: string; active?: boolean } = {},
+  ): Promise<MaintenancePmPlan[]> {
+    const repo = this.requirePmRepo();
+    const qb = repo.createQueryBuilder('p').orderBy('p.next_due_date', 'ASC');
+    this.scope(qb, 'p');
+    if (filters.assetId) qb.andWhere('p.asset_id = :a', { a: filters.assetId });
+    if (filters.active !== undefined) {
+      qb.andWhere('p.active = :ac', { ac: filters.active });
+    }
+    return qb.getMany();
+  }
+
+  async getPmPlan(id: string): Promise<MaintenancePmPlan> {
+    const repo = this.requirePmRepo();
+    const found = await repo.findOne({ where: { id } });
+    if (!found) throw new NotFoundException('Plan de preventivo no encontrado.');
+    return found;
+  }
+
+  async createPmPlan(dto: CreatePmPlanDto): Promise<MaintenancePmPlan> {
+    const repo = this.requirePmRepo();
+    let assetName: string | null = null;
+    if (dto.assetId) {
+      const asset = await this.assetRepo.findOne({ where: { id: dto.assetId } });
+      assetName = asset?.name ?? null;
+    }
+    const lastDone = dto.lastDoneDate ? new Date(dto.lastDoneDate) : null;
+    const base = lastDone ?? this.startOfToday();
+    const nextDue = dto.nextDueDate
+      ? new Date(dto.nextDueDate)
+      : computeNextDueDate(base, dto.frequencyType, dto.frequencyValue);
+    const plan = repo.create({
+      assetId: dto.assetId ?? null,
+      assetName,
+      title: dto.title,
+      description: dto.description ?? null,
+      frequencyType: dto.frequencyType,
+      frequencyValue: dto.frequencyValue,
+      lastDoneDate: lastDone,
+      nextDueDate: nextDue,
+      active: true,
+      assignedTo: dto.assignedTo ?? null,
+      ...this.base(),
+    });
+    const saved = await repo.save(plan);
+    await this.ledgerEvent('PM_PLAN_CREATED', 'MAINTENANCE_PM_PLAN', saved.id, {
+      after: saved,
+    });
+    return saved;
+  }
+
+  async updatePmPlan(
+    id: string,
+    dto: UpdatePmPlanDto,
+  ): Promise<MaintenancePmPlan> {
+    const repo = this.requirePmRepo();
+    const plan = await this.getPmPlan(id);
+    if (dto.title !== undefined) plan.title = dto.title;
+    if (dto.description !== undefined) plan.description = dto.description;
+    if (dto.frequencyType !== undefined) plan.frequencyType = dto.frequencyType;
+    if (dto.frequencyValue !== undefined) plan.frequencyValue = dto.frequencyValue;
+    if (dto.assignedTo !== undefined) plan.assignedTo = dto.assignedTo;
+    if (dto.active !== undefined) plan.active = dto.active;
+    if (dto.lastDoneDate !== undefined) {
+      plan.lastDoneDate = dto.lastDoneDate ? new Date(dto.lastDoneDate) : null;
+    }
+    // Un next_due explícito manda; si cambió la cadencia o la última realización,
+    // se recalcula desde la última realización (o hoy).
+    if (dto.nextDueDate !== undefined) {
+      plan.nextDueDate = dto.nextDueDate ? new Date(dto.nextDueDate) : null;
+    } else if (
+      dto.frequencyType !== undefined ||
+      dto.frequencyValue !== undefined ||
+      dto.lastDoneDate !== undefined
+    ) {
+      const base = plan.lastDoneDate ?? this.startOfToday();
+      plan.nextDueDate = computeNextDueDate(
+        base,
+        plan.frequencyType,
+        plan.frequencyValue,
+      );
+    }
+    return repo.save(plan);
+  }
+
+  /**
+   * GENERA una orden PREVENTIVE ligada al activo del plan y avanza el plan:
+   * last_done_date = hoy, next_due_date = hoy + frecuencia. Es el corazón del PM
+   * programado. Reusa `createOrder` (folio, denormalización del activo, ledger).
+   */
+  async generatePmOrder(
+    id: string,
+  ): Promise<{ plan: MaintenancePmPlan; order: MaintenanceOrder }> {
+    const repo = this.requirePmRepo();
+    const plan = await this.getPmPlan(id);
+    const order = await this.createOrder({
+      title: plan.title,
+      description: plan.description ?? undefined,
+      type: 'PREVENTIVE',
+      priority: 'MEDIUM',
+      assetId: plan.assetId ?? undefined,
+      assignedTo: plan.assignedTo ?? undefined,
+      dueDate: plan.nextDueDate ? this.ymd(plan.nextDueDate) : undefined,
+    });
+    const today = this.startOfToday();
+    plan.lastDoneDate = today;
+    plan.nextDueDate = computeNextDueDate(
+      today,
+      plan.frequencyType,
+      plan.frequencyValue,
+    );
+    const savedPlan = await repo.save(plan);
+    await this.ledgerEvent(
+      'PM_ORDER_GENERATED',
+      'MAINTENANCE_PM_PLAN',
+      savedPlan.id,
+      { after: { orderId: order.id, nextDueDate: savedPlan.nextDueDate } },
+    );
+    return { plan: savedPlan, order };
+  }
+
+  // ── Alerts → buzón de notificaciones (best-effort; patrón de AlertsService) ──
+
+  /**
+   * Resuelve destinatarios por rol (p.ej. admins + planeadores) dentro del tenant
+   * actual y crea una notificación deduplicada para cada uno. Best-effort: si el
+   * buzón/usuarios no están disponibles (tests, contexto sin DI) no-opera. Mismo
+   * patrón que el push de KPIs a admins (semantic) y el motor de alertas (alerts).
+   */
+  private async notifyRoles(
+    roles: UserRole[],
+    input: {
+      title: string;
+      body?: string;
+      severity?: string;
+      href?: string;
+      dedupeKey: string;
+    },
+  ): Promise<number> {
+    if (!this.notifications || !this.users) return 0;
+    try {
+      const wanted = new Set<string>(roles);
+      const tenant = this.tenantCtx.getTenantId();
+      const recipients = (await this.users.findAll()).filter(
+        (u) =>
+          wanted.has(u.role) &&
+          (!tenant || !u.tenantId || u.tenantId === tenant),
+      );
+      let sent = 0;
+      for (const u of recipients) {
+        await this.notifications.create({
+          userId: u.id,
+          kind: 'maintenance',
+          severity: input.severity ?? 'high',
+          domain: 'maintenance',
+          source: 'maintenance:alerts',
+          title: input.title,
+          body: input.body ?? null,
+          href: input.href ?? '/dashboard/maintenance',
+          dedupeKey: input.dedupeKey,
+        });
+        sent += 1;
+      }
+      return sent;
+    } catch (err) {
+      this.logger.warn(
+        `Maintenance alert skipped: ${(err as Error)?.message}`,
+      );
+      return 0;
+    }
+  }
+
+  /** Orden correctiva sobre activo de alta criticidad EN AVERÍA → supervisor. */
+  private async maybeAlertCriticalCorrective(
+    order: MaintenanceOrder,
+    asset: Asset | null,
+  ): Promise<void> {
+    if (order.type !== 'CORRECTIVE' || !asset) return;
+    const highCriticality =
+      asset.criticality === 'HIGH' || asset.criticality === 'CRITICAL';
+    if (!highCriticality || asset.status !== 'DOWN') return;
+    await this.notifyRoles([UserRole.ADMIN, UserRole.PRODUCTION_SUPERVISOR], {
+      title: `Avería crítica: ${asset.name}`,
+      body: `${order.folio ?? 'Orden'} — ${order.title}. Activo de criticidad ${asset.criticality} en avería.`,
+      severity: 'critical',
+      dedupeKey: `mo-critical:${order.id}`,
+    });
+  }
+
+  /**
+   * Escanea los PM activos del scope actual y avisa al planeador (admins +
+   * planners) de los VENCIDOS. Deduplicado por plan/fecha (`pm-due:<id>:<fecha>`).
+   * Corre dentro de un request (tenant correcto) o desde el cron opt-in.
+   */
+  async scanPmDueAndNotify(): Promise<{ scanned: number; notified: number }> {
+    if (!this.pmRepo) return { scanned: 0, notified: 0 };
+    const plans = await this.listPmPlans({ active: true });
+    const now = Date.now();
+    let notified = 0;
+    for (const p of plans) {
+      if (pmDueStatus(p.nextDueDate, now) !== 'OVERDUE') continue;
+      const nextKey = p.nextDueDate ? this.ymd(p.nextDueDate) : 'na';
+      const sent = await this.notifyRoles([UserRole.ADMIN, UserRole.PLANNER], {
+        title: `PM vencido: ${p.title}`,
+        body: `${p.assetName ? `${p.assetName} — ` : ''}Preventivo vencido (cada ${p.frequencyValue} ${p.frequencyType.toLowerCase()}). Genera la orden o reprograma.`,
+        severity: 'high',
+        dedupeKey: `pm-due:${p.id}:${nextKey}`,
+      });
+      if (sent > 0) notified += 1;
+    }
+    return { scanned: plans.length, notified };
+  }
+
+  // ── Date helpers ─────────────────────────────────────────────────────────────
+
+  /** Medianoche local de hoy (frontera estable para cadencias de PM). */
+  private startOfToday(): Date {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }
+
+  /** YYYY-MM-DD local (para due dates de órdenes y dedupe de alertas). */
+  private ymd(d: Date): string {
+    const x = new Date(d);
+    const y = x.getFullYear();
+    const m = String(x.getMonth() + 1).padStart(2, '0');
+    const day = String(x.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
   }
 
   private async ledgerEvent(
