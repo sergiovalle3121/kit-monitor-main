@@ -2369,4 +2369,18 @@ También se corrige una aserción **no fiel** previa en `numfmt.spec` (`# ??/??`
 regresión, exponente negativo, fracciones con y sin hueco de entero, enteros). `numfmt.spec` actualizado a
 47/47. Sin regresiones en el resto de la suite; `lint web` 0; `build web` ✓.
 
+## 107. Office/Docs — títulos de enlace e imagen en Markdown (roundtrip)
+
+**Contexto.** El import de Markdown (`markdownToHtml`) ya parseaba el título opcional de enlaces e
+imágenes (`[txt](url "título")`, `![alt](src "título")`), pero el export (`tiptapJsonToMarkdown`) lo
+**descartaba**: el roundtrip perdía el título.
+
+**Decisión (sólo `apps/web`, aditiva — riesgo cero):** `lib/office/markdown.ts` emite el sufijo
+` "título"` (helper `mdTitle`, con comillas escapadas) en los tres sitios de emisión: imagen en línea,
+marca de enlace e imagen de bloque. Sin título, sin sufijo (sin regresión).
+
+**Verificación:** nueva suite `mdTitle.spec.ts` (**6 aserciones**: enlace/imagen con título, sin título
+sin sufijo, roundtrip import del export, comillas escapadas). Specs de Markdown (export/import/plano)
+verdes; `lint web` 0 errores; `build web` ✓.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
