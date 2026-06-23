@@ -2335,4 +2335,21 @@ horizontal** de cada columna, pero `markdownToHtml` la **ignoraba** (todas las `
 conserva la alineación. Sin regresiones: specs de Markdown (export/import/plano/sheet) verdes; `lint web` 0
 errores; `build web` ✓.
 
+## 105. Office/Sheets — XLOOKUP/XMATCH: modo comodín (2) y dirección de búsqueda
+
+**Contexto.** `XLOOKUP`/`XMATCH` propios ya hacían exacto (0) y aproximado (-1/1), pero faltaban dos
+modos de Excel: **modo de coincidencia 2 = comodín** (`XLOOKUP("ap*",...,,2)`) y **modo de búsqueda -1 =
+de fin a inicio** (devuelve la ÚLTIMA coincidencia, útil con duplicados). El comodín devolvía
+`ifNotFound`/`#N/A`.
+
+**Decisión (sólo `apps/web`, aditiva — riesgo cero):** se refactoriza la localización a un helper común
+`xfind(L, key, mode, searchMode)` (en `formulaEngine.ts`, donde ya viven ambas funciones) que: con
+`mode 2` casa por comodín reutilizando `wildcardMatch` (§100); con `searchMode -1` recorre el vector en
+orden inverso (última coincidencia); 2/-2 (binaria) se tratan como lineal (mismo resultado exacto). Los
+modos exacto/aproximado preexistentes quedan idénticos.
+
+**Verificación:** nueva suite `xlookupModes.spec.ts` (**18 aserciones**: exacto/ifNotFound/aproximado sin
+regresión, comodín `?`/`*` en XLOOKUP y XMATCH, dirección inversa con duplicados, comodín+inverso
+combinados). Sin regresiones: motor + modernFunctions (80) + lookup* verdes; `lint web` 0; `build web` ✓.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
