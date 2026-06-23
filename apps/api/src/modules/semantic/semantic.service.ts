@@ -152,20 +152,44 @@ export class SemanticService {
   }
 
   // ── Catalog (definitions) ───────────────────────────────────────────────────
-  async catalog(tenantId = DEFAULT_TENANT) {
+  async catalog(tenantId = DEFAULT_TENANT, includeInactive = false) {
     await this.ensureSeeded(tenantId);
+    // includeInactive (admin editor) returns archived rows too, each with `active`.
+    const active = includeInactive ? undefined : true;
     const [metrics, objects, links] = await Promise.all([
       this.metricRepo.find({
-        where: { tenantId, active: true },
+        where: { tenantId, active },
         order: { domain: 'ASC', name: 'ASC' },
       }),
       this.objectRepo.find({
-        where: { tenantId, active: true },
+        where: { tenantId, active },
         order: { domain: 'ASC', name: 'ASC' },
       }),
-      this.linkRepo.find({ where: { tenantId, active: true } }),
+      this.linkRepo.find({ where: { tenantId, active } }),
     ]);
     return { metrics, objects, links };
+  }
+
+  /** Archive (active=false) or restore (active=true) a catalog item. Admin. */
+  async setActive(
+    tenantId: string,
+    kind: 'metric' | 'object' | 'link',
+    key: string,
+    active: boolean,
+  ): Promise<{ ok: boolean }> {
+    const repo = (
+      kind === 'metric'
+        ? this.metricRepo
+        : kind === 'object'
+          ? this.objectRepo
+          : this.linkRepo
+    ) as unknown as Repository<{
+      tenantId: string;
+      key: string;
+      active: boolean;
+    }>;
+    const res = await repo.update({ tenantId, key }, { active });
+    return { ok: (res.affected ?? 0) > 0 };
   }
 
   async listMetrics(tenantId = DEFAULT_TENANT): Promise<MetricDefinition[]> {
