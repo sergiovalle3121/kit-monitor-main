@@ -53,6 +53,7 @@ import { PERCENTILE_FUNCTIONS } from './percentileFix';
 import { REGRESSION_FUNCTIONS } from './regression';
 import { installBroadcast } from './broadcast';
 import { ARRAY_IF_FUNCTIONS } from './arrayIf';
+import { DATETIME_FIX_FUNCTIONS } from './dateTimeFix';
 
 // ── Utilidades de coerción / aplanado de argumentos ──────────────────────────
 // Las funciones reciben `params`: un array donde cada argumento ya viene evaluado.
@@ -311,6 +312,8 @@ export const CUSTOM_FUNCTIONS: Record<string, (params: any[]) => any> = {
   ...REGRESSION_FUNCTIONS,
   // IF consciente de matrices (condición-matriz → selección elemento a elemento) — ver `arrayIf.ts`.
   ...ARRAY_IF_FUNCTIONS,
+  // Fidelidad de fecha/hora (HOUR/MINUTE/SECOND parsean texto; EDATE recorta a fin de mes).
+  ...DATETIME_FIX_FUNCTIONS,
 };
 
 // ── Normalización de literales booleanos en la cadena de fórmula ──────────────

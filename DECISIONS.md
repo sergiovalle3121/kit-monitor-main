@@ -1706,4 +1706,21 @@ falso, comparación, número, sin rama falsa, sobre celda—; e IF con condició
 con constantes de matriz). Sin regresiones: las 46 suites de spec de Office verdes; `lint web` 0
 errores; `build web` ✓.
 
+## 71. Office/Sheets — fidelidad de fecha/hora (HOUR/MINUTE/SECOND con texto; EDATE fin de mes)
+
+**Contexto.** La auditoría de valores conocidos destapó dos bugs comunes de `@formulajs/formulajs`:
+`HOUR`/`MINUTE`/`SECOND` revientan con una hora en **texto** (`HOUR("13:45:30")`→`#VALUE!`) aunque
+Excel la parsea, y `EDATE` no **recorta al fin de mes**: `EDATE(31-ene, +1)` daba 2-mar en vez de
+29-feb.
+
+**Decisión (sólo `apps/web`, aditiva):** `components/office/sheets/dateTimeFix.ts` registra versiones
+fieles en `CUSTOM_FUNCTIONS`. `HOUR`/`MINUTE`/`SECOND` aceptan texto (`HH:MM[:SS]` con AM/PM), número
+de serie (fracción de día) y `Date`. `EDATE` suma meses y recorta el día al último del mes destino
+(bisiestos correctos), devolviendo un `Date` como las demás funciones de fecha.
+
+**Verificación:** nueva suite `dateTimeFix.spec.ts` (**18 aserciones**: `HOUR`/`MINUTE`/`SECOND` de
+texto/AM/PM/medianoche/serie/`TIMEVALUE`, texto inválido → `#VALUE!`+`IFERROR`; `EDATE` 31-ene+1 en
+año bisiesto y no, 31-mar−1, cruce de año, 31-may+1=30-jun). Sin regresiones: las 47 suites de spec
+de Office verdes; `lint web` 0 errores; `build web` ✓.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
