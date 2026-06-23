@@ -2153,4 +2153,20 @@ así las tres conversiones a hex (`DEC2HEX`, `BIN2HEX`, `OCT2HEX`).
 relleno, sin letras intacto, `OCT2HEX(777)`=`1FF`, `OCT2HEX(10)`=`8`, roundtrip `HEX2DEC(BIN2HEX)`).
 Sin regresiones: las 59 suites de spec de Office verdes; `lint web` 0 errores; `build web` ✓.
 
+## 94. Office/Sheets — CONVERT con temperaturas (C/F/K)
+
+**Contexto.** La deuda señalada en §93: `CONVERT(100,"C","F")` daba `#VALUE!` porque
+`@formulajs/formulajs@2.9.3` no soporta las unidades de temperatura. La temperatura es **afín** (lleva
+un desplazamiento, no sólo un factor), por eso formulajs —orientado a factores— no la cubre.
+
+**Decisión (sólo `apps/web`, aditiva — riesgo cero):** `components/office/sheets/convertTemp.ts`
+registra `CONVERT` que **intercepta únicamente** cuando **ambas** unidades son de temperatura
+(`"C"`/`"cel"`, `"F"`/`"fah"`, `"K"`/`"kel"`), pivotando por Celsius (`F=C·9/5+32`, `K=C+273.15`);
+cualquier otra conversión (masa, longitud, tiempo…) se **delega** en el mismo `formulajs` sin tocarla.
+
+**Verificación:** nueva suite `convertTemp.spec.ts` (**11 aserciones**: `C→F`=212, `F→C`=100, `C→K`/
+`K→C`, `F→K`, misma unidad, alias en minúscula, −40 coincide; y delegadas —`lbm→kg`, `m→ft`,
+`hr→mn`— intactas). Sin regresiones: las **60 suites** de spec de Office verdes; `lint web` 0 errores;
+`build web` ✓.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
