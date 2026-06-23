@@ -56,6 +56,7 @@ import { ARRAY_IF_FUNCTIONS } from './arrayIf';
 import { DATETIME_FIX_FUNCTIONS } from './dateTimeFix';
 import { MATH_FIDELITY_FUNCTIONS } from './mathFidelity';
 import { TEXT_TRUNC_FUNCTIONS } from './textTrunc';
+import { applyScalarBroadcast } from './scalarBroadcast';
 
 // ── Utilidades de coerción / aplanado de argumentos ──────────────────────────
 // Las funciones reciben `params`: un array donde cada argumento ya viene evaluado.
@@ -321,6 +322,11 @@ export const CUSTOM_FUNCTIONS: Record<string, (params: any[]) => any> = {
   // Truncamiento de argumentos enteros en texto (REPT/LEFT/RIGHT/MID/ROMAN) — ver `textTrunc.ts`.
   ...TEXT_TRUNC_FUNCTIONS,
 };
+
+// Difusión de funciones escalares (ROUND/ABS/TEXT…) sobre matrices — ver `scalarBroadcast.ts`.
+// MUTA `CUSTOM_FUNCTIONS` tras construirlo: con argumentos escalares no cambia nada; sólo los
+// argumentos-matriz (que antes fallaban) activan la aplicación elemento a elemento.
+applyScalarBroadcast(CUSTOM_FUNCTIONS);
 
 // ── Normalización de literales booleanos en la cadena de fórmula ──────────────
 
