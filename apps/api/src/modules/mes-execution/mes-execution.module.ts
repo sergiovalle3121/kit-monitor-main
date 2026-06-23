@@ -26,6 +26,7 @@ import { MaterialRequestsModule } from '../material-requests/material-requests.m
 import { VisualAidsModule } from '../visual-aids/visual-aids.module';
 import { GovernanceModule } from '../governance/governance.module';
 import { TestFlowModule } from '../test-flow/test-flow.module';
+import { PeopleModule } from '../people/people.module';
 
 @Module({
   imports: [
@@ -51,6 +52,7 @@ import { TestFlowModule } from '../test-flow/test-flow.module';
     VisualAidsModule,
     GovernanceModule, // provides AuditService required by PermissionsGuard
     TestFlowModule, // Eslabón 1: hand finished serials off to the Pruebas queue
+    PeopleModule, // Gate operador↔estación (read-only) para el modo bloqueo opcional
   ],
   controllers: [MesExecutionController],
   providers: [MesExecutionService],
