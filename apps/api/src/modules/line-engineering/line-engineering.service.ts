@@ -69,6 +69,7 @@ import {
 import { standardWork, StdWorkResult } from './line-stdwork';
 import { dossierStationsToCsv, DossierStationRow } from './line-dossier';
 import { consolidateReview, LayoutReviewSummary } from './line-review';
+import { approvalEventDetail } from './line-approval';
 import { computeTakeoff, Takeoff } from './line-takeoff';
 import { computeClearance, ClearanceResult } from './line-clearance';
 import { computeScorecard, Scorecard } from './line-scorecard';
@@ -832,8 +833,20 @@ export class LineEngineeringService {
       layout.approvedAt = null;
     }
     await this.requireLayouts().save(layout);
+    // Stamp the health grade at sign-off so the audit trail records not just the
+    // status change but the quality of the layout when it happened. Defensive:
+    // the approval must never fail because a metric couldn't be computed.
+    let reviewStamp: { grade?: string; score?: number; blockers?: number } = {};
+    if (status === 'in_review' || status === 'approved') {
+      try {
+        const sc = await this.getScorecard(m, r);
+        reviewStamp = { grade: sc.grade, score: sc.score, blockers: sc.blockers.length };
+      } catch {
+        reviewStamp = {};
+      }
+    }
     await this.record('SF_LINE_LAYOUT_APPROVAL', `${m}|${r}`, null, {
-      after: { status, by: layout.approvedBy },
+      after: { status, by: layout.approvedBy, ...reviewStamp },
     });
     return this.getLayout(m, r);
   }
@@ -2721,11 +2734,6 @@ function round(n: number, dp = 2): number {
   return Math.round((Number(n) || 0) * f) / f;
 }
 
-const APPROVAL_LABEL: Record<string, string> = {
-  draft: 'borrador',
-  in_review: 'en revisión',
-  approved: 'aprobado',
-};
 
 /** Turn a stored ledger event into a human-readable timeline entry (Fase 32). */
 function toHistoryEntry(e: LedgerEvent): LayoutHistoryEntry {
@@ -2773,13 +2781,8 @@ function describeLayoutEvent(
       };
     }
     case 'SF_LINE_LAYOUT_APPROVAL': {
-      const status = asText(after.status).toLowerCase();
-      const label = APPROVAL_LABEL[status] ?? status ?? '—';
-      return {
-        title: `Cambió aprobación a ${label}`,
-        detail: '',
-        kind: 'approval',
-      };
+      const { title, detail } = approvalEventDetail(after);
+      return { title, detail, kind: 'approval' };
     }
     case 'SF_LINE_LAYOUT_SNAPSHOT':
       return {
