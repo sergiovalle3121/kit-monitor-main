@@ -393,6 +393,57 @@ describe('LineEngineeringService (integration)', () => {
     expect(flex.modelCount).toBeGreaterThanOrEqual(1);
   });
 
+  it('estimates the model-changeover matrix on a flex line (Fase 41)', async () => {
+    await seedRoute(); // AX-1000 on SMT-1: EST-10(P1), EST-20(P2), EST-30(P3)
+    // AX-2000: shares EST-10 (same P1), adds EST-99, drops EST-20/EST-30.
+    await service.createStation({
+      model: 'AX-2000',
+      line: 'SMT-1',
+      station: 'EST-10',
+      sequence: 10,
+      npExpected: 'P1',
+      useFactor: 1,
+      stdTimeSec: 40,
+    });
+    await service.createStation({
+      model: 'AX-2000',
+      line: 'SMT-1',
+      station: 'EST-99',
+      sequence: 20,
+      npExpected: 'P7',
+      useFactor: 1,
+      stdTimeSec: 25,
+    });
+
+    const co = await service.getChangeover({
+      line: 'SMT-1',
+      setupSec: 300,
+      teardownSec: 120,
+      retoolSec: 180,
+    });
+    expect(co.line).toBe('SMT-1');
+    expect(co.labels).toEqual(['AX-1000', 'AX-2000']);
+    const ab = co.pairs.find(
+      (p) => p.from === 'AX-1000' && p.to === 'AX-2000',
+    )!;
+    // shared EST-10 unchanged; drop EST-20/EST-30 (removed 2); add EST-99 (1).
+    expect(ab).toMatchObject({
+      added: 1,
+      removed: 2,
+      retooled: 0,
+      unchanged: 1,
+    });
+    expect(ab.changeoverSec).toBe(540); // 1×300 + 2×120
+    expect(co.matrix[0][0]).toBe(0);
+  });
+
+  it('derives the changeover line from a model (Fase 41)', async () => {
+    await seedRoute();
+    const co = await service.getChangeover({ model: 'AX-1000' });
+    expect(co.line).toBe('SMT-1');
+    expect(co.setupSec).toBe(300); // default rate
+  });
+
   it('reports per-station documentation completeness (Fase 19)', async () => {
     await seedRoute(); // 3 stations, all with NP + factor + aid → complete
     // Add a station missing its visual aid.

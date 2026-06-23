@@ -12,7 +12,7 @@ import {
   Upload, Eye, EyeOff, Map as MapIcon, Activity, Workflow, Wand2, Boxes,
   Download, Printer, Ruler, Type, MoveHorizontal, CopyPlus, X, Flame, Waypoints,
   ShieldCheck, ShieldAlert, LayoutGrid, History, RotateCw, ClipboardList, GitCompare,
-  ClipboardCheck, Warehouse, Sparkles, Bug, SlidersHorizontal, BarChart3, Frame, Box, Layers, Users, DollarSign, LineChart, Scale, Footprints, FileDown, Network,
+  ClipboardCheck, Warehouse, Sparkles, Bug, SlidersHorizontal, BarChart3, Frame, Box, Layers, Users, DollarSign, LineChart, Scale, Footprints, FileDown, Network, Repeat,
 } from 'lucide-react';
 import { glass } from '@/lib/glass';
 import { apiFetch } from '@/lib/apiFetch';
@@ -30,6 +30,7 @@ import ScenarioCompare from './ScenarioCompare';
 import StandardWork from './StandardWork';
 import DossierExport from './DossierExport';
 import FlexLine from './FlexLine';
+import ChangeoverMatrix from './ChangeoverMatrix';
 // three.js is heavy — lazy-load the 3D view so it only ships when opened.
 const Layout3D = dynamic(() => import('./Layout3D'), { ssr: false });
 
@@ -359,6 +360,7 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
   const [showStdWork, setShowStdWork] = useState(false);
   const [showDossier, setShowDossier] = useState(false);
   const [showFlex, setShowFlex] = useState(false);
+  const [showChangeover, setShowChangeover] = useState(false);
   const [showCells, setShowCells] = useState(false);
   const [show3d, setShow3d] = useState(false);
   const [approval, setApproval] = useState<LayoutApproval | null>(null);
@@ -1825,6 +1827,7 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
         <TBtn onClick={() => setShowCompare(true)} title="Comparar escenarios A vs B"><Scale className="w-4 h-4" /></TBtn>
         <TBtn onClick={() => setShowStdWork(true)} title="Trabajo estándar (manual + caminado vs takt)"><Footprints className="w-4 h-4" /></TBtn>
         <TBtn onClick={() => setShowFlex(true)} title="Línea flexible (modelos que comparten la línea)"><Network className="w-4 h-4" /></TBtn>
+        <TBtn onClick={() => setShowChangeover(true)} title="Cambio de modelo / SMED (matriz entre modelos)"><Repeat className="w-4 h-4" /></TBtn>
         <TBtn onClick={() => setShowCells(true)} title="Celdas / zonas (agrupar estaciones)"><Frame className="w-4 h-4" /></TBtn>
         <TBtn onClick={() => setShow3d(true)} title="Vista 3D del layout"><Box className="w-4 h-4" /></TBtn>
         <TBtn onClick={() => setShowHistory(true)} title="Bitácora de auditoría (quién cambió qué y cuándo)"><History className="w-4 h-4" /></TBtn>
@@ -2223,6 +2226,7 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
       <StandardWork model={model} revision={revision} open={showStdWork} onClose={() => setShowStdWork(false)} />
       {showDossier && <DossierExport model={model} revision={revision} open={showDossier} onClose={() => setShowDossier(false)} />}
       {showFlex && <FlexLine model={model} revision={revision} open={showFlex} onClose={() => setShowFlex(false)} />}
+      {showChangeover && <ChangeoverMatrix model={model} revision={revision} open={showChangeover} onClose={() => setShowChangeover(false)} />}
       {show3d && <Layout3D model={model} revision={revision} open={show3d} onClose={() => setShow3d(false)} />}
 
       {showCells && (

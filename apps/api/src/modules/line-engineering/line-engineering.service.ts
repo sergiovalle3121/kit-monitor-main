@@ -69,6 +69,7 @@ import {
 import { standardWork, StdWorkResult } from './line-stdwork';
 import { dossierStationsToCsv, DossierStationRow } from './line-dossier';
 import { flexLineAnalysis, FlexLineResult } from './line-flexline';
+import { changeoverMatrix, ChangeoverResult } from './line-changeover';
 import {
   sensitivityCurve,
   demandSweep,
@@ -1969,6 +1970,72 @@ export class LineEngineeringService {
     );
 
     return flexLineAnalysis(line, routes);
+  }
+
+  /**
+   * Model-changeover (SMED) matrix for a flex line (Fase 41). Read-only: for
+   * every ordered pair of models on the line, estimates the switch effort —
+   * stations to set up (added), tear down (removed) and retool (a shared
+   * station whose expected part changes) — rolled up with the planner's rates.
+   * The matrix is the input to sequence models so total changeover is minimal.
+   * Pure roll-up via `changeoverMatrix`.
+   */
+  async getChangeover(params: {
+    line?: string;
+    model?: string;
+    revision?: string;
+    setupSec?: number;
+    teardownSec?: number;
+    retoolSec?: number;
+  }): Promise<ChangeoverResult & { line: string }> {
+    let line = (params.line ?? '').trim();
+    if (!line && params.model) {
+      const route = await this.routing(
+        params.model.trim(),
+        (params.revision ?? 'A').trim() || 'A',
+      );
+      line = route[0]?.line ?? '';
+    }
+    if (!line) {
+      throw new BadRequestException('line (o model) es obligatorio.');
+    }
+
+    const pairsQb = this.stations.createQueryBuilder('s');
+    this.applyScope(pairsQb, 's');
+    pairsQb
+      .select('s.model', 'model')
+      .addSelect('s.revision', 'revision')
+      .andWhere('s.line = :line', { line })
+      .andWhere('s.active = :a', { a: true })
+      .groupBy('s.model')
+      .addGroupBy('s.revision')
+      .orderBy('s.model', 'ASC')
+      .addOrderBy('s.revision', 'ASC');
+    const pairs = await pairsQb.getRawMany<{
+      model: string;
+      revision: string;
+    }>();
+
+    const models = await Promise.all(
+      pairs.map(async (p) => {
+        const rev = p.revision || 'A';
+        const route = await this.routing(p.model, rev);
+        return {
+          label: rev !== 'A' ? `${p.model} · ${rev}` : p.model,
+          stations: route.map((s) => ({
+            station: s.station,
+            np: s.npExpected ?? null,
+          })),
+        };
+      }),
+    );
+
+    const result = changeoverMatrix(models, {
+      setupSec: params.setupSec,
+      teardownSec: params.teardownSec,
+      retoolSec: params.retoolSec,
+    });
+    return { ...result, line };
   }
 
   /**
