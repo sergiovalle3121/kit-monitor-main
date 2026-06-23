@@ -211,6 +211,52 @@ export function tiptapJsonToMarkdown(doc: any): string {
   return md + '\n';
 }
 
+// ── Documento → texto plano (.txt) ────────────────────────────────────────────
+
+/** Texto plano (sin formato) de una lista, con viñetas/números e indentación por nivel. */
+function plainList(n: MdNode, depth: number, lines: string[]): void {
+  const ordered = n.type === 'orderedList';
+  let i = ordered ? (n.attrs?.start ?? 1) : 1;
+  for (const item of n.content ?? []) {
+    const blocks = item.content ?? [];
+    lines.push('  '.repeat(depth) + (ordered ? `${i}. ` : '• ') + plainText(blocks[0]?.content ?? []).trim());
+    for (const b of blocks.slice(1)) {
+      if (b.type === 'bulletList' || b.type === 'orderedList' || b.type === 'taskList') plainList(b, depth + 1, lines);
+      else lines.push('  '.repeat(depth + 1) + plainText(b.content ?? []).trim());
+    }
+    i++;
+  }
+}
+
+/**
+ * **Texto plano** del documento — «Guardar como texto sin formato» de Word. Conserva el texto y una
+ * estructura mínima (saltos entre bloques, viñetas/números en listas, tabulaciones entre celdas);
+ * descarta marcas y nodos decorativos. Pura y comprobable.
+ */
+export function tiptapJsonToPlainText(doc: any): string {
+  const content: MdNode[] = doc?.content ?? (Array.isArray(doc) ? doc : []);
+  const lines: string[] = [];
+  const walk = (nodes: MdNode[]) => {
+    for (const n of nodes ?? []) {
+      switch (n.type) {
+        case 'heading': case 'paragraph': lines.push(plainText(n.content), ''); break;
+        case 'bulletList': case 'orderedList': case 'taskList': plainList(n, 0, lines); lines.push(''); break;
+        case 'codeBlock': lines.push((n.content ?? []).map((t) => t.text ?? '').join(''), ''); break;
+        case 'blockquote': walk(n.content ?? []); break;
+        case 'horizontalRule': case 'pageBreak': lines.push('----------', ''); break;
+        case 'table':
+          for (const row of n.content ?? []) lines.push((row.content ?? []).map((c) => plainText(c.content ?? []).replace(/\s+/g, ' ').trim()).join('\t'));
+          lines.push('');
+          break;
+        case 'footnoteList': break;
+        default: if (n.content) walk(n.content); break;
+      }
+    }
+  };
+  walk(content);
+  return lines.join('\n').replace(/\n{3,}/g, '\n\n').replace(/\s+$/, '') + '\n';
+}
+
 // ── Markdown → HTML (importación) ─────────────────────────────────────────────
 // El editor de Docs (Tiptap) ingiere HTML al importar (igual que el `.docx` vía mammoth), así que el
 // parser produce HTML que Tiptap convierte a su esquema. Es una función pura y comprobable.
