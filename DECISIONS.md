@@ -1309,4 +1309,32 @@ invocación directa y de la codificación; motor REAL — `LAMBDA(x,x+1)(5)`=6, 
 `lint web` 0 errores; `build web` ✓. UI: nueva categoría «Lambda y orden superior» en el asistente
 de funciones.
 
+## 52. Office/Sheets — constantes de matriz `{1,2,3}`
+
+**Contexto.** Las constantes de matriz en línea (`=SUM({1,2,3})`, `=MATCH(7,{1,3,5,7,9},0)`,
+`={"Lun","Mar","Mié"}`) son sintaxis básica de Excel que el parser de Fortune-Sheet no entiende:
+las llaves revientan con `#ERROR!` antes de evaluar.
+
+**Decisión (sólo `apps/web`, aditiva):** como en Excel una constante de matriz SÓLO contiene
+**constantes** (números, texto, lógicos — nunca refs ni fórmulas), se resuelven por **preprocesado
+de cadena** (igual técnica que `LET` §31 y la familia LAMBDA §51).
+`components/office/sheets/arrayConst.ts` expone `expandArrayConst(formula)`, que parsea cada `{…}`
+(fuera de comillas; `,` separa columnas y `;` filas) a una matriz 2D de valores y la sustituye por
+`ARRCONST("§ARR§<encodeURIComponent(JSON)>")` —función registrada que devuelve esa matriz 2D—. Es
+lo PRIMERO de la cadena de `parse`
+(`…expandLambda(expandStructuredRefs(expandArrayConst(expr)))`), de modo que las constantes dentro
+de `LET`/`LAMBDA` también se expanden. Componen con `SUM`/`COUNT`/`MAX`/`AVERAGE`/`INDEX`/`MATCH`/
+`SUMPRODUCT`/`TEXTJOIN` y con la familia dinámica (`MAP`…); derraman con el «spilling» §38.
+
+**Límite (documentado):** el motor sigue sin hacer «broadcasting» de un built-in sobre un vector de
+índices (p. ej. `LARGE(rango,{1,2})` no devuelve dos resultados), igual que `FILTER` recibe la
+máscara ya evaluada (§«modernFunctions»). La constante en sí se pasa correcta; quien debe iterar es
+la función.
+
+**Verificación:** nueva suite `arrayConst.spec.ts` (**21 aserciones**: expansión pura —fila,
+columna, 2×2, texto, mezcla número/lógico/negativo, relleno rectangular, respeto de comillas— y
+motor REAL: `SUM`/`COUNT`/`MAX`/`AVERAGE`/`INDEX`/`MATCH`/`SUMPRODUCT`/`TEXTJOIN` y `MAP` sobre
+constantes). Sin regresiones: 28 suites de hoja + 3 de I/O Office verdes; `lint web` 0 errores;
+`build web` ✓.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->

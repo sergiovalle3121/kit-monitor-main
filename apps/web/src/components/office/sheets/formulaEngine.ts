@@ -37,6 +37,7 @@ import { MODERN_FUNCTIONS } from './modernFunctions';
 import { expandLet } from './letExpand';
 import { expandStructuredRefs } from './tableRefs';
 import { expandLambda, LAMBDA_FUNCTIONS } from './lambdaExpand';
+import { expandArrayConst, ARRAY_CONST_FUNCTIONS } from './arrayConst';
 
 // ── Utilidades de coerción / aplanado de argumentos ──────────────────────────
 // Las funciones reciben `params`: un array donde cada argumento ya viene evaluado.
@@ -265,6 +266,8 @@ export const CUSTOM_FUNCTIONS: Record<string, (params: any[]) => any> = {
   ...MODERN_FUNCTIONS,
   // Familia LAMBDA (orden superior: MAP/REDUCE/SCAN/BYROW/BYCOL/MAKEARRAY) — ver `lambdaExpand.ts`.
   ...LAMBDA_FUNCTIONS,
+  // Constantes de matriz `{1,2,3}` → ARRCONST(...) — ver `arrayConst.ts`.
+  ...ARRAY_CONST_FUNCTIONS,
 };
 
 // ── Normalización de literales booleanos en la cadena de fórmula ──────────────
@@ -320,10 +323,11 @@ export function installFormulaEngine(): void {
   if (!proto.__axosParsePatched && typeof proto.parse === 'function') {
     const origParse = proto.parse;
     proto.parse = function patchedParse(expression: any, options: any) {
-      // Preprocesa la cadena: 1) referencias estructuradas `Tabla[Col]` → rangos; 2) familia LAMBDA
-      // (invocación directa en línea + lambdas-argumento codificadas); 3) LET (nombres locales → su
-      // valor); 4) normaliza los booleanos sueltos. El parser sólo ve lo ya resuelto.
-      return origParse.call(this, typeof expression === 'string' ? normalizeFormula(expandLet(expandLambda(expandStructuredRefs(expression)))) : expression, options);
+      // Preprocesa la cadena: 1) constantes de matriz `{1,2,3}` → ARRCONST(...); 2) referencias
+      // estructuradas `Tabla[Col]` → rangos; 3) familia LAMBDA (invocación directa en línea +
+      // lambdas-argumento codificadas); 4) LET (nombres locales → su valor); 5) normaliza booleanos
+      // sueltos. El parser sólo ve lo ya resuelto.
+      return origParse.call(this, typeof expression === 'string' ? normalizeFormula(expandLet(expandLambda(expandStructuredRefs(expandArrayConst(expression))))) : expression, options);
     };
     proto.__axosParsePatched = true;
   }
