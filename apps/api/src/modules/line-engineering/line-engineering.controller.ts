@@ -23,6 +23,7 @@ import {
   CreateStationDto,
   QualifyModelLineDto,
   SaveLayoutDto,
+  SetApprovalDto,
   UpdateModelLineDto,
   UpdateStationDto,
   UploadDxfDto,
@@ -155,6 +156,16 @@ export class LineEngineeringController {
   })
   saveLayout(@Body() dto: SaveLayoutDto) {
     return this.service.saveLayout(dto);
+  }
+
+  @Put('layout/approval')
+  @RequirePermissions('engineering:write')
+  @ApiOperation({
+    summary:
+      'Cambia el estado de aprobación del layout (borrador / en revisión / aprobado).',
+  })
+  setApproval(@Body() dto: SetApprovalDto) {
+    return this.service.setApproval(dto);
   }
 
   @Post('layout/clone')
