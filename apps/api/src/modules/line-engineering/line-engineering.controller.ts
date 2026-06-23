@@ -327,6 +327,28 @@ export class LineEngineeringController {
     });
   }
 
+  @Get('layout/operator-loops')
+  @RequirePermissions('engineering:read')
+  @ApiOperation({
+    summary:
+      'Balanceo por bucles de operador: agrupa estaciones consecutivas en bucles ≤ takt y reporta el mínimo de operadores y la eficiencia.',
+  })
+  layoutOperatorLoops(
+    @Query('model') model: string,
+    @Query('revision') revision?: string,
+    @Query('availableTimeSec') availableTimeSec?: string,
+    @Query('demandUnits') demandUnits?: string,
+    @Query('taktTargetSec') taktTargetSec?: string,
+  ) {
+    return this.service.getOperatorLoops({
+      model,
+      revision: revision ?? 'A',
+      availableTimeSec: availableTimeSec ? Number(availableTimeSec) : undefined,
+      demandUnits: demandUnits ? Number(demandUnits) : undefined,
+      taktTargetSec: taktTargetSec ? Number(taktTargetSec) : undefined,
+    });
+  }
+
   @Get('layout/completeness')
   @RequirePermissions('engineering:read')
   @ApiOperation({
