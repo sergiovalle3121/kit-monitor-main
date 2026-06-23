@@ -30,6 +30,19 @@ export class PeopleController {
     return this.service.kpis();
   }
 
+  @Get('certification-check')
+  @ApiOperation({
+    summary:
+      'Gate operador↔estación (read-only): ¿el operador tiene certificación vigente para la estación? Sólo advierte, no bloquea.',
+  })
+  certificationCheck(
+    @Query('employeeId') employeeId?: string,
+    @Query('employee') employee?: string,
+    @Query('station') station?: string,
+  ) {
+    return this.service.certificationCheck({ employeeId, employee, station });
+  }
+
   @Get('certifications')
   @ApiOperation({ summary: 'Lista certificaciones (con estatus derivado).' })
   list(
