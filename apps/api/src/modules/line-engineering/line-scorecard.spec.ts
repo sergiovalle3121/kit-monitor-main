@@ -6,34 +6,50 @@ function input(over: Partial<ScorecardInput> = {}): ScorecardInput {
     balancePct: 90,
     directionalEfficiencyPct: 95,
     circulationPct: 88,
+    continuityPct: 92,
+    cohesionPct: 85,
     overlaps: 0,
     outOfBounds: 0,
     ...over,
   };
 }
 
-describe('computeScorecard (Fase 44)', () => {
-  it('grades a clean, well-balanced layout an A', () => {
+describe('computeScorecard (Fase 44, extended Fase 47)', () => {
+  it('grades a clean, well-balanced layout an A across all six dimensions', () => {
     const r = computeScorecard(input());
     expect(r.grade).toBe('A');
     expect(r.score).toBeGreaterThanOrEqual(85);
-    expect(r.dimensions).toHaveLength(4);
+    expect(r.dimensions).toHaveLength(6);
+    expect(r.dimensions.map((d) => d.key).sort()).toEqual(
+      ['balance', 'circulation', 'cohesion', 'continuity', 'flow', 'readiness'].sort(),
+    );
     expect(r.blockers).toEqual([]);
     expect(r.scored).toBe(true);
   });
 
-  it('weights balance heaviest (30%) and renormalises over available dims', () => {
+  it('weights balance heaviest (25%) and renormalises over available dims', () => {
     const r = computeScorecard(input());
     const balance = r.dimensions.find((d) => d.key === 'balance')!;
-    // 0.30 / (0.25+0.30+0.20+0.25=1.0) = 0.30
-    expect(balance.weight).toBe(0.3);
+    // 0.25 / (0.20+0.25+0.15+0.20+0.12+0.08 = 1.0) = 0.25
+    expect(balance.weight).toBe(0.25);
   });
 
-  it('drops a missing dimension and renormalises the rest', () => {
-    const r = computeScorecard(input({ balancePct: null, directionalEfficiencyPct: null }));
+  it('drops missing dimensions and renormalises the rest', () => {
+    const r = computeScorecard(input({
+      balancePct: null, directionalEfficiencyPct: null, continuityPct: null, cohesionPct: null,
+    }));
     expect(r.dimensions.map((d) => d.key).sort()).toEqual(['circulation', 'readiness']);
-    // weights 0.25 + 0.25 → renormalised to 0.5 each
+    // weights 0.20 + 0.20 → renormalised to 0.5 each
     expect(r.dimensions.every((d) => d.weight === 0.5)).toBe(true);
+  });
+
+  it('rolls continuity and cohesion into the score and lists them as dimensions', () => {
+    const withWeak = computeScorecard(input({ continuityPct: 30, cohesionPct: 40 }));
+    const strong = computeScorecard(input());
+    // Dragging two dimensions down must lower the headline score.
+    expect(withWeak.score).toBeLessThan(strong.score);
+    expect(withWeak.dimensions.find((d) => d.key === 'continuity')!.score).toBe(30);
+    expect(withWeak.dimensions.find((d) => d.key === 'cohesion')!.score).toBe(40);
   });
 
   it('reports the weakest dimensions worst-first', () => {
@@ -57,7 +73,8 @@ describe('computeScorecard (Fase 44)', () => {
   it('is safe when no dimension can be computed', () => {
     const r = computeScorecard({
       readinessPct: null, balancePct: null, directionalEfficiencyPct: null,
-      circulationPct: null, overlaps: 0, outOfBounds: 0,
+      circulationPct: null, continuityPct: null, cohesionPct: null,
+      overlaps: 0, outOfBounds: 0,
     });
     expect(r.scored).toBe(false);
     expect(r.score).toBe(0);
