@@ -1624,4 +1624,19 @@ recta `y=0.6x+2.2`: `SLOPE`=0.6, `INTERCEPT`=2.2 (y con constante fila, antes `#
 `#NUM!` con `y≤0`). Sin regresiones: 41 suites de hoja + 3 de I/O Office verdes; `lint web` 0
 errores; `build web` ✓.
 
+## 67. Office/Sheets — LOGEST (completa la familia de regresión)
+
+**Contexto.** Tras añadir la regresión lineal (§66), faltaba `LOGEST` —los coeficientes de la
+regresión **exponencial** `y = b·mˣ`— que en `@formulajs/formulajs@2.9.3` revienta (`#ERROR!`).
+Es la pareja de `GROWTH` (predicción) igual que `LINEST` lo es de `TREND`.
+
+**Decisión (sólo `apps/web`, aditiva):** se añade `LOGEST` a `regression.ts` reutilizando el mismo
+ajuste por mínimos cuadrados sobre `ln(y)`: devuelve la matriz `{m, b}` con `m = e^pendiente` y
+`b = e^intersección`. (`LINEST` ya funciona en formulajs, así que no se toca.)
+
+**Verificación:** `regression.spec.ts` ampliada a **17 aserciones** (las 13 de la recta + 4 de
+`LOGEST`: `{1,2,4,8}` → m=2, b=0.5; `{6,12,24}` con x → b=3; `#NUM!` con `y≤0`; coherente con
+`GROWTH`). Sin regresiones: 41 suites de hoja + 3 de I/O Office verdes; `lint web` 0 errores;
+`build web` ✓.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->

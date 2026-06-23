@@ -58,7 +58,16 @@ function GROWTH(p: any[]): any {
   return mapShape(newX, (x) => Math.exp(m * x + b));
 }
 
+/** LOGEST(known_y; [known_x]; [const]) → coeficientes `{m, b}` de la curva `y = b·mˣ` (la rota en formulajs). */
+function LOGEST(p: any[]): any {
+  const y = nums(p[0]);
+  if (y.some((v) => v <= 0)) return '#NUM!';
+  const kx = p[1] !== undefined && p[1] !== null ? nums(p[1]) : y.map((_, i) => i + 1);
+  const { m, b } = fit(y.map(Math.log), kx, !truthy(p[2]));
+  return [[Math.exp(m), Math.exp(b)]];
+}
+
 /** Registro para fusionar en CUSTOM_FUNCTIONS. */
 export const REGRESSION_FUNCTIONS: Record<string, (params: any[]) => any> = {
-  SLOPE, INTERCEPT, FORECAST, 'FORECAST.LINEAR': FORECAST, TREND, GROWTH,
+  SLOPE, INTERCEPT, FORECAST, 'FORECAST.LINEAR': FORECAST, TREND, GROWTH, LOGEST,
 };
