@@ -23,7 +23,12 @@ export type AppRole =
   | 'maintenance_tech'
   | 'buyer'
   | 'finance'
-  | 'hr';
+  | 'hr'
+  | 'program_manager'
+  | 'test_engineer'
+  | 'supplier_quality'
+  | 'trade_compliance'
+  | 'ehs_specialist';
 
 const READ_ALL = [
   'production:read',
@@ -167,6 +172,48 @@ export const ROLE_PERMISSIONS: Record<AppRole, string[]> = {
     'reports:read',
   ],
   hr: ['reports:read'],
+  // Comercial / Gestión de Programas: dueño del programa de cliente — visión
+  // amplia (lectura) + escritura comercial (ventas/cotizaciones).
+  program_manager: [
+    'sales:read',
+    'sales:write',
+    'planning:read',
+    'production:read',
+    'quality:read',
+    'materials:read',
+    'inventory:read',
+    'finance:read',
+    'logistics:read',
+    'reports:read',
+  ],
+  // Test Engineering (ICT/FCT): calidad de prueba + lectura de proceso.
+  test_engineer: [
+    'quality:read',
+    'quality:write',
+    'quality:report',
+    'production:read',
+    'production:report',
+    'engineering:read',
+    'materials:read',
+  ],
+  // Calidad de proveedores (SQE): calidad enfocada a material de proveedor.
+  supplier_quality: [
+    'quality:read',
+    'quality:write',
+    'quality:report',
+    'materials:read',
+    'reports:read',
+  ],
+  // Comercio exterior / tráfico (IMMEX): logística + lectura de inventario.
+  trade_compliance: [
+    'logistics:read',
+    'logistics:write',
+    'inventory:read',
+    'materials:read',
+    'reports:read',
+  ],
+  // EHS / Seguridad: reportes + visibilidad de piso.
+  ehs_specialist: ['reports:read', 'production:read'],
 };
 
 export const APP_ROLES: AppRole[] = Object.keys(ROLE_PERMISSIONS) as AppRole[];
@@ -188,6 +235,15 @@ export const ALL_PERMISSIONS: string[] = Array.from(
     'settings:read',
     'settings:write',
   ]),
+);
+
+// Director / Dirección (executive): ACCESO TOTAL OPERATIVO — toda permission
+// excepto los recursos de administración de plataforma (auth = usuarios/accesos,
+// settings = configuración), que quedan solo para Admin/owner. Se deriva de
+// ALL_PERMISSIONS para que siempre cubra toda la superficie operativa aunque se
+// agreguen roles/áreas nuevas.
+ROLE_PERMISSIONS.executive = ALL_PERMISSIONS.filter(
+  (p) => !p.startsWith('auth:') && !p.startsWith('settings:'),
 );
 
 export function isAppRole(role?: string | null): role is AppRole {
