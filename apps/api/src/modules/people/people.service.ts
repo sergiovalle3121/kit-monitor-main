@@ -3,6 +3,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, SelectQueryBuilder } from 'typeorm';
 import { Certification } from './entities/certification.entity';
 import { SkillCatalog } from './entities/skill-catalog.entity';
+import { HrEmployee } from '../hr/entities/hr-employee.entity';
+import { isOwnerEmail } from '../auth/rbac';
 import { TenantContextService } from '../../common/tenant/tenant-context.service';
 import { DocumentNumberingService } from '../numbering/document-numbering.service';
 import { EventLedgerService } from '../event-ledger/event-ledger.service';
@@ -70,6 +72,9 @@ export class PeopleService {
     @InjectRepository(SkillCatalog)
     private readonly skillRepo?: Repository<SkillCatalog>,
     @Optional() private readonly ledger?: EventLedgerService,
+    @Optional()
+    @InjectRepository(HrEmployee)
+    private readonly hrRepo?: Repository<HrEmployee>,
   ) {}
 
   private applyScope(
@@ -83,6 +88,45 @@ export class PeopleService {
     if (plant) qb.andWhere(`${alias}.plant_id = :plant`, { plant });
     else qb.andWhere(`${alias}.plant_id IS NULL`);
     return qb;
+  }
+
+  /** ¿El solicitante ve todas las áreas? Admin / dirección / owner. */
+  private seesAllAreas(): boolean {
+    const role = (this.tenantCtx.getRole() || '').toLowerCase();
+    return (
+      role === 'admin' ||
+      role === 'executive' ||
+      isOwnerEmail(this.tenantCtx.getUserEmail())
+    );
+  }
+
+  /** Área del solicitante, resuelta desde hr_employees por su email. */
+  private async requesterArea(): Promise<string | null> {
+    if (!this.hrRepo) return null;
+    const email = this.tenantCtx.getUserEmail();
+    if (!email || email === 'anonymous') return null;
+    const emp = await this.hrRepo.findOne({ where: { email } });
+    return emp?.area ?? null;
+  }
+
+  /**
+   * Scope DURO por área por rol — additivo y OFF por defecto. Con
+   * ENFORCE_AREA_SCOPE=true, un no-admin queda restringido a las certs de SU área
+   * (resuelta por email vía hr_employees). Fail-open si no se resuelve el área —
+   * nunca deja a nadie sin datos por un email que no cuadra. Resuelve el follow-up
+   * sin requerir un claim de área en el JWT. El owner lo enciende cuando su mapeo
+   * rol↔área lo soporta.
+   */
+  private async applyAreaScope(
+    qb: SelectQueryBuilder<Certification>,
+    alias: string,
+  ): Promise<void> {
+    if (process.env.ENFORCE_AREA_SCOPE !== 'true') return;
+    if (this.seesAllAreas()) return;
+    const area = await this.requesterArea();
+    if (area) {
+      qb.andWhere(`LOWER(${alias}.area) = LOWER(:reqArea)`, { reqArea: area });
+    }
   }
 
   private serialize(c: Certification): SerializedCertification {
@@ -149,6 +193,7 @@ export class PeopleService {
       .createQueryBuilder('c')
       .orderBy('c.expires_date', 'ASC');
     this.applyScope(qb, 'c');
+    await this.applyAreaScope(qb, 'c');
     if (filters.skill) qb.andWhere('c.skill = :s', { s: filters.skill });
     if (filters.employeeName)
       qb.andWhere('c.employee_name = :e', { e: filters.employeeName });

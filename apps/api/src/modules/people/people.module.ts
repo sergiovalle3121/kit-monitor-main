@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Certification } from './entities/certification.entity';
 import { SkillCatalog } from './entities/skill-catalog.entity';
+import { HrEmployee } from '../hr/entities/hr-employee.entity';
 import { PeopleService } from './people.service';
 import { PeopleAlertsService } from './people-alerts.service';
 import { PeopleAlertsTask } from './people-alerts.task';
@@ -19,7 +20,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
  */
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Certification, SkillCatalog]),
+    TypeOrmModule.forFeature([Certification, SkillCatalog, HrEmployee]),
     NumberingModule,
     EventLedgerModule,
     UsersModule,
