@@ -68,6 +68,7 @@ import {
 } from './line-cost';
 import { standardWork, StdWorkResult } from './line-stdwork';
 import { dossierStationsToCsv, DossierStationRow } from './line-dossier';
+import { consolidateReview, LayoutReviewSummary } from './line-review';
 import { computeTakeoff, Takeoff } from './line-takeoff';
 import { computeClearance, ClearanceResult } from './line-clearance';
 import { computeScorecard, Scorecard } from './line-scorecard';
@@ -257,6 +258,8 @@ export interface LayoutDossier {
   stations: DossierStationRow[];
   /** The station table serialized as RFC-4180 CSV. */
   csv: string;
+  /** Consolidated layout review: grade, key indices and a findings punch-list. */
+  review: LayoutReviewSummary;
 }
 
 export interface LineEngineeringKpis {
@@ -2017,12 +2020,46 @@ export class LineEngineeringService {
     const revision = (params.revision ?? 'A').trim() || 'A';
     if (!model) throw new BadRequestException('model es obligatorio.');
 
-    const [report, completeness, layout, route] = await Promise.all([
-      this.getLayoutReport(model, revision),
-      this.getCompleteness(model, revision),
-      this.getLayout(model, revision),
-      this.routing(model, revision),
-    ]);
+    const [report, completeness, layout, route, scorecard, clearance, continuity, cohesion, density] =
+      await Promise.all([
+        this.getLayoutReport(model, revision),
+        this.getCompleteness(model, revision),
+        this.getLayout(model, revision),
+        this.routing(model, revision),
+        this.getScorecard(model, revision),
+        this.getClearance(model, revision),
+        this.getContinuity(model, revision),
+        this.getCohesion(model, revision),
+        this.getDensity(model, revision),
+      ]);
+
+    // Consolidate the health scorecard + spatial analyses into one review block
+    // (grade, key indices and a de-duplicated findings punch-list).
+    const review = consolidateReview({
+      score: scorecard.score,
+      grade: scorecard.grade,
+      blockers: scorecard.blockers,
+      readinessPct: report.stations.readinessPct,
+      balancePct: report.balance ? report.balance.balancePct * 100 : null,
+      circulation:
+        clearance.boxCount > 0
+          ? { clearancePct: clearance.clearancePct, tightPairs: clearance.tightPairs.length }
+          : null,
+      continuity: {
+        continuityPct: continuity.continuityPct,
+        issues: continuity.issues,
+        hasFlow: continuity.linkCount > 0,
+      },
+      cohesion: {
+        cohesionPct: cohesion.cohesionPct,
+        issues: cohesion.issues,
+        multiLine: cohesion.lineCount > 1,
+      },
+      density:
+        density.boxCount > 0
+          ? { utilizationPct: density.utilizationPct, issues: density.issues }
+          : null,
+    });
 
     let staffing: LayoutDossier['staffing'] = null;
     let cost: LayoutDossier['cost'] = null;
@@ -2105,6 +2142,7 @@ export class LineEngineeringService {
       },
       stations,
       csv: dossierStationsToCsv(stations),
+      review,
     };
   }
 
