@@ -68,6 +68,7 @@ import {
 } from './line-cost';
 import { standardWork, StdWorkResult } from './line-stdwork';
 import { dossierStationsToCsv, DossierStationRow } from './line-dossier';
+import { computeTakeoff, Takeoff } from './line-takeoff';
 import { flexLineAnalysis, FlexLineResult } from './line-flexline';
 import {
   sensitivityCurve,
@@ -599,6 +600,34 @@ export class LineEngineeringService {
         note: layout?.approvalNote ?? null,
       },
     };
+  }
+
+  /**
+   * Quantity take-off / bill of materials for a layout (Fase 42 — CAD 3D):
+   * station and equipment counts, floor area used, footprint utilisation and
+   * total wall run. Read-only; reuses getLayout and the pure take-off helper.
+   */
+  async getTakeoff(model: string, revision = 'A'): Promise<Takeoff> {
+    const layout = await this.getLayout(model, revision);
+    return computeTakeoff({
+      footprint: {
+        footprintW: layout.footprint.footprintW,
+        footprintH: layout.footprint.footprintH,
+        unit: layout.footprint.unit,
+      },
+      stations: layout.stations.map((s) => ({
+        x: s.x,
+        y: s.y,
+        w: s.w,
+        h: s.h,
+      })),
+      assets: (layout.assets ?? []).map((a) => ({
+        kind: a.kind,
+        w: a.w,
+        h: a.h,
+      })),
+      annotations: (layout.annotations ?? []).map((a) => ({ type: a.type })),
+    });
   }
 
   /**

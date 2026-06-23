@@ -158,6 +158,19 @@ export class LineEngineeringController {
     return this.service.saveLayout(dto);
   }
 
+  @Get('layout/takeoff')
+  @RequirePermissions('engineering:read')
+  @ApiOperation({
+    summary:
+      'Cantidades / lista de materiales del layout: conteos, área usada, % de aprovechamiento y metros de muro.',
+  })
+  getTakeoff(
+    @Query('model') model: string,
+    @Query('revision') revision?: string,
+  ) {
+    return this.service.getTakeoff(model, revision ?? 'A');
+  }
+
   @Put('layout/approval')
   @RequirePermissions('engineering:write')
   @ApiOperation({
