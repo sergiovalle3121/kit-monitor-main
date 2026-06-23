@@ -1364,4 +1364,34 @@ decimales negativos; `T`/`N` de texto/número/lógico/celda; `BASE`/`DECIMAL` co
 dígito inválido; `TIMEVALUE` mediodía/AM/medianoche/segundos; composición con `LEN`/`&`). Sin
 regresiones: 29 suites de hoja + 3 de I/O Office verdes; `lint web` 0 errores; `build web` ✓.
 
+## 54. Office/Sheets — estadísticas con nombre moderno (punto) + corrección de la normal
+
+**Contexto.** Auditando el motor REAL, TODAS las funciones estadísticas con **nombre moderno con
+punto** (Excel 2010+: `STDEV.S`, `VAR.P`, `NORM.DIST`, `RANK.EQ`, `QUARTILE.INC`, `BINOM.DIST`…)
+devolvían `#NAME?`, mientras sus equivalentes legados (`STDEV`, `NORMDIST`…) sí funcionaban. Causa:
+el fallback a formulajs (`evaluate-by-operator`) hace `symbol.split('.')` y busca un objeto ANIDADO
+(`formulajs.NORM.S.DIST`) que no existe; formulajs sólo registra los nombres planos. Además
+`NORMSDIST` estaba **roto**: devolvía la densidad (PDF), no la acumulada (CDF) — `NORMSDIST(0)`→0.3989
+en vez de 0.5.
+
+**Decisión (sólo `apps/web`, aditiva):** `components/office/sheets/statFunctions.ts` registra los
+nombres con punto en `CUSTOM_FUNCTIONS` (que `getFunction` resuelve ANTES del fallback). La mayoría
+**delegan** en la función legada de formulajs (misma firma, verificada con valores conocidos:
+`STDEV.S`→`STDEV`, `VAR.P`→`VARP`, `RANK.EQ`→`RANK`, `BINOM.DIST`→`BINOMDIST`, `FORECAST.LINEAR`→
+`FORECAST`…). La **familia normal** se implementa correcta (erf de Abramowitz-Stegun): `NORMSDIST`
+(corregida a CDF), `NORM.S.DIST(z;acum)`, `NORM.DIST(x;μ;σ;acum)`. Y se añaden variantes que el
+legado no trae: `QUARTILE.EXC`/`PERCENTILE.EXC` (interpolación exclusiva base `n+1`) y `RANK.AVG`
+(promedio en empates).
+
+**Nota de build:** `@formulajs/formulajs` no publica tipos; se añade
+`sheets/formulajs.d.ts` (`declare module`) para que `next build` (tsc estricto) no falle por TS7016
+(los specs con `npx tsx` no type-chequean, por eso sólo lo detecta el build).
+
+**Verificación:** nueva suite `statFunctions.spec.ts` (**26 aserciones** sobre el motor REAL con
+valores conocidos: `STDEV.S/P`, `VAR.S/P`, `MODE.SNGL`, `QUARTILE.INC/EXC`, `PERCENTILE.INC/EXC`,
+`RANK.EQ/AVG`, la familia normal corregida —`NORMSDIST(0)`=0.5, `NORM.S.DIST` acum/densidad,
+`NORM.S.INV(0.975)`≈1.96—, `BINOM.DIST`, `POISSON.DIST`, `FORECAST.LINEAR`, `CONFIDENCE.NORM`, y la
+composición con `ROUND`). Sin regresiones: 30 suites de hoja + 3 de I/O Office verdes; `lint web` 0
+errores; `build web` ✓.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
