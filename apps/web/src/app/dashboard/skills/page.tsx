@@ -20,8 +20,10 @@ import {
   Ban,
   Users,
   UserCheck,
+  Download,
 } from 'lucide-react';
 import type { ColumnDef } from '@tanstack/react-table';
+import { saveAs } from 'file-saver';
 import { glass } from '@/lib/glass';
 import { useApi } from '@/hooks/useApi';
 import { apiFetch } from '@/lib/apiFetch';
@@ -127,6 +129,10 @@ function fmtDate(d?: string | null): string {
 /** Best of two semaphores (valid > expiring > expired > none). */
 function semRank(s: Sem): number {
   return s === 'VALID' || s === 'NO_EXPIRY' ? 3 : s === 'EXPIRING' ? 2 : s === 'EXPIRED' ? 1 : 0;
+}
+function csvEscape(v: string | number): string {
+  const s = String(v);
+  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -729,7 +735,7 @@ function MatrixView({
   onOpenOperator: (key: string) => void;
   onCreate: () => void;
 }) {
-  const { rows, columns, cells, coverage } = useMemo(() => {
+  const { rows, columns, cells, coverage, rowCoverage } = useMemo(() => {
     const colKeyOf = (c: Cert) => (dimension === 'station' ? c.station : c.skill);
     // Columns: distinct dimension values present in the filtered certs.
     const colMap = new Map<string, string>();
@@ -777,12 +783,15 @@ function MatrixView({
     });
 
     // Coverage per column = distinct operators with a usable (valid/expiring)
-    // cert. Zero-coverage columns are the IATF gaps to staff.
+    // cert; per row = how many columns the operator is enabled for. Zero-coverage
+    // columns are the IATF gaps to staff.
     const coverage = new Map<string, number>();
+    const rowCoverage = new Map<string, number>();
     cellMap.forEach((v, k) => {
       if (semRank(v.status) >= 2) {
-        const colKey = k.split('|')[1];
+        const [rowKey, colKey] = k.split('|');
         coverage.set(colKey, (coverage.get(colKey) ?? 0) + 1);
+        rowCoverage.set(rowKey, (rowCoverage.get(rowKey) ?? 0) + 1);
       }
     });
 
@@ -790,8 +799,28 @@ function MatrixView({
     const columns = [...colMap.entries()]
       .map(([key, label]) => ({ key, label }))
       .sort((a, b) => a.label.localeCompare(b.label));
-    return { rows, columns, cells: cellMap, coverage };
+    return { rows, columns, cells: cellMap, coverage, rowCoverage };
   }, [certs, operators, dimension, showRoster, areaFilter]);
+
+  function exportMatrix() {
+    const dimLabel = dimension === 'station' ? 'Estación' : 'Skill';
+    const header = ['Operador', 'Área', ...columns.map((c) => c.label), `Habilitado (${dimLabel})`];
+    const body = rows.map((r) => {
+      const vals = columns.map((c) => {
+        const cell = cells.get(`${r.key}|${c.key}`);
+        return cell ? SEM_META[cell.status].label : '';
+      });
+      return [r.name, r.area ?? '', ...vals, String(rowCoverage.get(r.key) ?? 0)];
+    });
+    const footer = ['Cobertura', '', ...columns.map((c) => String(coverage.get(c.key) ?? 0)), ''];
+    const csv =
+      '﻿' +
+      [header, ...body, footer].map((row) => row.map(csvEscape).join(',')).join('\r\n');
+    saveAs(
+      new Blob([csv], { type: 'text/csv;charset=utf-8' }),
+      `matriz-competencias-${new Date().toISOString().slice(0, 10)}.csv`,
+    );
+  }
 
   return (
     <div>
@@ -807,10 +836,21 @@ function MatrixView({
             ]}
           />
         </div>
-        <label className="inline-flex items-center gap-2 text-[13px] text-gray-500 cursor-pointer select-none">
-          <input type="checkbox" checked={showRoster} onChange={onToggleRoster} className="accent-violet-600" />
-          Mostrar plantilla completa (huecos)
-        </label>
+        <div className="flex items-center gap-3">
+          <label className="inline-flex items-center gap-2 text-[13px] text-gray-500 cursor-pointer select-none">
+            <input type="checkbox" checked={showRoster} onChange={onToggleRoster} className="accent-violet-600" />
+            Mostrar plantilla completa (huecos)
+          </label>
+          {columns.length > 0 && (
+            <button
+              onClick={exportMatrix}
+              className="inline-flex h-9 items-center gap-2 rounded-xl border border-black/10 bg-black/[0.03] px-3 text-sm font-medium transition-colors hover:bg-black/[0.06] dark:border-white/10 dark:bg-white/[0.04] dark:hover:bg-white/[0.08]"
+              title="Exporta la rejilla operador × columna con su estado (auditoría IATF)"
+            >
+              <Download className="h-4 w-4" /> Exportar matriz
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Legend */}
@@ -868,7 +908,9 @@ function MatrixView({
                         title="Ver perfil de competencias"
                       >
                         <span className="block font-medium truncate group-hover:text-violet-600">{row.name}</span>
-                        {row.area && <span className="block text-[11px] text-gray-400 truncate">{row.area}</span>}
+                        <span className="block text-[11px] text-gray-400 truncate">
+                          {[row.area, `${rowCoverage.get(row.key) ?? 0} hab.`].filter(Boolean).join(' · ')}
+                        </span>
                       </button>
                     </td>
                     {columns.map((col) => {
