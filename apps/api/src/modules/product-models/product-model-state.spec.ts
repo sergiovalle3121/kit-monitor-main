@@ -30,7 +30,7 @@ describe('product model state machine', () => {
   });
 
   it('rejects no-op transitions with a clear message', () => {
-    (PRODUCT_MODEL_STATUSES as ProductModelStatus[]).forEach((s) => {
+    PRODUCT_MODEL_STATUSES.forEach((s) => {
       expect(() => assertTransition(s, s)).toThrow(/already/);
     });
   });
