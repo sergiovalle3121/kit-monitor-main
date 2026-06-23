@@ -2302,4 +2302,19 @@ lo demás (numérico, literal, coincidencia aproximada) en el mismo `formulajs`.
 VLOOKUP/HLOOKUP, `#N/A` sin coincidencia, anclado; y que los casos numéricos/literales/aproximados NO se
 rompen; INDEX/MATCH con comodín). Sin regresiones: TODA la suite de Office verde; `lint web` 0; `build` ✓.
 
+## 103. Office/Slides — tablas .pptx con banda según el color de acento
+
+**Contexto.** Al exportar una tabla a `.pptx`, las filas con banda usaban un azul fijo (`EEF2FF`)
+independientemente del color de acento, mientras que en el lienzo (`slides/table.ts`) la banda es el
+acento atenuado al 10% (`tint(accent, 0.10)`). Una tabla con acento verde se veía verde en pantalla pero
+exportaba bandas azuladas — una incoherencia visible al abrir el archivo.
+
+**Decisión (sólo `apps/web`, aditiva — riesgo cero):** `lib/office/pptx.ts` calcula `tintHex(accent, 0.10)`
+(espejo exacto del `tint()` del lienzo) y lo usa como relleno de las filas con banda. La cabecera ya usaba
+el acento; el resto del export no cambia.
+
+**Verificación:** se extiende `pptx.spec.ts` (**+3 aserciones, 22 total**): con acento `2563EB` la banda
+exporta su tinte `E9EFFD`, la cabecera lleva el acento, y ya NO aparece el azul fijo anterior. Sin
+regresiones: suite de Office verde; `lint web` 0 errores; `build web` ✓.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
