@@ -103,3 +103,27 @@ export interface OutboundShipmentLite {
 }
 
 export type MasterKind = "carriers" | "vehicles" | "drivers" | "docks";
+
+// ── Dock appointments (Citas de andén) ───────────────────────────────────────
+export type AppointmentDirection = "inbound" | "outbound";
+export type AppointmentStatus = "scheduled" | "arrived" | "completed" | "cancelled" | "no_show";
+
+export interface Appointment {
+  id: string;
+  direction: AppointmentDirection;
+  scheduledAt: string;
+  windowEnd: string | null;
+  dockId: string | null;
+  dockCode: string | null;
+  carrierId: string | null;
+  carrierName: string | null;
+  vehicleId: string | null;
+  vehiclePlate: string | null;
+  driverId: string | null;
+  driverName: string | null;
+  shipmentRef: string | null;
+  status: AppointmentStatus;
+  arrivedAt: string | null;
+  completedAt: string | null;
+  notes: string | null;
+}

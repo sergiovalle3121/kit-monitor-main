@@ -1,6 +1,8 @@
 // Pure presentation helpers for the traffic lane: palette + status/type/mode
 // vocabularies (labels + colors) mirroring apps/api/.../traffic/traffic.rules.ts.
 import type {
+  AppointmentDirection,
+  AppointmentStatus,
   CarrierMode,
   CarrierStatus,
   DockBoardState,
@@ -89,6 +91,36 @@ export const DOCK_TYPE_META: Record<DockType, Meta> = {
   both: { label: "Mixto", color: COLORS.cyan },
 };
 export const DOCK_TYPES: DockType[] = ["shipping", "receiving", "both"];
+
+// ── Dock appointments (Citas de andén) ───────────────────────────────────────
+export const APPOINTMENT_STATUS_META: Record<AppointmentStatus, Meta> = {
+  scheduled: { label: "Programada", color: COLORS.blue },
+  arrived: { label: "En patio", color: COLORS.indigo },
+  completed: { label: "Completada", color: COLORS.green },
+  cancelled: { label: "Cancelada", color: COLORS.gray },
+  no_show: { label: "No-show", color: COLORS.red },
+};
+
+export const APPOINTMENT_DIRECTION_META: Record<AppointmentDirection, Meta> = {
+  inbound: { label: "Recibo", color: COLORS.blue },
+  outbound: { label: "Embarque", color: COLORS.indigo },
+};
+
+/** Cita aún programada cuya hora ya pasó → tarde (espejo de la regla del backend). */
+export function isAppointmentLate(appt: { status: AppointmentStatus; scheduledAt: string | null }): boolean {
+  if (appt.status !== "scheduled" || !appt.scheduledAt) return false;
+  const t = new Date(appt.scheduledAt).getTime();
+  return !Number.isNaN(t) && t < Date.now();
+}
+
+/** ¿La fecha cae en el día de hoy (hora local)? */
+export function isToday(iso: string | null): boolean {
+  if (!iso) return false;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return false;
+  const now = new Date();
+  return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
+}
 
 // Avance del embarque (outbound shipment-state.ts). Solo lectura — referencia.
 export const SHIPMENT_STATUS_META: Record<string, Meta> = {

@@ -7,6 +7,7 @@
 import React, { useState } from "react";
 import {
   Building2,
+  CalendarClock,
   CheckCircle2,
   Loader2,
   PackageCheck,
@@ -34,6 +35,7 @@ import {
   VEHICLE_TYPE_META,
 } from "./traffic.utils";
 import type {
+  Appointment,
   Carrier,
   Driver,
   LoadingDock,
@@ -490,7 +492,7 @@ export function DeleteButton({
   onDeleted,
   showText,
 }: {
-  kind: "carriers" | "vehicles" | "drivers" | "docks";
+  kind: "carriers" | "vehicles" | "drivers" | "docks" | "appointments";
   id: string;
   label: string;
   onDeleted: () => void;
@@ -795,6 +797,8 @@ export function DockOpButton({
   icon,
   color,
   confirmMsg,
+  source = "Tráfico",
+  full,
   onDone,
 }: {
   path: string;
@@ -804,6 +808,8 @@ export function DockOpButton({
   icon: React.ReactNode;
   color: string;
   confirmMsg?: string;
+  source?: string;
+  full?: boolean;
   onDone: () => void;
 }) {
   const toast = useToast();
@@ -816,15 +822,148 @@ export function DockOpButton({
       const res = await call(path, method, body);
       if (!res.ok) {
         const d = await res.json().catch(() => ({}));
-        return toast.error(d?.message || "No se pudo completar la acción.", "Andén");
+        return toast.error(d?.message || "No se pudo completar la acción.", source);
       }
-      toast.success(`${label}: listo.`, "Andén");
+      toast.success(`${label}: listo.`, source);
       onDone();
     } catch {
-      toast.error("Error de red.", "Andén");
+      toast.error("Error de red.", source);
     } finally {
       setBusy(false);
     }
   }
-  return <ActionButton onClick={run} icon={icon} label={label} color={color} busy={busy} />;
+  return <ActionButton onClick={run} icon={icon} label={label} color={color} busy={busy} full={full} />;
+}
+
+// ── Appointment (Cita de andén) create/edit ──────────────────────────────────
+function toLocalInput(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  // datetime-local quiere "YYYY-MM-DDTHH:mm" en hora local.
+  const off = d.getTimezoneOffset();
+  return new Date(d.getTime() - off * 60000).toISOString().slice(0, 16);
+}
+
+export function AppointmentFormModal({
+  initial,
+  carriers,
+  vehicles,
+  drivers,
+  docks,
+  onClose,
+  onSaved,
+}: {
+  initial?: Appointment;
+  carriers: Carrier[];
+  vehicles: Vehicle[];
+  drivers: Driver[];
+  docks: LoadingDock[];
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const toast = useToast();
+  const editing = !!initial;
+  const [busy, setBusy] = useState(false);
+  const [f, setF] = useState({
+    scheduledAt: toLocalInput(initial?.scheduledAt) || toLocalInput(new Date().toISOString()),
+    windowEnd: toLocalInput(initial?.windowEnd),
+    direction: initial?.direction ?? "outbound",
+    dockId: initial?.dockId ?? "",
+    carrierId: initial?.carrierId ?? "",
+    vehicleId: initial?.vehicleId ?? "",
+    driverId: initial?.driverId ?? "",
+    shipmentRef: initial?.shipmentRef ?? "",
+    notes: initial?.notes ?? "",
+  });
+
+  async function submit() {
+    if (!f.scheduledAt) return toast.error("Indica la fecha/hora programada.", "Cita");
+    setBusy(true);
+    try {
+      const body = {
+        scheduledAt: new Date(f.scheduledAt).toISOString(),
+        windowEnd: f.windowEnd ? new Date(f.windowEnd).toISOString() : undefined,
+        direction: f.direction,
+        dockId: f.dockId || undefined,
+        carrierId: f.carrierId || undefined,
+        vehicleId: f.vehicleId || undefined,
+        driverId: f.driverId || undefined,
+        shipmentRef: clean(f.shipmentRef),
+        notes: clean(f.notes),
+      };
+      const res = editing
+        ? await call(`/traffic/appointments/${initial!.id}`, "PATCH", body)
+        : await call(`/traffic/appointments`, "POST", body);
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        return toast.error(d?.message || "No se pudo guardar.", "Cita");
+      }
+      toast.success(editing ? "Cita actualizada." : "Cita programada.", "Cita");
+      onSaved();
+      onClose();
+    } catch {
+      toast.error("Error de red.", "Cita");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Modal
+      title={editing ? "Editar cita" : "Nueva cita de andén"}
+      icon={<CalendarClock className="w-4 h-4" style={{ color: ACCENT }} />}
+      accent={ACCENT}
+      busy={busy}
+      onClose={onClose}
+      onSubmit={submit}
+      submitLabel={editing ? "Guardar" : "Programar"}
+      submitIcon={editing ? <Save className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4" />}
+    >
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <Field label="Programada (fecha/hora)">
+          <input type="datetime-local" value={f.scheduledAt} onChange={(e) => setF({ ...f, scheduledAt: e.target.value })} className="trf-input" />
+        </Field>
+        <Field label="Fin de ventana (opcional)">
+          <input type="datetime-local" value={f.windowEnd} onChange={(e) => setF({ ...f, windowEnd: e.target.value })} className="trf-input" />
+        </Field>
+        <Field label="Tipo">
+          <select value={f.direction} onChange={(e) => setF({ ...f, direction: e.target.value as Appointment["direction"] })} className="trf-input">
+            <option value="outbound">Embarque (salida)</option>
+            <option value="inbound">Recibo (entrada)</option>
+          </select>
+        </Field>
+        <Field label="Andén">
+          <select value={f.dockId} onChange={(e) => setF({ ...f, dockId: e.target.value })} className="trf-input">
+            <option value="">— sin asignar —</option>
+            {docks.map((k) => <option key={k.id} value={k.id}>{k.code}{k.name ? ` · ${k.name}` : ""}</option>)}
+          </select>
+        </Field>
+        <Field label="Transportista">
+          <select value={f.carrierId} onChange={(e) => setF({ ...f, carrierId: e.target.value })} className="trf-input">
+            <option value="">— sin asignar —</option>
+            {carriers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        </Field>
+        <Field label="Unidad">
+          <select value={f.vehicleId} onChange={(e) => setF({ ...f, vehicleId: e.target.value })} className="trf-input">
+            <option value="">— sin asignar —</option>
+            {vehicles.map((v) => <option key={v.id} value={v.id}>{v.plate}</option>)}
+          </select>
+        </Field>
+        <Field label="Chofer">
+          <select value={f.driverId} onChange={(e) => setF({ ...f, driverId: e.target.value })} className="trf-input">
+            <option value="">— sin asignar —</option>
+            {drivers.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+          </select>
+        </Field>
+        <Field label="Embarque (folio/ref)">
+          <input value={f.shipmentRef} onChange={(e) => setF({ ...f, shipmentRef: e.target.value })} placeholder="SHP-2026-000001" className="trf-input" />
+        </Field>
+        <Field label="Notas" full>
+          <textarea value={f.notes} onChange={(e) => setF({ ...f, notes: e.target.value })} rows={2} className="trf-input resize-y" />
+        </Field>
+      </div>
+    </Modal>
+  );
 }
