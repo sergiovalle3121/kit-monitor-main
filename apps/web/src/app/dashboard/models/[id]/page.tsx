@@ -13,6 +13,7 @@ import { useApi } from '@/hooks/useApi';
 import { apiFetch } from '@/lib/apiFetch';
 import { useToast } from '@/contexts/ToastContext';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
+import { NpiSection } from '../_lib/NpiSection';
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000').replace(/\/$/, '');
 
@@ -134,6 +135,9 @@ export default function ModelDetailPage() {
 
         {/* Edit form — keyed so it re-initializes from the loaded model. */}
         <ModelEditCard key={model.id} model={model} onSaved={mutate} />
+
+        {/* NPI — gates + readiness folded into the model (single module). */}
+        <NpiSection modelId={model.id} />
 
         {/* BOM — reuses the `bom` module against this model's number. */}
         <BomSection modelNumber={model.modelNumber} productName={model.name} />
