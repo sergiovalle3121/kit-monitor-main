@@ -36,6 +36,7 @@ import { formatNumber } from '@/lib/office/sheetOps';
 import { MODERN_FUNCTIONS } from './modernFunctions';
 import { expandLet } from './letExpand';
 import { expandStructuredRefs } from './tableRefs';
+import { expandLambda, LAMBDA_FUNCTIONS } from './lambdaExpand';
 
 // ── Utilidades de coerción / aplanado de argumentos ──────────────────────────
 // Las funciones reciben `params`: un array donde cada argumento ya viene evaluado.
@@ -262,6 +263,8 @@ export const CUSTOM_FUNCTIONS: Record<string, (params: any[]) => any> = {
   IFERROR, IFNA, ISERROR, ISERR, ISNA,
   // Funciones modernas de Excel 365 (matrices dinámicas + texto) — ver `modernFunctions.ts`.
   ...MODERN_FUNCTIONS,
+  // Familia LAMBDA (orden superior: MAP/REDUCE/SCAN/BYROW/BYCOL/MAKEARRAY) — ver `lambdaExpand.ts`.
+  ...LAMBDA_FUNCTIONS,
 };
 
 // ── Normalización de literales booleanos en la cadena de fórmula ──────────────
@@ -317,9 +320,10 @@ export function installFormulaEngine(): void {
   if (!proto.__axosParsePatched && typeof proto.parse === 'function') {
     const origParse = proto.parse;
     proto.parse = function patchedParse(expression: any, options: any) {
-      // Preprocesa la cadena: 1) referencias estructuradas `Tabla[Col]` → rangos; 2) LET (nombres
-      // locales → su valor); 3) normaliza los booleanos sueltos. El parser sólo ve lo ya resuelto.
-      return origParse.call(this, typeof expression === 'string' ? normalizeFormula(expandLet(expandStructuredRefs(expression))) : expression, options);
+      // Preprocesa la cadena: 1) referencias estructuradas `Tabla[Col]` → rangos; 2) familia LAMBDA
+      // (invocación directa en línea + lambdas-argumento codificadas); 3) LET (nombres locales → su
+      // valor); 4) normaliza los booleanos sueltos. El parser sólo ve lo ya resuelto.
+      return origParse.call(this, typeof expression === 'string' ? normalizeFormula(expandLet(expandLambda(expandStructuredRefs(expression)))) : expression, options);
     };
     proto.__axosParsePatched = true;
   }

@@ -1270,4 +1270,43 @@ publicada con `rebuildTableRegistry` al montar y al crearla.
 REAL: `SUM(Ventas[Importe])`=600, `AVERAGE`, `SUMIF` con dos columnas de tabla, `MAX`). 26 suites
 de hoja verdes; `lint web` 0 errores; `build web` ✓.
 
+## 51. Office/Sheets — familia LAMBDA (funciones anónimas y de orden superior)
+
+**Contexto.** `LAMBDA` y sus ayudantes (`MAP`, `REDUCE`, `SCAN`, `BYROW`, `BYCOL`, `MAKEARRAY`)
+son la pieza más potente —y enteramente ausente— de Excel 365: permiten funciones anónimas y
+programación funcional sobre matrices sin macros. El parser de Fortune-Sheet (a) no entiende la
+sintaxis de invocación `LAMBDA(…)(…)` y (b) evalúa cada argumento ANTES de llamar a la función,
+así que el cuerpo `x*2` falla con `#NAME?` (la `x` no existe aún) y las ayudantes no pueden recibir
+una lambda «en crudo».
+
+**Decisión (sólo `apps/web`, aditiva):** dos tiempos, como `LET` (§31) y las referencias
+estructuradas (§50). `components/office/sheets/lambdaExpand.ts`:
+
+1. **Preprocesado** `expandLambda(formula)` (en el parche de `parse`, antes que LET):
+   - **Invocación directa** `LAMBDA(p…; cuerpo)(args…)` → sustitución en línea del cuerpo
+     (queda una expresión normal que el MISMO parser evalúa; **los refs externos siguen vivos**).
+   - **Lambda como argumento** de una orden-superior → se codifica como un literal de texto seguro
+     `"§LMB§<encodeURIComponent(JSON)>"` (sin comillas internas → el parser lo pasa como un
+     parámetro más).
+2. **Funciones de orden superior** (`LAMBDA_FUNCTIONS`, fusionadas en `CUSTOM_FUNCTIONS`): reciben
+   la matriz ya evaluada + la lambda codificada; decodifican el cuerpo y lo evalúan con un
+   **sub-parser** (`new Parser()`, prototipo ya parcheado) sobre una **rejilla sintética** donde
+   cada parámetro se enlaza a una celda/rango (`A1`, `A2`, `A1:C1`…). Así el cuerpo usa el
+   parámetro como escalar (`x*2`) o como vector (`SUM(fila)`) con fidelidad. Devuelven matrices 2D
+   que componen con `SUM`/`INDEX` (y el «spilling» §38 las derrama).
+
+Cadena de `parse` resultante:
+`normalizeFormula(expandLet(expandLambda(expandStructuredRefs(expr))))`.
+
+**Límite (documentado):** el cuerpo de una orden-superior sólo ve sus parámetros (no refs externos
+a la hoja; pásalos como argumentos). La invocación directa SÍ conserva los refs externos. La
+lambda con nombre (`LET(f; LAMBDA(…); f(2))`) queda fuera de alcance.
+
+**Verificación:** nueva suite `lambdaExpand.spec.ts` (**28 aserciones**: expansión pura de la
+invocación directa y de la codificación; motor REAL — `LAMBDA(x,x+1)(5)`=6, `MAP`+`SUM`=30,
+`MAP` de dos matrices=66, `REDUCE` suma/producto, `SCAN`, `BYROW`/`BYCOL` con `SUM`/`MAX`,
+`MAKEARRAY` tabla de multiplicar). Sin regresiones: 27 suites de hoja + 3 de I/O Office verdes;
+`lint web` 0 errores; `build web` ✓. UI: nueva categoría «Lambda y orden superior» en el asistente
+de funciones.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->

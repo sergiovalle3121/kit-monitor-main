@@ -104,6 +104,15 @@ const CATEGORIES: { label: string; fns: Fn[] }[] = [
     { name: 'REGEXEXTRACT', syntax: 'REGEXEXTRACT(texto; patrón; [modo])', desc: 'Extrae coincidencias (0 primera, 1 todas, 2 grupos).', args: [A('texto', 'Cadena.'), A('patrón', 'Expresión regular.'), A('modo', '0/1/2.', true)] },
     { name: 'REGEXREPLACE', syntax: 'REGEXREPLACE(texto; patrón; reemplazo; [ocurrencia])', desc: 'Reemplaza coincidencias (admite $1 grupos).', args: [A('texto', 'Cadena.'), A('patrón', 'Expresión regular.'), A('reemplazo', 'Texto de reemplazo.'), A('ocurrencia', '0 = todas.', true)] },
   ] },
+  { label: 'Lambda y orden superior', fns: [
+    { name: 'LAMBDA', syntax: 'LAMBDA(parám1; …; cálculo)(arg1; …)', desc: 'Función anónima: defínela e invócala al instante (o pásala a MAP/REDUCE…).', args: [A('parám1', 'Nombre del primer parámetro.'), A('cálculo', 'Expresión que usa los parámetros.'), A('arg1', 'Valor con el que se invoca.', true)] },
+    { name: 'MAP', syntax: 'MAP(matriz; …; LAMBDA(x; cálculo))', desc: 'Aplica la lambda a cada elemento (combínala con SUM/INDEX).', args: [A('matriz', 'Rango o matriz de entrada.'), A('LAMBDA', 'LAMBDA(x; …) aplicada a cada elemento.')] },
+    { name: 'REDUCE', syntax: 'REDUCE(inicial; matriz; LAMBDA(acc; v; cálculo))', desc: 'Pliega la matriz a un único valor (suma/producto/concatenación…).', args: [A('inicial', 'Acumulador inicial.'), A('matriz', 'Rango a recorrer.'), A('LAMBDA', 'LAMBDA(acc; v; …).')] },
+    { name: 'SCAN', syntax: 'SCAN(inicial; matriz; LAMBDA(acc; v; cálculo))', desc: 'Como REDUCE pero devuelve los acumulados intermedios.', args: [A('inicial', 'Acumulador inicial.'), A('matriz', 'Rango a recorrer.'), A('LAMBDA', 'LAMBDA(acc; v; …).')] },
+    { name: 'BYROW', syntax: 'BYROW(matriz; LAMBDA(fila; cálculo))', desc: 'Un resultado por fila (p. ej. SUM de cada fila).', args: [A('matriz', 'Rango o matriz.'), A('LAMBDA', 'LAMBDA(fila; …), p. ej. SUM(fila).')] },
+    { name: 'BYCOL', syntax: 'BYCOL(matriz; LAMBDA(col; cálculo))', desc: 'Un resultado por columna.', args: [A('matriz', 'Rango o matriz.'), A('LAMBDA', 'LAMBDA(col; …), p. ej. MAX(col).')] },
+    { name: 'MAKEARRAY', syntax: 'MAKEARRAY(filas; cols; LAMBDA(i; j; cálculo))', desc: 'Genera una matriz; i y j son los índices (1-based).', args: [A('filas', 'Número de filas.'), A('cols', 'Número de columnas.'), A('LAMBDA', 'LAMBDA(i; j; …).')] },
+  ] },
   { label: 'Fecha y hora', fns: [
     { name: 'TODAY', syntax: 'TODAY()', desc: 'Fecha actual.', args: [] },
     { name: 'NOW', syntax: 'NOW()', desc: 'Fecha y hora actual.', args: [] },
