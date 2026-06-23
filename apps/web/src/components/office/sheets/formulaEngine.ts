@@ -56,6 +56,7 @@ import { ARRAY_IF_FUNCTIONS } from './arrayIf';
 import { DATETIME_FIX_FUNCTIONS } from './dateTimeFix';
 import { MATH_FIDELITY_FUNCTIONS } from './mathFidelity';
 import { TEXT_TRUNC_FUNCTIONS } from './textTrunc';
+import { HEX_FIDELITY_FUNCTIONS } from './hexFidelity';
 import { applyScalarBroadcast } from './scalarBroadcast';
 
 // ── Utilidades de coerción / aplanado de argumentos ──────────────────────────
@@ -321,6 +322,8 @@ export const CUSTOM_FUNCTIONS: Record<string, (params: any[]) => any> = {
   ...MATH_FIDELITY_FUNCTIONS,
   // Truncamiento de argumentos enteros en texto (REPT/LEFT/RIGHT/MID/ROMAN) — ver `textTrunc.ts`.
   ...TEXT_TRUNC_FUNCTIONS,
+  // Fidelidad de DEC2HEX (Excel devuelve mayúsculas) — ver `hexFidelity.ts`.
+  ...HEX_FIDELITY_FUNCTIONS,
 };
 
 // Difusión de funciones escalares (ROUND/ABS/TEXT…) sobre matrices — ver `scalarBroadcast.ts`.
