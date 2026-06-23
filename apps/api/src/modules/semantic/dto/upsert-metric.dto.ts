@@ -1,4 +1,11 @@
-import { IsIn, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import {
+  IsIn,
+  IsNumber,
+  IsOptional,
+  IsString,
+  MaxLength,
+  MinLength,
+} from 'class-validator';
 
 export class UpsertMetricDto {
   @IsString()
@@ -37,4 +44,9 @@ export class UpsertMetricDto {
   @IsOptional()
   @IsIn(['up', 'down'])
   direction?: 'up' | 'down';
+
+  /** Target/threshold for KPI alerts (compared with `direction`). Null clears it. */
+  @IsOptional()
+  @IsNumber()
+  target?: number | null;
 }

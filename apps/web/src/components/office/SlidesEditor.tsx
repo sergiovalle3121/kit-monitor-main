@@ -187,6 +187,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
   const [loop, setLoop] = useState<boolean>(!!value?.loop);
   const clipboardRef = useRef<any>(null);
   const [presenting, setPresenting] = useState(false);
+  const [preview, setPreview] = useState(false); // vista previa de animación (una diapositiva)
   const presentStartRef = useRef(0);
   const [sorter, setSorter] = useState(false);
   const [selAnim, setSelAnim] = useState<string>('none');
@@ -1859,7 +1860,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
           </div>
         </div>
         {showAnimPanel && !readOnly && (
-          <SlideAnimationPanel items={animList} activeIdx={activeIdx} onChange={setAnimByIndex} onSelect={selectByIndex} onClose={() => setShowAnimPanel(false)} />
+          <SlideAnimationPanel items={animList} activeIdx={activeIdx} onChange={setAnimByIndex} onSelect={selectByIndex} onPreview={() => { capture(); presentStartRef.current = curRef.current; setPreview(true); }} onClose={() => setShowAnimPanel(false)} />
         )}
         {showLayers && !readOnly && (
           <SlideLayersPanel items={layerList} activeIdx={activeIdx} onSelect={selectByIndex} onToggleVisible={toggleVisibleIdx} onToggleLock={toggleLockIdx} onForward={forwardIdx} onBackward={backwardIdx} onFront={frontIdx} onBack={backIdx} onReorder={reorderObject} onClose={() => setShowLayers(false)} />
@@ -1875,6 +1876,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
       )}
 
       {presenting && <Present slides={slides} notes={notesRef.current} transition={transition} transitions={transitionsRef.current} transDurs={transDursRef.current} advanceAfters={advanceRef.current} loop={loop} master={masterImgRef.current} footer={footerRef.current} showNumbers={showNumbers} presenter={presenterMode} ratio={ratio} startAt={presentStartRef.current} onClose={() => { setPresenting(false); setPresenterMode(false); }} />}
+      {preview && <Present slides={slides} transitions={transitionsRef.current} transDurs={transDursRef.current} master={masterImgRef.current} ratio={ratio} previewOne startAt={presentStartRef.current} onClose={() => setPreview(false)} />}
       <AnimatePresence>
         {showTemplates && <TemplateGallery type="slides" onPick={applyTemplate} onClose={() => setShowTemplates(false)} />}
       </AnimatePresence>
@@ -1920,19 +1922,47 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
   );
 }
 
+// Variantes de transición de diapositiva. Las que llevan dirección (deslizar/
+// empujar/cubrir) son funciones de `custom` = dirección de avance (1 adelante,
+// -1 atrás), para que al retroceder el movimiento se invierta como en PowerPoint.
 const TRANSITIONS: Record<string, any> = {
   none: { initial: {}, animate: {}, exit: {} },
   fade: { initial: { opacity: 0 }, animate: { opacity: 1 }, exit: { opacity: 0 } },
-  slide: { initial: { x: '100%', opacity: 0 }, animate: { x: 0, opacity: 1 }, exit: { x: '-100%', opacity: 0 } },
-  slideUp: { initial: { y: '100%', opacity: 0 }, animate: { y: 0, opacity: 1 }, exit: { y: '-100%', opacity: 0 } },
-  push: { initial: { x: '60%', opacity: 0 }, animate: { x: 0, opacity: 1 }, exit: { x: '-60%', opacity: 0 } },
+  fadeBlack: { initial: { opacity: 0 }, animate: { opacity: 1 }, exit: { opacity: 0 } },
+  slide: {
+    initial: (d: number) => ({ x: d < 0 ? '-100%' : '100%', opacity: 0 }),
+    animate: { x: 0, opacity: 1 },
+    exit: (d: number) => ({ x: d < 0 ? '100%' : '-100%', opacity: 0 }),
+  },
+  slideUp: {
+    initial: (d: number) => ({ y: d < 0 ? '-100%' : '100%', opacity: 0 }),
+    animate: { y: 0, opacity: 1 },
+    exit: (d: number) => ({ y: d < 0 ? '100%' : '-100%', opacity: 0 }),
+  },
+  push: {
+    initial: (d: number) => ({ x: d < 0 ? '-60%' : '60%', opacity: 0 }),
+    animate: { x: 0, opacity: 1 },
+    exit: (d: number) => ({ x: d < 0 ? '60%' : '-60%', opacity: 0 }),
+  },
   wipe: { initial: { clipPath: 'inset(0 0 0 100%)' }, animate: { clipPath: 'inset(0 0 0 0%)' }, exit: { opacity: 0 } },
-  cover: { initial: { y: '100%' }, animate: { y: 0 }, exit: { opacity: 1 } },
+  cover: {
+    initial: (d: number) => ({ y: d < 0 ? '-100%' : '100%' }),
+    animate: { y: 0 },
+    exit: { opacity: 1 },
+  },
   zoom: { initial: { scale: 0.85, opacity: 0 }, animate: { scale: 1, opacity: 1 }, exit: { scale: 1.1, opacity: 0 } },
   reveal: { initial: { scale: 1.15, opacity: 0 }, animate: { scale: 1, opacity: 1 }, exit: { scale: 0.92, opacity: 0 } },
   flip: { initial: { rotateY: 90, opacity: 0 }, animate: { rotateY: 0, opacity: 1 }, exit: { rotateY: -90, opacity: 0 } },
+  split: { initial: { clipPath: 'inset(0 50% 0 50%)', opacity: 0.4 }, animate: { clipPath: 'inset(0 0% 0 0%)', opacity: 1 }, exit: { clipPath: 'inset(0 50% 0 50%)', opacity: 0 } },
+  cube: {
+    initial: (d: number) => ({ rotateY: d < 0 ? -90 : 90, opacity: 0 }),
+    animate: { rotateY: 0, opacity: 1 },
+    exit: (d: number) => ({ rotateY: d < 0 ? 90 : -90, opacity: 0 }),
+  },
   morph: { initial: { opacity: 0, scale: 1.05 }, animate: { opacity: 1, scale: 1 }, exit: { opacity: 0, scale: 0.97 } },
 };
+// Transiciones que invierten su sentido al retroceder (necesitan `custom`=dir).
+const DIRECTIONAL = new Set(['slide', 'slideUp', 'push', 'cover', 'cube']);
 const OBJ_ANIM: Record<string, any> = {
   none: { initial: { opacity: 1 }, animate: { opacity: 1 } },
   // Entrada (estado inicial oculto → visible).
@@ -1944,16 +1974,24 @@ const OBJ_ANIM: Record<string, any> = {
   zoom: { initial: { opacity: 0, scale: 0.8 }, animate: { opacity: 1, scale: 1 } },
   rotate: { initial: { opacity: 0, rotate: -12, scale: 0.9 }, animate: { opacity: 1, rotate: 0, scale: 1 } },
   bounce: { initial: { opacity: 0, y: '-14%' }, animate: { opacity: 1, y: ['-14%', '5%', '-2%', '0%'] } },
+  wipe: { initial: { opacity: 1, clipPath: 'inset(0 100% 0 0)' }, animate: { opacity: 1, clipPath: 'inset(0 0% 0 0)' } },
+  swivel: { initial: { opacity: 0, rotateY: 90 }, animate: { opacity: 1, rotateY: 0 } },
+  flyTL: { initial: { opacity: 0, x: '-10%', y: '-10%' }, animate: { opacity: 1, x: 0, y: 0 } },
+  flyBR: { initial: { opacity: 0, x: '10%', y: '10%' }, animate: { opacity: 1, x: 0, y: 0 } },
   // Énfasis (estado inicial visible; al dispararse reproduce un keyframe que
   // regresa al estado base).
   pulse: { initial: { opacity: 1, scale: 1 }, animate: { scale: [1, 1.12, 1] } },
   spin: { initial: { opacity: 1, rotate: 0 }, animate: { rotate: [0, 360] } },
   grow: { initial: { opacity: 1, scale: 1 }, animate: { scale: [1, 1.3, 1] } },
   flash: { initial: { opacity: 1 }, animate: { opacity: [1, 0.15, 1, 0.15, 1] } },
+  teeter: { initial: { opacity: 1, rotate: 0 }, animate: { rotate: [0, -6, 6, -4, 4, 0] } },
+  blink: { initial: { opacity: 1 }, animate: { opacity: [1, 0, 1, 0, 1] } },
   // Salida (estado inicial visible → oculto).
   fadeOut: { initial: { opacity: 1 }, animate: { opacity: 0 } },
   flyOut: { initial: { opacity: 1, y: 0 }, animate: { opacity: 0, y: '10%' } },
   zoomOut: { initial: { opacity: 1, scale: 1 }, animate: { opacity: 0, scale: 0.6 } },
+  wipeOut: { initial: { opacity: 1, clipPath: 'inset(0 0% 0 0)' }, animate: { opacity: 1, clipPath: 'inset(0 0 0 100%)' } },
+  spinOut: { initial: { opacity: 1, rotate: 0, scale: 1 }, animate: { opacity: 0, rotate: 180, scale: 0.5 } },
 };
 
 /** Secuencia de animaciones de una diapositiva (modelo de pasos tipo PowerPoint).
@@ -1992,13 +2030,37 @@ function StaticDeck({ deck, master }: { deck?: Deck; master?: string }) {
   );
 }
 
+/** Capa ANIMADA de una diapositiva: reproduce las animaciones de objeto según el
+ *  paso revelado (`revealed`). Compartida por el escenario del público y la vista
+ *  de presentador (para que las construcciones se vean también ahí). */
+function AnimatedDeck({ deck, master, plan, revealed }: { deck?: Deck; master?: string; plan: Map<number, { step: number; start: number }>; revealed: number }) {
+  if (!deck) return <div className="absolute inset-0 bg-white" />;
+  return (
+    <div className="absolute inset-0" style={{ background: deck.bg }}>
+      {master && <img src={master} alt="" className="absolute inset-0 w-full h-full object-contain pointer-events-none" />}
+      {deck.layers.map((L, j) => {
+        const p = plan.get(j);
+        const animated = !!(L.anim && L.anim !== 'none');
+        const shown = !animated || !p || revealed >= p.step;
+        return (
+          <motion.img key={j} src={L.src} alt="" className="absolute inset-0 w-full h-full object-contain"
+            variants={OBJ_ANIM[L.anim] ?? OBJ_ANIM.none} initial="initial" animate={shown ? 'animate' : 'initial'}
+            transition={{ duration: (L.dur || 500) / 1000, ease: 'easeOut', delay: shown && p ? p.start : 0 }} />
+        );
+      })}
+    </div>
+  );
+}
+
 function Present({
-  slides, notes, transition, transitions, transDurs, advanceAfters, loop, master, footer, showNumbers, presenter, ratio, startAt, onClose,
+  slides, notes, transition, transitions, transDurs, advanceAfters, loop, master, footer, showNumbers, presenter, previewOne, ratio, startAt, onClose,
 }: {
-  slides: any[]; notes?: string[]; transition?: string; transitions?: string[]; transDurs?: number[]; advanceAfters?: number[]; loop?: boolean; master?: string; footer?: string; showNumbers?: boolean; presenter?: boolean; ratio?: string; startAt?: number; onClose: () => void;
+  slides: any[]; notes?: string[]; transition?: string; transitions?: string[]; transDurs?: number[]; advanceAfters?: number[]; loop?: boolean; master?: string; footer?: string; showNumbers?: boolean; presenter?: boolean; previewOne?: boolean; ratio?: string; startAt?: number; onClose: () => void;
 }) {
   const [decks, setDecks] = useState<Deck[]>([]);
   const [i, setI] = useState(Math.max(0, Math.min((slides?.length ?? 1) - 1, startAt ?? 0)));
+  // Dirección de avance (1 = adelante, -1 = atrás) para transiciones direccionales.
+  const [dir, setDir] = useState(1);
   const [showNotes, setShowNotes] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const variant = TRANSITIONS[transitions?.[i] || transition || 'fade'] ?? TRANSITIONS.fade;
@@ -2029,6 +2091,8 @@ function Present({
   const boxRef = useRef<HTMLDivElement>(null);
   const iRef = useRef(0);
   const gridRef = useRef(false);
+  const previewOneRef = useRef(!!previewOne);
+  useEffect(() => { previewOneRef.current = !!previewOne; }, [previewOne]);
   useEffect(() => { iRef.current = i; setLaser(null); }, [i]);
   useEffect(() => { revealedRef.current = revealed; }, [revealed]);
   useEffect(() => { loopRef.current = loop; }, [loop]);
@@ -2065,12 +2129,13 @@ function Present({
       if (e.key === 'ArrowRight' || e.key === ' ') {
         setBlacked(false);
         if (revealedRef.current < maxStepRef.current) setReveal({ i: iRef.current, step: revealedRef.current + 1 });
-        else setI((v) => (v < slides.length - 1 ? v + 1 : (loopRef.current ? 0 : v)));
+        else if (previewOneRef.current) setReveal({ i: iRef.current, step: 0 }); // reinicia la vista previa
+        else { setDir(1); setI((v) => (v < slides.length - 1 ? v + 1 : (loopRef.current ? 0 : v))); }
       }
       if (e.key === 'ArrowLeft') {
         setBlacked(false);
         if (revealedRef.current > 0) setReveal({ i: iRef.current, step: Math.max(0, revealedRef.current - 1) });
-        else setI((v) => Math.max(0, v - 1));
+        else if (!previewOneRef.current) { setDir(-1); setI((v) => Math.max(0, v - 1)); }
       }
       if (k === 'n') setShowNotes((v) => !v);
       if (k === 'b') setBlacked((v) => !v);
@@ -2102,8 +2167,17 @@ function Present({
   // Secuencia de pasos de animación de la diapositiva actual.
   const { plan, maxStep } = planAnim(deck?.layers ?? []);
   useEffect(() => { maxStepRef.current = maxStep; }, [maxStep]);
-  const nextSlide = () => setI((v) => (v < slides.length - 1 ? v + 1 : (loop ? 0 : v)));
-  const advance = () => { setBlacked(false); if (revealed < maxStep) setReveal({ i, step: revealed + 1 }); else nextSlide(); };
+  const nextSlide = () => { setDir(1); setI((v) => (v < slides.length - 1 ? v + 1 : (loop ? 0 : v))); };
+  const prevSlide = () => { setDir(-1); setI((v) => Math.max(0, v - 1)); };
+  const advance = () => { setBlacked(false); if (revealed < maxStep) setReveal({ i, step: revealed + 1 }); else if (previewOne) setReveal({ i, step: 0 }); else nextSlide(); };
+
+  // Vista previa de animación: reproduce sola las construcciones de la
+  // diapositiva (un paso cada ~0,85 s) y se detiene al terminar (replay manual).
+  useEffect(() => {
+    if (!previewOne || revealed >= maxStep) return;
+    const t = setTimeout(() => setReveal({ i, step: revealed + 1 }), 850);
+    return () => clearTimeout(t);
+  }, [previewOne, revealed, maxStep, i]);
 
   // Avance automático (cronometraje de transición / modo kiosco). Cada disparo
   // revela el siguiente paso de animación (si lo hay) y, si ya no quedan, pasa a
@@ -2121,23 +2195,15 @@ function Present({
     return () => clearTimeout(t);
   }, [i, revealed, maxStep, paused, blacked, gridNav, presenter, advanceAfters, loop, slides.length]);
 
+  const curTrans = transitions?.[i] || transition || 'fade';
   const stage = (
-    <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
+    <div className="relative w-full h-full flex items-center justify-center overflow-hidden" style={{ perspective: DIRECTIONAL.has(curTrans) || curTrans === 'flip' ? 1600 : undefined }}>
       {!deck ? <div className="text-white/60">Generando…</div> : (
-        <AnimatePresence mode="popLayout" initial={false}>
-          <motion.div key={i} variants={variant} initial="initial" animate="animate" exit="exit" transition={{ duration: transSec, ease: 'easeInOut' }}
-            className="absolute" style={{ width: stageW, aspectRatio: aspect, background: deck.bg }}>
-            {master && <img src={master} alt="" className="absolute inset-0 w-full h-full object-contain pointer-events-none" />}
-            {deck.layers.map((L, j) => {
-              const p = plan.get(j);
-              const animated = !!(L.anim && L.anim !== 'none');
-              const shown = !animated || !p || revealed >= p.step;
-              return (
-                <motion.img key={j} src={L.src} alt="" className="absolute inset-0 w-full h-full object-contain"
-                  variants={OBJ_ANIM[L.anim] ?? OBJ_ANIM.none} initial="initial" animate={shown ? 'animate' : 'initial'}
-                  transition={{ duration: (L.dur || 500) / 1000, ease: 'easeOut', delay: shown && p ? p.start : 0 }} />
-              );
-            })}
+        <>
+        <AnimatePresence mode="popLayout" initial={false} custom={dir}>
+          <motion.div key={i} custom={dir} variants={variant} initial="initial" animate="animate" exit="exit" transition={{ duration: transSec, ease: 'easeInOut' }}
+            className="absolute" style={{ width: stageW, aspectRatio: aspect }}>
+            <AnimatedDeck deck={deck} master={master} plan={plan} revealed={revealed} />
             {(slides[i]?.objects ?? []).map((o: any, j: number) => {
               if (!o?.link) return null;
               const w = (o.radius ? o.radius * 2 : (o.width ?? 0)) * (o.scaleX ?? 1);
@@ -2162,6 +2228,12 @@ function Present({
             )}
           </motion.div>
         </AnimatePresence>
+        {/* Fundido a negro: cubre el cruce con un destello negro (tipo PowerPoint). */}
+        {curTrans === 'fadeBlack' && (
+          <motion.div key={`fb${i}`} className="absolute pointer-events-none bg-black z-[5]" style={{ width: stageW, aspectRatio: aspect }}
+            initial={{ opacity: 0.95 }} animate={{ opacity: 0 }} transition={{ duration: transSec, ease: 'easeInOut' }} />
+        )}
+        </>
       )}
     </div>
   );
@@ -2181,19 +2253,28 @@ function Present({
         <div className="flex-1 min-h-0 flex gap-4 p-4">
           <div className="flex-1 min-w-0 flex flex-col">
             <div className="relative flex-1 min-h-0 rounded-xl overflow-hidden bg-white" style={{ aspectRatio: aspect }}>
-              <StaticDeck deck={deck} master={master} />
+              <AnimatedDeck deck={deck} master={master} plan={plan} revealed={revealed} />
+              {maxStep > 0 && (
+                <span className="absolute top-2 right-2 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-black/60 text-white" title="Paso de construcción">Paso {revealed}/{maxStep}</span>
+              )}
             </div>
             <div className="flex items-center justify-center gap-3 pt-3">
-              <button onClick={() => setI((v) => Math.max(0, v - 1))} disabled={i === 0} className="w-11 h-11 rounded-full bg-white/15 text-2xl hover:bg-white/30 disabled:opacity-20">‹</button>
-              <button onClick={() => setI((v) => Math.min(slides.length - 1, v + 1))} disabled={i === slides.length - 1} className="w-11 h-11 rounded-full bg-white/15 text-2xl hover:bg-white/30 disabled:opacity-20">›</button>
+              <button onClick={() => { if (revealed > 0) setReveal({ i, step: revealed - 1 }); else prevSlide(); }} disabled={i === 0 && revealed === 0} className="w-11 h-11 rounded-full bg-white/15 text-2xl hover:bg-white/30 disabled:opacity-20" title="Anterior (←)">‹</button>
+              <button onClick={advance} disabled={i === slides.length - 1 && revealed >= maxStep && !loop} className="w-11 h-11 rounded-full bg-white/15 text-2xl hover:bg-white/30 disabled:opacity-20" title="Siguiente (→)">›</button>
             </div>
           </div>
           <div className="w-80 flex-shrink-0 flex flex-col gap-3">
             <div>
-              <p className="text-xs text-white/50 mb-1">Siguiente</p>
-              <div className="relative rounded-lg overflow-hidden bg-white border border-white/10" style={{ aspectRatio: aspect }}>
-                {i < slides.length - 1 ? <StaticDeck deck={decks[i + 1]} master={master} /> : <div className="absolute inset-0 flex items-center justify-center text-gray-400 text-sm">Fin</div>}
-              </div>
+              <p className="text-xs text-white/50 mb-1">{revealed < maxStep ? 'Siguiente · animación' : 'Siguiente · diapositiva'}</p>
+              {revealed < maxStep ? (
+                <div className="relative rounded-lg overflow-hidden bg-white/10 border border-white/10 flex items-center justify-center text-white/70 text-sm gap-2" style={{ aspectRatio: aspect }}>
+                  <PlayCircle className="w-5 h-5" /> Quedan {maxStep - revealed} animación(es)
+                </div>
+              ) : (
+                <div className="relative rounded-lg overflow-hidden bg-white border border-white/10" style={{ aspectRatio: aspect }}>
+                  {i < slides.length - 1 ? <StaticDeck deck={decks[i + 1]} master={master} /> : <div className="absolute inset-0 flex items-center justify-center text-gray-400 text-sm">Fin</div>}
+                </div>
+              )}
             </div>
             <div className="flex-1 min-h-0 rounded-lg bg-white/5 border border-white/10 p-3 overflow-y-auto">
               <div className="flex items-center justify-between mb-1">
@@ -2215,7 +2296,14 @@ function Present({
   return (
     <div className="fixed inset-0 z-[200] bg-black flex items-center justify-center"
       onClick={(e) => { if (e.target === e.currentTarget) advance(); }}>
+      {previewOne && (
+        <div className="absolute top-4 left-4 z-50 flex items-center gap-2">
+          <span className="text-xs font-semibold px-3 py-1.5 rounded-full bg-blue-500/90 text-white flex items-center gap-1.5"><PlayCircle className="w-4 h-4" /> Vista previa</span>
+          <button onClick={() => setReveal({ i, step: 0 })} title="Reproducir de nuevo" className="p-2 rounded-full bg-white/15 text-white hover:bg-white/30"><Repeat className="w-5 h-5" /></button>
+        </div>
+      )}
       <div className="absolute top-4 right-4 z-50 flex items-center gap-2">
+        {!previewOne && <>
         <button onClick={() => setTool((t) => (t === 'laser' ? 'none' : 'laser'))} title="Puntero láser (L)" className={`p-2 rounded-full text-white transition-colors ${tool === 'laser' ? 'bg-rose-500/90' : 'bg-white/15 hover:bg-white/30'}`}><Pointer className="w-5 h-5" /></button>
         <button onClick={() => setTool((t) => (t === 'pen' ? 'none' : 'pen'))} title="Lápiz (P)" className={`p-2 rounded-full text-white transition-colors ${tool === 'pen' ? 'bg-rose-500/90' : 'bg-white/15 hover:bg-white/30'}`}><Pencil className="w-5 h-5" /></button>
         <button onClick={clearInk} title="Borrar tinta (E)" className="p-2 rounded-full bg-white/15 text-white hover:bg-white/30"><Eraser className="w-5 h-5" /></button>
@@ -2227,6 +2315,7 @@ function Present({
         {hasNotes && (
           <button onClick={() => setShowNotes((v) => !v)} title="Notas del orador (N)" className={`p-2 rounded-full text-white transition-colors ${showNotes ? 'bg-amber-500/80' : 'bg-white/15 hover:bg-white/30'}`}><StickyNote className="w-5 h-5" /></button>
         )}
+        </>}
         <button onClick={onClose} title="Cerrar (Esc)" className="p-2 rounded-full bg-white/15 text-white hover:bg-white/30"><X className="w-5 h-5" /></button>
       </div>
       {stage}
@@ -2265,9 +2354,13 @@ function Present({
           </div>
         </div>
       )}
-      <button onClick={() => { if (revealed > 0) setReveal({ i, step: Math.max(0, revealed - 1) }); else setI((v) => Math.max(0, v - 1)); }} disabled={i === 0 && revealed === 0} className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/15 text-white text-2xl hover:bg-white/30 disabled:opacity-20 z-20">‹</button>
-      <button onClick={advance} disabled={i === slides.length - 1 && revealed >= maxStep && !loop} className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/15 text-white text-2xl hover:bg-white/30 disabled:opacity-20 z-20">›</button>
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/70 text-sm z-20">{i + 1} / {slides.length}{maxStep > 0 && <span className="text-white/40"> · paso {revealed}/{maxStep}</span>}{loop && <span className="text-white/40" title="Bucle"> · ↻</span>}{hasAuto && paused && <span className="text-amber-400" title="En pausa"> · ⏸</span>}</div>
+      {!previewOne && (
+        <button onClick={() => { if (revealed > 0) setReveal({ i, step: Math.max(0, revealed - 1) }); else prevSlide(); }} disabled={i === 0 && revealed === 0} className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/15 text-white text-2xl hover:bg-white/30 disabled:opacity-20 z-20">‹</button>
+      )}
+      {!previewOne && (
+        <button onClick={advance} disabled={i === slides.length - 1 && revealed >= maxStep && !loop} className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/15 text-white text-2xl hover:bg-white/30 disabled:opacity-20 z-20">›</button>
+      )}
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/70 text-sm z-20">{previewOne ? 'Vista previa' : `${i + 1} / ${slides.length}`}{maxStep > 0 && <span className="text-white/40"> · paso {revealed}/{maxStep}</span>}{!previewOne && loop && <span className="text-white/40" title="Bucle"> · ↻</span>}{!previewOne && hasAuto && paused && <span className="text-amber-400" title="En pausa"> · ⏸</span>}</div>
       {showNotes && (
         <div className="absolute bottom-0 left-0 right-0 max-h-[30%] overflow-y-auto bg-black/80 backdrop-blur border-t border-white/10 px-8 py-4 text-white/90 text-sm leading-relaxed whitespace-pre-wrap z-20">
           {note || <span className="text-white/40">Sin notas para esta diapositiva.</span>}

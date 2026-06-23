@@ -1210,8 +1210,25 @@ export function copyRange(sheet: any, srcRange: string, destCell: string, mode: 
 }
 
 // ── Autofiltro (no destructivo) ───────────────────────────────────────────────
-export type FilterOp = '=' | '!=' | '>' | '>=' | '<' | '<=' | 'contains' | 'notcontains' | 'empty' | 'notempty';
+export type FilterOp = '=' | '!=' | '>' | '>=' | '<' | '<=' | 'contains' | 'notcontains' | 'beginsWith' | 'endsWith' | 'empty' | 'notempty';
 export interface FilterCriterion { colRel: number; op: FilterOp; value: string }
+
+/**
+ * Convierte un patrón con comodines de Excel (`*` = cualquier secuencia, `?` = un carácter, `~`
+ * escapa al siguiente comodín) en un `RegExp` anclado e insensible a mayúsculas.
+ */
+function wildcardToRegExp(pattern: string): RegExp {
+  const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  let body = '';
+  for (let i = 0; i < pattern.length; i++) {
+    const ch = pattern[i];
+    if (ch === '~' && i + 1 < pattern.length) body += esc(pattern[++i]);
+    else if (ch === '*') body += '.*';
+    else if (ch === '?') body += '.';
+    else body += esc(ch);
+  }
+  return new RegExp(`^${body}$`, 'i');
+}
 
 /** ¿`raw` cumple el criterio? Numérico cuando ambos lados son números. */
 export function matchesCriterion(raw: any, op: FilterOp, value: string): boolean {
@@ -1220,6 +1237,11 @@ export function matchesCriterion(raw: any, op: FilterOp, value: string): boolean
   if (op === 'notempty') return sraw.trim() !== '';
   if (op === 'contains') return sraw.toLowerCase().includes(value.toLowerCase());
   if (op === 'notcontains') return !sraw.toLowerCase().includes(value.toLowerCase());
+  if (op === 'beginsWith') return sraw.toLowerCase().startsWith(value.toLowerCase());
+  if (op === 'endsWith') return sraw.toLowerCase().endsWith(value.toLowerCase());
+  // `=`/`!=` admiten comodines de Excel (`*`, `?`); sin comodines, comparación exacta (intacta).
+  const wild = (op === '=' || op === '!=') && (value.includes('*') || value.includes('?'));
+  if (wild) { const hit = wildcardToRegExp(value).test(sraw); return op === '=' ? hit : !hit; }
   const n = typeof raw === 'number' ? raw : Number(sraw); const nv = Number(value);
   const bothNum = sraw !== '' && value !== '' && !Number.isNaN(n) && !Number.isNaN(nv);
   switch (op) {
@@ -1233,8 +1255,12 @@ export function matchesCriterion(raw: any, op: FilterOp, value: string): boolean
   }
 }
 
-/** Filtra un rango por uno o varios criterios (AND) y devuelve celldata para una hoja nueva. */
-export function buildFilter(sheet: any, p: { range: string; hasHeader: boolean; criteria: FilterCriterion[] }): { celldata: any[]; matched: number; nCols: number } | null {
+/**
+ * Filtra un rango por uno o varios criterios y devuelve celldata para una hoja nueva. La unión por
+ * defecto es `AND` (todas); `conjunction: 'OR'` exige que se cumpla **alguna** (autofiltro
+ * personalizado de Excel: dos criterios unidos por Y/O).
+ */
+export function buildFilter(sheet: any, p: { range: string; hasHeader: boolean; criteria: FilterCriterion[]; conjunction?: 'AND' | 'OR' }): { celldata: any[]; matched: number; nCols: number } | null {
   const rng = parseRange(p.range); if (!rng || !sheet) return null;
   const map = new Map<string, any>();
   for (const cd of sheet.celldata ?? []) map.set(`${cd.r}_${cd.c}`, cd);
@@ -1256,11 +1282,48 @@ export function buildFilter(sheet: any, p: { range: string; hasHeader: boolean; 
   if (p.hasHeader) pushRow(rng.r1, true);
   let matched = 0;
   for (let r = startR; r <= rng.r2; r++) {
-    const ok = p.criteria.every((cr) => matchesCriterion(rawOf(map.get(`${r}_${rng.c1 + cr.colRel}`) as any), cr.op, cr.value));
+    const test = (cr: FilterCriterion) => matchesCriterion(rawOf(map.get(`${r}_${rng.c1 + cr.colRel}`) as any), cr.op, cr.value);
+    const ok = !p.criteria.length || (p.conjunction === 'OR' ? p.criteria.some(test) : p.criteria.every(test));
     if (!ok) continue;
     pushRow(r, false); matched++;
   }
   return { celldata: out, matched, nCols };
+}
+
+// ── Combinar / separar celdas ─────────────────────────────────────────────────
+/** Solapamiento de un registro de combinación `m` con el rectángulo dado. */
+function mergeOverlaps(m: any, r1: number, c1: number, r2: number, c2: number): boolean {
+  const mr2 = m.r + (m.rs || 1) - 1, mc2 = m.c + (m.cs || 1) - 1;
+  return m.r <= r2 && mr2 >= r1 && m.c <= c2 && mc2 >= c1;
+}
+
+/**
+ * Combina el rango en una sola celda (ancla = esquina superior izquierda), como «Combinar y centrar»
+ * de Excel. Escribe el registro `config.merge["r_c"] = { r, c, rs, cs }` — el **mismo formato** que el
+ * roundtrip XLSX, así que Fortune-Sheet lo renderiza al recargar y se exporta a `.xlsx` sin pérdida.
+ * Cualquier combinación previa que se solape se retira primero. El contenido del ancla se conserva; el
+ * de las celdas cubiertas queda **oculto** por la combinación (no se borra → separar lo recupera).
+ * Devuelve `false` si el rango es una sola celda (nada que combinar).
+ */
+export function mergeCells(sheet: any, range: string): boolean {
+  const rng = parseRange(range); if (!rng || !sheet) return false;
+  const { r1, c1, r2, c2 } = rng;
+  if (r1 === r2 && c1 === c2) return false;
+  sheet.config = sheet.config || {};
+  const merge: Record<string, any> = sheet.config.merge || {};
+  for (const k of Object.keys(merge)) { const m = merge[k]; if (m && mergeOverlaps(m, r1, c1, r2, c2)) delete merge[k]; }
+  merge[`${r1}_${c1}`] = { r: r1, c: c1, rs: r2 - r1 + 1, cs: c2 - c1 + 1 };
+  sheet.config.merge = merge;
+  return true;
+}
+
+/** Separa toda combinación que intersecte el rango. Devuelve cuántas se separaron. */
+export function unmergeCells(sheet: any, range: string): number {
+  const rng = parseRange(range); const merge = sheet?.config?.merge;
+  if (!rng || !merge) return 0;
+  const { r1, c1, r2, c2 } = rng; let n = 0;
+  for (const k of Object.keys(merge)) { const m = merge[k]; if (m && mergeOverlaps(m, r1, c1, r2, c2)) { delete merge[k]; n++; } }
+  return n;
 }
 
 // ── Rangos con nombre ─────────────────────────────────────────────────────────

@@ -23,6 +23,7 @@ import {
   CreateStationDto,
   QualifyModelLineDto,
   SaveLayoutDto,
+  SetApprovalDto,
   UpdateModelLineDto,
   UpdateStationDto,
   UploadDxfDto,
@@ -157,6 +158,16 @@ export class LineEngineeringController {
     return this.service.saveLayout(dto);
   }
 
+  @Put('layout/approval')
+  @RequirePermissions('engineering:write')
+  @ApiOperation({
+    summary:
+      'Cambia el estado de aprobación del layout (borrador / en revisión / aprobado).',
+  })
+  setApproval(@Body() dto: SetApprovalDto) {
+    return this.service.setApproval(dto);
+  }
+
   @Post('layout/clone')
   @RequirePermissions('engineering:write')
   @ApiOperation({
@@ -165,6 +176,19 @@ export class LineEngineeringController {
   })
   cloneLayout(@Body() dto: CloneLayoutDto) {
     return this.service.cloneLayout(dto);
+  }
+
+  @Get('layout/cells')
+  @RequirePermissions('engineering:read')
+  @ApiOperation({
+    summary:
+      'Métricas por celda/zona (estaciones, colocadas, tiempo de ciclo, % de área).',
+  })
+  layoutCells(
+    @Query('model') model: string,
+    @Query('revision') revision?: string,
+  ) {
+    return this.service.getCellMetrics(model, revision ?? 'A');
   }
 
   @Get('layout/dxf')
@@ -207,6 +231,19 @@ export class LineEngineeringController {
     @Query('revision') revision?: string,
   ) {
     return this.statusService.getStatus(model, revision ?? 'A');
+  }
+
+  @Get('layout/quality')
+  @RequirePermissions('engineering:read')
+  @ApiOperation({
+    summary:
+      'Calidad acumulada por estación (defectos + retenciones) para el overlay del layout.',
+  })
+  layoutQuality(
+    @Query('model') model: string,
+    @Query('revision') revision?: string,
+  ) {
+    return this.statusService.getQuality(model, revision ?? 'A');
   }
 
   @Get('layout/bays')
@@ -266,6 +303,228 @@ export class LineEngineeringController {
     });
   }
 
+  @Get('layout/buffers')
+  @RequirePermissions('engineering:read')
+  @ApiOperation({
+    summary:
+      'Plan de inventario de desacople (WIP) entre estaciones: unidades por hueco, WIP total y plazo agregado (ley de Little).',
+  })
+  layoutBuffers(
+    @Query('model') model: string,
+    @Query('revision') revision?: string,
+    @Query('availableTimeSec') availableTimeSec?: string,
+    @Query('demandUnits') demandUnits?: string,
+    @Query('taktTargetSec') taktTargetSec?: string,
+    @Query('coverageSec') coverageSec?: string,
+  ) {
+    return this.service.getBufferPlan({
+      model,
+      revision: revision ?? 'A',
+      availableTimeSec: availableTimeSec ? Number(availableTimeSec) : undefined,
+      demandUnits: demandUnits ? Number(demandUnits) : undefined,
+      taktTargetSec: taktTargetSec ? Number(taktTargetSec) : undefined,
+      coverageSec: coverageSec ? Number(coverageSec) : undefined,
+    });
+  }
+
+  @Get('layout/operator-loops')
+  @RequirePermissions('engineering:read')
+  @ApiOperation({
+    summary:
+      'Balanceo por bucles de operador: agrupa estaciones consecutivas en bucles ≤ takt y reporta el mínimo de operadores y la eficiencia.',
+  })
+  layoutOperatorLoops(
+    @Query('model') model: string,
+    @Query('revision') revision?: string,
+    @Query('availableTimeSec') availableTimeSec?: string,
+    @Query('demandUnits') demandUnits?: string,
+    @Query('taktTargetSec') taktTargetSec?: string,
+  ) {
+    return this.service.getOperatorLoops({
+      model,
+      revision: revision ?? 'A',
+      availableTimeSec: availableTimeSec ? Number(availableTimeSec) : undefined,
+      demandUnits: demandUnits ? Number(demandUnits) : undefined,
+      taktTargetSec: taktTargetSec ? Number(taktTargetSec) : undefined,
+    });
+  }
+
+  @Get('layout/cost')
+  @RequirePermissions('engineering:read')
+  @ApiOperation({
+    summary:
+      'Costo por unidad estimado del layout (mano de obra, piso y capex amortizado) con las tarifas que indique el planeador.',
+  })
+  layoutCost(
+    @Query('model') model: string,
+    @Query('revision') revision?: string,
+    @Query('availableTimeSec') availableTimeSec?: string,
+    @Query('demandUnits') demandUnits?: string,
+    @Query('taktTargetSec') taktTargetSec?: string,
+    @Query('laborCostPerHour') laborCostPerHour?: string,
+    @Query('spaceCostPerM2Month') spaceCostPerM2Month?: string,
+    @Query('assetUnitCost') assetUnitCost?: string,
+    @Query('monthlyVolume') monthlyVolume?: string,
+    @Query('amortizationMonths') amortizationMonths?: string,
+  ) {
+    return this.service.getCostModel({
+      model,
+      revision: revision ?? 'A',
+      availableTimeSec: availableTimeSec ? Number(availableTimeSec) : undefined,
+      demandUnits: demandUnits ? Number(demandUnits) : undefined,
+      taktTargetSec: taktTargetSec ? Number(taktTargetSec) : undefined,
+      rates: {
+        laborCostPerHour: laborCostPerHour
+          ? Number(laborCostPerHour)
+          : undefined,
+        spaceCostPerM2Month: spaceCostPerM2Month
+          ? Number(spaceCostPerM2Month)
+          : undefined,
+        assetUnitCost: assetUnitCost ? Number(assetUnitCost) : undefined,
+        monthlyVolume: monthlyVolume ? Number(monthlyVolume) : undefined,
+        amortizationMonths: amortizationMonths
+          ? Number(amortizationMonths)
+          : undefined,
+      },
+    });
+  }
+
+  @Get('layout/sensitivity')
+  @RequirePermissions('engineering:read')
+  @ApiOperation({
+    summary:
+      'Análisis de sensibilidad a la demanda: takt, operadores, factibilidad y costo por unidad a lo largo de un rango de demanda.',
+  })
+  layoutSensitivity(
+    @Query('model') model: string,
+    @Query('revision') revision?: string,
+    @Query('availableTimeSec') availableTimeSec?: string,
+    @Query('demandUnits') demandUnits?: string,
+    @Query('steps') steps?: string,
+    @Query('laborCostPerHour') laborCostPerHour?: string,
+    @Query('spaceCostPerM2Month') spaceCostPerM2Month?: string,
+    @Query('assetUnitCost') assetUnitCost?: string,
+  ) {
+    return this.service.getSensitivity({
+      model,
+      revision: revision ?? 'A',
+      availableTimeSec: availableTimeSec ? Number(availableTimeSec) : undefined,
+      demandUnits: demandUnits ? Number(demandUnits) : undefined,
+      steps: steps ? Number(steps) : undefined,
+      rates: {
+        laborCostPerHour: laborCostPerHour
+          ? Number(laborCostPerHour)
+          : undefined,
+        spaceCostPerM2Month: spaceCostPerM2Month
+          ? Number(spaceCostPerM2Month)
+          : undefined,
+        assetUnitCost: assetUnitCost ? Number(assetUnitCost) : undefined,
+      },
+    });
+  }
+
+  @Get('layout/compare')
+  @RequirePermissions('engineering:read')
+  @ApiOperation({
+    summary:
+      'Comparación de escenarios A vs B: enfrenta dos layouts en toda la suite de KPIs y da un veredicto.',
+  })
+  layoutCompare(
+    @Query('modelA') modelA: string,
+    @Query('modelB') modelB: string,
+    @Query('revisionA') revisionA?: string,
+    @Query('revisionB') revisionB?: string,
+    @Query('availableTimeSec') availableTimeSec?: string,
+    @Query('demandUnits') demandUnits?: string,
+    @Query('taktTargetSec') taktTargetSec?: string,
+    @Query('laborCostPerHour') laborCostPerHour?: string,
+  ) {
+    return this.service.getComparison({
+      modelA,
+      modelB,
+      revisionA: revisionA ?? 'A',
+      revisionB: revisionB ?? 'A',
+      availableTimeSec: availableTimeSec ? Number(availableTimeSec) : undefined,
+      demandUnits: demandUnits ? Number(demandUnits) : undefined,
+      taktTargetSec: taktTargetSec ? Number(taktTargetSec) : undefined,
+      rates: {
+        laborCostPerHour: laborCostPerHour
+          ? Number(laborCostPerHour)
+          : undefined,
+      },
+    });
+  }
+
+  @Get('layout/standard-work')
+  @RequirePermissions('engineering:read')
+  @ApiOperation({
+    summary:
+      'Tabla de trabajo estándar (SWCT): combina tiempo manual + caminado por bucle de operador contra el takt.',
+  })
+  layoutStandardWork(
+    @Query('model') model: string,
+    @Query('revision') revision?: string,
+    @Query('availableTimeSec') availableTimeSec?: string,
+    @Query('demandUnits') demandUnits?: string,
+    @Query('taktTargetSec') taktTargetSec?: string,
+    @Query('walkSpeedMps') walkSpeedMps?: string,
+  ) {
+    return this.service.getStandardWork({
+      model,
+      revision: revision ?? 'A',
+      availableTimeSec: availableTimeSec ? Number(availableTimeSec) : undefined,
+      demandUnits: demandUnits ? Number(demandUnits) : undefined,
+      taktTargetSec: taktTargetSec ? Number(taktTargetSec) : undefined,
+      walkSpeedMps: walkSpeedMps ? Number(walkSpeedMps) : undefined,
+    });
+  }
+
+  @Get('layout/dossier')
+  @RequirePermissions('engineering:read')
+  @ApiOperation({
+    summary:
+      'Expediente portable del layout: reporte + personal + costo + tabla de estaciones, con CSV listo para hoja de cálculo.',
+  })
+  layoutDossier(
+    @Query('model') model: string,
+    @Query('revision') revision?: string,
+    @Query('availableTimeSec') availableTimeSec?: string,
+    @Query('demandUnits') demandUnits?: string,
+    @Query('taktTargetSec') taktTargetSec?: string,
+    @Query('laborCostPerHour') laborCostPerHour?: string,
+  ) {
+    return this.service.getDossier({
+      model,
+      revision: revision ?? 'A',
+      availableTimeSec: availableTimeSec ? Number(availableTimeSec) : undefined,
+      demandUnits: demandUnits ? Number(demandUnits) : undefined,
+      taktTargetSec: taktTargetSec ? Number(taktTargetSec) : undefined,
+      rates: {
+        laborCostPerHour: laborCostPerHour
+          ? Number(laborCostPerHour)
+          : undefined,
+      },
+    });
+  }
+
+  @Get('layout/flex-line')
+  @RequirePermissions('engineering:read')
+  @ApiOperation({
+    summary:
+      'Análisis de línea flexible (multi-modelo): qué modelos comparten una línea física y qué tan común es su backbone de estaciones.',
+  })
+  layoutFlexLine(
+    @Query('line') line?: string,
+    @Query('model') model?: string,
+    @Query('revision') revision?: string,
+  ) {
+    return this.service.getFlexLine({
+      line,
+      model,
+      revision: revision ?? 'A',
+    });
+  }
+
   @Get('layout/completeness')
   @RequirePermissions('engineering:read')
   @ApiOperation({
@@ -303,6 +562,19 @@ export class LineEngineeringController {
     @Query('revision') revision?: string,
   ) {
     return this.service.getFlowDirection(model, revision ?? 'A');
+  }
+
+  @Get('layout/cell-flow')
+  @RequirePermissions('engineering:read')
+  @ApiOperation({
+    summary:
+      'Flujo intra-celda vs inter-celda: % del recorrido que cruza fronteras de celda.',
+  })
+  layoutCellFlow(
+    @Query('model') model: string,
+    @Query('revision') revision?: string,
+  ) {
+    return this.service.getCellFlow(model, revision ?? 'A');
   }
 
   @Get('layout/collisions')
@@ -343,6 +615,19 @@ export class LineEngineeringController {
     });
   }
 
+  @Get('layout/optimize')
+  @RequirePermissions('engineering:read')
+  @ApiOperation({
+    summary:
+      'Optimiza el orden de las estaciones para minimizar el recorrido de material. No persiste.',
+  })
+  layoutOptimize(
+    @Query('model') model: string,
+    @Query('revision') revision?: string,
+  ) {
+    return this.service.optimizeLayout(model, revision ?? 'A');
+  }
+
   @Get('layout/report')
   @RequirePermissions('engineering:read')
   @ApiOperation({
@@ -354,6 +639,24 @@ export class LineEngineeringController {
     @Query('revision') revision?: string,
   ) {
     return this.service.getLayoutReport(model, revision ?? 'A');
+  }
+
+  @Get('layout/history')
+  @RequirePermissions('engineering:read')
+  @ApiOperation({
+    summary:
+      'Bitácora de auditoría del layout: quién guardó, aprobó, versionó, clonó o cargó planos, en orden cronológico.',
+  })
+  layoutHistory(
+    @Query('model') model: string,
+    @Query('revision') revision?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.service.getLayoutHistory(
+      model,
+      revision ?? 'A',
+      limit ? Number(limit) : undefined,
+    );
   }
 
   @Get('layout/snapshots')

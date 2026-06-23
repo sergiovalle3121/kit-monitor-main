@@ -15,6 +15,7 @@ import {
   LayoutAsset,
   LayoutAnnotation,
   LayoutSnapshot,
+  LayoutCell,
 } from './entities/sf-line-layout.entity';
 import { TenantContextService } from '../../common/tenant/tenant-context.service';
 import {
@@ -22,7 +23,10 @@ import {
   getTenantRepositoryToken,
 } from '../../common/tenant/tenant-scoped.repository';
 import { EventLedgerService } from '../event-ledger/event-ledger.service';
-import { EventDomain } from '../event-ledger/entities/ledger-event.entity';
+import {
+  EventDomain,
+  LedgerEvent,
+} from '../event-ledger/entities/ledger-event.entity';
 import {
   CloneLayoutDto,
   CreateStationDto,
@@ -48,9 +52,29 @@ import {
 } from './line-balance';
 import { flowAnalysis, FlowAnalysis } from './line-flow';
 import { flowDirection, FlowDirectionResult } from './line-flowdir';
+import { cellFlow, CellFlowResult } from './line-cellflow';
 import { layoutCollisions, CollisionResult, RectBox } from './line-collision';
 import { autoArrange, ArrangedPosition } from './line-autoarrange';
+import { optimizeFlowOrder } from './line-optimize';
 import { staffingPlan, StaffingResult, StationStaffing } from './line-staffing';
+import { bufferPlan, BufferPlan } from './line-buffer';
+import { balanceLoops, LoopPlan } from './line-loops';
+import {
+  costModel,
+  areaToM2,
+  unitToMeters,
+  CostModel,
+  CostRates,
+} from './line-cost';
+import { standardWork, StdWorkResult } from './line-stdwork';
+import { dossierStationsToCsv, DossierStationRow } from './line-dossier';
+import { flexLineAnalysis, FlexLineResult } from './line-flexline';
+import {
+  sensitivityCurve,
+  demandSweep,
+  SensitivityResult,
+} from './line-sensitivity';
+import { compareLayouts, LayoutComparison, LayoutKpis } from './line-compare';
 
 /** One station's material/work requirement for a unit of a model — the bridge
  * that Material Staging (C) and the Operator Terminal (D) consume. */
@@ -97,6 +121,37 @@ export interface LayoutDxf {
   opacity: number;
 }
 
+export type ApprovalStatus = 'draft' | 'in_review' | 'approved';
+
+export interface LayoutApproval {
+  status: ApprovalStatus;
+  by: string | null;
+  at: string | null;
+  note: string | null;
+}
+
+/** Category of a layout history event — drives the icon/color in the UI. */
+export type LayoutHistoryKind =
+  | 'save'
+  | 'approval'
+  | 'snapshot'
+  | 'restore'
+  | 'dxf'
+  | 'clone'
+  | 'other';
+
+/** One entry in a layout's audit timeline (Fase 32) — a human-readable view of
+ * a ledger event already recorded for this layout. */
+export interface LayoutHistoryEntry {
+  id: string;
+  action: string;
+  kind: LayoutHistoryKind;
+  actor: string;
+  at: string;
+  title: string;
+  detail: string;
+}
+
 export interface LineLayout {
   model: string;
   revision: string;
@@ -106,6 +161,8 @@ export interface LineLayout {
   connectors: LayoutConnector[];
   assets: LayoutAsset[];
   annotations: LayoutAnnotation[];
+  cells: LayoutCell[];
+  approval: LayoutApproval;
 }
 
 /** Consolidated layout dossier (Fase 14). */
@@ -166,6 +223,34 @@ export interface SnapshotDiff {
   connectorsDelta: number;
   assetsDelta: number;
   annotationsDelta: number;
+}
+
+/** Portable, consolidated export of a layout (Fase 39): the F14 report plus
+ * manning, cost and a per-station table, with a spreadsheet-ready CSV. */
+export interface LayoutDossier {
+  generatedAt: string;
+  model: string;
+  revision: string;
+  unit: string;
+  report: LayoutReport;
+  staffing: { totalOperators: number; avgUtilizationPct: number } | null;
+  cost: {
+    totalCostPerUnit: number;
+    laborCostPerUnit: number;
+    spaceCostPerUnit: number;
+    capexPerUnit: number;
+    monthlyVolume: number;
+    throughputPerHour: number;
+  } | null;
+  completeness: {
+    total: number;
+    complete: number;
+    completenessPct: number;
+    missingVisualAid: number;
+  };
+  stations: DossierStationRow[];
+  /** The station table serialized as RFC-4180 CSV. */
+  csv: string;
 }
 
 export interface LineEngineeringKpis {
@@ -504,7 +589,84 @@ export class LineEngineeringService {
       connectors: layout?.connectors ?? [],
       assets: layout?.assets ?? [],
       annotations: layout?.annotations ?? [],
+      cells: layout?.cells ?? [],
+      approval: {
+        status: (layout?.approvalStatus as ApprovalStatus) || 'draft',
+        by: layout?.approvedBy ?? null,
+        at: layout?.approvedAt
+          ? new Date(layout.approvedAt).toISOString()
+          : null,
+        note: layout?.approvalNote ?? null,
+      },
     };
+  }
+
+  /**
+   * Set the layout's release state (Fase 29): draft → in_review → approved.
+   * Approving stamps the current user + time; moving back to draft/in_review
+   * clears the stamp. Additive — never touches the geometry.
+   */
+  async setApproval(dto: {
+    model: string;
+    revision?: string;
+    status: string;
+    note?: string;
+  }): Promise<LineLayout> {
+    const m = (dto.model ?? '').trim();
+    const r = (dto.revision ?? 'A').trim() || 'A';
+    if (!m) throw new BadRequestException('model es obligatorio.');
+    const status: ApprovalStatus = (
+      ['draft', 'in_review', 'approved'] as const
+    ).includes(dto.status as ApprovalStatus)
+      ? (dto.status as ApprovalStatus)
+      : 'draft';
+    const layout = await this.ensureLayout(m, r);
+    layout.approvalStatus = status;
+    layout.approvalNote = dto.note ? String(dto.note).slice(0, 240) : null;
+    if (status === 'approved') {
+      layout.approvedBy = this.tenantCtx.getUserEmail() ?? null;
+      layout.approvedAt = new Date();
+    } else {
+      layout.approvedBy = null;
+      layout.approvedAt = null;
+    }
+    await this.requireLayouts().save(layout);
+    await this.record('SF_LINE_LAYOUT_APPROVAL', `${m}|${r}`, null, {
+      after: { status, by: layout.approvedBy },
+    });
+    return this.getLayout(m, r);
+  }
+
+  /**
+   * Audit timeline for a layout (Fase 32): the chronological log of who saved,
+   * approved, snapshotted, restored, cloned or attached a plan — read straight
+   * from the event ledger that the mutating methods already write to. Read-only
+   * and degrades gracefully (empty list) when the ledger isn't wired in.
+   */
+  async getLayoutHistory(
+    model: string,
+    revision = 'A',
+    limit = 50,
+  ): Promise<LayoutHistoryEntry[]> {
+    const m = (model ?? '').trim();
+    const r = (revision ?? 'A').trim() || 'A';
+    if (!m) throw new BadRequestException('model es obligatorio.');
+    if (!this.ledger) return [];
+    const ref = `${m}|${r}`;
+    let events: LedgerEvent[];
+    try {
+      events = await this.ledger.getEventsByReference(
+        'SF_LINE_ENGINEERING',
+        ref,
+      );
+    } catch (err) {
+      this.logger.warn(
+        `Historial no disponible para ${ref}: ${(err as Error)?.message}`,
+      );
+      return [];
+    }
+    const n = Math.min(Math.max(1, Math.floor(Number(limit) || 50)), 200);
+    return events.slice(0, n).map((e) => toHistoryEntry(e));
   }
 
   /**
@@ -534,7 +696,8 @@ export class LineEngineeringService {
       dto.dxf ||
       dto.connectors ||
       dto.assets ||
-      dto.annotations
+      dto.annotations ||
+      dto.cells
     ) {
       const layout = await this.ensureLayout(model, revision);
       const f = dto.footprint;
@@ -578,6 +741,17 @@ export class LineEngineeringService {
           ...(a.color ? { color: String(a.color).slice(0, 16) } : {}),
         }));
       }
+      if (dto.cells) {
+        // keep only member ids that are real stations in this scope
+        layout.cells = dto.cells.map((c) => ({
+          id: String(c.id).slice(0, 64),
+          name: String(c.name || 'Celda').slice(0, 48),
+          color: String(c.color || '#6366f1').slice(0, 16),
+          stationIds: (c.stationIds ?? [])
+            .filter((sid) => byId.has(sid))
+            .slice(0, 200),
+        }));
+      }
       await this.requireLayouts().save(layout);
     }
 
@@ -617,6 +791,82 @@ export class LineEngineeringService {
     });
 
     return this.getLayout(model, revision);
+  }
+
+  /**
+   * Per-cell metrics (Fase 27): for each manufacturing cell, the station count,
+   * how many are placed, the total cycle time and the share of the footprint
+   * its bounding box covers. Read-only aggregation over the cells + placements.
+   */
+  async getCellMetrics(
+    model: string,
+    revision = 'A',
+  ): Promise<{
+    model: string;
+    revision: string;
+    unit: string;
+    footprintArea: number;
+    cells: {
+      id: string;
+      name: string;
+      color: string;
+      stationCount: number;
+      placedCount: number;
+      totalCycleTimeSec: number;
+      areaPctOfFootprint: number;
+    }[];
+  }> {
+    const m = (model ?? '').trim();
+    const r = (revision ?? 'A').trim() || 'A';
+    const layout = await this.getLayout(m, r);
+    const route = await this.routing(m, r);
+    const stdById = new Map(
+      route.map((s) => [s.id, Number(s.stdTimeSec) || 0]),
+    );
+    const stationById = new Map(layout.stations.map((s) => [s.id, s]));
+    const fp = layout.footprint;
+    const footprintArea = fp.footprintW * fp.footprintH;
+    const defW = fp.footprintW * 0.06;
+    const defH = fp.footprintH * 0.08;
+
+    const cells = layout.cells.map((c) => {
+      const members = c.stationIds
+        .map((id) => stationById.get(id))
+        .filter((s): s is NonNullable<typeof s> => !!s);
+      const placed = members.filter((s) => s.x !== null && s.y !== null);
+      const totalCycleTimeSec = c.stationIds.reduce(
+        (a, id) => a + (stdById.get(id) ?? 0),
+        0,
+      );
+      let area = 0;
+      if (placed.length > 0) {
+        const xs = placed.map((s) => s.x as number);
+        const ys = placed.map((s) => s.y as number);
+        const xe = placed.map((s) => (s.x as number) + (s.w ?? defW));
+        const ye = placed.map((s) => (s.y as number) + (s.h ?? defH));
+        area =
+          (Math.max(...xe) - Math.min(...xs)) *
+          (Math.max(...ye) - Math.min(...ys));
+      }
+      return {
+        id: c.id,
+        name: c.name,
+        color: c.color,
+        stationCount: members.length,
+        placedCount: placed.length,
+        totalCycleTimeSec: round(totalCycleTimeSec),
+        areaPctOfFootprint:
+          footprintArea > 0 ? round((area / footprintArea) * 100, 1) : 0,
+      };
+    });
+
+    return {
+      model: m,
+      revision: r,
+      unit: fp.unit,
+      footprintArea: round(footprintArea),
+      cells,
+    };
   }
 
   // ── Snapshots / versions (Fase 13) ─────────────────────────────────────────
@@ -1198,6 +1448,530 @@ export class LineEngineeringService {
   }
 
   /**
+   * WIP / decoupling-buffer plan for the line (Fase 33). Read-only: sizes the
+   * inventory to hold between consecutive stations so a stoppage on one doesn't
+   * immediately starve/block its neighbour, and reports the total decoupling WIP
+   * plus the lead time it adds (Little's law). Pure math via `bufferPlan`.
+   */
+  async getBufferPlan(params: {
+    model: string;
+    revision?: string;
+    availableTimeSec?: number;
+    demandUnits?: number;
+    taktTargetSec?: number;
+    coverageSec?: number;
+  }): Promise<BufferPlan & { model: string; revision: string }> {
+    const revision = params.revision ?? 'A';
+    const route = await this.routing(params.model, revision);
+    if (route.length === 0) {
+      throw new NotFoundException(
+        `Sin ruteo para ${params.model} rev ${revision}.`,
+      );
+    }
+    const takt =
+      params.taktTargetSec && params.taktTargetSec > 0
+        ? params.taktTargetSec
+        : computeTaktSec(params.availableTimeSec ?? 0, params.demandUnits ?? 0);
+    const plan = bufferPlan(
+      route.map((s) => ({
+        station: s.station,
+        sequence: s.sequence,
+        cycleTimeSec: Number(s.stdTimeSec),
+      })),
+      {
+        taktSec: takt,
+        coverageSec:
+          params.coverageSec && params.coverageSec > 0
+            ? params.coverageSec
+            : undefined,
+      },
+    );
+    return { ...plan, model: params.model, revision };
+  }
+
+  /**
+   * Operator-loop balancing for the line (Fase 34). Read-only: greedily packs
+   * consecutive stations into operator loops capped at the takt, answering "how
+   * few operators run this line if one can tend several quick adjacent stations"
+   * — the assignment complement to per-station staffing. Pure via `balanceLoops`.
+   */
+  async getOperatorLoops(params: {
+    model: string;
+    revision?: string;
+    availableTimeSec?: number;
+    demandUnits?: number;
+    taktTargetSec?: number;
+  }): Promise<LoopPlan & { model: string; revision: string }> {
+    const revision = params.revision ?? 'A';
+    const route = await this.routing(params.model, revision);
+    if (route.length === 0) {
+      throw new NotFoundException(
+        `Sin ruteo para ${params.model} rev ${revision}.`,
+      );
+    }
+    const takt =
+      params.taktTargetSec && params.taktTargetSec > 0
+        ? params.taktTargetSec
+        : computeTaktSec(params.availableTimeSec ?? 0, params.demandUnits ?? 0);
+    const plan = balanceLoops(
+      route.map((s) => ({
+        station: s.station,
+        sequence: s.sequence,
+        cycleTimeSec: Number(s.stdTimeSec),
+      })),
+      { taktSec: takt },
+    );
+    return { ...plan, model: params.model, revision };
+  }
+
+  /**
+   * Unit-economics estimate for the layout (Fase 35). Read-only: combines the
+   * manning (staffing), takt, floor area and equipment count with the rates the
+   * planner supplies into a cost-per-unit split across labor, space and
+   * amortized capex — so two candidate layouts can be compared on cost. Pure
+   * arithmetic via `costModel`.
+   */
+  async getCostModel(params: {
+    model: string;
+    revision?: string;
+    availableTimeSec?: number;
+    demandUnits?: number;
+    taktTargetSec?: number;
+    rates?: CostRates;
+  }): Promise<
+    CostModel & {
+      model: string;
+      revision: string;
+      operatorCount: number;
+      stationCount: number;
+      assetCount: number;
+      footprintAreaM2: number;
+    }
+  > {
+    const revision = params.revision ?? 'A';
+    const route = await this.routing(params.model, revision);
+    if (route.length === 0) {
+      throw new NotFoundException(
+        `Sin ruteo para ${params.model} rev ${revision}.`,
+      );
+    }
+    const takt =
+      params.taktTargetSec && params.taktTargetSec > 0
+        ? params.taktTargetSec
+        : computeTaktSec(params.availableTimeSec ?? 0, params.demandUnits ?? 0);
+    const staffing = staffingPlan(
+      route.map((s) => ({
+        station: s.station,
+        sequence: s.sequence,
+        stdTimeSec: Number(s.stdTimeSec),
+      })),
+      takt,
+    );
+    const layout = await this.getLayout(params.model, revision);
+    const footprintAreaM2 = areaToM2(
+      layout.footprint.footprintW * layout.footprint.footprintH,
+      layout.footprint.unit,
+    );
+    const cost = costModel(
+      {
+        operatorCount: staffing.totalOperators,
+        taktSec: takt,
+        footprintAreaM2,
+        assetCount: layout.assets.length,
+        stationCount: route.length,
+      },
+      params.rates ?? {},
+    );
+    return {
+      ...cost,
+      model: params.model,
+      revision,
+      operatorCount: staffing.totalOperators,
+      stationCount: route.length,
+      assetCount: layout.assets.length,
+      footprintAreaM2: round(footprintAreaM2, 2),
+    };
+  }
+
+  /**
+   * Demand-sensitivity sweep for the layout (Fase 36). Read-only: walks a range
+   * of demand around the planned point and reports, at each level, takt,
+   * operators, feasibility and unit cost — showing how the layout scales, where
+   * an extra operator must step in and the demand ceiling. Pure via
+   * `sensitivityCurve`.
+   */
+  async getSensitivity(params: {
+    model: string;
+    revision?: string;
+    availableTimeSec?: number;
+    demandUnits?: number;
+    steps?: number;
+    rates?: CostRates;
+  }): Promise<SensitivityResult & { model: string; revision: string }> {
+    const revision = params.revision ?? 'A';
+    const route = await this.routing(params.model, revision);
+    if (route.length === 0) {
+      throw new NotFoundException(
+        `Sin ruteo para ${params.model} rev ${revision}.`,
+      );
+    }
+    const availableTimeSec =
+      params.availableTimeSec && params.availableTimeSec > 0
+        ? params.availableTimeSec
+        : 28800; // default 8 h shift
+    const centerDemand =
+      params.demandUnits && params.demandUnits > 0 ? params.demandUnits : 400;
+    const layout = await this.getLayout(params.model, revision);
+    const footprintAreaM2 = areaToM2(
+      layout.footprint.footprintW * layout.footprint.footprintH,
+      layout.footprint.unit,
+    );
+    const result = sensitivityCurve(
+      route.map((s) => ({
+        station: s.station,
+        sequence: s.sequence,
+        stdTimeSec: Number(s.stdTimeSec),
+      })),
+      {
+        availableTimeSec,
+        demands: demandSweep(centerDemand, params.steps ?? 9),
+        footprintAreaM2,
+        assetCount: layout.assets.length,
+        rates: params.rates ?? {},
+      },
+    );
+    return { ...result, model: params.model, revision };
+  }
+
+  /**
+   * Compact analytics bundle for one layout (Fase 37) — readiness, floor use,
+   * flow, validation, balance, manning and cost — used by the scenario
+   * comparison. Manning/cost degrade to null when the model has no routing.
+   */
+  private async layoutKpis(
+    model: string,
+    revision: string,
+    opts: {
+      availableTimeSec?: number;
+      demandUnits?: number;
+      taktTargetSec?: number;
+      rates?: CostRates;
+    },
+  ): Promise<LayoutKpis> {
+    const report = await this.getLayoutReport(model, revision);
+    let operators: number | null = null;
+    let costPerUnit: number | null = null;
+    try {
+      const staffing = await this.getStaffing({
+        model,
+        revision,
+        availableTimeSec: opts.availableTimeSec,
+        demandUnits: opts.demandUnits,
+        taktTargetSec: opts.taktTargetSec,
+      });
+      operators = staffing.totalOperators;
+    } catch {
+      operators = null;
+    }
+    try {
+      const cost = await this.getCostModel({
+        model,
+        revision,
+        availableTimeSec: opts.availableTimeSec,
+        demandUnits: opts.demandUnits,
+        taktTargetSec: opts.taktTargetSec,
+        rates: opts.rates,
+      });
+      costPerUnit = cost.totalCostPerUnit;
+    } catch {
+      costPerUnit = null;
+    }
+    return {
+      model,
+      revision,
+      stations: report.stations.total,
+      placed: report.stations.placed,
+      readinessPct: report.stations.readinessPct,
+      utilizationPct: report.space.utilizationPct,
+      assetCount: report.space.assetCount,
+      flowDistance: report.flow.totalDistance,
+      crossings: report.flow.crossings,
+      overlaps: report.validation.overlaps,
+      outOfBounds: report.validation.outOfBounds,
+      // balancePct is a 0..1 fraction in the report → percent for display.
+      balancePct: report.balance
+        ? round(report.balance.balancePct * 100, 1)
+        : null,
+      bottleneckStation: report.balance?.bottleneckStation ?? null,
+      lineCycleTimeSec: report.balance?.lineCycleTimeSec ?? null,
+      operators,
+      costPerUnit,
+    };
+  }
+
+  /**
+   * Head-to-head scenario comparison of two layouts (Fase 37). Read-only: pits
+   * two (model, revision) scopes against each other across the KPI suite,
+   * scoring each metric for the better side and returning an overall verdict —
+   * the capstone that turns the analytics into a layout decision. Pure scoring
+   * via `compareLayouts`.
+   */
+  async getComparison(params: {
+    modelA: string;
+    revisionA?: string;
+    modelB: string;
+    revisionB?: string;
+    availableTimeSec?: number;
+    demandUnits?: number;
+    taktTargetSec?: number;
+    rates?: CostRates;
+  }): Promise<LayoutComparison> {
+    const mA = (params.modelA ?? '').trim();
+    const mB = (params.modelB ?? '').trim();
+    if (!mA || !mB) {
+      throw new BadRequestException('modelA y modelB son obligatorios.');
+    }
+    const opts = {
+      availableTimeSec: params.availableTimeSec,
+      demandUnits: params.demandUnits,
+      taktTargetSec: params.taktTargetSec,
+      rates: params.rates,
+    };
+    const [a, b] = await Promise.all([
+      this.layoutKpis(mA, (params.revisionA ?? 'A').trim() || 'A', opts),
+      this.layoutKpis(mB, (params.revisionB ?? 'A').trim() || 'A', opts),
+    ]);
+    return compareLayouts(a, b);
+  }
+
+  /**
+   * Standard Work Combination Table for the line (Fase 38). Read-only: takes
+   * the operator loops (manual time) and layers the WALK between the placed
+   * stations of each loop, combining manual + walk against takt — surfacing
+   * loops that hold takt on paper but bust it once walking is counted. Pure via
+   * `standardWork`.
+   */
+  async getStandardWork(params: {
+    model: string;
+    revision?: string;
+    availableTimeSec?: number;
+    demandUnits?: number;
+    taktTargetSec?: number;
+    walkSpeedMps?: number;
+  }): Promise<
+    StdWorkResult & { model: string; revision: string; unit: string }
+  > {
+    const revision = params.revision ?? 'A';
+    const route = await this.routing(params.model, revision);
+    if (route.length === 0) {
+      throw new NotFoundException(
+        `Sin ruteo para ${params.model} rev ${revision}.`,
+      );
+    }
+    const takt =
+      params.taktTargetSec && params.taktTargetSec > 0
+        ? params.taktTargetSec
+        : computeTaktSec(params.availableTimeSec ?? 0, params.demandUnits ?? 0);
+    const layout = await this.getLayout(params.model, revision);
+    const defW = layout.footprint.footprintW * 0.06;
+    const defH = layout.footprint.footprintH * 0.08;
+    const posByStation = new Map(layout.stations.map((s) => [s.station, s]));
+    const stations = route.map((s) => {
+      const p = posByStation.get(s.station);
+      const placed = !!p && p.x !== null && p.y !== null;
+      return {
+        station: s.station,
+        sequence: s.sequence,
+        manualSec: Number(s.stdTimeSec),
+        cx: placed ? (p.x as number) + (p.w ?? defW) / 2 : null,
+        cy: placed ? (p.y as number) + (p.h ?? defH) / 2 : null,
+      };
+    });
+    const result = standardWork(stations, {
+      taktSec: takt,
+      walkSpeedMps: params.walkSpeedMps,
+      metersPerUnit: unitToMeters(layout.footprint.unit),
+    });
+    return {
+      ...result,
+      model: params.model,
+      revision,
+      unit: layout.footprint.unit,
+    };
+  }
+
+  /**
+   * Portable layout dossier (Fase 39). Read-only: consolidates the report (F14)
+   * with manning, cost and a per-station table into one object, plus a
+   * spreadsheet-ready CSV of the stations — so the whole computed picture of a
+   * layout can be handed off (Excel, a report, management) in one download.
+   * Manning/cost degrade to null when the model has no routing.
+   */
+  async getDossier(params: {
+    model: string;
+    revision?: string;
+    availableTimeSec?: number;
+    demandUnits?: number;
+    taktTargetSec?: number;
+    rates?: CostRates;
+  }): Promise<LayoutDossier> {
+    const model = (params.model ?? '').trim();
+    const revision = (params.revision ?? 'A').trim() || 'A';
+    if (!model) throw new BadRequestException('model es obligatorio.');
+
+    const [report, completeness, layout, route] = await Promise.all([
+      this.getLayoutReport(model, revision),
+      this.getCompleteness(model, revision),
+      this.getLayout(model, revision),
+      this.routing(model, revision),
+    ]);
+
+    let staffing: LayoutDossier['staffing'] = null;
+    let cost: LayoutDossier['cost'] = null;
+    try {
+      const st = await this.getStaffing({
+        model,
+        revision,
+        availableTimeSec: params.availableTimeSec,
+        demandUnits: params.demandUnits,
+        taktTargetSec: params.taktTargetSec,
+      });
+      staffing = {
+        totalOperators: st.totalOperators,
+        avgUtilizationPct: st.avgUtilizationPct,
+      };
+    } catch {
+      staffing = null;
+    }
+    try {
+      const c = await this.getCostModel({
+        model,
+        revision,
+        availableTimeSec: params.availableTimeSec,
+        demandUnits: params.demandUnits,
+        taktTargetSec: params.taktTargetSec,
+        rates: params.rates,
+      });
+      cost = {
+        totalCostPerUnit: c.totalCostPerUnit,
+        laborCostPerUnit: c.laborCostPerUnit,
+        spaceCostPerUnit: c.spaceCostPerUnit,
+        capexPerUnit: c.capexPerUnit,
+        monthlyVolume: c.monthlyVolume,
+        throughputPerHour: c.throughputPerHour,
+      };
+    } catch {
+      cost = null;
+    }
+
+    const placedSet = new Set(
+      layout.stations
+        .filter((s) => s.x !== null && s.y !== null)
+        .map((s) => s.station),
+    );
+    const cycleByStation = new Map(
+      route.map((s) => [s.station, Number(s.stdTimeSec) || 0]),
+    );
+    const seqByStation = new Map(route.map((s) => [s.station, s.sequence]));
+    const lineByStation = new Map(route.map((s) => [s.station, s.line]));
+    const stations: DossierStationRow[] = completeness.stations.map((s) => ({
+      station: s.station,
+      line: lineByStation.get(s.station) ?? '',
+      sequence: seqByStation.get(s.station) ?? 0,
+      cycleTimeSec: cycleByStation.get(s.station) ?? 0,
+      hasNp: s.hasNp,
+      hasUseFactor: s.hasUseFactor,
+      hasVisualAid: s.hasVisualAid,
+      complete: s.complete,
+      placed: placedSet.has(s.station),
+    }));
+
+    const completenessPct =
+      completeness.total > 0
+        ? round((completeness.complete / completeness.total) * 100, 1)
+        : 0;
+
+    return {
+      generatedAt: new Date().toISOString(),
+      model,
+      revision,
+      unit: layout.footprint.unit,
+      report,
+      staffing,
+      cost,
+      completeness: {
+        total: completeness.total,
+        complete: completeness.complete,
+        completenessPct,
+        missingVisualAid: completeness.missingVisualAid,
+      },
+      stations,
+      csv: dossierStationsToCsv(stations),
+    };
+  }
+
+  /**
+   * Flex-line (multi-model) analysis (Fase 40). Read-only: finds every model
+   * that runs on a physical line and measures how much they SHARE — the common
+   * station backbone vs each model's changeover-specific stations — plus each
+   * model's line cycle. The line can be given directly, or derived from a model
+   * (its routing's line). Pure set math via `flexLineAnalysis`.
+   */
+  async getFlexLine(params: {
+    line?: string;
+    model?: string;
+    revision?: string;
+  }): Promise<FlexLineResult> {
+    let line = (params.line ?? '').trim();
+    // Derive the line from a model's routing when not given directly.
+    if (!line && params.model) {
+      const route = await this.routing(
+        params.model.trim(),
+        (params.revision ?? 'A').trim() || 'A',
+      );
+      line = route[0]?.line ?? '';
+    }
+    if (!line) {
+      throw new BadRequestException('line (o model) es obligatorio.');
+    }
+
+    // Distinct (model, revision) pairs with active stations on this line.
+    const pairsQb = this.stations.createQueryBuilder('s');
+    this.applyScope(pairsQb, 's');
+    pairsQb
+      .select('s.model', 'model')
+      .addSelect('s.revision', 'revision')
+      .andWhere('s.line = :line', { line })
+      .andWhere('s.active = :a', { a: true })
+      .groupBy('s.model')
+      .addGroupBy('s.revision')
+      .orderBy('s.model', 'ASC')
+      .addOrderBy('s.revision', 'ASC');
+    const pairs = await pairsQb.getRawMany<{
+      model: string;
+      revision: string;
+    }>();
+
+    const routes = await Promise.all(
+      pairs.map(async (p) => {
+        const route = await this.routing(p.model, p.revision || 'A');
+        const bottleneckSec = route.reduce(
+          (m, s) => Math.max(m, Number(s.stdTimeSec) || 0),
+          0,
+        );
+        return {
+          model: p.model,
+          revision: p.revision || 'A',
+          stations: route.map((s) => s.station),
+          bottleneckSec,
+        };
+      }),
+    );
+
+    return flexLineAnalysis(line, routes);
+  }
+
+  /**
    * Material-flow "spaghetti diagram" for the 2D layout (Fase 10). Read-only
    * geometry: it takes the placed stations and the flow connectors already on
    * the plan and measures how far material travels, the longest hop, and how
@@ -1253,6 +2027,56 @@ export class LineEngineeringService {
       }));
     const result = flowDirection(placed);
     return { ...result, model: m, revision: r, unit: layout.footprint.unit };
+  }
+
+  /**
+   * Inter-cell flow analysis (Fase 28): splits the material flow into intra-cell
+   * vs inter-cell (crossing cell boundaries) using the cells and connectors on
+   * the plan, and reports the share that crosses boundaries. Read-only.
+   */
+  async getCellFlow(
+    model: string,
+    revision = 'A',
+  ): Promise<
+    CellFlowResult & {
+      model: string;
+      revision: string;
+      unit: string;
+      cellCount: number;
+      interSegments: { from: string; to: string; distance: number }[];
+    }
+  > {
+    const m = (model ?? '').trim();
+    const r = (revision ?? 'A').trim() || 'A';
+    const layout = await this.getLayout(m, r);
+    const defW = layout.footprint.footprintW * 0.03;
+    const defH = layout.footprint.footprintH * 0.04;
+    const cellOf = new Map<string, string>();
+    for (const cell of layout.cells) {
+      for (const sid of cell.stationIds) cellOf.set(sid, cell.id);
+    }
+    const nameById = new Map(layout.stations.map((s) => [s.id, s.station]));
+    const nodes = layout.stations
+      .filter((s) => s.x !== null && s.y !== null)
+      .map((s) => ({
+        id: s.id,
+        cellId: cellOf.get(s.id) ?? null,
+        cx: (s.x as number) + (s.w !== null ? s.w / 2 : defW),
+        cy: (s.y as number) + (s.h !== null ? s.h / 2 : defH),
+      }));
+    const result = cellFlow(nodes, layout.connectors);
+    return {
+      ...result,
+      model: m,
+      revision: r,
+      unit: layout.footprint.unit,
+      cellCount: layout.cells.length,
+      interSegments: result.interSegments.map((seg) => ({
+        from: nameById.get(seg.from) ?? seg.from,
+        to: nameById.get(seg.to) ?? seg.to,
+        distance: seg.distance,
+      })),
+    };
   }
 
   /**
@@ -1345,6 +2169,91 @@ export class LineEngineeringService {
       opts,
     );
     return { model, revision, positions };
+  }
+
+  /**
+   * Flow-layout optimization (Fase 23): suggest a station ORDER that minimizes
+   * total material travel over the flow graph (connectors, or the routing chain
+   * when there are none), then repack the real boxes in that order with the
+   * serpentine auto-arrange. Read-only — returns positions for the editor to
+   * apply; the engineer reviews and saves.
+   */
+  async optimizeLayout(
+    model: string,
+    revision = 'A',
+  ): Promise<{
+    model: string;
+    revision: string;
+    unit: string;
+    positions: ArrangedPosition[];
+    costBefore: number;
+    costAfter: number;
+    improvedPct: number;
+  }> {
+    const m = (model ?? '').trim();
+    const r = (revision ?? 'A').trim() || 'A';
+    const layout = await this.getLayout(m, r);
+    const fp = layout.footprint;
+    const sorted = [...layout.stations].sort((a, b) => a.sequence - b.sequence);
+
+    // Uniform candidate slots (so they're interchangeable): pack max-sized boxes.
+    const defW = Math.round(fp.footprintW * 0.06);
+    const defH = Math.round(fp.footprintH * 0.08);
+    const slotW = Math.max(defW, ...sorted.map((s) => s.w ?? defW), 1);
+    const slotH = Math.max(defH, ...sorted.map((s) => s.h ?? defH), 1);
+    const uniform = autoArrange(
+      sorted.map((s) => ({
+        id: s.id,
+        sequence: s.sequence,
+        w: slotW,
+        h: slotH,
+      })),
+      fp,
+    );
+    const centerById = new Map(
+      uniform.map((p) => [p.id, { cx: p.x + slotW / 2, cy: p.y + slotH / 2 }]),
+    );
+    const slots = sorted.map((s) => centerById.get(s.id) ?? { cx: 0, cy: 0 });
+
+    // Flow edges: real connectors if any, else the consecutive routing chain.
+    const present = new Set(sorted.map((s) => s.id));
+    let edges = layout.connectors
+      .filter((c) => present.has(c.from) && present.has(c.to))
+      .map((c) => ({ from: c.from, to: c.to }));
+    if (edges.length === 0) {
+      edges = [];
+      for (let i = 0; i < sorted.length - 1; i += 1) {
+        edges.push({ from: sorted[i].id, to: sorted[i + 1].id });
+      }
+    }
+
+    const opt = optimizeFlowOrder(
+      sorted.map((s) => ({ id: s.id, sequence: s.sequence })),
+      slots,
+      edges,
+    );
+
+    // Repack the real (own-sized) boxes in the optimized order.
+    const sizeById = new Map(sorted.map((s) => [s.id, { w: s.w, h: s.h }]));
+    const positions = autoArrange(
+      opt.order.map((id, idx) => ({
+        id,
+        sequence: idx,
+        w: sizeById.get(id)?.w ?? null,
+        h: sizeById.get(id)?.h ?? null,
+      })),
+      fp,
+    );
+
+    return {
+      model: m,
+      revision: r,
+      unit: fp.unit,
+      positions,
+      costBefore: opt.costBefore,
+      costAfter: opt.costAfter,
+      improvedPct: opt.improvedPct,
+    };
   }
 
   /**
@@ -1574,6 +2483,101 @@ export class LineEngineeringService {
 function round(n: number, dp = 2): number {
   const f = Math.pow(10, dp);
   return Math.round((Number(n) || 0) * f) / f;
+}
+
+const APPROVAL_LABEL: Record<string, string> = {
+  draft: 'borrador',
+  in_review: 'en revisión',
+  approved: 'aprobado',
+};
+
+/** Turn a stored ledger event into a human-readable timeline entry (Fase 32). */
+function toHistoryEntry(e: LedgerEvent): LayoutHistoryEntry {
+  const after = (e.metadata?.afterState ?? {}) as Record<string, unknown>;
+  const { title, detail, kind } = describeLayoutEvent(e.action, after);
+  const at =
+    e.timestamp instanceof Date
+      ? e.timestamp.toISOString()
+      : String(e.timestamp ?? '');
+  return {
+    id: e.id,
+    action: e.action,
+    kind,
+    actor: e.actorName || 'anónimo',
+    at,
+    title,
+    detail,
+  };
+}
+
+/** Stringify a ledger after-state field that is typed `unknown`, without
+ * stringifying objects (keeps the no-base-to-string lint honest). */
+function asText(v: unknown): string {
+  if (typeof v === 'string') return v;
+  if (typeof v === 'number' && Number.isFinite(v)) return String(v);
+  return '';
+}
+
+/** Map a layout event action + its recorded after-state to a Spanish summary. */
+function describeLayoutEvent(
+  action: string,
+  after: Record<string, unknown>,
+): { title: string; detail: string; kind: LayoutHistoryKind } {
+  switch (action) {
+    case 'SF_LINE_LAYOUT_SAVED': {
+      const placed = Math.max(0, Math.floor(Number(after.placed) || 0));
+      const cleared = Math.max(0, Math.floor(Number(after.cleared) || 0));
+      const parts: string[] = [];
+      if (placed) parts.push(`${placed} colocada${placed === 1 ? '' : 's'}`);
+      if (cleared) parts.push(`${cleared} retirada${cleared === 1 ? '' : 's'}`);
+      return {
+        title: 'Guardó el layout',
+        detail: parts.join(' · ') || 'sin cambios de posición',
+        kind: 'save',
+      };
+    }
+    case 'SF_LINE_LAYOUT_APPROVAL': {
+      const status = asText(after.status).toLowerCase();
+      const label = APPROVAL_LABEL[status] ?? status ?? '—';
+      return {
+        title: `Cambió aprobación a ${label}`,
+        detail: '',
+        kind: 'approval',
+      };
+    }
+    case 'SF_LINE_LAYOUT_SNAPSHOT':
+      return {
+        title: 'Creó un snapshot',
+        detail: asText(after.name),
+        kind: 'snapshot',
+      };
+    case 'SF_LINE_LAYOUT_RESTORED':
+      return {
+        title: 'Restauró un snapshot',
+        detail: asText(after.name),
+        kind: 'restore',
+      };
+    case 'SF_LINE_LAYOUT_DXF_SET': {
+      const name = asText(after.name);
+      const bytes = Math.max(0, Math.floor(Number(after.bytes) || 0));
+      const detail = [name, bytes ? `${(bytes / 1024).toFixed(0)} KB` : '']
+        .filter(Boolean)
+        .join(' · ');
+      return { title: 'Cargó un plano DXF', detail, kind: 'dxf' };
+    }
+    case 'SF_LINE_LAYOUT_DXF_CLEARED':
+      return { title: 'Quitó el plano DXF', detail: '', kind: 'dxf' };
+    case 'SF_LINE_LAYOUT_CLONED': {
+      const from = asText(after.from);
+      return {
+        title: 'Clonó el layout',
+        detail: from ? `desde ${from}` : '',
+        kind: 'clone',
+      };
+    }
+    default:
+      return { title: action, detail: '', kind: 'other' };
+  }
 }
 
 /** Coerce to a positive finite number, falling back to `fallback` otherwise. */

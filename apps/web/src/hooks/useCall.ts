@@ -66,11 +66,14 @@ export function useCall({
   const [remotes, setRemotes] = useState<RemotePeer[]>([]);
   const [micOn, setMicOn] = useState(true);
   const [camOn, setCamOn] = useState(true);
+  const [screenOn, setScreenOn] = useState(false);
 
   const pcsRef = useRef<Map<string, RTCPeerConnection>>(new Map());
   const pendingRef = useRef<Map<string, RTCIceCandidateInit[]>>(new Map());
   const remoteSetRef = useRef<Set<string>>(new Set());
   const localStreamRef = useRef<MediaStream | null>(null);
+  const screenStreamRef = useRef<MediaStream | null>(null);
+  const camTrackRef = useRef<MediaStreamTrack | null>(null);
   const callRef = useRef<CallState | null>(null);
   const wasActiveRef = useRef(false);
   const activeSinceRef = useRef(0);
@@ -143,12 +146,16 @@ export function useCall({
     pcsRef.current.clear();
     pendingRef.current.clear();
     remoteSetRef.current.clear();
+    screenStreamRef.current?.getTracks().forEach((t) => t.stop());
+    screenStreamRef.current = null;
+    camTrackRef.current = null;
     localStreamRef.current?.getTracks().forEach((t) => t.stop());
     localStreamRef.current = null;
     setLocalStream(null);
     setRemotes([]);
     setMicOn(true);
     setCamOn(true);
+    setScreenOn(false);
     setCall((prev) => (prev ? { ...prev, status: 'ended', endReason: reason } : null));
     window.setTimeout(() => {
       setCall((prev) => (prev?.status === 'ended' ? null : prev));
@@ -304,6 +311,113 @@ export function useCall({
     tracks.forEach((t) => (t.enabled = enabled));
     setCamOn(enabled);
   }, []);
+
+  // ── compartir pantalla ──────────────────────────────────────────────────
+  // Renegociación manual hacia un par (al añadir una pista nueva en audio-only).
+  const renegotiate = useCallback(
+    async (peer: string) => {
+      const c = callRef.current;
+      const pc = pcsRef.current.get(peer);
+      if (!c || !pc || !socket) return;
+      try {
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        socket.emit('call:signal', {
+          conversationId: c.conversationId,
+          callId: c.callId,
+          toUserId: peer,
+          data: { sdp: pc.localDescription },
+        });
+      } catch {
+        /* glare: el otro lado reintentará */
+      }
+    },
+    [socket],
+  );
+
+  const stopScreenShare = useCallback(async () => {
+    const display = screenStreamRef.current;
+    if (!display) return;
+    const cam = camTrackRef.current;
+    for (const pc of pcsRef.current.values()) {
+      const sender = pc.getSenders().find((s) => s.track?.kind === 'video');
+      if (sender) {
+        try {
+          await sender.replaceTrack(cam ?? null);
+        } catch {
+          /* noop */
+        }
+      }
+    }
+    const local = localStreamRef.current;
+    if (local) {
+      const cur = local.getVideoTracks()[0];
+      if (cur) local.removeTrack(cur);
+      if (cam) local.addTrack(cam);
+    }
+    display.getTracks().forEach((t) => t.stop());
+    screenStreamRef.current = null;
+    camTrackRef.current = null;
+    setScreenOn(false);
+    if (cam) setCamOn(cam.enabled);
+  }, []);
+
+  const startScreenShare = useCallback(async () => {
+    const c = callRef.current;
+    if (!c || screenStreamRef.current) return;
+    const md = navigator.mediaDevices as MediaDevices & {
+      getDisplayMedia?: (c?: DisplayMediaStreamOptions) => Promise<MediaStream>;
+    };
+    if (!md.getDisplayMedia) return;
+    let display: MediaStream;
+    try {
+      display = await md.getDisplayMedia({ video: true, audio: false });
+    } catch {
+      return; // el usuario canceló el diálogo de compartir
+    }
+    const screenTrack = display.getVideoTracks()[0];
+    if (!screenTrack) return;
+    screenStreamRef.current = display;
+    const local = localStreamRef.current;
+    camTrackRef.current = local?.getVideoTracks()[0] ?? null;
+
+    for (const [peer, pc] of pcsRef.current) {
+      const sender = pc.getSenders().find((s) => s.track?.kind === 'video');
+      if (sender) {
+        try {
+          await sender.replaceTrack(screenTrack);
+        } catch {
+          /* noop */
+        }
+      } else {
+        try {
+          pc.addTrack(screenTrack, local ?? display);
+          await renegotiate(peer);
+        } catch {
+          /* noop */
+        }
+      }
+    }
+    // Refleja en mi vista local (mismo MediaStream → el <video> se actualiza).
+    if (local) {
+      const old = local.getVideoTracks()[0];
+      if (old) local.removeTrack(old); // no se detiene: vive en camTrackRef
+      local.addTrack(screenTrack);
+    } else {
+      localStreamRef.current = display;
+      setLocalStream(display);
+    }
+    // Si el usuario detiene desde la UI nativa del navegador.
+    screenTrack.addEventListener('ended', () => {
+      void stopScreenShare();
+    });
+    setScreenOn(true);
+  }, [renegotiate, stopScreenShare]);
+
+  const toggleScreen = useCallback(() => {
+    if (screenStreamRef.current) void stopScreenShare();
+    else void startScreenShare();
+  }, [startScreenShare, stopScreenShare]);
 
   // ── Señalización entrante ────────────────────────────────────────────────
   useEffect(() => {
@@ -464,11 +578,13 @@ export function useCall({
     remotes,
     micOn,
     camOn,
+    screenOn,
     startCall,
     acceptCall,
     rejectCall,
     hangup,
     toggleMic,
     toggleCam,
+    toggleScreen,
   };
 }

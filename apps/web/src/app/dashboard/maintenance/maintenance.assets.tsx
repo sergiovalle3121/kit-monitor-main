@@ -5,30 +5,29 @@
 // actually accepts (name, category, location, criticality, status). Identity
 // fields (code, manufacturer, model, serial) are set at creation and shown
 // read-only on edit — honest about the backend's update surface.
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  ClipboardList,
+  Activity,
+  Calendar,
   Clock,
+  Gauge,
   HardDrive,
   Inbox,
+  Loader2,
   MapPin,
   Pencil,
   Plus,
   Save,
   Search,
   Tag,
+  Timer,
   Wrench,
+  X,
 } from "lucide-react";
 import { glass } from "@/lib/glass";
 import { apiFetch } from "@/lib/apiFetch";
 import { useToast } from "@/contexts/ToastContext";
-import {
-  DetailDrawer,
-  DrawerField,
-  DrawerSection,
-  ExportButton,
-  type ExportColumn,
-} from "@/components/workspace";
+import { ExportButton, type ExportColumn } from "@/components/workspace";
 import {
   AssetStatusPill,
   CriticalityPill,
@@ -47,15 +46,16 @@ import {
   CRITICALITY_META,
   CRITICALITY_ORDER,
   dueLabel,
+  fmtDate,
   fmtDateTime,
   fmtHours,
   fmtMinutes,
   isOrderActive,
-  mtbfByAsset,
 } from "./maintenance.utils";
 import type {
   Asset,
   AssetCriticality,
+  AssetDetail,
   AssetStatus,
   CreateAssetInput,
   CreateOrderInput,
@@ -63,6 +63,19 @@ import type {
 } from "./maintenance.types";
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000").replace(/\/$/, "");
+
+// Columnas de exportación del registro de activos (respeta los filtros del padre).
+const ASSET_EXPORT_COLUMNS: ExportColumn<Asset>[] = [
+  { key: "code", header: "Código" },
+  { key: "name", header: "Nombre" },
+  { key: "category", header: "Categoría" },
+  { key: "location", header: "Ubicación" },
+  { key: "criticality", header: "Criticidad", value: (a) => CRITICALITY_META[a.criticality]?.label ?? a.criticality },
+  { key: "status", header: "Estado", value: (a) => ASSET_STATUS_META[a.status]?.label ?? a.status },
+  { key: "manufacturer", header: "Fabricante" },
+  { key: "model", header: "Modelo" },
+  { key: "serialNumber", header: "No. de serie" },
+];
 
 export function AssetsTab({
   assets,
@@ -80,7 +93,7 @@ export function AssetsTab({
   const [criticality, setCriticality] = useState<AssetCriticality | "">("");
   const [editing, setEditing] = useState<Asset | null>(null);
   const [creating, setCreating] = useState(false);
-  const [detail, setDetail] = useState<Asset | null>(null);
+  const [detailId, setDetailId] = useState<string | null>(null);
 
   // Órdenes vivas por activo (derivado del listado).
   const openByAsset = useMemo(() => {
@@ -107,24 +120,6 @@ export function AssetsTab({
 
   const anyFilter = !!(q || status || criticality);
 
-  // Exportación del registro de activos (respeta los filtros vía `rows`). Incluye
-  // las órdenes vivas derivadas para que el CSV sirva como inventario accionable.
-  const assetColumns = useMemo<ExportColumn<Asset>[]>(
-    () => [
-      { key: "code", header: "Código", value: (a) => a.code ?? "" },
-      { key: "name", header: "Nombre" },
-      { key: "category", header: "Categoría", value: (a) => a.category ?? "" },
-      { key: "location", header: "Ubicación", value: (a) => a.location ?? "" },
-      { key: "criticality", header: "Criticidad", value: (a) => CRITICALITY_META[a.criticality].label },
-      { key: "status", header: "Estado", value: (a) => ASSET_STATUS_META[a.status].label },
-      { key: "manufacturer", header: "Fabricante", value: (a) => a.manufacturer ?? "" },
-      { key: "model", header: "Modelo", value: (a) => a.model ?? "" },
-      { key: "serialNumber", header: "No. de serie", value: (a) => a.serialNumber ?? "" },
-      { key: "openOrders", header: "Órdenes abiertas", value: (a) => openByAsset.get(a.id) ?? 0 },
-    ],
-    [openByAsset],
-  );
-
   return (
     <div className="space-y-5">
       {/* Filtros + alta */}
@@ -150,7 +145,7 @@ export function AssetsTab({
             <option key={c} value={c}>{CRITICALITY_META[c].label}</option>
           ))}
         </select>
-        <ExportButton<Asset> rows={rows} columns={assetColumns} filename="activos-mantenimiento" />
+        <ExportButton rows={rows} columns={ASSET_EXPORT_COLUMNS} filename="activos-mantenimiento" formats={["csv"]} label="Exportar" />
         <button
           onClick={() => setCreating(true)}
           className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium text-white"
@@ -196,7 +191,7 @@ export function AssetsTab({
                 style={down ? { boxShadow: `inset 0 0 0 1px ${COLORS.red}55` } : undefined}
               >
                 <div className="flex items-start gap-2">
-                  <button onClick={() => setDetail(a)} className="min-w-0 flex-1 text-left" title="Ver detalle e historial">
+                  <button onClick={() => setDetailId(a.id)} className="min-w-0 flex-1 text-left" title="Ver detalle y confiabilidad">
                     <div className="flex items-center gap-2 flex-wrap">
                       {a.code && <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-black/5 dark:bg-white/10 text-gray-500">{a.code}</span>}
                       <span className="font-semibold truncate">{a.name}</span>
@@ -246,178 +241,181 @@ export function AssetsTab({
 
       {creating && <AssetFormModal onClose={() => setCreating(false)} onSaved={refresh} />}
       {editing && <AssetFormModal asset={editing} onClose={() => setEditing(null)} onSaved={refresh} />}
-      {detail && (
+      {detailId && (
         <AssetDetailDrawer
-          asset={detail}
-          orders={orders}
-          onClose={() => setDetail(null)}
+          assetId={detailId}
+          onClose={() => setDetailId(null)}
+          onEdit={(a) => { setDetailId(null); setEditing(a); }}
           onNewOrder={onNewOrder}
-          onEdit={(a) => {
-            setDetail(null);
-            setEditing(a);
-          }}
+          onChanged={refresh}
         />
       )}
     </div>
   );
 }
 
-// ── Detalle del activo (drawer): identidad + indicadores + historial de órdenes ─
-// Reutiliza el DetailDrawer accesible del Workspace (Esc / foco atrapado / scroll
-// bloqueado) en vez de rodar otro panel. El historial sale del listado de órdenes
-// ya cargado (filtrado por activo), así que no hay round-trip extra.
+// ── Drawer de detalle de activo: historial + confiabilidad (MTTR/MTBF) ───────
 function AssetDetailDrawer({
-  asset,
-  orders,
+  assetId,
   onClose,
-  onNewOrder,
   onEdit,
+  onNewOrder,
+  onChanged,
 }: {
-  asset: Asset;
-  orders: MaintenanceOrder[];
+  assetId: string;
   onClose: () => void;
+  onEdit: (a: Asset) => void;
   onNewOrder: (prefill?: Partial<CreateOrderInput>) => void;
-  onEdit: (asset: Asset) => void;
+  onChanged: () => void;
 }) {
-  const history = useMemo(
-    () =>
-      orders
-        .filter((o) => o.assetId === asset.id)
-        .sort(
-          (a, b) =>
-            new Date(b.created_at ?? 0).getTime() -
-            new Date(a.created_at ?? 0).getTime(),
-        ),
-    [orders, asset.id],
-  );
-  const openCount = history.filter((o) => isOrderActive(o.status)).length;
-  const downtime = history.reduce((s, o) => s + (o.downtimeMinutes ?? 0), 0);
-  // mtbfByAsset agrupa sólo correctivas → con un único activo devuelve 0/1 fila.
-  const mtbf = mtbfByAsset(history)[0];
-  const failures = mtbf?.failures ?? 0;
-  const down = asset.status === "DOWN";
+  const [detail, setDetail] = useState<AssetDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(false);
+    try {
+      const res = await apiFetch(`${API_BASE}/maintenance/assets/${assetId}`);
+      if (!res.ok) { setError(true); return; }
+      setDetail(await res.json());
+    } catch {
+      setError(true);
+    } finally {
+      setLoading(false);
+    }
+  }, [assetId]);
+
+  // Carga al abrir / cambiar de activo; `load` se reusa para reintentar y refrescar.
+  useEffect(() => { load(); }, [load]);
+
+  const asset = detail?.asset ?? null;
+  const r = detail?.reliability ?? null;
+  const orders = detail?.orders ?? [];
+  const down = asset?.status === "DOWN";
 
   return (
-    <DetailDrawer
-      open
-      onClose={onClose}
-      title={asset.name}
-      subtitle={[asset.code, asset.category, asset.location].filter(Boolean).join(" · ") || undefined}
-      icon={HardDrive}
-      accent={CRITICALITY_META[asset.criticality].color}
-      actions={
-        <>
-          <button
-            onClick={() => onEdit(asset)}
-            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium hover:bg-black/5 dark:hover:bg-white/10"
-          >
-            <Pencil className="w-4 h-4" /> Editar activo
-          </button>
-          <button
-            onClick={() => {
-              onNewOrder({
-                assetId: asset.id,
-                type: down ? "CORRECTIVE" : "PREVENTIVE",
-                priority: down ? "HIGH" : "MEDIUM",
-                title: down ? `Avería: ${asset.name}` : "",
-              });
-              onClose();
-            }}
-            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium text-white"
-            style={{ background: COLORS.violet }}
-          >
-            <Wrench className="w-4 h-4" /> Nueva orden
-          </button>
-        </>
-      }
-    >
-      <DrawerSection title="Equipo">
-        <DrawerField label="Estado"><AssetStatusPill status={asset.status} /></DrawerField>
-        <DrawerField label="Criticidad"><CriticalityPill criticality={asset.criticality} /></DrawerField>
-        {asset.code && <DrawerField label="Código">{asset.code}</DrawerField>}
-        {asset.category && <DrawerField label="Categoría">{asset.category}</DrawerField>}
-        {asset.location && <DrawerField label="Ubicación">{asset.location}</DrawerField>}
-        {(asset.manufacturer || asset.model) && (
-          <DrawerField label="Equipo">{[asset.manufacturer, asset.model].filter(Boolean).join(" ")}</DrawerField>
-        )}
-        {asset.serialNumber && <DrawerField label="No. de serie">{asset.serialNumber}</DrawerField>}
-      </DrawerSection>
-
-      <DrawerSection title="Indicadores">
-        <div className="grid grid-cols-2 gap-2">
-          <MiniStat label="Órdenes" value={history.length} />
-          <MiniStat label="Abiertas" value={openCount} color={openCount > 0 ? COLORS.amber : undefined} />
-          <MiniStat
-            label="Fallas"
-            value={failures}
-            sub={mtbf?.mtbfHours != null ? `MTBF ${fmtHours(mtbf.mtbfHours)}` : undefined}
-          />
-          <MiniStat label="Paro total" value={fmtMinutes(downtime)} />
-        </div>
-      </DrawerSection>
-
-      <DrawerSection title={`Historial de órdenes${history.length ? ` (${history.length})` : ""}`}>
-        {history.length === 0 ? (
-          <div className="flex flex-col items-center text-center py-6 px-4">
-            <div className="p-3 rounded-2xl bg-gray-100 dark:bg-white/5 text-gray-400 mb-3">
-              <ClipboardList className="w-6 h-6" />
+    <div className="fixed inset-0 z-[110]">
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <div className={`${glass} absolute right-0 top-0 h-full w-full max-w-md overflow-y-auto`}>
+        <div className="sticky top-0 z-10 px-5 py-4 flex items-center gap-3 border-b border-black/5 dark:border-white/10 bg-white/60 dark:bg-neutral-900/60 backdrop-blur-xl">
+          <span className="w-9 h-9 rounded-xl grid place-items-center flex-shrink-0" style={{ background: down ? `${COLORS.red}1f` : `${COLORS.violet}1f` }}>
+            <HardDrive className="w-5 h-5" style={{ color: down ? COLORS.red : COLORS.violet }} />
+          </span>
+          <div className="min-w-0 flex-1">
+            <h3 className="font-semibold truncate">{asset?.name ?? "Activo"}</h3>
+            <div className="text-[12px] text-gray-400 truncate">
+              {asset ? [asset.code, asset.location].filter(Boolean).join(" · ") || "Sin ubicación" : ""}
             </div>
-            <p className="text-sm text-gray-500 dark:text-gray-400 max-w-xs">
-              Sin órdenes para este activo todavía. Crea la primera (preventiva o
-              correctiva) para empezar su historial y medir MTBF/MTTR por equipo.
-            </p>
+          </div>
+          <button onClick={onClose} aria-label="Cerrar" className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10"><X className="w-4 h-4" /></button>
+        </div>
+
+        {loading ? (
+          <div className="flex justify-center py-24"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div>
+        ) : error || !asset || !r ? (
+          <div className="p-8 text-center text-sm text-gray-400">
+            No se pudo cargar el detalle del activo.
+            <button onClick={load} className="block mx-auto mt-3 text-[13px] underline underline-offset-2">Reintentar</button>
           </div>
         ) : (
-          <div className="space-y-2">
-            {history.map((o) => (
-              <AssetOrderRow key={o.id} order={o} />
-            ))}
+          <div className="p-5 space-y-5">
+            <div className="flex items-center gap-2 flex-wrap">
+              <AssetStatusPill status={asset.status} />
+              <CriticalityPill criticality={asset.criticality} />
+              {(asset.manufacturer || asset.model) && (
+                <span className="text-[12px] text-gray-400">{[asset.manufacturer, asset.model].filter(Boolean).join(" ")}</span>
+              )}
+            </div>
+
+            {/* Cambio de estado operativo (semáforo) */}
+            <div>
+              <div className="text-[11px] uppercase tracking-wide text-gray-400 mb-2">Estado operativo</div>
+              <AssetStatusSelect asset={asset} onChanged={() => { onChanged(); load(); }} />
+            </div>
+
+            {/* Confiabilidad: MTTR / MTBF / fallas / paro */}
+            <div>
+              <div className="text-[11px] uppercase tracking-wide text-gray-400 mb-2 flex items-center gap-1.5">
+                <Gauge className="w-3.5 h-3.5" /> Confiabilidad
+              </div>
+              <div className="grid grid-cols-2 gap-2.5">
+                <MiniKpi icon={<Timer className="w-3.5 h-3.5" />} label="MTTR" value={fmtHours(r.mttrHours)} sub="reparación media" color={COLORS.violet} />
+                <MiniKpi icon={<Activity className="w-3.5 h-3.5" />} label="MTBF" value={fmtHours(r.mtbfHours)} sub={r.mtbfHours == null ? "≥2 fallas" : "entre fallas"} color={r.mtbfHours == null ? COLORS.gray : COLORS.violet} />
+                <MiniKpi icon={<Wrench className="w-3.5 h-3.5" />} label="Fallas" value={r.failures} sub="órdenes correctivas" color={r.failures > 0 ? COLORS.orange : COLORS.green} />
+                <MiniKpi icon={<Clock className="w-3.5 h-3.5" />} label="Paro acumulado" value={fmtMinutes(r.totalDowntimeMinutes)} sub={`${r.openOrders} abiertas`} color={COLORS.amber} />
+              </div>
+              {r.lastFailureAt && (
+                <div className="text-[11px] text-gray-400 mt-2">Última falla: {fmtDateTime(r.lastFailureAt)}</div>
+              )}
+            </div>
+
+            {/* Acción rápida */}
+            <button
+              onClick={() => onNewOrder({ assetId: asset.id, type: down ? "CORRECTIVE" : "PREVENTIVE", priority: down ? "HIGH" : "MEDIUM", title: down ? `Avería: ${asset.name}` : "" })}
+              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium text-white w-full justify-center"
+              style={{ background: down ? COLORS.red : COLORS.violet }}
+            >
+              <Wrench className="w-4 h-4" /> {down ? "Orden correctiva" : "Nueva orden"}
+            </button>
+
+            {/* Historial de órdenes (correctivas y preventivas) */}
+            <div>
+              <div className="text-[11px] uppercase tracking-wide text-gray-400 mb-2">Historial de órdenes ({orders.length})</div>
+              {orders.length === 0 ? (
+                <p className="text-sm text-gray-400 py-4 text-center">Sin órdenes para este activo todavía.</p>
+              ) : (
+                <div className="space-y-2">
+                  {orders.map((o) => <HistoryRow key={o.id} order={o} />)}
+                </div>
+              )}
+            </div>
+
+            <button onClick={() => onEdit(asset)} className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium hover:bg-black/5 dark:hover:bg-white/10 w-full justify-center">
+              <Pencil className="w-4 h-4" /> Editar activo
+            </button>
           </div>
         )}
-      </DrawerSection>
-    </DetailDrawer>
+      </div>
+    </div>
   );
 }
 
-function MiniStat({
+function MiniKpi({
+  icon,
   label,
   value,
   sub,
   color,
 }: {
+  icon: React.ReactNode;
   label: string;
   value: number | string;
   sub?: string;
-  color?: string;
+  color: string;
 }) {
   return (
-    <div className="rounded-xl bg-black/[0.03] dark:bg-white/[0.04] px-3 py-2">
-      <div className="text-[11px] text-gray-400">{label}</div>
-      <div className="text-base font-semibold tabular-nums" style={color ? { color } : undefined}>{value}</div>
+    <div className="rounded-xl p-3 bg-black/[0.03] dark:bg-white/[0.04]">
+      <div className="text-[11px] uppercase tracking-wide text-gray-400 flex items-center gap-1">{icon}{label}</div>
+      <div className="text-lg font-semibold mt-0.5" style={{ color }}>{value}</div>
       {sub && <div className="text-[11px] text-gray-400 truncate">{sub}</div>}
     </div>
   );
 }
 
-function AssetOrderRow({ order }: { order: MaintenanceOrder }) {
+function HistoryRow({ order }: { order: MaintenanceOrder }) {
   return (
-    <div className="rounded-xl border border-black/5 dark:border-white/10 p-3">
+    <div className="rounded-xl p-3 bg-black/[0.03] dark:bg-white/[0.04]">
       <div className="flex items-center gap-2 flex-wrap">
-        {order.folio && (
-          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-black/5 dark:bg-white/10 text-gray-500">{order.folio}</span>
-        )}
-        <span className="font-medium text-sm truncate">{order.title}</span>
+        {order.folio && <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-black/5 dark:bg-white/10 text-gray-500">{order.folio}</span>}
+        <span className="text-sm font-medium truncate flex-1 min-w-0">{order.title}</span>
         <StatusPill status={order.status} />
       </div>
-      <div className="mt-1 flex items-center gap-2 text-[12px] text-gray-400 flex-wrap">
+      <div className="mt-1.5 flex items-center gap-2 text-[12px] text-gray-400 flex-wrap">
         <TypePill type={order.type} />
-        <span>{fmtDateTime(order.created_at)}</span>
-        {order.downtimeMinutes > 0 && (
-          <span className="inline-flex items-center gap-1"><Clock className="w-3 h-3" />{fmtMinutes(order.downtimeMinutes)} paro</span>
-        )}
-        {order.dueDate && order.status !== "COMPLETED" && order.status !== "CANCELLED" && (
-          <span>{dueLabel(order.dueDate)}</span>
-        )}
+        {order.dueDate && <span className="inline-flex items-center gap-1"><Calendar className="w-3 h-3" />{dueLabel(order.dueDate)}</span>}
+        {order.downtimeMinutes > 0 && <span className="inline-flex items-center gap-1"><Clock className="w-3 h-3" />{fmtMinutes(order.downtimeMinutes)} paro</span>}
+        {order.completedAt && <span>Cerrada {fmtDate(order.completedAt)}</span>}
       </div>
     </div>
   );

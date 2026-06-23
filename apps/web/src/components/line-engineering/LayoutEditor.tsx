@@ -2,6 +2,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { Canvas, Rect, Textbox, Line, Polyline, Polygon, Group } from 'fabric';
 import {
   Loader2, Save, Inbox, Hand, MousePointer2, Maximize2, ZoomIn, ZoomOut, Grid3x3,
@@ -11,13 +12,26 @@ import {
   Upload, Eye, EyeOff, Map as MapIcon, Activity, Workflow, Wand2, Boxes,
   Download, Printer, Ruler, Type, MoveHorizontal, CopyPlus, X, Flame, Waypoints,
   ShieldCheck, ShieldAlert, LayoutGrid, History, RotateCw, ClipboardList, GitCompare,
-  ClipboardCheck, Warehouse,
+  ClipboardCheck, Warehouse, Sparkles, Bug, SlidersHorizontal, BarChart3, Frame, Box, Layers, Users, DollarSign, LineChart, Scale, Footprints, FileDown, Network,
 } from 'lucide-react';
 import { glass } from '@/lib/glass';
 import { apiFetch } from '@/lib/apiFetch';
 import { useToast } from '@/contexts/ToastContext';
 import { parseDxf, type DxfModel } from './dxf';
 import Minimap from './Minimap';
+import WhatIfSimulator from './WhatIfSimulator';
+import YamazumiChart from './YamazumiChart';
+import LayoutHistory from './LayoutHistory';
+import BufferPlanner from './BufferPlanner';
+import OperatorLoops from './OperatorLoops';
+import CostEstimator from './CostEstimator';
+import SensitivityChart from './SensitivityChart';
+import ScenarioCompare from './ScenarioCompare';
+import StandardWork from './StandardWork';
+import DossierExport from './DossierExport';
+import FlexLine from './FlexLine';
+// three.js is heavy — lazy-load the 3D view so it only ships when opened.
+const Layout3D = dynamic(() => import('./Layout3D'), { ssr: false });
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000').replace(/\/$/, '');
 const ROSE = '#f43f5e';
@@ -89,6 +103,21 @@ const bayColor = (bahia: number | null): { fill: string; stroke: string } => {
   return { fill: `${s}28`, stroke: s }; // 28 = ~16% alpha hex suffix
 };
 
+// Cumulative quality overlay (Fase 24): defects + holds on record per station.
+type QualLevel = 'ok' | 'minor' | 'major';
+interface StationQuality {
+  station: string; line: string; defects: number; holds: number; total: number; level: QualLevel;
+}
+interface QualitySummary {
+  totalDefects: number; totalHolds: number; stationsWithIssues: number;
+  counts: Record<QualLevel, number>; stations: StationQuality[];
+}
+const QUAL_COLORS: Record<QualLevel, { fill: string; stroke: string }> = {
+  ok: { fill: 'rgba(16,185,129,0.16)', stroke: '#10b981' },
+  minor: { fill: 'rgba(245,158,11,0.20)', stroke: '#f59e0b' },
+  major: { fill: 'rgba(239,68,68,0.24)', stroke: '#ef4444' },
+};
+
 // Material-flow analysis (Fase 10). Per-segment distances render live on the
 // canvas; this summary (totals + crossings) comes from the backend geometry.
 interface FlowSegment { from: string; to: string; fromStation: string; toStation: string; distance: number; kind?: string }
@@ -100,6 +129,11 @@ interface FlowSummary {
 interface FlowDirSummary {
   hasDirection: boolean; directionalEfficiencyPct: number; backtrackCount: number;
   backtrackDistance: number; backtrackHops: { from: string; to: string; distance: number; backtrack: number }[]; unit: string;
+}
+// Inter-cell flow (Fase 28).
+interface CellFlowSummary {
+  intraCount: number; interCount: number; unassignedCount: number;
+  intraDistance: number; interDistance: number; interPct: number; cellCount: number;
 }
 // Short hops green, long hauls red — the spaghetti ramp, normalized to the longest.
 const flowColor = (d: number, max: number): string => {
@@ -158,6 +192,14 @@ const ASSET_META = (kind: string) => ASSET_KINDS.find((k) => k.kind === kind) ??
 
 interface LayoutAsset { id: string; kind: string; x: number; y: number; w: number; h: number; rotation: number; label?: string }
 interface LayoutAnnotation { id: string; type: 'text' | 'dim'; x: number; y: number; x2?: number; y2?: number; text?: string; color?: string }
+interface LayoutCell { id: string; name: string; color: string; stationIds: string[] }
+type ApprovalStatus = 'draft' | 'in_review' | 'approved';
+interface LayoutApproval { status: ApprovalStatus; by: string | null; at: string | null; note: string | null }
+const APPROVAL_META: Record<ApprovalStatus, { label: string; color: string }> = {
+  draft: { label: 'Borrador', color: '#94a3b8' },
+  in_review: { label: 'En revisión', color: '#f59e0b' },
+  approved: { label: 'Aprobado', color: '#10b981' },
+};
 interface LayoutStation {
   id: string; station: string; line: string; sequence: number; ctq: boolean;
   x: number | null; y: number | null; w: number | null; h: number | null; rotation: number | null;
@@ -165,7 +207,8 @@ interface LayoutStation {
 interface Footprint { footprintW: number; footprintH: number; unit: string; gridSize: number }
 interface DxfMeta { name: string; offsetX: number; offsetY: number; scale: number; rotation: number; visible: boolean; opacity: number }
 interface LayoutConnector { from: string; to: string; kind?: string }
-interface LineLayout { model: string; revision: string; footprint: Footprint; stations: LayoutStation[]; dxf: DxfMeta | null; connectors: LayoutConnector[]; assets: LayoutAsset[]; annotations: LayoutAnnotation[] }
+interface LineLayout { model: string; revision: string; footprint: Footprint; stations: LayoutStation[]; dxf: DxfMeta | null; connectors: LayoutConnector[]; assets: LayoutAsset[]; annotations: LayoutAnnotation[]; cells?: LayoutCell[] }
+const CELL_PALETTE = ['#6366f1', '#0ea5e9', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6', '#14b8a6', '#ef4444'];
 interface Placement { x: number; y: number; w: number; h: number; rotation: number }
 type MesLevel = 'down' | 'warn' | 'ok' | 'idle' | 'unknown';
 interface StationLiveStatus { station: string; line: string; status: MesLevel; label: string; severity: string | null; since: string | null }
@@ -229,6 +272,8 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
   const complRef = useRef<Map<string, StationCompl>>(new Map());
   const bayOnRef = useRef(false);
   const bayRef = useRef<Map<string, number | null>>(new Map());
+  const qualOnRef = useRef(false);
+  const qualRef = useRef<Map<string, QualLevel>>(new Map());
   const flowOnRef = useRef(false);
   const validateOnRef = useRef(false);
   const validateConflictsRef = useRef<Conflict[]>([]);
@@ -252,6 +297,9 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
   const annDimP1Ref = useRef<{ x: number; y: number } | null>(null);
   const annClickRef = useRef<(scene: { x: number; y: number }, target: any) => void>(() => {});
   const drawAnnRef = useRef<() => void>(() => {});
+  const cellsRef = useRef<LayoutCell[]>([]);
+  const cellObjsRef = useRef<any[]>([]);
+  const drawCellsRef = useRef<() => void>(() => {});
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -273,13 +321,17 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
   const [complData, setComplData] = useState<ComplSummary | null>(null);
   const [bayOn, setBayOn] = useState(false);
   const [bayData, setBayData] = useState<BaySummary | null>(null);
+  const [qualOn, setQualOn] = useState(false);
+  const [qualData, setQualData] = useState<QualitySummary | null>(null);
   const [flowOn, setFlowOn] = useState(false);
   const [flowData, setFlowData] = useState<FlowSummary | null>(null);
   const [flowDirData, setFlowDirData] = useState<FlowDirSummary | null>(null);
+  const [cellFlowData, setCellFlowData] = useState<CellFlowSummary | null>(null);
   const [validateOn, setValidateOn] = useState(false);
   const [validateData, setValidateData] = useState<CollisionSummary | null>(null);
   const [clearanceInput, setClearanceInput] = useState('');
   const [arranging, setArranging] = useState(false);
+  const [optimizing, setOptimizing] = useState(false);
   const [linkMode, setLinkMode] = useState(false);
   const [connCount, setConnCount] = useState(0);
   const [measureMode, setMeasureMode] = useState(false);
@@ -287,6 +339,7 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
   const [exporting, setExporting] = useState(false);
   const [annTool, setAnnTool] = useState<'text' | 'dim' | null>(null);
   const [annCount, setAnnCount] = useState(0);
+  const [cells, setCells] = useState<LayoutCell[]>([]);
   const [showClone, setShowClone] = useState(false);
   const [cloneSrc, setCloneSrc] = useState('');
   const [cloneBusy, setCloneBusy] = useState(false);
@@ -295,6 +348,21 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
   const [versName, setVersName] = useState('');
   const [versBusy, setVersBusy] = useState(false);
   const [showReport, setShowReport] = useState(false);
+  const [showSim, setShowSim] = useState(false);
+  const [showYama, setShowYama] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+  const [showBuffers, setShowBuffers] = useState(false);
+  const [showLoops, setShowLoops] = useState(false);
+  const [showCost, setShowCost] = useState(false);
+  const [showSensitivity, setShowSensitivity] = useState(false);
+  const [showCompare, setShowCompare] = useState(false);
+  const [showStdWork, setShowStdWork] = useState(false);
+  const [showDossier, setShowDossier] = useState(false);
+  const [showFlex, setShowFlex] = useState(false);
+  const [showCells, setShowCells] = useState(false);
+  const [show3d, setShow3d] = useState(false);
+  const [approval, setApproval] = useState<LayoutApproval | null>(null);
+  const [approvalBusy, setApprovalBusy] = useState(false);
   const [reportData, setReportData] = useState<LayoutReport | null>(null);
   const [diffFor, setDiffFor] = useState<string | null>(null);
   const [diffData, setDiffData] = useState<SnapshotDiff | null>(null);
@@ -514,6 +582,10 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
       const b = bayRef.current.get(stationName);
       return b === undefined ? null : bayColor(b);
     }
+    if (qualOnRef.current) {
+      const q = qualRef.current.get(stationName);
+      return q ? QUAL_COLORS[q] : null;
+    }
     if (mesOnRef.current) {
       const st = statusRef.current.get(stationName);
       return st ? MES_COLORS[st.status] : null;
@@ -565,6 +637,36 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
     c.add(box);
   }, [toolActive]);
 
+  // ── Cell / zone boundaries (Fase 27): a dashed box hull around the members ──
+  const drawCells = useCallback(() => {
+    const c = fcRef.current; if (!c) return;
+    cellObjsRef.current.forEach((o) => c.remove(o));
+    cellObjsRef.current = [];
+    const pad = footprintRef.current.gridSize || 60; // breathing room around members
+    cellsRef.current.forEach((cell) => {
+      const members = cell.stationIds
+        .map((id) => placementsRef.current.get(id))
+        .filter((p): p is Placement => !!p);
+      if (members.length === 0) return;
+      const x0 = Math.min(...members.map((m) => m.x)) - pad;
+      const y0 = Math.min(...members.map((m) => m.y)) - pad;
+      const x1 = Math.max(...members.map((m) => m.x + m.w)) + pad;
+      const y1 = Math.max(...members.map((m) => m.y + m.h)) + pad;
+      const rect = new Rect({
+        left: worldToPx(x0), top: worldToPx(y0), width: worldToPx(x1 - x0), height: worldToPx(y1 - y0),
+        fill: `${cell.color}14`, stroke: cell.color, strokeWidth: 1.5, strokeDashArray: [8, 5],
+        rx: 8, ry: 8, selectable: false, evented: false, strokeUniform: true, objectCaching: false,
+      });
+      const label = new Textbox(cell.name, {
+        left: worldToPx(x0) + 6, top: worldToPx(y0) + 4, width: 180, fontSize: 12,
+        fill: cell.color, fontWeight: 'bold', selectable: false, evented: false,
+      });
+      cellObjsRef.current.push(rect, label);
+      c.add(rect); c.add(label);
+    });
+  }, []);
+  useEffect(() => { drawCellsRef.current = drawCells; }, [drawCells]);
+
   // ── Full redraw of interactive objects from refs (structural changes only) ──
   const rebuild = useCallback(() => {
     const c = fcRef.current; if (!c) return;
@@ -575,6 +677,7 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
     fitRef.current = computeFit();
     drawScene();
     drawDxf();
+    drawCellsRef.current(); // cell/zone boundaries under the stations
     assetsRef.current.forEach((a) => makeAsset(a)); // equipment under the stations
     placementsRef.current.forEach((p, id) => {
       const s = stationsRef.current.find((x) => x.id === id);
@@ -709,6 +812,9 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
       assetsRef.current = Array.isArray(d.assets) ? d.assets : [];
       annotationsRef.current = Array.isArray(d.annotations) ? d.annotations : [];
       setAnnCount(annotationsRef.current.length);
+      cellsRef.current = Array.isArray(d.cells) ? d.cells : [];
+      setCells(cellsRef.current);
+      setApproval((d as { approval?: LayoutApproval }).approval ?? { status: 'draft', by: null, at: null, note: null });
       setDirty(false);
 
       // DXF background: the placement meta arrives with the layout; the raw
@@ -858,6 +964,37 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
     }
   }, [model, revision, markDirty, rebuild, toast]);
 
+  // Optimize the station order to minimize material travel (Fase 23). Like
+  // auto-arrange, it suggests positions the engineer reviews before saving.
+  const runOptimize = useCallback(async () => {
+    if (!model) return;
+    setOptimizing(true);
+    try {
+      const r = await apiFetch(`${API_BASE}/line-engineering/layout/optimize?model=${encodeURIComponent(model)}&revision=${encodeURIComponent(revision)}`);
+      if (!r.ok) { toast.error('No se pudo optimizar.', 'Ing. Industrial'); return; }
+      const d = (await r.json()) as { positions: { id: string; x: number; y: number; w: number; h: number; rotation: number }[]; improvedPct: number };
+      if (!d.positions.length) { toast.error('No hay estaciones para optimizar.', 'Ing. Industrial'); return; }
+      const ids = new Set<string>();
+      d.positions.forEach((p) => {
+        placementsRef.current.set(p.id, { x: p.x, y: p.y, w: p.w, h: p.h, rotation: p.rotation });
+        ids.add(p.id);
+      });
+      setPlacedIds(ids);
+      markDirty();
+      requestAnimationFrame(() => rebuild());
+      toast.success(
+        d.improvedPct > 0
+          ? `Flujo optimizado: −${d.improvedPct}% de recorrido — revisa y guarda.`
+          : 'El layout ya estaba óptimo para el flujo.',
+        'Ing. Industrial',
+      );
+    } catch {
+      toast.error('No se pudo optimizar.', 'Ing. Industrial');
+    } finally {
+      setOptimizing(false);
+    }
+  }, [model, revision, markDirty, rebuild, toast]);
+
   const unplaceSelected = useCallback(() => {
     const c = fcRef.current; if (!c) return;
     const objs = c.getActiveObjects() as StationBox[];
@@ -887,6 +1024,53 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
     markDirty();
     requestAnimationFrame(() => { rebuild(); const o = objByAssetRef.current.get(id); if (o) { c.setActiveObject(o); c.requestRenderAll(); } });
   }, [markDirty, rebuild]);
+
+  // ── Cells / zones (Fase 27) ─────────────────────────────────────────────────
+  const createCellFromSelection = useCallback(() => {
+    const c = fcRef.current; if (!c) return;
+    const ids = (c.getActiveObjects() as StationBox[])
+      .map((o) => (o as any).stationId as string)
+      .filter(Boolean);
+    if (ids.length === 0) { toast.error('Selecciona estaciones para agrupar en una celda.', 'Ing. Industrial'); return; }
+    const color = CELL_PALETTE[cellsRef.current.length % CELL_PALETTE.length];
+    const cell: LayoutCell = { id: `cell_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`, name: `Celda ${cellsRef.current.length + 1}`, color, stationIds: [...new Set(ids)] };
+    cellsRef.current = [...cellsRef.current, cell];
+    setCells(cellsRef.current);
+    c.discardActiveObject();
+    markDirty();
+    requestAnimationFrame(() => rebuild());
+  }, [markDirty, rebuild, toast]);
+
+  const deleteCell = useCallback((id: string) => {
+    cellsRef.current = cellsRef.current.filter((c) => c.id !== id);
+    setCells(cellsRef.current);
+    markDirty();
+    requestAnimationFrame(() => rebuild());
+  }, [markDirty, rebuild]);
+
+  const renameCell = useCallback((id: string, name: string) => {
+    cellsRef.current = cellsRef.current.map((c) => (c.id === id ? { ...c, name } : c));
+    setCells(cellsRef.current);
+    markDirty();
+    drawCellsRef.current();
+    fcRef.current?.requestRenderAll();
+  }, [markDirty]);
+
+  // ── Approval / sign-off (Fase 29) ───────────────────────────────────────────
+  const setApprovalStatus = useCallback(async (status: ApprovalStatus) => {
+    if (!model) return;
+    setApprovalBusy(true);
+    try {
+      const r = await apiFetch(`${API_BASE}/line-engineering/layout/approval`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model, revision, status }),
+      });
+      if (!r.ok) { toast.error('No se pudo cambiar el estado.', 'Ing. Industrial'); return; }
+      const d = (await r.json()) as { approval?: LayoutApproval };
+      setApproval(d.approval ?? { status, by: null, at: null, note: null });
+      toast.success(`Layout: ${APPROVAL_META[status].label}.`, 'Ing. Industrial');
+    } catch { toast.error('Error de red.', 'Ing. Industrial'); } finally { setApprovalBusy(false); }
+  }, [model, revision, toast]);
 
   // ── Align / distribute (on the active multi-selection) ──────────────────────
   const align = useCallback((kind: string) => {
@@ -1191,6 +1375,24 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
   useEffect(() => { heatOnRef.current = heatOn; applyOverlay(); }, [heatOn, applyOverlay]);
   useEffect(() => { complOnRef.current = complOn; applyOverlay(); }, [complOn, applyOverlay]);
   useEffect(() => { bayOnRef.current = bayOn; applyOverlay(); }, [bayOn, applyOverlay]);
+  useEffect(() => { qualOnRef.current = qualOn; applyOverlay(); }, [qualOn, applyOverlay]);
+
+  // Fetch cumulative quality (defects + holds) when the overlay is toggled.
+  useEffect(() => {
+    if (!qualOn || !model) return;
+    let alive = true;
+    (async () => {
+      try {
+        const r = await apiFetch(`${API_BASE}/line-engineering/layout/quality?model=${encodeURIComponent(model)}&revision=${encodeURIComponent(revision)}`);
+        if (!r.ok || !alive) return;
+        const d = (await r.json()) as QualitySummary;
+        qualRef.current = new Map(d.stations.map((s) => [s.station, s.level]));
+        setQualData(d);
+        applyOverlay();
+      } catch { /* transient */ }
+    })();
+    return () => { alive = false; };
+  }, [qualOn, model, revision, applyOverlay]);
 
   // Fetch documentation completeness when the overlay is toggled / scope changes.
   useEffect(() => {
@@ -1274,13 +1476,15 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
     let alive = true;
     (async () => {
       try {
-        const [r, rd] = await Promise.all([
+        const [r, rd, rc] = await Promise.all([
           apiFetch(`${API_BASE}/line-engineering/layout/flow?model=${encodeURIComponent(model)}&revision=${encodeURIComponent(revision)}`),
           apiFetch(`${API_BASE}/line-engineering/layout/flow-direction?model=${encodeURIComponent(model)}&revision=${encodeURIComponent(revision)}`),
+          apiFetch(`${API_BASE}/line-engineering/layout/cell-flow?model=${encodeURIComponent(model)}&revision=${encodeURIComponent(revision)}`),
         ]);
         if (!alive) return;
         if (r.ok) setFlowData((await r.json()) as FlowSummary);
         if (rd.ok) setFlowDirData((await rd.json()) as FlowDirSummary);
+        if (rc.ok) setCellFlowData((await rc.json()) as CellFlowSummary);
       } catch { /* transient */ }
     })();
     return () => { alive = false; };
@@ -1464,7 +1668,7 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
         : undefined;
       const r = await apiFetch(`${API_BASE}/line-engineering/layout`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model, revision, footprint: footprintRef.current, positions, cleared, connectors: connectorsRef.current, assets: assetsRef.current, annotations: annotationsRef.current, ...(dxfMeta ? { dxf: dxfMeta } : {}) }),
+        body: JSON.stringify({ model, revision, footprint: footprintRef.current, positions, cleared, connectors: connectorsRef.current, assets: assetsRef.current, annotations: annotationsRef.current, cells: cellsRef.current, ...(dxfMeta ? { dxf: dxfMeta } : {}) }),
       });
       if (!r.ok) { const d = await r.json().catch(() => ({})); toast.error(d?.message || 'No se pudo guardar.', 'Ing. Industrial'); return; }
       toast.success('Layout guardado.', 'Ing. Industrial');
@@ -1577,13 +1781,15 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
         <TBtn onClick={() => zoomBy(1 / 1.2)} title="Alejar"><ZoomOut className="w-4 h-4" /></TBtn>
         <TBtn onClick={fitView} title="Ajustar"><Maximize2 className="w-4 h-4" /></TBtn>
         <TBtn active={snap} onClick={() => setSnap((v) => !v)} title="Snap a grilla"><Grid3x3 className="w-4 h-4" /></TBtn>
-        <button onClick={() => { setMesOn((v) => !v); setHeatOn(false); setComplOn(false); setBayOn(false); }} title="MES en vivo (estado de estaciones)" className={`p-1.5 rounded-lg transition-colors ${mesOn ? 'text-white' : 'text-gray-500 hover:bg-black/5 dark:hover:bg-white/10'}`} style={mesOn ? { background: '#10b981' } : undefined}><Activity className="w-4 h-4" /></button>
-        <button onClick={() => { setHeatOn((v) => !v); setMesOn(false); setComplOn(false); setBayOn(false); }} title="Mapa de calor (tiempo de ciclo / utilización)" className={`p-1.5 rounded-lg transition-colors ${heatOn ? 'text-white' : 'text-gray-500 hover:bg-black/5 dark:hover:bg-white/10'}`} style={heatOn ? { background: '#f97316' } : undefined}><Flame className="w-4 h-4" /></button>
-        <button onClick={() => { setComplOn((v) => !v); setMesOn(false); setHeatOn(false); setBayOn(false); }} title="Completitud documental (NP / factor / ayuda visual)" className={`p-1.5 rounded-lg transition-colors ${complOn ? 'text-white' : 'text-gray-500 hover:bg-black/5 dark:hover:bg-white/10'}`} style={complOn ? { background: '#0ea5e9' } : undefined}><ClipboardCheck className="w-4 h-4" /></button>
-        <button onClick={() => { setBayOn((v) => !v); setMesOn(false); setHeatOn(false); setComplOn(false); }} title="Bahía que surte cada estación (1–6)" className={`p-1.5 rounded-lg transition-colors ${bayOn ? 'text-white' : 'text-gray-500 hover:bg-black/5 dark:hover:bg-white/10'}`} style={bayOn ? { background: '#8b5cf6' } : undefined}><Warehouse className="w-4 h-4" /></button>
+        <button onClick={() => { setMesOn((v) => !v); setHeatOn(false); setComplOn(false); setBayOn(false); setQualOn(false); }} title="MES en vivo (estado de estaciones)" className={`p-1.5 rounded-lg transition-colors ${mesOn ? 'text-white' : 'text-gray-500 hover:bg-black/5 dark:hover:bg-white/10'}`} style={mesOn ? { background: '#10b981' } : undefined}><Activity className="w-4 h-4" /></button>
+        <button onClick={() => { setHeatOn((v) => !v); setMesOn(false); setComplOn(false); setBayOn(false); setQualOn(false); }} title="Mapa de calor (tiempo de ciclo / utilización)" className={`p-1.5 rounded-lg transition-colors ${heatOn ? 'text-white' : 'text-gray-500 hover:bg-black/5 dark:hover:bg-white/10'}`} style={heatOn ? { background: '#f97316' } : undefined}><Flame className="w-4 h-4" /></button>
+        <button onClick={() => { setComplOn((v) => !v); setMesOn(false); setHeatOn(false); setBayOn(false); setQualOn(false); }} title="Completitud documental (NP / factor / ayuda visual)" className={`p-1.5 rounded-lg transition-colors ${complOn ? 'text-white' : 'text-gray-500 hover:bg-black/5 dark:hover:bg-white/10'}`} style={complOn ? { background: '#0ea5e9' } : undefined}><ClipboardCheck className="w-4 h-4" /></button>
+        <button onClick={() => { setBayOn((v) => !v); setMesOn(false); setHeatOn(false); setComplOn(false); setQualOn(false); }} title="Bahía que surte cada estación (1–6)" className={`p-1.5 rounded-lg transition-colors ${bayOn ? 'text-white' : 'text-gray-500 hover:bg-black/5 dark:hover:bg-white/10'}`} style={bayOn ? { background: '#8b5cf6' } : undefined}><Warehouse className="w-4 h-4" /></button>
+        <button onClick={() => { setQualOn((v) => !v); setMesOn(false); setHeatOn(false); setComplOn(false); setBayOn(false); }} title="Calidad acumulada (defectos + retenciones)" className={`p-1.5 rounded-lg transition-colors ${qualOn ? 'text-white' : 'text-gray-500 hover:bg-black/5 dark:hover:bg-white/10'}`} style={qualOn ? { background: '#ef4444' } : undefined}><Bug className="w-4 h-4" /></button>
         <button onClick={() => setFlowOn((v) => !v)} title="Diagrama de flujo (distancias y cruces)" className={`p-1.5 rounded-lg transition-colors ${flowOn ? 'text-white' : 'text-gray-500 hover:bg-black/5 dark:hover:bg-white/10'}`} style={flowOn ? { background: '#3b82f6' } : undefined}><Waypoints className="w-4 h-4" /></button>
         <button onClick={() => setValidateOn((v) => !v)} title="Validar layout (solapes, holgura, fuera de límites)" className={`p-1.5 rounded-lg transition-colors ${validateOn ? 'text-white' : 'text-gray-500 hover:bg-black/5 dark:hover:bg-white/10'}`} style={validateOn ? { background: validateData && !validateData.ok ? '#ef4444' : '#10b981' } : undefined}>{validateOn && validateData && !validateData.ok ? <ShieldAlert className="w-4 h-4" /> : <ShieldCheck className="w-4 h-4" />}</button>
         <button onClick={runAutoArrange} disabled={arranging} title="Auto-acomodar estaciones en serpentina por ruteo" className="p-1.5 rounded-lg text-gray-500 hover:bg-black/5 dark:hover:bg-white/10 transition-colors disabled:opacity-40">{arranging ? <Loader2 className="w-4 h-4 animate-spin" /> : <LayoutGrid className="w-4 h-4" />}</button>
+        <button onClick={runOptimize} disabled={optimizing} title="Optimizar flujo: minimizar el recorrido de material" className="p-1.5 rounded-lg text-gray-500 hover:bg-black/5 dark:hover:bg-white/10 transition-colors disabled:opacity-40">{optimizing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}</button>
         <Sep />
         <div className={`flex items-center gap-1 ${selCount < 2 ? 'opacity-40 pointer-events-none' : ''}`}>
           <TBtn onClick={() => align('left')} title="Alinear izquierda"><AlignHorizontalJustifyStart className="w-4 h-4" /></TBtn>
@@ -1604,13 +1810,36 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
         <TBtn onClick={exportPDF} title="Exportar PDF">{exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <span className="text-[11px] font-bold leading-none">PDF</span>}</TBtn>
         <TBtn onClick={exportDossier} title="Exportar dossier (plano + resumen KPI)"><span className="text-[10px] font-bold leading-none">DOC</span></TBtn>
         <TBtn onClick={exportCSV} title="Exportar estaciones a CSV"><span className="text-[10px] font-bold leading-none">CSV</span></TBtn>
+        <TBtn onClick={() => setShowDossier(true)} title="Exportar expediente analítico (KPIs computados: JSON + CSV)"><FileDown className="w-4 h-4" /></TBtn>
         <TBtn onClick={printPlan} title="Imprimir"><Printer className="w-4 h-4" /></TBtn>
         <Sep />
         <TBtn onClick={() => { setCloneSrc(''); setShowClone(true); }} title="Plantilla: clonar desde otro modelo"><CopyPlus className="w-4 h-4" /></TBtn>
         <TBtn onClick={openVersions} title="Versiones del layout (guardar / restaurar)"><History className="w-4 h-4" /></TBtn>
         <TBtn onClick={openReport} title="Resumen del layout (readiness, uso de piso, flujo, conflictos, balance)"><ClipboardList className="w-4 h-4" /></TBtn>
+        <TBtn onClick={() => setShowSim(true)} title="Simulador de capacidad (qué pasa si…)"><SlidersHorizontal className="w-4 h-4" /></TBtn>
+        <TBtn onClick={() => setShowYama(true)} title="Yamazumi (gráfico de balanceo)"><BarChart3 className="w-4 h-4" /></TBtn>
+        <TBtn onClick={() => setShowBuffers(true)} title="Inventario de desacople / WIP entre estaciones"><Layers className="w-4 h-4" /></TBtn>
+        <TBtn onClick={() => setShowLoops(true)} title="Bucles de operador (mínimo de operadores)"><Users className="w-4 h-4" /></TBtn>
+        <TBtn onClick={() => setShowCost(true)} title="Costo por unidad (mano de obra, piso, equipo)"><DollarSign className="w-4 h-4" /></TBtn>
+        <TBtn onClick={() => setShowSensitivity(true)} title="Sensibilidad a la demanda (costo y operadores vs demanda)"><LineChart className="w-4 h-4" /></TBtn>
+        <TBtn onClick={() => setShowCompare(true)} title="Comparar escenarios A vs B"><Scale className="w-4 h-4" /></TBtn>
+        <TBtn onClick={() => setShowStdWork(true)} title="Trabajo estándar (manual + caminado vs takt)"><Footprints className="w-4 h-4" /></TBtn>
+        <TBtn onClick={() => setShowFlex(true)} title="Línea flexible (modelos que comparten la línea)"><Network className="w-4 h-4" /></TBtn>
+        <TBtn onClick={() => setShowCells(true)} title="Celdas / zonas (agrupar estaciones)"><Frame className="w-4 h-4" /></TBtn>
+        <TBtn onClick={() => setShow3d(true)} title="Vista 3D del layout"><Box className="w-4 h-4" /></TBtn>
+        <TBtn onClick={() => setShowHistory(true)} title="Bitácora de auditoría (quién cambió qué y cuándo)"><History className="w-4 h-4" /></TBtn>
         <div className="flex-1" />
         {measureMode && measureVal && <span className="text-[12px] font-medium mr-2" style={{ color: '#0ea5e9' }}>{measureVal}</span>}
+        {approval && (
+          <div className="inline-flex items-center gap-1.5 mr-2" title={approval.by ? `${approval.by}${approval.at ? ` · ${new Date(approval.at).toLocaleString()}` : ''}` : 'Estado de aprobación del layout'}>
+            <span className="inline-block w-2 h-2 rounded-full" style={{ background: APPROVAL_META[approval.status].color }} />
+            <select value={approval.status} disabled={approvalBusy} onChange={(e) => setApprovalStatus(e.target.value as ApprovalStatus)} className="text-[12px] rounded-md px-1.5 py-1 bg-black/[0.03] dark:bg-white/[0.06] border border-black/10 dark:border-white/10" style={{ color: APPROVAL_META[approval.status].color }}>
+              <option value="draft">Borrador</option>
+              <option value="in_review">En revisión</option>
+              <option value="approved">Aprobado</option>
+            </select>
+          </div>
+        )}
         <button onClick={save} disabled={saving || !dirty} className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-sm font-medium text-white disabled:opacity-50" style={{ background: ROSE }}>
           {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Guardar
         </button>
@@ -1750,6 +1979,22 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
         </div>
       )}
 
+      {qualOn && (
+        <div className="flex items-center gap-3 px-4 py-2 border-b border-black/5 dark:border-white/10 text-[12px] flex-wrap">
+          <span className="inline-flex items-center gap-1.5 font-medium" style={{ color: '#ef4444' }}>
+            <Bug className="w-3.5 h-3.5" /> Calidad
+          </span>
+          <LegendDot color="#10b981" label={`OK ${qualData?.counts.ok ?? 0}`} />
+          <LegendDot color="#f59e0b" label={`Leve ${qualData?.counts.minor ?? 0}`} />
+          <LegendDot color="#ef4444" label={`Crítica ${qualData?.counts.major ?? 0}`} />
+          <span className="text-gray-500 ml-auto">
+            {qualData
+              ? `${qualData.stationsWithIssues} estaciones con incidencias · ${qualData.totalDefects} defectos · ${qualData.totalHolds} retenciones (acumulado)`
+              : 'cargando…'}
+          </span>
+        </div>
+      )}
+
       {flowOn && (
         <div className="flex items-center gap-3 px-4 py-2 border-b border-black/5 dark:border-white/10 text-[12px] flex-wrap">
           <span className="inline-flex items-center gap-1.5 font-medium" style={{ color: '#3b82f6' }}>
@@ -1767,6 +2012,9 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
                 {flowData.unplacedLinks > 0 && <span className="text-amber-500">· {flowData.unplacedLinks} sin colocar</span>}
                 {flowDirData?.hasDirection && (
                   <span className={flowDirData.backtrackCount > 0 ? 'text-amber-500' : 'text-emerald-600'}>· dirección {flowDirData.directionalEfficiencyPct}% ({flowDirData.backtrackCount} {flowDirData.backtrackCount === 1 ? 'retroceso' : 'retrocesos'})</span>
+                )}
+                {cellFlowData && cellFlowData.cellCount > 0 && (cellFlowData.intraCount + cellFlowData.interCount) > 0 && (
+                  <span className={cellFlowData.interPct > 0 ? 'text-amber-500' : 'text-emerald-600'}>· inter-celda {cellFlowData.interPct}% ({cellFlowData.interCount} de {cellFlowData.intraCount + cellFlowData.interCount})</span>
                 )}
               </>
             ) : 'cargando…'}
@@ -1960,6 +2208,50 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      <WhatIfSimulator model={model} revision={revision} open={showSim} onClose={() => setShowSim(false)} />
+      <YamazumiChart model={model} revision={revision} open={showYama} onClose={() => setShowYama(false)} />
+      <LayoutHistory model={model} revision={revision} open={showHistory} onClose={() => setShowHistory(false)} />
+      <BufferPlanner model={model} revision={revision} open={showBuffers} onClose={() => setShowBuffers(false)} />
+      <OperatorLoops model={model} revision={revision} open={showLoops} onClose={() => setShowLoops(false)} />
+      <CostEstimator model={model} revision={revision} open={showCost} onClose={() => setShowCost(false)} />
+      <SensitivityChart model={model} revision={revision} open={showSensitivity} onClose={() => setShowSensitivity(false)} />
+      {showCompare && <ScenarioCompare model={model} revision={revision} open={showCompare} onClose={() => setShowCompare(false)} />}
+      <StandardWork model={model} revision={revision} open={showStdWork} onClose={() => setShowStdWork(false)} />
+      {showDossier && <DossierExport model={model} revision={revision} open={showDossier} onClose={() => setShowDossier(false)} />}
+      {showFlex && <FlexLine model={model} revision={revision} open={showFlex} onClose={() => setShowFlex(false)} />}
+      {show3d && <Layout3D model={model} revision={revision} open={show3d} onClose={() => setShow3d(false)} />}
+
+      {showCells && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" onClick={() => setShowCells(false)}>
+          <div className={`${glass} rounded-2xl p-5 w-full max-w-lg`} onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-semibold inline-flex items-center gap-2"><Frame className="w-4 h-4" style={{ color: ROSE }} /> Celdas / zonas</h3>
+              <button onClick={() => setShowCells(false)} className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10"><X className="w-4 h-4" /></button>
+            </div>
+            <p className="text-[12px] text-gray-400 mb-3">Agrupa estaciones en celdas de manufactura. Selecciona estaciones en el plano y créalas; la celda se dibuja como un contorno. Guarda para persistir.</p>
+            <button onClick={createCellFromSelection} disabled={selCount === 0} className="w-full mb-4 inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white disabled:opacity-50" style={{ background: ROSE }}>
+              <Frame className="w-4 h-4" /> Crear celda con la selección ({selCount})
+            </button>
+            <div className="max-h-72 overflow-y-auto -mx-1 px-1">
+              {cells.length === 0 ? (
+                <p className="text-[12px] text-gray-400 py-6 text-center">Aún no hay celdas. Selecciona estaciones y crea una.</p>
+              ) : (
+                <div className="space-y-1.5">
+                  {cells.map((cell) => (
+                    <div key={cell.id} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-black/[0.03] dark:bg-white/[0.05]">
+                      <span className="w-3 h-3 rounded-sm shrink-0" style={{ background: cell.color }} />
+                      <input value={cell.name} onChange={(e) => renameCell(cell.id, e.target.value)} className="flex-1 min-w-0 bg-transparent text-sm font-medium border-b border-transparent focus:border-black/20 dark:focus:border-white/20 outline-none" />
+                      <span className="text-[11px] text-gray-400 shrink-0">{cell.stationIds.length} est</span>
+                      <button onClick={() => deleteCell(cell.id)} title="Eliminar celda" className="p-1.5 rounded-lg text-gray-400 hover:text-rose-500 hover:bg-rose-500/10 shrink-0"><Trash2 className="w-3.5 h-3.5" /></button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

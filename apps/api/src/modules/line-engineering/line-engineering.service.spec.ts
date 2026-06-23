@@ -8,6 +8,7 @@ import {
   TenantContext,
 } from '../../common/tenant/tenant-context.service';
 import { createTenantScopedRepository } from '../../common/tenant/tenant-scoped.repository';
+import { EventLedgerService } from '../event-ledger/event-ledger.service';
 
 function ctxFor(tenant: string | null): TenantContext {
   return {
@@ -174,6 +175,224 @@ describe('LineEngineeringService (integration)', () => {
     );
   });
 
+  it('plans WIP decoupling buffers between stations (Fase 33)', async () => {
+    await seedRoute(); // EST-10 40s, EST-20 55s (bottleneck), EST-30 30s
+    const plan = await service.getBufferPlan({
+      model: 'AX-1000',
+      taktTargetSec: 60,
+      coverageSec: 120,
+    });
+    expect(plan.cadenceSec).toBe(60);
+    expect(plan.bottleneckStation).toBe('EST-20');
+    expect(plan.gaps).toHaveLength(2); // 3 stations → 2 gaps
+    expect(plan.gaps.every((g) => g.critical)).toBe(true); // both touch EST-20
+    expect(plan.totalWipUnits).toBe(4); // ⌈2·0.917⌉ + ⌈2·0.917⌉
+    expect(plan.addedLeadTimeSec).toBe(240); // 4 × 60 (Little's law)
+    expect(plan.model).toBe('AX-1000');
+  });
+
+  it('balances stations into operator loops capped at takt (Fase 34)', async () => {
+    await seedRoute(); // EST-10 40s, EST-20 55s, EST-30 30s (by sequence)
+    // At 100s takt, 40+55 = 95 ≤ 100 → one loop; 30 → second loop.
+    const plan = await service.getOperatorLoops({
+      model: 'AX-1000',
+      taktTargetSec: 100,
+    });
+    expect(plan.cadenceSec).toBe(100);
+    expect(plan.operatorCount).toBe(2);
+    expect(plan.loops[0].stations).toEqual(['EST-10', 'EST-20']);
+    expect(plan.loops[1].stations).toEqual(['EST-30']);
+    expect(plan.stationCount).toBe(3);
+    expect(plan.model).toBe('AX-1000');
+  });
+
+  it('estimates layout unit-economics across labor/space/capex (Fase 35)', async () => {
+    await seedRoute(); // 3 stations; staffing at 60s takt → 3 operators
+    const c = await service.getCostModel({
+      model: 'AX-1000',
+      taktTargetSec: 60,
+      rates: {
+        laborCostPerHour: 10,
+        spaceCostPerM2Month: 12,
+        monthlyVolume: 10000,
+      },
+    });
+    expect(c.operatorCount).toBe(3);
+    // labor = 3 × (60/3600) × 10 = 0.5 per unit.
+    expect(c.laborCostPerUnit).toBe(0.5);
+    // Default footprint 20000×10000 mm = 200 m² → space/unit = (200×12)/10000.
+    expect(c.footprintAreaM2).toBeCloseTo(200, 1);
+    expect(c.spaceCostPerUnit).toBeCloseTo(0.24, 2);
+    expect(c.totalCostPerUnit).toBeGreaterThan(c.laborCostPerUnit);
+    expect(c.model).toBe('AX-1000');
+  });
+
+  it('sweeps demand sensitivity around the planned point (Fase 36)', async () => {
+    await seedRoute(); // bottleneck EST-20 = 55s
+    const r = await service.getSensitivity({
+      model: 'AX-1000',
+      availableTimeSec: 28800, // 8 h
+      demandUnits: 400,
+    });
+    expect(r.bottleneckCycleSec).toBe(55);
+    expect(r.points.length).toBeGreaterThanOrEqual(3);
+    // Ascending, deduped demand levels.
+    const demands = r.points.map((p) => p.demandUnits);
+    expect([...demands].sort((a, b) => a - b)).toEqual(demands);
+    // There is a feasible ceiling and a cheapest feasible demand.
+    expect(r.maxFeasibleDemand).not.toBeNull();
+    expect(r.minCostDemand).not.toBeNull();
+    expect(r.model).toBe('AX-1000');
+  });
+
+  it('compares two layouts head-to-head and picks a verdict (Fase 37)', async () => {
+    await seedRoute(); // AX-1000: 40/55/30 → balance 75.8%, line cycle 55
+    // A perfectly even sibling line: better balance, lower line cycle.
+    for (const [station, sequence] of [
+      ['EV-10', 10],
+      ['EV-20', 20],
+      ['EV-30', 30],
+    ] as const) {
+      await service.createStation({
+        model: 'AX-EVEN',
+        line: 'SMT-2',
+        station,
+        sequence,
+        npExpected: 'P1',
+        useFactor: 1,
+        stdTimeSec: 50,
+        visualAidUrl: 'a',
+      });
+    }
+
+    const cmp = await service.getComparison({
+      modelA: 'AX-1000',
+      modelB: 'AX-EVEN',
+      taktTargetSec: 60,
+    });
+    const byKey = Object.fromEntries(cmp.deltas.map((d) => [d.key, d]));
+    // Even line balances better and has a lower line cycle.
+    expect(byKey.balancePct.betterSide).toBe('b');
+    expect(byKey.lineCycleTimeSec.betterSide).toBe('b');
+    expect(cmp.verdict).toBe('b');
+    expect(cmp.a.model).toBe('AX-1000');
+    expect(cmp.b.model).toBe('AX-EVEN');
+  });
+
+  it('ties a layout compared against itself (Fase 37)', async () => {
+    await seedRoute();
+    const cmp = await service.getComparison({
+      modelA: 'AX-1000',
+      modelB: 'AX-1000',
+      taktTargetSec: 60,
+    });
+    expect(cmp.scoreA).toBe(0);
+    expect(cmp.scoreB).toBe(0);
+    expect(cmp.verdict).toBe('tie');
+  });
+
+  it('builds the standard work table adding walk to manual (Fase 38)', async () => {
+    await seedRoute(); // EST-10 40s, EST-20 55s, EST-30 30s
+    const before = await service.getLayout('AX-1000');
+    const id = Object.fromEntries(
+      before.stations.map((s) => [s.station, s.id]),
+    );
+    // Place EST-10 and EST-20 exactly 10 m apart (centers), EST-30 elsewhere.
+    await service.saveLayout({
+      model: 'AX-1000',
+      positions: [
+        { id: id['EST-10'], x: 0, y: 0, w: 200, h: 200, rotation: 0 },
+        { id: id['EST-20'], x: 10000, y: 0, w: 200, h: 200, rotation: 0 },
+        { id: id['EST-30'], x: 0, y: 5000, w: 200, h: 200, rotation: 0 },
+      ],
+    });
+    const sw = await service.getStandardWork({
+      model: 'AX-1000',
+      taktTargetSec: 100,
+      walkSpeedMps: 1,
+    });
+    expect(sw.cadenceSec).toBe(100);
+    expect(sw.unit).toBe('mm');
+    // [EST-10,EST-20] grouped (95s manual); walk 2×10 m = 20 s → 115 s busts takt.
+    const l0 = sw.loops[0];
+    expect(l0.steps.map((s) => s.station)).toEqual(['EST-10', 'EST-20']);
+    expect(l0.manualSec).toBe(95);
+    expect(l0.walkSec).toBe(20);
+    expect(l0.totalSec).toBe(115);
+    expect(l0.withinTakt).toBe(false);
+    expect(sw.loopsOverTakt).toBeGreaterThanOrEqual(1);
+  });
+
+  it('assembles a portable dossier with a station CSV (Fase 39)', async () => {
+    await seedRoute(); // 3 stations, all fully specified
+    const d = await service.getDossier({
+      model: 'AX-1000',
+      taktTargetSec: 60,
+      rates: { laborCostPerHour: 10 },
+    });
+    expect(d.model).toBe('AX-1000');
+    expect(d.report.stations.total).toBe(3);
+    expect(d.completeness).toMatchObject({
+      total: 3,
+      complete: 3,
+      completenessPct: 100,
+    });
+    expect(d.staffing?.totalOperators).toBe(3);
+    expect(d.cost?.totalCostPerUnit).toBeGreaterThan(0);
+    expect(d.stations).toHaveLength(3);
+    // The CSV has a header plus one line per station.
+    const csvLines = d.csv.split('\n');
+    expect(csvLines[0]).toMatch(/^Estación,Línea,Secuencia/);
+    expect(csvLines).toHaveLength(4); // header + 3 stations
+    // Rows carry the joined cycle time + sequence.
+    const est20 = d.stations.find((s) => s.station === 'EST-20');
+    expect(est20).toMatchObject({
+      sequence: 20,
+      cycleTimeSec: 55,
+      complete: true,
+    });
+  });
+
+  it('analyzes a flex line shared by multiple models (Fase 40)', async () => {
+    await seedRoute(); // AX-1000 on SMT-1: EST-10, EST-20, EST-30
+    // AX-2000 on the SAME line, sharing EST-10/EST-20, adding EST-99.
+    for (const [station, sequence, std] of [
+      ['EST-10', 10, 40],
+      ['EST-20', 20, 50],
+      ['EST-99', 30, 25],
+    ] as const) {
+      await service.createStation({
+        model: 'AX-2000',
+        line: 'SMT-1',
+        station,
+        sequence,
+        npExpected: 'P',
+        useFactor: 1,
+        stdTimeSec: std,
+      });
+    }
+    const flex = await service.getFlexLine({ line: 'SMT-1' });
+    expect(flex.line).toBe('SMT-1');
+    expect(flex.modelCount).toBe(2);
+    const byStation = Object.fromEntries(
+      flex.stations.map((s) => [s.station, s]),
+    );
+    expect(byStation['EST-10'].sharedByAll).toBe(true);
+    expect(byStation['EST-20'].sharedByAll).toBe(true);
+    expect(byStation['EST-30'].usageCount).toBe(1); // only AX-1000
+    expect(byStation['EST-99'].usageCount).toBe(1); // only AX-2000
+    expect(flex.sharedStations).toBe(2);
+    expect(flex.totalUniqueStations).toBe(4);
+    expect(flex.commonalityPct).toBe(50);
+  });
+
+  it('derives the flex line from a model when no line is given (Fase 40)', async () => {
+    await seedRoute();
+    const flex = await service.getFlexLine({ model: 'AX-1000' });
+    expect(flex.line).toBe('SMT-1');
+    expect(flex.modelCount).toBeGreaterThanOrEqual(1);
+  });
+
   it('reports per-station documentation completeness (Fase 19)', async () => {
     await seedRoute(); // 3 stations, all with NP + factor + aid → complete
     // Add a station missing its visual aid.
@@ -220,6 +439,227 @@ describe('LineEngineeringService (integration)', () => {
     expect(fd.backtrackCount).toBe(1);
     expect(fd.backtrackHops[0]).toMatchObject({ from: 'EST-20', to: 'EST-30' });
     expect(fd.directionalEfficiencyPct).toBeCloseTo(60, 0);
+  });
+
+  it('optimizes the layout order to shorten material travel (Fase 23)', async () => {
+    await seedRoute(); // EST-10, EST-20, EST-30
+    const before = await service.getLayout('AX-1000');
+    const id = Object.fromEntries(
+      before.stations.map((s) => [s.station, s.id]),
+    );
+    // Flow skips the middle station (EST-10 → EST-30), so the serpentine order
+    // is sub-optimal; the optimizer should bring 10 and 30 together.
+    await service.saveLayout({
+      model: 'AX-1000',
+      connectors: [{ from: id['EST-10'], to: id['EST-30'] }],
+    });
+    const opt = await service.optimizeLayout('AX-1000');
+    expect(opt.positions).toHaveLength(3);
+    expect(opt.costAfter).toBeLessThan(opt.costBefore);
+    expect(opt.improvedPct).toBeGreaterThan(0);
+    // The stored layout is untouched (suggestion only).
+    const stored = await service.getLayout('AX-1000');
+    expect(stored.stations.every((s) => s.x === null)).toBe(true);
+  });
+
+  it('persists cells and computes per-cell metrics (Fase 27)', async () => {
+    await seedRoute(); // EST-10 40s, EST-20 55s, EST-30 30s
+    const before = await service.getLayout('AX-1000');
+    const id = Object.fromEntries(
+      before.stations.map((s) => [s.station, s.id]),
+    );
+    await service.saveLayout({
+      model: 'AX-1000',
+      footprint: {
+        footprintW: 1000,
+        footprintH: 1000,
+        unit: 'mm',
+        gridSize: 100,
+      },
+      positions: [
+        { id: id['EST-10'], x: 0, y: 0, w: 100, h: 100, rotation: 0 },
+        { id: id['EST-20'], x: 200, y: 0, w: 100, h: 100, rotation: 0 },
+      ],
+      cells: [
+        {
+          id: 'c1',
+          name: 'Celda A',
+          color: '#6366f1',
+          stationIds: [id['EST-10'], id['EST-20'], 'ghost'], // ghost dropped
+        },
+      ],
+    });
+
+    const reloaded = await service.getLayout('AX-1000');
+    expect(reloaded.cells).toHaveLength(1);
+    expect(reloaded.cells[0].stationIds).toEqual([id['EST-10'], id['EST-20']]); // ghost filtered
+
+    const metrics = await service.getCellMetrics('AX-1000');
+    expect(metrics.cells[0]).toMatchObject({
+      name: 'Celda A',
+      stationCount: 2,
+      placedCount: 2,
+      totalCycleTimeSec: 95, // 40 + 55
+    });
+    // bbox 0..300 × 0..100 = 30000 over 1,000,000 = 3%.
+    expect(metrics.cells[0].areaPctOfFootprint).toBeCloseTo(3, 1);
+  });
+
+  it('analyzes intra- vs inter-cell flow (Fase 28)', async () => {
+    await seedRoute(); // EST-10, EST-20, EST-30
+    const before = await service.getLayout('AX-1000');
+    const id = Object.fromEntries(
+      before.stations.map((s) => [s.station, s.id]),
+    );
+    await service.saveLayout({
+      model: 'AX-1000',
+      positions: [
+        { id: id['EST-10'], x: 0, y: 0, w: 100, h: 100, rotation: 0 }, // cx 50
+        { id: id['EST-20'], x: 200, y: 0, w: 100, h: 100, rotation: 0 }, // cx 250
+        { id: id['EST-30'], x: 600, y: 0, w: 100, h: 100, rotation: 0 }, // cx 650
+      ],
+      connectors: [
+        { from: id['EST-10'], to: id['EST-20'] }, // intra c1
+        { from: id['EST-20'], to: id['EST-30'] }, // inter c1→c2
+      ],
+      cells: [
+        {
+          id: 'c1',
+          name: 'A',
+          color: '#6366f1',
+          stationIds: [id['EST-10'], id['EST-20']],
+        },
+        { id: 'c2', name: 'B', color: '#10b981', stationIds: [id['EST-30']] },
+      ],
+    });
+
+    const cf = await service.getCellFlow('AX-1000');
+    expect(cf.cellCount).toBe(2);
+    expect(cf.intraCount).toBe(1);
+    expect(cf.interCount).toBe(1);
+    expect(cf.intraDistance).toBe(200); // 50→250
+    expect(cf.interDistance).toBe(400); // 250→650
+    expect(cf.interPct).toBeCloseTo(66.7, 0);
+    expect(cf.interSegments[0]).toMatchObject({ from: 'EST-20', to: 'EST-30' });
+  });
+
+  it('drives the approval / sign-off lifecycle (Fase 29)', async () => {
+    await seedRoute();
+    // Default state is draft.
+    expect((await service.getLayout('AX-1000')).approval.status).toBe('draft');
+
+    // Submit for review — no stamp yet.
+    const reviewing = await service.setApproval({
+      model: 'AX-1000',
+      status: 'in_review',
+    });
+    expect(reviewing.approval).toMatchObject({
+      status: 'in_review',
+      by: null,
+      at: null,
+    });
+
+    // Approve — stamps the user + time.
+    const approved = await service.setApproval({
+      model: 'AX-1000',
+      status: 'approved',
+      note: 'Visto bueno IE',
+    });
+    expect(approved.approval.status).toBe('approved');
+    expect(approved.approval.by).toBe('anonymous'); // no tenant context in the spec
+    expect(approved.approval.at).not.toBeNull();
+    expect(approved.approval.note).toBe('Visto bueno IE');
+
+    // Back to draft clears the stamp.
+    const back = await service.setApproval({
+      model: 'AX-1000',
+      status: 'draft',
+    });
+    expect(back.approval).toMatchObject({
+      status: 'draft',
+      by: null,
+      at: null,
+    });
+  });
+
+  it('returns an empty audit timeline when no ledger is wired (Fase 32)', async () => {
+    // The default service in this suite is built without a ledger.
+    await expect(service.getLayoutHistory('AX-1000', 'A')).resolves.toEqual([]);
+  });
+
+  it('builds a human-readable audit timeline from the ledger (Fase 32)', async () => {
+    const stored = [
+      {
+        id: 'e1',
+        action: 'SF_LINE_LAYOUT_APPROVAL',
+        actorName: 'ana@plant',
+        timestamp: new Date('2026-06-23T10:00:00.000Z'),
+        metadata: { afterState: { status: 'approved' } },
+      },
+      {
+        id: 'e2',
+        action: 'SF_LINE_LAYOUT_SAVED',
+        actorName: 'ana@plant',
+        timestamp: new Date('2026-06-23T09:00:00.000Z'),
+        metadata: { afterState: { placed: 3, cleared: 1 } },
+      },
+      {
+        id: 'e3',
+        action: 'SF_LINE_LAYOUT_CLONED',
+        actorName: '',
+        timestamp: new Date('2026-06-23T08:00:00.000Z'),
+        metadata: { afterState: { from: 'AX-900|A', to: 'AX-1000|A' } },
+      },
+    ];
+    const getEventsByReference = jest.fn().mockResolvedValue(stored);
+    const withLedger = new LineEngineeringService(
+      createTenantScopedRepository(SfLineStation, dataSource.manager, ctx),
+      createTenantScopedRepository(SfModelLine, dataSource.manager, ctx),
+      ctx,
+      createTenantScopedRepository(SfLineLayout, dataSource.manager, ctx),
+      { getEventsByReference } as unknown as EventLedgerService,
+    );
+
+    const history = await withLedger.getLayoutHistory('AX-1000', 'A');
+
+    expect(getEventsByReference).toHaveBeenCalledWith(
+      'SF_LINE_ENGINEERING',
+      'AX-1000|A',
+    );
+    expect(history).toHaveLength(3);
+    expect(history[0]).toMatchObject({
+      kind: 'approval',
+      title: 'Cambió aprobación a aprobado',
+      actor: 'ana@plant',
+      at: '2026-06-23T10:00:00.000Z',
+    });
+    expect(history[1]).toMatchObject({
+      kind: 'save',
+      title: 'Guardó el layout',
+      detail: '3 colocadas · 1 retirada',
+    });
+    expect(history[2]).toMatchObject({
+      kind: 'clone',
+      title: 'Clonó el layout',
+      detail: 'desde AX-900|A',
+      actor: 'anónimo', // blank actor falls back
+    });
+  });
+
+  it('degrades gracefully when the ledger query throws (Fase 32)', async () => {
+    const getEventsByReference = jest
+      .fn()
+      .mockRejectedValue(new Error('db down'));
+    const withLedger = new LineEngineeringService(
+      createTenantScopedRepository(SfLineStation, dataSource.manager, ctx),
+      createTenantScopedRepository(SfModelLine, dataSource.manager, ctx),
+      ctx,
+      createTenantScopedRepository(SfLineLayout, dataSource.manager, ctx),
+      { getEventsByReference } as unknown as EventLedgerService,
+    );
+    await expect(withLedger.getLayoutHistory('AX-1000', 'A')).resolves.toEqual(
+      [],
+    );
   });
 
   it('computes capacity/load including changeover', async () => {

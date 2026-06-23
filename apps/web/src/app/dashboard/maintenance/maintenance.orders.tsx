@@ -40,6 +40,7 @@ import {
   TYPE_ORDER,
   compareWorkOrders,
   dueLabel,
+  fmtDate,
   fmtDateTime,
   fmtMinutes,
   isOverdue,
@@ -56,23 +57,18 @@ import type {
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000").replace(/\/$/, "");
 
-// Exportación del listado actual (respeta los filtros: el padre pasa `rows` ya
-// filtrado). Etiquetas legibles en español; fechas en formato local y vacías
-// cuando no aplican. Reutiliza el ExportButton genérico del Workspace.
+// Columnas de exportación de órdenes (el padre entrega el dataset ya filtrado).
 const ORDER_EXPORT_COLUMNS: ExportColumn<MaintenanceOrder>[] = [
-  { key: "folio", header: "Folio", value: (o) => o.folio ?? "" },
+  { key: "folio", header: "Folio" },
   { key: "title", header: "Título" },
-  { key: "type", header: "Tipo", value: (o) => TYPE_META[o.type].label },
-  { key: "status", header: "Estado", value: (o) => ORDER_STATUS_META[o.status].label },
-  { key: "priority", header: "Prioridad", value: (o) => PRIORITY_META[o.priority].label },
-  { key: "assetName", header: "Activo", value: (o) => o.assetName ?? "" },
-  { key: "assignedTo", header: "Responsable", value: (o) => o.assignedTo ?? "" },
-  { key: "dueDate", header: "Vence", value: (o) => (o.dueDate ? new Date(o.dueDate).toLocaleDateString() : "") },
+  { key: "type", header: "Tipo", value: (o) => TYPE_META[o.type]?.label ?? o.type },
+  { key: "assetName", header: "Activo" },
+  { key: "priority", header: "Prioridad", value: (o) => PRIORITY_META[o.priority]?.label ?? o.priority },
+  { key: "status", header: "Estado", value: (o) => ORDER_STATUS_META[o.status]?.label ?? o.status },
+  { key: "assignedTo", header: "Asignado a" },
   { key: "downtimeMinutes", header: "Paro (min)", value: (o) => o.downtimeMinutes ?? 0 },
-  { key: "created_at", header: "Creada", value: (o) => (o.created_at ? new Date(o.created_at).toLocaleString() : "") },
-  { key: "startedAt", header: "Iniciada", value: (o) => (o.startedAt ? new Date(o.startedAt).toLocaleString() : "") },
-  { key: "completedAt", header: "Completada", value: (o) => (o.completedAt ? new Date(o.completedAt).toLocaleString() : "") },
-  { key: "description", header: "Detalle", value: (o) => o.description ?? "" },
+  { key: "dueDate", header: "Vence", value: (o) => fmtDate(o.dueDate) },
+  { key: "completedAt", header: "Completada", value: (o) => fmtDate(o.completedAt) },
 ];
 
 export function OrdersTab({
@@ -139,7 +135,7 @@ export function OrdersTab({
             <option key={a.id} value={a.id}>{a.name}</option>
           ))}
         </select>
-        <ExportButton<MaintenanceOrder> rows={rows} columns={ORDER_EXPORT_COLUMNS} filename="ordenes-mantenimiento" />
+        <ExportButton rows={rows} columns={ORDER_EXPORT_COLUMNS} filename="ordenes-mantenimiento" formats={["csv"]} label="Exportar" />
         <button onClick={() => onNewOrder()} className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium text-white" style={{ background: COLORS.violet }}>
           <Plus className="w-4 h-4" /> Nueva orden
         </button>

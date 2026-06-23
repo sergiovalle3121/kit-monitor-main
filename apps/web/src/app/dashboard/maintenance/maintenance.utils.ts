@@ -12,6 +12,8 @@ import type {
   MaintenanceOrderStatus,
   MaintenancePriority,
   MaintenanceType,
+  PmFrequencyType,
+  PmPlan,
 } from "./maintenance.types";
 
 // ── Paleta compartida ────────────────────────────────────────────────────────
@@ -410,4 +412,61 @@ export function fmtMinutes(min?: number | null): string {
   const h = Math.floor(m / 60);
   const rem = m % 60;
   return rem === 0 ? `${h} h` : `${h} h ${rem} min`;
+}
+
+// ── Preventivo programado (PM plans) ─────────────────────────────────────────
+// Espejo de apps/api/.../pm-frequency.ts: cadencia y semáforo de vencimiento.
+
+export const PM_FREQUENCY_META: Record<
+  PmFrequencyType,
+  { one: string; many: string }
+> = {
+  DAYS: { one: "día", many: "días" },
+  WEEKS: { one: "semana", many: "semanas" },
+  MONTHS: { one: "mes", many: "meses" },
+};
+
+export const PM_FREQUENCY_ORDER: PmFrequencyType[] = ["DAYS", "WEEKS", "MONTHS"];
+
+/** "cada 7 días", "cada 2 semanas", "cada 1 mes". */
+export function pmFrequencyLabel(type: PmFrequencyType, value: number): string {
+  const meta = PM_FREQUENCY_META[type];
+  const n = Math.max(1, Math.trunc(value || 0));
+  return `cada ${n} ${n === 1 ? meta.one : meta.many}`;
+}
+
+export type PmDueStatus = "OK" | "DUE_SOON" | "OVERDUE";
+
+export const PM_DUE_SOON_DAYS = 7;
+
+export const PM_STATUS_META: Record<
+  PmDueStatus,
+  { label: string; color: string }
+> = {
+  OK: { label: "Vigente", color: COLORS.green },
+  DUE_SOON: { label: "Por vencer", color: COLORS.amber },
+  OVERDUE: { label: "Vencido", color: COLORS.red },
+};
+
+/** Semáforo de un PM por su próxima fecha (mismo criterio que el backend). */
+export function pmDueStatus(
+  nextDueDate?: string | null,
+  now = Date.now(),
+  windowDays = PM_DUE_SOON_DAYS,
+): PmDueStatus {
+  if (!nextDueDate) return "OK";
+  const t = new Date(nextDueDate).getTime();
+  if (Number.isNaN(t)) return "OK";
+  if (t < now) return "OVERDUE";
+  if (t <= now + windowDays * 24 * 3_600_000) return "DUE_SOON";
+  return "OK";
+}
+
+/** Sólo planes activos; ordena vencidos primero, luego por próxima fecha. */
+export function sortPmPlans(plans: PmPlan[]): PmPlan[] {
+  return [...plans].sort((a, b) => {
+    const at = a.nextDueDate ? new Date(a.nextDueDate).getTime() : Infinity;
+    const bt = b.nextDueDate ? new Date(b.nextDueDate).getTime() : Infinity;
+    return at - bt;
+  });
 }

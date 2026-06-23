@@ -1,6 +1,7 @@
 import { Column, Entity, Index, PrimaryGeneratedColumn } from 'typeorm';
 import { TenantBaseEntity } from '../../../common/entities/tenant-base.entity';
 import { JSON_COLUMN_TYPE } from '../../../common/database/json-column-type';
+import { DATE_COLUMN_TYPE } from '../../../common/database/date-column-type';
 
 /** A directed material-flow link between two stations (Fase 4). */
 export interface LayoutConnector {
@@ -31,6 +32,14 @@ export interface LayoutAnnotation {
   y2?: number;
   text?: string;
   color?: string;
+}
+
+/** A named manufacturing cell / zone grouping a set of stations (Fase 27). */
+export interface LayoutCell {
+  id: string;
+  name: string;
+  color: string;
+  stationIds: string[]; // sf_line_stations.id members
 }
 
 /** A station placement captured inside a snapshot (Fase 13). */
@@ -115,6 +124,31 @@ export class SfLineLayout extends TenantBaseEntity {
   @Column({ type: 'float', default: 500, name: 'grid_size' })
   gridSize: number;
 
+  // ── Approval / sign-off lifecycle (Fase 29) ────────────────────────────────
+  // The release state of the layout: draft → in_review → approved. Additive &
+  // nullable: NULL approval_status = treated as 'draft'.
+  @Column({
+    type: 'varchar',
+    length: 16,
+    nullable: true,
+    name: 'approval_status',
+  })
+  approvalStatus: string | null;
+
+  @Column({ type: 'varchar', length: 160, nullable: true, name: 'approved_by' })
+  approvedBy: string | null;
+
+  @Column({ type: DATE_COLUMN_TYPE, nullable: true, name: 'approved_at' })
+  approvedAt: Date | null;
+
+  @Column({
+    type: 'varchar',
+    length: 240,
+    nullable: true,
+    name: 'approval_note',
+  })
+  approvalNote: string | null;
+
   // ── DXF background (Fase 2) ────────────────────────────────────────────────
   // A read-only client/plant floor plan rendered behind the stations. Additive &
   // nullable: NULL `dxf_data` = no background. The placement columns position the
@@ -166,4 +200,10 @@ export class SfLineLayout extends TenantBaseEntity {
   // Additive & nullable: NULL/empty = no saved versions.
   @Column({ type: JSON_COLUMN_TYPE, nullable: true })
   snapshots: LayoutSnapshot[] | null;
+
+  // ── Cells / zones (Fase 27) ────────────────────────────────────────────────
+  // Named groupings of stations (manufacturing cells), drawn as a boundary on
+  // the plan. Additive & nullable: NULL/empty = no cells.
+  @Column({ type: JSON_COLUMN_TYPE, nullable: true })
+  cells: LayoutCell[] | null;
 }

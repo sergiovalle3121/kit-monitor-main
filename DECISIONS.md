@@ -1567,4 +1567,324 @@ calcula `CONFIDENCE.T(α, σ, n) = T.INV.2T(α, n−1)·σ/√n` reutilizando la
 `ERF.PRECISE`+`ERFC.PRECISE`=1; `CONFIDENCE.T(0.05,1,10)`≈0.7154 y > `CONFIDENCE.NORM`). Sin
 regresiones: 38 suites de hoja + 3 de I/O Office verdes; `lint web` 0 errores; `build web` ✓.
 
+## 64. Office/Sheets — correcciones de fidelidad (ROUND mitad-lejos-del-cero, SUBSTITUTE n-ésima)
+
+**Contexto.** Una auditoría de **valores conocidos** sobre funciones MUY comunes destapó dos
+divergencias de `@formulajs/formulajs@2.9.3` respecto a Excel:
+- `ROUND` usa `Math.round` (mitad hacia +∞): `ROUND(-2.5, 0)` daba **-2** en vez de **-3**; y el
+  error de coma flotante estropeaba `ROUND(1.005, 2)` y `ROUND(2.675, 2)`.
+- `SUBSTITUTE(texto, viejo, nuevo, n)` con instancia sustituía la ocurrencia equivocada:
+  `SUBSTITUTE("aaa","a","b",2)` daba **"aab"** en vez de **"aba"**.
+
+**Decisión (sólo `apps/web`, aditiva):** `components/office/sheets/fidelityFixes.ts` registra
+versiones fieles en `CUSTOM_FUNCTIONS` (ganan al fallback de formulajs). `ROUND` redondea «mitad
+lejos del cero» con una corrección ε para el error de coma flotante; `SUBSTITUTE` recorre las
+ocurrencias y sustituye exactamente la n-ésima.
+
+**Verificación:** nueva suite `fidelityFixes.spec.ts` (**20 aserciones** sobre el motor REAL:
+`ROUND` de positivos/negativos a la mitad, casos de coma flotante 1.005→1.01 y 2.675→2.68, decimales
+negativos, composición con `SUM`; `SUBSTITUTE` de la 2ª/3ª/todas las ocurrencias, sin coincidencia,
+instancia fuera de rango, composición con `LEN`). Sin regresiones: 39 suites de hoja + 3 de I/O
+Office verdes; `lint web` 0 errores; `build web` ✓.
+
+## 65. Office/Sheets — corrección de PERCENTILE/QUARTILE (interpolación inclusiva)
+
+**Contexto.** Siguiendo la auditoría de fidelidad (§64), `PERCENTILE` de `@formulajs/formulajs@2.9.3`
+**interpola mal**: `PERCENTILE({1,2,3,4}, 0.25)` daba **1.25** en vez de **1.75**, pese a que su
+`QUARTILE` —que debería coincidir (`QUARTILE(·,1) ≡ PERCENTILE(·,0.25)`)— sí daba 1.75. Como
+`PERCENTILE.INC` (§54) delegaba en ese `PERCENTILE`, también quedaba mal.
+
+**Decisión (sólo `apps/web`, aditiva):** `components/office/sheets/percentileFix.ts` implementa el
+percentil **inclusivo** de Excel (interpolación lineal sobre el rango 0-based `p·(n−1)`) y registra
+`PERCENTILE`, `PERCENTILE.INC`, `QUARTILE`, `QUARTILE.INC` —se fusiona DESPUÉS de `STAT_FUNCTIONS`
+para imponerse a la delegación— de modo que toda la familia inclusiva es coherente. Los exclusivos
+(`PERCENTILE.EXC`/`QUARTILE.EXC`, §54) no se tocan.
+
+**Verificación:** nueva suite `percentileFix.spec.ts` (**16 aserciones** sobre el motor REAL:
+`PERCENTILE` 0.25/0.5/0.75/0.3 y sobre rango real, `#NUM!` fuera de `[0,1]`; `QUARTILE` Q0–Q4 con
+`#NUM!` fuera de rango; coherencia `QUARTILE Q2 == MEDIAN` y `PERCENTILE 0.25 == QUARTILE Q1`). Sin
+regresiones: 40 suites de hoja + 3 de I/O Office verdes; `lint web` 0 errores; `build web` ✓.
+
+## 66. Office/Sheets — regresión lineal/exponencial (TREND, GROWTH, SLOPE, INTERCEPT, FORECAST)
+
+**Contexto.** `TREND` y `GROWTH` (predicción por tendencia, muy usadas en previsión) están rotas en
+`@formulajs/formulajs@2.9.3` (`#VALUE!`/`#REF!`), e `INTERCEPT` falla con vectores fila —p. ej.
+constantes de matriz `{…}`— mientras `SLOPE` sí funciona (incoherencia).
+
+**Decisión (sólo `apps/web`, aditiva):** `components/office/sheets/regression.ts` implementa toda la
+familia por mínimos cuadrados, de forma coherente para rangos y constantes de matriz, y la registra
+DESPUÉS de las demás para imponerse. `TREND`/`GROWTH` DEVUELVEN una matriz 2D con la forma de
+`nueva_x` (componen con `INDEX`/`SUM` y derraman, §38); `GROWTH` ajusta `ln(y)` linealmente; el
+argumento `constante=FALSO` fuerza la recta/curva por el origen. `SLOPE`/`INTERCEPT`/`FORECAST`/
+`FORECAST.LINEAR` comparten el mismo ajuste.
+
+**Verificación:** nueva suite `regression.spec.ts` (**13 aserciones** sobre el motor REAL con la
+recta `y=0.6x+2.2`: `SLOPE`=0.6, `INTERCEPT`=2.2 (y con constante fila, antes `#VALUE!`),
+`FORECAST(6)`=5.8; `TREND` con `INDEX`/`SUM`, sin x, y por el origen; `GROWTH` exponencial=16 y
+`#NUM!` con `y≤0`). Sin regresiones: 41 suites de hoja + 3 de I/O Office verdes; `lint web` 0
+errores; `build web` ✓.
+
+## 67. Office/Sheets — LOGEST (completa la familia de regresión)
+
+**Contexto.** Tras añadir la regresión lineal (§66), faltaba `LOGEST` —los coeficientes de la
+regresión **exponencial** `y = b·mˣ`— que en `@formulajs/formulajs@2.9.3` revienta (`#ERROR!`).
+Es la pareja de `GROWTH` (predicción) igual que `LINEST` lo es de `TREND`.
+
+**Decisión (sólo `apps/web`, aditiva):** se añade `LOGEST` a `regression.ts` reutilizando el mismo
+ajuste por mínimos cuadrados sobre `ln(y)`: devuelve la matriz `{m, b}` con `m = e^pendiente` y
+`b = e^intersección`. (`LINEST` ya funciona en formulajs, así que no se toca.)
+
+**Verificación:** `regression.spec.ts` ampliada a **17 aserciones** (las 13 de la recta + 4 de
+`LOGEST`: `{1,2,4,8}` → m=2, b=0.5; `{6,12,24}` con x → b=3; `#NUM!` con `y≤0`; coherente con
+`GROWTH`). Sin regresiones: 41 suites de hoja + 3 de I/O Office verdes; `lint web` 0 errores;
+`build web` ✓.
+
+## 68. Office/Sheets — el asistente de funciones expone toda la biblioteca nueva
+
+**Contexto.** Las ~18 fases anteriores añadieron 100+ funciones (financieras avanzadas, base de
+datos, distribuciones, matrices, ingeniería, regresión…), pero el **asistente de funciones**
+(`SheetFunctionWizard`) solo listaba las categorías iniciales: lo nuevo era invisible para el
+usuario. En Excel el cuadro «Insertar función» es exhaustivo; esto cierra ese hueco de
+descubribilidad.
+
+**Decisión (sólo `apps/web`, aditiva):** se amplía `SheetFunctionWizard.tsx` de 116 a **190**
+funciones: se completa «Financieras» (IPMT/PPMT/CUMIPMT/XNPV/XIRR, amortización SLN/DB/DDB/SYD,
+EFFECT/NOMINAL, y los bonos PRICE/YIELD/DURATION/MDURATION/COUPNUM/DISC/ACCRINTM/DOLLARDE/DOLLARFR)
+y se añaden tres categorías nuevas: «Base de datos» (DSUM/DCOUNT/DGET…), «Estadística avanzada»
+(distribuciones NORM/T/CHISQ/F/GAMMA/BETA/BINOM/POISSON/HYPGEOM, CONFIDENCE.T, regresión TREND/
+GROWTH/SLOPE/INTERCEPT/FORECAST/CORREL, percentiles y rangos modernos) e «Ingeniería y matrices»
+(MMULT/MINVERSE/MDETERM/MUNIT, CONVERT, BASE/DECIMAL, conversiones DEC2HEX…, bits, complejos, GCD/
+LCM, DELTA/GESTEP). Cada entrada lleva sintaxis y ayuda de argumentos en español, como las demás.
+
+**Verificación:** sonda funcional sobre el motor REAL de una llamada representativa de **cada una de
+las 50 familias añadidas** → todas operativas (sin `#NAME?`/`#ERROR!`), de modo que el asistente
+nunca anuncia una función rota. `lint web` 0 errores; `build web` ✓.
+
+## 69. Office/Sheets — difusión (broadcasting) de operadores sobre matrices
+
+**Contexto.** La mayor limitación del motor, documentada desde §«modernFunctions»: el parser de
+Fortune-Sheet evalúa los operadores binarios (`+ - * / ^ > < >= <= = <> &`) sólo con escalares, así
+que `A1:A10>5` colapsaba a un escalar y los idiomas de matriz de Excel —`(rango>x)*1`,
+`SUMPRODUCT((a>b)*c)`, `{1,2,3}+{10,20,30}`— fallaban. Por eso `FILTER` necesitaba la máscara ya
+evaluada.
+
+**Decisión (sólo `apps/web`, aditiva):** `components/office/sheets/broadcast.ts` **envuelve el
+despachador de operadores por instancia** (`parser.parser.yy.evaluateByOperator`, fijado en el
+constructor; `registerOperation` no se exporta). Si algún operando es una matriz 2D, el operador se
+aplica elemento a elemento estilo Excel (escalar↔matriz se recicla; columna n×1 ⊗ fila 1×m → matriz
+n×m) devolviendo una matriz 2D que compone con `SUM`/`SUMPRODUCT`/… y derrama (§38). Se engancha en
+el parche de `parse` (`installBroadcast(this.parser.yy)`). Corrige además que los aritméticos de
+formulajs no convertían los lógicos (`toNumber(true)=undefined`→`#VALUE!`): `VERDADERO→1`/`FALSO→0`
+para `+ - * / ^`, lo que hace funcionar `(rango>x)*1`. El camino escalar sólo cambia por esa coerción
+(que únicamente puede arreglar, nunca romper, pues antes daba error).
+
+**Límite (documentado):** el **menos unario** (`-`/idioma `--(…)`) lo trata el gramático de forma
+especial y no compone con matrices de forma fiable → úsese `(…)*1`.
+
+**Verificación:** nueva suite `broadcast.spec.ts` (**19 aserciones** sobre el motor REAL:
+`(A1:A5>2)*1`, `SUMPRODUCT((a>2)*B)`, doble condición, aritmética rango↔escalar y rango↔rango,
+constantes de matriz, producto exterior columna×fila, `&` difundido, y que los escalares NO se
+rompen + lógico·número). **Sin regresiones: las 46 suites de spec de Office verdes** (la prueba
+clave, porque toca el camino de evaluación central); `lint web` 0 errores; `build web` ✓.
+
+## 70. Office/Sheets — IF consciente de matrices (cierra las fórmulas matriciales)
+
+**Contexto.** Tras la difusión de operadores (§69), `A1:A10>5` ya da una matriz de lógicos, pero el
+idioma clásico de fórmula matricial `SUM(IF(rango>x; valores; otro))` seguía fallando: el `IF` de
+formulajs es escalar y, con una condición-matriz, evalúa la matriz como un único «verdadero» y
+devuelve la rama verdadera entera.
+
+**Decisión (sólo `apps/web`, aditiva):** `components/office/sheets/arrayIf.ts` registra un `IF` que,
+si la **condición es una matriz 2D**, selecciona elemento a elemento entre las ramas verdadera/falsa
+(escalares —se reciclan— o matrices), devolviendo una matriz 2D que compone con `SUM`/`SUMPRODUCT`/…
+y derrama (§38). Si la condición es **escalar**, delega en el MISMO `formulajs.IF` que ya usaba el
+motor → comportamiento idéntico y **riesgo cero de regresión** (clave, porque `IF` es ubicua).
+
+**Verificación:** nueva suite `arrayIf.spec.ts` (**15 aserciones**: IF escalar idéntico —verdadero/
+falso, comparación, número, sin rama falsa, sobre celda—; e IF con condición-matriz —`SUM(IF(a>2,a))`
+=12, devolver otra columna, cuenta condicional, elegir A o B por elemento, texto, doble condición,
+con constantes de matriz). Sin regresiones: las 46 suites de spec de Office verdes; `lint web` 0
+errores; `build web` ✓.
+
+## 71. Office/Sheets — fidelidad de fecha/hora (HOUR/MINUTE/SECOND con texto; EDATE fin de mes)
+
+**Contexto.** La auditoría de valores conocidos destapó dos bugs comunes de `@formulajs/formulajs`:
+`HOUR`/`MINUTE`/`SECOND` revientan con una hora en **texto** (`HOUR("13:45:30")`→`#VALUE!`) aunque
+Excel la parsea, y `EDATE` no **recorta al fin de mes**: `EDATE(31-ene, +1)` daba 2-mar en vez de
+29-feb.
+
+**Decisión (sólo `apps/web`, aditiva):** `components/office/sheets/dateTimeFix.ts` registra versiones
+fieles en `CUSTOM_FUNCTIONS`. `HOUR`/`MINUTE`/`SECOND` aceptan texto (`HH:MM[:SS]` con AM/PM), número
+de serie (fracción de día) y `Date`. `EDATE` suma meses y recorta el día al último del mes destino
+(bisiestos correctos), devolviendo un `Date` como las demás funciones de fecha.
+
+**Verificación:** nueva suite `dateTimeFix.spec.ts` (**18 aserciones**: `HOUR`/`MINUTE`/`SECOND` de
+texto/AM/PM/medianoche/serie/`TIMEVALUE`, texto inválido → `#VALUE!`+`IFERROR`; `EDATE` 31-ene+1 en
+año bisiesto y no, 31-mar−1, cruce de año, 31-may+1=30-jun). Sin regresiones: las 47 suites de spec
+de Office verdes; `lint web` 0 errores; `build web` ✓.
+
+## 72. Office/Sheets — fidelidad matemática (LOG base 10, CEILING/FLOOR cifra 1 por defecto)
+
+**Contexto.** La auditoría de valores conocidos destapó tres funciones MUY comunes que en
+`@formulajs/formulajs@2.9.3` fallan cuando se omite su argumento opcional (no le ponen el valor por
+defecto de Excel): `LOG(100)`→`#NUM!` (debería usar base 10 → 2), `CEILING(4.3)`→0 (cifra 1 → 5),
+`FLOOR(4.7)`→0 (cifra 1 → 4).
+
+**Decisión (sólo `apps/web`, aditiva):** `components/office/sheets/mathFidelity.ts` registra `LOG`/
+`CEILING`/`FLOOR` que **rellenan el valor por defecto que faltaba** (base 10, cifra 1) y **delegan en
+el mismo `formulajs`** cuando el argumento SÍ está → comportamiento idéntico con el argumento
+explícito y riesgo cero de regresión.
+
+**Verificación:** nueva suite `mathFidelity.spec.ts` (**15 aserciones**: `LOG(100)`=2, `LOG(8,2)`=3,
+`CEILING(4.3)`=5 y con cifra explícita, `FLOOR(4.7)`=4 y con cifra, composición con `SUM`/`POWER`).
+Sin regresiones: las 48 suites de spec de Office verdes; `lint web` 0 errores; `build web` ✓.
+
+## 73. Office/Sheets — truncamiento de argumentos enteros en texto (REPT/RIGHT/MID/ROMAN)
+
+**Contexto.** Excel **trunca hacia cero** los argumentos de conteo/longitud/posición fraccionarios
+(`REPT("ab", 2.9)`=`"abab"`), pero `@formulajs/formulajs@2.9.3` los **redondea** o **revienta**:
+`REPT(_, 2.9)`→`#ERROR!`, `RIGHT("hello", 2.9)`→`"llo"` (3 caracteres en vez de 2), `MID`/`ROMAN`
+con fracción → resultado erróneo. (`LEFT` ya truncaba.)
+
+**Decisión (sólo `apps/web`, aditiva):** `components/office/sheets/textTrunc.ts` registra `REPT`/
+`LEFT`/`RIGHT`/`MID`/`ROMAN` que **truncan** cada argumento entero antes de **delegar en el mismo
+`formulajs`** (correcto con enteros) → idéntico con enteros, riesgo cero.
+
+**Verificación:** nueva suite `textTrunc.spec.ts` (**15 aserciones**: `REPT`/`RIGHT`/`MID`/`ROMAN` con
+fracción truncan; enteros y valores por defecto intactos; composición con `LEN`/`ROUND`). Sin
+regresiones: las 49 suites de spec de Office verdes; `lint web` 0 errores; `build web` ✓.
+
+## 74. Alertas proactivas de KPI (Fase 11 CIDE)
+
+**Contexto.** El Centro de Inteligencia mostraba KPIs (valor + sparkline) pero era
+pasivo: nadie avisaba cuando un KPI cruzaba su objetivo o empeoraba.
+
+**Decisión.** Alertas **deterministas y RBAC-gated** sobre lo ya construido:
+- **Objetivo (target) editable** en el editor self-serve: `UpsertMetricDto` gana
+  `target?` (persistido en `MetricDefinition.config.target` vía `applyTarget`).
+- `SemanticService.evaluateAlerts(principal)` combina valor en vivo + `direction`
+  + snapshots (§28→tendencia): **(1)** *breach de objetivo* (severidad por
+  magnitud; ≥20% → critical); **(2)** *tendencia adversa* (≥15% contra
+  `direction`). Endpoint `GET /api/semantic/alerts`; herramienta CIDE `kpi_alerts`.
+- **UI:** el Centro de Inteligencia abre con la sección "Alertas de KPI".
+
+**Sin entidades nuevas** (target vive en `config`). Build API/web ✓, lint web 0
+errores, 768/768 tests.
+
+## 75. Alertas push de KPI a admins (Fase 12 CIDE)
+
+**Contexto.** Las alertas (§74) eran visibles solo en el tablero; faltaba que el
+sistema **alcanzara** al responsable.
+
+**Decisión.** `SemanticService.notifyAlerts` evalúa alertas (actor sistema), filtra
+**críticas** y crea una notificación por admin vía `NotificationsService.create`
+(in-app + web push), con `dedupeKey` por métrica+kind+día (anti-spam: una por KPI
+crítico por día). Solo las críticas se pushean (alta señal). Enganchado al **cron
+diario** existente (tras el snapshot) + endpoint admin `POST /api/semantic/alerts/notify`
+y botón "Notificar a admins" en el tablero. Servicios resueltos por `ModuleRef`
+(módulo desacoplado); el contexto de tenant tiene fallback seguro fuera de request;
+best-effort (nunca rompe el cron).
+
+**Sin entidades nuevas.** Build API/web ✓, lint web 0 errores, 777/777 tests.
+
+## 76. Borrado lógico en el editor de catálogo (Fase 13 CIDE)
+
+**Contexto.** El editor self-serve (§25/§27) permitía crear y editar
+métricas/objetos/relaciones, pero no **retirarlos**.
+
+**Decisión.** Borrado lógico (reversible) usando la columna `active` existente:
+`SemanticService.setActive(tenantId, kind, key, active)`;
+`catalog(tenantId, includeInactive)` (el editor admin ve también los archivados;
+para no-admin se ignora). Endpoints `GET /catalog?includeInactive=true` y
+`POST /semantic/archive` (admin, `ArchiveItemDto`). En la UI, cada fila gana
+**Archivar/Restaurar** + badge. Como el catálogo filtra `active:true`, archivar
+oculta el ítem de CIDE y los tableros automáticamente.
+
+**Sin entidades nuevas.** Build API/web ✓, lint web 0 errores, 788/788 tests.
+
+> **Nota de proceso (Fases 11–13).** Estas entradas se agregaron en un PR-doc
+> separado: `main` mergea PRs de Office/Sheets cada pocos minutos sobre
+> `DECISIONS.md`, lo que causaba una carrera de conflictos que bloqueaba el CI. Se
+> mantuvieron las ramas de feature **solo-código** y se saldó la deuda documental
+> aquí, de una vez.
+
+## 77. Office/Sheets — difusión de funciones escalares sobre matrices (cierra las fórmulas matriciales)
+
+**Contexto.** Las fórmulas matriciales se construyeron en tres capas: la difusión de **operadores**
+(§69, `rango*2`, `rango>x`) y el **`IF` matricial** (§70, selección elemento a elemento). Faltaba la
+tercera: las **funciones escalares** (`ROUND`, `ABS`, `TEXT`, `LEN`, `LEFT`…) seguían sin aplicarse
+celda a celda en contexto matricial. `SUM(ROUND(A1:A5*1.1; 0))`, `TEXT({1;2;3}; "000")` o
+`FILTER(B; ABS(A)>x)` daban `#VALUE!` porque la función recibía la matriz entera en vez de cada
+elemento. En Excel, una función escalar dentro de una fórmula matricial se difunde por definición.
+
+**Decisión (sólo `apps/web`, aditiva):** `components/office/sheets/scalarBroadcast.ts` envuelve un
+**conjunto curado** de ~37 funciones escalares (sólo unarias/diádicas elemento a elemento — **nunca**
+agregados como `SUM`/`MAX` ni de matriz como `FILTER`/`SORT`). `broadcast(impl)` deja pasar los
+argumentos escalares sin tocarlos y, si alguno es matriz 2D, aplica la función a cada celda
+reciclando los escalares y, como los operadores, columna n×1 ⊗ fila 1×m → matriz n×m; devuelve una
+matriz 2D que compone con `SUM`/`SUMPRODUCT`/`TEXTJOIN`/… y derrama (§38). `applyScalarBroadcast`
+muta `CUSTOM_FUNCTIONS` tras el literal: usa la implementación propia ya registrada (p. ej. los
+arreglos de fidelidad §72/§73) o un delegado a `formulajs`. **Riesgo cero**: con argumentos escalares
+se llama a la implementación original sin cambios; sólo los argumentos-matriz (que antes fallaban)
+activan la difusión.
+
+Con esto, **las tres capas cierran el paradigma matricial**: operadores (§69) + `IF` (§70) +
+funciones escalares (§77). El caso emblemático que documentaba la limitación —`FILTER(B1:B5;
+A1:A5>2)` con condición calculada— y composiciones como `SUMPRODUCT(ROUND(rango;0); otro)` ya
+funcionan de extremo a extremo.
+
+**Verificación:** nueva suite `scalarBroadcast.spec.ts` (**20 aserciones**: escalar intacto en
+`ROUND`/`ABS`/`TEXT`/`LEN`/`SQRT`/`LEFT`; difusión de `ROUND`/`ABS`/`INT`/`POWER`/`MOD`/`SQRT`/`LEN`/
+`TEXT`/`UPPER`/`LEFT` sobre rangos y constantes `{…}`; `ROUND(rango·escalar)`; composición con
+`SUM`/`SUMPRODUCT`/`TEXTJOIN`; combinación con operadores §69 e `IF` matricial §70). Sin regresiones:
+las 49 suites de spec de Office verdes; `lint web` 0 errores; `build web` ✓.
+
+## 78. Office/Sheets — autofiltro personalizado (comodines, empieza/termina, Y/O)
+
+**Contexto.** El filtro de datos (`buildFilter`/`matchesCriterion`) ya admitía varios criterios pero
+**siempre en AND** y con `=`/`!=` de **coincidencia exacta**. Excel ofrece más en su *Autofiltro
+personalizado*: **comodines** (`*` = cualquier secuencia, `?` = un carácter, `~` escapa), operadores
+**«empieza por»/«termina en»**, y **dos condiciones** sobre la misma columna unidas por **Y/O**.
+
+**Decisión (sólo `apps/web`, aditiva — riesgo cero):**
+- `matchesCriterion` gana `beginsWith`/`endsWith` (insensibles a mayúsculas) y, en `=`/`!=`,
+  **comodines de Excel** vía `wildcardToRegExp` — *sólo* cuando el valor contiene `*`/`?`; sin
+  comodines, la comparación exacta/numérica queda **idéntica** (los tests previos siguen verdes).
+- `buildFilter` acepta `conjunction?: 'AND' | 'OR'` (por defecto `AND`, comportamiento previo); con
+  `'OR'` basta que se cumpla **algún** criterio.
+- UI (`SheetDataDialog`, modo filtro): réplica del *Autofiltro personalizado* de Excel — una o **dos
+  condiciones** sobre la misma columna con selector **Y (ambas) / O (cualquiera)**, nuevos operadores
+  en el desplegable y aviso de que se admiten comodines `*`/`?`.
+
+**Verificación:** `filter.spec.ts` ampliado (**27 aserciones**, +14: OR de criterios, comodines
+`N*`/`?orte`/`~*` literal, `beginsWith`/`endsWith`, comodín dentro de `buildFilter`, y los casos
+previos intactos). Sin regresiones: las 49 suites de spec de Office verdes; `lint web` 0 errores;
+`build web` ✓.
+
+## 79. Office/Sheets — combinar y separar celdas (UI)
+
+**Contexto.** El roundtrip XLSX ya **preservaba** las combinaciones (`config.merge`), pero no había
+forma de **crearlas** ni **deshacerlas** dentro de la app — una operación cotidiana en Excel
+(«Combinar y centrar»).
+
+**Decisión (sólo `apps/web`, aditiva — riesgo cero):**
+- `sheetOps.ts` gana `mergeCells(sheet, range)` y `unmergeCells(sheet, range)` **puras**. `mergeCells`
+  escribe `config.merge["r_c"] = { r, c, rs, cs }` — **el mismo formato que el roundtrip XLSX**, que
+  Fortune-Sheet ya renderiza al recargar y exporta a `.xlsx` sin pérdida; retira primero cualquier
+  combinación que se solape. El contenido del ancla se conserva y el de las celdas cubiertas queda
+  **oculto** (no se borra → separar lo recupera; menos destructivo que Excel). `unmergeCells` quita
+  toda combinación que intersecte el rango y devuelve cuántas.
+- UI: menú **«Combinar»** (Combinar celdas / Separar celdas) en el grupo *Formato → Celdas*, que actúa
+  sobre la **selección actual** del grid (`selectionRange()`), clona, muta y re-monta — igual que
+  «Inmovilizar».
+
+**Por qué `config.merge` y no `mc` por celda:** es la representación que el import XLSX produce y que
+ya se renderiza/exporta correctamente; replicarla exactamente es lo de menor riesgo y se prueba como
+función pura.
+
+**Verificación:** nueva suite `merge.spec.ts` (**15 aserciones**: ancla/rs/cs de fila y bloque, una
+sola celda → `false`, reemplazo de solapes, separación selectiva y por rango amplio, sin merge → 0,
+roundtrip combinar→separar). Sin regresiones: las 50 suites de spec de Office verdes; `lint web` 0
+errores; `build web` ✓.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->

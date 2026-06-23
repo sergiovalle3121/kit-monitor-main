@@ -43,6 +43,10 @@ export class Conversation {
   @Column({ name: 'disappearing_seconds', type: 'int', default: 0 })
   disappearingSeconds: number;
 
+  /** Canal de anuncios: solo el creador puede publicar; el resto solo lee. */
+  @Column({ name: 'announcement', type: 'boolean', default: false })
+  announcement: boolean;
+
   @OneToMany(() => ConversationMember, (m) => m.conversation)
   members: ConversationMember[];
 }

@@ -1,9 +1,11 @@
 import {
+  IsBoolean,
   IsIn,
   IsInt,
   IsOptional,
   IsString,
   Length,
+  Max,
   Min,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
@@ -17,6 +19,8 @@ import type {
   MaintenancePriority,
   MaintenanceType,
 } from '../entities/maintenance-order.entity';
+import { PM_FREQUENCY_TYPES } from '../pm-frequency';
+import type { PmFrequencyType } from '../entities/pm-plan.entity';
 
 const CRITICALITIES = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'];
 const ASSET_STATUSES = ['RUNNING', 'DOWN', 'IDLE', 'RETIRED'];
@@ -184,4 +188,102 @@ export class TransitionMaintenanceOrderDto {
   @IsInt()
   @Min(0)
   downtimeMinutes?: number;
+}
+
+// ── Preventive-maintenance plans (PM) ────────────────────────────────────────
+
+export class CreatePmPlanDto {
+  @ApiProperty({ example: 'Lubricación y limpieza de rieles' })
+  @IsString()
+  @Length(3, 200)
+  title: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @ApiPropertyOptional({ description: 'Activo al que aplica el preventivo.' })
+  @IsOptional()
+  @IsString()
+  @Length(0, 36)
+  assetId?: string;
+
+  @ApiProperty({ enum: PM_FREQUENCY_TYPES, example: 'DAYS' })
+  @IsIn(PM_FREQUENCY_TYPES)
+  frequencyType: PmFrequencyType;
+
+  @ApiProperty({ example: 30, description: 'Cada N días/semanas/meses.' })
+  @IsInt()
+  @Min(1)
+  @Max(3650)
+  frequencyValue: number;
+
+  @ApiPropertyOptional({
+    example: '2026-06-01',
+    description: 'Última realización; si se omite arranca desde hoy.',
+  })
+  @IsOptional()
+  @IsString()
+  lastDoneDate?: string;
+
+  @ApiPropertyOptional({
+    example: '2026-07-01',
+    description: 'Próximo vencimiento explícito; si se omite se calcula.',
+  })
+  @IsOptional()
+  @IsString()
+  nextDueDate?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @Length(0, 200)
+  assignedTo?: string;
+}
+
+export class UpdatePmPlanDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @Length(3, 200)
+  title?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @ApiPropertyOptional({ enum: PM_FREQUENCY_TYPES })
+  @IsOptional()
+  @IsIn(PM_FREQUENCY_TYPES)
+  frequencyType?: PmFrequencyType;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(3650)
+  frequencyValue?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  lastDoneDate?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  nextDueDate?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @Length(0, 200)
+  assignedTo?: string;
+
+  @ApiPropertyOptional({ description: 'Pausar/reactivar el plan.' })
+  @IsOptional()
+  @IsBoolean()
+  active?: boolean;
 }

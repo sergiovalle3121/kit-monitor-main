@@ -12,9 +12,11 @@ import {
   ASSET_STATUS_META,
   CRITICALITY_META,
   ORDER_STATUS_META,
+  PM_STATUS_META,
   PRIORITY_META,
   TYPE_META,
 } from "./maintenance.utils";
+import type { PmDueStatus } from "./maintenance.utils";
 import type {
   AssetCriticality,
   AssetStatus,
@@ -220,6 +222,11 @@ export function CriticalityPill({ criticality }: { criticality: AssetCriticality
 
 export function AssetStatusPill({ status }: { status: AssetStatus }) {
   const m = ASSET_STATUS_META[status];
+  return <Pill label={m.label} color={m.color} dot />;
+}
+
+export function PmStatusPill({ status }: { status: PmDueStatus }) {
+  const m = PM_STATUS_META[status];
   return <Pill label={m.label} color={m.color} dot />;
 }
 

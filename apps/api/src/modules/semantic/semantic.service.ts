@@ -21,6 +21,8 @@ import { EventLedgerService } from '../event-ledger/event-ledger.service';
 import { UpsertMetricDto } from './dto/upsert-metric.dto';
 import { UpsertObjectDto } from './dto/upsert-object.dto';
 import { UpsertLinkDto } from './dto/upsert-link.dto';
+import { NotificationsService } from '../notifications/notifications.service';
+import { UsersService } from '../users/users.service';
 
 const DEFAULT_TENANT = '__default__';
 
@@ -46,6 +48,41 @@ export interface MetricValue {
 interface ResolverDef {
   requiredPermission: string | null;
   compute: () => Promise<number>;
+}
+
+/** A KPI alert: a metric whose value breaches its target or trends adversely. */
+export interface KpiAlert {
+  key: string;
+  name: string;
+  value: number;
+  unit: string | null;
+  domain: string | null;
+  target: number | null;
+  direction: string | null;
+  severity: 'warning' | 'critical';
+  kind: 'target' | 'trend';
+  message: string;
+}
+
+/** Merge a target into a metric's config JSON (undefined = leave; null = clear). */
+function applyTarget(
+  config: Record<string, unknown> | null,
+  target?: number | null,
+): Record<string, unknown> | null {
+  if (target === undefined) return config ?? null;
+  const next: Record<string, unknown> = { ...(config ?? {}) };
+  if (target === null) delete next.target;
+  else next.target = target;
+  return Object.keys(next).length ? next : null;
+}
+
+function fmtAlertNum(n: number): string {
+  return Number.isInteger(n)
+    ? n.toLocaleString('es-MX')
+    : n.toLocaleString('es-MX', { maximumFractionDigits: 2 });
+}
+function unitSuffix(unit: string | null): string {
+  return unit === '%' ? '%' : unit === 'USD' ? ' USD' : '';
 }
 
 /**
@@ -115,20 +152,44 @@ export class SemanticService {
   }
 
   // ── Catalog (definitions) ───────────────────────────────────────────────────
-  async catalog(tenantId = DEFAULT_TENANT) {
+  async catalog(tenantId = DEFAULT_TENANT, includeInactive = false) {
     await this.ensureSeeded(tenantId);
+    // includeInactive (admin editor) returns archived rows too, each with `active`.
+    const active = includeInactive ? undefined : true;
     const [metrics, objects, links] = await Promise.all([
       this.metricRepo.find({
-        where: { tenantId, active: true },
+        where: { tenantId, active },
         order: { domain: 'ASC', name: 'ASC' },
       }),
       this.objectRepo.find({
-        where: { tenantId, active: true },
+        where: { tenantId, active },
         order: { domain: 'ASC', name: 'ASC' },
       }),
-      this.linkRepo.find({ where: { tenantId, active: true } }),
+      this.linkRepo.find({ where: { tenantId, active } }),
     ]);
     return { metrics, objects, links };
+  }
+
+  /** Archive (active=false) or restore (active=true) a catalog item. Admin. */
+  async setActive(
+    tenantId: string,
+    kind: 'metric' | 'object' | 'link',
+    key: string,
+    active: boolean,
+  ): Promise<{ ok: boolean }> {
+    const repo = (
+      kind === 'metric'
+        ? this.metricRepo
+        : kind === 'object'
+          ? this.objectRepo
+          : this.linkRepo
+    ) as unknown as Repository<{
+      tenantId: string;
+      key: string;
+      active: boolean;
+    }>;
+    const res = await repo.update({ tenantId, key }, { active });
+    return { ok: (res.affected ?? 0) > 0 };
   }
 
   async listMetrics(tenantId = DEFAULT_TENANT): Promise<MetricDefinition[]> {
@@ -188,6 +249,7 @@ export class SemanticService {
         grain: dto.grain ?? existing.grain,
         formula: dto.formula ?? existing.formula,
         direction: dto.direction ?? existing.direction,
+        config: applyTarget(existing.config, dto.target),
         // Editing a definition bumps its version (audit of metric drift).
         version: existing.version + 1,
       });
@@ -204,6 +266,7 @@ export class SemanticService {
         grain: dto.grain ?? null,
         formula: dto.formula ?? null,
         direction: dto.direction ?? null,
+        config: applyTarget(null, dto.target),
         version: 1,
         active: true,
       }),
@@ -450,15 +513,179 @@ export class SemanticService {
     return out;
   }
 
-  /** Daily KPI snapshot for the default tenant. */
+  // ── KPI alerts (proactive: target breach or adverse trend) ──────────────────
+  /**
+   * Evaluate proactive KPI alerts for the metrics the caller may see: a value
+   * that breaches its target (per `direction`), or a value trending adversely
+   * over the recent snapshot window. Deterministic and RBAC-gated.
+   */
+  async evaluateAlerts(
+    principal: SemanticPrincipal,
+    tenantId = DEFAULT_TENANT,
+  ): Promise<KpiAlert[]> {
+    const [metrics, values, history] = await Promise.all([
+      this.listMetrics(tenantId),
+      this.values(principal, tenantId),
+      this.metricHistoryBatch(principal, tenantId, 14),
+    ]);
+    const valueByKey = new Map(values.map((v) => [v.key, v]));
+    const alerts: KpiAlert[] = [];
+
+    for (const m of metrics) {
+      const mv = valueByKey.get(m.key);
+      if (!mv || mv.value == null || mv.restricted) continue;
+      const value = mv.value;
+      const dir = m.direction;
+      const target =
+        m.config && typeof m.config.target === 'number'
+          ? (m.config.target as number)
+          : null;
+
+      // 1) Target breach (needs a target + a direction).
+      if (target != null && dir) {
+        const breached = dir === 'down' ? value > target : value < target;
+        if (breached) {
+          const over =
+            target !== 0 ? Math.abs((value - target) / target) * 100 : 100;
+          const severity: KpiAlert['severity'] =
+            over >= 20 ? 'critical' : 'warning';
+          const cmp = dir === 'down' ? 'por encima de' : 'por debajo de';
+          alerts.push({
+            key: m.key,
+            name: m.name,
+            value,
+            unit: m.unit,
+            domain: m.domain,
+            target,
+            direction: dir,
+            severity,
+            kind: 'target',
+            message: `${m.name}: ${fmtAlertNum(value)}${unitSuffix(m.unit)} está ${cmp} su objetivo (${fmtAlertNum(target)}${unitSuffix(m.unit)}).`,
+          });
+          continue; // a breached metric doesn't also need a trend alert
+        }
+      }
+
+      // 2) Adverse trend over the snapshot window.
+      if (dir) {
+        const pts = history[m.key] ?? [];
+        if (pts.length >= 2) {
+          const first = pts[0].value;
+          const last = pts[pts.length - 1].value;
+          if (first !== 0) {
+            const changePct = ((last - first) / Math.abs(first)) * 100;
+            const adverse =
+              (dir === 'up' && changePct <= -15) ||
+              (dir === 'down' && changePct >= 15);
+            if (adverse) {
+              const word = changePct >= 0 ? 'subió' : 'bajó';
+              alerts.push({
+                key: m.key,
+                name: m.name,
+                value,
+                unit: m.unit,
+                domain: m.domain,
+                target,
+                direction: dir,
+                severity: 'warning',
+                kind: 'trend',
+                message: `${m.name} ${word} ${Math.abs(Math.round(changePct))}% (tendencia adversa) en la ventana reciente.`,
+              });
+            }
+          }
+        }
+      }
+    }
+
+    const rank = { critical: 0, warning: 1 };
+    return alerts.sort((a, b) => rank[a.severity] - rank[b.severity]);
+  }
+
+  /**
+   * Push critical KPI alerts to admins via the notifications module (in-app +
+   * web-push). Deduped per metric+kind+day so an admin gets at most one ping per
+   * critical KPI per day. Only `critical` alerts are pushed (high signal); the
+   * dashboard still shows all. Best-effort: failures never break the caller.
+   * Services are resolved lazily so the semantic module stays decoupled.
+   */
+  async notifyAlerts(tenantId = DEFAULT_TENANT): Promise<number> {
+    const alerts = await this.evaluateAlerts(
+      { isAdmin: true, permissions: [] },
+      tenantId,
+    );
+    const critical = alerts.filter((a) => a.severity === 'critical');
+    if (critical.length === 0) return 0;
+
+    let notifs: NotificationsService;
+    let users: UsersService;
+    try {
+      notifs = this.moduleRef.get(NotificationsService, { strict: false });
+      users = this.moduleRef.get(UsersService, { strict: false });
+    } catch {
+      return 0; // notifications/users not resolvable in this context
+    }
+
+    const admins = (await users.findAll()).filter((u) => u.role === 'Admin');
+    if (admins.length === 0) return 0;
+    const today = new Date().toISOString().slice(0, 10);
+    let sent = 0;
+    for (const a of critical) {
+      for (const admin of admins) {
+        try {
+          await notifs.create({
+            userId: admin.id,
+            title: `Alerta de KPI: ${a.name}`,
+            body: a.message,
+            kind: 'kpi-alert',
+            severity: 'critical',
+            domain: a.domain ?? undefined,
+            href: '/dashboard/intelligence',
+            dedupeKey: `kpi:${a.key}:${a.kind}:${today}`,
+          });
+          sent++;
+        } catch (e) {
+          this.logger.warn(
+            `KPI alert notify failed: ${(e as Error)?.message ?? e}`,
+          );
+        }
+      }
+    }
+    if (sent > 0) this.logger.log(`Sent ${sent} KPI alert notification(s).`);
+    return sent;
+  }
+
+  /** Tenants that have a semantic catalog (for cron fan-out). Always includes default. */
+  private async listTenants(): Promise<string[]> {
+    const rows = await this.metricRepo
+      .createQueryBuilder('m')
+      .select('DISTINCT m.tenantId', 'tenantId')
+      .getRawMany<{ tenantId: string }>();
+    const set = new Set<string>(rows.map((r) => r.tenantId).filter(Boolean));
+    set.add(DEFAULT_TENANT);
+    return [...set];
+  }
+
+  /** Daily KPI snapshot + critical-alert push, for every tenant with a catalog. */
   @Cron(CronExpression.EVERY_DAY_AT_2AM)
   async handleDailySnapshot(): Promise<void> {
+    let tenants: string[] = [DEFAULT_TENANT];
     try {
-      const n = await this.captureSnapshots(DEFAULT_TENANT);
-      if (n > 0) this.logger.log(`Captured ${n} metric snapshot(s).`);
+      tenants = await this.listTenants();
     } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      this.logger.warn(`Metric snapshot job failed: ${msg}`);
+      this.logger.warn(
+        `listTenants failed, using default only: ${(e as Error)?.message}`,
+      );
+    }
+    for (const t of tenants) {
+      try {
+        const n = await this.captureSnapshots(t);
+        if (n > 0)
+          this.logger.log(`Captured ${n} metric snapshot(s) for tenant ${t}.`);
+        await this.notifyAlerts(t);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        this.logger.warn(`Snapshot/alert job failed for tenant ${t}: ${msg}`);
+      }
     }
   }
 }

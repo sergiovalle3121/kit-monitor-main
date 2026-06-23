@@ -48,6 +48,15 @@ import { DISTRIBUTION_FUNCTIONS } from './distributions';
 import { SECURITY_FUNCTIONS } from './securities';
 import { BOND_FUNCTIONS } from './bonds';
 import { STAT_TEST_FUNCTIONS } from './statTests';
+import { FIDELITY_FUNCTIONS } from './fidelityFixes';
+import { PERCENTILE_FUNCTIONS } from './percentileFix';
+import { REGRESSION_FUNCTIONS } from './regression';
+import { installBroadcast } from './broadcast';
+import { ARRAY_IF_FUNCTIONS } from './arrayIf';
+import { DATETIME_FIX_FUNCTIONS } from './dateTimeFix';
+import { MATH_FIDELITY_FUNCTIONS } from './mathFidelity';
+import { TEXT_TRUNC_FUNCTIONS } from './textTrunc';
+import { applyScalarBroadcast } from './scalarBroadcast';
 
 // ── Utilidades de coerción / aplanado de argumentos ──────────────────────────
 // Las funciones reciben `params`: un array donde cada argumento ya viene evaluado.
@@ -298,7 +307,26 @@ export const CUSTOM_FUNCTIONS: Record<string, (params: any[]) => any> = {
   ...BOND_FUNCTIONS,
   // Contrastes modernos (T.TEST/F.TEST/CHISQ.TEST/Z.TEST) + CONFIDENCE.T — ver `statTests.ts`.
   ...STAT_TEST_FUNCTIONS,
+  // Correcciones de fidelidad de funciones comunes (ROUND, SUBSTITUTE) — ver `fidelityFixes.ts`.
+  ...FIDELITY_FUNCTIONS,
+  // PERCENTILE/QUARTILE inclusivos correctos (DESPUÉS de STAT_FUNCTIONS) — ver `percentileFix.ts`.
+  ...PERCENTILE_FUNCTIONS,
+  // Regresión lineal/exponencial (TREND/GROWTH/SLOPE/INTERCEPT/FORECAST) — ver `regression.ts`.
+  ...REGRESSION_FUNCTIONS,
+  // IF consciente de matrices (condición-matriz → selección elemento a elemento) — ver `arrayIf.ts`.
+  ...ARRAY_IF_FUNCTIONS,
+  // Fidelidad de fecha/hora (HOUR/MINUTE/SECOND parsean texto; EDATE recorta a fin de mes).
+  ...DATETIME_FIX_FUNCTIONS,
+  // Fidelidad matemática (LOG base 10 por defecto; CEILING/FLOOR cifra 1 por defecto).
+  ...MATH_FIDELITY_FUNCTIONS,
+  // Truncamiento de argumentos enteros en texto (REPT/LEFT/RIGHT/MID/ROMAN) — ver `textTrunc.ts`.
+  ...TEXT_TRUNC_FUNCTIONS,
 };
+
+// Difusión de funciones escalares (ROUND/ABS/TEXT…) sobre matrices — ver `scalarBroadcast.ts`.
+// MUTA `CUSTOM_FUNCTIONS` tras construirlo: con argumentos escalares no cambia nada; sólo los
+// argumentos-matriz (que antes fallaban) activan la aplicación elemento a elemento.
+applyScalarBroadcast(CUSTOM_FUNCTIONS);
 
 // ── Normalización de literales booleanos en la cadena de fórmula ──────────────
 
@@ -353,6 +381,8 @@ export function installFormulaEngine(): void {
   if (!proto.__axosParsePatched && typeof proto.parse === 'function') {
     const origParse = proto.parse;
     proto.parse = function patchedParse(expression: any, options: any) {
+      // Activa la difusión de operadores sobre matrices en esta instancia (envuelve `yy`).
+      installBroadcast(this?.parser?.yy);
       // Preprocesa la cadena: 1) alias de `T(`/`N(` (el lexer no admite funciones de 1 letra);
       // 2) constantes de matriz `{1,2,3}` → ARRCONST(...); 3) referencias estructuradas `Tabla[Col]`
       // → rangos; 4) familia LAMBDA (invocación directa + lambdas-argumento codificadas); 5) LET
