@@ -1808,4 +1808,35 @@ oculta el ítem de CIDE y los tableros automáticamente.
 > mantuvieron las ramas de feature **solo-código** y se saldó la deuda documental
 > aquí, de una vez.
 
+## 77. Office/Sheets — difusión de funciones escalares sobre matrices (cierra las fórmulas matriciales)
+
+**Contexto.** Las fórmulas matriciales se construyeron en tres capas: la difusión de **operadores**
+(§69, `rango*2`, `rango>x`) y el **`IF` matricial** (§70, selección elemento a elemento). Faltaba la
+tercera: las **funciones escalares** (`ROUND`, `ABS`, `TEXT`, `LEN`, `LEFT`…) seguían sin aplicarse
+celda a celda en contexto matricial. `SUM(ROUND(A1:A5*1.1; 0))`, `TEXT({1;2;3}; "000")` o
+`FILTER(B; ABS(A)>x)` daban `#VALUE!` porque la función recibía la matriz entera en vez de cada
+elemento. En Excel, una función escalar dentro de una fórmula matricial se difunde por definición.
+
+**Decisión (sólo `apps/web`, aditiva):** `components/office/sheets/scalarBroadcast.ts` envuelve un
+**conjunto curado** de ~37 funciones escalares (sólo unarias/diádicas elemento a elemento — **nunca**
+agregados como `SUM`/`MAX` ni de matriz como `FILTER`/`SORT`). `broadcast(impl)` deja pasar los
+argumentos escalares sin tocarlos y, si alguno es matriz 2D, aplica la función a cada celda
+reciclando los escalares y, como los operadores, columna n×1 ⊗ fila 1×m → matriz n×m; devuelve una
+matriz 2D que compone con `SUM`/`SUMPRODUCT`/`TEXTJOIN`/… y derrama (§38). `applyScalarBroadcast`
+muta `CUSTOM_FUNCTIONS` tras el literal: usa la implementación propia ya registrada (p. ej. los
+arreglos de fidelidad §72/§73) o un delegado a `formulajs`. **Riesgo cero**: con argumentos escalares
+se llama a la implementación original sin cambios; sólo los argumentos-matriz (que antes fallaban)
+activan la difusión.
+
+Con esto, **las tres capas cierran el paradigma matricial**: operadores (§69) + `IF` (§70) +
+funciones escalares (§77). El caso emblemático que documentaba la limitación —`FILTER(B1:B5;
+A1:A5>2)` con condición calculada— y composiciones como `SUMPRODUCT(ROUND(rango;0); otro)` ya
+funcionan de extremo a extremo.
+
+**Verificación:** nueva suite `scalarBroadcast.spec.ts` (**20 aserciones**: escalar intacto en
+`ROUND`/`ABS`/`TEXT`/`LEN`/`SQRT`/`LEFT`; difusión de `ROUND`/`ABS`/`INT`/`POWER`/`MOD`/`SQRT`/`LEN`/
+`TEXT`/`UPPER`/`LEFT` sobre rangos y constantes `{…}`; `ROUND(rango·escalar)`; composición con
+`SUM`/`SUMPRODUCT`/`TEXTJOIN`; combinación con operadores §69 e `IF` matricial §70). Sin regresiones:
+las 49 suites de spec de Office verdes; `lint web` 0 errores; `build web` ✓.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
