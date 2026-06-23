@@ -1447,7 +1447,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
               <RibbonMenuButton icon={ListTree} label="Secciones" menuWidth={260} items={[
                 { label: 'Agregar/renombrar sección aquí', onClick: sectionHere },
                 { label: 'Quitar sección de esta diapositiva', onClick: removeSectionHere },
-                ...groupSlidesBySection(slidesRef.current.length, sections).filter((g) => g.title).map((g) => ({ label: `Ir a — ${g.title} (${g.slides.length})`, onClick: () => { loadInto(g.start); } })),
+                ...groupSlidesBySection(slides.length, sections).filter((g) => g.title).map((g) => ({ label: `Ir a — ${g.title} (${g.slides.length})`, onClick: () => { loadInto(g.start); } })),
               ]} />
             </RibbonGroup>
             <RibbonSeparator />
@@ -1929,6 +1929,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
         {sorter && (
           <SlideSorter
             slides={slides}
+            sections={sections}
             current={cur}
             ratio={ratio}
             onReorder={readOnly ? () => {} : reorderSlides}

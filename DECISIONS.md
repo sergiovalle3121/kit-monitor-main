@@ -1995,4 +1995,21 @@ nombre y con nombre, sin secciones, título activo heredado, `isSectionStart`, `
 rellena/recorta/vacía, `removeSectionAt`, `sectionCount`). Sin regresiones: las 55 suites de spec de
 Office verdes; `lint web` 0 errores; `build web` ✓.
 
+## 85. Office/Slides — secciones visibles en el clasificador
+
+**Contexto.** Las secciones (§84) ya se podían nombrar y navegar desde el menú, pero el **clasificador
+de diapositivas** (la rejilla de miniaturas) no las mostraba — el lugar donde más ayudan a organizar
+visualmente un mazo largo.
+
+**Decisión (sólo `apps/web`, aditiva — riesgo cero):** `SlideSorter` acepta ahora la prop opcional
+`sections` y, antes de la miniatura que **inicia** una sección, renderiza un encabezado a todo el
+ancho (`col-span-full` en la rejilla CSS, dentro de un `React.Fragment` por diapositiva) con el
+nombre de la sección. Cambio puramente de presentación que reutiliza el modelo de datos ya probado
+(§84). De paso, el menú «Secciones» lee `slides.length` (estado reactivo) en vez del ref durante el
+render.
+
+**Verificación:** al ser sólo presentación (rejilla CSS) se cubre con `build` + `lint` y la lógica de
+secciones ya tiene su suite (§84). Sin regresiones: las 55 suites de spec de Office verdes; `lint web`
+0 errores; `build web` ✓.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
