@@ -15,7 +15,11 @@ import { ReplenishmentService } from './replenishment.service';
 import { ReplenishmentController } from './replenishment.controller';
 import { MaterialReturn } from './entities/material-return.entity';
 import { ReturnsService } from './returns.service';
+import { WarehouseAlertsService } from './warehouse-alerts.service';
+import { WarehouseAlertsTask } from './warehouse-alerts.task';
 import { GovernanceModule } from '../governance/governance.module';
+import { UsersModule } from '../users/users.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
   imports: [
@@ -30,9 +34,11 @@ import { GovernanceModule } from '../governance/governance.module';
     ]),
     EnterpriseCampusModule,
     GovernanceModule,
+    UsersModule,
+    NotificationsModule,
   ],
   controllers: [InventoryController, WarehouseController, ReplenishmentController],
-  providers: [InventoryService, WarehouseService, ReplenishmentService, ReturnsService],
-  exports: [InventoryService, WarehouseService, ReplenishmentService, ReturnsService],
+  providers: [InventoryService, WarehouseService, ReplenishmentService, ReturnsService, WarehouseAlertsService, WarehouseAlertsTask],
+  exports: [InventoryService, WarehouseService, ReplenishmentService, ReturnsService, WarehouseAlertsService],
 })
 export class InventoryModule {}
