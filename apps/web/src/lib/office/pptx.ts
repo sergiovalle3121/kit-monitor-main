@@ -60,7 +60,7 @@ function linkOpt(o: any): any {
 // Pista de forma (Fabric) → nombre de preset de PowerPoint (PptxGenJS ShapeType).
 // Si el preset no existe en la versión de la lib, presetFor() devuelve undefined
 // y el llamador cae a un rectángulo (formas) u omite (paths sueltos).
-const HINT_TO_PRESET: Record<string, string> = {
+export const HINT_TO_PRESET: Record<string, string> = {
   star4: 'star4', star5: 'star5', star6: 'star6',
   rightArrow: 'rightArrow', leftArrow: 'leftArrow', upArrow: 'upArrow', downArrow: 'downArrow', leftRightArrow: 'leftRightArrow',
   diamond: 'diamond', pentagon: 'pentagon', hexagon: 'hexagon', octagon: 'octagon',
@@ -68,7 +68,7 @@ const HINT_TO_PRESET: Record<string, string> = {
   plus: 'plus', lightningBolt: 'lightningBolt', ribbon: 'ribbon2',
   heart: 'heart', cloud: 'cloud', sun: 'sun', speech: 'wedgeRectCallout',
 };
-function presetFor(hint: any, ST: any): any {
+export function presetFor(hint: any, ST: any): any {
   const name = typeof hint === 'string' ? HINT_TO_PRESET[hint] : undefined;
   return name ? ST[name] : undefined;
 }

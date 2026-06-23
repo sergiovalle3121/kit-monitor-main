@@ -2237,4 +2237,22 @@ Fernández-Huerta. El idioma se detecta por marcas inequívocas del español (ñ
 conocidas, detección de idioma, fórmulas Flesch/FK/Fernández con valores controlados, bordes, integración).
 Sin regresiones: toda la suite de spec de Office verde; `lint web` 0 errores; `build web` ✓.
 
+## 99. Office/Slides — galería de formas ampliada + golden de fidelidad de export .pptx
+
+**Contexto.** La galería de formas exporta cada forma a un **preset nativo** de PowerPoint vía
+`HINT_TO_PRESET` (en `lib/office/pptx.ts`); si una forma no tuviera mapeo, el export caería
+silenciosamente a un **rectángulo** (pérdida de fidelidad). No había prueba que garantizara la
+cobertura, y faltaban en la galería formas comunes (rombo, flecha derecha, estrella de 5 puntas) que ya
+tienen preset y botón rápido en el editor.
+
+**Decisión (sólo `apps/web`, aditiva — riesgo cero):** se añaden `diamond`, `rightArrow` y `star5` a
+`POLY_SHAPES` y a `SHAPE_LIBRARY` (ya cubiertos por `HINT_TO_PRESET`), y se exportan `HINT_TO_PRESET` y
+`presetFor` desde `pptx.ts` para poder auditarlos. `addShapeByKind` ya instancia cualquier forma poly/path,
+así que no hace falta tocar el editor.
+
+**Verificación:** nueva suite `shapes.spec.ts` (**136 aserciones**): geometría de `starPoints`/
+`regularPolygon`, todas las formas dentro de su caja, y el **golden**: cada forma de la galería (+ las de
+inserción rápida) está definida y mapea a un preset que **existe** en PptxGenJS (sin caer a rectángulo).
+Sin regresiones: `pptx.spec.ts` 19/19 y toda la suite de Office verde; `lint web` 0 errores; `build web` ✓.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
