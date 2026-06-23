@@ -106,7 +106,7 @@ export default function TrafficPage() {
         {firstLoad ? (
           <div className="flex justify-center py-24"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div>
         ) : tab === "board" ? (
-          <BoardTab docks={docks} shipments={shipments} carriers={carriers} vehicles={vehicles} drivers={drivers} refresh={refreshAll} onNewDock={() => setTab("docks")} />
+          <BoardTab docks={docks} shipments={shipments} appointments={appointments} carriers={carriers} vehicles={vehicles} drivers={drivers} refresh={refreshAll} onNewDock={() => setTab("docks")} />
         ) : tab === "carriers" ? (
           <CarriersTab items={carriers} vehicles={vehicles} drivers={drivers} refresh={refreshAll} />
         ) : tab === "vehicles" ? (
