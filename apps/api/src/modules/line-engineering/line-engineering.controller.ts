@@ -455,6 +455,30 @@ export class LineEngineeringController {
     });
   }
 
+  @Get('layout/standard-work')
+  @RequirePermissions('engineering:read')
+  @ApiOperation({
+    summary:
+      'Tabla de trabajo estándar (SWCT): combina tiempo manual + caminado por bucle de operador contra el takt.',
+  })
+  layoutStandardWork(
+    @Query('model') model: string,
+    @Query('revision') revision?: string,
+    @Query('availableTimeSec') availableTimeSec?: string,
+    @Query('demandUnits') demandUnits?: string,
+    @Query('taktTargetSec') taktTargetSec?: string,
+    @Query('walkSpeedMps') walkSpeedMps?: string,
+  ) {
+    return this.service.getStandardWork({
+      model,
+      revision: revision ?? 'A',
+      availableTimeSec: availableTimeSec ? Number(availableTimeSec) : undefined,
+      demandUnits: demandUnits ? Number(demandUnits) : undefined,
+      taktTargetSec: taktTargetSec ? Number(taktTargetSec) : undefined,
+      walkSpeedMps: walkSpeedMps ? Number(walkSpeedMps) : undefined,
+    });
+  }
+
   @Get('layout/completeness')
   @RequirePermissions('engineering:read')
   @ApiOperation({

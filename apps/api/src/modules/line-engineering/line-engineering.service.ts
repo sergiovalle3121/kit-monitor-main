@@ -59,7 +59,14 @@ import { optimizeFlowOrder } from './line-optimize';
 import { staffingPlan, StaffingResult, StationStaffing } from './line-staffing';
 import { bufferPlan, BufferPlan } from './line-buffer';
 import { balanceLoops, LoopPlan } from './line-loops';
-import { costModel, areaToM2, CostModel, CostRates } from './line-cost';
+import {
+  costModel,
+  areaToM2,
+  unitToMeters,
+  CostModel,
+  CostRates,
+} from './line-cost';
+import { standardWork, StdWorkResult } from './line-stdwork';
 import {
   sensitivityCurve,
   demandSweep,
@@ -1705,6 +1712,62 @@ export class LineEngineeringService {
       this.layoutKpis(mB, (params.revisionB ?? 'A').trim() || 'A', opts),
     ]);
     return compareLayouts(a, b);
+  }
+
+  /**
+   * Standard Work Combination Table for the line (Fase 38). Read-only: takes
+   * the operator loops (manual time) and layers the WALK between the placed
+   * stations of each loop, combining manual + walk against takt — surfacing
+   * loops that hold takt on paper but bust it once walking is counted. Pure via
+   * `standardWork`.
+   */
+  async getStandardWork(params: {
+    model: string;
+    revision?: string;
+    availableTimeSec?: number;
+    demandUnits?: number;
+    taktTargetSec?: number;
+    walkSpeedMps?: number;
+  }): Promise<
+    StdWorkResult & { model: string; revision: string; unit: string }
+  > {
+    const revision = params.revision ?? 'A';
+    const route = await this.routing(params.model, revision);
+    if (route.length === 0) {
+      throw new NotFoundException(
+        `Sin ruteo para ${params.model} rev ${revision}.`,
+      );
+    }
+    const takt =
+      params.taktTargetSec && params.taktTargetSec > 0
+        ? params.taktTargetSec
+        : computeTaktSec(params.availableTimeSec ?? 0, params.demandUnits ?? 0);
+    const layout = await this.getLayout(params.model, revision);
+    const defW = layout.footprint.footprintW * 0.06;
+    const defH = layout.footprint.footprintH * 0.08;
+    const posByStation = new Map(layout.stations.map((s) => [s.station, s]));
+    const stations = route.map((s) => {
+      const p = posByStation.get(s.station);
+      const placed = !!p && p.x !== null && p.y !== null;
+      return {
+        station: s.station,
+        sequence: s.sequence,
+        manualSec: Number(s.stdTimeSec),
+        cx: placed ? (p.x as number) + (p.w ?? defW) / 2 : null,
+        cy: placed ? (p.y as number) + (p.h ?? defH) / 2 : null,
+      };
+    });
+    const result = standardWork(stations, {
+      taktSec: takt,
+      walkSpeedMps: params.walkSpeedMps,
+      metersPerUnit: unitToMeters(layout.footprint.unit),
+    });
+    return {
+      ...result,
+      model: params.model,
+      revision,
+      unit: layout.footprint.unit,
+    };
   }
 
   /**
