@@ -14,6 +14,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { RequirePermissions } from '../auth/decorators/permissions.decorator';
 import { TrafficService } from './traffic.service';
+import { TrafficAlertsService } from './traffic-alerts.service';
 import {
   CreateCarrierDto,
   CreateDockDto,
@@ -36,7 +37,10 @@ import {
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller('traffic')
 export class TrafficController {
-  constructor(private readonly service: TrafficService) {}
+  constructor(
+    private readonly service: TrafficService,
+    private readonly alerts: TrafficAlertsService,
+  ) {}
 
   // ── Carriers ───────────────────────────────────────────────────────────────
   @Get('carriers')
@@ -193,8 +197,21 @@ export class TrafficController {
 
   @Post('docks/:id/stop-loading')
   @RequirePermissions('logistics:write')
-  @ApiOperation({ summary: 'Quita la marca EN CARGA del andén (sin liberarlo).' })
+  @ApiOperation({
+    summary: 'Quita la marca EN CARGA del andén (sin liberarlo).',
+  })
   stopLoading(@Param('id') id: string) {
     return this.service.stopLoading(id);
+  }
+
+  // ── Alertas de patio (buzón de notificaciones) ───────────────────────────────
+  @Post('dock-alerts/run')
+  @RequirePermissions('logistics:write')
+  @ApiOperation({
+    summary:
+      'Dispara el barrido de sobreestadía de andenes y deja avisos en el buzón. Idéntico al cron, bajo demanda.',
+  })
+  runDockAlerts() {
+    return this.alerts.scanDockOverstayAndNotify();
   }
 }
