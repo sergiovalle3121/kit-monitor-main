@@ -26,9 +26,10 @@ dependencia: `@anthropic-ai/sdk` (ya no se usa; CIDE no llama a Anthropic).
 | Dependencia | Licencia | Uso | URL |
 |---|---|---|---|
 | `@tanstack/react-table` | MIT | Núcleo **headless** de la `DataTable` del kit (orden, filtro por columna, búsqueda, paginación, selección). Solo lógica de tabla; el estilo es propio (Tailwind + token `glass`). | https://github.com/TanStack/table |
+| `exceljs` | MIT | **Writer** de Office/Sheets a `.xlsx` **con estilos** (relleno, fuente, alineación, formato de número, combinaciones, anchos, paneles, nombres). Sustituye al writer de SheetJS comunitario, que no escribe estilos. La lectura sigue en SheetJS. Solo se usa al exportar. | https://github.com/exceljs/exceljs |
 
-Permisiva (MIT). Arrastra `@tanstack/table-core` (mismo proyecto, también MIT).
-Justificación en `DECISIONS.md` §23.
+Permisivas (MIT). `@tanstack/react-table` arrastra `@tanstack/table-core` (mismo
+proyecto, también MIT). Justificación en `DECISIONS.md` §23 (tabla) y §109 (xlsx).
 
 ## Modelos de IA (CIDE) — pesos descargados en runtime
 

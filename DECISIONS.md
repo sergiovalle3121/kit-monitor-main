@@ -2400,4 +2400,25 @@ alineación. Así la alineación de celda viaja como `w:jc` al `.docx`.
 descomprime y confirma `w:jc` center/right en las columnas alineadas). `docx.spec` (33) y
 `docxRoundtrip.spec` (8) verdes — sin regresiones; `lint web` 0; `build web` ✓.
 
+## 109. Office/Sheets — export .xlsx con ESTILOS vía ExcelJS (writer)
+
+**Contexto.** El mayor hueco de fidelidad de Sheets: SheetJS (edición comunitaria, el writer en
+`lib/office/xlsx.ts`) **no escribe estilos** al `.xlsx` (relleno, fuente, color, alineación). Un libro con
+formato visual se exportaba en blanco y negro y no abría «idéntico» en Excel/LibreOffice — rompiendo el
+objetivo de round-trip OOXML sin pérdida (Track B).
+
+**Decisión (sólo `apps/web`, aditiva — riesgo cero):** se añade `exceljs` (MIT) **solo como writer**.
+`lib/office/xlsxStyled.ts` (función PURA, recibe el módulo `ExcelJS`) construye el libro desde el modelo
+de Fortune-Sheet conservando: valores tipados, **fórmulas**, **formato de número**, **fuente**
+(negrita/cursiva/subrayado/tachado/color/tamaño/familia), **relleno** de fondo, **alineación**
+(horizontal/vertical/ajuste), **anchos de columna**, **altos de fila**, **combinaciones**, **paneles
+inmovilizados** y **nombres definidos**, en varias hojas. `exportSheets` enruta el `.xlsx` por este writer;
+el **CSV y toda la LECTURA siguen en SheetJS** (sin tocar el import ni los mappers puros). Carga dinámica
+(`import('exceljs')`) para no engordar el bundle principal.
+
+**Verificación:** nueva suite `xlsxStyled.spec.ts` (**22 aserciones**): helpers `toArgb`/`cellStyle`, y un
+**golden round-trip** que escribe bytes reales y los REABRE con ExcelJS para confirmar fuente/relleno/
+alineación/numFmt/fórmula/combinación/ancho. `xlsx.spec` (27) y toda la suite de Office verdes — sin
+regresiones; `lint web` 0; `build web` ✓. Licencia anotada en THIRD_PARTY_NOTICES.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->

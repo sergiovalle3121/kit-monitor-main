@@ -169,29 +169,26 @@ export function definedToNames(defined: any[] | undefined, sheetNames: string[])
 
 export interface CsvOpts { delimiter?: string; bom?: boolean }
 export async function exportSheets(sheets: FortuneSheet[], title: string, format: 'xlsx' | 'csv', csv: CsvOpts = {}, names?: NamedRange[]) {
+  const list = sheets?.length ? sheets : [{ name: 'Hoja 1', celldata: [] }];
+  // .xlsx → ExcelJS (escribe ESTILOS, que SheetJS comunitario no exporta). CSV → SheetJS.
+  if (format !== 'csv') {
+    const ExcelJSMod: any = await import('exceljs');
+    const ExcelJS = ExcelJSMod.default ?? ExcelJSMod;
+    const { styledXlsxBuffer } = await import('./xlsxStyled');
+    const out = await styledXlsxBuffer(ExcelJS as any, list as any, names);
+    download(new Blob([out], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), `${safeName(title)}.xlsx`);
+    return;
+  }
   const XLSX = await import('xlsx');
   const wb = XLSX.utils.book_new();
-  const list = sheets?.length ? sheets : [{ name: 'Hoja 1', celldata: [] }];
-  const titles: string[] = [];
   list.forEach((s, i) => {
     const ws = fortuneToWs(XLSX, s);
     const nm = (s.name || `Hoja ${i + 1}`).slice(0, 31);
-    titles.push(nm);
     XLSX.utils.book_append_sheet(wb, ws, nm);
   });
-  // Nombres definidos a nivel libro (sólo .xlsx; el CSV es una sola hoja plana).
-  if (format !== 'csv' && names?.length) {
-    const defined = namesToDefined(names, titles);
-    if (defined.length) wb.Workbook = { ...(wb.Workbook || {}), Names: defined };
-  }
-  if (format === 'csv') {
-    const text = XLSX.utils.sheet_to_csv(wb.Sheets[wb.SheetNames[0]], { FS: csv.delimiter || ',' });
-    const prefix = csv.bom === false ? '' : '﻿';
-    download(new Blob([prefix + text], { type: 'text/csv;charset=utf-8' }), `${safeName(title)}.csv`);
-  } else {
-    const out = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-    download(new Blob([out], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), `${safeName(title)}.xlsx`);
-  }
+  const text = XLSX.utils.sheet_to_csv(wb.Sheets[wb.SheetNames[0]], { FS: csv.delimiter || ',' });
+  const prefix = csv.bom === false ? '' : '﻿';
+  download(new Blob([prefix + text], { type: 'text/csv;charset=utf-8' }), `${safeName(title)}.csv`);
 }
 
 export interface ImportedWorkbook { sheets: FortuneSheet[]; names: NamedRange[] }
