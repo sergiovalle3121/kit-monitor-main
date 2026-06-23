@@ -3,9 +3,11 @@
 import type {
   CarrierMode,
   CarrierStatus,
+  DockBoardState,
   DockStatus,
   DockType,
   DriverStatus,
+  LoadingDock,
   VehicleStatus,
   VehicleType,
 } from "./traffic.types";
@@ -88,10 +90,75 @@ export const DOCK_TYPE_META: Record<DockType, Meta> = {
 };
 export const DOCK_TYPES: DockType[] = ["shipping", "receiving", "both"];
 
+// Avance del embarque (outbound shipment-state.ts). Solo lectura — referencia.
+export const SHIPMENT_STATUS_META: Record<string, Meta> = {
+  PACKING: { label: "En empaque", color: COLORS.amber },
+  READY: { label: "Listo", color: COLORS.blue },
+  SHIPPED: { label: "Embarcado", color: COLORS.indigo },
+  DELIVERED: { label: "Entregado", color: COLORS.green },
+  CANCELLED: { label: "Cancelado", color: COLORS.red },
+};
+export const SHIPMENT_PROGRESS: string[] = ["PACKING", "READY", "SHIPPED", "DELIVERED"];
+
+export function shipmentStatusMeta(status?: string | null): Meta {
+  return (status && SHIPMENT_STATUS_META[status]) || { label: status || "—", color: COLORS.gray };
+}
+
 export function fmtDateTime(value?: string | null): string {
   if (!value) return "—";
   const d = new Date(value);
   return Number.isNaN(d.getTime())
     ? "—"
     : d.toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
+}
+
+// ── Dock board (Tablero de andenes) ──────────────────────────────────────────
+// Semáforo operativo derivado: LIBRE / OCUPADO / EN CARGA / MANTENIMIENTO.
+export const DOCK_BOARD_META: Record<DockBoardState, Meta> = {
+  free: { label: "Libre", color: COLORS.green },
+  occupied: { label: "Ocupado", color: COLORS.indigo },
+  loading: { label: "En carga", color: COLORS.orange },
+  maintenance: { label: "Mantenimiento", color: COLORS.amber },
+  inactive: { label: "Inactivo", color: COLORS.gray },
+};
+export const DOCK_BOARD_ORDER: DockBoardState[] = ["loading", "occupied", "free", "maintenance", "inactive"];
+
+/** Estado de tablero derivado del status maestro + la marca EN CARGA. */
+export function deriveBoardState(dock: Pick<LoadingDock, "status" | "loadingStartedAt">): DockBoardState {
+  if (dock.status === "maintenance") return "maintenance";
+  if (dock.status === "inactive") return "inactive";
+  if (dock.status === "occupied") return dock.loadingStartedAt ? "loading" : "occupied";
+  return "free";
+}
+
+// Umbrales de antigüedad (minutos) para semaforizar el aging del andén/unidad.
+export const AGING_WARN_MIN = 120; // 2 h
+export const AGING_CRIT_MIN = 240; // 4 h
+
+/** Minutos transcurridos desde `iso` (o null si no hay fecha válida). */
+export function agingMinutes(iso?: string | null): number | null {
+  if (!iso) return null;
+  const t = new Date(iso).getTime();
+  if (Number.isNaN(t)) return null;
+  return Math.max(0, Math.floor((Date.now() - t) / 60000));
+}
+
+/** Formato compacto de antigüedad: "45m", "2h 10m", "1d 3h". */
+export function fmtAging(minutes?: number | null): string {
+  if (minutes == null) return "—";
+  if (minutes < 60) return `${minutes}m`;
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (h < 24) return m ? `${h}h ${m}m` : `${h}h`;
+  const d = Math.floor(h / 24);
+  const rh = h % 24;
+  return rh ? `${d}d ${rh}h` : `${d}d`;
+}
+
+/** Color de semáforo por antigüedad (verde < warn ≤ ámbar < crit ≤ rojo). */
+export function agingColor(minutes?: number | null): string {
+  if (minutes == null) return COLORS.gray;
+  if (minutes >= AGING_CRIT_MIN) return COLORS.red;
+  if (minutes >= AGING_WARN_MIN) return COLORS.amber;
+  return COLORS.green;
 }
