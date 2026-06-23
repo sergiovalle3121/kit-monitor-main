@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { LoadingDock } from './entities/loading-dock.entity';
 import { DockAppointment } from './entities/dock-appointment.entity';
+import { Shipment } from '../outbound/entities/shipment.entity';
 import { UsersService } from '../users/users.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { ownerEmails } from '../auth/rbac';
@@ -18,6 +19,13 @@ export interface DockOverstayScanResult {
 export interface LateAppointmentScanResult {
   scanned: number;
   late: number;
+  notified: number;
+  unresolved: number;
+}
+
+export interface ShipmentNoDockScanResult {
+  scanned: number;
+  flagged: number;
   notified: number;
   unresolved: number;
 }
@@ -44,6 +52,8 @@ export class TrafficAlertsService {
     private readonly docks: Repository<LoadingDock>,
     @InjectRepository(DockAppointment)
     private readonly appts: Repository<DockAppointment>,
+    @InjectRepository(Shipment)
+    private readonly shipments: Repository<Shipment>,
     @Optional() private readonly users?: UsersService,
     @Optional() private readonly notifications?: NotificationsService,
   ) {}
@@ -65,7 +75,7 @@ export class TrafficAlertsService {
     result.occupied = occupied.length;
     if (occupied.length === 0) return result;
 
-    const recipients = await this.resolveOwners();
+    const recipients = await this.resolveRecipients();
 
     for (const k of occupied) {
       if (!k.occupiedAt) continue;
@@ -138,7 +148,7 @@ export class TrafficAlertsService {
     result.scanned = scheduled.length;
     if (scheduled.length === 0) return result;
 
-    const recipients = await this.resolveOwners();
+    const recipients = await this.resolveRecipients();
     const critMin = Number(process.env.TRAFFIC_APPT_LATE_CRIT_MIN) || 60;
 
     for (const a of scheduled) {
@@ -193,8 +203,90 @@ export class TrafficAlertsService {
     return result;
   }
 
-  /** Owner(s) con cuenta de sistema, deduplicados por id de usuario. */
-  private async resolveOwners(): Promise<{ id: string }[]> {
+  /**
+   * Barre los embarques activos (PACKING/READY) SIN andén cuya fecha prometida
+   * está cerca o vencida (ventana `TRAFFIC_SHIPMENT_DUE_WINDOW_H`, default 24h) y
+   * deja un aviso deduplicado por día de promesa (`shipment-no-dock:<id>:<día>`).
+   * Severidad high, critical si ya venció. Lee el embarque de outbound en modo
+   * SÓLO LECTURA (sin tocar su lógica) y lo referencia por id/folio.
+   */
+  async scanShipmentsWithoutDockAndNotify(
+    windowHours = Number(process.env.TRAFFIC_SHIPMENT_DUE_WINDOW_H) || 24,
+  ): Promise<ShipmentNoDockScanResult> {
+    const result: ShipmentNoDockScanResult = {
+      scanned: 0,
+      flagged: 0,
+      notified: 0,
+      unresolved: 0,
+    };
+    if (!this.notifications) return result;
+
+    const candidates = await this.shipments
+      .createQueryBuilder('s')
+      .where('s.dock_id IS NULL')
+      .andWhere('s.status IN (:...st)', { st: ['PACKING', 'READY'] })
+      .andWhere('s.promised_date IS NOT NULL')
+      .getMany();
+    result.scanned = candidates.length;
+    if (candidates.length === 0) return result;
+
+    const recipients = await this.resolveRecipients();
+    const now = Date.now();
+
+    for (const s of candidates) {
+      if (!s.promisedDate) continue;
+      const due = new Date(s.promisedDate).getTime();
+      if ((due - now) / 3_600_000 > windowHours) continue; // todavía lejos
+      result.flagged += 1;
+
+      if (recipients.length === 0) {
+        result.unresolved += 1;
+        continue;
+      }
+
+      const overdue = due < now;
+      const dueDay = new Date(s.promisedDate).toISOString().slice(0, 10);
+      const dedupeKey = `shipment-no-dock:${s.id}:${dueDay}`;
+      const label = s.folio || s.customerName || s.title || 'embarque';
+      const title = `Embarque sin andén: ${label}`;
+      const body = [
+        s.customerName || null,
+        overdue ? `venció su fecha (${dueDay})` : `vence ${dueDay}`,
+        'sin andén asignado',
+      ]
+        .filter(Boolean)
+        .join(' · ');
+
+      for (const user of recipients) {
+        try {
+          await this.notifications.create({
+            userId: user.id,
+            kind: 'shipment-no-dock',
+            severity: overdue ? 'critical' : 'high',
+            title,
+            body,
+            domain: 'logistics',
+            source: 'Tráfico',
+            href: '/dashboard/traffic',
+            dedupeKey,
+          });
+          result.notified += 1;
+        } catch (err) {
+          this.logger.warn(
+            `No se pudo crear aviso de embarque sin andén: ${(err as Error)?.message}`,
+          );
+        }
+      }
+    }
+    return result;
+  }
+
+  /**
+   * Destinatarios de las alertas de patio: el/los owner(s) + los usuarios con
+   * permiso `logistics:write` (el equipo de tráfico que puede accionar), todos
+   * deduplicados por id de usuario. Best-effort: si Users no resuelve, queda vacío.
+   */
+  private async resolveRecipients(): Promise<{ id: string }[]> {
     if (!this.users) return [];
     const map = new Map<string, { id: string }>();
     for (const email of ownerEmails()) {
@@ -204,6 +296,12 @@ export class TrafficAlertsService {
       } catch {
         /* best-effort */
       }
+    }
+    try {
+      const team = await this.users.listByPermission('logistics:write');
+      for (const u of team) map.set(u.id, u);
+    } catch {
+      /* best-effort */
     }
     return [...map.values()];
   }

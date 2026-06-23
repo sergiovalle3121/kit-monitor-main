@@ -2,6 +2,7 @@ import { DataSource } from 'typeorm';
 import { TrafficAlertsService } from './traffic-alerts.service';
 import { LoadingDock } from './entities/loading-dock.entity';
 import { DockAppointment } from './entities/dock-appointment.entity';
+import { Shipment } from '../outbound/entities/shipment.entity';
 
 const any = (v: unknown): any => v;
 
@@ -16,7 +17,7 @@ describe('TrafficAlertsService (dock overstay → mailbox)', () => {
   const minsAgo = (n: number) => new Date(Date.now() - n * 60_000);
   const prevOwners = process.env.OWNER_EMAILS;
 
-  const users = { findOneByEmail: jest.fn() };
+  const users = { findOneByEmail: jest.fn(), listByPermission: jest.fn() };
   const notifications = {
     create: jest.fn(
       async (i: {
@@ -36,7 +37,7 @@ describe('TrafficAlertsService (dock overstay → mailbox)', () => {
       database: ':memory:',
       dropSchema: true,
       synchronize: true,
-      entities: [LoadingDock, DockAppointment],
+      entities: [LoadingDock, DockAppointment, Shipment],
     });
     await ds.initialize();
     created.length = 0;
@@ -45,9 +46,11 @@ describe('TrafficAlertsService (dock overstay → mailbox)', () => {
     users.findOneByEmail.mockImplementation(async (email: string) =>
       email === 'owner@plant.com' ? { id: 'owner-1' } : null,
     );
+    users.listByPermission.mockResolvedValue([]);
     svc = new TrafficAlertsService(
       ds.getRepository(LoadingDock),
       ds.getRepository(DockAppointment),
+      ds.getRepository(Shipment),
       any(users),
       any(notifications),
     );
@@ -158,5 +161,69 @@ describe('TrafficAlertsService (dock overstay → mailbox)', () => {
     created.length = 0;
     await svc.scanLateAppointmentsAndNotify(15);
     expect(created.map((c) => c.dedupeKey).sort()).toEqual(firstKeys);
+  });
+
+  it('targets logistics:write users in addition to owners', async () => {
+    users.findOneByEmail.mockResolvedValue(null); // sin usuario owner
+    users.listByPermission.mockResolvedValue([{ id: 'log-1' }]);
+    await seedDock({
+      code: 'D-LX',
+      status: 'occupied',
+      occupiedAt: minsAgo(300),
+    });
+    const r = await svc.scanDockOverstayAndNotify(240);
+    expect(r.notified).toBe(1);
+    expect(r.unresolved).toBe(0);
+  });
+
+  async function seedShipment(partial: Partial<Shipment>) {
+    const repo = ds.getRepository(Shipment);
+    await repo.save(
+      repo.create({ title: 'Emb', status: 'PACKING', ...partial }),
+    );
+  }
+
+  it('notifies active shipments without dock near/over their promised date (deduped per due day)', async () => {
+    const hrs = (h: number) => new Date(Date.now() + h * 3_600_000);
+    await seedShipment({
+      folio: 'SHP-1',
+      status: 'READY',
+      dockId: null,
+      promisedDate: hrs(-3),
+    }); // vencida → critical
+    await seedShipment({
+      folio: 'SHP-2',
+      status: 'PACKING',
+      dockId: null,
+      promisedDate: hrs(10),
+    }); // dentro de 24h → high
+    await seedShipment({
+      folio: 'SHP-3',
+      status: 'PACKING',
+      dockId: null,
+      promisedDate: hrs(72),
+    }); // lejos → skip
+    await seedShipment({
+      folio: 'SHP-4',
+      status: 'PACKING',
+      dockId: 'D-1',
+      promisedDate: hrs(-3),
+    }); // ya tiene andén → skip
+    await seedShipment({
+      folio: 'SHP-5',
+      status: 'SHIPPED',
+      dockId: null,
+      promisedDate: hrs(-3),
+    }); // no activa → skip
+
+    const r = await svc.scanShipmentsWithoutDockAndNotify(24);
+    expect(r.flagged).toBe(2);
+    expect(r.notified).toBe(2);
+    expect(r.unresolved).toBe(0);
+    expect(
+      created.every((c) => /^shipment-no-dock:/.test(c.dedupeKey ?? '')),
+    ).toBe(true);
+    expect(created.some((c) => c.severity === 'critical')).toBe(true);
+    expect(created.some((c) => c.severity === 'high')).toBe(true);
   });
 });

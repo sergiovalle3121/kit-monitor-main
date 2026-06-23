@@ -51,4 +51,22 @@ export class TrafficAlertsTask {
       );
     }
   }
+
+  @Cron(process.env.TRAFFIC_SHIPMENT_DUE_CRON || '0 * * * *', {
+    name: 'traffic:shipment-no-dock',
+  })
+  async handleShipmentNoDockScan(): Promise<void> {
+    if (process.env.TRAFFIC_SHIPMENT_DUE_ENABLED === 'false') return;
+    try {
+      const r = await this.alerts.scanShipmentsWithoutDockAndNotify();
+      this.logger.log(
+        `Shipment no-dock scan: ${r.scanned} candidato(s), ${r.flagged} por vencer/sin andén, ${r.notified} aviso(s), ${r.unresolved} sin destinatario.`,
+      );
+    } catch (err) {
+      this.logger.error(
+        `Shipment no-dock scan falló: ${(err as Error)?.message}`,
+        (err as Error)?.stack,
+      );
+    }
+  }
 }
