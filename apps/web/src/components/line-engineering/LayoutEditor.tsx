@@ -11,13 +11,14 @@ import {
   Upload, Eye, EyeOff, Map as MapIcon, Activity, Workflow, Wand2, Boxes,
   Download, Printer, Ruler, Type, MoveHorizontal, CopyPlus, X, Flame, Waypoints,
   ShieldCheck, ShieldAlert, LayoutGrid, History, RotateCw, ClipboardList, GitCompare,
-  ClipboardCheck, Warehouse, Sparkles, Bug,
+  ClipboardCheck, Warehouse, Sparkles, Bug, SlidersHorizontal,
 } from 'lucide-react';
 import { glass } from '@/lib/glass';
 import { apiFetch } from '@/lib/apiFetch';
 import { useToast } from '@/contexts/ToastContext';
 import { parseDxf, type DxfModel } from './dxf';
 import Minimap from './Minimap';
+import WhatIfSimulator from './WhatIfSimulator';
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000').replace(/\/$/, '');
 const ROSE = '#f43f5e';
@@ -315,6 +316,7 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
   const [versName, setVersName] = useState('');
   const [versBusy, setVersBusy] = useState(false);
   const [showReport, setShowReport] = useState(false);
+  const [showSim, setShowSim] = useState(false);
   const [reportData, setReportData] = useState<LayoutReport | null>(null);
   const [diffFor, setDiffFor] = useState<string | null>(null);
   const [diffData, setDiffData] = useState<SnapshotDiff | null>(null);
@@ -1684,6 +1686,7 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
         <TBtn onClick={() => { setCloneSrc(''); setShowClone(true); }} title="Plantilla: clonar desde otro modelo"><CopyPlus className="w-4 h-4" /></TBtn>
         <TBtn onClick={openVersions} title="Versiones del layout (guardar / restaurar)"><History className="w-4 h-4" /></TBtn>
         <TBtn onClick={openReport} title="Resumen del layout (readiness, uso de piso, flujo, conflictos, balance)"><ClipboardList className="w-4 h-4" /></TBtn>
+        <TBtn onClick={() => setShowSim(true)} title="Simulador de capacidad (qué pasa si…)"><SlidersHorizontal className="w-4 h-4" /></TBtn>
         <div className="flex-1" />
         {measureMode && measureVal && <span className="text-[12px] font-medium mr-2" style={{ color: '#0ea5e9' }}>{measureVal}</span>}
         <button onClick={save} disabled={saving || !dirty} className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-sm font-medium text-white disabled:opacity-50" style={{ background: ROSE }}>
@@ -2054,6 +2057,8 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
           </div>
         </div>
       )}
+
+      <WhatIfSimulator model={model} revision={revision} open={showSim} onClose={() => setShowSim(false)} />
     </div>
   );
 }
