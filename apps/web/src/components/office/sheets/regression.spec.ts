@@ -39,6 +39,12 @@ approx(ev('=INDEX(GROWTH({1,2,4,8},{1,2,3,4},{5}),1,1)'), 16, 'GROWTH exponencia
 approx(ev('=INDEX(GROWTH({1,2,4,8}),4,1)'), 8, 'GROWTH ajusta los conocidos');
 eq(ev('=GROWTH({1,-2,4})'), '#NUM!', 'GROWTH con y ≤ 0 → #NUM!');
 
+// ── LOGEST: coeficientes {m, b} de y = b·mˣ (rota en formulajs) ───────────────────
+approx(ev('=INDEX(LOGEST({1,2,4,8}),1,1)'), 2, 'LOGEST m = 2 (y = 0.5·2ˣ)');
+approx(ev('=INDEX(LOGEST({1,2,4,8}),1,2)'), 0.5, 'LOGEST b = 0.5');
+approx(ev('=INDEX(LOGEST({6,12,24},{1,2,3}),1,2)'), 3, 'LOGEST b = 3 (y = 3·2ˣ)');
+eq(ev('=LOGEST({1,-2,4})'), '#NUM!', 'LOGEST con y ≤ 0 → #NUM!');
+
 const total = passed + fails.length;
 if (fails.length) { console.error(`\n❌ ${fails.length}/${total} fallos:\n` + fails.map((f) => '   • ' + f).join('\n')); process.exit(1); }
 else console.log(`\n✅ regression: ${passed}/${total} aserciones verdes.`);
