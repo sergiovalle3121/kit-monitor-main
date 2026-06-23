@@ -2,6 +2,7 @@ import { Injectable, Logger, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { LoadingDock } from './entities/loading-dock.entity';
+import { DockAppointment } from './entities/dock-appointment.entity';
 import { UsersService } from '../users/users.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { ownerEmails } from '../auth/rbac';
@@ -10,6 +11,13 @@ export interface DockOverstayScanResult {
   scanned: number;
   occupied: number;
   overstay: number;
+  notified: number;
+  unresolved: number;
+}
+
+export interface LateAppointmentScanResult {
+  scanned: number;
+  late: number;
   notified: number;
   unresolved: number;
 }
@@ -34,6 +42,8 @@ export class TrafficAlertsService {
   constructor(
     @InjectRepository(LoadingDock)
     private readonly docks: Repository<LoadingDock>,
+    @InjectRepository(DockAppointment)
+    private readonly appts: Repository<DockAppointment>,
     @Optional() private readonly users?: UsersService,
     @Optional() private readonly notifications?: NotificationsService,
   ) {}
@@ -100,6 +110,82 @@ export class TrafficAlertsService {
         } catch (err) {
           this.logger.warn(
             `No se pudo crear aviso de sobreestadía: ${(err as Error)?.message}`,
+          );
+        }
+      }
+    }
+    return result;
+  }
+
+  /**
+   * Barre las citas aún `scheduled` cuya hora ya pasó (más allá de la gracia) y
+   * deja un aviso deduplicado por episodio (`appt-late:<apptId>:<scheduledAtIso>`)
+   * al/los owner(s). Severidad high, critical pasado `TRAFFIC_APPT_LATE_CRIT_MIN`.
+   * Usa SÓLO la entidad DockAppointment (cero acoplamiento con outbound).
+   */
+  async scanLateAppointmentsAndNotify(
+    graceMin = Number(process.env.TRAFFIC_APPT_LATE_GRACE_MIN) || 15,
+  ): Promise<LateAppointmentScanResult> {
+    const result: LateAppointmentScanResult = {
+      scanned: 0,
+      late: 0,
+      notified: 0,
+      unresolved: 0,
+    };
+    if (!this.notifications) return result;
+
+    const scheduled = await this.appts.find({ where: { status: 'scheduled' } });
+    result.scanned = scheduled.length;
+    if (scheduled.length === 0) return result;
+
+    const recipients = await this.resolveOwners();
+    const critMin = Number(process.env.TRAFFIC_APPT_LATE_CRIT_MIN) || 60;
+
+    for (const a of scheduled) {
+      if (!a.scheduledAt) continue;
+      const lateMin = Math.floor(
+        (Date.now() - new Date(a.scheduledAt).getTime()) / 60000,
+      );
+      if (lateMin < graceMin) continue;
+      result.late += 1;
+
+      if (recipients.length === 0) {
+        result.unresolved += 1;
+        continue;
+      }
+
+      const scheduledIso = new Date(a.scheduledAt).toISOString();
+      const dedupeKey = `appt-late:${a.id}:${scheduledIso}`;
+      const critical = lateMin >= critMin;
+      const who = a.carrierName || a.vehiclePlate || a.shipmentRef || 'Unidad';
+      const title = a.dockCode
+        ? `Cita tarde · Andén ${a.dockCode}`
+        : 'Cita de andén tarde';
+      const body = [
+        who,
+        `${this.fmtMins(lateMin)} de retraso`,
+        a.shipmentRef ? `emb. ${a.shipmentRef}` : null,
+      ]
+        .filter(Boolean)
+        .join(' · ');
+
+      for (const user of recipients) {
+        try {
+          await this.notifications.create({
+            userId: user.id,
+            kind: 'appt-late',
+            severity: critical ? 'critical' : 'high',
+            title,
+            body,
+            domain: 'logistics',
+            source: 'Tráfico',
+            href: '/dashboard/traffic',
+            dedupeKey,
+          });
+          result.notified += 1;
+        } catch (err) {
+          this.logger.warn(
+            `No se pudo crear aviso de cita tarde: ${(err as Error)?.message}`,
           );
         }
       }

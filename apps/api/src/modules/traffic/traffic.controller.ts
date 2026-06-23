@@ -221,6 +221,16 @@ export class TrafficController {
     return this.alerts.scanDockOverstayAndNotify();
   }
 
+  @Post('appointment-alerts/run')
+  @RequirePermissions('logistics:write')
+  @ApiOperation({
+    summary:
+      'Dispara el barrido de citas tarde y deja avisos en el buzón. Idéntico al cron, bajo demanda.',
+  })
+  runAppointmentAlerts() {
+    return this.alerts.scanLateAppointmentsAndNotify();
+  }
+
   // ── Dock appointments (Citas de andén) ───────────────────────────────────────
   @Get('appointments')
   @RequirePermissions('logistics:read')
