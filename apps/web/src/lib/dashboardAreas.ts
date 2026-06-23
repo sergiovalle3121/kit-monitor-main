@@ -105,6 +105,44 @@ export const AREAS: DashboardArea[] = [
   { name: "Office", desc: "Docs · Hojas · Slides", href: "/dashboard/office", icon: FileText, domain: "office", roles: ["engineering", "planner", "quality_engineer", "production_supervisor", "warehouse_operator", "finance", "buyer", "hr"], section: "Administración" },
 ];
 
+// Accesos de los puestos agregados (Comercial/Programas, Test Engineering, SQE,
+// Comercio Exterior, EHS). Se inyectan por href para no repetir el rol en cada
+// fila de AREAS; cada rol nuevo ve aquí sus módulos núcleo. admin/executive/owner
+// siguen viendo TODO vía seesAllAreas, así que no necesitan estar aquí.
+const EXTRA_ROLE_GRANTS: Record<string, string[]> = {
+  // Comercial / Gestión de programas → comercial, cliente y control
+  "/dashboard/crm": ["program_manager"],
+  "/dashboard/customers": ["program_manager"],
+  "/dashboard/mission-control": ["program_manager"],
+  "/dashboard/control-tower": ["program_manager"],
+  "/dashboard/reports": ["program_manager"],
+  "/dashboard/forecast": ["program_manager"],
+  // Test Engineering → pruebas y calidad
+  "/dashboard/test-engineering": ["test_engineer"],
+  "/dashboard/test-flow": ["test_engineer"],
+  "/dashboard/lab": ["test_engineer"],
+  "/dashboard/quality/measurements": ["test_engineer"],
+  "/dashboard/quality/characteristics": ["test_engineer"],
+  // Calidad de proveedores (SQE) → proveedores, calidad, RMA, recibo
+  "/dashboard/suppliers": ["program_manager", "supplier_quality"],
+  "/dashboard/quality": ["test_engineer", "supplier_quality"],
+  "/dashboard/rma": ["supplier_quality"],
+  "/dashboard/inbound": ["supplier_quality", "trade_compliance"],
+  // Comercio exterior / tráfico → embarques, tráfico, empaque, inventario
+  "/dashboard/outbound": ["trade_compliance", "program_manager"],
+  "/dashboard/traffic": ["trade_compliance"],
+  "/dashboard/packing": ["trade_compliance"],
+  "/dashboard/inventory": ["trade_compliance"],
+  // EHS / Seguridad → EHS y matriz de habilidades
+  "/dashboard/ehs": ["ehs_specialist"],
+  "/dashboard/skills": ["ehs_specialist"],
+};
+
+for (const area of AREAS) {
+  const extra = EXTRA_ROLE_GRANTS[area.href];
+  if (extra) area.roles = Array.from(new Set([...area.roles, ...extra]));
+}
+
 // Order the flow sections render in.
 export const SECTION_ORDER = [
   "Diseño · NPI", "Planeación", "Materiales", "Producción",
