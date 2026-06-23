@@ -1587,4 +1587,22 @@ negativos, composición con `SUM`; `SUBSTITUTE` de la 2ª/3ª/todas las ocurrenc
 instancia fuera de rango, composición con `LEN`). Sin regresiones: 39 suites de hoja + 3 de I/O
 Office verdes; `lint web` 0 errores; `build web` ✓.
 
+## 65. Office/Sheets — corrección de PERCENTILE/QUARTILE (interpolación inclusiva)
+
+**Contexto.** Siguiendo la auditoría de fidelidad (§64), `PERCENTILE` de `@formulajs/formulajs@2.9.3`
+**interpola mal**: `PERCENTILE({1,2,3,4}, 0.25)` daba **1.25** en vez de **1.75**, pese a que su
+`QUARTILE` —que debería coincidir (`QUARTILE(·,1) ≡ PERCENTILE(·,0.25)`)— sí daba 1.75. Como
+`PERCENTILE.INC` (§54) delegaba en ese `PERCENTILE`, también quedaba mal.
+
+**Decisión (sólo `apps/web`, aditiva):** `components/office/sheets/percentileFix.ts` implementa el
+percentil **inclusivo** de Excel (interpolación lineal sobre el rango 0-based `p·(n−1)`) y registra
+`PERCENTILE`, `PERCENTILE.INC`, `QUARTILE`, `QUARTILE.INC` —se fusiona DESPUÉS de `STAT_FUNCTIONS`
+para imponerse a la delegación— de modo que toda la familia inclusiva es coherente. Los exclusivos
+(`PERCENTILE.EXC`/`QUARTILE.EXC`, §54) no se tocan.
+
+**Verificación:** nueva suite `percentileFix.spec.ts` (**16 aserciones** sobre el motor REAL:
+`PERCENTILE` 0.25/0.5/0.75/0.3 y sobre rango real, `#NUM!` fuera de `[0,1]`; `QUARTILE` Q0–Q4 con
+`#NUM!` fuera de rango; coherencia `QUARTILE Q2 == MEDIAN` y `PERCENTILE 0.25 == QUARTILE Q1`). Sin
+regresiones: 40 suites de hoja + 3 de I/O Office verdes; `lint web` 0 errores; `build web` ✓.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
