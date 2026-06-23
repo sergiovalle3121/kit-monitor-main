@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Certification } from './entities/certification.entity';
+import { SkillCatalog } from './entities/skill-catalog.entity';
 import { PeopleService } from './people.service';
 import { PeopleController } from './people.controller';
 import { NumberingModule } from '../numbering/numbering.module';
@@ -13,7 +14,7 @@ import { EventLedgerModule } from '../event-ledger/event-ledger.module';
  */
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Certification]),
+    TypeOrmModule.forFeature([Certification, SkillCatalog]),
     NumberingModule,
     EventLedgerModule,
   ],

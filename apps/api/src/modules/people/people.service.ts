@@ -2,13 +2,16 @@ import { Injectable, Logger, NotFoundException, Optional } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, SelectQueryBuilder } from 'typeorm';
 import { Certification } from './entities/certification.entity';
+import { SkillCatalog } from './entities/skill-catalog.entity';
 import { TenantContextService } from '../../common/tenant/tenant-context.service';
 import { DocumentNumberingService } from '../numbering/document-numbering.service';
 import { EventLedgerService } from '../event-ledger/event-ledger.service';
 import { EventDomain } from '../event-ledger/entities/ledger-event.entity';
 import {
   CreateCertificationDto,
+  CreateSkillDto,
   UpdateCertificationDto,
+  UpdateSkillDto,
 } from './dto/people.dto';
 import { certStatus, CertStatus, daysToExpiry } from './cert-status';
 
@@ -63,6 +66,9 @@ export class PeopleService {
     private readonly repo: Repository<Certification>,
     private readonly tenantCtx: TenantContextService,
     private readonly numbering: DocumentNumberingService,
+    @Optional()
+    @InjectRepository(SkillCatalog)
+    private readonly skillRepo?: Repository<SkillCatalog>,
     @Optional() private readonly ledger?: EventLedgerService,
   ) {}
 
@@ -313,5 +319,77 @@ export class PeopleService {
       skill: best.skill,
       station: best.station,
     };
+  }
+
+  // ── Skill catalog (vocabulario curado de skills) ───────────────────────────
+  private scopeSkills(
+    qb: SelectQueryBuilder<SkillCatalog>,
+    alias: string,
+  ): SelectQueryBuilder<SkillCatalog> {
+    const tenant = this.tenantCtx.getTenantId();
+    const plant = this.tenantCtx.getPlantId();
+    if (tenant) qb.andWhere(`${alias}.tenant_id = :tenant`, { tenant });
+    else qb.andWhere(`${alias}.tenant_id IS NULL`);
+    if (plant) qb.andWhere(`${alias}.plant_id = :plant`, { plant });
+    else qb.andWhere(`${alias}.plant_id IS NULL`);
+    return qb;
+  }
+
+  async listSkills(includeInactive = false): Promise<SkillCatalog[]> {
+    if (!this.skillRepo) return [];
+    const qb = this.skillRepo.createQueryBuilder('s');
+    this.scopeSkills(qb, 's');
+    if (!includeInactive) qb.andWhere('s.active = :a', { a: true });
+    qb.orderBy('s.name', 'ASC');
+    return qb.getMany();
+  }
+
+  async createSkill(dto: CreateSkillDto): Promise<SkillCatalog> {
+    if (!this.skillRepo) throw new NotFoundException('Catálogo no disponible.');
+    const name = normText(dto.name);
+    // Dedupe case-insensitive within scope — reusa en vez de duplicar.
+    const existing = (await this.listSkills(true)).find(
+      (s) => matchKey(s.name) === matchKey(name),
+    );
+    if (existing) {
+      if (!existing.active) {
+        existing.active = true;
+        return this.skillRepo.save(existing);
+      }
+      return existing;
+    }
+    const entity = this.skillRepo.create({
+      name,
+      category: dto.category ? normText(dto.category) : null,
+      area: dto.area ? normText(dto.area) : null,
+      defaultValidityMonths: dto.defaultValidityMonths ?? null,
+      description: dto.description?.trim() || null,
+      active: true,
+      tenant_id: this.tenantCtx.getTenantId(),
+      plant_id: this.tenantCtx.getPlantId(),
+      created_by: this.tenantCtx.getUserEmail(),
+    });
+    return this.skillRepo.save(entity);
+  }
+
+  async updateSkill(id: string, dto: UpdateSkillDto): Promise<SkillCatalog> {
+    if (!this.skillRepo) throw new NotFoundException('Catálogo no disponible.');
+    const s = await this.skillRepo.findOne({ where: { id } });
+    if (!s) throw new NotFoundException('Skill no encontrado.');
+    Object.assign(s, {
+      ...(dto.name !== undefined && { name: normText(dto.name) }),
+      ...(dto.category !== undefined && {
+        category: dto.category ? normText(dto.category) : null,
+      }),
+      ...(dto.area !== undefined && { area: dto.area ? normText(dto.area) : null }),
+      ...(dto.defaultValidityMonths !== undefined && {
+        defaultValidityMonths: dto.defaultValidityMonths,
+      }),
+      ...(dto.description !== undefined && {
+        description: dto.description?.trim() || null,
+      }),
+      ...(dto.active !== undefined && { active: dto.active }),
+    });
+    return this.skillRepo.save(s);
   }
 }

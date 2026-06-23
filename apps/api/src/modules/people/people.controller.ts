@@ -14,7 +14,9 @@ import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { PeopleService } from './people.service';
 import {
   CreateCertificationDto,
+  CreateSkillDto,
   UpdateCertificationDto,
+  UpdateSkillDto,
 } from './dto/people.dto';
 
 @ApiTags('People')
@@ -69,5 +71,24 @@ export class PeopleController {
   @ApiOperation({ summary: 'Actualiza / recertifica (nueva fecha de expiración).' })
   update(@Param('id') id: string, @Body() dto: UpdateCertificationDto) {
     return this.service.update(id, dto);
+  }
+
+  // ── Skill catalog ──────────────────────────────────────────────────────────
+  @Get('skills')
+  @ApiOperation({ summary: 'Catálogo de skills (vocabulario curado de RH).' })
+  listSkills(@Query('includeInactive') includeInactive?: string) {
+    return this.service.listSkills(includeInactive === 'true');
+  }
+
+  @Post('skills')
+  @ApiOperation({ summary: 'Agrega un skill al catálogo (idempotente por nombre).' })
+  createSkill(@Body() dto: CreateSkillDto) {
+    return this.service.createSkill(dto);
+  }
+
+  @Patch('skills/:id')
+  @ApiOperation({ summary: 'Edita / archiva un skill del catálogo.' })
+  updateSkill(@Param('id') id: string, @Body() dto: UpdateSkillDto) {
+    return this.service.updateSkill(id, dto);
   }
 }

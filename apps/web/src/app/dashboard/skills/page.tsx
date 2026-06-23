@@ -21,6 +21,9 @@ import {
   Users,
   UserCheck,
   Download,
+  BookOpen,
+  Pencil,
+  Archive,
 } from 'lucide-react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { saveAs } from 'file-saver';
@@ -102,6 +105,16 @@ interface Operator {
   station: string | null;
 }
 
+interface SkillDef {
+  id: string;
+  name: string;
+  category: string | null;
+  area: string | null;
+  defaultValidityMonths: number | null;
+  description: string | null;
+  active: boolean;
+}
+
 const SEM_META: Record<Sem, { label: string; color: string }> = {
   VALID: { label: 'Vigente', color: GREEN },
   NO_EXPIRY: { label: 'Sin vencimiento', color: GREEN },
@@ -136,6 +149,15 @@ function csvEscape(v: string | number): string {
 }
 
 const today = () => new Date().toISOString().slice(0, 10);
+/** Add N months to a YYYY-MM-DD date, clamped to month end. Returns YYYY-MM-DD. */
+function addMonths(isoDate: string, months: number): string {
+  const d = new Date(isoDate);
+  if (Number.isNaN(d.getTime())) return '';
+  const day = d.getDate();
+  d.setMonth(d.getMonth() + months);
+  if (d.getDate() < day) d.setDate(0); // overflowed → last day of prev month
+  return d.toISOString().slice(0, 10);
+}
 
 const EMPTY_FORM = {
   employeeId: '',
@@ -154,6 +176,7 @@ type CertForm = typeof EMPTY_FORM;
 export default function SkillsPage() {
   const { data, isLoading, forbidden, mutate } = useApi<Cert[]>('/people/certifications');
   const { data: employeesData } = useApi<Employee[]>('/hr/employees?status=ACTIVE');
+  const { data: skillsData, mutate: mutateSkills } = useApi<SkillDef[]>('/people/skills');
   const { user, roles } = useAuth();
   const toast = useToast();
   const router = useRouter();
@@ -174,12 +197,14 @@ export default function SkillsPage() {
 
   const [openOpKey, setOpenOpKey] = useState<string | null>(null);
   const [tableRows, setTableRows] = useState<Cert[]>([]);
+  const [showCatalog, setShowCatalog] = useState(false);
 
   const list = useMemo(() => (Array.isArray(data) ? data : []), [data]);
   const employees = useMemo(
     () => (Array.isArray(employeesData) ? employeesData : []),
     [employeesData],
   );
+  const skills = useMemo(() => (Array.isArray(skillsData) ? skillsData : []), [skillsData]);
 
   // Soft area-scope for non-admins: default the area filter to the area of the
   // employee that matches the logged-in email (when we can resolve it). They can
@@ -409,6 +434,13 @@ export default function SkillsPage() {
             </p>
           </div>
           <button
+            onClick={() => setShowCatalog(true)}
+            className="inline-flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium hover:bg-black/5 dark:hover:bg-white/10"
+            title="Catálogo de skills"
+          >
+            <BookOpen className="w-4 h-4" /> <span className="hidden sm:inline">Catálogo</span>
+          </button>
+          <button
             onClick={() => openCreateFor()}
             className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium text-white"
             style={{ background: VIOLET }}
@@ -604,12 +636,19 @@ export default function SkillsPage() {
           setForm={setForm}
           busy={busy}
           employees={employees}
+          skills={skills}
           areaOptions={areaOptions}
           stationOptions={stationOptions}
           skillOptions={skillOptions}
           onClose={() => setShowForm(false)}
           onSubmit={createCert}
+          onManageCatalog={() => setShowCatalog(true)}
         />
+      )}
+
+      {/* Catálogo de skills */}
+      {showCatalog && (
+        <SkillCatalogModal skills={skills} onClose={() => setShowCatalog(false)} onChanged={() => mutateSkills()} />
       )}
 
       {/* Detalle por empleado */}
@@ -1276,23 +1315,47 @@ function CertFormModal({
   setForm,
   busy,
   employees,
+  skills,
   areaOptions,
   stationOptions,
   skillOptions,
   onClose,
   onSubmit,
+  onManageCatalog,
 }: {
   form: CertForm;
   setForm: (f: CertForm) => void;
   busy: boolean;
   employees: Employee[];
+  skills: SkillDef[];
   areaOptions: string[];
   stationOptions: string[];
   skillOptions: string[];
   onClose: () => void;
   onSubmit: () => void;
+  onManageCatalog: () => void;
 }) {
   const hasRoster = employees.length > 0;
+
+  // Picking a catalog skill prefills the suggested area and auto-computes the
+  // expiry from its default validity (when those fields are still empty).
+  function onSkillChange(value: string) {
+    const match = skills.find((s) => s.name.toLowerCase() === value.trim().toLowerCase());
+    const next: CertForm = { ...form, skill: value };
+    if (match) {
+      if (!form.area && match.area) next.area = match.area;
+      if (!form.expiresDate && match.defaultValidityMonths) {
+        next.expiresDate = addMonths(form.issuedDate || today(), match.defaultValidityMonths);
+      }
+    }
+    setForm(next);
+  }
+
+  // Catalog names first, then any free-text skills already used on certs.
+  const skillList = [
+    ...skills.map((s) => s.name),
+    ...skillOptions.filter((s) => !skills.some((k) => k.name.toLowerCase() === s.toLowerCase())),
+  ];
   return (
     <div className="fixed inset-0 z-[150] grid place-items-center bg-black/40 backdrop-blur-sm p-4" onClick={onClose}>
       <div className={`${glass} rounded-2xl p-5 w-full max-w-2xl`} onClick={(e) => e.stopPropagation()}>
@@ -1338,20 +1401,30 @@ function CertFormModal({
             )}
           </div>
 
-          <Field label="Skill / Certificación">
+          <label className="block">
+            <span className="flex items-center justify-between text-[12px] font-medium text-gray-500 mb-1">
+              Skill / Certificación
+              <button
+                type="button"
+                onClick={onManageCatalog}
+                className="inline-flex items-center gap-1 text-violet-600 hover:underline"
+              >
+                <BookOpen className="w-3 h-3" /> Catálogo
+              </button>
+            </span>
             <input
               list="sk-skills"
               value={form.skill}
-              onChange={(e) => setForm({ ...form, skill: e.target.value })}
+              onChange={(e) => onSkillChange(e.target.value)}
               placeholder="IPC-A-610 / ESD / Operación SMT-1"
               className="sk-input"
             />
             <datalist id="sk-skills">
-              {skillOptions.map((s) => (
+              {skillList.map((s) => (
                 <option key={s} value={s} />
               ))}
             </datalist>
-          </Field>
+          </label>
           <Field label="Estación">
             <input
               list="sk-stations"
@@ -1515,6 +1588,167 @@ function EmployeePicker({
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+// ── Skill catalog manager (modal) ─────────────────────────────────────────────
+function SkillCatalogModal({
+  skills,
+  onClose,
+  onChanged,
+}: {
+  skills: SkillDef[];
+  onClose: () => void;
+  onChanged: () => void;
+}) {
+  const toast = useToast();
+  const [add, setAdd] = useState({ name: '', category: '', area: '', validity: '' });
+  const [editId, setEditId] = useState<string | null>(null);
+  const [edit, setEdit] = useState({ name: '', category: '', area: '', validity: '' });
+  const [busy, setBusy] = useState(false);
+
+  async function call(path: string, method: string, body: Record<string, unknown>, ok: string): Promise<boolean> {
+    setBusy(true);
+    try {
+      const res = await apiFetch(`${API_BASE}${path}`, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        toast.error('No se pudo guardar.', 'Catálogo');
+        return false;
+      }
+      toast.success(ok, 'Catálogo');
+      onChanged();
+      return true;
+    } catch {
+      toast.error('Error de red.', 'Catálogo');
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function addSkill() {
+    if (add.name.trim().length < 2) {
+      toast.error('Indica el nombre del skill.', 'Catálogo');
+      return;
+    }
+    const okDone = await call(
+      '/people/skills',
+      'POST',
+      {
+        name: add.name,
+        category: add.category || undefined,
+        area: add.area || undefined,
+        defaultValidityMonths: add.validity ? Number(add.validity) : undefined,
+      },
+      'Skill agregado.',
+    );
+    if (okDone) setAdd({ name: '', category: '', area: '', validity: '' });
+  }
+
+  async function saveEdit() {
+    if (!editId) return;
+    const okDone = await call(
+      `/people/skills/${editId}`,
+      'PATCH',
+      {
+        name: edit.name,
+        category: edit.category,
+        area: edit.area,
+        defaultValidityMonths: edit.validity ? Number(edit.validity) : null,
+      },
+      'Skill actualizado.',
+    );
+    if (okDone) setEditId(null);
+  }
+
+  const sorted = [...skills].sort((a, b) => a.name.localeCompare(b.name));
+
+  return (
+    <div className="fixed inset-0 z-[160] grid place-items-center bg-black/40 backdrop-blur-sm p-4" onClick={onClose}>
+      <div className={`${glass} rounded-2xl p-5 w-full max-w-2xl max-h-[85vh] flex flex-col`} onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-semibold inline-flex items-center gap-2">
+            <BookOpen className="w-4 h-4" style={{ color: VIOLET }} /> Catálogo de skills
+          </h3>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Add row */}
+        <div className="grid grid-cols-2 md:grid-cols-[1fr_1fr_1fr_90px_auto] gap-2 mb-4">
+          <input value={add.name} onChange={(e) => setAdd({ ...add, name: e.target.value })} placeholder="Nombre (IPC-A-610)" className="sk-input" />
+          <input value={add.category} onChange={(e) => setAdd({ ...add, category: e.target.value })} placeholder="Categoría" className="sk-input" />
+          <input value={add.area} onChange={(e) => setAdd({ ...add, area: e.target.value })} placeholder="Área" className="sk-input" />
+          <input value={add.validity} onChange={(e) => setAdd({ ...add, validity: e.target.value.replace(/[^0-9]/g, '') })} placeholder="meses" inputMode="numeric" className="sk-input" />
+          <button onClick={addSkill} disabled={busy} className="inline-flex items-center justify-center gap-1 px-3 rounded-xl text-sm font-medium text-white disabled:opacity-60" style={{ background: VIOLET }}>
+            <Plus className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* List */}
+        <div className="flex-1 overflow-y-auto -mx-1 px-1">
+          {sorted.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-8">
+              Catálogo vacío. Agrega los skills/certificaciones que usa tu planta (IPC-A-610, ESD, J-STD-001…).
+            </p>
+          ) : (
+            <div className="space-y-1.5">
+              {sorted.map((s) =>
+                editId === s.id ? (
+                  <div key={s.id} className={`${glass} rounded-xl p-3 grid grid-cols-2 md:grid-cols-[1fr_1fr_1fr_90px] gap-2`}>
+                    <input value={edit.name} onChange={(e) => setEdit({ ...edit, name: e.target.value })} className="sk-input" placeholder="Nombre" />
+                    <input value={edit.category} onChange={(e) => setEdit({ ...edit, category: e.target.value })} className="sk-input" placeholder="Categoría" />
+                    <input value={edit.area} onChange={(e) => setEdit({ ...edit, area: e.target.value })} className="sk-input" placeholder="Área" />
+                    <input value={edit.validity} onChange={(e) => setEdit({ ...edit, validity: e.target.value.replace(/[^0-9]/g, '') })} className="sk-input" placeholder="meses" inputMode="numeric" />
+                    <div className="col-span-full flex justify-end gap-2">
+                      <button onClick={() => setEditId(null)} className="px-3 py-1.5 rounded-lg text-[12px] hover:bg-black/5 dark:hover:bg-white/10">Cancelar</button>
+                      <button onClick={saveEdit} disabled={busy} className="px-3 py-1.5 rounded-lg text-[12px] font-medium text-white disabled:opacity-60" style={{ background: VIOLET }}>Guardar</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div key={s.id} className={`${glass} rounded-xl p-3 flex items-center gap-3 ${s.active ? '' : 'opacity-50'}`}>
+                    <div className="min-w-0 flex-1">
+                      <div className="font-medium truncate">
+                        {s.name}
+                        {!s.active && <span className="ml-2 text-[10px] text-gray-400">archivado</span>}
+                      </div>
+                      <div className="text-[12px] text-gray-400 truncate">
+                        {[s.category, s.area, s.defaultValidityMonths != null ? `${s.defaultValidityMonths}m vigencia` : null]
+                          .filter(Boolean)
+                          .join(' · ') || '—'}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setEditId(s.id);
+                        setEdit({ name: s.name, category: s.category ?? '', area: s.area ?? '', validity: s.defaultValidityMonths != null ? String(s.defaultValidityMonths) : '' });
+                      }}
+                      className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10"
+                      title="Editar"
+                    >
+                      <Pencil className="w-4 h-4 text-gray-400" />
+                    </button>
+                    <button
+                      onClick={() => call(`/people/skills/${s.id}`, 'PATCH', { active: !s.active }, s.active ? 'Skill archivado.' : 'Skill restaurado.')}
+                      disabled={busy}
+                      className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-50"
+                      title={s.active ? 'Archivar' : 'Restaurar'}
+                    >
+                      {s.active ? <Archive className="w-4 h-4 text-gray-400" /> : <RefreshCw className="w-4 h-4" style={{ color: GREEN }} />}
+                    </button>
+                  </div>
+                ),
+              )}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
