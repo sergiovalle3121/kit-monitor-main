@@ -199,5 +199,13 @@ export async function importSheets(file: File): Promise<ImportedWorkbook> {
   const sheets = wb.SheetNames.map((name: string, i: number) => wsToFortune(XLSX, wb.Sheets[name], name, i));
   const list = sheets.length ? sheets : [wsToFortune(XLSX, { '!ref': 'A1' }, 'Hoja 1', 0)];
   const names = definedToNames(wb.Workbook?.Names as any[], list.map((s) => s.name || ''));
+  // SheetJS comunitario no lee ESTILOS → se complementa con ExcelJS (writer de §109) para que un libro
+  // con formato vuelva a entrar con sus colores/negritas. Aditivo y tolerante a fallos.
+  try {
+    const ExcelJSMod: any = await import('exceljs');
+    const ExcelJS = ExcelJSMod.default ?? ExcelJSMod;
+    const { readStylesIntoSheets } = await import('./xlsxStyled');
+    await readStylesIntoSheets(ExcelJS, buf, list);
+  } catch { /* sin estilos → al menos los valores entran (degradación segura) */ }
   return { sheets: list, names };
 }

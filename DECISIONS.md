@@ -2421,4 +2421,22 @@ el **CSV y toda la LECTURA siguen en SheetJS** (sin tocar el import ni los mappe
 alineación/numFmt/fórmula/combinación/ancho. `xlsx.spec` (27) y toda la suite de Office verdes — sin
 regresiones; `lint web` 0; `build web` ✓. Licencia anotada en THIRD_PARTY_NOTICES.
 
+## 110. Office/Sheets — LECTURA de estilos al importar .xlsx (round-trip simétrico de §109)
+
+**Contexto.** §109 hizo que el export `.xlsx` escribiera estilos (vía ExcelJS). Pero el import seguía en
+SheetJS comunitario, que tampoco **lee** estilos: un libro con formato entraba «plano» (sin colores ni
+negritas). El round-trip de estilos quedaba a medias.
+
+**Decisión (sólo `apps/web`, aditiva — riesgo cero):** `importSheets` complementa la lectura de SheetJS
+(valores + fórmulas) con una pasada de **ExcelJS** que extrae los estilos y los **fusiona** en las celdas
+Fortune. Inverso de §109: `fortuneStyleFromCell` mapea fuente/relleno/alineación de ExcelJS a las claves
+Fortune (`bl/it/un/cl/fs/ff/fc/bg/ht/vt/tb`) y `readStylesIntoSheets` los inyecta por (hoja, r, c) sin
+tocar valores ni fórmulas. Tolerante a fallos (si ExcelJS no lee algo, los valores entran igual).
+
+**Verificación:** nueva suite `xlsxStyleImport.spec.ts` (**16 aserciones**): helpers inversos
+(`argbToHex`, `fortuneStyleFromCell`) y un **round-trip COMPLETO** Fortune → writer §109 → bytes →
+`readStylesIntoSheets` → Fortune, confirmando que negrita/cursiva/color/fondo/alineación/formato
+sobreviven y que el valor numérico no se pisa. `xlsxStyled` (22) y `xlsx` mappers verdes — sin
+regresiones; `lint web` 0; `build web` ✓.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
