@@ -2061,4 +2061,26 @@ el serializador sólo conocía `hardBreak`/`image`/`mathInline`/`footnoteRef`/te
 respaldo a `target`, y `citation` en el texto). Sin regresiones: las 56 suites de spec de Office
 verdes; `lint web` 0 errores; `build web` ✓.
 
+## 89. Office/Docs — Markdown cubre todos los nodos de bloque de Docs (TOC, bibliografía, firma)
+
+**Contexto.** Cierre de la auditoría de la exportación a Markdown (§87/§88): faltaban los nodos de
+bloque específicos de Docs `footnoteList`, `signatureLine`, `toc` y `bibliography`. El caso por
+defecto recorría su contenido, lo que **perdía** TOC/bibliografía/firma (nodos generados, sin
+contenido propio) y arriesgaba **duplicar** notas al pie (`footnoteList`).
+
+**Decisión (sólo `apps/web`, aditiva):** `serializeBlocks` los trata explícitamente, igual que el
+exportador `.docx`:
+- `footnoteList` → **nada** (las notas van por el recolector §87; evita duplicarlas).
+- `signatureLine` → línea de guiones bajos (escapada), nombre en **negrita** y cargo.
+- `toc` → «## Tabla de contenido» + lista de los títulos del documento, indentada por nivel.
+- `bibliography` → «## Bibliografía» + las fuentes (`citation.attrs.source`) del documento, únicas y
+  ordenadas. `toc`/`bibliography` recorren la **raíz** del documento (fijada en `tiptapJsonToMarkdown`),
+  no su propio contenido.
+
+Con esto la exportación a Markdown cubre **todos** los tipos de nodo del modelo de Docs sin pérdidas.
+
+**Verificación:** `markdown.spec.ts` ampliado (**35 aserciones**, +9: `footnoteList` sin salida, firma
+con nombre/cargo/guiones, TOC con títulos indentados por nivel, bibliografía con la fuente de la
+cita). Sin regresiones: las 56 suites de spec de Office verdes; `lint web` 0 errores; `build web` ✓.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
