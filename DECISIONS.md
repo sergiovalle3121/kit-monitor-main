@@ -1910,4 +1910,26 @@ correctas, rango inválido → `false` sin tocar la hoja, reactivar reemplaza el
 devuelve `true`/`false`, roundtrip limpio). Sin regresiones: las 51 suites de spec de Office verdes;
 `lint web` 0 errores; `build web` ✓.
 
+## 81. Office/Docs — exportación a Markdown (GFM)
+
+**Contexto.** Docs exportaba a `.docx` (`docx.ts`) y a PDF (impresión), pero no a **Markdown** — un
+formato de texto plano, versionable y portable que todo editor moderno (Word incluido, vía
+complementos) ofrece. Primer paso de diversificación hacia Docs tras consolidar Sheets.
+
+**Decisión (sólo `apps/web`, aditiva — riesgo cero):** `lib/office/markdown.ts` añade
+`tiptapJsonToMarkdown(doc)`, **función pura sin dependencias** que recorre el árbol Tiptap/ProseMirror
+(el modelo de Docs, el mismo que consume `docx.ts`) y lo mapea a Markdown GFM: encabezados, énfasis
+(`**`/`*`/`~~`/`` ` ``), enlaces, listas con viñetas/ordenadas/**de tareas** y **anidadas**, citas,
+bloques de código con lenguaje, reglas, imágenes y **tablas GFM**. Las marcas sin equivalente
+(subrayado, resalte, sub/superíndice, color, control de cambios, comentarios) **degradan conservando
+el texto**; los nodos exóticos (math, footnotes) caen a un texto razonable. Escapa los caracteres
+especiales (`*_`` ` ``[]`) salvo dentro de código. Salida determinista (una línea en blanco entre
+bloques, sin blancos triples, un único salto final). UI: opción **«Markdown (.md)»** en el menú
+Exportar de `DocActions`, que descarga un Blob.
+
+**Verificación:** nueva suite `markdown.spec.ts` (**21 aserciones**: encabezados, negrita/cursiva/
+tachado/código/enlace, degradado de subrayado, escapado, `hardBreak`, listas anidadas/ordenadas/de
+tareas, cita, bloque de código, regla, imagen, tabla GFM, separación por bloques, documento vacío).
+Sin regresiones: las 52 suites de spec de Office verdes; `lint web` 0 errores; `build web` ✓.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
