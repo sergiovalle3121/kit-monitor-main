@@ -224,6 +224,19 @@ export class LineEngineeringController {
     return this.service.getCohesion(model, revision ?? 'A');
   }
 
+  @Get('layout/density')
+  @RequirePermissions('engineering:read')
+  @ApiOperation({
+    summary:
+      'Mapa de ocupación: rejilla de densidad del piso (ocupación por celda), zonas congestionadas, aprovechamiento y uniformidad de la carga.',
+  })
+  getDensity(
+    @Query('model') model: string,
+    @Query('revision') revision?: string,
+  ) {
+    return this.service.getDensity(model, revision ?? 'A');
+  }
+
   @Put('layout/approval')
   @RequirePermissions('engineering:write')
   @ApiOperation({
