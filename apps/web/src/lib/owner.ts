@@ -2,17 +2,21 @@
  * Espejo en el frontend de `apps/api/src/modules/auth/rbac.ts` (ownerEmails /
  * isOwnerEmail). El dueño SIEMPRE es admin y lo derivamos del EMAIL, no del rol
  * almacenado: así un JWT viejo, un reseed o una migración no pueden dejar al
- * owner en "solo lectura". Configurable con NEXT_PUBLIC_OWNER_EMAILS
- * (coma-separado); por defecto incluye al dueño del proyecto.
+ * owner en "solo lectura". Estos built-in siempre se respetan; el env
+ * NEXT_PUBLIC_OWNER_EMAILS (coma-separado) solo AGREGA más owners, nunca los
+ * reemplaza, para que un owner no pueda quedar fuera por accidente.
  */
-const DEFAULT_OWNER_EMAILS = ['sergiovallezarate@gmail.com'];
+const DEFAULT_OWNER_EMAILS = [
+  'sergiovallezarate@gmail.com',
+  'imagenpaovalle@gmail.com',
+];
 
 export function ownerEmails(): string[] {
   const fromEnv = (process.env.NEXT_PUBLIC_OWNER_EMAILS || '')
     .split(',')
     .map((s) => s.trim().toLowerCase())
     .filter(Boolean);
-  return fromEnv.length ? fromEnv : DEFAULT_OWNER_EMAILS;
+  return Array.from(new Set([...DEFAULT_OWNER_EMAILS, ...fromEnv]));
 }
 
 export function isOwnerEmail(email?: string | null): boolean {

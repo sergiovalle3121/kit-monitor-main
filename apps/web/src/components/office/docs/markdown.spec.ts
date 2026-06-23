@@ -4,6 +4,7 @@ import { tiptapJsonToMarkdown } from '@/lib/office/markdown';
 
 let passed = 0; const fails: string[] = [];
 const eq = (a: any, b: any, m: string) => { if (a === b) passed++; else fails.push(`${m}\n     esp ${JSON.stringify(b)}\n     obt ${JSON.stringify(a)}`); };
+const has = (a: string, sub: string, m: string) => { if (a.includes(sub)) passed++; else fails.push(`${m} — no contiene ${JSON.stringify(sub)} en ${JSON.stringify(a)}`); };
 const doc = (...content: any[]) => ({ type: 'doc', content });
 const p = (...content: any[]) => ({ type: 'paragraph', content });
 const t = (text: string, marks?: any[]) => ({ type: 'text', text, ...(marks ? { marks } : {}) });
@@ -70,6 +71,39 @@ eq(tiptapJsonToMarkdown(doc(p(t('uno')), p(t('dos')))), 'uno\n\ndos\n', 'dos pá
 
 // Documento vacío.
 eq(tiptapJsonToMarkdown(doc()), '\n', 'documento vacío → solo salto final');
+
+// Notas al pie: ref numerada en línea + bloque de definiciones al final.
+const fn = (content: string) => ({ type: 'footnoteRef', attrs: { content } });
+eq(tiptapJsonToMarkdown(doc(p(t('Texto'), fn('una nota')))), 'Texto[^1]\n\n[^1]: una nota\n', 'nota al pie única');
+eq(
+  tiptapJsonToMarkdown(doc(p(t('A'), fn('uno')), p(t('B'), fn('dos')))),
+  'A[^1]\n\nB[^2]\n\n[^1]: uno\n[^2]: dos\n', 'dos notas numeradas en orden',
+);
+
+// Referencias cruzadas y citas: se emite su texto visible (antes se perdían).
+eq(tiptapJsonToMarkdown(doc(p(t('Ver '), { type: 'crossRef', attrs: { label: 'Figura 1' } }))), 'Ver Figura 1\n', 'referencia cruzada');
+eq(tiptapJsonToMarkdown(doc(p(t('Ver '), { type: 'crossRef', attrs: { target: 'sec-2' } }))), 'Ver sec-2\n', 'crossRef cae a target');
+eq(tiptapJsonToMarkdown(doc(p(t('Según '), { type: 'citation', attrs: { inText: '(García, 2020)' } }))), 'Según (García, 2020)\n', 'cita en el texto');
+
+// Nodos de bloque específicos de Docs: footnoteList (vacío), firma, TOC y bibliografía.
+eq(tiptapJsonToMarkdown(doc(p(t('a')), { type: 'footnoteList' })), 'a\n', 'footnoteList no produce salida');
+{
+  const md = tiptapJsonToMarkdown(doc({ type: 'signatureLine', attrs: { name: 'Ana Ruiz', title: 'Directora' } }));
+  has(md, '**Ana Ruiz**', 'firma: nombre en negrita');
+  has(md, 'Directora', 'firma: cargo');
+  has(md, '\\_\\_', 'firma: línea de guiones bajos escapada');
+}
+{
+  const md = tiptapJsonToMarkdown(doc({ type: 'toc' }, { type: 'heading', attrs: { level: 1 }, content: [t('Intro')] }, { type: 'heading', attrs: { level: 2 }, content: [t('Detalle')] }));
+  has(md, '## Tabla de contenido', 'toc: título');
+  has(md, '- Intro', 'toc: entrada de nivel 1');
+  has(md, '  - Detalle', 'toc: entrada de nivel 2 indentada');
+}
+{
+  const md = tiptapJsonToMarkdown(doc(p(t('Según '), { type: 'citation', attrs: { inText: '(A, 2020)', source: 'Autor, A. (2020). Título.' } }), { type: 'bibliography' }));
+  has(md, '## Bibliografía', 'bibliografía: título');
+  has(md, '- Autor, A. (2020). Título.', 'bibliografía: fuente de la cita');
+}
 
 console.log(`\nMARKDOWN SPEC: ${passed} OK, ${fails.length} fallos`);
 if (fails.length) { for (const f of fails) console.error('  ✗ ' + f); throw new Error(`${fails.length} fallos`); }

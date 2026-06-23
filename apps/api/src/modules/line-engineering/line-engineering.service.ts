@@ -68,6 +68,15 @@ import {
 } from './line-cost';
 import { standardWork, StdWorkResult } from './line-stdwork';
 import { dossierStationsToCsv, DossierStationRow } from './line-dossier';
+import { consolidateReview, LayoutReviewSummary } from './line-review';
+import { approvalEventDetail } from './line-approval';
+import { buildDxf, DxfBox, DxfSegment, DxfText } from './line-dxf';
+import { computeTakeoff, Takeoff } from './line-takeoff';
+import { computeClearance, ClearanceResult } from './line-clearance';
+import { computeScorecard, Scorecard } from './line-scorecard';
+import { computeContinuity, ContinuityResult } from './line-continuity';
+import { computeCohesion, CohesionResult } from './line-cohesion';
+import { computeDensity, DensityResult } from './line-density';
 import { flexLineAnalysis, FlexLineResult } from './line-flexline';
 import {
   sensitivityCurve,
@@ -251,6 +260,8 @@ export interface LayoutDossier {
   stations: DossierStationRow[];
   /** The station table serialized as RFC-4180 CSV. */
   csv: string;
+  /** Consolidated layout review: grade, key indices and a findings punch-list. */
+  review: LayoutReviewSummary;
 }
 
 export interface LineEngineeringKpis {
@@ -602,6 +613,245 @@ export class LineEngineeringService {
   }
 
   /**
+   * Quantity take-off / bill of materials for a layout (Fase 42 — CAD 3D):
+   * station and equipment counts, floor area used, footprint utilisation and
+   * total wall run. Read-only; reuses getLayout and the pure take-off helper.
+   */
+  async getTakeoff(model: string, revision = 'A'): Promise<Takeoff> {
+    const layout = await this.getLayout(model, revision);
+    return computeTakeoff({
+      footprint: {
+        footprintW: layout.footprint.footprintW,
+        footprintH: layout.footprint.footprintH,
+        unit: layout.footprint.unit,
+      },
+      stations: layout.stations.map((s) => ({
+        x: s.x,
+        y: s.y,
+        w: s.w,
+        h: s.h,
+      })),
+      assets: (layout.assets ?? []).map((a) => ({
+        kind: a.kind,
+        w: a.w,
+        h: a.h,
+      })),
+      annotations: (layout.annotations ?? []).map((a) => ({ type: a.type })),
+    });
+  }
+
+  /**
+   * Clearance / aisle analysis for the layout (Fase 43): how much room there is
+   * between and around the placed stations and equipment for safe circulation.
+   * `min` overrides the minimum acceptable gap (default = two grid cells).
+   */
+  async getClearance(
+    model: string,
+    revision = 'A',
+    min?: number,
+  ): Promise<ClearanceResult> {
+    const layout = await this.getLayout(model, revision);
+    const minClearance =
+      min && min > 0 ? min : Math.max(1, Number(layout.footprint.gridSize) * 2);
+    const boxes = [
+      ...layout.stations
+        .filter((s) => s.x !== null && s.y !== null && s.w !== null && s.h !== null)
+        .map((s) => ({
+          id: s.id,
+          label: s.station,
+          kind: 'station' as const,
+          x: s.x as number,
+          y: s.y as number,
+          w: s.w as number,
+          h: s.h as number,
+        })),
+      ...(layout.assets ?? []).map((a) => ({
+        id: a.id,
+        label: a.label || a.kind,
+        kind: 'equipment' as const,
+        x: a.x,
+        y: a.y,
+        w: a.w,
+        h: a.h,
+      })),
+    ];
+    return computeClearance({
+      footprintW: layout.footprint.footprintW,
+      footprintH: layout.footprint.footprintH,
+      minClearance,
+      boxes,
+    });
+  }
+
+  /**
+   * Layout health scorecard (Fase 44, extended Fase 47): rolls placement
+   * readiness, balance, flow direction, circulation, flow continuity and line
+   * cohesion into one graded readiness index, with the weakest dimensions and
+   * any hard blockers. Read-only; aggregates existing analyses. Continuity is
+   * only scored when connectors exist and cohesion only with more than one line,
+   * so situational metrics never distort a layout they don't apply to.
+   */
+  async getScorecard(
+    model: string,
+    revision = 'A',
+  ): Promise<Scorecard & { model: string; revision: string }> {
+    const m = (model ?? '').trim();
+    const r = (revision ?? 'A').trim() || 'A';
+    const [report, flow, clearance, continuity, cohesion] = await Promise.all([
+      this.getLayoutReport(m, r),
+      this.getFlowDirection(m, r),
+      this.getClearance(m, r),
+      this.getContinuity(m, r),
+      this.getCohesion(m, r),
+    ]);
+    const card = computeScorecard({
+      readinessPct: report.stations.readinessPct,
+      balancePct: report.balance ? report.balance.balancePct * 100 : null,
+      directionalEfficiencyPct: flow.hasDirection
+        ? flow.directionalEfficiencyPct
+        : null,
+      circulationPct: clearance.boxCount > 0 ? clearance.clearancePct : null,
+      continuityPct: continuity.linkCount > 0 ? continuity.continuityPct : null,
+      cohesionPct: cohesion.lineCount > 1 ? cohesion.cohesionPct : null,
+      overlaps: report.validation.overlaps,
+      outOfBounds: report.validation.outOfBounds,
+    });
+    return { ...card, model: m, revision: r };
+  }
+
+  /**
+   * Line continuity (Fase 45): validates the topology of the flow connector graph
+   * — is it one continuous, ordered path through every station? Reports isolated
+   * stations, disconnected pieces, extra starts/ends, splits/merges and back-flow
+   * links. Read-only; complements the flow geometry (line-flow). Additive.
+   */
+  async getContinuity(
+    model: string,
+    revision = 'A',
+  ): Promise<ContinuityResult & { model: string; revision: string }> {
+    const m = (model ?? '').trim();
+    const r = (revision ?? 'A').trim() || 'A';
+    const layout = await this.getLayout(m, r);
+    const result = computeContinuity({
+      stations: layout.stations.map((s) => ({
+        id: s.id,
+        station: s.station,
+        sequence: s.sequence,
+      })),
+      links: (layout.connectors ?? []).map((c) => ({ from: c.from, to: c.to, kind: c.kind })),
+    });
+    return { ...result, model: m, revision: r };
+  }
+
+  /**
+   * Spatial line cohesion (Fase 46): checks how well each logical line keeps to
+   * its own region of the floor — per-line compactness, stations intruding into
+   * another line's region, and overlapping regions. Read-only; complements the
+   * flow analyses (which ignore the `line` grouping). Additive.
+   */
+  async getCohesion(
+    model: string,
+    revision = 'A',
+  ): Promise<CohesionResult & { model: string; revision: string; unit: string }> {
+    const m = (model ?? '').trim();
+    const r = (revision ?? 'A').trim() || 'A';
+    const layout = await this.getLayout(m, r);
+    const defW = layout.footprint.footprintW * 0.03;
+    const defH = layout.footprint.footprintH * 0.04;
+    const stations = layout.stations
+      .filter((s) => s.x !== null && s.y !== null)
+      .map((s) => {
+        const w = s.w !== null && s.w > 0 ? s.w : defW;
+        const h = s.h !== null && s.h > 0 ? s.h : defH;
+        return {
+          id: s.id,
+          station: s.station,
+          line: s.line,
+          cx: (s.x as number) + w / 2,
+          cy: (s.y as number) + h / 2,
+          w,
+          h,
+        };
+      });
+    const result = computeCohesion({ stations });
+    return { ...result, model: m, revision: r, unit: layout.footprint.unit };
+  }
+
+  /**
+   * Occupancy-density heat map (Fase 48): bins every placed footprint (stations
+   * + equipment) into a coarse grid and reports per-cell occupancy, surfacing
+   * congestion clusters and dead floor that a single utilisation number hides.
+   * The grid is sized for roughly square cells (~10 columns). Read-only, additive.
+   */
+  async getDensity(
+    model: string,
+    revision = 'A',
+  ): Promise<DensityResult & { model: string; revision: string; unit: string }> {
+    const m = (model ?? '').trim();
+    const r = (revision ?? 'A').trim() || 'A';
+    const layout = await this.getLayout(m, r);
+    const W = layout.footprint.footprintW > 0 ? layout.footprint.footprintW : 1;
+    const H = layout.footprint.footprintH > 0 ? layout.footprint.footprintH : 1;
+    const cols = 10;
+    const rows = Math.max(2, Math.min(14, Math.round((cols * H) / W)));
+    const boxes = [
+      ...layout.stations
+        .filter((s) => s.x !== null && s.y !== null && s.w !== null && s.h !== null)
+        .map((s) => ({ x: s.x as number, y: s.y as number, w: s.w as number, h: s.h as number })),
+      ...(layout.assets ?? []).map((a) => ({ x: a.x, y: a.y, w: a.w, h: a.h })),
+    ];
+    const result = computeDensity({ footprintW: W, footprintH: H, cols, rows, boxes });
+    return { ...result, model: m, revision: r, unit: layout.footprint.unit };
+  }
+
+  /**
+   * Export the layout as an AutoCAD R12 DXF (Fase 53). Read-only: serialises the
+   * footprint, placed stations, equipment, walls/zones, flow links and
+   * annotations onto named CAD layers so the layout can round-trip into AutoCAD
+   * or any DXF-aware CAD — closing the interop loop (we already import DXF).
+   */
+  async getLayoutDxf(
+    model: string,
+    revision = 'A',
+  ): Promise<{ model: string; revision: string; unit: string; filename: string; dxf: string }> {
+    const m = (model ?? '').trim();
+    const r = (revision ?? 'A').trim() || 'A';
+    const layout = await this.getLayout(m, r);
+    const fp = layout.footprint;
+
+    const boxes: DxfBox[] = [];
+    const centerById = new Map<string, { cx: number; cy: number }>();
+    for (const s of layout.stations) {
+      if (s.x === null || s.y === null || s.w === null || s.h === null) continue;
+      boxes.push({ x: s.x, y: s.y, w: s.w, h: s.h, rotation: s.rotation ?? 0, label: s.station, layer: 'ESTACIONES' });
+      centerById.set(s.id, { cx: s.x + s.w / 2, cy: s.y + s.h / 2 });
+    }
+    for (const a of layout.assets ?? []) {
+      const layer = a.kind === 'wall' ? 'MUROS' : a.kind === 'zone' ? 'ZONAS' : 'EQUIPO';
+      boxes.push({ x: a.x, y: a.y, w: a.w, h: a.h, rotation: a.rotation ?? 0, label: a.label || a.kind, layer });
+    }
+
+    const segments: DxfSegment[] = [];
+    for (const c of layout.connectors ?? []) {
+      const a = centerById.get(c.from), b = centerById.get(c.to);
+      if (a && b) segments.push({ x1: a.cx, y1: a.cy, x2: b.cx, y2: b.cy, layer: 'FLUJO' });
+    }
+
+    const texts: DxfText[] = [];
+    for (const an of layout.annotations ?? []) {
+      if (an.type === 'dim' && an.x2 !== undefined && an.y2 !== undefined) {
+        segments.push({ x1: an.x, y1: an.y, x2: an.x2, y2: an.y2, layer: 'COTAS' });
+      } else if (an.type === 'text' && an.text) {
+        texts.push({ x: an.x, y: an.y, text: an.text, layer: 'TEXTO' });
+      }
+    }
+
+    const dxf = buildDxf({ footprintW: fp.footprintW, footprintH: fp.footprintH, unit: fp.unit, boxes, segments, texts });
+    const slug = `${m}_${r}`.replace(/[^a-zA-Z0-9_-]+/g, '-');
+    return { model: m, revision: r, unit: fp.unit, filename: `layout_${slug}.dxf`, dxf };
+  }
+
+  /**
    * Set the layout's release state (Fase 29): draft → in_review → approved.
    * Approving stamps the current user + time; moving back to draft/in_review
    * clears the stamp. Additive — never touches the geometry.
@@ -631,8 +881,20 @@ export class LineEngineeringService {
       layout.approvedAt = null;
     }
     await this.requireLayouts().save(layout);
+    // Stamp the health grade at sign-off so the audit trail records not just the
+    // status change but the quality of the layout when it happened. Defensive:
+    // the approval must never fail because a metric couldn't be computed.
+    let reviewStamp: { grade?: string; score?: number; blockers?: number } = {};
+    if (status === 'in_review' || status === 'approved') {
+      try {
+        const sc = await this.getScorecard(m, r);
+        reviewStamp = { grade: sc.grade, score: sc.score, blockers: sc.blockers.length };
+      } catch {
+        reviewStamp = {};
+      }
+    }
     await this.record('SF_LINE_LAYOUT_APPROVAL', `${m}|${r}`, null, {
-      after: { status, by: layout.approvedBy },
+      after: { status, by: layout.approvedBy, ...reviewStamp },
     });
     return this.getLayout(m, r);
   }
@@ -1819,12 +2081,46 @@ export class LineEngineeringService {
     const revision = (params.revision ?? 'A').trim() || 'A';
     if (!model) throw new BadRequestException('model es obligatorio.');
 
-    const [report, completeness, layout, route] = await Promise.all([
-      this.getLayoutReport(model, revision),
-      this.getCompleteness(model, revision),
-      this.getLayout(model, revision),
-      this.routing(model, revision),
-    ]);
+    const [report, completeness, layout, route, scorecard, clearance, continuity, cohesion, density] =
+      await Promise.all([
+        this.getLayoutReport(model, revision),
+        this.getCompleteness(model, revision),
+        this.getLayout(model, revision),
+        this.routing(model, revision),
+        this.getScorecard(model, revision),
+        this.getClearance(model, revision),
+        this.getContinuity(model, revision),
+        this.getCohesion(model, revision),
+        this.getDensity(model, revision),
+      ]);
+
+    // Consolidate the health scorecard + spatial analyses into one review block
+    // (grade, key indices and a de-duplicated findings punch-list).
+    const review = consolidateReview({
+      score: scorecard.score,
+      grade: scorecard.grade,
+      blockers: scorecard.blockers,
+      readinessPct: report.stations.readinessPct,
+      balancePct: report.balance ? report.balance.balancePct * 100 : null,
+      circulation:
+        clearance.boxCount > 0
+          ? { clearancePct: clearance.clearancePct, tightPairs: clearance.tightPairs.length }
+          : null,
+      continuity: {
+        continuityPct: continuity.continuityPct,
+        issues: continuity.issues,
+        hasFlow: continuity.linkCount > 0,
+      },
+      cohesion: {
+        cohesionPct: cohesion.cohesionPct,
+        issues: cohesion.issues,
+        multiLine: cohesion.lineCount > 1,
+      },
+      density:
+        density.boxCount > 0
+          ? { utilizationPct: density.utilizationPct, issues: density.issues }
+          : null,
+    });
 
     let staffing: LayoutDossier['staffing'] = null;
     let cost: LayoutDossier['cost'] = null;
@@ -1907,6 +2203,7 @@ export class LineEngineeringService {
       },
       stations,
       csv: dossierStationsToCsv(stations),
+      review,
     };
   }
 
@@ -2485,11 +2782,6 @@ function round(n: number, dp = 2): number {
   return Math.round((Number(n) || 0) * f) / f;
 }
 
-const APPROVAL_LABEL: Record<string, string> = {
-  draft: 'borrador',
-  in_review: 'en revisión',
-  approved: 'aprobado',
-};
 
 /** Turn a stored ledger event into a human-readable timeline entry (Fase 32). */
 function toHistoryEntry(e: LedgerEvent): LayoutHistoryEntry {
@@ -2537,13 +2829,8 @@ function describeLayoutEvent(
       };
     }
     case 'SF_LINE_LAYOUT_APPROVAL': {
-      const status = asText(after.status).toLowerCase();
-      const label = APPROVAL_LABEL[status] ?? status ?? '—';
-      return {
-        title: `Cambió aprobación a ${label}`,
-        detail: '',
-        kind: 'approval',
-      };
+      const { title, detail } = approvalEventDetail(after);
+      return { title, detail, kind: 'approval' };
     }
     case 'SF_LINE_LAYOUT_SNAPSHOT':
       return {

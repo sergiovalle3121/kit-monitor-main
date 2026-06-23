@@ -121,7 +121,7 @@ function LoginInner() {
         className="fixed top-8 left-8 z-20 flex items-center gap-2 text-sm font-medium text-gray-500 hover:text-black dark:hover:text-white transition-colors"
       >
         <ChevronLeft className="w-4 h-4" />
-        Back to home
+        Volver al inicio
       </Link>
 
       <div className="w-full max-w-5xl flex flex-col md:flex-row bg-white dark:bg-[#111] rounded-[2.5rem] overflow-hidden shadow-2xl shadow-black/10 dark:shadow-white/5 border border-gray-100 dark:border-white/5 min-h-[600px]">
@@ -182,10 +182,10 @@ function LoginInner() {
           >
             <div className="mb-10">
               <span className="text-xs font-bold uppercase tracking-[0.2em] text-gray-400 mb-2 block">
-                {isRegistering ? "Join AXOS" : "Secure Access"}
+                {isRegistering ? "Únete a AXOS" : "Acceso seguro"}
               </span>
               <h2 className="text-3xl font-bold tracking-tight mb-2">
-                {isRegistering ? "Create Account" : "Welcome Back"}
+                {isRegistering ? "Crear cuenta" : "Bienvenido de nuevo"}
               </h2>
               <p className="text-gray-500 dark:text-gray-400 font-light text-sm">
                 {isRegistering
@@ -227,7 +227,7 @@ function LoginInner() {
                   className="space-y-2 overflow-hidden"
                 >
                   <label className="text-xs font-medium text-gray-500 dark:text-gray-400 ml-1">
-                    Full Name
+                    Nombre completo
                   </label>
                   <div className="relative group">
                     <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400 group-focus-within:text-black dark:group-focus-within:text-white transition-colors">
@@ -240,7 +240,7 @@ function LoginInner() {
                       onChange={(e) =>
                         setFormData({ ...formData, name: e.target.value })
                       }
-                      placeholder="John Doe"
+                      placeholder="Nombre y apellido"
                       className="w-full bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/5 rounded-2xl py-4 pl-11 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-black/5 dark:focus:ring-white/5 focus:border-black dark:focus:border-white transition-all outline-none"
                     />
                   </div>
@@ -249,7 +249,7 @@ function LoginInner() {
 
               <div className="space-y-2">
                 <label className="text-xs font-medium text-gray-500 dark:text-gray-400 ml-1">
-                  Email
+                  Correo
                 </label>
                 <div className="relative group">
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400 group-focus-within:text-black dark:group-focus-within:text-white transition-colors">
@@ -263,7 +263,7 @@ function LoginInner() {
                     onChange={(e) =>
                       setFormData({ ...formData, email: e.target.value })
                     }
-                    placeholder="name@domain.com"
+                    placeholder="nombre@empresa.com"
                     className="w-full bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/5 rounded-2xl py-4 pl-11 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-black/5 dark:focus:ring-white/5 focus:border-black dark:focus:border-white transition-all outline-none"
                   />
                 </div>
@@ -300,6 +300,11 @@ function LoginInner() {
                           </button>
                           {open && (
                             <div className="px-2 pb-2 space-y-1">
+                              {department.description && (
+                                <p className="px-3 pt-1 text-[10px] text-gray-400">
+                                  {department.description}
+                                </p>
+                              )}
                               {positions.map((p) => {
                                 const selected = formData.position === p.id;
                                 return (
@@ -335,14 +340,14 @@ function LoginInner() {
               <div className="space-y-2">
                 <div className="flex justify-between items-center px-1">
                   <label className="text-xs font-medium text-gray-500 dark:text-gray-400">
-                    Password
+                    Contraseña
                   </label>
                   {!isRegistering && (
                     <a
                       href="#"
                       className="text-[10px] uppercase tracking-wider font-bold text-gray-400 hover:text-black dark:hover:text-white transition-colors"
                     >
-                      Forgot?
+                      ¿Olvidaste?
                     </a>
                   )}
                 </div>
@@ -374,6 +379,11 @@ function LoginInner() {
                     )}
                   </button>
                 </div>
+                {isRegistering && (
+                  <p className="text-[10px] text-gray-400 ml-1 mt-1">
+                    Mínimo 6 caracteres.
+                  </p>
+                )}
               </div>
 
               <button
@@ -386,7 +396,7 @@ function LoginInner() {
                   <div className="w-5 h-5 border-2 border-white/30 dark:border-black/30 border-t-white dark:border-t-black rounded-full animate-spin" />
                 ) : (
                   <>
-                    {isRegistering ? "Create Account" : "Sign In to AXOS"}
+                    {isRegistering ? "Crear cuenta" : "Entrar a AXOS"}
                     <ArrowRight className="w-4 h-4" />
                   </>
                 )}
@@ -402,17 +412,17 @@ function LoginInner() {
                 className="text-sm font-bold text-gray-500 dark:text-gray-300 hover:text-black dark:hover:text-white transition-colors"
               >
                 {isRegistering
-                  ? "Already have an account? Sign in"
-                  : "Need an account? Sign up"}
+                  ? "¿Ya tienes cuenta? Inicia sesión"
+                  : "¿No tienes cuenta? Regístrate"}
               </button>
 
               <p className="text-xs text-gray-400 font-light">
-                Need help?{" "}
+                ¿Necesitas ayuda?{" "}
                 <a
                   href="mailto:admin@axos.com"
                   className="font-bold text-gray-500 dark:text-gray-300 hover:underline"
                 >
-                  Contact Administrator
+                  Contactar al administrador
                 </a>
               </p>
 

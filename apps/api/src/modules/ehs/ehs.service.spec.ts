@@ -65,6 +65,55 @@ describe('EhsService (integration)', () => {
     expect(closed.closedAt).toBeTruthy();
   });
 
+  it('records the CAPA owner and commitment date on update', async () => {
+    const inc = await service.create({ title: 'Resguardo dañado', type: 'RECORDABLE' });
+    const updated = await service.update(inc.id, {
+      rootCause: 'Mantenimiento omitido',
+      correctiveAction: 'Reinstalar resguardo y añadir al checklist',
+      capaOwner: 'supervisor@planta.com',
+      capaDueDate: '2026-07-15',
+    });
+    expect(updated.capaOwner).toBe('supervisor@planta.com');
+    expect(updated.capaDueDate).toBeTruthy();
+    expect(new Date(updated.capaDueDate as Date).toISOString()).toContain('2026-07-15');
+
+    // Empty strings clear the CAPA assignment (additive, non-destructive).
+    const cleared = await service.update(inc.id, { capaOwner: '', capaDueDate: '' });
+    expect(cleared.capaOwner).toBeNull();
+    expect(cleared.capaDueDate).toBeNull();
+  });
+
+  it('counts open, overdue and due-soon CAPAs in the KPIs', async () => {
+    const day = 86_400_000;
+    const overdue = await service.create({ title: 'CAPA vencida', type: 'RECORDABLE' });
+    await service.update(overdue.id, {
+      capaOwner: 'a@planta.com',
+      capaDueDate: new Date(Date.now() - 5 * day).toISOString(),
+    });
+    const soon = await service.create({ title: 'CAPA por vencer', type: 'FIRST_AID' });
+    await service.update(soon.id, {
+      capaOwner: 'b@planta.com',
+      capaDueDate: new Date(Date.now() + 2 * day).toISOString(),
+    });
+    const future = await service.create({ title: 'CAPA holgada', type: 'NEAR_MISS' });
+    await service.update(future.id, {
+      capaOwner: 'c@planta.com',
+      capaDueDate: new Date(Date.now() + 30 * day).toISOString(),
+    });
+    // A CAPA on a CLOSED incident must NOT count as open.
+    const closed = await service.create({ title: 'CAPA cerrada', type: 'NEAR_MISS' });
+    await service.update(closed.id, {
+      capaOwner: 'd@planta.com',
+      capaDueDate: new Date(Date.now() - 10 * day).toISOString(),
+    });
+    await service.transition(closed.id, { status: 'CLOSED' });
+
+    const kpis = await service.kpis();
+    expect(kpis.capaOpen).toBe(3); // overdue + soon + future, not the closed one
+    expect(kpis.capaOverdue).toBe(1);
+    expect(kpis.capaDueSoon).toBe(1);
+  });
+
   it('rejects an illegal transition', async () => {
     const inc = await service.create({ title: 'Salto inválido' });
     await expect(

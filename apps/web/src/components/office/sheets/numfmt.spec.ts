@@ -28,7 +28,7 @@ eq(formatNumber(0.000123, '0.00E+00'), '1.23E-04', 'científico negativo exp');
 
 // ── Fracción ─────────────────────────────────────────────────────────────────
 eq(formatNumber(1.5, '# ??/??'), '1 1/2', 'fracción 1 1/2');
-eq(formatNumber(0.75, '# ??/??'), '3/4', 'fracción 3/4');
+eq(formatNumber(0.75, '# ??/??'), ' 3/4', 'fracción 3/4 (Excel alinea con un espacio el hueco de entero)');
 eq(formatNumber(2, '# ??/??'), '2', 'fracción entera');
 
 // ── Fechas (string ISO) ──────────────────────────────────────────────────────
