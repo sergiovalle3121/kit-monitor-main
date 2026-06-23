@@ -12,6 +12,7 @@ import {
   Bar, BarChart, CartesianGrid, Cell, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts';
 import { glass } from '@/lib/glass';
+import ErrorBoundary from '@/components/ErrorBoundary';
 import { useApi } from '@/hooks/useApi';
 import { useDialogA11y } from '@/hooks/useDialogA11y';
 import { apiFetch } from '@/lib/apiFetch';
@@ -242,8 +243,24 @@ export default function LineEngineeringPage() {
           })}
         </div>
 
-        {/* Layout 2D editor — additive, reusa las estaciones existentes */}
-        {view === 'layout' && <LayoutEditor model={model} revision={revision} models={models} />}
+        {/* Layout 2D editor — additive, reusa las estaciones existentes. Aislado
+            en un error boundary para que una falla del editor no tumbe la página. */}
+        {view === 'layout' && (
+          <ErrorBoundary
+            label="LayoutEditor"
+            fallback={(err, retry) => (
+              <div className={`${glass} rounded-3xl p-10 text-center`}>
+                <AlertTriangle className="w-8 h-8 mx-auto mb-3 text-amber-500" />
+                <h3 className="font-semibold">No se pudo abrir el editor de layout</h3>
+                <p className="text-sm text-gray-400 mt-1">El resto de la página sigue disponible. Reintenta abrir el editor 2D.</p>
+                <p className="mt-2 text-[11px] font-mono text-gray-400 break-all">{err.message}</p>
+                <button onClick={retry} className="mt-4 px-4 py-2 rounded-xl text-sm font-medium text-white" style={{ background: ROSE }}>Reintentar</button>
+              </div>
+            )}
+          >
+            <LayoutEditor model={model} revision={revision} models={models} />
+          </ErrorBoundary>
+        )}
 
         {view === 'balance' && (<>
         {/* Balance panel */}
