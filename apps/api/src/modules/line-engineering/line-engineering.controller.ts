@@ -479,6 +479,34 @@ export class LineEngineeringController {
     });
   }
 
+  @Get('layout/dossier')
+  @RequirePermissions('engineering:read')
+  @ApiOperation({
+    summary:
+      'Expediente portable del layout: reporte + personal + costo + tabla de estaciones, con CSV listo para hoja de cálculo.',
+  })
+  layoutDossier(
+    @Query('model') model: string,
+    @Query('revision') revision?: string,
+    @Query('availableTimeSec') availableTimeSec?: string,
+    @Query('demandUnits') demandUnits?: string,
+    @Query('taktTargetSec') taktTargetSec?: string,
+    @Query('laborCostPerHour') laborCostPerHour?: string,
+  ) {
+    return this.service.getDossier({
+      model,
+      revision: revision ?? 'A',
+      availableTimeSec: availableTimeSec ? Number(availableTimeSec) : undefined,
+      demandUnits: demandUnits ? Number(demandUnits) : undefined,
+      taktTargetSec: taktTargetSec ? Number(taktTargetSec) : undefined,
+      rates: {
+        laborCostPerHour: laborCostPerHour
+          ? Number(laborCostPerHour)
+          : undefined,
+      },
+    });
+  }
+
   @Get('layout/completeness')
   @RequirePermissions('engineering:read')
   @ApiOperation({
