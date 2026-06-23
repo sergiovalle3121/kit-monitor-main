@@ -243,6 +243,49 @@ describe('LineEngineeringService (integration)', () => {
     expect(stored.stations.every((s) => s.x === null)).toBe(true);
   });
 
+  it('persists cells and computes per-cell metrics (Fase 27)', async () => {
+    await seedRoute(); // EST-10 40s, EST-20 55s, EST-30 30s
+    const before = await service.getLayout('AX-1000');
+    const id = Object.fromEntries(
+      before.stations.map((s) => [s.station, s.id]),
+    );
+    await service.saveLayout({
+      model: 'AX-1000',
+      footprint: {
+        footprintW: 1000,
+        footprintH: 1000,
+        unit: 'mm',
+        gridSize: 100,
+      },
+      positions: [
+        { id: id['EST-10'], x: 0, y: 0, w: 100, h: 100, rotation: 0 },
+        { id: id['EST-20'], x: 200, y: 0, w: 100, h: 100, rotation: 0 },
+      ],
+      cells: [
+        {
+          id: 'c1',
+          name: 'Celda A',
+          color: '#6366f1',
+          stationIds: [id['EST-10'], id['EST-20'], 'ghost'], // ghost dropped
+        },
+      ],
+    });
+
+    const reloaded = await service.getLayout('AX-1000');
+    expect(reloaded.cells).toHaveLength(1);
+    expect(reloaded.cells[0].stationIds).toEqual([id['EST-10'], id['EST-20']]); // ghost filtered
+
+    const metrics = await service.getCellMetrics('AX-1000');
+    expect(metrics.cells[0]).toMatchObject({
+      name: 'Celda A',
+      stationCount: 2,
+      placedCount: 2,
+      totalCycleTimeSec: 95, // 40 + 55
+    });
+    // bbox 0..300 × 0..100 = 30000 over 1,000,000 = 3%.
+    expect(metrics.cells[0].areaPctOfFootprint).toBeCloseTo(3, 1);
+  });
+
   it('computes capacity/load including changeover', async () => {
     await seedRoute();
     await service.qualify({

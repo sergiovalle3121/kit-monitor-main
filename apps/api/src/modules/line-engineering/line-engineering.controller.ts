@@ -167,6 +167,19 @@ export class LineEngineeringController {
     return this.service.cloneLayout(dto);
   }
 
+  @Get('layout/cells')
+  @RequirePermissions('engineering:read')
+  @ApiOperation({
+    summary:
+      'Métricas por celda/zona (estaciones, colocadas, tiempo de ciclo, % de área).',
+  })
+  layoutCells(
+    @Query('model') model: string,
+    @Query('revision') revision?: string,
+  ) {
+    return this.service.getCellMetrics(model, revision ?? 'A');
+  }
+
   @Get('layout/dxf')
   @RequirePermissions('engineering:read')
   @ApiOperation({
