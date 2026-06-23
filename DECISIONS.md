@@ -1414,4 +1414,25 @@ mini-base de 4 registros: criterio simple, combinado Y, operador `>150`, campo p
 único/múltiple/vacío, `DVAR`/`DSTDEV`/`DVARP`, campo inexistente + `IFERROR`). Sin regresiones: 31
 suites de hoja + 3 de I/O Office verdes; `lint web` 0 errores; `build web` ✓.
 
+## 56. Office/Sheets — funciones matriciales (MMULT, MINVERSE, MDETERM, MUNIT) + SERIESSUM + ERROR.TYPE
+
+**Contexto.** El álgebra matricial de Excel (`MMULT`, `MINVERSE`, `MDETERM`, `MUNIT`) faltaba en
+formulajs 2.9.3 (`#NAME?`). Auditando aparecieron además `SERIESSUM` (rota, `#VALUE!`) y `ERROR.TYPE`
+(nombre con punto → `#NAME?`, como las estadísticas §54).
+
+**Decisión (sólo `apps/web`, aditiva):** `components/office/sheets/matrixFunctions.ts`. Como el
+parser evalúa los rangos a matrices 2D antes de llamar, son funciones personalizadas puras.
+`MMULT`/`MINVERSE`/`MUNIT` DEVUELVEN matrices 2D que componen con `INDEX`/`SUM` y derraman con el
+«spilling» (§38), igual que la familia dinámica. Álgebra con **eliminación gaussiana y pivoteo
+parcial**: `MDETERM` (determinante; `#VALUE!` si no es cuadrada), `MINVERSE` (Gauss-Jordan; `#NUM!`
+si es singular), `MMULT` (`#VALUE!` si las dimensiones no encajan). `SERIESSUM` = Σ coef_i·x^(n+i·m);
+`ERROR.TYPE` mapea el error a 1–7 (o `#N/A` si no es error), reutilizando `errorCode`
+(§«formulaEngine»).
+
+**Verificación:** nueva suite `matrixFunctions.spec.ts` (**24 aserciones** sobre el motor REAL:
+`MMULT` celda a celda + suma + dimensiones incompatibles; `MUNIT` diagonal; `MDETERM` 2×2/diagonal/
+singular; `MINVERSE` celda a celda + `M·M⁻¹ = I` + singular `#NUM!`; `SERIESSUM` con paso 1 y 2;
+`ERROR.TYPE` de `#N/A`/`#DIV/0!`/no-error + `IFERROR`). Sin regresiones: 32 suites de hoja + 3 de
+I/O Office verdes; `lint web` 0 errores; `build web` ✓.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
