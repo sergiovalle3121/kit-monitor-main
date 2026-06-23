@@ -21,6 +21,39 @@ function escapeText(s: string): string {
 // `footnoteRef.attrs.content` (en línea), así que se acumula al serializar y se vuelca como
 // definiciones `[^N]: …` al final. Se reinicia en cada llamada a `tiptapJsonToMarkdown`.
 let FOOTNOTES: string[] = [];
+// Raíz del documento en curso: `toc` y `bibliography` se generan recorriendo todo el árbol
+// (títulos y fuentes de citas), no su propio contenido. Se fija en `tiptapJsonToMarkdown`.
+let ROOT: MdNode[] = [];
+
+/** Texto plano (sin marcas ni sintaxis) de una secuencia de nodos — sin efectos secundarios. */
+function plainText(nodes: MdNode[] = []): string {
+  return (nodes ?? []).map((n) => (typeof n.text === 'string' ? n.text : n.content ? plainText(n.content) : '')).join('');
+}
+
+/** Títulos del documento (para la tabla de contenido), en orden, con su nivel. */
+function collectHeadings(nodes: MdNode[]): { level: number; text: string }[] {
+  const out: { level: number; text: string }[] = [];
+  (function walk(ns: MdNode[]) {
+    for (const n of ns ?? []) {
+      if (n.type === 'heading') out.push({ level: n.attrs?.level ?? 1, text: plainText(n.content).trim() });
+      else if (n.content) walk(n.content);
+    }
+  })(nodes);
+  return out;
+}
+
+/** Fuentes de las citas del documento (para la bibliografía), únicas y ordenadas. */
+function collectSources(nodes: MdNode[]): string[] {
+  const seen = new Set<string>(); const out: string[] = [];
+  (function walk(ns: MdNode[]) {
+    for (const n of ns ?? []) {
+      const src = n.type === 'citation' ? n.attrs?.source : undefined;
+      if (src && !seen.has(src)) { seen.add(src); out.push(String(src)); }
+      if (n.content) walk(n.content);
+    }
+  })(nodes);
+  return out.sort((a, b) => a.localeCompare(b, 'es'));
+}
 
 /** Texto de una secuencia de nodos en línea, aplicando marcas. */
 function serializeInline(nodes: MdNode[] = []): string {
@@ -136,6 +169,25 @@ function serializeBlocks(nodes: MdNode[] = []): string[] {
       case 'table':
         serializeTable(n, lines); lines.push('');
         break;
+      case 'footnoteList':
+        break; // las notas reales se vuelcan por el recolector (§87); este nodo no produce salida
+      case 'signatureLine':
+        lines.push(escapeText('________________________________'));
+        if (n.attrs?.name) lines.push(`**${escapeText(String(n.attrs.name))}**`);
+        if (n.attrs?.title) lines.push(escapeText(String(n.attrs.title)));
+        lines.push('');
+        break;
+      case 'toc': {
+        lines.push('## Tabla de contenido', '');
+        for (const h of collectHeadings(ROOT)) lines.push('  '.repeat(Math.max(0, (h.level ?? 1) - 1)) + '- ' + escapeText(h.text));
+        lines.push('');
+        break;
+      }
+      case 'bibliography': {
+        const srcs = collectSources(ROOT);
+        if (srcs.length) { lines.push('## Bibliografía', ''); for (const s of srcs) lines.push('- ' + escapeText(s)); lines.push(''); }
+        break;
+      }
       default:
         if (n.content) for (const l of serializeBlocks(n.content)) lines.push(l);
         else if (typeof n.text === 'string') lines.push(escapeText(n.text), '');
@@ -153,6 +205,7 @@ function serializeBlocks(nodes: MdNode[] = []): string[] {
 export function tiptapJsonToMarkdown(doc: any): string {
   FOOTNOTES = [];
   const content: MdNode[] = doc?.content ?? (Array.isArray(doc) ? doc : []);
+  ROOT = content;
   let md = serializeBlocks(content).join('\n').replace(/\n{3,}/g, '\n\n').replace(/[ \t\n]+$/, '');
   if (FOOTNOTES.length) md += '\n\n' + FOOTNOTES.map((t, i) => `[^${i + 1}]: ${t}`).join('\n');
   return md + '\n';
