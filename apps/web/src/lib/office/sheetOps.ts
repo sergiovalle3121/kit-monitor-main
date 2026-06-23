@@ -1290,6 +1290,42 @@ export function buildFilter(sheet: any, p: { range: string; hasHeader: boolean; 
   return { celldata: out, matched, nCols };
 }
 
+// ── Combinar / separar celdas ─────────────────────────────────────────────────
+/** Solapamiento de un registro de combinación `m` con el rectángulo dado. */
+function mergeOverlaps(m: any, r1: number, c1: number, r2: number, c2: number): boolean {
+  const mr2 = m.r + (m.rs || 1) - 1, mc2 = m.c + (m.cs || 1) - 1;
+  return m.r <= r2 && mr2 >= r1 && m.c <= c2 && mc2 >= c1;
+}
+
+/**
+ * Combina el rango en una sola celda (ancla = esquina superior izquierda), como «Combinar y centrar»
+ * de Excel. Escribe el registro `config.merge["r_c"] = { r, c, rs, cs }` — el **mismo formato** que el
+ * roundtrip XLSX, así que Fortune-Sheet lo renderiza al recargar y se exporta a `.xlsx` sin pérdida.
+ * Cualquier combinación previa que se solape se retira primero. El contenido del ancla se conserva; el
+ * de las celdas cubiertas queda **oculto** por la combinación (no se borra → separar lo recupera).
+ * Devuelve `false` si el rango es una sola celda (nada que combinar).
+ */
+export function mergeCells(sheet: any, range: string): boolean {
+  const rng = parseRange(range); if (!rng || !sheet) return false;
+  const { r1, c1, r2, c2 } = rng;
+  if (r1 === r2 && c1 === c2) return false;
+  sheet.config = sheet.config || {};
+  const merge: Record<string, any> = sheet.config.merge || {};
+  for (const k of Object.keys(merge)) { const m = merge[k]; if (m && mergeOverlaps(m, r1, c1, r2, c2)) delete merge[k]; }
+  merge[`${r1}_${c1}`] = { r: r1, c: c1, rs: r2 - r1 + 1, cs: c2 - c1 + 1 };
+  sheet.config.merge = merge;
+  return true;
+}
+
+/** Separa toda combinación que intersecte el rango. Devuelve cuántas se separaron. */
+export function unmergeCells(sheet: any, range: string): number {
+  const rng = parseRange(range); const merge = sheet?.config?.merge;
+  if (!rng || !merge) return 0;
+  const { r1, c1, r2, c2 } = rng; let n = 0;
+  for (const k of Object.keys(merge)) { const m = merge[k]; if (m && mergeOverlaps(m, r1, c1, r2, c2)) { delete merge[k]; n++; } }
+  return n;
+}
+
 // ── Rangos con nombre ─────────────────────────────────────────────────────────
 export interface NamedRange { name: string; range: string; sheetIndex: number }
 

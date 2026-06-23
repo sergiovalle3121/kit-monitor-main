@@ -1861,4 +1861,30 @@ personalizado*: **comodines** (`*` = cualquier secuencia, `?` = un carácter, `~
 previos intactos). Sin regresiones: las 49 suites de spec de Office verdes; `lint web` 0 errores;
 `build web` ✓.
 
+## 79. Office/Sheets — combinar y separar celdas (UI)
+
+**Contexto.** El roundtrip XLSX ya **preservaba** las combinaciones (`config.merge`), pero no había
+forma de **crearlas** ni **deshacerlas** dentro de la app — una operación cotidiana en Excel
+(«Combinar y centrar»).
+
+**Decisión (sólo `apps/web`, aditiva — riesgo cero):**
+- `sheetOps.ts` gana `mergeCells(sheet, range)` y `unmergeCells(sheet, range)` **puras**. `mergeCells`
+  escribe `config.merge["r_c"] = { r, c, rs, cs }` — **el mismo formato que el roundtrip XLSX**, que
+  Fortune-Sheet ya renderiza al recargar y exporta a `.xlsx` sin pérdida; retira primero cualquier
+  combinación que se solape. El contenido del ancla se conserva y el de las celdas cubiertas queda
+  **oculto** (no se borra → separar lo recupera; menos destructivo que Excel). `unmergeCells` quita
+  toda combinación que intersecte el rango y devuelve cuántas.
+- UI: menú **«Combinar»** (Combinar celdas / Separar celdas) en el grupo *Formato → Celdas*, que actúa
+  sobre la **selección actual** del grid (`selectionRange()`), clona, muta y re-monta — igual que
+  «Inmovilizar».
+
+**Por qué `config.merge` y no `mc` por celda:** es la representación que el import XLSX produce y que
+ya se renderiza/exporta correctamente; replicarla exactamente es lo de menor riesgo y se prueba como
+función pura.
+
+**Verificación:** nueva suite `merge.spec.ts` (**15 aserciones**: ancla/rs/cs de fila y bloque, una
+sola celda → `false`, reemplazo de solapes, separación selectiva y por rango amplio, sin merge → 0,
+roundtrip combinar→separar). Sin regresiones: las 50 suites de spec de Office verdes; `lint web` 0
+errores; `build web` ✓.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->

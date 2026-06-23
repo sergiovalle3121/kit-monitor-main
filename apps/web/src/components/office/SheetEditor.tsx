@@ -17,7 +17,7 @@ import { SheetNameManager } from './SheetNameManager';
 import { SheetPrintDialog } from './SheetPrintDialog';
 import { SheetTableStyle, type TableStylePayload } from './SheetTableStyle';
 import { parseRange, type ChartConfig } from '@/lib/office/charts';
-import { applyConditional, sortRangeMulti, removeDuplicates, textToColumns, setCellNote, replaceAll, buildPivot, pivotToCelldata, applyNumberFormat, applyCellStyle, applySubtotals, applySparkline, applyFill, transposeRange, copyRange, buildFilter, buildPrintHtml, usedRange, colName, applyDataVerification, clearDataVerification, markInvalidCells, applyTableStyle, type CondPayload, type PivotConfig, type FindOpts, type NamedRange, type PrintOpts } from '@/lib/office/sheetOps';
+import { applyConditional, sortRangeMulti, removeDuplicates, textToColumns, setCellNote, replaceAll, buildPivot, pivotToCelldata, applyNumberFormat, applyCellStyle, applySubtotals, applySparkline, applyFill, transposeRange, copyRange, buildFilter, mergeCells, unmergeCells, buildPrintHtml, usedRange, colName, applyDataVerification, clearDataVerification, markInvalidCells, applyTableStyle, type CondPayload, type PivotConfig, type FindOpts, type NamedRange, type PrintOpts } from '@/lib/office/sheetOps';
 import { normalizeCellInput } from './sheets/sheetFormula';
 import { installFormulaEngine } from './sheets/formulaEngine';
 import { applySpill } from './sheets/arraySpill';
@@ -250,6 +250,21 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
     if (!sheet) return;
     sheet.frozen = { type: 'rangeBoth', range: { row_focus: Math.max(0, rng.r1 - 1), column_focus: Math.max(0, rng.c1 - 1) } };
     remount(sheets);
+  }
+
+  // Combinar / separar celdas sobre la selección actual del grid (formato `config.merge`).
+  function applyMerge(doMerge: boolean) {
+    const sheets = clone(sheetsRef.current);
+    const sheet = sheets.find((s: any) => s.status === 1) ?? sheets[0];
+    if (!sheet) return;
+    const range = selectionRange();
+    if (doMerge) {
+      if (!mergeCells(sheet, range)) { toast.info('Selecciona dos o más celdas para combinar.'); return; }
+      remount(sheets); window.setTimeout(() => toast.info(`Celdas combinadas (${range}).`), 30);
+    } else {
+      const n = unmergeCells(sheet, range);
+      remount(sheets); window.setTimeout(() => toast.info(n ? `${n} combinación(es) separada(s).` : 'No hay combinaciones en la selección.'), 30);
+    }
   }
 
   function applyCondFormat(p: CondPayload) {
@@ -684,6 +699,10 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
           <RibbonTab id="format" label="Formato">
             <RibbonGroup label="Celdas">
               <RibbonButton icon={Hash} label="Formato de número y estilos" hideLabel={false} onClick={() => setShowFormat(true)} />
+              <RibbonMenuButton icon={LayoutGrid} label="Combinar" menuWidth={240} items={[
+                { label: 'Combinar celdas', onClick: () => applyMerge(true) },
+                { label: 'Separar celdas', onClick: () => applyMerge(false) },
+              ]} />
             </RibbonGroup>
           </RibbonTab>
         )}
