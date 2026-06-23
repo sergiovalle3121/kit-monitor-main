@@ -1511,4 +1511,22 @@ contra valores conocidos: `GAMMA.DIST(10,9,2)`=0.06809, `BETA.DIST(0.4,2,3)`=0.5
 `HYPGEOM.DIST(1,4,4,10)`=0.38095, `NEGBINOM.DIST(5,3,0.5)`=0.08203, `PERCENTRANK.EXC`=0.5). Sin
 regresiones: 35 suites de hoja + 3 de I/O Office verdes; `lint web` 0 errores; `build web` ✓.
 
+## 61. Office/Sheets — valores financieros con descuento (DISC, PRICEDISC, INTRATE…)
+
+**Contexto.** Las funciones de valores con descuento (`DISC`, `PRICEDISC`, `YIELDDISC`, `INTRATE`,
+`RECEIVED`, `ACCRINTM`) revientan en formulajs con fechas en texto (`#ERROR!`). Todas se reducen a
+una **fracción de año** entre liquidación y vencimiento según la convención de cómputo (`basis`).
+
+**Decisión (sólo `apps/web`, aditiva):** `components/office/sheets/securities.ts` implementa una
+`yearFrac(a, b, basis)` **fiel a Excel** para las 5 bases (0 = 30/360 NASD con sus reglas de fin de
+febrero/día 31; 1 = real/real con promedio de longitud de año; 2 = real/360; 3 = real/365;
+4 = 30/360 europeo) y sobre ella las seis funciones (p. ej. `DISC = (amort−precio)/amort / yf`,
+`ACCRINTM = nominal·tasa·yf`). Fechas como texto/serie/Date; liquidación ≥ vencimiento → `#NUM!`.
+
+**Verificación:** nueva suite `securities.spec.ts` (**12 aserciones** sobre el motor REAL con un
+caso Ene 1→Jul 1 (yf=0.5): `DISC`=0.1, `PRICEDISC`=97.5, `YIELDDISC`/`INTRATE`=0.10526,
+`RECEIVED`=97.436, `ACCRINTM`=25; bases act/365, act/360, europea; `#NUM!` + `IFERROR`; composición
+con `ROUND`). Sin regresiones: 36 suites de hoja + 3 de I/O Office verdes; `lint web` 0 errores;
+`build web` ✓.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
