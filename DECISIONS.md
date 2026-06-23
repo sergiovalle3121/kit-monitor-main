@@ -1975,4 +1975,24 @@ apóstrofo, raya, puntos suspensivos, símbolos, fracciones —y fechas/números
 opciones desactivadas, texto sin cambios). Sin regresiones: las 54 suites de spec de Office verdes;
 `lint web` 0 errores; `build web` ✓.
 
+## 84. Office/Slides — secciones del mazo (como PowerPoint)
+
+**Contexto.** El mazo ya **guardaba** un arreglo `sections` paralelo a las diapositivas (persistido en
+el JSON), pero **no había UI** para nombrarlas, quitarlas ni navegar por ellas — era una estructura
+muerta. Las secciones son una forma estándar de organizar presentaciones largas en PowerPoint.
+
+**Decisión (sólo `apps/web`, aditiva — riesgo cero):**
+- `slides/sections.ts` añade utilidades **puras** sobre `(string | null)[]` (donde un valor no nulo en
+  `sections[i]` inicia una sección): `groupSlidesBySection`, `sectionTitleAt`, `isSectionStart`,
+  `setSectionAt` (con relleno y recorte), `removeSectionAt`, `sectionCount`. Sin tocar el lienzo.
+- UI: menú **«Secciones»** en *Inicio → Diapositivas* — agregar/renombrar la sección que empieza en la
+  diapositiva actual, quitarla, y entradas **«Ir a …»** que saltan a la primera diapositiva de cada
+  sección. Sigue el patrón de metadatos probado (mutar `sectionsRef` + `sync()`, igual que la
+  transición), reutilizando `loadInto` para navegar.
+
+**Verificación:** nueva suite `sections.spec.ts` (**15 aserciones**: agrupado con tramo inicial sin
+nombre y con nombre, sin secciones, título activo heredado, `isSectionStart`, `setSectionAt`
+rellena/recorta/vacía, `removeSectionAt`, `sectionCount`). Sin regresiones: las 55 suites de spec de
+Office verdes; `lint web` 0 errores; `build web` ✓.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
