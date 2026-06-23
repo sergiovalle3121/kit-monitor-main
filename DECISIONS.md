@@ -2255,4 +2255,19 @@ así que no hace falta tocar el editor.
 inserción rápida) está definida y mapea a un preset que **existe** en PptxGenJS (sin caer a rectángulo).
 Sin regresiones: `pptx.spec.ts` 19/19 y toda la suite de Office verde; `lint web` 0 errores; `build web` ✓.
 
+## 100. Office/Sheets — SEARCH con comodines de Excel (?/*/~) + núcleo wildcard
+
+**Contexto.** Excel admite comodines en `SEARCH` (`?`=un carácter, `*`=cualquier secuencia, `~`
+escapa) y en los criterios de la familia `COUNTIF/SUMIF/MATCH`. `@formulajs/formulajs@2.9.3` no los
+implementa: `SEARCH("b?d","abcd")` devolvía `#VALUE!`.
+
+**Decisión (sólo `apps/web`, aditiva — riesgo cero):** `components/office/sheets/wildcard.ts` aporta el
+**núcleo** `excelWildcardToRegExp`/`hasWildcard`/`wildcardMatch` (patrón Excel → RegExp, insensible a
+mayúsculas) y un `SEARCH` fiel que lo usa, registrado en CUSTOM_FUNCTIONS. `FIND` (literal, sensible a
+may.) no se toca. El núcleo se reutilizará en la familia de criterios (siguiente fase).
+
+**Verificación:** nueva suite `wildcard.spec.ts` (**28 aserciones**: literales con inicio e insensibles
+a may. sin regresión, `?`/`*` en varias posiciones, escapes `~?`/`~*`/`~~`, inicio inválido, y el núcleo
+expuesto). Sin regresiones: suite de Office verde; `lint web` 0 errores; `build web` ✓.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
