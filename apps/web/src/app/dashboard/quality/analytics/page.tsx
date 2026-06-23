@@ -11,6 +11,8 @@ import {
 } from 'recharts';
 import { glass } from '@/lib/glass';
 import { useApi } from '@/hooks/useApi';
+import { usePermissions } from '@/hooks/usePermissions';
+import { GenerateDeckButton } from '@/components/office/GenerateDeckButton';
 import {
   Toolbar, KpiRow, FilterBar, ExportButton,
   DetailDrawer, DrawerSection,
@@ -61,6 +63,7 @@ function groupCount(rows: Ncr[], get: (n: Ncr) => string, labelOf?: (k: string) 
 }
 
 export default function QualityAnalyticsPage() {
+  const { canWrite } = usePermissions();
   const { data: kpis, forbidden: testForbidden } = useApi<TestingKpis>('/testing/kpis');
   const { data: ncrData } = useApi<Ncr[]>('/ncr');
   const allNcrs = useMemo(() => (Array.isArray(ncrData) ? ncrData : []), [ncrData]);
@@ -118,6 +121,22 @@ export default function QualityAnalyticsPage() {
     { label: 'Pzas afectadas', value: affected.toLocaleString(), sublabel: `${ncrs.length} NCR en periodo`, color: VIOLET, icon: Boxes },
   ];
 
+  // ── Deck de calidad / PPAP (Fase 4) ─────────────────────────────────
+  const periodLabel = ({ '30': 'Últimos 30 días', '90': 'Últimos 90 días', '180': 'Últimos 180 días', '365': 'Último año' } as Record<string, string>)[(filters.period as string) || '365'] || 'Periodo';
+  const buildQualityDeckFn = async () => {
+    const { buildQualityDeck } = await import('@/lib/office/deckGen');
+    const openNcrs = ncrs.filter((n) => ['open', 'under_review', 'contained'].includes(n.status));
+    return buildQualityDeck({
+      period: periodLabel,
+      kpis: { fpy: fpy != null ? `${fpy}%` : '—', yieldPct: yld != null ? `${yld}%` : '—', fails: kpis?.fail ?? 0, openNcr: ncrKpis.open, critical: ncrKpis.critical, affected },
+      pareto: pareto.map((r) => ({ label: r.label, count: r.count })),
+      trend: trend.map((t) => ({ label: t.label, count: t.count })),
+      byModel: byModel.map((g) => ({ label: g.label, count: g.count })),
+      openNcrs: openNcrs.slice(0, 10).map((n) => ({ ncrNumber: n.ncrNumber, partNumber: n.partNumber, model: n.model ?? undefined, severity: NCR_SEVERITY_META[n.severity as NcrSeverity]?.label ?? n.severity, affected: n.quantityAffected })),
+    });
+  };
+  const deckEmpty = !ncrs.length && !kpis;
+
   const FILTER_DEFS: FilterDef[] = [
     { key: 'period', type: 'select', label: 'Periodo', options: [
       { value: '30', label: 'Últimos 30 días' }, { value: '90', label: 'Últimos 90 días' },
@@ -145,7 +164,10 @@ export default function QualityAnalyticsPage() {
         }
       >
         <FilterBar defs={FILTER_DEFS} value={filters} onChange={setFilters} />
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-1.5">
+          {canWrite && (
+            <GenerateDeckButton title="Calidad · Revisión" build={buildQualityDeckFn} disabled={deckEmpty} />
+          )}
           <ExportButton<Ncr> rows={ncrs} columns={NCR_EXPORT} filename="calidad-ncr" />
         </div>
       </Toolbar>
