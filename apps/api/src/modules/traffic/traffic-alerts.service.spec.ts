@@ -1,6 +1,7 @@
 import { DataSource } from 'typeorm';
 import { TrafficAlertsService } from './traffic-alerts.service';
 import { LoadingDock } from './entities/loading-dock.entity';
+import { DockAppointment } from './entities/dock-appointment.entity';
 
 const any = (v: unknown): any => v;
 
@@ -35,7 +36,7 @@ describe('TrafficAlertsService (dock overstay → mailbox)', () => {
       database: ':memory:',
       dropSchema: true,
       synchronize: true,
-      entities: [LoadingDock],
+      entities: [LoadingDock, DockAppointment],
     });
     await ds.initialize();
     created.length = 0;
@@ -46,6 +47,7 @@ describe('TrafficAlertsService (dock overstay → mailbox)', () => {
     );
     svc = new TrafficAlertsService(
       ds.getRepository(LoadingDock),
+      ds.getRepository(DockAppointment),
       any(users),
       any(notifications),
     );
@@ -118,5 +120,43 @@ describe('TrafficAlertsService (dock overstay → mailbox)', () => {
     expect(r.overstay).toBe(1);
     expect(r.notified).toBe(0);
     expect(r.unresolved).toBe(1);
+  });
+
+  async function seedAppt(partial: Partial<DockAppointment>) {
+    const repo = ds.getRepository(DockAppointment);
+    await repo.save(
+      repo.create({
+        direction: 'outbound',
+        status: 'scheduled',
+        scheduledAt: new Date(),
+        ...partial,
+      }),
+    );
+  }
+
+  it('notifies late scheduled appointments (deduped per schedule), skips fresh / non-scheduled', async () => {
+    await seedAppt({
+      scheduledAt: minsAgo(90),
+      carrierName: 'DHL',
+      dockCode: 'D-1',
+    }); // tarde → notifica (critical)
+    await seedAppt({ scheduledAt: minsAgo(5) }); // dentro de la gracia → skip
+    await seedAppt({ scheduledAt: new Date(Date.now() + 3_600_000) }); // futura → skip
+    await seedAppt({ scheduledAt: minsAgo(120), status: 'arrived' }); // ya llegó → skip
+
+    const r = await svc.scanLateAppointmentsAndNotify(15);
+    expect(r.late).toBe(1);
+    expect(r.notified).toBe(1);
+    expect(r.unresolved).toBe(0);
+    expect(created.every((c) => /^appt-late:.+:/.test(c.dedupeKey ?? ''))).toBe(
+      true,
+    );
+    expect(created.some((c) => c.severity === 'critical')).toBe(true); // 90m ≥ 60m
+
+    // Idempotente: re-barrer produce la MISMA dedupeKey (el buzón la reusa).
+    const firstKeys = created.map((c) => c.dedupeKey).sort();
+    created.length = 0;
+    await svc.scanLateAppointmentsAndNotify(15);
+    expect(created.map((c) => c.dedupeKey).sort()).toEqual(firstKeys);
   });
 });

@@ -33,4 +33,22 @@ export class TrafficAlertsTask {
       );
     }
   }
+
+  @Cron(process.env.TRAFFIC_APPT_LATE_CRON || '*/15 * * * *', {
+    name: 'traffic:appt-late',
+  })
+  async handleLateAppointmentScan(): Promise<void> {
+    if (process.env.TRAFFIC_APPT_LATE_ENABLED === 'false') return;
+    try {
+      const r = await this.alerts.scanLateAppointmentsAndNotify();
+      this.logger.log(
+        `Late appointment scan: ${r.scanned} programada(s), ${r.late} tarde, ${r.notified} aviso(s), ${r.unresolved} sin destinatario.`,
+      );
+    } catch (err) {
+      this.logger.error(
+        `Late appointment scan falló: ${(err as Error)?.message}`,
+        (err as Error)?.stack,
+      );
+    }
+  }
 }
