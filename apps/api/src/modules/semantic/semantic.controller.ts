@@ -73,6 +73,14 @@ export class SemanticController {
     return this.semantic.evaluateAlerts(this.principal(req), this.tenant(req));
   }
 
+  /** Push current critical KPI alerts to admins now (in-app + web-push). Admin. */
+  @Post('alerts/notify')
+  async notifyAlerts(@Request() req: AuthReq) {
+    this.assertAdmin(req);
+    const sent = await this.semantic.notifyAlerts(this.tenant(req));
+    return { sent };
+  }
+
   /** Live value for one metric. */
   @Get('metrics/:key/value')
   metricValue(@Request() req: AuthReq, @Param('key') key: string) {
