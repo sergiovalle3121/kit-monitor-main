@@ -1887,4 +1887,27 @@ sola celda → `false`, reemplazo de solapes, separación selectiva y por rango 
 roundtrip combinar→separar). Sin regresiones: las 50 suites de spec de Office verdes; `lint web` 0
 errores; `build web` ✓.
 
+## 80. Office/Sheets — autofiltro nativo en su sitio (un clic)
+
+**Contexto.** Excel filtra **en su sitio** con las flechas desplegables del encabezado. En Axos eso
+sólo aparecía al «Dar formato como tabla» (que además aplica estilos), o se filtraba creando una hoja
+nueva (§78). Faltaba el gesto de Excel: **un clic** para poner el autofiltro sobre un rango, sin
+tocar estilos ni duplicar datos.
+
+**Decisión (sólo `apps/web`, aditiva — riesgo cero):** `applyTableStyle` ya activaba el autofiltro
+nativo de Fortune-Sheet con `sheet.filter_select` + `sheet.filter`; se **extrae ese mismo mecanismo
+probado** a un par puro en `sheetOps.ts`:
+- `setAutoFilter(sheet, range)` escribe `filter_select = { row:[r1,r2], column:[c1,c2] }` y `filter`
+  (un solo autofiltro por hoja, como Excel: reemplaza el anterior).
+- `clearAutoFilter(sheet)` los borra; devuelve si había uno.
+
+UI: menú **«Autofiltro»** (Activar sobre la selección / Quitar) en *Datos → Ordenar y filtrar*, que
+clona, muta y re-monta. Como usa el mismo formato que las tablas (que ya renderizan las flechas), el
+render está probado de hecho.
+
+**Verificación:** nueva suite `autoFilter.spec.ts` (**11 aserciones**: `filter_select` con fila/col
+correctas, rango inválido → `false` sin tocar la hoja, reactivar reemplaza el rango, quitar borra y
+devuelve `true`/`false`, roundtrip limpio). Sin regresiones: las 51 suites de spec de Office verdes;
+`lint web` 0 errores; `build web` ✓.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
