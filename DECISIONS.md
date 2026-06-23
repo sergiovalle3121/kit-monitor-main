@@ -1435,4 +1435,22 @@ singular; `MINVERSE` celda a celda + `M·M⁻¹ = I` + singular `#NUM!`; `SERIES
 `ERROR.TYPE` de `#N/A`/`#DIV/0!`/no-error + `IFERROR`). Sin regresiones: 32 suites de hoja + 3 de
 I/O Office verdes; `lint web` 0 errores; `build web` ✓.
 
+## 57. Office/Sheets — redondeo moderno (CEILING.MATH/FLOOR.MATH/…) + RANDARRAY + ENCODEURL
+
+**Contexto.** Funciones matemáticas modernas ausentes en formulajs 2.9.3 (`#NAME?`): la familia de
+**redondeo** con nombre nuevo (`CEILING.MATH`, `FLOOR.MATH`, `CEILING.PRECISE`, `FLOOR.PRECISE`,
+`ISO.CEILING` — punto → objeto anidado inexistente, §54), la matriz dinámica `RANDARRAY` y
+`ENCODEURL`.
+
+**Decisión (sólo `apps/web`, aditiva):** `components/office/sheets/mathExtras.ts`. `CEILING.MATH`/
+`FLOOR.MATH` respetan el argumento `modo` que controla la dirección de redondeo de los negativos
+(hacia/desde el cero); las `*.PRECISE`/`ISO.CEILING` ignoran el signo de la cifra significativa y
+van siempre hacia ±∞. `RANDARRAY([filas];[cols];[mín];[máx];[entero])` DEVUELVE una matriz 2D (que
+compone con `SUM`/`ROWS`/`COLUMNS` y derrama, §38). `ENCODEURL` = `encodeURIComponent`.
+
+**Verificación:** nueva suite `mathExtras.spec.ts` (**20 aserciones** sobre el motor REAL: redondeo
+de positivos/negativos con `modo`, `*.PRECISE` hacia ±∞; `RANDARRAY` comprobando forma —`ROWS`/
+`COLUMNS`— y cotas —`[mín,máx]`, entero, suma acotada—; `ENCODEURL`). Sin regresiones: 33 suites de
+hoja + 3 de I/O Office verdes; `lint web` 0 errores; `build web` ✓.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
