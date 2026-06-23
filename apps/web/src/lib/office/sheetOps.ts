@@ -758,11 +758,16 @@ function renderNumericSection(absN: number, section: string, cur: string, forced
     const value = isPercent ? absN * 100 : absN;
     if (isSci) {
       const dec = (cleaned.split(/[eE]/)[0].split('.')[1]?.match(/0/g)?.length) ?? 2;
+      // Dígitos del exponente = nº de ceros tras `E+`/`E-` en el patrón (Excel: `0.0e+0`→1, `0.00E+00`→2).
+      const expDigits = cleaned.match(/[eE][+-]?(0+)/)?.[1].length ?? 2;
       const e = value.toExponential(dec);
       const mm = /^(-?\d(?:\.\d+)?)e([+-])(\d+)$/i.exec(e);
-      numStr = mm ? `${mm[1]}E${mm[2]}${mm[3].padStart(2, '0')}` : e.toUpperCase();
+      numStr = mm ? `${mm[1]}E${mm[2]}${mm[3].padStart(expDigits, '0')}` : e.toUpperCase();
     } else if (isFrac) {
       numStr = toFraction(value);
+      // Excel: con parte entera 0 y un hueco de entero en el patrón (`# ?/?`), el lugar del entero
+      // se muestra como espacio (la fracción queda alineada). Sin hueco de entero (`?/?`), sin espacio.
+      if (value < 1 && /[#0?]\s+[#0?]*\/[#0?]/.test(section)) numStr = ' ' + numStr;
     } else {
       const rawPat = extractNumericPattern(section);
       const trailingCommas = rawPat.match(/,+$/)?.[0].length ?? 0; // comas finales = escalado ×1000
