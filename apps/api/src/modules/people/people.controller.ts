@@ -12,6 +12,7 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { PeopleService } from './people.service';
+import { PeopleAlertsService } from './people-alerts.service';
 import {
   CreateCertificationDto,
   CreateSkillDto,
@@ -24,7 +25,10 @@ import {
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller('people')
 export class PeopleController {
-  constructor(private readonly service: PeopleService) {}
+  constructor(
+    private readonly service: PeopleService,
+    private readonly alerts: PeopleAlertsService,
+  ) {}
 
   @Get('kpis')
   @ApiOperation({ summary: 'KPIs de skills: válidas, por vencer, cobertura.' })
@@ -90,5 +94,14 @@ export class PeopleController {
   @ApiOperation({ summary: 'Edita / archiva un skill del catálogo.' })
   updateSkill(@Param('id') id: string, @Body() dto: UpdateSkillDto) {
     return this.service.updateSkill(id, dto);
+  }
+
+  @Post('recert-alerts/run')
+  @ApiOperation({
+    summary:
+      'Dispara el barrido de recertificaciones (por vencer / vencidas) y deja avisos en el buzón. Idéntico al cron, bajo demanda.',
+  })
+  runRecertAlerts() {
+    return this.alerts.scanRecertAndNotify();
   }
 }
