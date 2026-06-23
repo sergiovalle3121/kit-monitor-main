@@ -1932,4 +1932,25 @@ tachado/código/enlace, degradado de subrayado, escapado, `hardBreak`, listas an
 tareas, cita, bloque de código, regla, imagen, tabla GFM, separación por bloques, documento vacío).
 Sin regresiones: las 52 suites de spec de Office verdes; `lint web` 0 errores; `build web` ✓.
 
+## 82. Office/Docs — importación de Markdown (cierra el roundtrip)
+
+**Contexto.** Tras exportar a Markdown (§81), faltaba **importarlo** para cerrar el roundtrip: abrir
+un `.md` en Docs. El editor (Tiptap) ya ingiere **HTML** al importar (igual que el `.docx` vía
+mammoth), así que basta convertir Markdown → HTML.
+
+**Decisión (sólo `apps/web`, aditiva — riesgo cero):** `lib/office/markdown.ts` añade
+`markdownToHtml(md)`, **parser puro** (sin dependencias) que produce HTML que Tiptap convierte a su
+esquema. Soporta encabezados ATX, párrafos, énfasis/enlaces/imágenes/código en línea (con escapes
+`\`), listas con viñetas/ordenadas/**de tareas** y **anidadas** (por indentación → HTML
+`taskList`/`taskItem` de Tiptap), citas, bloques de código vallados con lenguaje, reglas y **tablas
+GFM**. Aísla los tramos de código y los caracteres escapados antes de transformar, y escapa el HTML
+del resto. UI: el botón **Importar** acepta ahora `.docx`, `.md`, `.markdown` y `.txt`, ramificando
+por extensión.
+
+**Verificación:** nueva suite `markdownImport.spec.ts` (**24 aserciones**: bloques (h1/h3/p/hr),
+en línea (negrita/cursiva/tachado/código/enlace/imagen), escapado de HTML y de `\*`, listas
+(viñetas/ordenada/tareas/anidada), cita, bloques de código con y sin lenguaje, tabla GFM, dos
+párrafos, y **roundtrip** doc→md→html que conserva h2/negrita/lista). Sin regresiones: las 53 suites
+de spec de Office verdes; `lint web` 0 errores; `build web` ✓.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
