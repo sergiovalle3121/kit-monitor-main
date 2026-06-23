@@ -1887,4 +1887,70 @@ sola celda → `false`, reemplazo de solapes, separación selectiva y por rango 
 roundtrip combinar→separar). Sin regresiones: las 50 suites de spec de Office verdes; `lint web` 0
 errores; `build web` ✓.
 
+## 80. Office/Sheets — autofiltro nativo en su sitio (un clic)
+
+**Contexto.** Excel filtra **en su sitio** con las flechas desplegables del encabezado. En Axos eso
+sólo aparecía al «Dar formato como tabla» (que además aplica estilos), o se filtraba creando una hoja
+nueva (§78). Faltaba el gesto de Excel: **un clic** para poner el autofiltro sobre un rango, sin
+tocar estilos ni duplicar datos.
+
+**Decisión (sólo `apps/web`, aditiva — riesgo cero):** `applyTableStyle` ya activaba el autofiltro
+nativo de Fortune-Sheet con `sheet.filter_select` + `sheet.filter`; se **extrae ese mismo mecanismo
+probado** a un par puro en `sheetOps.ts`:
+- `setAutoFilter(sheet, range)` escribe `filter_select = { row:[r1,r2], column:[c1,c2] }` y `filter`
+  (un solo autofiltro por hoja, como Excel: reemplaza el anterior).
+- `clearAutoFilter(sheet)` los borra; devuelve si había uno.
+
+UI: menú **«Autofiltro»** (Activar sobre la selección / Quitar) en *Datos → Ordenar y filtrar*, que
+clona, muta y re-monta. Como usa el mismo formato que las tablas (que ya renderizan las flechas), el
+render está probado de hecho.
+
+**Verificación:** nueva suite `autoFilter.spec.ts` (**11 aserciones**: `filter_select` con fila/col
+correctas, rango inválido → `false` sin tocar la hoja, reactivar reemplaza el rango, quitar borra y
+devuelve `true`/`false`, roundtrip limpio). Sin regresiones: las 51 suites de spec de Office verdes;
+`lint web` 0 errores; `build web` ✓.
+
+## 81. Office/Docs — exportación a Markdown (GFM)
+
+**Contexto.** Docs exportaba a `.docx` (`docx.ts`) y a PDF (impresión), pero no a **Markdown** — un
+formato de texto plano, versionable y portable que todo editor moderno (Word incluido, vía
+complementos) ofrece. Primer paso de diversificación hacia Docs tras consolidar Sheets.
+
+**Decisión (sólo `apps/web`, aditiva — riesgo cero):** `lib/office/markdown.ts` añade
+`tiptapJsonToMarkdown(doc)`, **función pura sin dependencias** que recorre el árbol Tiptap/ProseMirror
+(el modelo de Docs, el mismo que consume `docx.ts`) y lo mapea a Markdown GFM: encabezados, énfasis
+(`**`/`*`/`~~`/`` ` ``), enlaces, listas con viñetas/ordenadas/**de tareas** y **anidadas**, citas,
+bloques de código con lenguaje, reglas, imágenes y **tablas GFM**. Las marcas sin equivalente
+(subrayado, resalte, sub/superíndice, color, control de cambios, comentarios) **degradan conservando
+el texto**; los nodos exóticos (math, footnotes) caen a un texto razonable. Escapa los caracteres
+especiales (`*_`` ` ``[]`) salvo dentro de código. Salida determinista (una línea en blanco entre
+bloques, sin blancos triples, un único salto final). UI: opción **«Markdown (.md)»** en el menú
+Exportar de `DocActions`, que descarga un Blob.
+
+**Verificación:** nueva suite `markdown.spec.ts` (**21 aserciones**: encabezados, negrita/cursiva/
+tachado/código/enlace, degradado de subrayado, escapado, `hardBreak`, listas anidadas/ordenadas/de
+tareas, cita, bloque de código, regla, imagen, tabla GFM, separación por bloques, documento vacío).
+Sin regresiones: las 52 suites de spec de Office verdes; `lint web` 0 errores; `build web` ✓.
+
+## 82. Office/Docs — importación de Markdown (cierra el roundtrip)
+
+**Contexto.** Tras exportar a Markdown (§81), faltaba **importarlo** para cerrar el roundtrip: abrir
+un `.md` en Docs. El editor (Tiptap) ya ingiere **HTML** al importar (igual que el `.docx` vía
+mammoth), así que basta convertir Markdown → HTML.
+
+**Decisión (sólo `apps/web`, aditiva — riesgo cero):** `lib/office/markdown.ts` añade
+`markdownToHtml(md)`, **parser puro** (sin dependencias) que produce HTML que Tiptap convierte a su
+esquema. Soporta encabezados ATX, párrafos, énfasis/enlaces/imágenes/código en línea (con escapes
+`\`), listas con viñetas/ordenadas/**de tareas** y **anidadas** (por indentación → HTML
+`taskList`/`taskItem` de Tiptap), citas, bloques de código vallados con lenguaje, reglas y **tablas
+GFM**. Aísla los tramos de código y los caracteres escapados antes de transformar, y escapa el HTML
+del resto. UI: el botón **Importar** acepta ahora `.docx`, `.md`, `.markdown` y `.txt`, ramificando
+por extensión.
+
+**Verificación:** nueva suite `markdownImport.spec.ts` (**24 aserciones**: bloques (h1/h3/p/hr),
+en línea (negrita/cursiva/tachado/código/enlace/imagen), escapado de HTML y de `\*`, listas
+(viñetas/ordenada/tareas/anidada), cita, bloques de código con y sin lenguaje, tabla GFM, dos
+párrafos, y **roundtrip** doc→md→html que conserva h2/negrita/lista). Sin regresiones: las 53 suites
+de spec de Office verdes; `lint web` 0 errores; `build web` ✓.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->

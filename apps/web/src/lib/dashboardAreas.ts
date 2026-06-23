@@ -66,6 +66,8 @@ export const AREAS: DashboardArea[] = [
 
   // ── Calidad ──
   { name: "Calidad", desc: "Inspección y NCR", href: "/dashboard/quality", icon: ShieldCheck, domain: "quality", roles: ["quality_engineer", "mrb_member"], section: "Calidad" },
+  { name: "Características CTQ", desc: "Catálogo CTQ + límites (cimiento SPC)", href: "/dashboard/quality/characteristics", icon: Icons.Crosshair, domain: "quality", roles: ["quality_engineer", "engineering", "industrial_engineer"], section: "Calidad" },
+  { name: "Mediciones CTQ", desc: "Lecturas y resumen descriptivo", href: "/dashboard/quality/measurements", icon: Icons.Ruler, domain: "quality", roles: ["quality_engineer", "engineering", "industrial_engineer"], section: "Calidad" },
   { name: "Calidad de piso · MRB", desc: "Holds y disposición", href: "/dashboard/floor-quality", icon: Icons.ShieldX, domain: "quality", roles: ["quality_engineer", "mrb_member", "production_supervisor"], section: "Calidad" },
   { name: "Pruebas / Lab", desc: "Inspección y validación", href: "/dashboard/lab", icon: Icons.FlaskConical, domain: "quality", roles: ["quality_engineer", "engineering"], section: "Calidad" },
   { name: "Test Engineering", desc: "Yields, FPY y Pareto de fallas", href: "/dashboard/test-engineering", icon: Icons.Sigma, domain: "quality", roles: ["quality_engineer", "engineering", "industrial_engineer"], section: "Calidad" },

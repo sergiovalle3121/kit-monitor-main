@@ -655,7 +655,7 @@ export class SemanticService {
   }
 
   /** Tenants that have a semantic catalog (for cron fan-out). Always includes default. */
-  private async listTenants(): Promise<string[]> {
+  async listTenants(): Promise<string[]> {
     const rows = await this.metricRepo
       .createQueryBuilder('m')
       .select('DISTINCT m.tenantId', 'tenantId')

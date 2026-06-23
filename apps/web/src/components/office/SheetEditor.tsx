@@ -17,7 +17,7 @@ import { SheetNameManager } from './SheetNameManager';
 import { SheetPrintDialog } from './SheetPrintDialog';
 import { SheetTableStyle, type TableStylePayload } from './SheetTableStyle';
 import { parseRange, type ChartConfig } from '@/lib/office/charts';
-import { applyConditional, sortRangeMulti, removeDuplicates, textToColumns, setCellNote, replaceAll, buildPivot, pivotToCelldata, applyNumberFormat, applyCellStyle, applySubtotals, applySparkline, applyFill, transposeRange, copyRange, buildFilter, mergeCells, unmergeCells, buildPrintHtml, usedRange, colName, applyDataVerification, clearDataVerification, markInvalidCells, applyTableStyle, type CondPayload, type PivotConfig, type FindOpts, type NamedRange, type PrintOpts } from '@/lib/office/sheetOps';
+import { applyConditional, sortRangeMulti, removeDuplicates, textToColumns, setCellNote, replaceAll, buildPivot, pivotToCelldata, applyNumberFormat, applyCellStyle, applySubtotals, applySparkline, applyFill, transposeRange, copyRange, buildFilter, mergeCells, unmergeCells, setAutoFilter, clearAutoFilter, buildPrintHtml, usedRange, colName, applyDataVerification, clearDataVerification, markInvalidCells, applyTableStyle, type CondPayload, type PivotConfig, type FindOpts, type NamedRange, type PrintOpts } from '@/lib/office/sheetOps';
 import { normalizeCellInput } from './sheets/sheetFormula';
 import { installFormulaEngine } from './sheets/formulaEngine';
 import { applySpill } from './sheets/arraySpill';
@@ -264,6 +264,21 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
     } else {
       const n = unmergeCells(sheet, range);
       remount(sheets); window.setTimeout(() => toast.info(n ? `${n} combinación(es) separada(s).` : 'No hay combinaciones en la selección.'), 30);
+    }
+  }
+
+  // Autofiltro nativo en su sitio (flechas en el encabezado) sobre la selección actual.
+  function applyAutoFilter(enable: boolean) {
+    const sheets = clone(sheetsRef.current);
+    const sheet = sheets.find((s: any) => s.status === 1) ?? sheets[0];
+    if (!sheet) return;
+    if (enable) {
+      const range = selectionRange();
+      if (!setAutoFilter(sheet, range)) { toast.error('Rango inválido.'); return; }
+      remount(sheets); window.setTimeout(() => toast.info(`Autofiltro activado (${range}).`), 30);
+    } else {
+      const had = clearAutoFilter(sheet);
+      remount(sheets); window.setTimeout(() => toast.info(had ? 'Autofiltro quitado.' : 'No había autofiltro.'), 30);
     }
   }
 
@@ -644,6 +659,10 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
             <RibbonSeparator />
             <RibbonGroup label="Ordenar y filtrar">
               <RibbonButton icon={ArrowDownUp} label="Ordenar rango (multinivel)" onClick={() => setDataMode('sort')} />
+              <RibbonMenuButton icon={Filter} label="Autofiltro" menuWidth={250} items={[
+                { label: 'Activar autofiltro (selección)', onClick: () => applyAutoFilter(true) },
+                { label: 'Quitar autofiltro', onClick: () => applyAutoFilter(false) },
+              ]} />
               <RibbonButton icon={Filter} label="Filtrar a hoja" onClick={() => setDataMode('filter')} />
               <RibbonButton icon={CopyMinus} label="Quitar duplicados" onClick={() => setDataMode('dedup')} />
               <RibbonButton icon={Columns3} label="Texto en columnas" onClick={() => setDataMode('split')} />

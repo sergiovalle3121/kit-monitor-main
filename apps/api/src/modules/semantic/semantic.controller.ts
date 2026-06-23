@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { SemanticPrincipal, SemanticService } from './semantic.service';
+import { BriefsService } from './briefs.service';
 import { UpsertMetricDto } from './dto/upsert-metric.dto';
 import { UpsertObjectDto } from './dto/upsert-object.dto';
 import { UpsertLinkDto } from './dto/upsert-link.dto';
@@ -32,7 +33,10 @@ const DEFAULT_TENANT = '__default__';
 @UseGuards(JwtAuthGuard)
 @Controller('semantic')
 export class SemanticController {
-  constructor(private readonly semantic: SemanticService) {}
+  constructor(
+    private readonly semantic: SemanticService,
+    private readonly briefs: BriefsService,
+  ) {}
 
   private tenant(req: AuthReq): string {
     return req.user?.tenant_id ?? DEFAULT_TENANT;
@@ -86,6 +90,28 @@ export class SemanticController {
     this.assertAdmin(req);
     const sent = await this.semantic.notifyAlerts(this.tenant(req));
     return { sent };
+  }
+
+  // ── Decision briefs (executive synthesis of KPIs + alerts) ──────────────────
+  /** Latest decision brief + recent history for the tenant. Admin. */
+  @Get('briefs')
+  listBriefs(@Request() req: AuthReq) {
+    this.assertAdmin(req);
+    return this.briefs.listForTenant(this.tenant(req));
+  }
+
+  /** One decision brief by id. Admin. */
+  @Get('briefs/:id')
+  getBrief(@Request() req: AuthReq, @Param('id') id: string) {
+    this.assertAdmin(req);
+    return this.briefs.getOne(this.tenant(req), id);
+  }
+
+  /** Generate (or refresh) today's decision brief now. Admin. */
+  @Post('briefs/generate')
+  generateBrief(@Request() req: AuthReq) {
+    this.assertAdmin(req);
+    return this.briefs.generate(this.tenant(req));
   }
 
   /** Live value for one metric. */

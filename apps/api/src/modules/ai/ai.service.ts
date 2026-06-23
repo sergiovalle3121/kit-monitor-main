@@ -357,6 +357,7 @@ export class AiService {
         role: 'assistant',
         content: result.text,
         toolsUsed: uniqueTools.length ? uniqueTools : null,
+        cards: result.cards.length ? result.cards : null,
       }),
     );
     await this.convRepo.update(conv.id, { updatedAt: new Date() });

@@ -986,3 +986,18 @@ export const DEMO_MES_WALK_UNITS = 8;
 
 /** Token idempotente del avance de operador sembrado (mes_execution_events.clientRequestId). */
 export const MES_SEED_CRID = (workOrder: string): string => `AX-SEED-MES:${workOrder}:S1`;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ENRIQUECIMIENTO DENSIDAD (Fase 2): marcadores determinísticos de las
+// herramientas NUEVAS que se siembran vía repo directo (tooling, mantenimiento,
+// warehouse-tasks, replenishment, IQC, SCAR, NCR, holds de calidad). Se usan como
+// folio/clave natural para que el seed sea idempotente y el clear sólo borre lo
+// demo (coincidencia exacta de prefijo). 100% universo AXOS (pasa el audit).
+// ─────────────────────────────────────────────────────────────────────────────
+export const DEMO_WH_TASK_PREFIX = 'AX-TSK-';
+export const DEMO_IQC_PREFIX = 'AX-IQC-';
+export const DEMO_SCAR_PREFIX = 'AX-SCAR-';
+export const DEMO_NCR_PREFIX = 'AX-NCR-';
+
+/** Razón (clave natural) del hold de calidad demo que pinta el Clear-to-Build. */
+export const DEMO_QHOLD_REASON = 'AX-SEED · NCR de calidad (demo Clear-to-Build)';

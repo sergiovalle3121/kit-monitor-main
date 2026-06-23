@@ -88,6 +88,17 @@ import { RmaService } from '../modules/rma/rma.service';
 import { RmaCase } from '../modules/rma/entities/rma-case.entity';
 import { NotificationsService } from '../modules/notifications/notifications.service';
 import { UserNotification } from '../modules/notifications/entities/notification.entity';
+// Densidad Fase 2: profundidad relacional de herramientas nuevas/enriquecidas.
+import { WarehouseTask, WarehouseTaskType, WarehouseTaskStatus } from '../modules/inventory/entities/warehouse-task.entity';
+import { ReplenishmentRule } from '../modules/inventory/entities/replenishment-rule.entity';
+import { SCAR, ScarStatus, ScarSeverity } from '../modules/suppliers/entities/scar.entity';
+import { IQCInspection, IqcResult } from '../modules/quality/entities/iqc-inspection.entity';
+import { NCR, NcrStatus, NcrSeverity, NcrSourceType } from '../modules/ncr/entities/ncr.entity';
+import { QualityService } from '../modules/quality/quality.service';
+import { QualityHold, QualityHoldLevel } from '../modules/quality/entities/quality-hold.entity';
+import { ProductModel } from '../modules/product-models/entities/product-model.entity';
+import { QualityCharacteristic } from '../modules/quality/entities/quality-characteristic.entity';
+import { QualityMeasurement } from '../modules/quality/entities/quality-measurement.entity';
 
 import {
   assertNotProduction,
@@ -134,10 +145,16 @@ import {
   DEMO_WAREHOUSES,
   DEMO_WH_QA,
   DEMO_WH_RM,
+  DEMO_WH_WIP,
   MV_REF_CONSUME,
   MV_REF_HOLD,
   MV_REF_RECEIVE,
   slugCode,
+  DEMO_WH_TASK_PREFIX,
+  DEMO_IQC_PREFIX,
+  DEMO_SCAR_PREFIX,
+  DEMO_NCR_PREFIX,
+  DEMO_QHOLD_REASON,
 } from './seed-constants';
 
 /** Ubicación física fija para las recepciones/consumos demo (una posición por parte). */
@@ -1850,6 +1867,588 @@ async function inventoryValuation(ds: DataSource): Promise<number> {
   return Number(row?.value ?? 0);
 }
 
+// ═════════════════════════════════════════════════════════════════════════════
+// DENSIDAD FASE 2 — Profundidad relacional para que NINGUNA herramienta del hub
+// quede vacía y las vistas relacionales (¿dónde se usa?, scorecard de proveedor,
+// vida de herramental, CMMS, Clear-to-Build) tengan de qué tirar. Aditivo,
+// idempotente (clave natural AX-*), 100% universo AXOS (pasa el audit).
+// ═════════════════════════════════════════════════════════════════════════════
+
+const DAY_MS = 86_400_000;
+/** Fecha relativa a hoy (días; negativo = pasado). */
+function relDate(days: number): Date {
+  return new Date(Date.now() + days * DAY_MS);
+}
+/** Program slug (mismo que usa seedModels) por código de programa demo. */
+const PROG = {
+  mobility: slugCode('AX-MOBILITY-P'),
+  power: slugCode('AX-POWER-P'),
+  medical: slugCode('AX-MEDICAL-P'),
+  aero: slugCode('AX-AERO-P'),
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Tooling: herramentales (estencil/fixture/molde/galga) con vida total y disparos
+// consumidos a distintos %, incluyendo 2 cerca de fin de vida, 1 en mantenimiento
+// y 1 retirado — para que el semáforo de vida y las alertas tengan señal real.
+// ─────────────────────────────────────────────────────────────────────────────
+type ToolSpec = {
+  name: string;
+  type: 'STENCIL' | 'FIXTURE' | 'MOLD' | 'GAUGE';
+  cavities: number;
+  lifeShots: number;
+  shotsUsed: number;
+  status: 'AVAILABLE' | 'IN_USE' | 'MAINTENANCE' | 'RETIRED';
+  location: string;
+  programId: string;
+};
+const DEMO_TOOLS: ToolSpec[] = [
+  { name: 'Estencil SMT — AX-DRIVE-100', type: 'STENCIL', cavities: 1, lifeShots: 60000, shotsUsed: 12600, status: 'IN_USE', location: 'SMT Línea 1', programId: PROG.mobility },
+  { name: 'Estencil SMT — AX-POWER-200', type: 'STENCIL', cavities: 1, lifeShots: 60000, shotsUsed: 33000, status: 'IN_USE', location: 'SMT Línea 2', programId: PROG.power },
+  { name: 'Fixture ICT — AX-SENSE-300', type: 'FIXTURE', cavities: 4, lifeShots: 200000, shotsUsed: 156000, status: 'IN_USE', location: 'Pruebas Línea 5', programId: PROG.medical },
+  { name: 'Fixture FCT — AX-COMM-400', type: 'FIXTURE', cavities: 2, lifeShots: 150000, shotsUsed: 132000, status: 'IN_USE', location: 'Pruebas Línea 7', programId: PROG.aero },
+  { name: 'Molde carcasa — AX-MOTOR-500', type: 'MOLD', cavities: 2, lifeShots: 500000, shotsUsed: 486000, status: 'MAINTENANCE', location: 'Inyección', programId: PROG.mobility },
+  { name: 'Molde gabinete — AX-GATE-600', type: 'MOLD', cavities: 1, lifeShots: 400000, shotsUsed: 92000, status: 'AVAILABLE', location: 'Inyección', programId: PROG.aero },
+  { name: 'Galga pasa/no-pasa — AX-METER-700', type: 'GAUGE', cavities: 1, lifeShots: 100000, shotsUsed: 64000, status: 'IN_USE', location: 'Calidad', programId: PROG.power },
+  { name: 'Fixture de prueba — AX-NODE-800 (fin de vida)', type: 'FIXTURE', cavities: 4, lifeShots: 180000, shotsUsed: 180000, status: 'RETIRED', location: 'Resguardo', programId: PROG.medical },
+];
+
+async function seedToolingDepth(app: INestApplicationContext, ds: DataSource): Promise<Tally> {
+  const tooling = app.get(ToolingService, { strict: false });
+  const repo = ds.getRepository(Tool);
+  const t = tally();
+  for (const spec of DEMO_TOOLS) {
+    try {
+      assertSeedText(spec.name, 'nombre de herramental');
+      if (await repo.findOne({ where: { name: spec.name } })) { t.skipped++; continue; }
+      const created = await tooling.create({
+        name: spec.name, type: spec.type, cavities: spec.cavities,
+        lifeShots: spec.lifeShots, shotsUsed: spec.shotsUsed,
+        location: spec.location, programId: spec.programId,
+      });
+      if (spec.status !== 'AVAILABLE') await tooling.setStatus(created.id, { status: spec.status });
+      t.created++;
+    } catch (err) {
+      t.errors++;
+      log('tooling', `ERROR ${spec.name}: ${(err as Error).message}`);
+    }
+  }
+  log('tooling', `herramentales=${t.created} ya existían=${t.skipped} errores=${t.errors}`);
+  return t;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Maintenance (CMMS): activos adicionales + órdenes correctivo/preventivo/predictivo
+// en distintos estados (abierto/en progreso/completado/cancelado), con 1 PM vencido,
+// 1 PM por vencer y completadas con paro real (MTTR). Liga órdenes a activos.
+// ─────────────────────────────────────────────────────────────────────────────
+type AssetSpec = { name: string; code: string; category: string; location: string; criticality: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'; status: 'RUNNING' | 'DOWN' | 'IDLE' | 'RETIRED' };
+const DEMO_MAINT_ASSETS: AssetSpec[] = [
+  { name: 'Pick & Place P2', code: 'EQ-SMT-002', category: 'SMT', location: 'Línea 2', criticality: 'CRITICAL', status: 'RUNNING' },
+  { name: 'AOI inline L1', code: 'EQ-AOI-001', category: 'Inspección', location: 'Línea 1', criticality: 'HIGH', status: 'RUNNING' },
+  { name: 'Soldadora de ola THT', code: 'EQ-WAVE-001', category: 'THT', location: 'Línea THT', criticality: 'HIGH', status: 'DOWN' },
+  { name: 'Lavadora de estencil', code: 'EQ-WASH-001', category: 'SMT', location: 'Cuarto SMT', criticality: 'MEDIUM', status: 'RUNNING' },
+  { name: 'Estación ICT L5', code: 'EQ-ICT-005', category: 'Pruebas', location: 'Línea 5', criticality: 'HIGH', status: 'IDLE' },
+  { name: 'Horno de curado L7', code: 'EQ-OVEN-002', category: 'Ensamble', location: 'Línea 7', criticality: 'MEDIUM', status: 'RUNNING' },
+];
+
+type OrderSpec = {
+  title: string;
+  type: 'PREVENTIVE' | 'CORRECTIVE' | 'PREDICTIVE';
+  priority: 'LOW' | 'MEDIUM' | 'HIGH';
+  asset?: string; // nombre del activo a ligar (nuevo o ya existente)
+  assignedTo?: string;
+  dueInDays?: number;
+  target: 'OPEN' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+  downtimeMin?: number; // al completar
+  startedDaysAgo?: number; // backdate para MTTR / historial
+};
+const DEMO_MAINT_ORDERS: OrderSpec[] = [
+  { title: 'PM trimestral — Pick & Place P2', type: 'PREVENTIVE', priority: 'HIGH', asset: 'Pick & Place P2', assignedTo: 'Fernando Aguilar', dueInDays: -6, target: 'OPEN' },
+  { title: 'PM mensual — AOI inline L1', type: 'PREVENTIVE', priority: 'MEDIUM', asset: 'AOI inline L1', assignedTo: 'Fernando Aguilar', dueInDays: 4, target: 'OPEN' },
+  { title: 'PM semestral — Horno de reflujo SMT-1', type: 'PREVENTIVE', priority: 'MEDIUM', asset: 'Horno de reflujo SMT-1', assignedTo: 'Gabriela Domínguez', dueInDays: -1, target: 'COMPLETED', downtimeMin: 90, startedDaysAgo: 7 },
+  { title: 'Correctivo — falla de soldadora de ola', type: 'CORRECTIVE', priority: 'HIGH', asset: 'Soldadora de ola THT', assignedTo: 'Fernando Aguilar', target: 'IN_PROGRESS', startedDaysAgo: 1 },
+  { title: 'Correctivo — termopar zona 3 del horno', type: 'CORRECTIVE', priority: 'HIGH', asset: 'Horno de curado L7', dueInDays: 1, target: 'OPEN' },
+  { title: 'Correctivo — boquilla tapada en P&P (resuelto)', type: 'CORRECTIVE', priority: 'MEDIUM', asset: 'Pick & Place P1', assignedTo: 'Fernando Aguilar', target: 'COMPLETED', downtimeMin: 45, startedDaysAgo: 3 },
+  { title: 'Predictivo — análisis de vibración del compresor', type: 'PREDICTIVE', priority: 'LOW', asset: 'Compresor central', target: 'OPEN' },
+  { title: 'Correctivo — fuga menor de aire (duplicado)', type: 'CORRECTIVE', priority: 'LOW', asset: 'Compresor central', target: 'CANCELLED' },
+  { title: 'PM anual — Estación ICT L5', type: 'PREVENTIVE', priority: 'MEDIUM', asset: 'Estación ICT L5', assignedTo: 'Gabriela Domínguez', dueInDays: 12, target: 'IN_PROGRESS', startedDaysAgo: 1 },
+  { title: 'Correctivo — banda transportadora L1', type: 'CORRECTIVE', priority: 'MEDIUM', asset: 'AOI inline L1', assignedTo: 'Fernando Aguilar', target: 'COMPLETED', downtimeMin: 120, startedDaysAgo: 5 },
+];
+
+async function seedMaintenanceDepth(app: INestApplicationContext, ds: DataSource): Promise<Tally> {
+  const maint = app.get(MaintenanceService, { strict: false });
+  const assetRepo = ds.getRepository(Asset);
+  const orderRepo = ds.getRepository(MaintenanceOrder);
+  const t = tally();
+
+  // Activos (idempotente por nombre); estado distinto de RUNNING vía updateAsset.
+  for (const a of DEMO_MAINT_ASSETS) {
+    try {
+      if (await assetRepo.findOne({ where: { name: a.name } })) { t.skipped++; continue; }
+      const saved = await maint.createAsset({
+        name: a.name, code: a.code, category: a.category,
+        location: a.location, criticality: a.criticality,
+      });
+      if (a.status !== 'RUNNING') await maint.updateAsset(saved.id, { status: a.status });
+      t.created++;
+    } catch (err) {
+      t.errors++;
+      log('cmms', `ERROR activo ${a.name}: ${(err as Error).message}`);
+    }
+  }
+
+  // Mapa nombre→id de TODOS los activos del ámbito demo (incluye los 3 previos).
+  const assetIdByName = new Map((await maint.listAssets()).map((a) => [a.name, a.id]));
+
+  for (const o of DEMO_MAINT_ORDERS) {
+    try {
+      if (await orderRepo.findOne({ where: { title: o.title } })) { t.skipped++; continue; }
+      const assetId = o.asset ? assetIdByName.get(o.asset) : undefined;
+      const created = await maint.createOrder({
+        title: o.title, type: o.type, priority: o.priority,
+        assetId, assignedTo: o.assignedTo,
+        dueDate: o.dueInDays != null ? relDate(o.dueInDays).toISOString().slice(0, 10) : undefined,
+      });
+      if (o.target === 'IN_PROGRESS') {
+        await maint.transitionOrder(created.id, { status: 'IN_PROGRESS' });
+      } else if (o.target === 'COMPLETED') {
+        await maint.transitionOrder(created.id, { status: 'IN_PROGRESS' });
+        await maint.transitionOrder(created.id, { status: 'COMPLETED', downtimeMinutes: o.downtimeMin });
+      } else if (o.target === 'CANCELLED') {
+        await maint.transitionOrder(created.id, { status: 'CANCELLED' });
+      }
+      // Backdate (MTTR realista + historial): started/completed/created en el pasado.
+      if (o.startedDaysAgo != null) {
+        const started = relDate(-o.startedDaysAgo);
+        const completed = o.target === 'COMPLETED'
+          ? new Date(started.getTime() + (o.downtimeMin ?? 60) * 60_000)
+          : undefined;
+        await orderRepo.update(created.id, { startedAt: started, completedAt: completed, created_at: started } as any);
+      }
+      t.created++;
+    } catch (err) {
+      t.errors++;
+      log('cmms', `ERROR orden ${o.title}: ${(err as Error).message}`);
+    }
+  }
+  log('cmms', `activos+órdenes=${t.created} ya existían=${t.skipped} errores=${t.errors}`);
+  return t;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Warehouse tasks: cola de acomodo/surtido/traslado/conteo en varios estados
+// (pendiente/en progreso/completada), cruzando partes demo y almacenes demo.
+// ─────────────────────────────────────────────────────────────────────────────
+type WhTaskSpec = {
+  n: number;
+  type: WarehouseTaskType;
+  status: WarehouseTaskStatus;
+  partNumber: string;
+  quantity: number;
+  fromWarehouseId: string;
+  fromLocation: string;
+  toWarehouseId: string;
+  toLocation: string;
+  assignedTo?: string;
+  referenceType?: string;
+  referenceId?: string;
+};
+const WH = { RM: DEMO_WH_RM, WIP: DEMO_WH_WIP, QA: DEMO_WH_QA };
+const DEMO_WH_TASKS: WhTaskSpec[] = [
+  { n: 1, type: WarehouseTaskType.PUT_AWAY, status: WarehouseTaskStatus.PENDING, partNumber: 'PCB-AX100-4L', quantity: 800, fromWarehouseId: WH.RM, fromLocation: 'RECV', toWarehouseId: WH.RM, toLocation: 'A-01', assignedTo: 'Beto Almacén', referenceType: 'RECEIPT', referenceId: 'RCV-PCB-AX100-4L' },
+  { n: 2, type: WarehouseTaskType.PICK, status: WarehouseTaskStatus.PENDING, partNumber: 'IC-MCU-32B', quantity: 50, fromWarehouseId: WH.RM, fromLocation: 'A-01', toWarehouseId: WH.WIP, toLocation: 'L1-POU', assignedTo: 'Óscar Jiménez', referenceType: 'WO', referenceId: 'AX-WO-0001' },
+  { n: 3, type: WarehouseTaskType.TRANSFER, status: WarehouseTaskStatus.IN_PROGRESS, partNumber: 'CONN-RJ45-MAG', quantity: 200, fromWarehouseId: WH.RM, fromLocation: 'A-01', toWarehouseId: WH.WIP, toLocation: 'L7-POU', assignedTo: 'Óscar Jiménez', referenceType: 'REPLEN', referenceId: 'AX-WO-0007' },
+  { n: 4, type: WarehouseTaskType.PUT_AWAY, status: WarehouseTaskStatus.COMPLETED, partNumber: 'RES-10K-0402', quantity: 20000, fromWarehouseId: WH.RM, fromLocation: 'RECV', toWarehouseId: WH.RM, toLocation: 'B-12', assignedTo: 'Beto Almacén', referenceType: 'RECEIPT', referenceId: 'RCV-RES-10K-0402' },
+  { n: 5, type: WarehouseTaskType.PICK, status: WarehouseTaskStatus.IN_PROGRESS, partNumber: 'CAP-100N-0603', quantity: 2400, fromWarehouseId: WH.RM, fromLocation: 'A-01', toWarehouseId: WH.WIP, toLocation: 'L5-POU', assignedTo: 'Daniela Castillo', referenceType: 'WO', referenceId: 'AX-WO-0005' },
+  { n: 6, type: WarehouseTaskType.CONFIRM, status: WarehouseTaskStatus.PENDING, partNumber: 'PCB-AX200-6L', quantity: 120, fromWarehouseId: WH.QA, fromLocation: 'QA-HOLD', toWarehouseId: WH.QA, toLocation: 'QA-HOLD', assignedTo: 'Carla Calidad', referenceType: 'IQC', referenceId: 'AX-IQC-0006' },
+  { n: 7, type: WarehouseTaskType.PICK, status: WarehouseTaskStatus.COMPLETED, partNumber: 'ENC-AX-ALU', quantity: 25, fromWarehouseId: WH.RM, fromLocation: 'A-01', toWarehouseId: WH.WIP, toLocation: 'L3-POU', assignedTo: 'Óscar Jiménez', referenceType: 'WO', referenceId: 'AX-WO-0003' },
+  { n: 8, type: WarehouseTaskType.TRANSFER, status: WarehouseTaskStatus.PENDING, partNumber: 'LABEL-QR-AX', quantity: 5000, fromWarehouseId: WH.RM, fromLocation: 'A-01', toWarehouseId: WH.WIP, toLocation: 'L1-POU', assignedTo: 'Beto Almacén', referenceType: 'REPLEN' },
+  { n: 9, type: WarehouseTaskType.PUT_AWAY, status: WarehouseTaskStatus.PENDING, partNumber: 'IC-XCVR-CAN', quantity: 3000, fromWarehouseId: WH.RM, fromLocation: 'RECV', toWarehouseId: WH.RM, toLocation: 'C-04', assignedTo: 'Beto Almacén', referenceType: 'RECEIPT', referenceId: 'RCV-IC-XCVR-CAN' },
+  { n: 10, type: WarehouseTaskType.PICK, status: WarehouseTaskStatus.PENDING, partNumber: 'MOS-NCH-30V', quantity: 240, fromWarehouseId: WH.RM, fromLocation: 'A-01', toWarehouseId: WH.WIP, toLocation: 'L2-POU', assignedTo: 'Daniela Castillo', referenceType: 'WO', referenceId: 'AX-WO-0003' },
+];
+
+async function seedWarehouseTasks(ds: DataSource): Promise<Tally> {
+  const repo = ds.getRepository(WarehouseTask);
+  const t = tally();
+  for (const w of DEMO_WH_TASKS) {
+    const taskNumber = `${DEMO_WH_TASK_PREFIX}${String(w.n).padStart(4, '0')}`;
+    try {
+      if (await repo.findOne({ where: { taskNumber } })) { t.skipped++; continue; }
+      const done = w.status === WarehouseTaskStatus.COMPLETED;
+      await repo.save(repo.create({
+        taskNumber, type: w.type, status: w.status,
+        partNumber: w.partNumber, quantity: w.quantity,
+        fromWarehouseId: w.fromWarehouseId, fromLocation: w.fromLocation,
+        toWarehouseId: w.toWarehouseId, toLocation: w.toLocation,
+        assignedTo: w.assignedTo, referenceType: w.referenceType, referenceId: w.referenceId,
+        completedBy: done ? w.assignedTo : undefined,
+        completedAt: done ? relDate(-1) : undefined,
+      }));
+      t.created++;
+    } catch (err) {
+      t.errors++;
+      log('warehouse-task', `ERROR ${taskNumber}: ${(err as Error).message}`);
+    }
+  }
+  log('warehouse-task', `tareas=${t.created} ya existían=${t.skipped} errores=${t.errors}`);
+  return t;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Replenishment rules: punto-de-uso (WIP) que se reabastece desde RM. Mín/máx/
+// seguridad + prioridad variada para que el motor de reabasto tenga reglas vivas.
+// ─────────────────────────────────────────────────────────────────────────────
+type ReplSpec = { partNumber: string; minStock: number; maxStock: number; safetyStock: number; priority: 'low' | 'normal' | 'high' | 'critical'; programId?: string; autoCreateTasks?: boolean };
+const DEMO_REPL_RULES: ReplSpec[] = [
+  { partNumber: 'PCB-AX100-4L', minStock: 40, maxStock: 200, safetyStock: 20, priority: 'critical', programId: PROG.mobility, autoCreateTasks: true },
+  { partNumber: 'IC-MCU-32B', minStock: 100, maxStock: 600, safetyStock: 50, priority: 'high', autoCreateTasks: true },
+  { partNumber: 'IC-XCVR-CAN', minStock: 60, maxStock: 300, safetyStock: 30, priority: 'high', programId: PROG.aero },
+  { partNumber: 'CONN-RJ45-MAG', minStock: 50, maxStock: 250, safetyStock: 25, priority: 'high', programId: PROG.aero },
+  { partNumber: 'RES-10K-0402', minStock: 2000, maxStock: 10000, safetyStock: 1000, priority: 'normal' },
+  { partNumber: 'CAP-100N-0603', minStock: 2000, maxStock: 10000, safetyStock: 1000, priority: 'normal' },
+  { partNumber: 'MOS-NCH-30V', minStock: 300, maxStock: 1500, safetyStock: 150, priority: 'normal', programId: PROG.power },
+  { partNumber: 'ENC-AX-ALU', minStock: 30, maxStock: 150, safetyStock: 15, priority: 'high', programId: PROG.mobility },
+  { partNumber: 'LABEL-QR-AX', minStock: 1000, maxStock: 6000, safetyStock: 500, priority: 'low' },
+  { partNumber: 'IC-SENSOR-TEMP', minStock: 200, maxStock: 1200, safetyStock: 100, priority: 'normal', programId: PROG.medical },
+];
+
+async function seedReplenishmentRules(ds: DataSource): Promise<Tally> {
+  const repo = ds.getRepository(ReplenishmentRule);
+  const t = tally();
+  for (const r of DEMO_REPL_RULES) {
+    try {
+      if (await repo.findOne({ where: { warehouseId: DEMO_WH_WIP, partNumber: r.partNumber } })) { t.skipped++; continue; }
+      await repo.save(repo.create({
+        warehouseId: DEMO_WH_WIP, partNumber: r.partNumber, programId: r.programId,
+        minStock: r.minStock, maxStock: r.maxStock, safetyStock: r.safetyStock,
+        preferredSourceWarehouseId: DEMO_WH_RM, isActive: true,
+        autoCreateTasks: r.autoCreateTasks ?? false, priority: r.priority,
+      }));
+      t.created++;
+    } catch (err) {
+      t.errors++;
+      log('replenishment', `ERROR ${r.partNumber}: ${(err as Error).message}`);
+    }
+  }
+  log('replenishment', `reglas=${t.created} ya existían=${t.skipped} errores=${t.errors}`);
+  return t;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Calidad de proveedor (scorecard): inspecciones IQC (PASS/FAIL/CONDITIONAL) y
+// SCARs ligadas a proveedores+partes. Los proveedores débiles (PPM alto) reciben
+// fallas y SCARs → el scorecard pinta riesgo Major/Critical y OTD/PPM cobran vida.
+// ─────────────────────────────────────────────────────────────────────────────
+type IqcSpec = { n: number; supplierCode: string; partNumber: string; result: IqcResult; sampleSize: number; defectsFound: number; daysAgo: number; inspector: string; notes?: string };
+const DEMO_IQC: IqcSpec[] = [
+  { n: 1, supplierCode: 'AX-SUP-FERRUM', partNumber: 'RES-10K-0402', result: IqcResult.PASS, sampleSize: 200, defectsFound: 0, daysAgo: 40, inspector: 'Carla Calidad' },
+  { n: 2, supplierCode: 'AX-SUP-GRANITE', partNumber: 'SCR-M3-8', result: IqcResult.PASS, sampleSize: 200, defectsFound: 0, daysAgo: 35, inspector: 'Carla Calidad' },
+  { n: 3, supplierCode: 'AX-SUP-SENTINEL', partNumber: 'IC-SENSOR-TEMP', result: IqcResult.PASS, sampleSize: 80, defectsFound: 0, daysAgo: 28, inspector: 'Andrés Rojas' },
+  { n: 4, supplierCode: 'AX-SUP-NORVEL', partNumber: 'IC-MCU-32B', result: IqcResult.PASS, sampleSize: 50, defectsFound: 0, daysAgo: 26, inspector: 'Andrés Rojas' },
+  { n: 5, supplierCode: 'AX-SUP-NORVEL', partNumber: 'IC-MCU-32B', result: IqcResult.FAIL, sampleSize: 50, defectsFound: 4, daysAgo: 14, inspector: 'Andrés Rojas', notes: 'Coplanaridad de pines fuera de especificación.' },
+  { n: 6, supplierCode: 'AX-SUP-STRATA', partNumber: 'PCB-AX200-6L', result: IqcResult.FAIL, sampleSize: 30, defectsFound: 3, daysAgo: 12, inspector: 'Carla Calidad', notes: 'Delaminación en borde y máscara de soldadura irregular.' },
+  { n: 7, supplierCode: 'AX-SUP-STRATA', partNumber: 'PCB-AX100-4L', result: IqcResult.CONDITIONAL, sampleSize: 30, defectsFound: 1, daysAgo: 9, inspector: 'Carla Calidad', notes: 'Aceptado con desviación; vigilar registro de capas.' },
+  { n: 8, supplierCode: 'AX-SUP-KESTREL', partNumber: 'XFMR-FLYBACK-5W', result: IqcResult.FAIL, sampleSize: 40, defectsFound: 6, daysAgo: 22, inspector: 'Andrés Rojas', notes: 'Inductancia fuera de tolerancia en 6 piezas.' },
+  { n: 9, supplierCode: 'AX-SUP-KESTREL', partNumber: 'IND-4U7-1210', result: IqcResult.CONDITIONAL, sampleSize: 100, defectsFound: 2, daysAgo: 10, inspector: 'Andrés Rojas' },
+  { n: 10, supplierCode: 'AX-SUP-ORION', partNumber: 'CONN-RJ45-MAG', result: IqcResult.FAIL, sampleSize: 60, defectsFound: 5, daysAgo: 18, inspector: 'Carla Calidad', notes: 'Pines doblados por mal embalaje del distribuidor.' },
+  { n: 11, supplierCode: 'AX-SUP-ORION', partNumber: 'CONN-USB-C', result: IqcResult.PASS, sampleSize: 80, defectsFound: 0, daysAgo: 6, inspector: 'Carla Calidad' },
+  { n: 12, supplierCode: 'AX-SUP-COBALT', partNumber: 'CONN-B2B-20', result: IqcResult.PASS, sampleSize: 80, defectsFound: 0, daysAgo: 20, inspector: 'Andrés Rojas' },
+  { n: 13, supplierCode: 'AX-SUP-VOLTAIC', partNumber: 'CAP-10U-0805', result: IqcResult.PASS, sampleSize: 200, defectsFound: 0, daysAgo: 16, inspector: 'Carla Calidad' },
+  { n: 14, supplierCode: 'AX-SUP-AXON', partNumber: 'IC-GATE-DRV', result: IqcResult.PASS, sampleSize: 50, defectsFound: 0, daysAgo: 12, inspector: 'Andrés Rojas' },
+];
+
+type ScarSpec = {
+  n: number; supplierCode: string; partNumber: string; severity: ScarSeverity; status: ScarStatus;
+  issueSummary: string; defectDescription: string; quantityAffected: number;
+  openedDaysAgo: number; closedDaysAgo?: number; dueInDays?: number;
+  supplierContact?: string; rootCause?: string; correctiveAction?: string;
+};
+const DEMO_SCARS: ScarSpec[] = [
+  { n: 1, supplierCode: 'AX-SUP-KESTREL', partNumber: 'XFMR-FLYBACK-5W', severity: ScarSeverity.CRITICAL, status: ScarStatus.AWAITING_RESPONSE, issueSummary: 'Inductancia fuera de tolerancia en lote', defectDescription: '6 de 40 transformadores con inductancia bajo el límite; riesgo de falla de regulación.', quantityAffected: 6, openedDaysAgo: 21, dueInDays: 7, supplierContact: 'Hiro Tanaka', rootCause: 'Variación en número de vueltas del bobinado.' },
+  { n: 2, supplierCode: 'AX-SUP-KESTREL', partNumber: 'IND-4U7-1210', severity: ScarSeverity.MINOR, status: ScarStatus.CLOSED, issueSummary: 'Marcado ilegible en carrete', defectDescription: 'Etiqueta de carrete sin trazabilidad de lote.', quantityAffected: 1, openedDaysAgo: 60, closedDaysAgo: 28, supplierContact: 'Hiro Tanaka', rootCause: 'Cinta de impresora agotada.', correctiveAction: 'Verificación de impresión añadida al empaque.' },
+  { n: 3, supplierCode: 'AX-SUP-STRATA', partNumber: 'PCB-AX200-6L', severity: ScarSeverity.MAJOR, status: ScarStatus.RESPONSE_UNDER_REVIEW, issueSummary: 'Delaminación de PCB en recepción', defectDescription: '3 de 30 placas con delaminación de borde; rechazadas en IQC.', quantityAffected: 3, openedDaysAgo: 12, dueInDays: 10, supplierContact: 'Luis Carrillo', rootCause: 'Perfil de laminado fuera de control.' },
+  { n: 4, supplierCode: 'AX-SUP-ORION', partNumber: 'CONN-RJ45-MAG', severity: ScarSeverity.MAJOR, status: ScarStatus.OPEN, issueSummary: 'Pines doblados por embalaje', defectDescription: '5 de 60 conectores con pines doblados; embalaje del distribuidor insuficiente.', quantityAffected: 5, openedDaysAgo: 18, dueInDays: 5, supplierContact: 'Wei Lim' },
+  { n: 5, supplierCode: 'AX-SUP-NORVEL', partNumber: 'IC-MCU-32B', severity: ScarSeverity.MAJOR, status: ScarStatus.ACTION_ACCEPTED, issueSummary: 'Coplanaridad de pines', defectDescription: '4 de 50 MCU con coplanaridad fuera de especificación; riesgo de soldadura abierta.', quantityAffected: 4, openedDaysAgo: 14, dueInDays: 3, supplierContact: 'Janet Cole', rootCause: 'Manejo de charola en empaque.', correctiveAction: 'Charolas con soporte rígido y muestreo AQL reforzado.' },
+  { n: 6, supplierCode: 'AX-SUP-COBALT', partNumber: 'CONN-B2B-20', severity: ScarSeverity.MINOR, status: ScarStatus.CLOSED, issueSummary: 'Fuerza de inserción alta', defectDescription: 'Fuerza de inserción sobre el límite en muestreo inicial.', quantityAffected: 12, openedDaysAgo: 75, closedDaysAgo: 40, supplierContact: 'Anke Vogt', rootCause: 'Acabado de contacto fuera de rango.', correctiveAction: 'Ajuste de baño de chapado; OK en re-validación.' },
+];
+
+async function seedSupplierQuality(ds: DataSource): Promise<Tally> {
+  const supRepo = ds.getRepository(Supplier);
+  const iqcRepo = ds.getRepository(IQCInspection);
+  const scarRepo = ds.getRepository(SCAR);
+  const t = tally();
+  const idByCode = new Map((await supRepo.find()).map((s) => [s.code, s.id]));
+
+  for (const q of DEMO_IQC) {
+    const inspectionNumber = `${DEMO_IQC_PREFIX}${String(q.n).padStart(4, '0')}`;
+    try {
+      if (await iqcRepo.findOne({ where: { inspectionNumber } })) { t.skipped++; continue; }
+      const supplierId = idByCode.get(q.supplierCode);
+      await iqcRepo.save(iqcRepo.create({
+        inspectionNumber,
+        supplier: supplierId ? ({ id: supplierId } as any) : undefined,
+        partNumber: q.partNumber, lotNumber: `LOT-${q.supplierCode.slice(-3)}-${q.n}`,
+        result: q.result, sampleSize: q.sampleSize, defectsFound: q.defectsFound,
+        inspector: q.inspector, notes: q.notes, warehouseId: DEMO_WH_QA,
+        createdAt: relDate(-q.daysAgo),
+      } as any));
+      t.created++;
+    } catch (err) {
+      t.errors++;
+      log('iqc', `ERROR ${inspectionNumber}: ${(err as Error).message}`);
+    }
+  }
+
+  for (const s of DEMO_SCARS) {
+    const scarNumber = `${DEMO_SCAR_PREFIX}${String(s.n).padStart(4, '0')}`;
+    try {
+      if (await scarRepo.findOne({ where: { scarNumber } })) { t.skipped++; continue; }
+      const supplierId = idByCode.get(s.supplierCode);
+      await scarRepo.save(scarRepo.create({
+        scarNumber, supplier: supplierId ? ({ id: supplierId } as any) : undefined,
+        status: s.status, severity: s.severity,
+        partNumber: s.partNumber, lotNumber: `LOT-${s.supplierCode.slice(-3)}-${s.n}`,
+        issueSummary: s.issueSummary, defectDescription: s.defectDescription,
+        quantityAffected: s.quantityAffected,
+        containmentRequired: 'Segregar lote afectado y 100% de inspección en recepción.',
+        supplierRootCause: s.rootCause, supplierCorrectiveAction: s.correctiveAction,
+        createdBy: DEMO_ACTOR, internalOwner: 'Andrés Rojas', supplierContact: s.supplierContact,
+        dueDate: s.dueInDays != null ? relDate(s.dueInDays) : undefined,
+        createdAt: relDate(-s.openedDaysAgo),
+        closedAt: s.closedDaysAgo != null ? relDate(-s.closedDaysAgo) : undefined,
+      } as any));
+      t.created++;
+    } catch (err) {
+      t.errors++;
+      log('scar', `ERROR ${scarNumber}: ${(err as Error).message}`);
+    }
+  }
+  log('prov.calidad', `IQC+SCAR=${t.created} ya existían=${t.skipped} errores=${t.errors}`);
+  return t;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// NCRs de calidad: no conformidades de recepción/proceso/proveedor ligadas a
+// partes, modelos, WOs y clientes demo — para que el módulo de calidad/NCR abra
+// con contenido cruzado y no vacío.
+// ─────────────────────────────────────────────────────────────────────────────
+type NcrSpec = {
+  n: number; severity: NcrSeverity; status: NcrStatus; sourceType: NcrSourceType;
+  category: string; description: string; partNumber: string; quantityAffected: number;
+  line?: string; customer?: string; program?: string; model?: string; workOrder?: string;
+  warehouse?: string; owner?: string; dispositionNotes?: string;
+};
+const DEMO_NCRS: NcrSpec[] = [
+  { n: 1, severity: NcrSeverity.MAJOR, status: NcrStatus.CONTAINED, sourceType: NcrSourceType.INCOMING, category: 'Componente', description: 'PCB con delaminación detectada en IQC (proveedor Strataboard Fab).', partNumber: 'PCB-AX200-6L', quantityAffected: 3, warehouse: 'AX-WH-QA', program: 'Axos Power — Módulos 48V', model: 'AX-POWER-200', owner: 'Andrés Rojas', dispositionNotes: 'Lote segregado en cuarentena; pendiente disposición MRB.' },
+  { n: 2, severity: NcrSeverity.MAJOR, status: NcrStatus.UNDER_REVIEW, sourceType: NcrSourceType.IN_PROCESS, category: 'Soldadura', description: 'Soldadura insuficiente en QFP detectada en AOI de la línea 1.', partNumber: 'PCB-AX100-4L', quantityAffected: 5, line: 'L1', customer: 'Axos Mobility', model: 'AX-DRIVE-100', workOrder: 'AX-WO-0001', owner: 'Patricia Núñez' },
+  { n: 3, severity: NcrSeverity.CRITICAL, status: NcrStatus.OPEN, sourceType: NcrSourceType.IN_PROCESS, category: 'Funcional', description: 'Falla en prueba funcional de etapa de potencia en controlador de motor.', partNumber: 'AX-PCBA-500', quantityAffected: 2, line: 'L3', customer: 'Axos Mobility', model: 'AX-MOTOR-500', workOrder: 'AX-WO-0001', owner: 'Andrés Rojas' },
+  { n: 4, severity: NcrSeverity.MINOR, status: NcrStatus.DISPOSITIONED, sourceType: NcrSourceType.INCOMING, category: 'Cosmético', description: 'Conectores con pines doblados por embalaje del distribuidor.', partNumber: 'CONN-RJ45-MAG', quantityAffected: 5, warehouse: 'AX-WH-QA', owner: 'Carla Calidad', dispositionNotes: 'Retrabajo de enderezado aprobado y verificado.' },
+  { n: 5, severity: NcrSeverity.MAJOR, status: NcrStatus.OPEN, sourceType: NcrSourceType.SUPPLIER, category: 'Magnéticos', description: 'Transformador flyback fuera de tolerancia de inductancia (proveedor Kestrel Magnetics).', partNumber: 'XFMR-FLYBACK-5W', quantityAffected: 6, program: 'Axos Power — Módulos 48V', owner: 'Andrés Rojas' },
+  { n: 6, severity: NcrSeverity.MINOR, status: NcrStatus.CLOSED, sourceType: NcrSourceType.IN_PROCESS, category: 'Etiquetado', description: 'Etiqueta de trazabilidad ilegible en unidades del nodo de sensores.', partNumber: 'LABEL-QR-AX', quantityAffected: 18, line: 'L8', customer: 'Axos Medical', model: 'AX-NODE-800', workOrder: 'AX-WO-0005', owner: 'Carla Calidad', dispositionNotes: 'Reimpresión y reverificación 100%.' },
+];
+
+async function seedQualityNcrs(ds: DataSource): Promise<Tally> {
+  const repo = ds.getRepository(NCR);
+  const t = tally();
+  for (const n of DEMO_NCRS) {
+    const ncrNumber = `${DEMO_NCR_PREFIX}${String(n.n).padStart(4, '0')}`;
+    try {
+      if (await repo.findOne({ where: { ncrNumber } })) { t.skipped++; continue; }
+      await repo.save(repo.create({
+        ncrNumber, status: n.status, severity: n.severity, sourceType: n.sourceType,
+        category: n.category, description: n.description,
+        partNumber: n.partNumber, lotNumber: `LOT-NCR-${n.n}`, quantityAffected: n.quantityAffected,
+        line: n.line, customer: n.customer, program: n.program, model: n.model, workOrder: n.workOrder,
+        warehouse: n.warehouse, createdBy: DEMO_ACTOR, owner: n.owner, dispositionNotes: n.dispositionNotes,
+      }));
+      t.created++;
+    } catch (err) {
+      t.errors++;
+      log('ncr', `ERROR ${ncrNumber}: ${(err as Error).message}`);
+    }
+  }
+  log('ncr', `NCRs=${t.created} ya existían=${t.skipped} errores=${t.errors}`);
+  return t;
+}
+
+// ── SPC DATA FOUNDATION (demo): CTQ characteristics + plausible measurements ──
+// The data SPC needs in order to exist: a small CTQ catalog on a demo model plus
+// readings around the nominal (mostly in-spec, a couple near a limit) so the
+// descriptive summary + histogram have something REAL to show. Plausible demo
+// values live ONLY here (never in app logic). Idempotent + fully defensive.
+async function seedSpcData(ds: DataSource): Promise<void> {
+  try {
+    const charRepo = ds.getRepository(QualityCharacteristic);
+    const measRepo = ds.getRepository(QualityMeasurement);
+    const model = await ds
+      .getRepository(ProductModel)
+      .findOne({ where: { modelNumber: 'AX-DRIVE-100' } });
+
+    const specs: Array<{
+      code: string; name: string; type: 'VARIABLE' | 'ATTRIBUTE'; unit: string | null;
+      nominal?: number; usl?: number; lsl?: number; station: string; readings?: number[];
+    }> = [
+      {
+        code: 'CTQ-DEMO-001', name: 'Voltaje de salida 3V3', type: 'VARIABLE', unit: 'V',
+        nominal: 3.30, usl: 3.40, lsl: 3.20, station: 'Prueba ICT',
+        readings: [3.30, 3.31, 3.29, 3.32, 3.28, 3.30, 3.33, 3.27, 3.31, 3.30, 3.29, 3.34, 3.30, 3.28, 3.41, 3.30, 3.32, 3.29, 3.31, 3.30],
+      },
+      {
+        code: 'CTQ-DEMO-002', name: 'Altura del conector J1', type: 'VARIABLE', unit: 'mm',
+        nominal: 10.00, usl: 10.20, lsl: 9.80, station: 'Ensamble final',
+        readings: [10.00, 10.02, 9.98, 10.05, 9.97, 10.01, 10.03, 9.96, 10.04, 9.99, 10.00, 10.08, 9.95, 10.02, 9.79, 10.01, 10.00, 9.98, 10.06, 10.00],
+      },
+      {
+        code: 'CTQ-DEMO-003', name: 'Presencia de etiqueta de trazabilidad', type: 'ATTRIBUTE',
+        unit: null, station: 'Empaque',
+      },
+    ];
+
+    let createdChars = 0, existed = 0, createdMeas = 0;
+    for (const s of specs) {
+      let c = await charRepo.findOne({ where: { code: s.code } });
+      if (!c) {
+        c = await charRepo.save(charRepo.create({
+          code: s.code, name: s.name, modelId: model?.id ?? null, station: s.station,
+          type: s.type, unit: s.unit,
+          nominal: s.nominal ?? null, usl: s.usl ?? null, lsl: s.lsl ?? null,
+          isCritical: true, active: true, notes: 'Característica CTQ demo (universo AXOS).',
+          tenant_id: null, organization_id: null, plant_id: null, created_by: DEMO_ACTOR,
+        }));
+        createdChars++;
+      } else {
+        existed++;
+      }
+
+      const cid = c.id;
+      if (s.type === 'VARIABLE' && s.readings) {
+        const already = await measRepo.count({ where: { characteristicId: cid } });
+        if (already === 0) {
+          const now = Date.now();
+          const rows = s.readings.map((value, i) => measRepo.create({
+            characteristicId: cid, value, passed: null,
+            subgroupId: `SG-${Math.floor(i / 5) + 1}`,
+            subgroupLabel: `Subgrupo ${Math.floor(i / 5) + 1}`,
+            measuredAt: new Date(now - (s.readings!.length - i) * 3_600_000),
+            measuredBy: DEMO_ACTOR, source: 'FINAL_INSPECTION', reference: 'WO-DEMO-AX100',
+            gage: 'CMM-01', notes: null,
+            tenant_id: null, organization_id: null, plant_id: null, created_by: DEMO_ACTOR,
+          }));
+          await measRepo.save(rows);
+          createdMeas += rows.length;
+        }
+      }
+    }
+    log('spc', `CTQ creadas=${createdChars} ya existían=${existed} · mediciones=${createdMeas}${model ? '' : ' (modelo AX-DRIVE-100 no hallado → CTQ generales)'}`);
+  } catch (err) {
+    log('spc', `ERROR (no fatal): ${(err as Error).message}`);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Profundidad de inventario que CRUZA con planes (Clear-to-Build): existencias WIP
+// de sub-ensambles, un faltante real (todo el on-hand asignado) y un hold de
+// calidad sobre una parte demandada → al menos una WO en ROJO; el resto OK. Al
+// final recalcula y persiste el readinessSummary de las WO publicadas.
+// ─────────────────────────────────────────────────────────────────────────────
+const WIP_SUBASSEMBLY_STOCK: Array<{ part: string; onHand: number }> = [
+  { part: 'AX-PCBA-500', onHand: 18 },
+  { part: 'AX-PCBA-600', onHand: 40 },
+  { part: 'AX-PCBA-700', onHand: 26 },
+  { part: 'AX-PCBA-800', onHand: 55 },
+  { part: 'AX-PWRSTAGE-500', onHand: 30 },
+];
+
+async function seedInventoryDepth(app: INestApplicationContext, ds: DataSource): Promise<Tally> {
+  const posRepo = ds.getRepository(InventoryPosition);
+  const holdRepo = ds.getRepository(QualityHold);
+  const planRepo = ds.getRepository(Plan);
+  const quality = app.get(QualityService, { strict: false });
+  const plansSvc = app.get(PlansService, { strict: false });
+  const t = tally();
+
+  // 1) Existencias WIP de sub-ensambles (buildables) → inventario que cruza BOMs.
+  for (const w of WIP_SUBASSEMBLY_STOCK) {
+    try {
+      const exists = await posRepo.findOne({
+        where: { partNumber: w.part, warehouseId: DEMO_WH_WIP, location: 'WIP-LINE' },
+      });
+      if (exists) { t.skipped++; continue; }
+      await posRepo.save(posRepo.create({
+        partNumber: w.part, warehouseId: DEMO_WH_WIP, location: 'WIP-LINE',
+        onHand: w.onHand, allocated: 0, inTransit: 0, holdStatus: 'available',
+      }));
+      t.created++;
+    } catch (err) {
+      t.errors++;
+      log('inv.wip', `ERROR ${w.part}: ${(err as Error).message}`);
+    }
+  }
+
+  // 2) Faltante realista: todo el on-hand de PCB-AX100-4L (RM) queda asignado a
+  //    otras órdenes → disponible 0 para AX-WO-0001 (Clear-to-Build de materiales).
+  try {
+    const pcb = await posRepo.findOne({
+      where: { partNumber: 'PCB-AX100-4L', warehouseId: DEMO_WH_RM, holdStatus: 'available' },
+    });
+    if (pcb && Number(pcb.allocated) < 1 && Number(pcb.onHand) > 0) {
+      await posRepo.update(pcb.id, { allocated: pcb.onHand });
+      t.created++;
+    }
+  } catch (err) {
+    t.errors++;
+    log('inv.faltante', `ERROR PCB-AX100-4L: ${(err as Error).message}`);
+  }
+
+  // 3) Hold de calidad sobre PCB-AX200-6L (sólo lo usa AX-POWER-200) → quality ROJO
+  //    para AX-WO-0003 y llena quality_holds. Idempotente por (parte+razón).
+  try {
+    const exists = await holdRepo.findOne({
+      where: { partNumber: 'PCB-AX200-6L', reason: DEMO_QHOLD_REASON, isActive: true },
+    });
+    if (!exists) {
+      await quality.createHold({
+        partNumber: 'PCB-AX200-6L', level: QualityHoldLevel.PART_NUMBER,
+        reason: DEMO_QHOLD_REASON, heldBy: DEMO_ACTOR,
+        notes: 'Lote bajo disposición por delaminación detectada en IQC (demo).',
+      });
+      t.created++;
+    }
+  } catch (err) {
+    t.errors++;
+    log('inv.hold', `ERROR PCB-AX200-6L: ${(err as Error).message}`);
+  }
+
+  // 4) Fecha compromiso de las WO publicadas (mezcla vencida/hoy/en plazo) +
+  //    recálculo y persistencia del readinessSummary (semáforo del piso real).
+  const DUE_BY_WO: Record<string, number> = {
+    'AX-WO-0001': -2, // vencida → embarque ROJO (+ faltante de PCB) = WO en rojo
+    'AX-WO-0003': 1, // en plazo, pero quality ROJO por el hold
+    'AX-WO-0005': 0, // vence hoy → embarque ÁMBAR
+    'AX-WO-0007': 12, // holgado → verde
+  };
+  for (const p of DEMO_PLANS.filter((pl) => pl.publish)) {
+    try {
+      const plan = await planRepo.findOne({ where: { workOrder: p.workOrder }, relations: ['kit'] });
+      if (!plan) { t.skipped++; continue; }
+      const due = DUE_BY_WO[p.workOrder];
+      if (due != null && !plan.dueDate) await planRepo.update(plan.id, { dueDate: relDate(due) });
+      const fresh = await planRepo.findOne({ where: { workOrder: p.workOrder }, relations: ['kit'] });
+      if (fresh) {
+        const summary = await plansSvc.computeReadiness(fresh);
+        await planRepo.update(fresh.id, { readinessSummary: summary as any });
+      }
+    } catch (err) {
+      t.errors++;
+      log('inv.readiness', `ERROR ${p.workOrder}: ${(err as Error).message}`);
+    }
+  }
+
+  log('inv.densidad', `posiciones/faltante/hold/readiness=${t.created} omitidos=${t.skipped} errores=${t.errors}`);
+  return t;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Orquestación
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1892,6 +2491,15 @@ async function run(): Promise<void> {
       await seedBusinessDomains(app);
       await seedCrmSuite(app);
       await seedCustomerSalesOrders(app);
+      // ── Densidad Fase 2: profundidad relacional de herramientas nuevas ──
+      await seedToolingDepth(app, ds);
+      await seedMaintenanceDepth(app, ds);
+      await seedWarehouseTasks(ds);
+      await seedReplenishmentRules(ds);
+      await seedSupplierQuality(ds);
+      await seedQualityNcrs(ds);
+      await seedSpcData(ds);
+      await seedInventoryDepth(app, ds);
       await seedNotifications(app);
     });
 
@@ -1916,6 +2524,11 @@ async function run(): Promise<void> {
     console.log(`   Ruteo (estac.):   ${DEMO_ROUTINGS.reduce((a, r) => a + r.stations.length, 0)} en ${DEMO_ROUTINGS.length} modelos (rev ${DEMO_ROUTING_REVISION})`);
     console.log(`   Ejecución MES:    ${DEMO_MES_WORK_ORDERS.length} WO publicadas (1ª estación in_process)`);
     console.log(`   Usuarios demo:    ${DEMO_USERS.length}`);
+    console.log(`   Herramentales:    ${DEMO_TOOLS.length} (vida % variada, 2 cerca de fin de vida)`);
+    console.log(`   CMMS:             ${DEMO_MAINT_ASSETS.length} activos + ${DEMO_MAINT_ORDERS.length} órdenes (PM vencido/por vencer)`);
+    console.log(`   Warehouse tasks:  ${DEMO_WH_TASKS.length} (acomodo/surtido/traslado/conteo)`);
+    console.log(`   Reglas reabasto:  ${DEMO_REPL_RULES.length}`);
+    console.log(`   Calidad prov.:    IQC=${DEMO_IQC.length} · SCAR=${DEMO_SCARS.length} · NCR=${DEMO_NCRS.length}`);
     console.log(`   Valuación inv.:   $${valuation.toFixed(2)} USD`);
     console.log('   Folios ejemplo:   modelos ' + DEMO_MODELS.map((m) => m.modelNumber).join(', '));
     console.log('   Órdenes ejemplo:  ' + DEMO_PLANS.slice(0, 3).map((p) => p.workOrder).join(', ') + ' …');

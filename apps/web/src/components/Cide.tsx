@@ -12,6 +12,9 @@ import {
   Loader2,
   Bot,
   Wrench,
+  History,
+  Plus,
+  MessageSquare,
 } from 'lucide-react';
 import { glass } from '@/lib/glass';
 import { isAdminAccess } from '@/lib/owner';
@@ -48,6 +51,34 @@ interface ChatMsg {
   mock?: boolean;
 }
 
+/** Conversation summary as returned by GET /api/ai/conversations. */
+interface ConvSummary {
+  id: string;
+  title: string;
+  updatedAt: string;
+}
+
+/** A stored message as returned by GET /api/ai/conversations/:id. */
+interface StoredMessage {
+  role: 'user' | 'assistant';
+  content: string;
+  toolsUsed?: string[] | null;
+  cards?: CideCard[] | null;
+}
+
+function relativeTime(iso: string): string {
+  const then = new Date(iso).getTime();
+  if (!Number.isFinite(then)) return '';
+  const mins = Math.round((Date.now() - then) / 60000);
+  if (mins < 1) return 'ahora';
+  if (mins < 60) return `hace ${mins} min`;
+  const hrs = Math.round(mins / 60);
+  if (hrs < 24) return `hace ${hrs} h`;
+  const days = Math.round(hrs / 24);
+  if (days < 30) return `hace ${days} d`;
+  return new Date(iso).toLocaleDateString('es-MX');
+}
+
 const SUGGESTIONS = [
   '¿Cómo va la planta hoy?',
   '¿Qué cambió en producción en las últimas 24 h?',
@@ -63,6 +94,9 @@ export function Cide() {
   const [loading, setLoading] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [view, setView] = useState<'chat' | 'history'>('chat');
+  const [conversations, setConversations] = useState<ConvSummary[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { session } = useDashboardSession();
   const isAdmin = isAdminAccess(session?.role, session?.email);
@@ -113,6 +147,52 @@ export function Cide() {
     }
   }
 
+  async function openHistory() {
+    setView('history');
+    setLoadingHistory(true);
+    try {
+      const res = await fetch('/api/ai/conversations');
+      if (res.ok) setConversations(await res.json());
+    } catch {
+      /* non-fatal: history panel just shows empty */
+    } finally {
+      setLoadingHistory(false);
+    }
+  }
+
+  async function loadConversation(id: string) {
+    setError(null);
+    setLoadingHistory(true);
+    try {
+      const res = await fetch(`/api/ai/conversations/${id}`);
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data?.message || 'No se pudo cargar la conversación.');
+        return;
+      }
+      const msgs: ChatMsg[] = (data.messages ?? []).map((m: StoredMessage) => ({
+        role: m.role,
+        content: m.content,
+        tools: m.toolsUsed ?? undefined,
+        cards: m.cards ?? undefined,
+      }));
+      setMessages(msgs);
+      setConversationId(id);
+      setView('chat');
+    } catch {
+      setError('Error de red al cargar la conversación.');
+    } finally {
+      setLoadingHistory(false);
+    }
+  }
+
+  function newConversation() {
+    setMessages([]);
+    setConversationId(null);
+    setError(null);
+    setView('chat');
+  }
+
   return (
     <>
       {/* Floating launcher */}
@@ -155,6 +235,26 @@ export function Cide() {
                   </div>
                 </div>
                 <div className="flex items-center gap-1">
+                  <button
+                    onClick={newConversation}
+                    aria-label="Nueva conversación"
+                    title="Nueva conversación"
+                    className="rounded-lg p-2 text-black/50 transition-colors hover:bg-black/5 hover:text-black dark:text-white/50 dark:hover:bg-white/10 dark:hover:text-white"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => (view === 'history' ? setView('chat') : openHistory())}
+                    aria-label="Historial de conversaciones"
+                    title="Historial"
+                    className={`rounded-lg p-2 transition-colors hover:bg-black/5 dark:hover:bg-white/10 ${
+                      view === 'history'
+                        ? 'text-violet-600 dark:text-violet-300'
+                        : 'text-black/50 hover:text-black dark:text-white/50 dark:hover:text-white'
+                    }`}
+                  >
+                    <History className="h-4 w-4" />
+                  </button>
                   {isAdmin && (
                     <Link
                       href="/dashboard/admin/ai"
@@ -180,6 +280,15 @@ export function Cide() {
                 ref={scrollRef}
                 className="flex-1 space-y-4 overflow-y-auto px-5 py-5"
               >
+                {view === 'history' ? (
+                  <HistoryView
+                    conversations={conversations}
+                    loading={loadingHistory}
+                    activeId={conversationId}
+                    onPick={loadConversation}
+                  />
+                ) : (
+                  <>
                 {messages.length === 0 && (
                   <div className="space-y-4 pt-6 text-center">
                     <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-500/10 text-violet-500">
@@ -275,9 +384,12 @@ export function Cide() {
                     )}
                   </div>
                 )}
+                  </>
+                )}
               </div>
 
               {/* Composer */}
+              {view === 'chat' && (
               <div className="border-t border-white/10 p-3">
                 <form
                   onSubmit={(e) => {
@@ -309,11 +421,74 @@ export function Cide() {
                   </button>
                 </form>
               </div>
+              )}
             </motion.aside>
           </>
         )}
       </AnimatePresence>
     </>
+  );
+}
+
+// ── Conversation history ────────────────────────────────────────────────────
+
+function HistoryView({
+  conversations,
+  loading,
+  activeId,
+  onPick,
+}: {
+  conversations: ConvSummary[];
+  loading: boolean;
+  activeId: string | null;
+  onPick: (id: string) => void;
+}) {
+  if (loading && conversations.length === 0) {
+    return (
+      <div className="flex items-center justify-center gap-2 pt-10 text-sm text-black/50 dark:text-white/50">
+        <Loader2 className="h-4 w-4 animate-spin" />
+        Cargando historial…
+      </div>
+    );
+  }
+  if (conversations.length === 0) {
+    return (
+      <div className="space-y-3 pt-10 text-center">
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-500/10 text-violet-500">
+          <History className="h-6 w-6" />
+        </div>
+        <p className="text-sm text-black/60 dark:text-white/60">
+          Aún no tienes conversaciones guardadas. Cuando converses con CIDE,
+          aparecerán aquí para que puedas retomarlas.
+        </p>
+      </div>
+    );
+  }
+  return (
+    <div className="space-y-1.5">
+      <p className="px-1 pb-1 text-[11px] font-medium uppercase tracking-wide text-black/40 dark:text-white/40">
+        Conversaciones
+      </p>
+      {conversations.map((c) => (
+        <button
+          key={c.id}
+          onClick={() => onPick(c.id)}
+          className={`flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-colors ${
+            c.id === activeId
+              ? 'border-violet-400/60 bg-violet-500/10'
+              : 'border-black/10 hover:bg-black/5 dark:border-white/10 dark:hover:bg-white/10'
+          }`}
+        >
+          <MessageSquare className="h-4 w-4 shrink-0 text-violet-500" />
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-sm">{c.title}</span>
+            <span className="block text-[11px] text-black/45 dark:text-white/45">
+              {relativeTime(c.updatedAt)}
+            </span>
+          </span>
+        </button>
+      ))}
+    </div>
   );
 }
 
