@@ -2030,4 +2030,21 @@ sin encabezado, relleno de filas cortas, escape de `|` y saltos, vacío; `rangeV
 celda fuera de datos; `rangeToMarkdown` extremo a extremo). Sin regresiones: las 56 suites de spec de
 Office verdes; `lint web` 0 errores; `build web` ✓.
 
+## 87. Office/Docs — notas al pie en la exportación a Markdown
+
+**Contexto.** La exportación a Markdown (§81) emitía un marcador de nota al pie **vacío** (`[^]`) y
+**perdía el texto** de la nota: en el modelo de Docs el texto vive en `footnoteRef.attrs.content` (en
+línea), no en un nodo de definiciones, y el serializador lo ignoraba. Pérdida de datos real al
+exportar un documento con notas al pie.
+
+**Decisión (sólo `apps/web`, aditiva):** `markdown.ts` acumula el texto de cada `footnoteRef` en un
+recolector del documento en curso (reiniciado en cada `tiptapJsonToMarkdown`), emite una **referencia
+numerada** `[^N]` en su sitio y, al final, vuelca un **bloque de definiciones** `[^N]: texto`
+(sintaxis de notas al pie de GFM/Pandoc). Los saltos de línea internos de la nota se colapsan a un
+espacio.
+
+**Verificación:** `markdown.spec.ts` ampliado (**23 aserciones**, +2: nota única `Texto[^1]` +
+`[^1]: …`, y dos notas numeradas en orden con su bloque de definiciones). Sin regresiones: las 56
+suites de spec de Office verdes; `lint web` 0 errores; `build web` ✓.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
