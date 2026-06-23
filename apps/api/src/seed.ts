@@ -3,6 +3,7 @@ import { AppModule } from './app.module';
 import { UsersService } from './modules/users/users.service';
 import { UserRole } from './modules/users/entities/user.entity';
 import { permissionsFor } from './modules/auth/rbac';
+import { getServicePassword } from './common/config/service-password';
 
 /**
  * Seed base: asegura un usuario administrador para arrancar una instancia vacía.
@@ -25,7 +26,10 @@ async function bootstrap() {
     const usersService = app.get(UsersService);
 
     const email = 'admin@example.com';
-    const password = process.env.BACKEND_SERVICE_PASSWORD || '31218223';
+    // Env-only service password (single source of truth). Throws in prod when
+    // BACKEND_SERVICE_PASSWORD is missing, so the seed fails closed instead of
+    // creating an admin with a public default.
+    const password = getServicePassword();
 
     const exists = await usersService.findOneByEmail(email);
     if (exists) {
@@ -39,7 +43,8 @@ async function bootstrap() {
         role: UserRole.ADMIN, // debe ser exactamente 'Admin' para el bypass del guard
         permissions: permissionsFor('admin'), // set completo: el frontend no lo limita
       });
-      console.log(`✅ Usuario admin creado: ${email} / ${password}`);
+      // Never log the password.
+      console.log(`✅ Usuario admin creado: ${email}`);
     }
   } catch (error) {
     console.error('❌ Error en el seed:', error);
