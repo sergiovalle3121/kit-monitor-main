@@ -12,7 +12,7 @@ import {
   AlignHorizontalJustifyStart, AlignHorizontalJustifyCenter, AlignHorizontalJustifyEnd,
   AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd,
   AlignHorizontalDistributeCenter, AlignVerticalDistributeCenter, RulerDimensionLine, Rows3, Waypoints,
-  ShieldCheck, CircleCheck, CircleAlert, Printer, ChartLine, FileText, WandSparkles, Stamp, Upload, ImageOff, Activity, History,
+  ShieldCheck, CircleCheck, CircleAlert, Printer, ChartLine, FileText, WandSparkles, Stamp, Upload, ImageOff, Activity, History, Group,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/apiFetch';
 import { useToast } from '@/contexts/ToastContext';
@@ -553,13 +553,14 @@ function buildDim(a: Ann, s: number, W: number, H: number, unit: string): THREE.
 }
 
 export default function Layout3DEditor({
-  model, revision, open, onClose, onSaved,
+  model, revision, open, onClose, onSaved, models = [],
 }: {
   model: string;
   revision: string;
   open: boolean;
   onClose: () => void;
   onSaved?: () => void;
+  models?: { model: string; revision: string }[];
 }) {
   const toast = useToast();
   const mountRef = useRef<HTMLDivElement | null>(null);
@@ -580,6 +581,11 @@ export default function Layout3DEditor({
   const [versName, setVersName] = useState('');
   const [versBusy, setVersBusy] = useState(false);
   const [reloadTick, setReloadTick] = useState(0); // bump to re-run the load effect (after restore)
+  const [cellsTick, setCellsTick] = useState(0); // bump to re-render the cells list (cellsRef is a ref)
+  const [showCells, setShowCells] = useState(false); // cells/zones panel
+  const [showClone, setShowClone] = useState(false); // clone-from-template modal
+  const [cloneSrc, setCloneSrc] = useState('');
+  const [cloneBusy, setCloneBusy] = useState(false);
   const [selList, setSelList] = useState<SelItem[]>([]);
   const [selSnap, setSelSnap] = useState<SelSnap | null>(null);
   const [placedIds, setPlacedIds] = useState<Set<string>>(new Set());
@@ -620,6 +626,8 @@ export default function Layout3DEditor({
   const dimsGroupRef = useRef<THREE.Group | null>(null);
   const notesGroupRef = useRef<THREE.Group | null>(null);
   const connsGroupRef = useRef<THREE.Group | null>(null);
+  const cellsGroupRef = useRef<THREE.Group | null>(null); // rebuildable cell tints (unify)
+  const rebuildCellsRef = useRef<() => void>(() => {});
   const connectorsRef = useRef<Conn[]>([]); // mutable line connectors (auto-connect, Fase 62)
   const cellsRef = useRef<Cell[]>([]); // mutable cells/zones (unify — editable + round-trip)
   const gridGroupRef = useRef<THREE.Group | null>(null);
@@ -1104,7 +1112,7 @@ export default function Layout3DEditor({
     }
   }, [showGaps, loadGaps]);
 
-  const rebuildAll = useCallback(() => { rebuildBlocks(); rebuildAssets(); rebuildDims(); rebuildNotes(); }, [rebuildBlocks, rebuildAssets, rebuildDims, rebuildNotes]);
+  const rebuildAll = useCallback(() => { rebuildBlocks(); rebuildAssets(); rebuildDims(); rebuildNotes(); rebuildCellsRef.current(); }, [rebuildBlocks, rebuildAssets, rebuildDims, rebuildNotes]);
 
   // ---- live station-status overlay: colour blocks by MES / heat / etc. (unify) ----
   const loadOverlay = useCallback(async (kind: OverlayKind | null) => {
@@ -1126,6 +1134,41 @@ export default function Layout3DEditor({
     document.addEventListener('mousedown', onDoc);
     return () => document.removeEventListener('mousedown', onDoc);
   }, [showOverlayMenu]);
+
+  // ---- cells / zones: rebuildable tints + create/remove (ported from 2D, unify) ----
+  const rebuildCells = useCallback(() => {
+    const group = cellsGroupRef.current; const ctx = ctxRef.current;
+    if (!group || !ctx) return;
+    while (group.children.length) { const o = group.children[group.children.length - 1]; group.remove(o); disposeObject(o); }
+    const { s, W, H } = ctx; const pad = data?.footprint.gridSize || 0;
+    cellsRef.current.forEach((c) => {
+      const members = c.stationIds.map((id) => placementsRef.current.get(id)).filter(Boolean) as Placement[];
+      if (!members.length) return;
+      const x0 = Math.min(...members.map((m) => m.x)) - pad, y0 = Math.min(...members.map((m) => m.y)) - pad;
+      const x1 = Math.max(...members.map((m) => m.x + m.w)) + pad, y1 = Math.max(...members.map((m) => m.y + m.h)) + pad;
+      const plane = new THREE.Mesh(
+        new THREE.PlaneGeometry((x1 - x0) * s, (y1 - y0) * s),
+        new THREE.MeshBasicMaterial({ color: new THREE.Color(c.color), transparent: true, opacity: 0.18 }),
+      );
+      plane.rotation.x = -Math.PI / 2;
+      plane.position.set(((x0 + x1) / 2 - W / 2) * s, 0.03, ((y0 + y1) / 2 - H / 2) * s);
+      group.add(plane);
+    });
+  }, [data]);
+  useEffect(() => { rebuildCellsRef.current = rebuildCells; }, [rebuildCells]);
+  const createCellFromSelection = () => {
+    const ids = selRef.current.filter((it) => it.type === 'station').map((it) => it.id);
+    if (ids.length === 0) { toast.error('Selecciona estaciones para agrupar en una celda.', '3D'); return; }
+    const palette = ['#22d3ee', '#a78bfa', '#f472b6', '#fbbf24', '#34d399', '#60a5fa', '#fb7185', '#4ade80'];
+    const color = palette[cellsRef.current.length % palette.length];
+    cellsRef.current = [...cellsRef.current, { id: newId('cell'), name: `Celda ${cellsRef.current.length + 1}`, color, stationIds: [...new Set(ids)] }];
+    setCellsTick((t) => t + 1); setDirty(true); rebuildCells();
+    toast.success('Celda creada.', '3D');
+  };
+  const deleteCell = (id: string) => {
+    cellsRef.current = cellsRef.current.filter((c) => c.id !== id);
+    setCellsTick((t) => t + 1); setDirty(true); rebuildCells();
+  };
 
   // ---- undo / redo (memento of the editable collections) ----
   const snapshot = useCallback((): Snapshot => ({
@@ -1218,21 +1261,9 @@ export default function Layout3DEditor({
     ground.rotation.x = -Math.PI / 2; ground.position.y = 0; ground.receiveShadow = true;
     groundRef.current = ground; deco.add(ground);
     const gridGroup = new THREE.Group(); deco.add(gridGroup); gridGroupRef.current = gridGroup;
-    // cell floor tints
-    (data.cells ?? []).forEach((c) => {
-      const members = [...placementsRef.current.entries()].filter(([id]) => c.stationIds.includes(id)).map(([, p]) => p);
-      if (!members.length) return;
-      const pad = fp.gridSize || 0;
-      const x0 = Math.min(...members.map((m) => m.x)) - pad, y0 = Math.min(...members.map((m) => m.y)) - pad;
-      const x1 = Math.max(...members.map((m) => m.x + m.w)) + pad, y1 = Math.max(...members.map((m) => m.y + m.h)) + pad;
-      const plane = new THREE.Mesh(
-        new THREE.PlaneGeometry((x1 - x0) * s, (y1 - y0) * s),
-        new THREE.MeshBasicMaterial({ color: new THREE.Color(c.color), transparent: true, opacity: 0.18 }),
-      );
-      plane.rotation.x = -Math.PI / 2;
-      plane.position.set(((x0 + x1) / 2 - W / 2) * s, 0.03, ((y0 + y1) / 2 - H / 2) * s);
-      deco.add(plane);
-    });
+    // cell floor tints — rebuildable so cells can be created/removed live (unify)
+    const cellsGroup = new THREE.Group(); deco.add(cellsGroup); cellsGroupRef.current = cellsGroup;
+    rebuildCellsRef.current();
 
     const assetsGroup = new THREE.Group(); scene.add(assetsGroup); assetsGroupRef.current = assetsGroup;
     const connsGroup = new THREE.Group(); scene.add(connsGroup); connsGroupRef.current = connsGroup;
@@ -1987,6 +2018,21 @@ export default function Layout3DEditor({
       if (r.ok) setVersions((await r.json()) as typeof versions);
     } catch { /* transient */ }
   };
+  // ---- clone from another model's layout as a template (ported from 2D, unify) ----
+  const cloneFrom = async () => {
+    if (!cloneSrc || !model) return;
+    const [fromModel, fromRevision] = cloneSrc.split('|');
+    setCloneBusy(true);
+    try {
+      const r = await apiFetch(`${API_BASE}/line-engineering/layout/clone`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fromModel, fromRevision, toModel: model, toRevision: revision }),
+      });
+      if (!r.ok) { const d = await r.json().catch(() => ({})); toast.error(d?.message || 'No se pudo clonar.', '3D'); return; }
+      toast.success('Layout clonado desde la plantilla.', '3D'); setShowClone(false);
+      setReloadTick((t) => t + 1);
+    } catch { toast.error('Error de red.', '3D'); } finally { setCloneBusy(false); }
+  };
   // ---- approval / sign-off (ported from 2D, unify) ----
   const setApprovalStatus = async (status: ApprovalStatus) => {
     if (!model) return;
@@ -2465,6 +2511,8 @@ export default function Layout3DEditor({
         <T3Btn onClick={exportDxf} title="Exportar a DXF (AutoCAD) — cada tipo en su capa"><FileDown className="w-4 h-4" /></T3Btn>
         <T3Btn onClick={exportCsvSchedule} title="Exportar estaciones a CSV (Excel)"><FileText className="w-4 h-4" /></T3Btn>
         <T3Btn active={showVersions} onClick={openVersions} title="Versiones / escenarios — guardar, restaurar"><History className="w-4 h-4" /></T3Btn>
+        <T3Btn active={showCells} onClick={() => setShowCells((v) => !v)} title="Celdas / zonas — agrupar estaciones en celdas"><Group className="w-4 h-4" /></T3Btn>
+        {models.length > 1 && <T3Btn active={showClone} onClick={() => setShowClone((v) => !v)} title="Clonar layout desde otro modelo (plantilla)"><Copy className="w-4 h-4" /></T3Btn>}
         <T3Btn active={showHelp} onClick={() => setShowHelp((v) => !v)} title="Atajos y ayuda (?)"><HelpCircle className="w-4 h-4" /></T3Btn>
         <div className="flex-1" />
         {approval && (
@@ -2812,6 +2860,64 @@ export default function Layout3DEditor({
                   ))}
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Clone-from-template modal (unify) */}
+      {showClone && (
+        <div className="absolute inset-0 z-[80] grid place-items-center bg-black/50 p-4" onClick={() => setShowClone(false)}>
+          <div className="w-[420px] max-w-full rounded-2xl border border-white/10 bg-gray-900 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-2 px-4 py-3 border-b border-white/10">
+              <Copy className="w-4 h-4" style={{ color: '#22d3ee' }} />
+              <span className="text-sm font-semibold">Clonar desde plantilla</span>
+              <div className="flex-1" />
+              <button onClick={() => setShowClone(false)} className="p-1 rounded-lg hover:bg-white/10"><X className="w-4 h-4" /></button>
+            </div>
+            <div className="p-4">
+              <p className="text-[12px] text-gray-400 mb-3">Copia el layout (estaciones, equipo, conexiones, celdas y plano) de otro modelo a <b className="text-gray-200">{model} · {revision}</b>. Reemplaza el actual.</p>
+              <select value={cloneSrc} onChange={(e) => setCloneSrc(e.target.value)} className="w-full bg-white/[0.06] rounded-lg px-2.5 py-2 text-[13px] outline-none mb-3 focus:ring-1 ring-cyan-500/40">
+                <option value="" className="text-gray-900">Elige un modelo origen…</option>
+                {models.filter((m) => !(m.model === model && m.revision === revision)).map((m) => (
+                  <option key={`${m.model}|${m.revision}`} value={`${m.model}|${m.revision}`} className="text-gray-900">{m.model} · {m.revision}</option>
+                ))}
+              </select>
+              <button onClick={cloneFrom} disabled={!cloneSrc || cloneBusy} className="w-full px-3 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-[12px] font-medium disabled:opacity-50">{cloneBusy ? 'Clonando…' : 'Clonar layout'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Cells / zones modal (unify) */}
+      {showCells && (
+        <div className="absolute inset-0 z-[80] grid place-items-center bg-black/50 p-4" onClick={() => setShowCells(false)}>
+          <div className="w-[440px] max-w-full max-h-[80vh] overflow-y-auto rounded-2xl border border-white/10 bg-gray-900 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-2 px-4 py-3 border-b border-white/10">
+              <Group className="w-4 h-4" style={{ color: '#22d3ee' }} />
+              <span className="text-sm font-semibold">Celdas / zonas · {model} · {revision}</span>
+              <div className="flex-1" />
+              <button onClick={() => setShowCells(false)} className="p-1 rounded-lg hover:bg-white/10"><X className="w-4 h-4" /></button>
+            </div>
+            <div className="p-4">
+              <button onClick={createCellFromSelection} className="w-full mb-3 px-3 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-[12px] font-medium">Crear celda con la selección</button>
+              {cellsRef.current.length === 0 ? (
+                <p className="text-[12px] text-gray-500 text-center py-3">Selecciona estaciones (Shift+clic) y crea una celda para agruparlas.</p>
+              ) : (
+                <div key={cellsTick} className="space-y-1.5">
+                  {cellsRef.current.map((c) => (
+                    <div key={c.id} className="flex items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.03] px-3 py-2">
+                      <span className="inline-block w-3 h-3 rounded-sm shrink-0" style={{ background: c.color }} />
+                      <div className="min-w-0 flex-1">
+                        <input defaultValue={c.name} onBlur={(e) => { const v = e.target.value.trim(); if (v) { c.name = v; setDirty(true); setCellsTick((t) => t + 1); } }} className="w-full bg-transparent text-[13px] font-medium outline-none focus:bg-white/[0.06] rounded px-1" />
+                        <div className="text-[11px] text-gray-400 px-1">{c.stationIds.length} estaciones</div>
+                      </div>
+                      <button onClick={() => deleteCell(c.id)} className="p-1 rounded-md text-rose-300 hover:bg-rose-500/20"><Trash2 className="w-3.5 h-3.5" /></button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <p className="text-[10.5px] text-gray-500 mt-3">Las celdas tiñen el piso bajo sus estaciones agrupadas.</p>
             </div>
           </div>
         </div>

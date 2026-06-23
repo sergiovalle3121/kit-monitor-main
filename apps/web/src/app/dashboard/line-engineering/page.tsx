@@ -12,7 +12,6 @@ import {
   Bar, BarChart, CartesianGrid, Cell, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts';
 import { glass } from '@/lib/glass';
-import ErrorBoundary from '@/components/ErrorBoundary';
 import { useApi } from '@/hooks/useApi';
 import { useDialogA11y } from '@/hooks/useDialogA11y';
 import { apiFetch } from '@/lib/apiFetch';
@@ -20,11 +19,7 @@ import { useToast } from '@/contexts/ToastContext';
 
 // The 2D layout editor stands on `fabric` (canvas), so it is browser-only —
 // loaded with ssr:false, the same pattern the Office editors use.
-const LayoutEditor = dynamic(
-  () => import('@/components/line-engineering/LayoutEditor').then((m) => m.LayoutEditor),
-  { ssr: false, loading: () => <div className="flex justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div> },
-);
-// The full-screen 3D CAD editor (three.js) — browser-only, loaded only when opened.
+// The full-screen unified CAD editor (three.js, 2D⇄3D) — browser-only, loaded only when opened.
 const Layout3DEditor = dynamic(
   () => import('@/components/line-engineering/Layout3DEditor'),
   { ssr: false },
@@ -83,7 +78,7 @@ export default function LineEngineeringPage() {
   }, [stations]);
 
   const [selModel, setSelModel] = useState<string>('');
-  const [view, setView] = useState<'balance' | 'layout' | 'cad3d'>('balance');
+  const [view, setView] = useState<'balance' | 'cad3d'>('balance');
   const activeModel = selModel || (models[0] ? `${models[0].model}|${models[0].revision}` : '');
   const [model, revision] = activeModel ? activeModel.split('|') : ['', 'A'];
 
@@ -233,7 +228,7 @@ export default function LineEngineeringPage() {
 
         {/* View tabs — Balanceo (lista actual) coexiste con el Layout 2D, no lo reemplaza */}
         <div className="flex items-center gap-1 mb-5 p-1 rounded-xl bg-black/[0.04] dark:bg-white/[0.05] w-fit">
-          {([['balance', 'Balanceo', BarChart3], ['layout', 'Plano 2D (clásico)', Layers], ['cad3d', 'CAD', Boxes]] as const).map(([key, label, Icon]) => {
+          {([['balance', 'Balanceo', BarChart3], ['cad3d', 'CAD', Boxes]] as const).map(([key, label, Icon]) => {
             const on = view === key;
             const is3d = key === 'cad3d';
             return (
@@ -249,29 +244,10 @@ export default function LineEngineeringPage() {
           })}
         </div>
 
-        {/* Layout 2D editor — additive, reusa las estaciones existentes. Aislado
-            en un error boundary para que una falla del editor no tumbe la página. */}
-        {view === 'layout' && (
-          <ErrorBoundary
-            label="LayoutEditor"
-            fallback={(err, retry) => (
-              <div className={`${glass} rounded-3xl p-10 text-center`}>
-                <AlertTriangle className="w-8 h-8 mx-auto mb-3 text-amber-500" />
-                <h3 className="font-semibold">No se pudo abrir el editor de layout</h3>
-                <p className="text-sm text-gray-400 mt-1">El resto de la página sigue disponible. Reintenta abrir el editor 2D.</p>
-                <p className="mt-2 text-[11px] font-mono text-gray-400 break-all">{err.message}</p>
-                <button onClick={retry} className="mt-4 px-4 py-2 rounded-xl text-sm font-medium text-white" style={{ background: ROSE }}>Reintentar</button>
-              </div>
-            )}
-          >
-            <LayoutEditor model={model} revision={revision} models={models} />
-          </ErrorBoundary>
-        )}
-
-        {/* CAD 3D — editor full-screen (three.js). Se monta solo al activar la
-            pestaña; se cierra con la X y regresa al Layout 2D. */}
+        {/* CAD unificado (2D⇄3D) — editor full-screen (three.js). Se monta solo al
+            activar la pestaña; se cierra con la X y regresa al Balanceo. */}
         {view === 'cad3d' && (
-          <Layout3DEditor model={model} revision={revision} open onClose={() => setView('layout')} />
+          <Layout3DEditor model={model} revision={revision} open models={models} onClose={() => setView('balance')} />
         )}
 
         {view === 'balance' && (<>
