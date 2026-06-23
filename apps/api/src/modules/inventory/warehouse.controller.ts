@@ -53,6 +53,13 @@ export class WarehouseController {
     return this.warehouseService.createPull(dto, req.user);
   }
 
+  /** Importa los llamados de resurtido (e-kanban) abiertos de material-staging como pulls. */
+  @Post('pulls/import-replenish')
+  @RequirePermissions('materials:write')
+  async importReplenish(@Body() dto: any, @Request() req: any) {
+    return this.warehouseService.importReplenishCalls(dto, req.user);
+  }
+
   /** Entregar un pull (cierra COMPLETED + deliveredAt; movimiento best-effort). */
   @Patch('tasks/:id/deliver')
   @RequirePermissions('materials:write')

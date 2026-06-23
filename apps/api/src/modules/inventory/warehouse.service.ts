@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, SelectQueryBuilder } from 'typeorm';
 import { WarehouseTask, WarehouseTaskStatus, WarehouseTaskType } from './entities/warehouse-task.entity';
@@ -6,6 +6,7 @@ import { InventoryService } from './inventory.service';
 import { AuditService } from '../governance/audit.service';
 import { User } from '../users/entities/user.entity';
 import { EnterpriseWarehouse } from '../enterprise-campus/entities/enterprise-warehouse.entity';
+import { MaterialStagingService } from '../material-staging/material-staging.service';
 import { In } from 'typeorm';
 import {
   computeAgingMinutes,
@@ -24,6 +25,9 @@ export class WarehouseService {
     private readonly audit: AuditService,
     @InjectRepository(EnterpriseWarehouse)
     private readonly warehouseRepo: Repository<EnterpriseWarehouse>,
+    // Lectura del lado de material-staging para importar llamados de resurtido
+    // (e-kanban) como pulls. @Optional: si el módulo no está, el import no-opera.
+    @Optional() private readonly materialStaging?: MaterialStagingService,
   ) {}
 
   /**
@@ -286,6 +290,71 @@ export class WarehouseService {
       assignedTo: dto.assignedTo,
     };
     return this.createTask(pull, user);
+  }
+
+  /**
+   * Importa los llamados de resurtido (e-kanban) abiertos de material-staging como
+   * pulls del monitor — así el surtido de un kit publicado aparece en la cola del
+   * almacén. Es ADITIVO y de SOLO LECTURA del lado de staging (usa el método
+   * público tenant-scoped `listReplenishCalls`); NO toca su lógica ni su ciclo de
+   * vida. Idempotente: cada llamado se enlaza por referenceType='REPLENISH_CALL' +
+   * referenceId=call.id y no se vuelve a crear.
+   *
+   * Como SfReplenishCall no trae almacén/ubicación (sólo estación/parte/cant.), el
+   * operador elige el almacén origen al importar. Es un puente de UNA VÍA (surfacing
+   * de demanda): entregar el pull no cierra el llamado en staging — ese ciclo lo
+   * gobierna material-staging. (Cierre bidireccional = follow-up, requeriría tocar
+   * staging.)
+   */
+  async importReplenishCalls(
+    dto: { sourceWarehouseId: string; sourceLocation?: string },
+    user: User,
+  ): Promise<{ imported: number; skipped: number; total: number }> {
+    if (!this.materialStaging) {
+      throw new BadRequestException('La integración con material-staging no está disponible.');
+    }
+    if (!dto.sourceWarehouseId) {
+      throw new BadRequestException('Almacén origen requerido para importar los resurtidos.');
+    }
+
+    const calls = await this.materialStaging.listReplenishCalls();
+    const open = calls.filter((c) => c.status === 'OPEN' || c.status === 'IN_TRANSIT');
+
+    let imported = 0;
+    let skipped = 0;
+    for (const call of open) {
+      const existing = await this.taskRepo.findOne({
+        where: { referenceType: 'REPLENISH_CALL', referenceId: call.id },
+      });
+      if (existing) {
+        skipped += 1;
+        continue;
+      }
+      const urgent = call.priority === 'URGENT' || call.priority === 'HIGH';
+      const slaMinutes =
+        call.priority === 'URGENT' ? 30 : call.priority === 'HIGH' ? 60 : call.priority === 'LOW' ? 240 : 120;
+      await this.createTask(
+        {
+          type: WarehouseTaskType.PICK,
+          partNumber: call.part,
+          quantity: call.qty,
+          fromWarehouseId: dto.sourceWarehouseId,
+          fromLocation: dto.sourceLocation || 'ALMACEN',
+          toWarehouseId: dto.sourceWarehouseId,
+          toLocation: call.station,
+          project: call.woFolio || call.woId,
+          requestor: call.raisedBy || 'e-kanban',
+          urgent,
+          touches: 0,
+          slaMinutes,
+          referenceType: 'REPLENISH_CALL',
+          referenceId: call.id,
+        },
+        user,
+      );
+      imported += 1;
+    }
+    return { imported, skipped, total: open.length };
   }
 
   /**

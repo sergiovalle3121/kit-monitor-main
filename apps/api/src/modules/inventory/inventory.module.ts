@@ -20,6 +20,7 @@ import { WarehouseAlertsTask } from './warehouse-alerts.task';
 import { GovernanceModule } from '../governance/governance.module';
 import { UsersModule } from '../users/users.module';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { MaterialStagingModule } from '../material-staging/material-staging.module';
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
     GovernanceModule,
     UsersModule,
     NotificationsModule,
+    MaterialStagingModule,
   ],
   controllers: [InventoryController, WarehouseController, ReplenishmentController],
   providers: [InventoryService, WarehouseService, ReplenishmentService, ReturnsService, WarehouseAlertsService, WarehouseAlertsTask],
