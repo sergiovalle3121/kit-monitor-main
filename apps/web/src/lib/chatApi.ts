@@ -119,12 +119,57 @@ export interface ChatMessage {
   poll?: PollData | null;
   /** Nº de respuestas directas a este mensaje (hilo). */
   threadCount?: number;
+  /** ¿Lo tengo guardado/destacado? */
+  saved?: boolean;
 }
 
 /** Hilo: mensaje raíz + sus respuestas. */
 export interface ThreadData {
   root: ChatMessage;
   replies: ChatMessage[];
+}
+
+/** Elemento de la galería de multimedia/archivos de una conversación. */
+export interface MediaItem {
+  id: string;
+  senderId: string;
+  type: 'image' | 'file';
+  fileName: string | null;
+  fileMime: string | null;
+  fileSize: number | null;
+  imageMime: string | null;
+  createdAt: string;
+}
+
+/** Elemento de la galería de enlaces compartidos. */
+export interface LinkItem {
+  id: string;
+  senderId: string;
+  url: string;
+  body: string;
+  createdAt: string;
+}
+
+/** Previsualización (OpenGraph) de un enlace. */
+export interface LinkPreview {
+  url: string;
+  title: string | null;
+  description: string | null;
+  image: string | null;
+  siteName: string | null;
+}
+
+/** Mensaje guardado con contexto de su conversación. */
+export interface SavedItem {
+  id: string;
+  conversationId: string;
+  conversationTitle: string;
+  conversationType: 'dm' | 'channel';
+  senderId: string;
+  type: string;
+  snippet: string;
+  createdAt: string;
+  savedAt: string;
 }
 
 export interface ReadReceipt {
@@ -145,6 +190,12 @@ export interface ChatConversation {
   unread: number;
   /** Etiquetas/carpetas personales del usuario para esta conversación. */
   labels?: string[];
+  /** Estado personal: fijar / archivar / silenciar / no leído. */
+  pinned?: boolean;
+  archived?: boolean;
+  muted?: boolean;
+  mutedUntil?: string | null;
+  markedUnread?: boolean;
 }
 
 // ── Endpoints ──────────────────────────────────────────────────────────
@@ -356,6 +407,57 @@ export const chatApi = {
         body: JSON.stringify({ labels }),
       },
     ),
+
+  // ── organización personal (fijar / archivar / silenciar / no leído) ──────
+  setPinned: (conversationId: string, pinned: boolean) =>
+    req<{ ok: boolean; pinned: boolean }>(
+      `/messaging/conversations/${conversationId}/pin`,
+      { method: 'POST', headers: authHeaders(), body: JSON.stringify({ pinned }) },
+    ),
+
+  setArchived: (conversationId: string, archived: boolean) =>
+    req<{ ok: boolean; archived: boolean }>(
+      `/messaging/conversations/${conversationId}/archive`,
+      {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ archived }),
+      },
+    ),
+
+  setMuted: (conversationId: string, until: string | null) =>
+    req<{ ok: boolean; mutedUntil: string | null }>(
+      `/messaging/conversations/${conversationId}/mute`,
+      { method: 'POST', headers: authHeaders(), body: JSON.stringify({ until }) },
+    ),
+
+  setUnread: (conversationId: string, unread: boolean) =>
+    req<{ ok: boolean; markedUnread: boolean }>(
+      `/messaging/conversations/${conversationId}/unread`,
+      { method: 'POST', headers: authHeaders(), body: JSON.stringify({ unread }) },
+    ),
+
+  // ── galería + previsualización de enlaces ────────────────────────────────
+  listMedia: (conversationId: string, kind: 'image' | 'file' | 'link') =>
+    req<MediaItem[] | LinkItem[]>(
+      `/messaging/conversations/${conversationId}/media?kind=${kind}`,
+      { headers: authHeaders() },
+    ),
+
+  unfurl: (url: string) =>
+    req<LinkPreview>(`/messaging/unfurl?url=${encodeURIComponent(url)}`, {
+      headers: authHeaders(),
+    }),
+
+  // ── mensajes guardados ───────────────────────────────────────────────────
+  setSaved: (messageId: string, saved: boolean) =>
+    req<{ ok: boolean; saved: boolean }>(
+      `/messaging/messages/${messageId}/save`,
+      { method: 'POST', headers: authHeaders(), body: JSON.stringify({ saved }) },
+    ),
+
+  listSaved: () =>
+    req<SavedItem[]>('/messaging/saved', { headers: authHeaders() }),
 };
 
 /** Trae una imagen protegida (con Bearer) y la devuelve como object URL. */

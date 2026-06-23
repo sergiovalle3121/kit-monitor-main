@@ -1,7 +1,16 @@
 'use client';
 
 import React, { useEffect, useRef } from 'react';
-import { Phone, PhoneOff, Video, VideoOff, Mic, MicOff } from 'lucide-react';
+import {
+  Phone,
+  PhoneOff,
+  Video,
+  VideoOff,
+  Mic,
+  MicOff,
+  MonitorUp,
+  MonitorX,
+} from 'lucide-react';
 import { glass } from '@/lib/glass';
 import type { CallState } from '@/hooks/useCall';
 
@@ -18,6 +27,9 @@ interface CallOverlayProps {
   remotes: OverlayRemote[];
   micOn: boolean;
   camOn: boolean;
+  screenOn: boolean;
+  /** ¿El navegador permite compartir pantalla? */
+  canScreenShare: boolean;
   /** Título del encabezado (nombre del par en 1:1, o del canal en grupo). */
   title: string;
   /** Para la tarjeta de llamada entrante. */
@@ -28,6 +40,7 @@ interface CallOverlayProps {
   onHangup: () => void;
   onToggleMic: () => void;
   onToggleCam: () => void;
+  onToggleScreen: () => void;
 }
 
 /** Adjunta un MediaStream a un <video>/<audio> (srcObject no es posible en JSX). */
@@ -103,6 +116,8 @@ export function CallOverlay(props: CallOverlayProps) {
     remotes,
     micOn,
     camOn,
+    screenOn,
+    canScreenShare,
     title,
     incomingName,
     incomingInitials,
@@ -111,6 +126,7 @@ export function CallOverlay(props: CallOverlayProps) {
     onHangup,
     onToggleMic,
     onToggleCam,
+    onToggleScreen,
   } = props;
 
   const localRef = useStreamMedia<HTMLVideoElement>(localStream);
@@ -183,17 +199,24 @@ export function CallOverlay(props: CallOverlayProps) {
           </div>
         )}
 
-        {/* Video local (PiP) */}
-        {isVideo && localStream && call.status !== 'ended' && (
-          <video
-            ref={localRef}
-            autoPlay
-            playsInline
-            muted
-            className={`absolute bottom-4 right-4 h-36 w-26 rounded-2xl border border-white/20 object-cover shadow-xl ${
-              camOn ? '' : 'opacity-30'
-            }`}
-          />
+        {/* Video local (PiP) — cámara o pantalla compartida */}
+        {(isVideo || screenOn) && localStream && call.status !== 'ended' && (
+          <div className="absolute bottom-4 right-4">
+            {screenOn && (
+              <span className="absolute -top-2 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded-full bg-blue-600 px-2 py-0.5 text-[10px] font-semibold text-white shadow">
+                Compartiendo pantalla
+              </span>
+            )}
+            <video
+              ref={localRef}
+              autoPlay
+              playsInline
+              muted
+              className={`h-36 w-26 rounded-2xl border border-white/20 shadow-xl ${
+                screenOn ? 'bg-black object-contain' : 'object-cover'
+              } ${camOn || screenOn ? '' : 'opacity-30'}`}
+            />
+          </div>
         )}
       </div>
 
@@ -219,6 +242,22 @@ export function CallOverlay(props: CallOverlayProps) {
                 }`}
               >
                 {camOn ? <Video className="h-6 w-6" /> : <VideoOff className="h-6 w-6" />}
+              </button>
+            )}
+            {canScreenShare && (
+              <button
+                onClick={onToggleScreen}
+                aria-label={screenOn ? 'Dejar de compartir' : 'Compartir pantalla'}
+                title={screenOn ? 'Dejar de compartir' : 'Compartir pantalla'}
+                className={`flex h-14 w-14 items-center justify-center rounded-full transition-colors ${
+                  screenOn ? 'bg-blue-600 text-white' : 'bg-white/15 hover:bg-white/25'
+                }`}
+              >
+                {screenOn ? (
+                  <MonitorX className="h-6 w-6" />
+                ) : (
+                  <MonitorUp className="h-6 w-6" />
+                )}
               </button>
             )}
           </>
