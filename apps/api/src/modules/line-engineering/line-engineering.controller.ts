@@ -303,6 +303,30 @@ export class LineEngineeringController {
     });
   }
 
+  @Get('layout/buffers')
+  @RequirePermissions('engineering:read')
+  @ApiOperation({
+    summary:
+      'Plan de inventario de desacople (WIP) entre estaciones: unidades por hueco, WIP total y plazo agregado (ley de Little).',
+  })
+  layoutBuffers(
+    @Query('model') model: string,
+    @Query('revision') revision?: string,
+    @Query('availableTimeSec') availableTimeSec?: string,
+    @Query('demandUnits') demandUnits?: string,
+    @Query('taktTargetSec') taktTargetSec?: string,
+    @Query('coverageSec') coverageSec?: string,
+  ) {
+    return this.service.getBufferPlan({
+      model,
+      revision: revision ?? 'A',
+      availableTimeSec: availableTimeSec ? Number(availableTimeSec) : undefined,
+      demandUnits: demandUnits ? Number(demandUnits) : undefined,
+      taktTargetSec: taktTargetSec ? Number(taktTargetSec) : undefined,
+      coverageSec: coverageSec ? Number(coverageSec) : undefined,
+    });
+  }
+
   @Get('layout/completeness')
   @RequirePermissions('engineering:read')
   @ApiOperation({

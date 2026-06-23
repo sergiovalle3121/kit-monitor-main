@@ -57,6 +57,7 @@ import { layoutCollisions, CollisionResult, RectBox } from './line-collision';
 import { autoArrange, ArrangedPosition } from './line-autoarrange';
 import { optimizeFlowOrder } from './line-optimize';
 import { staffingPlan, StaffingResult, StationStaffing } from './line-staffing';
+import { bufferPlan, BufferPlan } from './line-buffer';
 
 /** One station's material/work requirement for a unit of a model — the bridge
  * that Material Staging (C) and the Operator Terminal (D) consume. */
@@ -1399,6 +1400,48 @@ export class LineEngineeringService {
         line: lineByStation.get(s.station) ?? '',
       })),
     };
+  }
+
+  /**
+   * WIP / decoupling-buffer plan for the line (Fase 33). Read-only: sizes the
+   * inventory to hold between consecutive stations so a stoppage on one doesn't
+   * immediately starve/block its neighbour, and reports the total decoupling WIP
+   * plus the lead time it adds (Little's law). Pure math via `bufferPlan`.
+   */
+  async getBufferPlan(params: {
+    model: string;
+    revision?: string;
+    availableTimeSec?: number;
+    demandUnits?: number;
+    taktTargetSec?: number;
+    coverageSec?: number;
+  }): Promise<BufferPlan & { model: string; revision: string }> {
+    const revision = params.revision ?? 'A';
+    const route = await this.routing(params.model, revision);
+    if (route.length === 0) {
+      throw new NotFoundException(
+        `Sin ruteo para ${params.model} rev ${revision}.`,
+      );
+    }
+    const takt =
+      params.taktTargetSec && params.taktTargetSec > 0
+        ? params.taktTargetSec
+        : computeTaktSec(params.availableTimeSec ?? 0, params.demandUnits ?? 0);
+    const plan = bufferPlan(
+      route.map((s) => ({
+        station: s.station,
+        sequence: s.sequence,
+        cycleTimeSec: Number(s.stdTimeSec),
+      })),
+      {
+        taktSec: takt,
+        coverageSec:
+          params.coverageSec && params.coverageSec > 0
+            ? params.coverageSec
+            : undefined,
+      },
+    );
+    return { ...plan, model: params.model, revision };
   }
 
   /**
