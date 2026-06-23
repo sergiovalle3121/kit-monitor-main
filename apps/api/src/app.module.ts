@@ -38,6 +38,7 @@ import { FloorQualityModule } from './modules/floor-quality/floor-quality.module
 import { FaiModule } from './modules/fai/fai.module';
 import { ChangeoverModule } from './modules/changeover/changeover.module';
 import { GenealogyModule } from './modules/genealogy/genealogy.module';
+import { NpiModule } from './modules/npi/npi.module';
 import { LineControlTowerModule } from './modules/line-control-tower/line-control-tower.module';
 import { OeeModule } from './modules/oee/oee.module';
 import { LiveModule } from './modules/live/live.module';
@@ -136,6 +137,7 @@ import { AlertsModule } from './modules/alerts/alerts.module';
     FaiModule,
     ChangeoverModule,
     GenealogyModule,
+    NpiModule,
     LineControlTowerModule,
     OeeModule,
     LiveModule,
