@@ -12,6 +12,8 @@ import {
   Loader2,
   Save,
   X,
+  Archive,
+  RotateCcw,
 } from 'lucide-react';
 import { glass } from '@/lib/glass';
 import { isAdminAccess } from '@/lib/owner';
@@ -39,6 +41,7 @@ interface MetricDef {
   direction: string | null;
   version: number;
   config: { target?: number } | null;
+  active: boolean;
 }
 interface ObjectDef {
   key: string;
@@ -48,6 +51,7 @@ interface ObjectDef {
   sourceEntity: string | null;
   primaryKey: string | null;
   properties: { name: string; type: string }[] | null;
+  active: boolean;
 }
 interface LinkDef {
   key: string;
@@ -56,6 +60,7 @@ interface LinkDef {
   cardinality: string | null;
   verb: string | null;
   description: string | null;
+  active: boolean;
 }
 
 const CARDINALITIES = [
@@ -93,8 +98,33 @@ export default function SemanticEditorPage() {
       .catch(() => setIsAdmin(false));
   }, []);
 
+  async function archiveItem(
+    kind: 'metric' | 'object' | 'link',
+    key: string,
+    active: boolean,
+  ) {
+    try {
+      const res = await fetch('/api/semantic/archive', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kind, key, active }),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        toast.error(d?.message || 'No se pudo actualizar.');
+        return;
+      }
+      toast.success(active ? 'Restaurado.' : 'Archivado.');
+      await loadCatalog();
+    } catch {
+      toast.error('Error de red.');
+    }
+  }
+
   async function loadCatalog() {
-    const r = await fetch('/api/semantic/catalog', { cache: 'no-store' });
+    const r = await fetch('/api/semantic/catalog?includeInactive=true', {
+      cache: 'no-store',
+    });
     if (r.ok) {
       const d = await r.json();
       setMetrics(d.metrics ?? []);
@@ -518,17 +548,19 @@ export default function SemanticEditorPage() {
         </div>
         <div className={`${glass} divide-y divide-black/5 rounded-2xl dark:divide-white/5`}>
           {metrics.map((m) => (
-            <div key={m.key} className="flex items-center gap-3 px-4 py-2.5 text-sm">
+            <div
+              key={m.key}
+              className={`flex items-center gap-3 px-4 py-2.5 text-sm ${m.active ? '' : 'opacity-50'}`}
+            >
               <span className="font-medium">{m.name}</span>
               <span className="font-mono text-[10px] text-black/40 dark:text-white/40">
                 {m.key} · {m.domain ?? '—'} · v{m.version}
               </span>
-              <button
-                onClick={() => openMetric(m)}
-                className="ml-auto inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-violet-600 hover:bg-violet-500/10 dark:text-violet-300"
-              >
-                <Pencil className="h-3 w-3" /> Editar
-              </button>
+              <RowActions
+                active={m.active}
+                onEdit={() => openMetric(m)}
+                onArchive={(next) => archiveItem('metric', m.key, next)}
+              />
             </div>
           ))}
         </div>
@@ -549,17 +581,19 @@ export default function SemanticEditorPage() {
         </div>
         <div className={`${glass} divide-y divide-black/5 rounded-2xl dark:divide-white/5`}>
           {objects.map((o) => (
-            <div key={o.key} className="flex items-center gap-3 px-4 py-2.5 text-sm">
+            <div
+              key={o.key}
+              className={`flex items-center gap-3 px-4 py-2.5 text-sm ${o.active ? '' : 'opacity-50'}`}
+            >
               <span className="font-medium">{o.name}</span>
               <span className="font-mono text-[10px] text-black/40 dark:text-white/40">
                 {o.key} · {o.domain ?? '—'} · {o.sourceEntity ?? '—'}
               </span>
-              <button
-                onClick={() => openObject(o)}
-                className="ml-auto inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-violet-600 hover:bg-violet-500/10 dark:text-violet-300"
-              >
-                <Pencil className="h-3 w-3" /> Editar
-              </button>
+              <RowActions
+                active={o.active}
+                onEdit={() => openObject(o)}
+                onArchive={(next) => archiveItem('object', o.key, next)}
+              />
             </div>
           ))}
         </div>
@@ -582,23 +616,63 @@ export default function SemanticEditorPage() {
         </div>
         <div className={`${glass} divide-y divide-black/5 rounded-2xl dark:divide-white/5`}>
           {links.map((l) => (
-            <div key={l.key} className="flex items-center gap-2 px-4 py-2.5 text-sm">
+            <div
+              key={l.key}
+              className={`flex items-center gap-2 px-4 py-2.5 text-sm ${l.active ? '' : 'opacity-50'}`}
+            >
               <span className="font-medium">{l.fromObject}</span>
               <span className="text-violet-500">— {l.verb || 'relaciona'} →</span>
               <span className="font-medium">{l.toObject}</span>
               <span className="font-mono text-[10px] text-black/40 dark:text-white/40">
                 {l.cardinality ?? ''}
               </span>
-              <button
-                onClick={() => openLink(l)}
-                className="ml-auto inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-violet-600 hover:bg-violet-500/10 dark:text-violet-300"
-              >
-                <Pencil className="h-3 w-3" /> Editar
-              </button>
+              <RowActions
+                active={l.active}
+                onEdit={() => openLink(l)}
+                onArchive={(next) => archiveItem('link', l.key, next)}
+              />
             </div>
           ))}
         </div>
       </section>
+    </div>
+  );
+}
+
+function RowActions({
+  active,
+  onEdit,
+  onArchive,
+}: {
+  active: boolean;
+  onEdit: () => void;
+  onArchive: (next: boolean) => void;
+}) {
+  return (
+    <div className="ml-auto flex items-center gap-1">
+      {!active && (
+        <span className="rounded-md bg-black/5 px-1.5 py-0.5 text-[10px] text-black/45 dark:bg-white/10 dark:text-white/45">
+          archivado
+        </span>
+      )}
+      <button
+        onClick={onEdit}
+        className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-violet-600 hover:bg-violet-500/10 dark:text-violet-300"
+      >
+        <Pencil className="h-3 w-3" /> Editar
+      </button>
+      <button
+        onClick={() => onArchive(!active)}
+        title={active ? 'Archivar' : 'Restaurar'}
+        aria-label={active ? 'Archivar' : 'Restaurar'}
+        className="inline-flex items-center rounded-md px-1.5 py-1 text-xs text-black/50 hover:bg-black/5 dark:text-white/50 dark:hover:bg-white/10"
+      >
+        {active ? (
+          <Archive className="h-3.5 w-3.5" />
+        ) : (
+          <RotateCcw className="h-3.5 w-3.5" />
+        )}
+      </button>
     </div>
   );
 }

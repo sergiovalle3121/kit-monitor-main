@@ -14,6 +14,7 @@ import { SemanticPrincipal, SemanticService } from './semantic.service';
 import { UpsertMetricDto } from './dto/upsert-metric.dto';
 import { UpsertObjectDto } from './dto/upsert-object.dto';
 import { UpsertLinkDto } from './dto/upsert-link.dto';
+import { ArchiveItemDto } from './dto/archive-item.dto';
 
 interface ReqUser {
   userId: string;
@@ -44,10 +45,16 @@ export class SemanticController {
     };
   }
 
-  /** Definitions: metric catalog + ontology (object types + links). Any user. */
+  /** Definitions: metric catalog + ontology (object types + links). Any user.
+   *  `includeInactive=true` (admin only) also returns archived rows. */
   @Get('catalog')
-  catalog(@Request() req: AuthReq) {
-    return this.semantic.catalog(this.tenant(req));
+  catalog(
+    @Request() req: AuthReq,
+    @Query('includeInactive') includeInactive?: string,
+  ) {
+    const inactive =
+      includeInactive === 'true' && req.user?.role === 'Admin';
+    return this.semantic.catalog(this.tenant(req), inactive);
   }
 
   /** Live values for every metric the caller may see. Any user (RBAC per metric). */
@@ -106,6 +113,18 @@ export class SemanticController {
   upsertLink(@Request() req: AuthReq, @Body() dto: UpsertLinkDto) {
     this.assertAdmin(req);
     return this.semantic.upsertLink(this.tenant(req), dto);
+  }
+
+  /** Archive (active=false) or restore (active=true) a catalog item. Admin only. */
+  @Post('archive')
+  archive(@Request() req: AuthReq, @Body() dto: ArchiveItemDto) {
+    this.assertAdmin(req);
+    return this.semantic.setActive(
+      this.tenant(req),
+      dto.kind,
+      dto.key,
+      dto.active,
+    );
   }
 
   private assertAdmin(req: AuthReq) {
