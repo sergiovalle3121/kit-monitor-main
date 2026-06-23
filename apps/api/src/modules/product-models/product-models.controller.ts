@@ -55,23 +55,6 @@ export class ProductModelsController {
     return this.service.readiness(id);
   }
 
-  @Get(':id/npi')
-  @ApiOperation({
-    summary:
-      'Vista NPI unificada del modelo: proyecto + gates + readiness en vivo + historial.',
-  })
-  npi(@Param('id') id: string) {
-    return this.service.npiOverview(id);
-  }
-
-  @Post(':id/npi')
-  @ApiOperation({
-    summary: 'Inicia (idempotente) el flujo de gates NPI para este modelo.',
-  })
-  startNpi(@Param('id') id: string) {
-    return this.service.startNpi(id);
-  }
-
   @Post()
   @ApiOperation({
     summary: 'Crea un modelo (asigna folio MDL- si no se da uno).',

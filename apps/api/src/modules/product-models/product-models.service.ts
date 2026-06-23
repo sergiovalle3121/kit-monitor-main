@@ -187,42 +187,6 @@ export class ProductModelsService {
     return this.deriveReadinessSafe(model);
   }
 
-  /**
-   * Unified NPI view for a model — so gates + readiness live INSIDE the model
-   * (one module), not in a separate area: the project (with its gates), the live
-   * readiness verdict, and the snapshot history. `project` is null until NPI is
-   * started for this model+revision.
-   */
-  async npiOverview(id: string) {
-    const model = await this.getOne(id);
-    if (!this.npi) return { project: null, readiness: null, history: [] };
-    const [project, readiness, history] = await Promise.all([
-      this.npi.getProjectByModel(model.modelNumber, model.revision),
-      this.deriveReadinessSafe(model),
-      this.npi
-        .listSnapshots({
-          model: model.modelNumber,
-          revision: model.revision,
-          limit: 20,
-        })
-        .catch(() => []),
-    ]);
-    return { project, readiness, history };
-  }
-
-  /** Start (idempotent) the NPI gate flow for this model, then return the view. */
-  async startNpi(id: string) {
-    const model = await this.getOne(id);
-    if (!this.npi) throw new BadRequestException('NPI no disponible.');
-    await this.npi.createProject({
-      modelNumber: model.modelNumber,
-      revision: model.revision,
-      customer: model.customer ?? undefined,
-      programId: model.programId ?? undefined,
-    });
-    return this.npiOverview(id);
-  }
-
   private async deriveReadinessSafe(
     model: ProductModel,
   ): Promise<ReadinessSnapshot | null> {

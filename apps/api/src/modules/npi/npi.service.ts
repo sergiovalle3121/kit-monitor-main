@@ -144,18 +144,6 @@ export class NpiService {
     return { ...project, gates: this.sortGates(gates), readiness };
   }
 
-  /** The NPI project for a model+revision (gates + readiness), or null if none. */
-  async getProjectByModel(
-    model: string,
-    revision = '1.0',
-  ): Promise<NpiProjectView | null> {
-    const found = await this.findByModelRevision(
-      (model ?? '').trim(),
-      (revision ?? '1.0').trim() || '1.0',
-    );
-    return found ? this.getProject(found.id) : null;
-  }
-
   // ── Readiness derivation (live, READ-ONLY across existing modules) ───────────
   /**
    * Resolves the release signals read-only from the modules that own them and

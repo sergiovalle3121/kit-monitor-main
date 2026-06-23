@@ -72,8 +72,16 @@ export interface LoadingDock {
   buildingName: string | null;
   type: DockType;
   status: DockStatus;
+  // Operational state for the dock board (additive, nullable). `occupiedAt` is
+  // the aging clock; `loadingStartedAt` marks the EN CARGA sub-state.
+  occupiedAt: string | null;
+  loadingStartedAt: string | null;
   notes: string | null;
 }
+
+// Derived board state of a dock (semaforized): the four operational lanes the
+// yard coordinator reads at a glance.
+export type DockBoardState = "free" | "occupied" | "loading" | "maintenance" | "inactive";
 
 // Subset of the outbound shipment used by the assignment tab.
 export interface OutboundShipmentLite {
@@ -95,3 +103,27 @@ export interface OutboundShipmentLite {
 }
 
 export type MasterKind = "carriers" | "vehicles" | "drivers" | "docks";
+
+// ── Dock appointments (Citas de andén) ───────────────────────────────────────
+export type AppointmentDirection = "inbound" | "outbound";
+export type AppointmentStatus = "scheduled" | "arrived" | "completed" | "cancelled" | "no_show";
+
+export interface Appointment {
+  id: string;
+  direction: AppointmentDirection;
+  scheduledAt: string;
+  windowEnd: string | null;
+  dockId: string | null;
+  dockCode: string | null;
+  carrierId: string | null;
+  carrierName: string | null;
+  vehicleId: string | null;
+  vehiclePlate: string | null;
+  driverId: string | null;
+  driverName: string | null;
+  shipmentRef: string | null;
+  status: AppointmentStatus;
+  arrivedAt: string | null;
+  completedAt: string | null;
+  notes: string | null;
+}
