@@ -4,6 +4,7 @@ import {
   WarehouseTaskStatus,
   WarehouseTaskType,
 } from './entities/warehouse-task.entity';
+import { DEFAULT_PULL_SLA_MINUTES } from './pull.util';
 
 /**
  * Unit del WarehouseService con repos y colaboradores simulados. Cubre el ciclo
@@ -142,6 +143,115 @@ describe('WarehouseService', () => {
       await expect(
         service.handlePickException(9, { reason: 'SHORT_PICK', pickedQty: 1, actor: 'op2' }, user),
       ).rejects.toBeInstanceOf(NotFoundException);
+    });
+  });
+
+  // ─── PULL MONITOR ───────────────────────────────────────────────────────────
+
+  describe('createPull', () => {
+    it('crea un PICK PENDING con campos de pull (proyecto, SLA default, touches=0)', async () => {
+      taskRepo.count.mockResolvedValue(0);
+      const saved = await service.createPull(
+        { partNumber: 'P1', quantity: 5, fromWarehouseId: 'WH-1', toWarehouseId: 'WH-2', project: 'AX-100', requestor: 'line.lead' },
+        user,
+      );
+      expect(saved.taskNumber).toBe('TSK-2024-0001');
+      expect(saved.type).toBe(WarehouseTaskType.PICK);
+      expect(saved.status).toBe(WarehouseTaskStatus.PENDING);
+      expect(saved.project).toBe('AX-100');
+      expect(saved.requestor).toBe('line.lead');
+      expect(saved.slaMinutes).toBe(DEFAULT_PULL_SLA_MINUTES);
+      expect(saved.touches).toBe(0);
+    });
+
+    it('exige partNumber y almacén origen', async () => {
+      await expect(service.createPull({ quantity: 1 }, user)).rejects.toBeInstanceOf(BadRequestException);
+      await expect(service.createPull({ partNumber: 'P1' }, user)).rejects.toBeInstanceOf(BadRequestException);
+    });
+  });
+
+  describe('deliverTask (Entregar)', () => {
+    it('crear-pull → entregar: cambia estado a COMPLETED y registra deliveredAt', async () => {
+      // Pull recién creado (PENDING), se entrega directo sin pasar por start.
+      taskRepo.findOne.mockResolvedValue({
+        id: 1,
+        taskNumber: 'TSK-2024-0001',
+        status: WarehouseTaskStatus.PENDING,
+        type: WarehouseTaskType.PICK,
+        partNumber: 'P1',
+        quantity: 5,
+        fromWarehouseId: 'WH-1',
+        fromLocation: 'A-01',
+        toWarehouseId: 'WH-2',
+        toLocation: 'L1-POU',
+      });
+
+      const res = await service.deliverTask(1, 'beto', user);
+
+      expect(res.status).toBe(WarehouseTaskStatus.COMPLETED);
+      expect(res.deliveredAt).toBeInstanceOf(Date);
+      expect(res.completedBy).toBe('beto');
+      // Movimiento físico best-effort con referencia de pull.
+      expect(inventory.recordTransaction).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'TRANSFER', referenceType: 'WAREHOUSE_PULL', partNumber: 'P1' }),
+      );
+      expect(audit.recordAction).toHaveBeenCalledWith(
+        expect.objectContaining({ action: 'WAREHOUSE_PULL_DELIVERED' }),
+      );
+    });
+
+    it('entrega aunque el inventario falle (no bloquea el cierre del SLA)', async () => {
+      taskRepo.findOne.mockResolvedValue({
+        id: 2,
+        taskNumber: 'TSK-2024-0002',
+        status: WarehouseTaskStatus.IN_PROGRESS,
+        partNumber: 'P9',
+        quantity: 3,
+        fromWarehouseId: 'WH-1',
+        toWarehouseId: 'WH-2',
+      });
+      inventory.recordTransaction.mockRejectedValueOnce(new Error('Insufficient stock'));
+
+      const res = await service.deliverTask(2, 'beto', user);
+      expect(res.status).toBe(WarehouseTaskStatus.COMPLETED);
+      expect(res.deliveredAt).toBeInstanceOf(Date);
+    });
+
+    it('rechaza entregar un pull ya cerrado', async () => {
+      taskRepo.findOne.mockResolvedValue({ status: WarehouseTaskStatus.COMPLETED });
+      await expect(service.deliverTask(1, 'beto', user)).rejects.toBeInstanceOf(BadRequestException);
+    });
+  });
+
+  describe('cancelTask (Cancelar)', () => {
+    it('marca CANCELLED y registra canceledAt', async () => {
+      taskRepo.findOne.mockResolvedValue({
+        id: 1,
+        taskNumber: 'TSK-2024-0001',
+        status: WarehouseTaskStatus.PENDING,
+      });
+      const res = await service.cancelTask(1, 'beto', 'duplicado', user);
+      expect(res.status).toBe(WarehouseTaskStatus.CANCELLED);
+      expect(res.canceledAt).toBeInstanceOf(Date);
+      expect(inventory.recordTransaction).not.toHaveBeenCalled();
+    });
+
+    it('no permite cancelar un pull ya entregado', async () => {
+      taskRepo.findOne.mockResolvedValue({ status: WarehouseTaskStatus.COMPLETED });
+      await expect(service.cancelTask(1, 'beto', undefined, user)).rejects.toBeInstanceOf(BadRequestException);
+    });
+  });
+
+  describe('startTask — touches', () => {
+    it('incrementa touches al tomar el pull', async () => {
+      taskRepo.findOne.mockResolvedValue({
+        id: 1,
+        taskNumber: 'TSK-2024-0001',
+        status: WarehouseTaskStatus.PENDING,
+        touches: 1,
+      });
+      const res = await service.startTask(1, 'op2', user);
+      expect(res.touches).toBe(2);
     });
   });
 });

@@ -90,6 +90,7 @@ import { NotificationsService } from '../modules/notifications/notifications.ser
 import { UserNotification } from '../modules/notifications/entities/notification.entity';
 // Densidad Fase 2: profundidad relacional de herramientas nuevas/enriquecidas.
 import { WarehouseTask, WarehouseTaskType, WarehouseTaskStatus } from '../modules/inventory/entities/warehouse-task.entity';
+import { MaterialReturn, MaterialReturnStatus } from '../modules/inventory/entities/material-return.entity';
 import { ReplenishmentRule } from '../modules/inventory/entities/replenishment-rule.entity';
 import { SCAR, ScarStatus, ScarSeverity } from '../modules/suppliers/entities/scar.entity';
 import { IQCInspection, IqcResult } from '../modules/quality/entities/iqc-inspection.entity';
@@ -2040,6 +2041,10 @@ async function seedMaintenanceDepth(app: INestApplicationContext, ds: DataSource
 // Warehouse tasks: cola de acomodo/surtido/traslado/conteo en varios estados
 // (pendiente/en progreso/completada), cruzando partes demo y almacenes demo.
 // ─────────────────────────────────────────────────────────────────────────────
+/** Fecha relativa en minutos hacia atrás (para sembrar aging realista de pulls). */
+function relMinutesAgo(mins: number): Date {
+  return new Date(Date.now() - mins * 60_000);
+}
 type WhTaskSpec = {
   n: number;
   type: WarehouseTaskType;
@@ -2053,19 +2058,37 @@ type WhTaskSpec = {
   assignedTo?: string;
   referenceType?: string;
   referenceId?: string;
+  // ── Campos de PULL (aditivos) ──
+  project?: string;
+  requestor?: string;
+  urgent?: boolean;
+  touches?: number;
+  slaMinutes?: number;
+  /** Minutos que el pull lleva esperando (backdatea createdAt → aging vivo). */
+  agingMinutes?: number;
+  /** Para pulls entregados: minutos que tardó el suministro (createdAt→deliveredAt). */
+  deliveredAfterMinutes?: number;
 };
 const WH = { RM: DEMO_WH_RM, WIP: DEMO_WH_WIP, QA: DEMO_WH_QA };
 const DEMO_WH_TASKS: WhTaskSpec[] = [
-  { n: 1, type: WarehouseTaskType.PUT_AWAY, status: WarehouseTaskStatus.PENDING, partNumber: 'PCB-AX100-4L', quantity: 800, fromWarehouseId: WH.RM, fromLocation: 'RECV', toWarehouseId: WH.RM, toLocation: 'A-01', assignedTo: 'Beto Almacén', referenceType: 'RECEIPT', referenceId: 'RCV-PCB-AX100-4L' },
-  { n: 2, type: WarehouseTaskType.PICK, status: WarehouseTaskStatus.PENDING, partNumber: 'IC-MCU-32B', quantity: 50, fromWarehouseId: WH.RM, fromLocation: 'A-01', toWarehouseId: WH.WIP, toLocation: 'L1-POU', assignedTo: 'Óscar Jiménez', referenceType: 'WO', referenceId: 'AX-WO-0001' },
-  { n: 3, type: WarehouseTaskType.TRANSFER, status: WarehouseTaskStatus.IN_PROGRESS, partNumber: 'CONN-RJ45-MAG', quantity: 200, fromWarehouseId: WH.RM, fromLocation: 'A-01', toWarehouseId: WH.WIP, toLocation: 'L7-POU', assignedTo: 'Óscar Jiménez', referenceType: 'REPLEN', referenceId: 'AX-WO-0007' },
-  { n: 4, type: WarehouseTaskType.PUT_AWAY, status: WarehouseTaskStatus.COMPLETED, partNumber: 'RES-10K-0402', quantity: 20000, fromWarehouseId: WH.RM, fromLocation: 'RECV', toWarehouseId: WH.RM, toLocation: 'B-12', assignedTo: 'Beto Almacén', referenceType: 'RECEIPT', referenceId: 'RCV-RES-10K-0402' },
-  { n: 5, type: WarehouseTaskType.PICK, status: WarehouseTaskStatus.IN_PROGRESS, partNumber: 'CAP-100N-0603', quantity: 2400, fromWarehouseId: WH.RM, fromLocation: 'A-01', toWarehouseId: WH.WIP, toLocation: 'L5-POU', assignedTo: 'Daniela Castillo', referenceType: 'WO', referenceId: 'AX-WO-0005' },
-  { n: 6, type: WarehouseTaskType.CONFIRM, status: WarehouseTaskStatus.PENDING, partNumber: 'PCB-AX200-6L', quantity: 120, fromWarehouseId: WH.QA, fromLocation: 'QA-HOLD', toWarehouseId: WH.QA, toLocation: 'QA-HOLD', assignedTo: 'Carla Calidad', referenceType: 'IQC', referenceId: 'AX-IQC-0006' },
-  { n: 7, type: WarehouseTaskType.PICK, status: WarehouseTaskStatus.COMPLETED, partNumber: 'ENC-AX-ALU', quantity: 25, fromWarehouseId: WH.RM, fromLocation: 'A-01', toWarehouseId: WH.WIP, toLocation: 'L3-POU', assignedTo: 'Óscar Jiménez', referenceType: 'WO', referenceId: 'AX-WO-0003' },
-  { n: 8, type: WarehouseTaskType.TRANSFER, status: WarehouseTaskStatus.PENDING, partNumber: 'LABEL-QR-AX', quantity: 5000, fromWarehouseId: WH.RM, fromLocation: 'A-01', toWarehouseId: WH.WIP, toLocation: 'L1-POU', assignedTo: 'Beto Almacén', referenceType: 'REPLEN' },
-  { n: 9, type: WarehouseTaskType.PUT_AWAY, status: WarehouseTaskStatus.PENDING, partNumber: 'IC-XCVR-CAN', quantity: 3000, fromWarehouseId: WH.RM, fromLocation: 'RECV', toWarehouseId: WH.RM, toLocation: 'C-04', assignedTo: 'Beto Almacén', referenceType: 'RECEIPT', referenceId: 'RCV-IC-XCVR-CAN' },
-  { n: 10, type: WarehouseTaskType.PICK, status: WarehouseTaskStatus.PENDING, partNumber: 'MOS-NCH-30V', quantity: 240, fromWarehouseId: WH.RM, fromLocation: 'A-01', toWarehouseId: WH.WIP, toLocation: 'L2-POU', assignedTo: 'Daniela Castillo', referenceType: 'WO', referenceId: 'AX-WO-0003' },
+  // Pulls abiertos con aging semaforizado (verde/ámbar/rojo según SLA).
+  { n: 1, type: WarehouseTaskType.PUT_AWAY, status: WarehouseTaskStatus.PENDING, partNumber: 'PCB-AX100-4L', quantity: 800, fromWarehouseId: WH.RM, fromLocation: 'RECV', toWarehouseId: WH.RM, toLocation: 'A-01', assignedTo: 'Beto Almacén', referenceType: 'RECEIPT', referenceId: 'RCV-PCB-AX100-4L', project: 'AX-MOBILITY', requestor: 'Recibo', slaMinutes: 180, agingMinutes: 25, touches: 0 },
+  { n: 2, type: WarehouseTaskType.PICK, status: WarehouseTaskStatus.PENDING, partNumber: 'IC-MCU-32B', quantity: 50, fromWarehouseId: WH.RM, fromLocation: 'A-01', toWarehouseId: WH.WIP, toLocation: 'L1-POU', assignedTo: 'Óscar Jiménez', referenceType: 'WO', referenceId: 'AX-WO-0001', project: 'AX-MOBILITY', requestor: 'Líder L1', urgent: true, slaMinutes: 60, agingMinutes: 95, touches: 2 },
+  { n: 3, type: WarehouseTaskType.TRANSFER, status: WarehouseTaskStatus.IN_PROGRESS, partNumber: 'CONN-RJ45-MAG', quantity: 200, fromWarehouseId: WH.RM, fromLocation: 'A-01', toWarehouseId: WH.WIP, toLocation: 'L7-POU', assignedTo: 'Óscar Jiménez', referenceType: 'REPLEN', referenceId: 'AX-WO-0007', project: 'AX-POWER', requestor: 'Líder L7', slaMinutes: 90, agingMinutes: 35, touches: 1 },
+  { n: 4, type: WarehouseTaskType.PUT_AWAY, status: WarehouseTaskStatus.COMPLETED, partNumber: 'RES-10K-0402', quantity: 20000, fromWarehouseId: WH.RM, fromLocation: 'RECV', toWarehouseId: WH.RM, toLocation: 'B-12', assignedTo: 'Beto Almacén', referenceType: 'RECEIPT', referenceId: 'RCV-RES-10K-0402', project: 'AX-MOBILITY', requestor: 'Recibo', slaMinutes: 180, deliveredAfterMinutes: 70, touches: 1 },
+  { n: 5, type: WarehouseTaskType.PICK, status: WarehouseTaskStatus.IN_PROGRESS, partNumber: 'CAP-100N-0603', quantity: 2400, fromWarehouseId: WH.RM, fromLocation: 'A-01', toWarehouseId: WH.WIP, toLocation: 'L5-POU', assignedTo: 'Daniela Castillo', referenceType: 'WO', referenceId: 'AX-WO-0005', project: 'AX-MEDICAL', requestor: 'Líder L5', slaMinutes: 120, agingMinutes: 100, touches: 1 },
+  { n: 6, type: WarehouseTaskType.CONFIRM, status: WarehouseTaskStatus.PENDING, partNumber: 'PCB-AX200-6L', quantity: 120, fromWarehouseId: WH.QA, fromLocation: 'QA-HOLD', toWarehouseId: WH.QA, toLocation: 'QA-HOLD', assignedTo: 'Carla Calidad', referenceType: 'IQC', referenceId: 'AX-IQC-0006', project: 'AX-AERO', requestor: 'Calidad IQC', slaMinutes: 240, agingMinutes: 50, touches: 0 },
+  { n: 7, type: WarehouseTaskType.PICK, status: WarehouseTaskStatus.COMPLETED, partNumber: 'ENC-AX-ALU', quantity: 25, fromWarehouseId: WH.RM, fromLocation: 'A-01', toWarehouseId: WH.WIP, toLocation: 'L3-POU', assignedTo: 'Óscar Jiménez', referenceType: 'WO', referenceId: 'AX-WO-0003', project: 'AX-POWER', requestor: 'Líder L3', slaMinutes: 90, deliveredAfterMinutes: 40, touches: 1 },
+  { n: 8, type: WarehouseTaskType.TRANSFER, status: WarehouseTaskStatus.PENDING, partNumber: 'LABEL-QR-AX', quantity: 5000, fromWarehouseId: WH.RM, fromLocation: 'A-01', toWarehouseId: WH.WIP, toLocation: 'L1-POU', assignedTo: undefined, referenceType: 'REPLEN', project: 'AX-MOBILITY', requestor: 'Líder L1', slaMinutes: 120, agingMinutes: 15, touches: 0 },
+  { n: 9, type: WarehouseTaskType.PUT_AWAY, status: WarehouseTaskStatus.PENDING, partNumber: 'IC-XCVR-CAN', quantity: 3000, fromWarehouseId: WH.RM, fromLocation: 'RECV', toWarehouseId: WH.RM, toLocation: 'C-04', assignedTo: 'Beto Almacén', referenceType: 'RECEIPT', referenceId: 'RCV-IC-XCVR-CAN', project: 'AX-AERO', requestor: 'Recibo', slaMinutes: 180, agingMinutes: 60, touches: 0 },
+  { n: 10, type: WarehouseTaskType.PICK, status: WarehouseTaskStatus.PENDING, partNumber: 'MOS-NCH-30V', quantity: 240, fromWarehouseId: WH.RM, fromLocation: 'A-01', toWarehouseId: WH.WIP, toLocation: 'L2-POU', assignedTo: undefined, referenceType: 'WO', referenceId: 'AX-WO-0003', project: 'AX-MEDICAL', requestor: 'Líder L2', urgent: true, slaMinutes: 120, agingMinutes: 150, touches: 3 },
+  // Pulls ENTREGADOS (histórico para la analítica de suministro): varios almacenes,
+  // proyectos y días, con tiempos de suministro (deliveredAfterMinutes) distintos.
+  { n: 11, type: WarehouseTaskType.PICK, status: WarehouseTaskStatus.COMPLETED, partNumber: 'IC-MCU-32B', quantity: 30, fromWarehouseId: WH.RM, fromLocation: 'A-01', toWarehouseId: WH.WIP, toLocation: 'L1-POU', assignedTo: 'Óscar Jiménez', referenceType: 'PULL', referenceId: 'AX-WO-0001', project: 'AX-MOBILITY', requestor: 'Líder L1', slaMinutes: 60, deliveredAfterMinutes: 38, touches: 1 },
+  { n: 12, type: WarehouseTaskType.PICK, status: WarehouseTaskStatus.COMPLETED, partNumber: 'CAP-100N-0603', quantity: 1800, fromWarehouseId: WH.RM, fromLocation: 'A-01', toWarehouseId: WH.WIP, toLocation: 'L5-POU', assignedTo: 'Daniela Castillo', referenceType: 'PULL', referenceId: 'AX-WO-0005', project: 'AX-MEDICAL', requestor: 'Líder L5', slaMinutes: 120, deliveredAfterMinutes: 155, touches: 2 },
+  { n: 13, type: WarehouseTaskType.PICK, status: WarehouseTaskStatus.COMPLETED, partNumber: 'CONN-RJ45-MAG', quantity: 120, fromWarehouseId: WH.RM, fromLocation: 'A-01', toWarehouseId: WH.WIP, toLocation: 'L7-POU', assignedTo: 'Óscar Jiménez', referenceType: 'PULL', referenceId: 'AX-WO-0007', project: 'AX-POWER', requestor: 'Líder L7', slaMinutes: 90, deliveredAfterMinutes: 52, touches: 1 },
+  { n: 14, type: WarehouseTaskType.PICK, status: WarehouseTaskStatus.COMPLETED, partNumber: 'MOS-NCH-30V', quantity: 200, fromWarehouseId: WH.RM, fromLocation: 'A-01', toWarehouseId: WH.WIP, toLocation: 'L2-POU', assignedTo: 'Daniela Castillo', referenceType: 'PULL', referenceId: 'AX-WO-0003', project: 'AX-MEDICAL', requestor: 'Líder L2', slaMinutes: 120, deliveredAfterMinutes: 60, touches: 1 },
+  { n: 15, type: WarehouseTaskType.CONFIRM, status: WarehouseTaskStatus.COMPLETED, partNumber: 'PCB-AX200-6L', quantity: 80, fromWarehouseId: WH.QA, fromLocation: 'QA-HOLD', toWarehouseId: WH.WIP, toLocation: 'L9-POU', assignedTo: 'Carla Calidad', referenceType: 'PULL', referenceId: 'AX-IQC-0006', project: 'AX-AERO', requestor: 'Calidad IQC', slaMinutes: 240, deliveredAfterMinutes: 120, touches: 1 },
 ];
 
 async function seedWarehouseTasks(ds: DataSource): Promise<Tally> {
@@ -2076,14 +2099,26 @@ async function seedWarehouseTasks(ds: DataSource): Promise<Tally> {
     try {
       if (await repo.findOne({ where: { taskNumber } })) { t.skipped++; continue; }
       const done = w.status === WarehouseTaskStatus.COMPLETED;
+      // createdAt backdateado: para entregados, createdAt = ahora - (suministro + 1 día*n)
+      // repartido en días para poblar la tendencia; para abiertos, ahora - agingMinutes.
+      const supply = w.deliveredAfterMinutes ?? 0;
+      const dayOffsetMin = done ? (w.n % 4) * 24 * 60 : 0; // dispersa entregas en ~4 días
+      const createdAt = done
+        ? relMinutesAgo(supply + dayOffsetMin)
+        : relMinutesAgo(w.agingMinutes ?? 30);
+      const deliveredAt = done ? relMinutesAgo(dayOffsetMin) : undefined;
       await repo.save(repo.create({
         taskNumber, type: w.type, status: w.status,
         partNumber: w.partNumber, quantity: w.quantity,
         fromWarehouseId: w.fromWarehouseId, fromLocation: w.fromLocation,
         toWarehouseId: w.toWarehouseId, toLocation: w.toLocation,
         assignedTo: w.assignedTo, referenceType: w.referenceType, referenceId: w.referenceId,
+        project: w.project, requestor: w.requestor, urgent: w.urgent ?? false,
+        touches: w.touches ?? 0, slaMinutes: w.slaMinutes,
         completedBy: done ? w.assignedTo : undefined,
-        completedAt: done ? relDate(-1) : undefined,
+        completedAt: deliveredAt,
+        deliveredAt,
+        createdAt,
       }));
       t.created++;
     } catch (err) {
@@ -2092,6 +2127,63 @@ async function seedWarehouseTasks(ds: DataSource): Promise<Tally> {
     }
   }
   log('warehouse-task', `tareas=${t.created} ya existían=${t.skipped} errores=${t.errors}`);
+  return t;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Devoluciones de material (return to stock): material que regresa al almacén,
+// con motivo, batch y vendor; algunas pendientes, otras ya confirmadas.
+// ─────────────────────────────────────────────────────────────────────────────
+type ReturnSpec = {
+  n: number;
+  status: MaterialReturnStatus;
+  partNumber: string;
+  description?: string;
+  quantity: number;
+  uom?: string;
+  batch?: string;
+  vendor?: string;
+  project?: string;
+  fromLocation?: string;
+  toWarehouseId: string;
+  toLocation?: string;
+  reason?: string;
+  notes?: string;
+  daysAgo?: number;
+};
+const DEMO_RETURNS: ReturnSpec[] = [
+  { n: 1, status: MaterialReturnStatus.PENDING, partNumber: 'IC-MCU-32B', description: 'MCU 32-bit', quantity: 18, uom: 'EA', batch: 'L-MCU-2611', vendor: 'AX-SUP-NORVEL', project: 'AX-MOBILITY', fromLocation: 'L1-POU', toWarehouseId: WH.RM, toLocation: 'RET-01', reason: 'Sobrante de kit', daysAgo: 0 },
+  { n: 2, status: MaterialReturnStatus.PENDING, partNumber: 'CONN-RJ45-MAG', description: 'Conector RJ45 magnético', quantity: 40, uom: 'EA', batch: 'L-RJ45-0907', vendor: 'AX-SUP-COBALT', project: 'AX-POWER', fromLocation: 'L7-POU', toWarehouseId: WH.RM, toLocation: 'RET-01', reason: 'Cambio de orden', daysAgo: 0 },
+  { n: 3, status: MaterialReturnStatus.COMPLETED, partNumber: 'CAP-100N-0603', description: 'Cap 100nF 0603', quantity: 600, uom: 'EA', batch: 'L-CAP-1180', vendor: 'AX-SUP-FERRUM', project: 'AX-MEDICAL', fromLocation: 'L5-POU', toWarehouseId: WH.RM, toLocation: 'A-01', reason: 'Sobrante de kit', daysAgo: 1 },
+  { n: 4, status: MaterialReturnStatus.COMPLETED, partNumber: 'RES-10K-0402', description: 'Res 10k 0402', quantity: 5000, uom: 'EA', batch: 'L-RES-3320', vendor: 'AX-SUP-FERRUM', project: 'AX-MOBILITY', fromLocation: 'L2-POU', toWarehouseId: WH.RM, toLocation: 'B-12', reason: 'Recuperable', daysAgo: 2 },
+];
+
+async function seedMaterialReturns(ds: DataSource): Promise<Tally> {
+  const repo = ds.getRepository(MaterialReturn);
+  const t = tally();
+  for (const r of DEMO_RETURNS) {
+    const returnNumber = `RET-2024-${String(r.n).padStart(4, '0')}`;
+    try {
+      if (await repo.findOne({ where: { returnNumber } })) { t.skipped++; continue; }
+      const done = r.status === MaterialReturnStatus.COMPLETED;
+      await repo.save(repo.create({
+        returnNumber, status: r.status,
+        partNumber: r.partNumber, description: r.description, quantity: r.quantity, uom: r.uom,
+        batch: r.batch, vendor: r.vendor, project: r.project,
+        fromLocation: r.fromLocation, toWarehouseId: r.toWarehouseId, toLocation: r.toLocation,
+        reason: r.reason, notes: r.notes,
+        restocked: done, createdBy: 'Beto Almacén',
+        completedBy: done ? 'Beto Almacén' : undefined,
+        completedAt: done ? relDate(-(r.daysAgo ?? 1)) : undefined,
+        createdAt: relDate(-(r.daysAgo ?? 0)),
+      }));
+      t.created++;
+    } catch (err) {
+      t.errors++;
+      log('material-return', `ERROR ${returnNumber}: ${(err as Error).message}`);
+    }
+  }
+  log('material-return', `devoluciones=${t.created} ya existían=${t.skipped} errores=${t.errors}`);
   return t;
 }
 
@@ -2495,6 +2587,7 @@ async function run(): Promise<void> {
       await seedToolingDepth(app, ds);
       await seedMaintenanceDepth(app, ds);
       await seedWarehouseTasks(ds);
+      await seedMaterialReturns(ds);
       await seedReplenishmentRules(ds);
       await seedSupplierQuality(ds);
       await seedQualityNcrs(ds);

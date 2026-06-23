@@ -13,6 +13,8 @@ import { WarehouseController } from './warehouse.controller';
 import { ReplenishmentRule } from './entities/replenishment-rule.entity';
 import { ReplenishmentService } from './replenishment.service';
 import { ReplenishmentController } from './replenishment.controller';
+import { MaterialReturn } from './entities/material-return.entity';
+import { ReturnsService } from './returns.service';
 import { GovernanceModule } from '../governance/governance.module';
 
 @Module({
@@ -23,13 +25,14 @@ import { GovernanceModule } from '../governance/governance.module';
       MaterialMaster,
       EnterpriseWarehouse,
       WarehouseTask,
-      ReplenishmentRule
+      ReplenishmentRule,
+      MaterialReturn,
     ]),
     EnterpriseCampusModule,
     GovernanceModule,
   ],
   controllers: [InventoryController, WarehouseController, ReplenishmentController],
-  providers: [InventoryService, WarehouseService, ReplenishmentService],
-  exports: [InventoryService, WarehouseService, ReplenishmentService],
+  providers: [InventoryService, WarehouseService, ReplenishmentService, ReturnsService],
+  exports: [InventoryService, WarehouseService, ReplenishmentService, ReturnsService],
 })
 export class InventoryModule {}
