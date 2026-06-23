@@ -11,7 +11,7 @@ import {
   Upload, Eye, EyeOff, Map as MapIcon, Activity, Workflow, Wand2, Boxes,
   Download, Printer, Ruler, Type, MoveHorizontal, CopyPlus, X, Flame, Waypoints,
   ShieldCheck, ShieldAlert, LayoutGrid, History, RotateCw, ClipboardList, GitCompare,
-  ClipboardCheck, Warehouse,
+  ClipboardCheck, Warehouse, Sparkles,
 } from 'lucide-react';
 import { glass } from '@/lib/glass';
 import { apiFetch } from '@/lib/apiFetch';
@@ -280,6 +280,7 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
   const [validateData, setValidateData] = useState<CollisionSummary | null>(null);
   const [clearanceInput, setClearanceInput] = useState('');
   const [arranging, setArranging] = useState(false);
+  const [optimizing, setOptimizing] = useState(false);
   const [linkMode, setLinkMode] = useState(false);
   const [connCount, setConnCount] = useState(0);
   const [measureMode, setMeasureMode] = useState(false);
@@ -855,6 +856,37 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
       toast.error('No se pudo auto-acomodar.', 'Ing. Industrial');
     } finally {
       setArranging(false);
+    }
+  }, [model, revision, markDirty, rebuild, toast]);
+
+  // Optimize the station order to minimize material travel (Fase 23). Like
+  // auto-arrange, it suggests positions the engineer reviews before saving.
+  const runOptimize = useCallback(async () => {
+    if (!model) return;
+    setOptimizing(true);
+    try {
+      const r = await apiFetch(`${API_BASE}/line-engineering/layout/optimize?model=${encodeURIComponent(model)}&revision=${encodeURIComponent(revision)}`);
+      if (!r.ok) { toast.error('No se pudo optimizar.', 'Ing. Industrial'); return; }
+      const d = (await r.json()) as { positions: { id: string; x: number; y: number; w: number; h: number; rotation: number }[]; improvedPct: number };
+      if (!d.positions.length) { toast.error('No hay estaciones para optimizar.', 'Ing. Industrial'); return; }
+      const ids = new Set<string>();
+      d.positions.forEach((p) => {
+        placementsRef.current.set(p.id, { x: p.x, y: p.y, w: p.w, h: p.h, rotation: p.rotation });
+        ids.add(p.id);
+      });
+      setPlacedIds(ids);
+      markDirty();
+      requestAnimationFrame(() => rebuild());
+      toast.success(
+        d.improvedPct > 0
+          ? `Flujo optimizado: −${d.improvedPct}% de recorrido — revisa y guarda.`
+          : 'El layout ya estaba óptimo para el flujo.',
+        'Ing. Industrial',
+      );
+    } catch {
+      toast.error('No se pudo optimizar.', 'Ing. Industrial');
+    } finally {
+      setOptimizing(false);
     }
   }, [model, revision, markDirty, rebuild, toast]);
 
@@ -1584,6 +1616,7 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
         <button onClick={() => setFlowOn((v) => !v)} title="Diagrama de flujo (distancias y cruces)" className={`p-1.5 rounded-lg transition-colors ${flowOn ? 'text-white' : 'text-gray-500 hover:bg-black/5 dark:hover:bg-white/10'}`} style={flowOn ? { background: '#3b82f6' } : undefined}><Waypoints className="w-4 h-4" /></button>
         <button onClick={() => setValidateOn((v) => !v)} title="Validar layout (solapes, holgura, fuera de límites)" className={`p-1.5 rounded-lg transition-colors ${validateOn ? 'text-white' : 'text-gray-500 hover:bg-black/5 dark:hover:bg-white/10'}`} style={validateOn ? { background: validateData && !validateData.ok ? '#ef4444' : '#10b981' } : undefined}>{validateOn && validateData && !validateData.ok ? <ShieldAlert className="w-4 h-4" /> : <ShieldCheck className="w-4 h-4" />}</button>
         <button onClick={runAutoArrange} disabled={arranging} title="Auto-acomodar estaciones en serpentina por ruteo" className="p-1.5 rounded-lg text-gray-500 hover:bg-black/5 dark:hover:bg-white/10 transition-colors disabled:opacity-40">{arranging ? <Loader2 className="w-4 h-4 animate-spin" /> : <LayoutGrid className="w-4 h-4" />}</button>
+        <button onClick={runOptimize} disabled={optimizing} title="Optimizar flujo: minimizar el recorrido de material" className="p-1.5 rounded-lg text-gray-500 hover:bg-black/5 dark:hover:bg-white/10 transition-colors disabled:opacity-40">{optimizing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}</button>
         <Sep />
         <div className={`flex items-center gap-1 ${selCount < 2 ? 'opacity-40 pointer-events-none' : ''}`}>
           <TBtn onClick={() => align('left')} title="Alinear izquierda"><AlignHorizontalJustifyStart className="w-4 h-4" /></TBtn>

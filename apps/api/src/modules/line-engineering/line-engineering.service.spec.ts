@@ -222,6 +222,27 @@ describe('LineEngineeringService (integration)', () => {
     expect(fd.directionalEfficiencyPct).toBeCloseTo(60, 0);
   });
 
+  it('optimizes the layout order to shorten material travel (Fase 23)', async () => {
+    await seedRoute(); // EST-10, EST-20, EST-30
+    const before = await service.getLayout('AX-1000');
+    const id = Object.fromEntries(
+      before.stations.map((s) => [s.station, s.id]),
+    );
+    // Flow skips the middle station (EST-10 → EST-30), so the serpentine order
+    // is sub-optimal; the optimizer should bring 10 and 30 together.
+    await service.saveLayout({
+      model: 'AX-1000',
+      connectors: [{ from: id['EST-10'], to: id['EST-30'] }],
+    });
+    const opt = await service.optimizeLayout('AX-1000');
+    expect(opt.positions).toHaveLength(3);
+    expect(opt.costAfter).toBeLessThan(opt.costBefore);
+    expect(opt.improvedPct).toBeGreaterThan(0);
+    // The stored layout is untouched (suggestion only).
+    const stored = await service.getLayout('AX-1000');
+    expect(stored.stations.every((s) => s.x === null)).toBe(true);
+  });
+
   it('computes capacity/load including changeover', async () => {
     await seedRoute();
     await service.qualify({

@@ -50,6 +50,7 @@ import { flowAnalysis, FlowAnalysis } from './line-flow';
 import { flowDirection, FlowDirectionResult } from './line-flowdir';
 import { layoutCollisions, CollisionResult, RectBox } from './line-collision';
 import { autoArrange, ArrangedPosition } from './line-autoarrange';
+import { optimizeFlowOrder } from './line-optimize';
 import { staffingPlan, StaffingResult, StationStaffing } from './line-staffing';
 
 /** One station's material/work requirement for a unit of a model — the bridge
@@ -1345,6 +1346,91 @@ export class LineEngineeringService {
       opts,
     );
     return { model, revision, positions };
+  }
+
+  /**
+   * Flow-layout optimization (Fase 23): suggest a station ORDER that minimizes
+   * total material travel over the flow graph (connectors, or the routing chain
+   * when there are none), then repack the real boxes in that order with the
+   * serpentine auto-arrange. Read-only — returns positions for the editor to
+   * apply; the engineer reviews and saves.
+   */
+  async optimizeLayout(
+    model: string,
+    revision = 'A',
+  ): Promise<{
+    model: string;
+    revision: string;
+    unit: string;
+    positions: ArrangedPosition[];
+    costBefore: number;
+    costAfter: number;
+    improvedPct: number;
+  }> {
+    const m = (model ?? '').trim();
+    const r = (revision ?? 'A').trim() || 'A';
+    const layout = await this.getLayout(m, r);
+    const fp = layout.footprint;
+    const sorted = [...layout.stations].sort((a, b) => a.sequence - b.sequence);
+
+    // Uniform candidate slots (so they're interchangeable): pack max-sized boxes.
+    const defW = Math.round(fp.footprintW * 0.06);
+    const defH = Math.round(fp.footprintH * 0.08);
+    const slotW = Math.max(defW, ...sorted.map((s) => s.w ?? defW), 1);
+    const slotH = Math.max(defH, ...sorted.map((s) => s.h ?? defH), 1);
+    const uniform = autoArrange(
+      sorted.map((s) => ({
+        id: s.id,
+        sequence: s.sequence,
+        w: slotW,
+        h: slotH,
+      })),
+      fp,
+    );
+    const centerById = new Map(
+      uniform.map((p) => [p.id, { cx: p.x + slotW / 2, cy: p.y + slotH / 2 }]),
+    );
+    const slots = sorted.map((s) => centerById.get(s.id) ?? { cx: 0, cy: 0 });
+
+    // Flow edges: real connectors if any, else the consecutive routing chain.
+    const present = new Set(sorted.map((s) => s.id));
+    let edges = layout.connectors
+      .filter((c) => present.has(c.from) && present.has(c.to))
+      .map((c) => ({ from: c.from, to: c.to }));
+    if (edges.length === 0) {
+      edges = [];
+      for (let i = 0; i < sorted.length - 1; i += 1) {
+        edges.push({ from: sorted[i].id, to: sorted[i + 1].id });
+      }
+    }
+
+    const opt = optimizeFlowOrder(
+      sorted.map((s) => ({ id: s.id, sequence: s.sequence })),
+      slots,
+      edges,
+    );
+
+    // Repack the real (own-sized) boxes in the optimized order.
+    const sizeById = new Map(sorted.map((s) => [s.id, { w: s.w, h: s.h }]));
+    const positions = autoArrange(
+      opt.order.map((id, idx) => ({
+        id,
+        sequence: idx,
+        w: sizeById.get(id)?.w ?? null,
+        h: sizeById.get(id)?.h ?? null,
+      })),
+      fp,
+    );
+
+    return {
+      model: m,
+      revision: r,
+      unit: fp.unit,
+      positions,
+      costBefore: opt.costBefore,
+      costAfter: opt.costAfter,
+      improvedPct: opt.improvedPct,
+    };
   }
 
   /**
