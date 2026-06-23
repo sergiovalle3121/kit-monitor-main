@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Loader2, X, FileDown, FileJson, FileSpreadsheet } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { Loader2, X, FileDown, FileJson, FileSpreadsheet, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { glass } from '@/lib/glass';
 import { apiFetch } from '@/lib/apiFetch';
 
@@ -31,7 +32,23 @@ interface Dossier {
   completeness: { total: number; complete: number; completenessPct: number };
   stations: unknown[];
   csv: string;
+  review: {
+    score: number;
+    grade: string;
+    releasable: boolean;
+    indices: {
+      readinessPct: number;
+      balancePct: number | null;
+      circulationPct: number | null;
+      continuityPct: number | null;
+      cohesionPct: number | null;
+      utilizationPct: number | null;
+    };
+    findings: string[];
+  };
 }
+
+const gradeColor = (g: string) => (g === 'A' ? '#10b981' : g === 'B' ? '#84cc16' : g === 'C' ? '#f59e0b' : '#ef4444');
 
 function download(filename: string, content: string, mime: string) {
   const blob = new Blob([content], { type: mime });
@@ -96,9 +113,13 @@ export default function DossierExport({
     if (data) download(`estaciones_${slug}.csv`, data.csv, 'text/csv;charset=utf-8');
   };
 
-  return (
+  // Portal to <body>: the editor sits inside a `glass` (backdrop-filter) card
+  // that creates a containing block which would trap this `fixed inset-0` overlay
+  // (rendered low / clipped). Rendering at the body root re-anchors it to the
+  // viewport so it centres correctly.
+  return createPortal(
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" onClick={onClose}>
-      <div className={`${glass} rounded-2xl p-5 w-full max-w-md`} onClick={(e) => e.stopPropagation()}>
+      <div className={`${glass} rounded-2xl p-5 w-full max-w-md max-h-[88vh] overflow-y-auto`} onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-3">
           <h3 className="font-semibold inline-flex items-center gap-2">
             <FileDown className="w-4 h-4" style={{ color: ROSE }} /> Exportar expediente · {model} · {revision}
@@ -121,6 +142,29 @@ export default function DossierExport({
               <Mini label="Uso de piso" value={`${Math.round(data.report.space.utilizationPct)}%`} sub={`${data.report.space.assetCount} equipos`} />
             </div>
 
+            <div className="rounded-xl p-3 mb-4 bg-black/[0.03] dark:bg-white/[0.05] border border-black/5 dark:border-white/10">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="grid place-items-center w-10 h-10 rounded-xl text-xl font-bold text-white shrink-0" style={{ background: gradeColor(data.review.grade) }}>
+                  {data.review.grade}
+                </div>
+                <div className="text-[12px]">
+                  <div className="font-semibold">Revisión del layout · {Math.round(data.review.score)}/100</div>
+                  <div className={`inline-flex items-center gap-1 ${data.review.releasable ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}`}>
+                    {data.review.releasable
+                      ? <><CheckCircle2 className="w-3.5 h-3.5" /> Listo para liberar</>
+                      : <><AlertTriangle className="w-3.5 h-3.5" /> Con observaciones</>}
+                  </div>
+                </div>
+              </div>
+              {data.review.findings.length === 0 ? (
+                <p className="text-[12px] text-gray-500">Sin observaciones pendientes.</p>
+              ) : (
+                <ul className="list-disc pl-5 space-y-0.5 text-[12px] text-gray-600 dark:text-gray-300">
+                  {data.review.findings.map((f, i) => <li key={i}>{f}</li>)}
+                </ul>
+              )}
+            </div>
+
             <div className="grid grid-cols-2 gap-2.5">
               <button onClick={downloadJson} className="inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium text-white" style={{ background: '#3b82f6' }}>
                 <FileJson className="w-4 h-4" /> Descargar JSON
@@ -131,12 +175,13 @@ export default function DossierExport({
             </div>
 
             <p className="text-[11px] text-gray-400 mt-3">
-              El JSON lleva el expediente completo (reporte, personal, costo y estaciones). El CSV es la tabla de estaciones lista para Excel. Generado {new Date(data.generatedAt).toLocaleString()}.
+              El JSON lleva el expediente completo (reporte, revisión, personal, costo y estaciones). El CSV es la tabla de estaciones lista para Excel. Generado {new Date(data.generatedAt).toLocaleString()}.
             </p>
           </>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

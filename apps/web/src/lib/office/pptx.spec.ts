@@ -52,6 +52,10 @@ const notes = ['Estas son las notas del orador de la diapositiva uno.', ''];
   ok(/prst="ellipse"/.test(xml1), 'el círculo sale como elipse nativa');
   ok(/<a:tbl>/.test(xml1), 'la tabla sale como tabla NATIVA (a:tbl)');
   ok(/Mes/.test(xml1) && /Valor/.test(xml1), 'la tabla lleva sus encabezados');
+  ok(/2563EB/i.test(xml1), 'la cabecera usa el color de acento');
+  // La fila con banda usa el tinte del acento (2563EB @ 10% → E9EFFD), no un azul fijo (EEF2FF).
+  ok(/E9EFFD/i.test(xml1), 'la banda de la tabla usa el tinte del acento (no un azul fijo)');
+  ok(!/EEF2FF/i.test(xml1), 'ya no aparece el azul de banda fijo anterior');
   ok(/<p:graphicFrame>/.test(xml1), 'el gráfico sale como graphicFrame (objeto nativo)');
   ok(/AXOS Office/.test(xml1), 'el pie de página está');
   ok(/1 \/ 2/.test(xml1), 'la numeración de diapositiva está');

@@ -72,6 +72,8 @@ import { ParagraphFormat } from './docs/paragraphFormat';
 import { DocParagraphMenu } from './docs/DocParagraphMenu';
 import { ChangeCase } from './docs/changeCase';
 import { DocChangeCase } from './docs/DocChangeCase';
+import { SmartTypography } from './docs/smartTypography';
+import { DocSmartTypography } from './docs/DocSmartTypography';
 import { DocEquation } from './docs/DocEquation';
 import { DocListMenu } from './docs/DocListMenu';
 import { DocViewTools } from './docs/DocViewTools';
@@ -180,6 +182,7 @@ export function DocEditor({ value, onChange, readOnly, author, onStats, fileActi
       Bibliography,
       ParagraphFormat,
       ChangeCase,
+      SmartTypography,
       DocShortcuts,
     ],
     content: value ?? '<p></p>',
@@ -450,6 +453,7 @@ export function DocEditor({ value, onChange, readOnly, author, onStats, fileActi
               <RibbonButton icon={SupIcon} label="Superíndice" active={editor.isActive('superscript')} onClick={() => (c() as any).toggleSuperscript().run()} />
               <RibbonButton icon={RemoveFormatting} label="Limpiar formato" onClick={() => c().unsetAllMarks().clearNodes().run()} />
               <DocChangeCase editor={editor} />
+              <DocSmartTypography editor={editor} />
             </RibbonGroup>
             <RibbonSeparator />
             <RibbonGroup label="Párrafo">

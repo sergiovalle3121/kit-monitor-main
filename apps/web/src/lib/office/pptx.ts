@@ -60,7 +60,7 @@ function linkOpt(o: any): any {
 // Pista de forma (Fabric) → nombre de preset de PowerPoint (PptxGenJS ShapeType).
 // Si el preset no existe en la versión de la lib, presetFor() devuelve undefined
 // y el llamador cae a un rectángulo (formas) u omite (paths sueltos).
-const HINT_TO_PRESET: Record<string, string> = {
+export const HINT_TO_PRESET: Record<string, string> = {
   star4: 'star4', star5: 'star5', star6: 'star6',
   rightArrow: 'rightArrow', leftArrow: 'leftArrow', upArrow: 'upArrow', downArrow: 'downArrow', leftRightArrow: 'leftRightArrow',
   diamond: 'diamond', pentagon: 'pentagon', hexagon: 'hexagon', octagon: 'octagon',
@@ -68,7 +68,7 @@ const HINT_TO_PRESET: Record<string, string> = {
   plus: 'plus', lightningBolt: 'lightningBolt', ribbon: 'ribbon2',
   heart: 'heart', cloud: 'cloud', sun: 'sun', speech: 'wedgeRectCallout',
 };
-function presetFor(hint: any, ST: any): any {
+export function presetFor(hint: any, ST: any): any {
   const name = typeof hint === 'string' ? HINT_TO_PRESET[hint] : undefined;
   return name ? ST[name] : undefined;
 }
@@ -151,10 +151,19 @@ function addChartObject(slide: any, o: any, pptx: any) {
   slide.addChart(type, data, { ...common, barDir: spec.type === 'hbar' ? 'bar' : 'col', ...(spec.stacked && (spec.type === 'bar' || spec.type === 'hbar') ? { barGrouping: 'stacked' } : {}) });
 }
 
+// Mezcla un color hex (RRGGBB) hacia el blanco — espejo de `tint()` del lienzo (slides/table.ts),
+// para que las filas con banda exportadas usen el MISMO tinte del color de acento que se ve en pantalla.
+function tintHex(h6: string, amount: number): string {
+  const r = parseInt(h6.slice(0, 2), 16), g = parseInt(h6.slice(2, 4), 16), b = parseInt(h6.slice(4, 6), 16);
+  const mix = (x: number) => Math.round(x * amount + 255 * (1 - amount));
+  return [mix(r), mix(g), mix(b)].map((n) => n.toString(16).padStart(2, '0')).join('').toUpperCase();
+}
+
 /** Exporta una tabla (Group con tableSpec) como TABLA NATIVA de PowerPoint. */
 function addTableObject(slide: any, o: any) {
   const spec = o.tableSpec; if (!spec || !Array.isArray(spec.cells)) return;
   const accent = hex(spec.accent) || '2563EB';
+  const bandFill = tintHex(accent, 0.10); // banda = acento atenuado al 10% (idéntico al lienzo)
   const scaleX = o.scaleX ?? 1, scaleY = o.scaleY ?? 1;
   const w = (o.width ?? 450) * scaleX, h = (o.height ?? 132) * scaleY;
   const rows = spec.cells.map((row: any[], r: number) => row.map((txt: any) => {
@@ -164,7 +173,7 @@ function addTableObject(slide: any, o: any) {
       text: String(txt ?? ''),
       options: {
         bold: isHeader, color: isHeader ? 'FFFFFF' : '1F2937',
-        fill: { color: isHeader ? accent : (banded ? 'EEF2FF' : 'FFFFFF') },
+        fill: { color: isHeader ? accent : (banded ? bandFill : 'FFFFFF') },
         align: 'left', valign: 'middle', fontSize: 12,
       },
     };

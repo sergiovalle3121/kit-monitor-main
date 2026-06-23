@@ -27,7 +27,12 @@ export type RoleId =
   | 'maintenance_tech'
   | 'buyer'
   | 'finance'
-  | 'hr';
+  | 'hr'
+  | 'program_manager' // comercial / gestión de programas de cliente
+  | 'test_engineer' // ingeniería de pruebas (ICT/FCT)
+  | 'supplier_quality' // calidad de proveedores (SQE)
+  | 'trade_compliance' // comercio exterior / tráfico (IMMEX)
+  | 'ehs_specialist'; // seguridad e higiene / medio ambiente
 
 export const LEVELS: Record<number, string> = {
   1: 'Operador',
@@ -54,15 +59,16 @@ export interface Position {
 
 export const DEPARTMENTS: Department[] = [
   { id: 'direccion', label: 'Dirección', description: 'Vista ejecutiva de toda la planta' },
+  { id: 'comercial', label: 'Comercial y Programas', description: 'Cuentas, programas y servicio a cliente' },
   { id: 'planeacion', label: 'Planeación', description: 'Demanda, plan maestro y publicación' },
   { id: 'materiales', label: 'Materiales y Almacén', description: 'Inventario, surtido y kitting' },
   { id: 'produccion', label: 'Producción', description: 'Piso, líneas y ejecución' },
   { id: 'calidad', label: 'Calidad', description: 'Inspección, NCR y CAPA' },
   { id: 'ingenieria', label: 'Ingeniería', description: 'NPI, BOM y proceso' },
   { id: 'finanzas', label: 'Finanzas', description: 'Costos y P&L' },
-  { id: 'compras', label: 'Compras', description: 'Sourcing y proveedores', comingSoon: true },
-  { id: 'logistica', label: 'Logística', description: 'Embarques y aduana', comingSoon: true },
-  { id: 'mantenimiento', label: 'Mantenimiento', description: 'Activos y TPM', comingSoon: true },
+  { id: 'compras', label: 'Compras', description: 'Sourcing y proveedores' },
+  { id: 'logistica', label: 'Logística y Comercio Exterior', description: 'Embarques, tráfico y aduana (IMMEX)' },
+  { id: 'mantenimiento', label: 'Mantenimiento', description: 'Activos y TPM' },
   { id: 'personas', label: 'Personas y SST', description: 'Plantilla, talento y seguridad' },
 ];
 
@@ -95,21 +101,41 @@ export const POSITIONS: Position[] = [
   { id: 'quality_inspector', label: 'Inspector de calidad', departmentId: 'calidad', level: 1, role: 'quality_engineer' },
   { id: 'quality_engineer', label: 'Ingeniero de calidad', departmentId: 'calidad', level: 3, role: 'quality_engineer' },
   { id: 'quality_manager', label: 'Gerente de calidad', departmentId: 'calidad', level: 4, role: 'quality_engineer' },
+  { id: 'supplier_quality_engineer', label: 'Ingeniero de calidad de proveedores (SQE)', departmentId: 'calidad', level: 3, role: 'supplier_quality' },
 
   // Ingeniería
   { id: 'process_engineer', label: 'Ingeniero de proceso', departmentId: 'ingenieria', level: 3, role: 'engineering' },
   { id: 'industrial_engineer', label: 'Ingeniero industrial', departmentId: 'ingenieria', level: 3, role: 'industrial_engineer' },
   { id: 'npi_engineer', label: 'Ingeniero NPI', departmentId: 'ingenieria', level: 3, role: 'engineering' },
   { id: 'engineering_manager', label: 'Gerente de ingeniería', departmentId: 'ingenieria', level: 4, role: 'engineering' },
+  { id: 'test_engineer', label: 'Ingeniero de pruebas (ICT/FCT)', departmentId: 'ingenieria', level: 3, role: 'test_engineer' },
+  { id: 'test_technician', label: 'Técnico de pruebas', departmentId: 'ingenieria', level: 2, role: 'test_engineer' },
 
   // Finanzas
   { id: 'cost_analyst', label: 'Analista de costos', departmentId: 'finanzas', level: 2, role: 'finance' },
   { id: 'finance_manager', label: 'Gerente de finanzas', departmentId: 'finanzas', level: 4, role: 'finance' },
 
-  // Coming soon (selectable once their area ships)
+  // Comercial y Programas
+  { id: 'program_manager', label: 'Gerente de programa', departmentId: 'comercial', level: 4, role: 'program_manager' },
+  { id: 'account_manager', label: 'Ejecutivo de cuenta', departmentId: 'comercial', level: 3, role: 'program_manager' },
+  { id: 'customer_service', label: 'Servicio a cliente (CSR)', departmentId: 'comercial', level: 2, role: 'program_manager' },
+
+  // Compras
   { id: 'buyer', label: 'Comprador', departmentId: 'compras', level: 2, role: 'buyer' },
+  { id: 'purchasing_manager', label: 'Gerente de compras', departmentId: 'compras', level: 4, role: 'buyer' },
+
+  // Logística y Comercio Exterior
   { id: 'logistics_coordinator', label: 'Coordinador de logística', departmentId: 'logistica', level: 2, role: 'warehouse_operator' },
+  { id: 'shipping_lead', label: 'Líder de embarques', departmentId: 'logistica', level: 2, role: 'warehouse_operator' },
+  { id: 'import_export_coord', label: 'Coordinador import/export', departmentId: 'logistica', level: 2, role: 'trade_compliance' },
+  { id: 'trade_compliance', label: 'Especialista de comercio exterior (IMMEX)', departmentId: 'logistica', level: 3, role: 'trade_compliance' },
+
+  // Mantenimiento
   { id: 'maintenance_tech', label: 'Técnico de mantenimiento', departmentId: 'mantenimiento', level: 1, role: 'maintenance_tech' },
+  { id: 'maintenance_supervisor', label: 'Supervisor de mantenimiento', departmentId: 'mantenimiento', level: 3, role: 'maintenance_tech' },
+
+  // Personas y SST
+  { id: 'ehs_specialist', label: 'Especialista EHS / Seguridad', departmentId: 'personas', level: 3, role: 'ehs_specialist' },
   { id: 'hr_analyst', label: 'Analista de RH', departmentId: 'personas', level: 2, role: 'hr' },
   { id: 'hr_generalist', label: 'Generalista de RH', departmentId: 'personas', level: 3, role: 'hr' },
   { id: 'hr_manager', label: 'Gerente de RH', departmentId: 'personas', level: 4, role: 'hr' },

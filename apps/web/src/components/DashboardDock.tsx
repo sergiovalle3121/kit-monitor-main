@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutGrid, Settings, type LucideIcon } from 'lucide-react';
+import { LayoutGrid, MessageSquare, Settings, type LucideIcon } from 'lucide-react';
 import { glass } from '@/lib/glass';
 import { isAdminAccess, seesAllAreas } from '@/lib/owner';
 import { useDashboardSession } from '@/hooks/useDashboardSession';
@@ -15,8 +15,8 @@ import { AREAS, type DashboardArea } from '@/lib/dashboardAreas';
  * Accesos rápidos role-aware: se derivan de las áreas a las que el usuario tiene
  * acceso (MISMA lógica que el hub vía seesAllAreas), tomando las más operativas
  * de una lista de prioridad y limitándolas para mantener el dock esbelto. Inicio
- * está siempre; Ajustes respeta el gating de admin (override de owner por email).
- * Marca activo según la ruta actual.
+ * y Mensajes están siempre (chat/llamadas son para todos); Ajustes respeta el
+ * gating de admin (override de owner por email). Marca activo según la ruta.
  */
 
 // Orden de prioridad de los accesos rápidos (destinos más operativos). Solo se
@@ -53,6 +53,7 @@ export function DashboardDock() {
   return (
     <div className={`${glass} fixed bottom-6 left-1/2 z-50 -translate-x-1/2 px-4 py-3 rounded-[2rem] shadow-2xl flex items-center gap-2`}>
       <DockLink href="/dashboard" active={active('/dashboard')} icon={LayoutGrid} label="Inicio" />
+      <DockLink href="/dashboard/chat" active={active('/dashboard/chat')} icon={MessageSquare} label="Mensajes" />
       {quickLinks.map((a) => (
         <DockLink key={a.href} href={a.href} active={active(a.href)} icon={a.icon} label={a.name} />
       ))}

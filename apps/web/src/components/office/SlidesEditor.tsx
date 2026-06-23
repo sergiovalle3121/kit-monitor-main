@@ -23,6 +23,7 @@ import {
   AlignHorizontalSpaceAround, Paintbrush, Stamp, Proportions, FolderPlus, Squircle, Pipette, Move, PlayCircle,
   Repeat, Timer, Pause,
 } from 'lucide-react';
+import { groupSlidesBySection, setSectionAt, removeSectionAt, sectionCount } from './slides/sections';
 import { SlideSorter } from './SlideSorter';
 import { SlideIconPicker } from './SlideIconPicker';
 import { TemplateGallery } from './TemplateGallery';
@@ -278,6 +279,20 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
   function setTransDuration(ms: number) { transDursRef.current[curRef.current] = ms; setTransDur(ms); sync(); }
   function setSlideAdvance(sec: number) { advanceRef.current[curRef.current] = Math.max(0, sec); setAdvanceAfter(Math.max(0, sec)); sync(); }
   function toggleLoop() { const v = !loopRef.current; loopRef.current = v; setLoop(v); sync(); }
+  // Secciones del mazo (como PowerPoint): nombran/quitan la sección que empieza en la diapositiva
+  // actual; siguen el patrón de metadatos (mutar el ref + sync), igual que la transición.
+  function sectionHere() {
+    const i = curRef.current;
+    const existing = sectionsRef.current[i] ?? '';
+    const name = window.prompt('Nombre de la sección que empieza en esta diapositiva (vacío = quitar):', existing || `Sección ${sectionCount(sectionsRef.current) + 1}`);
+    if (name === null) return;
+    sectionsRef.current = setSectionAt(sectionsRef.current, i, name, slidesRef.current.length);
+    sync();
+  }
+  function removeSectionHere() {
+    sectionsRef.current = removeSectionAt(sectionsRef.current, curRef.current);
+    sync();
+  }
   // «Aplicar a todas»: copia la transición, la duración Y el avance automático de
   // la diapositiva actual a todo el mazo (como PowerPoint).
   function applyTransAll(t: string) {
@@ -1429,6 +1444,11 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
               <RibbonButton icon={Plus} label="Nueva diapositiva" onClick={addSlide} />
               <RibbonButton icon={Copy} label="Duplicar diapositiva" onClick={dupSlide} />
               <RibbonButton icon={Layers} label="Reutilizar diapositivas" hideLabel={false} onClick={openReuse} />
+              <RibbonMenuButton icon={ListTree} label="Secciones" menuWidth={260} items={[
+                { label: 'Agregar/renombrar sección aquí', onClick: sectionHere },
+                { label: 'Quitar sección de esta diapositiva', onClick: removeSectionHere },
+                ...groupSlidesBySection(slides.length, sections).filter((g) => g.title).map((g) => ({ label: `Ir a — ${g.title} (${g.slides.length})`, onClick: () => { loadInto(g.start); } })),
+              ]} />
             </RibbonGroup>
             <RibbonSeparator />
             <RibbonGroup label="Fuente">
@@ -1909,6 +1929,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
         {sorter && (
           <SlideSorter
             slides={slides}
+            sections={sections}
             current={cur}
             ratio={ratio}
             onReorder={readOnly ? () => {} : reorderSlides}

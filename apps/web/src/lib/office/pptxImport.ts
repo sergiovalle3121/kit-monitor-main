@@ -1,15 +1,17 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Import a .pptx (OOXML) into an AXOS deck (the Fabric-based JSON the slides
- * editor consumes). Round-trip de la Fase 2: lo que `pptx.ts` exporta vuelve a
- * entrar con fidelidad, y los .pptx de PowerPoint entran «best-effort».
+ * editor consumes). Round-trip de la Fase 2 + fidelidad de archivos FORÁNEOS
+ * (Fase 5): resuelve el TEMA real (`theme1.xml` → schemeClr a hex, con
+ * modificadores lum/tint/shade y el clrMap del patrón), HEREDA la geometría de
+ * los marcadores desde el layout/patrón (antes se perdían los títulos/cuerpos
+ * sin xfrm) y lee colores por REFERENCIA de estilo (fillRef/lnRef).
  *
- * Cobertura: tamaño/relación, fondo sólido, cuadros de texto (con viñetas e
- * indentado), imágenes embebidas, autoformas (prstGeom → pista de forma),
- * líneas, tablas (a:tbl) y gráficos (c:chart) — estos dos reconstruidos con los
- * mismos builders del editor para que se vean idénticos. SmartArt entra como
- * formas sueltas (PowerPoint también lo «desarma»). Solo navegador: usa
- * DOMParser, decodifica imágenes y reutiliza Fabric; se importa bajo demanda.
+ * Cobertura: tamaño/relación, fondo (sólido + heredado/bgRef), cuadros de texto
+ * (viñetas e indentado), imágenes, autoformas (prstGeom → pista de forma),
+ * líneas, tablas (a:tbl) y gráficos (c:chart) reconstruidos con los builders del
+ * editor. SmartArt entra como formas sueltas. Solo navegador: usa DOMParser,
+ * decodifica imágenes y reutiliza Fabric; se importa bajo demanda.
  */
 import { Rect, Ellipse, Triangle, Polygon, Path, FabricImage } from 'fabric';
 import { buildTableGroup, type TableSpec } from '@/components/office/slides/table';
@@ -63,13 +65,14 @@ const PRESET_TO_HINT: Record<string, string> = {
   plus: 'plus', mathPlus: 'plus', lightningBolt: 'lightningBolt', ribbon2: 'ribbon', ribbon: 'ribbon',
   heart: 'heart', cloud: 'cloud', sun: 'sun', wedgeRectCallout: 'speech',
 };
-// Colores de esquema más comunes → aproximación (fallback para schemeClr).
+// Colores de esquema por defecto (fallback si NO se resuelve el tema real).
 const SCHEME_FALLBACK: Record<string, string> = {
   tx1: '#111827', dk1: '#111827', dk2: '#1f2937', tx2: '#1f2937',
   bg1: '#ffffff', lt1: '#ffffff', bg2: '#f1f5f9', lt2: '#f1f5f9',
   accent1: '#2563eb', accent2: '#10b981', accent3: '#f59e0b', accent4: '#ef4444',
   accent5: '#7c3aed', accent6: '#ec4899', hlink: '#2563eb', folHlink: '#7c3aed',
 };
+const PRST_CLR: Record<string, string> = { white: '#ffffff', black: '#000000', red: '#ff0000', green: '#008000', blue: '#0000ff', yellow: '#ffff00', gray: '#808080', grey: '#808080' };
 
 // Puntos (caja 0..100) de las formas-polígono, incluidas las que el editor crea
 // con puntos en línea (star5/diamond/rightArrow) y no viven en POLY_SHAPES.
@@ -81,28 +84,106 @@ function shapePoints(hint: string): { x: number; y: number }[] | null {
   return null;
 }
 
-function clrFromContainer(el: Element | null): string | undefined {
-  if (!el) return undefined;
-  const srgb = firstTag(el, 'srgbClr');
-  if (srgb) return `#${(attr(srgb, 'val') || '').toUpperCase()}`;
-  const scheme = firstTag(el, 'schemeClr');
-  if (scheme) return SCHEME_FALLBACK[attr(scheme, 'val') || ''] || undefined;
-  const sys = firstTag(el, 'sysClr');
-  if (sys) { const v = attrNS(sys, 'lastClr') || attr(sys, 'lastClr'); return v ? `#${v.toUpperCase()}` : undefined; }
-  return undefined;
+// ── color: tema + modificadores (lumMod/lumOff/tint/shade) ───────────────────
+type ThemeMap = Record<string, string>;
+/** Contexto de importación de una diapositiva: tema, mapeo de colores y
+ *  geometría de marcadores heredada del layout/patrón. */
+interface ImportCtx { zip: any; rels: Record<string, string>; theme: ThemeMap; clrMap: Record<string, string>; ph: Map<string, Xfrm>; bg?: string }
+
+const clamp = (n: number) => Math.max(0, Math.min(255, Math.round(n)));
+function hexToRgb(h: string): { r: number; g: number; b: number } | null {
+  const m = /^#?([0-9a-f]{6})$/i.exec(h.trim());
+  if (!m) return null;
+  const n = parseInt(m[1], 16);
+  return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+}
+const rgbToHex = (r: number, g: number, b: number) => `#${[r, g, b].map((c) => clamp(c).toString(16).padStart(2, '0')).join('').toUpperCase()}`;
+function rgbToHsl(r: number, g: number, b: number): [number, number, number] {
+  r /= 255; g /= 255; b /= 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b); let h = 0, s = 0; const l = (max + min) / 2;
+  if (max !== min) {
+    const d = max - min; s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    if (max === r) h = (g - b) / d + (g < b ? 6 : 0); else if (max === g) h = (b - r) / d + 2; else h = (r - g) / d + 4;
+    h /= 6;
+  }
+  return [h, s, l];
+}
+function hslToRgb(h: number, s: number, l: number): [number, number, number] {
+  if (s === 0) return [l * 255, l * 255, l * 255];
+  const hue2rgb = (p: number, q: number, t: number) => { if (t < 0) t += 1; if (t > 1) t -= 1; if (t < 1 / 6) return p + (q - p) * 6 * t; if (t < 1 / 2) return q; if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6; return p; };
+  const q = l < 0.5 ? l * (1 + s) : l + s - l * s; const p = 2 * l - q;
+  return [hue2rgb(p, q, h + 1 / 3) * 255, hue2rgb(p, q, h) * 255, hue2rgb(p, q, h - 1 / 3) * 255];
+}
+// Aplica los modificadores OOXML hijos del color (en orden) a un hex base.
+function applyMods(hex: string, clrEl: Element): string {
+  const rgb = hexToRgb(hex); if (!rgb) return hex;
+  let { r, g, b } = rgb;
+  let lumMod: number | null = null, lumOff: number | null = null;
+  for (const ch of Array.from(clrEl.children)) {
+    const v = Number(attr(ch, 'val') || 0) / 100000;
+    if (ch.localName === 'shade') { r *= v; g *= v; b *= v; }
+    else if (ch.localName === 'tint') { r = r * v + 255 * (1 - v); g = g * v + 255 * (1 - v); b = b * v + 255 * (1 - v); }
+    else if (ch.localName === 'lumMod') lumMod = v;
+    else if (ch.localName === 'lumOff') lumOff = v;
+  }
+  if (lumMod != null || lumOff != null) {
+    const [h, s, l0] = rgbToHsl(r, g, b);
+    let l = l0; if (lumMod != null) l *= lumMod; if (lumOff != null) l += lumOff;
+    [r, g, b] = hslToRgb(h, s, Math.max(0, Math.min(1, l)));
+  }
+  return rgbToHex(r, g, b);
+}
+const CLR_TAGS = ['srgbClr', 'schemeClr', 'sysClr', 'prstClr', 'scrgbClr'];
+function colorChild(container: Element | null): Element | null {
+  if (!container) return null;
+  return (Array.from(container.children).find((c) => CLR_TAGS.includes(c.localName || '')) as Element) || null;
+}
+/** Resuelve a hex el primer color de un contenedor (solidFill/ln/fillRef/bg),
+ *  usando el tema y el clrMap del contexto; aplica modificadores. */
+function resolveClr(container: Element | null, ctx?: ImportCtx, phClr?: string): string | undefined {
+  const el = colorChild(container); if (!el) return undefined;
+  let base: string | undefined;
+  if (el.localName === 'srgbClr') base = `#${(attr(el, 'val') || '').toUpperCase()}`;
+  else if (el.localName === 'sysClr') { const v = attr(el, 'lastClr'); base = v ? `#${v.toUpperCase()}` : undefined; }
+  else if (el.localName === 'prstClr') base = PRST_CLR[(attr(el, 'val') || '').toLowerCase()];
+  else if (el.localName === 'schemeClr') {
+    const name = attr(el, 'val') || '';
+    if (name === 'phClr') return phClr ? applyMods(phClr, el) : phClr;
+    if (ctx) { const mapped = ctx.clrMap[name] || name; base = ctx.theme[mapped] || ctx.theme[name]; }
+    if (!base) base = SCHEME_FALLBACK[name];
+  }
+  if (!base) return undefined;
+  return applyMods(base, el);
 }
 
+// ── geometría ────────────────────────────────────────────────────────────────
 interface Xfrm { left: number; top: number; w: number; h: number; rot: number; flipH: boolean; flipV: boolean }
 function readXfrm(spPr: Element | null): Xfrm | null {
   const xfrm = firstTag(spPr, 'xfrm');
   if (!xfrm) return null;
   const off = firstChild(xfrm, 'off'), ext = firstChild(xfrm, 'ext');
+  if (!off && !ext) return null;
   return {
     left: px(attr(off, 'x')), top: px(attr(off, 'y')),
     w: px(attr(ext, 'cx')), h: px(attr(ext, 'cy')),
     rot: (Number(attr(xfrm, 'rot') || 0) / 60000) || 0,
     flipH: attr(xfrm, 'flipH') === '1', flipV: attr(xfrm, 'flipV') === '1',
   };
+}
+// Marcador (placeholder) de un <p:sp> → clave type#idx para heredar geometría.
+function phOf(sp: Element): { type: string; idx: string } | null {
+  const phEl = firstTag(firstChild(sp, 'nvSpPr'), 'ph');
+  if (!phEl) return null;
+  return { type: attr(phEl, 'type') || 'body', idx: attr(phEl, 'idx') || '' };
+}
+function phXfrm(ph: { type: string; idx: string }, ctx?: ImportCtx): Xfrm | undefined {
+  if (!ctx) return undefined;
+  const titles = ['title', 'ctrTitle'];
+  return ctx.ph.get(`${ph.type}#${ph.idx}`)
+    || ctx.ph.get(ph.type)
+    || (titles.includes(ph.type) ? (ctx.ph.get('title') || ctx.ph.get('ctrTitle')) : undefined)
+    || (ph.type === 'subTitle' ? ctx.ph.get('body') : undefined)
+    || (ph.type === 'body' ? ctx.ph.get('subTitle') : undefined);
 }
 
 const ALIGN: Record<string, string> = { l: 'left', ctr: 'center', r: 'right', just: 'justify' };
@@ -111,8 +192,10 @@ function readAlign(txBody: Element | null): string | undefined {
   const a = pPr ? attr(pPr, 'algn') : null;
   return a ? ALIGN[a] : undefined;
 }
-function readRunProps(p: Element): any {
-  const r = firstChild(p, 'r');
+function readRunProps(p: Element, ctx?: ImportCtx): any {
+  // Usa el primer run con texto (los foráneos a veces abren con runs vacíos).
+  const runs = childTags(p, 'r');
+  const r = runs.find((x) => (firstChild(x, 't')?.textContent || '').length) || runs[0];
   const rPr = firstChild(r, 'rPr') || firstChild(p, 'endParaRPr');
   if (!rPr) return {};
   const sz = attr(rPr, 'sz');
@@ -121,11 +204,11 @@ function readRunProps(p: Element): any {
     fontSize: sz ? +((Number(sz) / 100) * (4 / 3)).toFixed(1) : undefined, // pt → px (inverso de *0.75)
     bold: attr(rPr, 'b') === '1', italic: attr(rPr, 'i') === '1',
     underline: !!attr(rPr, 'u') && attr(rPr, 'u') !== 'none',
-    fill: clrFromContainer(firstChild(rPr, 'solidFill')),
+    fill: resolveClr(firstChild(rPr, 'solidFill'), ctx),
     fontFamily: latin ? attr(latin, 'typeface') || undefined : undefined,
   };
 }
-function readTxBody(txBody: Element | null): { text: string; props: any } {
+function readTxBody(txBody: Element | null, ctx?: ImportCtx): { text: string; props: any } {
   if (!txBody) return { text: '', props: {} };
   const paras = childTags(txBody, 'p');
   const lines: string[] = [];
@@ -135,7 +218,7 @@ function readTxBody(txBody: Element | null): { text: string; props: any } {
     const lvl = pPr ? Number(attr(pPr, 'lvl') || 0) : 0;
     const bullet = !!pPr && (!!firstChild(pPr, 'buChar') || !!firstChild(pPr, 'buAutoNum'));
     const runText = childTags(p, 'r').map((r) => firstChild(r, 't')?.textContent || '').join('');
-    if (!Object.keys(props).length && childTags(p, 'r').length) props = readRunProps(p);
+    if (!Object.keys(props).length && childTags(p, 'r').length) props = readRunProps(p, ctx);
     const indent = '  '.repeat(Math.max(0, lvl));
     lines.push(bullet ? `${indent}• ${runText}` : `${indent}${runText}`);
   }
@@ -143,34 +226,39 @@ function readTxBody(txBody: Element | null): { text: string; props: any } {
 }
 
 // ── conversión de un <p:sp> a objeto (texto o forma) ────────────────────────
-function spToObject(sp: Element): any | null {
+function spToObject(sp: Element, ctx?: ImportCtx): any | null {
   const spPr = firstChild(sp, 'spPr');
-  const xf = readXfrm(spPr);
-  if (!xf) return null; // sin geometría (heredada del layout): no la podemos ubicar
+  const ph = phOf(sp);
+  // Geometría propia o, si falta, HEREDADA del marcador del layout/patrón.
+  const xf = readXfrm(spPr) || (ph ? phXfrm(ph, ctx) : undefined);
+  if (!xf) return null;
   const txBody = firstChild(sp, 'txBody');
-  const { text, props } = readTxBody(txBody);
+  const { text, props } = readTxBody(txBody, ctx);
   const cNvSpPr = firstChild(firstChild(sp, 'nvSpPr'), 'cNvSpPr');
-  const isTxBox = attr(cNvSpPr, 'txBox') === '1';
+  const isTxBox = attr(cNvSpPr, 'txBox') === '1' || (ph && (ph.type === 'title' || ph.type === 'ctrTitle' || ph.type === 'subTitle' || ph.type === 'body'));
   const prst = attr(firstTag(spPr, 'prstGeom'), 'prst');
-  const fillEl = firstChild(spPr, 'solidFill');
-  const fill = clrFromContainer(fillEl);
   const noFill = !!firstChild(spPr, 'noFill');
+  const styleEl = firstChild(sp, 'style');
+  let fill = resolveClr(firstChild(spPr, 'solidFill'), ctx);
+  if (fill === undefined && !noFill && styleEl) fill = resolveClr(firstChild(styleEl, 'fillRef'), ctx);
   const lnEl = firstChild(spPr, 'ln');
-  const stroke = lnEl ? clrFromContainer(firstChild(lnEl, 'solidFill')) : undefined;
+  let stroke = lnEl ? resolveClr(firstChild(lnEl, 'solidFill'), ctx) : undefined;
+  if (stroke === undefined && styleEl) stroke = resolveClr(firstChild(styleEl, 'lnRef'), ctx);
   const strokeW = lnEl && attr(lnEl, 'w') ? Math.max(1, Math.round(px(attr(lnEl, 'w')))) : undefined;
   const angle = Math.round(xf.rot);
 
-  // Cuadro de texto: tiene texto y es txBox, o no tiene forma significativa.
+  // Cuadro de texto: marcador de texto, txBox, o sin forma significativa.
   if (text.trim() && (isTxBox || !prst || prst === 'rect')) {
+    const isTitle = !!ph && (ph.type === 'title' || ph.type === 'ctrTitle');
     return {
       type: 'textbox', version: '7', text,
       left: xf.left, top: xf.top, width: Math.max(8, xf.w || 200),
-      fontSize: props.fontSize ?? 24,
-      fill: props.fill || '#111827',
-      fontWeight: props.bold ? 'bold' : 'normal',
+      fontSize: props.fontSize ?? (isTitle ? 40 : 24),
+      fill: props.fill || (isTitle ? '#111827' : '#111827'),
+      fontWeight: props.bold || isTitle ? 'bold' : 'normal',
       fontStyle: props.italic ? 'italic' : 'normal',
       underline: !!props.underline,
-      textAlign: readAlign(txBody) || 'left',
+      textAlign: readAlign(txBody) || (ph && (ph.type === 'ctrTitle') ? 'center' : 'left'),
       fontFamily: props.fontFamily || 'sans-serif',
       angle,
     };
@@ -207,12 +295,13 @@ function spToObject(sp: Element): any | null {
 }
 
 // Conector / línea (<p:cxnSp>) → línea de Fabric.
-function cxnToObject(cxn: Element): any | null {
+function cxnToObject(cxn: Element, ctx?: ImportCtx): any | null {
   const spPr = firstChild(cxn, 'spPr');
   const xf = readXfrm(spPr);
   if (!xf) return null;
   const lnEl = firstChild(spPr, 'ln');
-  const stroke = (lnEl ? clrFromContainer(firstChild(lnEl, 'solidFill')) : undefined) || '#111827';
+  const styleEl = firstChild(cxn, 'style');
+  const stroke = (lnEl ? resolveClr(firstChild(lnEl, 'solidFill'), ctx) : undefined) || (styleEl ? resolveClr(firstChild(styleEl, 'lnRef'), ctx) : undefined) || '#111827';
   const strokeW = lnEl && attr(lnEl, 'w') ? Math.max(1, Math.round(px(attr(lnEl, 'w')))) : 2;
   let x1 = xf.left, y1 = xf.top, x2 = xf.left + xf.w, y2 = xf.top + xf.h;
   if (xf.flipH) { const t = x1; x1 = x2; x2 = t; }
@@ -220,11 +309,11 @@ function cxnToObject(cxn: Element): any | null {
   return { type: 'line', version: '7', x1, y1, x2, y2, left: Math.min(x1, x2), top: Math.min(y1, y2), stroke, strokeWidth: strokeW };
 }
 
-async function picToObject(pic: Element, rels: Record<string, string>, zip: any): Promise<any | null> {
+async function picToObject(pic: Element, ctx: ImportCtx): Promise<any | null> {
   const blip = firstTag(pic, 'blip');
   const embed = blip ? attrNS(blip, 'embed') : null;
-  const target = embed ? rels[embed] : null;
-  const file = target ? zip.file(target) : null;
+  const target = embed ? ctx.rels[embed] : null;
+  const file = target ? ctx.zip.file(target) : null;
   if (!file) return null;
   const xf = readXfrm(firstChild(pic, 'spPr'));
   const b64 = await file.async('base64');
@@ -241,18 +330,22 @@ async function picToObject(pic: Element, rels: Record<string, string>, zip: any)
   } catch { return null; }
 }
 
-function tblToObject(gf: Element): any | null {
+function tblToObject(gf: Element, ctx?: ImportCtx): any | null {
   const tbl = firstTag(gf, 'tbl'); if (!tbl) return null;
   const xf = readXfrm(gf);
   const trs = tags(tbl, 'tr');
-  const cells: string[][] = trs.map((tr) => childTags(tr, 'tc').map((tc) => readTxBody(firstChild(tc, 'txBody')).text));
+  const cells: string[][] = trs.map((tr) => childTags(tr, 'tc').map((tc) => readTxBody(firstChild(tc, 'txBody'), ctx).text));
   const rows = cells.length; const cols = Math.max(1, ...cells.map((r) => r.length));
   if (!rows) return null;
   for (const r of cells) while (r.length < cols) r.push('');
-  // Cabecera: si la primera fila tiene relleno de acento (no blanco) lo asumimos.
-  const firstFill = clrFromContainer(firstChild(firstTag(tbl, 'tc'), 'tcPr') ? firstChild(firstChild(firstTag(tbl, 'tc'), 'tcPr'), 'solidFill') : null);
+  // Cabecera: respeta tblPr@firstRow; el acento, del relleno de la 1ª celda.
+  const tblPr = firstTag(tbl, 'tblPr');
+  const header = attr(tblPr, 'firstRow') !== '0';
+  const banded = attr(tblPr, 'bandRow') !== '0';
+  const firstTc = firstTag(tbl, 'tc');
+  const firstFill = resolveClr(firstChild(firstChild(firstTc, 'tcPr'), 'solidFill'), ctx);
   const accent = firstFill && firstFill.toLowerCase() !== '#ffffff' ? firstFill : '#2563eb';
-  const spec: TableSpec = { rows, cols, cells, header: true, banded: true, accent };
+  const spec: TableSpec = { rows, cols, cells, header, banded, accent };
   const g: any = buildTableGroup(spec, { left: xf?.left ?? 90, top: xf?.top ?? 150 });
   const natW = g.width || 1, natH = g.height || 1;
   g.set({ left: xf?.left ?? 90, top: xf?.top ?? 150, scaleX: xf?.w ? xf.w / natW : 1, scaleY: xf?.h ? xf.h / natH : 1 });
@@ -265,11 +358,11 @@ function chartTitle(doc: Document): string {
   if (!title) return '';
   return tags(title, 't').map((t) => t.textContent || '').join('') || '';
 }
-async function chartToObject(gf: Element, rels: Record<string, string>, zip: any): Promise<any | null> {
+async function chartToObject(gf: Element, ctx: ImportCtx): Promise<any | null> {
   const ref = firstTag(gf, 'chart');
   const rid = ref ? attrNS(ref, 'id') : null;
-  const target = rid ? rels[rid] : null;
-  const xml = target ? await zip.file(target)?.async('string') : null;
+  const target = rid ? ctx.rels[rid] : null;
+  const xml = target ? await ctx.zip.file(target)?.async('string') : null;
   if (!xml) return null;
   const doc = parseXml(xml);
   let type: ChartType = 'bar';
@@ -317,32 +410,77 @@ function resolvePath(baseDir: string, rel: string): string {
   return stack.join('/');
 }
 
+// Junta los marcadores (type#idx → xfrm) del árbol de un layout/patrón.
+function collectPlaceholders(doc: Document, into: Map<string, Xfrm>) {
+  const tree = firstTag(doc, 'spTree'); if (!tree) return;
+  for (const sp of childTags(tree, 'sp')) {
+    const ph = phOf(sp); if (!ph) continue;
+    const xf = readXfrm(firstChild(sp, 'spPr')); if (!xf) continue;
+    into.set(`${ph.type}#${ph.idx}`, xf);
+    if (!into.has(ph.type)) into.set(ph.type, xf);
+  }
+}
+function readBg(doc: Document | null, ctx?: ImportCtx): string | undefined {
+  if (!doc) return undefined;
+  const bg = firstTag(doc, 'bg'); if (!bg) return undefined;
+  const bgPr = firstTag(bg, 'bgPr');
+  return resolveClr(firstChild(bgPr, 'solidFill'), ctx) || resolveClr(firstChild(bgPr, 'bgRef') || firstChild(bg, 'bgRef'), ctx);
+}
+
+// Carga el TEMA, el clrMap, la geometría de marcadores y el fondo heredado
+// (layout → patrón → tema) para una diapositiva.
+async function loadSlideContext(zip: any, rels: Record<string, string>): Promise<ImportCtx> {
+  const ctx: ImportCtx = { zip, rels, theme: {}, clrMap: {}, ph: new Map() };
+  try {
+    const layoutPath = Object.values(rels).find((t) => /slideLayout\d+\.xml$/.test(t));
+    const layoutDoc = layoutPath && zip.file(layoutPath) ? parseXml(await zip.file(layoutPath).async('string')) : null;
+    let masterDoc: Document | null = null;
+    if (layoutPath) {
+      const layoutRels = await loadRels(zip, layoutPath);
+      const masterPath = Object.values(layoutRels).find((t) => /slideMaster\d+\.xml$/.test(t));
+      if (masterPath && zip.file(masterPath)) {
+        masterDoc = parseXml(await zip.file(masterPath).async('string'));
+        const masterRels = await loadRels(zip, masterPath);
+        const cm = firstTag(masterDoc, 'clrMap');
+        if (cm) for (const a of Array.from(cm.attributes)) ctx.clrMap[a.name] = a.value;
+        const themePath = Object.values(masterRels).find((t) => /theme\d+\.xml$/.test(t));
+        if (themePath && zip.file(themePath)) {
+          const scheme = firstTag(parseXml(await zip.file(themePath).async('string')), 'clrScheme');
+          if (scheme) for (const child of Array.from(scheme.children)) { const hex = resolveClr(child); if (hex && child.localName) ctx.theme[child.localName] = hex; }
+        }
+        collectPlaceholders(masterDoc, ctx.ph);
+      }
+    }
+    if (layoutDoc) collectPlaceholders(layoutDoc, ctx.ph); // el layout pisa al patrón
+    ctx.bg = readBg(layoutDoc, ctx) || readBg(masterDoc, ctx);
+  } catch { /* best-effort */ }
+  return ctx;
+}
+
 async function importSlide(zip: any, path: string): Promise<{ objects: any[]; background?: string; note: string }> {
   const doc = parseXml(await zip.file(path).async('string'));
   const rels = await loadRels(zip, path);
+  const ctx = await loadSlideContext(zip, rels);
   const objects: any[] = [];
-  // Fondo sólido de la diapositiva.
-  let background: string | undefined;
-  const bg = firstTag(doc, 'bg');
-  if (bg) background = clrFromContainer(firstChild(firstTag(bg, 'bgPr'), 'solidFill') || firstTag(bg, 'solidFill'));
+  const background = readBg(doc, ctx) || ctx.bg;
 
   const spTree = firstTag(doc, 'spTree');
   if (spTree) {
     for (const node of Array.from(spTree.children)) {
       try {
         if (node.localName === 'sp') {
-          const r = spToObject(node);
+          const r = spToObject(node, ctx);
           if (r && r.__shape) { objects.push(r.__shape); objects.push(textOverlay(r.__text)); }
           else if (r) objects.push(r);
         } else if (node.localName === 'pic') {
-          const r = await picToObject(node, rels, zip); if (r) objects.push(r);
+          const r = await picToObject(node, ctx); if (r) objects.push(r);
         } else if (node.localName === 'cxnSp') {
-          const r = cxnToObject(node); if (r) objects.push(r);
+          const r = cxnToObject(node, ctx); if (r) objects.push(r);
         } else if (node.localName === 'graphicFrame') {
-          if (firstTag(node, 'tbl')) { const r = tblToObject(node); if (r) objects.push(r); }
-          else if (firstTag(node, 'chart')) { const r = await chartToObject(node, rels, zip); if (r) objects.push(r); }
+          if (firstTag(node, 'tbl')) { const r = tblToObject(node, ctx); if (r) objects.push(r); }
+          else if (firstTag(node, 'chart')) { const r = await chartToObject(node, ctx); if (r) objects.push(r); }
         } else if (node.localName === 'grpSp') {
-          for (const o of await importGroup(node, rels, zip)) objects.push(o);
+          for (const o of await importGroup(node, ctx)) objects.push(o);
         }
       } catch { /* skip element */ }
     }
@@ -354,7 +492,6 @@ async function importSlide(zip: any, path: string): Promise<{ objects: any[]; ba
   if (notesRel && zip.file(notesRel)) {
     try {
       const ndoc = parseXml(await zip.file(notesRel).async('string'));
-      // El cuerpo de notas es el sp cuyo placeholder es 'body'.
       const bodies = tags(ndoc, 'sp').map((sp) => readTxBody(firstChild(sp, 'txBody')).text).filter(Boolean);
       note = bodies.join('\n').trim();
     } catch { /* ignore */ }
@@ -363,7 +500,7 @@ async function importSlide(zip: any, path: string): Promise<{ objects: any[]; ba
 }
 
 // Grupo (<p:grpSp>): transforma los hijos a coordenadas absolutas.
-async function importGroup(grp: Element, rels: Record<string, string>, zip: any): Promise<any[]> {
+async function importGroup(grp: Element, ctx: ImportCtx): Promise<any[]> {
   const gSpPr = firstChild(grp, 'grpSpPr');
   const xfrm = firstTag(gSpPr, 'xfrm');
   const off = firstChild(xfrm, 'off'), ext = firstChild(xfrm, 'ext');
@@ -382,10 +519,10 @@ async function importGroup(grp: Element, rels: Record<string, string>, zip: any)
   const out: any[] = [];
   for (const node of Array.from(grp.children)) {
     try {
-      if (node.localName === 'sp') { const r = spToObject(node); if (r && r.__shape) { out.push(map(r.__shape)); out.push(map(textOverlay(r.__text))); } else if (r) out.push(map(r)); }
-      else if (node.localName === 'pic') { const r = await picToObject(node, rels, zip); if (r) out.push(map(r)); }
-      else if (node.localName === 'cxnSp') { const r = cxnToObject(node); if (r) out.push(map(r)); }
-      else if (node.localName === 'grpSp') { for (const o of await importGroup(node, rels, zip)) out.push(map(o)); }
+      if (node.localName === 'sp') { const r = spToObject(node, ctx); if (r && r.__shape) { out.push(map(r.__shape)); out.push(map(textOverlay(r.__text))); } else if (r) out.push(map(r)); }
+      else if (node.localName === 'pic') { const r = await picToObject(node, ctx); if (r) out.push(map(r)); }
+      else if (node.localName === 'cxnSp') { const r = cxnToObject(node, ctx); if (r) out.push(map(r)); }
+      else if (node.localName === 'grpSp') { for (const o of await importGroup(node, ctx)) out.push(map(o)); }
     } catch { /* skip */ }
   }
   return out;

@@ -5,29 +5,21 @@ import React from 'react';
 import type { Editor } from '@tiptap/react';
 import { BarChart3 } from 'lucide-react';
 import { RibbonMenuButton } from '../ribbon';
-
-function syllablesEs(word: string): number {
-  const groups = word.toLowerCase().match(/[aeiouáéíóúüy]+/g);
-  return Math.max(1, groups ? groups.length : 1);
-}
+import { analyzeText, readability } from './readability';
 
 function analyze(editor: Editor) {
   const text = editor.getText() || '';
-  const words = (text.match(/[\p{L}\p{N}'’-]+/gu) || []);
-  const wc = words.length;
-  const charsWith = text.replace(/\n/g, '').length;
-  const charsNo = text.replace(/\s/g, '').length;
-  const sentences = (text.match(/[^.!?…]+[.!?…]+/g) || []).filter((s) => s.trim().length > 1).length || (wc ? 1 : 0);
+  const stats = analyzeText(text);
   let paragraphs = 0;
   editor.state.doc.descendants((n: any) => { if ((n.type?.name === 'paragraph' || n.type?.name === 'heading') && n.textContent.trim()) paragraphs += 1; });
-  const syl = words.reduce((a, w) => a + syllablesEs(w), 0);
-  const wps = sentences ? wc / sentences : wc;
-  const spw = wc ? syl / wc : 0;
-  // Fernández-Huerta (legibilidad en español): 206.84 − 60·(síl/palabra) − 1.02·(palabras/frase)
-  const ease = wc ? Math.max(0, Math.min(100, Math.round(206.84 - 60 * spw - 1.02 * wps))) : 0;
-  const easeLabel = ease >= 80 ? 'Muy fácil' : ease >= 65 ? 'Fácil' : ease >= 50 ? 'Normal' : ease >= 30 ? 'Difícil' : 'Muy difícil';
-  const minutes = Math.max(1, Math.round(wc / 200));
-  return { wc, charsWith, charsNo, sentences, paragraphs, ease, easeLabel, minutes, wps: Math.round(wps * 10) / 10 };
+  const wps = stats.sentences ? stats.words / stats.sentences : stats.words;
+  const minutes = Math.max(1, Math.round(stats.words / 200));
+  const read = readability(text, stats);
+  return {
+    wc: stats.words, charsWith: stats.charsWithSpaces, charsNo: stats.charsNoSpaces,
+    sentences: stats.sentences, paragraphs, minutes, wps: Math.round(wps * 10) / 10,
+    ease: stats.words ? read.ease : 0, easeLabel: read.easeLabel, scheme: read.scheme, grade: read.grade,
+  };
 }
 
 function Row({ k, v }: { k: string; v: React.ReactNode }) {
@@ -49,7 +41,10 @@ export function DocWordCount({ editor }: { editor: Editor }) {
         <div className="my-2 h-px bg-black/5 dark:bg-white/10" />
         <Row k="Tiempo de lectura" v={`${s.minutes} min`} />
         <Row k="Palabras por frase" v={s.wps} />
-        <Row k="Legibilidad" v={<span title="Fernández-Huerta">{s.ease} · {s.easeLabel}</span>} />
+        <Row k="Facilidad de lectura" v={<span title={s.scheme === 'es' ? 'Fernández-Huerta' : 'Flesch Reading Ease'}>{s.ease} · {s.easeLabel}</span>} />
+        {s.scheme === 'en' && s.grade !== undefined && (
+          <Row k="Nivel escolar" v={<span title="Flesch-Kincaid Grade Level">{s.grade}</span>} />
+        )}
       </div>
     </RibbonMenuButton>
   );

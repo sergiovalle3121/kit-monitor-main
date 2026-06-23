@@ -33,7 +33,12 @@ export type AppRole =
   | 'maintenance_tech'
   | 'buyer'
   | 'finance'
-  | 'hr';
+  | 'hr'
+  | 'program_manager'
+  | 'test_engineer'
+  | 'supplier_quality'
+  | 'trade_compliance'
+  | 'ehs_specialist';
 
 const READ_ALL = [
   'production:read',
@@ -147,6 +152,42 @@ export const ROLE_PERMISSIONS: Record<AppRole, string[]> = {
     'reports:read',
   ],
   hr: ['reports:read'],
+  program_manager: [
+    'sales:read',
+    'sales:write',
+    'planning:read',
+    'production:read',
+    'quality:read',
+    'materials:read',
+    'inventory:read',
+    'finance:read',
+    'logistics:read',
+    'reports:read',
+  ],
+  test_engineer: [
+    'quality:read',
+    'quality:write',
+    'quality:report',
+    'production:read',
+    'production:report',
+    'engineering:read',
+    'materials:read',
+  ],
+  supplier_quality: [
+    'quality:read',
+    'quality:write',
+    'quality:report',
+    'materials:read',
+    'reports:read',
+  ],
+  trade_compliance: [
+    'logistics:read',
+    'logistics:write',
+    'inventory:read',
+    'materials:read',
+    'reports:read',
+  ],
+  ehs_specialist: ['reports:read', 'production:read'],
 };
 
 export const APP_ROLES: AppRole[] = Object.keys(ROLE_PERMISSIONS) as AppRole[];
@@ -166,6 +207,13 @@ export const ALL_PERMISSIONS: string[] = Array.from(
     'settings:read',
     'settings:write',
   ]),
+);
+
+// Director / Dirección (executive): acceso total operativo — todo excepto los
+// recursos de administración (auth = usuarios/accesos, settings = configuración),
+// que quedan solo para Admin/owner. Espejo del backend rbac.ts.
+ROLE_PERMISSIONS.executive = ALL_PERMISSIONS.filter(
+  (p) => !p.startsWith('auth:') && !p.startsWith('settings:'),
 );
 
 export function isAppRole(role?: string | null): role is AppRole {
@@ -220,7 +268,7 @@ export interface RoleMeta {
 /** Order preserved from ROLE_PERMISSIONS (admin first). */
 export const ROLE_META: RoleMeta[] = [
   { value: 'admin', label: 'Administrador (acceso total)', short: 'Admin', group: 'Administración', tone: 'purple', description: 'Acceso total. Omite el guard de permisos: puede ver y hacer todo en la plataforma.' },
-  { value: 'executive', label: 'Dirección / Ejecutivo', short: 'Dirección', group: 'Dirección', tone: 'amber', description: 'Vista ejecutiva de toda la planta. Solo lectura en cada dominio.' },
+  { value: 'executive', label: 'Dirección / Ejecutivo', short: 'Dirección', group: 'Dirección', tone: 'amber', description: 'Acceso total operativo: ve y usa todos los módulos. La administración de usuarios/accesos queda con el Admin.' },
   { value: 'plant_manager', label: 'Gerente de planta', short: 'Gerente', group: 'Dirección', tone: 'blue', description: 'Opera la planta: publica planes, autoriza producción y dispone calidad.' },
   { value: 'planner', label: 'Planeación', short: 'Planeación', group: 'Planeación', tone: 'sky', description: 'Demanda, plan maestro (MPS/MRP) y publicación de planes.' },
   { value: 'warehouse_operator', label: 'Almacén', short: 'Almacén', group: 'Materiales', tone: 'teal', description: 'Recibo, inventario y surtido de materiales.' },
@@ -236,6 +284,11 @@ export const ROLE_META: RoleMeta[] = [
   { value: 'buyer', label: 'Compras', short: 'Compras', group: 'Compras', tone: 'cyan', description: 'Sourcing, órdenes de compra y proveedores.' },
   { value: 'finance', label: 'Finanzas', short: 'Finanzas', group: 'Finanzas', tone: 'emerald', description: 'Costos, P&L y ventas.' },
   { value: 'hr', label: 'Recursos Humanos', short: 'RH', group: 'Personas', tone: 'pink', description: 'Plantilla y reportes de personas.' },
+  { value: 'program_manager', label: 'Gerente de programa / Comercial', short: 'Programa', group: 'Comercial', tone: 'amber', description: 'Dueño del programa de cliente: cuentas, cotizaciones, entrega y relación 360.' },
+  { value: 'test_engineer', label: 'Ingeniero de pruebas (Test)', short: 'Test Eng', group: 'Ingeniería', tone: 'violet', description: 'ICT/FCT: yields, FPY y disposición de fallas de prueba.' },
+  { value: 'supplier_quality', label: 'Calidad de proveedores (SQE)', short: 'SQE', group: 'Calidad', tone: 'rose', description: 'Calidad enfocada al material y desempeño de proveedores.' },
+  { value: 'trade_compliance', label: 'Comercio exterior / Tráfico', short: 'Comex', group: 'Logística', tone: 'cyan', description: 'Import/export, aduanas (IMMEX), tráfico y embarques.' },
+  { value: 'ehs_specialist', label: 'EHS / Seguridad', short: 'EHS', group: 'Personas', tone: 'orange', description: 'Seguridad, medio ambiente e incidentes de piso.' },
 ];
 
 const ROLE_META_BY_VALUE = new Map(ROLE_META.map((r) => [r.value, r]));
@@ -262,6 +315,7 @@ export const RESOURCE_META: Record<string, { label: string; tone: keyof typeof T
   quality: { label: 'Calidad', tone: 'rose', description: 'Inspección, retención, reporte y disposición.' },
   engineering: { label: 'Ingeniería', tone: 'violet', description: 'NPI, BOM, ruteo y proceso.' },
   maintenance: { label: 'Mantenimiento', tone: 'orange', description: 'Activos, andones y órdenes de mantenimiento.' },
+  logistics: { label: 'Logística', tone: 'cyan', description: 'Embarques, tráfico y comercio exterior.' },
   sales: { label: 'Ventas', tone: 'amber', description: 'Pedidos y comercial.' },
   finance: { label: 'Finanzas', tone: 'emerald', description: 'Costos, P&L y facturación.' },
   reports: { label: 'Reportes', tone: 'slate', description: 'Tableros y analítica.' },
@@ -285,7 +339,7 @@ export const ACTION_LABELS: Record<string, string> = {
 
 const RESOURCE_ORDER = [
   'production', 'planning', 'materials', 'inventory', 'quality', 'engineering',
-  'maintenance', 'sales', 'finance', 'reports', 'auth', 'settings',
+  'maintenance', 'logistics', 'sales', 'finance', 'reports', 'auth', 'settings',
 ];
 const ACTION_ORDER = [
   'read', 'write', 'execute', 'authorize', 'request', 'stage', 'publish',
