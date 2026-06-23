@@ -1839,4 +1839,26 @@ funcionan de extremo a extremo.
 `SUM`/`SUMPRODUCT`/`TEXTJOIN`; combinación con operadores §69 e `IF` matricial §70). Sin regresiones:
 las 49 suites de spec de Office verdes; `lint web` 0 errores; `build web` ✓.
 
+## 78. Office/Sheets — autofiltro personalizado (comodines, empieza/termina, Y/O)
+
+**Contexto.** El filtro de datos (`buildFilter`/`matchesCriterion`) ya admitía varios criterios pero
+**siempre en AND** y con `=`/`!=` de **coincidencia exacta**. Excel ofrece más en su *Autofiltro
+personalizado*: **comodines** (`*` = cualquier secuencia, `?` = un carácter, `~` escapa), operadores
+**«empieza por»/«termina en»**, y **dos condiciones** sobre la misma columna unidas por **Y/O**.
+
+**Decisión (sólo `apps/web`, aditiva — riesgo cero):**
+- `matchesCriterion` gana `beginsWith`/`endsWith` (insensibles a mayúsculas) y, en `=`/`!=`,
+  **comodines de Excel** vía `wildcardToRegExp` — *sólo* cuando el valor contiene `*`/`?`; sin
+  comodines, la comparación exacta/numérica queda **idéntica** (los tests previos siguen verdes).
+- `buildFilter` acepta `conjunction?: 'AND' | 'OR'` (por defecto `AND`, comportamiento previo); con
+  `'OR'` basta que se cumpla **algún** criterio.
+- UI (`SheetDataDialog`, modo filtro): réplica del *Autofiltro personalizado* de Excel — una o **dos
+  condiciones** sobre la misma columna con selector **Y (ambas) / O (cualquiera)**, nuevos operadores
+  en el desplegable y aviso de que se admiten comodines `*`/`?`.
+
+**Verificación:** `filter.spec.ts` ampliado (**27 aserciones**, +14: OR de criterios, comodines
+`N*`/`?orte`/`~*` literal, `beginsWith`/`endsWith`, comodín dentro de `buildFilter`, y los casos
+previos intactos). Sin regresiones: las 49 suites de spec de Office verdes; `lint web` 0 errores;
+`build web` ✓.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
