@@ -39,6 +39,7 @@ import { expandStructuredRefs } from './tableRefs';
 import { expandLambda, LAMBDA_FUNCTIONS } from './lambdaExpand';
 import { expandArrayConst, ARRAY_CONST_FUNCTIONS } from './arrayConst';
 import { SCALAR_FUNCTIONS, aliasScalarFns } from './scalarFunctions';
+import { STAT_FUNCTIONS } from './statFunctions';
 
 // ── Utilidades de coerción / aplanado de argumentos ──────────────────────────
 // Las funciones reciben `params`: un array donde cada argumento ya viene evaluado.
@@ -271,6 +272,8 @@ export const CUSTOM_FUNCTIONS: Record<string, (params: any[]) => any> = {
   ...ARRAY_CONST_FUNCTIONS,
   // Escalares ausentes/rotas en formulajs (ADDRESS/DOLLAR/FIXED/T/N/BASE/DECIMAL/TIMEVALUE).
   ...SCALAR_FUNCTIONS,
+  // Estadísticas con nombre moderno (punto) + correcciones de fidelidad — ver `statFunctions.ts`.
+  ...STAT_FUNCTIONS,
 };
 
 // ── Normalización de literales booleanos en la cadena de fórmula ──────────────
