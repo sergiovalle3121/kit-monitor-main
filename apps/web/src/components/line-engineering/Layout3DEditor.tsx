@@ -12,7 +12,7 @@ import {
   AlignHorizontalJustifyStart, AlignHorizontalJustifyCenter, AlignHorizontalJustifyEnd,
   AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd,
   AlignHorizontalDistributeCenter, AlignVerticalDistributeCenter, RulerDimensionLine, Rows3, Waypoints,
-  ShieldCheck, CircleCheck, CircleAlert, Printer,
+  ShieldCheck, CircleCheck, CircleAlert, Printer, ChartLine, FileText, WandSparkles, Stamp, Upload, ImageOff,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/apiFetch';
 import { useToast } from '@/contexts/ToastContext';
@@ -26,6 +26,47 @@ import { connectLine, type ConnStation } from './connect-line';
 import { designChecks, type CheckBox, type DesignReport } from './design-checks';
 import { flowMetrics, type FlowCenter } from './flow-metrics';
 import { plotSheetModel } from './plot-sheet';
+import dynamic from 'next/dynamic';
+
+// Analysis panels — the same modal components the 2D host shipped, lazy-loaded so
+// they don't bloat the CAD chunk. Unified here so the 3D CAD has every 2D tool.
+const WhatIfSimulator = dynamic(() => import('./WhatIfSimulator'), { ssr: false });
+const YamazumiChart = dynamic(() => import('./YamazumiChart'), { ssr: false });
+const LayoutHistory = dynamic(() => import('./LayoutHistory'), { ssr: false });
+const BufferPlanner = dynamic(() => import('./BufferPlanner'), { ssr: false });
+const OperatorLoops = dynamic(() => import('./OperatorLoops'), { ssr: false });
+const ClearanceAnalysis = dynamic(() => import('./ClearanceAnalysis'), { ssr: false });
+const LayoutScorecard = dynamic(() => import('./LayoutScorecard'), { ssr: false });
+const LineContinuity = dynamic(() => import('./LineContinuity'), { ssr: false });
+const LineCohesion = dynamic(() => import('./LineCohesion'), { ssr: false });
+const LineDensity = dynamic(() => import('./LineDensity'), { ssr: false });
+const CostEstimator = dynamic(() => import('./CostEstimator'), { ssr: false });
+const SensitivityChart = dynamic(() => import('./SensitivityChart'), { ssr: false });
+const ScenarioCompare = dynamic(() => import('./ScenarioCompare'), { ssr: false });
+const StandardWork = dynamic(() => import('./StandardWork'), { ssr: false });
+const DossierExport = dynamic(() => import('./DossierExport'), { ssr: false });
+const FlexLine = dynamic(() => import('./FlexLine'), { ssr: false });
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+const ANALYSIS_PANELS: { key: string; label: string; Comp: React.ComponentType<any> }[] = [
+  { key: 'scorecard', label: 'Tarjeta de salud del layout', Comp: LayoutScorecard },
+  { key: 'yamazumi', label: 'Yamazumi (balanceo)', Comp: YamazumiChart },
+  { key: 'sim', label: 'Simulador de capacidad', Comp: WhatIfSimulator },
+  { key: 'buffers', label: 'Inventario de desacople (WIP)', Comp: BufferPlanner },
+  { key: 'loops', label: 'Bucles de operador', Comp: OperatorLoops },
+  { key: 'clearance', label: 'Holguras y pasillos', Comp: ClearanceAnalysis },
+  { key: 'continuity', label: 'Continuidad de línea', Comp: LineContinuity },
+  { key: 'cohesion', label: 'Cohesión de líneas', Comp: LineCohesion },
+  { key: 'density', label: 'Mapa de ocupación / densidad', Comp: LineDensity },
+  { key: 'cost', label: 'Costo por unidad', Comp: CostEstimator },
+  { key: 'sensitivity', label: 'Sensibilidad a la demanda', Comp: SensitivityChart },
+  { key: 'compare', label: 'Comparar escenarios A/B', Comp: ScenarioCompare },
+  { key: 'stdwork', label: 'Trabajo estándar', Comp: StandardWork },
+  { key: 'flex', label: 'Línea flexible', Comp: FlexLine },
+  { key: 'dossier', label: 'Expediente analítico (JSON/CSV)', Comp: DossierExport },
+  { key: 'history', label: 'Bitácora de auditoría', Comp: LayoutHistory },
+];
+/* eslint-enable @typescript-eslint/no-explicit-any */
 
 /**
  * Full-screen interactive 3D layout editor — the "CAD" view of the plant floor.
@@ -43,6 +84,15 @@ import { plotSheetModel } from './plot-sheet';
  */
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000').replace(/\/$/, '');
+
+// Approval / sign-off (ported from the 2D host, unify)
+type ApprovalStatus = 'draft' | 'in_review' | 'approved';
+interface LayoutApproval { status: ApprovalStatus; by: string | null; at: string | null; note: string | null }
+const APPROVAL_META: Record<ApprovalStatus, { label: string; color: string }> = {
+  draft: { label: 'Borrador', color: '#94a3b8' },
+  in_review: { label: 'En revisión', color: '#f59e0b' },
+  approved: { label: 'Aprobado', color: '#10b981' },
+};
 
 interface St {
   id: string; station: string; line: string; ctq: boolean;
@@ -486,12 +536,18 @@ export default function Layout3DEditor({
   const [osnap, setOsnap] = useState(true); // object snap: align to other objects' edges/centers (Fase 54)
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [serverBusy, setServerBusy] = useState(false); // server auto-arrange/optimize in flight (unify)
+  const [approval, setApproval] = useState<LayoutApproval | null>(null); // sign-off status (unify)
+  const [approvalBusy, setApprovalBusy] = useState(false);
+  const [dxfBusy, setDxfBusy] = useState(false); // DXF backdrop upload/remove in flight (unify)
+  const dxfInputRef = useRef<HTMLInputElement | null>(null);
   const [selList, setSelList] = useState<SelItem[]>([]);
   const [selSnap, setSelSnap] = useState<SelSnap | null>(null);
   const [placedIds, setPlacedIds] = useState<Set<string>>(new Set());
   const [assetIds, setAssetIds] = useState<Set<string>>(new Set());
   const [tab, setTab] = useState<'stations' | 'equipment'>('stations');
   const [tool, setTool] = useState<'select' | 'measure' | 'wall'>('select');
+  const [viewMode, setViewMode] = useState<'3d' | '2d'>('3d'); // 2D = locked top-down plan view (CAD unificado)
   const [walk, setWalk] = useState(false); // first-person walkthrough mode
   const [showHelp, setShowHelp] = useState(false); // keyboard shortcuts overlay
   const [measureLive, setMeasureLive] = useState<string | null>(null);
@@ -504,6 +560,9 @@ export default function Layout3DEditor({
   const [hist, setHist] = useState({ undo: 0, redo: 0 }); // depths, for button enablement
   const [takeoff, setTakeoff] = useState<LocalTakeoff | null>(null); // quantities panel (null = closed)
   const [report, setReport] = useState<DesignReport | null>(null); // design-check report (null = closed) (Fase 63)
+  const [analysisPanel, setAnalysisPanel] = useState<string | null>(null); // active analysis panel key (unify)
+  const [showAnalysis, setShowAnalysis] = useState(false); // analysis dropdown open
+  const analysisMenuRef = useRef<HTMLDivElement | null>(null);
   const [showHeat, setShowHeat] = useState(false); // occupancy heat-map overlay on the floor (Fase 51)
   const [arr, setArr] = useState({ cols: 3, rows: 1, gap: 500, dx: 1000, dy: 0 }); // array/offset params (Fase 55)
   const [showGaps, setShowGaps] = useState(false); // clearance/safety gap markers overlay (Fase 52)
@@ -519,6 +578,7 @@ export default function Layout3DEditor({
   const notesGroupRef = useRef<THREE.Group | null>(null);
   const connsGroupRef = useRef<THREE.Group | null>(null);
   const connectorsRef = useRef<Conn[]>([]); // mutable line connectors (auto-connect, Fase 62)
+  const cellsRef = useRef<Cell[]>([]); // mutable cells/zones (unify — editable + round-trip)
   const gridGroupRef = useRef<THREE.Group | null>(null);
   const dxfGroupRef = useRef<THREE.Group | null>(null);
   const heatGroupRef = useRef<THREE.Group | null>(null); // occupancy heat-map tiles
@@ -605,6 +665,12 @@ export default function Layout3DEditor({
     document.addEventListener('mousedown', onDoc);
     return () => document.removeEventListener('mousedown', onDoc);
   }, [showView]);
+  useEffect(() => {
+    if (!showAnalysis) return;
+    const onDoc = (e: MouseEvent) => { if (analysisMenuRef.current && !analysisMenuRef.current.contains(e.target as Node)) setShowAnalysis(false); };
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, [showAnalysis]);
 
   // ---- visual theme (background / fog / floor / grid colours) ----
   const applyTheme = useCallback(() => {
@@ -708,6 +774,8 @@ export default function Layout3DEditor({
         annotationsRef.current = an;
         stationsByIdRef.current = new Map(d.stations.map((s) => [s.id, s]));
         connectorsRef.current = (d.connectors ?? []).map((c) => ({ ...c }));
+        cellsRef.current = (d.cells ?? []).map((c) => ({ ...c }));
+        setApproval((d as { approval?: LayoutApproval }).approval ?? { status: 'draft', by: null, at: null, note: null });
         loadedPlacedRef.current = new Set(pl.keys());
         setPlacedIds(new Set(pl.keys()));
         setAssetIds(new Set(am.keys()));
@@ -1758,6 +1826,94 @@ export default function Layout3DEditor({
     setDirty(true); rebuildBlocks();
     toast.success(`Línea conectada — ${added} ${added === 1 ? 'enlace nuevo' : 'enlaces nuevos'}`, '3D');
   };
+  // ---- server-side optimisation: minimise material travel (ported from 2D, unify) ----
+  const runOptimize = async () => {
+    if (!model) return;
+    setServerBusy(true);
+    try {
+      const r = await apiFetch(`${API_BASE}/line-engineering/layout/optimize?model=${encodeURIComponent(model)}&revision=${encodeURIComponent(revision)}`);
+      if (!r.ok) { toast.error('No se pudo optimizar.', '3D'); return; }
+      const d = (await r.json()) as { positions: { id: string; x: number; y: number; w: number; h: number; rotation: number }[]; improvedPct: number };
+      if (!d.positions?.length) { toast.error('No hay estaciones para optimizar.', '3D'); return; }
+      pushHistory();
+      d.positions.forEach((p) => placementsRef.current.set(p.id, { x: p.x, y: p.y, w: p.w, h: p.h, rotation: p.rotation }));
+      setPlacedIds(new Set(placementsRef.current.keys()));
+      setDirty(true); rebuildBlocks(); refreshSnap();
+      toast.success(d.improvedPct > 0 ? `Flujo optimizado: −${d.improvedPct}% de recorrido — revisa y guarda.` : 'El layout ya estaba óptimo para el flujo.', '3D');
+    } catch { toast.error('No se pudo optimizar.', '3D'); }
+    finally { setServerBusy(false); }
+  };
+  // ---- DXF backdrop upload / remove (ported from 2D, unify) ----
+  const onDxfFile = async (file: File) => {
+    if (!data) return;
+    setDxfBusy(true);
+    try {
+      const text = await file.text();
+      if (text.length > 12_000_000) { toast.error('El DXF supera 12 MB.', '3D'); return; }
+      const dxfModel = parseDxf(text);
+      if (!dxfModel) { toast.error('No se reconocieron líneas en el DXF.', '3D'); return; }
+      const res = await apiFetch(`${API_BASE}/line-engineering/layout/dxf`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model, revision, name: file.name, data: text }),
+      });
+      if (!res.ok) { toast.error('No se pudo guardar el DXF.', '3D'); return; }
+      const fp = data.footprint;
+      const scale = Math.min(fp.footprintW / dxfModel.width, fp.footprintH / dxfModel.height) * 0.9 || 1;
+      const meta: DxfMeta = {
+        offsetX: Math.max(0, (fp.footprintW - dxfModel.width * scale) / 2),
+        offsetY: Math.max(0, (fp.footprintH - dxfModel.height * scale) / 2),
+        scale, rotation: 0, visible: true, opacity: 0.5,
+      };
+      dxfModelRef.current = dxfModel; dxfMetaRef.current = meta; setHasDxf(true);
+      dxfSnapRef.current = dxfSnapPoints(dxfModel, meta);
+      rebuildDxfRef.current(); setDirty(true);
+      toast.success('Plano DXF cargado de fondo.', '3D');
+    } catch { toast.error('No se pudo leer el archivo DXF.', '3D'); }
+    finally { setDxfBusy(false); }
+  };
+  const removeDxf = async () => {
+    setDxfBusy(true);
+    try {
+      const res = await apiFetch(`${API_BASE}/line-engineering/layout/dxf?model=${encodeURIComponent(model)}&revision=${encodeURIComponent(revision)}`, { method: 'DELETE' });
+      if (!res.ok) { toast.error('No se pudo quitar el DXF.', '3D'); return; }
+      dxfModelRef.current = null; dxfMetaRef.current = null; dxfSnapRef.current = []; setHasDxf(false);
+      rebuildDxfRef.current(); setDirty(true);
+      toast.success('Plano DXF quitado.', '3D');
+    } catch { toast.error('Error de red.', '3D'); }
+    finally { setDxfBusy(false); }
+  };
+  // ---- approval / sign-off (ported from 2D, unify) ----
+  const setApprovalStatus = async (status: ApprovalStatus) => {
+    if (!model) return;
+    setApprovalBusy(true);
+    try {
+      const r = await apiFetch(`${API_BASE}/line-engineering/layout/approval`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model, revision, status }),
+      });
+      if (!r.ok) { toast.error('No se pudo cambiar el estado.', '3D'); return; }
+      const d = (await r.json()) as { approval?: LayoutApproval };
+      setApproval(d.approval ?? { status, by: null, at: null, note: null });
+      toast.success(`Layout: ${APPROVAL_META[status].label}.`, '3D');
+    } catch { toast.error('Error de red.', '3D'); } finally { setApprovalBusy(false); }
+  };
+  // ---- export the station schedule as CSV (ported from 2D, unify) ----
+  const exportCsvSchedule = () => {
+    if (!data) return;
+    const esc = (v: string | number) => { const s = String(v); return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
+    const unit = data.footprint.unit || 'mm';
+    const header = ['estacion', 'linea', 'colocada', `x_${unit}`, `y_${unit}`, `w_${unit}`, `h_${unit}`, 'rotacion_deg', 'ctq'];
+    const rows = data.stations.map((s) => {
+      const p = placementsRef.current.get(s.id);
+      return [s.station, s.line, p ? 'si' : 'no', p?.x ?? '', p?.y ?? '', p?.w ?? '', p?.h ?? '', p?.rotation ?? '', s.ctq ? 'si' : 'no'].map(esc).join(',');
+    });
+    const csv = [header.join(','), ...rows].join('\r\n');
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+    a.download = `estaciones-${model}-${revision}.csv`.replace(/[^\w.\-]+/g, '_');
+    a.click(); URL.revokeObjectURL(a.href);
+    toast.success('Estaciones exportadas (CSV).', '3D');
+  };
   const arrayAssets = (cols: number, rows: number, gap: number) => {
     const sel = selRef.current.filter((s) => s.type === 'asset');
     const c = Math.max(1, Math.min(50, Math.round(cols))), r = Math.max(1, Math.min(50, Math.round(rows)));
@@ -1884,11 +2040,37 @@ export default function Layout3DEditor({
     const cam = cameraRef.current; const ctrl = controlsRef.current; const ctx = ctxRef.current;
     if (!cam || !ctrl || !ctx) return;
     const d = Math.max(ctx.W, ctx.H) * ctx.s;
-    if (preset === 'top') cam.position.set(0.01, d * 1.5, 0.01);
+    if (preset === 'top') cam.position.set(0, d * 1.5, 0.01);
     else if (preset === 'front') cam.position.set(0, d * 0.5, d * 1.3);
     else cam.position.set(d * 0.6, d * 0.85, d * 1.0);
     ctrl.target.set(0, 0, 0); ctrl.update();
   };
+  // ---- 2D⇄3D view toggle: the CAD unifica plano (2D) y modelo (3D) (unify) ----
+  // 2D = vista superior bloqueada (solo pan+zoom), como un plano CAD; 3D = órbita libre.
+  const applyViewMode = useCallback((mode: '3d' | '2d') => {
+    const cam = cameraRef.current; const ctrl = controlsRef.current; const ctx = ctxRef.current;
+    if (!cam || !ctrl || !ctx) return;
+    const d = Math.max(ctx.W, ctx.H) * ctx.s;
+    if (mode === '2d') {
+      // exit walkthrough if active, lock to a straight-down plan view
+      if (walkRef.current) { setWalk(false); walkRef.current = false; }
+      cam.position.set(0, d * 1.6, 0.01); // straight above, due-south → footprint axis-aligned (no 45° diamond)
+      ctrl.minPolarAngle = 0; ctrl.maxPolarAngle = 0.05; // pinned looking down
+      ctrl.enableRotate = false;
+      ctrl.mouseButtons.LEFT = THREE.MOUSE.PAN; // arrastrar el fondo = paneo (estilo 2D)
+      ctrl.touches.ONE = THREE.TOUCH.PAN;
+    } else {
+      ctrl.minPolarAngle = 0; ctrl.maxPolarAngle = Math.PI / 2.05;
+      ctrl.enableRotate = true;
+      ctrl.mouseButtons.LEFT = THREE.MOUSE.ROTATE;
+      ctrl.touches.ONE = THREE.TOUCH.ROTATE;
+      cam.position.set(d * 0.6, d * 0.85, d * 1.0);
+    }
+    ctrl.target.set(0, 0, 0); ctrl.update();
+  }, []);
+  const toggleViewMode = useCallback(() => {
+    setViewMode((m) => { const next = m === '3d' ? '2d' : '3d'; applyViewMode(next); return next; });
+  }, [applyViewMode]);
   const exportPng = () => {
     const r = rendererRef.current, sc = sceneRef.current, cam = cameraRef.current;
     if (!r || !sc || !cam) return;
@@ -2008,7 +2190,9 @@ export default function Layout3DEditor({
         body: JSON.stringify({
           model, revision, footprint: data.footprint, positions, cleared,
           connectors: connectorsRef.current, assets,
-          annotations, cells: data.cells ?? [],
+          annotations, cells: cellsRef.current,
+          // persist the DXF backdrop placement so saving from the CAD never drops it (unify fix)
+          ...(dxfMetaRef.current ? { dxf: dxfMetaRef.current } : {}),
         }),
       });
       if (!r.ok) { const d = await r.json().catch(() => ({})); toast.error(d?.message || 'No se pudo guardar.', '3D'); return; }
@@ -2069,8 +2253,12 @@ export default function Layout3DEditor({
           which would otherwise stack over the backdrop-blur'd bar) */}
       <div className="relative z-30 flex items-center gap-2 px-4 py-2.5 border-b border-white/10 shrink-0 bg-gray-900/80 backdrop-blur">
         <BoxIcon className="w-4 h-4" style={{ color: '#f43f5e' }} />
-        <span className="font-semibold text-sm">CAD 3D · {model} · {revision}</span>
+        <span className="font-semibold text-sm">CAD · {model} · {revision}</span>
         <span className="text-[11px] text-gray-400 ml-1">{placedCount} estaciones · {assetCount} equipos</span>
+        <div className="inline-flex items-center rounded-lg bg-white/[0.06] p-0.5 text-[12px] font-semibold ml-1">
+          <button onClick={() => { if (viewMode !== '2d') toggleViewMode(); }} className={`px-2.5 py-1 rounded-md transition-colors ${viewMode === '2d' ? 'bg-white/15 text-white' : 'text-gray-400 hover:text-gray-200'}`} title="Vista de plano 2D (superior, solo paneo y zoom)">2D</button>
+          <button onClick={() => { if (viewMode !== '3d') toggleViewMode(); }} className={`px-2.5 py-1 rounded-md transition-colors ${viewMode === '3d' ? 'bg-white/15 text-white' : 'text-gray-400 hover:text-gray-200'}`} title="Vista 3D (órbita libre)">3D</button>
+        </div>
         <div className="w-px h-5 bg-white/10 mx-1" />
         <T3Btn active={tool === 'select'} onClick={() => setToolMode('select')} title="Seleccionar / mover (V)"><MousePointer2 className="w-4 h-4" /></T3Btn>
         <T3Btn active={tool === 'measure'} onClick={toggleMeasure} title="Medir / acotar (M)"><Ruler className="w-4 h-4" /></T3Btn>
@@ -2089,10 +2277,12 @@ export default function Layout3DEditor({
         <T3Btn active={snap} onClick={() => setSnap((v) => !v)} title="Snap a grilla"><Grid3x3 className="w-4 h-4" /></T3Btn>
         <T3Btn active={osnap} onClick={() => setOsnap((v) => !v)} title="Snap a objetos y al plano DXF — alinea con bordes/centros y engancha a vértices y puntos medios del plano al medir o trazar muros"><Magnet className="w-4 h-4" /></T3Btn>
         <div className="w-px h-5 bg-white/10 mx-1" />
-        <T3Btn onClick={() => viewPreset('iso')} title="Vista isométrica"><Maximize2 className="w-4 h-4" /></T3Btn>
-        <T3Btn onClick={() => viewPreset('top')} title="Vista superior (planta)"><Eye className="w-4 h-4" /></T3Btn>
-        <T3Btn onClick={() => viewPreset('front')} title="Vista frontal"><Layers className="w-4 h-4" /></T3Btn>
-        <T3Btn active={walk} onClick={toggleWalk} title="Recorrido en primera persona — arrastra para mirar, WASD para caminar, Esc para salir"><PersonStanding className="w-4 h-4" /></T3Btn>
+        {viewMode === '3d' && (<>
+          <T3Btn onClick={() => viewPreset('iso')} title="Vista isométrica"><Maximize2 className="w-4 h-4" /></T3Btn>
+          <T3Btn onClick={() => viewPreset('top')} title="Vista superior (planta)"><Eye className="w-4 h-4" /></T3Btn>
+          <T3Btn onClick={() => viewPreset('front')} title="Vista frontal"><Layers className="w-4 h-4" /></T3Btn>
+          <T3Btn active={walk} onClick={toggleWalk} title="Recorrido en primera persona — arrastra para mirar, WASD para caminar, Esc para salir"><PersonStanding className="w-4 h-4" /></T3Btn>
+        </>)}
         <T3Btn active={showHeat} onClick={() => setShowHeat((v) => !v)} title="Mapa de calor de ocupación en el piso"><Grid2x2 className="w-4 h-4" /></T3Btn>
         <T3Btn active={showGaps} onClick={() => setShowGaps((v) => !v)} title="Holguras de seguridad — marca los objetos demasiado juntos (ámbar) o traslapados (rojo)"><ShieldAlert className="w-4 h-4" /></T3Btn>
         <div className="relative" ref={viewMenuRef}>
@@ -2134,15 +2324,41 @@ export default function Layout3DEditor({
         <div className="w-px h-5 bg-white/10 mx-1" />
         <T3Btn onClick={arrangeLineLayout} title="Acomodar la línea — ordena las estaciones por secuencia en filas equiespaciadas"><Rows3 className="w-4 h-4" /></T3Btn>
         <T3Btn onClick={connectLineLayout} title="Conectar la línea — enlaza cada estación con la siguiente en secuencia (flujo)"><Waypoints className="w-4 h-4" /></T3Btn>
+        <T3Btn onClick={runOptimize} disabled={serverBusy} title="Optimizar flujo — reordena para minimizar el recorrido (servidor)"><WandSparkles className="w-4 h-4" /></T3Btn>
         <T3Btn onClick={openChecks} title="Revisión de diseño — valida colocación, límites, traslapes y flujo"><ShieldCheck className="w-4 h-4" /></T3Btn>
         <T3Btn onClick={openTakeoff} title="Cantidades / lista de materiales"><ClipboardList className="w-4 h-4" /></T3Btn>
+        <div className="relative" ref={analysisMenuRef}>
+          <T3Btn active={showAnalysis || !!analysisPanel} onClick={() => setShowAnalysis((v) => !v)} title="Análisis del layout — balanceo, costos, flujo, escenarios, salud…"><ChartLine className="w-4 h-4" /></T3Btn>
+          {showAnalysis && (
+            <div className="absolute top-full mt-1 left-0 z-50 w-64 max-h-[62vh] overflow-y-auto rounded-xl border border-white/10 bg-gray-900 shadow-2xl py-1">
+              <div className="px-3 py-1.5 text-[10px] uppercase tracking-wide text-gray-500">Análisis del layout</div>
+              {ANALYSIS_PANELS.map((p) => (
+                <button key={p.key} onClick={() => { setAnalysisPanel(p.key); setShowAnalysis(false); }} className="w-full text-left px-3 py-1.5 text-[12.5px] text-gray-200 hover:bg-white/[0.08] transition-colors">{p.label}</button>
+              ))}
+            </div>
+          )}
+        </div>
         <T3Btn onClick={exportPdf} title="Imprimir plano a PDF — vista + cajetín (modelo, revisión, huella, fecha)"><Printer className="w-4 h-4" /></T3Btn>
         <T3Btn onClick={exportPng} title="Exportar imagen (PNG)"><Download className="w-4 h-4" /></T3Btn>
         <T3Btn onClick={exportGltf} title="Exportar modelo 3D (.glb) — Blender, otros CAD"><Package className="w-4 h-4" /></T3Btn>
+        <input ref={dxfInputRef} type="file" accept=".dxf" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) onDxfFile(f); e.target.value = ''; }} />
+        <T3Btn onClick={() => dxfInputRef.current?.click()} disabled={dxfBusy} title="Cargar plano DXF de fondo (calcar el plano del cliente)"><Upload className="w-4 h-4" /></T3Btn>
         {hasDxf && <T3Btn onClick={importDxfWalls} title="Convertir el plano DXF de fondo en muros editables"><BrickWall className="w-4 h-4" /></T3Btn>}
+        {hasDxf && <T3Btn onClick={removeDxf} disabled={dxfBusy} title="Quitar el plano DXF de fondo"><ImageOff className="w-4 h-4" /></T3Btn>}
         <T3Btn onClick={exportDxf} title="Exportar a DXF (AutoCAD) — cada tipo en su capa"><FileDown className="w-4 h-4" /></T3Btn>
+        <T3Btn onClick={exportCsvSchedule} title="Exportar estaciones a CSV (Excel)"><FileText className="w-4 h-4" /></T3Btn>
         <T3Btn active={showHelp} onClick={() => setShowHelp((v) => !v)} title="Atajos y ayuda (?)"><HelpCircle className="w-4 h-4" /></T3Btn>
         <div className="flex-1" />
+        {approval && (
+          <div className="inline-flex items-center gap-1.5 mr-1.5" title="Estado de aprobación del layout">
+            <Stamp className="w-3.5 h-3.5" style={{ color: APPROVAL_META[approval.status].color }} />
+            <select value={approval.status} disabled={approvalBusy} onChange={(e) => setApprovalStatus(e.target.value as ApprovalStatus)} className="text-[12px] rounded-md px-1.5 py-1 bg-white/[0.06] border border-white/10 outline-none" style={{ color: APPROVAL_META[approval.status].color }}>
+              <option value="draft" className="text-gray-900">Borrador</option>
+              <option value="in_review" className="text-gray-900">En revisión</option>
+              <option value="approved" className="text-gray-900">Aprobado</option>
+            </select>
+          </div>
+        )}
         <button onClick={save} disabled={saving || !dirty} className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-sm font-medium text-white disabled:opacity-50" style={{ background: '#f43f5e' }}>
           {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Guardar
         </button>
@@ -2438,6 +2654,14 @@ export default function Layout3DEditor({
           </div>
         </div>
       )}
+
+      {/* Analysis panels — mounted on demand from the Análisis menu (unify) */}
+      {analysisPanel && (() => {
+        const it = ANALYSIS_PANELS.find((a) => a.key === analysisPanel);
+        if (!it) return null;
+        const C = it.Comp;
+        return <C model={model} revision={revision} open onClose={() => setAnalysisPanel(null)} />;
+      })()}
 
       {/* Keyboard shortcuts / help overlay */}
       {showHelp && (

@@ -233,7 +233,7 @@ export default function LineEngineeringPage() {
 
         {/* View tabs — Balanceo (lista actual) coexiste con el Layout 2D, no lo reemplaza */}
         <div className="flex items-center gap-1 mb-5 p-1 rounded-xl bg-black/[0.04] dark:bg-white/[0.05] w-fit">
-          {([['balance', 'Balanceo', BarChart3], ['layout', 'Layout 2D', Layers], ['cad3d', 'CAD 3D', Boxes]] as const).map(([key, label, Icon]) => {
+          {([['balance', 'Balanceo', BarChart3], ['layout', 'Plano 2D (clásico)', Layers], ['cad3d', 'CAD', Boxes]] as const).map(([key, label, Icon]) => {
             const on = view === key;
             const is3d = key === 'cad3d';
             return (
