@@ -277,6 +277,20 @@ describe('AuthService', () => {
       );
     });
 
+    it('approve con rol aplica el rol elegido por el admin y sus permisos', async () => {
+      users.update.mockImplementation(async (_id, dto) => baseUser(dto as Partial<User>));
+      await service.approve('u1', 'admin@axos.test', 'planner');
+      expect(users.update).toHaveBeenCalledWith(
+        'u1',
+        expect.objectContaining({
+          status: 'active',
+          approvedBy: 'admin@axos.test',
+          role: 'planner',
+          permissions: permissionsFor('planner'),
+        }),
+      );
+    });
+
     it('reject marca rejected', async () => {
       users.update.mockImplementation(async (_id, dto) => baseUser(dto as Partial<User>));
       await service.reject('u1', 'admin@axos.test');

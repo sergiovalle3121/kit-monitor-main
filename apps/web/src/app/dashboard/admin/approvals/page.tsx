@@ -11,6 +11,11 @@ import {
   ChevronLeft,
 } from "lucide-react";
 import Link from "next/link";
+import {
+  ROLE_OPTIONS,
+  roleLabel,
+  permissionsForRole,
+} from "../../settings/_lib/rbac";
 
 interface PendingUser {
   id: string;
@@ -26,6 +31,9 @@ export default function ApprovalsPage() {
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Role the admin will grant on approve, keyed by user id. Defaults to the
+  // role the person suggested at registration (overridable per request).
+  const [roleById, setRoleById] = useState<Record<string, string>>({});
 
   useEffect(() => {
     let cancelled = false;
@@ -36,6 +44,14 @@ export default function ApprovalsPage() {
         const data = await res.json();
         if (cancelled) return;
         setUsers(data.users);
+        setRoleById(
+          Object.fromEntries(
+            (data.users as PendingUser[]).map((u) => [
+              u.id,
+              (u.role || "operator").toLowerCase(),
+            ]),
+          ),
+        );
       } catch {
         if (!cancelled) setError("No se pudo cargar la lista.");
       } finally {
@@ -52,6 +68,11 @@ export default function ApprovalsPage() {
     try {
       const res = await fetch(`/api/admin/users/${id}/${action}`, {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body:
+          action === "approve"
+            ? JSON.stringify({ role: roleById[id] })
+            : undefined,
       });
       if (!res.ok) throw new Error();
       setUsers((prev) => prev.filter((u) => u.id !== id));
@@ -92,8 +113,9 @@ export default function ApprovalsPage() {
             Cuentas pendientes
           </h1>
           <p className="text-gray-500 mt-3 font-light">
-            Aprueba o rechaza nuevos registros. Una vez aprobadas, las personas
-            podrán iniciar sesión normalmente.
+            Elige el rol que se otorga y aprueba (o rechaza) cada registro. El
+            puesto que la persona eligió al registrarse es solo una sugerencia;
+            tú decides los permisos finales.
           </p>
         </header>
 
@@ -143,7 +165,7 @@ export default function ApprovalsPage() {
                         <Mail className="w-3 h-3" /> {u.email}
                       </span>
                       <span className="px-2 py-0.5 rounded-full bg-gray-100 dark:bg-white/5 text-[10px] uppercase tracking-wider font-bold">
-                        {u.role}
+                        Solicitó: {roleLabel(u.role)}
                       </span>
                       <span className="flex items-center gap-1 text-[10px]">
                         <Clock className="w-3 h-3" />
@@ -151,23 +173,54 @@ export default function ApprovalsPage() {
                       </span>
                     </div>
                   </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => act(u.id, "approve")}
-                      disabled={busyId === u.id}
-                      className="px-4 py-2 rounded-xl bg-black dark:bg-white text-white dark:text-black text-xs font-bold flex items-center gap-2 hover:scale-105 active:scale-95 transition disabled:opacity-50"
-                    >
-                      <CheckCircle2 className="w-4 h-4" />
-                      Aprobar
-                    </button>
-                    <button
-                      onClick={() => act(u.id, "reject")}
-                      disabled={busyId === u.id}
-                      className="px-4 py-2 rounded-xl border border-gray-200 dark:border-white/10 text-xs font-bold flex items-center gap-2 hover:bg-red-50 dark:hover:bg-red-500/10 hover:text-red-600 dark:hover:text-red-300 transition disabled:opacity-50"
-                    >
-                      <XCircle className="w-4 h-4" />
-                      Rechazar
-                    </button>
+                  <div className="flex flex-col gap-2 md:w-72 md:items-end">
+                    <label className="flex items-center gap-2 text-xs w-full">
+                      <span className="text-gray-500 whitespace-nowrap">
+                        Rol a otorgar
+                      </span>
+                      <select
+                        value={roleById[u.id] ?? (u.role || "operator").toLowerCase()}
+                        onChange={(e) =>
+                          setRoleById((m) => ({ ...m, [u.id]: e.target.value }))
+                        }
+                        disabled={busyId === u.id}
+                        className="flex-1 px-2 py-1.5 rounded-lg bg-gray-100 dark:bg-white/10 text-xs font-medium border-none focus:ring-2 focus:ring-blue-500/30 disabled:opacity-50"
+                      >
+                        {ROLE_OPTIONS.map((o) => (
+                          <option key={o.value} value={o.value}>
+                            {o.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <p className="text-[10px] text-gray-400 w-full md:text-right">
+                      Otorga {permissionsForRole(roleById[u.id] ?? u.role).length}{" "}
+                      permisos ·{" "}
+                      <Link
+                        href="/dashboard/settings/permissions"
+                        className="text-blue-600 hover:underline"
+                      >
+                        ver matriz
+                      </Link>
+                    </p>
+                    <div className="flex gap-2 w-full md:justify-end">
+                      <button
+                        onClick={() => act(u.id, "approve")}
+                        disabled={busyId === u.id}
+                        className="px-4 py-2 rounded-xl bg-black dark:bg-white text-white dark:text-black text-xs font-bold flex items-center gap-2 hover:scale-105 active:scale-95 transition disabled:opacity-50"
+                      >
+                        <CheckCircle2 className="w-4 h-4" />
+                        Aprobar
+                      </button>
+                      <button
+                        onClick={() => act(u.id, "reject")}
+                        disabled={busyId === u.id}
+                        className="px-4 py-2 rounded-xl border border-gray-200 dark:border-white/10 text-xs font-bold flex items-center gap-2 hover:bg-red-50 dark:hover:bg-red-500/10 hover:text-red-600 dark:hover:text-red-300 transition disabled:opacity-50"
+                      >
+                        <XCircle className="w-4 h-4" />
+                        Rechazar
+                      </button>
+                    </div>
                   </div>
                 </motion.div>
               ))}

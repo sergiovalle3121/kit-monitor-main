@@ -107,9 +107,13 @@ export class AuthController {
 
   @UseGuards(JwtAuthGuard)
   @Post('users/:id/approve')
-  approve(@Param('id') id: string, @Request() req: AuthRequest) {
+  approve(
+    @Param('id') id: string,
+    @Body() body: { role?: string },
+    @Request() req: AuthRequest,
+  ) {
     this.assertAdmin(req);
-    return this.authService.approve(id, req.user?.email ?? 'admin');
+    return this.authService.approve(id, req.user?.email ?? 'admin', body?.role);
   }
 
   @UseGuards(JwtAuthGuard)
