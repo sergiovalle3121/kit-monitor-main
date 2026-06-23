@@ -2457,4 +2457,18 @@ decimal/fecha/longitud + un **round-trip real** que escribe bytes y los reabre p
 con sus opciones, el rango entero y la regla de fecha viajan al `.xlsx`. `xlsxStyled` (22) e import-rt (16)
 verdes — sin regresiones; `lint web` 0; `build web` ✓.
 
+## 112. Office/Sheets — export del autofiltro al .xlsx (ExcelJS)
+
+**Contexto.** Continuando la cadena de fidelidad `.xlsx` (§109–§111), faltaba exportar el **autofiltro**:
+una hoja con `filter_select` (rango con encabezados filtrables) se exportaba sin las flechas de filtro, así
+que en Excel había que volver a activarlo.
+
+**Decisión (sólo `apps/web`, aditiva — riesgo cero):** `fillWorksheet` (xlsxStyled.ts) traduce
+`sheet.filter_select: { row:[r1,r2], column:[c1,c2] }` a `ws.autoFilter = { from, to }` de ExcelJS
+(1-based). Si no hay filtro, no se escribe nada. No toca celdas, estilos ni el resto del writer.
+
+**Verificación:** nueva suite `xlsxAutofilter.spec.ts` (**3 aserciones**): round-trip real — la hoja con
+filtro exporta `autoFilter` con el rango correcto (`A1:B3`) y la hoja sin filtro no lo lleva. `xlsxStyled`
+(22), validación (15) e import-rt (16) verdes — sin regresiones; `lint web` 0; `build web` ✓.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->

@@ -17,6 +17,7 @@ type FortuneSheet = {
   name?: string;
   celldata?: { r: number; c: number; v: any }[];
   config?: any; frozen?: any; order?: number; dataVerification?: Record<string, any>;
+  filter_select?: { row?: number[]; column?: number[] } | null;
 };
 
 /** `#rrggbb` (o `rrggbb`) → `FFRRGGBB` (ARGB de ExcelJS). `null` si no es color válido. */
@@ -137,6 +138,14 @@ export function fillWorksheet(ws: any, sheet: FortuneSheet): void {
     const ySplit = (fz.range?.row_focus ?? (fz.type && /row|both|rangeRow/.test(String(fz.type)) ? 0 : -1)) + 1;
     const xSplit = (fz.range?.column_focus ?? (fz.type && /column|both|rangeColumn/.test(String(fz.type)) ? 0 : -1)) + 1;
     if (ySplit > 0 || xSplit > 0) ws.views = [{ state: 'frozen', xSplit: Math.max(0, xSplit), ySplit: Math.max(0, ySplit) }];
+  }
+  // Autofiltro (Fortune `filter_select: { row:[r1,r2], column:[c1,c2] }`) → `ws.autoFilter` (encabezados con flecha).
+  const fs = sheet.filter_select;
+  if (fs && Array.isArray(fs.row) && Array.isArray(fs.column)) {
+    const [r1, r2] = fs.row, [c1, c2] = fs.column;
+    if ([r1, r2, c1, c2].every((n) => typeof n === 'number')) {
+      ws.autoFilter = { from: { row: r1 + 1, column: c1 + 1 }, to: { row: r2 + 1, column: c2 + 1 } };
+    }
   }
   // Validación de datos (Fortune `dataVerification: { "r_c": DvEntry }`).
   const dvMap = sheet.dataVerification;
