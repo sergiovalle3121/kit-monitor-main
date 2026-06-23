@@ -48,6 +48,7 @@ import { DISTRIBUTION_FUNCTIONS } from './distributions';
 import { SECURITY_FUNCTIONS } from './securities';
 import { BOND_FUNCTIONS } from './bonds';
 import { STAT_TEST_FUNCTIONS } from './statTests';
+import { FIDELITY_FUNCTIONS } from './fidelityFixes';
 
 // ── Utilidades de coerción / aplanado de argumentos ──────────────────────────
 // Las funciones reciben `params`: un array donde cada argumento ya viene evaluado.
@@ -298,6 +299,8 @@ export const CUSTOM_FUNCTIONS: Record<string, (params: any[]) => any> = {
   ...BOND_FUNCTIONS,
   // Contrastes modernos (T.TEST/F.TEST/CHISQ.TEST/Z.TEST) + CONFIDENCE.T — ver `statTests.ts`.
   ...STAT_TEST_FUNCTIONS,
+  // Correcciones de fidelidad de funciones comunes (ROUND, SUBSTITUTE) — ver `fidelityFixes.ts`.
+  ...FIDELITY_FUNCTIONS,
 };
 
 // ── Normalización de literales booleanos en la cadena de fórmula ──────────────
