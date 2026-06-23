@@ -68,6 +68,7 @@ import {
 } from './line-cost';
 import { standardWork, StdWorkResult } from './line-stdwork';
 import { dossierStationsToCsv, DossierStationRow } from './line-dossier';
+import { flexLineAnalysis, FlexLineResult } from './line-flexline';
 import {
   sensitivityCurve,
   demandSweep,
@@ -1907,6 +1908,67 @@ export class LineEngineeringService {
       stations,
       csv: dossierStationsToCsv(stations),
     };
+  }
+
+  /**
+   * Flex-line (multi-model) analysis (Fase 40). Read-only: finds every model
+   * that runs on a physical line and measures how much they SHARE — the common
+   * station backbone vs each model's changeover-specific stations — plus each
+   * model's line cycle. The line can be given directly, or derived from a model
+   * (its routing's line). Pure set math via `flexLineAnalysis`.
+   */
+  async getFlexLine(params: {
+    line?: string;
+    model?: string;
+    revision?: string;
+  }): Promise<FlexLineResult> {
+    let line = (params.line ?? '').trim();
+    // Derive the line from a model's routing when not given directly.
+    if (!line && params.model) {
+      const route = await this.routing(
+        params.model.trim(),
+        (params.revision ?? 'A').trim() || 'A',
+      );
+      line = route[0]?.line ?? '';
+    }
+    if (!line) {
+      throw new BadRequestException('line (o model) es obligatorio.');
+    }
+
+    // Distinct (model, revision) pairs with active stations on this line.
+    const pairsQb = this.stations.createQueryBuilder('s');
+    this.applyScope(pairsQb, 's');
+    pairsQb
+      .select('s.model', 'model')
+      .addSelect('s.revision', 'revision')
+      .andWhere('s.line = :line', { line })
+      .andWhere('s.active = :a', { a: true })
+      .groupBy('s.model')
+      .addGroupBy('s.revision')
+      .orderBy('s.model', 'ASC')
+      .addOrderBy('s.revision', 'ASC');
+    const pairs = await pairsQb.getRawMany<{
+      model: string;
+      revision: string;
+    }>();
+
+    const routes = await Promise.all(
+      pairs.map(async (p) => {
+        const route = await this.routing(p.model, p.revision || 'A');
+        const bottleneckSec = route.reduce(
+          (m, s) => Math.max(m, Number(s.stdTimeSec) || 0),
+          0,
+        );
+        return {
+          model: p.model,
+          revision: p.revision || 'A',
+          stations: route.map((s) => s.station),
+          bottleneckSec,
+        };
+      }),
+    );
+
+    return flexLineAnalysis(line, routes);
   }
 
   /**
