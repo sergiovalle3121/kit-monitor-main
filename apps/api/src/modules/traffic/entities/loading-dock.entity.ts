@@ -1,5 +1,6 @@
 import { Column, Entity, Index, PrimaryGeneratedColumn } from 'typeorm';
 import { TenantBaseEntity } from '../../../common/entities/tenant-base.entity';
+import { DATE_COLUMN_TYPE } from '../../../common/database/date-column-type';
 import type { DockStatus, DockType } from '../traffic.rules';
 
 /**
@@ -32,6 +33,19 @@ export class LoadingDock extends TenantBaseEntity {
 
   @Column({ type: 'varchar', length: 16, default: 'available' })
   status: DockStatus;
+
+  // ── Operational state (Tablero de andenes) ─────────────────────────────────
+  // Additive, nullable yard-cockpit fields. The poka-yoke `status` above is the
+  // master/assignment vocabulary (available/occupied/maintenance/inactive);
+  // these power the live dock board without altering that contract. `occupiedAt`
+  // starts the aging clock the moment the door is taken (by the outbound
+  // transport assignment, which flips status→occupied through setDockStatus);
+  // `loadingStartedAt` marks the EN CARGA sub-state. Both clear on release.
+  @Column({ type: DATE_COLUMN_TYPE, nullable: true, name: 'occupied_at' })
+  occupiedAt: Date | null;
+
+  @Column({ type: DATE_COLUMN_TYPE, nullable: true, name: 'loading_started_at' })
+  loadingStartedAt: Date | null;
 
   @Column({ type: 'text', nullable: true })
   notes: string | null;

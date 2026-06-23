@@ -182,4 +182,19 @@ export class TrafficController {
   removeDock(@Param('id') id: string) {
     return this.service.removeDock(id);
   }
+
+  // ── Dock board operations (Tablero de andenes) ───────────────────────────────
+  @Post('docks/:id/start-loading')
+  @RequirePermissions('logistics:write')
+  @ApiOperation({ summary: 'Marca un andén ocupado como EN CARGA.' })
+  startLoading(@Param('id') id: string) {
+    return this.service.startLoading(id);
+  }
+
+  @Post('docks/:id/stop-loading')
+  @RequirePermissions('logistics:write')
+  @ApiOperation({ summary: 'Quita la marca EN CARGA del andén (sin liberarlo).' })
+  stopLoading(@Param('id') id: string) {
+    return this.service.stopLoading(id);
+  }
 }
