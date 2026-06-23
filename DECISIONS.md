@@ -2488,4 +2488,22 @@ round-trip real (export protegido → reabrir confirma `sheetProtection.sheet`, 
 reconstruye `protection.enabled` y los permisos). `xlsxStyled` (22) e import-rt (16) verdes — sin
 regresiones; `lint web` 0; `build web` ✓.
 
+## 114. Office/Sheets — motor de segmentaciones (slicers) y escala de tiempo
+
+**Contexto.** Excel ofrece **segmentaciones** (botones que filtran una tabla por los valores marcados de
+una columna) y **escalas de tiempo** (filtro por rango de fechas). Axos no tenía nada de esto. Es una
+feature grande (motor + panel UI); esta rebanada entrega el **motor PURO**, testeable y aislado; el panel
+visual y su cableado con la rejilla llegan en la siguiente rebanada.
+
+**Decisión (sólo `apps/web`, aditiva — riesgo cero):** `components/office/sheets/slicer.ts`:
+`slicerValues` da los valores distintos (los botones) de una columna; `applySlicers` recalcula
+`sheet.config.rowhidden` a partir de TODOS los slicers (`sheet.slicers`) y escalas de tiempo
+(`sheet.timelines`) combinados con **Y** (oculta una fila si cualquiera la rechaza). Selección `null`=todos,
+`[]`=ninguno; la escala de tiempo filtra por `[desde, hasta]` (fechas/seriales). Usa la convención
+`rowhidden` de Fortune-Sheet. No toca nada existente (módulo nuevo).
+
+**Verificación:** nueva suite `slicer.spec.ts` (**11 aserciones**): valores distintos (texto y numéricos
+ordenados), un slicer (oculta no-coincidentes), selección vacía/todos, dos slicers con Y, y escala de
+tiempo por rango de fechas. `lint web` 0; `build web` ✓.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
