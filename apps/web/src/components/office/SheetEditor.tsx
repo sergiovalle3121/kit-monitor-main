@@ -5,7 +5,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence } from 'framer-motion';
 import { Workbook } from '@fortune-sheet/react';
 import '@fortune-sheet/react/dist/index.css';
-import { ListChecks, Palette, Snowflake, FileText, Sigma, Search, ArrowDownUp, CopyMinus, Columns3, StickyNote, Table2, Hash, Rows3, Activity, ArrowDownToLine, FlipVertical2, Tag, Printer, ClipboardPaste, Filter, RefreshCw, LayoutGrid, Sparkles, Target, Grid3x3, Layers, Crosshair, Combine } from 'lucide-react';
+import { ListChecks, Palette, Snowflake, FileText, Sigma, Search, ArrowDownUp, CopyMinus, Columns3, StickyNote, Table2, Hash, Rows3, Activity, ArrowDownToLine, FlipVertical2, Tag, Printer, ClipboardPaste, Filter, RefreshCw, LayoutGrid, Sparkles, Target, Grid3x3, Layers, Crosshair, Combine, CalendarRange } from 'lucide-react';
 import { SheetCharts } from './SheetCharts';
 import { SheetTools, type ValidationPayload } from './SheetTools';
 import { SheetFunctionWizard } from './SheetFunctionWizard';
@@ -16,6 +16,8 @@ import { SheetFormatDialog, type NumberFmtPayload, type StylePayload } from './S
 import { SheetNameManager } from './SheetNameManager';
 import { SheetPrintDialog } from './SheetPrintDialog';
 import { SheetTableStyle, type TableStylePayload } from './SheetTableStyle';
+import { SheetSlicer } from './sheets/SheetSlicer';
+import { slicerValues, applySlicers, makeSlicer, makeTimeline, type Slicer, type Timeline } from './sheets/slicer';
 import { parseRange, type ChartConfig } from '@/lib/office/charts';
 import { applyConditional, sortRangeMulti, removeDuplicates, textToColumns, setCellNote, replaceAll, buildPivot, pivotToCelldata, applyNumberFormat, applyCellStyle, applySubtotals, applySparkline, applyFill, transposeRange, copyRange, buildFilter, mergeCells, unmergeCells, setAutoFilter, clearAutoFilter, buildPrintHtml, usedRange, colName, applyDataVerification, clearDataVerification, markInvalidCells, applyTableStyle, type CondPayload, type PivotConfig, type FindOpts, type NamedRange, type PrintOpts } from '@/lib/office/sheetOps';
 import { normalizeCellInput } from './sheets/sheetFormula';
@@ -90,6 +92,7 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
   const [showPrint, setShowPrint] = useState(false);
   const [tool, setTool] = useState<null | 'validation' | 'condformat'>(null);
   const [dataMode, setDataMode] = useState<DataMode | null>(null);
+  const [showSlicers, setShowSlicers] = useState(false);
   const [showWizard, setShowWizard] = useState(false);
   const [showFind, setShowFind] = useState(false);
   const [showPivot, setShowPivot] = useState(false);
@@ -282,6 +285,43 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
       remount(sheets); window.setTimeout(() => toast.info(had ? 'Autofiltro quitado.' : 'No había autofiltro.'), 30);
     }
   }
+
+  // ── Segmentaciones (slicers) y escala de tiempo ──────────────────────────────
+  const activeSheetLive = () => liveData.find((s: any) => s?.status === 1) ?? liveData[0];
+  function headerLabel(sheet: any, r: number, c: number): string {
+    const cd = (sheet?.celldata ?? []).find((x: any) => x.r === r && x.c === c);
+    const v = cd?.v; const disp = v == null ? '' : String((typeof v === 'object' ? (v.m ?? v.v) : v) ?? '');
+    return disp || colName(c);
+  }
+  function insertSlicer(kind: 'slicer' | 'timeline') {
+    const sheets = clone(sheetsRef.current);
+    const sheet = sheets.find((s: any) => s.status === 1) ?? sheets[0];
+    if (!sheet) return;
+    const rng = parseRange(selectionRange()); if (!rng) { toast.error('Selecciona una columna con encabezado.'); return; }
+    const header = headerLabel(sheet, rng.r1, rng.c1);
+    const range = `${colName(rng.c1)}${rng.r1 + 1}:${colName(rng.c1)}${rng.r2 + 1}`;
+    if (kind === 'slicer') sheet.slicers = [...(sheet.slicers ?? []), makeSlicer(range, 0, header)];
+    else sheet.timelines = [...(sheet.timelines ?? []), makeTimeline(range, 0, header)];
+    applySlicers(sheet); remount(sheets); setShowSlicers(true);
+  }
+  function mutateSlicers(fn: (sheet: any) => void) {
+    const sheets = clone(sheetsRef.current);
+    const sheet = sheets.find((s: any) => s.status === 1) ?? sheets[0];
+    if (!sheet) return;
+    fn(sheet); applySlicers(sheet); remount(sheets);
+  }
+  const slicerValuesFor = (s: Slicer) => slicerValues(activeSheetLive(), s.range, s.colRel);
+  const toggleSlicerValue = (id: string, value: string) => mutateSlicers((sheet) => {
+    const s = (sheet.slicers ?? []).find((x: Slicer) => x.id === id); if (!s) return;
+    const all = slicerValues(sheet, s.range, s.colRel);
+    let sel = s.selected == null ? [...all] : [...s.selected];
+    sel = sel.includes(value) ? sel.filter((x: string) => x !== value) : [...sel, value];
+    s.selected = sel.length === all.length ? null : sel;
+  });
+  const clearSlicer = (id: string) => mutateSlicers((sheet) => { const s = (sheet.slicers ?? []).find((x: Slicer) => x.id === id); if (s) s.selected = null; });
+  const removeSlicer = (id: string) => mutateSlicers((sheet) => { sheet.slicers = (sheet.slicers ?? []).filter((x: Slicer) => x.id !== id); });
+  const setTimelineRange = (id: string, from: string, to: string) => mutateSlicers((sheet) => { const t = (sheet.timelines ?? []).find((x: Timeline) => x.id === id); if (t) { t.from = from || null; t.to = to || null; } });
+  const removeTimeline = (id: string) => mutateSlicers((sheet) => { sheet.timelines = (sheet.timelines ?? []).filter((x: Timeline) => x.id !== id); });
 
   // Copia la selección actual como tabla Markdown (GFM) al portapapeles.
   async function copyRangeAsMarkdown() {
@@ -677,6 +717,8 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
                 { label: 'Quitar autofiltro', onClick: () => applyAutoFilter(false) },
               ]} />
               <RibbonButton icon={Filter} label="Filtrar a hoja" onClick={() => setDataMode('filter')} />
+              <RibbonButton icon={Crosshair} label="Segmentación de datos" onClick={() => insertSlicer('slicer')} />
+              <RibbonButton icon={CalendarRange} label="Escala de tiempo" onClick={() => insertSlicer('timeline')} />
               <RibbonButton icon={CopyMinus} label="Quitar duplicados" onClick={() => setDataMode('dedup')} />
               <RibbonButton icon={Columns3} label="Texto en columnas" onClick={() => setDataMode('split')} />
               <RibbonButton icon={Combine} label="Consolidar" onClick={() => setShowConsolidate(true)} />
@@ -783,6 +825,20 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
       </div>
 
       <SheetCharts charts={charts} sheets={sheetsRef.current} readOnly={readOnly} onAdd={addChart} onRemove={removeChart} onUpdate={updateChart} />
+
+      {showSlicers && (
+        <SheetSlicer
+          slicers={activeSheetLive()?.slicers ?? []}
+          timelines={activeSheetLive()?.timelines ?? []}
+          valuesOf={slicerValuesFor}
+          onToggle={toggleSlicerValue}
+          onClearSlicer={clearSlicer}
+          onRemoveSlicer={removeSlicer}
+          onTimeline={setTimelineRange}
+          onRemoveTimeline={removeTimeline}
+          onClose={() => setShowSlicers(false)}
+        />
+      )}
 
       <AnimatePresence>
         {tool && (

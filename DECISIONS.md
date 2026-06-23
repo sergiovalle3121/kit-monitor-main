@@ -2506,4 +2506,19 @@ visual y su cableado con la rejilla llegan en la siguiente rebanada.
 ordenados), un slicer (oculta no-coincidentes), selección vacía/todos, dos slicers con Y, y escala de
 tiempo por rango de fechas. `lint web` 0; `build web` ✓.
 
+## 115. Office/Sheets — panel de segmentaciones (slicers) y escala de tiempo (rebanada 2: UI)
+
+**Contexto.** §114 dejó el motor puro de slicers/escala de tiempo (`slicer.ts`, probado). Esta rebanada
+añade la **cara visible** que lo usa: insertar segmentaciones desde el ribbon y filtrar la tabla en vivo.
+
+**Decisión (sólo `apps/web`, aditiva — riesgo cero):** nuevo `components/office/sheets/SheetSlicer.tsx`
+(panel flotante: por cada slicer, botones toggle con los `slicerValues`; por cada escala de tiempo, dos
+fechas). En `SheetEditor.tsx`, botones «Segmentación de datos» y «Escala de tiempo» (pestaña Datos) que
+crean el filtro sobre la columna seleccionada (`makeSlicer`/`makeTimeline`), y handlers que mutan la hoja,
+llaman `applySlicers` y **re-montan** la rejilla (mismo patrón que el autofiltro nativo). El estado vive en
+`sheet.slicers`/`sheet.timelines`, así que viaja en el documento. No toca el motor `slicer.ts` ni el resto.
+
+**Verificación:** el motor sigue verde (`slicer.spec.ts` 11/11). UI verificada con `lint web` 0 y
+`build web` ✓ (no hay runtime de rejilla en specs). Sin regresiones.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
