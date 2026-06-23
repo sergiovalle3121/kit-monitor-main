@@ -1953,4 +1953,26 @@ en línea (negrita/cursiva/tachado/código/enlace/imagen), escapado de HTML y de
 párrafos, y **roundtrip** doc→md→html que conserva h2/negrita/lista). Sin regresiones: las 53 suites
 de spec de Office verdes; `lint web` 0 errores; `build web` ✓.
 
+## 83. Office/Docs — tipografía inteligente (Autoformato de Word)
+
+**Contexto.** Word convierte automáticamente la puntuación recta en sus formas tipográficas (comillas
+curvas, raya `—`, puntos suspensivos `…`, `(c)`→©, fracciones). Docs no tenía nada de esto.
+
+**Decisión (sólo `apps/web`, aditiva — riesgo cero):**
+- `lib/office/typography.ts` añade `smartTypography(text, opts?)` **pura, sin dependencias**: comillas
+  y apóstrofos curvos (apertura/cierre según el carácter previo), `--`→`—`, `...`→`…`, `(c)/(r)/(tm)`
+  →`© ® ™`, y `1/2`/`1/4`/`3/4`→`½ ¼ ¾` (con `lookbehind`/`lookahead` para **no** tocar fechas como
+  `1/2/2024` ni números). Opciones para activar/desactivar cada grupo.
+- `docs/smartTypography.ts` es la extensión Tiptap con el comando `applyTypography(opts?)`: la aplica
+  al texto de la selección (o a **todo** el documento si no hay selección) **preservando las marcas**,
+  **saltándose el código** (bloques y `code` en línea, donde la puntuación recta es significativa), y
+  aplicando las sustituciones **de derecha a izquierda** (cambian la longitud → así no invalida
+  posiciones). Mismo patrón probado que `changeCase.ts`.
+- UI: botón **«Tipografía inteligente»** en la pestaña Inicio, junto a «Cambiar mayúsculas».
+
+**Verificación:** nueva suite `smartTypography.spec.ts` (**17 aserciones**: comillas dobles/simples y
+apóstrofo, raya, puntos suspensivos, símbolos, fracciones —y fechas/números intactos—, combinado,
+opciones desactivadas, texto sin cambios). Sin regresiones: las 54 suites de spec de Office verdes;
+`lint web` 0 errores; `build web` ✓.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
