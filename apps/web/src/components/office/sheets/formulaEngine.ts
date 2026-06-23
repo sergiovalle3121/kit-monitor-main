@@ -40,6 +40,7 @@ import { expandLambda, LAMBDA_FUNCTIONS } from './lambdaExpand';
 import { expandArrayConst, ARRAY_CONST_FUNCTIONS } from './arrayConst';
 import { SCALAR_FUNCTIONS, aliasScalarFns } from './scalarFunctions';
 import { STAT_FUNCTIONS } from './statFunctions';
+import { DB_FUNCTIONS } from './dbFunctions';
 
 // ── Utilidades de coerción / aplanado de argumentos ──────────────────────────
 // Las funciones reciben `params`: un array donde cada argumento ya viene evaluado.
@@ -274,6 +275,8 @@ export const CUSTOM_FUNCTIONS: Record<string, (params: any[]) => any> = {
   ...SCALAR_FUNCTIONS,
   // Estadísticas con nombre moderno (punto) + correcciones de fidelidad — ver `statFunctions.ts`.
   ...STAT_FUNCTIONS,
+  // Funciones de base de datos (DSUM/DCOUNT/DGET…) — ver `dbFunctions.ts`.
+  ...DB_FUNCTIONS,
 };
 
 // ── Normalización de literales booleanos en la cadena de fórmula ──────────────
