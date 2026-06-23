@@ -9,6 +9,7 @@ import { PollVote } from './entities/poll-vote.entity';
 import { ScheduledMessage } from './entities/scheduled-message.entity';
 import { ConversationLabel } from './entities/conversation-label.entity';
 import { SavedMessage } from './entities/saved-message.entity';
+import { Meeting } from './entities/meeting.entity';
 import { User } from '../users/entities/user.entity';
 import { MessagingService } from './messaging.service';
 import { MessagingController } from './messaging.controller';
@@ -26,6 +27,7 @@ import { getJwtSecret } from '../../common/config/jwt-secret';
       ScheduledMessage,
       ConversationLabel,
       SavedMessage,
+      Meeting,
       User,
     ]),
     // Mismo secreto que el REST para autenticar el handshake del socket.

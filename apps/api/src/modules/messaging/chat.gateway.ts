@@ -394,6 +394,19 @@ export class ChatGateway
     this.emitToMembers(userIds, 'mention:new', payload);
   }
 
+  /** Recordatorio de una reunión próxima a empezar a todos sus miembros. */
+  emitMeetingReminder(
+    memberIds: string[],
+    payload: {
+      id: string;
+      conversationId: string;
+      title: string;
+      startAt: Date;
+    },
+  ): void {
+    this.emitToMembers(memberIds, 'meeting:reminder', payload);
+  }
+
   // ── helpers ────────────────────────────────────────────────────────────────
 
   /** Emite un evento a los rooms `user:<id>` de los miembros dados. */

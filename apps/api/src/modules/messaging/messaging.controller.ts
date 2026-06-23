@@ -61,13 +61,61 @@ export class MessagingController {
   @Post('conversations/channel')
   createChannel(
     @Req() req: any,
-    @Body() body: { name: string; memberIds?: string[] },
+    @Body()
+    body: { name: string; memberIds?: string[]; announcement?: boolean },
   ) {
     return this.messaging.createChannel(
       this.me(req),
       body?.name,
       body?.memberIds ?? [],
+      !!body?.announcement,
     );
+  }
+
+  @Post('conversations/:id/announcement')
+  setAnnouncement(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body() body: { announcement?: boolean },
+  ) {
+    return this.messaging.setAnnouncement(
+      this.me(req),
+      id,
+      body?.announcement !== false,
+    );
+  }
+
+  // ── reuniones programadas ──────────────────────────────────────────────────
+  @Get('conversations/:id/meetings')
+  listMeetings(@Req() req: any, @Param('id') id: string) {
+    return this.messaging.listMeetings(this.me(req), id);
+  }
+
+  @Post('conversations/:id/meetings')
+  createMeeting(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body()
+    body: {
+      title: string;
+      startAt: string;
+      durationMin?: number;
+      recurrence?: string;
+    },
+  ) {
+    return this.messaging.createMeeting(
+      this.me(req),
+      id,
+      body?.title,
+      body?.startAt,
+      body?.durationMin ?? 30,
+      body?.recurrence ?? 'none',
+    );
+  }
+
+  @Delete('meetings/:id')
+  cancelMeeting(@Req() req: any, @Param('id') id: string) {
+    return this.messaging.cancelMeeting(this.me(req), id);
   }
 
   // ── administración de canales ──────────────────────────────────────────────
