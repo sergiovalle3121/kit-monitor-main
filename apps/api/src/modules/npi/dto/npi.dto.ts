@@ -38,6 +38,32 @@ export class CreateNpiProjectDto {
   notes?: string;
 }
 
+/** Capture an on-demand readiness snapshot for a model+revision. */
+export class SnapshotReadinessDto {
+  @ApiProperty({ description: 'Número de modelo.' })
+  @IsString()
+  @Length(1, 40)
+  model: string;
+
+  @ApiPropertyOptional({ description: 'Revisión.', example: '1.0' })
+  @IsOptional()
+  @IsString()
+  @Length(1, 20)
+  revision?: string;
+
+  @ApiPropertyOptional({ description: 'Proyecto NPI asociado (opcional).' })
+  @IsOptional()
+  @IsString()
+  @Length(1, 36)
+  projectId?: string;
+
+  @ApiPropertyOptional({ description: 'Nota libre del snapshot.' })
+  @IsOptional()
+  @IsString()
+  @Length(0, 500)
+  note?: string;
+}
+
 const GATE_DECISIONS: NpiGateStatus[] = ['PASSED', 'FAILED', 'WAIVED'];
 
 /** Decide a gate: PASSED / FAILED / WAIVED, with optional notes. */

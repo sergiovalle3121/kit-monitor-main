@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { NpiProject } from './entities/npi-project.entity';
 import { NpiGate } from './entities/npi-gate.entity';
+import { NpiReadinessSnapshot } from './entities/npi-readiness-snapshot.entity';
 import { SfFai } from '../fai/entities/sf-fai.entity';
 import { SupplierApprovedPart } from '../suppliers/entities/supplier-approved-part.entity';
 import { NpiService } from './npi.service';
@@ -25,6 +26,7 @@ import { provideTenantScopedRepository } from '../../common/tenant/tenant-scoped
     TypeOrmModule.forFeature([
       NpiProject,
       NpiGate,
+      NpiReadinessSnapshot,
       SfFai,
       SupplierApprovedPart,
     ]),
@@ -39,6 +41,7 @@ import { provideTenantScopedRepository } from '../../common/tenant/tenant-scoped
     NpiService,
     provideTenantScopedRepository(NpiProject),
     provideTenantScopedRepository(NpiGate),
+    provideTenantScopedRepository(NpiReadinessSnapshot),
   ],
   exports: [NpiService],
 })
