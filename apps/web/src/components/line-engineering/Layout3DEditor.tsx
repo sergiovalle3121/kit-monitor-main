@@ -12,7 +12,7 @@ import {
   AlignHorizontalJustifyStart, AlignHorizontalJustifyCenter, AlignHorizontalJustifyEnd,
   AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd,
   AlignHorizontalDistributeCenter, AlignVerticalDistributeCenter, RulerDimensionLine, Rows3, Waypoints,
-  ShieldCheck, CircleCheck, CircleAlert, Printer, ChartLine, FileText, WandSparkles, Stamp, Upload, ImageOff,
+  ShieldCheck, CircleCheck, CircleAlert, Printer, ChartLine, FileText, WandSparkles, Stamp, Upload, ImageOff, Activity,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/apiFetch';
 import { useToast } from '@/contexts/ToastContext';
@@ -93,6 +93,40 @@ const APPROVAL_META: Record<ApprovalStatus, { label: string; color: string }> = 
   in_review: { label: 'En revisión', color: '#f59e0b' },
   approved: { label: 'Aprobado', color: '#10b981' },
 };
+
+// Live station-status overlays (ported from the 2D host, unify). Each colours the
+// station blocks by a per-station value from its API; we use the solid stroke hex.
+type OverlayKind = 'mes' | 'heat' | 'completeness' | 'bays' | 'quality';
+const hexToInt = (h: string): number => parseInt(h.replace('#', ''), 16);
+const OVERLAY_DEFS: { key: OverlayKind; label: string; endpoint: string; legend: { label: string; hex: string }[] }[] = [
+  { key: 'mes', label: 'MES en vivo', endpoint: 'status', legend: [{ label: 'Paro', hex: '#ef4444' }, { label: 'Alerta', hex: '#f59e0b' }, { label: 'OK', hex: '#10b981' }, { label: 'Inactivo', hex: '#94a3b8' }] },
+  { key: 'heat', label: 'Calor de ciclo / utilización', endpoint: 'heatmap', legend: [{ label: 'Holgado', hex: '#3b82f6' }, { label: 'Ligero', hex: '#06b6d4' }, { label: 'Medio', hex: '#f59e0b' }, { label: 'Alto', hex: '#f97316' }, { label: 'Sobre takt', hex: '#ef4444' }] },
+  { key: 'completeness', label: 'Completitud documental', endpoint: 'completeness', legend: [{ label: 'Completa', hex: '#10b981' }, { label: 'Incompleta', hex: '#f59e0b' }] },
+  { key: 'bays', label: 'Bahía que surte', endpoint: 'bays', legend: [{ label: 'B1', hex: '#3b82f6' }, { label: 'B2', hex: '#8b5cf6' }, { label: 'B3', hex: '#ec4899' }, { label: 'B4', hex: '#f59e0b' }, { label: 'B5', hex: '#10b981' }, { label: 'B6', hex: '#06b6d4' }] },
+  { key: 'quality', label: 'Calidad acumulada', endpoint: 'quality', legend: [{ label: 'OK', hex: '#10b981' }, { label: 'Menor', hex: '#f59e0b' }, { label: 'Mayor', hex: '#ef4444' }] },
+];
+const MES_HEX: Record<string, string> = { down: '#ef4444', warn: '#f59e0b', ok: '#10b981', idle: '#94a3b8', unknown: '#cbd5e1' };
+const HEAT_HEX: Record<string, string> = { cold: '#3b82f6', cool: '#06b6d4', warm: '#f59e0b', hot: '#f97316', over: '#ef4444' };
+const BAY_HEX: Record<number, string> = { 1: '#3b82f6', 2: '#8b5cf6', 3: '#ec4899', 4: '#f59e0b', 5: '#10b981', 6: '#06b6d4' };
+const QUAL_HEX: Record<string, string> = { ok: '#10b981', minor: '#f59e0b', major: '#ef4444' };
+/* eslint-disable @typescript-eslint/no-explicit-any */
+// Build a stationName→hex map from an overlay response (shapes mirror the 2D host).
+function overlayColorMap(kind: OverlayKind, d: any): Map<string, string> {
+  const m = new Map<string, string>();
+  const rows: any[] = Array.isArray(d?.stations) ? d.stations : [];
+  for (const s of rows) {
+    if (!s || typeof s.station !== 'string') continue;
+    let hex: string | undefined;
+    if (kind === 'mes') hex = MES_HEX[s.status];
+    else if (kind === 'heat') hex = HEAT_HEX[s.level];
+    else if (kind === 'completeness') hex = s.complete ? '#10b981' : '#f59e0b';
+    else if (kind === 'bays') hex = s.bahia != null ? BAY_HEX[s.bahia as number] : '#94a3b8';
+    else if (kind === 'quality') hex = QUAL_HEX[s.level];
+    if (hex) m.set(s.station, hex);
+  }
+  return m;
+}
+/* eslint-enable @typescript-eslint/no-explicit-any */
 
 interface St {
   id: string; station: string; line: string; ctq: boolean;
@@ -563,6 +597,10 @@ export default function Layout3DEditor({
   const [analysisPanel, setAnalysisPanel] = useState<string | null>(null); // active analysis panel key (unify)
   const [showAnalysis, setShowAnalysis] = useState(false); // analysis dropdown open
   const analysisMenuRef = useRef<HTMLDivElement | null>(null);
+  const [overlay, setOverlay] = useState<OverlayKind | null>(null); // active station-status overlay (unify)
+  const [showOverlayMenu, setShowOverlayMenu] = useState(false);
+  const overlayMenuRef = useRef<HTMLDivElement | null>(null);
+  const overlayColorRef = useRef<Map<string, number>>(new Map()); // stationName → hex int (empty = no overlay)
   const [showHeat, setShowHeat] = useState(false); // occupancy heat-map overlay on the floor (Fase 51)
   const [arr, setArr] = useState({ cols: 3, rows: 1, gap: 500, dx: 1000, dy: 0 }); // array/offset params (Fase 55)
   const [showGaps, setShowGaps] = useState(false); // clearance/safety gap markers overlay (Fase 52)
@@ -745,6 +783,7 @@ export default function Layout3DEditor({
     if (!open || !model) return;
     let alive = true;
     setData(null); setError(null); setSelList([]); setSelSnap(null); selRef.current = []; setDirty(false); setTab('stations');
+    overlayColorRef.current = new Map(); setOverlay(null);
     setTool('select'); toolRef.current = 'select'; measureARef.current = null; wallChainRef.current = null; setMeasureLive(null);
     setWalk(false); walkRef.current = false; savedCamRef.current = null;
     undoStackRef.current = []; redoStackRef.current = []; setHist({ undo: 0, redo: 0 });
@@ -822,7 +861,8 @@ export default function Layout3DEditor({
       const st = byId.get(id); if (!st) return;
       const hgt = Math.max(0.6, Math.min(p.w * s, p.h * s) * 0.7);
       const isSel = selRef.current.some((s) => s.type === 'station' && s.id === id);
-      const color = isSel ? SELECT : st.ctq ? AMBER : ROSE;
+      const ov = overlayColorRef.current.get(st.station); // station-status overlay tint (unify)
+      const color = isSel ? SELECT : ov !== undefined ? ov : st.ctq ? AMBER : ROSE;
       const mesh = new THREE.Mesh(
         new THREE.BoxGeometry(p.w * s, hgt, p.h * s),
         new THREE.MeshStandardMaterial({ color, roughness: 0.45, metalness: 0.12, emissive: isSel ? 0x0e7490 : 0x000000 }),
@@ -1060,6 +1100,27 @@ export default function Layout3DEditor({
   }, [showGaps, loadGaps]);
 
   const rebuildAll = useCallback(() => { rebuildBlocks(); rebuildAssets(); rebuildDims(); rebuildNotes(); }, [rebuildBlocks, rebuildAssets, rebuildDims, rebuildNotes]);
+
+  // ---- live station-status overlay: colour blocks by MES / heat / etc. (unify) ----
+  const loadOverlay = useCallback(async (kind: OverlayKind | null) => {
+    setOverlay(kind); setShowOverlayMenu(false);
+    if (!kind || !model) { overlayColorRef.current = new Map(); rebuildBlocks(); return; }
+    const def = OVERLAY_DEFS.find((o) => o.key === kind);
+    if (!def) return;
+    try {
+      const r = await apiFetch(`${API_BASE}/line-engineering/layout/${def.endpoint}?model=${encodeURIComponent(model)}&revision=${encodeURIComponent(revision)}`);
+      if (!r.ok) { toast.error('No se pudo cargar la capa de estado.', '3D'); return; }
+      const cm = overlayColorMap(kind, await r.json());
+      overlayColorRef.current = new Map([...cm.entries()].map(([name, hex]) => [name, hexToInt(hex)]));
+      rebuildBlocks();
+    } catch { toast.error('No se pudo cargar la capa de estado.', '3D'); }
+  }, [model, revision, rebuildBlocks, toast]);
+  useEffect(() => {
+    if (!showOverlayMenu) return;
+    const onDoc = (e: MouseEvent) => { if (overlayMenuRef.current && !overlayMenuRef.current.contains(e.target as Node)) setShowOverlayMenu(false); };
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, [showOverlayMenu]);
 
   // ---- undo / redo (memento of the editable collections) ----
   const snapshot = useCallback((): Snapshot => ({
@@ -2285,6 +2346,18 @@ export default function Layout3DEditor({
         </>)}
         <T3Btn active={showHeat} onClick={() => setShowHeat((v) => !v)} title="Mapa de calor de ocupación en el piso"><Grid2x2 className="w-4 h-4" /></T3Btn>
         <T3Btn active={showGaps} onClick={() => setShowGaps((v) => !v)} title="Holguras de seguridad — marca los objetos demasiado juntos (ámbar) o traslapados (rojo)"><ShieldAlert className="w-4 h-4" /></T3Btn>
+        <div className="relative" ref={overlayMenuRef}>
+          <T3Btn active={showOverlayMenu || !!overlay} onClick={() => setShowOverlayMenu((v) => !v)} title="Estado de estación — MES en vivo, calor de ciclo, completitud, bahías, calidad"><Activity className="w-4 h-4" /></T3Btn>
+          {showOverlayMenu && (
+            <div className="absolute top-full mt-1 left-0 z-50 w-60 rounded-xl border border-white/10 bg-gray-900 shadow-2xl py-1">
+              <div className="px-3 py-1.5 text-[10px] uppercase tracking-wide text-gray-500">Estado de estación</div>
+              <button onClick={() => loadOverlay(null)} className={`w-full text-left px-3 py-1.5 text-[12.5px] hover:bg-white/[0.08] ${overlay === null ? 'text-white' : 'text-gray-400'}`}>Ninguno</button>
+              {OVERLAY_DEFS.map((o) => (
+                <button key={o.key} onClick={() => loadOverlay(o.key)} className={`w-full text-left px-3 py-1.5 text-[12.5px] hover:bg-white/[0.08] ${overlay === o.key ? 'text-white' : 'text-gray-200'}`}>{o.label}</button>
+              ))}
+            </div>
+          )}
+        </div>
         <div className="relative" ref={viewMenuRef}>
           <T3Btn active={showView} onClick={() => setShowView((v) => { const nv = !v; if (nv && data) setFpDraft({ w: data.footprint.footprintW, h: data.footprint.footprintH, g: data.footprint.gridSize }); return nv; })} title="Vista, capas y plano"><SlidersHorizontal className="w-4 h-4" /></T3Btn>
           {showView && (
@@ -2452,6 +2525,14 @@ export default function Layout3DEditor({
                     ? 'Clic en cada esquina para trazar muros · Shift = ángulos de 45° · arrastra el fondo para orbitar · Esc termina'
                     : 'Arrastra para mover · Shift+clic multiselecciona · fondo = orbitar · rueda = zoom · R rota · Supr borra'}
             </div>
+            {overlay && (
+              <div className="absolute top-3 left-1/2 -translate-x-1/2 px-3 py-1.5 rounded-full bg-gray-900/85 backdrop-blur border border-white/10 text-[11px] text-gray-200 flex items-center gap-3 pointer-events-none">
+                <span className="font-medium">{OVERLAY_DEFS.find((o) => o.key === overlay)?.label}</span>
+                {OVERLAY_DEFS.find((o) => o.key === overlay)?.legend.map((l) => (
+                  <span key={l.label} className="inline-flex items-center gap-1"><span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: l.hex }} />{l.label}</span>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* right: properties */}
