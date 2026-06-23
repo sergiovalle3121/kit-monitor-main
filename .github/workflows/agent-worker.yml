@@ -1,0 +1,136 @@
+# Worker autónomo 24/7 de AXOS OS.
+#
+# Cada corrida toma EL issue `agent-task` abierto MÁS ANTIGUO que no esté ya en
+# curso, lo implementa siguiendo CLAUDE.md y abre un PR DRAFT a `staging`. Nunca
+# mergea: un humano revisa y mergea.
+#
+# ┌──────────────────────────── REGLA DE SEGURIDAD ────────────────────────────┐
+# │ El repo es PÚBLICO: los logs de Actions son visibles para cualquiera.       │
+# │ PROHIBIDO habilitar debug logging. NO añadas `ACTIONS_STEP_DEBUG` ni        │
+# │ `ACTIONS_RUNNER_DEBUG`, ni flags tipo `--verbose` / `--debug` /            │
+# │ `show_full_output`. Filtrarían secretos y razonamiento interno.            │
+# └────────────────────────────────────────────────────────────────────────────┘
+#
+# IMPORTANTE: no activar este worker hasta que `main` y `staging` tengan branch
+# protection (PR + CI verde obligatorios). Ver docs/agent-pipeline.md.
+
+name: Agent Worker (24/7)
+
+on:
+  schedule:
+    # Cada 4 horas, en el minuto 0 (UTC).
+    - cron: "0 */4 * * *"
+  workflow_dispatch: {}
+
+# Un único grupo SIN cancelar la corrida en curso => como mucho UN agente a la
+# vez. Una corrida nueva espera (encolada) a que termine la anterior. Esto evita
+# divergencia por paralelismo (dos agentes tocando staging a la vez).
+concurrency:
+  group: axos-agent-worker
+  cancel-in-progress: false
+
+# Permisos mínimos para etiquetar issues, empujar la rama y abrir el PR draft.
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  agent:
+    name: Implementar el issue agent-task más antiguo
+    runs-on: ubuntu-latest
+    # No correr en forks del repo público.
+    if: github.repository == 'Sergiovalle3121/axos-os'
+
+    steps:
+      - name: Checkout staging (historial completo)
+        uses: actions/checkout@v4
+        with:
+          ref: staging
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Idempotente: garantiza que existan los labels del pipeline aunque nadie
+      # los haya creado a mano todavía. No sobrescribe colores si ya existen.
+      - name: Ensure agent labels exist
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh label create agent-task        -R "${{ github.repository }}" --color 1D76DB --description "Tarea del backlog lista para el worker autónomo" 2>/dev/null || true
+          gh label create agent-in-progress -R "${{ github.repository }}" --color FBCA04 --description "Tomada por el worker (en curso)"                2>/dev/null || true
+          gh label create agent-pr          -R "${{ github.repository }}" --color 0E8A16 --description "PR abierto por el worker autónomo"              2>/dev/null || true
+
+      - name: Run AXOS agent worker
+        uses: anthropics/claude-code-action@v1
+        env:
+          # `gh` (CLI) dentro de Bash usa este token para issues/PRs/labels.
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          # Sonnet por costo en un loop 24/7. Sin flags de debug/verbose (repo público).
+          claude_args: |
+            --model claude-sonnet-4-6
+            --max-turns 40
+            --allowedTools Bash,Edit,Write,Read,Glob,Grep,MultiEdit
+          prompt: |
+            Eres el worker autónomo de AXOS OS. Implementas UNA sola tarea del
+            backlog por corrida y NUNCA mergeas.
+
+            REGLAS DURAS: lee y obedece `CLAUDE.md` en la raíz del repo. En
+            resumen: cambios SOLO aditivos (columnas nuevas nullables, migraciones
+            no destructivas); ramifica desde `staging`; PR base `staging`; NUNCA
+            `main`; NUNCA mergees; reusa `apps/web/src/components/ui/**` y
+            `apps/web/src/components/workspace/**`; respeta `seesAllAreas` de
+            `apps/web/src/lib/owner.ts`; no toques las zonas prohibidas (§5 de
+            CLAUDE.md) sin dejarlas marcadas para revisión humana.
+
+            PASOS (en orden):
+
+            1. SELECCIÓN DEL ISSUE. Con `gh`, lista los issues ABIERTOS con label
+               `agent-task` y elige el MÁS ANTIGUO que NO tenga ya el label
+               `agent-in-progress`:
+                   gh issue list --state open --label agent-task \
+                     --json number,title,labels,createdAt --limit 100
+               Ordena por `createdAt` ascendente y toma el PRIMERO sin
+               `agent-in-progress`. Si NO hay ninguno, TERMINA de inmediato sin
+               cambios: no abras PR, no comentes, no crees ramas.
+
+            2. RECLAMA EL ISSUE elegido (número N):
+                   gh issue edit <N> --add-label agent-in-progress
+
+            3. RAMA nueva desde staging:
+                   git checkout staging && git pull --ff-only origin staging
+                   git checkout -b agent/issue-<N>-<slug-corto>
+
+            4. IMPLEMENTA SOLO ese issue, siguiendo CLAUDE.md. PR chico y
+               revisable. Reusa primitivos; no dupliques. Aditivo siempre.
+
+            5. VERIFICA CALIDAD desde la raíz del repo:
+                   npm run build
+                   npm run lint
+               Si CUALQUIERA falla: NO abras PR. Comenta el error resumido en el
+               issue (`gh issue comment <N> --body "..."`), libera el label
+               (`gh issue edit <N> --remove-label agent-in-progress`) y TERMINA.
+
+            6. SI AMBOS PASAN: commitea, empuja la rama y abre un PR DRAFT a staging:
+                   git push -u origin agent/issue-<N>-<slug-corto>
+                   gh pr create --draft --base staging \
+                     --head agent/issue-<N>-<slug-corto> \
+                     --title "feat: <resumen corto> (#<N>)" \
+                     --body "Closes #<N>.\n\nGenerado por el worker autónomo. Cambio aditivo. Revisión y merge humanos requeridos."
+               Etiqueta el PR:
+                   gh pr edit <numero-o-url-del-PR> --add-label agent-pr
+
+            7. NUNCA mergees el PR. NUNCA toques branch protection ni auto-merge.
+               Si tuviste que tocar (o necesitas tocar) una zona prohibida de
+               CLAUDE.md §5, DÉJALO EXPLÍCITO en el cuerpo del PR (sigue en draft)
+               y pide revisión humana. Termina.

@@ -1,0 +1,31 @@
+# CODEOWNERS — revisión humana OBLIGATORIA del owner en zonas críticas.
+#
+# Para que estas reglas BLOQUEEN el merge hay que activar, en branch protection
+# de `main` Y `staging`: "Require a pull request before merging" +
+# "Require review from Code Owners". Ver docs/agent-pipeline.md.
+#
+# Sintaxis estilo .gitignore. Gana la ÚLTIMA regla que hace match, así que el
+# orden importa. Sin patrón global a propósito: solo se exige review en las
+# rutas críticas de abajo.
+
+# --- Migraciones de base de datos (cambios destructivos = riesgo de datos) ---
+/apps/api/src/migrations/        @Sergiovalle3121
+
+# --- Aislamiento multi-tenant (fuga de datos entre tenants) ---
+/apps/api/src/common/tenant/     @Sergiovalle3121
+
+# --- Seguridad ---
+/apps/api/src/common/security/   @Sergiovalle3121
+**/security/                     @Sergiovalle3121
+
+# --- Autenticación (API y web) ---
+/apps/api/src/modules/auth/      @Sergiovalle3121
+/apps/web/src/app/api/auth/      @Sergiovalle3121
+**/auth/                         @Sergiovalle3121
+
+# --- Guardrail de acceso del owner (seesAllAreas / ownerEmails) ---
+# La tarea pedía `lib/owner.ts`; la ruta REAL en el monorepo es esta:
+/apps/web/src/lib/owner.ts       @Sergiovalle3121
+
+# --- Toda la configuración de CI / automatización / gobernanza del repo ---
+/.github/                        @Sergiovalle3121

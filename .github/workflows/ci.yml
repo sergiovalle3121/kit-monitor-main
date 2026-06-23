@@ -1,7 +1,8 @@
 name: CI
 
-# Red de seguridad automática: corre las 4 puertas de calidad en cada PR a main
-# y en cada push a main. Ningún cambio llega a producción sin pasar por aquí.
+# Red de seguridad automática: corre las 4 puertas de calidad en cada PR/push a
+# `main` y a `staging`. Ningún cambio llega a producción sin pasar por aquí, y
+# `staging` (base de los PRs del worker autónomo) queda igual de blindado.
 #   1) build (API)          2) unit tests (API)
 #   3) lint (API + web)     4) smoke de bootstrap (dist compilado vs Postgres)
 # El smoke materializa TODO el esquema (synchronize) sobre un Postgres efímero:
@@ -10,9 +11,9 @@ name: CI
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, staging]
   push:
-    branches: [main]
+    branches: [main, staging]
 
 # Cancela ejecuciones obsoletas si se empuja algo nuevo a la misma rama/PR.
 concurrency:
