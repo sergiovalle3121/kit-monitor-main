@@ -67,6 +67,7 @@ import {
   CostRates,
 } from './line-cost';
 import { standardWork, StdWorkResult } from './line-stdwork';
+import { dossierStationsToCsv, DossierStationRow } from './line-dossier';
 import {
   sensitivityCurve,
   demandSweep,
@@ -221,6 +222,34 @@ export interface SnapshotDiff {
   connectorsDelta: number;
   assetsDelta: number;
   annotationsDelta: number;
+}
+
+/** Portable, consolidated export of a layout (Fase 39): the F14 report plus
+ * manning, cost and a per-station table, with a spreadsheet-ready CSV. */
+export interface LayoutDossier {
+  generatedAt: string;
+  model: string;
+  revision: string;
+  unit: string;
+  report: LayoutReport;
+  staffing: { totalOperators: number; avgUtilizationPct: number } | null;
+  cost: {
+    totalCostPerUnit: number;
+    laborCostPerUnit: number;
+    spaceCostPerUnit: number;
+    capexPerUnit: number;
+    monthlyVolume: number;
+    throughputPerHour: number;
+  } | null;
+  completeness: {
+    total: number;
+    complete: number;
+    completenessPct: number;
+    missingVisualAid: number;
+  };
+  stations: DossierStationRow[];
+  /** The station table serialized as RFC-4180 CSV. */
+  csv: string;
 }
 
 export interface LineEngineeringKpis {
@@ -1767,6 +1796,116 @@ export class LineEngineeringService {
       model: params.model,
       revision,
       unit: layout.footprint.unit,
+    };
+  }
+
+  /**
+   * Portable layout dossier (Fase 39). Read-only: consolidates the report (F14)
+   * with manning, cost and a per-station table into one object, plus a
+   * spreadsheet-ready CSV of the stations — so the whole computed picture of a
+   * layout can be handed off (Excel, a report, management) in one download.
+   * Manning/cost degrade to null when the model has no routing.
+   */
+  async getDossier(params: {
+    model: string;
+    revision?: string;
+    availableTimeSec?: number;
+    demandUnits?: number;
+    taktTargetSec?: number;
+    rates?: CostRates;
+  }): Promise<LayoutDossier> {
+    const model = (params.model ?? '').trim();
+    const revision = (params.revision ?? 'A').trim() || 'A';
+    if (!model) throw new BadRequestException('model es obligatorio.');
+
+    const [report, completeness, layout, route] = await Promise.all([
+      this.getLayoutReport(model, revision),
+      this.getCompleteness(model, revision),
+      this.getLayout(model, revision),
+      this.routing(model, revision),
+    ]);
+
+    let staffing: LayoutDossier['staffing'] = null;
+    let cost: LayoutDossier['cost'] = null;
+    try {
+      const st = await this.getStaffing({
+        model,
+        revision,
+        availableTimeSec: params.availableTimeSec,
+        demandUnits: params.demandUnits,
+        taktTargetSec: params.taktTargetSec,
+      });
+      staffing = {
+        totalOperators: st.totalOperators,
+        avgUtilizationPct: st.avgUtilizationPct,
+      };
+    } catch {
+      staffing = null;
+    }
+    try {
+      const c = await this.getCostModel({
+        model,
+        revision,
+        availableTimeSec: params.availableTimeSec,
+        demandUnits: params.demandUnits,
+        taktTargetSec: params.taktTargetSec,
+        rates: params.rates,
+      });
+      cost = {
+        totalCostPerUnit: c.totalCostPerUnit,
+        laborCostPerUnit: c.laborCostPerUnit,
+        spaceCostPerUnit: c.spaceCostPerUnit,
+        capexPerUnit: c.capexPerUnit,
+        monthlyVolume: c.monthlyVolume,
+        throughputPerHour: c.throughputPerHour,
+      };
+    } catch {
+      cost = null;
+    }
+
+    const placedSet = new Set(
+      layout.stations
+        .filter((s) => s.x !== null && s.y !== null)
+        .map((s) => s.station),
+    );
+    const cycleByStation = new Map(
+      route.map((s) => [s.station, Number(s.stdTimeSec) || 0]),
+    );
+    const seqByStation = new Map(route.map((s) => [s.station, s.sequence]));
+    const lineByStation = new Map(route.map((s) => [s.station, s.line]));
+    const stations: DossierStationRow[] = completeness.stations.map((s) => ({
+      station: s.station,
+      line: lineByStation.get(s.station) ?? '',
+      sequence: seqByStation.get(s.station) ?? 0,
+      cycleTimeSec: cycleByStation.get(s.station) ?? 0,
+      hasNp: s.hasNp,
+      hasUseFactor: s.hasUseFactor,
+      hasVisualAid: s.hasVisualAid,
+      complete: s.complete,
+      placed: placedSet.has(s.station),
+    }));
+
+    const completenessPct =
+      completeness.total > 0
+        ? round((completeness.complete / completeness.total) * 100, 1)
+        : 0;
+
+    return {
+      generatedAt: new Date().toISOString(),
+      model,
+      revision,
+      unit: layout.footprint.unit,
+      report,
+      staffing,
+      cost,
+      completeness: {
+        total: completeness.total,
+        complete: completeness.complete,
+        completenessPct,
+        missingVisualAid: completeness.missingVisualAid,
+      },
+      stations,
+      csv: dossierStationsToCsv(stations),
     };
   }
 

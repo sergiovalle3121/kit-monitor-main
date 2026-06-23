@@ -323,6 +323,36 @@ describe('LineEngineeringService (integration)', () => {
     expect(sw.loopsOverTakt).toBeGreaterThanOrEqual(1);
   });
 
+  it('assembles a portable dossier with a station CSV (Fase 39)', async () => {
+    await seedRoute(); // 3 stations, all fully specified
+    const d = await service.getDossier({
+      model: 'AX-1000',
+      taktTargetSec: 60,
+      rates: { laborCostPerHour: 10 },
+    });
+    expect(d.model).toBe('AX-1000');
+    expect(d.report.stations.total).toBe(3);
+    expect(d.completeness).toMatchObject({
+      total: 3,
+      complete: 3,
+      completenessPct: 100,
+    });
+    expect(d.staffing?.totalOperators).toBe(3);
+    expect(d.cost?.totalCostPerUnit).toBeGreaterThan(0);
+    expect(d.stations).toHaveLength(3);
+    // The CSV has a header plus one line per station.
+    const csvLines = d.csv.split('\n');
+    expect(csvLines[0]).toMatch(/^Estación,Línea,Secuencia/);
+    expect(csvLines).toHaveLength(4); // header + 3 stations
+    // Rows carry the joined cycle time + sequence.
+    const est20 = d.stations.find((s) => s.station === 'EST-20');
+    expect(est20).toMatchObject({
+      sequence: 20,
+      cycleTimeSec: 55,
+      complete: true,
+    });
+  });
+
   it('reports per-station documentation completeness (Fase 19)', async () => {
     await seedRoute(); // 3 stations, all with NP + factor + aid → complete
     // Add a station missing its visual aid.

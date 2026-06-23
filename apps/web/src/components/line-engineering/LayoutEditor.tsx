@@ -12,7 +12,7 @@ import {
   Upload, Eye, EyeOff, Map as MapIcon, Activity, Workflow, Wand2, Boxes,
   Download, Printer, Ruler, Type, MoveHorizontal, CopyPlus, X, Flame, Waypoints,
   ShieldCheck, ShieldAlert, LayoutGrid, History, RotateCw, ClipboardList, GitCompare,
-  ClipboardCheck, Warehouse, Sparkles, Bug, SlidersHorizontal, BarChart3, Frame, Box, Layers, Users, DollarSign, LineChart, Scale, Footprints,
+  ClipboardCheck, Warehouse, Sparkles, Bug, SlidersHorizontal, BarChart3, Frame, Box, Layers, Users, DollarSign, LineChart, Scale, Footprints, FileDown,
 } from 'lucide-react';
 import { glass } from '@/lib/glass';
 import { apiFetch } from '@/lib/apiFetch';
@@ -28,6 +28,7 @@ import CostEstimator from './CostEstimator';
 import SensitivityChart from './SensitivityChart';
 import ScenarioCompare from './ScenarioCompare';
 import StandardWork from './StandardWork';
+import DossierExport from './DossierExport';
 // three.js is heavy — lazy-load the 3D view so it only ships when opened.
 const Layout3D = dynamic(() => import('./Layout3D'), { ssr: false });
 
@@ -355,6 +356,7 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
   const [showSensitivity, setShowSensitivity] = useState(false);
   const [showCompare, setShowCompare] = useState(false);
   const [showStdWork, setShowStdWork] = useState(false);
+  const [showDossier, setShowDossier] = useState(false);
   const [showCells, setShowCells] = useState(false);
   const [show3d, setShow3d] = useState(false);
   const [approval, setApproval] = useState<LayoutApproval | null>(null);
@@ -1806,6 +1808,7 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
         <TBtn onClick={exportPDF} title="Exportar PDF">{exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <span className="text-[11px] font-bold leading-none">PDF</span>}</TBtn>
         <TBtn onClick={exportDossier} title="Exportar dossier (plano + resumen KPI)"><span className="text-[10px] font-bold leading-none">DOC</span></TBtn>
         <TBtn onClick={exportCSV} title="Exportar estaciones a CSV"><span className="text-[10px] font-bold leading-none">CSV</span></TBtn>
+        <TBtn onClick={() => setShowDossier(true)} title="Exportar expediente analítico (KPIs computados: JSON + CSV)"><FileDown className="w-4 h-4" /></TBtn>
         <TBtn onClick={printPlan} title="Imprimir"><Printer className="w-4 h-4" /></TBtn>
         <Sep />
         <TBtn onClick={() => { setCloneSrc(''); setShowClone(true); }} title="Plantilla: clonar desde otro modelo"><CopyPlus className="w-4 h-4" /></TBtn>
@@ -2215,6 +2218,7 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
       <SensitivityChart model={model} revision={revision} open={showSensitivity} onClose={() => setShowSensitivity(false)} />
       {showCompare && <ScenarioCompare model={model} revision={revision} open={showCompare} onClose={() => setShowCompare(false)} />}
       <StandardWork model={model} revision={revision} open={showStdWork} onClose={() => setShowStdWork(false)} />
+      {showDossier && <DossierExport model={model} revision={revision} open={showDossier} onClose={() => setShowDossier(false)} />}
       {show3d && <Layout3D model={model} revision={revision} open={show3d} onClose={() => setShow3d(false)} />}
 
       {showCells && (
