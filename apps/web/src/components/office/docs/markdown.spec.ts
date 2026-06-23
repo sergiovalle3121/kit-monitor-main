@@ -71,6 +71,14 @@ eq(tiptapJsonToMarkdown(doc(p(t('uno')), p(t('dos')))), 'uno\n\ndos\n', 'dos pá
 // Documento vacío.
 eq(tiptapJsonToMarkdown(doc()), '\n', 'documento vacío → solo salto final');
 
+// Notas al pie: ref numerada en línea + bloque de definiciones al final.
+const fn = (content: string) => ({ type: 'footnoteRef', attrs: { content } });
+eq(tiptapJsonToMarkdown(doc(p(t('Texto'), fn('una nota')))), 'Texto[^1]\n\n[^1]: una nota\n', 'nota al pie única');
+eq(
+  tiptapJsonToMarkdown(doc(p(t('A'), fn('uno')), p(t('B'), fn('dos')))),
+  'A[^1]\n\nB[^2]\n\n[^1]: uno\n[^2]: dos\n', 'dos notas numeradas en orden',
+);
+
 console.log(`\nMARKDOWN SPEC: ${passed} OK, ${fails.length} fallos`);
 if (fails.length) { for (const f of fails) console.error('  ✗ ' + f); throw new Error(`${fails.length} fallos`); }
 console.log('✓ Todas las aserciones de Markdown pasan.');
