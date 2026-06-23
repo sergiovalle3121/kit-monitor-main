@@ -49,6 +49,7 @@ import {
 } from './line-balance';
 import { flowAnalysis, FlowAnalysis } from './line-flow';
 import { flowDirection, FlowDirectionResult } from './line-flowdir';
+import { cellFlow, CellFlowResult } from './line-cellflow';
 import { layoutCollisions, CollisionResult, RectBox } from './line-collision';
 import { autoArrange, ArrangedPosition } from './line-autoarrange';
 import { optimizeFlowOrder } from './line-optimize';
@@ -1345,6 +1346,56 @@ export class LineEngineeringService {
       }));
     const result = flowDirection(placed);
     return { ...result, model: m, revision: r, unit: layout.footprint.unit };
+  }
+
+  /**
+   * Inter-cell flow analysis (Fase 28): splits the material flow into intra-cell
+   * vs inter-cell (crossing cell boundaries) using the cells and connectors on
+   * the plan, and reports the share that crosses boundaries. Read-only.
+   */
+  async getCellFlow(
+    model: string,
+    revision = 'A',
+  ): Promise<
+    CellFlowResult & {
+      model: string;
+      revision: string;
+      unit: string;
+      cellCount: number;
+      interSegments: { from: string; to: string; distance: number }[];
+    }
+  > {
+    const m = (model ?? '').trim();
+    const r = (revision ?? 'A').trim() || 'A';
+    const layout = await this.getLayout(m, r);
+    const defW = layout.footprint.footprintW * 0.03;
+    const defH = layout.footprint.footprintH * 0.04;
+    const cellOf = new Map<string, string>();
+    for (const cell of layout.cells) {
+      for (const sid of cell.stationIds) cellOf.set(sid, cell.id);
+    }
+    const nameById = new Map(layout.stations.map((s) => [s.id, s.station]));
+    const nodes = layout.stations
+      .filter((s) => s.x !== null && s.y !== null)
+      .map((s) => ({
+        id: s.id,
+        cellId: cellOf.get(s.id) ?? null,
+        cx: (s.x as number) + (s.w !== null ? s.w / 2 : defW),
+        cy: (s.y as number) + (s.h !== null ? s.h / 2 : defH),
+      }));
+    const result = cellFlow(nodes, layout.connectors);
+    return {
+      ...result,
+      model: m,
+      revision: r,
+      unit: layout.footprint.unit,
+      cellCount: layout.cells.length,
+      interSegments: result.interSegments.map((seg) => ({
+        from: nameById.get(seg.from) ?? seg.from,
+        to: nameById.get(seg.to) ?? seg.to,
+        distance: seg.distance,
+      })),
+    };
   }
 
   /**

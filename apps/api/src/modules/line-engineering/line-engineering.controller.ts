@@ -331,6 +331,19 @@ export class LineEngineeringController {
     return this.service.getFlowDirection(model, revision ?? 'A');
   }
 
+  @Get('layout/cell-flow')
+  @RequirePermissions('engineering:read')
+  @ApiOperation({
+    summary:
+      'Flujo intra-celda vs inter-celda: % del recorrido que cruza fronteras de celda.',
+  })
+  layoutCellFlow(
+    @Query('model') model: string,
+    @Query('revision') revision?: string,
+  ) {
+    return this.service.getCellFlow(model, revision ?? 'A');
+  }
+
   @Get('layout/collisions')
   @RequirePermissions('engineering:read')
   @ApiOperation({

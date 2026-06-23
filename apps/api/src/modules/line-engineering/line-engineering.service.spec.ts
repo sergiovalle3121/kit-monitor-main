@@ -286,6 +286,44 @@ describe('LineEngineeringService (integration)', () => {
     expect(metrics.cells[0].areaPctOfFootprint).toBeCloseTo(3, 1);
   });
 
+  it('analyzes intra- vs inter-cell flow (Fase 28)', async () => {
+    await seedRoute(); // EST-10, EST-20, EST-30
+    const before = await service.getLayout('AX-1000');
+    const id = Object.fromEntries(
+      before.stations.map((s) => [s.station, s.id]),
+    );
+    await service.saveLayout({
+      model: 'AX-1000',
+      positions: [
+        { id: id['EST-10'], x: 0, y: 0, w: 100, h: 100, rotation: 0 }, // cx 50
+        { id: id['EST-20'], x: 200, y: 0, w: 100, h: 100, rotation: 0 }, // cx 250
+        { id: id['EST-30'], x: 600, y: 0, w: 100, h: 100, rotation: 0 }, // cx 650
+      ],
+      connectors: [
+        { from: id['EST-10'], to: id['EST-20'] }, // intra c1
+        { from: id['EST-20'], to: id['EST-30'] }, // inter c1→c2
+      ],
+      cells: [
+        {
+          id: 'c1',
+          name: 'A',
+          color: '#6366f1',
+          stationIds: [id['EST-10'], id['EST-20']],
+        },
+        { id: 'c2', name: 'B', color: '#10b981', stationIds: [id['EST-30']] },
+      ],
+    });
+
+    const cf = await service.getCellFlow('AX-1000');
+    expect(cf.cellCount).toBe(2);
+    expect(cf.intraCount).toBe(1);
+    expect(cf.interCount).toBe(1);
+    expect(cf.intraDistance).toBe(200); // 50→250
+    expect(cf.interDistance).toBe(400); // 250→650
+    expect(cf.interPct).toBeCloseTo(66.7, 0);
+    expect(cf.interSegments[0]).toMatchObject({ from: 'EST-20', to: 'EST-30' });
+  });
+
   it('computes capacity/load including changeover', async () => {
     await seedRoute();
     await service.qualify({
