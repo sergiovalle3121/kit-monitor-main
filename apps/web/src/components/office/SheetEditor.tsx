@@ -19,6 +19,7 @@ import { SheetTableStyle, type TableStylePayload } from './SheetTableStyle';
 import { parseRange, type ChartConfig } from '@/lib/office/charts';
 import { applyConditional, sortRangeMulti, removeDuplicates, textToColumns, setCellNote, replaceAll, buildPivot, pivotToCelldata, applyNumberFormat, applyCellStyle, applySubtotals, applySparkline, applyFill, transposeRange, copyRange, buildFilter, mergeCells, unmergeCells, setAutoFilter, clearAutoFilter, buildPrintHtml, usedRange, colName, applyDataVerification, clearDataVerification, markInvalidCells, applyTableStyle, type CondPayload, type PivotConfig, type FindOpts, type NamedRange, type PrintOpts } from '@/lib/office/sheetOps';
 import { normalizeCellInput } from './sheets/sheetFormula';
+import { rangeToMarkdown } from '@/lib/office/sheetMarkdown';
 import { installFormulaEngine } from './sheets/formulaEngine';
 import { applySpill } from './sheets/arraySpill';
 import { goalSeek } from './sheets/goalSeek';
@@ -280,6 +281,17 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
       const had = clearAutoFilter(sheet);
       remount(sheets); window.setTimeout(() => toast.info(had ? 'Autofiltro quitado.' : 'No había autofiltro.'), 30);
     }
+  }
+
+  // Copia la selección actual como tabla Markdown (GFM) al portapapeles.
+  async function copyRangeAsMarkdown() {
+    const sheet = sheetsRef.current.find((s: any) => s.status === 1) ?? sheetsRef.current[0];
+    if (!sheet) return;
+    const range = selectionRange();
+    const md = rangeToMarkdown(sheet, range);
+    if (!md) { toast.error('Selección vacía.'); return; }
+    try { await navigator.clipboard.writeText(md); window.setTimeout(() => toast.info(`Tabla Markdown copiada (${range}).`), 30); }
+    catch { toast.error('No se pudo copiar al portapapeles.'); }
   }
 
   function applyCondFormat(p: CondPayload) {
@@ -655,6 +667,7 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
             <RibbonGroup label="Herramientas de datos">
               <RibbonButton icon={ListChecks} label="Validación de datos" onClick={() => setTool('validation')} />
               <RibbonButton icon={Palette} label="Formato condicional" onClick={() => setTool('condformat')} />
+              <RibbonButton icon={Hash} label="Copiar como Markdown" hideLabel={false} onClick={copyRangeAsMarkdown} />
             </RibbonGroup>
             <RibbonSeparator />
             <RibbonGroup label="Ordenar y filtrar">

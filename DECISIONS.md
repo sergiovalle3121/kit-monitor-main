@@ -2012,4 +2012,22 @@ render.
 secciones ya tiene su suite (§84). Sin regresiones: las 55 suites de spec de Office verdes; `lint web`
 0 errores; `build web` ✓.
 
+## 86. Office/Sheets — copiar un rango como tabla Markdown
+
+**Contexto.** Tras dar a Docs el roundtrip Markdown (§81/§82), faltaba en Sheets el gesto recíproco:
+**copiar un rango como tabla Markdown** para pegarlo en un README, issue, PR o documento — algo que
+Excel no hace de fábrica y que un usuario técnico agradece.
+
+**Decisión (sólo `apps/web`, aditiva — riesgo cero):** `lib/office/sheetMarkdown.ts` añade funciones
+**puras**: `rangeValues(sheet, range)` (matriz de valores mostrados leyendo el `celldata` en memoria),
+`gridToMarkdownTable(rows, opts)` (tabla GFM; primera fila = encabezado por defecto, escapa `|`/`\\`,
+colapsa saltos de línea y rellena filas cortas) y el atajo `rangeToMarkdown`. UI: botón **«Copiar como
+Markdown»** en *Datos → Herramientas de datos*, que toma la **selección actual** y escribe la tabla en
+el portapapeles (`navigator.clipboard`).
+
+**Verificación:** nueva suite `sheetMarkdown.spec.ts` (**9 aserciones**: tabla básica, varias filas,
+sin encabezado, relleno de filas cortas, escape de `|` y saltos, vacío; `rangeValues` con hueco y
+celda fuera de datos; `rangeToMarkdown` extremo a extremo). Sin regresiones: las 56 suites de spec de
+Office verdes; `lint web` 0 errores; `build web` ✓.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
