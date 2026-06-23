@@ -2088,7 +2088,17 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
               </div>
             </div>
           )}
-          <canvas ref={elRef} />
+          {/* Stable host for the fabric canvas. fabric re-parents the raw
+              <canvas> into its own .canvas-container, so it must NOT be a direct
+              sibling of React-conditional nodes (loader/placeholder/Minimap):
+              otherwise, when `placed` flips 0→N after the async load() (once
+              fabric has already wrapped the canvas), React anchors the Minimap
+              insert on a <canvas> that is no longer its child → "insertBefore …
+              is not a child of this node". Keeping the canvas in an always-
+              rendered wrapper makes that wrapper the stable anchor instead. */}
+          <div className="absolute inset-0">
+            <canvas ref={elRef} />
+          </div>
           {!loading && placed.length > 0 && (
             <Minimap canvasRef={fcRef} fitRef={fitRef} placementsRef={placementsRef} footprintRef={footprintRef} />
           )}
