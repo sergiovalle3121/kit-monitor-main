@@ -59,6 +59,7 @@ import { optimizeFlowOrder } from './line-optimize';
 import { staffingPlan, StaffingResult, StationStaffing } from './line-staffing';
 import { bufferPlan, BufferPlan } from './line-buffer';
 import { balanceLoops, LoopPlan } from './line-loops';
+import { costModel, areaToM2, CostModel, CostRates } from './line-cost';
 
 /** One station's material/work requirement for a unit of a model — the bridge
  * that Material Staging (C) and the Operator Terminal (D) consume. */
@@ -1478,6 +1479,75 @@ export class LineEngineeringService {
       { taktSec: takt },
     );
     return { ...plan, model: params.model, revision };
+  }
+
+  /**
+   * Unit-economics estimate for the layout (Fase 35). Read-only: combines the
+   * manning (staffing), takt, floor area and equipment count with the rates the
+   * planner supplies into a cost-per-unit split across labor, space and
+   * amortized capex — so two candidate layouts can be compared on cost. Pure
+   * arithmetic via `costModel`.
+   */
+  async getCostModel(params: {
+    model: string;
+    revision?: string;
+    availableTimeSec?: number;
+    demandUnits?: number;
+    taktTargetSec?: number;
+    rates?: CostRates;
+  }): Promise<
+    CostModel & {
+      model: string;
+      revision: string;
+      operatorCount: number;
+      stationCount: number;
+      assetCount: number;
+      footprintAreaM2: number;
+    }
+  > {
+    const revision = params.revision ?? 'A';
+    const route = await this.routing(params.model, revision);
+    if (route.length === 0) {
+      throw new NotFoundException(
+        `Sin ruteo para ${params.model} rev ${revision}.`,
+      );
+    }
+    const takt =
+      params.taktTargetSec && params.taktTargetSec > 0
+        ? params.taktTargetSec
+        : computeTaktSec(params.availableTimeSec ?? 0, params.demandUnits ?? 0);
+    const staffing = staffingPlan(
+      route.map((s) => ({
+        station: s.station,
+        sequence: s.sequence,
+        stdTimeSec: Number(s.stdTimeSec),
+      })),
+      takt,
+    );
+    const layout = await this.getLayout(params.model, revision);
+    const footprintAreaM2 = areaToM2(
+      layout.footprint.footprintW * layout.footprint.footprintH,
+      layout.footprint.unit,
+    );
+    const cost = costModel(
+      {
+        operatorCount: staffing.totalOperators,
+        taktSec: takt,
+        footprintAreaM2,
+        assetCount: layout.assets.length,
+        stationCount: route.length,
+      },
+      params.rates ?? {},
+    );
+    return {
+      ...cost,
+      model: params.model,
+      revision,
+      operatorCount: staffing.totalOperators,
+      stationCount: route.length,
+      assetCount: layout.assets.length,
+      footprintAreaM2: round(footprintAreaM2, 2),
+    };
   }
 
   /**

@@ -206,6 +206,27 @@ describe('LineEngineeringService (integration)', () => {
     expect(plan.model).toBe('AX-1000');
   });
 
+  it('estimates layout unit-economics across labor/space/capex (Fase 35)', async () => {
+    await seedRoute(); // 3 stations; staffing at 60s takt → 3 operators
+    const c = await service.getCostModel({
+      model: 'AX-1000',
+      taktTargetSec: 60,
+      rates: {
+        laborCostPerHour: 10,
+        spaceCostPerM2Month: 12,
+        monthlyVolume: 10000,
+      },
+    });
+    expect(c.operatorCount).toBe(3);
+    // labor = 3 × (60/3600) × 10 = 0.5 per unit.
+    expect(c.laborCostPerUnit).toBe(0.5);
+    // Default footprint 20000×10000 mm = 200 m² → space/unit = (200×12)/10000.
+    expect(c.footprintAreaM2).toBeCloseTo(200, 1);
+    expect(c.spaceCostPerUnit).toBeCloseTo(0.24, 2);
+    expect(c.totalCostPerUnit).toBeGreaterThan(c.laborCostPerUnit);
+    expect(c.model).toBe('AX-1000');
+  });
+
   it('reports per-station documentation completeness (Fase 19)', async () => {
     await seedRoute(); // 3 stations, all with NP + factor + aid → complete
     // Add a station missing its visual aid.

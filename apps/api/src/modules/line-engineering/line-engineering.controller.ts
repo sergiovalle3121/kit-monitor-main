@@ -349,6 +349,46 @@ export class LineEngineeringController {
     });
   }
 
+  @Get('layout/cost')
+  @RequirePermissions('engineering:read')
+  @ApiOperation({
+    summary:
+      'Costo por unidad estimado del layout (mano de obra, piso y capex amortizado) con las tarifas que indique el planeador.',
+  })
+  layoutCost(
+    @Query('model') model: string,
+    @Query('revision') revision?: string,
+    @Query('availableTimeSec') availableTimeSec?: string,
+    @Query('demandUnits') demandUnits?: string,
+    @Query('taktTargetSec') taktTargetSec?: string,
+    @Query('laborCostPerHour') laborCostPerHour?: string,
+    @Query('spaceCostPerM2Month') spaceCostPerM2Month?: string,
+    @Query('assetUnitCost') assetUnitCost?: string,
+    @Query('monthlyVolume') monthlyVolume?: string,
+    @Query('amortizationMonths') amortizationMonths?: string,
+  ) {
+    return this.service.getCostModel({
+      model,
+      revision: revision ?? 'A',
+      availableTimeSec: availableTimeSec ? Number(availableTimeSec) : undefined,
+      demandUnits: demandUnits ? Number(demandUnits) : undefined,
+      taktTargetSec: taktTargetSec ? Number(taktTargetSec) : undefined,
+      rates: {
+        laborCostPerHour: laborCostPerHour
+          ? Number(laborCostPerHour)
+          : undefined,
+        spaceCostPerM2Month: spaceCostPerM2Month
+          ? Number(spaceCostPerM2Month)
+          : undefined,
+        assetUnitCost: assetUnitCost ? Number(assetUnitCost) : undefined,
+        monthlyVolume: monthlyVolume ? Number(monthlyVolume) : undefined,
+        amortizationMonths: amortizationMonths
+          ? Number(amortizationMonths)
+          : undefined,
+      },
+    });
+  }
+
   @Get('layout/completeness')
   @RequirePermissions('engineering:read')
   @ApiOperation({
