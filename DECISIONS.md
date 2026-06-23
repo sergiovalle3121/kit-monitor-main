@@ -1605,4 +1605,23 @@ para imponerse a la delegación— de modo que toda la familia inclusiva es cohe
 `#NUM!` fuera de rango; coherencia `QUARTILE Q2 == MEDIAN` y `PERCENTILE 0.25 == QUARTILE Q1`). Sin
 regresiones: 40 suites de hoja + 3 de I/O Office verdes; `lint web` 0 errores; `build web` ✓.
 
+## 66. Office/Sheets — regresión lineal/exponencial (TREND, GROWTH, SLOPE, INTERCEPT, FORECAST)
+
+**Contexto.** `TREND` y `GROWTH` (predicción por tendencia, muy usadas en previsión) están rotas en
+`@formulajs/formulajs@2.9.3` (`#VALUE!`/`#REF!`), e `INTERCEPT` falla con vectores fila —p. ej.
+constantes de matriz `{…}`— mientras `SLOPE` sí funciona (incoherencia).
+
+**Decisión (sólo `apps/web`, aditiva):** `components/office/sheets/regression.ts` implementa toda la
+familia por mínimos cuadrados, de forma coherente para rangos y constantes de matriz, y la registra
+DESPUÉS de las demás para imponerse. `TREND`/`GROWTH` DEVUELVEN una matriz 2D con la forma de
+`nueva_x` (componen con `INDEX`/`SUM` y derraman, §38); `GROWTH` ajusta `ln(y)` linealmente; el
+argumento `constante=FALSO` fuerza la recta/curva por el origen. `SLOPE`/`INTERCEPT`/`FORECAST`/
+`FORECAST.LINEAR` comparten el mismo ajuste.
+
+**Verificación:** nueva suite `regression.spec.ts` (**13 aserciones** sobre el motor REAL con la
+recta `y=0.6x+2.2`: `SLOPE`=0.6, `INTERCEPT`=2.2 (y con constante fila, antes `#VALUE!`),
+`FORECAST(6)`=5.8; `TREND` con `INDEX`/`SUM`, sin x, y por el origen; `GROWTH` exponencial=16 y
+`#NUM!` con `y≤0`). Sin regresiones: 41 suites de hoja + 3 de I/O Office verdes; `lint web` 0
+errores; `build web` ✓.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
