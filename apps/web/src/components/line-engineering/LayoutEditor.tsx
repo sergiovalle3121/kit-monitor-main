@@ -5,7 +5,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import dynamic from 'next/dynamic';
 import { Canvas, Rect, Textbox, Line, Polyline, Polygon, Group } from 'fabric';
 import {
-  Loader2, Save, Inbox, Hand, MousePointer2, Maximize2, ZoomIn, ZoomOut, Grid3x3,
+  Loader2, Save, Inbox, Hand, MousePointer2, Maximize2, ZoomIn, ZoomOut, Grid3x3, Expand, Shrink,
   AlignHorizontalJustifyStart, AlignHorizontalJustifyCenter, AlignHorizontalJustifyEnd,
   AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd,
   AlignHorizontalSpaceAround, AlignVerticalSpaceAround, Trash2, MapPin, RotateCcw,
@@ -361,6 +361,8 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
   const [showFlex, setShowFlex] = useState(false);
   const [showCells, setShowCells] = useState(false);
   const [show3d, setShow3d] = useState(false);
+  const [fullscreen, setFullscreen] = useState(false);
+  const [hostH, setHostH] = useState<number>(VIEW_H);
   const [approval, setApproval] = useState<LayoutApproval | null>(null);
   const [approvalBusy, setApprovalBusy] = useState(false);
   const [reportData, setReportData] = useState<LayoutReport | null>(null);
@@ -848,8 +850,9 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
   useEffect(() => {
     if (!elRef.current || fcRef.current) return;
     const width = wrapRef.current?.clientWidth ?? 900;
+    const height = wrapRef.current?.clientHeight || VIEW_H;
     const c = new Canvas(elRef.current, {
-      width, height: VIEW_H, backgroundColor: 'transparent', selection: true,
+      width, height, backgroundColor: 'transparent', selection: true,
       preserveObjectStacking: true, fireRightClick: false, stopContextMenu: true,
     });
     fcRef.current = c;
@@ -911,16 +914,60 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [model, revision]);
 
-  // Responsive width.
+  // Keep the fabric canvas matched to its host box. In normal mode the host is
+  // a fixed 560 px; in full-screen we size it explicitly from the viewport (the
+  // host's top edge down to the bottom) rather than trusting flex stretch, which
+  // proved unreliable to measure. A ResizeObserver + window resize re-sync after
+  // layout. The drawing surface + fit scale are recomputed so content fills.
   useEffect(() => {
-    const onResize = () => {
-      const c = fcRef.current; if (!c || !wrapRef.current) return;
-      c.setDimensions({ width: wrapRef.current.clientWidth, height: VIEW_H });
-      fitRef.current = computeFit(); rebuild();
+    const el = wrapRef.current;
+    if (!el) return;
+    let raf = 0;
+    const sync = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        const c = fcRef.current;
+        if (!c || !wrapRef.current) return;
+        const w = wrapRef.current.clientWidth;
+        let h = VIEW_H;
+        if (fullscreen) {
+          const top = wrapRef.current.getBoundingClientRect().top;
+          h = Math.max(240, Math.floor(window.innerHeight - top - 42));
+        }
+        if (w < 2 || h < 2) return;
+        setHostH(h);
+        c.setDimensions({ width: w, height: h });
+        fitRef.current = computeFit();
+        rebuild();
+      });
     };
-    window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
-  }, [computeFit, rebuild]);
+    const ro = new ResizeObserver(sync);
+    ro.observe(el);
+    window.addEventListener('resize', sync);
+    sync();
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', sync);
+      cancelAnimationFrame(raf);
+    };
+  }, [computeFit, rebuild, fullscreen]);
+
+  // Re-center on entering/leaving full screen, once the host has settled.
+  useEffect(() => {
+    const id = setTimeout(() => fitView(), 120);
+    return () => clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fullscreen]);
+
+  // ESC exits full screen.
+  useEffect(() => {
+    if (!fullscreen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setFullscreen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [fullscreen]);
 
   // ── Place / unplace ─────────────────────────────────────────────────────────
   const placeStation = useCallback((s: LayoutStation) => {
@@ -1771,15 +1818,22 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
   }
 
   return (
-    <div className={`${glass} rounded-2xl overflow-hidden`}>
+    <div
+      className={
+        fullscreen
+          ? 'fixed inset-0 z-[60] flex flex-col bg-white dark:bg-gray-950 overflow-hidden'
+          : `${glass} rounded-2xl overflow-hidden`
+      }
+    >
       {/* Toolbar */}
-      <div className="flex items-center gap-1.5 px-3 py-2 border-b border-black/5 dark:border-white/10 flex-wrap">
+      <div className="flex items-center gap-1.5 px-3 py-2 border-b border-black/5 dark:border-white/10 flex-wrap shrink-0">
         <TBtn active={!panMode} onClick={() => setPanMode(false)} title="Seleccionar"><MousePointer2 className="w-4 h-4" /></TBtn>
         <TBtn active={panMode} onClick={() => setPanMode(true)} title="Mover lienzo (pan)"><Hand className="w-4 h-4" /></TBtn>
         <Sep />
         <TBtn onClick={() => zoomBy(1.2)} title="Acercar"><ZoomIn className="w-4 h-4" /></TBtn>
         <TBtn onClick={() => zoomBy(1 / 1.2)} title="Alejar"><ZoomOut className="w-4 h-4" /></TBtn>
         <TBtn onClick={fitView} title="Ajustar"><Maximize2 className="w-4 h-4" /></TBtn>
+        <TBtn active={fullscreen} onClick={() => setFullscreen((v) => !v)} title={fullscreen ? 'Salir de pantalla completa (Esc)' : 'Pantalla completa'}>{fullscreen ? <Shrink className="w-4 h-4" /> : <Expand className="w-4 h-4" />}</TBtn>
         <TBtn active={snap} onClick={() => setSnap((v) => !v)} title="Snap a grilla"><Grid3x3 className="w-4 h-4" /></TBtn>
         <button onClick={() => { setMesOn((v) => !v); setHeatOn(false); setComplOn(false); setBayOn(false); setQualOn(false); }} title="MES en vivo (estado de estaciones)" className={`p-1.5 rounded-lg transition-colors ${mesOn ? 'text-white' : 'text-gray-500 hover:bg-black/5 dark:hover:bg-white/10'}`} style={mesOn ? { background: '#10b981' } : undefined}><Activity className="w-4 h-4" /></button>
         <button onClick={() => { setHeatOn((v) => !v); setMesOn(false); setComplOn(false); setBayOn(false); setQualOn(false); }} title="Mapa de calor (tiempo de ciclo / utilización)" className={`p-1.5 rounded-lg transition-colors ${heatOn ? 'text-white' : 'text-gray-500 hover:bg-black/5 dark:hover:bg-white/10'}`} style={heatOn ? { background: '#f97316' } : undefined}><Flame className="w-4 h-4" /></button>
@@ -2047,9 +2101,9 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
         </div>
       )}
 
-      <div className="flex">
+      <div className="flex min-h-0">
         {/* Tray of stations not yet placed */}
-        <div className="w-52 shrink-0 border-r border-black/5 dark:border-white/10 p-3 max-h-[560px] overflow-y-auto">
+        <div className="w-52 shrink-0 border-r border-black/5 dark:border-white/10 p-3 overflow-y-auto" style={{ height: hostH }}>
           <div className="text-[11px] uppercase tracking-wide text-gray-400 mb-2 flex items-center gap-1"><MapPin className="w-3.5 h-3.5" /> Por colocar ({tray.length})</div>
           {stations.length === 0 ? (
             <p className="text-[12px] text-gray-400">Este modelo aún no tiene estaciones. Créalas en la pestaña Balanceo.</p>
@@ -2075,7 +2129,7 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
         </div>
 
         {/* Canvas */}
-        <div ref={wrapRef} className="relative flex-1 min-w-0 bg-gradient-to-br from-black/[0.015] to-transparent dark:from-white/[0.02]" style={{ height: VIEW_H }}>
+        <div ref={wrapRef} className="relative flex-1 min-w-0 bg-gradient-to-br from-black/[0.015] to-transparent dark:from-white/[0.02]" style={{ height: hostH }}>
           {loading && (
             <div className="absolute inset-0 grid place-items-center z-10"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div>
           )}
