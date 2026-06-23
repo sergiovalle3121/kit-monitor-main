@@ -17,6 +17,11 @@ function escapeText(s: string): string {
   return s.replace(/[\\`*_[\]]/g, '\\$&');
 }
 
+/** Sufijo de título Markdown para enlaces/imágenes: ` "título"` (o vacío). Escapa comillas. */
+function mdTitle(t: any): string {
+  return t ? ` "${String(t).replace(/"/g, '\\"')}"` : '';
+}
+
 // Recolector de notas al pie del documento en curso: el texto de cada nota vive en
 // `footnoteRef.attrs.content` (en línea), así que se acumula al serializar y se vuelca como
 // definiciones `[^N]: …` al final. Se reinicia en cada llamada a `tiptapJsonToMarkdown`.
@@ -60,7 +65,7 @@ function serializeInline(nodes: MdNode[] = []): string {
   let out = '';
   for (const n of nodes) {
     if (n.type === 'hardBreak') { out += '  \n'; continue; }
-    if (n.type === 'image') { out += `![${n.attrs?.alt ?? ''}](${n.attrs?.src ?? ''})`; continue; }
+    if (n.type === 'image') { out += `![${n.attrs?.alt ?? ''}](${n.attrs?.src ?? ''}${mdTitle(n.attrs?.title)})`; continue; }
     if (n.type === 'mathInline') { out += `$${n.attrs?.latex ?? ''}$`; continue; }
     if (n.type === 'footnoteRef') { FOOTNOTES.push(String(n.attrs?.content ?? '').replace(/\s*\n\s*/g, ' ').trim()); out += `[^${FOOTNOTES.length}]`; continue; }
     if (n.type === 'crossRef') { out += escapeText(String(n.attrs?.label ?? n.attrs?.target ?? '')); continue; }
@@ -80,7 +85,7 @@ function applyMarks(raw: string, marks: any[] = []): string {
       case 'bold': s = `**${s}**`; break;
       case 'italic': s = `*${s}*`; break;
       case 'strike': s = `~~${s}~~`; break;
-      case 'link': s = `[${s}](${m.attrs?.href ?? ''})`; break;
+      case 'link': s = `[${s}](${m.attrs?.href ?? ''}${mdTitle(m.attrs?.title)})`; break;
       // underline / highlight / subscript / superscript / textStyle / insertion / deletion / comment:
       // sin sintaxis Markdown → se conserva el texto sin la marca.
       default: break;
@@ -171,7 +176,7 @@ function serializeBlocks(nodes: MdNode[] = []): string[] {
         lines.push('---', '');
         break;
       case 'image':
-        lines.push(`![${n.attrs?.alt ?? ''}](${n.attrs?.src ?? ''})`, '');
+        lines.push(`![${n.attrs?.alt ?? ''}](${n.attrs?.src ?? ''}${mdTitle(n.attrs?.title)})`, '');
         break;
       case 'mathBlock':
         lines.push('$$', n.attrs?.latex ?? '', '$$', '');
