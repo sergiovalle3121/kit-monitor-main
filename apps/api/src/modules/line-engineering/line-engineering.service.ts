@@ -73,6 +73,7 @@ import { computeClearance, ClearanceResult } from './line-clearance';
 import { computeScorecard, Scorecard } from './line-scorecard';
 import { computeContinuity, ContinuityResult } from './line-continuity';
 import { computeCohesion, CohesionResult } from './line-cohesion';
+import { computeDensity, DensityResult } from './line-density';
 import { flexLineAnalysis, FlexLineResult } from './line-flexline';
 import {
   sensitivityCurve,
@@ -768,6 +769,33 @@ export class LineEngineeringService {
         };
       });
     const result = computeCohesion({ stations });
+    return { ...result, model: m, revision: r, unit: layout.footprint.unit };
+  }
+
+  /**
+   * Occupancy-density heat map (Fase 48): bins every placed footprint (stations
+   * + equipment) into a coarse grid and reports per-cell occupancy, surfacing
+   * congestion clusters and dead floor that a single utilisation number hides.
+   * The grid is sized for roughly square cells (~10 columns). Read-only, additive.
+   */
+  async getDensity(
+    model: string,
+    revision = 'A',
+  ): Promise<DensityResult & { model: string; revision: string; unit: string }> {
+    const m = (model ?? '').trim();
+    const r = (revision ?? 'A').trim() || 'A';
+    const layout = await this.getLayout(m, r);
+    const W = layout.footprint.footprintW > 0 ? layout.footprint.footprintW : 1;
+    const H = layout.footprint.footprintH > 0 ? layout.footprint.footprintH : 1;
+    const cols = 10;
+    const rows = Math.max(2, Math.min(14, Math.round((cols * H) / W)));
+    const boxes = [
+      ...layout.stations
+        .filter((s) => s.x !== null && s.y !== null && s.w !== null && s.h !== null)
+        .map((s) => ({ x: s.x as number, y: s.y as number, w: s.w as number, h: s.h as number })),
+      ...(layout.assets ?? []).map((a) => ({ x: a.x, y: a.y, w: a.w, h: a.h })),
+    ];
+    const result = computeDensity({ footprintW: W, footprintH: H, cols, rows, boxes });
     return { ...result, model: m, revision: r, unit: layout.footprint.unit };
   }
 
