@@ -41,6 +41,21 @@ approx(ev('=T.INV(0.95,10)'), 1.8125, 'T.INV (cola izq)');
 approx(ev('=TINV(0.05,10)'), 2.2281, 'TINV legado corregido (2 colas)');
 eq(ev('=T.DIST.2T(-1,10)'), '#NUM!', 'T.DIST.2T con t<0 → #NUM!');
 
+// ── Gamma / Beta ─────────────────────────────────────────────────────────────────
+approx(ev('=GAMMA.DIST(10,9,2,TRUE)'), 0.0680936, 'GAMMA.DIST acumulada');
+approx(ev('=GAMMA.INV(0.5,9,2)'), 17.3380, 'GAMMA.INV (mediana)', 1e-2);
+approx(ev('=GAMMADIST(10,9,2,TRUE)'), 0.0680936, 'GAMMADIST legado');
+approx(ev('=GAMMALN.PRECISE(5)'), 3.178054, 'GAMMALN.PRECISE(5) = ln(24)');
+approx(ev('=BETA.DIST(0.4,2,3,TRUE)'), 0.52480, 'BETA.DIST acumulada');
+approx(ev('=BETA.DIST(5,2,3,TRUE,0,10)'), 0.6875, 'BETA.DIST con escalado [0,10]');
+approx(ev('=BETA.INV(0.5,2,3)'), 0.385728, 'BETA.INV (mediana)', 1e-4);
+
+// ── Discretas ────────────────────────────────────────────────────────────────────
+approx(ev('=HYPGEOM.DIST(1,4,4,10,FALSE)'), 0.380952, 'HYPGEOM.DIST puntual');
+approx(ev('=HYPGEOM.DIST(1,4,4,10,TRUE)'), 0.452381, 'HYPGEOM.DIST acumulada');
+approx(ev('=NEGBINOM.DIST(5,3,0.5,FALSE)'), 0.082031, 'NEGBINOM.DIST puntual');
+approx(ev('=PERCENTRANK.EXC({10,20,30},20)'), 0.5, 'PERCENTRANK.EXC posición exclusiva');
+
 // ── Composición ──────────────────────────────────────────────────────────────────
 eq(ev('=ROUND(CHISQ.INV.RT(0.05,1),2)'), 3.84, 'CHISQ.INV.RT compone con ROUND');
 
