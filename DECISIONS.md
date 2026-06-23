@@ -2352,4 +2352,21 @@ modos exacto/aproximado preexistentes quedan idénticos.
 regresión, comodín `?`/`*` en XLOOKUP y XMATCH, dirección inversa con duplicados, comodín+inverso
 combinados). Sin regresiones: motor + modernFunctions (80) + lookup* verdes; `lint web` 0; `build web` ✓.
 
+## 106. Office/Sheets — fidelidad de formato de número (científico y fracción)
+
+**Contexto.** Auditando `formatNumber` contra Excel aparecieron dos discrepancias finas: (1) el formato
+**científico** rellenaba SIEMPRE el exponente a 2 dígitos (`0.0e+0` daba `1.2E+03` en vez de `1.2E+3`),
+ignorando los ceros del patrón tras `E`; (2) en **fracciones** con hueco de entero y parte entera 0
+(`# ?/?` con 0.5) faltaba el espacio del entero (`1/2` en vez de ` 1/2`), con el que Excel alinea la
+fracción.
+
+**Decisión (sólo `apps/web`, aditiva — riesgo cero):** en `renderNumericSection` (lib/office/sheetOps.ts):
+(1) los dígitos del exponente se toman del nº de ceros tras `E+`/`E-` del patrón; (2) en la rama de
+fracción, si el valor es < 1 y el patrón tiene hueco de entero seguido de espacio, se antepone el espacio.
+También se corrige una aserción **no fiel** previa en `numfmt.spec` (`# ??/??` de 0.75 → ` 3/4`, como Excel).
+
+**Verificación:** nueva suite `numfmtFidelity.spec.ts` (**12 aserciones**: exponente de 1/2/3 dígitos sin
+regresión, exponente negativo, fracciones con y sin hueco de entero, enteros). `numfmt.spec` actualizado a
+47/47. Sin regresiones en el resto de la suite; `lint web` 0; `build web` ✓.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
