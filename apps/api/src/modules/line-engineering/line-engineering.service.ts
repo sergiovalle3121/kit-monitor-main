@@ -69,6 +69,7 @@ import {
 import { standardWork, StdWorkResult } from './line-stdwork';
 import { dossierStationsToCsv, DossierStationRow } from './line-dossier';
 import { computeTakeoff, Takeoff } from './line-takeoff';
+import { computeClearance, ClearanceResult } from './line-clearance';
 import { flexLineAnalysis, FlexLineResult } from './line-flexline';
 import {
   sensitivityCurve,
@@ -627,6 +628,49 @@ export class LineEngineeringService {
         h: a.h,
       })),
       annotations: (layout.annotations ?? []).map((a) => ({ type: a.type })),
+    });
+  }
+
+  /**
+   * Clearance / aisle analysis for the layout (Fase 43): how much room there is
+   * between and around the placed stations and equipment for safe circulation.
+   * `min` overrides the minimum acceptable gap (default = two grid cells).
+   */
+  async getClearance(
+    model: string,
+    revision = 'A',
+    min?: number,
+  ): Promise<ClearanceResult> {
+    const layout = await this.getLayout(model, revision);
+    const minClearance =
+      min && min > 0 ? min : Math.max(1, Number(layout.footprint.gridSize) * 2);
+    const boxes = [
+      ...layout.stations
+        .filter((s) => s.x !== null && s.y !== null && s.w !== null && s.h !== null)
+        .map((s) => ({
+          id: s.id,
+          label: s.station,
+          kind: 'station' as const,
+          x: s.x as number,
+          y: s.y as number,
+          w: s.w as number,
+          h: s.h as number,
+        })),
+      ...(layout.assets ?? []).map((a) => ({
+        id: a.id,
+        label: a.label || a.kind,
+        kind: 'equipment' as const,
+        x: a.x,
+        y: a.y,
+        w: a.w,
+        h: a.h,
+      })),
+    ];
+    return computeClearance({
+      footprintW: layout.footprint.footprintW,
+      footprintH: layout.footprint.footprintH,
+      minClearance,
+      boxes,
     });
   }
 
