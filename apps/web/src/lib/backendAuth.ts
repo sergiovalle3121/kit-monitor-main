@@ -122,6 +122,7 @@ export async function backendSync(identity: {
 export async function backendAdmin(
   path: string,
   method: 'GET' | 'POST',
+  body?: unknown,
 ): Promise<{ ok: boolean; status: number; data: unknown }> {
   const token = await backendServiceToken();
   if (!token) return { ok: false, status: 502, data: null };
@@ -129,6 +130,7 @@ export async function backendAdmin(
     const res = await fetch(`${backendApiBase()}${path}`, {
       method,
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: body !== undefined ? JSON.stringify(body) : undefined,
       cache: 'no-store',
     });
     const data = await res.json().catch(() => null);

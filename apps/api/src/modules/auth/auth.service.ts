@@ -168,12 +168,20 @@ export class AuthService {
     return this.login(user);
   }
 
-  async approve(id: string, actor: string) {
-    const user = await this.usersService.update(id, {
+  async approve(id: string, actor: string, role?: string) {
+    const patch: Partial<User> = {
       status: 'active',
       approvedAt: new Date(),
       approvedBy: actor,
-    });
+    };
+    // The admin decides the role at approval time. The role the person picked at
+    // registration is only a suggestion; when the admin passes a valid role we
+    // (re)derive its permission set so the granted access matches the choice.
+    if (isAppRole(role)) {
+      patch.role = roleColumnFor(role) as User['role'];
+      patch.permissions = permissionsFor(role);
+    }
+    const user = await this.usersService.update(id, patch);
     return this.publicUser(user);
   }
 
