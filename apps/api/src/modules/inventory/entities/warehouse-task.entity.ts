@@ -69,6 +69,39 @@ export class WarehouseTask {
   @Column({ type: 'varchar', length: 64, nullable: true })
   referenceId?: string;
 
+  // ─── PULL MODEL (aditivo, todo nullable / con default) ──────────────────────
+  // Un "pull" es un pedido de material del piso al almacén. Se modela SOBRE
+  // warehouse_tasks (un PICK con estos campos) sin romper las tareas existentes.
+
+  /** Proyecto/programa que pide el material (p.ej. AX-100). */
+  @Column({ type: 'varchar', length: 120, nullable: true })
+  @Index()
+  project?: string;
+
+  /** Quién solicita el material desde el piso (line lead, ingeniería…). */
+  @Column({ type: 'varchar', length: 120, nullable: true })
+  requestor?: string;
+
+  /** Pull urgente: salta al frente de la cola y dispara aviso al handler. */
+  @Column({ type: 'boolean', default: false })
+  urgent: boolean;
+
+  /** Número de intentos/manipulaciones del pull (se incrementa al tomarlo). */
+  @Column({ type: 'int', default: 0 })
+  touches: number;
+
+  /** SLA del pull en minutos; si el aging lo supera, semáforo en rojo. */
+  @Column({ type: 'int', nullable: true })
+  slaMinutes?: number;
+
+  /** Momento en que el pull fue ENTREGADO (surte el cálculo de aging final). */
+  @Column({ type: 'timestamp', nullable: true })
+  deliveredAt?: Date;
+
+  /** Momento en que el pull fue CANCELADO. */
+  @Column({ type: 'timestamp', nullable: true })
+  canceledAt?: Date;
+
   @CreateDateColumn()
   createdAt: Date;
 

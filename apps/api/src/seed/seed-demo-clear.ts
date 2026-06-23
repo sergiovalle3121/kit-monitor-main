@@ -47,6 +47,7 @@ import { Tool } from '../modules/tooling/entities/tool.entity';
 import { Asset } from '../modules/maintenance/entities/asset.entity';
 import { MaintenanceOrder } from '../modules/maintenance/entities/maintenance-order.entity';
 import { WarehouseTask } from '../modules/inventory/entities/warehouse-task.entity';
+import { MaterialReturn } from '../modules/inventory/entities/material-return.entity';
 import { ReplenishmentRule } from '../modules/inventory/entities/replenishment-rule.entity';
 import { SCAR } from '../modules/suppliers/entities/scar.entity';
 import { IQCInspection } from '../modules/quality/entities/iqc-inspection.entity';
@@ -173,6 +174,7 @@ async function run(): Promise<void> {
       await removeBy(ds.getRepository(IQCInspection), { inspectionNumber: Like(`${DEMO_IQC_PREFIX}%`) }, 'iqc_inspections');
       await removeBy(ds.getRepository(NCR), { ncrNumber: Like(`${DEMO_NCR_PREFIX}%`) }, 'ncrs');
       await removeBy(ds.getRepository(WarehouseTask), { taskNumber: Like(`${DEMO_WH_TASK_PREFIX}%`) }, 'warehouse_tasks');
+      await removeBy(ds.getRepository(MaterialReturn), { returnNumber: Like('RET-2024-%') }, 'material_returns');
       await removeBy(ds.getRepository(ReplenishmentRule), { warehouseId: In(DEMO_WH_IDS) }, 'replenishment_rules');
       await removeBy(ds.getRepository(MaintenanceOrder), { created_by: DEMO_ACTOR }, 'maintenance_orders');
       await removeBy(ds.getRepository(Asset), { created_by: DEMO_ACTOR }, 'assets');
