@@ -2317,4 +2317,22 @@ el acento; el resto del export no cambia.
 exporta su tinte `E9EFFD`, la cabecera lleva el acento, y ya NO aparece el azul fijo anterior. Sin
 regresiones: suite de Office verde; `lint web` 0 errores; `build web` ✓.
 
+## 104. Office/Docs — alineación de columnas en tablas Markdown (roundtrip)
+
+**Contexto.** La fila separadora GFM de una tabla Markdown (`:--`/`--:`/`:-:`) codifica la **alineación
+horizontal** de cada columna, pero `markdownToHtml` la **ignoraba** (todas las `th/td` salían sin
+`text-align`) y `tiptapJsonToMarkdown` emitía siempre `---`. La alineación se perdía al importar/exportar.
+
+**Decisión (sólo `apps/web`, aditiva — riesgo cero):**
+ • Importación (`lib/office/markdown.ts`): `parseTable` lee la fila separadora y aplica
+   `style="text-align:left|center|right"` a las celdas de cada columna.
+ • Modelo (`docs/tableCellAttrs.ts`): nuevo atributo global `textAlign` en `tableCell`/`tableHeader`
+   (parse/render de `el.style.textAlign`) para que la alineación viaje en el JSON/HTML.
+ • Exportación (`serializeTable`): emite `:---`/`---:`/`:---:` según `attrs.textAlign` de la cabecera.
+
+**Verificación:** nueva suite `tableAlign.spec.ts` (**12 aserciones**): importación traduce los 3 marcadores
+(y deja sin estilo la columna por defecto), exportación emite los delimitadores correctos, y un roundtrip
+conserva la alineación. Sin regresiones: specs de Markdown (export/import/plano/sheet) verdes; `lint web` 0
+errores; `build web` ✓.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
