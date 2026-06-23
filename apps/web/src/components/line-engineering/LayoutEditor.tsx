@@ -21,6 +21,7 @@ import { parseDxf, type DxfModel } from './dxf';
 import Minimap from './Minimap';
 import WhatIfSimulator from './WhatIfSimulator';
 import YamazumiChart from './YamazumiChart';
+import LayoutHistory from './LayoutHistory';
 // three.js is heavy — lazy-load the 3D view so it only ships when opened.
 const Layout3D = dynamic(() => import('./Layout3D'), { ssr: false });
 
@@ -341,6 +342,7 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
   const [showReport, setShowReport] = useState(false);
   const [showSim, setShowSim] = useState(false);
   const [showYama, setShowYama] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
   const [showCells, setShowCells] = useState(false);
   const [show3d, setShow3d] = useState(false);
   const [approval, setApproval] = useState<LayoutApproval | null>(null);
@@ -1801,6 +1803,7 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
         <TBtn onClick={() => setShowYama(true)} title="Yamazumi (gráfico de balanceo)"><BarChart3 className="w-4 h-4" /></TBtn>
         <TBtn onClick={() => setShowCells(true)} title="Celdas / zonas (agrupar estaciones)"><Frame className="w-4 h-4" /></TBtn>
         <TBtn onClick={() => setShow3d(true)} title="Vista 3D del layout"><Box className="w-4 h-4" /></TBtn>
+        <TBtn onClick={() => setShowHistory(true)} title="Bitácora de auditoría (quién cambió qué y cuándo)"><History className="w-4 h-4" /></TBtn>
         <div className="flex-1" />
         {measureMode && measureVal && <span className="text-[12px] font-medium mr-2" style={{ color: '#0ea5e9' }}>{measureVal}</span>}
         {approval && (
@@ -2187,6 +2190,7 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
 
       <WhatIfSimulator model={model} revision={revision} open={showSim} onClose={() => setShowSim(false)} />
       <YamazumiChart model={model} revision={revision} open={showYama} onClose={() => setShowYama(false)} />
+      <LayoutHistory model={model} revision={revision} open={showHistory} onClose={() => setShowHistory(false)} />
       {show3d && <Layout3D model={model} revision={revision} open={show3d} onClose={() => setShow3d(false)} />}
 
       {showCells && (

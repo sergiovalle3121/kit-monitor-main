@@ -419,6 +419,24 @@ export class LineEngineeringController {
     return this.service.getLayoutReport(model, revision ?? 'A');
   }
 
+  @Get('layout/history')
+  @RequirePermissions('engineering:read')
+  @ApiOperation({
+    summary:
+      'Bitácora de auditoría del layout: quién guardó, aprobó, versionó, clonó o cargó planos, en orden cronológico.',
+  })
+  layoutHistory(
+    @Query('model') model: string,
+    @Query('revision') revision?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.service.getLayoutHistory(
+      model,
+      revision ?? 'A',
+      limit ? Number(limit) : undefined,
+    );
+  }
+
   @Get('layout/snapshots')
   @RequirePermissions('engineering:read')
   @ApiOperation({

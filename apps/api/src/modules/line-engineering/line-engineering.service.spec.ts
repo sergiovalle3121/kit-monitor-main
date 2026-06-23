@@ -8,6 +8,7 @@ import {
   TenantContext,
 } from '../../common/tenant/tenant-context.service';
 import { createTenantScopedRepository } from '../../common/tenant/tenant-scoped.repository';
+import { EventLedgerService } from '../event-ledger/event-ledger.service';
 
 function ctxFor(tenant: string | null): TenantContext {
   return {
@@ -361,6 +362,86 @@ describe('LineEngineeringService (integration)', () => {
       by: null,
       at: null,
     });
+  });
+
+  it('returns an empty audit timeline when no ledger is wired (Fase 32)', async () => {
+    // The default service in this suite is built without a ledger.
+    await expect(service.getLayoutHistory('AX-1000', 'A')).resolves.toEqual([]);
+  });
+
+  it('builds a human-readable audit timeline from the ledger (Fase 32)', async () => {
+    const stored = [
+      {
+        id: 'e1',
+        action: 'SF_LINE_LAYOUT_APPROVAL',
+        actorName: 'ana@plant',
+        timestamp: new Date('2026-06-23T10:00:00.000Z'),
+        metadata: { afterState: { status: 'approved' } },
+      },
+      {
+        id: 'e2',
+        action: 'SF_LINE_LAYOUT_SAVED',
+        actorName: 'ana@plant',
+        timestamp: new Date('2026-06-23T09:00:00.000Z'),
+        metadata: { afterState: { placed: 3, cleared: 1 } },
+      },
+      {
+        id: 'e3',
+        action: 'SF_LINE_LAYOUT_CLONED',
+        actorName: '',
+        timestamp: new Date('2026-06-23T08:00:00.000Z'),
+        metadata: { afterState: { from: 'AX-900|A', to: 'AX-1000|A' } },
+      },
+    ];
+    const getEventsByReference = jest.fn().mockResolvedValue(stored);
+    const withLedger = new LineEngineeringService(
+      createTenantScopedRepository(SfLineStation, dataSource.manager, ctx),
+      createTenantScopedRepository(SfModelLine, dataSource.manager, ctx),
+      ctx,
+      createTenantScopedRepository(SfLineLayout, dataSource.manager, ctx),
+      { getEventsByReference } as unknown as EventLedgerService,
+    );
+
+    const history = await withLedger.getLayoutHistory('AX-1000', 'A');
+
+    expect(getEventsByReference).toHaveBeenCalledWith(
+      'SF_LINE_ENGINEERING',
+      'AX-1000|A',
+    );
+    expect(history).toHaveLength(3);
+    expect(history[0]).toMatchObject({
+      kind: 'approval',
+      title: 'Cambió aprobación a aprobado',
+      actor: 'ana@plant',
+      at: '2026-06-23T10:00:00.000Z',
+    });
+    expect(history[1]).toMatchObject({
+      kind: 'save',
+      title: 'Guardó el layout',
+      detail: '3 colocadas · 1 retirada',
+    });
+    expect(history[2]).toMatchObject({
+      kind: 'clone',
+      title: 'Clonó el layout',
+      detail: 'desde AX-900|A',
+      actor: 'anónimo', // blank actor falls back
+    });
+  });
+
+  it('degrades gracefully when the ledger query throws (Fase 32)', async () => {
+    const getEventsByReference = jest
+      .fn()
+      .mockRejectedValue(new Error('db down'));
+    const withLedger = new LineEngineeringService(
+      createTenantScopedRepository(SfLineStation, dataSource.manager, ctx),
+      createTenantScopedRepository(SfModelLine, dataSource.manager, ctx),
+      ctx,
+      createTenantScopedRepository(SfLineLayout, dataSource.manager, ctx),
+      { getEventsByReference } as unknown as EventLedgerService,
+    );
+    await expect(withLedger.getLayoutHistory('AX-1000', 'A')).resolves.toEqual(
+      [],
+    );
   });
 
   it('computes capacity/load including changeover', async () => {
