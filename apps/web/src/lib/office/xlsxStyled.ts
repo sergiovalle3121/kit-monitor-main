@@ -16,7 +16,7 @@ import { cellValue, namesToDefined } from './xlsx';
 type FortuneSheet = {
   name?: string;
   celldata?: { r: number; c: number; v: any }[];
-  config?: any; frozen?: any; order?: number;
+  config?: any; frozen?: any; order?: number; dataVerification?: Record<string, any>;
 };
 
 /** `#rrggbb` (o `rrggbb`) → `FFRRGGBB` (ARGB de ExcelJS). `null` si no es color válido. */
@@ -60,6 +60,38 @@ export function cellStyle(o: any): any {
 const pxToColWidth = (px: number) => Math.max(1, Math.round(((px - 5) / 7) * 100) / 100);
 /** px de alto de fila Fortune → puntos (ExcelJS). */
 const pxToPointHeight = (px: number) => Math.round(px * 0.75 * 100) / 100;
+
+// Validación de datos (Fortune `dataVerification`) → `cell.dataValidation` de ExcelJS.
+// Operador Fortune → operador de ExcelJS (whole/decimal/textLength/date).
+const DV_OP: Record<string, string> = {
+  between: 'between', notBetween: 'notBetween', equal: 'equal', notEqualTo: 'notEqual',
+  moreThanThe: 'greaterThan', lessThan: 'lessThan', greaterOrEqualTo: 'greaterThanOrEqual', lessThanOrEqualTo: 'lessThanOrEqual',
+  earlierThan: 'lessThan', noEarlierThan: 'greaterThanOrEqual', laterThan: 'greaterThan', noLaterThan: 'lessThanOrEqual',
+};
+const DV_TYPE: Record<string, string> = {
+  number: 'decimal', number_decimal: 'decimal', number_integer: 'whole', text_length: 'textLength', date: 'date',
+};
+
+/** `DvEntry` de Fortune → objeto `dataValidation` de ExcelJS (o `null` si no es exportable). */
+export function dataValidationFor(dv: any): any {
+  if (!dv || typeof dv !== 'object') return null;
+  const base: any = { allowBlank: true };
+  if (dv.hintShow && dv.hintText) { base.showInputMessage = true; base.prompt = String(dv.hintText); base.promptTitle = ''; }
+  if (dv.prohibitInput) { base.showErrorMessage = true; base.errorStyle = 'stop'; }
+  // Lista desplegable: literal `"a,b,c"` o referencia de rango.
+  if (dv.type === 'dropdown') {
+    const v1 = String(dv.value1 ?? '');
+    const isRange = dv.remote || /^[^,]*[A-Za-z]\$?\d/.test(v1) && /:/.test(v1);
+    return { ...base, type: 'list', formulae: [isRange ? v1 : `"${v1.replace(/"/g, '')}"`] };
+  }
+  if (dv.type === 'checkbox') return { ...base, type: 'list', formulae: ['"VERDADERO,FALSO"'] };
+  const type = DV_TYPE[dv.type];
+  if (!type) return null; // text_content y otros sin equivalente directo → se omiten
+  const op = DV_OP[dv.type2] ?? 'between';
+  const two = op === 'between' || op === 'notBetween';
+  const formulae = two ? [String(dv.value1 ?? ''), String(dv.value2 ?? '')] : [String(dv.value1 ?? '')];
+  return { ...base, type, operator: op, formulae };
+}
 
 /** Rellena una worksheet de ExcelJS a partir de una hoja Fortune (valores + estilos + layout). */
 export function fillWorksheet(ws: any, sheet: FortuneSheet): void {
@@ -105,6 +137,15 @@ export function fillWorksheet(ws: any, sheet: FortuneSheet): void {
     const ySplit = (fz.range?.row_focus ?? (fz.type && /row|both|rangeRow/.test(String(fz.type)) ? 0 : -1)) + 1;
     const xSplit = (fz.range?.column_focus ?? (fz.type && /column|both|rangeColumn/.test(String(fz.type)) ? 0 : -1)) + 1;
     if (ySplit > 0 || xSplit > 0) ws.views = [{ state: 'frozen', xSplit: Math.max(0, xSplit), ySplit: Math.max(0, ySplit) }];
+  }
+  // Validación de datos (Fortune `dataVerification: { "r_c": DvEntry }`).
+  const dvMap = sheet.dataVerification;
+  if (dvMap && typeof dvMap === 'object') {
+    for (const k of Object.keys(dvMap)) {
+      const m = /^(\d+)_(\d+)$/.exec(k); if (!m) continue;
+      const dv = dataValidationFor(dvMap[k]); if (!dv) continue;
+      try { ws.getCell(Number(m[1]) + 1, Number(m[2]) + 1).dataValidation = dv; } catch { /* ignora */ }
+    }
   }
 }
 

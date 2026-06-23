@@ -2439,4 +2439,22 @@ tocar valores ni fórmulas. Tolerante a fallos (si ExcelJS no lee algo, los valo
 sobreviven y que el valor numérico no se pisa. `xlsxStyled` (22) y `xlsx` mappers verdes — sin
 regresiones; `lint web` 0; `build web` ✓.
 
+## 111. Office/Sheets — export de validación de datos al .xlsx (ExcelJS)
+
+**Contexto.** Tras §109/§110 (estilos en export e import), faltaba exportar la **validación de datos**
+(`sheet.dataVerification`: listas desplegables, rangos numéricos/de fecha/de longitud) al `.xlsx`. Se
+perdía al abrir el archivo en Excel. (El formato condicional ya se «hornea» en los estilos de celda, así
+que §109 lo exporta como relleno; la validación no tenía equivalente.)
+
+**Decisión (sólo `apps/web`, aditiva — riesgo cero):** `xlsxStyled.ts` añade `dataValidationFor(dvEntry)`
+que mapea el modelo de Fortune a `cell.dataValidation` de ExcelJS (lista literal `"a,b,c"` o rango;
+`whole`/`decimal`/`textLength`/`date` con su operador y 1–2 fórmulas; mensaje de entrada y rechazo
+«stop»), y `fillWorksheet` lo aplica por celda. `text_content` (sin equivalente directo) se omite con
+seguridad. No toca valores, estilos ni el resto del writer.
+
+**Verificación:** nueva suite `xlsxValidation.spec.ts` (**15 aserciones**): mapeo puro de lista/entero/
+decimal/fecha/longitud + un **round-trip real** que escribe bytes y los reabre para confirmar que la lista
+con sus opciones, el rango entero y la regla de fecha viajan al `.xlsx`. `xlsxStyled` (22) e import-rt (16)
+verdes — sin regresiones; `lint web` 0; `build web` ✓.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
