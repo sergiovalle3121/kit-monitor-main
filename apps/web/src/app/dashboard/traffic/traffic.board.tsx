@@ -11,6 +11,7 @@ import React, { useMemo, useState } from "react";
 import {
   AlertTriangle,
   Building2,
+  CalendarClock,
   LogOut,
   PackageCheck,
   Pause,
@@ -35,9 +36,12 @@ import {
   agingMinutes,
   deriveBoardState,
   fmtAging,
+  fmtDateTime,
+  isAppointmentLate,
   shipmentStatusMeta,
 } from "./traffic.utils";
 import type {
+  Appointment,
   Carrier,
   Driver,
   LoadingDock,
@@ -62,16 +66,19 @@ function AgingChip({ label, iso }: { label: string; iso: string | null }) {
 function DockCard({
   dock,
   occupant,
+  nextAppt,
   onAssign,
   refresh,
 }: {
   dock: LoadingDock;
   occupant: OutboundShipmentLite | null;
+  nextAppt: Appointment | null;
   onAssign: (dock: LoadingDock) => void;
   refresh: () => void;
 }) {
   const board = deriveBoardState(dock);
   const meta = DOCK_BOARD_META[board];
+  const apptLate = nextAppt ? isAppointmentLate(nextAppt) : false;
   const release = occupant
     ? (
       <DockOpButton
@@ -147,6 +154,18 @@ function DockCard({
         </p>
       )}
 
+      {/* Próxima cita agendada para este andén */}
+      {nextAppt && (
+        <div className="flex flex-wrap items-center gap-1.5 text-[12px]" style={{ color: apptLate ? COLORS.red : COLORS.gray }}>
+          <CalendarClock className="h-3.5 w-3.5" />
+          <span className="font-medium">{apptLate ? "Cita tarde" : "Próx. cita"}</span>
+          <span>{fmtDateTime(nextAppt.scheduledAt)}</span>
+          {(nextAppt.carrierName || nextAppt.vehiclePlate) && (
+            <span className="text-gray-400">· {nextAppt.carrierName || nextAppt.vehiclePlate}</span>
+          )}
+        </div>
+      )}
+
       {/* Actions */}
       <div className="mt-auto flex flex-wrap gap-2 pt-1">
         {board === "free" &&
@@ -196,6 +215,7 @@ function DockCard({
 export function BoardTab({
   docks,
   shipments,
+  appointments,
   carriers,
   vehicles,
   drivers,
@@ -204,6 +224,7 @@ export function BoardTab({
 }: {
   docks: LoadingDock[];
   shipments: OutboundShipmentLite[];
+  appointments: Appointment[];
   carriers: Carrier[];
   vehicles: Vehicle[];
   drivers: Driver[];
@@ -220,6 +241,16 @@ export function BoardTab({
     }
     return m;
   }, [shipments]);
+
+  // Map each dock to its next still-open appointment (earliest scheduled/arrived).
+  const nextApptByDock = useMemo(() => {
+    const m = new Map<string, Appointment>();
+    const open = appointments
+      .filter((a) => a.dockId && (a.status === "scheduled" || a.status === "arrived"))
+      .sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime());
+    for (const a of open) if (a.dockId && !m.has(a.dockId)) m.set(a.dockId, a);
+    return m;
+  }, [appointments]);
 
   const sorted = useMemo(
     () =>
@@ -311,7 +342,7 @@ export function BoardTab({
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {sorted.map((k) => (
-          <DockCard key={k.id} dock={k} occupant={occByDock.get(k.id) ?? null} onAssign={setAssignDock} refresh={refresh} />
+          <DockCard key={k.id} dock={k} occupant={occByDock.get(k.id) ?? null} nextAppt={nextApptByDock.get(k.id) ?? null} onAssign={setAssignDock} refresh={refresh} />
         ))}
       </div>
 
