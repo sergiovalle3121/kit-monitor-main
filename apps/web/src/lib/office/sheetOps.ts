@@ -1210,8 +1210,25 @@ export function copyRange(sheet: any, srcRange: string, destCell: string, mode: 
 }
 
 // ── Autofiltro (no destructivo) ───────────────────────────────────────────────
-export type FilterOp = '=' | '!=' | '>' | '>=' | '<' | '<=' | 'contains' | 'notcontains' | 'empty' | 'notempty';
+export type FilterOp = '=' | '!=' | '>' | '>=' | '<' | '<=' | 'contains' | 'notcontains' | 'beginsWith' | 'endsWith' | 'empty' | 'notempty';
 export interface FilterCriterion { colRel: number; op: FilterOp; value: string }
+
+/**
+ * Convierte un patrón con comodines de Excel (`*` = cualquier secuencia, `?` = un carácter, `~`
+ * escapa al siguiente comodín) en un `RegExp` anclado e insensible a mayúsculas.
+ */
+function wildcardToRegExp(pattern: string): RegExp {
+  const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  let body = '';
+  for (let i = 0; i < pattern.length; i++) {
+    const ch = pattern[i];
+    if (ch === '~' && i + 1 < pattern.length) body += esc(pattern[++i]);
+    else if (ch === '*') body += '.*';
+    else if (ch === '?') body += '.';
+    else body += esc(ch);
+  }
+  return new RegExp(`^${body}$`, 'i');
+}
 
 /** ¿`raw` cumple el criterio? Numérico cuando ambos lados son números. */
 export function matchesCriterion(raw: any, op: FilterOp, value: string): boolean {
@@ -1220,6 +1237,11 @@ export function matchesCriterion(raw: any, op: FilterOp, value: string): boolean
   if (op === 'notempty') return sraw.trim() !== '';
   if (op === 'contains') return sraw.toLowerCase().includes(value.toLowerCase());
   if (op === 'notcontains') return !sraw.toLowerCase().includes(value.toLowerCase());
+  if (op === 'beginsWith') return sraw.toLowerCase().startsWith(value.toLowerCase());
+  if (op === 'endsWith') return sraw.toLowerCase().endsWith(value.toLowerCase());
+  // `=`/`!=` admiten comodines de Excel (`*`, `?`); sin comodines, comparación exacta (intacta).
+  const wild = (op === '=' || op === '!=') && (value.includes('*') || value.includes('?'));
+  if (wild) { const hit = wildcardToRegExp(value).test(sraw); return op === '=' ? hit : !hit; }
   const n = typeof raw === 'number' ? raw : Number(sraw); const nv = Number(value);
   const bothNum = sraw !== '' && value !== '' && !Number.isNaN(n) && !Number.isNaN(nv);
   switch (op) {
@@ -1233,8 +1255,12 @@ export function matchesCriterion(raw: any, op: FilterOp, value: string): boolean
   }
 }
 
-/** Filtra un rango por uno o varios criterios (AND) y devuelve celldata para una hoja nueva. */
-export function buildFilter(sheet: any, p: { range: string; hasHeader: boolean; criteria: FilterCriterion[] }): { celldata: any[]; matched: number; nCols: number } | null {
+/**
+ * Filtra un rango por uno o varios criterios y devuelve celldata para una hoja nueva. La unión por
+ * defecto es `AND` (todas); `conjunction: 'OR'` exige que se cumpla **alguna** (autofiltro
+ * personalizado de Excel: dos criterios unidos por Y/O).
+ */
+export function buildFilter(sheet: any, p: { range: string; hasHeader: boolean; criteria: FilterCriterion[]; conjunction?: 'AND' | 'OR' }): { celldata: any[]; matched: number; nCols: number } | null {
   const rng = parseRange(p.range); if (!rng || !sheet) return null;
   const map = new Map<string, any>();
   for (const cd of sheet.celldata ?? []) map.set(`${cd.r}_${cd.c}`, cd);
@@ -1256,7 +1282,8 @@ export function buildFilter(sheet: any, p: { range: string; hasHeader: boolean; 
   if (p.hasHeader) pushRow(rng.r1, true);
   let matched = 0;
   for (let r = startR; r <= rng.r2; r++) {
-    const ok = p.criteria.every((cr) => matchesCriterion(rawOf(map.get(`${r}_${rng.c1 + cr.colRel}`) as any), cr.op, cr.value));
+    const test = (cr: FilterCriterion) => matchesCriterion(rawOf(map.get(`${r}_${rng.c1 + cr.colRel}`) as any), cr.op, cr.value);
+    const ok = !p.criteria.length || (p.conjunction === 'OR' ? p.criteria.some(test) : p.criteria.every(test));
     if (!ok) continue;
     pushRow(r, false); matched++;
   }
