@@ -12,7 +12,7 @@ import {
   AlignHorizontalJustifyStart, AlignHorizontalJustifyCenter, AlignHorizontalJustifyEnd,
   AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd,
   AlignHorizontalDistributeCenter, AlignVerticalDistributeCenter, RulerDimensionLine, Rows3, Waypoints,
-  ShieldCheck, CircleCheck, CircleAlert, Printer, ChartLine, FileText, WandSparkles, Stamp, Upload, ImageOff, Activity,
+  ShieldCheck, CircleCheck, CircleAlert, Printer, ChartLine, FileText, WandSparkles, Stamp, Upload, ImageOff, Activity, History,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/apiFetch';
 import { useToast } from '@/contexts/ToastContext';
@@ -575,6 +575,11 @@ export default function Layout3DEditor({
   const [approvalBusy, setApprovalBusy] = useState(false);
   const [dxfBusy, setDxfBusy] = useState(false); // DXF backdrop upload/remove in flight (unify)
   const dxfInputRef = useRef<HTMLInputElement | null>(null);
+  const [showVersions, setShowVersions] = useState(false); // versions/scenarios modal (unify)
+  const [versions, setVersions] = useState<{ id: string; name: string; createdAt: string; stationCount: number; assetCount: number }[]>([]);
+  const [versName, setVersName] = useState('');
+  const [versBusy, setVersBusy] = useState(false);
+  const [reloadTick, setReloadTick] = useState(0); // bump to re-run the load effect (after restore)
   const [selList, setSelList] = useState<SelItem[]>([]);
   const [selSnap, setSelSnap] = useState<SelSnap | null>(null);
   const [placedIds, setPlacedIds] = useState<Set<string>>(new Set());
@@ -841,7 +846,7 @@ export default function Layout3DEditor({
       }
     })();
     return () => { alive = false; };
-  }, [open, model, revision]);
+  }, [open, model, revision, reloadTick]);
 
   const snapWorld = useCallback((v: number) => {
     const g = data?.footprint.gridSize || 1;
@@ -1943,6 +1948,45 @@ export default function Layout3DEditor({
     } catch { toast.error('Error de red.', '3D'); }
     finally { setDxfBusy(false); }
   };
+  // ---- versions / scenarios (ported from 2D, unify) ----
+  const scopeQs = `model=${encodeURIComponent(model)}&revision=${encodeURIComponent(revision)}`;
+  const loadVersions = async () => {
+    if (!model) return;
+    try {
+      const r = await apiFetch(`${API_BASE}/line-engineering/layout/snapshots?${scopeQs}`);
+      if (r.ok) setVersions((await r.json()) as typeof versions);
+    } catch { /* transient */ }
+  };
+  const openVersions = () => { setShowVersions(true); loadVersions(); };
+  const saveVersion = async () => {
+    if (!model) return;
+    setVersBusy(true);
+    try {
+      const r = await apiFetch(`${API_BASE}/line-engineering/layout/snapshots`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model, revision, name: versName.trim() || undefined }),
+      });
+      if (!r.ok) { toast.error('No se pudo guardar la versión.', '3D'); return; }
+      setVersName(''); toast.success('Versión guardada.', '3D'); loadVersions();
+    } catch { toast.error('Error de red.', '3D'); } finally { setVersBusy(false); }
+  };
+  const restoreVersion = async (id: string) => {
+    if (!model) return;
+    setVersBusy(true);
+    try {
+      const r = await apiFetch(`${API_BASE}/line-engineering/layout/snapshots/${id}/restore?${scopeQs}`, { method: 'POST' });
+      if (!r.ok) { toast.error('No se pudo restaurar la versión.', '3D'); return; }
+      toast.success('Versión restaurada.', '3D'); setShowVersions(false);
+      setReloadTick((t) => t + 1); // re-run the load effect
+    } catch { toast.error('Error de red.', '3D'); } finally { setVersBusy(false); }
+  };
+  const deleteVersion = async (id: string) => {
+    if (!model) return;
+    try {
+      const r = await apiFetch(`${API_BASE}/line-engineering/layout/snapshots/${id}?${scopeQs}`, { method: 'DELETE' });
+      if (r.ok) setVersions((await r.json()) as typeof versions);
+    } catch { /* transient */ }
+  };
   // ---- approval / sign-off (ported from 2D, unify) ----
   const setApprovalStatus = async (status: ApprovalStatus) => {
     if (!model) return;
@@ -2420,6 +2464,7 @@ export default function Layout3DEditor({
         {hasDxf && <T3Btn onClick={removeDxf} disabled={dxfBusy} title="Quitar el plano DXF de fondo"><ImageOff className="w-4 h-4" /></T3Btn>}
         <T3Btn onClick={exportDxf} title="Exportar a DXF (AutoCAD) — cada tipo en su capa"><FileDown className="w-4 h-4" /></T3Btn>
         <T3Btn onClick={exportCsvSchedule} title="Exportar estaciones a CSV (Excel)"><FileText className="w-4 h-4" /></T3Btn>
+        <T3Btn active={showVersions} onClick={openVersions} title="Versiones / escenarios — guardar, restaurar"><History className="w-4 h-4" /></T3Btn>
         <T3Btn active={showHelp} onClick={() => setShowHelp((v) => !v)} title="Atajos y ayuda (?)"><HelpCircle className="w-4 h-4" /></T3Btn>
         <div className="flex-1" />
         {approval && (
@@ -2731,6 +2776,42 @@ export default function Layout3DEditor({
                 );
               })}
               <p className="text-[10.5px] text-gray-500 pt-1 leading-relaxed">Traslapes y límites se evalúan sobre la caja sin rotación (aproximado).</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Versions / scenarios modal (unify) */}
+      {showVersions && (
+        <div className="absolute inset-0 z-[80] grid place-items-center bg-black/50 p-4" onClick={() => setShowVersions(false)}>
+          <div className="w-[460px] max-w-full max-h-[80vh] overflow-y-auto rounded-2xl border border-white/10 bg-gray-900 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-2 px-4 py-3 border-b border-white/10">
+              <History className="w-4 h-4" style={{ color: '#22d3ee' }} />
+              <span className="text-sm font-semibold">Versiones · {model} · {revision}</span>
+              <div className="flex-1" />
+              <button onClick={() => setShowVersions(false)} className="p-1 rounded-lg hover:bg-white/10"><X className="w-4 h-4" /></button>
+            </div>
+            <div className="p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <input value={versName} onChange={(e) => setVersName(e.target.value)} placeholder="Nombre de la versión (opcional)" className="flex-1 bg-white/[0.06] rounded-lg px-2.5 py-1.5 text-[13px] outline-none focus:ring-1 ring-cyan-500/40" />
+                <button onClick={saveVersion} disabled={versBusy} className="px-3 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-[12px] font-medium disabled:opacity-50">Guardar versión</button>
+              </div>
+              {versions.length === 0 ? (
+                <p className="text-[12px] text-gray-500 text-center py-4">Aún no hay versiones guardadas.</p>
+              ) : (
+                <div className="space-y-1.5">
+                  {versions.map((v) => (
+                    <div key={v.id} className="flex items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.03] px-3 py-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="text-[13px] font-medium truncate">{v.name || 'Sin nombre'}</div>
+                        <div className="text-[11px] text-gray-400">{new Date(v.createdAt).toLocaleString('es-MX')} · {v.stationCount} est · {v.assetCount} eq</div>
+                      </div>
+                      <button onClick={() => restoreVersion(v.id)} disabled={versBusy} className="px-2 py-1 rounded-md bg-white/[0.06] hover:bg-white/[0.12] text-[12px] disabled:opacity-50">Restaurar</button>
+                      <button onClick={() => deleteVersion(v.id)} className="p-1 rounded-md text-rose-300 hover:bg-rose-500/20"><Trash2 className="w-3.5 h-3.5" /></button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>
