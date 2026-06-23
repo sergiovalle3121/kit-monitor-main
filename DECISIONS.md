@@ -1394,4 +1394,24 @@ valores conocidos: `STDEV.S/P`, `VAR.S/P`, `MODE.SNGL`, `QUARTILE.INC/EXC`, `PER
 composición con `ROUND`). Sin regresiones: 30 suites de hoja + 3 de I/O Office verdes; `lint web` 0
 errores; `build web` ✓.
 
+## 55. Office/Sheets — funciones de base de datos (DSUM, DCOUNT, DGET…)
+
+**Contexto.** La familia de funciones de base de datos de Excel (`DSUM`, `DCOUNT`, `DCOUNTA`,
+`DAVERAGE`, `DMAX`, `DMIN`, `DPRODUCT`, `DGET`, `DSTDEV`, `DSTDEVP`, `DVAR`, `DVARP`) reventaba con
+`#ERROR!` en formulajs 2.9.3. Es una familia coherente con UN solo algoritmo: agregar un campo de
+un rango con encabezados sobre las filas que cumplen un rango de criterios (Y dentro de una fila, O
+entre filas; admite operadores y comodines).
+
+**Decisión (sólo `apps/web`, aditiva):** `components/office/sheets/dbFunctions.ts` las implementa
+como funciones personalizadas. Como el parser evalúa los argumentos antes de llamar, reciben `base`
+y `criterios` como **matrices 2D** ya evaluadas (no necesitan acceso a la hoja). El criterio reutiliza
+`matchesCriterion` (§«formulaEngine»: `>`, `<=`, `<>`, comodines `*`/`?`). El campo se resuelve por
+nombre de encabezado o por índice 1-based. `DGET` devuelve `#VALUE!` si no hay coincidencias y
+`#NUM!` si hay varias, como Excel; campo inexistente → `#VALUE!` (lo capta `IFERROR`).
+
+**Verificación:** nueva suite `dbFunctions.spec.ts` (**19 aserciones** sobre el motor REAL con una
+mini-base de 4 registros: criterio simple, combinado Y, operador `>150`, campo por índice, `DGET`
+único/múltiple/vacío, `DVAR`/`DSTDEV`/`DVARP`, campo inexistente + `IFERROR`). Sin regresiones: 31
+suites de hoja + 3 de I/O Office verdes; `lint web` 0 errores; `build web` ✓.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
