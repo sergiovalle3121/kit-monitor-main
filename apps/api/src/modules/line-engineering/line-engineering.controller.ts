@@ -198,6 +198,19 @@ export class LineEngineeringController {
     return this.service.getScorecard(model, revision ?? 'A');
   }
 
+  @Get('layout/continuity')
+  @RequirePermissions('engineering:read')
+  @ApiOperation({
+    summary:
+      'Continuidad de la línea: valida la topología del grafo de conexiones (estaciones sin conectar, tramos inconexos, inicios/finales de más, ramificaciones y contraflujo).',
+  })
+  getContinuity(
+    @Query('model') model: string,
+    @Query('revision') revision?: string,
+  ) {
+    return this.service.getContinuity(model, revision ?? 'A');
+  }
+
   @Put('layout/approval')
   @RequirePermissions('engineering:write')
   @ApiOperation({
