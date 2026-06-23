@@ -15,9 +15,11 @@ import { MaintenanceService } from './maintenance.service';
 import {
   CreateAssetDto,
   CreateMaintenanceOrderDto,
+  CreatePmPlanDto,
   TransitionMaintenanceOrderDto,
   UpdateAssetDto,
   UpdateMaintenanceOrderDto,
+  UpdatePmPlanDto,
 } from './dto/maintenance.dto';
 
 @ApiTags('Maintenance')
@@ -44,6 +46,14 @@ export class MaintenanceController {
   @ApiOperation({ summary: 'Da de alta un activo.' })
   createAsset(@Body() dto: CreateAssetDto) {
     return this.service.createAsset(dto);
+  }
+
+  @Get('assets/:id')
+  @ApiOperation({
+    summary: 'Detalle de un activo: historial de órdenes + confiabilidad (MTTR/MTBF).',
+  })
+  getAsset(@Param('id') id: string) {
+    return this.service.getAssetDetail(id);
   }
 
   @Patch('assets/:id')
@@ -88,5 +98,46 @@ export class MaintenanceController {
     @Body() dto: TransitionMaintenanceOrderDto,
   ) {
     return this.service.transitionOrder(id, dto);
+  }
+
+  // ── Preventive-maintenance plans (PM) ──
+  @Get('pm-plans')
+  @ApiOperation({ summary: 'Lista los planes de mantenimiento preventivo.' })
+  listPmPlans(
+    @Query('assetId') assetId?: string,
+    @Query('active') active?: string,
+  ) {
+    return this.service.listPmPlans({
+      assetId,
+      active: active === undefined ? undefined : active !== 'false',
+    });
+  }
+
+  @Post('pm-plans')
+  @ApiOperation({ summary: 'Programa un preventivo recurrente para un activo.' })
+  createPmPlan(@Body() dto: CreatePmPlanDto) {
+    return this.service.createPmPlan(dto);
+  }
+
+  @Patch('pm-plans/:id')
+  @ApiOperation({ summary: 'Actualiza un plan de PM (frecuencia, fechas, pausa).' })
+  updatePmPlan(@Param('id') id: string, @Body() dto: UpdatePmPlanDto) {
+    return this.service.updatePmPlan(id, dto);
+  }
+
+  @Post('pm-plans/:id/generate-order')
+  @ApiOperation({
+    summary: 'Genera una orden PREVENTIVE del plan y reprograma su próxima fecha.',
+  })
+  generatePmOrder(@Param('id') id: string) {
+    return this.service.generatePmOrder(id);
+  }
+
+  @Post('pm-plans/scan-due')
+  @ApiOperation({
+    summary: 'Escanea PM vencidos y avisa al planeador (buzón de notificaciones).',
+  })
+  scanPmDue() {
+    return this.service.scanPmDueAndNotify();
   }
 }

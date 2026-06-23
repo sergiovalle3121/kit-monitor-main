@@ -21,6 +21,7 @@ import {
 import { glass } from "@/lib/glass";
 import { apiFetch } from "@/lib/apiFetch";
 import { useToast } from "@/contexts/ToastContext";
+import { ExportButton, type ExportColumn } from "@/components/workspace";
 import {
   Empty,
   Field,
@@ -39,6 +40,7 @@ import {
   TYPE_ORDER,
   compareWorkOrders,
   dueLabel,
+  fmtDate,
   fmtDateTime,
   fmtMinutes,
   isOverdue,
@@ -54,6 +56,20 @@ import type {
 } from "./maintenance.types";
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000").replace(/\/$/, "");
+
+// Columnas de exportación de órdenes (el padre entrega el dataset ya filtrado).
+const ORDER_EXPORT_COLUMNS: ExportColumn<MaintenanceOrder>[] = [
+  { key: "folio", header: "Folio" },
+  { key: "title", header: "Título" },
+  { key: "type", header: "Tipo", value: (o) => TYPE_META[o.type]?.label ?? o.type },
+  { key: "assetName", header: "Activo" },
+  { key: "priority", header: "Prioridad", value: (o) => PRIORITY_META[o.priority]?.label ?? o.priority },
+  { key: "status", header: "Estado", value: (o) => ORDER_STATUS_META[o.status]?.label ?? o.status },
+  { key: "assignedTo", header: "Asignado a" },
+  { key: "downtimeMinutes", header: "Paro (min)", value: (o) => o.downtimeMinutes ?? 0 },
+  { key: "dueDate", header: "Vence", value: (o) => fmtDate(o.dueDate) },
+  { key: "completedAt", header: "Completada", value: (o) => fmtDate(o.completedAt) },
+];
 
 export function OrdersTab({
   orders,
@@ -119,6 +135,7 @@ export function OrdersTab({
             <option key={a.id} value={a.id}>{a.name}</option>
           ))}
         </select>
+        <ExportButton rows={rows} columns={ORDER_EXPORT_COLUMNS} filename="ordenes-mantenimiento" formats={["csv"]} label="Exportar" />
         <button onClick={() => onNewOrder()} className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium text-white" style={{ background: COLORS.violet }}>
           <Plus className="w-4 h-4" /> Nueva orden
         </button>

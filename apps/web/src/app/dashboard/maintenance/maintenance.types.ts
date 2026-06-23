@@ -66,6 +66,71 @@ export interface MaintenanceKpis {
   totalDowntimeMinutes: number;
   assetsTotal: number;
   assetsDown: number;
+  /** Planes de PM activos. */
+  pmPlansActive: number;
+  /** Planes de PM vencidos (next_due_date pasada). */
+  pmOverdue: number;
+  /** Planes de PM por vencer dentro de la ventana. */
+  pmDueSoon: number;
+}
+
+// Preventive-maintenance plan — apps/api/.../entities/pm-plan.entity.ts
+export type PmFrequencyType = "DAYS" | "WEEKS" | "MONTHS";
+
+export interface PmPlan {
+  id: string;
+  assetId: string | null;
+  assetName: string | null;
+  title: string;
+  description: string | null;
+  frequencyType: PmFrequencyType;
+  frequencyValue: number;
+  lastDoneDate: string | null;
+  nextDueDate: string | null;
+  active: boolean;
+  assignedTo: string | null;
+  created_at?: string;
+  created_by?: string | null;
+}
+
+// CreatePmPlanDto
+export interface CreatePmPlanInput {
+  title: string;
+  description?: string;
+  assetId?: string;
+  frequencyType: PmFrequencyType;
+  frequencyValue: number;
+  lastDoneDate?: string;
+  nextDueDate?: string;
+  assignedTo?: string;
+}
+
+// UpdatePmPlanDto
+export interface UpdatePmPlanInput {
+  title?: string;
+  description?: string;
+  frequencyType?: PmFrequencyType;
+  frequencyValue?: number;
+  lastDoneDate?: string;
+  nextDueDate?: string;
+  assignedTo?: string;
+  active?: boolean;
+}
+
+// AssetReliability + AssetDetail — apps/api/.../reliability.ts + maintenance.service.ts
+export interface AssetReliability {
+  failures: number;
+  mttrHours: number | null;
+  mtbfHours: number | null;
+  totalDowntimeMinutes: number;
+  lastFailureAt: string | null;
+  openOrders: number;
+}
+
+export interface AssetDetail {
+  asset: Asset;
+  orders: MaintenanceOrder[];
+  reliability: AssetReliability;
 }
 
 // ── Payloads (DTOs) ──────────────────────────────────────────────────────────

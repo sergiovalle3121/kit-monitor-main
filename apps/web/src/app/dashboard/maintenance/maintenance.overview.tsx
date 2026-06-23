@@ -45,6 +45,7 @@ export function OverviewTab({
   assets,
   onNewOrder,
   onGoOrders,
+  onGoPreventive,
   refreshAssets,
 }: {
   kpis?: MaintenanceKpis;
@@ -52,10 +53,13 @@ export function OverviewTab({
   assets: Asset[];
   onNewOrder: (prefill?: Partial<CreateOrderInput>) => void;
   onGoOrders: () => void;
+  onGoPreventive: () => void;
   refreshAssets: () => void;
 }) {
   const backlog = (kpis?.ordersOpen ?? 0) + (kpis?.ordersInProgress ?? 0);
   const overdue = kpis?.ordersOverdue ?? 0;
+  const pmOverdue = kpis?.pmOverdue ?? 0;
+  const pmDueSoon = kpis?.pmDueSoon ?? 0;
   const assetsDown = kpis?.assetsDown ?? assets.filter((a) => a.status === "DOWN").length;
   const downAssets = assets.filter((a) => a.status === "DOWN");
   const load = openOrdersByAsset(orders, assets);
@@ -125,6 +129,36 @@ export function OverviewTab({
         </section>
       )}
 
+      {/* PM vencido / por vencer → invita a la agenda preventiva */}
+      {(pmOverdue > 0 || pmDueSoon > 0) && (
+        <button
+          onClick={onGoPreventive}
+          className="w-full text-left rounded-2xl p-4 border transition-colors"
+          style={{
+            background: `${pmOverdue > 0 ? COLORS.red : COLORS.amber}10`,
+            borderColor: `${pmOverdue > 0 ? COLORS.red : COLORS.amber}40`,
+          }}
+        >
+          <div className="flex items-center gap-3">
+            <span className="w-9 h-9 rounded-xl grid place-items-center flex-shrink-0" style={{ background: `${pmOverdue > 0 ? COLORS.red : COLORS.amber}1f` }}>
+              <CalendarClock className="w-5 h-5" style={{ color: pmOverdue > 0 ? COLORS.red : COLORS.amber }} />
+            </span>
+            <div className="min-w-0 flex-1">
+              <h3 className="font-semibold" style={{ color: pmOverdue > 0 ? COLORS.red : COLORS.amber }}>
+                {pmOverdue > 0
+                  ? `${pmOverdue} preventivo${pmOverdue === 1 ? "" : "s"} vencido${pmOverdue === 1 ? "" : "s"}`
+                  : `${pmDueSoon} preventivo${pmDueSoon === 1 ? "" : "s"} por vencer`}
+              </h3>
+              <p className="text-[12px] text-gray-500 dark:text-gray-400">
+                {pmOverdue > 0 && pmDueSoon > 0 ? `Y ${pmDueSoon} por vencer esta semana. ` : ""}
+                Ve a Preventivo para generar la orden de trabajo o reprogramar.
+              </p>
+            </div>
+            <ArrowRight className="w-4 h-4 text-gray-400 flex-shrink-0" />
+          </div>
+        </button>
+      )}
+
       {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
         <Kpi
@@ -154,8 +188,8 @@ export function OverviewTab({
         <Kpi
           label="% PM cumplido"
           value={kpis?.pmCompliance == null ? "—" : `${kpis.pmCompliance}%`}
-          sub={`${mix.PREVENTIVE} preventivas`}
-          color={COLORS.blue}
+          sub={pmOverdue > 0 ? `${pmOverdue} PM vencidos` : `${kpis?.pmPlansActive ?? 0} planes activos`}
+          color={pmOverdue > 0 ? COLORS.red : COLORS.blue}
         />
         <Kpi
           label="Activos parados"
