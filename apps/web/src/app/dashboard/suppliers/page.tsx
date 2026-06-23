@@ -4,7 +4,7 @@ import React, { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Loader2, Lock, Truck, Plus, X, CheckCircle2, ShieldCheck, ShieldAlert,
-  AlertTriangle, ChevronRight, FileWarning, ArrowRight,
+  AlertTriangle, ChevronRight, FileWarning, ArrowRight, Search, Boxes, Star,
 } from 'lucide-react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { glass } from '@/lib/glass';
@@ -15,19 +15,24 @@ import {
   type StatCardProps, type FilterDef, type FilterValues, type ExportColumn,
 } from '@/components/workspace';
 import {
-  supApi, supInput, QUAL_META, RISK_META, TYPE_LABEL, SCAR_STATUS_META, SCAR_SEV_META,
-  scoreColor, otdColor, ppmColor,
-  type Supplier, type SupplierKpis, type ScarRow,
+  supApi, supInput, money, QUAL_META, RISK_META, TYPE_LABEL, SCAR_STATUS_META, SCAR_SEV_META,
+  AVL_STATUS_META, scoreColor, otdColor, ppmColor, gradeMeta,
+  type Supplier, type SupplierKpis, type ScarRow, type ForPartSupplier,
 } from '@/lib/suppliers';
 
 const BLUE = '#3b82f6';
 const QUALS = ['APPROVED', 'CONDITIONAL', 'PENDING', 'DISQUALIFIED'];
 const TYPES = ['COMPONENT', 'CONTRACT', 'SERVICE', 'DISTRIBUTOR', 'RAW_MATERIAL'];
 const RISKS = ['LOW', 'MEDIUM', 'HIGH'];
+const GRADES = ['A', 'B', 'C'];
 
+/** OTD efectivo: el derivado de recibos si existe, si no el campo manual. */
+function effOtd(s: Supplier): number | null { return s.otdEff ?? s.otdPct ?? null; }
+function effPpm(s: Supplier): number | null { return s.ppmEff ?? s.ppm ?? null; }
 /** Un proveedor está "en riesgo" si su riesgo compuesto es alto o su OTD cae <90%. */
 function isAtRisk(s: Supplier): boolean {
-  return s.riskLevel === 'HIGH' || (s.otdPct != null && s.otdPct < 90);
+  const otd = effOtd(s);
+  return s.riskLevel === 'HIGH' || (otd != null && otd < 90);
 }
 
 function QualPill({ status }: { status?: string }) {
@@ -85,17 +90,34 @@ const COLUMNS: ColumnDef<Supplier, unknown>[] = [
     cell: ({ row }) => <QualPill status={row.original.qualificationStatus} />,
   },
   {
+    id: 'grade',
+    accessorFn: (s) => ({ A: 3, B: 2, C: 1, NA: 0 }[s.grade || 'NA'] ?? 0),
+    header: 'Grade',
+    cell: ({ row }) => {
+      const m = gradeMeta(row.original.grade);
+      if ((row.original.grade || 'NA') === 'NA') return <span className="text-gray-300">—</span>;
+      return <span className="inline-flex items-center justify-center w-6 h-6 rounded-lg text-[12px] font-bold" style={{ background: `${m.color}1f`, color: m.color }} title={row.original.composite != null ? `${row.original.composite}/100` : undefined}>{m.label}</span>;
+    },
+    meta: { align: 'center' },
+  },
+  {
     id: 'otd',
-    accessorFn: (s) => s.otdPct ?? -1,
+    accessorFn: (s) => effOtd(s) ?? -1,
     header: 'OTD',
-    cell: ({ row }) => <span className="tabular-nums font-medium" style={{ color: otdColor(row.original.otdPct) }}>{row.original.otdPct != null ? `${row.original.otdPct}%` : '—'}</span>,
+    cell: ({ row }) => {
+      const v = effOtd(row.original);
+      return <span className="tabular-nums font-medium inline-flex items-center gap-1" style={{ color: otdColor(v) }}>{v != null ? `${v}%` : '—'}{row.original.otdSource === 'manual' && v != null && <span className="text-[8px] text-amber-500" title="Manual — sin recibos para derivar">m</span>}</span>;
+    },
     meta: { align: 'right' },
   },
   {
     id: 'ppm',
-    accessorFn: (s) => s.ppm ?? -1,
+    accessorFn: (s) => effPpm(s) ?? -1,
     header: 'PPM',
-    cell: ({ row }) => <span className="tabular-nums" style={{ color: ppmColor(row.original.ppm) }}>{row.original.ppm != null ? row.original.ppm : '—'}</span>,
+    cell: ({ row }) => {
+      const v = effPpm(row.original);
+      return <span className="tabular-nums inline-flex items-center gap-1" style={{ color: ppmColor(v) }}>{v != null ? v : '—'}{row.original.ppmSource === 'manual' && v != null && <span className="text-[8px] text-amber-500" title="Manual — sin IQC para derivar">m</span>}</span>;
+    },
     meta: { align: 'right' },
   },
   {
@@ -125,6 +147,7 @@ const COLUMNS: ColumnDef<Supplier, unknown>[] = [
 
 const FILTER_DEFS: FilterDef[] = [
   { key: 'qualification', type: 'pill', label: 'Calificación', options: QUALS.map((q) => ({ value: q, label: QUAL_META[q].label, color: QUAL_META[q].color })) },
+  { key: 'grade', type: 'pill', label: 'Grade', options: GRADES.map((gr) => ({ value: gr, label: gr, color: gradeMeta(gr).color })) },
   { key: 'type', type: 'select', label: 'Tipo', options: TYPES.map((t) => ({ value: t, label: TYPE_LABEL[t] })) },
   { key: 'risk', type: 'select', label: 'Riesgo', options: RISKS.map((r) => ({ value: r, label: RISK_META[r].label })) },
   { key: 'flags', type: 'pill', label: 'Señales', options: [
@@ -142,9 +165,13 @@ const EXPORT_COLUMNS: ExportColumn<Supplier>[] = [
   { key: 'country', header: 'País' },
   { key: 'region', header: 'Región' },
   { key: 'qualificationStatus', header: 'Calificación', value: (s) => QUAL_META[s.qualificationStatus || 'PENDING']?.label ?? '' },
+  { key: 'grade', header: 'Grade', value: (s) => (s.grade && s.grade !== 'NA' ? s.grade : '') },
+  { key: 'composite', header: 'Score', value: (s) => s.composite ?? '' },
   { key: 'status', header: 'Estatus' },
-  { key: 'otdPct', header: 'OTD %', value: (s) => s.otdPct ?? '' },
-  { key: 'ppm', header: 'PPM', value: (s) => s.ppm ?? '' },
+  { key: 'otdEff', header: 'OTD %', value: (s) => effOtd(s) ?? '' },
+  { key: 'otdSource', header: 'OTD fuente', value: (s) => s.otdSource ?? '' },
+  { key: 'ppmEff', header: 'PPM', value: (s) => effPpm(s) ?? '' },
+  { key: 'ppmSource', header: 'PPM fuente', value: (s) => s.ppmSource ?? '' },
   { key: 'qualityScore', header: 'Calidad %', value: (s) => Math.round(s.qualityScore ?? 0) },
   { key: 'responsivenessScore', header: 'Respuesta', value: (s) => s.responsivenessScore ?? '' },
   { key: 'riskLevel', header: 'Riesgo', value: (s) => RISK_META[s.riskLevel || 'LOW']?.label ?? '' },
@@ -171,11 +198,13 @@ export default function SuppliersPage() {
   // global y los filtros por columna los aplica la DataTable encima.
   const filtered = useMemo(() => {
     const quals = (filters.qualification as string[] | undefined) ?? [];
+    const grades = (filters.grade as string[] | undefined) ?? [];
     const type = filters.type as string | undefined;
     const risk = filters.risk as string | undefined;
     const flags = (filters.flags as string[] | undefined) ?? [];
     return all.filter((s) => {
       if (quals.length && !quals.includes(s.qualificationStatus || 'PENDING')) return false;
+      if (grades.length && !grades.includes(s.grade || 'NA')) return false;
       if (type && (s.type || 'COMPONENT') !== type) return false;
       if (risk && (s.riskLevel || 'LOW') !== risk) return false;
       if (flags.includes('atrisk') && !isAtRisk(s)) return false;
@@ -240,6 +269,9 @@ export default function SuppliersPage() {
       <div className="mb-5">
         <KpiRow items={kpiItems} columns={6} />
       </div>
+
+      {/* Buscador del comprador: ¿quién está aprobado para surtir esta parte? */}
+      <ForPartPanel onOpen={(sid) => router.push(`/dashboard/suppliers/${sid}`)} />
 
       {/* Alerta accionable: proveedores en riesgo → filtra la tabla */}
       {atRiskN > 0 && !flagsActive.includes('atrisk') && (
@@ -372,4 +404,91 @@ function NewSupplierModal({ onClose, onCreated }: { onClose: () => void; onCreat
 
 function L({ label, children }: { label: string; children: React.ReactNode }) {
   return <label className="block"><span className="mb-1 block text-[12px] font-medium text-gray-500">{label}</span>{children}</label>;
+}
+
+/** "¿Quién surte esta parte?" — vista del comprador sobre el AVL + desempeño. */
+function ForPartPanel({ onOpen }: { onOpen: (supplierId: number) => void }) {
+  const [part, setPart] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<{ part: string; suppliers: ForPartSupplier[] } | null>(null);
+
+  async function search() {
+    const p = part.trim();
+    if (!p) return;
+    setBusy(true);
+    try { setResult(await supApi.forPart(p)); } catch { setResult({ part: p, suppliers: [] }); } finally { setBusy(false); }
+  }
+
+  return (
+    <section className={`${glass} mb-5 rounded-2xl p-4`}>
+      <div className="flex items-center gap-2 mb-3">
+        <Boxes className="h-4 w-4" style={{ color: BLUE }} />
+        <h2 className="text-sm font-semibold">¿Quién surte esta parte?</h2>
+        <span className="text-[12px] text-gray-400">— proveedores aprobados (AVL) ordenados por desempeño</span>
+      </div>
+      <div className="flex items-center gap-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <input
+            value={part}
+            onChange={(e) => setPart(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') search(); }}
+            placeholder="Número de parte, p. ej. AX-DRIVE-100"
+            className={`${supInput} pl-9`}
+          />
+        </div>
+        <button onClick={search} disabled={busy || !part.trim()} className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium text-white disabled:opacity-60" style={{ background: BLUE }}>
+          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />} Buscar
+        </button>
+      </div>
+
+      {result && (
+        result.suppliers.length === 0 ? (
+          <div className="mt-3 rounded-xl border border-dashed border-black/10 px-4 py-6 text-center text-[13px] text-gray-400 dark:border-white/10">
+            Ningún proveedor APROBADO en el AVL para <span className="font-mono text-gray-500">{result.part}</span>. Aprueba una fuente desde el detalle del proveedor → Partes (AVL).
+          </div>
+        ) : (
+          <div className="mt-3 overflow-hidden rounded-xl border border-black/5 dark:border-white/10">
+            <table className="w-full text-[13px]">
+              <thead><tr className="text-[11px] uppercase tracking-wide text-gray-400 border-b border-black/5 dark:border-white/10">
+                <th className="px-3 py-2 text-left font-medium">#</th>
+                <th className="px-3 py-2 text-left font-medium">Proveedor</th>
+                <th className="px-3 py-2 text-center font-medium">Grade</th>
+                <th className="px-3 py-2 text-right font-medium">OTD</th>
+                <th className="px-3 py-2 text-right font-medium">PPM</th>
+                <th className="px-3 py-2 text-right font-medium">Precio</th>
+                <th className="px-3 py-2 text-right font-medium">MOQ</th>
+                <th className="px-3 py-2 text-right font-medium">Lead</th>
+              </tr></thead>
+              <tbody>
+                {result.suppliers.map((sup, i) => {
+                  const gm = gradeMeta(sup.grade);
+                  const av = AVL_STATUS_META[sup.approvalStatus] ?? AVL_STATUS_META.APPROVED;
+                  return (
+                    <tr key={sup.avlId} onClick={() => onOpen(sup.supplierId)} className="cursor-pointer border-b border-black/[0.03] last:border-0 hover:bg-black/[0.025] dark:border-white/[0.04] dark:hover:bg-white/[0.04]">
+                      <td className="px-3 py-2.5 text-gray-400">{i === 0 ? <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" /> : i + 1}</td>
+                      <td className="px-3 py-2.5">
+                        <div className="flex items-center gap-2">
+                          {sup.code && <span className="rounded bg-black/5 px-1.5 py-0.5 font-mono text-[10px] text-gray-500 dark:bg-white/10">{sup.code}</span>}
+                          <span className="font-medium">{sup.name}</span>
+                          {sup.singleSource && <span className="text-[9px] text-red-500" title="Sole-source">●</span>}
+                          <span className="rounded-full px-1.5 py-0.5 text-[10px] font-medium" style={{ background: `${av.color}1f`, color: av.color }}>{av.label}</span>
+                        </div>
+                      </td>
+                      <td className="px-3 py-2.5 text-center"><span className="inline-flex h-5 w-5 items-center justify-center rounded text-[11px] font-bold" style={{ background: `${gm.color}1f`, color: gm.color }}>{gm.label}</span></td>
+                      <td className="px-3 py-2.5 text-right tabular-nums" style={{ color: otdColor(sup.otdPct) }}>{sup.otdPct != null ? `${sup.otdPct}%` : '—'}</td>
+                      <td className="px-3 py-2.5 text-right tabular-nums" style={{ color: ppmColor(sup.ppm) }}>{sup.ppm != null ? sup.ppm : '—'}</td>
+                      <td className="px-3 py-2.5 text-right tabular-nums">{sup.unitPrice != null ? money(sup.unitPrice, sup.currency) : '—'}</td>
+                      <td className="px-3 py-2.5 text-right tabular-nums text-gray-500">{sup.moq != null ? sup.moq.toLocaleString() : '—'}</td>
+                      <td className="px-3 py-2.5 text-right tabular-nums text-gray-500">{sup.leadTimeDays != null ? `${sup.leadTimeDays}d` : '—'}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )
+      )}
+    </section>
+  );
 }

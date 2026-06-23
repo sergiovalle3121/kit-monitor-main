@@ -12,7 +12,9 @@ export class SuppliersController {
     @Query('type') type?: string,
     @Query('status') status?: string,
   ) {
-    return this.suppliersService.findAll({ q, qualification, type, status });
+    // Enriched with the derived scorecard (grade / OTD / PPM) so the list ranks
+    // by real performance. Still returns every supplier field, so it's additive.
+    return this.suppliersService.findAllEnriched({ q, qualification, type, status });
   }
 
   @Post()
@@ -24,6 +26,37 @@ export class SuppliersController {
   @Get('kpis')
   async kpis() {
     return this.suppliersService.kpis();
+  }
+
+  // AVL — Approved Vendor List
+  @Get('avl')
+  async listAvl(
+    @Query('supplierId') supplierId?: number,
+    @Query('part') part?: string,
+    @Query('status') status?: string,
+  ) {
+    return this.suppliersService.listAvl({ supplierId: supplierId ? Number(supplierId) : undefined, part, status });
+  }
+
+  @Post('avl')
+  async addAvlPart(@Body() dto: any) {
+    return this.suppliersService.addAvlPart(dto);
+  }
+
+  @Patch('avl/:aid')
+  async updateAvlPart(@Param('aid') aid: number, @Body() dto: any) {
+    return this.suppliersService.updateAvlPart(Number(aid), dto);
+  }
+
+  @Delete('avl/:aid')
+  async removeAvlPart(@Param('aid') aid: number) {
+    return this.suppliersService.removeAvlPart(Number(aid));
+  }
+
+  /** Buyer view: who is approved to supply this part, ranked by performance. */
+  @Get('for-part')
+  async forPart(@Query('part') part: string) {
+    return this.suppliersService.forPart(part);
   }
 
   // SCARs
@@ -89,6 +122,11 @@ export class SuppliersController {
   @Get(':id/contacts')
   async listContacts(@Param('id') id: number) {
     return this.suppliersService.listContacts(id);
+  }
+
+  @Get(':id/parts')
+  async listParts(@Param('id') id: number) {
+    return this.suppliersService.partsForSupplier(Number(id));
   }
 
   @Get(':id')
