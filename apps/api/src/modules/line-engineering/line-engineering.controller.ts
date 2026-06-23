@@ -389,6 +389,40 @@ export class LineEngineeringController {
     });
   }
 
+  @Get('layout/sensitivity')
+  @RequirePermissions('engineering:read')
+  @ApiOperation({
+    summary:
+      'Análisis de sensibilidad a la demanda: takt, operadores, factibilidad y costo por unidad a lo largo de un rango de demanda.',
+  })
+  layoutSensitivity(
+    @Query('model') model: string,
+    @Query('revision') revision?: string,
+    @Query('availableTimeSec') availableTimeSec?: string,
+    @Query('demandUnits') demandUnits?: string,
+    @Query('steps') steps?: string,
+    @Query('laborCostPerHour') laborCostPerHour?: string,
+    @Query('spaceCostPerM2Month') spaceCostPerM2Month?: string,
+    @Query('assetUnitCost') assetUnitCost?: string,
+  ) {
+    return this.service.getSensitivity({
+      model,
+      revision: revision ?? 'A',
+      availableTimeSec: availableTimeSec ? Number(availableTimeSec) : undefined,
+      demandUnits: demandUnits ? Number(demandUnits) : undefined,
+      steps: steps ? Number(steps) : undefined,
+      rates: {
+        laborCostPerHour: laborCostPerHour
+          ? Number(laborCostPerHour)
+          : undefined,
+        spaceCostPerM2Month: spaceCostPerM2Month
+          ? Number(spaceCostPerM2Month)
+          : undefined,
+        assetUnitCost: assetUnitCost ? Number(assetUnitCost) : undefined,
+      },
+    });
+  }
+
   @Get('layout/completeness')
   @RequirePermissions('engineering:read')
   @ApiOperation({

@@ -60,6 +60,11 @@ import { staffingPlan, StaffingResult, StationStaffing } from './line-staffing';
 import { bufferPlan, BufferPlan } from './line-buffer';
 import { balanceLoops, LoopPlan } from './line-loops';
 import { costModel, areaToM2, CostModel, CostRates } from './line-cost';
+import {
+  sensitivityCurve,
+  demandSweep,
+  SensitivityResult,
+} from './line-sensitivity';
 
 /** One station's material/work requirement for a unit of a model — the bridge
  * that Material Staging (C) and the Operator Terminal (D) consume. */
@@ -1548,6 +1553,56 @@ export class LineEngineeringService {
       assetCount: layout.assets.length,
       footprintAreaM2: round(footprintAreaM2, 2),
     };
+  }
+
+  /**
+   * Demand-sensitivity sweep for the layout (Fase 36). Read-only: walks a range
+   * of demand around the planned point and reports, at each level, takt,
+   * operators, feasibility and unit cost — showing how the layout scales, where
+   * an extra operator must step in and the demand ceiling. Pure via
+   * `sensitivityCurve`.
+   */
+  async getSensitivity(params: {
+    model: string;
+    revision?: string;
+    availableTimeSec?: number;
+    demandUnits?: number;
+    steps?: number;
+    rates?: CostRates;
+  }): Promise<SensitivityResult & { model: string; revision: string }> {
+    const revision = params.revision ?? 'A';
+    const route = await this.routing(params.model, revision);
+    if (route.length === 0) {
+      throw new NotFoundException(
+        `Sin ruteo para ${params.model} rev ${revision}.`,
+      );
+    }
+    const availableTimeSec =
+      params.availableTimeSec && params.availableTimeSec > 0
+        ? params.availableTimeSec
+        : 28800; // default 8 h shift
+    const centerDemand =
+      params.demandUnits && params.demandUnits > 0 ? params.demandUnits : 400;
+    const layout = await this.getLayout(params.model, revision);
+    const footprintAreaM2 = areaToM2(
+      layout.footprint.footprintW * layout.footprint.footprintH,
+      layout.footprint.unit,
+    );
+    const result = sensitivityCurve(
+      route.map((s) => ({
+        station: s.station,
+        sequence: s.sequence,
+        stdTimeSec: Number(s.stdTimeSec),
+      })),
+      {
+        availableTimeSec,
+        demands: demandSweep(centerDemand, params.steps ?? 9),
+        footprintAreaM2,
+        assetCount: layout.assets.length,
+        rates: params.rates ?? {},
+      },
+    );
+    return { ...result, model: params.model, revision };
   }
 
   /**

@@ -227,6 +227,24 @@ describe('LineEngineeringService (integration)', () => {
     expect(c.model).toBe('AX-1000');
   });
 
+  it('sweeps demand sensitivity around the planned point (Fase 36)', async () => {
+    await seedRoute(); // bottleneck EST-20 = 55s
+    const r = await service.getSensitivity({
+      model: 'AX-1000',
+      availableTimeSec: 28800, // 8 h
+      demandUnits: 400,
+    });
+    expect(r.bottleneckCycleSec).toBe(55);
+    expect(r.points.length).toBeGreaterThanOrEqual(3);
+    // Ascending, deduped demand levels.
+    const demands = r.points.map((p) => p.demandUnits);
+    expect([...demands].sort((a, b) => a - b)).toEqual(demands);
+    // There is a feasible ceiling and a cheapest feasible demand.
+    expect(r.maxFeasibleDemand).not.toBeNull();
+    expect(r.minCostDemand).not.toBeNull();
+    expect(r.model).toBe('AX-1000');
+  });
+
   it('reports per-station documentation completeness (Fase 19)', async () => {
     await seedRoute(); // 3 stations, all with NP + factor + aid → complete
     // Add a station missing its visual aid.

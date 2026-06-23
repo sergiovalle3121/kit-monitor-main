@@ -12,7 +12,7 @@ import {
   Upload, Eye, EyeOff, Map as MapIcon, Activity, Workflow, Wand2, Boxes,
   Download, Printer, Ruler, Type, MoveHorizontal, CopyPlus, X, Flame, Waypoints,
   ShieldCheck, ShieldAlert, LayoutGrid, History, RotateCw, ClipboardList, GitCompare,
-  ClipboardCheck, Warehouse, Sparkles, Bug, SlidersHorizontal, BarChart3, Frame, Box, Layers, Users, DollarSign,
+  ClipboardCheck, Warehouse, Sparkles, Bug, SlidersHorizontal, BarChart3, Frame, Box, Layers, Users, DollarSign, LineChart,
 } from 'lucide-react';
 import { glass } from '@/lib/glass';
 import { apiFetch } from '@/lib/apiFetch';
@@ -25,6 +25,7 @@ import LayoutHistory from './LayoutHistory';
 import BufferPlanner from './BufferPlanner';
 import OperatorLoops from './OperatorLoops';
 import CostEstimator from './CostEstimator';
+import SensitivityChart from './SensitivityChart';
 // three.js is heavy — lazy-load the 3D view so it only ships when opened.
 const Layout3D = dynamic(() => import('./Layout3D'), { ssr: false });
 
@@ -349,6 +350,7 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
   const [showBuffers, setShowBuffers] = useState(false);
   const [showLoops, setShowLoops] = useState(false);
   const [showCost, setShowCost] = useState(false);
+  const [showSensitivity, setShowSensitivity] = useState(false);
   const [showCells, setShowCells] = useState(false);
   const [show3d, setShow3d] = useState(false);
   const [approval, setApproval] = useState<LayoutApproval | null>(null);
@@ -1810,6 +1812,7 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
         <TBtn onClick={() => setShowBuffers(true)} title="Inventario de desacople / WIP entre estaciones"><Layers className="w-4 h-4" /></TBtn>
         <TBtn onClick={() => setShowLoops(true)} title="Bucles de operador (mínimo de operadores)"><Users className="w-4 h-4" /></TBtn>
         <TBtn onClick={() => setShowCost(true)} title="Costo por unidad (mano de obra, piso, equipo)"><DollarSign className="w-4 h-4" /></TBtn>
+        <TBtn onClick={() => setShowSensitivity(true)} title="Sensibilidad a la demanda (costo y operadores vs demanda)"><LineChart className="w-4 h-4" /></TBtn>
         <TBtn onClick={() => setShowCells(true)} title="Celdas / zonas (agrupar estaciones)"><Frame className="w-4 h-4" /></TBtn>
         <TBtn onClick={() => setShow3d(true)} title="Vista 3D del layout"><Box className="w-4 h-4" /></TBtn>
         <TBtn onClick={() => setShowHistory(true)} title="Bitácora de auditoría (quién cambió qué y cuándo)"><History className="w-4 h-4" /></TBtn>
@@ -2203,6 +2206,7 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
       <BufferPlanner model={model} revision={revision} open={showBuffers} onClose={() => setShowBuffers(false)} />
       <OperatorLoops model={model} revision={revision} open={showLoops} onClose={() => setShowLoops(false)} />
       <CostEstimator model={model} revision={revision} open={showCost} onClose={() => setShowCost(false)} />
+      <SensitivityChart model={model} revision={revision} open={showSensitivity} onClose={() => setShowSensitivity(false)} />
       {show3d && <Layout3D model={model} revision={revision} open={show3d} onClose={() => setShow3d(false)} />}
 
       {showCells && (
