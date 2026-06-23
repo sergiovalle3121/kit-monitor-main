@@ -2205,4 +2205,20 @@ algo que no sea letra, bajando el resto. Unicode-aware (`\p{L}`) para acentos y 
 acentos/ñ, baja el resto, bordes, idempotencia). Sin regresiones: toda la suite de spec de Office verde;
 `lint web` 0 errores; `build web` ✓.
 
+## 97. Office/Sheets — funciones de texto por bytes (LENB/LEFTB/RIGHTB/MIDB/REPLACEB/FINDB/SEARCHB)
+
+**Contexto.** Excel expone las variantes «por bytes» de las funciones de texto (pensadas para idiomas
+de doble byte). `@formulajs/formulajs@2.9.3` no las trae, así que devolvían `#NAME?` y cualquier `.xlsx`
+que las usara se rompía al abrir. En una configuración regional de **un solo byte** (latinas) cada
+carácter ocupa 1 byte y estas funciones son **idénticas** a sus versiones por carácter.
+
+**Decisión (sólo `apps/web`, aditiva — riesgo cero):** `components/office/sheets/byteFunctions.ts`
+registra `LENB/LEFTB/RIGHTB/MIDB/REPLACEB/FINDB/SEARCHB` como **delegaciones** a la función por carácter
+equivalente de `formulajs` (`LEN/LEFT/RIGHT/MID/REPLACE/FIND/SEARCH`). No toca ninguna función existente;
+sólo añade los nombres que faltaban (mejora la interoperabilidad `.xlsx`).
+
+**Verificación:** nueva suite `byteFunctions.spec.ts` (**15 aserciones**: equivalencia con las versiones
+por carácter, FINDB sensible a mayúsculas, SEARCHB insensible, composición/anidamiento). Sin regresiones:
+toda la suite de spec de Office verde; `lint web` 0 errores; `build web` ✓.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
