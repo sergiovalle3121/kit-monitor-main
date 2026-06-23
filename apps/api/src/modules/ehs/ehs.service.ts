@@ -33,8 +33,17 @@ export interface EhsKpis {
   nearMissCount: number;
   totalLostDays: number;
   daysSinceLastRecordable: number | null;
+  /** CAPAs abiertas (con fecha de compromiso, en incidentes no cerrados). */
+  capaOpen: number;
+  /** CAPAs abiertas cuya fecha de compromiso ya pasó. */
+  capaOverdue: number;
+  /** CAPAs abiertas que vencen dentro de la ventana de aviso (7 días). */
+  capaDueSoon: number;
   byStatus: Record<IncidentStatus, number>;
 }
+
+/** Ventana (días) para considerar una CAPA "por vencer". */
+const CAPA_DUE_SOON_DAYS = 7;
 
 interface ListFilters {
   status?: string;
@@ -140,6 +149,12 @@ export class EhsService {
       ...(dto.correctiveAction !== undefined && {
         correctiveAction: dto.correctiveAction,
       }),
+      ...(dto.capaOwner !== undefined && {
+        capaOwner: dto.capaOwner || null,
+      }),
+      ...(dto.capaDueDate !== undefined && {
+        capaDueDate: dto.capaDueDate ? new Date(dto.capaDueDate) : null,
+      }),
     });
     const saved = await this.repo.save(inc);
     await this.recordLedger('SAFETY_INCIDENT_UPDATED', saved, {
@@ -167,6 +182,9 @@ export class EhsService {
     if (dto.correctiveAction !== undefined)
       inc.correctiveAction = dto.correctiveAction;
     if (dto.lostDays !== undefined) inc.lostDays = dto.lostDays;
+    if (dto.capaOwner !== undefined) inc.capaOwner = dto.capaOwner || null;
+    if (dto.capaDueDate !== undefined)
+      inc.capaDueDate = dto.capaDueDate ? new Date(dto.capaDueDate) : null;
     if (dto.status === 'INVESTIGATING' && !inc.investigatedAt)
       inc.investigatedAt = now;
     if (dto.status === 'CLOSED') inc.closedAt = now;
@@ -195,14 +213,31 @@ export class EhsService {
     let nearMissCount = 0;
     let totalLostDays = 0;
     let lastRecordableTime: number | null = null;
+    let capaOpen = 0;
+    let capaOverdue = 0;
+    let capaDueSoon = 0;
+
+    const now = Date.now();
+    const dueSoonHorizon = now + CAPA_DUE_SOON_DAYS * 86_400_000;
 
     for (const i of all) {
       byStatus[i.status] = (byStatus[i.status] ?? 0) + 1;
-      if (i.status !== 'CLOSED' && i.status !== 'CANCELLED') open += 1;
+      const isOpen = i.status !== 'CLOSED' && i.status !== 'CANCELLED';
+      if (isOpen) open += 1;
       if (RECORDABLE_TYPES.includes(i.type)) recordableCount += 1;
       if (i.type === 'LOST_TIME') lostTimeCount += 1;
       if (i.type === 'NEAR_MISS') nearMissCount += 1;
       totalLostDays += Number(i.lostDays ?? 0);
+
+      // CAPA tracking: only meaningful while the incident is still open.
+      if (isOpen && i.capaDueDate) {
+        const due = new Date(i.capaDueDate).getTime();
+        if (!Number.isNaN(due)) {
+          capaOpen += 1;
+          if (due < now) capaOverdue += 1;
+          else if (due <= dueSoonHorizon) capaDueSoon += 1;
+        }
+      }
 
       if (RECORDABLE_TYPES.includes(i.type)) {
         const when = i.occurredAt ?? i.created_at;
@@ -229,6 +264,9 @@ export class EhsService {
       nearMissCount,
       totalLostDays,
       daysSinceLastRecordable,
+      capaOpen,
+      capaOverdue,
+      capaDueSoon,
       byStatus,
     };
   }
