@@ -6,6 +6,8 @@ import { NpiReadinessSnapshot } from './entities/npi-readiness-snapshot.entity';
 import { SfFai } from '../fai/entities/sf-fai.entity';
 import { SupplierApprovedPart } from '../suppliers/entities/supplier-approved-part.entity';
 import { NpiService } from './npi.service';
+import { NpiReadinessScanService } from './npi-readiness-scan.service';
+import { NpiReadinessScanTask } from './npi-readiness-scan.task';
 import { NpiController } from './npi.controller';
 import { BomModule } from '../bom/bom.module';
 import { LineEngineeringModule } from '../line-engineering/line-engineering.module';
@@ -39,10 +41,12 @@ import { provideTenantScopedRepository } from '../../common/tenant/tenant-scoped
   controllers: [NpiController],
   providers: [
     NpiService,
+    NpiReadinessScanService,
+    NpiReadinessScanTask,
     provideTenantScopedRepository(NpiProject),
     provideTenantScopedRepository(NpiGate),
     provideTenantScopedRepository(NpiReadinessSnapshot),
   ],
-  exports: [NpiService],
+  exports: [NpiService, NpiReadinessScanService],
 })
 export class NpiModule {}
