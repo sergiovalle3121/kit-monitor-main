@@ -2383,4 +2383,21 @@ marca de enlace e imagen de bloque. Sin título, sin sufijo (sin regresión).
 sin sufijo, roundtrip import del export, comillas escapadas). Specs de Markdown (export/import/plano)
 verdes; `lint web` 0 errores; `build web` ✓.
 
+## 108. Office/Docs — alineación de columna de tabla en el export .docx (cierra el roundtrip de §104)
+
+**Contexto.** §104 introdujo la alineación de columna en tablas Markdown y el atributo `textAlign` de
+celda; §107 cerró los títulos. Faltaba el último tramo del roundtrip hacia Word: `tableToEl` (en
+`lib/office/docx.ts`) respetaba fondo, colspan/rowspan, alineación vertical y anchos, pero **no la
+alineación horizontal** de la celda — una tabla con columnas centradas/derecha exportaba a `.docx` sin
+ellas (Word aplica la alineación al PÁRRAFO de la celda).
+
+**Decisión (sólo `apps/web`, aditiva — riesgo cero):** se añade una variable de cierre `cellAlign`
+(patrón idéntico a `inHeaderCell`) que se fija con `cell.attrs.textAlign` alrededor de la construcción de
+los párrafos de la celda; el caso `paragraph` la usa como respaldo cuando el propio párrafo no trae
+alineación. Así la alineación de celda viaja como `w:jc` al `.docx`.
+
+**Verificación:** nueva suite `docxTableAlign.spec.ts` (**4 aserciones**: empaqueta el `.docx` real,
+descomprime y confirma `w:jc` center/right en las columnas alineadas). `docx.spec` (33) y
+`docxRoundtrip.spec` (8) verdes — sin regresiones; `lint web` 0; `build web` ✓.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
