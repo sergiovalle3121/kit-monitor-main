@@ -102,6 +102,59 @@ describe('StationStatusService (integration)', () => {
     expect(s.counts.idle).toBe(3);
   });
 
+  it('aggregates cumulative quality hotspots per station (Fase 24)', async () => {
+    await seedStations(); // E10, E20, E30
+    const floor = ds.getRepository(SfFloorEvent);
+    // 3 defects on E10 (regardless of status) → major; 1 hold on E20 → minor.
+    await floor.save([
+      {
+        type: 'DEFECT',
+        station: 'E10',
+        line: 'L1',
+        status: 'RESOLVED',
+        raisedAt: new Date(),
+      },
+      {
+        type: 'DEFECT',
+        station: 'E10',
+        line: 'L1',
+        status: 'OPEN',
+        raisedAt: new Date(),
+      },
+      {
+        type: 'DEFECT',
+        station: 'E10',
+        line: 'L1',
+        status: 'OPEN',
+        raisedAt: new Date(),
+      },
+      {
+        type: 'ANDON_MACHINE',
+        station: 'E10',
+        line: 'L1',
+        status: 'OPEN',
+        raisedAt: new Date(),
+      }, // not a defect
+    ] as object[]);
+    await ds.getRepository(SfQualityHold).save({
+      part: 'P1',
+      station: 'E20',
+      severity: 'MEDIUM',
+      status: 'CLOSED',
+      raisedAt: new Date(),
+    } as object);
+
+    const q = await svc.getQuality('AX');
+    const by = Object.fromEntries(q.stations.map((x) => [x.station, x]));
+    expect(by['E10']).toMatchObject({ defects: 3, holds: 0, level: 'major' });
+    expect(by['E20']).toMatchObject({ defects: 0, holds: 1, level: 'minor' });
+    expect(by['E30']).toMatchObject({ total: 0, level: 'ok' });
+    expect(q.totalDefects).toBe(3);
+    expect(q.totalHolds).toBe(1);
+    expect(q.stationsWithIssues).toBe(2);
+    expect(q.counts).toMatchObject({ ok: 1, minor: 1, major: 1 });
+  });
+
   it('is ok when the model is in production on the line', async () => {
     await seedStations();
     await ds.getRepository(SfWorkOrder).save({
