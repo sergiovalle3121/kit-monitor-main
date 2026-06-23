@@ -952,6 +952,27 @@ export function applyTableStyle(sheet: any, opts: TableStyleOpts): number {
   return count;
 }
 
+// ── Autofiltro nativo en su sitio (flechas de filtro en el encabezado) ────────
+/**
+ * Activa el **autofiltro nativo** de Fortune-Sheet sobre el rango (flechas desplegables en la fila de
+ * encabezado, con filtrado en su sitio). Escribe `sheet.filter_select` + `sheet.filter` — el **mismo
+ * mecanismo** que «Dar formato como tabla», aquí en un solo clic y sin tocar estilos. Una hoja sólo
+ * admite un autofiltro a la vez (como Excel), así que reemplaza el anterior.
+ */
+export function setAutoFilter(sheet: any, range: string): boolean {
+  const rng = parseRange(range); if (!rng || !sheet) return false;
+  sheet.filter_select = { row: [rng.r1, rng.r2], column: [rng.c1, rng.c2] };
+  sheet.filter = sheet.filter || {};
+  return true;
+}
+
+/** Quita el autofiltro nativo de la hoja. Devuelve `true` si había uno. */
+export function clearAutoFilter(sheet: any): boolean {
+  if (!sheet || (sheet.filter_select == null && sheet.filter == null)) return false;
+  delete sheet.filter_select; delete sheet.filter;
+  return true;
+}
+
 // ── Ordenar multinivel ───────────────────────────────────────────────────────
 export interface SortKey { colRel: number; order: 'asc' | 'desc' }
 const cmpVals = (ka: any, kb: any): number => {
