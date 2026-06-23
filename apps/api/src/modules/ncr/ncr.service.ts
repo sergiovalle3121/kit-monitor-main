@@ -74,6 +74,29 @@ export class NcrService {
     return saved;
   }
 
+  /**
+   * Clasifica (o re-clasifica) una NCR con un código de defecto del catálogo.
+   * Aditivo: no toca el alta ni el ciclo de la NCR; solo asigna `defectCodeId`
+   * (null la deja «Sin clasificar»). Sirve para tipificar NCR existentes desde la
+   * propia analítica y robustecer el Pareto/PPM sin migrar registros viejos.
+   */
+  async classify(id: number, defectCodeId: number | null, actor: string): Promise<NCR> {
+    const ncr = await this.findOne(id);
+    ncr.defectCodeId = defectCodeId == null ? null : Number(defectCodeId);
+    const updated = await this.ncrRepo.save(ncr);
+
+    await this.eventLedger.recordEvent({
+      domain: EventDomain.QUALITY,
+      action: 'NCR_CLASSIFIED',
+      actorName: actor || 'QA',
+      referenceType: 'NCR',
+      referenceId: id.toString(),
+      metadata: { ncrNumber: ncr.ncrNumber, defectCodeId: ncr.defectCodeId },
+    });
+
+    return updated;
+  }
+
   async updateStatus(id: number, status: NcrStatus, actor: string): Promise<NCR> {
     const ncr = await this.findOne(id);
     ncr.status = status;

@@ -29,6 +29,8 @@ export interface Ncr {
   severity: NcrSeverity;
   partNumber: string;
   category: string;
+  /** Clasificación opcional con el catálogo tipificado (defect_codes). Nullable. */
+  defectCodeId?: number | null;
   description: string;
   sourceType: NcrSourceType;
   quantityAffected: number;
@@ -293,6 +295,132 @@ export interface Disposition {
   hold?: { id: number } | null;
   ncr?: { id: number; ncrNumber?: string } | null;
   createdAt: string;
+}
+
+// Defect code catalog — apps/api/src/modules/defect-codes/entities/defect-code.entity.ts
+export type DefectFamily =
+  | "solder"
+  | "component"
+  | "cosmetic"
+  | "functional"
+  | "mechanical"
+  | "process";
+
+export interface DefectCode {
+  id: number;
+  code: string;
+  description: string;
+  category: DefectFamily;
+  defaultSeverity?: string | null;
+  active: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+// Quality analytics summary — apps/api/src/modules/quality-analytics/quality-analytics.service.ts
+export interface DefectParetoRow {
+  key: string;
+  label: string;
+  count: number;
+  pct: number;
+  cumPct: number;
+  defectCodeId: number | null;
+  category?: string;
+  description?: string;
+}
+
+export interface SupplierPpm {
+  supplierId: number | string | null;
+  supplierName: string;
+  inspections: number;
+  inspected: number;
+  defects: number;
+  ppm: number | null;
+}
+
+export interface PpmPoint {
+  period: string; // YYYY-MM
+  inspected: number;
+  defects: number;
+  ppm: number | null;
+}
+
+export interface FpyGroup {
+  key: string;
+  serials: number;
+  firstPass: number;
+  fpy: number | null;
+}
+
+export interface CountRow {
+  key: string;
+  label: string;
+  count: number;
+}
+
+export interface CapaOverdue {
+  capaNumber: string;
+  partNumber: string;
+  status: string;
+  dueDate: string | null;
+  daysOverdue: number;
+}
+
+export interface CapaStats {
+  total: number;
+  open: number;
+  closed: number;
+  overdue: number;
+  avgCloseDays: number | null;
+  byStatus: { status: string; count: number }[];
+  overdueList: CapaOverdue[];
+}
+
+export interface OqcYield {
+  inspected: number;
+  passed: number;
+  failed: number;
+  yieldPct: number | null;
+}
+
+export interface DispositionUnits {
+  type: string;
+  count: number;
+  units: number;
+}
+
+export interface QualityAnalytics {
+  generatedAt: string;
+  filters: { days: number | null; model: string | null; line: string | null; supplier: string | null };
+  meta: {
+    totalNcrs: number;
+    classifiedNcrs: number;
+    unclassifiedNcrs: number;
+    catalogSize: number;
+  };
+  defects: { pareto: DefectParetoRow[] };
+  ppm: {
+    supplier: SupplierPpm[];
+    supplierOverall: number | null;
+    supplierTrend: PpmPoint[];
+    processOverall: number | null;
+    processTrend: PpmPoint[];
+    dpmoAvailable: false;
+  };
+  yield: {
+    fpyOverall: number | null;
+    serials: number;
+    fpyByModel: FpyGroup[];
+    fpyByStation: FpyGroup[];
+    oqc: OqcYield;
+  };
+  cuts: {
+    byModel: CountRow[];
+    byLine: CountRow[];
+    bySupplier: SupplierPpm[];
+  };
+  capa: CapaStats;
+  dispositions: { byType: DispositionUnits[]; costAvailable: false };
 }
 
 // Quarantine transfer — apps/api/src/modules/quality/entities/quarantine-transfer.entity.ts

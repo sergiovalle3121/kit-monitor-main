@@ -76,6 +76,8 @@ import { EnterpriseCampusModule } from './modules/enterprise-campus/enterprise-c
 import { CustomerInsightsModule } from './modules/customer-insights/customer-insights.module';
 import { InventoryModule } from './modules/inventory/inventory.module';
 import { QualityModule } from './modules/quality/quality.module';
+import { DefectCodesModule } from './modules/defect-codes/defect-codes.module';
+import { QualityAnalyticsModule } from './modules/quality-analytics/quality-analytics.module';
 import { NcrModule } from './modules/ncr/ncr.module';
 import { SuppliersModule } from './modules/suppliers/suppliers.module';
 import { ReceivingModule } from './modules/receiving/receiving.module';
@@ -167,6 +169,8 @@ import { AlertsModule } from './modules/alerts/alerts.module';
     CustomerInsightsModule,
     InventoryModule,
     QualityModule,
+    DefectCodesModule,
+    QualityAnalyticsModule,
     NcrModule,
     SuppliersModule,
     ReceivingModule,
