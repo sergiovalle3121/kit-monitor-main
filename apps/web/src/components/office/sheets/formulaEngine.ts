@@ -42,6 +42,7 @@ import { SCALAR_FUNCTIONS, aliasScalarFns } from './scalarFunctions';
 import { STAT_FUNCTIONS } from './statFunctions';
 import { DB_FUNCTIONS } from './dbFunctions';
 import { MATRIX_FUNCTIONS } from './matrixFunctions';
+import { MATH_EXTRA_FUNCTIONS } from './mathExtras';
 
 // ── Utilidades de coerción / aplanado de argumentos ──────────────────────────
 // Las funciones reciben `params`: un array donde cada argumento ya viene evaluado.
@@ -280,6 +281,8 @@ export const CUSTOM_FUNCTIONS: Record<string, (params: any[]) => any> = {
   ...DB_FUNCTIONS,
   // Matriciales (MMULT/MINVERSE/MDETERM/MUNIT) + SERIESSUM + ERROR.TYPE — ver `matrixFunctions.ts`.
   ...MATRIX_FUNCTIONS,
+  // Redondeo moderno (CEILING.MATH/FLOOR.MATH/…) + RANDARRAY + ENCODEURL — ver `mathExtras.ts`.
+  ...MATH_EXTRA_FUNCTIONS,
 };
 
 // ── Normalización de literales booleanos en la cadena de fórmula ──────────────
