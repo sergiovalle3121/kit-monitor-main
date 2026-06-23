@@ -57,6 +57,13 @@ import {
   BookmarkCheck,
   Link2,
   FileText,
+  Sparkles,
+  Megaphone,
+  CalendarPlus,
+  Wand2,
+  Repeat,
+  Command,
+  Loader2,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { glass } from '@/lib/glass';
@@ -76,7 +83,10 @@ import {
   MediaItem,
   LinkItem,
   SavedItem,
+  Meeting,
 } from '@/lib/chatApi';
+import { aiCatchUp, aiSuggestReplies, aiRewrite } from '@/lib/chat/ai';
+import { matchCommands, isSlashDraft, exactCommand } from '@/lib/chat/commands';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
 import { MessageComposer } from '@/components/chat/MessageComposer';
 import { FileAttachment } from '@/components/chat/FileAttachment';
@@ -84,7 +94,7 @@ import { AuthAudio } from '@/components/chat/AuthAudio';
 import { CallOverlay } from '@/components/chat/CallOverlay';
 import { useCall } from '@/hooks/useCall';
 import { callsSupported, screenShareSupported } from '@/lib/chat/webrtc';
-import { renderMessageText, hasTable } from '@/lib/chat/markdown';
+import { renderMessageText, hasTable, tableTemplate } from '@/lib/chat/markdown';
 import { isEmojiOnly, emojiGlyphCount } from '@/lib/chat/stickers';
 import { parseStickerId, getSticker } from '@/lib/chat/stickerImages';
 import {
@@ -312,6 +322,23 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
   // Mensajes guardados.
   const [savedOpen, setSavedOpen] = useState(false);
   const [savedItems, setSavedItems] = useState<SavedItem[]>([]);
+  // Reuniones programadas de la conversación + recordatorio entrante.
+  const [meetings, setMeetings] = useState<Meeting[]>([]);
+  const [meetingOpen, setMeetingOpen] = useState(false);
+  const [meetingReminder, setMeetingReminder] = useState<{
+    id: string;
+    conversationId: string;
+    title: string;
+  } | null>(null);
+  // IA en el chat: resumen, sugerencias y "mejorar".
+  const [aiSummaryOpen, setAiSummaryOpen] = useState(false);
+  const [aiSummary, setAiSummary] = useState('');
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [aiBusy, setAiBusy] = useState<'summary' | 'suggest' | 'rewrite' | null>(
+    null,
+  );
+  // Paleta de comandos (Ctrl/Cmd+K).
+  const [paletteOpen, setPaletteOpen] = useState(false);
   // Socket en estado (además del ref) para que useCall enganche sus listeners.
   const [socket, setSocket] = useState<Socket | null>(null);
 
@@ -676,6 +703,16 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
         refreshConversations();
       },
     );
+    // Recordatorio de reunión próxima → toast con "Unirse".
+    s.on(
+      'meeting:reminder',
+      (p: { id: string; conversationId: string; title: string }) => {
+        setMeetingReminder(p);
+        if (p.conversationId === activeIdRef.current) {
+          chatApi.listMeetings(p.conversationId).then(setMeetings).catch(() => {});
+        }
+      },
+    );
     socketRef.current = s;
     setSocket(s);
     return () => {
@@ -696,8 +733,21 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
     chatApi.listReads(activeId).then(setReads).catch(() => setReads([]));
     chatApi.listPinned(activeId).then(setPinned).catch(() => setPinned([]));
     chatApi.listScheduled(activeId).then(setScheduled).catch(() => setScheduled([]));
+    chatApi.listMeetings(activeId).then(setMeetings).catch(() => setMeetings([]));
     chatApi.markRead(activeId).then(refreshConversations).catch(() => {});
   }, [activeId, refreshConversations]);
+
+  // Atajo global: Ctrl/Cmd+K abre/cierra la paleta de comandos.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setPaletteOpen((o) => !o);
+      }
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   // Autoscroll: solo si el usuario ya estaba al final.
   useEffect(() => {
@@ -869,6 +919,15 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
   // Enviar: si estoy editando, guarda la edición; si no, envía (con cita).
   function submitText(text: string) {
     if (!activeId) return;
+    // Comando slash exacto (p. ej. "/encuesta") → ejecuta la acción, no envía.
+    if (!editingId) {
+      const cmd = exactCommand(text);
+      if (cmd) {
+        runCommand(cmd.id);
+        return;
+      }
+    }
+    setSuggestions([]);
     if (editingId) {
       const id = editingId;
       setEditingId(null);
@@ -1139,6 +1198,119 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
     }, 450);
   }
 
+  // ── IA en el chat (resumen / sugerencias / mejorar) ─────────────────────────
+  function recentTextLines(limit: number): string[] {
+    return messages
+      .filter((m) => m.type === 'text' && m.body && !specialKind(m.body))
+      .slice(-limit)
+      .map((m) => `${senderName(m.senderId, users)}: ${m.body}`);
+  }
+  async function catchUp() {
+    if (!messages.length) return;
+    setAiSummaryOpen(true);
+    setAiSummary('');
+    setAiBusy('summary');
+    try {
+      setAiSummary((await aiCatchUp(recentTextLines(40))) || 'Sin resumen.');
+    } catch {
+      setAiSummary('No se pudo generar el resumen.');
+    } finally {
+      setAiBusy(null);
+    }
+  }
+  async function suggestReplies() {
+    if (!messages.length) return;
+    setAiBusy('suggest');
+    try {
+      setSuggestions(await aiSuggestReplies(recentTextLines(12)));
+    } catch {
+      setSuggestions([]);
+    } finally {
+      setAiBusy(null);
+    }
+  }
+  async function rewriteDraft() {
+    const text = draft.trim();
+    if (!text) return;
+    setAiBusy('rewrite');
+    try {
+      const r = await aiRewrite(text);
+      if (r) setDraft(r);
+      else setError('La IA no devolvió una mejora.');
+    } catch (e) {
+      setError(`No se pudo mejorar: ${(e as Error).message}`);
+    } finally {
+      setAiBusy(null);
+    }
+  }
+
+  // ── reuniones programadas ───────────────────────────────────────────────────
+  async function addMeeting(data: {
+    title: string;
+    startAt: string;
+    durationMin: number;
+    recurrence: 'none' | 'daily' | 'weekly';
+  }) {
+    if (!activeId) return;
+    setMeetingOpen(false);
+    try {
+      const m = await chatApi.createMeeting(activeId, data);
+      setMeetings((prev) =>
+        [...prev, m].sort((a, b) => a.startAt.localeCompare(b.startAt)),
+      );
+    } catch (e) {
+      setError(`No se pudo crear la reunión: ${(e as Error).message}`);
+    }
+  }
+  async function removeMeeting(id: string) {
+    try {
+      await chatApi.cancelMeeting(id);
+      setMeetings((prev) => prev.filter((m) => m.id !== id));
+    } catch (e) {
+      setError(`No se pudo cancelar: ${(e as Error).message}`);
+    }
+  }
+  function joinMeeting(conversationId: string) {
+    setMeetingReminder(null);
+    if (conversationId !== activeIdRef.current) openConversation(conversationId);
+    startCall(conversationId, 'video');
+  }
+
+  // ── comandos slash ──────────────────────────────────────────────────────────
+  function runCommand(id: string) {
+    setDraft('');
+    saveDraft(activeId ?? '', '');
+    switch (id) {
+      case 'encuesta':
+        setPollOpen(true);
+        break;
+      case 'reunion':
+        setMeetingOpen(true);
+        break;
+      case 'programar':
+        setScheduleOpen(true);
+        break;
+      case 'ubicacion':
+        shareLocation();
+        break;
+      case 'gif':
+        setGifOpen(true);
+        break;
+      case 'contacto':
+        setContactPickerOpen(true);
+        break;
+      case 'tabla':
+        setDraft(tableTemplate());
+        break;
+      case 'aldia':
+        catchUp();
+        break;
+      case 'silenciar':
+        if (active) muteFor(active, 8);
+        break;
+    }
+  }
+
   // ── notificaciones de escritorio ───────────────────────────────────────────
   function requestNotifyPermission() {
     if (typeof window === 'undefined' || !('Notification' in window)) return;
@@ -1209,6 +1381,9 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
     setEditingId(null);
     setThreadRoot(null);
     setThreadReplies([]);
+    setMeetings([]);
+    setMeetingOpen(false);
+    setSuggestions([]);
     setDraft(loadDraft(id));
     requestNotifyPermission();
     atBottomRef.current = true;
@@ -1310,6 +1485,9 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
   const surface = single ? '' : glass;
   // Llamadas: DMs y canales (grupo). Necesita ≥2 miembros.
   const canCall = callsSupported() && !!active && active.memberIds.length >= 2;
+  // Canal de anuncios: solo el creador publica; el resto ve un aviso de solo lectura.
+  const canPost =
+    !active || !active.announcement || active.createdById === meId;
 
   const aside = (
     <aside
@@ -1655,7 +1833,15 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
                 </span>
               )}
               <div className="min-w-0">
-                <p className="truncate font-semibold">{active.title || 'Conversación'}</p>
+                <p className="flex items-center gap-1.5 truncate font-semibold">
+                  <span className="truncate">{active.title || 'Conversación'}</span>
+                  {active.announcement && (
+                    <Megaphone
+                      className="h-3.5 w-3.5 shrink-0 text-amber-500"
+                      aria-label="Canal de anuncios"
+                    />
+                  )}
+                </p>
                 <p className="text-xs text-gray-500">
                   {active.type === 'channel'
                     ? `${active.memberIds.length} miembros`
@@ -1705,6 +1891,23 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
                   title="Buscar en la conversación"
                 >
                   <Search className="h-5 w-5" />
+                </button>
+                <button
+                  onClick={catchUp}
+                  disabled={messages.length === 0}
+                  className="rounded-full p-2 text-gray-500 transition-colors hover:bg-black/5 focus-visible:ring-2 focus-visible:ring-blue-500/40 disabled:opacity-40 dark:hover:bg-white/10"
+                  aria-label="Ponerme al día (IA)"
+                  title="Ponerme al día (resumen con IA)"
+                >
+                  <Sparkles className="h-5 w-5" />
+                </button>
+                <button
+                  onClick={() => setMeetingOpen(true)}
+                  className="rounded-full p-2 text-gray-500 transition-colors hover:bg-black/5 focus-visible:ring-2 focus-visible:ring-blue-500/40 dark:hover:bg-white/10"
+                  aria-label="Programar reunión"
+                  title="Reuniones programadas"
+                >
+                  <CalendarPlus className="h-5 w-5" />
                 </button>
                 <button
                   onClick={() => setGalleryOpen(true)}
@@ -1951,6 +2154,56 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
 
           {/* Composer */}
           <div className="border-t border-black/5 p-3 dark:border-white/10">
+            {/* Próximas reuniones (informativo, siempre visible) */}
+            {meetings.length > 0 && (
+              <div className="mb-2 space-y-1">
+                {meetings.slice(0, 3).map((m) => (
+                  <div
+                    key={m.id}
+                    className={`${glass} flex items-center gap-2 rounded-xl px-3 py-1.5 text-xs`}
+                  >
+                    <Video className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-medium">{m.title}</span>
+                      <span className="block text-gray-500">
+                        {new Date(m.startAt).toLocaleString([], {
+                          weekday: 'short',
+                          day: '2-digit',
+                          month: '2-digit',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                        {m.recurrence !== 'none' &&
+                          ` · ${m.recurrence === 'daily' ? 'cada día' : 'cada semana'}`}
+                      </span>
+                    </span>
+                    <button
+                      onClick={() => joinMeeting(m.conversationId)}
+                      className="shrink-0 rounded-full bg-emerald-600 px-2.5 py-1 text-[11px] font-semibold text-white"
+                    >
+                      Unirse
+                    </button>
+                    {m.createdById === meId && (
+                      <button
+                        onClick={() => removeMeeting(m.id)}
+                        aria-label="Cancelar reunión"
+                        className="shrink-0 text-gray-400 hover:text-red-500"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {!canPost ? (
+              <div className="flex items-center justify-center gap-2 rounded-2xl bg-black/5 px-4 py-3 text-center text-sm text-gray-500 dark:bg-white/10">
+                <Megaphone className="h-4 w-4 shrink-0" />
+                Solo el administrador puede publicar en este canal de anuncios.
+              </div>
+            ) : (
+              <>
             {/* Mensajes programados pendientes */}
             {scheduled.length > 0 && (
               <div className="mb-2">
@@ -2058,6 +2311,83 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
                 </button>
               </div>
             )}
+            {/* Acciones de IA: sugerir respuesta / mejorar borrador */}
+            {!editingId && (
+              <div className="mb-1.5 flex items-center gap-1">
+                <button
+                  onClick={suggestReplies}
+                  disabled={aiBusy === 'suggest' || messages.length === 0}
+                  className="flex items-center gap-1 rounded-full bg-black/5 px-2.5 py-1 text-[11px] font-medium text-gray-600 hover:bg-black/10 disabled:opacity-50 dark:bg-white/10 dark:text-gray-300"
+                >
+                  {aiBusy === 'suggest' ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <Sparkles className="h-3 w-3 text-violet-500" />
+                  )}
+                  Sugerir respuesta
+                </button>
+                {draft.trim() && (
+                  <button
+                    onClick={rewriteDraft}
+                    disabled={aiBusy === 'rewrite'}
+                    className="flex items-center gap-1 rounded-full bg-black/5 px-2.5 py-1 text-[11px] font-medium text-gray-600 hover:bg-black/10 disabled:opacity-50 dark:bg-white/10 dark:text-gray-300"
+                  >
+                    {aiBusy === 'rewrite' ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <Wand2 className="h-3 w-3 text-violet-500" />
+                    )}
+                    Mejorar
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Menú de comandos slash */}
+            {!editingId &&
+              isSlashDraft(draft) &&
+              matchCommands(draft).length > 0 && (
+                <div className={`${glass} mb-2 overflow-hidden rounded-2xl`}>
+                  {matchCommands(draft).map((c) => (
+                    <button
+                      key={c.id}
+                      onClick={() => runCommand(c.id)}
+                      className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-black/5 dark:hover:bg-white/10"
+                    >
+                      <span className="font-mono text-blue-600 dark:text-blue-400">
+                        {c.label}
+                      </span>
+                      <span className="text-xs text-gray-500">{c.hint}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+            {/* Sugerencias de respuesta (IA) */}
+            {suggestions.length > 0 && !editingId && (
+              <div className="mb-2 flex flex-wrap items-center gap-1.5">
+                {suggestions.map((s, i) => (
+                  <button
+                    key={i}
+                    onClick={() => {
+                      setDraft(s);
+                      setSuggestions([]);
+                    }}
+                    className="rounded-full bg-blue-500/10 px-3 py-1 text-xs text-blue-700 hover:bg-blue-500/20 dark:text-blue-300"
+                  >
+                    {s}
+                  </button>
+                ))}
+                <button
+                  onClick={() => setSuggestions([])}
+                  aria-label="Descartar sugerencias"
+                  className="rounded-full p-1 text-gray-400 hover:text-gray-600"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            )}
+
             <MessageComposer
               value={draft}
               onChange={setDraft}
@@ -2077,6 +2407,8 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
               onShareLocation={shareLocation}
               onShareContact={() => setContactPickerOpen(true)}
             />
+              </>
+            )}
           </div>
         </>
       )}
@@ -2277,6 +2609,49 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
         />
       )}
 
+      {/* Reuniones programadas (lista + crear) */}
+      {meetingOpen && activeId && (
+        <MeetingModal
+          meetings={meetings}
+          meId={meId}
+          onClose={() => setMeetingOpen(false)}
+          onCreate={addMeeting}
+          onCancel={removeMeeting}
+          onJoin={(cid) => {
+            setMeetingOpen(false);
+            joinMeeting(cid);
+          }}
+        />
+      )}
+
+      {/* Resumen "Ponerme al día" (IA) */}
+      {aiSummaryOpen && (
+        <AiSummaryModal
+          summary={aiSummary}
+          loading={aiBusy === 'summary'}
+          onClose={() => setAiSummaryOpen(false)}
+        />
+      )}
+
+      {/* Paleta de comandos (Ctrl/Cmd+K) */}
+      {paletteOpen && (
+        <CommandPalette
+          conversations={conversations}
+          onClose={() => setPaletteOpen(false)}
+          onOpenConversation={(id) => {
+            setPaletteOpen(false);
+            openConversation(id);
+          }}
+          onAction={(id) => {
+            setPaletteOpen(false);
+            if (id === 'new-channel') setShowNewChannel(true);
+            else if (id === 'saved') openSaved();
+            else if (id === 'catchup') catchUp();
+            else if (id === 'meeting') setMeetingOpen(true);
+          }}
+        />
+      )}
+
       {/* Overlay de llamada (WebRTC, 1:1 y grupo) */}
       {call && (
         <CallOverlay
@@ -2343,6 +2718,36 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
             </span>
           </span>
         </button>
+      )}
+
+      {/* Toast de recordatorio de reunión */}
+      {meetingReminder && (
+        <div
+          className={`${glass} fixed bottom-6 left-1/2 z-[300] flex max-w-sm -translate-x-1/2 items-center gap-3 rounded-2xl px-4 py-3 shadow-lg`}
+        >
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-white">
+            <Video className="h-4 w-4" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-semibold">Reunión por empezar</span>
+            <span className="block truncate text-xs text-gray-500">
+              {meetingReminder.title}
+            </span>
+          </span>
+          <button
+            onClick={() => joinMeeting(meetingReminder.conversationId)}
+            className="shrink-0 rounded-full bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white"
+          >
+            Unirse
+          </button>
+          <button
+            onClick={() => setMeetingReminder(null)}
+            aria-label="Descartar"
+            className="shrink-0 rounded-full p-1 text-gray-400 hover:text-gray-600"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
       )}
     </div>
   );
@@ -3706,7 +4111,20 @@ function ChannelSettingsModal({
   const [adding, setAdding] = useState(false);
   const [addQuery, setAddQuery] = useState('');
   const [busy, setBusy] = useState(false);
+  const [announcement, setAnnouncementState] = useState(!!convo.announcement);
   const isCreator = (convo.createdById ?? null) === meId;
+
+  async function toggleAnnouncement() {
+    const next = !announcement;
+    setAnnouncementState(next);
+    try {
+      await chatApi.setAnnouncement(convo.id, next);
+      onChanged();
+    } catch (e) {
+      setAnnouncementState(!next);
+      onError(`No se pudo cambiar: ${(e as Error).message}`);
+    }
+  }
   const memberUsers = users.filter((u) => memberIds.includes(u.id));
   const nonMembers = users.filter(
     (u) =>
@@ -3875,6 +4293,25 @@ function ChannelSettingsModal({
             </div>
           ))}
         </div>
+
+        {isCreator && (
+          <label className="mt-4 flex items-start gap-2.5 rounded-2xl bg-black/5 p-3 text-sm dark:bg-white/10">
+            <input
+              type="checkbox"
+              checked={announcement}
+              onChange={toggleAnnouncement}
+              className="mt-0.5"
+            />
+            <span className="min-w-0">
+              <span className="flex items-center gap-1.5 font-medium">
+                <Megaphone className="h-4 w-4 text-amber-500" /> Canal de anuncios
+              </span>
+              <span className="block text-xs text-gray-500">
+                Solo el creador puede publicar; el resto solo lee.
+              </span>
+            </span>
+          </label>
+        )}
 
         <button
           onClick={leave}
@@ -4646,6 +5083,311 @@ function SavedModal({
   );
 }
 
+/** Reuniones programadas: lista de próximas + formulario para crear una nueva. */
+function MeetingModal({
+  meetings,
+  meId,
+  onClose,
+  onCreate,
+  onCancel,
+  onJoin,
+}: {
+  meetings: Meeting[];
+  meId: string;
+  onClose: () => void;
+  onCreate: (data: {
+    title: string;
+    startAt: string;
+    durationMin: number;
+    recurrence: 'none' | 'daily' | 'weekly';
+  }) => void;
+  onCancel: (id: string) => void;
+  onJoin: (conversationId: string) => void;
+}) {
+  const [title, setTitle] = useState('');
+  const [when, setWhen] = useState(() =>
+    localDatetimeValue(new Date(Date.now() + 3600000)),
+  );
+  const [duration, setDuration] = useState(30);
+  const [recurrence, setRecurrence] = useState<'none' | 'daily' | 'weekly'>(
+    'none',
+  );
+  const valid =
+    title.trim().length > 0 &&
+    !!when &&
+    new Date(when).getTime() > Date.now() - 60000;
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 p-4">
+      <div className={`${glass} flex max-h-[85vh] w-full max-w-md flex-col rounded-[24px] p-6`}>
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="flex items-center gap-2 text-lg font-semibold">
+            <CalendarPlus className="h-5 w-5 text-emerald-500" /> Reuniones
+          </h3>
+          <button
+            onClick={onClose}
+            className="rounded-full p-1 hover:bg-black/5 dark:hover:bg-white/10"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        {meetings.length > 0 && (
+          <div className="mb-4 space-y-1.5">
+            {meetings.map((m) => (
+              <div
+                key={m.id}
+                className="flex items-center gap-2 rounded-xl bg-black/5 px-3 py-2 text-sm dark:bg-white/10"
+              >
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate font-medium">{m.title}</span>
+                  <span className="block text-xs text-gray-500">
+                    {new Date(m.startAt).toLocaleString([], {
+                      weekday: 'short',
+                      day: '2-digit',
+                      month: '2-digit',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                    {m.recurrence !== 'none' && (
+                      <span className="ml-1 inline-flex items-center gap-0.5">
+                        <Repeat className="h-3 w-3" />
+                        {m.recurrence === 'daily' ? 'diaria' : 'semanal'}
+                      </span>
+                    )}
+                  </span>
+                </span>
+                <button
+                  onClick={() => onJoin(m.conversationId)}
+                  className="shrink-0 rounded-full bg-emerald-600 px-2.5 py-1 text-[11px] font-semibold text-white"
+                >
+                  Unirse
+                </button>
+                {m.createdById === meId && (
+                  <button
+                    onClick={() => onCancel(m.id)}
+                    aria-label="Cancelar reunión"
+                    className="shrink-0 text-gray-400 hover:text-red-500"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        <p className="mb-2 text-xs font-medium uppercase tracking-wide text-gray-400">
+          Nueva reunión
+        </p>
+        <input
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="Título de la reunión…"
+          className="mb-2 w-full rounded-xl bg-black/5 px-4 py-2 text-sm outline-none dark:bg-white/10"
+        />
+        <input
+          type="datetime-local"
+          value={when}
+          onChange={(e) => setWhen(e.target.value)}
+          className="mb-2 w-full rounded-xl bg-black/5 px-4 py-2 text-sm outline-none dark:bg-white/10"
+        />
+        <div className="mb-4 flex gap-2">
+          <select
+            value={duration}
+            onChange={(e) => setDuration(Number(e.target.value))}
+            className="flex-1 rounded-xl bg-black/5 px-3 py-2 text-sm outline-none dark:bg-white/10"
+          >
+            <option value={15}>15 min</option>
+            <option value={30}>30 min</option>
+            <option value={45}>45 min</option>
+            <option value={60}>1 hora</option>
+          </select>
+          <select
+            value={recurrence}
+            onChange={(e) =>
+              setRecurrence(e.target.value as 'none' | 'daily' | 'weekly')
+            }
+            className="flex-1 rounded-xl bg-black/5 px-3 py-2 text-sm outline-none dark:bg-white/10"
+          >
+            <option value="none">No se repite</option>
+            <option value="daily">Cada día</option>
+            <option value="weekly">Cada semana</option>
+          </select>
+        </div>
+        <button
+          onClick={() =>
+            onCreate({
+              title: title.trim(),
+              startAt: new Date(when).toISOString(),
+              durationMin: duration,
+              recurrence,
+            })
+          }
+          disabled={!valid}
+          className="w-full rounded-full bg-emerald-600 py-2.5 text-sm font-semibold text-white disabled:opacity-40"
+        >
+          Programar reunión
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** Modal con el resumen "Ponerme al día" generado por IA. */
+function AiSummaryModal({
+  summary,
+  loading,
+  onClose,
+}: {
+  summary: string;
+  loading: boolean;
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 p-4">
+      <div className={`${glass} w-full max-w-md rounded-[24px] p-6`}>
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="flex items-center gap-2 text-lg font-semibold">
+            <Sparkles className="h-5 w-5 text-violet-500" /> Ponerme al día
+          </h3>
+          <button
+            onClick={onClose}
+            className="rounded-full p-1 hover:bg-black/5 dark:hover:bg-white/10"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        {loading ? (
+          <div className="flex items-center justify-center gap-2 py-10 text-sm text-gray-400">
+            <Loader2 className="h-5 w-5 animate-spin" /> Resumiendo…
+          </div>
+        ) : (
+          <div className="max-h-[60vh] overflow-y-auto whitespace-pre-wrap text-sm leading-relaxed">
+            {summary}
+          </div>
+        )}
+        <p className="mt-3 text-[10px] text-gray-400">
+          Generado por IA · puede contener errores.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+/** Paleta de comandos (Ctrl/Cmd+K): saltar a chats y acciones rápidas. */
+function CommandPalette({
+  conversations,
+  onClose,
+  onOpenConversation,
+  onAction,
+}: {
+  conversations: ChatConversation[];
+  onClose: () => void;
+  onOpenConversation: (id: string) => void;
+  onAction: (id: string) => void;
+}) {
+  const [q, setQ] = useState('');
+  const [idx, setIdx] = useState(0);
+  const actions = [
+    { id: 'catchup', label: 'Ponerme al día (IA)' },
+    { id: 'meeting', label: 'Programar reunión' },
+    { id: 'new-channel', label: 'Nuevo canal' },
+    { id: 'saved', label: 'Mensajes guardados' },
+  ];
+  const ql = q.trim().toLowerCase();
+  const acts = actions.filter((a) => a.label.toLowerCase().includes(ql));
+  const convos = conversations
+    .filter((c) => (c.title || '').toLowerCase().includes(ql))
+    .slice(0, 8);
+  type Item =
+    | { kind: 'action'; id: string; label: string }
+    | { kind: 'convo'; id: string; label: string; type: 'dm' | 'channel' };
+  const items: Item[] = [
+    ...acts.map((a) => ({ kind: 'action' as const, id: a.id, label: a.label })),
+    ...convos.map((c) => ({
+      kind: 'convo' as const,
+      id: c.id,
+      label: c.title || 'Conversación',
+      type: c.type,
+    })),
+  ];
+  const clampedIdx = items.length ? Math.min(idx, items.length - 1) : 0;
+  const choose = (it: Item) => {
+    if (it.kind === 'action') onAction(it.id);
+    else onOpenConversation(it.id);
+  };
+  return (
+    <div
+      className="fixed inset-0 z-[350] flex items-start justify-center bg-black/40 p-4 pt-[12vh]"
+      onClick={onClose}
+    >
+      <div
+        className={`${glass} flex max-h-[60vh] w-full max-w-lg flex-col overflow-hidden rounded-[20px] shadow-2xl`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center gap-2 border-b border-black/5 px-4 py-3 dark:border-white/10">
+          <Command className="h-4 w-4 text-gray-400" />
+          <input
+            autoFocus
+            value={q}
+            onChange={(e) => {
+              setQ(e.target.value);
+              setIdx(0);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') onClose();
+              else if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                setIdx((i) => Math.min(i + 1, items.length - 1));
+              } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                setIdx((i) => Math.max(i - 1, 0));
+              } else if (e.key === 'Enter') {
+                e.preventDefault();
+                if (items[clampedIdx]) choose(items[clampedIdx]);
+              }
+            }}
+            placeholder="Buscar chats o acciones…"
+            className="w-full bg-transparent text-sm outline-none placeholder:text-gray-500"
+          />
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto p-1.5">
+          {items.length === 0 ? (
+            <p className="py-8 text-center text-sm text-gray-400">Sin resultados</p>
+          ) : (
+            items.map((it, i) => (
+              <button
+                key={`${it.kind}-${it.id}`}
+                onClick={() => choose(it)}
+                onMouseEnter={() => setIdx(i)}
+                className={`flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm ${
+                  i === clampedIdx
+                    ? 'bg-blue-500/15'
+                    : 'hover:bg-black/5 dark:hover:bg-white/10'
+                }`}
+              >
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-black/10 dark:bg-white/15">
+                  {it.kind === 'action' ? (
+                    <Command className="h-4 w-4" />
+                  ) : it.type === 'channel' ? (
+                    <Hash className="h-4 w-4" />
+                  ) : (
+                    <Send className="h-4 w-4" />
+                  )}
+                </span>
+                <span className="min-w-0 flex-1 truncate">{it.label}</span>
+                {it.kind === 'action' && (
+                  <span className="shrink-0 text-[10px] text-gray-400">acción</span>
+                )}
+              </button>
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function NewChannelModal({
   users,
   onClose,
@@ -4657,6 +5399,7 @@ function NewChannelModal({
 }) {
   const [name, setName] = useState('');
   const [selected, setSelected] = useState<string[]>([]);
+  const [announcement, setAnnouncement] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -4669,7 +5412,7 @@ function NewChannelModal({
     setBusy(true);
     setErr(null);
     try {
-      const convo = await chatApi.createChannel(name.trim(), selected);
+      const convo = await chatApi.createChannel(name.trim(), selected, announcement);
       onCreated(convo.id);
     } catch (e) {
       setErr(`No se pudo crear el canal: ${(e as Error).message}`);
@@ -4713,6 +5456,22 @@ function NewChannelModal({
             </button>
           ))}
         </div>
+        <label className="mb-4 flex items-start gap-2.5 rounded-2xl bg-black/5 p-3 text-sm dark:bg-white/10">
+          <input
+            type="checkbox"
+            checked={announcement}
+            onChange={(e) => setAnnouncement(e.target.checked)}
+            className="mt-0.5"
+          />
+          <span className="min-w-0">
+            <span className="flex items-center gap-1.5 font-medium">
+              <Megaphone className="h-4 w-4 text-amber-500" /> Canal de anuncios
+            </span>
+            <span className="block text-xs text-gray-500">
+              Solo tú podrás publicar; el resto solo lee.
+            </span>
+          </span>
+        </label>
         {err && (
           <p className="mb-3 rounded-xl bg-red-500/10 px-3 py-2 text-xs text-red-600 dark:text-red-300">
             {err}

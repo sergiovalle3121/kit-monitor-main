@@ -16,6 +16,7 @@ import { PollVote } from './entities/poll-vote.entity';
 import { ScheduledMessage } from './entities/scheduled-message.entity';
 import { ConversationLabel } from './entities/conversation-label.entity';
 import { SavedMessage } from './entities/saved-message.entity';
+import { Meeting, MeetingRecurrence } from './entities/meeting.entity';
 import { User } from '../users/entities/user.entity';
 import { ChatGateway } from './chat.gateway';
 
@@ -204,6 +205,8 @@ export class MessagingService {
     private readonly labels: Repository<ConversationLabel>,
     @InjectRepository(SavedMessage)
     private readonly saved: Repository<SavedMessage>,
+    @InjectRepository(Meeting)
+    private readonly meetings: Repository<Meeting>,
     @InjectRepository(User)
     private readonly users: Repository<User>,
     private readonly gateway: ChatGateway,
@@ -228,6 +231,25 @@ export class MessagingService {
     const m = await this.members.findOne({ where: { conversationId, userId } });
     if (!m)
       throw new ForbiddenException('No eres miembro de esta conversación');
+  }
+
+  /**
+   * Verifica membresía y, en canales de anuncios, que el usuario sea el creador
+   * (solo él publica). Llamada por todos los caminos de envío de mensajes.
+   */
+  private async assertCanPost(
+    conversationId: string,
+    userId: string,
+  ): Promise<void> {
+    await this.assertMember(conversationId, userId);
+    const convo = await this.conversations.findOne({
+      where: { id: conversationId },
+    });
+    if (convo?.announcement && convo.createdById !== userId) {
+      throw new ForbiddenException(
+        'Solo el administrador puede publicar en este canal de anuncios',
+      );
+    }
   }
 
   // ── usuarios del mismo tenant (para iniciar DM / armar canal) ───────────
@@ -288,6 +310,7 @@ export class MessagingService {
     meId: string,
     name: string,
     memberIds: string[],
+    announcement = false,
   ): Promise<Conversation> {
     if (!name?.trim())
       throw new BadRequestException('El canal necesita un nombre');
@@ -300,6 +323,7 @@ export class MessagingService {
         type: 'channel',
         name: name.trim(),
         createdById: meId,
+        announcement: !!announcement,
       }),
     );
     await this.members.save(
@@ -308,6 +332,26 @@ export class MessagingService {
       ),
     );
     return convo;
+  }
+
+  /** Activa/desactiva el modo "canal de anuncios" (solo el creador). */
+  async setAnnouncement(
+    meId: string,
+    conversationId: string,
+    announcement: boolean,
+  ) {
+    const convo = await this.getChannelOrThrow(conversationId);
+    if (convo.createdById !== meId) {
+      throw new ForbiddenException('Solo el creador puede cambiar este ajuste');
+    }
+    await this.conversations.update(conversationId, {
+      announcement: !!announcement,
+    });
+    this.gateway.emitConversationUpdate(
+      await this.memberIdsOf(conversationId),
+      conversationId,
+    );
+    return { ok: true, announcement: !!announcement };
   }
 
   // ── administración de canales (miembros / nombre / salir) ─────────────────
@@ -420,6 +464,7 @@ export class MessagingService {
         counterpartId,
         createdById: convo.createdById,
         disappearingSeconds: convo.disappearingSeconds ?? 0,
+        announcement: !!convo.announcement,
         memberIds,
         lastMessage: last
           ? {
@@ -653,7 +698,7 @@ export class MessagingService {
     body: string,
     replyToId?: string,
   ) {
-    await this.assertMember(conversationId, meId);
+    await this.assertCanPost(conversationId, meId);
     const text = body?.trim();
     if (!text) throw new BadRequestException('Mensaje vacío');
     if (text.length > MAX_TEXT_LENGTH) {
@@ -745,7 +790,7 @@ export class MessagingService {
     file: { buffer: Buffer; mimetype: string; size: number } | undefined,
     replyToId?: string,
   ) {
-    await this.assertMember(conversationId, meId);
+    await this.assertCanPost(conversationId, meId);
     if (!file) throw new BadRequestException('No se recibió archivo');
     if (!file.mimetype?.startsWith('image/')) {
       throw new BadRequestException('El archivo no es una imagen');
@@ -825,7 +870,7 @@ export class MessagingService {
       | undefined,
     replyToId?: string,
   ) {
-    await this.assertMember(conversationId, meId);
+    await this.assertCanPost(conversationId, meId);
     if (!file) throw new BadRequestException('No se recibió archivo');
     if (file.size > MAX_FILE_BYTES) {
       throw new BadRequestException('El archivo supera el límite de 25 MB');
@@ -1075,7 +1120,7 @@ export class MessagingService {
     if (src.type === 'call') {
       throw new BadRequestException('No se puede reenviar este mensaje');
     }
-    await this.assertMember(targetConversationId, meId); // miembro del destino
+    await this.assertCanPost(targetConversationId, meId); // permiso en el destino
 
     const msg = await this.messages.save(
       this.messages.create({
@@ -1238,7 +1283,7 @@ export class MessagingService {
     options: string[],
     multi: boolean,
   ) {
-    await this.assertMember(conversationId, meId);
+    await this.assertCanPost(conversationId, meId);
     const q = (question ?? '').trim();
     const opts = (options ?? [])
       .map((o) => (o ?? '').trim())
@@ -1308,7 +1353,7 @@ export class MessagingService {
     body: string,
     sendAt: string,
   ) {
-    await this.assertMember(conversationId, meId);
+    await this.assertCanPost(conversationId, meId);
     const text = (body ?? '').trim();
     if (!text) throw new BadRequestException('Mensaje vacío');
     const when = new Date(sendAt);
@@ -1713,5 +1758,130 @@ export class MessagingService {
       return { html, finalUrl: current.toString() };
     }
     return null;
+  }
+
+  // ── reuniones programadas ──────────────────────────────────────────────────
+  async createMeeting(
+    meId: string,
+    conversationId: string,
+    title: string,
+    startAtIso: string,
+    durationMin: number,
+    recurrence: string,
+  ) {
+    await this.assertMember(conversationId, meId);
+    const t = (title ?? '').trim().slice(0, 160);
+    if (!t) throw new BadRequestException('La reunión necesita un título');
+    const when = new Date(startAtIso);
+    if (isNaN(when.getTime())) throw new BadRequestException('Fecha inválida');
+    const rec: MeetingRecurrence =
+      recurrence === 'daily' || recurrence === 'weekly' ? recurrence : 'none';
+    const dur = Math.max(5, Math.min(1440, Math.floor(Number(durationMin) || 30)));
+    const row = await this.meetings.save(
+      this.meetings.create({
+        conversationId,
+        createdById: meId,
+        title: t,
+        startAt: when,
+        durationMin: dur,
+        recurrence: rec,
+      }),
+    );
+    this.gateway.emitConversationUpdate(
+      await this.memberIdsOf(conversationId),
+      conversationId,
+    );
+    return this.meetingDto(row);
+  }
+
+  async listMeetings(meId: string, conversationId: string) {
+    await this.assertMember(conversationId, meId);
+    const rows = await this.meetings.find({
+      where: { conversationId, canceledAt: IsNull() },
+      order: { startAt: 'ASC' },
+      take: 50,
+    });
+    const now = Date.now();
+    return rows
+      .filter((m) => new Date(m.startAt).getTime() + m.durationMin * 60000 > now)
+      .map((m) => this.meetingDto(m));
+  }
+
+  async cancelMeeting(meId: string, id: string) {
+    const m = await this.meetings.findOne({ where: { id } });
+    if (!m) throw new NotFoundException('Reunión no encontrada');
+    await this.assertMember(m.conversationId, meId);
+    if (m.createdById !== meId) {
+      throw new ForbiddenException('Solo quien la creó puede cancelarla');
+    }
+    await this.meetings.update(id, { canceledAt: new Date() });
+    this.gateway.emitConversationUpdate(
+      await this.memberIdsOf(m.conversationId),
+      m.conversationId,
+    );
+    return { ok: true };
+  }
+
+  private meetingDto(m: Meeting) {
+    return {
+      id: m.id,
+      conversationId: m.conversationId,
+      createdById: m.createdById,
+      title: m.title,
+      startAt: m.startAt,
+      durationMin: m.durationMin,
+      recurrence: m.recurrence,
+    };
+  }
+
+  /** Recordatorios: avisa ~5 min antes y adelanta las recurrentes ya pasadas. */
+  @Interval(60000)
+  async sweepMeetingReminders(): Promise<void> {
+    const now = Date.now();
+    const soon = new Date(now + 5 * 60000);
+    const due = await this.meetings.find({
+      where: {
+        canceledAt: IsNull(),
+        remindedAt: IsNull(),
+        startAt: LessThanOrEqual(soon),
+      },
+      take: 100,
+    });
+    for (const m of due) {
+      const memberIds = await this.memberIdsOf(m.conversationId);
+      this.gateway.emitMeetingReminder(memberIds, {
+        id: m.id,
+        conversationId: m.conversationId,
+        title: m.title,
+        startAt: m.startAt,
+      });
+      await this.meetings.update(m.id, { remindedAt: new Date() });
+    }
+    // Recurrentes cuya ocurrencia ya terminó → adelantar a la siguiente.
+    const passed = await this.meetings.find({
+      where: {
+        canceledAt: IsNull(),
+        recurrence: Not('none'),
+        startAt: LessThanOrEqual(new Date(now)),
+      },
+      take: 100,
+    });
+    for (const m of passed) {
+      const endsAt = new Date(m.startAt).getTime() + m.durationMin * 60000;
+      if (endsAt > now) continue; // aún en curso
+      const next = this.nextOccurrence(new Date(m.startAt), m.recurrence, now);
+      await this.meetings.update(m.id, { startAt: next, remindedAt: null });
+    }
+  }
+
+  private nextOccurrence(
+    from: Date,
+    rec: MeetingRecurrence,
+    now: number,
+  ): Date {
+    const step = rec === 'daily' ? 86400000 : 7 * 86400000;
+    let t = from.getTime();
+    while (t <= now) t += step;
+    return new Date(t);
   }
 }
