@@ -19,6 +19,7 @@ import {
   Zap,
   X,
   Pencil,
+  AlertTriangle,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -100,11 +101,27 @@ interface Proposal {
   model?: string | null;
 }
 
+interface KpiAlert {
+  key: string;
+  name: string;
+  value: number;
+  unit: string | null;
+  target: number | null;
+  severity: 'warning' | 'critical';
+  kind: 'target' | 'trend';
+  message: string;
+}
+
 const SEVERITY_STYLE: Record<string, string> = {
   critical: 'bg-red-500/10 text-red-600 dark:text-red-300',
   high: 'bg-orange-500/10 text-orange-600 dark:text-orange-300',
   medium: 'bg-amber-500/10 text-amber-600 dark:text-amber-300',
+  warning: 'bg-amber-500/10 text-amber-600 dark:text-amber-300',
   low: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-300',
+};
+const ALERT_BORDER: Record<string, string> = {
+  critical: 'border-red-500/30',
+  warning: 'border-amber-500/30',
 };
 
 const DOMAIN_COLOR: Record<string, string> = {
@@ -152,6 +169,7 @@ export default function IntelligencePage() {
   const [trend, setTrend] = useState<Trend | null>(null);
   const [breakdown, setBreakdown] = useState<Breakdown | null>(null);
   const [proposals, setProposals] = useState<Proposal[]>([]);
+  const [alerts, setAlerts] = useState<KpiAlert[]>([]);
   const [history, setHistory] = useState<Record<string, { day: string; value: number }[]>>({});
   const [acting, setActing] = useState<number | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -197,7 +215,7 @@ export default function IntelligencePage() {
   useEffect(() => {
     async function load() {
       try {
-        const [c, v, t, b, p, h] = await Promise.all([
+        const [c, v, t, b, p, h, a] = await Promise.all([
           fetch('/api/semantic/catalog', { cache: 'no-store' }),
           fetch('/api/semantic/values', { cache: 'no-store' }),
           fetch('/api/analytics/ledger-trend?days=14', { cache: 'no-store' }),
@@ -208,6 +226,7 @@ export default function IntelligencePage() {
             cache: 'no-store',
           }),
           fetch('/api/semantic/history?days=30', { cache: 'no-store' }),
+          fetch('/api/semantic/alerts', { cache: 'no-store' }),
         ]);
         if (c.ok) setCatalog(await c.json());
         if (v.ok) {
@@ -221,6 +240,10 @@ export default function IntelligencePage() {
           setProposals(Array.isArray(rows) ? rows : []);
         }
         if (h.ok) setHistory(await h.json());
+        if (a.ok) {
+          const rows = await a.json();
+          setAlerts(Array.isArray(rows) ? rows : []);
+        }
       } finally {
         setLoading(false);
       }
@@ -282,6 +305,39 @@ export default function IntelligencePage() {
           para responder con cifras gobernadas y consistentes.
         </p>
       </div>
+
+      {/* ── Alertas de KPI ── */}
+      {alerts.length > 0 && (
+        <section className="mb-8">
+          <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold">
+            <AlertTriangle className="h-4 w-4 text-amber-500" /> Alertas de KPI
+            <span className="text-black/40 dark:text-white/40">
+              · fuera de objetivo o tendencia adversa ({alerts.length})
+            </span>
+          </h2>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {alerts.map((al) => (
+              <div
+                key={`${al.key}-${al.kind}`}
+                className={`${glass} flex items-start gap-2 rounded-2xl border p-3 ${ALERT_BORDER[al.severity] ?? ''}`}
+              >
+                <AlertTriangle
+                  className={`mt-0.5 h-4 w-4 shrink-0 ${al.severity === 'critical' ? 'text-red-500' : 'text-amber-500'}`}
+                />
+                <div className="min-w-0">
+                  <p className="text-sm leading-snug">{al.message}</p>
+                  <span
+                    className={`mt-1 inline-block rounded-md px-1.5 py-0.5 text-[10px] font-semibold ${SEVERITY_STYLE[al.severity] ?? ''}`}
+                  >
+                    {al.severity}
+                    {al.kind === 'trend' ? ' · tendencia' : ' · objetivo'}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* ── Acciones sugeridas (autopilot) ── */}
       {proposals.length > 0 && (

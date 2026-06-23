@@ -38,6 +38,7 @@ interface MetricDef {
   formula: string | null;
   direction: string | null;
   version: number;
+  config: { target?: number } | null;
 }
 interface ObjectDef {
   key: string;
@@ -115,6 +116,10 @@ export default function SemanticEditorPage() {
       grain: m?.grain ?? '',
       formula: m?.formula ?? '',
       direction: m?.direction ?? '',
+      target:
+        m?.config && typeof m.config.target === 'number'
+          ? String(m.config.target)
+          : '',
     });
     setPanel({ kind: 'metric', isNew: !m });
   }
@@ -162,6 +167,8 @@ export default function SemanticEditorPage() {
           grain: form.grain || undefined,
           formula: form.formula || undefined,
           direction: form.direction || undefined,
+          // empty clears the target (null); a number sets it.
+          target: form.target?.trim() ? Number(form.target) : null,
         };
       } else if (panel.kind === 'object') {
         url = '/api/semantic/objects';
@@ -344,6 +351,17 @@ export default function SemanticEditorPage() {
                     <option value="up">sube (up)</option>
                     <option value="down">baja (down)</option>
                   </select>
+                </Field>
+                <Field label="Objetivo (target, para alertas)">
+                  <input
+                    type="number"
+                    className={input}
+                    value={form.target}
+                    placeholder="vacío = sin alerta"
+                    onChange={(e) =>
+                      setForm({ ...form, target: e.target.value })
+                    }
+                  />
                 </Field>
                 <Field label="Fórmula / definición" full>
                   <textarea

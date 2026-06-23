@@ -320,6 +320,27 @@ export class AiToolsService {
         },
       },
       {
+        name: 'kpi_alerts',
+        description:
+          'Alertas proactivas de KPIs: métricas que cruzan su objetivo (target) o que muestran una tendencia adversa, con severidad (warning/critical). Úsalo para "¿qué KPIs están fuera de objetivo / en alerta / empeorando?".',
+        requiredPermission: null,
+        mockTriggers: [
+          'alerta',
+          'fuera de objetivo',
+          'en rojo',
+          'empeorando',
+          'objetivo',
+          'umbral',
+          'en riesgo',
+        ],
+        input_schema: schema(),
+        run: (_i, ctx) =>
+          this.svc(SemanticService).evaluateAlerts(
+            { isAdmin: ctx.isAdmin, permissions: ctx.permissions },
+            tenantOf(ctx),
+          ),
+      },
+      {
         name: 'analyze_trend',
         description:
           'Tendencia de actividad en el tiempo a partir del Event Ledger: serie diaria de eventos, variación semana-contra-semana y una narrativa. Úsalo para preguntas de evolución/tendencia ("¿cómo ha ido…?", "¿subió o bajó…?"). Filtros: days (1–90, default 14), domain.',
