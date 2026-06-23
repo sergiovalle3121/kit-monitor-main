@@ -30,6 +30,7 @@ import ScenarioCompare from './ScenarioCompare';
 import StandardWork from './StandardWork';
 import DossierExport from './DossierExport';
 import FlexLine from './FlexLine';
+import { ASSET_CATALOG, assetMeta } from './asset-catalog';
 // three.js is heavy — lazy-load the 3D view so it only ships when opened.
 const Layout3D = dynamic(() => import('./Layout3D'), { ssr: false });
 const Layout3DEditor = dynamic(() => import('./Layout3DEditor'), { ssr: false });
@@ -177,19 +178,10 @@ interface LayoutReport {
   balance: { balancePct: number; bottleneckStation: string | null; lineCycleTimeSec: number; stationCount: number } | null;
 }
 
-// Equipment / asset palette (Fase 5). `w`/`h` are default sizes in layout units.
-const ASSET_KINDS: { kind: string; label: string; color: string; fill: string; w: number; h: number }[] = [
-  { kind: 'workbench', label: 'Mesa', color: '#3b82f6', fill: 'rgba(59,130,246,0.10)', w: 1200, h: 800 },
-  { kind: 'conveyor', label: 'Transportador', color: '#7c3aed', fill: 'rgba(124,58,237,0.10)', w: 2400, h: 500 },
-  { kind: 'rack', label: 'Rack', color: '#f59e0b', fill: 'rgba(245,158,11,0.10)', w: 900, h: 450 },
-  { kind: 'robot', label: 'Robot', color: '#ef4444', fill: 'rgba(239,68,68,0.10)', w: 700, h: 700 },
-  { kind: 'aoi', label: 'AOI', color: '#10b981', fill: 'rgba(16,185,129,0.10)', w: 900, h: 700 },
-  { kind: 'oven', label: 'Horno', color: '#f97316', fill: 'rgba(249,115,22,0.10)', w: 1800, h: 900 },
-  { kind: 'printer', label: 'Impresora', color: '#64748b', fill: 'rgba(100,116,139,0.10)', w: 600, h: 500 },
-  { kind: 'wall', label: 'Muro', color: '#94a3b8', fill: 'rgba(148,163,184,0.20)', w: 3000, h: 150 },
-  { kind: 'zone', label: 'Zona', color: '#0ea5e9', fill: 'rgba(14,165,233,0.06)', w: 3000, h: 2000 },
-];
-const ASSET_META = (kind: string) => ASSET_KINDS.find((k) => k.kind === kind) ?? ASSET_KINDS[0];
+// Equipment / asset palette (Fase 5) — canonical list shared with the 3D CAD
+// editor so both views agree on dimensions, colours and vocabulary.
+const ASSET_KINDS = ASSET_CATALOG;
+const ASSET_META = assetMeta;
 
 interface LayoutAsset { id: string; kind: string; x: number; y: number; w: number; h: number; rotation: number; label?: string }
 interface LayoutAnnotation { id: string; type: 'text' | 'dim'; x: number; y: number; x2?: number; y2?: number; text?: string; color?: string }
