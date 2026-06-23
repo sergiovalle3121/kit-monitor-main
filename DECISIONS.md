@@ -1995,4 +1995,71 @@ nombre y con nombre, sin secciones, título activo heredado, `isSectionStart`, `
 rellena/recorta/vacía, `removeSectionAt`, `sectionCount`). Sin regresiones: las 55 suites de spec de
 Office verdes; `lint web` 0 errores; `build web` ✓.
 
+## 85. CIDE — snapshots y alertas diarias por tenant (Fase 14a)
+
+**Contexto.** El job diario de CIDE (`@Cron EVERY_DAY_AT_2AM`, §22/§24) capturaba
+snapshots de KPI y empujaba alertas críticas **solo** para el tenant por defecto.
+En un despliegue multi-tenant eso dejaba al resto de empresas sin histórico de
+métricas (sparklines, tendencias, what-if) ni notificaciones proactivas.
+
+**Decisión (sólo `apps/api`, aditiva).** `SemanticService.listTenants()` enumera los
+tenants con catálogo (`SELECT DISTINCT tenantId` sobre `MetricDefinition`) e
+**incluye siempre** el tenant por defecto. `handleDailySnapshot()` itera todos esos
+tenants: por cada uno captura snapshots y notifica alertas. **Aislamiento de fallos:**
+cada tenant corre en su propio `try/catch`, de modo que un error en uno no detiene al
+resto; si la enumeración falla, recae con seguridad en el tenant por defecto
+(comportamiento previo). El aislamiento por `tenantId` ya existente se respeta en cada
+llamada, sin fugas entre tenants.
+
+**Sin entidades nuevas.** Build API ✓, 810/810 tests; smoke de bootstrap vs Postgres ✓. PR #501.
+
+## 86. CIDE — persistencia de tarjetas e historial de conversaciones (Fase 14b)
+
+**Contexto.** Las conversaciones con CIDE ya se persistían (`AiConversation`/`AiMessage`,
+§18) y existían los endpoints `GET /api/ai/conversations` y `/conversations/:id`, pero
+**la UI nunca los consumía** y el mensaje del asistente **no guardaba las tarjetas**
+(§30): se construían en vivo y se perdían al cerrar el panel o recargar.
+
+**Decisión (aditiva).** *Backend:* `AiMessage` gana una columna `cards` (JSON, **nullable**)
+que guarda las tarjetas del turno (KPI · sparkline · barras · acciones); `chat()` persiste
+`result.cards` junto al texto y las herramientas; `getConversation()` las devuelve con los
+mensajes automáticamente. *Frontend (`Cide.tsx`):* panel de **historial** —botón
+*Historial* (lista las conversaciones del usuario con antigüedad relativa; al elegir una la
+recarga completa **con sus tarjetas y herramientas**) y botón *Nueva conversación*. El
+compositor se oculta en la vista de historial; la conversación activa se resalta.
+
+Con esto, cada análisis de CIDE es un **artefacto durable y reabrible** en vez de un
+intercambio efímero. Build API ✓, 817/817 tests; lint web 0 errores; build web ✓. PR #505.
+
+## 87. Centro de Inteligencia — Resumen de decisión / Decision Briefs (Fase 15)
+
+**Contexto.** El monitoreo (KPIs §16, snapshots §22, alertas §24) mostraba el *estado*,
+pero no una **síntesis accionable**: qué mejoró, qué vigilar y qué atender primero. Faltaba
+el paso de *datos* a *decisión*, y que esa decisión **quedara en registro** (espíritu
+Palantir/MicroStrategy).
+
+**Decisión (módulo `semantic`, aditiva).** Entidad `DecisionBrief` (`sem_decision_brief`,
+tabla prefijada §8): `headline`, `summary`, `metrics`/`alerts` en JSON, conteos de alertas;
+una por tenant por día. `BriefsService` genera el resumen de forma **determinista** —sin
+depender del motor de inferencia, así funciona en cualquier despliegue y queda auditable
+(CIDE podrá enriquecer la narrativa después sin romper el contrato): clasifica los KPI por
+*movers* (mayor variación en 14 días), marca si la variación es **favorable** según la
+`direction` de la métrica, y compone titular + narrativa en español. **Cron diario a las 3 AM**
+que abanica todos los tenants (tras el snapshot de las 2 AM, §85); **idempotente por día**
+(re-generar refresca la misma fila). Endpoints admin `GET /semantic/briefs` (último +
+historial), `GET /semantic/briefs/:id`, `POST /semantic/briefs/generate`. Para evitar una
+dependencia circular, el sentido es único `BriefsService → SemanticService` (se hizo
+`listTenants()` público); ninguna importación inversa.
+
+**Frontend.** Panel **«Resumen de decisión»** para admins en la cabecera del Centro de
+Inteligencia: titular, narrativa, **chips de KPI con su variación** (flecha verde/roja según
+la dirección) y badge de alertas críticas; botón *Generar / Actualizar* bajo demanda.
+
+**Verificación.** Build API ✓, 817/817 tests; lint web 0 errores; build web ✓; smoke de
+bootstrap vs Postgres ✓ (la entidad nueva materializa con `synchronize:true`). PR #509.
+
+> **Nota de proceso (Fases 14–15).** Como con §74–76, estas entradas se saldaron en un
+> PR-doc separado para no chocar con la carrera de merges de `main` sobre `DECISIONS.md`;
+> las ramas de feature se mantuvieron **solo-código**.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
