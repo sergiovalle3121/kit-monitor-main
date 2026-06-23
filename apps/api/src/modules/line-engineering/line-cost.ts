@@ -75,9 +75,14 @@ const UNIT_TO_M: Record<string, number> = {
   ft: 0.3048,
 };
 
+/** Metres per one layout unit (unknown unit → mm). */
+export function unitToMeters(unit: string): number {
+  return UNIT_TO_M[(unit || 'mm').toLowerCase()] ?? UNIT_TO_M.mm;
+}
+
 /** Convert an area expressed in `unit²` to square metres (unknown unit → mm). */
 export function areaToM2(area: number, unit: string): number {
-  const f = UNIT_TO_M[(unit || 'mm').toLowerCase()] ?? UNIT_TO_M.mm;
+  const f = unitToMeters(unit);
   return Math.max(0, Number(area) || 0) * f * f;
 }
 

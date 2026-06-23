@@ -291,6 +291,38 @@ describe('LineEngineeringService (integration)', () => {
     expect(cmp.verdict).toBe('tie');
   });
 
+  it('builds the standard work table adding walk to manual (Fase 38)', async () => {
+    await seedRoute(); // EST-10 40s, EST-20 55s, EST-30 30s
+    const before = await service.getLayout('AX-1000');
+    const id = Object.fromEntries(
+      before.stations.map((s) => [s.station, s.id]),
+    );
+    // Place EST-10 and EST-20 exactly 10 m apart (centers), EST-30 elsewhere.
+    await service.saveLayout({
+      model: 'AX-1000',
+      positions: [
+        { id: id['EST-10'], x: 0, y: 0, w: 200, h: 200, rotation: 0 },
+        { id: id['EST-20'], x: 10000, y: 0, w: 200, h: 200, rotation: 0 },
+        { id: id['EST-30'], x: 0, y: 5000, w: 200, h: 200, rotation: 0 },
+      ],
+    });
+    const sw = await service.getStandardWork({
+      model: 'AX-1000',
+      taktTargetSec: 100,
+      walkSpeedMps: 1,
+    });
+    expect(sw.cadenceSec).toBe(100);
+    expect(sw.unit).toBe('mm');
+    // [EST-10,EST-20] grouped (95s manual); walk 2×10 m = 20 s → 115 s busts takt.
+    const l0 = sw.loops[0];
+    expect(l0.steps.map((s) => s.station)).toEqual(['EST-10', 'EST-20']);
+    expect(l0.manualSec).toBe(95);
+    expect(l0.walkSec).toBe(20);
+    expect(l0.totalSec).toBe(115);
+    expect(l0.withinTakt).toBe(false);
+    expect(sw.loopsOverTakt).toBeGreaterThanOrEqual(1);
+  });
+
   it('reports per-station documentation completeness (Fase 19)', async () => {
     await seedRoute(); // 3 stations, all with NP + factor + aid → complete
     // Add a station missing its visual aid.
