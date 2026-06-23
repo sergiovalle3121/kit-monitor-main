@@ -342,7 +342,7 @@ export default function PullMonitor() {
         <div className={`${glass} mb-5 rounded-2xl p-5`}>
           <div className="mb-4 flex items-center justify-between">
             <h3 className="font-semibold">Crear pull · pedido de material</h3>
-            <button onClick={() => setShowForm(false)} className="rounded-lg p-1.5 hover:bg-black/5 dark:hover:bg-white/10"><X className="h-4 w-4" /></button>
+            <button aria-label="Cerrar" onClick={() => setShowForm(false)} className="rounded-lg p-1.5 hover:bg-black/5 dark:hover:bg-white/10"><X className="h-4 w-4" /></button>
           </div>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <label className="block">
@@ -406,7 +406,7 @@ export default function PullMonitor() {
               <h3 className="font-semibold">Importar resurtidos del piso (e-kanban)</h3>
               <p className="text-[12px] text-gray-400">Trae los llamados de resurtido abiertos (generados por el surtido de kits) como pulls. Elige de qué almacén se surten.</p>
             </div>
-            <button onClick={() => setShowImport(false)} className="rounded-lg p-1.5 hover:bg-black/5 dark:hover:bg-white/10"><X className="h-4 w-4" /></button>
+            <button aria-label="Cerrar" onClick={() => setShowImport(false)} className="rounded-lg p-1.5 hover:bg-black/5 dark:hover:bg-white/10"><X className="h-4 w-4" /></button>
           </div>
           <div className="flex flex-wrap items-end gap-3">
             <label className="block">
@@ -453,6 +453,7 @@ export default function PullMonitor() {
               <div key={g.id} className={`${glass} overflow-hidden rounded-2xl`}>
                 <button
                   type="button"
+                  aria-expanded={!isCol}
                   onClick={() => setCollapsed((c) => ({ ...c, [g.id]: !c[g.id] }))}
                   className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-black/[0.03] dark:hover:bg-white/[0.04]"
                 >
@@ -539,7 +540,7 @@ function PullRow({
             <button type="button" disabled={busy !== null} onClick={() => onAct(p, 'deliver')} title="Entregar" className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[12px] font-medium disabled:opacity-50" style={{ background: `${GREEN}1f`, color: GREEN }}>
               {busy === `${p.id}-deliver` ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />} Entregar
             </button>
-            <button type="button" disabled={busy !== null} onClick={() => onAct(p, 'cancel')} title="Cancelar" className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[12px] font-medium disabled:opacity-50" style={{ background: `${RED}1f`, color: RED }}>
+            <button type="button" aria-label="Cancelar pull" disabled={busy !== null} onClick={() => onAct(p, 'cancel')} title="Cancelar" className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[12px] font-medium disabled:opacity-50" style={{ background: `${RED}1f`, color: RED }}>
               {busy === `${p.id}-cancel` ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <XCircle className="h-3.5 w-3.5" />}
             </button>
           </>

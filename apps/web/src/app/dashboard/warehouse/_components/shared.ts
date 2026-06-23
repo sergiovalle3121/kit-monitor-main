@@ -46,6 +46,7 @@ export interface Pull {
   slaMinutes?: number | null;
   deliveredAt?: string | null;
   canceledAt?: string | null;
+  completedAt?: string | null;
   createdAt?: string | null;
   // Decoración del servidor
   warehouseName?: string;
@@ -123,13 +124,19 @@ export function effectiveSla(slaMinutes?: number | null): number {
   return slaMinutes && slaMinutes > 0 ? slaMinutes : DEFAULT_PULL_SLA_MINUTES;
 }
 
-/** Minutos de aging: de createdAt a deliveredAt/canceledAt si cerró, o a `now`. */
+/** Minutos de aging: de createdAt a su cierre (entregado/cancelado/completado) si
+ * cerró, o a `now` si sigue abierto. Congela el aging de los pulls cerrados aunque
+ * sólo traigan completedAt (tareas cerradas por la vía clásica). */
 export function computeAgingMinutes(p: Pull, now: number = Date.now()): number {
   if (!p.createdAt) return p.agingMinutes ?? 0;
   const start = new Date(p.createdAt).getTime();
   if (Number.isNaN(start)) return p.agingMinutes ?? 0;
-  const closed = p.deliveredAt || p.canceledAt || (p.status === 'completed' ? p.deliveredAt : null);
-  const end = closed ? new Date(closed).getTime() : now;
+  const closedAt = p.deliveredAt || p.canceledAt || ((p.status === 'completed' || p.status === 'cancelled') ? p.completedAt : null);
+  let end = now;
+  if (closedAt) {
+    const t = new Date(closedAt).getTime();
+    if (!Number.isNaN(t)) end = t;
+  }
   const mins = Math.floor((end - start) / 60000);
   return mins > 0 ? mins : 0;
 }

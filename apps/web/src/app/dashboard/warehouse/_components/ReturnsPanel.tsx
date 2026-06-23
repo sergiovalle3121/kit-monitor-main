@@ -183,7 +183,7 @@ export default function ReturnsPanel() {
         <div className={`${glass} mb-5 rounded-2xl p-5`}>
           <div className="mb-4 flex items-center justify-between">
             <h3 className="font-semibold">Registrar devolución</h3>
-            <button onClick={() => setShowForm(false)} className="rounded-lg p-1.5 hover:bg-black/5 dark:hover:bg-white/10"><X className="h-4 w-4" /></button>
+            <button aria-label="Cerrar" onClick={() => setShowForm(false)} className="rounded-lg p-1.5 hover:bg-black/5 dark:hover:bg-white/10"><X className="h-4 w-4" /></button>
           </div>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <label className="block">

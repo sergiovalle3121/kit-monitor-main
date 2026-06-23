@@ -37,7 +37,7 @@ export default function AnalyticsPanel() {
     return <div className="flex justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-gray-400" /></div>;
   }
 
-  if (!a || a.totals.total === 0) {
+  if (!a?.totals || a.totals.total === 0) {
     return (
       <EmptyState
         icon={LineChartIcon}

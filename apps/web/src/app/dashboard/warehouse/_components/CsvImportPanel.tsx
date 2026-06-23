@@ -134,7 +134,7 @@ export default function CsvImportPanel({ onClose, onImported }: { onClose: () =>
             Sube un archivo CSV y se crea un pull por fila. Columnas: <code className="text-[11px]">partNumber, quantity, fromWarehouseId</code> (obligatorias), y opcionales <code className="text-[11px]">project, toLocation, requestor, slaMinutes, urgent, referenceId</code>. Un conector SAP futuro alimentaría este mismo flujo.
           </p>
         </div>
-        <button onClick={onClose} className="rounded-lg p-1.5 hover:bg-black/5 dark:hover:bg-white/10"><X className="h-4 w-4" /></button>
+        <button aria-label="Cerrar" onClick={onClose} className="rounded-lg p-1.5 hover:bg-black/5 dark:hover:bg-white/10"><X className="h-4 w-4" /></button>
       </div>
 
       <div className="flex flex-wrap items-center gap-3">

@@ -46,7 +46,7 @@ export function ReturnDocument({ ret, onClose }: { ret: MaterialReturn; onClose:
             <button onClick={() => window.print()} className="inline-flex items-center gap-2 rounded-xl bg-black px-3.5 py-2 text-sm font-medium text-white">
               <Printer className="h-4 w-4" /> Imprimir / PDF
             </button>
-            <button onClick={onClose} className="rounded-lg p-2 hover:bg-black/5"><X className="h-4 w-4" /></button>
+            <button aria-label="Cerrar" onClick={onClose} className="rounded-lg p-2 hover:bg-black/5"><X className="h-4 w-4" /></button>
           </div>
         </div>
 
