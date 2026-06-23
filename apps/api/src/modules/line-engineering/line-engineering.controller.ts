@@ -185,6 +185,19 @@ export class LineEngineeringController {
     return this.service.getClearance(model, revision ?? 'A', min ? Number(min) : undefined);
   }
 
+  @Get('layout/scorecard')
+  @RequirePermissions('engineering:read')
+  @ApiOperation({
+    summary:
+      'Tarjeta de salud del layout: índice de preparación con calificación (colocación, balanceo, flujo, circulación), puntos débiles y bloqueos.',
+  })
+  getScorecard(
+    @Query('model') model: string,
+    @Query('revision') revision?: string,
+  ) {
+    return this.service.getScorecard(model, revision ?? 'A');
+  }
+
   @Put('layout/approval')
   @RequirePermissions('engineering:write')
   @ApiOperation({
