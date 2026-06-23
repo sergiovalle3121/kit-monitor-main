@@ -52,6 +52,8 @@ import { SCAR } from '../modules/suppliers/entities/scar.entity';
 import { IQCInspection } from '../modules/quality/entities/iqc-inspection.entity';
 import { NCR } from '../modules/ncr/entities/ncr.entity';
 import { QualityHold } from '../modules/quality/entities/quality-hold.entity';
+import { QualityCharacteristic } from '../modules/quality/entities/quality-characteristic.entity';
+import { QualityMeasurement } from '../modules/quality/entities/quality-measurement.entity';
 
 import { bootSeedContext, runInDemoContext } from './seed-context';
 import {
@@ -164,6 +166,9 @@ async function run(): Promise<void> {
       //    ANTES que proveedores (FK scar/iqc→supplier). Coincidencia exacta de
       //    marcador demo (prefijo AX-* o actor de siembra) — sólo borra lo demo.
       await removeBy(ds.getRepository(QualityHold), { reason: DEMO_QHOLD_REASON }, 'quality_holds (demo)');
+      // SPC: mediciones demo (por referencia) ANTES que sus características (por código).
+      await removeBy(ds.getRepository(QualityMeasurement), { reference: Like('WO-DEMO%') }, 'qc_measurements (demo)');
+      await removeBy(ds.getRepository(QualityCharacteristic), { code: Like('CTQ-DEMO-%') }, 'qc_characteristics (demo)');
       await removeBy(ds.getRepository(SCAR), { scarNumber: Like(`${DEMO_SCAR_PREFIX}%`) }, 'scars');
       await removeBy(ds.getRepository(IQCInspection), { inspectionNumber: Like(`${DEMO_IQC_PREFIX}%`) }, 'iqc_inspections');
       await removeBy(ds.getRepository(NCR), { ncrNumber: Like(`${DEMO_NCR_PREFIX}%`) }, 'ncrs');

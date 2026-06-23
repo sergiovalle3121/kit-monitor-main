@@ -96,6 +96,9 @@ import { IQCInspection, IqcResult } from '../modules/quality/entities/iqc-inspec
 import { NCR, NcrStatus, NcrSeverity, NcrSourceType } from '../modules/ncr/entities/ncr.entity';
 import { QualityService } from '../modules/quality/quality.service';
 import { QualityHold, QualityHoldLevel } from '../modules/quality/entities/quality-hold.entity';
+import { ProductModel } from '../modules/product-models/entities/product-model.entity';
+import { QualityCharacteristic } from '../modules/quality/entities/quality-characteristic.entity';
+import { QualityMeasurement } from '../modules/quality/entities/quality-measurement.entity';
 
 import {
   assertNotProduction,
@@ -2269,6 +2272,80 @@ async function seedQualityNcrs(ds: DataSource): Promise<Tally> {
   return t;
 }
 
+// ── SPC DATA FOUNDATION (demo): CTQ characteristics + plausible measurements ──
+// The data SPC needs in order to exist: a small CTQ catalog on a demo model plus
+// readings around the nominal (mostly in-spec, a couple near a limit) so the
+// descriptive summary + histogram have something REAL to show. Plausible demo
+// values live ONLY here (never in app logic). Idempotent + fully defensive.
+async function seedSpcData(ds: DataSource): Promise<void> {
+  try {
+    const charRepo = ds.getRepository(QualityCharacteristic);
+    const measRepo = ds.getRepository(QualityMeasurement);
+    const model = await ds
+      .getRepository(ProductModel)
+      .findOne({ where: { modelNumber: 'AX-DRIVE-100' } });
+
+    const specs: Array<{
+      code: string; name: string; type: 'VARIABLE' | 'ATTRIBUTE'; unit: string | null;
+      nominal?: number; usl?: number; lsl?: number; station: string; readings?: number[];
+    }> = [
+      {
+        code: 'CTQ-DEMO-001', name: 'Voltaje de salida 3V3', type: 'VARIABLE', unit: 'V',
+        nominal: 3.30, usl: 3.40, lsl: 3.20, station: 'Prueba ICT',
+        readings: [3.30, 3.31, 3.29, 3.32, 3.28, 3.30, 3.33, 3.27, 3.31, 3.30, 3.29, 3.34, 3.30, 3.28, 3.41, 3.30, 3.32, 3.29, 3.31, 3.30],
+      },
+      {
+        code: 'CTQ-DEMO-002', name: 'Altura del conector J1', type: 'VARIABLE', unit: 'mm',
+        nominal: 10.00, usl: 10.20, lsl: 9.80, station: 'Ensamble final',
+        readings: [10.00, 10.02, 9.98, 10.05, 9.97, 10.01, 10.03, 9.96, 10.04, 9.99, 10.00, 10.08, 9.95, 10.02, 9.79, 10.01, 10.00, 9.98, 10.06, 10.00],
+      },
+      {
+        code: 'CTQ-DEMO-003', name: 'Presencia de etiqueta de trazabilidad', type: 'ATTRIBUTE',
+        unit: null, station: 'Empaque',
+      },
+    ];
+
+    let createdChars = 0, existed = 0, createdMeas = 0;
+    for (const s of specs) {
+      let c = await charRepo.findOne({ where: { code: s.code } });
+      if (!c) {
+        c = await charRepo.save(charRepo.create({
+          code: s.code, name: s.name, modelId: model?.id ?? null, station: s.station,
+          type: s.type, unit: s.unit,
+          nominal: s.nominal ?? null, usl: s.usl ?? null, lsl: s.lsl ?? null,
+          isCritical: true, active: true, notes: 'Característica CTQ demo (universo AXOS).',
+          tenant_id: null, organization_id: null, plant_id: null, created_by: DEMO_ACTOR,
+        }));
+        createdChars++;
+      } else {
+        existed++;
+      }
+
+      const cid = c.id;
+      if (s.type === 'VARIABLE' && s.readings) {
+        const already = await measRepo.count({ where: { characteristicId: cid } });
+        if (already === 0) {
+          const now = Date.now();
+          const rows = s.readings.map((value, i) => measRepo.create({
+            characteristicId: cid, value, passed: null,
+            subgroupId: `SG-${Math.floor(i / 5) + 1}`,
+            subgroupLabel: `Subgrupo ${Math.floor(i / 5) + 1}`,
+            measuredAt: new Date(now - (s.readings!.length - i) * 3_600_000),
+            measuredBy: DEMO_ACTOR, source: 'FINAL_INSPECTION', reference: 'WO-DEMO-AX100',
+            gage: 'CMM-01', notes: null,
+            tenant_id: null, organization_id: null, plant_id: null, created_by: DEMO_ACTOR,
+          }));
+          await measRepo.save(rows);
+          createdMeas += rows.length;
+        }
+      }
+    }
+    log('spc', `CTQ creadas=${createdChars} ya existían=${existed} · mediciones=${createdMeas}${model ? '' : ' (modelo AX-DRIVE-100 no hallado → CTQ generales)'}`);
+  } catch (err) {
+    log('spc', `ERROR (no fatal): ${(err as Error).message}`);
+  }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Profundidad de inventario que CRUZA con planes (Clear-to-Build): existencias WIP
 // de sub-ensambles, un faltante real (todo el on-hand asignado) y un hold de
@@ -2421,6 +2498,7 @@ async function run(): Promise<void> {
       await seedReplenishmentRules(ds);
       await seedSupplierQuality(ds);
       await seedQualityNcrs(ds);
+      await seedSpcData(ds);
       await seedInventoryDepth(app, ds);
       await seedNotifications(app);
     });

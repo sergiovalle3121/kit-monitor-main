@@ -176,6 +176,74 @@ export interface OqcBacklogRow {
   programId?: string | null;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// SPC DATA FOUNDATION — CTQ catalog + measurements (NOT SPC charts yet).
+// Source: apps/api/src/modules/quality/entities/quality-{characteristic,measurement}.entity.ts
+// ─────────────────────────────────────────────────────────────────────────────
+export type CharacteristicType = "VARIABLE" | "ATTRIBUTE";
+export type MeasurementSource = "FINAL_INSPECTION" | "STATION" | "MANUAL";
+
+/** A Critical-To-Quality characteristic with its spec window. */
+export interface QualityCharacteristic {
+  id: string;
+  code: string;
+  name: string;
+  modelId?: string | null;
+  operationId?: string | null;
+  station?: string | null;
+  type: CharacteristicType;
+  unit?: string | null;
+  nominal?: number | null;
+  usl?: number | null;
+  lsl?: number | null;
+  isCritical: boolean;
+  active: boolean;
+  notes?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+/** One reading captured against a CTQ. */
+export interface QualityMeasurement {
+  id: string;
+  characteristicId: string;
+  value?: number | null;
+  passed?: boolean | null;
+  subgroupId?: string | null;
+  subgroupLabel?: string | null;
+  measuredAt: string;
+  measuredBy?: string | null;
+  source: MeasurementSource;
+  reference?: string | null;
+  gage?: string | null;
+  notes?: string | null;
+}
+
+/** Descriptive summary for a characteristic (NO control limits / Cpk yet). */
+export interface MeasurementSummary {
+  characteristicId: string;
+  characteristic: {
+    code: string;
+    name: string;
+    type: CharacteristicType;
+    unit: string | null;
+    nominal: number | null;
+    usl: number | null;
+    lsl: number | null;
+  };
+  firstAt: string | null;
+  lastAt: string | null;
+  n: number;
+  mean: number | null;
+  std: number | null;
+  min: number | null;
+  max: number | null;
+  belowLsl: number;
+  aboveUsl: number;
+  outOfSpec: number;
+  pctOutOfSpec: number;
+}
+
 // Inventory-level quality hold — apps/api/src/modules/quality/entities/quality-hold.entity.ts
 export type QualityHoldLevel =
   | "PART_NUMBER"
