@@ -1754,4 +1754,58 @@ con fracción → resultado erróneo. (`LEFT` ya truncaba.)
 fracción truncan; enteros y valores por defecto intactos; composición con `LEN`/`ROUND`). Sin
 regresiones: las 49 suites de spec de Office verdes; `lint web` 0 errores; `build web` ✓.
 
+## 74. Alertas proactivas de KPI (Fase 11 CIDE)
+
+**Contexto.** El Centro de Inteligencia mostraba KPIs (valor + sparkline) pero era
+pasivo: nadie avisaba cuando un KPI cruzaba su objetivo o empeoraba.
+
+**Decisión.** Alertas **deterministas y RBAC-gated** sobre lo ya construido:
+- **Objetivo (target) editable** en el editor self-serve: `UpsertMetricDto` gana
+  `target?` (persistido en `MetricDefinition.config.target` vía `applyTarget`).
+- `SemanticService.evaluateAlerts(principal)` combina valor en vivo + `direction`
+  + snapshots (§28→tendencia): **(1)** *breach de objetivo* (severidad por
+  magnitud; ≥20% → critical); **(2)** *tendencia adversa* (≥15% contra
+  `direction`). Endpoint `GET /api/semantic/alerts`; herramienta CIDE `kpi_alerts`.
+- **UI:** el Centro de Inteligencia abre con la sección "Alertas de KPI".
+
+**Sin entidades nuevas** (target vive en `config`). Build API/web ✓, lint web 0
+errores, 768/768 tests.
+
+## 75. Alertas push de KPI a admins (Fase 12 CIDE)
+
+**Contexto.** Las alertas (§74) eran visibles solo en el tablero; faltaba que el
+sistema **alcanzara** al responsable.
+
+**Decisión.** `SemanticService.notifyAlerts` evalúa alertas (actor sistema), filtra
+**críticas** y crea una notificación por admin vía `NotificationsService.create`
+(in-app + web push), con `dedupeKey` por métrica+kind+día (anti-spam: una por KPI
+crítico por día). Solo las críticas se pushean (alta señal). Enganchado al **cron
+diario** existente (tras el snapshot) + endpoint admin `POST /api/semantic/alerts/notify`
+y botón "Notificar a admins" en el tablero. Servicios resueltos por `ModuleRef`
+(módulo desacoplado); el contexto de tenant tiene fallback seguro fuera de request;
+best-effort (nunca rompe el cron).
+
+**Sin entidades nuevas.** Build API/web ✓, lint web 0 errores, 777/777 tests.
+
+## 76. Borrado lógico en el editor de catálogo (Fase 13 CIDE)
+
+**Contexto.** El editor self-serve (§25/§27) permitía crear y editar
+métricas/objetos/relaciones, pero no **retirarlos**.
+
+**Decisión.** Borrado lógico (reversible) usando la columna `active` existente:
+`SemanticService.setActive(tenantId, kind, key, active)`;
+`catalog(tenantId, includeInactive)` (el editor admin ve también los archivados;
+para no-admin se ignora). Endpoints `GET /catalog?includeInactive=true` y
+`POST /semantic/archive` (admin, `ArchiveItemDto`). En la UI, cada fila gana
+**Archivar/Restaurar** + badge. Como el catálogo filtra `active:true`, archivar
+oculta el ítem de CIDE y los tableros automáticamente.
+
+**Sin entidades nuevas.** Build API/web ✓, lint web 0 errores, 788/788 tests.
+
+> **Nota de proceso (Fases 11–13).** Estas entradas se agregaron en un PR-doc
+> separado: `main` mergea PRs de Office/Sheets cada pocos minutos sobre
+> `DECISIONS.md`, lo que causaba una carrera de conflictos que bloqueaba el CI. Se
+> mantuvieron las ramas de feature **solo-código** y se saldó la deuda documental
+> aquí, de una vez.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
