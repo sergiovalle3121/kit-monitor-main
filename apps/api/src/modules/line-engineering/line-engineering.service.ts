@@ -72,6 +72,7 @@ import { computeTakeoff, Takeoff } from './line-takeoff';
 import { computeClearance, ClearanceResult } from './line-clearance';
 import { computeScorecard, Scorecard } from './line-scorecard';
 import { computeContinuity, ContinuityResult } from './line-continuity';
+import { computeCohesion, CohesionResult } from './line-cohesion';
 import { flexLineAnalysis, FlexLineResult } from './line-flexline';
 import {
   sensitivityCurve,
@@ -727,6 +728,40 @@ export class LineEngineeringService {
       links: (layout.connectors ?? []).map((c) => ({ from: c.from, to: c.to, kind: c.kind })),
     });
     return { ...result, model: m, revision: r };
+  }
+
+  /**
+   * Spatial line cohesion (Fase 46): checks how well each logical line keeps to
+   * its own region of the floor — per-line compactness, stations intruding into
+   * another line's region, and overlapping regions. Read-only; complements the
+   * flow analyses (which ignore the `line` grouping). Additive.
+   */
+  async getCohesion(
+    model: string,
+    revision = 'A',
+  ): Promise<CohesionResult & { model: string; revision: string; unit: string }> {
+    const m = (model ?? '').trim();
+    const r = (revision ?? 'A').trim() || 'A';
+    const layout = await this.getLayout(m, r);
+    const defW = layout.footprint.footprintW * 0.03;
+    const defH = layout.footprint.footprintH * 0.04;
+    const stations = layout.stations
+      .filter((s) => s.x !== null && s.y !== null)
+      .map((s) => {
+        const w = s.w !== null && s.w > 0 ? s.w : defW;
+        const h = s.h !== null && s.h > 0 ? s.h : defH;
+        return {
+          id: s.id,
+          station: s.station,
+          line: s.line,
+          cx: (s.x as number) + w / 2,
+          cy: (s.y as number) + h / 2,
+          w,
+          h,
+        };
+      });
+    const result = computeCohesion({ stations });
+    return { ...result, model: m, revision: r, unit: layout.footprint.unit };
   }
 
   /**
