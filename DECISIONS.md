@@ -1529,4 +1529,25 @@ caso Ene 1→Jul 1 (yf=0.5): `DISC`=0.1, `PRICEDISC`=97.5, `YIELDDISC`/`INTRATE`
 con `ROUND`). Sin regresiones: 36 suites de hoja + 3 de I/O Office verdes; `lint web` 0 errores;
 `build web` ✓.
 
+## 62. Office/Sheets — bonos con cupón (PRICE, YIELD, DURATION, COUP*)
+
+**Contexto.** Las funciones estrella de renta fija de Excel —`PRICE`, `YIELD`, `DURATION`,
+`MDURATION` y el calendario de cupones (`COUPNCD`, `COUPPCD`, `COUPNUM`, `COUPDAYS`, `COUPDAYBS`,
+`COUPDAYSNC`)— revientan en formulajs (`#ERROR!`). Son la base de la valoración de bonos.
+
+**Decisión (sólo `apps/web`, aditiva):** `components/office/sheets/bonds.ts`. Genera el **calendario
+de cupones** retrocediendo desde el vencimiento en pasos de `12/frecuencia` meses (conservando el
+fin de mes) para hallar el cupón previo/siguiente y el número restante; `PRICE` usa la fórmula
+estándar (con el caso especial de un único periodo), `YIELD` la **invierte por bisección**,
+`DURATION` es la duración de Macaulay sobre los flujos descontados y `MDURATION` la modificada.
+Cómputo de días por `basis` (30/360 NASD/europeo o real).
+
+**Verificación (clave):** se contrastó contra los **ejemplos DOCUMENTADOS por Microsoft** y
+coinciden exactamente: `PRICE(2008-02-15, 2017-11-15, 5.75%, 6.5%, 100, 2, 0)` = **94.63436**;
+`YIELD(…, 95.04287, …)` = **0.065**; `DURATION(2008-01-01, 2016-01-01, 8%, 9%, 2, 1)` = **5.993775**;
+`MDURATION` = 5.73567; `COUPNUM` = 4, `COUPDAYS` = 181, `COUPDAYBS` = 71, `COUPDAYSNC` = 110,
+`COUPNCD` = 2007-05-15, `COUPPCD` = 2006-11-15. Suite `bonds.spec.ts` (**15 aserciones**: ejemplos de
+Microsoft + coherencia PRICE↔YIELD, par cuando cupón=rendimiento, MDURATION<DURATION, `#NUM!`). Sin
+regresiones: 37 suites de hoja + 3 de I/O Office verdes; `lint web` 0 errores; `build web` ✓.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
