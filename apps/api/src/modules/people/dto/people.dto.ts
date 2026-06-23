@@ -7,6 +7,15 @@ export class CreateCertificationDto {
   @Length(2, 160)
   employeeName: string;
 
+  @ApiPropertyOptional({
+    description:
+      'Id del colaborador en hr_employees (liga a empleado real). Opcional para datos viejos.',
+  })
+  @IsOptional()
+  @IsString()
+  @Length(0, 36)
+  employeeId?: string;
+
   @ApiProperty({ example: 'Soldadura IPC-J-STD-001' })
   @IsString()
   @Length(2, 160)
@@ -48,6 +57,24 @@ export class CreateCertificationDto {
 }
 
 export class UpdateCertificationDto {
+  @ApiPropertyOptional({ description: 'Re-liga la certificación a un colaborador real.' })
+  @IsOptional()
+  @IsString()
+  @Length(0, 36)
+  employeeId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @Length(2, 160)
+  employeeName?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @Length(0, 200)
+  employeeEmail?: string;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()

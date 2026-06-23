@@ -71,4 +71,59 @@ describe('PeopleService (integration)', () => {
     expect(kpis.skills).toBe(2);
     expect(kpis.coverage[0]).toEqual({ skill: 'Soldadura', count: 2 });
   });
+
+  it('links to a real employee (employeeId) and trims/normalizes free text', async () => {
+    const c = await service.create({
+      employeeId: 'emp-123',
+      employeeName: '  Juan   Pérez ',
+      skill: '  Operación  SMT-1 ',
+      station: ' SMT-1 ',
+      expiresDate: inDays(200),
+    });
+    expect(c.employeeId).toBe('emp-123');
+    expect(c.employeeName).toBe('Juan Pérez'); // collapsed whitespace
+    expect(c.skill).toBe('Operación SMT-1');
+    expect(c.station).toBe('SMT-1');
+  });
+
+  describe('certificationCheck (operator↔station gate)', () => {
+    it('returns valid for a current cert (by employeeId, case-insensitive station)', async () => {
+      await service.create({
+        employeeId: 'emp-1',
+        employeeName: 'Ana',
+        skill: 'Operación SMT-1',
+        station: 'SMT-1',
+        expiresDate: inDays(120),
+      });
+      const r = await service.certificationCheck({ employeeId: 'emp-1', station: 'smt-1' });
+      expect(r.certified).toBe(true);
+      expect(r.status).toBe('valid');
+      expect(r.matchedCertId).toBeTruthy();
+    });
+
+    it('flags expiring (still certified) and expired (not certified)', async () => {
+      await service.create({ employeeId: 'e2', employeeName: 'Beto', skill: 'ESD', station: 'AOI-2', expiresDate: inDays(15) });
+      await service.create({ employeeId: 'e3', employeeName: 'Caro', skill: 'ESD', station: 'AOI-3', expiresDate: inDays(-3) });
+
+      const soon = await service.certificationCheck({ employeeId: 'e2', station: 'AOI-2' });
+      expect(soon.status).toBe('expiring');
+      expect(soon.certified).toBe(true);
+
+      const old = await service.certificationCheck({ employeeId: 'e3', station: 'AOI-3' });
+      expect(old.status).toBe('expired');
+      expect(old.certified).toBe(false);
+    });
+
+    it('matches legacy certs by name when no employeeId, and reports none when uncertified', async () => {
+      await service.create({ employeeName: 'Operador Viejo', skill: 'Prueba', station: 'TEST-1', expiresDate: inDays(90) });
+
+      const byName = await service.certificationCheck({ employee: 'operador viejo', station: 'TEST-1' });
+      expect(byName.certified).toBe(true);
+      expect(byName.status).toBe('valid');
+
+      const missing = await service.certificationCheck({ employee: 'Nadie', station: 'TEST-1' });
+      expect(missing.status).toBe('none');
+      expect(missing.certified).toBe(false);
+    });
+  });
 });
