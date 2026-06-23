@@ -2270,4 +2270,21 @@ may.) no se toca. El núcleo se reutilizará en la familia de criterios (siguien
 a may. sin regresión, `?`/`*` en varias posiciones, escapes `~?`/`~*`/`~~`, inicio inválido, y el núcleo
 expuesto). Sin regresiones: suite de Office verde; `lint web` 0 errores; `build web` ✓.
 
+## 101. Office/Sheets — familia de criterios con comodines (COUNTIF/SUMIF/AVERAGEIF/MAXIFS…)
+
+**Contexto.** `@formulajs/formulajs@2.9.3` entiende los operadores de criterio (`">5"`, `"<>x"`…) pero
+**ignora los comodines**: `COUNTIF(rango,"ap*")` contaba 0, `SUMIF`/`AVERAGEIF` con `"a*"` daban 0/nulo.
+Los comodines en criterios son cotidianos (filtrar por prefijo/sufijo).
+
+**Decisión (sólo `apps/web`, aditiva — riesgo cero):** `components/office/sheets/criteriaIf.ts`
+reimplementa `COUNTIF/COUNTIFS/SUMIF/SUMIFS/AVERAGEIF/AVERAGEIFS/MAXIFS/MINIFS` con un **evaluador de
+criterios fiel** que reutiliza el núcleo `wildcard.ts` (§100). La coincidencia de texto se enruta SIEMPRE
+por el patrón→RegExp anclado e insensible a may. (trata comodines, escapes `~?` y literales por igual), y
+conserva los operadores de comparación y la igualdad numérica de Excel (vacío/`<>` incluidos).
+
+**Verificación:** nueva suite `criteriaIf.spec.ts` (**23 aserciones**: comodines `?`/`*`/`~` en COUNTIF,
+operadores `>`/`<=`/`<>`, número exacto, vacío/no-vacío, insensibilidad a may., SUMIF/AVERAGEIF con y sin
+rango aparte, COUNTIFS/SUMIFS/AVERAGEIFS multi-criterio, MAXIFS/MINIFS). Sin regresiones: TODA la suite de
+Office verde; `lint web` 0 errores; `build web` ✓.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
