@@ -209,6 +209,19 @@ export class LineEngineeringController {
     return this.statusService.getStatus(model, revision ?? 'A');
   }
 
+  @Get('layout/quality')
+  @RequirePermissions('engineering:read')
+  @ApiOperation({
+    summary:
+      'Calidad acumulada por estación (defectos + retenciones) para el overlay del layout.',
+  })
+  layoutQuality(
+    @Query('model') model: string,
+    @Query('revision') revision?: string,
+  ) {
+    return this.statusService.getQuality(model, revision ?? 'A');
+  }
+
   @Get('layout/bays')
   @RequirePermissions('engineering:read')
   @ApiOperation({

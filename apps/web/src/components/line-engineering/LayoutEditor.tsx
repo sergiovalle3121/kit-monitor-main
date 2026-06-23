@@ -11,7 +11,7 @@ import {
   Upload, Eye, EyeOff, Map as MapIcon, Activity, Workflow, Wand2, Boxes,
   Download, Printer, Ruler, Type, MoveHorizontal, CopyPlus, X, Flame, Waypoints,
   ShieldCheck, ShieldAlert, LayoutGrid, History, RotateCw, ClipboardList, GitCompare,
-  ClipboardCheck, Warehouse, Sparkles,
+  ClipboardCheck, Warehouse, Sparkles, Bug,
 } from 'lucide-react';
 import { glass } from '@/lib/glass';
 import { apiFetch } from '@/lib/apiFetch';
@@ -87,6 +87,21 @@ const bayColor = (bahia: number | null): { fill: string; stroke: string } => {
   if (bahia === null || !BAY_STROKES[bahia]) return { fill: 'rgba(148,163,184,0.16)', stroke: '#94a3b8' };
   const s = BAY_STROKES[bahia];
   return { fill: `${s}28`, stroke: s }; // 28 = ~16% alpha hex suffix
+};
+
+// Cumulative quality overlay (Fase 24): defects + holds on record per station.
+type QualLevel = 'ok' | 'minor' | 'major';
+interface StationQuality {
+  station: string; line: string; defects: number; holds: number; total: number; level: QualLevel;
+}
+interface QualitySummary {
+  totalDefects: number; totalHolds: number; stationsWithIssues: number;
+  counts: Record<QualLevel, number>; stations: StationQuality[];
+}
+const QUAL_COLORS: Record<QualLevel, { fill: string; stroke: string }> = {
+  ok: { fill: 'rgba(16,185,129,0.16)', stroke: '#10b981' },
+  minor: { fill: 'rgba(245,158,11,0.20)', stroke: '#f59e0b' },
+  major: { fill: 'rgba(239,68,68,0.24)', stroke: '#ef4444' },
 };
 
 // Material-flow analysis (Fase 10). Per-segment distances render live on the
@@ -229,6 +244,8 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
   const complRef = useRef<Map<string, StationCompl>>(new Map());
   const bayOnRef = useRef(false);
   const bayRef = useRef<Map<string, number | null>>(new Map());
+  const qualOnRef = useRef(false);
+  const qualRef = useRef<Map<string, QualLevel>>(new Map());
   const flowOnRef = useRef(false);
   const validateOnRef = useRef(false);
   const validateConflictsRef = useRef<Conflict[]>([]);
@@ -273,6 +290,8 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
   const [complData, setComplData] = useState<ComplSummary | null>(null);
   const [bayOn, setBayOn] = useState(false);
   const [bayData, setBayData] = useState<BaySummary | null>(null);
+  const [qualOn, setQualOn] = useState(false);
+  const [qualData, setQualData] = useState<QualitySummary | null>(null);
   const [flowOn, setFlowOn] = useState(false);
   const [flowData, setFlowData] = useState<FlowSummary | null>(null);
   const [flowDirData, setFlowDirData] = useState<FlowDirSummary | null>(null);
@@ -514,6 +533,10 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
     if (bayOnRef.current) {
       const b = bayRef.current.get(stationName);
       return b === undefined ? null : bayColor(b);
+    }
+    if (qualOnRef.current) {
+      const q = qualRef.current.get(stationName);
+      return q ? QUAL_COLORS[q] : null;
     }
     if (mesOnRef.current) {
       const st = statusRef.current.get(stationName);
@@ -1223,6 +1246,24 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
   useEffect(() => { heatOnRef.current = heatOn; applyOverlay(); }, [heatOn, applyOverlay]);
   useEffect(() => { complOnRef.current = complOn; applyOverlay(); }, [complOn, applyOverlay]);
   useEffect(() => { bayOnRef.current = bayOn; applyOverlay(); }, [bayOn, applyOverlay]);
+  useEffect(() => { qualOnRef.current = qualOn; applyOverlay(); }, [qualOn, applyOverlay]);
+
+  // Fetch cumulative quality (defects + holds) when the overlay is toggled.
+  useEffect(() => {
+    if (!qualOn || !model) return;
+    let alive = true;
+    (async () => {
+      try {
+        const r = await apiFetch(`${API_BASE}/line-engineering/layout/quality?model=${encodeURIComponent(model)}&revision=${encodeURIComponent(revision)}`);
+        if (!r.ok || !alive) return;
+        const d = (await r.json()) as QualitySummary;
+        qualRef.current = new Map(d.stations.map((s) => [s.station, s.level]));
+        setQualData(d);
+        applyOverlay();
+      } catch { /* transient */ }
+    })();
+    return () => { alive = false; };
+  }, [qualOn, model, revision, applyOverlay]);
 
   // Fetch documentation completeness when the overlay is toggled / scope changes.
   useEffect(() => {
@@ -1609,10 +1650,11 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
         <TBtn onClick={() => zoomBy(1 / 1.2)} title="Alejar"><ZoomOut className="w-4 h-4" /></TBtn>
         <TBtn onClick={fitView} title="Ajustar"><Maximize2 className="w-4 h-4" /></TBtn>
         <TBtn active={snap} onClick={() => setSnap((v) => !v)} title="Snap a grilla"><Grid3x3 className="w-4 h-4" /></TBtn>
-        <button onClick={() => { setMesOn((v) => !v); setHeatOn(false); setComplOn(false); setBayOn(false); }} title="MES en vivo (estado de estaciones)" className={`p-1.5 rounded-lg transition-colors ${mesOn ? 'text-white' : 'text-gray-500 hover:bg-black/5 dark:hover:bg-white/10'}`} style={mesOn ? { background: '#10b981' } : undefined}><Activity className="w-4 h-4" /></button>
-        <button onClick={() => { setHeatOn((v) => !v); setMesOn(false); setComplOn(false); setBayOn(false); }} title="Mapa de calor (tiempo de ciclo / utilización)" className={`p-1.5 rounded-lg transition-colors ${heatOn ? 'text-white' : 'text-gray-500 hover:bg-black/5 dark:hover:bg-white/10'}`} style={heatOn ? { background: '#f97316' } : undefined}><Flame className="w-4 h-4" /></button>
-        <button onClick={() => { setComplOn((v) => !v); setMesOn(false); setHeatOn(false); setBayOn(false); }} title="Completitud documental (NP / factor / ayuda visual)" className={`p-1.5 rounded-lg transition-colors ${complOn ? 'text-white' : 'text-gray-500 hover:bg-black/5 dark:hover:bg-white/10'}`} style={complOn ? { background: '#0ea5e9' } : undefined}><ClipboardCheck className="w-4 h-4" /></button>
-        <button onClick={() => { setBayOn((v) => !v); setMesOn(false); setHeatOn(false); setComplOn(false); }} title="Bahía que surte cada estación (1–6)" className={`p-1.5 rounded-lg transition-colors ${bayOn ? 'text-white' : 'text-gray-500 hover:bg-black/5 dark:hover:bg-white/10'}`} style={bayOn ? { background: '#8b5cf6' } : undefined}><Warehouse className="w-4 h-4" /></button>
+        <button onClick={() => { setMesOn((v) => !v); setHeatOn(false); setComplOn(false); setBayOn(false); setQualOn(false); }} title="MES en vivo (estado de estaciones)" className={`p-1.5 rounded-lg transition-colors ${mesOn ? 'text-white' : 'text-gray-500 hover:bg-black/5 dark:hover:bg-white/10'}`} style={mesOn ? { background: '#10b981' } : undefined}><Activity className="w-4 h-4" /></button>
+        <button onClick={() => { setHeatOn((v) => !v); setMesOn(false); setComplOn(false); setBayOn(false); setQualOn(false); }} title="Mapa de calor (tiempo de ciclo / utilización)" className={`p-1.5 rounded-lg transition-colors ${heatOn ? 'text-white' : 'text-gray-500 hover:bg-black/5 dark:hover:bg-white/10'}`} style={heatOn ? { background: '#f97316' } : undefined}><Flame className="w-4 h-4" /></button>
+        <button onClick={() => { setComplOn((v) => !v); setMesOn(false); setHeatOn(false); setBayOn(false); setQualOn(false); }} title="Completitud documental (NP / factor / ayuda visual)" className={`p-1.5 rounded-lg transition-colors ${complOn ? 'text-white' : 'text-gray-500 hover:bg-black/5 dark:hover:bg-white/10'}`} style={complOn ? { background: '#0ea5e9' } : undefined}><ClipboardCheck className="w-4 h-4" /></button>
+        <button onClick={() => { setBayOn((v) => !v); setMesOn(false); setHeatOn(false); setComplOn(false); setQualOn(false); }} title="Bahía que surte cada estación (1–6)" className={`p-1.5 rounded-lg transition-colors ${bayOn ? 'text-white' : 'text-gray-500 hover:bg-black/5 dark:hover:bg-white/10'}`} style={bayOn ? { background: '#8b5cf6' } : undefined}><Warehouse className="w-4 h-4" /></button>
+        <button onClick={() => { setQualOn((v) => !v); setMesOn(false); setHeatOn(false); setComplOn(false); setBayOn(false); }} title="Calidad acumulada (defectos + retenciones)" className={`p-1.5 rounded-lg transition-colors ${qualOn ? 'text-white' : 'text-gray-500 hover:bg-black/5 dark:hover:bg-white/10'}`} style={qualOn ? { background: '#ef4444' } : undefined}><Bug className="w-4 h-4" /></button>
         <button onClick={() => setFlowOn((v) => !v)} title="Diagrama de flujo (distancias y cruces)" className={`p-1.5 rounded-lg transition-colors ${flowOn ? 'text-white' : 'text-gray-500 hover:bg-black/5 dark:hover:bg-white/10'}`} style={flowOn ? { background: '#3b82f6' } : undefined}><Waypoints className="w-4 h-4" /></button>
         <button onClick={() => setValidateOn((v) => !v)} title="Validar layout (solapes, holgura, fuera de límites)" className={`p-1.5 rounded-lg transition-colors ${validateOn ? 'text-white' : 'text-gray-500 hover:bg-black/5 dark:hover:bg-white/10'}`} style={validateOn ? { background: validateData && !validateData.ok ? '#ef4444' : '#10b981' } : undefined}>{validateOn && validateData && !validateData.ok ? <ShieldAlert className="w-4 h-4" /> : <ShieldCheck className="w-4 h-4" />}</button>
         <button onClick={runAutoArrange} disabled={arranging} title="Auto-acomodar estaciones en serpentina por ruteo" className="p-1.5 rounded-lg text-gray-500 hover:bg-black/5 dark:hover:bg-white/10 transition-colors disabled:opacity-40">{arranging ? <Loader2 className="w-4 h-4 animate-spin" /> : <LayoutGrid className="w-4 h-4" />}</button>
@@ -1778,6 +1820,22 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
           <span className="text-gray-500 ml-auto">
             {bayData
               ? `${bayData.mapped}/${bayData.total} con bahía · bahías usadas: ${bayData.baysUsed.join(', ') || '—'}${bayData.unmapped > 0 ? ` · ${bayData.unmapped} NP sin asignar` : ''}`
+              : 'cargando…'}
+          </span>
+        </div>
+      )}
+
+      {qualOn && (
+        <div className="flex items-center gap-3 px-4 py-2 border-b border-black/5 dark:border-white/10 text-[12px] flex-wrap">
+          <span className="inline-flex items-center gap-1.5 font-medium" style={{ color: '#ef4444' }}>
+            <Bug className="w-3.5 h-3.5" /> Calidad
+          </span>
+          <LegendDot color="#10b981" label={`OK ${qualData?.counts.ok ?? 0}`} />
+          <LegendDot color="#f59e0b" label={`Leve ${qualData?.counts.minor ?? 0}`} />
+          <LegendDot color="#ef4444" label={`Crítica ${qualData?.counts.major ?? 0}`} />
+          <span className="text-gray-500 ml-auto">
+            {qualData
+              ? `${qualData.stationsWithIssues} estaciones con incidencias · ${qualData.totalDefects} defectos · ${qualData.totalHolds} retenciones (acumulado)`
               : 'cargando…'}
           </span>
         </div>

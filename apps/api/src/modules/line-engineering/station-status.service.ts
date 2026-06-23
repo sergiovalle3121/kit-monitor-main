@@ -44,6 +44,29 @@ export interface StationStatusSummary {
   stations: StationLiveStatus[];
 }
 
+/** Cumulative quality hotspots per station (Fase 24). */
+export type QualityLevel = 'ok' | 'minor' | 'major';
+
+export interface StationQuality {
+  station: string;
+  line: string;
+  defects: number; // DEFECT floor events on record
+  holds: number; // quality holds on record
+  total: number;
+  level: QualityLevel;
+}
+
+export interface StationQualitySummary {
+  model: string;
+  revision: string;
+  updatedAt: string;
+  totalDefects: number;
+  totalHolds: number;
+  stationsWithIssues: number;
+  counts: Record<QualityLevel, number>;
+  stations: StationQuality[];
+}
+
 const OPEN_FLOOR: string[] = ['OPEN', 'ACK'];
 const ACTIVE_HOLD: string[] = ['HELD', 'MRB_REVIEW', 'REWORK', 'REINSPECT'];
 const ACTIVE_REPLENISH: string[] = ['OPEN', 'IN_TRANSIT'];
@@ -223,6 +246,73 @@ export class StationStatusService {
       revision: r,
       running: runningLines.size > 0,
       updatedAt: new Date().toISOString(),
+      counts,
+      stations: out,
+    };
+  }
+
+  /**
+   * Cumulative quality hotspots per station (Fase 24): how many DEFECT floor
+   * events and quality holds each station has on record. Read-only historical
+   * lens — distinct from the live MES light — so the layout can be painted by
+   * chronic quality risk (e.g. to cluster problem stations near inspection).
+   */
+  async getQuality(
+    model: string,
+    revision = 'A',
+  ): Promise<StationQualitySummary> {
+    const m = (model ?? '').trim();
+    const r = (revision ?? 'A').trim() || 'A';
+    const stations = await this.lineEng.routing(m, r);
+
+    const dQb = this.floor.createQueryBuilder('f');
+    this.applyScope(dQb, 'f');
+    dQb
+      .select('f.station', 'station')
+      .addSelect('COUNT(*)', 'cnt')
+      .andWhere('f.type = :t', { t: 'DEFECT' })
+      .andWhere('f.station IS NOT NULL')
+      .groupBy('f.station');
+    const defectRows = await dQb.getRawMany<{ station: string; cnt: string }>();
+
+    const hQb = this.holds.createQueryBuilder('h');
+    this.applyScope(hQb, 'h');
+    hQb
+      .select('h.station', 'station')
+      .addSelect('COUNT(*)', 'cnt')
+      .andWhere('h.station IS NOT NULL')
+      .groupBy('h.station');
+    const holdRows = await hQb.getRawMany<{ station: string; cnt: string }>();
+
+    const defByStation = new Map(
+      defectRows.map((x) => [x.station, Number(x.cnt) || 0]),
+    );
+    const holdByStation = new Map(
+      holdRows.map((x) => [x.station, Number(x.cnt) || 0]),
+    );
+
+    const counts: Record<QualityLevel, number> = { ok: 0, minor: 0, major: 0 };
+    let totalDefects = 0;
+    let totalHolds = 0;
+    const out: StationQuality[] = stations.map((s) => {
+      const defects = defByStation.get(s.station) ?? 0;
+      const holds = holdByStation.get(s.station) ?? 0;
+      const total = defects + holds;
+      totalDefects += defects;
+      totalHolds += holds;
+      const level: QualityLevel =
+        total === 0 ? 'ok' : total <= 2 ? 'minor' : 'major';
+      counts[level] += 1;
+      return { station: s.station, line: s.line, defects, holds, total, level };
+    });
+
+    return {
+      model: m,
+      revision: r,
+      updatedAt: new Date().toISOString(),
+      totalDefects,
+      totalHolds,
+      stationsWithIssues: out.filter((s) => s.total > 0).length,
       counts,
       stations: out,
     };
