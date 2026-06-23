@@ -50,3 +50,15 @@ export function callsSupported(): boolean {
     !!navigator.mediaDevices?.getUserMedia
   );
 }
+
+/** ¿El navegador soporta compartir pantalla (getDisplayMedia)? */
+export function screenShareSupported(): boolean {
+  return (
+    typeof navigator !== 'undefined' &&
+    !!(
+      navigator.mediaDevices as
+        | (MediaDevices & { getDisplayMedia?: unknown })
+        | undefined
+    )?.getDisplayMedia
+  );
+}

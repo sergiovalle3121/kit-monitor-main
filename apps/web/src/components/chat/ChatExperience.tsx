@@ -45,6 +45,18 @@ import {
   ExternalLink,
   Tag,
   MessageSquare,
+  MoreVertical,
+  Archive,
+  ArchiveRestore,
+  Bell,
+  BellOff,
+  Mail,
+  MailOpen,
+  Images,
+  Bookmark,
+  BookmarkCheck,
+  Link2,
+  FileText,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { glass } from '@/lib/glass';
@@ -61,6 +73,9 @@ import {
   ReplyPreview,
   SearchResult,
   ScheduledItem,
+  MediaItem,
+  LinkItem,
+  SavedItem,
 } from '@/lib/chatApi';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
 import { MessageComposer } from '@/components/chat/MessageComposer';
@@ -68,7 +83,7 @@ import { FileAttachment } from '@/components/chat/FileAttachment';
 import { AuthAudio } from '@/components/chat/AuthAudio';
 import { CallOverlay } from '@/components/chat/CallOverlay';
 import { useCall } from '@/hooks/useCall';
-import { callsSupported } from '@/lib/chat/webrtc';
+import { callsSupported, screenShareSupported } from '@/lib/chat/webrtc';
 import { renderMessageText, hasTable } from '@/lib/chat/markdown';
 import { isEmojiOnly, emojiGlyphCount } from '@/lib/chat/stickers';
 import { parseStickerId, getSticker } from '@/lib/chat/stickerImages';
@@ -180,6 +195,13 @@ function conversationPreview(
   return lm.body || '';
 }
 
+/** Primera URL http(s) de un cuerpo de texto (sin tokens especiales), o null. */
+function firstUrl(body: string | null | undefined): string | null {
+  if (!body || body.trim().startsWith('[[')) return null;
+  const m = /(https?:\/\/[^\s<>"']+)/i.exec(body);
+  return m ? m[1].replace(/[.,;:!?)\]]+$/, '') : null;
+}
+
 function timeOf(iso: string): string {
   return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
@@ -282,6 +304,14 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
   // Etiquetas/carpetas: filtro activo + conversación en edición de etiquetas.
   const [labelFilter, setLabelFilter] = useState<string | null>(null);
   const [labelEditing, setLabelEditing] = useState<ChatConversation | null>(null);
+  // Gestión de chats: expandir archivados + menú contextual de fila.
+  const [showArchived, setShowArchived] = useState(false);
+  const [rowMenuId, setRowMenuId] = useState<string | null>(null);
+  // Galería de la conversación (fotos/archivos/enlaces).
+  const [galleryOpen, setGalleryOpen] = useState(false);
+  // Mensajes guardados.
+  const [savedOpen, setSavedOpen] = useState(false);
+  const [savedItems, setSavedItems] = useState<SavedItem[]>([]);
   // Socket en estado (además del ref) para que useCall enganche sus listeners.
   const [socket, setSocket] = useState<Socket | null>(null);
 
@@ -299,6 +329,13 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
   useEffect(() => {
     threadRootRef.current = threadRoot?.id ?? null;
   }, [threadRoot]);
+  // Conversaciones silenciadas (para no notificar). Ref para usar en el socket.
+  const mutedConvosRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    mutedConvosRef.current = new Set(
+      conversations.filter((c) => c.muted).map((c) => c.id),
+    );
+  }, [conversations]);
   useEffect(() => {
     activeIdRef.current = activeId;
   }, [activeId]);
@@ -377,12 +414,14 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
     remotes,
     micOn,
     camOn,
+    screenOn,
     startCall,
     acceptCall,
     rejectCall,
     hangup,
     toggleMic,
     toggleCam,
+    toggleScreen,
   } = useCall({ socket, meId });
 
   const active = useMemo(
@@ -525,9 +564,11 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
           );
         }
       }
-      // Notificación de escritorio si no es mío y no lo estoy viendo ahora.
+      // Notificación de escritorio si no es mío, no lo estoy viendo y no está
+      // silenciada la conversación.
       if (
         msg.senderId !== meId &&
+        !mutedConvosRef.current.has(msg.conversationId) &&
         (msg.conversationId !== activeIdRef.current ||
           (typeof document !== 'undefined' && document.hidden))
       ) {
@@ -626,7 +667,10 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
       'mention:new',
       (p: { conversationId: string; messageId: string; byUserId: string }) => {
         setMentionConvos((prev) => new Set(prev).add(p.conversationId));
-        if (p.conversationId !== activeIdRef.current) {
+        if (
+          p.conversationId !== activeIdRef.current &&
+          !mutedConvosRef.current.has(p.conversationId)
+        ) {
           setToast({ byUserId: p.byUserId, conversationId: p.conversationId });
         }
         refreshConversations();
@@ -1016,6 +1060,85 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
     }
   }
 
+  // ── gestión de chats (fijar / archivar / silenciar / no leído) ──────────────
+  async function togglePin(c: ChatConversation) {
+    setRowMenuId(null);
+    try {
+      await chatApi.setPinned(c.id, !c.pinned);
+      refreshConversations();
+    } catch (e) {
+      setError(`No se pudo fijar: ${(e as Error).message}`);
+    }
+  }
+  async function toggleArchive(c: ChatConversation) {
+    setRowMenuId(null);
+    try {
+      await chatApi.setArchived(c.id, !c.archived);
+      refreshConversations();
+    } catch (e) {
+      setError(`No se pudo archivar: ${(e as Error).message}`);
+    }
+  }
+  async function muteFor(c: ChatConversation, hours: number | null) {
+    setRowMenuId(null);
+    const until =
+      hours === null
+        ? null
+        : new Date(Date.now() + hours * 3600000).toISOString();
+    try {
+      // hours=0 → desactivar; null nunca llega aquí salvo "siempre" (100 años).
+      await chatApi.setMuted(c.id, hours === 0 ? null : until);
+      refreshConversations();
+    } catch (e) {
+      setError(`No se pudo silenciar: ${(e as Error).message}`);
+    }
+  }
+  async function toggleUnread(c: ChatConversation) {
+    setRowMenuId(null);
+    const makeUnread = !(c.markedUnread || c.unread > 0);
+    try {
+      // "Marcar como leído" limpia tanto el flag como los no leídos reales.
+      if (makeUnread) await chatApi.setUnread(c.id, true);
+      else await chatApi.markRead(c.id);
+      refreshConversations();
+    } catch (e) {
+      setError(`No se pudo cambiar: ${(e as Error).message}`);
+    }
+  }
+
+  // ── mensajes guardados ──────────────────────────────────────────────────────
+  async function toggleSaved(m: ChatMessage) {
+    const next = !m.saved;
+    setMessages((prev) =>
+      prev.map((x) => (x.id === m.id ? { ...x, saved: next } : x)),
+    );
+    try {
+      await chatApi.setSaved(m.id, next);
+    } catch (e) {
+      setMessages((prev) =>
+        prev.map((x) => (x.id === m.id ? { ...x, saved: !next } : x)),
+      );
+      setError(`No se pudo guardar: ${(e as Error).message}`);
+    }
+  }
+  async function openSaved() {
+    setSavedOpen(true);
+    try {
+      setSavedItems(await chatApi.listSaved());
+    } catch {
+      setSavedItems([]);
+    }
+  }
+  function openSavedItem(it: SavedItem) {
+    setSavedOpen(false);
+    openConversation(it.conversationId);
+    setTimeout(() => {
+      document
+        .getElementById(`msg-${it.id}`)
+        ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 450);
+  }
+
   // ── notificaciones de escritorio ───────────────────────────────────────────
   function requestNotifyPermission() {
     if (typeof window === 'undefined' || !('Notification' in window)) return;
@@ -1152,8 +1275,25 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
     [labelFilter],
   );
 
-  const channels = conversations.filter((c) => c.type === 'channel' && matchesLabel(c));
-  const dms = conversations.filter((c) => c.type === 'dm' && matchesLabel(c));
+  const visibleConvos = conversations.filter(
+    (c) => matchesLabel(c) && !c.archived,
+  );
+  const channels = visibleConvos.filter((c) => c.type === 'channel');
+  const dms = visibleConvos.filter((c) => c.type === 'dm');
+  const archivedConvos = conversations.filter(
+    (c) => matchesLabel(c) && c.archived,
+  );
+
+  // Props del menú contextual (⋯) de cada fila de conversación.
+  const rowMenuProps = (c: ChatConversation) => ({
+    menuOpen: rowMenuId === c.id,
+    onMenuToggle: () =>
+      setRowMenuId((id) => (id === c.id ? null : c.id)),
+    onPin: () => togglePin(c),
+    onArchive: () => toggleArchive(c),
+    onMute: (hours: number | null) => muteFor(c, hours),
+    onUnread: () => toggleUnread(c),
+  });
 
   // Miembros de la conversación activa (para autocompletar @menciones).
   const activeMembers = useMemo(
@@ -1243,12 +1383,22 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
             <ChevronLeft className="h-4 w-4" /> Inicio
           </Link>
         )}
-        <button
-          onClick={() => setShowNewChannel(true)}
-          className="flex items-center gap-1 rounded-full bg-black px-3 py-1.5 text-xs font-semibold text-white dark:bg-white dark:text-black"
-        >
-          <Plus className="h-3.5 w-3.5" /> Canal
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={openSaved}
+            aria-label="Mensajes guardados"
+            title="Mensajes guardados"
+            className="rounded-full p-1.5 text-gray-500 hover:bg-black/5 dark:hover:bg-white/10"
+          >
+            <Bookmark className="h-4 w-4" />
+          </button>
+          <button
+            onClick={() => setShowNewChannel(true)}
+            className="flex items-center gap-1 rounded-full bg-black px-3 py-1.5 text-xs font-semibold text-white dark:bg-white dark:text-black"
+          >
+            <Plus className="h-3.5 w-3.5" /> Canal
+          </button>
+        </div>
       </div>
 
       {/* Buscador de empleados */}
@@ -1403,6 +1553,7 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
                 active={c.id === activeId}
                 mentioned={mentionConvos.has(c.id)}
                 onClick={() => openConversation(c.id)}
+                {...rowMenuProps(c)}
               />
             ))}
           </div>
@@ -1421,9 +1572,40 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
               status={c.counterpartId ? statusFor(c.counterpartId) : undefined}
               mentioned={mentionConvos.has(c.id)}
               onClick={() => openConversation(c.id)}
+              {...rowMenuProps(c)}
             />
           ))}
         </div>
+
+        {/* Conversaciones archivadas */}
+        {archivedConvos.length > 0 && (
+          <div className="space-y-1">
+            <button
+              onClick={() => setShowArchived((s) => !s)}
+              className="flex w-full items-center gap-1.5 px-1 text-xs font-medium text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+            >
+              <Archive className="h-3.5 w-3.5" />
+              Archivados · {archivedConvos.length}
+              {showArchived ? (
+                <ChevronUp className="ml-auto h-3.5 w-3.5" />
+              ) : (
+                <ChevronDown className="ml-auto h-3.5 w-3.5" />
+              )}
+            </button>
+            {showArchived &&
+              archivedConvos.map((c) => (
+                <ConversationRow
+                  key={c.id}
+                  convo={c}
+                  active={c.id === activeId}
+                  status={c.counterpartId ? statusFor(c.counterpartId) : undefined}
+                  mentioned={mentionConvos.has(c.id)}
+                  onClick={() => openConversation(c.id)}
+                  {...rowMenuProps(c)}
+                />
+              ))}
+          </div>
+        )}
       </div>
     </aside>
   );
@@ -1523,6 +1705,14 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
                   title="Buscar en la conversación"
                 >
                   <Search className="h-5 w-5" />
+                </button>
+                <button
+                  onClick={() => setGalleryOpen(true)}
+                  className="rounded-full p-2 text-gray-500 transition-colors hover:bg-black/5 focus-visible:ring-2 focus-visible:ring-blue-500/40 dark:hover:bg-white/10"
+                  aria-label="Galería"
+                  title="Multimedia, archivos y enlaces"
+                >
+                  <Images className="h-5 w-5" />
                 </button>
                 <button
                   onClick={() => setLabelEditing(active)}
@@ -1705,6 +1895,7 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
                       translation={translations[m.id]}
                       onStartDm={startDm}
                       onOpenThread={openThread}
+                      onToggleSaved={toggleSaved}
                       meId={meId}
                       grouped={grouped}
                       highlight={searchTerm}
@@ -2060,6 +2251,32 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
         />
       )}
 
+      {/* Galería de la conversación (fotos / archivos / enlaces) */}
+      {galleryOpen && activeId && (
+        <GalleryModal
+          conversationId={activeId}
+          users={users}
+          onClose={() => setGalleryOpen(false)}
+          onJump={(messageId) => {
+            setTimeout(() => {
+              document
+                .getElementById(`msg-${messageId}`)
+                ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }, 100);
+          }}
+        />
+      )}
+
+      {/* Mensajes guardados */}
+      {savedOpen && (
+        <SavedModal
+          items={savedItems}
+          users={users}
+          onClose={() => setSavedOpen(false)}
+          onOpen={openSavedItem}
+        />
+      )}
+
       {/* Overlay de llamada (WebRTC, 1:1 y grupo) */}
       {call && (
         <CallOverlay
@@ -2072,6 +2289,8 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
           }))}
           micOn={micOn}
           camOn={camOn}
+          screenOn={screenOn}
+          canScreenShare={screenShareSupported()}
           title={
             conversations.find((c) => c.id === call.conversationId)?.title ||
             'Llamada'
@@ -2089,6 +2308,7 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
           onHangup={hangup}
           onToggleMic={toggleMic}
           onToggleCam={toggleCam}
+          onToggleScreen={toggleScreen}
         />
       )}
 
@@ -2414,6 +2634,7 @@ function MessageItem({
   translation,
   onStartDm,
   onOpenThread,
+  onToggleSaved,
   meId,
   grouped,
   highlight = '',
@@ -2436,6 +2657,7 @@ function MessageItem({
   translation?: string;
   onStartDm?: (userId: string) => void;
   onOpenThread?: (m: ChatMessage) => void;
+  onToggleSaved?: (m: ChatMessage) => void;
   meId: string;
   grouped: boolean;
   highlight?: string;
@@ -2480,6 +2702,10 @@ function MessageItem({
     isText && !gifUrl && !loc && !contactId ? parseStickerId(body) : null;
   const emojiOnly =
     isText && !stickerId && !gifUrl && !loc && !contactId && isEmojiOnly(body);
+  const linkUrl =
+    isText && !stickerId && !gifUrl && !loc && !contactId
+      ? firstUrl(body)
+      : null;
   const bare = emojiOnly || !!stickerId || !!gifUrl; // sin fondo de burbuja
   const wide =
     isPoll || (isText && !stickerId && !!body && hasTable(body));
@@ -2648,6 +2874,20 @@ function MessageItem({
                     label={m.pinnedAt ? 'Desfijar' : 'Fijar'}
                     onClick={() => {
                       onPin?.(m);
+                      setShowMenu(false);
+                    }}
+                  />
+                  <MenuItem
+                    icon={
+                      m.saved ? (
+                        <BookmarkCheck className="h-4 w-4" />
+                      ) : (
+                        <Bookmark className="h-4 w-4" />
+                      )
+                    }
+                    label={m.saved ? 'Quitar de guardados' : 'Guardar'}
+                    onClick={() => {
+                      onToggleSaved?.(m);
                       setShowMenu(false);
                     }}
                   />
@@ -2888,6 +3128,7 @@ function MessageItem({
                 )}
               </div>
             )}
+            {linkUrl && <LinkPreviewCard url={linkUrl} onColored={onColored} />}
             <div
               className={`mt-1 flex items-center gap-1 text-[10px] ${
                 bare
@@ -2906,6 +3147,17 @@ function MessageItem({
                 </>
               )}
             </div>
+          </div>
+        )}
+
+        {/* Indicador de mensaje guardado */}
+        {m.saved && (
+          <div
+            className={`mt-1 flex items-center gap-1 text-[10px] text-amber-600 dark:text-amber-400 ${
+              mine ? 'justify-end' : ''
+            }`}
+          >
+            <BookmarkCheck className="h-3 w-3" /> Guardado
           </div>
         )}
 
@@ -3077,79 +3329,208 @@ function ConversationRow({
   status,
   mentioned,
   onClick,
+  menuOpen,
+  onMenuToggle,
+  onPin,
+  onArchive,
+  onMute,
+  onUnread,
 }: {
   convo: ChatConversation;
   active: boolean;
   status?: PresenceStatus | 'offline';
   mentioned?: boolean;
   onClick: () => void;
+  menuOpen?: boolean;
+  onMenuToggle?: () => void;
+  onPin?: () => void;
+  onArchive?: () => void;
+  onMute?: (hours: number) => void;
+  onUnread?: () => void;
 }) {
   const lastPreview = conversationPreview(convo.lastMessage);
-  const unread = convo.unread > 0;
+  const unread = convo.unread > 0 || !!convo.markedUnread;
   const when = relativeTime(convo.lastMessageAt);
+  const stop = (e: React.MouseEvent) => e.stopPropagation();
   return (
-    <button
-      onClick={onClick}
-      className={`flex w-full items-center gap-3 rounded-2xl p-2 text-left transition-colors ${
+    <div
+      className={`group relative flex items-center rounded-2xl transition-colors ${
         active ? 'bg-black/10 dark:bg-white/15' : 'hover:bg-black/5 dark:hover:bg-white/10'
       }`}
     >
-      <span className="relative shrink-0">
-        <span
-          className="flex h-10 w-10 items-center justify-center rounded-full text-xs font-bold text-white"
-          style={avatarStyle(convo.counterpartId || convo.id)}
-        >
-          {convo.type === 'channel' ? <Hash className="h-4 w-4" /> : initials(convo.title || '?')}
-        </span>
-        {status && <PresenceDot status={status} />}
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="flex items-center gap-2">
+      <button
+        onClick={onClick}
+        className="flex min-w-0 flex-1 items-center gap-3 p-2 text-left"
+      >
+        <span className="relative shrink-0">
           <span
-            className={`min-w-0 flex-1 truncate text-sm ${unread ? 'font-bold' : 'font-medium'}`}
+            className="flex h-10 w-10 items-center justify-center rounded-full text-xs font-bold text-white"
+            style={avatarStyle(convo.counterpartId || convo.id)}
           >
-            {convo.title || 'Conversación'}
+            {convo.type === 'channel' ? <Hash className="h-4 w-4" /> : initials(convo.title || '?')}
           </span>
-          {when && (
+          {status && <PresenceDot status={status} />}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="flex items-center gap-1.5">
+            {convo.pinned && (
+              <Pin className="h-3 w-3 shrink-0 -rotate-45 text-gray-400" />
+            )}
             <span
-              className={`shrink-0 text-[10px] ${unread ? 'font-semibold text-blue-600 dark:text-blue-400' : 'text-gray-400'}`}
+              className={`min-w-0 flex-1 truncate text-sm ${unread ? 'font-bold' : 'font-medium'}`}
             >
-              {when}
+              {convo.title || 'Conversación'}
+            </span>
+            {convo.muted && (
+              <BellOff className="h-3 w-3 shrink-0 text-gray-400" />
+            )}
+            {when && (
+              <span
+                className={`shrink-0 text-[10px] ${unread ? 'font-semibold text-blue-600 dark:text-blue-400' : 'text-gray-400'}`}
+              >
+                {when}
+              </span>
+            )}
+          </span>
+          <span
+            className={`block truncate text-xs ${unread ? 'font-medium text-gray-700 dark:text-gray-200' : 'text-gray-500'}`}
+          >
+            {lastPreview}
+          </span>
+          {(convo.labels?.length ?? 0) > 0 && (
+            <span className="mt-0.5 flex flex-wrap gap-1">
+              {convo.labels!.slice(0, 3).map((l) => (
+                <span
+                  key={l}
+                  className="rounded-full bg-blue-500/10 px-1.5 py-0.5 text-[9px] font-medium text-blue-600 dark:text-blue-300"
+                >
+                  {l}
+                </span>
+              ))}
             </span>
           )}
         </span>
-        <span
-          className={`block truncate text-xs ${unread ? 'font-medium text-gray-700 dark:text-gray-200' : 'text-gray-500'}`}
-        >
-          {lastPreview}
-        </span>
-        {(convo.labels?.length ?? 0) > 0 && (
-          <span className="mt-0.5 flex flex-wrap gap-1">
-            {convo.labels!.slice(0, 3).map((l) => (
-              <span
-                key={l}
-                className="rounded-full bg-blue-500/10 px-1.5 py-0.5 text-[9px] font-medium text-blue-600 dark:text-blue-300"
-              >
-                {l}
-              </span>
-            ))}
+        {mentioned && (
+          <span
+            className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-blue-500 text-white"
+            title="Te mencionaron"
+          >
+            <AtSign className="h-3 w-3" />
           </span>
         )}
-      </span>
-      {mentioned && (
-        <span
-          className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-blue-500 text-white"
-          title="Te mencionaron"
+        {convo.unread > 0 ? (
+          <span
+            className={`flex h-5 min-w-[20px] shrink-0 items-center justify-center rounded-full px-1 text-[10px] font-bold text-white ${
+              convo.muted ? 'bg-gray-400' : 'bg-red-500'
+            }`}
+          >
+            {convo.unread}
+          </span>
+        ) : (
+          convo.markedUnread && (
+            <span
+              className={`h-2.5 w-2.5 shrink-0 rounded-full ${
+                convo.muted ? 'bg-gray-400' : 'bg-blue-500'
+              }`}
+              title="No leído"
+            />
+          )
+        )}
+      </button>
+
+      {/* Menú contextual (fijar / silenciar / no leído / archivar) */}
+      {onMenuToggle && (
+        <button
+          onClick={(e) => {
+            stop(e);
+            onMenuToggle();
+          }}
+          aria-label="Opciones de conversación"
+          className="mr-1 shrink-0 rounded-full p-1.5 text-gray-500 opacity-100 hover:bg-black/10 focus-visible:ring-2 focus-visible:ring-blue-500/40 sm:opacity-0 sm:group-hover:opacity-100 dark:hover:bg-white/15"
         >
-          <AtSign className="h-3 w-3" />
-        </span>
+          <MoreVertical className="h-4 w-4" />
+        </button>
       )}
-      {unread && (
-        <span className="flex h-5 min-w-[20px] shrink-0 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
-          {convo.unread}
-        </span>
+      {menuOpen && (
+        <>
+          <div
+            className="fixed inset-0 z-30"
+            onClick={(e) => {
+              stop(e);
+              onMenuToggle?.();
+            }}
+          />
+          <div
+            onClick={stop}
+            className={`${glass} absolute right-2 top-12 z-40 w-56 rounded-2xl p-1 shadow-xl`}
+          >
+            <MenuItem
+              icon={
+                convo.pinned ? (
+                  <PinOff className="h-4 w-4" />
+                ) : (
+                  <Pin className="h-4 w-4" />
+                )
+              }
+              label={convo.pinned ? 'Desfijar' : 'Fijar arriba'}
+              onClick={() => onPin?.()}
+            />
+            <MenuItem
+              icon={convo.unread || convo.markedUnread ? (
+                <MailOpen className="h-4 w-4" />
+              ) : (
+                <Mail className="h-4 w-4" />
+              )}
+              label={
+                convo.unread || convo.markedUnread
+                  ? 'Marcar como leído'
+                  : 'Marcar como no leído'
+              }
+              onClick={() => onUnread?.()}
+            />
+            {convo.muted ? (
+              <MenuItem
+                icon={<Bell className="h-4 w-4" />}
+                label="Activar notificaciones"
+                onClick={() => onMute?.(0)}
+              />
+            ) : (
+              <>
+                <p className="px-3 pb-0.5 pt-1.5 text-[10px] font-medium uppercase tracking-wide text-gray-400">
+                  Silenciar
+                </p>
+                <MenuItem
+                  icon={<BellOff className="h-4 w-4" />}
+                  label="8 horas"
+                  onClick={() => onMute?.(8)}
+                />
+                <MenuItem
+                  icon={<BellOff className="h-4 w-4" />}
+                  label="1 semana"
+                  onClick={() => onMute?.(168)}
+                />
+                <MenuItem
+                  icon={<BellOff className="h-4 w-4" />}
+                  label="Siempre"
+                  onClick={() => onMute?.(876000)}
+                />
+              </>
+            )}
+            <MenuItem
+              icon={
+                convo.archived ? (
+                  <ArchiveRestore className="h-4 w-4" />
+                ) : (
+                  <Archive className="h-4 w-4" />
+                )
+              }
+              label={convo.archived ? 'Desarchivar' : 'Archivar'}
+              onClick={() => onArchive?.()}
+            />
+          </div>
+        </>
       )}
-    </button>
+    </div>
   );
 }
 
@@ -3930,6 +4311,336 @@ function LabelModal({
         >
           Guardar
         </button>
+      </div>
+    </div>
+  );
+}
+
+/** Caché de previsualizaciones de enlaces (por URL, durante la sesión). */
+const linkPreviewCache = new Map<string, LinkPreviewData | null>();
+type LinkPreviewData = {
+  url: string;
+  title: string | null;
+  description: string | null;
+  image: string | null;
+  siteName: string | null;
+};
+
+/** Tarjeta de previsualización (OpenGraph) bajo un mensaje con enlace. */
+function LinkPreviewCard({
+  url,
+  onColored,
+}: {
+  url: string;
+  onColored: boolean;
+}) {
+  const [data, setData] = useState<LinkPreviewData | null>(
+    () => linkPreviewCache.get(url) ?? null,
+  );
+  const [done, setDone] = useState(() => linkPreviewCache.has(url));
+
+  useEffect(() => {
+    if (linkPreviewCache.has(url)) {
+      setData(linkPreviewCache.get(url) ?? null);
+      setDone(true);
+      return;
+    }
+    let alive = true;
+    chatApi
+      .unfurl(url)
+      .then((d) => {
+        const useful = d && (d.title || d.description || d.image) ? d : null;
+        linkPreviewCache.set(url, useful);
+        if (alive) {
+          setData(useful);
+          setDone(true);
+        }
+      })
+      .catch(() => {
+        linkPreviewCache.set(url, null);
+        if (alive) {
+          setData(null);
+          setDone(true);
+        }
+      });
+    return () => {
+      alive = false;
+    };
+  }, [url]);
+
+  if (!done || !data) return null;
+  return (
+    <a
+      href={data.url}
+      target="_blank"
+      rel="noopener noreferrer"
+      onClick={(e) => e.stopPropagation()}
+      className={`mt-1.5 block max-w-[18rem] overflow-hidden rounded-xl border ${
+        onColored
+          ? 'border-white/25 bg-white/10'
+          : 'border-black/10 bg-black/5 dark:border-white/15 dark:bg-white/10'
+      }`}
+    >
+      {data.image && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={data.image}
+          alt=""
+          loading="lazy"
+          className="h-32 w-full object-cover"
+        />
+      )}
+      <div className="p-2">
+        {data.siteName && (
+          <p
+            className={`truncate text-[10px] uppercase tracking-wide ${
+              onColored ? 'text-white/60' : 'text-gray-400'
+            }`}
+          >
+            {data.siteName}
+          </p>
+        )}
+        {data.title && (
+          <p
+            className={`line-clamp-2 text-xs font-semibold ${
+              onColored ? 'text-white' : ''
+            }`}
+          >
+            {data.title}
+          </p>
+        )}
+        {data.description && (
+          <p
+            className={`mt-0.5 line-clamp-2 text-[11px] ${
+              onColored ? 'text-white/80' : 'text-gray-500'
+            }`}
+          >
+            {data.description}
+          </p>
+        )}
+      </div>
+    </a>
+  );
+}
+
+/** Galería de la conversación: fotos, archivos y enlaces compartidos. */
+function GalleryModal({
+  conversationId,
+  users,
+  onClose,
+  onJump,
+}: {
+  conversationId: string;
+  users: ChatUser[];
+  onClose: () => void;
+  onJump: (messageId: string) => void;
+}) {
+  const [tab, setTab] = useState<'image' | 'file' | 'link'>('image');
+  const [items, setItems] = useState<(MediaItem | LinkItem)[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let alive = true;
+    setLoading(true);
+    chatApi
+      .listMedia(conversationId, tab)
+      .then((r) => {
+        if (alive) {
+          setItems(r);
+          setLoading(false);
+        }
+      })
+      .catch(() => {
+        if (alive) {
+          setItems([]);
+          setLoading(false);
+        }
+      });
+    return () => {
+      alive = false;
+    };
+  }, [conversationId, tab]);
+
+  const tabs: { k: 'image' | 'file' | 'link'; label: string; icon: React.ReactNode }[] = [
+    { k: 'image', label: 'Fotos', icon: <Images className="h-4 w-4" /> },
+    { k: 'file', label: 'Archivos', icon: <FileText className="h-4 w-4" /> },
+    { k: 'link', label: 'Enlaces', icon: <Link2 className="h-4 w-4" /> },
+  ];
+
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 p-4">
+      <div className={`${glass} flex h-[34rem] w-full max-w-lg flex-col rounded-[24px] p-5`}>
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="text-lg font-semibold">Galería</h3>
+          <button
+            onClick={onClose}
+            className="rounded-full p-1 hover:bg-black/5 dark:hover:bg-white/10"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="mb-3 flex gap-1 rounded-full bg-black/5 p-1 dark:bg-white/10">
+          {tabs.map((t) => (
+            <button
+              key={t.k}
+              onClick={() => setTab(t.k)}
+              className={`flex flex-1 items-center justify-center gap-1.5 rounded-full py-1.5 text-xs font-medium transition-colors ${
+                tab === t.k
+                  ? 'bg-white text-black shadow dark:bg-white/20 dark:text-white'
+                  : 'text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'
+              }`}
+            >
+              {t.icon}
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          {loading ? (
+            <p className="py-10 text-center text-sm text-gray-400">Cargando…</p>
+          ) : items.length === 0 ? (
+            <p className="py-10 text-center text-sm text-gray-400">
+              No hay {tab === 'image' ? 'fotos' : tab === 'file' ? 'archivos' : 'enlaces'} todavía
+            </p>
+          ) : tab === 'image' ? (
+            <div className="grid grid-cols-3 gap-1.5">
+              {(items as MediaItem[]).map((it) => (
+                <button
+                  key={it.id}
+                  onClick={() => {
+                    onClose();
+                    onJump(it.id);
+                  }}
+                  className="aspect-square overflow-hidden rounded-lg bg-black/5 dark:bg-white/10"
+                >
+                  <AuthImage messageId={it.id} className="h-full w-full object-cover" />
+                </button>
+              ))}
+            </div>
+          ) : tab === 'file' ? (
+            <div className="space-y-1.5">
+              {(items as MediaItem[]).map((it) => (
+                <button
+                  key={it.id}
+                  onClick={() => {
+                    onClose();
+                    onJump(it.id);
+                  }}
+                  className="flex w-full items-center gap-3 rounded-xl p-2 text-left hover:bg-black/5 dark:hover:bg-white/10"
+                >
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-black/10 dark:bg-white/15">
+                    <FileText className="h-5 w-5" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-medium">
+                      {it.fileName || 'archivo'}
+                    </span>
+                    <span className="block text-xs text-gray-500">
+                      {senderName(it.senderId, users)} ·{' '}
+                      {it.fileSize ? formatBytes(it.fileSize) : ''}
+                    </span>
+                  </span>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-1.5">
+              {(items as LinkItem[]).map((it) => (
+                <button
+                  key={it.id}
+                  onClick={() => {
+                    onClose();
+                    onJump(it.id);
+                  }}
+                  className="flex w-full items-center gap-3 rounded-xl p-2 text-left hover:bg-black/5 dark:hover:bg-white/10"
+                >
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-black/10 dark:bg-white/15">
+                    <Link2 className="h-5 w-5" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-medium text-blue-600 dark:text-blue-400">
+                      {it.url}
+                    </span>
+                    <span className="block truncate text-xs text-gray-500">
+                      {senderName(it.senderId, users)} · {relativeTime(it.createdAt)}
+                    </span>
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Lista de mensajes guardados (destacados) del usuario. */
+function SavedModal({
+  items,
+  users,
+  onClose,
+  onOpen,
+}: {
+  items: SavedItem[];
+  users: ChatUser[];
+  onClose: () => void;
+  onOpen: (it: SavedItem) => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 p-4">
+      <div className={`${glass} flex max-h-[80vh] w-full max-w-md flex-col rounded-[24px] p-5`}>
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="flex items-center gap-2 text-lg font-semibold">
+            <Bookmark className="h-5 w-5 text-amber-500" /> Guardados
+          </h3>
+          <button
+            onClick={onClose}
+            className="rounded-full p-1 hover:bg-black/5 dark:hover:bg-white/10"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="min-h-0 flex-1 space-y-1 overflow-y-auto">
+          {items.length === 0 ? (
+            <p className="py-10 text-center text-sm text-gray-400">
+              Aún no has guardado mensajes. Usa “Guardar” en el menú de un mensaje.
+            </p>
+          ) : (
+            items.map((it) => (
+              <button
+                key={it.id}
+                onClick={() => onOpen(it)}
+                className="flex w-full items-start gap-3 rounded-2xl p-2 text-left hover:bg-black/5 dark:hover:bg-white/10"
+              >
+                <span
+                  className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
+                  style={avatarStyle(it.conversationId)}
+                >
+                  {it.conversationType === 'channel' ? (
+                    <Hash className="h-4 w-4" />
+                  ) : (
+                    initials(it.conversationTitle)
+                  )}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-center gap-2">
+                    <span className="min-w-0 flex-1 truncate text-sm font-medium">
+                      {it.conversationTitle}
+                    </span>
+                    <span className="shrink-0 text-[10px] text-gray-400">
+                      {relativeTime(it.createdAt)}
+                    </span>
+                  </span>
+                  <span className="block truncate text-xs text-gray-500">
+                    {senderName(it.senderId, users)}: {it.snippet}
+                  </span>
+                </span>
+              </button>
+            ))
+          )}
+        </div>
       </div>
     </div>
   );

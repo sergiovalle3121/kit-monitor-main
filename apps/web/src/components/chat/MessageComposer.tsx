@@ -19,6 +19,14 @@ import {
   Film,
   MapPin,
   Contact,
+  Type,
+  Bold,
+  Italic,
+  Strikethrough,
+  Code,
+  Quote,
+  List,
+  ListOrdered,
 } from 'lucide-react';
 import { glass } from '@/lib/glass';
 import type { ChatUser } from '@/lib/chatApi';
@@ -102,6 +110,7 @@ export function MessageComposer({
 }: MessageComposerProps) {
   const [showPicker, setShowPicker] = useState(false);
   const [showActions, setShowActions] = useState(false);
+  const [showFormat, setShowFormat] = useState(false);
   const [caret, setCaret] = useState(0);
   const [recording, setRecording] = useState(false);
   const [recordedUrl, setRecordedUrl] = useState<string | null>(null);
@@ -282,6 +291,64 @@ export function MessageComposer({
 
   function insertAtCaret(text: string) {
     replaceRange(caret, text);
+  }
+
+  // Aplica formato Markdown a la selección actual del textarea.
+  type FormatKind =
+    | 'bold'
+    | 'italic'
+    | 'strike'
+    | 'code'
+    | 'quote'
+    | 'ul'
+    | 'ol';
+  function formatSelection(kind: FormatKind) {
+    const el = textareaRef.current;
+    if (!el) return;
+    const start = el.selectionStart ?? 0;
+    const end = el.selectionEnd ?? start;
+
+    const focusRange = (from: number, to: number) => {
+      requestAnimationFrame(() => {
+        const e2 = textareaRef.current;
+        if (e2) {
+          e2.focus();
+          e2.setSelectionRange(from, to);
+          setCaret(to);
+        }
+      });
+    };
+
+    if (kind === 'quote' || kind === 'ul' || kind === 'ol') {
+      // Prefijo por línea sobre el bloque seleccionado (o la línea del cursor).
+      const lineStart = value.lastIndexOf('\n', start - 1) + 1;
+      const block = value.slice(lineStart, end);
+      const prefixed = block
+        .split('\n')
+        .map((l, i) =>
+          (kind === 'quote' ? '> ' : kind === 'ul' ? '- ' : `${i + 1}. `) + l,
+        )
+        .join('\n');
+      const next = value.slice(0, lineStart) + prefixed + value.slice(end);
+      onChange(next);
+      focusRange(lineStart, lineStart + prefixed.length);
+      return;
+    }
+
+    const wrap =
+      kind === 'bold' ? '**' : kind === 'strike' ? '~~' : kind === 'code' ? '`' : '_';
+    const placeholderText =
+      kind === 'bold'
+        ? 'negrita'
+        : kind === 'italic'
+          ? 'cursiva'
+          : kind === 'strike'
+            ? 'tachado'
+            : 'código';
+    const inner = value.slice(start, end) || placeholderText;
+    const next = value.slice(0, start) + wrap + inner + wrap + value.slice(end);
+    onChange(next);
+    focusRange(start + wrap.length, start + wrap.length + inner.length);
   }
 
   function applyMention(u: ChatUser) {
@@ -498,6 +565,34 @@ export function MessageComposer({
           </button>
         </div>
       ) : (
+        <>
+        {showFormat && (
+          <div className="mb-1.5 flex items-center gap-0.5 rounded-2xl bg-black/5 px-2 py-1 dark:bg-white/10">
+            {(
+              [
+                { k: 'bold', icon: <Bold className="h-4 w-4" />, label: 'Negrita' },
+                { k: 'italic', icon: <Italic className="h-4 w-4" />, label: 'Cursiva' },
+                { k: 'strike', icon: <Strikethrough className="h-4 w-4" />, label: 'Tachado' },
+                { k: 'code', icon: <Code className="h-4 w-4" />, label: 'Código' },
+                { k: 'quote', icon: <Quote className="h-4 w-4" />, label: 'Cita' },
+                { k: 'ul', icon: <List className="h-4 w-4" />, label: 'Lista' },
+                { k: 'ol', icon: <ListOrdered className="h-4 w-4" />, label: 'Lista numerada' },
+              ] as const
+            ).map((b) => (
+              <button
+                key={b.k}
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => formatSelection(b.k)}
+                aria-label={b.label}
+                title={b.label}
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-600 hover:bg-black/10 dark:text-gray-300 dark:hover:bg-white/15"
+              >
+                {b.icon}
+              </button>
+            ))}
+          </div>
+        )}
         <div className="flex items-end gap-1">
           <button
             type="button"
@@ -511,6 +606,17 @@ export function MessageComposer({
             disabled={disabled}
           >
           {showPicker ? <X className="h-5 w-5" /> : <Smile className="h-5 w-5" />}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setShowFormat((s) => !s)}
+          className={`${iconBtn} ${showFormat ? 'bg-black/10 dark:bg-white/15' : ''}`}
+          aria-label="Formato de texto"
+          aria-pressed={showFormat}
+          disabled={disabled}
+        >
+          <Type className="h-5 w-5" />
         </button>
 
         {/* Menú "+" de adjuntos y herramientas (descongestiona la barra) */}
@@ -681,6 +787,7 @@ export function MessageComposer({
           </button>
         )}
       </div>
+      </>
       )}
     </div>
   );

@@ -134,7 +134,7 @@ function renderTextSpan(
 
   return text
     .split(/(https?:\/\/[^\s]+|@[a-zA-Z0-9._-]+)/g)
-    .flatMap((part, i) => {
+    .flatMap((part, i): React.ReactNode[] => {
       if (/^https?:\/\//.test(part)) {
         return [
           <a
@@ -247,6 +247,7 @@ export function renderMessageText(
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     const next = lines[i + 1];
+    const list = listInfo(line);
     if (looksLikeRow(line) && next !== undefined && isSeparatorRow(next)) {
       // Inicio de tabla: header + separador + filas siguientes con '|'.
       flushText();
@@ -259,6 +260,62 @@ export function renderMessageText(
       }
       blocks.push(renderTable(header, rows, opts, `t${blockKey++}`));
       i = j - 1;
+    } else if (isQuote(line)) {
+      // Cita en bloque: líneas consecutivas que empiezan con "> ".
+      flushText();
+      const k = `q${blockKey++}`;
+      const quoted: string[] = [];
+      let j = i;
+      while (j < lines.length && isQuote(lines[j])) {
+        quoted.push(lines[j].replace(/^\s*>\s?/, ''));
+        j++;
+      }
+      blocks.push(
+        <blockquote
+          key={k}
+          className={`my-1 border-l-2 pl-3 italic ${
+            opts.mine
+              ? 'border-white/50 text-white/90'
+              : 'border-black/25 text-gray-600 dark:border-white/30 dark:text-gray-300'
+          }`}
+        >
+          {quoted.map((q, qi) => (
+            <React.Fragment key={`${k}-${qi}`}>
+              {qi > 0 && <br />}
+              {renderTextSpan(q, opts, `${k}-${qi}`)}
+            </React.Fragment>
+          ))}
+        </blockquote>,
+      );
+      i = j - 1;
+    } else if (list) {
+      // Lista (con viñetas u ordenada): ítems consecutivos del mismo tipo.
+      flushText();
+      const k = `l${blockKey++}`;
+      const ordered = list.ordered;
+      const items: string[] = [];
+      let j = i;
+      while (j < lines.length) {
+        const info = listInfo(lines[j]);
+        if (!info || info.ordered !== ordered) break;
+        items.push(info.content);
+        j++;
+      }
+      const liNodes = items.map((it, ii) => (
+        <li key={`${k}-${ii}`}>{renderTextSpan(it, opts, `${k}-${ii}`)}</li>
+      ));
+      blocks.push(
+        ordered ? (
+          <ol key={k} className="my-1 list-decimal space-y-0.5 pl-5">
+            {liNodes}
+          </ol>
+        ) : (
+          <ul key={k} className="my-1 list-disc space-y-0.5 pl-5">
+            {liNodes}
+          </ul>
+        ),
+      );
+      i = j - 1;
     } else {
       textBuf.push(line);
     }
@@ -266,6 +323,20 @@ export function renderMessageText(
   flushText();
 
   return <>{blocks}</>;
+}
+
+/** ¿La línea es una cita en bloque (`> …`)? */
+function isQuote(line: string): boolean {
+  return /^\s*>\s?/.test(line);
+}
+
+/** Si la línea es un ítem de lista, devuelve si es ordenada y su contenido. */
+function listInfo(line: string): { ordered: boolean; content: string } | null {
+  const u = /^\s*[-*]\s+(.+)$/.exec(line);
+  if (u) return { ordered: false, content: u[1] };
+  const o = /^\s*\d+[.)]\s+(.+)$/.exec(line);
+  if (o) return { ordered: true, content: o[1] };
+  return null;
 }
 
 /** ¿El cuerpo contiene al menos una tabla Markdown? (para layout de la burbuja). */

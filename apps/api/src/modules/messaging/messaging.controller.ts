@@ -131,9 +131,78 @@ export class MessagingController {
     );
   }
 
+  // ── estado personal de la conversación (fijar/archivar/silenciar/no leído) ──
+  @Post('conversations/:id/pin')
+  setPinned(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body() body: { pinned?: boolean },
+  ) {
+    return this.messaging.setPinned(this.me(req), id, body?.pinned !== false);
+  }
+
+  @Post('conversations/:id/archive')
+  setArchived(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body() body: { archived?: boolean },
+  ) {
+    return this.messaging.setArchived(this.me(req), id, body?.archived !== false);
+  }
+
+  @Post('conversations/:id/mute')
+  setMuted(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body() body: { until?: string | null },
+  ) {
+    return this.messaging.setMuted(this.me(req), id, body?.until ?? null);
+  }
+
+  @Post('conversations/:id/unread')
+  setUnread(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body() body: { unread?: boolean },
+  ) {
+    return this.messaging.setMarkedUnread(
+      this.me(req),
+      id,
+      body?.unread !== false,
+    );
+  }
+
+  @Get('conversations/:id/media')
+  listMedia(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Query('kind') kind?: string,
+  ) {
+    return this.messaging.listMedia(this.me(req), id, kind ?? 'image');
+  }
+
+  @Get('unfurl')
+  unfurl(@Query('url') url: string) {
+    return this.messaging.unfurl(url ?? '');
+  }
+
+  @Get('saved')
+  listSaved(@Req() req: any) {
+    return this.messaging.listSaved(this.me(req));
+  }
+
   @Get('messages/:id/thread')
   getThread(@Req() req: any, @Param('id') id: string) {
     return this.messaging.getThread(this.me(req), id);
+  }
+
+  @Post('messages/:id/save')
+  setSaved(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body() body: { saved?: boolean },
+  ) {
+    return this.messaging.setSaved(this.me(req), id, body?.saved !== false);
   }
 
   @Post('messages')

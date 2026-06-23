@@ -6,7 +6,8 @@ import {
 } from '@nestjs/common';
 import { Interval } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In, Not, IsNull, LessThanOrEqual } from 'typeorm';
+import { Repository, In, Not, IsNull, LessThanOrEqual, Like } from 'typeorm';
+import { lookup } from 'dns/promises';
 import { Conversation } from './entities/conversation.entity';
 import { ConversationMember } from './entities/conversation-member.entity';
 import { Message, MessageType } from './entities/message.entity';
@@ -14,6 +15,7 @@ import { ChatMessageReaction } from './entities/chat-message-reaction.entity';
 import { PollVote } from './entities/poll-vote.entity';
 import { ScheduledMessage } from './entities/scheduled-message.entity';
 import { ConversationLabel } from './entities/conversation-label.entity';
+import { SavedMessage } from './entities/saved-message.entity';
 import { User } from '../users/entities/user.entity';
 import { ChatGateway } from './chat.gateway';
 
@@ -90,6 +92,99 @@ export function parseMentionTokens(body: string): string[] {
   return Array.from(out);
 }
 
+/** Primera URL http(s) del cuerpo (sin puntuación final), o null. Pura. */
+export function firstUrl(body: string | null | undefined): string | null {
+  if (!body) return null;
+  const m = /(https?:\/\/[^\s<>"']+)/i.exec(body);
+  return m ? m[1].replace(/[.,;:!?)\]]+$/, '') : null;
+}
+
+/** ¿IP en rango privado/reservado? (defensa SSRF para el unfurl de enlaces). */
+export function isPrivateIp(ip: string): boolean {
+  const v4 = ip.includes('.') ? ip.split('.').map(Number) : null;
+  if (v4 && v4.length === 4 && v4.every((n) => n >= 0 && n <= 255)) {
+    const [a, b] = v4;
+    if (a === 10 || a === 127 || a === 0) return true;
+    if (a === 169 && b === 254) return true; // link-local
+    if (a === 172 && b >= 16 && b <= 31) return true;
+    if (a === 192 && b === 168) return true;
+    if (a === 100 && b >= 64 && b <= 127) return true; // CGNAT
+    if (a >= 224) return true; // multicast/reservado
+    return false;
+  }
+  const v6 = ip.toLowerCase();
+  return (
+    v6 === '::1' ||
+    v6 === '::' ||
+    v6.startsWith('fe80') || // link-local
+    v6.startsWith('fc') ||
+    v6.startsWith('fd') || // ULA
+    v6.startsWith('::ffff:127.') ||
+    v6.startsWith('::ffff:10.') ||
+    v6.startsWith('::ffff:192.168.')
+  );
+}
+
+/** Decodifica las entidades HTML más comunes en texto de metadatos. */
+function decodeEntities(s: string): string {
+  return s
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#0?39;/g, "'")
+    .replace(/&#x27;/gi, "'")
+    .replace(/&nbsp;/g, ' ')
+    .trim();
+}
+
+export interface LinkPreview {
+  url: string;
+  title: string | null;
+  description: string | null;
+  image: string | null;
+  siteName: string | null;
+}
+
+/** Extrae metadatos OpenGraph/HTML de un documento (regex acotada, sin deps). */
+export function parseOpenGraph(html: string, baseUrl: string): LinkPreview {
+  const meta = (prop: string): string | null => {
+    const patterns = [
+      new RegExp(
+        `<meta[^>]+(?:property|name)=["']${prop}["'][^>]+content=["']([^"']*)["']`,
+        'i',
+      ),
+      new RegExp(
+        `<meta[^>]+content=["']([^"']*)["'][^>]+(?:property|name)=["']${prop}["']`,
+        'i',
+      ),
+    ];
+    for (const re of patterns) {
+      const m = re.exec(html);
+      if (m && m[1]) return decodeEntities(m[1]);
+    }
+    return null;
+  };
+  const titleTag = /<title[^>]*>([^<]*)<\/title>/i.exec(html);
+  const title = meta('og:title') || (titleTag ? decodeEntities(titleTag[1]) : null);
+  const description = meta('og:description') || meta('description');
+  let image = meta('og:image') || meta('og:image:url') || meta('twitter:image');
+  if (image) {
+    try {
+      image = new URL(image, baseUrl).toString();
+    } catch {
+      image = null;
+    }
+  }
+  return {
+    url: baseUrl,
+    title: title ? title.slice(0, 200) : null,
+    description: description ? description.slice(0, 300) : null,
+    image,
+    siteName: meta('og:site_name'),
+  };
+}
+
 @Injectable()
 export class MessagingService {
   constructor(
@@ -107,6 +202,8 @@ export class MessagingService {
     private readonly scheduled: Repository<ScheduledMessage>,
     @InjectRepository(ConversationLabel)
     private readonly labels: Repository<ConversationLabel>,
+    @InjectRepository(SavedMessage)
+    private readonly saved: Repository<SavedMessage>,
     @InjectRepository(User)
     private readonly users: Repository<User>,
     private readonly gateway: ChatGateway,
@@ -334,6 +431,15 @@ export class MessagingService {
           : null,
         lastMessageAt: convo.lastMessageAt,
         unread,
+        // Estado personal (fijar / archivar / silenciar / no leído).
+        pinned: !!membership.pinnedAt,
+        pinnedAt: membership.pinnedAt,
+        archived: !!membership.archivedAt,
+        muted:
+          !!membership.mutedUntil &&
+          new Date(membership.mutedUntil).getTime() > Date.now(),
+        mutedUntil: membership.mutedUntil,
+        markedUnread: !!membership.markedUnread,
       });
     }
 
@@ -344,12 +450,61 @@ export class MessagingService {
     );
     for (const r of result) r.labels = labelMap.get(r.id) ?? [];
 
+    // Orden: fijadas primero (por fecha de fijado), luego por último mensaje.
     result.sort((a, b) => {
+      if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
+      if (a.pinned && b.pinned) {
+        const pa = a.pinnedAt ? new Date(a.pinnedAt).getTime() : 0;
+        const pb = b.pinnedAt ? new Date(b.pinnedAt).getTime() : 0;
+        if (pa !== pb) return pb - pa;
+      }
       const ta = a.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0;
       const tb = b.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0;
       return tb - ta;
     });
     return result;
+  }
+
+  // ── estado personal de una conversación (fijar/archivar/silenciar/no leído) ─
+  async setPinned(meId: string, conversationId: string, pinned: boolean) {
+    await this.assertMember(conversationId, meId);
+    await this.members.update(
+      { conversationId, userId: meId },
+      { pinnedAt: pinned ? new Date() : null },
+    );
+    return { ok: true, pinned };
+  }
+
+  async setArchived(meId: string, conversationId: string, archived: boolean) {
+    await this.assertMember(conversationId, meId);
+    await this.members.update(
+      { conversationId, userId: meId },
+      { archivedAt: archived ? new Date() : null },
+    );
+    return { ok: true, archived };
+  }
+
+  async setMuted(meId: string, conversationId: string, untilIso: string | null) {
+    await this.assertMember(conversationId, meId);
+    let until: Date | null = null;
+    if (untilIso) {
+      const d = new Date(untilIso);
+      if (!isNaN(d.getTime())) until = d;
+    }
+    await this.members.update(
+      { conversationId, userId: meId },
+      { mutedUntil: until },
+    );
+    return { ok: true, mutedUntil: until };
+  }
+
+  async setMarkedUnread(meId: string, conversationId: string, unread: boolean) {
+    await this.assertMember(conversationId, meId);
+    await this.members.update(
+      { conversationId, userId: meId },
+      { markedUnread: unread },
+    );
+    return { ok: true, markedUnread: unread };
   }
 
   // ── mensajes de una conversación (paginado) ──────────────────────────────
@@ -408,6 +563,9 @@ export class MessagingService {
     // Nº de respuestas (hilo) por mensaje, en una sola consulta.
     const threadCounts = await this.threadCountsFor(ids);
 
+    // Cuáles de estos mensajes tengo guardados (en lote).
+    const savedSet = await this.savedIdsFor(meId, ids);
+
     // Devolver en orden cronológico ascendente.
     return rows.reverse().map((m) =>
       this.toDto(m, {
@@ -418,8 +576,21 @@ export class MessagingService {
             ? this.aggregatePollDto(m, votesByMsg.get(m.id) ?? [])
             : null,
         threadCount: threadCounts.get(m.id) ?? 0,
+        saved: savedSet.has(m.id),
       }),
     );
+  }
+
+  /** Conjunto de ids de mensaje guardados por el usuario, de entre `ids`. */
+  private async savedIdsFor(
+    meId: string,
+    ids: string[],
+  ): Promise<Set<string>> {
+    if (!ids.length) return new Set();
+    const rows = await this.saved.find({
+      where: { userId: meId, messageId: In(ids) },
+    });
+    return new Set(rows.map((r) => r.messageId));
   }
 
   /** Cuenta respuestas directas (no eliminadas) por cada id de mensaje raíz. */
@@ -785,7 +956,11 @@ export class MessagingService {
   async markRead(meId: string, conversationId: string) {
     await this.assertMember(conversationId, meId);
     const lastReadAt = new Date();
-    await this.members.update({ conversationId, userId: meId }, { lastReadAt });
+    // Leer también limpia el "no leído" manual.
+    await this.members.update(
+      { conversationId, userId: meId },
+      { lastReadAt, markedUnread: false },
+    );
     const memberIds = await this.memberIdsOf(conversationId);
     this.gateway.emitReadUpdate(memberIds, {
       conversationId,
@@ -1234,6 +1409,7 @@ export class MessagingService {
       replyTo?: ReplyPreview | null;
       poll?: PollDto | null;
       threadCount?: number;
+      saved?: boolean;
     },
   ) {
     const deleted = !!m.deletedAt;
@@ -1259,6 +1435,7 @@ export class MessagingService {
       expiresAt: m.expiresAt ?? null,
       forwarded: !!m.forwarded,
       threadCount: extras?.threadCount ?? 0,
+      saved: extras?.saved ?? false,
     };
   }
 
@@ -1305,5 +1482,236 @@ export class MessagingService {
       else map.set(r.conversationId, [r.label]);
     }
     return map;
+  }
+
+  // ── mensajes guardados (destacados, personales) ───────────────────────────
+  async setSaved(meId: string, messageId: string, saved: boolean) {
+    const msg = await this.messages.findOne({ where: { id: messageId } });
+    if (!msg) throw new NotFoundException('Mensaje no encontrado');
+    await this.assertMember(msg.conversationId, meId);
+    const existing = await this.saved.findOne({
+      where: { userId: meId, messageId },
+    });
+    if (saved && !existing) {
+      await this.saved.save(
+        this.saved.create({
+          userId: meId,
+          messageId,
+          conversationId: msg.conversationId,
+        }),
+      );
+    } else if (!saved && existing) {
+      await this.saved.delete({ id: existing.id });
+    }
+    return { ok: true, saved };
+  }
+
+  /** Lista mis mensajes guardados con contexto de conversación. */
+  async listSaved(meId: string) {
+    const rows = await this.saved.find({
+      where: { userId: meId },
+      order: { createdAt: 'DESC' },
+      take: 100,
+    });
+    if (!rows.length) return [];
+    const msgs = await this.messages.find({
+      where: { id: In(rows.map((r) => r.messageId)) },
+    });
+    const msgById = new Map(msgs.map((m) => [m.id, m]));
+    const convoIds = Array.from(new Set(rows.map((r) => r.conversationId)));
+    const convos = await this.conversations.find({
+      where: { id: In(convoIds) },
+    });
+    const convoById = new Map(convos.map((c) => [c.id, c]));
+    const memberRows = await this.members.find({
+      where: { conversationId: In(convoIds) },
+    });
+    const otherByConvo = new Map<string, string>();
+    for (const mr of memberRows) {
+      const c = convoById.get(mr.conversationId);
+      if (c?.type === 'dm' && mr.userId !== meId) {
+        otherByConvo.set(mr.conversationId, mr.userId);
+      }
+    }
+    const otherIds = Array.from(new Set(otherByConvo.values()));
+    const others = otherIds.length
+      ? await this.users.find({ where: { id: In(otherIds) } })
+      : [];
+    const userById = new Map(others.map((u) => [u.id, u]));
+
+    return rows
+      .map((r) => {
+        const m = msgById.get(r.messageId);
+        if (!m || m.deletedAt) return null;
+        const c = convoById.get(r.conversationId);
+        let title = c?.name ?? 'Conversación';
+        if (c?.type === 'dm') {
+          const o = userById.get(otherByConvo.get(r.conversationId) ?? '');
+          title = o?.username ?? o?.email ?? 'Usuario';
+        }
+        return {
+          id: m.id,
+          conversationId: r.conversationId,
+          conversationTitle: title,
+          conversationType: c?.type ?? 'dm',
+          senderId: m.senderId,
+          type: m.type,
+          snippet: this.replyPreviewOf(m).snippet,
+          createdAt: m.createdAt,
+          savedAt: r.createdAt,
+        };
+      })
+      .filter((x): x is NonNullable<typeof x> => !!x);
+  }
+
+  // ── galería: multimedia / archivos / enlaces de una conversación ───────────
+  async listMedia(meId: string, conversationId: string, kind: string) {
+    await this.assertMember(conversationId, meId);
+    if (kind === 'image' || kind === 'file') {
+      const rows = await this.messages.find({
+        where: { conversationId, type: kind, deletedAt: IsNull() },
+        order: { createdAt: 'DESC' },
+        take: 120,
+      });
+      return rows.map((m) => ({
+        id: m.id,
+        senderId: m.senderId,
+        type: m.type,
+        fileName: m.fileName ?? null,
+        fileMime: m.fileMime ?? null,
+        fileSize: m.fileSize ?? null,
+        imageMime: m.imageMime ?? null,
+        createdAt: m.createdAt,
+      }));
+    }
+    // Enlaces: mensajes de texto con http(s) (excluye tokens especiales [[..]]).
+    const rows = await this.messages.find({
+      where: [
+        {
+          conversationId,
+          type: 'text',
+          deletedAt: IsNull(),
+          body: Like('%http://%'),
+        },
+        {
+          conversationId,
+          type: 'text',
+          deletedAt: IsNull(),
+          body: Like('%https://%'),
+        },
+      ],
+      order: { createdAt: 'DESC' },
+      take: 120,
+    });
+    return rows
+      .map((m) => {
+        if ((m.body ?? '').trim().startsWith('[[')) return null;
+        const url = firstUrl(m.body);
+        if (!url) return null;
+        return {
+          id: m.id,
+          senderId: m.senderId,
+          url,
+          body: (m.body ?? '').slice(0, 200),
+          createdAt: m.createdAt,
+        };
+      })
+      .filter((x): x is NonNullable<typeof x> => !!x);
+  }
+
+  // ── previsualización de enlaces (unfurl) con defensa SSRF + caché ──────────
+  private readonly unfurlCache = new Map<
+    string,
+    { at: number; data: LinkPreview }
+  >();
+
+  async unfurl(rawUrl: string): Promise<LinkPreview> {
+    const url = (rawUrl ?? '').trim();
+    if (!url) throw new BadRequestException('URL vacía');
+    const fallback: LinkPreview = {
+      url,
+      title: null,
+      description: null,
+      image: null,
+      siteName: null,
+    };
+    const cached = this.unfurlCache.get(url);
+    if (cached && Date.now() - cached.at < 60 * 60 * 1000) return cached.data;
+
+    let start: URL;
+    try {
+      start = new URL(url);
+    } catch {
+      return fallback;
+    }
+    if (start.protocol !== 'http:' && start.protocol !== 'https:') {
+      return fallback;
+    }
+    const fetched = await this.safeFetchHtml(start);
+    const data = fetched
+      ? parseOpenGraph(fetched.html, fetched.finalUrl)
+      : fallback;
+    // Conserva la URL original como clave/identidad del preview.
+    data.url = url;
+    this.unfurlCache.set(url, { at: Date.now(), data });
+    return data;
+  }
+
+  /**
+   * Descarga HTML validando CADA salto de redirección contra hosts privados
+   * (evita SSRF por redirección). Acota tamaño, tipo y tiempo.
+   */
+  private async safeFetchHtml(
+    start: URL,
+  ): Promise<{ html: string; finalUrl: string } | null> {
+    let current = start;
+    for (let hop = 0; hop < 4; hop++) {
+      try {
+        const { address } = await lookup(current.hostname);
+        if (isPrivateIp(address)) return null;
+      } catch {
+        return null;
+      }
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 5000);
+      let res: Awaited<ReturnType<typeof fetch>>;
+      try {
+        res = await fetch(current.toString(), {
+          signal: ctrl.signal,
+          redirect: 'manual',
+          headers: {
+            'User-Agent': 'AxosBot/1.0 (+link-preview)',
+            Accept: 'text/html,application/xhtml+xml',
+          },
+        });
+      } catch {
+        clearTimeout(timer);
+        return null;
+      }
+      clearTimeout(timer);
+
+      if (res.status >= 300 && res.status < 400) {
+        const loc = res.headers.get('location');
+        if (!loc) return null;
+        try {
+          current = new URL(loc, current);
+        } catch {
+          return null;
+        }
+        if (current.protocol !== 'http:' && current.protocol !== 'https:') {
+          return null;
+        }
+        continue;
+      }
+      const ct = res.headers.get('content-type') ?? '';
+      const len = Number(res.headers.get('content-length') ?? '0');
+      if (!res.ok || !ct.includes('text/html') || len > 3 * 1024 * 1024) {
+        return null;
+      }
+      const buf = await res.arrayBuffer();
+      const html = Buffer.from(buf).subarray(0, 512 * 1024).toString('utf8');
+      return { html, finalUrl: current.toString() };
+    }
+    return null;
   }
 }
