@@ -254,4 +254,45 @@ describe('WarehouseService', () => {
       expect(res.touches).toBe(2);
     });
   });
+
+  describe('importReplenishCalls (kit → pull)', () => {
+    it('crea pulls desde llamados de resurtido ABIERTOS, mapeando estación→destino', async () => {
+      const materialStaging = {
+        listReplenishCalls: jest.fn().mockResolvedValue([
+          { id: 'c1', part: 'P1', qty: 10, station: 'L1-POU', priority: 'URGENT', status: 'OPEN', woFolio: 'WO-1', raisedBy: 'kanban' },
+          { id: 'c2', part: 'P2', qty: 5, station: 'L2-POU', priority: 'MEDIUM', status: 'DELIVERED', woFolio: 'WO-2' }, // cerrado → se ignora
+        ]),
+      };
+      const svc = new WarehouseService(taskRepo as never, inventory as never, audit as never, {} as never, materialStaging as never);
+      taskRepo.findOne.mockResolvedValue(null); // ninguno importado aún
+      const res = await svc.importReplenishCalls({ sourceWarehouseId: 'WH-RM' }, user);
+      expect(res.total).toBe(1); // sólo c1 está abierto
+      expect(res.imported).toBe(1);
+      const created = taskRepo.create.mock.calls.find(([d]) => (d as { referenceId?: string }).referenceId === 'c1');
+      expect(created).toBeTruthy();
+      expect((created![0] as { toLocation: string }).toLocation).toBe('L1-POU');
+      expect((created![0] as { urgent: boolean }).urgent).toBe(true);
+      expect((created![0] as { referenceType: string }).referenceType).toBe('REPLENISH_CALL');
+    });
+
+    it('es idempotente: omite llamados ya importados', async () => {
+      const materialStaging = {
+        listReplenishCalls: jest.fn().mockResolvedValue([
+          { id: 'c1', part: 'P1', qty: 10, station: 'L1', priority: 'HIGH', status: 'OPEN' },
+        ]),
+      };
+      const svc = new WarehouseService(taskRepo as never, inventory as never, audit as never, {} as never, materialStaging as never);
+      taskRepo.findOne.mockResolvedValue({ id: 99 }); // ya existe el pull del llamado
+      const res = await svc.importReplenishCalls({ sourceWarehouseId: 'WH-RM' }, user);
+      expect(res.imported).toBe(0);
+      expect(res.skipped).toBe(1);
+    });
+
+    it('exige integración disponible y almacén origen', async () => {
+      const noStaging = new WarehouseService(taskRepo as never, inventory as never, audit as never, {} as never, undefined);
+      await expect(noStaging.importReplenishCalls({ sourceWarehouseId: 'WH-RM' }, user)).rejects.toBeInstanceOf(BadRequestException);
+      const withStaging = new WarehouseService(taskRepo as never, inventory as never, audit as never, {} as never, { listReplenishCalls: jest.fn() } as never);
+      await expect(withStaging.importReplenishCalls({ sourceWarehouseId: '' }, user)).rejects.toBeInstanceOf(BadRequestException);
+    });
+  });
 });

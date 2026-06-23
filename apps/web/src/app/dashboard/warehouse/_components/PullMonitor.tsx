@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   ClipboardList, Plus, Upload, ChevronDown, ChevronRight, CheckCircle2, XCircle,
-  Play, Loader2, AlertTriangle, Clock, Flame, Inbox, ArrowRight, HandMetal, X, RefreshCw,
+  Play, Loader2, AlertTriangle, Clock, Flame, Inbox, ArrowRight, HandMetal, X, RefreshCw, Boxes,
 } from 'lucide-react';
 import { glass } from '@/lib/glass';
 import { useApi } from '@/hooks/useApi';
@@ -46,6 +46,8 @@ export default function PullMonitor() {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<PullForm>(EMPTY_FORM);
   const [onlyMine, setOnlyMine] = useState(false);
+  const [showImport, setShowImport] = useState(false);
+  const [importWh, setImportWh] = useState('');
 
   // Reloj para aging en vivo (recalcula cada 30 s sin pegarle al backend).
   const [now, setNow] = useState(() => Date.now());
@@ -183,6 +185,29 @@ export default function PullMonitor() {
     } finally { setBusy(null); }
   }
 
+  // Importa los llamados de resurtido (e-kanban) de material-staging como pulls.
+  async function importReplenish() {
+    if (!importWh.trim()) { toast.error('Indica el almacén origen para importar.', 'Pull Monitor'); return; }
+    setBusy('import');
+    try {
+      const res = await apiFetch(`${API_BASE}/warehouse/pulls/import-replenish`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sourceWarehouseId: importWh }),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        toast.error(d?.message || 'No se pudo importar los resurtidos.', 'Pull Monitor');
+        return;
+      }
+      const r = await res.json().catch(() => ({ imported: 0, skipped: 0, total: 0 }));
+      toast.success(`Resurtidos: ${r.imported} importado(s), ${r.skipped} ya existían.`, 'Pull Monitor');
+      setShowImport(false);
+      mutate();
+    } catch {
+      toast.error('Error de red.', 'Pull Monitor');
+    } finally { setBusy(null); }
+  }
+
   const kpiItems: StatCardProps[] = [
     { label: 'Pulls abiertos', value: openPulls.length, color: openPulls.length ? BLUE : GREEN, icon: Inbox },
     { label: 'SLA en rojo', value: breached, color: breached ? RED : GREEN, icon: AlertTriangle },
@@ -235,6 +260,16 @@ export default function PullMonitor() {
               className="inline-flex cursor-not-allowed items-center gap-1.5 rounded-xl border border-dashed border-black/15 px-3 py-2 text-sm text-gray-400 dark:border-white/15"
             >
               <Upload className="h-4 w-4" /> Cargar pull-list (SAP) <span className="ml-1 rounded bg-black/5 px-1 text-[10px] dark:bg-white/10">pronto</span>
+            </button>
+            {/* Puente real kit→pull: importa los llamados de resurtido (e-kanban) del piso. */}
+            <button
+              type="button"
+              onClick={() => setShowImport((s) => !s)}
+              title="Importa los llamados de resurtido (e-kanban) generados por el surtido de kits como pulls del monitor."
+              className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-medium transition-colors"
+              style={{ background: `${TEAL}1f`, color: TEAL }}
+            >
+              <Boxes className="h-4 w-4" /> Importar resurtidos
             </button>
             <button
               type="button"
@@ -353,6 +388,29 @@ export default function PullMonitor() {
             <button onClick={() => setShowForm(false)} className="rounded-xl px-4 py-2 text-sm hover:bg-black/5 dark:hover:bg-white/10">Cancelar</button>
             <button onClick={createPull} disabled={busy === 'new'} className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium text-white disabled:opacity-60" style={{ background: BLUE }}>
               {busy === 'new' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />} Crear pull
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Importar resurtidos (e-kanban) desde material-staging */}
+      {showImport && (
+        <div className={`${glass} mb-5 rounded-2xl p-5`}>
+          <div className="mb-3 flex items-center justify-between">
+            <div>
+              <h3 className="font-semibold">Importar resurtidos del piso (e-kanban)</h3>
+              <p className="text-[12px] text-gray-400">Trae los llamados de resurtido abiertos (generados por el surtido de kits) como pulls. Elige de qué almacén se surten.</p>
+            </div>
+            <button onClick={() => setShowImport(false)} className="rounded-lg p-1.5 hover:bg-black/5 dark:hover:bg-white/10"><X className="h-4 w-4" /></button>
+          </div>
+          <div className="flex flex-wrap items-end gap-3">
+            <label className="block">
+              <span className="mb-1 block text-[12px] font-medium text-gray-500">Almacén origen *</span>
+              <input list="wh-options-import" value={importWh} onChange={(e) => setImportWh(e.target.value)} placeholder="AX-WH-NORTE-RM" className={`${inputCls} sm:w-72`} />
+              <datalist id="wh-options-import">{warehouseOptions.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}</datalist>
+            </label>
+            <button onClick={importReplenish} disabled={busy === 'import'} className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium text-white disabled:opacity-60" style={{ background: TEAL }}>
+              {busy === 'import' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Boxes className="h-4 w-4" />} Importar
             </button>
           </div>
         </div>
