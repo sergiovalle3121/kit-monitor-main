@@ -45,6 +45,7 @@ import { MATRIX_FUNCTIONS } from './matrixFunctions';
 import { MATH_EXTRA_FUNCTIONS } from './mathExtras';
 import { DATE_INTL_FUNCTIONS } from './dateIntl';
 import { DISTRIBUTION_FUNCTIONS } from './distributions';
+import { SECURITY_FUNCTIONS } from './securities';
 
 // ── Utilidades de coerción / aplanado de argumentos ──────────────────────────
 // Las funciones reciben `params`: un array donde cada argumento ya viene evaluado.
@@ -289,6 +290,8 @@ export const CUSTOM_FUNCTIONS: Record<string, (params: any[]) => any> = {
   ...DATE_INTL_FUNCTIONS,
   // Distribuciones χ²/F/t (colas e inversas) correctas — ver `distributions.ts`.
   ...DISTRIBUTION_FUNCTIONS,
+  // Valores con descuento (DISC/PRICEDISC/YIELDDISC/INTRATE/RECEIVED/ACCRINTM) — ver `securities.ts`.
+  ...SECURITY_FUNCTIONS,
 };
 
 // ── Normalización de literales booleanos en la cadena de fórmula ──────────────
