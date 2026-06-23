@@ -50,6 +50,7 @@ import { BOND_FUNCTIONS } from './bonds';
 import { STAT_TEST_FUNCTIONS } from './statTests';
 import { FIDELITY_FUNCTIONS } from './fidelityFixes';
 import { PERCENTILE_FUNCTIONS } from './percentileFix';
+import { REGRESSION_FUNCTIONS } from './regression';
 
 // ── Utilidades de coerción / aplanado de argumentos ──────────────────────────
 // Las funciones reciben `params`: un array donde cada argumento ya viene evaluado.
@@ -304,6 +305,8 @@ export const CUSTOM_FUNCTIONS: Record<string, (params: any[]) => any> = {
   ...FIDELITY_FUNCTIONS,
   // PERCENTILE/QUARTILE inclusivos correctos (DESPUÉS de STAT_FUNCTIONS) — ver `percentileFix.ts`.
   ...PERCENTILE_FUNCTIONS,
+  // Regresión lineal/exponencial (TREND/GROWTH/SLOPE/INTERCEPT/FORECAST) — ver `regression.ts`.
+  ...REGRESSION_FUNCTIONS,
 };
 
 // ── Normalización de literales booleanos en la cadena de fórmula ──────────────
