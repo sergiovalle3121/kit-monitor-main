@@ -42,9 +42,20 @@ import { ExecutionStepMaterial } from '../modules/mes-execution/entities/executi
 import { ExecutionEvent } from '../modules/mes-execution/entities/execution-event.entity';
 import { VisualAid } from '../modules/visual-aids/entities/visual-aid.entity';
 import { BayLayout } from '../modules/bay-layout/entities/bay-layout.entity';
+// Densidad Fase 2: herramientas nuevas/enriquecidas a limpiar (sólo lo demo).
+import { Tool } from '../modules/tooling/entities/tool.entity';
+import { Asset } from '../modules/maintenance/entities/asset.entity';
+import { MaintenanceOrder } from '../modules/maintenance/entities/maintenance-order.entity';
+import { WarehouseTask } from '../modules/inventory/entities/warehouse-task.entity';
+import { ReplenishmentRule } from '../modules/inventory/entities/replenishment-rule.entity';
+import { SCAR } from '../modules/suppliers/entities/scar.entity';
+import { IQCInspection } from '../modules/quality/entities/iqc-inspection.entity';
+import { NCR } from '../modules/ncr/entities/ncr.entity';
+import { QualityHold } from '../modules/quality/entities/quality-hold.entity';
 
 import { bootSeedContext, runInDemoContext } from './seed-context';
 import {
+  DEMO_ACTOR,
   DEMO_CUSTOMER_CODES,
   DEMO_MODEL_NUMBERS,
   DEMO_MV_REF_TYPES,
@@ -60,6 +71,11 @@ import {
   SF_DOWNTIME_PREFIX,
   SF_HOLD_LOT,
   SF_WO_NOTE,
+  DEMO_WH_TASK_PREFIX,
+  DEMO_IQC_PREFIX,
+  DEMO_SCAR_PREFIX,
+  DEMO_NCR_PREFIX,
+  DEMO_QHOLD_REASON,
 } from './seed-constants';
 
 const DEMO_WH_IDS = DEMO_WAREHOUSES.map((w) => w.id);
@@ -143,6 +159,19 @@ async function run(): Promise<void> {
       const headerIds = demoHeaders.map((h) => h.id);
 
       console.log(`\n· Identificados: ${planIds.length} planes, ${kitIds.length} kits, ${headerIds.length} BOMs demo\n`);
+
+      // ── Densidad Fase 2 (aditivo): herramientas nuevas/enriquecidas. Se quitan
+      //    ANTES que proveedores (FK scar/iqc→supplier). Coincidencia exacta de
+      //    marcador demo (prefijo AX-* o actor de siembra) — sólo borra lo demo.
+      await removeBy(ds.getRepository(QualityHold), { reason: DEMO_QHOLD_REASON }, 'quality_holds (demo)');
+      await removeBy(ds.getRepository(SCAR), { scarNumber: Like(`${DEMO_SCAR_PREFIX}%`) }, 'scars');
+      await removeBy(ds.getRepository(IQCInspection), { inspectionNumber: Like(`${DEMO_IQC_PREFIX}%`) }, 'iqc_inspections');
+      await removeBy(ds.getRepository(NCR), { ncrNumber: Like(`${DEMO_NCR_PREFIX}%`) }, 'ncrs');
+      await removeBy(ds.getRepository(WarehouseTask), { taskNumber: Like(`${DEMO_WH_TASK_PREFIX}%`) }, 'warehouse_tasks');
+      await removeBy(ds.getRepository(ReplenishmentRule), { warehouseId: In(DEMO_WH_IDS) }, 'replenishment_rules');
+      await removeBy(ds.getRepository(MaintenanceOrder), { created_by: DEMO_ACTOR }, 'maintenance_orders');
+      await removeBy(ds.getRepository(Asset), { created_by: DEMO_ACTOR }, 'assets');
+      await removeBy(ds.getRepository(Tool), { created_by: DEMO_ACTOR }, 'tooling_assets');
 
       // ── 0) Sustrato de piso (aditivo del Paso 1): ejecución MES + ruteo +
       //       ayudas visuales + bahías. Se quita ANTES que planes/modelos.
