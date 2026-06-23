@@ -171,6 +171,20 @@ export class LineEngineeringController {
     return this.service.getTakeoff(model, revision ?? 'A');
   }
 
+  @Get('layout/clearance')
+  @RequirePermissions('engineering:read')
+  @ApiOperation({
+    summary:
+      'Holguras / pasillos del layout: pares demasiado juntos, traslapes, objetos pegados al muro o fuera del plano, y un índice de circulación.',
+  })
+  getClearance(
+    @Query('model') model: string,
+    @Query('revision') revision?: string,
+    @Query('min') min?: string,
+  ) {
+    return this.service.getClearance(model, revision ?? 'A', min ? Number(min) : undefined);
+  }
+
   @Put('layout/approval')
   @RequirePermissions('engineering:write')
   @ApiOperation({
