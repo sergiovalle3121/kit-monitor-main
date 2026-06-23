@@ -1337,4 +1337,31 @@ motor REAL: `SUM`/`COUNT`/`MAX`/`AVERAGE`/`INDEX`/`MATCH`/`SUMPRODUCT`/`TEXTJOIN
 constantes). Sin regresiones: 28 suites de hoja + 3 de I/O Office verdes; `lint web` 0 errores;
 `build web` ✓.
 
+## 53. Office/Sheets — escalares ausentes/rotas en formulajs (ADDRESS, DOLLAR, FIXED, T, N, BASE, DECIMAL, TIMEVALUE)
+
+**Contexto.** Auditando el motor REAL aparecieron varias funciones escalares comunes que
+`@formulajs/formulajs@2.9.3` no trae o devuelve rotas: `ADDRESS`, `DOLLAR`, `FIXED`, `T`, `N`,
+`BASE` (en minúsculas y sin relleno), `DECIMAL` (`#VALUE!`) y `TIMEVALUE` (`#VALUE!`).
+
+**Decisión (sólo `apps/web`, aditiva):** `components/office/sheets/scalarFunctions.ts` implementa
+versiones fieles y las registra en `CUSTOM_FUNCTIONS`, que el parche de `getFunction` resuelve
+ANTES del fallback a formulajs (`evaluateByOperator`) — misma técnica que `TEXT` (§«formulaEngine»).
+Detalles de fidelidad: `DOLLAR` pone los negativos entre paréntesis y admite decimales negativos;
+`FIXED` redondea «mitad lejos del cero» (como Excel) y opcionalmente quita los miles; `ADDRESS`
+soporta los 4 modos de referencia absoluta/relativa, estilo R1C1 y prefijo de hoja; `BASE`/`DECIMAL`
+cubren bases 2–36 en mayúsculas con validación; `TIMEVALUE` acepta `HH:MM[:SS]` con AM/PM.
+
+**Sutileza del lexer (documentada):** el parser NO admite nombres de función de **una sola letra**
+(`T(`, `N(`): los confunde con una referencia de columna y la fórmula revienta con `#ERROR!` ANTES
+de resolver la función (nunca llega a `getFunction`). Se resuelve con un **alias por preprocesado**
+(`aliasScalarFns`, primero en la cadena de `parse`): `T(`→`AXOST(`, `N(`→`AXOSN(` (5 letras → no son
+columnas, máx. XFD), registradas bajo esos alias. Token completo y fuera de comillas, así
+`TODAY(`/`COUNT(`/`MIN(`/`MAX(` no se tocan.
+
+**Verificación:** nueva suite `scalarFunctions.spec.ts` (**33 aserciones** sobre el motor REAL:
+los 4 modos de `ADDRESS` + R1C1 + hoja + columna de dos letras; `DOLLAR`/`FIXED` con negativos y
+decimales negativos; `T`/`N` de texto/número/lógico/celda; `BASE`/`DECIMAL` con relleno, base 36 y
+dígito inválido; `TIMEVALUE` mediodía/AM/medianoche/segundos; composición con `LEN`/`&`). Sin
+regresiones: 29 suites de hoja + 3 de I/O Office verdes; `lint web` 0 errores; `build web` ✓.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
