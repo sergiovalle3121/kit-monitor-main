@@ -181,6 +181,13 @@ const ASSET_META = (kind: string) => ASSET_KINDS.find((k) => k.kind === kind) ??
 interface LayoutAsset { id: string; kind: string; x: number; y: number; w: number; h: number; rotation: number; label?: string }
 interface LayoutAnnotation { id: string; type: 'text' | 'dim'; x: number; y: number; x2?: number; y2?: number; text?: string; color?: string }
 interface LayoutCell { id: string; name: string; color: string; stationIds: string[] }
+type ApprovalStatus = 'draft' | 'in_review' | 'approved';
+interface LayoutApproval { status: ApprovalStatus; by: string | null; at: string | null; note: string | null }
+const APPROVAL_META: Record<ApprovalStatus, { label: string; color: string }> = {
+  draft: { label: 'Borrador', color: '#94a3b8' },
+  in_review: { label: 'En revisión', color: '#f59e0b' },
+  approved: { label: 'Aprobado', color: '#10b981' },
+};
 interface LayoutStation {
   id: string; station: string; line: string; sequence: number; ctq: boolean;
   x: number | null; y: number | null; w: number | null; h: number | null; rotation: number | null;
@@ -332,6 +339,8 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
   const [showSim, setShowSim] = useState(false);
   const [showYama, setShowYama] = useState(false);
   const [showCells, setShowCells] = useState(false);
+  const [approval, setApproval] = useState<LayoutApproval | null>(null);
+  const [approvalBusy, setApprovalBusy] = useState(false);
   const [reportData, setReportData] = useState<LayoutReport | null>(null);
   const [diffFor, setDiffFor] = useState<string | null>(null);
   const [diffData, setDiffData] = useState<SnapshotDiff | null>(null);
@@ -783,6 +792,7 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
       setAnnCount(annotationsRef.current.length);
       cellsRef.current = Array.isArray(d.cells) ? d.cells : [];
       setCells(cellsRef.current);
+      setApproval((d as { approval?: LayoutApproval }).approval ?? { status: 'draft', by: null, at: null, note: null });
       setDirty(false);
 
       // DXF background: the placement meta arrives with the layout; the raw
@@ -1023,6 +1033,22 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
     drawCellsRef.current();
     fcRef.current?.requestRenderAll();
   }, [markDirty]);
+
+  // ── Approval / sign-off (Fase 29) ───────────────────────────────────────────
+  const setApprovalStatus = useCallback(async (status: ApprovalStatus) => {
+    if (!model) return;
+    setApprovalBusy(true);
+    try {
+      const r = await apiFetch(`${API_BASE}/line-engineering/layout/approval`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model, revision, status }),
+      });
+      if (!r.ok) { toast.error('No se pudo cambiar el estado.', 'Ing. Industrial'); return; }
+      const d = (await r.json()) as { approval?: LayoutApproval };
+      setApproval(d.approval ?? { status, by: null, at: null, note: null });
+      toast.success(`Layout: ${APPROVAL_META[status].label}.`, 'Ing. Industrial');
+    } catch { toast.error('Error de red.', 'Ing. Industrial'); } finally { setApprovalBusy(false); }
+  }, [model, revision, toast]);
 
   // ── Align / distribute (on the active multi-selection) ──────────────────────
   const align = useCallback((kind: string) => {
@@ -1772,6 +1798,16 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
         <TBtn onClick={() => setShowCells(true)} title="Celdas / zonas (agrupar estaciones)"><Frame className="w-4 h-4" /></TBtn>
         <div className="flex-1" />
         {measureMode && measureVal && <span className="text-[12px] font-medium mr-2" style={{ color: '#0ea5e9' }}>{measureVal}</span>}
+        {approval && (
+          <div className="inline-flex items-center gap-1.5 mr-2" title={approval.by ? `${approval.by}${approval.at ? ` · ${new Date(approval.at).toLocaleString()}` : ''}` : 'Estado de aprobación del layout'}>
+            <span className="inline-block w-2 h-2 rounded-full" style={{ background: APPROVAL_META[approval.status].color }} />
+            <select value={approval.status} disabled={approvalBusy} onChange={(e) => setApprovalStatus(e.target.value as ApprovalStatus)} className="text-[12px] rounded-md px-1.5 py-1 bg-black/[0.03] dark:bg-white/[0.06] border border-black/10 dark:border-white/10" style={{ color: APPROVAL_META[approval.status].color }}>
+              <option value="draft">Borrador</option>
+              <option value="in_review">En revisión</option>
+              <option value="approved">Aprobado</option>
+            </select>
+          </div>
+        )}
         <button onClick={save} disabled={saving || !dirty} className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-sm font-medium text-white disabled:opacity-50" style={{ background: ROSE }}>
           {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Guardar
         </button>

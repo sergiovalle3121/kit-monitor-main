@@ -324,6 +324,45 @@ describe('LineEngineeringService (integration)', () => {
     expect(cf.interSegments[0]).toMatchObject({ from: 'EST-20', to: 'EST-30' });
   });
 
+  it('drives the approval / sign-off lifecycle (Fase 29)', async () => {
+    await seedRoute();
+    // Default state is draft.
+    expect((await service.getLayout('AX-1000')).approval.status).toBe('draft');
+
+    // Submit for review — no stamp yet.
+    const reviewing = await service.setApproval({
+      model: 'AX-1000',
+      status: 'in_review',
+    });
+    expect(reviewing.approval).toMatchObject({
+      status: 'in_review',
+      by: null,
+      at: null,
+    });
+
+    // Approve — stamps the user + time.
+    const approved = await service.setApproval({
+      model: 'AX-1000',
+      status: 'approved',
+      note: 'Visto bueno IE',
+    });
+    expect(approved.approval.status).toBe('approved');
+    expect(approved.approval.by).toBe('anonymous'); // no tenant context in the spec
+    expect(approved.approval.at).not.toBeNull();
+    expect(approved.approval.note).toBe('Visto bueno IE');
+
+    // Back to draft clears the stamp.
+    const back = await service.setApproval({
+      model: 'AX-1000',
+      status: 'draft',
+    });
+    expect(back.approval).toMatchObject({
+      status: 'draft',
+      by: null,
+      at: null,
+    });
+  });
+
   it('computes capacity/load including changeover', async () => {
     await seedRoute();
     await service.qualify({

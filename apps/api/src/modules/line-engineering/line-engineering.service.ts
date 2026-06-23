@@ -100,6 +100,15 @@ export interface LayoutDxf {
   opacity: number;
 }
 
+export type ApprovalStatus = 'draft' | 'in_review' | 'approved';
+
+export interface LayoutApproval {
+  status: ApprovalStatus;
+  by: string | null;
+  at: string | null;
+  note: string | null;
+}
+
 export interface LineLayout {
   model: string;
   revision: string;
@@ -110,6 +119,7 @@ export interface LineLayout {
   assets: LayoutAsset[];
   annotations: LayoutAnnotation[];
   cells: LayoutCell[];
+  approval: LayoutApproval;
 }
 
 /** Consolidated layout dossier (Fase 14). */
@@ -509,7 +519,51 @@ export class LineEngineeringService {
       assets: layout?.assets ?? [],
       annotations: layout?.annotations ?? [],
       cells: layout?.cells ?? [],
+      approval: {
+        status: (layout?.approvalStatus as ApprovalStatus) || 'draft',
+        by: layout?.approvedBy ?? null,
+        at: layout?.approvedAt
+          ? new Date(layout.approvedAt).toISOString()
+          : null,
+        note: layout?.approvalNote ?? null,
+      },
     };
+  }
+
+  /**
+   * Set the layout's release state (Fase 29): draft → in_review → approved.
+   * Approving stamps the current user + time; moving back to draft/in_review
+   * clears the stamp. Additive — never touches the geometry.
+   */
+  async setApproval(dto: {
+    model: string;
+    revision?: string;
+    status: string;
+    note?: string;
+  }): Promise<LineLayout> {
+    const m = (dto.model ?? '').trim();
+    const r = (dto.revision ?? 'A').trim() || 'A';
+    if (!m) throw new BadRequestException('model es obligatorio.');
+    const status: ApprovalStatus = (
+      ['draft', 'in_review', 'approved'] as const
+    ).includes(dto.status as ApprovalStatus)
+      ? (dto.status as ApprovalStatus)
+      : 'draft';
+    const layout = await this.ensureLayout(m, r);
+    layout.approvalStatus = status;
+    layout.approvalNote = dto.note ? String(dto.note).slice(0, 240) : null;
+    if (status === 'approved') {
+      layout.approvedBy = this.tenantCtx.getUserEmail() ?? null;
+      layout.approvedAt = new Date();
+    } else {
+      layout.approvedBy = null;
+      layout.approvedAt = null;
+    }
+    await this.requireLayouts().save(layout);
+    await this.record('SF_LINE_LAYOUT_APPROVAL', `${m}|${r}`, null, {
+      after: { status, by: layout.approvedBy },
+    });
+    return this.getLayout(m, r);
   }
 
   /**

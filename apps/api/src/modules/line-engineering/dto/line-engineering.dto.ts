@@ -610,3 +610,26 @@ export class CreateSnapshotDto {
   @Length(1, 80)
   name?: string;
 }
+
+export class SetApprovalDto {
+  @ApiProperty({ example: 'AX-1000' })
+  @IsString()
+  @Length(1, 64)
+  model: string;
+
+  @ApiPropertyOptional({ example: 'A' })
+  @IsOptional()
+  @IsString()
+  @Length(1, 16)
+  revision?: string;
+
+  @ApiProperty({ enum: ['draft', 'in_review', 'approved'] })
+  @IsIn(['draft', 'in_review', 'approved'])
+  status: string;
+
+  @ApiPropertyOptional({ example: 'Aprobado por IE tras revisión' })
+  @IsOptional()
+  @IsString()
+  @Length(0, 240)
+  note?: string;
+}
