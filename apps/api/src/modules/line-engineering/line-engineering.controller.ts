@@ -507,6 +507,24 @@ export class LineEngineeringController {
     });
   }
 
+  @Get('layout/flex-line')
+  @RequirePermissions('engineering:read')
+  @ApiOperation({
+    summary:
+      'Análisis de línea flexible (multi-modelo): qué modelos comparten una línea física y qué tan común es su backbone de estaciones.',
+  })
+  layoutFlexLine(
+    @Query('line') line?: string,
+    @Query('model') model?: string,
+    @Query('revision') revision?: string,
+  ) {
+    return this.service.getFlexLine({
+      line,
+      model,
+      revision: revision ?? 'A',
+    });
+  }
+
   @Get('layout/completeness')
   @RequirePermissions('engineering:read')
   @ApiOperation({

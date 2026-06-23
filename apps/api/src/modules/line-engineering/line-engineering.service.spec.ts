@@ -353,6 +353,46 @@ describe('LineEngineeringService (integration)', () => {
     });
   });
 
+  it('analyzes a flex line shared by multiple models (Fase 40)', async () => {
+    await seedRoute(); // AX-1000 on SMT-1: EST-10, EST-20, EST-30
+    // AX-2000 on the SAME line, sharing EST-10/EST-20, adding EST-99.
+    for (const [station, sequence, std] of [
+      ['EST-10', 10, 40],
+      ['EST-20', 20, 50],
+      ['EST-99', 30, 25],
+    ] as const) {
+      await service.createStation({
+        model: 'AX-2000',
+        line: 'SMT-1',
+        station,
+        sequence,
+        npExpected: 'P',
+        useFactor: 1,
+        stdTimeSec: std,
+      });
+    }
+    const flex = await service.getFlexLine({ line: 'SMT-1' });
+    expect(flex.line).toBe('SMT-1');
+    expect(flex.modelCount).toBe(2);
+    const byStation = Object.fromEntries(
+      flex.stations.map((s) => [s.station, s]),
+    );
+    expect(byStation['EST-10'].sharedByAll).toBe(true);
+    expect(byStation['EST-20'].sharedByAll).toBe(true);
+    expect(byStation['EST-30'].usageCount).toBe(1); // only AX-1000
+    expect(byStation['EST-99'].usageCount).toBe(1); // only AX-2000
+    expect(flex.sharedStations).toBe(2);
+    expect(flex.totalUniqueStations).toBe(4);
+    expect(flex.commonalityPct).toBe(50);
+  });
+
+  it('derives the flex line from a model when no line is given (Fase 40)', async () => {
+    await seedRoute();
+    const flex = await service.getFlexLine({ model: 'AX-1000' });
+    expect(flex.line).toBe('SMT-1');
+    expect(flex.modelCount).toBeGreaterThanOrEqual(1);
+  });
+
   it('reports per-station documentation completeness (Fase 19)', async () => {
     await seedRoute(); // 3 stations, all with NP + factor + aid → complete
     // Add a station missing its visual aid.
