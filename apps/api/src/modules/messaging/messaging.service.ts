@@ -4,12 +4,16 @@ import {
   ForbiddenException,
   BadRequestException,
 } from '@nestjs/common';
+import { Interval } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In, Not, IsNull } from 'typeorm';
+import { Repository, In, Not, IsNull, LessThanOrEqual } from 'typeorm';
 import { Conversation } from './entities/conversation.entity';
 import { ConversationMember } from './entities/conversation-member.entity';
 import { Message, MessageType } from './entities/message.entity';
 import { ChatMessageReaction } from './entities/chat-message-reaction.entity';
+import { PollVote } from './entities/poll-vote.entity';
+import { ScheduledMessage } from './entities/scheduled-message.entity';
+import { ConversationLabel } from './entities/conversation-label.entity';
 import { User } from '../users/entities/user.entity';
 import { ChatGateway } from './chat.gateway';
 
@@ -32,6 +36,13 @@ export interface ReplyPreview {
   senderId: string;
   type: MessageType;
   snippet: string;
+}
+
+export interface PollDto {
+  question: string;
+  multi: boolean;
+  totalVoters: number;
+  options: { id: string; text: string; count: number; userIds: string[] }[];
 }
 
 /**
@@ -90,6 +101,12 @@ export class MessagingService {
     private readonly messages: Repository<Message>,
     @InjectRepository(ChatMessageReaction)
     private readonly reactions: Repository<ChatMessageReaction>,
+    @InjectRepository(PollVote)
+    private readonly pollVotes: Repository<PollVote>,
+    @InjectRepository(ScheduledMessage)
+    private readonly scheduled: Repository<ScheduledMessage>,
+    @InjectRepository(ConversationLabel)
+    private readonly labels: Repository<ConversationLabel>,
     @InjectRepository(User)
     private readonly users: Repository<User>,
     private readonly gateway: ChatGateway,
@@ -305,6 +322,7 @@ export class MessagingService {
         title,
         counterpartId,
         createdById: convo.createdById,
+        disappearingSeconds: convo.disappearingSeconds ?? 0,
         memberIds,
         lastMessage: last
           ? {
@@ -318,6 +336,13 @@ export class MessagingService {
         unread,
       });
     }
+
+    // Etiquetas personales de cada conversación (en lote).
+    const labelMap = await this.labelsByConversation(
+      meId,
+      result.map((r) => r.id),
+    );
+    for (const r of result) r.labels = labelMap.get(r.id) ?? [];
 
     result.sort((a, b) => {
       const ta = a.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0;
@@ -333,6 +358,9 @@ export class MessagingService {
     const qb = this.messages
       .createQueryBuilder('m')
       .where('m.conversation_id = :cid', { cid: conversationId })
+      .andWhere('(m.expires_at IS NULL OR m.expires_at > :now)', {
+        now: new Date(),
+      })
       .orderBy('m.created_at', 'DESC')
       .take(50);
     if (before) qb.andWhere('m.created_at < :before', { before });
@@ -363,13 +391,88 @@ export class MessagingService {
       for (const r of replied) replyMap.set(r.id, this.replyPreviewOf(r));
     }
 
+    // Votos de encuestas en lote.
+    const pollIds = rows.filter((m) => m.type === 'poll').map((m) => m.id);
+    const votesByMsg = new Map<string, { optionId: string; userId: string }[]>();
+    if (pollIds.length) {
+      const voteRows = await this.pollVotes.find({
+        where: { messageId: In(pollIds) },
+      });
+      for (const v of voteRows) {
+        const list = votesByMsg.get(v.messageId);
+        if (list) list.push(v);
+        else votesByMsg.set(v.messageId, [v]);
+      }
+    }
+
+    // Nº de respuestas (hilo) por mensaje, en una sola consulta.
+    const threadCounts = await this.threadCountsFor(ids);
+
     // Devolver en orden cronológico ascendente.
     return rows.reverse().map((m) =>
       this.toDto(m, {
         reactions: aggregateReactions(byMessage.get(m.id) ?? [], meId),
         replyTo: m.replyToId ? (replyMap.get(m.replyToId) ?? null) : null,
+        poll:
+          m.type === 'poll'
+            ? this.aggregatePollDto(m, votesByMsg.get(m.id) ?? [])
+            : null,
+        threadCount: threadCounts.get(m.id) ?? 0,
       }),
     );
+  }
+
+  /** Cuenta respuestas directas (no eliminadas) por cada id de mensaje raíz. */
+  private async threadCountsFor(ids: string[]): Promise<Map<string, number>> {
+    const counts = new Map<string, number>();
+    if (!ids.length) return counts;
+    const rows = await this.messages
+      .createQueryBuilder('m')
+      .select('m.reply_to_id', 'rid')
+      .addSelect('COUNT(*)', 'cnt')
+      .where('m.reply_to_id IN (:...ids)', { ids })
+      .andWhere('m.deleted_at IS NULL')
+      .groupBy('m.reply_to_id')
+      .getRawMany<{ rid: string; cnt: string }>();
+    for (const r of rows) counts.set(r.rid, Number(r.cnt));
+    return counts;
+  }
+
+  /** Devuelve el mensaje raíz + sus respuestas (hilo completo). */
+  async getThread(meId: string, rootId: string) {
+    const root = await this.messages.findOne({ where: { id: rootId } });
+    if (!root) throw new NotFoundException('Mensaje no encontrado');
+    await this.assertMember(root.conversationId, meId);
+    const replies = await this.messages.find({
+      where: { replyToId: rootId },
+      order: { createdAt: 'ASC' },
+    });
+
+    const all = [root, ...replies];
+    const ids = all.map((m) => m.id);
+    const reactionRows = await this.reactions.find({
+      where: { messageId: In(ids) },
+      order: { createdAt: 'ASC' },
+    });
+    const byMessage = new Map<string, { emoji: string; userId: string }[]>();
+    for (const r of reactionRows) {
+      const list = byMessage.get(r.messageId);
+      if (list) list.push(r);
+      else byMessage.set(r.messageId, [r]);
+    }
+    const reactionsOf = (id: string) =>
+      aggregateReactions(byMessage.get(id) ?? [], meId);
+    const rootPreview = this.replyPreviewOf(root);
+
+    return {
+      root: this.toDto(root, {
+        reactions: reactionsOf(root.id),
+        threadCount: replies.length,
+      }),
+      replies: replies.map((m) =>
+        this.toDto(m, { reactions: reactionsOf(m.id), replyTo: rootPreview }),
+      ),
+    };
   }
 
   // ── enviar texto ─────────────────────────────────────────────────────────
@@ -397,6 +500,7 @@ export class MessagingService {
         body: text,
         replyToId: replied?.id ?? null,
         mentionedUserIds: mentionedUserIds.length ? mentionedUserIds : null,
+        expiresAt: await this.expiryFor(conversationId),
       }),
     );
     const dto = this.toDto(msg, {
@@ -439,7 +543,9 @@ export class MessagingService {
           ? r.fileName || '📎 Archivo'
           : r.type === 'call'
             ? '📞 Llamada'
-            : (r.body ?? '').slice(0, 140);
+            : r.type === 'poll'
+              ? '📊 Encuesta'
+              : (r.body ?? '').slice(0, 140);
     return { id: r.id, senderId: r.senderId, type: r.type, snippet };
   }
 
@@ -490,6 +596,7 @@ export class MessagingService {
         imageMime: mime,
         imageSize: buffer.length,
         replyToId: replied?.id ?? null,
+        expiresAt: await this.expiryFor(conversationId),
       }),
     );
     const dto = this.toDto(msg, {
@@ -569,6 +676,7 @@ export class MessagingService {
         fileName: safeName,
         fileSize: file.size,
         replyToId: replied?.id ?? null,
+        expiresAt: await this.expiryFor(conversationId),
       }),
     );
     const dto = this.toDto(msg, {
@@ -875,6 +983,221 @@ export class MessagingService {
     });
   }
 
+  // ── mensajes temporales (disappearing) ───────────────────────────────────
+  private async expiryFor(conversationId: string): Promise<Date | null> {
+    const convo = await this.conversations.findOne({
+      where: { id: conversationId },
+    });
+    const secs = convo?.disappearingSeconds ?? 0;
+    return secs > 0 ? new Date(Date.now() + secs * 1000) : null;
+  }
+
+  async setDisappearing(meId: string, conversationId: string, seconds: number) {
+    await this.assertMember(conversationId, meId);
+    const s = Math.max(0, Math.min(604800, Math.floor(Number(seconds) || 0)));
+    await this.conversations.update(conversationId, { disappearingSeconds: s });
+    this.gateway.emitConversationUpdate(
+      await this.memberIdsOf(conversationId),
+      conversationId,
+    );
+    return { ok: true, disappearingSeconds: s };
+  }
+
+  /** Borra mensajes vencidos cada minuto y avisa a los clientes. */
+  @Interval(60000)
+  async sweepExpiredMessages(): Promise<void> {
+    const rows = await this.messages.find({
+      where: { expiresAt: LessThanOrEqual(new Date()) },
+      take: 200,
+    });
+    for (const m of rows) {
+      const memberIds = await this.memberIdsOf(m.conversationId);
+      await this.reactions.delete({ messageId: m.id });
+      await this.pollVotes.delete({ messageId: m.id });
+      await this.messages.delete({ id: m.id });
+      this.gateway.emitMessageRemoved(memberIds, {
+        id: m.id,
+        conversationId: m.conversationId,
+      });
+    }
+  }
+
+  // ── encuestas ─────────────────────────────────────────────────────────────
+  private aggregatePollDto(
+    message: Message,
+    voteRows: { optionId: string; userId: string }[],
+  ): PollDto {
+    let parsed: {
+      q?: string;
+      multi?: boolean;
+      options?: { id: string; text: string }[];
+    } = {};
+    try {
+      parsed = JSON.parse(message.body ?? '{}');
+    } catch {
+      /* cuerpo inválido */
+    }
+    const byOpt = new Map<string, string[]>();
+    const voters = new Set<string>();
+    for (const v of voteRows) {
+      voters.add(v.userId);
+      const list = byOpt.get(v.optionId);
+      if (list) list.push(v.userId);
+      else byOpt.set(v.optionId, [v.userId]);
+    }
+    return {
+      question: parsed.q ?? '',
+      multi: !!parsed.multi,
+      totalVoters: voters.size,
+      options: (parsed.options ?? []).map((o) => {
+        const ids = byOpt.get(o.id) ?? [];
+        return { id: o.id, text: o.text, count: ids.length, userIds: ids };
+      }),
+    };
+  }
+
+  async createPoll(
+    meId: string,
+    conversationId: string,
+    question: string,
+    options: string[],
+    multi: boolean,
+  ) {
+    await this.assertMember(conversationId, meId);
+    const q = (question ?? '').trim();
+    const opts = (options ?? [])
+      .map((o) => (o ?? '').trim())
+      .filter(Boolean)
+      .slice(0, 10);
+    if (!q) throw new BadRequestException('La encuesta necesita una pregunta');
+    if (opts.length < 2) {
+      throw new BadRequestException('Agrega al menos 2 opciones');
+    }
+    const body = JSON.stringify({
+      q,
+      multi: !!multi,
+      options: opts.map((text, i) => ({ id: `o${i + 1}`, text })),
+    });
+    const expiresAt = await this.expiryFor(conversationId);
+    const msg = await this.messages.save(
+      this.messages.create({
+        conversationId,
+        senderId: meId,
+        type: 'poll',
+        body,
+        expiresAt,
+      }),
+    );
+    const dto = this.toDto(msg, { poll: this.aggregatePollDto(msg, []) });
+    await this.touchAndBroadcast(conversationId, msg, dto);
+    return dto;
+  }
+
+  async votePoll(meId: string, messageId: string, optionId: string) {
+    const msg = await this.messages.findOne({ where: { id: messageId } });
+    if (!msg) throw new NotFoundException('Encuesta no encontrada');
+    if (msg.type !== 'poll') throw new BadRequestException('No es una encuesta');
+    await this.assertMember(msg.conversationId, meId);
+    let parsed: { multi?: boolean; options?: { id: string }[] } = {};
+    try {
+      parsed = JSON.parse(msg.body ?? '{}');
+    } catch {
+      /* noop */
+    }
+    if (!(parsed.options ?? []).some((o) => o.id === optionId)) {
+      throw new BadRequestException('Opción inválida');
+    }
+    const existing = await this.pollVotes.findOne({
+      where: { messageId, userId: meId, optionId },
+    });
+    if (existing) {
+      await this.pollVotes.delete({ id: existing.id });
+    } else {
+      if (!parsed.multi) {
+        await this.pollVotes.delete({ messageId, userId: meId });
+      }
+      await this.pollVotes.save(
+        this.pollVotes.create({ messageId, userId: meId, optionId }),
+      );
+    }
+    const rows = await this.pollVotes.find({ where: { messageId } });
+    const dto = this.toDto(msg, { poll: this.aggregatePollDto(msg, rows) });
+    await this.broadcastUpdate(msg.conversationId, dto);
+    return dto;
+  }
+
+  // ── mensajes programados ──────────────────────────────────────────────────
+  async scheduleMessage(
+    meId: string,
+    conversationId: string,
+    body: string,
+    sendAt: string,
+  ) {
+    await this.assertMember(conversationId, meId);
+    const text = (body ?? '').trim();
+    if (!text) throw new BadRequestException('Mensaje vacío');
+    const when = new Date(sendAt);
+    if (isNaN(when.getTime()) || when.getTime() < Date.now() + 10000) {
+      throw new BadRequestException('Elige una hora futura');
+    }
+    const row = await this.scheduled.save(
+      this.scheduled.create({
+        conversationId,
+        senderId: meId,
+        body: text,
+        sendAt: when,
+      }),
+    );
+    return {
+      id: row.id,
+      conversationId,
+      body: text,
+      sendAt: when.toISOString(),
+    };
+  }
+
+  async listScheduled(meId: string, conversationId: string) {
+    await this.assertMember(conversationId, meId);
+    const rows = await this.scheduled.find({
+      where: { conversationId, senderId: meId },
+      order: { sendAt: 'ASC' },
+    });
+    return rows.map((r) => ({
+      id: r.id,
+      conversationId: r.conversationId,
+      body: r.body,
+      sendAt: r.sendAt,
+    }));
+  }
+
+  async cancelScheduled(meId: string, id: string) {
+    const row = await this.scheduled.findOne({ where: { id } });
+    if (!row) throw new NotFoundException('Programado no encontrado');
+    if (row.senderId !== meId) {
+      throw new ForbiddenException('No es tuyo');
+    }
+    await this.scheduled.delete({ id });
+    return { ok: true };
+  }
+
+  /** Envía los mensajes programados vencidos cada 30 s. */
+  @Interval(30000)
+  async sweepScheduledMessages(): Promise<void> {
+    const due = await this.scheduled.find({
+      where: { sendAt: LessThanOrEqual(new Date()) },
+      order: { sendAt: 'ASC' },
+      take: 100,
+    });
+    for (const s of due) {
+      await this.scheduled.delete({ id: s.id });
+      try {
+        await this.sendText(s.senderId, s.conversationId, s.body);
+      } catch {
+        /* el remitente pudo salir de la conversación: descartar */
+      }
+    }
+  }
+
   // ── internos ─────────────────────────────────────────────────────────────
   private async touchAndBroadcast(
     conversationId: string,
@@ -906,7 +1229,12 @@ export class MessagingService {
 
   private toDto(
     m: Message,
-    extras?: { reactions?: AggregatedReaction[]; replyTo?: ReplyPreview | null },
+    extras?: {
+      reactions?: AggregatedReaction[];
+      replyTo?: ReplyPreview | null;
+      poll?: PollDto | null;
+      threadCount?: number;
+    },
   ) {
     const deleted = !!m.deletedAt;
     return {
@@ -924,10 +1252,58 @@ export class MessagingService {
       mentionedUserIds: deleted ? [] : (m.mentionedUserIds ?? []),
       replyToId: m.replyToId ?? null,
       replyTo: extras?.replyTo ?? null,
+      poll: extras?.poll ?? null,
       editedAt: m.editedAt ?? null,
       deletedAt: m.deletedAt ?? null,
       pinnedAt: m.pinnedAt ?? null,
+      expiresAt: m.expiresAt ?? null,
       forwarded: !!m.forwarded,
+      threadCount: extras?.threadCount ?? 0,
     };
+  }
+
+  // ── etiquetas / carpetas (organización personal de conversaciones) ────────
+  /** Reemplaza el conjunto de etiquetas del usuario para una conversación. */
+  async setConversationLabels(
+    meId: string,
+    conversationId: string,
+    rawLabels: string[],
+  ) {
+    await this.assertMember(conversationId, meId);
+    const clean = Array.from(
+      new Set(
+        (rawLabels ?? [])
+          .map((l) => (l ?? '').trim().slice(0, 40))
+          .filter(Boolean),
+      ),
+    ).slice(0, 12);
+    await this.labels.delete({ userId: meId, conversationId });
+    if (clean.length) {
+      await this.labels.save(
+        clean.map((label) =>
+          this.labels.create({ userId: meId, conversationId, label }),
+        ),
+      );
+    }
+    return { conversationId, labels: clean };
+  }
+
+  /** Mapa conversación → etiquetas del usuario (para adjuntar a la lista). */
+  private async labelsByConversation(
+    meId: string,
+    conversationIds: string[],
+  ): Promise<Map<string, string[]>> {
+    const map = new Map<string, string[]>();
+    if (!conversationIds.length) return map;
+    const rows = await this.labels.find({
+      where: { userId: meId, conversationId: In(conversationIds) },
+      order: { label: 'ASC' },
+    });
+    for (const r of rows) {
+      const list = map.get(r.conversationId);
+      if (list) list.push(r.label);
+      else map.set(r.conversationId, [r.label]);
+    }
+    return map;
   }
 }

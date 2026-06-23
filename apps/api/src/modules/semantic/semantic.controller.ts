@@ -5,12 +5,15 @@ import {
   Get,
   Param,
   Post,
+  Query,
   Request,
   UseGuards,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { SemanticPrincipal, SemanticService } from './semantic.service';
 import { UpsertMetricDto } from './dto/upsert-metric.dto';
+import { UpsertObjectDto } from './dto/upsert-object.dto';
+import { UpsertLinkDto } from './dto/upsert-link.dto';
 
 interface ReqUser {
   userId: string;
@@ -53,6 +56,17 @@ export class SemanticController {
     return this.semantic.values(this.principal(req), this.tenant(req));
   }
 
+  /** KPI value history (snapshots) per metric the caller may see. */
+  @Get('history')
+  history(@Request() req: AuthReq, @Query('days') days?: string) {
+    const d = days ? parseInt(days, 10) : 30;
+    return this.semantic.metricHistoryBatch(
+      this.principal(req),
+      this.tenant(req),
+      Number.isFinite(d) ? d : 30,
+    );
+  }
+
   /** Live value for one metric. */
   @Get('metrics/:key/value')
   metricValue(@Request() req: AuthReq, @Param('key') key: string) {
@@ -62,11 +76,29 @@ export class SemanticController {
   /** Create/update a metric definition. Admin only. */
   @Post('metrics')
   upsertMetric(@Request() req: AuthReq, @Body() dto: UpsertMetricDto) {
+    this.assertAdmin(req);
+    return this.semantic.upsertMetric(this.tenant(req), dto);
+  }
+
+  /** Create/update an ontology object type. Admin only. */
+  @Post('objects')
+  upsertObject(@Request() req: AuthReq, @Body() dto: UpsertObjectDto) {
+    this.assertAdmin(req);
+    return this.semantic.upsertObject(this.tenant(req), dto);
+  }
+
+  /** Create/update an ontology link type. Admin only. */
+  @Post('links')
+  upsertLink(@Request() req: AuthReq, @Body() dto: UpsertLinkDto) {
+    this.assertAdmin(req);
+    return this.semantic.upsertLink(this.tenant(req), dto);
+  }
+
+  private assertAdmin(req: AuthReq) {
     if (req.user?.role !== 'Admin') {
       throw new ForbiddenException(
-        'Solo un administrador puede editar el catálogo de métricas.',
+        'Solo un administrador puede editar el catálogo semántico.',
       );
     }
-    return this.semantic.upsertMetric(this.tenant(req), dto);
   }
 }

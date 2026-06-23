@@ -25,6 +25,10 @@ export const PageBreak = Node.create({
   addCommands() {
     return { setPageBreak: () => ({ commands }: any) => commands.insertContent({ type: this.name }) } as any;
   },
+  // Atajo «tipo Word» para salto de página manual (Ctrl/Cmd+Enter).
+  addKeyboardShortcuts() {
+    return { 'Mod-Enter': () => (this.editor.commands as any).setPageBreak() };
+  },
 });
 
 /**

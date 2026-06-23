@@ -7,7 +7,7 @@ import {
   Optional,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, FindOptionsWhere, IsNull, Repository } from 'typeorm';
+import { DataSource, FindOptionsWhere, In, IsNull, Repository } from 'typeorm';
 
 import { WorkOrderExecution } from './entities/work-order-execution.entity';
 import { ExecutionStep } from './entities/execution-step.entity';
@@ -224,30 +224,39 @@ export class MesExecutionService {
     if (filters?.line)
       qb.andWhere('e.line = :line', { line: Number(filters.line) });
     const rows = await qb.getMany();
+    if (rows.length === 0) return [];
 
-    return Promise.all(
-      rows.map(async (e) => {
-        const steps = await this.stepRepo.find({
-          where: { executionId: e.id },
-        });
-        const totalTarget = e.quantity * (steps.length || 1);
-        const totalDone = steps.reduce((s, st) => s + st.unitsCompleted, 0);
-        return {
-          id: e.id,
-          workOrder: e.workOrder,
-          model: e.model,
-          revision: e.revision,
-          line: e.line,
-          quantity: e.quantity,
-          status: e.status,
-          steps: steps.length,
-          progress: totalTarget ? round6(totalDone / totalTarget) : 0,
-          blocked: steps.some((s) => s.status === 'blocked'),
-          startedAt: e.startedAt,
-          completedAt: e.completedAt,
-        };
-      }),
-    );
+    // Batch: una sola consulta de pasos para TODAS las ejecuciones (antes era
+    // N+1 — un find por fila) y se agrupan por executionId en memoria.
+    const allSteps = await this.stepRepo.find({
+      where: { executionId: In(rows.map((e) => e.id)) },
+    });
+    const stepsByExec = new Map<number, ExecutionStep[]>();
+    for (const st of allSteps) {
+      const arr = stepsByExec.get(st.executionId);
+      if (arr) arr.push(st);
+      else stepsByExec.set(st.executionId, [st]);
+    }
+
+    return rows.map((e) => {
+      const steps = stepsByExec.get(e.id) ?? [];
+      const totalTarget = e.quantity * (steps.length || 1);
+      const totalDone = steps.reduce((s, st) => s + st.unitsCompleted, 0);
+      return {
+        id: e.id,
+        workOrder: e.workOrder,
+        model: e.model,
+        revision: e.revision,
+        line: e.line,
+        quantity: e.quantity,
+        status: e.status,
+        steps: steps.length,
+        progress: totalTarget ? round6(totalDone / totalTarget) : 0,
+        blocked: steps.some((s) => s.status === 'blocked'),
+        startedAt: e.startedAt,
+        completedAt: e.completedAt,
+      };
+    });
   }
 
   // ──────────────────────────────────────────────────────────────────────────

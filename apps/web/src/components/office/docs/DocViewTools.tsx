@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Pilcrow, Focus, BookOpen, Ruler, ZoomIn, ZoomOut, SpellCheck2, ScanText, FileStack } from 'lucide-react';
+import { Pilcrow, Focus, BookOpen, Ruler, ZoomIn, ZoomOut, SpellCheck2, ScanText, FileStack, Files } from 'lucide-react';
 import { RibbonGroup, RibbonSeparator, RibbonButton, RibbonSelect } from '../ribbon';
 
 export interface DocViewState {
@@ -12,6 +12,7 @@ export interface DocViewState {
   zoom: number; setZoom: (v: number) => void;
   spellcheck: boolean; setSpellcheck: (v: boolean) => void;
   pageGuides: boolean; setPageGuides: (v: boolean) => void;
+  paginated: boolean; setPaginated: (v: boolean) => void;
 }
 
 const ZOOMS = ['0.5', '0.75', '0.9', '1', '1.1', '1.25', '1.5', '2'];
@@ -28,10 +29,14 @@ export function DocViewTools(s: DocViewState) {
         <RibbonButton icon={ZoomIn} label="Acercar" onClick={() => s.setZoom(Math.min(2, Math.round((s.zoom + 0.1) * 100) / 100))} />
       </RibbonGroup>
       <RibbonSeparator />
+      <RibbonGroup label="Diseño">
+        <RibbonButton icon={Files} label="Diseño de impresión (páginas discretas)" hideLabel={false} active={s.paginated} onClick={() => s.setPaginated(!s.paginated)} />
+      </RibbonGroup>
+      <RibbonSeparator />
       <RibbonGroup label="Mostrar">
         <RibbonButton icon={Pilcrow} label="Marcas de formato (¶)" active={s.showMarks} onClick={() => s.setShowMarks(!s.showMarks)} />
         <RibbonButton icon={Ruler} label="Regla" active={s.showRuler} onClick={() => s.setShowRuler(!s.showRuler)} />
-        <RibbonButton icon={FileStack} label="Guías de salto de página" active={s.pageGuides} onClick={() => s.setPageGuides(!s.pageGuides)} />
+        <RibbonButton icon={FileStack} label="Guías de salto de página" active={s.pageGuides} disabled={s.paginated} onClick={() => s.setPageGuides(!s.pageGuides)} />
       </RibbonGroup>
       <RibbonSeparator />
       <RibbonGroup label="Modos">

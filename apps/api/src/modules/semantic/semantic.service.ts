@@ -1,10 +1,12 @@
 import { Injectable, Logger, Type } from '@nestjs/common';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { ModuleRef } from '@nestjs/core';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { MoreThanOrEqual, Repository } from 'typeorm';
 import { MetricDefinition } from './entities/metric-definition.entity';
 import { OntologyObjectType } from './entities/ontology-object-type.entity';
 import { OntologyLinkType } from './entities/ontology-link-type.entity';
+import { MetricSnapshot } from './entities/metric-snapshot.entity';
 import {
   SEED_LINKS,
   SEED_METRICS,
@@ -17,6 +19,8 @@ import { QualityService } from '../quality/quality.service';
 import { SuppliersService } from '../suppliers/suppliers.service';
 import { EventLedgerService } from '../event-ledger/event-ledger.service';
 import { UpsertMetricDto } from './dto/upsert-metric.dto';
+import { UpsertObjectDto } from './dto/upsert-object.dto';
+import { UpsertLinkDto } from './dto/upsert-link.dto';
 
 const DEFAULT_TENANT = '__default__';
 
@@ -62,6 +66,8 @@ export class SemanticService {
     private readonly objectRepo: Repository<OntologyObjectType>,
     @InjectRepository(OntologyLinkType)
     private readonly linkRepo: Repository<OntologyLinkType>,
+    @InjectRepository(MetricSnapshot)
+    private readonly snapshotRepo: Repository<MetricSnapshot>,
     private readonly moduleRef: ModuleRef,
   ) {}
 
@@ -204,6 +210,83 @@ export class SemanticService {
     );
   }
 
+  /** Create or update an ontology object type (admin). Keyed by tenant + key. */
+  async upsertObject(
+    tenantId: string,
+    dto: UpsertObjectDto,
+  ): Promise<OntologyObjectType> {
+    await this.ensureSeeded(tenantId);
+    const properties = Array.isArray(dto.properties)
+      ? dto.properties
+          .filter((p) => p && typeof p.name === 'string' && p.name.trim())
+          .map((p) => ({
+            name: String(p.name).trim(),
+            type: String(p.type ?? 'string'),
+            description: p.description ? String(p.description) : undefined,
+          }))
+      : undefined;
+    const existing = await this.objectRepo.findOne({
+      where: { tenantId, key: dto.key },
+    });
+    if (existing) {
+      Object.assign(existing, {
+        name: dto.name ?? existing.name,
+        description: dto.description ?? existing.description,
+        domain: dto.domain ?? existing.domain,
+        sourceEntity: dto.sourceEntity ?? existing.sourceEntity,
+        primaryKey: dto.primaryKey ?? existing.primaryKey,
+        ...(properties ? { properties } : {}),
+      });
+      return this.objectRepo.save(existing);
+    }
+    return this.objectRepo.save(
+      this.objectRepo.create({
+        tenantId,
+        key: dto.key,
+        name: dto.name ?? dto.key,
+        description: dto.description ?? null,
+        domain: dto.domain ?? null,
+        sourceEntity: dto.sourceEntity ?? null,
+        primaryKey: dto.primaryKey ?? null,
+        properties: properties ?? null,
+        active: true,
+      }),
+    );
+  }
+
+  /** Create or update an ontology link type (admin). Keyed by tenant + key. */
+  async upsertLink(
+    tenantId: string,
+    dto: UpsertLinkDto,
+  ): Promise<OntologyLinkType> {
+    await this.ensureSeeded(tenantId);
+    const existing = await this.linkRepo.findOne({
+      where: { tenantId, key: dto.key },
+    });
+    if (existing) {
+      Object.assign(existing, {
+        fromObject: dto.fromObject ?? existing.fromObject,
+        toObject: dto.toObject ?? existing.toObject,
+        cardinality: dto.cardinality ?? existing.cardinality,
+        verb: dto.verb ?? existing.verb,
+        description: dto.description ?? existing.description,
+      });
+      return this.linkRepo.save(existing);
+    }
+    return this.linkRepo.save(
+      this.linkRepo.create({
+        tenantId,
+        key: dto.key,
+        fromObject: dto.fromObject,
+        toObject: dto.toObject,
+        cardinality: dto.cardinality ?? null,
+        verb: dto.verb ?? null,
+        description: dto.description ?? null,
+        active: true,
+      }),
+    );
+  }
+
   // ── Live values ─────────────────────────────────────────────────────────────
   /** Registry mapping a metric `resolver` key to a live, RBAC-gated computation. */
   private resolvers(): Record<string, ResolverDef> {
@@ -290,5 +373,92 @@ export class SemanticService {
     return Promise.all(
       metrics.map((m) => this.resolveMetric(principal, m.key, tenantId)),
     );
+  }
+
+  // ── Snapshots (KPI trend over time) ─────────────────────────────────────────
+  /**
+   * Capture today's value for every resolvable metric of a tenant (idempotent
+   * per tenant+metric+day). Runs as a system actor so all metrics are captured;
+   * the per-caller RBAC gate is applied later on *read*.
+   */
+  async captureSnapshots(tenantId = DEFAULT_TENANT): Promise<number> {
+    const day = new Date().toISOString().slice(0, 10);
+    const metrics = await this.listMetrics(tenantId);
+    const system: SemanticPrincipal = { isAdmin: true, permissions: [] };
+    let captured = 0;
+    for (const m of metrics) {
+      if (!m.resolver) continue;
+      const exists = await this.snapshotRepo.findOne({
+        where: { tenantId, metricKey: m.key, day },
+      });
+      if (exists) continue;
+      const mv = await this.resolveMetric(system, m.key, tenantId);
+      if (mv.value == null) continue;
+      await this.snapshotRepo.save(
+        this.snapshotRepo.create({
+          tenantId,
+          metricKey: m.key,
+          value: mv.value,
+          unit: mv.unit ?? null,
+          day,
+        }),
+      );
+      captured++;
+    }
+    return captured;
+  }
+
+  /**
+   * Per-metric value history the caller may see (RBAC-gated by the metric's
+   * resolver permission). One snapshot query; lazy-seeds a first point if none
+   * exist yet so the UI isn't empty on a fresh deploy.
+   */
+  async metricHistoryBatch(
+    principal: SemanticPrincipal,
+    tenantId = DEFAULT_TENANT,
+    days = 30,
+  ): Promise<Record<string, { day: string; value: number }[]>> {
+    await this.ensureSeeded(tenantId);
+    const total = await this.snapshotRepo.count({ where: { tenantId } });
+    if (total === 0) await this.captureSnapshots(tenantId);
+
+    const since = new Date(Date.now() - Math.min(Math.max(days, 1), 365) * 86_400_000);
+    const rows = await this.snapshotRepo.find({
+      where: { tenantId, capturedAt: MoreThanOrEqual(since) },
+      order: { capturedAt: 'ASC' },
+      take: 5000,
+    });
+
+    const metrics = await this.listMetrics(tenantId);
+    const resolverMap = this.resolvers();
+    const allowedKeys = new Set(
+      metrics
+        .filter((m) => {
+          const perm = m.resolver
+            ? (resolverMap[m.resolver]?.requiredPermission ?? null)
+            : null;
+          return this.allowed(principal, perm);
+        })
+        .map((m) => m.key),
+    );
+
+    const out: Record<string, { day: string; value: number }[]> = {};
+    for (const r of rows) {
+      if (r.value == null || !allowedKeys.has(r.metricKey)) continue;
+      (out[r.metricKey] ??= []).push({ day: r.day, value: r.value });
+    }
+    return out;
+  }
+
+  /** Daily KPI snapshot for the default tenant. */
+  @Cron(CronExpression.EVERY_DAY_AT_2AM)
+  async handleDailySnapshot(): Promise<void> {
+    try {
+      const n = await this.captureSnapshots(DEFAULT_TENANT);
+      if (n > 0) this.logger.log(`Captured ${n} metric snapshot(s).`);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      this.logger.warn(`Metric snapshot job failed: ${msg}`);
+    }
   }
 }

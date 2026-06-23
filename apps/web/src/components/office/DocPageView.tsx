@@ -6,8 +6,27 @@ import { motion, AnimatePresence } from 'framer-motion';
 import type { Editor } from '@tiptap/react';
 import { BookOpen, X, Printer, Loader2 } from 'lucide-react';
 import { PAGE_FORMAT_CSS } from './docPageExtensions';
+import { hasPageField } from './docs/pagination';
 
 const esc = (s: string) => (s || '').replace(/["\\]/g, '\\$&');
+
+interface FieldCtx { title: string; date: string }
+/** Resuelve {title}/{date} a literales (los de página van como counters CSS). */
+const litFields = (s: string, ctx: FieldCtx) => (s || '').replace(/\{title\}/g, ctx.title).replace(/\{date\}/g, ctx.date);
+/**
+ * Construye el valor `content` de una caja de margen @page a partir de un texto
+ * que puede mezclar literales y campos {page}/{pages}: los campos se emiten como
+ * `counter(page)` / `counter(pages)` (numeración real de Paged.js).
+ */
+function boxContent(text: string, ctx: FieldCtx, format: string): string | null {
+  const lit = litFields(text, ctx);
+  if (!lit) return null;
+  const fmt = PAGE_FORMAT_CSS[format] || 'decimal';
+  const parts = lit.split(/(\{page\}|\{pages\})/g).filter((s) => s !== '');
+  return parts
+    .map((p) => (p === '{page}' ? `counter(page, ${fmt})` : p === '{pages}' ? 'counter(pages)' : `"${esc(p)}"`))
+    .join(' ');
+}
 
 const CONTENT_CSS = `
   .pagedjs_page { background:#fff; box-shadow:0 2px 14px rgba(0,0,0,.18); margin:0 auto 18px; }
@@ -39,12 +58,15 @@ function sizeFor(docAttrs: any, orientation?: string) {
 function marginFor(docAttrs: any) {
   return docAttrs?.pageMargin === 'narrow' ? '14mm' : docAttrs?.pageMargin === 'wide' ? '30mm 26mm' : '22mm 18mm';
 }
-/** Cajas de margen @page (encabezado / pie / número con formato). */
-function marginBoxes(header: string, footer: string, nums: boolean, format: string, withTotal: boolean) {
+/** Cajas de margen @page (encabezado / pie / número con formato + campos). */
+function marginBoxes(header: string, footer: string, nums: boolean, format: string, withTotal: boolean, ctx: FieldCtx) {
   let out = '';
-  if (header) out += `@top-center { content: "${esc(header)}"; font: 10px system-ui, sans-serif; color:#666; }`;
-  if (footer) out += `@bottom-left { content: "${esc(footer)}"; font: 10px system-ui, sans-serif; color:#666; }`;
-  if (nums) {
+  const h = boxContent(header, ctx, format);
+  if (h) out += `@top-center { content: ${h}; font: 10px system-ui, sans-serif; color:#666; }`;
+  const f = boxContent(footer, ctx, format);
+  if (f) out += `@bottom-left { content: ${f}; font: 10px system-ui, sans-serif; color:#666; }`;
+  // Numeración automática sólo si se pide y el texto no trae ya un campo {page}/{pages}.
+  if (nums && !hasPageField(header) && !hasPageField(footer)) {
     const fmt = PAGE_FORMAT_CSS[format] || 'decimal';
     const content = withTotal ? `"Página " counter(page) " / " counter(pages)` : `"Página " counter(page, ${fmt})`;
     out += `@bottom-right { content: ${content}; font: 10px system-ui, sans-serif; color:#666; }`;
@@ -53,9 +75,9 @@ function marginBoxes(header: string, footer: string, nums: boolean, format: stri
 }
 
 /** CSS de una sola sección (fallback sin saltos de sección). */
-function buildCss(header: string, footer: string, nums: boolean, firstDiff = false) {
+function buildCss(header: string, footer: string, nums: boolean, ctx: FieldCtx, firstDiff = false) {
   return `
-  @page { size: A4; margin: 22mm 18mm; ${marginBoxes(header, footer, nums, 'decimal', true)} }
+  @page { size: A4; margin: 22mm 18mm; ${marginBoxes(header, footer, nums, 'decimal', true, ctx)} }
   ${firstDiff ? '@page:first { @top-center { content: none; } @bottom-left { content: none; } @bottom-right { content: none; } }' : ''}
   ${CONTENT_CSS}
   `;
@@ -68,8 +90,8 @@ interface PreviewSection { attrs: any; nodes: HTMLElement[] }
  * genera HTML + CSS de Paged.js con **páginas con nombre** por sección, cada una
  * con su encabezado/pie, numeración (formato + reinicio), columnas y orientación.
  */
-function buildSectioned(rawHtml: string, opts: { header: string; footer: string; nums: boolean; firstDiff: boolean; docAttrs: any }) {
-  const { header, footer, nums, firstDiff, docAttrs } = opts;
+function buildSectioned(rawHtml: string, opts: { header: string; footer: string; nums: boolean; firstDiff: boolean; docAttrs: any; ctx: FieldCtx }) {
+  const { header, footer, nums, firstDiff, docAttrs, ctx } = opts;
   const tmp = document.createElement('div');
   tmp.innerHTML = rawHtml;
   const sections: PreviewSection[] = [{ attrs: null, nodes: [] }];
@@ -93,7 +115,7 @@ function buildSectioned(rawHtml: string, opts: { header: string; footer: string;
   const htmlBody = sections.map((s, i) => `<section class="doc-section sec${i}">${s.nodes.map((n) => n.outerHTML).join('')}</section>`).join('');
   const html = `<div class="doc-content">${htmlBody}</div>`;
 
-  let css = `@page { size: ${sizeFor(docAttrs)}; margin: ${marginFor(docAttrs)}; ${marginBoxes(header, footer, nums, 'decimal', true)} }`;
+  let css = `@page { size: ${sizeFor(docAttrs)}; margin: ${marginFor(docAttrs)}; ${marginBoxes(header, footer, nums, 'decimal', true, ctx)} }`;
   if (firstDiff) css += ` @page:first { @top-center { content: none; } @bottom-left { content: none; } @bottom-right { content: none; } }`;
   const rule = docAttrs?.pageColumnRule ? ' column-rule: 1px solid #ccc;' : '';
   const baseCols = Number(docAttrs?.pageColumns || 1);
@@ -104,7 +126,7 @@ function buildSectioned(rawHtml: string, opts: { header: string; footer: string;
     const h = a.header || header;
     const f = a.footer || footer;
     const n = a.pageNumbers || nums;
-    css += ` @page sec${i} { size: ${sizeFor(docAttrs, a.orientation)}; margin: ${marginFor(docAttrs)}; ${marginBoxes(h, f, n, a.pageFormat, false)} }`;
+    css += ` @page sec${i} { size: ${sizeFor(docAttrs, a.orientation)}; margin: ${marginFor(docAttrs)}; ${marginBoxes(h, f, n, a.pageFormat, false, ctx)} }`;
     css += ` .doc-section.sec${i} { page: sec${i}; }`;
     if (a.columns > 1) css += ` .doc-section.sec${i} { column-count: ${a.columns}; column-gap: 2rem;${rule} }`;
     if (a.pageStart != null) css += ` .doc-section.sec${i} { counter-reset: page ${Math.max(0, a.pageStart - 1)}; }`;
@@ -113,13 +135,15 @@ function buildSectioned(rawHtml: string, opts: { header: string; footer: string;
 }
 
 /** Paginated print preview (Paged.js) with real headers / footers / page numbers. */
-export function DocPageView({ editor }: { editor: Editor }) {
+export function DocPageView({ editor, title }: { editor: Editor; title?: string }) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [header, setHeader] = useState('');
   const [footer, setFooter] = useState('');
   const [nums, setNums] = useState(true);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  const fieldCtx = (): FieldCtx => ({ title: title || '', date: new Date().toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' }) });
 
   function openView() {
     const a = editor.state.doc.attrs as any;
@@ -136,11 +160,12 @@ export function DocPageView({ editor }: { editor: Editor }) {
     container.innerHTML = '';
     // Persist the page setup back into the document.
     (editor.chain() as any).setPageMeta({ pageHeader: header, pageFooter: footer, pageNumbers: nums }).run();
+    const ctx = fieldCtx();
     try {
       const { Previewer } = (await import('pagedjs')) as any;
       const docAttrs = (editor.state.doc.attrs as any) || {};
       const firstDiff = !!docAttrs.pageFirstDifferent;
-      const { html, css } = buildSectioned(editor.getHTML(), { header, footer, nums, firstDiff, docAttrs });
+      const { html, css } = buildSectioned(editor.getHTML(), { header, footer, nums, firstDiff, docAttrs, ctx });
       await new Previewer().preview(html, [{ paged: css }], container);
     } catch {
       // Fallback robusto: vista de una sola sección si algo falla con las secciones.
@@ -148,7 +173,7 @@ export function DocPageView({ editor }: { editor: Editor }) {
         const { Previewer } = (await import('pagedjs')) as any;
         const firstDiff = !!(editor.state.doc.attrs as any)?.pageFirstDifferent;
         const html = `<div class="doc-content">${editor.getHTML()}</div>`;
-        await new Previewer().preview(html, [{ paged: buildCss(header, footer, nums, firstDiff) }], container);
+        await new Previewer().preview(html, [{ paged: buildCss(header, footer, nums, ctx, firstDiff) }], container);
       } catch {
         container.innerHTML = '<p style="text-align:center;color:#999;padding:40px">No se pudo generar la vista paginada.</p>';
       }

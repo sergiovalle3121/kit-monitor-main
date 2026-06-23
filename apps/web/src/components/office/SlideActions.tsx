@@ -24,6 +24,22 @@ export function SlideActions({ content, title }: { content: any; title: string }
     try { await fn(); } catch { /* ignore */ } finally { setBusy(false); }
   }
 
+  // Renderiza el patrón (mobiliaria compartida) a un PNG para componerlo como
+  // fondo en el .pptx (el editor lo guarda como JSON de Fabric, no como imagen).
+  async function masterImg(): Promise<string | undefined> {
+    const m = content?.master;
+    if (!m || !Array.isArray(m.objects) || !m.objects.length) return undefined;
+    try {
+      const { StaticCanvas } = await import('fabric');
+      const sc = new StaticCanvas(document.createElement('canvas'), { width: 960, height: ratio === '4:3' ? 720 : 540 });
+      await sc.loadFromJSON(m);
+      sc.backgroundColor = ''; sc.renderAll();
+      const url = sc.toDataURL({ format: 'png', multiplier: 1 } as any);
+      sc.dispose();
+      return url;
+    } catch { return undefined; }
+  }
+
   const btn = 'flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 text-gray-600 dark:text-gray-300 transition-colors disabled:opacity-50';
 
   return (
@@ -41,7 +57,7 @@ export function SlideActions({ content, title }: { content: any; title: string }
               initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
               className="absolute right-0 mt-1 z-20 w-48 rounded-xl border border-black/10 dark:border-white/10 bg-white dark:bg-[#1a1a1a] shadow-xl p-1"
             >
-              <button onClick={() => run(() => exportPptx(slides, title || 'presentacion', notes, pptxOpts))} className="w-full flex items-center gap-2 text-left text-sm px-3 py-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10"><Presentation className="w-4 h-4 text-amber-500" /> PowerPoint (.pptx)</button>
+              <button onClick={() => run(async () => exportPptx(slides, title || 'presentacion', notes, { ...pptxOpts, masterImg: await masterImg() }))} className="w-full flex items-center gap-2 text-left text-sm px-3 py-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10"><Presentation className="w-4 h-4 text-amber-500" /> PowerPoint (.pptx)</button>
               <button onClick={() => run(() => exportSlidesPdf(slides, title || 'presentacion', ratio))} className="w-full flex items-center gap-2 text-left text-sm px-3 py-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10"><FileText className="w-4 h-4 text-gray-500" /> PDF</button>
               <button onClick={() => run(() => exportAllPng(slides, title || 'presentacion', ratio))} className="w-full flex items-center gap-2 text-left text-sm px-3 py-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10"><ImageIcon className="w-4 h-4 text-emerald-500" /> Imágenes (PNG)</button>
             </motion.div>

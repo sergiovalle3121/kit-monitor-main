@@ -5,7 +5,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence } from 'framer-motion';
 import { Workbook } from '@fortune-sheet/react';
 import '@fortune-sheet/react/dist/index.css';
-import { ListChecks, Palette, Snowflake, FileText, Sigma, Search, ArrowDownUp, CopyMinus, Columns3, StickyNote, Table2, Hash, Rows3, Activity, ArrowDownToLine, FlipVertical2, Tag, Printer, ClipboardPaste, Filter, RefreshCw, LayoutGrid } from 'lucide-react';
+import { ListChecks, Palette, Snowflake, FileText, Sigma, Search, ArrowDownUp, CopyMinus, Columns3, StickyNote, Table2, Hash, Rows3, Activity, ArrowDownToLine, FlipVertical2, Tag, Printer, ClipboardPaste, Filter, RefreshCw, LayoutGrid, Sparkles, Target, Grid3x3, Layers, Crosshair, Combine } from 'lucide-react';
 import { SheetCharts } from './SheetCharts';
 import { SheetTools, type ValidationPayload } from './SheetTools';
 import { SheetFunctionWizard } from './SheetFunctionWizard';
@@ -19,6 +19,20 @@ import { SheetTableStyle, type TableStylePayload } from './SheetTableStyle';
 import { parseRange, type ChartConfig } from '@/lib/office/charts';
 import { applyConditional, sortRangeMulti, removeDuplicates, textToColumns, setCellNote, replaceAll, buildPivot, pivotToCelldata, applyNumberFormat, applyCellStyle, applySubtotals, applySparkline, applyFill, transposeRange, copyRange, buildFilter, buildPrintHtml, usedRange, colName, applyDataVerification, clearDataVerification, markInvalidCells, applyTableStyle, type CondPayload, type PivotConfig, type FindOpts, type NamedRange, type PrintOpts } from '@/lib/office/sheetOps';
 import { normalizeCellInput } from './sheets/sheetFormula';
+import { installFormulaEngine } from './sheets/formulaEngine';
+import { applySpill } from './sheets/arraySpill';
+import { goalSeek } from './sheets/goalSeek';
+import { SheetGoalSeek, type GoalSeekPayload } from './SheetGoalSeek';
+import { dataTable1, dataTable2 } from './sheets/dataTable';
+import { SheetDataTable, type DataTablePayload } from './SheetDataTable';
+import { autoSumPlan, type AggFn } from './sheets/autoSum';
+import { applyScenario, scenarioSummary, type Scenario } from './sheets/scenarios';
+import { SheetScenarios } from './SheetScenarios';
+import { solve, type SolverVar } from './sheets/solver';
+import { SheetSolver, type SolverPayload } from './SheetSolver';
+import { consolidateByPosition, consolidateByCategory } from './sheets/consolidate';
+import { SheetConsolidate, type ConsolidatePayload } from './SheetConsolidate';
+import { setTableRegistry, type TableDef } from './sheets/tableRefs';
 import { OfficeRibbon, RibbonTab, RibbonGroup, RibbonSeparator, RibbonButton, RibbonMenuButton } from './ribbon';
 import { useToast } from '@/contexts/ToastContext';
 
@@ -38,8 +52,20 @@ type StoredPivot = { id: string; config: PivotConfig; sheetName: string };
 function pivotsOf(v: any): StoredPivot[] {
   return v && Array.isArray(v.pivots) ? v.pivots : [];
 }
+function scenariosOf(v: any): Scenario[] {
+  return v && Array.isArray(v.scenarios) ? v.scenarios : [];
+}
+type StoredTable = { name: string; sheetIndex: number; range: string };
+function tablesOf(v: any): StoredTable[] {
+  return v && Array.isArray(v.tables) ? v.tables : [];
+}
 const DEFAULT_SHEET = { name: 'Hoja 1', celldata: [], order: 0, row: 100, column: 30, config: {} };
 const clone = (x: any) => JSON.parse(JSON.stringify(x));
+
+// Robustece el motor de fórmulas de la rejilla (booleanos sueltos + funciones registradas:
+// XLOOKUP, TEXTJOIN, MAXIFS/MINIFS, TEXT, SI.ERROR sobre #DIV/0!…). Parchea el `Parser`
+// COMPARTIDO una sola vez, en cuanto se carga el editor y ANTES de que la rejilla evalúe.
+installFormulaEngine();
 
 /** Excel-like spreadsheet (Fortune-sheet, MIT) — formulas, formats, charts, validation, conditional formatting. */
 export function SheetEditor({ value, onChange, readOnly, fileActions }: { value: any; onChange: (data: any) => void; readOnly?: boolean; fileActions?: React.ReactNode }) {
@@ -55,6 +81,10 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
   const namesRef = useRef<NamedRange[]>(namesOf(value));
   const [names, setNames] = useState<NamedRange[]>(namesRef.current);
   const pivotsRef = useRef<StoredPivot[]>(pivotsOf(value));
+  const scenariosRef = useRef<Scenario[]>(scenariosOf(value));
+  const [scenarios, setScenarios] = useState<Scenario[]>(scenariosRef.current);
+  const tablesRef = useRef<StoredTable[]>(tablesOf(value));
+  const [showScenarios, setShowScenarios] = useState(false);
   const [showNames, setShowNames] = useState(false);
   const [showPrint, setShowPrint] = useState(false);
   const [tool, setTool] = useState<null | 'validation' | 'condformat'>(null);
@@ -64,6 +94,10 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
   const [showPivot, setShowPivot] = useState(false);
   const [showTable, setShowTable] = useState(false);
   const [showFormat, setShowFormat] = useState(false);
+  const [showGoalSeek, setShowGoalSeek] = useState(false);
+  const [showDataTable, setShowDataTable] = useState(false);
+  const [showSolver, setShowSolver] = useState(false);
+  const [showConsolidate, setShowConsolidate] = useState(false);
   const [, setTick] = useState(0);
   const refreshT = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onChangeRef = useRef(onChange);
@@ -121,8 +155,27 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
   }, []);
 
   const emit = useCallback(() => {
-    onChangeRef.current({ sheets: sheetsRef.current, charts: chartsRef.current, names: namesRef.current, pivots: pivotsRef.current });
+    onChangeRef.current({ sheets: sheetsRef.current, charts: chartsRef.current, names: namesRef.current, pivots: pivotsRef.current, scenarios: scenariosRef.current, tables: tablesRef.current });
   }, []);
+
+  // Registro de tablas con nombre para las referencias estructuradas `Tabla[Columna]`. Se
+  // resuelve a TableDef[] (con nombre de hoja, rango y cabeceras leídas de la fila superior) y se
+  // publica en el motor (registro global que consulta el parche del parser).
+  function rebuildTableRegistry() {
+    const sheets = sheetsRef.current;
+    const defs: TableDef[] = [];
+    for (const t of tablesRef.current) {
+      const sheet = sheets[t.sheetIndex]; if (!sheet) continue;
+      const rng = parseRange(t.range); if (!rng) continue;
+      const map = new Map<string, any>((sheet.celldata ?? []).map((cd: any) => [`${cd.r}_${cd.c}`, cd]));
+      const headers: string[] = [];
+      for (let c = rng.c1; c <= rng.c2; c++) { const cd = map.get(`${rng.r1}_${c}`); const raw = cd?.v && typeof cd.v === 'object' ? (cd.v.v ?? cd.v.m) : cd?.v; headers.push(String(raw ?? '')); }
+      defs.push({ name: t.name, sheetName: sheet.name || `Hoja ${t.sheetIndex + 1}`, r1: rng.r1, c1: rng.c1, r2: rng.r2, c2: rng.c2, headers });
+    }
+    setTableRegistry(defs);
+  }
+  // Publica el registro al montar (y cuando se recarga el documento).
+  useEffect(() => { rebuildTableRegistry(); }, []);
 
   // Entrada de celda estilo Excel para lo que se TECLEA directamente en la rejilla.
   // Fortune-Sheet sólo evalúa lo que empieza por «=»; aquí puenteamos el atajo Lotus
@@ -306,6 +359,183 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
     window.setTimeout(() => toast.success(`${updated} tabla(s) dinámica(s) actualizada(s).`), 30);
   }
 
+  // Derrama (spill) la fórmula matricial de la celda seleccionada a las celdas vecinas
+  // (UNIQUE/SORT/FILTER/SEQUENCE…), estilo Excel 365, con detección de #SPILL!.
+  function doSpill() {
+    const cell = selectionRange().split(':')[0];
+    const sheets = clone(sheetsRef.current);
+    const sheet = sheets[activeIndex()] ?? sheets[0];
+    if (!sheet) return;
+    const res = applySpill(sheet, cell);
+    if (!res.ok) { toast.error(res.error || 'No se pudo derramar la matriz.'); return; }
+    remount(sheets);
+    window.setTimeout(() => toast.success(`Matriz derramada en ${res.rows}×${res.cols} celdas desde ${cell}.`), 30);
+  }
+
+  // Buscar objetivo (Goal Seek): resuelve el valor de la celda variable que hace que la
+  // fórmula alcance el objetivo, y lo escribe en la hoja.
+  function doGoalSeek(p: GoalSeekPayload): { ok: boolean; text: string } {
+    const tgt = Number(p.target.replace(',', '.'));
+    if (!Number.isFinite(tgt)) return { ok: false, text: 'El valor objetivo debe ser un número.' };
+    const sheets = clone(sheetsRef.current);
+    const sheet = sheets[activeIndex()] ?? sheets[0];
+    if (!sheet) return { ok: false, text: 'No hay hoja activa.' };
+    const res = goalSeek(sheet, p.formulaCell, tgt, p.variableCell);
+    if (!res.ok) return { ok: false, text: res.error || 'No se encontró solución.' };
+    remount(sheets);
+    return { ok: true, text: `${p.variableCell} = ${res.value} hace que ${p.formulaCell} ≈ ${res.result} (${res.iterations} iteraciones).` };
+  }
+
+  // Administrador de escenarios: guarda/aplica conjuntos de valores de entrada y genera un
+  // informe de resumen (cada celda de resultado bajo cada escenario) en una hoja nueva.
+  const addScenario = useCallback((sc: Scenario) => { scenariosRef.current = [...scenariosRef.current.filter((s) => s.name !== sc.name), sc]; setScenarios(scenariosRef.current); emit(); }, [emit]);
+  const removeScenario = useCallback((name: string) => { scenariosRef.current = scenariosRef.current.filter((s) => s.name !== name); setScenarios(scenariosRef.current); emit(); }, [emit]);
+  function applyScenarioToActive(sc: Scenario) {
+    const sheets = clone(sheetsRef.current);
+    const sheet = sheets[activeIndex()] ?? sheets[0];
+    if (!sheet) return;
+    applyScenario(sheet, sc);
+    remount(sheets);
+    window.setTimeout(() => toast.success(`Escenario «${sc.name}» aplicado.`), 30);
+  }
+  function doScenarioSummary(resultCellsText: string): { ok: boolean; text: string } {
+    const cells = resultCellsText.split(/[,;\s]+/).filter(Boolean).map((s) => s.toUpperCase());
+    if (!cells.length) return { ok: false, text: 'Indica al menos una celda de resultado (p. ej. B5).' };
+    if (!scenariosRef.current.length) return { ok: false, text: 'No hay escenarios guardados.' };
+    const sheets = clone(sheetsRef.current);
+    const sheet = sheets[activeIndex()] ?? sheets[0];
+    const sum = scenarioSummary(sheet, scenariosRef.current, cells);
+    const cd: any[] = [{ r: 0, c: 0, v: { v: 'Celda de resultado', m: 'Celda de resultado', bl: 1 } }];
+    sum.headers.forEach((h, j) => cd.push({ r: 0, c: j + 1, v: { v: h, m: h, bl: 1 } }));
+    sum.rows.forEach((row, i) => {
+      cd.push({ r: i + 1, c: 0, v: { v: row.cell, m: row.cell, bl: 1 } });
+      row.values.forEach((v, j) => cd.push({ r: i + 1, c: j + 1, v: { v, m: String(v) } }));
+    });
+    const n = sheets.filter((s: any) => /Resumen de escenarios/.test(s?.name ?? '')).length + 1;
+    pushResultSheet(sheets, `Resumen de escenarios ${n}`, cd, sum.rows.length + 3, sum.headers.length + 3);
+    remount(sheets);
+    return { ok: true, text: `Resumen generado en una hoja nueva (${cells.length} celda(s) × ${sum.headers.length} escenario(s)).` };
+  }
+
+  // Consolidar datos: lee varios rangos (admite «Hoja!A1:C4») y los combina en una hoja nueva.
+  function readRangeGrid(sheets: any[], spec: string): any[][] | null {
+    let sheetName: string | null = null; let rangeStr = spec;
+    const bang = spec.indexOf('!');
+    if (bang >= 0) { sheetName = spec.slice(0, bang).replace(/^'|'$/g, ''); rangeStr = spec.slice(bang + 1); }
+    const sheet = sheetName ? sheets.find((s: any) => (s.name || '') === sheetName) : (sheets[activeIndex()] ?? sheets[0]);
+    if (!sheet) return null;
+    const rng = parseRange(rangeStr);
+    if (!rng) return null;
+    const map = new Map<string, any>((sheet.celldata ?? []).map((cd: any) => [`${cd.r}_${cd.c}`, cd]));
+    const grid: any[][] = [];
+    for (let r = rng.r1; r <= rng.r2; r++) {
+      const row: any[] = [];
+      for (let c = rng.c1; c <= rng.c2; c++) { const cd = map.get(`${r}_${c}`); const raw = cd?.v && typeof cd.v === 'object' ? (cd.v.v ?? cd.v.m) : cd?.v; row.push(raw ?? ''); }
+      grid.push(row);
+    }
+    return grid;
+  }
+  function doConsolidate(p: ConsolidatePayload): { ok: boolean; text: string } {
+    const sheets = clone(sheetsRef.current);
+    const specs = p.ranges.split(/[\n;]+/).map((s) => s.trim()).filter(Boolean);
+    const tables: any[][][] = [];
+    for (const spec of specs) { const g = readRangeGrid(sheets, spec); if (!g) return { ok: false, text: `Rango inválido: ${spec}` }; tables.push(g); }
+    const result = p.mode === 'category' ? consolidateByCategory(tables, p.agg) : consolidateByPosition(tables, p.agg);
+    if (!result.length) return { ok: false, text: 'No hay datos para consolidar.' };
+    const cd: any[] = [];
+    result.forEach((row, r) => row.forEach((v, c) => { if (v !== '' && v != null) cd.push({ r, c, v: { v, m: String(v), ...(r === 0 || (p.mode === 'category' && c === 0) ? { bl: 1 } : {}) } }); }));
+    const n = sheets.filter((s: any) => /Consolidado/.test(s?.name ?? '')).length + 1;
+    pushResultSheet(sheets, `Consolidado ${n}`, cd, result.length + 3, (result[0]?.length ?? 4) + 3);
+    remount(sheets);
+    return { ok: true, text: `Consolidado de ${tables.length} rango(s) en «Consolidado ${n}».` };
+  }
+
+  // Solver: optimiza una celda objetivo cambiando varias variables (con restricciones >=/<=).
+  function doSolve(p: SolverPayload): { ok: boolean; text: string } {
+    const sheets = clone(sheetsRef.current);
+    const sheet = sheets[activeIndex()] ?? sheets[0];
+    if (!sheet) return { ok: false, text: 'No hay hoja activa.' };
+    const cells = p.variables.split(/[,;\s]+/).filter(Boolean).map((s) => s.toUpperCase());
+    if (!cells.length) return { ok: false, text: 'Indica al menos una celda variable.' };
+    const bounds = new Map<string, { min?: number; max?: number }>();
+    (p.bounds || '').split(/[,;]+/).map((s) => s.trim()).filter(Boolean).forEach((b) => {
+      const m = /^([A-Za-z]+\d+)\s*(<=|>=|≤|≥)\s*(-?\d+(?:[.,]\d+)?)$/.exec(b);
+      if (!m) return;
+      const cell = m[1].toUpperCase(); const val = Number(m[3].replace(',', '.')); const cur = bounds.get(cell) || {};
+      if (m[2] === '>=' || m[2] === '≥') cur.min = val; else cur.max = val;
+      bounds.set(cell, cur);
+    });
+    const variables: SolverVar[] = cells.map((c) => ({ cell: c, ...(bounds.get(c) || {}) }));
+    const target = Number((p.target || '0').replace(',', '.'));
+    const res = solve(sheet, p.objective, p.goal, target, variables);
+    if (!res.ok || !res.values) return { ok: false, text: res.error || 'No se encontró solución.' };
+    remount(sheets);
+    return { ok: true, text: `Óptimo: ${res.values.map((v) => `${v.cell}=${v.value}`).join(', ')} → objetivo ${res.objective} (${res.iterations} it).` };
+  }
+
+  // Autosuma: inserta =FN(rango seleccionado) en la celda contigua (debajo/derecha).
+  function doAutoSum(fn: AggFn) {
+    const plan = autoSumPlan(selectionRange(), fn);
+    if (!plan) { toast.error('Selecciona un rango para la autosuma.'); return; }
+    const t = parseRange(plan.targetCell);
+    const wb = wbRef.current;
+    if (t && wb?.setCellValue) {
+      try { wb.setCellValue(t.r1, t.c1, plan.formula); toast.success(`${plan.formula} → ${plan.targetCell}`); return; }
+      catch { /* fallback al portapapeles */ }
+    }
+    navigator.clipboard?.writeText(plan.formula).then(() => toast.info(`Copiado: ${plan.formula}`)).catch(() => toast.info(plan.formula));
+  }
+
+  // Tabla de datos (análisis de hipótesis): evalúa la fórmula para cada valor de entrada y
+  // escribe la rejilla de resultados en una hoja nueva.
+  function readValues(sheet: any, text: string): number[] {
+    const rng = parseRange(text);
+    if (rng) {
+      const out: number[] = [];
+      const map = new Map<string, any>((sheet.celldata ?? []).map((cd: any) => [`${cd.r}_${cd.c}`, cd]));
+      for (let r = rng.r1; r <= rng.r2; r++) for (let c = rng.c1; c <= rng.c2; c++) {
+        const cd = map.get(`${r}_${c}`); const raw = cd?.v && typeof cd.v === 'object' ? (cd.v.v ?? cd.v.m) : cd?.v;
+        const n = Number(raw); if (Number.isFinite(n) && raw !== '' && raw != null) out.push(n);
+      }
+      return out;
+    }
+    return text.split(/[,;\s]+/).filter(Boolean).map((s) => Number(s.replace(',', '.'))).filter((n) => Number.isFinite(n));
+  }
+  function pushResultSheet(sheets: any[], name: string, celldata: any[], rows: number, cols: number) {
+    sheets.forEach((s: any) => { s.status = 0; });
+    sheets.push({ name, celldata, order: sheets.length, row: Math.max(100, rows + 8), column: Math.max(26, cols + 4), config: {}, status: 1 });
+  }
+  function doDataTable(p: DataTablePayload): { ok: boolean; text: string } {
+    const sheets = clone(sheetsRef.current);
+    const sheet = sheets[activeIndex()] ?? sheets[0];
+    if (!sheet) return { ok: false, text: 'No hay hoja activa.' };
+    const colVals = readValues(sheet, p.colValues);
+    if (!colVals.length) return { ok: false, text: 'No hay valores de entrada válidos.' };
+    const n = sheets.filter((s: any) => /Tabla de datos/.test(s?.name ?? '')).length + 1;
+    const name = `Tabla de datos ${n}`;
+    if (p.mode === 'one') {
+      const res = dataTable1(sheet, p.formulaCell, p.colInputCell, colVals);
+      if (!res.ok || !res.results) return { ok: false, text: res.error || 'No se pudo calcular.' };
+      const cd: any[] = [{ r: 0, c: 0, v: { v: 'Valor', m: 'Valor', bl: 1 } }, { r: 0, c: 1, v: { v: 'Resultado', m: 'Resultado', bl: 1 } }];
+      colVals.forEach((v, i) => { cd.push({ r: i + 1, c: 0, v: { v, m: String(v) } }, { r: i + 1, c: 1, v: { v: res.results![i], m: String(res.results![i]) } }); });
+      pushResultSheet(sheets, name, cd, colVals.length + 2, 4);
+    } else {
+      const rowVals = readValues(sheet, p.rowValues);
+      if (!rowVals.length) return { ok: false, text: 'No hay valores de fila válidos.' };
+      const res = dataTable2(sheet, p.formulaCell, p.rowInputCell, p.colInputCell, rowVals, colVals);
+      if (!res.ok || !res.matrix) return { ok: false, text: res.error || 'No se pudo calcular.' };
+      const cd: any[] = [];
+      colVals.forEach((cv, j) => cd.push({ r: 0, c: j + 1, v: { v: cv, m: String(cv), bl: 1 } }));
+      rowVals.forEach((rv, i) => {
+        cd.push({ r: i + 1, c: 0, v: { v: rv, m: String(rv), bl: 1 } });
+        colVals.forEach((_, j) => cd.push({ r: i + 1, c: j + 1, v: { v: res.matrix![i][j], m: String(res.matrix![i][j]) } }));
+      });
+      pushResultSheet(sheets, name, cd, rowVals.length + 2, colVals.length + 3);
+    }
+    remount(sheets);
+    return { ok: true, text: `Tabla de datos generada en «${name}».` };
+  }
+
   // Rango A1 de la selección actual del grid (para prefijar diálogos de formato).
   function selectionRange(): string {
     try {
@@ -339,8 +569,16 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
     if (!sheet) { setShowTable(false); return; }
     const n = applyTableStyle(sheet, opts);
     setShowTable(false);
+    // Tabla con nombre → referencias estructuradas `TablaN[Columna]` (sólo si tiene encabezado).
+    let created = '';
+    if (n && opts.hasHeader !== false && parseRange(opts.range)) {
+      created = `Tabla${tablesRef.current.length + 1}`;
+      tablesRef.current = [...tablesRef.current, { name: created, sheetIndex, range: opts.range }];
+      rebuildTableRegistry();
+    }
     remount(sheets);
     if (!n) window.setTimeout(() => toast.error('Rango inválido para la tabla.'), 30);
+    else if (created) window.setTimeout(() => toast.success(`Tabla creada: ${created} — usa ${created}[Columna] en fórmulas.`), 30);
   }
 
   function applyPivot(cfg: PivotConfig, target: { mode: 'new' | 'cell'; cell?: string }) {
@@ -394,10 +632,18 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
               <RibbonButton icon={Filter} label="Filtrar a hoja" onClick={() => setDataMode('filter')} />
               <RibbonButton icon={CopyMinus} label="Quitar duplicados" onClick={() => setDataMode('dedup')} />
               <RibbonButton icon={Columns3} label="Texto en columnas" onClick={() => setDataMode('split')} />
+              <RibbonButton icon={Combine} label="Consolidar" onClick={() => setShowConsolidate(true)} />
             </RibbonGroup>
             <RibbonSeparator />
             <RibbonGroup label="Esquema">
               <RibbonButton icon={Rows3} label="Subtotales" onClick={() => setDataMode('subtotal')} />
+            </RibbonGroup>
+            <RibbonSeparator />
+            <RibbonGroup label="Análisis de hipótesis">
+              <RibbonButton icon={Target} label="Buscar objetivo" hideLabel={false} onClick={() => setShowGoalSeek(true)} />
+              <RibbonButton icon={Grid3x3} label="Tabla de datos" hideLabel={false} onClick={() => setShowDataTable(true)} />
+              <RibbonButton icon={Layers} label="Administrador de escenarios" hideLabel={false} onClick={() => setShowScenarios(true)} />
+              <RibbonButton icon={Crosshair} label="Solver" hideLabel={false} onClick={() => setShowSolver(true)} />
             </RibbonGroup>
             <RibbonSeparator />
             <RibbonGroup label="Rellenar y transponer">
@@ -428,6 +674,10 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
             <RibbonGroup label="Minigráficos">
               <RibbonButton icon={Activity} label="Sparkline" hideLabel={false} onClick={() => setDataMode('spark')} />
             </RibbonGroup>
+            <RibbonSeparator />
+            <RibbonGroup label="Matrices dinámicas">
+              <RibbonButton icon={Sparkles} label="Derramar matriz (#)" hideLabel={false} onClick={doSpill} />
+            </RibbonGroup>
           </RibbonTab>
         )}
         {!readOnly && (
@@ -444,6 +694,16 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
         </RibbonTab>
         {!readOnly && (
           <RibbonTab id="formulas" label="Fórmulas">
+            <RibbonGroup label="Autosuma">
+              <RibbonMenuButton icon={Sigma} label="Autosuma" menuWidth={200} items={[
+                { label: 'Suma', onClick: () => doAutoSum('SUM') },
+                { label: 'Promedio', onClick: () => doAutoSum('AVERAGE') },
+                { label: 'Contar números', onClick: () => doAutoSum('COUNT') },
+                { label: 'Máximo', onClick: () => doAutoSum('MAX') },
+                { label: 'Mínimo', onClick: () => doAutoSum('MIN') },
+              ]} />
+            </RibbonGroup>
+            <RibbonSeparator />
             <RibbonGroup label="Biblioteca de funciones">
               <RibbonButton icon={Sigma} label="Insertar función" hideLabel={false} onClick={() => setShowWizard(true)} />
             </RibbonGroup>
@@ -487,6 +747,21 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
           <SheetDataDialog mode={dataMode} sheetNames={sheetNames()} onApply={applyData} onClose={() => setDataMode(null)} />
         )}
         {showWizard && <SheetFunctionWizard onInsert={insertFunction} onClose={() => setShowWizard(false)} />}
+        {showGoalSeek && (
+          <SheetGoalSeek defaultFormulaCell={selectionRange().split(':')[0]} onApply={doGoalSeek} onClose={() => setShowGoalSeek(false)} />
+        )}
+        {showDataTable && (
+          <SheetDataTable defaultFormulaCell={selectionRange().split(':')[0]} onApply={doDataTable} onClose={() => setShowDataTable(false)} />
+        )}
+        {showScenarios && (
+          <SheetScenarios scenarios={scenarios} onAdd={addScenario} onRemove={removeScenario} onApply={applyScenarioToActive} onSummary={doScenarioSummary} onClose={() => setShowScenarios(false)} />
+        )}
+        {showSolver && (
+          <SheetSolver defaultObjective={selectionRange().split(':')[0]} onApply={doSolve} onClose={() => setShowSolver(false)} />
+        )}
+        {showConsolidate && (
+          <SheetConsolidate onApply={doConsolidate} onClose={() => setShowConsolidate(false)} />
+        )}
         {showPivot && (
           <SheetPivot
             sheets={sheetsRef.current}

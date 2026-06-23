@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { MetricDefinition } from './entities/metric-definition.entity';
 import { OntologyObjectType } from './entities/ontology-object-type.entity';
 import { OntologyLinkType } from './entities/ontology-link-type.entity';
+import { MetricSnapshot } from './entities/metric-snapshot.entity';
 import { SemanticController } from './semantic.controller';
 import { SemanticService } from './semantic.service';
 
@@ -19,6 +20,7 @@ import { SemanticService } from './semantic.service';
       MetricDefinition,
       OntologyObjectType,
       OntologyLinkType,
+      MetricSnapshot,
     ]),
   ],
   controllers: [SemanticController],

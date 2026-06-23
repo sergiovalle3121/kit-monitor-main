@@ -360,13 +360,15 @@ export class BomTreeService {
     // Effective node per material (ACTIVE preferred), with the requested root
     // node taking precedence for its own material/revision.
     const allNodes = await this.allNodes();
+    const nodeById = new Map(allNodes.map((n) => [n.id, n]));
     const effectiveNode = new Map<string, string>(); // materialId -> nodeId
     for (const n of allNodes) {
       const existing = effectiveNode.get(n.materialId);
       if (!existing) {
         effectiveNode.set(n.materialId, n.id);
       } else {
-        const ex = allNodes.find((x) => x.id === existing)!;
+        // Índice por id (O(1)); antes era allNodes.find dentro del bucle → O(n²).
+        const ex = nodeById.get(existing)!;
         if (n.status === 'ACTIVE' && ex.status !== 'ACTIVE') {
           effectiveNode.set(n.materialId, n.id);
         }

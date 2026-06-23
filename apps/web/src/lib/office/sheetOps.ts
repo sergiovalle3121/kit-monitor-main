@@ -613,6 +613,8 @@ export function fieldValues(sheet: any, range: string, field: string): string[] 
 export interface NumFmtOpts { currency?: string }
 const MONTHS_ES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 const MONTHS_FULL = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+const WEEKDAYS_ES = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb']; // ddd (getUTCDay: 0=domingo)
+const WEEKDAYS_FULL = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado']; // dddd
 
 /** Presets nombrados → código de formato real (estilo Excel) que entiende Fortune-Sheet. */
 export const NUMFMT_PRESETS: { id: string; label: string; code: string; sample: string }[] = [
@@ -631,10 +633,33 @@ export const NUMFMT_PRESETS: { id: string; label: string; code: string; sample: 
   { id: 'datetime', label: 'Fecha y hora', code: 'dd/mm/yyyy hh:mm', sample: '15/01/2026 13:45' },
 ];
 
-const decimalsOf = (code: string): number => {
-  const seg = code.split(';')[0];
-  const frac = seg.includes('.') ? seg.split('.')[1] : '';
-  return (frac.match(/[0#]/g) ?? []).length;
+// Quita las etiquetas entre corchetes de un formato: condiciones [>=100], colores
+// [Red]/[Color 12] y locale de moneda [$€-409] (de la que SÍ conserva el símbolo €).
+const stripFmtTags = (seg: string): string => seg
+  .replace(/\[(?:>=?|<=?|=|<>)[^\]]*\]/g, '')
+  .replace(/\[(?:red|black|green|blue|cyan|magenta|yellow|white|color\s*\d+)\]/gi, '')
+  .replace(/\[\$([^\]\-]*)(?:-[^\]]*)?\]/g, '$1');
+// Extrae el patrón numérico (#0?,.) de una sección, ignorando literales entrecomillados.
+const extractNumericPattern = (section: string): string => {
+  const cleaned = section.replace(/"[^"]*"/g, '').replace(/\\./g, '');
+  const matches = cleaned.match(/[#0?][#0?,. ]*[#0?],*|[#0?],*/g);
+  if (!matches) return '0';
+  return matches.reduce((a, b) => ((b.match(/[#0?]/g)?.length ?? 0) > (a.match(/[#0?]/g)?.length ?? 0) ? b : a), matches[0]).replace(/ /g, '');
+};
+// Número con agrupación + decimales + relleno de ceros a la izquierda (minInt dígitos).
+const renderPlain = (value: number, minInt: number, dec: number, grouped: boolean): string => {
+  let s = groupNum(value, dec, grouped);
+  if (minInt > 1) {
+    const m = /^(\d[\d,]*)(\.\d+)?$/.exec(s);
+    if (m) {
+      const digits = m[1].replace(/,/g, '');
+      if (digits.length < minInt) {
+        const padded = digits.padStart(minInt, '0');
+        s = (grouped ? padded.replace(/\B(?=(\d{3})+(?!\d))/g, ',') : padded) + (m[2] ?? '');
+      }
+    }
+  }
+  return s;
 };
 const groupNum = (n: number, dec: number, grouped: boolean): string => {
   const fixed = n.toFixed(dec);
@@ -661,12 +686,17 @@ export function toDate(value: any): Date | null {
   return null;
 }
 function formatDate(d: Date, code: string): string {
-  const Y = d.getUTCFullYear(), Mo = d.getUTCMonth(), D = d.getUTCDate();
+  const Y = d.getUTCFullYear(), Mo = d.getUTCMonth(), D = d.getUTCDate(), Wd = d.getUTCDay();
   const H = d.getUTCHours(), Mi = d.getUTCMinutes(), S = d.getUTCSeconds();
   const p2 = (x: number) => String(x).padStart(2, '0');
-  // Tokeniza en literales (comillas / símbolos) y runs de la misma letra de formato.
-  const tokens: { type: 'lit' | 'fmt'; v: string }[] = [];
+  // Reloj de 12 horas si el código trae AM/PM (o A/P): la 'h' cuenta 1–12.
+  const hasAmPm = /(AM\/PM|A\/P)/i.test(code);
+  const h12 = ((H % 12) === 0) ? 12 : (H % 12);
+  // Tokeniza en literales (comillas/símbolos), el marcador AM/PM y runs de la misma letra.
+  const tokens: { type: 'lit' | 'fmt' | 'ampm'; v: string }[] = [];
   for (let i = 0; i < code.length;) {
+    const am = /^(AM\/PM|A\/P)/i.exec(code.slice(i));
+    if (am) { tokens.push({ type: 'ampm', v: am[1] }); i += am[1].length; continue; }
     const ch = code[i];
     if (ch === '"') { const end = code.indexOf('"', i + 1); tokens.push({ type: 'lit', v: end < 0 ? code.slice(i + 1) : code.slice(i + 1, end) }); i = end < 0 ? code.length : end + 1; continue; }
     if (/[a-zA-Z]/.test(ch)) { let j = i; while (j < code.length && code[j].toLowerCase() === ch.toLowerCase()) j++; tokens.push({ type: 'fmt', v: code.slice(i, j) }); i = j; continue; }
@@ -680,6 +710,11 @@ function formatDate(d: Date, code: string): string {
   };
   return tokens.map((t, idx) => {
     if (t.type === 'lit') return t.v;
+    if (t.type === 'ampm') {
+      const lower = t.v[0] === t.v[0].toLowerCase();
+      const s = t.v.length <= 3 ? (H >= 12 ? 'P' : 'A') : (H >= 12 ? 'PM' : 'AM'); // A/P vs AM/PM
+      return lower ? s.toLowerCase() : s;
+    }
     const f = t.v.toLowerCase();
     if (/^y+$/.test(f)) return f.length <= 2 ? p2(Y % 100) : String(Y);
     if (/^m+$/.test(f)) {
@@ -688,8 +723,12 @@ function formatDate(d: Date, code: string): string {
       if (isMinute(idx)) return f.length >= 2 ? p2(Mi) : String(Mi);
       return f.length >= 2 ? p2(Mo + 1) : String(Mo + 1);
     }
-    if (/^d+$/.test(f)) return f.length >= 2 ? p2(D) : String(D);
-    if (/^h+$/.test(f)) return f.length >= 2 ? p2(H) : String(H);
+    if (/^d+$/.test(f)) {
+      if (f.length >= 4) return WEEKDAYS_FULL[Wd];  // dddd → día de la semana completo
+      if (f.length === 3) return WEEKDAYS_ES[Wd];   // ddd  → día abreviado
+      return f.length >= 2 ? p2(D) : String(D);     // dd/d → día del mes
+    }
+    if (/^h+$/.test(f)) { const hh = hasAmPm ? h12 : H; return f.length >= 2 ? p2(hh) : String(hh); }
     if (/^s+$/.test(f)) return f.length >= 2 ? p2(S) : String(S);
     return t.v;
   }).join('');
@@ -703,31 +742,83 @@ function toFraction(n: number, maxDen = 99): string {
   return whole > 0 ? `${sign}${whole} ${bestN}/${bestD}` : `${sign}${bestN}/${bestD}`;
 }
 
-/** Formatea un valor según un código tipo Excel. Subconjunto práctico y robusto. */
+// Renderiza una sección (ya sin etiquetas) para un valor NO negativo, intercalando los
+// literales del formato (texto entrecomillado, símbolos, paréntesis) con el número. La
+// PRIMERA tirada de marcadores (#0?) se sustituye por el número; `$`→símbolo de moneda;
+// `%` escala ×100; `\x` y "..." son literales. Soporta porcentaje, científico, fracción,
+// relleno de ceros y escalado por comas finales (miles).
+function renderNumericSection(absN: number, section: string, cur: string, forcedSign: string): string {
+  const cleaned = section.replace(/"[^"]*"/g, '').replace(/\\./g, '');
+  const hasPlaceholder = /[#0?]/.test(cleaned);
+  const isPercent = /%/.test(cleaned);
+  const isSci = /[eE]\+?0/.test(cleaned);
+  const isFrac = /[#?0]\s*\/\s*[#?0]/.test(cleaned);
+  let numStr = '';
+  if (hasPlaceholder) {
+    const value = isPercent ? absN * 100 : absN;
+    if (isSci) {
+      const dec = (cleaned.split(/[eE]/)[0].split('.')[1]?.match(/0/g)?.length) ?? 2;
+      const e = value.toExponential(dec);
+      const mm = /^(-?\d(?:\.\d+)?)e([+-])(\d+)$/i.exec(e);
+      numStr = mm ? `${mm[1]}E${mm[2]}${mm[3].padStart(2, '0')}` : e.toUpperCase();
+    } else if (isFrac) {
+      numStr = toFraction(value);
+    } else {
+      const rawPat = extractNumericPattern(section);
+      const trailingCommas = rawPat.match(/,+$/)?.[0].length ?? 0; // comas finales = escalado ×1000
+      const pat = rawPat.replace(/,+$/, '');
+      const dotIdx = pat.indexOf('.');
+      const intPat = dotIdx >= 0 ? pat.slice(0, dotIdx) : pat;
+      const fracPat = dotIdx >= 0 ? pat.slice(dotIdx + 1) : '';
+      const dec = (fracPat.match(/[0#]/g) ?? []).length;
+      const minInt = Math.max(1, (intPat.match(/0/g) ?? []).length);
+      const grouped = /,/.test(intPat);
+      numStr = renderPlain(value / Math.pow(1000, trailingCommas), minInt, dec, grouped);
+    }
+  }
+  let out = '', placed = false, i = 0;
+  while (i < section.length) {
+    const ch = section[i];
+    if (ch === '"') { const end = section.indexOf('"', i + 1); out += end < 0 ? section.slice(i + 1) : section.slice(i + 1, end); i = end < 0 ? section.length : end + 1; continue; }
+    if (ch === '\\') { if (i + 1 < section.length) out += section[i + 1]; i += 2; continue; }
+    if (ch === '$') { out += cur; i++; continue; }
+    if (/[#0?]/.test(ch)) {
+      let j = i; while (j < section.length && /[#0?.,]/.test(section[j])) j++;
+      if (isSci) while (j < section.length && /[eE+\-0#]/.test(section[j])) j++;
+      if (isFrac) while (j < section.length && /[#?0/ ]/.test(section[j])) j++;
+      if (!placed) { out += forcedSign + numStr; placed = true; }
+      i = j; continue;
+    }
+    out += ch; i++;
+  }
+  return out;
+}
+
+/** Formatea un valor según un código tipo Excel. Subconjunto práctico y robusto:
+ *  secciones (positivo;negativo;cero;texto), literales («0" kg"»), relleno de ceros,
+ *  porcentaje, científico, fracción, moneda/contable, escalado por miles y fechas. */
 export function formatNumber(value: any, code: string, opts: NumFmtOpts = {}): string {
   const cur = opts.currency ?? '$';
   if (code == null || code === '' || code === 'General' || code === '@') return value == null ? '' : String(value);
   const seg = code.split(';')[0];
   const looksDate = /[ymdhs]/i.test(seg) && !/[#0]/.test(seg.replace(/"[^"]*"/g, ''));
   if (looksDate) { const d = toDate(value); if (d) return formatDate(d, code); }
+  const sections = code.split(';');
   const n = toNumStrict(value);
-  if (n == null) return value == null ? '' : String(value);
-  if (code.includes('%')) { const dec = decimalsOf(code); return `${groupNum(n * 100, dec, code.includes(','))}%`; }
-  if (/e\+?0/i.test(code)) {
-    const dec = (seg.split(/[eE]/)[0].split('.')[1]?.match(/0/g)?.length) ?? 2;
-    const e = n.toExponential(dec);
-    const mm = /^(-?\d(?:\.\d+)?)e([+-])(\d+)$/i.exec(e);
-    return mm ? `${mm[1]}E${mm[2]}${mm[3].padStart(2, '0')}` : e.toUpperCase();
+  if (n == null) {
+    // Sección de texto (4ª) con @ como marcador del propio texto.
+    if (sections.length >= 4) {
+      const t = stripFmtTags(sections[3]);
+      if (/@/.test(t)) return t.replace(/"([^"]*)"/g, '$1').replace(/@/g, value == null ? '' : String(value));
+    }
+    return value == null ? '' : String(value);
   }
-  if (/\?\s*\/\s*\?/.test(code)) return toFraction(n);
-  const isCurrency = code.includes('$') || seg.toLowerCase().includes(cur.toLowerCase());
-  const accounting = code.split(';').length > 1 && code.includes('(');
-  const dec = decimalsOf(code);
-  const grouped = code.includes(',') || isCurrency;
-  const body = groupNum(Math.abs(n), dec, grouped);
-  let s = (isCurrency ? cur + (seg.includes('$ ') ? ' ' : '') : '') + body;
-  if (n < 0) s = accounting ? `(${s})` : `-${s}`;
-  return s;
+  const secs = sections.map(stripFmtTags);
+  let section: string, forcedSign = '';
+  if (n < 0) { if (sections.length >= 2) section = secs[1]; else { section = secs[0]; forcedSign = '-'; } }
+  else if (n === 0 && sections.length >= 3) section = secs[2];
+  else section = secs[0];
+  return renderNumericSection(Math.abs(n), section, cur, forcedSign);
 }
 
 /** Aplica un código de formato de número a un rango (baked en `m`, código en `ct.fa`). */

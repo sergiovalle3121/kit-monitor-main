@@ -1,7 +1,8 @@
-import { Controller, Get, Param, Post, Query, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { NotificationsService } from './notifications.service';
+import { PushService, type BrowserSubscription } from './push.service';
 
 /**
  * Buzón de notificaciones del usuario autenticado. Solo requiere `JwtAuthGuard`
@@ -13,7 +14,10 @@ import { NotificationsService } from './notifications.service';
 @UseGuards(JwtAuthGuard)
 @Controller('notifications')
 export class NotificationsController {
-  constructor(private readonly service: NotificationsService) {}
+  constructor(
+    private readonly service: NotificationsService,
+    private readonly push: PushService,
+  ) {}
 
   private me(req: any): string {
     return req.user.userId;
@@ -38,6 +42,27 @@ export class NotificationsController {
   @ApiOperation({ summary: 'Conteo de mi buzón: total y no leídas.' })
   counts(@Req() req: any) {
     return this.service.counts(this.me(req));
+  }
+
+  // ── Web Push (VAPID) ────────────────────────────────────────────────────────
+  // Rutas estáticas declaradas ANTES de las `:id` para que no las eclipsen.
+
+  @Get('push/key')
+  @ApiOperation({ summary: 'Llave pública VAPID (null si el push no está configurado).' })
+  pushKey() {
+    return { publicKey: this.push.getPublicKey(), configured: this.push.isConfigured() };
+  }
+
+  @Post('push/subscribe')
+  @ApiOperation({ summary: 'Registra este navegador para recibir web push.' })
+  pushSubscribe(@Req() req: any, @Body() sub: BrowserSubscription) {
+    return this.push.subscribe(this.me(req), sub, req.headers?.['user-agent'] ?? null);
+  }
+
+  @Post('push/unsubscribe')
+  @ApiOperation({ summary: 'Da de baja este navegador del web push.' })
+  pushUnsubscribe(@Req() req: any, @Body('endpoint') endpoint: string) {
+    return this.push.unsubscribe(this.me(req), endpoint);
   }
 
   @Post('read-all')

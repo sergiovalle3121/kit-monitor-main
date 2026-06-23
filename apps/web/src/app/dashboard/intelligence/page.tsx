@@ -18,6 +18,7 @@ import {
   Lightbulb,
   Zap,
   X,
+  Pencil,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -32,6 +33,7 @@ import {
   Cell,
 } from 'recharts';
 import { glass } from '@/lib/glass';
+import { isAdminAccess } from '@/lib/owner';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
 import { useToast } from '@/contexts/ToastContext';
 
@@ -150,10 +152,19 @@ export default function IntelligencePage() {
   const [trend, setTrend] = useState<Trend | null>(null);
   const [breakdown, setBreakdown] = useState<Breakdown | null>(null);
   const [proposals, setProposals] = useState<Proposal[]>([]);
+  const [history, setHistory] = useState<Record<string, { day: string; value: number }[]>>({});
   const [acting, setActing] = useState<number | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const confirm = useConfirm();
   const toast = useToast();
+
+  useEffect(() => {
+    fetch('/api/auth/me')
+      .then((r) => r.json())
+      .then((d) => setIsAdmin(isAdminAccess(d?.session?.role, d?.session?.email)))
+      .catch(() => {});
+  }, []);
 
   async function actOnProposal(p: Proposal, action: 'execute' | 'dismiss') {
     const ok = await confirm(
@@ -186,7 +197,7 @@ export default function IntelligencePage() {
   useEffect(() => {
     async function load() {
       try {
-        const [c, v, t, b, p] = await Promise.all([
+        const [c, v, t, b, p, h] = await Promise.all([
           fetch('/api/semantic/catalog', { cache: 'no-store' }),
           fetch('/api/semantic/values', { cache: 'no-store' }),
           fetch('/api/analytics/ledger-trend?days=14', { cache: 'no-store' }),
@@ -196,6 +207,7 @@ export default function IntelligencePage() {
           fetch('/api/autopilot/proposals?status=pending', {
             cache: 'no-store',
           }),
+          fetch('/api/semantic/history?days=30', { cache: 'no-store' }),
         ]);
         if (c.ok) setCatalog(await c.json());
         if (v.ok) {
@@ -208,6 +220,7 @@ export default function IntelligencePage() {
           const rows = await p.json();
           setProposals(Array.isArray(rows) ? rows : []);
         }
+        if (h.ok) setHistory(await h.json());
       } finally {
         setLoading(false);
       }
@@ -251,6 +264,14 @@ export default function IntelligencePage() {
             Analítica · catálogo de métricas · ontología del negocio
           </p>
         </div>
+        {isAdmin && (
+          <Link
+            href="/dashboard/intelligence/editor"
+            className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-black/10 px-3 py-1.5 text-xs font-medium text-black/70 transition-colors hover:bg-black/5 dark:border-white/10 dark:text-white/70 dark:hover:bg-white/10"
+          >
+            <Pencil className="h-3.5 w-3.5" /> Editar catálogo
+          </Link>
+        )}
       </div>
 
       <div className={`${glass} mb-6 rounded-2xl p-4 text-sm`}>
@@ -472,6 +493,11 @@ export default function IntelligencePage() {
                     </span>
                   )}
                 </div>
+                {(history[m.key]?.length ?? 0) >= 2 && (
+                  <div className="mt-2">
+                    <MetricSparkline points={history[m.key]} />
+                  </div>
+                )}
                 {m.formula && (
                   <p className="mt-2 text-[11px] leading-snug text-black/45 dark:text-white/45">
                     {m.formula}
@@ -581,6 +607,34 @@ function ChartTooltip({ active, payload, label, labelFormatter }: TooltipProps) 
 }
 
 /** A one-line deterministic insight, with a trend arrow when a delta is given. */
+/** Tiny inline-SVG sparkline of a KPI's own value history. */
+function MetricSparkline({ points }: { points: { day: string; value: number }[] }) {
+  const w = 120;
+  const h = 26;
+  const pad = 2;
+  const vals = points.map((p) => p.value);
+  const lo = Math.min(...vals);
+  const hi = Math.max(...vals);
+  const span = hi - lo || 1;
+  const stepX = points.length > 1 ? (w - pad * 2) / (points.length - 1) : 0;
+  const d = points
+    .map((p, i) => {
+      const x = pad + i * stepX;
+      const y = pad + (h - pad * 2) * (1 - (p.value - lo) / span);
+      return `${i === 0 ? 'M' : 'L'}${x.toFixed(1)} ${y.toFixed(1)}`;
+    })
+    .join(' ');
+  const last = points[points.length - 1].value;
+  const first = points[0].value;
+  const up = last >= first;
+  const stroke = up ? '#10b981' : '#f43f5e';
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className="h-6 w-full">
+      <path d={d} fill="none" stroke={stroke} strokeWidth={1.5} />
+    </svg>
+  );
+}
+
 function NarrativeCard({ text, delta }: { text: string; delta?: number | null }) {
   const Icon =
     delta === undefined || delta === null

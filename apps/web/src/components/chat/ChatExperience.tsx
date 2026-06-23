@@ -35,6 +35,16 @@ import {
   UserPlus,
   LogOut,
   Check,
+  BarChart3,
+  Timer,
+  CalendarClock,
+  CheckCircle2,
+  Circle,
+  MapPin,
+  Languages,
+  ExternalLink,
+  Tag,
+  MessageSquare,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { glass } from '@/lib/glass';
@@ -50,16 +60,28 @@ import {
   ReadReceipt,
   ReplyPreview,
   SearchResult,
+  ScheduledItem,
 } from '@/lib/chatApi';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
 import { MessageComposer } from '@/components/chat/MessageComposer';
 import { FileAttachment } from '@/components/chat/FileAttachment';
+import { AuthAudio } from '@/components/chat/AuthAudio';
 import { CallOverlay } from '@/components/chat/CallOverlay';
 import { useCall } from '@/hooks/useCall';
 import { callsSupported } from '@/lib/chat/webrtc';
 import { renderMessageText, hasTable } from '@/lib/chat/markdown';
 import { isEmojiOnly, emojiGlyphCount } from '@/lib/chat/stickers';
 import { parseStickerId, getSticker } from '@/lib/chat/stickerImages';
+import {
+  parseGif,
+  parseLocation,
+  parseContact,
+  locToken,
+  contactToken,
+  gifToken,
+  specialKind,
+} from '@/lib/chat/tokens';
+import { GifPicker } from '@/components/chat/GifPicker';
 import { formatBytes, relativeTime, lastSeenLabel } from '@/lib/chat/format';
 import { avatarStyle } from '@/lib/chat/avatar';
 import { loadDraft, saveDraft } from '@/lib/chat/drafts';
@@ -129,12 +151,33 @@ function replySnippet(m: ChatMessage): string {
   if (m.type === 'image') return '📷 Imagen';
   if (m.type === 'file') return m.fileName || '📎 Archivo';
   if (m.type === 'call') return '📞 Llamada';
+  const kind = specialKind(m.body);
+  if (kind === 'gif') return '🎞️ GIF';
+  if (kind === 'loc') return '📍 Ubicación';
+  if (kind === 'contact') return '👤 Contacto';
   if (m.body && parseStickerId(m.body)) return '🎟️ Sticker';
   return (m.body ?? '').slice(0, 140);
 }
 
 function toReplyPreview(m: ChatMessage): ReplyPreview {
   return { id: m.id, senderId: m.senderId, type: m.type, snippet: replySnippet(m) };
+}
+
+/** Vista previa del último mensaje en la lista de conversaciones. */
+function conversationPreview(
+  lm: { type: string; body: string | null } | null | undefined,
+): string {
+  if (!lm) return 'Sin mensajes';
+  if (lm.type === 'image') return '📷 Imagen';
+  if (lm.type === 'file') return '📎 Archivo';
+  if (lm.type === 'call') return '📞 Llamada';
+  if (lm.type === 'poll') return '📊 Encuesta';
+  const kind = specialKind(lm.body);
+  if (kind === 'gif') return '🎞️ GIF';
+  if (kind === 'loc') return '📍 Ubicación';
+  if (kind === 'contact') return '👤 Contacto';
+  if (lm.body && parseStickerId(lm.body)) return '🎟️ Sticker';
+  return lm.body || '';
 }
 
 function timeOf(iso: string): string {
@@ -223,6 +266,22 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
   const [channelSettings, setChannelSettings] = useState<ChatConversation | null>(
     null,
   );
+  // Encuestas / programados / temporales.
+  const [pollOpen, setPollOpen] = useState(false);
+  const [scheduleOpen, setScheduleOpen] = useState(false);
+  const [scheduled, setScheduled] = useState<ScheduledItem[]>([]);
+  const [showScheduled, setShowScheduled] = useState(false);
+  const [showDisappearMenu, setShowDisappearMenu] = useState(false);
+  // GIFs / compartir contacto / traducciones (por id de mensaje).
+  const [gifOpen, setGifOpen] = useState(false);
+  const [contactPickerOpen, setContactPickerOpen] = useState(false);
+  const [translations, setTranslations] = useState<Record<string, string>>({});
+  // Hilos: mensaje raíz abierto + sus respuestas.
+  const [threadRoot, setThreadRoot] = useState<ChatMessage | null>(null);
+  const [threadReplies, setThreadReplies] = useState<ChatMessage[]>([]);
+  // Etiquetas/carpetas: filtro activo + conversación en edición de etiquetas.
+  const [labelFilter, setLabelFilter] = useState<string | null>(null);
+  const [labelEditing, setLabelEditing] = useState<ChatConversation | null>(null);
   // Socket en estado (además del ref) para que useCall enganche sus listeners.
   const [socket, setSocket] = useState<Socket | null>(null);
 
@@ -236,6 +295,10 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
   const lastTypingEmitRef = useRef(0);
   const draftRef = useRef('');
   const editingRef = useRef<string | null>(null);
+  const threadRootRef = useRef<string | null>(null);
+  useEffect(() => {
+    threadRootRef.current = threadRoot?.id ?? null;
+  }, [threadRoot]);
   useEffect(() => {
     activeIdRef.current = activeId;
   }, [activeId]);
@@ -440,9 +503,26 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
     });
     s.on('message:new', (msg: ChatMessage) => {
       if (msg.conversationId === activeIdRef.current) {
-        setMessages((prev) => (prev.some((m) => m.id === msg.id) ? prev : [...prev, msg]));
+        setMessages((prev) => {
+          if (prev.some((m) => m.id === msg.id)) return prev;
+          const next = [...prev, msg];
+          // Si es respuesta a un mensaje cargado, súmale al contador de hilo.
+          return msg.replyToId
+            ? next.map((m) =>
+                m.id === msg.replyToId
+                  ? { ...m, threadCount: (m.threadCount ?? 0) + 1 }
+                  : m,
+              )
+            : next;
+        });
         if (msg.senderId !== meId && !atBottomRef.current) {
           setNewCount((c) => c + 1);
+        }
+        // Si el hilo abierto es el padre, refleja la respuesta en vivo.
+        if (msg.replyToId && msg.replyToId === threadRootRef.current) {
+          setThreadReplies((prev) =>
+            prev.some((m) => m.id === msg.id) ? prev : [...prev, msg],
+          );
         }
       }
       // Notificación de escritorio si no es mío y no lo estoy viendo ahora.
@@ -462,6 +542,10 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
         chatApi.listPinned(msg.conversationId).then(setPinned).catch(() => {});
       }
       refreshConversations();
+    });
+    // Mensaje temporal expirado: quitarlo del hilo.
+    s.on('message:removed', (p: { id: string; conversationId: string }) => {
+      setMessages((prev) => prev.filter((m) => m.id !== p.id));
     });
     s.on('typing', (p: { conversationId: string }) => {
       if (p?.conversationId !== activeIdRef.current) return;
@@ -567,6 +651,7 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
       .finally(() => setLoadingMessages(false));
     chatApi.listReads(activeId).then(setReads).catch(() => setReads([]));
     chatApi.listPinned(activeId).then(setPinned).catch(() => setPinned([]));
+    chatApi.listScheduled(activeId).then(setScheduled).catch(() => setScheduled([]));
     chatApi.markRead(activeId).then(refreshConversations).catch(() => {});
   }, [activeId, refreshConversations]);
 
@@ -823,6 +908,113 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
       setError(`No se pudo fijar: ${(e as Error).message}`);
     }
   }
+  async function handleVote(messageId: string, optionId: string) {
+    try {
+      const updated = await chatApi.votePoll(messageId, optionId);
+      setMessages((prev) =>
+        prev.map((m) => (m.id === messageId ? { ...m, ...updated } : m)),
+      );
+    } catch (e) {
+      setError(`No se pudo votar: ${(e as Error).message}`);
+    }
+  }
+  async function setDisappearing(seconds: number) {
+    if (!activeId) return;
+    setShowDisappearMenu(false);
+    try {
+      await chatApi.setDisappearing(activeId, seconds);
+      refreshConversations();
+    } catch (e) {
+      setError(`No se pudo cambiar: ${(e as Error).message}`);
+    }
+  }
+  async function cancelScheduledMsg(id: string) {
+    try {
+      await chatApi.cancelScheduled(id);
+      setScheduled((prev) => prev.filter((s) => s.id !== id));
+    } catch (e) {
+      setError(`No se pudo cancelar: ${(e as Error).message}`);
+    }
+  }
+  // Envía un token especial (gif/ubicación/contacto) como mensaje de inmediato.
+  function sendToken(text: string) {
+    if (!activeId) return;
+    atBottomRef.current = true;
+    enqueueText(activeId, text);
+  }
+  function shareLocation() {
+    if (!activeId) return;
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      setError('Geolocalización no disponible en este navegador');
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => sendToken(locToken(pos.coords.latitude, pos.coords.longitude)),
+      () => setError('No se pudo obtener tu ubicación'),
+    );
+  }
+  async function translateMessage(m: ChatMessage) {
+    const text = m.body ?? '';
+    if (!text) return;
+    setTranslations((prev) => ({ ...prev, [m.id]: '…' }));
+    try {
+      const res = await fetch('/api/ai/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: `Traduce al español el siguiente mensaje de chat. Devuelve SOLO la traducción, sin comillas ni explicaciones:\n\n${text}`,
+        }),
+      });
+      const data = await res.json();
+      setTranslations((prev) => ({
+        ...prev,
+        [m.id]: (data?.reply as string) || 'No se pudo traducir',
+      }));
+    } catch {
+      setTranslations((prev) => ({ ...prev, [m.id]: 'No se pudo traducir' }));
+    }
+  }
+
+  // ── hilos (respuestas anidadas a un mensaje) ────────────────────────────────
+  async function openThread(m: ChatMessage) {
+    setThreadRoot(m);
+    setThreadReplies([]);
+    try {
+      const t = await chatApi.getThread(m.id);
+      setThreadRoot(t.root);
+      setThreadReplies(t.replies);
+    } catch (e) {
+      setError(`No se pudo abrir el hilo: ${(e as Error).message}`);
+    }
+  }
+  function closeThread() {
+    setThreadRoot(null);
+    setThreadReplies([]);
+  }
+  async function sendThreadReply(text: string) {
+    if (!activeId || !threadRoot) return;
+    const root = threadRoot;
+    try {
+      const msg = await chatApi.sendText(activeId, text, root.id);
+      // Refleja de inmediato en el panel (el socket actualizará el hilo principal).
+      setThreadReplies((prev) =>
+        prev.some((m) => m.id === msg.id) ? prev : [...prev, msg],
+      );
+    } catch (e) {
+      setError(`No se pudo responder: ${(e as Error).message}`);
+    }
+  }
+
+  // ── etiquetas / carpetas ────────────────────────────────────────────────────
+  async function saveLabels(conversationId: string, labels: string[]) {
+    setLabelEditing(null);
+    try {
+      await chatApi.setLabels(conversationId, labels);
+      refreshConversations();
+    } catch (e) {
+      setError(`No se pudieron guardar las etiquetas: ${(e as Error).message}`);
+    }
+  }
 
   // ── notificaciones de escritorio ───────────────────────────────────────────
   function requestNotifyPermission() {
@@ -887,8 +1079,13 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
     setReads([]);
     setPinned([]);
     setShowPinned(false);
+    setScheduled([]);
+    setShowScheduled(false);
+    setShowDisappearMenu(false);
     setReplyingTo(null);
     setEditingId(null);
+    setThreadRoot(null);
+    setThreadReplies([]);
     setDraft(loadDraft(id));
     requestNotifyPermission();
     atBottomRef.current = true;
@@ -944,8 +1141,19 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
         u.email?.toLowerCase().includes(search.toLowerCase())),
   );
 
-  const channels = conversations.filter((c) => c.type === 'channel');
-  const dms = conversations.filter((c) => c.type === 'dm');
+  // Etiquetas existentes (para los chips de filtro) y filtro activo.
+  const allLabels = useMemo(() => {
+    const set = new Set<string>();
+    for (const c of conversations) for (const l of c.labels ?? []) set.add(l);
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [conversations]);
+  const matchesLabel = useCallback(
+    (c: ChatConversation) => !labelFilter || (c.labels ?? []).includes(labelFilter),
+    [labelFilter],
+  );
+
+  const channels = conversations.filter((c) => c.type === 'channel' && matchesLabel(c));
+  const dms = conversations.filter((c) => c.type === 'dm' && matchesLabel(c));
 
   // Miembros de la conversación activa (para autocompletar @menciones).
   const activeMembers = useMemo(
@@ -1062,6 +1270,35 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
           </button>
         )}
       </div>
+
+      {/* Chips de filtro por etiqueta/carpeta */}
+      {allLabels.length > 0 && (
+        <div className="mb-3 flex flex-wrap gap-1.5">
+          <button
+            onClick={() => setLabelFilter(null)}
+            className={`rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
+              labelFilter === null
+                ? 'bg-blue-600 text-white'
+                : 'bg-black/5 text-gray-600 hover:bg-black/10 dark:bg-white/10 dark:text-gray-300'
+            }`}
+          >
+            Todas
+          </button>
+          {allLabels.map((l) => (
+            <button
+              key={l}
+              onClick={() => setLabelFilter((cur) => (cur === l ? null : l))}
+              className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
+                labelFilter === l
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-black/5 text-gray-600 hover:bg-black/10 dark:bg-white/10 dark:text-gray-300'
+              }`}
+            >
+              <Tag className="h-3 w-3" /> {l}
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="flex-1 space-y-4 overflow-y-auto">
         {filteredUsers.length > 0 && (
@@ -1287,6 +1524,18 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
                 >
                   <Search className="h-5 w-5" />
                 </button>
+                <button
+                  onClick={() => setLabelEditing(active)}
+                  className={`rounded-full p-2 transition-colors focus-visible:ring-2 focus-visible:ring-blue-500/40 ${
+                    (active.labels?.length ?? 0) > 0
+                      ? 'bg-blue-500/15 text-blue-600 dark:text-blue-300'
+                      : 'text-gray-500 hover:bg-black/5 dark:hover:bg-white/10'
+                  }`}
+                  aria-label="Etiquetas"
+                  title="Etiquetas y carpetas"
+                >
+                  <Tag className="h-5 w-5" />
+                </button>
                 {active.type === 'channel' && (
                   <button
                     onClick={() => setChannelSettings(active)}
@@ -1297,6 +1546,46 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
                     <Users className="h-5 w-5" />
                   </button>
                 )}
+                <div className="relative">
+                  <button
+                    onClick={() => setShowDisappearMenu((s) => !s)}
+                    className={`rounded-full p-2 transition-colors focus-visible:ring-2 focus-visible:ring-blue-500/40 ${
+                      active.disappearingSeconds
+                        ? 'bg-blue-500/15 text-blue-600 dark:text-blue-300'
+                        : 'text-gray-500 hover:bg-black/5 dark:hover:bg-white/10'
+                    }`}
+                    aria-label="Mensajes temporales"
+                    title="Mensajes temporales"
+                  >
+                    <Timer className="h-5 w-5" />
+                  </button>
+                  {showDisappearMenu && (
+                    <div
+                      className={`${glass} absolute right-0 top-11 z-30 w-44 rounded-2xl p-1 shadow-xl`}
+                    >
+                      <p className="px-3 py-1 text-[10px] font-medium uppercase tracking-wide text-gray-400">
+                        Mensajes temporales
+                      </p>
+                      {[
+                        { l: 'Desactivado', s: 0 },
+                        { l: '1 hora', s: 3600 },
+                        { l: '24 horas', s: 86400 },
+                        { l: '7 días', s: 604800 },
+                      ].map((opt) => (
+                        <button
+                          key={opt.s}
+                          onClick={() => setDisappearing(opt.s)}
+                          className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm hover:bg-black/5 dark:hover:bg-white/10"
+                        >
+                          {opt.l}
+                          {(active.disappearingSeconds || 0) === opt.s && (
+                            <Check className="ml-auto h-4 w-4 text-blue-500" />
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -1411,6 +1700,12 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
                       onPin={handlePin}
                       onEdit={handleEdit}
                       onDelete={handleDelete}
+                      onVote={handleVote}
+                      onTranslate={translateMessage}
+                      translation={translations[m.id]}
+                      onStartDm={startDm}
+                      onOpenThread={openThread}
+                      meId={meId}
                       grouped={grouped}
                       highlight={searchTerm}
                       isCurrentMatch={m.id === currentMatchMsgId}
@@ -1465,6 +1760,54 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
 
           {/* Composer */}
           <div className="border-t border-black/5 p-3 dark:border-white/10">
+            {/* Mensajes programados pendientes */}
+            {scheduled.length > 0 && (
+              <div className="mb-2">
+                <button
+                  onClick={() => setShowScheduled((s) => !s)}
+                  className="flex w-full items-center gap-2 rounded-2xl bg-black/5 px-3 py-1.5 text-xs dark:bg-white/10"
+                >
+                  <CalendarClock className="h-3.5 w-3.5 text-sky-500" />
+                  <span className="font-medium">
+                    {scheduled.length} programado{scheduled.length > 1 ? 's' : ''}
+                  </span>
+                  {showScheduled ? (
+                    <ChevronDown className="ml-auto h-3.5 w-3.5" />
+                  ) : (
+                    <ChevronUp className="ml-auto h-3.5 w-3.5" />
+                  )}
+                </button>
+                {showScheduled && (
+                  <div className="mt-1 space-y-1">
+                    {scheduled.map((s) => (
+                      <div
+                        key={s.id}
+                        className={`${glass} flex items-center gap-2 rounded-xl px-3 py-1.5 text-xs`}
+                      >
+                        <span className="shrink-0 font-medium text-sky-600 dark:text-sky-400">
+                          {new Date(s.sendAt).toLocaleString([], {
+                            day: '2-digit',
+                            month: '2-digit',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </span>
+                        <span className="min-w-0 flex-1 truncate text-gray-500">
+                          {s.body}
+                        </span>
+                        <button
+                          onClick={() => cancelScheduledMsg(s.id)}
+                          aria-label="Cancelar programado"
+                          className="shrink-0 text-gray-400 hover:text-red-500"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
             {/* Banner de responder / editar */}
             {(replyingTo || editingId) && (
               <div className={`${glass} mb-2 flex items-center gap-2 rounded-2xl px-3 py-2`}>
@@ -1537,6 +1880,11 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
               compact={single}
               autoFocusKey={activeId ?? undefined}
               placeholder={editingId ? 'Edita tu mensaje…' : undefined}
+              onCreatePoll={() => setPollOpen(true)}
+              onSchedule={() => setScheduleOpen(true)}
+              onPickGif={() => setGifOpen(true)}
+              onShareLocation={shareLocation}
+              onShareContact={() => setContactPickerOpen(true)}
             />
           </div>
         </>
@@ -1603,11 +1951,11 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
         <ForwardModal
           conversations={conversations}
           onClose={() => setForwarding(null)}
-          onSelect={async (cid) => {
+          onConfirm={async (cids) => {
             const msg = forwarding;
             setForwarding(null);
             try {
-              await chatApi.forwardMessage(msg.id, cid);
+              await Promise.all(cids.map((cid) => chatApi.forwardMessage(msg.id, cid)));
               refreshConversations();
             } catch (e) {
               setError(`No se pudo reenviar: ${(e as Error).message}`);
@@ -1629,6 +1977,86 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
             refreshConversations();
           }}
           onError={(msg) => setError(msg)}
+        />
+      )}
+
+      {pollOpen && activeId && (
+        <PollModal
+          onClose={() => setPollOpen(false)}
+          onCreate={async (q, opts, multi) => {
+            setPollOpen(false);
+            try {
+              await chatApi.createPoll(activeId, q, opts, multi);
+            } catch (e) {
+              setError(`No se pudo crear la encuesta: ${(e as Error).message}`);
+            }
+          }}
+        />
+      )}
+
+      {scheduleOpen && activeId && (
+        <ScheduleModal
+          initialText={draft}
+          onClose={() => setScheduleOpen(false)}
+          onSchedule={async (b, iso) => {
+            setScheduleOpen(false);
+            try {
+              const it = await chatApi.scheduleMessage(activeId, b, iso);
+              setScheduled((prev) =>
+                [...prev, it].sort((a, z) => a.sendAt.localeCompare(z.sendAt)),
+              );
+              if (b.trim() === draft.trim()) {
+                setDraft('');
+                saveDraft(activeId, '');
+              }
+            } catch (e) {
+              setError(`No se pudo programar: ${(e as Error).message}`);
+            }
+          }}
+        />
+      )}
+
+      {/* Selector de GIFs (Giphy) */}
+      {gifOpen && (
+        <GifPicker
+          onPick={(url) => {
+            sendToken(gifToken(url));
+            setGifOpen(false);
+          }}
+          onClose={() => setGifOpen(false)}
+        />
+      )}
+
+      {/* Compartir un contacto del directorio */}
+      {contactPickerOpen && (
+        <ContactPickerModal
+          users={users.filter((u) => u.id !== meId)}
+          onClose={() => setContactPickerOpen(false)}
+          onPick={(userId) => {
+            setContactPickerOpen(false);
+            sendToken(contactToken(userId));
+          }}
+        />
+      )}
+
+      {/* Panel de hilo (respuestas a un mensaje) */}
+      {threadRoot && (
+        <ThreadPanel
+          root={threadRoot}
+          replies={threadReplies}
+          users={users}
+          onClose={closeThread}
+          onSend={sendThreadReply}
+        />
+      )}
+
+      {/* Editor de etiquetas/carpetas de la conversación */}
+      {labelEditing && (
+        <LabelModal
+          convo={labelEditing}
+          suggestions={allLabels}
+          onClose={() => setLabelEditing(null)}
+          onSave={(labels) => saveLabels(labelEditing.id, labels)}
         />
       )}
 
@@ -1843,6 +2271,64 @@ function CallLogItem({ m, mine }: { m: UiMessage; mine: boolean }) {
 }
 
 /** Una burbuja de mensaje con toolbar (hover), reacciones y chips. */
+/** Render de una encuesta: pregunta + opciones con barras y voto (toggle). */
+function PollView({
+  m,
+  meId,
+  onVote,
+}: {
+  m: ChatMessage;
+  meId: string;
+  onVote?: (messageId: string, optionId: string) => void;
+}) {
+  const poll = m.poll;
+  if (!poll) return null;
+  const total = poll.totalVoters;
+  return (
+    <div className="w-72 max-w-full rounded-2xl bg-black/5 p-3 dark:bg-white/10">
+      <p className="mb-2 flex items-start gap-1.5 text-sm font-semibold">
+        <BarChart3 className="mt-0.5 h-4 w-4 shrink-0 text-pink-500" />
+        <span className="break-words">{poll.question}</span>
+      </p>
+      <div className="space-y-1.5">
+        {poll.options.map((o) => {
+          const voted = o.userIds.includes(meId);
+          const pct = total > 0 ? Math.round((o.count / total) * 100) : 0;
+          return (
+            <button
+              key={o.id}
+              onClick={() => onVote?.(m.id, o.id)}
+              className="relative block w-full overflow-hidden rounded-xl text-left ring-1 ring-black/10 dark:ring-white/10"
+            >
+              <span
+                className={`absolute inset-y-0 left-0 transition-all ${
+                  voted ? 'bg-pink-500/25' : 'bg-pink-500/10'
+                }`}
+                style={{ width: `${pct}%` }}
+              />
+              <span className="relative flex items-center gap-2 px-3 py-1.5 text-sm">
+                {voted ? (
+                  <CheckCircle2 className="h-4 w-4 shrink-0 text-pink-600 dark:text-pink-400" />
+                ) : (
+                  <Circle className="h-4 w-4 shrink-0 text-gray-400" />
+                )}
+                <span className="min-w-0 flex-1 truncate">{o.text}</span>
+                <span className="shrink-0 text-xs tabular-nums text-gray-500">
+                  {pct}%
+                </span>
+              </span>
+            </button>
+          );
+        })}
+      </div>
+      <p className="mt-2 text-[11px] text-gray-400">
+        {total} voto{total !== 1 ? 's' : ''}
+        {poll.multi ? ' · opción múltiple' : ''}
+      </p>
+    </div>
+  );
+}
+
 /** Ítem del menú de acciones de un mensaje. */
 function MenuItem({
   icon,
@@ -1923,6 +2409,12 @@ function MessageItem({
   onPin,
   onEdit,
   onDelete,
+  onVote,
+  onTranslate,
+  translation,
+  onStartDm,
+  onOpenThread,
+  meId,
   grouped,
   highlight = '',
   isCurrentMatch = false,
@@ -1939,6 +2431,12 @@ function MessageItem({
   onPin?: (m: ChatMessage) => void;
   onEdit?: (m: ChatMessage) => void;
   onDelete?: (m: ChatMessage) => void;
+  onVote?: (messageId: string, optionId: string) => void;
+  onTranslate?: (m: ChatMessage) => void;
+  translation?: string;
+  onStartDm?: (userId: string) => void;
+  onOpenThread?: (m: ChatMessage) => void;
+  meId: string;
   grouped: boolean;
   highlight?: string;
   isCurrentMatch?: boolean;
@@ -1973,10 +2471,18 @@ function MessageItem({
   const body = m.body ?? '';
   const isFile = m.type === 'file';
   const isImage = m.type === 'image';
-  const stickerId = m.type === 'text' ? parseStickerId(body) : null;
-  const emojiOnly = m.type === 'text' && !stickerId && isEmojiOnly(body);
-  const bare = emojiOnly || !!stickerId; // sin fondo de burbuja
-  const wide = m.type === 'text' && !stickerId && !!body && hasTable(body);
+  const isPoll = m.type === 'poll';
+  const isText = m.type === 'text';
+  const gifUrl = isText ? parseGif(body) : null;
+  const loc = isText && !gifUrl ? parseLocation(body) : null;
+  const contactId = isText && !gifUrl && !loc ? parseContact(body) : null;
+  const stickerId =
+    isText && !gifUrl && !loc && !contactId ? parseStickerId(body) : null;
+  const emojiOnly =
+    isText && !stickerId && !gifUrl && !loc && !contactId && isEmojiOnly(body);
+  const bare = emojiOnly || !!stickerId || !!gifUrl; // sin fondo de burbuja
+  const wide =
+    isPoll || (isText && !stickerId && !!body && hasTable(body));
   const onColored = !isFile && !bare && mine; // texto blanco sobre burbuja azul
   const forwardedTag = m.forwarded ? (
     <p
@@ -2116,6 +2622,14 @@ function MessageItem({
                     }}
                   />
                   <MenuItem
+                    icon={<MessageSquare className="h-4 w-4" />}
+                    label="Responder en hilo"
+                    onClick={() => {
+                      onOpenThread?.(m);
+                      setShowMenu(false);
+                    }}
+                  />
+                  <MenuItem
                     icon={<CornerUpRight className="h-4 w-4" />}
                     label="Reenviar"
                     onClick={() => {
@@ -2137,6 +2651,22 @@ function MessageItem({
                       setShowMenu(false);
                     }}
                   />
+                  {isText &&
+                    !gifUrl &&
+                    !loc &&
+                    !contactId &&
+                    !stickerId &&
+                    !emojiOnly &&
+                    body.trim().length > 0 && (
+                      <MenuItem
+                        icon={<Languages className="h-4 w-4" />}
+                        label={translation ? 'Traducción ✓' : 'Traducir'}
+                        onClick={() => {
+                          onTranslate?.(m);
+                          setShowMenu(false);
+                        }}
+                      />
+                    )}
                   {canModify && m.type === 'text' && (
                     <MenuItem
                       icon={<Pencil className="h-4 w-4" />}
@@ -2180,10 +2710,14 @@ function MessageItem({
                   <Paperclip className="h-5 w-5" />
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-medium">{m.fileName}</span>
+                  <span className="block truncate text-sm font-medium">
+                    {m.fileMime?.startsWith('audio/') ? 'Nota de voz' : m.fileName}
+                  </span>
                   <span className="block text-xs text-gray-500">Enviando…</span>
                 </span>
               </div>
+            ) : m.fileMime?.startsWith('audio/') ? (
+              <AuthAudio messageId={m.id} mine={mine} />
             ) : (
               <FileAttachment
                 messageId={m.id}
@@ -2200,6 +2734,93 @@ function MessageItem({
             >
               <span>{timeOf(m.createdAt)}</span>
               {m.editedAt && <span>· editado</span>}
+            </div>
+          </div>
+        ) : isPoll ? (
+          <div>
+            {showMeta && (
+              <p className="mb-0.5 text-[10px] font-semibold text-gray-500">
+                {senderName(m.senderId, users)}
+              </p>
+            )}
+            {forwardedTag}
+            {replyQuote}
+            <PollView m={m} meId={meId} onVote={onVote} />
+            <div
+              className={`mt-1 flex items-center gap-1 text-[10px] text-gray-500 ${
+                mine ? 'justify-end' : ''
+              }`}
+            >
+              <span>{timeOf(m.createdAt)}</span>
+            </div>
+          </div>
+        ) : loc ? (
+          <div>
+            {showMeta && (
+              <p className="mb-0.5 text-[10px] font-semibold text-gray-500">
+                {senderName(m.senderId, users)}
+              </p>
+            )}
+            {forwardedTag}
+            {replyQuote}
+            <a
+              href={`https://www.google.com/maps?q=${loc.lat},${loc.lng}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex w-60 max-w-full items-center gap-3 rounded-2xl bg-black/5 p-3 hover:bg-black/10 dark:bg-white/10 dark:hover:bg-white/15"
+            >
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-rose-500/15 text-rose-500">
+                <MapPin className="h-5 w-5" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-medium">Ubicación</span>
+                <span className="block truncate text-xs text-gray-500">
+                  {loc.lat.toFixed(4)}, {loc.lng.toFixed(4)}
+                </span>
+              </span>
+              <ExternalLink className="h-4 w-4 shrink-0 text-gray-400" />
+            </a>
+            <div className="mt-1 flex items-center gap-1 text-[10px] text-gray-500">
+              <span>{timeOf(m.createdAt)}</span>
+            </div>
+          </div>
+        ) : contactId ? (
+          <div>
+            {showMeta && (
+              <p className="mb-0.5 text-[10px] font-semibold text-gray-500">
+                {senderName(m.senderId, users)}
+              </p>
+            )}
+            {forwardedTag}
+            {replyQuote}
+            <div className="w-60 max-w-full rounded-2xl bg-black/5 p-3 dark:bg-white/10">
+              <div className="flex items-center gap-3">
+                <span
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
+                  style={avatarStyle(contactId)}
+                >
+                  {initials(senderName(contactId, users))}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-medium">
+                    {senderName(contactId, users)}
+                  </span>
+                  <span className="block truncate text-xs text-gray-500">
+                    {users.find((u) => u.id === contactId)?.role ?? 'Contacto'}
+                  </span>
+                </span>
+              </div>
+              {onStartDm && contactId !== meId && (
+                <button
+                  onClick={() => onStartDm(contactId)}
+                  className="mt-2 w-full rounded-full bg-blue-600 py-1.5 text-xs font-semibold text-white"
+                >
+                  Enviar mensaje
+                </button>
+              )}
+            </div>
+            <div className="mt-1 flex items-center gap-1 text-[10px] text-gray-500">
+              <span>{timeOf(m.createdAt)}</span>
             </div>
           </div>
         ) : (
@@ -2221,7 +2842,15 @@ function MessageItem({
             )}
             {forwardedTag}
             {replyQuote}
-            {isImage ? (
+            {gifUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={gifUrl}
+                alt="GIF"
+                loading="lazy"
+                className="max-h-72 max-w-[18rem] rounded-[18px] object-cover"
+              />
+            ) : isImage ? (
               m.localPreviewUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
@@ -2239,6 +2868,24 @@ function MessageItem({
             ) : (
               <div className="break-words text-sm leading-relaxed">
                 {renderMessageText(body, { mine, highlight })}
+                {translation && (
+                  <div
+                    className={`mt-1.5 border-t pt-1.5 text-sm italic ${
+                      onColored
+                        ? 'border-white/25 text-white/90'
+                        : 'border-black/10 text-gray-600 dark:border-white/15 dark:text-gray-300'
+                    }`}
+                  >
+                    <span
+                      className={`mb-0.5 flex items-center gap-1 text-[10px] not-italic ${
+                        onColored ? 'text-white/70' : 'text-gray-400'
+                      }`}
+                    >
+                      <Languages className="h-3 w-3" /> Traducción
+                    </span>
+                    {translation}
+                  </div>
+                )}
               </div>
             )}
             <div
@@ -2260,6 +2907,19 @@ function MessageItem({
               )}
             </div>
           </div>
+        )}
+
+        {/* Enlace al hilo de respuestas */}
+        {(m.threadCount ?? 0) > 0 && (
+          <button
+            onClick={() => onOpenThread?.(m)}
+            className={`mt-1 flex items-center gap-1 text-[11px] font-medium text-blue-600 hover:underline dark:text-blue-400 ${
+              mine ? 'ml-auto justify-end' : ''
+            }`}
+          >
+            <MessageSquare className="h-3 w-3" />
+            {m.threadCount} {m.threadCount === 1 ? 'respuesta' : 'respuestas'}
+          </button>
         )}
 
         {/* Estado "no enviado" + reintentar */}
@@ -2424,17 +3084,7 @@ function ConversationRow({
   mentioned?: boolean;
   onClick: () => void;
 }) {
-  const lastPreview = convo.lastMessage
-    ? convo.lastMessage.type === 'image'
-      ? '📷 Imagen'
-      : convo.lastMessage.type === 'file'
-        ? '📎 Archivo'
-        : convo.lastMessage.type === 'call'
-          ? '📞 Llamada'
-          : convo.lastMessage.body && parseStickerId(convo.lastMessage.body)
-            ? '🎟️ Sticker'
-            : convo.lastMessage.body
-    : 'Sin mensajes';
+  const lastPreview = conversationPreview(convo.lastMessage);
   const unread = convo.unread > 0;
   const when = relativeTime(convo.lastMessageAt);
   return (
@@ -2473,6 +3123,18 @@ function ConversationRow({
         >
           {lastPreview}
         </span>
+        {(convo.labels?.length ?? 0) > 0 && (
+          <span className="mt-0.5 flex flex-wrap gap-1">
+            {convo.labels!.slice(0, 3).map((l) => (
+              <span
+                key={l}
+                className="rounded-full bg-blue-500/10 px-1.5 py-0.5 text-[9px] font-medium text-blue-600 dark:text-blue-300"
+              >
+                {l}
+              </span>
+            ))}
+          </span>
+        )}
       </span>
       {mentioned && (
         <span
@@ -2488,6 +3150,156 @@ function ConversationRow({
         </span>
       )}
     </button>
+  );
+}
+
+function PollModal({
+  onClose,
+  onCreate,
+}: {
+  onClose: () => void;
+  onCreate: (question: string, options: string[], multi: boolean) => void;
+}) {
+  const [question, setQuestion] = useState('');
+  const [options, setOptions] = useState<string[]>(['', '']);
+  const [multi, setMulti] = useState(false);
+  const clean = options.map((o) => o.trim()).filter(Boolean);
+  const valid = question.trim().length > 0 && clean.length >= 2;
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 p-4">
+      <div className={`${glass} w-full max-w-md rounded-[24px] p-6`}>
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="text-lg font-semibold">Nueva encuesta</h3>
+          <button
+            onClick={onClose}
+            className="rounded-full p-1 hover:bg-black/5 dark:hover:bg-white/10"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <input
+          value={question}
+          onChange={(e) => setQuestion(e.target.value)}
+          placeholder="Pregunta…"
+          className="mb-3 w-full rounded-xl bg-black/5 px-4 py-2 text-sm outline-none dark:bg-white/10"
+        />
+        <div className="space-y-2">
+          {options.map((o, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <input
+                value={o}
+                onChange={(e) =>
+                  setOptions((prev) =>
+                    prev.map((x, idx) => (idx === i ? e.target.value : x)),
+                  )
+                }
+                placeholder={`Opción ${i + 1}`}
+                className="flex-1 rounded-xl bg-black/5 px-4 py-2 text-sm outline-none dark:bg-white/10"
+              />
+              {options.length > 2 && (
+                <button
+                  onClick={() =>
+                    setOptions((prev) => prev.filter((_, idx) => idx !== i))
+                  }
+                  aria-label="Quitar opción"
+                  className="rounded-full p-1.5 text-gray-400 hover:bg-black/5 hover:text-red-500 dark:hover:bg-white/10"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+        {options.length < 10 && (
+          <button
+            onClick={() => setOptions((prev) => [...prev, ''])}
+            className="mt-2 flex items-center gap-1 text-xs font-semibold text-blue-600 dark:text-blue-400"
+          >
+            <Plus className="h-3.5 w-3.5" /> Añadir opción
+          </button>
+        )}
+        <label className="mt-4 flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={multi}
+            onChange={(e) => setMulti(e.target.checked)}
+          />
+          Permitir varias respuestas
+        </label>
+        <button
+          onClick={() => onCreate(question.trim(), clean, multi)}
+          disabled={!valid}
+          className="mt-4 w-full rounded-full bg-blue-600 py-2.5 text-sm font-semibold text-white disabled:opacity-40"
+        >
+          Crear encuesta
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** Valor para <input type="datetime-local"> a partir de una fecha local. */
+function localDatetimeValue(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(
+    d.getHours(),
+  )}:${pad(d.getMinutes())}`;
+}
+
+function ScheduleModal({
+  initialText,
+  onClose,
+  onSchedule,
+}: {
+  initialText: string;
+  onClose: () => void;
+  onSchedule: (body: string, sendAtISO: string) => void;
+}) {
+  const [text, setText] = useState(initialText);
+  const [when, setWhen] = useState(() =>
+    localDatetimeValue(new Date(Date.now() + 3600000)),
+  );
+  const valid =
+    text.trim().length > 0 &&
+    !!when &&
+    new Date(when).getTime() > Date.now() + 10000;
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 p-4">
+      <div className={`${glass} w-full max-w-md rounded-[24px] p-6`}>
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="text-lg font-semibold">Programar mensaje</h3>
+          <button
+            onClick={onClose}
+            className="rounded-full p-1 hover:bg-black/5 dark:hover:bg-white/10"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <textarea
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          rows={3}
+          placeholder="Mensaje…"
+          className="mb-3 w-full resize-none rounded-xl bg-black/5 px-4 py-2 text-sm outline-none dark:bg-white/10"
+        />
+        <label className="mb-1 block text-xs font-medium text-gray-400">
+          Enviar el
+        </label>
+        <input
+          type="datetime-local"
+          value={when}
+          onChange={(e) => setWhen(e.target.value)}
+          className="mb-4 w-full rounded-xl bg-black/5 px-4 py-2 text-sm outline-none dark:bg-white/10"
+        />
+        <button
+          onClick={() => onSchedule(text.trim(), new Date(when).toISOString())}
+          disabled={!valid}
+          className="w-full rounded-full bg-blue-600 py-2.5 text-sm font-semibold text-white disabled:opacity-40"
+        >
+          Programar
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -2697,19 +3509,22 @@ function ChannelSettingsModal({
 function ForwardModal({
   conversations,
   onClose,
-  onSelect,
+  onConfirm,
 }: {
   conversations: ChatConversation[];
   onClose: () => void;
-  onSelect: (conversationId: string) => void;
+  onConfirm: (conversationIds: string[]) => void;
 }) {
   const [q, setQ] = useState('');
+  const [selected, setSelected] = useState<string[]>([]);
   const list = conversations.filter((c) =>
     (c.title || '').toLowerCase().includes(q.toLowerCase()),
   );
+  const toggle = (id: string) =>
+    setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 p-4">
-      <div className={`${glass} w-full max-w-md rounded-[24px] p-6`}>
+      <div className={`${glass} flex max-h-[85vh] w-full max-w-md flex-col rounded-[24px] p-6`}>
         <div className="mb-4 flex items-center justify-between">
           <h3 className="text-lg font-semibold">Reenviar a…</h3>
           <button
@@ -2729,34 +3544,392 @@ function ForwardModal({
             className="w-full bg-transparent text-sm outline-none placeholder:text-gray-500"
           />
         </div>
-        <div className="max-h-72 space-y-1 overflow-y-auto">
+        <div className="min-h-0 flex-1 space-y-1 overflow-y-auto">
           {list.length === 0 && (
             <p className="px-1 text-xs text-gray-400">Sin conversaciones</p>
           )}
-          {list.map((c) => (
+          {list.map((c) => {
+            const on = selected.includes(c.id);
+            return (
+              <button
+                key={c.id}
+                onClick={() => toggle(c.id)}
+                className={`flex w-full items-center gap-3 rounded-2xl p-2 text-left transition-colors ${
+                  on ? 'bg-blue-500/15' : 'hover:bg-black/5 dark:hover:bg-white/10'
+                }`}
+              >
+                <span
+                  className="flex h-9 w-9 items-center justify-center rounded-full text-xs font-bold text-white"
+                  style={avatarStyle(c.counterpartId || c.id)}
+                >
+                  {c.type === 'channel' ? (
+                    <Hash className="h-4 w-4" />
+                  ) : (
+                    initials(c.title || '?')
+                  )}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-medium">
+                    {c.title || 'Conversación'}
+                  </span>
+                </span>
+                <span
+                  className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${
+                    on
+                      ? 'border-blue-500 bg-blue-500 text-white'
+                      : 'border-gray-300 dark:border-gray-600'
+                  }`}
+                >
+                  {on && <Check className="h-3.5 w-3.5" />}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+        <button
+          onClick={() => onConfirm(selected)}
+          disabled={selected.length === 0}
+          className="mt-4 w-full rounded-full bg-blue-600 py-2.5 text-sm font-semibold text-white disabled:opacity-40"
+        >
+          {selected.length > 1
+            ? `Reenviar a ${selected.length} chats`
+            : 'Reenviar'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** Selector de un empleado del directorio para compartir su contacto. */
+function ContactPickerModal({
+  users,
+  onClose,
+  onPick,
+}: {
+  users: ChatUser[];
+  onClose: () => void;
+  onPick: (userId: string) => void;
+}) {
+  const [q, setQ] = useState('');
+  const list = users.filter((u) =>
+    (u.username || u.email || '').toLowerCase().includes(q.toLowerCase()),
+  );
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 p-4">
+      <div className={`${glass} flex max-h-[80vh] w-full max-w-md flex-col rounded-[24px] p-6`}>
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="text-lg font-semibold">Compartir contacto</h3>
+          <button
+            onClick={onClose}
+            className="rounded-full p-1 hover:bg-black/5 dark:hover:bg-white/10"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <div className={`${glass} mb-3 flex items-center gap-2 rounded-full px-3 py-2`}>
+          <Search className="h-4 w-4 text-gray-500" />
+          <input
+            autoFocus
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Buscar empleado…"
+            className="w-full bg-transparent text-sm outline-none placeholder:text-gray-500"
+          />
+        </div>
+        <div className="min-h-0 flex-1 space-y-1 overflow-y-auto">
+          {list.length === 0 && (
+            <p className="px-1 text-xs text-gray-400">Sin resultados</p>
+          )}
+          {list.map((u) => (
             <button
-              key={c.id}
-              onClick={() => onSelect(c.id)}
+              key={u.id}
+              onClick={() => onPick(u.id)}
               className="flex w-full items-center gap-3 rounded-2xl p-2 text-left hover:bg-black/5 dark:hover:bg-white/10"
             >
               <span
                 className="flex h-9 w-9 items-center justify-center rounded-full text-xs font-bold text-white"
-                style={avatarStyle(c.counterpartId || c.id)}
+                style={avatarStyle(u.id)}
               >
-                {c.type === 'channel' ? (
-                  <Hash className="h-4 w-4" />
-                ) : (
-                  initials(c.title || '?')
-                )}
+                {initials(u.username || u.email)}
               </span>
               <span className="min-w-0">
                 <span className="block truncate text-sm font-medium">
-                  {c.title || 'Conversación'}
+                  {u.username || u.email}
                 </span>
+                <span className="block truncate text-xs text-gray-500">{u.role}</span>
               </span>
             </button>
           ))}
         </div>
+      </div>
+    </div>
+  );
+}
+
+/** Una fila de mensaje dentro del panel de hilo (versión ligera). */
+function ThreadMessageRow({
+  m,
+  users,
+  root,
+}: {
+  m: ChatMessage;
+  users: ChatUser[];
+  root?: boolean;
+}) {
+  const body = m.body ?? '';
+  const isText = m.type === 'text';
+  const gifUrl = isText ? parseGif(body) : null;
+  const stickerId = isText && !gifUrl ? parseStickerId(body) : null;
+  const plain =
+    isText &&
+    !gifUrl &&
+    !stickerId &&
+    !parseLocation(body) &&
+    !parseContact(body);
+  return (
+    <div className={`flex gap-2 ${root ? '' : 'mt-3'}`}>
+      <span
+        className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white"
+        style={avatarStyle(m.senderId)}
+      >
+        {initials(senderName(m.senderId, users))}
+      </span>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-baseline gap-2">
+          <span className="text-xs font-semibold">
+            {senderName(m.senderId, users)}
+          </span>
+          <span className="text-[10px] text-gray-400">{timeOf(m.createdAt)}</span>
+        </div>
+        <div className="break-words text-sm leading-relaxed text-gray-800 dark:text-gray-100">
+          {m.deletedAt ? (
+            <span className="italic text-gray-400">Mensaje eliminado</span>
+          ) : gifUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={gifUrl}
+              alt="GIF"
+              loading="lazy"
+              className="max-h-48 max-w-[14rem] rounded-xl object-cover"
+            />
+          ) : stickerId ? (
+            <span className="block h-20 w-20">{getSticker(stickerId)?.node}</span>
+          ) : plain ? (
+            renderMessageText(body, { mine: false })
+          ) : (
+            <span className="text-gray-500">{replySnippet(m)}</span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Panel lateral con el hilo de respuestas a un mensaje + composer propio. */
+function ThreadPanel({
+  root,
+  replies,
+  users,
+  onClose,
+  onSend,
+}: {
+  root: ChatMessage;
+  replies: ChatMessage[];
+  users: ChatUser[];
+  onClose: () => void;
+  onSend: (text: string) => void;
+}) {
+  const [text, setText] = useState('');
+  const endRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    endRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [replies.length]);
+  function submit() {
+    const t = text.trim();
+    if (!t) return;
+    onSend(t);
+    setText('');
+  }
+  return (
+    <div className="fixed inset-0 z-[210] flex items-stretch justify-end bg-black/40">
+      <div
+        className={`${glass} flex h-full w-full max-w-md flex-col`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center gap-2 border-b border-black/5 px-5 py-4 dark:border-white/10">
+          <MessageSquare className="h-5 w-5 text-blue-500" />
+          <h3 className="flex-1 text-base font-semibold">Hilo</h3>
+          <button
+            onClick={onClose}
+            aria-label="Cerrar hilo"
+            className="rounded-full p-1.5 text-gray-500 hover:bg-black/5 dark:hover:bg-white/10"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-5 py-4">
+          {/* Mensaje raíz */}
+          <div className="rounded-2xl bg-black/5 p-3 dark:bg-white/10">
+            <ThreadMessageRow m={root} users={users} root />
+          </div>
+          <div className="my-3 flex items-center gap-3 text-[11px] text-gray-400">
+            <span className="h-px flex-1 bg-black/10 dark:bg-white/10" />
+            {replies.length}{' '}
+            {replies.length === 1 ? 'respuesta' : 'respuestas'}
+            <span className="h-px flex-1 bg-black/10 dark:bg-white/10" />
+          </div>
+          {/* Respuestas */}
+          {replies.map((r) => (
+            <ThreadMessageRow key={r.id} m={r} users={users} />
+          ))}
+          <div ref={endRef} />
+        </div>
+
+        <div className="border-t border-black/5 p-3 dark:border-white/10">
+          <div className={`${glass} flex items-end gap-2 rounded-2xl px-3 py-2`}>
+            <textarea
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  submit();
+                }
+              }}
+              rows={1}
+              placeholder="Responder en el hilo…"
+              className="max-h-32 min-h-[1.5rem] flex-1 resize-none bg-transparent text-sm outline-none placeholder:text-gray-500"
+            />
+            <button
+              onClick={submit}
+              disabled={!text.trim()}
+              aria-label="Enviar"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-600 text-white disabled:opacity-40"
+            >
+              <Send className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Editor de etiquetas/carpetas personales de una conversación. */
+function LabelModal({
+  convo,
+  suggestions,
+  onClose,
+  onSave,
+}: {
+  convo: ChatConversation;
+  suggestions: string[];
+  onClose: () => void;
+  onSave: (labels: string[]) => void;
+}) {
+  const [labels, setLabels] = useState<string[]>(convo.labels ?? []);
+  const [input, setInput] = useState('');
+  function add(raw: string) {
+    const l = raw.trim().slice(0, 40);
+    if (!l || labels.includes(l) || labels.length >= 12) return;
+    setLabels((prev) => [...prev, l]);
+    setInput('');
+  }
+  const remaining = suggestions.filter((s) => !labels.includes(s));
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 p-4">
+      <div className={`${glass} w-full max-w-md rounded-[24px] p-6`}>
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="flex items-center gap-2 text-lg font-semibold">
+            <Tag className="h-5 w-5 text-blue-500" /> Etiquetas
+          </h3>
+          <button
+            onClick={onClose}
+            className="rounded-full p-1 hover:bg-black/5 dark:hover:bg-white/10"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <p className="mb-3 truncate text-xs text-gray-400">
+          {convo.title || 'Conversación'}
+        </p>
+
+        {/* Etiquetas asignadas */}
+        <div className="mb-3 flex min-h-[2rem] flex-wrap gap-1.5">
+          {labels.length === 0 && (
+            <span className="text-xs text-gray-400">Sin etiquetas todavía</span>
+          )}
+          {labels.map((l) => (
+            <span
+              key={l}
+              className="flex items-center gap-1 rounded-full bg-blue-500/15 px-2.5 py-1 text-xs font-medium text-blue-700 dark:text-blue-300"
+            >
+              {l}
+              <button
+                onClick={() => setLabels((prev) => prev.filter((x) => x !== l))}
+                aria-label={`Quitar ${l}`}
+                className="rounded-full hover:text-red-500"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </span>
+          ))}
+        </div>
+
+        {/* Añadir nueva */}
+        <div className={`${glass} mb-3 flex items-center gap-2 rounded-full px-3 py-2`}>
+          <Plus className="h-4 w-4 text-gray-500" />
+          <input
+            autoFocus
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                add(input);
+              }
+            }}
+            placeholder="Nueva etiqueta…"
+            maxLength={40}
+            className="w-full bg-transparent text-sm outline-none placeholder:text-gray-500"
+          />
+          {input.trim() && (
+            <button
+              onClick={() => add(input)}
+              className="shrink-0 text-xs font-semibold text-blue-600 dark:text-blue-400"
+            >
+              Añadir
+            </button>
+          )}
+        </div>
+
+        {/* Sugerencias de etiquetas existentes */}
+        {remaining.length > 0 && (
+          <div className="mb-4">
+            <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wide text-gray-400">
+              Existentes
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {remaining.map((s) => (
+                <button
+                  key={s}
+                  onClick={() => add(s)}
+                  className="flex items-center gap-1 rounded-full bg-black/5 px-2.5 py-1 text-xs text-gray-600 hover:bg-black/10 dark:bg-white/10 dark:text-gray-300"
+                >
+                  <Tag className="h-3 w-3" /> {s}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <button
+          onClick={() => onSave(labels)}
+          className="w-full rounded-full bg-blue-600 py-2.5 text-sm font-semibold text-white"
+        >
+          Guardar
+        </button>
       </div>
     </div>
   );

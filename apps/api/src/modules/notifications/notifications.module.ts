@@ -1,7 +1,9 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { UserNotification } from './entities/notification.entity';
+import { PushSubscription } from './entities/push-subscription.entity';
 import { NotificationsService } from './notifications.service';
+import { PushService } from './push.service';
 import { NotificationsController } from './notifications.controller';
 import { SignalModule } from '../../common/gateway/signal.module';
 import { provideTenantScopedRepository } from '../../common/tenant/tenant-scoped.repository';
@@ -13,9 +15,16 @@ import { provideTenantScopedRepository } from '../../common/tenant/tenant-scoped
  * los productores de eventos del piso.
  */
 @Module({
-  imports: [TypeOrmModule.forFeature([UserNotification]), SignalModule],
+  imports: [
+    TypeOrmModule.forFeature([UserNotification, PushSubscription]),
+    SignalModule,
+  ],
   controllers: [NotificationsController],
-  providers: [NotificationsService, provideTenantScopedRepository(UserNotification)],
-  exports: [NotificationsService],
+  providers: [
+    NotificationsService,
+    PushService,
+    provideTenantScopedRepository(UserNotification),
+  ],
+  exports: [NotificationsService, PushService],
 })
 export class NotificationsModule {}

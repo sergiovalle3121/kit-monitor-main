@@ -11,6 +11,14 @@ import {
   Plus,
   Check,
   X,
+  Mic,
+  Square,
+  Trash2,
+  BarChart3,
+  Clock,
+  Film,
+  MapPin,
+  Contact,
 } from 'lucide-react';
 import { glass } from '@/lib/glass';
 import type { ChatUser } from '@/lib/chatApi';
@@ -39,6 +47,16 @@ interface MessageComposerProps {
   compact?: boolean;
   /** Al cambiar (p. ej. id de conversación), enfoca el campo de texto. */
   autoFocusKey?: string;
+  /** Abrir el creador de encuestas (desde el menú "+"). */
+  onCreatePoll?: () => void;
+  /** Abrir el programador de mensajes (desde el menú "+"). */
+  onSchedule?: () => void;
+  /** Abrir el selector de GIFs. */
+  onPickGif?: () => void;
+  /** Compartir mi ubicación actual. */
+  onShareLocation?: () => void;
+  /** Compartir el contacto de un compañero. */
+  onShareContact?: () => void;
 }
 
 function initials(name: string): string {
@@ -76,14 +94,27 @@ export function MessageComposer({
   placeholder = 'Escribe un mensaje…',
   compact = false,
   autoFocusKey,
+  onCreatePoll,
+  onSchedule,
+  onPickGif,
+  onShareLocation,
+  onShareContact,
 }: MessageComposerProps) {
   const [showPicker, setShowPicker] = useState(false);
   const [showActions, setShowActions] = useState(false);
   const [caret, setCaret] = useState(0);
+  const [recording, setRecording] = useState(false);
+  const [recordedUrl, setRecordedUrl] = useState<string | null>(null);
+  const [recordSecs, setRecordSecs] = useState(0);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const rootRef = useRef<HTMLDivElement | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordChunksRef = useRef<Blob[]>([]);
+  const recordStreamRef = useRef<MediaStream | null>(null);
+  const recordTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const recordedBlobRef = useRef<Blob | null>(null);
 
   // Cierra el picker / menú "+" al hacer clic fuera del composer.
   useEffect(() => {
@@ -110,6 +141,96 @@ export function MessageComposer({
   useEffect(() => {
     if (autoFocusKey) textareaRef.current?.focus();
   }, [autoFocusKey]);
+
+  // Limpieza de la grabación al desmontar.
+  useEffect(() => {
+    return () => {
+      recordStreamRef.current?.getTracks().forEach((t) => t.stop());
+      if (recordTimerRef.current) clearInterval(recordTimerRef.current);
+    };
+  }, []);
+
+  // ── Notas de voz ────────────────────────────────────────────────────────────
+  function discardRecorded() {
+    setRecordedUrl((u) => {
+      if (u) URL.revokeObjectURL(u);
+      return null;
+    });
+    recordedBlobRef.current = null;
+    setRecordSecs(0);
+  }
+  async function startRecording() {
+    if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia)
+      return;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      recordStreamRef.current = stream;
+      const mr = new MediaRecorder(stream);
+      recordChunksRef.current = [];
+      mr.ondataavailable = (e) => {
+        if (e.data.size) recordChunksRef.current.push(e.data);
+      };
+      mr.onstop = () => {
+        const blob = new Blob(recordChunksRef.current, {
+          type: mr.mimeType || 'audio/webm',
+        });
+        recordedBlobRef.current = blob;
+        setRecordedUrl(URL.createObjectURL(blob));
+        recordStreamRef.current?.getTracks().forEach((t) => t.stop());
+        recordStreamRef.current = null;
+      };
+      mr.start();
+      mediaRecorderRef.current = mr;
+      setShowPicker(false);
+      setShowActions(false);
+      setRecording(true);
+      setRecordSecs(0);
+      recordTimerRef.current = setInterval(
+        () => setRecordSecs((s) => s + 1),
+        1000,
+      );
+    } catch {
+      /* permiso de micrófono denegado */
+    }
+  }
+  function stopRecording() {
+    mediaRecorderRef.current?.stop();
+    mediaRecorderRef.current = null;
+    if (recordTimerRef.current) {
+      clearInterval(recordTimerRef.current);
+      recordTimerRef.current = null;
+    }
+    setRecording(false);
+  }
+  function cancelRecording() {
+    const mr = mediaRecorderRef.current;
+    if (mr) {
+      mr.onstop = null;
+      mr.stop();
+    }
+    mediaRecorderRef.current = null;
+    recordStreamRef.current?.getTracks().forEach((t) => t.stop());
+    recordStreamRef.current = null;
+    if (recordTimerRef.current) {
+      clearInterval(recordTimerRef.current);
+      recordTimerRef.current = null;
+    }
+    setRecording(false);
+    discardRecorded();
+  }
+  function sendRecorded() {
+    const blob = recordedBlobRef.current;
+    if (!blob) return;
+    const ext = blob.type.includes('mp4') || blob.type.includes('mpeg') ? 'm4a' : 'webm';
+    const file = new File([blob], `nota-de-voz-${Date.now()}.${ext}`, {
+      type: blob.type || 'audio/webm',
+    });
+    onAttachFile(file);
+    discardRecorded();
+  }
+  function fmtSecs(s: number): string {
+    return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+  }
 
   function syncCaret() {
     const el = textareaRef.current;
@@ -333,18 +454,62 @@ export function MessageComposer({
         onChange={() => pickFile(fileInputRef.current, false)}
       />
 
-      <div className="flex items-end gap-1">
-        <button
-          type="button"
-          onClick={() => {
-            setShowPicker((s) => !s);
-            setShowActions(false);
-          }}
-          className={iconBtn}
-          aria-label="Emojis y stickers"
-          aria-expanded={showPicker}
-          disabled={disabled}
-        >
+      {recording ? (
+        <div className="flex items-center gap-3 rounded-2xl bg-black/5 px-4 py-2.5 dark:bg-white/10">
+          <span className="h-3 w-3 animate-pulse rounded-full bg-red-500" />
+          <span className="flex-1 text-sm font-medium tabular-nums">
+            Grabando… {fmtSecs(recordSecs)}
+          </span>
+          <button
+            type="button"
+            onClick={cancelRecording}
+            className={iconBtn}
+            aria-label="Cancelar grabación"
+          >
+            <Trash2 className="h-5 w-5" />
+          </button>
+          <button
+            type="button"
+            onClick={stopRecording}
+            className="rounded-full bg-blue-600 p-2.5 text-white"
+            aria-label="Detener grabación"
+          >
+            <Square className="h-4 w-4" />
+          </button>
+        </div>
+      ) : recordedUrl ? (
+        <div className="flex items-center gap-2 rounded-2xl bg-black/5 px-3 py-2 dark:bg-white/10">
+          <button
+            type="button"
+            onClick={discardRecorded}
+            className={iconBtn}
+            aria-label="Descartar nota de voz"
+          >
+            <Trash2 className="h-5 w-5" />
+          </button>
+          <audio src={recordedUrl} controls className="h-10 min-w-0 flex-1" />
+          <button
+            type="button"
+            onClick={sendRecorded}
+            className="rounded-full bg-blue-600 p-2.5 text-white"
+            aria-label="Enviar nota de voz"
+          >
+            <Send className="h-4 w-4" />
+          </button>
+        </div>
+      ) : (
+        <div className="flex items-end gap-1">
+          <button
+            type="button"
+            onClick={() => {
+              setShowPicker((s) => !s);
+              setShowActions(false);
+            }}
+            className={iconBtn}
+            aria-label="Emojis y stickers"
+            aria-expanded={showPicker}
+            disabled={disabled}
+          >
           {showPicker ? <X className="h-5 w-5" /> : <Smile className="h-5 w-5" />}
         </button>
 
@@ -389,6 +554,42 @@ export function MessageComposer({
               >
                 <Paperclip className="h-4 w-4 text-violet-500" /> Archivo
               </button>
+              {onPickGif && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onPickGif();
+                    setShowActions(false);
+                  }}
+                  className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm hover:bg-black/5 dark:hover:bg-white/10"
+                >
+                  <Film className="h-4 w-4 text-fuchsia-500" /> GIF
+                </button>
+              )}
+              {onShareLocation && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onShareLocation();
+                    setShowActions(false);
+                  }}
+                  className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm hover:bg-black/5 dark:hover:bg-white/10"
+                >
+                  <MapPin className="h-4 w-4 text-rose-500" /> Ubicación
+                </button>
+              )}
+              {onShareContact && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onShareContact();
+                    setShowActions(false);
+                  }}
+                  className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm hover:bg-black/5 dark:hover:bg-white/10"
+                >
+                  <Contact className="h-4 w-4 text-teal-500" /> Contacto
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => {
@@ -400,6 +601,30 @@ export function MessageComposer({
               >
                 <TableIcon className="h-4 w-4 text-emerald-500" /> Tabla
               </button>
+              {onCreatePoll && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onCreatePoll();
+                    setShowActions(false);
+                  }}
+                  className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm hover:bg-black/5 dark:hover:bg-white/10"
+                >
+                  <BarChart3 className="h-4 w-4 text-pink-500" /> Encuesta
+                </button>
+              )}
+              {onSchedule && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onSchedule();
+                    setShowActions(false);
+                  }}
+                  className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm hover:bg-black/5 dark:hover:bg-white/10"
+                >
+                  <Clock className="h-4 w-4 text-sky-500" /> Programar
+                </button>
+              )}
               <div className="my-1 h-px bg-black/10 dark:bg-white/10" />
               <button
                 type="button"
@@ -433,16 +658,30 @@ export function MessageComposer({
           placeholder={placeholder}
           className="max-h-40 flex-1 resize-none rounded-2xl bg-black/5 px-4 py-2 text-sm outline-none placeholder:text-gray-500 focus-visible:ring-2 focus-visible:ring-blue-500/40 dark:bg-white/10"
         />
-        <button
-          type="button"
-          onClick={send}
-          disabled={disabled || !value.trim()}
-          className="rounded-full bg-blue-600 p-2.5 text-white focus-visible:ring-2 focus-visible:ring-blue-500/40 disabled:opacity-40"
-          aria-label="Enviar"
-        >
-          <Send className="h-4 w-4" />
-        </button>
+        {value.trim() ? (
+          <button
+            type="button"
+            onClick={send}
+            disabled={disabled}
+            className="rounded-full bg-blue-600 p-2.5 text-white focus-visible:ring-2 focus-visible:ring-blue-500/40 disabled:opacity-40"
+            aria-label="Enviar"
+          >
+            <Send className="h-4 w-4" />
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={startRecording}
+            disabled={disabled}
+            className="rounded-full bg-blue-600 p-2.5 text-white focus-visible:ring-2 focus-visible:ring-blue-500/40 disabled:opacity-40"
+            aria-label="Grabar nota de voz"
+            title="Nota de voz"
+          >
+            <Mic className="h-4 w-4" />
+          </button>
+        )}
       </div>
+      )}
     </div>
   );
 }

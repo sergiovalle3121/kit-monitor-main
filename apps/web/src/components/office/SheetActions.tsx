@@ -13,7 +13,7 @@ export function SheetActions({
 }: {
   content: any;
   title: string;
-  onImport: (sheets: any[]) => void;
+  onImport: (content: any) => void;
   readOnly?: boolean;
 }) {
   const toast = useToast();
@@ -21,13 +21,14 @@ export function SheetActions({
   const [busy, setBusy] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  // Content is either the legacy sheet array or the new { sheets, charts } shape.
+  // Content is either the legacy sheet array or the new { sheets, charts, names } shape.
   const sheetsOf = (v: any): any[] => (Array.isArray(v) ? v : (Array.isArray(v?.sheets) ? v.sheets : []));
+  const namesOf = (v: any): any[] => (v && Array.isArray(v.names) ? v.names : []);
 
   async function doExport(fmt: 'xlsx' | 'csv', delimiter = ',') {
     setOpen(false);
     setBusy(true);
-    try { await exportSheets(sheetsOf(content), title || 'hoja', fmt, { delimiter }); }
+    try { await exportSheets(sheetsOf(content), title || 'hoja', fmt, { delimiter }, namesOf(content)); }
     catch { /* ignore */ }
     finally { setBusy(false); }
   }
@@ -37,7 +38,9 @@ export function SheetActions({
     e.target.value = '';
     if (!f) return;
     setBusy(true);
-    try { onImport(await importSheets(f)); }
+    // Importar reemplaza el documento; preserva los nombres definidos del .xlsx para que
+    // el administrador de nombres y las fórmulas que los usen sigan resolviendo.
+    try { const { sheets, names } = await importSheets(f); onImport({ sheets, names }); }
     catch { toast.error('No se pudo importar el archivo. Verifica que sea un .xlsx o .csv válido.'); }
     finally { setBusy(false); }
   }

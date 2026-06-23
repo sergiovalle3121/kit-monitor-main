@@ -39,6 +39,10 @@ export class Conversation {
   @Column({ name: 'last_message_at', type: 'timestamptz', nullable: true })
   lastMessageAt: Date | null;
 
+  /** Mensajes temporales: segundos hasta que expiran (0 = desactivado). */
+  @Column({ name: 'disappearing_seconds', type: 'int', default: 0 })
+  disappearingSeconds: number;
+
   @OneToMany(() => ConversationMember, (m) => m.conversation)
   members: ConversationMember[];
 }
