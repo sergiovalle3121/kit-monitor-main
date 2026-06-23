@@ -1567,4 +1567,24 @@ calcula `CONFIDENCE.T(α, σ, n) = T.INV.2T(α, n−1)·σ/√n` reutilizando la
 `ERF.PRECISE`+`ERFC.PRECISE`=1; `CONFIDENCE.T(0.05,1,10)`≈0.7154 y > `CONFIDENCE.NORM`). Sin
 regresiones: 38 suites de hoja + 3 de I/O Office verdes; `lint web` 0 errores; `build web` ✓.
 
+## 64. Office/Sheets — correcciones de fidelidad (ROUND mitad-lejos-del-cero, SUBSTITUTE n-ésima)
+
+**Contexto.** Una auditoría de **valores conocidos** sobre funciones MUY comunes destapó dos
+divergencias de `@formulajs/formulajs@2.9.3` respecto a Excel:
+- `ROUND` usa `Math.round` (mitad hacia +∞): `ROUND(-2.5, 0)` daba **-2** en vez de **-3**; y el
+  error de coma flotante estropeaba `ROUND(1.005, 2)` y `ROUND(2.675, 2)`.
+- `SUBSTITUTE(texto, viejo, nuevo, n)` con instancia sustituía la ocurrencia equivocada:
+  `SUBSTITUTE("aaa","a","b",2)` daba **"aab"** en vez de **"aba"**.
+
+**Decisión (sólo `apps/web`, aditiva):** `components/office/sheets/fidelityFixes.ts` registra
+versiones fieles en `CUSTOM_FUNCTIONS` (ganan al fallback de formulajs). `ROUND` redondea «mitad
+lejos del cero» con una corrección ε para el error de coma flotante; `SUBSTITUTE` recorre las
+ocurrencias y sustituye exactamente la n-ésima.
+
+**Verificación:** nueva suite `fidelityFixes.spec.ts` (**20 aserciones** sobre el motor REAL:
+`ROUND` de positivos/negativos a la mitad, casos de coma flotante 1.005→1.01 y 2.675→2.68, decimales
+negativos, composición con `SUM`; `SUBSTITUTE` de la 2ª/3ª/todas las ocurrencias, sin coincidencia,
+instancia fuera de rango, composición con `LEN`). Sin regresiones: 39 suites de hoja + 3 de I/O
+Office verdes; `lint web` 0 errores; `build web` ✓.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
