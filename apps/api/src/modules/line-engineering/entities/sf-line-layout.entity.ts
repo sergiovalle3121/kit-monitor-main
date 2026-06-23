@@ -33,6 +33,14 @@ export interface LayoutAnnotation {
   color?: string;
 }
 
+/** A named manufacturing cell / zone grouping a set of stations (Fase 27). */
+export interface LayoutCell {
+  id: string;
+  name: string;
+  color: string;
+  stationIds: string[]; // sf_line_stations.id members
+}
+
 /** A station placement captured inside a snapshot (Fase 13). */
 export interface SnapshotPosition {
   id: string; // sf_line_stations.id
@@ -166,4 +174,10 @@ export class SfLineLayout extends TenantBaseEntity {
   // Additive & nullable: NULL/empty = no saved versions.
   @Column({ type: JSON_COLUMN_TYPE, nullable: true })
   snapshots: LayoutSnapshot[] | null;
+
+  // ── Cells / zones (Fase 27) ────────────────────────────────────────────────
+  // Named groupings of stations (manufacturing cells), drawn as a boundary on
+  // the plan. Additive & nullable: NULL/empty = no cells.
+  @Column({ type: JSON_COLUMN_TYPE, nullable: true })
+  cells: LayoutCell[] | null;
 }

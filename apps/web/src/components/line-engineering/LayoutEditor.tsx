@@ -11,7 +11,7 @@ import {
   Upload, Eye, EyeOff, Map as MapIcon, Activity, Workflow, Wand2, Boxes,
   Download, Printer, Ruler, Type, MoveHorizontal, CopyPlus, X, Flame, Waypoints,
   ShieldCheck, ShieldAlert, LayoutGrid, History, RotateCw, ClipboardList, GitCompare,
-  ClipboardCheck, Warehouse, Sparkles, Bug, SlidersHorizontal, BarChart3,
+  ClipboardCheck, Warehouse, Sparkles, Bug, SlidersHorizontal, BarChart3, Frame,
 } from 'lucide-react';
 import { glass } from '@/lib/glass';
 import { apiFetch } from '@/lib/apiFetch';
@@ -175,6 +175,7 @@ const ASSET_META = (kind: string) => ASSET_KINDS.find((k) => k.kind === kind) ??
 
 interface LayoutAsset { id: string; kind: string; x: number; y: number; w: number; h: number; rotation: number; label?: string }
 interface LayoutAnnotation { id: string; type: 'text' | 'dim'; x: number; y: number; x2?: number; y2?: number; text?: string; color?: string }
+interface LayoutCell { id: string; name: string; color: string; stationIds: string[] }
 interface LayoutStation {
   id: string; station: string; line: string; sequence: number; ctq: boolean;
   x: number | null; y: number | null; w: number | null; h: number | null; rotation: number | null;
@@ -182,7 +183,8 @@ interface LayoutStation {
 interface Footprint { footprintW: number; footprintH: number; unit: string; gridSize: number }
 interface DxfMeta { name: string; offsetX: number; offsetY: number; scale: number; rotation: number; visible: boolean; opacity: number }
 interface LayoutConnector { from: string; to: string; kind?: string }
-interface LineLayout { model: string; revision: string; footprint: Footprint; stations: LayoutStation[]; dxf: DxfMeta | null; connectors: LayoutConnector[]; assets: LayoutAsset[]; annotations: LayoutAnnotation[] }
+interface LineLayout { model: string; revision: string; footprint: Footprint; stations: LayoutStation[]; dxf: DxfMeta | null; connectors: LayoutConnector[]; assets: LayoutAsset[]; annotations: LayoutAnnotation[]; cells?: LayoutCell[] }
+const CELL_PALETTE = ['#6366f1', '#0ea5e9', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6', '#14b8a6', '#ef4444'];
 interface Placement { x: number; y: number; w: number; h: number; rotation: number }
 type MesLevel = 'down' | 'warn' | 'ok' | 'idle' | 'unknown';
 interface StationLiveStatus { station: string; line: string; status: MesLevel; label: string; severity: string | null; since: string | null }
@@ -271,6 +273,9 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
   const annDimP1Ref = useRef<{ x: number; y: number } | null>(null);
   const annClickRef = useRef<(scene: { x: number; y: number }, target: any) => void>(() => {});
   const drawAnnRef = useRef<() => void>(() => {});
+  const cellsRef = useRef<LayoutCell[]>([]);
+  const cellObjsRef = useRef<any[]>([]);
+  const drawCellsRef = useRef<() => void>(() => {});
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -309,6 +314,7 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
   const [exporting, setExporting] = useState(false);
   const [annTool, setAnnTool] = useState<'text' | 'dim' | null>(null);
   const [annCount, setAnnCount] = useState(0);
+  const [cells, setCells] = useState<LayoutCell[]>([]);
   const [showClone, setShowClone] = useState(false);
   const [cloneSrc, setCloneSrc] = useState('');
   const [cloneBusy, setCloneBusy] = useState(false);
@@ -319,6 +325,7 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
   const [showReport, setShowReport] = useState(false);
   const [showSim, setShowSim] = useState(false);
   const [showYama, setShowYama] = useState(false);
+  const [showCells, setShowCells] = useState(false);
   const [reportData, setReportData] = useState<LayoutReport | null>(null);
   const [diffFor, setDiffFor] = useState<string | null>(null);
   const [diffData, setDiffData] = useState<SnapshotDiff | null>(null);
@@ -593,6 +600,36 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
     c.add(box);
   }, [toolActive]);
 
+  // ── Cell / zone boundaries (Fase 27): a dashed box hull around the members ──
+  const drawCells = useCallback(() => {
+    const c = fcRef.current; if (!c) return;
+    cellObjsRef.current.forEach((o) => c.remove(o));
+    cellObjsRef.current = [];
+    const pad = footprintRef.current.gridSize || 60; // breathing room around members
+    cellsRef.current.forEach((cell) => {
+      const members = cell.stationIds
+        .map((id) => placementsRef.current.get(id))
+        .filter((p): p is Placement => !!p);
+      if (members.length === 0) return;
+      const x0 = Math.min(...members.map((m) => m.x)) - pad;
+      const y0 = Math.min(...members.map((m) => m.y)) - pad;
+      const x1 = Math.max(...members.map((m) => m.x + m.w)) + pad;
+      const y1 = Math.max(...members.map((m) => m.y + m.h)) + pad;
+      const rect = new Rect({
+        left: worldToPx(x0), top: worldToPx(y0), width: worldToPx(x1 - x0), height: worldToPx(y1 - y0),
+        fill: `${cell.color}14`, stroke: cell.color, strokeWidth: 1.5, strokeDashArray: [8, 5],
+        rx: 8, ry: 8, selectable: false, evented: false, strokeUniform: true, objectCaching: false,
+      });
+      const label = new Textbox(cell.name, {
+        left: worldToPx(x0) + 6, top: worldToPx(y0) + 4, width: 180, fontSize: 12,
+        fill: cell.color, fontWeight: 'bold', selectable: false, evented: false,
+      });
+      cellObjsRef.current.push(rect, label);
+      c.add(rect); c.add(label);
+    });
+  }, []);
+  useEffect(() => { drawCellsRef.current = drawCells; }, [drawCells]);
+
   // ── Full redraw of interactive objects from refs (structural changes only) ──
   const rebuild = useCallback(() => {
     const c = fcRef.current; if (!c) return;
@@ -603,6 +640,7 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
     fitRef.current = computeFit();
     drawScene();
     drawDxf();
+    drawCellsRef.current(); // cell/zone boundaries under the stations
     assetsRef.current.forEach((a) => makeAsset(a)); // equipment under the stations
     placementsRef.current.forEach((p, id) => {
       const s = stationsRef.current.find((x) => x.id === id);
@@ -737,6 +775,8 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
       assetsRef.current = Array.isArray(d.assets) ? d.assets : [];
       annotationsRef.current = Array.isArray(d.annotations) ? d.annotations : [];
       setAnnCount(annotationsRef.current.length);
+      cellsRef.current = Array.isArray(d.cells) ? d.cells : [];
+      setCells(cellsRef.current);
       setDirty(false);
 
       // DXF background: the placement meta arrives with the layout; the raw
@@ -946,6 +986,37 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
     markDirty();
     requestAnimationFrame(() => { rebuild(); const o = objByAssetRef.current.get(id); if (o) { c.setActiveObject(o); c.requestRenderAll(); } });
   }, [markDirty, rebuild]);
+
+  // ── Cells / zones (Fase 27) ─────────────────────────────────────────────────
+  const createCellFromSelection = useCallback(() => {
+    const c = fcRef.current; if (!c) return;
+    const ids = (c.getActiveObjects() as StationBox[])
+      .map((o) => (o as any).stationId as string)
+      .filter(Boolean);
+    if (ids.length === 0) { toast.error('Selecciona estaciones para agrupar en una celda.', 'Ing. Industrial'); return; }
+    const color = CELL_PALETTE[cellsRef.current.length % CELL_PALETTE.length];
+    const cell: LayoutCell = { id: `cell_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`, name: `Celda ${cellsRef.current.length + 1}`, color, stationIds: [...new Set(ids)] };
+    cellsRef.current = [...cellsRef.current, cell];
+    setCells(cellsRef.current);
+    c.discardActiveObject();
+    markDirty();
+    requestAnimationFrame(() => rebuild());
+  }, [markDirty, rebuild, toast]);
+
+  const deleteCell = useCallback((id: string) => {
+    cellsRef.current = cellsRef.current.filter((c) => c.id !== id);
+    setCells(cellsRef.current);
+    markDirty();
+    requestAnimationFrame(() => rebuild());
+  }, [markDirty, rebuild]);
+
+  const renameCell = useCallback((id: string, name: string) => {
+    cellsRef.current = cellsRef.current.map((c) => (c.id === id ? { ...c, name } : c));
+    setCells(cellsRef.current);
+    markDirty();
+    drawCellsRef.current();
+    fcRef.current?.requestRenderAll();
+  }, [markDirty]);
 
   // ── Align / distribute (on the active multi-selection) ──────────────────────
   const align = useCallback((kind: string) => {
@@ -1541,7 +1612,7 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
         : undefined;
       const r = await apiFetch(`${API_BASE}/line-engineering/layout`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model, revision, footprint: footprintRef.current, positions, cleared, connectors: connectorsRef.current, assets: assetsRef.current, annotations: annotationsRef.current, ...(dxfMeta ? { dxf: dxfMeta } : {}) }),
+        body: JSON.stringify({ model, revision, footprint: footprintRef.current, positions, cleared, connectors: connectorsRef.current, assets: assetsRef.current, annotations: annotationsRef.current, cells: cellsRef.current, ...(dxfMeta ? { dxf: dxfMeta } : {}) }),
       });
       if (!r.ok) { const d = await r.json().catch(() => ({})); toast.error(d?.message || 'No se pudo guardar.', 'Ing. Industrial'); return; }
       toast.success('Layout guardado.', 'Ing. Industrial');
@@ -1690,6 +1761,7 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
         <TBtn onClick={openReport} title="Resumen del layout (readiness, uso de piso, flujo, conflictos, balance)"><ClipboardList className="w-4 h-4" /></TBtn>
         <TBtn onClick={() => setShowSim(true)} title="Simulador de capacidad (qué pasa si…)"><SlidersHorizontal className="w-4 h-4" /></TBtn>
         <TBtn onClick={() => setShowYama(true)} title="Yamazumi (gráfico de balanceo)"><BarChart3 className="w-4 h-4" /></TBtn>
+        <TBtn onClick={() => setShowCells(true)} title="Celdas / zonas (agrupar estaciones)"><Frame className="w-4 h-4" /></TBtn>
         <div className="flex-1" />
         {measureMode && measureVal && <span className="text-[12px] font-medium mr-2" style={{ color: '#0ea5e9' }}>{measureVal}</span>}
         <button onClick={save} disabled={saving || !dirty} className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-sm font-medium text-white disabled:opacity-50" style={{ background: ROSE }}>
@@ -2063,6 +2135,37 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
 
       <WhatIfSimulator model={model} revision={revision} open={showSim} onClose={() => setShowSim(false)} />
       <YamazumiChart model={model} revision={revision} open={showYama} onClose={() => setShowYama(false)} />
+
+      {showCells && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" onClick={() => setShowCells(false)}>
+          <div className={`${glass} rounded-2xl p-5 w-full max-w-lg`} onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-semibold inline-flex items-center gap-2"><Frame className="w-4 h-4" style={{ color: ROSE }} /> Celdas / zonas</h3>
+              <button onClick={() => setShowCells(false)} className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10"><X className="w-4 h-4" /></button>
+            </div>
+            <p className="text-[12px] text-gray-400 mb-3">Agrupa estaciones en celdas de manufactura. Selecciona estaciones en el plano y créalas; la celda se dibuja como un contorno. Guarda para persistir.</p>
+            <button onClick={createCellFromSelection} disabled={selCount === 0} className="w-full mb-4 inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white disabled:opacity-50" style={{ background: ROSE }}>
+              <Frame className="w-4 h-4" /> Crear celda con la selección ({selCount})
+            </button>
+            <div className="max-h-72 overflow-y-auto -mx-1 px-1">
+              {cells.length === 0 ? (
+                <p className="text-[12px] text-gray-400 py-6 text-center">Aún no hay celdas. Selecciona estaciones y crea una.</p>
+              ) : (
+                <div className="space-y-1.5">
+                  {cells.map((cell) => (
+                    <div key={cell.id} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-black/[0.03] dark:bg-white/[0.05]">
+                      <span className="w-3 h-3 rounded-sm shrink-0" style={{ background: cell.color }} />
+                      <input value={cell.name} onChange={(e) => renameCell(cell.id, e.target.value)} className="flex-1 min-w-0 bg-transparent text-sm font-medium border-b border-transparent focus:border-black/20 dark:focus:border-white/20 outline-none" />
+                      <span className="text-[11px] text-gray-400 shrink-0">{cell.stationIds.length} est</span>
+                      <button onClick={() => deleteCell(cell.id)} title="Eliminar celda" className="p-1.5 rounded-lg text-gray-400 hover:text-rose-500 hover:bg-rose-500/10 shrink-0"><Trash2 className="w-3.5 h-3.5" /></button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -433,6 +433,28 @@ export class LayoutAnnotationDto {
   color?: string;
 }
 
+export class LayoutCellDto {
+  @ApiProperty()
+  @IsString()
+  @Length(1, 64)
+  id: string;
+
+  @ApiProperty({ example: 'Celda SMT' })
+  @IsString()
+  @Length(1, 48)
+  name: string;
+
+  @ApiProperty({ example: '#6366f1' })
+  @IsString()
+  @Length(1, 16)
+  color: string;
+
+  @ApiProperty({ type: [String], description: 'Station ids in the cell.' })
+  @IsArray()
+  @IsString({ each: true })
+  stationIds: string[];
+}
+
 /** Persist a model+revision layout: footprint config + station placements. */
 export class SaveLayoutDto {
   @ApiProperty({ example: 'AX-1000' })
@@ -509,6 +531,16 @@ export class SaveLayoutDto {
   @ValidateNested({ each: true })
   @Type(() => LayoutAnnotationDto)
   annotations?: LayoutAnnotationDto[];
+
+  @ApiPropertyOptional({
+    type: [LayoutCellDto],
+    description: 'Manufacturing cells / zones grouping stations.',
+  })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => LayoutCellDto)
+  cells?: LayoutCellDto[];
 }
 
 /** Upload/replace the DXF background of a model+revision layout. */

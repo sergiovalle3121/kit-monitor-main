@@ -15,6 +15,7 @@ import {
   LayoutAsset,
   LayoutAnnotation,
   LayoutSnapshot,
+  LayoutCell,
 } from './entities/sf-line-layout.entity';
 import { TenantContextService } from '../../common/tenant/tenant-context.service';
 import {
@@ -107,6 +108,7 @@ export interface LineLayout {
   connectors: LayoutConnector[];
   assets: LayoutAsset[];
   annotations: LayoutAnnotation[];
+  cells: LayoutCell[];
 }
 
 /** Consolidated layout dossier (Fase 14). */
@@ -505,6 +507,7 @@ export class LineEngineeringService {
       connectors: layout?.connectors ?? [],
       assets: layout?.assets ?? [],
       annotations: layout?.annotations ?? [],
+      cells: layout?.cells ?? [],
     };
   }
 
@@ -535,7 +538,8 @@ export class LineEngineeringService {
       dto.dxf ||
       dto.connectors ||
       dto.assets ||
-      dto.annotations
+      dto.annotations ||
+      dto.cells
     ) {
       const layout = await this.ensureLayout(model, revision);
       const f = dto.footprint;
@@ -579,6 +583,17 @@ export class LineEngineeringService {
           ...(a.color ? { color: String(a.color).slice(0, 16) } : {}),
         }));
       }
+      if (dto.cells) {
+        // keep only member ids that are real stations in this scope
+        layout.cells = dto.cells.map((c) => ({
+          id: String(c.id).slice(0, 64),
+          name: String(c.name || 'Celda').slice(0, 48),
+          color: String(c.color || '#6366f1').slice(0, 16),
+          stationIds: (c.stationIds ?? [])
+            .filter((sid) => byId.has(sid))
+            .slice(0, 200),
+        }));
+      }
       await this.requireLayouts().save(layout);
     }
 
@@ -618,6 +633,82 @@ export class LineEngineeringService {
     });
 
     return this.getLayout(model, revision);
+  }
+
+  /**
+   * Per-cell metrics (Fase 27): for each manufacturing cell, the station count,
+   * how many are placed, the total cycle time and the share of the footprint
+   * its bounding box covers. Read-only aggregation over the cells + placements.
+   */
+  async getCellMetrics(
+    model: string,
+    revision = 'A',
+  ): Promise<{
+    model: string;
+    revision: string;
+    unit: string;
+    footprintArea: number;
+    cells: {
+      id: string;
+      name: string;
+      color: string;
+      stationCount: number;
+      placedCount: number;
+      totalCycleTimeSec: number;
+      areaPctOfFootprint: number;
+    }[];
+  }> {
+    const m = (model ?? '').trim();
+    const r = (revision ?? 'A').trim() || 'A';
+    const layout = await this.getLayout(m, r);
+    const route = await this.routing(m, r);
+    const stdById = new Map(
+      route.map((s) => [s.id, Number(s.stdTimeSec) || 0]),
+    );
+    const stationById = new Map(layout.stations.map((s) => [s.id, s]));
+    const fp = layout.footprint;
+    const footprintArea = fp.footprintW * fp.footprintH;
+    const defW = fp.footprintW * 0.06;
+    const defH = fp.footprintH * 0.08;
+
+    const cells = layout.cells.map((c) => {
+      const members = c.stationIds
+        .map((id) => stationById.get(id))
+        .filter((s): s is NonNullable<typeof s> => !!s);
+      const placed = members.filter((s) => s.x !== null && s.y !== null);
+      const totalCycleTimeSec = c.stationIds.reduce(
+        (a, id) => a + (stdById.get(id) ?? 0),
+        0,
+      );
+      let area = 0;
+      if (placed.length > 0) {
+        const xs = placed.map((s) => s.x as number);
+        const ys = placed.map((s) => s.y as number);
+        const xe = placed.map((s) => (s.x as number) + (s.w ?? defW));
+        const ye = placed.map((s) => (s.y as number) + (s.h ?? defH));
+        area =
+          (Math.max(...xe) - Math.min(...xs)) *
+          (Math.max(...ye) - Math.min(...ys));
+      }
+      return {
+        id: c.id,
+        name: c.name,
+        color: c.color,
+        stationCount: members.length,
+        placedCount: placed.length,
+        totalCycleTimeSec: round(totalCycleTimeSec),
+        areaPctOfFootprint:
+          footprintArea > 0 ? round((area / footprintArea) * 100, 1) : 0,
+      };
+    });
+
+    return {
+      model: m,
+      revision: r,
+      unit: fp.unit,
+      footprintArea: round(footprintArea),
+      cells,
+    };
   }
 
   // ── Snapshots / versions (Fase 13) ─────────────────────────────────────────
