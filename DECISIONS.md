@@ -2471,4 +2471,21 @@ que en Excel había que volver a activarlo.
 filtro exporta `autoFilter` con el rango correcto (`A1:B3`) y la hoja sin filtro no lo lleva. `xlsxStyled`
 (22), validación (15) e import-rt (16) verdes — sin regresiones; `lint web` 0; `build web` ✓.
 
+## 113. Office/Sheets — protección de hoja en el round-trip .xlsx (ExcelJS)
+
+**Contexto.** Cerrando la fidelidad `.xlsx` (§109–§112), faltaba la **protección de hoja**: un archivo
+protegido se abría desbloqueado tras pasar por Axos. ExcelJS la soporta (`worksheet.protect`).
+
+**Decisión (sólo `apps/web`, aditiva — riesgo cero):** modelo `SheetProtection` (`enabled`, contraseña y
+permisos: seleccionar/formato/insertar/eliminar/ordenar/autofiltro). `protectOptionsFor` lo mapea a las
+opciones de `worksheet.protect` y `styledXlsxBuffer` lo aplica (async, porque hashea la contraseña).
+`readStylesIntoSheets` lee `ws.sheetProtection` al importar y reconstruye el modelo → **round-trip**: un
+`.xlsx` protegido sigue protegido al re-exportar, sin necesidad de UI nueva (la UI para crear protección
+desde cero llega como mejora posterior). No toca valores, estilos ni el resto del writer.
+
+**Verificación:** nueva suite `xlsxProtection.spec.ts` (**12 aserciones**): mapeo puro de permisos +
+round-trip real (export protegido → reabrir confirma `sheetProtection.sheet`, la hoja libre no; import
+reconstruye `protection.enabled` y los permisos). `xlsxStyled` (22) e import-rt (16) verdes — sin
+regresiones; `lint web` 0; `build web` ✓.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
