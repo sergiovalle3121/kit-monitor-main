@@ -1,10 +1,4 @@
-import {
-  IsIn,
-  IsObject,
-  IsOptional,
-  IsString,
-  Length,
-} from 'class-validator';
+import { IsIn, IsObject, IsOptional, IsString, Length } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { PRODUCT_MODEL_STATUSES } from '../product-model-state';
 import type { ProductModelStatus } from '../product-model-state';

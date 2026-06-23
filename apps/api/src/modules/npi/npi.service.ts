@@ -10,6 +10,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { In, ObjectLiteral, Repository, SelectQueryBuilder } from 'typeorm';
 import { NpiProject } from './entities/npi-project.entity';
 import { NpiGate } from './entities/npi-gate.entity';
+import { NpiReadinessSnapshot } from './entities/npi-readiness-snapshot.entity';
 import { SfFai } from '../fai/entities/sf-fai.entity';
 import { SupplierApprovedPart } from '../suppliers/entities/supplier-approved-part.entity';
 import { TenantContextService } from '../../common/tenant/tenant-context.service';
@@ -50,6 +51,20 @@ export interface NpiProjectView extends NpiProject {
   readiness: ReadinessSnapshot;
 }
 
+export type SnapshotReason =
+  | 'GATE_DECISION'
+  | 'SCAN'
+  | 'MANUAL'
+  | 'PROJECT_CREATED'
+  | 'MODEL_ACTIVATION';
+
+export interface CaptureSnapshotOptions {
+  projectId?: string | null;
+  phase?: string | null;
+  reason?: SnapshotReason;
+  note?: string | null;
+}
+
 /** Prefer the most advanced BOM status when a model has several headers. */
 const BOM_STATUS_RANK: Record<string, number> = {
   ACTIVE: 5,
@@ -68,6 +83,8 @@ export class NpiService {
     private readonly projects: TenantScopedRepository<NpiProject>,
     @Inject(getTenantRepositoryToken(NpiGate))
     private readonly gates: TenantScopedRepository<NpiGate>,
+    @Inject(getTenantRepositoryToken(NpiReadinessSnapshot))
+    private readonly snapshots: TenantScopedRepository<NpiReadinessSnapshot>,
     @InjectRepository(SfFai)
     private readonly fai: Repository<SfFai>,
     @InjectRepository(SupplierApprovedPart)
@@ -148,6 +165,85 @@ export class NpiService {
       signals,
       ...evaluateReadiness(signals),
     };
+  }
+
+  // ── Readiness snapshots (history / audit trail) ─────────────────────────────
+  /**
+   * Derive the live readiness and PERSIST it as an immutable snapshot. The only
+   * write that readiness produces, and it lands only in `npi_`. Best-effort
+   * caller wrappers should tolerate failure — a snapshot must never break a flow.
+   */
+  async captureSnapshot(
+    model: string,
+    revision = '1.0',
+    opts: CaptureSnapshotOptions = {},
+  ): Promise<NpiReadinessSnapshot> {
+    const report = await this.deriveReadiness(model, revision);
+    const snapshot = this.snapshots.create({
+      projectId: opts.projectId ?? null,
+      modelNumber: report.model,
+      revision: report.revision,
+      phase: opts.phase ?? null,
+      reason: opts.reason ?? 'MANUAL',
+      gateReady: report.gateReady,
+      readyCount: report.readyCount,
+      notReadyCount: report.notReadyCount,
+      unknownCount: report.unknownCount,
+      criteria: report.criteria,
+      signals: report.signals,
+      blockers: report.blockers,
+      note: opts.note ?? null,
+      ...this.scopeFields(),
+    });
+    return this.snapshots.save(snapshot);
+  }
+
+  /** Best-effort capture — logs and swallows errors (for hooks). */
+  private async captureSnapshotSafe(
+    model: string,
+    revision: string,
+    opts: CaptureSnapshotOptions,
+  ): Promise<NpiReadinessSnapshot | null> {
+    try {
+      return await this.captureSnapshot(model, revision, opts);
+    } catch (err) {
+      this.logger.warn(
+        `Snapshot de readiness omitido (${opts.reason}): ${(err as Error)?.message}`,
+      );
+      return null;
+    }
+  }
+
+  async listSnapshots(
+    filter: {
+      model?: string;
+      revision?: string;
+      projectId?: string;
+      limit?: number;
+    } = {},
+  ): Promise<NpiReadinessSnapshot[]> {
+    const qb = this.snapshots.createQueryBuilder('s');
+    this.applyScope(qb, 's');
+    if (filter.model) qb.andWhere('s.model_number = :m', { m: filter.model });
+    if (filter.revision) qb.andWhere('s.revision = :r', { r: filter.revision });
+    if (filter.projectId)
+      qb.andWhere('s.project_id = :p', { p: filter.projectId });
+    qb.orderBy('s.created_at', 'DESC').take(
+      Math.min(Math.max(filter.limit ?? 50, 1), 200),
+    );
+    return qb.getMany();
+  }
+
+  /** The most recent snapshot for a project (used by the scan to detect change). */
+  async getLatestSnapshot(
+    projectId: string,
+  ): Promise<NpiReadinessSnapshot | null> {
+    const qb = this.snapshots.createQueryBuilder('s');
+    this.applyScope(qb, 's');
+    qb.andWhere('s.project_id = :p', { p: projectId })
+      .orderBy('s.created_at', 'DESC')
+      .limit(1);
+    return qb.getOne();
   }
 
   private async collectSignals(
@@ -311,6 +407,11 @@ export class NpiService {
       model: saved.modelNumber,
       revision: saved.revision,
     });
+    await this.captureSnapshotSafe(saved.modelNumber, saved.revision, {
+      projectId: saved.id,
+      phase: saved.currentPhase,
+      reason: 'PROJECT_CREATED',
+    });
     return this.getProject(saved.id);
   }
 
@@ -338,6 +439,19 @@ export class NpiService {
       projectId: saved.projectId,
       phase: saved.phase,
     });
+
+    // Snapshot the readiness at the moment of the decision (history/audit).
+    const project = await this.projects.findOne({
+      where: { id: saved.projectId },
+    });
+    if (project) {
+      await this.captureSnapshotSafe(project.modelNumber, project.revision, {
+        projectId: project.id,
+        phase: saved.phase,
+        reason: 'GATE_DECISION',
+        note: `Gate ${saved.phase} → ${target}`,
+      });
+    }
 
     // Passing the FINAL (MP) gate → one advisory inbox alert. Never activates
     // the model and never touches product-models.
