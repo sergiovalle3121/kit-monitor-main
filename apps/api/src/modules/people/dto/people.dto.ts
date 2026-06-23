@@ -1,4 +1,12 @@
-import { IsBoolean, IsOptional, IsString, Length } from 'class-validator';
+import {
+  IsBoolean,
+  IsInt,
+  IsOptional,
+  IsString,
+  Length,
+  Max,
+  Min,
+} from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateCertificationDto {
@@ -113,4 +121,74 @@ export class UpdateCertificationDto {
   @IsOptional()
   @IsString()
   expiresDate?: string;
+}
+
+export class CreateSkillDto {
+  @ApiProperty({ example: 'IPC-A-610' })
+  @IsString()
+  @Length(2, 160)
+  name: string;
+
+  @ApiPropertyOptional({ example: 'Calidad' })
+  @IsOptional()
+  @IsString()
+  @Length(0, 120)
+  category?: string;
+
+  @ApiPropertyOptional({ example: 'SMT' })
+  @IsOptional()
+  @IsString()
+  @Length(0, 120)
+  area?: string;
+
+  @ApiPropertyOptional({ description: 'Vigencia por defecto en meses.', example: 12 })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(600)
+  defaultValidityMonths?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @Length(0, 255)
+  description?: string;
+}
+
+export class UpdateSkillDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @Length(2, 160)
+  name?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @Length(0, 120)
+  category?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @Length(0, 120)
+  area?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(600)
+  defaultValidityMonths?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @Length(0, 255)
+  description?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  active?: boolean;
 }

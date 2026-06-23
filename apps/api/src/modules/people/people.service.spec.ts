@@ -1,6 +1,7 @@
 import { DataSource } from 'typeorm';
 import { PeopleService } from './people.service';
 import { Certification } from './entities/certification.entity';
+import { SkillCatalog } from './entities/skill-catalog.entity';
 import { DocumentNumberingService } from '../numbering/document-numbering.service';
 import { DocumentSequence } from '../numbering/entities/document-sequence.entity';
 import { TenantContextService } from '../../common/tenant/tenant-context.service';
@@ -19,7 +20,7 @@ describe('PeopleService (integration)', () => {
       database: ':memory:',
       dropSchema: true,
       synchronize: true,
-      entities: [Certification, DocumentSequence],
+      entities: [Certification, SkillCatalog, DocumentSequence],
     });
     await dataSource.initialize();
 
@@ -33,6 +34,7 @@ describe('PeopleService (integration)', () => {
       dataSource.getRepository(Certification),
       ctx,
       numbering,
+      dataSource.getRepository(SkillCatalog),
     );
   });
 
@@ -124,6 +126,34 @@ describe('PeopleService (integration)', () => {
       const missing = await service.certificationCheck({ employee: 'Nadie', station: 'TEST-1' });
       expect(missing.status).toBe('none');
       expect(missing.certified).toBe(false);
+    });
+  });
+
+  describe('skill catalog', () => {
+    it('creates, normalizes and lists skills (active only by default)', async () => {
+      const s = await service.createSkill({
+        name: '  IPC-A-610  ',
+        category: 'Calidad',
+        defaultValidityMonths: 12,
+      });
+      expect(s.name).toBe('IPC-A-610');
+      expect(s.defaultValidityMonths).toBe(12);
+
+      const list = await service.listSkills();
+      expect(list).toHaveLength(1);
+    });
+
+    it('is idempotent by name (case-insensitive) and reactivates archived', async () => {
+      const a = await service.createSkill({ name: 'ESD' });
+      const b = await service.createSkill({ name: 'esd' });
+      expect(b.id).toBe(a.id); // reused, not duplicated
+
+      await service.updateSkill(a.id, { active: false });
+      expect(await service.listSkills()).toHaveLength(0); // archived hidden
+      const c = await service.createSkill({ name: 'ESD' });
+      expect(c.id).toBe(a.id);
+      expect(c.active).toBe(true); // reactivated
+      expect(await service.listSkills()).toHaveLength(1);
     });
   });
 });
