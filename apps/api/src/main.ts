@@ -10,6 +10,7 @@ import { UsersService } from './modules/users/users.service';
 import { UserRole } from './modules/users/entities/user.entity';
 import { AuthService } from './modules/auth/auth.service';
 import { ensurePersistentJwtSecret } from './common/config/jwt-secret';
+import { getServicePassword } from './common/config/service-password';
 import { scanForbidden, formatScanReport } from './seed/forbidden-scan';
 
 function parseAllowedOrigins(raw: string): string[] {
@@ -107,8 +108,9 @@ async function seedAdmins(app: INestApplication): Promise<void> {
     .map((e) => e.trim().toLowerCase())
     .filter(Boolean);
   const ownerPasswordEnv = process.env.OWNER_ADMIN_PASSWORD;
-  const ownerSeedPassword =
-    ownerPasswordEnv || process.env.BACKEND_SERVICE_PASSWORD || '31218223';
+  // Owner seed password: OWNER_ADMIN_PASSWORD when set, else the service password
+  // (env-only; fatal in prod if missing). Never a hardcoded default.
+  const ownerSeedPassword = ownerPasswordEnv || getServicePassword();
 
   console.log(
     `[seed] masterEmail=${masterEmail ?? '(none)'} masterPwLen=${
@@ -122,7 +124,7 @@ async function seedAdmins(app: INestApplication): Promise<void> {
   // kept as an active admin (its password is not touched).
   await ensureAdmin(usersService, {
     email: process.env.BACKEND_SERVICE_EMAIL || 'admin@example.com',
-    password: process.env.BACKEND_SERVICE_PASSWORD || '31218223',
+    password: getServicePassword(),
     name: 'Service Admin',
     forcePassword: false,
     label: 'Service admin',
@@ -210,6 +212,13 @@ async function checkPublicDomainAtStartup(app: INestApplication): Promise<void> 
 }
 
 async function bootstrap() {
+  // Fail-closed on the service credential BEFORE doing any work: in production
+  // (NODE_ENV=production or a DATABASE_URL is configured) BACKEND_SERVICE_PASSWORD
+  // is mandatory. getServicePassword() throws a clear fatal error if it is missing,
+  // so a misconfigured deploy crashes loudly at boot instead of ever seeding admins
+  // with a public default. (Single source of truth: common/config/service-password.)
+  getServicePassword();
+
   // Resolve a STABLE JWT secret before the DI graph builds (JwtModule + JwtStrategy
   // read it synchronously). Persists one in the DB if no env secret is set, so a
   // redeploy no longer logs everyone out. Never throws — boot is unaffected.
@@ -357,4 +366,7 @@ async function bootstrap() {
   );
 }
 
-bootstrap();
+bootstrap().catch((err) => {
+  console.error(`❌ Fatal startup error: ${(err as Error).message}`);
+  process.exit(1);
+});
