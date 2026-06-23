@@ -2287,4 +2287,19 @@ operadores `>`/`<=`/`<>`, número exacto, vacío/no-vacío, insensibilidad a may
 rango aparte, COUNTIFS/SUMIFS/AVERAGEIFS multi-criterio, MAXIFS/MINIFS). Sin regresiones: TODA la suite de
 Office verde; `lint web` 0 errores; `build web` ✓.
 
+## 102. Office/Sheets — comodines en MATCH/VLOOKUP/HLOOKUP (búsqueda exacta)
+
+**Contexto.** En Excel, la búsqueda exacta (`MATCH(...,0)`, `VLOOKUP(...,FALSE)`, `HLOOKUP(...,FALSE)`)
+admite comodines cuando el valor buscado es texto: `VLOOKUP("ap*",...,FALSE)` encuentra el primero que
+empieza por «ap». `@formulajs/formulajs@2.9.3` no lo hace (`MATCH("ap*",...,0)` daba un índice erróneo y
+`VLOOKUP("ap*",...,FALSE)` daba `#N/A`).
+
+**Decisión (sólo `apps/web`, aditiva — riesgo cero):** `components/office/sheets/lookupWildcards.ts`
+intercepta **sólo** el caso «exacto + texto con comodín» (reusando `wildcard.ts`, §100) y **delega** todo
+lo demás (numérico, literal, coincidencia aproximada) en el mismo `formulajs`. XLOOKUP propio no se toca.
+
+**Verificación:** nueva suite `lookupWildcards.spec.ts` (**16 aserciones**: comodines `?`/`*` en MATCH/
+VLOOKUP/HLOOKUP, `#N/A` sin coincidencia, anclado; y que los casos numéricos/literales/aproximados NO se
+rompen; INDEX/MATCH con comodín). Sin regresiones: TODA la suite de Office verde; `lint web` 0; `build` ✓.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->

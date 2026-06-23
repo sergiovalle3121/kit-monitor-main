@@ -64,6 +64,7 @@ import { PROPER_FIDELITY_FUNCTIONS } from './properFidelity';
 import { BYTE_TEXT_FUNCTIONS } from './byteFunctions';
 import { WILDCARD_FUNCTIONS } from './wildcard';
 import { CRITERIA_FUNCTIONS } from './criteriaIf';
+import { LOOKUP_WILDCARD_FUNCTIONS } from './lookupWildcards';
 import { applyScalarBroadcast } from './scalarBroadcast';
 
 // ── Utilidades de coerción / aplanado de argumentos ──────────────────────────
@@ -345,6 +346,8 @@ export const CUSTOM_FUNCTIONS: Record<string, (params: any[]) => any> = {
   ...WILDCARD_FUNCTIONS,
   // Familia de criterios con comodines (COUNTIF/SUMIF/AVERAGEIF/MAXIFS…) — ver `criteriaIf.ts`.
   ...CRITERIA_FUNCTIONS,
+  // Comodines en MATCH/VLOOKUP/HLOOKUP (búsqueda exacta) — ver `lookupWildcards.ts`.
+  ...LOOKUP_WILDCARD_FUNCTIONS,
 };
 
 // Difusión de funciones escalares (ROUND/ABS/TEXT…) sobre matrices — ver `scalarBroadcast.ts`.
