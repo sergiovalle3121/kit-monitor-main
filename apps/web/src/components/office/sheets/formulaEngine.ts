@@ -62,6 +62,7 @@ import { CONVERT_TEMP_FUNCTIONS } from './convertTemp';
 import { VALUE_FIDELITY_FUNCTIONS } from './valueFidelity';
 import { PROPER_FIDELITY_FUNCTIONS } from './properFidelity';
 import { BYTE_TEXT_FUNCTIONS } from './byteFunctions';
+import { WILDCARD_FUNCTIONS } from './wildcard';
 import { applyScalarBroadcast } from './scalarBroadcast';
 
 // ── Utilidades de coerción / aplanado de argumentos ──────────────────────────
@@ -339,6 +340,8 @@ export const CUSTOM_FUNCTIONS: Record<string, (params: any[]) => any> = {
   ...PROPER_FIDELITY_FUNCTIONS,
   // Funciones de texto por bytes (LENB/LEFTB/… = sus versiones por carácter en locale latino) — ver `byteFunctions.ts`.
   ...BYTE_TEXT_FUNCTIONS,
+  // SEARCH con comodines de Excel (?/*/~) — ver `wildcard.ts`.
+  ...WILDCARD_FUNCTIONS,
 };
 
 // Difusión de funciones escalares (ROUND/ABS/TEXT…) sobre matrices — ver `scalarBroadcast.ts`.
