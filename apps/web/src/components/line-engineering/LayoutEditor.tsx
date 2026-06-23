@@ -32,6 +32,7 @@ import DossierExport from './DossierExport';
 import FlexLine from './FlexLine';
 // three.js is heavy — lazy-load the 3D view so it only ships when opened.
 const Layout3D = dynamic(() => import('./Layout3D'), { ssr: false });
+const Layout3DEditor = dynamic(() => import('./Layout3DEditor'), { ssr: false });
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000').replace(/\/$/, '');
 const ROSE = '#f43f5e';
@@ -361,6 +362,7 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
   const [showFlex, setShowFlex] = useState(false);
   const [showCells, setShowCells] = useState(false);
   const [show3d, setShow3d] = useState(false);
+  const [show3dEdit, setShow3dEdit] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
   const [hostH, setHostH] = useState<number>(VIEW_H);
   const [approval, setApproval] = useState<LayoutApproval | null>(null);
@@ -1880,7 +1882,8 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
         <TBtn onClick={() => setShowStdWork(true)} title="Trabajo estándar (manual + caminado vs takt)"><Footprints className="w-4 h-4" /></TBtn>
         <TBtn onClick={() => setShowFlex(true)} title="Línea flexible (modelos que comparten la línea)"><Network className="w-4 h-4" /></TBtn>
         <TBtn onClick={() => setShowCells(true)} title="Celdas / zonas (agrupar estaciones)"><Frame className="w-4 h-4" /></TBtn>
-        <TBtn onClick={() => setShow3d(true)} title="Vista 3D del layout"><Box className="w-4 h-4" /></TBtn>
+        <TBtn onClick={() => setShow3dEdit(true)} title="CAD 3D — editar el layout en 3D (pantalla completa)"><Boxes className="w-4 h-4" /></TBtn>
+        <TBtn onClick={() => setShow3d(true)} title="Vista 3D rápida (Yamazumi 3D, PNG)"><Box className="w-4 h-4" /></TBtn>
         <TBtn onClick={() => setShowHistory(true)} title="Bitácora de auditoría (quién cambió qué y cuándo)"><History className="w-4 h-4" /></TBtn>
         <div className="flex-1" />
         {measureMode && measureVal && <span className="text-[12px] font-medium mr-2" style={{ color: '#0ea5e9' }}>{measureVal}</span>}
@@ -2288,6 +2291,7 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
       {showDossier && <DossierExport model={model} revision={revision} open={showDossier} onClose={() => setShowDossier(false)} />}
       {showFlex && <FlexLine model={model} revision={revision} open={showFlex} onClose={() => setShowFlex(false)} />}
       {show3d && <Layout3D model={model} revision={revision} open={show3d} onClose={() => setShow3d(false)} />}
+      {show3dEdit && <Layout3DEditor model={model} revision={revision} open={show3dEdit} onClose={() => setShow3dEdit(false)} onSaved={load} />}
 
       {showCells && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" onClick={() => setShowCells(false)}>
