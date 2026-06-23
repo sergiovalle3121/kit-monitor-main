@@ -54,6 +54,7 @@ import { REGRESSION_FUNCTIONS } from './regression';
 import { installBroadcast } from './broadcast';
 import { ARRAY_IF_FUNCTIONS } from './arrayIf';
 import { DATETIME_FIX_FUNCTIONS } from './dateTimeFix';
+import { MATH_FIDELITY_FUNCTIONS } from './mathFidelity';
 
 // ── Utilidades de coerción / aplanado de argumentos ──────────────────────────
 // Las funciones reciben `params`: un array donde cada argumento ya viene evaluado.
@@ -314,6 +315,8 @@ export const CUSTOM_FUNCTIONS: Record<string, (params: any[]) => any> = {
   ...ARRAY_IF_FUNCTIONS,
   // Fidelidad de fecha/hora (HOUR/MINUTE/SECOND parsean texto; EDATE recorta a fin de mes).
   ...DATETIME_FIX_FUNCTIONS,
+  // Fidelidad matemática (LOG base 10 por defecto; CEILING/FLOOR cifra 1 por defecto).
+  ...MATH_FIDELITY_FUNCTIONS,
 };
 
 // ── Normalización de literales booleanos en la cadena de fórmula ──────────────

@@ -1723,4 +1723,20 @@ texto/AM/PM/medianoche/serie/`TIMEVALUE`, texto inválido → `#VALUE!`+`IFERROR
 año bisiesto y no, 31-mar−1, cruce de año, 31-may+1=30-jun). Sin regresiones: las 47 suites de spec
 de Office verdes; `lint web` 0 errores; `build web` ✓.
 
+## 72. Office/Sheets — fidelidad matemática (LOG base 10, CEILING/FLOOR cifra 1 por defecto)
+
+**Contexto.** La auditoría de valores conocidos destapó tres funciones MUY comunes que en
+`@formulajs/formulajs@2.9.3` fallan cuando se omite su argumento opcional (no le ponen el valor por
+defecto de Excel): `LOG(100)`→`#NUM!` (debería usar base 10 → 2), `CEILING(4.3)`→0 (cifra 1 → 5),
+`FLOOR(4.7)`→0 (cifra 1 → 4).
+
+**Decisión (sólo `apps/web`, aditiva):** `components/office/sheets/mathFidelity.ts` registra `LOG`/
+`CEILING`/`FLOOR` que **rellenan el valor por defecto que faltaba** (base 10, cifra 1) y **delegan en
+el mismo `formulajs`** cuando el argumento SÍ está → comportamiento idéntico con el argumento
+explícito y riesgo cero de regresión.
+
+**Verificación:** nueva suite `mathFidelity.spec.ts` (**15 aserciones**: `LOG(100)`=2, `LOG(8,2)`=3,
+`CEILING(4.3)`=5 y con cifra explícita, `FLOOR(4.7)`=4 y con cifra, composición con `SUM`/`POWER`).
+Sin regresiones: las 48 suites de spec de Office verdes; `lint web` 0 errores; `build web` ✓.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
