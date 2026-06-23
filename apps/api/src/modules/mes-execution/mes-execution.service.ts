@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
@@ -30,6 +31,7 @@ import { SignalGateway } from '../../common/gateway/signal.gateway';
 import { MaterialRequestsService } from '../material-requests/material-requests.service';
 import { VisualAidsService } from '../visual-aids/visual-aids.service';
 import { TestFlowService } from '../test-flow/test-flow.service';
+import { PeopleService } from '../people/people.service';
 
 import {
   AssignStationDto,
@@ -94,6 +96,9 @@ export class MesExecutionService {
     private readonly dataSource: DataSource,
     // Eslabón 1 (additive, optional): off-ramp a finished serial to Pruebas.
     @Optional() private readonly testFlow?: TestFlowService,
+    // Gate operador↔estación (additive, optional, read-only). Sólo se consulta
+    // cuando ENFORCE_CERT_GATE === 'true'; en advertencia pura ni se inyecta.
+    @Optional() private readonly people?: PeopleService,
   ) {}
 
   // ──────────────────────────────────────────────────────────────────────────
@@ -1033,6 +1038,32 @@ export class MesExecutionService {
     await this.findExecution(executionId);
     if (!dto.operatorName?.trim())
       throw new BadRequestException('operatorName es obligatorio.');
+
+    // Gate operador↔estación — MODO BLOQUEO (additivo, OFF por defecto).
+    // Por defecto el gate es sólo advertencia en la UI (no entra aquí). El owner
+    // lo endurece con ENFORCE_CERT_GATE=true: rechaza asignar a un operador sin
+    // certificación vigente para la estación del paso. Fail-open si no se puede
+    // resolver la estación o el módulo People no está disponible (nunca rompe el
+    // flujo del MES por un dato faltante).
+    if (process.env.ENFORCE_CERT_GATE === 'true' && this.people) {
+      const step = await this.stepRepo.findOne({
+        where: { executionId, stepId: dto.stepId },
+      });
+      const station = step?.stationType?.trim();
+      if (station) {
+        const check = await this.people.certificationCheck({
+          employeeId: dto.operatorId ?? undefined,
+          employee: dto.operatorName,
+          station,
+        });
+        if (!check.certified) {
+          throw new ForbiddenException(
+            `Operador no certificado para ${station}. Registra una certificación vigente o desactiva ENFORCE_CERT_GATE.`,
+          );
+        }
+      }
+    }
+
     await this.assignRepo.update(
       { executionId, stepId: dto.stepId, active: true },
       { active: false },
