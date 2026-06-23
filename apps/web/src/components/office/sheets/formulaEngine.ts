@@ -52,6 +52,7 @@ import { FIDELITY_FUNCTIONS } from './fidelityFixes';
 import { PERCENTILE_FUNCTIONS } from './percentileFix';
 import { REGRESSION_FUNCTIONS } from './regression';
 import { installBroadcast } from './broadcast';
+import { ARRAY_IF_FUNCTIONS } from './arrayIf';
 
 // ── Utilidades de coerción / aplanado de argumentos ──────────────────────────
 // Las funciones reciben `params`: un array donde cada argumento ya viene evaluado.
@@ -308,6 +309,8 @@ export const CUSTOM_FUNCTIONS: Record<string, (params: any[]) => any> = {
   ...PERCENTILE_FUNCTIONS,
   // Regresión lineal/exponencial (TREND/GROWTH/SLOPE/INTERCEPT/FORECAST) — ver `regression.ts`.
   ...REGRESSION_FUNCTIONS,
+  // IF consciente de matrices (condición-matriz → selección elemento a elemento) — ver `arrayIf.ts`.
+  ...ARRAY_IF_FUNCTIONS,
 };
 
 // ── Normalización de literales booleanos en la cadena de fórmula ──────────────

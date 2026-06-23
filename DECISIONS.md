@@ -1687,4 +1687,23 @@ constantes de matriz, producto exterior columna×fila, `&` difundido, y que los 
 rompen + lógico·número). **Sin regresiones: las 46 suites de spec de Office verdes** (la prueba
 clave, porque toca el camino de evaluación central); `lint web` 0 errores; `build web` ✓.
 
+## 70. Office/Sheets — IF consciente de matrices (cierra las fórmulas matriciales)
+
+**Contexto.** Tras la difusión de operadores (§69), `A1:A10>5` ya da una matriz de lógicos, pero el
+idioma clásico de fórmula matricial `SUM(IF(rango>x; valores; otro))` seguía fallando: el `IF` de
+formulajs es escalar y, con una condición-matriz, evalúa la matriz como un único «verdadero» y
+devuelve la rama verdadera entera.
+
+**Decisión (sólo `apps/web`, aditiva):** `components/office/sheets/arrayIf.ts` registra un `IF` que,
+si la **condición es una matriz 2D**, selecciona elemento a elemento entre las ramas verdadera/falsa
+(escalares —se reciclan— o matrices), devolviendo una matriz 2D que compone con `SUM`/`SUMPRODUCT`/…
+y derrama (§38). Si la condición es **escalar**, delega en el MISMO `formulajs.IF` que ya usaba el
+motor → comportamiento idéntico y **riesgo cero de regresión** (clave, porque `IF` es ubicua).
+
+**Verificación:** nueva suite `arrayIf.spec.ts` (**15 aserciones**: IF escalar idéntico —verdadero/
+falso, comparación, número, sin rama falsa, sobre celda—; e IF con condición-matriz —`SUM(IF(a>2,a))`
+=12, devolver otra columna, cuenta condicional, elegir A o B por elemento, texto, doble condición,
+con constantes de matriz). Sin regresiones: las 46 suites de spec de Office verdes; `lint web` 0
+errores; `build web` ✓.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
