@@ -27,6 +27,9 @@ export const SLIDE_TRANSITIONS: { label: string; value: string }[] = [
   { label: 'Zoom', value: 'zoom' },
   { label: 'Revelar', value: 'reveal' },
   { label: 'Voltear', value: 'flip' },
+  { label: 'Dividir', value: 'split' },
+  { label: 'Cubo', value: 'cube' },
+  { label: 'Fundido a negro', value: 'fadeBlack' },
   { label: 'Transformar (morph)', value: 'morph' },
 ];
 
@@ -53,13 +56,21 @@ export const OBJ_ANIM_OPTIONS: { label: string; value: string }[] = [
   { label: 'Entrada · Zoom', value: 'zoom' },
   { label: 'Entrada · Girar', value: 'rotate' },
   { label: 'Entrada · Rebote', value: 'bounce' },
+  { label: 'Entrada · Barrido', value: 'wipe' },
+  { label: 'Entrada · Giro 3D', value: 'swivel' },
+  { label: 'Entrada · Desde esquina ↖', value: 'flyTL' },
+  { label: 'Entrada · Desde esquina ↘', value: 'flyBR' },
   { label: 'Énfasis · Pulso', value: 'pulse' },
   { label: 'Énfasis · Girar', value: 'spin' },
   { label: 'Énfasis · Agrandar', value: 'grow' },
   { label: 'Énfasis · Destello', value: 'flash' },
+  { label: 'Énfasis · Bamboleo', value: 'teeter' },
+  { label: 'Énfasis · Parpadeo', value: 'blink' },
   { label: 'Salida · Desvanecer', value: 'fadeOut' },
   { label: 'Salida · Hacia abajo', value: 'flyOut' },
   { label: 'Salida · Alejar', value: 'zoomOut' },
+  { label: 'Salida · Barrido', value: 'wipeOut' },
+  { label: 'Salida · Girar y salir', value: 'spinOut' },
 ];
 
 /** Cuándo se dispara la animación de un objeto (secuencia tipo PowerPoint). */
@@ -71,8 +82,8 @@ export const OBJ_ANIM_START: { label: string; value: string }[] = [
 /** Por defecto «después de la anterior» = los objetos animados se reproducen en
  *  secuencia al entrar a la diapositiva (compatibilidad con mazos previos). */
 export const DEFAULT_ANIM_START = 'afterPrev';
-const EMPHASIS = new Set(['pulse', 'spin', 'grow', 'flash']);
-const EXIT = new Set(['fadeOut', 'flyOut', 'zoomOut']);
+const EMPHASIS = new Set(['pulse', 'spin', 'grow', 'flash', 'teeter', 'blink']);
+const EXIT = new Set(['fadeOut', 'flyOut', 'zoomOut', 'wipeOut', 'spinOut']);
 export type AnimKind = 'entrance' | 'emphasis' | 'exit' | 'none';
 export function animKind(effect?: string): AnimKind {
   if (!effect || effect === 'none') return 'none';
