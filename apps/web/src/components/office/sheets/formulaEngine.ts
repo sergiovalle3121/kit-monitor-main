@@ -59,6 +59,7 @@ import { TEXT_TRUNC_FUNCTIONS } from './textTrunc';
 import { HEX_FIDELITY_FUNCTIONS } from './hexFidelity';
 import { LOOKUP_FIDELITY_FUNCTIONS } from './lookupFidelity';
 import { CONVERT_TEMP_FUNCTIONS } from './convertTemp';
+import { VALUE_FIDELITY_FUNCTIONS } from './valueFidelity';
 import { applyScalarBroadcast } from './scalarBroadcast';
 
 // ── Utilidades de coerción / aplanado de argumentos ──────────────────────────
@@ -330,6 +331,8 @@ export const CUSTOM_FUNCTIONS: Record<string, (params: any[]) => any> = {
   ...LOOKUP_FIDELITY_FUNCTIONS,
   // Fidelidad de CONVERT con temperaturas (C/F/K) — ver `convertTemp.ts`.
   ...CONVERT_TEMP_FUNCTIONS,
+  // Fidelidad de VALUE con texto de fecha/hora (Excel los convierte a número) — ver `valueFidelity.ts`.
+  ...VALUE_FIDELITY_FUNCTIONS,
 };
 
 // Difusión de funciones escalares (ROUND/ABS/TEXT…) sobre matrices — ver `scalarBroadcast.ts`.

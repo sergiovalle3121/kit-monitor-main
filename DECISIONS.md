@@ -2169,4 +2169,25 @@ cualquier otra conversión (masa, longitud, tiempo…) se **delega** en el mismo
 `hr→mn`— intactas). Sin regresiones: las **60 suites** de spec de Office verdes; `lint web` 0 errores;
 `build web` ✓.
 
+## 95. Office/Sheets — VALUE convierte texto de fecha y hora (paridad Excel)
+
+**Contexto.** Auditando el motor REAL contra valores conocidos de Excel: `VALUE("1:30:00")` debía dar
+`0.0625`, `VALUE("2024-01-15")` debía dar `45306` y `VALUE("2024-01-15 13:30")` `45306.5625`. Pero
+`@formulajs/formulajs@2.9.3` SÓLO entiende números, moneda y porcentaje en `VALUE` y devolvía `#VALUE!`
+para cualquier texto de **fecha** u **hora**. Esto rompe un patrón cotidiano —`=VALUE(A1)+30` sobre una
+columna de fechas/horas pegadas como texto— y la coherencia con `TIMEVALUE`/`DATEVALUE`, que sí existen.
+
+**Decisión (sólo `apps/web`, aditiva — riesgo cero):** `components/office/sheets/valueFidelity.ts`
+registra `VALUE` que **delega primero** en la `VALUE` de `formulajs` (sólo cuando el texto no contiene
+letras salvo `e`/`E`, para que no «aplane» fechas con nombre de mes —`"Jan 15, 2024"`→`152024`—); si esa
+falla, **reusa el `TIMEVALUE`** propio del motor (ya fiel) para la parte de hora y `DATEVALUE` de
+`formulajs` para la fecha, convirtiendo el `Date` al **número de serie** de Excel (época `1899-12-30`).
+`VALUE` devuelve siempre un **número** (igual que Excel: el formato de celda decide cómo se ve). El error
+se señala con la cadena `#VALUE!`, que `IFERROR` captura como en Excel.
+
+**Verificación:** nueva suite `valueFidelity.spec.ts` (**30 aserciones**: números/moneda/% intactos;
+horas con/sin segundos y AM/PM; fechas ISO, `M/D/Y`, `D-Mmm-Y`, `Mmm D, Y`; combinaciones fecha+hora;
+errores capturados por `IFERROR`; roundtrip `HOUR`/`MINUTE`/`YEAR`/`MONTH`/`DAY` sobre el resultado). Sin
+regresiones: toda la suite de spec de Office verde; `lint web` 0 errores; `build web` ✓.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
