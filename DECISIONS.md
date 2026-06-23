@@ -2100,4 +2100,21 @@ descartadas, viñetas y anidadas, ordenada, bloque de código, tabla con tabulad
 vacío, documento vacío). Sin regresiones: las 57 suites de spec de Office verdes; `lint web` 0
 errores; `build web` ✓.
 
+## 91. Office/Sheets — fidelidad de DEC2HEX (mayúsculas)
+
+**Contexto.** Una auditoría de fidelidad (probando el motor REAL con ~72 valores conocidos de Excel:
+fechas, financieras, texto, conversiones, ingeniería) salió **69/72**, confirmando que el motor es
+muy correcto. La única discrepancia: `DEC2HEX` devuelve el hexadecimal en **minúsculas** (`"1f"`,
+`"00ff"`, `"ffffffffff"`), mientras Excel lo da en **MAYÚSCULAS** (`"1F"`, `"00FF"`, `"FFFFFFFFFF"`).
+Rompe comparaciones de texto y búsquedas exactas contra valores de Excel.
+
+**Decisión (sólo `apps/web`, aditiva — riesgo cero):** `components/office/sheets/hexFidelity.ts`
+registra `DEC2HEX` que **delega en el mismo `formulajs`** (que calcula bien el valor, el relleno
+`places` y el complemento a dos de los negativos) y sólo **pasa la cadena a mayúsculas**. Idéntico en
+lo demás. (`HEX2DEC` ya acepta ambas cajas.)
+
+**Verificación:** nueva suite `hexFidelity.spec.ts` (**8 aserciones**: `1F`, `1A`, relleno `00FF`,
+negativo `FFFFFFFFFF`, `0`, `ABC`, sin letras intacto, roundtrip `HEX2DEC(DEC2HEX(123))`). Sin
+regresiones: las 58 suites de spec de Office verdes; `lint web` 0 errores; `build web` ✓.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
