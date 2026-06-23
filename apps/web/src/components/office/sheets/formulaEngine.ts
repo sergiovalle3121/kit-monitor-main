@@ -55,6 +55,7 @@ import { installBroadcast } from './broadcast';
 import { ARRAY_IF_FUNCTIONS } from './arrayIf';
 import { DATETIME_FIX_FUNCTIONS } from './dateTimeFix';
 import { MATH_FIDELITY_FUNCTIONS } from './mathFidelity';
+import { TEXT_TRUNC_FUNCTIONS } from './textTrunc';
 
 // ── Utilidades de coerción / aplanado de argumentos ──────────────────────────
 // Las funciones reciben `params`: un array donde cada argumento ya viene evaluado.
@@ -317,6 +318,8 @@ export const CUSTOM_FUNCTIONS: Record<string, (params: any[]) => any> = {
   ...DATETIME_FIX_FUNCTIONS,
   // Fidelidad matemática (LOG base 10 por defecto; CEILING/FLOOR cifra 1 por defecto).
   ...MATH_FIDELITY_FUNCTIONS,
+  // Truncamiento de argumentos enteros en texto (REPT/LEFT/RIGHT/MID/ROMAN) — ver `textTrunc.ts`.
+  ...TEXT_TRUNC_FUNCTIONS,
 };
 
 // ── Normalización de literales booleanos en la cadena de fórmula ──────────────

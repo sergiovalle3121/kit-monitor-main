@@ -1739,4 +1739,19 @@ explícito y riesgo cero de regresión.
 `CEILING(4.3)`=5 y con cifra explícita, `FLOOR(4.7)`=4 y con cifra, composición con `SUM`/`POWER`).
 Sin regresiones: las 48 suites de spec de Office verdes; `lint web` 0 errores; `build web` ✓.
 
+## 73. Office/Sheets — truncamiento de argumentos enteros en texto (REPT/RIGHT/MID/ROMAN)
+
+**Contexto.** Excel **trunca hacia cero** los argumentos de conteo/longitud/posición fraccionarios
+(`REPT("ab", 2.9)`=`"abab"`), pero `@formulajs/formulajs@2.9.3` los **redondea** o **revienta**:
+`REPT(_, 2.9)`→`#ERROR!`, `RIGHT("hello", 2.9)`→`"llo"` (3 caracteres en vez de 2), `MID`/`ROMAN`
+con fracción → resultado erróneo. (`LEFT` ya truncaba.)
+
+**Decisión (sólo `apps/web`, aditiva):** `components/office/sheets/textTrunc.ts` registra `REPT`/
+`LEFT`/`RIGHT`/`MID`/`ROMAN` que **truncan** cada argumento entero antes de **delegar en el mismo
+`formulajs`** (correcto con enteros) → idéntico con enteros, riesgo cero.
+
+**Verificación:** nueva suite `textTrunc.spec.ts` (**15 aserciones**: `REPT`/`RIGHT`/`MID`/`ROMAN` con
+fracción truncan; enteros y valores por defecto intactos; composición con `LEN`/`ROUND`). Sin
+regresiones: las 49 suites de spec de Office verdes; `lint web` 0 errores; `build web` ✓.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
