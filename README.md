@@ -7,8 +7,7 @@ lista de materiales (BOM) al ruteo, MRP, ejecución en piso, calidad, logística
 finanzas— con un **Event Ledger inmutable** como columna de trazabilidad.
 
 > **Estado honesto.** Buena parte del sistema se construyó con agentes en
-> sesiones autónomas ("modo nocturno"; bitácoras en
-> [`docs/archive/night-logs/`](docs/archive/night-logs/INDEX.md)). La superficie
+> sesiones autónomas ("modo nocturno"). La superficie
 > es grande (~76 módulos de backend, ~90 pantallas) pero **la madurez varía por
 > módulo**: algunos conectan de punta a punta y otros son andamiaje o conviven
 > con un carril legacy + uno nuevo (ver [Notas honestas](#notas-honestas)).
@@ -29,7 +28,7 @@ finanzas— con un **Event Ledger inmutable** como columna de trazabilidad.
 apps/
   api/   Backend NestJS — TypeORM, JWT, ~76 módulos de dominio   → http://localhost:3000  (prefijo /api)
   web/   Frontend Next.js (App Router) — dashboard por dominio   → http://localhost:3001
-docs/    Arquitectura, blueprint, visión de producto, y archive/ (night-logs + listas de limpieza)
+docs/    Arquitectura, blueprint, visión de producto, y archive/ (listas de limpieza)
 ```
 
 Los `workspaces` de npm reservan `packages/*` para tipos/contratos compartidos a
@@ -168,5 +167,4 @@ es no-bloqueante** por ahora (deuda de formato preexistente; ver
 | [`docs/commercial-suite.md`](docs/commercial-suite.md) | Suite comercial (CRM 360 · Proveedores 360 · Cliente 360) y el patrón de profundidad reutilizable. |
 | [`DECISIONS.md`](DECISIONS.md) | ADR ligero: rationale, supuestos, deuda técnica y rieles de seguridad. |
 | [`docs/`](docs) | Blueprint de manufactura, arquitectura back/front, visión de producto, plan de multi-tenencia. |
-| [`docs/archive/night-logs/INDEX.md`](docs/archive/night-logs/INDEX.md) | Bitácoras históricas del build autónomo (índice). |
 | [`AGENTS.md`](AGENTS.md) | Reglas para agentes de IA que contribuyen al repo. |
