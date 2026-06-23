@@ -70,6 +70,7 @@ import { standardWork, StdWorkResult } from './line-stdwork';
 import { dossierStationsToCsv, DossierStationRow } from './line-dossier';
 import { computeTakeoff, Takeoff } from './line-takeoff';
 import { computeClearance, ClearanceResult } from './line-clearance';
+import { computeScorecard, Scorecard } from './line-scorecard';
 import { flexLineAnalysis, FlexLineResult } from './line-flexline';
 import {
   sensitivityCurve,
@@ -672,6 +673,35 @@ export class LineEngineeringService {
       minClearance,
       boxes,
     });
+  }
+
+  /**
+   * Layout health scorecard (Fase 44): rolls placement readiness, balance, flow
+   * direction and circulation into one graded readiness index, with the weakest
+   * dimensions and any hard blockers. Read-only; aggregates existing analyses.
+   */
+  async getScorecard(
+    model: string,
+    revision = 'A',
+  ): Promise<Scorecard & { model: string; revision: string }> {
+    const m = (model ?? '').trim();
+    const r = (revision ?? 'A').trim() || 'A';
+    const [report, flow, clearance] = await Promise.all([
+      this.getLayoutReport(m, r),
+      this.getFlowDirection(m, r),
+      this.getClearance(m, r),
+    ]);
+    const card = computeScorecard({
+      readinessPct: report.stations.readinessPct,
+      balancePct: report.balance ? report.balance.balancePct * 100 : null,
+      directionalEfficiencyPct: flow.hasDirection
+        ? flow.directionalEfficiencyPct
+        : null,
+      circulationPct: clearance.boxCount > 0 ? clearance.clearancePct : null,
+      overlaps: report.validation.overlaps,
+      outOfBounds: report.validation.outOfBounds,
+    });
+    return { ...card, model: m, revision: r };
   }
 
   /**

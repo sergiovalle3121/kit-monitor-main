@@ -12,7 +12,7 @@ import {
   Upload, Eye, EyeOff, Map as MapIcon, Activity, Workflow, Wand2, Boxes,
   Download, Printer, Ruler, Type, MoveHorizontal, Move, CopyPlus, X, Flame, Waypoints,
   ShieldCheck, ShieldAlert, LayoutGrid, History, RotateCw, ClipboardList, GitCompare,
-  ClipboardCheck, Warehouse, Sparkles, Bug, SlidersHorizontal, BarChart3, Frame, Box, Layers, Users, DollarSign, LineChart, Scale, Footprints, FileDown, Network,
+  ClipboardCheck, Warehouse, Sparkles, Bug, SlidersHorizontal, BarChart3, Frame, Box, Layers, Users, DollarSign, LineChart, Scale, Footprints, FileDown, Network, Gauge,
 } from 'lucide-react';
 import { glass } from '@/lib/glass';
 import { apiFetch } from '@/lib/apiFetch';
@@ -25,6 +25,7 @@ import LayoutHistory from './LayoutHistory';
 import BufferPlanner from './BufferPlanner';
 import OperatorLoops from './OperatorLoops';
 import ClearanceAnalysis from './ClearanceAnalysis';
+import LayoutScorecard from './LayoutScorecard';
 import CostEstimator from './CostEstimator';
 import SensitivityChart from './SensitivityChart';
 import ScenarioCompare from './ScenarioCompare';
@@ -348,6 +349,7 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
   const [showBuffers, setShowBuffers] = useState(false);
   const [showLoops, setShowLoops] = useState(false);
   const [showClearance, setShowClearance] = useState(false);
+  const [showScorecard, setShowScorecard] = useState(false);
   const [showCost, setShowCost] = useState(false);
   const [showSensitivity, setShowSensitivity] = useState(false);
   const [showCompare, setShowCompare] = useState(false);
@@ -1871,6 +1873,7 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
         <TBtn onClick={() => setShowBuffers(true)} title="Inventario de desacople / WIP entre estaciones"><Layers className="w-4 h-4" /></TBtn>
         <TBtn onClick={() => setShowLoops(true)} title="Bucles de operador (mínimo de operadores)"><Users className="w-4 h-4" /></TBtn>
         <TBtn onClick={() => setShowClearance(true)} title="Holguras y pasillos (espacio para circular)"><Move className="w-4 h-4" /></TBtn>
+        <TBtn onClick={() => setShowScorecard(true)} title="Tarjeta de salud del layout (índice de listo para liberar)"><Gauge className="w-4 h-4" /></TBtn>
         <TBtn onClick={() => setShowCost(true)} title="Costo por unidad (mano de obra, piso, equipo)"><DollarSign className="w-4 h-4" /></TBtn>
         <TBtn onClick={() => setShowSensitivity(true)} title="Sensibilidad a la demanda (costo y operadores vs demanda)"><LineChart className="w-4 h-4" /></TBtn>
         <TBtn onClick={() => setShowCompare(true)} title="Comparar escenarios A vs B"><Scale className="w-4 h-4" /></TBtn>
@@ -2280,6 +2283,7 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
       <BufferPlanner model={model} revision={revision} open={showBuffers} onClose={() => setShowBuffers(false)} />
       <OperatorLoops model={model} revision={revision} open={showLoops} onClose={() => setShowLoops(false)} />
       <ClearanceAnalysis model={model} revision={revision} open={showClearance} onClose={() => setShowClearance(false)} />
+      <LayoutScorecard model={model} revision={revision} open={showScorecard} onClose={() => setShowScorecard(false)} />
       <CostEstimator model={model} revision={revision} open={showCost} onClose={() => setShowCost(false)} />
       <SensitivityChart model={model} revision={revision} open={showSensitivity} onClose={() => setShowSensitivity(false)} />
       {showCompare && <ScenarioCompare model={model} revision={revision} open={showCompare} onClose={() => setShowCompare(false)} />}
