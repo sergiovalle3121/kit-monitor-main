@@ -29,6 +29,31 @@ export interface PeopleKpis {
   coverage: { skill: string; count: number }[];
 }
 
+/** Lowercased gate status for the operator↔station certification check. */
+export type GateStatus = 'valid' | 'expiring' | 'expired' | 'none';
+
+/** Read-only verdict consumed by the operator↔station warning gate. */
+export interface CertificationCheck {
+  certified: boolean;
+  status: GateStatus;
+  expiresDate: string | null;
+  daysToExpiry: number | null;
+  matchedCertId: string | null;
+  employeeName: string | null;
+  skill: string | null;
+  station: string | null;
+}
+
+/** Trim + collapse internal whitespace; preserves case for display. */
+function normText(v?: string | null): string {
+  return (v ?? '').trim().replace(/\s+/g, ' ');
+}
+
+/** Case-insensitive comparison key (for matching skills/stations/names). */
+function matchKey(v?: string | null): string {
+  return normText(v).toUpperCase();
+}
+
 @Injectable()
 export class PeopleService {
   private readonly logger = new Logger(PeopleService.name);
@@ -72,11 +97,16 @@ export class PeopleService {
 
     const entity = this.repo.create({
       folio,
-      employeeName: dto.employeeName,
-      employeeEmail: dto.employeeEmail ?? null,
-      skill: dto.skill,
-      area: dto.area ?? null,
-      station: dto.station ?? null,
+      // Additive: liga a empleado real cuando el alta lo provee; se conserva el
+      // nombre denormalizado para compatibilidad con certificaciones viejas.
+      employeeId: dto.employeeId?.trim() || null,
+      employeeName: normText(dto.employeeName),
+      employeeEmail: dto.employeeEmail?.trim() || null,
+      // Sin catálogo de skills aún: normalizamos texto (trim + colapsa espacios)
+      // para que la matriz agrupe consistentemente. Catálogo = follow-up.
+      skill: normText(dto.skill),
+      area: dto.area ? normText(dto.area) : null,
+      station: dto.station ? normText(dto.station) : null,
       certifiedBy: dto.certifiedBy ?? this.tenantCtx.getUserEmail(),
       active: true,
       issuedDate: dto.issuedDate ? new Date(dto.issuedDate) : new Date(),
@@ -134,9 +164,12 @@ export class PeopleService {
     const c = await this.repo.findOne({ where: { id } });
     if (!c) throw new NotFoundException('Certificación no encontrada.');
     Object.assign(c, {
-      ...(dto.skill !== undefined && { skill: dto.skill }),
-      ...(dto.area !== undefined && { area: dto.area }),
-      ...(dto.station !== undefined && { station: dto.station }),
+      ...(dto.employeeId !== undefined && { employeeId: dto.employeeId?.trim() || null }),
+      ...(dto.employeeName !== undefined && { employeeName: normText(dto.employeeName) }),
+      ...(dto.employeeEmail !== undefined && { employeeEmail: dto.employeeEmail?.trim() || null }),
+      ...(dto.skill !== undefined && { skill: normText(dto.skill) }),
+      ...(dto.area !== undefined && { area: dto.area ? normText(dto.area) : null }),
+      ...(dto.station !== undefined && { station: dto.station ? normText(dto.station) : null }),
       ...(dto.certifiedBy !== undefined && { certifiedBy: dto.certifiedBy }),
       ...(dto.active !== undefined && { active: dto.active }),
       ...(dto.issuedDate !== undefined && {
@@ -193,6 +226,92 @@ export class PeopleService {
       employees: employees.size,
       skills: skillCounts.size,
       coverage,
+    };
+  }
+
+  /**
+   * Gate operador↔estación — MODO ADVERTENCIA (read-only, NO bloquea).
+   *
+   * Responde si un operador (por `employeeId` o por nombre, para datos viejos)
+   * tiene certificación vigente para una estación. La Uic del MES / muro del
+   * operador / Skills consume este verdicto y pinta la advertencia; la lógica
+   * de asignación del MES NO se toca: sigue permitiendo asignar.
+   *
+   * PREPARADO (pero NO activado) el modo bloqueo duro: para endurecerlo a futuro,
+   * el flujo de creación de asignaciones podría llamar este check y rechazar
+   * cuando `!certified`, gobernado por un flag de config, p.ej.:
+   *
+   *   // const ENFORCE_CERT_GATE = process.env.ENFORCE_CERT_GATE === 'true';
+   *   // if (ENFORCE_CERT_GATE && !check.certified) {
+   *   //   throw new ForbiddenException('Operador no certificado para la estación');
+   *   // }
+   *
+   * Se deja como TODO del owner — NO se activa en este PR (additivo y seguro).
+   */
+  async certificationCheck(params: {
+    employeeId?: string;
+    employee?: string;
+    station?: string;
+  }): Promise<CertificationCheck> {
+    const empId = (params.employeeId ?? '').trim();
+    const empNameKey = matchKey(params.employee);
+    const stationKey = matchKey(params.station);
+
+    const none: CertificationCheck = {
+      certified: false,
+      status: 'none',
+      expiresDate: null,
+      daysToExpiry: null,
+      matchedCertId: null,
+      employeeName: normText(params.employee) || null,
+      skill: null,
+      station: normText(params.station) || null,
+    };
+
+    // Necesitamos identificar al operador y la estación para evaluar el gate.
+    if ((!empId && !empNameKey) || !stationKey) return none;
+
+    const all = await this.list();
+    const matches = all.filter((c) => {
+      if (matchKey(c.station) !== stationKey) return false;
+      const idOk = !!empId && !!c.employeeId && c.employeeId === empId;
+      const nameOk = !!empNameKey && matchKey(c.employeeName) === empNameKey;
+      return idOk || nameOk;
+    });
+    if (matches.length === 0) return none;
+
+    // Mejor candidato por bucket: vigente (incl. sin vencimiento) > por vencer >
+    // vencido. Dentro del bucket, el de mayor margen (días a vencer).
+    const rank = (s: CertStatus): number =>
+      s === 'VALID' || s === 'NO_EXPIRY' ? 3 : s === 'EXPIRING' ? 2 : 1;
+    const best = matches.reduce((a, b) => {
+      const ra = rank(a.status);
+      const rb = rank(b.status);
+      if (rb !== ra) return rb > ra ? b : a;
+      const da = a.daysToExpiry ?? Number.POSITIVE_INFINITY;
+      const db = b.daysToExpiry ?? Number.POSITIVE_INFINITY;
+      return db > da ? b : a;
+    });
+
+    const status: GateStatus =
+      best.status === 'VALID' || best.status === 'NO_EXPIRY'
+        ? 'valid'
+        : best.status === 'EXPIRING'
+          ? 'expiring'
+          : 'expired';
+
+    return {
+      // Por vencer sigue contando como certificado (sólo advierte recertificar).
+      certified: status === 'valid' || status === 'expiring',
+      status,
+      expiresDate: best.expiresDate
+        ? new Date(best.expiresDate).toISOString().slice(0, 10)
+        : null,
+      daysToExpiry: best.daysToExpiry,
+      matchedCertId: best.id,
+      employeeName: best.employeeName,
+      skill: best.skill,
+      station: best.station,
     };
   }
 }
