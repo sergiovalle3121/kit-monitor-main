@@ -1,0 +1,440 @@
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  Logger,
+  NotFoundException,
+  Optional,
+} from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { In, ObjectLiteral, Repository, SelectQueryBuilder } from 'typeorm';
+import { NpiProject } from './entities/npi-project.entity';
+import { NpiGate } from './entities/npi-gate.entity';
+import { SfFai } from '../fai/entities/sf-fai.entity';
+import { SupplierApprovedPart } from '../suppliers/entities/supplier-approved-part.entity';
+import { TenantContextService } from '../../common/tenant/tenant-context.service';
+import {
+  TenantScopedRepository,
+  getTenantRepositoryToken,
+} from '../../common/tenant/tenant-scoped.repository';
+import { BomService } from '../bom/bom.service';
+import { LineEngineeringService } from '../line-engineering/line-engineering.service';
+import { EventLedgerService } from '../event-ledger/event-ledger.service';
+import { EventDomain } from '../event-ledger/entities/ledger-event.entity';
+import { NotificationsService } from '../notifications/notifications.service';
+import { UsersService } from '../users/users.service';
+import { CreateNpiProjectDto, DecideGateDto } from './dto/npi.dto';
+import {
+  assertGateTransition,
+  comparePhases,
+  isFinalPhase,
+  isGateCleared,
+  NPI_PHASES,
+  NpiGateStatus,
+  nextPhase,
+} from './npi-state';
+import {
+  evaluateReadiness,
+  ReadinessReport,
+  ReadinessSignals,
+} from './npi.readiness';
+
+export interface ReadinessSnapshot extends ReadinessReport {
+  model: string;
+  revision: string;
+  signals: ReadinessSignals;
+}
+
+export interface NpiProjectView extends NpiProject {
+  gates: NpiGate[];
+  readiness: ReadinessSnapshot;
+}
+
+/** Prefer the most advanced BOM status when a model has several headers. */
+const BOM_STATUS_RANK: Record<string, number> = {
+  ACTIVE: 5,
+  APPROVED: 4,
+  PENDING_REVIEW: 3,
+  DRAFT: 2,
+  OBSOLETE: 1,
+};
+
+@Injectable()
+export class NpiService {
+  private readonly logger = new Logger(NpiService.name);
+
+  constructor(
+    @Inject(getTenantRepositoryToken(NpiProject))
+    private readonly projects: TenantScopedRepository<NpiProject>,
+    @Inject(getTenantRepositoryToken(NpiGate))
+    private readonly gates: TenantScopedRepository<NpiGate>,
+    @InjectRepository(SfFai)
+    private readonly fai: Repository<SfFai>,
+    @InjectRepository(SupplierApprovedPart)
+    private readonly avl: Repository<SupplierApprovedPart>,
+    private readonly tenantCtx: TenantContextService,
+    private readonly bom: BomService,
+    private readonly lineEng: LineEngineeringService,
+    @Optional() private readonly ledger?: EventLedgerService,
+    @Optional() private readonly notifications?: NotificationsService,
+    @Optional() private readonly users?: UsersService,
+  ) {}
+
+  private applyScope<T extends ObjectLiteral>(
+    qb: SelectQueryBuilder<T>,
+    alias: string,
+  ): SelectQueryBuilder<T> {
+    const tenant = this.tenantCtx.getTenantId();
+    const plant = this.tenantCtx.getPlantId();
+    if (tenant) qb.andWhere(`${alias}.tenant_id = :tenant`, { tenant });
+    else qb.andWhere(`${alias}.tenant_id IS NULL`);
+    if (plant) qb.andWhere(`${alias}.plant_id = :plant`, { plant });
+    else qb.andWhere(`${alias}.plant_id IS NULL`);
+    return qb;
+  }
+
+  private scopeFields() {
+    return {
+      tenant_id: this.tenantCtx.getTenantId(),
+      plant_id: this.tenantCtx.getPlantId(),
+      created_by: this.tenantCtx.getUserEmail(),
+    };
+  }
+
+  private sortGates(gates: NpiGate[]): NpiGate[] {
+    return [...gates].sort((a, b) => comparePhases(a.phase, b.phase));
+  }
+
+  // ── Reads ───────────────────────────────────────────────────────────────────
+  async listProjects(
+    filter: { model?: string; status?: string } = {},
+  ): Promise<NpiProject[]> {
+    const qb = this.projects.createQueryBuilder('p');
+    this.applyScope(qb, 'p');
+    if (filter.model) qb.andWhere('p.model_number = :m', { m: filter.model });
+    if (filter.status) qb.andWhere('p.status = :s', { s: filter.status });
+    return qb.orderBy('p.created_at', 'DESC').getMany();
+  }
+
+  async getProject(id: string): Promise<NpiProjectView> {
+    const project = await this.projects.findOne({ where: { id } });
+    if (!project) throw new NotFoundException('Proyecto NPI no encontrado.');
+    const gates = await this.gates.find({ where: { projectId: id } });
+    const readiness = await this.deriveReadiness(
+      project.modelNumber,
+      project.revision,
+    );
+    return { ...project, gates: this.sortGates(gates), readiness };
+  }
+
+  // ── Readiness derivation (live, READ-ONLY across existing modules) ───────────
+  /**
+   * Resolves the release signals read-only from the modules that own them and
+   * folds them with the pure `evaluateReadiness`. Anything that cannot be
+   * resolved cheaply stays `null` → reported UNKNOWN (never assumed good).
+   * ADVISORY: this never mutates anything outside `npi_`.
+   */
+  async deriveReadiness(
+    model: string,
+    revision = '1.0',
+  ): Promise<ReadinessSnapshot> {
+    const m = (model ?? '').trim();
+    if (!m) throw new BadRequestException('model requerido.');
+    const rev = (revision ?? '1.0').trim() || '1.0';
+    const signals = await this.collectSignals(m, rev);
+    return {
+      model: m,
+      revision: rev,
+      signals,
+      ...evaluateReadiness(signals),
+    };
+  }
+
+  private async collectSignals(
+    model: string,
+    revision: string,
+  ): Promise<ReadinessSignals> {
+    const [bestHeader, faiStatus, line, stdTimeComplete] = await Promise.all([
+      this.resolveBestBomHeader(model),
+      this.resolveFaiStatus(model),
+      this.resolveLine(model, revision),
+      this.resolveStdTimeComplete(model, revision),
+    ]);
+    const avlCoverage = await this.resolveAvlCoverage(bestHeader);
+    return {
+      bomStatus: bestHeader?.status ?? null,
+      faiStatus,
+      lineBalancePct: line.balancePct,
+      lineCompletenessPct: line.completenessPct,
+      stdTimeComplete,
+      avlCoverage,
+    };
+  }
+
+  /** The most advanced BOM header for the model (read-only via BomService). */
+  private async resolveBestBomHeader(model: string) {
+    const headers = await this.bom.findAllBomHeaders(model).catch((err) => {
+      this.logger.warn(`BOM lookup failed: ${(err as Error)?.message}`);
+      return [] as Awaited<ReturnType<BomService['findAllBomHeaders']>>;
+    });
+    if (!headers.length) return null;
+    return headers.reduce((best, h) =>
+      (BOM_STATUS_RANK[h.status] ?? 0) > (BOM_STATUS_RANK[best.status] ?? 0)
+        ? h
+        : best,
+    );
+  }
+
+  /** PASS if any first piece passed; else FAIL if any failed; else PENDING. */
+  private async resolveFaiStatus(model: string): Promise<string | null> {
+    const qb = this.fai.createQueryBuilder('f');
+    this.applyScope(qb, 'f');
+    qb.andWhere('f.model = :m', { m: model });
+    const rows = await qb.getMany();
+    if (!rows.length) return null;
+    if (rows.some((r) => r.result === 'PASS')) return 'PASS';
+    if (rows.some((r) => r.result === 'FAIL')) return 'FAIL';
+    return 'PENDING';
+  }
+
+  /** Line balance efficiency + documentation completeness (read-only). */
+  private async resolveLine(
+    model: string,
+    revision: string,
+  ): Promise<{ balancePct: number | null; completenessPct: number | null }> {
+    try {
+      const b = await this.lineEng.balance({ model, revision });
+      return {
+        balancePct: Number.isFinite(b.balancePct) ? b.balancePct : null,
+        completenessPct: b.completeness?.completenessPct ?? null,
+      };
+    } catch {
+      // No routing for this model+revision — honest UNKNOWN, not a failure.
+      return { balancePct: null, completenessPct: null };
+    }
+  }
+
+  /** True only when every routed station carries a standard time (>0). */
+  private async resolveStdTimeComplete(
+    model: string,
+    revision: string,
+  ): Promise<boolean | null> {
+    try {
+      const route = await this.lineEng.routing(model, revision);
+      if (!route.length) return null;
+      return route.every((s) => Number(s.stdTimeSec) > 0);
+    } catch {
+      return null;
+    }
+  }
+
+  /** Fraction of BOM parts with an APPROVED source in the AVL (read-only). */
+  private async resolveAvlCoverage(
+    header: { components?: { componentNumber?: string }[] } | null,
+  ): Promise<number | null> {
+    if (!header) return null;
+    const parts = Array.from(
+      new Set(
+        (header.components ?? [])
+          .map((c) => c.componentNumber)
+          .filter((p): p is string => !!p),
+      ),
+    );
+    if (!parts.length) return null;
+    const approved = await this.avl.find({
+      where: { partNumber: In(parts), approvalStatus: 'APPROVED' },
+    });
+    const covered = new Set(approved.map((a) => a.partNumber));
+    return covered.size / parts.length;
+  }
+
+  /** Idempotency lookup, scoped (tenant+plant) to match the unique index. */
+  private async findByModelRevision(
+    model: string,
+    revision: string,
+  ): Promise<NpiProject | null> {
+    const qb = this.projects.createQueryBuilder('p');
+    this.applyScope(qb, 'p');
+    qb.andWhere('p.model_number = :m', { m: model }).andWhere(
+      'p.revision = :r',
+      { r: revision },
+    );
+    return qb.getOne();
+  }
+
+  // ── Create (idempotent by model+revision) ───────────────────────────────────
+  async createProject(dto: CreateNpiProjectDto): Promise<NpiProjectView> {
+    const model = dto.modelNumber.trim();
+    if (!model) throw new BadRequestException('modelNumber requerido.');
+    const revision = (dto.revision ?? '1.0').trim() || '1.0';
+
+    const existing = await this.findByModelRevision(model, revision);
+    if (existing) return this.getProject(existing.id);
+
+    const project = this.projects.create({
+      modelNumber: model,
+      revision,
+      customer: dto.customer?.trim() || null,
+      currentPhase: 'QUOTE',
+      status: 'OPEN',
+      programId: dto.programId?.trim() || null,
+      notes: dto.notes?.trim() || null,
+      ...this.scopeFields(),
+    });
+
+    let saved: NpiProject;
+    try {
+      saved = await this.projects.save(project);
+    } catch (err) {
+      // Lost a race on the unique (tenant, plant, model, revision) index.
+      const winner = await this.findByModelRevision(model, revision);
+      if (winner) return this.getProject(winner.id);
+      throw err;
+    }
+
+    // Seed one PENDING gate per phase.
+    await this.gates.save(
+      NPI_PHASES.map((phase) =>
+        this.gates.create({
+          projectId: saved.id,
+          phase,
+          status: 'PENDING',
+          decidedByEmail: null,
+          decidedAt: null,
+          notes: null,
+          ...this.scopeFields(),
+        }),
+      ),
+    );
+
+    await this.record('NPI_PROJECT_CREATED', saved.id, {
+      model: saved.modelNumber,
+      revision: saved.revision,
+    });
+    return this.getProject(saved.id);
+  }
+
+  // ── Decide a gate ────────────────────────────────────────────────────────────
+  async decideGate(id: string, dto: DecideGateDto): Promise<NpiGate> {
+    const gate = await this.gates.findOne({ where: { id } });
+    if (!gate) throw new NotFoundException('Gate NPI no encontrado.');
+    const target = dto.decision as NpiGateStatus;
+    try {
+      assertGateTransition(gate.status, target);
+    } catch (err) {
+      throw new BadRequestException((err as Error).message);
+    }
+
+    gate.status = target;
+    gate.decidedByEmail = this.tenantCtx.getUserEmail() || null;
+    gate.decidedAt = new Date();
+    if (dto.notes !== undefined) gate.notes = dto.notes?.trim() || null;
+    const saved = await this.gates.save(gate);
+
+    // Advance the advisory phase pointer / release status within npi_ only.
+    await this.applyGateOutcomeToProject(saved);
+
+    await this.record(`NPI_GATE_${target}`, saved.id, {
+      projectId: saved.projectId,
+      phase: saved.phase,
+    });
+
+    // Passing the FINAL (MP) gate → one advisory inbox alert. Never activates
+    // the model and never touches product-models.
+    if (isFinalPhase(saved.phase) && target === 'PASSED') {
+      await this.notifyFinalGate(saved);
+    }
+    return saved;
+  }
+
+  /**
+   * Move the project's advisory `currentPhase` forward when a gate is cleared,
+   * and mark it RELEASED when the MP gate passes. Mutates `npi_project` only.
+   */
+  private async applyGateOutcomeToProject(gate: NpiGate): Promise<void> {
+    const project = await this.projects.findOne({
+      where: { id: gate.projectId },
+    });
+    if (!project) return;
+    let dirty = false;
+
+    if (isFinalPhase(gate.phase)) {
+      if (gate.status === 'PASSED' && project.status === 'OPEN') {
+        project.status = 'RELEASED';
+        dirty = true;
+      }
+    } else if (
+      isGateCleared(gate.status) &&
+      project.currentPhase === gate.phase
+    ) {
+      const next = nextPhase(gate.phase);
+      if (next) {
+        project.currentPhase = next;
+        dirty = true;
+      }
+    }
+
+    if (dirty) {
+      await this.projects
+        .save(project)
+        .catch((err) =>
+          this.logger.warn(
+            `No se pudo avanzar el proyecto NPI ${project.id}: ${(err as Error)?.message}`,
+          ),
+        );
+    }
+  }
+
+  private async notifyFinalGate(gate: NpiGate): Promise<void> {
+    if (!this.notifications || !this.users) return;
+    try {
+      const project = await this.projects.findOne({
+        where: { id: gate.projectId },
+      });
+      if (!project) return;
+      const email = this.tenantCtx.getUserEmail();
+      if (!email) return;
+      const user = await this.users.findOneByEmail(email).catch(() => null);
+      if (!user) return;
+      await this.notifications.create({
+        userId: user.id,
+        kind: 'npi',
+        severity: 'medium',
+        domain: 'engineering',
+        source: 'NPI',
+        title: `NPI: gate MP aprobado · ${project.modelNumber} rev ${project.revision}`,
+        body:
+          `El modelo ${project.modelNumber} (rev ${project.revision}) pasó el gate final (MP). ` +
+          `Revisa la readiness antes de activar el modelo (este aviso es solo informativo).`,
+        dedupeKey: `npi-mp-passed:${project.id}`,
+      });
+    } catch (err) {
+      this.logger.warn(
+        `No se pudo crear aviso de gate MP: ${(err as Error)?.message}`,
+      );
+    }
+  }
+
+  private async record(
+    action: string,
+    referenceId: string,
+    metadata: Record<string, unknown>,
+  ): Promise<void> {
+    if (!this.ledger) return;
+    try {
+      await this.ledger.recordEvent({
+        actorName: this.tenantCtx.getUserEmail(),
+        domain: EventDomain.ENGINEERING,
+        action,
+        referenceType: 'NPI',
+        referenceId,
+        plant: this.tenantCtx.getPlantId() ?? undefined,
+        metadata,
+      });
+    } catch (err) {
+      this.logger.warn(
+        `Ledger skipped for ${action}: ${(err as Error)?.message}`,
+      );
+    }
+  }
+}
