@@ -23,6 +23,14 @@ eq(ev('=DEC2HEX(16)'), '10', 'sin letras, intacto');
 // Roundtrip: HEX2DEC acepta el resultado en mayúsculas.
 eq(ev('=HEX2DEC(DEC2HEX(123))'), 123, 'roundtrip DEC2HEX→HEX2DEC');
 
+// BIN2HEX y OCT2HEX también en mayúsculas (mismo defecto que DEC2HEX).
+eq(ev('=BIN2HEX(11111111)'), 'FF', 'BIN2HEX(11111111) = FF');
+eq(ev('=BIN2HEX(1111,4)'), '000F', 'BIN2HEX con relleno');
+eq(ev('=BIN2HEX(10)'), '2', 'BIN2HEX sin letras, intacto');
+eq(ev('=OCT2HEX(777)'), '1FF', 'OCT2HEX(777) = 1FF');
+eq(ev('=OCT2HEX(10)'), '8', 'OCT2HEX(10) = 8');
+eq(ev('=HEX2DEC(BIN2HEX(11111111))'), 255, 'roundtrip BIN2HEX→HEX2DEC');
+
 const total = passed + fails.length;
 if (fails.length) { console.error(`\n❌ ${fails.length}/${total}:\n` + fails.map((f) => '   • ' + f).join('\n')); process.exit(1); }
 else console.log(`\n✅ hexFidelity: ${passed}/${total} aserciones verdes.`);
