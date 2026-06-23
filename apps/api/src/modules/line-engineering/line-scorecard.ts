@@ -1,16 +1,18 @@
 /**
- * Pure, side-effect-free layout health scorecard (Fase 44).
+ * Pure, side-effect-free layout health scorecard (Fase 44, extended Fase 47).
  *
- * The module already computes many layout metrics in isolation — placement
- * readiness, line balance, flow direction, clearance. A reviewer still has to
- * stitch them into "is this layout good enough to release?". This rolls the
- * available dimensions into one weighted 0–100 index with a letter grade, the
- * weakest dimensions to fix first, and hard blockers (overlaps, off-plan
- * objects, nothing placed) that cap the grade no matter how good the rest is.
+ * The module computes many layout metrics in isolation — placement readiness,
+ * line balance, flow direction, clearance/circulation, flow continuity and line
+ * cohesion. A reviewer still has to stitch them into "is this layout good enough
+ * to release?". This rolls the available dimensions into one weighted 0–100
+ * index with a letter grade, the weakest dimensions to fix first, and hard
+ * blockers (overlaps, off-plan objects, nothing placed) that cap the grade no
+ * matter how good the rest is.
  *
  * Each dimension is optional: when a metric can't be computed (e.g. no routing
- * yet → no balance) it's dropped and the remaining weights are renormalised, so
- * the score always reflects what's actually known. Kept pure for unit testing.
+ * yet → no balance, or a single line → cohesion is trivial) it's dropped and the
+ * remaining weights are renormalised, so the score always reflects what's
+ * actually known. Kept pure for unit testing.
  */
 
 export interface ScorecardInput {
@@ -22,6 +24,10 @@ export interface ScorecardInput {
   directionalEfficiencyPct: number | null;
   /** Clearance / circulation index (0..100). */
   circulationPct: number | null;
+  /** Flow-continuity index (0..100) — null when no connectors are drawn. */
+  continuityPct: number | null;
+  /** Line-cohesion index (0..100) — null when there is a single line. */
+  cohesionPct: number | null;
   /** Overlapping object pairs (hard issue). */
   overlaps: number;
   /** Objects spilling past the footprint (hard issue). */
@@ -67,10 +73,12 @@ function gradeFor(score: number): ScorecardGrade {
 /** Roll the available layout metrics into a single graded readiness scorecard. */
 export function computeScorecard(input: ScorecardInput): Scorecard {
   const defs: DimDef[] = [
-    { key: 'readiness', label: 'Colocación', weight: 0.25, value: input.readinessPct },
-    { key: 'balance', label: 'Balanceo', weight: 0.3, value: input.balancePct },
-    { key: 'flow', label: 'Dirección de flujo', weight: 0.2, value: input.directionalEfficiencyPct },
-    { key: 'circulation', label: 'Circulación', weight: 0.25, value: input.circulationPct },
+    { key: 'readiness', label: 'Colocación', weight: 0.2, value: input.readinessPct },
+    { key: 'balance', label: 'Balanceo', weight: 0.25, value: input.balancePct },
+    { key: 'flow', label: 'Dirección de flujo', weight: 0.15, value: input.directionalEfficiencyPct },
+    { key: 'circulation', label: 'Circulación', weight: 0.2, value: input.circulationPct },
+    { key: 'continuity', label: 'Continuidad', weight: 0.12, value: input.continuityPct },
+    { key: 'cohesion', label: 'Cohesión', weight: 0.08, value: input.cohesionPct },
   ];
   const available = defs.filter((d) => d.value !== null && Number.isFinite(d.value as number));
   const totalW = available.reduce((acc, d) => acc + d.weight, 0) || 1;

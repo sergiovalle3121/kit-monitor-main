@@ -678,9 +678,12 @@ export class LineEngineeringService {
   }
 
   /**
-   * Layout health scorecard (Fase 44): rolls placement readiness, balance, flow
-   * direction and circulation into one graded readiness index, with the weakest
-   * dimensions and any hard blockers. Read-only; aggregates existing analyses.
+   * Layout health scorecard (Fase 44, extended Fase 47): rolls placement
+   * readiness, balance, flow direction, circulation, flow continuity and line
+   * cohesion into one graded readiness index, with the weakest dimensions and
+   * any hard blockers. Read-only; aggregates existing analyses. Continuity is
+   * only scored when connectors exist and cohesion only with more than one line,
+   * so situational metrics never distort a layout they don't apply to.
    */
   async getScorecard(
     model: string,
@@ -688,10 +691,12 @@ export class LineEngineeringService {
   ): Promise<Scorecard & { model: string; revision: string }> {
     const m = (model ?? '').trim();
     const r = (revision ?? 'A').trim() || 'A';
-    const [report, flow, clearance] = await Promise.all([
+    const [report, flow, clearance, continuity, cohesion] = await Promise.all([
       this.getLayoutReport(m, r),
       this.getFlowDirection(m, r),
       this.getClearance(m, r),
+      this.getContinuity(m, r),
+      this.getCohesion(m, r),
     ]);
     const card = computeScorecard({
       readinessPct: report.stations.readinessPct,
@@ -700,6 +705,8 @@ export class LineEngineeringService {
         ? flow.directionalEfficiencyPct
         : null,
       circulationPct: clearance.boxCount > 0 ? clearance.clearancePct : null,
+      continuityPct: continuity.linkCount > 0 ? continuity.continuityPct : null,
+      cohesionPct: cohesion.lineCount > 1 ? cohesion.cohesionPct : null,
       overlaps: report.validation.overlaps,
       outOfBounds: report.validation.outOfBounds,
     });
