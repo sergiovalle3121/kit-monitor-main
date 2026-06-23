@@ -20,6 +20,7 @@ import {
   computeAgingMinutes, isSlaBreached, pullSemaphore, SEMAPHORE_COLOR, effectiveSla,
   formatAging, fmtQty, fmtTime, isOpen,
 } from './shared';
+import CsvImportPanel from './CsvImportPanel';
 
 const PULL_SORT: Record<string, number> = { in_progress: 0, pending: 1, completed: 2, cancelled: 3 };
 
@@ -48,6 +49,7 @@ export default function PullMonitor() {
   const [onlyMine, setOnlyMine] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [importWh, setImportWh] = useState('');
+  const [showCsv, setShowCsv] = useState(false);
 
   // Reloj para aging en vivo (recalcula cada 30 s sin pegarle al backend).
   const [now, setNow] = useState(() => Date.now());
@@ -252,14 +254,14 @@ export default function PullMonitor() {
         subtitle="Pedidos de material del piso al almacén — prioriza por aging y SLA, entrega o cancela"
         actions={
           <div className="flex items-center gap-2">
-            {/* Interfaz de importación SAP (preparada, NO implementada en este PR). */}
+            {/* Importación de pull-list por archivo CSV (un conector SAP futuro usaría este mismo flujo). */}
             <button
               type="button"
-              disabled
-              title="Importar pull-list desde SAP — disponible en una fase futura (interfaz preparada)."
-              className="inline-flex cursor-not-allowed items-center gap-1.5 rounded-xl border border-dashed border-black/15 px-3 py-2 text-sm text-gray-400 dark:border-white/15"
+              onClick={() => setShowCsv((s) => !s)}
+              title="Cargar una pull-list por archivo CSV — un conector SAP futuro alimentaría este mismo flujo."
+              className="inline-flex items-center gap-1.5 rounded-xl border border-black/10 px-3 py-2 text-sm font-medium transition-colors hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/10"
             >
-              <Upload className="h-4 w-4" /> Cargar pull-list (SAP) <span className="ml-1 rounded bg-black/5 px-1 text-[10px] dark:bg-white/10">pronto</span>
+              <Upload className="h-4 w-4" /> Cargar pull-list (CSV)
             </button>
             {/* Puente real kit→pull: importa los llamados de resurtido (e-kanban) del piso. */}
             <button
@@ -392,6 +394,9 @@ export default function PullMonitor() {
           </div>
         </div>
       )}
+
+      {/* Cargar pull-list por archivo CSV */}
+      {showCsv && <CsvImportPanel onClose={() => setShowCsv(false)} onImported={mutate} />}
 
       {/* Importar resurtidos (e-kanban) desde material-staging */}
       {showImport && (

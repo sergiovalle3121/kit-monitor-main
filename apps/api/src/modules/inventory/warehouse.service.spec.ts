@@ -295,4 +295,27 @@ describe('WarehouseService', () => {
       await expect(withStaging.importReplenishCalls({ sourceWarehouseId: '' }, user)).rejects.toBeInstanceOf(BadRequestException);
     });
   });
+
+  describe('importPullList (CSV)', () => {
+    it('crea pulls de filas válidas y reporta errores por fila (best-effort)', async () => {
+      taskRepo.count.mockResolvedValue(0);
+      const rows = [
+        { partNumber: 'P1', quantity: 10, fromWarehouseId: 'WH-RM', project: 'AX', urgent: 'sí' },
+        { partNumber: '', quantity: 5, fromWarehouseId: 'WH-RM' }, // sin parte → falla
+        { partNumber: 'P3', quantity: 3, fromWarehouseId: '' }, // sin almacén → falla
+      ];
+      const res = await service.importPullList(rows, user);
+      expect(res.imported).toBe(1);
+      expect(res.failed).toBe(2);
+      expect(res.errors.map((e) => e.row)).toEqual([2, 3]);
+      // La fila válida marca urgente y referenceType PULL_LIST.
+      const created = taskRepo.create.mock.calls.find(([d]) => (d as { partNumber?: string }).partNumber === 'P1');
+      expect((created![0] as { urgent: boolean }).urgent).toBe(true);
+      expect((created![0] as { referenceType: string }).referenceType).toBe('PULL_LIST');
+    });
+
+    it('rechaza lista vacía', async () => {
+      await expect(service.importPullList([], user)).rejects.toBeInstanceOf(BadRequestException);
+    });
+  });
 });

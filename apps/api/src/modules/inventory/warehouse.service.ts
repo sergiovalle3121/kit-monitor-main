@@ -358,6 +358,58 @@ export class WarehouseService {
   }
 
   /**
+   * Importa una pull-list (p.ej. de un archivo CSV) creando un pull por fila. Es la
+   * vía de importación POR ARCHIVO que prepara el terreno para una integración SAP
+   * futura: hoy el front sube/parsea el CSV y manda las filas como JSON; mañana un
+   * conector SAP podría llamar a este mismo método con las líneas mapeadas. NO
+   * integra SAP (sin credenciales ni middleware).
+   *
+   * Best-effort por fila: una fila inválida no tumba el lote — se reporta su error
+   * y se sigue. Cada pull queda marcado con referenceType='PULL_LIST'.
+   */
+  async importPullList(
+    rows: any[],
+    user: User,
+  ): Promise<{ imported: number; failed: number; errors: { row: number; message: string }[] }> {
+    if (!Array.isArray(rows) || rows.length === 0) {
+      throw new BadRequestException('No hay filas para importar.');
+    }
+    if (rows.length > 1000) {
+      throw new BadRequestException('La pull-list excede el máximo de 1000 filas por importación.');
+    }
+
+    let imported = 0;
+    const errors: { row: number; message: string }[] = [];
+    for (let i = 0; i < rows.length; i++) {
+      const r = rows[i] ?? {};
+      const urgent =
+        r.urgent === true ||
+        ['true', 'sí', 'si', '1', 'x', 'y', 'yes'].includes(String(r.urgent ?? '').trim().toLowerCase());
+      try {
+        await this.createPull(
+          {
+            project: r.project,
+            partNumber: r.partNumber,
+            quantity: Number(r.quantity) || 0,
+            fromWarehouseId: r.fromWarehouseId,
+            toLocation: r.toLocation,
+            requestor: r.requestor || user.email,
+            slaMinutes: r.slaMinutes ? Number(r.slaMinutes) : undefined,
+            urgent,
+            referenceId: r.referenceId,
+            referenceType: 'PULL_LIST',
+          },
+          user,
+        );
+        imported += 1;
+      } catch (err) {
+        errors.push({ row: i + 1, message: (err as Error).message });
+      }
+    }
+    return { imported, failed: errors.length, errors };
+  }
+
+  /**
    * ENTREGAR un pull: lo cierra como COMPLETED y sella deliveredAt. Intenta el
    * movimiento físico (TRANSFER almacén→destino) de forma best-effort: si el
    * inventario no alcanza o la parte no está en maestro, NO se bloquea la entrega

@@ -60,6 +60,13 @@ export class WarehouseController {
     return this.warehouseService.importReplenishCalls(dto, req.user);
   }
 
+  /** Importa una pull-list (filas de CSV) creando un pull por línea. */
+  @Post('pulls/import')
+  @RequirePermissions('materials:write')
+  async importPullList(@Body() body: { rows: any[] }, @Request() req: any) {
+    return this.warehouseService.importPullList(body?.rows ?? [], req.user);
+  }
+
   /** Entregar un pull (cierra COMPLETED + deliveredAt; movimiento best-effort). */
   @Patch('tasks/:id/deliver')
   @RequirePermissions('materials:write')
