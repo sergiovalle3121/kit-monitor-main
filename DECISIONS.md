@@ -2047,4 +2047,18 @@ espacio.
 `[^1]: …`, y dos notas numeradas en orden con su bloque de definiciones). Sin regresiones: las 56
 suites de spec de Office verdes; `lint web` 0 errores; `build web` ✓.
 
+## 88. Office/Docs — referencias cruzadas y citas en la exportación a Markdown
+
+**Contexto.** Auditando la exportación a Markdown tras §87 se vio que los nodos en línea `crossRef`
+(referencias cruzadas) y `citation` (citas) se **descartaban en silencio** —otra pérdida de datos—:
+el serializador sólo conocía `hardBreak`/`image`/`mathInline`/`footnoteRef`/texto.
+
+**Decisión (sólo `apps/web`, aditiva):** `serializeInline` emite ahora el **texto visible** de ambos
+(igual que la exportación a `.docx`): `crossRef` → `attrs.label` (o `attrs.target` como respaldo);
+`citation` → `attrs.inText`. Escapado como texto normal.
+
+**Verificación:** `markdown.spec.ts` ampliado (**26 aserciones**, +3: `crossRef` con etiqueta, con
+respaldo a `target`, y `citation` en el texto). Sin regresiones: las 56 suites de spec de Office
+verdes; `lint web` 0 errores; `build web` ✓.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->

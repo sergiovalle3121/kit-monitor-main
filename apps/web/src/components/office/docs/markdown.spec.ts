@@ -79,6 +79,11 @@ eq(
   'A[^1]\n\nB[^2]\n\n[^1]: uno\n[^2]: dos\n', 'dos notas numeradas en orden',
 );
 
+// Referencias cruzadas y citas: se emite su texto visible (antes se perdían).
+eq(tiptapJsonToMarkdown(doc(p(t('Ver '), { type: 'crossRef', attrs: { label: 'Figura 1' } }))), 'Ver Figura 1\n', 'referencia cruzada');
+eq(tiptapJsonToMarkdown(doc(p(t('Ver '), { type: 'crossRef', attrs: { target: 'sec-2' } }))), 'Ver sec-2\n', 'crossRef cae a target');
+eq(tiptapJsonToMarkdown(doc(p(t('Según '), { type: 'citation', attrs: { inText: '(García, 2020)' } }))), 'Según (García, 2020)\n', 'cita en el texto');
+
 console.log(`\nMARKDOWN SPEC: ${passed} OK, ${fails.length} fallos`);
 if (fails.length) { for (const f of fails) console.error('  ✗ ' + f); throw new Error(`${fails.length} fallos`); }
 console.log('✓ Todas las aserciones de Markdown pasan.');
