@@ -1471,4 +1471,25 @@ días, máscara de texto, festivo que se salta, código inválido `#NUM!`; recue
 con festivo, invertido con signo, mismo día). Sin regresiones: 34 suites de hoja + 3 de I/O Office
 verdes; `lint web` 0 errores; `build web` ✓.
 
+## 59. Office/Sheets — distribuciones χ²/F/t (colas e inversas) correctas
+
+**Contexto.** Las distribuciones de contraste de hipótesis (χ², F, t de Student) de
+`@formulajs/formulajs@2.9.3` son **numéricamente incorrectas**: `CHIINV(0.05,1)`→0.0039 (debería ser
+3.841), `FINV`/`TINV` igual de mal, y los nombres modernos `CHISQ.DIST.RT`, `F.INV.RT`, `T.DIST.2T`…
+ni existen (`#NAME?`). Es la base de las pruebas χ², ANOVA y t.
+
+**Decisión (sólo `apps/web`, aditiva):** `components/office/sheets/distributions.ts` las implementa
+**correctas** sobre dos funciones especiales (algoritmos de Numerical Recipes): la **gamma incompleta
+regularizada** `P(a,x)` (serie + fracción continua) y la **beta incompleta regularizada** `Iₓ(a,b)`
+(fracción continua de Lentz). Sobre ellas se construyen los CDF (χ² = `P(df/2, x/2)`; F = `I` con
+`d1·x/(d1·x+d2)`; t con `I(df/2,½)`), sus colas derecha/dos-colas, y las **inversas por bisección**.
+Se registran tanto los nombres modernos (`CHISQ.DIST[.RT]`, `CHISQ.INV[.RT]`, `F.DIST[.RT]`,
+`F.INV[.RT]`, `T.DIST[.RT|.2T]`, `T.INV[.2T]`) como los **legados corregidos** (`CHIDIST`, `CHIINV`,
+`FDIST`, `FINV`, `TINV`), que ganan al fallback roto de formulajs.
+
+**Verificación:** nueva suite `distributions.spec.ts` (**19 aserciones** contra valores críticos
+conocidos: χ²₀.₀₅,₁=3.841 y con 5 g.l.=11.07; F₀.₀₅,₃,₄=6.591; t₀.₀₂₅,₁₀=2.228 y t₀.₀₅,₁₀=1.812;
+acumuladas; legados corregidos; `#NUM!` en dominios inválidos; composición con `ROUND`). Sin
+regresiones: 35 suites de hoja + 3 de I/O Office verdes; `lint web` 0 errores; `build web` ✓.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
