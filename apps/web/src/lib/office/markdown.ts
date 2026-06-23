@@ -100,8 +100,18 @@ function serializeTable(table: MdNode, lines: string[]): void {
   const grid = rows.map((row) => (row.content ?? []).map(cellText));
   const ncol = Math.max(...grid.map((r) => r.length));
   const pad = (r: string[]) => { const c = [...r]; while (c.length < ncol) c.push(''); return c; };
+  // Alineación por columna desde los atributos de la primera fila (preserva la de Markdown/Word).
+  const headCells = rows[0]?.content ?? [];
+  const delim = (c: number): string => {
+    switch ((headCells[c] as any)?.attrs?.textAlign) {
+      case 'center': return ':---:';
+      case 'right': return '---:';
+      case 'left': return ':---';
+      default: return '---';
+    }
+  };
   lines.push('| ' + pad(grid[0]).join(' | ') + ' |');
-  lines.push('| ' + pad(grid[0]).map(() => '---').join(' | ') + ' |');
+  lines.push('| ' + Array.from({ length: ncol }, (_v, c) => delim(c)).join(' | ') + ' |');
   for (let r = 1; r < grid.length; r++) lines.push('| ' + pad(grid[r]).join(' | ') + ' |');
 }
 
@@ -287,14 +297,25 @@ function inlineToHtml(src: string): string {
 
 const splitRow = (l: string): string[] => l.replace(/^\s*\|/, '').replace(/\|\s*$/, '').split('|').map((c) => c.trim());
 
+/** Alineación de columna a partir de su celda separadora GFM (`:--`/`--:`/`:-:`/`---`). */
+function colAlign(delim: string): '' | 'left' | 'right' | 'center' {
+  const t = delim.trim();
+  const l = t.startsWith(':');
+  const r = t.endsWith(':');
+  return l && r ? 'center' : r ? 'right' : l ? 'left' : '';
+}
+
 /** Tabla GFM a partir de `lines[start]` (encabezado) + separador. Devuelve el índice tras la tabla. */
 function parseTable(lines: string[], start: number, out: string[]): number {
   const header = splitRow(lines[start]);
+  // La fila separadora (start+1) lleva la alineación por columna; se preserva como `text-align`.
+  const aligns = splitRow(lines[start + 1]).map(colAlign);
+  const styleFor = (c: number) => (aligns[c] ? ` style="text-align:${aligns[c]}"` : '');
   let i = start + 2;
-  out.push('<table><thead><tr>', ...header.map((h) => `<th>${inlineToHtml(h)}</th>`), '</tr></thead><tbody>');
+  out.push('<table><thead><tr>', ...header.map((h, c) => `<th${styleFor(c)}>${inlineToHtml(h)}</th>`), '</tr></thead><tbody>');
   while (i < lines.length && lines[i].includes('|') && lines[i].trim() !== '') {
     const cells = splitRow(lines[i]);
-    out.push('<tr>', ...header.map((_h, c) => `<td>${inlineToHtml(cells[c] ?? '')}</td>`), '</tr>');
+    out.push('<tr>', ...header.map((_h, c) => `<td${styleFor(c)}>${inlineToHtml(cells[c] ?? '')}</td>`), '</tr>');
     i++;
   }
   out.push('</tbody></table>');

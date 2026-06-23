@@ -2,10 +2,11 @@
 import { Extension } from '@tiptap/core';
 
 /**
- * Atributos extra para celdas de tabla «tipo Word»: sombreado (color de fondo) y
- * alineación vertical. Se añaden como atributos globales sobre `tableCell` y
- * `tableHeader` (de `@tiptap/extension-table`) para que `setCellAttribute` los
- * pueda fijar y viajen en el JSON / HTML del documento.
+ * Atributos extra para celdas de tabla «tipo Word»: sombreado (color de fondo),
+ * alineación vertical y **alineación horizontal** (text-align, p. ej. importada de
+ * la fila separadora `:--`/`--:`/`:-:` de una tabla Markdown). Se añaden como
+ * atributos globales sobre `tableCell` y `tableHeader` (de `@tiptap/extension-table`)
+ * para que `setCellAttribute` los pueda fijar y viajen en el JSON / HTML del documento.
  */
 export const TableCellAttrs = Extension.create({
   name: 'tableCellAttrs',
@@ -27,6 +28,11 @@ export const TableCellAttrs = Extension.create({
             default: null,
             parseHTML: (el: HTMLElement) => el.style.verticalAlign || null,
             renderHTML: (attrs: any) => (attrs.verticalAlign ? { style: `vertical-align:${attrs.verticalAlign}` } : {}),
+          },
+          textAlign: {
+            default: null,
+            parseHTML: (el: HTMLElement) => el.style.textAlign || null,
+            renderHTML: (attrs: any) => (attrs.textAlign ? { style: `text-align:${attrs.textAlign}` } : {}),
           },
         },
       },
