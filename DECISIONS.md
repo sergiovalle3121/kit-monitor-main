@@ -1639,4 +1639,25 @@ ajuste por mínimos cuadrados sobre `ln(y)`: devuelve la matriz `{m, b}` con `m 
 `GROWTH`). Sin regresiones: 41 suites de hoja + 3 de I/O Office verdes; `lint web` 0 errores;
 `build web` ✓.
 
+## 68. Office/Sheets — el asistente de funciones expone toda la biblioteca nueva
+
+**Contexto.** Las ~18 fases anteriores añadieron 100+ funciones (financieras avanzadas, base de
+datos, distribuciones, matrices, ingeniería, regresión…), pero el **asistente de funciones**
+(`SheetFunctionWizard`) solo listaba las categorías iniciales: lo nuevo era invisible para el
+usuario. En Excel el cuadro «Insertar función» es exhaustivo; esto cierra ese hueco de
+descubribilidad.
+
+**Decisión (sólo `apps/web`, aditiva):** se amplía `SheetFunctionWizard.tsx` de 116 a **190**
+funciones: se completa «Financieras» (IPMT/PPMT/CUMIPMT/XNPV/XIRR, amortización SLN/DB/DDB/SYD,
+EFFECT/NOMINAL, y los bonos PRICE/YIELD/DURATION/MDURATION/COUPNUM/DISC/ACCRINTM/DOLLARDE/DOLLARFR)
+y se añaden tres categorías nuevas: «Base de datos» (DSUM/DCOUNT/DGET…), «Estadística avanzada»
+(distribuciones NORM/T/CHISQ/F/GAMMA/BETA/BINOM/POISSON/HYPGEOM, CONFIDENCE.T, regresión TREND/
+GROWTH/SLOPE/INTERCEPT/FORECAST/CORREL, percentiles y rangos modernos) e «Ingeniería y matrices»
+(MMULT/MINVERSE/MDETERM/MUNIT, CONVERT, BASE/DECIMAL, conversiones DEC2HEX…, bits, complejos, GCD/
+LCM, DELTA/GESTEP). Cada entrada lleva sintaxis y ayuda de argumentos en español, como las demás.
+
+**Verificación:** sonda funcional sobre el motor REAL de una llamada representativa de **cada una de
+las 50 familias añadidas** → todas operativas (sin `#NAME?`/`#ERROR!`), de modo que el asistente
+nunca anuncia una función rota. `lint web` 0 errores; `build web` ✓.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
