@@ -20,6 +20,7 @@ import {
   X,
   Pencil,
   AlertTriangle,
+  Bell,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -172,6 +173,7 @@ export default function IntelligencePage() {
   const [alerts, setAlerts] = useState<KpiAlert[]>([]);
   const [history, setHistory] = useState<Record<string, { day: string; value: number }[]>>({});
   const [acting, setActing] = useState<number | null>(null);
+  const [notifying, setNotifying] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const confirm = useConfirm();
@@ -183,6 +185,27 @@ export default function IntelligencePage() {
       .then((d) => setIsAdmin(isAdminAccess(d?.session?.role, d?.session?.email)))
       .catch(() => {});
   }, []);
+
+  async function notifyAdmins() {
+    setNotifying(true);
+    try {
+      const res = await fetch('/api/semantic/alerts/notify', { method: 'POST' });
+      const d = await res.json().catch(() => ({}));
+      if (res.ok) {
+        toast.success(
+          d.sent > 0
+            ? `Se enviaron ${d.sent} notificación(es) a admins.`
+            : 'Sin alertas críticas que notificar.',
+        );
+      } else {
+        toast.error(d?.message || 'No se pudo notificar.');
+      }
+    } catch {
+      toast.error('Error de red.');
+    } finally {
+      setNotifying(false);
+    }
+  }
 
   async function actOnProposal(p: Proposal, action: 'execute' | 'dismiss') {
     const ok = await confirm(
@@ -309,12 +332,28 @@ export default function IntelligencePage() {
       {/* ── Alertas de KPI ── */}
       {alerts.length > 0 && (
         <section className="mb-8">
-          <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold">
-            <AlertTriangle className="h-4 w-4 text-amber-500" /> Alertas de KPI
-            <span className="text-black/40 dark:text-white/40">
-              · fuera de objetivo o tendencia adversa ({alerts.length})
-            </span>
-          </h2>
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <h2 className="flex items-center gap-2 text-sm font-semibold">
+              <AlertTriangle className="h-4 w-4 text-amber-500" /> Alertas de KPI
+              <span className="text-black/40 dark:text-white/40">
+                · fuera de objetivo o tendencia adversa ({alerts.length})
+              </span>
+            </h2>
+            {isAdmin && alerts.some((a) => a.severity === 'critical') && (
+              <button
+                onClick={notifyAdmins}
+                disabled={notifying}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-black/10 px-2.5 py-1 text-xs font-medium text-black/70 transition-colors hover:bg-black/5 disabled:opacity-40 dark:border-white/10 dark:text-white/70 dark:hover:bg-white/10"
+              >
+                {notifying ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <Bell className="h-3 w-3" />
+                )}
+                Notificar a admins
+              </button>
+            )}
+          </div>
           <div className="grid gap-2 sm:grid-cols-2">
             {alerts.map((al) => (
               <div

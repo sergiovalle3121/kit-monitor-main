@@ -21,6 +21,8 @@ import { EventLedgerService } from '../event-ledger/event-ledger.service';
 import { UpsertMetricDto } from './dto/upsert-metric.dto';
 import { UpsertObjectDto } from './dto/upsert-object.dto';
 import { UpsertLinkDto } from './dto/upsert-link.dto';
+import { NotificationsService } from '../notifications/notifications.service';
+import { UsersService } from '../users/users.service';
 
 const DEFAULT_TENANT = '__default__';
 
@@ -575,15 +577,69 @@ export class SemanticService {
     return alerts.sort((a, b) => rank[a.severity] - rank[b.severity]);
   }
 
-  /** Daily KPI snapshot for the default tenant. */
+  /**
+   * Push critical KPI alerts to admins via the notifications module (in-app +
+   * web-push). Deduped per metric+kind+day so an admin gets at most one ping per
+   * critical KPI per day. Only `critical` alerts are pushed (high signal); the
+   * dashboard still shows all. Best-effort: failures never break the caller.
+   * Services are resolved lazily so the semantic module stays decoupled.
+   */
+  async notifyAlerts(tenantId = DEFAULT_TENANT): Promise<number> {
+    const alerts = await this.evaluateAlerts(
+      { isAdmin: true, permissions: [] },
+      tenantId,
+    );
+    const critical = alerts.filter((a) => a.severity === 'critical');
+    if (critical.length === 0) return 0;
+
+    let notifs: NotificationsService;
+    let users: UsersService;
+    try {
+      notifs = this.moduleRef.get(NotificationsService, { strict: false });
+      users = this.moduleRef.get(UsersService, { strict: false });
+    } catch {
+      return 0; // notifications/users not resolvable in this context
+    }
+
+    const admins = (await users.findAll()).filter((u) => u.role === 'Admin');
+    if (admins.length === 0) return 0;
+    const today = new Date().toISOString().slice(0, 10);
+    let sent = 0;
+    for (const a of critical) {
+      for (const admin of admins) {
+        try {
+          await notifs.create({
+            userId: admin.id,
+            title: `Alerta de KPI: ${a.name}`,
+            body: a.message,
+            kind: 'kpi-alert',
+            severity: 'critical',
+            domain: a.domain ?? undefined,
+            href: '/dashboard/intelligence',
+            dedupeKey: `kpi:${a.key}:${a.kind}:${today}`,
+          });
+          sent++;
+        } catch (e) {
+          this.logger.warn(
+            `KPI alert notify failed: ${(e as Error)?.message ?? e}`,
+          );
+        }
+      }
+    }
+    if (sent > 0) this.logger.log(`Sent ${sent} KPI alert notification(s).`);
+    return sent;
+  }
+
+  /** Daily KPI snapshot + critical-alert push for the default tenant. */
   @Cron(CronExpression.EVERY_DAY_AT_2AM)
   async handleDailySnapshot(): Promise<void> {
     try {
       const n = await this.captureSnapshots(DEFAULT_TENANT);
       if (n > 0) this.logger.log(`Captured ${n} metric snapshot(s).`);
+      await this.notifyAlerts(DEFAULT_TENANT);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      this.logger.warn(`Metric snapshot job failed: ${msg}`);
+      this.logger.warn(`Metric snapshot/alert job failed: ${msg}`);
     }
   }
 }
