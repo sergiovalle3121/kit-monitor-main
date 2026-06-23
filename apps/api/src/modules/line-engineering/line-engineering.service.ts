@@ -71,6 +71,7 @@ import { dossierStationsToCsv, DossierStationRow } from './line-dossier';
 import { computeTakeoff, Takeoff } from './line-takeoff';
 import { computeClearance, ClearanceResult } from './line-clearance';
 import { computeScorecard, Scorecard } from './line-scorecard';
+import { computeContinuity, ContinuityResult } from './line-continuity';
 import { flexLineAnalysis, FlexLineResult } from './line-flexline';
 import {
   sensitivityCurve,
@@ -702,6 +703,30 @@ export class LineEngineeringService {
       outOfBounds: report.validation.outOfBounds,
     });
     return { ...card, model: m, revision: r };
+  }
+
+  /**
+   * Line continuity (Fase 45): validates the topology of the flow connector graph
+   * — is it one continuous, ordered path through every station? Reports isolated
+   * stations, disconnected pieces, extra starts/ends, splits/merges and back-flow
+   * links. Read-only; complements the flow geometry (line-flow). Additive.
+   */
+  async getContinuity(
+    model: string,
+    revision = 'A',
+  ): Promise<ContinuityResult & { model: string; revision: string }> {
+    const m = (model ?? '').trim();
+    const r = (revision ?? 'A').trim() || 'A';
+    const layout = await this.getLayout(m, r);
+    const result = computeContinuity({
+      stations: layout.stations.map((s) => ({
+        id: s.id,
+        station: s.station,
+        sequence: s.sequence,
+      })),
+      links: (layout.connectors ?? []).map((c) => ({ from: c.from, to: c.to, kind: c.kind })),
+    });
+    return { ...result, model: m, revision: r };
   }
 
   /**
