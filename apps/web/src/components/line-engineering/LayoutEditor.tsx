@@ -1267,6 +1267,19 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [model, revision]);
 
+  // DXF export (Fase 53): hand the layout back as an AutoCAD R12 DXF, computed
+  // server-side from the saved layout (footprint, stations, equipment, flow…).
+  const exportDxf = useCallback(async () => {
+    try {
+      const r = await apiFetch(`${API_BASE}/line-engineering/layout/dxf-export?model=${encodeURIComponent(model)}&revision=${encodeURIComponent(revision)}`);
+      if (!r.ok) { toast.error('No se pudo exportar el DXF.', 'Ing. Industrial'); return; }
+      const d = (await r.json()) as { filename: string; dxf: string };
+      downloadBlob(new Blob([d.dxf], { type: 'application/dxf' }), d.filename || exportName('dxf'));
+      toast.success('Layout exportado a DXF (AutoCAD).', 'Ing. Industrial');
+    } catch { toast.error('No se pudo exportar el DXF.', 'Ing. Industrial'); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [model, revision, toast]);
+
   const exportPDF = useCallback(async () => {
     const c = fcRef.current; if (!c) return;
     setExporting(true);
@@ -1868,6 +1881,7 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
         <TBtn onClick={exportPDF} title="Exportar PDF">{exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <span className="text-[11px] font-bold leading-none">PDF</span>}</TBtn>
         <TBtn onClick={exportDossier} title="Exportar dossier (plano + resumen KPI)"><span className="text-[10px] font-bold leading-none">DOC</span></TBtn>
         <TBtn onClick={exportCSV} title="Exportar estaciones a CSV"><span className="text-[10px] font-bold leading-none">CSV</span></TBtn>
+        <TBtn onClick={exportDxf} title="Exportar a DXF (AutoCAD) — cada tipo en su capa"><span className="text-[10px] font-bold leading-none">DXF</span></TBtn>
         <TBtn onClick={() => setShowDossier(true)} title="Exportar expediente analítico (KPIs computados: JSON + CSV)"><FileDown className="w-4 h-4" /></TBtn>
         <TBtn onClick={printPlan} title="Imprimir"><Printer className="w-4 h-4" /></TBtn>
         <Sep />

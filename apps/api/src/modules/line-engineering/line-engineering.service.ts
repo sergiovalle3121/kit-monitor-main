@@ -70,6 +70,7 @@ import { standardWork, StdWorkResult } from './line-stdwork';
 import { dossierStationsToCsv, DossierStationRow } from './line-dossier';
 import { consolidateReview, LayoutReviewSummary } from './line-review';
 import { approvalEventDetail } from './line-approval';
+import { buildDxf, DxfBox, DxfSegment, DxfText } from './line-dxf';
 import { computeTakeoff, Takeoff } from './line-takeoff';
 import { computeClearance, ClearanceResult } from './line-clearance';
 import { computeScorecard, Scorecard } from './line-scorecard';
@@ -801,6 +802,53 @@ export class LineEngineeringService {
     ];
     const result = computeDensity({ footprintW: W, footprintH: H, cols, rows, boxes });
     return { ...result, model: m, revision: r, unit: layout.footprint.unit };
+  }
+
+  /**
+   * Export the layout as an AutoCAD R12 DXF (Fase 53). Read-only: serialises the
+   * footprint, placed stations, equipment, walls/zones, flow links and
+   * annotations onto named CAD layers so the layout can round-trip into AutoCAD
+   * or any DXF-aware CAD — closing the interop loop (we already import DXF).
+   */
+  async getLayoutDxf(
+    model: string,
+    revision = 'A',
+  ): Promise<{ model: string; revision: string; unit: string; filename: string; dxf: string }> {
+    const m = (model ?? '').trim();
+    const r = (revision ?? 'A').trim() || 'A';
+    const layout = await this.getLayout(m, r);
+    const fp = layout.footprint;
+
+    const boxes: DxfBox[] = [];
+    const centerById = new Map<string, { cx: number; cy: number }>();
+    for (const s of layout.stations) {
+      if (s.x === null || s.y === null || s.w === null || s.h === null) continue;
+      boxes.push({ x: s.x, y: s.y, w: s.w, h: s.h, rotation: s.rotation ?? 0, label: s.station, layer: 'ESTACIONES' });
+      centerById.set(s.id, { cx: s.x + s.w / 2, cy: s.y + s.h / 2 });
+    }
+    for (const a of layout.assets ?? []) {
+      const layer = a.kind === 'wall' ? 'MUROS' : a.kind === 'zone' ? 'ZONAS' : 'EQUIPO';
+      boxes.push({ x: a.x, y: a.y, w: a.w, h: a.h, rotation: a.rotation ?? 0, label: a.label || a.kind, layer });
+    }
+
+    const segments: DxfSegment[] = [];
+    for (const c of layout.connectors ?? []) {
+      const a = centerById.get(c.from), b = centerById.get(c.to);
+      if (a && b) segments.push({ x1: a.cx, y1: a.cy, x2: b.cx, y2: b.cy, layer: 'FLUJO' });
+    }
+
+    const texts: DxfText[] = [];
+    for (const an of layout.annotations ?? []) {
+      if (an.type === 'dim' && an.x2 !== undefined && an.y2 !== undefined) {
+        segments.push({ x1: an.x, y1: an.y, x2: an.x2, y2: an.y2, layer: 'COTAS' });
+      } else if (an.type === 'text' && an.text) {
+        texts.push({ x: an.x, y: an.y, text: an.text, layer: 'TEXTO' });
+      }
+    }
+
+    const dxf = buildDxf({ footprintW: fp.footprintW, footprintH: fp.footprintH, unit: fp.unit, boxes, segments, texts });
+    const slug = `${m}_${r}`.replace(/[^a-zA-Z0-9_-]+/g, '-');
+    return { model: m, revision: r, unit: fp.unit, filename: `layout_${slug}.dxf`, dxf };
   }
 
   /**

@@ -279,6 +279,16 @@ export class LineEngineeringController {
     return this.service.getDxf(model, revision ?? 'A');
   }
 
+  @Get('layout/dxf-export')
+  @RequirePermissions('engineering:read')
+  @ApiOperation({
+    summary:
+      'Exporta el layout (estaciones, equipo, muros, flujo, cotas) como DXF R12 de AutoCAD, cada tipo en su capa.',
+  })
+  exportDxf(@Query('model') model: string, @Query('revision') revision?: string) {
+    return this.service.getLayoutDxf(model, revision ?? 'A');
+  }
+
   @Put('layout/dxf')
   @RequirePermissions('engineering:write')
   @ApiOperation({
