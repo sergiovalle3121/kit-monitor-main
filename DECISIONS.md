@@ -1550,4 +1550,21 @@ coinciden exactamente: `PRICE(2008-02-15, 2017-11-15, 5.75%, 6.5%, 100, 2, 0)` =
 Microsoft + coherencia PRICE↔YIELD, par cuando cupón=rendimiento, MDURATION<DURATION, `#NUM!`). Sin
 regresiones: 37 suites de hoja + 3 de I/O Office verdes; `lint web` 0 errores; `build web` ✓.
 
+## 63. Office/Sheets — contrastes estadísticos modernos (T.TEST, F.TEST…) + CONFIDENCE.T
+
+**Contexto.** Cierra la modernización de nombres estadísticos: los contrastes con punto (`T.TEST`,
+`F.TEST`, `CHISQ.TEST`, `Z.TEST`, `BINOM.INV`) y los alias de ingeniería `ERF.PRECISE`/`ERFC.PRECISE`
+devolvían `#NAME?` (el fallback de formulajs busca un objeto anidado), aunque su versión LEGADA
+existe y es correcta. `CONFIDENCE.T` (intervalo con la t de Student) faltaba por completo.
+
+**Decisión (sólo `apps/web`, aditiva):** `components/office/sheets/statTests.ts` **delega** los
+nombres con punto en el legado verificado (`T.TEST`→`TTEST`, `F.TEST`→`FTEST`, `CHISQ.TEST`→
+`CHITEST`, `Z.TEST`→`ZTEST`, `BINOM.INV`→`CRITBINOM`, `ERF.PRECISE`→`ERF`, `ERFC.PRECISE`→`ERFC`) y
+calcula `CONFIDENCE.T(α, σ, n) = T.INV.2T(α, n−1)·σ/√n` reutilizando la t de §59.
+
+**Verificación:** nueva suite `statTests.spec.ts` (**12 aserciones** sobre el motor REAL:
+`T.TEST`=0.22678, `F.TEST`=1.47059, `Z.TEST`=0.5, `BINOM.INV`=5, igualdad con el nombre legado;
+`ERF.PRECISE`+`ERFC.PRECISE`=1; `CONFIDENCE.T(0.05,1,10)`≈0.7154 y > `CONFIDENCE.NORM`). Sin
+regresiones: 38 suites de hoja + 3 de I/O Office verdes; `lint web` 0 errores; `build web` ✓.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->

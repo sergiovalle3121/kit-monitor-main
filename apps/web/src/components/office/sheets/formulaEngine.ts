@@ -47,6 +47,7 @@ import { DATE_INTL_FUNCTIONS } from './dateIntl';
 import { DISTRIBUTION_FUNCTIONS } from './distributions';
 import { SECURITY_FUNCTIONS } from './securities';
 import { BOND_FUNCTIONS } from './bonds';
+import { STAT_TEST_FUNCTIONS } from './statTests';
 
 // ── Utilidades de coerción / aplanado de argumentos ──────────────────────────
 // Las funciones reciben `params`: un array donde cada argumento ya viene evaluado.
@@ -295,6 +296,8 @@ export const CUSTOM_FUNCTIONS: Record<string, (params: any[]) => any> = {
   ...SECURITY_FUNCTIONS,
   // Bonos con cupón (PRICE/YIELD/DURATION/MDURATION/COUP*) — ver `bonds.ts`.
   ...BOND_FUNCTIONS,
+  // Contrastes modernos (T.TEST/F.TEST/CHISQ.TEST/Z.TEST) + CONFIDENCE.T — ver `statTests.ts`.
+  ...STAT_TEST_FUNCTIONS,
 };
 
 // ── Normalización de literales booleanos en la cadena de fórmula ──────────────
