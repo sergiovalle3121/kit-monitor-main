@@ -343,6 +343,19 @@ export class LineEngineeringController {
     });
   }
 
+  @Get('layout/optimize')
+  @RequirePermissions('engineering:read')
+  @ApiOperation({
+    summary:
+      'Optimiza el orden de las estaciones para minimizar el recorrido de material. No persiste.',
+  })
+  layoutOptimize(
+    @Query('model') model: string,
+    @Query('revision') revision?: string,
+  ) {
+    return this.service.optimizeLayout(model, revision ?? 'A');
+  }
+
   @Get('layout/report')
   @RequirePermissions('engineering:read')
   @ApiOperation({
