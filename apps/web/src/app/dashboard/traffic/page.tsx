@@ -7,7 +7,7 @@
 // the backend). Phase 1 of the shipping suite ("maestros primero").
 import React, { useMemo, useState } from "react";
 import Link from "next/link";
-import { Building2, ChevronLeft, LayoutDashboard, Loader2, Lock, PackageCheck, Truck, User, Warehouse } from "lucide-react";
+import { Building2, CalendarClock, ChevronLeft, LayoutDashboard, Loader2, Lock, PackageCheck, Truck, User, Warehouse } from "lucide-react";
 import { glass } from "@/lib/glass";
 import { useApi } from "@/hooks/useApi";
 import { TabBtn, TrfInputStyle } from "./traffic.ui";
@@ -19,8 +19,10 @@ import {
   VehiclesTab,
 } from "./traffic.masters";
 import { BoardTab } from "./traffic.board";
+import { AppointmentsTab } from "./traffic.appointments";
 import { ACCENT } from "./traffic.utils";
 import type {
+  Appointment,
   Carrier,
   Driver,
   LoadingDock,
@@ -28,7 +30,7 @@ import type {
   Vehicle,
 } from "./traffic.types";
 
-type Tab = "board" | "carriers" | "vehicles" | "drivers" | "docks" | "assignment";
+type Tab = "board" | "carriers" | "vehicles" | "drivers" | "docks" | "appointments" | "assignment";
 
 export default function TrafficPage() {
   const carriersApi = useApi<Carrier[]>("/traffic/carriers");
@@ -36,12 +38,14 @@ export default function TrafficPage() {
   const driversApi = useApi<Driver[]>("/traffic/drivers");
   const docksApi = useApi<LoadingDock[]>("/traffic/docks");
   const shipmentsApi = useApi<OutboundShipmentLite[]>("/outbound/shipments");
+  const appointmentsApi = useApi<Appointment[]>("/traffic/appointments");
 
   const carriers = useMemo(() => (Array.isArray(carriersApi.data) ? carriersApi.data : []), [carriersApi.data]);
   const vehicles = useMemo(() => (Array.isArray(vehiclesApi.data) ? vehiclesApi.data : []), [vehiclesApi.data]);
   const drivers = useMemo(() => (Array.isArray(driversApi.data) ? driversApi.data : []), [driversApi.data]);
   const docks = useMemo(() => (Array.isArray(docksApi.data) ? docksApi.data : []), [docksApi.data]);
   const shipments = useMemo(() => (Array.isArray(shipmentsApi.data) ? shipmentsApi.data : []), [shipmentsApi.data]);
+  const appointments = useMemo(() => (Array.isArray(appointmentsApi.data) ? appointmentsApi.data : []), [appointmentsApi.data]);
 
   const [tab, setTab] = useState<Tab>("board");
 
@@ -52,6 +56,7 @@ export default function TrafficPage() {
     driversApi.mutate();
     docksApi.mutate();
     shipmentsApi.mutate();
+    appointmentsApi.mutate();
   };
 
   if (carriersApi.forbidden) {
@@ -82,7 +87,7 @@ export default function TrafficPage() {
             </span>
             <div className="flex-1 min-w-0">
               <h1 className="text-lg font-semibold leading-tight">Logística · Tráfico</h1>
-              <p className="text-[12px] text-gray-400 leading-tight">Transportistas, unidades, choferes, andenes y asignación</p>
+              <p className="text-[12px] text-gray-400 leading-tight">Patio, maestros, citas y asignación de embarques</p>
             </div>
           </div>
           <div className="flex items-center gap-1 mt-3 -mx-1 px-1 pb-1 overflow-x-auto">
@@ -91,6 +96,7 @@ export default function TrafficPage() {
             <TabBtn active={tab === "vehicles"} onClick={() => setTab("vehicles")} icon={<Truck className="w-4 h-4" />} count={vehicles.length}>Unidades</TabBtn>
             <TabBtn active={tab === "drivers"} onClick={() => setTab("drivers")} icon={<User className="w-4 h-4" />} count={drivers.length}>Choferes</TabBtn>
             <TabBtn active={tab === "docks"} onClick={() => setTab("docks")} icon={<Warehouse className="w-4 h-4" />} count={docks.length}>Andenes</TabBtn>
+            <TabBtn active={tab === "appointments"} onClick={() => setTab("appointments")} icon={<CalendarClock className="w-4 h-4" />} count={appointments.length}>Citas</TabBtn>
             <TabBtn active={tab === "assignment"} onClick={() => setTab("assignment")} icon={<PackageCheck className="w-4 h-4" />}>Asignación</TabBtn>
           </div>
         </div>
@@ -109,6 +115,8 @@ export default function TrafficPage() {
           <DriversTab items={drivers} carriers={carriers} refresh={refreshAll} />
         ) : tab === "docks" ? (
           <DocksTab items={docks} refresh={refreshAll} />
+        ) : tab === "appointments" ? (
+          <AppointmentsTab items={appointments} carriers={carriers} vehicles={vehicles} drivers={drivers} docks={docks} refresh={refreshAll} />
         ) : (
           <AssignmentTab shipments={shipments} carriers={carriers} vehicles={vehicles} drivers={drivers} docks={docks} refresh={refreshAll} />
         )}

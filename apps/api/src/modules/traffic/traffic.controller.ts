@@ -15,6 +15,7 @@ import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { RequirePermissions } from '../auth/decorators/permissions.decorator';
 import { TrafficService } from './traffic.service';
 import { TrafficAlertsService } from './traffic-alerts.service';
+import { TrafficAppointmentsService } from './traffic-appointments.service';
 import {
   CreateCarrierDto,
   CreateDockDto,
@@ -25,6 +26,10 @@ import {
   UpdateDriverDto,
   UpdateVehicleDto,
 } from './dto/traffic.dto';
+import {
+  CreateAppointmentDto,
+  UpdateAppointmentDto,
+} from './dto/appointment.dto';
 
 /**
  * Traffic (Tráfico) master data: carriers, vehicles, drivers and loading docks.
@@ -40,6 +45,7 @@ export class TrafficController {
   constructor(
     private readonly service: TrafficService,
     private readonly alerts: TrafficAlertsService,
+    private readonly appointments: TrafficAppointmentsService,
   ) {}
 
   // ── Carriers ───────────────────────────────────────────────────────────────
@@ -213,5 +219,76 @@ export class TrafficController {
   })
   runDockAlerts() {
     return this.alerts.scanDockOverstayAndNotify();
+  }
+
+  // ── Dock appointments (Citas de andén) ───────────────────────────────────────
+  @Get('appointments')
+  @RequirePermissions('logistics:read')
+  @ApiOperation({ summary: 'Lista citas de andén (con filtros).' })
+  listAppointments(
+    @Query('status') status?: string,
+    @Query('direction') direction?: string,
+    @Query('dockId') dockId?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('q') q?: string,
+  ) {
+    return this.appointments.list({ status, direction, dockId, from, to, q });
+  }
+
+  @Get('appointments/:id')
+  @RequirePermissions('logistics:read')
+  getAppointment(@Param('id') id: string) {
+    return this.appointments.get(id);
+  }
+
+  @Post('appointments')
+  @RequirePermissions('logistics:write')
+  @ApiOperation({ summary: 'Programa una cita de andén.' })
+  createAppointment(@Body() dto: CreateAppointmentDto) {
+    return this.appointments.create(dto);
+  }
+
+  @Patch('appointments/:id')
+  @RequirePermissions('logistics:write')
+  updateAppointment(
+    @Param('id') id: string,
+    @Body() dto: UpdateAppointmentDto,
+  ) {
+    return this.appointments.update(id, dto);
+  }
+
+  @Delete('appointments/:id')
+  @RequirePermissions('logistics:write')
+  removeAppointment(@Param('id') id: string) {
+    return this.appointments.remove(id);
+  }
+
+  @Post('appointments/:id/arrive')
+  @RequirePermissions('logistics:write')
+  @ApiOperation({ summary: 'Registra la llegada de la unidad (gate-in).' })
+  arriveAppointment(@Param('id') id: string) {
+    return this.appointments.setStatus(id, 'arrived');
+  }
+
+  @Post('appointments/:id/complete')
+  @RequirePermissions('logistics:write')
+  @ApiOperation({ summary: 'Cierra la cita y registra la salida (gate-out).' })
+  completeAppointment(@Param('id') id: string) {
+    return this.appointments.setStatus(id, 'completed');
+  }
+
+  @Post('appointments/:id/cancel')
+  @RequirePermissions('logistics:write')
+  @ApiOperation({ summary: 'Cancela la cita.' })
+  cancelAppointment(@Param('id') id: string) {
+    return this.appointments.setStatus(id, 'cancelled');
+  }
+
+  @Post('appointments/:id/no-show')
+  @RequirePermissions('logistics:write')
+  @ApiOperation({ summary: 'Marca la cita como no-show.' })
+  noShowAppointment(@Param('id') id: string) {
+    return this.appointments.setStatus(id, 'no_show');
   }
 }
