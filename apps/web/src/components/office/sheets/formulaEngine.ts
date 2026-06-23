@@ -44,6 +44,7 @@ import { DB_FUNCTIONS } from './dbFunctions';
 import { MATRIX_FUNCTIONS } from './matrixFunctions';
 import { MATH_EXTRA_FUNCTIONS } from './mathExtras';
 import { DATE_INTL_FUNCTIONS } from './dateIntl';
+import { DISTRIBUTION_FUNCTIONS } from './distributions';
 
 // ── Utilidades de coerción / aplanado de argumentos ──────────────────────────
 // Las funciones reciben `params`: un array donde cada argumento ya viene evaluado.
@@ -286,6 +287,8 @@ export const CUSTOM_FUNCTIONS: Record<string, (params: any[]) => any> = {
   ...MATH_EXTRA_FUNCTIONS,
   // Fechas internacionales (WORKDAY.INTL/NETWORKDAYS.INTL) — ver `dateIntl.ts`.
   ...DATE_INTL_FUNCTIONS,
+  // Distribuciones χ²/F/t (colas e inversas) correctas — ver `distributions.ts`.
+  ...DISTRIBUTION_FUNCTIONS,
 };
 
 // ── Normalización de literales booleanos en la cadena de fórmula ──────────────
