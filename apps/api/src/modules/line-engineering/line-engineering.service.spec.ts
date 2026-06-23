@@ -175,6 +175,22 @@ describe('LineEngineeringService (integration)', () => {
     );
   });
 
+  it('plans WIP decoupling buffers between stations (Fase 33)', async () => {
+    await seedRoute(); // EST-10 40s, EST-20 55s (bottleneck), EST-30 30s
+    const plan = await service.getBufferPlan({
+      model: 'AX-1000',
+      taktTargetSec: 60,
+      coverageSec: 120,
+    });
+    expect(plan.cadenceSec).toBe(60);
+    expect(plan.bottleneckStation).toBe('EST-20');
+    expect(plan.gaps).toHaveLength(2); // 3 stations → 2 gaps
+    expect(plan.gaps.every((g) => g.critical)).toBe(true); // both touch EST-20
+    expect(plan.totalWipUnits).toBe(4); // ⌈2·0.917⌉ + ⌈2·0.917⌉
+    expect(plan.addedLeadTimeSec).toBe(240); // 4 × 60 (Little's law)
+    expect(plan.model).toBe('AX-1000');
+  });
+
   it('reports per-station documentation completeness (Fase 19)', async () => {
     await seedRoute(); // 3 stations, all with NP + factor + aid → complete
     // Add a station missing its visual aid.
