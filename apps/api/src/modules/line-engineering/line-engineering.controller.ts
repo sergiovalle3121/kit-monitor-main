@@ -423,6 +423,38 @@ export class LineEngineeringController {
     });
   }
 
+  @Get('layout/compare')
+  @RequirePermissions('engineering:read')
+  @ApiOperation({
+    summary:
+      'Comparación de escenarios A vs B: enfrenta dos layouts en toda la suite de KPIs y da un veredicto.',
+  })
+  layoutCompare(
+    @Query('modelA') modelA: string,
+    @Query('modelB') modelB: string,
+    @Query('revisionA') revisionA?: string,
+    @Query('revisionB') revisionB?: string,
+    @Query('availableTimeSec') availableTimeSec?: string,
+    @Query('demandUnits') demandUnits?: string,
+    @Query('taktTargetSec') taktTargetSec?: string,
+    @Query('laborCostPerHour') laborCostPerHour?: string,
+  ) {
+    return this.service.getComparison({
+      modelA,
+      modelB,
+      revisionA: revisionA ?? 'A',
+      revisionB: revisionB ?? 'A',
+      availableTimeSec: availableTimeSec ? Number(availableTimeSec) : undefined,
+      demandUnits: demandUnits ? Number(demandUnits) : undefined,
+      taktTargetSec: taktTargetSec ? Number(taktTargetSec) : undefined,
+      rates: {
+        laborCostPerHour: laborCostPerHour
+          ? Number(laborCostPerHour)
+          : undefined,
+      },
+    });
+  }
+
   @Get('layout/completeness')
   @RequirePermissions('engineering:read')
   @ApiOperation({

@@ -65,6 +65,7 @@ import {
   demandSweep,
   SensitivityResult,
 } from './line-sensitivity';
+import { compareLayouts, LayoutComparison, LayoutKpis } from './line-compare';
 
 /** One station's material/work requirement for a unit of a model — the bridge
  * that Material Staging (C) and the Operator Terminal (D) consume. */
@@ -1603,6 +1604,107 @@ export class LineEngineeringService {
       },
     );
     return { ...result, model: params.model, revision };
+  }
+
+  /**
+   * Compact analytics bundle for one layout (Fase 37) — readiness, floor use,
+   * flow, validation, balance, manning and cost — used by the scenario
+   * comparison. Manning/cost degrade to null when the model has no routing.
+   */
+  private async layoutKpis(
+    model: string,
+    revision: string,
+    opts: {
+      availableTimeSec?: number;
+      demandUnits?: number;
+      taktTargetSec?: number;
+      rates?: CostRates;
+    },
+  ): Promise<LayoutKpis> {
+    const report = await this.getLayoutReport(model, revision);
+    let operators: number | null = null;
+    let costPerUnit: number | null = null;
+    try {
+      const staffing = await this.getStaffing({
+        model,
+        revision,
+        availableTimeSec: opts.availableTimeSec,
+        demandUnits: opts.demandUnits,
+        taktTargetSec: opts.taktTargetSec,
+      });
+      operators = staffing.totalOperators;
+    } catch {
+      operators = null;
+    }
+    try {
+      const cost = await this.getCostModel({
+        model,
+        revision,
+        availableTimeSec: opts.availableTimeSec,
+        demandUnits: opts.demandUnits,
+        taktTargetSec: opts.taktTargetSec,
+        rates: opts.rates,
+      });
+      costPerUnit = cost.totalCostPerUnit;
+    } catch {
+      costPerUnit = null;
+    }
+    return {
+      model,
+      revision,
+      stations: report.stations.total,
+      placed: report.stations.placed,
+      readinessPct: report.stations.readinessPct,
+      utilizationPct: report.space.utilizationPct,
+      assetCount: report.space.assetCount,
+      flowDistance: report.flow.totalDistance,
+      crossings: report.flow.crossings,
+      overlaps: report.validation.overlaps,
+      outOfBounds: report.validation.outOfBounds,
+      // balancePct is a 0..1 fraction in the report → percent for display.
+      balancePct: report.balance
+        ? round(report.balance.balancePct * 100, 1)
+        : null,
+      bottleneckStation: report.balance?.bottleneckStation ?? null,
+      lineCycleTimeSec: report.balance?.lineCycleTimeSec ?? null,
+      operators,
+      costPerUnit,
+    };
+  }
+
+  /**
+   * Head-to-head scenario comparison of two layouts (Fase 37). Read-only: pits
+   * two (model, revision) scopes against each other across the KPI suite,
+   * scoring each metric for the better side and returning an overall verdict —
+   * the capstone that turns the analytics into a layout decision. Pure scoring
+   * via `compareLayouts`.
+   */
+  async getComparison(params: {
+    modelA: string;
+    revisionA?: string;
+    modelB: string;
+    revisionB?: string;
+    availableTimeSec?: number;
+    demandUnits?: number;
+    taktTargetSec?: number;
+    rates?: CostRates;
+  }): Promise<LayoutComparison> {
+    const mA = (params.modelA ?? '').trim();
+    const mB = (params.modelB ?? '').trim();
+    if (!mA || !mB) {
+      throw new BadRequestException('modelA y modelB son obligatorios.');
+    }
+    const opts = {
+      availableTimeSec: params.availableTimeSec,
+      demandUnits: params.demandUnits,
+      taktTargetSec: params.taktTargetSec,
+      rates: params.rates,
+    };
+    const [a, b] = await Promise.all([
+      this.layoutKpis(mA, (params.revisionA ?? 'A').trim() || 'A', opts),
+      this.layoutKpis(mB, (params.revisionB ?? 'A').trim() || 'A', opts),
+    ]);
+    return compareLayouts(a, b);
   }
 
   /**

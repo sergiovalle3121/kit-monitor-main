@@ -245,6 +245,52 @@ describe('LineEngineeringService (integration)', () => {
     expect(r.model).toBe('AX-1000');
   });
 
+  it('compares two layouts head-to-head and picks a verdict (Fase 37)', async () => {
+    await seedRoute(); // AX-1000: 40/55/30 → balance 75.8%, line cycle 55
+    // A perfectly even sibling line: better balance, lower line cycle.
+    for (const [station, sequence] of [
+      ['EV-10', 10],
+      ['EV-20', 20],
+      ['EV-30', 30],
+    ] as const) {
+      await service.createStation({
+        model: 'AX-EVEN',
+        line: 'SMT-2',
+        station,
+        sequence,
+        npExpected: 'P1',
+        useFactor: 1,
+        stdTimeSec: 50,
+        visualAidUrl: 'a',
+      });
+    }
+
+    const cmp = await service.getComparison({
+      modelA: 'AX-1000',
+      modelB: 'AX-EVEN',
+      taktTargetSec: 60,
+    });
+    const byKey = Object.fromEntries(cmp.deltas.map((d) => [d.key, d]));
+    // Even line balances better and has a lower line cycle.
+    expect(byKey.balancePct.betterSide).toBe('b');
+    expect(byKey.lineCycleTimeSec.betterSide).toBe('b');
+    expect(cmp.verdict).toBe('b');
+    expect(cmp.a.model).toBe('AX-1000');
+    expect(cmp.b.model).toBe('AX-EVEN');
+  });
+
+  it('ties a layout compared against itself (Fase 37)', async () => {
+    await seedRoute();
+    const cmp = await service.getComparison({
+      modelA: 'AX-1000',
+      modelB: 'AX-1000',
+      taktTargetSec: 60,
+    });
+    expect(cmp.scoreA).toBe(0);
+    expect(cmp.scoreB).toBe(0);
+    expect(cmp.verdict).toBe('tie');
+  });
+
   it('reports per-station documentation completeness (Fase 19)', async () => {
     await seedRoute(); // 3 stations, all with NP + factor + aid → complete
     // Add a station missing its visual aid.
