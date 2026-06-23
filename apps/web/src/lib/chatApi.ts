@@ -196,6 +196,19 @@ export interface ChatConversation {
   muted?: boolean;
   mutedUntil?: string | null;
   markedUnread?: boolean;
+  /** Canal de anuncios: solo el creador publica. */
+  announcement?: boolean;
+}
+
+/** Reunión/llamada programada en una conversación. */
+export interface Meeting {
+  id: string;
+  conversationId: string;
+  createdById: string;
+  title: string;
+  startAt: string;
+  durationMin: number;
+  recurrence: 'none' | 'daily' | 'weekly';
 }
 
 // ── Endpoints ──────────────────────────────────────────────────────────
@@ -216,11 +229,47 @@ export const chatApi = {
       headers: authHeaders(),
     }),
 
-  createChannel: (name: string, memberIds: string[]) =>
+  createChannel: (name: string, memberIds: string[], announcement = false) =>
     req<{ id: string }>('/messaging/conversations/channel', {
       method: 'POST',
       headers: authHeaders(),
-      body: JSON.stringify({ name, memberIds }),
+      body: JSON.stringify({ name, memberIds, announcement }),
+    }),
+
+  setAnnouncement: (conversationId: string, announcement: boolean) =>
+    req<{ ok: boolean; announcement: boolean }>(
+      `/messaging/conversations/${conversationId}/announcement`,
+      {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ announcement }),
+      },
+    ),
+
+  listMeetings: (conversationId: string) =>
+    req<Meeting[]>(`/messaging/conversations/${conversationId}/meetings`, {
+      headers: authHeaders(),
+    }),
+
+  createMeeting: (
+    conversationId: string,
+    data: {
+      title: string;
+      startAt: string;
+      durationMin: number;
+      recurrence: 'none' | 'daily' | 'weekly';
+    },
+  ) =>
+    req<Meeting>(`/messaging/conversations/${conversationId}/meetings`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify(data),
+    }),
+
+  cancelMeeting: (id: string) =>
+    req<{ ok: boolean }>(`/messaging/meetings/${id}`, {
+      method: 'DELETE',
+      headers: authHeaders(),
     }),
 
   searchMessages: (q: string) =>
