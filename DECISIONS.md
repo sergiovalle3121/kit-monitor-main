@@ -2221,4 +2221,20 @@ sólo añade los nombres que faltaban (mejora la interoperabilidad `.xlsx`).
 por carácter, FINDB sensible a mayúsculas, SEARCHB insensible, composición/anidamiento). Sin regresiones:
 toda la suite de spec de Office verde; `lint web` 0 errores; `build web` ✓.
 
+## 98. Office/Docs — legibilidad por idioma (Flesch para inglés) + módulo puro testeable
+
+**Contexto.** El panel «Revisar» calculaba la legibilidad sólo con **Fernández-Huerta** (español) y la
+lógica vivía mezclada dentro del componente `DocWordCount.tsx`, sin pruebas. El procesador de referencia
+muestra, para inglés, **Flesch Reading Ease** y **Flesch-Kincaid Grade Level**.
+
+**Decisión (sólo `apps/web`, aditiva — riesgo cero):** se extrae la lógica a un módulo **puro**
+`components/office/docs/readability.ts` (conteo de sílabas ES/EN, estadísticas de texto, las tres
+fórmulas y detección de idioma) y se testea con `npx tsx`. `DocWordCount.tsx` delega en él y muestra, en
+inglés, «Facilidad de lectura» (Flesch) + «Nivel escolar» (Flesch-Kincaid); en español sigue con
+Fernández-Huerta. El idioma se detecta por marcas inequívocas del español (ñ/¿/¡/acentos/stopwords).
+
+**Verificación:** nueva suite `readability.spec.ts` (**34 aserciones**: sílabas EN/ES de palabras
+conocidas, detección de idioma, fórmulas Flesch/FK/Fernández con valores controlados, bordes, integración).
+Sin regresiones: toda la suite de spec de Office verde; `lint web` 0 errores; `build web` ✓.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
