@@ -31,6 +31,7 @@ import {
   DowntimeReason,
   OeeBreakdown,
 } from './oee';
+import { lossBreakdown, LossBreakdownResult } from './oee-losses';
 
 interface Window {
   start: Date;
@@ -478,6 +479,30 @@ export class OeeService {
       downtimeByReason: down.byReason,
       openDowntime: down.openCount,
     };
+  }
+
+  /**
+   * OEE loss breakdown (F-Q1): the line's OEE split into a ranked Pareto of the
+   * big losses (in OEE points), so OEE + Σ(losses) = 100. Availability loss is
+   * split across the actual downtime reasons. Read-only; reuses oeeForLine.
+   */
+  async getLosses(
+    line: string,
+    opts: {
+      from?: string;
+      to?: string;
+      shift?: string;
+      plannedMinutes?: number;
+    } = {},
+  ): Promise<LossBreakdownResult & { line: string; from: string; to: string }> {
+    const report = await this.oeeForLine(line, opts);
+    const result = lossBreakdown({
+      availability: report.availability,
+      performance: report.performance,
+      quality: report.quality,
+      downtimeByReason: report.downtimeByReason,
+    });
+    return { ...result, line, from: report.from, to: report.to };
   }
 
   // ════════════════════════════════════════════════════════════════════════════

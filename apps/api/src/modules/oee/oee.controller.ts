@@ -114,6 +114,27 @@ export class OeeController {
     });
   }
 
+  @Get('losses')
+  @RequirePermissions('production:report')
+  @ApiOperation({
+    summary:
+      'Desglose de pérdidas de OEE por línea: Pareto de las grandes pérdidas en puntos de OEE (disponibilidad por razón de paro, desempeño, calidad).',
+  })
+  oeeLosses(
+    @Query('line') line: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('shift') shift?: string,
+    @Query('plannedMinutes') plannedMinutes?: string,
+  ) {
+    return this.service.getLosses(line, {
+      from,
+      to,
+      shift,
+      plannedMinutes: numOrUndef(plannedMinutes),
+    });
+  }
+
   @Get('work-order/:woId')
   @RequirePermissions('production:report')
   @ApiOperation({

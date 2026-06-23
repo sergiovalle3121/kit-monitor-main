@@ -36,6 +36,7 @@
     "dxf-parser": "^1.1.2",
     "embla-carousel-react": "^8.6.0",
     "embla-carousel-wheel-gestures": "^8.1.0",
+    "exceljs": "^4.4.0",
     "fabric": "^7.4.0",
     "file-saver": "^2.0.5",
     "framer-motion": "^12.38.0",

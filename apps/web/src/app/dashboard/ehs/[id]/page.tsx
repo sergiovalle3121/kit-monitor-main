@@ -59,6 +59,8 @@ interface Incident {
   lostDays: number;
   rootCause: string | null;
   correctiveAction: string | null;
+  capaOwner: string | null;
+  capaDueDate: string | null;
   occurredAt: string | null;
   investigatedAt: string | null;
   closedAt: string | null;
@@ -129,6 +131,34 @@ function fmtDateTime(iso: string | null | undefined): string {
   return d.toLocaleString('es-MX', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
+// Clasificación regulatoria derivada del tipo (campo ya existente). El KPI de
+// "registrables" usa exactamente RECORDABLE_TYPES, así que cuadra con esto.
+function classificationMeta(type: IType): { label: string; detail: string; color: string } {
+  switch (type) {
+    case 'RECORDABLE':
+      return { label: 'Registrable (OSHA / IATF)', detail: 'Debe documentarse en el OSHA 300 log.', color: RED };
+    case 'LOST_TIME':
+      return { label: 'Registrable · Tiempo perdido (LTI)', detail: 'Afecta el LTIR; registra los días perdidos al cerrar.', color: RED };
+    case 'FIRST_AID':
+      return { label: 'Primeros auxilios (no registrable)', detail: 'Atención menor; no entra al OSHA 300.', color: '#0a84ff' };
+    case 'NEAR_MISS':
+      return { label: 'Casi-accidente', detail: 'Sin lesión; oportunidad de prevención.', color: VIOLET };
+    case 'ENVIRONMENTAL':
+      return { label: 'Ambiental', detail: 'Evento ambiental (derrame, residuo, emisión).', color: GREEN };
+    case 'PROPERTY_DAMAGE':
+      return { label: 'Daño material', detail: 'Daño a equipo o instalación, sin lesión.', color: AMBER };
+  }
+}
+
+// Estado de la CAPA respecto a su fecha de compromiso (null = sin fecha).
+function capaInfo(iso: string | null | undefined): { days: number; overdue: boolean; dueSoon: boolean } | null {
+  if (!iso) return null;
+  const t = new Date(iso).getTime();
+  if (Number.isNaN(t)) return null;
+  const days = Math.floor((t - Date.now()) / 86_400_000);
+  return { days, overdue: days < 0, dueSoon: days >= 0 && days <= 7 };
+}
+
 export default function IncidentDetailPage() {
   const params = useParams();
   const id = String(params.id);
@@ -161,6 +191,9 @@ export default function IncidentDetailPage() {
   const recordable = RECORDABLE_TYPES.includes(inc.type);
   const terminal = inc.status === 'CLOSED' || inc.status === 'CANCELLED';
   const sm = STATUS_META[inc.status];
+  const cls = classificationMeta(inc.type);
+  const capa = capaInfo(inc.capaDueDate);
+  const capaActive = !terminal && capa !== null;
 
   async function transition(to: Status) {
     const body: Record<string, unknown> = { status: to };
@@ -172,10 +205,14 @@ export default function IncidentDetailPage() {
       const ca = window.prompt('Acción correctiva (opcional):', inc.correctiveAction || '');
       if (ca === null) return;
       if (ca) body.correctiveAction = ca;
-    } else if (to === 'CLOSED' && RECORDABLE_TYPES.includes(inc.type)) {
-      const ld = window.prompt('Días perdidos (LTIR):', String(inc.lostDays || 0));
-      if (ld === null) return;
-      body.lostDays = Number(ld) || 0;
+    } else if (to === 'CLOSED') {
+      if (RECORDABLE_TYPES.includes(inc.type)) {
+        const ld = window.prompt('Días perdidos (LTIR):', String(inc.lostDays || 0));
+        if (ld === null) return;
+        body.lostDays = Number(ld) || 0;
+      } else if (!window.confirm('¿Cerrar este incidente? Confirma que la acción correctiva quedó implementada.')) {
+        return;
+      }
     } else if (to === 'CANCELLED') {
       if (!window.confirm('¿Cancelar este incidente? Se marcará como inválido/duplicado.')) return;
     }
@@ -227,6 +264,32 @@ export default function IncidentDetailPage() {
       </div>
 
       <main className="max-w-5xl mx-auto px-6 pt-6 pb-24">
+        {/* Clasificación regulatoria (siempre visible, derivada del tipo) */}
+        <div className="mb-4 flex flex-wrap items-center gap-2 text-[13px]">
+          <span className="text-gray-400">Clasificación:</span>
+          <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 font-medium" style={{ background: `${cls.color}1a`, color: cls.color }}>
+            <ClipboardCheck className="h-3.5 w-3.5" /> {cls.label}
+          </span>
+          <span className="text-gray-400">{cls.detail}</span>
+        </div>
+
+        {/* CAPA por vencer / vencida — alerta visible al responsable */}
+        {capaActive && capa && (capa.overdue || capa.dueSoon) && (
+          <div
+            className="mb-5 flex items-start gap-3 rounded-2xl px-4 py-3 text-[13px]"
+            style={{ background: capa.overdue ? `${RED}12` : `${AMBER}14`, color: capa.overdue ? RED : '#b45309' }}
+          >
+            <Clock className="mt-px h-5 w-5 flex-shrink-0" style={{ color: capa.overdue ? RED : AMBER }} />
+            <div>
+              <span className="font-semibold">
+                {capa.overdue ? `CAPA vencida hace ${Math.abs(capa.days)} ${Math.abs(capa.days) === 1 ? 'día' : 'días'}.` : `CAPA vence en ${capa.days} ${capa.days === 1 ? 'día' : 'días'}.`}
+              </span>{' '}
+              Compromiso {fmtDate(inc.capaDueDate)}
+              {inc.capaOwner ? ` · responsable ${inc.capaOwner}` : ' · sin responsable asignado'}.
+            </div>
+          </div>
+        )}
+
         {/* OSHA recordable banner */}
         {recordable && (
           <div className="mb-5 flex items-start gap-3 rounded-2xl px-4 py-3 text-[13px]" style={{ background: `${AMBER}14`, color: '#b45309' }}>
@@ -340,6 +403,8 @@ function InvestigationCard({ inc, onSaved }: { inc: Incident; onSaved: () => voi
   const [f, setF] = useState({
     rootCause: inc.rootCause || '',
     correctiveAction: inc.correctiveAction || '',
+    capaOwner: inc.capaOwner || '',
+    capaDueDate: inc.capaDueDate ? inc.capaDueDate.slice(0, 10) : '',
     injuredPerson: inc.injuredPerson || '',
     lostDays: inc.lostDays ?? 0,
   });
@@ -347,6 +412,8 @@ function InvestigationCard({ inc, onSaved }: { inc: Incident; onSaved: () => voi
   const dirty =
     (f.rootCause || '') !== (inc.rootCause || '') ||
     (f.correctiveAction || '') !== (inc.correctiveAction || '') ||
+    (f.capaOwner || '') !== (inc.capaOwner || '') ||
+    (f.capaDueDate || '') !== (inc.capaDueDate ? inc.capaDueDate.slice(0, 10) : '') ||
     (f.injuredPerson || '') !== (inc.injuredPerson || '') ||
     Number(f.lostDays || 0) !== Number(inc.lostDays || 0);
 
@@ -359,6 +426,9 @@ function InvestigationCard({ inc, onSaved }: { inc: Incident; onSaved: () => voi
         body: JSON.stringify({
           rootCause: f.rootCause || undefined,
           correctiveAction: f.correctiveAction || undefined,
+          // Cadena vacía = limpiar (el backend lo normaliza a null).
+          capaOwner: f.capaOwner,
+          capaDueDate: f.capaDueDate,
           injuredPerson: f.injuredPerson || undefined,
           lostDays: Number(f.lostDays) || 0,
         }),
@@ -403,9 +473,34 @@ function InvestigationCard({ inc, onSaved }: { inc: Incident; onSaved: () => voi
             rows={3}
             value={f.correctiveAction}
             onChange={(e) => setF({ ...f, correctiveAction: e.target.value })}
-            placeholder="Acción para eliminar la causa y prevenir recurrencia (responsable, fecha)."
+            placeholder="Acción para eliminar la causa y prevenir recurrencia."
           />
         </label>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <label className="block">
+            <span className="block text-[12px] font-medium text-gray-500 mb-1 inline-flex items-center gap-1.5"><User className="w-3.5 h-3.5" /> Responsable de la CAPA</span>
+            <input className={ehsInput} value={f.capaOwner} onChange={(e) => setF({ ...f, capaOwner: e.target.value })} placeholder="correo@planta.com" />
+          </label>
+          <label className="block">
+            <span className="block text-[12px] font-medium text-gray-500 mb-1 inline-flex items-center gap-1.5"><CalendarDays className="w-3.5 h-3.5" /> Fecha de compromiso</span>
+            <input type="date" className={ehsInput} value={f.capaDueDate} onChange={(e) => setF({ ...f, capaDueDate: e.target.value })} />
+          </label>
+        </div>
+        {f.capaDueDate && (() => {
+          const ci = capaInfo(f.capaDueDate);
+          if (!ci) return null;
+          const color = ci.overdue ? RED : ci.dueSoon ? AMBER : GREEN;
+          const text = ci.overdue
+            ? `Vencida hace ${Math.abs(ci.days)} ${Math.abs(ci.days) === 1 ? 'día' : 'días'}`
+            : ci.days === 0
+              ? 'Vence hoy'
+              : `Vence en ${ci.days} ${ci.days === 1 ? 'día' : 'días'}`;
+          return (
+            <div className="flex items-center gap-1.5 text-[12px] font-medium" style={{ color }}>
+              <Clock className="w-3.5 h-3.5" /> {text}
+            </div>
+          );
+        })()}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <label className="block">
             <span className="block text-[12px] font-medium text-gray-500 mb-1">Persona lesionada</span>
