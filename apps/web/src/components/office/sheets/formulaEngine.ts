@@ -51,6 +51,7 @@ import { STAT_TEST_FUNCTIONS } from './statTests';
 import { FIDELITY_FUNCTIONS } from './fidelityFixes';
 import { PERCENTILE_FUNCTIONS } from './percentileFix';
 import { REGRESSION_FUNCTIONS } from './regression';
+import { installBroadcast } from './broadcast';
 
 // ── Utilidades de coerción / aplanado de argumentos ──────────────────────────
 // Las funciones reciben `params`: un array donde cada argumento ya viene evaluado.
@@ -362,6 +363,8 @@ export function installFormulaEngine(): void {
   if (!proto.__axosParsePatched && typeof proto.parse === 'function') {
     const origParse = proto.parse;
     proto.parse = function patchedParse(expression: any, options: any) {
+      // Activa la difusión de operadores sobre matrices en esta instancia (envuelve `yy`).
+      installBroadcast(this?.parser?.yy);
       // Preprocesa la cadena: 1) alias de `T(`/`N(` (el lexer no admite funciones de 1 letra);
       // 2) constantes de matriz `{1,2,3}` → ARRCONST(...); 3) referencias estructuradas `Tabla[Col]`
       // → rangos; 4) familia LAMBDA (invocación directa + lambdas-argumento codificadas); 5) LET

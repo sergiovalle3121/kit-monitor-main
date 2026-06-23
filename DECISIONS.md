@@ -1660,4 +1660,31 @@ LCM, DELTA/GESTEP). Cada entrada lleva sintaxis y ayuda de argumentos en españo
 las 50 familias añadidas** → todas operativas (sin `#NAME?`/`#ERROR!`), de modo que el asistente
 nunca anuncia una función rota. `lint web` 0 errores; `build web` ✓.
 
+## 69. Office/Sheets — difusión (broadcasting) de operadores sobre matrices
+
+**Contexto.** La mayor limitación del motor, documentada desde §«modernFunctions»: el parser de
+Fortune-Sheet evalúa los operadores binarios (`+ - * / ^ > < >= <= = <> &`) sólo con escalares, así
+que `A1:A10>5` colapsaba a un escalar y los idiomas de matriz de Excel —`(rango>x)*1`,
+`SUMPRODUCT((a>b)*c)`, `{1,2,3}+{10,20,30}`— fallaban. Por eso `FILTER` necesitaba la máscara ya
+evaluada.
+
+**Decisión (sólo `apps/web`, aditiva):** `components/office/sheets/broadcast.ts` **envuelve el
+despachador de operadores por instancia** (`parser.parser.yy.evaluateByOperator`, fijado en el
+constructor; `registerOperation` no se exporta). Si algún operando es una matriz 2D, el operador se
+aplica elemento a elemento estilo Excel (escalar↔matriz se recicla; columna n×1 ⊗ fila 1×m → matriz
+n×m) devolviendo una matriz 2D que compone con `SUM`/`SUMPRODUCT`/… y derrama (§38). Se engancha en
+el parche de `parse` (`installBroadcast(this.parser.yy)`). Corrige además que los aritméticos de
+formulajs no convertían los lógicos (`toNumber(true)=undefined`→`#VALUE!`): `VERDADERO→1`/`FALSO→0`
+para `+ - * / ^`, lo que hace funcionar `(rango>x)*1`. El camino escalar sólo cambia por esa coerción
+(que únicamente puede arreglar, nunca romper, pues antes daba error).
+
+**Límite (documentado):** el **menos unario** (`-`/idioma `--(…)`) lo trata el gramático de forma
+especial y no compone con matrices de forma fiable → úsese `(…)*1`.
+
+**Verificación:** nueva suite `broadcast.spec.ts` (**19 aserciones** sobre el motor REAL:
+`(A1:A5>2)*1`, `SUMPRODUCT((a>2)*B)`, doble condición, aritmética rango↔escalar y rango↔rango,
+constantes de matriz, producto exterior columna×fila, `&` difundido, y que los escalares NO se
+rompen + lógico·número). **Sin regresiones: las 46 suites de spec de Office verdes** (la prueba
+clave, porque toca el camino de evaluación central); `lint web` 0 errores; `build web` ✓.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
