@@ -12,7 +12,12 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { RequirePermissions } from '../auth/decorators/permissions.decorator';
 import { NpiService } from './npi.service';
-import { CreateNpiProjectDto, DecideGateDto } from './dto/npi.dto';
+import { NpiReadinessScanService } from './npi-readiness-scan.service';
+import {
+  CreateNpiProjectDto,
+  DecideGateDto,
+  SnapshotReadinessDto,
+} from './dto/npi.dto';
 
 /**
  * NPI orchestration by phase gates + an ADVISORY readiness aggregator. Readiness
@@ -26,7 +31,10 @@ import { CreateNpiProjectDto, DecideGateDto } from './dto/npi.dto';
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller('npi')
 export class NpiController {
-  constructor(private readonly service: NpiService) {}
+  constructor(
+    private readonly service: NpiService,
+    private readonly scan: NpiReadinessScanService,
+  ) {}
 
   @Get('projects')
   @RequirePermissions('engineering:read')
@@ -49,6 +57,48 @@ export class NpiController {
     @Query('revision') revision?: string,
   ) {
     return this.service.deriveReadiness(model, revision ?? '1.0');
+  }
+
+  @Get('readiness/history')
+  @RequirePermissions('engineering:read')
+  @ApiOperation({
+    summary: 'Historial de snapshots de readiness (tendencia/auditoría).',
+  })
+  readinessHistory(
+    @Query('model') model?: string,
+    @Query('revision') revision?: string,
+    @Query('projectId') projectId?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.service.listSnapshots({
+      model,
+      revision,
+      projectId,
+      limit: limit ? Number(limit) : undefined,
+    });
+  }
+
+  @Post('readiness/snapshot')
+  @RequirePermissions('engineering:write')
+  @ApiOperation({
+    summary: 'Captura un snapshot de readiness bajo demanda (advisory).',
+  })
+  captureSnapshot(@Body() dto: SnapshotReadinessDto) {
+    return this.service.captureSnapshot(dto.model, dto.revision ?? '1.0', {
+      projectId: dto.projectId ?? null,
+      reason: 'MANUAL',
+      note: dto.note ?? null,
+    });
+  }
+
+  @Post('readiness/scan')
+  @RequirePermissions('engineering:write')
+  @ApiOperation({
+    summary:
+      'Dispara el escaneo de readiness ahora (snapshots + alertas). Mismo trabajo que el cron.',
+  })
+  runScan() {
+    return this.scan.scanAndNotify();
   }
 
   @Get('projects/:id')
