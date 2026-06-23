@@ -231,6 +231,16 @@ export class TrafficController {
     return this.alerts.scanLateAppointmentsAndNotify();
   }
 
+  @Post('shipment-alerts/run')
+  @RequirePermissions('logistics:write')
+  @ApiOperation({
+    summary:
+      'Dispara el barrido de embarques sin andén cerca de su fecha y deja avisos en el buzón. Idéntico al cron, bajo demanda.',
+  })
+  runShipmentAlerts() {
+    return this.alerts.scanShipmentsWithoutDockAndNotify();
+  }
+
   // ── Dock appointments (Citas de andén) ───────────────────────────────────────
   @Get('appointments')
   @RequirePermissions('logistics:read')

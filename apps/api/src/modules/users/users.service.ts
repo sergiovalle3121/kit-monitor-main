@@ -2,7 +2,8 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
-import { User, UserRole } from './entities/user.entity';
+import { User } from './entities/user.entity';
+import { isOwnerEmail } from '../auth/rbac';
 
 @Injectable()
 export class UsersService {
@@ -65,6 +66,23 @@ export class UsersService {
         'username',
       ],
     });
+  }
+
+  /**
+   * Active users that hold a given permission — mirrors PermissionsGuard:
+   * Admin (case-insensitive) and the app owner(s) always match; otherwise the
+   * user's stored `permissions` array must include it. Used by producers (p.ej.
+   * las alertas de tráfico) para dirigir avisos al equipo correcto, no solo al owner.
+   */
+  async listByPermission(permission: string): Promise<User[]> {
+    const users = await this.userRepo.find();
+    return users.filter(
+      (u) =>
+        u.isActive !== false &&
+        ((u.role || '').toLowerCase() === 'admin' ||
+          isOwnerEmail(u.email) ||
+          (Array.isArray(u.permissions) && u.permissions.includes(permission))),
+    );
   }
 
   async update(id: string, dto: Partial<User>): Promise<User> {

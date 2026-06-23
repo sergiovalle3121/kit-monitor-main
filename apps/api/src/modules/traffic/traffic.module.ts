@@ -5,6 +5,7 @@ import { Vehicle } from './entities/vehicle.entity';
 import { Driver } from './entities/driver.entity';
 import { LoadingDock } from './entities/loading-dock.entity';
 import { DockAppointment } from './entities/dock-appointment.entity';
+import { Shipment } from '../outbound/entities/shipment.entity';
 import { TrafficService } from './traffic.service';
 import { TrafficController } from './traffic.controller';
 import { TrafficAlertsService } from './traffic-alerts.service';
@@ -30,6 +31,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
       Driver,
       LoadingDock,
       DockAppointment,
+      Shipment,
     ]),
     UsersModule,
     NotificationsModule,
