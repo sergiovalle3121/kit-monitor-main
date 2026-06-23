@@ -13,11 +13,26 @@
 import type { NamedRange } from './sheetOps';
 import { cellValue, namesToDefined } from './xlsx';
 
+export interface SheetProtection {
+  enabled: boolean;
+  password?: string;
+  selectLocked?: boolean;   // por defecto true
+  selectUnlocked?: boolean; // por defecto true
+  formatCells?: boolean;
+  insertRows?: boolean;
+  insertColumns?: boolean;
+  deleteRows?: boolean;
+  deleteColumns?: boolean;
+  sort?: boolean;
+  autoFilter?: boolean;
+}
+
 type FortuneSheet = {
   name?: string;
   celldata?: { r: number; c: number; v: any }[];
   config?: any; frozen?: any; order?: number; dataVerification?: Record<string, any>;
   filter_select?: { row?: number[]; column?: number[] } | null;
+  protection?: SheetProtection | null;
 };
 
 /** `#rrggbb` (o `rrggbb`) → `FFRRGGBB` (ARGB de ExcelJS). `null` si no es color válido. */
@@ -176,9 +191,32 @@ export function buildStyledWorkbook(ExcelJS: any, sheets: FortuneSheet[], names?
   return wb;
 }
 
+/** `SheetProtection` de Axos → `{password, options}` de `worksheet.protect` de ExcelJS (o `null`). */
+export function protectOptionsFor(p?: SheetProtection | null): { password: string; options: any } | null {
+  if (!p || !p.enabled) return null;
+  return {
+    password: p.password ?? '',
+    options: {
+      selectLockedCells: p.selectLocked !== false,
+      selectUnlockedCells: p.selectUnlocked !== false,
+      formatCells: !!p.formatCells, formatColumns: !!p.formatCells, formatRows: !!p.formatCells,
+      insertRows: !!p.insertRows, insertColumns: !!p.insertColumns,
+      deleteRows: !!p.deleteRows, deleteColumns: !!p.deleteColumns,
+      sort: !!p.sort, autoFilter: !!p.autoFilter,
+    },
+  };
+}
+
 /** Bytes .xlsx con estilos (para descarga y para el test de fidelidad). */
 export async function styledXlsxBuffer(ExcelJS: any, sheets: FortuneSheet[], names?: NamedRange[]): Promise<ArrayBuffer> {
   const wb = buildStyledWorkbook(ExcelJS, sheets, names);
+  // Protección de hoja (`worksheet.protect` es async — hashea la contraseña). Las worksheets están en
+  // el mismo orden que `list` dentro de buildStyledWorkbook.
+  const list = sheets?.length ? sheets : [];
+  for (let i = 0; i < list.length; i++) {
+    const po = protectOptionsFor(list[i].protection);
+    if (po && wb.worksheets[i]) { try { await wb.worksheets[i].protect(po.password, po.options); } catch { /* ignora */ } }
+  }
   return wb.xlsx.writeBuffer();
 }
 
@@ -233,6 +271,17 @@ export async function readStylesIntoSheets(ExcelJS: any, buffer: ArrayBuffer, sh
   wb.eachSheet((ws: any, id: number) => {
     const sheet = sheets[id - 1];
     if (!sheet) return;
+    // Protección de hoja (round-trip: un .xlsx protegido sigue protegido al re-exportar).
+    const sp = ws.sheetProtection;
+    if (sp && sp.sheet) {
+      sheet.protection = {
+        enabled: true,
+        selectLocked: sp.selectLockedCells !== false,
+        selectUnlocked: sp.selectUnlockedCells !== false,
+        formatCells: !!sp.formatCells, insertRows: !!sp.insertRows, insertColumns: !!sp.insertColumns,
+        deleteRows: !!sp.deleteRows, deleteColumns: !!sp.deleteColumns, sort: !!sp.sort, autoFilter: !!sp.autoFilter,
+      };
+    }
     sheet.celldata = sheet.celldata || [];
     const index = new Map<string, any>();
     for (const cd of sheet.celldata) index.set(`${cd.r}_${cd.c}`, cd);
