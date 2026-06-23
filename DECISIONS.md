@@ -2190,4 +2190,19 @@ horas con/sin segundos y AM/PM; fechas ISO, `M/D/Y`, `D-Mmm-Y`, `Mmm D, Y`; comb
 errores capturados por `IFERROR`; roundtrip `HOUR`/`MINUTE`/`YEAR`/`MONTH`/`DAY` sobre el resultado). Sin
 regresiones: toda la suite de spec de Office verde; `lint web` 0 errores; `build web` ✓.
 
+## 96. Office/Sheets — PROPER con las reglas exactas de Excel (apóstrofo/dígito)
+
+**Contexto.** Auditando contra Excel: `PROPER("o'brien")` debe dar `"O'Brien"` —Excel pone en
+mayúscula toda letra que siga a un carácter **no alfabético** (espacio, apóstrofo, guion, dígito),
+incluido el conocido quirk `PROPER("they're")="They'Re"`. Pero `@formulajs/formulajs@2.9.3` sólo trata
+el **espacio** como separador y devolvía `"O'brien"`.
+
+**Decisión (sólo `apps/web`, aditiva — riesgo cero):** `components/office/sheets/properFidelity.ts`
+reimplementa `PROPER` (trivial y exacta): recorre el texto y pone en mayúscula cada letra precedida por
+algo que no sea letra, bajando el resto. Unicode-aware (`\p{L}`) para acentos y ñ.
+
+**Verificación:** nueva suite `properFidelity.spec.ts` (**15 aserciones**: apóstrofo, dígito, guion,
+acentos/ñ, baja el resto, bordes, idempotencia). Sin regresiones: toda la suite de spec de Office verde;
+`lint web` 0 errores; `build web` ✓.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
