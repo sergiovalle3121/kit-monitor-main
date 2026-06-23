@@ -43,6 +43,7 @@ import { STAT_FUNCTIONS } from './statFunctions';
 import { DB_FUNCTIONS } from './dbFunctions';
 import { MATRIX_FUNCTIONS } from './matrixFunctions';
 import { MATH_EXTRA_FUNCTIONS } from './mathExtras';
+import { DATE_INTL_FUNCTIONS } from './dateIntl';
 
 // ── Utilidades de coerción / aplanado de argumentos ──────────────────────────
 // Las funciones reciben `params`: un array donde cada argumento ya viene evaluado.
@@ -283,6 +284,8 @@ export const CUSTOM_FUNCTIONS: Record<string, (params: any[]) => any> = {
   ...MATRIX_FUNCTIONS,
   // Redondeo moderno (CEILING.MATH/FLOOR.MATH/…) + RANDARRAY + ENCODEURL — ver `mathExtras.ts`.
   ...MATH_EXTRA_FUNCTIONS,
+  // Fechas internacionales (WORKDAY.INTL/NETWORKDAYS.INTL) — ver `dateIntl.ts`.
+  ...DATE_INTL_FUNCTIONS,
 };
 
 // ── Normalización de literales booleanos en la cadena de fórmula ──────────────

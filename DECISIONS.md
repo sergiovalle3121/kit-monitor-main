@@ -1453,4 +1453,22 @@ de positivos/negativos con `modo`, `*.PRECISE` hacia ±∞; `RANDARRAY` comproba
 `COLUMNS`— y cotas —`[mín,máx]`, entero, suma acotada—; `ENCODEURL`). Sin regresiones: 33 suites de
 hoja + 3 de I/O Office verdes; `lint web` 0 errores; `build web` ✓.
 
+## 58. Office/Sheets — fechas internacionales (WORKDAY.INTL / NETWORKDAYS.INTL)
+
+**Contexto.** `WORKDAY.INTL` y `NETWORKDAYS.INTL` (ausentes en formulajs, `#NAME?`) generalizan a
+`WORKDAY`/`NETWORKDAYS`: en vez del fin de semana fijo Sáb-Dom aceptan un **fin de semana
+configurable** —código numérico (1–7, 11–17) o **máscara de 7 caracteres** `"0000011"` (Lun…Dom,
+`1`=no laborable)— más una lista de festivos.
+
+**Decisión (sólo `apps/web`, aditiva):** `components/office/sheets/dateIntl.ts`. Aritmética de días
+en **UTC** (evita saltos por horario de verano), iterando día a día sobre el número de serie de
+Excel. Devuelven objetos `Date` (como las funciones legadas), que la rejilla formatea. `weekendSet`
+traduce el código/máscara a un conjunto de días `getUTCDay`; código inválido → `#NUM!`.
+`NETWORKDAYS.INTL` cuenta inclusivo y conserva el signo si las fechas van al revés.
+
+**Verificación:** nueva suite `dateIntl.spec.ts` (**12 aserciones** sobre el motor REAL: `+5`/`-3`
+días, máscara de texto, festivo que se salta, código inválido `#NUM!`; recuento sólo-domingo,
+con festivo, invertido con signo, mismo día). Sin regresiones: 34 suites de hoja + 3 de I/O Office
+verdes; `lint web` 0 errores; `build web` ✓.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
