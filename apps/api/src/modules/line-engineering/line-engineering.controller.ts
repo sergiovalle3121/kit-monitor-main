@@ -211,6 +211,19 @@ export class LineEngineeringController {
     return this.service.getContinuity(model, revision ?? 'A');
   }
 
+  @Get('layout/cohesion')
+  @RequirePermissions('engineering:read')
+  @ApiOperation({
+    summary:
+      'Cohesión espacial de líneas: qué tan agrupada está cada línea (compacidad), estaciones intercaladas en otra línea y regiones traslapadas.',
+  })
+  getCohesion(
+    @Query('model') model: string,
+    @Query('revision') revision?: string,
+  ) {
+    return this.service.getCohesion(model, revision ?? 'A');
+  }
+
   @Put('layout/approval')
   @RequirePermissions('engineering:write')
   @ApiOperation({
