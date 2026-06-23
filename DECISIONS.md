@@ -1605,4 +1605,35 @@ para imponerse a la delegación— de modo que toda la familia inclusiva es cohe
 `#NUM!` fuera de rango; coherencia `QUARTILE Q2 == MEDIAN` y `PERCENTILE 0.25 == QUARTILE Q1`). Sin
 regresiones: 40 suites de hoja + 3 de I/O Office verdes; `lint web` 0 errores; `build web` ✓.
 
+## 66. Alertas proactivas de KPI (Fase 11 CIDE)
+
+**Contexto.** El tablero mostraba métricas (valor + sparkline) pero era pasivo:
+nadie avisaba cuando un KPI cruzaba su objetivo o empeoraba. La vigilancia activa
+es lo que vuelve un tablero en soporte real a la decisión.
+
+**Decisión.** Alertas de KPI **deterministas y RBAC-gated** sobre lo ya construido:
+- **Objetivo (target) editable.** `UpsertMetricDto` gana `target?: number`
+  (persistido en `MetricDefinition.config.target` vía el helper `applyTarget`;
+  vacío lo limpia). El editor self-serve (§25) gana el campo "Objetivo".
+- **Evaluación.** `SemanticService.evaluateAlerts(principal)` combina valor en
+  vivo (RBAC) + `direction` + snapshots (§28): **(1)** *breach de objetivo* —
+  según `direction`, severidad por la magnitud de la desviación (≥20% → critical);
+  **(2)** *tendencia adversa* — cambio ≥15% contra `direction` en la ventana de
+  snapshots. Endpoint `GET /api/semantic/alerts`.
+- **CIDE conectado.** Herramienta read-only `kpi_alerts` ("¿qué KPIs están fuera
+  de objetivo / empeorando?").
+- **Frontend.** El Centro de Inteligencia abre con la sección **"Alertas de KPI"**
+  (severidad coloreada, objetivo vs tendencia).
+
+**Nota.** Self-contained y específico de KPIs (distinto del módulo genérico
+`alerts`); las alertas de tendencia requieren ≥2 snapshots (se construyen con los
+días). **Sin entidades nuevas** (target vive en `config`).
+
+**Verificación:** build API ✓, build web ✓, lint web (0 errores) ✓, **768/768**
+tests ✓. (El build web requirió `npm install` por deps nuevas de `main` —`three`,
+`dxf-parser`— ajenas a esta fase.)
+
+**Pendiente (Fase 12):** alertas push vía el módulo `notifications`; snapshots por
+tenant; persistir tarjetas del chat; borrado lógico en el editor.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->

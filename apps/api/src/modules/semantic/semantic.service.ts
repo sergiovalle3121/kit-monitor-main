@@ -48,6 +48,41 @@ interface ResolverDef {
   compute: () => Promise<number>;
 }
 
+/** A KPI alert: a metric whose value breaches its target or trends adversely. */
+export interface KpiAlert {
+  key: string;
+  name: string;
+  value: number;
+  unit: string | null;
+  domain: string | null;
+  target: number | null;
+  direction: string | null;
+  severity: 'warning' | 'critical';
+  kind: 'target' | 'trend';
+  message: string;
+}
+
+/** Merge a target into a metric's config JSON (undefined = leave; null = clear). */
+function applyTarget(
+  config: Record<string, unknown> | null,
+  target?: number | null,
+): Record<string, unknown> | null {
+  if (target === undefined) return config ?? null;
+  const next: Record<string, unknown> = { ...(config ?? {}) };
+  if (target === null) delete next.target;
+  else next.target = target;
+  return Object.keys(next).length ? next : null;
+}
+
+function fmtAlertNum(n: number): string {
+  return Number.isInteger(n)
+    ? n.toLocaleString('es-MX')
+    : n.toLocaleString('es-MX', { maximumFractionDigits: 2 });
+}
+function unitSuffix(unit: string | null): string {
+  return unit === '%' ? '%' : unit === 'USD' ? ' USD' : '';
+}
+
 /**
  * The semantic layer: a versioned **metric catalog** + an **ontology** (object
  * types and links) over the real MES/ERP data. It is the single source of truth
@@ -188,6 +223,7 @@ export class SemanticService {
         grain: dto.grain ?? existing.grain,
         formula: dto.formula ?? existing.formula,
         direction: dto.direction ?? existing.direction,
+        config: applyTarget(existing.config, dto.target),
         // Editing a definition bumps its version (audit of metric drift).
         version: existing.version + 1,
       });
@@ -204,6 +240,7 @@ export class SemanticService {
         grain: dto.grain ?? null,
         formula: dto.formula ?? null,
         direction: dto.direction ?? null,
+        config: applyTarget(null, dto.target),
         version: 1,
         active: true,
       }),
@@ -448,6 +485,94 @@ export class SemanticService {
       (out[r.metricKey] ??= []).push({ day: r.day, value: r.value });
     }
     return out;
+  }
+
+  // ── KPI alerts (proactive: target breach or adverse trend) ──────────────────
+  /**
+   * Evaluate proactive KPI alerts for the metrics the caller may see: a value
+   * that breaches its target (per `direction`), or a value trending adversely
+   * over the recent snapshot window. Deterministic and RBAC-gated.
+   */
+  async evaluateAlerts(
+    principal: SemanticPrincipal,
+    tenantId = DEFAULT_TENANT,
+  ): Promise<KpiAlert[]> {
+    const [metrics, values, history] = await Promise.all([
+      this.listMetrics(tenantId),
+      this.values(principal, tenantId),
+      this.metricHistoryBatch(principal, tenantId, 14),
+    ]);
+    const valueByKey = new Map(values.map((v) => [v.key, v]));
+    const alerts: KpiAlert[] = [];
+
+    for (const m of metrics) {
+      const mv = valueByKey.get(m.key);
+      if (!mv || mv.value == null || mv.restricted) continue;
+      const value = mv.value;
+      const dir = m.direction;
+      const target =
+        m.config && typeof m.config.target === 'number'
+          ? (m.config.target as number)
+          : null;
+
+      // 1) Target breach (needs a target + a direction).
+      if (target != null && dir) {
+        const breached = dir === 'down' ? value > target : value < target;
+        if (breached) {
+          const over =
+            target !== 0 ? Math.abs((value - target) / target) * 100 : 100;
+          const severity: KpiAlert['severity'] =
+            over >= 20 ? 'critical' : 'warning';
+          const cmp = dir === 'down' ? 'por encima de' : 'por debajo de';
+          alerts.push({
+            key: m.key,
+            name: m.name,
+            value,
+            unit: m.unit,
+            domain: m.domain,
+            target,
+            direction: dir,
+            severity,
+            kind: 'target',
+            message: `${m.name}: ${fmtAlertNum(value)}${unitSuffix(m.unit)} está ${cmp} su objetivo (${fmtAlertNum(target)}${unitSuffix(m.unit)}).`,
+          });
+          continue; // a breached metric doesn't also need a trend alert
+        }
+      }
+
+      // 2) Adverse trend over the snapshot window.
+      if (dir) {
+        const pts = history[m.key] ?? [];
+        if (pts.length >= 2) {
+          const first = pts[0].value;
+          const last = pts[pts.length - 1].value;
+          if (first !== 0) {
+            const changePct = ((last - first) / Math.abs(first)) * 100;
+            const adverse =
+              (dir === 'up' && changePct <= -15) ||
+              (dir === 'down' && changePct >= 15);
+            if (adverse) {
+              const word = changePct >= 0 ? 'subió' : 'bajó';
+              alerts.push({
+                key: m.key,
+                name: m.name,
+                value,
+                unit: m.unit,
+                domain: m.domain,
+                target,
+                direction: dir,
+                severity: 'warning',
+                kind: 'trend',
+                message: `${m.name} ${word} ${Math.abs(Math.round(changePct))}% (tendencia adversa) en la ventana reciente.`,
+              });
+            }
+          }
+        }
+      }
+    }
+
+    const rank = { critical: 0, warning: 1 };
+    return alerts.sort((a, b) => rank[a.severity] - rank[b.severity]);
   }
 
   /** Daily KPI snapshot for the default tenant. */

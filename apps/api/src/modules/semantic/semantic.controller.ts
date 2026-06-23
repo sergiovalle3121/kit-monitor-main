@@ -67,6 +67,12 @@ export class SemanticController {
     );
   }
 
+  /** Proactive KPI alerts (target breach or adverse trend) for the caller. */
+  @Get('alerts')
+  alerts(@Request() req: AuthReq) {
+    return this.semantic.evaluateAlerts(this.principal(req), this.tenant(req));
+  }
+
   /** Live value for one metric. */
   @Get('metrics/:key/value')
   metricValue(@Request() req: AuthReq, @Param('key') key: string) {
