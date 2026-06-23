@@ -1492,4 +1492,23 @@ conocidos: χ²₀.₀₅,₁=3.841 y con 5 g.l.=11.07; F₀.₀₅,₃,₄=6.59
 acumuladas; legados corregidos; `#NUM!` en dominios inválidos; composición con `ROUND`). Sin
 regresiones: 35 suites de hoja + 3 de I/O Office verdes; `lint web` 0 errores; `build web` ✓.
 
+## 60. Office/Sheets — distribuciones gamma/beta/hipergeométrica/binomial negativa
+
+**Contexto.** Completa la familia estadística (§59) con las distribuciones que faltaban: nombres
+modernos `GAMMA.DIST`/`GAMMA.INV`/`BETA.DIST`/`BETA.INV`/`GAMMALN.PRECISE` (`#NAME?` por el punto) y
+las discretas `HYPGEOM.DIST`/`NEGBINOM.DIST` (ausentes), más `PERCENTRANK.EXC`. La `BETADIST` de
+formulajs además estaba rota (`#VALUE!`).
+
+**Decisión (sólo `apps/web`, aditiva):** se añaden a `distributions.ts`, reutilizando `P(a,x)` e
+`Iₓ(a,b)` (§59). Gamma: CDF `P(α, x/β)`, PDF cerrada e inversa por bisección. Beta: CDF `Iₓ(α,β)`
+con **escalado opcional `[A,B]`** (`y=(x−A)/(B−A)`) e inversa. Discretas con log-combinaciones
+(`gammaln`) para evitar desbordes: hipergeométrica `C(K,k)·C(N−K,n−k)/C(N,n)` y binomial negativa
+`C(f+s−1, s−1)·pˢ·(1−p)ᶠ`, ambas con su acumulada. `PERCENTRANK.EXC` da la posición exclusiva de
+`x` dividida por `n+1`.
+
+**Verificación:** `distributions.spec.ts` ampliada a **30 aserciones** (las 19 de χ²/F/t + 11 nuevas
+contra valores conocidos: `GAMMA.DIST(10,9,2)`=0.06809, `BETA.DIST(0.4,2,3)`=0.5248 y con escalado,
+`HYPGEOM.DIST(1,4,4,10)`=0.38095, `NEGBINOM.DIST(5,3,0.5)`=0.08203, `PERCENTRANK.EXC`=0.5). Sin
+regresiones: 35 suites de hoja + 3 de I/O Office verdes; `lint web` 0 errores; `build web` ✓.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->

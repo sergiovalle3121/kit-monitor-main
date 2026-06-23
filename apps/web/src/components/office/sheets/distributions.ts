@@ -7,7 +7,7 @@
  * incompleta regularizada** `Iₓ(a,b)` (algoritmos de Numerical Recipes: serie + fracción continua),
  * y se invierten por bisección. Se registran en `CUSTOM_FUNCTIONS` (ganan al fallback roto).
  */
-import { toNum } from './formulaEngine';
+import { toNum, flatten } from './formulaEngine';
 
 // ── Funciones especiales ───────────────────────────────────────────────────────
 function gammaln(xx: number): number {
@@ -78,6 +78,24 @@ function bisect(f: (x: number) => number, target: number, lo: number, hi: number
 const num = (v: any, dflt = NaN): number => { const n = toNum(v); return n === null ? dflt : n; };
 function truthy(v: any): boolean { if (v === true) return true; if (v === false || v == null || v === '') return false; if (typeof v === 'number') return v !== 0; if (typeof v === 'string') return !/^(false|falso|0)$/i.test(v.trim()); return !!v; }
 
+// ── Gamma / Beta / discretas (reutilizan P(a,x) e Iₓ(a,b)) ─────────────────────
+/** log de la combinación C(n,k). */
+const logC = (n: number, k: number): number => gammaln(n + 1) - gammaln(k + 1) - gammaln(n - k + 1);
+/** CDF de la gamma (forma `alpha`, escala `beta`). */
+const gammaCdf = (x: number, a: number, b: number): number => (x <= 0 ? 0 : gammp(a, x / b));
+/** PERCENTRANK.EXC: posición exclusiva (1-based) de `x` dividida por `n+1`. */
+function percentrankExc(arg: any, x: number, sig: number): any {
+  const a = flatten(arg).map(toNum).filter((v): v is number => v !== null).sort((p, q) => p - q);
+  const n = a.length;
+  if (n === 0 || x < a[0] || x > a[n - 1]) return '#N/A';
+  let pos = -1;
+  for (let i = 0; i < n; i++) { if (a[i] === x) { pos = i + 1; break; } if (a[i] < x && x < a[i + 1]) { pos = (i + 1) + (x - a[i]) / (a[i + 1] - a[i]); break; } }
+  if (pos < 0) return '#N/A';
+  const pr = pos / (n + 1);
+  const f = Math.pow(10, sig);
+  return Math.floor(pr * f) / f;
+}
+
 // ── Registro (nombres modernos y legados corregidos) ───────────────────────────
 export const DISTRIBUTION_FUNCTIONS: Record<string, (params: any[]) => any> = {
   // χ²
@@ -101,4 +119,17 @@ export const DISTRIBUTION_FUNCTIONS: Record<string, (params: any[]) => any> = {
   'T.INV': (p) => { const q = num(p[0]), df = num(p[1]); if (q <= 0 || q >= 1 || df < 1) return '#NUM!'; return bisect((t) => tCdf(t, df), q, -100, 100); },
   'T.INV.2T': (p) => { const q = num(p[0]), df = num(p[1]); if (q <= 0 || q > 1 || df < 1) return '#NUM!'; return bisect((t) => 1 - 2 * (1 - tCdf(t, df)), 1 - q, 0, 100); },
   TINV: (p) => { const q = num(p[0]), df = num(p[1]); if (q <= 0 || q > 1 || df < 1) return '#NUM!'; return bisect((t) => 1 - 2 * (1 - tCdf(t, df)), 1 - q, 0, 100); }, // legado corregido (2 colas)
+  // Gamma
+  'GAMMA.DIST': (p) => { const x = num(p[0]), a = num(p[1]), b = num(p[2]); if (x < 0 || a <= 0 || b <= 0) return '#NUM!'; if (!truthy(p[3])) return Math.exp((a - 1) * Math.log(x) - x / b - a * Math.log(b) - gammaln(a)); return gammaCdf(x, a, b); },
+  'GAMMA.INV': (p) => { const q = num(p[0]), a = num(p[1]), b = num(p[2]); if (q < 0 || q > 1 || a <= 0 || b <= 0) return '#NUM!'; return bisect((x) => gammaCdf(x, a, b), q, 0, 100); },
+  GAMMADIST: (p) => { const x = num(p[0]), a = num(p[1]), b = num(p[2]); if (x < 0 || a <= 0 || b <= 0) return '#NUM!'; if (!truthy(p[3])) return Math.exp((a - 1) * Math.log(x) - x / b - a * Math.log(b) - gammaln(a)); return gammaCdf(x, a, b); },
+  GAMMAINV: (p) => { const q = num(p[0]), a = num(p[1]), b = num(p[2]); if (q < 0 || q > 1 || a <= 0 || b <= 0) return '#NUM!'; return bisect((x) => gammaCdf(x, a, b), q, 0, 100); },
+  'GAMMALN.PRECISE': (p) => { const x = num(p[0]); if (x <= 0) return '#NUM!'; return gammaln(x); },
+  // Beta (con escalado opcional [A,B])
+  'BETA.DIST': (p) => { const a = num(p[1]), b = num(p[2]); const A = p[4] === undefined ? 0 : num(p[4]), B = p[5] === undefined ? 1 : num(p[5]); const y = (num(p[0]) - A) / (B - A); if (a <= 0 || b <= 0 || B <= A) return '#NUM!'; if (!truthy(p[3])) { if (y < 0 || y > 1) return '#NUM!'; return Math.exp((a - 1) * Math.log(y) + (b - 1) * Math.log(1 - y) - (gammaln(a) + gammaln(b) - gammaln(a + b))) / (B - A); } return betai(a, b, Math.min(1, Math.max(0, y))); },
+  'BETA.INV': (p) => { const q = num(p[0]), a = num(p[1]), b = num(p[2]); const A = p[3] === undefined ? 0 : num(p[3]), B = p[4] === undefined ? 1 : num(p[4]); if (q < 0 || q > 1 || a <= 0 || b <= 0 || B <= A) return '#NUM!'; return A + (B - A) * bisect((y) => betai(a, b, y), q, 0, 1); },
+  // Discretas
+  'HYPGEOM.DIST': (p) => { const k = Math.round(num(p[0])), n = Math.round(num(p[1])), K = Math.round(num(p[2])), N = Math.round(num(p[3])); if (k < 0 || k > n || K > N || n > N) return '#NUM!'; const pmf = (i: number) => Math.exp(logC(K, i) + logC(N - K, n - i) - logC(N, n)); if (!truthy(p[4])) return (i => (i < Math.max(0, n - (N - K)) || i > Math.min(n, K) ? 0 : pmf(i)))(k); let s = 0; for (let i = Math.max(0, n - (N - K)); i <= Math.min(k, n, K); i++) s += pmf(i); return s; },
+  'NEGBINOM.DIST': (p) => { const f = Math.round(num(p[0])), s = Math.round(num(p[1])), pr = num(p[2]); if (f < 0 || s < 1 || pr <= 0 || pr > 1) return '#NUM!'; const pmf = (i: number) => Math.exp(logC(i + s - 1, s - 1)) * Math.pow(pr, s) * Math.pow(1 - pr, i); if (!truthy(p[3])) return pmf(f); let sum = 0; for (let i = 0; i <= f; i++) sum += pmf(i); return sum; },
+  'PERCENTRANK.EXC': (p) => percentrankExc(p[0], num(p[1]), p[2] === undefined ? 3 : Math.trunc(num(p[2]))),
 };
