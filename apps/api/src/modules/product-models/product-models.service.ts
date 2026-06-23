@@ -16,6 +16,7 @@ import {
 import { DocumentNumberingService } from '../numbering/document-numbering.service';
 import { EventLedgerService } from '../event-ledger/event-ledger.service';
 import { EventDomain } from '../event-ledger/entities/ledger-event.entity';
+import { NpiService, ReadinessSnapshot } from '../npi/npi.service';
 import {
   CreateProductModelDto,
   UpdateProductModelDto,
@@ -38,6 +39,7 @@ export class ProductModelsService {
     private readonly tenantCtx: TenantContextService,
     private readonly numbering: DocumentNumberingService,
     @Optional() private readonly ledger?: EventLedgerService,
+    @Optional() private readonly npi?: NpiService,
   ) {}
 
   private applyScope(
@@ -107,9 +109,9 @@ export class ProductModelsService {
     return (await qb.getCount()) > 0;
   }
 
-  async list(filters: { search?: string; status?: string } = {}): Promise<
-    ProductModel[]
-  > {
+  async list(
+    filters: { search?: string; status?: string } = {},
+  ): Promise<ProductModel[]> {
     const qb = this.repo
       .createQueryBuilder('pm')
       .orderBy('pm.created_at', 'DESC');
@@ -170,8 +172,126 @@ export class ProductModelsService {
     return saved;
   }
 
-  activate(id: string): Promise<ProductModel> {
-    return this.transition(id, 'ACTIVE');
+  /**
+   * Whether the NPI readiness gate is ENFORCED on activation. Opt-in via env so
+   * the default behavior is unchanged (advisory only) — flipping it on turns the
+   * advisory aggregator into a hard gate that callers can still override (force).
+   */
+  private enforceReadiness(): boolean {
+    return process.env.NPI_ENFORCE_READINESS === 'true';
+  }
+
+  /** Live NPI readiness for a model (read-only, best-effort, advisory). */
+  async readiness(id: string): Promise<ReadinessSnapshot | null> {
+    const model = await this.getOne(id);
+    return this.deriveReadinessSafe(model);
+  }
+
+  /**
+   * Unified NPI view for a model — so gates + readiness live INSIDE the model
+   * (one module), not in a separate area: the project (with its gates), the live
+   * readiness verdict, and the snapshot history. `project` is null until NPI is
+   * started for this model+revision.
+   */
+  async npiOverview(id: string) {
+    const model = await this.getOne(id);
+    if (!this.npi) return { project: null, readiness: null, history: [] };
+    const [project, readiness, history] = await Promise.all([
+      this.npi.getProjectByModel(model.modelNumber, model.revision),
+      this.deriveReadinessSafe(model),
+      this.npi
+        .listSnapshots({
+          model: model.modelNumber,
+          revision: model.revision,
+          limit: 20,
+        })
+        .catch(() => []),
+    ]);
+    return { project, readiness, history };
+  }
+
+  /** Start (idempotent) the NPI gate flow for this model, then return the view. */
+  async startNpi(id: string) {
+    const model = await this.getOne(id);
+    if (!this.npi) throw new BadRequestException('NPI no disponible.');
+    await this.npi.createProject({
+      modelNumber: model.modelNumber,
+      revision: model.revision,
+      customer: model.customer ?? undefined,
+      programId: model.programId ?? undefined,
+    });
+    return this.npiOverview(id);
+  }
+
+  private async deriveReadinessSafe(
+    model: ProductModel,
+  ): Promise<ReadinessSnapshot | null> {
+    if (!this.npi) return null;
+    try {
+      return await this.npi.deriveReadiness(model.modelNumber, model.revision);
+    } catch (err) {
+      this.logger.warn(
+        `Readiness NPI no disponible para ${model.modelNumber}: ${(err as Error)?.message}`,
+      );
+      return null;
+    }
+  }
+
+  /**
+   * Activate a model (DRAFT/OBSOLETE → ACTIVE). The NPI readiness aggregator is
+   * consulted as an ADVISORY soft-gate: by default activation always proceeds
+   * and the readiness verdict is attached/snapshotted/audited. Only when
+   * `NPI_ENFORCE_READINESS=true` (and `force` is not set) does a not-ready model
+   * block — keeping this fully backward compatible.
+   */
+  async activate(
+    id: string,
+    opts: { force?: boolean } = {},
+  ): Promise<ProductModel & { readiness?: ReadinessSnapshot | null }> {
+    const model = await this.getOne(id);
+    const readiness = await this.deriveReadinessSafe(model);
+
+    if (
+      readiness &&
+      !readiness.gateReady &&
+      this.enforceReadiness() &&
+      !opts.force
+    ) {
+      throw new BadRequestException(
+        `El modelo ${model.modelNumber} no está listo (NPI): ` +
+          `${readiness.blockers.join(', ') || 'criterios sin resolver'}. ` +
+          `Usa force=true para activar de todos modos.`,
+      );
+    }
+
+    const saved = await this.transition(id, 'ACTIVE');
+
+    // Best-effort audit: snapshot the readiness at activation + ledger note.
+    if (this.npi && readiness) {
+      await this.npi
+        .captureSnapshot(model.modelNumber, model.revision, {
+          phase: 'MP',
+          reason: 'MODEL_ACTIVATION',
+          note: readiness.gateReady
+            ? 'Activación con readiness en verde.'
+            : `Activación con readiness incompleta: ${readiness.blockers.join(', ') || 'pendientes'}.`,
+        })
+        .catch((err) =>
+          this.logger.warn(
+            `Snapshot de activación omitido: ${(err as Error)?.message}`,
+          ),
+        );
+      await this.recordLedger('PRODUCT_MODEL_ACTIVATION_READINESS', saved, {
+        after: {
+          gateReady: readiness.gateReady,
+          blockers: readiness.blockers,
+          unknowns: readiness.unknowns,
+        },
+      });
+    }
+
+    // Attach the advisory verdict to the response without changing the entity.
+    return Object.assign(saved, { readiness });
   }
 
   obsolete(id: string): Promise<ProductModel> {
@@ -202,10 +322,7 @@ export class ProductModelsService {
 
   async kpis(): Promise<ProductModelKpis> {
     const all = await this.list();
-    const byStatus = { DRAFT: 0, ACTIVE: 0, OBSOLETE: 0 } as Record<
-      ProductModelStatus,
-      number
-    >;
+    const byStatus = { DRAFT: 0, ACTIVE: 0, OBSOLETE: 0 };
     for (const m of all) byStatus[m.status] = (byStatus[m.status] ?? 0) + 1;
     return { total: all.length, byStatus, active: byStatus.ACTIVE };
   }
