@@ -60,6 +60,7 @@ import { HEX_FIDELITY_FUNCTIONS } from './hexFidelity';
 import { LOOKUP_FIDELITY_FUNCTIONS } from './lookupFidelity';
 import { CONVERT_TEMP_FUNCTIONS } from './convertTemp';
 import { VALUE_FIDELITY_FUNCTIONS } from './valueFidelity';
+import { PROPER_FIDELITY_FUNCTIONS } from './properFidelity';
 import { applyScalarBroadcast } from './scalarBroadcast';
 
 // ── Utilidades de coerción / aplanado de argumentos ──────────────────────────
@@ -333,6 +334,8 @@ export const CUSTOM_FUNCTIONS: Record<string, (params: any[]) => any> = {
   ...CONVERT_TEMP_FUNCTIONS,
   // Fidelidad de VALUE con texto de fecha/hora (Excel los convierte a número) — ver `valueFidelity.ts`.
   ...VALUE_FIDELITY_FUNCTIONS,
+  // Fidelidad de PROPER (mayúscula tras apóstrofo/dígito, como Excel) — ver `properFidelity.ts`.
+  ...PROPER_FIDELITY_FUNCTIONS,
 };
 
 // Difusión de funciones escalares (ROUND/ABS/TEXT…) sobre matrices — ver `scalarBroadcast.ts`.
