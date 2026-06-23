@@ -113,6 +113,9 @@ describe('rbac shop-floor matrix', () => {
   it('recognizes the project owner email', () => {
     expect(isOwnerEmail('sergiovallezarate@gmail.com')).toBe(true);
     expect(isOwnerEmail('SergioValleZarate@Gmail.com')).toBe(true);
+    // Family co-owner granted full access (see DEFAULT_OWNER_EMAILS in rbac.ts).
+    expect(isOwnerEmail('imagenpaovalle@gmail.com')).toBe(true);
+    expect(isOwnerEmail('ImagenPaoValle@Gmail.com')).toBe(true);
     expect(isOwnerEmail('random@x.com')).toBe(false);
   });
 });

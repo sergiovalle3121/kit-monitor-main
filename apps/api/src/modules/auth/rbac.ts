@@ -207,16 +207,23 @@ export function permissionsFor(role: AppRole): string[] {
 }
 
 /**
- * App owner email(s) that should always be full Admin. Configurable via the
- * OWNER_EMAILS env var (comma-separated); falls back to the project owner so
- * the owner account is never locked into read-only by accident.
+ * App owner email(s) that are ALWAYS full Admin (active + every permission),
+ * derived from the EMAIL so a stale JWT, reseed or migration can never lock
+ * them into read-only. These built-ins are always honored; the OWNER_EMAILS
+ * env var (comma-separated) can ADD more owners — it never replaces them, so an
+ * owner can't be dropped by accident.
  */
+const DEFAULT_OWNER_EMAILS = [
+  'sergiovallezarate@gmail.com',
+  'imagenpaovalle@gmail.com',
+];
+
 export function ownerEmails(): string[] {
   const fromEnv = (process.env.OWNER_EMAILS || '')
     .split(',')
     .map((s) => s.trim().toLowerCase())
     .filter(Boolean);
-  return fromEnv.length ? fromEnv : ['sergiovallezarate@gmail.com'];
+  return Array.from(new Set([...DEFAULT_OWNER_EMAILS, ...fromEnv]));
 }
 
 export function isOwnerEmail(email?: string | null): boolean {
