@@ -2083,4 +2083,21 @@ Con esto la exportación a Markdown cubre **todos** los tipos de nodo del modelo
 con nombre/cargo/guiones, TOC con títulos indentados por nivel, bibliografía con la fuente de la
 cita). Sin regresiones: las 56 suites de spec de Office verdes; `lint web` 0 errores; `build web` ✓.
 
+## 90. Office/Docs — exportación a texto plano (.txt)
+
+**Contexto.** Docs ya exportaba a `.docx`, Markdown (§81) y PDF (impresión); faltaba **texto sin
+formato** (`.txt`), el «Guardar como texto sin formato» de Word — útil para volcar el contenido sin
+ninguna marca.
+
+**Decisión (sólo `apps/web`, aditiva — riesgo cero):** `markdown.ts` añade `tiptapJsonToPlainText(doc)`
+**pura**: recorre el árbol Tiptap conservando el texto y una estructura mínima (líneas en blanco entre
+bloques, viñetas/números con indentación por nivel en listas, tabuladores entre celdas de tabla,
+código literal) y descartando marcas y nodos decorativos. UI: opción **«Texto plano (.txt)»** en el
+menú Exportar de `DocActions`.
+
+**Verificación:** nueva suite `plainText.spec.ts` (**9 aserciones**: encabezado+párrafo, marcas
+descartadas, viñetas y anidadas, ordenada, bloque de código, tabla con tabuladores, `footnoteList`
+vacío, documento vacío). Sin regresiones: las 57 suites de spec de Office verdes; `lint web` 0
+errores; `build web` ✓.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
