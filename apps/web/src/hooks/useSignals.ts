@@ -51,11 +51,17 @@ export function useSignals(tenantId: string = 'default') {
 
     setStatus('connecting');
 
+    // Authenticate the handshake — the gateway derives the tenant from this JWT.
+    const token =
+      typeof window !== 'undefined'
+        ? window.localStorage.getItem('axos_access_token')
+        : null;
     const socket = io(`${apiBase}/signals`, {
       transports: ['websocket', 'polling'],
       reconnection: true,
       reconnectionDelay: 2000,
       reconnectionAttempts: 10,
+      auth: token ? { token } : {},
     });
 
     socket.on('connect', () => {
