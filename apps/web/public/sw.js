@@ -13,7 +13,7 @@ self.addEventListener('push', (event) => {
   let data = {};
   try {
     data = event.data ? event.data.json() : {};
-  } catch (e) {
+  } catch {
     data = { title: 'AXOS OS' };
   }
   const title = data.title || 'AXOS OS';
@@ -41,7 +41,7 @@ self.addEventListener('notificationclick', (event) => {
             if ('navigate' in client) {
               try {
                 client.navigate(href);
-              } catch (e) {
+              } catch {
                 /* algunos navegadores no permiten navigate cross-origin */
               }
             }

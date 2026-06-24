@@ -8,7 +8,13 @@ import { BLUE } from './_components/shared';
 import type { Pull } from './_components/shared';
 import PullMonitor from './_components/PullMonitor';
 import ReturnsPanel from './_components/ReturnsPanel';
-import AnalyticsPanel from './_components/AnalyticsPanel';
+import dynamic from 'next/dynamic';
+
+// recharts es pesado y solo se usa en la pestaña "analytics": carga diferida.
+const AnalyticsPanel = dynamic(() => import('./_components/AnalyticsPanel'), {
+  ssr: false,
+  loading: () => null,
+});
 
 type Tab = 'monitor' | 'returns' | 'analytics';
 
