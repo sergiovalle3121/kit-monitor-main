@@ -4,43 +4,27 @@ export class AddCustomerAndProgram1713000000002 implements MigrationInterface {
     name = 'AddCustomerAndProgram1713000000002'
 
     public async up(queryRunner: QueryRunner): Promise<void> {
-        // Add columns to plans
-        await queryRunner.addColumns("plans", [
-            new TableColumn({
-                name: "customer",
-                type: "varchar",
-                isNullable: true
-            }),
-            new TableColumn({
-                name: "program",
-                type: "varchar",
-                isNullable: true
-            })
-        ]);
+        // Idempotente: estas tablas (plans/bom_items) existen en prod desde antes
+        // (creadas por synchronize), así que guardamos cada add/createIndex para que
+        // un `migration:run` futuro no falle por columnas/índices ya presentes.
+        const addColIfMissing = async (table: string, column: TableColumn) => {
+            if (await queryRunner.hasColumn(table, column.name)) return;
+            await queryRunner.addColumn(table, column);
+        };
 
-        // Add columns to bom_items
-        await queryRunner.addColumns("bom_items", [
-            new TableColumn({
-                name: "customer",
-                type: "varchar",
-                isNullable: true
-            }),
-            new TableColumn({
-                name: "program",
-                type: "varchar",
-                isNullable: true
-            })
-        ]);
+        await addColIfMissing("plans", new TableColumn({ name: "customer", type: "varchar", isNullable: true }));
+        await addColIfMissing("plans", new TableColumn({ name: "program", type: "varchar", isNullable: true }));
+        await addColIfMissing("bom_items", new TableColumn({ name: "customer", type: "varchar", isNullable: true }));
+        await addColIfMissing("bom_items", new TableColumn({ name: "program", type: "varchar", isNullable: true }));
 
-        // Add indexes
-        await queryRunner.createIndex("bom_items", new TableIndex({
-            name: "IDX_BOM_CUSTOMER",
-            columnNames: ["customer"]
-        }));
-        await queryRunner.createIndex("bom_items", new TableIndex({
-            name: "IDX_BOM_PROGRAM",
-            columnNames: ["program"]
-        }));
+        const bomItems = await queryRunner.getTable("bom_items");
+        const hasIndex = (name: string) => !!bomItems?.indices.find((i) => i.name === name);
+        if (!hasIndex("IDX_BOM_CUSTOMER")) {
+            await queryRunner.createIndex("bom_items", new TableIndex({ name: "IDX_BOM_CUSTOMER", columnNames: ["customer"] }));
+        }
+        if (!hasIndex("IDX_BOM_PROGRAM")) {
+            await queryRunner.createIndex("bom_items", new TableIndex({ name: "IDX_BOM_PROGRAM", columnNames: ["program"] }));
+        }
     }
 
     public async down(queryRunner: QueryRunner): Promise<void> {

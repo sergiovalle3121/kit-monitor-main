@@ -279,7 +279,10 @@ async function bootstrap() {
       const normalizedOrigin = origin.replace(/\/+$/, '');
 
       if (originsToValidate.length === 0) {
-        return callback(null, true);
+        console.error(
+          '[CORS] Sin orígenes permitidos configurados; se rechaza la solicitud cross-origin.',
+        );
+        return callback(new Error('CORS not configured'), false);
       }
 
       // Exact match or protocol-agnostic match (e.g. //domain.com matches http://domain.com and https://domain.com)

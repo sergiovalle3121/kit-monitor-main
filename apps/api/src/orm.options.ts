@@ -51,9 +51,11 @@ export function ormOptions(): TypeOrmModuleOptions {
     synchronize,
     migrationsRun: !synchronize && (isProd || process.env.MIGRATIONS_RUN === "true"),
     migrations: [join(__dirname, "migrations", "*.{ts,js}")],
+    // SSL relajado por defecto (Railway usa certs internos/self-signed). Endurecer
+    // con DB_SSL_STRICT=true SOLO cuando haya un CA verificable, o romperá la conexión.
     ssl:
       isProd || url?.includes("sslmode=require")
-        ? { rejectUnauthorized: false }
+        ? { rejectUnauthorized: process.env.DB_SSL_STRICT === "true" }
         : false,
   };
 
