@@ -1,6 +1,10 @@
-import { Controller, Get, Post, Body, Param, Patch, Delete, Query } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Patch, Delete, Query, UseGuards } from '@nestjs/common';
 import { SuppliersService } from './suppliers.service';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
+// Require authentication. This controller was fully public, allowing anonymous
+// create/modify of suppliers, the Approved Vendor List and SCARs.
+@UseGuards(JwtAuthGuard)
 @Controller('suppliers')
 export class SuppliersController {
   constructor(private readonly suppliersService: SuppliersService) {}

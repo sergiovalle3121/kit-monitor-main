@@ -1,8 +1,12 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseIntPipe, Patch, Post, UseGuards } from '@nestjs/common';
 import { CancellationRequestsService } from './cancellation-requests.service';
 import { CreateCancellationRequestDto } from './dto/create-cancellation-request.dto';
 import { RespondCancellationRequestDto } from './dto/respond-cancellation-request.dto';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
+// Require authentication. This controller was fully public, allowing anonymous
+// creation AND approval/rejection of work-order cancellation requests.
+@UseGuards(JwtAuthGuard)
 @Controller('cancellation-requests')
 export class CancellationRequestsController {
   constructor(private readonly service: CancellationRequestsService) {}
