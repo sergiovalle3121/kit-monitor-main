@@ -30,6 +30,7 @@ export class FinalInspection {
   @Column({ type: 'float', default: 0 })
   quantityFailed: number;
 
+  @Index()
   @Column({ type: 'varchar', length: 24 })
   result: OqcResult;
 
@@ -51,6 +52,7 @@ export class FinalInspection {
   @Column({ type: 'jsonb', nullable: true })
   evidence?: any;
 
+  @Index()
   @CreateDateColumn()
   createdAt: Date;
 

@@ -18,9 +18,11 @@ export class ProductionBayEvent {
   @ManyToOne(() => Kit, { onDelete: 'CASCADE' })
   kit: Kit;
 
+  @Index()
   @Column({ type: 'int' })
   bayId: number;
 
+  @Index()
   @Column({ type: 'varchar', length: 80 })
   model: string;
 
@@ -36,6 +38,7 @@ export class ProductionBayEvent {
   @Column({ type: 'varchar', length: 32, default: 'bay_enter' })
   source: string;
 
+  @Index()
   @Column({ type: DATE_COLUMN_TYPE })
   timestamp: Date;
 

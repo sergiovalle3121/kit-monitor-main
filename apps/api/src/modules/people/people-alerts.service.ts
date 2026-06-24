@@ -50,6 +50,11 @@ export class PeopleAlertsService {
     const certs = await this.repo.find({ where: { active: true } });
     result.scanned = certs.length;
 
+    // Memoiza la resolución de destinatarios por email de empleado: antes se
+    // re-buscaban (empleado + owners) por CADA certificación (N+1 en el cron);
+    // los owners son constantes y un empleado suele tener varias certificaciones.
+    const recipientCache = new Map<string, { id: string }[]>();
+
     for (const c of certs) {
       if (!c.expiresDate) continue;
       const d = daysToExpiry(c.expiresDate);
@@ -60,7 +65,12 @@ export class PeopleAlertsService {
       if (isExpired) result.expired += 1;
       else result.expiring += 1;
 
-      const recipients = await this.resolveRecipients(c.employeeEmail);
+      const cacheKey = c.employeeEmail ?? '';
+      let recipients = recipientCache.get(cacheKey);
+      if (!recipients) {
+        recipients = await this.resolveRecipients(c.employeeEmail);
+        recipientCache.set(cacheKey, recipients);
+      }
       if (recipients.length === 0) {
         result.unresolved += 1;
         continue;

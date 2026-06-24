@@ -26,9 +26,11 @@ export class WarehouseTask {
   @Index()
   taskNumber: string; // TSK-2024-0001
 
+  @Index()
   @Column({ type: 'varchar', length: 32 })
   type: WarehouseTaskType;
 
+  @Index()
   @Column({ type: 'varchar', length: 32, default: 'pending' })
   status: WarehouseTaskStatus;
 

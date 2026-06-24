@@ -30,6 +30,7 @@ export class IQCInspection {
   @Column({ type: 'varchar', length: 100, nullable: true })
   lotNumber?: string;
 
+  @Index()
   @Column({ type: 'varchar', length: 32, default: 'pending' })
   result: IqcResult;
 
@@ -51,6 +52,7 @@ export class IQCInspection {
   @Column({ type: 'varchar', length: 64, nullable: true })
   warehouseId?: string;
 
+  @Index()
   @CreateDateColumn()
   createdAt: Date;
 

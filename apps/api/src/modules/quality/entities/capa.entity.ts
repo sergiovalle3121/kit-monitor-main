@@ -30,6 +30,7 @@ export class CAPA {
   @Index()
   capaNumber: string; // e.g. CAPA-2024-0001
 
+  @Index()
   @Column({ type: 'varchar', length: 32, default: 'open' })
   status: CapaStatus;
 
