@@ -62,6 +62,15 @@ export class TenantSubscriber implements EntitySubscriberInterface {
     const ent  = event.entity;
     if (!ctx || !ent) return;
 
+    // Row-level tenant_id desde el claim JWT (vía ALS). FIX: antes el subscriber
+    // solo revisaba 'tenantId' (camel), pero TenantBaseEntity y las entidades de
+    // negocio exponen la propiedad como 'tenant_id' (snake) → el tenant_id nunca se
+    // poblaba en escritura. Aditivo: solo setea si la columna existe y está vacía;
+    // si el JWT no trae tenant (admin/owner/seed) no hace nada y nunca lanza.
+    if (ctx.tenant_id && 'tenant_id' in ent && ent.tenant_id == null) {
+      ent.tenant_id = ctx.tenant_id;
+    }
+
     const buildings = ctx.scopes?.buildings;
 
     // Auto-populate tenantId when the entity declares it and context provides one
