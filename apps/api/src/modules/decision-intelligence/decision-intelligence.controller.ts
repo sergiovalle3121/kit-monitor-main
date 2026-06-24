@@ -1,6 +1,8 @@
 import { Body, Controller, Get, Param, ParseIntPipe, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { RequirePermissions } from '../auth/decorators/permissions.decorator';
 import { DecisionIntelligenceService } from './decision-intelligence.service';
 import { MonteCarloService, StressTestConfigDto } from './monte-carlo.service';
 import { CreateForecastRunDto } from './dto/create-forecast-run.dto';
@@ -10,7 +12,7 @@ import { RunSimulationDto } from './dto/run-simulation.dto';
 import { RegisterOutcomeDto } from './dto/register-outcome.dto';
 
 @ApiTags('Decision Intelligence')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller('decision-intelligence')
 export class DecisionIntelligenceController {
   constructor(
@@ -19,6 +21,7 @@ export class DecisionIntelligenceController {
   ) {}
 
   @Post('forecast-runs')
+  @RequirePermissions('planning:write')
   createForecastRun(@Body() dto: CreateForecastRunDto) {
     return this.service.createForecastRun(dto);
   }
@@ -34,6 +37,7 @@ export class DecisionIntelligenceController {
   }
 
   @Post('plan-scenarios')
+  @RequirePermissions('planning:write')
   createPlanScenario(@Body() dto: CreatePlanScenarioDto) {
     return this.service.createPlanScenario(dto);
   }
@@ -49,6 +53,7 @@ export class DecisionIntelligenceController {
   }
 
   @Post('plan-publications')
+  @RequirePermissions('planning:write')
   publishPlan(@Body() dto: CreatePlanPublicationDto) {
     return this.service.publishPlan(dto);
   }
@@ -64,6 +69,7 @@ export class DecisionIntelligenceController {
   }
 
   @Post('plan-scenarios/:id/simulate')
+  @RequirePermissions('planning:write')
   runSimulation(@Param('id', ParseIntPipe) id: number, @Body() dto: RunSimulationDto) {
     return this.service.runScenarioSimulation(id, dto);
   }
@@ -74,6 +80,7 @@ export class DecisionIntelligenceController {
   }
 
   @Post('plan-publications/:id/outcome')
+  @RequirePermissions('planning:write')
   registerOutcome(@Param('id', ParseIntPipe) id: number, @Body() dto: RegisterOutcomeDto) {
     return this.service.registerPublicationOutcome(id, dto);
   }
@@ -116,6 +123,7 @@ export class DecisionIntelligenceController {
   // ── Monte Carlo Stress Testing ────────────────────────────────────────────
 
   @Post('plan-scenarios/:id/stress-test')
+  @RequirePermissions('planning:write')
   @ApiOperation({
     summary: 'Monte Carlo Stress Test — Supply Chain Failure or Labor Shortage scenarios',
     description:

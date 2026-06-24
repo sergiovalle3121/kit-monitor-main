@@ -10,6 +10,7 @@ import {
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { RequirePermissions } from '../auth/decorators/permissions.decorator';
 import { FixedAssetsService } from './fixed-assets.service';
 import {
   CreateFixedAssetDto,
@@ -45,12 +46,14 @@ export class FixedAssetsController {
   }
 
   @Post()
+  @RequirePermissions('finance:write')
   @ApiOperation({ summary: 'Capitaliza un activo fijo (folio FA-).' })
   create(@Body() dto: CreateFixedAssetDto) {
     return this.service.create(dto);
   }
 
   @Post(':id/dispose')
+  @RequirePermissions('finance:write')
   @ApiOperation({ summary: 'Da de baja un activo fijo.' })
   dispose(@Param('id') id: string, @Body() dto: DisposeFixedAssetDto) {
     return this.service.dispose(id, dto);

@@ -2,8 +2,10 @@ import { Controller, Get, Post, Param, Body, Query, ParseIntPipe, UseGuards } fr
 import { AdvancesService } from './advances.service';
 import { CreateAdvanceDto } from './dto/create-advance.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { RequirePermissions } from '../auth/decorators/permissions.decorator';
 
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller('advances')
 export class AdvancesController {
   constructor(private readonly service: AdvancesService) {}
@@ -14,6 +16,7 @@ export class AdvancesController {
   }
 
   @Post()
+  @RequirePermissions('production:report')
   create(@Body() dto: CreateAdvanceDto) {
     return this.service.create(dto);
   }

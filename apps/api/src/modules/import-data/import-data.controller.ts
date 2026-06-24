@@ -10,6 +10,7 @@ import {
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { RequirePermissions } from '../auth/decorators/permissions.decorator';
 import { ImportDataService } from './import-data.service';
 import { CommitImportDto, PreviewImportDto } from './dto/import.dto';
 import { IMPORT_TARGETS, ImportTarget } from './import-logic';
@@ -40,18 +41,21 @@ export class ImportDataController {
   }
 
   @Post('suggest')
+  @RequirePermissions('engineering:write')
   @ApiOperation({ summary: 'Sugiere el mapeo de columnas a partir de los encabezados.' })
   suggest(@Body() body: { target: string; headers: string[] }) {
     return this.service.suggest(this.assertTarget(body?.target), body?.headers ?? []);
   }
 
   @Post('preview')
+  @RequirePermissions('engineering:write')
   @ApiOperation({ summary: 'Previsualiza y valida (sin persistir) por fila.' })
   preview(@Body() dto: PreviewImportDto) {
     return this.service.preview(dto);
   }
 
   @Post('commit')
+  @RequirePermissions('engineering:write')
   @ApiOperation({ summary: 'Importa las filas válidas (idempotente) y reporta errores.' })
   commit(@Body() dto: CommitImportDto) {
     return this.service.commit(dto);

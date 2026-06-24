@@ -11,6 +11,7 @@ import {
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { RequirePermissions } from '../auth/decorators/permissions.decorator';
 import { HrService } from './hr.service';
 import {
   AdvanceCandidateDto,
@@ -59,18 +60,21 @@ export class HrController {
 
   @Post('employees')
   @ApiOperation({ summary: 'Alta de colaborador (folio EMP-).' })
+  @RequirePermissions('ADMIN_ACCESS')
   createEmployee(@Body() dto: CreateEmployeeDto) {
     return this.service.createEmployee(dto);
   }
 
   @Patch('employees/:id')
   @ApiOperation({ summary: 'Actualiza datos del colaborador.' })
+  @RequirePermissions('ADMIN_ACCESS')
   updateEmployee(@Param('id') id: string, @Body() dto: UpdateEmployeeDto) {
     return this.service.updateEmployee(id, dto);
   }
 
   @Post('employees/:id/terminate')
   @ApiOperation({ summary: 'Baja del colaborador (voluntaria / involuntaria).' })
+  @RequirePermissions('ADMIN_ACCESS')
   terminate(@Param('id') id: string, @Body() dto: TerminateEmployeeDto) {
     return this.service.terminateEmployee(id, dto);
   }
@@ -90,18 +94,21 @@ export class HrController {
 
   @Post('requisitions')
   @ApiOperation({ summary: 'Abre una requisición (folio VAC-).' })
+  @RequirePermissions('ADMIN_ACCESS')
   createRequisition(@Body() dto: CreateRequisitionDto) {
     return this.service.createRequisition(dto);
   }
 
   @Patch('requisitions/:id')
   @ApiOperation({ summary: 'Actualiza una requisición.' })
+  @RequirePermissions('ADMIN_ACCESS')
   updateRequisition(@Param('id') id: string, @Body() dto: UpdateRequisitionDto) {
     return this.service.updateRequisition(id, dto);
   }
 
   @Post('requisitions/:id/transition')
   @ApiOperation({ summary: 'Avanza la requisición por su máquina de estados.' })
+  @RequirePermissions('ADMIN_ACCESS')
   transitionRequisition(@Param('id') id: string, @Body() dto: TransitionRequisitionDto) {
     return this.service.transitionRequisition(id, dto);
   }
@@ -115,12 +122,14 @@ export class HrController {
 
   @Post('candidates')
   @ApiOperation({ summary: 'Registra un candidato en el pipeline.' })
+  @RequirePermissions('ADMIN_ACCESS')
   createCandidate(@Body() dto: CreateCandidateDto) {
     return this.service.createCandidate(dto);
   }
 
   @Post('candidates/:id/advance')
   @ApiOperation({ summary: 'Mueve al candidato de etapa (puede contratar).' })
+  @RequirePermissions('ADMIN_ACCESS')
   advanceCandidate(@Param('id') id: string, @Body() dto: AdvanceCandidateDto) {
     return this.service.advanceCandidate(id, dto);
   }
@@ -140,12 +149,14 @@ export class HrController {
 
   @Post('reviews')
   @ApiOperation({ summary: 'Crea una evaluación (folio EVAL-).' })
+  @RequirePermissions('ADMIN_ACCESS')
   createReview(@Body() dto: CreateReviewDto) {
     return this.service.createReview(dto);
   }
 
   @Patch('reviews/:id')
   @ApiOperation({ summary: 'Actualiza / calibra la evaluación (recalcula 9-box).' })
+  @RequirePermissions('ADMIN_ACCESS')
   updateReview(@Param('id') id: string, @Body() dto: UpdateReviewDto) {
     return this.service.updateReview(id, dto);
   }
@@ -159,6 +170,7 @@ export class HrController {
 
   @Post('absences')
   @ApiOperation({ summary: 'Registra una ausencia / retardo.' })
+  @RequirePermissions('ADMIN_ACCESS')
   createAbsence(@Body() dto: CreateAbsenceDto) {
     return this.service.createAbsence(dto);
   }

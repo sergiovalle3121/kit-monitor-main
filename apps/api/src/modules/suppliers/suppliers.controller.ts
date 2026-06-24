@@ -1,10 +1,12 @@
 import { Controller, Get, Post, Body, Param, Patch, Delete, Query, UseGuards } from '@nestjs/common';
 import { SuppliersService } from './suppliers.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { RequirePermissions } from '../auth/decorators/permissions.decorator';
 
 // Require authentication. This controller was fully public, allowing anonymous
 // create/modify of suppliers, the Approved Vendor List and SCARs.
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller('suppliers')
 export class SuppliersController {
   constructor(private readonly suppliersService: SuppliersService) {}
@@ -22,6 +24,7 @@ export class SuppliersController {
   }
 
   @Post()
+  @RequirePermissions('materials:write')
   async create(@Body() dto: any) {
     return this.suppliersService.create(dto);
   }
@@ -43,16 +46,19 @@ export class SuppliersController {
   }
 
   @Post('avl')
+  @RequirePermissions('materials:write')
   async addAvlPart(@Body() dto: any) {
     return this.suppliersService.addAvlPart(dto);
   }
 
   @Patch('avl/:aid')
+  @RequirePermissions('materials:write')
   async updateAvlPart(@Param('aid') aid: number, @Body() dto: any) {
     return this.suppliersService.updateAvlPart(Number(aid), dto);
   }
 
   @Delete('avl/:aid')
+  @RequirePermissions('materials:write')
   async removeAvlPart(@Param('aid') aid: number) {
     return this.suppliersService.removeAvlPart(Number(aid));
   }
@@ -70,11 +76,13 @@ export class SuppliersController {
   }
 
   @Post('scars')
+  @RequirePermissions('materials:write')
   async createScar(@Body() dto: any) {
     return this.suppliersService.createScar(dto);
   }
 
   @Patch('scars/:id')
+  @RequirePermissions('materials:write')
   async updateScar(@Param('id') id: number, @Body() dto: any, @Body('actor') actor: string) {
     return this.suppliersService.updateScar(id, dto, actor || 'QA User');
   }
@@ -87,27 +95,32 @@ export class SuppliersController {
 
   // Contacts
   @Post('contacts')
+  @RequirePermissions('materials:write')
   async addContact(@Body() dto: any) {
     return this.suppliersService.addContact(dto);
   }
 
   @Patch('contacts/:cid')
+  @RequirePermissions('materials:write')
   async updateContact(@Param('cid') cid: number, @Body() dto: any) {
     return this.suppliersService.updateContact(cid, dto);
   }
 
   @Delete('contacts/:cid')
+  @RequirePermissions('materials:write')
   async removeContact(@Param('cid') cid: number) {
     return this.suppliersService.removeContact(cid);
   }
 
   // Certifications
   @Post('certifications')
+  @RequirePermissions('materials:write')
   async addCertification(@Body() dto: any) {
     return this.suppliersService.addCertification(dto);
   }
 
   @Delete('certifications/:cid')
+  @RequirePermissions('materials:write')
   async removeCertification(@Param('cid') cid: number) {
     return this.suppliersService.removeCertification(cid);
   }
@@ -139,6 +152,7 @@ export class SuppliersController {
   }
 
   @Patch(':id')
+  @RequirePermissions('materials:write')
   async update(@Param('id') id: number, @Body() dto: any) {
     return this.suppliersService.update(id, dto);
   }

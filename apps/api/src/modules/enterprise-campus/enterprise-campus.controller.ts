@@ -17,8 +17,10 @@ import {
   CreateProgramDto,
 } from './dto/enterprise.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { RequirePermissions } from '../auth/decorators/permissions.decorator';
 
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller('enterprise')
 export class EnterpriseCampusController {
   constructor(private readonly service: EnterpriseCampusService) {}
@@ -66,43 +68,43 @@ export class EnterpriseCampusController {
   // ==================== Admin CRUD (organización) ====================
 
   @Post('buildings')
-  @UseGuards(JwtAuthGuard)
+  @RequirePermissions('ADMIN_ACCESS')
   createBuilding(@Body() dto: CreateBuildingDto) {
     return this.service.createBuilding(dto);
   }
 
   @Patch('buildings/:id')
-  @UseGuards(JwtAuthGuard)
+  @RequirePermissions('ADMIN_ACCESS')
   updateBuilding(@Param('id') id: string, @Body() dto: UpdateBuildingDto) {
     return this.service.updateBuilding(id, dto);
   }
 
   @Delete('buildings/:id')
-  @UseGuards(JwtAuthGuard)
+  @RequirePermissions('ADMIN_ACCESS')
   deleteBuilding(@Param('id') id: string) {
     return this.service.deleteBuilding(id);
   }
 
   @Post('customers')
-  @UseGuards(JwtAuthGuard)
+  @RequirePermissions('ADMIN_ACCESS')
   createCustomer(@Body() dto: CreateCustomerDto) {
     return this.service.createCustomer(dto);
   }
 
   @Delete('customers/:id')
-  @UseGuards(JwtAuthGuard)
+  @RequirePermissions('ADMIN_ACCESS')
   deleteCustomer(@Param('id') id: string) {
     return this.service.deleteCustomer(id);
   }
 
   @Post('programs')
-  @UseGuards(JwtAuthGuard)
+  @RequirePermissions('ADMIN_ACCESS')
   createProgram(@Body() dto: CreateProgramDto) {
     return this.service.createProgram(dto);
   }
 
   @Delete('programs/:id')
-  @UseGuards(JwtAuthGuard)
+  @RequirePermissions('ADMIN_ACCESS')
   deleteProgram(@Param('id') id: string) {
     return this.service.deleteProgram(id);
   }
