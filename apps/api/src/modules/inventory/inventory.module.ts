@@ -13,7 +13,14 @@ import { WarehouseController } from './warehouse.controller';
 import { ReplenishmentRule } from './entities/replenishment-rule.entity';
 import { ReplenishmentService } from './replenishment.service';
 import { ReplenishmentController } from './replenishment.controller';
+import { MaterialReturn } from './entities/material-return.entity';
+import { ReturnsService } from './returns.service';
+import { WarehouseAlertsService } from './warehouse-alerts.service';
+import { WarehouseAlertsTask } from './warehouse-alerts.task';
 import { GovernanceModule } from '../governance/governance.module';
+import { UsersModule } from '../users/users.module';
+import { NotificationsModule } from '../notifications/notifications.module';
+import { MaterialStagingModule } from '../material-staging/material-staging.module';
 
 @Module({
   imports: [
@@ -23,13 +30,17 @@ import { GovernanceModule } from '../governance/governance.module';
       MaterialMaster,
       EnterpriseWarehouse,
       WarehouseTask,
-      ReplenishmentRule
+      ReplenishmentRule,
+      MaterialReturn,
     ]),
     EnterpriseCampusModule,
     GovernanceModule,
+    UsersModule,
+    NotificationsModule,
+    MaterialStagingModule,
   ],
   controllers: [InventoryController, WarehouseController, ReplenishmentController],
-  providers: [InventoryService, WarehouseService, ReplenishmentService],
-  exports: [InventoryService, WarehouseService, ReplenishmentService],
+  providers: [InventoryService, WarehouseService, ReplenishmentService, ReturnsService, WarehouseAlertsService, WarehouseAlertsTask],
+  exports: [InventoryService, WarehouseService, ReplenishmentService, ReturnsService, WarehouseAlertsService],
 })
 export class InventoryModule {}

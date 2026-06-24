@@ -5,14 +5,14 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import dynamic from 'next/dynamic';
 import { Canvas, Rect, Textbox, Line, Polyline, Polygon, Group } from 'fabric';
 import {
-  Loader2, Save, Inbox, Hand, MousePointer2, Maximize2, ZoomIn, ZoomOut, Grid3x3,
+  Loader2, Save, Inbox, Hand, MousePointer2, Maximize2, ZoomIn, ZoomOut, Grid3x3, Expand, Shrink,
   AlignHorizontalJustifyStart, AlignHorizontalJustifyCenter, AlignHorizontalJustifyEnd,
   AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd,
   AlignHorizontalSpaceAround, AlignVerticalSpaceAround, Trash2, MapPin, RotateCcw,
   Upload, Eye, EyeOff, Map as MapIcon, Activity, Workflow, Wand2, Boxes,
-  Download, Printer, Ruler, Type, MoveHorizontal, CopyPlus, X, Flame, Waypoints,
+  Download, Printer, Ruler, Type, MoveHorizontal, Move, CopyPlus, X, Flame, Waypoints,
   ShieldCheck, ShieldAlert, LayoutGrid, History, RotateCw, ClipboardList, GitCompare,
-  ClipboardCheck, Warehouse, Sparkles, Bug, SlidersHorizontal, BarChart3, Frame, Box, Layers, Users, DollarSign, LineChart, Scale, Footprints, FileDown, Network, Repeat,
+  ClipboardCheck, Warehouse, Sparkles, Bug, SlidersHorizontal, BarChart3, Frame, Box, Layers, Users, DollarSign, LineChart, Scale, Footprints, FileDown, Network, Repeat, Gauge, Spline, Group as GroupIcon, Grid2x2,
 } from 'lucide-react';
 import { glass } from '@/lib/glass';
 import { apiFetch } from '@/lib/apiFetch';
@@ -24,6 +24,11 @@ import YamazumiChart from './YamazumiChart';
 import LayoutHistory from './LayoutHistory';
 import BufferPlanner from './BufferPlanner';
 import OperatorLoops from './OperatorLoops';
+import ClearanceAnalysis from './ClearanceAnalysis';
+import LayoutScorecard from './LayoutScorecard';
+import LineContinuity from './LineContinuity';
+import LineCohesion from './LineCohesion';
+import LineDensity from './LineDensity';
 import CostEstimator from './CostEstimator';
 import SensitivityChart from './SensitivityChart';
 import ScenarioCompare from './ScenarioCompare';
@@ -31,8 +36,10 @@ import StandardWork from './StandardWork';
 import DossierExport from './DossierExport';
 import FlexLine from './FlexLine';
 import ChangeoverMatrix from './ChangeoverMatrix';
+import { ASSET_CATALOG, assetMeta } from './asset-catalog';
 // three.js is heavy — lazy-load the 3D view so it only ships when opened.
 const Layout3D = dynamic(() => import('./Layout3D'), { ssr: false });
+const Layout3DEditor = dynamic(() => import('./Layout3DEditor'), { ssr: false });
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000').replace(/\/$/, '');
 const ROSE = '#f43f5e';
@@ -177,19 +184,10 @@ interface LayoutReport {
   balance: { balancePct: number; bottleneckStation: string | null; lineCycleTimeSec: number; stationCount: number } | null;
 }
 
-// Equipment / asset palette (Fase 5). `w`/`h` are default sizes in layout units.
-const ASSET_KINDS: { kind: string; label: string; color: string; fill: string; w: number; h: number }[] = [
-  { kind: 'workbench', label: 'Mesa', color: '#3b82f6', fill: 'rgba(59,130,246,0.10)', w: 1200, h: 800 },
-  { kind: 'conveyor', label: 'Transportador', color: '#7c3aed', fill: 'rgba(124,58,237,0.10)', w: 2400, h: 500 },
-  { kind: 'rack', label: 'Rack', color: '#f59e0b', fill: 'rgba(245,158,11,0.10)', w: 900, h: 450 },
-  { kind: 'robot', label: 'Robot', color: '#ef4444', fill: 'rgba(239,68,68,0.10)', w: 700, h: 700 },
-  { kind: 'aoi', label: 'AOI', color: '#10b981', fill: 'rgba(16,185,129,0.10)', w: 900, h: 700 },
-  { kind: 'oven', label: 'Horno', color: '#f97316', fill: 'rgba(249,115,22,0.10)', w: 1800, h: 900 },
-  { kind: 'printer', label: 'Impresora', color: '#64748b', fill: 'rgba(100,116,139,0.10)', w: 600, h: 500 },
-  { kind: 'wall', label: 'Muro', color: '#94a3b8', fill: 'rgba(148,163,184,0.20)', w: 3000, h: 150 },
-  { kind: 'zone', label: 'Zona', color: '#0ea5e9', fill: 'rgba(14,165,233,0.06)', w: 3000, h: 2000 },
-];
-const ASSET_META = (kind: string) => ASSET_KINDS.find((k) => k.kind === kind) ?? ASSET_KINDS[0];
+// Equipment / asset palette (Fase 5) — canonical list shared with the 3D CAD
+// editor so both views agree on dimensions, colours and vocabulary.
+const ASSET_KINDS = ASSET_CATALOG;
+const ASSET_META = assetMeta;
 
 interface LayoutAsset { id: string; kind: string; x: number; y: number; w: number; h: number; rotation: number; label?: string }
 interface LayoutAnnotation { id: string; type: 'text' | 'dim'; x: number; y: number; x2?: number; y2?: number; text?: string; color?: string }
@@ -354,6 +352,11 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
   const [showHistory, setShowHistory] = useState(false);
   const [showBuffers, setShowBuffers] = useState(false);
   const [showLoops, setShowLoops] = useState(false);
+  const [showClearance, setShowClearance] = useState(false);
+  const [showScorecard, setShowScorecard] = useState(false);
+  const [showContinuity, setShowContinuity] = useState(false);
+  const [showCohesion, setShowCohesion] = useState(false);
+  const [showDensity, setShowDensity] = useState(false);
   const [showCost, setShowCost] = useState(false);
   const [showSensitivity, setShowSensitivity] = useState(false);
   const [showCompare, setShowCompare] = useState(false);
@@ -363,6 +366,9 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
   const [showChangeover, setShowChangeover] = useState(false);
   const [showCells, setShowCells] = useState(false);
   const [show3d, setShow3d] = useState(false);
+  const [show3dEdit, setShow3dEdit] = useState(false);
+  const [fullscreen, setFullscreen] = useState(false);
+  const [hostH, setHostH] = useState<number>(VIEW_H);
   const [approval, setApproval] = useState<LayoutApproval | null>(null);
   const [approvalBusy, setApprovalBusy] = useState(false);
   const [reportData, setReportData] = useState<LayoutReport | null>(null);
@@ -850,8 +856,9 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
   useEffect(() => {
     if (!elRef.current || fcRef.current) return;
     const width = wrapRef.current?.clientWidth ?? 900;
+    const height = wrapRef.current?.clientHeight || VIEW_H;
     const c = new Canvas(elRef.current, {
-      width, height: VIEW_H, backgroundColor: 'transparent', selection: true,
+      width, height, backgroundColor: 'transparent', selection: true,
       preserveObjectStacking: true, fireRightClick: false, stopContextMenu: true,
     });
     fcRef.current = c;
@@ -913,16 +920,60 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [model, revision]);
 
-  // Responsive width.
+  // Keep the fabric canvas matched to its host box. In normal mode the host is
+  // a fixed 560 px; in full-screen we size it explicitly from the viewport (the
+  // host's top edge down to the bottom) rather than trusting flex stretch, which
+  // proved unreliable to measure. A ResizeObserver + window resize re-sync after
+  // layout. The drawing surface + fit scale are recomputed so content fills.
   useEffect(() => {
-    const onResize = () => {
-      const c = fcRef.current; if (!c || !wrapRef.current) return;
-      c.setDimensions({ width: wrapRef.current.clientWidth, height: VIEW_H });
-      fitRef.current = computeFit(); rebuild();
+    const el = wrapRef.current;
+    if (!el) return;
+    let raf = 0;
+    const sync = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        const c = fcRef.current;
+        if (!c || !wrapRef.current) return;
+        const w = wrapRef.current.clientWidth;
+        let h = VIEW_H;
+        if (fullscreen) {
+          const top = wrapRef.current.getBoundingClientRect().top;
+          h = Math.max(240, Math.floor(window.innerHeight - top - 42));
+        }
+        if (w < 2 || h < 2) return;
+        setHostH(h);
+        c.setDimensions({ width: w, height: h });
+        fitRef.current = computeFit();
+        rebuild();
+      });
     };
-    window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
-  }, [computeFit, rebuild]);
+    const ro = new ResizeObserver(sync);
+    ro.observe(el);
+    window.addEventListener('resize', sync);
+    sync();
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', sync);
+      cancelAnimationFrame(raf);
+    };
+  }, [computeFit, rebuild, fullscreen]);
+
+  // Re-center on entering/leaving full screen, once the host has settled.
+  useEffect(() => {
+    const id = setTimeout(() => fitView(), 120);
+    return () => clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fullscreen]);
+
+  // ESC exits full screen.
+  useEffect(() => {
+    if (!fullscreen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setFullscreen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [fullscreen]);
 
   // ── Place / unplace ─────────────────────────────────────────────────────────
   const placeStation = useCallback((s: LayoutStation) => {
@@ -1217,6 +1268,19 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
     downloadBlob(new Blob([csv], { type: 'text/csv;charset=utf-8' }), exportName('csv'));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [model, revision]);
+
+  // DXF export (Fase 53): hand the layout back as an AutoCAD R12 DXF, computed
+  // server-side from the saved layout (footprint, stations, equipment, flow…).
+  const exportDxf = useCallback(async () => {
+    try {
+      const r = await apiFetch(`${API_BASE}/line-engineering/layout/dxf-export?model=${encodeURIComponent(model)}&revision=${encodeURIComponent(revision)}`);
+      if (!r.ok) { toast.error('No se pudo exportar el DXF.', 'Ing. Industrial'); return; }
+      const d = (await r.json()) as { filename: string; dxf: string };
+      downloadBlob(new Blob([d.dxf], { type: 'application/dxf' }), d.filename || exportName('dxf'));
+      toast.success('Layout exportado a DXF (AutoCAD).', 'Ing. Industrial');
+    } catch { toast.error('No se pudo exportar el DXF.', 'Ing. Industrial'); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [model, revision, toast]);
 
   const exportPDF = useCallback(async () => {
     const c = fcRef.current; if (!c) return;
@@ -1773,15 +1837,22 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
   }
 
   return (
-    <div className={`${glass} rounded-2xl overflow-hidden`}>
+    <div
+      className={
+        fullscreen
+          ? 'fixed inset-0 z-[60] flex flex-col bg-white dark:bg-gray-950 overflow-hidden'
+          : `${glass} rounded-2xl overflow-hidden`
+      }
+    >
       {/* Toolbar */}
-      <div className="flex items-center gap-1.5 px-3 py-2 border-b border-black/5 dark:border-white/10 flex-wrap">
+      <div className="flex items-center gap-1.5 px-3 py-2 border-b border-black/5 dark:border-white/10 flex-wrap shrink-0">
         <TBtn active={!panMode} onClick={() => setPanMode(false)} title="Seleccionar"><MousePointer2 className="w-4 h-4" /></TBtn>
         <TBtn active={panMode} onClick={() => setPanMode(true)} title="Mover lienzo (pan)"><Hand className="w-4 h-4" /></TBtn>
         <Sep />
         <TBtn onClick={() => zoomBy(1.2)} title="Acercar"><ZoomIn className="w-4 h-4" /></TBtn>
         <TBtn onClick={() => zoomBy(1 / 1.2)} title="Alejar"><ZoomOut className="w-4 h-4" /></TBtn>
         <TBtn onClick={fitView} title="Ajustar"><Maximize2 className="w-4 h-4" /></TBtn>
+        <TBtn active={fullscreen} onClick={() => setFullscreen((v) => !v)} title={fullscreen ? 'Salir de pantalla completa (Esc)' : 'Pantalla completa'}>{fullscreen ? <Shrink className="w-4 h-4" /> : <Expand className="w-4 h-4" />}</TBtn>
         <TBtn active={snap} onClick={() => setSnap((v) => !v)} title="Snap a grilla"><Grid3x3 className="w-4 h-4" /></TBtn>
         <button onClick={() => { setMesOn((v) => !v); setHeatOn(false); setComplOn(false); setBayOn(false); setQualOn(false); }} title="MES en vivo (estado de estaciones)" className={`p-1.5 rounded-lg transition-colors ${mesOn ? 'text-white' : 'text-gray-500 hover:bg-black/5 dark:hover:bg-white/10'}`} style={mesOn ? { background: '#10b981' } : undefined}><Activity className="w-4 h-4" /></button>
         <button onClick={() => { setHeatOn((v) => !v); setMesOn(false); setComplOn(false); setBayOn(false); setQualOn(false); }} title="Mapa de calor (tiempo de ciclo / utilización)" className={`p-1.5 rounded-lg transition-colors ${heatOn ? 'text-white' : 'text-gray-500 hover:bg-black/5 dark:hover:bg-white/10'}`} style={heatOn ? { background: '#f97316' } : undefined}><Flame className="w-4 h-4" /></button>
@@ -1812,6 +1883,7 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
         <TBtn onClick={exportPDF} title="Exportar PDF">{exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <span className="text-[11px] font-bold leading-none">PDF</span>}</TBtn>
         <TBtn onClick={exportDossier} title="Exportar dossier (plano + resumen KPI)"><span className="text-[10px] font-bold leading-none">DOC</span></TBtn>
         <TBtn onClick={exportCSV} title="Exportar estaciones a CSV"><span className="text-[10px] font-bold leading-none">CSV</span></TBtn>
+        <TBtn onClick={exportDxf} title="Exportar a DXF (AutoCAD) — cada tipo en su capa"><span className="text-[10px] font-bold leading-none">DXF</span></TBtn>
         <TBtn onClick={() => setShowDossier(true)} title="Exportar expediente analítico (KPIs computados: JSON + CSV)"><FileDown className="w-4 h-4" /></TBtn>
         <TBtn onClick={printPlan} title="Imprimir"><Printer className="w-4 h-4" /></TBtn>
         <Sep />
@@ -1822,6 +1894,11 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
         <TBtn onClick={() => setShowYama(true)} title="Yamazumi (gráfico de balanceo)"><BarChart3 className="w-4 h-4" /></TBtn>
         <TBtn onClick={() => setShowBuffers(true)} title="Inventario de desacople / WIP entre estaciones"><Layers className="w-4 h-4" /></TBtn>
         <TBtn onClick={() => setShowLoops(true)} title="Bucles de operador (mínimo de operadores)"><Users className="w-4 h-4" /></TBtn>
+        <TBtn onClick={() => setShowClearance(true)} title="Holguras y pasillos (espacio para circular)"><Move className="w-4 h-4" /></TBtn>
+        <TBtn onClick={() => setShowScorecard(true)} title="Tarjeta de salud del layout (índice de listo para liberar)"><Gauge className="w-4 h-4" /></TBtn>
+        <TBtn onClick={() => setShowContinuity(true)} title="Continuidad de la línea (¿el flujo es un camino continuo?)"><Spline className="w-4 h-4" /></TBtn>
+        <TBtn onClick={() => setShowCohesion(true)} title="Cohesión de líneas (¿cada línea está bien agrupada?)"><GroupIcon className="w-4 h-4" /></TBtn>
+        <TBtn onClick={() => setShowDensity(true)} title="Mapa de ocupación (densidad del piso por zonas)"><Grid2x2 className="w-4 h-4" /></TBtn>
         <TBtn onClick={() => setShowCost(true)} title="Costo por unidad (mano de obra, piso, equipo)"><DollarSign className="w-4 h-4" /></TBtn>
         <TBtn onClick={() => setShowSensitivity(true)} title="Sensibilidad a la demanda (costo y operadores vs demanda)"><LineChart className="w-4 h-4" /></TBtn>
         <TBtn onClick={() => setShowCompare(true)} title="Comparar escenarios A vs B"><Scale className="w-4 h-4" /></TBtn>
@@ -1829,7 +1906,8 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
         <TBtn onClick={() => setShowFlex(true)} title="Línea flexible (modelos que comparten la línea)"><Network className="w-4 h-4" /></TBtn>
         <TBtn onClick={() => setShowChangeover(true)} title="Cambio de modelo / SMED (matriz entre modelos)"><Repeat className="w-4 h-4" /></TBtn>
         <TBtn onClick={() => setShowCells(true)} title="Celdas / zonas (agrupar estaciones)"><Frame className="w-4 h-4" /></TBtn>
-        <TBtn onClick={() => setShow3d(true)} title="Vista 3D del layout"><Box className="w-4 h-4" /></TBtn>
+        <TBtn onClick={() => setShow3dEdit(true)} title="CAD 3D — editar el layout en 3D (pantalla completa)"><Boxes className="w-4 h-4" /></TBtn>
+        <TBtn onClick={() => setShow3d(true)} title="Vista 3D rápida (Yamazumi 3D, PNG)"><Box className="w-4 h-4" /></TBtn>
         <TBtn onClick={() => setShowHistory(true)} title="Bitácora de auditoría (quién cambió qué y cuándo)"><History className="w-4 h-4" /></TBtn>
         <div className="flex-1" />
         {measureMode && measureVal && <span className="text-[12px] font-medium mr-2" style={{ color: '#0ea5e9' }}>{measureVal}</span>}
@@ -2050,9 +2128,9 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
         </div>
       )}
 
-      <div className="flex">
+      <div className="flex min-h-0">
         {/* Tray of stations not yet placed */}
-        <div className="w-52 shrink-0 border-r border-black/5 dark:border-white/10 p-3 max-h-[560px] overflow-y-auto">
+        <div className="w-52 shrink-0 border-r border-black/5 dark:border-white/10 p-3 overflow-y-auto" style={{ height: hostH }}>
           <div className="text-[11px] uppercase tracking-wide text-gray-400 mb-2 flex items-center gap-1"><MapPin className="w-3.5 h-3.5" /> Por colocar ({tray.length})</div>
           {stations.length === 0 ? (
             <p className="text-[12px] text-gray-400">Este modelo aún no tiene estaciones. Créalas en la pestaña Balanceo.</p>
@@ -2078,7 +2156,7 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
         </div>
 
         {/* Canvas */}
-        <div ref={wrapRef} className="relative flex-1 min-w-0 bg-gradient-to-br from-black/[0.015] to-transparent dark:from-white/[0.02]" style={{ height: VIEW_H }}>
+        <div ref={wrapRef} className="relative flex-1 min-w-0 bg-gradient-to-br from-black/[0.015] to-transparent dark:from-white/[0.02]" style={{ height: hostH }}>
           {loading && (
             <div className="absolute inset-0 grid place-items-center z-10"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div>
           )}
@@ -2091,7 +2169,17 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
               </div>
             </div>
           )}
-          <canvas ref={elRef} />
+          {/* Stable host for the fabric canvas. fabric re-parents the raw
+              <canvas> into its own .canvas-container, so it must NOT be a direct
+              sibling of React-conditional nodes (loader/placeholder/Minimap):
+              otherwise, when `placed` flips 0→N after the async load() (once
+              fabric has already wrapped the canvas), React anchors the Minimap
+              insert on a <canvas> that is no longer its child → "insertBefore …
+              is not a child of this node". Keeping the canvas in an always-
+              rendered wrapper makes that wrapper the stable anchor instead. */}
+          <div className="absolute inset-0">
+            <canvas ref={elRef} />
+          </div>
           {!loading && placed.length > 0 && (
             <Minimap canvasRef={fcRef} fitRef={fitRef} placementsRef={placementsRef} footprintRef={footprintRef} />
           )}
@@ -2220,6 +2308,11 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
       <LayoutHistory model={model} revision={revision} open={showHistory} onClose={() => setShowHistory(false)} />
       <BufferPlanner model={model} revision={revision} open={showBuffers} onClose={() => setShowBuffers(false)} />
       <OperatorLoops model={model} revision={revision} open={showLoops} onClose={() => setShowLoops(false)} />
+      <ClearanceAnalysis model={model} revision={revision} open={showClearance} onClose={() => setShowClearance(false)} />
+      <LayoutScorecard model={model} revision={revision} open={showScorecard} onClose={() => setShowScorecard(false)} />
+      <LineContinuity model={model} revision={revision} open={showContinuity} onClose={() => setShowContinuity(false)} />
+      <LineCohesion model={model} revision={revision} open={showCohesion} onClose={() => setShowCohesion(false)} />
+      <LineDensity model={model} revision={revision} open={showDensity} onClose={() => setShowDensity(false)} />
       <CostEstimator model={model} revision={revision} open={showCost} onClose={() => setShowCost(false)} />
       <SensitivityChart model={model} revision={revision} open={showSensitivity} onClose={() => setShowSensitivity(false)} />
       {showCompare && <ScenarioCompare model={model} revision={revision} open={showCompare} onClose={() => setShowCompare(false)} />}
@@ -2228,6 +2321,7 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
       {showFlex && <FlexLine model={model} revision={revision} open={showFlex} onClose={() => setShowFlex(false)} />}
       {showChangeover && <ChangeoverMatrix model={model} revision={revision} open={showChangeover} onClose={() => setShowChangeover(false)} />}
       {show3d && <Layout3D model={model} revision={revision} open={show3d} onClose={() => setShow3d(false)} />}
+      {show3dEdit && <Layout3DEditor model={model} revision={revision} open={show3dEdit} onClose={() => setShow3dEdit(false)} onSaved={load} />}
 
       {showCells && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" onClick={() => setShowCells(false)}>

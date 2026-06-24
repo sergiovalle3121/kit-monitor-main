@@ -7,6 +7,11 @@ import { DATE_COLUMN_TYPE } from '../../../common/database/date-column-type';
  * Self-contained and additive: the employee is denormalized (name + email) to
  * avoid coupling with the users module. The live status (VALID / EXPIRING /
  * EXPIRED) is derived from `expiresDate` at read time — not stored.
+ *
+ * `employeeId` (additive, nullable) optionally links the cert to a real
+ * `hr_employees` row so the competency matrix can be keyed by a stable id. Old
+ * certs without it keep working: they are matched/grouped by `employeeName`.
+ * The certification date is the existing `issuedDate` (no separate column).
  */
 @Entity('certifications')
 @Index('idx_cert_scope_skill', ['tenant_id', 'plant_id', 'skill'])
@@ -17,6 +22,15 @@ export class Certification extends TenantBaseEntity {
   @Index()
   @Column({ type: 'varchar', length: 32, nullable: true })
   folio: string | null;
+
+  /**
+   * Optional FK-by-value to an `hr_employees` row (kept denormalized/loosely
+   * coupled). Nullable so legacy certs (name-only) remain valid; the matrix
+   * falls back to `employeeName` when this is null.
+   */
+  @Index()
+  @Column({ type: 'varchar', length: 36, nullable: true, name: 'employee_id' })
+  employeeId: string | null;
 
   @Index()
   @Column({ type: 'varchar', length: 160, name: 'employee_name' })

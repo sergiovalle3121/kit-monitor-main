@@ -14,6 +14,8 @@ import {
   BarChart3,
   PackageCheck,
   ChevronRight,
+  Crosshair,
+  Ruler,
 } from "lucide-react";
 import { glass } from "@/lib/glass";
 import { useApi } from "@/hooks/useApi";
@@ -96,6 +98,20 @@ export default function QualityPage() {
                 title="Inspecciones de recibo (IQC) y salida (OQC)"
               >
                 <PackageCheck className="w-4 h-4" /> Inspecciones
+              </Link>
+              <Link
+                href="/dashboard/quality/characteristics"
+                className="hidden lg:inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-[13px] font-medium hover:bg-black/5 dark:hover:bg-white/10"
+                title="Catálogo de características críticas (CTQ) — cimiento de SPC"
+              >
+                <Crosshair className="w-4 h-4" /> CTQ
+              </Link>
+              <Link
+                href="/dashboard/quality/measurements"
+                className="hidden lg:inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-[13px] font-medium hover:bg-black/5 dark:hover:bg-white/10"
+                title="Mediciones variables contra características CTQ"
+              >
+                <Ruler className="w-4 h-4" /> Mediciones
               </Link>
               <Link
                 href="/dashboard/quality/analytics"

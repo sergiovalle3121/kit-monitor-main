@@ -30,6 +30,7 @@ export type DashboardArea = {
 export const AREAS: DashboardArea[] = [
   // ── Diseño · NPI ──
   { name: "Modelos · NPI", desc: "Maestro de productos", href: "/dashboard/models", icon: Boxes, domain: "engineering", roles: ["engineering", "industrial_engineer", "quality_engineer", "production_supervisor"], section: "Diseño · NPI" },
+  { name: "NPI · Gates", desc: "Fases, readiness y liberación", href: "/dashboard/npi", icon: Icons.Rocket, domain: "engineering", roles: ["engineering", "industrial_engineer", "quality_engineer", "production_supervisor"], section: "Diseño · NPI" },
   { name: "Maestro de Materiales", desc: "Partes, AVL y alternantes (MM)", href: "/dashboard/materials", icon: Icons.Package, domain: "engineering", roles: ["engineering", "industrial_engineer", "quality_engineer", "production_supervisor", "buyer"], section: "Diseño · NPI" },
   { name: "BOM Multinivel", desc: "Estructuras N niveles + explosión", href: "/dashboard/bom", icon: Icons.Network, domain: "engineering", roles: ["engineering", "industrial_engineer", "quality_engineer", "production_supervisor"], section: "Diseño · NPI" },
   { name: "Ruteo de Manufactura", desc: "Operaciones, tiempos y consumo", href: "/dashboard/routing", icon: Icons.Workflow, domain: "engineering", roles: ["industrial_engineer", "engineering", "production_supervisor"], section: "Diseño · NPI" },
@@ -66,6 +67,8 @@ export const AREAS: DashboardArea[] = [
 
   // ── Calidad ──
   { name: "Calidad", desc: "Inspección y NCR", href: "/dashboard/quality", icon: ShieldCheck, domain: "quality", roles: ["quality_engineer", "mrb_member"], section: "Calidad" },
+  { name: "Características CTQ", desc: "Catálogo CTQ + límites (cimiento SPC)", href: "/dashboard/quality/characteristics", icon: Icons.Crosshair, domain: "quality", roles: ["quality_engineer", "engineering", "industrial_engineer"], section: "Calidad" },
+  { name: "Mediciones CTQ", desc: "Lecturas y resumen descriptivo", href: "/dashboard/quality/measurements", icon: Icons.Ruler, domain: "quality", roles: ["quality_engineer", "engineering", "industrial_engineer"], section: "Calidad" },
   { name: "Calidad de piso · MRB", desc: "Holds y disposición", href: "/dashboard/floor-quality", icon: Icons.ShieldX, domain: "quality", roles: ["quality_engineer", "mrb_member", "production_supervisor"], section: "Calidad" },
   { name: "Pruebas / Lab", desc: "Inspección y validación", href: "/dashboard/lab", icon: Icons.FlaskConical, domain: "quality", roles: ["quality_engineer", "engineering"], section: "Calidad" },
   { name: "Test Engineering", desc: "Yields, FPY y Pareto de fallas", href: "/dashboard/test-engineering", icon: Icons.Sigma, domain: "quality", roles: ["quality_engineer", "engineering", "industrial_engineer"], section: "Calidad" },
@@ -102,6 +105,44 @@ export const AREAS: DashboardArea[] = [
   { name: "CRM · Pipeline", desc: "Oportunidades de venta", href: "/dashboard/crm", icon: Icons.Target, domain: "finance", roles: ["finance"], section: "Administración" },
   { name: "Office", desc: "Docs · Hojas · Slides", href: "/dashboard/office", icon: FileText, domain: "office", roles: ["engineering", "planner", "quality_engineer", "production_supervisor", "warehouse_operator", "finance", "buyer", "hr"], section: "Administración" },
 ];
+
+// Accesos de los puestos agregados (Comercial/Programas, Test Engineering, SQE,
+// Comercio Exterior, EHS). Se inyectan por href para no repetir el rol en cada
+// fila de AREAS; cada rol nuevo ve aquí sus módulos núcleo. admin/executive/owner
+// siguen viendo TODO vía seesAllAreas, así que no necesitan estar aquí.
+const EXTRA_ROLE_GRANTS: Record<string, string[]> = {
+  // Comercial / Gestión de programas → comercial, cliente y control
+  "/dashboard/crm": ["program_manager"],
+  "/dashboard/customers": ["program_manager"],
+  "/dashboard/mission-control": ["program_manager"],
+  "/dashboard/control-tower": ["program_manager"],
+  "/dashboard/reports": ["program_manager"],
+  "/dashboard/forecast": ["program_manager"],
+  // Test Engineering → pruebas y calidad
+  "/dashboard/test-engineering": ["test_engineer"],
+  "/dashboard/test-flow": ["test_engineer"],
+  "/dashboard/lab": ["test_engineer"],
+  "/dashboard/quality/measurements": ["test_engineer"],
+  "/dashboard/quality/characteristics": ["test_engineer"],
+  // Calidad de proveedores (SQE) → proveedores, calidad, RMA, recibo
+  "/dashboard/suppliers": ["program_manager", "supplier_quality"],
+  "/dashboard/quality": ["test_engineer", "supplier_quality"],
+  "/dashboard/rma": ["supplier_quality"],
+  "/dashboard/inbound": ["supplier_quality", "trade_compliance"],
+  // Comercio exterior / tráfico → embarques, tráfico, empaque, inventario
+  "/dashboard/outbound": ["trade_compliance", "program_manager"],
+  "/dashboard/traffic": ["trade_compliance"],
+  "/dashboard/packing": ["trade_compliance"],
+  "/dashboard/inventory": ["trade_compliance"],
+  // EHS / Seguridad → EHS y matriz de habilidades
+  "/dashboard/ehs": ["ehs_specialist"],
+  "/dashboard/skills": ["ehs_specialist"],
+};
+
+for (const area of AREAS) {
+  const extra = EXTRA_ROLE_GRANTS[area.href];
+  if (extra) area.roles = Array.from(new Set([...area.roles, ...extra]));
+}
 
 // Order the flow sections render in.
 export const SECTION_ORDER = [

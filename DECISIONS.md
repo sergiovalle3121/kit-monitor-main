@@ -1808,4 +1808,717 @@ oculta el ítem de CIDE y los tableros automáticamente.
 > mantuvieron las ramas de feature **solo-código** y se saldó la deuda documental
 > aquí, de una vez.
 
+## 77. Office/Sheets — difusión de funciones escalares sobre matrices (cierra las fórmulas matriciales)
+
+**Contexto.** Las fórmulas matriciales se construyeron en tres capas: la difusión de **operadores**
+(§69, `rango*2`, `rango>x`) y el **`IF` matricial** (§70, selección elemento a elemento). Faltaba la
+tercera: las **funciones escalares** (`ROUND`, `ABS`, `TEXT`, `LEN`, `LEFT`…) seguían sin aplicarse
+celda a celda en contexto matricial. `SUM(ROUND(A1:A5*1.1; 0))`, `TEXT({1;2;3}; "000")` o
+`FILTER(B; ABS(A)>x)` daban `#VALUE!` porque la función recibía la matriz entera en vez de cada
+elemento. En Excel, una función escalar dentro de una fórmula matricial se difunde por definición.
+
+**Decisión (sólo `apps/web`, aditiva):** `components/office/sheets/scalarBroadcast.ts` envuelve un
+**conjunto curado** de ~37 funciones escalares (sólo unarias/diádicas elemento a elemento — **nunca**
+agregados como `SUM`/`MAX` ni de matriz como `FILTER`/`SORT`). `broadcast(impl)` deja pasar los
+argumentos escalares sin tocarlos y, si alguno es matriz 2D, aplica la función a cada celda
+reciclando los escalares y, como los operadores, columna n×1 ⊗ fila 1×m → matriz n×m; devuelve una
+matriz 2D que compone con `SUM`/`SUMPRODUCT`/`TEXTJOIN`/… y derrama (§38). `applyScalarBroadcast`
+muta `CUSTOM_FUNCTIONS` tras el literal: usa la implementación propia ya registrada (p. ej. los
+arreglos de fidelidad §72/§73) o un delegado a `formulajs`. **Riesgo cero**: con argumentos escalares
+se llama a la implementación original sin cambios; sólo los argumentos-matriz (que antes fallaban)
+activan la difusión.
+
+Con esto, **las tres capas cierran el paradigma matricial**: operadores (§69) + `IF` (§70) +
+funciones escalares (§77). El caso emblemático que documentaba la limitación —`FILTER(B1:B5;
+A1:A5>2)` con condición calculada— y composiciones como `SUMPRODUCT(ROUND(rango;0); otro)` ya
+funcionan de extremo a extremo.
+
+**Verificación:** nueva suite `scalarBroadcast.spec.ts` (**20 aserciones**: escalar intacto en
+`ROUND`/`ABS`/`TEXT`/`LEN`/`SQRT`/`LEFT`; difusión de `ROUND`/`ABS`/`INT`/`POWER`/`MOD`/`SQRT`/`LEN`/
+`TEXT`/`UPPER`/`LEFT` sobre rangos y constantes `{…}`; `ROUND(rango·escalar)`; composición con
+`SUM`/`SUMPRODUCT`/`TEXTJOIN`; combinación con operadores §69 e `IF` matricial §70). Sin regresiones:
+las 49 suites de spec de Office verdes; `lint web` 0 errores; `build web` ✓.
+
+## 78. Office/Sheets — autofiltro personalizado (comodines, empieza/termina, Y/O)
+
+**Contexto.** El filtro de datos (`buildFilter`/`matchesCriterion`) ya admitía varios criterios pero
+**siempre en AND** y con `=`/`!=` de **coincidencia exacta**. Excel ofrece más en su *Autofiltro
+personalizado*: **comodines** (`*` = cualquier secuencia, `?` = un carácter, `~` escapa), operadores
+**«empieza por»/«termina en»**, y **dos condiciones** sobre la misma columna unidas por **Y/O**.
+
+**Decisión (sólo `apps/web`, aditiva — riesgo cero):**
+- `matchesCriterion` gana `beginsWith`/`endsWith` (insensibles a mayúsculas) y, en `=`/`!=`,
+  **comodines de Excel** vía `wildcardToRegExp` — *sólo* cuando el valor contiene `*`/`?`; sin
+  comodines, la comparación exacta/numérica queda **idéntica** (los tests previos siguen verdes).
+- `buildFilter` acepta `conjunction?: 'AND' | 'OR'` (por defecto `AND`, comportamiento previo); con
+  `'OR'` basta que se cumpla **algún** criterio.
+- UI (`SheetDataDialog`, modo filtro): réplica del *Autofiltro personalizado* de Excel — una o **dos
+  condiciones** sobre la misma columna con selector **Y (ambas) / O (cualquiera)**, nuevos operadores
+  en el desplegable y aviso de que se admiten comodines `*`/`?`.
+
+**Verificación:** `filter.spec.ts` ampliado (**27 aserciones**, +14: OR de criterios, comodines
+`N*`/`?orte`/`~*` literal, `beginsWith`/`endsWith`, comodín dentro de `buildFilter`, y los casos
+previos intactos). Sin regresiones: las 49 suites de spec de Office verdes; `lint web` 0 errores;
+`build web` ✓.
+
+## 79. Office/Sheets — combinar y separar celdas (UI)
+
+**Contexto.** El roundtrip XLSX ya **preservaba** las combinaciones (`config.merge`), pero no había
+forma de **crearlas** ni **deshacerlas** dentro de la app — una operación cotidiana en Excel
+(«Combinar y centrar»).
+
+**Decisión (sólo `apps/web`, aditiva — riesgo cero):**
+- `sheetOps.ts` gana `mergeCells(sheet, range)` y `unmergeCells(sheet, range)` **puras**. `mergeCells`
+  escribe `config.merge["r_c"] = { r, c, rs, cs }` — **el mismo formato que el roundtrip XLSX**, que
+  Fortune-Sheet ya renderiza al recargar y exporta a `.xlsx` sin pérdida; retira primero cualquier
+  combinación que se solape. El contenido del ancla se conserva y el de las celdas cubiertas queda
+  **oculto** (no se borra → separar lo recupera; menos destructivo que Excel). `unmergeCells` quita
+  toda combinación que intersecte el rango y devuelve cuántas.
+- UI: menú **«Combinar»** (Combinar celdas / Separar celdas) en el grupo *Formato → Celdas*, que actúa
+  sobre la **selección actual** del grid (`selectionRange()`), clona, muta y re-monta — igual que
+  «Inmovilizar».
+
+**Por qué `config.merge` y no `mc` por celda:** es la representación que el import XLSX produce y que
+ya se renderiza/exporta correctamente; replicarla exactamente es lo de menor riesgo y se prueba como
+función pura.
+
+**Verificación:** nueva suite `merge.spec.ts` (**15 aserciones**: ancla/rs/cs de fila y bloque, una
+sola celda → `false`, reemplazo de solapes, separación selectiva y por rango amplio, sin merge → 0,
+roundtrip combinar→separar). Sin regresiones: las 50 suites de spec de Office verdes; `lint web` 0
+errores; `build web` ✓.
+
+## 80. Office/Sheets — autofiltro nativo en su sitio (un clic)
+
+**Contexto.** Excel filtra **en su sitio** con las flechas desplegables del encabezado. En Axos eso
+sólo aparecía al «Dar formato como tabla» (que además aplica estilos), o se filtraba creando una hoja
+nueva (§78). Faltaba el gesto de Excel: **un clic** para poner el autofiltro sobre un rango, sin
+tocar estilos ni duplicar datos.
+
+**Decisión (sólo `apps/web`, aditiva — riesgo cero):** `applyTableStyle` ya activaba el autofiltro
+nativo de Fortune-Sheet con `sheet.filter_select` + `sheet.filter`; se **extrae ese mismo mecanismo
+probado** a un par puro en `sheetOps.ts`:
+- `setAutoFilter(sheet, range)` escribe `filter_select = { row:[r1,r2], column:[c1,c2] }` y `filter`
+  (un solo autofiltro por hoja, como Excel: reemplaza el anterior).
+- `clearAutoFilter(sheet)` los borra; devuelve si había uno.
+
+UI: menú **«Autofiltro»** (Activar sobre la selección / Quitar) en *Datos → Ordenar y filtrar*, que
+clona, muta y re-monta. Como usa el mismo formato que las tablas (que ya renderizan las flechas), el
+render está probado de hecho.
+
+**Verificación:** nueva suite `autoFilter.spec.ts` (**11 aserciones**: `filter_select` con fila/col
+correctas, rango inválido → `false` sin tocar la hoja, reactivar reemplaza el rango, quitar borra y
+devuelve `true`/`false`, roundtrip limpio). Sin regresiones: las 51 suites de spec de Office verdes;
+`lint web` 0 errores; `build web` ✓.
+
+## 81. Office/Docs — exportación a Markdown (GFM)
+
+**Contexto.** Docs exportaba a `.docx` (`docx.ts`) y a PDF (impresión), pero no a **Markdown** — un
+formato de texto plano, versionable y portable que todo editor moderno (Word incluido, vía
+complementos) ofrece. Primer paso de diversificación hacia Docs tras consolidar Sheets.
+
+**Decisión (sólo `apps/web`, aditiva — riesgo cero):** `lib/office/markdown.ts` añade
+`tiptapJsonToMarkdown(doc)`, **función pura sin dependencias** que recorre el árbol Tiptap/ProseMirror
+(el modelo de Docs, el mismo que consume `docx.ts`) y lo mapea a Markdown GFM: encabezados, énfasis
+(`**`/`*`/`~~`/`` ` ``), enlaces, listas con viñetas/ordenadas/**de tareas** y **anidadas**, citas,
+bloques de código con lenguaje, reglas, imágenes y **tablas GFM**. Las marcas sin equivalente
+(subrayado, resalte, sub/superíndice, color, control de cambios, comentarios) **degradan conservando
+el texto**; los nodos exóticos (math, footnotes) caen a un texto razonable. Escapa los caracteres
+especiales (`*_`` ` ``[]`) salvo dentro de código. Salida determinista (una línea en blanco entre
+bloques, sin blancos triples, un único salto final). UI: opción **«Markdown (.md)»** en el menú
+Exportar de `DocActions`, que descarga un Blob.
+
+**Verificación:** nueva suite `markdown.spec.ts` (**21 aserciones**: encabezados, negrita/cursiva/
+tachado/código/enlace, degradado de subrayado, escapado, `hardBreak`, listas anidadas/ordenadas/de
+tareas, cita, bloque de código, regla, imagen, tabla GFM, separación por bloques, documento vacío).
+Sin regresiones: las 52 suites de spec de Office verdes; `lint web` 0 errores; `build web` ✓.
+
+## 82. Office/Docs — importación de Markdown (cierra el roundtrip)
+
+**Contexto.** Tras exportar a Markdown (§81), faltaba **importarlo** para cerrar el roundtrip: abrir
+un `.md` en Docs. El editor (Tiptap) ya ingiere **HTML** al importar (igual que el `.docx` vía
+mammoth), así que basta convertir Markdown → HTML.
+
+**Decisión (sólo `apps/web`, aditiva — riesgo cero):** `lib/office/markdown.ts` añade
+`markdownToHtml(md)`, **parser puro** (sin dependencias) que produce HTML que Tiptap convierte a su
+esquema. Soporta encabezados ATX, párrafos, énfasis/enlaces/imágenes/código en línea (con escapes
+`\`), listas con viñetas/ordenadas/**de tareas** y **anidadas** (por indentación → HTML
+`taskList`/`taskItem` de Tiptap), citas, bloques de código vallados con lenguaje, reglas y **tablas
+GFM**. Aísla los tramos de código y los caracteres escapados antes de transformar, y escapa el HTML
+del resto. UI: el botón **Importar** acepta ahora `.docx`, `.md`, `.markdown` y `.txt`, ramificando
+por extensión.
+
+**Verificación:** nueva suite `markdownImport.spec.ts` (**24 aserciones**: bloques (h1/h3/p/hr),
+en línea (negrita/cursiva/tachado/código/enlace/imagen), escapado de HTML y de `\*`, listas
+(viñetas/ordenada/tareas/anidada), cita, bloques de código con y sin lenguaje, tabla GFM, dos
+párrafos, y **roundtrip** doc→md→html que conserva h2/negrita/lista). Sin regresiones: las 53 suites
+de spec de Office verdes; `lint web` 0 errores; `build web` ✓.
+
+## 83. Office/Docs — tipografía inteligente (Autoformato de Word)
+
+**Contexto.** Word convierte automáticamente la puntuación recta en sus formas tipográficas (comillas
+curvas, raya `—`, puntos suspensivos `…`, `(c)`→©, fracciones). Docs no tenía nada de esto.
+
+**Decisión (sólo `apps/web`, aditiva — riesgo cero):**
+- `lib/office/typography.ts` añade `smartTypography(text, opts?)` **pura, sin dependencias**: comillas
+  y apóstrofos curvos (apertura/cierre según el carácter previo), `--`→`—`, `...`→`…`, `(c)/(r)/(tm)`
+  →`© ® ™`, y `1/2`/`1/4`/`3/4`→`½ ¼ ¾` (con `lookbehind`/`lookahead` para **no** tocar fechas como
+  `1/2/2024` ni números). Opciones para activar/desactivar cada grupo.
+- `docs/smartTypography.ts` es la extensión Tiptap con el comando `applyTypography(opts?)`: la aplica
+  al texto de la selección (o a **todo** el documento si no hay selección) **preservando las marcas**,
+  **saltándose el código** (bloques y `code` en línea, donde la puntuación recta es significativa), y
+  aplicando las sustituciones **de derecha a izquierda** (cambian la longitud → así no invalida
+  posiciones). Mismo patrón probado que `changeCase.ts`.
+- UI: botón **«Tipografía inteligente»** en la pestaña Inicio, junto a «Cambiar mayúsculas».
+
+**Verificación:** nueva suite `smartTypography.spec.ts` (**17 aserciones**: comillas dobles/simples y
+apóstrofo, raya, puntos suspensivos, símbolos, fracciones —y fechas/números intactos—, combinado,
+opciones desactivadas, texto sin cambios). Sin regresiones: las 54 suites de spec de Office verdes;
+`lint web` 0 errores; `build web` ✓.
+
+## 84. Office/Slides — secciones del mazo (como PowerPoint)
+
+**Contexto.** El mazo ya **guardaba** un arreglo `sections` paralelo a las diapositivas (persistido en
+el JSON), pero **no había UI** para nombrarlas, quitarlas ni navegar por ellas — era una estructura
+muerta. Las secciones son una forma estándar de organizar presentaciones largas en PowerPoint.
+
+**Decisión (sólo `apps/web`, aditiva — riesgo cero):**
+- `slides/sections.ts` añade utilidades **puras** sobre `(string | null)[]` (donde un valor no nulo en
+  `sections[i]` inicia una sección): `groupSlidesBySection`, `sectionTitleAt`, `isSectionStart`,
+  `setSectionAt` (con relleno y recorte), `removeSectionAt`, `sectionCount`. Sin tocar el lienzo.
+- UI: menú **«Secciones»** en *Inicio → Diapositivas* — agregar/renombrar la sección que empieza en la
+  diapositiva actual, quitarla, y entradas **«Ir a …»** que saltan a la primera diapositiva de cada
+  sección. Sigue el patrón de metadatos probado (mutar `sectionsRef` + `sync()`, igual que la
+  transición), reutilizando `loadInto` para navegar.
+
+**Verificación:** nueva suite `sections.spec.ts` (**15 aserciones**: agrupado con tramo inicial sin
+nombre y con nombre, sin secciones, título activo heredado, `isSectionStart`, `setSectionAt`
+rellena/recorta/vacía, `removeSectionAt`, `sectionCount`). Sin regresiones: las 55 suites de spec de
+Office verdes; `lint web` 0 errores; `build web` ✓.
+
+## 85. Office/Slides — secciones visibles en el clasificador
+
+**Contexto.** Las secciones (§84) ya se podían nombrar y navegar desde el menú, pero el **clasificador
+de diapositivas** (la rejilla de miniaturas) no las mostraba — el lugar donde más ayudan a organizar
+visualmente un mazo largo.
+
+**Decisión (sólo `apps/web`, aditiva — riesgo cero):** `SlideSorter` acepta ahora la prop opcional
+`sections` y, antes de la miniatura que **inicia** una sección, renderiza un encabezado a todo el
+ancho (`col-span-full` en la rejilla CSS, dentro de un `React.Fragment` por diapositiva) con el
+nombre de la sección. Cambio puramente de presentación que reutiliza el modelo de datos ya probado
+(§84). De paso, el menú «Secciones» lee `slides.length` (estado reactivo) en vez del ref durante el
+render.
+
+**Verificación:** al ser sólo presentación (rejilla CSS) se cubre con `build` + `lint` y la lógica de
+secciones ya tiene su suite (§84). Sin regresiones: las 55 suites de spec de Office verdes; `lint web`
+0 errores; `build web` ✓.
+
+## 86. Office/Sheets — copiar un rango como tabla Markdown
+
+**Contexto.** Tras dar a Docs el roundtrip Markdown (§81/§82), faltaba en Sheets el gesto recíproco:
+**copiar un rango como tabla Markdown** para pegarlo en un README, issue, PR o documento — algo que
+Excel no hace de fábrica y que un usuario técnico agradece.
+
+**Decisión (sólo `apps/web`, aditiva — riesgo cero):** `lib/office/sheetMarkdown.ts` añade funciones
+**puras**: `rangeValues(sheet, range)` (matriz de valores mostrados leyendo el `celldata` en memoria),
+`gridToMarkdownTable(rows, opts)` (tabla GFM; primera fila = encabezado por defecto, escapa `|`/`\\`,
+colapsa saltos de línea y rellena filas cortas) y el atajo `rangeToMarkdown`. UI: botón **«Copiar como
+Markdown»** en *Datos → Herramientas de datos*, que toma la **selección actual** y escribe la tabla en
+el portapapeles (`navigator.clipboard`).
+
+**Verificación:** nueva suite `sheetMarkdown.spec.ts` (**9 aserciones**: tabla básica, varias filas,
+sin encabezado, relleno de filas cortas, escape de `|` y saltos, vacío; `rangeValues` con hueco y
+celda fuera de datos; `rangeToMarkdown` extremo a extremo). Sin regresiones: las 56 suites de spec de
+Office verdes; `lint web` 0 errores; `build web` ✓.
+
+## 87. Office/Docs — notas al pie en la exportación a Markdown
+
+**Contexto.** La exportación a Markdown (§81) emitía un marcador de nota al pie **vacío** (`[^]`) y
+**perdía el texto** de la nota: en el modelo de Docs el texto vive en `footnoteRef.attrs.content` (en
+línea), no en un nodo de definiciones, y el serializador lo ignoraba. Pérdida de datos real al
+exportar un documento con notas al pie.
+
+**Decisión (sólo `apps/web`, aditiva):** `markdown.ts` acumula el texto de cada `footnoteRef` en un
+recolector del documento en curso (reiniciado en cada `tiptapJsonToMarkdown`), emite una **referencia
+numerada** `[^N]` en su sitio y, al final, vuelca un **bloque de definiciones** `[^N]: texto`
+(sintaxis de notas al pie de GFM/Pandoc). Los saltos de línea internos de la nota se colapsan a un
+espacio.
+
+**Verificación:** `markdown.spec.ts` ampliado (**23 aserciones**, +2: nota única `Texto[^1]` +
+`[^1]: …`, y dos notas numeradas en orden con su bloque de definiciones). Sin regresiones: las 56
+suites de spec de Office verdes; `lint web` 0 errores; `build web` ✓.
+
+## 88. Office/Docs — referencias cruzadas y citas en la exportación a Markdown
+
+**Contexto.** Auditando la exportación a Markdown tras §87 se vio que los nodos en línea `crossRef`
+(referencias cruzadas) y `citation` (citas) se **descartaban en silencio** —otra pérdida de datos—:
+el serializador sólo conocía `hardBreak`/`image`/`mathInline`/`footnoteRef`/texto.
+
+**Decisión (sólo `apps/web`, aditiva):** `serializeInline` emite ahora el **texto visible** de ambos
+(igual que la exportación a `.docx`): `crossRef` → `attrs.label` (o `attrs.target` como respaldo);
+`citation` → `attrs.inText`. Escapado como texto normal.
+
+**Verificación:** `markdown.spec.ts` ampliado (**26 aserciones**, +3: `crossRef` con etiqueta, con
+respaldo a `target`, y `citation` en el texto). Sin regresiones: las 56 suites de spec de Office
+verdes; `lint web` 0 errores; `build web` ✓.
+
+## 89. Office/Docs — Markdown cubre todos los nodos de bloque de Docs (TOC, bibliografía, firma)
+
+**Contexto.** Cierre de la auditoría de la exportación a Markdown (§87/§88): faltaban los nodos de
+bloque específicos de Docs `footnoteList`, `signatureLine`, `toc` y `bibliography`. El caso por
+defecto recorría su contenido, lo que **perdía** TOC/bibliografía/firma (nodos generados, sin
+contenido propio) y arriesgaba **duplicar** notas al pie (`footnoteList`).
+
+**Decisión (sólo `apps/web`, aditiva):** `serializeBlocks` los trata explícitamente, igual que el
+exportador `.docx`:
+- `footnoteList` → **nada** (las notas van por el recolector §87; evita duplicarlas).
+- `signatureLine` → línea de guiones bajos (escapada), nombre en **negrita** y cargo.
+- `toc` → «## Tabla de contenido» + lista de los títulos del documento, indentada por nivel.
+- `bibliography` → «## Bibliografía» + las fuentes (`citation.attrs.source`) del documento, únicas y
+  ordenadas. `toc`/`bibliography` recorren la **raíz** del documento (fijada en `tiptapJsonToMarkdown`),
+  no su propio contenido.
+
+Con esto la exportación a Markdown cubre **todos** los tipos de nodo del modelo de Docs sin pérdidas.
+
+**Verificación:** `markdown.spec.ts` ampliado (**35 aserciones**, +9: `footnoteList` sin salida, firma
+con nombre/cargo/guiones, TOC con títulos indentados por nivel, bibliografía con la fuente de la
+cita). Sin regresiones: las 56 suites de spec de Office verdes; `lint web` 0 errores; `build web` ✓.
+
+## 90. Office/Docs — exportación a texto plano (.txt)
+
+**Contexto.** Docs ya exportaba a `.docx`, Markdown (§81) y PDF (impresión); faltaba **texto sin
+formato** (`.txt`), el «Guardar como texto sin formato» de Word — útil para volcar el contenido sin
+ninguna marca.
+
+**Decisión (sólo `apps/web`, aditiva — riesgo cero):** `markdown.ts` añade `tiptapJsonToPlainText(doc)`
+**pura**: recorre el árbol Tiptap conservando el texto y una estructura mínima (líneas en blanco entre
+bloques, viñetas/números con indentación por nivel en listas, tabuladores entre celdas de tabla,
+código literal) y descartando marcas y nodos decorativos. UI: opción **«Texto plano (.txt)»** en el
+menú Exportar de `DocActions`.
+
+**Verificación:** nueva suite `plainText.spec.ts` (**9 aserciones**: encabezado+párrafo, marcas
+descartadas, viñetas y anidadas, ordenada, bloque de código, tabla con tabuladores, `footnoteList`
+vacío, documento vacío). Sin regresiones: las 57 suites de spec de Office verdes; `lint web` 0
+errores; `build web` ✓.
+
+## 91. Office/Sheets — fidelidad de DEC2HEX (mayúsculas)
+
+**Contexto.** Una auditoría de fidelidad (probando el motor REAL con ~72 valores conocidos de Excel:
+fechas, financieras, texto, conversiones, ingeniería) salió **69/72**, confirmando que el motor es
+muy correcto. La única discrepancia: `DEC2HEX` devuelve el hexadecimal en **minúsculas** (`"1f"`,
+`"00ff"`, `"ffffffffff"`), mientras Excel lo da en **MAYÚSCULAS** (`"1F"`, `"00FF"`, `"FFFFFFFFFF"`).
+Rompe comparaciones de texto y búsquedas exactas contra valores de Excel.
+
+**Decisión (sólo `apps/web`, aditiva — riesgo cero):** `components/office/sheets/hexFidelity.ts`
+registra `DEC2HEX` que **delega en el mismo `formulajs`** (que calcula bien el valor, el relleno
+`places` y el complemento a dos de los negativos) y sólo **pasa la cadena a mayúsculas**. Idéntico en
+lo demás. (`HEX2DEC` ya acepta ambas cajas.)
+
+**Verificación:** nueva suite `hexFidelity.spec.ts` (**8 aserciones**: `1F`, `1A`, relleno `00FF`,
+negativo `FFFFFFFFFF`, `0`, `ABC`, sin letras intacto, roundtrip `HEX2DEC(DEC2HEX(123))`). Sin
+regresiones: las 58 suites de spec de Office verdes; `lint web` 0 errores; `build web` ✓.
+
+## 92. Office/Sheets — INDEX/MATCH horizontal (INDEX sobre vectores de una fila)
+
+**Contexto.** Una segunda ronda de la auditoría de fidelidad destapó un fallo **común y serio**:
+`INDEX(A1:C1, 2)` sobre un **rango de una sola fila** devolvía `#REF!` en vez de `20`, lo que **rompe
+el patrón `INDEX(A1:C1, MATCH(x, A1:C1, 0))`** —la búsqueda horizontal clásica, omnipresente—. En
+Excel, `INDEX(vector, n)` devuelve el n-ésimo elemento sea fila o columna; con una sola fila el índice
+es la **columna**. `@formulajs/formulajs@2.9.3` lo trataba como número de fila → fuera de rango. (El
+caso de una sola **columna** ya funcionaba.)
+
+**Decisión (sólo `apps/web`, aditiva — riesgo cero):** `components/office/sheets/lookupFidelity.ts`
+registra `INDEX` que **intercepta únicamente** el patrón roto —un solo índice (sin `col_num`) sobre un
+vector 1D o una matriz de una fila— devolviendo el elemento por posición (e índice `0` → fila
+completa, fuera de rango → `#REF!`); **todo lo demás se delega** en el mismo `formulajs` sin tocarlo
+(`INDEX(rango, fila, col)`, columnas, matrices 2D…).
+
+**Verificación:** nueva suite `lookupFidelity.spec.ts` (**10 aserciones**: `INDEX(fila,2)`,
+`INDEX/MATCH` horizontal, constante `{fila}`, índice `0`→fila completa, fuera de rango→`#REF!`, y los
+casos delegados —columna y matriz 2D— intactos). Sin regresiones: las **59 suites** de spec de Office
+verdes (incluida la del motor de fórmulas); `lint web` 0 errores; `build web` ✓.
+
+## 93. Office/Sheets — BIN2HEX y OCT2HEX en mayúsculas (extiende §91)
+
+**Contexto.** Otra ronda de la auditoría (texto/fecha/matemáticas/ingeniería, 41/44) confirmó que el
+defecto de minúsculas de §91 no era exclusivo de `DEC2HEX`: **`BIN2HEX`** y **`OCT2HEX`** también
+devuelven el hexadecimal en minúsculas (`BIN2HEX(11111111)`=`"ff"`, `OCT2HEX(777)`=`"1ff"`), mientras
+Excel los da en MAYÚSCULAS. (Aparte, la auditoría destapó que `CONVERT` no soporta temperatura
+`"C"`/`"F"` —limitación de formulajs—; queda pendiente por ser más invasivo.)
+
+**Decisión (sólo `apps/web`, aditiva — riesgo cero):** se generaliza `hexFidelity.ts` con un
+envoltorio `upper(name)` que delega en `formulajs` y sólo pasa la cadena a mayúsculas; se registran
+así las tres conversiones a hex (`DEC2HEX`, `BIN2HEX`, `OCT2HEX`).
+
+**Verificación:** `hexFidelity.spec.ts` ampliado (**14 aserciones**, +6: `BIN2HEX(11111111)`=`FF`,
+relleno, sin letras intacto, `OCT2HEX(777)`=`1FF`, `OCT2HEX(10)`=`8`, roundtrip `HEX2DEC(BIN2HEX)`).
+Sin regresiones: las 59 suites de spec de Office verdes; `lint web` 0 errores; `build web` ✓.
+
+## 94. Office/Sheets — CONVERT con temperaturas (C/F/K)
+
+**Contexto.** La deuda señalada en §93: `CONVERT(100,"C","F")` daba `#VALUE!` porque
+`@formulajs/formulajs@2.9.3` no soporta las unidades de temperatura. La temperatura es **afín** (lleva
+un desplazamiento, no sólo un factor), por eso formulajs —orientado a factores— no la cubre.
+
+**Decisión (sólo `apps/web`, aditiva — riesgo cero):** `components/office/sheets/convertTemp.ts`
+registra `CONVERT` que **intercepta únicamente** cuando **ambas** unidades son de temperatura
+(`"C"`/`"cel"`, `"F"`/`"fah"`, `"K"`/`"kel"`), pivotando por Celsius (`F=C·9/5+32`, `K=C+273.15`);
+cualquier otra conversión (masa, longitud, tiempo…) se **delega** en el mismo `formulajs` sin tocarla.
+
+**Verificación:** nueva suite `convertTemp.spec.ts` (**11 aserciones**: `C→F`=212, `F→C`=100, `C→K`/
+`K→C`, `F→K`, misma unidad, alias en minúscula, −40 coincide; y delegadas —`lbm→kg`, `m→ft`,
+`hr→mn`— intactas). Sin regresiones: las **60 suites** de spec de Office verdes; `lint web` 0 errores;
+`build web` ✓.
+
+## 95. Office/Sheets — VALUE convierte texto de fecha y hora (paridad Excel)
+
+**Contexto.** Auditando el motor REAL contra valores conocidos de Excel: `VALUE("1:30:00")` debía dar
+`0.0625`, `VALUE("2024-01-15")` debía dar `45306` y `VALUE("2024-01-15 13:30")` `45306.5625`. Pero
+`@formulajs/formulajs@2.9.3` SÓLO entiende números, moneda y porcentaje en `VALUE` y devolvía `#VALUE!`
+para cualquier texto de **fecha** u **hora**. Esto rompe un patrón cotidiano —`=VALUE(A1)+30` sobre una
+columna de fechas/horas pegadas como texto— y la coherencia con `TIMEVALUE`/`DATEVALUE`, que sí existen.
+
+**Decisión (sólo `apps/web`, aditiva — riesgo cero):** `components/office/sheets/valueFidelity.ts`
+registra `VALUE` que **delega primero** en la `VALUE` de `formulajs` (sólo cuando el texto no contiene
+letras salvo `e`/`E`, para que no «aplane» fechas con nombre de mes —`"Jan 15, 2024"`→`152024`—); si esa
+falla, **reusa el `TIMEVALUE`** propio del motor (ya fiel) para la parte de hora y `DATEVALUE` de
+`formulajs` para la fecha, convirtiendo el `Date` al **número de serie** de Excel (época `1899-12-30`).
+`VALUE` devuelve siempre un **número** (igual que Excel: el formato de celda decide cómo se ve). El error
+se señala con la cadena `#VALUE!`, que `IFERROR` captura como en Excel.
+
+**Verificación:** nueva suite `valueFidelity.spec.ts` (**30 aserciones**: números/moneda/% intactos;
+horas con/sin segundos y AM/PM; fechas ISO, `M/D/Y`, `D-Mmm-Y`, `Mmm D, Y`; combinaciones fecha+hora;
+errores capturados por `IFERROR`; roundtrip `HOUR`/`MINUTE`/`YEAR`/`MONTH`/`DAY` sobre el resultado). Sin
+regresiones: toda la suite de spec de Office verde; `lint web` 0 errores; `build web` ✓.
+
+## 96. Office/Sheets — PROPER con las reglas exactas de Excel (apóstrofo/dígito)
+
+**Contexto.** Auditando contra Excel: `PROPER("o'brien")` debe dar `"O'Brien"` —Excel pone en
+mayúscula toda letra que siga a un carácter **no alfabético** (espacio, apóstrofo, guion, dígito),
+incluido el conocido quirk `PROPER("they're")="They'Re"`. Pero `@formulajs/formulajs@2.9.3` sólo trata
+el **espacio** como separador y devolvía `"O'brien"`.
+
+**Decisión (sólo `apps/web`, aditiva — riesgo cero):** `components/office/sheets/properFidelity.ts`
+reimplementa `PROPER` (trivial y exacta): recorre el texto y pone en mayúscula cada letra precedida por
+algo que no sea letra, bajando el resto. Unicode-aware (`\p{L}`) para acentos y ñ.
+
+**Verificación:** nueva suite `properFidelity.spec.ts` (**15 aserciones**: apóstrofo, dígito, guion,
+acentos/ñ, baja el resto, bordes, idempotencia). Sin regresiones: toda la suite de spec de Office verde;
+`lint web` 0 errores; `build web` ✓.
+
+## 97. Office/Sheets — funciones de texto por bytes (LENB/LEFTB/RIGHTB/MIDB/REPLACEB/FINDB/SEARCHB)
+
+**Contexto.** Excel expone las variantes «por bytes» de las funciones de texto (pensadas para idiomas
+de doble byte). `@formulajs/formulajs@2.9.3` no las trae, así que devolvían `#NAME?` y cualquier `.xlsx`
+que las usara se rompía al abrir. En una configuración regional de **un solo byte** (latinas) cada
+carácter ocupa 1 byte y estas funciones son **idénticas** a sus versiones por carácter.
+
+**Decisión (sólo `apps/web`, aditiva — riesgo cero):** `components/office/sheets/byteFunctions.ts`
+registra `LENB/LEFTB/RIGHTB/MIDB/REPLACEB/FINDB/SEARCHB` como **delegaciones** a la función por carácter
+equivalente de `formulajs` (`LEN/LEFT/RIGHT/MID/REPLACE/FIND/SEARCH`). No toca ninguna función existente;
+sólo añade los nombres que faltaban (mejora la interoperabilidad `.xlsx`).
+
+**Verificación:** nueva suite `byteFunctions.spec.ts` (**15 aserciones**: equivalencia con las versiones
+por carácter, FINDB sensible a mayúsculas, SEARCHB insensible, composición/anidamiento). Sin regresiones:
+toda la suite de spec de Office verde; `lint web` 0 errores; `build web` ✓.
+
+## 98. Office/Docs — legibilidad por idioma (Flesch para inglés) + módulo puro testeable
+
+**Contexto.** El panel «Revisar» calculaba la legibilidad sólo con **Fernández-Huerta** (español) y la
+lógica vivía mezclada dentro del componente `DocWordCount.tsx`, sin pruebas. El procesador de referencia
+muestra, para inglés, **Flesch Reading Ease** y **Flesch-Kincaid Grade Level**.
+
+**Decisión (sólo `apps/web`, aditiva — riesgo cero):** se extrae la lógica a un módulo **puro**
+`components/office/docs/readability.ts` (conteo de sílabas ES/EN, estadísticas de texto, las tres
+fórmulas y detección de idioma) y se testea con `npx tsx`. `DocWordCount.tsx` delega en él y muestra, en
+inglés, «Facilidad de lectura» (Flesch) + «Nivel escolar» (Flesch-Kincaid); en español sigue con
+Fernández-Huerta. El idioma se detecta por marcas inequívocas del español (ñ/¿/¡/acentos/stopwords).
+
+**Verificación:** nueva suite `readability.spec.ts` (**34 aserciones**: sílabas EN/ES de palabras
+conocidas, detección de idioma, fórmulas Flesch/FK/Fernández con valores controlados, bordes, integración).
+Sin regresiones: toda la suite de spec de Office verde; `lint web` 0 errores; `build web` ✓.
+
+## 99. Office/Slides — galería de formas ampliada + golden de fidelidad de export .pptx
+
+**Contexto.** La galería de formas exporta cada forma a un **preset nativo** de PowerPoint vía
+`HINT_TO_PRESET` (en `lib/office/pptx.ts`); si una forma no tuviera mapeo, el export caería
+silenciosamente a un **rectángulo** (pérdida de fidelidad). No había prueba que garantizara la
+cobertura, y faltaban en la galería formas comunes (rombo, flecha derecha, estrella de 5 puntas) que ya
+tienen preset y botón rápido en el editor.
+
+**Decisión (sólo `apps/web`, aditiva — riesgo cero):** se añaden `diamond`, `rightArrow` y `star5` a
+`POLY_SHAPES` y a `SHAPE_LIBRARY` (ya cubiertos por `HINT_TO_PRESET`), y se exportan `HINT_TO_PRESET` y
+`presetFor` desde `pptx.ts` para poder auditarlos. `addShapeByKind` ya instancia cualquier forma poly/path,
+así que no hace falta tocar el editor.
+
+**Verificación:** nueva suite `shapes.spec.ts` (**136 aserciones**): geometría de `starPoints`/
+`regularPolygon`, todas las formas dentro de su caja, y el **golden**: cada forma de la galería (+ las de
+inserción rápida) está definida y mapea a un preset que **existe** en PptxGenJS (sin caer a rectángulo).
+Sin regresiones: `pptx.spec.ts` 19/19 y toda la suite de Office verde; `lint web` 0 errores; `build web` ✓.
+
+## 100. Office/Sheets — SEARCH con comodines de Excel (?/*/~) + núcleo wildcard
+
+**Contexto.** Excel admite comodines en `SEARCH` (`?`=un carácter, `*`=cualquier secuencia, `~`
+escapa) y en los criterios de la familia `COUNTIF/SUMIF/MATCH`. `@formulajs/formulajs@2.9.3` no los
+implementa: `SEARCH("b?d","abcd")` devolvía `#VALUE!`.
+
+**Decisión (sólo `apps/web`, aditiva — riesgo cero):** `components/office/sheets/wildcard.ts` aporta el
+**núcleo** `excelWildcardToRegExp`/`hasWildcard`/`wildcardMatch` (patrón Excel → RegExp, insensible a
+mayúsculas) y un `SEARCH` fiel que lo usa, registrado en CUSTOM_FUNCTIONS. `FIND` (literal, sensible a
+may.) no se toca. El núcleo se reutilizará en la familia de criterios (siguiente fase).
+
+**Verificación:** nueva suite `wildcard.spec.ts` (**28 aserciones**: literales con inicio e insensibles
+a may. sin regresión, `?`/`*` en varias posiciones, escapes `~?`/`~*`/`~~`, inicio inválido, y el núcleo
+expuesto). Sin regresiones: suite de Office verde; `lint web` 0 errores; `build web` ✓.
+
+## 101. Office/Sheets — familia de criterios con comodines (COUNTIF/SUMIF/AVERAGEIF/MAXIFS…)
+
+**Contexto.** `@formulajs/formulajs@2.9.3` entiende los operadores de criterio (`">5"`, `"<>x"`…) pero
+**ignora los comodines**: `COUNTIF(rango,"ap*")` contaba 0, `SUMIF`/`AVERAGEIF` con `"a*"` daban 0/nulo.
+Los comodines en criterios son cotidianos (filtrar por prefijo/sufijo).
+
+**Decisión (sólo `apps/web`, aditiva — riesgo cero):** `components/office/sheets/criteriaIf.ts`
+reimplementa `COUNTIF/COUNTIFS/SUMIF/SUMIFS/AVERAGEIF/AVERAGEIFS/MAXIFS/MINIFS` con un **evaluador de
+criterios fiel** que reutiliza el núcleo `wildcard.ts` (§100). La coincidencia de texto se enruta SIEMPRE
+por el patrón→RegExp anclado e insensible a may. (trata comodines, escapes `~?` y literales por igual), y
+conserva los operadores de comparación y la igualdad numérica de Excel (vacío/`<>` incluidos).
+
+**Verificación:** nueva suite `criteriaIf.spec.ts` (**23 aserciones**: comodines `?`/`*`/`~` en COUNTIF,
+operadores `>`/`<=`/`<>`, número exacto, vacío/no-vacío, insensibilidad a may., SUMIF/AVERAGEIF con y sin
+rango aparte, COUNTIFS/SUMIFS/AVERAGEIFS multi-criterio, MAXIFS/MINIFS). Sin regresiones: TODA la suite de
+Office verde; `lint web` 0 errores; `build web` ✓.
+
+## 102. Office/Sheets — comodines en MATCH/VLOOKUP/HLOOKUP (búsqueda exacta)
+
+**Contexto.** En Excel, la búsqueda exacta (`MATCH(...,0)`, `VLOOKUP(...,FALSE)`, `HLOOKUP(...,FALSE)`)
+admite comodines cuando el valor buscado es texto: `VLOOKUP("ap*",...,FALSE)` encuentra el primero que
+empieza por «ap». `@formulajs/formulajs@2.9.3` no lo hace (`MATCH("ap*",...,0)` daba un índice erróneo y
+`VLOOKUP("ap*",...,FALSE)` daba `#N/A`).
+
+**Decisión (sólo `apps/web`, aditiva — riesgo cero):** `components/office/sheets/lookupWildcards.ts`
+intercepta **sólo** el caso «exacto + texto con comodín» (reusando `wildcard.ts`, §100) y **delega** todo
+lo demás (numérico, literal, coincidencia aproximada) en el mismo `formulajs`. XLOOKUP propio no se toca.
+
+**Verificación:** nueva suite `lookupWildcards.spec.ts` (**16 aserciones**: comodines `?`/`*` en MATCH/
+VLOOKUP/HLOOKUP, `#N/A` sin coincidencia, anclado; y que los casos numéricos/literales/aproximados NO se
+rompen; INDEX/MATCH con comodín). Sin regresiones: TODA la suite de Office verde; `lint web` 0; `build` ✓.
+
+## 103. Office/Slides — tablas .pptx con banda según el color de acento
+
+**Contexto.** Al exportar una tabla a `.pptx`, las filas con banda usaban un azul fijo (`EEF2FF`)
+independientemente del color de acento, mientras que en el lienzo (`slides/table.ts`) la banda es el
+acento atenuado al 10% (`tint(accent, 0.10)`). Una tabla con acento verde se veía verde en pantalla pero
+exportaba bandas azuladas — una incoherencia visible al abrir el archivo.
+
+**Decisión (sólo `apps/web`, aditiva — riesgo cero):** `lib/office/pptx.ts` calcula `tintHex(accent, 0.10)`
+(espejo exacto del `tint()` del lienzo) y lo usa como relleno de las filas con banda. La cabecera ya usaba
+el acento; el resto del export no cambia.
+
+**Verificación:** se extiende `pptx.spec.ts` (**+3 aserciones, 22 total**): con acento `2563EB` la banda
+exporta su tinte `E9EFFD`, la cabecera lleva el acento, y ya NO aparece el azul fijo anterior. Sin
+regresiones: suite de Office verde; `lint web` 0 errores; `build web` ✓.
+
+## 104. Office/Docs — alineación de columnas en tablas Markdown (roundtrip)
+
+**Contexto.** La fila separadora GFM de una tabla Markdown (`:--`/`--:`/`:-:`) codifica la **alineación
+horizontal** de cada columna, pero `markdownToHtml` la **ignoraba** (todas las `th/td` salían sin
+`text-align`) y `tiptapJsonToMarkdown` emitía siempre `---`. La alineación se perdía al importar/exportar.
+
+**Decisión (sólo `apps/web`, aditiva — riesgo cero):**
+ • Importación (`lib/office/markdown.ts`): `parseTable` lee la fila separadora y aplica
+   `style="text-align:left|center|right"` a las celdas de cada columna.
+ • Modelo (`docs/tableCellAttrs.ts`): nuevo atributo global `textAlign` en `tableCell`/`tableHeader`
+   (parse/render de `el.style.textAlign`) para que la alineación viaje en el JSON/HTML.
+ • Exportación (`serializeTable`): emite `:---`/`---:`/`:---:` según `attrs.textAlign` de la cabecera.
+
+**Verificación:** nueva suite `tableAlign.spec.ts` (**12 aserciones**): importación traduce los 3 marcadores
+(y deja sin estilo la columna por defecto), exportación emite los delimitadores correctos, y un roundtrip
+conserva la alineación. Sin regresiones: specs de Markdown (export/import/plano/sheet) verdes; `lint web` 0
+errores; `build web` ✓.
+
+## 105. Office/Sheets — XLOOKUP/XMATCH: modo comodín (2) y dirección de búsqueda
+
+**Contexto.** `XLOOKUP`/`XMATCH` propios ya hacían exacto (0) y aproximado (-1/1), pero faltaban dos
+modos de Excel: **modo de coincidencia 2 = comodín** (`XLOOKUP("ap*",...,,2)`) y **modo de búsqueda -1 =
+de fin a inicio** (devuelve la ÚLTIMA coincidencia, útil con duplicados). El comodín devolvía
+`ifNotFound`/`#N/A`.
+
+**Decisión (sólo `apps/web`, aditiva — riesgo cero):** se refactoriza la localización a un helper común
+`xfind(L, key, mode, searchMode)` (en `formulaEngine.ts`, donde ya viven ambas funciones) que: con
+`mode 2` casa por comodín reutilizando `wildcardMatch` (§100); con `searchMode -1` recorre el vector en
+orden inverso (última coincidencia); 2/-2 (binaria) se tratan como lineal (mismo resultado exacto). Los
+modos exacto/aproximado preexistentes quedan idénticos.
+
+**Verificación:** nueva suite `xlookupModes.spec.ts` (**18 aserciones**: exacto/ifNotFound/aproximado sin
+regresión, comodín `?`/`*` en XLOOKUP y XMATCH, dirección inversa con duplicados, comodín+inverso
+combinados). Sin regresiones: motor + modernFunctions (80) + lookup* verdes; `lint web` 0; `build web` ✓.
+
+## 106. Office/Sheets — fidelidad de formato de número (científico y fracción)
+
+**Contexto.** Auditando `formatNumber` contra Excel aparecieron dos discrepancias finas: (1) el formato
+**científico** rellenaba SIEMPRE el exponente a 2 dígitos (`0.0e+0` daba `1.2E+03` en vez de `1.2E+3`),
+ignorando los ceros del patrón tras `E`; (2) en **fracciones** con hueco de entero y parte entera 0
+(`# ?/?` con 0.5) faltaba el espacio del entero (`1/2` en vez de ` 1/2`), con el que Excel alinea la
+fracción.
+
+**Decisión (sólo `apps/web`, aditiva — riesgo cero):** en `renderNumericSection` (lib/office/sheetOps.ts):
+(1) los dígitos del exponente se toman del nº de ceros tras `E+`/`E-` del patrón; (2) en la rama de
+fracción, si el valor es < 1 y el patrón tiene hueco de entero seguido de espacio, se antepone el espacio.
+También se corrige una aserción **no fiel** previa en `numfmt.spec` (`# ??/??` de 0.75 → ` 3/4`, como Excel).
+
+**Verificación:** nueva suite `numfmtFidelity.spec.ts` (**12 aserciones**: exponente de 1/2/3 dígitos sin
+regresión, exponente negativo, fracciones con y sin hueco de entero, enteros). `numfmt.spec` actualizado a
+47/47. Sin regresiones en el resto de la suite; `lint web` 0; `build web` ✓.
+
+## 107. Office/Docs — títulos de enlace e imagen en Markdown (roundtrip)
+
+**Contexto.** El import de Markdown (`markdownToHtml`) ya parseaba el título opcional de enlaces e
+imágenes (`[txt](url "título")`, `![alt](src "título")`), pero el export (`tiptapJsonToMarkdown`) lo
+**descartaba**: el roundtrip perdía el título.
+
+**Decisión (sólo `apps/web`, aditiva — riesgo cero):** `lib/office/markdown.ts` emite el sufijo
+` "título"` (helper `mdTitle`, con comillas escapadas) en los tres sitios de emisión: imagen en línea,
+marca de enlace e imagen de bloque. Sin título, sin sufijo (sin regresión).
+
+**Verificación:** nueva suite `mdTitle.spec.ts` (**6 aserciones**: enlace/imagen con título, sin título
+sin sufijo, roundtrip import del export, comillas escapadas). Specs de Markdown (export/import/plano)
+verdes; `lint web` 0 errores; `build web` ✓.
+
+## 108. Office/Docs — alineación de columna de tabla en el export .docx (cierra el roundtrip de §104)
+
+**Contexto.** §104 introdujo la alineación de columna en tablas Markdown y el atributo `textAlign` de
+celda; §107 cerró los títulos. Faltaba el último tramo del roundtrip hacia Word: `tableToEl` (en
+`lib/office/docx.ts`) respetaba fondo, colspan/rowspan, alineación vertical y anchos, pero **no la
+alineación horizontal** de la celda — una tabla con columnas centradas/derecha exportaba a `.docx` sin
+ellas (Word aplica la alineación al PÁRRAFO de la celda).
+
+**Decisión (sólo `apps/web`, aditiva — riesgo cero):** se añade una variable de cierre `cellAlign`
+(patrón idéntico a `inHeaderCell`) que se fija con `cell.attrs.textAlign` alrededor de la construcción de
+los párrafos de la celda; el caso `paragraph` la usa como respaldo cuando el propio párrafo no trae
+alineación. Así la alineación de celda viaja como `w:jc` al `.docx`.
+
+**Verificación:** nueva suite `docxTableAlign.spec.ts` (**4 aserciones**: empaqueta el `.docx` real,
+descomprime y confirma `w:jc` center/right en las columnas alineadas). `docx.spec` (33) y
+`docxRoundtrip.spec` (8) verdes — sin regresiones; `lint web` 0; `build web` ✓.
+
+## 109. Office/Sheets — export .xlsx con ESTILOS vía ExcelJS (writer)
+
+**Contexto.** El mayor hueco de fidelidad de Sheets: SheetJS (edición comunitaria, el writer en
+`lib/office/xlsx.ts`) **no escribe estilos** al `.xlsx` (relleno, fuente, color, alineación). Un libro con
+formato visual se exportaba en blanco y negro y no abría «idéntico» en Excel/LibreOffice — rompiendo el
+objetivo de round-trip OOXML sin pérdida (Track B).
+
+**Decisión (sólo `apps/web`, aditiva — riesgo cero):** se añade `exceljs` (MIT) **solo como writer**.
+`lib/office/xlsxStyled.ts` (función PURA, recibe el módulo `ExcelJS`) construye el libro desde el modelo
+de Fortune-Sheet conservando: valores tipados, **fórmulas**, **formato de número**, **fuente**
+(negrita/cursiva/subrayado/tachado/color/tamaño/familia), **relleno** de fondo, **alineación**
+(horizontal/vertical/ajuste), **anchos de columna**, **altos de fila**, **combinaciones**, **paneles
+inmovilizados** y **nombres definidos**, en varias hojas. `exportSheets` enruta el `.xlsx` por este writer;
+el **CSV y toda la LECTURA siguen en SheetJS** (sin tocar el import ni los mappers puros). Carga dinámica
+(`import('exceljs')`) para no engordar el bundle principal.
+
+**Verificación:** nueva suite `xlsxStyled.spec.ts` (**22 aserciones**): helpers `toArgb`/`cellStyle`, y un
+**golden round-trip** que escribe bytes reales y los REABRE con ExcelJS para confirmar fuente/relleno/
+alineación/numFmt/fórmula/combinación/ancho. `xlsx.spec` (27) y toda la suite de Office verdes — sin
+regresiones; `lint web` 0; `build web` ✓. Licencia anotada en THIRD_PARTY_NOTICES.
+
+## 110. Office/Sheets — LECTURA de estilos al importar .xlsx (round-trip simétrico de §109)
+
+**Contexto.** §109 hizo que el export `.xlsx` escribiera estilos (vía ExcelJS). Pero el import seguía en
+SheetJS comunitario, que tampoco **lee** estilos: un libro con formato entraba «plano» (sin colores ni
+negritas). El round-trip de estilos quedaba a medias.
+
+**Decisión (sólo `apps/web`, aditiva — riesgo cero):** `importSheets` complementa la lectura de SheetJS
+(valores + fórmulas) con una pasada de **ExcelJS** que extrae los estilos y los **fusiona** en las celdas
+Fortune. Inverso de §109: `fortuneStyleFromCell` mapea fuente/relleno/alineación de ExcelJS a las claves
+Fortune (`bl/it/un/cl/fs/ff/fc/bg/ht/vt/tb`) y `readStylesIntoSheets` los inyecta por (hoja, r, c) sin
+tocar valores ni fórmulas. Tolerante a fallos (si ExcelJS no lee algo, los valores entran igual).
+
+**Verificación:** nueva suite `xlsxStyleImport.spec.ts` (**16 aserciones**): helpers inversos
+(`argbToHex`, `fortuneStyleFromCell`) y un **round-trip COMPLETO** Fortune → writer §109 → bytes →
+`readStylesIntoSheets` → Fortune, confirmando que negrita/cursiva/color/fondo/alineación/formato
+sobreviven y que el valor numérico no se pisa. `xlsxStyled` (22) y `xlsx` mappers verdes — sin
+regresiones; `lint web` 0; `build web` ✓.
+
+## 111. Office/Sheets — export de validación de datos al .xlsx (ExcelJS)
+
+**Contexto.** Tras §109/§110 (estilos en export e import), faltaba exportar la **validación de datos**
+(`sheet.dataVerification`: listas desplegables, rangos numéricos/de fecha/de longitud) al `.xlsx`. Se
+perdía al abrir el archivo en Excel. (El formato condicional ya se «hornea» en los estilos de celda, así
+que §109 lo exporta como relleno; la validación no tenía equivalente.)
+
+**Decisión (sólo `apps/web`, aditiva — riesgo cero):** `xlsxStyled.ts` añade `dataValidationFor(dvEntry)`
+que mapea el modelo de Fortune a `cell.dataValidation` de ExcelJS (lista literal `"a,b,c"` o rango;
+`whole`/`decimal`/`textLength`/`date` con su operador y 1–2 fórmulas; mensaje de entrada y rechazo
+«stop»), y `fillWorksheet` lo aplica por celda. `text_content` (sin equivalente directo) se omite con
+seguridad. No toca valores, estilos ni el resto del writer.
+
+**Verificación:** nueva suite `xlsxValidation.spec.ts` (**15 aserciones**): mapeo puro de lista/entero/
+decimal/fecha/longitud + un **round-trip real** que escribe bytes y los reabre para confirmar que la lista
+con sus opciones, el rango entero y la regla de fecha viajan al `.xlsx`. `xlsxStyled` (22) e import-rt (16)
+verdes — sin regresiones; `lint web` 0; `build web` ✓.
+
+## 112. Office/Sheets — export del autofiltro al .xlsx (ExcelJS)
+
+**Contexto.** Continuando la cadena de fidelidad `.xlsx` (§109–§111), faltaba exportar el **autofiltro**:
+una hoja con `filter_select` (rango con encabezados filtrables) se exportaba sin las flechas de filtro, así
+que en Excel había que volver a activarlo.
+
+**Decisión (sólo `apps/web`, aditiva — riesgo cero):** `fillWorksheet` (xlsxStyled.ts) traduce
+`sheet.filter_select: { row:[r1,r2], column:[c1,c2] }` a `ws.autoFilter = { from, to }` de ExcelJS
+(1-based). Si no hay filtro, no se escribe nada. No toca celdas, estilos ni el resto del writer.
+
+**Verificación:** nueva suite `xlsxAutofilter.spec.ts` (**3 aserciones**): round-trip real — la hoja con
+filtro exporta `autoFilter` con el rango correcto (`A1:B3`) y la hoja sin filtro no lo lleva. `xlsxStyled`
+(22), validación (15) e import-rt (16) verdes — sin regresiones; `lint web` 0; `build web` ✓.
+
+## 113. Office/Sheets — protección de hoja en el round-trip .xlsx (ExcelJS)
+
+**Contexto.** Cerrando la fidelidad `.xlsx` (§109–§112), faltaba la **protección de hoja**: un archivo
+protegido se abría desbloqueado tras pasar por Axos. ExcelJS la soporta (`worksheet.protect`).
+
+**Decisión (sólo `apps/web`, aditiva — riesgo cero):** modelo `SheetProtection` (`enabled`, contraseña y
+permisos: seleccionar/formato/insertar/eliminar/ordenar/autofiltro). `protectOptionsFor` lo mapea a las
+opciones de `worksheet.protect` y `styledXlsxBuffer` lo aplica (async, porque hashea la contraseña).
+`readStylesIntoSheets` lee `ws.sheetProtection` al importar y reconstruye el modelo → **round-trip**: un
+`.xlsx` protegido sigue protegido al re-exportar, sin necesidad de UI nueva (la UI para crear protección
+desde cero llega como mejora posterior). No toca valores, estilos ni el resto del writer.
+
+**Verificación:** nueva suite `xlsxProtection.spec.ts` (**12 aserciones**): mapeo puro de permisos +
+round-trip real (export protegido → reabrir confirma `sheetProtection.sheet`, la hoja libre no; import
+reconstruye `protection.enabled` y los permisos). `xlsxStyled` (22) e import-rt (16) verdes — sin
+regresiones; `lint web` 0; `build web` ✓.
+
+## 114. Office/Sheets — motor de segmentaciones (slicers) y escala de tiempo
+
+**Contexto.** Excel ofrece **segmentaciones** (botones que filtran una tabla por los valores marcados de
+una columna) y **escalas de tiempo** (filtro por rango de fechas). Axos no tenía nada de esto. Es una
+feature grande (motor + panel UI); esta rebanada entrega el **motor PURO**, testeable y aislado; el panel
+visual y su cableado con la rejilla llegan en la siguiente rebanada.
+
+**Decisión (sólo `apps/web`, aditiva — riesgo cero):** `components/office/sheets/slicer.ts`:
+`slicerValues` da los valores distintos (los botones) de una columna; `applySlicers` recalcula
+`sheet.config.rowhidden` a partir de TODOS los slicers (`sheet.slicers`) y escalas de tiempo
+(`sheet.timelines`) combinados con **Y** (oculta una fila si cualquiera la rechaza). Selección `null`=todos,
+`[]`=ninguno; la escala de tiempo filtra por `[desde, hasta]` (fechas/seriales). Usa la convención
+`rowhidden` de Fortune-Sheet. No toca nada existente (módulo nuevo).
+
+**Verificación:** nueva suite `slicer.spec.ts` (**11 aserciones**): valores distintos (texto y numéricos
+ordenados), un slicer (oculta no-coincidentes), selección vacía/todos, dos slicers con Y, y escala de
+tiempo por rango de fechas. `lint web` 0; `build web` ✓.
+
+## 115. Office/Sheets — panel de segmentaciones (slicers) y escala de tiempo (rebanada 2: UI)
+
+**Contexto.** §114 dejó el motor puro de slicers/escala de tiempo (`slicer.ts`, probado). Esta rebanada
+añade la **cara visible** que lo usa: insertar segmentaciones desde el ribbon y filtrar la tabla en vivo.
+
+**Decisión (sólo `apps/web`, aditiva — riesgo cero):** nuevo `components/office/sheets/SheetSlicer.tsx`
+(panel flotante: por cada slicer, botones toggle con los `slicerValues`; por cada escala de tiempo, dos
+fechas). En `SheetEditor.tsx`, botones «Segmentación de datos» y «Escala de tiempo» (pestaña Datos) que
+crean el filtro sobre la columna seleccionada (`makeSlicer`/`makeTimeline`), y handlers que mutan la hoja,
+llaman `applySlicers` y **re-montan** la rejilla (mismo patrón que el autofiltro nativo). El estado vive en
+`sheet.slicers`/`sheet.timelines`, así que viaja en el documento. No toca el motor `slicer.ts` ni el resto.
+
+**Verificación:** el motor sigue verde (`slicer.spec.ts` 11/11). UI verificada con `lint web` 0 y
+`build web` ✓ (no hay runtime de rejilla en specs). Sin regresiones.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->

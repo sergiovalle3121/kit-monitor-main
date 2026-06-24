@@ -8,12 +8,37 @@ import type {
   Capa,
   CapaPriority,
   CapaStatus,
+  DefectFamily,
   Ncr,
   NcrSeverity,
   NcrSourceType,
   NcrStatus,
   ParetoBucket,
 } from "./quality.types";
+
+// ── Defect families (catálogo de códigos de defecto) ────────────────────────────
+export const DEFECT_FAMILY_META: Record<DefectFamily, { label: string; color: string }> = {
+  solder: { label: "Soldadura", color: "#ef4444" },
+  component: { label: "Componente", color: "#f59e0b" },
+  cosmetic: { label: "Cosmético", color: "#3b82f6" },
+  functional: { label: "Funcional", color: "#7c3aed" },
+  mechanical: { label: "Mecánico", color: "#0ea5e9" },
+  process: { label: "Proceso", color: "#6b7280" },
+};
+
+export const DEFECT_FAMILY_ORDER: DefectFamily[] = [
+  "solder",
+  "component",
+  "cosmetic",
+  "functional",
+  "mechanical",
+  "process",
+];
+
+export function defectFamilyLabel(c?: string | null): string {
+  if (!c) return "—";
+  return DEFECT_FAMILY_META[c as DefectFamily]?.label ?? c;
+}
 
 // ── NCR status ────────────────────────────────────────────────────────────────
 export const NCR_STATUS_META: Record<NcrStatus, { label: string; color: string }> = {

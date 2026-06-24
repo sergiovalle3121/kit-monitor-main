@@ -68,6 +68,14 @@ export class SafetyIncident extends TenantBaseEntity {
   @Column({ type: 'text', nullable: true, name: 'corrective_action' })
   correctiveAction: string | null;
 
+  /** CAPA responsible (responsable de la acción correctiva). Additive, nullable. */
+  @Column({ type: 'varchar', length: 200, nullable: true, name: 'capa_owner' })
+  capaOwner: string | null;
+
+  /** CAPA commitment date (fecha de compromiso). Drives the due/overdue alert. */
+  @Column({ type: DATE_COLUMN_TYPE, nullable: true, name: 'capa_due_date' })
+  capaDueDate: Date | null;
+
   @Column({ type: DATE_COLUMN_TYPE, nullable: true, name: 'occurred_at' })
   occurredAt: Date | null;
 

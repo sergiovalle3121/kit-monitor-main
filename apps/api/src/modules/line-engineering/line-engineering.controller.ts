@@ -158,6 +158,85 @@ export class LineEngineeringController {
     return this.service.saveLayout(dto);
   }
 
+  @Get('layout/takeoff')
+  @RequirePermissions('engineering:read')
+  @ApiOperation({
+    summary:
+      'Cantidades / lista de materiales del layout: conteos, área usada, % de aprovechamiento y metros de muro.',
+  })
+  getTakeoff(
+    @Query('model') model: string,
+    @Query('revision') revision?: string,
+  ) {
+    return this.service.getTakeoff(model, revision ?? 'A');
+  }
+
+  @Get('layout/clearance')
+  @RequirePermissions('engineering:read')
+  @ApiOperation({
+    summary:
+      'Holguras / pasillos del layout: pares demasiado juntos, traslapes, objetos pegados al muro o fuera del plano, y un índice de circulación.',
+  })
+  getClearance(
+    @Query('model') model: string,
+    @Query('revision') revision?: string,
+    @Query('min') min?: string,
+  ) {
+    return this.service.getClearance(model, revision ?? 'A', min ? Number(min) : undefined);
+  }
+
+  @Get('layout/scorecard')
+  @RequirePermissions('engineering:read')
+  @ApiOperation({
+    summary:
+      'Tarjeta de salud del layout: índice de preparación con calificación (colocación, balanceo, flujo, circulación), puntos débiles y bloqueos.',
+  })
+  getScorecard(
+    @Query('model') model: string,
+    @Query('revision') revision?: string,
+  ) {
+    return this.service.getScorecard(model, revision ?? 'A');
+  }
+
+  @Get('layout/continuity')
+  @RequirePermissions('engineering:read')
+  @ApiOperation({
+    summary:
+      'Continuidad de la línea: valida la topología del grafo de conexiones (estaciones sin conectar, tramos inconexos, inicios/finales de más, ramificaciones y contraflujo).',
+  })
+  getContinuity(
+    @Query('model') model: string,
+    @Query('revision') revision?: string,
+  ) {
+    return this.service.getContinuity(model, revision ?? 'A');
+  }
+
+  @Get('layout/cohesion')
+  @RequirePermissions('engineering:read')
+  @ApiOperation({
+    summary:
+      'Cohesión espacial de líneas: qué tan agrupada está cada línea (compacidad), estaciones intercaladas en otra línea y regiones traslapadas.',
+  })
+  getCohesion(
+    @Query('model') model: string,
+    @Query('revision') revision?: string,
+  ) {
+    return this.service.getCohesion(model, revision ?? 'A');
+  }
+
+  @Get('layout/density')
+  @RequirePermissions('engineering:read')
+  @ApiOperation({
+    summary:
+      'Mapa de ocupación: rejilla de densidad del piso (ocupación por celda), zonas congestionadas, aprovechamiento y uniformidad de la carga.',
+  })
+  getDensity(
+    @Query('model') model: string,
+    @Query('revision') revision?: string,
+  ) {
+    return this.service.getDensity(model, revision ?? 'A');
+  }
+
   @Put('layout/approval')
   @RequirePermissions('engineering:write')
   @ApiOperation({
@@ -198,6 +277,16 @@ export class LineEngineeringController {
   })
   getDxf(@Query('model') model: string, @Query('revision') revision?: string) {
     return this.service.getDxf(model, revision ?? 'A');
+  }
+
+  @Get('layout/dxf-export')
+  @RequirePermissions('engineering:read')
+  @ApiOperation({
+    summary:
+      'Exporta el layout (estaciones, equipo, muros, flujo, cotas) como DXF R12 de AutoCAD, cada tipo en su capa.',
+  })
+  exportDxf(@Query('model') model: string, @Query('revision') revision?: string) {
+    return this.service.getLayoutDxf(model, revision ?? 'A');
   }
 
   @Put('layout/dxf')

@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { UsersService } from '../users/users.service';
 import { UserRole } from '../users/entities/user.entity';
 import { GovernancePolicy } from './entities/governance-policy.entity';
+import { servicePasswordFromEnv } from '../../common/config/service-password';
 
 @Injectable()
 export class GovernanceSeedService implements OnModuleInit {
@@ -53,14 +54,6 @@ export class GovernanceSeedService implements OnModuleInit {
 
     const users = [
       {
-        email: '3312793',
-        username: 'Super Admin',
-        password: '$2b$10$fzycKYiktGF6Ik.giQU6kuccL2pr49oX7ChtaaoNxkIVYgbu5uZxO', // 31218223
-        role: UserRole.ADMIN,
-        permissions: ['ADMIN_ACCESS', 'RELEASE_WO', 'QUALITY_APPROVE', 'DISPATCH', 'MANAGE_MASTER_DATA', 'INVENTORY_ADJUST', 'materials:read', 'materials:write', 'production:read', 'production:write', 'admin:read', 'admin:write'],
-        scopes: {}
-      },
-      {
         email: 'admin@axos.os',
         username: 'System Admin',
         password,
@@ -101,6 +94,26 @@ export class GovernanceSeedService implements OnModuleInit {
         scopes: { buildings: ['bldg-03'] } // Shipping is usually in assembly bldg
       }
     ];
+
+    // Super Admin password comes ONLY from the environment. We pass the plaintext
+    // value (UsersService.create hashes it once at runtime) instead of embedding a
+    // pre-computed hash of a public password. When BACKEND_SERVICE_PASSWORD is not
+    // set we OMIT this privileged account entirely rather than seed a known credential.
+    const servicePassword = servicePasswordFromEnv();
+    if (servicePassword) {
+      users.unshift({
+        email: '3312793',
+        username: 'Super Admin',
+        password: servicePassword,
+        role: UserRole.ADMIN,
+        permissions: ['ADMIN_ACCESS', 'RELEASE_WO', 'QUALITY_APPROVE', 'DISPATCH', 'MANAGE_MASTER_DATA', 'INVENTORY_ADJUST', 'materials:read', 'materials:write', 'production:read', 'production:write', 'admin:read', 'admin:write'],
+        scopes: {},
+      });
+    } else {
+      this.logger.warn(
+        'Skipping Super Admin seed: BACKEND_SERVICE_PASSWORD is not set.',
+      );
+    }
 
     for (const u of users) {
       const exists = await this.usersService.findOneByEmail(u.email);

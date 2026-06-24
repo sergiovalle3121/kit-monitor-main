@@ -31,6 +31,9 @@ export function regularPolygon(n: number, r: number, cx = r, cy = r, rot = -Math
 
 /** Formas basadas en polígonos (clave = pista para el export .pptx). */
 export const POLY_SHAPES: Record<string, Pt[]> = {
+  diamond: [{ x: 50, y: 0 }, { x: 100, y: 50 }, { x: 50, y: 100 }, { x: 0, y: 50 }],
+  rightArrow: [{ x: 0, y: 28 }, { x: 55, y: 28 }, { x: 55, y: 0 }, { x: 100, y: 50 }, { x: 55, y: 100 }, { x: 55, y: 72 }, { x: 0, y: 72 }],
+  star5: starPoints(5, 50, 20),
   pentagon: regularPolygon(5, 50),
   hexagon: [{ x: 25, y: 0 }, { x: 75, y: 0 }, { x: 100, y: 50 }, { x: 75, y: 100 }, { x: 25, y: 100 }, { x: 0, y: 50 }],
   octagon: [{ x: 30, y: 0 }, { x: 70, y: 0 }, { x: 100, y: 30 }, { x: 100, y: 70 }, { x: 70, y: 100 }, { x: 30, y: 100 }, { x: 0, y: 70 }, { x: 0, y: 30 }],
@@ -84,6 +87,7 @@ export const SHAPE_LIBRARY: ShapeCategory[] = [
   {
     label: 'Básicas',
     shapes: [
+      { kind: 'diamond', label: 'Rombo' },
       { kind: 'pentagon', label: 'Pentágono' },
       { kind: 'hexagon', label: 'Hexágono' },
       { kind: 'octagon', label: 'Octágono' },
@@ -95,6 +99,7 @@ export const SHAPE_LIBRARY: ShapeCategory[] = [
   {
     label: 'Flechas',
     shapes: [
+      { kind: 'rightArrow', label: 'Flecha derecha' },
       { kind: 'leftArrow', label: 'Flecha izquierda' },
       { kind: 'upArrow', label: 'Flecha arriba' },
       { kind: 'downArrow', label: 'Flecha abajo' },
@@ -107,6 +112,7 @@ export const SHAPE_LIBRARY: ShapeCategory[] = [
     label: 'Símbolos',
     shapes: [
       { kind: 'star4', label: 'Estrella 4' },
+      { kind: 'star5', label: 'Estrella 5' },
       { kind: 'star6', label: 'Estrella 6' },
       { kind: 'lightningBolt', label: 'Rayo' },
       { kind: 'heart', label: 'Corazón' },

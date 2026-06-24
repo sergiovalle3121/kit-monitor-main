@@ -5,27 +5,38 @@
 // actually accepts (name, category, location, criticality, status). Identity
 // fields (code, manufacturer, model, serial) are set at creation and shown
 // read-only on edit — honest about the backend's update surface.
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  Activity,
+  Calendar,
+  Clock,
+  Gauge,
   HardDrive,
   Inbox,
+  Loader2,
   MapPin,
   Pencil,
   Plus,
   Save,
   Search,
   Tag,
+  Timer,
   Wrench,
+  X,
 } from "lucide-react";
 import { glass } from "@/lib/glass";
 import { apiFetch } from "@/lib/apiFetch";
 import { useToast } from "@/contexts/ToastContext";
+import { ExportButton, type ExportColumn } from "@/components/workspace";
 import {
+  AssetStatusPill,
   CriticalityPill,
   Empty,
   Field,
   Modal,
   Pill,
+  StatusPill,
+  TypePill,
 } from "./maintenance.ui";
 import { AssetStatusSelect } from "./maintenance.actions";
 import {
@@ -34,11 +45,17 @@ import {
   COLORS,
   CRITICALITY_META,
   CRITICALITY_ORDER,
+  dueLabel,
+  fmtDate,
+  fmtDateTime,
+  fmtHours,
+  fmtMinutes,
   isOrderActive,
 } from "./maintenance.utils";
 import type {
   Asset,
   AssetCriticality,
+  AssetDetail,
   AssetStatus,
   CreateAssetInput,
   CreateOrderInput,
@@ -46,6 +63,19 @@ import type {
 } from "./maintenance.types";
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000").replace(/\/$/, "");
+
+// Columnas de exportación del registro de activos (respeta los filtros del padre).
+const ASSET_EXPORT_COLUMNS: ExportColumn<Asset>[] = [
+  { key: "code", header: "Código" },
+  { key: "name", header: "Nombre" },
+  { key: "category", header: "Categoría" },
+  { key: "location", header: "Ubicación" },
+  { key: "criticality", header: "Criticidad", value: (a) => CRITICALITY_META[a.criticality]?.label ?? a.criticality },
+  { key: "status", header: "Estado", value: (a) => ASSET_STATUS_META[a.status]?.label ?? a.status },
+  { key: "manufacturer", header: "Fabricante" },
+  { key: "model", header: "Modelo" },
+  { key: "serialNumber", header: "No. de serie" },
+];
 
 export function AssetsTab({
   assets,
@@ -63,6 +93,7 @@ export function AssetsTab({
   const [criticality, setCriticality] = useState<AssetCriticality | "">("");
   const [editing, setEditing] = useState<Asset | null>(null);
   const [creating, setCreating] = useState(false);
+  const [detailId, setDetailId] = useState<string | null>(null);
 
   // Órdenes vivas por activo (derivado del listado).
   const openByAsset = useMemo(() => {
@@ -114,6 +145,7 @@ export function AssetsTab({
             <option key={c} value={c}>{CRITICALITY_META[c].label}</option>
           ))}
         </select>
+        <ExportButton rows={rows} columns={ASSET_EXPORT_COLUMNS} filename="activos-mantenimiento" formats={["csv"]} label="Exportar" />
         <button
           onClick={() => setCreating(true)}
           className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium text-white"
@@ -159,7 +191,7 @@ export function AssetsTab({
                 style={down ? { boxShadow: `inset 0 0 0 1px ${COLORS.red}55` } : undefined}
               >
                 <div className="flex items-start gap-2">
-                  <div className="min-w-0 flex-1">
+                  <button onClick={() => setDetailId(a.id)} className="min-w-0 flex-1 text-left" title="Ver detalle y confiabilidad">
                     <div className="flex items-center gap-2 flex-wrap">
                       {a.code && <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-black/5 dark:bg-white/10 text-gray-500">{a.code}</span>}
                       <span className="font-semibold truncate">{a.name}</span>
@@ -171,7 +203,7 @@ export function AssetsTab({
                       {(a.manufacturer || a.model) && <span>{[a.manufacturer, a.model].filter(Boolean).join(" ")}</span>}
                       {a.serialNumber && <span className="font-mono">S/N {a.serialNumber}</span>}
                     </div>
-                  </div>
+                  </button>
                   <button
                     onClick={() => setEditing(a)}
                     className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 text-gray-400"
@@ -209,6 +241,182 @@ export function AssetsTab({
 
       {creating && <AssetFormModal onClose={() => setCreating(false)} onSaved={refresh} />}
       {editing && <AssetFormModal asset={editing} onClose={() => setEditing(null)} onSaved={refresh} />}
+      {detailId && (
+        <AssetDetailDrawer
+          assetId={detailId}
+          onClose={() => setDetailId(null)}
+          onEdit={(a) => { setDetailId(null); setEditing(a); }}
+          onNewOrder={onNewOrder}
+          onChanged={refresh}
+        />
+      )}
+    </div>
+  );
+}
+
+// ── Drawer de detalle de activo: historial + confiabilidad (MTTR/MTBF) ───────
+function AssetDetailDrawer({
+  assetId,
+  onClose,
+  onEdit,
+  onNewOrder,
+  onChanged,
+}: {
+  assetId: string;
+  onClose: () => void;
+  onEdit: (a: Asset) => void;
+  onNewOrder: (prefill?: Partial<CreateOrderInput>) => void;
+  onChanged: () => void;
+}) {
+  const [detail, setDetail] = useState<AssetDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(false);
+    try {
+      const res = await apiFetch(`${API_BASE}/maintenance/assets/${assetId}`);
+      if (!res.ok) { setError(true); return; }
+      setDetail(await res.json());
+    } catch {
+      setError(true);
+    } finally {
+      setLoading(false);
+    }
+  }, [assetId]);
+
+  // Carga al abrir / cambiar de activo; `load` se reusa para reintentar y refrescar.
+  useEffect(() => { load(); }, [load]);
+
+  const asset = detail?.asset ?? null;
+  const r = detail?.reliability ?? null;
+  const orders = detail?.orders ?? [];
+  const down = asset?.status === "DOWN";
+
+  return (
+    <div className="fixed inset-0 z-[110]">
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <div className={`${glass} absolute right-0 top-0 h-full w-full max-w-md overflow-y-auto`}>
+        <div className="sticky top-0 z-10 px-5 py-4 flex items-center gap-3 border-b border-black/5 dark:border-white/10 bg-white/60 dark:bg-neutral-900/60 backdrop-blur-xl">
+          <span className="w-9 h-9 rounded-xl grid place-items-center flex-shrink-0" style={{ background: down ? `${COLORS.red}1f` : `${COLORS.violet}1f` }}>
+            <HardDrive className="w-5 h-5" style={{ color: down ? COLORS.red : COLORS.violet }} />
+          </span>
+          <div className="min-w-0 flex-1">
+            <h3 className="font-semibold truncate">{asset?.name ?? "Activo"}</h3>
+            <div className="text-[12px] text-gray-400 truncate">
+              {asset ? [asset.code, asset.location].filter(Boolean).join(" · ") || "Sin ubicación" : ""}
+            </div>
+          </div>
+          <button onClick={onClose} aria-label="Cerrar" className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10"><X className="w-4 h-4" /></button>
+        </div>
+
+        {loading ? (
+          <div className="flex justify-center py-24"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div>
+        ) : error || !asset || !r ? (
+          <div className="p-8 text-center text-sm text-gray-400">
+            No se pudo cargar el detalle del activo.
+            <button onClick={load} className="block mx-auto mt-3 text-[13px] underline underline-offset-2">Reintentar</button>
+          </div>
+        ) : (
+          <div className="p-5 space-y-5">
+            <div className="flex items-center gap-2 flex-wrap">
+              <AssetStatusPill status={asset.status} />
+              <CriticalityPill criticality={asset.criticality} />
+              {(asset.manufacturer || asset.model) && (
+                <span className="text-[12px] text-gray-400">{[asset.manufacturer, asset.model].filter(Boolean).join(" ")}</span>
+              )}
+            </div>
+
+            {/* Cambio de estado operativo (semáforo) */}
+            <div>
+              <div className="text-[11px] uppercase tracking-wide text-gray-400 mb-2">Estado operativo</div>
+              <AssetStatusSelect asset={asset} onChanged={() => { onChanged(); load(); }} />
+            </div>
+
+            {/* Confiabilidad: MTTR / MTBF / fallas / paro */}
+            <div>
+              <div className="text-[11px] uppercase tracking-wide text-gray-400 mb-2 flex items-center gap-1.5">
+                <Gauge className="w-3.5 h-3.5" /> Confiabilidad
+              </div>
+              <div className="grid grid-cols-2 gap-2.5">
+                <MiniKpi icon={<Timer className="w-3.5 h-3.5" />} label="MTTR" value={fmtHours(r.mttrHours)} sub="reparación media" color={COLORS.violet} />
+                <MiniKpi icon={<Activity className="w-3.5 h-3.5" />} label="MTBF" value={fmtHours(r.mtbfHours)} sub={r.mtbfHours == null ? "≥2 fallas" : "entre fallas"} color={r.mtbfHours == null ? COLORS.gray : COLORS.violet} />
+                <MiniKpi icon={<Wrench className="w-3.5 h-3.5" />} label="Fallas" value={r.failures} sub="órdenes correctivas" color={r.failures > 0 ? COLORS.orange : COLORS.green} />
+                <MiniKpi icon={<Clock className="w-3.5 h-3.5" />} label="Paro acumulado" value={fmtMinutes(r.totalDowntimeMinutes)} sub={`${r.openOrders} abiertas`} color={COLORS.amber} />
+              </div>
+              {r.lastFailureAt && (
+                <div className="text-[11px] text-gray-400 mt-2">Última falla: {fmtDateTime(r.lastFailureAt)}</div>
+              )}
+            </div>
+
+            {/* Acción rápida */}
+            <button
+              onClick={() => onNewOrder({ assetId: asset.id, type: down ? "CORRECTIVE" : "PREVENTIVE", priority: down ? "HIGH" : "MEDIUM", title: down ? `Avería: ${asset.name}` : "" })}
+              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium text-white w-full justify-center"
+              style={{ background: down ? COLORS.red : COLORS.violet }}
+            >
+              <Wrench className="w-4 h-4" /> {down ? "Orden correctiva" : "Nueva orden"}
+            </button>
+
+            {/* Historial de órdenes (correctivas y preventivas) */}
+            <div>
+              <div className="text-[11px] uppercase tracking-wide text-gray-400 mb-2">Historial de órdenes ({orders.length})</div>
+              {orders.length === 0 ? (
+                <p className="text-sm text-gray-400 py-4 text-center">Sin órdenes para este activo todavía.</p>
+              ) : (
+                <div className="space-y-2">
+                  {orders.map((o) => <HistoryRow key={o.id} order={o} />)}
+                </div>
+              )}
+            </div>
+
+            <button onClick={() => onEdit(asset)} className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium hover:bg-black/5 dark:hover:bg-white/10 w-full justify-center">
+              <Pencil className="w-4 h-4" /> Editar activo
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function MiniKpi({
+  icon,
+  label,
+  value,
+  sub,
+  color,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: number | string;
+  sub?: string;
+  color: string;
+}) {
+  return (
+    <div className="rounded-xl p-3 bg-black/[0.03] dark:bg-white/[0.04]">
+      <div className="text-[11px] uppercase tracking-wide text-gray-400 flex items-center gap-1">{icon}{label}</div>
+      <div className="text-lg font-semibold mt-0.5" style={{ color }}>{value}</div>
+      {sub && <div className="text-[11px] text-gray-400 truncate">{sub}</div>}
+    </div>
+  );
+}
+
+function HistoryRow({ order }: { order: MaintenanceOrder }) {
+  return (
+    <div className="rounded-xl p-3 bg-black/[0.03] dark:bg-white/[0.04]">
+      <div className="flex items-center gap-2 flex-wrap">
+        {order.folio && <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-black/5 dark:bg-white/10 text-gray-500">{order.folio}</span>}
+        <span className="text-sm font-medium truncate flex-1 min-w-0">{order.title}</span>
+        <StatusPill status={order.status} />
+      </div>
+      <div className="mt-1.5 flex items-center gap-2 text-[12px] text-gray-400 flex-wrap">
+        <TypePill type={order.type} />
+        {order.dueDate && <span className="inline-flex items-center gap-1"><Calendar className="w-3 h-3" />{dueLabel(order.dueDate)}</span>}
+        {order.downtimeMinutes > 0 && <span className="inline-flex items-center gap-1"><Clock className="w-3 h-3" />{fmtMinutes(order.downtimeMinutes)} paro</span>}
+        {order.completedAt && <span>Cerrada {fmtDate(order.completedAt)}</span>}
+      </div>
     </div>
   );
 }

@@ -654,16 +654,38 @@ export class SemanticService {
     return sent;
   }
 
-  /** Daily KPI snapshot + critical-alert push for the default tenant. */
+  /** Tenants that have a semantic catalog (for cron fan-out). Always includes default. */
+  async listTenants(): Promise<string[]> {
+    const rows = await this.metricRepo
+      .createQueryBuilder('m')
+      .select('DISTINCT m.tenantId', 'tenantId')
+      .getRawMany<{ tenantId: string }>();
+    const set = new Set<string>(rows.map((r) => r.tenantId).filter(Boolean));
+    set.add(DEFAULT_TENANT);
+    return [...set];
+  }
+
+  /** Daily KPI snapshot + critical-alert push, for every tenant with a catalog. */
   @Cron(CronExpression.EVERY_DAY_AT_2AM)
   async handleDailySnapshot(): Promise<void> {
+    let tenants: string[] = [DEFAULT_TENANT];
     try {
-      const n = await this.captureSnapshots(DEFAULT_TENANT);
-      if (n > 0) this.logger.log(`Captured ${n} metric snapshot(s).`);
-      await this.notifyAlerts(DEFAULT_TENANT);
+      tenants = await this.listTenants();
     } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      this.logger.warn(`Metric snapshot/alert job failed: ${msg}`);
+      this.logger.warn(
+        `listTenants failed, using default only: ${(e as Error)?.message}`,
+      );
+    }
+    for (const t of tenants) {
+      try {
+        const n = await this.captureSnapshots(t);
+        if (n > 0)
+          this.logger.log(`Captured ${n} metric snapshot(s) for tenant ${t}.`);
+        await this.notifyAlerts(t);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        this.logger.warn(`Snapshot/alert job failed for tenant ${t}: ${msg}`);
+      }
     }
   }
 }

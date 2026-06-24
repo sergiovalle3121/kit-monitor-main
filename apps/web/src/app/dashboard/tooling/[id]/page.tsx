@@ -22,11 +22,24 @@ import {
   ShieldCheck,
   CircleSlash,
   TrendingDown,
+  PackageCheck,
+  PackageOpen,
+  Calendar,
+  History as HistoryIcon,
+  CalendarClock,
 } from 'lucide-react';
 import { glass } from '@/lib/glass';
 import { useApi } from '@/hooks/useApi';
 import { apiFetch } from '@/lib/apiFetch';
 import { useToast } from '@/contexts/ToastContext';
+import {
+  CALIBRATION_META,
+  fmtDate,
+  calibrationStatusOf,
+  type CalibrationStatus,
+  type ToolHistory,
+  type ToolCheckout as ToolCheckoutRecord,
+} from '@/lib/tooling';
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000').replace(/\/$/, '');
 
@@ -39,6 +52,16 @@ const RED = '#ef4444';
 
 type ToolStatus = 'AVAILABLE' | 'IN_USE' | 'MAINTENANCE' | 'RETIRED';
 type ToolType = 'MOLD' | 'FIXTURE' | 'STENCIL' | 'GAUGE' | 'OTHER';
+
+interface ActiveCheckout {
+  id: string;
+  workOrderId: string | null;
+  workOrderFolio: string | null;
+  workOrderModel: string | null;
+  checkedOutAt: string;
+  checkedOutBy: string | null;
+  shotsAtCheckout: number;
+}
 
 interface Tool {
   id: string;
@@ -54,6 +77,14 @@ interface Tool {
   lifePercent: number;
   remainingShots: number;
   nearEol: boolean;
+  lastCalibrationDate?: string | null;
+  nextCalibrationDate?: string | null;
+  calibrationIntervalDays?: number | null;
+  lastPmDate?: string | null;
+  nextPmDate?: string | null;
+  calibrationStatus: CalibrationStatus;
+  daysToCalibration: number | null;
+  activeCheckout: ActiveCheckout | null;
 }
 
 const STATUS_META: Record<ToolStatus, { label: string; color: string }> = {
@@ -118,9 +149,14 @@ export default function ToolDetailPage() {
   const id = String(params.id);
   const toast = useToast();
   const { data, isLoading, forbidden, mutate } = useApi<Tool>(`/tooling/${id}`);
+  const { data: history, mutate: mutateHistory } = useApi<ToolHistory>(`/tooling/${id}/history`);
 
   const [busy, setBusy] = useState<string | null>(null);
   const [usageOpen, setUsageOpen] = useState(false);
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [calibrationOpen, setCalibrationOpen] = useState(false);
+
+  function refresh() { mutate(); mutateHistory(); }
 
   if (forbidden) return <Guard />;
   if (isLoading) {
@@ -150,6 +186,8 @@ export default function ToolDetailPage() {
   const pm = pmProjection(t.shotsUsed, t.lifeShots);
   const pmMeta = PM_META[pm.state];
   const retired = t.status === 'RETIRED';
+  const calStatus: CalibrationStatus = t.calibrationStatus ?? calibrationStatusOf(t.nextCalibrationDate);
+  const calMeta = CALIBRATION_META[calStatus];
 
   async function setStatus(to: ToolStatus) {
     if (to === t.status) return;
@@ -167,7 +205,29 @@ export default function ToolDetailPage() {
         return;
       }
       toast.success(`→ ${STATUS_META[to].label}`, 'Tooling');
-      mutate();
+      refresh();
+    } catch {
+      toast.error('Error de red.', 'Tooling');
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function checkin() {
+    setBusy('checkin');
+    try {
+      const res = await apiFetch(`${API_BASE}/tooling/${t.id}/checkin`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        toast.error(d?.message || 'No se pudo recibir el herramental.', 'Tooling');
+        return;
+      }
+      toast.success('Herramental recibido — disponible de nuevo.', 'Tooling');
+      refresh();
     } catch {
       toast.error('Error de red.', 'Tooling');
     } finally {
@@ -212,6 +272,24 @@ export default function ToolDetailPage() {
         {retired && (
           <div className="mb-5 flex items-center gap-3 rounded-2xl px-4 py-3 text-[13px]" style={{ background: `${GRAY}14`, color: GRAY }}>
             <CircleSlash className="w-5 h-5 flex-shrink-0" /> Herramental retirado — fuera de la flota activa.
+          </div>
+        )}
+        {t.activeCheckout && (
+          <div className="mb-5 flex flex-wrap items-center gap-3 rounded-2xl px-4 py-3 text-[13px]" style={{ background: `${BLUE}12`, color: BLUE }}>
+            <PackageCheck className="w-5 h-5 flex-shrink-0" />
+            <div className="flex-1 min-w-0">
+              <span className="font-semibold">Prestado a {t.activeCheckout.workOrderFolio || t.activeCheckout.workOrderModel || 'una WO'}</span>
+              {' '}desde {fmtDate(t.activeCheckout.checkedOutAt)}
+              {t.activeCheckout.checkedOutBy ? ` · por ${t.activeCheckout.checkedOutBy}` : ''}.
+            </div>
+            <button
+              onClick={checkin}
+              disabled={busy !== null}
+              className="inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-[13px] font-medium text-white disabled:opacity-50"
+              style={{ background: BLUE }}
+            >
+              {busy === 'checkin' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <PackageOpen className="w-3.5 h-3.5" />} Recibir
+            </button>
           </div>
         )}
 
@@ -300,6 +378,36 @@ export default function ToolDetailPage() {
               </button>
               {retired && <p className="mt-2 text-[11px] text-gray-400">Reactiva el herramental para registrar uso.</p>}
 
+              {/* Préstamo a WO (check-out / check-in) */}
+              {t.activeCheckout ? (
+                <button
+                  onClick={checkin}
+                  disabled={busy !== null}
+                  className="mt-2 w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium text-white disabled:opacity-50"
+                  style={{ background: BLUE }}
+                >
+                  {busy === 'checkin' ? <Loader2 className="w-4 h-4 animate-spin" /> : <PackageOpen className="w-4 h-4" />} Recibir de WO
+                </button>
+              ) : (
+                <button
+                  onClick={() => setCheckoutOpen(true)}
+                  disabled={retired || t.status === 'MAINTENANCE'}
+                  className="mt-2 w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium disabled:opacity-50"
+                  style={{ background: `${BLUE}14`, color: BLUE }}
+                >
+                  <PackageCheck className="w-4 h-4" /> Prestar a WO
+                </button>
+              )}
+
+              <button
+                onClick={() => setCalibrationOpen(true)}
+                disabled={retired}
+                className="mt-2 w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium disabled:opacity-50"
+                style={{ background: `${GREEN}14`, color: GREEN }}
+              >
+                <ShieldCheck className="w-4 h-4" /> Registrar calibración
+              </button>
+
               <div className="mt-5">
                 <span className="text-[11px] uppercase tracking-wide text-gray-400">Cambiar estado</span>
                 <div className="mt-2 flex flex-col gap-2">
@@ -326,6 +434,45 @@ export default function ToolDetailPage() {
               </div>
             </div>
 
+            {/* Calibración (IATF) */}
+            <div className={`${glass} rounded-2xl p-5`}>
+              <div className="flex items-center justify-between gap-2 mb-3">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4" style={{ color: INDIGO }} />
+                  <h3 className="text-sm font-semibold">Calibración</h3>
+                </div>
+                <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full" style={{ background: `${calMeta.color}1a`, color: calMeta.color }}>
+                  <ShieldCheck className="w-3.5 h-3.5" /> {calMeta.label}
+                </span>
+              </div>
+              {calStatus === 'NONE' ? (
+                <p className="text-[12px] text-gray-400">
+                  Sin calibración registrada. Regístrala para el control IATF y el semáforo de vencimiento.
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  <DetailRow icon={Calendar} label="Última calibración" value={fmtDate(t.lastCalibrationDate)} />
+                  <DetailRow
+                    icon={CalendarClock}
+                    label="Próxima calibración"
+                    value={`${fmtDate(t.nextCalibrationDate)}${typeof t.daysToCalibration === 'number' ? ` · ${t.daysToCalibration < 0 ? `vencida hace ${Math.abs(t.daysToCalibration)} d` : `en ${t.daysToCalibration} d`}` : ''}`}
+                    color={calMeta.color}
+                  />
+                  {(t.lastPmDate || t.nextPmDate) && (
+                    <DetailRow icon={Wrench} label="PM (real)" value={`${fmtDate(t.lastPmDate)} → ${fmtDate(t.nextPmDate)}`} />
+                  )}
+                </div>
+              )}
+              <button
+                onClick={() => setCalibrationOpen(true)}
+                disabled={retired}
+                className="mt-4 w-full inline-flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl text-[13px] font-medium disabled:opacity-50"
+                style={{ background: `${INDIGO}10`, color: INDIGO }}
+              >
+                <ShieldCheck className="w-3.5 h-3.5" /> {calStatus === 'NONE' ? 'Registrar calibración' : 'Actualizar calibración'}
+              </button>
+            </div>
+
             {/* Detail */}
             <div className={`${glass} rounded-2xl p-5`}>
               <h3 className="text-sm font-semibold mb-3">Ficha técnica</h3>
@@ -339,9 +486,14 @@ export default function ToolDetailPage() {
             </div>
           </div>
         </div>
+
+        {/* Historial: préstamos por WO + uso en el tiempo */}
+        <HistorySection history={history} />
       </main>
 
-      {usageOpen && <UsageModal tool={t} onClose={() => setUsageOpen(false)} onDone={() => { setUsageOpen(false); mutate(); }} />}
+      {usageOpen && <UsageModal tool={t} onClose={() => setUsageOpen(false)} onDone={() => { setUsageOpen(false); refresh(); }} />}
+      {checkoutOpen && <CheckoutModal tool={t} onClose={() => setCheckoutOpen(false)} onDone={() => { setCheckoutOpen(false); refresh(); }} />}
+      {calibrationOpen && <CalibrationModal tool={t} onClose={() => setCalibrationOpen(false)} onDone={() => { setCalibrationOpen(false); refresh(); }} />}
     </div>
   );
 }
@@ -412,6 +564,304 @@ function UsageModal({ tool, onClose, onDone }: { tool: Tool; onClose: () => void
             {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />} Registrar
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Checkout (prestar a WO) modal ────────────────────────────────────────────
+interface WorkOrderLite { id: string; folio: string | null; model: string; line: string; status: string; }
+const WO_ACTIVE_STATUSES = ['RELEASED', 'STAGED', 'IN_EXECUTION'];
+
+function CheckoutModal({ tool, onClose, onDone }: { tool: Tool; onClose: () => void; onDone: () => void }) {
+  const toast = useToast();
+  const { data: wosRaw, forbidden } = useApi<WorkOrderLite[]>('/production-plan');
+  const [busy, setBusy] = useState(false);
+  const [woId, setWoId] = useState('');
+  const [manualFolio, setManualFolio] = useState('');
+  const [notes, setNotes] = useState('');
+
+  const wos = Array.isArray(wosRaw)
+    ? wosRaw.filter((w) => WO_ACTIVE_STATUSES.includes(w.status))
+    : [];
+  const hasList = wos.length > 0;
+  const canSubmit = !!woId || manualFolio.trim().length > 0;
+
+  async function submit() {
+    if (!canSubmit) { toast.error('Elige una WO o escribe su folio.', 'Tooling'); return; }
+    setBusy(true);
+    try {
+      const body = woId
+        ? { workOrderId: woId, notes: notes || undefined }
+        : { workOrderFolio: manualFolio.trim(), notes: notes || undefined };
+      const res = await apiFetch(`${API_BASE}/tooling/${tool.id}/checkout`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        toast.error(d?.message || 'No se pudo prestar el herramental.', 'Tooling');
+        return;
+      }
+      toast.success('Herramental prestado a la WO.', 'Tooling');
+      onDone();
+    } catch {
+      toast.error('Error de red.', 'Tooling');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-start justify-center p-4 pt-16 bg-black/40 backdrop-blur-sm overflow-y-auto" onClick={onClose}>
+      <div className={`${glass} rounded-3xl p-6 w-full max-w-md`} onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-5">
+          <h3 className="text-lg font-semibold">Prestar a una WO</h3>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10"><X className="w-4 h-4" /></button>
+        </div>
+        <p className="text-[13px] text-gray-400 mb-4">Check-out de <span className="font-medium text-gray-500">{tool.name}</span>: lo marca <span className="font-medium" style={{ color: BLUE }}>En uso</span> y queda trazado a la orden.</p>
+
+        {hasList && (
+          <label className="block mb-3">
+            <span className="block text-[12px] font-medium text-gray-500 mb-1">Orden de trabajo</span>
+            <select value={woId} onChange={(e) => setWoId(e.target.value)} className={tlInput}>
+              <option value="">— Elige una WO activa —</option>
+              {wos.map((w) => (
+                <option key={w.id} value={w.id}>{(w.folio || w.id.slice(0, 8))} · {w.model} · {w.line}</option>
+              ))}
+            </select>
+          </label>
+        )}
+
+        <label className="block">
+          <span className="block text-[12px] font-medium text-gray-500 mb-1">
+            {hasList ? 'O folio de WO (manual)' : 'Folio de WO'}
+          </span>
+          <input
+            className={tlInput}
+            value={manualFolio}
+            onChange={(e) => { setManualFolio(e.target.value); if (e.target.value) setWoId(''); }}
+            placeholder="WO-00123"
+            disabled={!!woId}
+          />
+        </label>
+        {forbidden && <p className="mt-1 text-[11px] text-gray-400">No tienes acceso a la lista de WOs — escribe el folio manualmente.</p>}
+
+        <label className="block mt-3">
+          <span className="block text-[12px] font-medium text-gray-500 mb-1">Notas (opcional)</span>
+          <input className={tlInput} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Montado en prensa 3…" />
+        </label>
+
+        <div className="mt-6 flex justify-end gap-2">
+          <button onClick={onClose} className="px-4 py-2 rounded-xl text-sm hover:bg-black/5 dark:hover:bg-white/10">Cancelar</button>
+          <button onClick={submit} disabled={busy || !canSubmit} className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white disabled:opacity-50" style={{ background: BLUE }}>
+            {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <PackageCheck className="w-4 h-4" />} Prestar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Calibración modal ────────────────────────────────────────────────────────
+function todayInput(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function CalibrationModal({ tool, onClose, onDone }: { tool: Tool; onClose: () => void; onDone: () => void }) {
+  const toast = useToast();
+  const [busy, setBusy] = useState(false);
+  const [calibratedAt, setCalibratedAt] = useState(todayInput());
+  const [intervalDays, setIntervalDays] = useState(tool.calibrationIntervalDays ?? 365);
+  const [nextDate, setNextDate] = useState('');
+
+  // Vista previa de la próxima fecha (la explícita gana sobre el intervalo).
+  const previewNext = (() => {
+    if (nextDate) return nextDate;
+    if (!calibratedAt || !intervalDays || intervalDays <= 0) return '';
+    const d = new Date(calibratedAt);
+    if (Number.isNaN(d.getTime())) return '';
+    d.setDate(d.getDate() + intervalDays);
+    return d.toISOString().slice(0, 10);
+  })();
+
+  async function submit() {
+    setBusy(true);
+    try {
+      const body: Record<string, unknown> = { calibratedAt: new Date(calibratedAt).toISOString() };
+      if (nextDate) body.nextDate = new Date(nextDate).toISOString();
+      else if (intervalDays && intervalDays > 0) body.intervalDays = intervalDays;
+      const res = await apiFetch(`${API_BASE}/tooling/${tool.id}/calibration`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        toast.error(d?.message || 'No se pudo registrar la calibración.', 'Tooling');
+        return;
+      }
+      toast.success('Calibración registrada.', 'Tooling');
+      onDone();
+    } catch {
+      toast.error('Error de red.', 'Tooling');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-start justify-center p-4 pt-16 bg-black/40 backdrop-blur-sm overflow-y-auto" onClick={onClose}>
+      <div className={`${glass} rounded-3xl p-6 w-full max-w-md`} onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-5">
+          <h3 className="text-lg font-semibold">Registrar calibración</h3>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10"><X className="w-4 h-4" /></button>
+        </div>
+        <p className="text-[13px] text-gray-400 mb-4">Control IATF de <span className="font-medium text-gray-500">{tool.name}</span>: registra la fecha y la próxima (o un intervalo en días).</p>
+
+        <label className="block mb-3">
+          <span className="block text-[12px] font-medium text-gray-500 mb-1">Fecha de esta calibración</span>
+          <input type="date" className={tlInput} value={calibratedAt} onChange={(e) => setCalibratedAt(e.target.value)} />
+        </label>
+
+        <div className="grid grid-cols-2 gap-3">
+          <label className="block">
+            <span className="block text-[12px] font-medium text-gray-500 mb-1">Intervalo (días)</span>
+            <input type="number" min={1} className={tlInput} value={intervalDays} onChange={(e) => setIntervalDays(Number(e.target.value))} disabled={!!nextDate} />
+          </label>
+          <label className="block">
+            <span className="block text-[12px] font-medium text-gray-500 mb-1">O próxima fecha</span>
+            <input type="date" className={tlInput} value={nextDate} onChange={(e) => setNextDate(e.target.value)} />
+          </label>
+        </div>
+
+        {previewNext && (
+          <div className="mt-3 text-[12px] text-gray-400">Próxima calibración: <span className="font-medium text-gray-500">{fmtDate(previewNext)}</span></div>
+        )}
+
+        <div className="mt-6 flex justify-end gap-2">
+          <button onClick={onClose} className="px-4 py-2 rounded-xl text-sm hover:bg-black/5 dark:hover:bg-white/10">Cancelar</button>
+          <button onClick={submit} disabled={busy} className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white disabled:opacity-50" style={{ background: INDIGO }}>
+            {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />} Registrar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Historial: préstamos por WO + tendencia de uso ───────────────────────────
+const HISTORY_ACTION_LABEL: Record<string, string> = {
+  TOOL_CREATED: 'Alta',
+  TOOL_USAGE_RECORDED: 'Disparos',
+  TOOL_CHECKED_OUT: 'Prestado a WO',
+  TOOL_CHECKED_IN: 'Recibido de WO',
+  TOOL_CALIBRATED: 'Calibración',
+  TOOL_PM_RECORDED: 'PM',
+  TOOL_STATUS_CHANGED: 'Cambio de estado',
+};
+
+function UsageSparkline({ history }: { history: ToolHistory }) {
+  const points = history.usage
+    .filter((u) => typeof u.shotsUsed === 'number')
+    .map((u) => ({ at: new Date(u.at).getTime(), v: u.shotsUsed as number }));
+  if (points.length < 2) return null;
+
+  const W = 320, H = 56, P = 4;
+  const xs = points.map((p) => p.at);
+  const ys = points.map((p) => p.v);
+  const minX = Math.min(...xs), maxX = Math.max(...xs);
+  const maxY = Math.max(...ys, 1);
+  const x = (t: number) => P + (maxX === minX ? 0 : ((t - minX) / (maxX - minX)) * (W - 2 * P));
+  const y = (v: number) => H - P - (v / maxY) * (H - 2 * P);
+  const d = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${x(p.at).toFixed(1)} ${y(p.v).toFixed(1)}`).join(' ');
+
+  return (
+    <div className="mt-1">
+      <svg width="100%" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="overflow-visible">
+        <path d={d} fill="none" stroke={INDIGO} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+        {points.map((p, i) => <circle key={i} cx={x(p.at)} cy={y(p.v)} r={1.8} fill={INDIGO} />)}
+      </svg>
+      <div className="flex items-center justify-between text-[11px] text-gray-400 tabular-nums">
+        <span>{fmtDate(new Date(minX).toISOString())}</span>
+        <span>disparos acumulados</span>
+        <span>{fmtDate(new Date(maxX).toISOString())}</span>
+      </div>
+    </div>
+  );
+}
+
+function HistorySection({ history }: { history?: ToolHistory }) {
+  if (!history) return null;
+  const checkouts = history.checkouts ?? [];
+  const usage = history.usage ?? [];
+
+  return (
+    <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* Préstamos por WO */}
+      <div className={`${glass} rounded-2xl p-5`}>
+        <div className="flex items-center gap-2 mb-4">
+          <PackageCheck className="w-4 h-4" style={{ color: INDIGO }} />
+          <h3 className="text-sm font-semibold">Préstamos por WO</h3>
+          <span className="ml-auto text-[11px] text-gray-400">{checkouts.length}</span>
+        </div>
+        {checkouts.length === 0 ? (
+          <p className="text-[12px] text-gray-400">Aún no se ha prestado a ninguna orden.</p>
+        ) : (
+          <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+            {checkouts.map((c) => <CheckoutRow key={c.id} c={c} />)}
+          </div>
+        )}
+      </div>
+
+      {/* Uso en el tiempo */}
+      <div className={`${glass} rounded-2xl p-5`}>
+        <div className="flex items-center gap-2 mb-4">
+          <HistoryIcon className="w-4 h-4" style={{ color: INDIGO }} />
+          <h3 className="text-sm font-semibold">Historial de uso</h3>
+          <span className="ml-auto text-[11px] text-gray-400">{usage.length}</span>
+        </div>
+        {usage.length === 0 ? (
+          <p className="text-[12px] text-gray-400">Sin movimientos registrados todavía.</p>
+        ) : (
+          <>
+            <UsageSparkline history={history} />
+            <div className="mt-3 space-y-1.5 max-h-56 overflow-y-auto pr-1">
+              {[...usage].reverse().map((u, i) => (
+                <div key={i} className="flex items-center gap-2 text-[12px]">
+                  <span className="w-20 shrink-0 text-gray-400 tabular-nums">{fmtDate(u.at)}</span>
+                  <span className="flex-1 truncate">{HISTORY_ACTION_LABEL[u.action] || u.action}</span>
+                  {typeof u.shotsAdded === 'number' && <span className="shrink-0 font-medium tabular-nums" style={{ color: INDIGO }}>+{u.shotsAdded.toLocaleString()}</span>}
+                  {typeof u.shotsUsed === 'number' && <span className="shrink-0 text-gray-400 tabular-nums">→ {u.shotsUsed.toLocaleString()}</span>}
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function CheckoutRow({ c }: { c: ToolCheckoutRecord }) {
+  const open = !c.checkedInAt;
+  return (
+    <div className="rounded-xl px-3 py-2 bg-black/[0.02] dark:bg-white/[0.04]">
+      <div className="flex items-center gap-2">
+        <span className="font-medium text-[13px] truncate">{c.workOrderFolio || c.workOrderModel || 'WO'}</span>
+        {open ? (
+          <span className="shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded-full" style={{ background: `${BLUE}1a`, color: BLUE }}>Abierto</span>
+        ) : (
+          <span className="shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded-full" style={{ background: `${GREEN}1a`, color: GREEN }}>Cerrado</span>
+        )}
+        {typeof c.shotsDuring === 'number' && c.shotsDuring > 0 && (
+          <span className="ml-auto shrink-0 text-[12px] font-medium tabular-nums" style={{ color: INDIGO }}>{c.shotsDuring.toLocaleString()} disp.</span>
+        )}
+      </div>
+      <div className="mt-0.5 text-[11px] text-gray-400">
+        {fmtDate(c.checkedOutAt)}{c.checkedOutBy ? ` · ${c.checkedOutBy}` : ''}
+        {c.checkedInAt ? ` → ${fmtDate(c.checkedInAt)}${c.checkedInBy ? ` · ${c.checkedInBy}` : ''}` : ' · en curso'}
       </div>
     </div>
   );

@@ -10,9 +10,10 @@ const CW = 960;
 
 /** Slide-sorter (classifier) overlay: drag thumbnails to reorder. */
 export function SlideSorter({
-  slides, current, ratio, onReorder, onDelete, onOpen, onClose,
+  slides, sections, current, ratio, onReorder, onDelete, onOpen, onClose,
 }: {
   slides: any[];
+  sections?: (string | null)[];
   current: number;
   ratio?: string;
   onReorder: (from: number, to: number) => void;
@@ -54,9 +55,17 @@ export function SlideSorter({
       </div>
       <div className="flex-1 overflow-y-auto p-6">
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5">
-          {slides.map((_, i) => (
+          {slides.map((_, i) => {
+            const sec = (sections?.[i] ?? '').trim();
+            return (
+            <React.Fragment key={i}>
+              {sec && (
+                <div className="col-span-full mt-2 first:mt-0 flex items-center gap-2 text-sm font-bold text-amber-600 dark:text-amber-400">
+                  <span className="uppercase tracking-wide">{sec}</span>
+                  <span className="flex-1 h-px bg-amber-200 dark:bg-amber-500/30" />
+                </div>
+              )}
             <div
-              key={i}
               draggable
               onDragStart={() => setDrag(i)}
               onDragOver={(e) => { e.preventDefault(); setOver(i); }}
@@ -74,7 +83,9 @@ export function SlideSorter({
                 <button onClick={() => onDelete(i)} className="absolute top-1.5 right-1.5 p-1.5 rounded-full bg-white/90 dark:bg-black/60 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all shadow"><Trash2 className="w-3.5 h-3.5" /></button>
               )}
             </div>
-          ))}
+            </React.Fragment>
+            );
+          })}
         </div>
       </div>
     </motion.div>

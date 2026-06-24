@@ -18,6 +18,7 @@ const FILTER_OPS: { v: string; label: string }[] = [
   { v: '>', label: 'Mayor que' }, { v: '>=', label: 'Mayor o igual' },
   { v: '<', label: 'Menor que' }, { v: '<=', label: 'Menor o igual' },
   { v: 'contains', label: 'Contiene' }, { v: 'notcontains', label: 'No contiene' },
+  { v: 'beginsWith', label: 'Empieza por' }, { v: 'endsWith', label: 'Termina en' },
   { v: 'empty', label: 'Vacío' }, { v: 'notempty', label: 'No vacío' },
 ];
 
@@ -42,6 +43,9 @@ export function SheetDataDialog({
   const [filterCol, setFilterCol] = useState(1);
   const [filterOp, setFilterOp] = useState('=');
   const [filterValue, setFilterValue] = useState('');
+  const [filterOp2, setFilterOp2] = useState('');
+  const [filterValue2, setFilterValue2] = useState('');
+  const [filterConj, setFilterConj] = useState<'AND' | 'OR'>('AND');
   const [keys, setKeys] = useState<SortKey[]>([{ colRel: 0, order: 'asc' }]);
   const [hasHeader, setHasHeader] = useState(true);
   const [delimiter, setDelimiter] = useState(',');
@@ -63,7 +67,11 @@ export function SheetDataDialog({
     else if (mode === 'fill') onApply('fill', { seedRange: range, sheetIndex, direction, count });
     else if (mode === 'transpose') onApply('transpose', { srcRange: range, sheetIndex, destCell: target });
     else if (mode === 'paste') onApply('paste', { srcRange: range, sheetIndex, destCell: target, mode: pasteMode });
-    else if (mode === 'filter') onApply('filter', { range, sheetIndex, hasHeader, criteria: [{ colRel: filterCol - 1, op: filterOp, value: filterValue }] });
+    else if (mode === 'filter') {
+      const crit: { colRel: number; op: string; value: string }[] = [{ colRel: filterCol - 1, op: filterOp, value: filterValue }];
+      if (filterOp2) crit.push({ colRel: filterCol - 1, op: filterOp2, value: filterValue2 });
+      onApply('filter', { range, sheetIndex, hasHeader, criteria: crit, conjunction: filterConj });
+    }
     else onApply('note', { cell: range, sheetIndex, text });
   }
 
@@ -204,11 +212,26 @@ export function SheetDataDialog({
             </div>
             {filterOp !== 'empty' && filterOp !== 'notempty' && (
               <label className="block text-xs text-gray-500">Valor
-                <input value={filterValue} onChange={(e) => setFilterValue(e.target.value)} className={field} />
+                <input value={filterValue} onChange={(e) => setFilterValue(e.target.value)} className={field} placeholder="comodines * y ? admitidos" />
+              </label>
+            )}
+            <div className="flex items-center gap-3 text-xs text-gray-500">
+              <label className="inline-flex items-center gap-1 cursor-pointer"><input type="radio" name="filterConj" checked={filterConj === 'AND'} onChange={() => setFilterConj('AND')} /> Y (ambas)</label>
+              <label className="inline-flex items-center gap-1 cursor-pointer"><input type="radio" name="filterConj" checked={filterConj === 'OR'} onChange={() => setFilterConj('OR')} /> O (cualquiera)</label>
+            </div>
+            <label className="flex-1 block text-xs text-gray-500">Segunda condición (opcional)
+              <select value={filterOp2} onChange={(e) => setFilterOp2(e.target.value)} className={field}>
+                <option value="">— ninguna —</option>
+                {FILTER_OPS.map((o) => <option key={o.v} value={o.v}>{o.label}</option>)}
+              </select>
+            </label>
+            {filterOp2 && filterOp2 !== 'empty' && filterOp2 !== 'notempty' && (
+              <label className="block text-xs text-gray-500">Valor 2
+                <input value={filterValue2} onChange={(e) => setFilterValue2(e.target.value)} className={field} placeholder="comodines * y ? admitidos" />
               </label>
             )}
             <label className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer"><input type="checkbox" checked={hasHeader} onChange={(e) => setHasHeader(e.target.checked)} /> La primera fila es encabezado</label>
-            <p className="text-[11px] text-gray-400">Crea una hoja nueva con las filas que cumplen el criterio (no modifica el origen).</p>
+            <p className="text-[11px] text-gray-400">Autofiltro personalizado: una o dos condiciones sobre la misma columna, unidas por Y/O. Crea una hoja nueva con las filas que cumplen el criterio (no modifica el origen).</p>
           </>
         )}
         {mode === 'note' && (

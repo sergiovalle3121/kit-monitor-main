@@ -38,6 +38,7 @@ import { FloorQualityModule } from './modules/floor-quality/floor-quality.module
 import { FaiModule } from './modules/fai/fai.module';
 import { ChangeoverModule } from './modules/changeover/changeover.module';
 import { GenealogyModule } from './modules/genealogy/genealogy.module';
+import { NpiModule } from './modules/npi/npi.module';
 import { LineControlTowerModule } from './modules/line-control-tower/line-control-tower.module';
 import { OeeModule } from './modules/oee/oee.module';
 import { LiveModule } from './modules/live/live.module';
@@ -76,6 +77,8 @@ import { EnterpriseCampusModule } from './modules/enterprise-campus/enterprise-c
 import { CustomerInsightsModule } from './modules/customer-insights/customer-insights.module';
 import { InventoryModule } from './modules/inventory/inventory.module';
 import { QualityModule } from './modules/quality/quality.module';
+import { DefectCodesModule } from './modules/defect-codes/defect-codes.module';
+import { QualityAnalyticsModule } from './modules/quality-analytics/quality-analytics.module';
 import { NcrModule } from './modules/ncr/ncr.module';
 import { SuppliersModule } from './modules/suppliers/suppliers.module';
 import { ReceivingModule } from './modules/receiving/receiving.module';
@@ -134,6 +137,7 @@ import { AlertsModule } from './modules/alerts/alerts.module';
     FaiModule,
     ChangeoverModule,
     GenealogyModule,
+    NpiModule,
     LineControlTowerModule,
     OeeModule,
     LiveModule,
@@ -167,6 +171,8 @@ import { AlertsModule } from './modules/alerts/alerts.module';
     CustomerInsightsModule,
     InventoryModule,
     QualityModule,
+    DefectCodesModule,
+    QualityAnalyticsModule,
     NcrModule,
     SuppliersModule,
     ReceivingModule,

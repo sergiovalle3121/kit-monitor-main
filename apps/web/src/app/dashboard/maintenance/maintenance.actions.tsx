@@ -6,8 +6,10 @@
 // against the same state machine the API enforces and reports via toast.
 import React, { useState } from "react";
 import {
+  CalendarClock,
   CheckCircle2,
   Clock,
+  FileOutput,
   Loader2,
   Play,
   Plus,
@@ -23,6 +25,8 @@ import {
   ASSET_STATUS_ORDER,
   COLORS,
   ORDER_STATUS_META,
+  PM_FREQUENCY_META,
+  PM_FREQUENCY_ORDER,
   PRIORITY_ORDER,
   PRIORITY_META,
   TYPE_META,
@@ -33,10 +37,14 @@ import type {
   Asset,
   AssetStatus,
   CreateOrderInput,
+  CreatePmPlanInput,
   MaintenanceOrder,
   MaintenanceOrderStatus,
   MaintenancePriority,
   MaintenanceType,
+  PmFrequencyType,
+  PmPlan,
+  UpdatePmPlanInput,
 } from "./maintenance.types";
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000").replace(/\/$/, "");
@@ -366,6 +374,223 @@ export function NewOrderButton({
       style={{ background: COLORS.violet }}
     >
       <Plus className="w-4 h-4" /> {label}
+    </button>
+  );
+}
+
+// ── Alta / edición de plan de preventivo (PM) ────────────────────────────────
+export function PmPlanFormModal({
+  assets,
+  plan,
+  onClose,
+  onSaved,
+}: {
+  assets: Asset[];
+  plan?: PmPlan;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const toast = useToast();
+  const isEdit = !!plan;
+  const [busy, setBusy] = useState(false);
+  const [form, setForm] = useState({
+    title: plan?.title ?? "",
+    assetId: plan?.assetId ?? "",
+    frequencyType: (plan?.frequencyType ?? "DAYS") as PmFrequencyType,
+    frequencyValue: String(plan?.frequencyValue ?? 30),
+    lastDoneDate: plan?.lastDoneDate ? plan.lastDoneDate.slice(0, 10) : "",
+    assignedTo: plan?.assignedTo ?? "",
+    description: plan?.description ?? "",
+  });
+
+  async function submit() {
+    if (form.title.trim().length < 3) {
+      toast.error("Describe el preventivo (mín. 3 caracteres).", "Mantenimiento");
+      return;
+    }
+    const value = Math.max(1, Math.trunc(Number(form.frequencyValue) || 0));
+    setBusy(true);
+    try {
+      let res: Response;
+      if (isEdit && plan) {
+        const body: UpdatePmPlanInput = {
+          title: form.title.trim(),
+          frequencyType: form.frequencyType,
+          frequencyValue: value,
+          assignedTo: form.assignedTo.trim() || undefined,
+          description: form.description.trim() || undefined,
+          lastDoneDate: form.lastDoneDate || undefined,
+        };
+        res = await apiFetch(`${API_BASE}/maintenance/pm-plans/${plan.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+      } else {
+        const body: CreatePmPlanInput = {
+          title: form.title.trim(),
+          assetId: form.assetId || undefined,
+          frequencyType: form.frequencyType,
+          frequencyValue: value,
+          assignedTo: form.assignedTo.trim() || undefined,
+          description: form.description.trim() || undefined,
+          lastDoneDate: form.lastDoneDate || undefined,
+        };
+        res = await apiFetch(`${API_BASE}/maintenance/pm-plans`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+      }
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        toast.error(d?.message || "No se pudo guardar el preventivo.", "Mantenimiento");
+        return;
+      }
+      toast.success(isEdit ? "Preventivo actualizado." : "Preventivo programado.", "Mantenimiento");
+      onSaved();
+      onClose();
+    } catch {
+      toast.error("Error de red.", "Mantenimiento");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const activeAssets = assets.filter((a) => a.status !== "RETIRED");
+  const unit = PM_FREQUENCY_META[form.frequencyType];
+  const freqN = Math.max(1, Math.trunc(Number(form.frequencyValue) || 0));
+
+  return (
+    <Modal
+      title={isEdit ? "Editar preventivo" : "Programar preventivo"}
+      icon={<CalendarClock className="w-4 h-4" style={{ color: COLORS.blue }} />}
+      accent={COLORS.blue}
+      busy={busy}
+      onClose={onClose}
+      onSubmit={submit}
+      submitLabel={isEdit ? "Guardar" : "Programar"}
+      submitIcon={isEdit ? <CheckCircle2 className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+    >
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Field label="Tarea preventiva" full>
+          <input
+            autoFocus
+            value={form.title}
+            onChange={(e) => setForm({ ...form, title: e.target.value })}
+            placeholder="Lubricación y limpieza de rieles"
+            className="m-input"
+          />
+        </Field>
+        <Field label="Activo / equipo" hint={isEdit ? "El activo se fija al programar." : undefined}>
+          <select
+            value={form.assetId}
+            onChange={(e) => setForm({ ...form, assetId: e.target.value })}
+            className="m-input"
+            disabled={isEdit}
+          >
+            <option value="">— sin activo —</option>
+            {activeAssets.map((a) => (
+              <option key={a.id} value={a.id}>{a.name}</option>
+            ))}
+          </select>
+        </Field>
+        <Field label="Responsable">
+          <input
+            value={form.assignedTo}
+            onChange={(e) => setForm({ ...form, assignedTo: e.target.value })}
+            placeholder="Planeador / técnico"
+            className="m-input"
+          />
+        </Field>
+        <Field label="Cada">
+          <input
+            type="number"
+            min={1}
+            value={form.frequencyValue}
+            onChange={(e) => setForm({ ...form, frequencyValue: e.target.value })}
+            className="m-input"
+          />
+        </Field>
+        <Field label="Unidad">
+          <select
+            value={form.frequencyType}
+            onChange={(e) => setForm({ ...form, frequencyType: e.target.value as PmFrequencyType })}
+            className="m-input"
+          >
+            {PM_FREQUENCY_ORDER.map((t) => (
+              <option key={t} value={t}>{PM_FREQUENCY_META[t].many}</option>
+            ))}
+          </select>
+        </Field>
+        <Field label="Última realización" full hint={`Si la dejas vacía, el primer vencimiento se calcula desde hoy (cada ${freqN} ${freqN === 1 ? unit.one : unit.many}).`}>
+          <input
+            type="date"
+            value={form.lastDoneDate}
+            onChange={(e) => setForm({ ...form, lastDoneDate: e.target.value })}
+            className="m-input"
+          />
+        </Field>
+        <Field label="Notas / checklist" full>
+          <textarea
+            value={form.description}
+            onChange={(e) => setForm({ ...form, description: e.target.value })}
+            placeholder="Pasos, refacciones, puntos de inspección…"
+            rows={3}
+            className="m-input resize-y"
+          />
+        </Field>
+      </div>
+    </Modal>
+  );
+}
+
+// ── Botón "Generar orden de PM" ──────────────────────────────────────────────
+export function GeneratePmOrderButton({
+  plan,
+  onDone,
+  className = "",
+}: {
+  plan: PmPlan;
+  onDone: () => void;
+  className?: string;
+}) {
+  const toast = useToast();
+  const [busy, setBusy] = useState(false);
+
+  async function generate() {
+    setBusy(true);
+    try {
+      const res = await apiFetch(`${API_BASE}/maintenance/pm-plans/${plan.id}/generate-order`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        toast.error(d?.message || "No se pudo generar la orden.", "Mantenimiento");
+        return;
+      }
+      const data = await res.json().catch(() => ({}));
+      const folio = data?.order?.folio;
+      toast.success(folio ? `Orden ${folio} generada.` : "Orden de PM generada.", "Mantenimiento");
+      onDone();
+    } catch {
+      toast.error("Error de red.", "Mantenimiento");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <button
+      onClick={generate}
+      disabled={busy}
+      className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[12px] font-medium text-white disabled:opacity-60 ${className}`}
+      style={{ background: COLORS.blue }}
+      title="Genera la orden de trabajo preventiva y reprograma la próxima fecha"
+    >
+      {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileOutput className="w-3.5 h-3.5" />}
+      Generar orden
     </button>
   );
 }

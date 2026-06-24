@@ -6,6 +6,7 @@ import {
   PrimaryGeneratedColumn,
 } from 'typeorm';
 import { JSON_COLUMN_TYPE } from '../../../common/database/json-column-type';
+import { CideCard } from '../ai-cards';
 
 export type AiMessageRole = 'user' | 'assistant';
 
@@ -28,6 +29,14 @@ export class AiMessage {
   /** Names of the grounding tools the assistant used to answer this turn. */
   @Column({ type: JSON_COLUMN_TYPE, nullable: true })
   toolsUsed: string[] | null;
+
+  /**
+   * Visual cards (KPI / sparkline / bars / actions) built from the tool
+   * results for this turn, so a reopened conversation re-renders the same
+   * charts instead of plain text. Assistant turns only.
+   */
+  @Column({ type: JSON_COLUMN_TYPE, nullable: true })
+  cards: CideCard[] | null;
 
   @CreateDateColumn()
   createdAt: Date;

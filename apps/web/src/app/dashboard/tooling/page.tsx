@@ -4,7 +4,7 @@ import React, { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Hammer, Plus, Lock, Loader2, X, CheckCircle2, Gauge, Wrench,
-  AlertTriangle, Layers, ArrowRight,
+  AlertTriangle, Layers, ArrowRight, ShieldCheck, PackageCheck,
 } from 'lucide-react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { glass } from '@/lib/glass';
@@ -18,7 +18,7 @@ import {
 import {
   type Tool, type ToolType, type ToolingKpis,
   TOOL_STATUS_META, TOOL_TYPE_LABEL, TOOL_STATUSES, TOOL_TYPES,
-  lifeColor, pmProjection, PM_META,
+  lifeColor, pmProjection, PM_META, CALIBRATION_META, calibrationStatusOf, fmtDate,
 } from '@/lib/tooling';
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000').replace(/\/$/, '');
@@ -26,6 +26,7 @@ const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000').re
 const INDIGO = '#5b63e0';
 const GREEN = '#10b981';
 const AMBER = '#f59e0b';
+const BLUE = '#3b82f6';
 const GRAY = '#6b7280';
 const RED = '#ef4444';
 
@@ -51,6 +52,35 @@ function LifeCell({ tool }: { tool: Tool }) {
       </div>
       <span className="w-10 text-right text-[12px] font-medium tabular-nums" style={{ color }}>{tool.lifePercent}%</span>
     </div>
+  );
+}
+
+function calStatus(t: Tool) {
+  return t.calibrationStatus ?? calibrationStatusOf(t.nextCalibrationDate);
+}
+
+function CalibrationCell({ tool }: { tool: Tool }) {
+  const status = calStatus(tool);
+  const m = CALIBRATION_META[status];
+  return (
+    <span
+      className="inline-flex items-center gap-1.5 text-[12px] font-medium"
+      style={{ color: m.color }}
+      title={tool.nextCalibrationDate ? `Próxima: ${fmtDate(tool.nextCalibrationDate)}` : 'Sin calibración registrada'}
+    >
+      <ShieldCheck className="h-3.5 w-3.5" /> {m.label}
+    </span>
+  );
+}
+
+function LoanCell({ tool }: { tool: Tool }) {
+  const c = tool.activeCheckout;
+  if (!c) return <span className="text-gray-400">—</span>;
+  return (
+    <span className="inline-flex items-center gap-1.5 text-[12px]" title={`Desde ${fmtDate(c.checkedOutAt)}`}>
+      <PackageCheck className="h-3.5 w-3.5 text-blue-500" />
+      <span className="font-medium text-blue-600 dark:text-blue-300">{c.workOrderFolio || c.workOrderModel || 'WO'}</span>
+    </span>
   );
 }
 
@@ -115,6 +145,18 @@ const COLUMNS: ColumnDef<Tool, unknown>[] = [
     },
   },
   {
+    id: 'calibration',
+    accessorFn: (t) => CALIBRATION_META[calStatus(t)].label,
+    header: 'Calibración',
+    cell: ({ row }) => <CalibrationCell tool={row.original} />,
+  },
+  {
+    id: 'loan',
+    accessorFn: (t) => t.activeCheckout?.workOrderFolio ?? '',
+    header: 'Prestado a',
+    cell: ({ row }) => <LoanCell tool={row.original} />,
+  },
+  {
     id: 'cavities',
     accessorFn: (t) => t.cavities,
     header: 'Cav.',
@@ -135,6 +177,8 @@ const FILTER_DEFS: FilterDef[] = [
   { key: 'flags', type: 'pill', label: 'Señales', options: [
     { value: 'eol', label: 'Cerca de EOL', color: RED },
     { value: 'pm', label: 'PM vencido', color: AMBER },
+    { value: 'cal', label: 'Calibración vencida', color: RED },
+    { value: 'loan', label: 'Prestados', color: '#3b82f6' },
   ] },
 ];
 
@@ -150,6 +194,9 @@ const EXPORT_COLUMNS: ExportColumn<Tool>[] = [
   { key: 'lifePercent', header: 'Vida consumida %' },
   { key: 'nearEol', header: 'Cerca de EOL', value: (t) => (t.nearEol ? 'Sí' : 'No') },
   { key: 'pm', header: 'PM (proyección)', value: (t) => PM_META[pmProjection(t.shotsUsed, t.lifeShots).state].label },
+  { key: 'calibration', header: 'Calibración', value: (t) => CALIBRATION_META[calStatus(t)].label },
+  { key: 'nextCalibrationDate', header: 'Próxima calibración', value: (t) => fmtDate(t.nextCalibrationDate) },
+  { key: 'loan', header: 'Prestado a (WO)', value: (t) => t.activeCheckout?.workOrderFolio || t.activeCheckout?.workOrderModel || '' },
   { key: 'location', header: 'Ubicación' },
 ];
 
@@ -176,6 +223,8 @@ export default function ToolingPage() {
       if (statuses.length && !statuses.includes(t.status)) return false;
       if (flags.includes('eol') && !(t.nearEol && t.status !== 'RETIRED')) return false;
       if (flags.includes('pm') && !(t.status !== 'RETIRED' && pmProjection(t.shotsUsed, t.lifeShots).state === 'overdue')) return false;
+      if (flags.includes('cal') && !(t.status !== 'RETIRED' && calStatus(t) === 'OVERDUE')) return false;
+      if (flags.includes('loan') && !t.activeCheckout) return false;
       return true;
     });
   }, [list, filters]);
@@ -216,14 +265,16 @@ export default function ToolingPage() {
   }
 
   const nearEol = kpis?.nearEol ?? list.filter((t) => t.nearEol && t.status !== 'RETIRED').length;
+  const calOverdue = kpis?.calibrationOverdue ?? list.filter((t) => t.status !== 'RETIRED' && calStatus(t) === 'OVERDUE').length;
+  const onLoan = kpis?.onLoan ?? list.filter((t) => !!t.activeCheckout).length;
   const flagsActive = (filters.flags as string[] | undefined) ?? [];
   const kpiItems: StatCardProps[] = [
     { label: 'Total', value: kpis?.total ?? list.length, color: INDIGO, icon: Layers },
-    { label: 'Activos', value: kpis?.active ?? 0, color: GREEN, icon: CheckCircle2 },
+    { label: 'Prestados', value: onLoan, color: onLoan > 0 ? BLUE : GREEN, icon: PackageCheck },
     { label: 'Vida consumida', value: kpis?.avgLifeConsumedPct == null ? '—' : `${kpis.avgLifeConsumedPct}%`, color: kpis?.avgLifeConsumedPct == null ? GRAY : lifeColor(kpis.avgLifeConsumedPct), icon: Gauge },
     { label: 'Próximos a EOL', value: nearEol, color: nearEol > 0 ? RED : GREEN, icon: AlertTriangle },
+    { label: 'Calibración vencida', value: calOverdue, color: calOverdue > 0 ? RED : GREEN, icon: ShieldCheck },
     { label: 'En mantenimiento', value: kpis?.inMaintenance ?? 0, color: (kpis?.inMaintenance ?? 0) > 0 ? AMBER : GREEN, icon: Wrench },
-    { label: 'Retirados', value: kpis?.retired ?? 0, color: GRAY, icon: X },
   ];
 
   return (
@@ -282,11 +333,11 @@ export default function ToolingPage() {
             icon={Hammer}
             accent={INDIGO}
             title="Da de alta el crib de herramentales"
-            description="Controla moldes, fixtures, stencils y galgas como activos: vida consumida en disparos vs. límite, estado en piso y alertas antes de que un herramental falle."
+            description="Controla moldes, fixtures, stencils y galgas como activos: vida en disparos, préstamo a órdenes de trabajo, calibración IATF y alertas antes de que un herramental falle."
             hint={[
-              'Sigue la vida en disparos con semáforo verde / ámbar / rojo.',
-              'Anticipa el reemplazo con alertas de fin de vida (EOL).',
-              'Conoce el estado: en uso, disponible, mantenimiento o retirado.',
+              'Sigue la vida en disparos con semáforo verde / ámbar / rojo y alerta de fin de vida (EOL).',
+              'Presta a una WO (check-out) y recíbela (check-in): sabes dónde está cada molde y a qué orden.',
+              'Mantén la calibración vigente para auditoría IATF — semáforo de vencimiento.',
             ]}
             primaryAction={{ label: 'Alta herramental', icon: Plus, onClick: () => setShowForm(true) }}
           />

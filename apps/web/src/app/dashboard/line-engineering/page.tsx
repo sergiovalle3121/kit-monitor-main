@@ -6,7 +6,7 @@ import Link from 'next/link';
 import {
   ChevronLeft, Gauge, Plus, Lock, Loader2, Inbox, X, CheckCircle2,
   ListOrdered, Layers, Activity, AlertTriangle, Image as ImageIcon, Star,
-  BarChart3, Pencil, Calculator, ChevronDown,
+  BarChart3, Pencil, Calculator, ChevronDown, Boxes,
 } from 'lucide-react';
 import {
   Bar, BarChart, CartesianGrid, Cell, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis,
@@ -19,9 +19,10 @@ import { useToast } from '@/contexts/ToastContext';
 
 // The 2D layout editor stands on `fabric` (canvas), so it is browser-only —
 // loaded with ssr:false, the same pattern the Office editors use.
-const LayoutEditor = dynamic(
-  () => import('@/components/line-engineering/LayoutEditor').then((m) => m.LayoutEditor),
-  { ssr: false, loading: () => <div className="flex justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div> },
+// The full-screen unified CAD editor (three.js, 2D⇄3D) — browser-only, loaded only when opened.
+const Layout3DEditor = dynamic(
+  () => import('@/components/line-engineering/Layout3DEditor'),
+  { ssr: false },
 );
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000').replace(/\/$/, '');
@@ -77,7 +78,7 @@ export default function LineEngineeringPage() {
   }, [stations]);
 
   const [selModel, setSelModel] = useState<string>('');
-  const [view, setView] = useState<'balance' | 'layout'>('balance');
+  const [view, setView] = useState<'balance' | 'cad3d'>('balance');
   const activeModel = selModel || (models[0] ? `${models[0].model}|${models[0].revision}` : '');
   const [model, revision] = activeModel ? activeModel.split('|') : ['', 'A'];
 
@@ -227,14 +228,15 @@ export default function LineEngineeringPage() {
 
         {/* View tabs — Balanceo (lista actual) coexiste con el Layout 2D, no lo reemplaza */}
         <div className="flex items-center gap-1 mb-5 p-1 rounded-xl bg-black/[0.04] dark:bg-white/[0.05] w-fit">
-          {([['balance', 'Balanceo', BarChart3], ['layout', 'Layout 2D', Layers]] as const).map(([key, label, Icon]) => {
+          {([['balance', 'Balanceo', BarChart3], ['cad3d', 'CAD', Boxes]] as const).map(([key, label, Icon]) => {
             const on = view === key;
+            const is3d = key === 'cad3d';
             return (
               <button
                 key={key}
                 onClick={() => setView(key)}
-                className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-[13px] font-medium transition-colors ${on ? 'bg-white dark:bg-white/10 shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
-                style={on ? { color: ROSE } : undefined}
+                className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-[13px] font-medium transition-colors ${on ? 'bg-white dark:bg-white/10 shadow-sm' : is3d ? 'text-white' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
+                style={on ? { color: ROSE } : is3d ? { background: ROSE } : undefined}
               >
                 <Icon className="w-4 h-4" /> {label}
               </button>
@@ -242,8 +244,11 @@ export default function LineEngineeringPage() {
           })}
         </div>
 
-        {/* Layout 2D editor — additive, reusa las estaciones existentes */}
-        {view === 'layout' && <LayoutEditor model={model} revision={revision} models={models} />}
+        {/* CAD unificado (2D⇄3D) — editor full-screen (three.js). Se monta solo al
+            activar la pestaña; se cierra con la X y regresa al Balanceo. */}
+        {view === 'cad3d' && (
+          <Layout3DEditor model={model} revision={revision} open models={models} onClose={() => setView('balance')} />
+        )}
 
         {view === 'balance' && (<>
         {/* Balance panel */}

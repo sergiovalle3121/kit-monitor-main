@@ -133,6 +133,8 @@ export function buildDocx(docx: any, json: any, title: string): any {
   let nextCommentId = 0;
   // Mientras se construye una celda de encabezado, su texto sale en negrita (como Word).
   let inHeaderCell = false;
+  // Alineación horizontal heredada de la celda de tabla en curso (Word la aplica al párrafo).
+  let cellAlign: string | null = null;
   // Numeración NATIVA de Word para listas ordenadas: cada árbol de lista registra una
   // definición (reinicia en 1) y los párrafos la referencian con su nivel.
   const numbering: any[] = [];
@@ -292,7 +294,7 @@ export function buildDocx(docx: any, json: any, title: string): any {
           : caption
             ? (node.content ?? []).filter((n: any) => n.type === 'text').map((n: any) => { const { o } = runOpts(n); return new TextRun({ ...o, italics: true, size: o.size || 18, color: o.color || '6B7280' }); })
             : inlineRuns(node.content);
-        return [new Paragraph({ alignment: caption ? AlignmentType.CENTER : align(node.attrs?.textAlign), indent: indentOf(node), spacing: spacingOf(node), children: runs })];
+        return [new Paragraph({ alignment: caption ? AlignmentType.CENTER : align(node.attrs?.textAlign ?? cellAlign ?? undefined), indent: indentOf(node), spacing: spacingOf(node), children: runs })];
       }
       case 'bulletList': return listParas(node, 'bullet', 0);
       case 'orderedList': return listParas(node, 'ordered', 0, newOrderedRef((node.attrs?.listScheme || '') === 'doc-mlist'));
@@ -379,9 +381,12 @@ export function buildDocx(docx: any, json: any, title: string): any {
       children: (row.content ?? []).map((cell: any) => {
         const isHeader = cell.type === 'tableHeader';
         const prev = inHeaderCell;
+        const prevAlign = cellAlign;
         inHeaderCell = isHeader;
+        cellAlign = cell.attrs?.textAlign ?? null;
         const paras = (cell.content ?? []).flatMap(blockToEls);
         inHeaderCell = prev;
+        cellAlign = prevAlign;
         const opts: any = { children: paras.length ? paras : [new Paragraph({})] };
         const bg = cell.attrs?.backgroundColor ? hex(cell.attrs.backgroundColor) : (isHeader ? 'F3F4F6' : undefined);
         if (bg) opts.shading = { type: ShadingType.CLEAR, color: 'auto', fill: bg };

@@ -76,6 +76,14 @@ export class NCR {
   @Column({ type: 'varchar', length: 64 })
   category: string; // e.g. Mechanical, Cosmetic, Component
 
+  // Clasificación opcional con el catálogo tipificado (defect_codes). Aditivo y
+  // NULLABLE: las NCR existentes siguen con su `category` de texto libre y se
+  // agrupan como «Sin clasificar» en el Pareto. NO se valida como FK para no
+  // acoplar el módulo NCR al catálogo; el front solo envía ids del catálogo.
+  @Column({ type: 'int', nullable: true })
+  @Index()
+  defectCodeId?: number | null;
+
   @Column({ type: 'text' })
   description: string;
 

@@ -1,5 +1,6 @@
 import { Column, Entity, Index, PrimaryGeneratedColumn } from 'typeorm';
 import { TenantBaseEntity } from '../../../common/entities/tenant-base.entity';
+import { DATE_COLUMN_TYPE } from '../../../common/database/date-column-type';
 import type { ToolStatus, ToolType } from '../tool-life';
 
 /**
@@ -41,4 +42,23 @@ export class Tool extends TenantBaseEntity {
   @Index()
   @Column({ type: 'varchar', length: 64, nullable: true, name: 'program_id' })
   programId: string | null;
+
+  // ── Calibración / PM (IATF) — aditivo y nullable. Los herramentales previos
+  // quedan en null y se muestran como "sin calibración registrada"; no hay
+  // migración destructiva (synchronize crea las columnas vacías). ──────────────
+  @Column({ type: DATE_COLUMN_TYPE, nullable: true, name: 'last_calibration_date' })
+  lastCalibrationDate: Date | null;
+
+  @Column({ type: DATE_COLUMN_TYPE, nullable: true, name: 'next_calibration_date' })
+  nextCalibrationDate: Date | null;
+
+  /** Intervalo de calibración en días; deriva la próxima fecha cuando no se da explícita. */
+  @Column({ type: 'int', nullable: true, name: 'calibration_interval_days' })
+  calibrationIntervalDays: number | null;
+
+  @Column({ type: DATE_COLUMN_TYPE, nullable: true, name: 'last_pm_date' })
+  lastPmDate: Date | null;
+
+  @Column({ type: DATE_COLUMN_TYPE, nullable: true, name: 'next_pm_date' })
+  nextPmDate: Date | null;
 }

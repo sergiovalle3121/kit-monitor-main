@@ -4,6 +4,9 @@ import { apiFetch } from '@/lib/apiFetch';
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000').replace(/\/$/, '');
 
+export type MetricSource = 'derived' | 'manual' | 'none';
+export type Grade = 'A' | 'B' | 'C' | 'NA';
+
 export interface Supplier {
   id: number;
   code: string;
@@ -32,7 +35,58 @@ export interface Supplier {
   taxId?: string | null;
   tags?: string[] | null;
   notes?: string | null;
+  // ── Derived enrichment from GET /suppliers (additive; backend computes) ──
+  otdEff?: number | null;
+  otdSource?: MetricSource;
+  ppmEff?: number | null;
+  ppmSource?: MetricSource;
+  grade?: Grade;
+  gradeColor?: string;
+  composite?: number | null;
+  openScars?: number;
+  expiringCerts?: number;
+  avlParts?: number;
 }
+
+/** A part this supplier is approved (AVL) to supply, with sourcing terms. */
+export interface SupplierApprovedPart {
+  id: number;
+  supplierId: number;
+  partNumber: string;
+  description?: string | null;
+  commodity?: string | null;
+  approvalStatus: string; // APPROVED | CONDITIONAL | PENDING | DISQUALIFIED
+  approvedAt?: string | null;
+  approvedBy?: string | null;
+  unitPrice?: number | null;
+  currency?: string;
+  moq?: number | null;
+  leadTimeDays?: number | null;
+  notes?: string | null;
+}
+
+/** A ranked approved source for a part, from GET /suppliers/for-part. */
+export interface ForPartSupplier {
+  avlId: number;
+  supplierId: number;
+  approvalStatus: string;
+  code?: string | null;
+  name: string;
+  commodity?: string | null;
+  qualificationStatus?: string | null;
+  singleSource?: boolean;
+  unitPrice?: number | null;
+  currency?: string;
+  moq?: number | null;
+  leadTimeDays?: number | null;
+  otdPct?: number | null;
+  ppm?: number | null;
+  grade: Grade;
+  color: string;
+}
+export interface ForPartResult { part: string; suppliers: ForPartSupplier[] }
+
+export interface TrendPoint { month: string; otdPct: number | null; ppm: number | null }
 
 export interface SupplierContact {
   id: number;
@@ -78,17 +132,39 @@ export interface Scar {
   createdAt?: string;
 }
 
+export interface Scorecard {
+  qualityScore: number;
+  responseScore: number;
+  riskLevel: string;
+  trend: string; // improving | declining | stable
+  otdPct: number | null;
+  otdSource: MetricSource;
+  ppm: number | null;
+  ppmSource: MetricSource;
+  scarResponsiveness: number | null;
+  certScore: number | null;
+  composite: number | null;
+  grade: Grade;
+  gradeColor: string;
+  weights: { otd: number; ppm: number; scar: number; cert: number };
+}
+
 export interface Supplier360 {
   supplier: Supplier;
-  scorecard: { qualityScore: number; responseScore: number; riskLevel: string; trend: string };
+  scorecard: Scorecard;
+  trend: TrendPoint[];
   metrics: {
-    iqc: { total: number; passed: number; passRate: number; failed: number };
-    scars: { total: number; open: number; closed: number; avgClosureDays: number };
-    parts: number; certifications: number; expiringCerts: number; contacts: number;
-    otdPct: number | null; ppm: number | null;
+    iqc: { total: number; passed: number; passRate: number; failed: number; inspected: number; defects: number; lots: number; ppm: number | null; ppmSource: MetricSource };
+    scars: { total: number; open: number; closed: number; closedOnTime: number; onTimeRate: number | null; avgClosureDays: number };
+    otd: { value: number | null; source: MetricSource; onTime: number; late: number; eligible: number };
+    certifications: { total: number; valid: number; expiring: number; expired: number };
+    avl: number; approvedParts: number;
+    parts: number; expiringCerts: number; contacts: number;
+    otdPct: number | null; otdSource: MetricSource; ppm: number | null; ppmSource: MetricSource;
   };
   contacts: SupplierContact[];
   certifications: SupplierCertification[];
+  avl: SupplierApprovedPart[];
   parts: SupplierPart[];
   scars: Scar[];
 }
@@ -96,7 +172,7 @@ export interface Supplier360 {
 export interface SupplierKpis {
   total: number; approved: number; conditional: number; pending: number; disqualified: number;
   atRisk: number; singleSource: number; avgOtd: number | null; avgPpm: number | null;
-  expiringCerts: number; openScars: number;
+  expiringCerts: number; openScars: number; approvedParts: number;
 }
 
 /** SCAR del listado global `/suppliers/scars` (proveedor incrustado). */
@@ -128,6 +204,11 @@ async function del(path: string): Promise<void> {
   const res = await apiFetch(`${API_BASE}${path}`, { method: 'DELETE' });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
 }
+async function get<T>(path: string): Promise<T> {
+  const res = await apiFetch(`${API_BASE}${path}`);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
 
 export const supApi = {
   create: (b: Partial<Supplier>) => post<Supplier>('/suppliers', b),
@@ -136,6 +217,14 @@ export const supApi = {
   removeContact: (id: number) => del(`/suppliers/contacts/${id}`),
   addCertification: (b: Partial<SupplierCertification>) => post<SupplierCertification>('/suppliers/certifications', b),
   removeCertification: (id: number) => del(`/suppliers/certifications/${id}`),
+  // ── AVL (Approved Vendor List) ──
+  addAvlPart: (b: Partial<SupplierApprovedPart>) => post<SupplierApprovedPart>('/suppliers/avl', b),
+  updateAvlPart: (id: number, b: Partial<SupplierApprovedPart>) => patch<SupplierApprovedPart>(`/suppliers/avl/${id}`, b),
+  removeAvlPart: (id: number) => del(`/suppliers/avl/${id}`),
+  forPart: (part: string) => get<ForPartResult>(`/suppliers/for-part?part=${encodeURIComponent(part)}`),
+  // ── SCAR engine ──
+  createScar: (b: Record<string, unknown>) => post<Scar>('/suppliers/scars', b),
+  updateScar: (id: number, b: Record<string, unknown>) => patch<Scar>(`/suppliers/scars/${id}`, b),
 };
 
 // ── Presentation ─────────────────────────────────────────────────────────────
@@ -184,6 +273,28 @@ export const CERT_META: Record<string, { label: string; color: string }> = {
   EXPIRED: { label: 'Vencida', color: '#ef4444' },
   REVOKED: { label: 'Revocada', color: '#6b7280' },
 };
+/** AVL approval status — what a supplier is cleared to ship for a given part. */
+export const AVL_STATUS_META: Record<string, { label: string; color: string }> = {
+  APPROVED: { label: 'Aprobada', color: '#10b981' },
+  CONDITIONAL: { label: 'Condicional', color: '#f59e0b' },
+  PENDING: { label: 'Pendiente', color: '#6b7280' },
+  DISQUALIFIED: { label: 'Descalificada', color: '#ef4444' },
+};
+export const GRADE_META: Record<string, { label: string; color: string }> = {
+  A: { label: 'A', color: '#10b981' },
+  B: { label: 'B', color: '#f59e0b' },
+  C: { label: 'C', color: '#ef4444' },
+  NA: { label: '—', color: '#6b7280' },
+};
+export function gradeMeta(g?: string | null): { label: string; color: string } {
+  return GRADE_META[g || 'NA'] ?? GRADE_META.NA;
+}
+/** Short provenance tag for a derived-vs-manual metric (UI badge). */
+export function sourceLabel(src?: MetricSource): string | null {
+  if (src === 'derived') return null; // derived is the norm — no badge needed
+  if (src === 'manual') return 'manual';
+  return null;
+}
 export function scoreColor(s: number): string {
   if (s >= 95) return '#10b981';
   if (s >= 85) return '#f59e0b';

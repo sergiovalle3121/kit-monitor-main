@@ -347,7 +347,34 @@ export class TrafficService {
 
   async setDockStatus(id: string, status: DockStatus): Promise<LoadingDock> {
     const k = await this.getDock(id);
+    // Keep the operational aging clock in sync with the master status, so the
+    // dock board shows "since when" regardless of who flipped the door (the
+    // outbound transport assignment calls this when occupying/releasing a dock).
+    if (status === 'occupied' && k.status !== 'occupied') {
+      k.occupiedAt = new Date();
+    }
+    if (status !== 'occupied') {
+      k.occupiedAt = null;
+      k.loadingStartedAt = null;
+    }
     k.status = status;
+    return this.docks.save(k);
+  }
+
+  /** Mark an occupied dock as EN CARGA (loading in progress). */
+  async startLoading(id: string): Promise<LoadingDock> {
+    const k = await this.getDock(id);
+    if (k.status !== 'occupied') {
+      throw new BadRequestException('El andén no está ocupado; asígnale un embarque antes de marcar carga.');
+    }
+    k.loadingStartedAt = new Date();
+    return this.docks.save(k);
+  }
+
+  /** Clear the EN CARGA marker (loading paused/finished) without freeing the dock. */
+  async stopLoading(id: string): Promise<LoadingDock> {
+    const k = await this.getDock(id);
+    k.loadingStartedAt = null;
     return this.docks.save(k);
   }
 }

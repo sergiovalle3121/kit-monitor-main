@@ -56,6 +56,16 @@ import { ARRAY_IF_FUNCTIONS } from './arrayIf';
 import { DATETIME_FIX_FUNCTIONS } from './dateTimeFix';
 import { MATH_FIDELITY_FUNCTIONS } from './mathFidelity';
 import { TEXT_TRUNC_FUNCTIONS } from './textTrunc';
+import { HEX_FIDELITY_FUNCTIONS } from './hexFidelity';
+import { LOOKUP_FIDELITY_FUNCTIONS } from './lookupFidelity';
+import { CONVERT_TEMP_FUNCTIONS } from './convertTemp';
+import { VALUE_FIDELITY_FUNCTIONS } from './valueFidelity';
+import { PROPER_FIDELITY_FUNCTIONS } from './properFidelity';
+import { BYTE_TEXT_FUNCTIONS } from './byteFunctions';
+import { WILDCARD_FUNCTIONS, wildcardMatch } from './wildcard';
+import { CRITERIA_FUNCTIONS } from './criteriaIf';
+import { LOOKUP_WILDCARD_FUNCTIONS } from './lookupWildcards';
+import { applyScalarBroadcast } from './scalarBroadcast';
 
 // ── Utilidades de coerción / aplanado de argumentos ──────────────────────────
 // Las funciones reciben `params`: un array donde cada argumento ya viene evaluado.
@@ -146,48 +156,51 @@ function lookupEq(a: any, key: any): boolean {
  * Modo 0 = exacto (por defecto); -1 = exacto o inferior más próximo; 1 = exacto o superior
  * más próximo (numérico). Sin coincidencia → `si_no_encontrado` o `#N/A`.
  */
+/**
+ * Localiza `key` dentro del vector aplanado `L` según `mode` (modo de coincidencia) y `searchMode`
+ * (dirección). Compartido por XLOOKUP/XMATCH.
+ *  • mode  0 = exacto (def.); -1 = exacto o inferior próximo; 1 = exacto o superior próximo; 2 = comodín.
+ *  • search 1 = de inicio a fin (def.); -1 = de fin a inicio (devuelve la ÚLTIMA coincidencia).
+ *    (2/-2 búsqueda binaria → mismo resultado que lineal para coincidencia exacta; se trata como lineal.)
+ */
+function xfind(L: any[], key: any, mode: number, searchMode: number): number {
+  const order = searchMode === -1 ? Array.from(L.keys()).reverse() : Array.from(L.keys());
+  if (mode === 2) {
+    const pat = key === null || key === undefined ? '' : String(key);
+    for (const i of order) if (typeof L[i] === 'string' && wildcardMatch(L[i], pat)) return i;
+    return -1;
+  }
+  for (const i of order) if (lookupEq(L[i], key)) return i; // exacto (honra la dirección)
+  if (mode === -1 || mode === 1) {
+    const keyNum = toNum(key);
+    if (keyNum === null) return -1;
+    let best = -1; let bestDelta = Infinity;
+    for (let i = 0; i < L.length; i++) {
+      const n = toNum(L[i]); if (n === null) continue;
+      if (mode === -1 && n <= keyNum && keyNum - n < bestDelta) { bestDelta = keyNum - n; best = i; }
+      if (mode === 1 && n >= keyNum && n - keyNum < bestDelta) { bestDelta = n - keyNum; best = i; }
+    }
+    return best;
+  }
+  return -1;
+}
+
 export function XLOOKUP(params: any[]): any {
-  const [key, lookupArr, returnArr, ifNotFound, matchMode] = params;
+  const [key, lookupArr, returnArr, ifNotFound, matchMode, searchMode] = params;
   const L = flatten(lookupArr);
   const R = flatten(returnArr);
-  let idx = L.findIndex((v) => lookupEq(v, key));
-  const mode = toNum(matchMode) ?? 0;
-  if (idx < 0 && (mode === -1 || mode === 1)) {
-    const keyNum = toNum(key);
-    let best = -1; let bestDelta = Infinity;
-    if (keyNum !== null) {
-      for (let i = 0; i < L.length; i++) {
-        const n = toNum(L[i]); if (n === null) continue;
-        if (mode === -1 && n <= keyNum && keyNum - n < bestDelta) { bestDelta = keyNum - n; best = i; }
-        if (mode === 1 && n >= keyNum && n - keyNum < bestDelta) { bestDelta = n - keyNum; best = i; }
-      }
-    }
-    idx = best;
-  }
+  const idx = xfind(L, key, toNum(matchMode) ?? 0, toNum(searchMode) ?? 1);
   if (idx < 0) return ifNotFound !== undefined ? ifNotFound : '#N/A';
   return R[idx] ?? '';
 }
 
 /**
- * XMATCH(buscado, matriz_buscada, [modo_coincidencia]) → posición 1-based o `#N/A`.
+ * XMATCH(buscado, matriz_buscada, [modo_coincidencia], [modo_búsqueda]) → posición 1-based o `#N/A`.
  */
 export function XMATCH(params: any[]): any {
-  const [key, lookupArr, matchMode] = params;
+  const [key, lookupArr, matchMode, searchMode] = params;
   const L = flatten(lookupArr);
-  let idx = L.findIndex((v) => lookupEq(v, key));
-  const mode = toNum(matchMode) ?? 0;
-  if (idx < 0 && (mode === -1 || mode === 1)) {
-    const keyNum = toNum(key);
-    let best = -1; let bestDelta = Infinity;
-    if (keyNum !== null) {
-      for (let i = 0; i < L.length; i++) {
-        const n = toNum(L[i]); if (n === null) continue;
-        if (mode === -1 && n <= keyNum && keyNum - n < bestDelta) { bestDelta = keyNum - n; best = i; }
-        if (mode === 1 && n >= keyNum && n - keyNum < bestDelta) { bestDelta = n - keyNum; best = i; }
-      }
-    }
-    idx = best;
-  }
+  const idx = xfind(L, key, toNum(matchMode) ?? 0, toNum(searchMode) ?? 1);
   return idx < 0 ? '#N/A' : idx + 1;
 }
 
@@ -320,7 +333,30 @@ export const CUSTOM_FUNCTIONS: Record<string, (params: any[]) => any> = {
   ...MATH_FIDELITY_FUNCTIONS,
   // Truncamiento de argumentos enteros en texto (REPT/LEFT/RIGHT/MID/ROMAN) — ver `textTrunc.ts`.
   ...TEXT_TRUNC_FUNCTIONS,
+  // Fidelidad de DEC2HEX (Excel devuelve mayúsculas) — ver `hexFidelity.ts`.
+  ...HEX_FIDELITY_FUNCTIONS,
+  // Fidelidad de INDEX con vectores de una fila (INDEX/MATCH horizontal) — ver `lookupFidelity.ts`.
+  ...LOOKUP_FIDELITY_FUNCTIONS,
+  // Fidelidad de CONVERT con temperaturas (C/F/K) — ver `convertTemp.ts`.
+  ...CONVERT_TEMP_FUNCTIONS,
+  // Fidelidad de VALUE con texto de fecha/hora (Excel los convierte a número) — ver `valueFidelity.ts`.
+  ...VALUE_FIDELITY_FUNCTIONS,
+  // Fidelidad de PROPER (mayúscula tras apóstrofo/dígito, como Excel) — ver `properFidelity.ts`.
+  ...PROPER_FIDELITY_FUNCTIONS,
+  // Funciones de texto por bytes (LENB/LEFTB/… = sus versiones por carácter en locale latino) — ver `byteFunctions.ts`.
+  ...BYTE_TEXT_FUNCTIONS,
+  // SEARCH con comodines de Excel (?/*/~) — ver `wildcard.ts`.
+  ...WILDCARD_FUNCTIONS,
+  // Familia de criterios con comodines (COUNTIF/SUMIF/AVERAGEIF/MAXIFS…) — ver `criteriaIf.ts`.
+  ...CRITERIA_FUNCTIONS,
+  // Comodines en MATCH/VLOOKUP/HLOOKUP (búsqueda exacta) — ver `lookupWildcards.ts`.
+  ...LOOKUP_WILDCARD_FUNCTIONS,
 };
+
+// Difusión de funciones escalares (ROUND/ABS/TEXT…) sobre matrices — ver `scalarBroadcast.ts`.
+// MUTA `CUSTOM_FUNCTIONS` tras construirlo: con argumentos escalares no cambia nada; sólo los
+// argumentos-matriz (que antes fallaban) activan la aplicación elemento a elemento.
+applyScalarBroadcast(CUSTOM_FUNCTIONS);
 
 // ── Normalización de literales booleanos en la cadena de fórmula ──────────────
 

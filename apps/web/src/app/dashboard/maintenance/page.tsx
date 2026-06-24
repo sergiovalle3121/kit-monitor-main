@@ -31,6 +31,7 @@ import type {
   CreateOrderInput,
   MaintenanceKpis,
   MaintenanceOrder,
+  PmPlan,
 } from "./maintenance.types";
 
 type Tab = "overview" | "assets" | "orders" | "preventive";
@@ -39,9 +40,11 @@ export default function MaintenancePage() {
   const { data: orders, isLoading, forbidden, mutate: mutateOrders } = useApi<MaintenanceOrder[]>("/maintenance/orders");
   const { data: assets, mutate: mutateAssets } = useApi<Asset[]>("/maintenance/assets");
   const { data: kpis, mutate: mutateKpis } = useApi<MaintenanceKpis>("/maintenance/kpis");
+  const { data: pmPlans, mutate: mutatePmPlans } = useApi<PmPlan[]>("/maintenance/pm-plans");
 
   const orderList = useMemo(() => (Array.isArray(orders) ? orders : []), [orders]);
   const assetList = useMemo(() => (Array.isArray(assets) ? assets : []), [assets]);
+  const pmPlanList = useMemo(() => (Array.isArray(pmPlans) ? pmPlans : []), [pmPlans]);
 
   const [tab, setTab] = useState<Tab>("overview");
   const [orderModal, setOrderModal] = useState<{ prefill?: Partial<CreateOrderInput> } | null>(null);
@@ -49,14 +52,13 @@ export default function MaintenancePage() {
   // Las órdenes ripplean a los KPIs; el estado del activo, también (assetsDown).
   const refreshOrders = () => { mutateOrders(); mutateKpis(); };
   const refreshAssets = () => { mutateAssets(); mutateKpis(); };
+  // Generar una orden de PM toca planes + órdenes + KPIs.
+  const refreshPreventive = () => { mutatePmPlans(); mutateOrders(); mutateKpis(); };
 
   const onNewOrder = (prefill?: Partial<CreateOrderInput>) => setOrderModal({ prefill });
 
   const backlog = useMemo(() => backlogCount(orderList), [orderList]);
-  const pmPlanned = useMemo(
-    () => orderList.filter((o) => o.type === "PREVENTIVE" && o.status !== "COMPLETED" && o.status !== "CANCELLED").length,
-    [orderList],
-  );
+  const pmActive = useMemo(() => pmPlanList.filter((p) => p.active).length, [pmPlanList]);
 
   if (forbidden) {
     return (
@@ -96,7 +98,7 @@ export default function MaintenancePage() {
             <TabBtn active={tab === "overview"} onClick={() => setTab("overview")} icon={<Gauge className="w-4 h-4" />}>Resumen</TabBtn>
             <TabBtn active={tab === "assets"} onClick={() => setTab("assets")} icon={<HardDrive className="w-4 h-4" />} count={assetList.length}>Activos</TabBtn>
             <TabBtn active={tab === "orders"} onClick={() => setTab("orders")} icon={<ClipboardList className="w-4 h-4" />} count={backlog}>Órdenes</TabBtn>
-            <TabBtn active={tab === "preventive"} onClick={() => setTab("preventive")} icon={<CalendarClock className="w-4 h-4" />} count={pmPlanned}>Preventivo</TabBtn>
+            <TabBtn active={tab === "preventive"} onClick={() => setTab("preventive")} icon={<CalendarClock className="w-4 h-4" />} count={pmActive}>Preventivo</TabBtn>
           </div>
         </div>
       </div>
@@ -111,6 +113,7 @@ export default function MaintenancePage() {
             assets={assetList}
             onNewOrder={onNewOrder}
             onGoOrders={() => setTab("orders")}
+            onGoPreventive={() => setTab("preventive")}
             refreshAssets={refreshAssets}
           />
         ) : tab === "assets" ? (
@@ -118,7 +121,7 @@ export default function MaintenancePage() {
         ) : tab === "orders" ? (
           <OrdersTab orders={orderList} assets={assetList} onNewOrder={onNewOrder} refresh={refreshOrders} />
         ) : (
-          <PreventiveTab orders={orderList} kpis={kpis} onNewOrder={onNewOrder} refresh={refreshOrders} />
+          <PreventiveTab plans={pmPlanList} assets={assetList} kpis={kpis} refresh={refreshPreventive} />
         )}
       </main>
 

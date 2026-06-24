@@ -21,6 +21,8 @@ import {
   Pencil,
   AlertTriangle,
   Bell,
+  FileText,
+  RefreshCw,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -113,6 +115,30 @@ interface KpiAlert {
   message: string;
 }
 
+interface BriefMetricRow {
+  key: string;
+  name: string;
+  value: number;
+  unit: string | null;
+  domain: string | null;
+  deltaPct: number | null;
+  direction: string | null;
+  good: boolean | null;
+}
+interface Brief {
+  id: string;
+  periodKey: string;
+  headline: string;
+  summary: string;
+  metrics: BriefMetricRow[] | null;
+  alerts:
+    | { name: string; severity: 'warning' | 'critical'; kind: string; message: string }[]
+    | null;
+  alertsCount: number;
+  criticalCount: number;
+  createdAt: string;
+}
+
 const SEVERITY_STYLE: Record<string, string> = {
   critical: 'bg-red-500/10 text-red-600 dark:text-red-300',
   high: 'bg-orange-500/10 text-orange-600 dark:text-orange-300',
@@ -175,6 +201,8 @@ export default function IntelligencePage() {
   const [acting, setActing] = useState<number | null>(null);
   const [notifying, setNotifying] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [brief, setBrief] = useState<Brief | null>(null);
+  const [generatingBrief, setGeneratingBrief] = useState(false);
   const [loading, setLoading] = useState(true);
   const confirm = useConfirm();
   const toast = useToast();
@@ -185,6 +213,35 @@ export default function IntelligencePage() {
       .then((d) => setIsAdmin(isAdminAccess(d?.session?.role, d?.session?.email)))
       .catch(() => {});
   }, []);
+
+  // The decision brief is an admin/executive artifact (endpoint is admin-gated).
+  useEffect(() => {
+    if (!isAdmin) return;
+    fetch('/api/semantic/briefs', { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setBrief(d?.latest ?? null))
+      .catch(() => {});
+  }, [isAdmin]);
+
+  async function generateBrief() {
+    setGeneratingBrief(true);
+    try {
+      const res = await fetch('/api/semantic/briefs/generate', {
+        method: 'POST',
+      });
+      const d = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setBrief(d);
+        toast.success('Resumen de decisión actualizado.');
+      } else {
+        toast.error(d?.message || 'No se pudo generar el resumen.');
+      }
+    } catch {
+      toast.error('Error de red.');
+    } finally {
+      setGeneratingBrief(false);
+    }
+  }
 
   async function notifyAdmins() {
     setNotifying(true);
@@ -328,6 +385,104 @@ export default function IntelligencePage() {
           para responder con cifras gobernadas y consistentes.
         </p>
       </div>
+
+      {/* ── Resumen de decisión (síntesis ejecutiva; admin) ── */}
+      {isAdmin && (
+        <section className="mb-8">
+          <div className={`${glass} rounded-2xl border border-violet-500/20 p-5`}>
+            <div className="mb-3 flex items-start justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-violet-600 to-indigo-600 text-white">
+                  <FileText className="h-5 w-5" />
+                </div>
+                <div>
+                  <h2 className="text-sm font-semibold">Resumen de decisión</h2>
+                  <p className="text-xs text-black/45 dark:text-white/45">
+                    {brief
+                      ? `Síntesis ejecutiva · ${brief.periodKey}`
+                      : 'Síntesis ejecutiva de tus KPIs y alertas'}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={generateBrief}
+                disabled={generatingBrief}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-black/10 px-2.5 py-1 text-xs font-medium text-black/70 transition-colors hover:bg-black/5 disabled:opacity-40 dark:border-white/10 dark:text-white/70 dark:hover:bg-white/10"
+              >
+                {generatingBrief ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-3 w-3" />
+                )}
+                {brief ? 'Actualizar' : 'Generar'}
+              </button>
+            </div>
+
+            {brief ? (
+              <>
+                {brief.criticalCount > 0 && (
+                  <span className="mb-2 inline-flex items-center gap-1 rounded-md bg-red-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-red-600 dark:text-red-300">
+                    <AlertTriangle className="h-3 w-3" />
+                    {brief.criticalCount} crítica
+                    {brief.criticalCount === 1 ? '' : 's'}
+                  </span>
+                )}
+                <p className="text-base font-semibold leading-snug">
+                  {brief.headline}
+                </p>
+                <p className="mt-1.5 text-sm leading-relaxed text-black/65 dark:text-white/65">
+                  {brief.summary}
+                </p>
+                {brief.metrics && brief.metrics.length > 0 && (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {brief.metrics.map((m) => (
+                      <div
+                        key={m.key}
+                        className="inline-flex items-center gap-2 rounded-xl border border-black/10 bg-white/50 px-2.5 py-1.5 dark:border-white/10 dark:bg-white/5"
+                      >
+                        <span className="text-xs text-black/55 dark:text-white/55">
+                          {m.name}
+                        </span>
+                        <span className="text-xs font-semibold">
+                          {fmtValue(m.value, m.unit)}
+                        </span>
+                        {m.deltaPct != null && (
+                          <span
+                            className={`inline-flex items-center gap-0.5 text-[11px] font-medium ${
+                              m.good === true
+                                ? 'text-emerald-600 dark:text-emerald-400'
+                                : m.good === false
+                                  ? 'text-red-600 dark:text-red-400'
+                                  : 'text-black/45 dark:text-white/45'
+                            }`}
+                          >
+                            {m.deltaPct >= 0 ? (
+                              <TrendingUp className="h-3 w-3" />
+                            ) : (
+                              <TrendingDown className="h-3 w-3" />
+                            )}
+                            {m.deltaPct >= 0 ? '+' : ''}
+                            {m.deltaPct.toLocaleString('es-MX', {
+                              maximumFractionDigits: 1,
+                            })}
+                            %
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            ) : (
+              <p className="text-sm text-black/55 dark:text-white/55">
+                Aún no hay un resumen para hoy. Genéralo para obtener una
+                síntesis de tus KPIs, su evolución reciente y las alertas
+                activas — un artefacto que queda en registro.
+              </p>
+            )}
+          </div>
+        </section>
+      )}
 
       {/* ── Alertas de KPI ── */}
       {alerts.length > 0 && (

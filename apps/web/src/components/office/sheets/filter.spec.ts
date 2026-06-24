@@ -45,6 +45,34 @@ eq(matchesCriterion('Sur', '!=', 'Norte'), true, 'Sur != Norte');
   eq(valAt(res.celldata, 1, 1), 300, 'la fila es Sur/300');
 }
 
+// OR de criterios (autofiltro personalizado de Excel: Y/O).
+{
+  const res = buildFilter(sheet, { range: 'A1:B5', hasHeader: true, conjunction: 'OR', criteria: [{ colRel: 1, op: '<', value: '60' }, { colRel: 1, op: '>', value: '250' }] })!;
+  eq(res.matched, 2, 'Ventas<60 OR Ventas>250 → 2 filas (50 y 300)');
+}
+
+// Comodines de Excel en `=` / `!=` (`*` secuencia, `?` un carácter, `~` escapa).
+eq(matchesCriterion('Norte', '=', 'N*'), true, 'comodín N* casa Norte');
+eq(matchesCriterion('Sur', '=', 'N*'), false, 'comodín N* no casa Sur');
+eq(matchesCriterion('Norte', '=', '?orte'), true, 'comodín ?orte casa Norte');
+eq(matchesCriterion('Norte', '=', '?orto'), false, 'comodín ?orto no casa Norte');
+eq(matchesCriterion('Norte', '!=', 'S*'), true, '!= S* es verdadero para Norte');
+eq(matchesCriterion('a*b', '=', 'a~*b'), true, '~* casa un asterisco literal');
+eq(matchesCriterion('axb', '=', 'a~*b'), false, '~* no casa cualquier carácter');
+eq(matchesCriterion('Norte', '=', 'Norte'), true, 'sin comodín → comparación exacta intacta');
+
+// beginsWith / endsWith (insensible a mayúsculas).
+eq(matchesCriterion('Norte', 'beginsWith', 'nor'), true, 'beginsWith insensible');
+eq(matchesCriterion('Norte', 'beginsWith', 'sur'), false, 'beginsWith negativo');
+eq(matchesCriterion('Norte', 'endsWith', 'TE'), true, 'endsWith insensible');
+eq(matchesCriterion('Norte', 'endsWith', 'no'), false, 'endsWith negativo');
+
+// Comodín dentro de buildFilter.
+{
+  const res = buildFilter(sheet, { range: 'A1:B5', hasHeader: true, criteria: [{ colRel: 0, op: '=', value: 'N*' }] })!;
+  eq(res.matched, 2, 'Region = N* → 2 filas (Norte)');
+}
+
 console.log(`\nFILTER SPEC: ${passed} OK, ${fails.length} fallos`);
 if (fails.length) { for (const f of fails) console.error('  ✗ ' + f); throw new Error(`${fails.length} fallos`); }
 console.log('✓ Todas las aserciones de autofiltro pasan.');

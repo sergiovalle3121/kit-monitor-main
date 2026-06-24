@@ -87,10 +87,28 @@ export async function backendRegister(payload: {
   }
 }
 
+/**
+ * Service-account password — env only (`BACKEND_SERVICE_PASSWORD`). In production
+ * the variable is mandatory: if it is missing we throw a clear error rather than
+ * fall back to any public default (fail-closed). Local dev gets an obvious,
+ * clearly-insecure placeholder. Must match the backend's value
+ * (`apps/api/src/common/config/service-password.ts`) for the service login to work.
+ */
+function serviceAccountPassword(): string {
+  const fromEnv = process.env.BACKEND_SERVICE_PASSWORD?.trim();
+  if (fromEnv) return fromEnv;
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error(
+      'BACKEND_SERVICE_PASSWORD es obligatoria; configúrala en el entorno',
+    );
+  }
+  return 'dev-only-change-me';
+}
+
 /** Shared service-account token (admin) — used for user management + bridge fallback. */
 export async function backendServiceToken(): Promise<string | null> {
   const email = process.env.BACKEND_SERVICE_EMAIL || 'admin@example.com';
-  const password = process.env.BACKEND_SERVICE_PASSWORD || '31218223';
+  const password = serviceAccountPassword();
   const r = await backendLogin(email, password);
   return r.ok ? r.data.access_token : null;
 }
@@ -122,6 +140,7 @@ export async function backendSync(identity: {
 export async function backendAdmin(
   path: string,
   method: 'GET' | 'POST',
+  body?: unknown,
 ): Promise<{ ok: boolean; status: number; data: unknown }> {
   const token = await backendServiceToken();
   if (!token) return { ok: false, status: 502, data: null };
@@ -129,6 +148,7 @@ export async function backendAdmin(
     const res = await fetch(`${backendApiBase()}${path}`, {
       method,
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: body !== undefined ? JSON.stringify(body) : undefined,
       cache: 'no-store',
     });
     const data = await res.json().catch(() => null);
