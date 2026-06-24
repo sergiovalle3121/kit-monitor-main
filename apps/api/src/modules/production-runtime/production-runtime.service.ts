@@ -752,16 +752,22 @@ export class ProductionRuntimeService {
     });
     if (!kit?.plan) throw new NotFoundException(`Kit ${kitId} no encontrado`);
 
-    const completedRaw = await this.eventRepo
-      .createQueryBuilder('event')
-      .select('COALESCE(SUM(event.quantity), 0)', 'total')
-      .where('event.kitId = :kitId', { kitId })
-      .andWhere('event.revertedAt IS NULL')
-      .getRawOne<{ total: string }>();
+    // Las 5 consultas dependientes del kit corren en paralelo (antes secuenciales).
+    const [completedRaw, materials, openIncidents, startedAt, completedAt] =
+      await Promise.all([
+        this.eventRepo
+          .createQueryBuilder('event')
+          .select('COALESCE(SUM(event.quantity), 0)', 'total')
+          .where('event.kitId = :kitId', { kitId })
+          .andWhere('event.revertedAt IS NULL')
+          .getRawOne<{ total: string }>(),
+        this.materialStateRepo.find({ where: { kit: { id: kitId } } }),
+        this.incidentRepo.count({ where: { kit: { id: kitId }, status: 'open' } }),
+        this.firstEventAt(kitId),
+        kit.status === 'completed' ? this.lastEventAt(kitId) : Promise.resolve(null),
+      ]);
 
     const completedQty = Number(completedRaw?.total ?? 0);
-    const materials = await this.materialStateRepo.find({ where: { kit: { id: kitId } } });
-    const openIncidents = await this.incidentRepo.count({ where: { kit: { id: kitId }, status: 'open' } });
 
     return {
       kitId,
@@ -775,8 +781,8 @@ export class ProductionRuntimeService {
       status: kit.status,
       hasIncident: openIncidents > 0,
       receivedAt: kit.requestedAt ?? kit.receivedAt ?? null,
-      startedAt: await this.firstEventAt(kitId),
-      completedAt: kit.status === 'completed' ? await this.lastEventAt(kitId) : null,
+      startedAt,
+      completedAt,
       lowStockCount: materials.filter((item) => item.availableQty <= item.lowStockThreshold).length,
     };
   }

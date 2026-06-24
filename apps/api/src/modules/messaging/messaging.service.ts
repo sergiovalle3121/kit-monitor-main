@@ -415,78 +415,83 @@ export class MessagingService {
   // ── listar mis conversaciones con último mensaje y no leídos ─────────────
   async listConversations(meId: string) {
     const myMemberships = await this.members.find({ where: { userId: meId } });
-    const result: any[] = [];
 
-    for (const membership of myMemberships) {
-      const convo = await this.conversations.findOne({
-        where: { id: membership.conversationId },
-      });
-      if (!convo) continue;
+    // Cada conversación se arma en paralelo. Antes era un N+1 secuencial:
+    // ~5 queries × N conversaciones en serie en cada apertura del chat.
+    const built = await Promise.all(
+      myMemberships.map(async (membership) => {
+        const convo = await this.conversations.findOne({
+          where: { id: membership.conversationId },
+        });
+        if (!convo) return null;
 
-      const memberRows = await this.members.find({
-        where: { conversationId: convo.id },
-      });
-      const memberIds = memberRows.map((m) => m.userId);
+        const memberRows = await this.members.find({
+          where: { conversationId: convo.id },
+        });
+        const memberIds = memberRows.map((m) => m.userId);
 
-      // Nombre a mostrar: canal → su nombre; DM → el otro usuario.
-      let title = convo.name;
-      let counterpartId: string | null = null;
-      if (convo.type === 'dm') {
-        counterpartId = memberIds.find((id) => id !== meId) ?? null;
-        if (counterpartId) {
-          const other = await this.users.findOne({
-            where: { id: counterpartId },
-          });
-          title = other?.username ?? other?.email ?? 'Usuario';
+        // Nombre a mostrar: canal → su nombre; DM → el otro usuario.
+        let title = convo.name;
+        let counterpartId: string | null = null;
+        if (convo.type === 'dm') {
+          counterpartId = memberIds.find((id) => id !== meId) ?? null;
+          if (counterpartId) {
+            const other = await this.users.findOne({
+              where: { id: counterpartId },
+            });
+            title = other?.username ?? other?.email ?? 'Usuario';
+          }
         }
-      }
 
-      const last = await this.messages.findOne({
-        where: { conversationId: convo.id },
-        order: { createdAt: 'DESC' },
-      });
+        const last = await this.messages.findOne({
+          where: { conversationId: convo.id },
+          order: { createdAt: 'DESC' },
+        });
 
-      // No leídos: mensajes después de lastReadAt y no míos.
-      const unread = await this.messages
-        .createQueryBuilder('m')
-        .where('m.conversation_id = :cid', { cid: convo.id })
-        .andWhere('m.sender_id != :me', { me: meId })
-        .andWhere(
-          membership.lastReadAt ? 'm.created_at > :lastRead' : '1=1',
-          membership.lastReadAt ? { lastRead: membership.lastReadAt } : {},
-        )
-        .getCount();
+        // No leídos: mensajes después de lastReadAt y no míos.
+        const unread = await this.messages
+          .createQueryBuilder('m')
+          .where('m.conversation_id = :cid', { cid: convo.id })
+          .andWhere('m.sender_id != :me', { me: meId })
+          .andWhere(
+            membership.lastReadAt ? 'm.created_at > :lastRead' : '1=1',
+            membership.lastReadAt ? { lastRead: membership.lastReadAt } : {},
+          )
+          .getCount();
 
-      result.push({
-        id: convo.id,
-        type: convo.type,
-        title,
-        counterpartId,
-        createdById: convo.createdById,
-        disappearingSeconds: convo.disappearingSeconds ?? 0,
-        announcement: !!convo.announcement,
-        memberIds,
-        lastMessage: last
-          ? {
-              type: last.type,
-              body: last.body,
-              createdAt: last.createdAt,
-              senderId: last.senderId,
-            }
-          : null,
-        lastMessageAt: convo.lastMessageAt,
-        unread,
-        // Estado personal (fijar / archivar / silenciar / no leído).
-        pinned: !!membership.pinnedAt,
-        pinnedAt: membership.pinnedAt,
-        archived: !!membership.archivedAt,
-        muted:
-          !!membership.mutedUntil &&
-          new Date(membership.mutedUntil).getTime() > Date.now(),
-        mutedUntil: membership.mutedUntil,
-        markedUnread: !!membership.markedUnread,
-      });
-    }
+        return {
+          id: convo.id,
+          type: convo.type,
+          title,
+          counterpartId,
+          createdById: convo.createdById,
+          disappearingSeconds: convo.disappearingSeconds ?? 0,
+          announcement: !!convo.announcement,
+          memberIds,
+          lastMessage: last
+            ? {
+                type: last.type,
+                body: last.body,
+                createdAt: last.createdAt,
+                senderId: last.senderId,
+              }
+            : null,
+          lastMessageAt: convo.lastMessageAt,
+          unread,
+          // Estado personal (fijar / archivar / silenciar / no leído).
+          pinned: !!membership.pinnedAt,
+          pinnedAt: membership.pinnedAt,
+          archived: !!membership.archivedAt,
+          muted:
+            !!membership.mutedUntil &&
+            new Date(membership.mutedUntil).getTime() > Date.now(),
+          mutedUntil: membership.mutedUntil,
+          markedUnread: !!membership.markedUnread,
+        };
+      }),
+    );
+
+    const result: any[] = built.filter((r) => r !== null);
 
     // Etiquetas personales de cada conversación (en lote).
     const labelMap = await this.labelsByConversation(
