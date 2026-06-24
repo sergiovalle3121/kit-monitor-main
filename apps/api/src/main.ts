@@ -1,5 +1,5 @@
 import { NestFactory } from '@nestjs/core';
-import { INestApplication } from '@nestjs/common';
+import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { AppModule } from './app.module';
 import { IoAdapter } from '@nestjs/platform-socket.io';
@@ -230,6 +230,19 @@ async function bootstrap() {
   // Prefijo global: todas las rutas bajo /api
   app.setGlobalPrefix('api');
 
+  // Validación/saneo global de entrada (anti mass-assignment). whitelist quita
+  // propiedades sin decorador class-validator de los DTOs; transform las hidrata
+  // a la clase DTO. forbidNonWhitelisted:false mantiene compatibles a clientes
+  // laxos: los campos extra se descartan en silencio en vez de devolver 400.
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      transform: true,
+      forbidNonWhitelisted: false,
+      transformOptions: { enableImplicitConversion: true },
+    }),
+  );
+
   // Seguridad y compresión
   app.use(
     helmet({
@@ -323,6 +336,19 @@ async function bootstrap() {
       )
         return next();
       if (req.method === 'OPTIONS') return next();
+
+      // /api/auth/sync emite JWTs y no tiene guard de ruta: SIEMPRE debe presentar
+      // la llave compartida y nunca pasar por un header Authorization (posiblemente
+      // forjado), que de otro modo saltaría este muro en una ruta sin guard.
+      if (req.path === '/api/auth/sync') {
+        if (req.header('x-frontend-key') !== sharedKey) {
+          return res.status(403).json({
+            error: 'Forbidden',
+            message: 'Missing or invalid x-frontend-key',
+          });
+        }
+        return next();
+      }
 
       // Si el request ya trae Authorization, el JWT guard hará la validación real
       if (req.header('authorization')) return next();

@@ -133,9 +133,16 @@ export class AuthService {
     const email = (dto.email ?? '').trim().toLowerCase();
     if (!email) throw new BadRequestException('email es obligatorio.');
     // The owner email is always Admin even when the frontend session says otherwise.
+    // admin is owner-only (by email): the trusted bridge can NEVER mint an admin
+    // via dto.role — a non-owner requesting 'admin' is downgraded.
+    const requested: AppRole = isAppRole(dto.role)
+      ? dto.role
+      : 'warehouse_operator';
     const role: AppRole = isOwnerEmail(email)
       ? 'admin'
-      : (isAppRole(dto.role) ? dto.role : 'warehouse_operator');
+      : requested === 'admin'
+        ? 'warehouse_operator'
+        : requested;
     const tenantId = dto.tenantId ?? dto.buildingId ?? undefined;
 
     const existing = await this.usersService.findOneByEmail(email);

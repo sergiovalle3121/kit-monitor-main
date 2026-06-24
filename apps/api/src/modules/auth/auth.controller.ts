@@ -58,6 +58,13 @@ export class AuthController {
     @Headers('x-frontend-key') key?: string,
   ) {
     const shared = process.env.FRONTEND_SHARED_KEY;
+    // Fail-closed en producción: sin llave configurada, /sync queda deshabilitado
+    // (de lo contrario sería un endpoint abierto que acuña JWTs de cualquier rol).
+    if (process.env.NODE_ENV === 'production' && !shared) {
+      throw new ForbiddenException(
+        'Identity sync disabled: FRONTEND_SHARED_KEY not configured',
+      );
+    }
     if (shared && key !== shared) {
       throw new ForbiddenException('Invalid frontend key');
     }
