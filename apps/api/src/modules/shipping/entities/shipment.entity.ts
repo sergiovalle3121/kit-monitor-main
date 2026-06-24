@@ -1,6 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Index, OneToMany } from 'typeorm';
 
-export enum ShipmentStatus {
+export enum LegacyShipmentStatus {
   PLANNING = 'planning',
   STAGED = 'staged',
   LOADING = 'loading',
@@ -21,7 +21,7 @@ export class Shipment {
   shipmentNumber: string; // SHP-2024-001
 
   @Column({ type: 'varchar', length: 32, default: 'planning' })
-  status: ShipmentStatus;
+  status: LegacyShipmentStatus;
 
   @Column({ type: 'varchar', length: 120 })
   customer: string;

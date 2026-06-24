@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Shipment, ShipmentStatus } from './entities/shipment.entity';
+import { Shipment, LegacyShipmentStatus } from './entities/shipment.entity';
 import { ShipmentItem } from './entities/shipment-item.entity';
 import { PackingList } from './entities/packing-list.entity';
 import { InventoryService } from '../inventory/inventory.service';
@@ -44,7 +44,7 @@ export class ShippingService {
   async create(dto: Partial<Shipment>, user: User) {
     const count = await this.shipmentRepo.count();
     const shipmentNumber = `SHP-${(count + 1).toString().padStart(5, '0')}`;
-    const shipment = this.shipmentRepo.create({ ...dto, shipmentNumber, status: ShipmentStatus.PLANNING });
+    const shipment = this.shipmentRepo.create({ ...dto, shipmentNumber, status: LegacyShipmentStatus.PLANNING });
     return this.shipmentRepo.save(shipment);
   }
 
@@ -99,7 +99,7 @@ export class ShippingService {
       reason: `Staged for Shipment ${shipment.shipmentNumber}`
     });
 
-    shipment.status = ShipmentStatus.STAGED;
+    shipment.status = LegacyShipmentStatus.STAGED;
     await this.shipmentRepo.save(shipment);
 
     return item;
@@ -129,7 +129,7 @@ export class ShippingService {
     if (!shipment) throw new NotFoundException('Shipment not found');
 
     Object.assign(shipment, manifestDto, {
-      status: ShipmentStatus.LOADING,
+      status: LegacyShipmentStatus.LOADING,
       loadingStartedAt: new Date()
     });
 
@@ -143,7 +143,7 @@ export class ShippingService {
     const items = await this.itemRepo.find({ where: { shipment: { id } } });
 
     // ELIGIBILITY RULE: Shipment must be in LOADING state to dispatch
-    if (shipment.status !== ShipmentStatus.LOADING) {
+    if (shipment.status !== LegacyShipmentStatus.LOADING) {
       await this.audit.recordException({
         severity: ExceptionSeverity.HIGH,
         domain: ExceptionDomain.SHIPPING,
@@ -173,7 +173,7 @@ export class ShippingService {
     }
 
     const before = { ...shipment };
-    shipment.status = ShipmentStatus.DISPATCHED;
+    shipment.status = LegacyShipmentStatus.DISPATCHED;
     shipment.dispatchedAt = new Date();
     shipment.dispatchedBy = actor;
     const saved = await this.shipmentRepo.save(shipment);
@@ -194,7 +194,7 @@ export class ShippingService {
   async closeShipment(id: number) {
     const shipment = await this.shipmentRepo.findOne({ where: { id } });
     if (!shipment) throw new NotFoundException('Shipment not found');
-    shipment.status = ShipmentStatus.CLOSED;
+    shipment.status = LegacyShipmentStatus.CLOSED;
     return this.shipmentRepo.save(shipment);
   }
 
@@ -240,7 +240,7 @@ export class ShippingService {
     const pieces = lines.reduce((a, l) => a + l.quantity, 0);
     const parts = new Set(lines.map((l) => l.partNumber)).size;
     const loaded =
-      shipment.status === ShipmentStatus.DISPATCHED || shipment.status === ShipmentStatus.CLOSED;
+      shipment.status === LegacyShipmentStatus.DISPATCHED || shipment.status === LegacyShipmentStatus.CLOSED;
     const shipDateSrc = shipment.dispatchedAt ?? shipment.scheduledAt ?? null;
     const tare: AsnTare = {
       id: String(shipment.id),

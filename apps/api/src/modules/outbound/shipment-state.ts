@@ -8,14 +8,14 @@
  * Pure + side-effect free for isolated unit testing.
  */
 
-export type ShipmentStatus =
+export type OutboundShipmentStatus =
   | 'PACKING'
   | 'READY'
   | 'SHIPPED'
   | 'DELIVERED'
   | 'CANCELLED';
 
-export const SHIPMENT_STATUSES: ShipmentStatus[] = [
+export const SHIPMENT_STATUSES: OutboundShipmentStatus[] = [
   'PACKING',
   'READY',
   'SHIPPED',
@@ -23,7 +23,7 @@ export const SHIPMENT_STATUSES: ShipmentStatus[] = [
   'CANCELLED',
 ];
 
-const TRANSITIONS: Record<ShipmentStatus, ShipmentStatus[]> = {
+const TRANSITIONS: Record<OutboundShipmentStatus, OutboundShipmentStatus[]> = {
   PACKING: ['READY', 'CANCELLED'],
   READY: ['SHIPPED', 'CANCELLED'],
   SHIPPED: ['DELIVERED'],
@@ -31,24 +31,24 @@ const TRANSITIONS: Record<ShipmentStatus, ShipmentStatus[]> = {
   CANCELLED: [],
 };
 
-export function isTerminal(status: ShipmentStatus): boolean {
+export function isTerminal(status: OutboundShipmentStatus): boolean {
   return TRANSITIONS[status]?.length === 0;
 }
 
 export function canTransition(
-  from: ShipmentStatus,
-  to: ShipmentStatus,
+  from: OutboundShipmentStatus,
+  to: OutboundShipmentStatus,
 ): boolean {
   return TRANSITIONS[from]?.includes(to) ?? false;
 }
 
-export function nextStates(from: ShipmentStatus): ShipmentStatus[] {
+export function nextStates(from: OutboundShipmentStatus): OutboundShipmentStatus[] {
   return TRANSITIONS[from] ?? [];
 }
 
 export function assertTransition(
-  from: ShipmentStatus,
-  to: ShipmentStatus,
+  from: OutboundShipmentStatus,
+  to: OutboundShipmentStatus,
 ): void {
   if (!canTransition(from, to)) {
     throw new Error(

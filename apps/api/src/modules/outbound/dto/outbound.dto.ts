@@ -9,7 +9,7 @@ import {
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { SHIPMENT_STATUSES } from '../shipment-state';
-import type { ShipmentStatus } from '../shipment-state';
+import type { OutboundShipmentStatus } from '../shipment-state';
 import type { Incoterm } from '../entities/shipment.entity';
 
 const INCOTERMS = ['EXW', 'FCA', 'FOB', 'CIF', 'DAP', 'DDP', 'OTHER'];
@@ -365,7 +365,7 @@ export class UpsertFiscalProfileDto {
 export class TransitionShipmentDto {
   @ApiProperty({ enum: SHIPMENT_STATUSES, example: 'SHIPPED' })
   @IsIn(SHIPMENT_STATUSES)
-  status: ShipmentStatus;
+  status: OutboundShipmentStatus;
 
   @ApiPropertyOptional({ description: 'Número de guía (al embarcar).' })
   @IsOptional()

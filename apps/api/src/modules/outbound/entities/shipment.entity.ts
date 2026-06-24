@@ -1,7 +1,7 @@
 import { Column, Entity, Index, PrimaryGeneratedColumn } from 'typeorm';
 import { TenantBaseEntity } from '../../../common/entities/tenant-base.entity';
 import { DATE_COLUMN_TYPE } from '../../../common/database/date-column-type';
-import type { ShipmentStatus } from '../shipment-state';
+import type { OutboundShipmentStatus } from '../shipment-state';
 
 export type Incoterm =
   | 'EXW'
@@ -56,7 +56,7 @@ export class Shipment extends TenantBaseEntity {
   incoterm: Incoterm;
 
   @Column({ type: 'varchar', length: 16, default: 'PACKING' })
-  status: ShipmentStatus;
+  status: OutboundShipmentStatus;
 
   @Column({ type: 'varchar', length: 120, nullable: true })
   carrier: string | null;

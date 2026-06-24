@@ -18,7 +18,7 @@ import {
   TransitionShipmentDto,
   UpdateShipmentDto,
 } from './dto/outbound.dto';
-import { assertTransition, ShipmentStatus } from './shipment-state';
+import { assertTransition, OutboundShipmentStatus } from './shipment-state';
 import { TrafficService } from '../traffic/traffic.service';
 import { PackingService } from '../packing/packing.service';
 import { OutboundLinesService } from './outbound-lines.service';
@@ -57,7 +57,7 @@ export interface OutboundKpis {
   delivered: number;
   overdue: number;
   otdPct: number | null;
-  byStatus: Record<ShipmentStatus, number>;
+  byStatus: Record<OutboundShipmentStatus, number>;
 }
 
 @Injectable()
@@ -428,7 +428,7 @@ export class OutboundService {
       SHIPPED: 0,
       DELIVERED: 0,
       CANCELLED: 0,
-    } as Record<ShipmentStatus, number>;
+    } as Record<OutboundShipmentStatus, number>;
 
     let toShip = 0;
     let inTransit = 0;
