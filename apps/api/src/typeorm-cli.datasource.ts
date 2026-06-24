@@ -22,7 +22,9 @@ export default new DataSource({
   username: process.env.DB_USERNAME,
   password: String(process.env.DB_PASSWORD ?? ""),
   database: process.env.DB_DATABASE,
-  ssl: sslEnabled ? { rejectUnauthorized: false } : false,
+  ssl: sslEnabled
+    ? { rejectUnauthorized: process.env.DB_SSL_STRICT === "true" }
+    : false,
   synchronize: false,
   entities: [globPath(__dirname, "modules", "**", "*.entity.{ts,js}")],
   migrations: [globPath(__dirname, "migrations", "*.{ts,js}")],
