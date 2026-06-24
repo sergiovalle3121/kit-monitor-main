@@ -35,7 +35,7 @@ import { Supplier } from '../suppliers/entities/supplier.entity';
 import { CapaStatus } from '../quality/entities/capa.entity';
 import { IqcResult } from '../quality/entities/iqc-inspection.entity';
 import { WarehouseTaskStatus, WarehouseTaskType } from '../inventory/entities/warehouse-task.entity';
-import { ShipmentStatus } from '../shipping/entities/shipment.entity';
+import { LegacyShipmentStatus } from '../shipping/entities/shipment.entity';
 
 @Injectable()
 export class DecisionIntelligenceService {
@@ -579,7 +579,7 @@ export class DecisionIntelligenceService {
         staged: shipments.filter(s => s.status === 'staged').length,
         loading: shipments.filter(s => s.status === 'loading').length,
         dispatched: shipments.filter(s => s.status === 'dispatched').length,
-        blockers: shipments.filter(s => s.status === ShipmentStatus.PLANNING && s.scheduledAt && new Date(s.scheduledAt) < new Date()).length
+        blockers: shipments.filter(s => s.status === LegacyShipmentStatus.PLANNING && s.scheduledAt && new Date(s.scheduledAt) < new Date()).length
       },
       suppliers: {
         criticalCount: criticalSuppliers,

@@ -3,7 +3,7 @@ import {
   assertTransition,
   isTerminal,
   nextStates,
-  ShipmentStatus,
+  OutboundShipmentStatus,
 } from './shipment-state';
 
 describe('shipment state machine', () => {
@@ -25,7 +25,7 @@ describe('shipment state machine', () => {
   });
 
   it('treats DELIVERED and CANCELLED as terminal', () => {
-    (['DELIVERED', 'CANCELLED'] as ShipmentStatus[]).forEach((s) => {
+    (['DELIVERED', 'CANCELLED'] as OutboundShipmentStatus[]).forEach((s) => {
       expect(isTerminal(s)).toBe(true);
       expect(nextStates(s)).toHaveLength(0);
     });
