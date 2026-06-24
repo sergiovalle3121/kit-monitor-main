@@ -18,6 +18,7 @@ import {
 } from './dto/enterprise.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
+@UseGuards(JwtAuthGuard)
 @Controller('enterprise')
 export class EnterpriseCampusController {
   constructor(private readonly service: EnterpriseCampusService) {}

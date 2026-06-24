@@ -5,6 +5,7 @@ import { ProcessRoutingService } from './process-routing.service';
 import { CreateStepDto, UpdateStepDto, AddStepMaterialDto } from './dto/process.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
+@UseGuards(JwtAuthGuard)
 @Controller('process')
 export class ProcessRoutingController {
   constructor(private readonly service: ProcessRoutingService) {}
