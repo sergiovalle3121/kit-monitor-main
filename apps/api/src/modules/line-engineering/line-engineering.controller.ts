@@ -614,6 +614,30 @@ export class LineEngineeringController {
     });
   }
 
+  @Get('layout/changeover')
+  @RequirePermissions('engineering:read')
+  @ApiOperation({
+    summary:
+      'Matriz de cambio de modelo (SMED) en una línea flexible: esfuerzo de cambio entre cada par de modelos.',
+  })
+  layoutChangeover(
+    @Query('line') line?: string,
+    @Query('model') model?: string,
+    @Query('revision') revision?: string,
+    @Query('setupSec') setupSec?: string,
+    @Query('teardownSec') teardownSec?: string,
+    @Query('retoolSec') retoolSec?: string,
+  ) {
+    return this.service.getChangeover({
+      line,
+      model,
+      revision: revision ?? 'A',
+      setupSec: setupSec ? Number(setupSec) : undefined,
+      teardownSec: teardownSec ? Number(teardownSec) : undefined,
+      retoolSec: retoolSec ? Number(retoolSec) : undefined,
+    });
+  }
+
   @Get('layout/completeness')
   @RequirePermissions('engineering:read')
   @ApiOperation({
