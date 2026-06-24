@@ -6,7 +6,7 @@ import { AnimatePresence } from 'framer-motion';
 import { Workbook } from '@fortune-sheet/react';
 import '@fortune-sheet/react/dist/index.css';
 import { ListChecks, Palette, Snowflake, FileText, Sigma, Search, ArrowDownUp, CopyMinus, Columns3, StickyNote, Table2, Hash, Rows3, Activity, ArrowDownToLine, FlipVertical2, Tag, Printer, ClipboardPaste, Filter, RefreshCw, LayoutGrid, Sparkles, Target, Grid3x3, Layers, Crosshair, Combine, CalendarRange } from 'lucide-react';
-import { SheetCharts } from './SheetCharts';
+import dynamic from 'next/dynamic';
 import { SheetTools, type ValidationPayload } from './SheetTools';
 import { SheetFunctionWizard } from './SheetFunctionWizard';
 import { SheetFindReplace } from './SheetFindReplace';
@@ -38,6 +38,13 @@ import { SheetConsolidate, type ConsolidatePayload } from './SheetConsolidate';
 import { setTableRegistry, type TableDef } from './sheets/tableRefs';
 import { OfficeRibbon, RibbonTab, RibbonGroup, RibbonSeparator, RibbonButton, RibbonMenuButton } from './ribbon';
 import { useToast } from '@/contexts/ToastContext';
+
+// chart.js + react-chartjs-2 son pesados y solo se usan al insertar gráficas:
+// carga diferida para que abrir una hoja sin gráficas no los traiga al bundle.
+const SheetCharts = dynamic(
+  () => import('./SheetCharts').then((m) => m.SheetCharts),
+  { ssr: false },
+);
 
 // Content is either the legacy bare sheet array or the new { sheets, charts } shape.
 function sheetsOf(v: any): any[] | null {

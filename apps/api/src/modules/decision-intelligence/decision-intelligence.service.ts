@@ -498,17 +498,33 @@ export class DecisionIntelligenceService {
   }
 
   async getSiteOverview() {
-    const buildings = await this.buildingRepo.find();
-    const inventory = await this.inventoryRepo.find();
-    const wip = await this.wipRepo.find();
-    const ncrs = await this.ncrRepo.find();
-    const tasks = await this.warehouseTaskRepo.find({ where: { status: WarehouseTaskStatus.PENDING } });
-    const shipments = await this.shipmentRepo.find();
-    const oqc = await this.oqcRepo.find();
-    const iqc = await this.iqcRepo.find();
-    const capas = await this.capaRepo.find();
-    const scars = await this.scarRepo.find();
-    const suppliers = await this.supplierRepo.find();
+    // Lecturas en paralelo (antes eran 11 round-trips secuenciales) — endpoint de
+    // dashboard de solo lectura; mismo conjunto de datos, ~10x menos latencia de red.
+    const [
+      buildings,
+      inventory,
+      wip,
+      ncrs,
+      tasks,
+      shipments,
+      oqc,
+      iqc,
+      capas,
+      scars,
+      suppliers,
+    ] = await Promise.all([
+      this.buildingRepo.find(),
+      this.inventoryRepo.find(),
+      this.wipRepo.find(),
+      this.ncrRepo.find(),
+      this.warehouseTaskRepo.find({ where: { status: WarehouseTaskStatus.PENDING } }),
+      this.shipmentRepo.find(),
+      this.oqcRepo.find(),
+      this.iqcRepo.find(),
+      this.capaRepo.find(),
+      this.scarRepo.find(),
+      this.supplierRepo.find(),
+    ]);
 
     // 1. Quality Analytics
     const totalOqc = oqc.length;
