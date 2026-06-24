@@ -10,6 +10,7 @@ import {
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { RequirePermissions } from '../auth/decorators/permissions.decorator';
 import { PurchasePlanningService } from './purchase-planning.service';
 
 /**
@@ -35,6 +36,7 @@ export class PurchasePlanningController {
   }
 
   @Post(':bomNodeId/generate')
+  @RequirePermissions('materials:write')
   @ApiOperation({ summary: 'Crea las órdenes de compra sugeridas (una por proveedor).' })
   generate(
     @Param('bomNodeId') bomNodeId: string,

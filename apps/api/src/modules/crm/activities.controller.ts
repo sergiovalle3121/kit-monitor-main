@@ -11,6 +11,7 @@ import {
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { RequirePermissions } from '../auth/decorators/permissions.decorator';
 import { ActivitiesService } from './services/activities.service';
 import { CreateActivityDto, UpdateActivityDto } from './dto/activity.dto';
 
@@ -39,18 +40,21 @@ export class ActivitiesController {
   }
 
   @Post()
+  @RequirePermissions('sales:write')
   @ApiOperation({ summary: 'Registra una actividad o crea una tarea.' })
   create(@Body() dto: CreateActivityDto) {
     return this.service.create(dto);
   }
 
   @Patch(':id')
+  @RequirePermissions('sales:write')
   @ApiOperation({ summary: 'Actualiza una actividad/tarea.' })
   update(@Param('id') id: string, @Body() dto: UpdateActivityDto) {
     return this.service.update(id, dto);
   }
 
   @Post(':id/complete')
+  @RequirePermissions('sales:write')
   @ApiOperation({ summary: 'Marca una tarea como completada.' })
   complete(@Param('id') id: string, @Body() body: { outcome?: string }) {
     return this.service.complete(id, body?.outcome);

@@ -12,6 +12,7 @@ import {
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { RequirePermissions } from '../auth/decorators/permissions.decorator';
 import { RoutingService } from './routing.service';
 import {
   CreateOperationDto,
@@ -55,24 +56,28 @@ export class RoutingController {
   }
 
   @Post()
+  @RequirePermissions('engineering:write')
   @ApiOperation({ summary: 'Crea un ruteo para un material/ensamble.' })
   create(@Body() dto: CreateRoutingDto) {
     return this.service.createRouting(dto);
   }
 
   @Patch(':id')
+  @RequirePermissions('engineering:write')
   @ApiOperation({ summary: 'Actualiza el header del ruteo.' })
   update(@Param('id') id: string, @Body() dto: UpdateRoutingDto) {
     return this.service.updateRouting(id, dto);
   }
 
   @Post(':id/transition')
+  @RequirePermissions('engineering:write')
   @ApiOperation({ summary: 'Cambia el estado del ruteo.' })
   transition(@Param('id') id: string, @Body() dto: TransitionRoutingDto) {
     return this.service.transitionRouting(id, dto.status);
   }
 
   @Delete(':id')
+  @RequirePermissions('engineering:write')
   @ApiOperation({ summary: 'Elimina el ruteo, sus operaciones y materiales.' })
   remove(@Param('id') id: string) {
     return this.service.deleteRouting(id);
@@ -80,12 +85,14 @@ export class RoutingController {
 
   // Operations
   @Post(':id/operations')
+  @RequirePermissions('engineering:write')
   @ApiOperation({ summary: 'Agrega una operación al ruteo.' })
   addOperation(@Param('id') id: string, @Body() dto: CreateOperationDto) {
     return this.service.addOperation(id, dto);
   }
 
   @Patch(':id/operations/:opId')
+  @RequirePermissions('engineering:write')
   @ApiOperation({ summary: 'Actualiza una operación.' })
   updateOperation(
     @Param('id') id: string,
@@ -96,6 +103,7 @@ export class RoutingController {
   }
 
   @Delete(':id/operations/:opId')
+  @RequirePermissions('engineering:write')
   @ApiOperation({ summary: 'Elimina una operación.' })
   removeOperation(@Param('id') id: string, @Param('opId') opId: string) {
     return this.service.removeOperation(id, opId);
@@ -103,6 +111,7 @@ export class RoutingController {
 
   // Operation ↔ material (BOM bridge)
   @Post(':id/operations/:opId/materials')
+  @RequirePermissions('engineering:write')
   @ApiOperation({ summary: 'Asigna un material consumido a la operación (backflush).' })
   addOperationMaterial(
     @Param('id') id: string,
@@ -113,6 +122,7 @@ export class RoutingController {
   }
 
   @Delete(':id/operations/:opId/materials/:matId')
+  @RequirePermissions('engineering:write')
   @ApiOperation({ summary: 'Quita un material de la operación.' })
   removeOperationMaterial(
     @Param('id') id: string,

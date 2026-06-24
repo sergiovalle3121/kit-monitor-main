@@ -17,9 +17,11 @@ import {
   UpdateEngineeringDocumentDto,
 } from './dto/engineering-document.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { RequirePermissions } from '../auth/decorators/permissions.decorator';
 
 @Controller('engineering')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 export class EngineeringController {
   constructor(private readonly engineeringService: EngineeringService) {}
 
@@ -46,11 +48,13 @@ export class EngineeringController {
   }
 
   @Post('documents')
+  @RequirePermissions('engineering:write')
   create(@Body() createDto: CreateEngineeringDocumentDto, @Req() req: any) {
     return this.engineeringService.create(createDto, req.user.email);
   }
 
   @Patch('documents/:id')
+  @RequirePermissions('engineering:write')
   update(
     @Param('id') id: string,
     @Body() updateDto: UpdateEngineeringDocumentDto,
@@ -60,6 +64,7 @@ export class EngineeringController {
   }
 
   @Delete('documents/:id')
+  @RequirePermissions('engineering:write')
   remove(@Param('id') id: string) {
     return this.engineeringService.remove(id);
   }

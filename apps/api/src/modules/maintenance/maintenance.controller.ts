@@ -11,6 +11,7 @@ import {
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { RequirePermissions } from '../auth/decorators/permissions.decorator';
 import { MaintenanceService } from './maintenance.service';
 import {
   CreateAssetDto,
@@ -43,6 +44,7 @@ export class MaintenanceController {
   }
 
   @Post('assets')
+  @RequirePermissions('maintenance:write')
   @ApiOperation({ summary: 'Da de alta un activo.' })
   createAsset(@Body() dto: CreateAssetDto) {
     return this.service.createAsset(dto);
@@ -57,6 +59,7 @@ export class MaintenanceController {
   }
 
   @Patch('assets/:id')
+  @RequirePermissions('maintenance:write')
   @ApiOperation({ summary: 'Actualiza un activo (estado, criticidad…).' })
   updateAsset(@Param('id') id: string, @Body() dto: UpdateAssetDto) {
     return this.service.updateAsset(id, dto);
@@ -80,18 +83,21 @@ export class MaintenanceController {
   }
 
   @Post('orders')
+  @RequirePermissions('maintenance:write')
   @ApiOperation({ summary: 'Crea una orden de mantenimiento (folio MO-).' })
   createOrder(@Body() dto: CreateMaintenanceOrderDto) {
     return this.service.createOrder(dto);
   }
 
   @Patch('orders/:id')
+  @RequirePermissions('maintenance:write')
   @ApiOperation({ summary: 'Actualiza una orden.' })
   updateOrder(@Param('id') id: string, @Body() dto: UpdateMaintenanceOrderDto) {
     return this.service.updateOrder(id, dto);
   }
 
   @Post('orders/:id/transition')
+  @RequirePermissions('maintenance:write')
   @ApiOperation({ summary: 'Avanza la orden por su máquina de estados.' })
   transitionOrder(
     @Param('id') id: string,
@@ -114,18 +120,21 @@ export class MaintenanceController {
   }
 
   @Post('pm-plans')
+  @RequirePermissions('maintenance:write')
   @ApiOperation({ summary: 'Programa un preventivo recurrente para un activo.' })
   createPmPlan(@Body() dto: CreatePmPlanDto) {
     return this.service.createPmPlan(dto);
   }
 
   @Patch('pm-plans/:id')
+  @RequirePermissions('maintenance:write')
   @ApiOperation({ summary: 'Actualiza un plan de PM (frecuencia, fechas, pausa).' })
   updatePmPlan(@Param('id') id: string, @Body() dto: UpdatePmPlanDto) {
     return this.service.updatePmPlan(id, dto);
   }
 
   @Post('pm-plans/:id/generate-order')
+  @RequirePermissions('maintenance:write')
   @ApiOperation({
     summary: 'Genera una orden PREVENTIVE del plan y reprograma su próxima fecha.',
   })
@@ -134,6 +143,7 @@ export class MaintenanceController {
   }
 
   @Post('pm-plans/scan-due')
+  @RequirePermissions('maintenance:write')
   @ApiOperation({
     summary: 'Escanea PM vencidos y avisa al planeador (buzón de notificaciones).',
   })

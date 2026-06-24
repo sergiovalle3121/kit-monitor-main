@@ -12,6 +12,7 @@ import {
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { RequirePermissions } from '../auth/decorators/permissions.decorator';
 import { BomTreeService } from './bom-tree.service';
 import {
   CreateBomLineDto,
@@ -59,24 +60,28 @@ export class BomTreeController {
   }
 
   @Post()
+  @RequirePermissions('engineering:write')
   @ApiOperation({ summary: 'Crea un BOM para un material/ensamble.' })
   createNode(@Body() dto: CreateBomNodeDto) {
     return this.service.createNode(dto);
   }
 
   @Patch(':id')
+  @RequirePermissions('engineering:write')
   @ApiOperation({ summary: 'Actualiza el header del BOM.' })
   updateNode(@Param('id') id: string, @Body() dto: UpdateBomNodeDto) {
     return this.service.updateNode(id, dto);
   }
 
   @Post(':id/transition')
+  @RequirePermissions('engineering:write')
   @ApiOperation({ summary: 'Cambia el estado del BOM (DRAFT/ACTIVE/OBSOLETE).' })
   transitionNode(@Param('id') id: string, @Body() dto: TransitionBomNodeDto) {
     return this.service.transitionNode(id, dto.status);
   }
 
   @Delete(':id')
+  @RequirePermissions('engineering:write')
   @ApiOperation({ summary: 'Elimina el BOM y sus líneas.' })
   deleteNode(@Param('id') id: string) {
     return this.service.deleteNode(id);
@@ -84,12 +89,14 @@ export class BomTreeController {
 
   // Lines
   @Post(':id/lines')
+  @RequirePermissions('engineering:write')
   @ApiOperation({ summary: 'Agrega una línea (componente del maestro).' })
   addLine(@Param('id') id: string, @Body() dto: CreateBomLineDto) {
     return this.service.addLine(id, dto);
   }
 
   @Patch(':id/lines/:lineId')
+  @RequirePermissions('engineering:write')
   @ApiOperation({ summary: 'Actualiza una línea del BOM.' })
   updateLine(
     @Param('id') id: string,
@@ -100,6 +107,7 @@ export class BomTreeController {
   }
 
   @Delete(':id/lines/:lineId')
+  @RequirePermissions('engineering:write')
   @ApiOperation({ summary: 'Elimina una línea del BOM.' })
   removeLine(@Param('id') id: string, @Param('lineId') lineId: string) {
     return this.service.removeLine(id, lineId);
