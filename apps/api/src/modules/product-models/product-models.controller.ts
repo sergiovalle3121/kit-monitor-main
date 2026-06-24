@@ -11,6 +11,7 @@ import {
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { RequirePermissions } from '../auth/decorators/permissions.decorator';
 import { ProductModelsService } from './product-models.service';
 import {
   CreateProductModelDto,
@@ -56,6 +57,7 @@ export class ProductModelsController {
   }
 
   @Post()
+  @RequirePermissions('engineering:write')
   @ApiOperation({
     summary: 'Crea un modelo (asigna folio MDL- si no se da uno).',
   })
@@ -64,12 +66,14 @@ export class ProductModelsController {
   }
 
   @Patch(':id')
+  @RequirePermissions('engineering:write')
   @ApiOperation({ summary: 'Actualiza los datos de un modelo.' })
   update(@Param('id') id: string, @Body() dto: UpdateProductModelDto) {
     return this.service.update(id, dto);
   }
 
   @Post(':id/activate')
+  @RequirePermissions('engineering:write')
   @ApiOperation({
     summary:
       'Activa el modelo (DRAFT/OBSOLETE → ACTIVE). Adjunta readiness NPI (advisory). force=true ignora el gate si está activada la exigencia.',
@@ -79,6 +83,7 @@ export class ProductModelsController {
   }
 
   @Post(':id/obsolete')
+  @RequirePermissions('engineering:write')
   @ApiOperation({ summary: 'Marca el modelo como obsoleto.' })
   obsolete(@Param('id') id: string) {
     return this.service.obsolete(id);

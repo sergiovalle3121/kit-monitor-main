@@ -10,6 +10,7 @@ import {
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { RequirePermissions } from '../auth/decorators/permissions.decorator';
 import { ProductCostingService } from './product-costing.service';
 
 /**
@@ -40,6 +41,7 @@ export class ProductCostingController {
   }
 
   @Post(':bomNodeId/apply')
+  @RequirePermissions('finance:write')
   @ApiOperation({ summary: 'Guarda el costo unitario calculado como costo estándar del material.' })
   apply(
     @Param('bomNodeId') bomNodeId: string,

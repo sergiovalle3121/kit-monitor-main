@@ -11,6 +11,7 @@ import {
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { RequirePermissions } from '../auth/decorators/permissions.decorator';
 import { CrmService } from './crm.service';
 import {
   CreateOpportunityDto,
@@ -48,18 +49,21 @@ export class CrmController {
   }
 
   @Post('opportunities')
+  @RequirePermissions('sales:write')
   @ApiOperation({ summary: 'Crea una oportunidad (folio OPP-).' })
   create(@Body() dto: CreateOpportunityDto) {
     return this.service.create(dto);
   }
 
   @Patch('opportunities/:id')
+  @RequirePermissions('sales:write')
   @ApiOperation({ summary: 'Actualiza una oportunidad.' })
   update(@Param('id') id: string, @Body() dto: UpdateOpportunityDto) {
     return this.service.update(id, dto);
   }
 
   @Post('opportunities/:id/transition')
+  @RequirePermissions('sales:write')
   @ApiOperation({ summary: 'Avanza la oportunidad por el pipeline.' })
   transition(@Param('id') id: string, @Body() dto: TransitionOpportunityDto) {
     return this.service.transition(id, dto);

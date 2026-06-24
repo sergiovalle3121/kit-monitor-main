@@ -11,6 +11,7 @@ import {
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { RequirePermissions } from '../auth/decorators/permissions.decorator';
 import { ProcurementService } from './procurement.service';
 import {
   CreatePurchaseOrderDto,
@@ -48,18 +49,21 @@ export class ProcurementController {
   }
 
   @Post('orders')
+  @RequirePermissions('materials:write')
   @ApiOperation({ summary: 'Crea una orden de compra (folio PO-).' })
   create(@Body() dto: CreatePurchaseOrderDto) {
     return this.service.create(dto);
   }
 
   @Patch('orders/:id')
+  @RequirePermissions('materials:write')
   @ApiOperation({ summary: 'Actualiza una orden de compra.' })
   update(@Param('id') id: string, @Body() dto: UpdatePurchaseOrderDto) {
     return this.service.update(id, dto);
   }
 
   @Post('orders/:id/transition')
+  @RequirePermissions('materials:write')
   @ApiOperation({ summary: 'Avanza la orden por su máquina de estados.' })
   transition(
     @Param('id') id: string,

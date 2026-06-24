@@ -11,6 +11,7 @@ import {
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { RequirePermissions } from '../auth/decorators/permissions.decorator';
 import { AccountsService } from './services/accounts.service';
 import { CreateAccountDto, UpdateAccountDto } from './dto/account.dto';
 
@@ -51,12 +52,14 @@ export class AccountsController {
   }
 
   @Post()
+  @RequirePermissions('sales:write')
   @ApiOperation({ summary: 'Crea una cuenta comercial.' })
   create(@Body() dto: CreateAccountDto) {
     return this.service.create(dto);
   }
 
   @Patch(':id')
+  @RequirePermissions('sales:write')
   @ApiOperation({ summary: 'Actualiza una cuenta.' })
   update(@Param('id') id: string, @Body() dto: UpdateAccountDto) {
     return this.service.update(id, dto);

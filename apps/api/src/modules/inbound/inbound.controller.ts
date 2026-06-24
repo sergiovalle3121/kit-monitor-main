@@ -10,6 +10,7 @@ import {
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { RequirePermissions } from '../auth/decorators/permissions.decorator';
 import { InboundService } from './inbound.service';
 import { CreateReceiptDto, TransitionReceiptDto } from './dto/inbound.dto';
 
@@ -43,12 +44,14 @@ export class InboundController {
   }
 
   @Post('receipts')
+  @RequirePermissions('materials:write')
   @ApiOperation({ summary: 'Captura un recibo de material (folio RCV-).' })
   create(@Body() dto: CreateReceiptDto) {
     return this.service.create(dto);
   }
 
   @Post('receipts/:id/transition')
+  @RequirePermissions('materials:write')
   @ApiOperation({ summary: 'Avanza el recibo por su flujo IQC.' })
   transition(@Param('id') id: string, @Body() dto: TransitionReceiptDto) {
     return this.service.transition(id, dto);

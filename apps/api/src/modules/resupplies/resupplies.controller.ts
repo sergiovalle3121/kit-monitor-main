@@ -3,10 +3,12 @@ import { ResuppliesService } from './resupplies.service';
 import { CreateResupplyDto } from './dto/create-resupply.dto';
 import { DeliverResupplyDto } from './dto/deliver-resupply.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { RequirePermissions } from '../auth/decorators/permissions.decorator';
 import { UpdateResupplyStatusDto } from './dto/update-resupply-status.dto';
 import { AssignResupplyOwnerDto } from './dto/assign-resupply-owner.dto';
 
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller('resupplies')
 export class ResuppliesController {
   constructor(private readonly service: ResuppliesService) {}
@@ -26,22 +28,26 @@ export class ResuppliesController {
   }
 
   @Post()
+  @RequirePermissions('materials:write')
   create(@Body() dto: CreateResupplyDto) {
     return this.service.create(dto);
   }
 
   @Patch(':id/deliver')
+  @RequirePermissions('materials:write')
   deliver(@Param('id', ParseIntPipe) id: number, @Body() dto: DeliverResupplyDto) {
     return this.service.deliver(id, dto);
   }
 
 
   @Patch(':id/owner')
+  @RequirePermissions('materials:write')
   assignOwner(@Param('id', ParseIntPipe) id: number, @Body() dto: AssignResupplyOwnerDto) {
     return this.service.assignOwner(id, dto);
   }
 
   @Patch(':id/status')
+  @RequirePermissions('materials:write')
   updateStatus(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateResupplyStatusDto) {
     return this.service.updateStatus(id, dto);
   }
