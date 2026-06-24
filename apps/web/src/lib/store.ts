@@ -65,25 +65,36 @@ export function verifyPassword(user: StoredUser, password: string): boolean {
 }
 
 async function defaultStore(): Promise<StoreShape> {
-  const adminPass = hashPassword("admin123");
-  const now = new Date().toISOString();
+  const users: StoredUser[] = [];
+
+  // Optional seeded demo admin for local/preview use only. The password MUST
+  // come from a server-side env var — there is no hardcoded fallback. If
+  // DEMO_ADMIN_PASSWORD is unset (e.g. in production) the account is simply
+  // not created (fail-safe: never seed a weak/known credential). The proper
+  // credential-less demo experience is POST /api/auth/demo, which does not
+  // depend on this account. Use a non-public var (never NEXT_PUBLIC_*).
+  const demoPassword = process.env.DEMO_ADMIN_PASSWORD;
+  if (demoPassword) {
+    const adminPass = hashPassword(demoPassword);
+    const now = new Date().toISOString();
+    users.push({
+      id: crypto.randomUUID(),
+      name: "Demo Admin",
+      email: process.env.DEMO_ADMIN_EMAIL ?? "admin@axos.com",
+      // Read-only demo: 'executive' sees every module (seesAll) but cannot
+      // write — the backend RBAC matrix grants executive only *:read perms,
+      // and the frontend hides all admin-only actions (isAdmin === false).
+      role: "executive",
+      status: "active",
+      passwordHash: adminPass.hash,
+      passwordSalt: adminPass.salt,
+      createdAt: now,
+      approvedAt: now,
+    });
+  }
+
   return {
-    users: [
-      {
-        id: crypto.randomUUID(),
-        name: "Demo Admin",
-        email: "admin@axos.com",
-        // Read-only demo: 'executive' sees every module (seesAll) but cannot
-        // write — the backend RBAC matrix grants executive only *:read perms,
-        // and the frontend hides all admin-only actions (isAdmin === false).
-        role: "executive",
-        status: "active",
-        passwordHash: adminPass.hash,
-        passwordSalt: adminPass.salt,
-        createdAt: now,
-        approvedAt: now,
-      },
-    ],
+    users,
     notifications: [],
   };
 }

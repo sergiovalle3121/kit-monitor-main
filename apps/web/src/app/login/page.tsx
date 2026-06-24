@@ -425,12 +425,6 @@ function LoginInner() {
                   Contactar al administrador
                 </a>
               </p>
-
-              <p className="text-[10px] text-gray-400 font-light pt-2 border-t border-gray-100 dark:border-white/5">
-                Demo (solo lectura):{" "}
-                <span className="font-mono">admin@axos.com</span> /{" "}
-                <span className="font-mono">admin123</span>
-              </p>
             </div>
           </motion.div>
         </div>
