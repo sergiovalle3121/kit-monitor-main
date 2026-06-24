@@ -30,6 +30,9 @@ export class NCR {
   @PrimaryGeneratedColumn()
   id: number;
 
+  @Column({ type: 'varchar', length: 36, nullable: true, name: 'tenant_id' })
+  tenant_id: string | null;
+
   @Column({ type: 'varchar', length: 32, unique: true })
   @Index()
   ncrNumber: string; // e.g. NCR-2024-001
