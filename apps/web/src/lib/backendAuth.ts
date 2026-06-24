@@ -160,8 +160,12 @@ export async function backendAdmin(
 
 /**
  * Mint a PER-USER backend JWT from the current cookie session (same bridge the
- * /api/backend/token route uses) so backend RBAC + tenant scoping apply. Falls
- * back to the shared service identity so calls never hard-break.
+ * /api/backend/token route uses) so backend RBAC + tenant scoping apply.
+ *
+ * En producción NO cae a la identidad de servicio: que una acción de usuario corra
+ * como service/admin saltaría RBAC, tenant scoping y auditoría. Si el sync por-usuario
+ * falla, retorna null (el caller responde 401 → reautenticación). En dev sí cae al
+ * service token para no romper el flujo local.
  */
 export async function bridgeToken(): Promise<string | null> {
   const session = await getSession();
@@ -175,6 +179,7 @@ export async function bridgeToken(): Promise<string | null> {
     });
     if (t) return t;
   }
+  if (process.env.NODE_ENV === 'production') return null;
   return backendServiceToken();
 }
 

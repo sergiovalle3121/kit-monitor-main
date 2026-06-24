@@ -36,6 +36,16 @@ export function ormOptions(): TypeOrmModuleOptions {
 
   // ── Shared PostgreSQL base ───────────────────────────────────────────────
   const syncOverride = process.env.SYNCHRONIZE;
+  // Fail-fast: en producción SYNCHRONIZE debe declararse explícitamente ("true"/"false").
+  // Evita que un deploy active synchronize por accidente (schema drift / migraciones
+  // bypassed). Hasta el cutover a migraciones, configúrala en "true"
+  // (ver docs/PROD-MIGRATION-CUTOVER.md).
+  if (isProd && syncOverride !== "true" && syncOverride !== "false") {
+    throw new Error(
+      'En producción debes definir SYNCHRONIZE explícitamente ("true" o "false"). ' +
+        'Hasta el cutover a migraciones, configúrala en "true".',
+    );
+  }
   const synchronize =
     syncOverride === "true"
       ? true
