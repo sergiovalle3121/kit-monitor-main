@@ -11,6 +11,7 @@ import {
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { RequirePermissions } from '../auth/decorators/permissions.decorator';
 import { EhsService } from './ehs.service';
 import {
   CreateIncidentDto,
@@ -60,12 +61,14 @@ export class EhsController {
   }
 
   @Patch('incidents/:id')
+  @RequirePermissions('reports:read')
   @ApiOperation({ summary: 'Actualiza un incidente (causa raíz, acción, días).' })
   update(@Param('id') id: string, @Body() dto: UpdateIncidentDto) {
     return this.service.update(id, dto);
   }
 
   @Post('incidents/:id/transition')
+  @RequirePermissions('reports:read')
   @ApiOperation({ summary: 'Avanza el incidente por su máquina de estados.' })
   transition(@Param('id') id: string, @Body() dto: TransitionIncidentDto) {
     return this.service.transition(id, dto);
