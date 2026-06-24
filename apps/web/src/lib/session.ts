@@ -16,11 +16,29 @@ export interface SessionPayload {
 const COOKIE_NAME = "axos_session";
 const ONE_DAY = 60 * 60 * 24;
 
+/** Explicit dev-only default — clearly insecure, NEVER returned in production. */
+const DEV_SESSION_SECRET = "axos-dev-secret-change-me-in-production";
+const MIN_SECRET_LENGTH = 16;
+
+/**
+ * Secret used to sign/verify the session cookie (HMAC-SHA256).
+ *
+ * Fail-closed in production (mirrors `apps/api/src/common/config/service-password.ts`):
+ * if `AXOS_SESSION_SECRET` is missing/weak in prod we THROW instead of falling
+ * back to a public, guessable default — otherwise anyone knowing the default
+ * could forge a session cookie (any email/role, incl. admin) and the backend
+ * bridge would mint a matching JWT. In dev the explicit insecure default is used.
+ */
 function getSecret(): string {
-  return (
-    process.env.AXOS_SESSION_SECRET ||
-    "axos-dev-secret-change-me-in-production"
-  );
+  const fromEnv = process.env.AXOS_SESSION_SECRET?.trim();
+  if (fromEnv && fromEnv.length >= MIN_SECRET_LENGTH) return fromEnv;
+  if (process.env.NODE_ENV === "production") {
+    throw new Error(
+      "AXOS_SESSION_SECRET es obligatoria en producción (>= 16 caracteres). " +
+        "Sin ella la cookie de sesión sería falsificable; configúrala en el entorno.",
+    );
+  }
+  return DEV_SESSION_SECRET;
 }
 
 function toBase64Url(bytes: Uint8Array): string {
