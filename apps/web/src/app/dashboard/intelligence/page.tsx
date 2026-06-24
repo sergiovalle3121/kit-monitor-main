@@ -40,6 +40,13 @@ import { glass } from '@/lib/glass';
 import { isAdminAccess } from '@/lib/owner';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
 import { useToast } from '@/contexts/ToastContext';
+import { apiFetch } from '@/lib/apiFetch';
+
+// Semantic/analytics/autopilot live on the backend (under its global /api prefix),
+// NOT as Next route handlers — so they must be called through apiFetch against
+// NEXT_PUBLIC_API_URL (which already ends in /api), like the rest of the app.
+// (`/api/auth/me` below stays a same-origin fetch — that one IS a Next handler.)
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000').replace(/\/$/, '');
 
 interface MetricDef {
   key: string;
@@ -217,7 +224,7 @@ export default function IntelligencePage() {
   // The decision brief is an admin/executive artifact (endpoint is admin-gated).
   useEffect(() => {
     if (!isAdmin) return;
-    fetch('/api/semantic/briefs', { cache: 'no-store' })
+    apiFetch(`${API_BASE}/semantic/briefs`, { cache: 'no-store' })
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => setBrief(d?.latest ?? null))
       .catch(() => {});
@@ -226,7 +233,7 @@ export default function IntelligencePage() {
   async function generateBrief() {
     setGeneratingBrief(true);
     try {
-      const res = await fetch('/api/semantic/briefs/generate', {
+      const res = await apiFetch(`${API_BASE}/semantic/briefs/generate`, {
         method: 'POST',
       });
       const d = await res.json().catch(() => ({}));
@@ -246,7 +253,7 @@ export default function IntelligencePage() {
   async function notifyAdmins() {
     setNotifying(true);
     try {
-      const res = await fetch('/api/semantic/alerts/notify', { method: 'POST' });
+      const res = await apiFetch(`${API_BASE}/semantic/alerts/notify`, { method: 'POST' });
       const d = await res.json().catch(() => ({}));
       if (res.ok) {
         toast.success(
@@ -273,7 +280,7 @@ export default function IntelligencePage() {
     if (!ok) return;
     setActing(p.id);
     try {
-      const res = await fetch(`/api/autopilot/proposals/${p.id}/${action}`, {
+      const res = await apiFetch(`${API_BASE}/autopilot/proposals/${p.id}/${action}`, {
         method: 'POST',
       });
       if (!res.ok) {
@@ -296,17 +303,17 @@ export default function IntelligencePage() {
     async function load() {
       try {
         const [c, v, t, b, p, h, a] = await Promise.all([
-          fetch('/api/semantic/catalog', { cache: 'no-store' }),
-          fetch('/api/semantic/values', { cache: 'no-store' }),
-          fetch('/api/analytics/ledger-trend?days=14', { cache: 'no-store' }),
-          fetch('/api/analytics/domain-breakdown?sinceHours=168', {
+          apiFetch(`${API_BASE}/semantic/catalog`, { cache: 'no-store' }),
+          apiFetch(`${API_BASE}/semantic/values`, { cache: 'no-store' }),
+          apiFetch(`${API_BASE}/analytics/ledger-trend?days=14`, { cache: 'no-store' }),
+          apiFetch(`${API_BASE}/analytics/domain-breakdown?sinceHours=168`, {
             cache: 'no-store',
           }),
-          fetch('/api/autopilot/proposals?status=pending', {
+          apiFetch(`${API_BASE}/autopilot/proposals?status=pending`, {
             cache: 'no-store',
           }),
-          fetch('/api/semantic/history?days=30', { cache: 'no-store' }),
-          fetch('/api/semantic/alerts', { cache: 'no-store' }),
+          apiFetch(`${API_BASE}/semantic/history?days=30`, { cache: 'no-store' }),
+          apiFetch(`${API_BASE}/semantic/alerts`, { cache: 'no-store' }),
         ]);
         if (c.ok) setCatalog(await c.json());
         if (v.ok) {
