@@ -41,17 +41,18 @@ export class CustomerInsightsService {
     const customer = await this.customers.findOne({ where: { code } });
     if (!customer) throw new NotFoundException('Cliente no encontrado.');
 
-    const programs = await this.programs
-      .createQueryBuilder('p')
-      .where('p.customer_id = :id', { id: customer.id })
-      .orderBy('p.name', 'ASC')
-      .getMany();
-
-    const account = await this.accounts.findOne({ where: { enterpriseCustomerCode: code } });
+    const [programs, account, quality, delivery, finance] = await Promise.all([
+      this.programs
+        .createQueryBuilder('p')
+        .where('p.customer_id = :id', { id: customer.id })
+        .orderBy('p.name', 'ASC')
+        .getMany(),
+      this.accounts.findOne({ where: { enterpriseCustomerCode: code } }),
+      this.quality(customer.name),
+      this.delivery(customer.name),
+      this.finance(code),
+    ]);
     const commercial = await this.commercial(account);
-    const quality = await this.quality(customer.name);
-    const delivery = await this.delivery(customer.name);
-    const finance = await this.finance(code);
 
     return {
       customer,
@@ -75,14 +76,16 @@ export class CustomerInsightsService {
 
   // ── Per-department aggregations ──────────────────────────────────────────────
   private async rollup(c: EnterpriseCustomer): Promise<any> {
-    const account = await this.accounts.findOne({ where: { enterpriseCustomerCode: c.code } });
-    const programs = await this.programs.createQueryBuilder('p').where('p.customer_id = :id', { id: c.id }).getCount();
+    const [account, programs, openRmas] = await Promise.all([
+      this.accounts.findOne({ where: { enterpriseCustomerCode: c.code } }),
+      this.programs.createQueryBuilder('p').where('p.customer_id = :id', { id: c.id }).getCount(),
+      this.rmas
+        .createQueryBuilder('r')
+        .where('r.customer_name = :n', { n: c.name })
+        .andWhere('r.status != :s', { s: 'CLOSED' })
+        .getCount(),
+    ]);
     const commercial = await this.commercial(account);
-    const openRmas = await this.rmas
-      .createQueryBuilder('r')
-      .where('r.customer_name = :n', { n: c.name })
-      .andWhere('r.status != :s', { s: 'CLOSED' })
-      .getCount();
     return {
       code: c.code,
       name: c.name,

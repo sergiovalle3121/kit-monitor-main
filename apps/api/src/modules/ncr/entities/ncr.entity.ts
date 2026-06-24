@@ -34,9 +34,11 @@ export class NCR {
   @Index()
   ncrNumber: string; // e.g. NCR-2024-001
 
+  @Index()
   @Column({ type: 'varchar', length: 32, default: 'open' })
   status: NcrStatus;
 
+  @Index()
   @Column({ type: 'varchar', length: 16, default: 'major' })
   severity: NcrSeverity;
 

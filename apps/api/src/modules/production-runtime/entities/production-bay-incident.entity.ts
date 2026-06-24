@@ -2,6 +2,7 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  Index,
   ManyToOne,
   PrimaryGeneratedColumn,
 } from 'typeorm';
@@ -27,6 +28,7 @@ export class ProductionBayIncident {
   @Column({ type: 'varchar', length: 80, nullable: true })
   operator?: string | null;
 
+  @Index()
   @Column({ type: 'varchar', length: 24, default: 'open' })
   status: string;
 

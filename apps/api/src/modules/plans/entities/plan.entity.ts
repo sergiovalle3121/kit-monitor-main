@@ -44,6 +44,7 @@ export class Plan {
   @Column({ type: 'int', default: 0 })
   sequence: number;
 
+  @Index()
   @Column({ default: 'pending' })
   status: PlanStatus;
 
