@@ -18,6 +18,9 @@ export class PollVote {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
+  @Column({ type: 'varchar', length: 36, nullable: true, name: 'tenant_id' })
+  tenant_id: string | null;
+
   @Index()
   @Column({ name: 'message_id', type: 'uuid' })
   messageId: string;

@@ -20,6 +20,9 @@ export class SupplierApprovedPart {
   @PrimaryGeneratedColumn()
   id: number;
 
+  @Column({ type: 'varchar', length: 36, nullable: true, name: 'tenant_id' })
+  tenant_id: string | null;
+
   @Index()
   @Column({ type: 'int', name: 'supplier_id' })
   supplierId: number;

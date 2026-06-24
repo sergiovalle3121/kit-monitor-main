@@ -20,6 +20,9 @@ export class ErpCostCenter {
   @PrimaryColumn({ type: 'varchar', length: 24 })
   code: string;
 
+  @Column({ type: 'varchar', length: 36, nullable: true, name: 'tenant_id' })
+  tenant_id: string | null;
+
   @Column({ type: 'varchar', length: 120 })
   name: string;
 

@@ -6,6 +6,9 @@ export class PackingList {
   @PrimaryGeneratedColumn()
   id: number;
 
+  @Column({ type: 'varchar', length: 36, nullable: true, name: 'tenant_id' })
+  tenant_id: string | null;
+
   @Column({ type: 'varchar', length: 100, unique: true })
   @Index()
   packingListNumber: string;

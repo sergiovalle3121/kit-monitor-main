@@ -16,6 +16,9 @@ export class ExecutionEvent {
   @PrimaryGeneratedColumn()
   id: number;
 
+  @Column({ type: 'varchar', length: 36, nullable: true, name: 'tenant_id' })
+  tenant_id: string | null;
+
   @Column({ type: 'int' })
   @Index()
   executionId: number;

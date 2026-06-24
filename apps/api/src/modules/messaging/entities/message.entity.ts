@@ -16,6 +16,9 @@ export class Message {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
+  @Column({ type: 'varchar', length: 36, nullable: true, name: 'tenant_id' })
+  tenant_id: string | null;
+
   @Index()
   @Column({ name: 'conversation_id', type: 'uuid' })
   conversationId: string;

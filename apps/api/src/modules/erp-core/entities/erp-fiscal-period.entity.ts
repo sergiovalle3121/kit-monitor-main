@@ -9,6 +9,9 @@ export class ErpFiscalPeriod {
   @PrimaryColumn({ type: 'varchar', length: 7 })
   period: string; // YYYY-MM
 
+  @Column({ type: 'varchar', length: 36, nullable: true, name: 'tenant_id' })
+  tenant_id: string | null;
+
   @Column({ type: 'varchar', length: 8, default: 'open' })
   status: FiscalPeriodStatus;
 

@@ -17,6 +17,9 @@ export class BomComponent {
   @PrimaryGeneratedColumn()
   id: number;
 
+  @Column({ type: 'varchar', length: 36, nullable: true, name: 'tenant_id' })
+  tenant_id: string | null;
+
   @ManyToOne(() => BomHeader, (header) => header.components, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'bom_header_id' })
   bomHeader: BomHeader;

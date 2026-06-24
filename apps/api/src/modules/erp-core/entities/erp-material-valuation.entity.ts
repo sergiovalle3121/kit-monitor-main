@@ -13,6 +13,9 @@ export class ErpMaterialValuation {
   @PrimaryColumn({ type: 'varchar', length: 100 })
   partNumber: string;
 
+  @Column({ type: 'varchar', length: 36, nullable: true, name: 'tenant_id' })
+  tenant_id: string | null;
+
   @Column({ type: 'varchar', length: 16, default: 'moving_average' })
   costingMethod: CostingMethod;
 

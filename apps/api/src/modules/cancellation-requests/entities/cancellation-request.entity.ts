@@ -10,6 +10,9 @@ export class CancellationRequest {
   @PrimaryGeneratedColumn()
   id: number;
 
+  @Column({ type: 'varchar', length: 36, nullable: true, name: 'tenant_id' })
+  tenant_id: string | null;
+
   @ManyToOne(() => Plan, { eager: true, onDelete: 'CASCADE' })
   @JoinColumn({ name: 'publication_id' })
   publication: Plan;

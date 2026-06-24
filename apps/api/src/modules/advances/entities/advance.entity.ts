@@ -6,6 +6,9 @@ export class Advance {
   @PrimaryGeneratedColumn()
   id: number;
 
+  @Column({ type: 'varchar', length: 36, nullable: true, name: 'tenant_id' })
+  tenant_id: string | null;
+
   @ManyToOne(() => Kit, (kit) => kit.advances)
   kit: Kit;
 

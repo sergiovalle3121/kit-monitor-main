@@ -13,6 +13,9 @@ export class Shipment {
   @PrimaryGeneratedColumn()
   id: number;
 
+  @Column({ type: 'varchar', length: 36, nullable: true, name: 'tenant_id' })
+  tenant_id: string | null;
+
   @Column({ type: 'varchar', length: 32, unique: true })
   @Index()
   shipmentNumber: string; // SHP-2024-001
