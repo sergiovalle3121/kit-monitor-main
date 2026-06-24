@@ -18,6 +18,12 @@ import {
 import { glass } from '@/lib/glass';
 import { isAdminAccess } from '@/lib/owner';
 import { useToast } from '@/contexts/ToastContext';
+import { apiFetch } from '@/lib/apiFetch';
+
+// Semantic endpoints live on the backend (global /api prefix), not as Next route
+// handlers — call them via apiFetch against NEXT_PUBLIC_API_URL (ends in /api).
+// (`/api/auth/me` stays a same-origin fetch — that one IS a Next handler.)
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000').replace(/\/$/, '');
 
 const DOMAINS = [
   'MATERIALS',
@@ -104,7 +110,7 @@ export default function SemanticEditorPage() {
     active: boolean,
   ) {
     try {
-      const res = await fetch('/api/semantic/archive', {
+      const res = await apiFetch(`${API_BASE}/semantic/archive`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ kind, key, active }),
@@ -122,7 +128,7 @@ export default function SemanticEditorPage() {
   }
 
   async function loadCatalog() {
-    const r = await fetch('/api/semantic/catalog?includeInactive=true', {
+    const r = await apiFetch(`${API_BASE}/semantic/catalog?includeInactive=true`, {
       cache: 'no-store',
     });
     if (r.ok) {
@@ -188,7 +194,7 @@ export default function SemanticEditorPage() {
       let url = '';
       let body: Record<string, unknown> = {};
       if (panel.kind === 'metric') {
-        url = '/api/semantic/metrics';
+        url = `${API_BASE}/semantic/metrics`;
         body = {
           key: form.key.trim(),
           name: form.name || undefined,
@@ -201,7 +207,7 @@ export default function SemanticEditorPage() {
           target: form.target?.trim() ? Number(form.target) : null,
         };
       } else if (panel.kind === 'object') {
-        url = '/api/semantic/objects';
+        url = `${API_BASE}/semantic/objects`;
         body = {
           key: form.key.trim(),
           name: form.name || undefined,
@@ -221,7 +227,7 @@ export default function SemanticEditorPage() {
           setSaving(false);
           return;
         }
-        url = '/api/semantic/links';
+        url = `${API_BASE}/semantic/links`;
         body = {
           key: form.key.trim(),
           fromObject: form.fromObject,
@@ -231,7 +237,7 @@ export default function SemanticEditorPage() {
           description: form.description || undefined,
         };
       }
-      const res = await fetch(url, {
+      const res = await apiFetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),

@@ -25,6 +25,11 @@ import {
   Tooltip,
 } from 'recharts';
 import { glass } from '@/lib/glass';
+import { apiFetch } from '@/lib/apiFetch';
+
+// Analytics endpoints live on the backend (global /api prefix), not as Next route
+// handlers — call them via apiFetch against NEXT_PUBLIC_API_URL (ends in /api).
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000').replace(/\/$/, '');
 
 interface MetricVal {
   key: string;
@@ -126,7 +131,7 @@ export default function ObjectDrilldownPage() {
   useEffect(() => {
     async function load() {
       try {
-        const r = await fetch(`/api/analytics/object/${objectKey}`, {
+        const r = await apiFetch(`${API_BASE}/analytics/object/${objectKey}`, {
           cache: 'no-store',
         });
         if (r.ok) setData(await r.json());
@@ -146,7 +151,7 @@ export default function ObjectDrilldownPage() {
         adjustmentPct: String(adj),
       });
       if (domain) qs.set('domain', domain);
-      const r = await fetch(`/api/analytics/project?${qs.toString()}`, {
+      const r = await apiFetch(`${API_BASE}/analytics/project?${qs.toString()}`, {
         cache: 'no-store',
       });
       if (r.ok) setProj(await r.json());

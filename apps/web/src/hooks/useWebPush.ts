@@ -3,6 +3,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { apiFetch } from '@/lib/apiFetch';
 
+// The push endpoints live on the backend (global /api prefix), NOT as Next route
+// handlers — so they must be called through NEXT_PUBLIC_API_URL (ends in /api),
+// not same-origin. apiFetch does not prepend a base, so build the URL explicitly.
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000').replace(/\/$/, '');
+
 /**
  * Web Push (PWA) para el navegador del usuario. El service worker (`/sw.js`) se
  * registra de forma PEREZOSA, solo cuando el usuario activa el push — quien no
@@ -40,7 +45,7 @@ const isSupported = (): boolean =>
 
 async function fetchKey(): Promise<{ publicKey: string | null; configured: boolean }> {
   try {
-    const res = await apiFetch('/api/notifications/push/key');
+    const res = await apiFetch(`${API_BASE}/notifications/push/key`);
     const data = await res.json().catch(() => ({}));
     return { publicKey: data?.publicKey ?? null, configured: Boolean(data?.configured) };
   } catch {
@@ -100,7 +105,7 @@ export function useWebPush() {
         applicationServerKey: urlBase64ToUint8Array(publicKey),
       });
       const json = sub.toJSON() as { endpoint?: string; keys?: { p256dh?: string; auth?: string } };
-      await apiFetch('/api/notifications/push/subscribe', {
+      await apiFetch(`${API_BASE}/notifications/push/subscribe`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ endpoint: json.endpoint, keys: json.keys }),
@@ -120,7 +125,7 @@ export function useWebPush() {
       const reg = await navigator.serviceWorker.getRegistration();
       const sub = reg ? await reg.pushManager.getSubscription() : null;
       if (sub) {
-        await apiFetch('/api/notifications/push/unsubscribe', {
+        await apiFetch(`${API_BASE}/notifications/push/unsubscribe`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ endpoint: sub.endpoint }),
