@@ -1,12 +1,21 @@
-import { Controller, Get, Post, Param, Body, Put, Delete, NotFoundException } from '@nestjs/common';
+import { Controller, Get, Post, Param, Body, Put, Delete, NotFoundException, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiResponse } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { User } from './entities/user.entity';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { RequirePermissions } from '../auth/decorators/permissions.decorator';
 
 
+// Admin-only. This raw user CRUD was previously unguarded, which allowed an
+// unauthenticated POST /api/users with role:'Admin' (mass-assignment, no global
+// ValidationPipe) to create a platform admin. The real UI manages users via
+// /api/governance/users (also ADMIN_ACCESS-gated); this surface is now consistent.
 @ApiTags('users')
+@UseGuards(JwtAuthGuard, PermissionsGuard)
+@RequirePermissions('ADMIN_ACCESS')
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}

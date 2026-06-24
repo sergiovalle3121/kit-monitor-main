@@ -1,7 +1,10 @@
-import { Controller, Get, Param, Query } from '@nestjs/common';
+import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
 import { EventLedgerService } from './event-ledger.service';
 import { LedgerEvent } from './entities/ledger-event.entity';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
+// Require authentication. This audit/activity ledger was readable anonymously.
+@UseGuards(JwtAuthGuard)
 @Controller('ledger')
 export class EventLedgerController {
   constructor(private readonly ledgerService: EventLedgerService) {}

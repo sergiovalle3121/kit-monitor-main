@@ -10,6 +10,7 @@ import {
   Post,
   Res,
   UploadedFile,
+  UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import type { Response } from 'express';
@@ -19,7 +20,13 @@ import { extname } from 'path';
 import { CreateVisualAidDto } from './dto/create-visual-aid.dto';
 import { UpdateVisualAidDto } from './dto/update-visual-aid.dto';
 import { VisualAidsService } from './visual-aids.service';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
+// Require authentication. This controller was fully public: anonymous upload of
+// work instructions and an anonymous file viewer (the viewer also strips
+// X-Frame-Options). The frontend fetches files via apiFetch (Bearer token) and
+// renders them as blobs, so guarding the whole controller is safe.
+@UseGuards(JwtAuthGuard)
 @Controller('visual-aids')
 export class VisualAidsController {
   constructor(private readonly service: VisualAidsService) {}
