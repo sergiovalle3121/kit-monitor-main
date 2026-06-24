@@ -27,6 +27,9 @@ export class BomHeader {
   @PrimaryGeneratedColumn()
   id: number;
 
+  @Column({ type: 'varchar', length: 36, nullable: true, name: 'tenant_id' })
+  tenant_id: string | null;
+
   @Column({ type: 'varchar', length: 100 })
   @Index()
   model: string; // Modelo/Product ID final (ej: PRD-9921)

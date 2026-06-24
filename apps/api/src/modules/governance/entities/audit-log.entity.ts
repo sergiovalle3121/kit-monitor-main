@@ -5,6 +5,9 @@ export class AuditLog {
   @PrimaryGeneratedColumn()
   id: number;
 
+  @Column({ type: 'varchar', length: 36, nullable: true, name: 'tenant_id' })
+  tenant_id: string | null;
+
   @Column()
   @Index()
   actor: string; // email or username

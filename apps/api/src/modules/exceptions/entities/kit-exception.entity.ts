@@ -11,6 +11,9 @@ export class KitException {
   @PrimaryGeneratedColumn()
   id: number;
 
+  @Column({ type: 'varchar', length: 36, nullable: true, name: 'tenant_id' })
+  tenant_id: string | null;
+
   @ManyToOne(() => Kit, (kit) => kit.exceptions)
   kit: Kit;
 

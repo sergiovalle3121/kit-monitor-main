@@ -5,6 +5,9 @@ export class MaterialMaster {
   @PrimaryColumn({ type: 'varchar', length: 100 })
   partNumber: string;
 
+  @Column({ type: 'varchar', length: 36, nullable: true, name: 'tenant_id' })
+  tenant_id: string | null;
+
   @Column({ type: 'varchar', length: 255 })
   description: string;
 

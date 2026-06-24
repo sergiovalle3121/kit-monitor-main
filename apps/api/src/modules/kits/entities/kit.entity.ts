@@ -21,6 +21,9 @@ export class Kit {
   @PrimaryGeneratedColumn()
   id: number;
 
+  @Column({ type: 'varchar', length: 36, nullable: true, name: 'tenant_id' })
+  tenant_id: string | null;
+
   @OneToOne(() => Plan, (plan) => plan.kit)
   @JoinColumn()
   plan: Plan;

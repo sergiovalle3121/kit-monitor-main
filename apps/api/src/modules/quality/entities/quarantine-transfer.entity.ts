@@ -12,6 +12,9 @@ export class QuarantineTransfer {
   @PrimaryGeneratedColumn()
   id: number;
 
+  @Column({ type: 'varchar', length: 36, nullable: true, name: 'tenant_id' })
+  tenant_id: string | null;
+
   @ManyToOne(() => QualityHold)
   hold: QualityHold;
 

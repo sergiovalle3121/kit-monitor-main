@@ -7,6 +7,9 @@ export class PlanPublication {
   @PrimaryGeneratedColumn()
   id: number;
 
+  @Column({ type: 'varchar', length: 36, nullable: true, name: 'tenant_id' })
+  tenant_id: string | null;
+
   @ManyToOne(() => ForecastRun, { nullable: true, onDelete: 'SET NULL' })
   run?: ForecastRun | null;
 

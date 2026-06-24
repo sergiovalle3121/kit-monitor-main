@@ -5,6 +5,9 @@ export class ReceivingEvent {
   @PrimaryGeneratedColumn()
   id: number;
 
+  @Column({ type: 'varchar', length: 36, nullable: true, name: 'tenant_id' })
+  tenant_id: string | null;
+
   @Column({ type: 'varchar', length: 32, unique: true })
   @Index()
   receiptNumber: string; // REC-2024-0001

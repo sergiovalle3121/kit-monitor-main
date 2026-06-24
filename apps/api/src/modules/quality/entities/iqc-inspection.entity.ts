@@ -13,6 +13,9 @@ export class IQCInspection {
   @PrimaryGeneratedColumn()
   id: number;
 
+  @Column({ type: 'varchar', length: 36, nullable: true, name: 'tenant_id' })
+  tenant_id: string | null;
+
   @Column({ type: 'varchar', length: 32, unique: true })
   @Index()
   inspectionNumber: string; // IQC-2024-0001

@@ -6,6 +6,9 @@ export class VisualAid {
   @PrimaryColumn({ type: 'varchar', length: 64 })
   id: string;
 
+  @Column({ type: 'varchar', length: 36, nullable: true, name: 'tenant_id' })
+  tenant_id: string | null;
+
   @Column({ type: 'varchar', length: 120 })
   model: string;
 

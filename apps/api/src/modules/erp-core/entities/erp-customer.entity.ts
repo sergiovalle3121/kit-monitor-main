@@ -15,6 +15,9 @@ export class ErpCustomer {
   @PrimaryColumn({ type: 'varchar', length: 32 })
   code: string;
 
+  @Column({ type: 'varchar', length: 36, nullable: true, name: 'tenant_id' })
+  tenant_id: string | null;
+
   @Column({ type: 'varchar', length: 160 })
   name: string;
 

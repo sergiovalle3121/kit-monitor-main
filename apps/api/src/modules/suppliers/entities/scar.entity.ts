@@ -23,6 +23,9 @@ export class SCAR {
   @PrimaryGeneratedColumn()
   id: number;
 
+  @Column({ type: 'varchar', length: 36, nullable: true, name: 'tenant_id' })
+  tenant_id: string | null;
+
   @Column({ type: 'varchar', length: 32, unique: true })
   @Index()
   scarNumber: string; // e.g. SCAR-2024-0001

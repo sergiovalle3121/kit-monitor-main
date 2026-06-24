@@ -6,6 +6,9 @@ export class ShipmentItem {
   @PrimaryGeneratedColumn()
   id: number;
 
+  @Column({ type: 'varchar', length: 36, nullable: true, name: 'tenant_id' })
+  tenant_id: string | null;
+
   @ManyToOne(() => Shipment, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'shipment_id' })
   shipment: Shipment;

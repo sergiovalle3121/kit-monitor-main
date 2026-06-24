@@ -11,6 +11,9 @@ export class ProcessStepMaterial {
   @PrimaryGeneratedColumn()
   id: number;
 
+  @Column({ type: 'varchar', length: 36, nullable: true, name: 'tenant_id' })
+  tenant_id: string | null;
+
   @ManyToOne(() => ProcessStep, (s) => s.materials, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'step_id' })
   step: ProcessStep;
