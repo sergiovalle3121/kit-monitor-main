@@ -11,6 +11,7 @@ import {
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { RequirePermissions } from '../auth/decorators/permissions.decorator';
 import { ImprovementService } from './improvement.service';
 import {
   CreateInitiativeDto,
@@ -53,18 +54,21 @@ export class ImprovementController {
   }
 
   @Post()
+  @RequirePermissions('production:write')
   @ApiOperation({ summary: 'Crea una iniciativa (asigna folio CI-).' })
   create(@Body() dto: CreateInitiativeDto) {
     return this.service.create(dto);
   }
 
   @Patch(':id')
+  @RequirePermissions('production:write')
   @ApiOperation({ summary: 'Actualiza campos de una iniciativa.' })
   update(@Param('id') id: string, @Body() dto: UpdateInitiativeDto) {
     return this.service.update(id, dto);
   }
 
   @Post(':id/transition')
+  @RequirePermissions('production:write')
   @ApiOperation({ summary: 'Avanza la iniciativa por su máquina de estados.' })
   transition(@Param('id') id: string, @Body() dto: TransitionInitiativeDto) {
     return this.service.transition(id, dto);

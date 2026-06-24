@@ -14,6 +14,7 @@ import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { isOwnerEmail, ALL_PERMISSIONS } from './rbac';
+import { Public } from './decorators/public.decorator';
 
 type AuthRequest = {
   user?: {
@@ -28,6 +29,7 @@ type AuthRequest = {
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
+  @Public()
   @Post('login')
   async login(@Body() dto: LoginDto) {
     const user = await this.authService.validateUser(dto.email, dto.password);
@@ -35,6 +37,7 @@ export class AuthController {
   }
 
   /** Public self-registration → pending until an admin approves. */
+  @Public()
   @Post('register')
   register(@Body() dto: RegisterDto) {
     return this.authService.register(dto);
@@ -44,6 +47,7 @@ export class AuthController {
    * Trusted identity sync from the frontend bridge → per-user JWT. Guarded by
    * the shared frontend key (FRONTEND_SHARED_KEY); open in dev when unset.
    */
+  @Public()
   @Post('sync')
   sync(
     @Body()

@@ -10,6 +10,7 @@ import {
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { RequirePermissions } from '../auth/decorators/permissions.decorator';
 import { ToolingService } from './tooling.service';
 import {
   CheckinToolDto,
@@ -41,6 +42,7 @@ export class ToolingController {
   }
 
   @Post('alerts/scan')
+  @RequirePermissions('maintenance:write')
   @ApiOperation({ summary: 'Barre EOL + calibración y despacha alertas al buzón (deduplicado).' })
   scanAlerts() {
     return this.service.scanAlerts();
@@ -65,42 +67,49 @@ export class ToolingController {
   }
 
   @Post()
+  @RequirePermissions('maintenance:write')
   @ApiOperation({ summary: 'Da de alta un herramental (folio TL-).' })
   create(@Body() dto: CreateToolDto) {
     return this.service.create(dto);
   }
 
   @Post(':id/usage')
+  @RequirePermissions('maintenance:write')
   @ApiOperation({ summary: 'Registra disparos de uso (suma a la vida).' })
   recordUsage(@Param('id') id: string, @Body() dto: RecordUsageDto) {
     return this.service.recordUsage(id, dto);
   }
 
   @Post(':id/status')
+  @RequirePermissions('maintenance:write')
   @ApiOperation({ summary: 'Cambia el estado del herramental.' })
   setStatus(@Param('id') id: string, @Body() dto: SetToolStatusDto) {
     return this.service.setStatus(id, dto);
   }
 
   @Post(':id/checkout')
+  @RequirePermissions('maintenance:write')
   @ApiOperation({ summary: 'Presta el herramental a una WO (check-out → IN_USE).' })
   checkout(@Param('id') id: string, @Body() dto: CheckoutToolDto) {
     return this.service.checkout(id, dto);
   }
 
   @Post(':id/checkin')
+  @RequirePermissions('maintenance:write')
   @ApiOperation({ summary: 'Recibe el herramental de una WO (check-in → AVAILABLE).' })
   checkin(@Param('id') id: string, @Body() dto: CheckinToolDto) {
     return this.service.checkin(id, dto);
   }
 
   @Post(':id/calibration')
+  @RequirePermissions('maintenance:write')
   @ApiOperation({ summary: 'Registra calibración (fecha y próxima/intervalo).' })
   recordCalibration(@Param('id') id: string, @Body() dto: RecordCalibrationDto) {
     return this.service.recordCalibration(id, dto);
   }
 
   @Post(':id/pm')
+  @RequirePermissions('maintenance:write')
   @ApiOperation({ summary: 'Registra mantenimiento preventivo (fecha y próximo/intervalo).' })
   recordPm(@Param('id') id: string, @Body() dto: RecordPmDto) {
     return this.service.recordPm(id, dto);

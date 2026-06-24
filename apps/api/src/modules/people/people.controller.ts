@@ -11,6 +11,7 @@ import {
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { RequirePermissions } from '../auth/decorators/permissions.decorator';
 import { PeopleService } from './people.service';
 import { PeopleAlertsService } from './people-alerts.service';
 import {
@@ -67,12 +68,14 @@ export class PeopleController {
 
   @Post('certifications')
   @ApiOperation({ summary: 'Registra una certificación de empleado.' })
+  @RequirePermissions('ADMIN_ACCESS')
   create(@Body() dto: CreateCertificationDto) {
     return this.service.create(dto);
   }
 
   @Patch('certifications/:id')
   @ApiOperation({ summary: 'Actualiza / recertifica (nueva fecha de expiración).' })
+  @RequirePermissions('ADMIN_ACCESS')
   update(@Param('id') id: string, @Body() dto: UpdateCertificationDto) {
     return this.service.update(id, dto);
   }
@@ -86,12 +89,14 @@ export class PeopleController {
 
   @Post('skills')
   @ApiOperation({ summary: 'Agrega un skill al catálogo (idempotente por nombre).' })
+  @RequirePermissions('ADMIN_ACCESS')
   createSkill(@Body() dto: CreateSkillDto) {
     return this.service.createSkill(dto);
   }
 
   @Patch('skills/:id')
   @ApiOperation({ summary: 'Edita / archiva un skill del catálogo.' })
+  @RequirePermissions('ADMIN_ACCESS')
   updateSkill(@Param('id') id: string, @Body() dto: UpdateSkillDto) {
     return this.service.updateSkill(id, dto);
   }
@@ -101,6 +106,7 @@ export class PeopleController {
     summary:
       'Dispara el barrido de recertificaciones (por vencer / vencidas) y deja avisos en el buzón. Idéntico al cron, bajo demanda.',
   })
+  @RequirePermissions('ADMIN_ACCESS')
   runRecertAlerts() {
     return this.alerts.scanRecertAndNotify();
   }

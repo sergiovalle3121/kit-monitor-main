@@ -11,6 +11,7 @@ import {
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { RequirePermissions } from '../auth/decorators/permissions.decorator';
 import { LegalService } from './legal.service';
 import {
   CreateContractDto,
@@ -49,18 +50,21 @@ export class LegalController {
 
   @Post('contracts')
   @ApiOperation({ summary: 'Crea un contrato (folio CON-).' })
+  @RequirePermissions('ADMIN_ACCESS')
   create(@Body() dto: CreateContractDto) {
     return this.service.create(dto);
   }
 
   @Patch('contracts/:id')
   @ApiOperation({ summary: 'Actualiza un contrato.' })
+  @RequirePermissions('ADMIN_ACCESS')
   update(@Param('id') id: string, @Body() dto: UpdateContractDto) {
     return this.service.update(id, dto);
   }
 
   @Post('contracts/:id/transition')
   @ApiOperation({ summary: 'Avanza el contrato por su máquina de estados.' })
+  @RequirePermissions('ADMIN_ACCESS')
   transition(@Param('id') id: string, @Body() dto: TransitionContractDto) {
     return this.service.transition(id, dto);
   }

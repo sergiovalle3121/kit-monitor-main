@@ -10,6 +10,7 @@ import {
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { RequirePermissions } from '../auth/decorators/permissions.decorator';
 import { RmaService } from './rma.service';
 import { CreateRmaDto, TransitionRmaDto } from './dto/rma.dto';
 
@@ -42,12 +43,14 @@ export class RmaController {
   }
 
   @Post()
+  @RequirePermissions('quality:write')
   @ApiOperation({ summary: 'Abre un caso RMA / queja (folio RMA-).' })
   create(@Body() dto: CreateRmaDto) {
     return this.service.create(dto);
   }
 
   @Post(':id/transition')
+  @RequirePermissions('quality:write')
   @ApiOperation({ summary: 'Avanza el RMA (investigar/disponer/cerrar).' })
   transition(@Param('id') id: string, @Body() dto: TransitionRmaDto) {
     return this.service.transition(id, dto);

@@ -10,6 +10,7 @@ import {
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { RequirePermissions } from '../auth/decorators/permissions.decorator';
 import { ExpensesService } from './expenses.service';
 import { CreateExpenseDto, TransitionExpenseDto } from './dto/expenses.dto';
 
@@ -42,12 +43,14 @@ export class ExpensesController {
   }
 
   @Post()
+  @RequirePermissions('finance:write')
   @ApiOperation({ summary: 'Crea un reporte de gasto (folio EXP-).' })
   create(@Body() dto: CreateExpenseDto) {
     return this.service.create(dto);
   }
 
   @Post(':id/transition')
+  @RequirePermissions('finance:write')
   @ApiOperation({ summary: 'Avanza el gasto (enviar/aprobar/rechazar/reembolsar).' })
   transition(@Param('id') id: string, @Body() dto: TransitionExpenseDto) {
     return this.service.transition(id, dto);

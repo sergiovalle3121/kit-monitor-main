@@ -17,6 +17,8 @@ import {
 } from '@nestjs/common';
 import { ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { RequirePermissions } from '../auth/decorators/permissions.decorator';
 import { ForecastService } from './forecast.service';
 import {
   CreateForecastDto,
@@ -28,7 +30,7 @@ import { AuthenticatedUser } from '../../common/types/jwt.types';
 
 @ApiTags('forecast')
 @Controller('forecast')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 @UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
 export class ForecastController {
   constructor(private readonly forecastService: ForecastService) {}
@@ -37,6 +39,7 @@ export class ForecastController {
 
   @Post('simulate')
   @HttpCode(HttpStatus.OK)
+  @RequirePermissions('planning:write')
   @ApiOperation({
     summary: 'Run a Monte Carlo simulation without persisting anything',
   })
@@ -71,6 +74,7 @@ export class ForecastController {
   }
 
   @Post()
+  @RequirePermissions('planning:write')
   @ApiOperation({ summary: 'Create a new forecast configuration' })
   create(
     @Body() dto: CreateForecastDto,
@@ -83,6 +87,7 @@ export class ForecastController {
   }
 
   @Patch(':id')
+  @RequirePermissions('planning:write')
   @ApiOperation({ summary: 'Update forecast metadata or input data' })
   update(
     @Param('id', ParseUUIDPipe) id: string,
@@ -93,6 +98,7 @@ export class ForecastController {
 
   @Post(':id/run')
   @HttpCode(HttpStatus.OK)
+  @RequirePermissions('planning:write')
   @ApiOperation({
     summary: 'Execute Monte Carlo simulation and persist results',
   })
@@ -102,6 +108,7 @@ export class ForecastController {
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
+  @RequirePermissions('planning:write')
   @ApiOperation({ summary: 'Soft-delete a forecast' })
   remove(@Param('id', ParseUUIDPipe) id: string) {
     return this.forecastService.remove(id);

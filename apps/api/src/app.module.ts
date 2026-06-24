@@ -1,9 +1,10 @@
 import { Module } from '@nestjs/common';
-import { APP_INTERCEPTOR } from '@nestjs/core';
+import { APP_INTERCEPTOR, APP_GUARD } from '@nestjs/core';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ormOptions } from './orm.options';
 import { HealthController } from './health/health.controller';
+import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
 import { TenantModule } from './common/tenant/tenant.module';
 import { SecurityModule } from './common/security/security.module';
 import { AuthModule } from './modules/auth/auth.module';
@@ -198,6 +199,12 @@ import { AlertsModule } from './modules/alerts/alerts.module';
   ],
   controllers: [HealthController],
   providers: [
+    // Autenticación por defecto en TODA ruta HTTP; los endpoints públicos se marcan
+    // con @Public() (health, login, register, sync). Evita endpoints abiertos por olvido.
+    {
+      provide: APP_GUARD,
+      useClass: JwtAuthGuard,
+    },
     {
       provide: APP_INTERCEPTOR,
       useClass: EventLedgerInterceptor,
