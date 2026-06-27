@@ -2,13 +2,22 @@ import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
+  Inject,
   Injectable,
   Logger,
   NotFoundException,
   Optional,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, FindOptionsWhere, In, IsNull, Repository } from 'typeorm';
+import {
+  DataSource,
+  FindOptionsWhere,
+  In,
+  IsNull,
+  ObjectLiteral,
+  Repository,
+  SelectQueryBuilder,
+} from 'typeorm';
 
 import { WorkOrderExecution } from './entities/work-order-execution.entity';
 import { ExecutionStep } from './entities/execution-step.entity';
@@ -32,6 +41,11 @@ import { MaterialRequestsService } from '../material-requests/material-requests.
 import { VisualAidsService } from '../visual-aids/visual-aids.service';
 import { TestFlowService } from '../test-flow/test-flow.service';
 import { PeopleService } from '../people/people.service';
+import { TenantContextService } from '../../common/tenant/tenant-context.service';
+import {
+  TenantScopedRepository,
+  getTenantRepositoryToken,
+} from '../../common/tenant/tenant-scoped.repository';
 
 import {
   AssignStationDto,
@@ -68,22 +82,22 @@ export class MesExecutionService {
   private readonly logger = new Logger(MesExecutionService.name);
 
   constructor(
-    @InjectRepository(WorkOrderExecution)
-    private readonly execRepo: Repository<WorkOrderExecution>,
-    @InjectRepository(ExecutionStep)
-    private readonly stepRepo: Repository<ExecutionStep>,
-    @InjectRepository(ExecutionStepMaterial)
-    private readonly stepMatRepo: Repository<ExecutionStepMaterial>,
-    @InjectRepository(ExecutionEvent)
-    private readonly eventRepo: Repository<ExecutionEvent>,
-    @InjectRepository(StationIncident)
-    private readonly incidentRepo: Repository<StationIncident>,
-    @InjectRepository(AndonCall)
-    private readonly andonRepo: Repository<AndonCall>,
-    @InjectRepository(MesDowntime)
-    private readonly downtimeRepo: Repository<MesDowntime>,
-    @InjectRepository(StationAssignment)
-    private readonly assignRepo: Repository<StationAssignment>,
+    @Inject(getTenantRepositoryToken(WorkOrderExecution))
+    private readonly execRepo: TenantScopedRepository<WorkOrderExecution>,
+    @Inject(getTenantRepositoryToken(ExecutionStep))
+    private readonly stepRepo: TenantScopedRepository<ExecutionStep>,
+    @Inject(getTenantRepositoryToken(ExecutionStepMaterial))
+    private readonly stepMatRepo: TenantScopedRepository<ExecutionStepMaterial>,
+    @Inject(getTenantRepositoryToken(ExecutionEvent))
+    private readonly eventRepo: TenantScopedRepository<ExecutionEvent>,
+    @Inject(getTenantRepositoryToken(StationIncident))
+    private readonly incidentRepo: TenantScopedRepository<StationIncident>,
+    @Inject(getTenantRepositoryToken(AndonCall))
+    private readonly andonRepo: TenantScopedRepository<AndonCall>,
+    @Inject(getTenantRepositoryToken(MesDowntime))
+    private readonly downtimeRepo: TenantScopedRepository<MesDowntime>,
+    @Inject(getTenantRepositoryToken(StationAssignment))
+    private readonly assignRepo: TenantScopedRepository<StationAssignment>,
     @InjectRepository(Plan) private readonly planRepo: Repository<Plan>,
     @InjectRepository(Kit) private readonly kitRepo: Repository<Kit>,
     @InjectRepository(ProcessStep)
@@ -94,12 +108,23 @@ export class MesExecutionService {
     private readonly materialRequests: MaterialRequestsService,
     private readonly visualAids: VisualAidsService,
     private readonly dataSource: DataSource,
+    private readonly tenantCtx: TenantContextService,
     // Eslabón 1 (additive, optional): off-ramp a finished serial to Pruebas.
     @Optional() private readonly testFlow?: TestFlowService,
     // Gate operador↔estación (additive, optional, read-only). Sólo se consulta
     // cuando ENFORCE_CERT_GATE === 'true'; en advertencia pura ni se inyecta.
     @Optional() private readonly people?: PeopleService,
   ) {}
+
+  private applyScope<T extends ObjectLiteral>(
+    qb: SelectQueryBuilder<T>,
+    alias: string,
+  ): SelectQueryBuilder<T> {
+    const tenant = this.tenantCtx.getTenantId();
+    if (tenant) qb.andWhere(`${alias}.tenant_id = :tenant`, { tenant });
+    else qb.andWhere(`${alias}.tenant_id IS NULL`);
+    return qb;
+  }
 
   // ──────────────────────────────────────────────────────────────────────────
   // Open / list executions
@@ -222,6 +247,7 @@ export class MesExecutionService {
     const qb = this.execRepo
       .createQueryBuilder('e')
       .orderBy('e.createdAt', 'DESC');
+    this.applyScope(qb, 'e');
     if (filters?.status)
       qb.andWhere('e.status = :status', { status: filters.status });
     if (filters?.model)

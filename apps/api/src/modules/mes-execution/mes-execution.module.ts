@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
+import { provideTenantScopedRepository } from '../../common/tenant/tenant-scoped.repository';
+
 import { WorkOrderExecution } from './entities/work-order-execution.entity';
 import { ExecutionStep } from './entities/execution-step.entity';
 import { ExecutionStepMaterial } from './entities/execution-step-material.entity';
@@ -55,7 +57,17 @@ import { PeopleModule } from '../people/people.module';
     PeopleModule, // Gate operador↔estación (read-only) para el modo bloqueo opcional
   ],
   controllers: [MesExecutionController],
-  providers: [MesExecutionService],
+  providers: [
+    MesExecutionService,
+    provideTenantScopedRepository(WorkOrderExecution),
+    provideTenantScopedRepository(ExecutionStep),
+    provideTenantScopedRepository(ExecutionStepMaterial),
+    provideTenantScopedRepository(ExecutionEvent),
+    provideTenantScopedRepository(StationIncident),
+    provideTenantScopedRepository(AndonCall),
+    provideTenantScopedRepository(MesDowntime),
+    provideTenantScopedRepository(StationAssignment),
+  ],
   exports: [MesExecutionService],
 })
 export class MesExecutionModule {}
