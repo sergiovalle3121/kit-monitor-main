@@ -246,11 +246,11 @@ export function DashboardTopBar() {
       <button
         onClick={() => window.dispatchEvent(new CustomEvent('axos:open-search'))}
         aria-label="Buscar"
-        className="hidden sm:flex items-center gap-2 rounded-full px-3.5 py-2 text-sm text-gray-500 dark:text-gray-400 w-full max-w-md bg-violet-500/[0.06] dark:bg-violet-400/10 border border-violet-500/15 dark:border-violet-400/15 hover:border-violet-500/30 hover:text-gray-700 dark:hover:text-gray-200 hover:shadow-[0_0_0_4px_rgba(124,92,255,0.08)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/40 transition-all"
+        className="hidden sm:flex items-center gap-2 rounded-full px-3.5 py-2 text-sm text-gray-500 dark:text-gray-400 w-full max-w-md bg-black/[0.03] dark:bg-white/[0.04] border border-black/[0.07] dark:border-white/[0.08] hover:border-black/[0.13] dark:hover:border-white/[0.16] hover:bg-black/[0.05] dark:hover:bg-white/[0.06] hover:text-gray-700 dark:hover:text-gray-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 transition-all"
       >
-        <Search className="w-4 h-4 flex-shrink-0 text-violet-500" strokeWidth={1.75} />
+        <Search className="w-4 h-4 flex-shrink-0 text-gray-400 dark:text-gray-500" strokeWidth={1.75} />
         <span className="flex-1 text-left">Ir a un área o pantalla…</span>
-        <kbd className="hidden md:inline text-[10px] font-mono px-1.5 py-0.5 rounded bg-violet-500/10 dark:bg-violet-400/15 text-violet-500/80">⌘K</kbd>
+        <kbd className="hidden md:inline text-[10px] font-mono px-1.5 py-0.5 rounded bg-black/[0.05] dark:bg-white/10 text-gray-400 dark:text-gray-500">⌘K</kbd>
       </button>
 
       <div className="flex items-center gap-3 relative">
