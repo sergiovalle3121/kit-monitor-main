@@ -2,9 +2,10 @@ import {
   Body, Controller, Delete, Get, Param, Patch, Post, Query, Request, UseGuards,
 } from '@nestjs/common';
 import { OfficeService } from './office.service';
-import type { OfficeDocType, OfficeShare } from './entities/office-document.entity';
+import type { OfficeDocumentLifecycleState, OfficeDocType, OfficeShare } from './entities/office-document.entity';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { AuthenticatedUser } from '../../common/types/jwt.types';
+import { CreateOfficeCommentDto, ListOfficeCommentsQueryDto, ReplyOfficeCommentDto, UpdateOfficeCommentDto } from './dto/office-comment.dto';
 
 interface AuthReq { user: AuthenticatedUser }
 
@@ -14,8 +15,16 @@ export class OfficeController {
   constructor(private readonly service: OfficeService) {}
 
   @Get()
-  list(@Request() req: AuthReq, @Query('type') type?: OfficeDocType, @Query('trash') trash?: string) {
-    return this.service.list(type, req.user, trash === '1' || trash === 'true');
+  list(
+    @Request() req: AuthReq,
+    @Query('type') type?: OfficeDocType,
+    @Query('trash') trash?: string,
+    @Query('q') q?: string,
+    @Query('lifecycle') lifecycle?: OfficeDocumentLifecycleState,
+    @Query('locked') locked?: string,
+    @Query('owner') owner?: string,
+  ) {
+    return this.service.list(type, req.user, trash === '1' || trash === 'true', { q, lifecycle, locked, owner });
   }
 
   @Get(':id')
@@ -33,6 +42,31 @@ export class OfficeController {
     return this.service.duplicate(id, req.user);
   }
 
+  @Post(':id/lifecycle/submit-review')
+  submitReview(@Request() req: AuthReq, @Param('id') id: string, @Body() dto: { note?: string }) {
+    return this.service.submitForReview(id, req.user, dto);
+  }
+
+  @Post(':id/lifecycle/approve')
+  approve(@Request() req: AuthReq, @Param('id') id: string, @Body() dto: { note?: string }) {
+    return this.service.approve(id, req.user, dto);
+  }
+
+  @Post(':id/lifecycle/release')
+  release(@Request() req: AuthReq, @Param('id') id: string, @Body() dto: { note?: string }) {
+    return this.service.release(id, req.user, dto);
+  }
+
+  @Post(':id/lifecycle/obsolete')
+  obsolete(@Request() req: AuthReq, @Param('id') id: string, @Body() dto: { note?: string }) {
+    return this.service.obsolete(id, req.user, dto);
+  }
+
+  @Post(':id/lifecycle/reopen-draft')
+  reopenDraft(@Request() req: AuthReq, @Param('id') id: string, @Body() dto: { note?: string }) {
+    return this.service.reopenDraft(id, req.user, dto);
+  }
+
   @Patch(':id')
   update(
     @Request() req: AuthReq,
@@ -45,6 +79,36 @@ export class OfficeController {
   @Patch(':id/restore')
   restore(@Request() req: AuthReq, @Param('id') id: string) {
     return this.service.restore(id, req.user);
+  }
+
+  @Get(':id/comments')
+  comments(@Request() req: AuthReq, @Param('id') id: string, @Query() query: ListOfficeCommentsQueryDto) {
+    return this.service.listComments(id, req.user, query);
+  }
+
+  @Post(':id/comments')
+  createComment(@Request() req: AuthReq, @Param('id') id: string, @Body() dto: CreateOfficeCommentDto) {
+    return this.service.createComment(id, dto, req.user);
+  }
+
+  @Patch(':id/comments/:commentId')
+  updateComment(@Request() req: AuthReq, @Param('id') id: string, @Param('commentId') commentId: string, @Body() dto: UpdateOfficeCommentDto) {
+    return this.service.updateComment(id, commentId, dto, req.user);
+  }
+
+  @Post(':id/comments/:commentId/replies')
+  replyComment(@Request() req: AuthReq, @Param('id') id: string, @Param('commentId') commentId: string, @Body() dto: ReplyOfficeCommentDto) {
+    return this.service.replyToComment(id, commentId, dto, req.user);
+  }
+
+  @Delete(':id/comments/:commentId')
+  deleteComment(@Request() req: AuthReq, @Param('id') id: string, @Param('commentId') commentId: string) {
+    return this.service.deleteComment(id, commentId, req.user);
+  }
+
+  @Get(':id/timeline')
+  timeline(@Request() req: AuthReq, @Param('id') id: string) {
+    return this.service.timeline(id, req.user);
   }
 
   @Get(':id/versions')
