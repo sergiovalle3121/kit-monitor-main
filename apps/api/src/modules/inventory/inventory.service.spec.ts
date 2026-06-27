@@ -54,6 +54,7 @@ describe('InventoryService', () => {
       {} as never, // warehouseRepo
       audit as never,
       dataSource as never,
+      { getTenantId: () => null } as never, // tenantCtx
     );
   });
 
