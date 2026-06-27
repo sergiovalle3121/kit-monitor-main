@@ -27,7 +27,12 @@ const FREE: ModelPrice = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
  * the inference engine (e.g. an Ollama tag or a vLLM `--served-model-name`).
  * Keep every entry permissively licensed (Apache-2.0 / MIT / BSD).
  */
-export const MODEL_PRICES: Record<string, ModelPrice> = {
+/**
+ * The built-in, permissively-licensed (Apache-2.0) catalog CIDE knows out of the
+ * box. Keys are the model tags passed straight to the inference engine (an Ollama
+ * tag, or a vLLM `--served-model-name`).
+ */
+const BASE_MODEL_PRICES: Record<string, ModelPrice> = {
   // Qwen2.5 Instruct — Apache-2.0. Strong tool-use + excellent Spanish.
   'qwen2.5:1.5b': FREE, // fast CPU tier: snappy on commodity CPUs, lighter tool-use
   'qwen2.5:7b': FREE, // default: runs on CPU (slow) or a small GPU
@@ -35,6 +40,25 @@ export const MODEL_PRICES: Record<string, ModelPrice> = {
   'qwen2.5:32b': FREE, // escalation tier, heavy reasoning (GPU)
   // Mistral 7B Instruct — Apache-2.0. Lightweight alternative.
   'mistral:7b': FREE,
+};
+
+/**
+ * Extra served-model-names registered via `CIDE_EXTRA_MODELS` (comma-separated).
+ * Lets an operator point CIDE at any self-hosted OpenAI-compatible engine —
+ * e.g. a vLLM/TGI server exposing a raw HuggingFace id like
+ * `Qwen/Qwen2.5-72B-Instruct` — without a code change. Self-hosted ⇒ priced $0,
+ * same as the built-ins. Keep them permissively licensed per repo policy.
+ */
+function parseExtraModels(): string[] {
+  return (process.env.CIDE_EXTRA_MODELS ?? '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+export const MODEL_PRICES: Record<string, ModelPrice> = {
+  ...BASE_MODEL_PRICES,
+  ...Object.fromEntries(parseExtraModels().map((m) => [m, FREE])),
 };
 
 export const ALLOWED_MODELS = Object.keys(MODEL_PRICES);

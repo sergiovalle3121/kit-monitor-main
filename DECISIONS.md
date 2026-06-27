@@ -2560,4 +2560,33 @@ mover el motor a GPU (vLLM/TGI) — el código es idéntico, solo cambia la URL.
 **Verificación:** `build API` ✓, `tsc` ✓, `lint web` 0, `build web` ✓. Cambios aditivos:
 ningún endpoint ni comportamiento existente se modifica; sin migraciones (no toca el esquema).
 
+## 117. CIDE — tier GPU (vLLM) drop-in + catálogo de modelos extensible por env
+
+**Contexto.** §116 encendió CIDE en producción sobre CPU (Ollama en Railway), pero la
+inferencia en CPU es lenta (decenas de seg/turno). El siguiente paso es un motor **GPU**
+para respuestas fluidas, sin reescribir nada.
+
+**Decisión (aditiva).** vLLM como tier GPU, manteniendo el mismo contrato compatible-OpenAI
+para que el cambio sea **solo `CIDE_BASE_URL`** (cero código):
+
+- **Infra:** nuevo `infra/cide/docker-compose.gpu.yml` con `vllm/vllm-openai`, reservas de
+  GPU NVIDIA, `ipc: host` y volumen de caché HF. **Truco drop-in:** `--served-model-name`
+  aliasa los pesos HF al mismo tag del catálogo (p. ej. `qwen2.5:7b`), así el backend sigue
+  pidiendo el mismo id. Parametrizado por env (`CIDE_HF_MODEL`, `CIDE_MODEL`,
+  `CIDE_MAX_MODEL_LEN`); `--api-key` y `--tensor-parallel-size` documentados como opt-in.
+- **Catálogo extensible (`ai-pricing.ts`):** `CIDE_EXTRA_MODELS` (coma-separado) registra
+  served-model-names arbitrarios (vLLM/TGI o ids HF crudos) — aparecen en el selector admin
+  y pasan validación de DTO **sin tocar código**. Self-hosted ⇒ precio $0 como los built-ins.
+  El catálogo base sigue 100 % permisivo; se advierte que Qwen2.5-3B/72B no son Apache-2.0.
+- **Docs:** `infra/cide/README.md` (guía GPU + RunPod/Lambda/Vast, reglas de VRAM, registro
+  de modelos) y `.env.example`.
+
+**Cómo cambiar a GPU.** Levantar `docker-compose.gpu.yml` en un host GPU → en el API
+`CIDE_BASE_URL=http://<host-gpu>:8000/v1` (+ `CIDE_API_KEY` si se habilitó `--api-key`) →
+"Probar conexión" en el panel admin. Para servir un id HF crudo, añadir `CIDE_EXTRA_MODELS`
++ `CIDE_DEFAULT_MODEL`.
+
+**Verificación:** `build API` ✓, `tsc` ✓, `lint web` 0, `build web` ✓. Sin migraciones; ningún
+endpoint ni comportamiento existente cambia.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
