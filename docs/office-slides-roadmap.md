@@ -121,3 +121,63 @@ currently skips or approximates.
 - Added a reusable Slides asset library component with searchable manufacturing, Lean, Quality, Safety and Engineering symbols.
 - Wired the asset library into the existing Insert ribbon next to the icon picker, reusing the current SVG-to-Fabric import path instead of duplicating canvas logic.
 - Persisted inserted asset metadata (`assetId`, `assetCategory`) inside slide JSON so future enterprise asset governance and PPTX mapping can identify symbols.
+
+## Delivered slice — AXOS smart objects foundation
+
+- Added a reusable Smart Objects engine for KPI cards, OEE gauges, risk matrices, Gantt blocks, Kanban boards and value-stream diagrams.
+- Wired Smart Objects into the Insert ribbon as AXOS-ready objects with persisted `smartObject` metadata and default data-source hints.
+- Built the objects as Fabric groups so they remain editable, presentable and exportable through existing slide rendering flows.
+
+## Delivered slice — automated executive and launch decks
+
+- Added automatic Executive Operations Review generation with AXOS Smart Objects for revenue, margin, OEE, OTD, cash and backlog.
+- Added automatic Launch Readiness Review generation with Gantt, risk matrix, PPAP/tooling/supply scorecards, milestones, risks and SOP open-items.
+- Reused the existing native table/chart builders and the new Smart Objects engine so generated decks remain editable and exportable.
+
+## Delivered slice — PPTX compatibility scanner expansion
+
+- Expanded PPTX compatibility analysis to report slide masters, layouts, theme variants, embedded fonts, speaker notes, native charts, tables, grouped objects and connectors.
+- Extended the compatibility smoke spec with synthetic OOXML coverage for these PowerPoint features.
+- Kept the scanner conservative and non-executing: it only inspects ZIP part names and XML strings, never macros or embedded code.
+
+## Delivered slice — PPTX comments import bridge
+
+- Added a best-effort PPTX comments reader that imports PowerPoint slide comments into AXOS Slides comment metadata.
+- Attached imported comments to the correct slide index with PowerPoint authorship fallback, unresolved status and timestamps when OOXML provides them.
+- Kept import safe and non-blocking: malformed comment XML is skipped without failing the deck import.
+
+## Delivered slice — SVG export
+
+- Added SVG export for individual/all slides using the existing Fabric static render pipeline.
+- Exposed a new "Vectores (SVG)" export option beside PPTX, PDF and PNG.
+- SVG output preserves vector geometry where Fabric can serialize it and remains independent from server-side export infrastructure.
+
+## Delivered slice — threaded slide comments
+
+- Added reply support to the Slides comments panel so review conversations can continue inside a single thread.
+- Wired optimistic replies through the existing Office comments API using `parentId`, preserving slide/object anchors.
+- Updated local deletion to remove a thread and its replies together, keeping the panel consistent before backend sync completes.
+
+## Delivered slice — comment assignments via mentions
+
+- Added lightweight assignment extraction from `@email` mentions in slide comments and replies.
+- Sent detected assignees to the persistent Office comments API through `assignedTo` while preserving optimistic local comments.
+- Displayed assignment badges in the Slides comments panel so review owners are visible during deck collaboration.
+
+## Delivered slice — comment search and filters
+
+- Added comment-panel search across root comments, replies, authors, assignments and object labels.
+- Added quick filters for all, open, assigned and resolved threads.
+- Updated empty-state copy so reviewers understand whether the slide has no comments or the current filter has no matches.
+
+## Delivered slice — advanced chart families
+
+- Added Fabric-native Scatter, Bubble and Radar chart families to the Slides chart engine for engineering, quality and multi-axis operational reviews.
+- Exposed the new chart types in the existing chart editor without adding new dependencies or duplicating chart insertion flows.
+- Mapped the new families to editable native PowerPoint line-chart approximations during PPTX export so round-trip decks remain usable even when a direct equivalent is unavailable.
+
+## Delivered slice — slide master presets
+
+- Added reusable slide-master presets for executive, plant-floor and minimal corporate decks using the existing Fabric master pipeline.
+- Presets include shared logo, header/footer furniture, date/slide-number placeholders and theme-aware colors/fonts.
+- Master preset metadata is persisted with the deck-level master JSON so future layout governance can distinguish logo, footer and numbering furniture.

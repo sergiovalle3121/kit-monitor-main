@@ -8,7 +8,7 @@
  */
 import { Group, Rect, Line, Polyline, Polygon, Path, Circle, FabricText } from 'fabric';
 
-export type ChartType = 'bar' | 'hbar' | 'line' | 'area' | 'pie' | 'doughnut' | 'pareto' | 'waterfall' | 'gauge';
+export type ChartType = 'bar' | 'hbar' | 'line' | 'area' | 'pie' | 'doughnut' | 'scatter' | 'bubble' | 'radar' | 'pareto' | 'waterfall' | 'gauge';
 export interface ChartSeries { name: string; data: number[] }
 export interface ChartSpec {
   type: ChartType;
@@ -37,6 +37,9 @@ export const CHART_TYPES: { value: ChartType; label: string }[] = [
   { value: 'area', label: 'Área' },
   { value: 'pie', label: 'Pastel' },
   { value: 'doughnut', label: 'Dona' },
+  { value: 'scatter', label: 'Dispersión' },
+  { value: 'bubble', label: 'Burbujas' },
+  { value: 'radar', label: 'Radar' },
   { value: 'pareto', label: 'Pareto' },
   { value: 'waterfall', label: 'Waterfall' },
   { value: 'gauge', label: 'Gauge' },
@@ -96,6 +99,10 @@ export function buildChartGroup(spec: ChartSpec, opts: BuildOpts = {}): any {
     buildWaterfall(spec, kids, { W, H, tc, font, pal, grid, axis, padT: hasTitle ? 36 : 16, showValues: !!spec.showValues });
   } else if (spec.type === 'gauge') {
     buildGauge(spec, kids, { W, H, tc, font, pal, padT: hasTitle ? 36 : 16, showValues: !!spec.showValues });
+  } else if (spec.type === 'scatter' || spec.type === 'bubble') {
+    buildScatter(spec, kids, { W, H, tc, font, pal, grid, axis, padT: hasTitle ? 36 : 16, showValues: !!spec.showValues, bubble: spec.type === 'bubble' });
+  } else if (spec.type === 'radar') {
+    buildRadar(spec, kids, { W, H, tc, font, pal, grid, padT: hasTitle ? 36 : 16, showValues: !!spec.showValues });
   } else {
     buildCartesian(spec, kids, { W, H, tc, font, pal, grid, axis, padT: hasTitle ? 36 : 16, horizontal: spec.type === 'hbar', stacked: !!spec.stacked, showValues: !!spec.showValues });
   }
@@ -203,6 +210,79 @@ function buildCartesian(spec: ChartSpec, kids: any[], ctx: any) {
   });
 }
 
+
+
+function buildScatter(spec: ChartSpec, kids: any[], ctx: any) {
+  const { W, H, tc, font, pal, grid, axis, padT, showValues, bubble } = ctx;
+  const padL = 46, padR = 20, padB = 50;
+  const plotL = padL, plotR = W - padR, plotT = padT, plotB = H - padB;
+  const plotW = plotR - plotL, plotH = plotB - plotT;
+  const nCat = Math.max(1, spec.labels.length);
+  const all = spec.series.flatMap((s) => s.data.filter((v) => typeof v === 'number' && isFinite(v)));
+  const vMax = all.length ? Math.max(...all) : 1;
+  const vMin = Math.min(0, all.length ? Math.min(...all) : 0);
+  const range = vMax === vMin ? 1 : vMax - vMin;
+  const xAt = (ci: number) => (nCat === 1 ? plotL + plotW / 2 : plotL + (ci * plotW) / (nCat - 1));
+  const yAt = (v: number) => plotB - ((v - vMin) / range) * plotH;
+  const maxAbs = Math.max(1, ...all.map((v) => Math.abs(v)));
+
+  for (let t = 0; t <= 4; t++) {
+    const val = vMin + (range * t) / 4, yy = yAt(val);
+    kids.push(new Line([plotL, yy, plotR, yy], { stroke: grid, strokeWidth: 1 }));
+    kids.push(new FabricText(niceNum(val), { left: plotL - 6, top: yy, fontSize: 10, fill: tc, fontFamily: font, originX: 'right', originY: 'center', opacity: 0.8 }));
+  }
+  kids.push(new Line([plotL, plotB, plotR, plotB], { stroke: axis, strokeWidth: 1.5 }));
+  kids.push(new Line([plotL, plotT, plotL, plotB], { stroke: axis, strokeWidth: 1.2 }));
+
+  spec.series.forEach((s, si) => {
+    const color = pal[si % pal.length];
+    spec.labels.forEach((_, ci) => {
+      const v = Number(s.data[ci] ?? 0);
+      const x = xAt(ci), y = yAt(v);
+      const r = bubble ? 4 + (Math.abs(v) / maxAbs) * 9 : 4;
+      kids.push(new Circle({ left: x, top: y, radius: r, fill: bubble ? hexA(color, 0.55) : color, stroke: color, strokeWidth: bubble ? 1.5 : 0, originX: 'center', originY: 'center' }));
+      if (showValues && v) valLabel(kids, niceNum(v), x, y - r - 8, font, tc);
+    });
+  });
+
+  spec.labels.forEach((lb, ci) => kids.push(new FabricText(String(lb), { left: xAt(ci), top: plotB + 7, fontSize: 10, fill: tc, fontFamily: font, originX: 'center', originY: 'top', opacity: 0.85 })));
+}
+
+function buildRadar(spec: ChartSpec, kids: any[], ctx: any) {
+  const { W, H, tc, font, pal, grid, padT, showValues } = ctx;
+  const labels = spec.labels.length ? spec.labels : ['A'];
+  const n = labels.length;
+  const cx = W / 2, cy = padT + (H - padT - 54) / 2;
+  const r = Math.max(24, Math.min(W - 80, H - padT - 76) / 2);
+  const all = spec.series.flatMap((s) => s.data.filter((v) => typeof v === 'number' && isFinite(v) && v >= 0));
+  const max = Math.max(1, ...(all.length ? all : [1]));
+  const point = (i: number, value: number) => {
+    const a = -Math.PI / 2 + (i * Math.PI * 2) / n;
+    const rr = (Math.max(0, value) / max) * r;
+    return { x: cx + Math.cos(a) * rr, y: cy + Math.sin(a) * rr, a };
+  };
+
+  for (let ring = 1; ring <= 4; ring++) {
+    const rr = (r * ring) / 4;
+    const pts = labels.map((_, i) => {
+      const a = -Math.PI / 2 + (i * Math.PI * 2) / n;
+      return { x: cx + Math.cos(a) * rr, y: cy + Math.sin(a) * rr };
+    });
+    kids.push(new Polygon(pts, { fill: '', stroke: grid, strokeWidth: 1, selectable: false } as any));
+  }
+  labels.forEach((lb, i) => {
+    const p = point(i, max);
+    kids.push(new Line([cx, cy, p.x, p.y], { stroke: grid, strokeWidth: 1 }));
+    kids.push(new FabricText(String(lb), { left: cx + Math.cos(p.a) * (r + 16), top: cy + Math.sin(p.a) * (r + 16), fontSize: 10, fill: tc, fontFamily: font, originX: 'center', originY: 'center', opacity: 0.85 }));
+  });
+
+  spec.series.forEach((s, si) => {
+    const color = pal[si % pal.length];
+    const pts = labels.map((_, i) => point(i, Number(s.data[i] ?? 0)));
+    kids.push(new Polygon(pts.map(({ x, y }) => ({ x, y })), { fill: hexA(color, 0.18), stroke: color, strokeWidth: 2.2, selectable: false } as any));
+    pts.forEach((p, i) => { kids.push(new Circle({ left: p.x, top: p.y, radius: 3, fill: color, originX: 'center', originY: 'center' })); if (showValues && (s.data[i] ?? 0)) valLabel(kids, niceNum(s.data[i]), p.x, p.y - 9, font, tc); });
+  });
+}
 
 function buildPareto(spec: ChartSpec, kids: any[], ctx: any) {
   const { W, H, tc, font, pal, grid, axis, padT, showValues } = ctx;

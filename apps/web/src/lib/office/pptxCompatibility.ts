@@ -68,10 +68,37 @@ export async function analyzePptxCompatibility(buf: ArrayBuffer): Promise<PptxCo
   const comments = countFiles(files, /^ppt\/comments\/comment\d+\.xml$/i) + countFiles(files, /^ppt\/threadedComments\//i);
   if (comments) issues.push(issue('comments', 'info', 'Contiene comentarios de PowerPoint; se conservará el mazo, pero los threads aún no se importan.', comments));
 
+  const notes = countFiles(files, /^ppt\/notesSlides\/notesSlide\d+\.xml$/i);
+  if (notes) issues.push(issue('speaker-notes', 'info', 'Contiene notas del orador; AXOS intentará conservarlas como notas de diapositiva.', notes));
+
+  const themeParts = countFiles(files, /^ppt\/theme\/theme\d+\.xml$/i);
+  if (themeParts > 1) issues.push(issue('theme-variants', 'info', 'Contiene múltiples themes/variantes; AXOS aplicará el theme más cercano posible.', themeParts));
+
+  const embeddedFonts = countFiles(files, /^ppt\/fonts\//i);
+  if (embeddedFonts) issues.push(issue('embedded-fonts', 'warning', 'Contiene fuentes embebidas; por licenciamiento se sustituirán por fuentes disponibles.', embeddedFonts));
+
   const slideXml = await readXmlParts(zip, files, /^ppt\/slides\/slide\d+\.xml$/i);
   const layoutXml = await readXmlParts(zip, files, /^ppt\/slideLayouts\/slideLayout\d+\.xml$/i);
   const masterXml = await readXmlParts(zip, files, /^ppt\/slideMasters\/slideMaster\d+\.xml$/i);
   const allSlideLikeXml = [...slideXml, ...layoutXml, ...masterXml].join('\n');
+
+  const layoutCount = layoutXml.length;
+  if (layoutCount > 1) issues.push(issue('slide-layouts', 'info', 'Contiene layouts de PowerPoint; AXOS los aproximará a layouts internos editables.', layoutCount));
+
+  const masterCount = masterXml.length;
+  if (masterCount) issues.push(issue('slide-masters', 'info', 'Contiene slide masters; AXOS importará mobiliario común cuando sea posible y reportará diferencias.', masterCount));
+
+  const charts = countMatches(allSlideLikeXml, /<c:chart\b|\/charts\/chart\d+\.xml/gi) + countFiles(files, /^ppt\/charts\/chart\d+\.xml$/i);
+  if (charts) issues.push(issue('charts', 'info', 'Contiene gráficos nativos de PowerPoint; AXOS intentará convertirlos a chartSpec editable.', charts));
+
+  const tables = countMatches(allSlideLikeXml, /<a:tbl\b/g);
+  if (tables) issues.push(issue('tables', 'info', 'Contiene tablas; AXOS intentará reconstruirlas como tablas editables.', tables));
+
+  const grouped = countMatches(allSlideLikeXml, /<p:grpSp\b/g);
+  if (grouped) issues.push(issue('groups', 'info', 'Contiene grupos de objetos; se conservará la geometría y se aproximará la agrupación editable.', grouped));
+
+  const connectors = countMatches(allSlideLikeXml, /<p:cxnSp\b/g);
+  if (connectors) issues.push(issue('connectors', 'info', 'Contiene conectores; AXOS recreará conectores compatibles cuando detecte sus endpoints.', connectors));
 
   const smartArt = countFiles(files, /^ppt\/diagrams\//i) + countMatches(allSlideLikeXml, /<p:graphicFrame[\s\S]*?dgm:/g);
   if (smartArt) issues.push(issue('smartart', 'info', 'SmartArt se importará como formas editables aproximadas cuando sea posible.', smartArt));
