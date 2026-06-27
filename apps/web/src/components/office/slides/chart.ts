@@ -8,7 +8,7 @@
  */
 import { Group, Rect, Line, Polyline, Polygon, Path, Circle, FabricText } from 'fabric';
 
-export type ChartType = 'bar' | 'hbar' | 'line' | 'area' | 'pie' | 'doughnut';
+export type ChartType = 'bar' | 'hbar' | 'line' | 'area' | 'pie' | 'doughnut' | 'pareto' | 'waterfall' | 'gauge';
 export interface ChartSeries { name: string; data: number[] }
 export interface ChartSpec {
   type: ChartType;
@@ -37,6 +37,9 @@ export const CHART_TYPES: { value: ChartType; label: string }[] = [
   { value: 'area', label: 'Área' },
   { value: 'pie', label: 'Pastel' },
   { value: 'doughnut', label: 'Dona' },
+  { value: 'pareto', label: 'Pareto' },
+  { value: 'waterfall', label: 'Waterfall' },
+  { value: 'gauge', label: 'Gauge' },
 ];
 
 export function defaultChartSpec(): ChartSpec {
@@ -87,13 +90,19 @@ export function buildChartGroup(spec: ChartSpec, opts: BuildOpts = {}): any {
   const isPie = spec.type === 'pie' || spec.type === 'doughnut';
   if (isPie) {
     buildPie(spec, kids, { W, H, tc, font, pal, padT: hasTitle ? 36 : 14, doughnut: spec.type === 'doughnut', showValues: !!spec.showValues });
+  } else if (spec.type === 'pareto') {
+    buildPareto(spec, kids, { W, H, tc, font, pal, grid, axis, padT: hasTitle ? 36 : 16, showValues: !!spec.showValues });
+  } else if (spec.type === 'waterfall') {
+    buildWaterfall(spec, kids, { W, H, tc, font, pal, grid, axis, padT: hasTitle ? 36 : 16, showValues: !!spec.showValues });
+  } else if (spec.type === 'gauge') {
+    buildGauge(spec, kids, { W, H, tc, font, pal, padT: hasTitle ? 36 : 16, showValues: !!spec.showValues });
   } else {
     buildCartesian(spec, kids, { W, H, tc, font, pal, grid, axis, padT: hasTitle ? 36 : 16, horizontal: spec.type === 'hbar', stacked: !!spec.stacked, showValues: !!spec.showValues });
   }
 
   // Leyenda (centrada abajo).
   if (spec.legend !== false) {
-    const legendItems = isPie ? spec.labels : spec.series.map((s) => s.name);
+    const legendItems = spec.type === 'pareto' ? ['Frecuencia', 'Acumulado %'] : spec.type === 'waterfall' ? ['Incremento', 'Disminución', 'Total'] : spec.type === 'gauge' ? [] : isPie ? spec.labels : spec.series.map((s) => s.name);
     buildLegend(legendItems, kids, { W, H, tc, font, pal });
   }
 
@@ -192,6 +201,97 @@ function buildCartesian(spec: ChartSpec, kids: any[], ctx: any) {
     const cx = isBar ? plotL + ci * step + step / 2 : (nCat === 1 ? plotL + plotW / 2 : plotL + (ci * plotW) / (nCat - 1));
     kids.push(new FabricText(String(lb), { left: cx, top: plotB + 7, fontSize: 10, fill: tc, fontFamily: font, originX: 'center', originY: 'top', opacity: 0.85 }));
   });
+}
+
+
+function buildPareto(spec: ChartSpec, kids: any[], ctx: any) {
+  const { W, H, tc, font, pal, grid, axis, padT, showValues } = ctx;
+  const raw = spec.labels.map((label, i) => ({ label, value: Math.max(0, Number(spec.series[0]?.data[i] ?? 0)) }))
+    .sort((a, b) => b.value - a.value);
+  const total = raw.reduce((a, x) => a + x.value, 0) || 1;
+  const padL = 46, padR = 34, padB = 50;
+  const plotL = padL, plotR = W - padR, plotT = padT, plotB = H - padB;
+  const plotW = plotR - plotL, plotH = plotB - plotT;
+  const max = Math.max(1, ...raw.map((x) => x.value));
+  const y = (v: number) => plotB - (v / max) * plotH;
+  for (let t = 0; t <= 4; t++) {
+    const val = (max * t) / 4, yy = y(val);
+    kids.push(new Line([plotL, yy, plotR, yy], { stroke: grid, strokeWidth: 1 }));
+    kids.push(new FabricText(niceNum(val), { left: plotL - 6, top: yy, fontSize: 10, fill: tc, fontFamily: font, originX: 'right', originY: 'center', opacity: 0.8 }));
+    kids.push(new FabricText(`${Math.round((t / 4) * 100)}%`, { left: plotR + 8, top: yy, fontSize: 10, fill: tc, fontFamily: font, originX: 'left', originY: 'center', opacity: 0.7 }));
+  }
+  kids.push(new Line([plotL, plotB, plotR, plotB], { stroke: axis, strokeWidth: 1.5 }));
+  const n = Math.max(1, raw.length), step = plotW / n, bw = step * 0.58;
+  let acc = 0;
+  const linePts: { x: number; y: number }[] = [];
+  raw.forEach((d, i) => {
+    const x = plotL + i * step + (step - bw) / 2;
+    const top = y(d.value);
+    kids.push(new Rect({ left: x, top, width: bw, height: Math.max(1, plotB - top), fill: pal[0], rx: 2, ry: 2 }));
+    if (showValues) valLabel(kids, niceNum(d.value), x + bw / 2, top - 8, font, tc);
+    acc += d.value;
+    linePts.push({ x: x + bw / 2, y: plotB - (acc / total) * plotH });
+    kids.push(new FabricText(String(d.label), { left: x + bw / 2, top: plotB + 7, fontSize: 10, fill: tc, fontFamily: font, originX: 'center', originY: 'top', opacity: 0.85 }));
+  });
+  kids.push(new Polyline(linePts, { stroke: pal[3] ?? '#ef4444', strokeWidth: 2.5, fill: '', selectable: false } as any));
+  linePts.forEach((p) => kids.push(new Circle({ left: p.x, top: p.y, radius: 3, fill: pal[3] ?? '#ef4444', originX: 'center', originY: 'center' })));
+}
+
+function buildWaterfall(spec: ChartSpec, kids: any[], ctx: any) {
+  const { W, H, tc, font, pal, grid, axis, padT, showValues } = ctx;
+  const vals = (spec.series[0]?.data ?? []).map((x) => Number(x) || 0);
+  const totals: number[] = [];
+  vals.reduce((a, v, i) => { const n = a + v; totals[i] = n; return n; }, 0);
+  const all = [0, ...totals, ...totals.map((t, i) => t - vals[i])];
+  const min = Math.min(0, ...all), max = Math.max(1, ...all);
+  const padL = 46, padR = 16, padB = 50;
+  const plotL = padL, plotR = W - padR, plotT = padT, plotB = H - padB;
+  const plotW = plotR - plotL, plotH = plotB - plotT;
+  const y = (v: number) => plotB - ((v - min) / (max - min || 1)) * plotH;
+  for (let t = 0; t <= 4; t++) {
+    const val = min + ((max - min) * t) / 4, yy = y(val);
+    kids.push(new Line([plotL, yy, plotR, yy], { stroke: grid, strokeWidth: 1 }));
+    kids.push(new FabricText(niceNum(val), { left: plotL - 6, top: yy, fontSize: 10, fill: tc, fontFamily: font, originX: 'right', originY: 'center', opacity: 0.8 }));
+  }
+  kids.push(new Line([plotL, y(0), plotR, y(0)], { stroke: axis, strokeWidth: 1.5 }));
+  const n = Math.max(1, vals.length), step = plotW / n, bw = step * 0.55;
+  let running = 0;
+  vals.forEach((v, i) => {
+    const next = running + v;
+    const x = plotL + i * step + (step - bw) / 2;
+    const top = Math.min(y(running), y(next));
+    const h = Math.abs(y(running) - y(next));
+    const color = i === vals.length - 1 ? (pal[6] ?? '#14b8a6') : v >= 0 ? (pal[1] ?? '#10b981') : (pal[3] ?? '#ef4444');
+    kids.push(new Rect({ left: x, top, width: bw, height: Math.max(1, h), fill: color, rx: 2, ry: 2 }));
+    if (i < vals.length - 1) kids.push(new Line([x + bw, y(next), x + step, y(next)], { stroke: axis, strokeWidth: 1, strokeDashArray: [3, 3] }));
+    if (showValues) valLabel(kids, niceNum(v), x + bw / 2, top - 8, font, tc);
+    kids.push(new FabricText(String(spec.labels[i] ?? i + 1), { left: x + bw / 2, top: plotB + 7, fontSize: 10, fill: tc, fontFamily: font, originX: 'center', originY: 'top', opacity: 0.85 }));
+    running = next;
+  });
+}
+
+function buildGauge(spec: ChartSpec, kids: any[], ctx: any) {
+  const { W, H, tc, font, pal, padT, showValues } = ctx;
+  const value = Math.max(0, Number(spec.series[0]?.data[0] ?? 0));
+  const max = Math.max(value, Number(spec.series[0]?.data[1] ?? 100) || 100);
+  const pct = Math.max(0, Math.min(1, value / max));
+  const cx = W / 2, cy = padT + (H - padT - 38) * 0.72;
+  const r = Math.min(W * 0.38, (H - padT - 58) * 0.78);
+  const stroke = Math.max(16, r * 0.16);
+  kids.push(new Path(arcPath(cx, cy, r, Math.PI, 0), { fill: '', stroke: '#e5e7eb', strokeWidth: stroke, strokeLineCap: 'round' } as any));
+  kids.push(new Path(arcPath(cx, cy, r, Math.PI, Math.PI + pct * Math.PI), { fill: '', stroke: pal[0], strokeWidth: stroke, strokeLineCap: 'round' } as any));
+  const ang = Math.PI + pct * Math.PI;
+  kids.push(new Line([cx, cy, cx + Math.cos(ang) * (r - stroke * 0.75), cy + Math.sin(ang) * (r - stroke * 0.75)], { stroke: tc, strokeWidth: 3, strokeLineCap: 'round' } as any));
+  kids.push(new Circle({ left: cx, top: cy, radius: 5, fill: tc, originX: 'center', originY: 'center' }));
+  kids.push(new FabricText(showValues ? `${niceNum(value)} / ${niceNum(max)}` : `${Math.round(pct * 100)}%`, { left: cx, top: cy + 18, fontSize: 28, fill: pal[0], fontFamily: font, originX: 'center', originY: 'top', fontWeight: 'bold' }));
+  kids.push(new FabricText(String(spec.labels[0] ?? 'Valor'), { left: cx, top: cy + 54, fontSize: 12, fill: tc, fontFamily: font, originX: 'center', originY: 'top', opacity: 0.75 }));
+}
+
+function arcPath(cx: number, cy: number, r: number, a0: number, a1: number) {
+  const x0 = cx + r * Math.cos(a0), y0 = cy + r * Math.sin(a0);
+  const x1 = cx + r * Math.cos(a1), y1 = cy + r * Math.sin(a1);
+  const large = Math.abs(a1 - a0) > Math.PI ? 1 : 0;
+  return `M ${x0} ${y0} A ${r} ${r} 0 ${large} 1 ${x1} ${y1}`;
 }
 
 function buildPie(spec: ChartSpec, kids: any[], ctx: any) {
