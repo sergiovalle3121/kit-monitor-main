@@ -25,6 +25,7 @@ import { ToolingService } from '../tooling/tooling.service';
 import { RmaService } from '../rma/rma.service';
 import { FixedAssetsService } from '../fixed-assets/fixed-assets.service';
 import { GenealogyService } from '../genealogy/genealogy.service';
+import { ACTIONS, ACTION_KEYS } from './ai-actions';
 import { CideToolSpec } from './cide-provider';
 
 /** JSON-Schema shape for a tool input (OpenAI/Anthropic-compatible). */
@@ -399,7 +400,13 @@ export class AiToolsService {
         description:
           'Drill-down de un objeto del negocio (ontología): actividad reciente, tendencia, métricas relacionadas, vínculos y entidades recientes. objectKey: WorkOrder, Material, Supplier, BOM, QualityHold, Customer o LedgerEvent. Úsalo para "analiza/explora <objeto>".',
         requiredPermission: null,
-        mockTriggers: ['objeto', 'explora', 'analiza el', 'detalle de', 'drill'],
+        mockTriggers: [
+          'objeto',
+          'explora',
+          'analiza el',
+          'detalle de',
+          'drill',
+        ],
         input_schema: schema(
           {
             objectKey: {
@@ -507,7 +514,12 @@ export class AiToolsService {
         description:
           'Escenarios de planeación de Decision Intelligence (con su corrida de forecast asociada) para comparar alternativas de plan. Úsalo cuando pregunten por escenarios, simulaciones de plan o comparación de planes.',
         requiredPermission: 'planning:read',
-        mockTriggers: ['escenario', 'simulaci', 'plan alterno', 'comparar plan'],
+        mockTriggers: [
+          'escenario',
+          'simulaci',
+          'plan alterno',
+          'comparar plan',
+        ],
         input_schema: schema(),
         run: () =>
           this.svc(DecisionIntelligenceService)
@@ -838,7 +850,12 @@ export class AiToolsService {
         description:
           'Planes de mantenimiento preventivo (PM) con su próxima fecha de vencimiento. Úsalo para "¿qué preventivos tocan / están vencidos?". Filtros: assetId, active.',
         requiredPermission: 'maintenance:read',
-        mockTriggers: ['preventivo', 'pm', 'plan de mantenimiento', 'calendario'],
+        mockTriggers: [
+          'preventivo',
+          'pm',
+          'plan de mantenimiento',
+          'calendario',
+        ],
         input_schema: schema({
           assetId: { type: 'string', description: 'ID del activo' },
           active: { type: 'boolean', description: 'Solo planes activos' },
@@ -847,8 +864,7 @@ export class AiToolsService {
           this.svc(MaintenanceService)
             .listPmPlans({
               assetId: str(i.assetId),
-              active:
-                typeof i.active === 'boolean' ? (i.active as boolean) : undefined,
+              active: typeof i.active === 'boolean' ? i.active : undefined,
             })
             .then((d) => clip(d, 60)),
       },
@@ -889,7 +905,12 @@ export class AiToolsService {
         description:
           'Inspecciones de primera pieza (FAI) por orden de trabajo, con su resultado (pass/fail). Úsalo para "¿qué FAI hay pendientes/rechazadas?". Filtros: woId, result, line.',
         requiredPermission: 'quality:report',
-        mockTriggers: ['fai', 'primera pieza', 'first article', 'primer artículo'],
+        mockTriggers: [
+          'fai',
+          'primera pieza',
+          'first article',
+          'primer artículo',
+        ],
         input_schema: schema({
           woId: { type: 'string', description: 'ID de orden de trabajo' },
           result: { type: 'string', description: 'Resultado (pass/fail)' },
@@ -942,8 +963,8 @@ export class AiToolsService {
         ],
         input_schema: schema(),
         run: (_i, ctx) =>
-          Promise.resolve(this.svc(ShippingService).findAll(ctx.user)).then((d) =>
-            clip(d, 60),
+          Promise.resolve(this.svc(ShippingService).findAll(ctx.user)).then(
+            (d) => clip(d, 60),
           ),
       },
       // ── Herramentales ──────────────────────────────────────────────────────
@@ -952,7 +973,13 @@ export class AiToolsService {
         description:
           'Herramentales serializados (tooling) y su estado. Úsalo para "¿qué herramentales hay / están en uso / en calibración?". Filtros: status, type.',
         requiredPermission: 'maintenance:read',
-        mockTriggers: ['herramental', 'tooling', 'herramienta', 'molde', 'fixture'],
+        mockTriggers: [
+          'herramental',
+          'tooling',
+          'herramienta',
+          'molde',
+          'fixture',
+        ],
         input_schema: schema({
           status: { type: 'string', description: 'Estado del herramental' },
           type: { type: 'string', description: 'Tipo de herramental' },
@@ -1033,6 +1060,77 @@ export class AiToolsService {
               lot: str(i.lot),
             })
             .then((d) => clip(d, 80)),
+      },
+      // ── Acción con confirmación humana (human-in-the-loop) ──────────────────
+      {
+        name: 'propose_action',
+        description:
+          'PROPONE (no ejecuta) una acción de escritura para que el USUARIO la confirme. ' +
+          'Úsalo SOLO cuando el usuario pida explícitamente crear/realizar algo accionable. ' +
+          'La acción NO se ejecuta hasta que el usuario confirme en la tarjeta; tras llamar a ' +
+          'esta herramienta, dile al usuario que revise y confirme. Acciones disponibles: ' +
+          'create_maintenance_order (crear orden de mantenimiento; params: title [req], ' +
+          'description, type [PREVENTIVE|CORRECTIVE|PREDICTIVE], priority [LOW|MEDIUM|HIGH], ' +
+          'assetId, assignedTo, dueDate).',
+        requiredPermission: null,
+        mockTriggers: [
+          'crea una orden',
+          'crear orden',
+          'levanta una orden',
+          'abre una orden',
+          'genera una orden',
+          'haz una orden',
+        ],
+        input_schema: schema(
+          {
+            actionKey: {
+              type: 'string',
+              enum: ACTION_KEYS,
+              description: 'Clave de la acción a proponer.',
+            },
+            params: {
+              type: 'object',
+              description:
+                'Parámetros de la acción, p. ej. {"title":"Cambiar termopar","priority":"HIGH"}.',
+            },
+          },
+          ['actionKey'],
+        ),
+        run: (i, ctx) => {
+          const actionKey = str(i.actionKey);
+          const def = actionKey ? ACTIONS[actionKey] : undefined;
+          if (!def) {
+            return Promise.resolve({
+              error: `Acción desconocida. Disponibles: ${ACTION_KEYS.join(', ')}.`,
+            });
+          }
+          const allowed =
+            ctx.isAdmin || ctx.permissions.includes(def.requiredPermission);
+          if (!allowed) {
+            return Promise.resolve({
+              error: 'No tienes permiso para proponer esta acción.',
+            });
+          }
+          const raw =
+            i.params && typeof i.params === 'object' && !Array.isArray(i.params)
+              ? (i.params as Record<string, unknown>)
+              : {};
+          const v = def.validate(raw);
+          if (!v.ok || !v.params) {
+            return Promise.resolve({
+              error: v.error ?? 'Parámetros inválidos.',
+            });
+          }
+          return Promise.resolve({
+            proposal: {
+              actionKey: def.key,
+              label: def.label,
+              params: v.params,
+              summary: def.summarize(v.params),
+              requiresPermission: def.requiredPermission,
+            },
+          });
+        },
       },
     ];
   }

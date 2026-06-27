@@ -2759,4 +2759,34 @@ en la UI.
 reporta source; default cuando no hay override), `lint web` 0 errores, `build web` ✓. Migración
 100% aditiva (columna nullable); nada existente cambia.
 
+## 126. CIDE — acciones con confirmación humana (el salto Palantir, human-in-the-loop)
+
+**Contexto.** Hasta aquí CIDE era estrictamente **read-only** (§22/§23: "la ejecución es acción
+humana"). El siguiente salto de producto —pasar de un panel que *informa* a un cerebro que
+*opera* AXOS OS— requiere que CIDE pueda **accionar**. Se hace con autorización explícita del
+usuario y revirtiendo de forma controlada esa postura read-only, **sin** dar a la IA poder de
+ejecución autónomo.
+
+**Decisión.** Patrón **human-in-the-loop**: la IA **propone**, el humano **confirma**, el backend
+**ejecuta** con el RBAC del usuario.
+- **Registro de acciones (`ai-actions.ts`, puro):** catálogo acotado de acciones permitidas.
+  Arranca con **una**: `create_maintenance_order` (permiso `maintenance:write`). Cada acción trae
+  validación + normalización de params y un resumen legible.
+- **Propuesta (tool `propose_action`):** la IA puede *proponer* (no ejecutar). El tool valida
+  permiso + params y devuelve una **tarjeta de confirmación** (`action_proposal`); nunca muta.
+- **Ejecución (`AiActionsService` + `POST /ai/actions/execute`):** único punto de escritura;
+  re-chequea permiso y **re-valida** params (no confía en el cliente), despacha al servicio del
+  módulo (que ya registra su evento en el **Event Ledger** → auditable). Proxy Next dedicado.
+- **UI:** la tarjeta de propuesta en el chat muestra el resumen y botones **Confirmar/Descartar**;
+  al confirmar ejecuta y muestra el folio resultante. El system prompt instruye a proponer solo
+  cuando el usuario lo pida explícitamente.
+
+**Seguridad.** La IA jamás ejecuta sola; toda acción pasa por (1) confirmación humana explícita,
+(2) RBAC del usuario re-verificado en el backend, (3) re-validación de params y (4) traza en el
+Event Ledger. El catálogo es deliberadamente mínimo para validar el patrón antes de ampliarlo.
+
+**Verificación:** `build API` ✓, **API tests 1118/1118** (+10: validación del registro y
+`AiActionsService` —permiso denegado, acción desconocida, params inválidos, éxito—), `lint web`
+0 errores, `build web` ✓. Sin migraciones; los módulos de lectura no cambian.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
