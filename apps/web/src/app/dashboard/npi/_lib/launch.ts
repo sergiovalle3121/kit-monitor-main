@@ -156,6 +156,33 @@ function routingDependency(s: ReadinessSignals, href: string): LaunchDependency 
   };
 }
 
+/** A count-based dependency: null → pending, 0 → missing, ≥1 → connected. */
+function countDependency(
+  key: string,
+  label: string,
+  count: number | null | undefined,
+  href: string,
+  noun: string,
+): LaunchDependency {
+  if (count == null)
+    return {
+      key,
+      label,
+      status: 'pending',
+      detail: 'Aún sin señal de readiness en AXOS.',
+      href,
+    };
+  if (count <= 0)
+    return {
+      key,
+      label,
+      status: 'missing',
+      detail: `Sin ${noun} para el modelo.`,
+      href,
+    };
+  return { key, label, status: 'connected', detail: `${count} ${noun}.`, href };
+}
+
 function qualityDependency(s: ReadinessSignals, href: string): LaunchDependency {
   const fai = s.faiStatus;
   if (!fai)
@@ -177,9 +204,9 @@ function qualityDependency(s: ReadinessSignals, href: string): LaunchDependency 
 
 /**
  * Build the dependency matrix from the live readiness signals plus whether the
- * canonical product model could be resolved. Dependencies without a backend
- * signal yet (tooling, visual aids, production plan) are honestly `pending`
- * with a live link to their module so the engineer can still go close them.
+ * canonical product model could be resolved. Visual aids and the production plan
+ * use real counts; tooling has no model-scoped signal yet (program-scoped) so it
+ * stays `pending` with a live link to its module to close it manually.
  */
 export function deriveDependencies(
   report: ReadinessReport | null | undefined,
@@ -206,21 +233,21 @@ export function deriveDependencies(
       detail: 'Aún sin señal de readiness en AXOS.',
       href: '/dashboard/tooling',
     },
-    {
-      key: 'visualAids',
-      label: 'Visual Aids / WI',
-      status: 'pending',
-      detail: 'Aún sin señal de readiness en AXOS.',
-      href: '/dashboard/visual-aids',
-    },
+    countDependency(
+      'visualAids',
+      'Visual Aids / WI',
+      s.visualAidsActive,
+      '/dashboard/visual-aids',
+      'ayuda(s) visual(es) activa(s)',
+    ),
     qualityDependency(s, '/dashboard/quality'),
-    {
-      key: 'plan',
-      label: 'Plan de producción',
-      status: 'pending',
-      detail: 'Aún sin señal de readiness en AXOS.',
-      href: '/dashboard/production-plan',
-    },
+    countDependency(
+      'plan',
+      'Plan de producción',
+      s.productionWorkOrders,
+      '/dashboard/production-plan',
+      'orden(es) de trabajo',
+    ),
   ];
 }
 
