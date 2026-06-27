@@ -10,6 +10,9 @@ import {
   HandHelping,
   PackageCheck,
   CheckCircle2,
+  Search,
+  MessageSquare,
+  History,
 } from "lucide-react";
 import { glass } from "@/lib/glass";
 import { containerRM, itemRM, hoverRM, pressRM } from "@/lib/motion";
@@ -247,6 +250,35 @@ function DashboardInner() {
                 materiales, producción, calidad y control ejecutivo con señales
                 claras y navegación precisa.
               </p>
+              {/* Acciones rápidas — qué puedes hacer ahora (universal a todo rol). */}
+              <div className="mt-5 flex flex-wrap gap-2">
+                <button
+                  onClick={() =>
+                    window.dispatchEvent(new CustomEvent("axos:open-search"))
+                  }
+                  className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-background/60 px-3.5 py-2 text-sm font-medium text-foreground transition-colors hover:bg-foreground/[0.05] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
+                >
+                  <Search className="h-4 w-4 text-muted-foreground" strokeWidth={1.75} />
+                  Buscar
+                  <kbd className="hidden font-mono text-[10px] text-muted-foreground sm:inline">
+                    ⌘K
+                  </kbd>
+                </button>
+                <Link
+                  href="/dashboard/chat"
+                  className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-background/60 px-3.5 py-2 text-sm font-medium text-foreground transition-colors hover:bg-foreground/[0.05] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
+                >
+                  <MessageSquare className="h-4 w-4 text-muted-foreground" strokeWidth={1.75} />
+                  Mensajes
+                </Link>
+                <Link
+                  href="/dashboard/activity"
+                  className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-background/60 px-3.5 py-2 text-sm font-medium text-foreground transition-colors hover:bg-foreground/[0.05] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
+                >
+                  <History className="h-4 w-4 text-muted-foreground" strokeWidth={1.75} />
+                  Mi actividad
+                </Link>
+              </div>
             </div>
             <div className="grid min-w-[220px] gap-2 rounded-2xl border border-border/70 bg-background/55 p-4 text-sm shadow-sm backdrop-blur-sm dark:bg-white/[0.035]">
               <span className="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
