@@ -4,7 +4,6 @@ import React, { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import {
-  ChevronLeft,
   Loader2,
   Lock,
   CheckCircle2,
@@ -198,13 +197,6 @@ export default function NpiProjectDetailPage() {
   return (
     <div className="min-h-screen text-black dark:text-white font-sans pb-28">
       <main className="max-w-4xl mx-auto px-6 pt-8">
-        <Link
-          href="/dashboard/npi"
-          className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-black dark:hover:text-white mb-6"
-        >
-          <ChevronLeft className="w-4 h-4" /> Launch Center
-        </Link>
-
         {/* Executive header */}
         <div className="flex items-start gap-4 mb-6">
           <IconTile domain="engineering" size={52} icon={Rocket} />

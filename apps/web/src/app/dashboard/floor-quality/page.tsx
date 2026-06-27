@@ -1,9 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import Link from 'next/link';
 import {
-  ChevronLeft, Plus, Lock, Loader2, Inbox, X, ArrowRight,
+  Plus, Lock, Loader2, Inbox, X, ArrowRight,
   Search, AlertTriangle, Camera, FileWarning,
 } from 'lucide-react';
 import { glass } from '@/lib/glass';
@@ -116,9 +115,6 @@ export default function FloorQualityPage() {
   return (
     <div className="min-h-screen text-black dark:text-white">
       <main className="max-w-6xl mx-auto px-6 pt-10 pb-24">
-        <Link href="/dashboard" className="inline-flex items-center gap-1 text-sm text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 mb-4">
-          <ChevronLeft className="w-4 h-4" /> Dashboard
-        </Link>
         <PageHeader
           domain="quality"
           title="Calidad de piso"
