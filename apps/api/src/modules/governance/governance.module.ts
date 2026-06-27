@@ -17,14 +17,15 @@ import { MaintenanceService } from './maintenance.service';
 import { EscalationTask } from './tasks/escalation.task';
 
 import { GovernanceSeedService } from './governance-seed.service';
+import { provideTenantScopedRepository } from '../../common/tenant/tenant-scoped.repository';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([
-      AuditLog, 
-      OperationalException, 
-      Notification, 
-      NotificationLog, 
+      AuditLog,
+      OperationalException,
+      Notification,
+      NotificationLog,
       GovernancePolicy
     ]),
     UsersModule,
@@ -38,7 +39,12 @@ import { GovernanceSeedService } from './governance-seed.service';
     GovernanceAnalyticsService,
     MaintenanceService,
     EscalationTask,
-    GovernanceSeedService
+    GovernanceSeedService,
+    provideTenantScopedRepository(AuditLog),
+    provideTenantScopedRepository(OperationalException),
+    provideTenantScopedRepository(Notification),
+    provideTenantScopedRepository(NotificationLog),
+    provideTenantScopedRepository(GovernancePolicy),
   ],
   controllers: [GovernanceController],
   exports: [GovernanceService, AuditService, NotificationService, GovernanceAnalyticsService],

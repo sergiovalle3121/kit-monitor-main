@@ -1,23 +1,38 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Inject, Injectable, Logger } from '@nestjs/common';
+import { ObjectLiteral, SelectQueryBuilder } from 'typeorm';
 import { Notification, NotificationStatus } from './entities/notification.entity';
 import { NotificationLog } from './entities/notification-log.entity';
 import { OperationalException, ExceptionSeverity } from './entities/operational-exception.entity';
 import { UsersService } from '../users/users.service';
 import { UserRole } from '../users/entities/user.entity';
+import { TenantContextService } from '../../common/tenant/tenant-context.service';
+import {
+  TenantScopedRepository,
+  getTenantRepositoryToken,
+} from '../../common/tenant/tenant-scoped.repository';
 
 @Injectable()
 export class NotificationService {
   private readonly logger = new Logger(NotificationService.name);
 
   constructor(
-    @InjectRepository(Notification)
-    private readonly notificationRepo: Repository<Notification>,
-    @InjectRepository(NotificationLog)
-    private readonly logRepo: Repository<NotificationLog>,
+    @Inject(getTenantRepositoryToken(Notification))
+    private readonly notificationRepo: TenantScopedRepository<Notification>,
+    @Inject(getTenantRepositoryToken(NotificationLog))
+    private readonly logRepo: TenantScopedRepository<NotificationLog>,
     private readonly usersService: UsersService,
+    private readonly tenantCtx: TenantContextService,
   ) {}
+
+  private applyScope<T extends ObjectLiteral>(
+    qb: SelectQueryBuilder<T>,
+    alias: string,
+  ): SelectQueryBuilder<T> {
+    const tenant = this.tenantCtx.getTenantId();
+    if (tenant) qb.andWhere(`${alias}.tenant_id = :tenant`, { tenant });
+    else qb.andWhere(`${alias}.tenant_id IS NULL`);
+    return qb;
+  }
 
   async notifyException(exception: OperationalException, event: 'CREATED' | 'OVERDUE' | 'ESCALATED') {
     const roles = this.getTargetRoles(exception.domain);

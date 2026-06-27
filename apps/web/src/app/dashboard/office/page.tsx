@@ -67,6 +67,7 @@ export default function OfficeHubPage() {
   const { data, isLoading, forbidden, mutate } = useApi<OfficeDoc[]>(`/office-documents?type=${tab}${trash ? '&trash=1' : ''}`);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
   const [gallery, setGallery] = useState(false);
@@ -172,7 +173,7 @@ export default function OfficeHubPage() {
   // presentación con el contenido resultante.
   async function onImportPptx(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0]; e.target.value = ''; if (!f) return;
-    setErr(null); setBusy(true);
+    setErr(null); setNotice(null); setBusy(true);
     let deck: any;
     try {
       const buf = await f.arrayBuffer();
@@ -183,6 +184,11 @@ export default function OfficeHubPage() {
       setBusy(false); return;
     }
     setBusy(false);
+    const issues = deck?.pptxCompatibility?.issues;
+    if (Array.isArray(issues) && issues.length) {
+      const top = issues.slice(0, 3).map((x: any) => x.message).join(' ');
+      setNotice(`Importado con ${issues.length} aviso(s) de compatibilidad. ${top}`);
+    }
     await createFrom(deck, f.name.replace(/\.pptx$/i, '') || 'Importada');
   }
 
@@ -320,6 +326,11 @@ export default function OfficeHubPage() {
         {err && (
           <div className="flex gap-2 items-start p-3 rounded-2xl bg-red-50 dark:bg-red-500/10 text-red-600 text-sm mb-4">
             <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" /> {err}
+          </div>
+        )}
+        {notice && (
+          <div className="flex gap-2 items-start p-3 rounded-2xl bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-300 text-sm mb-4">
+            <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" /> {notice}
           </div>
         )}
 

@@ -1211,7 +1211,10 @@ export function LayoutEditor({ model, revision, models = [] }: { model: string; 
   useEffect(() => {
     measureRef.current = measureMode;
     measureP1Ref.current = null;
-    if (!measureMode) { clearMeasure(); setMeasureVal(null); }
+    if (!measureMode) {
+      clearMeasure();
+      queueMicrotask(() => setMeasureVal(null));
+    }
     requestAnimationFrame(() => rebuild()); // refresh box interactivity for the tool
   }, [measureMode, clearMeasure, rebuild]);
 

@@ -55,6 +55,7 @@ describe('PlansService', () => {
       quality as never,
       audit as never,
       {} as never, // dataSource
+      { getTenantId: () => null } as never, // tenantCtx
     );
   });
 
