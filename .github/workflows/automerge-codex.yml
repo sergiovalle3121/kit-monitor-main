@@ -5,9 +5,9 @@ name: Auto-merge Codex PRs
 # no completa el merge; esto cierra ese paso.
 #
 # Requisito (una sola vez, en la UI): Settings → General → Pull Requests →
-# activar "Allow auto-merge". Sin eso, `gh pr merge --auto` falla (el step
-# saldrá en rojo pero no rompe nada). El merge respeta SIEMPRE el CI: si los
-# checks fallan, NO se mergea.
+# activar "Allow auto-merge". Sin eso, `gh pr merge --auto` no puede activarse;
+# el step lo registra como aviso y termina OK (no deja el check en rojo). El
+# merge respeta SIEMPRE el CI: si los checks fallan, NO se mergea.
 #
 # Solo aplica a ramas `codex/*` o PRs con etiqueta `codex`. Los demás PRs
 # (incluido el conduit `claude/*`) NO se tocan.
@@ -32,4 +32,6 @@ jobs:
       - name: Habilitar auto-merge (rebase) — mergea cuando los checks requeridos pasen
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh pr merge --auto --rebase "${{ github.event.pull_request.html_url }}"
+        run: |
+          gh pr merge --auto --rebase "${{ github.event.pull_request.html_url }}" \
+            || echo "::notice::Auto-merge no disponible (revisa 'Allow auto-merge' en Settings → General). El PR queda para merge manual; CI no se ve afectado."
