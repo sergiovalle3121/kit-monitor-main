@@ -2622,4 +2622,23 @@ y `cide-stream.spec.ts` el ensamblador SSE. **+17 tests.**
 `build web` ✓ (rutas `/api/ai/chat/stream` y `/api/ai/health` registradas). Sin migraciones;
 ningún endpoint ni comportamiento existente cambia.
 
+## 119. CIDE — control del chat: detener generación, borrar conversaciones y badge de modelo
+
+**Contexto.** Con el streaming en vivo (§118), faltaban controles básicos de UX que el
+streaming habilita: poder **detener** una respuesta larga, **borrar** conversaciones del
+historial y **ver qué modelo** respondió (incluido si hubo escalación). Todo aditivo.
+
+**Decisión.**
+- **Borrar conversación.** `AiService.deleteConversation()` (owner, o admin para cualquiera)
+  borra el hilo y sus mensajes; endpoint `DELETE /api/ai/conversations/:id` + proxy Next
+  (`backendUserFetch` ahora acepta DELETE/PATCH). En el historial de `Cide.tsx`, botón
+  papelera por fila; si borras el hilo activo, arranca uno nuevo.
+- **Detener generación.** `Cide.tsx` aborta el fetch del stream con `AbortController`; el
+  botón Enviar se convierte en **Detener** mientras genera, conservando lo ya transmitido.
+- **Badge de modelo.** Bajo cada respuesta se muestra el modelo usado y, si aplicó
+  auto-escalación, una etiqueta «escalado» (el evento `meta`/`done` ya traía `escalated`).
+
+**Verificación:** `build API` ✓, **AI tests 21/21** (+4 de borrado: not-found, forbidden,
+owner, admin), `lint web` 0 errores, `build web` ✓. Sin migraciones; nada existente cambia.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->

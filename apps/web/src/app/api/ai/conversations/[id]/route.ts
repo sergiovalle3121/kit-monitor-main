@@ -11,3 +11,14 @@ export async function GET(
     status: r.status || 502,
   });
 }
+
+export async function DELETE(
+  _req: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const { id } = await params;
+  const r = await backendUserFetch(`/ai/conversations/${id}`, 'DELETE');
+  return NextResponse.json(r.data ?? { message: 'No encontrada.' }, {
+    status: r.status || 502,
+  });
+}

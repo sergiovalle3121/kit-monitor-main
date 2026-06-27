@@ -186,7 +186,7 @@ export async function bridgeToken(): Promise<string | null> {
 /** Authenticated backend call using the current user's per-user token. */
 export async function backendUserFetch(
   path: string,
-  method: 'GET' | 'POST',
+  method: 'GET' | 'POST' | 'DELETE' | 'PATCH',
   body?: unknown,
 ): Promise<{ ok: boolean; status: number; data: unknown }> {
   const token = await bridgeToken();

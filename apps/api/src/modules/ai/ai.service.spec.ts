@@ -1,5 +1,9 @@
-import { ServiceUnavailableException } from '@nestjs/common';
-import { AiService } from './ai.service';
+import {
+  ForbiddenException,
+  NotFoundException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
+import { AiService, ReqUser } from './ai.service';
 import { CideEngineError } from './cide-provider';
 
 /**
@@ -131,5 +135,64 @@ describe('AiService agentic loop (runCide)', () => {
     await expect(
       runCide(service, 'qwen2.5:7b', 'system', [], 'q', [], CTX),
     ).rejects.toBeInstanceOf(ServiceUnavailableException);
+  });
+});
+
+describe('AiService.deleteConversation', () => {
+  const owner: ReqUser = {
+    userId: 'u1',
+    email: 'a@b.com',
+    role: 'User',
+  };
+  function serviceWith(conv: unknown) {
+    const convRepo = {
+      findOne: jest.fn().mockResolvedValue(conv),
+      delete: jest.fn().mockResolvedValue({}),
+    };
+    const msgRepo = { delete: jest.fn().mockResolvedValue({}) };
+    const service = new AiService(
+      null as never,
+      null as never,
+      convRepo as never,
+      msgRepo as never,
+      { execute: jest.fn() } as never,
+      null as never,
+    );
+    return { service, convRepo, msgRepo };
+  }
+
+  it('throws NotFound when the conversation does not exist', async () => {
+    const { service } = serviceWith(null);
+    await expect(
+      service.deleteConversation(owner, 'missing'),
+    ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('forbids deleting another user’s conversation (non-admin)', async () => {
+    const { service } = serviceWith({ id: 'x', userEmail: 'other@b.com' });
+    await expect(
+      service.deleteConversation(owner, 'x'),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('deletes the conversation and its messages for the owner', async () => {
+    const { service, convRepo, msgRepo } = serviceWith({
+      id: 'x',
+      userEmail: 'a@b.com',
+    });
+    const res = await service.deleteConversation(owner, 'x');
+    expect(msgRepo.delete).toHaveBeenCalledWith({ conversationId: 'x' });
+    expect(convRepo.delete).toHaveBeenCalledWith({ id: 'x' });
+    expect(res).toEqual({ deleted: true, id: 'x' });
+  });
+
+  it('lets an admin delete any conversation', async () => {
+    const { service, convRepo } = serviceWith({
+      id: 'x',
+      userEmail: 'other@b.com',
+    });
+    const admin: ReqUser = { userId: 'a', email: 'admin@b.com', role: 'Admin' };
+    await service.deleteConversation(admin, 'x');
+    expect(convRepo.delete).toHaveBeenCalledWith({ id: 'x' });
   });
 });

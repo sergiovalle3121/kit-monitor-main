@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   ForbiddenException,
   Get,
   Param,
@@ -85,6 +86,11 @@ export class AiController {
   @Get('conversations/:id')
   conversation(@Request() req: AuthReq, @Param('id') id: string) {
     return this.ai.getConversation(req.user, id);
+  }
+
+  @Delete('conversations/:id')
+  deleteConversation(@Request() req: AuthReq, @Param('id') id: string) {
+    return this.ai.deleteConversation(req.user, id);
   }
 
   // ── Admin: per-tenant configuration + usage ─────────────────────────────────

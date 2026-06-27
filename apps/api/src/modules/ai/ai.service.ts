@@ -357,6 +357,18 @@ export class AiService {
     return { conversation, messages };
   }
 
+  /** Delete a conversation and its messages. Owner-only (admins may delete any). */
+  async deleteConversation(reqUser: ReqUser, id: string) {
+    const conversation = await this.convRepo.findOne({ where: { id } });
+    if (!conversation) throw new NotFoundException('Conversación no encontrada');
+    if (conversation.userEmail !== reqUser.email && reqUser.role !== 'Admin') {
+      throw new ForbiddenException('No puedes borrar esta conversación.');
+    }
+    await this.msgRepo.delete({ conversationId: id });
+    await this.convRepo.delete({ id });
+    return { deleted: true, id };
+  }
+
   // ── Chat ─────────────────────────────────────────────────────────────────────
   /**
    * Resolve everything a turn needs (config + guardrails + RBAC context +
