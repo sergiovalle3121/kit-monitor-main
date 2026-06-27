@@ -18,6 +18,7 @@ describe('WarehouseService', () => {
   let audit: { recordAction: jest.Mock };
 
   const user = { email: 'mat@axos.test' } as never;
+  const tenantCtx = { getTenantId: () => null } as never;
 
   beforeEach(() => {
     taskRepo = {
@@ -33,6 +34,7 @@ describe('WarehouseService', () => {
       inventory as never,
       audit as never,
       {} as never, // warehouseRepo (sólo lo usan los list con QueryBuilder)
+      tenantCtx, // tenantCtx
     );
   });
 
@@ -263,7 +265,7 @@ describe('WarehouseService', () => {
           { id: 'c2', part: 'P2', qty: 5, station: 'L2-POU', priority: 'MEDIUM', status: 'DELIVERED', woFolio: 'WO-2' }, // cerrado → se ignora
         ]),
       };
-      const svc = new WarehouseService(taskRepo as never, inventory as never, audit as never, {} as never, materialStaging as never);
+      const svc = new WarehouseService(taskRepo as never, inventory as never, audit as never, {} as never, tenantCtx, materialStaging as never);
       taskRepo.findOne.mockResolvedValue(null); // ninguno importado aún
       const res = await svc.importReplenishCalls({ sourceWarehouseId: 'WH-RM' }, user);
       expect(res.total).toBe(1); // sólo c1 está abierto
@@ -281,7 +283,7 @@ describe('WarehouseService', () => {
           { id: 'c1', part: 'P1', qty: 10, station: 'L1', priority: 'HIGH', status: 'OPEN' },
         ]),
       };
-      const svc = new WarehouseService(taskRepo as never, inventory as never, audit as never, {} as never, materialStaging as never);
+      const svc = new WarehouseService(taskRepo as never, inventory as never, audit as never, {} as never, tenantCtx, materialStaging as never);
       taskRepo.findOne.mockResolvedValue({ id: 99 }); // ya existe el pull del llamado
       const res = await svc.importReplenishCalls({ sourceWarehouseId: 'WH-RM' }, user);
       expect(res.imported).toBe(0);
@@ -289,9 +291,9 @@ describe('WarehouseService', () => {
     });
 
     it('exige integración disponible y almacén origen', async () => {
-      const noStaging = new WarehouseService(taskRepo as never, inventory as never, audit as never, {} as never, undefined);
+      const noStaging = new WarehouseService(taskRepo as never, inventory as never, audit as never, {} as never, tenantCtx, undefined);
       await expect(noStaging.importReplenishCalls({ sourceWarehouseId: 'WH-RM' }, user)).rejects.toBeInstanceOf(BadRequestException);
-      const withStaging = new WarehouseService(taskRepo as never, inventory as never, audit as never, {} as never, { listReplenishCalls: jest.fn() } as never);
+      const withStaging = new WarehouseService(taskRepo as never, inventory as never, audit as never, {} as never, tenantCtx, { listReplenishCalls: jest.fn() } as never);
       await expect(withStaging.importReplenishCalls({ sourceWarehouseId: '' }, user)).rejects.toBeInstanceOf(BadRequestException);
     });
   });
