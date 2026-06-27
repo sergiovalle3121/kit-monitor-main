@@ -520,6 +520,8 @@ export class AiService {
         content: result.text,
         toolsUsed: uniqueTools.length ? uniqueTools : null,
         cards: result.cards.length ? result.cards : null,
+        model: p.mock ? null : p.model,
+        escalated: p.escalated || null,
       }),
     );
     await this.convRepo.update(p.conv.id, { updatedAt: new Date() });
