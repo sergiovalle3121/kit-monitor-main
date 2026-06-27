@@ -43,6 +43,13 @@ type CideCard =
       type: 'actions';
       title: string;
       items: { title: string; severity: string }[];
+    }
+  | {
+      type: 'action_proposal';
+      title: string;
+      actionKey: string;
+      summary: string;
+      params: Record<string, unknown>;
     };
 
 const SEVERITY_DOT: Record<string, string> = {
@@ -875,7 +882,104 @@ function Sparkline({
   );
 }
 
+/** Confirmation card for a CIDE-proposed write action. */
+function ActionProposalCard({
+  card,
+}: {
+  card: Extract<CideCard, { type: 'action_proposal' }>;
+}) {
+  const [state, setState] = useState<
+    'idle' | 'running' | 'done' | 'error' | 'dismissed'
+  >('idle');
+  const [msg, setMsg] = useState<string | null>(null);
+
+  async function confirm() {
+    setState('running');
+    setMsg(null);
+    try {
+      const res = await fetch('/api/ai/actions/execute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ actionKey: card.actionKey, params: card.params }),
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        error?: string;
+        result?: { folio?: string | null };
+        message?: string;
+      };
+      if (res.ok && data.ok) {
+        setState('done');
+        setMsg(
+          data.result?.folio
+            ? `Hecho · folio ${data.result.folio}`
+            : 'Acción ejecutada.',
+        );
+      } else {
+        setState('error');
+        setMsg(data.error || data.message || 'No se pudo ejecutar.');
+      }
+    } catch {
+      setState('error');
+      setMsg('Error de red al ejecutar.');
+    }
+  }
+
+  return (
+    <div className="rounded-xl border border-violet-400/40 bg-violet-500/5 px-3 py-2.5">
+      <div className="flex items-center gap-1.5 text-[11px] font-medium text-violet-600 dark:text-violet-300">
+        <Zap className="h-3 w-3" /> Acción propuesta · requiere tu confirmación
+      </div>
+      <p className="mt-1 text-sm">{card.summary}</p>
+      {state === 'done' ? (
+        <p className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+          <Check className="h-3.5 w-3.5" /> {msg}
+        </p>
+      ) : state === 'dismissed' ? (
+        <p className="mt-2 text-xs text-black/45 dark:text-white/45">
+          Acción descartada.
+        </p>
+      ) : state === 'error' ? (
+        <div className="mt-2">
+          <p className="text-xs text-amber-600 dark:text-amber-400">{msg}</p>
+          <button
+            onClick={confirm}
+            className="mt-1.5 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-medium text-white"
+          >
+            Reintentar
+          </button>
+        </div>
+      ) : (
+        <div className="mt-2.5 flex items-center gap-2">
+          <button
+            onClick={confirm}
+            disabled={state === 'running'}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-violet-700 disabled:opacity-50"
+          >
+            {state === 'running' ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Check className="h-3.5 w-3.5" />
+            )}
+            Confirmar
+          </button>
+          <button
+            onClick={() => setState('dismissed')}
+            disabled={state === 'running'}
+            className="rounded-lg px-3 py-1.5 text-xs font-medium text-black/55 hover:bg-black/5 disabled:opacity-50 dark:text-white/55 dark:hover:bg-white/10"
+          >
+            Descartar
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function CardView({ card }: { card: CideCard }) {
+  if (card.type === 'action_proposal') {
+    return <ActionProposalCard card={card} />;
+  }
   if (card.type === 'metric') {
     return (
       <div className="rounded-xl border border-black/10 bg-white/60 px-3 py-2 dark:border-white/10 dark:bg-white/5">
