@@ -103,3 +103,20 @@
 - Added CIDE/OpenAI-compatible contract helpers for safe context redaction, tool schema exposure, and tool-call validation without making model calls.
 - Added smoke coverage for safety zones, snapshots, palette search, and copilot contract validation.
 - Pending: wire safety warnings into command previews, expose snapshots in the UI, and add Cmd-K palette interaction.
+
+## 2026-06-27 — Annotation, export adapter, shortcuts, and validation report PR 14
+
+- Added permanent annotation primitives for text notes and measurement annotations with bounds and layer filtering.
+- Added a layout-to-DXF export adapter that maps generic CAD boxes, connectors, labels, and measurements into the DXF exporter.
+- Added a deterministic keyboard shortcut registry/matcher for Cmd-K, select, measure, fit view, undo, redo, and cancel.
+- Added a combined validation report that aggregates collisions, clearance issues, safety-zone violations, and flow scoring into a severity.
+- Added smoke coverage for annotations, export mapping, shortcuts, and aggregate validation reports.
+- Pending: wire annotations into the measure tool, expose export download in the editor, and connect shortcuts/palette to the UI.
+
+## 2026-06-27 — Cmd-K CAD palette UI PR 15
+
+- Wired the pure command palette and keyboard shortcut helpers into `Layout3DEditor.tsx`.
+- Ctrl/Cmd-K now opens a local CAD palette for registered commands, toolbar actions, and symbols.
+- Tool entries execute existing toolbar actions; command entries load an example into the Copiloto CAD dock for preview-first execution; symbol entries route the user to the equipment/symbol area.
+- Kept behavior local and additive: no backend calls, no model calls, no persistence changes.
+- Pending: richer symbol insertion and palette-driven preview execution after the symbol placement contract is finalized.
