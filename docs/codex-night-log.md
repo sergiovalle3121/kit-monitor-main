@@ -23,4 +23,59 @@
 - Replaced immediate inline command application with a preview-first flow: interpret → show affected objects/issues/operations → explicit Apply.
 - Added a visible local command history in the dock for previewed/applied/failed commands.
 - Commands still apply through the existing editor primitives and memento undo stack; no backend or model calls were added.
-- Pending: richer visual ghost previews and dedicated command-level undo/redo controls beyond the editor's existing undo/redo buttons.
+- Follow-up completed in PR 3: command-level undo/redo controls were added; richer visual ghost previews remain pending.
+
+## 2026-06-27 — Command undo/redo PR 3
+
+- Added command-level undo/redo controls in the CAD Copilot dock, backed by the editor's existing memento undo/redo stack.
+- Added operation detail rows to the textual preview so users can inspect move/connect/measure/focus/report operations before applying.
+- Kept the implementation UI-only and additive: no backend, no AI calls, no persistence changes.
+- Pending: true visual ghost geometry for previews and tighter command-history reconciliation when users mix toolbar undo with command undo.
+
+## 2026-06-27 — Snapping helpers PR 4
+
+- Added pure CAD snapping helpers in `apps/web/src/lib/cad/snapping.ts` for grid, edge, center, and connector anchors.
+- Added a smoke spec covering grid rounding, anchor collection, connector anchors, and box snapping.
+- This prepares the existing 3D editor snapping UI for a cleaner extraction path without changing backend or persistence.
+- Pending: wire these helpers into `Layout3DEditor.tsx` drag math and expose per-kind snap toggles beyond the current grid/object toggles.
+
+## 2026-06-27 — Snap helper wiring PR 5
+
+- Wired the 3D editor's grid snap scalar to the new pure `snapScalarToGrid` helper.
+- This is intentionally tiny: it proves the extraction path without rewriting the existing mature drag/object-snap code in one risky PR.
+- Pending: move object/center/edge/connector snap math from `Layout3DEditor.tsx` onto the pure snapping helpers.
+
+## 2026-06-27 — Measurement helpers PR 6
+
+- Added pure CAD measurement helpers for direct, horizontal, and vertical distances between points/objects.
+- Added unit formatting for mm/m and human-readable labels suitable for previews or permanent annotations.
+- Wired the command registry's `measure_distance` preview to the measurement helper so command output uses the shared math.
+- Pending: integrate these helpers into the interactive measure tool preview before creating permanent annotations.
+
+## 2026-06-27 — Layer model PR 7
+
+- Added a pure local layer model with default CAD layers: Layout, Equipment, Flow, Aisles, Measurements, and Safety.
+- Added helpers for show/hide, lock/unlock, object assignment, fallback lookup, and visibility/lock checks.
+- Added the first CAD Layers panel inside the existing view menu: visibility, lock state, and assign-selection actions.
+- Pending: enforce locks during drag/property edits and persist layer assignments with layout saves once the backend contract is approved.
+
+## 2026-06-27 — Object properties PR 8
+
+- Extended the right properties panel with selected object type, id, layer selector, and local tags.
+- Layer assignment now works both from the CAD Layers panel and from the single-object properties panel.
+- Kept tags and layer assignment local-only for now to avoid changing persistence without a backend contract.
+- Pending: enforce layer lock in edit/drag operations and persist object metadata through the layout API after contract approval.
+
+## 2026-06-27 — CAD toolbar PR 9
+
+- Added a pure toolbar action registry with select, pan, measure, aisle, connector, zone, equipment, text, fit view, undo, and redo.
+- Added a smoke spec for toolbar uniqueness, groups, and shortcuts.
+- Added a compact in-canvas CAD toolbar that calls existing editor actions instead of introducing new backend or persistence paths.
+- Pending: replace text-only buttons with icon affordances and add richer modes for rectangle/connector drawing.
+
+## 2026-06-27 — DXF import baseline PR 10
+
+- Added a pure DXF import baseline that maps LINE, LWPOLYLINE/POLYLINE, axis-aligned rectangles, TEXT/MTEXT, and layers into internal CAD primitives.
+- Unsupported or malformed entities now produce warnings instead of throwing.
+- Added smoke coverage for line, rectangle inference, text, and unsupported entity warnings.
+- Pending: wire this richer primitive import into the existing DXF upload/backdrop workflow and expose warnings in the UI.
