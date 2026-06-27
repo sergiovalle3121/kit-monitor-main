@@ -40,6 +40,7 @@ function useRelativeTime(ts?: number | null) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     if (!ts) return;
+    queueMicrotask(() => setNow(Date.now()));
     const t = setInterval(() => setNow(Date.now()), 15000);
     return () => clearInterval(t);
   }, [ts]);

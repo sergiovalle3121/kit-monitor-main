@@ -44,7 +44,7 @@ export function SlideSorter({
       if (active) setImgs(out);
     })();
     return () => { active = false; };
-  }, [slides]);
+  }, [slides, CH]);
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -75,7 +75,10 @@ export function SlideSorter({
             >
               <button onClick={() => onOpen(i)} className="block w-full">
                 <div className="rounded-lg overflow-hidden bg-white" style={{ aspectRatio: aspect }}>
-                  {imgs[i] ? <img src={imgs[i]} alt={`Diapositiva ${i + 1}`} className="w-full h-full object-contain" /> : <div className="w-full h-full flex items-center justify-center text-gray-300 text-xs">…</div>}
+                  {imgs[i] ? (
+                    // eslint-disable-next-line @next/next/no-img-element -- Fabric renders slide thumbnails as data URLs; next/image optimization is not useful here.
+                    <img src={imgs[i]} alt={`Diapositiva ${i + 1}`} className="w-full h-full object-contain" />
+                  ) : <div className="w-full h-full flex items-center justify-center text-gray-300 text-xs">…</div>}
                 </div>
               </button>
               <span className="absolute top-1.5 left-2 text-xs font-bold text-gray-500 bg-white/80 dark:bg-black/50 rounded px-1.5">{i + 1}</span>
