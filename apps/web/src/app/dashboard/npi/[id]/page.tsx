@@ -14,6 +14,10 @@ import {
   History,
   ShieldCheck,
   AlertTriangle,
+  Boxes,
+  ListChecks,
+  Network,
+  ArrowRight,
 } from 'lucide-react';
 import { IconTile } from '@/components/ui/IconTile';
 import { glass } from '@/lib/glass';
@@ -33,6 +37,16 @@ import {
   ReadinessSnapshot,
 } from '../_lib/npi';
 import {
+  canRelease,
+  deriveDependencies,
+  deriveMissing,
+  gateProgress,
+  LaunchDependency,
+  MissingItem,
+  phaseRailForProject,
+} from '../_lib/launch';
+import {
+  DependencyStatusPill,
   GateStatusPill,
   ProjectStatusPill,
   ReadinessPill,
@@ -41,6 +55,11 @@ import {
 const API_BASE = (
   process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'
 ).replace(/\/$/, '');
+
+interface ModelLite {
+  id: string;
+  modelNumber: string;
+}
 
 const DECISION_META: Record<
   GateDecision,
@@ -66,6 +85,12 @@ export default function NpiProjectDetailPage() {
   const { data: history, mutate: mutateHistory } = useApi<ReadinessSnapshot[]>(
     id ? `/npi/readiness/history?projectId=${id}&limit=20` : null,
   );
+  // Resolve the canonical model (read-only) so the dependency matrix can link it.
+  const { data: modelMatches } = useApi<ModelLite[]>(
+    project
+      ? `/product-models?search=${encodeURIComponent(project.modelNumber)}`
+      : null,
+  );
 
   const [deciding, setDeciding] = useState<{
     gateId: string;
@@ -80,6 +105,38 @@ export default function NpiProjectDetailPage() {
         (a, b) => PHASES.indexOf(a.phase) - PHASES.indexOf(b.phase),
       ),
     [project],
+  );
+
+  const model = useMemo(() => {
+    if (!project) return null;
+    return (
+      (modelMatches ?? []).find(
+        (m) => m.modelNumber === project.modelNumber,
+      ) ?? null
+    );
+  }, [modelMatches, project]);
+
+  const modelHref = model
+    ? `/dashboard/models/${model.id}`
+    : '/dashboard/models';
+
+  const dependencies = useMemo(
+    () =>
+      deriveDependencies(project?.readiness, {
+        modelResolved: !!model,
+        modelHref,
+      }),
+    [project?.readiness, model, modelHref],
+  );
+
+  const missing = useMemo(
+    () => deriveMissing(project?.readiness, gates),
+    [project?.readiness, gates],
+  );
+
+  const releasable = useMemo(
+    () => canRelease(project?.readiness, gates),
+    [project?.readiness, gates],
   );
 
   async function decide() {
@@ -136,6 +193,8 @@ export default function NpiProjectDetailPage() {
     );
   }
 
+  const progress = gateProgress(gates);
+
   return (
     <div className="min-h-screen text-black dark:text-white font-sans pb-28">
       <main className="max-w-4xl mx-auto px-6 pt-8">
@@ -143,11 +202,11 @@ export default function NpiProjectDetailPage() {
           href="/dashboard/npi"
           className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-black dark:hover:text-white mb-6"
         >
-          <ChevronLeft className="w-4 h-4" /> NPI
+          <ChevronLeft className="w-4 h-4" /> Launch Center
         </Link>
 
-        {/* Header */}
-        <div className="flex items-start gap-4 mb-8">
+        {/* Executive header */}
+        <div className="flex items-start gap-4 mb-6">
           <IconTile domain="engineering" size={52} icon={Rocket} />
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 flex-wrap">
@@ -155,6 +214,11 @@ export default function NpiProjectDetailPage() {
                 {project.modelNumber}
               </span>
               <ProjectStatusPill status={project.status} />
+              {project.readiness && (
+                <ReadinessPill
+                  status={project.readiness.gateReady ? 'READY' : 'NOT_READY'}
+                />
+              )}
             </div>
             <h1 className="text-2xl font-bold tracking-tight">
               {project.customer || 'Sin cliente'} · rev {project.revision}
@@ -164,13 +228,37 @@ export default function NpiProjectDetailPage() {
               <span className="font-medium">
                 {PHASE_LABEL[project.currentPhase] ?? project.currentPhase}
               </span>
-              {project.programId ? ` · Programa ${project.programId}` : ''}
+              {project.programId ? ` · Programa ${project.programId}` : ''} ·{' '}
+              {progress.cleared}/{progress.total} gates
             </p>
+          </div>
+          <div className="ml-auto shrink-0">
+            <Link
+              href={modelHref}
+              className="inline-flex items-center gap-1.5 text-sm font-medium px-3.5 py-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10"
+            >
+              <Boxes className="w-4 h-4" /> {model ? 'Ver modelo' : 'Maestro'}
+            </Link>
           </div>
         </div>
 
+        {/* Release banner */}
+        <ReleaseBanner releasable={releasable} blockers={missing} />
+
+        {/* Phase timeline */}
+        <PhaseTimeline
+          currentPhase={project.currentPhase}
+          status={project.status}
+        />
+
         {/* Readiness */}
         {project.readiness && <ReadinessPanel report={project.readiness} />}
+
+        {/* What's missing to release */}
+        <MissingPanel items={missing} />
+
+        {/* Dependency matrix */}
+        <DependencyMatrix dependencies={dependencies} />
 
         {/* Gates */}
         <h2 className="font-semibold text-sm uppercase tracking-wide text-gray-400 mt-8 mb-3">
@@ -196,7 +284,9 @@ export default function NpiProjectDetailPage() {
           <History className="w-4 h-4" /> Historial de readiness
         </h2>
         {history && history.length > 0 ? (
-          <div className={`${glass} rounded-2xl divide-y divide-black/5 dark:divide-white/5`}>
+          <div
+            className={`${glass} rounded-2xl divide-y divide-black/5 dark:divide-white/5`}
+          >
             {history.map((s) => (
               <div key={s.id} className="flex items-center gap-3 px-4 py-2.5">
                 <ReadinessPill status={s.gateReady ? 'READY' : 'NOT_READY'} />
@@ -272,10 +362,103 @@ export default function NpiProjectDetailPage() {
   );
 }
 
+/** Top-of-dossier go/no-go banner answering "¿puedo liberar a MP?". */
+function ReleaseBanner({
+  releasable,
+  blockers,
+}: {
+  releasable: boolean;
+  blockers: MissingItem[];
+}) {
+  const hardBlockers = blockers.filter((b) => b.severity === 'blocker').length;
+  return (
+    <div
+      className={`${glass} rounded-2xl p-4 mb-6 flex items-center gap-3`}
+      style={{
+        boxShadow: releasable ? 'inset 0 0 0 1px #10b98133' : undefined,
+      }}
+    >
+      {releasable ? (
+        <ShieldCheck className="w-5 h-5 shrink-0" style={{ color: '#10b981' }} />
+      ) : (
+        <AlertTriangle
+          className="w-5 h-5 shrink-0"
+          style={{ color: '#f59e0b' }}
+        />
+      )}
+      <div className="min-w-0 flex-1">
+        <div className="font-semibold text-sm">
+          {releasable
+            ? 'Listo para liberar a MP'
+            : '¿Puedo producir esto mañana? Aún no.'}
+        </div>
+        <div className="text-xs text-gray-400">
+          {releasable
+            ? 'Readiness en verde y todos los gates resueltos. Decisión final advisory.'
+            : `${blockers.length} pendiente(s) · ${hardBlockers} bloqueo(s) duro(s) antes de liberar.`}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Compact gate pipeline showing done / current / upcoming phases. */
+function PhaseTimeline({
+  currentPhase,
+  status,
+}: {
+  currentPhase: NpiProject['currentPhase'];
+  status: NpiProject['status'];
+}) {
+  const rail = phaseRailForProject(currentPhase, status);
+  return (
+    <div className={`${glass} rounded-2xl p-4 mb-6`}>
+      <div className="text-[11px] uppercase tracking-wide text-gray-400 mb-3">
+        Pipeline · QUOTE → MP
+      </div>
+      <div className="flex items-stretch gap-1.5 overflow-x-auto">
+        {rail.map((r, i) => {
+          const color = r.current
+            ? '#5b5bd6'
+            : r.done
+              ? '#10b981'
+              : undefined;
+          return (
+            <React.Fragment key={r.phase}>
+              <div
+                className="flex-1 min-w-[4.5rem] rounded-xl px-2 py-2.5 text-center"
+                style={{
+                  background: color ? `${color}14` : undefined,
+                  boxShadow: r.current ? `inset 0 0 0 1px ${color}55` : undefined,
+                }}
+              >
+                <div
+                  className="text-[12px] font-semibold"
+                  style={{ color }}
+                >
+                  {r.phase}
+                </div>
+                <div className="text-[10px] text-gray-400 mt-0.5">
+                  {r.done ? 'hecho' : r.current ? 'actual' : 'pendiente'}
+                </div>
+              </div>
+              {i < rail.length - 1 && (
+                <div className="self-center text-gray-300 dark:text-gray-600">
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </div>
+              )}
+            </React.Fragment>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function ReadinessPanel({ report }: { report: ReadinessReport }) {
   const ready = report.gateReady;
   return (
-    <div className={`${glass} rounded-2xl p-5`}>
+    <div className={`${glass} rounded-2xl p-5 mb-6`}>
       <div className="flex items-center gap-3 mb-4">
         {ready ? (
           <ShieldCheck className="w-5 h-5" style={{ color: '#10b981' }} />
@@ -308,6 +491,90 @@ function ReadinessPanel({ report }: { report: ReadinessReport }) {
         ))}
       </div>
     </div>
+  );
+}
+
+/** Actionable "qué falta para liberar" list folded from readiness + gates. */
+function MissingPanel({ items }: { items: MissingItem[] }) {
+  return (
+    <section className="mb-6">
+      <h2 className="font-semibold text-sm uppercase tracking-wide text-gray-400 mb-3 flex items-center gap-2">
+        <ListChecks className="w-4 h-4" /> Qué falta para liberar
+      </h2>
+      {items.length === 0 ? (
+        <div
+          className={`${glass} rounded-2xl p-5 flex items-center gap-3 text-sm`}
+        >
+          <CheckCircle2 className="w-5 h-5" style={{ color: '#10b981' }} />
+          <span>Nada pendiente. Todo resuelto para este launch.</span>
+        </div>
+      ) : (
+        <div className={`${glass} rounded-2xl divide-y divide-black/5 dark:divide-white/5`}>
+          {items.map((it) => {
+            const blocker = it.severity === 'blocker';
+            const color = blocker ? '#f43f5e' : '#f59e0b';
+            return (
+              <div key={it.key} className="flex items-start gap-3 px-4 py-3">
+                {blocker ? (
+                  <XCircle
+                    className="w-4 h-4 mt-0.5 shrink-0"
+                    style={{ color }}
+                  />
+                ) : (
+                  <AlertTriangle
+                    className="w-4 h-4 mt-0.5 shrink-0"
+                    style={{ color }}
+                  />
+                )}
+                <div className="min-w-0">
+                  <div className="text-sm font-medium">{it.label}</div>
+                  <div className="text-xs text-gray-400">{it.detail}</div>
+                </div>
+                <span
+                  className="ml-auto text-[10px] font-semibold uppercase tracking-wide shrink-0"
+                  style={{ color }}
+                >
+                  {blocker ? 'Bloqueo' : 'Verificar'}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </section>
+  );
+}
+
+/** Which AXOS modules feed this launch, with status + a live link to fix each. */
+function DependencyMatrix({
+  dependencies,
+}: {
+  dependencies: LaunchDependency[];
+}) {
+  return (
+    <section className="mb-2">
+      <h2 className="font-semibold text-sm uppercase tracking-wide text-gray-400 mb-3 flex items-center gap-2">
+        <Network className="w-4 h-4" /> Dependencias de ingeniería
+      </h2>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        {dependencies.map((d) => (
+          <Link
+            key={d.key}
+            href={d.href}
+            className={`${glass} group rounded-2xl p-3.5 flex items-start gap-3 hover:bg-black/[0.02] dark:hover:bg-white/[0.03]`}
+          >
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-sm font-medium">{d.label}</span>
+                <DependencyStatusPill status={d.status} />
+              </div>
+              <div className="text-xs text-gray-400 mt-0.5">{d.detail}</div>
+            </div>
+            <ArrowRight className="w-4 h-4 text-gray-300 dark:text-gray-600 shrink-0 mt-0.5 group-hover:text-gray-500" />
+          </Link>
+        ))}
+      </div>
+    </section>
   );
 }
 

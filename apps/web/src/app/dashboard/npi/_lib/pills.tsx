@@ -9,6 +9,7 @@ import {
   READINESS_META,
   ReadinessStatus,
 } from './npi';
+import { DEPENDENCY_STATUS_META, DependencyStatus } from './launch';
 
 function Pill({ label, color }: { label: string; color: string }) {
   return (
@@ -40,6 +41,11 @@ export function GateStatusPill({ status }: { status: GateStatus }) {
 
 export function ReadinessPill({ status }: { status: ReadinessStatus }) {
   const m = READINESS_META[status] ?? { label: status, color: '#9ca3af' };
+  return <Pill label={m.label} color={m.color} />;
+}
+
+export function DependencyStatusPill({ status }: { status: DependencyStatus }) {
+  const m = DEPENDENCY_STATUS_META[status] ?? { label: status, color: '#9ca3af' };
   return <Pill label={m.label} color={m.color} />;
 }
 

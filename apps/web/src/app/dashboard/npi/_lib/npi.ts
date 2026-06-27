@@ -28,6 +28,21 @@ export interface ReadinessCriterion {
   detail: string;
 }
 
+/**
+ * Raw release signals the backend resolves read-only from the modules that own
+ * them (BOM, FAI, routing/line, AVL). Mirrors `ReadinessSignals` in
+ * apps/api/src/modules/npi/npi.readiness.ts. A `null` field means "could not be
+ * resolved" → reported UNKNOWN, never assumed good.
+ */
+export interface ReadinessSignals {
+  bomStatus?: string | null;
+  faiStatus?: string | null;
+  lineBalancePct?: number | null;
+  lineCompletenessPct?: number | null;
+  stdTimeComplete?: boolean | null;
+  avlCoverage?: number | null;
+}
+
 export interface ReadinessReport {
   model: string;
   revision: string;
@@ -38,7 +53,7 @@ export interface ReadinessReport {
   unknownCount: number;
   blockers: string[];
   unknowns: string[];
-  signals?: Record<string, unknown>;
+  signals?: ReadinessSignals | Record<string, unknown>;
 }
 
 export interface NpiProject {
