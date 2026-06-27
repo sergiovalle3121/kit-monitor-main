@@ -46,3 +46,27 @@ Implemented in the editor layer without replacing Fortune-Sheet:
 - Quick actions cover clipboard commands, number formats, currency/percentage, clear formatting, row/column insert/delete, freeze panes, and starter AXOS connector placeholders.
 
 Known limitation: the AXOS connector tab is intentionally placeholder-only in this phase; live ERP/MES data insertion belongs to the connector phase and must reuse existing tenant-safe modules/endpoints.
+
+## Fase 2 — Industrial formula baseline
+
+Implemented as pure, registered spreadsheet functions (no ERP/MES fetch side effects):
+
+- `AXOS_OEE(availability, performance, quality)` for line/shift OEE.
+- `AXOS_YIELD(good, total)` and `AXOS_SCRAP_RATE(scrap, total)` for quality and scrap dashboards.
+- `AXOS_CPK(values, lowerSpec, upperSpec)` for process capability analysis.
+- `AXOS_INVENTORY_TURNS(cogs, avgInventory)` and `AXOS_ABCD_CLASS(value, thresholds...)` for supply-chain analytics.
+- `AXOS_MARGIN(price, cost)`, `AXOS_MARKUP(price, cost)`, and `AXOS_COST_ROLLUP(qtyRange, costRange, scrapRange?)` for BOM costing.
+- `AXOS_SUPPLIER_SCORE(otd, quality, cost, response, weights?)`, `AXOS_CAPACITY_UTILIZATION(demandHours, capacityHours)`, `AXOS_SHORTAGE(required, available, incoming?)`, and `AXOS_SUM_VISIBLE(values)` for industrial operating models.
+
+These functions are registered through the existing Fortune-Sheet formula parser patch so formulas can be used directly in cells while remaining unit-testable outside the UI.
+
+## Fase 3 — XLSX links/comments fidelity baseline
+
+The XLSX bridge now preserves lightweight cell hyperlinks and comments in both directions:
+
+- Fortune cell metadata `hl`/`hyperlink`/`link` exports to XLSX hyperlinks.
+- Fortune cell metadata `comment`/`noteText` exports to XLSX cell notes/comments.
+- SheetJS import maps workbook hyperlinks/comments back into Fortune cell metadata.
+- ExcelJS styled import/export also carries hyperlinks/comments alongside styles, validation, filters, protection, merges, dimensions, formulas, and number formats.
+
+Known limitation: workbook-level AXOS review threads remain in the document JSON (`comments`) and are not yet exported as threaded Excel comments; this phase covers cell-level XLSX comments/notes for round-trip compatibility.

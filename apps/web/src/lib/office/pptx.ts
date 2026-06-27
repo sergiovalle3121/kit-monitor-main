@@ -139,14 +139,18 @@ function addChartObject(slide: any, o: any, pptx: any) {
   const T = pptx.ChartType;
   const legend = spec.legend !== false;
   const common = { ...box, chartColors: colors, showLegend: legend, legendPos: 'b', showTitle: !!(spec.title && spec.title.trim()), title: spec.title || '', showValue: !!spec.showValues };
-  if (spec.type === 'pie' || spec.type === 'doughnut') {
+  if (spec.type === 'pie' || spec.type === 'doughnut' || spec.type === 'gauge') {
     const s0 = spec.series[0];
-    slide.addChart(spec.type === 'doughnut' ? (T.doughnut ?? T.pie) : T.pie,
-      [{ name: s0?.name || 'Datos', labels, values: (s0?.data ?? []).map((n: any) => Number(n) || 0) }],
-      { ...common, showPercent: !!spec.showValues, ...(spec.type === 'doughnut' ? { holeSize: 55 } : {}) });
+    const chartData = spec.type === 'gauge'
+      ? [{ name: s0?.name || 'Gauge', labels: ['Valor', 'Restante'], values: [Number(s0?.data?.[0]) || 0, Math.max(0, (Number(s0?.data?.[1]) || 100) - (Number(s0?.data?.[0]) || 0))] }]
+      : [{ name: s0?.name || 'Datos', labels, values: (s0?.data ?? []).map((n: any) => Number(n) || 0) }];
+    slide.addChart((spec.type === 'doughnut' || spec.type === 'gauge') ? (T.doughnut ?? T.pie) : T.pie,
+      chartData,
+      { ...common, showPercent: !!spec.showValues, ...(spec.type === 'doughnut' || spec.type === 'gauge' ? { holeSize: spec.type === 'gauge' ? 70 : 55 } : {}) });
     return;
   }
-  const data = spec.series.map((s: any) => ({ name: String(s.name ?? ''), labels, values: (s.data ?? []).map((n: any) => Number(n) || 0) }));
+  let data = spec.series.map((s: any) => ({ name: String(s.name ?? ''), labels, values: (s.data ?? []).map((n: any) => Number(n) || 0) }));
+  if (spec.type === 'pareto' || spec.type === 'waterfall') data = data.slice(0, 1);
   const type = spec.type === 'line' ? T.line : spec.type === 'area' ? T.area : T.bar;
   slide.addChart(type, data, { ...common, barDir: spec.type === 'hbar' ? 'bar' : 'col', ...(spec.stacked && (spec.type === 'bar' || spec.type === 'hbar') ? { barGrouping: 'stacked' } : {}) });
 }

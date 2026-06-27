@@ -55,3 +55,29 @@ Design constraints for this slice:
 - Keep the token inline and printable so SOPs and reports remain readable in DOCX/PDF exports.
 - Preserve the structured entity/ref id attributes in editor JSON for future live AXOS lookups.
 - Avoid duplicating editor components; extend the existing insert extras ribbon group and TipTap node extension set.
+
+## Implementation slice — Controlled document properties and live fields
+
+AXOS Docs now includes a first controlled-document metadata layer. Authors can maintain document number, revision, owner, department, effective date, status, customer, and model from the existing File ribbon, then insert those values as inline document fields. Fields travel inside TipTap JSON and can be refreshed when properties change, giving industrial templates a foundation for controlled SOP/WI/quality records without duplicating data manually.
+
+This is the basis for release workflows, controlled-copy watermarks, revision blocks, approval gates, and AXOS entity binding in later PRs.
+
+## Implementation slice — Version compare foundation for Track Changes
+
+AXOS Docs now adds a first version-compare workflow inside the existing Version History drawer. Reviewers can compare a saved snapshot against the current document, see added/removed lines, and decide whether to restore or continue editing. This is not a full Word-level redline engine yet, but it establishes the compare UX and text extraction path needed for Phase 5 document compare, reviewer sign-off, and server-side revision summaries.
+
+## Implementation slice — Portable HTML export
+
+AXOS Docs now adds a semantic HTML export path alongside DOCX, Markdown, TXT, and print/PDF. The exporter preserves tables, callouts, comments, tracked insertions/deletions, AXOS smart references, document fields, bookmarks, cross-references, task lists, and page breaks as readable HTML. This gives Quality, Engineering, and Operations a portable artifact for Confluence-style knowledge sharing while keeping controlled AXOS metadata visible outside the app.
+
+## Implementation slice — Office Hub document library foundation
+
+The Office Hub now starts the DMS/library phase with richer workspace controls on top of the existing document list. Users can switch between card and list views, filter by owned/shared/favorite/pinned/recent documents, search by title/author/tag, and maintain lightweight local workspace metadata for favorites, pins, and tags. This keeps the current backend contract intact while establishing the interaction model for future server-backed spaces, collections, folders, document cards, and enterprise metadata.
+
+Next server-backed library increments should persist these workspace signals per user and tenant, then add governed folders/spaces, tag administration, thumbnails/previews, and AXOS entity facets.
+
+## Implementation slice — Premium industrial template library
+
+AXOS Docs now ships a broader governed-template foundation for manufacturing, quality, NPI, maintenance, supplier quality, customer quality, and executive QMS workflows. The document template library includes controlled SOP, Work Instruction, PPAP, ECN/ECO, maintenance, calibration, functional test, customer specification, supplier specification, quality manual, production report, lessons learned, launch readiness, and management review templates.
+
+These templates are not blank shells: they preload controlled document properties, live document fields, AXOS smart references, approval blocks, revision history, CTQ tables, reaction plans, and audit-ready sections. This is the first large step toward making AXOS Docs feel like an industrial Word/Confluence/PLM hybrid out of the box.
