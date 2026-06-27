@@ -375,7 +375,7 @@ export function SearchPalette() {
           >
             {/* Cabecera: ícono + input + spinner + ESC */}
             <div className="flex items-center gap-3 px-4 py-3.5 border-b border-black/[0.06] dark:border-white/10">
-              <Search className="w-5 h-5 text-violet-500 flex-shrink-0" strokeWidth={1.9} />
+              <Search className="w-5 h-5 text-primary flex-shrink-0" strokeWidth={1.9} />
               <input
                 autoFocus
                 role="combobox"
@@ -388,7 +388,7 @@ export function SearchPalette() {
                 placeholder="Ir a un área o pantalla…  Planeación, Calidad, Almacén, ERP"
                 className="flex-1 bg-transparent outline-none text-base text-gray-900 dark:text-gray-100 placeholder:text-gray-400"
               />
-              {recordsLoading && <Loader2 className="w-4 h-4 text-violet-500 animate-spin flex-shrink-0" />}
+              {recordsLoading && <Loader2 className="w-4 h-4 text-primary animate-spin flex-shrink-0" />}
               <kbd className="hidden sm:inline text-[10px] font-mono px-1.5 py-0.5 rounded bg-black/5 dark:bg-white/10 text-gray-400">ESC</kbd>
             </div>
 
@@ -420,7 +420,7 @@ export function SearchPalette() {
                         onClick={() => go(item.href)}
                         className={`group/row w-full flex items-center gap-3 px-2.5 py-2 rounded-xl text-left transition-colors ${
                           active
-                            ? 'bg-violet-500/[0.09] dark:bg-violet-400/[0.12] ring-1 ring-inset ring-violet-500/25 dark:ring-violet-400/20'
+                            ? 'bg-primary/[0.09] dark:bg-primary/[0.12] ring-1 ring-inset ring-primary/25 dark:ring-primary/20'
                             : 'hover:bg-black/[0.035] dark:hover:bg-white/[0.05]'
                         }`}
                       >
@@ -438,7 +438,7 @@ export function SearchPalette() {
                             {item.badge.replace(/_/g, ' ').toLowerCase()}
                           </span>
                         )}
-                        <span className={`flex-shrink-0 items-center gap-1 text-[10px] font-semibold text-violet-500 dark:text-violet-300 ${active ? 'flex' : 'hidden'}`}>
+                        <span className={`flex-shrink-0 items-center gap-1 text-[10px] font-semibold text-primary ${active ? 'flex' : 'hidden'}`}>
                           <CornerDownLeft className="w-3 h-3" />
                           <span className="hidden md:inline">Enter</span>
                         </span>
@@ -520,7 +520,7 @@ function highlight(text: string, terms: string[]): React.ReactNode {
   const set = new Set(terms);
   return parts.map((part, i) =>
     part && set.has(part.toLowerCase())
-      ? <mark key={i} className="bg-transparent text-violet-600 dark:text-violet-300 font-semibold">{part}</mark>
+      ? <mark key={i} className="bg-transparent text-primary font-semibold">{part}</mark>
       : <Fragment key={i}>{part}</Fragment>,
   );
 }
