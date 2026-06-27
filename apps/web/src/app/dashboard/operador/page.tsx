@@ -1,11 +1,10 @@
-'use client';
+"use client";
 
-import React, { useCallback, useState } from 'react';
-import Link from 'next/link';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   ChevronLeft,
-  Radio,
   ScanLine,
   Factory,
   PlayCircle,
@@ -23,27 +22,42 @@ import {
   Wrench,
   Hand,
   Image as ImageIcon,
-  FileText,
-} from 'lucide-react';
-import { glass } from '@/lib/glass';
-import { useApi } from '@/hooks/useApi';
-import { useDialogA11y } from '@/hooks/useDialogA11y';
-import { apiFetch } from '@/lib/apiFetch';
-import { useToast } from '@/contexts/ToastContext';
-import { useMesSignals } from '@/hooks/useMesSignals';
-import { useDashboardSession } from '@/hooks/useDashboardSession';
+  Wifi,
+  WifiOff,
+  Activity,
+  Sun,
+  Moon,
+  Keyboard,
+  QrCode,
+  BluetoothConnected,
+  Usb,
+  History,
+  Volume2,
+  Maximize2,
+  Minimize2,
+  ExternalLink,
+  BookOpenCheck,
+  PlaySquare,
+} from "lucide-react";
+import { glass } from "@/lib/glass";
+import { useApi } from "@/hooks/useApi";
+import { useDialogA11y } from "@/hooks/useDialogA11y";
+import { apiFetch } from "@/lib/apiFetch";
+import { useToast } from "@/contexts/ToastContext";
+import { useMesSignals } from "@/hooks/useMesSignals";
+import { useDashboardSession } from "@/hooks/useDashboardSession";
 
 const API_BASE = (
-  process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'
-).replace(/\/$/, '');
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000"
+).replace(/\/$/, "");
 
-const GREEN = '#10b981';
-const AMBER = '#f59e0b';
-const RED = '#ef4444';
-const GRAY = '#6b7280';
+const GREEN = "#10b981";
+const AMBER = "#f59e0b";
+const RED = "#ef4444";
+const GRAY = "#6b7280";
 
 // ── Types mirroring the /mes board response ────────────────────────────────
-type StepStatus = 'pending' | 'in_process' | 'blocked' | 'completed';
+type StepStatus = "pending" | "in_process" | "blocked" | "completed";
 
 interface ExecListItem {
   id: number;
@@ -87,11 +101,14 @@ interface Material {
   short: boolean;
 }
 interface VisualAid {
-  kind: 'image' | 'pdf' | 'office';
+  kind: "image" | "pdf" | "office" | "video" | "cad";
   id: string;
   title?: string;
   fileUrl?: string;
   documentUrl?: string;
+  version?: string;
+  revision?: string;
+  updatedAt?: string;
 }
 interface Incident {
   id: number;
@@ -150,41 +167,293 @@ interface Board {
   } | null;
   andons: Andon[];
   openDowntime: Downtime[];
-  assignments: { stepId: number; operatorName: string; operatorId: string | null }[];
+  assignments: {
+    stepId: number;
+    operatorName: string;
+    operatorId: string | null;
+  }[];
   materialRequests: { id: number; status: string; note?: string | null }[];
   downtimeSummarySec: number;
 }
 function reqId(): string {
-  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
     return crypto.randomUUID();
   }
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
 const STEP_META: Record<StepStatus, { label: string; color: string }> = {
-  pending: { label: 'Pendiente', color: GRAY },
-  in_process: { label: 'En proceso', color: AMBER },
-  blocked: { label: 'Bloqueado', color: RED },
-  completed: { label: 'Completado', color: GREEN },
+  pending: { label: "Pendiente", color: GRAY },
+  in_process: { label: "En proceso", color: AMBER },
+  blocked: { label: "Bloqueado", color: RED },
+  completed: { label: "Completado", color: GREEN },
 };
+
+function useOperatorClock() {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(new Date()), 1000);
+    return () => window.clearInterval(id);
+  }, []);
+  return now;
+}
+
+function shiftLabel(now: Date) {
+  const hour = now.getHours();
+  if (hour >= 6 && hour < 14) return "Turno A · 06:00-14:00";
+  if (hour >= 14 && hour < 22) return "Turno B · 14:00-22:00";
+  return "Turno C · 22:00-06:00";
+}
+
+function formatClock(now: Date) {
+  return new Intl.DateTimeFormat("es-MX", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).format(now);
+}
+
+function formatDuration(sec: number) {
+  const safe = Math.max(0, Math.floor(sec));
+  const h = Math.floor(safe / 3600);
+  const m = Math.floor((safe % 3600) / 60);
+  return h > 0 ? `${h}h ${m}m` : `${m}m`;
+}
+
+type ScanKind =
+  | "wo"
+  | "serial"
+  | "lot"
+  | "material"
+  | "qr"
+  | "datamatrix"
+  | "code128";
+type ScanState = "idle" | "reading" | "valid" | "invalid";
+
+interface ScanResult {
+  raw: string;
+  normalized: string;
+  kind: ScanKind;
+  valid: boolean;
+  message: string;
+  at: string;
+}
+
+const SCANNER_BUFFER_TIMEOUT_MS = 75;
+const SCAN_HISTORY_LIMIT = 6;
+
+function classifyScan(raw: string): Omit<ScanResult, "at"> {
+  const normalized = raw.trim();
+  const upper = normalized.toUpperCase();
+  if (!normalized) {
+    return {
+      raw,
+      normalized,
+      kind: "code128",
+      valid: false,
+      message: "Escaneo vacío. Intenta de nuevo.",
+    };
+  }
+  if (/^WO[-_:\s]?[A-Z0-9-]{3,}$/i.test(upper) || /^[0-9]{5,}$/.test(upper)) {
+    return {
+      raw,
+      normalized: upper.replace(/^WO[-_:\s]?/i, ""),
+      kind: "wo",
+      valid: true,
+      message: "WO detectada y lista para montar.",
+    };
+  }
+  if (/^(SN|SERIAL)[-_:\s]?[A-Z0-9-]{4,}$/i.test(upper)) {
+    return {
+      raw,
+      normalized: upper.replace(/^(SN|SERIAL)[-_:\s]?/i, "SN-"),
+      kind: "serial",
+      valid: true,
+      message: "Número de serie capturado.",
+    };
+  }
+  if (/^(LOT|LOTE)[-_:\s]?[A-Z0-9-]{3,}$/i.test(upper)) {
+    return {
+      raw,
+      normalized: upper.replace(/^(LOT|LOTE)[-_:\s]?/i, "LOT-"),
+      kind: "lot",
+      valid: true,
+      message: "Lote detectado para trazabilidad.",
+    };
+  }
+  if (/^(MAT|PN|MPN)[-_:\s]?[A-Z0-9_.-]{3,}$/i.test(upper)) {
+    return {
+      raw,
+      normalized: upper.replace(/^(MAT|PN|MPN)[-_:\s]?/i, ""),
+      kind: "material",
+      valid: true,
+      message: "Material detectado.",
+    };
+  }
+  if (/^\]C1/.test(normalized)) {
+    return {
+      raw,
+      normalized: normalized.slice(3),
+      kind: "code128",
+      valid: true,
+      message: "Code128 GS1 capturado.",
+    };
+  }
+  if (
+    /^\]D2/.test(normalized) ||
+    normalized.includes(String.fromCharCode(29))
+  ) {
+    return {
+      raw,
+      normalized: normalized
+        .replace(/^\]D2/, "")
+        .replaceAll(String.fromCharCode(29), "|"),
+      kind: "datamatrix",
+      valid: true,
+      message: "DataMatrix capturado.",
+    };
+  }
+  if (/^https?:\/\//i.test(normalized) || /^[A-Z0-9]{12,}$/.test(upper)) {
+    return {
+      raw,
+      normalized,
+      kind: "qr",
+      valid: true,
+      message: "QR capturado.",
+    };
+  }
+  return {
+    raw,
+    normalized,
+    kind: "code128",
+    valid: normalized.length >= 3,
+    message:
+      normalized.length >= 3
+        ? "Código capturado; valida que corresponda al campo activo."
+        : "Código demasiado corto para validación industrial.",
+  };
+}
+
+function scannerTone(ok: boolean) {
+  if (typeof window === "undefined") return;
+  try {
+    const AudioContextCtor = window.AudioContext;
+    if (!AudioContextCtor) return;
+    const ctx = new AudioContextCtor();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.frequency.value = ok ? 880 : 220;
+    gain.gain.value = 0.04;
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + (ok ? 0.07 : 0.16));
+  } catch {
+    // Audio feedback is best-effort; scanner validation still works without it.
+  }
+}
+
+function useIndustrialScanner(onScan: (scan: ScanResult) => void) {
+  const [scannerState, setScannerState] = useState<ScanState>("idle");
+  const [lastScan, setLastScan] = useState<ScanResult | null>(null);
+  const [scanHistory, setScanHistory] = useState<ScanResult[]>([]);
+  const bufferRef = useRef("");
+  const timerRef = useRef<number | null>(null);
+  const onScanRef = useRef(onScan);
+
+  useEffect(() => {
+    onScanRef.current = onScan;
+  }, [onScan]);
+
+  const commitScan = useCallback((raw: string) => {
+    const result: ScanResult = {
+      ...classifyScan(raw),
+      at: new Date().toISOString(),
+    };
+    setLastScan(result);
+    setScannerState(result.valid ? "valid" : "invalid");
+    setScanHistory((prev) => [result, ...prev].slice(0, SCAN_HISTORY_LIMIT));
+    scannerTone(result.valid);
+    if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+      navigator.vibrate(result.valid ? 25 : [40, 40, 80]);
+    }
+    if (result.valid) onScanRef.current(result);
+    window.setTimeout(() => setScannerState("idle"), 900);
+  }, []);
+
+  useEffect(() => {
+    function flushBuffer() {
+      const value = bufferRef.current;
+      bufferRef.current = "";
+      if (value.length >= 3) commitScan(value);
+      else setScannerState("idle");
+    }
+
+    function onKeyDown(event: KeyboardEvent) {
+      const target = event.target as HTMLElement | null;
+      const isEditable =
+        target?.tagName === "INPUT" ||
+        target?.tagName === "TEXTAREA" ||
+        target?.isContentEditable;
+      if (isEditable && !event.ctrlKey && !event.metaKey) return;
+      if (event.key === "Enter") {
+        if (bufferRef.current) {
+          event.preventDefault();
+          flushBuffer();
+        }
+        return;
+      }
+      if (
+        event.key.length !== 1 ||
+        event.altKey ||
+        event.ctrlKey ||
+        event.metaKey
+      )
+        return;
+      bufferRef.current += event.key;
+      setScannerState("reading");
+      if (timerRef.current) window.clearTimeout(timerRef.current);
+      timerRef.current = window.setTimeout(
+        flushBuffer,
+        SCANNER_BUFFER_TIMEOUT_MS,
+      );
+    }
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      if (timerRef.current) window.clearTimeout(timerRef.current);
+    };
+  }, [commitScan]);
+
+  return { scannerState, lastScan, scanHistory, commitScan };
+}
 
 export default function OperadorPage() {
   const { session } = useDashboardSession();
-  const operator = session?.name || session?.email || 'Operador';
+  const operator = session?.name || session?.email || "Operador";
+  const now = useOperatorClock();
+  const [industrialTheme, setIndustrialTheme] = useState<"light" | "dark">(
+    "dark",
+  );
+  const [gloveMode, setGloveMode] = useState(true);
 
   const [executionId, setExecutionId] = useState<number | null>(null);
   const [stepId, setStepId] = useState<number | null>(null);
-  const [sheet, setSheet] = useState<'confirm' | 'incident' | 'andon' | null>(null);
+  const [sheet, setSheet] = useState<"confirm" | "incident" | "andon" | null>(
+    null,
+  );
 
   const {
     data: execList,
     isLoading: listLoading,
     forbidden,
     mutate: mutateList,
-  } = useApi<ExecListItem[]>('/mes/executions?status=open');
+  } = useApi<ExecListItem[]>("/mes/executions?status=open");
 
   const boardPath = executionId
-    ? `/mes/board?executionId=${executionId}${stepId ? `&stepId=${stepId}` : ''}`
+    ? `/mes/board?executionId=${executionId}${stepId ? `&stepId=${stepId}` : ""}`
     : null;
   const { data: board, mutate: mutateBoard } = useApi<Board>(boardPath);
 
@@ -197,52 +466,35 @@ export default function OperadorPage() {
   const list = Array.isArray(execList) ? execList : [];
 
   return (
-    <div className="min-h-screen text-black dark:text-white font-sans pb-40">
-      {/* Header */}
-      <div
-        className={`${glass} sticky top-0 z-40 px-5 py-3 rounded-none border-x-0 border-t-0 flex items-center justify-between`}
-      >
-        <div className="flex items-center gap-3">
-          {executionId ? (
-            <button
-              onClick={() => {
+    <div
+      className={`min-h-screen font-sans pb-44 ${industrialTheme === "dark" ? "dark bg-slate-950 text-white" : "bg-slate-50 text-slate-950"} ${gloveMode ? "[&_*]:touch-manipulation" : ""}`}
+    >
+      <IndustrialTopBar
+        execution={board?.execution ?? null}
+        currentStep={board?.currentStep ?? null}
+        operator={operator}
+        shift={shiftLabel(now)}
+        clock={formatClock(now)}
+        socketStatus={socketStatus}
+        alerts={
+          (board?.andons.filter((a) => a.status !== "resolved").length ?? 0) +
+          (board?.currentStepDetail?.openIncidents.length ?? 0)
+        }
+        gloveMode={gloveMode}
+        industrialTheme={industrialTheme}
+        onToggleGlove={() => setGloveMode((v) => !v)}
+        onToggleTheme={() =>
+          setIndustrialTheme((v) => (v === "dark" ? "light" : "dark"))
+        }
+        onBack={
+          executionId
+            ? () => {
                 setExecutionId(null);
                 setStepId(null);
-              }}
-              className="flex items-center gap-1.5 text-sm font-medium text-gray-500 hover:text-black dark:hover:text-white transition-colors"
-            >
-              <ChevronLeft className="w-4 h-4" /> Órdenes
-            </button>
-          ) : (
-            <Link
-              href="/dashboard"
-              className="flex items-center gap-1.5 text-sm font-medium text-gray-500 hover:text-black dark:hover:text-white transition-colors"
-            >
-              <ChevronLeft className="w-4 h-4" /> Dashboard
-            </Link>
-          )}
-          <span className="flex items-center gap-2 text-lg font-bold tracking-tight">
-            <Factory className="w-5 h-5 text-amber-500" strokeWidth={1.75} /> MES · Operador
-          </span>
-        </div>
-        <div className="flex items-center gap-4">
-          <span
-            className="flex items-center gap-1.5 text-xs font-semibold"
-            style={{ color: socketStatus === 'connected' ? GREEN : AMBER }}
-          >
-            <Radio
-              className={`w-3.5 h-3.5 ${socketStatus === 'connected' ? 'animate-pulse' : ''}`}
-            />
-            {socketStatus === 'connected' ? 'En vivo' : 'Conectando…'}
-          </span>
-          <span className="hidden sm:flex items-center gap-2 text-sm">
-            <span className="w-7 h-7 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 grid place-items-center text-xs font-bold">
-              {operator.slice(0, 1).toUpperCase()}
-            </span>
-            <span className="font-medium truncate max-w-[160px]">{operator}</span>
-          </span>
-        </div>
-      </div>
+              }
+            : null
+        }
+      />
 
       <main className="max-w-6xl mx-auto px-4 sm:px-6 pt-6">
         {forbidden && (
@@ -257,6 +509,7 @@ export default function OperadorPage() {
           <Picker
             list={list}
             loading={listLoading}
+            gloveMode={gloveMode}
             onPick={(id) => {
               setExecutionId(id);
               setStepId(null);
@@ -285,7 +538,7 @@ export default function OperadorPage() {
       <AnimatePresence>
         {sheet && board?.currentStep && board.currentStepDetail && (
           <ActionSheet onClose={() => setSheet(null)}>
-            {sheet === 'confirm' && (
+            {sheet === "confirm" && (
               <ConfirmForm
                 board={board}
                 operator={operator}
@@ -296,7 +549,7 @@ export default function OperadorPage() {
                 }}
               />
             )}
-            {sheet === 'incident' && (
+            {sheet === "incident" && (
               <IncidentForm
                 board={board}
                 operator={operator}
@@ -306,7 +559,7 @@ export default function OperadorPage() {
                 }}
               />
             )}
-            {sheet === 'andon' && (
+            {sheet === "andon" && (
               <AndonForm
                 board={board}
                 operator={operator}
@@ -327,49 +580,68 @@ export default function OperadorPage() {
 function Picker({
   list,
   loading,
+  gloveMode,
   onPick,
 }: {
   list: ExecListItem[];
   loading: boolean;
+  gloveMode: boolean;
   onPick: (id: number) => void;
 }) {
-  const [wo, setWo] = useState('');
+  const [wo, setWo] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
+  const openByValue = useCallback(
+    async (rawValue: string) => {
+      const classified = classifyScan(rawValue);
+      const value =
+        classified.kind === "wo" ? classified.normalized : rawValue.trim();
+      if (!value) return;
+      setWo(value);
+      setBusy(true);
+      setError(null);
+      try {
+        // Try an already-open execution first, else open a new one from the plan.
+        let res = await apiFetch(
+          `${API_BASE}/mes/board?workOrder=${encodeURIComponent(value)}`,
+        );
+        if (res.ok) {
+          const b = (await res.json()) as Board;
+          onPick(b.execution.id);
+          return;
+        }
+        res = await apiFetch(`${API_BASE}/mes/executions`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ workOrder: value }),
+        });
+        if (res.ok) {
+          const b = (await res.json()) as Board;
+          onPick(b.execution.id);
+        } else {
+          const j = (await res.json().catch(() => ({}))) as {
+            message?: string;
+          };
+          setError(j.message || `No se encontró la WO ${value}.`);
+        }
+      } catch {
+        setError("No se pudo contactar el backend.");
+      } finally {
+        setBusy(false);
+      }
+    },
+    [onPick],
+  );
+
+  const scanner = useIndustrialScanner((scan) => {
+    if (scan.kind === "wo") void openByValue(scan.normalized);
+    else setError(`${scan.message} Escanea una WO para montar la orden.`);
+  });
+
   async function openByWo(e: React.FormEvent) {
     e.preventDefault();
-    const value = wo.trim();
-    if (!value) return;
-    setBusy(true);
-    setError(null);
-    try {
-      // Try an already-open execution first, else open a new one from the plan.
-      let res = await apiFetch(
-        `${API_BASE}/mes/board?workOrder=${encodeURIComponent(value)}`,
-      );
-      if (res.ok) {
-        const b = (await res.json()) as Board;
-        onPick(b.execution.id);
-        return;
-      }
-      res = await apiFetch(`${API_BASE}/mes/executions`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ workOrder: value }),
-      });
-      if (res.ok) {
-        const b = (await res.json()) as Board;
-        onPick(b.execution.id);
-      } else {
-        const j = (await res.json().catch(() => ({}))) as { message?: string };
-        setError(j.message || `No se encontró la WO ${value}.`);
-      }
-    } catch {
-      setError('No se pudo contactar el backend.');
-    } finally {
-      setBusy(false);
-    }
+    await openByValue(wo);
   }
 
   return (
@@ -377,30 +649,46 @@ function Picker({
       <header className="mb-6">
         <h1 className="text-3xl font-bold tracking-tight">Monta tu orden</h1>
         <p className="text-gray-500 dark:text-gray-400 text-sm">
-          Escanea o escribe la orden de trabajo, o elige una de las órdenes activas en la
-          línea.
+          Escanea o escribe la orden de trabajo, o elige una de las órdenes
+          activas en la línea.
         </p>
       </header>
 
-      <form onSubmit={openByWo} className={`${glass} rounded-3xl p-4 mb-8 flex items-center gap-3`}>
+      <ScannerPanel
+        state={scanner.scannerState}
+        lastScan={scanner.lastScan}
+        history={scanner.scanHistory}
+        expected="wo"
+      />
+
+      <form
+        onSubmit={openByWo}
+        className={`${glass} rounded-3xl p-4 mb-8 flex items-center gap-3 ${gloveMode ? "min-h-24" : ""}`}
+      >
         <ScanLine className="w-6 h-6 text-amber-500 flex-shrink-0" />
         <input
           value={wo}
           onChange={(e) => setWo(e.target.value)}
           autoFocus
           placeholder="Escanea / escribe la WO  (ej. 00001)"
-          className="flex-1 bg-transparent outline-none text-lg font-mono tracking-wide placeholder:text-gray-400"
+          className="flex-1 bg-transparent outline-none text-2xl font-mono tracking-wide placeholder:text-gray-400"
         />
         <button
           type="submit"
           disabled={busy || !wo.trim()}
-          className="flex items-center gap-2 bg-amber-500 text-white text-sm font-bold px-5 py-2.5 rounded-full hover:bg-amber-600 active:scale-95 transition-all disabled:opacity-50"
+          className="flex items-center gap-2 bg-amber-500 text-white text-base font-bold px-7 py-5 rounded-full hover:bg-amber-600 active:scale-95 transition-all disabled:opacity-50"
         >
-          {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <PlayCircle className="w-4 h-4" />}{' '}
+          {busy ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <PlayCircle className="w-4 h-4" />
+          )}{" "}
           Montar
         </button>
       </form>
-      {error && <p className="text-sm text-rose-500 -mt-5 mb-6 px-2">{error}</p>}
+      {error && (
+        <p className="text-sm text-rose-500 -mt-5 mb-6 px-2">{error}</p>
+      )}
 
       <h2 className="text-sm font-semibold uppercase tracking-wider text-gray-500 mb-3">
         Órdenes en la línea
@@ -423,10 +711,12 @@ function Picker({
             key={e.id}
             onClick={() => onPick(e.id)}
             whileHover={{ y: -3 }}
-            className={`${glass} rounded-3xl p-5 text-left flex flex-col gap-3`}
+            className={`${glass} rounded-3xl p-6 text-left flex flex-col gap-3 min-h-44`}
           >
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-mono text-gray-400">WO {e.workOrder}</span>
+              <span className="text-[11px] font-mono text-gray-400">
+                WO {e.workOrder}
+              </span>
               {e.blocked ? (
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-500">
                   Bloqueada
@@ -438,9 +728,11 @@ function Picker({
               )}
             </div>
             <div>
-              <div className="text-xl font-bold tracking-tight truncate">{e.model}</div>
+              <div className="text-xl font-bold tracking-tight truncate">
+                {e.model}
+              </div>
               <div className="text-xs text-gray-500">
-                Línea {e.line ?? '—'} · {e.quantity} u · {e.steps} estaciones
+                Línea {e.line ?? "—"} · {e.quantity} u · {e.steps} estaciones
               </div>
             </div>
             <ProgressBar value={e.progress} />
@@ -464,14 +756,14 @@ function BoardView({
   operator: string;
   position: string | null;
   onSelectStep: (stepId: number) => void;
-  onOpenSheet: (s: 'confirm' | 'incident' | 'andon') => void;
+  onOpenSheet: (s: "confirm" | "incident" | "andon") => void;
   refresh: () => void;
 }) {
   const { execution, steps, currentStep, currentStepDetail } = board;
   const totalDone = steps.reduce((s, st) => s + st.unitsCompleted, 0);
   const totalTarget = execution.quantity * (steps.length || 1);
   const overall = totalTarget ? totalDone / totalTarget : 0;
-  const blocked = currentStep?.status === 'blocked';
+  const blocked = currentStep?.status === "blocked";
 
   return (
     <div>
@@ -482,13 +774,17 @@ function BoardView({
             <div className="text-[11px] font-mono text-gray-400 mb-0.5">
               WO {execution.workOrder} · rev {execution.revision}
             </div>
-            <div className="text-3xl font-bold tracking-tight">{execution.model}</div>
+            <div className="text-3xl font-bold tracking-tight">
+              {execution.model}
+            </div>
             <div className="text-sm text-gray-500">
-              Línea {execution.line ?? '—'} · {execution.quantity} unidades
+              Línea {execution.line ?? "—"} · {execution.quantity} unidades
             </div>
           </div>
           <div className="text-right">
-            <div className="text-2xl font-bold tabular-nums">{Math.round(overall * 100)}%</div>
+            <div className="text-2xl font-bold tabular-nums">
+              {Math.round(overall * 100)}%
+            </div>
             <div className="text-[11px] text-gray-500">avance total</div>
           </div>
         </div>
@@ -496,6 +792,8 @@ function BoardView({
           <ProgressBar value={overall} />
         </div>
       </div>
+
+      <ProductionPanel board={board} overall={overall} />
 
       {/* Station rail */}
       <div className="flex gap-2 overflow-x-auto pb-2 mb-5 -mx-1 px-1">
@@ -507,7 +805,9 @@ function BoardView({
               key={s.id}
               onClick={() => onSelectStep(s.stepId)}
               className={`${glass} flex-shrink-0 rounded-2xl px-4 py-3 text-left transition-all ${
-                active ? 'ring-2 ring-amber-400' : 'opacity-80 hover:opacity-100'
+                active
+                  ? "ring-2 ring-amber-400"
+                  : "opacity-80 hover:opacity-100"
               }`}
               style={{ minWidth: 150 }}
             >
@@ -523,7 +823,7 @@ function BoardView({
               <div className="font-bold text-sm truncate">{s.name}</div>
               <div className="text-[11px] text-gray-500 tabular-nums">
                 {s.unitsCompleted}/{s.unitsTarget} u
-                {s.scrapQty > 0 ? ` · ${s.scrapQty} scrap` : ''}
+                {s.scrapQty > 0 ? ` · ${s.scrapQty} scrap` : ""}
               </div>
             </button>
           );
@@ -533,8 +833,8 @@ function BoardView({
       {/* Status banners */}
       {blocked && (
         <Banner color={RED} icon={<ShieldAlert className="w-5 h-5" />}>
-          Estación bloqueada por calidad: {currentStep?.blockReason}. Disposiciona el incidente
-          para continuar.
+          Estación bloqueada por calidad: {currentStep?.blockReason}.
+          Disposiciona el incidente para continuar.
         </Banner>
       )}
       {!blocked && currentStep?.starved && (
@@ -543,7 +843,7 @@ function BoardView({
           {currentStep.upstreamAvailable} disponibles).
         </Banner>
       )}
-      {board.openDowntime.some((d) => d.reason === 'material_shortage') && (
+      {board.openDowntime.some((d) => d.reason === "material_shortage") && (
         <Banner color={AMBER} icon={<Package className="w-5 h-5" />}>
           Faltante de material reportado a almacén · midiendo tiempo caído.
         </Banner>
@@ -556,20 +856,22 @@ function BoardView({
             <h3 className="font-bold flex items-center gap-2">
               <span
                 className="w-2.5 h-2.5 rounded-full"
-                style={{ backgroundColor: STEP_META[currentStep?.status ?? 'pending'].color }}
+                style={{
+                  backgroundColor:
+                    STEP_META[currentStep?.status ?? "pending"].color,
+                }}
               />
-              {currentStepDetail?.name ?? 'Estación'}
+              {currentStepDetail?.name ?? "Estación"}
             </h3>
             <span className="text-[11px] text-gray-400">
-              {currentStep ? `${STEP_META[currentStep.status].label}` : ''}
+              {currentStep ? `${STEP_META[currentStep.status].label}` : ""}
             </span>
           </div>
-          <VisualAidView aid={currentStepDetail?.visualAid ?? null} />
-          {currentStepDetail?.instructions && (
-            <p className="mt-3 text-sm text-gray-600 dark:text-gray-300 whitespace-pre-line">
-              {currentStepDetail.instructions}
-            </p>
-          )}
+          <WorkInstructionPanel
+            aid={currentStepDetail?.visualAid ?? null}
+            instructions={currentStepDetail?.instructions ?? null}
+            stepName={currentStepDetail?.name ?? "Estación"}
+          />
         </div>
 
         {/* Materials — live consumption */}
@@ -591,6 +893,11 @@ function BoardView({
         </div>
       </div>
 
+      <QualitySidePanel
+        board={board}
+        onOpenIncident={() => onOpenSheet("incident")}
+      />
+
       {/* Open incidents (quality can disposition here) */}
       {currentStepDetail && currentStepDetail.openIncidents.length > 0 && (
         <div className="mt-5 space-y-3">
@@ -601,11 +908,11 @@ function BoardView({
       )}
 
       {/* Andon / downtime strip */}
-      {(board.andons.filter((a) => a.status !== 'resolved').length > 0 ||
+      {(board.andons.filter((a) => a.status !== "resolved").length > 0 ||
         board.materialRequests.length > 0) && (
         <div className="mt-5 flex flex-wrap gap-2">
           {board.andons
-            .filter((a) => a.status !== 'resolved')
+            .filter((a) => a.status !== "resolved")
             .map((a) => (
               <span
                 key={a.id}
@@ -627,85 +934,567 @@ function BoardView({
 
       {/* Action bar */}
       <div
-        className={`${glass} fixed bottom-4 left-1/2 -translate-x-1/2 z-30 px-3 py-3 rounded-[2rem] shadow-2xl flex items-center gap-2 w-[min(720px,92vw)]`}
+        className={`${glass} fixed bottom-4 left-1/2 -translate-x-1/2 z-30 px-3 py-3 rounded-[2rem] shadow-2xl flex items-center gap-2 w-[min(920px,94vw)]`}
       >
         <button
-          onClick={() => onOpenSheet('confirm')}
-          disabled={blocked || currentStep?.status === 'completed'}
-          className="flex-1 flex items-center justify-center gap-2 bg-emerald-500 text-white text-base font-bold px-5 py-4 rounded-3xl hover:bg-emerald-600 active:scale-[0.98] transition-all disabled:opacity-40"
+          onClick={() => onOpenSheet("confirm")}
+          disabled={blocked || currentStep?.status === "completed"}
+          className="flex-1 flex items-center justify-center gap-2 bg-emerald-500 text-white text-xl font-black px-6 py-6 rounded-3xl hover:bg-emerald-600 active:scale-[0.98] transition-all disabled:opacity-40"
         >
           <CheckCircle2 className="w-5 h-5" /> Confirmar avance
         </button>
         <button
-          onClick={() => onOpenSheet('incident')}
-          className="flex items-center justify-center gap-2 bg-rose-500/10 text-rose-600 text-sm font-bold px-4 py-4 rounded-3xl hover:bg-rose-500/20 active:scale-95 transition-all"
+          onClick={() => onOpenSheet("incident")}
+          className="flex items-center justify-center gap-2 bg-rose-500/10 text-rose-600 text-base font-black px-5 py-6 rounded-3xl hover:bg-rose-500/20 active:scale-95 transition-all"
         >
-          <AlertTriangle className="w-5 h-5" /> <span className="hidden sm:inline">Incidente</span>
+          <AlertTriangle className="w-5 h-5" />{" "}
+          <span className="hidden sm:inline">Incidente</span>
         </button>
         <button
-          onClick={() => onOpenSheet('andon')}
-          className="flex items-center justify-center gap-2 bg-amber-500/10 text-amber-700 text-sm font-bold px-4 py-4 rounded-3xl hover:bg-amber-500/20 active:scale-95 transition-all"
+          onClick={() => onOpenSheet("andon")}
+          className="flex items-center justify-center gap-2 bg-amber-500/10 text-amber-700 text-base font-black px-5 py-6 rounded-3xl hover:bg-amber-500/20 active:scale-95 transition-all"
         >
-          <Bell className="w-5 h-5" /> <span className="hidden sm:inline">Andon</span>
+          <Bell className="w-5 h-5" />{" "}
+          <span className="hidden sm:inline">Andon</span>
         </button>
       </div>
-      <input type="hidden" value={`${operator}/${position ?? ''}`} readOnly />
+      <input type="hidden" value={`${operator}/${position ?? ""}`} readOnly />
     </div>
   );
 }
 
-function VisualAidView({ aid }: { aid: VisualAid | null }) {
-  if (!aid) {
+function ScannerPanel({
+  state,
+  lastScan,
+  history,
+  expected,
+  compact = false,
+}: {
+  state: ScanState;
+  lastScan: ScanResult | null;
+  history: ScanResult[];
+  expected: "wo" | "serial";
+  compact?: boolean;
+}) {
+  const stateMeta =
+    state === "reading"
+      ? { label: "Leyendo scanner…", color: AMBER }
+      : state === "valid"
+        ? { label: "Lectura válida", color: GREEN }
+        : state === "invalid"
+          ? { label: "Lectura inválida", color: RED }
+          : { label: "Scanner listo", color: GRAY };
+  return (
+    <section className={`${glass} rounded-3xl ${compact ? "p-3" : "p-4 mb-5"}`}>
+      <div className="flex flex-wrap items-center gap-3">
+        <div
+          className="w-12 h-12 rounded-2xl grid place-items-center text-white shadow-lg"
+          style={{ backgroundColor: stateMeta.color }}
+        >
+          <ScanLine className="w-6 h-6" />
+        </div>
+        <div className="mr-auto">
+          <div className="text-sm font-black">{stateMeta.label}</div>
+          <div className="text-xs text-gray-500 dark:text-gray-400">
+            Keyboard wedge · USB · Bluetooth · QR · DataMatrix · Code128
+          </div>
+        </div>
+        <ScannerCapability
+          icon={<Keyboard className="w-4 h-4" />}
+          label="Wedge"
+        />
+        <ScannerCapability icon={<Usb className="w-4 h-4" />} label="USB" />
+        <ScannerCapability
+          icon={<BluetoothConnected className="w-4 h-4" />}
+          label="BT"
+        />
+        <ScannerCapability icon={<QrCode className="w-4 h-4" />} label="2D" />
+        <ScannerCapability
+          icon={<Volume2 className="w-4 h-4" />}
+          label="Beep"
+        />
+      </div>
+      {lastScan && (
+        <div
+          className="mt-3 rounded-2xl border px-3 py-2 text-sm"
+          style={{ borderColor: `${lastScan.valid ? GREEN : RED}66` }}
+        >
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-mono font-black">{lastScan.normalized}</span>
+            <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">
+              {lastScan.kind}
+            </span>
+            <span
+              className={lastScan.valid ? "text-emerald-500" : "text-rose-500"}
+            >
+              {lastScan.message}
+            </span>
+          </div>
+          {expected === "wo" && lastScan.valid && lastScan.kind !== "wo" && (
+            <div className="mt-1 text-xs text-amber-500">
+              Código válido, pero esta zona espera una WO.
+            </div>
+          )}
+        </div>
+      )}
+      {!compact && history.length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
+          <span className="flex items-center gap-1 text-gray-500 font-bold">
+            <History className="w-3.5 h-3.5" /> Últimas lecturas
+          </span>
+          {history.map((item) => (
+            <span
+              key={`${item.at}-${item.raw}`}
+              className={`rounded-full px-2 py-1 font-mono ${item.valid ? "bg-emerald-500/10 text-emerald-600" : "bg-rose-500/10 text-rose-600"}`}
+            >
+              {item.normalized}
+            </span>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function ScannerCapability({
+  icon,
+  label,
+}: {
+  icon: React.ReactNode;
+  label: string;
+}) {
+  return (
+    <span className="min-h-9 px-3 rounded-2xl bg-white/10 flex items-center gap-1.5 text-xs font-black text-gray-600 dark:text-gray-200">
+      {icon}
+      {label}
+    </span>
+  );
+}
+
+function IndustrialTopBar({
+  execution,
+  currentStep,
+  operator,
+  shift,
+  clock,
+  socketStatus,
+  alerts,
+  gloveMode,
+  industrialTheme,
+  onToggleGlove,
+  onToggleTheme,
+  onBack,
+}: {
+  execution: Board["execution"] | null;
+  currentStep: StepView | null;
+  operator: string;
+  shift: string;
+  clock: string;
+  socketStatus: string;
+  alerts: number;
+  gloveMode: boolean;
+  industrialTheme: "light" | "dark";
+  onToggleGlove: () => void;
+  onToggleTheme: () => void;
+  onBack: (() => void) | null;
+}) {
+  const machine =
+    currentStep?.status === "blocked"
+      ? "Máquina bloqueada"
+      : currentStep?.starved
+        ? "Esperando flujo"
+        : "Lista";
+  const quality =
+    currentStep?.status === "blocked" ? "Hold calidad" : "Calidad OK";
+  return (
+    <div
+      className={`${glass} sticky top-0 z-40 border-x-0 border-t-0 rounded-none px-4 py-3 shadow-2xl`}
+    >
+      <div className="flex flex-wrap items-center gap-3">
+        {onBack ? (
+          <button
+            onClick={onBack}
+            className="min-h-12 rounded-2xl px-4 font-bold bg-white/10 hover:bg-white/15 active:scale-95 transition-all flex items-center gap-2"
+          >
+            <ChevronLeft className="w-5 h-5" /> Órdenes
+          </button>
+        ) : (
+          <Link
+            href="/dashboard"
+            className="min-h-12 rounded-2xl px-4 font-bold bg-white/10 hover:bg-white/15 active:scale-95 transition-all flex items-center gap-2"
+          >
+            <ChevronLeft className="w-5 h-5" /> Dashboard
+          </Link>
+        )}
+        <div className="flex items-center gap-2 font-black text-lg tracking-tight mr-auto">
+          <Factory className="w-6 h-6 text-amber-400" /> AXOS MES Terminal
+        </div>
+        <StatusPill
+          icon={<Clock className="w-4 h-4" />}
+          label={clock}
+          tone="neutral"
+        />
+        <StatusPill
+          icon={
+            socketStatus === "connected" ? (
+              <Wifi className="w-4 h-4" />
+            ) : (
+              <WifiOff className="w-4 h-4" />
+            )
+          }
+          label={
+            socketStatus === "connected" ? "Online" : "Offline / cola local"
+          }
+          tone={socketStatus === "connected" ? "green" : "amber"}
+        />
+        <StatusPill
+          icon={<Bell className="w-4 h-4" />}
+          label={`${alerts} alertas`}
+          tone={alerts > 0 ? "red" : "green"}
+        />
+        <button
+          onClick={onToggleGlove}
+          className={`min-h-12 rounded-2xl px-4 font-black transition-all ${gloveMode ? "bg-amber-400 text-slate-950" : "bg-white/10"}`}
+        >
+          Guantes {gloveMode ? "ON" : "OFF"}
+        </button>
+        <button
+          onClick={onToggleTheme}
+          className="min-h-12 rounded-2xl px-4 font-black bg-white/10 hover:bg-white/15 active:scale-95 transition-all"
+        >
+          {industrialTheme === "dark" ? (
+            <Sun className="w-5 h-5" />
+          ) : (
+            <Moon className="w-5 h-5" />
+          )}
+        </button>
+      </div>
+      <div className="mt-3 grid grid-cols-2 md:grid-cols-4 xl:grid-cols-9 gap-2 text-xs">
+        <InfoCell label="Operador" value={operator} />
+        <InfoCell label="Turno" value={shift} />
+        <InfoCell
+          label="Línea"
+          value={execution?.line ? `Línea ${execution.line}` : "—"}
+        />
+        <InfoCell label="Estación" value={currentStep?.name ?? "Sin montar"} />
+        <InfoCell label="WO" value={execution?.workOrder ?? "—"} />
+        <InfoCell label="Modelo" value={execution?.model ?? "—"} />
+        <InfoCell
+          label="Tiempo restante"
+          value={
+            currentStep
+              ? `${Math.max(0, currentStep.unitsTarget - currentStep.unitsCompleted)} u`
+              : "—"
+          }
+        />
+        <InfoCell label="Máquina" value={machine} />
+        <InfoCell label="Calidad" value={quality} />
+      </div>
+    </div>
+  );
+}
+
+function StatusPill({
+  icon,
+  label,
+  tone,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  tone: "green" | "amber" | "red" | "neutral";
+}) {
+  const cls =
+    tone === "green"
+      ? "bg-emerald-500/15 text-emerald-300"
+      : tone === "amber"
+        ? "bg-amber-500/15 text-amber-300"
+        : tone === "red"
+          ? "bg-rose-500/15 text-rose-300"
+          : "bg-white/10 text-slate-200";
+  return (
+    <span
+      className={`min-h-10 px-3 rounded-2xl flex items-center gap-2 text-xs font-black ${cls}`}
+    >
+      {icon}
+      {label}
+    </span>
+  );
+}
+
+function InfoCell({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl bg-white/[0.08] dark:bg-white/5 border border-white/10 px-3 py-2 min-h-14">
+      <div className="text-[10px] uppercase tracking-widest text-slate-400">
+        {label}
+      </div>
+      <div className="font-black truncate">{value}</div>
+    </div>
+  );
+}
+
+function ProductionPanel({
+  board,
+  overall,
+}: {
+  board: Board;
+  overall: number;
+}) {
+  const target = board.execution.quantity;
+  const real = Math.max(...board.steps.map((s) => s.unitsCompleted), 0);
+  const scrap = board.steps.reduce((sum, s) => sum + s.scrapQty, 0);
+  const rework = board.steps.reduce((sum, s) => sum + s.segregatedQty, 0);
+  const downtime =
+    board.downtimeSummarySec +
+    board.openDowntime.reduce((sum, d) => sum + d.durationSec, 0);
+  const yieldPct = real + scrap > 0 ? real / (real + scrap) : 1;
+  const wip = board.steps.reduce(
+    (sum, s) => sum + Math.max(0, s.unitsCompleted - real),
+    0,
+  );
+  const cards = [
+    ["Objetivo", target, "u"],
+    ["Real", real, "u"],
+    ["Restante", Math.max(0, target - real), "u"],
+    ["Takt", "—", "s/u"],
+    ["UPH", "—", "u/h"],
+    ["OEE", Math.round(overall * 100), "%"],
+    ["Yield", Math.round(yieldPct * 100), "%"],
+    ["Scrap", scrap, "u"],
+    ["Rework", rework, "u"],
+    ["Downtime", formatDuration(downtime), ""],
+    ["WIP", wip, "u"],
+  ] as const;
+  return (
+    <section className="mb-5 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 xl:grid-cols-11 gap-3">
+      {cards.map(([label, value, unit]) => (
+        <div
+          key={label}
+          className={`${glass} rounded-3xl p-4 min-h-28 flex flex-col justify-between`}
+        >
+          <div className="flex items-center justify-between text-slate-400">
+            <span className="text-[10px] font-black uppercase tracking-widest">
+              {label}
+            </span>
+            <Activity className="w-4 h-4" />
+          </div>
+          <div className="text-3xl font-black tabular-nums tracking-tight">
+            {value}
+            <span className="text-sm text-slate-400 ml-1">{unit}</span>
+          </div>
+        </div>
+      ))}
+    </section>
+  );
+}
+
+function resolveAidUrl(aid: VisualAid | null) {
+  if (!aid) return null;
+  const url = aid.fileUrl || aid.documentUrl || null;
+  if (!url) return null;
+  return url.startsWith("http") ? url : `${API_BASE}${url}`;
+}
+
+function visualAidMode(aid: VisualAid | null) {
+  const url = resolveAidUrl(aid)?.toLowerCase() ?? "";
+  if (!aid) return "empty" as const;
+  if (aid.kind === "video" || /\.(mp4|webm|mov)(\?|$)/.test(url))
+    return "video" as const;
+  if (aid.kind === "image" || /\.(png|jpe?g|gif|webp|svg)(\?|$)/.test(url))
+    return "image" as const;
+  if (aid.kind === "pdf" || /\.pdf(\?|$)/.test(url)) return "pdf" as const;
+  if (
+    aid.kind === "cad" ||
+    /\.(step|stp|iges|igs|dxf|dwg|stl|obj)(\?|$)/.test(url)
+  )
+    return "cad" as const;
+  return "office" as const;
+}
+
+function WorkInstructionPanel({
+  aid,
+  instructions,
+  stepName,
+}: {
+  aid: VisualAid | null;
+  instructions: string | null;
+  stepName: string;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const href = resolveAidUrl(aid);
+  const mode = visualAidMode(aid);
+  const version = aid?.version || aid?.revision || "versión vigente";
+  const container = expanded
+    ? "fixed inset-4 z-[60] rounded-[2rem] bg-slate-950/95 p-4 shadow-2xl"
+    : "";
+  return (
+    <div className={container}>
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <span className="flex items-center gap-2 text-sm font-black">
+          <BookOpenCheck className="w-4 h-4 text-amber-400" /> Instrucción de
+          trabajo
+        </span>
+        <span className="rounded-full bg-white/10 px-2 py-1 text-[10px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-300">
+          {mode === "empty" ? "sin archivo" : mode}
+        </span>
+        <span className="rounded-full bg-emerald-500/10 px-2 py-1 text-[10px] font-black uppercase tracking-widest text-emerald-600">
+          {version}
+        </span>
+        <span className="ml-auto text-[11px] font-semibold text-gray-500 dark:text-gray-400">
+          {stepName}
+        </span>
+        {href && (
+          <a
+            href={href}
+            target="_blank"
+            rel="noreferrer"
+            className="min-h-10 rounded-2xl bg-white/10 px-3 text-xs font-black flex items-center gap-1.5 hover:bg-white/15 transition-colors"
+          >
+            <ExternalLink className="w-4 h-4" /> Respaldo
+          </a>
+        )}
+        <button
+          onClick={() => setExpanded((v) => !v)}
+          className="min-h-10 rounded-2xl bg-white/10 px-3 text-xs font-black flex items-center gap-1.5 hover:bg-white/15 active:scale-95 transition-all"
+        >
+          {expanded ? (
+            <Minimize2 className="w-4 h-4" />
+          ) : (
+            <Maximize2 className="w-4 h-4" />
+          )}
+          {expanded ? "Compactar" : "Ampliar"}
+        </button>
+      </div>
+
+      <div
+        className={
+          expanded
+            ? "grid h-[calc(100%-3.5rem)] grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px] gap-4"
+            : "space-y-3"
+        }
+      >
+        <EmbeddedAid aid={aid} href={href} mode={mode} expanded={expanded} />
+        <div
+          className={`${expanded ? "overflow-y-auto rounded-3xl bg-white/5 p-4" : ""}`}
+        >
+          {instructions ? (
+            <div className="rounded-2xl bg-amber-500/10 p-4 text-sm leading-6 text-gray-700 dark:text-gray-200 whitespace-pre-line">
+              {instructions}
+            </div>
+          ) : (
+            <div className="rounded-2xl bg-white/5 p-4 text-sm text-gray-500">
+              No hay instrucciones textuales para este paso. Usa la ayuda visual
+              embebida o solicita ingeniería si falta el documento controlado.
+            </div>
+          )}
+          <div className="mt-3 grid grid-cols-3 gap-2 text-center text-[10px] font-black uppercase tracking-widest text-gray-500">
+            <div className="rounded-2xl bg-white/5 p-2">Controlado</div>
+            <div className="rounded-2xl bg-white/5 p-2">Embebido</div>
+            <div className="rounded-2xl bg-white/5 p-2">
+              Sin cambio de pantalla
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function EmbeddedAid({
+  aid,
+  href,
+  mode,
+  expanded,
+}: {
+  aid: VisualAid | null;
+  href: string | null;
+  mode: ReturnType<typeof visualAidMode>;
+  expanded: boolean;
+}) {
+  const frameClass = expanded
+    ? "h-full min-h-[480px]"
+    : "aspect-video max-h-[420px]";
+  if (!aid || !href) {
     return (
-      <div className="aspect-video rounded-2xl bg-gray-100 dark:bg-white/5 grid place-items-center text-gray-400 text-sm">
-        <div className="flex flex-col items-center gap-2">
+      <div
+        className={`${frameClass} rounded-2xl bg-gray-100 dark:bg-white/5 grid place-items-center text-gray-400 text-sm`}
+      >
+        <div className="flex flex-col items-center gap-2 text-center">
           <ImageIcon className="w-7 h-7" />
           Sin ayuda visual ligada a este paso
         </div>
       </div>
     );
   }
-  if (aid.kind === 'image' && aid.fileUrl) {
+  if (mode === "image") {
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img
-        src={`${API_BASE}${aid.fileUrl}`}
-        alt={aid.title || 'Ayuda visual'}
-        className="w-full max-h-[360px] object-contain rounded-2xl bg-gray-50 dark:bg-white/5"
+        src={href}
+        alt={aid.title || "Ayuda visual"}
+        className={`${frameClass} w-full object-contain rounded-2xl bg-gray-50 dark:bg-white/5`}
       />
     );
   }
-  const href =
-    aid.kind === 'pdf' && aid.fileUrl
-      ? `${API_BASE}${aid.fileUrl}`
-      : aid.documentUrl
-        ? `${API_BASE}${aid.documentUrl}`
-        : '#';
-  return (
-    <a
-      href={href}
-      target="_blank"
-      rel="noreferrer"
-      className="aspect-video rounded-2xl bg-gray-100 dark:bg-white/5 grid place-items-center text-amber-600 text-sm font-semibold hover:bg-gray-200 dark:hover:bg-white/10 transition-colors"
-    >
-      <div className="flex flex-col items-center gap-2">
-        <FileText className="w-7 h-7" />
-        Abrir {aid.kind === 'pdf' ? 'PDF' : 'presentación'}
+  if (mode === "video") {
+    return (
+      <video
+        src={href}
+        controls
+        playsInline
+        className={`${frameClass} w-full rounded-2xl bg-black object-contain`}
+      />
+    );
+  }
+  if (mode === "cad") {
+    return (
+      <div
+        className={`${frameClass} rounded-2xl bg-slate-900 grid place-items-center p-6 text-center text-slate-200`}
+      >
+        <div className="max-w-md space-y-3">
+          <PlaySquare className="mx-auto w-9 h-9 text-amber-400" />
+          <div className="text-lg font-black">CAD / modelo técnico ligado</div>
+          <p className="text-sm text-slate-400">
+            El visor 3D embebido requiere el contrato de CAD del siguiente
+            slice; el archivo queda disponible aquí sin abandonar la terminal.
+          </p>
+          <a
+            href={href}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex min-h-11 items-center rounded-2xl bg-amber-400 px-4 text-sm font-black text-slate-950"
+          >
+            Abrir archivo controlado
+          </a>
+        </div>
       </div>
-    </a>
+    );
+  }
+  return (
+    <iframe
+      title={aid.title || "Ayuda visual embebida"}
+      src={href}
+      className={`${frameClass} w-full rounded-2xl border border-white/10 bg-white`}
+      loading="lazy"
+    />
   );
 }
 
 function MaterialRow({ m }: { m: Material }) {
   const pct = m.plannedQty > 0 ? Math.min(1, m.consumedQty / m.plannedQty) : 0;
-  const color = m.short ? RED : m.availableQty <= m.plannedQty * 0.15 ? AMBER : GREEN;
+  const color = m.short
+    ? RED
+    : m.availableQty <= m.plannedQty * 0.15
+      ? AMBER
+      : GREEN;
   return (
     <div>
       <div className="flex items-center justify-between text-sm mb-1">
         <span className="font-mono font-semibold">{m.partNumber}</span>
         <span className="tabular-nums text-gray-500">
           {m.consumedQty}/{m.plannedQty} {m.unit}
-          {m.short && <span className="ml-2 text-rose-500 font-bold">FALTA</span>}
+          {m.short && (
+            <span className="ml-2 text-rose-500 font-bold">FALTA</span>
+          )}
         </span>
       </div>
       <div className="h-2 rounded-full bg-gray-100 dark:bg-white/10 overflow-hidden">
@@ -714,7 +1503,142 @@ function MaterialRow({ m }: { m: Material }) {
           style={{ width: `${pct * 100}%`, backgroundColor: color }}
         />
       </div>
-      {m.description && <div className="text-[11px] text-gray-400 mt-0.5">{m.description}</div>}
+      {m.description && (
+        <div className="text-[11px] text-gray-400 mt-0.5">{m.description}</div>
+      )}
+    </div>
+  );
+}
+
+function QualitySidePanel({
+  board,
+  onOpenIncident,
+}: {
+  board: Board;
+  onOpenIncident: () => void;
+}) {
+  const incidents = board.currentStepDetail?.openIncidents ?? [];
+  const scrap = board.steps.reduce((sum, step) => sum + step.scrapQty, 0);
+  const rework = board.steps.reduce((sum, step) => sum + step.segregatedQty, 0);
+  const blocking = incidents.filter((incident) => incident.blocksFlow).length;
+  const evidenceReady = incidents.filter(
+    (incident) => !!incident.description,
+  ).length;
+  return (
+    <aside className={`${glass} mt-5 rounded-3xl p-5`}>
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="w-12 h-12 rounded-2xl bg-rose-500/15 text-rose-500 grid place-items-center">
+          <ShieldAlert className="w-6 h-6" />
+        </div>
+        <div className="mr-auto">
+          <h3 className="text-lg font-black tracking-tight">
+            Calidad en línea
+          </h3>
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            Defectos, scrap, retrabajo, evidencia, firma y NCR rápido desde la
+            estación.
+          </p>
+        </div>
+        <button
+          onClick={onOpenIncident}
+          className="min-h-14 rounded-2xl bg-rose-500 px-5 text-sm font-black text-white hover:bg-rose-600 active:scale-95 transition-all"
+        >
+          + Defecto / NCR
+        </button>
+      </div>
+
+      <div className="mt-4 grid grid-cols-2 md:grid-cols-5 gap-3">
+        <QualityMetric
+          label="Defectos abiertos"
+          value={incidents.length}
+          tone={incidents.length ? "red" : "green"}
+        />
+        <QualityMetric
+          label="Bloqueos"
+          value={blocking}
+          tone={blocking ? "red" : "green"}
+        />
+        <QualityMetric
+          label="Scrap"
+          value={scrap}
+          tone={scrap ? "amber" : "green"}
+        />
+        <QualityMetric
+          label="Retrabajo"
+          value={rework}
+          tone={rework ? "amber" : "green"}
+        />
+        <QualityMetric
+          label="Evidencias"
+          value={evidenceReady}
+          tone={evidenceReady ? "green" : "neutral"}
+        />
+      </div>
+
+      <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+        <QualityChecklistItem
+          done={incidents.length > 0}
+          label="Defecto clasificado"
+        />
+        <QualityChecklistItem
+          done={evidenceReady > 0}
+          label="Comentario / evidencia capturada"
+        />
+        <QualityChecklistItem
+          done={blocking === 0}
+          label="Flujo liberado o NCR bloqueante visible"
+        />
+      </div>
+    </aside>
+  );
+}
+
+function QualityMetric({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: number;
+  tone: "green" | "amber" | "red" | "neutral";
+}) {
+  const color =
+    tone === "green"
+      ? GREEN
+      : tone === "amber"
+        ? AMBER
+        : tone === "red"
+          ? RED
+          : GRAY;
+  return (
+    <div className="rounded-3xl bg-white/5 p-4 border border-white/10">
+      <div className="text-[10px] font-black uppercase tracking-widest text-gray-500">
+        {label}
+      </div>
+      <div className="mt-2 text-3xl font-black tabular-nums" style={{ color }}>
+        {value}
+      </div>
+    </div>
+  );
+}
+
+function QualityChecklistItem({
+  done,
+  label,
+}: {
+  done: boolean;
+  label: string;
+}) {
+  return (
+    <div
+      className={`rounded-2xl px-3 py-2 font-bold flex items-center gap-2 ${done ? "bg-emerald-500/10 text-emerald-600" : "bg-amber-500/10 text-amber-600"}`}
+    >
+      {done ? (
+        <CheckCircle2 className="w-4 h-4" />
+      ) : (
+        <AlertTriangle className="w-4 h-4" />
+      )}
+      {label}
     </div>
   );
 }
@@ -722,22 +1646,30 @@ function MaterialRow({ m }: { m: Material }) {
 function IncidentRow({ i, refresh }: { i: Incident; refresh: () => void }) {
   const [busy, setBusy] = useState<string | null>(null);
   const toast = useToast();
-  async function disposition(d: 'rework' | 'scrap' | 'use_as_is') {
+  async function disposition(d: "rework" | "scrap" | "use_as_is") {
     setBusy(d);
     try {
-      const res = await apiFetch(`${API_BASE}/mes/incidents/${i.id}/disposition`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ disposition: d }),
-      });
+      const res = await apiFetch(
+        `${API_BASE}/mes/incidents/${i.id}/disposition`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ disposition: d }),
+        },
+      );
       if (!res.ok) {
         const j = (await res.json().catch(() => ({}))) as { message?: string };
-        toast.error(typeof j.message === 'string' ? j.message : 'No se pudo registrar la disposición.', 'Calidad');
+        toast.error(
+          typeof j.message === "string"
+            ? j.message
+            : "No se pudo registrar la disposición.",
+          "Calidad",
+        );
         return;
       }
       refresh();
     } catch {
-      toast.error('No se pudo contactar el backend.', 'Calidad');
+      toast.error("No se pudo contactar el backend.", "Calidad");
     } finally {
       setBusy(null);
     }
@@ -759,7 +1691,7 @@ function IncidentRow({ i, refresh }: { i: Incident; refresh: () => void }) {
         </span>
       </div>
       <div className="flex gap-2">
-        {(['rework', 'scrap', 'use_as_is'] as const).map((d) => (
+        {(["rework", "scrap", "use_as_is"] as const).map((d) => (
           <button
             key={d}
             onClick={() => disposition(d)}
@@ -768,12 +1700,12 @@ function IncidentRow({ i, refresh }: { i: Incident; refresh: () => void }) {
           >
             {busy === d ? (
               <Loader2 className="w-4 h-4 animate-spin mx-auto" />
-            ) : d === 'rework' ? (
-              'Retrabajo'
-            ) : d === 'scrap' ? (
-              'Scrap'
+            ) : d === "rework" ? (
+              "Retrabajo"
+            ) : d === "scrap" ? (
+              "Scrap"
             ) : (
-              'Usar como está'
+              "Usar como está"
             )}
           </button>
         ))}
@@ -830,7 +1762,8 @@ function Stepper({
   min?: number;
   max?: number;
 }) {
-  const clamp = (n: number) => Math.max(min, max !== undefined ? Math.min(max, n) : n);
+  const clamp = (n: number) =>
+    Math.max(min, max !== undefined ? Math.min(max, n) : n);
   return (
     <div>
       <label className="text-xs font-semibold uppercase tracking-wider text-gray-500">
@@ -875,9 +1808,17 @@ function ConfirmForm({
   const max = Math.max(0, Math.floor(step.maxConfirmable));
   const [qty, setQty] = useState(Math.min(max || 1, 1));
   const [scrap, setScrap] = useState(0);
-  const [serial, setSerial] = useState('');
+  const [serial, setSerial] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const scanner = useIndustrialScanner((scan) => {
+    if (["serial", "qr", "datamatrix", "code128"].includes(scan.kind)) {
+      setSerial(scan.normalized);
+      setError(null);
+    } else {
+      setError(`${scan.message} Se esperaba serial, QR, DataMatrix o Code128.`);
+    }
+  });
 
   async function submit() {
     setBusy(true);
@@ -886,8 +1827,8 @@ function ConfirmForm({
       const res = await apiFetch(
         `${API_BASE}/mes/executions/${board.execution.id}/steps/${step.stepId}/confirm`,
         {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             quantity: qty,
             scrap,
@@ -900,12 +1841,14 @@ function ConfirmForm({
       );
       if (!res.ok) {
         const j = (await res.json().catch(() => ({}))) as { message?: string };
-        setError(typeof j.message === 'string' ? j.message : 'No se pudo confirmar.');
+        setError(
+          typeof j.message === "string" ? j.message : "No se pudo confirmar.",
+        );
         return;
       }
       onDone();
     } catch {
-      setError('No se pudo contactar el backend.');
+      setError("No se pudo contactar el backend.");
     } finally {
       setBusy(false);
     }
@@ -915,8 +1858,26 @@ function ConfirmForm({
     <div>
       <SheetHeader title="Confirmar avance" subtitle={step.name} />
       <div className="space-y-5">
-        <Stepper label="Unidades buenas" value={qty} setValue={setQty} min={0} max={max} />
-        <Stepper label="Scrap (merma)" value={scrap} setValue={setScrap} min={0} />
+        <Stepper
+          label="Unidades buenas"
+          value={qty}
+          setValue={setQty}
+          min={0}
+          max={max}
+        />
+        <Stepper
+          label="Scrap (merma)"
+          value={scrap}
+          setValue={setScrap}
+          min={0}
+        />
+        <ScannerPanel
+          state={scanner.scannerState}
+          lastScan={scanner.lastScan}
+          history={scanner.scanHistory}
+          expected="serial"
+          compact
+        />
         <div>
           <label className="text-xs font-semibold uppercase tracking-wider text-gray-500 flex items-center gap-1.5">
             <ScanLine className="w-3.5 h-3.5" /> Serie (opcional · escanea)
@@ -929,8 +1890,8 @@ function ConfirmForm({
           />
         </div>
         <p className="text-[11px] text-gray-400">
-          Disponible de la estación previa: {step.maxConfirmable} u. Al confirmar se descuenta el
-          material del paso (backflush).
+          Disponible de la estación previa: {step.maxConfirmable} u. Al
+          confirmar se descuenta el material del paso (backflush).
         </p>
         {error && <p className="text-sm text-rose-500">{error}</p>}
         <button
@@ -938,20 +1899,30 @@ function ConfirmForm({
           disabled={busy || qty + scrap <= 0}
           className="w-full bg-emerald-500 text-white text-base font-bold py-4 rounded-2xl hover:bg-emerald-600 active:scale-[0.98] transition-all disabled:opacity-40 flex items-center justify-center gap-2"
         >
-          {busy ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle2 className="w-5 h-5" />}
-          Confirmar {qty} u{scrap > 0 ? ` · ${scrap} scrap` : ''}
+          {busy ? (
+            <Loader2 className="w-5 h-5 animate-spin" />
+          ) : (
+            <CheckCircle2 className="w-5 h-5" />
+          )}
+          Confirmar {qty} u{scrap > 0 ? ` · ${scrap} scrap` : ""}
         </button>
       </div>
     </div>
   );
 }
 
-const INCIDENT_TYPES = ['Defecto visual', 'Soldadura fría', 'Componente dañado', 'Falta material', 'Otro'];
+const INCIDENT_TYPES = [
+  "Defecto visual",
+  "Soldadura fría",
+  "Componente dañado",
+  "Falta material",
+  "Otro",
+];
 const SEVERITIES: { id: string; label: string; color: string }[] = [
-  { id: 'low', label: 'Baja', color: GRAY },
-  { id: 'medium', label: 'Media', color: AMBER },
-  { id: 'high', label: 'Alta', color: '#fb7185' },
-  { id: 'critical', label: 'Crítica', color: RED },
+  { id: "low", label: "Baja", color: GRAY },
+  { id: "medium", label: "Media", color: AMBER },
+  { id: "high", label: "Alta", color: "#fb7185" },
+  { id: "critical", label: "Crítica", color: RED },
 ];
 
 function IncidentForm({
@@ -965,39 +1936,57 @@ function IncidentForm({
 }) {
   const step = board.currentStep!;
   const [type, setType] = useState(INCIDENT_TYPES[0]);
-  const [severity, setSeverity] = useState('medium');
+  const [severity, setSeverity] = useState("medium");
   const [qty, setQty] = useState(1);
   const [blocks, setBlocks] = useState(false);
-  const [desc, setDesc] = useState('');
+  const [desc, setDesc] = useState("");
+  const [evidenceNote, setEvidenceNote] = useState("");
+  const [signature, setSignature] = useState(operator);
+  const [quickNcr, setQuickNcr] = useState(false);
+  const [photoNames, setPhotoNames] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const toast = useToast();
 
   async function submit() {
+    const evidence = [
+      desc.trim(),
+      evidenceNote.trim() ? `Evidencia: ${evidenceNote.trim()}` : "",
+      photoNames.length ? `Fotos: ${photoNames.join(", ")}` : "",
+      signature.trim() ? `Firma operador/calidad: ${signature.trim()}` : "",
+      quickNcr ? "NCR rápido solicitado desde terminal." : "",
+    ]
+      .filter(Boolean)
+      .join("\n");
     setBusy(true);
     try {
       const res = await apiFetch(
         `${API_BASE}/mes/executions/${board.execution.id}/steps/${step.stepId}/incidents`,
         {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             type,
             severity,
             qtyAffected: qty,
             blocksFlow: blocks,
-            description: desc.trim() || undefined,
+            description: evidence || undefined,
             operator,
           }),
         },
       );
       if (!res.ok) {
         const j = (await res.json().catch(() => ({}))) as { message?: string };
-        toast.error(typeof j.message === 'string' ? j.message : 'No se pudo reportar el incidente.', 'Calidad');
+        toast.error(
+          typeof j.message === "string"
+            ? j.message
+            : "No se pudo reportar el incidente.",
+          "Calidad",
+        );
         return;
       }
       onDone();
     } catch {
-      toast.error('No se pudo contactar el backend.', 'Calidad');
+      toast.error("No se pudo contactar el backend.", "Calidad");
     } finally {
       setBusy(false);
     }
@@ -1009,7 +1998,12 @@ function IncidentForm({
       <div className="space-y-4">
         <div className="flex flex-wrap gap-2">
           {INCIDENT_TYPES.map((t) => (
-            <Chip key={t} active={type === t} onClick={() => setType(t)} label={t} />
+            <Chip
+              key={t}
+              active={type === t}
+              onClick={() => setType(t)}
+              label={t}
+            />
           ))}
         </div>
         <div className="flex gap-2">
@@ -1018,21 +2012,71 @@ function IncidentForm({
               key={s.id}
               onClick={() => setSeverity(s.id)}
               className={`flex-1 text-xs font-bold py-2 rounded-xl transition-all ${
-                severity === s.id ? 'text-white' : 'text-gray-500 bg-gray-100 dark:bg-white/5'
+                severity === s.id
+                  ? "text-white"
+                  : "text-gray-500 bg-gray-100 dark:bg-white/5"
               }`}
-              style={severity === s.id ? { backgroundColor: s.color } : undefined}
+              style={
+                severity === s.id ? { backgroundColor: s.color } : undefined
+              }
             >
               {s.label}
             </button>
           ))}
         </div>
-        <Stepper label="Unidades afectadas (se segregan)" value={qty} setValue={setQty} min={0} />
+        <Stepper
+          label="Unidades afectadas (se segregan)"
+          value={qty}
+          setValue={setQty}
+          min={0}
+        />
         <textarea
           value={desc}
           onChange={(e) => setDesc(e.target.value)}
-          placeholder="Descripción (opcional)"
+          placeholder="Descripción del defecto"
           rows={2}
           className="w-full bg-gray-100 dark:bg-white/5 rounded-2xl px-4 py-3 outline-none text-sm"
+        />
+        <textarea
+          value={evidenceNote}
+          onChange={(e) => setEvidenceNote(e.target.value)}
+          placeholder="Evidencia / comentarios de calidad (opcional)"
+          rows={2}
+          className="w-full bg-gray-100 dark:bg-white/5 rounded-2xl px-4 py-3 outline-none text-sm"
+        />
+        <label className="block rounded-2xl border border-dashed border-gray-300 dark:border-white/15 p-4 text-sm">
+          <span className="flex items-center gap-2 font-black text-gray-600 dark:text-gray-200">
+            <ImageIcon className="w-4 h-4" /> Fotos / evidencia visual
+          </span>
+          <input
+            type="file"
+            accept="image/*"
+            multiple
+            onChange={(event) =>
+              setPhotoNames(
+                Array.from(event.target.files ?? []).map((file) => file.name),
+              )
+            }
+            className="mt-3 w-full text-xs"
+          />
+          {photoNames.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1">
+              {photoNames.map((name) => (
+                <span
+                  key={name}
+                  className="rounded-full bg-rose-500/10 px-2 py-1 text-[10px] font-bold text-rose-500"
+                >
+                  {name}
+                </span>
+              ))}
+            </div>
+          )}
+        </label>
+        <input
+          value={signature}
+          onChange={(e) => setSignature(e.target.value)}
+          placeholder="Firma / responsable"
+          className="w-full bg-gray-100 dark:bg-white/5 rounded-2xl px-4 py-3 outline-none text-sm font-semibold"
         />
         <label className="flex items-center gap-3 cursor-pointer">
           <input
@@ -1045,12 +2089,27 @@ function IncidentForm({
             Bloquear la estación (retención por calidad)
           </span>
         </label>
+        <label className="flex items-center gap-3 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={quickNcr}
+            onChange={(e) => setQuickNcr(e.target.checked)}
+            className="w-5 h-5 accent-rose-500"
+          />
+          <span className="text-sm font-medium">
+            Crear NCR rápido / requerir disposición formal
+          </span>
+        </label>
         <button
           onClick={submit}
           disabled={busy || !type}
           className="w-full bg-rose-500 text-white text-base font-bold py-4 rounded-2xl hover:bg-rose-600 active:scale-[0.98] transition-all disabled:opacity-40 flex items-center justify-center gap-2"
         >
-          {busy ? <Loader2 className="w-5 h-5 animate-spin" /> : <AlertTriangle className="w-5 h-5" />}
+          {busy ? (
+            <Loader2 className="w-5 h-5 animate-spin" />
+          ) : (
+            <AlertTriangle className="w-5 h-5" />
+          )}
           Reportar incidente
         </button>
       </div>
@@ -1058,11 +2117,36 @@ function IncidentForm({
   );
 }
 
-const ANDON_TYPES: { id: 'material' | 'quality' | 'maintenance' | 'stop'; label: string; icon: React.ReactNode; color: string }[] = [
-  { id: 'material', label: 'Materiales', icon: <Package className="w-6 h-6" />, color: AMBER },
-  { id: 'quality', label: 'Calidad', icon: <ShieldAlert className="w-6 h-6" />, color: '#fb7185' },
-  { id: 'maintenance', label: 'Mantto', icon: <Wrench className="w-6 h-6" />, color: '#60a5fa' },
-  { id: 'stop', label: 'Paro de línea', icon: <Hand className="w-6 h-6" />, color: RED },
+const ANDON_TYPES: {
+  id: "material" | "quality" | "maintenance" | "stop";
+  label: string;
+  icon: React.ReactNode;
+  color: string;
+}[] = [
+  {
+    id: "material",
+    label: "Materiales",
+    icon: <Package className="w-6 h-6" />,
+    color: AMBER,
+  },
+  {
+    id: "quality",
+    label: "Calidad",
+    icon: <ShieldAlert className="w-6 h-6" />,
+    color: "#fb7185",
+  },
+  {
+    id: "maintenance",
+    label: "Mantto",
+    icon: <Wrench className="w-6 h-6" />,
+    color: "#60a5fa",
+  },
+  {
+    id: "stop",
+    label: "Paro de línea",
+    icon: <Hand className="w-6 h-6" />,
+    color: RED,
+  },
 ];
 
 function AndonForm({
@@ -1079,23 +2163,31 @@ function AndonForm({
   async function call(type: string) {
     setBusy(type);
     try {
-      const res = await apiFetch(`${API_BASE}/mes/executions/${board.execution.id}/andon`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type,
-          stepId: board.currentStep?.stepId,
-          raisedBy: operator,
-        }),
-      });
+      const res = await apiFetch(
+        `${API_BASE}/mes/executions/${board.execution.id}/andon`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type,
+            stepId: board.currentStep?.stepId,
+            raisedBy: operator,
+          }),
+        },
+      );
       if (!res.ok) {
         const j = (await res.json().catch(() => ({}))) as { message?: string };
-        toast.error(typeof j.message === 'string' ? j.message : 'No se pudo levantar el andon.', 'Andon');
+        toast.error(
+          typeof j.message === "string"
+            ? j.message
+            : "No se pudo levantar el andon.",
+          "Andon",
+        );
         return;
       }
       onDone();
     } catch {
-      toast.error('No se pudo contactar el backend.', 'Andon');
+      toast.error("No se pudo contactar el backend.", "Andon");
     } finally {
       setBusy(null);
     }
@@ -1112,7 +2204,11 @@ function AndonForm({
             className={`${glass} rounded-3xl p-5 flex flex-col items-center gap-2 active:scale-95 transition-all disabled:opacity-50`}
             style={{ color: a.color }}
           >
-            {busy === a.id ? <Loader2 className="w-6 h-6 animate-spin" /> : a.icon}
+            {busy === a.id ? (
+              <Loader2 className="w-6 h-6 animate-spin" />
+            ) : (
+              a.icon
+            )}
             <span className="font-bold text-sm">{a.label}</span>
           </button>
         ))}
@@ -1122,7 +2218,13 @@ function AndonForm({
 }
 
 // ── Small shared bits ──────────────────────────────────────────────────────
-function SheetHeader({ title, subtitle }: { title: string; subtitle?: string }) {
+function SheetHeader({
+  title,
+  subtitle,
+}: {
+  title: string;
+  subtitle?: string;
+}) {
   return (
     <div className="mb-5">
       <h3 className="text-xl font-bold tracking-tight">{title}</h3>
@@ -1131,14 +2233,22 @@ function SheetHeader({ title, subtitle }: { title: string; subtitle?: string }) 
   );
 }
 
-function Chip({ active, onClick, label }: { active: boolean; onClick: () => void; label: string }) {
+function Chip({
+  active,
+  onClick,
+  label,
+}: {
+  active: boolean;
+  onClick: () => void;
+  label: string;
+}) {
   return (
     <button
       onClick={onClick}
       className={`text-xs font-semibold px-3 py-2 rounded-full transition-all ${
         active
-          ? 'bg-black text-white dark:bg-white dark:text-black'
-          : 'bg-gray-100 dark:bg-white/5 text-gray-600 dark:text-gray-300'
+          ? "bg-black text-white dark:bg-white dark:text-black"
+          : "bg-gray-100 dark:bg-white/5 text-gray-600 dark:text-gray-300"
       }`}
     >
       {label}
@@ -1188,9 +2298,13 @@ function EmptyState({
 }) {
   return (
     <div className="flex flex-col items-center text-center py-20 px-6">
-      <div className="p-4 rounded-2xl bg-gray-100 dark:bg-white/5 text-gray-400 mb-4">{icon}</div>
+      <div className="p-4 rounded-2xl bg-gray-100 dark:bg-white/5 text-gray-400 mb-4">
+        {icon}
+      </div>
       <h3 className="font-bold text-lg mb-1">{title}</h3>
-      <p className="text-sm text-gray-500 dark:text-gray-400 max-w-sm">{body}</p>
+      <p className="text-sm text-gray-500 dark:text-gray-400 max-w-sm">
+        {body}
+      </p>
     </div>
   );
 }
