@@ -55,3 +55,13 @@ Design constraints for this slice:
 - Keep the token inline and printable so SOPs and reports remain readable in DOCX/PDF exports.
 - Preserve the structured entity/ref id attributes in editor JSON for future live AXOS lookups.
 - Avoid duplicating editor components; extend the existing insert extras ribbon group and TipTap node extension set.
+
+## Implementation slice — Controlled document properties and live fields
+
+AXOS Docs now includes a first controlled-document metadata layer. Authors can maintain document number, revision, owner, department, effective date, status, customer, and model from the existing File ribbon, then insert those values as inline document fields. Fields travel inside TipTap JSON and can be refreshed when properties change, giving industrial templates a foundation for controlled SOP/WI/quality records without duplicating data manually.
+
+This is the basis for release workflows, controlled-copy watermarks, revision blocks, approval gates, and AXOS entity binding in later PRs.
+
+## Implementation slice — Version compare foundation for Track Changes
+
+AXOS Docs now adds a first version-compare workflow inside the existing Version History drawer. Reviewers can compare a saved snapshot against the current document, see added/removed lines, and decide whether to restore or continue editing. This is not a full Word-level redline engine yet, but it establishes the compare UX and text extraction path needed for Phase 5 document compare, reviewer sign-off, and server-side revision summaries.

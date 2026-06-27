@@ -326,3 +326,14 @@
   .tiptap-page .ProseMirror .doc-axos-ref { background: rgba(96, 165, 250, 0.14); color: #93c5fd; border-color: rgba(147, 197, 253, 0.22); }
 }
 @media print { .tiptap-page .ProseMirror .doc-axos-ref { color: #000; background: transparent; border-color: #bbb; } }
+
+/* Campos vivos de propiedades del documento (revisión, dueño, cliente…) */
+.tiptap-page .ProseMirror .doc-field {
+  display: inline-flex; align-items: center; padding: 0.02rem 0.32rem; border-radius: 0.35rem;
+  background: rgba(15, 23, 42, 0.06); border: 1px dashed rgba(15, 23, 42, 0.22);
+  color: #0f172a; font-weight: 700; white-space: nowrap;
+}
+@media (prefers-color-scheme: dark) {
+  .tiptap-page .ProseMirror .doc-field { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.22); color: #f8fafc; }
+}
+@media print { .tiptap-page .ProseMirror .doc-field { background: transparent; border: none; color: #000; } }

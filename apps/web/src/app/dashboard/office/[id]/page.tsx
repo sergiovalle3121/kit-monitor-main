@@ -167,7 +167,7 @@ export default function OfficeEditorPage() {
     <>
       {typeActions}
       {isOwner && canWrite && <ShareButton docId={id} initialShares={doc.sharedWith ?? []} />}
-      <VersionHistory docId={id} canEdit={!readOnly} onRestored={onRestored} />
+      <VersionHistory docId={id} canEdit={!readOnly} onRestored={onRestored} currentContent={content} />
     </>
   );
   const statusBarRight = doc.type === 'doc' && docStats
