@@ -1,7 +1,11 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Inject, Injectable, Logger } from '@nestjs/common';
+import { ObjectLiteral, SelectQueryBuilder } from 'typeorm';
 import { LedgerEvent, EventDomain } from './entities/ledger-event.entity';
+import { TenantContextService } from '../../common/tenant/tenant-context.service';
+import {
+  TenantScopedRepository,
+  getTenantRepositoryToken,
+} from '../../common/tenant/tenant-scoped.repository';
 
 export interface CreateLedgerEventDto {
   actorId?: string;
@@ -47,9 +51,20 @@ export class EventLedgerService {
   private readonly logger = new Logger(EventLedgerService.name);
 
   constructor(
-    @InjectRepository(LedgerEvent)
-    private readonly ledgerRepository: Repository<LedgerEvent>,
+    @Inject(getTenantRepositoryToken(LedgerEvent))
+    private readonly ledgerRepository: TenantScopedRepository<LedgerEvent>,
+    private readonly tenantCtx: TenantContextService,
   ) {}
+
+  private applyScope<T extends ObjectLiteral>(
+    qb: SelectQueryBuilder<T>,
+    alias: string,
+  ): SelectQueryBuilder<T> {
+    const tenant = this.tenantCtx.getTenantId();
+    if (tenant) qb.andWhere(`${alias}.tenant_id = :tenant`, { tenant });
+    else qb.andWhere(`${alias}.tenant_id IS NULL`);
+    return qb;
+  }
 
   async recordEvent(dto: CreateLedgerEventDto): Promise<LedgerEvent> {
     try {
@@ -99,10 +114,11 @@ export class EventLedgerService {
   }
 
   async getEventsByWorkOrder(workOrder: string): Promise<LedgerEvent[]> {
-    return this.ledgerRepository.createQueryBuilder('event')
+    const qb = this.ledgerRepository.createQueryBuilder('event')
       .where("event.context->>'workOrder' = :workOrder", { workOrder })
-      .orderBy('event.timestamp', 'DESC')
-      .getMany();
+      .orderBy('event.timestamp', 'DESC');
+    this.applyScope(qb, 'event');
+    return qb.getMany();
   }
 
   /**
@@ -134,6 +150,7 @@ export class EventLedgerService {
       .where('event.timestamp >= :since', { since })
       .orderBy('event.timestamp', 'DESC')
       .take(take);
+    this.applyScope(qb, 'event');
     if (opts.domain) qb.andWhere('event.domain = :domain', { domain: opts.domain });
     if (opts.line) qb.andWhere('event.line = :line', { line: opts.line });
     if (opts.program)
@@ -197,6 +214,7 @@ export class EventLedgerService {
       .where('event.timestamp >= :since', { since: startDay })
       .orderBy('event.timestamp', 'ASC')
       .take(20_000);
+    this.applyScope(qb, 'event');
     if (opts.domain) qb.andWhere('event.domain = :domain', { domain: opts.domain });
     if (opts.line) qb.andWhere('event.line = :line', { line: opts.line });
 

@@ -1,6 +1,5 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { ObjectLiteral, SelectQueryBuilder } from 'typeorm';
 import {
   EngineeringDocument,
   EngineeringDocumentType,
@@ -9,13 +8,29 @@ import {
   CreateEngineeringDocumentDto,
   UpdateEngineeringDocumentDto,
 } from './dto/engineering-document.dto';
+import { TenantContextService } from '../../common/tenant/tenant-context.service';
+import {
+  TenantScopedRepository,
+  getTenantRepositoryToken,
+} from '../../common/tenant/tenant-scoped.repository';
 
 @Injectable()
 export class EngineeringService {
   constructor(
-    @InjectRepository(EngineeringDocument)
-    private readonly docRepo: Repository<EngineeringDocument>,
+    @Inject(getTenantRepositoryToken(EngineeringDocument))
+    private readonly docRepo: TenantScopedRepository<EngineeringDocument>,
+    private readonly tenantCtx: TenantContextService,
   ) {}
+
+  private applyScope<T extends ObjectLiteral>(
+    qb: SelectQueryBuilder<T>,
+    alias: string,
+  ): SelectQueryBuilder<T> {
+    const tenant = this.tenantCtx.getTenantId();
+    if (tenant) qb.andWhere(`${alias}.tenant_id = :tenant`, { tenant });
+    else qb.andWhere(`${alias}.tenant_id IS NULL`);
+    return qb;
+  }
 
   async findAll(type?: EngineeringDocumentType) {
     const where = type ? { documentType: type } : {};
@@ -52,6 +67,7 @@ export class EngineeringService {
 
   async findByScope(scope: any, type?: EngineeringDocumentType) {
     const query = this.docRepo.createQueryBuilder('doc');
+    this.applyScope(query, 'doc');
     if (type) query.andWhere('doc.documentType = :type', { type });
 
     // Simple scope filtering (exact match on keys if provided)

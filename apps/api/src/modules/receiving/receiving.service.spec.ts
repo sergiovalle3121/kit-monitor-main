@@ -54,14 +54,16 @@ describe('ReceivingService — folio + cableado de inventario', () => {
     const ledger = { recordEvent: jest.fn().mockResolvedValue(undefined) };
     const audit = { recordAction: jest.fn().mockResolvedValue(undefined) };
     const warehouseRepo = {} as never; // recordReceipt no lo usa
+    const tenantCtx = { getTenantId: () => null } as unknown as TenantContextService;
 
     service = new ReceivingService(
-      dataSource.getRepository(ReceivingEvent),
+      dataSource.getRepository(ReceivingEvent) as never,
       inventory as never,
       ledger as never,
       audit as never,
       warehouseRepo,
       numbering,
+      tenantCtx,
     );
   });
 
