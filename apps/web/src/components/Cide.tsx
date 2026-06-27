@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { glass } from '@/lib/glass';
 import { isAdminAccess } from '@/lib/owner';
+import { useOperatorKiosk } from '@/lib/operatorChrome';
 import { useDashboardSession } from '@/hooks/useDashboardSession';
 import { suggestionsFor } from '@/lib/chat/cideSuggestions';
 
@@ -106,6 +107,7 @@ function relativeTime(iso: string): string {
 
 export function Cide() {
   const pathname = usePathname();
+  const kiosk = useOperatorKiosk();
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<ChatMsg[]>([]);
@@ -130,7 +132,7 @@ export function Cide() {
 
   const suggestions = suggestionsFor(pathname);
 
-  if (!pathname?.startsWith('/dashboard')) return null;
+  if (kiosk || !pathname?.startsWith('/dashboard')) return null;
 
   /** Update the trailing assistant message (the one being streamed). */
   function patchAssistant(fn: (a: ChatMsg) => ChatMsg) {

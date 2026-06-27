@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MessageSquare, ChevronDown } from 'lucide-react';
 import { glass } from '@/lib/glass';
+import { useOperatorKiosk } from '@/lib/operatorChrome';
 import { DOMAINS, ICON_STROKE } from '@/lib/design/domains';
 import { chatApi } from '@/lib/chatApi';
 import { ChatExperience } from '@/components/chat/ChatExperience';
@@ -19,10 +20,12 @@ import { ChatExperience } from '@/components/chat/ChatExperience';
  */
 export function ChatWidget() {
   const pathname = usePathname();
+  const kiosk = useOperatorKiosk();
   const [open, setOpen] = useState(false);
   const [unread, setUnread] = useState(0);
 
   const hidden =
+    kiosk ||
     !pathname?.startsWith('/dashboard') ||
     pathname?.startsWith('/dashboard/chat') ||
     pathname?.startsWith('/dashboard/office/');
