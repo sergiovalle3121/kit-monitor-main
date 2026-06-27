@@ -2677,4 +2677,24 @@ al reabrir una conversación se perdían, porque `ai_message` no los guardaba. B
 demo no atribuye modelo), `lint web` 0 errores, `build web` ✓. Migración 100% aditiva (columnas
 nullable); ningún comportamiento existente cambia.
 
+## 122. CIDE — prompts de inicio contextuales por módulo
+
+**Contexto.** El chat es accesible desde toda página del dashboard, pero ofrecía siempre las
+mismas 4 sugerencias genéricas. Adaptarlas al módulo donde está el usuario mejora la
+relevancia y el descubrimiento, **sin costo de inferencia** (es solo un mapeo).
+
+**Decisión (solo `apps/web`, aditiva).** Nuevo `lib/chat/cideSuggestions.ts` con
+`suggestionsFor(pathname)`: extrae el primer segmento tras `/dashboard/` y devuelve 3 preguntas
+hechas a la medida del módulo (inventory, mrp, planning, production, quality, maintenance,
+shipping, suppliers, finance, crm, genealogy, control-tower, etc. — todas respondibles por las
+herramientas de CIDE); fuera del dashboard o en un módulo no mapeado cae a las genéricas.
+`Cide.tsx` reemplaza la constante estática por `suggestionsFor(pathname)`.
+
+**Nota de pruebas.** `apps/web` no tiene runner de tests unitarios (CI solo corre `lint` +
+`build` para el front); `suggestionsFor` es una función pura cubierta por el type-check del
+build y el lint. No se añadió spec no ejecutable.
+
+**Verificación:** `lint web` 0 errores, `build web` ✓. Sin backend ni migraciones; nada
+existente cambia.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
