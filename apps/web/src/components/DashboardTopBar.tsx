@@ -336,6 +336,7 @@ export function DashboardTopBar() {
           window.dispatchEvent(new CustomEvent("axos:open-search"))
         }
         aria-label="Buscar"
+        aria-keyshortcuts="Control+K Meta+K"
         className="hidden sm:flex items-center gap-2 rounded-full px-3.5 py-2 text-sm text-gray-500 dark:text-gray-400 w-full max-w-md bg-black/[0.03] dark:bg-white/[0.04] border border-black/[0.07] dark:border-white/[0.08] hover:border-black/[0.13] dark:hover:border-white/[0.16] hover:bg-black/[0.05] dark:hover:bg-white/[0.06] hover:text-gray-700 dark:hover:text-gray-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 transition-all"
       >
         <Search
@@ -355,6 +356,8 @@ export function DashboardTopBar() {
             onClick={openNotifs}
             className="relative rounded-full p-2 text-muted-foreground transition-colors hover:bg-foreground/[0.06] hover:text-foreground dark:hover:bg-white/10"
             aria-label="Notificaciones"
+            aria-expanded={notifOpen}
+            aria-haspopup="menu"
           >
             <Bell className="w-5 h-5" />
             {badgeTotal > 0 && (

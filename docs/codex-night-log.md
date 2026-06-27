@@ -86,3 +86,20 @@
 - Export supports layers, lines, polylines, equipment rectangles, text labels, and measurement lines/labels without backend changes.
 - Added smoke coverage for headers, layer tables, primitives, measurements, entity counting, and EOF termination.
 - Pending: map live editor stations/assets/connectors/measurements into this exporter and add an explicit UI download action.
+
+## 2026-06-27 — Symbols, collisions, and flow helpers PR 12
+
+- Added the requested industrial symbol library: SMT line, inspection, AOI, warehouse rack, packing, forklift path, operator station, ESD area, safety zone, conveyor, test station, and rework station.
+- Added pure collision and clearance helpers for bounding-box collision lists, overlap area, edge distance, and friendly clearance issues.
+- Added pure flow optimization helpers for total flow distance, crossing detection, backtracking detection, simple reorder suggestions, and a layout score.
+- Added smoke coverage for symbol lookup/placement, collision/clearance detection, and flow scoring/reordering.
+- Pending: wire these helpers into the CAD toolbar/library panel and use collision/flow scores in command previews.
+
+## 2026-06-27 — Safety, snapshots, palette, and copilot contract PR 13
+
+- Added pure safety-zone helpers for aisles, no-go/restricted zones, safety clearance checks, and user-facing violation messages.
+- Added versioned local layout snapshot helpers with stable hashing, diffing, push history, and restore operations.
+- Added a CAD command palette index that unifies command registry entries, toolbar actions, and industrial symbols with deterministic search ranking.
+- Added CIDE/OpenAI-compatible contract helpers for safe context redaction, tool schema exposure, and tool-call validation without making model calls.
+- Added smoke coverage for safety zones, snapshots, palette search, and copilot contract validation.
+- Pending: wire safety warnings into command previews, expose snapshots in the UI, and add Cmd-K palette interaction.
