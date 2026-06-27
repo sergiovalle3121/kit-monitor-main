@@ -2,13 +2,22 @@ import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
+  Inject,
   Injectable,
   Logger,
   NotFoundException,
   Optional,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, FindOptionsWhere, In, IsNull, Repository } from 'typeorm';
+import {
+  DataSource,
+  FindOptionsWhere,
+  In,
+  IsNull,
+  ObjectLiteral,
+  Repository,
+  SelectQueryBuilder,
+} from 'typeorm';
 
 import { WorkOrderExecution } from './entities/work-order-execution.entity';
 import { ExecutionStep } from './entities/execution-step.entity';
@@ -25,6 +34,7 @@ import { KitMaterial } from '../kit-materials/entities/kit-material.entity';
 import { ProcessStep } from '../process-routing/entities/process-step.entity';
 
 import { InventoryService } from '../inventory/inventory.service';
+import { GenealogyService } from '../genealogy/genealogy.service';
 import { EventLedgerService } from '../event-ledger/event-ledger.service';
 import { EventDomain } from '../event-ledger/entities/ledger-event.entity';
 import { SignalGateway } from '../../common/gateway/signal.gateway';
@@ -32,6 +42,11 @@ import { MaterialRequestsService } from '../material-requests/material-requests.
 import { VisualAidsService } from '../visual-aids/visual-aids.service';
 import { TestFlowService } from '../test-flow/test-flow.service';
 import { PeopleService } from '../people/people.service';
+import { TenantContextService } from '../../common/tenant/tenant-context.service';
+import {
+  TenantScopedRepository,
+  getTenantRepositoryToken,
+} from '../../common/tenant/tenant-scoped.repository';
 
 import {
   AssignStationDto,
@@ -68,22 +83,22 @@ export class MesExecutionService {
   private readonly logger = new Logger(MesExecutionService.name);
 
   constructor(
-    @InjectRepository(WorkOrderExecution)
-    private readonly execRepo: Repository<WorkOrderExecution>,
-    @InjectRepository(ExecutionStep)
-    private readonly stepRepo: Repository<ExecutionStep>,
-    @InjectRepository(ExecutionStepMaterial)
-    private readonly stepMatRepo: Repository<ExecutionStepMaterial>,
-    @InjectRepository(ExecutionEvent)
-    private readonly eventRepo: Repository<ExecutionEvent>,
-    @InjectRepository(StationIncident)
-    private readonly incidentRepo: Repository<StationIncident>,
-    @InjectRepository(AndonCall)
-    private readonly andonRepo: Repository<AndonCall>,
-    @InjectRepository(MesDowntime)
-    private readonly downtimeRepo: Repository<MesDowntime>,
-    @InjectRepository(StationAssignment)
-    private readonly assignRepo: Repository<StationAssignment>,
+    @Inject(getTenantRepositoryToken(WorkOrderExecution))
+    private readonly execRepo: TenantScopedRepository<WorkOrderExecution>,
+    @Inject(getTenantRepositoryToken(ExecutionStep))
+    private readonly stepRepo: TenantScopedRepository<ExecutionStep>,
+    @Inject(getTenantRepositoryToken(ExecutionStepMaterial))
+    private readonly stepMatRepo: TenantScopedRepository<ExecutionStepMaterial>,
+    @Inject(getTenantRepositoryToken(ExecutionEvent))
+    private readonly eventRepo: TenantScopedRepository<ExecutionEvent>,
+    @Inject(getTenantRepositoryToken(StationIncident))
+    private readonly incidentRepo: TenantScopedRepository<StationIncident>,
+    @Inject(getTenantRepositoryToken(AndonCall))
+    private readonly andonRepo: TenantScopedRepository<AndonCall>,
+    @Inject(getTenantRepositoryToken(MesDowntime))
+    private readonly downtimeRepo: TenantScopedRepository<MesDowntime>,
+    @Inject(getTenantRepositoryToken(StationAssignment))
+    private readonly assignRepo: TenantScopedRepository<StationAssignment>,
     @InjectRepository(Plan) private readonly planRepo: Repository<Plan>,
     @InjectRepository(Kit) private readonly kitRepo: Repository<Kit>,
     @InjectRepository(ProcessStep)
@@ -94,12 +109,25 @@ export class MesExecutionService {
     private readonly materialRequests: MaterialRequestsService,
     private readonly visualAids: VisualAidsService,
     private readonly dataSource: DataSource,
+    private readonly tenantCtx: TenantContextService,
     // Eslabón 1 (additive, optional): off-ramp a finished serial to Pruebas.
     @Optional() private readonly testFlow?: TestFlowService,
+    // Eslabón 2 (additive, optional): captura as-built en genealogía al consumir.
+    @Optional() private readonly genealogy?: GenealogyService,
     // Gate operador↔estación (additive, optional, read-only). Sólo se consulta
     // cuando ENFORCE_CERT_GATE === 'true'; en advertencia pura ni se inyecta.
     @Optional() private readonly people?: PeopleService,
   ) {}
+
+  private applyScope<T extends ObjectLiteral>(
+    qb: SelectQueryBuilder<T>,
+    alias: string,
+  ): SelectQueryBuilder<T> {
+    const tenant = this.tenantCtx.getTenantId();
+    if (tenant) qb.andWhere(`${alias}.tenant_id = :tenant`, { tenant });
+    else qb.andWhere(`${alias}.tenant_id IS NULL`);
+    return qb;
+  }
 
   // ──────────────────────────────────────────────────────────────────────────
   // Open / list executions
@@ -222,6 +250,7 @@ export class MesExecutionService {
     const qb = this.execRepo
       .createQueryBuilder('e')
       .orderBy('e.createdAt', 'DESC');
+    this.applyScope(qb, 'e');
     if (filters?.status)
       qb.andWhere('e.status = :status', { status: filters.status });
     if (filters?.model)
@@ -493,6 +522,8 @@ export class MesExecutionService {
         consumed: number;
         remaining: number;
       }[] = [];
+      // Delta consumido en ESTE evento (unidades buenas) para genealogía as-built.
+      const eventConsumption: { partNumber: string; qty: number }[] = [];
 
       for (const m of materials) {
         const consume = round6(m.qtyPerUnit * consumeUnits);
@@ -536,6 +567,10 @@ export class MesExecutionService {
           partNumber: m.partNumber,
           consumed: m.consumedQty,
           remaining: round6(m.plannedQty - m.consumedQty),
+        });
+        eventConsumption.push({
+          partNumber: m.partNumber,
+          qty: round6(m.qtyPerUnit * quantity),
         });
         if (m.availableQty <= m.lowStockThreshold) {
           shortageParts.push({
@@ -593,6 +628,12 @@ export class MesExecutionService {
           completedAt: new Date(),
         });
         execution.status = 'completed';
+        // Carril 1 (Plan→mes): cerrar el Plan cuando termina su ejecución, para
+        // que Planeación deje de mostrarlo activo (antes se quedaba 'released'/
+        // 'active' para siempre). Atómico con la compleción de la ejecución.
+        if (execution.planId) {
+          await em.update(Plan, execution.planId, { status: 'completed' });
+        }
       } else if (!execution.startedAt) {
         await em.update(WorkOrderExecution, execution.id, {
           startedAt: new Date(),
@@ -608,6 +649,7 @@ export class MesExecutionService {
         isLastStep: idx === steps.length - 1,
         shortageParts,
         consumption,
+        eventConsumption,
         remainingTargetUnits: round6(step.unitsTarget - step.unitsCompleted),
       };
     });
@@ -686,6 +728,37 @@ export class MesExecutionService {
         this.logger.warn(
           `Test-flow enqueue skipped: ${(err as Error)?.message}`,
         );
+      }
+    }
+
+    // ── Eslabón 2 (additive): captura as-built en genealogía ──────────────────
+    // Cuando se escanea un serial, liga cada material consumido en este evento al
+    // serial construido (índice as-built), para que la trazabilidad cradle-to-grave
+    // se llene desde el piso. Idempotente por idempotencyKey (mes-evt:<eventId>:<NP>);
+    // best-effort: un fallo aquí nunca bloquea ni revierte la línea. lot/reel quedan
+    // null (el terminal de piso aún no los captura).
+    if (this.genealogy && dto.serial?.trim()) {
+      const serial = dto.serial.trim();
+      for (const c of outcome.eventConsumption) {
+        if (c.qty <= 0) continue;
+        try {
+          await this.genealogy.recordLink({
+            builtSerial: serial,
+            part: c.partNumber,
+            qty: c.qty,
+            woId: String(execution.id),
+            woFolio: execution.workOrder,
+            model: execution.model ?? undefined,
+            station: outcome.stepName,
+            operatorEmail: operator,
+            consumedAt: new Date().toISOString(),
+            idempotencyKey: `mes-evt:${outcome.eventId}:${c.partNumber}`,
+          });
+        } catch (err) {
+          this.logger.warn(
+            `Genealogy as-built skipped (${serial}/${c.partNumber}): ${(err as Error)?.message}`,
+          );
+        }
       }
     }
 

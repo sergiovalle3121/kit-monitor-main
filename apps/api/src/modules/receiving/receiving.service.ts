@@ -1,6 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { ObjectLiteral, Repository, SelectQueryBuilder } from 'typeorm';
 import { ReceivingEvent } from './entities/receiving-event.entity';
 import { InventoryService } from '../inventory/inventory.service';
 import { EventLedgerService } from '../event-ledger/event-ledger.service';
@@ -9,20 +9,36 @@ import { AuditService } from '../governance/audit.service';
 import { User } from '../users/entities/user.entity';
 import { EnterpriseWarehouse } from '../enterprise-campus/entities/enterprise-warehouse.entity';
 import { DocumentNumberingService } from '../numbering/document-numbering.service';
+import { TenantContextService } from '../../common/tenant/tenant-context.service';
+import {
+  TenantScopedRepository,
+  getTenantRepositoryToken,
+} from '../../common/tenant/tenant-scoped.repository';
 import { In } from 'typeorm';
 
 @Injectable()
 export class ReceivingService {
   constructor(
-    @InjectRepository(ReceivingEvent)
-    private readonly receivingRepo: Repository<ReceivingEvent>,
+    @Inject(getTenantRepositoryToken(ReceivingEvent))
+    private readonly receivingRepo: TenantScopedRepository<ReceivingEvent>,
     private readonly inventory: InventoryService,
     private readonly eventLedger: EventLedgerService,
     private readonly audit: AuditService,
     @InjectRepository(EnterpriseWarehouse)
     private readonly warehouseRepo: Repository<EnterpriseWarehouse>,
     private readonly numbering: DocumentNumberingService,
+    private readonly tenantCtx: TenantContextService,
   ) {}
+
+  private applyScope<T extends ObjectLiteral>(
+    qb: SelectQueryBuilder<T>,
+    alias: string,
+  ): SelectQueryBuilder<T> {
+    const tenant = this.tenantCtx.getTenantId();
+    if (tenant) qb.andWhere(`${alias}.tenant_id = :tenant`, { tenant });
+    else qb.andWhere(`${alias}.tenant_id IS NULL`);
+    return qb;
+  }
 
   /**
    * Folio atómico vía DocumentNumberingService (docType GOODS_RECEIPT → conserva
@@ -43,6 +59,7 @@ export class ReceivingService {
 
   async findAll(user: User, filters: any = {}): Promise<ReceivingEvent[]> {
     const qb = this.receivingRepo.createQueryBuilder('rec');
+    this.applyScope(qb, 'rec');
 
     // 1. Scope-aware filtering
     const scopeBids = user.scopes?.buildings ?? [];

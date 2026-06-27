@@ -1,7 +1,12 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { ObjectLiteral, Repository, SelectQueryBuilder } from 'typeorm';
 import { EnterpriseProgram } from '../enterprise-campus/entities/enterprise-program.entity';
+import { TenantContextService } from '../../common/tenant/tenant-context.service';
+import {
+  TenantScopedRepository,
+  getTenantRepositoryToken,
+} from '../../common/tenant/tenant-scoped.repository';
 import { CreateVisualAidDto } from './dto/create-visual-aid.dto';
 import { UpdateVisualAidDto } from './dto/update-visual-aid.dto';
 import { VisualAid } from './entities/visual-aid.entity';
@@ -9,10 +14,21 @@ import { VisualAid } from './entities/visual-aid.entity';
 @Injectable()
 export class VisualAidsService {
   constructor(
-    @InjectRepository(VisualAid)
-    private readonly repo: Repository<VisualAid>,
+    @Inject(getTenantRepositoryToken(VisualAid))
+    private readonly repo: TenantScopedRepository<VisualAid>,
     @InjectRepository(EnterpriseProgram) private readonly programRepo: Repository<EnterpriseProgram>,
+    private readonly tenantCtx: TenantContextService,
   ) {}
+
+  private applyScope<T extends ObjectLiteral>(
+    qb: SelectQueryBuilder<T>,
+    alias: string,
+  ): SelectQueryBuilder<T> {
+    const tenant = this.tenantCtx.getTenantId();
+    if (tenant) qb.andWhere(`${alias}.tenant_id = :tenant`, { tenant });
+    else qb.andWhere(`${alias}.tenant_id IS NULL`);
+    return qb;
+  }
 
   async findAll(model?: string, programId?: string): Promise<VisualAid[]> {
     if (model) return this.repo.find({ where: { model }, order: { updatedAt: 'DESC' } });
@@ -37,10 +53,12 @@ export class VisualAidsService {
   }
 
   async findByFilename(filename: string): Promise<VisualAid | null> {
-    return this.repo.createQueryBuilder('visualAid')
+    const qb = this.repo
+      .createQueryBuilder('visualAid')
       .addSelect('visualAid.pdfData')
-      .where('visualAid.pdfUrl = :filename', { filename })
-      .getOne();
+      .where('visualAid.pdfUrl = :filename', { filename });
+    this.applyScope(qb, 'visualAid');
+    return qb.getOne();
   }
 
   async update(id: string, dto: UpdateVisualAidDto): Promise<VisualAid> {

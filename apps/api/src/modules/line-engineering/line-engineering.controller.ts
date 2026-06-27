@@ -17,7 +17,9 @@ import { RequirePermissions } from '../auth/decorators/permissions.decorator';
 import { LineEngineeringService } from './line-engineering.service';
 import { StationStatusService } from './station-status.service';
 import { StationBayService } from './station-bay.service';
+import { CadIntentService } from './cad-intent.service';
 import {
+  CadIntentDto,
   CloneLayoutDto,
   CreateSnapshotDto,
   CreateStationDto,
@@ -43,7 +45,28 @@ export class LineEngineeringController {
     private readonly service: LineEngineeringService,
     private readonly statusService: StationStatusService,
     private readonly bayService: StationBayService,
+    private readonly cadIntentService: CadIntentService,
   ) {}
+
+  @Post('layout/cad-intent')
+  @RequirePermissions('engineering:write')
+  @ApiOperation({
+    summary:
+      'NL→CAD: interpreta una instrucción en lenguaje natural en tool-calls CAD (vía CIDE). El frontend las valida y aplica.',
+  })
+  cadIntent(@Body() dto: CadIntentDto) {
+    return this.cadIntentService.interpret(dto.model, dto.revision ?? 'A', dto.prompt);
+  }
+
+  @Get('layout/optimize-copilot')
+  @RequirePermissions('engineering:read')
+  @ApiOperation({
+    summary:
+      'Copiloto de optimización (Fase 72): el modelo propone un reacomodo (moveStation/arrangeLine) que baja el recorrido. Sugerencia, no auto-aplica.',
+  })
+  optimizeCopilot(@Query('model') model: string, @Query('revision') revision?: string) {
+    return this.cadIntentService.optimize(model, revision ?? 'A');
+  }
 
   @Get('stations')
   @RequirePermissions('engineering:read')
