@@ -108,3 +108,16 @@ currently skips or approximates.
   slide title and speaker notes.
 - Added Home/End keyboard navigation for first/last slide and `/` as a quick
   shortcut into the searchable navigator.
+
+## Delivered slice — animation timeline controls
+
+- Expanded object animation choices with motion-path effects for directional and looped movement.
+- Added per-object repeat controls (1×, 2×, 3× and continuous) in the ribbon and animation pane.
+- Added a compact timeline bar in the animation pane so authors can see delay, duration and repeat density before previewing.
+- Updated presenter/preview playback so repeat and motion-path metadata is honored without changing the stored deck format.
+
+## Delivered slice — industrial asset library foundation
+
+- Added a reusable Slides asset library component with searchable manufacturing, Lean, Quality, Safety and Engineering symbols.
+- Wired the asset library into the existing Insert ribbon next to the icon picker, reusing the current SVG-to-Fabric import path instead of duplicating canvas logic.
+- Persisted inserted asset metadata (`assetId`, `assetCategory`) inside slide JSON so future enterprise asset governance and PPTX mapping can identify symbols.
