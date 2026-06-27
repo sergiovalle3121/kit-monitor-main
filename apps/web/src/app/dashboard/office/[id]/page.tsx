@@ -170,9 +170,18 @@ export default function OfficeEditorPage() {
       <VersionHistory docId={id} canEdit={!readOnly} onRestored={onRestored} />
     </>
   );
+  const pptxIssues = doc.type === 'slides' && Array.isArray(content?.pptxCompatibility?.issues)
+    ? content.pptxCompatibility.issues
+    : [];
   const statusBarRight = doc.type === 'doc' && docStats
     ? <span>{docStats.words} palabras · {docStats.chars} caracteres</span>
-    : null;
+    : doc.type === 'slides' && pptxIssues.length
+      ? (
+        <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-300" title={pptxIssues.slice(0, 5).map((x: any) => x.message).join(' ')}>
+          <FileWarning className="h-3.5 w-3.5" /> {pptxIssues.length} aviso(s) PPTX
+        </span>
+      )
+      : null;
   // Los editores con ribbon muestran las acciones de archivo en su pestaña
   // «Archivo»; el resto las mantiene en el header hasta su migración.
   // Los tres editores llevan ya sus acciones de archivo en la pestaña «Archivo»
@@ -184,7 +193,7 @@ export default function OfficeEditorPage() {
     <OfficeShell type={doc.type} title={title} onTitleChange={onTitle} status={status} savedAt={savedAt} readOnly={readOnly} actions={headerActions} statusBarRight={statusBarRight}>
       {doc.type === 'doc' ? <DocEditor key={editorKey} {...editorProps} author={user?.email ?? ''} onStats={setDocStats} fileActions={actions} title={title} />
         : doc.type === 'sheet' ? <SheetEditor key={editorKey} {...editorProps} fileActions={actions} />
-        : doc.type === 'slides' ? <SlidesEditor key={editorKey} {...editorProps} fileActions={actions} />
+        : doc.type === 'slides' ? <SlidesEditor key={editorKey} {...editorProps} fileActions={actions} docId={id} />
         : <div className="py-20 text-center text-sm text-gray-400">Tipo de documento desconocido.</div>}
     </OfficeShell>
   );
