@@ -18,8 +18,10 @@ import { LineEngineeringService } from './line-engineering.service';
 import { StationStatusService } from './station-status.service';
 import { StationBayService } from './station-bay.service';
 import { CadIntentService } from './cad-intent.service';
+import { CadVisionService } from './cad-vision.service';
 import {
   CadIntentDto,
+  CadVisionDto,
   CloneLayoutDto,
   CreateSnapshotDto,
   CreateStationDto,
@@ -46,6 +48,7 @@ export class LineEngineeringController {
     private readonly statusService: StationStatusService,
     private readonly bayService: StationBayService,
     private readonly cadIntentService: CadIntentService,
+    private readonly cadVisionService: CadVisionService,
   ) {}
 
   @Post('layout/cad-intent')
@@ -66,6 +69,16 @@ export class LineEngineeringController {
   })
   optimizeCopilot(@Query('model') model: string, @Query('revision') revision?: string) {
     return this.cadIntentService.optimize(model, revision ?? 'A');
+  }
+
+  @Post('layout/vision')
+  @RequirePermissions('engineering:write')
+  @ApiOperation({
+    summary:
+      'Vision→CAD (Fase 71): vectoriza una imagen de plano (data URL) a JSON de muros/zonas vía CIDE. El frontend lo valida con normalizeVision.',
+  })
+  cadVision(@Body() dto: CadVisionDto) {
+    return this.cadVisionService.vectorize(dto.imageDataUrl);
   }
 
   @Get('stations')
