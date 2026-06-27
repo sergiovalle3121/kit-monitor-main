@@ -146,7 +146,7 @@ function LoginInner() {
               </span>
             </div>
 
-            <h1 className="text-5xl font-bold tracking-tighter leading-tight mb-6">
+            <h1 className="text-4xl sm:text-5xl font-bold tracking-tighter leading-tight mb-6">
               Empowering <br />
               Industrial <br />
               Intelligence.
