@@ -41,6 +41,9 @@ export interface ReadinessSignals {
   lineCompletenessPct?: number | null;
   stdTimeComplete?: boolean | null;
   avlCoverage?: number | null;
+  /** Advisory dependency signals (counts; 0 = none yet, null = unresolved). */
+  visualAidsActive?: number | null;
+  productionWorkOrders?: number | null;
 }
 
 export interface ReadinessReport {

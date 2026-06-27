@@ -12,6 +12,8 @@ import { NpiProject } from './entities/npi-project.entity';
 import { NpiGate } from './entities/npi-gate.entity';
 import { NpiReadinessSnapshot } from './entities/npi-readiness-snapshot.entity';
 import { ProductModel } from '../product-models/entities/product-model.entity';
+import { VisualAid } from '../visual-aids/entities/visual-aid.entity';
+import { SfWorkOrder } from '../production-plan/entities/sf-work-order.entity';
 import { SfFai } from '../fai/entities/sf-fai.entity';
 import { SupplierApprovedPart } from '../suppliers/entities/supplier-approved-part.entity';
 import { TenantContextService } from '../../common/tenant/tenant-context.service';
@@ -88,6 +90,10 @@ export class NpiService {
     private readonly snapshots: TenantScopedRepository<NpiReadinessSnapshot>,
     @InjectRepository(ProductModel)
     private readonly productModels: Repository<ProductModel>,
+    @InjectRepository(VisualAid)
+    private readonly visualAids: Repository<VisualAid>,
+    @InjectRepository(SfWorkOrder)
+    private readonly workOrders: Repository<SfWorkOrder>,
     @InjectRepository(SfFai)
     private readonly fai: Repository<SfFai>,
     @InjectRepository(SupplierApprovedPart)
@@ -297,11 +303,20 @@ export class NpiService {
     model: string,
     revision: string,
   ): Promise<ReadinessSignals> {
-    const [bestHeader, faiStatus, line, stdTimeComplete] = await Promise.all([
+    const [
+      bestHeader,
+      faiStatus,
+      line,
+      stdTimeComplete,
+      visualAidsActive,
+      productionWorkOrders,
+    ] = await Promise.all([
       this.resolveBestBomHeader(model),
       this.resolveFaiStatus(model),
       this.resolveLine(model, revision),
       this.resolveStdTimeComplete(model, revision),
+      this.resolveVisualAidsActive(model),
+      this.resolveProductionWorkOrders(model),
     ]);
     const avlCoverage = await this.resolveAvlCoverage(bestHeader);
     return {
@@ -311,7 +326,59 @@ export class NpiService {
       lineCompletenessPct: line.completenessPct,
       stdTimeComplete,
       avlCoverage,
+      visualAidsActive,
+      productionWorkOrders,
     };
+  }
+
+  /**
+   * Count of ACTIVE visual aids (work instructions) for the model. Tenant-scoped
+   * only (the `visual_aids` table has no plant_id). 0 = none published yet;
+   * null = could not resolve. Read-only, advisory.
+   */
+  private async resolveVisualAidsActive(
+    model: string,
+  ): Promise<number | null> {
+    const m = (model ?? '').trim();
+    if (!m) return null;
+    try {
+      const tenant = this.tenantCtx.getTenantId();
+      const qb = this.visualAids
+        .createQueryBuilder('v')
+        .where('LOWER(v.model) = LOWER(:m)', { m })
+        .andWhere('v.isActive = :a', { a: true });
+      if (tenant) qb.andWhere('v.tenant_id = :t', { t: tenant });
+      else qb.andWhere('v.tenant_id IS NULL');
+      return await qb.getCount();
+    } catch (err) {
+      this.logger.warn(
+        `Visual-aids lookup failed for ${m}: ${(err as Error)?.message}`,
+      );
+      return null;
+    }
+  }
+
+  /**
+   * Count of production work orders published for the model (`sf_work_orders`).
+   * 0 = no plan yet; null = could not resolve. Read-only, advisory.
+   */
+  private async resolveProductionWorkOrders(
+    model: string,
+  ): Promise<number | null> {
+    const m = (model ?? '').trim();
+    if (!m) return null;
+    try {
+      const qb = this.workOrders
+        .createQueryBuilder('wo')
+        .where('wo.model = :m', { m });
+      this.applyScope(qb, 'wo');
+      return await qb.getCount();
+    } catch (err) {
+      this.logger.warn(
+        `Work-order lookup failed for ${m}: ${(err as Error)?.message}`,
+      );
+      return null;
+    }
   }
 
   /** The most advanced BOM header for the model (read-only via BomService). */

@@ -84,14 +84,21 @@ La **matriz de dependencias** se deriva de los `signals` de readiness:
 | BOM | `signals.bomStatus` | conectado / incompleto / falta |
 | Material Master / AVL | `signals.avlCoverage` | conectado / incompleto / falta |
 | Proceso · Routing | `lineBalancePct`, `lineCompletenessPct`, `stdTimeComplete` | conectado / incompleto / falta |
-| Tooling / Fixtures | — | **sin integrar** |
-| Visual Aids / WI | — | **sin integrar** |
+| Tooling / Fixtures | — (program-scoped) | **sin integrar** |
+| Visual Aids / WI | `signals.visualAidsActive` | conectado / falta |
 | Calidad · FAI | `signals.faiStatus` | conectado / incompleto / falta |
-| Plan de producción | — | **sin integrar** |
+| Plan de producción | `signals.productionWorkOrders` | conectado / falta |
 
 **Regla de honestidad** (igual que el agregador backend): una señal que no se
 puede resolver se reporta como *falta* o *sin integrar* — **nunca** se asume
 buena. No se inventan conteos ni estados.
+
+Las señales de **Visual Aids** y **Plan de producción** son *advisory*: se
+resuelven read-only (conteo de `visual_aids` activos por modelo y de
+`sf_work_orders` por modelo) y enriquecen la matriz, pero **no** se pliegan en
+`gateReady` (no cambian la semántica del go/no-go ni de los gates). Tooling sigue
+*sin integrar*: hoy es program-scoped (no tiene `model`), enlazar requeriría
+propagar `programId` al contrato puro `(model, revision)` de readiness.
 
 ## 4.1 Relación modelo ↔ launch (implementado)
 
@@ -107,16 +114,15 @@ maestro para el número, queda `null` y la matriz lo reporta honestamente.
 
 - `GET /npi/projects` no trae `readiness` ni `gates`; las tarjetas de la lista
   muestran fase/estatus, y el go/no-go completo vive en el dossier.
-- Tooling, Visual Aids y Plan de producción **no** tienen señal de readiness:
-  la matriz los marca *sin integrar* y enlaza a su módulo para cerrarlos a mano.
+- Tooling sigue **sin integrar** (program-scoped): la matriz lo enlaza a su
+  módulo para cerrarlo a mano.
 - "Liberar a MP" es advisory: el banner indica readiness, pero no hay un endpoint
   transaccional de release con checklist + auditoría todavía.
 
 ## 6. Contratos backend sugeridos (siguientes PRs)
 
-1. **Readiness extendida.** Sumar señales para `tooling`, `visualAids` y
-   `productionPlan` a `ReadinessSignals` / `evaluateReadiness` para que la matriz
-   deje de mostrarlos "sin integrar".
+1. **Tooling readiness.** Propagar `programId` al contrato de readiness (o
+   resolverlo por el modelo) para dar a `tooling` una señal real en la matriz.
 3. **`GET /npi/projects?withReadiness=true`.** Adjuntar un resumen ligero
    (`gateReady`, `readyCount`, `notReadyCount`) por proyecto para enriquecer las
    launch cards sin N+1 requests.
