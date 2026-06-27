@@ -214,11 +214,9 @@ export default function SkillsPage() {
       employees.find(
         (e) => e.email && user?.email && e.email.toLowerCase() === user.email.toLowerCase(),
       ),
-    [employees, user?.email],
+    [employees, user],
   );
-  useEffect(() => {
-    if (!canSeeAll && me?.area && !areaTouched && !areaFilter) setAreaFilter(me.area);
-  }, [canSeeAll, me?.area, areaTouched, areaFilter]);
+  const effectiveAreaFilter = !canSeeAll && me?.area && !areaTouched && !areaFilter ? me.area : areaFilter;
 
   // Option lists (areas / stations / skills) from real data.
   const areaOptions = useMemo(() => {
@@ -262,14 +260,14 @@ export default function SkillsPage() {
 
   // Certs after the area / station filters (drives KPIs, matrix and table).
   const filteredCerts = useMemo(() => {
-    const a = normKey(areaFilter);
+    const a = normKey(effectiveAreaFilter);
     const st = normKey(stationFilter);
     return list.filter((c) => {
       if (a && normKey(c.area) !== a) return false;
       if (st && normKey(c.station) !== st) return false;
       return true;
     });
-  }, [list, areaFilter, stationFilter]);
+  }, [list, effectiveAreaFilter, stationFilter]);
 
   // KPIs computed from the filtered set so they always match the matrix colours.
   const kpis = useMemo(() => {
@@ -531,7 +529,7 @@ export default function SkillsPage() {
           {(view === 'matrix' || view === 'table') && (
             <>
               <select
-                value={areaFilter}
+                value={effectiveAreaFilter}
                 onChange={(e) => {
                   setAreaTouched(true);
                   setAreaFilter(e.target.value);
@@ -622,7 +620,7 @@ export default function SkillsPage() {
             onDimension={setDimension}
             showRoster={showRoster}
             onToggleRoster={() => setShowRoster((s) => !s)}
-            areaFilter={areaFilter}
+            areaFilter={effectiveAreaFilter}
             onOpenOperator={setOpenOpKey}
             onCreate={() => openCreateFor()}
           />
