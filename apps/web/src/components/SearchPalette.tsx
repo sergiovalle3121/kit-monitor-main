@@ -162,6 +162,27 @@ const KIND_META: Record<RenderKind, { label: string; short: string; icon: React.
 /** Cuántos destinos de navegación se muestran durante una búsqueda (la vista inicial los muestra todos). */
 const NAV_CAP = 8;
 
+const RECENTS_KEY = 'axos_search_recent_hrefs';
+const RECENTS_LIMIT = 6;
+
+function readRecentHrefs(): string[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(RECENTS_KEY) || '[]');
+    return Array.isArray(parsed) ? parsed.filter((href): href is string => typeof href === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeRecentHrefs(hrefs: string[]) {
+  try {
+    window.localStorage.setItem(RECENTS_KEY, JSON.stringify(hrefs.slice(0, RECENTS_LIMIT)));
+  } catch {
+    // Storage can be unavailable in private mode; navigation must still work.
+  }
+}
+
 type SearchStatus = 'idle' | 'loading' | 'ready';
 interface SearchState {
   hits: SearchHit[];
@@ -180,6 +201,7 @@ export function SearchPalette() {
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState(0);
+  const [recentHrefs, setRecentHrefs] = useState(readRecentHrefs);
 
   // Record search (WO / NCR / parts / people / docs) — held in one atom that is
   // only ever written from async callbacks, so the effect never setStates
@@ -266,6 +288,12 @@ export function SearchPalette() {
   const groups = useMemo<RenderGroup[]>(() => {
     const out: RenderGroup[] = [];
     if (!terms.length) {
+      const recentItems = recentHrefs
+        .map((href) => allNav.find((d) => d.href === href))
+        .filter((item): item is RenderHit => Boolean(item));
+      if (recentItems.length) {
+        out.push({ key: 'recent', kind: 'nav', label: 'Recientes', tone: NAV_TONE, items: recentItems });
+      }
       for (const area of AREA_ORDER) {
         const items = allNav.filter((d) => d.area === area);
         if (items.length) out.push({ key: `area:${area}`, kind: 'nav', label: AREA_META[area].label, tone: AREA_META[area], items });
@@ -283,13 +311,18 @@ export function SearchPalette() {
       }
     }
     return out;
-  }, [terms, allNav, entityHits, q]);
+  }, [terms, allNav, recentHrefs, entityHits, q]);
 
   const flat = useMemo(() => groups.flatMap((g) => g.items), [groups]);
   const indexById = useMemo(() => new Map(flat.map((h, i) => [h.id, i])), [flat]);
   const sel = flat.length ? Math.max(0, Math.min(selected, flat.length - 1)) : -1;
 
   const go = useCallback((href: string) => {
+    setRecentHrefs((prev) => {
+      const next = [href, ...prev.filter((item) => item !== href)].slice(0, RECENTS_LIMIT);
+      writeRecentHrefs(next);
+      return next;
+    });
     setIsOpen(false);
     router.push(href);
   }, [router]);

@@ -28,6 +28,25 @@ export interface ReadinessCriterion {
   detail: string;
 }
 
+/**
+ * Raw release signals the backend resolves read-only from the modules that own
+ * them (BOM, FAI, routing/line, AVL). Mirrors `ReadinessSignals` in
+ * apps/api/src/modules/npi/npi.readiness.ts. A `null` field means "could not be
+ * resolved" → reported UNKNOWN, never assumed good.
+ */
+export interface ReadinessSignals {
+  bomStatus?: string | null;
+  faiStatus?: string | null;
+  lineBalancePct?: number | null;
+  lineCompletenessPct?: number | null;
+  stdTimeComplete?: boolean | null;
+  avlCoverage?: number | null;
+  /** Advisory dependency signals (counts; 0 = none yet, null = unresolved). */
+  visualAidsActive?: number | null;
+  productionWorkOrders?: number | null;
+  toolingAssets?: number | null;
+}
+
 export interface ReadinessReport {
   model: string;
   revision: string;
@@ -38,13 +57,15 @@ export interface ReadinessReport {
   unknownCount: number;
   blockers: string[];
   unknowns: string[];
-  signals?: Record<string, unknown>;
+  signals?: ReadinessSignals | Record<string, unknown>;
 }
 
 export interface NpiProject {
   id: string;
   modelNumber: string;
   revision: string;
+  /** Soft link to the canonical ProductModel (pm_product_models.id), if any. */
+  productModelId?: string | null;
   customer?: string | null;
   currentPhase: GatePhase;
   status: ProjectStatus;
@@ -71,6 +92,22 @@ export interface ReadinessSnapshot {
   created_at?: string;
 }
 
+export type NpiRiskSeverity = 'LOW' | 'MEDIUM' | 'HIGH';
+export type NpiRiskStatus = 'OPEN' | 'MITIGATING' | 'CLOSED';
+
+export interface NpiRisk {
+  id: string;
+  projectId: string;
+  title: string;
+  description?: string | null;
+  severity: NpiRiskSeverity;
+  status: NpiRiskStatus;
+  owner?: string | null;
+  dueDate?: string | null;
+  mitigation?: string | null;
+  created_at?: string;
+}
+
 export const PROJECT_STATUS_META: Record<
   ProjectStatus,
   { label: string; color: string }
@@ -79,6 +116,24 @@ export const PROJECT_STATUS_META: Record<
   ON_HOLD: { label: 'En espera', color: '#f59e0b' },
   RELEASED: { label: 'Liberado', color: '#10b981' },
   CANCELLED: { label: 'Cancelado', color: '#9ca3af' },
+};
+
+export const RISK_SEVERITY_META: Record<
+  NpiRiskSeverity,
+  { label: string; color: string }
+> = {
+  HIGH: { label: 'Alto', color: '#f43f5e' },
+  MEDIUM: { label: 'Medio', color: '#f59e0b' },
+  LOW: { label: 'Bajo', color: '#3b82f6' },
+};
+
+export const RISK_STATUS_META: Record<
+  NpiRiskStatus,
+  { label: string; color: string }
+> = {
+  OPEN: { label: 'Abierto', color: '#f43f5e' },
+  MITIGATING: { label: 'Mitigando', color: '#f59e0b' },
+  CLOSED: { label: 'Cerrado', color: '#10b981' },
 };
 
 export const GATE_STATUS_META: Record<

@@ -104,6 +104,7 @@ describe('QualityService', () => {
       audit as never,
       dataSource as never,
       { allocate: jest.fn().mockResolvedValue('COC-2026-000001') } as never, // numbering
+      { getTenantId: () => null } as never, // tenantCtx
     );
   });
 

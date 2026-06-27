@@ -6,8 +6,8 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * Tenant-safe and additive: creates a generic anchor model that supports slide,
  * object, range/cell and text comments without altering existing documents.
  */
-export class CreateOfficeComments20260627120000 implements MigrationInterface {
-  name = 'CreateOfficeComments20260627120000';
+export class CreateOfficeComments20260627130000 implements MigrationInterface {
+  name = 'CreateOfficeComments20260627130000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     if (await queryRunner.hasTable('office_comments')) return;

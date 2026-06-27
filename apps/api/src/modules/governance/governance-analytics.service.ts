@@ -1,18 +1,33 @@
-import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between } from 'typeorm';
+import { Inject, Injectable } from '@nestjs/common';
+import { Between, ObjectLiteral, SelectQueryBuilder } from 'typeorm';
 import { OperationalException, ExceptionStatus } from './entities/operational-exception.entity';
 import { NotificationLog } from './entities/notification-log.entity';
 import { User } from '../users/entities/user.entity';
+import { TenantContextService } from '../../common/tenant/tenant-context.service';
+import {
+  TenantScopedRepository,
+  getTenantRepositoryToken,
+} from '../../common/tenant/tenant-scoped.repository';
 
 @Injectable()
 export class GovernanceAnalyticsService {
   constructor(
-    @InjectRepository(OperationalException)
-    private readonly exceptionRepo: Repository<OperationalException>,
-    @InjectRepository(NotificationLog)
-    private readonly logRepo: Repository<NotificationLog>,
+    @Inject(getTenantRepositoryToken(OperationalException))
+    private readonly exceptionRepo: TenantScopedRepository<OperationalException>,
+    @Inject(getTenantRepositoryToken(NotificationLog))
+    private readonly logRepo: TenantScopedRepository<NotificationLog>,
+    private readonly tenantCtx: TenantContextService,
   ) {}
+
+  private applyScope<T extends ObjectLiteral>(
+    qb: SelectQueryBuilder<T>,
+    alias: string,
+  ): SelectQueryBuilder<T> {
+    const tenant = this.tenantCtx.getTenantId();
+    if (tenant) qb.andWhere(`${alias}.tenant_id = :tenant`, { tenant });
+    else qb.andWhere(`${alias}.tenant_id IS NULL`);
+    return qb;
+  }
 
   async getTrends(user: User, days = 30) {
     const startDate = new Date();
@@ -21,13 +36,15 @@ export class GovernanceAnalyticsService {
     // Fetch exceptions within range with scope
     const qb = this.exceptionRepo.createQueryBuilder('ex')
       .where('ex.createdAt >= :startDate', { startDate });
+    this.applyScope(qb, 'ex');
 
-    this.applyScope(qb, user);
+    this.applyUserScope(qb, user);
     const exceptions = await qb.getMany();
 
     // Fetch notification logs (Escalations/Overdue alerts)
     const logQb = this.logRepo.createQueryBuilder('log')
       .where('log.timestamp >= :startDate', { startDate });
+    this.applyScope(logQb, 'log');
     const logs = await logQb.getMany();
 
     // Group by day
@@ -62,7 +79,8 @@ export class GovernanceAnalyticsService {
 
   async getDomainAnalytics(user: User) {
     const qb = this.exceptionRepo.createQueryBuilder('ex');
-    this.applyScope(qb, user);
+    this.applyScope(qb, 'ex');
+    this.applyUserScope(qb, user);
     const exceptions = await qb.getMany();
 
     const domains: Record<string, any> = {};
@@ -96,7 +114,8 @@ export class GovernanceAnalyticsService {
 
   async getOrganizationalFriction(user: User) {
     const qb = this.exceptionRepo.createQueryBuilder('ex');
-    this.applyScope(qb, user);
+    this.applyScope(qb, 'ex');
+    this.applyUserScope(qb, user);
     const exceptions = await qb.getMany();
 
     const friction = {
@@ -116,7 +135,7 @@ export class GovernanceAnalyticsService {
     return friction;
   }
 
-  private applyScope(qb: any, user: User) {
+  private applyUserScope(qb: any, user: User) {
     if (user.scopes) {
       if (user.scopes.buildings && user.scopes.buildings.length > 0) {
         qb.andWhere('(ex.buildingId IN (:...bids) OR ex.buildingId IS NULL)', { bids: user.scopes.buildings });

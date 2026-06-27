@@ -6,6 +6,7 @@ import type { OfficeDocType, OfficeShare } from './entities/office-document.enti
 import type { OfficeCommentAnchorType } from './entities/office-comment.entity';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { AuthenticatedUser } from '../../common/types/jwt.types';
+import { CreateOfficeCommentDto, ListOfficeCommentsQueryDto, ReplyOfficeCommentDto, UpdateOfficeCommentDto } from './dto/office-comment.dto';
 
 interface AuthReq { user: AuthenticatedUser }
 
@@ -48,38 +49,61 @@ export class OfficeController {
     return this.service.restore(id, req.user);
   }
 
-
-
+  // ── Document comments (Docs) ───────────────────────────────────────────────
   @Get(':id/comments')
-  comments(@Request() req: AuthReq, @Param('id') id: string, @Query('includeResolved') includeResolved?: string) {
-    return this.service.listComments(id, req.user, includeResolved !== '0' && includeResolved !== 'false');
+  comments(@Request() req: AuthReq, @Param('id') id: string, @Query() query: ListOfficeCommentsQueryDto) {
+    return this.service.listComments(id, req.user, query);
   }
 
   @Post(':id/comments')
-  addComment(
+  createComment(@Request() req: AuthReq, @Param('id') id: string, @Body() dto: CreateOfficeCommentDto) {
+    return this.service.createComment(id, dto, req.user);
+  }
+
+  @Patch(':id/comments/:commentId')
+  updateComment(@Request() req: AuthReq, @Param('id') id: string, @Param('commentId') commentId: string, @Body() dto: UpdateOfficeCommentDto) {
+    return this.service.updateComment(id, commentId, dto, req.user);
+  }
+
+  @Post(':id/comments/:commentId/replies')
+  replyComment(@Request() req: AuthReq, @Param('id') id: string, @Param('commentId') commentId: string, @Body() dto: ReplyOfficeCommentDto) {
+    return this.service.replyToComment(id, commentId, dto, req.user);
+  }
+
+  @Delete(':id/comments/:commentId')
+  deleteComment(@Request() req: AuthReq, @Param('id') id: string, @Param('commentId') commentId: string) {
+    return this.service.deleteComment(id, commentId, req.user);
+  }
+
+  // ── Slide/object comments (Slides) — generic anchored threads ───────────────
+  @Get(':id/slide-comments')
+  slideComments(@Request() req: AuthReq, @Param('id') id: string, @Query('includeResolved') includeResolved?: string) {
+    return this.service.listSlideComments(id, req.user, includeResolved !== '0' && includeResolved !== 'false');
+  }
+
+  @Post(':id/slide-comments')
+  addSlideComment(
     @Request() req: AuthReq,
     @Param('id') id: string,
     @Body() dto: { parentId?: string | null; anchorType?: OfficeCommentAnchorType; slideIndex?: number | null; objectId?: string | null; rangeRef?: string | null; anchorLabel?: string | null; text: string; assignedTo?: string | null },
   ) {
-    return this.service.addComment(id, dto, req.user);
+    return this.service.addSlideComment(id, dto, req.user);
   }
 
-  @Patch(':id/comments/:commentId')
-  resolveComment(
+  @Patch(':id/slide-comments/:commentId')
+  resolveSlideComment(
     @Request() req: AuthReq,
     @Param('id') id: string,
     @Param('commentId') commentId: string,
     @Body() dto: { resolved?: boolean },
   ) {
-    return this.service.resolveComment(id, commentId, dto?.resolved !== false, req.user);
+    return this.service.resolveSlideComment(id, commentId, dto?.resolved !== false, req.user);
   }
 
-  @Delete(':id/comments/:commentId')
-  deleteComment(@Request() req: AuthReq, @Param('id') id: string, @Param('commentId') commentId: string) {
-    return this.service.removeComment(id, commentId, req.user);
+  @Delete(':id/slide-comments/:commentId')
+  removeSlideComment(@Request() req: AuthReq, @Param('id') id: string, @Param('commentId') commentId: string) {
+    return this.service.removeSlideComment(id, commentId, req.user);
   }
-
-
   @Get(':id/versions')
   versions(@Request() req: AuthReq, @Param('id') id: string) {
     return this.service.listVersions(id, req.user);

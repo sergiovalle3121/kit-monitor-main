@@ -29,6 +29,8 @@ services:
     environment:
       # Keep a model resident so the first request each session is not cold.
       OLLAMA_KEEP_ALIVE: "30m"
+      # Listen on all interfaces so other containers / services can reach it.
+      OLLAMA_HOST: "0.0.0.0:11434"
     # --- GPU (uncomment on an NVIDIA host with the Container Toolkit) ---
     # deploy:
     #   resources:

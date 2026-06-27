@@ -56,7 +56,7 @@ export default function OfficeEditorPage() {
   useEffect(() => {
     mountedRef.current = true;
     let active = true;
-    setLoading(true);
+    queueMicrotask(() => { if (active) setLoading(true); });
     apiFetch(`${API_BASE}/office-documents/${id}`).then(async (r) => {
       if (!active) return;
       if (!r.ok) {
@@ -167,7 +167,7 @@ export default function OfficeEditorPage() {
     <>
       {typeActions}
       {isOwner && canWrite && <ShareButton docId={id} initialShares={doc.sharedWith ?? []} />}
-      <VersionHistory docId={id} canEdit={!readOnly} onRestored={onRestored} />
+      <VersionHistory docId={id} canEdit={!readOnly} onRestored={onRestored} currentContent={content} />
     </>
   );
   const pptxIssues = doc.type === 'slides' && Array.isArray(content?.pptxCompatibility?.issues)
@@ -191,7 +191,7 @@ export default function OfficeEditorPage() {
 
   return (
     <OfficeShell type={doc.type} title={title} onTitleChange={onTitle} status={status} savedAt={savedAt} readOnly={readOnly} actions={headerActions} statusBarRight={statusBarRight}>
-      {doc.type === 'doc' ? <DocEditor key={editorKey} {...editorProps} author={user?.email ?? ''} onStats={setDocStats} fileActions={actions} title={title} />
+      {doc.type === 'doc' ? <DocEditor key={editorKey} {...editorProps} author={user?.email ?? ''} onStats={setDocStats} fileActions={actions} title={title} docId={id} />
         : doc.type === 'sheet' ? <SheetEditor key={editorKey} {...editorProps} fileActions={actions} />
         : doc.type === 'slides' ? <SlidesEditor key={editorKey} {...editorProps} fileActions={actions} docId={id} />
         : <div className="py-20 text-center text-sm text-gray-400">Tipo de documento desconocido.</div>}

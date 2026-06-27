@@ -34,17 +34,29 @@ export class TenantScopedRepository<
     return this;
   }
 
-  private hasTenantColumn(): boolean {
-    return this.metadata.columns.some(
-      (c) => c.databaseName === 'tenant_id' || c.propertyName === 'tenant_id',
+  /**
+   * The PROPERTY name of the tenant column on this entity, or null if it has none.
+   * Supports both conventions in the codebase: snake `tenant_id` (mayoría) and
+   * camel `tenantId` (ai_*, sem_*, erp_journal_entries, …). Se filtra por nombre
+   * de propiedad porque el `where` de TypeORM usa propiedades, no columnas DB.
+   */
+  private tenantProp(): string | null {
+    const col = this.metadata.columns.find(
+      (c) =>
+        c.databaseName === 'tenant_id' ||
+        c.propertyName === 'tenant_id' ||
+        c.databaseName === 'tenantId' ||
+        c.propertyName === 'tenantId',
     );
+    return col ? col.propertyName : null;
   }
 
   /** The tenant filter to apply, or null when scoping should not be applied. */
   private tenantFilter(): FindOptionsWhere<T> | null {
     const tenant = this.tenantCtx?.getTenantId() ?? null;
-    if (!tenant || !this.hasTenantColumn()) return null;
-    return { tenant_id: tenant } as unknown as FindOptionsWhere<T>;
+    const prop = this.tenantProp();
+    if (!tenant || !prop) return null;
+    return { [prop]: tenant } as unknown as FindOptionsWhere<T>;
   }
 
   private mergeWhere(where: unknown): unknown {

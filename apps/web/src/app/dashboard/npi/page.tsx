@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useMemo, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   Plus,
@@ -12,6 +13,8 @@ import {
   Rocket,
   Inbox,
   Gauge,
+  ArrowRight,
+  Boxes,
 } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { IconTile } from '@/components/ui/IconTile';
@@ -20,11 +23,8 @@ import { useApi } from '@/hooks/useApi';
 import { apiFetch } from '@/lib/apiFetch';
 import { useToast } from '@/contexts/ToastContext';
 import { usePermissions } from '@/hooks/usePermissions';
-import {
-  NpiProject,
-  PHASE_LABEL,
-  ReadinessReport,
-} from './_lib/npi';
+import { NpiProject, PHASE_LABEL, ReadinessReport } from './_lib/npi';
+import { phaseRailCounts } from './_lib/launch';
 import { ProjectStatusPill, ReadinessPill } from './_lib/pills';
 
 const API_BASE = (
@@ -34,6 +34,15 @@ const API_BASE = (
 const field =
   'w-full bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-xl py-2.5 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 transition-all';
 
+/** Minimal shape we need from the product-model master to cross-link launches. */
+interface ModelLite {
+  id: string;
+  modelNumber: string;
+  name: string;
+  customer?: string | null;
+  revision: string;
+}
+
 export default function NpiPage() {
   const router = useRouter();
   const toast = useToast();
@@ -41,6 +50,9 @@ export default function NpiPage() {
 
   const { data, isLoading, forbidden, mutate } =
     useApi<NpiProject[]>('/npi/projects');
+  // Read-only join against the product master so launch cards can deep-link to
+  // the canonical model (no backend change — purely a client-side lookup).
+  const { data: modelsData } = useApi<ModelLite[]>('/product-models');
 
   const [query, setQuery] = useState('');
   const [showForm, setShowForm] = useState(false);
@@ -54,11 +66,23 @@ export default function NpiPage() {
   });
 
   const list = useMemo(() => (Array.isArray(data) ? data : []), [data]);
+  const models = useMemo(
+    () => (Array.isArray(modelsData) ? modelsData : []),
+    [modelsData],
+  );
+  const modelByNumber = useMemo(() => {
+    const m = new Map<string, ModelLite>();
+    for (const mod of models) m.set(mod.modelNumber, mod);
+    return m;
+  }, [models]);
+
   const kpis = useMemo(() => {
     const by = { OPEN: 0, ON_HOLD: 0, RELEASED: 0, CANCELLED: 0 };
     for (const p of list) by[p.status] = (by[p.status] ?? 0) + 1;
     return { total: list.length, ...by };
   }, [list]);
+
+  const rail = useMemo(() => phaseRailCounts(list), [list]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -69,6 +93,18 @@ export default function NpiPage() {
         .includes(q),
     );
   }, [list, query]);
+
+  /** Prefill the new-launch form from an existing model in the master. */
+  function pickModel(modelNumber: string) {
+    const mod = modelByNumber.get(modelNumber);
+    if (!mod) return;
+    setForm((f) => ({
+      ...f,
+      modelNumber: mod.modelNumber,
+      revision: mod.revision || f.revision,
+      customer: mod.customer || f.customer,
+    }));
+  }
 
   async function createProject() {
     if (form.modelNumber.trim().length < 1) {
@@ -93,7 +129,7 @@ export default function NpiPage() {
         toast.error(d?.message || 'No se pudo crear el proyecto.', 'NPI');
         return;
       }
-      toast.success(`Proyecto NPI ${d.modelNumber} listo.`, 'NPI');
+      toast.success(`Launch ${d.modelNumber} listo.`, 'NPI');
       setShowForm(false);
       setForm({
         modelNumber: '',
@@ -130,8 +166,8 @@ export default function NpiPage() {
       <main className="max-w-5xl mx-auto px-6 pt-10">
         <PageHeader
           domain="engineering"
-          title="NPI · Gates"
-          subtitle="Orquesta la introducción por fases (QUOTE→MP) y mira la readiness agregada. Advisory: informa, no bloquea."
+          title="NPI Launch Center"
+          subtitle="Orquesta modelos, revisiones, readiness, gates y liberación a manufactura. Una consola, no un checklist."
           icon={Rocket}
           right={
             canWrite && (
@@ -139,7 +175,7 @@ export default function NpiPage() {
                 onClick={() => setShowForm((s) => !s)}
                 className="inline-flex items-center gap-2 bg-black dark:bg-white text-white dark:text-black text-sm font-semibold px-4 py-2.5 rounded-full hover:scale-[1.02] active:scale-95 transition-transform"
               >
-                <Plus className="w-4 h-4" /> Nuevo proyecto
+                <Plus className="w-4 h-4" /> Nuevo launch
               </button>
             )
           }
@@ -147,11 +183,14 @@ export default function NpiPage() {
 
         {/* KPIs */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-          <Kpi label="Proyectos" value={kpis.total} color="#5b5bd6" />
+          <Kpi label="Launches" value={kpis.total} color="#5b5bd6" />
           <Kpi label="Abiertos" value={kpis.OPEN} color="#3b82f6" />
-          <Kpi label="En espera" value={kpis.ON_HOLD} color="#f59e0b" />
+          <Kpi label="En hold" value={kpis.ON_HOLD} color="#f59e0b" />
           <Kpi label="Liberados" value={kpis.RELEASED} color="#10b981" />
         </div>
+
+        {/* Phase rail */}
+        <PhaseRail rail={rail} />
 
         {/* Readiness lookup */}
         <ReadinessLookup />
@@ -160,7 +199,7 @@ export default function NpiPage() {
         {showForm && (
           <div className={`${glass} rounded-2xl p-5 mb-6`}>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold">Nuevo proyecto NPI</h3>
+              <h3 className="font-semibold">Nuevo launch NPI</h3>
               <button
                 onClick={() => setShowForm(false)}
                 className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10"
@@ -168,6 +207,29 @@ export default function NpiPage() {
                 <X className="w-4 h-4" />
               </button>
             </div>
+
+            {/* Start from an existing model in the master (optional). */}
+            {models.length > 0 && (
+              <label className="block mb-4">
+                <span className="block text-[12px] font-medium text-gray-500 mb-1">
+                  Empezar desde un modelo del maestro (opcional)
+                </span>
+                <select
+                  className={field}
+                  value={modelByNumber.has(form.modelNumber) ? form.modelNumber : ''}
+                  onChange={(e) => pickModel(e.target.value)}
+                >
+                  <option value="">— Captura manual —</option>
+                  {models.map((m) => (
+                    <option key={m.id} value={m.modelNumber}>
+                      {m.modelNumber} · {m.name}
+                      {m.customer ? ` · ${m.customer}` : ''}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <label className="block">
                 <span className="block text-[12px] font-medium text-gray-500 mb-1">
@@ -250,7 +312,7 @@ export default function NpiPage() {
                 ) : (
                   <CheckCircle2 className="w-4 h-4" />
                 )}{' '}
-                Crear proyecto
+                Crear launch
               </button>
             </div>
           </div>
@@ -287,10 +349,10 @@ export default function NpiPage() {
         ) : list.length === 0 ? (
           <div className={`${glass} rounded-3xl p-12 text-center`}>
             <Inbox className="w-8 h-8 mx-auto mb-3 text-gray-400" />
-            <h3 className="font-semibold">Aún no hay proyectos NPI</h3>
+            <h3 className="font-semibold">Aún no hay launches</h3>
             <p className="text-sm text-gray-400 mt-1 mb-4">
-              Crea un proyecto para orquestar la introducción de un modelo por
-              gates.
+              Crea un launch para orquestar la introducción de un modelo: BOM,
+              routing, calidad, gates y liberación a producción.
             </p>
             {canWrite && (
               <button
@@ -310,27 +372,11 @@ export default function NpiPage() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {filtered.map((p) => (
-              <button
+              <LaunchCard
                 key={p.id}
-                onClick={() => router.push(`/dashboard/npi/${p.id}`)}
-                className={`${glass} group rounded-2xl p-4 text-left flex items-center gap-3`}
-              >
-                <IconTile domain="engineering" size={44} icon={Rocket} />
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-[12px] font-mono text-gray-500">
-                      {p.modelNumber}
-                    </span>
-                    <ProjectStatusPill status={p.status} />
-                  </div>
-                  <div className="font-semibold truncate">
-                    {p.customer || 'Sin cliente'} · rev {p.revision}
-                  </div>
-                  <div className="text-xs text-gray-400 truncate">
-                    Fase {PHASE_LABEL[p.currentPhase] ?? p.currentPhase}
-                  </div>
-                </div>
-              </button>
+                project={p}
+                model={modelByNumber.get(p.modelNumber) ?? null}
+              />
             ))}
           </div>
         )}
@@ -358,6 +404,99 @@ function Kpi({
         style={{ color }}
       >
         {value}
+      </div>
+    </div>
+  );
+}
+
+/** Pipeline rail: QUOTE → … → MP with a live count of projects per phase. */
+function PhaseRail({
+  rail,
+}: {
+  rail: { phase: string; count: number }[];
+}) {
+  return (
+    <div className={`${glass} rounded-2xl p-4 mb-6`}>
+      <div className="text-[11px] uppercase tracking-wide text-gray-400 mb-3">
+        Pipeline de lanzamiento
+      </div>
+      <div className="flex items-stretch gap-1.5 overflow-x-auto">
+        {rail.map((r, i) => (
+          <React.Fragment key={r.phase}>
+            <div
+              className={`flex-1 min-w-[5rem] rounded-xl px-3 py-2.5 text-center ${
+                r.count > 0
+                  ? 'bg-black/[0.04] dark:bg-white/[0.06]'
+                  : 'bg-transparent'
+              }`}
+            >
+              <div className="text-2xl font-semibold tabular-nums leading-none">
+                {r.count}
+              </div>
+              <div className="text-[11px] font-medium mt-1.5">{r.phase}</div>
+              <div className="text-[10px] text-gray-400 truncate">
+                {PHASE_LABEL[r.phase as keyof typeof PHASE_LABEL] ?? r.phase}
+              </div>
+            </div>
+            {i < rail.length - 1 && (
+              <div className="self-center text-gray-300 dark:text-gray-600">
+                <ArrowRight className="w-4 h-4" />
+              </div>
+            )}
+          </React.Fragment>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** A launch card: the model, its phase, and quick jumps to launch + master. */
+function LaunchCard({
+  project: p,
+  model,
+}: {
+  project: NpiProject;
+  model: ModelLite | null;
+}) {
+  return (
+    <div className={`${glass} group rounded-2xl p-4 flex flex-col gap-3`}>
+      <Link
+        href={`/dashboard/npi/${p.id}`}
+        className="flex items-center gap-3 text-left"
+      >
+        <IconTile domain="engineering" size={44} icon={Rocket} />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[12px] font-mono text-gray-500">
+              {p.modelNumber}
+            </span>
+            <ProjectStatusPill status={p.status} />
+          </div>
+          <div className="font-semibold truncate">
+            {model?.name || p.customer || 'Sin cliente'} · rev {p.revision}
+          </div>
+          <div className="text-xs text-gray-400 truncate">
+            {p.customer ? `${p.customer} · ` : ''}Fase{' '}
+            {PHASE_LABEL[p.currentPhase] ?? p.currentPhase}
+            {p.programId ? ` · ${p.programId}` : ''}
+          </div>
+        </div>
+      </Link>
+      <div className="flex items-center gap-2 border-t border-black/5 dark:border-white/5 pt-2.5">
+        <Link
+          href={`/dashboard/npi/${p.id}`}
+          className="inline-flex items-center gap-1 text-xs font-semibold text-violet-600 dark:text-violet-300 hover:underline"
+        >
+          Abrir launch <ArrowRight className="w-3 h-3" />
+        </Link>
+        {model && (
+          <Link
+            href={`/dashboard/models/${model.id}`}
+            className="ml-auto inline-flex items-center gap-1 text-xs font-medium text-gray-500 hover:text-black dark:hover:text-white"
+          >
+            <Boxes className="w-3.5 h-3.5" /> Ver modelo
+          </Link>
+        )}
       </div>
     </div>
   );
@@ -393,6 +532,9 @@ function ReadinessLookup() {
       <div className="flex items-center gap-2 mb-3">
         <Gauge className="w-4 h-4 text-violet-500" />
         <h3 className="font-semibold text-sm">Consulta de readiness</h3>
+        <span className="text-[11px] text-gray-400">
+          Go / no-go en vivo para cualquier modelo+revisión
+        </span>
       </div>
       <div className="flex flex-wrap items-end gap-2">
         <label className="block">
@@ -424,9 +566,7 @@ function ReadinessLookup() {
       {report && (
         <div className="mt-4">
           <div className="flex items-center gap-2 mb-2">
-            <ReadinessPill
-              status={report.gateReady ? 'READY' : 'NOT_READY'}
-            />
+            <ReadinessPill status={report.gateReady ? 'READY' : 'NOT_READY'} />
             <span className="text-xs text-gray-400">
               {report.readyCount} listo · {report.notReadyCount} no listo ·{' '}
               {report.unknownCount} desconocido

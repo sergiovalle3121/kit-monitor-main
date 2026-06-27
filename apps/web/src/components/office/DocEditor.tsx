@@ -58,7 +58,7 @@ import { TableCellAttrs } from './docs/tableCellAttrs';
 import { SearchHighlight } from './docs/searchHighlight';
 import { MathInline, MathBlock, MathCommands } from './docs/mathExtension';
 import { FootnoteRef, FootnoteList, EndnoteRef, EndnoteList } from './docs/footnotes';
-import { DropCap, Callout, ColumnBreak, Bookmark, CrossRef } from './docs/insertNodes';
+import { DropCap, Callout, ColumnBreak, Bookmark, CrossRef, AxosRef, DocField } from './docs/insertNodes';
 import { InsertionMark, DeletionMark, TrackChanges } from './docs/trackChanges';
 import { FocusLine } from './docs/focusLine';
 import { SignatureLine } from './docs/signatureLine';
@@ -82,6 +82,7 @@ import { DocToc } from './docs/DocToc';
 import { DocSections } from './docs/DocSections';
 import { DocInsertExtras } from './docs/DocInsertExtras';
 import { DocMailMerge } from './docs/DocMailMerge';
+import { DocProperties } from './docs/DocProperties';
 import { DocTrackChanges, type TrackView } from './docs/DocTrackChanges';
 import { DocWordCount } from './docs/DocWordCount';
 import { DocTemplates } from './docs/DocTemplates';
@@ -135,7 +136,7 @@ function EmojiBtn({ onPick }: { onPick: (e: string) => void }) {
 }
 
 /** Word-like rich text editor (TipTap + MIT extensions). */
-export function DocEditor({ value, onChange, readOnly, author, onStats, fileActions, title }: { value: any; onChange: (json: any) => void; readOnly?: boolean; author?: string; onStats?: (s: { words: number; chars: number }) => void; fileActions?: React.ReactNode; title?: string }) {
+export function DocEditor({ value, onChange, readOnly, author, onStats, fileActions, title, docId }: { value: any; onChange: (json: any) => void; readOnly?: boolean; author?: string; onStats?: (s: { words: number; chars: number }) => void; fileActions?: React.ReactNode; title?: string; docId?: string }) {
   const editor = useEditor({
     extensions: [
       StarterKit,
@@ -173,6 +174,8 @@ export function DocEditor({ value, onChange, readOnly, author, onStats, fileActi
       ColumnBreak,
       Bookmark,
       CrossRef,
+      AxosRef,
+      DocField,
       InsertionMark,
       DeletionMark,
       TrackChanges.configure({ author: author ?? '' }),
@@ -421,6 +424,8 @@ export function DocEditor({ value, onChange, readOnly, author, onStats, fileActi
           {fileActions != null && (
             <RibbonTab id="file" label="Archivo" icon={FileText}>
               <RibbonGroup label="Documento">{fileActions}</RibbonGroup>
+              <RibbonSeparator />
+              <RibbonGroup label="Control documental"><DocProperties editor={editor} /></RibbonGroup>
             </RibbonTab>
           )}
 
@@ -572,7 +577,7 @@ export function DocEditor({ value, onChange, readOnly, author, onStats, fileActi
             </RibbonGroup>
             <RibbonSeparator />
             <RibbonGroup label="Comentarios">
-              <DocComments editor={editor} author={author ?? ''} />
+              <DocComments editor={editor} author={author ?? ''} docId={docId} />
             </RibbonGroup>
             <RibbonSeparator />
             <DocTrackChanges editor={editor} suggesting={suggesting} setSuggesting={setSuggesting} trackView={trackView} setTrackView={setTrackView} />
