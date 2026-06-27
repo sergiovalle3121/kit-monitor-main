@@ -20,6 +20,20 @@ export interface LayoutAsset {
   h: number;
   rotation: number;
   label?: string;
+  layer?: string; // CAD layer id this asset belongs to (Fase 66)
+}
+
+/**
+ * A CAD layer (Fase 66): named, colored, with visibility and lock state. Objects
+ * (assets/annotations) reference it by `id` via their optional `layer` field.
+ * Additive: NULL/empty = everything lives on an implicit default layer.
+ */
+export interface LayoutLayer {
+  id: string;
+  name: string;
+  color: string;
+  visible: boolean;
+  locked: boolean;
 }
 
 /** A persistent annotation on the plan (Fase 7): free text or a dimension. */
@@ -32,6 +46,7 @@ export interface LayoutAnnotation {
   y2?: number;
   text?: string;
   color?: string;
+  layer?: string; // CAD layer id this annotation belongs to (Fase 66)
 }
 
 /** A named manufacturing cell / zone grouping a set of stations (Fase 27). */
@@ -206,4 +221,10 @@ export class SfLineLayout extends TenantBaseEntity {
   // the plan. Additive & nullable: NULL/empty = no cells.
   @Column({ type: JSON_COLUMN_TYPE, nullable: true })
   cells: LayoutCell[] | null;
+
+  // ── CAD layers (Fase 66) ───────────────────────────────────────────────────
+  // Named drafting layers with color/visibility/lock. Objects reference a layer
+  // by id. Additive & nullable: NULL/empty = single implicit default layer.
+  @Column({ type: JSON_COLUMN_TYPE, nullable: true })
+  layers: LayoutLayer[] | null;
 }

@@ -81,7 +81,9 @@ export function useWebPush() {
   }, []);
 
   useEffect(() => {
-    void refresh();
+    queueMicrotask(() => {
+      void refresh();
+    });
   }, [refresh]);
 
   const enable = useCallback(async () => {
