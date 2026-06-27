@@ -93,12 +93,20 @@ La **matriz de dependencias** se deriva de los `signals` de readiness:
 puede resolver se reporta como *falta* o *sin integrar* — **nunca** se asume
 buena. No se inventan conteos ni estados.
 
+## 4.1 Relación modelo ↔ launch (implementado)
+
+`npi_project` lleva una columna `product_model_id` (varchar, nullable, **sin
+FK** — mantiene NPI desacoplado del maestro). El servicio la resuelve por
+`modelNumber` (case-insensitive, scoped tenant+plant) **al crear** y la
+**rellena de forma perezosa al leer** (`getProject`), así los launches previos
+quedan enlazados al verse. El frontend usa `project.productModelId` para enlazar
+directo a `/dashboard/models/[id]` — sin búsqueda difusa. Cuando no existe modelo
+maestro para el número, queda `null` y la matriz lo reporta honestamente.
+
 ## 5. Limitaciones actuales
 
 - `GET /npi/projects` no trae `readiness` ni `gates`; las tarjetas de la lista
   muestran fase/estatus, y el go/no-go completo vive en el dossier.
-- No existe relación dura `product_model_id ↔ npi_project`: el vínculo se infiere
-  por `modelNumber` (lookup cliente). Funciona, pero no es una FK.
 - Tooling, Visual Aids y Plan de producción **no** tienen señal de readiness:
   la matriz los marca *sin integrar* y enlaza a su módulo para cerrarlos a mano.
 - "Liberar a MP" es advisory: el banner indica readiness, pero no hay un endpoint
@@ -106,10 +114,7 @@ buena. No se inventan conteos ni estados.
 
 ## 6. Contratos backend sugeridos (siguientes PRs)
 
-1. **Relación modelo ↔ launch.** Añadir `productModelId` a `npi_project`
-   (nullable, FK opcional) y resolverlo al crear por `modelNumber`. Permite
-   navegación directa y readiness por modelo sin búsquedas difusas.
-2. **Readiness extendida.** Sumar señales para `tooling`, `visualAids` y
+1. **Readiness extendida.** Sumar señales para `tooling`, `visualAids` y
    `productionPlan` a `ReadinessSignals` / `evaluateReadiness` para que la matriz
    deje de mostrarlos "sin integrar".
 3. **`GET /npi/projects?withReadiness=true`.** Adjuntar un resumen ligero

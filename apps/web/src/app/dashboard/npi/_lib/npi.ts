@@ -60,6 +60,8 @@ export interface NpiProject {
   id: string;
   modelNumber: string;
   revision: string;
+  /** Soft link to the canonical ProductModel (pm_product_models.id), if any. */
+  productModelId?: string | null;
   customer?: string | null;
   currentPhase: GatePhase;
   status: ProjectStatus;
