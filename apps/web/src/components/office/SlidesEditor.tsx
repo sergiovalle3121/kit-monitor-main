@@ -314,6 +314,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions, docId }: 
           dur: o.animDur ?? 500,
           delay: o.animDelay ?? 0,
           start: (o.animStart as string) || DEFAULT_ANIM_START,
+          repeat: o.animRepeat ?? 1,
           kind: animKind(o.anim as string),
         })),
     );
@@ -1603,27 +1604,6 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions, docId }: 
     (g as any).link = link;
     c.add(g); c.setActiveObject(g); c.requestRenderAll(); capture(); sync();
   }
-
-  // Lista para el panel de animación (se recalcula en cada render desde el lienzo).
-  const animList: AnimItem[] = (() => {
-    const c = fabricRef.current; if (!showAnimPanel || !c) return [];
-    return c.getObjects()
-      .map((o: any, idx: number) => ({ o, idx }))
-      .filter((x) => !isConnector(x.o) && !isBgFill(x.o))
-      .map(({ o, idx }) => ({ idx, label: objLabel(o), type: typeName(o), anim: (o.anim as string) || 'none', order: o.animOrder ?? 0, dur: o.animDur ?? 500, delay: o.animDelay ?? 0, start: (o.animStart as string) || DEFAULT_ANIM_START, repeat: o.animRepeat ?? 1, kind: animKind(o.anim as string) }));
-  })();
-  const layerList: LayerItem[] = (() => {
-    const c = fabricRef.current; if (!showLayers || !c) return [];
-    return c.getObjects().map((o: any, idx: number) => ({ o, idx })).filter((x) => !isBgFill(x.o)).map(({ o, idx }) => ({ idx, label: objLabel(o), type: typeName(o), visible: o.visible !== false, locked: !!o.locked }));
-  })();
-  const activeIdx = (() => {
-    const c = fabricRef.current; const a = c?.getActiveObject(); if (!c || !a) return -1;
-    return c.getObjects().indexOf(a as any);
-  })();
-  const selGeom = (() => {
-    const o = fabricRef.current?.getActiveObject() as any; if (!o) return null;
-    return { x: Math.round(o.left || 0), y: Math.round(o.top || 0), w: Math.round(o.getScaledWidth?.() || 0), h: Math.round(o.getScaledHeight?.() || 0), angle: Math.round(o.angle || 0) };
-  })();
 
   return (
     <div className="flex flex-col gap-3 h-full p-3">
