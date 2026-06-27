@@ -2641,4 +2641,23 @@ historial y **ver qué modelo** respondió (incluido si hubo escalación). Todo 
 **Verificación:** `build API` ✓, **AI tests 21/21** (+4 de borrado: not-found, forbidden,
 owner, admin), `lint web` 0 errores, `build web` ✓. Sin migraciones; nada existente cambia.
 
+## 120. CIDE — renombrar y reaprovechar conversaciones (renombrar · copiar · regenerar)
+
+**Contexto.** Tras borrar/detener (§119), faltaba completar la gestión de conversaciones y
+facilitar reaprovechar respuestas. Todo aditivo, sin migraciones (la columna `title` ya existe).
+
+**Decisión.**
+- **Renombrar.** `AiService.renameConversation()` (owner; admin cualquiera) recorta y limita el
+  título a 200 chars (vacío → «Nueva conversación»). `PATCH /api/ai/conversations/:id`
+  (`RenameConversationDto`) + proxy Next. En el historial de `Cide.tsx`, botón lápiz → edición
+  inline (Enter confirma, Esc cancela) con actualización optimista.
+- **Copiar respuesta.** Botón de copiar al portapapeles en cada respuesta del asistente, con
+  check transitorio.
+- **Regenerar.** `runStream()` extraído de `send()`; nuevo `regenerate()` reaprovecha el último
+  mensaje del usuario, descarta la respuesta previa y vuelve a transmitir.
+
+**Verificación:** `build API` ✓, **AI tests 25/25** (+4 de renombrar: not-found, forbidden,
+owner con recorte/límite, fallback de título vacío), `lint web` 0 errores, `build web` ✓.
+Sin migraciones; ningún endpoint ni comportamiento existente cambia.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->

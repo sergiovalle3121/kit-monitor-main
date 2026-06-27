@@ -369,6 +369,19 @@ export class AiService {
     return { deleted: true, id };
   }
 
+  /** Rename a conversation. Owner-only (admins may rename any). */
+  async renameConversation(reqUser: ReqUser, id: string, title: string) {
+    const conversation = await this.convRepo.findOne({ where: { id } });
+    if (!conversation) throw new NotFoundException('Conversación no encontrada');
+    if (conversation.userEmail !== reqUser.email && reqUser.role !== 'Admin') {
+      throw new ForbiddenException('No puedes renombrar esta conversación.');
+    }
+    const clean = title.trim().slice(0, 200) || 'Nueva conversación';
+    conversation.title = clean;
+    await this.convRepo.save(conversation);
+    return { id, title: clean };
+  }
+
   // ── Chat ─────────────────────────────────────────────────────────────────────
   /**
    * Resolve everything a turn needs (config + guardrails + RBAC context +

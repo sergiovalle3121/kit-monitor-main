@@ -196,3 +196,51 @@ describe('AiService.deleteConversation', () => {
     expect(convRepo.delete).toHaveBeenCalledWith({ id: 'x' });
   });
 });
+
+describe('AiService.renameConversation', () => {
+  const owner: ReqUser = { userId: 'u1', email: 'a@b.com', role: 'User' };
+  function serviceWith(conv: unknown) {
+    const convRepo = {
+      findOne: jest.fn().mockResolvedValue(conv),
+      save: jest.fn().mockImplementation((c) => Promise.resolve(c)),
+    };
+    const service = new AiService(
+      null as never,
+      null as never,
+      convRepo as never,
+      { delete: jest.fn() } as never,
+      { execute: jest.fn() } as never,
+      null as never,
+    );
+    return { service, convRepo };
+  }
+
+  it('throws NotFound when the conversation does not exist', async () => {
+    const { service } = serviceWith(null);
+    await expect(
+      service.renameConversation(owner, 'missing', 'Hola'),
+    ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('forbids renaming another user’s conversation (non-admin)', async () => {
+    const { service } = serviceWith({ id: 'x', userEmail: 'other@b.com' });
+    await expect(
+      service.renameConversation(owner, 'x', 'Hola'),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('trims, caps at 200 chars and persists the new title for the owner', async () => {
+    const { service, convRepo } = serviceWith({ id: 'x', userEmail: 'a@b.com' });
+    const res = await service.renameConversation(owner, 'x', '  Análisis OEE  ');
+    expect(res).toEqual({ id: 'x', title: 'Análisis OEE' });
+    expect(convRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'x', title: 'Análisis OEE' }),
+    );
+  });
+
+  it('falls back to a default title when the new title is blank', async () => {
+    const { service } = serviceWith({ id: 'x', userEmail: 'a@b.com' });
+    const res = await service.renameConversation(owner, 'x', '   ');
+    expect(res.title).toBe('Nueva conversación');
+  });
+});
