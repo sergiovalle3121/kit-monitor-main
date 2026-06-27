@@ -84,7 +84,7 @@ La **matriz de dependencias** se deriva de los `signals` de readiness:
 | BOM | `signals.bomStatus` | conectado / incompleto / falta |
 | Material Master / AVL | `signals.avlCoverage` | conectado / incompleto / falta |
 | Proceso · Routing | `lineBalancePct`, `lineCompletenessPct`, `stdTimeComplete` | conectado / incompleto / falta |
-| Tooling / Fixtures | — (program-scoped) | **sin integrar** |
+| Tooling / Fixtures | `signals.toolingAssets` (por programa) | conectado / falta / sin integrar |
 | Visual Aids / WI | `signals.visualAidsActive` | conectado / falta |
 | Calidad · FAI | `signals.faiStatus` | conectado / incompleto / falta |
 | Plan de producción | `signals.productionWorkOrders` | conectado / falta |
@@ -93,12 +93,13 @@ La **matriz de dependencias** se deriva de los `signals` de readiness:
 puede resolver se reporta como *falta* o *sin integrar* — **nunca** se asume
 buena. No se inventan conteos ni estados.
 
-Las señales de **Visual Aids** y **Plan de producción** son *advisory*: se
-resuelven read-only (conteo de `visual_aids` activos por modelo y de
-`sf_work_orders` por modelo) y enriquecen la matriz, pero **no** se pliegan en
-`gateReady` (no cambian la semántica del go/no-go ni de los gates). Tooling sigue
-*sin integrar*: hoy es program-scoped (no tiene `model`), enlazar requeriría
-propagar `programId` al contrato puro `(model, revision)` de readiness.
+Las señales de **Tooling**, **Visual Aids** y **Plan de producción** son
+*advisory*: se resuelven read-only (conteo de `tooling_assets` por programa del
+modelo, `visual_aids` activos por modelo y `sf_work_orders` por modelo) y
+enriquecen la matriz, pero **no** se pliegan en `gateReady` (no cambian la
+semántica del go/no-go ni de los gates). Tooling es program-scoped: el modelo
+canónico aporta su `programId` (desde `pm_product_models`); si el modelo no tiene
+programa, la señal queda *sin integrar* honestamente.
 
 ## 4.1 Relación modelo ↔ launch (implementado)
 
@@ -114,23 +115,21 @@ maestro para el número, queda `null` y la matriz lo reporta honestamente.
 
 - `GET /npi/projects` no trae `readiness` ni `gates`; las tarjetas de la lista
   muestran fase/estatus, y el go/no-go completo vive en el dossier.
-- Tooling sigue **sin integrar** (program-scoped): la matriz lo enlaza a su
-  módulo para cerrarlo a mano.
+- Las señales de dependencia (tooling, visual aids, plan) son conteos *advisory*:
+  enriquecen la matriz pero no se pliegan en `gateReady`.
 - "Liberar a MP" es advisory: el banner indica readiness, pero no hay un endpoint
   transaccional de release con checklist + auditoría todavía.
 
 ## 6. Contratos backend sugeridos (siguientes PRs)
 
-1. **Tooling readiness.** Propagar `programId` al contrato de readiness (o
-   resolverlo por el modelo) para dar a `tooling` una señal real en la matriz.
-3. **`GET /npi/projects?withReadiness=true`.** Adjuntar un resumen ligero
+1. **`GET /npi/projects?withReadiness=true`.** Adjuntar un resumen ligero
    (`gateReady`, `readyCount`, `notReadyCount`) por proyecto para enriquecer las
    launch cards sin N+1 requests.
-4. **Risk register NPI.** `npi_risk` con `owner`, `severity`, `dueDate`, `status`
+2. **Risk register NPI.** `npi_risk` con `owner`, `severity`, `dueDate`, `status`
    para el panel de riesgos abiertos.
-5. **Evidence package.** Vincular documentos Office/CAD/FAI/visual aids y
+3. **Evidence package.** Vincular documentos Office/CAD/FAI/visual aids y
    aprobaciones a un gate como evidencia versionada.
-6. **Release to MP.** Endpoint transaccional `POST /npi/projects/:id/release`
+4. **Release to MP.** Endpoint transaccional `POST /npi/projects/:id/release`
    con checklist duro + auditoría (sin romper el carácter advisory por defecto).
 
 ## 7. Diseño

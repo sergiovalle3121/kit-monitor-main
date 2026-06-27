@@ -204,9 +204,10 @@ function qualityDependency(s: ReadinessSignals, href: string): LaunchDependency 
 
 /**
  * Build the dependency matrix from the live readiness signals plus whether the
- * canonical product model could be resolved. Visual aids and the production plan
- * use real counts; tooling has no model-scoped signal yet (program-scoped) so it
- * stays `pending` with a live link to its module to close it manually.
+ * canonical product model could be resolved. Every dependency now has a real
+ * signal: counts (tooling, visual aids, production plan) resolve null → pending,
+ * 0 → missing, ≥1 → connected. Tooling is program-scoped (count for the model's
+ * program), so it stays `pending` only when the model has no program.
  */
 export function deriveDependencies(
   report: ReadinessReport | null | undefined,
@@ -226,13 +227,13 @@ export function deriveDependencies(
     bomDependency(s, opts.modelHref),
     avlDependency(s, '/dashboard/suppliers'),
     routingDependency(s, '/dashboard/routing'),
-    {
-      key: 'tooling',
-      label: 'Tooling / Fixtures',
-      status: 'pending',
-      detail: 'Aún sin señal de readiness en AXOS.',
-      href: '/dashboard/tooling',
-    },
+    countDependency(
+      'tooling',
+      'Tooling / Fixtures',
+      s.toolingAssets,
+      '/dashboard/tooling',
+      'herramental(es) del programa',
+    ),
     countDependency(
       'visualAids',
       'Visual Aids / WI',

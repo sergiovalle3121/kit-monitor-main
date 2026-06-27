@@ -14,6 +14,7 @@ import { NpiReadinessSnapshot } from './entities/npi-readiness-snapshot.entity';
 import { ProductModel } from '../product-models/entities/product-model.entity';
 import { VisualAid } from '../visual-aids/entities/visual-aid.entity';
 import { SfWorkOrder } from '../production-plan/entities/sf-work-order.entity';
+import { Tool } from '../tooling/entities/tool.entity';
 import { SfFai } from '../fai/entities/sf-fai.entity';
 import { SupplierApprovedPart } from '../suppliers/entities/supplier-approved-part.entity';
 import { TenantContextService } from '../../common/tenant/tenant-context.service';
@@ -94,6 +95,8 @@ export class NpiService {
     private readonly visualAids: Repository<VisualAid>,
     @InjectRepository(SfWorkOrder)
     private readonly workOrders: Repository<SfWorkOrder>,
+    @InjectRepository(Tool)
+    private readonly tools: Repository<Tool>,
     @InjectRepository(SfFai)
     private readonly fai: Repository<SfFai>,
     @InjectRepository(SupplierApprovedPart)
@@ -310,6 +313,7 @@ export class NpiService {
       stdTimeComplete,
       visualAidsActive,
       productionWorkOrders,
+      programId,
     ] = await Promise.all([
       this.resolveBestBomHeader(model),
       this.resolveFaiStatus(model),
@@ -317,8 +321,12 @@ export class NpiService {
       this.resolveStdTimeComplete(model, revision),
       this.resolveVisualAidsActive(model),
       this.resolveProductionWorkOrders(model),
+      this.resolveModelProgramId(model),
     ]);
-    const avlCoverage = await this.resolveAvlCoverage(bestHeader);
+    const [avlCoverage, toolingAssets] = await Promise.all([
+      this.resolveAvlCoverage(bestHeader),
+      this.resolveToolingAssets(programId),
+    ]);
     return {
       bomStatus: bestHeader?.status ?? null,
       faiStatus,
@@ -328,7 +336,55 @@ export class NpiService {
       avlCoverage,
       visualAidsActive,
       productionWorkOrders,
+      toolingAssets,
     };
+  }
+
+  /**
+   * The canonical program for a model (from `pm_product_models`, scoped). Used to
+   * resolve program-scoped signals like tooling. Null when no master record or
+   * no program. Read-only, best-effort.
+   */
+  private async resolveModelProgramId(model: string): Promise<string | null> {
+    const m = (model ?? '').trim();
+    if (!m) return null;
+    try {
+      const qb = this.productModels
+        .createQueryBuilder('pm')
+        .select('pm.program_id', 'programId')
+        .where('UPPER(pm.model_number) = UPPER(:m)', { m });
+      this.applyScope(qb, 'pm');
+      const row = await qb.getRawOne<{ programId: string | null }>();
+      return row?.programId ?? null;
+    } catch (err) {
+      this.logger.warn(
+        `Program lookup failed for ${m}: ${(err as Error)?.message}`,
+      );
+      return null;
+    }
+  }
+
+  /**
+   * Count of tooling assets for the model's program (`tooling_assets`). Tooling
+   * is program-scoped (no model column), so null when the model has no program.
+   * Read-only, advisory.
+   */
+  private async resolveToolingAssets(
+    programId: string | null,
+  ): Promise<number | null> {
+    if (!programId) return null;
+    try {
+      const qb = this.tools
+        .createQueryBuilder('t')
+        .where('t.program_id = :p', { p: programId });
+      this.applyScope(qb, 't');
+      return await qb.getCount();
+    } catch (err) {
+      this.logger.warn(
+        `Tooling lookup failed for program ${programId}: ${(err as Error)?.message}`,
+      );
+      return null;
+    }
   }
 
   /**
@@ -336,9 +392,7 @@ export class NpiService {
    * only (the `visual_aids` table has no plant_id). 0 = none published yet;
    * null = could not resolve. Read-only, advisory.
    */
-  private async resolveVisualAidsActive(
-    model: string,
-  ): Promise<number | null> {
+  private async resolveVisualAidsActive(model: string): Promise<number | null> {
     const m = (model ?? '').trim();
     if (!m) return null;
     try {

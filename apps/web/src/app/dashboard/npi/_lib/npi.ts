@@ -44,6 +44,7 @@ export interface ReadinessSignals {
   /** Advisory dependency signals (counts; 0 = none yet, null = unresolved). */
   visualAidsActive?: number | null;
   productionWorkOrders?: number | null;
+  toolingAssets?: number | null;
 }
 
 export interface ReadinessReport {
