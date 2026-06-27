@@ -342,7 +342,7 @@ export default function NpiProjectDetailPage() {
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Notas / justificación (opcional)"
-              className="w-full bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-xl py-2.5 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30"
+              className="w-full bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-xl py-2.5 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
             />
             <div className="mt-4 flex justify-end gap-2">
               <button
@@ -505,7 +505,7 @@ function ReleaseBanner({
                   ? 'Nota de liberación (opcional)'
                   : 'Justificación de la desviación (recomendado)'
               }
-              className="w-full bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-xl py-2.5 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30"
+              className="w-full bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-xl py-2.5 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
             />
             <div className="mt-4 flex justify-end gap-2">
               <button
@@ -680,7 +680,7 @@ function MissingPanel({ items }: { items: MissingItem[] }) {
 }
 
 const RISK_INPUT =
-  'w-full bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-xl py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30';
+  'w-full bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-xl py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30';
 
 /** Advisory risk register: owner / severity / due date / status, add + resolve. */
 function RiskPanel({

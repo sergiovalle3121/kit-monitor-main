@@ -123,7 +123,7 @@ function NotifGroup({
               <p className="text-[10px] text-gray-500">{n.meta}</p>
             </div>
             {!n.read && (
-              <span className="mt-1.5 h-2 w-2 flex-shrink-0 rounded-full bg-violet-500" />
+              <span className="mt-1.5 h-2 w-2 flex-shrink-0 rounded-full bg-primary" />
             )}
           </button>
         ))}

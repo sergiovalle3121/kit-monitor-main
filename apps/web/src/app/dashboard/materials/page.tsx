@@ -64,7 +64,7 @@ export const ITEM_TYPE_META: Record<ItemType, { label: string; color: string }> 
 const ITEM_TYPES: ItemType[] = ['PURCHASED', 'MANUFACTURED', 'PHANTOM', 'NON_STOCK', 'DOCUMENT'];
 
 const field =
-  'w-full bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-xl py-2.5 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 transition-all';
+  'w-full bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-xl py-2.5 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all';
 
 export default function MaterialsPage() {
   const router = useRouter();

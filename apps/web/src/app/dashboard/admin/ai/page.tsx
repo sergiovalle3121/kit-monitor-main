@@ -536,7 +536,7 @@ function BudgetEditor({
         type="number"
         value={v}
         onChange={(e) => setV(e.target.value)}
-        className="flex-1 rounded-lg border border-black/10 bg-white/60 px-3 py-2 text-sm outline-none focus:border-violet-400 dark:border-white/10 dark:bg-white/5"
+        className="flex-1 rounded-lg border border-black/10 bg-white/60 px-3 py-2 text-sm outline-none focus:border-primary dark:border-white/10 dark:bg-white/5"
       />
       <button
         onClick={() => onSave(Math.max(0, parseInt(v || '0', 10)))}

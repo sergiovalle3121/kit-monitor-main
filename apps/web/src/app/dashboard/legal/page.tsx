@@ -234,7 +234,7 @@ const EXPORT_COLUMNS: ExportColumn<Contract>[] = [
 ];
 
 const INPUT =
-  'w-full rounded-xl border border-black/10 bg-black/[0.03] px-3 py-2.5 text-sm outline-none transition-colors focus:border-violet-500 dark:border-white/10 dark:bg-white/[0.04]';
+  'w-full rounded-xl border border-black/10 bg-black/[0.03] px-3 py-2.5 text-sm outline-none transition-colors focus:border-primary dark:border-white/10 dark:bg-white/[0.04]';
 const FIELD_LABEL = 'mb-1 block text-[12px] font-medium text-gray-500 dark:text-gray-400';
 
 export default function LegalPage() {
@@ -396,7 +396,7 @@ export default function LegalPage() {
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Buscar contratos…"
             aria-label="Buscar contratos"
-            className="h-9 w-56 rounded-xl border border-black/10 bg-black/[0.03] pl-8 pr-3 text-sm outline-none transition-colors focus:border-violet-500 dark:border-white/10 dark:bg-white/[0.04]"
+            className="h-9 w-56 rounded-xl border border-black/10 bg-black/[0.03] pl-8 pr-3 text-sm outline-none transition-colors focus:border-primary dark:border-white/10 dark:bg-white/[0.04]"
           />
         </div>
         <FilterBar defs={FILTER_DEFS} value={filters} onChange={setFilters} />
