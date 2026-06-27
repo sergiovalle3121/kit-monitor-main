@@ -430,6 +430,8 @@ export class OfficeService {
       })),
     ].sort((a, b) => new Date(b.at as any).getTime() - new Date(a.at as any).getTime());
     return { documentId: id, events };
+  }
+
   // ── Slide/object comments (Slides: office_comments, generic anchors) ─────────
   async listSlideComments(id: string, user: AuthenticatedUser, includeResolved = true) {
     const doc = await this.get(id, user);
