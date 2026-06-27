@@ -83,7 +83,7 @@ type Panel =
   | null;
 
 const input =
-  'w-full rounded-lg border border-black/10 bg-white/60 px-3 py-2 text-sm outline-none focus:border-violet-400 dark:border-white/10 dark:bg-white/5';
+  'w-full rounded-lg border border-black/10 bg-white/60 px-3 py-2 text-sm outline-none focus:border-primary dark:border-white/10 dark:bg-white/5';
 
 export default function SemanticEditorPage() {
   const toast = useToast();
