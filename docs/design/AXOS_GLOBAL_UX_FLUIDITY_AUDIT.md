@@ -263,3 +263,32 @@ Cada PR debe ser **pequeño, seguro y verde**.
 > Sin rediseño visual ni cambios módulo-por-módulo: este PR es infraestructura
 > de cromo + corrección visible en las rutas críticas (Office, CAD). El sidebar
 > de desktop y el "back único" canónico se evalúan en fases siguientes.
+
+## 8. Entregado en PR 3 (back-nav cleanup + work packets + landing prep)
+
+1. **Back único en 6 rutas estándar de alto impacto.** Se removió el chip de
+   regreso local redundante (el `DashboardWayfinding` global ya da miga +
+   "subir un nivel") en: `floor-quality` (`← Dashboard`), `npi/[id]`
+   (`← Launch Center`), `models/[id]` (`← Modelos`), `quality/analytics`,
+   `quality/characteristics` y `quality/measurements` (`← Calidad · NCR`). Se
+   limpiaron los imports sin uso (`ChevronLeft`, y `Link` en floor-quality).
+2. **Corrección de falso positivo.** `inventory` **no** tenía back local: los
+   `ArrowLeftRight`/`ArrowDownLeft`/`ArrowUpRight` eran íconos de **movimiento**
+   de inventario (el grep inicial los contó por substring `ArrowLeft`). No se
+   tocó.
+3. **Headers sticky integrados conservados.** `procurement` y `suppliers/[id]`
+   tienen un header sticky propio con el back integrado (siempre visible al
+   hacer scroll). Removerlo limpiamente requiere migrarlos a `PageHeader`, así
+   que se difiere a **WP-04** (Supply Chain shell pass) en vez de dejar un hueco.
+4. **Work packets** (`AXOS_VISUAL_FLUIDITY_WORK_PACKETS.md`): 10 packets por área
+   con routes / shell type / problems / owns / reads / acceptance / checks, que
+   secuencian el premium pass restante (dashboard, command centers, supply chain,
+   CRM, finanzas, settings, responsive).
+5. **Landing prep (WP-09):** inspección del estado actual de `/` y `/login`
+   (ya usan `AmbientBackground`/`Reveal`/motion; base buena, narrativa por
+   elevar) + plan concreto para PR 4 (hero, product galaxy, secciones por
+   programa, motion sobrio, responsive).
+
+> El premium visual masivo (heroes de command center, shell passes por área) se
+> **documenta como work packets** en vez de aplicarse a ciegas sobre ~110 rutas:
+> mantiene este PR pequeño, verde y revisable, y deja la dirección clara.

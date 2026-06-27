@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import {
-  ChevronLeft, Loader2, Lock, Save, CheckCircle2, Archive, RotateCcw, Boxes,
+  Loader2, Lock, Save, CheckCircle2, Archive, RotateCcw, Boxes,
   Layers, Plus, Trash2, Pencil, Check, X, ShieldCheck, Inbox, Megaphone, ArrowRight,
   Rocket,
 } from 'lucide-react';
@@ -105,10 +105,6 @@ export default function ModelDetailPage() {
   return (
     <div className="min-h-screen text-black dark:text-white font-sans pb-28">
       <main className="max-w-4xl mx-auto px-6 pt-8">
-        <Link href="/dashboard/models" className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-black dark:hover:text-white mb-5">
-          <ChevronLeft className="w-4 h-4" /> Modelos
-        </Link>
-
         {/* Header */}
         <header className="mb-8 flex items-center gap-4">
           <IconTile domain="engineering" size={52} icon={Boxes} />
