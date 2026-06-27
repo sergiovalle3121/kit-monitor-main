@@ -24,4 +24,8 @@ export class ConfigDto {
   @Min(1)
   @Max(10000)
   rateLimitPerHour?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  autoEscalate?: boolean;
 }

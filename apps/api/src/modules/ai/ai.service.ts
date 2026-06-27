@@ -26,7 +26,7 @@ import {
   CideToolSpec,
 } from './cide-provider';
 import { CideCard, collectCards } from './ai-cards';
-import { chooseModel } from './ai-escalation';
+import { AUTO_ESCALATE, chooseModel } from './ai-escalation';
 import {
   ALLOWED_MODELS,
   DEFAULT_MODEL,
@@ -203,6 +203,7 @@ export class AiService {
       cfg.monthlyTokenBudget = dto.monthlyTokenBudget;
     if (dto.rateLimitPerHour !== undefined)
       cfg.rateLimitPerHour = dto.rateLimitPerHour;
+    if (dto.autoEscalate !== undefined) cfg.autoEscalate = dto.autoEscalate;
     await this.configRepo.save(cfg);
     return this.publicConfig(cfg);
   }
@@ -217,6 +218,9 @@ export class AiService {
       tokensUsedThisPeriod: Number(cfg.tokensUsedThisPeriod),
       rateLimitPerHour: cfg.rateLimitPerHour,
       periodStart: cfg.periodStart,
+      // Effective auto-escalation: tenant override, or the process default.
+      autoEscalate: cfg.autoEscalate ?? AUTO_ESCALATE,
+      autoEscalateSource: cfg.autoEscalate === null ? 'default' : 'tenant',
       // CIDE runs on your own infrastructure — no external AI vendor.
       engine: {
         name: 'CIDE',
@@ -479,6 +483,8 @@ export class AiService {
       defaultModel: this.resolveModel(cfg.defaultModel),
       escalationModel: this.resolveModel(cfg.escalationModel),
       message: dto.message,
+      // Tenant override (true/false) wins; null inherits the process default.
+      autoEscalate: cfg.autoEscalate ?? undefined,
     });
     const system = this.buildSystem(reqUser);
     const specs = this.tools.toolSpecs(ctx);

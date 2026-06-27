@@ -58,6 +58,15 @@ export class AiTenantConfig {
   @Column({ type: 'int', default: 60 })
   rateLimitPerHour: number;
 
+  /**
+   * Whether analytical questions auto-escalate to the stronger model tier.
+   * `null` = inherit the process default (`CIDE_AUTO_ESCALATE`); true/false
+   * overrides it per tenant. Only meaningful when the engine actually serves the
+   * escalation model.
+   */
+  @Column({ type: 'boolean', nullable: true })
+  autoEscalate: boolean | null;
+
   @CreateDateColumn()
   createdAt: Date;
 

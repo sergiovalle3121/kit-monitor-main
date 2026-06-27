@@ -26,6 +26,8 @@ interface AiConfig {
   tokensUsedThisPeriod: number;
   rateLimitPerHour: number;
   periodStart: string | null;
+  autoEscalate: boolean;
+  autoEscalateSource: 'tenant' | 'default';
   engine: {
     name: string;
     selfHosted: boolean;
@@ -316,6 +318,28 @@ export default function AiAdminPage() {
               </select>
             </div>
           </div>
+
+          <label className="mt-4 flex items-start justify-between gap-3 text-sm">
+            <span>
+              Escalado automático de modelo
+              <span className="mt-0.5 block text-[11px] text-black/45 dark:text-white/45">
+                Las consultas analíticas usan el modelo de escalación
+                automáticamente. Requiere que el motor sirva ese modelo.
+                {cfg.autoEscalateSource === 'default' && ' (heredado del entorno)'}
+              </span>
+            </span>
+            <input
+              type="checkbox"
+              checked={cfg.autoEscalate}
+              onChange={(e) =>
+                patch(
+                  { autoEscalate: e.target.checked },
+                  'Escalado automático actualizado.',
+                )
+              }
+              className="mt-0.5 h-4 w-4 shrink-0 accent-violet-600"
+            />
+          </label>
         </section>
 
         {/* Budget + limits */}
