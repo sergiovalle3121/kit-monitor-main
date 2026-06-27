@@ -25,8 +25,6 @@ import {
   Wifi,
   WifiOff,
   Activity,
-  Sun,
-  Moon,
   Keyboard,
   QrCode,
   BluetoothConnected,
@@ -48,6 +46,7 @@ import {
   Hammer,
 } from "lucide-react";
 import { glass } from "@/lib/glass";
+import { setOperatorKiosk } from "@/lib/operatorChrome";
 import { useApi } from "@/hooks/useApi";
 import { useDialogA11y } from "@/hooks/useDialogA11y";
 import { apiFetch } from "@/lib/apiFetch";
@@ -493,10 +492,19 @@ export default function OperadorPage() {
   const { session } = useDashboardSession();
   const operator = session?.name || session?.email || "Operador";
   const now = useOperatorClock();
-  const [industrialTheme, setIndustrialTheme] = useState<"light" | "dark">(
-    "dark",
-  );
+  // Modo Kiosko: oculta el chrome global de AXOS (topbar, wayfinding, dock) y los
+  // widgets flotantes para una vista de línea enfocada. El TEMA (claro/oscuro) NO
+  // se maneja aquí: viene del ThemeProvider global vía `.dark` en <html>.
+  const [kiosk, setKiosk] = useState(false);
   const [gloveMode, setGloveMode] = useState(true);
+
+  // Sincroniza el modo Kiosko con el store compartido (lo leen el shell del
+  // dashboard y los widgets flotantes). Al salir de la pantalla se restablece
+  // para no dejar el chrome global oculto en otras rutas.
+  useEffect(() => {
+    setOperatorKiosk(kiosk);
+  }, [kiosk]);
+  useEffect(() => () => setOperatorKiosk(false), []);
 
   const [executionId, setExecutionId] = useState<number | null>(null);
   const [stepId, setStepId] = useState<number | null>(null);
@@ -538,7 +546,7 @@ export default function OperadorPage() {
 
   return (
     <div
-      className={`min-h-screen font-sans pb-44 ${industrialTheme === "dark" ? "dark bg-slate-950 text-white" : "bg-slate-50 text-slate-950"} ${gloveMode ? "[&_*]:touch-manipulation" : ""}`}
+      className={`min-h-screen font-sans bg-background text-foreground ${kiosk ? "pb-44" : "pb-56"} ${gloveMode ? "[&_*]:touch-manipulation" : ""}`}
     >
       <IndustrialTopBar
         execution={board?.execution ?? null}
@@ -552,11 +560,9 @@ export default function OperadorPage() {
           (board?.currentStepDetail?.openIncidents.length ?? 0)
         }
         gloveMode={gloveMode}
-        industrialTheme={industrialTheme}
+        kiosk={kiosk}
         onToggleGlove={() => setGloveMode((v) => !v)}
-        onToggleTheme={() =>
-          setIndustrialTheme((v) => (v === "dark" ? "light" : "dark"))
-        }
+        onToggleKiosk={() => setKiosk((v) => !v)}
         onBack={
           executionId
             ? () => {
@@ -593,6 +599,7 @@ export default function OperadorPage() {
             board={board}
             operator={operator}
             position={session?.position ?? null}
+            kiosk={kiosk}
             onSelectStep={(sid) => setStepId(sid)}
             onOpenSheet={setSheet}
             refresh={mutateBoard}
@@ -819,6 +826,7 @@ function BoardView({
   board,
   operator,
   position,
+  kiosk,
   onSelectStep,
   onOpenSheet,
   refresh,
@@ -826,6 +834,7 @@ function BoardView({
   board: Board;
   operator: string;
   position: string | null;
+  kiosk: boolean;
   onSelectStep: (stepId: number) => void;
   onOpenSheet: (s: "confirm" | "incident" | "andon") => void;
   refresh: () => void;
@@ -1009,9 +1018,11 @@ function BoardView({
         </div>
       )}
 
-      {/* Action bar */}
+      {/* Barra de acciones críticas. En modo integrado se eleva por encima del
+          dock global de AXOS para que "Confirmar avance" nunca quede debajo de
+          la navegación; en Kiosko el dock no existe y baja al borde inferior. */}
       <div
-        className={`${glass} fixed bottom-4 left-1/2 -translate-x-1/2 z-30 px-3 py-3 rounded-[2rem] shadow-2xl flex items-center gap-2 w-[min(920px,94vw)]`}
+        className={`${glass} fixed ${kiosk ? "bottom-4" : "bottom-28"} left-1/2 -translate-x-1/2 z-40 px-3 py-3 rounded-[2rem] shadow-2xl flex items-center gap-2 w-[min(920px,94vw)]`}
       >
         <button
           onClick={() => onOpenSheet("confirm")}
@@ -1157,9 +1168,9 @@ function IndustrialTopBar({
   socketStatus,
   alerts,
   gloveMode,
-  industrialTheme,
+  kiosk,
   onToggleGlove,
-  onToggleTheme,
+  onToggleKiosk,
   onBack,
 }: {
   execution: Board["execution"] | null;
@@ -1170,9 +1181,9 @@ function IndustrialTopBar({
   socketStatus: string;
   alerts: number;
   gloveMode: boolean;
-  industrialTheme: "light" | "dark";
+  kiosk: boolean;
   onToggleGlove: () => void;
-  onToggleTheme: () => void;
+  onToggleKiosk: () => void;
   onBack: (() => void) | null;
 }) {
   const machine =
@@ -1185,7 +1196,7 @@ function IndustrialTopBar({
     currentStep?.status === "blocked" ? "Hold calidad" : "Calidad OK";
   return (
     <div
-      className={`${glass} sticky top-0 z-40 border-x-0 border-t-0 rounded-none px-4 py-3 shadow-2xl`}
+      className={`${glass} sticky ${kiosk ? "top-0" : "top-20"} z-40 border-x-0 border-t-0 rounded-none px-4 py-3 shadow-2xl`}
     >
       <div className="flex flex-wrap items-center gap-3">
         {onBack ? (
@@ -1231,19 +1242,23 @@ function IndustrialTopBar({
         />
         <button
           onClick={onToggleGlove}
-          className={`min-h-12 rounded-2xl px-4 font-black transition-all ${gloveMode ? "bg-amber-400 text-slate-950" : "bg-white/10"}`}
+          aria-pressed={gloveMode}
+          className={`min-h-12 rounded-2xl px-4 font-black transition-all ${gloveMode ? "bg-amber-400 text-slate-950" : "bg-black/5 dark:bg-white/10"}`}
         >
           Guantes {gloveMode ? "ON" : "OFF"}
         </button>
         <button
-          onClick={onToggleTheme}
-          className="min-h-12 rounded-2xl px-4 font-black bg-white/10 hover:bg-white/15 active:scale-95 transition-all"
+          onClick={onToggleKiosk}
+          aria-pressed={kiosk}
+          title={kiosk ? "Salir de pantalla completa" : "Modo Kiosko"}
+          className={`min-h-12 rounded-2xl px-4 font-black transition-all flex items-center gap-2 ${kiosk ? "bg-amber-400 text-slate-950" : "bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/15 active:scale-95"}`}
         >
-          {industrialTheme === "dark" ? (
-            <Sun className="w-5 h-5" />
+          {kiosk ? (
+            <Minimize2 className="w-5 h-5" />
           ) : (
-            <Moon className="w-5 h-5" />
+            <Maximize2 className="w-5 h-5" />
           )}
+          <span className="hidden sm:inline">Kiosko</span>
         </button>
       </div>
       <div className="mt-3 grid grid-cols-2 md:grid-cols-4 xl:grid-cols-9 gap-2 text-xs">
@@ -1282,12 +1297,12 @@ function StatusPill({
 }) {
   const cls =
     tone === "green"
-      ? "bg-emerald-500/15 text-emerald-300"
+      ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
       : tone === "amber"
-        ? "bg-amber-500/15 text-amber-300"
+        ? "bg-amber-500/15 text-amber-700 dark:text-amber-300"
         : tone === "red"
-          ? "bg-rose-500/15 text-rose-300"
-          : "bg-white/10 text-slate-200";
+          ? "bg-rose-500/15 text-rose-700 dark:text-rose-300"
+          : "bg-black/5 text-slate-700 dark:bg-white/10 dark:text-slate-200";
   return (
     <span
       className={`min-h-10 px-3 rounded-2xl flex items-center gap-2 text-xs font-black ${cls}`}
@@ -1300,8 +1315,8 @@ function StatusPill({
 
 function InfoCell({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl bg-white/[0.08] dark:bg-white/5 border border-white/10 px-3 py-2 min-h-14">
-      <div className="text-[10px] uppercase tracking-widest text-slate-400">
+    <div className="rounded-2xl bg-black/[0.04] dark:bg-white/5 border border-black/10 dark:border-white/10 px-3 py-2 min-h-14">
+      <div className="text-[10px] uppercase tracking-widest text-slate-500 dark:text-slate-400">
         {label}
       </div>
       <div className="font-black truncate">{value}</div>
@@ -2036,7 +2051,7 @@ function ActionSheet({
   const panelRef = useDialogA11y<HTMLDivElement>(onClose);
   return (
     <motion.div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm"
+      className="fixed inset-0 z-[115] flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm p-0 sm:p-6"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
