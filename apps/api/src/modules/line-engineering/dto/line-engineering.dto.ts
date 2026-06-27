@@ -389,6 +389,12 @@ export class LayoutAssetDto {
   @IsString()
   @Length(0, 64)
   label?: string;
+
+  @ApiPropertyOptional({ description: 'CAD layer id this asset belongs to.' })
+  @IsOptional()
+  @IsString()
+  @Length(0, 64)
+  layer?: string;
 }
 
 /** A free-text label or a dimension line on the plan (Fase 7). */
@@ -431,6 +437,40 @@ export class LayoutAnnotationDto {
   @IsString()
   @Length(0, 16)
   color?: string;
+
+  @ApiPropertyOptional({ description: 'CAD layer id this annotation belongs to.' })
+  @IsOptional()
+  @IsString()
+  @Length(0, 64)
+  layer?: string;
+}
+
+/** A CAD drafting layer (Fase 66): named, colored, visible/locked. */
+export class LayoutLayerDto {
+  @ApiProperty()
+  @IsString()
+  @Length(1, 64)
+  id: string;
+
+  @ApiProperty({ example: 'Muros' })
+  @IsString()
+  @Length(1, 48)
+  name: string;
+
+  @ApiProperty({ example: '#94a3b8' })
+  @IsString()
+  @Length(1, 16)
+  color: string;
+
+  @ApiPropertyOptional({ example: true })
+  @IsOptional()
+  @IsBoolean()
+  visible?: boolean;
+
+  @ApiPropertyOptional({ example: false })
+  @IsOptional()
+  @IsBoolean()
+  locked?: boolean;
 }
 
 export class LayoutCellDto {
@@ -541,6 +581,16 @@ export class SaveLayoutDto {
   @ValidateNested({ each: true })
   @Type(() => LayoutCellDto)
   cells?: LayoutCellDto[];
+
+  @ApiPropertyOptional({
+    type: [LayoutLayerDto],
+    description: 'CAD drafting layers (Fase 66).',
+  })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => LayoutLayerDto)
+  layers?: LayoutLayerDto[];
 }
 
 /** Upload/replace the DXF background of a model+revision layout. */

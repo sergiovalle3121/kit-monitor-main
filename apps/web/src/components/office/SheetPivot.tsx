@@ -51,8 +51,10 @@ export function SheetPivot({
 
   // Si cambia la fuente, propone un rango y limpia zonas con campos inexistentes.
   useEffect(() => {
-    const r = usedRange(sheets[srcIndex]); if (r) setRange(r);
-    setRows([]); setCols([]); setValues([]); setFilters([]);
+    queueMicrotask(() => {
+      const r = usedRange(sheets[srcIndex]); if (r) setRange(r);
+      setRows([]); setCols([]); setValues([]); setFilters([]);
+    });
   }, [srcIndex, sheets]);
 
   const field = 'h-9 text-sm rounded-xl bg-gray-100 dark:bg-white/10 px-3 outline-none focus:ring-2 ring-emerald-500/40';

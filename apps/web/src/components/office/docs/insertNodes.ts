@@ -8,6 +8,7 @@ import { Node, Extension } from '@tiptap/core';
  *   • ColumnBreak  → salto de columna
  *   • Bookmark     → marcador (ancla con nombre)
  *   • CrossRef     → referencia cruzada a un marcador (clic = navegar)
+ *   • AxosRef      → referencia inteligente a entidades AXOS (BOM, WO, NCR…).
  */
 
 // ── Letra capital ────────────────────────────────────────────────────────────
@@ -127,5 +128,64 @@ export const CrossRef = Node.create({
   },
   addCommands() {
     return { insertCrossRef: (target: string, label?: string) => ({ commands }: any) => commands.insertContent({ type: 'crossRef', attrs: { target, label: label || target } }) } as any;
+  },
+});
+
+
+// ── Referencia inteligente AXOS ──────────────────────────────────────────────
+export const AxosRef = Node.create({
+  name: 'axosRef',
+  group: 'inline',
+  inline: true,
+  atom: true,
+  selectable: true,
+
+  addAttributes() {
+    return {
+      entity: { default: 'work_order' },
+      refId: { default: '' },
+      label: { default: '' },
+      status: { default: '' },
+    };
+  },
+  parseHTML() {
+    return [{
+      tag: 'span[data-axos-ref]',
+      getAttrs: (el: any) => ({
+        entity: el.getAttribute('data-entity') || 'work_order',
+        refId: el.getAttribute('data-ref-id') || '',
+        label: el.textContent || '',
+        status: el.getAttribute('data-status') || '',
+      }),
+    }];
+  },
+  renderHTML({ node }: any) {
+    return ['span', {
+      'data-axos-ref': 'true',
+      'data-entity': node.attrs.entity || 'work_order',
+      'data-ref-id': node.attrs.refId || '',
+      'data-status': node.attrs.status || '',
+      class: 'doc-axos-ref',
+    }, node.attrs.label || `${node.attrs.entity}:${node.attrs.refId}`];
+  },
+  addNodeView() {
+    return ({ node }: any) => {
+      const dom = document.createElement('span');
+      dom.className = 'doc-axos-ref';
+      dom.setAttribute('contenteditable', 'false');
+      dom.dataset.axosRef = 'true';
+      dom.dataset.entity = node.attrs.entity || 'work_order';
+      dom.dataset.refId = node.attrs.refId || '';
+      dom.dataset.status = node.attrs.status || '';
+      dom.textContent = node.attrs.label || `${node.attrs.entity}:${node.attrs.refId}`;
+      dom.title = `AXOS ${node.attrs.entity} · ${node.attrs.refId || 'sin id'}`;
+      return { dom };
+    };
+  },
+  addCommands() {
+    return {
+      insertAxosRef: (attrs: { entity: string; refId: string; label?: string; status?: string }) => ({ commands }: any) =>
+        commands.insertContent({ type: 'axosRef', attrs: { ...attrs, label: attrs.label || `${attrs.entity.toUpperCase()} ${attrs.refId}` } }),
+    } as any;
   },
 });

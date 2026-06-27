@@ -104,9 +104,12 @@ export default function Layout3D({
   useEffect(() => {
     if (!open || !model) return;
     let alive = true;
-    setData(null);
-    setHeat(null);
-    setError(null);
+    queueMicrotask(() => {
+      if (!alive) return;
+      setData(null);
+      setHeat(null);
+      setError(null);
+    });
     (async () => {
       try {
         const [rl, rh] = await Promise.all([
