@@ -15,11 +15,14 @@ import {
   Box,
   ChevronRight,
   Cpu,
+  Database,
+  Fingerprint,
   Gauge,
   Layers,
   LayoutDashboard,
   ShieldCheck,
   Sparkles,
+  Workflow,
   Zap,
   X,
   CheckCircle2,
@@ -57,6 +60,27 @@ const PROGRAMS: Program[] = [
 
 /** Píldoras de breadth en el hero — comunica el alcance del OS de un vistazo. */
 const HERO_PILLS = ["ERP", "MES", "Office", "CAD", "AI", "Calidad", "Control Tower"];
+
+/**
+ * Flujo de extremo a extremo: AXOS cubre toda la operación, del diseño al
+ * embarque, en un solo sistema. Usa firmas de dominio reales.
+ */
+const FLOW: { domain: DomainKey; label: string }[] = [
+  { domain: "engineering", label: "Diseño · NPI" },
+  { domain: "planning", label: "Planeación" },
+  { domain: "staging", label: "Materiales" },
+  { domain: "production", label: "Producción" },
+  { domain: "quality", label: "Calidad" },
+  { domain: "logistics", label: "Logística" },
+];
+
+/** Diferenciadores reales (sin métricas inventadas ni logos de terceros). */
+const DIFFERENTIATORS: { icon: typeof Database; title: string; body: string }[] = [
+  { icon: Database, title: "Una sola base de datos", body: "Del diseño al embarque sin integraciones frágiles ni silos entre departamentos." },
+  { icon: Workflow, title: "Del plan al piso, en vivo", body: "Publica el plan y ejecútalo con MES, backflush y bloqueos por calidad en tiempo real." },
+  { icon: Fingerprint, title: "Trazabilidad nativa", body: "Serie/lote, as-built y where-used listos para auditorías de cliente y contención." },
+  { icon: Sparkles, title: "IA con contexto de tu planta", body: "CIDE entiende todos tus módulos y datos — no es un chatbot genérico pegado encima." },
+];
 
 
 interface Feature {
@@ -307,6 +331,39 @@ export default function Home() {
         </motion.div>
       </section>
 
+      {/* Flujo de extremo a extremo — AXOS cubre toda la operación */}
+      <section id="flow" className="py-20 px-6 bg-white dark:bg-black/40 scroll-mt-24">
+        <Reveal className="max-w-6xl mx-auto">
+          <div className="text-center mb-12">
+            <span className="text-xs font-bold uppercase tracking-[0.2em] text-gray-400">
+              De extremo a extremo
+            </span>
+            <h2 className="text-4xl md:text-5xl font-bold tracking-tight mt-2">
+              Del diseño al embarque, un solo sistema.
+            </h2>
+            <p className="text-gray-500 mt-3 font-light max-w-xl mx-auto">
+              Cada etapa de la operación vive en la misma plataforma — sin saltar
+              entre apps ni perder el hilo de la información.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-6">
+            {FLOW.map((s, i) => (
+              <div key={s.label} className="flex items-center gap-2">
+                <div className="flex flex-col items-center gap-2 w-24">
+                  <IconTile domain={s.domain} size={52} />
+                  <span className="text-xs font-medium text-center leading-tight">
+                    {s.label}
+                  </span>
+                </div>
+                {i < FLOW.length - 1 && (
+                  <ChevronRight className="w-5 h-5 text-gray-300 dark:text-gray-600 flex-shrink-0" />
+                )}
+              </div>
+            ))}
+          </div>
+        </Reveal>
+      </section>
+
       {/* Product Galaxy — los programas de AXOS como apps de un OS industrial */}
       <section id="galaxy" className="py-20 px-6 scroll-mt-24">
         <Reveal className="max-w-6xl mx-auto">
@@ -390,6 +447,41 @@ export default function Home() {
                 </p>
               </motion.button>
             ))}
+          </div>
+        </Reveal>
+      </section>
+
+      {/* Diferenciadores — por qué AXOS es distinto */}
+      <section id="why" className="py-20 px-6 scroll-mt-24">
+        <Reveal className="max-w-6xl mx-auto">
+          <div className="text-center mb-12">
+            <span className="text-xs font-bold uppercase tracking-[0.2em] text-gray-400">
+              Por qué AXOS
+            </span>
+            <h2 className="text-4xl md:text-5xl font-bold tracking-tight mt-2">
+              No es otra suite. Es un sistema operativo.
+            </h2>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {DIFFERENTIATORS.map((d) => {
+              const Icon = d.icon;
+              return (
+                <div
+                  key={d.title}
+                  className="flex items-start gap-4 p-6 rounded-3xl border border-gray-100 dark:border-white/5 bg-gray-50/50 dark:bg-white/5"
+                >
+                  <span className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl bg-white dark:bg-white/10 border border-gray-100 dark:border-white/10 text-gray-700 dark:text-gray-200">
+                    <Icon className="h-5 w-5" strokeWidth={1.75} />
+                  </span>
+                  <div>
+                    <h3 className="text-lg font-semibold">{d.title}</h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 font-light leading-relaxed mt-1">
+                      {d.body}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </Reveal>
       </section>
