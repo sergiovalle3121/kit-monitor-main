@@ -120,3 +120,69 @@
 - Tool entries execute existing toolbar actions; command entries load an example into the Copiloto CAD dock for preview-first execution; symbol entries route the user to the equipment/symbol area.
 - Kept behavior local and additive: no backend calls, no model calls, no persistence changes.
 - Pending: richer symbol insertion and palette-driven preview execution after the symbol placement contract is finalized.
+
+## 2026-06-27 — Local DXF export wiring PR 16
+
+- Replaced the editor DXF export button's backend dependency with the local pure `exportCadLayoutDxf` adapter.
+- The editor now serializes stations, equipment, connectors, text notes, and dimension annotations directly into an AutoCAD-compatible DXF download.
+- Export remains local/offline and additive: no backend endpoint or CIDE/OpenAI call is required.
+- Pending: include richer symbol metadata/layers once symbol placement is wired into the editor model.
+
+## 2026-06-27 — DXF import warning wiring PR 17
+
+- Wired the pure `importDxfPrimitives` baseline into the existing DXF upload path in `Layout3DEditor.tsx`.
+- The editor now previews unsupported/malformed DXF entities locally and surfaces a warning count before preserving the existing backdrop upload flow.
+- Kept import behavior compatible with the current backend-backed DXF backdrop persistence while adding local validation.
+- Pending: render a detailed warning panel and convert imported primitives into editable CAD objects.
+
+## 2026-06-27 — Shared collision command PR 18
+
+- Rewired the `find_collisions` command to use the shared pure collision detector instead of its inline overlap loop.
+- Collision command previews now return affected object ids and report overlap area in the textual rows.
+- Added registry smoke coverage for collision preview warnings and affected ids.
+- Pending: highlight collision pairs visually in the viewport.
+
+## 2026-06-27 — Flow metrics in command previews PR 19
+
+- Wired shared flow optimization helpers into `connect_flow` and `arrange_line` command previews.
+- Flow commands now include report operations with score, total distance, crossing count, and backtracking count.
+- Added registry smoke coverage to ensure flow commands emit metric reports.
+- Pending: show flow report cards in the viewport and use scores to suggest automatic reordering.
+
+## 2026-06-27 — Command report rows in dock PR 20
+
+- Upgraded the Copiloto CAD dock so `report` operations render compact row details instead of only the report title.
+- Flow metrics and collision report previews now show the first report rows directly inside the preview card before apply.
+- Kept the UI additive and preview-only; no command execution behavior or backend path changed.
+- Pending: expand report rows into a richer viewport side panel with visual highlighting.
+
+## 2026-06-27 — Industrial symbol insertion PR 21
+
+- Wired the pure industrial symbol library into the equipment panel in `Layout3DEditor.tsx`.
+- The editor now exposes quick symbol buttons for SMT line, AOI, inspection, racks, packing, forklift path, ESD/safety zones, conveyor, test, and rework stations.
+- Symbol insertion maps each symbol to an existing editor asset archetype while preserving symbol label and default footprint dimensions.
+- Pending: replace archetype mapping with native symbol rendering/ports once the symbol placement model is persisted.
+
+## 2026-06-27 — Layer lock enforcement PR 22
+
+- Enforced CAD layer locks in the editor instead of leaving them as visual metadata only.
+- Dragging now selects locked objects but refuses to start movement when every selected object is on a locked layer, and skips locked members in mixed selections.
+- Destructive/edit operations now filter locked objects before delete, rotate, duplicate, array, mirror, offset, nudge, align, distribute, property edits, and command-engine move application.
+- Added pure layer helpers for checking object-level locks and filtering editable object ids, plus smoke coverage.
+- Pending: persist layer assignments/locks with the layout once the backend contract is approved, and apply layer visibility directly to per-object rendering rather than only coarse legacy groups.
+
+## 2026-06-27 — DXF warning detail panel PR 23
+
+- Added a deterministic DXF warning summarizer so repeated unsupported/malformed entities are grouped by code, type, layer, and message.
+- The editor now stores warnings from the latest local DXF import preview instead of only showing a transient toast count.
+- Added a compact toolbar badge and an in-viewport detail panel listing the top warning groups with counts, entity type, and layer.
+- Clearing or removing the DXF also clears the local warning panel; backend DXF backdrop behavior remains unchanged.
+- Pending: convert supported DXF primitives into editable CAD objects after the import-object mapping UX is reviewed.
+
+## 2026-06-27 — Local session snapshots PR 24
+
+- Wired the pure CAD snapshot helpers into the Versions modal as local, browser-session restore points.
+- Users can save a quick local snapshot with the same name field as backend versions, inspect the last 20 session snapshots, restore one, or delete it.
+- Restoring a local snapshot pushes the current layout onto the existing undo stack before applying the snapshot, so recovery remains reversible.
+- Backend versions/scenarios remain unchanged; local snapshots are explicitly session-only and do not add persistence or API calls.
+- Pending: auto-create local snapshots before high-risk DXF conversions/import-object operations once editable DXF object mapping lands.
