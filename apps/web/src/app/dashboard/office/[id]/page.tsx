@@ -56,7 +56,7 @@ export default function OfficeEditorPage() {
   useEffect(() => {
     mountedRef.current = true;
     let active = true;
-    setLoading(true);
+    queueMicrotask(() => { if (active) setLoading(true); });
     apiFetch(`${API_BASE}/office-documents/${id}`).then(async (r) => {
       if (!active) return;
       if (!r.ok) {

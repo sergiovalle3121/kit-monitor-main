@@ -22,8 +22,14 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
 
   return (
     <>
+      <a
+        href="#dashboard-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[70] focus:rounded-2xl focus:bg-slate-950 focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-white focus:shadow-xl dark:focus:bg-white dark:focus:text-slate-950"
+      >
+        Saltar al contenido
+      </a>
       <DashboardTopBar />
-      <div className="pt-20">
+      <div id="dashboard-content" tabIndex={-1} className="pt-20 focus:outline-none">
         <DashboardWayfinding />
         {children}
       </div>
