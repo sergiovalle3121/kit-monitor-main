@@ -11,6 +11,7 @@ import { In, ObjectLiteral, Repository, SelectQueryBuilder } from 'typeorm';
 import { NpiProject } from './entities/npi-project.entity';
 import { NpiGate } from './entities/npi-gate.entity';
 import { NpiReadinessSnapshot } from './entities/npi-readiness-snapshot.entity';
+import { ProductModel } from '../product-models/entities/product-model.entity';
 import { SfFai } from '../fai/entities/sf-fai.entity';
 import { SupplierApprovedPart } from '../suppliers/entities/supplier-approved-part.entity';
 import { TenantContextService } from '../../common/tenant/tenant-context.service';
@@ -85,6 +86,8 @@ export class NpiService {
     private readonly gates: TenantScopedRepository<NpiGate>,
     @Inject(getTenantRepositoryToken(NpiReadinessSnapshot))
     private readonly snapshots: TenantScopedRepository<NpiReadinessSnapshot>,
+    @InjectRepository(ProductModel)
+    private readonly productModels: Repository<ProductModel>,
     @InjectRepository(SfFai)
     private readonly fai: Repository<SfFai>,
     @InjectRepository(SupplierApprovedPart)
@@ -136,12 +139,56 @@ export class NpiService {
   async getProject(id: string): Promise<NpiProjectView> {
     const project = await this.projects.findOne({ where: { id } });
     if (!project) throw new NotFoundException('Proyecto NPI no encontrado.');
+    await this.backfillProductModelId(project);
     const gates = await this.gates.find({ where: { projectId: id } });
     const readiness = await this.deriveReadiness(
       project.modelNumber,
       project.revision,
     );
     return { ...project, gates: this.sortGates(gates), readiness };
+  }
+
+  /**
+   * Soft-link the project to the canonical ProductModel by number (scoped),
+   * read-only against `pm_product_models`. Returns the id or null when no master
+   * record exists yet. No FK — keeps NPI decoupled from product-models.
+   */
+  private async resolveProductModelId(
+    modelNumber: string,
+  ): Promise<string | null> {
+    const m = (modelNumber ?? '').trim();
+    if (!m) return null;
+    const qb = this.productModels
+      .createQueryBuilder('pm')
+      .select('pm.id', 'id')
+      .where('UPPER(pm.model_number) = UPPER(:m)', { m });
+    this.applyScope(qb, 'pm');
+    const found = await qb.getRawOne<{ id: string }>().catch((err) => {
+      this.logger.warn(
+        `Product-model lookup failed for ${m}: ${(err as Error)?.message}`,
+      );
+      return null;
+    });
+    return found?.id ?? null;
+  }
+
+  /**
+   * Lazily fill `productModelId` for projects created before the soft link
+   * existed (or before the master record did). Best-effort: a failed persist
+   * never breaks a read.
+   */
+  private async backfillProductModelId(project: NpiProject): Promise<void> {
+    if (project.productModelId) return;
+    const pmId = await this.resolveProductModelId(project.modelNumber);
+    if (!pmId) return;
+    project.productModelId = pmId;
+    await this.projects
+      .save(project)
+      .catch((err) =>
+        this.logger.warn(
+          `No se pudo enlazar el modelo al proyecto NPI ${project.id}: ${(err as Error)?.message}`,
+        ),
+      );
   }
 
   // ── Readiness derivation (live, READ-ONLY across existing modules) ───────────
@@ -367,9 +414,11 @@ export class NpiService {
     const existing = await this.findByModelRevision(model, revision);
     if (existing) return this.getProject(existing.id);
 
+    const productModelId = await this.resolveProductModelId(model);
     const project = this.projects.create({
       modelNumber: model,
       revision,
+      productModelId,
       customer: dto.customer?.trim() || null,
       currentPhase: 'QUOTE',
       status: 'OPEN',

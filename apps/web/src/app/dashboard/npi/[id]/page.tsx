@@ -56,11 +56,6 @@ const API_BASE = (
   process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'
 ).replace(/\/$/, '');
 
-interface ModelLite {
-  id: string;
-  modelNumber: string;
-}
-
 const DECISION_META: Record<
   GateDecision,
   { label: string; color: string; icon: typeof CheckCircle2 }
@@ -85,12 +80,6 @@ export default function NpiProjectDetailPage() {
   const { data: history, mutate: mutateHistory } = useApi<ReadinessSnapshot[]>(
     id ? `/npi/readiness/history?projectId=${id}&limit=20` : null,
   );
-  // Resolve the canonical model (read-only) so the dependency matrix can link it.
-  const { data: modelMatches } = useApi<ModelLite[]>(
-    project
-      ? `/product-models?search=${encodeURIComponent(project.modelNumber)}`
-      : null,
-  );
 
   const [deciding, setDeciding] = useState<{
     gateId: string;
@@ -107,26 +96,19 @@ export default function NpiProjectDetailPage() {
     [project],
   );
 
-  const model = useMemo(() => {
-    if (!project) return null;
-    return (
-      (modelMatches ?? []).find(
-        (m) => m.modelNumber === project.modelNumber,
-      ) ?? null
-    );
-  }, [modelMatches, project]);
-
-  const modelHref = model
-    ? `/dashboard/models/${model.id}`
+  // The backend resolves the canonical model id (soft link) on the project.
+  const productModelId = project?.productModelId ?? null;
+  const modelHref = productModelId
+    ? `/dashboard/models/${productModelId}`
     : '/dashboard/models';
 
   const dependencies = useMemo(
     () =>
       deriveDependencies(project?.readiness, {
-        modelResolved: !!model,
+        modelResolved: !!productModelId,
         modelHref,
       }),
-    [project?.readiness, model, modelHref],
+    [project?.readiness, productModelId, modelHref],
   );
 
   const missing = useMemo(
@@ -237,7 +219,8 @@ export default function NpiProjectDetailPage() {
               href={modelHref}
               className="inline-flex items-center gap-1.5 text-sm font-medium px-3.5 py-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10"
             >
-              <Boxes className="w-4 h-4" /> {model ? 'Ver modelo' : 'Maestro'}
+              <Boxes className="w-4 h-4" />{' '}
+              {productModelId ? 'Ver modelo' : 'Maestro'}
             </Link>
           </div>
         </div>
