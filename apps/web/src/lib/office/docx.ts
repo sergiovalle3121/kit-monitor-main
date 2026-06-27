@@ -251,6 +251,8 @@ export function buildDocx(docx: any, json: any, title: string): any {
       } else if (n.type === 'axosRef') {
         const label = n.attrs?.label || `${String(n.attrs?.entity || 'AXOS').toUpperCase()} ${n.attrs?.refId || ''}`.trim();
         out.push(new TextRun({ text: label, bold: true, color: '1D4ED8' }));
+      } else if (n.type === 'docField') {
+        out.push(new TextRun({ text: n.attrs?.value || n.attrs?.label || n.attrs?.key || '', bold: true }));
       } else if (n.type === 'citation') {
         out.push(new TextRun(n.attrs?.inText || ''));
       } else if (n.type === 'image') {

@@ -1069,6 +1069,64 @@ const SLIDE_TEMPLATES: TemplateDef[] = [
     ]),
   },
 
+
+  {
+    id: 'daily-production-meeting', title: 'Daily Production Meeting', description: 'Visual aid diario: seguridad, plan vs real, paros, calidad y acciones.', category: 'Planta / Operaciones', accent: P_IND.accent,
+    build: () => renderDeck(P_IND, [
+      cover({ variant: 'band', eyebrow: 'Daily Production Meeting', title: 'Reunión diaria de\nproducción', subtitle: 'Planta ____ · Línea ____ · Turno ____', footer: new Date().toLocaleDateString('es-ES') }),
+      agenda({ title: 'Cadencia de 15 minutos', items: ['Seguridad y 5S', 'Plan vs real', 'Paros / Andon', 'Calidad y scrap', 'Faltantes y acciones'] }),
+      kpis({ title: 'Pulso del turno', metrics: [{ value: '0', label: 'Incidentes', note: 'seguridad' }, { value: '96%', label: 'Plan vs real', note: 'adherencia' }, { value: '83%', label: 'OEE', note: 'meta 80%' }, { value: '2.5h', label: 'Downtime', note: 'acumulado' }] }),
+      comparison({ title: 'Plan vs real por turno', a: { h: 'Turno actual', items: ['Plan: 1,250 uds', 'Real: 1,198 uds', 'Gap: -52 uds'] }, b: { h: 'Top barreras', items: ['Material: 42 min', 'Cambio: 25 min', 'Calidad: 18 min'] } }),
+      content({ kicker: 'Calidad', title: 'Defectos y contención', bullets: ['Top defecto: soldadura fría — 48 piezas.', 'Contención: sorteo 100% en WIP de línea 1.', 'Dueño: Calidad de piso · cierre hoy 14:00.'] }),
+      twoCol({ title: 'Acciones del día', left: { h: 'Hoy', items: ['Cerrar falta de material CONN-8P.', 'Verificar parámetro de horno.', 'Actualizar ayuda visual estación 30.'] }, right: { h: 'Escalar', items: ['Riesgo de OT para WO-00042.', 'Tooling pendiente de mantenimiento.', 'Cliente visita viernes.'] } }),
+      closing({ title: 'Go / No-Go', subtitle: 'Acuerdos, responsables y hora de verificación', contact: 'Seguridad primero · Calidad en la fuente' }),
+    ]),
+  },
+  {
+    id: 'executive-ops-review', title: 'Executive Ops Review', description: 'Revisión ejecutiva: KPIs, riesgos, finanzas operativas y decisiones.', category: 'Planta / Operaciones', accent: P_DARK.accent,
+    build: () => renderDeck(P_DARK, [
+      cover({ variant: 'split', eyebrow: 'Executive Ops Review', title: 'Executive\nOps Review', subtitle: 'Semana ____ · Planta ____', footer: 'Confidencial · ' + new Date().toLocaleDateString('es-ES') }),
+      agenda({ title: 'Agenda ejecutiva', items: ['Scorecard operativo', 'Riesgos y decisiones', 'Capacidad / demanda', 'Calidad y cliente', 'Finanzas operativas'] }),
+      kpis({ title: 'Scorecard', metrics: [{ value: '84%', label: 'OEE', note: '+4 pp vs plan' }, { value: '98.7%', label: 'OTD', note: 'cliente' }, { value: '−6%', label: 'Costo unit.', note: 'vs forecast' }, { value: '3', label: 'Riesgos', note: 'requieren decisión' }] }),
+      twoCol({ title: 'Riesgos y decisiones', left: { h: 'Riesgos', items: ['Capacidad de prueba al 105%.', 'Proveedor crítico con atraso.', 'Scrap elevado en modelo A.'] }, right: { h: 'Decisiones', items: ['Aprobar turno extra sábado.', 'Liberar compra expedita.', 'Priorizar kaizen de prueba.'] } }),
+      timeline({ title: 'Roadmap de recuperación', steps: [{ label: 'Hoy', desc: 'Contención' }, { label: 'Semana 1', desc: 'Capacidad' }, { label: 'Semana 2', desc: 'Proveedor' }, { label: 'Semana 3', desc: 'Costo' }] }),
+      closing({ title: 'Decisiones requeridas', subtitle: 'Validar responsables y fecha de cierre antes de salir' }),
+    ]),
+  },
+  {
+    id: 'quality-review', title: 'Quality Review', description: 'Revisión de calidad: FPY, PPM, NCR/CAPA, Pareto y acciones.', category: 'Planta / Operaciones', accent: '#ef4444',
+    build: () => renderDeck(P_CORP, [
+      cover({ variant: 'minimal', eyebrow: 'Quality Review', title: 'Revisión de\ncalidad', subtitle: 'Modelo ____ · Cliente ____ · Periodo ____', footer: new Date().toLocaleDateString('es-ES') }),
+      kpis({ title: 'Indicadores de calidad', metrics: [{ value: '99.1%', label: 'FPY' }, { value: '110', label: 'PPM' }, { value: '7', label: 'NCR abiertas' }, { value: '2', label: 'CAPA vencidas' }] }),
+      content({ kicker: 'Pareto', title: 'Top defectos', bullets: ['Soldadura fría — 44% del total.', 'Componente faltante — 28% del total.', 'Polaridad invertida — 16% del total.'] }),
+      twoCol({ title: 'Contención vs causa raíz', left: { h: 'Contención', items: ['Sorteo 100% lote afectado.', 'Bloqueo de material sospechoso.', 'Alerta a estaciones 20/30.'] }, right: { h: 'Causa raíz', items: ['Perfil térmico fuera de ventana.', 'Poka-yoke deshabilitado.', 'Entrenamiento incompleto turno 2.'] } }),
+      timeline({ title: 'Plan CAPA', steps: [{ label: 'D3', desc: 'Contener' }, { label: 'D4', desc: 'Causa raíz' }, { label: 'D5', desc: 'PCA' }, { label: 'D6', desc: 'Validar' }, { label: 'D7', desc: 'Prevenir' }] }),
+      closing({ title: 'Cierre de calidad', subtitle: 'Criterio de salida: evidencia, efectividad y actualización documental' }),
+    ]),
+  },
+  {
+    id: 'launch-readiness', title: 'Launch Readiness', description: 'Readiness de lanzamiento: APQP, materiales, línea, calidad y riesgos.', category: 'Planta / Operaciones', accent: '#16a34a',
+    build: () => renderDeck(P_IND, [
+      cover({ variant: 'band', eyebrow: 'Launch Readiness', title: 'Preparación de\nlanzamiento', subtitle: 'Programa ____ · Gate ____', footer: 'NPI / Operaciones · ' + new Date().toLocaleDateString('es-ES') }),
+      kpis({ title: 'Gate readiness', metrics: [{ value: '92%', label: 'APQP' }, { value: '100%', label: 'BOM liberado' }, { value: '87%', label: 'Tooling' }, { value: '4', label: 'Open risks' }] }),
+      comparison({ title: 'Readiness por frente', a: { h: 'Listo', items: ['BOM y rutas liberadas.', 'FAI planificado.', 'Capacidad base confirmada.'] }, b: { h: 'Pendiente', items: ['Fixture de prueba final.', 'PPAP proveedor B.', 'Ayuda visual estación 40.'] } }),
+      timeline({ title: 'Hitos de lanzamiento', steps: [{ label: 'EVT', desc: 'Validación ingeniería' }, { label: 'DVT', desc: 'Diseño' }, { label: 'PVT', desc: 'Proceso' }, { label: 'SOP', desc: 'Arranque' }] }),
+      content({ kicker: 'Riesgos', title: 'Top launch risks', bullets: ['Capacidad de prueba insuficiente en ramp-up.', 'Material crítico con lead time extendido.', 'Instrucciones visuales pendientes de aprobación.'] }),
+      closing({ title: 'Gate decision', subtitle: 'Go / Conditional Go / No-Go con responsables y fechas' }),
+    ]),
+  },
+  {
+    id: 'customer-business-review', title: 'Customer Business Review', description: 'CBR: desempeño, valor entregado, oportunidades y próximos pasos.', category: 'Presentaciones de negocio', accent: P_CORP.accent,
+    build: () => renderDeck(P_CORP, [
+      cover({ variant: 'band', eyebrow: 'Customer Business Review', title: 'Customer\nBusiness Review', subtitle: '[Cliente] · Periodo ____', footer: 'Cuenta · ' + new Date().toLocaleDateString('es-ES') }),
+      agenda({ title: 'Agenda CBR', items: ['Resumen ejecutivo', 'Desempeño operativo', 'Valor entregado', 'Riesgos / soporte', 'Roadmap conjunto'] }),
+      kpis({ title: 'Desempeño de cuenta', metrics: [{ value: '98.7%', label: 'OTD' }, { value: '99.2%', label: 'Calidad' }, { value: '$1.4M', label: 'Valor' }, { value: '4.8', label: 'Satisfacción' }] }),
+      twoCol({ title: 'Valor y oportunidades', left: { h: 'Valor entregado', items: ['Reducción de lead time.', 'Mejora de FPY.', 'Visibilidad semanal de riesgos.'] }, right: { h: 'Oportunidades', items: ['Forecast colaborativo.', 'VMI / kanban cliente.', 'Automatización de reportes.'] } }),
+      timeline({ title: 'Roadmap conjunto', steps: [{ label: 'Q1', desc: 'Estabilizar' }, { label: 'Q2', desc: 'Optimizar' }, { label: 'Q3', desc: 'Escalar' }, { label: 'Q4', desc: 'Innovar' }] }),
+      closing({ title: 'Próximos pasos', subtitle: 'Confirmar owners, fechas y métricas de éxito', contact: 'account@empresa.com' }),
+    ]),
+  },
+
   // ── Diapositivas sueltas (inicio rápido por layout) ──────────────────────────
   { id: 'one-cover-corp', title: 'Portada corporativa', description: 'Una portada azul lista para editar.', category: 'Diapositivas sueltas', accent: P_CORP.accent, build: () => renderDeck(P_CORP, [cover({ variant: 'band', eyebrow: 'Presentación', title: 'Título de la\npresentación', subtitle: 'Subtítulo · Autor', footer: new Date().getFullYear().toString() })]) },
   { id: 'one-cover-dark', title: 'Portada medianoche', description: 'Portada oscura con panel de acento.', category: 'Diapositivas sueltas', accent: P_DARK.accent, build: () => renderDeck(P_DARK, [cover({ variant: 'split', eyebrow: 'Presentación', title: 'Título de la\npresentación', subtitle: 'Subtítulo · Autor', footer: new Date().getFullYear().toString() })]) },

@@ -495,6 +495,25 @@ export class LayoutCellDto {
   stationIds: string[];
 }
 
+/** NL→CAD (Fase 69): interpret a natural-language instruction into CAD tool calls. */
+export class CadIntentDto {
+  @ApiProperty({ example: 'AX-1000' })
+  @IsString()
+  @Length(1, 64)
+  model: string;
+
+  @ApiPropertyOptional({ example: 'A' })
+  @IsOptional()
+  @IsString()
+  @Length(1, 16)
+  revision?: string;
+
+  @ApiProperty({ example: 'pon tres bancos en fila junto a EST-10' })
+  @IsString()
+  @Length(1, 500)
+  prompt: string;
+}
+
 /** Persist a model+revision layout: footprint config + station placements. */
 export class SaveLayoutDto {
   @ApiProperty({ example: 'AX-1000' })

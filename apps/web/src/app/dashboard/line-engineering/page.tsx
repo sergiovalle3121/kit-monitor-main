@@ -473,7 +473,7 @@ function Yamazumi({ route, taktSec }: { route: Station[]; taktSec: number }) {
         )}
       </div>
       <div style={{ width: '100%', height: 260 }}>
-        <ResponsiveContainer>
+        <ResponsiveContainer width="100%" height={260}>
           <BarChart data={data} margin={{ top: 8, right: 12, left: -12, bottom: 4 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(120,120,120,0.15)" vertical={false} />
             <XAxis

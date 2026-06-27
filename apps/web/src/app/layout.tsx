@@ -10,8 +10,12 @@ import { Cide } from "@/components/Cide";
 import { SearchPalette } from "@/components/SearchPalette";
 
 export const metadata: Metadata = {
-  title: "AXOS OS",
-  description: "White-label manufacturing operations platform",
+  title: {
+    default: "AXOS OS",
+    template: "%s · AXOS OS",
+  },
+  description: "Sistema operativo industrial para ERP, MES y Control Tower multi-tenant",
+  applicationName: "AXOS OS",
   manifest: "/manifest.webmanifest",
   icons: { icon: "/icon.svg", apple: "/icon.svg" },
   appleWebApp: { capable: true, title: "AXOS OS", statusBarStyle: "default" },
@@ -34,7 +38,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="h-full antialiased" suppressHydrationWarning>
+    <html lang="es-MX" className="h-full antialiased" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>

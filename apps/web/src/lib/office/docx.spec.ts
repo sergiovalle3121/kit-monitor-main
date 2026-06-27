@@ -40,6 +40,8 @@ const json = {
     { type: 'paragraph', content: [
       { type: 'text', text: 'Referencia viva: ' },
       { type: 'axosRef', attrs: { entity: 'work_order', refId: 'WO-00001', label: 'WO WO-00001' } },
+      { type: 'text', text: ' · Rev ' },
+      { type: 'docField', attrs: { key: 'revision', label: 'Revisión', value: 'B' } },
     ] },
     { type: 'image', attrs: { src: DATA, width: '50%', align: 'center' } },
     { type: 'table', content: [
@@ -92,6 +94,7 @@ const json = {
   ok(/<w:b\/>/.test(xml), 'la cabecera de tabla sale en negrita');
   ok(/Hola mundo/.test(xml), 'el texto del párrafo está presente');
   ok(/WO WO-00001/.test(xml), 'la referencia AXOS se exporta como texto visible en DOCX');
+  ok(/<w:t[^>]*>B<\/w:t>/.test(xml), 'el campo de documento se exporta con su valor visible');
 
   // Numeración NATIVA de Word (antes salía como texto literal "1. ").
   ok(!!zip.file('word/numbering.xml'), 'se genera word/numbering.xml');

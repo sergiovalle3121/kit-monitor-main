@@ -58,7 +58,7 @@ import { TableCellAttrs } from './docs/tableCellAttrs';
 import { SearchHighlight } from './docs/searchHighlight';
 import { MathInline, MathBlock, MathCommands } from './docs/mathExtension';
 import { FootnoteRef, FootnoteList, EndnoteRef, EndnoteList } from './docs/footnotes';
-import { DropCap, Callout, ColumnBreak, Bookmark, CrossRef, AxosRef } from './docs/insertNodes';
+import { DropCap, Callout, ColumnBreak, Bookmark, CrossRef, AxosRef, DocField } from './docs/insertNodes';
 import { InsertionMark, DeletionMark, TrackChanges } from './docs/trackChanges';
 import { FocusLine } from './docs/focusLine';
 import { SignatureLine } from './docs/signatureLine';
@@ -82,6 +82,7 @@ import { DocToc } from './docs/DocToc';
 import { DocSections } from './docs/DocSections';
 import { DocInsertExtras } from './docs/DocInsertExtras';
 import { DocMailMerge } from './docs/DocMailMerge';
+import { DocProperties } from './docs/DocProperties';
 import { DocTrackChanges, type TrackView } from './docs/DocTrackChanges';
 import { DocWordCount } from './docs/DocWordCount';
 import { DocTemplates } from './docs/DocTemplates';
@@ -174,6 +175,7 @@ export function DocEditor({ value, onChange, readOnly, author, onStats, fileActi
       Bookmark,
       CrossRef,
       AxosRef,
+      DocField,
       InsertionMark,
       DeletionMark,
       TrackChanges.configure({ author: author ?? '' }),
@@ -422,6 +424,8 @@ export function DocEditor({ value, onChange, readOnly, author, onStats, fileActi
           {fileActions != null && (
             <RibbonTab id="file" label="Archivo" icon={FileText}>
               <RibbonGroup label="Documento">{fileActions}</RibbonGroup>
+              <RibbonSeparator />
+              <RibbonGroup label="Control documental"><DocProperties editor={editor} /></RibbonGroup>
             </RibbonTab>
           )}
 
