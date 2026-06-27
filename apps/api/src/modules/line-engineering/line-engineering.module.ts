@@ -6,6 +6,7 @@ import { SfLineLayout } from './entities/sf-line-layout.entity';
 import { LineEngineeringService } from './line-engineering.service';
 import { StationStatusService } from './station-status.service';
 import { StationBayService } from './station-bay.service';
+import { CadIntentService } from './cad-intent.service';
 import { LineEngineeringController } from './line-engineering.controller';
 import { EventLedgerModule } from '../event-ledger/event-ledger.module';
 import { provideTenantScopedRepository } from '../../common/tenant/tenant-scoped.repository';
@@ -43,6 +44,7 @@ import { BayLayout } from '../bay-layout/entities/bay-layout.entity';
     LineEngineeringService,
     StationStatusService,
     StationBayService,
+    CadIntentService,
     provideTenantScopedRepository(SfLineStation),
     provideTenantScopedRepository(SfModelLine),
     provideTenantScopedRepository(SfLineLayout),
