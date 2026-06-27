@@ -18,6 +18,10 @@ import {
   ListChecks,
   Network,
   ArrowRight,
+  ShieldAlert,
+  Plus,
+  Trash2,
+  X,
 } from 'lucide-react';
 import { IconTile } from '@/components/ui/IconTile';
 import { glass } from '@/lib/glass';
@@ -25,12 +29,15 @@ import { useApi } from '@/hooks/useApi';
 import { apiFetch } from '@/lib/apiFetch';
 import { useToast } from '@/contexts/ToastContext';
 import { usePermissions } from '@/hooks/usePermissions';
+import { useConfirm } from '@/components/ui/ConfirmDialog';
 import {
   fmtDate,
   GateDecision,
   gateDecisions,
   NpiGate,
   NpiProject,
+  NpiRisk,
+  NpiRiskSeverity,
   PHASE_LABEL,
   PHASES,
   ReadinessReport,
@@ -43,6 +50,7 @@ import {
   gateProgress,
   LaunchDependency,
   MissingItem,
+  openRisks,
   phaseRailForProject,
 } from '../_lib/launch';
 import {
@@ -50,6 +58,8 @@ import {
   GateStatusPill,
   ProjectStatusPill,
   ReadinessPill,
+  RiskSeverityPill,
+  RiskStatusPill,
 } from '../_lib/pills';
 
 const API_BASE = (
@@ -79,6 +89,9 @@ export default function NpiProjectDetailPage() {
   } = useApi<NpiProject>(id ? `/npi/projects/${id}` : null);
   const { data: history, mutate: mutateHistory } = useApi<ReadinessSnapshot[]>(
     id ? `/npi/readiness/history?projectId=${id}&limit=20` : null,
+  );
+  const { data: risksData, mutate: mutateRisks } = useApi<NpiRisk[]>(
+    id ? `/npi/projects/${id}/risks` : null,
   );
 
   const [deciding, setDeciding] = useState<{
@@ -111,14 +124,19 @@ export default function NpiProjectDetailPage() {
     [project?.readiness, productModelId, modelHref],
   );
 
+  const risks = useMemo(
+    () => (Array.isArray(risksData) ? risksData : []),
+    [risksData],
+  );
+
   const missing = useMemo(
-    () => deriveMissing(project?.readiness, gates),
-    [project?.readiness, gates],
+    () => deriveMissing(project?.readiness, gates, risks),
+    [project?.readiness, gates, risks],
   );
 
   const releasable = useMemo(
-    () => canRelease(project?.readiness, gates),
-    [project?.readiness, gates],
+    () => canRelease(project?.readiness, gates, risks),
+    [project?.readiness, gates, risks],
   );
 
   async function decide() {
@@ -239,6 +257,14 @@ export default function NpiProjectDetailPage() {
 
         {/* What's missing to release */}
         <MissingPanel items={missing} />
+
+        {/* Open risks */}
+        <RiskPanel
+          projectId={id}
+          risks={risks}
+          canWrite={canWrite}
+          onChanged={mutateRisks}
+        />
 
         {/* Dependency matrix */}
         <DependencyMatrix dependencies={dependencies} />
@@ -522,6 +548,291 @@ function MissingPanel({ items }: { items: MissingItem[] }) {
               </div>
             );
           })}
+        </div>
+      )}
+    </section>
+  );
+}
+
+const RISK_INPUT =
+  'w-full bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-xl py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30';
+
+/** Advisory risk register: owner / severity / due date / status, add + resolve. */
+function RiskPanel({
+  projectId,
+  risks,
+  canWrite,
+  onChanged,
+}: {
+  projectId: string;
+  risks: NpiRisk[];
+  canWrite: boolean;
+  onChanged: () => void;
+}) {
+  const toast = useToast();
+  const confirm = useConfirm();
+  const [showForm, setShowForm] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [form, setForm] = useState<{
+    title: string;
+    severity: NpiRiskSeverity;
+    owner: string;
+    dueDate: string;
+    description: string;
+  }>({ title: '', severity: 'MEDIUM', owner: '', dueDate: '', description: '' });
+
+  const open = openRisks(risks);
+
+  async function create() {
+    if (!form.title.trim()) {
+      toast.error('El título es obligatorio.', 'Riesgo');
+      return;
+    }
+    setBusy(true);
+    try {
+      const res = await apiFetch(`${API_BASE}/npi/projects/${projectId}/risks`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: form.title.trim(),
+          severity: form.severity,
+          owner: form.owner.trim() || undefined,
+          dueDate: form.dueDate
+            ? new Date(form.dueDate).toISOString()
+            : undefined,
+          description: form.description.trim() || undefined,
+        }),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(d?.message || 'No se pudo crear el riesgo.', 'Riesgo');
+        return;
+      }
+      toast.success('Riesgo agregado.', 'Riesgo');
+      setForm({
+        title: '',
+        severity: 'MEDIUM',
+        owner: '',
+        dueDate: '',
+        description: '',
+      });
+      setShowForm(false);
+      onChanged();
+    } catch {
+      toast.error('Error de red.', 'Riesgo');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function setStatus(r: NpiRisk, status: NpiRisk['status']) {
+    try {
+      const res = await apiFetch(`${API_BASE}/npi/risks/${r.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+      });
+      if (!res.ok) throw new Error();
+      onChanged();
+    } catch {
+      toast.error('No se pudo actualizar el riesgo.', 'Riesgo');
+    }
+  }
+
+  async function remove(r: NpiRisk) {
+    if (
+      !(await confirm({
+        message: `¿Eliminar el riesgo “${r.title}”?`,
+        tone: 'danger',
+        confirmLabel: 'Eliminar',
+      }))
+    )
+      return;
+    try {
+      const res = await apiFetch(`${API_BASE}/npi/risks/${r.id}`, {
+        method: 'DELETE',
+      });
+      if (!res.ok) throw new Error();
+      toast.success('Riesgo eliminado.', 'Riesgo');
+      onChanged();
+    } catch {
+      toast.error('No se pudo eliminar el riesgo.', 'Riesgo');
+    }
+  }
+
+  return (
+    <section className="mb-6">
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="font-semibold text-sm uppercase tracking-wide text-gray-400 flex items-center gap-2">
+          <ShieldAlert className="w-4 h-4" /> Riesgos
+          {open.length > 0 && (
+            <span className="text-[11px] font-medium text-gray-400 normal-case tracking-normal">
+              · {open.length} abierto(s)
+            </span>
+          )}
+        </h2>
+        {canWrite && (
+          <button
+            onClick={() => setShowForm((s) => !s)}
+            className="inline-flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-full bg-black dark:bg-white text-white dark:text-black"
+          >
+            {showForm ? <X className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
+            {showForm ? 'Cerrar' : 'Agregar'}
+          </button>
+        )}
+      </div>
+
+      {showForm && (
+        <div className={`${glass} rounded-2xl p-4 mb-3`}>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <label className="block md:col-span-2">
+              <span className="block text-[11px] text-gray-500 mb-1">
+                Riesgo *
+              </span>
+              <input
+                className={RISK_INPUT}
+                value={form.title}
+                onChange={(e) => setForm({ ...form, title: e.target.value })}
+                placeholder="IC U12 sin proveedor aprobado"
+              />
+            </label>
+            <label className="block">
+              <span className="block text-[11px] text-gray-500 mb-1">
+                Severidad
+              </span>
+              <select
+                className={RISK_INPUT}
+                value={form.severity}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    severity: e.target.value as NpiRiskSeverity,
+                  })
+                }
+              >
+                <option value="HIGH">Alto</option>
+                <option value="MEDIUM">Medio</option>
+                <option value="LOW">Bajo</option>
+              </select>
+            </label>
+            <label className="block">
+              <span className="block text-[11px] text-gray-500 mb-1">Owner</span>
+              <input
+                className={RISK_INPUT}
+                value={form.owner}
+                onChange={(e) => setForm({ ...form, owner: e.target.value })}
+                placeholder="Compras / Calidad / nombre"
+              />
+            </label>
+            <label className="block">
+              <span className="block text-[11px] text-gray-500 mb-1">
+                Fecha objetivo
+              </span>
+              <input
+                type="date"
+                className={RISK_INPUT}
+                value={form.dueDate}
+                onChange={(e) => setForm({ ...form, dueDate: e.target.value })}
+              />
+            </label>
+            <label className="block">
+              <span className="block text-[11px] text-gray-500 mb-1">
+                Detalle
+              </span>
+              <input
+                className={RISK_INPUT}
+                value={form.description}
+                onChange={(e) =>
+                  setForm({ ...form, description: e.target.value })
+                }
+                placeholder="Impacto / contexto"
+              />
+            </label>
+          </div>
+          <div className="mt-3 flex justify-end">
+            <button
+              onClick={create}
+              disabled={busy}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white dark:text-black bg-black dark:bg-white disabled:opacity-60"
+            >
+              {busy ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Plus className="w-4 h-4" />
+              )}{' '}
+              Registrar riesgo
+            </button>
+          </div>
+        </div>
+      )}
+
+      {risks.length === 0 ? (
+        <div
+          className={`${glass} rounded-2xl p-5 flex items-center gap-3 text-sm`}
+        >
+          <ShieldCheck className="w-5 h-5" style={{ color: '#10b981' }} />
+          <span>Sin riesgos registrados para este launch.</span>
+        </div>
+      ) : (
+        <div
+          className={`${glass} rounded-2xl divide-y divide-black/5 dark:divide-white/5`}
+        >
+          {risks.map((r) => (
+            <div key={r.id} className="flex items-start gap-3 px-4 py-3">
+              <div className="pt-0.5">
+                <RiskSeverityPill severity={r.severity} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-sm font-medium">{r.title}</span>
+                  <RiskStatusPill status={r.status} />
+                </div>
+                <div className="text-xs text-gray-400 mt-0.5">
+                  {r.owner ? `Owner ${r.owner}` : 'Sin owner'}
+                  {r.dueDate ? ` · vence ${fmtDate(r.dueDate)}` : ''}
+                  {r.description ? ` · ${r.description}` : ''}
+                </div>
+              </div>
+              {canWrite && (
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {r.status !== 'CLOSED' ? (
+                    <>
+                      {r.status === 'OPEN' && (
+                        <button
+                          onClick={() => setStatus(r, 'MITIGATING')}
+                          className="text-[11px] font-medium px-2 py-1 rounded-lg hover:bg-black/5 dark:hover:bg-white/10"
+                          style={{ color: '#f59e0b' }}
+                        >
+                          Mitigar
+                        </button>
+                      )}
+                      <button
+                        onClick={() => setStatus(r, 'CLOSED')}
+                        className="text-[11px] font-medium px-2 py-1 rounded-lg hover:bg-black/5 dark:hover:bg-white/10"
+                        style={{ color: '#10b981' }}
+                      >
+                        Cerrar
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      onClick={() => setStatus(r, 'OPEN')}
+                      className="text-[11px] font-medium px-2 py-1 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 text-gray-500"
+                    >
+                      Reabrir
+                    </button>
+                  )}
+                  <button
+                    onClick={() => remove(r)}
+                    className="p-1 rounded-lg text-gray-400 hover:text-red-500"
+                    title="Eliminar"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
+            </div>
+          ))}
         </div>
       )}
     </section>

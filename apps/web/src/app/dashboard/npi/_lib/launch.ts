@@ -11,6 +11,7 @@
 import {
   GatePhase,
   NpiGate,
+  NpiRisk,
   PHASES,
   ProjectStatus,
   ReadinessReport,
@@ -263,14 +264,21 @@ export interface MissingItem {
   severity: MissingSeverity;
 }
 
+/** A risk still weighs on the launch until it is CLOSED. */
+export function openRisks(risks: NpiRisk[] = []): NpiRisk[] {
+  return risks.filter((r) => r.status !== 'CLOSED');
+}
+
 /**
- * Fold the readiness criteria and the gate states into one actionable list:
- * NOT_READY criteria and not-yet-passed gates are `blocker`s, UNKNOWN criteria
- * are `verify` items. Pure — uses only data the project already carries.
+ * Fold readiness criteria, gate states and open risks into one actionable list:
+ * NOT_READY criteria, FAILED gates and HIGH open risks are `blocker`s; UNKNOWN
+ * criteria, PENDING gates and other open risks are `verify` items. Pure — uses
+ * only data the project already carries.
  */
 export function deriveMissing(
   report: ReadinessReport | null | undefined,
   gates: NpiGate[],
+  risks: NpiRisk[] = [],
 ): MissingItem[] {
   const items: MissingItem[] = [];
 
@@ -302,18 +310,31 @@ export function deriveMissing(
       severity: g.status === 'FAILED' ? 'blocker' : 'verify',
     });
 
+  for (const r of openRisks(risks))
+    items.push({
+      key: `risk:${r.id}`,
+      label: `Riesgo: ${r.title}`,
+      detail: r.owner ? `Owner ${r.owner}` : 'Sin owner asignado',
+      severity: r.severity === 'HIGH' ? 'blocker' : 'verify',
+    });
+
   return items;
 }
 
-/** True only when nothing blocks and every criterion + gate is resolved good. */
+/**
+ * True only when nothing blocks: readiness green, every gate cleared, and no
+ * open HIGH-severity risk.
+ */
 export function canRelease(
   report: ReadinessReport | null | undefined,
   gates: NpiGate[],
+  risks: NpiRisk[] = [],
 ): boolean {
   const allGatesPassed =
     gates.length > 0 &&
     gates.every((g) => g.status === 'PASSED' || g.status === 'WAIVED');
-  return Boolean(report?.gateReady) && allGatesPassed;
+  const noHighRisk = !openRisks(risks).some((r) => r.severity === 'HIGH');
+  return Boolean(report?.gateReady) && allGatesPassed && noHighRisk;
 }
 
 /* ───────────────────────────── small utils ───────────────────────────── */

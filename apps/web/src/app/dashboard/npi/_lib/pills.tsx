@@ -4,10 +4,14 @@ import React from 'react';
 import {
   GATE_STATUS_META,
   GateStatus,
+  NpiRiskSeverity,
+  NpiRiskStatus,
   PROJECT_STATUS_META,
   ProjectStatus,
   READINESS_META,
   ReadinessStatus,
+  RISK_SEVERITY_META,
+  RISK_STATUS_META,
 } from './npi';
 import { DEPENDENCY_STATUS_META, DependencyStatus } from './launch';
 
@@ -41,6 +45,16 @@ export function GateStatusPill({ status }: { status: GateStatus }) {
 
 export function ReadinessPill({ status }: { status: ReadinessStatus }) {
   const m = READINESS_META[status] ?? { label: status, color: '#9ca3af' };
+  return <Pill label={m.label} color={m.color} />;
+}
+
+export function RiskSeverityPill({ severity }: { severity: NpiRiskSeverity }) {
+  const m = RISK_SEVERITY_META[severity] ?? { label: severity, color: '#9ca3af' };
+  return <Pill label={m.label} color={m.color} />;
+}
+
+export function RiskStatusPill({ status }: { status: NpiRiskStatus }) {
+  const m = RISK_STATUS_META[status] ?? { label: status, color: '#9ca3af' };
   return <Pill label={m.label} color={m.color} />;
 }
 

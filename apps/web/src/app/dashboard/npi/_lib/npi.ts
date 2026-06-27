@@ -92,6 +92,22 @@ export interface ReadinessSnapshot {
   created_at?: string;
 }
 
+export type NpiRiskSeverity = 'LOW' | 'MEDIUM' | 'HIGH';
+export type NpiRiskStatus = 'OPEN' | 'MITIGATING' | 'CLOSED';
+
+export interface NpiRisk {
+  id: string;
+  projectId: string;
+  title: string;
+  description?: string | null;
+  severity: NpiRiskSeverity;
+  status: NpiRiskStatus;
+  owner?: string | null;
+  dueDate?: string | null;
+  mitigation?: string | null;
+  created_at?: string;
+}
+
 export const PROJECT_STATUS_META: Record<
   ProjectStatus,
   { label: string; color: string }
@@ -100,6 +116,24 @@ export const PROJECT_STATUS_META: Record<
   ON_HOLD: { label: 'En espera', color: '#f59e0b' },
   RELEASED: { label: 'Liberado', color: '#10b981' },
   CANCELLED: { label: 'Cancelado', color: '#9ca3af' },
+};
+
+export const RISK_SEVERITY_META: Record<
+  NpiRiskSeverity,
+  { label: string; color: string }
+> = {
+  HIGH: { label: 'Alto', color: '#f43f5e' },
+  MEDIUM: { label: 'Medio', color: '#f59e0b' },
+  LOW: { label: 'Bajo', color: '#3b82f6' },
+};
+
+export const RISK_STATUS_META: Record<
+  NpiRiskStatus,
+  { label: string; color: string }
+> = {
+  OPEN: { label: 'Abierto', color: '#f43f5e' },
+  MITIGATING: { label: 'Mitigando', color: '#f59e0b' },
+  CLOSED: { label: 'Cerrado', color: '#10b981' },
 };
 
 export const GATE_STATUS_META: Record<
