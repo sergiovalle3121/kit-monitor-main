@@ -219,9 +219,12 @@ function PreviewDrawer({ aid, onClose, onOpenTab, opening }: { aid: VisualAid | 
   useEffect(() => {
     let revoked = false;
     let objectUrl: string | null = null;
-    setUrl(null); setError(false);
+    queueMicrotask(() => {
+      if (revoked) return;
+      setUrl(null); setError(false);
+    });
     if (!aid?.pdfUrl) return;
-    setLoading(true);
+    queueMicrotask(() => { if (!revoked) setLoading(true); });
     apiFetch(`${API_BASE}/visual-aids/file/${encodeURIComponent(aid.pdfUrl)}`)
       .then(async (res) => {
         if (!res.ok) throw new Error('fetch');

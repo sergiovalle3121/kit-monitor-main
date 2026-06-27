@@ -21,6 +21,7 @@ import { GovernanceModule } from '../governance/governance.module';
 import { UsersModule } from '../users/users.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { MaterialStagingModule } from '../material-staging/material-staging.module';
+import { provideTenantScopedRepository } from '../../common/tenant/tenant-scoped.repository';
 
 @Module({
   imports: [
@@ -40,7 +41,20 @@ import { MaterialStagingModule } from '../material-staging/material-staging.modu
     MaterialStagingModule,
   ],
   controllers: [InventoryController, WarehouseController, ReplenishmentController],
-  providers: [InventoryService, WarehouseService, ReplenishmentService, ReturnsService, WarehouseAlertsService, WarehouseAlertsTask],
+  providers: [
+    InventoryService,
+    WarehouseService,
+    ReplenishmentService,
+    ReturnsService,
+    WarehouseAlertsService,
+    WarehouseAlertsTask,
+    provideTenantScopedRepository(InventoryPosition),
+    provideTenantScopedRepository(InventoryMovement),
+    provideTenantScopedRepository(MaterialMaster),
+    provideTenantScopedRepository(WarehouseTask),
+    provideTenantScopedRepository(ReplenishmentRule),
+    provideTenantScopedRepository(MaterialReturn),
+  ],
   exports: [InventoryService, WarehouseService, ReplenishmentService, ReturnsService, WarehouseAlertsService],
 })
 export class InventoryModule {}

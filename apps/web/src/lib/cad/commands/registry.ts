@@ -7,7 +7,6 @@ import type {
   CadConnectorInput,
   CadOperation,
 } from "./types";
-import { measureBoxes, measurementLabel } from "../measurements";
 import {
   error,
   findObjectByLabel,
@@ -25,6 +24,7 @@ const result = (
   applied: boolean,
   historyLabel: string,
 ): CadCommandResult => ({ ...preview, applied, historyLabel });
+const center = (b: CadBox) => ({ x: b.x + b.w / 2, y: b.y + b.h / 2 });
 const uniq = <T>(xs: T[]) => [...new Set(xs)];
 const bySequence = (xs: CadBox[]) =>
   [...xs].sort(
@@ -414,25 +414,25 @@ export const CAD_COMMAND_REGISTRY: CadCommandDefinition[] = [
                 "No encontré ambos objetos para medir.",
               ),
             ];
-      const measurement =
+      const distance =
         a && b
-          ? measureBoxes(a, b, "direct", c.unit === "m" ? "m" : "mm")
-          : null;
+          ? Math.hypot(center(a).x - center(b).x, center(a).y - center(b).y)
+          : 0;
       return {
         summary:
-          a && b && measurement
-            ? measurementLabel(a, b, measurement)
+          a && b
+            ? `Distancia ${a.label} ↔ ${b.label}: ${Math.round(distance)}${c.unit}.`
             : "Medir distancia",
         affectedObjectIds: [a?.id, b?.id].filter(Boolean) as string[],
         operations:
-          a && b && measurement
+          a && b
             ? [
                 {
                   type: "measure",
                   from: a.id,
                   to: b.id,
-                  distance: measurement.distanceMm,
-                  unit: "mm",
+                  distance,
+                  unit: c.unit,
                 },
               ]
             : [],

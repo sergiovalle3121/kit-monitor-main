@@ -1,6 +1,6 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Inject } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { Repository, DataSource, ObjectLiteral, SelectQueryBuilder } from 'typeorm';
 import { QualityHold, QualityHoldLevel } from './entities/quality-hold.entity';
 import { QuarantineTransfer, QuarantineTransferStatus } from './entities/quarantine-transfer.entity';
 import { Disposition, DispositionType, DispositionStatus } from './entities/disposition.entity';
@@ -14,6 +14,11 @@ import { DocumentNumberingService } from '../numbering/document-numbering.servic
 import { NcrService } from '../ncr/ncr.service';
 import { NcrStatus } from '../ncr/entities/ncr.entity';
 import { SuppliersService } from '../suppliers/suppliers.service';
+import { TenantContextService } from '../../common/tenant/tenant-context.service';
+import {
+  TenantScopedRepository,
+  getTenantRepositoryToken,
+} from '../../common/tenant/tenant-scoped.repository';
 
 import { FinalInspection } from './entities/final-inspection.entity';
 import { AuditService } from '../governance/audit.service';
@@ -22,18 +27,18 @@ import { ExceptionSeverity, ExceptionDomain } from '../governance/entities/opera
 @Injectable()
 export class QualityService {
   constructor(
-    @InjectRepository(QualityHold)
-    private readonly holdRepo: Repository<QualityHold>,
-    @InjectRepository(QuarantineTransfer)
-    private readonly transferRepo: Repository<QuarantineTransfer>,
-    @InjectRepository(Disposition)
-    private readonly dispositionRepo: Repository<Disposition>,
-    @InjectRepository(CAPA)
-    private readonly capaRepo: Repository<CAPA>,
-    @InjectRepository(IQCInspection)
-    private readonly iqcRepo: Repository<IQCInspection>,
-    @InjectRepository(FinalInspection)
-    private readonly oqcRepo: Repository<FinalInspection>,
+    @Inject(getTenantRepositoryToken(QualityHold))
+    private readonly holdRepo: TenantScopedRepository<QualityHold>,
+    @Inject(getTenantRepositoryToken(QuarantineTransfer))
+    private readonly transferRepo: TenantScopedRepository<QuarantineTransfer>,
+    @Inject(getTenantRepositoryToken(Disposition))
+    private readonly dispositionRepo: TenantScopedRepository<Disposition>,
+    @Inject(getTenantRepositoryToken(CAPA))
+    private readonly capaRepo: TenantScopedRepository<CAPA>,
+    @Inject(getTenantRepositoryToken(IQCInspection))
+    private readonly iqcRepo: TenantScopedRepository<IQCInspection>,
+    @Inject(getTenantRepositoryToken(FinalInspection))
+    private readonly oqcRepo: TenantScopedRepository<FinalInspection>,
     @InjectRepository(InventoryPosition)
     private readonly positionRepo: Repository<InventoryPosition>,
     private readonly eventLedger: EventLedgerService,
@@ -43,7 +48,18 @@ export class QualityService {
     private readonly audit: AuditService,
     private readonly dataSource: DataSource,
     private readonly numbering: DocumentNumberingService,
+    private readonly tenantCtx: TenantContextService,
   ) {}
+
+  private applyScope<T extends ObjectLiteral>(
+    qb: SelectQueryBuilder<T>,
+    alias: string,
+  ): SelectQueryBuilder<T> {
+    const tenant = this.tenantCtx.getTenantId();
+    if (tenant) qb.andWhere(`${alias}.tenant_id = :tenant`, { tenant });
+    else qb.andWhere(`${alias}.tenant_id IS NULL`);
+    return qb;
+  }
 
   /**
    * Certifica (firma electrónicamente) un Certificado de Conformancia. Emite un
@@ -455,6 +471,7 @@ export class QualityService {
     const qb = this.capaRepo.createQueryBuilder('capa')
       .leftJoinAndSelect('capa.ncr', 'ncr')
       .leftJoinAndSelect('capa.disposition', 'dispo');
+    this.applyScope(qb, 'capa');
 
     if (filters.status) qb.andWhere('capa.status = :status', { status: filters.status });
     if (filters.partNumber) qb.andWhere('capa.partNumber = :pn', { pn: filters.partNumber });
@@ -511,6 +528,7 @@ export class QualityService {
   async findIqcInspections(filters: any): Promise<IQCInspection[]> {
     const qb = this.iqcRepo.createQueryBuilder('iqc')
       .leftJoinAndSelect('iqc.supplier', 'supplier');
+    this.applyScope(qb, 'iqc');
 
     if (filters.partNumber) qb.andWhere('iqc.partNumber = :pn', { pn: filters.partNumber });
     if (filters.result) qb.andWhere('iqc.result = :res', { res: filters.result });

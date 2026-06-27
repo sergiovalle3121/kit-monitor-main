@@ -57,15 +57,19 @@ export default function GenealogyPage() {
     const reel = sp.get('reel');
     const part = sp.get('part');
     if (s) {
-      setMode('serial');
-      setSerialInput(s);
-      setActiveSerial(s.trim());
+      queueMicrotask(() => {
+        setMode('serial');
+        setSerialInput(s);
+        setActiveSerial(s.trim());
+      });
     } else if (lot || reel) {
-      setMode('lot');
-      setLotInput(lot ?? '');
-      setReelInput(reel ?? '');
-      setPartInput(part ?? '');
-      setActiveLot({ lot: (lot ?? '').trim(), reel: (reel ?? '').trim(), part: (part ?? '').trim() });
+      queueMicrotask(() => {
+        setMode('lot');
+        setLotInput(lot ?? '');
+        setReelInput(reel ?? '');
+        setPartInput(part ?? '');
+        setActiveLot({ lot: (lot ?? '').trim(), reel: (reel ?? '').trim(), part: (part ?? '').trim() });
+      });
     }
   }, []);
 
