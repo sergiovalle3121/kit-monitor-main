@@ -127,14 +127,33 @@ pliegan en *"Qué falta para liberar"* (HIGH → bloqueo, resto → verificar) y
 riesgo HIGH abierto impide el estado *"Listo para liberar"* del banner. Siguen
 siendo *advisory*: no tocan `gateReady` ni las decisiones de gate.
 
+## 4.3 Release to MP (implementado)
+
+`POST /npi/projects/:id/release` libera el launch a producción masiva con un
+**checklist duro**: readiness en verde, todos los gates resueltos (PASSED/WAIVED)
+y sin riesgos HIGH abiertos. Si el checklist no se cumple, la liberación se
+**bloquea** salvo `force: true` (liberación con desviación, nota recomendada).
+Es auditado: estampa `released_at`/`released_by`/`release_note`, captura un
+snapshot de readiness (`RELEASE`) y registra un evento en el ledger
+(`NPI_RELEASED` con `forced` + `blockers`). Idempotente si ya está RELEASED;
+mutación sólo en `npi_project` (nunca activa el product-model).
+
+En el dossier, el **release banner** muestra el estado go/no-go y el botón
+*Liberar a MP* (o *Liberar con desviación* cuando falta algo, listando los
+bloqueos en el modal). Una vez liberado, muestra quién y cuándo.
+
+## 4.4 Navegación
+
+El menú lateral y la paleta (`⌘K`) exponen **NPI Launch Center**
+(`/dashboard/npi`) y **Product Master** (`/dashboard/models`) — antes
+etiquetados "NPI · Gates" y "Modelos · NPI", lo que ocultaba el Launch Center.
+
 ## 5. Limitaciones actuales
 
 - `GET /npi/projects` no trae `readiness` ni `gates`; las tarjetas de la lista
   muestran fase/estatus, y el go/no-go completo vive en el dossier.
 - Las señales de dependencia (tooling, visual aids, plan) son conteos *advisory*:
   enriquecen la matriz pero no se pliegan en `gateReady`.
-- "Liberar a MP" es advisory: el banner indica readiness/riesgos, pero no hay un
-  endpoint transaccional de release con checklist + auditoría todavía.
 
 ## 6. Contratos backend sugeridos (siguientes PRs)
 
@@ -143,8 +162,6 @@ siendo *advisory*: no tocan `gateReady` ni las decisiones de gate.
    para enriquecer las launch cards sin N+1 requests.
 2. **Evidence package.** Vincular documentos Office/CAD/FAI/visual aids y
    aprobaciones a un gate como evidencia versionada.
-3. **Release to MP.** Endpoint transaccional `POST /npi/projects/:id/release`
-   con checklist duro + auditoría (sin romper el carácter advisory por defecto).
 
 ## 7. Diseño
 

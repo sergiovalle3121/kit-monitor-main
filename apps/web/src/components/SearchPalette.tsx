@@ -7,7 +7,7 @@ import {
   Search, LayoutGrid, LineChart, Warehouse, Boxes, Factory, HardHat, ShieldCheck,
   Cpu, DollarSign, Calculator, RadioTower, FileText, Landmark, Users, Building2,
   ShieldAlert, MessageSquare, CornerDownLeft, Hash, Lightbulb, Wrench, Scale, FlaskConical, ShoppingCart, GraduationCap, Truck, PackageCheck, ClipboardList, Target, Building, Receipt, Hammer, PackageX, Package,
-  Gauge, Megaphone, PackagePlus, ShieldX, Loader2, Network, Workflow, Upload, PackageMinus,
+  Gauge, Megaphone, PackagePlus, ShieldX, Loader2, Network, Workflow, Upload, PackageMinus, Rocket,
 } from 'lucide-react';
 import {
   ENTITY_ORDER, ensureSearchIndex, filterSearchIndex,
@@ -32,7 +32,8 @@ const DESTS: Dest[] = [
   { label: 'Producción', sub: 'Órdenes y piso', href: '/dashboard/production', keywords: 'produccion piso ordenes wo lineas', icon: Factory },
   { label: 'Operador MES', sub: 'Ejecución en estación', href: '/dashboard/operador', keywords: 'mes operador escanear estacion montar wo', icon: HardHat },
   { label: 'Calidad', sub: 'Inspección y NCR', href: '/dashboard/quality', keywords: 'calidad quality ncr inspeccion capa holds', icon: ShieldCheck },
-  { label: 'Modelos · NPI', sub: 'Maestro de productos', href: '/dashboard/models', keywords: 'modelos modelo producto productos npi master maestro mdl numero de parte folio nuevo modelo', icon: Boxes },
+  { label: 'NPI Launch Center', sub: 'Lanzamiento · readiness · gates · riesgos · liberación', href: '/dashboard/npi', keywords: 'npi launch lanzamiento gates readiness riesgos liberacion mp release dossier introduccion nuevo producto', icon: Rocket },
+  { label: 'Product Master', sub: 'Maestro de productos/modelos', href: '/dashboard/models', keywords: 'modelos modelo producto productos npi master maestro mdl numero de parte folio nuevo modelo product master', icon: Boxes },
   { label: 'Maestro de Materiales', sub: 'Partes · AVL · alternantes', href: '/dashboard/materials', keywords: 'materiales material maestro parte partes mm avl fabricante mpn alternante sustituto comprado fabricado phantom uom make buy numero de parte mat', icon: Package },
   { label: 'BOM Multinivel', sub: 'Estructura · explosión · where-used', href: '/dashboard/bom', keywords: 'bom estructura producto multinivel explosion explotar where used donde se usa ensamble subensamble componentes lista de materiales arbol niveles', icon: Network },
   { label: 'Ruteo de Manufactura', sub: 'Operaciones · tiempos · centro de trabajo', href: '/dashboard/routing', keywords: 'ruteo routing ruta proceso operaciones secuencia centro de trabajo work center tiempo estandar setup run backflush consumo manufactura rt', icon: Workflow },

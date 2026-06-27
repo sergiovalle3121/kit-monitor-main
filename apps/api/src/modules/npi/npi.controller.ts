@@ -19,6 +19,7 @@ import {
   CreateNpiProjectDto,
   CreateNpiRiskDto,
   DecideGateDto,
+  ReleaseProjectDto,
   SnapshotReadinessDto,
   UpdateNpiRiskDto,
 } from './dto/npi.dto';
@@ -133,10 +134,22 @@ export class NpiController {
     return this.service.decideGate(id, dto);
   }
 
+  @Post('projects/:id/release')
+  @RequirePermissions('engineering:write')
+  @ApiOperation({
+    summary:
+      'Libera el launch a MP (checklist duro; force=true libera con desviación). Auditado.',
+  })
+  releaseProject(@Param('id') id: string, @Body() dto: ReleaseProjectDto) {
+    return this.service.releaseProject(id, dto);
+  }
+
   // ── Risks (advisory register) ───────────────────────────────────────────────
   @Get('projects/:id/risks')
   @RequirePermissions('engineering:read')
-  @ApiOperation({ summary: 'Riesgos de un launch (open-first, por severidad).' })
+  @ApiOperation({
+    summary: 'Riesgos de un launch (open-first, por severidad).',
+  })
   listRisks(@Param('id') id: string) {
     return this.service.listRisks(id);
   }

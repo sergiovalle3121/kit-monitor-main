@@ -72,6 +72,9 @@ export interface NpiProject {
   programId?: string | null;
   notes?: string | null;
   created_at?: string;
+  releasedAt?: string | null;
+  releasedBy?: string | null;
+  releaseNote?: string | null;
   gates?: NpiGate[];
   readiness?: ReadinessReport;
 }

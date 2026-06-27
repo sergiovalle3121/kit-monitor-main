@@ -1,5 +1,6 @@
 import { Column, Entity, Index, PrimaryGeneratedColumn } from 'typeorm';
 import { TenantBaseEntity } from '../../../common/entities/tenant-base.entity';
+import { DATE_COLUMN_TYPE } from '../../../common/database/date-column-type';
 import type { NpiPhase, NpiProjectStatus } from '../npi-state';
 
 /**
@@ -67,4 +68,20 @@ export class NpiProject extends TenantBaseEntity {
 
   @Column({ type: 'varchar', length: 500, nullable: true })
   notes: string | null;
+
+  // ── Release to MP (explicit, audited) — additive & nullable ──────────────────
+  @Column({ type: DATE_COLUMN_TYPE, nullable: true, name: 'released_at' })
+  releasedAt: Date | null;
+
+  @Column({ type: 'varchar', length: 200, nullable: true, name: 'released_by' })
+  releasedBy: string | null;
+
+  /** Release note / deviation reason (when released with open blockers). */
+  @Column({
+    type: 'varchar',
+    length: 500,
+    nullable: true,
+    name: 'release_note',
+  })
+  releaseNote: string | null;
 }

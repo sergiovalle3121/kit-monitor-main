@@ -244,7 +244,17 @@ export default function NpiProjectDetailPage() {
         </div>
 
         {/* Release banner */}
-        <ReleaseBanner releasable={releasable} blockers={missing} />
+        <ReleaseBanner
+          project={project}
+          releasable={releasable}
+          blockers={missing}
+          canWrite={canWrite}
+          onReleased={() => {
+            mutate();
+            mutateRisks();
+            mutateHistory();
+          }}
+        />
 
         {/* Phase timeline */}
         <PhaseTimeline
@@ -371,42 +381,165 @@ export default function NpiProjectDetailPage() {
   );
 }
 
-/** Top-of-dossier go/no-go banner answering "¿puedo liberar a MP?". */
+/** Top-of-dossier go/no-go banner + the explicit, audited release-to-MP action. */
 function ReleaseBanner({
+  project,
   releasable,
   blockers,
+  canWrite,
+  onReleased,
 }: {
+  project: NpiProject;
   releasable: boolean;
   blockers: MissingItem[];
+  canWrite: boolean;
+  onReleased: () => void;
 }) {
+  const toast = useToast();
+  const [open, setOpen] = useState(false);
+  const [note, setNote] = useState('');
+  const [busy, setBusy] = useState(false);
+  const released = project.status === 'RELEASED';
   const hardBlockers = blockers.filter((b) => b.severity === 'blocker').length;
+
+  async function release() {
+    setBusy(true);
+    try {
+      const res = await apiFetch(
+        `${API_BASE}/npi/projects/${project.id}/release`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ note: note.trim() || undefined, force: !releasable }),
+        },
+      );
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(d?.message || 'No se pudo liberar a MP.', 'NPI');
+        return;
+      }
+      toast.success('Launch liberado a MP.', 'NPI');
+      setOpen(false);
+      setNote('');
+      onReleased();
+    } catch {
+      toast.error('Error de red.', 'NPI');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const accent = released ? '#10b981' : releasable ? '#10b981' : '#f59e0b';
+
   return (
     <div
       className={`${glass} rounded-2xl p-4 mb-6 flex items-center gap-3`}
-      style={{
-        boxShadow: releasable ? 'inset 0 0 0 1px #10b98133' : undefined,
-      }}
+      style={{ boxShadow: `inset 0 0 0 1px ${accent}33` }}
     >
-      {releasable ? (
-        <ShieldCheck className="w-5 h-5 shrink-0" style={{ color: '#10b981' }} />
+      {released || releasable ? (
+        <ShieldCheck className="w-5 h-5 shrink-0" style={{ color: accent }} />
       ) : (
-        <AlertTriangle
-          className="w-5 h-5 shrink-0"
-          style={{ color: '#f59e0b' }}
-        />
+        <AlertTriangle className="w-5 h-5 shrink-0" style={{ color: accent }} />
       )}
       <div className="min-w-0 flex-1">
         <div className="font-semibold text-sm">
-          {releasable
-            ? 'Listo para liberar a MP'
-            : '¿Puedo producir esto mañana? Aún no.'}
+          {released
+            ? 'Liberado a MP'
+            : releasable
+              ? 'Listo para liberar a MP'
+              : '¿Puedo producir esto mañana? Aún no.'}
         </div>
         <div className="text-xs text-gray-400">
-          {releasable
-            ? 'Readiness en verde y todos los gates resueltos. Decisión final advisory.'
-            : `${blockers.length} pendiente(s) · ${hardBlockers} bloqueo(s) duro(s) antes de liberar.`}
+          {released
+            ? `${project.releasedBy || 'Alguien'} · ${fmtDate(project.releasedAt)}${
+                project.releaseNote ? ` · ${project.releaseNote}` : ''
+              }`
+            : releasable
+              ? 'Readiness en verde, gates resueltos y sin riesgos altos abiertos.'
+              : `${blockers.length} pendiente(s) · ${hardBlockers} bloqueo(s) duro(s) antes de liberar.`}
         </div>
       </div>
+      {canWrite && !released && (
+        <button
+          onClick={() => {
+            setNote('');
+            setOpen(true);
+          }}
+          className="shrink-0 inline-flex items-center gap-1.5 text-sm font-semibold px-4 py-2 rounded-full text-white disabled:opacity-60"
+          style={{ background: releasable ? '#10b981' : '#f59e0b' }}
+        >
+          <Rocket className="w-4 h-4" />
+          {releasable ? 'Liberar a MP' : 'Liberar con desviación'}
+        </button>
+      )}
+
+      {open && (
+        <div
+          className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4"
+          onClick={() => !busy && setOpen(false)}
+        >
+          <div
+            className={`${glass} rounded-2xl p-5 w-full max-w-md`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="font-semibold mb-1">Liberar a producción (MP)</h3>
+            <p className="text-sm text-gray-500 mb-3">
+              {releasable
+                ? 'El checklist está completo. Esta acción queda auditada.'
+                : 'El checklist NO está completo: liberar ahora es una desviación auditada.'}
+            </p>
+            {!releasable && (
+              <ul className="text-xs text-gray-500 mb-3 space-y-1 max-h-32 overflow-auto">
+                {blockers.map((b) => (
+                  <li key={b.key} className="flex items-start gap-1.5">
+                    <span
+                      className="mt-1 w-1.5 h-1.5 rounded-full shrink-0"
+                      style={{
+                        background:
+                          b.severity === 'blocker' ? '#f43f5e' : '#f59e0b',
+                      }}
+                    />
+                    {b.label}
+                  </li>
+                ))}
+              </ul>
+            )}
+            <textarea
+              rows={3}
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder={
+                releasable
+                  ? 'Nota de liberación (opcional)'
+                  : 'Justificación de la desviación (recomendado)'
+              }
+              className="w-full bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-xl py-2.5 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30"
+            />
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                onClick={() => setOpen(false)}
+                disabled={busy}
+                className="px-4 py-2 rounded-xl text-sm hover:bg-black/5 dark:hover:bg-white/10"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={release}
+                disabled={busy}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-60"
+                style={{ background: releasable ? '#10b981' : '#f59e0b' }}
+              >
+                {busy ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Rocket className="w-4 h-4" />
+                )}{' '}
+                {releasable ? 'Liberar a MP' : 'Liberar con desviación'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
