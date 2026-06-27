@@ -2589,4 +2589,37 @@ para que el cambio sea **solo `CIDE_BASE_URL`** (cero código):
 **Verificación:** `build API` ✓, `tsc` ✓, `lint web` 0, `build web` ✓. Sin migraciones; ningún
 endpoint ni comportamiento existente cambia.
 
+## 118. CIDE — streaming de respuestas, auto-escalación de modelo y tests del loop
+
+**Contexto.** Con el motor encendible (§116) y el tier GPU (§117), CIDE ya respondía;
+faltaba madurez de producto: respuestas que aparecen de golpe tras segundos, un solo
+modelo para todo, y el loop agéntico sin pruebas. Tres mejoras, todas aditivas.
+
+**A — Auto-escalación de modelo (`ai-escalation.ts`).** Función pura `shouldEscalate()`
++ `chooseModel()`: las consultas analíticas (causa, tendencia, comparación, recomendación,
+o prompts largos) usan el `escalationModel`; las consultas factuales cortas se quedan en el
+default. **Off por defecto**, gated por `CIDE_AUTO_ESCALATE=1` (el modelo de escalación debe
+estar servido por el motor; en CPU con un solo modelo daría 404). Un `model` explícito por
+request siempre gana. Integrado en `prepare()`; se devuelve `escalated` en la respuesta.
+
+**B — Streaming (SSE).** `CideProvider.chatStream()` lee la respuesta como Server-Sent
+Events y reensambla con `StreamAssembler` (clase pura: concatena content, junta fragmentos
+de tool-calls por `index`, captura usage del chunk final). `runCide()` admite un sink
+opcional `{onDelta,onTool}` reutilizando el MISMO loop agéntico. Nuevo `AiService.chatStream()`
+(refactor: `prepare()` + `persistTurn()` compartidos con `chat()`, sin duplicar guardrails/
+RBAC/persistencia) y endpoint `POST /api/ai/chat/stream` que emite eventos `meta`/`tool`/
+`delta`/`done`/`error` (controller con `@Res()`, headers anti-buffering). Proxy Next
+`/api/ai/chat/stream` (+ `backendUserStream`) que canaliza el cuerpo SSE sin bufferizar.
+`Cide.tsx` consume el stream y va llenando la burbuja del asistente token a token. El endpoint
+bloqueante `POST /ai/chat` se mantiene intacto (lo usan los helpers de chat).
+
+**C — Tests del loop.** `ai.service.spec.ts` ejercita `runCide()` contra un **motor falso**
+(tool→resultado→respuesta final; ruta de streaming con fan-out de deltas/tools; mapeo de
+caída del motor a `ServiceUnavailableException`), `ai-escalation.spec.ts` cubre la heurística,
+y `cide-stream.spec.ts` el ensamblador SSE. **+17 tests.**
+
+**Verificación:** `build API` ✓, **API tests 1078/1078** ✓, `lint web` 0 errores,
+`build web` ✓ (rutas `/api/ai/chat/stream` y `/api/ai/health` registradas). Sin migraciones;
+ningún endpoint ni comportamiento existente cambia.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
