@@ -11,11 +11,21 @@ const specs = [
   'src/components/office/sheets/industrialFormulaCatalog.spec.ts',
   'src/lib/office/axosConnectors.spec.ts',
   'src/lib/office/workbookPerformance.spec.ts',
+  'src/lib/office/workbookHealth.spec.ts',
+  'src/lib/office/sheetComments.spec.ts',
+  'src/lib/office/formulaAudit.spec.ts',
+  'src/lib/office/formulaDependencies.spec.ts',
+  'src/lib/office/pivotGovernance.spec.ts',
   'src/components/office/sheets/templateCharts.spec.ts',
   'src/components/office/sheets/templatePivots.spec.ts',
+  'src/components/office/sheets/pivot.spec.ts',
+  'src/components/office/sheets/scenarios.spec.ts',
+  'src/components/office/sheets/goalSeek.spec.ts',
+  'src/components/office/sheets/solver.spec.ts',
   'src/components/office/sheets/validation.spec.ts',
   'src/lib/office/xlsxLinksComments.spec.ts',
   'src/lib/office/xlsxValidation.spec.ts',
+  'src/lib/office/xlsxProtection.spec.ts',
 ];
 
 const env = {

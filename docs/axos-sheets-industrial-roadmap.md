@@ -155,3 +155,47 @@ The formula wizard now exposes an **AXOS Industrial** category backed by a dedic
 ## Fase 9 — Automated industrial QA runner
 
 The web app now includes `npm run test:office:sheets`, a focused AXOS Sheets regression runner that executes the industrial formula, formula catalog, connector registry/refresh, workbook performance, template chart/pivot, validation, and XLSX links/comments/validation specs in sequence. This gives each future PR a single command for the industrial spreadsheet quality gate before broader app build/lint checks.
+
+### Fase 7 expansion — protected connector ranges
+
+Connector data blocks now create/update protection metadata for their inserted ranges. The editor marks each connector range as locked with connector id/type/reason metadata, so the existing protection hook blocks accidental manual edits while refresh operations can still rebuild the governed data block programmatically.
+
+## Fase 6 expansion — threaded range comments
+
+Workbook comments now have a pure threaded model with replies, resolve/reopen lifecycle, deletion, selection filtering, and summaries. The Review ribbon exposes reply, resolve, reopen, and delete actions for comments anchored to the selected sheet range, while the saved workbook payload remains compatible with the existing `comments` metadata array.
+
+## Fase 2 expansion — Formula audit and governance
+
+The Formula ribbon now includes a formula audit action backed by a pure workbook scanner. The audit extracts formulas, referenced function names, volatile formulas, external workbook/web references, AXOS formula usage, and unknown `AXOS_*` functions. This gives industrial users and support teams a quick governance check before sharing, exporting, or connecting workbook data to ERP/MES workflows.
+
+## Fase 4 expansion — connector dashboard chart suggestions
+
+AXOS connector insert/refresh now creates stable chart suggestions tied to connector metadata. Each connector type maps to a chart suited to its domain (inventory bars, BOM cost breakdown, OEE combo, supplier radar, MRP shortages, etc.), and refresh keeps the chart range synchronized with the governed connector range.
+
+## Fase 9 expansion — Workbook health check
+
+The Review ribbon now includes a workbook health check that combines performance telemetry, formula audit findings, unresolved comments, stale connectors, external references, and unknown AXOS functions into a scored report. This gives users a pre-publish/pre-export readiness check for industrial workbooks before they are shared or connected to live ERP/MES data.
+
+## Fase 3/6 expansion — XLSX protection fidelity
+
+AXOS range protection now survives export as real Excel sheet protection semantics. When a workbook stores `axosProtection` with locked connector or governed ranges, the styled XLSX exporter protects the worksheet, leaves cells outside range-only locks editable, and marks protected ranges as locked. This keeps read-only connector blocks and controlled industrial input zones recognizable when users round-trip files through Excel, while preserving the existing in-editor `beforeUpdateCell` enforcement.
+
+## Fase 5 expansion — Pivot governance and safe refresh
+
+Persisted pivot definitions now have a pure governance layer that can dry-run stored pivots, classify missing source sheets, missing target sheets, empty results, warnings, and successful refreshes, and rebuild target sheets without mutating the source workbook object. The editor refresh action uses this shared layer so users get a clear summary of updated versus skipped pivots instead of silent failures when industrial analysis sheets are renamed or deleted.
+
+## Fase 2 expansion — Formula dependency graph
+
+AXOS Sheets now has a pure formula dependency graph that extracts formula nodes, local and cross-sheet precedents, formula-to-formula edges, missing sheet references, external references, and circular dependency cycles. Workbook Health consumes this graph to flag cycles and missing formula references before users publish or connect industrial workbooks to ERP/MES workflows.
+
+### Fase 2 expansion — Recalculation plan
+
+The dependency graph now also produces a deterministic recalculation plan for formulas that are not blocked by circular references. The plan orders dependencies before dependents, reports formulas blocked by cycles, carries missing references forward, and is consumed by Workbook Health to distinguish fully blocked workbooks from partially recalculable industrial models.
+
+## Fase 9 expansion — What-if and pivot regression gate
+
+The focused AXOS Sheets QA runner now includes the existing pure specs for the pivot engine, Scenario Manager, Goal Seek, and Solver in addition to the new industrial governance specs. This protects the Excel-like what-if analysis layer while the industrial formula, connector, validation, XLSX, and performance work continues in smaller PRs.
+
+## Fase 7 expansion — Connector freshness policies
+
+AXOS connector instances now have a pure freshness model derived from connector refresh policy. Scheduled-ready connectors become due after one hour and stale after 24 hours, while manual connectors become due after 24 hours and stale after seven days. Workbook Health consumes these reports to distinguish due refreshes, stale data, and invalid connector metadata before industrial workbooks are published or used for decisions.

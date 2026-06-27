@@ -39,7 +39,11 @@ import { setTableRegistry, type TableDef } from './sheets/tableRefs';
 import { OfficeRibbon, RibbonTab, RibbonGroup, RibbonSeparator, RibbonButton, RibbonMenuButton } from './ribbon';
 import { useToast } from '@/contexts/ToastContext';
 import { estimateWorkbookStats, shouldEmitWorkbook, workbookPerformanceLabel, type SignatureState } from '@/lib/office/workbookPerformance';
-import { AXOS_SHEET_CONNECTORS, buildAxosConnectorRefresh, buildAxosConnectorTable, createAxosConnectorInstance, type AxosConnectorInstance, type AxosConnectorType } from '@/lib/office/axosConnectors';
+import { AXOS_SHEET_CONNECTORS, buildAxosConnectorRefresh, buildAxosConnectorTable, connectorProtectionFor, createAxosConnectorInstance, suggestedChartsForConnector, type AxosConnectorInstance, type AxosConnectorType } from '@/lib/office/axosConnectors';
+import { addSheetCommentReply, commentsForSelection, createSheetCommentThread, deleteSheetComment, formatSheetCommentSummary, reopenSheetComment, resolveSheetComment, type SheetCommentThread } from '@/lib/office/sheetComments';
+import { auditWorkbookFormulas, formatFormulaAuditSummary } from '@/lib/office/formulaAudit';
+import { analyzeWorkbookHealth, formatWorkbookHealthReport } from '@/lib/office/workbookHealth';
+import { formatPivotRefreshReport, refreshStoredPivots } from '@/lib/office/pivotGovernance';
 
 // chart.js + react-chartjs-2 son pesados y solo se usan al insertar gráficas:
 // carga diferida para que abrir una hoja sin gráficas no los traiga al bundle.
@@ -67,8 +71,7 @@ function pivotsOf(v: any): StoredPivot[] {
 function scenariosOf(v: any): Scenario[] {
   return v && Array.isArray(v.scenarios) ? v.scenarios : [];
 }
-type SheetComment = { id: string; sheetIndex: number; range: string; text: string; author?: string; createdAt: string; resolved?: boolean };
-function commentsOf(v: any): SheetComment[] {
+function commentsOf(v: any): SheetCommentThread[] {
   return v && Array.isArray(v.comments) ? v.comments : [];
 }
 function connectorsOf(v: any): AxosConnectorInstance[] {
@@ -113,7 +116,7 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
   const scenariosRef = useRef<Scenario[]>(scenariosOf(value));
   const [scenarios, setScenarios] = useState<Scenario[]>(scenariosRef.current);
   const tablesRef = useRef<StoredTable[]>(tablesOf(value));
-  const commentsRef = useRef<SheetComment[]>(commentsOf(value));
+  const commentsRef = useRef<SheetCommentThread[]>(commentsOf(value));
   const connectorsRef = useRef<AxosConnectorInstance[]>(connectorsOf(value));
   const [showScenarios, setShowScenarios] = useState(false);
   const [showNames, setShowNames] = useState(false);
@@ -359,6 +362,17 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
     return { r: rng?.r1 ?? 0, c: rng?.c1 ?? 0 };
   }
 
+
+  function upsertConnectorProtection(sheet: any, instance: AxosConnectorInstance) {
+    const protection = sheet.axosProtection ?? {};
+    const ranges = Array.isArray(protection.ranges) ? protection.ranges : [];
+    const next = connectorProtectionFor(instance);
+    sheet.axosProtection = {
+      ...protection,
+      ranges: [...ranges.filter((r: any) => r.connectorId !== instance.id && !(r.connectorType === instance.type && r.range === instance.range)), next],
+    };
+  }
+
   function insertAxosConnector(type: AxosConnectorType) {
     if (readOnly) return;
     const sheets = clone(sheetsRef.current);
@@ -373,6 +387,12 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
     sheet.row = Math.max(sheet.row ?? 100, origin.r + built.nRows + 3);
     sheet.column = Math.max(sheet.column ?? 30, origin.c + built.nCols + 2);
     const instance = createAxosConnectorInstance(type, sheetIndex, built.range);
+    upsertConnectorProtection(sheet, instance);
+    const chartSuggestions = suggestedChartsForConnector(instance);
+    if (chartSuggestions.length) {
+      chartsRef.current = [...chartsRef.current.filter((chart) => !chartSuggestions.some((next) => next.id === chart.id)), ...chartSuggestions];
+      setCharts(chartsRef.current);
+    }
     connectorsRef.current = [...connectorsRef.current.filter((c) => !(c.sheetIndex === sheetIndex && c.type === type && c.range === built.range)), instance];
     remount(sheets);
     window.setTimeout(() => toast.success(`${instance.label} insertado en ${built.range}.`), 30);
@@ -394,10 +414,14 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
       sheet.celldata = [...occupied.values()];
       sheet.row = Math.max(sheet.row ?? 100, built.table.celldata.reduce((m, cd) => Math.max(m, cd.r + 4), 0));
       sheet.column = Math.max(sheet.column ?? 30, built.table.celldata.reduce((m, cd) => Math.max(m, cd.c + 3), 0));
+      upsertConnectorProtection(sheet, built.instance);
+      const chartSuggestions = suggestedChartsForConnector(built.instance);
+      if (chartSuggestions.length) chartsRef.current = [...chartsRef.current.filter((chart) => !chartSuggestions.some((next) => next.id === chart.id)), ...chartSuggestions];
       refreshed.push(built.instance);
       count++;
     }
     connectorsRef.current = refreshed;
+    setCharts(chartsRef.current);
     remount(sheets);
     window.setTimeout(() => toast.success(`${count} conectores AXOS actualizados.`), 30);
   }
@@ -412,10 +436,13 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
   }
 
 
+  function selectedCommentThreads(includeResolved = false) {
+    return commentsForSelection(commentsRef.current, activeIndex(), selectionRange(), includeResolved);
+  }
   function addSheetComment() {
     const text = window.prompt('Comentario para la celda/rango seleccionado:');
     if (!text?.trim()) return;
-    const comment: SheetComment = { id: `sc_${Date.now().toString(36)}`, sheetIndex: activeIndex(), range: selectionRange(), text: text.trim(), author: 'AXOS', createdAt: new Date().toISOString() };
+    const comment = createSheetCommentThread({ sheetIndex: activeIndex(), range: selectionRange(), text, author: 'AXOS' });
     commentsRef.current = [...commentsRef.current, comment];
     emit();
     toast.success(`Comentario agregado en ${comment.range}.`);
@@ -423,19 +450,38 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
   function showSheetComments() {
     const mine = commentsRef.current.filter((c) => c.sheetIndex === activeIndex() && !c.resolved);
     if (!mine.length) { toast.info('No hay comentarios abiertos en esta hoja.'); return; }
-    window.alert(mine.map((c, i) => `${i + 1}. ${c.range} — ${c.text}`).join('\n'));
+    window.alert(mine.map((c, i) => `${i + 1}. ${formatSheetCommentSummary(c)}`).join('\n'));
+  }
+  function replySelectionComment() {
+    const [first] = selectedCommentThreads();
+    if (!first) { toast.info(`No hay comentarios abiertos exactamente en ${selectionRange()}.`); return; }
+    const text = window.prompt('Respuesta al comentario seleccionado:');
+    if (!text?.trim()) return;
+    commentsRef.current = addSheetCommentReply(commentsRef.current, first.id, text, 'AXOS');
+    emit();
+    toast.success(`Respuesta agregada en ${first.range}.`);
   }
   function resolveSelectionComments() {
-    const idx = activeIndex();
-    const range = selectionRange();
-    let changed = false;
-    commentsRef.current = commentsRef.current.map((c) => {
-      if (c.sheetIndex === idx && c.range === range && !c.resolved) { changed = true; return { ...c, resolved: true }; }
-      return c;
-    });
-    if (!changed) { toast.info(`No hay comentarios abiertos exactamente en ${range}.`); return; }
+    const threads = selectedCommentThreads();
+    if (!threads.length) { toast.info(`No hay comentarios abiertos exactamente en ${selectionRange()}.`); return; }
+    for (const thread of threads) commentsRef.current = resolveSheetComment(commentsRef.current, thread.id);
     emit();
-    toast.success(`Comentarios resueltos en ${range}.`);
+    toast.success(`Comentarios resueltos en ${selectionRange()}.`);
+  }
+  function reopenSelectionComments() {
+    const threads = selectedCommentThreads(true).filter((c) => c.resolved);
+    if (!threads.length) { toast.info(`No hay comentarios resueltos exactamente en ${selectionRange()}.`); return; }
+    for (const thread of threads) commentsRef.current = reopenSheetComment(commentsRef.current, thread.id);
+    emit();
+    toast.success(`Comentarios reabiertos en ${selectionRange()}.`);
+  }
+  function deleteSelectionComments() {
+    const threads = selectedCommentThreads(true);
+    if (!threads.length) { toast.info(`No hay comentarios exactamente en ${selectionRange()}.`); return; }
+    if (!window.confirm(`Eliminar ${threads.length} comentario(s) de ${selectionRange()}?`)) return;
+    for (const thread of threads) commentsRef.current = deleteSheetComment(commentsRef.current, thread.id);
+    emit();
+    toast.success(`Comentarios eliminados en ${selectionRange()}.`);
   }
   function protectSheet(lock: boolean) {
     const sheets = clone(sheetsRef.current);
@@ -666,21 +712,13 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
   function refreshPivots() {
     const stored = pivotsRef.current;
     if (!stored.length) { toast.info('No hay tablas dinámicas guardadas para actualizar.'); return; }
-    const sheets = clone(sheetsRef.current);
-    let updated = 0;
-    for (const sp of stored) {
-      const target = sheets.find((s: any) => s.name === sp.sheetName);
-      const src = sheets[sp.config.sheetIndex];
-      if (!target || !src) continue; // hoja destino u origen no localizada (renombrada/borrada)
-      const res = buildPivot(src, sp.config);
-      if (!res.matrix.length) continue;
-      target.celldata = pivotToCelldata(res, 0, 0);
-      target.row = Math.max(100, res.nRows + 8);
-      target.column = Math.max(26, res.nCols + 4);
-      updated++;
-    }
-    remount(sheets);
-    window.setTimeout(() => toast.success(`${updated} tabla(s) dinámica(s) actualizada(s).`), 30);
+    const { sheets, report } = refreshStoredPivots(sheetsRef.current, stored);
+    if (report.updated > 0) remount(sheets);
+    const message = formatPivotRefreshReport(report);
+    window.setTimeout(() => {
+      if (report.skipped > 0) toast.info(message);
+      else toast.success(message);
+    }, 30);
   }
 
   // Derrama (spill) la fórmula matricial de la celda seleccionada a las celdas vecinas
@@ -872,6 +910,19 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
       }
     } catch { /* sin selección */ }
     return 'A1:A10';
+  }
+
+
+
+  function showWorkbookHealth() {
+    const report = analyzeWorkbookHealth(workbookPayload());
+    window.alert(formatWorkbookHealthReport(report));
+  }
+
+  function auditFormulas() {
+    const result = auditWorkbookFormulas(workbookPayload());
+    if (!result.total) { toast.info('No hay fórmulas para auditar en este libro.'); return; }
+    window.alert(formatFormulaAuditSummary(result));
   }
 
   function applyNumberFmt(p: NumberFmtPayload) {
@@ -1090,6 +1141,7 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
             <RibbonSeparator />
             <RibbonGroup label="Biblioteca de funciones">
               <RibbonButton icon={Sigma} label="Insertar función" hideLabel={false} onClick={() => setShowWizard(true)} />
+              <RibbonButton icon={Search} label="Auditar fórmulas" hideLabel={false} onClick={auditFormulas} />
             </RibbonGroup>
             <RibbonSeparator />
             <RibbonGroup label="Nombres definidos">
@@ -1101,6 +1153,7 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
           <RibbonTab id="review" label="Revisar">
             <RibbonGroup label="Edición">
               <RibbonButton icon={Search} label="Buscar y reemplazar" shortcut="Ctrl+F" onClick={() => setShowFind(true)} />
+              <RibbonButton icon={Activity} label="Salud del workbook" hideLabel={false} onClick={showWorkbookHealth} />
             </RibbonGroup>
             <RibbonSeparator />
             <RibbonGroup label="Comentarios">
@@ -1108,7 +1161,10 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
               <RibbonButton icon={MessageSquare} label="Comentar rango" onClick={addSheetComment} />
               <RibbonMenuButton icon={MessageSquare} label="Comentarios" menuWidth={260} items={[
                 { label: 'Ver comentarios abiertos', onClick: showSheetComments },
+                { label: 'Responder comentario de la selección', onClick: replySelectionComment },
                 { label: 'Resolver comentarios de la selección', onClick: resolveSelectionComments },
+                { label: 'Reabrir comentarios de la selección', onClick: reopenSelectionComments },
+                { label: 'Eliminar comentarios de la selección', onClick: deleteSelectionComments },
               ]} />
             </RibbonGroup>
             <RibbonSeparator />
