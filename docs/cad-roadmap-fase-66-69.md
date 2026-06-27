@@ -83,6 +83,23 @@ aplica `state.emitted`; usa `previewGeometry` para el rubber-band; `commit` con 
   (function calling), visión para vectorizar planos/fotos, voz en piso (Realtime). Contra el
   **endpoint OpenAI-compatible** que el repo ya usa (CIDE/Ollama) → sigue siendo self-hosted-first.
 
+## Estado de contratos entregados por Claude (consumibles desde `main`)
+
+| Módulo | Fase | Qué da a Codex | Tests |
+|---|---|---|---|
+| `precision-input.ts` | 66 | parseo `@dx,dy`/`d<a`/directa + ortho/polar | 20/20 |
+| `snap-engine.ts` | 66 | OSNAP completo + `rectGeometry` | 14/14 |
+| backend `layers` | 66 | columna aditiva + `layer?` en assets/annotations | 44/44 svc |
+| `cad-command.ts` | 66/67 | comandos multi-paso → `DrawAction[]` | 18/18 |
+| `geom-edit.ts` | 67 | offset/extend/trim/chamfer/fillet | 15/15 |
+| backend `line-dxf` | 68 | CIRCLE/ARC + capas CAD en DXF | 10/10 |
+| `cad-intent.ts` | 69 | tools OpenAI-compatible + normalizador NL→CAD | 16/16 |
+
+**Pendiente de Claude (backend):** endpoint mediador `POST /line-engineering/cad-intent`
+que reciba el texto del usuario, llame al modelo (`CIDE_BASE_URL`, OpenAI-compatible) con
+`CAD_TOOLS`, valide la respuesta con `normalizeToolCalls` y devuelva `CadIntent[]` con RBAC.
+**Codex** hace la UI del chat-comando y aplica los intents.
+
 ## Guardrails (válidos para ambos)
 
 - Solo Tailwind; shadcn/ui; Three.js para 3D. Sin CSS suelto.
