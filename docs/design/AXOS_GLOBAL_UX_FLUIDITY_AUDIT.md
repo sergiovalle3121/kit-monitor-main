@@ -292,3 +292,44 @@ Cada PR debe ser **pequeño, seguro y verde**.
 > El premium visual masivo (heroes de command center, shell passes por área) se
 > **documenta como work packets** en vez de aplicarse a ciegas sobre ~110 rutas:
 > mantiene este PR pequeño, verde y revisable, y deja la dirección clara.
+
+## 9. Mobile / Responsive findings
+
+QA visual real con Chromium (Playwright) a 390 px (móvil) y 1280 px (desktop)
+sobre las rutas públicas, que renderizan sin backend. El `/dashboard` **no es
+cargable en este entorno** (la sesión demo `/api/auth/demo` requiere el backend
+→ 500 → redirección a `/login`), así que sus hallazgos son por inspección de
+layout, no por captura.
+
+### Verificado en navegador (móvil 390 px)
+- **`/` landing:** hero limpio (título, subcopy, píldoras de breadth, CTAs caben
+  sin recorte); `overflowX = 0`. El **Product Galaxy** se ve premium en una
+  columna con firmas de dominio. `Reveal` (fade-up en scroll) respeta
+  `prefers-reduced-motion` (render estático) — no deja contenido invisible.
+- **`/login`:** layout apilado correcto en móvil.
+
+### Corregido en este PR (PR A)
+- **`/login` — título del hero recortado en móvil.** `Empowering / Industrial /
+  Intelligence.` con `text-5xl` (48 px) se cortaba contra el borde del panel
+  oscuro a 390 px. Fix: `text-4xl sm:text-5xl` (cabe: el `<h1>` mide 276 px = el
+  ancho del panel, `overflow = 0`).
+- **Búsqueda global inaccesible en móvil.** El buscador del topbar es
+  `hidden sm:flex` y en celular no hay `⌘K`, así que no había forma de abrir la
+  paleta de comandos. Fix: botón de lupa `sm:hidden` en el topbar que dispara el
+  mismo evento `axos:open-search`.
+
+### Pendiente de verificación en app (inspección de layout)
+- **Solape de flotantes vs dock en pantallas angostas.** Los lanzadores
+  flotantes (`Cide` `bottom-8 right-8 z-101`, `ChatWidget` `bottom-28 right-8
+  z-111`) y el `DashboardDock` centrado (`bottom-5`) se cruzan en la esquina
+  inferior derecha en anchos chicos. Requiere QA con sesión real antes de
+  reposicionar (no se corrige a ciegas para no empeorar el layout). → candidato
+  WP-10.
+- **Tablas densas → cards en móvil**, `PageHeader`/acciones en móvil, y action
+  bars que el dock podría tapar: pendientes del barrido responsive con la app
+  corriendo (WP-10).
+
+> Nota de método: las correcciones de rutas públicas se verificaron por captura;
+> las del shell del dashboard quedan documentadas para QA con backend, en vez de
+> aplicarse sin poder observarlas en un entorno que despliega a producción en
+> cada merge.

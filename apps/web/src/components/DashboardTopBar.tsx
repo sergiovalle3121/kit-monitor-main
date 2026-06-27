@@ -350,6 +350,16 @@ export function DashboardTopBar() {
       </button>
 
       <div className="flex items-center gap-3 relative">
+        {/* Acceso a la búsqueda global en móvil (el buscador ancho es sm:flex;
+            en celular no hay ⌘K, así que damos un botón de lupa). */}
+        <button
+          onClick={() => window.dispatchEvent(new CustomEvent("axos:open-search"))}
+          aria-label="Buscar"
+          aria-keyshortcuts="Control+K Meta+K"
+          className="sm:hidden rounded-full p-2 text-muted-foreground transition-colors hover:bg-foreground/[0.06] hover:text-foreground dark:hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+        >
+          <Search className="w-5 h-5" strokeWidth={1.75} />
+        </button>
         <ThemeToggle />
         <div className="relative">
           <button
