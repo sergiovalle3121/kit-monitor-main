@@ -245,6 +245,55 @@ describe('AiService.renameConversation', () => {
   });
 });
 
+describe('AiService.setConfig (auto-escalation)', () => {
+  function setup(stored: Record<string, unknown>) {
+    const cfg = {
+      tenantId: '__default__',
+      enabled: true,
+      defaultModel: 'qwen2.5:7b',
+      escalationModel: 'qwen2.5:32b',
+      monthlyTokenBudget: 1_000_000,
+      tokensUsedThisPeriod: 0,
+      rateLimitPerHour: 60,
+      periodStart: null,
+      autoEscalate: null,
+      ...stored,
+    };
+    const configRepo = {
+      findOne: jest.fn().mockResolvedValue(cfg),
+      save: jest.fn().mockImplementation((c) => Promise.resolve(c)),
+    };
+    const service = new AiService(
+      configRepo as never,
+      null as never,
+      null as never,
+      null as never,
+      { execute: jest.fn() } as never,
+      null as never,
+    );
+    return { service, configRepo, cfg };
+  }
+  const admin: ReqUser = { userId: 'a', email: 'admin@b.com', role: 'Admin' };
+
+  it('persists the tenant auto-escalation override and reports its source', async () => {
+    const { service, configRepo } = setup({ autoEscalate: null });
+    const out = await service.setConfig(admin, { autoEscalate: true });
+    expect(configRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({ autoEscalate: true }),
+    );
+    expect(out.autoEscalate).toBe(true);
+    expect(out.autoEscalateSource).toBe('tenant');
+  });
+
+  it('reports the process default when no tenant override is set', async () => {
+    const { service } = setup({ autoEscalate: null });
+    const out = await service.getConfigPublic(admin);
+    // env CIDE_AUTO_ESCALATE is unset in tests → default false, source "default".
+    expect(out.autoEscalate).toBe(false);
+    expect(out.autoEscalateSource).toBe('default');
+  });
+});
+
 describe('AiService.persistTurn', () => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   function setup(prepared: any) {

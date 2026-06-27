@@ -2740,4 +2740,23 @@ priorizadas), siempre fundamentado en datos reales. Sin backend nuevo: reusa `PO
 **Verificación:** `lint web` 0 errores, `build web` ✓. Sin backend ni migraciones; nada
 existente cambia.
 
+## 125. CIDE — toggle de auto-escalación por tenant en el panel admin
+
+**Contexto.** La auto-escalación de modelo (§118) era solo por env (`CIDE_AUTO_ESCALATE`),
+global a todo el proceso. Un admin no podía activarla/desactivarla por organización ni verla
+en la UI.
+
+**Decisión (aditiva).** Hacerla configurable por tenant, conservando el default de proceso.
+- **Esquema:** `ai_tenant_config.auto_escalate` (boolean, nullable). `null` = heredar el env;
+  true/false = override del tenant. Migración idempotente `AddAiAutoEscalate20260627150000`.
+- **Backend:** `ConfigDto.autoEscalate`; `setConfig` lo persiste; `publicConfig` expone el valor
+  **efectivo** (`cfg.autoEscalate ?? AUTO_ESCALATE`) y `autoEscalateSource` ('tenant'|'default');
+  `prepare()` pasa `cfg.autoEscalate ?? undefined` a `chooseModel` (override gana; null hereda).
+- **UI admin:** toggle "Escalado automático de modelo" en `/dashboard/admin/ai`, con nota de
+  herencia cuando viene del entorno.
+
+**Verificación:** `build API` ✓, **API tests 1108/1108** (+2: setConfig persiste el override y
+reporta source; default cuando no hay override), `lint web` 0 errores, `build web` ✓. Migración
+100% aditiva (columna nullable); nada existente cambia.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
