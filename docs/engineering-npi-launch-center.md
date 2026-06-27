@@ -111,25 +111,39 @@ quedan enlazados al verse. El frontend usa `project.productModelId` para enlazar
 directo a `/dashboard/models/[id]` — sin búsqueda difusa. Cuando no existe modelo
 maestro para el número, queda `null` y la matriz lo reporta honestamente.
 
+## 4.2 Risk register (implementado)
+
+`npi_risk` es una tabla additiva (`npi_`, sin FK) que registra riesgos del launch
+con `title`, `description`, `severity` (LOW/MEDIUM/HIGH), `status`
+(OPEN/MITIGATING/CLOSED), `owner`, `dueDate` y `mitigation`. Endpoints:
+`GET /npi/projects/:id/risks`, `POST /npi/projects/:id/risks`,
+`PATCH /npi/risks/:riskId`, `DELETE /npi/risks/:riskId` (lecturas
+`engineering:read`, escrituras `engineering:write`; cada cambio queda en el
+ledger).
+
+En el dossier, el panel **Riesgos** los lista (abiertos primero, por severidad)
+y permite agregar, mitigar, cerrar/reabrir y eliminar. Los riesgos abiertos se
+pliegan en *"Qué falta para liberar"* (HIGH → bloqueo, resto → verificar) y un
+riesgo HIGH abierto impide el estado *"Listo para liberar"* del banner. Siguen
+siendo *advisory*: no tocan `gateReady` ni las decisiones de gate.
+
 ## 5. Limitaciones actuales
 
 - `GET /npi/projects` no trae `readiness` ni `gates`; las tarjetas de la lista
   muestran fase/estatus, y el go/no-go completo vive en el dossier.
 - Las señales de dependencia (tooling, visual aids, plan) son conteos *advisory*:
   enriquecen la matriz pero no se pliegan en `gateReady`.
-- "Liberar a MP" es advisory: el banner indica readiness, pero no hay un endpoint
-  transaccional de release con checklist + auditoría todavía.
+- "Liberar a MP" es advisory: el banner indica readiness/riesgos, pero no hay un
+  endpoint transaccional de release con checklist + auditoría todavía.
 
 ## 6. Contratos backend sugeridos (siguientes PRs)
 
 1. **`GET /npi/projects?withReadiness=true`.** Adjuntar un resumen ligero
-   (`gateReady`, `readyCount`, `notReadyCount`) por proyecto para enriquecer las
-   launch cards sin N+1 requests.
-2. **Risk register NPI.** `npi_risk` con `owner`, `severity`, `dueDate`, `status`
-   para el panel de riesgos abiertos.
-3. **Evidence package.** Vincular documentos Office/CAD/FAI/visual aids y
+   (`gateReady`, `readyCount`, `notReadyCount`, riesgos abiertos) por proyecto
+   para enriquecer las launch cards sin N+1 requests.
+2. **Evidence package.** Vincular documentos Office/CAD/FAI/visual aids y
    aprobaciones a un gate como evidencia versionada.
-4. **Release to MP.** Endpoint transaccional `POST /npi/projects/:id/release`
+3. **Release to MP.** Endpoint transaccional `POST /npi/projects/:id/release`
    con checklist duro + auditoría (sin romper el carácter advisory por defecto).
 
 ## 7. Diseño

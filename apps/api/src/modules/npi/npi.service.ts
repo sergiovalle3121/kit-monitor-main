@@ -11,6 +11,7 @@ import { In, ObjectLiteral, Repository, SelectQueryBuilder } from 'typeorm';
 import { NpiProject } from './entities/npi-project.entity';
 import { NpiGate } from './entities/npi-gate.entity';
 import { NpiReadinessSnapshot } from './entities/npi-readiness-snapshot.entity';
+import { NpiRisk } from './entities/npi-risk.entity';
 import { ProductModel } from '../product-models/entities/product-model.entity';
 import { VisualAid } from '../visual-aids/entities/visual-aid.entity';
 import { SfWorkOrder } from '../production-plan/entities/sf-work-order.entity';
@@ -28,7 +29,13 @@ import { EventLedgerService } from '../event-ledger/event-ledger.service';
 import { EventDomain } from '../event-ledger/entities/ledger-event.entity';
 import { NotificationsService } from '../notifications/notifications.service';
 import { UsersService } from '../users/users.service';
-import { CreateNpiProjectDto, DecideGateDto } from './dto/npi.dto';
+import {
+  CreateNpiProjectDto,
+  CreateNpiRiskDto,
+  DecideGateDto,
+  UpdateNpiRiskDto,
+} from './dto/npi.dto';
+import { RISK_SEVERITY_RANK } from './npi-risk-state';
 import {
   assertGateTransition,
   comparePhases,
@@ -89,6 +96,8 @@ export class NpiService {
     private readonly gates: TenantScopedRepository<NpiGate>,
     @Inject(getTenantRepositoryToken(NpiReadinessSnapshot))
     private readonly snapshots: TenantScopedRepository<NpiReadinessSnapshot>,
+    @Inject(getTenantRepositoryToken(NpiRisk))
+    private readonly risks: TenantScopedRepository<NpiRisk>,
     @InjectRepository(ProductModel)
     private readonly productModels: Repository<ProductModel>,
     @InjectRepository(VisualAid)
@@ -697,6 +706,78 @@ export class NpiService {
         `No se pudo crear aviso de gate MP: ${(err as Error)?.message}`,
       );
     }
+  }
+
+  // ── Risks (advisory register) ───────────────────────────────────────────────
+  /** Risks for a launch, sorted open-first, then severity desc, then due date. */
+  async listRisks(projectId: string): Promise<NpiRisk[]> {
+    const rows = await this.risks.find({ where: { projectId } });
+    return rows.sort((a, b) => {
+      const ao = a.status === 'CLOSED' ? 1 : 0;
+      const bo = b.status === 'CLOSED' ? 1 : 0;
+      if (ao !== bo) return ao - bo;
+      const sev =
+        (RISK_SEVERITY_RANK[b.severity] ?? 0) -
+        (RISK_SEVERITY_RANK[a.severity] ?? 0);
+      if (sev !== 0) return sev;
+      const ad = a.dueDate ? new Date(a.dueDate).getTime() : Infinity;
+      const bd = b.dueDate ? new Date(b.dueDate).getTime() : Infinity;
+      return ad - bd;
+    });
+  }
+
+  async createRisk(
+    projectId: string,
+    dto: CreateNpiRiskDto,
+  ): Promise<NpiRisk> {
+    const project = await this.projects.findOne({ where: { id: projectId } });
+    if (!project) throw new NotFoundException('Proyecto NPI no encontrado.');
+    const risk = this.risks.create({
+      projectId,
+      title: dto.title.trim(),
+      description: dto.description?.trim() || null,
+      severity: dto.severity ?? 'MEDIUM',
+      status: 'OPEN',
+      owner: dto.owner?.trim() || null,
+      dueDate: dto.dueDate ? new Date(dto.dueDate) : null,
+      mitigation: dto.mitigation?.trim() || null,
+      ...this.scopeFields(),
+    });
+    const saved = await this.risks.save(risk);
+    await this.record('NPI_RISK_CREATED', saved.id, {
+      projectId,
+      severity: saved.severity,
+    });
+    return saved;
+  }
+
+  async updateRisk(id: string, dto: UpdateNpiRiskDto): Promise<NpiRisk> {
+    const risk = await this.risks.findOne({ where: { id } });
+    if (!risk) throw new NotFoundException('Riesgo NPI no encontrado.');
+    if (dto.title !== undefined) risk.title = dto.title.trim();
+    if (dto.description !== undefined)
+      risk.description = dto.description.trim() || null;
+    if (dto.severity !== undefined) risk.severity = dto.severity;
+    if (dto.status !== undefined) risk.status = dto.status;
+    if (dto.owner !== undefined) risk.owner = dto.owner.trim() || null;
+    if (dto.dueDate !== undefined)
+      risk.dueDate = dto.dueDate ? new Date(dto.dueDate) : null;
+    if (dto.mitigation !== undefined)
+      risk.mitigation = dto.mitigation.trim() || null;
+    const saved = await this.risks.save(risk);
+    await this.record('NPI_RISK_UPDATED', saved.id, {
+      projectId: saved.projectId,
+      status: saved.status,
+    });
+    return saved;
+  }
+
+  async deleteRisk(id: string): Promise<{ deleted: boolean }> {
+    const risk = await this.risks.findOne({ where: { id } });
+    if (!risk) throw new NotFoundException('Riesgo NPI no encontrado.');
+    await this.risks.remove(risk);
+    await this.record('NPI_RISK_DELETED', id, { projectId: risk.projectId });
+    return { deleted: true };
   }
 
   private async record(
