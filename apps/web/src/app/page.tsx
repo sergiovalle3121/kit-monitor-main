@@ -7,23 +7,56 @@ import { useState } from "react";
 import { AmbientBackground } from "@/components/AmbientBackground";
 import { EntranceSweep } from "@/components/EntranceSweep";
 import { Reveal } from "@/components/Reveal";
+import { IconTile } from "@/components/ui/IconTile";
+import type { DomainKey } from "@/lib/design/domains";
 import { hoverLift, press } from "@/lib/motion";
 import {
   Activity,
   Box,
   ChevronRight,
   Cpu,
+  Gauge,
   Layers,
   LayoutDashboard,
   ShieldCheck,
+  Sparkles,
   Zap,
   X,
   CheckCircle2,
   AlertCircle,
   PlayCircle,
+  type LucideIcon,
 } from "lucide-react";
 
 const MotionLink = motion.create(Link);
+
+/**
+ * Galaxia de producto: los programas reales de AXOS presentados como las
+ * "apps" de un sistema operativo industrial. Cada loseta usa la firma de
+ * dominio (IconTile) y enlaza a su ruta real — sin inventar UI ni datos.
+ */
+interface Program {
+  domain: DomainKey;
+  icon?: LucideIcon;
+  name: string;
+  tag: string;
+  value: string;
+  href: string;
+}
+
+const PROGRAMS: Program[] = [
+  { domain: "planning", icon: Gauge, name: "Control Tower", tag: "Mando", value: "Readiness, OEE, andons y holds en vivo.", href: "/dashboard/mission-control" },
+  { domain: "mes", name: "MES · Piso", tag: "Ejecución", value: "Poka-yoke, backflush y andon por estación.", href: "/dashboard/operador" },
+  { domain: "erp", name: "ERP · Supply Chain", tag: "ERP", value: "Compras, materiales y finanzas integradas.", href: "/dashboard/erp" },
+  { domain: "inventory", name: "Inventario", tag: "Materiales", value: "Kitting, e-kanban y conteos cíclicos.", href: "/dashboard/inventory" },
+  { domain: "quality", name: "Calidad · MRB", tag: "Calidad", value: "Holds, cuarentena y disposición MRB.", href: "/dashboard/quality" },
+  { domain: "office", name: "Office", tag: "Productividad", value: "Docs, Sheets y Slides nativos.", href: "/dashboard/office" },
+  { domain: "engineering", icon: Box, name: "CAD · Layout", tag: "Ingeniería", value: "Layout de línea unificado 2D ⇄ 3D.", href: "/dashboard/line-engineering" },
+  { domain: "plan", icon: Sparkles, name: "AI · CIDE", tag: "Inteligencia", value: "Tu analista de datos con IA propia.", href: "/dashboard/intelligence" },
+];
+
+/** Píldoras de breadth en el hero — comunica el alcance del OS de un vistazo. */
+const HERO_PILLS = ["ERP", "MES", "Office", "CAD", "AI", "Calidad", "Control Tower"];
 
 
 interface Feature {
@@ -147,6 +180,12 @@ export default function Home() {
         <div className="flex items-center gap-8">
           <div className="hidden md:flex gap-6 text-sm font-medium text-gray-600 dark:text-gray-400">
             <button
+              onClick={() => scrollTo("galaxy")}
+              className="hover:text-black dark:hover:text-white transition-colors cursor-pointer"
+            >
+              Programs
+            </button>
+            <button
               onClick={() => scrollTo("platform")}
               className="hover:text-black dark:hover:text-white transition-colors cursor-pointer"
             >
@@ -195,7 +234,7 @@ export default function Home() {
             className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 text-xs font-medium text-gray-600 dark:text-gray-400 mb-8"
           >
             <ShieldCheck className="w-3 h-3 text-green-500" />
-            <span>Multi-tenant Enterprise Architecture</span>
+            <span>Industrial OS · ERP · MES · Office · CAD · AI</span>
           </motion.div>
 
           <motion.h1
@@ -208,12 +247,27 @@ export default function Home() {
 
           <motion.p
             variants={itemVariants}
-            className="text-xl text-gray-500 dark:text-gray-400 max-w-2xl mx-auto mb-12 font-light"
+            className="text-xl text-gray-500 dark:text-gray-400 max-w-2xl mx-auto mb-8 font-light"
           >
-            AXOS OS unifica los departamentos de una manufacturera en una sola
-            aplicación: piso (MES con poka-yoke y backflush), ERP, calidad, inventario
-            y herramientas internas como Office y chat.
+            AXOS OS es el sistema operativo industrial para manufactura
+            electrónica moderna: ERP, MES, calidad, inventario, Office, CAD e IA
+            en una sola plataforma multi-tenant.
           </motion.p>
+
+          {/* Píldoras de breadth: el alcance del OS de un vistazo */}
+          <motion.div
+            variants={itemVariants}
+            className="flex flex-wrap justify-center gap-2 mb-12"
+          >
+            {HERO_PILLS.map((p) => (
+              <span
+                key={p}
+                className="px-3 py-1 rounded-full text-xs font-medium text-gray-600 dark:text-gray-300 bg-gray-100/80 dark:bg-white/5 border border-gray-200/70 dark:border-white/10"
+              >
+                {p}
+              </span>
+            ))}
+          </motion.div>
 
           <motion.div
             variants={itemVariants}
@@ -251,6 +305,51 @@ export default function Home() {
             La demo crea una sesión de solo lectura por 30 minutos.
           </motion.p>
         </motion.div>
+      </section>
+
+      {/* Product Galaxy — los programas de AXOS como apps de un OS industrial */}
+      <section id="galaxy" className="py-20 px-6 scroll-mt-24">
+        <Reveal className="max-w-6xl mx-auto">
+          <div className="text-center mb-12">
+            <span className="text-xs font-bold uppercase tracking-[0.2em] text-gray-400">
+              El sistema operativo
+            </span>
+            <h2 className="text-4xl md:text-5xl font-bold tracking-tight mt-2">
+              Un OS, todos los programas.
+            </h2>
+            <p className="text-gray-500 mt-3 font-light max-w-xl mx-auto">
+              Cada departamento es un programa nativo del mismo sistema — no apps
+              sueltas pegadas con integraciones.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {PROGRAMS.map((p) => (
+              <MotionLink
+                key={p.name}
+                href={p.href}
+                whileHover={reduce ? undefined : { y: -4 }}
+                whileTap={reduce ? undefined : { scale: 0.98 }}
+                className="group flex flex-col gap-4 p-6 rounded-3xl border border-gray-100 dark:border-white/5 bg-gray-50/50 dark:bg-white/5 hover:bg-white dark:hover:bg-white/10 hover:shadow-lg hover:shadow-black/[0.04] transition-all"
+              >
+                <div className="flex items-center justify-between">
+                  <IconTile domain={p.domain} icon={p.icon} size={46} />
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                    {p.tag}
+                  </span>
+                </div>
+                <div>
+                  <h3 className="text-base font-semibold flex items-center gap-1">
+                    {p.name}
+                    <ChevronRight className="w-4 h-4 -translate-x-1 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all" />
+                  </h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 font-light leading-relaxed mt-1">
+                    {p.value}
+                  </p>
+                </div>
+              </MotionLink>
+            ))}
+          </div>
+        </Reveal>
       </section>
 
       {/* Platform / Features Grid */}
