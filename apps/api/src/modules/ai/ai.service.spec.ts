@@ -244,3 +244,88 @@ describe('AiService.renameConversation', () => {
     expect(res.title).toBe('Nueva conversación');
   });
 });
+
+describe('AiService.persistTurn', () => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  function setup(prepared: any) {
+    const msgRepo = {
+      create: jest.fn().mockImplementation((x) => x),
+      save: jest.fn().mockResolvedValue({}),
+    };
+    const usageRepo = {
+      create: jest.fn().mockImplementation((x) => x),
+      save: jest.fn().mockResolvedValue({}),
+    };
+    const convRepo = { update: jest.fn().mockResolvedValue({}) };
+    const configRepo = { save: jest.fn().mockResolvedValue({}) };
+    const service = new AiService(
+      configRepo as never,
+      usageRepo as never,
+      convRepo as never,
+      msgRepo as never,
+      { execute: jest.fn() } as never,
+      null as never,
+    );
+    const reqUser: ReqUser = { userId: 'u', email: 'a@b.com', role: 'User' };
+    const result = {
+      text: 'ok',
+      usage: {
+        inputTokens: 4,
+        outputTokens: 2,
+        cacheReadTokens: 0,
+        cacheWriteTokens: 0,
+      },
+      toolsUsed: [],
+      cards: [],
+    };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const persist = (service as any).persistTurn.bind(service);
+    return { persist, reqUser, result, msgRepo };
+  }
+
+  it('stores the model and escalation flag on the assistant message', async () => {
+    const { persist, reqUser, result, msgRepo } = setup(null);
+    await persist(
+      reqUser,
+      {
+        tenantId: 't',
+        cfg: { tokensUsedThisPeriod: 0 },
+        conv: { id: 'c1' },
+        model: 'qwen2.5:32b',
+        escalated: true,
+        mock: false,
+      },
+      'hola',
+      result,
+    );
+    const assistantCreate = msgRepo.create.mock.calls
+      .map((c: unknown[]) => c[0] as Record<string, unknown>)
+      .find((c) => c.role === 'assistant');
+    expect(assistantCreate).toMatchObject({
+      model: 'qwen2.5:32b',
+      escalated: true,
+    });
+  });
+
+  it('does not attribute a model on demo (mock) turns', async () => {
+    const { persist, reqUser, result, msgRepo } = setup(null);
+    await persist(
+      reqUser,
+      {
+        tenantId: 't',
+        cfg: { tokensUsedThisPeriod: 0 },
+        conv: { id: 'c1' },
+        model: 'qwen2.5:7b',
+        escalated: false,
+        mock: true,
+      },
+      'hola',
+      result,
+    );
+    const assistantCreate = msgRepo.create.mock.calls
+      .map((c: unknown[]) => c[0] as Record<string, unknown>)
+      .find((c) => c.role === 'assistant');
+    expect(assistantCreate?.model).toBeNull();
+    expect(assistantCreate?.escalated).toBeNull();
+  });
+});

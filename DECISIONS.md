@@ -2660,4 +2660,21 @@ facilitar reaprovechar respuestas. Todo aditivo, sin migraciones (la columna `ti
 owner con recorte/límite, fallback de título vacío), `lint web` 0 errores, `build web` ✓.
 Sin migraciones; ningún endpoint ni comportamiento existente cambia.
 
+## 121. CIDE — persistir el modelo/escalación por mensaje (badge fiel al recargar)
+
+**Contexto.** El badge de modelo y la marca «escalado» (§119/§120) se mostraban solo en vivo:
+al reabrir una conversación se perdían, porque `ai_message` no los guardaba. Brecha de fidelidad.
+
+**Decisión.** Persistirlos por mensaje (primera **migración** del trabajo de CIDE; aditiva).
+- **Esquema:** `ai_message` gana `model` (varchar 64, nullable) y `escalated` (boolean, nullable).
+  Migración idempotente `AddAiMessageModel20260627140000` (glob las recoge sola; sin índice).
+- **Persistencia:** `persistTurn()` guarda `model`/`escalated` en el turno del asistente; en modo
+  demo (`mock`) se guarda `model=null` (no hubo motor real).
+- **Lectura/UI:** `getConversation` ya devuelve el mensaje completo; `Cide.tsx` mapea `model`/
+  `escalated` al recargar, así el badge reaparece idéntico.
+
+**Verificación:** `build API` ✓, **AI tests 27/27** (+2: persistTurn guarda modelo/escalación;
+demo no atribuye modelo), `lint web` 0 errores, `build web` ✓. Migración 100% aditiva (columnas
+nullable); ningún comportamiento existente cambia.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->

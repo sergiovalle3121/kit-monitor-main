@@ -72,6 +72,8 @@ interface StoredMessage {
   content: string;
   toolsUsed?: string[] | null;
   cards?: CideCard[] | null;
+  model?: string | null;
+  escalated?: boolean | null;
 }
 
 /** Union of fields carried by the SSE events from POST /api/ai/chat/stream. */
@@ -321,6 +323,8 @@ export function Cide() {
         content: m.content,
         tools: m.toolsUsed ?? undefined,
         cards: m.cards ?? undefined,
+        model: m.model ?? undefined,
+        escalated: m.escalated ?? undefined,
       }));
       setMessages(msgs);
       setConversationId(id);
