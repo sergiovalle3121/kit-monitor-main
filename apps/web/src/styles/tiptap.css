@@ -313,3 +313,16 @@
   body:not(.preview-printing) .doc-paginated { width: 100% !important; min-height: 0 !important; zoom: 1 !important; }
   body:not(.preview-printing) .doc-pg-flow { padding: 0 !important; min-height: 0 !important; }
 }
+
+/* Referencias inteligentes AXOS (BOM, WO, NCR, CAPA…) */
+.tiptap-page .ProseMirror .doc-axos-ref {
+  display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.05rem 0.45rem;
+  border-radius: 999px; background: rgba(37, 99, 235, 0.10); color: #1d4ed8;
+  border: 1px solid rgba(37, 99, 235, 0.18); font-size: 0.86em; font-weight: 700;
+  text-decoration: none; white-space: nowrap; vertical-align: baseline;
+}
+.tiptap-page .ProseMirror .doc-axos-ref::before { content: "AXOS"; font-size: 0.68em; letter-spacing: 0.06em; opacity: 0.75; }
+@media (prefers-color-scheme: dark) {
+  .tiptap-page .ProseMirror .doc-axos-ref { background: rgba(96, 165, 250, 0.14); color: #93c5fd; border-color: rgba(147, 197, 253, 0.22); }
+}
+@media print { .tiptap-page .ProseMirror .doc-axos-ref { color: #000; background: transparent; border-color: #bbb; } }
