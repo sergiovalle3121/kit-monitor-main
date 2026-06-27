@@ -66,6 +66,19 @@ interface StoredMessage {
   cards?: CideCard[] | null;
 }
 
+/** Union of fields carried by the SSE events from POST /api/ai/chat/stream. */
+interface StreamPayload {
+  conversationId?: string;
+  model?: string;
+  text?: string;
+  name?: string;
+  reply?: string;
+  toolsUsed?: string[];
+  cards?: CideCard[];
+  mock?: boolean;
+  message?: string;
+}
+
 function relativeTime(iso: string): string {
   const then = new Date(iso).getTime();
   if (!Number.isFinite(then)) return '';
@@ -110,38 +123,109 @@ export function Cide() {
 
   if (!pathname?.startsWith('/dashboard')) return null;
 
+  /** Update the trailing assistant message (the one being streamed). */
+  function patchAssistant(fn: (a: ChatMsg) => ChatMsg) {
+    setMessages((m) => {
+      const copy = [...m];
+      for (let i = copy.length - 1; i >= 0; i--) {
+        if (copy[i].role === 'assistant') {
+          copy[i] = fn(copy[i]);
+          break;
+        }
+      }
+      return copy;
+    });
+  }
+
+  /** Drop a trailing empty assistant placeholder (e.g. after an error). */
+  function dropEmptyPlaceholder() {
+    setMessages((m) => {
+      const last = m[m.length - 1];
+      return last?.role === 'assistant' && !last.content ? m.slice(0, -1) : m;
+    });
+  }
+
   async function send(text: string) {
     const msg = text.trim();
     if (!msg || loading) return;
     setError(null);
-    setMessages((m) => [...m, { role: 'user', content: msg }]);
+    // Add the user turn and an empty assistant bubble we fill as tokens arrive.
+    setMessages((m) => [
+      ...m,
+      { role: 'user', content: msg },
+      { role: 'assistant', content: '' },
+    ]);
     setInput('');
     setLoading(true);
+
+    let sawError = false;
+    const handleFrame = (frame: string) => {
+      let event = 'message';
+      let data = '';
+      for (const line of frame.split('\n')) {
+        if (line.startsWith('event:')) event = line.slice(6).trim();
+        else if (line.startsWith('data:')) data += line.slice(5).trim();
+      }
+      if (!data) return;
+      let p: StreamPayload;
+      try {
+        p = JSON.parse(data) as StreamPayload;
+      } catch {
+        return;
+      }
+      if (event === 'meta') {
+        if (p.conversationId) setConversationId(p.conversationId);
+        patchAssistant((a) => ({ ...a, model: p.model }));
+      } else if (event === 'delta') {
+        patchAssistant((a) => ({ ...a, content: a.content + (p.text ?? '') }));
+      } else if (event === 'tool' && p.name) {
+        patchAssistant((a) => ({ ...a, tools: [...(a.tools ?? []), p.name!] }));
+      } else if (event === 'done') {
+        patchAssistant((a) => ({
+          ...a,
+          content: p.reply ?? a.content,
+          tools: p.toolsUsed ?? a.tools,
+          cards: p.cards ?? a.cards,
+          model: p.model ?? a.model,
+          mock: p.mock,
+        }));
+        if (p.conversationId) setConversationId(p.conversationId);
+      } else if (event === 'error') {
+        sawError = true;
+        setError(p.message || 'CIDE no pudo responder.');
+      }
+    };
+
     try {
-      const res = await fetch('/api/ai/chat', {
+      const res = await fetch('/api/ai/chat/stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: msg, conversationId }),
       });
-      const data = await res.json();
-      if (!res.ok) {
+      if (!res.ok || !res.body) {
+        const data = (await res.json().catch(() => ({}))) as {
+          message?: string;
+        };
         setError(data?.message || 'No se pudo contactar a CIDE.');
+        dropEmptyPlaceholder();
         return;
       }
-      setConversationId(data.conversationId ?? null);
-      setMessages((m) => [
-        ...m,
-        {
-          role: 'assistant',
-          content: data.reply ?? '—',
-          tools: data.toolsUsed,
-          cards: data.cards,
-          model: data.model,
-          mock: data.mock,
-        },
-      ]);
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = '';
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        const frames = buf.split('\n\n');
+        buf = frames.pop() ?? '';
+        for (const f of frames) if (f.trim()) handleFrame(f);
+      }
+      if (buf.trim()) handleFrame(buf);
+      if (sawError) dropEmptyPlaceholder();
     } catch {
       setError('Error de red al contactar a CIDE.');
+      dropEmptyPlaceholder();
     } finally {
       setLoading(false);
     }
@@ -329,6 +413,14 @@ export function Cide() {
                     >
                       <p className="whitespace-pre-wrap leading-relaxed">
                         {m.content}
+                        {m.role === 'assistant' &&
+                          !m.content &&
+                          loading && (
+                            <span className="inline-flex items-center gap-2 text-black/50 dark:text-white/50">
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                              Analizando…
+                            </span>
+                          )}
                       </p>
                       {m.role === 'assistant' && m.cards && m.cards.length > 0 && (
                         <div className="mt-2.5 space-y-2">
@@ -361,14 +453,15 @@ export function Cide() {
                   </div>
                 ))}
 
-                {loading && (
-                  <div className="flex justify-start">
-                    <div className="flex items-center gap-2 rounded-2xl bg-black/5 px-4 py-3 text-sm dark:bg-white/10">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Analizando…
+                {loading &&
+                  messages[messages.length - 1]?.role !== 'assistant' && (
+                    <div className="flex justify-start">
+                      <div className="flex items-center gap-2 rounded-2xl bg-black/5 px-4 py-3 text-sm dark:bg-white/10">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Analizando…
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
 
                 {error && (
                   <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-xs text-amber-700 dark:text-amber-300">
