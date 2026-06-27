@@ -98,6 +98,37 @@ const at = (sheet: any, r: number, c: number) => sheet.celldata.find((x: any) =>
   eq(at(sheet, 2, 0).bg, '#fde2e1', '"x" marcado en rojo');
 }
 
+
+// ── required / custom_formula: reglas empresariales seguras ────────────────
+{
+  const req = buildDataVerification({ type: 'required', prohibitInput: true, hintText: 'Campo obligatorio' });
+  eq(req.type, 'required', 'required → type required');
+  eq(req.type2, null, 'required no usa type2');
+  ok(!dvSatisfies({ type: 'required' }, ''), 'required rechaza vacío');
+  ok(!dvSatisfies({ type: 'required' }, '   '), 'required rechaza espacios');
+  ok(dvSatisfies({ type: 'required' }, 'LOT-100'), 'required acepta texto');
+
+  const sheet: any = { celldata: [cell(0, 0, ''), cell(1, 0, 'OK')] };
+  const n = markInvalidCells(sheet, 'A1:A2', { type: 'required' });
+  eq(n, 1, 'required marca celdas vacías existentes');
+  eq(at(sheet, 0, 0).bg, '#fde2e1', 'vacío obligatorio marcado');
+  ok(at(sheet, 1, 0).bg == null, 'valor obligatorio válido sin marca');
+}
+
+{
+  const custom = buildDataVerification({ type: 'custom_formula', value1: '=AND(VALUE>=0,VALUE<=100)' });
+  eq(custom.type, 'custom_formula', 'custom formula → type custom_formula');
+  eq(custom.type2, null, 'custom formula no usa type2');
+  eq(custom.value1, '=AND(VALUE>=0,VALUE<=100)', 'custom formula conserva expresión');
+  ok(dvSatisfies({ type: 'custom_formula', value1: '=VALUE>0' }, 10), 'VALUE>0 acepta positivo');
+  ok(!dvSatisfies({ type: 'custom_formula', value1: '=VALUE>0' }, -1), 'VALUE>0 rechaza negativo');
+  ok(dvSatisfies({ type: 'custom_formula', value1: '=LEN(VALUE)<=5' }, 'AXOS'), 'LEN(VALUE)<=5 acepta AXOS');
+  ok(!dvSatisfies({ type: 'custom_formula', value1: '=LEN(VALUE)<=3' }, 'AXOS'), 'LEN(VALUE)<=3 rechaza AXOS');
+  ok(dvSatisfies({ type: 'custom_formula', value1: '=ISNUMBER(VALUE)' }, '42'), 'ISNUMBER acepta numérico');
+  ok(dvSatisfies({ type: 'custom_formula', value1: '=ISTEXT(VALUE)' }, 'LOT'), 'ISTEXT acepta texto');
+  ok(dvSatisfies({ type: 'custom_formula', value1: '=OR(VALUE="OK",VALUE="HOLD")' }, 'HOLD'), 'OR acepta HOLD');
+  ok(!dvSatisfies({ type: 'custom_formula', value1: '=NOT(VALUE="SCRAP")' }, 'SCRAP'), 'NOT rechaza SCRAP');
+}
 console.log(`\nVALIDATION SPEC: ${passed} OK, ${fails.length} fallos`);
 if (fails.length) { for (const f of fails) console.error('  ✗ ' + f); throw new Error(`${fails.length} fallos`); }
 console.log('✓ Todas las aserciones de validación de datos pasan.');
