@@ -566,8 +566,9 @@ export function useCall({
 
   // Al desmontar: corta medios (sin emitir; el otro lado lo detecta por ICE).
   useEffect(() => {
+    const pcs = pcsRef.current;
     return () => {
-      for (const pc of pcsRef.current.values()) pc.close();
+      for (const pc of pcs.values()) pc.close();
       localStreamRef.current?.getTracks().forEach((t) => t.stop());
     };
   }, []);

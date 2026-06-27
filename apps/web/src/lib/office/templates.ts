@@ -602,6 +602,75 @@ const SHEET_TEMPLATES: TemplateDef[] = [
     }]),
   },
 
+  {
+    id: 'bom-costing', title: 'BOM Costing', description: 'Explosión de costo estándar: consumo, scrap, compra y make/buy.', category: 'Manufactura / MES', accent: '#0f766e',
+    build: () => buildBook([{
+      name: 'BOM Costing', freeze: true,
+      widths: { 0: 120, 1: 220, 2: 80, 3: 90, 4: 90, 5: 100, 6: 110, 7: 90 },
+      rows: [
+        [H('Nivel'), H('Componente'), H('Tipo'), H('Qty/BOM', 'r'), H('Scrap %', 'r'), H('Costo U.', 'r'), H('Costo ext.', 'r'), H('Fuente')],
+        ['0', 'AXOS-ASSY-1000 Ensamble final', 'Make', { v: 1, fa: '0.00' }, { v: 0, fa: PCT }, { v: 0, fa: MONEY }, { v: 0, fa: MONEY }, 'Producción'],
+        ['1', 'PCB-DRV-01 Tarjeta controladora', 'Buy', { v: 1, fa: '0.00' }, { v: 0.02, fa: PCT }, { v: 12.5, fa: MONEY }, { f: '=D3*(1+E3)*F3', v: 12.75, fa: MONEY }, 'Inventario'],
+        ['1', 'HARNESS-08 Arnés 8 pines', 'Buy', { v: 2, fa: '0.00' }, { v: 0.01, fa: PCT }, { v: 3.2, fa: MONEY }, { f: '=D4*(1+E4)*F4', v: 6.464, fa: MONEY }, 'Proveedor'],
+        ['1', 'LABOR-ASSY Mano de obra', 'Make', { v: 0.35, fa: '0.00' }, { v: 0, fa: PCT }, { v: 28, fa: MONEY }, { f: '=D5*(1+E5)*F5', v: 9.8, fa: MONEY }, 'Ruta'],
+        ['1', 'OH-SMT Overhead SMT', 'Make', { v: 0.18, fa: '0.00' }, { v: 0, fa: PCT }, { v: 45, fa: MONEY }, { f: '=D6*(1+E6)*F6', v: 8.1, fa: MONEY }, 'Centro costo'],
+        [TOT('Costo estándar'), '', '', '', '', '', { b: true, bg: '#ecfdf5', fc: '#065f46', f: '=SUM(G3:G6)', v: 37.114, fa: MONEY }, ''],
+        [TOT('Margen objetivo'), '', '', '', '', { v: 0.32, fa: PCT }, { b: true, bg: '#f1f5f9', f: '=G7/(1-F8)', v: 54.579, fa: MONEY }, 'Precio sugerido'],
+      ],
+    }]),
+  },
+  {
+    id: 'oee-calculator', title: 'OEE Calculator', description: 'Calculadora de disponibilidad, rendimiento, calidad y pérdidas por turno.', category: 'Manufactura / MES', accent: '#16a34a',
+    build: () => buildBook([{
+      name: 'OEE Calculator', freeze: true,
+      widths: { 0: 210, 1: 110, 2: 110, 3: 140 },
+      rows: [
+        [H('Entrada'), H('Valor', 'r'), H('Unidad'), H('Notas')],
+        ['Tiempo planificado', { v: 480, fa: NUM }, 'min', 'Duración de turno'],
+        ['Paros no planeados', { v: 55, fa: NUM }, 'min', 'Andon / mantenimiento'],
+        ['Tiempo operativo', { f: '=B2-B3', v: 425, fa: NUM }, 'min', ''],
+        ['Ciclo ideal', { v: 0.85, fa: '0.00' }, 'min/pza', 'Tiempo estándar'],
+        ['Producción total', { v: 470, fa: NUM }, 'pzas', 'Buenas + scrap'],
+        ['Piezas buenas', { v: 452, fa: NUM }, 'pzas', 'Liberadas por calidad'],
+        [TOT('Disponibilidad'), { b: true, bg: '#ecfdf5', fc: '#065f46', f: '=B4/B2', v: 0.885417, fa: PCT }, '', 'Tiempo operativo / planificado'],
+        [TOT('Rendimiento'), { b: true, bg: '#eff6ff', fc: '#1d4ed8', f: '=B5*B6/B4', v: 0.94, fa: PCT }, '', 'Ciclo ideal × total / operativo'],
+        [TOT('Calidad'), { b: true, bg: '#fefce8', fc: '#a16207', f: '=B7/B6', v: 0.961702, fa: PCT }, '', 'Buenas / total'],
+        [TOT('OEE'), { b: true, bg: '#dcfce7', fc: '#166534', f: '=B8*B9*B10', v: 0.800567, fa: PCT }, '', 'A × R × Q'],
+      ],
+    }]),
+  },
+  {
+    id: 'inventory-abc', title: 'Inventory ABC', description: 'Clasificación ABC por valor anual de consumo e inventario conectado.', category: 'Manufactura / MES', accent: '#0891b2',
+    build: () => buildBook([{
+      name: 'Inventory ABC', freeze: true,
+      widths: { 0: 120, 1: 190, 2: 100, 3: 110, 4: 120, 5: 120, 6: 70 },
+      rows: [
+        [H('SKU / NP'), H('Descripción'), H('Consumo anual', 'r'), H('Costo U.', 'r'), H('Valor anual', 'r'), H('% acumulado', 'r'), H('Clase')],
+        ['PCB-DRV-01', 'Tarjeta controladora', { v: 5200, fa: NUM }, { v: 12.5, fa: MONEY }, { f: '=C2*D2', v: 65000, fa: MONEY }, { f: '=SUM($E$2:E2)/$E$7', v: 0.646, fa: PCT }, 'A'],
+        ['MCU-STM32', 'Microcontrolador', { v: 5000, fa: NUM }, { v: 4.1, fa: MONEY }, { f: '=C3*D3', v: 20500, fa: MONEY }, { f: '=SUM($E$2:E3)/$E$7', v: 0.85, fa: PCT }, 'A'],
+        ['HARNESS-08', 'Arnés 8 pines', { v: 7400, fa: NUM }, { v: 1.7, fa: MONEY }, { f: '=C4*D4', v: 12580, fa: MONEY }, { f: '=SUM($E$2:E4)/$E$7', v: 0.975, fa: PCT }, 'B'],
+        ['LABEL-QA', 'Etiqueta QA', { v: 8500, fa: NUM }, { v: 0.12, fa: MONEY }, { f: '=C5*D5', v: 1020, fa: MONEY }, { f: '=SUM($E$2:E5)/$E$7', v: 0.985, fa: PCT }, 'C'],
+        ['SCREW-M3', 'Tornillo M3', { v: 30000, fa: NUM }, { v: 0.05, fa: MONEY }, { f: '=C6*D6', v: 1500, fa: MONEY }, { f: '=SUM($E$2:E6)/$E$7', v: 1, fa: PCT }, 'C'],
+        [TOT('Total'), '', '', '', TF('=SUM(E2:E6)', 100600, MONEY), '', ''],
+      ],
+    }]),
+  },
+  {
+    id: 'supplier-scorecard', title: 'Supplier Scorecard', description: 'OTD, calidad, costo y respuesta ponderados por proveedor.', category: 'Manufactura / MES', accent: '#7c3aed',
+    build: () => buildBook([{
+      name: 'Supplier Scorecard', freeze: true,
+      widths: { 0: 170, 1: 90, 2: 90, 3: 90, 4: 90, 5: 100, 6: 90 },
+      rows: [
+        [H('Proveedor'), H('OTD', 'r'), H('Calidad', 'r'), H('Costo', 'r'), H('Respuesta', 'r'), H('Score', 'r'), H('Estatus')],
+        ['North Components', { v: 0.96, fa: PCT }, { v: 0.985, fa: PCT }, { v: 0.91, fa: PCT }, { v: 0.94, fa: PCT }, { f: '=B2*0.35+C2*0.35+D2*0.15+E2*0.15', v: 0.95625, fa: PCT }, 'Preferente'],
+        ['Acme Electronics', { v: 0.88, fa: PCT }, { v: 0.965, fa: PCT }, { v: 0.94, fa: PCT }, { v: 0.82, fa: PCT }, { f: '=B3*0.35+C3*0.35+D3*0.15+E3*0.15', v: 0.90925, fa: PCT }, 'Aprobado'],
+        ['Fasteners MX', { v: 0.78, fa: PCT }, { v: 0.92, fa: PCT }, { v: 0.97, fa: PCT }, { v: 0.75, fa: PCT }, { f: '=B4*0.35+C4*0.35+D4*0.15+E4*0.15', v: 0.853, fa: PCT }, 'Plan mejora'],
+        [TOT('Pesos'), { v: 0.35, fa: PCT }, { v: 0.35, fa: PCT }, { v: 0.15, fa: PCT }, { v: 0.15, fa: PCT }, TF('=SUM(B5:E5)', 1, PCT), ''],
+      ],
+    }]),
+  },
+
+
   // ── Negocio ──────────────────────────────────────────────────────────────────
   {
     id: 'budget', title: 'Presupuesto mensual', description: 'Presupuesto vs real con diferencia y totales.', category: 'Negocio', accent: '#2563eb',

@@ -324,7 +324,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions, docId }: 
     sync();
     if (!docId) return;
     try {
-      const r = await apiFetch(`${API_BASE}/office-documents/${docId}/comments`, {
+      const r = await apiFetch(`${API_BASE}/office-documents/${docId}/slide-comments`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ anchorType: objectId ? 'object' : 'slide', slideIndex: curRef.current, objectId, anchorLabel: local.objectLabel, text }),
       });
@@ -337,14 +337,14 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions, docId }: 
   function resolveComment(id: string, resolved: boolean) {
     commentsRef.current = commentsRef.current.map((c) => (c.id === id ? { ...c, resolved } : c));
     sync();
-    if (docId) void apiFetch(`${API_BASE}/office-documents/${docId}/comments/${id}`, {
+    if (docId) void apiFetch(`${API_BASE}/office-documents/${docId}/slide-comments/${id}`, {
       method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ resolved }),
     }).catch(() => undefined);
   }
   useEffect(() => {
     if (!docId) return;
     let alive = true;
-    apiFetch(`${API_BASE}/office-documents/${docId}/comments`)
+    apiFetch(`${API_BASE}/office-documents/${docId}/slide-comments`)
       .then((r) => (r.ok ? r.json() : []))
       .then((rows) => {
         if (!alive || !Array.isArray(rows)) return;
@@ -358,7 +358,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions, docId }: 
   function deleteComment(id: string) {
     commentsRef.current = commentsRef.current.filter((c) => c.id !== id);
     sync();
-    if (docId) void apiFetch(`${API_BASE}/office-documents/${docId}/comments/${id}`, { method: 'DELETE' }).catch(() => undefined);
+    if (docId) void apiFetch(`${API_BASE}/office-documents/${docId}/slide-comments/${id}`, { method: 'DELETE' }).catch(() => undefined);
   }
 
 

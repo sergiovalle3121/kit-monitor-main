@@ -16,6 +16,7 @@ import { EventLedgerModule } from '../event-ledger/event-ledger.module';
 import { GovernanceModule } from '../governance/governance.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { UsersModule } from '../users/users.module';
+import { provideTenantScopedRepository } from '../../common/tenant/tenant-scoped.repository';
 
 @Module({
   imports: [
@@ -36,7 +37,16 @@ import { UsersModule } from '../users/users.module';
     UsersModule,
   ],
   controllers: [SuppliersController],
-  providers: [SuppliersService, SuppliersAlertsService, SuppliersAlertsTask],
+  providers: [
+    SuppliersService,
+    SuppliersAlertsService,
+    SuppliersAlertsTask,
+    provideTenantScopedRepository(Supplier),
+    provideTenantScopedRepository(SCAR),
+    provideTenantScopedRepository(SupplierContact),
+    provideTenantScopedRepository(SupplierCertification),
+    provideTenantScopedRepository(SupplierApprovedPart),
+  ],
   exports: [SuppliersService],
 })
 export class SuppliersModule {}
