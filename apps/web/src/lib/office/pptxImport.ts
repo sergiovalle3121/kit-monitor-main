@@ -18,6 +18,7 @@ import { buildTableGroup, type TableSpec } from '@/components/office/slides/tabl
 import { buildChartGroup, type ChartSpec, type ChartType } from '@/components/office/slides/chart';
 import { POLY_SHAPES, PATH_SHAPES, starPoints } from '@/components/office/slides/shapes';
 import { slideHeight } from '@/components/office/slideAssets';
+import { analyzePptxCompatibility } from './pptxCompatibility';
 
 const EMU_PER_PX = 9525; // 914400 EMU/in ÷ 96 px/in
 const px = (v: any): number => (Number(v) || 0) / EMU_PER_PX;
@@ -540,6 +541,7 @@ function textOverlay(t: any): any {
 
 /** Punto de entrada: bytes .pptx → deck JSON de AXOS (versión 2). */
 export async function importPptx(buf: ArrayBuffer): Promise<any> {
+  const report = await analyzePptxCompatibility(buf);
   const JSZip = (await import('jszip')).default;
   const zip = await JSZip.loadAsync(buf);
 
@@ -588,5 +590,6 @@ export async function importPptx(buf: ArrayBuffer): Promise<any> {
     transDurs: slides.map(() => 500), advanceAfters: slides.map(() => 0),
     loop: false, theme: 'light', footer: '', showNumbers: false,
     sections: slides.map(() => null),
+    pptxCompatibility: report,
   };
 }

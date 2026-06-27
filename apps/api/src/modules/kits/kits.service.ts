@@ -1,6 +1,6 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Inject } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository, SelectQueryBuilder } from 'typeorm';
+import { DataSource, ObjectLiteral, Repository, SelectQueryBuilder } from 'typeorm';
 import { Kit } from './entities/kit.entity';
 import { Plan } from '../plans/entities/plan.entity';
 import { BomItem } from '../bom/entities/bom-item.entity';
@@ -16,11 +16,16 @@ import { EnterpriseLine } from '../enterprise-campus/entities/enterprise-line.en
 import { AuditService } from '../governance/audit.service';
 import { User } from '../users/entities/user.entity';
 import { In } from 'typeorm';
+import { TenantContextService } from '../../common/tenant/tenant-context.service';
+import {
+  TenantScopedRepository,
+  getTenantRepositoryToken,
+} from '../../common/tenant/tenant-scoped.repository';
 
 @Injectable()
 export class KitsService {
   constructor(
-    @InjectRepository(Kit) private readonly repo: Repository<Kit>,
+    @Inject(getTenantRepositoryToken(Kit)) private readonly repo: TenantScopedRepository<Kit>,
     @InjectRepository(Plan) private readonly planRepo: Repository<Plan>,
     @InjectRepository(BomItem) private readonly bomRepo: Repository<BomItem>,
     @InjectRepository(KitMaterial) private readonly materialRepo: Repository<KitMaterial>,
@@ -31,7 +36,18 @@ export class KitsService {
     private readonly dataSource: DataSource,
     private readonly eventLedger: EventLedgerService,
     private readonly audit: AuditService,
+    private readonly tenantCtx: TenantContextService,
   ) {}
+
+  private applyScope<T extends ObjectLiteral>(
+    qb: SelectQueryBuilder<T>,
+    alias: string,
+  ): SelectQueryBuilder<T> {
+    const tenant = this.tenantCtx.getTenantId();
+    if (tenant) qb.andWhere(`${alias}.tenant_id = :tenant`, { tenant });
+    else qb.andWhere(`${alias}.tenant_id IS NULL`);
+    return qb;
+  }
 
   async findAll(user: User, scope?: { line?: string; model?: string; workOrder?: string; buildingId?: string; programId?: string }): Promise<any[]> {
     const qb = this.repo.createQueryBuilder('kit')
@@ -40,6 +56,7 @@ export class KitsService {
       .leftJoinAndSelect('kit.advances', 'advances')
       .leftJoinAndSelect('kit.exceptions', 'exceptions')
       .orderBy('kit.createdAt', 'DESC');
+    this.applyScope(qb, 'kit');
 
     // 1. Mandatory Organizational Scope
     const scopeBids = user.scopes?.buildings ?? [];

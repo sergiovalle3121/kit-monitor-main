@@ -46,12 +46,23 @@ BEGIN
       AND column_name IN ('tenant_id', 'tenantId')
     ORDER BY table_name, column_name
   LOOP
-    EXECUTE format('UPDATE public.%I SET %I = %L WHERE %I IS NULL',
-                   r.table_name, r.column_name, tenant, r.column_name);
-    GET DIAGNOSTICS n = ROW_COUNT;
+    -- Cuenta los NULL ANTES de actualizar. Si no hay, saltamos la columna por
+    -- completo: evita el error de tipo en columnas uuid (p. ej. plants,
+    -- user_roles, cost_items) que validan el literal aunque toquen 0 filas.
+    EXECUTE format('SELECT COUNT(*) FROM public.%I WHERE %I IS NULL',
+                   r.table_name, r.column_name) INTO n;
     IF n > 0 THEN
-      RAISE NOTICE '% . % : % fila(s) -> %', r.table_name, r.column_name, n, tenant;
-      total := total + n;
+      -- Sub-bloque con savepoint: si una columna rara falla (p. ej. uuid con
+      -- NULLs), se registra y se continúa, sin abortar todo el backfill.
+      BEGIN
+        EXECUTE format('UPDATE public.%I SET %I = %L WHERE %I IS NULL',
+                       r.table_name, r.column_name, tenant, r.column_name);
+        RAISE NOTICE '% . % : % fila(s) -> %', r.table_name, r.column_name, n, tenant;
+        total := total + n;
+      EXCEPTION WHEN others THEN
+        RAISE WARNING 'OMITIDA % . % (% NULL): %',
+                      r.table_name, r.column_name, n, SQLERRM;
+      END;
     END IF;
   END LOOP;
   RAISE NOTICE 'LISTO. Total filas actualizadas: %', total;

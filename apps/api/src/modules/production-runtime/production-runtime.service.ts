@@ -1,6 +1,6 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, In, IsNull, Repository } from 'typeorm';
+import { DataSource, In, IsNull, ObjectLiteral, Repository, SelectQueryBuilder } from 'typeorm';
 import { Kit } from '../kits/entities/kit.entity';
 import { KitMaterial } from '../kit-materials/entities/kit-material.entity';
 import { BayLayout } from '../bay-layout/entities/bay-layout.entity';
@@ -17,6 +17,11 @@ import { InventoryService } from '../inventory/inventory.service';
 import { AuditService } from '../governance/audit.service';
 import { User } from '../users/entities/user.entity';
 import { ExceptionSeverity, ExceptionDomain } from '../governance/entities/operational-exception.entity';
+import { TenantContextService } from '../../common/tenant/tenant-context.service';
+import {
+  TenantScopedRepository,
+  getTenantRepositoryToken,
+} from '../../common/tenant/tenant-scoped.repository';
 
 type ScopeQuery = { line?: string; model?: string; workOrder?: string; buildingId?: string; programId?: string };
 
@@ -27,16 +32,31 @@ export class ProductionRuntimeService {
     @InjectRepository(KitMaterial) private readonly kitMaterialRepo: Repository<KitMaterial>,
     @InjectRepository(BayLayout) private readonly bayLayoutRepo: Repository<BayLayout>,
     @InjectRepository(BomItem) private readonly bomRepo: Repository<BomItem>,
-    @InjectRepository(ProductionBayEvent) private readonly eventRepo: Repository<ProductionBayEvent>,
-    @InjectRepository(ProductionBayIncident) private readonly incidentRepo: Repository<ProductionBayIncident>,
-    @InjectRepository(ProductionBayMaterialState) private readonly materialStateRepo: Repository<ProductionBayMaterialState>,
-    @InjectRepository(ProductionWip) private readonly wipRepo: Repository<ProductionWip>,
+    @Inject(getTenantRepositoryToken(ProductionBayEvent))
+    private readonly eventRepo: TenantScopedRepository<ProductionBayEvent>,
+    @Inject(getTenantRepositoryToken(ProductionBayIncident))
+    private readonly incidentRepo: TenantScopedRepository<ProductionBayIncident>,
+    @Inject(getTenantRepositoryToken(ProductionBayMaterialState))
+    private readonly materialStateRepo: TenantScopedRepository<ProductionBayMaterialState>,
+    @Inject(getTenantRepositoryToken(ProductionWip))
+    private readonly wipRepo: TenantScopedRepository<ProductionWip>,
     @InjectRepository(EnterpriseProgram) private readonly programRepo: Repository<EnterpriseProgram>,
     @InjectRepository(EnterpriseLine) private readonly lineRepo: Repository<EnterpriseLine>,
     private readonly inventory: InventoryService,
     private readonly dataSource: DataSource,
     private readonly audit: AuditService,
+    private readonly tenantCtx: TenantContextService,
   ) {}
+
+  private applyScope<T extends ObjectLiteral>(
+    qb: SelectQueryBuilder<T>,
+    alias: string,
+  ): SelectQueryBuilder<T> {
+    const tenant = this.tenantCtx.getTenantId();
+    if (tenant) qb.andWhere(`${alias}.tenant_id = :tenant`, { tenant });
+    else qb.andWhere(`${alias}.tenant_id IS NULL`);
+    return qb;
+  }
 
   async getLines(user: User, scope?: ScopeQuery) {
     const kits = await this.buildScopedKitQuery(
@@ -560,6 +580,7 @@ export class ProductionRuntimeService {
       .leftJoinAndSelect('kit.plan', 'plan')
       .where('kit.status IN (:...statuses)', { statuses })
       .orderBy('kit.id', order);
+    this.applyScope(qb, 'kit');
 
     if (take) qb.take(take);
 
@@ -753,14 +774,15 @@ export class ProductionRuntimeService {
     if (!kit?.plan) throw new NotFoundException(`Kit ${kitId} no encontrado`);
 
     // Las 5 consultas dependientes del kit corren en paralelo (antes secuenciales).
+    const completedQb = this.eventRepo
+      .createQueryBuilder('event')
+      .select('COALESCE(SUM(event.quantity), 0)', 'total')
+      .where('event.kitId = :kitId', { kitId })
+      .andWhere('event.revertedAt IS NULL');
+    this.applyScope(completedQb, 'event');
     const [completedRaw, materials, openIncidents, startedAt, completedAt] =
       await Promise.all([
-        this.eventRepo
-          .createQueryBuilder('event')
-          .select('COALESCE(SUM(event.quantity), 0)', 'total')
-          .where('event.kitId = :kitId', { kitId })
-          .andWhere('event.revertedAt IS NULL')
-          .getRawOne<{ total: string }>(),
+        completedQb.getRawOne<{ total: string }>(),
         this.materialStateRepo.find({ where: { kit: { id: kitId } } }),
         this.incidentRepo.count({ where: { kit: { id: kitId }, status: 'open' } }),
         this.firstEventAt(kitId),
@@ -879,7 +901,8 @@ export class ProductionRuntimeService {
     const qb = this.wipRepo.createQueryBuilder('wip')
       .leftJoinAndSelect('wip.kit', 'kit')
       .leftJoinAndSelect('kit.plan', 'plan');
-    
+    this.applyScope(qb, 'wip');
+
     // 1. Mandatory Organizational Scope
     const scopeBids = user.scopes?.buildings ?? [];
     if (scopeBids.length > 0) {

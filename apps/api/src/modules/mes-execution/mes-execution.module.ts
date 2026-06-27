@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
+import { provideTenantScopedRepository } from '../../common/tenant/tenant-scoped.repository';
+
 import { WorkOrderExecution } from './entities/work-order-execution.entity';
 import { ExecutionStep } from './entities/execution-step.entity';
 import { ExecutionStepMaterial } from './entities/execution-step-material.entity';
@@ -27,6 +29,7 @@ import { VisualAidsModule } from '../visual-aids/visual-aids.module';
 import { GovernanceModule } from '../governance/governance.module';
 import { TestFlowModule } from '../test-flow/test-flow.module';
 import { PeopleModule } from '../people/people.module';
+import { GenealogyModule } from '../genealogy/genealogy.module';
 
 @Module({
   imports: [
@@ -52,10 +55,21 @@ import { PeopleModule } from '../people/people.module';
     VisualAidsModule,
     GovernanceModule, // provides AuditService required by PermissionsGuard
     TestFlowModule, // Eslabón 1: hand finished serials off to the Pruebas queue
+    GenealogyModule, // Eslabón 2: captura as-built en genealogía al consumir
     PeopleModule, // Gate operador↔estación (read-only) para el modo bloqueo opcional
   ],
   controllers: [MesExecutionController],
-  providers: [MesExecutionService],
+  providers: [
+    MesExecutionService,
+    provideTenantScopedRepository(WorkOrderExecution),
+    provideTenantScopedRepository(ExecutionStep),
+    provideTenantScopedRepository(ExecutionStepMaterial),
+    provideTenantScopedRepository(ExecutionEvent),
+    provideTenantScopedRepository(StationIncident),
+    provideTenantScopedRepository(AndonCall),
+    provideTenantScopedRepository(MesDowntime),
+    provideTenantScopedRepository(StationAssignment),
+  ],
   exports: [MesExecutionService],
 })
 export class MesExecutionModule {}

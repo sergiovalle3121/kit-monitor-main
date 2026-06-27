@@ -1,7 +1,11 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { ObjectLiteral, SelectQueryBuilder } from 'typeorm';
 import { NCR, NcrStatus } from './entities/ncr.entity';
+import { TenantContextService } from '../../common/tenant/tenant-context.service';
+import {
+  TenantScopedRepository,
+  getTenantRepositoryToken,
+} from '../../common/tenant/tenant-scoped.repository';
 import { EventLedgerService } from '../event-ledger/event-ledger.service';
 import { EventDomain } from '../event-ledger/entities/ledger-event.entity';
 import { AuditService } from '../governance/audit.service';
@@ -10,16 +14,28 @@ import { ExceptionSeverity, ExceptionDomain } from '../governance/entities/opera
 @Injectable()
 export class NcrService {
   constructor(
-    @InjectRepository(NCR)
-    private readonly ncrRepo: Repository<NCR>,
+    @Inject(getTenantRepositoryToken(NCR))
+    private readonly ncrRepo: TenantScopedRepository<NCR>,
     private readonly eventLedger: EventLedgerService,
     private readonly audit: AuditService,
+    private readonly tenantCtx: TenantContextService,
   ) {}
+
+  private applyScope<T extends ObjectLiteral>(
+    qb: SelectQueryBuilder<T>,
+    alias: string,
+  ): SelectQueryBuilder<T> {
+    const tenant = this.tenantCtx.getTenantId();
+    if (tenant) qb.andWhere(`${alias}.tenant_id = :tenant`, { tenant });
+    else qb.andWhere(`${alias}.tenant_id IS NULL`);
+    return qb;
+  }
 
   async findAll(filters: any): Promise<NCR[]> {
     const qb = this.ncrRepo.createQueryBuilder('ncr')
       .leftJoinAndSelect('ncr.hold', 'hold')
       .leftJoinAndSelect('ncr.quarantineTransfer', 'transfer');
+    this.applyScope(qb, 'ncr');
 
     if (filters.partNumber) qb.andWhere('ncr.partNumber = :pn', { pn: filters.partNumber });
     if (filters.status) qb.andWhere('ncr.status = :status', { status: filters.status });

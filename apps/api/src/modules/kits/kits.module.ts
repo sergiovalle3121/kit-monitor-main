@@ -12,6 +12,7 @@ import { EventLedgerModule } from '../event-ledger/event-ledger.module';
 import { EnterpriseProgram } from '../enterprise-campus/entities/enterprise-program.entity';
 import { EnterpriseLine } from '../enterprise-campus/entities/enterprise-line.entity';
 import { GovernanceModule } from '../governance/governance.module';
+import { provideTenantScopedRepository } from '../../common/tenant/tenant-scoped.repository';
 
 @Module({
   imports: [
@@ -20,7 +21,7 @@ import { GovernanceModule } from '../governance/governance.module';
     GovernanceModule,
   ],
   controllers: [KitsController],
-  providers: [KitsService],
+  providers: [KitsService, provideTenantScopedRepository(Kit)],
   exports: [KitsService],
 })
 export class KitsModule {}

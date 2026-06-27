@@ -1,6 +1,11 @@
-import { DataSource, Repository } from 'typeorm';
+import { DataSource } from 'typeorm';
 import { EventLedgerService } from './event-ledger.service';
 import { LedgerEvent, EventDomain } from './entities/ledger-event.entity';
+import { TenantContextService } from '../../common/tenant/tenant-context.service';
+import {
+  TenantScopedRepository,
+  createTenantScopedRepository,
+} from '../../common/tenant/tenant-scoped.repository';
 
 /**
  * Integración ligera (SQLite en memoria) del Event Ledger. El repo es real; se
@@ -12,8 +17,12 @@ import { LedgerEvent, EventDomain } from './entities/ledger-event.entity';
  */
 describe('EventLedgerService (integration)', () => {
   let dataSource: DataSource;
-  let repo: Repository<LedgerEvent>;
+  let repo: TenantScopedRepository<LedgerEvent>;
   let service: EventLedgerService;
+
+  const tenantCtx = {
+    getTenantId: () => null,
+  } as unknown as TenantContextService;
 
   beforeEach(async () => {
     dataSource = new DataSource({
@@ -24,8 +33,12 @@ describe('EventLedgerService (integration)', () => {
       entities: [LedgerEvent],
     });
     await dataSource.initialize();
-    repo = dataSource.getRepository(LedgerEvent);
-    service = new EventLedgerService(repo);
+    repo = createTenantScopedRepository(
+      LedgerEvent,
+      dataSource.manager,
+      tenantCtx,
+    );
+    service = new EventLedgerService(repo, tenantCtx);
   });
 
   afterEach(async () => {

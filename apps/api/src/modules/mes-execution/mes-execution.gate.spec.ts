@@ -20,12 +20,15 @@ describe('MesExecutionService — operator↔station gate (ENFORCE_CERT_GATE)', 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const any = (v: unknown): any => v;
 
+  const tenantCtx = { getTenantId: () => null };
+
   function makeService(p?: unknown): MesExecutionService {
     return new MesExecutionService(
       any(execRepo), any(stepRepo), any({}), any({}), any({}),
       any({}), any({}), any(assignRepo), any({}), any({}),
       any({}), any({}), any({}), any(signals), any({}),
-      any({}), any({}), undefined, any(p),
+      // ...tenantCtx, testFlow(19), genealogy(20), people(21)
+      any({}), any({}), any(tenantCtx), undefined, undefined, any(p),
     );
   }
 

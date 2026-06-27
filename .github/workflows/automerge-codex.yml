@@ -1,0 +1,37 @@
+name: Auto-merge Codex PRs
+
+# Hace que los PRs de Codex (rama `codex/*` o etiqueta `codex`) se mergeen
+# SOLOS cuando CI pasa, sin que nadie haga clic. Codex hoy abre el PR pero
+# no completa el merge; esto cierra ese paso.
+#
+# Requisito (una sola vez, en la UI): Settings → General → Pull Requests →
+# activar "Allow auto-merge". Sin eso, `gh pr merge --auto` no puede activarse;
+# el step lo registra como aviso y termina OK (no deja el check en rojo). El
+# merge respeta SIEMPRE el CI: si los checks fallan, NO se mergea.
+#
+# Solo aplica a ramas `codex/*` o PRs con etiqueta `codex`. Los demás PRs
+# (incluido el conduit `claude/*`) NO se tocan.
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review, labeled]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  auto-merge:
+    # PR no-borrador y que venga de Codex (por rama o etiqueta).
+    if: >-
+      github.event.pull_request.draft == false &&
+      ( startsWith(github.event.pull_request.head.ref, 'codex/') ||
+        contains(toJSON(github.event.pull_request.labels.*.name), 'codex') )
+    runs-on: ubuntu-latest
+    steps:
+      - name: Habilitar auto-merge (rebase) — mergea cuando los checks requeridos pasen
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr merge --auto --rebase "${{ github.event.pull_request.html_url }}" \
+            || echo "::notice::Auto-merge no disponible (revisa 'Allow auto-merge' en Settings → General). El PR queda para merge manual; CI no se ve afectado."

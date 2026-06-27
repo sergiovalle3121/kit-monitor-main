@@ -1,10 +1,13 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { EntityManager, Repository } from 'typeorm';
+import { BadRequestException, Inject, Injectable } from '@nestjs/common';
+import { EntityManager, ObjectLiteral, SelectQueryBuilder } from 'typeorm';
 import { randomUUID } from 'crypto';
 import { InventoryMovement } from '../inventory/entities/inventory-movement.entity';
 import { MaterialMaster } from '../inventory/entities/material-master.entity';
 import { TenantContextService } from '../../common/tenant/tenant-context.service';
+import {
+  TenantScopedRepository,
+  getTenantRepositoryToken,
+} from '../../common/tenant/tenant-scoped.repository';
 import {
   IndustrialAccountCode,
   Transaction,
@@ -59,10 +62,20 @@ type RecordJournalInput = {
 @Injectable()
 export class AccountingService {
   constructor(
-    @InjectRepository(Transaction)
-    private readonly transactionRepo: Repository<Transaction>,
+    @Inject(getTenantRepositoryToken(Transaction))
+    private readonly transactionRepo: TenantScopedRepository<Transaction>,
     private readonly tenantContext: TenantContextService,
   ) {}
+
+  private applyScope<T extends ObjectLiteral>(
+    qb: SelectQueryBuilder<T>,
+    alias: string,
+  ): SelectQueryBuilder<T> {
+    const tenant = this.tenantContext.getTenantId();
+    if (tenant) qb.andWhere(`${alias}.tenant_id = :tenant`, { tenant });
+    else qb.andWhere(`${alias}.tenant_id IS NULL`);
+    return qb;
+  }
 
   async recordInventoryMovement(
     input: RecordInventoryMovementInput,
@@ -280,12 +293,7 @@ export class AccountingService {
     limit?: number;
   }): Promise<Transaction[]> {
     const query = this.transactionRepo.createQueryBuilder('transaction');
-
-    // Scope por tenant (la entidad Transaction lleva tenant_id). Sin tenant en
-    // contexto → solo filas sin tenant (consistente con el resto del seed/demo).
-    const tenantId = this.tenantContext.getTenantId();
-    if (tenantId) query.andWhere('transaction.tenant_id = :tenantId', { tenantId });
-    else query.andWhere('transaction.tenant_id IS NULL');
+    this.applyScope(query, 'transaction');
 
     if (filters.materialPartNumber) {
       query.andWhere('transaction.materialPartNumber = :materialPartNumber', {
@@ -305,13 +313,11 @@ export class AccountingService {
   }
 
   async calculateCostRollup(sku: string): Promise<ProductCostRollup> {
-    const tenantId = this.tenantContext.getTenantId();
     const rollupQb = this.transactionRepo
       .createQueryBuilder('transaction')
       .where('transaction.materialPartNumber = :sku', { sku })
       .orderBy('transaction.postedAt', 'DESC');
-    if (tenantId) rollupQb.andWhere('transaction.tenant_id = :tenantId', { tenantId });
-    else rollupQb.andWhere('transaction.tenant_id IS NULL');
+    this.applyScope(rollupQb, 'transaction');
     const transactions = await rollupQb.getMany();
 
     const categoryMapping: Record<string, IndustrialAccountCode[]> = {

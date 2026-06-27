@@ -49,14 +49,17 @@ import { makeConnector, refreshConnectors, pickTwo, isConnector } from './slides
 import { SlideFindReplace } from './SlideFindReplace';
 import { SlideOutline } from './SlideOutline';
 import { SlideReusePanel, type ReuseItem } from './SlideReusePanel';
+import { SlideCommentsPanel, type SlideComment } from './SlideCommentsPanel';
 import {
   OfficeRibbon, RibbonTab, RibbonGroup, RibbonSeparator,
   RibbonButton, RibbonSelect, RibbonColorButton, RibbonMenuButton,
 } from './ribbon';
 import { useToast } from '@/contexts/ToastContext';
+import { apiFetch } from '@/lib/apiFetch';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
 
 const CW = 960;
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000').replace(/\/$/, '');
 
 function blank() { return { version: '7', objects: [], background: '#ffffff' }; }
 function labelOf(slide: any): string {
@@ -134,7 +137,7 @@ function applyPlaceholderFont(o: any, t: SlideTheme): void {
   else if (o.ph === 'body') o.fontFamily = t.font;
 }
 
-export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value: any; onChange: (data: any) => void; readOnly?: boolean; fileActions?: React.ReactNode }) {
+export function SlidesEditor({ value, onChange, readOnly, fileActions, docId }: { value: any; onChange: (data: any) => void; readOnly?: boolean; fileActions?: React.ReactNode; docId?: string }) {
   const toast = useToast();
   const confirm = useConfirm();
   const elRef = useRef<HTMLCanvasElement>(null);
@@ -153,6 +156,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
     while (s.length < initial.length) s.push(null);
     return s;
   })();
+  const initialComments: SlideComment[] = Array.isArray(value?.comments) ? value.comments.filter((c: any) => c && typeof c.text === 'string') : [];
   const initialTransitions: string[] = (() => {
     const t = Array.isArray(value?.transitions) ? value.transitions.slice(0, initial.length) : [];
     const def = value?.transition || 'fade';
@@ -173,11 +177,13 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
   const slidesRef = useRef<any[]>(initial);
   const notesRef = useRef<string[]>(initialNotes);
   const sectionsRef = useRef<(string | null)[]>(initialSections);
+  const commentsRef = useRef<SlideComment[]>(initialComments);
   const transitionsRef = useRef<string[]>(initialTransitions);
   const transDursRef = useRef<number[]>(initialTransDurs);
   const advanceRef = useRef<number[]>(initialAdvance);
   const loopRef = useRef<boolean>(!!value?.loop);
   const [sections, setSections] = useState<(string | null)[]>(initialSections);
+  const [comments, setComments] = useState<SlideComment[]>(initialComments);
   const [slides, setSlides] = useState<any[]>(initial); // mirror for rendering
   const [cur, setCur] = useState(0);
   const [noteDraft, setNoteDraft] = useState<string>(initialNotes[0] ?? '');
@@ -198,6 +204,8 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
   const [selAnimStart, setSelAnimStart] = useState<string>(DEFAULT_ANIM_START);
   const [showAnimPanel, setShowAnimPanel] = useState(false);
   const [showLayers, setShowLayers] = useState(false);
+  const [showComments, setShowComments] = useState(false);
+  const [selectedCommentLabel, setSelectedCommentLabel] = useState('');
   const [presenterMode, setPresenterMode] = useState(false);
   const [selOpacity, setSelOpacity] = useState(1);
   const [selLocked, setSelLocked] = useState(false);
@@ -345,8 +353,104 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
       master: masterImgRef.current,
       footer: footerRef.current,
     });
-    onChange({ version: 2, slides: slidesRef.current, notes: notesRef.current, transition: transitionsRef.current[0] || 'fade', transitions: transitionsRef.current, transDurs: transDursRef.current, advanceAfters: advanceRef.current, loop: loopRef.current, theme: themeRef.current, footer: footerRef.current, showNumbers: numbersRef.current, ratio: ratioRef.current, sections: sectionsRef.current, master: masterRef.current });
+    setComments([...commentsRef.current]);
+    onChange({ version: 2, slides: slidesRef.current, notes: notesRef.current, transition: transitionsRef.current[0] || 'fade', transitions: transitionsRef.current, transDurs: transDursRef.current, advanceAfters: advanceRef.current, loop: loopRef.current, theme: themeRef.current, footer: footerRef.current, showNumbers: numbersRef.current, ratio: ratioRef.current, sections: sectionsRef.current, master: masterRef.current, comments: commentsRef.current, pptxCompatibility: value?.pptxCompatibility });
   }
+
+
+  function commentFromApi(c: any): SlideComment {
+    return {
+      id: String(c.id),
+      slide: typeof c.slideIndex === 'number' ? c.slideIndex : 0,
+      objectId: c.objectId || undefined,
+      objectLabel: c.anchorLabel || undefined,
+      author: c.authorEmail || undefined,
+      text: String(c.text || ''),
+      createdAt: c.createdAt ? new Date(c.createdAt).getTime() : Date.now(),
+      resolved: !!c.resolved,
+    };
+  }
+
+  function ensureObjectCommentId(o: any): string {
+    if (!o.commentId) {
+      const id = `obj-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+      if (o.set) o.set('commentId', id);
+      else o.commentId = id;
+    }
+    return o.commentId;
+  }
+  async function addComment(text: string, target: 'slide' | 'object') {
+    const c = fabricRef.current;
+    const active = c?.getActiveObject() as any;
+    const objectId = target === 'object' && active ? ensureObjectCommentId(active) : undefined;
+    const local: SlideComment = {
+      id: `c-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
+      slide: curRef.current,
+      objectId,
+      objectLabel: objectId && active ? objLabel(active) : undefined,
+      text,
+      createdAt: Date.now(),
+    };
+    commentsRef.current = [local, ...commentsRef.current];
+    if (objectId) capture();
+    sync();
+    if (!docId) return;
+    try {
+      const r = await apiFetch(`${API_BASE}/office-documents/${docId}/slide-comments`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ anchorType: objectId ? 'object' : 'slide', slideIndex: curRef.current, objectId, anchorLabel: local.objectLabel, text }),
+      });
+      if (!r.ok) return;
+      const saved = commentFromApi(await r.json());
+      commentsRef.current = commentsRef.current.map((x) => (x.id === local.id ? saved : x));
+      sync();
+    } catch { /* keep local optimistic comment */ }
+  }
+  function resolveComment(id: string, resolved: boolean) {
+    commentsRef.current = commentsRef.current.map((c) => (c.id === id ? { ...c, resolved } : c));
+    sync();
+    if (docId) void apiFetch(`${API_BASE}/office-documents/${docId}/slide-comments/${id}`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ resolved }),
+    }).catch(() => undefined);
+  }
+  useEffect(() => {
+    if (!docId) return;
+    let alive = true;
+    apiFetch(`${API_BASE}/office-documents/${docId}/slide-comments`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then((rows) => {
+        if (!alive || !Array.isArray(rows)) return;
+        commentsRef.current = rows.map(commentFromApi);
+        setComments([...commentsRef.current]);
+      })
+      .catch(() => { /* backend comments are progressive enhancement */ });
+    return () => { alive = false; };
+  }, [docId]);
+
+  function deleteComment(id: string) {
+    commentsRef.current = commentsRef.current.filter((c) => c.id !== id);
+    sync();
+    if (docId) void apiFetch(`${API_BASE}/office-documents/${docId}/slide-comments/${id}`, { method: 'DELETE' }).catch(() => undefined);
+  }
+
+
+  function shiftCommentsForInsert(at: number) {
+    commentsRef.current = commentsRef.current.map((c) => (c.slide >= at ? { ...c, slide: c.slide + 1 } : c));
+  }
+  function removeCommentsForSlide(at: number) {
+    commentsRef.current = commentsRef.current
+      .filter((c) => c.slide !== at)
+      .map((c) => (c.slide > at ? { ...c, slide: c.slide - 1 } : c));
+  }
+  function reorderCommentsForSlides(from: number, to: number) {
+    commentsRef.current = commentsRef.current.map((c) => {
+      if (c.slide === from) return { ...c, slide: to };
+      if (from < to && c.slide > from && c.slide <= to) return { ...c, slide: c.slide - 1 };
+      if (from > to && c.slide >= to && c.slide < from) return { ...c, slide: c.slide + 1 };
+      return c;
+    });
+  }
+
   function setTrans(t: string) { transitionsRef.current[curRef.current] = t; setTransition(t); transitionRef.current = t; sync(); }
   function setTransDuration(ms: number) { transDursRef.current[curRef.current] = ms; setTransDur(ms); sync(); }
   function setSlideAdvance(sec: number) { advanceRef.current[curRef.current] = Math.max(0, sec); setAdvanceAfter(Math.max(0, sec)); sync(); }
@@ -885,12 +989,12 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
       setHasSel(!!o); setSelType((o?.type as string) || '');
       setSelCount(o?.type === 'activeselection' || o?.type === 'activeSelection' ? (o._objects?.length ?? 0) : (o ? 1 : 0));
       setSelAnim((o?.anim as string) || 'none'); setSelAnimOrder(o?.animOrder ?? 0); setSelAnimDur(o?.animDur ?? 500); setSelAnimDelay(o?.animDelay ?? 0); setSelAnimStart((o?.animStart as string) || DEFAULT_ANIM_START);
-      setSelOpacity(o?.opacity ?? 1); setSelLocked(!!o?.locked); setImgFx(readImgFx(o)); setSelAngle(Math.round(o?.angle ?? 0));
+      setSelOpacity(o?.opacity ?? 1); setSelLocked(!!o?.locked); setImgFx(readImgFx(o)); setSelAngle(Math.round(o?.angle ?? 0)); setSelectedCommentLabel(o ? objLabel(o) : '');
       refreshCanvasSnapshot(canvas);
     };
     canvas.on('selection:created', onSel);
     canvas.on('selection:updated', onSel);
-    canvas.on('selection:cleared', () => { setHasSel(false); setSelType(''); setSelCount(0); setSelAnim('none'); refreshCanvasSnapshot(canvas); });
+    canvas.on('selection:cleared', () => { setHasSel(false); setSelType(''); setSelCount(0); setSelAnim('none'); setSelectedCommentLabel(''); refreshCanvasSnapshot(canvas); });
     // Doble clic en un gráfico o SmartArt → reabre su editor.
     canvas.on('mouse:dblclick', (e: any) => { const o = e?.target; if (readOnly) return; if (isChart(o)) editChartObj(o); else if (isSmart(o)) editSmartObj(o); else if (isTable(o)) editTableObj(o); });
     // Conectores anclados: recalcular al mover/escalar/rotar formas.
@@ -1394,7 +1498,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [readOnly]);
 
-  function addSlide() { if (masterModeRef.current) return; capture(); slidesRef.current.splice(cur + 1, 0, blank()); notesRef.current.splice(cur + 1, 0, ''); sectionsRef.current.splice(cur + 1, 0, null); transitionsRef.current.splice(cur + 1, 0, transitionsRef.current[cur] ?? 'fade'); transDursRef.current.splice(cur + 1, 0, transDursRef.current[cur] ?? DEFAULT_TRANS_DUR); advanceRef.current.splice(cur + 1, 0, 0); sync(); loadInto(cur + 1); }
+  function addSlide() { if (masterModeRef.current) return; capture(); const at = cur + 1; shiftCommentsForInsert(at); slidesRef.current.splice(at, 0, blank()); notesRef.current.splice(cur + 1, 0, ''); sectionsRef.current.splice(cur + 1, 0, null); transitionsRef.current.splice(cur + 1, 0, transitionsRef.current[cur] ?? 'fade'); transDursRef.current.splice(cur + 1, 0, transDursRef.current[cur] ?? DEFAULT_TRANS_DUR); advanceRef.current.splice(cur + 1, 0, 0); sync(); loadInto(cur + 1); }
   // Reutilizar diapositivas: inserta una copia (de este mazo u otro importado)
   // después de la actual, conservando su formato/notas/transición.
   function openReuse() { if (masterModeRef.current) return; capture(); setReuseOpen(true); }
@@ -1402,6 +1506,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
     if (masterModeRef.current) return;
     capture();
     const at = curRef.current + 1;
+    shiftCommentsForInsert(at);
     slidesRef.current.splice(at, 0, JSON.parse(JSON.stringify(item.slide)));
     notesRef.current.splice(at, 0, item.note || '');
     sectionsRef.current.splice(at, 0, null);
@@ -1410,8 +1515,8 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
     advanceRef.current.splice(at, 0, 0);
     sync(); loadInto(at);
   }
-  function dupSlide() { if (masterModeRef.current) return; capture(); slidesRef.current.splice(cur + 1, 0, JSON.parse(JSON.stringify(slidesRef.current[cur]))); notesRef.current.splice(cur + 1, 0, notesRef.current[cur] ?? ''); sectionsRef.current.splice(cur + 1, 0, null); transitionsRef.current.splice(cur + 1, 0, transitionsRef.current[cur] ?? 'fade'); transDursRef.current.splice(cur + 1, 0, transDursRef.current[cur] ?? DEFAULT_TRANS_DUR); advanceRef.current.splice(cur + 1, 0, advanceRef.current[cur] ?? 0); sync(); loadInto(cur + 1); }
-  function delSlide(i: number) { if (masterModeRef.current || slidesRef.current.length === 1) return; capture(); slidesRef.current.splice(i, 1); notesRef.current.splice(i, 1); sectionsRef.current.splice(i, 1); transitionsRef.current.splice(i, 1); transDursRef.current.splice(i, 1); advanceRef.current.splice(i, 1); sync(); loadInto(Math.max(0, i <= cur ? cur - 1 : cur)); }
+  function dupSlide() { if (masterModeRef.current) return; capture(); const at = cur + 1; shiftCommentsForInsert(at); const copiedComments = commentsRef.current.filter((c) => c.slide === cur).map((c) => ({ ...c, id: `c-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`, slide: at, objectId: undefined, objectLabel: undefined, resolved: false, createdAt: Date.now() })); commentsRef.current = [...copiedComments, ...commentsRef.current]; slidesRef.current.splice(cur + 1, 0, JSON.parse(JSON.stringify(slidesRef.current[cur]))); notesRef.current.splice(cur + 1, 0, notesRef.current[cur] ?? ''); sectionsRef.current.splice(cur + 1, 0, null); transitionsRef.current.splice(cur + 1, 0, transitionsRef.current[cur] ?? 'fade'); transDursRef.current.splice(cur + 1, 0, transDursRef.current[cur] ?? DEFAULT_TRANS_DUR); advanceRef.current.splice(cur + 1, 0, advanceRef.current[cur] ?? 0); sync(); loadInto(cur + 1); }
+  function delSlide(i: number) { if (masterModeRef.current || slidesRef.current.length === 1) return; capture(); removeCommentsForSlide(i); slidesRef.current.splice(i, 1); notesRef.current.splice(i, 1); sectionsRef.current.splice(i, 1); transitionsRef.current.splice(i, 1); transDursRef.current.splice(i, 1); advanceRef.current.splice(i, 1); sync(); loadInto(Math.max(0, i <= cur ? cur - 1 : cur)); }
   function reorderSlides(from: number, to: number) {
     if (from === to || masterModeRef.current) return;
     capture();
@@ -1421,6 +1526,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
     const [mt] = transitionsRef.current.splice(from, 1); transitionsRef.current.splice(to, 0, mt);
     const [md] = transDursRef.current.splice(from, 1); transDursRef.current.splice(to, 0, md);
     const [ma] = advanceRef.current.splice(from, 1); advanceRef.current.splice(to, 0, ma);
+    reorderCommentsForSlides(from, to);
     sync(); loadInto(to);
   }
   // ── Secciones (marcas paralelas a las diapositivas) ─────────────────────────
@@ -1539,6 +1645,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
             <RibbonSeparator />
             <RibbonGroup label="Edición">
               <RibbonButton icon={Search} label="Buscar y reemplazar" shortcut="Ctrl+H" onClick={() => { capture(); setFindOpen(true); }} />
+              <RibbonButton icon={StickyNote} label="Comentarios" active={showComments} onClick={() => setShowComments((v) => !v)} />
               <RibbonButton icon={CopyPlus} label="Duplicar elemento" shortcut="Ctrl+D" onClick={dupObj} />
               <RibbonButton icon={Trash2} label="Eliminar elemento" danger onClick={del} />
             </RibbonGroup>
@@ -1836,6 +1943,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
           <RibbonGroup label="Mostrar">
             <RibbonButton icon={Grid3x3} label="Cuadrícula" active={showGrid} onClick={() => setShowGrid((g) => !g)} />
             {!readOnly && <RibbonButton icon={Layers} label="Panel de selección" active={showLayers} onClick={() => { setShowLayers((v) => !v); setShowAnimPanel(false); }} />}
+            <RibbonButton icon={StickyNote} label="Comentarios" active={showComments} onClick={() => setShowComments((v) => !v)} />
           </RibbonGroup>
           <RibbonSeparator />
           <RibbonGroup label="Zoom">
@@ -1938,6 +2046,19 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions }: { value
         )}
         {showLayers && !readOnly && (
           <SlideLayersPanel items={layerList} activeIdx={activeIdx} onSelect={selectByIndex} onToggleVisible={toggleVisibleIdx} onToggleLock={toggleLockIdx} onForward={forwardIdx} onBackward={backwardIdx} onFront={frontIdx} onBack={backIdx} onReorder={reorderObject} onClose={() => setShowLayers(false)} />
+        )}
+        {showComments && (
+          <SlideCommentsPanel
+            comments={comments}
+            slide={cur}
+            readOnly={readOnly}
+            selectedLabel={selectedCommentLabel}
+            canCommentObject={hasSel && selCount === 1}
+            onAdd={addComment}
+            onResolve={resolveComment}
+            onDelete={deleteComment}
+            onClose={() => setShowComments(false)}
+          />
         )}
       </div>
 
@@ -2157,7 +2278,9 @@ function Present({
   // negro y navegador de miniaturas.
   const [tool, setTool] = useState<'none' | 'laser' | 'pen'>('none');
   const [blacked, setBlacked] = useState(false);
+  const [whited, setWhited] = useState(false);
   const [gridNav, setGridNav] = useState(false);
+  const [navQuery, setNavQuery] = useState('');
   const [laser, setLaser] = useState<{ x: number; y: number } | null>(null);
   const [ink, setInk] = useState<Record<number, number[][]>>({});
   // Paso de animación revelado (construcción por clic, tipo PowerPoint). Se
@@ -2214,23 +2337,26 @@ function Present({
     const onKey = (e: KeyboardEvent) => {
       const k = e.key.toLowerCase();
       if (e.key === 'ArrowRight' || e.key === ' ') {
-        setBlacked(false);
+        setBlacked(false); setWhited(false);
         if (revealedRef.current < maxStepRef.current) setReveal({ i: iRef.current, step: revealedRef.current + 1 });
         else if (previewOneRef.current) setReveal({ i: iRef.current, step: 0 }); // reinicia la vista previa
         else { setDir(1); setI((v) => (v < slides.length - 1 ? v + 1 : (loopRef.current ? 0 : v))); }
       }
       if (e.key === 'ArrowLeft') {
-        setBlacked(false);
+        setBlacked(false); setWhited(false);
         if (revealedRef.current > 0) setReveal({ i: iRef.current, step: Math.max(0, revealedRef.current - 1) });
         else if (!previewOneRef.current) { setDir(-1); setI((v) => Math.max(0, v - 1)); }
       }
       if (k === 'n') setShowNotes((v) => !v);
-      if (k === 'b') setBlacked((v) => !v);
+      if (k === 'b') { setWhited(false); setBlacked((v) => !v); }
+      if (k === 'w') { setBlacked(false); setWhited((v) => !v); }
       if (k === 'l') setTool((t) => (t === 'laser' ? 'none' : 'laser'));
       if (k === 'p') setTool((t) => (t === 'pen' ? 'none' : 'pen'));
       if (k === 'e') setInk((p) => ({ ...p, [iRef.current]: [] }));
-      if (k === 'g') setGridNav((v) => !v);
+      if (k === 'g' || k === '/') setGridNav((v) => !v);
       if (k === 'k') setPaused((v) => !v);
+      if (e.key === 'Home' && !previewOneRef.current) { setDir(-1); setI(0); setReveal({ i: 0, step: 0 }); }
+      if (e.key === 'End' && !previewOneRef.current) { const last = slides.length - 1; setDir(1); setI(last); setReveal({ i: last, step: 0 }); }
       if (e.key === 'Escape') { if (gridRef.current) setGridNav(false); else onClose(); }
     };
     window.addEventListener('keydown', onKey);
@@ -2271,7 +2397,7 @@ function Present({
   // la siguiente diapositiva; se rearma con cada cambio para no atascarse en
   // diapositivas con construcciones «al hacer clic». Respeta el bucle.
   useEffect(() => {
-    if (presenter || paused || blacked || gridNav) return;
+    if (presenter || paused || blacked || whited || gridNav) return;
     const sec = advanceAfters?.[i] || 0;
     if (sec <= 0) return;
     const t = setTimeout(() => {
@@ -2280,8 +2406,10 @@ function Present({
       else setI((v) => (v < slides.length - 1 ? v + 1 : (loop ? 0 : v)));
     }, sec * 1000);
     return () => clearTimeout(t);
-  }, [i, revealed, maxStep, paused, blacked, gridNav, presenter, advanceAfters, loop, slides.length]);
+  }, [i, revealed, maxStep, paused, blacked, whited, gridNav, presenter, advanceAfters, loop, slides.length]);
 
+  const navMatches = decks.map((d, j) => ({ d, j, label: labelOf(slides[j]) || `Diapositiva ${j + 1}`, note: notes?.[j] || '' }))
+    .filter((x) => !navQuery.trim() || `${x.label} ${x.note}`.toLowerCase().includes(navQuery.trim().toLowerCase()));
   const curTrans = transitions?.[i] || transition || 'fade';
   const stage = (
     <div className="relative w-full h-full flex items-center justify-center overflow-hidden" style={{ perspective: DIRECTIONAL.has(curTrans) || curTrans === 'flip' ? 1600 : undefined }}>
@@ -2394,7 +2522,8 @@ function Present({
         <button onClick={() => setTool((t) => (t === 'laser' ? 'none' : 'laser'))} title="Puntero láser (L)" className={`p-2 rounded-full text-white transition-colors ${tool === 'laser' ? 'bg-rose-500/90' : 'bg-white/15 hover:bg-white/30'}`}><Pointer className="w-5 h-5" /></button>
         <button onClick={() => setTool((t) => (t === 'pen' ? 'none' : 'pen'))} title="Lápiz (P)" className={`p-2 rounded-full text-white transition-colors ${tool === 'pen' ? 'bg-rose-500/90' : 'bg-white/15 hover:bg-white/30'}`}><Pencil className="w-5 h-5" /></button>
         <button onClick={clearInk} title="Borrar tinta (E)" className="p-2 rounded-full bg-white/15 text-white hover:bg-white/30"><Eraser className="w-5 h-5" /></button>
-        <button onClick={() => setBlacked((v) => !v)} title="Pantalla en negro (B)" className={`p-2 rounded-full text-white transition-colors ${blacked ? 'bg-rose-500/90' : 'bg-white/15 hover:bg-white/30'}`}><Moon className="w-5 h-5" /></button>
+        <button onClick={() => { setWhited(false); setBlacked((v) => !v); }} title="Pantalla en negro (B)" className={`p-2 rounded-full text-white transition-colors ${blacked ? 'bg-rose-500/90' : 'bg-white/15 hover:bg-white/30'}`}><Moon className="w-5 h-5" /></button>
+        <button onClick={() => { setBlacked(false); setWhited((v) => !v); }} title="Pantalla en blanco (W)" className={`p-2 rounded-full transition-colors ${whited ? 'bg-white text-black' : 'bg-white/15 hover:bg-white/30 text-white'}`}><SunMedium className="w-5 h-5" /></button>
         <button onClick={() => setGridNav((v) => !v)} title="Miniaturas (G)" className={`p-2 rounded-full text-white transition-colors ${gridNav ? 'bg-rose-500/90' : 'bg-white/15 hover:bg-white/30'}`}><LayoutGrid className="w-5 h-5" /></button>
         {hasAuto && (
           <button onClick={() => setPaused((v) => !v)} title={paused ? 'Reanudar avance automático (K)' : 'Pausar avance automático (K)'} className={`p-2 rounded-full text-white transition-colors ${paused ? 'bg-amber-500/80' : 'bg-white/15 hover:bg-white/30'}`}>{paused ? <Play className="w-5 h-5" /> : <Pause className="w-5 h-5" />}</button>
@@ -2424,18 +2553,27 @@ function Present({
         )}
       </div>
 
-      {/* Pantalla en negro. */}
+      {/* Pantalla en negro / blanco. */}
       {blacked && <div className="absolute inset-0 z-40 bg-black" onClick={() => setBlacked(false)} />}
+      {whited && <div className="absolute inset-0 z-40 bg-white" onClick={() => setWhited(false)} />}
 
       {/* Navegador de miniaturas. */}
       {gridNav && (
         <div className="absolute inset-0 z-40 bg-black/85 backdrop-blur-sm overflow-y-auto p-8" onClick={() => setGridNav(false)}>
+          <div className="max-w-6xl mx-auto mb-5 flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
+              <input autoFocus value={navQuery} onChange={(e) => setNavQuery(e.target.value)} placeholder="Buscar diapositiva por título o notas…" className="w-full h-10 rounded-xl bg-white/10 border border-white/15 pl-9 pr-3 text-sm text-white placeholder:text-white/35 outline-none focus:border-white/40" />
+            </div>
+            <span className="text-xs text-white/50">{navMatches.length} resultado(s)</span>
+          </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 max-w-6xl mx-auto" onClick={(e) => e.stopPropagation()}>
-            {decks.map((d, j) => (
+            {navMatches.map(({ d, j, label }) => (
               <button key={j} onClick={() => { setI(j); setGridNav(false); }}
                 className={`relative rounded-xl overflow-hidden border-2 transition-all ${j === i ? 'border-rose-500 scale-[1.02]' : 'border-white/15 hover:border-white/40'}`} style={{ aspectRatio: aspect }}>
                 <StaticDeck deck={d} master={master} />
                 <span className="absolute top-1.5 left-2 text-xs font-bold text-white bg-black/50 rounded px-1.5">{j + 1}</span>
+                <span className="absolute left-2 right-2 bottom-2 text-[11px] font-semibold text-white text-left bg-black/55 rounded px-2 py-1 truncate">{label}</span>
               </button>
             ))}
           </div>

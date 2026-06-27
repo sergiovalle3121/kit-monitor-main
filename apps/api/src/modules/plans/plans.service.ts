@@ -1,6 +1,11 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository, SelectQueryBuilder, In, Brackets } from 'typeorm';
+import { DataSource, ObjectLiteral, Repository, SelectQueryBuilder, In, Brackets } from 'typeorm';
+import { TenantContextService } from '../../common/tenant/tenant-context.service';
+import {
+  TenantScopedRepository,
+  getTenantRepositoryToken,
+} from '../../common/tenant/tenant-scoped.repository';
 import { EnterpriseProgram } from '../enterprise-campus/entities/enterprise-program.entity';
 import { EnterpriseLine } from '../enterprise-campus/entities/enterprise-line.entity';
 import { Plan } from './entities/plan.entity';
@@ -19,10 +24,10 @@ import { deriveReadiness, ReadinessDemandLine, ReadinessSummary } from '@axos/co
 @Injectable()
 export class PlansService {
   constructor(
-    @InjectRepository(Plan)
-    private readonly repo: Repository<Plan>,
-    @InjectRepository(LineCapacity)
-    private readonly capacityRepo: Repository<LineCapacity>,
+    @Inject(getTenantRepositoryToken(Plan))
+    private readonly repo: TenantScopedRepository<Plan>,
+    @Inject(getTenantRepositoryToken(LineCapacity))
+    private readonly capacityRepo: TenantScopedRepository<LineCapacity>,
     @InjectRepository(EnterpriseProgram) private readonly programRepo: Repository<EnterpriseProgram>,
     @InjectRepository(EnterpriseLine) private readonly lineRepo: Repository<EnterpriseLine>,
     @InjectRepository(InventoryPosition) private readonly positionRepo: Repository<InventoryPosition>,
@@ -31,12 +36,24 @@ export class PlansService {
     private readonly quality: QualityService,
     private readonly audit: AuditService,
     private readonly dataSource: DataSource,
+    private readonly tenantCtx: TenantContextService,
   ) {}
+
+  private applyScope<T extends ObjectLiteral>(
+    qb: SelectQueryBuilder<T>,
+    alias: string,
+  ): SelectQueryBuilder<T> {
+    const tenant = this.tenantCtx.getTenantId();
+    if (tenant) qb.andWhere(`${alias}.tenant_id = :tenant`, { tenant });
+    else qb.andWhere(`${alias}.tenant_id IS NULL`);
+    return qb;
+  }
 
   async findAll(filters?: { line?: string; model?: string; workOrder?: string; buildingId?: string; programId?: string }, user?: any): Promise<any[]> {
     const qb = this.repo.createQueryBuilder('plan')
       .leftJoinAndSelect('plan.kit', 'kit')
       .orderBy('plan.createdAt', 'DESC');
+    this.applyScope(qb, 'plan');
     await this.applyScopeToQb(qb, filters, user);
     const plans = await qb.getMany();
     return plans.map((plan) => this.serialize(plan));

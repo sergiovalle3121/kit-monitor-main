@@ -8,6 +8,7 @@ import { InventoryModule } from '../inventory/inventory.module';
 import { EventLedgerModule } from '../event-ledger/event-ledger.module';
 import { GovernanceModule } from '../governance/governance.module';
 import { NumberingModule } from '../numbering/numbering.module';
+import { provideTenantScopedRepository } from '../../common/tenant/tenant-scoped.repository';
 
 @Module({
   imports: [
@@ -18,6 +19,6 @@ import { NumberingModule } from '../numbering/numbering.module';
     NumberingModule,
   ],
   controllers: [ReceivingController],
-  providers: [ReceivingService],
+  providers: [ReceivingService, provideTenantScopedRepository(ReceivingEvent)],
 })
 export class ReceivingModule {}
