@@ -58,6 +58,16 @@ export class LineEngineeringController {
     return this.cadIntentService.interpret(dto.model, dto.revision ?? 'A', dto.prompt);
   }
 
+  @Get('layout/optimize-copilot')
+  @RequirePermissions('engineering:read')
+  @ApiOperation({
+    summary:
+      'Copiloto de optimización (Fase 72): el modelo propone un reacomodo (moveStation/arrangeLine) que baja el recorrido. Sugerencia, no auto-aplica.',
+  })
+  optimizeCopilot(@Query('model') model: string, @Query('revision') revision?: string) {
+    return this.cadIntentService.optimize(model, revision ?? 'A');
+  }
+
   @Get('stations')
   @RequirePermissions('engineering:read')
   @ApiOperation({ summary: 'Lista estaciones (layout) con filtros.' })
