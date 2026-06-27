@@ -79,3 +79,10 @@
 - Unsupported or malformed entities now produce warnings instead of throwing.
 - Added smoke coverage for line, rectangle inference, text, and unsupported entity warnings.
 - Pending: wire this richer primitive import into the existing DXF upload/backdrop workflow and expose warnings in the UI.
+
+## 2026-06-27 — DXF export baseline PR 11
+
+- Added a pure DXF exporter that writes R12-compatible HEADER/TABLES/ENTITIES sections for CAD primitives.
+- Export supports layers, lines, polylines, equipment rectangles, text labels, and measurement lines/labels without backend changes.
+- Added smoke coverage for headers, layer tables, primitives, measurements, entity counting, and EOF termination.
+- Pending: map live editor stations/assets/connectors/measurements into this exporter and add an explicit UI download action.

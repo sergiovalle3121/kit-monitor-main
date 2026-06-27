@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -22,12 +22,22 @@ import {
   Wrench,
   Hand,
   Image as ImageIcon,
-  FileText,
   Wifi,
   WifiOff,
   Activity,
   Sun,
   Moon,
+  Keyboard,
+  QrCode,
+  BluetoothConnected,
+  Usb,
+  History,
+  Volume2,
+  Maximize2,
+  Minimize2,
+  ExternalLink,
+  BookOpenCheck,
+  PlaySquare,
 } from "lucide-react";
 import { glass } from "@/lib/glass";
 import { useApi } from "@/hooks/useApi";
@@ -91,11 +101,14 @@ interface Material {
   short: boolean;
 }
 interface VisualAid {
-  kind: "image" | "pdf" | "office";
+  kind: "image" | "pdf" | "office" | "video" | "cad";
   id: string;
   title?: string;
   fileUrl?: string;
   documentUrl?: string;
+  version?: string;
+  revision?: string;
+  updatedAt?: string;
 }
 interface Incident {
   id: number;
@@ -206,6 +219,215 @@ function formatDuration(sec: number) {
   const h = Math.floor(safe / 3600);
   const m = Math.floor((safe % 3600) / 60);
   return h > 0 ? `${h}h ${m}m` : `${m}m`;
+}
+
+type ScanKind =
+  | "wo"
+  | "serial"
+  | "lot"
+  | "material"
+  | "qr"
+  | "datamatrix"
+  | "code128";
+type ScanState = "idle" | "reading" | "valid" | "invalid";
+
+interface ScanResult {
+  raw: string;
+  normalized: string;
+  kind: ScanKind;
+  valid: boolean;
+  message: string;
+  at: string;
+}
+
+const SCANNER_BUFFER_TIMEOUT_MS = 75;
+const SCAN_HISTORY_LIMIT = 6;
+
+function classifyScan(raw: string): Omit<ScanResult, "at"> {
+  const normalized = raw.trim();
+  const upper = normalized.toUpperCase();
+  if (!normalized) {
+    return {
+      raw,
+      normalized,
+      kind: "code128",
+      valid: false,
+      message: "Escaneo vacío. Intenta de nuevo.",
+    };
+  }
+  if (/^WO[-_:\s]?[A-Z0-9-]{3,}$/i.test(upper) || /^[0-9]{5,}$/.test(upper)) {
+    return {
+      raw,
+      normalized: upper.replace(/^WO[-_:\s]?/i, ""),
+      kind: "wo",
+      valid: true,
+      message: "WO detectada y lista para montar.",
+    };
+  }
+  if (/^(SN|SERIAL)[-_:\s]?[A-Z0-9-]{4,}$/i.test(upper)) {
+    return {
+      raw,
+      normalized: upper.replace(/^(SN|SERIAL)[-_:\s]?/i, "SN-"),
+      kind: "serial",
+      valid: true,
+      message: "Número de serie capturado.",
+    };
+  }
+  if (/^(LOT|LOTE)[-_:\s]?[A-Z0-9-]{3,}$/i.test(upper)) {
+    return {
+      raw,
+      normalized: upper.replace(/^(LOT|LOTE)[-_:\s]?/i, "LOT-"),
+      kind: "lot",
+      valid: true,
+      message: "Lote detectado para trazabilidad.",
+    };
+  }
+  if (/^(MAT|PN|MPN)[-_:\s]?[A-Z0-9_.-]{3,}$/i.test(upper)) {
+    return {
+      raw,
+      normalized: upper.replace(/^(MAT|PN|MPN)[-_:\s]?/i, ""),
+      kind: "material",
+      valid: true,
+      message: "Material detectado.",
+    };
+  }
+  if (/^\]C1/.test(normalized)) {
+    return {
+      raw,
+      normalized: normalized.slice(3),
+      kind: "code128",
+      valid: true,
+      message: "Code128 GS1 capturado.",
+    };
+  }
+  if (
+    /^\]D2/.test(normalized) ||
+    normalized.includes(String.fromCharCode(29))
+  ) {
+    return {
+      raw,
+      normalized: normalized
+        .replace(/^\]D2/, "")
+        .replaceAll(String.fromCharCode(29), "|"),
+      kind: "datamatrix",
+      valid: true,
+      message: "DataMatrix capturado.",
+    };
+  }
+  if (/^https?:\/\//i.test(normalized) || /^[A-Z0-9]{12,}$/.test(upper)) {
+    return {
+      raw,
+      normalized,
+      kind: "qr",
+      valid: true,
+      message: "QR capturado.",
+    };
+  }
+  return {
+    raw,
+    normalized,
+    kind: "code128",
+    valid: normalized.length >= 3,
+    message:
+      normalized.length >= 3
+        ? "Código capturado; valida que corresponda al campo activo."
+        : "Código demasiado corto para validación industrial.",
+  };
+}
+
+function scannerTone(ok: boolean) {
+  if (typeof window === "undefined") return;
+  try {
+    const AudioContextCtor = window.AudioContext;
+    if (!AudioContextCtor) return;
+    const ctx = new AudioContextCtor();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.frequency.value = ok ? 880 : 220;
+    gain.gain.value = 0.04;
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + (ok ? 0.07 : 0.16));
+  } catch {
+    // Audio feedback is best-effort; scanner validation still works without it.
+  }
+}
+
+function useIndustrialScanner(onScan: (scan: ScanResult) => void) {
+  const [scannerState, setScannerState] = useState<ScanState>("idle");
+  const [lastScan, setLastScan] = useState<ScanResult | null>(null);
+  const [scanHistory, setScanHistory] = useState<ScanResult[]>([]);
+  const bufferRef = useRef("");
+  const timerRef = useRef<number | null>(null);
+  const onScanRef = useRef(onScan);
+
+  useEffect(() => {
+    onScanRef.current = onScan;
+  }, [onScan]);
+
+  const commitScan = useCallback((raw: string) => {
+    const result: ScanResult = {
+      ...classifyScan(raw),
+      at: new Date().toISOString(),
+    };
+    setLastScan(result);
+    setScannerState(result.valid ? "valid" : "invalid");
+    setScanHistory((prev) => [result, ...prev].slice(0, SCAN_HISTORY_LIMIT));
+    scannerTone(result.valid);
+    if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+      navigator.vibrate(result.valid ? 25 : [40, 40, 80]);
+    }
+    if (result.valid) onScanRef.current(result);
+    window.setTimeout(() => setScannerState("idle"), 900);
+  }, []);
+
+  useEffect(() => {
+    function flushBuffer() {
+      const value = bufferRef.current;
+      bufferRef.current = "";
+      if (value.length >= 3) commitScan(value);
+      else setScannerState("idle");
+    }
+
+    function onKeyDown(event: KeyboardEvent) {
+      const target = event.target as HTMLElement | null;
+      const isEditable =
+        target?.tagName === "INPUT" ||
+        target?.tagName === "TEXTAREA" ||
+        target?.isContentEditable;
+      if (isEditable && !event.ctrlKey && !event.metaKey) return;
+      if (event.key === "Enter") {
+        if (bufferRef.current) {
+          event.preventDefault();
+          flushBuffer();
+        }
+        return;
+      }
+      if (
+        event.key.length !== 1 ||
+        event.altKey ||
+        event.ctrlKey ||
+        event.metaKey
+      )
+        return;
+      bufferRef.current += event.key;
+      setScannerState("reading");
+      if (timerRef.current) window.clearTimeout(timerRef.current);
+      timerRef.current = window.setTimeout(
+        flushBuffer,
+        SCANNER_BUFFER_TIMEOUT_MS,
+      );
+    }
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      if (timerRef.current) window.clearTimeout(timerRef.current);
+    };
+  }, [commitScan]);
+
+  return { scannerState, lastScan, scanHistory, commitScan };
 }
 
 export default function OperadorPage() {
@@ -370,39 +592,56 @@ function Picker({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
+  const openByValue = useCallback(
+    async (rawValue: string) => {
+      const classified = classifyScan(rawValue);
+      const value =
+        classified.kind === "wo" ? classified.normalized : rawValue.trim();
+      if (!value) return;
+      setWo(value);
+      setBusy(true);
+      setError(null);
+      try {
+        // Try an already-open execution first, else open a new one from the plan.
+        let res = await apiFetch(
+          `${API_BASE}/mes/board?workOrder=${encodeURIComponent(value)}`,
+        );
+        if (res.ok) {
+          const b = (await res.json()) as Board;
+          onPick(b.execution.id);
+          return;
+        }
+        res = await apiFetch(`${API_BASE}/mes/executions`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ workOrder: value }),
+        });
+        if (res.ok) {
+          const b = (await res.json()) as Board;
+          onPick(b.execution.id);
+        } else {
+          const j = (await res.json().catch(() => ({}))) as {
+            message?: string;
+          };
+          setError(j.message || `No se encontró la WO ${value}.`);
+        }
+      } catch {
+        setError("No se pudo contactar el backend.");
+      } finally {
+        setBusy(false);
+      }
+    },
+    [onPick],
+  );
+
+  const scanner = useIndustrialScanner((scan) => {
+    if (scan.kind === "wo") void openByValue(scan.normalized);
+    else setError(`${scan.message} Escanea una WO para montar la orden.`);
+  });
+
   async function openByWo(e: React.FormEvent) {
     e.preventDefault();
-    const value = wo.trim();
-    if (!value) return;
-    setBusy(true);
-    setError(null);
-    try {
-      // Try an already-open execution first, else open a new one from the plan.
-      let res = await apiFetch(
-        `${API_BASE}/mes/board?workOrder=${encodeURIComponent(value)}`,
-      );
-      if (res.ok) {
-        const b = (await res.json()) as Board;
-        onPick(b.execution.id);
-        return;
-      }
-      res = await apiFetch(`${API_BASE}/mes/executions`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ workOrder: value }),
-      });
-      if (res.ok) {
-        const b = (await res.json()) as Board;
-        onPick(b.execution.id);
-      } else {
-        const j = (await res.json().catch(() => ({}))) as { message?: string };
-        setError(j.message || `No se encontró la WO ${value}.`);
-      }
-    } catch {
-      setError("No se pudo contactar el backend.");
-    } finally {
-      setBusy(false);
-    }
+    await openByValue(wo);
   }
 
   return (
@@ -414,6 +653,13 @@ function Picker({
           activas en la línea.
         </p>
       </header>
+
+      <ScannerPanel
+        state={scanner.scannerState}
+        lastScan={scanner.lastScan}
+        history={scanner.scanHistory}
+        expected="wo"
+      />
 
       <form
         onSubmit={openByWo}
@@ -621,12 +867,11 @@ function BoardView({
               {currentStep ? `${STEP_META[currentStep.status].label}` : ""}
             </span>
           </div>
-          <VisualAidView aid={currentStepDetail?.visualAid ?? null} />
-          {currentStepDetail?.instructions && (
-            <p className="mt-3 text-sm text-gray-600 dark:text-gray-300 whitespace-pre-line">
-              {currentStepDetail.instructions}
-            </p>
-          )}
+          <WorkInstructionPanel
+            aid={currentStepDetail?.visualAid ?? null}
+            instructions={currentStepDetail?.instructions ?? null}
+            stepName={currentStepDetail?.name ?? "Estación"}
+          />
         </div>
 
         {/* Materials — live consumption */}
@@ -647,6 +892,11 @@ function BoardView({
           )}
         </div>
       </div>
+
+      <QualitySidePanel
+        board={board}
+        onOpenIncident={() => onOpenSheet("incident")}
+      />
 
       {/* Open incidents (quality can disposition here) */}
       {currentStepDetail && currentStepDetail.openIncidents.length > 0 && (
@@ -710,6 +960,114 @@ function BoardView({
       </div>
       <input type="hidden" value={`${operator}/${position ?? ""}`} readOnly />
     </div>
+  );
+}
+
+function ScannerPanel({
+  state,
+  lastScan,
+  history,
+  expected,
+  compact = false,
+}: {
+  state: ScanState;
+  lastScan: ScanResult | null;
+  history: ScanResult[];
+  expected: "wo" | "serial";
+  compact?: boolean;
+}) {
+  const stateMeta =
+    state === "reading"
+      ? { label: "Leyendo scanner…", color: AMBER }
+      : state === "valid"
+        ? { label: "Lectura válida", color: GREEN }
+        : state === "invalid"
+          ? { label: "Lectura inválida", color: RED }
+          : { label: "Scanner listo", color: GRAY };
+  return (
+    <section className={`${glass} rounded-3xl ${compact ? "p-3" : "p-4 mb-5"}`}>
+      <div className="flex flex-wrap items-center gap-3">
+        <div
+          className="w-12 h-12 rounded-2xl grid place-items-center text-white shadow-lg"
+          style={{ backgroundColor: stateMeta.color }}
+        >
+          <ScanLine className="w-6 h-6" />
+        </div>
+        <div className="mr-auto">
+          <div className="text-sm font-black">{stateMeta.label}</div>
+          <div className="text-xs text-gray-500 dark:text-gray-400">
+            Keyboard wedge · USB · Bluetooth · QR · DataMatrix · Code128
+          </div>
+        </div>
+        <ScannerCapability
+          icon={<Keyboard className="w-4 h-4" />}
+          label="Wedge"
+        />
+        <ScannerCapability icon={<Usb className="w-4 h-4" />} label="USB" />
+        <ScannerCapability
+          icon={<BluetoothConnected className="w-4 h-4" />}
+          label="BT"
+        />
+        <ScannerCapability icon={<QrCode className="w-4 h-4" />} label="2D" />
+        <ScannerCapability
+          icon={<Volume2 className="w-4 h-4" />}
+          label="Beep"
+        />
+      </div>
+      {lastScan && (
+        <div
+          className="mt-3 rounded-2xl border px-3 py-2 text-sm"
+          style={{ borderColor: `${lastScan.valid ? GREEN : RED}66` }}
+        >
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-mono font-black">{lastScan.normalized}</span>
+            <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">
+              {lastScan.kind}
+            </span>
+            <span
+              className={lastScan.valid ? "text-emerald-500" : "text-rose-500"}
+            >
+              {lastScan.message}
+            </span>
+          </div>
+          {expected === "wo" && lastScan.valid && lastScan.kind !== "wo" && (
+            <div className="mt-1 text-xs text-amber-500">
+              Código válido, pero esta zona espera una WO.
+            </div>
+          )}
+        </div>
+      )}
+      {!compact && history.length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
+          <span className="flex items-center gap-1 text-gray-500 font-bold">
+            <History className="w-3.5 h-3.5" /> Últimas lecturas
+          </span>
+          {history.map((item) => (
+            <span
+              key={`${item.at}-${item.raw}`}
+              className={`rounded-full px-2 py-1 font-mono ${item.valid ? "bg-emerald-500/10 text-emerald-600" : "bg-rose-500/10 text-rose-600"}`}
+            >
+              {item.normalized}
+            </span>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function ScannerCapability({
+  icon,
+  label,
+}: {
+  icon: React.ReactNode;
+  label: string;
+}) {
+  return (
+    <span className="min-h-9 px-3 rounded-2xl bg-white/10 flex items-center gap-1.5 text-xs font-black text-gray-600 dark:text-gray-200">
+      {icon}
+      {label}
+    </span>
   );
 }
 
@@ -929,45 +1287,195 @@ function ProductionPanel({
   );
 }
 
-function VisualAidView({ aid }: { aid: VisualAid | null }) {
-  if (!aid) {
+function resolveAidUrl(aid: VisualAid | null) {
+  if (!aid) return null;
+  const url = aid.fileUrl || aid.documentUrl || null;
+  if (!url) return null;
+  return url.startsWith("http") ? url : `${API_BASE}${url}`;
+}
+
+function visualAidMode(aid: VisualAid | null) {
+  const url = resolveAidUrl(aid)?.toLowerCase() ?? "";
+  if (!aid) return "empty" as const;
+  if (aid.kind === "video" || /\.(mp4|webm|mov)(\?|$)/.test(url))
+    return "video" as const;
+  if (aid.kind === "image" || /\.(png|jpe?g|gif|webp|svg)(\?|$)/.test(url))
+    return "image" as const;
+  if (aid.kind === "pdf" || /\.pdf(\?|$)/.test(url)) return "pdf" as const;
+  if (
+    aid.kind === "cad" ||
+    /\.(step|stp|iges|igs|dxf|dwg|stl|obj)(\?|$)/.test(url)
+  )
+    return "cad" as const;
+  return "office" as const;
+}
+
+function WorkInstructionPanel({
+  aid,
+  instructions,
+  stepName,
+}: {
+  aid: VisualAid | null;
+  instructions: string | null;
+  stepName: string;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const href = resolveAidUrl(aid);
+  const mode = visualAidMode(aid);
+  const version = aid?.version || aid?.revision || "versión vigente";
+  const container = expanded
+    ? "fixed inset-4 z-[60] rounded-[2rem] bg-slate-950/95 p-4 shadow-2xl"
+    : "";
+  return (
+    <div className={container}>
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <span className="flex items-center gap-2 text-sm font-black">
+          <BookOpenCheck className="w-4 h-4 text-amber-400" /> Instrucción de
+          trabajo
+        </span>
+        <span className="rounded-full bg-white/10 px-2 py-1 text-[10px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-300">
+          {mode === "empty" ? "sin archivo" : mode}
+        </span>
+        <span className="rounded-full bg-emerald-500/10 px-2 py-1 text-[10px] font-black uppercase tracking-widest text-emerald-600">
+          {version}
+        </span>
+        <span className="ml-auto text-[11px] font-semibold text-gray-500 dark:text-gray-400">
+          {stepName}
+        </span>
+        {href && (
+          <a
+            href={href}
+            target="_blank"
+            rel="noreferrer"
+            className="min-h-10 rounded-2xl bg-white/10 px-3 text-xs font-black flex items-center gap-1.5 hover:bg-white/15 transition-colors"
+          >
+            <ExternalLink className="w-4 h-4" /> Respaldo
+          </a>
+        )}
+        <button
+          onClick={() => setExpanded((v) => !v)}
+          className="min-h-10 rounded-2xl bg-white/10 px-3 text-xs font-black flex items-center gap-1.5 hover:bg-white/15 active:scale-95 transition-all"
+        >
+          {expanded ? (
+            <Minimize2 className="w-4 h-4" />
+          ) : (
+            <Maximize2 className="w-4 h-4" />
+          )}
+          {expanded ? "Compactar" : "Ampliar"}
+        </button>
+      </div>
+
+      <div
+        className={
+          expanded
+            ? "grid h-[calc(100%-3.5rem)] grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px] gap-4"
+            : "space-y-3"
+        }
+      >
+        <EmbeddedAid aid={aid} href={href} mode={mode} expanded={expanded} />
+        <div
+          className={`${expanded ? "overflow-y-auto rounded-3xl bg-white/5 p-4" : ""}`}
+        >
+          {instructions ? (
+            <div className="rounded-2xl bg-amber-500/10 p-4 text-sm leading-6 text-gray-700 dark:text-gray-200 whitespace-pre-line">
+              {instructions}
+            </div>
+          ) : (
+            <div className="rounded-2xl bg-white/5 p-4 text-sm text-gray-500">
+              No hay instrucciones textuales para este paso. Usa la ayuda visual
+              embebida o solicita ingeniería si falta el documento controlado.
+            </div>
+          )}
+          <div className="mt-3 grid grid-cols-3 gap-2 text-center text-[10px] font-black uppercase tracking-widest text-gray-500">
+            <div className="rounded-2xl bg-white/5 p-2">Controlado</div>
+            <div className="rounded-2xl bg-white/5 p-2">Embebido</div>
+            <div className="rounded-2xl bg-white/5 p-2">
+              Sin cambio de pantalla
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function EmbeddedAid({
+  aid,
+  href,
+  mode,
+  expanded,
+}: {
+  aid: VisualAid | null;
+  href: string | null;
+  mode: ReturnType<typeof visualAidMode>;
+  expanded: boolean;
+}) {
+  const frameClass = expanded
+    ? "h-full min-h-[480px]"
+    : "aspect-video max-h-[420px]";
+  if (!aid || !href) {
     return (
-      <div className="aspect-video rounded-2xl bg-gray-100 dark:bg-white/5 grid place-items-center text-gray-400 text-sm">
-        <div className="flex flex-col items-center gap-2">
+      <div
+        className={`${frameClass} rounded-2xl bg-gray-100 dark:bg-white/5 grid place-items-center text-gray-400 text-sm`}
+      >
+        <div className="flex flex-col items-center gap-2 text-center">
           <ImageIcon className="w-7 h-7" />
           Sin ayuda visual ligada a este paso
         </div>
       </div>
     );
   }
-  if (aid.kind === "image" && aid.fileUrl) {
+  if (mode === "image") {
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img
-        src={`${API_BASE}${aid.fileUrl}`}
+        src={href}
         alt={aid.title || "Ayuda visual"}
-        className="w-full max-h-[360px] object-contain rounded-2xl bg-gray-50 dark:bg-white/5"
+        className={`${frameClass} w-full object-contain rounded-2xl bg-gray-50 dark:bg-white/5`}
       />
     );
   }
-  const href =
-    aid.kind === "pdf" && aid.fileUrl
-      ? `${API_BASE}${aid.fileUrl}`
-      : aid.documentUrl
-        ? `${API_BASE}${aid.documentUrl}`
-        : "#";
-  return (
-    <a
-      href={href}
-      target="_blank"
-      rel="noreferrer"
-      className="aspect-video rounded-2xl bg-gray-100 dark:bg-white/5 grid place-items-center text-amber-600 text-sm font-semibold hover:bg-gray-200 dark:hover:bg-white/10 transition-colors"
-    >
-      <div className="flex flex-col items-center gap-2">
-        <FileText className="w-7 h-7" />
-        Abrir {aid.kind === "pdf" ? "PDF" : "presentación"}
+  if (mode === "video") {
+    return (
+      <video
+        src={href}
+        controls
+        playsInline
+        className={`${frameClass} w-full rounded-2xl bg-black object-contain`}
+      />
+    );
+  }
+  if (mode === "cad") {
+    return (
+      <div
+        className={`${frameClass} rounded-2xl bg-slate-900 grid place-items-center p-6 text-center text-slate-200`}
+      >
+        <div className="max-w-md space-y-3">
+          <PlaySquare className="mx-auto w-9 h-9 text-amber-400" />
+          <div className="text-lg font-black">CAD / modelo técnico ligado</div>
+          <p className="text-sm text-slate-400">
+            El visor 3D embebido requiere el contrato de CAD del siguiente
+            slice; el archivo queda disponible aquí sin abandonar la terminal.
+          </p>
+          <a
+            href={href}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex min-h-11 items-center rounded-2xl bg-amber-400 px-4 text-sm font-black text-slate-950"
+          >
+            Abrir archivo controlado
+          </a>
+        </div>
       </div>
-    </a>
+    );
+  }
+  return (
+    <iframe
+      title={aid.title || "Ayuda visual embebida"}
+      src={href}
+      className={`${frameClass} w-full rounded-2xl border border-white/10 bg-white`}
+      loading="lazy"
+    />
   );
 }
 
@@ -998,6 +1506,139 @@ function MaterialRow({ m }: { m: Material }) {
       {m.description && (
         <div className="text-[11px] text-gray-400 mt-0.5">{m.description}</div>
       )}
+    </div>
+  );
+}
+
+function QualitySidePanel({
+  board,
+  onOpenIncident,
+}: {
+  board: Board;
+  onOpenIncident: () => void;
+}) {
+  const incidents = board.currentStepDetail?.openIncidents ?? [];
+  const scrap = board.steps.reduce((sum, step) => sum + step.scrapQty, 0);
+  const rework = board.steps.reduce((sum, step) => sum + step.segregatedQty, 0);
+  const blocking = incidents.filter((incident) => incident.blocksFlow).length;
+  const evidenceReady = incidents.filter(
+    (incident) => !!incident.description,
+  ).length;
+  return (
+    <aside className={`${glass} mt-5 rounded-3xl p-5`}>
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="w-12 h-12 rounded-2xl bg-rose-500/15 text-rose-500 grid place-items-center">
+          <ShieldAlert className="w-6 h-6" />
+        </div>
+        <div className="mr-auto">
+          <h3 className="text-lg font-black tracking-tight">
+            Calidad en línea
+          </h3>
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            Defectos, scrap, retrabajo, evidencia, firma y NCR rápido desde la
+            estación.
+          </p>
+        </div>
+        <button
+          onClick={onOpenIncident}
+          className="min-h-14 rounded-2xl bg-rose-500 px-5 text-sm font-black text-white hover:bg-rose-600 active:scale-95 transition-all"
+        >
+          + Defecto / NCR
+        </button>
+      </div>
+
+      <div className="mt-4 grid grid-cols-2 md:grid-cols-5 gap-3">
+        <QualityMetric
+          label="Defectos abiertos"
+          value={incidents.length}
+          tone={incidents.length ? "red" : "green"}
+        />
+        <QualityMetric
+          label="Bloqueos"
+          value={blocking}
+          tone={blocking ? "red" : "green"}
+        />
+        <QualityMetric
+          label="Scrap"
+          value={scrap}
+          tone={scrap ? "amber" : "green"}
+        />
+        <QualityMetric
+          label="Retrabajo"
+          value={rework}
+          tone={rework ? "amber" : "green"}
+        />
+        <QualityMetric
+          label="Evidencias"
+          value={evidenceReady}
+          tone={evidenceReady ? "green" : "neutral"}
+        />
+      </div>
+
+      <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+        <QualityChecklistItem
+          done={incidents.length > 0}
+          label="Defecto clasificado"
+        />
+        <QualityChecklistItem
+          done={evidenceReady > 0}
+          label="Comentario / evidencia capturada"
+        />
+        <QualityChecklistItem
+          done={blocking === 0}
+          label="Flujo liberado o NCR bloqueante visible"
+        />
+      </div>
+    </aside>
+  );
+}
+
+function QualityMetric({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: number;
+  tone: "green" | "amber" | "red" | "neutral";
+}) {
+  const color =
+    tone === "green"
+      ? GREEN
+      : tone === "amber"
+        ? AMBER
+        : tone === "red"
+          ? RED
+          : GRAY;
+  return (
+    <div className="rounded-3xl bg-white/5 p-4 border border-white/10">
+      <div className="text-[10px] font-black uppercase tracking-widest text-gray-500">
+        {label}
+      </div>
+      <div className="mt-2 text-3xl font-black tabular-nums" style={{ color }}>
+        {value}
+      </div>
+    </div>
+  );
+}
+
+function QualityChecklistItem({
+  done,
+  label,
+}: {
+  done: boolean;
+  label: string;
+}) {
+  return (
+    <div
+      className={`rounded-2xl px-3 py-2 font-bold flex items-center gap-2 ${done ? "bg-emerald-500/10 text-emerald-600" : "bg-amber-500/10 text-amber-600"}`}
+    >
+      {done ? (
+        <CheckCircle2 className="w-4 h-4" />
+      ) : (
+        <AlertTriangle className="w-4 h-4" />
+      )}
+      {label}
     </div>
   );
 }
@@ -1170,6 +1811,14 @@ function ConfirmForm({
   const [serial, setSerial] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const scanner = useIndustrialScanner((scan) => {
+    if (["serial", "qr", "datamatrix", "code128"].includes(scan.kind)) {
+      setSerial(scan.normalized);
+      setError(null);
+    } else {
+      setError(`${scan.message} Se esperaba serial, QR, DataMatrix o Code128.`);
+    }
+  });
 
   async function submit() {
     setBusy(true);
@@ -1221,6 +1870,13 @@ function ConfirmForm({
           value={scrap}
           setValue={setScrap}
           min={0}
+        />
+        <ScannerPanel
+          state={scanner.scannerState}
+          lastScan={scanner.lastScan}
+          history={scanner.scanHistory}
+          expected="serial"
+          compact
         />
         <div>
           <label className="text-xs font-semibold uppercase tracking-wider text-gray-500 flex items-center gap-1.5">
@@ -1284,10 +1940,23 @@ function IncidentForm({
   const [qty, setQty] = useState(1);
   const [blocks, setBlocks] = useState(false);
   const [desc, setDesc] = useState("");
+  const [evidenceNote, setEvidenceNote] = useState("");
+  const [signature, setSignature] = useState(operator);
+  const [quickNcr, setQuickNcr] = useState(false);
+  const [photoNames, setPhotoNames] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const toast = useToast();
 
   async function submit() {
+    const evidence = [
+      desc.trim(),
+      evidenceNote.trim() ? `Evidencia: ${evidenceNote.trim()}` : "",
+      photoNames.length ? `Fotos: ${photoNames.join(", ")}` : "",
+      signature.trim() ? `Firma operador/calidad: ${signature.trim()}` : "",
+      quickNcr ? "NCR rápido solicitado desde terminal." : "",
+    ]
+      .filter(Boolean)
+      .join("\n");
     setBusy(true);
     try {
       const res = await apiFetch(
@@ -1300,7 +1969,7 @@ function IncidentForm({
             severity,
             qtyAffected: qty,
             blocksFlow: blocks,
-            description: desc.trim() || undefined,
+            description: evidence || undefined,
             operator,
           }),
         },
@@ -1364,9 +2033,50 @@ function IncidentForm({
         <textarea
           value={desc}
           onChange={(e) => setDesc(e.target.value)}
-          placeholder="Descripción (opcional)"
+          placeholder="Descripción del defecto"
           rows={2}
           className="w-full bg-gray-100 dark:bg-white/5 rounded-2xl px-4 py-3 outline-none text-sm"
+        />
+        <textarea
+          value={evidenceNote}
+          onChange={(e) => setEvidenceNote(e.target.value)}
+          placeholder="Evidencia / comentarios de calidad (opcional)"
+          rows={2}
+          className="w-full bg-gray-100 dark:bg-white/5 rounded-2xl px-4 py-3 outline-none text-sm"
+        />
+        <label className="block rounded-2xl border border-dashed border-gray-300 dark:border-white/15 p-4 text-sm">
+          <span className="flex items-center gap-2 font-black text-gray-600 dark:text-gray-200">
+            <ImageIcon className="w-4 h-4" /> Fotos / evidencia visual
+          </span>
+          <input
+            type="file"
+            accept="image/*"
+            multiple
+            onChange={(event) =>
+              setPhotoNames(
+                Array.from(event.target.files ?? []).map((file) => file.name),
+              )
+            }
+            className="mt-3 w-full text-xs"
+          />
+          {photoNames.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1">
+              {photoNames.map((name) => (
+                <span
+                  key={name}
+                  className="rounded-full bg-rose-500/10 px-2 py-1 text-[10px] font-bold text-rose-500"
+                >
+                  {name}
+                </span>
+              ))}
+            </div>
+          )}
+        </label>
+        <input
+          value={signature}
+          onChange={(e) => setSignature(e.target.value)}
+          placeholder="Firma / responsable"
+          className="w-full bg-gray-100 dark:bg-white/5 rounded-2xl px-4 py-3 outline-none text-sm font-semibold"
         />
         <label className="flex items-center gap-3 cursor-pointer">
           <input
@@ -1377,6 +2087,17 @@ function IncidentForm({
           />
           <span className="text-sm font-medium">
             Bloquear la estación (retención por calidad)
+          </span>
+        </label>
+        <label className="flex items-center gap-3 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={quickNcr}
+            onChange={(e) => setQuickNcr(e.target.checked)}
+            className="w-5 h-5 accent-rose-500"
+          />
+          <span className="text-sm font-medium">
+            Crear NCR rápido / requerir disposición formal
           </span>
         </label>
         <button

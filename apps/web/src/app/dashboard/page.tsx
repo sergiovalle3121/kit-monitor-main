@@ -109,8 +109,9 @@ function DashboardInner() {
                       aria-label={a.name}
                       className={`${glass} group relative rounded-3xl p-5 text-left flex flex-col gap-3 justify-between min-h-32 overflow-hidden`}
                     >
-                      {/* Glow del color del dominio difuminado en la esquina (sutil). */}
-                      <span aria-hidden className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full opacity-20 blur-2xl transition-opacity duration-300 group-hover:opacity-40" style={{ background: DOMAINS[a.domain].solid }} />
+                      {/* Tinte de firma del dominio difuminado en la esquina —
+                          muy tenue (materialidad, no glow neón). */}
+                      <span aria-hidden className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full opacity-[0.07] blur-2xl transition-opacity duration-300 group-hover:opacity-[0.16]" style={{ background: DOMAINS[a.domain].solid }} />
                       <div className="flex items-start justify-between">
                         <IconTile domain={a.domain} size={46} icon={a.icon} />
                         <HoverArrow />
