@@ -1438,7 +1438,7 @@ td { border: ${border}; padding: 3px 6px; white-space: nowrap; vertical-align: t
 // español) según estas estructuras; aquí construimos la entrada y replicamos la
 // lógica de forma pura para poder marcar celdas no válidas existentes.
 
-export type DvType = 'dropdown' | 'checkbox' | 'number' | 'number_integer' | 'number_decimal' | 'text_length' | 'text_content' | 'date';
+export type DvType = 'dropdown' | 'checkbox' | 'number' | 'number_integer' | 'number_decimal' | 'text_length' | 'text_content' | 'date' | 'required' | 'custom_formula';
 export type DvOperator =
   | 'between' | 'notBetween' | 'equal' | 'notEqualTo'
   | 'moreThanThe' | 'lessThan' | 'greaterOrEqualTo' | 'lessThanOrEqualTo'  // número / longitud
@@ -1470,6 +1470,8 @@ export const DV_OPERATORS: Record<DvType, DvOperator[]> = {
   text_length: ['between', 'notBetween', 'equal', 'notEqualTo', 'moreThanThe', 'lessThan', 'greaterOrEqualTo', 'lessThanOrEqualTo'],
   text_content: ['include', 'exclude', 'equal'],
   date: ['between', 'notBetween', 'equal', 'notEqualTo', 'earlierThan', 'noEarlierThan', 'laterThan', 'noLaterThan'],
+  required: [],
+  custom_formula: [],
 };
 
 /** Construye una entrada `dataVerification` de Fortune-Sheet a partir de una config. */
@@ -1478,7 +1480,7 @@ export function buildDataVerification(cfg: DvConfig): DvEntry {
     ? (cfg.fromRange ? (cfg.value1 ?? '').trim() : (cfg.value1 ?? '').split(',').map((s) => s.trim()).filter(Boolean).join(','))
     : (cfg.value1 ?? '').trim();
   const needsTwo = cfg.operator != null && DV_TWO_VALUE.has(cfg.operator);
-  const type2 = (cfg.type === 'dropdown' || cfg.type === 'checkbox') ? null : (cfg.operator ?? 'between');
+  const type2 = (cfg.type === 'dropdown' || cfg.type === 'checkbox' || cfg.type === 'required' || cfg.type === 'custom_formula') ? null : (cfg.operator ?? 'between');
   const hintText = (cfg.hintText ?? '').trim();
   return {
     type: cfg.type, type2,
@@ -1522,15 +1524,97 @@ function cmpNumber(n: number, op: DvOperator | undefined, v1: number, v2: number
   }
 }
 
-/** Comprueba (puro) si un valor cumple la regla. Refleja la lógica del motor. Vacío = válido. */
+function splitTopLevelArgs(src: string): string[] {
+  const args: string[] = [];
+  let cur = '', depth = 0, quote: string | null = null;
+  for (let i = 0; i < src.length; i++) {
+    const ch = src[i];
+    if (quote) { cur += ch; if (ch === quote && src[i - 1] !== '\\') quote = null; continue; }
+    if (ch === '"' || ch === "'") { quote = ch; cur += ch; continue; }
+    if (ch === '(') depth++;
+    else if (ch === ')') depth = Math.max(0, depth - 1);
+    if (ch === ',' && depth === 0) { args.push(cur.trim()); cur = ''; }
+    else cur += ch;
+  }
+  if (cur.trim() || src.endsWith(',')) args.push(cur.trim());
+  return args;
+}
+
+function stripOuterParens(src: string): string {
+  let s = src.trim();
+  while (s.startsWith('(') && s.endsWith(')')) {
+    let depth = 0, wraps = true;
+    for (let i = 0; i < s.length; i++) {
+      if (s[i] === '(') depth++;
+      if (s[i] === ')') depth--;
+      if (depth === 0 && i < s.length - 1) { wraps = false; break; }
+    }
+    if (!wraps) break;
+    s = s.slice(1, -1).trim();
+  }
+  return s;
+}
+
+function literalValue(src: string, raw: any): string | number | boolean {
+  const s = stripOuterParens(src);
+  if (/^VALUE$/i.test(s)) return raw == null ? '' : raw;
+  if (/^LEN\(VALUE\)$/i.test(s)) return String(raw ?? '').length;
+  if (/^ISNUMBER\(VALUE\)$/i.test(s)) return Number.isFinite(Number(raw));
+  if (/^ISTEXT\(VALUE\)$/i.test(s)) return !Number.isFinite(Number(raw));
+  const quoted = s.match(/^["'](.*)["']$/);
+  if (quoted) return quoted[1];
+  const n = Number(s);
+  if (s !== '' && Number.isFinite(n)) return n;
+  return s;
+}
+
+function compareFormula(leftRaw: string, op: string, rightRaw: string, raw: any): boolean {
+  const left = literalValue(leftRaw, raw);
+  const right = literalValue(rightRaw, raw);
+  const ln = Number(left), rn = Number(right);
+  const numeric = Number.isFinite(ln) && Number.isFinite(rn) && String(left).trim() !== '' && String(right).trim() !== '';
+  const l = numeric ? ln : String(left);
+  const r = numeric ? rn : String(right);
+  switch (op) {
+    case '>=': return l >= r;
+    case '<=': return l <= r;
+    case '<>': case '!=': return l !== r;
+    case '=': case '==': return l === r;
+    case '>': return l > r;
+    case '<': return l < r;
+    default: return false;
+  }
+}
+
+export function customFormulaSatisfies(formula: string | undefined, raw: any): boolean {
+  const expr = stripOuterParens(String(formula ?? '').trim().replace(/^=/, ''));
+  if (!expr) return true;
+  const fn = expr.match(/^(AND|OR|NOT)\((.*)\)$/i);
+  if (fn) {
+    const name = fn[1].toUpperCase();
+    const args = splitTopLevelArgs(fn[2]);
+    if (name === 'AND') return args.every((arg) => customFormulaSatisfies(arg, raw));
+    if (name === 'OR') return args.some((arg) => customFormulaSatisfies(arg, raw));
+    if (name === 'NOT') return !customFormulaSatisfies(args[0], raw);
+  }
+  if (/^ISNUMBER\(VALUE\)$/i.test(expr)) return Number.isFinite(Number(raw));
+  if (/^ISTEXT\(VALUE\)$/i.test(expr)) return !Number.isFinite(Number(raw));
+  const m = expr.match(/^(.+?)\s*(>=|<=|<>|!=|==|=|>|<)\s*(.+)$/);
+  if (!m) return false;
+  return compareFormula(m[1], m[2], m[3], raw);
+}
+
+/** Comprueba (puro) si un valor cumple la regla. Refleja la lógica del motor. Vacío = válido salvo regla obligatoria. */
 export function dvSatisfies(cfg: DvConfig, raw: any): boolean {
   const s = raw && typeof raw === 'object' ? (raw.v ?? raw.m ?? '') : raw;
   const str = s == null ? '' : String(s);
+  if (cfg.type === 'required') return str.trim() !== '';
   if (str.trim() === '') return true; // celdas vacías no se marcan (como Excel)
   const op = cfg.operator;
   const v1s = (cfg.value1 ?? '').trim();
   switch (cfg.type) {
     case 'checkbox': return true;
+    case 'custom_formula': return customFormulaSatisfies(cfg.value1, s);
     case 'dropdown': {
       if (cfg.fromRange) return true; // la lista vive en un rango; el motor la valida, aquí no resolvemos sin la hoja
       const list = v1s.split(',').map((x) => x.trim()).filter(Boolean);
@@ -1580,7 +1664,7 @@ export function markInvalidCells(sheet: any, range: string, cfg: DvConfig): numb
   for (const cd of sheet.celldata) {
     if (!inR(cd.r, cd.c)) continue;
     const raw = rawOf(cd);
-    if (raw === '' || raw == null) continue;
+    if ((raw === '' || raw == null) && cfg.type !== 'required') continue;
     if (!dvSatisfies(cfg, raw)) { const v = ensureObj(cd); v.bg = '#fde2e1'; v.fc = '#b91c1c'; n++; }
   }
   return n;

@@ -1,0 +1,172 @@
+# NPI Launch Command Center
+
+> Cómo AXOS convierte un paquete de cliente en un proceso manufacturable,
+> repetible y liberable a producción. Esta es la guía de la experiencia
+> unificada **Product Master ↔ NPI Launch Center** y de los contratos que la
+> alimentan hoy (y los que faltan).
+
+## 1. Modelo mental
+
+AXOS separa dos verdades que antes se sentían como dos pantallas sueltas:
+
+```
+/dashboard/models          = Product Master   (la verdad del producto)
+/dashboard/models/[id]     = ficha del producto + vínculos a launch/BOM/planes
+/dashboard/npi             = Launch Center     (la ejecución del lanzamiento)
+/dashboard/npi/[id]        = Launch Dossier    (gates + readiness + dependencias)
+```
+
+- **Modelos = producto maestro.** `modelNumber`, revisión, cliente, programa,
+  estatus, BOM, planes. Es el registro canónico que todo lo demás referencia.
+- **NPI = ejecución del lanzamiento.** Un *launch* por `model+revision` que
+  orquesta fases (QUOTE→MP), readiness (go/no-go), gates (decisiones) y las
+  dependencias de ingeniería que deben cerrarse antes de producir.
+
+No se fusiona el backend: se unifica la **experiencia** con navegación cruzada
+(`Modelo → Crear/Abrir launch`, `Launch → Ver modelo`, `Launch → faltantes por
+módulo`).
+
+## 2. Las preguntas que el ingeniero NPI debe poder contestar
+
+El Launch Dossier (`/dashboard/npi/[id]`) está diseñado alrededor de estas
+preguntas, en este orden:
+
+1. **¿Puedo producir esto mañana?** → *Release banner* (go/no-go global).
+2. **¿En qué fase estoy?** → *Phase timeline* (QUOTE→MP, hecho/actual/pendiente).
+3. **¿Estoy listo?** → *Readiness panel* (BOM, FAI, línea, tiempo estándar, AVL).
+4. **¿Qué falta para liberar?** → *Qué falta para liberar* (bloqueos + verificar).
+5. **¿Qué módulos AXOS debo cerrar?** → *Dependencias de ingeniería* (matriz).
+6. **¿Puedo pasar el gate?** → *Gates de fase* (decidir PASSED/FAILED/WAIVED).
+7. **¿Cómo ha evolucionado?** → *Historial de readiness* (snapshots/auditoría).
+
+## 3. Flujo industrial
+
+```
+RFQ / paquete cliente
+  → crear/relacionar Product Model (maestro)
+  → crear launch NPI (model + revision)        ← idempotente por model+revision
+  → cargar/validar BOM
+  → validar AVL / proveedores
+  → definir routing / tiempos estándar
+  → tooling / fixtures / stencils              (pendiente de integración)
+  → visual aids / work instructions            (pendiente de integración)
+  → calidad / FAI / control plan
+  → piloto → yield / scrap
+  → aprobar gates (QUOTE→MP)
+  → liberar a producción masiva (MP)
+```
+
+Inspirado en la lógica APQP/PPAP: *evidencia objetiva antes de liberar a
+producción*. AXOS no copia PPAP literalmente, pero sí cierra el triángulo
+**producto ↔ proceso ↔ calidad** con readiness advisory y gates auditables.
+
+## 4. Qué datos reales usa hoy
+
+Todo el Launch Center se construye **sin cambios de backend**, sobre contratos
+existentes:
+
+| Vista | Endpoint | Notas |
+| --- | --- | --- |
+| Lista de launches | `GET /npi/projects` | base (sin gates/readiness) |
+| Pipeline rail | derivado de `currentPhase` de cada proyecto | cliente |
+| Detalle / dossier | `GET /npi/projects/:id` | incluye `gates` + `readiness` en vivo |
+| Readiness lookup | `GET /npi/readiness?model=&revision=` | go/no-go ad-hoc |
+| Historial | `GET /npi/readiness/history?projectId=` | snapshots |
+| Decidir gate | `POST /npi/gates/:id/decide` | advisory |
+| Cross-link a modelo | `GET /product-models?search=` | join por `modelNumber` |
+| Crear launch desde modelo | `POST /npi/projects` | idempotente |
+
+La **matriz de dependencias** se deriva de los `signals` de readiness:
+
+| Dependencia | Señal usada | Estado posible |
+| --- | --- | --- |
+| Product Model | lookup por `modelNumber` | conectado / falta |
+| BOM | `signals.bomStatus` | conectado / incompleto / falta |
+| Material Master / AVL | `signals.avlCoverage` | conectado / incompleto / falta |
+| Proceso · Routing | `lineBalancePct`, `lineCompletenessPct`, `stdTimeComplete` | conectado / incompleto / falta |
+| Tooling / Fixtures | `signals.toolingAssets` (por programa) | conectado / falta / sin integrar |
+| Visual Aids / WI | `signals.visualAidsActive` | conectado / falta |
+| Calidad · FAI | `signals.faiStatus` | conectado / incompleto / falta |
+| Plan de producción | `signals.productionWorkOrders` | conectado / falta |
+
+**Regla de honestidad** (igual que el agregador backend): una señal que no se
+puede resolver se reporta como *falta* o *sin integrar* — **nunca** se asume
+buena. No se inventan conteos ni estados.
+
+Las señales de **Tooling**, **Visual Aids** y **Plan de producción** son
+*advisory*: se resuelven read-only (conteo de `tooling_assets` por programa del
+modelo, `visual_aids` activos por modelo y `sf_work_orders` por modelo) y
+enriquecen la matriz, pero **no** se pliegan en `gateReady` (no cambian la
+semántica del go/no-go ni de los gates). Tooling es program-scoped: el modelo
+canónico aporta su `programId` (desde `pm_product_models`); si el modelo no tiene
+programa, la señal queda *sin integrar* honestamente.
+
+## 4.1 Relación modelo ↔ launch (implementado)
+
+`npi_project` lleva una columna `product_model_id` (varchar, nullable, **sin
+FK** — mantiene NPI desacoplado del maestro). El servicio la resuelve por
+`modelNumber` (case-insensitive, scoped tenant+plant) **al crear** y la
+**rellena de forma perezosa al leer** (`getProject`), así los launches previos
+quedan enlazados al verse. El frontend usa `project.productModelId` para enlazar
+directo a `/dashboard/models/[id]` — sin búsqueda difusa. Cuando no existe modelo
+maestro para el número, queda `null` y la matriz lo reporta honestamente.
+
+## 4.2 Risk register (implementado)
+
+`npi_risk` es una tabla additiva (`npi_`, sin FK) que registra riesgos del launch
+con `title`, `description`, `severity` (LOW/MEDIUM/HIGH), `status`
+(OPEN/MITIGATING/CLOSED), `owner`, `dueDate` y `mitigation`. Endpoints:
+`GET /npi/projects/:id/risks`, `POST /npi/projects/:id/risks`,
+`PATCH /npi/risks/:riskId`, `DELETE /npi/risks/:riskId` (lecturas
+`engineering:read`, escrituras `engineering:write`; cada cambio queda en el
+ledger).
+
+En el dossier, el panel **Riesgos** los lista (abiertos primero, por severidad)
+y permite agregar, mitigar, cerrar/reabrir y eliminar. Los riesgos abiertos se
+pliegan en *"Qué falta para liberar"* (HIGH → bloqueo, resto → verificar) y un
+riesgo HIGH abierto impide el estado *"Listo para liberar"* del banner. Siguen
+siendo *advisory*: no tocan `gateReady` ni las decisiones de gate.
+
+## 4.3 Release to MP (implementado)
+
+`POST /npi/projects/:id/release` libera el launch a producción masiva con un
+**checklist duro**: readiness en verde, todos los gates resueltos (PASSED/WAIVED)
+y sin riesgos HIGH abiertos. Si el checklist no se cumple, la liberación se
+**bloquea** salvo `force: true` (liberación con desviación, nota recomendada).
+Es auditado: estampa `released_at`/`released_by`/`release_note`, captura un
+snapshot de readiness (`RELEASE`) y registra un evento en el ledger
+(`NPI_RELEASED` con `forced` + `blockers`). Idempotente si ya está RELEASED;
+mutación sólo en `npi_project` (nunca activa el product-model).
+
+En el dossier, el **release banner** muestra el estado go/no-go y el botón
+*Liberar a MP* (o *Liberar con desviación* cuando falta algo, listando los
+bloqueos en el modal). Una vez liberado, muestra quién y cuándo.
+
+## 4.4 Navegación
+
+El menú lateral y la paleta (`⌘K`) exponen **NPI Launch Center**
+(`/dashboard/npi`) y **Product Master** (`/dashboard/models`) — antes
+etiquetados "NPI · Gates" y "Modelos · NPI", lo que ocultaba el Launch Center.
+
+## 5. Limitaciones actuales
+
+- `GET /npi/projects` no trae `readiness` ni `gates`; las tarjetas de la lista
+  muestran fase/estatus, y el go/no-go completo vive en el dossier.
+- Las señales de dependencia (tooling, visual aids, plan) son conteos *advisory*:
+  enriquecen la matriz pero no se pliegan en `gateReady`.
+
+## 6. Contratos backend sugeridos (siguientes PRs)
+
+1. **`GET /npi/projects?withReadiness=true`.** Adjuntar un resumen ligero
+   (`gateReady`, `readyCount`, `notReadyCount`, riesgos abiertos) por proyecto
+   para enriquecer las launch cards sin N+1 requests.
+2. **Evidence package.** Vincular documentos Office/CAD/FAI/visual aids y
+   aprobaciones a un gate como evidencia versionada.
+
+## 7. Diseño
+
+Se respeta `docs/design/AXOS_DESIGN_LANGUAGE.md`: material `glass`, `IconTile`
+por dominio (engineering), radios y tipografía consistentes, `tabular-nums` en
+cifras, estados semánticos (verde/ámbar/rojo) solo por significado, dark/light
+coherente y sin CSS custom. La experiencia debe sentirse premium e industrial:
+una consola de decisión, no un CRUD.

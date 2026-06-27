@@ -186,7 +186,7 @@ export async function bridgeToken(): Promise<string | null> {
 /** Authenticated backend call using the current user's per-user token. */
 export async function backendUserFetch(
   path: string,
-  method: 'GET' | 'POST',
+  method: 'GET' | 'POST' | 'DELETE' | 'PATCH',
   body?: unknown,
 ): Promise<{ ok: boolean; status: number; data: unknown }> {
   const token = await bridgeToken();
@@ -213,4 +213,28 @@ export async function backendUserFetch(
       data: { message: 'Backend no disponible.' },
     };
   }
+}
+
+/**
+ * Authenticated POST that returns the raw streaming `Response` (per-user token),
+ * so a route handler can pipe the backend's Server-Sent Events straight to the
+ * browser without buffering. Returns null when there is no valid session.
+ */
+export async function backendUserStream(
+  path: string,
+  body: unknown,
+): Promise<Response | null> {
+  const token = await bridgeToken();
+  if (!token) return null;
+  return fetch(`${backendApiBase()}${path}`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+      Accept: 'text/event-stream',
+      ...keyHeaders(),
+    },
+    body: JSON.stringify(body ?? {}),
+    cache: 'no-store',
+  });
 }

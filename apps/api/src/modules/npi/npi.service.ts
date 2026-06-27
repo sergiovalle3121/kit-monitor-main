@@ -11,6 +11,11 @@ import { In, ObjectLiteral, Repository, SelectQueryBuilder } from 'typeorm';
 import { NpiProject } from './entities/npi-project.entity';
 import { NpiGate } from './entities/npi-gate.entity';
 import { NpiReadinessSnapshot } from './entities/npi-readiness-snapshot.entity';
+import { NpiRisk } from './entities/npi-risk.entity';
+import { ProductModel } from '../product-models/entities/product-model.entity';
+import { VisualAid } from '../visual-aids/entities/visual-aid.entity';
+import { SfWorkOrder } from '../production-plan/entities/sf-work-order.entity';
+import { Tool } from '../tooling/entities/tool.entity';
 import { SfFai } from '../fai/entities/sf-fai.entity';
 import { SupplierApprovedPart } from '../suppliers/entities/supplier-approved-part.entity';
 import { TenantContextService } from '../../common/tenant/tenant-context.service';
@@ -24,7 +29,14 @@ import { EventLedgerService } from '../event-ledger/event-ledger.service';
 import { EventDomain } from '../event-ledger/entities/ledger-event.entity';
 import { NotificationsService } from '../notifications/notifications.service';
 import { UsersService } from '../users/users.service';
-import { CreateNpiProjectDto, DecideGateDto } from './dto/npi.dto';
+import {
+  CreateNpiProjectDto,
+  CreateNpiRiskDto,
+  DecideGateDto,
+  ReleaseProjectDto,
+  UpdateNpiRiskDto,
+} from './dto/npi.dto';
+import { RISK_SEVERITY_RANK } from './npi-risk-state';
 import {
   assertGateTransition,
   comparePhases,
@@ -51,12 +63,36 @@ export interface NpiProjectView extends NpiProject {
   readiness: ReadinessSnapshot;
 }
 
+/** Light per-project rollup for the launch cards (no full readiness payload). */
+export interface NpiProjectSummary {
+  gateReady: boolean;
+  readyCount: number;
+  notReadyCount: number;
+  unknownCount: number;
+  criteriaTotal: number;
+  gatesCleared: number;
+  gatesTotal: number;
+  openRisks: number;
+  openHighRisks: number;
+}
+
+export interface NpiProjectListItem extends NpiProject {
+  summary: NpiProjectSummary;
+}
+
 export type SnapshotReason =
   | 'GATE_DECISION'
   | 'SCAN'
   | 'MANUAL'
   | 'PROJECT_CREATED'
-  | 'MODEL_ACTIVATION';
+  | 'MODEL_ACTIVATION'
+  | 'RELEASE';
+
+/** Result of evaluating a launch's release checklist (hard go/no-go). */
+export interface ReleaseChecklist {
+  ready: boolean;
+  blockers: string[];
+}
 
 export interface CaptureSnapshotOptions {
   projectId?: string | null;
@@ -85,6 +121,16 @@ export class NpiService {
     private readonly gates: TenantScopedRepository<NpiGate>,
     @Inject(getTenantRepositoryToken(NpiReadinessSnapshot))
     private readonly snapshots: TenantScopedRepository<NpiReadinessSnapshot>,
+    @Inject(getTenantRepositoryToken(NpiRisk))
+    private readonly risks: TenantScopedRepository<NpiRisk>,
+    @InjectRepository(ProductModel)
+    private readonly productModels: Repository<ProductModel>,
+    @InjectRepository(VisualAid)
+    private readonly visualAids: Repository<VisualAid>,
+    @InjectRepository(SfWorkOrder)
+    private readonly workOrders: Repository<SfWorkOrder>,
+    @InjectRepository(Tool)
+    private readonly tools: Repository<Tool>,
     @InjectRepository(SfFai)
     private readonly fai: Repository<SfFai>,
     @InjectRepository(SupplierApprovedPart)
@@ -133,15 +179,108 @@ export class NpiService {
     return qb.orderBy('p.created_at', 'DESC').getMany();
   }
 
+  /**
+   * Same list, each project enriched with a LIGHT readiness/gates/risk summary
+   * so the launch cards can show go/no-go, gate progress and risk count without
+   * N+1 round-trips from the client. Per-project resolution is best-effort:
+   * a failure degrades to a null-ish summary, never breaks the list.
+   */
+  async listProjectsWithSummary(
+    filter: { model?: string; status?: string } = {},
+  ): Promise<NpiProjectListItem[]> {
+    const projects = await this.listProjects(filter);
+    return Promise.all(
+      projects.map(async (p) => ({
+        ...p,
+        summary: await this.summarizeProject(p),
+      })),
+    );
+  }
+
+  private async summarizeProject(
+    project: NpiProject,
+  ): Promise<NpiProjectSummary> {
+    const [readiness, gates, risks] = await Promise.all([
+      this.deriveReadiness(project.modelNumber, project.revision).catch(
+        () => null,
+      ),
+      this.gates
+        .find({ where: { projectId: project.id } })
+        .catch(() => [] as NpiGate[]),
+      this.risks
+        .find({ where: { projectId: project.id } })
+        .catch(() => [] as NpiRisk[]),
+    ]);
+    const gatesCleared = gates.filter(
+      (g) => g.status === 'PASSED' || g.status === 'WAIVED',
+    ).length;
+    const open = risks.filter((r) => r.status !== 'CLOSED');
+    return {
+      gateReady: !!readiness?.gateReady,
+      readyCount: readiness?.readyCount ?? 0,
+      notReadyCount: readiness?.notReadyCount ?? 0,
+      unknownCount: readiness?.unknownCount ?? 0,
+      criteriaTotal: readiness?.criteria.length ?? 0,
+      gatesCleared,
+      gatesTotal: gates.length,
+      openRisks: open.length,
+      openHighRisks: open.filter((r) => r.severity === 'HIGH').length,
+    };
+  }
+
   async getProject(id: string): Promise<NpiProjectView> {
     const project = await this.projects.findOne({ where: { id } });
     if (!project) throw new NotFoundException('Proyecto NPI no encontrado.');
+    await this.backfillProductModelId(project);
     const gates = await this.gates.find({ where: { projectId: id } });
     const readiness = await this.deriveReadiness(
       project.modelNumber,
       project.revision,
     );
     return { ...project, gates: this.sortGates(gates), readiness };
+  }
+
+  /**
+   * Soft-link the project to the canonical ProductModel by number (scoped),
+   * read-only against `pm_product_models`. Returns the id or null when no master
+   * record exists yet. No FK — keeps NPI decoupled from product-models.
+   */
+  private async resolveProductModelId(
+    modelNumber: string,
+  ): Promise<string | null> {
+    const m = (modelNumber ?? '').trim();
+    if (!m) return null;
+    const qb = this.productModels
+      .createQueryBuilder('pm')
+      .select('pm.id', 'id')
+      .where('UPPER(pm.model_number) = UPPER(:m)', { m });
+    this.applyScope(qb, 'pm');
+    const found = await qb.getRawOne<{ id: string }>().catch((err) => {
+      this.logger.warn(
+        `Product-model lookup failed for ${m}: ${(err as Error)?.message}`,
+      );
+      return null;
+    });
+    return found?.id ?? null;
+  }
+
+  /**
+   * Lazily fill `productModelId` for projects created before the soft link
+   * existed (or before the master record did). Best-effort: a failed persist
+   * never breaks a read.
+   */
+  private async backfillProductModelId(project: NpiProject): Promise<void> {
+    if (project.productModelId) return;
+    const pmId = await this.resolveProductModelId(project.modelNumber);
+    if (!pmId) return;
+    project.productModelId = pmId;
+    await this.projects
+      .save(project)
+      .catch((err) =>
+        this.logger.warn(
+          `No se pudo enlazar el modelo al proyecto NPI ${project.id}: ${(err as Error)?.message}`,
+        ),
+      );
   }
 
   // ── Readiness derivation (live, READ-ONLY across existing modules) ───────────
@@ -250,13 +389,27 @@ export class NpiService {
     model: string,
     revision: string,
   ): Promise<ReadinessSignals> {
-    const [bestHeader, faiStatus, line, stdTimeComplete] = await Promise.all([
+    const [
+      bestHeader,
+      faiStatus,
+      line,
+      stdTimeComplete,
+      visualAidsActive,
+      productionWorkOrders,
+      programId,
+    ] = await Promise.all([
       this.resolveBestBomHeader(model),
       this.resolveFaiStatus(model),
       this.resolveLine(model, revision),
       this.resolveStdTimeComplete(model, revision),
+      this.resolveVisualAidsActive(model),
+      this.resolveProductionWorkOrders(model),
+      this.resolveModelProgramId(model),
     ]);
-    const avlCoverage = await this.resolveAvlCoverage(bestHeader);
+    const [avlCoverage, toolingAssets] = await Promise.all([
+      this.resolveAvlCoverage(bestHeader),
+      this.resolveToolingAssets(programId),
+    ]);
     return {
       bomStatus: bestHeader?.status ?? null,
       faiStatus,
@@ -264,7 +417,105 @@ export class NpiService {
       lineCompletenessPct: line.completenessPct,
       stdTimeComplete,
       avlCoverage,
+      visualAidsActive,
+      productionWorkOrders,
+      toolingAssets,
     };
+  }
+
+  /**
+   * The canonical program for a model (from `pm_product_models`, scoped). Used to
+   * resolve program-scoped signals like tooling. Null when no master record or
+   * no program. Read-only, best-effort.
+   */
+  private async resolveModelProgramId(model: string): Promise<string | null> {
+    const m = (model ?? '').trim();
+    if (!m) return null;
+    try {
+      const qb = this.productModels
+        .createQueryBuilder('pm')
+        .select('pm.program_id', 'programId')
+        .where('UPPER(pm.model_number) = UPPER(:m)', { m });
+      this.applyScope(qb, 'pm');
+      const row = await qb.getRawOne<{ programId: string | null }>();
+      return row?.programId ?? null;
+    } catch (err) {
+      this.logger.warn(
+        `Program lookup failed for ${m}: ${(err as Error)?.message}`,
+      );
+      return null;
+    }
+  }
+
+  /**
+   * Count of tooling assets for the model's program (`tooling_assets`). Tooling
+   * is program-scoped (no model column), so null when the model has no program.
+   * Read-only, advisory.
+   */
+  private async resolveToolingAssets(
+    programId: string | null,
+  ): Promise<number | null> {
+    if (!programId) return null;
+    try {
+      const qb = this.tools
+        .createQueryBuilder('t')
+        .where('t.program_id = :p', { p: programId });
+      this.applyScope(qb, 't');
+      return await qb.getCount();
+    } catch (err) {
+      this.logger.warn(
+        `Tooling lookup failed for program ${programId}: ${(err as Error)?.message}`,
+      );
+      return null;
+    }
+  }
+
+  /**
+   * Count of ACTIVE visual aids (work instructions) for the model. Tenant-scoped
+   * only (the `visual_aids` table has no plant_id). 0 = none published yet;
+   * null = could not resolve. Read-only, advisory.
+   */
+  private async resolveVisualAidsActive(model: string): Promise<number | null> {
+    const m = (model ?? '').trim();
+    if (!m) return null;
+    try {
+      const tenant = this.tenantCtx.getTenantId();
+      const qb = this.visualAids
+        .createQueryBuilder('v')
+        .where('LOWER(v.model) = LOWER(:m)', { m })
+        .andWhere('v.isActive = :a', { a: true });
+      if (tenant) qb.andWhere('v.tenant_id = :t', { t: tenant });
+      else qb.andWhere('v.tenant_id IS NULL');
+      return await qb.getCount();
+    } catch (err) {
+      this.logger.warn(
+        `Visual-aids lookup failed for ${m}: ${(err as Error)?.message}`,
+      );
+      return null;
+    }
+  }
+
+  /**
+   * Count of production work orders published for the model (`sf_work_orders`).
+   * 0 = no plan yet; null = could not resolve. Read-only, advisory.
+   */
+  private async resolveProductionWorkOrders(
+    model: string,
+  ): Promise<number | null> {
+    const m = (model ?? '').trim();
+    if (!m) return null;
+    try {
+      const qb = this.workOrders
+        .createQueryBuilder('wo')
+        .where('wo.model = :m', { m });
+      this.applyScope(qb, 'wo');
+      return await qb.getCount();
+    } catch (err) {
+      this.logger.warn(
+        `Work-order lookup failed for ${m}: ${(err as Error)?.message}`,
+      );
+      return null;
+    }
   }
 
   /** The most advanced BOM header for the model (read-only via BomService). */
@@ -367,9 +618,11 @@ export class NpiService {
     const existing = await this.findByModelRevision(model, revision);
     if (existing) return this.getProject(existing.id);
 
+    const productModelId = await this.resolveProductModelId(model);
     const project = this.projects.create({
       modelNumber: model,
       revision,
+      productModelId,
       customer: dto.customer?.trim() || null,
       currentPhase: 'QUOTE',
       status: 'OPEN',
@@ -461,6 +714,98 @@ export class NpiService {
     return saved;
   }
 
+  // ── Release to MP (explicit, audited) ───────────────────────────────────────
+  /**
+   * Evaluate the hard release checklist for a launch: readiness green, every gate
+   * cleared (PASSED/WAIVED), and no open HIGH-severity risk. Pure read.
+   */
+  async releaseChecklist(project: NpiProject): Promise<ReleaseChecklist> {
+    const [readiness, gates, risks] = await Promise.all([
+      this.deriveReadiness(project.modelNumber, project.revision),
+      this.gates.find({ where: { projectId: project.id } }),
+      this.risks.find({ where: { projectId: project.id } }),
+    ]);
+    const blockers: string[] = [];
+
+    if (!readiness.gateReady) {
+      blockers.push(
+        readiness.blockers.length
+          ? `Readiness: ${readiness.blockers.join(', ')}`
+          : 'Readiness no está en verde',
+      );
+    }
+    for (const g of this.sortGates(gates)) {
+      if (g.status !== 'PASSED' && g.status !== 'WAIVED') {
+        blockers.push(`Gate ${g.phase} sin aprobar`);
+      }
+    }
+    for (const r of risks) {
+      if (r.status !== 'CLOSED' && r.severity === 'HIGH') {
+        blockers.push(`Riesgo alto abierto: ${r.title}`);
+      }
+    }
+
+    return { ready: blockers.length === 0, blockers };
+  }
+
+  /**
+   * Release a launch to mass production. By default BLOCKS when the checklist is
+   * not met; `force` releases with a deviation. Audited: stamps released_at/by,
+   * snapshots readiness, and records a ledger event. Idempotent if already
+   * RELEASED. Mutates `npi_project` only — never activates the product-model.
+   */
+  async releaseProject(
+    id: string,
+    dto: ReleaseProjectDto = {},
+  ): Promise<NpiProjectView> {
+    const project = await this.projects.findOne({ where: { id } });
+    if (!project) throw new NotFoundException('Proyecto NPI no encontrado.');
+    if (project.status === 'RELEASED') return this.getProject(id);
+    if (project.status === 'CANCELLED') {
+      throw new BadRequestException('No se puede liberar un launch cancelado.');
+    }
+
+    const checklist = await this.releaseChecklist(project);
+    if (!checklist.ready && !dto.force) {
+      throw new BadRequestException(
+        `No se puede liberar: ${checklist.blockers.join('; ')}. ` +
+          `Usa force=true para liberar con desviación.`,
+      );
+    }
+
+    const forced = !checklist.ready;
+    const note = dto.note?.trim() || null;
+    const releaseNote = forced
+      ? `${note ? `${note} ` : ''}[Desviación: ${checklist.blockers.join('; ')}]`.slice(
+          0,
+          500,
+        )
+      : note;
+
+    project.status = 'RELEASED';
+    project.releasedAt = new Date();
+    project.releasedBy = this.tenantCtx.getUserEmail() || null;
+    project.releaseNote = releaseNote;
+    await this.projects.save(project);
+
+    await this.captureSnapshotSafe(project.modelNumber, project.revision, {
+      projectId: project.id,
+      phase: 'MP',
+      reason: 'RELEASE',
+      note: forced
+        ? `Liberado a MP con desviación: ${checklist.blockers.join('; ')}`
+        : 'Liberado a MP con checklist en verde.',
+    });
+    await this.record('NPI_RELEASED', project.id, {
+      model: project.modelNumber,
+      revision: project.revision,
+      forced,
+      blockers: checklist.blockers,
+    });
+
+    return this.getProject(id);
+  }
+
   /**
    * Move the project's advisory `currentPhase` forward when a gate is cleared,
    * and mark it RELEASED when the MP gate passes. Mutates `npi_project` only.
@@ -527,6 +872,75 @@ export class NpiService {
         `No se pudo crear aviso de gate MP: ${(err as Error)?.message}`,
       );
     }
+  }
+
+  // ── Risks (advisory register) ───────────────────────────────────────────────
+  /** Risks for a launch, sorted open-first, then severity desc, then due date. */
+  async listRisks(projectId: string): Promise<NpiRisk[]> {
+    const rows = await this.risks.find({ where: { projectId } });
+    return rows.sort((a, b) => {
+      const ao = a.status === 'CLOSED' ? 1 : 0;
+      const bo = b.status === 'CLOSED' ? 1 : 0;
+      if (ao !== bo) return ao - bo;
+      const sev =
+        (RISK_SEVERITY_RANK[b.severity] ?? 0) -
+        (RISK_SEVERITY_RANK[a.severity] ?? 0);
+      if (sev !== 0) return sev;
+      const ad = a.dueDate ? new Date(a.dueDate).getTime() : Infinity;
+      const bd = b.dueDate ? new Date(b.dueDate).getTime() : Infinity;
+      return ad - bd;
+    });
+  }
+
+  async createRisk(projectId: string, dto: CreateNpiRiskDto): Promise<NpiRisk> {
+    const project = await this.projects.findOne({ where: { id: projectId } });
+    if (!project) throw new NotFoundException('Proyecto NPI no encontrado.');
+    const risk = this.risks.create({
+      projectId,
+      title: dto.title.trim(),
+      description: dto.description?.trim() || null,
+      severity: dto.severity ?? 'MEDIUM',
+      status: 'OPEN',
+      owner: dto.owner?.trim() || null,
+      dueDate: dto.dueDate ? new Date(dto.dueDate) : null,
+      mitigation: dto.mitigation?.trim() || null,
+      ...this.scopeFields(),
+    });
+    const saved = await this.risks.save(risk);
+    await this.record('NPI_RISK_CREATED', saved.id, {
+      projectId,
+      severity: saved.severity,
+    });
+    return saved;
+  }
+
+  async updateRisk(id: string, dto: UpdateNpiRiskDto): Promise<NpiRisk> {
+    const risk = await this.risks.findOne({ where: { id } });
+    if (!risk) throw new NotFoundException('Riesgo NPI no encontrado.');
+    if (dto.title !== undefined) risk.title = dto.title.trim();
+    if (dto.description !== undefined)
+      risk.description = dto.description.trim() || null;
+    if (dto.severity !== undefined) risk.severity = dto.severity;
+    if (dto.status !== undefined) risk.status = dto.status;
+    if (dto.owner !== undefined) risk.owner = dto.owner.trim() || null;
+    if (dto.dueDate !== undefined)
+      risk.dueDate = dto.dueDate ? new Date(dto.dueDate) : null;
+    if (dto.mitigation !== undefined)
+      risk.mitigation = dto.mitigation.trim() || null;
+    const saved = await this.risks.save(risk);
+    await this.record('NPI_RISK_UPDATED', saved.id, {
+      projectId: saved.projectId,
+      status: saved.status,
+    });
+    return saved;
+  }
+
+  async deleteRisk(id: string): Promise<{ deleted: boolean }> {
+    const risk = await this.risks.findOne({ where: { id } });
+    if (!risk) throw new NotFoundException('Riesgo NPI no encontrado.');
+    await this.risks.remove(risk);
+    await this.record('NPI_RISK_DELETED', id, { projectId: risk.projectId });
+    return { deleted: true };
   }
 
   private async record(

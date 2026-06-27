@@ -5,8 +5,6 @@ import {
   ChevronLeft,
   Clock,
   Factory,
-  Moon,
-  Sun,
   Wifi,
   WifiOff,
 } from "lucide-react";
@@ -35,9 +33,7 @@ export function IndustrialTopBar({
   socketStatus,
   alerts,
   gloveMode,
-  industrialTheme,
   onToggleGlove,
-  onToggleTheme,
   onBack,
 }: {
   execution: TopBarExecution | null;
@@ -48,9 +44,7 @@ export function IndustrialTopBar({
   socketStatus: string;
   alerts: number;
   gloveMode: boolean;
-  industrialTheme: "light" | "dark";
   onToggleGlove: () => void;
-  onToggleTheme: () => void;
   onBack: (() => void) | null;
 }) {
   const machine =
@@ -113,16 +107,6 @@ export function IndustrialTopBar({
           className={`min-h-12 rounded-2xl px-4 font-black transition-all ${gloveMode ? "bg-amber-400 text-slate-950" : "bg-white/10"}`}
         >
           Guantes {gloveMode ? "ON" : "OFF"}
-        </button>
-        <button
-          onClick={onToggleTheme}
-          className="min-h-12 rounded-2xl px-4 font-black bg-white/10 hover:bg-white/15 active:scale-95 transition-all"
-        >
-          {industrialTheme === "dark" ? (
-            <Sun className="w-5 h-5" />
-          ) : (
-            <Moon className="w-5 h-5" />
-          )}
         </button>
       </div>
       <div className="mt-3 grid grid-cols-2 md:grid-cols-4 xl:grid-cols-9 gap-2 text-xs">

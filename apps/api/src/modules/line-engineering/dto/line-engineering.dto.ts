@@ -495,6 +495,44 @@ export class LayoutCellDto {
   stationIds: string[];
 }
 
+/** NL→CAD (Fase 69): interpret a natural-language instruction into CAD tool calls. */
+export class CadIntentDto {
+  @ApiProperty({ example: 'AX-1000' })
+  @IsString()
+  @Length(1, 64)
+  model: string;
+
+  @ApiPropertyOptional({ example: 'A' })
+  @IsOptional()
+  @IsString()
+  @Length(1, 16)
+  revision?: string;
+
+  @ApiProperty({ example: 'pon tres bancos en fila junto a EST-10' })
+  @IsString()
+  @Length(1, 500)
+  prompt: string;
+}
+
+/** Vision→CAD (Fase 71): vectoriza una imagen de plano embebida como data URL. */
+export class CadVisionDto {
+  @ApiProperty({ example: 'AX-1000' })
+  @IsString()
+  @Length(1, 64)
+  model: string;
+
+  @ApiPropertyOptional({ example: 'A' })
+  @IsOptional()
+  @IsString()
+  @Length(1, 16)
+  revision?: string;
+
+  @ApiProperty({ description: 'Imagen del plano como data URL (data:image/...;base64,...).' })
+  @IsString()
+  @Length(1, 8_000_000)
+  imageDataUrl: string;
+}
+
 /** Persist a model+revision layout: footprint config + station placements. */
 export class SaveLayoutDto {
   @ApiProperty({ example: 'AX-1000' })

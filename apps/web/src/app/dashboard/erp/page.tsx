@@ -221,7 +221,7 @@ export default function ErpHubPage() {
             <h3 className="font-bold mb-1">Resultado del periodo</h3>
             <p className="text-[11px] text-gray-400 mb-3">Ingresos · Gastos · Utilidad</p>
             <div style={{ width: '100%', height: 220 }}>
-              <ResponsiveContainer>
+              <ResponsiveContainer width="100%" height={220}>
                 <BarChart data={chart} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
                   <XAxis dataKey="name" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
                   <YAxis hide />

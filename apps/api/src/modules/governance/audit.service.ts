@@ -314,6 +314,14 @@ export class AuditService {
     });
   }
 
+  async getEntityLogs(entity: string, entityId: string, limit = 100) {
+    return this.auditRepo.find({
+      where: { entity, entityId },
+      order: { timestamp: 'DESC' },
+      take: Math.max(1, Math.min(limit, 500)),
+    });
+  }
+
   // ESCALATION GOVERNANCE (Hardened & Idempotent)
   async checkEscalations() {
     const now = new Date();

@@ -399,14 +399,6 @@ export default function OperadorPage() {
   const { session } = useDashboardSession();
   const operator = session?.name || session?.email || "Operador";
   const now = useOperatorClock();
-  const [industrialTheme, setIndustrialTheme] = useState<"light" | "dark">(
-    () => {
-      if (typeof window === "undefined") return "dark";
-      return window.localStorage.getItem("axos_operator_theme") === "light"
-        ? "light"
-        : "dark";
-    },
-  );
   const [gloveMode, setGloveMode] = useState(() => {
     if (typeof window === "undefined") return true;
     return window.localStorage.getItem("axos_operator_glove") !== "0";
@@ -440,10 +432,6 @@ export default function OperadorPage() {
   const list = Array.isArray(execList) ? execList : [];
 
   useEffect(() => {
-    window.localStorage.setItem("axos_operator_theme", industrialTheme);
-  }, [industrialTheme]);
-
-  useEffect(() => {
     window.localStorage.setItem("axos_operator_glove", gloveMode ? "1" : "0");
   }, [gloveMode]);
 
@@ -461,7 +449,7 @@ export default function OperadorPage() {
 
   return (
     <div
-      className={`min-h-screen font-sans pb-44 ${industrialTheme === "dark" ? "dark bg-slate-950 text-white" : "bg-slate-50 text-slate-950"} ${gloveMode ? "[&_*]:touch-manipulation" : ""}`}
+      className={`min-h-screen font-sans pb-44 bg-background text-foreground ${gloveMode ? "[&_*]:touch-manipulation" : ""}`}
     >
       <IndustrialTopBar
         execution={board?.execution ?? null}
@@ -475,11 +463,7 @@ export default function OperadorPage() {
           (board?.currentStepDetail?.openIncidents.length ?? 0)
         }
         gloveMode={gloveMode}
-        industrialTheme={industrialTheme}
         onToggleGlove={() => setGloveMode((v) => !v)}
-        onToggleTheme={() =>
-          setIndustrialTheme((v) => (v === "dark" ? "light" : "dark"))
-        }
         onBack={
           executionId
             ? () => {

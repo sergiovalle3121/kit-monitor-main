@@ -41,3 +41,36 @@ export async function exportAllPng(slides: any[], title: string, ratio?: string)
     } catch { /* salta la diapositiva con error */ }
   }
 }
+
+async function renderSvg(json: any, ch: number): Promise<string> {
+  const { StaticCanvas } = await import('fabric');
+  const sc = new StaticCanvas(document.createElement('canvas'), { width: CW, height: ch });
+  try {
+    await sc.loadFromJSON(json);
+    sc.backgroundColor = (json?.background as string) || '#ffffff';
+    sc.renderAll();
+    return sc.toSVG({ width: CW, height: ch, viewBox: { x: 0, y: 0, width: CW, height: ch } } as any);
+  } finally {
+    sc.dispose();
+  }
+}
+
+export async function exportSlideSvg(json: any, title: string, index: number, ratio?: string) {
+  const { saveAs } = await import('file-saver');
+  const svg = await renderSvg(json, ratio === '4:3' ? 720 : 540);
+  saveAs(new Blob([svg], { type: 'image/svg+xml;charset=utf-8' }), `${safeName(title)}-${String(index + 1).padStart(2, '0')}.svg`);
+}
+
+export async function exportAllSvg(slides: any[], title: string, ratio?: string) {
+  const list = Array.isArray(slides) ? slides : [];
+  if (!list.length) return;
+  const ch = ratio === '4:3' ? 720 : 540;
+  const { saveAs } = await import('file-saver');
+  for (let i = 0; i < list.length; i++) {
+    try {
+      const svg = await renderSvg(list[i], ch);
+      saveAs(new Blob([svg], { type: 'image/svg+xml;charset=utf-8' }), `${safeName(title)}-${String(i + 1).padStart(2, '0')}.svg`);
+      await new Promise((r) => setTimeout(r, 180));
+    } catch { /* salta la diapositiva con error */ }
+  }
+}
