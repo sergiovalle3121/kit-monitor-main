@@ -40,3 +40,62 @@ describe('ACTIONS.create_maintenance_order', () => {
     expect(def.requiredPermission).toBe('maintenance:write');
   });
 });
+
+describe('ACTIONS.release_quality_hold', () => {
+  const def = ACTIONS.release_quality_hold;
+  it('requires a positive numeric holdId (coerces strings)', () => {
+    expect(def.validate({}).ok).toBe(false);
+    expect(def.validate({ holdId: 0 }).ok).toBe(false);
+    expect(def.validate({ holdId: '42' })).toMatchObject({
+      ok: true,
+      params: { holdId: 42 },
+    });
+  });
+  it('is gated by QUALITY_APPROVE', () => {
+    expect(def.requiredPermission).toBe('QUALITY_APPROVE');
+  });
+});
+
+describe('ACTIONS.create_purchase_requisition', () => {
+  const def = ACTIONS.create_purchase_requisition;
+  it('requires partNumber and a positive quantity', () => {
+    expect(def.validate({ quantity: 5 }).ok).toBe(false);
+    expect(def.validate({ partNumber: 'ABC' }).ok).toBe(false);
+    expect(def.validate({ partNumber: 'ABC', quantity: 0 }).ok).toBe(false);
+    expect(def.validate({ partNumber: 'ABC', quantity: '10' })).toMatchObject({
+      ok: true,
+      params: { partNumber: 'ABC', quantity: 10 },
+    });
+  });
+});
+
+describe('ACTIONS.create_production_plan', () => {
+  const def = ACTIONS.create_production_plan;
+  it('requires model, line 1–7, quantity and a valid shift', () => {
+    expect(def.validate({ line: 1, quantity: 1, shift: 'T1' }).ok).toBe(false);
+    expect(
+      def.validate({ model: 'M', line: 9, quantity: 1, shift: 'T1' }).ok,
+    ).toBe(false);
+    expect(
+      def.validate({ model: 'M', line: 3, quantity: 1, shift: 'T9' }).ok,
+    ).toBe(false);
+    expect(
+      def.validate({ model: 'M', line: '3', quantity: '50', shift: 't2' }),
+    ).toMatchObject({
+      ok: true,
+      params: { model: 'M', line: 3, quantity: 50, shift: 'T2' },
+    });
+  });
+});
+
+describe('ACTIONS.assign_ehs_incident_owner', () => {
+  const def = ACTIONS.assign_ehs_incident_owner;
+  it('requires incidentId and owner', () => {
+    expect(def.validate({ owner: 'Ana' }).ok).toBe(false);
+    expect(def.validate({ incidentId: 'I-1' }).ok).toBe(false);
+    expect(def.validate({ incidentId: 'I-1', owner: 'Ana' })).toMatchObject({
+      ok: true,
+      params: { incidentId: 'I-1', owner: 'Ana' },
+    });
+  });
+});

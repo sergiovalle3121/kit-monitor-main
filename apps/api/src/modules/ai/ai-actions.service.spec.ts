@@ -83,3 +83,52 @@ describe('AiActionsService.execute', () => {
     expect((out.result as { folio?: string }).folio).toBe('MO-0001');
   });
 });
+
+describe('AiActionsService.execute — extended actions', () => {
+  it('creates a purchase requisition with the caller as createdBy', async () => {
+    const mm = {
+      createRequisition: jest
+        .fn()
+        .mockResolvedValue({ id: 7, prNumber: 'PR-0007', status: 'open' }),
+    };
+    const service = new AiActionsService({
+      get: jest.fn().mockReturnValue(mm),
+    } as never);
+    const buyer: ReqUser = {
+      userId: 'b',
+      email: 'buyer@b.com',
+      role: 'User',
+      permissions: ['materials:write'],
+    };
+    const out = await service.execute(buyer, 'create_purchase_requisition', {
+      partNumber: 'CAP-100',
+      quantity: '250',
+    });
+    expect(out.ok).toBe(true);
+    expect(mm.createRequisition).toHaveBeenCalledWith(
+      expect.objectContaining({
+        partNumber: 'CAP-100',
+        quantity: 250,
+        createdBy: 'buyer@b.com',
+        source: 'manual',
+      }),
+    );
+    expect((out.result as { prNumber?: string }).prNumber).toBe('PR-0007');
+  });
+
+  it('forbids assigning an EHS owner without the reports:read permission', async () => {
+    const service = new AiActionsService({ get: jest.fn() } as never);
+    const nobody: ReqUser = {
+      userId: 'n',
+      email: 'n@b.com',
+      role: 'User',
+      permissions: [],
+    };
+    await expect(
+      service.execute(nobody, 'assign_ehs_incident_owner', {
+        incidentId: 'I-1',
+        owner: 'Ana',
+      }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+});

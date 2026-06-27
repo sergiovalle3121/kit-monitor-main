@@ -2789,4 +2789,27 @@ Event Ledger. El catálogo es deliberadamente mínimo para validar el patrón an
 `AiActionsService` —permiso denegado, acción desconocida, params inválidos, éxito—), `lint web`
 0 errores, `build web` ✓. Sin migraciones; los módulos de lectura no cambian.
 
+## 127. CIDE — ampliar el catálogo de acciones (calidad, compras, producción, EHS)
+
+**Contexto.** §126 validó el patrón human-in-the-loop con una sola acción
+(`create_maintenance_order`). Con el patrón probado, se amplía el catálogo a las acciones de
+mayor valor operativo, reusando exactamente la misma infraestructura (propose_action → tarjeta
+de confirmación → `POST /ai/actions/execute` con RBAC re-verificado y traza en el ledger).
+
+**Decisión.** Cuatro acciones nuevas en `ACTIONS`, cada una con su permiso real y su ejecutor:
+- `release_quality_hold` (`QUALITY_APPROVE`) → `QualityService.releaseHold(holdId, actor)`.
+- `create_purchase_requisition` (`materials:write`) → `ErpMmService.createRequisition` (cierra
+  el lazo MRP→compra; `createdBy` = el usuario).
+- `create_production_plan` (`MANAGE_PLANS`) → `PlansService.create` (model, line 1–7, quantity,
+  shift T1/T2/T3, …).
+- `assign_ehs_incident_owner` (`reports:read`, como su endpoint) → `EhsService.update` fijando
+  `capaOwner`/`capaDueDate`.
+El `run()` del servicio ahora recibe el `reqUser` para inyectar el actor donde se requiere
+(liberación de hold, createdBy de la requisición). La descripción de `propose_action` enumera
+las 5 acciones y sus params. La UI no cambió: la tarjeta de propuesta ya es agnóstica a la acción.
+
+**Verificación:** `build API` ✓, **API tests 1125/1125** (+7: validación de las 4 acciones y
+execute de requisición/forbid EHS), `lint web` 0 errores. Mismas garantías de §126 (confirmación
+humana + RBAC + re-validación + ledger). Sin migraciones.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
