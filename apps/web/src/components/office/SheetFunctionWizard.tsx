@@ -3,6 +3,7 @@
 import React, { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { X, Search, CornerDownLeft, Braces } from 'lucide-react';
+import { AXOS_FORMULA_CATALOG } from './sheets/industrialFormulaCatalog';
 
 interface Arg { name: string; desc: string; optional?: boolean }
 interface Fn { name: string; syntax: string; desc: string; args: Arg[] }
@@ -10,6 +11,7 @@ interface Fn { name: string; syntax: string; desc: string; args: Arg[] }
 const A = (name: string, desc: string, optional = false): Arg => ({ name, desc, optional });
 
 const CATEGORIES: { label: string; fns: Fn[] }[] = [
+  { label: 'AXOS Industrial', fns: AXOS_FORMULA_CATALOG },
   { label: 'Matemáticas', fns: [
     { name: 'SUM', syntax: 'SUM(núm1; …)', desc: 'Suma todos los números de un rango.', args: [A('núm1', 'Primer número o rango a sumar.'), A('núm2', 'Más números o rangos.', true)] },
     { name: 'SUMIF', syntax: 'SUMIF(rango; criterio; [rango_suma])', desc: 'Suma las celdas que cumplen un criterio.', args: [A('rango', 'Rango evaluado.'), A('criterio', 'Condición, p. ej. ">100".'), A('rango_suma', 'Celdas a sumar si difieren del rango.', true)] },

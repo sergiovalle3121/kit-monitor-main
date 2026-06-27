@@ -27,6 +27,22 @@ export class NpiProject extends TenantBaseEntity {
   @Column({ type: 'varchar', length: 40, name: 'model_number' })
   modelNumber: string;
 
+  /**
+   * Resolved id of the canonical ProductModel (`pm_product_models.id`) for this
+   * `modelNumber`, when one exists in scope. A soft link (plain varchar, NO FK
+   * constraint) so it never couples to nor mutates product-models: it is
+   * resolved best-effort at create and backfilled lazily on read. Null when no
+   * master record exists yet for the number.
+   */
+  @Index()
+  @Column({
+    type: 'varchar',
+    length: 36,
+    nullable: true,
+    name: 'product_model_id',
+  })
+  productModelId: string | null;
+
   @Column({ type: 'varchar', length: 20, default: '1.0' })
   revision: string;
 

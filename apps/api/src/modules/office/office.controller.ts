@@ -3,6 +3,7 @@ import {
 } from '@nestjs/common';
 import { OfficeService } from './office.service';
 import type { OfficeDocumentLifecycleState, OfficeDocType, OfficeShare } from './entities/office-document.entity';
+import type { OfficeCommentAnchorType } from './entities/office-comment.entity';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { AuthenticatedUser } from '../../common/types/jwt.types';
 import { CreateOfficeCommentDto, ListOfficeCommentsQueryDto, ReplyOfficeCommentDto, UpdateOfficeCommentDto } from './dto/office-comment.dto';
@@ -81,6 +82,7 @@ export class OfficeController {
     return this.service.restore(id, req.user);
   }
 
+  // ── Document comments (Docs) ───────────────────────────────────────────────
   @Get(':id/comments')
   comments(@Request() req: AuthReq, @Param('id') id: string, @Query() query: ListOfficeCommentsQueryDto) {
     return this.service.listComments(id, req.user, query);
@@ -111,6 +113,35 @@ export class OfficeController {
     return this.service.timeline(id, req.user);
   }
 
+  // ── Slide/object comments (Slides) — generic anchored threads ───────────────
+  @Get(':id/slide-comments')
+  slideComments(@Request() req: AuthReq, @Param('id') id: string, @Query('includeResolved') includeResolved?: string) {
+    return this.service.listSlideComments(id, req.user, includeResolved !== '0' && includeResolved !== 'false');
+  }
+
+  @Post(':id/slide-comments')
+  addSlideComment(
+    @Request() req: AuthReq,
+    @Param('id') id: string,
+    @Body() dto: { parentId?: string | null; anchorType?: OfficeCommentAnchorType; slideIndex?: number | null; objectId?: string | null; rangeRef?: string | null; anchorLabel?: string | null; text: string; assignedTo?: string | null },
+  ) {
+    return this.service.addSlideComment(id, dto, req.user);
+  }
+
+  @Patch(':id/slide-comments/:commentId')
+  resolveSlideComment(
+    @Request() req: AuthReq,
+    @Param('id') id: string,
+    @Param('commentId') commentId: string,
+    @Body() dto: { resolved?: boolean },
+  ) {
+    return this.service.resolveSlideComment(id, commentId, dto?.resolved !== false, req.user);
+  }
+
+  @Delete(':id/slide-comments/:commentId')
+  removeSlideComment(@Request() req: AuthReq, @Param('id') id: string, @Param('commentId') commentId: string) {
+    return this.service.removeSlideComment(id, commentId, req.user);
+  }
   @Get(':id/versions')
   versions(@Request() req: AuthReq, @Param('id') id: string) {
     return this.service.listVersions(id, req.user);

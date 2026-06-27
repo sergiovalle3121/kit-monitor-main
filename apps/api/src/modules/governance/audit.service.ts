@@ -1,6 +1,5 @@
-import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Inject, Injectable } from '@nestjs/common';
+import { ObjectLiteral, SelectQueryBuilder } from 'typeorm';
 import { AuditLog } from './entities/audit-log.entity';
 import { OperationalException, ExceptionSeverity, ExceptionDomain, ExceptionStatus } from './entities/operational-exception.entity';
 import { Notification } from './entities/notification.entity';
@@ -8,22 +7,38 @@ import { NotificationLog } from './entities/notification-log.entity';
 import { GovernancePolicy } from './entities/governance-policy.entity';
 import { User } from '../users/entities/user.entity';
 import { NotificationService } from './notification.service';
+import { TenantContextService } from '../../common/tenant/tenant-context.service';
+import {
+  TenantScopedRepository,
+  getTenantRepositoryToken,
+} from '../../common/tenant/tenant-scoped.repository';
 
 @Injectable()
 export class AuditService {
   constructor(
-    @InjectRepository(AuditLog)
-    private readonly auditRepo: Repository<AuditLog>,
-    @InjectRepository(OperationalException)
-    private readonly exceptionRepo: Repository<OperationalException>,
-    @InjectRepository(Notification)
-    private readonly notificationRepo: Repository<Notification>,
-    @InjectRepository(NotificationLog)
-    private readonly logRepo: Repository<NotificationLog>,
-    @InjectRepository(GovernancePolicy)
-    private readonly policyRepo: Repository<GovernancePolicy>,
+    @Inject(getTenantRepositoryToken(AuditLog))
+    private readonly auditRepo: TenantScopedRepository<AuditLog>,
+    @Inject(getTenantRepositoryToken(OperationalException))
+    private readonly exceptionRepo: TenantScopedRepository<OperationalException>,
+    @Inject(getTenantRepositoryToken(Notification))
+    private readonly notificationRepo: TenantScopedRepository<Notification>,
+    @Inject(getTenantRepositoryToken(NotificationLog))
+    private readonly logRepo: TenantScopedRepository<NotificationLog>,
+    @Inject(getTenantRepositoryToken(GovernancePolicy))
+    private readonly policyRepo: TenantScopedRepository<GovernancePolicy>,
     private readonly notifications: NotificationService,
+    private readonly tenantCtx: TenantContextService,
   ) {}
+
+  private applyScope<T extends ObjectLiteral>(
+    qb: SelectQueryBuilder<T>,
+    alias: string,
+  ): SelectQueryBuilder<T> {
+    const tenant = this.tenantCtx.getTenantId();
+    if (tenant) qb.andWhere(`${alias}.tenant_id = :tenant`, { tenant });
+    else qb.andWhere(`${alias}.tenant_id IS NULL`);
+    return qb;
+  }
 
   async log(params: {
     actor: string;
@@ -120,6 +135,7 @@ export class AuditService {
 
   async findAllExceptions(user: User, filters: { domain?: ExceptionDomain, severity?: ExceptionSeverity, status?: ExceptionStatus } = {}) {
     const qb = this.exceptionRepo.createQueryBuilder('ex');
+    this.applyScope(qb, 'ex');
 
     // 1. Mandatory Organizational Scope
     if (user.scopes) {

@@ -26,6 +26,7 @@ import {
   CideToolSpec,
 } from './cide-provider';
 import { CideCard, collectCards } from './ai-cards';
+import { chooseModel } from './ai-escalation';
 import {
   ALLOWED_MODELS,
   DEFAULT_MODEL,
@@ -62,12 +63,57 @@ const MAX_OUTPUT_TOKENS = Math.max(
 const CIDE_BASE_URL = process.env.CIDE_BASE_URL || 'http://localhost:11434/v1';
 /** Optional bearer token for the engine (local Ollama needs none). */
 const CIDE_API_KEY = process.env.CIDE_API_KEY || null;
+/**
+ * Per-request timeout for the engine. CPU inference (e.g. Ollama on a Railway
+ * box without a GPU) can be slow, so this is generous by default and tunable
+ * via `CIDE_TIMEOUT_MS`.
+ */
+const CIDE_TIMEOUT_MS = Math.max(
+  5_000,
+  Number(process.env.CIDE_TIMEOUT_MS) || 120_000,
+);
 
 interface RunResult {
   text: string;
   usage: TokenUsage;
   toolsUsed: string[];
   cards: CideCard[];
+}
+
+/** Everything one chat turn needs, resolved once and shared by chat()/chatStream(). */
+interface PreparedTurn {
+  tenantId: string;
+  cfg: AiTenantConfig;
+  ctx: ToolContext;
+  conv: AiConversation;
+  history: AiMessage[];
+  model: string;
+  escalated: boolean;
+  system: string;
+  specs: CideToolSpec[];
+  mock: boolean;
+}
+
+/** The final result of a chat turn, returned by chat() and emitted by chatStream(). */
+export interface ChatResult {
+  conversationId: string;
+  reply: string;
+  model: string;
+  mock: boolean;
+  escalated: boolean;
+  toolsUsed: string[];
+  cards: CideCard[];
+  usage: TokenUsage;
+  costUsd: number;
+}
+
+/** Sink the controller wires to an SSE response so chatStream() stays HTTP-agnostic. */
+export interface ChatStreamHandlers {
+  onMeta: (m: { conversationId: string; model: string; escalated: boolean }) => void;
+  onDelta: (text: string) => void;
+  onTool: (name: string) => void;
+  onDone: (payload: ChatResult) => void;
+  onError: (message: string, status?: number) => void;
 }
 
 function summarize(out: unknown): string {
@@ -183,6 +229,69 @@ export class AiService {
     };
   }
 
+  // ── Engine health ───────────────────────────────────────────────────────────
+  /**
+   * Probe the inference engine so an admin can confirm CIDE is actually wired
+   * up before users try it. Reports reachability, the model tags the engine is
+   * serving, and whether the tenant's active model is among them. Never throws —
+   * a down engine is reported as `{ reachable: false, error }`, not a 5xx.
+   */
+  async engineHealth(reqUser: ReqUser) {
+    const cfg = await this.getOrCreateConfig(
+      reqUser.tenant_id ?? DEFAULT_TENANT,
+    );
+    const mock = process.env.AI_MOCK === '1';
+    const activeModel = this.resolveModel(cfg.defaultModel);
+    const base = {
+      mock,
+      baseUrl: CIDE_BASE_URL,
+      apiKeyConfigured: !!CIDE_API_KEY,
+      activeModel,
+    };
+
+    // In demo mode the engine is intentionally not called; report it plainly.
+    if (mock) {
+      return {
+        ...base,
+        reachable: false,
+        models: [] as string[],
+        modelAvailable: false,
+        message:
+          'CIDE está en modo demo (AI_MOCK=1): no se contacta el motor. Pon AI_MOCK=0 y configura CIDE_BASE_URL para activarlo.',
+      };
+    }
+
+    const provider = this.createProvider(activeModel);
+    try {
+      const { models } = await provider.ping();
+      // Ollama reports tags like "qwen2.5:7b"; match exact or on the family.
+      const modelAvailable = models.some(
+        (m) => m === activeModel || m.startsWith(`${activeModel.split(':')[0]}:`),
+      );
+      return {
+        ...base,
+        reachable: true,
+        models,
+        modelAvailable,
+        message: modelAvailable
+          ? 'Motor de CIDE accesible y el modelo activo está cargado.'
+          : `Motor accesible, pero el modelo "${activeModel}" no aparece cargado. Haz "ollama pull ${activeModel}" en el motor o elige otro modelo.`,
+      };
+    } catch (e) {
+      const error = e instanceof Error ? e.message : String(e);
+      this.logger.warn(`CIDE health probe failed: ${error}`);
+      return {
+        ...base,
+        reachable: false,
+        models: [] as string[],
+        modelAvailable: false,
+        message:
+          'No se pudo contactar el motor de CIDE. Verifica CIDE_BASE_URL y que el servicio de inferencia esté arriba.',
+        error,
+      };
+    }
+  }
+
   // ── Usage ──────────────────────────────────────────────────────────────────
   async usageSummary(reqUser: ReqUser) {
     const tenantId = reqUser.tenant_id ?? DEFAULT_TENANT;
@@ -248,8 +357,39 @@ export class AiService {
     return { conversation, messages };
   }
 
+  /** Delete a conversation and its messages. Owner-only (admins may delete any). */
+  async deleteConversation(reqUser: ReqUser, id: string) {
+    const conversation = await this.convRepo.findOne({ where: { id } });
+    if (!conversation) throw new NotFoundException('Conversación no encontrada');
+    if (conversation.userEmail !== reqUser.email && reqUser.role !== 'Admin') {
+      throw new ForbiddenException('No puedes borrar esta conversación.');
+    }
+    await this.msgRepo.delete({ conversationId: id });
+    await this.convRepo.delete({ id });
+    return { deleted: true, id };
+  }
+
+  /** Rename a conversation. Owner-only (admins may rename any). */
+  async renameConversation(reqUser: ReqUser, id: string, title: string) {
+    const conversation = await this.convRepo.findOne({ where: { id } });
+    if (!conversation) throw new NotFoundException('Conversación no encontrada');
+    if (conversation.userEmail !== reqUser.email && reqUser.role !== 'Admin') {
+      throw new ForbiddenException('No puedes renombrar esta conversación.');
+    }
+    const clean = title.trim().slice(0, 200) || 'Nueva conversación';
+    conversation.title = clean;
+    await this.convRepo.save(conversation);
+    return { id, title: clean };
+  }
+
   // ── Chat ─────────────────────────────────────────────────────────────────────
-  async chat(reqUser: ReqUser, dto: ChatDto) {
+  /**
+   * Resolve everything a turn needs (config + guardrails + RBAC context +
+   * conversation thread + model selection), enforcing the same checks for both
+   * the blocking and the streaming entry points. Throws the user-facing
+   * HttpExceptions (disabled / budget / rate-limit) on failure.
+   */
+  private async prepare(reqUser: ReqUser, dto: ChatDto): Promise<PreparedTurn> {
     const tenantId = reqUser.tenant_id ?? DEFAULT_TENANT;
     const cfg = await this.getOrCreateConfig(tenantId);
     if (!cfg.enabled) {
@@ -332,68 +472,192 @@ export class AiService {
     });
     const history = priorAll.slice(-20);
 
-    const model = this.resolveModel(dto.model ?? cfg.defaultModel);
+    // Pick the model: an explicit per-request choice wins; otherwise the cheap
+    // default, escalating to the stronger tier for analytical asks (opt-in).
+    const { model, escalated } = chooseModel({
+      explicit: dto.model ? this.resolveModel(dto.model) : null,
+      defaultModel: this.resolveModel(cfg.defaultModel),
+      escalationModel: this.resolveModel(cfg.escalationModel),
+      message: dto.message,
+    });
     const system = this.buildSystem(reqUser);
     const specs = this.tools.toolSpecs(ctx);
 
-    // Run CIDE (real self-hosted call, or a deterministic demo if AI_MOCK=1).
-    const result = mock
-      ? await this.runMock(dto.message, ctx)
-      : await this.runCide(model, system, history, dto.message, specs, ctx);
+    return {
+      tenantId,
+      cfg,
+      ctx,
+      conv,
+      history,
+      model,
+      escalated,
+      system,
+      specs,
+      mock,
+    };
+  }
 
+  /** Persist the turn (messages + thread bump) and meter usage. Returns the cost. */
+  private async persistTurn(
+    reqUser: ReqUser,
+    p: PreparedTurn,
+    userMessage: string,
+    result: RunResult,
+  ): Promise<{ cost: number; uniqueTools: string[] }> {
     const uniqueTools = [...new Set(result.toolsUsed)];
 
-    // Persist the turn.
     await this.msgRepo.save(
       this.msgRepo.create({
-        conversationId: conv.id,
+        conversationId: p.conv.id,
         role: 'user',
-        content: dto.message,
+        content: userMessage,
       }),
     );
     await this.msgRepo.save(
       this.msgRepo.create({
-        conversationId: conv.id,
+        conversationId: p.conv.id,
         role: 'assistant',
         content: result.text,
         toolsUsed: uniqueTools.length ? uniqueTools : null,
         cards: result.cards.length ? result.cards : null,
+        model: p.mock ? null : p.model,
+        escalated: p.escalated || null,
       }),
     );
-    await this.convRepo.update(conv.id, { updatedAt: new Date() });
+    await this.convRepo.update(p.conv.id, { updatedAt: new Date() });
 
-    // Meter usage + advance the guardrail counter.
-    const cost = estimateCostUsd(model, result.usage);
+    const cost = estimateCostUsd(p.model, result.usage);
     await this.usageRepo.save(
       this.usageRepo.create({
-        tenantId,
+        tenantId: p.tenantId,
         userEmail: reqUser.email,
-        conversationId: conv.id,
-        model,
+        conversationId: p.conv.id,
+        model: p.model,
         inputTokens: result.usage.inputTokens,
         outputTokens: result.usage.outputTokens,
         cacheReadTokens: result.usage.cacheReadTokens,
         cacheWriteTokens: result.usage.cacheWriteTokens,
         costUsd: cost,
         usedByoKey: false,
-        mock,
+        mock: p.mock,
         toolCalls: result.toolsUsed.length,
       }),
     );
-    cfg.tokensUsedThisPeriod =
-      Number(cfg.tokensUsedThisPeriod) + billableTokens(result.usage);
-    await this.configRepo.save(cfg);
+    p.cfg.tokensUsedThisPeriod =
+      Number(p.cfg.tokensUsedThisPeriod) + billableTokens(result.usage);
+    await this.configRepo.save(p.cfg);
 
+    return { cost, uniqueTools };
+  }
+
+  /** One blocking CIDE turn → full result (used by POST /ai/chat). */
+  async chat(reqUser: ReqUser, dto: ChatDto): Promise<ChatResult> {
+    const p = await this.prepare(reqUser, dto);
+    const result = p.mock
+      ? await this.runMock(dto.message, p.ctx)
+      : await this.runCide(
+          p.model,
+          p.system,
+          p.history,
+          dto.message,
+          p.specs,
+          p.ctx,
+        );
+    const { cost, uniqueTools } = await this.persistTurn(
+      reqUser,
+      p,
+      dto.message,
+      result,
+    );
     return {
-      conversationId: conv.id,
+      conversationId: p.conv.id,
       reply: result.text,
-      model,
-      mock,
+      model: p.model,
+      mock: p.mock,
+      escalated: p.escalated,
       toolsUsed: uniqueTools,
       cards: result.cards,
       usage: result.usage,
       costUsd: cost,
     };
+  }
+
+  /**
+   * One streaming CIDE turn (used by POST /ai/chat/stream). Same guardrails,
+   * RBAC, agentic tool loop and persistence as chat(), but the final answer is
+   * forwarded token-by-token through the handlers. Never throws — failures are
+   * delivered as an `error` event so the SSE stream closes cleanly.
+   */
+  async chatStream(
+    reqUser: ReqUser,
+    dto: ChatDto,
+    h: ChatStreamHandlers,
+  ): Promise<void> {
+    let p: PreparedTurn;
+    try {
+      p = await this.prepare(reqUser, dto);
+    } catch (e) {
+      h.onError(...this.errorInfo(e));
+      return;
+    }
+
+    h.onMeta({
+      conversationId: p.conv.id,
+      model: p.model,
+      escalated: p.escalated,
+    });
+
+    let result: RunResult;
+    try {
+      result = p.mock
+        ? await this.runMockStreamed(dto.message, p.ctx, h.onDelta)
+        : await this.runCide(
+            p.model,
+            p.system,
+            p.history,
+            dto.message,
+            p.specs,
+            p.ctx,
+            { onDelta: h.onDelta, onTool: h.onTool },
+          );
+    } catch (e) {
+      h.onError(...this.errorInfo(e));
+      return;
+    }
+
+    const { cost, uniqueTools } = await this.persistTurn(
+      reqUser,
+      p,
+      dto.message,
+      result,
+    );
+    h.onDone({
+      conversationId: p.conv.id,
+      reply: result.text,
+      model: p.model,
+      mock: p.mock,
+      escalated: p.escalated,
+      toolsUsed: uniqueTools,
+      cards: result.cards,
+      usage: result.usage,
+      costUsd: cost,
+    });
+  }
+
+  /** Extract a user-facing message + HTTP status from any thrown error. */
+  private errorInfo(e: unknown): [string, number | undefined] {
+    if (e instanceof HttpException) {
+      const res = e.getResponse();
+      const message =
+        typeof res === 'string'
+          ? res
+          : ((res as { message?: string | string[] })?.message ?? e.message);
+      return [
+        Array.isArray(message) ? message.join(' ') : message,
+        e.getStatus(),
+      ];
+    }
+    return [e instanceof Error ? e.message : 'Error en CIDE.', undefined];
   }
 
   private buildSystem(reqUser: ReqUser): string {
@@ -418,10 +682,22 @@ export class AiService {
     ].join('\n');
   }
 
+  /** Construct an engine client for a model. Overridable in tests. */
+  private createProvider(model: string): CideProvider {
+    return new CideProvider({
+      baseUrl: CIDE_BASE_URL,
+      model,
+      apiKey: CIDE_API_KEY,
+      timeoutMs: CIDE_TIMEOUT_MS,
+    });
+  }
+
   /**
    * One full CIDE turn against the self-hosted, OpenAI-compatible engine, with
    * an agentic tool loop: the model can call the RBAC-filtered grounding tools,
-   * we feed results back, and iterate until it produces a final answer.
+   * we feed results back, and iterate until it produces a final answer. When a
+   * `stream` sink is supplied the final answer is forwarded token-by-token (and
+   * each tool invocation is announced) — otherwise the turn resolves blocking.
    */
   private async runCide(
     model: string,
@@ -430,12 +706,9 @@ export class AiService {
     userMessage: string,
     specs: CideToolSpec[],
     ctx: ToolContext,
+    stream?: { onDelta: (text: string) => void; onTool?: (name: string) => void },
   ): Promise<RunResult> {
-    const provider = new CideProvider({
-      baseUrl: CIDE_BASE_URL,
-      model,
-      apiKey: CIDE_API_KEY,
-    });
+    const provider = this.createProvider(model);
     const messages: CideMessage[] = [
       { role: 'system', content: system },
       ...history.map((m) => ({ role: m.role, content: m.content })),
@@ -449,11 +722,14 @@ export class AiService {
     try {
       for (let round = 0; round < MAX_TOTAL_ROUNDS; round++) {
         const offerTools = round < MAX_TOOL_ROUNDS && specs.length > 0;
-        const comp = await provider.chat({
+        const turnArgs = {
           messages,
           tools: offerTools ? specs : undefined,
           maxTokens: MAX_OUTPUT_TOKENS,
-        });
+        };
+        const comp = stream
+          ? await provider.chatStream({ ...turnArgs, onDelta: stream.onDelta })
+          : await provider.chat(turnArgs);
 
         usage.inputTokens += comp.usage.inputTokens;
         usage.outputTokens += comp.usage.outputTokens;
@@ -473,6 +749,7 @@ export class AiService {
           });
           for (const tc of comp.toolCalls) {
             toolsUsed.push(tc.name);
+            stream?.onTool?.(tc.name);
             const out = await this.tools.execute(tc.name, tc.arguments, ctx);
             toolOutputs.push({ tool: tc.name, out });
             messages.push({
@@ -538,5 +815,18 @@ export class AiService {
       toolsUsed,
       cards: collectCards(toolOutputs),
     };
+  }
+
+  /** Streaming demo: runs the real mock turn, then emits its text in fragments. */
+  private async runMockStreamed(
+    message: string,
+    ctx: ToolContext,
+    onDelta: (text: string) => void,
+  ): Promise<RunResult> {
+    const result = await this.runMock(message, ctx);
+    for (const chunk of result.text.match(/\S+\s*/g) ?? [result.text]) {
+      onDelta(chunk);
+    }
+    return result;
   }
 }

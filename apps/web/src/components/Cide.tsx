@@ -15,10 +15,19 @@ import {
   History,
   Plus,
   MessageSquare,
+  Square,
+  Trash2,
+  Zap,
+  Copy,
+  Check,
+  RefreshCw,
+  Pencil,
 } from 'lucide-react';
 import { glass } from '@/lib/glass';
 import { isAdminAccess } from '@/lib/owner';
+import { useOperatorKiosk } from '@/lib/operatorChrome';
 import { useDashboardSession } from '@/hooks/useDashboardSession';
+import { suggestionsFor } from '@/lib/chat/cideSuggestions';
 
 type CideCard =
   | { type: 'metric'; title: string; value: number; unit?: string | null }
@@ -49,6 +58,7 @@ interface ChatMsg {
   cards?: CideCard[];
   model?: string;
   mock?: boolean;
+  escalated?: boolean;
 }
 
 /** Conversation summary as returned by GET /api/ai/conversations. */
@@ -64,6 +74,22 @@ interface StoredMessage {
   content: string;
   toolsUsed?: string[] | null;
   cards?: CideCard[] | null;
+  model?: string | null;
+  escalated?: boolean | null;
+}
+
+/** Union of fields carried by the SSE events from POST /api/ai/chat/stream. */
+interface StreamPayload {
+  conversationId?: string;
+  model?: string;
+  escalated?: boolean;
+  text?: string;
+  name?: string;
+  reply?: string;
+  toolsUsed?: string[];
+  cards?: CideCard[];
+  mock?: boolean;
+  message?: string;
 }
 
 function relativeTime(iso: string): string {
@@ -79,15 +105,9 @@ function relativeTime(iso: string): string {
   return new Date(iso).toLocaleDateString('es-MX');
 }
 
-const SUGGESTIONS = [
-  '¿Cómo va la planta hoy?',
-  '¿Qué cambió en producción en las últimas 24 h?',
-  '¿Cómo está el inventario?',
-  'Muéstrame el estado de resultados',
-];
-
 export function Cide() {
   const pathname = usePathname();
+  const kiosk = useOperatorKiosk();
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<ChatMsg[]>([]);
@@ -97,7 +117,9 @@ export function Cide() {
   const [view, setView] = useState<'chat' | 'history'>('chat');
   const [conversations, setConversations] = useState<ConvSummary[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
   const { session } = useDashboardSession();
   const isAdmin = isAdminAccess(session?.role, session?.email);
 
@@ -108,42 +130,166 @@ export function Cide() {
     });
   }, [messages, loading]);
 
-  if (!pathname?.startsWith('/dashboard')) return null;
+  const suggestions = suggestionsFor(pathname);
+
+  if (kiosk || !pathname?.startsWith('/dashboard')) return null;
+
+  /** Update the trailing assistant message (the one being streamed). */
+  function patchAssistant(fn: (a: ChatMsg) => ChatMsg) {
+    setMessages((m) => {
+      const copy = [...m];
+      for (let i = copy.length - 1; i >= 0; i--) {
+        if (copy[i].role === 'assistant') {
+          copy[i] = fn(copy[i]);
+          break;
+        }
+      }
+      return copy;
+    });
+  }
+
+  /** Drop a trailing empty assistant placeholder (e.g. after an error). */
+  function dropEmptyPlaceholder() {
+    setMessages((m) => {
+      const last = m[m.length - 1];
+      return last?.role === 'assistant' && !last.content ? m.slice(0, -1) : m;
+    });
+  }
 
   async function send(text: string) {
     const msg = text.trim();
     if (!msg || loading) return;
     setError(null);
-    setMessages((m) => [...m, { role: 'user', content: msg }]);
+    // Add the user turn and an empty assistant bubble we fill as tokens arrive.
+    setMessages((m) => [
+      ...m,
+      { role: 'user', content: msg },
+      { role: 'assistant', content: '' },
+    ]);
     setInput('');
+    await runStream(msg);
+  }
+
+  /** Re-run the last user message, replacing the latest assistant answer. */
+  async function regenerate() {
+    if (loading) return;
+    const lastUser = [...messages].reverse().find((m) => m.role === 'user');
+    if (!lastUser) return;
+    setError(null);
+    setMessages((m) => {
+      const copy = [...m];
+      while (copy.length && copy[copy.length - 1].role === 'assistant') {
+        copy.pop();
+      }
+      copy.push({ role: 'assistant', content: '' });
+      return copy;
+    });
+    await runStream(lastUser.content);
+  }
+
+  /** Stream one turn for `msg` into the trailing assistant bubble. */
+  async function runStream(msg: string) {
     setLoading(true);
+
+    let sawError = false;
+    const handleFrame = (frame: string) => {
+      let event = 'message';
+      let data = '';
+      for (const line of frame.split('\n')) {
+        if (line.startsWith('event:')) event = line.slice(6).trim();
+        else if (line.startsWith('data:')) data += line.slice(5).trim();
+      }
+      if (!data) return;
+      let p: StreamPayload;
+      try {
+        p = JSON.parse(data) as StreamPayload;
+      } catch {
+        return;
+      }
+      if (event === 'meta') {
+        if (p.conversationId) setConversationId(p.conversationId);
+        patchAssistant((a) => ({ ...a, model: p.model, escalated: p.escalated }));
+      } else if (event === 'delta') {
+        patchAssistant((a) => ({ ...a, content: a.content + (p.text ?? '') }));
+      } else if (event === 'tool' && p.name) {
+        patchAssistant((a) => ({ ...a, tools: [...(a.tools ?? []), p.name!] }));
+      } else if (event === 'done') {
+        patchAssistant((a) => ({
+          ...a,
+          content: p.reply ?? a.content,
+          tools: p.toolsUsed ?? a.tools,
+          cards: p.cards ?? a.cards,
+          model: p.model ?? a.model,
+          escalated: p.escalated ?? a.escalated,
+          mock: p.mock,
+        }));
+        if (p.conversationId) setConversationId(p.conversationId);
+      } else if (event === 'error') {
+        sawError = true;
+        setError(p.message || 'CIDE no pudo responder.');
+      }
+    };
+
+    const controller = new AbortController();
+    abortRef.current = controller;
     try {
-      const res = await fetch('/api/ai/chat', {
+      const res = await fetch('/api/ai/chat/stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: msg, conversationId }),
+        signal: controller.signal,
       });
-      const data = await res.json();
-      if (!res.ok) {
+      if (!res.ok || !res.body) {
+        const data = (await res.json().catch(() => ({}))) as {
+          message?: string;
+        };
         setError(data?.message || 'No se pudo contactar a CIDE.');
+        dropEmptyPlaceholder();
         return;
       }
-      setConversationId(data.conversationId ?? null);
-      setMessages((m) => [
-        ...m,
-        {
-          role: 'assistant',
-          content: data.reply ?? '—',
-          tools: data.toolsUsed,
-          cards: data.cards,
-          model: data.model,
-          mock: data.mock,
-        },
-      ]);
-    } catch {
-      setError('Error de red al contactar a CIDE.');
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = '';
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        const frames = buf.split('\n\n');
+        buf = frames.pop() ?? '';
+        for (const f of frames) if (f.trim()) handleFrame(f);
+      }
+      if (buf.trim()) handleFrame(buf);
+      if (sawError) dropEmptyPlaceholder();
+    } catch (e) {
+      if ((e as Error)?.name === 'AbortError') {
+        // User stopped generation: keep whatever streamed so far.
+        patchAssistant((a) => ({
+          ...a,
+          content: a.content || '_(generación detenida)_',
+        }));
+      } else {
+        setError('Error de red al contactar a CIDE.');
+        dropEmptyPlaceholder();
+      }
     } finally {
+      abortRef.current = null;
       setLoading(false);
+    }
+  }
+
+  /** Abort the in-flight streamed response. */
+  function stop() {
+    abortRef.current?.abort();
+  }
+
+  /** Copy an assistant answer to the clipboard, flashing a check briefly. */
+  async function copyMsg(i: number, text: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedIdx(i);
+      setTimeout(() => setCopiedIdx((c) => (c === i ? null : c)), 1500);
+    } catch {
+      /* clipboard blocked (insecure context) — no-op */
     }
   }
 
@@ -175,6 +321,8 @@ export function Cide() {
         content: m.content,
         tools: m.toolsUsed ?? undefined,
         cards: m.cards ?? undefined,
+        model: m.model ?? undefined,
+        escalated: m.escalated ?? undefined,
       }));
       setMessages(msgs);
       setConversationId(id);
@@ -191,6 +339,38 @@ export function Cide() {
     setConversationId(null);
     setError(null);
     setView('chat');
+  }
+
+  async function deleteConversation(id: string) {
+    try {
+      const res = await fetch(`/api/ai/conversations/${id}`, {
+        method: 'DELETE',
+      });
+      if (res.ok) {
+        setConversations((cs) => cs.filter((c) => c.id !== id));
+        if (conversationId === id) newConversation();
+      }
+    } catch {
+      /* non-fatal: leave the list as-is */
+    }
+  }
+
+  async function renameConversation(id: string, title: string) {
+    const clean = title.trim();
+    if (!clean) return;
+    // Optimistic: reflect the new title immediately.
+    setConversations((cs) =>
+      cs.map((c) => (c.id === id ? { ...c, title: clean } : c)),
+    );
+    try {
+      await fetch(`/api/ai/conversations/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: clean }),
+      });
+    } catch {
+      /* non-fatal: keep the optimistic title */
+    }
   }
 
   return (
@@ -286,6 +466,8 @@ export function Cide() {
                     loading={loadingHistory}
                     activeId={conversationId}
                     onPick={loadConversation}
+                    onDelete={deleteConversation}
+                    onRename={renameConversation}
                   />
                 ) : (
                   <>
@@ -300,7 +482,7 @@ export function Cide() {
                       — respetando tus permisos.
                     </p>
                     <div className="flex flex-col gap-2">
-                      {SUGGESTIONS.map((s) => (
+                      {suggestions.map((s) => (
                         <button
                           key={s}
                           onClick={() => send(s)}
@@ -329,6 +511,14 @@ export function Cide() {
                     >
                       <p className="whitespace-pre-wrap leading-relaxed">
                         {m.content}
+                        {m.role === 'assistant' &&
+                          !m.content &&
+                          loading && (
+                            <span className="inline-flex items-center gap-2 text-black/50 dark:text-white/50">
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                              Analizando…
+                            </span>
+                          )}
                       </p>
                       {m.role === 'assistant' && m.cards && m.cards.length > 0 && (
                         <div className="mt-2.5 space-y-2">
@@ -357,18 +547,58 @@ export function Cide() {
                           modo demo · motor CIDE no disponible
                         </p>
                       )}
+                      {m.role === 'assistant' && !m.mock && m.model && (
+                        <p className="mt-1 flex items-center gap-1.5 text-[10px] text-black/40 dark:text-white/40">
+                          {m.model}
+                          {m.escalated && (
+                            <span className="inline-flex items-center gap-0.5 text-violet-500 dark:text-violet-300">
+                              <Zap className="h-2.5 w-2.5" />
+                              escalado
+                            </span>
+                          )}
+                        </p>
+                      )}
+                      {m.role === 'assistant' &&
+                        m.content &&
+                        !(loading && i === messages.length - 1) && (
+                          <div className="mt-1.5 flex items-center gap-1">
+                            <button
+                              onClick={() => copyMsg(i, m.content)}
+                              aria-label="Copiar respuesta"
+                              title="Copiar"
+                              className="rounded-md p-1 text-black/35 transition-colors hover:bg-black/5 hover:text-black/70 dark:text-white/35 dark:hover:bg-white/10 dark:hover:text-white/70"
+                            >
+                              {copiedIdx === i ? (
+                                <Check className="h-3 w-3 text-emerald-500" />
+                              ) : (
+                                <Copy className="h-3 w-3" />
+                              )}
+                            </button>
+                            {i === messages.length - 1 && (
+                              <button
+                                onClick={regenerate}
+                                aria-label="Regenerar respuesta"
+                                title="Regenerar"
+                                className="rounded-md p-1 text-black/35 transition-colors hover:bg-black/5 hover:text-black/70 dark:text-white/35 dark:hover:bg-white/10 dark:hover:text-white/70"
+                              >
+                                <RefreshCw className="h-3 w-3" />
+                              </button>
+                            )}
+                          </div>
+                        )}
                     </div>
                   </div>
                 ))}
 
-                {loading && (
-                  <div className="flex justify-start">
-                    <div className="flex items-center gap-2 rounded-2xl bg-black/5 px-4 py-3 text-sm dark:bg-white/10">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Analizando…
+                {loading &&
+                  messages[messages.length - 1]?.role !== 'assistant' && (
+                    <div className="flex justify-start">
+                      <div className="flex items-center gap-2 rounded-2xl bg-black/5 px-4 py-3 text-sm dark:bg-white/10">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Analizando…
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
 
                 {error && (
                   <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-xs text-amber-700 dark:text-amber-300">
@@ -411,14 +641,26 @@ export function Cide() {
                     placeholder="Pregúntale a CIDE…"
                     className="max-h-32 flex-1 resize-none rounded-xl border border-black/10 bg-white/60 px-3 py-2.5 text-sm outline-none focus:border-violet-400 dark:border-white/10 dark:bg-white/5"
                   />
-                  <button
-                    type="submit"
-                    disabled={loading || !input.trim()}
-                    aria-label="Enviar"
-                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white transition-colors hover:bg-indigo-700 disabled:opacity-40"
-                  >
-                    <Send className="h-4 w-4" />
-                  </button>
+                  {loading ? (
+                    <button
+                      type="button"
+                      onClick={stop}
+                      aria-label="Detener"
+                      title="Detener generación"
+                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-black/10 text-black/70 transition-colors hover:bg-black/20 dark:bg-white/10 dark:text-white/70 dark:hover:bg-white/20"
+                    >
+                      <Square className="h-4 w-4" />
+                    </button>
+                  ) : (
+                    <button
+                      type="submit"
+                      disabled={!input.trim()}
+                      aria-label="Enviar"
+                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white transition-colors hover:bg-indigo-700 disabled:opacity-40"
+                    >
+                      <Send className="h-4 w-4" />
+                    </button>
+                  )}
                 </form>
               </div>
               )}
@@ -437,12 +679,27 @@ function HistoryView({
   loading,
   activeId,
   onPick,
+  onDelete,
+  onRename,
 }: {
   conversations: ConvSummary[];
   loading: boolean;
   activeId: string | null;
   onPick: (id: string) => void;
+  onDelete: (id: string) => void;
+  onRename: (id: string, title: string) => void;
 }) {
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [draft, setDraft] = useState('');
+
+  function beginEdit(id: string, title: string) {
+    setEditingId(id);
+    setDraft(title);
+  }
+  function commitEdit() {
+    if (editingId && draft.trim()) onRename(editingId, draft);
+    setEditingId(null);
+  }
   if (loading && conversations.length === 0) {
     return (
       <div className="flex items-center justify-center gap-2 pt-10 text-sm text-black/50 dark:text-white/50">
@@ -470,23 +727,61 @@ function HistoryView({
         Conversaciones
       </p>
       {conversations.map((c) => (
-        <button
+        <div
           key={c.id}
-          onClick={() => onPick(c.id)}
-          className={`flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-colors ${
+          className={`group flex items-center gap-2 rounded-xl border pr-2 transition-colors ${
             c.id === activeId
               ? 'border-violet-400/60 bg-violet-500/10'
               : 'border-black/10 hover:bg-black/5 dark:border-white/10 dark:hover:bg-white/10'
           }`}
         >
-          <MessageSquare className="h-4 w-4 shrink-0 text-violet-500" />
-          <span className="min-w-0 flex-1">
-            <span className="block truncate text-sm">{c.title}</span>
-            <span className="block text-[11px] text-black/45 dark:text-white/45">
-              {relativeTime(c.updatedAt)}
-            </span>
-          </span>
-        </button>
+          {editingId === c.id ? (
+            <input
+              autoFocus
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onBlur={commitEdit}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') commitEdit();
+                else if (e.key === 'Escape') setEditingId(null);
+              }}
+              className="min-w-0 flex-1 rounded-lg border border-violet-400/60 bg-white/70 px-3 py-2 text-sm outline-none dark:bg-white/5"
+            />
+          ) : (
+            <button
+              onClick={() => onPick(c.id)}
+              className="flex min-w-0 flex-1 items-center gap-3 px-3 py-2.5 text-left"
+            >
+              <MessageSquare className="h-4 w-4 shrink-0 text-violet-500" />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm">{c.title}</span>
+                <span className="block text-[11px] text-black/45 dark:text-white/45">
+                  {relativeTime(c.updatedAt)}
+                </span>
+              </span>
+            </button>
+          )}
+          {editingId !== c.id && (
+            <>
+              <button
+                onClick={() => beginEdit(c.id, c.title)}
+                aria-label="Renombrar conversación"
+                title="Renombrar"
+                className="shrink-0 rounded-lg p-1.5 text-black/35 opacity-0 transition-all hover:bg-black/5 hover:text-black/70 focus:opacity-100 group-hover:opacity-100 dark:text-white/35 dark:hover:bg-white/10"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+              </button>
+              <button
+                onClick={() => onDelete(c.id)}
+                aria-label="Borrar conversación"
+                title="Borrar conversación"
+                className="shrink-0 rounded-lg p-1.5 text-black/35 opacity-0 transition-all hover:bg-red-500/10 hover:text-red-500 focus:opacity-100 group-hover:opacity-100 dark:text-white/35"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            </>
+          )}
+        </div>
       ))}
     </div>
   );
