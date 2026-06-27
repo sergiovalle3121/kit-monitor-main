@@ -94,16 +94,60 @@ export class CideEngineError extends Error {
 }
 
 export class CideProvider {
+  private readonly baseUrl: string;
   private readonly endpoint: string;
   private readonly model: string;
   private readonly apiKey: string | null;
   private readonly timeoutMs: number;
 
   constructor(opts: CideProviderOptions) {
-    this.endpoint = `${opts.baseUrl.replace(/\/+$/, '')}/chat/completions`;
+    this.baseUrl = opts.baseUrl.replace(/\/+$/, '');
+    this.endpoint = `${this.baseUrl}/chat/completions`;
     this.model = opts.model;
     this.apiKey = opts.apiKey?.trim() || null;
     this.timeoutMs = opts.timeoutMs ?? 120_000;
+  }
+
+  /**
+   * Liveness probe — GET `${baseUrl}/models`. Returns the model tags the engine
+   * is currently serving so an admin can confirm CIDE is reachable and that the
+   * configured model is actually loaded. Throws {@link CideEngineError} when the
+   * engine is unreachable or replies with a non-2xx status.
+   */
+  async ping(timeoutMs = 8_000): Promise<{ models: string[] }> {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    let res: Response;
+    try {
+      res = await fetch(`${this.baseUrl}/models`, {
+        method: 'GET',
+        headers: {
+          ...(this.apiKey ? { Authorization: `Bearer ${this.apiKey}` } : {}),
+        },
+        signal: controller.signal,
+      });
+    } catch (e) {
+      const reason = e instanceof Error ? e.message : String(e);
+      throw new CideEngineError(
+        `No se pudo contactar al motor de CIDE en ${this.baseUrl}: ${reason}`,
+      );
+    } finally {
+      clearTimeout(timer);
+    }
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      throw new CideEngineError(
+        `El motor de CIDE respondió ${res.status} al listar modelos: ${text.slice(0, 300)}`,
+        res.status,
+      );
+    }
+    const data = (await res.json().catch(() => ({}))) as {
+      data?: Array<{ id?: string }>;
+    };
+    const models = (data.data ?? [])
+      .map((m) => m.id)
+      .filter((id): id is string => typeof id === 'string');
+    return { models };
   }
 
   /** One model turn. Returns the assistant text and any tool calls it requested. */

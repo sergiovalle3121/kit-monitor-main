@@ -10,6 +10,10 @@ import {
   Loader2,
   Save,
   Cpu,
+  Activity,
+  RefreshCw,
+  CheckCircle2,
+  XCircle,
 } from 'lucide-react';
 import { glass } from '@/lib/glass';
 
@@ -56,15 +60,41 @@ interface Usage {
   recent: UsageRow[];
 }
 
+interface EngineHealth {
+  mock: boolean;
+  baseUrl: string;
+  apiKeyConfigured: boolean;
+  activeModel: string;
+  reachable: boolean;
+  models: string[];
+  modelAvailable: boolean;
+  message: string;
+  error?: string;
+}
+
 const fmtNum = (n: number) => Number(n || 0).toLocaleString();
 
 export default function AiAdminPage() {
   const [cfg, setCfg] = useState<AiConfig | null>(null);
   const [usage, setUsage] = useState<Usage | null>(null);
+  const [health, setHealth] = useState<EngineHealth | null>(null);
+  const [probing, setProbing] = useState(false);
   const [denied, setDenied] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+
+  async function probe() {
+    setProbing(true);
+    try {
+      const res = await fetch('/api/ai/health', { cache: 'no-store' });
+      if (res.ok) setHealth(await res.json());
+    } catch {
+      /* keep the last known status on a transient network error */
+    } finally {
+      setProbing(false);
+    }
+  }
 
   useEffect(() => {
     async function load() {
@@ -80,6 +110,7 @@ export default function AiAdminPage() {
       setCfg(await c.json());
       if (u.ok) setUsage(await u.json());
       setLoading(false);
+      void probe();
     }
     load().catch(() => setLoading(false));
   }, []);
@@ -167,7 +198,34 @@ export default function AiAdminPage() {
               modo demo (AI_MOCK)
             </span>
           )}
+          <span className="ml-auto inline-flex items-center gap-2">
+            <ConnectivityPill health={health} probing={probing} />
+            <button
+              onClick={() => void probe()}
+              disabled={probing}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-black/10 px-2.5 py-1 text-xs font-medium hover:bg-black/5 disabled:opacity-50 dark:border-white/10 dark:hover:bg-white/5"
+            >
+              <RefreshCw
+                className={`h-3.5 w-3.5 ${probing ? 'animate-spin' : ''}`}
+              />
+              Probar conexión
+            </button>
+          </span>
         </div>
+        {health && !health.mock && (
+          <p
+            className={`mt-2 text-xs ${
+              health.reachable && health.modelAvailable
+                ? 'text-emerald-600 dark:text-emerald-400'
+                : 'text-amber-600 dark:text-amber-400'
+            }`}
+          >
+            {health.message}
+            {health.reachable && health.models.length > 0 && (
+              <> Modelos cargados: {health.models.join(', ')}.</>
+            )}
+          </p>
+        )}
         <p className="mt-2 text-xs text-black/50 dark:text-white/50">
           CIDE corre en tu propia infraestructura ({cfg.engine.baseUrl}) sobre un
           modelo open-source. No se usa ningún proveedor externo de IA y los
@@ -376,6 +434,50 @@ export default function AiAdminPage() {
         </p>
       )}
     </div>
+  );
+}
+
+function ConnectivityPill({
+  health,
+  probing,
+}: {
+  health: EngineHealth | null;
+  probing: boolean;
+}) {
+  if (probing && !health) {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-md bg-black/5 px-2 py-0.5 text-xs font-medium text-black/55 dark:bg-white/10 dark:text-white/55">
+        <Activity className="h-3.5 w-3.5 animate-pulse" /> probando…
+      </span>
+    );
+  }
+  if (!health) return null;
+  if (health.mock) {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-md bg-amber-500/15 px-2 py-0.5 text-xs font-medium text-amber-600 dark:text-amber-300">
+        <Activity className="h-3.5 w-3.5" /> sin motor (demo)
+      </span>
+    );
+  }
+  const ok = health.reachable && health.modelAvailable;
+  const warn = health.reachable && !health.modelAvailable;
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-xs font-medium ${
+        ok
+          ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-300'
+          : warn
+            ? 'bg-amber-500/15 text-amber-600 dark:text-amber-300'
+            : 'bg-red-500/15 text-red-600 dark:text-red-300'
+      }`}
+    >
+      {ok ? (
+        <CheckCircle2 className="h-3.5 w-3.5" />
+      ) : (
+        <XCircle className="h-3.5 w-3.5" />
+      )}
+      {ok ? 'motor en línea' : warn ? 'motor sin modelo' : 'motor inaccesible'}
+    </span>
   );
 }
 

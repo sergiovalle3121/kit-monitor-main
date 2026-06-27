@@ -57,6 +57,13 @@ export class AiController {
     return this.ai.usageSummary(req.user);
   }
 
+  /** Probe the inference engine: is CIDE actually reachable and the model loaded? */
+  @Get('health')
+  health(@Request() req: AuthReq) {
+    this.assertAdmin(req);
+    return this.ai.engineHealth(req.user);
+  }
+
   private assertAdmin(req: AuthReq) {
     if (req.user?.role !== 'Admin') {
       throw new ForbiddenException(

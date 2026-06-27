@@ -36,6 +36,32 @@ curl http://localhost:11434/v1/models
 
 Switch the active model in **/dashboard/admin/ai** (admin only).
 
+## Deploying on Railway (turning CIDE on in production)
+
+This folder ships a `Dockerfile` (+ `entrypoint.sh`, `railway.json`) so the
+engine deploys as its **own Railway service** that the API reaches over the
+private network. The entrypoint binds `0.0.0.0`, starts Ollama, and **pulls the
+model on boot** — no manual `ollama pull` step.
+
+1. **New service → Deploy from repo**, root `infra/cide` (it picks up
+   `railway.json` / `Dockerfile`). Optionally set `CIDE_MODEL` (default
+   `qwen2.5:7b`; on a CPU-only plan `qwen2.5:1.5b` answers faster).
+2. **Add a volume** mounted at `/root/.ollama` so the weights survive restarts
+   (without one, the model re-pulls on every cold start — correct, just slower).
+3. **Point the API at it.** On the API service set:
+   ```
+   CIDE_BASE_URL=http://<cide-service-name>.railway.internal:11434/v1
+   AI_MOCK=0
+   ```
+   Use the **private** `.railway.internal` host, not the public domain.
+4. **Verify.** Open **/dashboard/admin/ai → "Probar conexión"**. Green
+   "motor en línea" means the API reached the engine and the model is loaded.
+
+> CPU note: `qwen2.5:7b` runs on CPU but is slow (tens of seconds/turn). For a
+> responsive production experience, run the engine on a GPU host or point
+> `CIDE_BASE_URL` at a GPU **vLLM**/**TGI** endpoint — the app code is identical.
+> Raise `CIDE_TIMEOUT_MS` on the API if you keep CPU inference.
+
 ## Scaling to GPU / production
 
 - On an NVIDIA host, uncomment the `deploy` block in `docker-compose.yml`

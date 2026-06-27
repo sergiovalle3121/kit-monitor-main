@@ -2521,4 +2521,43 @@ llaman `applySlicers` y **re-montan** la rejilla (mismo patrón que el autofiltr
 **Verificación:** el motor sigue verde (`slicer.spec.ts` 11/11). UI verificada con `lint web` 0 y
 `build web` ✓ (no hay runtime de rejilla en specs). Sin regresiones.
 
+## 116. CIDE — encender el motor en producción (Ollama en Railway) + health check
+
+**Contexto.** Todo el stack de CIDE (servicio NestJS, provider compatible-OpenAI, loop
+agéntico de herramientas con RBAC, metering, guardrails, chat + panel admin) ya estaba
+completo en código, pero **nunca había un motor de inferencia real al que el backend
+desplegado pudiera llegar**: `CIDE_BASE_URL` apuntaba a `localhost:11434` (Ollama local),
+que en Railway no existe. En producción CIDE caía a modo demo (`AI_MOCK`) o devolvía
+"motor no disponible". El "paso" que faltaba era **levantar el cerebro y cablearlo**.
+
+**Decisión.** El usuario eligió mantener la soberanía de datos: **Ollama self-hosted como
+servicio aparte en Railway**, dejando el código y la config listos para encender.
+
+- **Infra (`infra/cide/`):** nuevo `Dockerfile` + `entrypoint.sh` + `railway.json` que
+  despliegan Ollama como servicio propio. El entrypoint **bindea `0.0.0.0`** (clave: el
+  default `127.0.0.1` es inalcanzable desde otros servicios en la red privada de Railway)
+  y **descarga el modelo en el arranque** (idempotente; `ollama pull` no es necesario a
+  mano). Volumen en `/root/.ollama` para persistir pesos. El API apunta a la URL **privada**
+  `http://<servicio>.railway.internal:11434/v1` + `AI_MOCK=0`.
+- **Backend, endurecimiento (aditivo):**
+  - `CIDE_TIMEOUT_MS` configurable (default 120 s) — la inferencia en CPU es lenta.
+  - `CIDE_DEFAULT_MODEL` / `CIDE_ESCALATION_MODEL` por env (validados contra el catálogo),
+    para elegir modelo sin tocar código.
+  - Nuevo tier **`qwen2.5:1.5b`** (Apache-2.0) para CPU ágil; el catálogo sigue 100 %
+    permisivo (sin Qwen-3B/72B, que no son Apache-2.0).
+  - `CideProvider.ping()` (GET `/models`) + `AiService.engineHealth()` + endpoint admin
+    `GET /api/ai/health`: reporta alcanzabilidad, modelos cargados y si el modelo activo
+    está presente. Nunca lanza 5xx — un motor caído se reporta como dato.
+- **Web (aditivo):** proxy `/api/ai/health` y, en `/dashboard/admin/ai`, una píldora de
+  estado ("motor en línea / sin modelo / inaccesible") con botón **"Probar conexión"**, para
+  verificar el cableado de un vistazo.
+
+**Cómo encender (resumen).** Desplegar `infra/cide` como servicio Railway → setear en el
+API `CIDE_BASE_URL=...railway.internal:11434/v1` y `AI_MOCK=0` → abrir el panel admin y
+"Probar conexión" hasta ver verde. CPU funciona pero lento; para producción fluida,
+mover el motor a GPU (vLLM/TGI) — el código es idéntico, solo cambia la URL.
+
+**Verificación:** `build API` ✓, `tsc` ✓, `lint web` 0, `build web` ✓. Cambios aditivos:
+ningún endpoint ni comportamiento existente se modifica; sin migraciones (no toca el esquema).
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->

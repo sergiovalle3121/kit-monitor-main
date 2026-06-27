@@ -62,6 +62,15 @@ const MAX_OUTPUT_TOKENS = Math.max(
 const CIDE_BASE_URL = process.env.CIDE_BASE_URL || 'http://localhost:11434/v1';
 /** Optional bearer token for the engine (local Ollama needs none). */
 const CIDE_API_KEY = process.env.CIDE_API_KEY || null;
+/**
+ * Per-request timeout for the engine. CPU inference (e.g. Ollama on a Railway
+ * box without a GPU) can be slow, so this is generous by default and tunable
+ * via `CIDE_TIMEOUT_MS`.
+ */
+const CIDE_TIMEOUT_MS = Math.max(
+  5_000,
+  Number(process.env.CIDE_TIMEOUT_MS) || 120_000,
+);
 
 interface RunResult {
   text: string;
@@ -181,6 +190,73 @@ export class AiService {
       mock: process.env.AI_MOCK === '1',
       availableModels: ALLOWED_MODELS,
     };
+  }
+
+  // ── Engine health ───────────────────────────────────────────────────────────
+  /**
+   * Probe the inference engine so an admin can confirm CIDE is actually wired
+   * up before users try it. Reports reachability, the model tags the engine is
+   * serving, and whether the tenant's active model is among them. Never throws —
+   * a down engine is reported as `{ reachable: false, error }`, not a 5xx.
+   */
+  async engineHealth(reqUser: ReqUser) {
+    const cfg = await this.getOrCreateConfig(
+      reqUser.tenant_id ?? DEFAULT_TENANT,
+    );
+    const mock = process.env.AI_MOCK === '1';
+    const activeModel = this.resolveModel(cfg.defaultModel);
+    const base = {
+      mock,
+      baseUrl: CIDE_BASE_URL,
+      apiKeyConfigured: !!CIDE_API_KEY,
+      activeModel,
+    };
+
+    // In demo mode the engine is intentionally not called; report it plainly.
+    if (mock) {
+      return {
+        ...base,
+        reachable: false,
+        models: [] as string[],
+        modelAvailable: false,
+        message:
+          'CIDE está en modo demo (AI_MOCK=1): no se contacta el motor. Pon AI_MOCK=0 y configura CIDE_BASE_URL para activarlo.',
+      };
+    }
+
+    const provider = new CideProvider({
+      baseUrl: CIDE_BASE_URL,
+      model: activeModel,
+      apiKey: CIDE_API_KEY,
+    });
+    try {
+      const { models } = await provider.ping();
+      // Ollama reports tags like "qwen2.5:7b"; match exact or on the family.
+      const modelAvailable = models.some(
+        (m) => m === activeModel || m.startsWith(`${activeModel.split(':')[0]}:`),
+      );
+      return {
+        ...base,
+        reachable: true,
+        models,
+        modelAvailable,
+        message: modelAvailable
+          ? 'Motor de CIDE accesible y el modelo activo está cargado.'
+          : `Motor accesible, pero el modelo "${activeModel}" no aparece cargado. Haz "ollama pull ${activeModel}" en el motor o elige otro modelo.`,
+      };
+    } catch (e) {
+      const error = e instanceof Error ? e.message : String(e);
+      this.logger.warn(`CIDE health probe failed: ${error}`);
+      return {
+        ...base,
+        reachable: false,
+        models: [] as string[],
+        modelAvailable: false,
+        message:
+          'No se pudo contactar el motor de CIDE. Verifica CIDE_BASE_URL y que el servicio de inferencia esté arriba.',
+        error,
+      };
+    }
   }
 
   // ── Usage ──────────────────────────────────────────────────────────────────
@@ -435,6 +511,7 @@ export class AiService {
       baseUrl: CIDE_BASE_URL,
       model,
       apiKey: CIDE_API_KEY,
+      timeoutMs: CIDE_TIMEOUT_MS,
     });
     const messages: CideMessage[] = [
       { role: 'system', content: system },
