@@ -206,3 +206,55 @@ describe('Tenant isolation — patrón applyScope en QueryBuilder', () => {
     expect(rows.map((w) => w.name)).toEqual(['a1']);
   });
 });
+
+/** Entidad con columna tenant en camelCase (`tenantId`), como ai_*, sem_*, erp_journal_entries. */
+@Entity('tiso_camel_widgets')
+class CamelWidget {
+  @PrimaryGeneratedColumn()
+  id: number;
+
+  @Column({ type: 'varchar', nullable: true, name: 'tenantId' })
+  tenantId: string | null;
+
+  @Column({ type: 'varchar' })
+  name: string;
+}
+
+describe('Tenant isolation — soporte de columna camelCase (tenantId)', () => {
+  let dataSource: DataSource;
+  let ctx: TenantContextService;
+  let scoped: TenantScopedRepository<CamelWidget>;
+
+  beforeEach(async () => {
+    dataSource = new DataSource({
+      type: 'sqlite',
+      database: ':memory:',
+      dropSchema: true,
+      synchronize: true,
+      entities: [CamelWidget],
+    });
+    await dataSource.initialize();
+    ctx = new TenantContextService();
+    scoped = createTenantScopedRepository(CamelWidget, dataSource.manager, ctx);
+    await dataSource.getRepository(CamelWidget).save([
+      { tenantId: 'A', name: 'a1' },
+      { tenantId: 'B', name: 'b1' },
+    ]);
+  });
+
+  afterEach(async () => {
+    await dataSource.destroy();
+  });
+
+  it('el repo scopeado filtra por la columna camelCase tenantId (A no ve B)', async () => {
+    await ctx.run(ctxFor('A'), async () => {
+      expect((await scoped.find()).map((w) => w.name)).toEqual(['a1']);
+      expect(await scoped.findOne({ where: { name: 'b1' } })).toBeNull();
+      expect(await scoped.count()).toBe(1);
+    });
+  });
+
+  it('sin tenant en contexto no filtra (ve A y B)', async () => {
+    expect(await scoped.find()).toHaveLength(2);
+  });
+});
