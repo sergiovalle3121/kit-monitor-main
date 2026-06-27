@@ -16,6 +16,7 @@ import { EnterpriseProgram } from '../enterprise-campus/entities/enterprise-prog
 import { EnterpriseLine } from '../enterprise-campus/entities/enterprise-line.entity';
 import { GovernanceModule } from '../governance/governance.module';
 import { AccountingModule } from '../accounting/accounting.module';
+import { provideTenantScopedRepository } from '../../common/tenant/tenant-scoped.repository';
 
 @Module({
   imports: [
@@ -35,7 +36,14 @@ import { AccountingModule } from '../accounting/accounting.module';
     GovernanceModule,
     AccountingModule,
   ],
-  providers: [ProductionRuntimeService, BottleneckService],
+  providers: [
+    ProductionRuntimeService,
+    BottleneckService,
+    provideTenantScopedRepository(ProductionBayEvent),
+    provideTenantScopedRepository(ProductionBayIncident),
+    provideTenantScopedRepository(ProductionBayMaterialState),
+    provideTenantScopedRepository(ProductionWip),
+  ],
   controllers: [ProductionRuntimeController],
   exports: [ProductionRuntimeService, BottleneckService],
 })

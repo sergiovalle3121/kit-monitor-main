@@ -1,15 +1,21 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Injectable, NotFoundException, Inject } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { User } from './entities/user.entity';
 import { isOwnerEmail } from '../auth/rbac';
+import {
+  TenantScopedRepository,
+  getTenantRepositoryToken,
+} from '../../common/tenant/tenant-scoped.repository';
 
 @Injectable()
 export class UsersService {
   constructor(
-    @InjectRepository(User)
-    private readonly userRepo: Repository<User>,
+    // Login lookups (findOneByIdentifier / findOneByEmail) run with NO tenant
+    // context, so the scoped repo applies no filter there — auth keeps working.
+    // The createQueryBuilder in findOneByIdentifier is deliberately NOT scoped
+    // (QB bypasses the tenant override): it must resolve users across tenants.
+    @Inject(getTenantRepositoryToken(User))
+    private readonly userRepo: TenantScopedRepository<User>,
   ) {}
 
   async create(dto: Partial<User>): Promise<User> {
