@@ -628,6 +628,12 @@ export class MesExecutionService {
           completedAt: new Date(),
         });
         execution.status = 'completed';
+        // Carril 1 (Plan→mes): cerrar el Plan cuando termina su ejecución, para
+        // que Planeación deje de mostrarlo activo (antes se quedaba 'released'/
+        // 'active' para siempre). Atómico con la compleción de la ejecución.
+        if (execution.planId) {
+          await em.update(Plan, execution.planId, { status: 'completed' });
+        }
       } else if (!execution.startedAt) {
         await em.update(WorkOrderExecution, execution.id, {
           startedAt: new Date(),

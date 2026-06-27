@@ -69,7 +69,7 @@ export default function MeasurementsPage() {
 
   // Default to the first characteristic once they load.
   useEffect(() => {
-    if (!selected && chars.length) setSelected(chars[0].id);
+    if (!selected && chars.length) queueMicrotask(() => setSelected(chars[0].id));
   }, [chars, selected]);
 
   const char = chars.find((c) => c.id === selected) || null;
