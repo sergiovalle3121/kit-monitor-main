@@ -1069,9 +1069,14 @@ export class AiToolsService {
           'Úsalo SOLO cuando el usuario pida explícitamente crear/realizar algo accionable. ' +
           'La acción NO se ejecuta hasta que el usuario confirme en la tarjeta; tras llamar a ' +
           'esta herramienta, dile al usuario que revise y confirme. Acciones disponibles: ' +
-          'create_maintenance_order (crear orden de mantenimiento; params: title [req], ' +
-          'description, type [PREVENTIVE|CORRECTIVE|PREDICTIVE], priority [LOW|MEDIUM|HIGH], ' +
-          'assetId, assignedTo, dueDate).',
+          'create_maintenance_order (params: title [req], description, type ' +
+          '[PREVENTIVE|CORRECTIVE|PREDICTIVE], priority [LOW|MEDIUM|HIGH], assetId, assignedTo, ' +
+          'dueDate); release_quality_hold (liberar retención de calidad; params: holdId [req, ' +
+          'número]); create_purchase_requisition (params: partNumber [req], quantity [req, ' +
+          'número], needBy, description, notes); create_production_plan (params: model [req], ' +
+          'line [req, 1–7], quantity [req], shift [req, T1|T2|T3], workOrder, bahia [1–6], ' +
+          'scheduledAt); assign_ehs_incident_owner (asignar responsable a incidente; params: ' +
+          'incidentId [req], owner [req], dueDate).',
         requiredPermission: null,
         mockTriggers: [
           'crea una orden',

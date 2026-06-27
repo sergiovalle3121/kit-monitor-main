@@ -1,6 +1,10 @@
 import { ForbiddenException, Injectable, Logger, Type } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
 import { MaintenanceService } from '../maintenance/maintenance.service';
+import { QualityService } from '../quality/quality.service';
+import { ErpMmService } from '../erp-core/services/erp-mm.service';
+import { PlansService } from '../plans/plans.service';
+import { EhsService } from '../ehs/ehs.service';
 import { ACTIONS } from './ai-actions';
 import type { ReqUser } from './ai.service';
 
@@ -55,7 +59,7 @@ export class AiActionsService {
     const params = validation.params;
 
     try {
-      const result = await this.run(actionKey, params);
+      const result = await this.run(reqUser, actionKey, params);
       this.logger.log(`CIDE action executed: ${actionKey} by ${reqUser.email}`);
       return { ok: true, summary: def.summarize(params), result };
     } catch (e) {
@@ -65,8 +69,9 @@ export class AiActionsService {
     }
   }
 
-  /** Dispatch a validated action to its domain service. */
+  /** Dispatch a validated action to its domain service (the only write point). */
   private async run(
+    reqUser: ReqUser,
     actionKey: string,
     params: Record<string, unknown>,
   ): Promise<unknown> {
@@ -81,6 +86,49 @@ export class AiActionsService {
           title: order.title,
           status: order.status,
         };
+      }
+      case 'release_quality_hold': {
+        const hold = await this.svc(QualityService).releaseHold(
+          params.holdId as number,
+          reqUser.email,
+        );
+        return { id: hold.id, releasedAt: hold.releasedAt };
+      }
+      case 'create_purchase_requisition': {
+        const pr = await this.svc(ErpMmService).createRequisition({
+          partNumber: params.partNumber as string,
+          quantity: params.quantity as number,
+          needBy: params.needBy as string | undefined,
+          description: params.description as string | undefined,
+          notes: params.notes as string | undefined,
+          source: 'manual',
+          createdBy: reqUser.email,
+        });
+        return {
+          id: pr.id,
+          prNumber: pr.prNumber,
+          status: pr.status,
+        };
+      }
+      case 'create_production_plan': {
+        const plan = (await this.svc(PlansService).create(
+          params as never,
+        )) as { id?: string; workOrder?: string; status?: string };
+        return {
+          id: plan.id,
+          workOrder: plan.workOrder,
+          status: plan.status,
+        };
+      }
+      case 'assign_ehs_incident_owner': {
+        const inc = await this.svc(EhsService).update(
+          params.incidentId as string,
+          {
+            capaOwner: params.owner as string,
+            capaDueDate: params.dueDate as string | undefined,
+          } as never,
+        );
+        return { id: inc.id, capaOwner: inc.capaOwner, status: inc.status };
       }
       default:
         throw new Error(`Sin ejecutor para la acción: ${actionKey}`);
