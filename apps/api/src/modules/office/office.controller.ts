@@ -3,6 +3,7 @@ import {
 } from '@nestjs/common';
 import { OfficeService } from './office.service';
 import type { OfficeDocType, OfficeShare } from './entities/office-document.entity';
+import type { OfficeCommentAnchorType } from './entities/office-comment.entity';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { AuthenticatedUser } from '../../common/types/jwt.types';
 
@@ -46,6 +47,38 @@ export class OfficeController {
   restore(@Request() req: AuthReq, @Param('id') id: string) {
     return this.service.restore(id, req.user);
   }
+
+
+
+  @Get(':id/comments')
+  comments(@Request() req: AuthReq, @Param('id') id: string, @Query('includeResolved') includeResolved?: string) {
+    return this.service.listComments(id, req.user, includeResolved !== '0' && includeResolved !== 'false');
+  }
+
+  @Post(':id/comments')
+  addComment(
+    @Request() req: AuthReq,
+    @Param('id') id: string,
+    @Body() dto: { parentId?: string | null; anchorType?: OfficeCommentAnchorType; slideIndex?: number | null; objectId?: string | null; rangeRef?: string | null; anchorLabel?: string | null; text: string; assignedTo?: string | null },
+  ) {
+    return this.service.addComment(id, dto, req.user);
+  }
+
+  @Patch(':id/comments/:commentId')
+  resolveComment(
+    @Request() req: AuthReq,
+    @Param('id') id: string,
+    @Param('commentId') commentId: string,
+    @Body() dto: { resolved?: boolean },
+  ) {
+    return this.service.resolveComment(id, commentId, dto?.resolved !== false, req.user);
+  }
+
+  @Delete(':id/comments/:commentId')
+  deleteComment(@Request() req: AuthReq, @Param('id') id: string, @Param('commentId') commentId: string) {
+    return this.service.removeComment(id, commentId, req.user);
+  }
+
 
   @Get(':id/versions')
   versions(@Request() req: AuthReq, @Param('id') id: string) {

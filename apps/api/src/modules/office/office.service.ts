@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { OfficeDocument, OfficeDocType, OfficeShare } from './entities/office-document.entity';
 import { OfficeDocumentVersion } from './entities/office-document-version.entity';
+import { OfficeComment, OfficeCommentAnchorType } from './entities/office-comment.entity';
 import { AuthenticatedUser } from '../../common/types/jwt.types';
 
 const TYPES: OfficeDocType[] = ['doc', 'sheet', 'slides'];
@@ -14,6 +15,7 @@ const MAX_VERSIONS = 50;
 
 interface CreateDto { type: OfficeDocType; title?: string; content?: any; model?: string }
 interface UpdateDto { title?: string; content?: any; model?: string | null; sharedWith?: OfficeShare[] }
+interface CommentDto { parentId?: string | null; anchorType?: OfficeCommentAnchorType; slideIndex?: number | null; objectId?: string | null; rangeRef?: string | null; anchorLabel?: string | null; text: string; assignedTo?: string | null }
 
 /**
  * Documents are scoped to their owner. A user only ever sees the documents
@@ -25,6 +27,7 @@ export class OfficeService {
   constructor(
     @InjectRepository(OfficeDocument) private readonly repo: Repository<OfficeDocument>,
     @InjectRepository(OfficeDocumentVersion) private readonly versionRepo: Repository<OfficeDocumentVersion>,
+    @InjectRepository(OfficeComment) private readonly commentRepo: Repository<OfficeComment>,
   ) {}
 
   // ── Authorization helpers ─────────────────────────────────────────────────
@@ -163,6 +166,68 @@ export class OfficeService {
     await this.repo.delete(id);
     return { destroyed: true, id };
   }
+
+
+
+  // ── Enterprise comments ────────────────────────────────────────────────────
+  async listComments(id: string, user: AuthenticatedUser, includeResolved = true) {
+    const doc = await this.get(id, user);
+    const qb = this.commentRepo.createQueryBuilder('c')
+      .where('c.documentId = :id', { id: doc.id })
+      .orderBy('c.createdAt', 'ASC');
+    if (doc.tenantId) qb.andWhere('c.tenantId = :tenantId', { tenantId: doc.tenantId });
+    else qb.andWhere('c.tenantId IS NULL');
+    if (!includeResolved) qb.andWhere('c.resolved = false');
+    return qb.getMany();
+  }
+
+  async addComment(id: string, dto: CommentDto, user: AuthenticatedUser) {
+    const doc = await this.get(id, user);
+    if (!this.canEdit(doc, user)) throw new ForbiddenException('No puedes comentar este documento.');
+    const text = String(dto.text ?? '').trim();
+    if (!text) throw new BadRequestException('El comentario no puede estar vacío.');
+    if (dto.parentId) {
+      const parent = await this.commentRepo.findOne({ where: { id: dto.parentId, documentId: doc.id } });
+      if (!parent) throw new BadRequestException('Thread de comentario inválido.');
+    }
+    return this.commentRepo.save(this.commentRepo.create({
+      documentId: doc.id,
+      parentId: dto.parentId || null,
+      tenantId: doc.tenantId ?? user?.tenant_id ?? null,
+      authorEmail: this.email(user),
+      assignedTo: dto.assignedTo?.trim().toLowerCase() || null,
+      anchorType: dto.anchorType || 'document',
+      slideIndex: typeof dto.slideIndex === 'number' ? dto.slideIndex : null,
+      objectId: dto.objectId?.trim() || null,
+      rangeRef: dto.rangeRef?.trim() || null,
+      anchorLabel: dto.anchorLabel?.trim() || null,
+      text,
+      resolved: false,
+      resolvedBy: null,
+      resolvedAt: null,
+    }));
+  }
+
+  async resolveComment(id: string, commentId: string, resolved: boolean, user: AuthenticatedUser) {
+    const doc = await this.get(id, user);
+    if (!this.canEdit(doc, user)) throw new ForbiddenException('No puedes resolver comentarios en este documento.');
+    const c = await this.commentRepo.findOne({ where: { id: commentId, documentId: doc.id } });
+    if (!c) throw new NotFoundException('Comentario no encontrado.');
+    c.resolved = !!resolved;
+    c.resolvedBy = c.resolved ? this.email(user) : null;
+    c.resolvedAt = c.resolved ? new Date() : null;
+    return this.commentRepo.save(c);
+  }
+
+  async removeComment(id: string, commentId: string, user: AuthenticatedUser) {
+    const doc = await this.get(id, user);
+    if (!this.canEdit(doc, user)) throw new ForbiddenException('No puedes eliminar comentarios en este documento.');
+    const c = await this.commentRepo.findOne({ where: { id: commentId, documentId: doc.id } });
+    if (!c) throw new NotFoundException('Comentario no encontrado.');
+    await this.commentRepo.delete({ id: commentId, documentId: doc.id });
+    return { deleted: true, id: commentId };
+  }
+
 
   // ── Version history ─────────────────────────────────────────────────────────
   async listVersions(id: string, user: AuthenticatedUser) {
