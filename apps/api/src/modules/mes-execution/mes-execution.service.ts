@@ -34,6 +34,7 @@ import { KitMaterial } from '../kit-materials/entities/kit-material.entity';
 import { ProcessStep } from '../process-routing/entities/process-step.entity';
 
 import { InventoryService } from '../inventory/inventory.service';
+import { GenealogyService } from '../genealogy/genealogy.service';
 import { EventLedgerService } from '../event-ledger/event-ledger.service';
 import { EventDomain } from '../event-ledger/entities/ledger-event.entity';
 import { SignalGateway } from '../../common/gateway/signal.gateway';
@@ -111,6 +112,8 @@ export class MesExecutionService {
     private readonly tenantCtx: TenantContextService,
     // Eslabón 1 (additive, optional): off-ramp a finished serial to Pruebas.
     @Optional() private readonly testFlow?: TestFlowService,
+    // Eslabón 2 (additive, optional): captura as-built en genealogía al consumir.
+    @Optional() private readonly genealogy?: GenealogyService,
     // Gate operador↔estación (additive, optional, read-only). Sólo se consulta
     // cuando ENFORCE_CERT_GATE === 'true'; en advertencia pura ni se inyecta.
     @Optional() private readonly people?: PeopleService,
@@ -519,6 +522,8 @@ export class MesExecutionService {
         consumed: number;
         remaining: number;
       }[] = [];
+      // Delta consumido en ESTE evento (unidades buenas) para genealogía as-built.
+      const eventConsumption: { partNumber: string; qty: number }[] = [];
 
       for (const m of materials) {
         const consume = round6(m.qtyPerUnit * consumeUnits);
@@ -562,6 +567,10 @@ export class MesExecutionService {
           partNumber: m.partNumber,
           consumed: m.consumedQty,
           remaining: round6(m.plannedQty - m.consumedQty),
+        });
+        eventConsumption.push({
+          partNumber: m.partNumber,
+          qty: round6(m.qtyPerUnit * quantity),
         });
         if (m.availableQty <= m.lowStockThreshold) {
           shortageParts.push({
@@ -634,6 +643,7 @@ export class MesExecutionService {
         isLastStep: idx === steps.length - 1,
         shortageParts,
         consumption,
+        eventConsumption,
         remainingTargetUnits: round6(step.unitsTarget - step.unitsCompleted),
       };
     });
@@ -712,6 +722,37 @@ export class MesExecutionService {
         this.logger.warn(
           `Test-flow enqueue skipped: ${(err as Error)?.message}`,
         );
+      }
+    }
+
+    // ── Eslabón 2 (additive): captura as-built en genealogía ──────────────────
+    // Cuando se escanea un serial, liga cada material consumido en este evento al
+    // serial construido (índice as-built), para que la trazabilidad cradle-to-grave
+    // se llene desde el piso. Idempotente por idempotencyKey (mes-evt:<eventId>:<NP>);
+    // best-effort: un fallo aquí nunca bloquea ni revierte la línea. lot/reel quedan
+    // null (el terminal de piso aún no los captura).
+    if (this.genealogy && dto.serial?.trim()) {
+      const serial = dto.serial.trim();
+      for (const c of outcome.eventConsumption) {
+        if (c.qty <= 0) continue;
+        try {
+          await this.genealogy.recordLink({
+            builtSerial: serial,
+            part: c.partNumber,
+            qty: c.qty,
+            woId: String(execution.id),
+            woFolio: execution.workOrder,
+            model: execution.model ?? undefined,
+            station: outcome.stepName,
+            operatorEmail: operator,
+            consumedAt: new Date().toISOString(),
+            idempotencyKey: `mes-evt:${outcome.eventId}:${c.partNumber}`,
+          });
+        } catch (err) {
+          this.logger.warn(
+            `Genealogy as-built skipped (${serial}/${c.partNumber}): ${(err as Error)?.message}`,
+          );
+        }
       }
     }
 
