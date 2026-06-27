@@ -24,6 +24,8 @@ const ok = (c: boolean, m: string) => { if (c) passed++; else fails.push(m); };
   ok(v.type === 'date' && v.operator === 'greaterThan', 'fecha posterior'); }
 { const v = dataValidationFor({ type: 'text_length', type2: 'lessThanOrEqualTo', value1: '20' });
   ok(v.type === 'textLength' && v.operator === 'lessThanOrEqual', 'longitud ≤ 20'); }
+{ const v = dataValidationFor({ type: 'custom_formula', value1: '=AND(VALUE>=0,VALUE<=100)' });
+  ok(v.type === 'custom' && v.formulae[0] === 'AND(VALUE>=0,VALUE<=100)', 'fórmula personalizada segura'); }
 ok(dataValidationFor({ type: 'text_content' }) === null, 'text_content sin equivalente → null');
 ok(dataValidationFor(null) === null, 'null → null');
 
@@ -36,6 +38,7 @@ const sheets = [{
     '1_0': { type: 'dropdown', value1: 'Alta,Media,Baja', remote: false, hintShow: true, hintText: 'Elige' },
     '1_1': { type: 'number_integer', type2: 'between', value1: '1', value2: '5', prohibitInput: true },
     '1_2': { type: 'date', type2: 'noEarlierThan', value1: '2024-01-01' },
+    '1_3': { type: 'custom_formula', value1: '=AND(VALUE>=0,VALUE<=100)' },
   },
 }];
 
@@ -54,6 +57,9 @@ const sheets = [{
   ok(b2.formulae[0] == 1 && b2.formulae[1] == 5, 'B2 con sus límites');
   const c2 = ws.getCell('C2').dataValidation as any;
   ok(!!c2 && c2.type === 'date' && c2.operator === 'greaterThanOrEqual', 'C2 conserva fecha ≥');
+
+  const d2 = ws.getCell('D2').dataValidation as any;
+  ok(!!d2 && d2.type === 'custom' && d2.formulae[0] === 'AND(VALUE>=0,VALUE<=100)', 'D2 conserva fórmula personalizada');
 
   const total = passed + fails.length;
   if (fails.length) { console.error(`❌ ${passed}/${total}`); for (const f of fails) console.error('  - ' + f); process.exit(1); }
