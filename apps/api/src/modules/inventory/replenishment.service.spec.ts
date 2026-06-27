@@ -37,6 +37,7 @@ describe('ReplenishmentService', () => {
       warehouseService as never,
       audit as never,
       {} as never, // warehouseRepo
+      { getTenantId: () => null } as never, // tenantCtx
     );
   });
 

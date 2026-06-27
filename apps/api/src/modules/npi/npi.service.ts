@@ -11,6 +11,11 @@ import { In, ObjectLiteral, Repository, SelectQueryBuilder } from 'typeorm';
 import { NpiProject } from './entities/npi-project.entity';
 import { NpiGate } from './entities/npi-gate.entity';
 import { NpiReadinessSnapshot } from './entities/npi-readiness-snapshot.entity';
+import { NpiRisk } from './entities/npi-risk.entity';
+import { ProductModel } from '../product-models/entities/product-model.entity';
+import { VisualAid } from '../visual-aids/entities/visual-aid.entity';
+import { SfWorkOrder } from '../production-plan/entities/sf-work-order.entity';
+import { Tool } from '../tooling/entities/tool.entity';
 import { SfFai } from '../fai/entities/sf-fai.entity';
 import { SupplierApprovedPart } from '../suppliers/entities/supplier-approved-part.entity';
 import { TenantContextService } from '../../common/tenant/tenant-context.service';
@@ -24,7 +29,13 @@ import { EventLedgerService } from '../event-ledger/event-ledger.service';
 import { EventDomain } from '../event-ledger/entities/ledger-event.entity';
 import { NotificationsService } from '../notifications/notifications.service';
 import { UsersService } from '../users/users.service';
-import { CreateNpiProjectDto, DecideGateDto } from './dto/npi.dto';
+import {
+  CreateNpiProjectDto,
+  CreateNpiRiskDto,
+  DecideGateDto,
+  UpdateNpiRiskDto,
+} from './dto/npi.dto';
+import { RISK_SEVERITY_RANK } from './npi-risk-state';
 import {
   assertGateTransition,
   comparePhases,
@@ -85,6 +96,16 @@ export class NpiService {
     private readonly gates: TenantScopedRepository<NpiGate>,
     @Inject(getTenantRepositoryToken(NpiReadinessSnapshot))
     private readonly snapshots: TenantScopedRepository<NpiReadinessSnapshot>,
+    @Inject(getTenantRepositoryToken(NpiRisk))
+    private readonly risks: TenantScopedRepository<NpiRisk>,
+    @InjectRepository(ProductModel)
+    private readonly productModels: Repository<ProductModel>,
+    @InjectRepository(VisualAid)
+    private readonly visualAids: Repository<VisualAid>,
+    @InjectRepository(SfWorkOrder)
+    private readonly workOrders: Repository<SfWorkOrder>,
+    @InjectRepository(Tool)
+    private readonly tools: Repository<Tool>,
     @InjectRepository(SfFai)
     private readonly fai: Repository<SfFai>,
     @InjectRepository(SupplierApprovedPart)
@@ -136,12 +157,56 @@ export class NpiService {
   async getProject(id: string): Promise<NpiProjectView> {
     const project = await this.projects.findOne({ where: { id } });
     if (!project) throw new NotFoundException('Proyecto NPI no encontrado.');
+    await this.backfillProductModelId(project);
     const gates = await this.gates.find({ where: { projectId: id } });
     const readiness = await this.deriveReadiness(
       project.modelNumber,
       project.revision,
     );
     return { ...project, gates: this.sortGates(gates), readiness };
+  }
+
+  /**
+   * Soft-link the project to the canonical ProductModel by number (scoped),
+   * read-only against `pm_product_models`. Returns the id or null when no master
+   * record exists yet. No FK — keeps NPI decoupled from product-models.
+   */
+  private async resolveProductModelId(
+    modelNumber: string,
+  ): Promise<string | null> {
+    const m = (modelNumber ?? '').trim();
+    if (!m) return null;
+    const qb = this.productModels
+      .createQueryBuilder('pm')
+      .select('pm.id', 'id')
+      .where('UPPER(pm.model_number) = UPPER(:m)', { m });
+    this.applyScope(qb, 'pm');
+    const found = await qb.getRawOne<{ id: string }>().catch((err) => {
+      this.logger.warn(
+        `Product-model lookup failed for ${m}: ${(err as Error)?.message}`,
+      );
+      return null;
+    });
+    return found?.id ?? null;
+  }
+
+  /**
+   * Lazily fill `productModelId` for projects created before the soft link
+   * existed (or before the master record did). Best-effort: a failed persist
+   * never breaks a read.
+   */
+  private async backfillProductModelId(project: NpiProject): Promise<void> {
+    if (project.productModelId) return;
+    const pmId = await this.resolveProductModelId(project.modelNumber);
+    if (!pmId) return;
+    project.productModelId = pmId;
+    await this.projects
+      .save(project)
+      .catch((err) =>
+        this.logger.warn(
+          `No se pudo enlazar el modelo al proyecto NPI ${project.id}: ${(err as Error)?.message}`,
+        ),
+      );
   }
 
   // ── Readiness derivation (live, READ-ONLY across existing modules) ───────────
@@ -250,13 +315,27 @@ export class NpiService {
     model: string,
     revision: string,
   ): Promise<ReadinessSignals> {
-    const [bestHeader, faiStatus, line, stdTimeComplete] = await Promise.all([
+    const [
+      bestHeader,
+      faiStatus,
+      line,
+      stdTimeComplete,
+      visualAidsActive,
+      productionWorkOrders,
+      programId,
+    ] = await Promise.all([
       this.resolveBestBomHeader(model),
       this.resolveFaiStatus(model),
       this.resolveLine(model, revision),
       this.resolveStdTimeComplete(model, revision),
+      this.resolveVisualAidsActive(model),
+      this.resolveProductionWorkOrders(model),
+      this.resolveModelProgramId(model),
     ]);
-    const avlCoverage = await this.resolveAvlCoverage(bestHeader);
+    const [avlCoverage, toolingAssets] = await Promise.all([
+      this.resolveAvlCoverage(bestHeader),
+      this.resolveToolingAssets(programId),
+    ]);
     return {
       bomStatus: bestHeader?.status ?? null,
       faiStatus,
@@ -264,7 +343,105 @@ export class NpiService {
       lineCompletenessPct: line.completenessPct,
       stdTimeComplete,
       avlCoverage,
+      visualAidsActive,
+      productionWorkOrders,
+      toolingAssets,
     };
+  }
+
+  /**
+   * The canonical program for a model (from `pm_product_models`, scoped). Used to
+   * resolve program-scoped signals like tooling. Null when no master record or
+   * no program. Read-only, best-effort.
+   */
+  private async resolveModelProgramId(model: string): Promise<string | null> {
+    const m = (model ?? '').trim();
+    if (!m) return null;
+    try {
+      const qb = this.productModels
+        .createQueryBuilder('pm')
+        .select('pm.program_id', 'programId')
+        .where('UPPER(pm.model_number) = UPPER(:m)', { m });
+      this.applyScope(qb, 'pm');
+      const row = await qb.getRawOne<{ programId: string | null }>();
+      return row?.programId ?? null;
+    } catch (err) {
+      this.logger.warn(
+        `Program lookup failed for ${m}: ${(err as Error)?.message}`,
+      );
+      return null;
+    }
+  }
+
+  /**
+   * Count of tooling assets for the model's program (`tooling_assets`). Tooling
+   * is program-scoped (no model column), so null when the model has no program.
+   * Read-only, advisory.
+   */
+  private async resolveToolingAssets(
+    programId: string | null,
+  ): Promise<number | null> {
+    if (!programId) return null;
+    try {
+      const qb = this.tools
+        .createQueryBuilder('t')
+        .where('t.program_id = :p', { p: programId });
+      this.applyScope(qb, 't');
+      return await qb.getCount();
+    } catch (err) {
+      this.logger.warn(
+        `Tooling lookup failed for program ${programId}: ${(err as Error)?.message}`,
+      );
+      return null;
+    }
+  }
+
+  /**
+   * Count of ACTIVE visual aids (work instructions) for the model. Tenant-scoped
+   * only (the `visual_aids` table has no plant_id). 0 = none published yet;
+   * null = could not resolve. Read-only, advisory.
+   */
+  private async resolveVisualAidsActive(model: string): Promise<number | null> {
+    const m = (model ?? '').trim();
+    if (!m) return null;
+    try {
+      const tenant = this.tenantCtx.getTenantId();
+      const qb = this.visualAids
+        .createQueryBuilder('v')
+        .where('LOWER(v.model) = LOWER(:m)', { m })
+        .andWhere('v.isActive = :a', { a: true });
+      if (tenant) qb.andWhere('v.tenant_id = :t', { t: tenant });
+      else qb.andWhere('v.tenant_id IS NULL');
+      return await qb.getCount();
+    } catch (err) {
+      this.logger.warn(
+        `Visual-aids lookup failed for ${m}: ${(err as Error)?.message}`,
+      );
+      return null;
+    }
+  }
+
+  /**
+   * Count of production work orders published for the model (`sf_work_orders`).
+   * 0 = no plan yet; null = could not resolve. Read-only, advisory.
+   */
+  private async resolveProductionWorkOrders(
+    model: string,
+  ): Promise<number | null> {
+    const m = (model ?? '').trim();
+    if (!m) return null;
+    try {
+      const qb = this.workOrders
+        .createQueryBuilder('wo')
+        .where('wo.model = :m', { m });
+      this.applyScope(qb, 'wo');
+      return await qb.getCount();
+    } catch (err) {
+      this.logger.warn(
+        `Work-order lookup failed for ${m}: ${(err as Error)?.message}`,
+      );
+      return null;
+    }
   }
 
   /** The most advanced BOM header for the model (read-only via BomService). */
@@ -367,9 +544,11 @@ export class NpiService {
     const existing = await this.findByModelRevision(model, revision);
     if (existing) return this.getProject(existing.id);
 
+    const productModelId = await this.resolveProductModelId(model);
     const project = this.projects.create({
       modelNumber: model,
       revision,
+      productModelId,
       customer: dto.customer?.trim() || null,
       currentPhase: 'QUOTE',
       status: 'OPEN',
@@ -527,6 +706,78 @@ export class NpiService {
         `No se pudo crear aviso de gate MP: ${(err as Error)?.message}`,
       );
     }
+  }
+
+  // ── Risks (advisory register) ───────────────────────────────────────────────
+  /** Risks for a launch, sorted open-first, then severity desc, then due date. */
+  async listRisks(projectId: string): Promise<NpiRisk[]> {
+    const rows = await this.risks.find({ where: { projectId } });
+    return rows.sort((a, b) => {
+      const ao = a.status === 'CLOSED' ? 1 : 0;
+      const bo = b.status === 'CLOSED' ? 1 : 0;
+      if (ao !== bo) return ao - bo;
+      const sev =
+        (RISK_SEVERITY_RANK[b.severity] ?? 0) -
+        (RISK_SEVERITY_RANK[a.severity] ?? 0);
+      if (sev !== 0) return sev;
+      const ad = a.dueDate ? new Date(a.dueDate).getTime() : Infinity;
+      const bd = b.dueDate ? new Date(b.dueDate).getTime() : Infinity;
+      return ad - bd;
+    });
+  }
+
+  async createRisk(
+    projectId: string,
+    dto: CreateNpiRiskDto,
+  ): Promise<NpiRisk> {
+    const project = await this.projects.findOne({ where: { id: projectId } });
+    if (!project) throw new NotFoundException('Proyecto NPI no encontrado.');
+    const risk = this.risks.create({
+      projectId,
+      title: dto.title.trim(),
+      description: dto.description?.trim() || null,
+      severity: dto.severity ?? 'MEDIUM',
+      status: 'OPEN',
+      owner: dto.owner?.trim() || null,
+      dueDate: dto.dueDate ? new Date(dto.dueDate) : null,
+      mitigation: dto.mitigation?.trim() || null,
+      ...this.scopeFields(),
+    });
+    const saved = await this.risks.save(risk);
+    await this.record('NPI_RISK_CREATED', saved.id, {
+      projectId,
+      severity: saved.severity,
+    });
+    return saved;
+  }
+
+  async updateRisk(id: string, dto: UpdateNpiRiskDto): Promise<NpiRisk> {
+    const risk = await this.risks.findOne({ where: { id } });
+    if (!risk) throw new NotFoundException('Riesgo NPI no encontrado.');
+    if (dto.title !== undefined) risk.title = dto.title.trim();
+    if (dto.description !== undefined)
+      risk.description = dto.description.trim() || null;
+    if (dto.severity !== undefined) risk.severity = dto.severity;
+    if (dto.status !== undefined) risk.status = dto.status;
+    if (dto.owner !== undefined) risk.owner = dto.owner.trim() || null;
+    if (dto.dueDate !== undefined)
+      risk.dueDate = dto.dueDate ? new Date(dto.dueDate) : null;
+    if (dto.mitigation !== undefined)
+      risk.mitigation = dto.mitigation.trim() || null;
+    const saved = await this.risks.save(risk);
+    await this.record('NPI_RISK_UPDATED', saved.id, {
+      projectId: saved.projectId,
+      status: saved.status,
+    });
+    return saved;
+  }
+
+  async deleteRisk(id: string): Promise<{ deleted: boolean }> {
+    const risk = await this.risks.findOne({ where: { id } });
+    if (!risk) throw new NotFoundException('Riesgo NPI no encontrado.');
+    await this.risks.remove(risk);
+    await this.record('NPI_RISK_DELETED', id, { projectId: risk.projectId });
+    return { deleted: true };
   }
 
   private async record(

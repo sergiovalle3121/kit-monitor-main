@@ -3,14 +3,14 @@
 import React, { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, useReducedMotion, AnimatePresence } from 'framer-motion';
+import Link from 'next/link';
 import {
-  Plus, Loader2, Lock, Search, X, CheckCircle2, Boxes, Inbox,
+  Plus, Loader2, Lock, Search, X, CheckCircle2, Boxes, Inbox, Rocket, ArrowRight,
 } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { IconTile } from '@/components/ui/IconTile';
-import { HoverArrow } from '@/components/ui/HoverArrow';
 import { glass } from '@/lib/glass';
-import { containerRM, itemRM, hoverRM, pressRM } from '@/lib/motion';
+import { containerRM, itemRM, hoverRM } from '@/lib/motion';
 import { useApi } from '@/hooks/useApi';
 import { apiFetch } from '@/lib/apiFetch';
 import { useToast } from '@/contexts/ToastContext';
@@ -136,8 +136,8 @@ export default function ModelsPage() {
       <main className="max-w-5xl mx-auto px-6 pt-10">
         <PageHeader
           domain="engineering"
-          title="Modelos · NPI"
-          subtitle="El maestro de productos. Crea un modelo y todo lo demás (BOM, planeación, proceso) lo referencia."
+          title="Modelos · Product Master"
+          subtitle="El maestro canónico de productos. Crea un modelo y todo lo demás (BOM, proceso, planeación, NPI) lo referencia."
           icon={Boxes}
           right={
             <button
@@ -238,25 +238,41 @@ export default function ModelsPage() {
         ) : (
           <motion.div variants={containerRM(reduce)} initial="hidden" animate="show" className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {filtered.map((m) => (
-              <motion.button
+              <motion.div
                 key={m.id}
                 variants={itemRM(reduce)}
                 whileHover={hoverRM(reduce)}
-                whileTap={pressRM(reduce)}
-                onClick={() => router.push(`/dashboard/models/${m.id}`)}
-                className={`${glass} group rounded-2xl p-4 text-left flex items-center gap-3`}
+                className={`${glass} group rounded-2xl p-4 flex flex-col gap-3`}
               >
-                <IconTile domain="engineering" size={44} icon={Boxes} />
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[12px] font-mono text-gray-500">{m.modelNumber}</span>
-                    <StatusPill status={m.status} />
+                <Link
+                  href={`/dashboard/models/${m.id}`}
+                  className="flex items-center gap-3 text-left"
+                >
+                  <IconTile domain="engineering" size={44} icon={Boxes} />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[12px] font-mono text-gray-500">{m.modelNumber}</span>
+                      <StatusPill status={m.status} />
+                    </div>
+                    <div className="font-semibold truncate">{m.name}</div>
+                    <div className="text-xs text-gray-400 truncate">{m.customer || 'Sin cliente'} · rev {m.revision}</div>
                   </div>
-                  <div className="font-semibold truncate">{m.name}</div>
-                  <div className="text-xs text-gray-400 truncate">{m.customer || 'Sin cliente'} · rev {m.revision}</div>
+                </Link>
+                <div className="flex items-center gap-3 border-t border-black/5 dark:border-white/5 pt-2.5">
+                  <Link
+                    href={`/dashboard/models/${m.id}`}
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-violet-600 dark:text-violet-300 hover:underline"
+                  >
+                    Abrir modelo <ArrowRight className="w-3 h-3" />
+                  </Link>
+                  <Link
+                    href="/dashboard/npi"
+                    className="ml-auto inline-flex items-center gap-1 text-xs font-medium text-gray-500 hover:text-black dark:hover:text-white"
+                  >
+                    <Rocket className="w-3.5 h-3.5" /> Launch / NPI
+                  </Link>
                 </div>
-                <HoverArrow />
-              </motion.button>
+              </motion.div>
             ))}
           </motion.div>
         )}

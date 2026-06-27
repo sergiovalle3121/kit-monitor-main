@@ -2521,4 +2521,180 @@ llaman `applySlicers` y **re-montan** la rejilla (mismo patrón que el autofiltr
 **Verificación:** el motor sigue verde (`slicer.spec.ts` 11/11). UI verificada con `lint web` 0 y
 `build web` ✓ (no hay runtime de rejilla en specs). Sin regresiones.
 
+## 116. CIDE — encender el motor en producción (Ollama en Railway) + health check
+
+**Contexto.** Todo el stack de CIDE (servicio NestJS, provider compatible-OpenAI, loop
+agéntico de herramientas con RBAC, metering, guardrails, chat + panel admin) ya estaba
+completo en código, pero **nunca había un motor de inferencia real al que el backend
+desplegado pudiera llegar**: `CIDE_BASE_URL` apuntaba a `localhost:11434` (Ollama local),
+que en Railway no existe. En producción CIDE caía a modo demo (`AI_MOCK`) o devolvía
+"motor no disponible". El "paso" que faltaba era **levantar el cerebro y cablearlo**.
+
+**Decisión.** El usuario eligió mantener la soberanía de datos: **Ollama self-hosted como
+servicio aparte en Railway**, dejando el código y la config listos para encender.
+
+- **Infra (`infra/cide/`):** nuevo `Dockerfile` + `entrypoint.sh` + `railway.json` que
+  despliegan Ollama como servicio propio. El entrypoint **bindea `0.0.0.0`** (clave: el
+  default `127.0.0.1` es inalcanzable desde otros servicios en la red privada de Railway)
+  y **descarga el modelo en el arranque** (idempotente; `ollama pull` no es necesario a
+  mano). Volumen en `/root/.ollama` para persistir pesos. El API apunta a la URL **privada**
+  `http://<servicio>.railway.internal:11434/v1` + `AI_MOCK=0`.
+- **Backend, endurecimiento (aditivo):**
+  - `CIDE_TIMEOUT_MS` configurable (default 120 s) — la inferencia en CPU es lenta.
+  - `CIDE_DEFAULT_MODEL` / `CIDE_ESCALATION_MODEL` por env (validados contra el catálogo),
+    para elegir modelo sin tocar código.
+  - Nuevo tier **`qwen2.5:1.5b`** (Apache-2.0) para CPU ágil; el catálogo sigue 100 %
+    permisivo (sin Qwen-3B/72B, que no son Apache-2.0).
+  - `CideProvider.ping()` (GET `/models`) + `AiService.engineHealth()` + endpoint admin
+    `GET /api/ai/health`: reporta alcanzabilidad, modelos cargados y si el modelo activo
+    está presente. Nunca lanza 5xx — un motor caído se reporta como dato.
+- **Web (aditivo):** proxy `/api/ai/health` y, en `/dashboard/admin/ai`, una píldora de
+  estado ("motor en línea / sin modelo / inaccesible") con botón **"Probar conexión"**, para
+  verificar el cableado de un vistazo.
+
+**Cómo encender (resumen).** Desplegar `infra/cide` como servicio Railway → setear en el
+API `CIDE_BASE_URL=...railway.internal:11434/v1` y `AI_MOCK=0` → abrir el panel admin y
+"Probar conexión" hasta ver verde. CPU funciona pero lento; para producción fluida,
+mover el motor a GPU (vLLM/TGI) — el código es idéntico, solo cambia la URL.
+
+**Verificación:** `build API` ✓, `tsc` ✓, `lint web` 0, `build web` ✓. Cambios aditivos:
+ningún endpoint ni comportamiento existente se modifica; sin migraciones (no toca el esquema).
+
+## 117. CIDE — tier GPU (vLLM) drop-in + catálogo de modelos extensible por env
+
+**Contexto.** §116 encendió CIDE en producción sobre CPU (Ollama en Railway), pero la
+inferencia en CPU es lenta (decenas de seg/turno). El siguiente paso es un motor **GPU**
+para respuestas fluidas, sin reescribir nada.
+
+**Decisión (aditiva).** vLLM como tier GPU, manteniendo el mismo contrato compatible-OpenAI
+para que el cambio sea **solo `CIDE_BASE_URL`** (cero código):
+
+- **Infra:** nuevo `infra/cide/docker-compose.gpu.yml` con `vllm/vllm-openai`, reservas de
+  GPU NVIDIA, `ipc: host` y volumen de caché HF. **Truco drop-in:** `--served-model-name`
+  aliasa los pesos HF al mismo tag del catálogo (p. ej. `qwen2.5:7b`), así el backend sigue
+  pidiendo el mismo id. Parametrizado por env (`CIDE_HF_MODEL`, `CIDE_MODEL`,
+  `CIDE_MAX_MODEL_LEN`); `--api-key` y `--tensor-parallel-size` documentados como opt-in.
+- **Catálogo extensible (`ai-pricing.ts`):** `CIDE_EXTRA_MODELS` (coma-separado) registra
+  served-model-names arbitrarios (vLLM/TGI o ids HF crudos) — aparecen en el selector admin
+  y pasan validación de DTO **sin tocar código**. Self-hosted ⇒ precio $0 como los built-ins.
+  El catálogo base sigue 100 % permisivo; se advierte que Qwen2.5-3B/72B no son Apache-2.0.
+- **Docs:** `infra/cide/README.md` (guía GPU + RunPod/Lambda/Vast, reglas de VRAM, registro
+  de modelos) y `.env.example`.
+
+**Cómo cambiar a GPU.** Levantar `docker-compose.gpu.yml` en un host GPU → en el API
+`CIDE_BASE_URL=http://<host-gpu>:8000/v1` (+ `CIDE_API_KEY` si se habilitó `--api-key`) →
+"Probar conexión" en el panel admin. Para servir un id HF crudo, añadir `CIDE_EXTRA_MODELS`
++ `CIDE_DEFAULT_MODEL`.
+
+**Verificación:** `build API` ✓, `tsc` ✓, `lint web` 0, `build web` ✓. Sin migraciones; ningún
+endpoint ni comportamiento existente cambia.
+
+## 118. CIDE — streaming de respuestas, auto-escalación de modelo y tests del loop
+
+**Contexto.** Con el motor encendible (§116) y el tier GPU (§117), CIDE ya respondía;
+faltaba madurez de producto: respuestas que aparecen de golpe tras segundos, un solo
+modelo para todo, y el loop agéntico sin pruebas. Tres mejoras, todas aditivas.
+
+**A — Auto-escalación de modelo (`ai-escalation.ts`).** Función pura `shouldEscalate()`
++ `chooseModel()`: las consultas analíticas (causa, tendencia, comparación, recomendación,
+o prompts largos) usan el `escalationModel`; las consultas factuales cortas se quedan en el
+default. **Off por defecto**, gated por `CIDE_AUTO_ESCALATE=1` (el modelo de escalación debe
+estar servido por el motor; en CPU con un solo modelo daría 404). Un `model` explícito por
+request siempre gana. Integrado en `prepare()`; se devuelve `escalated` en la respuesta.
+
+**B — Streaming (SSE).** `CideProvider.chatStream()` lee la respuesta como Server-Sent
+Events y reensambla con `StreamAssembler` (clase pura: concatena content, junta fragmentos
+de tool-calls por `index`, captura usage del chunk final). `runCide()` admite un sink
+opcional `{onDelta,onTool}` reutilizando el MISMO loop agéntico. Nuevo `AiService.chatStream()`
+(refactor: `prepare()` + `persistTurn()` compartidos con `chat()`, sin duplicar guardrails/
+RBAC/persistencia) y endpoint `POST /api/ai/chat/stream` que emite eventos `meta`/`tool`/
+`delta`/`done`/`error` (controller con `@Res()`, headers anti-buffering). Proxy Next
+`/api/ai/chat/stream` (+ `backendUserStream`) que canaliza el cuerpo SSE sin bufferizar.
+`Cide.tsx` consume el stream y va llenando la burbuja del asistente token a token. El endpoint
+bloqueante `POST /ai/chat` se mantiene intacto (lo usan los helpers de chat).
+
+**C — Tests del loop.** `ai.service.spec.ts` ejercita `runCide()` contra un **motor falso**
+(tool→resultado→respuesta final; ruta de streaming con fan-out de deltas/tools; mapeo de
+caída del motor a `ServiceUnavailableException`), `ai-escalation.spec.ts` cubre la heurística,
+y `cide-stream.spec.ts` el ensamblador SSE. **+17 tests.**
+
+**Verificación:** `build API` ✓, **API tests 1078/1078** ✓, `lint web` 0 errores,
+`build web` ✓ (rutas `/api/ai/chat/stream` y `/api/ai/health` registradas). Sin migraciones;
+ningún endpoint ni comportamiento existente cambia.
+
+## 119. CIDE — control del chat: detener generación, borrar conversaciones y badge de modelo
+
+**Contexto.** Con el streaming en vivo (§118), faltaban controles básicos de UX que el
+streaming habilita: poder **detener** una respuesta larga, **borrar** conversaciones del
+historial y **ver qué modelo** respondió (incluido si hubo escalación). Todo aditivo.
+
+**Decisión.**
+- **Borrar conversación.** `AiService.deleteConversation()` (owner, o admin para cualquiera)
+  borra el hilo y sus mensajes; endpoint `DELETE /api/ai/conversations/:id` + proxy Next
+  (`backendUserFetch` ahora acepta DELETE/PATCH). En el historial de `Cide.tsx`, botón
+  papelera por fila; si borras el hilo activo, arranca uno nuevo.
+- **Detener generación.** `Cide.tsx` aborta el fetch del stream con `AbortController`; el
+  botón Enviar se convierte en **Detener** mientras genera, conservando lo ya transmitido.
+- **Badge de modelo.** Bajo cada respuesta se muestra el modelo usado y, si aplicó
+  auto-escalación, una etiqueta «escalado» (el evento `meta`/`done` ya traía `escalated`).
+
+**Verificación:** `build API` ✓, **AI tests 21/21** (+4 de borrado: not-found, forbidden,
+owner, admin), `lint web` 0 errores, `build web` ✓. Sin migraciones; nada existente cambia.
+
+## 120. CIDE — renombrar y reaprovechar conversaciones (renombrar · copiar · regenerar)
+
+**Contexto.** Tras borrar/detener (§119), faltaba completar la gestión de conversaciones y
+facilitar reaprovechar respuestas. Todo aditivo, sin migraciones (la columna `title` ya existe).
+
+**Decisión.**
+- **Renombrar.** `AiService.renameConversation()` (owner; admin cualquiera) recorta y limita el
+  título a 200 chars (vacío → «Nueva conversación»). `PATCH /api/ai/conversations/:id`
+  (`RenameConversationDto`) + proxy Next. En el historial de `Cide.tsx`, botón lápiz → edición
+  inline (Enter confirma, Esc cancela) con actualización optimista.
+- **Copiar respuesta.** Botón de copiar al portapapeles en cada respuesta del asistente, con
+  check transitorio.
+- **Regenerar.** `runStream()` extraído de `send()`; nuevo `regenerate()` reaprovecha el último
+  mensaje del usuario, descarta la respuesta previa y vuelve a transmitir.
+
+**Verificación:** `build API` ✓, **AI tests 25/25** (+4 de renombrar: not-found, forbidden,
+owner con recorte/límite, fallback de título vacío), `lint web` 0 errores, `build web` ✓.
+Sin migraciones; ningún endpoint ni comportamiento existente cambia.
+
+## 121. CIDE — persistir el modelo/escalación por mensaje (badge fiel al recargar)
+
+**Contexto.** El badge de modelo y la marca «escalado» (§119/§120) se mostraban solo en vivo:
+al reabrir una conversación se perdían, porque `ai_message` no los guardaba. Brecha de fidelidad.
+
+**Decisión.** Persistirlos por mensaje (primera **migración** del trabajo de CIDE; aditiva).
+- **Esquema:** `ai_message` gana `model` (varchar 64, nullable) y `escalated` (boolean, nullable).
+  Migración idempotente `AddAiMessageModel20260627140000` (glob las recoge sola; sin índice).
+- **Persistencia:** `persistTurn()` guarda `model`/`escalated` en el turno del asistente; en modo
+  demo (`mock`) se guarda `model=null` (no hubo motor real).
+- **Lectura/UI:** `getConversation` ya devuelve el mensaje completo; `Cide.tsx` mapea `model`/
+  `escalated` al recargar, así el badge reaparece idéntico.
+
+**Verificación:** `build API` ✓, **AI tests 27/27** (+2: persistTurn guarda modelo/escalación;
+demo no atribuye modelo), `lint web` 0 errores, `build web` ✓. Migración 100% aditiva (columnas
+nullable); ningún comportamiento existente cambia.
+
+## 122. CIDE — prompts de inicio contextuales por módulo
+
+**Contexto.** El chat es accesible desde toda página del dashboard, pero ofrecía siempre las
+mismas 4 sugerencias genéricas. Adaptarlas al módulo donde está el usuario mejora la
+relevancia y el descubrimiento, **sin costo de inferencia** (es solo un mapeo).
+
+**Decisión (solo `apps/web`, aditiva).** Nuevo `lib/chat/cideSuggestions.ts` con
+`suggestionsFor(pathname)`: extrae el primer segmento tras `/dashboard/` y devuelve 3 preguntas
+hechas a la medida del módulo (inventory, mrp, planning, production, quality, maintenance,
+shipping, suppliers, finance, crm, genealogy, control-tower, etc. — todas respondibles por las
+herramientas de CIDE); fuera del dashboard o en un módulo no mapeado cae a las genéricas.
+`Cide.tsx` reemplaza la constante estática por `suggestionsFor(pathname)`.
+
+**Nota de pruebas.** `apps/web` no tiene runner de tests unitarios (CI solo corre `lint` +
+`build` para el front); `suggestionsFor` es una función pura cubierta por el type-check del
+build y el lint. No se añadió spec no ejecutable.
+
+**Verificación:** `lint web` 0 errores, `build web` ✓. Sin backend ni migraciones; nada
+existente cambia.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
