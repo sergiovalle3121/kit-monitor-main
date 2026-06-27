@@ -9,6 +9,7 @@ import {
   Megaphone,
   HandHelping,
   PackageCheck,
+  CheckCircle2,
 } from "lucide-react";
 import { glass } from "@/lib/glass";
 import { containerRM, itemRM, hoverRM, pressRM } from "@/lib/motion";
@@ -16,7 +17,7 @@ import { useApi } from "@/hooks/useApi";
 import { positionLabel } from "@/config/positions";
 import { IconTile } from "@/components/ui/IconTile";
 import { HoverArrow } from "@/components/ui/HoverArrow";
-import { DOMAINS, type DomainKey } from "@/lib/design/domains";
+import { type DomainKey } from "@/lib/design/domains";
 import { seesAllAreas } from "@/lib/owner";
 import { timeAgo, ROLE_LABELS } from "@/lib/dashboardShared";
 import { AREAS, SECTION_ORDER } from "@/lib/dashboardAreas";
@@ -127,6 +128,62 @@ function DashboardInner() {
       .sort((x, y) => +new Date(y.at) - +new Date(x.at))
       .slice(0, 5);
   }, [plans, requests]);
+
+  // Cola de atención: señales accionables derivadas de datos REALES ya cargados
+  // (planes por publicar, solicitudes esperando almacén). Sin inventar nada; si
+  // no hay pendientes, se muestra un estado "todo al día" honesto.
+  const attention = useMemo(() => {
+    const items: {
+      key: string;
+      domain: DomainKey;
+      icon: typeof Megaphone;
+      title: string;
+      meta: string;
+      href: string;
+      severity: "high" | "medium";
+    }[] = [];
+    const pendingPlans = plans.filter((p) => p.status === "pending");
+    if (pendingPlans.length > 0) {
+      items.push({
+        key: "plans-pending",
+        domain: "plan",
+        icon: Megaphone,
+        title: `${pendingPlans.length} ${pendingPlans.length === 1 ? "plan" : "planes"} por publicar`,
+        meta: "Libéralos para que operación los vea",
+        href: "/dashboard/planning",
+        severity: "high",
+      });
+    }
+    const pendingReqs = requests.filter((r) => r.status === "pending");
+    if (pendingReqs.length > 0) {
+      items.push({
+        key: "reqs-pending",
+        domain: "warehouse",
+        icon: HandHelping,
+        title: `${pendingReqs.length} ${pendingReqs.length === 1 ? "solicitud" : "solicitudes"} de material`,
+        meta: "Esperando surtido de almacén",
+        href: "/dashboard/almacen",
+        severity: "medium",
+      });
+    }
+    return items;
+  }, [plans, requests]);
+
+  const SEVERITY: Record<
+    "high" | "medium",
+    { dot: string; ring: string; label: string }
+  > = {
+    high: {
+      dot: "bg-red-500",
+      ring: "border-red-500/20",
+      label: "Prioridad alta",
+    },
+    medium: {
+      dot: "bg-amber-500",
+      ring: "border-amber-500/20",
+      label: "Pendiente",
+    },
+  };
 
   // Acceso del owner blindado: case-insensitive + override por email.
   const seesAll = seesAllAreas(session?.role, session?.email);
@@ -245,6 +302,76 @@ function DashboardInner() {
             </MotionLink>
           ))}
         </motion.section>
+
+        {/* Requiere atención — cola accionable (datos reales; estado honesto) */}
+        <section className="mb-12">
+          <div className="mb-4 flex items-end justify-between border-t border-border/70 pt-5">
+            <h2 className="text-[11px] font-semibold uppercase tracking-[0.3em] text-muted-foreground">
+              Requiere atención
+            </h2>
+            <span className="text-xs text-muted-foreground">
+              {attention.length > 0
+                ? `${attention.length} ${attention.length === 1 ? "señal" : "señales"} accionables`
+                : "Sin pendientes"}
+            </span>
+          </div>
+          {attention.length === 0 ? (
+            <div
+              className={`${glass} flex items-center gap-3 rounded-3xl p-5 text-sm text-muted-foreground`}
+            >
+              <CheckCircle2 className="h-5 w-5 flex-shrink-0 text-emerald-500" />
+              <span>
+                Todo al día. No hay planes por publicar ni solicitudes
+                esperando surtido.
+              </span>
+            </div>
+          ) : (
+            <motion.div
+              variants={containerRM(reduce)}
+              initial="hidden"
+              animate="show"
+              className="grid grid-cols-1 gap-3 sm:grid-cols-2"
+            >
+              {attention.map((a) => {
+                const sv = SEVERITY[a.severity];
+                return (
+                  <MotionLink
+                    key={a.key}
+                    href={a.href}
+                    variants={itemRM(reduce)}
+                    whileHover={hoverRM(reduce)}
+                    whileTap={pressRM(reduce)}
+                    className={`group block rounded-3xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35`}
+                  >
+                    <div
+                      className={`${glass} flex h-full items-center gap-4 rounded-3xl border-l-2 ${sv.ring} p-4 transition-[border-color,box-shadow,transform] duration-300 group-hover:shadow-md sm:p-5`}
+                    >
+                      <IconTile domain={a.domain} size={40} icon={a.icon} />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span
+                            aria-hidden
+                            className={`h-1.5 w-1.5 flex-shrink-0 rounded-full ${sv.dot}`}
+                          />
+                          <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                            {sv.label}
+                          </span>
+                        </div>
+                        <p className="mt-1 truncate text-sm font-semibold text-foreground">
+                          {a.title}
+                        </p>
+                        <p className="text-[11px] text-muted-foreground">
+                          {a.meta}
+                        </p>
+                      </div>
+                      <HoverArrow className="opacity-50 group-hover:opacity-100" />
+                    </div>
+                  </MotionLink>
+                );
+              })}
+            </motion.div>
+          )}
+        </section>
 
         {/* Tus áreas — agrupadas por el flujo real (Diseño → … → Admin) */}
         {areas.length > 0 ? (
