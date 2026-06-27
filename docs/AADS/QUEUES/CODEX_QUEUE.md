@@ -15,6 +15,12 @@ item's status. Claude then reviews and merges (see
 
 **Item states:** `PENDING` → `IN PROGRESS` → `IN REVIEW` → `DONE` / `BLOCKED`.
 
+> **Running Codex in parallel?** Don't have multiple agents edit this single file.
+> Use the [`../WORK_PACKETS/`](../WORK_PACKETS/) layer (AADS v2): each parallel
+> Codex run owns its own packet file and a disjoint set of writable paths, so the
+> queue never has a merge race and PRs don't conflict. This linear queue stays the
+> human-readable backlog; packets are the concurrency layer on top of it.
+
 Initial queue: **20 items** — 5 MES Operator, 5 CAD, 5 Office, 5 Platform/Quality.
 
 ---
