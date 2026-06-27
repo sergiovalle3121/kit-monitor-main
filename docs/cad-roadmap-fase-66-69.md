@@ -50,9 +50,26 @@ segmentIntersection(s1,s2) · perpendicularFoot(p,s) · nearestOnSegment(p,s)
 **Codex:** construye `SnapScene` desde estaciones/assets/muros (usa `rectGeometry`) + vértices
 del DXF; dibuja el glifo según `type` (cuadro=endpoint, ▲=midpoint, ○=center, ⊥=perpendicular…).
 
-### Próximo de Claude (en curso): `cad-command.ts`
-Máquina de estados de comandos (line, pline, rect, circle, move, copy, offset) que emite
-*acciones* que el editor aplica. Firmas se publican aquí al entregar.
+### `cad-command.ts`  — máquina de comandos multi-paso (ENTREGADO)
+```ts
+type CommandId = 'line'|'polyline'|'rect'|'circle'|'move'|'copy'|'offset'
+type DrawAction =                                   // geometría declarativa que el editor aplica
+  | { type:'addSegment'; a:Point; b:Point } | { type:'addPolyline'; points:Point[]; closed:boolean }
+  | { type:'addRect'; x,y,w,h } | { type:'addCircle'; cx,cy,r }
+  | { type:'moveBy'; dx,dy } | { type:'copyBy'; dx,dy } | { type:'offsetBy'; distance }
+interface CommandState { id; points:Point[]; prompt:string; done:boolean; emitted:DrawAction[]; awaitingRadius? }
+startCommand(id) · feedPoint(state,p) · feedDistance(state,d) · commit(state) · cancel(state) · previewGeometry(state,cursor)
+```
+**Codex:** en cada click resuelve la coord (con `parseCoordinate` si fue tecleada) → `feedPoint`;
+aplica `state.emitted`; usa `previewGeometry` para el rubber-band; `commit` con Enter, `cancel` con Esc.
+
+## Contratos de backend entregados por Claude
+
+- **Capas CAD (Fase 66 #6).** Columna aditiva `layers` en `sf_line_layouts` +
+  `layer?: string` opcional en assets y annotations. Expuesto en `GET /layout`
+  (`layers: LayoutLayer[]`) y persistido por `PUT /layout` (`layers`, y `layer` en cada
+  asset/annotation). `LayoutLayer = { id, name, color, visible, locked }`. Codex ya puede
+  cargar/guardar capas reales y asignar objetos a capa — sin más backend.
 
 ## Secuencia de fases
 

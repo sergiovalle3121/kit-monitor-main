@@ -16,6 +16,7 @@ import {
   LayoutAnnotation,
   LayoutSnapshot,
   LayoutCell,
+  LayoutLayer,
 } from './entities/sf-line-layout.entity';
 import { TenantContextService } from '../../common/tenant/tenant-context.service';
 import {
@@ -172,6 +173,7 @@ export interface LineLayout {
   assets: LayoutAsset[];
   annotations: LayoutAnnotation[];
   cells: LayoutCell[];
+  layers: LayoutLayer[];
   approval: LayoutApproval;
 }
 
@@ -602,6 +604,7 @@ export class LineEngineeringService {
       assets: layout?.assets ?? [],
       annotations: layout?.annotations ?? [],
       cells: layout?.cells ?? [],
+      layers: layout?.layers ?? [],
       approval: {
         status: (layout?.approvalStatus as ApprovalStatus) || 'draft',
         by: layout?.approvedBy ?? null,
@@ -960,7 +963,8 @@ export class LineEngineeringService {
       dto.connectors ||
       dto.assets ||
       dto.annotations ||
-      dto.cells
+      dto.cells ||
+      dto.layers
     ) {
       const layout = await this.ensureLayout(model, revision);
       const f = dto.footprint;
@@ -990,6 +994,7 @@ export class LineEngineeringService {
           h: clampPos(a.h, 1),
           rotation: Number(a.rotation) || 0,
           ...(a.label ? { label: String(a.label).slice(0, 64) } : {}),
+          ...(a.layer ? { layer: String(a.layer).slice(0, 64) } : {}),
         }));
       }
       if (dto.annotations) {
@@ -1002,6 +1007,7 @@ export class LineEngineeringService {
           ...(a.y2 !== undefined ? { y2: Number(a.y2) || 0 } : {}),
           ...(a.text ? { text: String(a.text).slice(0, 240) } : {}),
           ...(a.color ? { color: String(a.color).slice(0, 16) } : {}),
+          ...(a.layer ? { layer: String(a.layer).slice(0, 64) } : {}),
         }));
       }
       if (dto.cells) {
@@ -1013,6 +1019,15 @@ export class LineEngineeringService {
           stationIds: (c.stationIds ?? [])
             .filter((sid) => byId.has(sid))
             .slice(0, 200),
+        }));
+      }
+      if (dto.layers) {
+        layout.layers = dto.layers.slice(0, 64).map((l) => ({
+          id: String(l.id).slice(0, 64),
+          name: String(l.name || 'Capa').slice(0, 48),
+          color: String(l.color || '#94a3b8').slice(0, 16),
+          visible: l.visible !== false,
+          locked: l.locked === true,
         }));
       }
       await this.requireLayouts().save(layout);
