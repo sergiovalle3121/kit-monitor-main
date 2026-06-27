@@ -27,11 +27,6 @@ export function ChatWidget() {
     pathname?.startsWith('/dashboard/chat') ||
     pathname?.startsWith('/dashboard/office/');
 
-  // Cierra el dock si navegamos a una ruta donde no aplica.
-  useEffect(() => {
-    if (hidden && open) setOpen(false);
-  }, [hidden, open]);
-
   // Sondeo ligero de no leídos para el badge (solo visible y cerrado).
   useEffect(() => {
     if (hidden || open) return;

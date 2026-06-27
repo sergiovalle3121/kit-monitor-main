@@ -37,14 +37,14 @@ function StatusPill({ status, savedAt }: { status: SaveStatus; savedAt?: number 
 }
 
 function useRelativeTime(ts?: number | null) {
-  const [, force] = useState(0);
+  const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     if (!ts) return;
-    const t = setInterval(() => force((n) => n + 1), 15000);
+    const t = setInterval(() => setNow(Date.now()), 15000);
     return () => clearInterval(t);
   }, [ts]);
   if (!ts) return '';
-  const s = Math.round((Date.now() - ts) / 1000);
+  const s = Math.round((now - ts) / 1000);
   if (s < 8) return 'ahora';
   if (s < 60) return `hace ${s}s`;
   const m = Math.round(s / 60);
