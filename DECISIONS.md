@@ -2725,4 +2725,19 @@ El system prompt se actualizó para enumerar explícitamente todos los dominios 
 confirmados, no request-scoped), `lint web` 0 errores, `build web` ✓. Solo lectura; sin
 migraciones; ningún endpoint ni comportamiento existente cambia.
 
+## 124. CIDE — "Ponme al día": briefing ejecutivo de un clic
+
+**Contexto.** Con CIDE entendiendo ya todos los módulos (§123), un caso de alto valor para un
+dueño/gerente es un resumen accionable de "cómo está la planta ahora" sin escribir la pregunta.
+
+**Decisión (solo `apps/web`, aditiva).** Botón **"Ponme al día"** destacado en el estado inicial
+del chat que envía un `BRIEFING_PROMPT` curado por el flujo de streaming normal: CIDE encadena
+sus herramientas (KPIs en alerta, novedades 24 h, calidad —holds/CAPA/FAI—, mantenimiento
+vencido, embarques del día) y responde con secciones breves + "Acciones sugeridas" (máx 3,
+priorizadas), siempre fundamentado en datos reales. Sin backend nuevo: reusa `POST
+/ai/chat/stream` y todo el toolset RBAC. El prompt vive en `lib/chat/cideSuggestions.ts`.
+
+**Verificación:** `lint web` 0 errores, `build web` ✓. Sin backend ni migraciones; nada
+existente cambia.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->

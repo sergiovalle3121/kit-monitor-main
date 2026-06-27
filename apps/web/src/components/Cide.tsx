@@ -22,12 +22,13 @@ import {
   Check,
   RefreshCw,
   Pencil,
+  Newspaper,
 } from 'lucide-react';
 import { glass } from '@/lib/glass';
 import { isAdminAccess } from '@/lib/owner';
 import { useOperatorKiosk } from '@/lib/operatorChrome';
 import { useDashboardSession } from '@/hooks/useDashboardSession';
-import { suggestionsFor } from '@/lib/chat/cideSuggestions';
+import { BRIEFING_PROMPT, suggestionsFor } from '@/lib/chat/cideSuggestions';
 
 type CideCard =
   | { type: 'metric'; title: string; value: number; unit?: string | null }
@@ -481,6 +482,13 @@ export function Cide() {
                       producción, MRP, calidad, finanzas y la bitácora de eventos
                       — respetando tus permisos.
                     </p>
+                    <button
+                      onClick={() => send(BRIEFING_PROMPT)}
+                      className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-br from-violet-600 to-pink-500 px-3 py-2.5 text-sm font-medium text-white shadow-sm transition-transform hover:scale-[1.01] active:scale-[0.99]"
+                    >
+                      <Newspaper className="h-4 w-4" />
+                      Ponme al día
+                    </button>
                     <div className="flex flex-col gap-2">
                       {suggestions.map((s) => (
                         <button
