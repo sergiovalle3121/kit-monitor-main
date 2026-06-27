@@ -156,8 +156,8 @@ function LoginInner() {
               manufacturing.
             </p>
 
-            <div className="flex flex-wrap gap-3">
-              {["Multi-tenant", "Real-time", "Traceability"].map((tag) => (
+            <div className="flex flex-wrap gap-2">
+              {["ERP", "MES", "Office", "CAD", "AI", "Calidad"].map((tag) => (
                 <span
                   key={tag}
                   className="px-3 py-1 bg-white/10 dark:bg-black/5 rounded-full text-xs font-medium border border-white/10 dark:border-black/10"
