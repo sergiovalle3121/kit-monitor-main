@@ -51,7 +51,10 @@ export function DashboardDock() {
     href === '/dashboard' ? pathname === '/dashboard' : !!pathname?.startsWith(href);
 
   return (
-    <div className={`${glass} fixed bottom-6 left-1/2 z-50 -translate-x-1/2 px-4 py-3 rounded-[2rem] shadow-2xl flex items-center gap-2`}>
+    <nav
+      aria-label="Navegación rápida del dashboard"
+      className={`${glass} fixed bottom-[max(1.5rem,env(safe-area-inset-bottom))] left-1/2 z-50 -translate-x-1/2 px-4 py-3 rounded-[2rem] shadow-2xl flex items-center gap-2`}
+    >
       <DockLink href="/dashboard" active={active('/dashboard')} icon={LayoutGrid} label="Inicio" />
       <DockLink href="/dashboard/chat" active={active('/dashboard/chat')} icon={MessageSquare} label="Mensajes" />
       {quickLinks.map((a) => (
@@ -60,7 +63,7 @@ export function DashboardDock() {
       {isAdmin && (
         <DockLink href="/dashboard/settings/organization" active={active('/dashboard/settings')} icon={Settings} label="Ajustes" />
       )}
-    </div>
+    </nav>
   );
 }
 
@@ -69,6 +72,7 @@ function DockLink({ href, icon: Icon, label, active }: { href: string; icon: Luc
     <Link
       href={href}
       aria-label={label}
+      aria-current={active ? 'page' : undefined}
       title={label}
       className={`p-3 rounded-full transition-all hover:scale-110 active:scale-95 ${
         active

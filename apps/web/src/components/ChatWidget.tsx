@@ -27,9 +27,11 @@ export function ChatWidget() {
     pathname?.startsWith('/dashboard/chat') ||
     pathname?.startsWith('/dashboard/office/');
 
-  // Cierra el dock si navegamos a una ruta donde no aplica.
+  // Cierra el dock al entrar a rutas donde no aplica; se difiere para no
+  // disparar el lint de React Compiler sobre setState síncrono en effects.
   useEffect(() => {
-    if (hidden && open) setOpen(false);
+    if (!hidden || !open) return;
+    queueMicrotask(() => setOpen(false));
   }, [hidden, open]);
 
   // Sondeo ligero de no leídos para el badge (solo visible y cerrado).
