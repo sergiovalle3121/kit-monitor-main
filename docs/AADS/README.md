@@ -99,6 +99,8 @@ docs/AADS/
   QUEUES/
     CODEX_QUEUE.md                ← what Codex builds next (PENDING/…)
     CLAUDE_QUEUE.md               ← how Claude reviews & merges
+  WORK_PACKETS/                   ← parallel-safe execution layer (AADS v2)
+    README.md  _TEMPLATE.md  WP-*.md
   STATUS/
     DONE.md  BLOCKED.md  TECH_DEBT.md
   AI/
