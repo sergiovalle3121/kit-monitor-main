@@ -440,3 +440,11 @@ export interface QuarantineTransfer {
   hold?: { id: number } | null;
   createdAt: string;
 }
+
+// Floor Quality / MRB KPIs — apps/api/src/modules/floor-quality/floor-quality.controller.ts
+export interface FloorQualityKpis {
+  openHolds: number;
+  scrapQty: number;
+  avgDispositionDays: number | null;
+  overdue: number;
+}

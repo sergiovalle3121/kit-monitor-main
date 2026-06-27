@@ -16,6 +16,17 @@ import {
   ChevronRight,
   Crosshair,
   Ruler,
+  Activity,
+  AlertTriangle,
+  ArrowRight,
+  ClipboardCheck,
+  Factory,
+  Gauge,
+  GitBranch,
+  PackageSearch,
+  Radar,
+  RotateCcw,
+  TrendingUp,
 } from "lucide-react";
 import { glass } from "@/lib/glass";
 import { useApi } from "@/hooks/useApi";
@@ -26,11 +37,13 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { Empty, Field, Kpi, QInputStyle } from "./quality.ui";
 import type {
   CreateNcrInput,
+  FloorQualityKpis,
   ModelOption,
   Ncr,
   NcrSeverity,
   NcrSourceType,
   NcrStatus,
+  QualityAnalytics,
 } from "./quality.types";
 import {
   deriveNcrKpis,
@@ -47,6 +60,8 @@ const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000").re
 export default function QualityPage() {
   const { user } = useAuth();
   const { data, isLoading, forbidden, mutate } = useApi<Ncr[]>("/ncr");
+  const { data: analyticsData } = useApi<QualityAnalytics>("/quality/analytics?days=30");
+  const { data: floorKpis } = useApi<FloorQualityKpis>("/floor-quality/kpis");
   const { data: modelsData } = useApi<ModelOption[]>("/product-models");
 
   const all = useMemo(() => (Array.isArray(data) ? data : []), [data]);
@@ -83,13 +98,68 @@ export default function QualityPage() {
   const [showForm, setShowForm] = useState(false);
   const anyFilter = !!(q || status || severity || source || model);
 
+  const criticalOpen = useMemo(
+    () => all.filter((n) => n.severity === "critical" && n.status !== "closed"),
+    [all],
+  );
+  const uncontainedOpen = useMemo(
+    () => all.filter((n) => n.status === "open" || n.status === "under_review"),
+    [all],
+  );
+  const repeatDefects = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const n of all) counts.set(n.category || "Sin categoría", (counts.get(n.category || "Sin categoría") ?? 0) + 1);
+    return [...counts.entries()]
+      .map(([label, count]) => ({ label, count }))
+      .filter((r) => r.count > 1)
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 3);
+  }, [all]);
+  const topSupplier = analyticsData?.ppm.supplier?.[0];
+  const topModelRisk = analyticsData?.cuts.byModel?.[0];
+  const capaOverdueList = analyticsData?.capa.overdueList ?? [];
+  const attentionItems = [
+    ...criticalOpen.slice(0, 2).map((n) => ({
+      key: `ncr-${n.id}`,
+      tone: "danger" as const,
+      title: `${n.ncrNumber} crítica abierta`,
+      body: `${n.partNumber} · ${n.category} · ${n.quantityAffected} u afectadas`,
+      href: `/dashboard/quality/ncr/${n.id}`,
+      cta: "Abrir NCR",
+    })),
+    ...capaOverdueList.slice(0, 2).map((c) => ({
+      key: `capa-${c.capaNumber}`,
+      tone: "warning" as const,
+      title: `${c.capaNumber} vencida`,
+      body: `${c.partNumber} · ${c.daysOverdue} días overdue · ${c.status}`,
+      href: "/dashboard/quality/analytics",
+      cta: "Ver CAPA",
+    })),
+    ...(floorKpis?.openHolds ? [{
+      key: "mrb-holds",
+      tone: "warning" as const,
+      title: `${floorKpis.openHolds} holds MRB bloqueando flujo`,
+      body: `${floorKpis.overdue ?? 0} overdue · ${floorKpis.scrapQty ?? 0} u scrap`,
+      href: "/dashboard/floor-quality",
+      cta: "Ir a MRB",
+    }] : []),
+    ...uncontainedOpen.slice(0, 2).map((n) => ({
+      key: `contain-${n.id}`,
+      tone: "neutral" as const,
+      title: `${n.ncrNumber} requiere contención`,
+      body: `${NCR_SOURCE_META[n.sourceType] ?? n.sourceType} · ${n.line ?? n.model ?? n.workOrder ?? "sin contexto"}`,
+      href: `/dashboard/quality/ncr/${n.id}`,
+      cta: "Contener",
+    })),
+  ].slice(0, 5);
+
   return (
     <div className="min-h-screen text-black dark:text-white font-sans pb-32">
       <main className="max-w-5xl mx-auto px-6 pt-10">
         <PageHeader
           domain="quality"
-          title="Calidad · NCR"
-          subtitle="No conformidades, disposición y CAPA sobre el backend de calidad"
+          title="Quality Command Center"
+          subtitle="Inspección, contención, MRB, CTQ, yield, CAPA y trazabilidad de punta a punta."
           right={
             <div className="flex items-center gap-2">
               <Link
@@ -156,13 +226,55 @@ export default function QualityPage() {
           />
         ) : (
           <>
-            {/* KPIs derivadas de la lista real */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-              <Kpi label="NCR abiertas" value={kpis.open} color={NCR_STATUS_META.open.color} />
-              <Kpi label="Críticas abiertas" value={kpis.critical} color={NCR_SEVERITY_META.critical.color} />
-              <Kpi label="Cerradas" value={kpis.closed} color={NCR_STATUS_META.closed.color} />
-              <Kpi label="Total" value={kpis.total} color="#6b7280" />
-            </div>
+            <section className={`${glass} rounded-3xl p-5 md:p-6 mb-5 overflow-hidden relative`}>
+              <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
+              <div className="grid lg:grid-cols-[1.25fr_0.75fr] gap-5 items-stretch">
+                <div>
+                  <div className="inline-flex items-center gap-2 rounded-full border border-border bg-background/60 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    <Radar className="h-3.5 w-3.5 text-primary" /> Torre EMS · últimos 30 días cuando aplica
+                  </div>
+                  <h2 className="mt-4 text-3xl md:text-4xl font-bold tracking-tight">Control operativo de calidad, no solo lista de NCR.</h2>
+                  <p className="mt-3 max-w-2xl text-sm md:text-base text-muted-foreground">
+                    Prioriza lo que bloquea producción o embarques: defectos repetidos, proveedores con riesgo, holds MRB, CTQ fuera de especificación y CAPAs vencidas.
+                  </p>
+                  <div className="mt-5 flex flex-wrap gap-2">
+                    <CommandLink href="/dashboard/quality/inspections" icon={<ClipboardCheck className="h-4 w-4" />} label="IQC / OQC" />
+                    <CommandLink href="/dashboard/floor-quality" icon={<Factory className="h-4 w-4" />} label="MRB piso" />
+                    <CommandLink href="/dashboard/quality/characteristics" icon={<Crosshair className="h-4 w-4" />} label="CTQ" />
+                    <CommandLink href="/dashboard/quality/analytics" icon={<TrendingUp className="h-4 w-4" />} label="Analytics" />
+                    <CommandLink href="/dashboard/genealogy" icon={<GitBranch className="h-4 w-4" />} label="Genealogía" />
+                  </div>
+                </div>
+                <div className="rounded-2xl border border-border bg-background/55 p-4">
+                  <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Señales críticas</div>
+                  <div className="space-y-3">
+                    <Signal label="Contención pendiente" value={uncontainedOpen.length} hint="NCR abiertas/en revisión" />
+                    <Signal label="Top defecto" value={repeatDefects[0]?.label ?? "—"} hint={repeatDefects[0] ? `${repeatDefects[0].count} recurrencias` : "sin patrón repetido"} />
+                    <Signal label="Proveedor riesgo" value={topSupplier?.supplierName ?? "—"} hint={topSupplier?.ppm != null ? `${topSupplier.ppm.toLocaleString()} PPM` : "analytics pendiente"} />
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+              <Kpi label="NCR abiertas" value={kpis.open} color={NCR_STATUS_META.open.color} sub={`${kpis.total} total`} />
+              <Kpi label="Críticas" value={kpis.critical} color={NCR_SEVERITY_META.critical.color} sub="abiertas" />
+              <Kpi label="Holds MRB" value={floorKpis?.openHolds ?? "—"} color="#f59e0b" sub={floorKpis ? `${floorKpis.overdue} overdue` : "endpoint pendiente"} />
+              <Kpi label="FPY" value={formatPct(analyticsData?.yield.fpyOverall)} color="#2563eb" sub="quality analytics" />
+              <Kpi label="PPM proveedor" value={formatNumber(analyticsData?.ppm.supplierOverall)} color="#0f766e" sub="incoming quality" />
+              <Kpi label="CAPAs vencidas" value={analyticsData?.capa.overdue ?? "—"} color="#dc2626" sub="efectividad / 8D" />
+              <Kpi label="NCR sin clasificar" value={analyticsData?.meta.unclassifiedNcrs ?? "—"} color="#6b7280" sub="defect codes" />
+              <Kpi label="Scrap qty" value={floorKpis?.scrapQty ?? "—"} color="#b45309" sub="MRB dispositions" />
+            </section>
+
+            <QualityFlowRail />
+
+            <section className="grid lg:grid-cols-[1.1fr_0.9fr] gap-4 mb-5">
+              <AttentionQueue items={attentionItems} />
+              <RiskPanels repeatDefects={repeatDefects} topSupplier={topSupplier} topModelRisk={topModelRisk} analyticsReady={!!analyticsData} />
+            </section>
+
+            <ModuleGrid />
 
             {/* Filtros */}
             <div className={`${glass} rounded-2xl p-3 mb-5 flex flex-wrap items-center gap-2`}>
@@ -258,6 +370,125 @@ export default function QualityPage() {
         />
       )}
     </div>
+  );
+}
+
+
+function formatPct(value?: number | null) {
+  return value == null ? "—" : `${value.toFixed(1)}%`;
+}
+
+function formatNumber(value?: number | null) {
+  return value == null ? "—" : Math.round(value).toLocaleString();
+}
+
+function CommandLink({ href, icon, label }: { href: string; icon: React.ReactNode; label: string }) {
+  return (
+    <Link href={href} className="inline-flex items-center gap-2 rounded-xl border border-border bg-background/70 px-3 py-2 text-sm font-medium hover:bg-muted/70 focus:outline-none focus:ring-2 focus:ring-primary/30">
+      {icon}{label}
+    </Link>
+  );
+}
+
+function Signal({ label, value, hint }: { label: string; value: React.ReactNode; hint: string }) {
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-xl bg-muted/45 px-3 py-2">
+      <div>
+        <div className="text-[11px] uppercase tracking-wider text-muted-foreground">{label}</div>
+        <div className="text-sm font-semibold truncate max-w-[12rem]">{value}</div>
+      </div>
+      <div className="text-right text-[11px] text-muted-foreground">{hint}</div>
+    </div>
+  );
+}
+
+function QualityFlowRail() {
+  const steps = [
+    { label: "IQC", body: "Recibo · proveedor · SCAR", href: "/dashboard/quality/inspections" },
+    { label: "IPQC", body: "Línea · FPY · scrap", href: "/dashboard/quality/analytics" },
+    { label: "MRB", body: "Hold · cuarentena · disposición", href: "/dashboard/floor-quality" },
+    { label: "CAPA", body: "Root cause · 8D · efectividad", href: "/dashboard/quality/analytics" },
+    { label: "OQC", body: "Final inspection · embarque", href: "/dashboard/quality/inspections" },
+    { label: "RMA / Genealogía", body: "Cliente · serial · where-used", href: "/dashboard/genealogy" },
+  ];
+  return (
+    <section className={`${glass} rounded-2xl p-4 mb-5`}>
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Quality flow rail</h2>
+        <span className="text-[11px] text-muted-foreground">IQC → IPQC → MRB → CAPA → OQC → RMA/Genealogía</span>
+      </div>
+      <div className="grid md:grid-cols-6 gap-2">
+        {steps.map((step, idx) => (
+          <Link key={step.label} href={step.href} className="group rounded-xl border border-border bg-background/55 p-3 hover:bg-muted/70 focus:outline-none focus:ring-2 focus:ring-primary/30">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-sm font-semibold">{step.label}</span>
+              {idx < steps.length - 1 && <ArrowRight className="h-3.5 w-3.5 text-muted-foreground hidden md:block" />}
+            </div>
+            <p className="mt-1 text-[11px] leading-snug text-muted-foreground">{step.body}</p>
+          </Link>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function AttentionQueue({ items }: { items: { key: string; tone: "danger" | "warning" | "neutral"; title: string; body: string; href: string; cta: string }[] }) {
+  const toneClass = { danger: "text-red-600 bg-red-500/10", warning: "text-amber-600 bg-amber-500/10", neutral: "text-slate-600 bg-slate-500/10" };
+  return (
+    <section className={`${glass} rounded-2xl p-4`}>
+      <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Attention queue · hoy</h2>
+      {items.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-border p-5 text-sm text-muted-foreground">Sin bloqueos críticos detectados con los endpoints disponibles.</div>
+      ) : (
+        <div className="space-y-2">
+          {items.map((item) => (
+            <Link key={item.key} href={item.href} className="flex items-center gap-3 rounded-xl border border-border bg-background/55 p-3 hover:bg-muted/70">
+              <span className={`rounded-xl p-2 ${toneClass[item.tone]}`}><AlertTriangle className="h-4 w-4" /></span>
+              <span className="min-w-0 flex-1"><span className="block text-sm font-semibold truncate">{item.title}</span><span className="block text-xs text-muted-foreground truncate">{item.body}</span></span>
+              <span className="text-xs font-medium text-primary">{item.cta}</span>
+            </Link>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function RiskPanels({ repeatDefects, topSupplier, topModelRisk, analyticsReady }: { repeatDefects: { label: string; count: number }[]; topSupplier?: { supplierName: string; ppm: number | null }; topModelRisk?: { label: string; count: number }; analyticsReady: boolean }) {
+  return (
+    <section className={`${glass} rounded-2xl p-4`}>
+      <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Risk panels</h2>
+      <div className="grid gap-3">
+        <RiskCard icon={<PackageSearch className="h-4 w-4" />} title="Defecto repetido" value={repeatDefects[0]?.label ?? "—"} meta={repeatDefects[0] ? `${repeatDefects[0].count} NCR` : "sin recurrencia local"} />
+        <RiskCard icon={<Gauge className="h-4 w-4" />} title="Proveedor" value={topSupplier?.supplierName ?? "—"} meta={topSupplier?.ppm != null ? `${topSupplier.ppm.toLocaleString()} PPM` : analyticsReady ? "sin datos PPM" : "analytics pendiente"} />
+        <RiskCard icon={<Activity className="h-4 w-4" />} title="Modelo / línea" value={topModelRisk?.label ?? "—"} meta={topModelRisk ? `${topModelRisk.count} NCR` : "sin corte dominante"} />
+      </div>
+    </section>
+  );
+}
+
+function RiskCard({ icon, title, value, meta }: { icon: React.ReactNode; title: string; value: React.ReactNode; meta: string }) {
+  return <div className="flex items-center gap-3 rounded-xl border border-border bg-background/55 p-3"><span className="rounded-xl bg-muted p-2 text-muted-foreground">{icon}</span><div className="min-w-0"><div className="text-[11px] uppercase tracking-wider text-muted-foreground">{title}</div><div className="text-sm font-semibold truncate">{value}</div><div className="text-xs text-muted-foreground">{meta}</div></div></div>;
+}
+
+function ModuleGrid() {
+  const modules = [
+    { label: "Inspecciones IQC/OQC", href: "/dashboard/quality/inspections", icon: <ClipboardCheck className="h-4 w-4" />, body: "Recibo, backlog OQC e historial final." },
+    { label: "MRB / piso", href: "/dashboard/floor-quality", icon: <Factory className="h-4 w-4" />, body: "Holds, disposición, where-used operativo." },
+    { label: "Holds inventario", href: "/dashboard/quality/holds", icon: <ShieldX className="h-4 w-4" />, body: "Hold granular, transferencias y disposición." },
+    { label: "CTQ characteristics", href: "/dashboard/quality/characteristics", icon: <Crosshair className="h-4 w-4" />, body: "Catálogo LSL/Nominal/USL." },
+    { label: "Mediciones CTQ", href: "/dashboard/quality/measurements", icon: <Ruler className="h-4 w-4" />, body: "Lecturas y out-of-spec foundation." },
+    { label: "Analytics", href: "/dashboard/quality/analytics", icon: <BarChart3 className="h-4 w-4" />, body: "FPY, PPM, Pareto, CAPA." },
+    { label: "RMA", href: "/dashboard/rma", icon: <RotateCcw className="h-4 w-4" />, body: "Calidad de cliente y retornos." },
+    { label: "Genealogía", href: "/dashboard/genealogy", icon: <GitBranch className="h-4 w-4" />, body: "Seriales, lotes, WOs, where-used." },
+  ];
+  return (
+    <section className="mb-5">
+      <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Módulos de calidad existentes</h2>
+      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        {modules.map((m) => <Link key={m.href} href={m.href} className={`${glass} rounded-2xl p-4 hover:shadow-sm transition`}><div className="mb-2 flex items-center gap-2 text-sm font-semibold"><span className="rounded-lg bg-muted p-1.5 text-muted-foreground">{m.icon}</span>{m.label}</div><p className="text-xs text-muted-foreground leading-relaxed">{m.body}</p></Link>)}
+      </div>
+    </section>
   );
 }
 
