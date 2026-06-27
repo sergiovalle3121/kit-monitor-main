@@ -287,7 +287,7 @@ function AssetDetailDrawer({
   }, [assetId]);
 
   // Carga al abrir / cambiar de activo; `load` se reusa para reintentar y refrescar.
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { queueMicrotask(() => load()); }, [load]);
 
   const asset = detail?.asset ?? null;
   const r = detail?.reliability ?? null;
