@@ -45,6 +45,8 @@ export interface ReadinessSignals {
   visualAidsActive?: number | null;
   /** Count of production work orders published for the model. */
   productionWorkOrders?: number | null;
+  /** Count of tooling assets for the model's program (program-scoped). */
+  toolingAssets?: number | null;
 }
 
 export interface ReadinessCriterion {

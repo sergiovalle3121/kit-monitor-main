@@ -6,6 +6,7 @@ import { NpiReadinessSnapshot } from './entities/npi-readiness-snapshot.entity';
 import { ProductModel } from '../product-models/entities/product-model.entity';
 import { VisualAid } from '../visual-aids/entities/visual-aid.entity';
 import { SfWorkOrder } from '../production-plan/entities/sf-work-order.entity';
+import { Tool } from '../tooling/entities/tool.entity';
 import { SfFai } from '../fai/entities/sf-fai.entity';
 import { SupplierApprovedPart } from '../suppliers/entities/supplier-approved-part.entity';
 import { NpiService } from './npi.service';
@@ -35,9 +36,10 @@ import { provideTenantScopedRepository } from '../../common/tenant/tenant-scoped
       // Read-only: resolve the canonical ProductModel id for a model number.
       // No coupling to ProductModelsModule (avoids a cycle) — entity only.
       ProductModel,
-      // Read-only advisory dependency signals (visual aids, production WOs).
+      // Read-only advisory dependency signals (visual aids, production WOs, tooling).
       VisualAid,
       SfWorkOrder,
+      Tool,
       SfFai,
       SupplierApprovedPart,
     ]),
