@@ -1,11 +1,16 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Inject } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository, SelectQueryBuilder } from 'typeorm';
+import { In, Repository, SelectQueryBuilder, ObjectLiteral } from 'typeorm';
 import { MaterialReturn, MaterialReturnStatus } from './entities/material-return.entity';
 import { InventoryService } from './inventory.service';
 import { AuditService } from '../governance/audit.service';
 import { User } from '../users/entities/user.entity';
 import { EnterpriseWarehouse } from '../enterprise-campus/entities/enterprise-warehouse.entity';
+import { TenantContextService } from '../../common/tenant/tenant-context.service';
+import {
+  TenantScopedRepository,
+  getTenantRepositoryToken,
+} from '../../common/tenant/tenant-scoped.repository';
 
 /**
  * Devoluciones de material (return to stock). Entidad y servicio NUEVOS y
@@ -16,13 +21,24 @@ import { EnterpriseWarehouse } from '../enterprise-campus/entities/enterprise-wa
 @Injectable()
 export class ReturnsService {
   constructor(
-    @InjectRepository(MaterialReturn)
-    private readonly returnRepo: Repository<MaterialReturn>,
+    @Inject(getTenantRepositoryToken(MaterialReturn))
+    private readonly returnRepo: TenantScopedRepository<MaterialReturn>,
     @InjectRepository(EnterpriseWarehouse)
     private readonly warehouseRepo: Repository<EnterpriseWarehouse>,
     private readonly inventory: InventoryService,
     private readonly audit: AuditService,
+    private readonly tenantCtx: TenantContextService,
   ) {}
+
+  private applyScope<T extends ObjectLiteral>(
+    qb: SelectQueryBuilder<T>,
+    alias: string,
+  ): SelectQueryBuilder<T> {
+    const tenant = this.tenantCtx.getTenantId();
+    if (tenant) qb.andWhere(`${alias}.tenant_id = :tenant`, { tenant });
+    else qb.andWhere(`${alias}.tenant_id IS NULL`);
+    return qb;
+  }
 
   /** Scope organizacional: limita devoluciones a los almacenes del scope (seesAllAreas = sin buildings → todo). */
   private async applyBuildingScope(qb: SelectQueryBuilder<MaterialReturn>, user: User): Promise<void> {
@@ -36,6 +52,7 @@ export class ReturnsService {
 
   async findAll(filters: any, user: User): Promise<MaterialReturn[]> {
     const qb = this.returnRepo.createQueryBuilder('ret');
+    this.applyScope(qb, 'ret');
     await this.applyBuildingScope(qb, user);
     if (filters.status) qb.andWhere('ret.status = :status', { status: filters.status });
     if (filters.warehouseId) qb.andWhere('ret.toWarehouseId = :wh', { wh: filters.warehouseId });

@@ -1,6 +1,6 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Inject } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { Repository, DataSource, SelectQueryBuilder, ObjectLiteral } from 'typeorm';
 import { InventoryPosition } from './entities/inventory-position.entity';
 import { InventoryMovement, InventoryTransactionType } from './entities/inventory-movement.entity';
 import { MaterialMaster } from './entities/material-master.entity';
@@ -9,26 +9,43 @@ import { AuditService } from '../governance/audit.service';
 import { User } from '../users/entities/user.entity';
 import { In } from 'typeorm';
 import { ExceptionSeverity, ExceptionDomain } from '../governance/entities/operational-exception.entity';
+import { TenantContextService } from '../../common/tenant/tenant-context.service';
+import {
+  TenantScopedRepository,
+  getTenantRepositoryToken,
+} from '../../common/tenant/tenant-scoped.repository';
 
 @Injectable()
 export class InventoryService {
   constructor(
-    @InjectRepository(InventoryPosition)
-    private readonly positionRepo: Repository<InventoryPosition>,
-    @InjectRepository(InventoryMovement)
-    private readonly movementRepo: Repository<InventoryMovement>,
-    @InjectRepository(MaterialMaster)
-    private readonly materialRepo: Repository<MaterialMaster>,
+    @Inject(getTenantRepositoryToken(InventoryPosition))
+    private readonly positionRepo: TenantScopedRepository<InventoryPosition>,
+    @Inject(getTenantRepositoryToken(InventoryMovement))
+    private readonly movementRepo: TenantScopedRepository<InventoryMovement>,
+    @Inject(getTenantRepositoryToken(MaterialMaster))
+    private readonly materialRepo: TenantScopedRepository<MaterialMaster>,
     @InjectRepository(EnterpriseWarehouse)
     private readonly warehouseRepo: Repository<EnterpriseWarehouse>,
     private readonly audit: AuditService,
     private readonly dataSource: DataSource,
+    private readonly tenantCtx: TenantContextService,
   ) {}
+
+  private applyScope<T extends ObjectLiteral>(
+    qb: SelectQueryBuilder<T>,
+    alias: string,
+  ): SelectQueryBuilder<T> {
+    const tenant = this.tenantCtx.getTenantId();
+    if (tenant) qb.andWhere(`${alias}.tenant_id = :tenant`, { tenant });
+    else qb.andWhere(`${alias}.tenant_id IS NULL`);
+    return qb;
+  }
 
   async findAllPositions(user: User, filters: { warehouseId?: string; partNumber?: string; programId?: string }): Promise<InventoryPosition[]> {
     const qb = this.positionRepo.createQueryBuilder('pos')
       .leftJoinAndSelect('pos.material', 'material')
       .leftJoinAndSelect('pos.warehouse', 'warehouse');
+    this.applyScope(qb, 'pos');
 
     // 1. Mandatory Organizational Scope
     const scopeBuildingIds = user.scopes?.buildings ?? [];
@@ -51,6 +68,7 @@ export class InventoryService {
 
   async getMovements(user: User, filters: { partNumber?: string; warehouseId?: string }): Promise<InventoryMovement[]> {
     const qb = this.movementRepo.createQueryBuilder('mov');
+    this.applyScope(qb, 'mov');
 
     // 1. Mandatory Organizational Scope
     const scopeBuildingIds = user.scopes?.buildings ?? [];
