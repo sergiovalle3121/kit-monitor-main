@@ -246,6 +246,7 @@ export function DashboardTopBar() {
       <button
         onClick={() => window.dispatchEvent(new CustomEvent('axos:open-search'))}
         aria-label="Buscar"
+        aria-keyshortcuts="Control+K Meta+K"
         className="hidden sm:flex items-center gap-2 rounded-full px-3.5 py-2 text-sm text-gray-500 dark:text-gray-400 w-full max-w-md bg-black/[0.03] dark:bg-white/[0.04] border border-black/[0.07] dark:border-white/[0.08] hover:border-black/[0.13] dark:hover:border-white/[0.16] hover:bg-black/[0.05] dark:hover:bg-white/[0.06] hover:text-gray-700 dark:hover:text-gray-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 transition-all"
       >
         <Search className="w-4 h-4 flex-shrink-0 text-gray-400 dark:text-gray-500" strokeWidth={1.75} />
@@ -256,7 +257,13 @@ export function DashboardTopBar() {
       <div className="flex items-center gap-3 relative">
         <ThemeToggle />
         <div className="relative">
-          <button onClick={openNotifs} className="p-2 hover:bg-gray-200 dark:hover:bg-white/10 rounded-full transition-colors relative" aria-label="Notificaciones">
+          <button
+            onClick={openNotifs}
+            className="p-2 hover:bg-gray-200 dark:hover:bg-white/10 rounded-full transition-colors relative"
+            aria-label="Notificaciones"
+            aria-expanded={notifOpen}
+            aria-haspopup="menu"
+          >
             <Bell className="w-5 h-5" />
             {badgeTotal > 0 && (
               <span className="absolute top-0 right-0 min-w-[18px] h-[18px] px-1 bg-red-500 rounded-full border-2 border-white dark:border-black text-[9px] font-bold text-white flex items-center justify-center">{badgeTotal > 99 ? '99+' : badgeTotal}</span>
