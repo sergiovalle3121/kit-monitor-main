@@ -201,6 +201,7 @@ export const PageMeta = Extension.create({
         pageLineNumbers: { default: false },      // numeración de líneas (aprox. por párrafo)
         pageFirstDifferent: { default: false },   // primera página con encabezado/pie distinto
         styleDefs: { default: null },             // redefiniciones de estilo {clave: {props}} (Word: «redefinir estilo»)
+        docProps: { default: null },              // propiedades controladas: documento, rev, dueño, cliente, modelo…
       },
     }];
   },

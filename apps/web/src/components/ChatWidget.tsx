@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MessageSquare, ChevronDown } from 'lucide-react';
 import { glass } from '@/lib/glass';
+import { useOperatorKiosk } from '@/lib/operatorChrome';
 import { DOMAINS, ICON_STROKE } from '@/lib/design/domains';
 import { chatApi } from '@/lib/chatApi';
 import { ChatExperience } from '@/components/chat/ChatExperience';
@@ -19,17 +20,21 @@ import { ChatExperience } from '@/components/chat/ChatExperience';
  */
 export function ChatWidget() {
   const pathname = usePathname();
+  const kiosk = useOperatorKiosk();
   const [open, setOpen] = useState(false);
   const [unread, setUnread] = useState(0);
 
   const hidden =
+    kiosk ||
     !pathname?.startsWith('/dashboard') ||
     pathname?.startsWith('/dashboard/chat') ||
     pathname?.startsWith('/dashboard/office/');
 
-  // Cierra el dock si navegamos a una ruta donde no aplica.
+  // Cierra el dock al entrar a rutas donde no aplica; se difiere para no
+  // disparar el lint de React Compiler sobre setState síncrono en effects.
   useEffect(() => {
-    if (hidden && open) setOpen(false);
+    if (!hidden || !open) return;
+    queueMicrotask(() => setOpen(false));
   }, [hidden, open]);
 
   // Sondeo ligero de no leídos para el badge (solo visible y cerrado).

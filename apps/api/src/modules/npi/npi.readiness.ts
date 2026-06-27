@@ -36,6 +36,17 @@ export interface ReadinessSignals {
   stdTimeComplete?: boolean | null;
   /** Fraction of BOM parts with an APPROVED source, 0..1, or null if no BOM. */
   avlCoverage?: number | null;
+  /**
+   * Advisory dependency signals (NOT folded into `gateReady`). They enrich the
+   * launch dependency matrix with real module data instead of "sin integrar".
+   * `null` = could not resolve; a number is an actual count (0 means none yet).
+   */
+  /** Count of ACTIVE visual aids (work instructions) for the model. */
+  visualAidsActive?: number | null;
+  /** Count of production work orders published for the model. */
+  productionWorkOrders?: number | null;
+  /** Count of tooling assets for the model's program (program-scoped). */
+  toolingAssets?: number | null;
 }
 
 export interface ReadinessCriterion {

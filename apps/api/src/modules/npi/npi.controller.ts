@@ -1,8 +1,10 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
+  Patch,
   Post,
   Query,
   UseGuards,
@@ -15,8 +17,10 @@ import { NpiService } from './npi.service';
 import { NpiReadinessScanService } from './npi-readiness-scan.service';
 import {
   CreateNpiProjectDto,
+  CreateNpiRiskDto,
   DecideGateDto,
   SnapshotReadinessDto,
+  UpdateNpiRiskDto,
 } from './dto/npi.dto';
 
 /**
@@ -127,5 +131,36 @@ export class NpiController {
   })
   decideGate(@Param('id') id: string, @Body() dto: DecideGateDto) {
     return this.service.decideGate(id, dto);
+  }
+
+  // ── Risks (advisory register) ───────────────────────────────────────────────
+  @Get('projects/:id/risks')
+  @RequirePermissions('engineering:read')
+  @ApiOperation({ summary: 'Riesgos de un launch (open-first, por severidad).' })
+  listRisks(@Param('id') id: string) {
+    return this.service.listRisks(id);
+  }
+
+  @Post('projects/:id/risks')
+  @RequirePermissions('engineering:write')
+  @ApiOperation({ summary: 'Registra un riesgo (advisory) en el launch.' })
+  createRisk(@Param('id') id: string, @Body() dto: CreateNpiRiskDto) {
+    return this.service.createRisk(id, dto);
+  }
+
+  @Patch('risks/:riskId')
+  @RequirePermissions('engineering:write')
+  @ApiOperation({
+    summary: 'Actualiza un riesgo (severidad/estatus/dueño/fecha/mitigación).',
+  })
+  updateRisk(@Param('riskId') riskId: string, @Body() dto: UpdateNpiRiskDto) {
+    return this.service.updateRisk(riskId, dto);
+  }
+
+  @Delete('risks/:riskId')
+  @RequirePermissions('engineering:write')
+  @ApiOperation({ summary: 'Elimina un riesgo del registro.' })
+  deleteRisk(@Param('riskId') riskId: string) {
+    return this.service.deleteRisk(riskId);
   }
 }

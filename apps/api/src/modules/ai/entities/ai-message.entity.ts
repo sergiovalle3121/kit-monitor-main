@@ -38,6 +38,14 @@ export class AiMessage {
   @Column({ type: JSON_COLUMN_TYPE, nullable: true })
   cards: CideCard[] | null;
 
+  /** Engine model that produced this assistant turn (for the reopened badge). */
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  model: string | null;
+
+  /** Whether this turn was auto-escalated to the stronger model tier. */
+  @Column({ type: 'boolean', nullable: true })
+  escalated: boolean | null;
+
   @CreateDateColumn()
   createdAt: Date;
 }
