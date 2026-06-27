@@ -2,7 +2,7 @@ import {
   Body, Controller, Delete, Get, Param, Patch, Post, Query, Request, UseGuards,
 } from '@nestjs/common';
 import { OfficeService } from './office.service';
-import type { OfficeDocType, OfficeShare } from './entities/office-document.entity';
+import type { OfficeDocumentLifecycleState, OfficeDocType, OfficeShare } from './entities/office-document.entity';
 import type { OfficeCommentAnchorType } from './entities/office-comment.entity';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { AuthenticatedUser } from '../../common/types/jwt.types';
@@ -16,8 +16,16 @@ export class OfficeController {
   constructor(private readonly service: OfficeService) {}
 
   @Get()
-  list(@Request() req: AuthReq, @Query('type') type?: OfficeDocType, @Query('trash') trash?: string) {
-    return this.service.list(type, req.user, trash === '1' || trash === 'true');
+  list(
+    @Request() req: AuthReq,
+    @Query('type') type?: OfficeDocType,
+    @Query('trash') trash?: string,
+    @Query('q') q?: string,
+    @Query('lifecycle') lifecycle?: OfficeDocumentLifecycleState,
+    @Query('locked') locked?: string,
+    @Query('owner') owner?: string,
+  ) {
+    return this.service.list(type, req.user, trash === '1' || trash === 'true', { q, lifecycle, locked, owner });
   }
 
   @Get(':id')
@@ -33,6 +41,31 @@ export class OfficeController {
   @Post(':id/duplicate')
   duplicate(@Request() req: AuthReq, @Param('id') id: string) {
     return this.service.duplicate(id, req.user);
+  }
+
+  @Post(':id/lifecycle/submit-review')
+  submitReview(@Request() req: AuthReq, @Param('id') id: string, @Body() dto: { note?: string }) {
+    return this.service.submitForReview(id, req.user, dto);
+  }
+
+  @Post(':id/lifecycle/approve')
+  approve(@Request() req: AuthReq, @Param('id') id: string, @Body() dto: { note?: string }) {
+    return this.service.approve(id, req.user, dto);
+  }
+
+  @Post(':id/lifecycle/release')
+  release(@Request() req: AuthReq, @Param('id') id: string, @Body() dto: { note?: string }) {
+    return this.service.release(id, req.user, dto);
+  }
+
+  @Post(':id/lifecycle/obsolete')
+  obsolete(@Request() req: AuthReq, @Param('id') id: string, @Body() dto: { note?: string }) {
+    return this.service.obsolete(id, req.user, dto);
+  }
+
+  @Post(':id/lifecycle/reopen-draft')
+  reopenDraft(@Request() req: AuthReq, @Param('id') id: string, @Body() dto: { note?: string }) {
+    return this.service.reopenDraft(id, req.user, dto);
   }
 
   @Patch(':id')
@@ -73,6 +106,11 @@ export class OfficeController {
   @Delete(':id/comments/:commentId')
   deleteComment(@Request() req: AuthReq, @Param('id') id: string, @Param('commentId') commentId: string) {
     return this.service.deleteComment(id, commentId, req.user);
+  }
+
+  @Get(':id/timeline')
+  timeline(@Request() req: AuthReq, @Param('id') id: string) {
+    return this.service.timeline(id, req.user);
   }
 
   // ── Slide/object comments (Slides) — generic anchored threads ───────────────

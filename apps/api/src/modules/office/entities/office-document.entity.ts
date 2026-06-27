@@ -5,6 +5,7 @@ import {
 import { JSON_COLUMN_TYPE } from '../../../common/database/json-column-type';
 
 export type OfficeDocType = 'doc' | 'sheet' | 'slides';
+export type OfficeDocumentLifecycleState = 'draft' | 'in_review' | 'approved' | 'effective' | 'obsolete';
 
 /** A single sharing grant on a document. */
 export interface OfficeShare {
@@ -52,6 +53,33 @@ export class OfficeDocument {
   /** Owner-managed sharing grants (view/edit) for other users. */
   @Column({ type: JSON_COLUMN_TYPE, nullable: true })
   sharedWith: OfficeShare[] | null;
+
+  /** Controlled-document lifecycle for governed SOP/WI/quality records. */
+  @Column({ type: 'varchar', length: 24, name: 'lifecycle_state', default: 'draft' })
+  @Index()
+  lifecycleState: OfficeDocumentLifecycleState;
+
+  /** Effective/obsolete documents are locked against content edits. */
+  @Column({ type: 'boolean', default: false })
+  locked: boolean;
+
+  @Column({ type: 'varchar', length: 120, nullable: true })
+  approvedBy: string | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  approvedAt: Date | null;
+
+  @Column({ type: 'varchar', length: 120, nullable: true })
+  releasedBy: string | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  releasedAt: Date | null;
+
+  @Column({ type: 'varchar', length: 120, nullable: true })
+  obsoletedBy: string | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  obsoletedAt: Date | null;
 
   @CreateDateColumn()
   createdAt: Date;
