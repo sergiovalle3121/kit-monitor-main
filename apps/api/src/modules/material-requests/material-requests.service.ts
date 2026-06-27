@@ -1,11 +1,14 @@
 import {
   BadRequestException,
+  Inject,
   Injectable,
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import {
+  TenantScopedRepository,
+  getTenantRepositoryToken,
+} from '../../common/tenant/tenant-scoped.repository';
 import { MaterialRequest } from './entities/material-request.entity';
 import { Kit } from '../kits/entities/kit.entity';
 import { CreateMaterialRequestDto } from './dto/create-material-request.dto';
@@ -29,9 +32,10 @@ export class MaterialRequestsService {
   private readonly logger = new Logger(MaterialRequestsService.name);
 
   constructor(
-    @InjectRepository(MaterialRequest)
-    private readonly repo: Repository<MaterialRequest>,
-    @InjectRepository(Kit) private readonly kitRepo: Repository<Kit>,
+    @Inject(getTenantRepositoryToken(MaterialRequest))
+    private readonly repo: TenantScopedRepository<MaterialRequest>,
+    @Inject(getTenantRepositoryToken(Kit))
+    private readonly kitRepo: TenantScopedRepository<Kit>,
     private readonly signals: SignalGateway,
     private readonly eventLedger: EventLedgerService,
   ) {}

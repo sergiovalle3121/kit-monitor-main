@@ -1,6 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Injectable, NotFoundException, Inject } from '@nestjs/common';
+import {
+  TenantScopedRepository,
+  getTenantRepositoryToken,
+} from '../../common/tenant/tenant-scoped.repository';
 import { KitMaterial } from './entities/kit-material.entity';
 import { Kit } from '../kits/entities/kit.entity';
 import { CreateKitMaterialDto } from './dto/create-kit-material.dto';
@@ -9,8 +11,8 @@ import { UpdateKitMaterialDto } from './dto/update-kit-material.dto';
 @Injectable()
 export class KitMaterialsService {
   constructor(
-    @InjectRepository(KitMaterial)
-    private readonly repo: Repository<KitMaterial>,
+    @Inject(getTenantRepositoryToken(KitMaterial))
+    private readonly repo: TenantScopedRepository<KitMaterial>,
   ) {}
 
   findByKit(kitId: number): Promise<KitMaterial[]> {

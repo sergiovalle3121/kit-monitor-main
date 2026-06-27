@@ -8,6 +8,7 @@ import { ShippingController } from './shipping.controller';
 import { InventoryModule } from '../inventory/inventory.module';
 import { GovernanceModule } from '../governance/governance.module';
 import { NumberingModule } from '../numbering/numbering.module';
+import { provideTenantScopedRepository } from '../../common/tenant/tenant-scoped.repository';
 
 @Module({
   imports: [
@@ -17,7 +18,12 @@ import { NumberingModule } from '../numbering/numbering.module';
     NumberingModule,
   ],
   controllers: [ShippingController],
-  providers: [ShippingService],
+  providers: [
+    ShippingService,
+    provideTenantScopedRepository(Shipment),
+    provideTenantScopedRepository(ShipmentItem),
+    provideTenantScopedRepository(PackingList),
+  ],
   exports: [ShippingService]
 })
 export class ShippingModule {}

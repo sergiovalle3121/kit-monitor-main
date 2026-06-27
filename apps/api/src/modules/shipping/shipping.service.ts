@@ -1,9 +1,11 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Injectable, NotFoundException, BadRequestException, Inject } from '@nestjs/common';
 import { Shipment, LegacyShipmentStatus } from './entities/shipment.entity';
 import { ShipmentItem } from './entities/shipment-item.entity';
 import { PackingList } from './entities/packing-list.entity';
+import {
+  TenantScopedRepository,
+  getTenantRepositoryToken,
+} from '../../common/tenant/tenant-scoped.repository';
 import { InventoryService } from '../inventory/inventory.service';
 import { AuditService } from '../governance/audit.service';
 import { User } from '../users/entities/user.entity';
@@ -16,19 +18,19 @@ import { ssccLabelZpl } from '../packing/packing.zpl';
 @Injectable()
 export class ShippingService {
   constructor(
-    @InjectRepository(Shipment)
-    private readonly shipmentRepo: Repository<Shipment>,
-    @InjectRepository(ShipmentItem)
-    private readonly itemRepo: Repository<ShipmentItem>,
-    @InjectRepository(PackingList)
-    private readonly packingRepo: Repository<PackingList>,
+    @Inject(getTenantRepositoryToken(Shipment))
+    private readonly shipmentRepo: TenantScopedRepository<Shipment>,
+    @Inject(getTenantRepositoryToken(ShipmentItem))
+    private readonly itemRepo: TenantScopedRepository<ShipmentItem>,
+    @Inject(getTenantRepositoryToken(PackingList))
+    private readonly packingRepo: TenantScopedRepository<PackingList>,
     private readonly inventory: InventoryService,
     private readonly audit: AuditService,
     private readonly numbering: DocumentNumberingService,
   ) {}
 
   async findAll(user: User) {
-    // TODO: Apply scope filtering
+    // Tenant scoping is applied automatically by TenantScopedRepository.
     return this.shipmentRepo.find({ order: { createdAt: 'DESC' } });
   }
 

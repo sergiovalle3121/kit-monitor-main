@@ -1,11 +1,14 @@
-import { BadRequestException, Injectable, NotFoundException, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { LessThan, Repository } from 'typeorm';
+import { BadRequestException, Inject, Injectable, NotFoundException, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { LessThan } from 'typeorm';
 import { CancellationRequest } from './entities/cancellation-request.entity';
 import { CreateCancellationRequestDto } from './dto/create-cancellation-request.dto';
 import { RespondCancellationRequestDto } from './dto/respond-cancellation-request.dto';
 import { Plan } from '../plans/entities/plan.entity';
 import { Kit } from '../kits/entities/kit.entity';
+import {
+  TenantScopedRepository,
+  getTenantRepositoryToken,
+} from '../../common/tenant/tenant-scoped.repository';
 import { EventLedgerService } from '../event-ledger/event-ledger.service';
 import { EventDomain } from '../event-ledger/entities/ledger-event.entity';
 
@@ -14,12 +17,12 @@ export class CancellationRequestsService implements OnModuleInit, OnModuleDestro
   private expireTimer: NodeJS.Timeout | null = null;
 
   constructor(
-    @InjectRepository(CancellationRequest)
-    private readonly repo: Repository<CancellationRequest>,
-    @InjectRepository(Plan)
-    private readonly plansRepo: Repository<Plan>,
-    @InjectRepository(Kit)
-    private readonly kitsRepo: Repository<Kit>,
+    @Inject(getTenantRepositoryToken(CancellationRequest))
+    private readonly repo: TenantScopedRepository<CancellationRequest>,
+    @Inject(getTenantRepositoryToken(Plan))
+    private readonly plansRepo: TenantScopedRepository<Plan>,
+    @Inject(getTenantRepositoryToken(Kit))
+    private readonly kitsRepo: TenantScopedRepository<Kit>,
     private readonly eventLedger: EventLedgerService,
   ) {}
 

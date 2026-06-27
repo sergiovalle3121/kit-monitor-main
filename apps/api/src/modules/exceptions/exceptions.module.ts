@@ -6,6 +6,7 @@ import { ExceptionsController } from './exceptions.controller';
 
 import { EventLedgerModule } from '../event-ledger/event-ledger.module';
 import { Kit } from '../kits/entities/kit.entity';
+import { provideTenantScopedRepository } from '../../common/tenant/tenant-scoped.repository';
 
 @Module({
   imports: [
@@ -13,7 +14,11 @@ import { Kit } from '../kits/entities/kit.entity';
     EventLedgerModule,
   ],
   controllers: [ExceptionsController],
-  providers: [ExceptionsService],
+  providers: [
+    ExceptionsService,
+    provideTenantScopedRepository(KitException),
+    provideTenantScopedRepository(Kit),
+  ],
   exports: [ExceptionsService],
 })
 export class ExceptionsModule {}

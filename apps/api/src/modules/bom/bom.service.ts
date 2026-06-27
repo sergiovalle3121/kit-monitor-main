@@ -1,6 +1,10 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Inject } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository, DataSource } from 'typeorm';
+import {
+  TenantScopedRepository,
+  getTenantRepositoryToken,
+} from '../../common/tenant/tenant-scoped.repository';
 import { EnterpriseProgram } from '../enterprise-campus/entities/enterprise-program.entity';
 import { BomItem } from './entities/bom-item.entity';
 import { BomHeader, BomStatus } from './entities/bom-header.entity';
@@ -18,14 +22,14 @@ const UPSERT_CHUNK = 500;
 @Injectable()
 export class BomService {
   constructor(
-    @InjectRepository(BomItem)
-    private readonly repo: Repository<BomItem>,
-    @InjectRepository(BomHeader)
-    private readonly headerRepo: Repository<BomHeader>,
-    @InjectRepository(BomComponent)
-    private readonly componentRepo: Repository<BomComponent>,
-    @InjectRepository(MaterialMaster)
-    private readonly materialRepo: Repository<MaterialMaster>,
+    @Inject(getTenantRepositoryToken(BomItem))
+    private readonly repo: TenantScopedRepository<BomItem>,
+    @Inject(getTenantRepositoryToken(BomHeader))
+    private readonly headerRepo: TenantScopedRepository<BomHeader>,
+    @Inject(getTenantRepositoryToken(BomComponent))
+    private readonly componentRepo: TenantScopedRepository<BomComponent>,
+    @Inject(getTenantRepositoryToken(MaterialMaster))
+    private readonly materialRepo: TenantScopedRepository<MaterialMaster>,
     @InjectRepository(EnterpriseProgram) private readonly programRepo: Repository<EnterpriseProgram>,
     private readonly dataSource: DataSource,
   ) {}

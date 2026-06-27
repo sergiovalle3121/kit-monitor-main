@@ -7,6 +7,7 @@ import { MaterialRequestsController } from './material-requests.controller';
 import { SignalModule } from '../../common/gateway/signal.module';
 import { EventLedgerModule } from '../event-ledger/event-ledger.module';
 import { GovernanceModule } from '../governance/governance.module';
+import { provideTenantScopedRepository } from '../../common/tenant/tenant-scoped.repository';
 
 @Module({
   imports: [
@@ -16,7 +17,11 @@ import { GovernanceModule } from '../governance/governance.module';
     GovernanceModule, // provides AuditService required by PermissionsGuard
   ],
   controllers: [MaterialRequestsController],
-  providers: [MaterialRequestsService],
+  providers: [
+    MaterialRequestsService,
+    provideTenantScopedRepository(MaterialRequest),
+    provideTenantScopedRepository(Kit),
+  ],
   exports: [MaterialRequestsService],
 })
 export class MaterialRequestsModule {}
