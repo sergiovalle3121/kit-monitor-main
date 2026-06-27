@@ -1,17 +1,20 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { Injectable, NotFoundException, BadRequestException, Inject } from '@nestjs/common';
+import { DataSource } from 'typeorm';
 import { Advance } from './entities/advance.entity';
 import { Kit } from '../kits/entities/kit.entity';
 import { KitMaterial } from '../kit-materials/entities/kit-material.entity';
+import {
+  TenantScopedRepository,
+  getTenantRepositoryToken,
+} from '../../common/tenant/tenant-scoped.repository';
 import { CreateAdvanceDto } from './dto/create-advance.dto';
 
 @Injectable()
 export class AdvancesService {
   constructor(
-    @InjectRepository(Advance)    private readonly repo: Repository<Advance>,
-    @InjectRepository(Kit)        private readonly kitRepo: Repository<Kit>,
-    @InjectRepository(KitMaterial) private readonly materialRepo: Repository<KitMaterial>,
+    @Inject(getTenantRepositoryToken(Advance))    private readonly repo: TenantScopedRepository<Advance>,
+    @Inject(getTenantRepositoryToken(Kit))        private readonly kitRepo: TenantScopedRepository<Kit>,
+    @Inject(getTenantRepositoryToken(KitMaterial)) private readonly materialRepo: TenantScopedRepository<KitMaterial>,
     private readonly dataSource: DataSource,
   ) {}
 

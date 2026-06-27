@@ -1,15 +1,19 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { BadRequestException, Injectable, NotFoundException, Inject } from '@nestjs/common';
 import { ProcessStep } from './entities/process-step.entity';
 import { ProcessStepMaterial } from './entities/process-step-material.entity';
+import {
+  TenantScopedRepository,
+  getTenantRepositoryToken,
+} from '../../common/tenant/tenant-scoped.repository';
 import { CreateStepDto, UpdateStepDto, AddStepMaterialDto } from './dto/process.dto';
 
 @Injectable()
 export class ProcessRoutingService {
   constructor(
-    @InjectRepository(ProcessStep) private readonly stepRepo: Repository<ProcessStep>,
-    @InjectRepository(ProcessStepMaterial) private readonly matRepo: Repository<ProcessStepMaterial>,
+    @Inject(getTenantRepositoryToken(ProcessStep))
+    private readonly stepRepo: TenantScopedRepository<ProcessStep>,
+    @Inject(getTenantRepositoryToken(ProcessStepMaterial))
+    private readonly matRepo: TenantScopedRepository<ProcessStepMaterial>,
   ) {}
 
   /** The ordered route (steps + their materials) for a model/revision. */

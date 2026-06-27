@@ -1,14 +1,16 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Injectable, NotFoundException, Inject } from '@nestjs/common';
 import { BayLayout } from './entities/bay-layout.entity';
+import {
+  TenantScopedRepository,
+  getTenantRepositoryToken,
+} from '../../common/tenant/tenant-scoped.repository';
 import { CreateBayLayoutDto } from './dto/create-bay-layout.dto';
 
 @Injectable()
 export class BayLayoutService {
   constructor(
-    @InjectRepository(BayLayout)
-    private readonly repo: Repository<BayLayout>,
+    @Inject(getTenantRepositoryToken(BayLayout))
+    private readonly repo: TenantScopedRepository<BayLayout>,
   ) {}
 
   findByModel(model: string): Promise<BayLayout[]> {

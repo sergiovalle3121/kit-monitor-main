@@ -6,6 +6,7 @@ import { CancellationRequestsController } from './cancellation-requests.controll
 import { Plan } from '../plans/entities/plan.entity';
 import { Kit } from '../kits/entities/kit.entity';
 import { EventLedgerModule } from '../event-ledger/event-ledger.module';
+import { provideTenantScopedRepository } from '../../common/tenant/tenant-scoped.repository';
 
 @Module({
   imports: [
@@ -13,7 +14,12 @@ import { EventLedgerModule } from '../event-ledger/event-ledger.module';
     EventLedgerModule,
   ],
   controllers: [CancellationRequestsController],
-  providers: [CancellationRequestsService],
+  providers: [
+    CancellationRequestsService,
+    provideTenantScopedRepository(CancellationRequest),
+    provideTenantScopedRepository(Plan),
+    provideTenantScopedRepository(Kit),
+  ],
   exports: [CancellationRequestsService],
 })
 export class CancellationRequestsModule {}

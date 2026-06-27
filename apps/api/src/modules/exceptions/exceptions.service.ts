@@ -1,8 +1,10 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Injectable, NotFoundException, Inject } from '@nestjs/common';
 import { KitException } from './entities/kit-exception.entity';
 import { Kit } from '../kits/entities/kit.entity';
+import {
+  TenantScopedRepository,
+  getTenantRepositoryToken,
+} from '../../common/tenant/tenant-scoped.repository';
 import { CreateExceptionDto } from './dto/create-exception.dto';
 import { EventLedgerService } from '../event-ledger/event-ledger.service';
 import { EventDomain } from '../event-ledger/entities/ledger-event.entity';
@@ -10,10 +12,10 @@ import { EventDomain } from '../event-ledger/entities/ledger-event.entity';
 @Injectable()
 export class ExceptionsService {
   constructor(
-    @InjectRepository(KitException)
-    private readonly repo: Repository<KitException>,
-    @InjectRepository(Kit)
-    private readonly kitRepo: Repository<Kit>,
+    @Inject(getTenantRepositoryToken(KitException))
+    private readonly repo: TenantScopedRepository<KitException>,
+    @Inject(getTenantRepositoryToken(Kit))
+    private readonly kitRepo: TenantScopedRepository<Kit>,
     private readonly eventLedger: EventLedgerService,
   ) {}
 
