@@ -26,6 +26,7 @@ import {
 import { glass } from '@/lib/glass';
 import { isAdminAccess } from '@/lib/owner';
 import { useDashboardSession } from '@/hooks/useDashboardSession';
+import { suggestionsFor } from '@/lib/chat/cideSuggestions';
 
 type CideCard =
   | { type: 'metric'; title: string; value: number; unit?: string | null }
@@ -103,13 +104,6 @@ function relativeTime(iso: string): string {
   return new Date(iso).toLocaleDateString('es-MX');
 }
 
-const SUGGESTIONS = [
-  '¿Cómo va la planta hoy?',
-  '¿Qué cambió en producción en las últimas 24 h?',
-  '¿Cómo está el inventario?',
-  'Muéstrame el estado de resultados',
-];
-
 export function Cide() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
@@ -133,6 +127,8 @@ export function Cide() {
       behavior: 'smooth',
     });
   }, [messages, loading]);
+
+  const suggestions = suggestionsFor(pathname);
 
   if (!pathname?.startsWith('/dashboard')) return null;
 
@@ -484,7 +480,7 @@ export function Cide() {
                       — respetando tus permisos.
                     </p>
                     <div className="flex flex-col gap-2">
-                      {SUGGESTIONS.map((s) => (
+                      {suggestions.map((s) => (
                         <button
                           key={s}
                           onClick={() => send(s)}
