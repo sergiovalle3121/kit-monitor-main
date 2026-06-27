@@ -1,13 +1,14 @@
 'use client';
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ChevronLeft, FileText, Table, Presentation, Plus, Trash2, Loader2, Lock, AlertCircle,
   Copy, Pencil, RotateCcw, Check, X, Clock, Users, Search, ArrowDownUp, Upload,
+  Star, Pin, Tags, LayoutGrid, List, Filter, Sparkles,
 } from 'lucide-react';
 import { glass } from '@/lib/glass';
 import { useApi } from '@/hooks/useApi';
@@ -20,12 +21,26 @@ import { useConfirm } from '@/components/ui/ConfirmDialog';
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000').replace(/\/$/, '');
 
 type DocType = 'doc' | 'sheet' | 'slides';
+type LibraryScope = 'all' | 'owned' | 'shared' | 'favorites' | 'pinned' | 'recent';
+type ViewMode = 'grid' | 'list';
 interface OfficeDoc { id: string; type: DocType; title: string; updatedAt?: string; createdBy?: string | null }
+interface LibraryMeta { favorite?: boolean; pinned?: boolean; tags?: string[] }
+
+const LIBRARY_META_KEY = 'axos.office.libraryMeta.v1';
 
 const TABS: { id: DocType; label: string; icon: typeof FileText; color: string; tint: string }[] = [
   { id: 'doc', label: 'Documentos', icon: FileText, color: 'text-blue-500', tint: 'bg-blue-50 dark:bg-blue-500/10' },
   { id: 'sheet', label: 'Hojas de cálculo', icon: Table, color: 'text-emerald-500', tint: 'bg-emerald-50 dark:bg-emerald-500/10' },
   { id: 'slides', label: 'Presentaciones', icon: Presentation, color: 'text-amber-500', tint: 'bg-amber-50 dark:bg-amber-500/10' },
+];
+
+const SCOPES: { id: LibraryScope; label: string; helper: string }[] = [
+  { id: 'all', label: 'Todos', helper: 'Toda la biblioteca visible' },
+  { id: 'owned', label: 'Míos', helper: 'Creados por tu usuario' },
+  { id: 'shared', label: 'Compartidos', helper: 'Recibidos de otros usuarios' },
+  { id: 'favorites', label: 'Favoritos', helper: 'Marcados para trabajo recurrente' },
+  { id: 'pinned', label: 'Fijados', helper: 'Críticos para operación diaria' },
+  { id: 'recent', label: 'Recientes', helper: 'Actualizados en los últimos 14 días' },
 ];
 
 function relTime(iso?: string): string {
@@ -58,12 +73,79 @@ export default function OfficeHubPage() {
   const [gallery, setGallery] = useState(false);
   const [q, setQ] = useState('');
   const [sort, setSort] = useState<'recent' | 'name'>('recent');
+  const [scope, setScope] = useState<LibraryScope>('all');
+  const [view, setView] = useState<ViewMode>('grid');
+  const [activeTag, setActiveTag] = useState('');
+  const [libraryMeta, setLibraryMeta] = useState<Record<string, LibraryMeta>>({});
   const meta = TABS.find((t) => t.id === tab)!;
-  const docs = (Array.isArray(data) ? data : [])
-    .filter((d) => !q.trim() || (d.title || '').toLowerCase().includes(q.trim().toLowerCase()))
-    .sort((a, b) => sort === 'name'
-      ? (a.title || '').localeCompare(b.title || '')
-      : (new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime()));
+  const rawDocs = useMemo(() => (Array.isArray(data) ? data : []), [data]);
+  const isShared = (d: OfficeDoc) => Boolean(!isAdmin && d.createdBy && user?.email && d.createdBy !== user.email);
+  const isOwned = (d: OfficeDoc) => Boolean(!d.createdBy || !user?.email || d.createdBy === user.email || isAdmin);
+  const allTags = useMemo(() => Array.from(new Set(Object.values(libraryMeta).flatMap((m) => m.tags ?? []))).sort((a, b) => a.localeCompare(b)), [libraryMeta]);
+  const docs = rawDocs
+    .filter((d) => {
+      const local = libraryMeta[d.id] ?? {};
+      const haystack = [d.title, d.createdBy, ...(local.tags ?? [])].join(' ').toLowerCase();
+      const matchesQuery = !q.trim() || haystack.includes(q.trim().toLowerCase());
+      const matchesTag = !activeTag || (local.tags ?? []).includes(activeTag);
+      const updatedAt = new Date(d.updatedAt || 0).getTime();
+      const recentCutoff = Date.now() - 14 * 24 * 60 * 60 * 1000;
+      const matchesScope = scope === 'all'
+        || (scope === 'owned' && isOwned(d))
+        || (scope === 'shared' && isShared(d))
+        || (scope === 'favorites' && local.favorite)
+        || (scope === 'pinned' && local.pinned)
+        || (scope === 'recent' && updatedAt >= recentCutoff);
+      return matchesQuery && matchesTag && matchesScope;
+    })
+    .sort((a, b) => {
+      const aMeta = libraryMeta[a.id] ?? {};
+      const bMeta = libraryMeta[b.id] ?? {};
+      if (Number(bMeta.pinned) !== Number(aMeta.pinned)) return Number(bMeta.pinned) - Number(aMeta.pinned);
+      return sort === 'name'
+        ? (a.title || '').localeCompare(b.title || '')
+        : (new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime());
+    });
+  const visibleScope = SCOPES.find((item) => item.id === scope)!;
+
+  useEffect(() => {
+    const raw = window.localStorage.getItem(LIBRARY_META_KEY);
+    if (!raw) return;
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object') setLibraryMeta(parsed);
+    } catch {
+      window.localStorage.removeItem(LIBRARY_META_KEY);
+    }
+  }, []);
+
+  useEffect(() => {
+    window.localStorage.setItem(LIBRARY_META_KEY, JSON.stringify(libraryMeta));
+  }, [libraryMeta]);
+
+  function updateLocalMeta(id: string, next: (meta: LibraryMeta) => LibraryMeta) {
+    setLibraryMeta((current) => {
+      const updated = next(current[id] ?? {});
+      return { ...current, [id]: updated };
+    });
+  }
+
+  function toggleFavorite(id: string) {
+    updateLocalMeta(id, (current) => ({ ...current, favorite: !current.favorite }));
+  }
+
+  function togglePinned(id: string) {
+    updateLocalMeta(id, (current) => ({ ...current, pinned: !current.pinned }));
+  }
+
+  function editTags(id: string) {
+    const current = (libraryMeta[id]?.tags ?? []).join(', ');
+    const value = window.prompt('Tags separados por coma (ej. SOP, SMT, Calidad)', current);
+    if (value === null) return;
+    const tags = Array.from(new Set(value.split(',').map((tag) => tag.trim()).filter(Boolean))).slice(0, 8);
+    updateLocalMeta(id, (m) => ({ ...m, tags }));
+    if (activeTag && !tags.includes(activeTag)) setActiveTag('');
+  }
 
   async function createFrom(content: any, title?: string) {
     setBusy(true); setErr(null);
@@ -167,14 +249,53 @@ export default function OfficeHubPage() {
         <div className="flex flex-wrap items-center gap-2 mb-4">
           <div className="relative flex-1 min-w-[180px]">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar por nombre…"
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar por nombre, autor o tag…"
               className={`${glass} w-full rounded-xl pl-9 pr-3 py-2 text-sm outline-none focus:ring-2 ring-black/10 dark:ring-white/20`} />
           </div>
           <button onClick={() => setSort((s) => (s === 'recent' ? 'name' : 'recent'))}
             className={`${glass} flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium text-gray-600 dark:text-gray-300`}>
             <ArrowDownUp className="w-4 h-4" /> {sort === 'recent' ? 'Recientes' : 'Nombre'}
           </button>
+          <div className={`${glass} inline-flex p-1 rounded-xl gap-1`}>
+            <button title="Vista tarjetas" onClick={() => setView('grid')} className={`p-2 rounded-lg transition-all ${view === 'grid' ? 'bg-black text-white dark:bg-white dark:text-black' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-white/5'}`}>
+              <LayoutGrid className="w-4 h-4" />
+            </button>
+            <button title="Vista lista" onClick={() => setView('list')} className={`p-2 rounded-lg transition-all ${view === 'list' ? 'bg-black text-white dark:bg-white dark:text-black' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-white/5'}`}>
+              <List className="w-4 h-4" />
+            </button>
+          </div>
         </div>
+
+        <section className={`${glass} rounded-3xl p-4 mb-5`}>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-2 text-sm font-bold"><Sparkles className="w-4 h-4 text-blue-500" /> Biblioteca documental</div>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{visibleScope.helper}. Metadatos de workspace locales: favoritos, fijados y tags.</p>
+            </div>
+            <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+              <Filter className="w-3.5 h-3.5" /> {docs.length} de {rawDocs.length}
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2 mt-4">
+            {SCOPES.map((item) => (
+              <button key={item.id} onClick={() => setScope(item.id)}
+                className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${scope === item.id ? 'bg-black text-white dark:bg-white dark:text-black' : 'bg-gray-100 text-gray-500 hover:text-black dark:bg-white/5 dark:hover:text-white'}`}>
+                {item.label}
+              </button>
+            ))}
+          </div>
+          {allTags.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-black/5 dark:border-white/10">
+              <span className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-400"><Tags className="w-3.5 h-3.5" /> Tags</span>
+              <button onClick={() => setActiveTag('')} className={`px-2.5 py-1 rounded-full text-xs font-medium ${activeTag === '' ? 'bg-blue-500 text-white' : 'bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-300'}`}>Todos</button>
+              {allTags.map((tag) => (
+                <button key={tag} onClick={() => setActiveTag((current) => current === tag ? '' : tag)} className={`px-2.5 py-1 rounded-full text-xs font-medium ${activeTag === tag ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-500 hover:text-black dark:bg-white/5 dark:hover:text-white'}`}>
+                  {tag}
+                </button>
+              ))}
+            </div>
+          )}
+        </section>
 
         {trash && canWrite && docs.length > 0 && (
           <div className="flex justify-end mb-4">
@@ -218,7 +339,16 @@ export default function OfficeHubPage() {
         ) : isLoading ? (
           <div className="flex justify-center py-16 text-gray-400"><Loader2 className="w-6 h-6 animate-spin" /></div>
         ) : docs.length === 0 ? (
-          <Empty icon={trash ? <Trash2 className="w-6 h-6" /> : <meta.icon className="w-6 h-6" />} title={trash ? 'Papelera vacía' : `Sin ${meta.label.toLowerCase()}`} body={trash ? 'Los documentos que elimines aparecerán aquí.' : 'Crea el primero con "Nuevo".'} />
+          <Empty icon={trash ? <Trash2 className="w-6 h-6" /> : <meta.icon className="w-6 h-6" />} title={trash ? 'Papelera vacía' : `Sin ${meta.label.toLowerCase()}`} body={trash ? 'Los documentos que elimines aparecerán aquí.' : 'Crea el primero con "Nuevo" o ajusta los filtros de biblioteca.'} />
+        ) : view === 'list' ? (
+          <div className={`${glass} rounded-3xl overflow-hidden`}>
+            {docs.map((d) => (
+              <DocumentRow key={d.id} doc={d} meta={meta} trash={trash} canWrite={canWrite} isShared={isShared(d)} local={libraryMeta[d.id] ?? {}}
+                editingId={editingId} draft={draft} setDraft={setDraft} setEditingId={setEditingId} saveRename={saveRename}
+                toggleFavorite={toggleFavorite} togglePinned={togglePinned} editTags={editTags}
+                restore={restore} destroy={destroy} duplicate={duplicate} toTrash={toTrash} />
+            ))}
+          </div>
         ) : (
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {docs.map((d) => (
@@ -235,12 +365,18 @@ export default function OfficeHubPage() {
                   <Link href={trash ? '#' : `/dashboard/office/${d.id}`} onClick={(e) => { if (trash) e.preventDefault(); }} className={`block ${trash ? 'cursor-default' : ''}`}>
                     <div className="flex items-center gap-2 mb-3">
                       <div className={`inline-flex p-2.5 rounded-xl ${meta.tint}`}><meta.icon className={`w-5 h-5 ${meta.color}`} /></div>
-                      {!isAdmin && d.createdBy && user?.email && d.createdBy !== user.email && (
+                      {isShared(d) && (
                         <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-500/10 text-blue-500" title={`Compartido por ${d.createdBy}`}><Users className="w-3 h-3" /> Compartido</span>
                       )}
+                      {libraryMeta[d.id]?.pinned && <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-500/10 text-amber-600"><Pin className="w-3 h-3" /> Fijado</span>}
                     </div>
                     <p className="font-bold truncate">{d.title}</p>
                     <p className="flex items-center gap-1 text-[11px] text-gray-400"><Clock className="w-3 h-3" /> {relTime(d.updatedAt)}</p>
+                    {(libraryMeta[d.id]?.tags ?? []).length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 mt-3">
+                        {(libraryMeta[d.id]?.tags ?? []).map((tag) => <span key={tag} className="px-2 py-0.5 rounded-full bg-gray-100 dark:bg-white/5 text-[10px] font-semibold text-gray-500">{tag}</span>)}
+                      </div>
+                    )}
                   </Link>
                 )}
 
@@ -253,6 +389,9 @@ export default function OfficeHubPage() {
                       </>
                     ) : (
                       <>
+                        <IconBtn title={libraryMeta[d.id]?.favorite ? 'Quitar favorito' : 'Marcar favorito'} onClick={() => toggleFavorite(d.id)} className={`${libraryMeta[d.id]?.favorite ? 'text-amber-500 bg-amber-50 dark:bg-amber-500/10' : 'text-gray-400 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-500/10'}`}><Star className="w-4 h-4" /></IconBtn>
+                        <IconBtn title={libraryMeta[d.id]?.pinned ? 'Desfijar' : 'Fijar'} onClick={() => togglePinned(d.id)} className={`${libraryMeta[d.id]?.pinned ? 'text-blue-500 bg-blue-50 dark:bg-blue-500/10' : 'text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-500/10'}`}><Pin className="w-4 h-4" /></IconBtn>
+                        <IconBtn title="Editar tags" onClick={() => editTags(d.id)} className="text-gray-400 hover:text-purple-500 hover:bg-purple-50 dark:hover:bg-purple-500/10"><Tags className="w-4 h-4" /></IconBtn>
                         <IconBtn title="Renombrar" onClick={() => { setEditingId(d.id); setDraft(d.title); }} className="text-gray-400 hover:text-black dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/10"><Pencil className="w-4 h-4" /></IconBtn>
                         <IconBtn title="Duplicar" onClick={() => duplicate(d.id)} className="text-gray-400 hover:text-black dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/10"><Copy className="w-4 h-4" /></IconBtn>
                         <IconBtn title="Mover a papelera" onClick={() => toTrash(d.id)} className="text-gray-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10"><Trash2 className="w-4 h-4" /></IconBtn>
@@ -278,6 +417,99 @@ export default function OfficeHubPage() {
 function IconBtn({ title, onClick, className, children }: { title: string; onClick: () => void; className?: string; children: React.ReactNode }) {
   return (
     <button title={title} onClick={onClick} className={`p-1.5 rounded-full transition-all ${className ?? ''}`}>{children}</button>
+  );
+}
+
+function DocumentRow({
+  doc,
+  meta,
+  trash,
+  canWrite,
+  isShared,
+  local,
+  editingId,
+  draft,
+  setDraft,
+  setEditingId,
+  saveRename,
+  toggleFavorite,
+  togglePinned,
+  editTags,
+  restore,
+  destroy,
+  duplicate,
+  toTrash,
+}: {
+  doc: OfficeDoc;
+  meta: (typeof TABS)[number];
+  trash: boolean;
+  canWrite: boolean;
+  isShared: boolean;
+  local: LibraryMeta;
+  editingId: string | null;
+  draft: string;
+  setDraft: (value: string) => void;
+  setEditingId: (value: string | null) => void;
+  saveRename: (id: string) => void;
+  toggleFavorite: (id: string) => void;
+  togglePinned: (id: string) => void;
+  editTags: (id: string) => void;
+  restore: (id: string) => void;
+  destroy: (id: string) => void;
+  duplicate: (id: string) => void;
+  toTrash: (id: string) => void;
+}) {
+  return (
+    <div className="group flex flex-col gap-3 border-b border-black/5 p-4 last:border-b-0 dark:border-white/10 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex min-w-0 items-start gap-3">
+        <div className={`inline-flex shrink-0 p-2.5 rounded-xl ${meta.tint}`}><meta.icon className={`w-5 h-5 ${meta.color}`} /></div>
+        <div className="min-w-0">
+          {editingId === doc.id ? (
+            <div className="flex items-center gap-1.5">
+              <input autoFocus value={draft} onChange={(e) => setDraft(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') saveRename(doc.id); if (e.key === 'Escape') setEditingId(null); }}
+                className="min-w-0 rounded-lg bg-gray-100 px-2 py-1 text-sm font-bold outline-none dark:bg-white/10" />
+              <button onClick={() => saveRename(doc.id)} className="p-1.5 rounded-full text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-500/10"><Check className="w-4 h-4" /></button>
+              <button onClick={() => setEditingId(null)} className="p-1.5 rounded-full text-gray-400 hover:bg-gray-100 dark:hover:bg-white/10"><X className="w-4 h-4" /></button>
+            </div>
+          ) : (
+            <Link href={trash ? '#' : `/dashboard/office/${doc.id}`} onClick={(e) => { if (trash) e.preventDefault(); }} className={`block min-w-0 ${trash ? 'cursor-default' : ''}`}>
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="truncate font-bold">{doc.title}</p>
+                {isShared && <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-500 dark:bg-blue-500/10"><Users className="h-3 w-3" /> Compartido</span>}
+                {local.favorite && <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-600 dark:bg-amber-500/10"><Star className="h-3 w-3" /> Favorito</span>}
+                {local.pinned && <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-600 dark:bg-blue-500/10"><Pin className="h-3 w-3" /> Fijado</span>}
+              </div>
+              <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-gray-400">
+                <span className="inline-flex items-center gap-1"><Clock className="h-3 w-3" /> {relTime(doc.updatedAt)}</span>
+                {doc.createdBy && <span>{doc.createdBy}</span>}
+                {(local.tags ?? []).map((tag) => <span key={tag} className="rounded-full bg-gray-100 px-2 py-0.5 font-semibold text-gray-500 dark:bg-white/5">{tag}</span>)}
+              </div>
+            </Link>
+          )}
+        </div>
+      </div>
+
+      {canWrite && editingId !== doc.id && (
+        <div className="flex items-center gap-1 sm:opacity-0 sm:transition-all sm:group-hover:opacity-100">
+          {trash ? (
+            <>
+              <IconBtn title="Restaurar" onClick={() => restore(doc.id)} className="text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-500/10"><RotateCcw className="w-4 h-4" /></IconBtn>
+              <IconBtn title="Eliminar para siempre" onClick={() => destroy(doc.id)} className="text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10"><Trash2 className="w-4 h-4" /></IconBtn>
+            </>
+          ) : (
+            <>
+              <IconBtn title={local.favorite ? 'Quitar favorito' : 'Marcar favorito'} onClick={() => toggleFavorite(doc.id)} className={`${local.favorite ? 'text-amber-500 bg-amber-50 dark:bg-amber-500/10' : 'text-gray-400 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-500/10'}`}><Star className="w-4 h-4" /></IconBtn>
+              <IconBtn title={local.pinned ? 'Desfijar' : 'Fijar'} onClick={() => togglePinned(doc.id)} className={`${local.pinned ? 'text-blue-500 bg-blue-50 dark:bg-blue-500/10' : 'text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-500/10'}`}><Pin className="w-4 h-4" /></IconBtn>
+              <IconBtn title="Editar tags" onClick={() => editTags(doc.id)} className="text-gray-400 hover:text-purple-500 hover:bg-purple-50 dark:hover:bg-purple-500/10"><Tags className="w-4 h-4" /></IconBtn>
+              <IconBtn title="Renombrar" onClick={() => { setEditingId(doc.id); setDraft(doc.title); }} className="text-gray-400 hover:text-black dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/10"><Pencil className="w-4 h-4" /></IconBtn>
+              <IconBtn title="Duplicar" onClick={() => duplicate(doc.id)} className="text-gray-400 hover:text-black dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/10"><Copy className="w-4 h-4" /></IconBtn>
+              <IconBtn title="Mover a papelera" onClick={() => toTrash(doc.id)} className="text-gray-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10"><Trash2 className="w-4 h-4" /></IconBtn>
+            </>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
