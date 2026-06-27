@@ -1,11 +1,10 @@
 'use client';
 
 import React from 'react';
-import { usePathname } from 'next/navigation';
 import { DashboardTopBar } from '@/components/DashboardTopBar';
 import { DashboardDock } from '@/components/DashboardDock';
 import { DashboardWayfinding } from '@/components/DashboardWayfinding';
-import { useOperatorKiosk } from '@/lib/operatorChrome';
+import { useRouteChrome } from '@/lib/routeChrome';
 
 /**
  * Chrome compartida del dashboard: monta la barra superior + el dock UNA vez
@@ -16,15 +15,15 @@ import { useOperatorKiosk } from '@/lib/operatorChrome';
  * El Operator Terminal en modo Kiosko también va "bare": esconde el chrome
  * global para una vista de línea enfocada (la navegación de vuelta vive en su
  * propio topbar industrial).
+ *
+ * El tipo de cromo por ruta lo resuelve `useRouteChrome` (Shell Taxonomy, fuente
+ * única). Los workbenches (editor de Office) montan su propio frame full-screen,
+ * así que ocultamos el dock para no dejarlo en el DOM bajo el overlay.
  */
-const BARE_PREFIXES = ['/dashboard/chat', '/dashboard/select-workspace'];
-
 export function DashboardShell({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname();
-  const kiosk = useOperatorKiosk();
-  const bare = BARE_PREFIXES.some((p) => pathname?.startsWith(p));
+  const { bare, hideDock } = useRouteChrome();
 
-  if (bare || kiosk) return <>{children}</>;
+  if (bare) return <>{children}</>;
 
   return (
     <>
@@ -39,7 +38,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         <DashboardWayfinding />
         {children}
       </div>
-      <DashboardDock />
+      {!hideDock && <DashboardDock />}
     </>
   );
 }
