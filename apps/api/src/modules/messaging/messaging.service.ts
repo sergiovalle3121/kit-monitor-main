@@ -1,4 +1,5 @@
 import {
+  Inject,
   Injectable,
   NotFoundException,
   ForbiddenException,
@@ -6,7 +7,16 @@ import {
 } from '@nestjs/common';
 import { Interval } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In, Not, IsNull, LessThanOrEqual, Like } from 'typeorm';
+import {
+  Repository,
+  In,
+  Not,
+  IsNull,
+  LessThanOrEqual,
+  Like,
+  ObjectLiteral,
+  SelectQueryBuilder,
+} from 'typeorm';
 import { lookup } from 'dns/promises';
 import { Conversation } from './entities/conversation.entity';
 import { ConversationMember } from './entities/conversation-member.entity';
@@ -19,6 +29,11 @@ import { SavedMessage } from './entities/saved-message.entity';
 import { Meeting, MeetingRecurrence } from './entities/meeting.entity';
 import { User } from '../users/entities/user.entity';
 import { ChatGateway } from './chat.gateway';
+import { TenantContextService } from '../../common/tenant/tenant-context.service';
+import {
+  TenantScopedRepository,
+  getTenantRepositoryToken,
+} from '../../common/tenant/tenant-scoped.repository';
 
 const MAX_INPUT_BYTES = 5 * 1024 * 1024; // 5 MB de entrada (imágenes)
 const MAX_FILE_BYTES = 25 * 1024 * 1024; // 25 MB de entrada (archivos genéricos)
@@ -189,28 +204,40 @@ export function parseOpenGraph(html: string, baseUrl: string): LinkPreview {
 @Injectable()
 export class MessagingService {
   constructor(
-    @InjectRepository(Conversation)
-    private readonly conversations: Repository<Conversation>,
-    @InjectRepository(ConversationMember)
-    private readonly members: Repository<ConversationMember>,
-    @InjectRepository(Message)
-    private readonly messages: Repository<Message>,
-    @InjectRepository(ChatMessageReaction)
-    private readonly reactions: Repository<ChatMessageReaction>,
-    @InjectRepository(PollVote)
-    private readonly pollVotes: Repository<PollVote>,
-    @InjectRepository(ScheduledMessage)
-    private readonly scheduled: Repository<ScheduledMessage>,
-    @InjectRepository(ConversationLabel)
-    private readonly labels: Repository<ConversationLabel>,
-    @InjectRepository(SavedMessage)
-    private readonly saved: Repository<SavedMessage>,
-    @InjectRepository(Meeting)
-    private readonly meetings: Repository<Meeting>,
+    @Inject(getTenantRepositoryToken(Conversation))
+    private readonly conversations: TenantScopedRepository<Conversation>,
+    @Inject(getTenantRepositoryToken(ConversationMember))
+    private readonly members: TenantScopedRepository<ConversationMember>,
+    @Inject(getTenantRepositoryToken(Message))
+    private readonly messages: TenantScopedRepository<Message>,
+    @Inject(getTenantRepositoryToken(ChatMessageReaction))
+    private readonly reactions: TenantScopedRepository<ChatMessageReaction>,
+    @Inject(getTenantRepositoryToken(PollVote))
+    private readonly pollVotes: TenantScopedRepository<PollVote>,
+    @Inject(getTenantRepositoryToken(ScheduledMessage))
+    private readonly scheduled: TenantScopedRepository<ScheduledMessage>,
+    @Inject(getTenantRepositoryToken(ConversationLabel))
+    private readonly labels: TenantScopedRepository<ConversationLabel>,
+    @Inject(getTenantRepositoryToken(SavedMessage))
+    private readonly saved: TenantScopedRepository<SavedMessage>,
+    @Inject(getTenantRepositoryToken(Meeting))
+    private readonly meetings: TenantScopedRepository<Meeting>,
     @InjectRepository(User)
     private readonly users: Repository<User>,
     private readonly gateway: ChatGateway,
+    private readonly tenantCtx: TenantContextService,
   ) {}
+
+  // ── scope helper (QueryBuilder reads bypass the tenant-scoped repo) ──────────
+  private applyScope<T extends ObjectLiteral>(
+    qb: SelectQueryBuilder<T>,
+    alias: string,
+  ): SelectQueryBuilder<T> {
+    const tenant = this.tenantCtx.getTenantId();
+    if (tenant) qb.andWhere(`${alias}.tenant_id = :tenant`, { tenant });
+    else qb.andWhere(`${alias}.tenant_id IS NULL`);
+    return qb;
+  }
 
   // ── helpers ────────────────────────────────────────────────────────────
   private async getUserOrThrow(userId: string): Promise<User> {
@@ -449,9 +476,11 @@ export class MessagingService {
         });
 
         // No leídos: mensajes después de lastReadAt y no míos.
-        const unread = await this.messages
+        const unreadQb = this.messages
           .createQueryBuilder('m')
-          .where('m.conversation_id = :cid', { cid: convo.id })
+          .where('m.conversation_id = :cid', { cid: convo.id });
+        this.applyScope(unreadQb, 'm');
+        const unread = await unreadQb
           .andWhere('m.sender_id != :me', { me: meId })
           .andWhere(
             membership.lastReadAt ? 'm.created_at > :lastRead' : '1=1',
@@ -568,6 +597,7 @@ export class MessagingService {
       })
       .orderBy('m.created_at', 'DESC')
       .take(50);
+    this.applyScope(qb, 'm');
     if (before) qb.andWhere('m.created_at < :before', { before });
     const rows = await qb.getMany();
 
@@ -647,11 +677,13 @@ export class MessagingService {
   private async threadCountsFor(ids: string[]): Promise<Map<string, number>> {
     const counts = new Map<string, number>();
     if (!ids.length) return counts;
-    const rows = await this.messages
+    const qb = this.messages
       .createQueryBuilder('m')
       .select('m.reply_to_id', 'rid')
       .addSelect('COUNT(*)', 'cnt')
-      .where('m.reply_to_id IN (:...ids)', { ids })
+      .where('m.reply_to_id IN (:...ids)', { ids });
+    this.applyScope(qb, 'm');
+    const rows = await qb
       .andWhere('m.deleted_at IS NULL')
       .groupBy('m.reply_to_id')
       .getRawMany<{ rid: string; cnt: string }>();
@@ -855,11 +887,12 @@ export class MessagingService {
 
   // ── imagen para <img src> ────────────────────────────────────────────────
   async getImage(meId: string, messageId: string) {
-    const msg = await this.messages
+    const imgQb = this.messages
       .createQueryBuilder('m')
       .addSelect('m.image_data')
-      .where('m.id = :id', { id: messageId })
-      .getOne();
+      .where('m.id = :id', { id: messageId });
+    this.applyScope(imgQb, 'm');
+    const msg = await imgQb.getOne();
     if (!msg || !msg.imageData)
       throw new NotFoundException('Imagen no encontrada');
     await this.assertMember(msg.conversationId, meId);
@@ -909,11 +942,12 @@ export class MessagingService {
 
   // ── descarga de archivo ───────────────────────────────────────────────────
   async getFile(meId: string, messageId: string) {
-    const msg = await this.messages
+    const fileQb = this.messages
       .createQueryBuilder('m')
       .addSelect('m.file_data')
-      .where('m.id = :id', { id: messageId })
-      .getOne();
+      .where('m.id = :id', { id: messageId });
+    this.applyScope(fileQb, 'm');
+    const msg = await fileQb.getOne();
     if (!msg || !msg.fileData)
       throw new NotFoundException('Archivo no encontrado');
     await this.assertMember(msg.conversationId, meId);
@@ -1113,12 +1147,13 @@ export class MessagingService {
     messageId: string,
     targetConversationId: string,
   ) {
-    const src = await this.messages
+    const srcQb = this.messages
       .createQueryBuilder('m')
       .addSelect('m.image_data')
       .addSelect('m.file_data')
-      .where('m.id = :id', { id: messageId })
-      .getOne();
+      .where('m.id = :id', { id: messageId });
+    this.applyScope(srcQb, 'm');
+    const src = await srcQb.getOne();
     if (!src) throw new NotFoundException('Mensaje no encontrado');
     await this.assertMember(src.conversationId, meId); // miembro del origen
     if (src.deletedAt) throw new BadRequestException('Mensaje eliminado');
@@ -1156,9 +1191,11 @@ export class MessagingService {
     const convoIds = myMemberships.map((m) => m.conversationId);
     if (!convoIds.length) return [];
 
-    const rows = await this.messages
+    const searchQb = this.messages
       .createQueryBuilder('m')
-      .where('m.conversation_id IN (:...cids)', { cids: convoIds })
+      .where('m.conversation_id IN (:...cids)', { cids: convoIds });
+    this.applyScope(searchQb, 'm');
+    const rows = await searchQb
       .andWhere("m.type = 'text'")
       .andWhere('m.deleted_at IS NULL')
       .andWhere('LOWER(m.body) LIKE :q', { q: `%${q}%` })
