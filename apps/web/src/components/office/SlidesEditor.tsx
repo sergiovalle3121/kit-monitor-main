@@ -21,7 +21,7 @@ import {
   Pointer, Pencil, Eraser, Moon, ListTree, Layers,
   ZoomIn, ZoomOut, Maximize, Scan, MousePointerClick, Check,
   AlignHorizontalSpaceAround, Paintbrush, Stamp, Proportions, FolderPlus, Squircle, Pipette, Move, PlayCircle,
-  Repeat, Timer, Pause,
+  Repeat, Timer, Pause, Factory,
 } from 'lucide-react';
 import { groupSlidesBySection, setSectionAt, removeSectionAt, sectionCount } from './slides/sections';
 import { SlideSorter } from './SlideSorter';
@@ -50,6 +50,7 @@ import { SlideFindReplace } from './SlideFindReplace';
 import { SlideOutline } from './SlideOutline';
 import { SlideReusePanel, type ReuseItem } from './SlideReusePanel';
 import { SlideCommentsPanel, type SlideComment } from './SlideCommentsPanel';
+import { SlideAssetLibrary, type SlideAssetSymbol } from './slides/AssetLibrary';
 import {
   OfficeRibbon, RibbonTab, RibbonGroup, RibbonSeparator,
   RibbonButton, RibbonSelect, RibbonColorButton, RibbonMenuButton,
@@ -201,6 +202,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions, docId }: 
   const [selAnimOrder, setSelAnimOrder] = useState(0);
   const [selAnimDur, setSelAnimDur] = useState(500);
   const [selAnimDelay, setSelAnimDelay] = useState(0);
+  const [selAnimRepeat, setSelAnimRepeat] = useState(1);
   const [selAnimStart, setSelAnimStart] = useState<string>(DEFAULT_ANIM_START);
   const [showAnimPanel, setShowAnimPanel] = useState(false);
   const [showLayers, setShowLayers] = useState(false);
@@ -312,6 +314,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions, docId }: 
           dur: o.animDur ?? 500,
           delay: o.animDelay ?? 0,
           start: (o.animStart as string) || DEFAULT_ANIM_START,
+          repeat: o.animRepeat ?? 1,
           kind: animKind(o.anim as string),
         })),
     );
@@ -692,7 +695,15 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions, docId }: 
       obj.set({ left: 420, top: 220 });
       if (typeof obj.scaleToWidth === 'function') obj.scaleToWidth(120);
       c.add(obj); c.setActiveObject(obj); c.requestRenderAll();
+      capture(); sync();
     } catch { /* noop */ }
+  }
+  async function addIndustrialAsset(asset: SlideAssetSymbol) {
+    await addIcon(asset.svg);
+    const c = fabricRef.current; const o = c?.getActiveObject() as any;
+    if (!c || !o) return;
+    o.set({ assetId: asset.id, assetCategory: asset.category });
+    c.requestRenderAll(); capture(); sync();
   }
   // ── Contorno de forma (grosor / estilo de línea / color), tipo PowerPoint ────
   function setOutlineWidth(w: number) {
@@ -819,8 +830,12 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions, docId }: 
     const c = fabricRef.current; const o = c?.getActiveObject() as any;
     if (!c || !o) return; o.set('animDelay', v); setSelAnimDelay(v); capture(); sync();
   }
+  function setObjAnimRepeat(v: number) {
+    const c = fabricRef.current; const o = c?.getActiveObject() as any;
+    if (!c || !o) return; o.set('animRepeat', v); setSelAnimRepeat(v); capture(); sync();
+  }
   // Cambia una propiedad de animación por índice de objeto (panel de animación).
-  function setAnimByIndex(idx: number, key: 'anim' | 'animOrder' | 'animDur' | 'animDelay' | 'animStart', value: any) {
+  function setAnimByIndex(idx: number, key: 'anim' | 'animOrder' | 'animDur' | 'animDelay' | 'animStart' | 'animRepeat', value: any) {
     const c = fabricRef.current; if (!c) return;
     const o = c.getObjects()[idx] as any; if (!o) return;
     o.set(key, key === 'anim' && value === 'none' ? undefined : value);
@@ -828,6 +843,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions, docId }: 
     if (c.getActiveObject() === o) {
       if (key === 'anim') setSelAnim(value); if (key === 'animOrder') setSelAnimOrder(value);
       if (key === 'animDur') setSelAnimDur(value); if (key === 'animDelay') setSelAnimDelay(value);
+      if (key === 'animRepeat') setSelAnimRepeat(value);
       if (key === 'animStart') setSelAnimStart(value);
     }
     c.requestRenderAll(); capture(); sync();
@@ -902,7 +918,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions, docId }: 
   // Include custom props (anim = entrance animation, shape = .pptx mapping, link = hyperlink, locked).
   function capture() {
     const c = fabricRef.current; if (!c) return;
-    const data: any = c.toObject(['anim', 'animOrder', 'animDur', 'animDelay', 'animStart', 'shape', 'link', 'locked', 'imgFx', 'chartSpec', 'smart', 'tableSpec', 'conn', 'connId', 'bgFill', 'ph']);
+    const data: any = c.toObject(['anim', 'animOrder', 'animDur', 'animDelay', 'animStart', 'animRepeat', 'shape', 'link', 'locked', 'imgFx', 'chartSpec', 'smart', 'tableSpec', 'conn', 'connId', 'bgFill', 'ph', 'assetId', 'assetCategory']);
     // El patrón se compone como backgroundImage en modo normal: no debe quedar
     // guardado dentro del JSON de la diapositiva.
     delete data.backgroundImage; delete data.overlayImage;
@@ -988,13 +1004,13 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions, docId }: 
       const o = canvas.getActiveObject() as any;
       setHasSel(!!o); setSelType((o?.type as string) || '');
       setSelCount(o?.type === 'activeselection' || o?.type === 'activeSelection' ? (o._objects?.length ?? 0) : (o ? 1 : 0));
-      setSelAnim((o?.anim as string) || 'none'); setSelAnimOrder(o?.animOrder ?? 0); setSelAnimDur(o?.animDur ?? 500); setSelAnimDelay(o?.animDelay ?? 0); setSelAnimStart((o?.animStart as string) || DEFAULT_ANIM_START);
+      setSelAnim((o?.anim as string) || 'none'); setSelAnimOrder(o?.animOrder ?? 0); setSelAnimDur(o?.animDur ?? 500); setSelAnimDelay(o?.animDelay ?? 0); setSelAnimRepeat(o?.animRepeat ?? 1); setSelAnimStart((o?.animStart as string) || DEFAULT_ANIM_START);
       setSelOpacity(o?.opacity ?? 1); setSelLocked(!!o?.locked); setImgFx(readImgFx(o)); setSelAngle(Math.round(o?.angle ?? 0)); setSelectedCommentLabel(o ? objLabel(o) : '');
       refreshCanvasSnapshot(canvas);
     };
     canvas.on('selection:created', onSel);
     canvas.on('selection:updated', onSel);
-    canvas.on('selection:cleared', () => { setHasSel(false); setSelType(''); setSelCount(0); setSelAnim('none'); setSelectedCommentLabel(''); refreshCanvasSnapshot(canvas); });
+    canvas.on('selection:cleared', () => { setHasSel(false); setSelType(''); setSelCount(0); setSelAnim('none'); setSelAnimRepeat(1); setSelectedCommentLabel(''); refreshCanvasSnapshot(canvas); });
     // Doble clic en un gráfico o SmartArt → reabre su editor.
     canvas.on('mouse:dblclick', (e: any) => { const o = e?.target; if (readOnly) return; if (isChart(o)) editChartObj(o); else if (isSmart(o)) editSmartObj(o); else if (isTable(o)) editTableObj(o); });
     // Conectores anclados: recalcular al mover/escalar/rotar formas.
@@ -1736,6 +1752,9 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions, docId }: 
             <RibbonSeparator />
             <RibbonGroup label="Iconos">
               <SlideIconPicker onPick={addIcon} />
+              <RibbonMenuButton icon={Factory} label="Assets industriales" menuWidth={384}>
+                <SlideAssetLibrary onPick={addIndustrialAsset} />
+              </RibbonMenuButton>
             </RibbonGroup>
             <RibbonSeparator />
             <RibbonGroup label="Vínculos">
@@ -1904,6 +1923,8 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions, docId }: 
                   <span className="text-[11px] text-gray-500 px-1" title="Retraso en milisegundos">Retraso</span>
                   <input type="number" min={0} step={100} value={selAnimDelay} onChange={(e) => setObjAnimDelay(Number(e.target.value))} title="Retraso (ms)"
                     className="w-14 h-7 text-xs rounded-lg bg-black/[0.04] dark:bg-white/[0.06] px-1.5 outline-none border border-transparent focus:border-blue-500/40 text-gray-800 dark:text-gray-100" />
+                  <RibbonSelect title="Repetición de la animación" value={String(selAnimRepeat)} onChange={(v) => setObjAnimRepeat(Number(v))} width={76}
+                    options={[{ label: '1×', value: '1' }, { label: '2×', value: '2' }, { label: '3×', value: '3' }, { label: '∞', value: '0' }]} />
                 </>
               ) : <span className="text-[11px] text-gray-400 px-2">Selecciona un objeto</span>}
               <RibbonButton icon={ListTree} label="Panel de animación" active={showAnimPanel} onClick={() => { setShowAnimPanel((v) => !v); setShowLayers(false); }} />
@@ -2182,6 +2203,11 @@ const OBJ_ANIM: Record<string, any> = {
   flash: { initial: { opacity: 1 }, animate: { opacity: [1, 0.15, 1, 0.15, 1] } },
   teeter: { initial: { opacity: 1, rotate: 0 }, animate: { rotate: [0, -6, 6, -4, 4, 0] } },
   blink: { initial: { opacity: 1 }, animate: { opacity: [1, 0, 1, 0, 1] } },
+  pathRight: { initial: { opacity: 1, x: 0 }, animate: { x: [0, 96] } },
+  pathLeft: { initial: { opacity: 1, x: 0 }, animate: { x: [0, -96] } },
+  pathUp: { initial: { opacity: 1, y: 0 }, animate: { y: [0, -72] } },
+  pathDown: { initial: { opacity: 1, y: 0 }, animate: { y: [0, 72] } },
+  pathLoop: { initial: { opacity: 1, x: 0, y: 0 }, animate: { x: [0, 60, 60, 0, 0], y: [0, 0, 60, 60, 0] } },
   // Salida (estado inicial visible → oculto).
   fadeOut: { initial: { opacity: 1 }, animate: { opacity: 0 } },
   flyOut: { initial: { opacity: 1, y: 0 }, animate: { opacity: 0, y: '10%' } },
@@ -2207,12 +2233,12 @@ function planAnim(layers: Layer[]): { plan: Map<number, { step: number; start: n
     else { start = lastStart + lastDur; }
     start += (typeof l.delay === 'number' ? l.delay : 0) / 1000;
     plan.set(idx, { step, start });
-    lastStart = start; lastDur = (l.dur || 500) / 1000;
+    lastStart = start; lastDur = ((l.dur || 500) * (l.repeat || 1)) / 1000;
   }
   return { plan, maxStep: step };
 }
 
-interface Layer { src: string; anim: string; order: number; dur: number; delay?: number; start?: string }
+interface Layer { src: string; anim: string; order: number; dur: number; delay?: number; start?: string; repeat?: number }
 interface Deck { bg: string; layers: Layer[] }
 
 /** Capa estática de una diapositiva (sin animación) para miniaturas / presentador. */
@@ -2250,7 +2276,7 @@ function AnimatedDeck({ deck, master, plan, revealed }: { deck?: Deck; master?: 
         return (
           <motion.img key={j} src={L.src} alt="" className="absolute inset-0 w-full h-full object-contain"
             variants={OBJ_ANIM[L.anim] ?? OBJ_ANIM.none} initial="initial" animate={shown ? 'animate' : 'initial'}
-            transition={{ duration: (L.dur || 500) / 1000, ease: 'easeOut', delay: shown && p ? p.start : 0 }} />
+            transition={{ duration: (L.dur || 500) / 1000, ease: 'easeOut', delay: shown && p ? p.start : 0, repeat: L.repeat === 0 ? Infinity : Math.max(0, (L.repeat || 1) - 1) }} />
         );
       })}
     </div>
@@ -2326,7 +2352,7 @@ function Present({
             const sc = new StaticCanvas(document.createElement('canvas'), { width: CW, height: ch });
             await sc.loadFromJSON({ version: json.version, objects: [o] });
             sc.renderAll();
-            layers.push({ src: sc.toDataURL({ format: 'png', multiplier: 1 } as any), anim: (o.anim as string) || 'none', order: o.animOrder ?? j, dur: o.animDur ?? 500, delay: typeof o.animDelay === 'number' ? o.animDelay : undefined, start: (o.animStart as string) || 'afterPrev' });
+            layers.push({ src: sc.toDataURL({ format: 'png', multiplier: 1 } as any), anim: (o.anim as string) || 'none', order: o.animOrder ?? j, dur: o.animDur ?? 500, delay: typeof o.animDelay === 'number' ? o.animDelay : undefined, start: (o.animStart as string) || 'afterPrev', repeat: typeof o.animRepeat === 'number' ? o.animRepeat : 1 });
             sc.dispose();
           } catch { /* skip object */ }
         }

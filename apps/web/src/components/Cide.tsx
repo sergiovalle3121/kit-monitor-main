@@ -18,11 +18,16 @@ import {
   Square,
   Trash2,
   Zap,
+  Copy,
+  Check,
+  RefreshCw,
+  Pencil,
 } from 'lucide-react';
 import { glass } from '@/lib/glass';
 import { isAdminAccess } from '@/lib/owner';
 import { useOperatorKiosk } from '@/lib/operatorChrome';
 import { useDashboardSession } from '@/hooks/useDashboardSession';
+import { suggestionsFor } from '@/lib/chat/cideSuggestions';
 
 type CideCard =
   | { type: 'metric'; title: string; value: number; unit?: string | null }
@@ -69,6 +74,8 @@ interface StoredMessage {
   content: string;
   toolsUsed?: string[] | null;
   cards?: CideCard[] | null;
+  model?: string | null;
+  escalated?: boolean | null;
 }
 
 /** Union of fields carried by the SSE events from POST /api/ai/chat/stream. */
@@ -98,13 +105,6 @@ function relativeTime(iso: string): string {
   return new Date(iso).toLocaleDateString('es-MX');
 }
 
-const SUGGESTIONS = [
-  '¿Cómo va la planta hoy?',
-  '¿Qué cambió en producción en las últimas 24 h?',
-  '¿Cómo está el inventario?',
-  'Muéstrame el estado de resultados',
-];
-
 export function Cide() {
   const pathname = usePathname();
   const kiosk = useOperatorKiosk();
@@ -117,6 +117,7 @@ export function Cide() {
   const [view, setView] = useState<'chat' | 'history'>('chat');
   const [conversations, setConversations] = useState<ConvSummary[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
   const { session } = useDashboardSession();
@@ -128,6 +129,8 @@ export function Cide() {
       behavior: 'smooth',
     });
   }, [messages, loading]);
+
+  const suggestions = suggestionsFor(pathname);
 
   if (kiosk || !pathname?.startsWith('/dashboard')) return null;
 
@@ -164,6 +167,28 @@ export function Cide() {
       { role: 'assistant', content: '' },
     ]);
     setInput('');
+    await runStream(msg);
+  }
+
+  /** Re-run the last user message, replacing the latest assistant answer. */
+  async function regenerate() {
+    if (loading) return;
+    const lastUser = [...messages].reverse().find((m) => m.role === 'user');
+    if (!lastUser) return;
+    setError(null);
+    setMessages((m) => {
+      const copy = [...m];
+      while (copy.length && copy[copy.length - 1].role === 'assistant') {
+        copy.pop();
+      }
+      copy.push({ role: 'assistant', content: '' });
+      return copy;
+    });
+    await runStream(lastUser.content);
+  }
+
+  /** Stream one turn for `msg` into the trailing assistant bubble. */
+  async function runStream(msg: string) {
     setLoading(true);
 
     let sawError = false;
@@ -257,6 +282,17 @@ export function Cide() {
     abortRef.current?.abort();
   }
 
+  /** Copy an assistant answer to the clipboard, flashing a check briefly. */
+  async function copyMsg(i: number, text: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedIdx(i);
+      setTimeout(() => setCopiedIdx((c) => (c === i ? null : c)), 1500);
+    } catch {
+      /* clipboard blocked (insecure context) — no-op */
+    }
+  }
+
   async function openHistory() {
     setView('history');
     setLoadingHistory(true);
@@ -285,6 +321,8 @@ export function Cide() {
         content: m.content,
         tools: m.toolsUsed ?? undefined,
         cards: m.cards ?? undefined,
+        model: m.model ?? undefined,
+        escalated: m.escalated ?? undefined,
       }));
       setMessages(msgs);
       setConversationId(id);
@@ -314,6 +352,24 @@ export function Cide() {
       }
     } catch {
       /* non-fatal: leave the list as-is */
+    }
+  }
+
+  async function renameConversation(id: string, title: string) {
+    const clean = title.trim();
+    if (!clean) return;
+    // Optimistic: reflect the new title immediately.
+    setConversations((cs) =>
+      cs.map((c) => (c.id === id ? { ...c, title: clean } : c)),
+    );
+    try {
+      await fetch(`/api/ai/conversations/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: clean }),
+      });
+    } catch {
+      /* non-fatal: keep the optimistic title */
     }
   }
 
@@ -411,6 +467,7 @@ export function Cide() {
                     activeId={conversationId}
                     onPick={loadConversation}
                     onDelete={deleteConversation}
+                    onRename={renameConversation}
                   />
                 ) : (
                   <>
@@ -425,7 +482,7 @@ export function Cide() {
                       — respetando tus permisos.
                     </p>
                     <div className="flex flex-col gap-2">
-                      {SUGGESTIONS.map((s) => (
+                      {suggestions.map((s) => (
                         <button
                           key={s}
                           onClick={() => send(s)}
@@ -501,6 +558,34 @@ export function Cide() {
                           )}
                         </p>
                       )}
+                      {m.role === 'assistant' &&
+                        m.content &&
+                        !(loading && i === messages.length - 1) && (
+                          <div className="mt-1.5 flex items-center gap-1">
+                            <button
+                              onClick={() => copyMsg(i, m.content)}
+                              aria-label="Copiar respuesta"
+                              title="Copiar"
+                              className="rounded-md p-1 text-black/35 transition-colors hover:bg-black/5 hover:text-black/70 dark:text-white/35 dark:hover:bg-white/10 dark:hover:text-white/70"
+                            >
+                              {copiedIdx === i ? (
+                                <Check className="h-3 w-3 text-emerald-500" />
+                              ) : (
+                                <Copy className="h-3 w-3" />
+                              )}
+                            </button>
+                            {i === messages.length - 1 && (
+                              <button
+                                onClick={regenerate}
+                                aria-label="Regenerar respuesta"
+                                title="Regenerar"
+                                className="rounded-md p-1 text-black/35 transition-colors hover:bg-black/5 hover:text-black/70 dark:text-white/35 dark:hover:bg-white/10 dark:hover:text-white/70"
+                              >
+                                <RefreshCw className="h-3 w-3" />
+                              </button>
+                            )}
+                          </div>
+                        )}
                     </div>
                   </div>
                 ))}
@@ -595,13 +680,26 @@ function HistoryView({
   activeId,
   onPick,
   onDelete,
+  onRename,
 }: {
   conversations: ConvSummary[];
   loading: boolean;
   activeId: string | null;
   onPick: (id: string) => void;
   onDelete: (id: string) => void;
+  onRename: (id: string, title: string) => void;
 }) {
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [draft, setDraft] = useState('');
+
+  function beginEdit(id: string, title: string) {
+    setEditingId(id);
+    setDraft(title);
+  }
+  function commitEdit() {
+    if (editingId && draft.trim()) onRename(editingId, draft);
+    setEditingId(null);
+  }
   if (loading && conversations.length === 0) {
     return (
       <div className="flex items-center justify-center gap-2 pt-10 text-sm text-black/50 dark:text-white/50">
@@ -637,26 +735,52 @@ function HistoryView({
               : 'border-black/10 hover:bg-black/5 dark:border-white/10 dark:hover:bg-white/10'
           }`}
         >
-          <button
-            onClick={() => onPick(c.id)}
-            className="flex min-w-0 flex-1 items-center gap-3 px-3 py-2.5 text-left"
-          >
-            <MessageSquare className="h-4 w-4 shrink-0 text-violet-500" />
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-sm">{c.title}</span>
-              <span className="block text-[11px] text-black/45 dark:text-white/45">
-                {relativeTime(c.updatedAt)}
+          {editingId === c.id ? (
+            <input
+              autoFocus
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onBlur={commitEdit}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') commitEdit();
+                else if (e.key === 'Escape') setEditingId(null);
+              }}
+              className="min-w-0 flex-1 rounded-lg border border-violet-400/60 bg-white/70 px-3 py-2 text-sm outline-none dark:bg-white/5"
+            />
+          ) : (
+            <button
+              onClick={() => onPick(c.id)}
+              className="flex min-w-0 flex-1 items-center gap-3 px-3 py-2.5 text-left"
+            >
+              <MessageSquare className="h-4 w-4 shrink-0 text-violet-500" />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm">{c.title}</span>
+                <span className="block text-[11px] text-black/45 dark:text-white/45">
+                  {relativeTime(c.updatedAt)}
+                </span>
               </span>
-            </span>
-          </button>
-          <button
-            onClick={() => onDelete(c.id)}
-            aria-label="Borrar conversación"
-            title="Borrar conversación"
-            className="shrink-0 rounded-lg p-1.5 text-black/35 opacity-0 transition-all hover:bg-red-500/10 hover:text-red-500 focus:opacity-100 group-hover:opacity-100 dark:text-white/35"
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </button>
+            </button>
+          )}
+          {editingId !== c.id && (
+            <>
+              <button
+                onClick={() => beginEdit(c.id, c.title)}
+                aria-label="Renombrar conversación"
+                title="Renombrar"
+                className="shrink-0 rounded-lg p-1.5 text-black/35 opacity-0 transition-all hover:bg-black/5 hover:text-black/70 focus:opacity-100 group-hover:opacity-100 dark:text-white/35 dark:hover:bg-white/10"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+              </button>
+              <button
+                onClick={() => onDelete(c.id)}
+                aria-label="Borrar conversación"
+                title="Borrar conversación"
+                className="shrink-0 rounded-lg p-1.5 text-black/35 opacity-0 transition-all hover:bg-red-500/10 hover:text-red-500 focus:opacity-100 group-hover:opacity-100 dark:text-white/35"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            </>
+          )}
         </div>
       ))}
     </div>

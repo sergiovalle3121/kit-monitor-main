@@ -2641,4 +2641,60 @@ historial y **ver qué modelo** respondió (incluido si hubo escalación). Todo 
 **Verificación:** `build API` ✓, **AI tests 21/21** (+4 de borrado: not-found, forbidden,
 owner, admin), `lint web` 0 errores, `build web` ✓. Sin migraciones; nada existente cambia.
 
+## 120. CIDE — renombrar y reaprovechar conversaciones (renombrar · copiar · regenerar)
+
+**Contexto.** Tras borrar/detener (§119), faltaba completar la gestión de conversaciones y
+facilitar reaprovechar respuestas. Todo aditivo, sin migraciones (la columna `title` ya existe).
+
+**Decisión.**
+- **Renombrar.** `AiService.renameConversation()` (owner; admin cualquiera) recorta y limita el
+  título a 200 chars (vacío → «Nueva conversación»). `PATCH /api/ai/conversations/:id`
+  (`RenameConversationDto`) + proxy Next. En el historial de `Cide.tsx`, botón lápiz → edición
+  inline (Enter confirma, Esc cancela) con actualización optimista.
+- **Copiar respuesta.** Botón de copiar al portapapeles en cada respuesta del asistente, con
+  check transitorio.
+- **Regenerar.** `runStream()` extraído de `send()`; nuevo `regenerate()` reaprovecha el último
+  mensaje del usuario, descarta la respuesta previa y vuelve a transmitir.
+
+**Verificación:** `build API` ✓, **AI tests 25/25** (+4 de renombrar: not-found, forbidden,
+owner con recorte/límite, fallback de título vacío), `lint web` 0 errores, `build web` ✓.
+Sin migraciones; ningún endpoint ni comportamiento existente cambia.
+
+## 121. CIDE — persistir el modelo/escalación por mensaje (badge fiel al recargar)
+
+**Contexto.** El badge de modelo y la marca «escalado» (§119/§120) se mostraban solo en vivo:
+al reabrir una conversación se perdían, porque `ai_message` no los guardaba. Brecha de fidelidad.
+
+**Decisión.** Persistirlos por mensaje (primera **migración** del trabajo de CIDE; aditiva).
+- **Esquema:** `ai_message` gana `model` (varchar 64, nullable) y `escalated` (boolean, nullable).
+  Migración idempotente `AddAiMessageModel20260627140000` (glob las recoge sola; sin índice).
+- **Persistencia:** `persistTurn()` guarda `model`/`escalated` en el turno del asistente; en modo
+  demo (`mock`) se guarda `model=null` (no hubo motor real).
+- **Lectura/UI:** `getConversation` ya devuelve el mensaje completo; `Cide.tsx` mapea `model`/
+  `escalated` al recargar, así el badge reaparece idéntico.
+
+**Verificación:** `build API` ✓, **AI tests 27/27** (+2: persistTurn guarda modelo/escalación;
+demo no atribuye modelo), `lint web` 0 errores, `build web` ✓. Migración 100% aditiva (columnas
+nullable); ningún comportamiento existente cambia.
+
+## 122. CIDE — prompts de inicio contextuales por módulo
+
+**Contexto.** El chat es accesible desde toda página del dashboard, pero ofrecía siempre las
+mismas 4 sugerencias genéricas. Adaptarlas al módulo donde está el usuario mejora la
+relevancia y el descubrimiento, **sin costo de inferencia** (es solo un mapeo).
+
+**Decisión (solo `apps/web`, aditiva).** Nuevo `lib/chat/cideSuggestions.ts` con
+`suggestionsFor(pathname)`: extrae el primer segmento tras `/dashboard/` y devuelve 3 preguntas
+hechas a la medida del módulo (inventory, mrp, planning, production, quality, maintenance,
+shipping, suppliers, finance, crm, genealogy, control-tower, etc. — todas respondibles por las
+herramientas de CIDE); fuera del dashboard o en un módulo no mapeado cae a las genéricas.
+`Cide.tsx` reemplaza la constante estática por `suggestionsFor(pathname)`.
+
+**Nota de pruebas.** `apps/web` no tiene runner de tests unitarios (CI solo corre `lint` +
+`build` para el front); `suggestionsFor` es una función pura cubierta por el type-check del
+build y el lint. No se añadió spec no ejecutable.
+
+**Verificación:** `lint web` 0 errores, `build web` ✓. Sin backend ni migraciones; nada
+existente cambia.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->

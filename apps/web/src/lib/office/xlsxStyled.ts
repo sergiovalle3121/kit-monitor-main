@@ -101,6 +101,10 @@ export function dataValidationFor(dv: any): any {
     return { ...base, type: 'list', formulae: [isRange ? v1 : `"${v1.replace(/"/g, '')}"`] };
   }
   if (dv.type === 'checkbox') return { ...base, type: 'list', formulae: ['"VERDADERO,FALSO"'] };
+  if (dv.type === 'custom_formula') {
+    const formula = String(dv.value1 ?? '').trim().replace(/^=/, '');
+    return formula ? { ...base, type: 'custom', formulae: [formula] } : null;
+  }
   const type = DV_TYPE[dv.type];
   if (!type) return null; // text_content y otros sin equivalente directo → se omiten
   const op = DV_OP[dv.type2] ?? 'between';

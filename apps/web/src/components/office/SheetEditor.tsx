@@ -38,6 +38,8 @@ import { SheetConsolidate, type ConsolidatePayload } from './SheetConsolidate';
 import { setTableRegistry, type TableDef } from './sheets/tableRefs';
 import { OfficeRibbon, RibbonTab, RibbonGroup, RibbonSeparator, RibbonButton, RibbonMenuButton } from './ribbon';
 import { useToast } from '@/contexts/ToastContext';
+import { estimateWorkbookStats, shouldEmitWorkbook, workbookPerformanceLabel, type SignatureState } from '@/lib/office/workbookPerformance';
+import { AXOS_SHEET_CONNECTORS, buildAxosConnectorRefresh, buildAxosConnectorTable, createAxosConnectorInstance, type AxosConnectorInstance, type AxosConnectorType } from '@/lib/office/axosConnectors';
 
 // chart.js + react-chartjs-2 son pesados y solo se usan al insertar gráficas:
 // carga diferida para que abrir una hoja sin gráficas no los traiga al bundle.
@@ -68,6 +70,9 @@ function scenariosOf(v: any): Scenario[] {
 type SheetComment = { id: string; sheetIndex: number; range: string; text: string; author?: string; createdAt: string; resolved?: boolean };
 function commentsOf(v: any): SheetComment[] {
   return v && Array.isArray(v.comments) ? v.comments : [];
+}
+function connectorsOf(v: any): AxosConnectorInstance[] {
+  return v && Array.isArray(v.connectors) ? v.connectors : [];
 }
 type StoredTable = { name: string; sheetIndex: number; range: string };
 function tablesOf(v: any): StoredTable[] {
@@ -109,6 +114,7 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
   const [scenarios, setScenarios] = useState<Scenario[]>(scenariosRef.current);
   const tablesRef = useRef<StoredTable[]>(tablesOf(value));
   const commentsRef = useRef<SheetComment[]>(commentsOf(value));
+  const connectorsRef = useRef<AxosConnectorInstance[]>(connectorsOf(value));
   const [showScenarios, setShowScenarios] = useState(false);
   const [showNames, setShowNames] = useState(false);
   const [showPrint, setShowPrint] = useState(false);
@@ -133,6 +139,7 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
   const refreshT = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
+  const emitSignatureRef = useRef<SignatureState>({});
 
   // Atajos de teclado estilo Excel/Sheets. Ctrl/⌘+P imprimir y Ctrl/⌘+F buscar (los de
   // antes) + deshacer/rehacer y portapapeles CABLEADOS AL MOTOR de Fortune-Sheet.
@@ -204,9 +211,27 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
     return () => window.clearInterval(t);
   }, []);
 
+  const workbookPayload = useCallback(() => ({
+    sheets: sheetsRef.current,
+    charts: chartsRef.current,
+    names: namesRef.current,
+    pivots: pivotsRef.current,
+    scenarios: scenariosRef.current,
+    tables: tablesRef.current,
+    comments: commentsRef.current,
+    connectors: connectorsRef.current,
+  }), []);
+
   const emit = useCallback(() => {
-    onChangeRef.current({ sheets: sheetsRef.current, charts: chartsRef.current, names: namesRef.current, pivots: pivotsRef.current, scenarios: scenariosRef.current, tables: tablesRef.current, comments: commentsRef.current });
-  }, []);
+    const payload = workbookPayload();
+    if (!shouldEmitWorkbook(payload, emitSignatureRef.current)) return;
+    onChangeRef.current(payload);
+  }, [workbookPayload]);
+
+  const currentWorkbookStats = () => {
+    const stats = estimateWorkbookStats(workbookPayload());
+    return { ...stats, label: workbookPerformanceLabel(stats) };
+  };
 
   // Registro de tablas con nombre para las referencias estructuradas `Tabla[Columna]`. Se
   // resuelve a TableDef[] (con nombre de hoja, rango y cabeceras leídas de la fila superior) y se
@@ -333,6 +358,50 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
     const rng = parseRange(selectionRange());
     return { r: rng?.r1 ?? 0, c: rng?.c1 ?? 0 };
   }
+
+  function insertAxosConnector(type: AxosConnectorType) {
+    if (readOnly) return;
+    const sheets = clone(sheetsRef.current);
+    const sheetIndex = activeIndex();
+    const sheet = sheets[sheetIndex] ?? sheets[0]; if (!sheet) return;
+    const origin = selectionOrigin();
+    const built = buildAxosConnectorTable(type, origin);
+    sheet.celldata = sheet.celldata || [];
+    const occupied = new Map<string, any>((sheet.celldata ?? []).map((cd: any) => [`${cd.r}_${cd.c}`, cd]));
+    built.celldata.forEach((cd) => occupied.set(`${cd.r}_${cd.c}`, cd));
+    sheet.celldata = [...occupied.values()];
+    sheet.row = Math.max(sheet.row ?? 100, origin.r + built.nRows + 3);
+    sheet.column = Math.max(sheet.column ?? 30, origin.c + built.nCols + 2);
+    const instance = createAxosConnectorInstance(type, sheetIndex, built.range);
+    connectorsRef.current = [...connectorsRef.current.filter((c) => !(c.sheetIndex === sheetIndex && c.type === type && c.range === built.range)), instance];
+    remount(sheets);
+    window.setTimeout(() => toast.success(`${instance.label} insertado en ${built.range}.`), 30);
+  }
+
+
+  function refreshAxosConnectors() {
+    if (readOnly) return;
+    if (!connectorsRef.current.length) { toast.info('No hay conectores AXOS insertados en este libro.'); return; }
+    const sheets = clone(sheetsRef.current);
+    const refreshed: AxosConnectorInstance[] = [];
+    let count = 0;
+    for (const connector of connectorsRef.current) {
+      const sheet = sheets[connector.sheetIndex];
+      const built = buildAxosConnectorRefresh(connector);
+      if (!sheet || !built) { refreshed.push(connector); continue; }
+      const occupied = new Map<string, any>((sheet.celldata ?? []).map((cd: any) => [`${cd.r}_${cd.c}`, cd]));
+      built.table.celldata.forEach((cd) => occupied.set(`${cd.r}_${cd.c}`, cd));
+      sheet.celldata = [...occupied.values()];
+      sheet.row = Math.max(sheet.row ?? 100, built.table.celldata.reduce((m, cd) => Math.max(m, cd.r + 4), 0));
+      sheet.column = Math.max(sheet.column ?? 30, built.table.celldata.reduce((m, cd) => Math.max(m, cd.c + 3), 0));
+      refreshed.push(built.instance);
+      count++;
+    }
+    connectorsRef.current = refreshed;
+    remount(sheets);
+    window.setTimeout(() => toast.success(`${count} conectores AXOS actualizados.`), 30);
+  }
+
   function runGridCommand(cmd: 'copy' | 'cut' | 'paste') {
     const wb = wbRef.current;
     const grid = gridRef.current;
@@ -993,9 +1062,13 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
         </RibbonTab>
         <RibbonTab id="axos" label="AXOS" icon={Activity}>
           <RibbonGroup label="Conectores ERP/MES">
-            <RibbonButton icon={RefreshCw} label="Inventario" onClick={() => toast.info('Conector Inventory snapshot: preparado para insertar datos AXOS en una próxima fase.')} />
-            <RibbonButton icon={Table2} label="BOM Cost Rollup" onClick={() => toast.info('Conector BOM cost rollup: preparado para conectar BOM + costos.')} />
-            <RibbonButton icon={Activity} label="OEE por línea" onClick={() => toast.info('Conector OEE by line: preparado para datos vivos de planta.')} />
+            <RibbonMenuButton icon={RefreshCw} label="Insertar conector" menuWidth={320} items={AXOS_SHEET_CONNECTORS.map((connector) => ({
+              label: `${connector.label} · ${connector.domain}`,
+              onClick: () => insertAxosConnector(connector.type),
+            }))} />
+            <RibbonButton icon={Table2} label="Inventario" onClick={() => insertAxosConnector('inventory_snapshot')} />
+            <RibbonButton icon={Activity} label="OEE" onClick={() => insertAxosConnector('oee_by_line')} />
+            <RibbonButton icon={RefreshCw} label="Refrescar" onClick={refreshAxosConnectors} />
           </RibbonGroup>
         </RibbonTab>
         <RibbonTab id="layout" label="Diseño de página">
@@ -1103,6 +1176,7 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
           <span className="font-semibold text-emerald-600">{editMode}</span>
           <span>{selectionText}</span>
           {(() => { const s = selectionStats(); return <span className="truncate">Conteo {s.count} · Núm {s.nums} · Suma {s.sum.toLocaleString()} · Prom {s.avg.toLocaleString()} · Min {s.min ?? '—'} · Max {s.max ?? '—'}</span>; })()}
+          <span className="hidden lg:inline-flex rounded-full border border-black/10 dark:border-white/10 px-2 py-0.5 uppercase tracking-wide">{(() => { const p = currentWorkbookStats(); return `${p.label} · ${p.cells.toLocaleString()} celdas · ${(p.approxJsonBytes / 1024).toFixed(0)} KB`; })()}</span>
         </div>
         <div className="flex items-center gap-2">
           <button onClick={() => setZoom((z) => Math.max(60, z - 10))} className="px-2 py-0.5 rounded hover:bg-black/5 dark:hover:bg-white/10">−</button>

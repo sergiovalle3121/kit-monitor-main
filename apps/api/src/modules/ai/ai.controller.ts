@@ -5,6 +5,7 @@ import {
   ForbiddenException,
   Get,
   Param,
+  Patch,
   Post,
   Request,
   Res,
@@ -14,6 +15,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AiService, ReqUser } from './ai.service';
 import { ChatDto } from './dto/chat.dto';
 import { ConfigDto } from './dto/config.dto';
+import { RenameConversationDto } from './dto/rename-conversation.dto';
 
 interface AuthReq {
   user: ReqUser;
@@ -91,6 +93,15 @@ export class AiController {
   @Delete('conversations/:id')
   deleteConversation(@Request() req: AuthReq, @Param('id') id: string) {
     return this.ai.deleteConversation(req.user, id);
+  }
+
+  @Patch('conversations/:id')
+  renameConversation(
+    @Request() req: AuthReq,
+    @Param('id') id: string,
+    @Body() dto: RenameConversationDto,
+  ) {
+    return this.ai.renameConversation(req.user, id, dto.title);
   }
 
   // ── Admin: per-tenant configuration + usage ─────────────────────────────────

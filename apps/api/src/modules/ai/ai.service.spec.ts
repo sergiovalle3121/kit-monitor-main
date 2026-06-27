@@ -196,3 +196,136 @@ describe('AiService.deleteConversation', () => {
     expect(convRepo.delete).toHaveBeenCalledWith({ id: 'x' });
   });
 });
+
+describe('AiService.renameConversation', () => {
+  const owner: ReqUser = { userId: 'u1', email: 'a@b.com', role: 'User' };
+  function serviceWith(conv: unknown) {
+    const convRepo = {
+      findOne: jest.fn().mockResolvedValue(conv),
+      save: jest.fn().mockImplementation((c) => Promise.resolve(c)),
+    };
+    const service = new AiService(
+      null as never,
+      null as never,
+      convRepo as never,
+      { delete: jest.fn() } as never,
+      { execute: jest.fn() } as never,
+      null as never,
+    );
+    return { service, convRepo };
+  }
+
+  it('throws NotFound when the conversation does not exist', async () => {
+    const { service } = serviceWith(null);
+    await expect(
+      service.renameConversation(owner, 'missing', 'Hola'),
+    ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('forbids renaming another user’s conversation (non-admin)', async () => {
+    const { service } = serviceWith({ id: 'x', userEmail: 'other@b.com' });
+    await expect(
+      service.renameConversation(owner, 'x', 'Hola'),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('trims, caps at 200 chars and persists the new title for the owner', async () => {
+    const { service, convRepo } = serviceWith({ id: 'x', userEmail: 'a@b.com' });
+    const res = await service.renameConversation(owner, 'x', '  Análisis OEE  ');
+    expect(res).toEqual({ id: 'x', title: 'Análisis OEE' });
+    expect(convRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'x', title: 'Análisis OEE' }),
+    );
+  });
+
+  it('falls back to a default title when the new title is blank', async () => {
+    const { service } = serviceWith({ id: 'x', userEmail: 'a@b.com' });
+    const res = await service.renameConversation(owner, 'x', '   ');
+    expect(res.title).toBe('Nueva conversación');
+  });
+});
+
+describe('AiService.persistTurn', () => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  function setup(prepared: any) {
+    const msgRepo = {
+      create: jest.fn().mockImplementation((x) => x),
+      save: jest.fn().mockResolvedValue({}),
+    };
+    const usageRepo = {
+      create: jest.fn().mockImplementation((x) => x),
+      save: jest.fn().mockResolvedValue({}),
+    };
+    const convRepo = { update: jest.fn().mockResolvedValue({}) };
+    const configRepo = { save: jest.fn().mockResolvedValue({}) };
+    const service = new AiService(
+      configRepo as never,
+      usageRepo as never,
+      convRepo as never,
+      msgRepo as never,
+      { execute: jest.fn() } as never,
+      null as never,
+    );
+    const reqUser: ReqUser = { userId: 'u', email: 'a@b.com', role: 'User' };
+    const result = {
+      text: 'ok',
+      usage: {
+        inputTokens: 4,
+        outputTokens: 2,
+        cacheReadTokens: 0,
+        cacheWriteTokens: 0,
+      },
+      toolsUsed: [],
+      cards: [],
+    };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const persist = (service as any).persistTurn.bind(service);
+    return { persist, reqUser, result, msgRepo };
+  }
+
+  it('stores the model and escalation flag on the assistant message', async () => {
+    const { persist, reqUser, result, msgRepo } = setup(null);
+    await persist(
+      reqUser,
+      {
+        tenantId: 't',
+        cfg: { tokensUsedThisPeriod: 0 },
+        conv: { id: 'c1' },
+        model: 'qwen2.5:32b',
+        escalated: true,
+        mock: false,
+      },
+      'hola',
+      result,
+    );
+    const assistantCreate = msgRepo.create.mock.calls
+      .map((c: unknown[]) => c[0] as Record<string, unknown>)
+      .find((c) => c.role === 'assistant');
+    expect(assistantCreate).toMatchObject({
+      model: 'qwen2.5:32b',
+      escalated: true,
+    });
+  });
+
+  it('does not attribute a model on demo (mock) turns', async () => {
+    const { persist, reqUser, result, msgRepo } = setup(null);
+    await persist(
+      reqUser,
+      {
+        tenantId: 't',
+        cfg: { tokensUsedThisPeriod: 0 },
+        conv: { id: 'c1' },
+        model: 'qwen2.5:7b',
+        escalated: false,
+        mock: true,
+      },
+      'hola',
+      result,
+    );
+    const assistantCreate = msgRepo.create.mock.calls
+      .map((c: unknown[]) => c[0] as Record<string, unknown>)
+      .find((c) => c.role === 'assistant');
+    expect(assistantCreate?.model).toBeNull();
+    expect(assistantCreate?.escalated).toBeNull();
+  });
+});
