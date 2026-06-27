@@ -12,7 +12,7 @@ import {
   AlignHorizontalJustifyStart, AlignHorizontalJustifyCenter, AlignHorizontalJustifyEnd,
   AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd,
   AlignHorizontalDistributeCenter, AlignVerticalDistributeCenter, RulerDimensionLine, Rows3, Waypoints,
-  ShieldCheck, CircleCheck, CircleAlert, Printer, ChartLine, FileText, WandSparkles, Stamp, Upload, ImageOff, Activity, History, Group,
+  ShieldCheck, CircleCheck, CircleAlert, Printer, ChartLine, FileText, WandSparkles, Stamp, Upload, ImageOff, Activity, History, Group, Search,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/apiFetch';
 import { useToast } from '@/contexts/ToastContext';
@@ -26,6 +26,34 @@ import { connectLine, type ConnStation } from './connect-line';
 import { designChecks, type CheckBox, type DesignReport } from './design-checks';
 import { flowMetrics, type FlowCenter } from './flow-metrics';
 import { plotSheetModel } from './plot-sheet';
+import {
+  createHistoryItem as createCadHistoryItem,
+  executeCadCommand,
+  parseCadCommand,
+  previewCadCommand,
+  type CadCommandHistoryItem,
+  type CadCommandInput,
+  type CadCommandPreview,
+  type CadOperation,
+} from '@/lib/cad/commands';
+import { snapScalarToGrid } from '@/lib/cad/snapping';
+import {
+  assignObjectsToLayer,
+  DEFAULT_CAD_LAYERS,
+  isObjectLayerLocked,
+  toggleCadLayerLocked,
+  toggleCadLayerVisible,
+  type CadLayer,
+  type CadLayerAssignments,
+  type CadLayerId,
+} from '@/lib/cad/layers';
+import { CAD_TOOLBAR_ACTIONS, type CadToolbarActionId } from '@/lib/cad/toolbar';
+import { searchCadPalette, type CadPaletteEntry } from '@/lib/cad/command-palette';
+import { matchCadShortcut } from '@/lib/cad/keyboard-shortcuts';
+import { exportCadLayoutDxf } from '@/lib/cad/layout-export-adapter';
+import { importDxfPrimitives, summarizeDxfImportWarnings, type CadDxfImportWarning } from '@/lib/cad/dxf-import';
+import { CAD_SYMBOL_LIBRARY, getCadSymbol } from '@/lib/cad/symbols';
+import { createCadSnapshot, pushCadSnapshot, restoreCadSnapshot, type CadSnapshotHistory } from '@/lib/cad/snapshots';
 import dynamic from 'next/dynamic';
 
 // Analysis panels — the same modal components the 2D host shipped, lazy-loaded so
@@ -157,6 +185,7 @@ interface SelItem { type: 'station' | 'asset'; id: string }
 const sameSel = (a: SelItem, b: SelItem) => a.type === b.type && a.id === b.id;
 /** A point-in-time copy of every editable collection, for undo/redo. */
 interface Snapshot { placements: [string, Placement][]; assets: Asset[]; annotations: Ann[]; connectors: Conn[] }
+interface CommandPreviewState { input: CadCommandInput; preview: CadCommandPreview }
 /** Live quantity take-off computed from the editor's current state. */
 interface LocalTakeoff {
   unit: string; footprintArea: number; totalStations: number; placedStations: number;
@@ -575,8 +604,10 @@ export default function Layout3DEditor({
   const [approval, setApproval] = useState<LayoutApproval | null>(null); // sign-off status (unify)
   const [approvalBusy, setApprovalBusy] = useState(false);
   const [dxfBusy, setDxfBusy] = useState(false); // DXF backdrop upload/remove in flight (unify)
+  const [dxfWarnings, setDxfWarnings] = useState<CadDxfImportWarning[]>([]);
   const dxfInputRef = useRef<HTMLInputElement | null>(null);
   const [showVersions, setShowVersions] = useState(false); // versions/scenarios modal (unify)
+  const [localSnapshots, setLocalSnapshots] = useState<CadSnapshotHistory<Snapshot>>({ snapshots: [] });
   const [versions, setVersions] = useState<{ id: string; name: string; createdAt: string; stationCount: number; assetCount: number }[]>([]);
   const [versName, setVersName] = useState('');
   const [versBusy, setVersBusy] = useState(false);
@@ -586,6 +617,13 @@ export default function Layout3DEditor({
   const [showClone, setShowClone] = useState(false); // clone-from-template modal
   const [cloneSrc, setCloneSrc] = useState('');
   const [cloneBusy, setCloneBusy] = useState(false);
+  const [showCommand, setShowCommand] = useState(false); // natural-language command dock (local function-calling scaffold)
+  const [showPalette, setShowPalette] = useState(false); // Cmd-K CAD palette (local registry/search)
+  const [paletteQuery, setPaletteQuery] = useState('');
+  const paletteOpenRef = useRef(false);
+  const [commandText, setCommandText] = useState('');
+  const [commandPreview, setCommandPreview] = useState<CommandPreviewState | null>(null);
+  const [commandLog, setCommandLog] = useState<CadCommandHistoryItem[]>([]);
   const [selList, setSelList] = useState<SelItem[]>([]);
   const [selSnap, setSelSnap] = useState<SelSnap | null>(null);
   const [placedIds, setPlacedIds] = useState<Set<string>>(new Set());
@@ -602,6 +640,11 @@ export default function Layout3DEditor({
   const [showView, setShowView] = useState(false);
   const [fpDraft, setFpDraft] = useState<{ w: number; h: number; g: number }>({ w: 0, h: 0, g: 0 });
   const [layers, setLayers] = useState({ stations: true, equipment: true, connectors: true, dims: true, notes: true, labels: true, grid: true, dxf: true });
+  const [cadLayers, setCadLayers] = useState<CadLayer[]>(DEFAULT_CAD_LAYERS);
+  const [layerAssignments, setLayerAssignments] = useState<CadLayerAssignments>({});
+  const cadLayersRef = useRef<CadLayer[]>(DEFAULT_CAD_LAYERS);
+  const layerAssignmentsRef = useRef<CadLayerAssignments>({});
+  const [objectTags, setObjectTags] = useState<Record<string, string>>({});
   const [hist, setHist] = useState({ undo: 0, redo: 0 }); // depths, for button enablement
   const [takeoff, setTakeoff] = useState<LocalTakeoff | null>(null); // quantities panel (null = closed)
   const [report, setReport] = useState<DesignReport | null>(null); // design-check report (null = closed) (Fase 63)
@@ -615,6 +658,7 @@ export default function Layout3DEditor({
   const [showHeat, setShowHeat] = useState(false); // occupancy heat-map overlay on the floor (Fase 51)
   const [arr, setArr] = useState({ cols: 3, rows: 1, gap: 500, dx: 1000, dy: 0 }); // array/offset params (Fase 55)
   const [showGaps, setShowGaps] = useState(false); // clearance/safety gap markers overlay (Fase 52)
+  useEffect(() => { paletteOpenRef.current = showPalette; }, [showPalette]);
 
   // three.js refs
   const sceneRef = useRef<THREE.Scene | null>(null);
@@ -708,6 +752,8 @@ export default function Layout3DEditor({
   }, []);
   useEffect(() => { applyLayersRef.current = applyLayers; }, [applyLayers]);
   useEffect(() => { layersRef.current = layers; applyLayers(); }, [layers, applyLayers]);
+  useEffect(() => { cadLayersRef.current = cadLayers; }, [cadLayers]);
+  useEffect(() => { layerAssignmentsRef.current = layerAssignments; }, [layerAssignments]);
 
   // close the view/layers popover when clicking outside it
   useEffect(() => {
@@ -835,7 +881,7 @@ export default function Layout3DEditor({
         setData(d);
         // fetch + parse the read-only DXF backdrop (the endpoint already serves
         // the raw drawing); render it on the floor once ready.
-        dxfModelRef.current = null; dxfMetaRef.current = null; dxfSnapRef.current = []; setHasDxf(false);
+        dxfModelRef.current = null; dxfMetaRef.current = null; dxfSnapRef.current = []; setHasDxf(false); setDxfWarnings([]);
         if (d.dxf) {
           try {
             const rd = await apiFetch(`${API_BASE}/line-engineering/layout/dxf?model=${encodeURIComponent(model)}&revision=${encodeURIComponent(revision)}`);
@@ -858,7 +904,7 @@ export default function Layout3DEditor({
 
   const snapWorld = useCallback((v: number) => {
     const g = data?.footprint.gridSize || 1;
-    return snapRef.current ? Math.round(v / g) * g : Math.round(v);
+    return snapRef.current ? snapScalarToGrid(v, g) : Math.round(v);
   }, [data]);
 
   // ---- (re)build the station blocks + connectors ----
@@ -1437,12 +1483,19 @@ export default function Layout3DEditor({
         const inSel = selRef.current.some((s) => sameSel(s, item));
         const items = inSel && selRef.current.length > 1 ? [...selRef.current] : [item];
         if (!inSel) select([item]);
+        if (isObjectLayerLocked(cadLayersRef.current, layerAssignmentsRef.current, item.id, item.type === 'station' ? 'layout' : 'equipment')) {
+          toast.error('El objeto está en una capa bloqueada. Desbloquea la capa para moverlo.', 'Capas');
+          rebuildAll();
+          return;
+        }
+        const unlockedItems = items.filter((it) => !isObjectLayerLocked(cadLayersRef.current, layerAssignmentsRef.current, it.id, it.type === 'station' ? 'layout' : 'equipment'));
+        if (unlockedItems.length !== items.length) toast.error('Algunos objetos no se moverán porque su capa está bloqueada.', 'Capas');
         raycaster.ray.intersectPlane(floorPlane, hit);
         const start = new Map<string, { x: number; y: number }>();
-        items.forEach((it) => { const p = getPlace(it); if (p) start.set(`${it.type}:${it.id}`, { x: p.x, y: p.y }); });
+        unlockedItems.forEach((it) => { const p = getPlace(it); if (p) start.set(`${it.type}:${it.id}`, { x: p.x, y: p.y }); });
         // Collect alignment candidates from every OTHER object + the footprint.
         const ctxD = ctxRef.current!;
-        const excl = new Set(items.map((it) => `${it.type}:${it.id}`));
+        const excl = new Set(unlockedItems.map((it) => `${it.type}:${it.id}`));
         const xEdges: number[] = [0, ctxD.W / 2, ctxD.W];
         const yEdges: number[] = [0, ctxD.H / 2, ctxD.H];
         placementsRef.current.forEach((p, id) => {
@@ -1453,7 +1506,7 @@ export default function Layout3DEditor({
           if (excl.has(`asset:${a.id}`)) return;
           xEdges.push(a.x, a.x + a.w / 2, a.x + a.w); yEdges.push(a.y, a.y + a.h / 2, a.y + a.h);
         });
-        drag = { lead: item, items, grabDX: top.obj.position.x - hit.x, grabDZ: top.obj.position.z - hit.z, start, xEdges, yEdges };
+        drag = { lead: item, items: unlockedItems, grabDX: top.obj.position.x - hit.x, grabDZ: top.obj.position.z - hit.z, start, xEdges, yEdges };
         dragMoved = false; dragSnap = snapshot();
         controls.enabled = false;
         rebuildAll();
@@ -1785,20 +1838,40 @@ export default function Layout3DEditor({
     select([{ type: 'station', id: st.id }]);
     setDirty(true); rebuildAll();
   };
-  const addAsset = (kind: string) => {
-    const ctx = ctxRef.current; if (!ctx) return;
+  const addAsset = (kind: string, overrides?: { label?: string; w?: number; h?: number }) => {
+    const ctx = ctxRef.current; if (!ctx) return null;
     pushHistory();
     const def = assetMeta(kind);
-    const x = snapWorld(ctx.W / 2 - def.w / 2);
-    const y = snapWorld(ctx.H / 2 - def.h / 2);
+    const w = overrides?.w ?? def.w; const h = overrides?.h ?? def.h;
+    const x = snapWorld(ctx.W / 2 - w / 2);
+    const y = snapWorld(ctx.H / 2 - h / 2);
     const id = newId('as');
-    assetsRef.current.set(id, { id, kind, x, y, w: def.w, h: def.h, rotation: 0 });
+    assetsRef.current.set(id, { id, kind, x, y, w, h, rotation: 0, label: overrides?.label });
     setAssetIds((prev) => new Set(prev).add(id));
     select([{ type: 'asset', id }]);
     setDirty(true); rebuildAll();
+    return id;
   };
+  const addCadSymbol = (symbolId: string) => {
+    const symbol = getCadSymbol(symbolId);
+    if (!symbol) return;
+    const kindBySymbol: Record<string, string> = {
+      'smt-line': 'conveyor', inspection: 'machine', aoi: 'aoi', 'warehouse-rack': 'rack', packing: 'workbench', 'forklift-path': 'agvpath', 'operator-station': 'operator', 'esd-area': 'zone', 'safety-zone': 'zone', conveyor: 'conveyor', 'test-station': 'machine', 'rework-station': 'workbench',
+    };
+    const kind = kindBySymbol[symbol.id] ?? 'machine';
+    const id = addAsset(kind, { label: symbol.label, w: symbol.defaultWidth, h: symbol.defaultHeight });
+    if (id) toast.success(`${symbol.label} agregado al layout.`, 'Símbolos CAD');
+  };
+  const fallbackLayerForItem = (item: SelItem): CadLayerId => item.type === 'station' ? 'layout' : 'equipment';
+  const isItemLayerLocked = (item: SelItem) => isObjectLayerLocked(cadLayersRef.current, layerAssignmentsRef.current, item.id, fallbackLayerForItem(item));
+  const editableItems = (items: SelItem[], action: string) => {
+    const locked = items.filter(isItemLayerLocked);
+    if (locked.length) toast.error(`${locked.length} objeto(s) omitido(s): su capa está bloqueada para ${action}.`, 'Capas');
+    return items.filter((item) => !isItemLayerLocked(item));
+  };
+
   const removeSelected = () => {
-    const items = selRef.current; if (!items.length) return;
+    const items = editableItems(selRef.current, 'eliminar'); if (!items.length) return;
     pushHistory();
     let delSt = false, delAs = false;
     items.forEach((it) => {
@@ -1810,13 +1883,13 @@ export default function Layout3DEditor({
     select([]); setDirty(true); rebuildAll();
   };
   const rotateSelected = (deg: number) => {
-    const items = selRef.current; if (!items.length) return;
+    const items = editableItems(selRef.current, 'rotar'); if (!items.length) return;
     pushHistory();
     items.forEach((it) => { const p = getPlaceRef(it); if (p) p.rotation = (((p.rotation + deg) % 360) + 360) % 360; });
     setDirty(true); refreshSnap(); rebuildAll();
   };
   const duplicateSelected = () => {
-    const assets = selRef.current.filter((s) => s.type === 'asset');
+    const assets = editableItems(selRef.current.filter((s) => s.type === 'asset'), 'duplicar');
     if (!assets.length) return;
     const ctx = ctxRef.current!;
     const off = data?.footprint.gridSize || 200;
@@ -1947,6 +2020,9 @@ export default function Layout3DEditor({
     try {
       const text = await file.text();
       if (text.length > 12_000_000) { toast.error('El DXF supera 12 MB.', '3D'); return; }
+      const importPreview = importDxfPrimitives(text);
+      setDxfWarnings(importPreview.warnings);
+      if (importPreview.warnings.length) toast.error(`DXF cargado con ${importPreview.warnings.length} advertencia(s); revisa el panel DXF para detalles.`, 'DXF');
       const dxfModel = parseDxf(text);
       if (!dxfModel) { toast.error('No se reconocieron líneas en el DXF.', '3D'); return; }
       const res = await apiFetch(`${API_BASE}/line-engineering/layout/dxf`, {
@@ -1973,7 +2049,7 @@ export default function Layout3DEditor({
     try {
       const res = await apiFetch(`${API_BASE}/line-engineering/layout/dxf?model=${encodeURIComponent(model)}&revision=${encodeURIComponent(revision)}`, { method: 'DELETE' });
       if (!res.ok) { toast.error('No se pudo quitar el DXF.', '3D'); return; }
-      dxfModelRef.current = null; dxfMetaRef.current = null; dxfSnapRef.current = []; setHasDxf(false);
+      dxfModelRef.current = null; dxfMetaRef.current = null; dxfSnapRef.current = []; setHasDxf(false); setDxfWarnings([]);
       rebuildDxfRef.current(); setDirty(true);
       toast.success('Plano DXF quitado.', '3D');
     } catch { toast.error('Error de red.', '3D'); }
@@ -1989,6 +2065,29 @@ export default function Layout3DEditor({
     } catch { /* transient */ }
   };
   const openVersions = () => { setShowVersions(true); loadVersions(); };
+
+  const saveLocalSnapshot = (reason: 'manual' | 'command' | 'import' | 'restore' = 'manual') => {
+    const label = versName.trim() || `Local ${localSnapshots.snapshots.length + 1}`;
+    const snap = createCadSnapshot(snapshot(), label, reason, `local-${Date.now()}`);
+    setLocalSnapshots((history) => pushCadSnapshot(history, snap, 20));
+    setVersName('');
+    toast.success('Snapshot local guardado en esta sesión.', 'Snapshots CAD');
+  };
+  const restoreLocalSnapshot = (id: string) => {
+    const restored = restoreCadSnapshot(localSnapshots, id);
+    if (!restored.layout) { toast.error('No se encontró el snapshot local.', 'Snapshots CAD'); return; }
+    pushHistory();
+    restore(restored.layout);
+    setLocalSnapshots(restored.history);
+    setShowVersions(false);
+    toast.success('Snapshot local restaurado.', 'Snapshots CAD');
+  };
+  const deleteLocalSnapshot = (id: string) => {
+    setLocalSnapshots((history) => ({
+      activeId: history.activeId === id ? undefined : history.activeId,
+      snapshots: history.snapshots.filter((item) => item.id !== id),
+    }));
+  };
   const saveVersion = async () => {
     if (!model) return;
     setVersBusy(true);
@@ -2086,7 +2185,7 @@ export default function Layout3DEditor({
     commitCreated(created, 'copia(s) en arreglo.');
   };
   const mirrorAssets = (axis: 'h' | 'v') => {
-    const sel = selRef.current.filter((s) => s.type === 'asset');
+    const sel = editableItems(selRef.current.filter((s) => s.type === 'asset'), 'crear espejos');
     if (!sel.length) return;
     const ctx = ctxRef.current!;
     pushHistory();
@@ -2103,7 +2202,7 @@ export default function Layout3DEditor({
     commitCreated(created, 'copia(s) en espejo.');
   };
   const offsetAssets = (dx: number, dy: number) => {
-    const sel = selRef.current.filter((s) => s.type === 'asset');
+    const sel = editableItems(selRef.current.filter((s) => s.type === 'asset'), 'crear copias desfasadas');
     const ox = Math.round(dx) || 0, oy = Math.round(dy) || 0;
     if (!sel.length || (ox === 0 && oy === 0)) return;
     const ctx = ctxRef.current!;
@@ -2118,7 +2217,7 @@ export default function Layout3DEditor({
     commitCreated(created, 'copia(s) desfasada(s).');
   };
   const nudgeSelected = (dx: number, dy: number) => {
-    const items = selRef.current; const ctx = ctxRef.current; if (!items.length || !ctx) return;
+    const items = editableItems(selRef.current, 'mover'); const ctx = ctxRef.current; if (!items.length || !ctx) return;
     pushHistory();
     // clamp the group delta so everything stays in bounds
     let dxLo = -Infinity, dxHi = Infinity, dyLo = -Infinity, dyHi = Infinity;
@@ -2128,7 +2227,8 @@ export default function Layout3DEditor({
     setDirty(true); refreshSnap(); rebuildAll();
   };
   const setField = (field: 'x' | 'y' | 'w' | 'h' | 'rotation', value: number) => {
-    const cur = selRef.current[0]; if (!cur) return;
+    const cur = selList[0]; if (!cur) return;
+    if (isItemLayerLocked(cur)) { toast.error('La capa del objeto está bloqueada. Desbloquéala para editar propiedades.', 'Capas'); return; }
     const p = cur.type === 'station' ? placementsRef.current.get(cur.id) : assetsRef.current.get(cur.id);
     const ctx = ctxRef.current; if (!p || !ctx) return;
     const v = Number.isFinite(value) ? value : 0;
@@ -2141,7 +2241,7 @@ export default function Layout3DEditor({
   };
   // Align the selected objects to the selection's bounding box (≥2 objects).
   const alignSelected = (mode: 'left' | 'right' | 'top' | 'bottom' | 'cx' | 'cy') => {
-    const places = selRef.current.map(getPlaceRef).filter(Boolean) as Placement[];
+    const places = editableItems(selRef.current, 'alinear').map(getPlaceRef).filter(Boolean) as Placement[];
     if (places.length < 2) return;
     pushHistory();
     const minX = Math.min(...places.map((p) => p.x)), maxX = Math.max(...places.map((p) => p.x + p.w));
@@ -2161,7 +2261,7 @@ export default function Layout3DEditor({
   // first and last fixed and evens the edge-to-edge spacing between the rest —
   // the standard "distribute" that align (above) doesn't do. Needs >= 3 objects.
   const distributeSelected = (axis: 'h' | 'v') => {
-    const places = selRef.current.map(getPlaceRef).filter(Boolean) as Placement[];
+    const places = editableItems(selRef.current, 'distribuir').map(getPlaceRef).filter(Boolean) as Placement[];
     if (places.length < 3) return;
     const ctx = ctxRef.current!;
     pushHistory();
@@ -2179,6 +2279,123 @@ export default function Layout3DEditor({
       cursor += size(p) + gap;
     });
     setDirty(true); refreshSnap(); rebuildAll();
+  };
+  const buildCommandContext = () => ({
+    unit: data?.footprint.unit || 'mm',
+    footprintW: data?.footprint.footprintW || ctxRef.current?.W || 0,
+    footprintH: data?.footprint.footprintH || ctxRef.current?.H || 0,
+    selectedIds: selRef.current.map((it) => it.id),
+    connectors: connectorsRef.current.map((c) => ({ ...c })),
+    objects: [
+      ...[...placementsRef.current.entries()].map(([id, p]) => {
+        const st = stationsByIdRef.current.get(id);
+        return { id, type: 'station' as const, label: st?.station ?? id, x: p.x, y: p.y, w: p.w, h: p.h, rotation: p.rotation, sequence: data?.stations.findIndex((s) => s.id === id) ?? 0 };
+      }),
+      ...[...assetsRef.current.values()].map((a) => ({ id: a.id, type: 'asset' as const, label: a.label || assetMeta(a.kind).label, x: a.x, y: a.y, w: a.w, h: a.h, rotation: a.rotation })),
+    ],
+  });
+  const interpretCommand = () => {
+    const raw = commandText.trim();
+    if (!raw) return;
+    const parsed = parseCadCommand(raw);
+    if (!parsed.ok || !parsed.input) {
+      toast.error(parsed.clarification || parsed.error || 'No reconocí el comando CAD.', 'Comando CAD');
+      setCommandPreview(null);
+      return;
+    }
+    const preview = previewCadCommand(parsed.input, buildCommandContext());
+    setCommandPreview({ input: parsed.input, preview });
+    setCommandLog((items) => [createCadHistoryItem(parsed.input!, 'previewed', preview.summary, preview), ...items].slice(0, 12));
+  };
+  const applyCommandOperation = (op: CadOperation) => {
+    if (op.type === 'move') {
+      const type = placementsRef.current.has(op.objectId) ? 'station' : assetsRef.current.has(op.objectId) ? 'asset' : null;
+      if (type && isItemLayerLocked({ type, id: op.objectId })) {
+        toast.error(`Movimiento omitido: ${op.objectId} está en una capa bloqueada.`, 'Capas');
+        return false;
+      }
+      const p = placementsRef.current.get(op.objectId);
+      if (p) { p.x = op.after.x; p.y = op.after.y; p.w = op.after.w; p.h = op.after.h; p.rotation = op.after.rotation ?? p.rotation; return true; }
+      const a = assetsRef.current.get(op.objectId);
+      if (a) { a.x = op.after.x; a.y = op.after.y; a.w = op.after.w; a.h = op.after.h; a.rotation = op.after.rotation ?? a.rotation; return true; }
+    } else if (op.type === 'connect') {
+      if (!connectorsRef.current.some((c) => c.from === op.from && c.to === op.to && (c.kind ?? 'flow') === op.kind)) connectorsRef.current = [...connectorsRef.current, { from: op.from, to: op.to, kind: op.kind }];
+      return true;
+    } else if (op.type === 'focus') {
+      const items: SelItem[] = op.objectIds.map((id) => placementsRef.current.has(id) ? { type: 'station' as const, id } : assetsRef.current.has(id) ? { type: 'asset' as const, id } : null).filter((it): it is SelItem => !!it);
+      if (items.length) select(items);
+    }
+    return false;
+  };
+  const applyCommand = () => {
+    if (!commandPreview) return;
+    const result = executeCadCommand(commandPreview.input, buildCommandContext());
+    if (!result.applied) {
+      toast.error(result.issues.find((i) => i.level === 'error')?.message || 'El comando no es válido.', 'Comando CAD');
+      setCommandLog((items) => [createCadHistoryItem(commandPreview.input, 'failed', result.historyLabel, commandPreview.preview, result), ...items].slice(0, 12));
+      return;
+    }
+    const mutates = result.operations.some((op) => op.type === 'move' || op.type === 'connect');
+    if (mutates) pushHistory();
+    const changed = result.operations.some(applyCommandOperation);
+    setCommandLog((items) => [createCadHistoryItem(commandPreview.input, 'applied', result.historyLabel, commandPreview.preview, result), ...items].slice(0, 12));
+    if (changed) { setDirty(true); refreshSnap(); rebuildAll(); }
+    setCommandPreview(null); setCommandText('');
+    toast.success(result.historyLabel, 'Comando CAD');
+  };
+  const undoLastCommand = () => {
+    const item = commandLog.find((c) => c.status === 'applied');
+    if (!item || hist.undo === 0) return;
+    undo();
+    setCommandLog((items) => items.map((c) => c.id === item.id ? { ...c, status: 'undone' } : c));
+    toast.success(`Deshecho: ${item.label}`, 'Comando CAD');
+  };
+  const redoLastCommand = () => {
+    const item = commandLog.find((c) => c.status === 'undone');
+    if (!item || hist.redo === 0) return;
+    redo();
+    setCommandLog((items) => items.map((c) => c.id === item.id ? { ...c, status: 'applied' } : c));
+    toast.success(`Rehecho: ${item.label}`, 'Comando CAD');
+  };
+  const toggleCadLayerVisibility = (id: CadLayerId) => {
+    setCadLayers((cur) => toggleCadLayerVisible(cur, id));
+    if (id === 'layout') setLayers((cur) => ({ ...cur, stations: !cur.stations }));
+    else if (id === 'equipment') setLayers((cur) => ({ ...cur, equipment: !cur.equipment }));
+    else if (id === 'flow') setLayers((cur) => ({ ...cur, connectors: !cur.connectors }));
+    else if (id === 'measurements') setLayers((cur) => ({ ...cur, dims: !cur.dims }));
+  };
+  const assignSelectionToCadLayer = (id: CadLayerId) => {
+    const ids = selRef.current.map((it) => it.id);
+    if (!ids.length) { toast.error('Selecciona objetos para asignarlos a una capa.', 'Capas'); return; }
+    setLayerAssignments((cur) => assignObjectsToLayer(cur, ids, id));
+    toast.success(`${ids.length} objeto(s) asignados a ${cadLayers.find((l) => l.id === id)?.label ?? id}.`, 'Capas');
+  };
+  const defaultLayerFor = (item: SelItem): CadLayerId => item.type === 'station' ? 'layout' : 'equipment';
+  const selectionLayer = (item: SelItem): CadLayerId => layerAssignments[item.id] ?? defaultLayerFor(item);
+  const setSelectionLayer = (item: SelItem, layerId: CadLayerId) => setLayerAssignments((cur) => assignObjectsToLayer(cur, [item.id], layerId));
+  const runToolbarAction = (id: CadToolbarActionId) => {
+    if (id === 'select' || id === 'pan') setToolMode('select');
+    else if (id === 'measure') setToolMode('measure');
+    else if (id === 'aisle') { setShowCommand(true); setCommandText('haz un pasillo de 1.2m entre '); }
+    else if (id === 'connector') connectLineLayout();
+    else if (id === 'zone') { setTab('equipment'); addAsset('zone'); }
+    else if (id === 'equipment') setTab('equipment');
+    else if (id === 'text') addNote();
+    else if (id === 'fit_view') viewPreset('iso');
+    else if (id === 'undo') undo();
+    else if (id === 'redo') redo();
+  };
+  const runPaletteEntry = (entry: CadPaletteEntry) => {
+    setShowPalette(false); setPaletteQuery('');
+    if (entry.kind === 'tool') { runToolbarAction(entry.id as CadToolbarActionId); return; }
+    if (entry.kind === 'command') {
+      const example = entry.keywords.find((kw) => kw.includes(' ')) ?? entry.label;
+      setShowCommand(true); setCommandText(example);
+      toast.success('Comando cargado en el Copiloto CAD para preview.', 'Cmd-K CAD');
+      return;
+    }
+    setTab('equipment');
+    toast.success(`${entry.label} listo en biblioteca de símbolos.`, 'Cmd-K CAD');
   };
   const selectAll = () => {
     const items: SelItem[] = [
@@ -2315,17 +2532,32 @@ export default function Layout3DEditor({
   };
   const exportDxf = async () => {
     try {
-      const r = await apiFetch(`${API_BASE}/line-engineering/layout/dxf-export?model=${encodeURIComponent(model)}&revision=${encodeURIComponent(revision)}`);
-      if (!r.ok) { toast.error('No se pudo exportar el DXF.', 'DXF'); return; }
-      const d = (await r.json()) as { filename: string; dxf: string };
-      const blob = new Blob([d.dxf], { type: 'application/dxf' });
+      const centerFor = (id: string): { x: number; y: number } | null => {
+        const p = placementsRef.current.get(id);
+        if (p) return { x: p.x, y: p.y };
+        const asset = assetsRef.current.get(id);
+        if (asset) return { x: asset.x, y: asset.y };
+        return null;
+      };
+      const boxes = [
+        ...[...placementsRef.current.entries()].map(([id, p]) => ({ id, label: stationsByIdRef.current.get(id)?.station ?? id, x: p.x, y: p.y, width: p.w, height: p.h, layer: 'Layout' })),
+        ...[...assetsRef.current.values()].map((asset) => ({ id: asset.id, label: asset.label || assetMeta(asset.kind).label, x: asset.x, y: asset.y, width: asset.w, height: asset.h, layer: 'Equipment' })),
+      ];
+      const connectors = connectorsRef.current.map((conn) => {
+        const from = centerFor(conn.from); const to = centerFor(conn.to);
+        return from && to ? { from, to, layer: 'Flow' } : null;
+      }).filter((conn): conn is { from: { x: number; y: number }; to: { x: number; y: number }; layer: string } => !!conn);
+      const labels = [...annotationsRef.current.values()].filter((ann) => ann.type === 'text').map((ann) => ({ text: ann.text || 'Nota', x: ann.x, y: ann.y, layer: 'Text' }));
+      const measurements = [...annotationsRef.current.values()].filter((ann) => ann.type === 'dim' && ann.x2 != null && ann.y2 != null).map((ann) => ({ from: { x: ann.x, y: ann.y }, to: { x: ann.x2!, y: ann.y2! }, label: ann.text, layer: 'Measurements' }));
+      const exported = exportCadLayoutDxf({ boxes, connectors, labels, measurements }, { units: data?.footprint.unit === 'm' ? 'm' : 'mm', fileComment: `AXOS CAD ${model} ${revision}` });
+      const blob = new Blob([exported.content], { type: 'application/dxf' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = d.filename || `layout-${model}-${revision}.dxf`.replace(/[^\w.\-]+/g, '_');
+      a.download = `layout-${model}-${revision}.dxf`.replace(/[^\w.\-]+/g, '_');
       a.click();
       URL.revokeObjectURL(url);
-      toast.success('Layout exportado a DXF (AutoCAD).', 'DXF');
+      toast.success(`Layout exportado a DXF (${exported.entityCount} entidades).`, 'DXF');
     } catch { toast.error('No se pudo exportar el DXF.', 'DXF'); }
   };
   const save = async () => {
@@ -2360,13 +2592,16 @@ export default function Layout3DEditor({
     const onKey = (e: KeyboardEvent) => {
       const tgt = e.target as HTMLElement | null;
       if (tgt && (tgt.tagName === 'INPUT' || tgt.tagName === 'TEXTAREA' || tgt.isContentEditable)) return;
+      const cadShortcut = matchCadShortcut(e);
+      if (cadShortcut?.id === 'palette') { e.preventDefault(); setShowPalette(true); return; }
       // in walkthrough mode WASD/look take over; only Esc (exit) reaches here
       if (walkRef.current) { if (e.key === 'Escape') { e.preventDefault(); toggleWalk(); } return; }
       const g = data?.footprint.gridSize || 100;
       const step = e.shiftKey ? g * 5 : g;
       const hasSel = selRef.current.length > 0;
       if (e.key === 'Escape') {
-        if (toolRef.current !== 'select') { endDraw(); setTool('select'); toolRef.current = 'select'; }
+        if (paletteOpenRef.current) { setShowPalette(false); setPaletteQuery(''); }
+        else if (toolRef.current !== 'select') { endDraw(); setTool('select'); toolRef.current = 'select'; }
         else if (hasSel) { select([]); rebuildAll(); }
         else onClose();
       }
@@ -2391,9 +2626,11 @@ export default function Layout3DEditor({
 
   if (!open || typeof document === 'undefined') return null;
 
+  const paletteResults = searchCadPalette(paletteQuery).slice(0, 9);
   const tray = (data?.stations ?? []).filter((s) => !placedIds.has(s.id));
   const placedCount = placedIds.size;
   const assetCount = assetIds.size;
+  const dxfWarningSummary = summarizeDxfImportWarnings(dxfWarnings).slice(0, 6);
 
   // Portal to <body> so the full-screen overlay escapes the editor's glass
   // container (backdrop-filter would otherwise be the containing block for our
@@ -2459,6 +2696,18 @@ export default function Layout3DEditor({
                   {lbl}
                 </label>
               ))}
+              <div className="text-[10px] uppercase tracking-wide text-gray-500 mt-2.5 mb-1.5">Capas CAD</div>
+              <div className="space-y-1">
+                {cadLayers.map((layer) => (
+                  <div key={layer.id} className="flex items-center gap-1.5 rounded-lg bg-white/[0.04] px-2 py-1">
+                    <button onClick={() => toggleCadLayerVisibility(layer.id)} className={`w-2.5 h-2.5 rounded-full ${layer.visible ? '' : 'opacity-30'}`} style={{ background: layer.color }} title={layer.visible ? 'Ocultar capa' : 'Mostrar capa'} />
+                    <span className={`min-w-0 flex-1 truncate ${layer.visible ? 'text-gray-200' : 'text-gray-500'}`}>{layer.label}</span>
+                    <button onClick={() => setCadLayers((cur) => toggleCadLayerLocked(cur, layer.id))} className={`text-[10px] ${layer.locked ? 'text-amber-300' : 'text-gray-500'}`}>{layer.locked ? 'Lock' : 'Open'}</button>
+                    <button onClick={() => assignSelectionToCadLayer(layer.id)} className="text-[10px] text-cyan-300 hover:text-cyan-100">Asignar</button>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-1 text-[10px] text-gray-500">{Object.keys(layerAssignments).length} objeto(s) con capa asignada.</div>
               <div className="text-[10px] uppercase tracking-wide text-gray-500 mt-2.5 mb-1.5">Tema</div>
               <div className="grid grid-cols-2 gap-1.5">
                 {(Object.keys(THEMES) as Theme3D[]).map((t) => (
@@ -2488,6 +2737,7 @@ export default function Layout3DEditor({
         <T3Btn onClick={arrangeLineLayout} title="Acomodar la línea — ordena las estaciones por secuencia en filas equiespaciadas"><Rows3 className="w-4 h-4" /></T3Btn>
         <T3Btn onClick={connectLineLayout} title="Conectar la línea — enlaza cada estación con la siguiente en secuencia (flujo)"><Waypoints className="w-4 h-4" /></T3Btn>
         <T3Btn onClick={runOptimize} disabled={serverBusy} title="Optimizar flujo — reordena para minimizar el recorrido (servidor)"><WandSparkles className="w-4 h-4" /></T3Btn>
+        <T3Btn active={showCommand} onClick={() => setShowCommand((v) => !v)} title="Comandos en lenguaje natural — scaffold local para function calling"><ChevronRight className="w-4 h-4" /></T3Btn>
         <T3Btn onClick={openChecks} title="Revisión de diseño — valida colocación, límites, traslapes y flujo"><ShieldCheck className="w-4 h-4" /></T3Btn>
         <T3Btn onClick={openTakeoff} title="Cantidades / lista de materiales"><ClipboardList className="w-4 h-4" /></T3Btn>
         <div className="relative" ref={analysisMenuRef}>
@@ -2510,6 +2760,12 @@ export default function Layout3DEditor({
         {hasDxf && <T3Btn onClick={removeDxf} disabled={dxfBusy} title="Quitar el plano DXF de fondo"><ImageOff className="w-4 h-4" /></T3Btn>}
         <T3Btn onClick={exportDxf} title="Exportar a DXF (AutoCAD) — cada tipo en su capa"><FileDown className="w-4 h-4" /></T3Btn>
         <T3Btn onClick={exportCsvSchedule} title="Exportar estaciones a CSV (Excel)"><FileText className="w-4 h-4" /></T3Btn>
+        {dxfWarnings.length > 0 && (
+          <div className="ml-1 inline-flex items-center gap-1 rounded-lg border border-amber-400/20 bg-amber-400/10 px-2 py-1 text-[11px] text-amber-100" title="Advertencias del último DXF importado">
+            <CircleAlert className="h-3.5 w-3.5" />
+            DXF {dxfWarnings.length}
+          </div>
+        )}
         <T3Btn active={showVersions} onClick={openVersions} title="Versiones / escenarios — guardar, restaurar"><History className="w-4 h-4" /></T3Btn>
         <T3Btn active={showCells} onClick={() => setShowCells((v) => !v)} title="Celdas / zonas — agrupar estaciones en celdas"><Group className="w-4 h-4" /></T3Btn>
         {models.length > 1 && <T3Btn active={showClone} onClick={() => setShowClone((v) => !v)} title="Clonar layout desde otro modelo (plantilla)"><Copy className="w-4 h-4" /></T3Btn>}
@@ -2539,6 +2795,71 @@ export default function Layout3DEditor({
         <div className="flex flex-1 min-h-0">
           {/* left: stations tray + equipment palette */}
           <div className="w-60 shrink-0 border-r border-white/10 bg-gray-900/60 flex flex-col">
+            {showCommand && (
+              <div className="border-b border-cyan-400/20 bg-cyan-400/[0.06] p-3">
+                <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-cyan-200">
+                  <WandSparkles className="w-3.5 h-3.5" /> Copiloto CAD local
+                </div>
+                <p className="mt-1 text-[11px] leading-snug text-gray-400">
+                  Interpreta comandos determinísticos hoy; mañana un modelo OpenAI-compatible puede llamar estas mismas acciones.
+                </p>
+                <form className="mt-2 flex gap-1.5" onSubmit={(e) => { e.preventDefault(); interpretCommand(); }}>
+                  <input
+                    value={commandText}
+                    onChange={(e) => setCommandText(e.target.value)}
+                    placeholder="pasillo 1.2 entre SMT e inspección"
+                    className="min-w-0 flex-1 rounded-lg border border-white/10 bg-gray-950/70 px-2 py-1.5 text-[12px] text-white placeholder:text-gray-600 outline-none focus:border-cyan-400/60"
+                  />
+                  <button type="submit" className="rounded-lg bg-cyan-500 px-2.5 py-1.5 text-[12px] font-semibold text-white hover:bg-cyan-400">Preview</button>
+                </form>
+                {commandPreview && (
+                  <div className="mt-2 rounded-xl border border-white/10 bg-gray-950/70 p-2">
+                    <div className="text-[11px] font-semibold text-white">{commandPreview.preview.summary}</div>
+                    <div className="mt-1 text-[10.5px] text-gray-400">{commandPreview.preview.affectedObjectIds.length} objeto(s) · {commandPreview.preview.operations.length} operación(es)</div>
+                    {commandPreview.preview.operations.slice(0, 3).map((op, idx) => (
+                      <div key={`${op.type}-${idx}`} className="mt-1 rounded-md bg-white/[0.04] px-1.5 py-1 text-[10.5px] text-gray-300">
+                        {op.type === 'report' ? (
+                          <div>
+                            <div className="font-semibold text-cyan-100">{op.title}</div>
+                            {op.rows.slice(0, 3).map((row) => <div key={`${row.label}-${row.value}`} className="mt-0.5 flex justify-between gap-2 text-gray-400"><span className="truncate">{row.label}</span><span className="shrink-0 text-gray-200">{row.value}</span></div>)}
+                          </div>
+                        ) : op.type === 'move' ? `Mover ${op.objectId} → (${Math.round(op.after.x)}, ${Math.round(op.after.y)})` : op.type === 'connect' ? `Conectar ${op.from} → ${op.to}` : op.type === 'measure' ? `Medir ${Math.round(op.distance)} ${op.unit}` : op.type === 'focus' ? `Enfocar ${op.objectIds.length || 'todo'}` : ''}
+                      </div>
+                    ))}
+                    {commandPreview.preview.issues.slice(0, 2).map((issue) => (
+                      <div key={`${issue.code}-${issue.message}`} className={`mt-1 text-[10.5px] ${issue.level === 'error' ? 'text-rose-300' : issue.level === 'warning' ? 'text-amber-300' : 'text-cyan-200'}`}>{issue.message}</div>
+                    ))}
+                    <div className="mt-2 flex gap-1.5">
+                      <button onClick={applyCommand} className="rounded-lg bg-emerald-500 px-2 py-1 text-[11px] font-semibold text-white hover:bg-emerald-400">Aplicar</button>
+                      <button onClick={() => setCommandPreview(null)} className="rounded-lg border border-white/10 px-2 py-1 text-[11px] text-gray-300 hover:bg-white/10">Cancelar</button>
+                      <button onClick={() => setCommandPreview(null)} className="rounded-lg border border-white/10 px-2 py-1 text-[11px] text-gray-300 hover:bg-white/10">Editar</button>
+                    </div>
+                  </div>
+                )}
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {['alinear centro', 'distribuir horizontal', 'conectar flujo'].map((hint) => (
+                    <button key={hint} onClick={() => setCommandText(hint)} className="rounded-full border border-white/10 px-2 py-0.5 text-[10.5px] text-gray-300 hover:border-cyan-400/50 hover:text-cyan-100">{hint}</button>
+                  ))}
+                </div>
+                {commandLog.length > 0 && (
+                  <div className="mt-2 space-y-1">
+                    <div className="flex items-center justify-between text-[10px] uppercase tracking-wide text-gray-500">
+                      <span>Historial</span>
+                      <span>{commandLog.length}</span>
+                    </div>
+                    <div className="flex gap-1.5">
+                      <button onClick={undoLastCommand} disabled={!commandLog.some((c) => c.status === 'applied') || hist.undo === 0} className="flex-1 rounded-lg border border-white/10 px-2 py-1 text-[10.5px] text-gray-300 disabled:opacity-40 hover:bg-white/10">Deshacer cmd</button>
+                      <button onClick={redoLastCommand} disabled={!commandLog.some((c) => c.status === 'undone') || hist.redo === 0} className="flex-1 rounded-lg border border-white/10 px-2 py-1 text-[10.5px] text-gray-300 disabled:opacity-40 hover:bg-white/10">Rehacer cmd</button>
+                    </div>
+                    {commandLog.slice(0, 3).map((item) => (
+                      <div key={item.id} className="rounded-lg bg-white/[0.04] px-2 py-1 text-[10.5px] text-gray-300">
+                        <span className={item.status === 'failed' ? 'text-rose-300' : item.status === 'applied' ? 'text-emerald-300' : 'text-cyan-200'}>{item.status}</span> · {item.label}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
             <div className="flex shrink-0 text-[12px] font-medium border-b border-white/10">
               <button onClick={() => setTab('stations')} className={`flex-1 px-3 py-2 inline-flex items-center justify-center gap-1.5 ${tab === 'stations' ? 'text-white bg-white/[0.06]' : 'text-gray-400 hover:text-gray-200'}`}><MapPin className="w-3.5 h-3.5" /> Estaciones</button>
               <button onClick={() => setTab('equipment')} className={`flex-1 px-3 py-2 inline-flex items-center justify-center gap-1.5 ${tab === 'equipment' ? 'text-white bg-white/[0.06]' : 'text-gray-400 hover:text-gray-200'}`}><Boxes className="w-3.5 h-3.5" /> Equipo</button>
@@ -2558,6 +2879,15 @@ export default function Layout3DEditor({
                 </>
               ) : (
                 <>
+                  <div className="text-[11px] uppercase tracking-wide text-gray-400 mb-2">Biblioteca CAD industrial</div>
+                  <div className="grid grid-cols-2 gap-1.5 mb-3">
+                    {CAD_SYMBOL_LIBRARY.slice(0, 12).map((symbol) => (
+                      <button key={symbol.id} onClick={() => addCadSymbol(symbol.id)} title={`Agregar ${symbol.label}`} className="rounded-lg bg-cyan-400/[0.08] px-2 py-1.5 text-left text-[11px] text-cyan-100 hover:bg-cyan-400/[0.14]">
+                        <span className="block truncate font-semibold">{symbol.label}</span>
+                        <span className="block truncate text-[10px] text-cyan-200/70">{symbol.layer}</span>
+                      </button>
+                    ))}
+                  </div>
                   <div className="text-[11px] uppercase tracking-wide text-gray-400 mb-2">Agregar equipo</div>
                   {ASSET_CATEGORIES.map((cat) => (
                     <div key={cat.category} className="mb-3">
@@ -2597,6 +2927,23 @@ export default function Layout3DEditor({
                 <span className="inline-flex items-center gap-1"><span className="inline-block w-3 h-2 rounded-sm" style={{ background: '#ef4444' }} /> traslape</span>
               </div>
             )}
+            {dxfWarnings.length > 0 && (
+              <div className="absolute right-3 top-16 z-20 w-80 rounded-2xl border border-amber-400/20 bg-gray-950/90 p-3 shadow-2xl backdrop-blur">
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <div className="inline-flex items-center gap-2 text-[12px] font-semibold text-amber-100"><CircleAlert className="h-4 w-4" />Advertencias DXF</div>
+                  <button onClick={() => setDxfWarnings([])} className="rounded-md px-1.5 py-0.5 text-[11px] text-gray-400 hover:bg-white/10 hover:text-white">Ocultar</button>
+                </div>
+                <div className="mb-2 text-[11px] text-gray-400">Se cargó el plano; estas entidades se ignoraron o simplificaron localmente.</div>
+                <div className="max-h-44 space-y-1 overflow-y-auto">
+                  {dxfWarningSummary.map((warning) => (
+                    <div key={warning.key} className="rounded-lg bg-white/[0.04] px-2 py-1.5 text-[11px]">
+                      <div className="flex items-center justify-between gap-2 text-amber-100"><span className="truncate">{warning.message}</span><span className="shrink-0 rounded bg-amber-400/15 px-1.5 py-0.5">×{warning.count}</span></div>
+                      <div className="mt-0.5 text-[10px] text-gray-500">{warning.entityType ?? warning.code}{warning.layer ? ` · capa ${warning.layer}` : ''}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             {walk && (
               <div className="absolute top-3 left-1/2 -translate-x-1/2 px-3 py-1.5 rounded-full bg-emerald-500/95 text-white text-[12px] font-semibold inline-flex items-center gap-1.5 pointer-events-none">
                 <PersonStanding className="w-3.5 h-3.5" /> Recorrido · arrastra para mirar · WASD para caminar · Esc para salir
@@ -2617,6 +2964,36 @@ export default function Layout3DEditor({
                   : tool === 'wall'
                     ? 'Clic en cada esquina para trazar muros · Shift = ángulos de 45° · arrastra el fondo para orbitar · Esc termina'
                     : 'Arrastra para mover · Shift+clic multiselecciona · fondo = orbitar · rueda = zoom · R rota · Supr borra'}
+            </div>
+            {showPalette && (
+              <div className="absolute top-3 right-3 z-30 w-[22rem] rounded-2xl border border-cyan-400/20 bg-gray-950/95 p-3 shadow-2xl backdrop-blur">
+                <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-2.5 py-2">
+                  <Search className="h-4 w-4 text-cyan-200" />
+                  <input autoFocus value={paletteQuery} onChange={(e) => setPaletteQuery(e.target.value)} onKeyDown={(e) => { if (e.key === 'Escape') { e.preventDefault(); setShowPalette(false); setPaletteQuery(''); } }} placeholder="Buscar comando, herramienta o símbolo..." className="min-w-0 flex-1 bg-transparent text-[13px] text-white placeholder:text-gray-500 outline-none" />
+                  <span className="rounded-md border border-white/10 px-1.5 py-0.5 text-[10px] text-gray-500">Ctrl K</span>
+                </div>
+                <div className="mt-2 max-h-80 overflow-y-auto space-y-1">
+                  {paletteResults.map((entry) => (
+                    <button key={`${entry.kind}-${entry.id}`} onClick={() => runPaletteEntry(entry)} className="flex w-full items-center justify-between gap-3 rounded-xl px-2.5 py-2 text-left hover:bg-white/[0.07]">
+                      <span className="min-w-0">
+                        <span className="block truncate text-[13px] font-semibold text-white">{entry.label}</span>
+                        <span className="block truncate text-[11px] text-gray-400">{entry.description}</span>
+                      </span>
+                      <span className="shrink-0 rounded-full border border-white/10 px-2 py-0.5 text-[10px] uppercase tracking-wide text-cyan-200">{entry.kind}</span>
+                    </button>
+                  ))}
+                  {paletteResults.length === 0 && <div className="px-2 py-6 text-center text-[12px] text-gray-500">Sin resultados CAD.</div>}
+                </div>
+              </div>
+            )}
+            <div className="absolute top-3 left-3 z-20 rounded-2xl border border-white/10 bg-gray-900/85 p-1.5 shadow-2xl backdrop-blur">
+              <div className="grid grid-cols-1 gap-1">
+                {CAD_TOOLBAR_ACTIONS.map((action) => (
+                  <button key={action.id} onClick={() => runToolbarAction(action.id)} title={`${action.label}${action.shortcut ? ` · ${action.shortcut}` : ''} — ${action.description}`} className={`h-7 min-w-9 rounded-lg px-2 text-[10.5px] font-semibold transition-colors ${tool === action.id || (action.id === 'select' && tool === 'select') ? 'bg-cyan-500 text-white' : 'bg-white/[0.05] text-gray-300 hover:bg-white/[0.12] hover:text-white'}`}>
+                    {action.label}
+                  </button>
+                ))}
+              </div>
             </div>
             {overlay && (
               <div className="absolute top-3 left-1/2 -translate-x-1/2 px-3 py-1.5 rounded-full bg-gray-900/85 backdrop-blur border border-white/10 text-[11px] text-gray-200 flex items-center gap-3 pointer-events-none">
@@ -2675,6 +3052,28 @@ export default function Layout3DEditor({
                   <span className="text-sm font-semibold">{selSnap.title}</span>
                 </div>
                 <div className="text-[11px] text-gray-400 mb-3">{selSnap.subtitle}</div>
+                {selList[0] && isObjectLayerLocked(cadLayers, layerAssignments, selList[0].id, defaultLayerFor(selList[0])) && (
+                  <div className="mb-3 rounded-lg border border-amber-400/20 bg-amber-400/10 px-2 py-1.5 text-[11px] text-amber-200">Capa bloqueada: las propiedades, drag y comandos destructivos quedan protegidos.</div>
+                )}
+
+                {selList[0] && (
+                  <div className="mb-3 rounded-xl border border-white/10 bg-white/[0.03] p-2.5 space-y-2">
+                    <div className="grid grid-cols-2 gap-2">
+                      <ReadField label="Tipo" value={selSnap.type === 'station' ? 'Estación' : 'Equipo'} />
+                      <ReadField label="ID" value={selSnap.id} />
+                    </div>
+                    <label className="block text-[11px] text-gray-400">
+                      <span className="block mb-1">Capa</span>
+                      <select value={selectionLayer(selList[0])} onChange={(e) => setSelectionLayer(selList[0], e.target.value as CadLayerId)} className="w-full rounded-lg border border-white/10 bg-gray-950/70 px-2 py-1.5 text-[12px] text-white outline-none">
+                        {cadLayers.map((layer) => <option key={layer.id} value={layer.id} className="text-gray-900">{layer.label}{layer.locked ? ' (lock)' : ''}</option>)}
+                      </select>
+                    </label>
+                    <label className="block text-[11px] text-gray-400">
+                      <span className="block mb-1">Tags</span>
+                      <input value={objectTags[selSnap.id] ?? ''} onChange={(e) => setObjectTags((cur) => ({ ...cur, [selSnap.id]: e.target.value }))} placeholder="esd, safety, smt…" className="w-full rounded-lg border border-white/10 bg-gray-950/70 px-2 py-1.5 text-[12px] text-white placeholder:text-gray-600 outline-none" />
+                    </label>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-2 gap-2 mb-3">
                   <NumField label="X" value={Math.round(selSnap.x)} onBegin={pushHistory} onChange={(v) => setField('x', v)} />
@@ -2841,8 +3240,31 @@ export default function Layout3DEditor({
             </div>
             <div className="p-4">
               <div className="flex items-center gap-2 mb-3">
-                <input value={versName} onChange={(e) => setVersName(e.target.value)} placeholder="Nombre de la versión (opcional)" className="flex-1 bg-white/[0.06] rounded-lg px-2.5 py-1.5 text-[13px] outline-none focus:ring-1 ring-cyan-500/40" />
+                <input value={versName} onChange={(e) => setVersName(e.target.value)} placeholder="Nombre de la versión/snapshot (opcional)" className="flex-1 bg-white/[0.06] rounded-lg px-2.5 py-1.5 text-[13px] outline-none focus:ring-1 ring-cyan-500/40" />
                 <button onClick={saveVersion} disabled={versBusy} className="px-3 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-[12px] font-medium disabled:opacity-50">Guardar versión</button>
+                <button onClick={() => saveLocalSnapshot('manual')} className="px-3 py-1.5 rounded-lg bg-white/[0.08] hover:bg-white/[0.14] text-white text-[12px] font-medium">Snapshot local</button>
+              </div>
+              <div className="mb-4 rounded-xl border border-cyan-400/15 bg-cyan-400/[0.04] p-3">
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <div className="text-[11px] font-semibold uppercase tracking-wide text-cyan-200">Snapshots locales de sesión</div>
+                  <span className="text-[10px] text-gray-500">{localSnapshots.snapshots.length}/20</span>
+                </div>
+                {localSnapshots.snapshots.length === 0 ? (
+                  <p className="text-[11.5px] text-gray-500">Guarda puntos de restauración rápidos antes de importar, acomodar o probar comandos. No salen del navegador.</p>
+                ) : (
+                  <div className="space-y-1.5">
+                    {[...localSnapshots.snapshots].reverse().map((snap) => (
+                      <div key={snap.id} className="flex items-center gap-2 rounded-lg bg-white/[0.04] px-2 py-1.5">
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate text-[12px] font-medium text-gray-100">{snap.label}</div>
+                          <div className="text-[10.5px] text-gray-500">{new Date(snap.createdAt).toLocaleString('es-MX')} · {snap.reason}</div>
+                        </div>
+                        <button onClick={() => restoreLocalSnapshot(snap.id)} className="rounded-md bg-cyan-500/15 px-2 py-1 text-[11px] text-cyan-100 hover:bg-cyan-500/25">Restaurar</button>
+                        <button onClick={() => deleteLocalSnapshot(snap.id)} className="rounded-md px-1.5 py-1 text-rose-300 hover:bg-rose-500/20"><Trash2 className="h-3.5 w-3.5" /></button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
               {versions.length === 0 ? (
                 <p className="text-[12px] text-gray-500 text-center py-4">Aún no hay versiones guardadas.</p>
