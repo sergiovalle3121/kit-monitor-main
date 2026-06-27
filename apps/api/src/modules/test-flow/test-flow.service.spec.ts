@@ -54,7 +54,10 @@ describe('TestFlowService (integration)', () => {
       numbering,
       plan,
     );
-    ledger = new EventLedgerService(ds.getRepository(LedgerEvent));
+    ledger = new EventLedgerService(
+      createTenantScopedRepository(LedgerEvent, ds.manager, ctx),
+      ctx,
+    );
     // genealogy intentionally omitted — it is an optional enrichment.
     flow = new TestFlowService(ds.getRepository(UnitFlow), ctx, ledger, fq);
   });

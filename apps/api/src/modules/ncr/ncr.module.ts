@@ -5,6 +5,7 @@ import { NcrService } from './ncr.service';
 import { NcrController } from './ncr.controller';
 import { EventLedgerModule } from '../event-ledger/event-ledger.module';
 import { GovernanceModule } from '../governance/governance.module';
+import { provideTenantScopedRepository } from '../../common/tenant/tenant-scoped.repository';
 
 @Module({
   imports: [
@@ -13,7 +14,7 @@ import { GovernanceModule } from '../governance/governance.module';
     GovernanceModule,
   ],
   controllers: [NcrController],
-  providers: [NcrService],
+  providers: [NcrService, provideTenantScopedRepository(NCR)],
   exports: [NcrService],
 })
 export class NcrModule {}

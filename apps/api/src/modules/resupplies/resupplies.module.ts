@@ -9,6 +9,7 @@ import { EventLedgerModule } from '../event-ledger/event-ledger.module';
 import { InventoryModule } from '../inventory/inventory.module';
 import { EnterpriseProgram } from '../enterprise-campus/entities/enterprise-program.entity';
 import { EnterpriseLine } from '../enterprise-campus/entities/enterprise-line.entity';
+import { provideTenantScopedRepository } from '../../common/tenant/tenant-scoped.repository';
 
 @Module({
   imports: [
@@ -17,7 +18,10 @@ import { EnterpriseLine } from '../enterprise-campus/entities/enterprise-line.en
     InventoryModule,
   ],
   controllers: [ResuppliesController],
-  providers: [ResuppliesService],
+  providers: [
+    ResuppliesService,
+    provideTenantScopedRepository(Resupply),
+  ],
   exports: [ResuppliesService],
 })
 export class ResuppliesModule {}
