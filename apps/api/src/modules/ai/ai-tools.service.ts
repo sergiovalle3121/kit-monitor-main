@@ -16,6 +16,15 @@ import { SemanticService } from '../semantic/semantic.service';
 import { AnalyticsService } from '../analytics/analytics.service';
 import { AutopilotService } from '../autopilot/autopilot.service';
 import { DecisionIntelligenceService } from '../decision-intelligence/decision-intelligence.service';
+import { MaintenanceService } from '../maintenance/maintenance.service';
+import { EhsService } from '../ehs/ehs.service';
+import { FaiService } from '../fai/fai.service';
+import { VisualAidsService } from '../visual-aids/visual-aids.service';
+import { ShippingService } from '../shipping/shipping.service';
+import { ToolingService } from '../tooling/tooling.service';
+import { RmaService } from '../rma/rma.service';
+import { FixedAssetsService } from '../fixed-assets/fixed-assets.service';
+import { GenealogyService } from '../genealogy/genealogy.service';
 import { CideToolSpec } from './cide-provider';
 
 /** JSON-Schema shape for a tool input (OpenAI/Anthropic-compatible). */
@@ -783,6 +792,247 @@ export class AiToolsService {
           this.svc(BomService)
             .findAllBomHeaders(str(i.model))
             .then((d) => clip(d, 30)),
+      },
+      // ── Mantenimiento ──────────────────────────────────────────────────────
+      {
+        name: 'maintenance_orders',
+        description:
+          'Órdenes de mantenimiento (correctivo/preventivo) con su estado. Úsalo para "¿qué mantenimientos hay abiertos/vencidos?" o por activo. Filtros: status, type, assetId.',
+        requiredPermission: 'maintenance:read',
+        mockTriggers: [
+          'mantenimiento',
+          'avería',
+          'averia',
+          'orden de mantenimiento',
+          'reparaci',
+          'correctivo',
+        ],
+        input_schema: schema({
+          status: { type: 'string', description: 'Estado de la orden' },
+          type: { type: 'string', description: 'Tipo (correctivo/preventivo)' },
+          assetId: { type: 'string', description: 'ID del activo' },
+        }),
+        run: (i) =>
+          this.svc(MaintenanceService)
+            .listOrders({
+              status: str(i.status),
+              type: str(i.type),
+              assetId: str(i.assetId),
+            })
+            .then((d) => clip(d, 60)),
+      },
+      {
+        name: 'maintenance_assets',
+        description:
+          'Catálogo de activos/equipos mantenibles y su estado operativo. Úsalo para "¿qué equipos hay?" o ver disponibilidad de máquinas.',
+        requiredPermission: 'maintenance:read',
+        mockTriggers: ['activo', 'equipo', 'máquina', 'maquina', 'asset'],
+        input_schema: schema(),
+        run: () =>
+          this.svc(MaintenanceService)
+            .listAssets()
+            .then((d) => clip(d, 60)),
+      },
+      {
+        name: 'maintenance_pm_plans',
+        description:
+          'Planes de mantenimiento preventivo (PM) con su próxima fecha de vencimiento. Úsalo para "¿qué preventivos tocan / están vencidos?". Filtros: assetId, active.',
+        requiredPermission: 'maintenance:read',
+        mockTriggers: ['preventivo', 'pm', 'plan de mantenimiento', 'calendario'],
+        input_schema: schema({
+          assetId: { type: 'string', description: 'ID del activo' },
+          active: { type: 'boolean', description: 'Solo planes activos' },
+        }),
+        run: (i) =>
+          this.svc(MaintenanceService)
+            .listPmPlans({
+              assetId: str(i.assetId),
+              active:
+                typeof i.active === 'boolean' ? (i.active as boolean) : undefined,
+            })
+            .then((d) => clip(d, 60)),
+      },
+      // ── EHS / Seguridad ────────────────────────────────────────────────────
+      {
+        name: 'safety_incidents',
+        description:
+          'Incidentes de seguridad y medio ambiente (EHS) con su estado, tipo, severidad y CAPA. Úsalo para "¿qué incidentes de seguridad hay?", por área o severidad. Filtros: status, type, severity, area, programId.',
+        requiredPermission: 'reports:read',
+        mockTriggers: [
+          'incidente',
+          'seguridad',
+          'ehs',
+          'accidente',
+          'lesión',
+          'lesion',
+          'casi accidente',
+        ],
+        input_schema: schema({
+          status: { type: 'string', description: 'Estado del incidente' },
+          type: { type: 'string', description: 'Tipo de incidente' },
+          severity: { type: 'string', description: 'Severidad' },
+          area: { type: 'string', description: 'Área' },
+        }),
+        run: (i) =>
+          this.svc(EhsService)
+            .list({
+              status: str(i.status),
+              type: str(i.type),
+              severity: str(i.severity),
+              area: str(i.area),
+            })
+            .then((d) => clip(d, 60)),
+      },
+      // ── Calidad: FAI (Primera Pieza) ───────────────────────────────────────
+      {
+        name: 'fai_records',
+        description:
+          'Inspecciones de primera pieza (FAI) por orden de trabajo, con su resultado (pass/fail). Úsalo para "¿qué FAI hay pendientes/rechazadas?". Filtros: woId, result, line.',
+        requiredPermission: 'quality:report',
+        mockTriggers: ['fai', 'primera pieza', 'first article', 'primer artículo'],
+        input_schema: schema({
+          woId: { type: 'string', description: 'ID de orden de trabajo' },
+          result: { type: 'string', description: 'Resultado (pass/fail)' },
+          line: { type: 'string', description: 'Línea' },
+        }),
+        run: (i) =>
+          this.svc(FaiService)
+            .list({
+              woId: str(i.woId),
+              result: str(i.result),
+              line: str(i.line),
+            })
+            .then((d) => clip(d, 60)),
+      },
+      // ── Ayudas visuales / Instrucciones de trabajo ─────────────────────────
+      {
+        name: 'visual_aids',
+        description:
+          'Ayudas visuales / instrucciones de trabajo disponibles por modelo o programa. Úsalo para "¿qué instrucciones/ayudas visuales hay para X modelo?". Filtros: model, programId.',
+        requiredPermission: null,
+        mockTriggers: [
+          'ayuda visual',
+          'instrucci',
+          'work instruction',
+          'guía de trabajo',
+          'guia de trabajo',
+        ],
+        input_schema: schema({
+          model: { type: 'string', description: 'Modelo / producto' },
+          programId: { type: 'string', description: 'ID de programa' },
+        }),
+        run: (i) =>
+          this.svc(VisualAidsService)
+            .findAll(str(i.model), str(i.programId))
+            .then((d) => clip(d, 60)),
+      },
+      // ── Logística: Embarques ───────────────────────────────────────────────
+      {
+        name: 'list_shipments',
+        description:
+          'Embarques/envíos con su estado y destino. Úsalo para "¿qué embarques hay hoy / pendientes?" y cumplimiento de entregas.',
+        requiredPermission: 'materials:read',
+        mockTriggers: [
+          'embarque',
+          'envío',
+          'envio',
+          'shipment',
+          'despacho',
+          'entrega',
+        ],
+        input_schema: schema(),
+        run: (_i, ctx) =>
+          Promise.resolve(this.svc(ShippingService).findAll(ctx.user)).then((d) =>
+            clip(d, 60),
+          ),
+      },
+      // ── Herramentales ──────────────────────────────────────────────────────
+      {
+        name: 'list_tools',
+        description:
+          'Herramentales serializados (tooling) y su estado. Úsalo para "¿qué herramentales hay / están en uso / en calibración?". Filtros: status, type.',
+        requiredPermission: 'maintenance:read',
+        mockTriggers: ['herramental', 'tooling', 'herramienta', 'molde', 'fixture'],
+        input_schema: schema({
+          status: { type: 'string', description: 'Estado del herramental' },
+          type: { type: 'string', description: 'Tipo de herramental' },
+        }),
+        run: (i) =>
+          this.svc(ToolingService)
+            .list({ status: str(i.status), type: str(i.type) })
+            .then((d) => clip(d, 60)),
+      },
+      // ── Calidad: RMA / Devoluciones ────────────────────────────────────────
+      {
+        name: 'rma_cases',
+        description:
+          'Casos de devolución de cliente (RMA) con su estado. Úsalo para "¿qué devoluciones/RMA hay abiertas?" o por cliente. Filtros: status, customerName.',
+        requiredPermission: 'quality:read',
+        mockTriggers: ['rma', 'devolución', 'devolucion', 'retorno', 'return'],
+        input_schema: schema({
+          status: { type: 'string', description: 'Estado del RMA' },
+          customerName: { type: 'string', description: 'Nombre del cliente' },
+        }),
+        run: (i) =>
+          this.svc(RmaService)
+            .list({
+              status: str(i.status),
+              customerName: str(i.customerName),
+            })
+            .then((d) => clip(d, 60)),
+      },
+      // ── Finanzas: Activos fijos ────────────────────────────────────────────
+      {
+        name: 'list_fixed_assets',
+        description:
+          'Activos fijos (capital) con su estado y categoría, para gestión y depreciación. Filtros: status, category.',
+        requiredPermission: 'finance:read',
+        mockTriggers: [
+          'activo fijo',
+          'activos fijos',
+          'depreciaci',
+          'capital',
+          'fixed asset',
+        ],
+        input_schema: schema({
+          status: { type: 'string', description: 'Estado del activo' },
+          category: { type: 'string', description: 'Categoría' },
+        }),
+        run: (i) =>
+          this.svc(FixedAssetsService)
+            .list({ status: str(i.status), category: str(i.category) })
+            .then((d) => clip(d, 60)),
+      },
+      // ── Trazabilidad: Genealogía as-built ──────────────────────────────────
+      {
+        name: 'genealogy_links',
+        description:
+          'Genealogía as-built: vínculos serial ↔ material ↔ lote capturados en producción. Úsalo para "¿qué componentes/lotes lleva este serial?" o "¿dónde se usó este lote?". Filtros: serial, part, lot.',
+        requiredPermission: 'production:report',
+        mockTriggers: [
+          'genealog',
+          'as-built',
+          'as built',
+          'qué lleva',
+          'que lleva',
+          'dónde se usó',
+          'donde se uso',
+          'número de serie',
+          'numero de serie',
+        ],
+        input_schema: schema({
+          serial: { type: 'string', description: 'Número de serie' },
+          part: { type: 'string', description: 'Número de parte / componente' },
+          lot: { type: 'string', description: 'Lote' },
+        }),
+        run: (i) =>
+          this.svc(GenealogyService)
+            .listLinks({
+              serial: str(i.serial),
+              part: str(i.part),
+              lot: str(i.lot),
+            })
+            .then((d) => clip(d, 80)),
       },
     ];
   }

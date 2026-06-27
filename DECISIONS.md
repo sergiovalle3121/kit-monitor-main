@@ -2697,4 +2697,32 @@ build y el lint. No se añadió spec no ejecutable.
 **Verificación:** `lint web` 0 errores, `build web` ✓. Sin backend ni migraciones; nada
 existente cambia.
 
+## 123. CIDE — cobertura total: que la IA entienda todos los módulos de Axos OS
+
+**Contexto.** CIDE ya razonaba sobre producción, inventario, MRP, compras, finanzas, ventas,
+calidad (holds/CAPA), proveedores, BOM, Event Ledger y métricas. Pero quedaban módulos
+operativos sin herramientas, así que la IA "no veía" partes del negocio. El objetivo de esta
+fase: que CIDE **entienda todo Axos OS**.
+
+**Decisión.** Añadir **11 herramientas read-only**, cada una gateada por el permiso real de
+lectura del módulo (mismo principio: la IA nunca lee lo que el usuario no podría leer en la UI)
+y auto-escopada por tenant (ALS), resolviendo los servicios vía `ModuleRef` (todos singleton):
+- **Mantenimiento:** `maintenance_orders`, `maintenance_assets`, `maintenance_pm_plans`
+  (`maintenance:read`).
+- **EHS/Seguridad:** `safety_incidents` (`reports:read`).
+- **Calidad:** `fai_records` (FAI, `quality:report`), `rma_cases` (devoluciones, `quality:read`).
+- **Logística:** `list_shipments` (`materials:read`).
+- **Herramentales:** `list_tools` (`maintenance:read`).
+- **Finanzas:** `list_fixed_assets` (activos fijos, `finance:read`).
+- **Trazabilidad:** `genealogy_links` (genealogía as-built, `production:report`).
+- **Ingeniería:** `visual_aids` (ayudas visuales / instrucciones, abierto a usuario autenticado,
+  como su endpoint).
+
+El system prompt se actualizó para enumerar explícitamente todos los dominios cubiertos, y
+`cideSuggestions` ganó prompts contextuales para EHS, herramentales, RMA y activos fijos.
+
+**Verificación:** `build API` ✓, **API tests 1101/1101** ✓ (sin regresiones; servicios singleton
+confirmados, no request-scoped), `lint web` 0 errores, `build web` ✓. Solo lectura; sin
+migraciones; ningún endpoint ni comportamiento existente cambia.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->

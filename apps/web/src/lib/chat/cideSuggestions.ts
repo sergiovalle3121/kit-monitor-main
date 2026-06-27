@@ -68,6 +68,26 @@ const BY_MODULE: Record<string, string[]> = {
     '¿Qué activos tienen más paros no planeados?',
     '¿Qué mantenimientos preventivos tocan esta semana?',
   ],
+  ehs: [
+    '¿Qué incidentes de seguridad hay abiertos?',
+    '¿Qué áreas concentran más incidentes?',
+    '¿Qué CAPAs de EHS están por vencer?',
+  ],
+  tooling: [
+    '¿Qué herramentales están en uso ahora?',
+    '¿Qué herramentales están por calibrar?',
+    '¿Qué herramentales están fuera de servicio?',
+  ],
+  rma: [
+    '¿Qué devoluciones (RMA) están abiertas?',
+    '¿Qué clientes tienen más RMA?',
+    '¿Qué motivos de devolución son más frecuentes?',
+  ],
+  'fixed-assets': [
+    '¿Qué activos fijos hay por categoría?',
+    '¿Qué activos están por depreciarse?',
+    '¿Cuál es el valor de los activos fijos?',
+  ],
   shipping: [
     '¿Qué embarques están programados para hoy?',
     '¿Qué pedidos están en riesgo de no salir a tiempo?',
