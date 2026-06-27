@@ -60,12 +60,27 @@ export interface ReadinessReport {
   signals?: ReadinessSignals | Record<string, unknown>;
 }
 
+/** Light per-project rollup for launch cards (from ?withReadiness=true). */
+export interface NpiProjectSummary {
+  gateReady: boolean;
+  readyCount: number;
+  notReadyCount: number;
+  unknownCount: number;
+  criteriaTotal: number;
+  gatesCleared: number;
+  gatesTotal: number;
+  openRisks: number;
+  openHighRisks: number;
+}
+
 export interface NpiProject {
   id: string;
   modelNumber: string;
   revision: string;
   /** Soft link to the canonical ProductModel (pm_product_models.id), if any. */
   productModelId?: string | null;
+  /** Present when fetched with ?withReadiness=true. */
+  summary?: NpiProjectSummary;
   customer?: string | null;
   currentPhase: GatePhase;
   status: ProjectStatus;

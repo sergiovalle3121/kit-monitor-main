@@ -63,6 +63,23 @@ export interface NpiProjectView extends NpiProject {
   readiness: ReadinessSnapshot;
 }
 
+/** Light per-project rollup for the launch cards (no full readiness payload). */
+export interface NpiProjectSummary {
+  gateReady: boolean;
+  readyCount: number;
+  notReadyCount: number;
+  unknownCount: number;
+  criteriaTotal: number;
+  gatesCleared: number;
+  gatesTotal: number;
+  openRisks: number;
+  openHighRisks: number;
+}
+
+export interface NpiProjectListItem extends NpiProject {
+  summary: NpiProjectSummary;
+}
+
 export type SnapshotReason =
   | 'GATE_DECISION'
   | 'SCAN'
@@ -160,6 +177,55 @@ export class NpiService {
     if (filter.model) qb.andWhere('p.model_number = :m', { m: filter.model });
     if (filter.status) qb.andWhere('p.status = :s', { s: filter.status });
     return qb.orderBy('p.created_at', 'DESC').getMany();
+  }
+
+  /**
+   * Same list, each project enriched with a LIGHT readiness/gates/risk summary
+   * so the launch cards can show go/no-go, gate progress and risk count without
+   * N+1 round-trips from the client. Per-project resolution is best-effort:
+   * a failure degrades to a null-ish summary, never breaks the list.
+   */
+  async listProjectsWithSummary(
+    filter: { model?: string; status?: string } = {},
+  ): Promise<NpiProjectListItem[]> {
+    const projects = await this.listProjects(filter);
+    return Promise.all(
+      projects.map(async (p) => ({
+        ...p,
+        summary: await this.summarizeProject(p),
+      })),
+    );
+  }
+
+  private async summarizeProject(
+    project: NpiProject,
+  ): Promise<NpiProjectSummary> {
+    const [readiness, gates, risks] = await Promise.all([
+      this.deriveReadiness(project.modelNumber, project.revision).catch(
+        () => null,
+      ),
+      this.gates
+        .find({ where: { projectId: project.id } })
+        .catch(() => [] as NpiGate[]),
+      this.risks
+        .find({ where: { projectId: project.id } })
+        .catch(() => [] as NpiRisk[]),
+    ]);
+    const gatesCleared = gates.filter(
+      (g) => g.status === 'PASSED' || g.status === 'WAIVED',
+    ).length;
+    const open = risks.filter((r) => r.status !== 'CLOSED');
+    return {
+      gateReady: !!readiness?.gateReady,
+      readyCount: readiness?.readyCount ?? 0,
+      notReadyCount: readiness?.notReadyCount ?? 0,
+      unknownCount: readiness?.unknownCount ?? 0,
+      criteriaTotal: readiness?.criteria.length ?? 0,
+      gatesCleared,
+      gatesTotal: gates.length,
+      openRisks: open.length,
+      openHighRisks: open.filter((r) => r.severity === 'HIGH').length,
+    };
   }
 
   async getProject(id: string): Promise<NpiProjectView> {

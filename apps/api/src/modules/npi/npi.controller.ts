@@ -43,11 +43,18 @@ export class NpiController {
 
   @Get('projects')
   @RequirePermissions('engineering:read')
-  @ApiOperation({ summary: 'Lista proyectos NPI (filtros model, status).' })
+  @ApiOperation({
+    summary:
+      'Lista proyectos NPI (filtros model, status). withReadiness=true adjunta el resumen de readiness/gates/riesgos por proyecto.',
+  })
   listProjects(
     @Query('model') model?: string,
     @Query('status') status?: string,
+    @Query('withReadiness') withReadiness?: string,
   ) {
+    if (withReadiness === 'true') {
+      return this.service.listProjectsWithSummary({ model, status });
+    }
     return this.service.listProjects({ model, status });
   }
 
