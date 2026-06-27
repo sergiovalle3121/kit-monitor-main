@@ -28,9 +28,15 @@ Los cinco patrones de fricción más repetidos:
    páginas** dibujan además su propia flecha `ChevronLeft/ArrowLeft → volver`.
    Resultado: dos formas de "regresar" en el mismo nivel.
 2. **Controles de tema duplicados.** El tema es global (`ThemeContext` → `.dark`
-   en `<html>`), pero **dos workbenches** (`Layout3DEditor` de CAD y
-   `SlidesEditor` de Office) tienen su propio `useState` de tema + botón
-   sol/luna local que puede contradecir al `<html>`.
+   en `<html>`) y, tras inspección (PR 2), **no se encontró ningún toggle de
+   tema de app contradictorio**. Lo que el grep inicial marcó como "tema local"
+   resultó ser legítimo y específico de dominio: en `Layout3DEditor` (CAD) el
+   `theme`/`sun` son **presets de escena 3D** (fondo/niebla/piso, posición del
+   sol para iluminación) y el viewport es un lienzo siempre oscuro, como todo
+   CAD; en `SlidesEditor` (Office) el `themeId` es el **tema de la presentación**
+   y `Moon` es el **blackout del presentador (B)**. Ninguno se toca: son
+   controles correctos, no temas de app. *(Corrección sobre el borrador de
+   PR 1.)*
 3. **Navegación flotante que compite.** El dock inferior y los botones flotantes
    (mensajería, Cide) son globales. En workbenches y kioscos se sienten como
    capas encima del lienzo/acciones.
@@ -95,17 +101,21 @@ nuevas.
 | Route | Module | Current | Recommended | Problems | Dup back | Dup theme | Botnav | Float | Narrow | FS | Story | Sev | Fix | PR |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | `/dashboard/office` | Office (lista) | Standard | Standard | Tiene back local + wayfinding | **Sí** | No | dock ok | Cide flota | – | No | – | S3 | Quitar back local; confiar en wayfinding | 6 |
-| `/dashboard/office/[id]` | Office editor | **Workbench** ✅ | Workbench | Ya `fixed inset-0` con header propio; el dock quedaba en DOM bajo el overlay | No | **Sí** (`SlidesEditor` sol/luna) | resuelto vía z-index → **ahora oculto** | chat ya oculto | No | ✅ | – | S2 | **Dock oculto vía taxonomy (esta fase)**; quitar theme local de Slides | 1/3 |
+| `/dashboard/office/[id]` | Office editor | **Workbench** ✅ | Workbench | Ya `fixed inset-0` con header propio; el dock quedaba en DOM bajo el overlay | No | No¹ | dock oculto (PR 2) | **Cide oculto (PR 2)** | No | ✅ | – | S3 | **Dock + flotantes ocultos vía taxonomy** | 1/2 |
 | Docs editor | `office/DocEditor` | Workbench | Workbench | Hereda `OfficeShell` (ok) | No | No | – | – | No | ✅ | – | S3 | Conservar; alinear ribbon | 3 |
 | Sheets editor | `office/SheetEditor` | Workbench | Workbench | Hereda `OfficeShell` (ok) | No | No | – | – | No | ✅ | – | S3 | Conservar | 3 |
-| Slides editor | `office/SlidesEditor` | Workbench | Workbench | **Tema local (sol/luna + `useState`)** contradice el global | No | **Sí** | – | – | No | ✅ | – | S2 | Quitar toggle local; usar focus/present mode, no tema | 3 |
+| Slides editor | `office/SlidesEditor` | Workbench | Workbench | `themeId` = tema de la **presentación**; `Moon` = blackout del presentador. Legítimos (no es tema de app) | No | No¹ | – | – | No | ✅ | – | S3 | Conservar | — |
+
+> ¹ **Corrección PR 2:** la inspección no encontró toggles de tema de **app**
+> contradictorios. `SlidesEditor.themeId` es el tema del *deck*; `Layout3DEditor`
+> usa presets de **escena 3D** + posición de sol. No se eliminan.
 
 ### 3.3 CAD / Engineering
 
 | Route | Module | Current | Recommended | Problems | Dup back | Dup theme | Botnav | Float | Narrow | FS | Story | Sev | Fix | PR |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `/dashboard/line-engineering` | CAD / Layout | Standard (híbrido) | **Workbench** | Editor 2D/3D potente embebido en página con lista + KPIs + back local | **Sí** | **Sí** (`Layout3DEditor` sol/luna) | dock flota | Cide flota | **Sí** | **Sí** | – | **S1** | Separar editor a workbench full-screen; quitar tema local | 3 |
-| `Layout3DEditor` | CAD 3D | Workbench-in-page | Workbench | Tema local + se siente encajonado | – | **Sí** | – | – | **Sí** | **Sí** | – | S1 | Frame propio tipo `OfficeShell`; tema global | 3 |
+| `/dashboard/line-engineering` | CAD / Layout | Standard (híbrido) | **Workbench** | Pestaña CAD monta `Layout3DEditor` full-screen; el resto es lista + KPIs + back local | **Sí** | No¹ | **dock oculto (PR 2)** | **flotantes ocultos (PR 2)** | parcial | parcial | – | S2 | **Workbench imperativo mientras el CAD abre (PR 2)**; back local del resto → PR 6 | 2/6 |
+| `Layout3DEditor` | CAD 3D | **Workbench** ✅ | Workbench | `fixed inset-0` con X de salida; antes Cide/chat flotaban encima (z>70) | No (X propia) | No¹ (presets 3D) | **oculto (PR 2)** | **oculto (PR 2)** | No | ✅ | – | S3 | **Declara workbench imperativo (PR 2)** | 2 |
 | `/dashboard/models` | Modelos | Standard | Standard | back local probable | Sí | No | dock ok | – | – | No | – | S3 | Back único | 6 |
 | `/dashboard/models/[id]` | Modelo detalle | Standard | Standard | back local | **Sí** | No | – | – | – | No | – | S3 | Back único | 6 |
 | `/dashboard/npi` | NPI | Standard | Standard | alto tráfico; revisar densidad | – | No | dock ok | – | parcial | No | – | S2 | Limpieza de header/acciones | 6 |
@@ -191,11 +201,12 @@ nuevas.
 | Hallazgo | Conteo | Evidencia |
 | --- | --- | --- |
 | Páginas con flecha de regreso local **además** del wayfinding global | **~58** | `rg "ArrowLeft\|ChevronLeft" src/app/dashboard --include page.tsx` |
-| Workbenches con control de tema **local** (sol/luna + `useState`) | **2** | `Layout3DEditor` (CAD), `SlidesEditor` (Office) |
+| Workbenches con tema de **app** contradictorio | **0** (PR 2) | Lo marcado eran presets de escena 3D (CAD) y tema del deck/blackout (Slides) — legítimos |
+| Workbenches con widgets flotantes **encima del lienzo** | **resuelto (PR 2)** | Office (Cide cubierto por z-index) y CAD (Cide/chat z>70 flotaban encima) → ocultos vía taxonomy |
 | Rutas que deberían ser **Command Center** y hoy son Standard | **~9** | dashboard, control-tower, line-control-tower, mission-control, quality, quality/analytics, intelligence, live, npi/[id] |
 | Rutas que deberían ser **Workbench** full-screen y hoy van encajonadas | **~4** | line-engineering (CAD), visual-aids, intelligence/editor, documents |
 | Workbench full-screen **ya correcto** (patrón a replicar) | **1** | `OfficeShell` (`fixed inset-0`) |
-| Mecanismos de cromo dispersos consolidables | **3 → 1** | kiosk store + bare prefixes (×2) + checks `office/` → `lib/routeChrome` |
+| Mecanismos de cromo dispersos consolidados (PR 1+2) | **5 → 1** | kiosk store + bare prefixes (×2) + checks `office/` en ChatWidget/Cide → todo vía `lib/routeChrome` |
 
 ---
 
@@ -206,8 +217,8 @@ Cada PR debe ser **pequeño, seguro y verde**.
 | PR | Alcance | Estado |
 | --- | --- | --- |
 | **1. Audit + Shell Taxonomy + quick wins** | Este documento + `AXOS_SHELL_TAXONOMY.md` + `lib/routeChrome` (SSOT de cromo) + dock oculto en workbench/kiosk vía taxonomy + tokens `--primary` en wayfinding | **✅ esta PR** |
-| **2. App shell / navigation cleanup** | Migrar `ChatWidget`/`Cide` a `routeChrome`; evaluar sidebar desktop; back canónico en wayfinding | ⏳ |
-| **3. Workbench full-screen** | CAD (`Layout3DEditor`), visual-aids, intelligence/editor, documents → frame tipo `OfficeShell`; quitar temas locales (CAD/Slides) | ⏳ |
+| **2. App shell / navigation cleanup + workbench chrome** | Store workbench imperativo + `hideFloatingWidgets`; `ChatWidget`/`Cide` migrados a `routeChrome`; CAD `Layout3DEditor` declara workbench (oculta dock + flotantes encima del lienzo); corrección del hallazgo de "tema local" | **✅ esta PR** |
+| **3. Workbench full-screen (restantes)** | visual-aids, intelligence/editor, documents → frame tipo `OfficeShell`; separar lista/editor en line-engineering | ⏳ |
 | **4. Dashboard / command centers** | Hero + KPIs + cola de atención en dashboard, control-tower, line-control-tower, quality, intelligence, live | ⏳ |
 | **5. Landing renaissance** | `/` y `/login`: narrativa, motion sobrio, secciones de producto | ⏳ |
 | **6. Module-by-module cleanup** | Quitar ~58 backs locales por lotes; densidad/headers; tokens en command palette | ⏳ |
@@ -228,5 +239,27 @@ Cada PR debe ser **pequeño, seguro y verde**.
    hardcodeados de `DashboardWayfinding` (prohibidos por el lenguaje visual) a
    favor de `--primary`. La miga es la base del futuro "back único".
 
-Lo demás queda mapeado pero **no** tocado en esta fase, para mantener la PR
-pequeña y revisable.
+## 7. Entregado en PR 2 (app shell / navigation cleanup + workbench chrome)
+
+1. **Store workbench imperativo.** `operatorChrome` ahora expone, junto al
+   Kiosko, un modo **workbench** imperativo (`setWorkbenchChrome` /
+   `useWorkbenchChrome`) para editores full-screen que se montan dentro de una
+   ruta `standard` (CAD) y no se pueden declarar por pathname.
+2. **`routeChrome` → `hideFloatingWidgets`.** El hook resuelve también si la
+   mensajería (`ChatWidget`) y el asistente (`Cide`) deben ocultarse: fuera del
+   dashboard, en bare/kiosko y en **cualquier workbench**.
+3. **`ChatWidget` y `Cide` migrados a `routeChrome`.** Se elimina la lógica
+   dispersa (`startsWith('/dashboard/office/')`, lectura directa del kiosk store)
+   en favor de la fuente única. Consolidación 5 → 1.
+4. **CAD deja de tener flotantes encima del lienzo.** `Layout3DEditor` declara
+   workbench mientras está abierto; el dock y `Cide`/`ChatWidget` (que flotaban
+   con z‑index por encima del editor z‑70) ahora se ocultan, y se restablecen al
+   cerrar. Salida intacta por la **X** propia del editor.
+5. **Corrección honesta del hallazgo de "tema local".** Tras inspección, no hay
+   toggles de tema de **app** contradictorios; lo marcado eran presets de escena
+   3D (CAD) y tema del deck/blackout del presentador (Slides). El documento se
+   corrige y esos controles **no** se eliminan.
+
+> Sin rediseño visual ni cambios módulo-por-módulo: este PR es infraestructura
+> de cromo + corrección visible en las rutas críticas (Office, CAD). El sidebar
+> de desktop y el "back único" canónico se evalúan en fases siguientes.

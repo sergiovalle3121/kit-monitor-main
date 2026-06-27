@@ -25,7 +25,7 @@ import {
 } from 'lucide-react';
 import { glass } from '@/lib/glass';
 import { isAdminAccess } from '@/lib/owner';
-import { useOperatorKiosk } from '@/lib/operatorChrome';
+import { useRouteChrome } from '@/lib/routeChrome';
 import { useDashboardSession } from '@/hooks/useDashboardSession';
 import { suggestionsFor } from '@/lib/chat/cideSuggestions';
 
@@ -107,7 +107,7 @@ function relativeTime(iso: string): string {
 
 export function Cide() {
   const pathname = usePathname();
-  const kiosk = useOperatorKiosk();
+  const { hideFloatingWidgets } = useRouteChrome();
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<ChatMsg[]>([]);
@@ -132,7 +132,9 @@ export function Cide() {
 
   const suggestions = suggestionsFor(pathname);
 
-  if (kiosk || !pathname?.startsWith('/dashboard')) return null;
+  // Oculto fuera del dashboard, en kiosko/bare y en cualquier workbench (donde
+  // flotaba ENCIMA del lienzo del editor) — vía Shell Taxonomy.
+  if (hideFloatingWidgets) return null;
 
   /** Update the trailing assistant message (the one being streamed). */
   function patchAssistant(fn: (a: ChatMsg) => ChatMsg) {

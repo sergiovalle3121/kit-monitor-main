@@ -104,9 +104,13 @@ Documents, AI/CIDE workspace, Visual Aids editor, editores de Intelligence.
 - **Fullscreen / focus mode** reales dentro del tool.
 - **Salida clara**: un solo control de "volver a {módulo}" en el header del
   workbench (p. ej. "← Office"), nunca dos.
-- **Un solo tema.** El tema sale del `ThemeContext` global. Un workbench puede
-  tener `focusMode`/`presentMode`, pero **no** su propio toggle sol/luna (deuda
-  actual en `Layout3DEditor` y `SlidesEditor`).
+- **Un solo tema de _app_.** El claro/oscuro sale del `ThemeContext` global; un
+  workbench **no** monta su propio toggle sol/luna de app. Sí puede tener ajustes
+  de dominio que NO son tema de app y deben conservarse: presets de **escena 3D**
+  (CAD `Layout3DEditor`: fondo/niebla/sol), **tema del deck** y **blackout del
+  presentador** (Office `SlidesEditor`), `focusMode`/`presentMode`. *(La
+  inspección de PR 2 confirmó que hoy no existe ningún toggle de tema de app
+  contradictorio.)*
 
 ---
 
@@ -157,20 +161,31 @@ Para landing/login/marketing (`/`, `/login`).
 
 ```ts
 useRouteChrome(): {
-  mode: ChromeMode;     // tipo de la ruta actual
-  inDashboard: boolean; // bajo /dashboard
-  bare: boolean;        // sin NINGÚN cromo global (kiosk o ruta bare)
-  hideDock: boolean;    // ocultar dock (bare o workbench)
+  mode: ChromeMode;            // tipo de la ruta actual
+  inDashboard: boolean;        // bajo /dashboard
+  bare: boolean;               // sin NINGÚN cromo global (kiosk o ruta bare)
+  hideDock: boolean;           // ocultar dock (bare o workbench)
+  hideFloatingWidgets: boolean;// ocultar ChatWidget + Cide (fuera de dashboard,
+                               //   bare/kiosk, o cualquier workbench)
 }
 ```
 
 - **`BARE_PREFIXES`** — rutas que montan su propio layout full-screen sin cromo
   (`/dashboard/chat`, `/dashboard/select-workspace`).
-- **`WORKBENCH_PREFIXES`** — editores full-screen (`/dashboard/office/…`; se
-  amplía conforme CAD/visual-aids/intelligence migren a workbench).
+- **`WORKBENCH_PREFIXES`** — editores full-screen declarados por pathname
+  (`/dashboard/office/…`; se amplía conforme visual-aids/intelligence migren).
+- **Workbench imperativo** — un editor full-screen montado dentro de una ruta
+  `standard` (p. ej. el CAD `Layout3DEditor` en la pestaña CAD de
+  `line-engineering`) se declara workbench mientras está abierto vía
+  `setWorkbenchChrome(true)` (store `operatorChrome`), y lo restablece al
+  cerrarse. Así oculta el dock y los widgets flotantes que de otro modo quedan
+  ENCIMA del lienzo.
 - El **modo Kiosko** es imperativo (lo activa el Operator Terminal vía
   `operatorChrome`) y se combina aquí: una ruta kiosk siempre gana a su
   clasificación por pathname.
+- **Consumidores actuales:** `DashboardShell` (`bare`, `hideDock`),
+  `ChatWidget` y `Cide` (`hideFloatingWidgets`). Ningún componente vuelve a leer
+  `pathname.startsWith(...)` ni el kiosk store por su cuenta.
 
 **Para clasificar una ruta nueva:**
 

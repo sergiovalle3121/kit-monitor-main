@@ -1,7 +1,7 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
-import { useOperatorKiosk } from '@/lib/operatorChrome';
+import { useOperatorKiosk, useWorkbenchChrome } from '@/lib/operatorChrome';
 
 /**
  * Shell Taxonomy — fuente única de verdad del "tipo de cromo" por ruta.
@@ -63,6 +63,12 @@ export interface RouteChrome {
   bare: boolean;
   /** El dock flotante inferior debe ocultarse (bare o workbench). */
   hideDock: boolean;
+  /**
+   * Los widgets flotantes (mensajería `ChatWidget`, asistente `Cide`) deben
+   * ocultarse: fuera del dashboard, en rutas bare/kiosko, o en cualquier
+   * workbench (donde quedaban ENCIMA del lienzo del editor).
+   */
+  hideFloatingWidgets: boolean;
 }
 
 /** ¿La ruta es un editor workbench a pantalla completa? */
@@ -83,10 +89,13 @@ export function isBarePath(pathname: string | null | undefined): boolean {
 export function useRouteChrome(): RouteChrome {
   const pathname = usePathname() ?? '';
   const kiosk = useOperatorKiosk();
+  const imperativeWorkbench = useWorkbenchChrome();
 
   const inDashboard = pathname.startsWith('/dashboard');
   const bareRoute = isBarePath(pathname);
-  const workbench = isWorkbenchPath(pathname);
+  // Workbench por pathname (Office editor) o imperativo (CAD montado dentro de
+  // una ruta standard, que se declara workbench mientras está abierto).
+  const workbench = imperativeWorkbench || isWorkbenchPath(pathname);
 
   let mode: ChromeMode;
   if (!inDashboard) mode = 'landing';
@@ -101,5 +110,6 @@ export function useRouteChrome(): RouteChrome {
     inDashboard,
     bare,
     hideDock: bare || workbench,
+    hideFloatingWidgets: !inDashboard || bare || workbench,
   };
 }

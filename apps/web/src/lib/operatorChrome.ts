@@ -18,7 +18,12 @@ import { useSyncExternalStore } from 'react';
  */
 
 let kiosk = false;
+let workbench = false;
 const listeners = new Set<() => void>();
+
+function emit() {
+  listeners.forEach((l) => l());
+}
 
 function subscribe(listener: () => void): () => void {
   listeners.add(listener);
@@ -29,7 +34,7 @@ function subscribe(listener: () => void): () => void {
 export function setOperatorKiosk(next: boolean) {
   if (kiosk === next) return;
   kiosk = next;
-  listeners.forEach((l) => l());
+  emit();
 }
 
 /** Lee el modo Kiosko de forma reactiva. SSR siempre arranca en `false` para
@@ -38,6 +43,33 @@ export function useOperatorKiosk(): boolean {
   return useSyncExternalStore(
     subscribe,
     () => kiosk,
+    () => false,
+  );
+}
+
+/**
+ * Modo Workbench **imperativo**. Algunos editores a pantalla completa (el CAD
+ * `Layout3DEditor`, por ejemplo) se montan condicionalmente DENTRO de una ruta
+ * `standard` (la pestaña CAD de `/dashboard/line-engineering`), así que no se
+ * pueden declarar por pathname. Mientras están abiertos activan este flag para
+ * que el shell oculte el dock y los widgets flotantes (que hoy quedan ENCIMA del
+ * lienzo del editor), y lo restablecen al cerrarse.
+ *
+ * Vive en el mismo store que el Kiosko porque resuelve el mismo problema (ocultar
+ * cromo global desde una capa distinta al layout) y NO es una fuente de tema: el
+ * tema sigue siendo único (ThemeProvider → `.dark` en <html>).
+ */
+export function setWorkbenchChrome(next: boolean) {
+  if (workbench === next) return;
+  workbench = next;
+  emit();
+}
+
+/** Lee el modo Workbench imperativo de forma reactiva. SSR arranca en `false`. */
+export function useWorkbenchChrome(): boolean {
+  return useSyncExternalStore(
+    subscribe,
+    () => workbench,
     () => false,
   );
 }
