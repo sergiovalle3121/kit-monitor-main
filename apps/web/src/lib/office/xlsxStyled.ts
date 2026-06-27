@@ -117,8 +117,13 @@ export function fillWorksheet(ws: any, sheet: FortuneSheet): void {
     const cell = ws.getCell(cd.r + 1, cd.c + 1);
     const f = o && typeof o === 'object' && o.f ? String(o.f).replace(/^=/, '') : undefined;
     const raw = cellValue(o);
+    const link = o && typeof o === 'object' ? (o.hl ?? o.hyperlink ?? o.link) : undefined;
+    const tip = o && typeof o === 'object' ? (o.hlTooltip ?? o.tooltip) : undefined;
     if (f) cell.value = raw != null && raw !== '' ? { formula: f, result: raw } : { formula: f };
+    else if (typeof link === 'string' && link) cell.value = { text: raw == null || raw === '' ? link : String(raw), hyperlink: link, ...(tip ? { tooltip: String(tip) } : {}) };
     else if (raw != null && raw !== '') cell.value = raw;
+    const note = o && typeof o === 'object' ? (o.comment ?? o.noteText) : undefined;
+    if (typeof note === 'string' && note) cell.note = note;
     const fa = o && typeof o === 'object' ? o.ct?.fa : undefined;
     if (fa && fa !== 'General') cell.numFmt = fa;
     const st = cellStyle(o);
@@ -290,12 +295,16 @@ export async function readStylesIntoSheets(ExcelJS: any, buffer: ArrayBuffer, sh
         const r = rowNumber - 1, c = colNumber - 1;
         const st = fortuneStyleFromCell(cell);
         const nf = typeof cell.numFmt === 'string' && cell.numFmt !== 'General' ? cell.numFmt : undefined;
-        if (!Object.keys(st).length && !nf) return;
+        const hl = typeof cell.hyperlink === 'string' ? cell.hyperlink : (cell.value && typeof cell.value === 'object' && typeof cell.value.hyperlink === 'string' ? cell.value.hyperlink : undefined);
+        const note = typeof cell.note === 'string' ? cell.note : (Array.isArray(cell.note?.texts) ? cell.note.texts.map((x: any) => x.text).join('') : undefined);
+        if (!Object.keys(st).length && !nf && !hl && !note) return;
         let cd = index.get(`${r}_${c}`);
         if (!cd) { cd = { r, c, v: { v: '', m: '', ct: { fa: 'General', t: 's' } } }; sheet.celldata!.push(cd); index.set(`${r}_${c}`, cd); }
         if (!cd.v || typeof cd.v !== 'object') cd.v = { v: cd.v ?? '', m: cd.v == null ? '' : String(cd.v), ct: { fa: 'General', t: 's' } };
         Object.assign(cd.v, st);
         if (nf) cd.v.ct = { ...(cd.v.ct || {}), fa: nf };
+        if (hl) cd.v.hl = hl;
+        if (note) cd.v.comment = note;
       });
     });
   });
