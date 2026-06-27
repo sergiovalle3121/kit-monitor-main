@@ -1,6 +1,6 @@
-import { Injectable, NotFoundException, BadRequestException, Optional } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Optional, Inject } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, SelectQueryBuilder } from 'typeorm';
+import { Repository, SelectQueryBuilder, ObjectLiteral } from 'typeorm';
 import { WarehouseTask, WarehouseTaskStatus, WarehouseTaskType } from './entities/warehouse-task.entity';
 import { InventoryService } from './inventory.service';
 import { AuditService } from '../governance/audit.service';
@@ -8,6 +8,11 @@ import { User } from '../users/entities/user.entity';
 import { EnterpriseWarehouse } from '../enterprise-campus/entities/enterprise-warehouse.entity';
 import { MaterialStagingService } from '../material-staging/material-staging.service';
 import { In } from 'typeorm';
+import { TenantContextService } from '../../common/tenant/tenant-context.service';
+import {
+  TenantScopedRepository,
+  getTenantRepositoryToken,
+} from '../../common/tenant/tenant-scoped.repository';
 import {
   computeAgingMinutes,
   effectiveSla,
@@ -19,16 +24,28 @@ import {
 @Injectable()
 export class WarehouseService {
   constructor(
-    @InjectRepository(WarehouseTask)
-    private readonly taskRepo: Repository<WarehouseTask>,
+    @Inject(getTenantRepositoryToken(WarehouseTask))
+    private readonly taskRepo: TenantScopedRepository<WarehouseTask>,
     private readonly inventory: InventoryService,
     private readonly audit: AuditService,
     @InjectRepository(EnterpriseWarehouse)
     private readonly warehouseRepo: Repository<EnterpriseWarehouse>,
+    private readonly tenantCtx: TenantContextService,
     // Lectura del lado de material-staging para importar llamados de resurtido
     // (e-kanban) como pulls. @Optional: si el módulo no está, el import no-opera.
     @Optional() private readonly materialStaging?: MaterialStagingService,
   ) {}
+
+  // ── tenant scope helper (QueryBuilder reads bypass the tenant-scoped repo) ───
+  private applyScope<T extends ObjectLiteral>(
+    qb: SelectQueryBuilder<T>,
+    alias: string,
+  ): SelectQueryBuilder<T> {
+    const tenant = this.tenantCtx.getTenantId();
+    if (tenant) qb.andWhere(`${alias}.tenant_id = :tenant`, { tenant });
+    else qb.andWhere(`${alias}.tenant_id IS NULL`);
+    return qb;
+  }
 
   /**
    * Filtro de scope organizacional (seesAllAreas = sin buildings → ve todo):
@@ -50,6 +67,7 @@ export class WarehouseService {
 
   async findAllTasks(filters: any, user: User): Promise<WarehouseTask[]> {
     const qb = this.taskRepo.createQueryBuilder('task');
+    this.applyScope(qb, 'task');
     await this.applyBuildingScope(qb, user);
 
     if (filters.status) qb.andWhere('task.status = :status', { status: filters.status });
@@ -149,7 +167,8 @@ export class WarehouseService {
     const qb = this.taskRepo.createQueryBuilder('task')
       .where('task.status IN (:...statuses)', { statuses: [WarehouseTaskStatus.PENDING, WarehouseTaskStatus.IN_PROGRESS] })
       .andWhere('task.type IN (:...types)', { types: [WarehouseTaskType.PICK, WarehouseTaskType.TRANSFER] });
-    
+    this.applyScope(qb, 'task');
+
     // 1. Scope-aware filtering
     const scopeBids = user.scopes?.buildings ?? [];
     if (scopeBids.length > 0) {

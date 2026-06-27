@@ -617,7 +617,7 @@ export default function IntelligencePage() {
                   Eventos por día · últimos {trend.window.days} días
                 </p>
                 <div className="h-44">
-                  <ResponsiveContainer>
+                  <ResponsiveContainer width="100%" height={176}>
                     <AreaChart
                       data={trend.series}
                       margin={{ top: 6, right: 8, left: -18, bottom: 0 }}
@@ -668,7 +668,7 @@ export default function IntelligencePage() {
                   Actividad por dominio · últimos 7 días
                 </p>
                 <div className="h-44">
-                  <ResponsiveContainer>
+                  <ResponsiveContainer width="100%" height={176}>
                     <BarChart
                       data={breakdown.buckets}
                       margin={{ top: 6, right: 8, left: -18, bottom: 0 }}
