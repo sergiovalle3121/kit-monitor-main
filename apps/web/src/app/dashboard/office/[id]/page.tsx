@@ -15,6 +15,18 @@ import { SlideActions } from '@/components/office/SlideActions';
 import { DocActions } from '@/components/office/DocActions';
 import { VersionHistory } from '@/components/office/VersionHistory';
 import { ShareButton } from '@/components/office/ShareButton';
+import { DocLifecycleActions, type OfficeLifecycleState } from '@/components/office/DocLifecycleActions';
+import { DocAuditTimeline } from '@/components/office/DocAuditTimeline';
+import { DocSmartRefsPanel } from '@/components/office/DocSmartRefsPanel';
+import { DocReviewSummary } from '@/components/office/DocReviewSummary';
+import { DocCompatibilityPanel } from '@/components/office/DocCompatibilityPanel';
+import { DocReleaseChecklist } from '@/components/office/DocReleaseChecklist';
+import { DocDistributionLedger } from '@/components/office/DocDistributionLedger';
+import { DocSignaturesPanel } from '@/components/office/DocSignaturesPanel';
+import { DocTrainingPanel } from '@/components/office/DocTrainingPanel';
+import { DocReviewRoutePanel } from '@/components/office/DocReviewRoutePanel';
+import { DocImpactPanel } from '@/components/office/DocImpactPanel';
+import { DocEvidencePackagePanel } from '@/components/office/DocEvidencePackagePanel';
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000').replace(/\/$/, '');
 const AUTOSAVE_MS = 800;
@@ -28,7 +40,19 @@ const DocEditor = dynamic(() => import('@/components/office/DocEditor').then((m)
 const SheetEditor = dynamic(() => import('@/components/office/SheetEditor').then((m) => m.SheetEditor), { ssr: false, loading: Spinner });
 const SlidesEditor = dynamic(() => import('@/components/office/SlidesEditor').then((m) => m.SlidesEditor), { ssr: false, loading: Spinner });
 
-interface OfficeDoc { id: string; type: OfficeType; title: string; content: any; createdBy?: string | null; sharedWith?: { email: string; access: 'view' | 'edit' }[] | null }
+interface OfficeDoc {
+  id: string;
+  type: OfficeType;
+  title: string;
+  content: any;
+  createdBy?: string | null;
+  sharedWith?: { email: string; access: 'view' | 'edit' }[] | null;
+  lifecycleState?: OfficeLifecycleState;
+  locked?: boolean;
+  approvedBy?: string | null;
+  releasedBy?: string | null;
+  obsoletedBy?: string | null;
+}
 
 export default function OfficeEditorPage() {
   const { id } = useParams<{ id: string }>();
@@ -81,7 +105,7 @@ export default function OfficeEditorPage() {
   }, [id]);
 
   const doSave = useCallback(async () => {
-    if (!canWrite || !dirtyRef.current) return;
+    if (!canWrite || doc?.locked || !dirtyRef.current) return;
     if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
     dirtyRef.current = false;
     if (mountedRef.current) setStatus('saving');
@@ -96,15 +120,15 @@ export default function OfficeEditorPage() {
       dirtyRef.current = true;
       if (mountedRef.current) setStatus('error');
     }
-  }, [id, canWrite]);
+  }, [id, canWrite, doc?.locked]);
 
   const scheduleSave = useCallback(() => {
-    if (!canWrite) return;
+    if (!canWrite || doc?.locked) return;
     dirtyRef.current = true;
     setStatus('unsaved');
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(doSave, AUTOSAVE_MS);
-  }, [canWrite, doSave]);
+  }, [canWrite, doc?.locked, doSave]);
 
   const onContent = useCallback((c: any) => { contentRef.current = c; setContent(c); scheduleSave(); }, [scheduleSave]);
   const onTitle = useCallback((v: string) => { titleRef.current = v; setTitle(v); scheduleSave(); }, [scheduleSave]);
@@ -153,21 +177,44 @@ export default function OfficeEditorPage() {
     return <OfficeShellMessage><Loader2 className="w-7 h-7 animate-spin text-gray-400" /><p className="text-sm text-gray-500">Abriendo documento…</p></OfficeShellMessage>;
   }
 
-  const readOnly = !canWrite;
+  const readOnly = !canWrite || !!doc.locked;
   const editorProps = { value: content, onChange: onContent, readOnly };
   const typeActions = doc.type === 'sheet'
     ? <SheetActions content={content} title={title} onImport={replaceContent} readOnly={readOnly} />
     : doc.type === 'slides'
       ? <SlideActions content={content} title={title} />
       : doc.type === 'doc'
-        ? <DocActions content={content} title={title} onImport={replaceContent} readOnly={readOnly} />
+        ? <DocActions content={content} title={title} onImport={replaceContent} readOnly={readOnly} docId={id} />
         : null;
   const isOwner = isAdmin || (!!doc.createdBy && doc.createdBy === user?.email);
   const actions = (
     <>
+      <DocLifecycleActions
+        docId={id}
+        state={doc.lifecycleState ?? 'draft'}
+        locked={doc.locked}
+        canEdit={canWrite}
+        isOwner={isOwner}
+        onChanged={(next) => {
+          setDoc((current) => current ? { ...current, ...next } : current);
+          dirtyRef.current = false;
+          setStatus(next.locked ? 'readonly' : 'saved');
+        }}
+      />
       {typeActions}
+      {doc.type === 'doc' && <DocReviewSummary content={content} />}
+      {doc.type === 'doc' && <DocReleaseChecklist content={content} docId={id} />}
+      {doc.type === 'doc' && <DocCompatibilityPanel content={content} />}
+      {doc.type === 'doc' && <DocSmartRefsPanel content={content} />}
+      {doc.type === 'doc' && <DocImpactPanel content={content} currentDocId={id} />}
+      {doc.type === 'doc' && <DocEvidencePackagePanel docId={id} title={title} />}
+      <DocReviewRoutePanel docId={id} isOwner={isOwner} />
+      <DocTrainingPanel docId={id} isOwner={isOwner} />
+      <DocSignaturesPanel docId={id} canSign={canWrite} />
+      <DocDistributionLedger docId={id} />
+      <DocAuditTimeline docId={id} />
       {isOwner && canWrite && <ShareButton docId={id} initialShares={doc.sharedWith ?? []} />}
-      <VersionHistory docId={id} canEdit={!readOnly} onRestored={onRestored} />
+      <VersionHistory docId={id} canEdit={!readOnly} onRestored={onRestored} currentContent={content} />
     </>
   );
   const statusBarRight = doc.type === 'doc' && docStats
@@ -181,8 +228,8 @@ export default function OfficeEditorPage() {
   const headerActions = ribbonArchivo ? null : actions;
 
   return (
-    <OfficeShell type={doc.type} title={title} onTitleChange={onTitle} status={status} savedAt={savedAt} readOnly={readOnly} actions={headerActions} statusBarRight={statusBarRight}>
-      {doc.type === 'doc' ? <DocEditor key={editorKey} {...editorProps} author={user?.email ?? ''} onStats={setDocStats} fileActions={actions} title={title} />
+    <OfficeShell type={doc.type} title={title} onTitleChange={onTitle} status={status} savedAt={savedAt} readOnly={readOnly} actions={headerActions} statusBarLeft={<span>{doc.lifecycleState ?? 'draft'}{doc.locked ? ' · bloqueado' : ''}</span>} statusBarRight={statusBarRight}>
+      {doc.type === 'doc' ? <DocEditor key={editorKey} {...editorProps} author={user?.email ?? ''} onStats={setDocStats} fileActions={actions} title={title} docId={id} />
         : doc.type === 'sheet' ? <SheetEditor key={editorKey} {...editorProps} fileActions={actions} />
         : doc.type === 'slides' ? <SlidesEditor key={editorKey} {...editorProps} fileActions={actions} />
         : <div className="py-20 text-center text-sm text-gray-400">Tipo de documento desconocido.</div>}

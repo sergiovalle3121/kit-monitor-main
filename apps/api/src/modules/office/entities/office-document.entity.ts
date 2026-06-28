@@ -5,6 +5,7 @@ import {
 import { JSON_COLUMN_TYPE } from '../../../common/database/json-column-type';
 
 export type OfficeDocType = 'doc' | 'sheet' | 'slides';
+export type OfficeDocumentLifecycleState = 'draft' | 'in_review' | 'approved' | 'effective' | 'obsolete';
 
 /** A single sharing grant on a document. */
 export interface OfficeShare {
@@ -52,6 +53,64 @@ export class OfficeDocument {
   /** Owner-managed sharing grants (view/edit) for other users. */
   @Column({ type: JSON_COLUMN_TYPE, nullable: true })
   sharedWith: OfficeShare[] | null;
+
+  @Column({ type: 'varchar', length: 80, nullable: true })
+  @Index()
+  space: string | null;
+
+  @Column({ type: 'varchar', length: 240, nullable: true, name: 'folder_path' })
+  @Index()
+  folderPath: string | null;
+
+  @Column({ type: 'varchar', length: 120, nullable: true })
+  collection: string | null;
+
+  @Column({ type: JSON_COLUMN_TYPE, nullable: true })
+  tags: string[] | null;
+
+  @Column({ type: 'boolean', default: false })
+  favorite: boolean;
+
+  @Column({ type: 'boolean', default: false })
+  pinned: boolean;
+
+  /** Controlled-document lifecycle for governed SOP/WI/quality records. */
+  @Column({ type: 'varchar', length: 24, name: 'lifecycle_state', default: 'draft' })
+  @Index()
+  lifecycleState: OfficeDocumentLifecycleState;
+
+  /** Effective/obsolete documents are locked against content edits. */
+  @Column({ type: 'boolean', default: false })
+  locked: boolean;
+
+  @Column({ type: 'varchar', length: 120, nullable: true })
+  approvedBy: string | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  approvedAt: Date | null;
+
+  @Column({ type: 'varchar', length: 120, nullable: true })
+  releasedBy: string | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  releasedAt: Date | null;
+
+  @Column({ type: 'varchar', length: 120, nullable: true })
+  obsoletedBy: string | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  obsoletedAt: Date | null;
+
+  @Column({ type: 'timestamp', nullable: true, name: 'next_review_at' })
+  @Index()
+  nextReviewAt: Date | null;
+
+  @Column({ type: 'int', nullable: true, name: 'review_interval_days' })
+  reviewIntervalDays: number | null;
+
+  @Column({ type: 'varchar', length: 120, nullable: true, name: 'review_owner' })
+  @Index()
+  reviewOwner: string | null;
 
   @CreateDateColumn()
   createdAt: Date;

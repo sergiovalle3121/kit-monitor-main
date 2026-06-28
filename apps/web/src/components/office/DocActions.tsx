@@ -6,34 +6,55 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Printer, FileText, Upload, ChevronDown, Download, Loader2 } from 'lucide-react';
 import { exportDocx, importDocx } from '@/lib/office/docx';
 import { tiptapJsonToMarkdown, tiptapJsonToPlainText, markdownToHtml } from '@/lib/office/markdown';
+import { exportHtml } from '@/lib/office/html';
+import { exportPdf } from '@/lib/office/pdf';
 import { useToast } from '@/contexts/ToastContext';
+import { apiFetch } from '@/lib/apiFetch';
+
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000').replace(/\/$/, '');
 
 /** Export (PDF / Word) + Import (.docx) for the document editor. */
 export function DocActions({
-  content, title, onImport, readOnly,
+  content, title, onImport, readOnly, docId,
 }: {
   content: any;
   title: string;
   onImport: (html: string) => void;
   readOnly?: boolean;
+  docId?: string;
 }) {
   const toast = useToast();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
+
+  async function recordDistribution(format: 'pdf' | 'docx' | 'html' | 'markdown' | 'txt' | 'print') {
+    if (!docId) return;
+    await apiFetch(`${API_BASE}/office-documents/${docId}/distributions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: format === 'print' ? 'print' : 'export', format, purpose: 'Exportado desde AXOS Docs' }),
+    }).catch(() => undefined);
+  }
+
   async function word() {
     setOpen(false);
     setBusy(true);
-    try { await exportDocx(content, title || 'documento'); }
+    try { await exportDocx(content, title || 'documento'); await recordDistribution('docx'); }
     catch { /* ignore */ }
     finally { setBusy(false); }
   }
-  // Impresión nativa del lienzo: con la vista paginada activa, el CSS de impresión
-  // (printPageCss) fija tamaño de papel y márgenes y rompe en los saltos reales
-  // (.doc-print-break). La salida fiel con encabezado/pie/numeración por página es
-  // la «Vista de página» (Paged.js), accesible desde la pestaña Vista.
-  function pdf() { setOpen(false); window.print(); }
+  async function pdf() {
+    setOpen(false);
+    setBusy(true);
+    try { await exportPdf(content, title || 'documento'); await recordDistribution('pdf'); }
+    catch { toast.error('No se pudo exportar a PDF. Usa Imprimir como alternativa.'); }
+    finally { setBusy(false); }
+  }
+
+  // Impresión nativa del lienzo: conserva la ruta de fallback del navegador.
+  function print() { setOpen(false); void recordDistribution('print'); window.print(); }
 
   // Exporta a Markdown (GFM) — texto plano, versionable y portable (ver lib/office/markdown.ts).
   function markdown() {
@@ -46,7 +67,14 @@ export function DocActions({
       a.href = url; a.download = `${title || 'documento'}.md`;
       document.body.appendChild(a); a.click(); a.remove();
       URL.revokeObjectURL(url);
+      void recordDistribution('markdown');
     } catch { toast.error('No se pudo exportar a Markdown.'); }
+  }
+
+  function html() {
+    setOpen(false);
+    try { exportHtml(content, title || 'documento'); void recordDistribution('html'); }
+    catch { toast.error('No se pudo exportar a HTML.'); }
   }
 
   // Exporta a texto sin formato (.txt) — ver lib/office/markdown.ts:tiptapJsonToPlainText.
@@ -60,6 +88,7 @@ export function DocActions({
       a.href = url; a.download = `${title || 'documento'}.txt`;
       document.body.appendChild(a); a.click(); a.remove();
       URL.revokeObjectURL(url);
+      void recordDistribution('txt');
     } catch { toast.error('No se pudo exportar a texto.'); }
   }
 
@@ -106,7 +135,9 @@ export function DocActions({
                 <button onClick={word} className="w-full flex items-center gap-2 text-left text-sm px-3 py-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10"><FileText className="w-4 h-4 text-blue-500" /> Word (.docx)</button>
                 <button onClick={markdown} className="w-full flex items-center gap-2 text-left text-sm px-3 py-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10"><FileText className="w-4 h-4 text-emerald-500" /> Markdown (.md)</button>
                 <button onClick={plain} className="w-full flex items-center gap-2 text-left text-sm px-3 py-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10"><FileText className="w-4 h-4 text-gray-400" /> Texto plano (.txt)</button>
-                <button onClick={pdf} className="w-full flex items-center gap-2 text-left text-sm px-3 py-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10"><Printer className="w-4 h-4 text-gray-500" /> PDF / Imprimir</button>
+                <button onClick={html} className="w-full flex items-center gap-2 text-left text-sm px-3 py-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10"><FileText className="w-4 h-4 text-orange-500" /> HTML (.html)</button>
+                <button onClick={pdf} className="w-full flex items-center gap-2 text-left text-sm px-3 py-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10"><Printer className="w-4 h-4 text-red-500" /> PDF (.pdf)</button>
+                <button onClick={print} className="w-full flex items-center gap-2 text-left text-sm px-3 py-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10"><Printer className="w-4 h-4 text-gray-500" /> Imprimir</button>
               </motion.div>
             </>
           )}
