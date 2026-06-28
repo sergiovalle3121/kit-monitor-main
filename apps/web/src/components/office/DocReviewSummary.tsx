@@ -52,7 +52,7 @@ export function DocReviewSummary({ content }: { content: any }) {
                 <div className="grid grid-cols-3 gap-2">
                   <div className="rounded-2xl border border-black/10 p-3 dark:border-white/10">
                     <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-gray-400">Pendientes</p>
-                    <p className="mt-1 text-2xl font-semibold text-gray-900 dark:text-gray-100">{summary.total}</p>
+                    <p className="mt-1 text-2xl font-semibold text-foreground">{summary.total}</p>
                   </div>
                   <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-500/20 dark:bg-emerald-500/10">
                     <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-emerald-600">Insert</p>
@@ -67,7 +67,7 @@ export function DocReviewSummary({ content }: { content: any }) {
                 {summary.total === 0 ? (
                   <div className="rounded-2xl border border-dashed border-black/10 p-5 text-center dark:border-white/10">
                     <CheckCircle2 className="mx-auto mb-2 h-6 w-6 text-emerald-500" />
-                    <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">No hay redlines pendientes</p>
+                    <p className="text-sm font-semibold text-foreground">No hay redlines pendientes</p>
                     <p className="mt-1 text-xs text-gray-500">El documento está limpio para revisión formal o liberación.</p>
                   </div>
                 ) : (

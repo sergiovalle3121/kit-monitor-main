@@ -121,7 +121,7 @@ export function SlideCommentsPanel({
                   </div>
                 )}
               </div>
-              <p className={`text-sm whitespace-pre-wrap ${c.resolved ? 'text-gray-500 line-through decoration-emerald-500/50' : 'text-gray-800 dark:text-gray-100'}`}>{c.text}</p>
+              <p className={`text-sm whitespace-pre-wrap ${c.resolved ? 'text-gray-500 line-through decoration-emerald-500/50' : 'text-foreground'}`}>{c.text}</p>
               {repliesOf(c.id).length > 0 && (
                 <div className="mt-2 space-y-1.5 border-l-2 border-black/10 dark:border-white/10 pl-2.5">
                   {repliesOf(c.id).map((r) => (

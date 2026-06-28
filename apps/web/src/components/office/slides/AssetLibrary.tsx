@@ -62,7 +62,7 @@ export function SlideAssetLibrary({ onPick }: { onPick: (asset: SlideAssetSymbol
             <span className="flex items-center gap-2">
               <span className="w-11 h-11 rounded-lg bg-white dark:bg-black/20 border border-black/5 dark:border-white/10 p-1.5 flex-shrink-0" dangerouslySetInnerHTML={{ __html: asset.svg }} />
               <span>
-                <span className="block text-xs font-semibold text-gray-800 dark:text-gray-100">{asset.label}</span>
+                <span className="block text-xs font-semibold text-foreground">{asset.label}</span>
                 <span className="block text-[10px] text-gray-400">{CATEGORY_LABEL[asset.category]}</span>
               </span>
             </span>

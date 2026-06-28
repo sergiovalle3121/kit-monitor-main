@@ -20,7 +20,7 @@ export function SlideTableEditor({ spec: initial, onApply, onClose }: {
   function addCol() { setSpec((s) => ({ ...s, cols: s.cols + 1, cells: s.cells.map((r) => [...r, '']) })); }
   function delCol() { setSpec((s) => (s.cols <= 1 ? s : { ...s, cols: s.cols - 1, cells: s.cells.map((r) => r.slice(0, -1)) })); }
 
-  const cell = 'w-full h-8 px-2 text-sm rounded-md bg-black/[0.03] dark:bg-white/[0.05] border border-transparent focus:border-blue-500/50 outline-none text-gray-800 dark:text-gray-100';
+  const cell = 'w-full h-8 px-2 text-sm rounded-md bg-black/[0.03] dark:bg-white/[0.05] border border-transparent focus:border-blue-500/50 outline-none text-foreground';
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}

@@ -1852,7 +1852,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions, docId }: 
                   <RibbonButton icon={RotateCw} label="Girar 90° derecha" onClick={() => rotateBy(90)} />
                   <RibbonButton icon={RotateCw} label="Girar 90° izquierda" onClick={() => rotateBy(-90)} />
                   <input type="number" value={selAngle} title="Ángulo (grados)" onChange={(e) => setAngle(Number(e.target.value))}
-                    className="w-14 h-7 text-xs rounded-lg bg-black/[0.04] dark:bg-white/[0.06] px-1.5 outline-none border border-transparent focus:border-blue-500/40 text-gray-800 dark:text-gray-100" />
+                    className="w-14 h-7 text-xs rounded-lg bg-black/[0.04] dark:bg-white/[0.06] px-1.5 outline-none border border-transparent focus:border-blue-500/40 text-foreground" />
                   <span className="text-[11px] text-gray-400">°</span>
                   {selGeom && (
                     <RibbonMenuButton icon={Move} label="Posición y tamaño" menuWidth={236}>
@@ -1951,12 +1951,12 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions, docId }: 
                   )}
                   <span className="text-[11px] text-gray-500 px-1" title="Orden de aparición">Orden</span>
                   <input type="number" min={0} value={selAnimOrder} onChange={(e) => setObjAnimOrder(Number(e.target.value))} title="Orden de aparición"
-                    className="w-12 h-7 text-xs rounded-lg bg-black/[0.04] dark:bg-white/[0.06] px-1.5 outline-none border border-transparent focus:border-blue-500/40 text-gray-800 dark:text-gray-100" />
+                    className="w-12 h-7 text-xs rounded-lg bg-black/[0.04] dark:bg-white/[0.06] px-1.5 outline-none border border-transparent focus:border-blue-500/40 text-foreground" />
                   <RibbonSelect title="Duración" value={String(selAnimDur)} onChange={(v) => setObjAnimDur(Number(v))} width={96}
                     options={[{ label: 'Rápida', value: '300' }, { label: 'Normal', value: '500' }, { label: 'Lenta', value: '900' }]} />
                   <span className="text-[11px] text-gray-500 px-1" title="Retraso en milisegundos">Retraso</span>
                   <input type="number" min={0} step={100} value={selAnimDelay} onChange={(e) => setObjAnimDelay(Number(e.target.value))} title="Retraso (ms)"
-                    className="w-14 h-7 text-xs rounded-lg bg-black/[0.04] dark:bg-white/[0.06] px-1.5 outline-none border border-transparent focus:border-blue-500/40 text-gray-800 dark:text-gray-100" />
+                    className="w-14 h-7 text-xs rounded-lg bg-black/[0.04] dark:bg-white/[0.06] px-1.5 outline-none border border-transparent focus:border-blue-500/40 text-foreground" />
                   <RibbonSelect title="Repetición de la animación" value={String(selAnimRepeat)} onChange={(v) => setObjAnimRepeat(Number(v))} width={76}
                     options={[{ label: '1×', value: '1' }, { label: '2×', value: '2' }, { label: '3×', value: '3' }, { label: '∞', value: '0' }]} />
                 </>
@@ -1983,7 +1983,7 @@ export function SlidesEditor({ value, onChange, readOnly, fileActions, docId }: 
                 <Timer className="w-3.5 h-3.5" /> Tras
               </label>
               <input type="number" min={0} step={1} value={advanceAfter} onChange={(e) => setSlideAdvance(Number(e.target.value))} title="Segundos (0 = sólo al hacer clic)"
-                className="w-14 h-7 text-xs rounded-lg bg-black/[0.04] dark:bg-white/[0.06] px-1.5 outline-none border border-transparent focus:border-blue-500/40 text-gray-800 dark:text-gray-100" />
+                className="w-14 h-7 text-xs rounded-lg bg-black/[0.04] dark:bg-white/[0.06] px-1.5 outline-none border border-transparent focus:border-blue-500/40 text-foreground" />
               <span className="text-[11px] text-gray-500">s</span>
               <RibbonButton icon={Repeat} label="Repetir en bucle" active={loop} onClick={toggleLoop} />
             </RibbonGroup>

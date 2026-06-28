@@ -1385,7 +1385,7 @@ function SheetWorkbenchInspector({
       <div className="border-b border-black/10 dark:border-white/10 p-3">
         <div className="text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">AXOS Sheets Workbench v2</div>
         <div className="mt-1 flex items-center justify-between gap-2">
-          <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">Inspector industrial</div>
+          <div className="text-sm font-semibold text-foreground">Inspector industrial</div>
           <span className="rounded-full border border-black/10 dark:border-white/10 px-2 py-0.5 text-[10px] font-semibold">{health.score}/100</span>
         </div>
       </div>
@@ -1441,5 +1441,5 @@ function SheetWorkbenchInspector({
   );
 }
 function Panel({ title, children }: any) { return <div className="space-y-2"><h3 className="text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">{title}</h3>{children}</div>; }
-function Metric({ label, value }: any) { return <div className="flex items-center justify-between border-b border-black/5 py-1 dark:border-white/10"><span>{label}</span><b className="text-gray-900 dark:text-gray-100">{value}</b></div>; }
+function Metric({ label, value }: any) { return <div className="flex items-center justify-between border-b border-black/5 py-1 dark:border-white/10"><span>{label}</span><b className="text-foreground">{value}</b></div>; }
 function Empty({ text }: { text: string }) { return <div className="rounded-xl border border-dashed border-black/10 p-3 text-gray-500 dark:border-white/10">{text}</div>; }

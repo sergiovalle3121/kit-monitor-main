@@ -119,7 +119,7 @@ export function RibbonSelect({
         title={title} aria-label={title} value={value}
         onChange={(e) => onChange(e.target.value)}
         style={{ width }}
-        className="h-7 text-xs rounded-lg bg-black/[0.04] dark:bg-white/[0.06] hover:bg-black/[0.07] dark:hover:bg-white/10 border border-transparent focus:border-blue-500/40 pl-2 pr-6 outline-none cursor-pointer appearance-none text-gray-800 dark:text-gray-100 truncate"
+        className="h-7 text-xs rounded-lg bg-black/[0.04] dark:bg-white/[0.06] hover:bg-black/[0.07] dark:hover:bg-white/10 border border-transparent focus:border-blue-500/40 pl-2 pr-6 outline-none cursor-pointer appearance-none text-foreground truncate"
       >
         {placeholder && <option value="" disabled hidden>{placeholder}</option>}
         {options.map((o) => (
