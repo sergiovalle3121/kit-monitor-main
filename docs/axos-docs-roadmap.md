@@ -131,3 +131,9 @@ AXOS Docs now adds a dedicated review-summary panel beside the editor actions. T
 ## Implementation slice — Export compatibility preflight
 
 AXOS Docs now includes a compatibility preflight panel that scans the TipTap document model before export/release. It reports unsupported DOCX nodes or marks, missing image sources, long-table PDF risks, inline comments, and pending redlines, producing a simple export score with critical/warning/info counts. This moves Phase 6/7 closer to Word-grade reliability by warning users when a document needs visual validation before DOCX, PDF, or HTML distribution.
+
+## Persistent Docs review comments
+
+Docs review comments now use the shared Office anchored-comment backend (`office_comments`) instead of adding another Docs-only comment path. The Docs endpoint keeps the existing `/office-documents/:id/comments` contract for the TipTap UI, but stores root threads as generic Office comments with `anchorType = text` or `document`, the TipTap mark id in `objectId`, the selected range in `rangeRef` (`from:to`), and the quoted text/block label in `anchorLabel`. Replies are stored as child `office_comments` rows via `parentId`, matching the Slides thread model and avoiding a third comment implementation.
+
+The web Docs panel loads API threads first, merges them with local TipTap marks, supports reply/resolve/reopen/assignment, and only falls back to local mark state when the comments API is unavailable.
