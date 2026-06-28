@@ -200,80 +200,8 @@ The focused AXOS Sheets QA runner now includes the existing pure specs for the p
 
 AXOS connector instances now have a pure freshness model derived from connector refresh policy. Scheduled-ready connectors become due after one hour and stale after 24 hours, while manual connectors become due after 24 hours and stale after seven days. Workbook Health consumes these reports to distinguish due refreshes, stale data, and invalid connector metadata before industrial workbooks are published or used for decisions.
 
-### Fase 7 expansion — Connector parameter schemas
+## Delivered slice — AXOS Sheets Workbench v2
 
-Connector definitions now declare parameter schemas for their ERP/MES domain, including required text parameters, date filters, and controlled select lists. Instances normalize and persist only declared params, while validation reports missing required fields, bad dates, and invalid select options. This prepares the ribbon and future tenant-safe backend endpoints for parameterized live connector refresh without duplicating connector-specific logic in the editor.
+AXOS Sheets now exposes an Excel-grade workbench surface without replacing Fortune-Sheet: a persistent formula/name bar, selection intelligence, large-sheet status polish, and a right-side inspector that organizes workbook health, selected-cell statistics, data tools, charts, pivots, comments, protection, XLSX compatibility, and AXOS ERP/MES data connectors. The inspector launches existing dialogs/helpers instead of duplicating engines, and the XLSX review is best-effort metadata scanning only; macros are never executed.
 
-### Fase 7 expansion — Backend-ready connector request contracts
-
-AXOS connector definitions now carry backend-ready read-only endpoint contracts in addition to table metadata and parameter schemas. The pure connector layer can build deterministic refresh requests with normalized declared parameters, `GET` method, target sheet/range, validation errors, and cache keys. The editor now prompts for connector parameters before insertion, rejects invalid required/select/date inputs, and persists only normalized declared parameters in workbook metadata.
-
-Workbook Health consumes the same validation path and warns when existing connector instances are missing required parameters or cannot be refreshed safely against future tenant-safe backend endpoints. This keeps live refresh work prepared without executing network calls from formulas or duplicating ERP/MES domain logic in the spreadsheet layer.
-
-### Fase 7 expansion — Premium connector parameter dialog
-
-Connector insertion no longer relies on browser prompts. The AXOS ribbon now opens a dedicated premium dialog for connector parameters, showing the connector domain, refresh policy, read-only endpoint contract, description, required fields, date fields, and controlled select values. The dialog uses the shared connector validation path and only inserts governed connector tables after parameters are valid, keeping persisted connector metadata clean and ready for backend refresh.
-
-### Fase 7 expansion — Tenant-safe connector API baseline
-
-The Office API now exposes authenticated read-only AXOS Sheets connector refresh endpoints under `office-documents/sheets/connectors/:type`. The backend validates declared connector parameters, rejects unsupported connector types, includes tenant context in the response, and returns rectangular tabular payloads with columns, rows, as-of timestamp, source, warnings, and `readOnly: true`. This establishes the server contract needed to replace deterministic sample rows with real Inventory, BOM, Production, OEE, Supplier, Quality, Purchasing, and MRP aggregators without changing workbook metadata again.
-
-### Fase 7 expansion — Shared connector contracts package
-
-The AXOS Sheets connector catalog, parameter schemas, endpoint contracts, sample rectangular payloads, and validation helpers now live in `packages/contracts`. The web editor and Office API both import the same side-effect-free definitions, eliminating drift between ribbon UX, workbook metadata, and backend refresh validation. Future live ERP/MES aggregators should extend this shared contract first, then implement domain-specific data adapters behind the Office API.
-
-### Fase 7 expansion — Live connector refresh client
-
-The web connector refresh loop now attempts an authenticated read-only refresh against the Office API using the shared connector request contract. API responses are converted into Fortune-Sheet tables through a pure dataset-to-table builder, while deterministic local connector rows remain as an offline fallback if the API is unavailable. This bridges the AXOS ribbon refresh action to backend connector endpoints without making spreadsheet formulas perform network I/O.
-
-### Fase 7 expansion — Connector refresh provenance metadata
-
-Connector instances now preserve refresh provenance from the live API path: source (`api` or local fallback), backend `asOf` timestamp, normalized backend params, tenant id, and warning messages. This metadata remains in workbook JSON with the connector instance so support teams can distinguish stale local fallback data from authenticated API refreshes during workbook health reviews and future audit trails.
-
-### Fase 9 expansion — Connector provenance in workbook health
-
-Workbook Health now consumes connector refresh provenance. It warns when a connector is still using local fallback rows, surfaces backend warning messages, and records healthy API provenance when connectors were recently refreshed through the authenticated Office API. This makes pre-publish reviews more useful for industrial workbooks that mix formulas, charts, pivots, and live ERP/MES tables.
-
-### Fase 7 expansion — Connector refresh reports
-
-The AXOS refresh action now reports how many connector blocks were updated via API, how many fell back to local deterministic rows, and how many returned backend warnings. This gives operators immediate feedback after refresh instead of a generic success message, and pairs with Workbook Health provenance checks for pre-publish governance.
-
-### Fase 7/9 expansion — Persistent connector refresh audit trail
-
-Connector refreshes now append a capped audit trail into workbook JSON (`connectorAudit`). Each event records connector id/type, sheet/range, timestamp, source (`api` or local fallback), warnings and an optional failure message. Workbook Health consumes this history so pre-publish reviews can detect recent fallback refreshes, warning-heavy connector runs, or legacy workbooks that have connector metadata without auditable refresh events.
-
-### Fase 9 expansion — Connector audit worksheet
-
-Users can now materialize the persisted connector refresh audit trail into a workbook sheet named `AXOS Connector Audit`. The sheet includes timestamp, status, source, connector label/type, source sheet/range, warnings and failure messages, giving supervisors a shareable audit artifact inside the workbook without exposing sensitive logs or requiring backend console access.
-
-### Fase 9 expansion — Workbook Health worksheet
-
-Workbook Health can now be materialized as a worksheet named `AXOS Workbook Health`. The generated sheet captures score, workbook scale, generated timestamp and all health findings by severity/code/message so teams can review risks inside the spreadsheet before sharing, exporting or refreshing ERP/MES data.
-
-### Fase 2/9 expansion — Visible formula error audit
-
-Workbook Health now scans visible cell results for Excel-style formula errors (`#REF!`, `#DIV/0!`, `#N/A`, `#VALUE!`, `#NAME?`, `#NUM!`, `#NULL!`). `#REF!` is treated as critical because it usually indicates broken model structure, while division-by-zero and other visible errors are warnings for operators before publishing, exporting or refreshing connector-driven workbooks.
-
-### Fase 9 expansion — Publish preflight gate
-
-AXOS Sheets now has a pure publish preflight gate based on Workbook Health. Critical findings or very low scores block publish readiness, warning-heavy workbooks require review, and clean workbooks pass. The Review ribbon exposes this gate so operators can run a concise preflight before sharing/exporting a spreadsheet or refreshing governed ERP/MES connector data.
-
-### Fase 2/9 expansion — Formula error worksheet
-
-Visible formula errors can now be materialized into a worksheet named `AXOS Formula Errors`. The sheet lists source sheet, cell address, error code and formula, making broken references and calculation errors reviewable by operations teams before publishing or exporting industrial workbooks.
-
-### Fase 9 expansion — Workbook inventory worksheet
-
-AXOS Sheets can now materialize a workbook inventory worksheet listing workbook-level asset counts (sheets, charts, pivots, connectors, comments, tables and names) plus per-sheet row/column/cell counts. This gives admins and implementation teams a lightweight manifest before handoff, audit, export or connector refresh operations.
-
-### Fase 6/9 expansion — Data validation audit
-
-Workbook Health now audits existing data-validation metadata against visible cell values. Invalid dropdown, required, numeric, date, text and safe custom-formula validations are surfaced as workbook warnings so quality, finance and operations teams can catch bad inputs before publishing or refreshing connector-driven analyses.
-
-### Fase 6/9 expansion — Data validation worksheet
-
-Invalid data-validation results can now be materialized into a worksheet named `AXOS Validation Audit`. The generated sheet lists source sheet, cell, validation type, visible value and rule, giving QA/finance/operations teams a spreadsheet-native review queue for bad inputs.
-
-### Fase 6/9 expansion — Protection audit
-
-Workbook Health now audits sheet/range protection metadata, including connector-owned ranges. Connector ranges that are not protected are surfaced as warnings so governed ERP/MES data blocks remain read-only and auditable after workbook edits, imports or template customization.
+The new pure helper layer derives selection statistics, workbook summaries, health counters, and XLSX compatibility signals from persisted workbook JSON so autosave/export flows can surface risks before sharing or Excel round-trip review.

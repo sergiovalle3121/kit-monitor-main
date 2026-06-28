@@ -32,7 +32,7 @@ export function ReportChrome({
   const [generatedAt] = useState(() => new Date().toISOString());
 
   return (
-    <div className="min-h-screen pb-32 font-sans text-black dark:text-white">
+    <div className="min-h-screen pb-32 font-sans text-foreground">
       <PrintStyles />
       <main className="mx-auto max-w-4xl px-6 pt-10">
         {/* Barra superior — sólo pantalla */}

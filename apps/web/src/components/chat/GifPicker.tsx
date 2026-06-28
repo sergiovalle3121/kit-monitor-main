@@ -21,7 +21,7 @@ export function GifPicker({
   useEffect(() => {
     if (!enabled) return;
     let alive = true;
-    setLoading(true);
+    queueMicrotask(() => { if (alive) setLoading(true); });
     const t = setTimeout(
       () => {
         const p = q.trim() ? searchGifs(q.trim()) : trendingGifs();

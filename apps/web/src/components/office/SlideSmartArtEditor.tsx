@@ -55,7 +55,10 @@ export function SlideSmartArtEditor({ spec: initial, onApply, onClose }: {
           </div>
 
           <div className="rounded-xl bg-gray-50 dark:bg-black/30 border border-black/5 dark:border-white/10 flex items-center justify-center p-2" style={{ minHeight: 180 }}>
-            {preview ? <img src={preview} alt="Vista previa" className="max-h-[230px] w-auto" /> : <span className="text-sm text-gray-400">Generando vista previa…</span>}
+            {preview ? (
+              // eslint-disable-next-line @next/next/no-img-element -- SmartArt preview is a client-generated data URL from Fabric.
+              <img src={preview} alt="Vista previa" className="max-h-[230px] w-auto" />
+            ) : <span className="text-sm text-gray-400">Generando vista previa…</span>}
           </div>
 
           <div>

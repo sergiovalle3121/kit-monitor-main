@@ -1,6 +1,6 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { ObjectLiteral, Repository, SelectQueryBuilder, Brackets } from 'typeorm';
 import { Supplier } from './entities/supplier.entity';
 import { SCAR, ScarStatus } from './entities/scar.entity';
 import { SupplierContact } from './entities/supplier-contact.entity';
@@ -11,6 +11,11 @@ import { IQCInspection, IqcResult } from '../quality/entities/iqc-inspection.ent
 import { PurchaseOrder } from '../procurement/entities/purchase-order.entity';
 import { EventLedgerService } from '../event-ledger/event-ledger.service';
 import { EventDomain } from '../event-ledger/entities/ledger-event.entity';
+import { TenantContextService } from '../../common/tenant/tenant-context.service';
+import {
+  TenantScopedRepository,
+  getTenantRepositoryToken,
+} from '../../common/tenant/tenant-scoped.repository';
 import {
   computePpm, computeOtd, computeScarResponsiveness, ppmToScore, certScore,
   buildComposite, gradeFromScore, selectAndRankForPart, monthlyTrend,
@@ -25,29 +30,41 @@ const SCORECARD_WINDOW_DAYS = 365;
 @Injectable()
 export class SuppliersService {
   constructor(
-    @InjectRepository(Supplier)
-    private readonly supplierRepo: Repository<Supplier>,
-    @InjectRepository(SCAR)
-    private readonly scarRepo: Repository<SCAR>,
+    @Inject(getTenantRepositoryToken(Supplier))
+    private readonly supplierRepo: TenantScopedRepository<Supplier>,
+    @Inject(getTenantRepositoryToken(SCAR))
+    private readonly scarRepo: TenantScopedRepository<SCAR>,
     @InjectRepository(IQCInspection)
     private readonly iqcRepo: Repository<IQCInspection>,
-    @InjectRepository(SupplierContact)
-    private readonly contactRepo: Repository<SupplierContact>,
-    @InjectRepository(SupplierCertification)
-    private readonly certRepo: Repository<SupplierCertification>,
-    @InjectRepository(SupplierApprovedPart)
-    private readonly avlRepo: Repository<SupplierApprovedPart>,
+    @Inject(getTenantRepositoryToken(SupplierContact))
+    private readonly contactRepo: TenantScopedRepository<SupplierContact>,
+    @Inject(getTenantRepositoryToken(SupplierCertification))
+    private readonly certRepo: TenantScopedRepository<SupplierCertification>,
+    @Inject(getTenantRepositoryToken(SupplierApprovedPart))
+    private readonly avlRepo: TenantScopedRepository<SupplierApprovedPart>,
     @InjectRepository(ErpSupplierPrice)
     private readonly priceRepo: Repository<ErpSupplierPrice>,
     @InjectRepository(PurchaseOrder)
     private readonly poRepo: Repository<PurchaseOrder>,
     private readonly eventLedger: EventLedgerService,
+    private readonly tenantCtx: TenantContextService,
   ) {}
+
+  private applyScope<T extends ObjectLiteral>(
+    qb: SelectQueryBuilder<T>,
+    alias: string,
+  ): SelectQueryBuilder<T> {
+    const tenant = this.tenantCtx.getTenantId();
+    if (tenant) qb.andWhere(`${alias}.tenant_id = :tenant`, { tenant });
+    else qb.andWhere(`${alias}.tenant_id IS NULL`);
+    return qb;
+  }
 
   async findAll(
     filters: { q?: string; qualification?: string; type?: string; status?: string } = {},
   ): Promise<Supplier[]> {
     const qb = this.supplierRepo.createQueryBuilder('s').orderBy('s.name', 'ASC');
+    this.applyScope(qb, 's');
     if (filters.qualification) qb.andWhere('s.qualification_status = :qz', { qz: filters.qualification });
     if (filters.type) qb.andWhere('s.type = :ty', { ty: filters.type });
     if (filters.status) qb.andWhere('s.status = :st', { st: filters.status });
@@ -129,6 +146,7 @@ export class SuppliersService {
     const qb = this.scarRepo.createQueryBuilder('scar')
       .leftJoinAndSelect('scar.supplier', 'supplier')
       .leftJoinAndSelect('scar.iqcInspection', 'iqc');
+    this.applyScope(qb, 'scar');
 
     if (filters.supplierId) qb.andWhere('supplier.id = :sid', { sid: filters.supplierId });
     if (filters.status) qb.andWhere('scar.status = :status', { status: filters.status });
@@ -188,16 +206,23 @@ export class SuppliersService {
 
   /** Purchase orders attributable to a supplier (denormalized name / loose id / code). */
   private async ordersForSupplier(s: Supplier): Promise<PurchaseOrder[]> {
-    const qb = this.poRepo.createQueryBuilder('po')
-      .where('LOWER(po.supplierName) = LOWER(:name)', { name: s.name })
-      .orWhere('po.supplierId = :idStr', { idStr: String(s.id) });
-    if (s.code) qb.orWhere('LOWER(po.supplierId) = LOWER(:code)', { code: s.code });
+    const qb = this.poRepo.createQueryBuilder('po').where(
+      new Brackets((w) => {
+        w.where('LOWER(po.supplierName) = LOWER(:name)', { name: s.name }).orWhere(
+          'po.supplierId = :idStr',
+          { idStr: String(s.id) },
+        );
+        if (s.code)
+          w.orWhere('LOWER(po.supplierId) = LOWER(:code)', { code: s.code });
+      }),
+    );
+    this.applyScope(qb, 'po');
     return qb.getMany();
   }
 
   /** Batch: Σ inspected / Σ defects per supplier within the window → PpmResult. */
   private async ppmBySupplier(sinceMs: number): Promise<Map<number, PpmResult>> {
-    const rows = await this.iqcRepo.createQueryBuilder('iqc')
+    const ppmQb = this.iqcRepo.createQueryBuilder('iqc')
       .leftJoin('iqc.supplier', 's')
       .select('s.id', 'sid')
       .addSelect('SUM(iqc.sampleSize)', 'inspected')
@@ -205,8 +230,9 @@ export class SuppliersService {
       .addSelect('COUNT(*)', 'lots')
       .where('s.id IS NOT NULL')
       .andWhere('iqc.createdAt >= :since', { since: new Date(sinceMs) })
-      .groupBy('s.id')
-      .getRawMany<{ sid: number; inspected: string; defects: string; lots: string }>();
+      .groupBy('s.id');
+    this.applyScope(ppmQb, 'iqc');
+    const rows = await ppmQb.getRawMany<{ sid: number; inspected: string; defects: string; lots: string }>();
     const map = new Map<number, PpmResult>();
     for (const r of rows) {
       const inspected = Number(r.inspected ?? 0);
@@ -229,10 +255,11 @@ export class SuppliersService {
       byKey.set(String(s.id), s.id);
       if (s.code) byKey.set(s.code.toLowerCase(), s.id);
     }
-    const orders = await this.poRepo.createQueryBuilder('po')
+    const otdQb = this.poRepo.createQueryBuilder('po')
       .where('po.receivedDate IS NOT NULL')
-      .andWhere('(po.status = :r OR po.status = :c)', { r: 'RECEIVED', c: 'CLOSED' })
-      .getMany();
+      .andWhere('(po.status = :r OR po.status = :c)', { r: 'RECEIVED', c: 'CLOSED' });
+    this.applyScope(otdQb, 'po');
+    const orders = await otdQb.getMany();
     const grouped = new Map<number, PurchaseOrder[]>();
     for (const po of orders) {
       let sid = po.supplierName ? byName.get(po.supplierName.toLowerCase()) : undefined;
@@ -251,15 +278,16 @@ export class SuppliersService {
   }
 
   private async scarBySupplier(): Promise<Map<number, ReturnType<typeof computeScarResponsiveness>>> {
-    const rows = await this.scarRepo.createQueryBuilder('scar')
+    const scarQb = this.scarRepo.createQueryBuilder('scar')
       .leftJoin('scar.supplier', 's')
       .select('s.id', 'sid')
       .addSelect('scar.status', 'status')
       .addSelect('scar.createdAt', 'createdAt')
       .addSelect('scar.closedAt', 'closedAt')
       .addSelect('scar.dueDate', 'dueDate')
-      .where('s.id IS NOT NULL')
-      .getRawMany<{ sid: number; status: string; createdAt: Date; closedAt: Date; dueDate: Date }>();
+      .where('s.id IS NOT NULL');
+    this.applyScope(scarQb, 'scar');
+    const rows = await scarQb.getRawMany<{ sid: number; status: string; createdAt: Date; closedAt: Date; dueDate: Date }>();
     const grouped = new Map<number, typeof rows>();
     for (const r of rows) {
       const sid = Number(r.sid);
@@ -294,12 +322,13 @@ export class SuppliersService {
   }
 
   private async avlCountBySupplier(): Promise<Map<number, number>> {
-    const rows = await this.avlRepo.createQueryBuilder('avl')
+    const avlCountQb = this.avlRepo.createQueryBuilder('avl')
       .select('avl.supplierId', 'sid')
       .addSelect('COUNT(*)', 'cnt')
       .where("avl.approvalStatus IN (:...st)", { st: ['APPROVED', 'CONDITIONAL'] })
-      .groupBy('avl.supplierId')
-      .getRawMany<{ sid: number; cnt: string }>();
+      .groupBy('avl.supplierId');
+    this.applyScope(avlCountQb, 'avl');
+    const rows = await avlCountQb.getRawMany<{ sid: number; cnt: string }>();
     const map = new Map<number, number>();
     for (const r of rows) map.set(Number(r.sid), Number(r.cnt ?? 0));
     return map;
@@ -533,6 +562,7 @@ export class SuppliersService {
 
   async listAvl(filters: { supplierId?: number; part?: string; status?: string } = {}): Promise<SupplierApprovedPart[]> {
     const qb = this.avlRepo.createQueryBuilder('avl');
+    this.applyScope(qb, 'avl');
     if (filters.supplierId) qb.andWhere('avl.supplierId = :sid', { sid: filters.supplierId });
     if (filters.part) qb.andWhere('LOWER(avl.partNumber) LIKE :p', { p: `%${filters.part.toLowerCase()}%` });
     if (filters.status) qb.andWhere('avl.approvalStatus = :st', { st: filters.status });
@@ -588,9 +618,10 @@ export class SuppliersService {
     if (!avl.length) return { part: partNumber, suppliers: [] };
 
     const supplierIds = Array.from(new Set(avl.map((a) => a.supplierId)));
-    const suppliers = await this.supplierRepo.createQueryBuilder('s')
-      .where('s.id IN (:...ids)', { ids: supplierIds })
-      .getMany();
+    const forPartQb = this.supplierRepo.createQueryBuilder('s')
+      .where('s.id IN (:...ids)', { ids: supplierIds });
+    this.applyScope(forPartQb, 's');
+    const suppliers = await forPartQb.getMany();
     const supById = new Map(suppliers.map((s) => [s.id, s]));
 
     const now = new Date();

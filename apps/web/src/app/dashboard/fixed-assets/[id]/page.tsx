@@ -174,7 +174,7 @@ export default function FixedAssetDetailPage() {
   const lifePct = a.usefulLifeMonths > 0 ? Math.min(100, Math.round((schedule.elapsedMonths / a.usefulLifeMonths) * 100)) : 0;
 
   return (
-    <div className="min-h-screen text-black dark:text-white">
+    <div className="min-h-screen text-foreground">
       {/* Sticky glass header */}
       <div className={`${glass} sticky top-0 z-40 px-6 py-4`}>
         <div className="max-w-5xl mx-auto flex items-center gap-3">
@@ -395,7 +395,7 @@ function DisposeModal({ asset, onClose, onDone }: { asset: Asset; onClose: () =>
   return (
     <Modal title="Dar de baja activo" onClose={onClose}>
       <p className="text-[13px] text-gray-500 mb-4">
-        Detén la depreciación de <span className="font-medium text-black dark:text-white">{asset.name}</span> a partir de la fecha de baja. Valor en libros actual: <span className="font-medium">{money(asset.bookValue, asset.currency)}</span>.
+        Detén la depreciación de <span className="font-medium text-foreground">{asset.name}</span> a partir de la fecha de baja. Valor en libros actual: <span className="font-medium">{money(asset.bookValue, asset.currency)}</span>.
       </p>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Field label="Fecha de baja"><input type="date" className={faInput} value={disposedAt} onChange={(e) => setDisposedAt(e.target.value)} /></Field>
@@ -466,7 +466,7 @@ function ModalActions({ busy, onClose, onSubmit, label, danger }: { busy: boolea
 }
 function Guard() {
   return (
-    <div className="min-h-screen grid place-items-center text-black dark:text-white">
+    <div className="min-h-screen grid place-items-center text-foreground">
       <div className={`${glass} rounded-3xl p-10 text-center max-w-sm`}><Lock className="w-8 h-8 mx-auto mb-3 text-gray-400" /><h2 className="text-lg font-semibold">Sin acceso</h2><p className="text-sm text-gray-400 mt-1">Inicia sesión para ver el activo.</p></div>
     </div>
   );

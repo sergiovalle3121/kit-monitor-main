@@ -1,6 +1,28 @@
 import { analyzeWorkbookHealth, type WorkbookHealthFinding, type WorkbookHealthReport } from './workbookHealth';
+import { auditFormulaErrors, type SpreadsheetErrorCode } from './formulaErrorAudit';
 
 export type WorkbookPublishGateStatus = 'pass' | 'review' | 'blocked';
+
+// Maps visible spreadsheet error codes to publish-gate finding codes.
+const VISIBLE_ERROR_FINDINGS: { code: SpreadsheetErrorCode; finding: string; severity: WorkbookHealthFinding['severity'] }[] = [
+  { code: '#REF!', finding: 'formula-ref-errors', severity: 'critical' },
+  { code: '#NAME?', finding: 'formula-name-errors', severity: 'critical' },
+  { code: '#DIV/0!', finding: 'formula-div-zero-errors', severity: 'warning' },
+  { code: '#VALUE!', finding: 'formula-value-errors', severity: 'warning' },
+  { code: '#N/A', finding: 'formula-na-errors', severity: 'warning' },
+  { code: '#NUM!', finding: 'formula-num-errors', severity: 'warning' },
+  { code: '#NULL!', finding: 'formula-null-errors', severity: 'warning' },
+];
+
+function visibleErrorFindings(content: unknown): WorkbookHealthFinding[] {
+  const audit = auditFormulaErrors(content);
+  const findings: WorkbookHealthFinding[] = [];
+  for (const { code, finding, severity } of VISIBLE_ERROR_FINDINGS) {
+    const count = audit.byError[code];
+    if (count) findings.push({ severity, code: finding, message: `${count} celda(s) con error ${code} visible.` });
+  }
+  return findings;
+}
 
 export interface WorkbookPublishGate {
   status: WorkbookPublishGateStatus;
@@ -15,7 +37,14 @@ export interface WorkbookPublishGate {
 }
 
 export function evaluateWorkbookPublishGate(content: unknown, now = new Date()): WorkbookPublishGate {
-  const report = analyzeWorkbookHealth(content, now);
+  const baseReport = analyzeWorkbookHealth(content, now);
+  const errorFindings = visibleErrorFindings(content);
+  const errorPenalty = errorFindings.reduce((sum, finding) => sum + (finding.severity === 'critical' ? 35 : finding.severity === 'warning' ? 15 : 5), 0);
+  const report: WorkbookHealthReport = {
+    ...baseReport,
+    findings: [...baseReport.findings, ...errorFindings],
+    score: Math.max(0, baseReport.score - errorPenalty),
+  };
   const critical = report.findings.filter((finding) => finding.severity === 'critical');
   const warnings = report.findings.filter((finding) => finding.severity === 'warning');
   const info = report.findings.filter((finding) => finding.severity === 'info');

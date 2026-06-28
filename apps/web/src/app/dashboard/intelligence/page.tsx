@@ -359,7 +359,7 @@ export default function IntelligencePage() {
     <div className="mx-auto max-w-5xl px-5 py-8">
       <Link
         href="/dashboard"
-        className="mb-6 inline-flex items-center gap-1.5 text-sm text-black/60 hover:text-black dark:text-white/60 dark:hover:text-white"
+        className="mb-6 inline-flex items-center gap-1.5 text-sm text-black/60 hover:text-foreground/60 dark:hover:text-white"
       >
         <ArrowLeft className="h-4 w-4" /> Dashboard
       </Link>
@@ -617,7 +617,7 @@ export default function IntelligencePage() {
                   Eventos por día · últimos {trend.window.days} días
                 </p>
                 <div className="h-44">
-                  <ResponsiveContainer>
+                  <ResponsiveContainer width="100%" height={176}>
                     <AreaChart
                       data={trend.series}
                       margin={{ top: 6, right: 8, left: -18, bottom: 0 }}
@@ -668,7 +668,7 @@ export default function IntelligencePage() {
                   Actividad por dominio · últimos 7 días
                 </p>
                 <div className="h-44">
-                  <ResponsiveContainer>
+                  <ResponsiveContainer width="100%" height={176}>
                     <BarChart
                       data={breakdown.buckets}
                       margin={{ top: 6, right: 8, left: -18, bottom: 0 }}

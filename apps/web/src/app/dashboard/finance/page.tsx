@@ -50,8 +50,8 @@ export default function FinancePage() {
   }, [rows]);
 
   return (
-    <div className="min-h-screen text-black dark:text-white font-sans pb-32">
-      <main className="max-w-5xl mx-auto px-6 pt-10">
+    <div className="min-h-screen text-foreground font-sans pb-32">
+      <main className="max-w-7xl mx-auto px-6 pt-10">
         <PageHeader domain="finance" title="Finanzas" subtitle="Costos, contabilidad y movimientos · todo el dinero de la operación" />
 
         {/* KPIs en vivo */}

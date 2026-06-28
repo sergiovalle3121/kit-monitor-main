@@ -71,6 +71,11 @@ export const OBJ_ANIM_OPTIONS: { label: string; value: string }[] = [
   { label: 'Salida · Alejar', value: 'zoomOut' },
   { label: 'Salida · Barrido', value: 'wipeOut' },
   { label: 'Salida · Girar y salir', value: 'spinOut' },
+  { label: 'Trayectoria · Derecha', value: 'pathRight' },
+  { label: 'Trayectoria · Izquierda', value: 'pathLeft' },
+  { label: 'Trayectoria · Arriba', value: 'pathUp' },
+  { label: 'Trayectoria · Abajo', value: 'pathDown' },
+  { label: 'Trayectoria · Bucle', value: 'pathLoop' },
 ];
 
 /** Cuándo se dispara la animación de un objeto (secuencia tipo PowerPoint). */
@@ -84,15 +89,16 @@ export const OBJ_ANIM_START: { label: string; value: string }[] = [
 export const DEFAULT_ANIM_START = 'afterPrev';
 const EMPHASIS = new Set(['pulse', 'spin', 'grow', 'flash', 'teeter', 'blink']);
 const EXIT = new Set(['fadeOut', 'flyOut', 'zoomOut', 'wipeOut', 'spinOut']);
-export type AnimKind = 'entrance' | 'emphasis' | 'exit' | 'none';
+export type AnimKind = 'entrance' | 'emphasis' | 'exit' | 'motion' | 'none';
 export function animKind(effect?: string): AnimKind {
   if (!effect || effect === 'none') return 'none';
+  if (effect.startsWith('path')) return 'motion';
   if (EMPHASIS.has(effect)) return 'emphasis';
   if (EXIT.has(effect)) return 'exit';
   return 'entrance';
 }
 export const ANIM_KIND_LABEL: Record<AnimKind, string> = {
-  entrance: 'Entrada', emphasis: 'Énfasis', exit: 'Salida', none: '—',
+  entrance: 'Entrada', emphasis: 'Énfasis', exit: 'Salida', motion: 'Trayectoria', none: '—',
 };
 
 export interface SlideTheme {

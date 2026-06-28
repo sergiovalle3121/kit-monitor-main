@@ -64,7 +64,7 @@ export const ITEM_TYPE_META: Record<ItemType, { label: string; color: string }> 
 const ITEM_TYPES: ItemType[] = ['PURCHASED', 'MANUFACTURED', 'PHANTOM', 'NON_STOCK', 'DOCUMENT'];
 
 const field =
-  'w-full bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-xl py-2.5 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 transition-all';
+  'w-full bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-xl py-2.5 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all';
 
 export default function MaterialsPage() {
   const router = useRouter();
@@ -153,7 +153,7 @@ export default function MaterialsPage() {
 
   if (forbidden) {
     return (
-      <div className="min-h-screen grid place-items-center text-black dark:text-white">
+      <div className="min-h-screen grid place-items-center text-foreground">
         <div className={`${glass} rounded-3xl p-10 text-center max-w-sm`}>
           <Lock className="w-8 h-8 mx-auto mb-3 text-gray-400" />
           <h2 className="text-lg font-semibold">Sin acceso</h2>
@@ -164,8 +164,8 @@ export default function MaterialsPage() {
   }
 
   return (
-    <div className="min-h-screen text-black dark:text-white font-sans pb-28">
-      <main className="max-w-5xl mx-auto px-6 pt-10">
+    <div className="min-h-screen text-foreground font-sans pb-28">
+      <main className="max-w-7xl mx-auto px-6 pt-10">
         <PageHeader
           domain="engineering"
           title="Maestro de Materiales · MM"

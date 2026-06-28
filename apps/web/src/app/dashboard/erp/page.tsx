@@ -127,7 +127,7 @@ export default function ErpHubPage() {
   };
 
   return (
-    <div className="min-h-screen text-black dark:text-white font-sans pb-24">
+    <div className="min-h-screen text-foreground font-sans pb-24">
       <div
         className={`${glass} sticky top-0 z-40 px-5 py-3 rounded-none border-x-0 border-t-0 flex items-center justify-between`}
       >
@@ -221,7 +221,7 @@ export default function ErpHubPage() {
             <h3 className="font-bold mb-1">Resultado del periodo</h3>
             <p className="text-[11px] text-gray-400 mb-3">Ingresos · Gastos · Utilidad</p>
             <div style={{ width: '100%', height: 220 }}>
-              <ResponsiveContainer>
+              <ResponsiveContainer width="100%" height={220}>
                 <BarChart data={chart} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
                   <XAxis dataKey="name" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
                   <YAxis hide />

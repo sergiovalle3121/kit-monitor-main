@@ -7,23 +7,80 @@ import { useState } from "react";
 import { AmbientBackground } from "@/components/AmbientBackground";
 import { EntranceSweep } from "@/components/EntranceSweep";
 import { Reveal } from "@/components/Reveal";
+import { IconTile } from "@/components/ui/IconTile";
+import type { DomainKey } from "@/lib/design/domains";
 import { hoverLift, press } from "@/lib/motion";
 import {
   Activity,
   Box,
   ChevronRight,
   Cpu,
+  Database,
+  Fingerprint,
+  Gauge,
   Layers,
   LayoutDashboard,
   ShieldCheck,
+  Sparkles,
+  Workflow,
   Zap,
   X,
   CheckCircle2,
   AlertCircle,
   PlayCircle,
+  type LucideIcon,
 } from "lucide-react";
 
 const MotionLink = motion.create(Link);
+
+/**
+ * Galaxia de producto: los programas reales de AXOS presentados como las
+ * "apps" de un sistema operativo industrial. Cada loseta usa la firma de
+ * dominio (IconTile) y enlaza a su ruta real — sin inventar UI ni datos.
+ */
+interface Program {
+  domain: DomainKey;
+  icon?: LucideIcon;
+  name: string;
+  tag: string;
+  value: string;
+  href: string;
+}
+
+const PROGRAMS: Program[] = [
+  { domain: "planning", icon: Gauge, name: "Control Tower", tag: "Mando", value: "Readiness, OEE, andons y holds en vivo.", href: "/dashboard/mission-control" },
+  { domain: "mes", name: "MES · Piso", tag: "Ejecución", value: "Poka-yoke, backflush y andon por estación.", href: "/dashboard/operador" },
+  { domain: "erp", name: "ERP · Supply Chain", tag: "ERP", value: "Compras, materiales y finanzas integradas.", href: "/dashboard/erp" },
+  { domain: "inventory", name: "Inventario", tag: "Materiales", value: "Kitting, e-kanban y conteos cíclicos.", href: "/dashboard/inventory" },
+  { domain: "quality", name: "Calidad · MRB", tag: "Calidad", value: "Holds, cuarentena y disposición MRB.", href: "/dashboard/quality" },
+  { domain: "office", name: "Office", tag: "Productividad", value: "Docs, Sheets y Slides nativos.", href: "/dashboard/office" },
+  { domain: "engineering", icon: Box, name: "CAD · Layout", tag: "Ingeniería", value: "Layout de línea unificado 2D ⇄ 3D.", href: "/dashboard/line-engineering" },
+  { domain: "plan", icon: Sparkles, name: "AI · CIDE", tag: "Inteligencia", value: "Tu analista de datos con IA propia.", href: "/dashboard/intelligence" },
+];
+
+/** Píldoras de breadth en el hero — comunica el alcance del OS de un vistazo. */
+const HERO_PILLS = ["ERP", "MES", "Office", "CAD", "AI", "Calidad", "Control Tower"];
+
+/**
+ * Flujo de extremo a extremo: AXOS cubre toda la operación, del diseño al
+ * embarque, en un solo sistema. Usa firmas de dominio reales.
+ */
+const FLOW: { domain: DomainKey; label: string }[] = [
+  { domain: "engineering", label: "Diseño · NPI" },
+  { domain: "planning", label: "Planeación" },
+  { domain: "staging", label: "Materiales" },
+  { domain: "production", label: "Producción" },
+  { domain: "quality", label: "Calidad" },
+  { domain: "logistics", label: "Logística" },
+];
+
+/** Diferenciadores reales (sin métricas inventadas ni logos de terceros). */
+const DIFFERENTIATORS: { icon: typeof Database; title: string; body: string }[] = [
+  { icon: Database, title: "Una sola base de datos", body: "Del diseño al embarque sin integraciones frágiles ni silos entre departamentos." },
+  { icon: Workflow, title: "Del plan al piso, en vivo", body: "Publica el plan y ejecútalo con MES, backflush y bloqueos por calidad en tiempo real." },
+  { icon: Fingerprint, title: "Trazabilidad nativa", body: "Serie/lote, as-built y where-used listos para auditorías de cliente y contención." },
+  { icon: Sparkles, title: "IA con contexto de tu planta", body: "CIDE entiende todos tus módulos y datos — no es un chatbot genérico pegado encima." },
+];
 
 
 interface Feature {
@@ -147,6 +204,18 @@ export default function Home() {
         <div className="flex items-center gap-8">
           <div className="hidden md:flex gap-6 text-sm font-medium text-gray-600 dark:text-gray-400">
             <button
+              onClick={() => scrollTo("galaxy")}
+              className="hover:text-black dark:hover:text-white transition-colors cursor-pointer"
+            >
+              Programs
+            </button>
+            <button
+              onClick={() => scrollTo("why")}
+              className="hover:text-black dark:hover:text-white transition-colors cursor-pointer"
+            >
+              Por qué
+            </button>
+            <button
               onClick={() => scrollTo("platform")}
               className="hover:text-black dark:hover:text-white transition-colors cursor-pointer"
             >
@@ -195,7 +264,7 @@ export default function Home() {
             className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 text-xs font-medium text-gray-600 dark:text-gray-400 mb-8"
           >
             <ShieldCheck className="w-3 h-3 text-green-500" />
-            <span>Multi-tenant Enterprise Architecture</span>
+            <span>Industrial OS · ERP · MES · Office · CAD · AI</span>
           </motion.div>
 
           <motion.h1
@@ -208,12 +277,27 @@ export default function Home() {
 
           <motion.p
             variants={itemVariants}
-            className="text-xl text-gray-500 dark:text-gray-400 max-w-2xl mx-auto mb-12 font-light"
+            className="text-xl text-gray-500 dark:text-gray-400 max-w-2xl mx-auto mb-8 font-light"
           >
-            AXOS OS unifica los departamentos de una manufacturera en una sola
-            aplicación: piso (MES con poka-yoke y backflush), ERP, calidad, inventario
-            y herramientas internas como Office y chat.
+            AXOS OS es el sistema operativo industrial para manufactura
+            electrónica moderna: ERP, MES, calidad, inventario, Office, CAD e IA
+            en una sola plataforma multi-tenant.
           </motion.p>
+
+          {/* Píldoras de breadth: el alcance del OS de un vistazo */}
+          <motion.div
+            variants={itemVariants}
+            className="flex flex-wrap justify-center gap-2 mb-12"
+          >
+            {HERO_PILLS.map((p) => (
+              <span
+                key={p}
+                className="px-3 py-1 rounded-full text-xs font-medium text-gray-600 dark:text-gray-300 bg-gray-100/80 dark:bg-white/5 border border-gray-200/70 dark:border-white/10"
+              >
+                {p}
+              </span>
+            ))}
+          </motion.div>
 
           <motion.div
             variants={itemVariants}
@@ -251,6 +335,84 @@ export default function Home() {
             La demo crea una sesión de solo lectura por 30 minutos.
           </motion.p>
         </motion.div>
+      </section>
+
+      {/* Flujo de extremo a extremo — AXOS cubre toda la operación */}
+      <section id="flow" className="py-20 px-6 bg-white dark:bg-black/40 scroll-mt-24">
+        <Reveal className="max-w-6xl mx-auto">
+          <div className="text-center mb-12">
+            <span className="text-xs font-bold uppercase tracking-[0.2em] text-gray-400">
+              De extremo a extremo
+            </span>
+            <h2 className="text-4xl md:text-5xl font-bold tracking-tight mt-2">
+              Del diseño al embarque, un solo sistema.
+            </h2>
+            <p className="text-gray-500 mt-3 font-light max-w-xl mx-auto">
+              Cada etapa de la operación vive en la misma plataforma — sin saltar
+              entre apps ni perder el hilo de la información.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-6">
+            {FLOW.map((s, i) => (
+              <div key={s.label} className="flex items-center gap-2">
+                <div className="flex flex-col items-center gap-2 w-24">
+                  <IconTile domain={s.domain} size={52} />
+                  <span className="text-xs font-medium text-center leading-tight">
+                    {s.label}
+                  </span>
+                </div>
+                {i < FLOW.length - 1 && (
+                  <ChevronRight className="w-5 h-5 text-gray-300 dark:text-gray-600 flex-shrink-0" />
+                )}
+              </div>
+            ))}
+          </div>
+        </Reveal>
+      </section>
+
+      {/* Product Galaxy — los programas de AXOS como apps de un OS industrial */}
+      <section id="galaxy" className="py-20 px-6 scroll-mt-24">
+        <Reveal className="max-w-6xl mx-auto">
+          <div className="text-center mb-12">
+            <span className="text-xs font-bold uppercase tracking-[0.2em] text-gray-400">
+              El sistema operativo
+            </span>
+            <h2 className="text-4xl md:text-5xl font-bold tracking-tight mt-2">
+              Un OS, todos los programas.
+            </h2>
+            <p className="text-gray-500 mt-3 font-light max-w-xl mx-auto">
+              Cada departamento es un programa nativo del mismo sistema — no apps
+              sueltas pegadas con integraciones.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {PROGRAMS.map((p) => (
+              <MotionLink
+                key={p.name}
+                href={p.href}
+                whileHover={reduce ? undefined : { y: -4 }}
+                whileTap={reduce ? undefined : { scale: 0.98 }}
+                className="group flex flex-col gap-4 p-6 rounded-3xl border border-gray-100 dark:border-white/5 bg-gray-50/50 dark:bg-white/5 hover:bg-white dark:hover:bg-white/10 hover:shadow-lg hover:shadow-black/[0.04] transition-all"
+              >
+                <div className="flex items-center justify-between">
+                  <IconTile domain={p.domain} icon={p.icon} size={46} />
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                    {p.tag}
+                  </span>
+                </div>
+                <div>
+                  <h3 className="text-base font-semibold flex items-center gap-1">
+                    {p.name}
+                    <ChevronRight className="w-4 h-4 -translate-x-1 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all" />
+                  </h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 font-light leading-relaxed mt-1">
+                    {p.value}
+                  </p>
+                </div>
+              </MotionLink>
+            ))}
+          </div>
+        </Reveal>
       </section>
 
       {/* Platform / Features Grid */}
@@ -291,6 +453,41 @@ export default function Home() {
                 </p>
               </motion.button>
             ))}
+          </div>
+        </Reveal>
+      </section>
+
+      {/* Diferenciadores — por qué AXOS es distinto */}
+      <section id="why" className="py-20 px-6 scroll-mt-24">
+        <Reveal className="max-w-6xl mx-auto">
+          <div className="text-center mb-12">
+            <span className="text-xs font-bold uppercase tracking-[0.2em] text-gray-400">
+              Por qué AXOS
+            </span>
+            <h2 className="text-4xl md:text-5xl font-bold tracking-tight mt-2">
+              No es otra suite. Es un sistema operativo.
+            </h2>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {DIFFERENTIATORS.map((d) => {
+              const Icon = d.icon;
+              return (
+                <div
+                  key={d.title}
+                  className="flex items-start gap-4 p-6 rounded-3xl border border-gray-100 dark:border-white/5 bg-gray-50/50 dark:bg-white/5"
+                >
+                  <span className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl bg-white dark:bg-white/10 border border-gray-100 dark:border-white/10 text-gray-700 dark:text-gray-200">
+                    <Icon className="h-5 w-5" strokeWidth={1.75} />
+                  </span>
+                  <div>
+                    <h3 className="text-lg font-semibold">{d.title}</h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 font-light leading-relaxed mt-1">
+                      {d.body}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </Reveal>
       </section>
@@ -382,10 +579,56 @@ export default function Home() {
       </section>
 
       {/* Footer */}
-      <footer className="py-12 px-6 border-t border-gray-100 dark:border-white/5 text-center">
-        <p className="text-sm text-gray-400 font-light">
-          © 2026 AXOS OS. Engineering Excellence.
-        </p>
+      <footer className="border-t border-gray-100 dark:border-white/5 px-6 pt-16 pb-10">
+        <div className="max-w-6xl mx-auto">
+          <div className="grid grid-cols-2 gap-8 md:grid-cols-4">
+            {/* Marca */}
+            <div className="col-span-2 md:col-span-1">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-8 h-8 bg-black dark:bg-white rounded-lg flex items-center justify-center">
+                  <Layers className="w-5 h-5 text-white dark:text-black" />
+                </div>
+                <span className="text-lg font-bold tracking-tight">
+                  AXOS <span className="font-light text-gray-500">OS</span>
+                </span>
+              </div>
+              <p className="text-sm text-gray-500 dark:text-gray-400 font-light max-w-[15rem]">
+                El sistema operativo industrial para manufactura electrónica
+                moderna.
+              </p>
+            </div>
+
+            {/* Producto */}
+            <FooterCol title="Producto">
+              <FooterLink onClick={() => scrollTo("galaxy")}>Programas</FooterLink>
+              <FooterLink onClick={() => scrollTo("flow")}>Flujo end-to-end</FooterLink>
+              <FooterLink onClick={() => scrollTo("platform")}>Plataforma</FooterLink>
+              <FooterLink onClick={() => scrollTo("solutions")}>Soluciones</FooterLink>
+            </FooterCol>
+
+            {/* Empresa */}
+            <FooterCol title="Empresa">
+              <FooterLink onClick={() => scrollTo("why")}>Por qué AXOS</FooterLink>
+              <FooterLink onClick={() => scrollTo("enterprise")}>Enterprise</FooterLink>
+            </FooterCol>
+
+            {/* Acceso */}
+            <FooterCol title="Acceso">
+              <FooterLink href="/login">Iniciar sesión</FooterLink>
+              <FooterLink href="/login?register=1">Crear cuenta</FooterLink>
+              <FooterLink onClick={startDemo}>Ver demo</FooterLink>
+            </FooterCol>
+          </div>
+
+          <div className="mt-12 pt-6 border-t border-gray-100 dark:border-white/5 flex flex-col sm:flex-row items-center justify-between gap-2">
+            <p className="text-xs text-gray-400 font-light">
+              © 2026 AXOS OS · Industrial Operating System
+            </p>
+            <p className="text-xs text-gray-400 font-light">
+              ERP · MES · Office · CAD · AI
+            </p>
+          </div>
+        </div>
       </footer>
 
       {/* Feature modal */}
@@ -469,5 +712,44 @@ export default function Home() {
         </AnimatePresence>
       </div>
     </main>
+  );
+}
+
+/** Columna del footer: título de sección + enlaces. */
+function FooterCol({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <h3 className="text-xs font-bold uppercase tracking-[0.18em] text-gray-400 mb-4">
+        {title}
+      </h3>
+      <ul className="flex flex-col gap-2.5">{children}</ul>
+    </div>
+  );
+}
+
+/** Enlace del footer: <Link> si trae href, <button> si trae onClick. */
+function FooterLink({
+  href,
+  onClick,
+  children,
+}: {
+  href?: string;
+  onClick?: () => void;
+  children: React.ReactNode;
+}) {
+  const cls =
+    "text-sm text-gray-500 dark:text-gray-400 font-light hover:text-black dark:hover:text-white transition-colors text-left";
+  return (
+    <li>
+      {href ? (
+        <Link href={href} className={cls}>
+          {children}
+        </Link>
+      ) : (
+        <button onClick={onClick} className={cls}>
+          {children}
+        </button>
+      )}
+    </li>
   );
 }

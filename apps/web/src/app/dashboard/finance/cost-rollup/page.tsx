@@ -151,7 +151,7 @@ function formatDate(value: string) {
 
 function CostRollupShell({ children }: { children: ReactNode }) {
   return (
-    <div className="min-h-screen text-black dark:text-white font-sans pb-32">
+    <div className="min-h-screen text-foreground font-sans pb-32">
       <main className="mx-auto w-full max-w-[1680px] px-4 pt-8 md:px-8 lg:px-10">
         <div className="flex w-full flex-col gap-6">{children}</div>
       </main>
@@ -370,7 +370,7 @@ function CostItemsTable({ items }: { items: CostItem[] }) {
                   variants={rowVariants}
                   className="text-gray-600 transition-colors duration-300 hover:bg-black/5 dark:text-gray-300 dark:hover:bg-white/5"
                 >
-                  <td className="whitespace-nowrap px-3 py-4 font-medium text-black dark:text-white">
+                  <td className="whitespace-nowrap px-3 py-4 font-medium text-foreground">
                     {item.workOrderId ?? 'Sin asignar'}
                   </td>
                   <td className="whitespace-nowrap px-3 py-4">
@@ -382,7 +382,7 @@ function CostItemsTable({ items }: { items: CostItem[] }) {
                     </span>
                   </td>
                   <td className="px-3 py-4">{item.description}</td>
-                  <td className="whitespace-nowrap px-3 py-4 text-right font-semibold text-black dark:text-white">
+                  <td className="whitespace-nowrap px-3 py-4 text-right font-semibold text-foreground">
                     {formatCurrency(item.amount)}
                   </td>
                   <td className="whitespace-nowrap px-3 py-4 text-right text-gray-400 dark:text-gray-500">

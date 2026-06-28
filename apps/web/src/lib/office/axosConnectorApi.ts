@@ -2,14 +2,44 @@
 
 import { apiFetch } from "@/lib/apiFetch";
 import {
-  buildAxosConnectorRefreshRequest,
-  type AxosConnectorDatasetPayload,
-  type AxosConnectorInstance,
-} from "./axosConnectors";
+  AXOS_SHEET_CONNECTOR_BY_TYPE,
+  validateAxosSheetConnectorParams,
+} from "@axos/contracts";
+import { type AxosConnectorInstance } from "./axosConnectors";
 
 const API_BASE = (
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000"
 ).replace(/\/$/, "");
+
+export interface AxosConnectorDatasetPayload {
+  columns: string[];
+  rows: (string | number)[][];
+}
+
+export interface AxosConnectorRefreshRequest {
+  endpoint: string;
+  method: "GET";
+  params: Record<string, string>;
+  valid: boolean;
+  errors: string[];
+}
+
+export function buildAxosConnectorRefreshRequest(
+  instance: AxosConnectorInstance,
+): AxosConnectorRefreshRequest {
+  const def = AXOS_SHEET_CONNECTOR_BY_TYPE[instance.type];
+  const validation = validateAxosSheetConnectorParams(
+    instance.type,
+    instance.params ?? {},
+  );
+  return {
+    endpoint: def?.endpoint ?? "/office-documents/sheets/connectors/unknown",
+    method: "GET",
+    params: validation.params,
+    valid: !!def && validation.ok,
+    errors: validation.errors,
+  };
+}
 
 export interface AxosConnectorApiPayload extends AxosConnectorDatasetPayload {
   type: string;

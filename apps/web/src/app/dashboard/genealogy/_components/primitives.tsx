@@ -55,7 +55,7 @@ export function Kpi({
         {Icon && <Icon className="h-4 w-4" style={{ color: color ?? '#9ca3af' }} />}
       </div>
       <div
-        className="mt-1 truncate text-2xl font-semibold text-black dark:text-white"
+        className="mt-1 truncate text-2xl font-semibold text-foreground"
         style={color ? { color } : undefined}
       >
         {value}

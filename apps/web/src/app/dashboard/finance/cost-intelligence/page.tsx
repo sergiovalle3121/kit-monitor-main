@@ -302,7 +302,7 @@ export default function CostIntelligencePage() {
   }
 
   return (
-    <div className="min-h-screen text-black dark:text-white font-sans pb-32">
+    <div className="min-h-screen text-foreground font-sans pb-32">
       <main className="max-w-5xl mx-auto px-6 pt-10">
         <PageHeader
           domain="finance"
@@ -325,7 +325,7 @@ export default function CostIntelligencePage() {
                   key={m}
                   onClick={() => setMode(m)}
                   className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                    mode === m ? 'bg-white dark:bg-white/15 shadow-sm text-black dark:text-white' : 'text-gray-500 dark:text-gray-400'
+                    mode === m ? 'bg-white dark:bg-white/15 shadow-sm text-foreground' : 'text-gray-500 dark:text-gray-400'
                   }`}
                 >
                   {m === 'wo' ? 'Por orden (WO)' : 'Por programa'}

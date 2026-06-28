@@ -42,7 +42,7 @@ export default function LineEngineeringError({
   }, [error, chunkError]);
 
   return (
-    <div className="min-h-screen grid place-items-center text-black dark:text-white p-6">
+    <div className="min-h-screen grid place-items-center text-foreground p-6">
       <div className={`${glass} rounded-3xl p-8 text-center max-w-md`}>
         <AlertTriangle className="w-9 h-9 mx-auto mb-3 text-amber-500" />
         <h2 className="text-lg font-semibold">

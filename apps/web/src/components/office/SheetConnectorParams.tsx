@@ -3,7 +3,17 @@
 import React, { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { DatabaseZap, X } from 'lucide-react';
-import { AXOS_CONNECTOR_BY_TYPE, connectorParamSummary, validateConnectorParams, type AxosConnectorType } from '@/lib/office/axosConnectors';
+import {
+  AXOS_SHEET_CONNECTOR_BY_TYPE as AXOS_CONNECTOR_BY_TYPE,
+  validateAxosSheetConnectorParams as validateConnectorParams,
+  type AxosSheetConnectorType as AxosConnectorType,
+} from '@axos/contracts';
+
+function connectorParamSummary(type: AxosConnectorType): string {
+  const def = AXOS_CONNECTOR_BY_TYPE[type];
+  if (!def?.params.length) return 'Sin parámetros requeridos.';
+  return def.params.map((param) => `${param.label}${param.required ? ' *' : ''}`).join(' · ');
+}
 
 export function SheetConnectorParams({ type, onApply, onClose }: {
   type: AxosConnectorType;

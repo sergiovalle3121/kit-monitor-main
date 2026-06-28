@@ -1,9 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import Link from 'next/link';
 import {
-  ChevronLeft, Plus, Lock, Loader2, Inbox, X, ArrowRight,
+  Plus, Lock, Loader2, Inbox, X, ArrowRight,
   Search, AlertTriangle, Camera, FileWarning,
 } from 'lucide-react';
 import { glass } from '@/lib/glass';
@@ -107,18 +106,15 @@ export default function FloorQualityPage() {
 
   if (forbidden) {
     return (
-      <div className="min-h-screen grid place-items-center text-black dark:text-white">
+      <div className="min-h-screen grid place-items-center text-foreground">
         <div className={`${glass} rounded-3xl p-10 text-center max-w-sm`}><Lock className="w-8 h-8 mx-auto mb-3 text-gray-400" /><h2 className="text-lg font-semibold">Sin acceso</h2><p className="text-sm text-gray-400 mt-1">Necesitas permiso de calidad.</p></div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen text-black dark:text-white">
+    <div className="min-h-screen text-foreground">
       <main className="max-w-6xl mx-auto px-6 pt-10 pb-24">
-        <Link href="/dashboard" className="inline-flex items-center gap-1 text-sm text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 mb-4">
-          <ChevronLeft className="w-4 h-4" /> Dashboard
-        </Link>
         <PageHeader
           domain="quality"
           title="Calidad de piso"

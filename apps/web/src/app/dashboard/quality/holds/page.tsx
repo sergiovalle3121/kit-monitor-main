@@ -115,7 +115,7 @@ export default function QualityHoldsPage() {
   }
 
   return (
-    <div className="min-h-screen text-black dark:text-white font-sans pb-32">
+    <div className="min-h-screen text-foreground font-sans pb-32">
       <main className="max-w-5xl mx-auto px-6 pt-10">
         <Link href="/dashboard/quality" className="inline-flex items-center gap-1 text-sm text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 mb-4">
           <ChevronLeft className="w-4 h-4" /> Calidad · NCR

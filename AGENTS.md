@@ -47,3 +47,42 @@ You are part of the AXOS OS Engineering Team. This project is an Industrial OS (
   red. Verify locally (`tsc`, `nest build`, `next build`; run the demo seed
   against a local Postgres when touching entities/seed) before pushing.
 
+## 6. Codex — Anti-Redundancy Rules (READ FIRST)
+
+Codex is the high-throughput implementer on this team. To keep velocity without
+piling up redundant work, every Codex task MUST follow these rules. They exist
+because the most common review failures have been redundancy, not bugs.
+
+1. **Always branch from the LATEST `main`, never regenerate from an old base.**
+   Before starting, run `git fetch origin && git rebase origin/main` (or branch
+   fresh off `origin/main`). Regenerating a task from a stale base reintroduces
+   code that was already removed and creates **duplicate migrations** and
+   superset conflicts that have to be resolved by hand. If a task is being
+   re-run, rebase it — do not replay the old diff.
+
+2. **One system per concern — extend, don't duplicate.** Before adding a
+   service/module/table, search `apps/api/src/modules` and
+   `apps/web/src/components` for an existing one and extend it. Concrete open
+   example: Office has **two parallel comment systems** (`office_document_comments`
+   for Docs and `office_comments` for Slides). New comment work must converge on
+   a **single** generic anchored-comment model, not add a third path.
+
+3. **Wire what you build into the UI — no barrel-only features.** Several CAD
+   modules (measurements, collisions, flow-optimization, safety-zones,
+   dxf-export, annotations, validation-report) exist and are tested but are only
+   re-exported from `apps/web/src/lib/cad/index.ts` and never mounted in the
+   editor. A feature is not "done" until it is reachable by a user. Prefer
+   finishing/wiring an existing module over starting a new one.
+
+4. **Migrations: unique timestamps, no duplicates.** Every TypeORM migration
+   needs a unique `YYYYMMDDHHMMSS` prefix. Before adding one, list
+   `apps/api/src/migrations` and confirm no migration already creates that table
+   — duplicate `CREATE TABLE` migrations have repeatedly collided. When in doubt,
+   bump the timestamp and make the migration idempotent (`IF NOT EXISTS`).
+
+5. **Don't reintroduce removed code.** If `main` deleted or refactored something
+   (e.g. a local theme replaced by the global theme, a kiosk flag generalized to
+   `useRouteChrome`/`hideFloatingWidgets`), keep the new shape. Rebasing (rule 1)
+   prevents most of this; when a conflict appears, take `main`'s direction and
+   re-apply your *new* feature on top, never the other way around.
+

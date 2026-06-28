@@ -16,6 +16,20 @@ import { PermissionsGuard } from '../auth/guards/permissions.guard';
 export class QualityAnalyticsController {
   constructor(private readonly service: QualityAnalyticsService) {}
 
+  @Get('command-center')
+  @ApiOperation({
+    summary:
+      'Command Center de calidad: analítica + lanes operativos + atención + contención/MRB. Filtros: days, model, line, supplier.',
+  })
+  commandCenter(
+    @Query('days') days?: string,
+    @Query('model') model?: string,
+    @Query('line') line?: string,
+    @Query('supplier') supplier?: string,
+  ) {
+    return this.service.commandCenter({ days, model, line, supplier });
+  }
+
   @Get()
   @ApiOperation({
     summary:
