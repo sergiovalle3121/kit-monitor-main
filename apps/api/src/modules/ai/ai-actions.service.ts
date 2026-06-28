@@ -130,6 +130,17 @@ export class AiActionsService {
         );
         return { id: inc.id, capaOwner: inc.capaOwner, status: inc.status };
       }
+      case 'set_maintenance_order_status': {
+        const order = await this.svc(MaintenanceService).updateOrder(
+          params.orderId as string,
+          { status: params.status } as never,
+        );
+        return { id: order.id, folio: order.folio, status: order.status };
+      }
+      case 'create_safety_incident': {
+        const inc = await this.svc(EhsService).create(params as never);
+        return { id: inc.id, folio: inc.folio, title: inc.title };
+      }
       default:
         throw new Error(`Sin ejecutor para la acción: ${actionKey}`);
     }

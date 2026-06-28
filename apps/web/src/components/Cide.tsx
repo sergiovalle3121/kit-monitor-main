@@ -30,6 +30,7 @@ import { isAdminAccess } from '@/lib/owner';
 import { useRouteChrome } from '@/lib/routeChrome';
 import { useDashboardSession } from '@/hooks/useDashboardSession';
 import { BRIEFING_PROMPT, suggestionsFor } from '@/lib/chat/cideSuggestions';
+import { sourcesFor } from '@/lib/chat/toolSources';
 import { MarkdownLite } from '@/components/MarkdownLite';
 
 type CideCard =
@@ -609,19 +610,28 @@ export function Cide() {
                       )}
                       {m.role === 'assistant' &&
                         m.tools &&
-                        m.tools.length > 0 && (
-                          <div className="mt-2 flex flex-wrap gap-1.5">
-                            {m.tools.map((t) => (
-                              <span
-                                key={t}
-                                className="inline-flex items-center gap-1 rounded-md bg-violet-500/10 px-1.5 py-0.5 text-[10px] font-medium text-violet-600 dark:text-violet-300"
-                              >
-                                <Wrench className="h-2.5 w-2.5" />
-                                {t}
+                        m.tools.length > 0 &&
+                        (() => {
+                          const sources = sourcesFor(m.tools);
+                          if (sources.length === 0) return null;
+                          return (
+                            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                              <span className="inline-flex items-center gap-1 text-[10px] text-black/40 dark:text-white/40">
+                                <Wrench className="h-2.5 w-2.5" /> Fuentes:
                               </span>
-                            ))}
-                          </div>
-                        )}
+                              {sources.map((src) => (
+                                <Link
+                                  key={src.label}
+                                  href={src.href}
+                                  onClick={() => setOpen(false)}
+                                  className="inline-flex items-center rounded-md bg-violet-500/10 px-1.5 py-0.5 text-[10px] font-medium text-violet-600 transition-colors hover:bg-violet-500/20 dark:text-violet-300"
+                                >
+                                  {src.label}
+                                </Link>
+                              ))}
+                            </div>
+                          );
+                        })()}
                       {m.role === 'assistant' && m.mock && (
                         <p className="mt-1.5 text-[10px] text-amber-600 dark:text-amber-400">
                           modo demo · motor CIDE no disponible

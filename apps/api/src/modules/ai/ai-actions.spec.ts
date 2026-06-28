@@ -99,3 +99,32 @@ describe('ACTIONS.assign_ehs_incident_owner', () => {
     });
   });
 });
+
+describe('ACTIONS.set_maintenance_order_status', () => {
+  const def = ACTIONS.set_maintenance_order_status;
+  it('requires orderId and a valid status (normalized)', () => {
+    expect(def.validate({ status: 'COMPLETED' }).ok).toBe(false);
+    expect(def.validate({ orderId: 'o1', status: 'BOGUS' }).ok).toBe(false);
+    expect(def.validate({ orderId: 'o1', status: 'completed' })).toMatchObject({
+      ok: true,
+      params: { orderId: 'o1', status: 'COMPLETED' },
+    });
+  });
+});
+
+describe('ACTIONS.create_safety_incident', () => {
+  const def = ACTIONS.create_safety_incident;
+  it('requires a 3–200 char title and keeps optional fields', () => {
+    expect(def.validate({}).ok).toBe(false);
+    expect(def.validate({ title: 'no' }).ok).toBe(false);
+    expect(
+      def.validate({ title: 'Derrame en pasillo B', area: 'Almacén' }),
+    ).toMatchObject({
+      ok: true,
+      params: { title: 'Derrame en pasillo B', area: 'Almacén' },
+    });
+  });
+  it('is gated by reports:read', () => {
+    expect(def.requiredPermission).toBe('reports:read');
+  });
+});

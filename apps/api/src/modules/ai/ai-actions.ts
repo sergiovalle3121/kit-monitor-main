@@ -216,6 +216,55 @@ export const ACTIONS: Record<string, ActionDef> = {
       return parts.join(' · ');
     },
   },
+
+  set_maintenance_order_status: {
+    key: 'set_maintenance_order_status',
+    label: 'Actualizar estado de orden de mantenimiento',
+    requiredPermission: 'maintenance:write',
+    validate(raw) {
+      const orderId = str(raw.orderId);
+      if (!orderId) {
+        return { ok: false, error: 'Indica el ID de la orden (orderId).' };
+      }
+      const status = str(raw.status)?.toUpperCase();
+      const allowed = ['OPEN', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'];
+      if (!status || !allowed.includes(status)) {
+        return { ok: false, error: `Estado inválido. Usa: ${allowed.join(', ')}.` };
+      }
+      return { ok: true, params: { orderId, status } };
+    },
+    summarize(p) {
+      return `Cambiar la orden de mantenimiento ${String(p.orderId)} a estado ${String(p.status)}`;
+    },
+  },
+
+  create_safety_incident: {
+    key: 'create_safety_incident',
+    label: 'Reportar incidente de seguridad (EHS)',
+    requiredPermission: 'reports:read',
+    validate(raw) {
+      const title = str(raw.title);
+      if (!title || title.length < 3 || title.length > 200) {
+        return {
+          ok: false,
+          error: 'Indica un título de 3 a 200 caracteres para el incidente.',
+        };
+      }
+      const params: Record<string, unknown> = { title };
+      const description = str(raw.description);
+      if (description) params.description = description;
+      const area = str(raw.area);
+      if (area) params.area = area;
+      const location = str(raw.location);
+      if (location) params.location = location;
+      return { ok: true, params };
+    },
+    summarize(p) {
+      const parts = [`Reportar incidente EHS: "${String(p.title)}"`];
+      if (p.area) parts.push(`área ${String(p.area)}`);
+      return parts.join(' · ');
+    },
+  },
 };
 
 export const ACTION_KEYS = Object.keys(ACTIONS);

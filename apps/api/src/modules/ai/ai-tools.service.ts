@@ -1076,7 +1076,10 @@ export class AiToolsService {
           'número], needBy, description, notes); create_production_plan (params: model [req], ' +
           'line [req, 1–7], quantity [req], shift [req, T1|T2|T3], workOrder, bahia [1–6], ' +
           'scheduledAt); assign_ehs_incident_owner (asignar responsable a incidente; params: ' +
-          'incidentId [req], owner [req], dueDate).',
+          'incidentId [req], owner [req], dueDate); set_maintenance_order_status (cambiar estado ' +
+          'de una orden de mantenimiento; params: orderId [req], status [req: OPEN|IN_PROGRESS|' +
+          'COMPLETED|CANCELLED]); create_safety_incident (reportar incidente EHS; params: title ' +
+          '[req], description, area, location).',
         requiredPermission: null,
         mockTriggers: [
           'crea una orden',
