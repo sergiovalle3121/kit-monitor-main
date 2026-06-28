@@ -2812,4 +2812,28 @@ las 5 acciones y sus params. La UI no cambió: la tarjeta de propuesta ya es agn
 execute de requisición/forbid EHS), `lint web` 0 errores. Mismas garantías de §126 (confirmación
 humana + RBAC + re-validación + ledger). Sin migraciones.
 
+## 128. CIDE "Centinela" — inteligencia proactiva (de reactivo a "te aviso yo")
+
+**Contexto.** Hasta aquí CIDE respondía cuando le preguntabas. El salto: que **proponga la
+agenda** — al abrirlo, muestra priorizado y filtrado por permisos "qué necesita tu atención
+ahora" cruzando todos los dominios, cada hallazgo a un clic de análisis profundo (y de ahí, de
+una acción §126/§127). Esto convierte a CIDE de panel reactivo en monitor proactivo.
+
+**Decisión (aditiva, sin migración).**
+- **Núcleo determinista (`ai-insights.ts`, puro):** mappers que convierten la salida de las
+  herramientas read-only en `Insight { area, severity, title, detail, suggestedQuestion }`:
+  KPIs en alerta (uno por alerta), mantenimiento vencido, retenciones de calidad activas,
+  incidentes EHS abiertos. `buildSituationReport` combina y ordena por severidad. **No usa el
+  LLM**, así que funciona aunque el motor no esté arriba.
+- **Servicio (`AiInsightsService`):** corre `kpi_alerts`, `maintenance_orders`, `quality_holds`
+  y `safety_incidents` vía `AiToolsService.execute` bajo el RBAC del usuario (fuentes sin
+  permiso se omiten), y arma el reporte. Endpoint `GET /api/ai/insights` + proxy Next.
+- **UI:** nueva vista **"Centinela"** (icono escudo) en el widget de CIDE: lista priorizada con
+  puntos de severidad; cada hallazgo tiene "Analizar con CIDE →" que salta al chat con la
+  pregunta de profundización.
+
+**Verificación:** `build API` ✓, **API tests 1131/1131** (+6: mappers y `buildSituationReport`,
+incl. tolerancia a shapes/RBAC y orden por severidad), `lint web` 0 errores, `build web` ✓
+(ruta `/api/ai/insights` registrada). RBAC: nunca surfacea lo que el usuario no podría ver.
+
 <!-- Nuevas decisiones se agregan al final con número incremental -->
