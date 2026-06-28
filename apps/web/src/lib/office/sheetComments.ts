@@ -1,14 +1,20 @@
+import { assignedFromText, mentionsOf, normalizeRangeRef, type SheetCommentAnchor } from './sheetGovernance';
+
 export interface SheetCommentReply {
   id: string;
   text: string;
   author?: string;
   createdAt: string;
+  mentions?: string[];
 }
 
 export interface SheetCommentThread {
   id: string;
   sheetIndex: number;
   range: string;
+  anchor?: SheetCommentAnchor;
+  persistedId?: string;
+  parentId?: string | null;
   text: string;
   author?: string;
   createdAt: string;
@@ -16,6 +22,8 @@ export interface SheetCommentThread {
   resolvedAt?: string;
   reopenedAt?: string;
   replies?: SheetCommentReply[];
+  mentions?: string[];
+  assignedTo?: string | null;
 }
 
 const idFrom = (prefix: string, now: Date) => `${prefix}_${now.getTime().toString(36)}`;
@@ -25,8 +33,10 @@ export function createSheetCommentThread(input: { sheetIndex: number; range: str
   return {
     id: idFrom('sc', now),
     sheetIndex: input.sheetIndex,
-    range: input.range,
+    range: normalizeRangeRef(input.range),
     text: input.text.trim(),
+    mentions: mentionsOf(input.text),
+    assignedTo: assignedFromText(input.text),
     author: input.author,
     createdAt: now.toISOString(),
   };
@@ -36,7 +46,7 @@ export function addSheetCommentReply(comments: SheetCommentThread[], id: string,
   const clean = text.trim();
   if (!clean) return comments;
   return comments.map((comment) => comment.id === id
-    ? { ...comment, replies: [...(comment.replies ?? []), { id: idFrom('scr', now), text: clean, author, createdAt: now.toISOString() }] }
+    ? { ...comment, replies: [...(comment.replies ?? []), { id: idFrom('scr', now), text: clean, author, createdAt: now.toISOString(), mentions: mentionsOf(clean) }] }
     : comment);
 }
 
@@ -53,11 +63,25 @@ export function deleteSheetComment(comments: SheetCommentThread[], id: string): 
 }
 
 export function commentsForSelection(comments: SheetCommentThread[], sheetIndex: number, range: string, includeResolved = false): SheetCommentThread[] {
-  return comments.filter((comment) => comment.sheetIndex === sheetIndex && comment.range === range && (includeResolved || !comment.resolved));
+  return comments.filter((comment) => comment.sheetIndex === sheetIndex && normalizeRangeRef(comment.range) === normalizeRangeRef(range) && (includeResolved || !comment.resolved));
 }
 
 export function formatSheetCommentSummary(comment: SheetCommentThread): string {
   const replies = comment.replies?.length ? ` (${comment.replies.length} respuestas)` : '';
   const status = comment.resolved ? 'resuelto' : 'abierto';
   return `${comment.range} · ${status}${replies} — ${comment.text}`;
+}
+
+export function groupSheetCommentThreads(comments: SheetCommentThread[]): SheetCommentThread[] {
+  const roots = comments.filter((c) => !c.parentId);
+  const replies = comments.filter((c) => !!c.parentId);
+  return roots.map((root) => ({
+    ...root,
+    replies: [
+      ...(root.replies ?? []),
+      ...replies.filter((reply) => reply.parentId === (root.persistedId ?? root.id)).map((reply) => ({
+        id: reply.id, text: reply.text, author: reply.author, createdAt: reply.createdAt, mentions: reply.mentions,
+      })),
+    ],
+  }));
 }
