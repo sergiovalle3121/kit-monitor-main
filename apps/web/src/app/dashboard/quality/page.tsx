@@ -25,6 +25,11 @@ import {
   GitBranch,
   PackageSearch,
   Radar,
+  Route,
+  ShieldCheck,
+  Siren,
+  TimerReset,
+  Wrench,
   RotateCcw,
   TrendingUp,
 } from "lucide-react";
@@ -35,6 +40,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/contexts/ToastContext";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Empty, Field, Kpi, QInputStyle } from "./quality.ui";
+import { ActionPlanPanel, AgingEscalationPanel, BattleRhythmPanel, OperationalDrilldownBoard } from "./quality.command-center";
 import type {
   CreateNcrInput,
   FloorQualityKpis,
@@ -44,6 +50,10 @@ import type {
   NcrSourceType,
   NcrStatus,
   QualityAnalytics,
+  QualityCharacteristic,
+  QualityCommandCenterSummary,
+  RmaKpis,
+  GenealogyKpis,
 } from "./quality.types";
 import {
   deriveNcrKpis,
@@ -59,13 +69,32 @@ const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000").re
 
 export default function QualityPage() {
   const { user } = useAuth();
+  const [commandDays, setCommandDays] = useState("30");
+  const [commandModel, setCommandModel] = useState("");
+  const [commandLine, setCommandLine] = useState("");
+  const [commandSupplier, setCommandSupplier] = useState("");
+  const commandQuery = useMemo(() => {
+    const params = new URLSearchParams();
+    if (commandDays) params.set("days", commandDays);
+    if (commandModel) params.set("model", commandModel);
+    if (commandLine) params.set("line", commandLine);
+    if (commandSupplier.trim()) params.set("supplier", commandSupplier.trim());
+    const qs = params.toString();
+    return qs ? `?${qs}` : "";
+  }, [commandDays, commandModel, commandLine, commandSupplier]);
+
   const { data, isLoading, forbidden, mutate } = useApi<Ncr[]>("/ncr");
-  const { data: analyticsData } = useApi<QualityAnalytics>("/quality/analytics?days=30");
+  const { data: commandCenterData } = useApi<QualityCommandCenterSummary>(`/quality/analytics/command-center${commandQuery}`);
+  const { data: analyticsDataRaw } = useApi<QualityAnalytics>(`/quality/analytics${commandQuery}`);
   const { data: floorKpis } = useApi<FloorQualityKpis>("/floor-quality/kpis");
+  const { data: rmaKpis } = useApi<RmaKpis>("/rma/kpis");
+  const { data: genealogyKpis } = useApi<GenealogyKpis>("/genealogy/kpis");
+  const { data: characteristicsData } = useApi<QualityCharacteristic[]>("/quality/characteristics?active=true");
   const { data: modelsData } = useApi<ModelOption[]>("/product-models");
 
+  const analyticsData = commandCenterData?.analytics ?? analyticsDataRaw;
   const all = useMemo(() => (Array.isArray(data) ? data : []), [data]);
-  const models = Array.isArray(modelsData) ? modelsData : [];
+  const models = useMemo(() => (Array.isArray(modelsData) ? modelsData : []), [modelsData]);
   const kpis = useMemo(() => deriveNcrKpis(all), [all]);
 
   // Filtros (client-side; la lista de NCR es chica y ya viene completa).
@@ -79,6 +108,14 @@ export default function QualityPage() {
     () => Array.from(new Set(all.map((n) => n.model).filter(Boolean) as string[])).sort(),
     [all],
   );
+  const commandLines = useMemo(
+    () => Array.from(new Set(all.map((n) => n.line).filter(Boolean) as string[])).sort(),
+    [all],
+  );
+  const commandModels = useMemo(() => {
+    const canonical = models.map((m) => m.modelNumber).filter(Boolean);
+    return Array.from(new Set([...canonical, ...modelsInUse])).sort();
+  }, [models, modelsInUse]);
 
   const rows = useMemo(() => {
     const needle = q.trim().toLowerCase();
@@ -118,6 +155,9 @@ export default function QualityPage() {
   const topSupplier = analyticsData?.ppm.supplier?.[0];
   const topModelRisk = analyticsData?.cuts.byModel?.[0];
   const capaOverdueList = analyticsData?.capa.overdueList ?? [];
+  const activeCharacteristics = Array.isArray(characteristicsData) ? characteristicsData : [];
+  const criticalCharacteristics = activeCharacteristics.filter((c) => c.isCritical);
+  const variableCharacteristics = activeCharacteristics.filter((c) => c.type === "VARIABLE");
   const attentionItems = [
     ...criticalOpen.slice(0, 2).map((n) => ({
       key: `ncr-${n.id}`,
@@ -218,6 +258,22 @@ export default function QualityPage() {
           }
         />
 
+        {!forbidden && (
+          <CommandCenterFilters
+            days={commandDays}
+            model={commandModel}
+            line={commandLine}
+            supplier={commandSupplier}
+            models={commandModels}
+            lines={commandLines}
+            onDays={setCommandDays}
+            onModel={setCommandModel}
+            onLine={setCommandLine}
+            onSupplier={setCommandSupplier}
+            onReset={() => { setCommandDays("30"); setCommandModel(""); setCommandLine(""); setCommandSupplier(""); }}
+          />
+        )}
+
         {forbidden ? (
           <Empty
             icon={<Lock className="w-6 h-6" />}
@@ -273,6 +329,27 @@ export default function QualityPage() {
               <AttentionQueue items={attentionItems} />
               <RiskPanels repeatDefects={repeatDefects} topSupplier={topSupplier} topModelRisk={topModelRisk} analyticsReady={!!analyticsData} />
             </section>
+
+            <QualityWarRoom
+              ncrs={all}
+              analytics={analyticsData}
+              floorKpis={floorKpis}
+              criticalCharacteristics={criticalCharacteristics}
+              variableCharacteristics={variableCharacteristics}
+              rmaKpis={rmaKpis}
+              genealogyKpis={genealogyKpis}
+              commandCenter={commandCenterData}
+            />
+
+            <BattleRhythmPanel commandCenter={commandCenterData} />
+
+            <AgingEscalationPanel commandCenter={commandCenterData} />
+
+            <ActionPlanPanel commandCenter={commandCenterData} />
+
+            <OperationalDrilldownBoard commandCenter={commandCenterData} />
+
+            <CustomerTraceabilityPanel rmaKpis={rmaKpis} genealogyKpis={genealogyKpis} commandCenter={commandCenterData} />
 
             <ModuleGrid />
 
@@ -374,6 +451,77 @@ export default function QualityPage() {
 }
 
 
+
+function CommandCenterFilters({
+  days,
+  model,
+  line,
+  supplier,
+  models,
+  lines,
+  onDays,
+  onModel,
+  onLine,
+  onSupplier,
+  onReset,
+}: {
+  days: string;
+  model: string;
+  line: string;
+  supplier: string;
+  models: string[];
+  lines: string[];
+  onDays: (value: string) => void;
+  onModel: (value: string) => void;
+  onLine: (value: string) => void;
+  onSupplier: (value: string) => void;
+  onReset: () => void;
+}) {
+  return (
+    <section className={`${glass} rounded-2xl p-3 mb-5`}>
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Command-center scope</h2>
+          <p className="text-[11px] text-muted-foreground">Filtra analytics, war room, CAPA, PPM y CTQ readiness sin tocar la lista operativa de NCR.</p>
+        </div>
+        <button onClick={onReset} className="rounded-xl px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted/70">
+          Reset
+        </button>
+      </div>
+      <div className="grid gap-2 md:grid-cols-4">
+        <label className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+          Ventana
+          <select value={days} onChange={(e) => onDays(e.target.value)} className="mt-1 w-full rounded-xl border border-border bg-background/70 px-3 py-2 text-sm normal-case tracking-normal text-foreground outline-none focus:ring-2 focus:ring-primary/25">
+            <option value="7">7 días</option>
+            <option value="30">30 días</option>
+            <option value="90">90 días</option>
+            <option value="365">365 días</option>
+            <option value="all">Todo</option>
+          </select>
+        </label>
+        <label className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+          Modelo
+          <select value={model} onChange={(e) => onModel(e.target.value)} className="mt-1 w-full rounded-xl border border-border bg-background/70 px-3 py-2 text-sm normal-case tracking-normal text-foreground outline-none focus:ring-2 focus:ring-primary/25">
+            <option value="">Todos</option>
+            {models.map((m) => <option key={m} value={m}>{m}</option>)}
+          </select>
+        </label>
+        <label className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+          Línea
+          <select value={line} onChange={(e) => onLine(e.target.value)} className="mt-1 w-full rounded-xl border border-border bg-background/70 px-3 py-2 text-sm normal-case tracking-normal text-foreground outline-none focus:ring-2 focus:ring-primary/25">
+            <option value="">Todas</option>
+            {lines.map((l) => <option key={l} value={l}>{l}</option>)}
+          </select>
+        </label>
+        <label className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+          Supplier ID
+          <input value={supplier} onChange={(e) => onSupplier(e.target.value)} placeholder="Opcional" className="mt-1 w-full rounded-xl border border-border bg-background/70 px-3 py-2 text-sm normal-case tracking-normal text-foreground outline-none focus:ring-2 focus:ring-primary/25" />
+        </label>
+      </div>
+    </section>
+  );
+}
+
 function formatPct(value?: number | null) {
   return value == null ? "—" : `${value.toFixed(1)}%`;
 }
@@ -469,6 +617,416 @@ function RiskPanels({ repeatDefects, topSupplier, topModelRisk, analyticsReady }
 
 function RiskCard({ icon, title, value, meta }: { icon: React.ReactNode; title: string; value: React.ReactNode; meta: string }) {
   return <div className="flex items-center gap-3 rounded-xl border border-border bg-background/55 p-3"><span className="rounded-xl bg-muted p-2 text-muted-foreground">{icon}</span><div className="min-w-0"><div className="text-[11px] uppercase tracking-wider text-muted-foreground">{title}</div><div className="text-sm font-semibold truncate">{value}</div><div className="text-xs text-muted-foreground">{meta}</div></div></div>;
+}
+
+
+
+function QualityWarRoom({
+  ncrs,
+  analytics,
+  floorKpis,
+  criticalCharacteristics,
+  variableCharacteristics,
+  rmaKpis,
+  genealogyKpis,
+  commandCenter,
+}: {
+  ncrs: Ncr[];
+  analytics?: QualityAnalytics;
+  floorKpis?: FloorQualityKpis;
+  criticalCharacteristics: QualityCharacteristic[];
+  variableCharacteristics: QualityCharacteristic[];
+  rmaKpis?: RmaKpis;
+  genealogyKpis?: GenealogyKpis;
+  commandCenter?: QualityCommandCenterSummary;
+}) {
+  const openNcrs = ncrs.filter((n) => n.status !== "closed");
+  const incomingNcrs = openNcrs.filter((n) => n.sourceType === "incoming" || n.sourceType === "supplier");
+  const processNcrs = openNcrs.filter((n) => n.sourceType === "in-process");
+  const customerNcrs = openNcrs.filter((n) => n.sourceType === "customer" || n.sourceType === "outgoing");
+  const unclassified = analytics?.meta.unclassifiedNcrs ?? openNcrs.filter((n) => !n.defectCodeId).length;
+  const topStation = analytics?.yield.fpyByStation?.[0];
+  const topSupplier = analytics?.ppm.supplier?.[0];
+  const topDefect = analytics?.defects.pareto?.[0];
+  const affectedLots = uniqueFilled(openNcrs.map((n) => n.lotNumber));
+  const affectedSerials = uniqueFilled(openNcrs.map((n) => n.serialNumber));
+  const affectedWorkOrders = uniqueFilled(openNcrs.map((n) => n.workOrder));
+  const impactedCustomers = uniqueFilled(openNcrs.map((n) => n.customer));
+  const traceCompleteness = genealogyKpis && genealogyKpis.indexedLinks > 0
+    ? Math.round(((genealogyKpis.indexedLinks - genealogyKpis.linksMissingLot) / genealogyKpis.indexedLinks) * 100)
+    : null;
+
+  const derivedLanes = [
+    {
+      title: "IQC / Supplier",
+      icon: <PackageSearch className="h-4 w-4" />,
+      metric: incomingNcrs.length,
+      metricLabel: "NCR abiertas",
+      risk: topSupplier?.ppm != null ? `${topSupplier.supplierName}: ${topSupplier.ppm.toLocaleString()} PPM` : "PPM proveedor pendiente",
+      actions: ["Contener lote/reel recibido", "Abrir SCAR si hay recurrencia", "Validar incoming inspection y AQL"],
+      href: "/dashboard/quality/inspections",
+    },
+    {
+      title: "IPQC / Línea",
+      icon: <Factory className="h-4 w-4" />,
+      metric: processNcrs.length,
+      metricLabel: "NCR en proceso",
+      risk: topStation?.fpy != null ? `${topStation.key}: FPY ${topStation.fpy.toFixed(1)}%` : "FPY por estación pendiente",
+      actions: ["Verificar estación/modelo con mayor fuga", "Separar retrabajo vs scrap", "Confirmar contención en WIP"],
+      href: "/dashboard/quality/analytics",
+    },
+    {
+      title: "MRB / Containment",
+      icon: <ShieldCheck className="h-4 w-4" />,
+      metric: floorKpis?.openHolds ?? "—",
+      metricLabel: "holds abiertos",
+      risk: floorKpis ? `${floorKpis.overdue} overdue · ${floorKpis.scrapQty} scrap qty` : "MRB KPI pendiente",
+      actions: ["Priorizar overdue", "Definir use-as-is / rework / scrap / RTV", "Ejecutar where-used antes de liberar"],
+      href: "/dashboard/floor-quality",
+    },
+    {
+      title: "SPC / CTQ",
+      icon: <Crosshair className="h-4 w-4" />,
+      metric: criticalCharacteristics.length,
+      metricLabel: "CTQ críticas",
+      risk: `${variableCharacteristics.length} variables con ventana LSL/USL potencial`,
+      actions: ["Capturar mediciones faltantes", "Revisar out-of-spec", "Preparar Cpk/control chart"],
+      href: "/dashboard/quality/measurements",
+    },
+    {
+      title: "CAPA / 8D",
+      icon: <Wrench className="h-4 w-4" />,
+      metric: analytics?.capa.overdue ?? "—",
+      metricLabel: "CAPA vencidas",
+      risk: topDefect ? `${topDefect.label}: ${topDefect.count} casos` : "Pareto pendiente",
+      actions: ["Asignar owner", "Verificar root cause", "Cerrar efectividad con evidencia"],
+      href: "/dashboard/quality/analytics",
+    },
+    {
+      title: "OQC / Customer",
+      icon: <Siren className="h-4 w-4" />,
+      metric: rmaKpis?.open ?? customerNcrs.length,
+      metricLabel: rmaKpis ? "RMA abiertas" : "NCR cliente/OQC",
+      risk: traceCompleteness == null ? "Genealogía pendiente" : `${traceCompleteness}% links con lote`,
+      actions: ["Bloquear embarque si aplica", "Preparar 8D cliente", "Trazar seriales/lotes afectados"],
+      href: "/dashboard/rma",
+    },
+  ];
+  const backendLaneIcons: Record<string, React.ReactNode> = {
+    iqc: <PackageSearch className="h-4 w-4" />,
+    ipqc: <Factory className="h-4 w-4" />,
+    mrb: <ShieldCheck className="h-4 w-4" />,
+    ctq: <Crosshair className="h-4 w-4" />,
+    capa: <Wrench className="h-4 w-4" />,
+    customer: <Siren className="h-4 w-4" />,
+  };
+  const lanes = commandCenter?.lanes.map((lane) => ({
+    ...lane,
+    icon: backendLaneIcons[lane.key] ?? <Activity className="h-4 w-4" />,
+    href: lane.route,
+    metric: lane.metric ?? "—",
+  })) ?? derivedLanes;
+  const containmentLots = commandCenter?.containment.lots ?? affectedLots;
+  const containmentSerials = commandCenter?.containment.serials ?? affectedSerials;
+  const containmentWorkOrders = commandCenter?.containment.workOrders ?? affectedWorkOrders;
+  const containmentCustomers = commandCenter?.containment.customers ?? impactedCustomers;
+  const mrbDispositionUnits = analytics?.dispositions.byType ?? [];
+  const mrbOpenNcrs = openNcrs;
+
+  return (
+    <section className="mb-5 space-y-4">
+      <div className={`${glass} rounded-2xl p-4`}>
+        <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">War room operativo</h2>
+            <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+              Vista por proceso para responder qué contener, qué investigar, qué liberar y qué escalar hoy.
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-2 text-right sm:grid-cols-4">
+            <WarRoomStat label="Sin código" value={unclassified} />
+            <WarRoomStat label="Lotes" value={containmentLots.length} />
+            <WarRoomStat label="Seriales" value={containmentSerials.length} />
+            <WarRoomStat label="Clientes" value={containmentCustomers.length} />
+          </div>
+        </div>
+        <div className="grid gap-3 lg:grid-cols-3">
+          {lanes.map((lane) => (
+            <Link key={lane.title} href={lane.href} className="rounded-2xl border border-border bg-background/55 p-4 transition hover:bg-muted/65 focus:outline-none focus:ring-2 focus:ring-primary/30">
+              <div className="mb-3 flex items-start justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <span className="rounded-xl bg-muted p-2 text-muted-foreground">{lane.icon}</span>
+                  <div>
+                    <div className="text-sm font-semibold">{lane.title}</div>
+                    <div className="text-[11px] text-muted-foreground">{lane.metricLabel}</div>
+                  </div>
+                </div>
+                <div className="text-2xl font-semibold tabular-nums">{lane.metric}</div>
+              </div>
+              <div className="rounded-xl bg-muted/55 px-3 py-2 text-xs text-muted-foreground">{lane.risk}</div>
+              <ul className="mt-3 space-y-1.5">
+                {lane.actions.map((action) => (
+                  <li key={action} className="flex gap-2 text-xs text-muted-foreground">
+                    <span className="mt-1 h-1.5 w-1.5 rounded-full bg-primary/70" />
+                    <span>{action}</span>
+                  </li>
+                ))}
+              </ul>
+            </Link>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-[0.95fr_1.05fr]">
+        <ContainmentScopeCard
+          lots={containmentLots}
+          serials={containmentSerials}
+          workOrders={containmentWorkOrders}
+          customers={containmentCustomers}
+          openNcrs={mrbOpenNcrs}
+        />
+        <DispositionDecisionCard dispositionUnits={mrbDispositionUnits} openNcrs={mrbOpenNcrs} mrb={commandCenter?.mrb} />
+      </div>
+    </section>
+  );
+}
+
+function WarRoomStat({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div className="rounded-xl border border-border bg-background/55 px-3 py-2">
+      <div className="text-lg font-semibold tabular-nums">{value}</div>
+      <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</div>
+    </div>
+  );
+}
+
+function ContainmentScopeCard({
+  lots,
+  serials,
+  workOrders,
+  customers,
+  openNcrs,
+}: {
+  lots: string[];
+  serials: string[];
+  workOrders: string[];
+  customers: string[];
+  openNcrs: Ncr[];
+}) {
+  const highRisk = openNcrs.filter((n) => n.severity === "critical" || n.quantityAffected > 0).slice(0, 5);
+  return (
+    <section className={`${glass} rounded-2xl p-4`}>
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <div>
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Containment scope builder</h2>
+          <p className="mt-1 text-xs text-muted-foreground">Material, WOs y clientes que deben revisarse antes de liberar o embarcar.</p>
+        </div>
+        <TimerReset className="h-4 w-4 text-muted-foreground" />
+      </div>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <ScopePill label="Lotes" items={lots} />
+        <ScopePill label="Seriales" items={serials} />
+        <ScopePill label="WOs" items={workOrders} />
+        <ScopePill label="Clientes" items={customers} />
+      </div>
+      <div className="mt-3 flex flex-wrap gap-2">
+        {lots[0] && (
+          <Link href={genealogyLotHref(lots[0])} className="rounded-xl border border-border bg-background/60 px-3 py-2 text-xs font-medium hover:bg-muted/70">
+            Where-used lote {lots[0]}
+          </Link>
+        )}
+        {serials[0] && (
+          <Link href={genealogySerialHref(serials[0])} className="rounded-xl border border-border bg-background/60 px-3 py-2 text-xs font-medium hover:bg-muted/70">
+            As-built serial {serials[0]}
+          </Link>
+        )}
+        <Link href="/dashboard/quality/holds" className="rounded-xl border border-border bg-background/60 px-3 py-2 text-xs font-medium hover:bg-muted/70">
+          Holds inventario
+        </Link>
+        <Link href="/dashboard/floor-quality" className="rounded-xl border border-border bg-background/60 px-3 py-2 text-xs font-medium hover:bg-muted/70">
+          MRB piso
+        </Link>
+      </div>
+      <div className="mt-4 space-y-2">
+        {highRisk.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-border p-4 text-sm text-muted-foreground">Sin NCR abiertas con alcance identificable.</div>
+        ) : highRisk.map((n) => (
+          <Link key={n.id} href={`/dashboard/quality/ncr/${n.id}`} className="flex items-center justify-between gap-3 rounded-xl border border-border bg-background/55 p-3 hover:bg-muted/65">
+            <span className="min-w-0">
+              <span className="block truncate text-sm font-semibold">{n.ncrNumber} · {n.partNumber}</span>
+              <span className="block truncate text-xs text-muted-foreground">{n.lotNumber ?? n.serialNumber ?? n.workOrder ?? "sin lote/serial/WO"} · {n.customer ?? n.line ?? n.model ?? "sin dueño operativo"}</span>
+            </span>
+            <span className="flex shrink-0 items-center gap-2">
+              {n.lotNumber && <span className="hidden rounded-lg bg-muted px-2 py-1 text-[11px] text-muted-foreground sm:inline">lote</span>}
+              {n.serialNumber && <span className="hidden rounded-lg bg-muted px-2 py-1 text-[11px] text-muted-foreground sm:inline">serial</span>}
+              <span className="text-xs font-medium text-primary">Trazar</span>
+            </span>
+          </Link>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function ScopePill({ label, items }: { label: string; items: string[] }) {
+  return (
+    <div className="rounded-xl bg-muted/55 p-3">
+      <div className="text-xl font-semibold tabular-nums">{items.length}</div>
+      <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</div>
+      <div className="mt-1 truncate text-[11px] text-muted-foreground">{items[0] ?? "—"}</div>
+    </div>
+  );
+}
+
+function DispositionDecisionCard({ dispositionUnits, openNcrs, mrb }: { dispositionUnits: { type: string; count: number; units: number }[]; openNcrs: Ncr[]; mrb?: QualityCommandCenterSummary["mrb"] }) {
+  const totalAffected = mrb?.affectedUnits ?? openNcrs.reduce((sum, n) => sum + (Number(n.quantityAffected) || 0), 0);
+  const dispositionedUnits = mrb?.dispositionedUnits ?? dispositionUnits.reduce((sum, d) => sum + (Number(d.units) || 0), 0);
+  const pendingUnits = mrb?.pendingUnits ?? Math.max(totalAffected - dispositionedUnits, 0);
+  const playbook = mrb?.playbook ?? [
+    { label: "Use-as-is", body: "Solo con aprobación, desviación documentada y cliente si aplica." },
+    { label: "Rework / Repair", body: "Ruta preferente cuando preserva valor y hay instrucción validada." },
+    { label: "Scrap", body: "Aislar físicamente, registrar cantidad y bloquear consumo futuro." },
+    { label: "RTV / Sort", body: "Aplicar a proveedor cuando el riesgo está en lote/reel de incoming." },
+  ];
+  return (
+    <section className={`${glass} rounded-2xl p-4`}>
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <div>
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">MRB disposition cockpit</h2>
+          <p className="mt-1 text-xs text-muted-foreground">Guía pragmática para decidir liberar, retrabajar, reparar, scrap, RTV o sort.</p>
+        </div>
+        <ShieldAlert className="h-4 w-4 text-muted-foreground" />
+      </div>
+      <div className="mb-4 grid grid-cols-3 gap-2">
+        <WarRoomStat label="Afectadas" value={totalAffected} />
+        <WarRoomStat label="Dispuestas" value={dispositionedUnits} />
+        <WarRoomStat label="Pendientes" value={pendingUnits} />
+      </div>
+      <div className="grid gap-2 sm:grid-cols-2">
+        {playbook.map((item) => (
+          <div key={item.label} className="rounded-xl border border-border bg-background/55 p-3">
+            <div className="text-sm font-semibold">{item.label}</div>
+            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{item.body}</p>
+          </div>
+        ))}
+      </div>
+      {dispositionUnits.length > 0 && (
+        <div className="mt-4 space-y-2">
+          {dispositionUnits.slice(0, 4).map((d) => (
+            <div key={d.type} className="flex items-center justify-between rounded-xl bg-muted/55 px-3 py-2 text-sm">
+              <span className="font-medium capitalize">{d.type.replaceAll("_", " ")}</span>
+              <span className="text-muted-foreground">{d.count} casos · {d.units} u</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function uniqueFilled(values: Array<string | null | undefined>): string[] {
+  return Array.from(new Set(values.map((v) => v?.trim()).filter(Boolean) as string[])).sort();
+}
+
+
+function genealogyLotHref(lot?: string, part?: string | null): string {
+  const params = new URLSearchParams();
+  if (lot) params.set("lot", lot);
+  if (part) params.set("part", part);
+  return `/dashboard/genealogy?${params.toString()}`;
+}
+
+function genealogySerialHref(serial?: string): string {
+  const params = new URLSearchParams();
+  if (serial) params.set("serial", serial);
+  return `/dashboard/genealogy?${params.toString()}`;
+}
+
+function CustomerTraceabilityPanel({
+  rmaKpis,
+  genealogyKpis,
+  commandCenter,
+}: {
+  rmaKpis?: RmaKpis;
+  genealogyKpis?: GenealogyKpis;
+  commandCenter?: QualityCommandCenterSummary;
+}) {
+  const effectiveRma = commandCenter?.customer.rma ?? rmaKpis;
+  const effectiveGenealogy = commandCenter?.customer.genealogy ?? genealogyKpis;
+  const traceabilityCoverage = commandCenter?.customer.traceabilityCoveragePct ?? (effectiveGenealogy
+    ? effectiveGenealogy.indexedLinks > 0
+      ? Math.round(((effectiveGenealogy.indexedLinks - effectiveGenealogy.linksMissingLot) / effectiveGenealogy.indexedLinks) * 100)
+      : 0
+    : null);
+
+  return (
+    <section className={`${glass} rounded-2xl p-4 mb-5`}>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            OQC / Customer Quality / Traceability
+          </h2>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Cierra el ciclo de calidad: embarque, RMA, seriales, lotes y alcance de recall.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <CommandLink href="/dashboard/rma" icon={<RotateCcw className="h-4 w-4" />} label="RMA" />
+          <CommandLink href="/dashboard/genealogy" icon={<GitBranch className="h-4 w-4" />} label="Genealogía" />
+        </div>
+      </div>
+      <div className="grid gap-3 md:grid-cols-4">
+        <LoopMetric
+          icon={<RotateCcw className="h-4 w-4" />}
+          label="RMA abiertas"
+          value={effectiveRma?.open ?? "—"}
+          meta={effectiveRma ? `${effectiveRma.investigating} investigando · ${effectiveRma.total} total` : "endpoint pendiente"}
+        />
+        <LoopMetric
+          icon={<ClipboardCheck className="h-4 w-4" />}
+          label="Cierre RMA"
+          value={effectiveRma?.avgCloseDays == null ? "—" : `${effectiveRma.avgCloseDays} d`}
+          meta="promedio de cierre"
+        />
+        <LoopMetric
+          icon={<Route className="h-4 w-4" />}
+          label="Seriales cubiertos"
+          value={effectiveGenealogy?.serialsCovered ?? "—"}
+          meta={effectiveGenealogy ? `${effectiveGenealogy.shipmentLinks} links a embarque` : "endpoint pendiente"}
+        />
+        <LoopMetric
+          icon={<PackageSearch className="h-4 w-4" />}
+          label="Lotes trazables"
+          value={traceabilityCoverage == null ? "—" : `${traceabilityCoverage}%`}
+          meta={effectiveGenealogy ? `${effectiveGenealogy.lotsTracked} lotes · ${effectiveGenealogy.linksMissingLot} sin lote` : "recall readiness"}
+        />
+      </div>
+    </section>
+  );
+}
+
+function LoopMetric({
+  icon,
+  label,
+  value,
+  meta,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: React.ReactNode;
+  meta: string;
+}) {
+  return (
+    <div className="rounded-xl border border-border bg-background/55 p-3">
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <span className="rounded-lg bg-muted p-1.5 text-muted-foreground">{icon}</span>
+        <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Closed loop</span>
+      </div>
+      <div className="text-[11px] uppercase tracking-wider text-muted-foreground">{label}</div>
+      <div className="mt-1 text-2xl font-semibold tabular-nums">{value}</div>
+      <div className="mt-1 text-xs text-muted-foreground">{meta}</div>
+    </div>
+  );
 }
 
 function ModuleGrid() {
