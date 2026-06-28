@@ -19,7 +19,9 @@
       }
     ],
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@axos/contracts": ["../../packages/contracts/src/index.ts"],
+      "@axos/contracts/*": ["../../packages/contracts/src/*"]
     }
   },
   "include": [
