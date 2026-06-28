@@ -133,7 +133,7 @@ export default function ErpHubPage() {
       >
         <Link
           href="/dashboard"
-          className="flex items-center gap-1.5 text-sm font-medium text-gray-500 hover:text-black dark:hover:text-white transition-colors"
+          className="flex items-center gap-1.5 text-sm font-medium text-gray-500 hover:text-foreground transition-colors"
         >
           <ChevronLeft className="w-4 h-4" /> Dashboard
         </Link>

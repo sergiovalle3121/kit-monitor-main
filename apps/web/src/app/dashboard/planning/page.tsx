@@ -538,7 +538,7 @@ function NewPlanForm({
     >
       <div className="flex items-center justify-between mb-4">
         <h3 className="font-bold">Nuevo plan de producción</h3>
-        <button type="button" onClick={onClose} className="text-gray-400 hover:text-black dark:hover:text-white">
+        <button type="button" onClick={onClose} className="text-gray-400 hover:text-foreground">
           <X className="w-4 h-4" />
         </button>
       </div>
