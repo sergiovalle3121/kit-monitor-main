@@ -1,8 +1,23 @@
 import {
-  Column, CreateDateColumn, Entity, Index, PrimaryGeneratedColumn, UpdateDateColumn,
+  Column,
+  CreateDateColumn,
+  Entity,
+  Index,
+  PrimaryGeneratedColumn,
+  UpdateDateColumn,
 } from 'typeorm';
 
-export type OfficeCommentAnchorType = 'document' | 'slide' | 'object' | 'cell' | 'range' | 'text';
+export type OfficeCommentAnchorType =
+  | 'document'
+  | 'slide'
+  | 'object'
+  | 'cell'
+  | 'range'
+  | 'text'
+  | 'sheet'
+  | 'table'
+  | 'pivot'
+  | 'chart';
 
 /**
  * Persistent enterprise review thread for Office documents.
@@ -11,7 +26,11 @@ export type OfficeCommentAnchorType = 'document' | 'slide' | 'object' | 'cell' |
  * can share the same backend model. Replies are represented by `parentId`.
  */
 @Entity('office_comments')
-@Index('idx_office_comments_doc_anchor', ['documentId', 'anchorType', 'slideIndex'])
+@Index('idx_office_comments_doc_anchor', [
+  'documentId',
+  'anchorType',
+  'slideIndex',
+])
 @Index('idx_office_comments_tenant_doc', ['tenantId', 'documentId'])
 export class OfficeComment {
   @PrimaryGeneratedColumn('uuid')
