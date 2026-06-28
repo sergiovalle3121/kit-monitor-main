@@ -241,7 +241,7 @@ export default function OfficeHubPage() {
   return (
     <div className="min-h-screen text-foreground font-sans pb-32">
       <div className={`${glass} sticky top-0 z-40 px-6 py-4 rounded-none border-x-0 border-t-0 flex items-center justify-between`}>
-        <Link href="/dashboard" className="flex items-center gap-2 text-sm font-medium text-gray-500 hover:text-black dark:hover:text-white transition-colors">
+        <Link href="/dashboard" className="flex items-center gap-2 text-sm font-medium text-gray-500 hover:text-foreground transition-colors">
           <ChevronLeft className="w-4 h-4" /> Dashboard
         </Link>
         <span className="text-sm font-semibold">Office</span>
@@ -420,8 +420,8 @@ export default function OfficeHubPage() {
                         <IconBtn title={libraryMeta[d.id]?.favorite ? 'Quitar favorito' : 'Marcar favorito'} onClick={() => toggleFavorite(d.id)} className={`${libraryMeta[d.id]?.favorite ? 'text-amber-500 bg-amber-50 dark:bg-amber-500/10' : 'text-gray-400 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-500/10'}`}><Star className="w-4 h-4" /></IconBtn>
                         <IconBtn title={libraryMeta[d.id]?.pinned ? 'Desfijar' : 'Fijar'} onClick={() => togglePinned(d.id)} className={`${libraryMeta[d.id]?.pinned ? 'text-blue-500 bg-blue-50 dark:bg-blue-500/10' : 'text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-500/10'}`}><Pin className="w-4 h-4" /></IconBtn>
                         <IconBtn title="Editar tags" onClick={() => editTags(d.id)} className="text-gray-400 hover:text-purple-500 hover:bg-purple-50 dark:hover:bg-purple-500/10"><Tags className="w-4 h-4" /></IconBtn>
-                        {!d.locked && <IconBtn title="Renombrar" onClick={() => { setEditingId(d.id); setDraft(d.title); }} className="text-gray-400 hover:text-black dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/10"><Pencil className="w-4 h-4" /></IconBtn>}
-                        <IconBtn title="Duplicar" onClick={() => duplicate(d.id)} className="text-gray-400 hover:text-black dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/10"><Copy className="w-4 h-4" /></IconBtn>
+                        {!d.locked && <IconBtn title="Renombrar" onClick={() => { setEditingId(d.id); setDraft(d.title); }} className="text-gray-400 hover:text-foreground hover:bg-gray-100 dark:hover:bg-white/10"><Pencil className="w-4 h-4" /></IconBtn>}
+                        <IconBtn title="Duplicar" onClick={() => duplicate(d.id)} className="text-gray-400 hover:text-foreground hover:bg-gray-100 dark:hover:bg-white/10"><Copy className="w-4 h-4" /></IconBtn>
                         <IconBtn title="Mover a papelera" onClick={() => toTrash(d.id)} className="text-gray-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10"><Trash2 className="w-4 h-4" /></IconBtn>
                       </>
                     )}
@@ -531,8 +531,8 @@ function DocumentRow({
               <IconBtn title={local.favorite ? 'Quitar favorito' : 'Marcar favorito'} onClick={() => toggleFavorite(doc.id)} className={`${local.favorite ? 'text-amber-500 bg-amber-50 dark:bg-amber-500/10' : 'text-gray-400 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-500/10'}`}><Star className="w-4 h-4" /></IconBtn>
               <IconBtn title={local.pinned ? 'Desfijar' : 'Fijar'} onClick={() => togglePinned(doc.id)} className={`${local.pinned ? 'text-blue-500 bg-blue-50 dark:bg-blue-500/10' : 'text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-500/10'}`}><Pin className="w-4 h-4" /></IconBtn>
               <IconBtn title="Editar tags" onClick={() => editTags(doc.id)} className="text-gray-400 hover:text-purple-500 hover:bg-purple-50 dark:hover:bg-purple-500/10"><Tags className="w-4 h-4" /></IconBtn>
-              {!doc.locked && <IconBtn title="Renombrar" onClick={() => { setEditingId(doc.id); setDraft(doc.title); }} className="text-gray-400 hover:text-black dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/10"><Pencil className="w-4 h-4" /></IconBtn>}
-              <IconBtn title="Duplicar" onClick={() => duplicate(doc.id)} className="text-gray-400 hover:text-black dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/10"><Copy className="w-4 h-4" /></IconBtn>
+              {!doc.locked && <IconBtn title="Renombrar" onClick={() => { setEditingId(doc.id); setDraft(doc.title); }} className="text-gray-400 hover:text-foreground hover:bg-gray-100 dark:hover:bg-white/10"><Pencil className="w-4 h-4" /></IconBtn>}
+              <IconBtn title="Duplicar" onClick={() => duplicate(doc.id)} className="text-gray-400 hover:text-foreground hover:bg-gray-100 dark:hover:bg-white/10"><Copy className="w-4 h-4" /></IconBtn>
               <IconBtn title="Mover a papelera" onClick={() => toTrash(doc.id)} className="text-gray-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10"><Trash2 className="w-4 h-4" /></IconBtn>
             </>
           )}

@@ -267,7 +267,7 @@ export default function ModelsPage() {
                   </Link>
                   <Link
                     href="/dashboard/npi"
-                    className="ml-auto inline-flex items-center gap-1 text-xs font-medium text-gray-500 hover:text-black dark:hover:text-white"
+                    className="ml-auto inline-flex items-center gap-1 text-xs font-medium text-gray-500 hover:text-foreground"
                   >
                     <Rocket className="w-3.5 h-3.5" /> Launch / NPI
                   </Link>
