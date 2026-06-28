@@ -5,12 +5,13 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence } from 'framer-motion';
 import { Workbook } from '@fortune-sheet/react';
 import '@fortune-sheet/react/dist/index.css';
-import { ListChecks, Palette, Snowflake, FileText, Sigma, Search, ArrowDownUp, CopyMinus, Columns3, StickyNote, Table2, Hash, Rows3, Activity, ArrowDownToLine, FlipVertical2, Tag, Printer, ClipboardPaste, Filter, RefreshCw, LayoutGrid, Sparkles, Target, Grid3x3, Layers, Crosshair, Combine, CalendarRange, Lock, MessageSquare, Home, Eye, Clipboard, Scissors, Trash2, PaintBucket, Columns3 as ColumnsIcon, Percent, DollarSign, Eraser, MinusCircle, PlusCircle } from 'lucide-react';
+import { ListChecks, Palette, Snowflake, FileText, Sigma, Search, ArrowDownUp, CopyMinus, Columns3, StickyNote, Table2, Hash, Rows3, Activity, ArrowDownToLine, FlipVertical2, Tag, Printer, ClipboardPaste, Filter, RefreshCw, LayoutGrid, Sparkles, Target, Grid3x3, Layers, Crosshair, Combine, CalendarRange, Lock, MessageSquare, Home, Eye, Clipboard, Scissors, Trash2, PaintBucket, Columns3 as ColumnsIcon, Percent, DollarSign, Eraser, MinusCircle, PlusCircle, DatabaseZap } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { SheetTools, type ValidationPayload } from './SheetTools';
 import { SheetFunctionWizard } from './SheetFunctionWizard';
 import { SheetFindReplace } from './SheetFindReplace';
 import { SheetDataDialog, type DataMode } from './SheetDataDialog';
+import { SheetDataWorkbench } from './SheetDataWorkbench';
 import { SheetPivot } from './SheetPivot';
 import { SheetFormatDialog, type NumberFmtPayload, type StylePayload } from './SheetFormatDialog';
 import { SheetNameManager } from './SheetNameManager';
@@ -44,6 +45,7 @@ import { addSheetCommentReply, commentsForSelection, createSheetCommentThread, d
 import { auditWorkbookFormulas, formatFormulaAuditSummary } from '@/lib/office/formulaAudit';
 import { analyzeWorkbookHealth, formatWorkbookHealthReport } from '@/lib/office/workbookHealth';
 import { formatPivotRefreshReport, refreshStoredPivots } from '@/lib/office/pivotGovernance';
+import type { WorkbenchBuildResult } from '@/lib/office/dataWorkbench';
 
 // chart.js + react-chartjs-2 son pesados y solo se usan al insertar gráficas:
 // carga diferida para que abrir una hoja sin gráficas no los traiga al bundle.
@@ -133,6 +135,7 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
   const [showDataTable, setShowDataTable] = useState(false);
   const [showSolver, setShowSolver] = useState(false);
   const [showConsolidate, setShowConsolidate] = useState(false);
+  const [showDataWorkbench, setShowDataWorkbench] = useState(false);
   const [selectionText, setSelectionText] = useState('A1');
   const [formulaText, setFormulaText] = useState('');
   const [editMode, setEditMode] = useState<'Listo' | 'Editando'>('Listo');
@@ -398,6 +401,21 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
     window.setTimeout(() => toast.success(`${instance.label} insertado en ${built.range}.`), 30);
   }
 
+
+  function applyDataWorkbench(result: WorkbenchBuildResult) {
+    if (readOnly) return;
+    const offset = sheetsRef.current.length;
+    const importedSheets = clone(result.sheets).map((sheet: any, index: number) => ({ ...sheet, order: offset + index, status: index === 0 ? 1 : 0 }));
+    const sheets = [...clone(sheetsRef.current).map((sheet: any) => ({ ...sheet, status: 0 })), ...importedSheets];
+    const stamp = Date.now().toString(36);
+    connectorsRef.current = [...connectorsRef.current, ...result.connectors.map((connector) => ({ ...connector, sheetIndex: connector.sheetIndex + offset }))];
+    pivotsRef.current = [...pivotsRef.current, ...result.pivots.map((pivot) => ({ ...pivot, id: `${pivot.id}_${stamp}`, config: { ...pivot.config, sheetIndex: pivot.config.sheetIndex + offset } }))];
+    chartsRef.current = [...chartsRef.current, ...result.charts.map((chart) => ({ ...chart, id: `${chart.id}_${stamp}`, sheetIndex: chart.sheetIndex + offset }))];
+    setCharts(chartsRef.current);
+    setShowDataWorkbench(false);
+    remount(sheets);
+    window.setTimeout(() => toast.success(result.summary), 30);
+  }
 
   function refreshAxosConnectors() {
     if (readOnly) return;
@@ -1112,6 +1130,10 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
           </RibbonGroup>
         </RibbonTab>
         <RibbonTab id="axos" label="AXOS" icon={Activity}>
+          <RibbonGroup label="Data Intelligence">
+            <RibbonButton icon={DatabaseZap} label="Workbench BI" hideLabel={false} onClick={() => setShowDataWorkbench(true)} />
+          </RibbonGroup>
+          <RibbonSeparator />
           <RibbonGroup label="Conectores ERP/MES">
             <RibbonMenuButton icon={RefreshCw} label="Insertar conector" menuWidth={320} items={AXOS_SHEET_CONNECTORS.map((connector) => ({
               label: `${connector.label} · ${connector.domain}`,
@@ -1211,6 +1233,7 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
         <div className="absolute inset-0" style={{ transform: `scale(${zoom / 100})`, transformOrigin: 'top left', width: `${10000 / zoom}%`, height: `${10000 / zoom}%` }}>
           <Workbook ref={wbRef} key={wbKey} data={liveData as any} lang="es" allowEdit={!readOnly} onChange={handleSheet} hooks={wbHooks} />
         </div>
+        {showDataWorkbench && <SheetDataWorkbench onBuild={applyDataWorkbench} onClose={() => setShowDataWorkbench(false)} />}
         {showFind && <SheetFindReplace sheets={sheetsRef.current} sheetNames={sheetNames()} activeSheetIndex={activeIndex()} onReplaceAll={doReplaceAll} onClose={() => setShowFind(false)} />}
       </div>
 

@@ -199,3 +199,9 @@ The focused AXOS Sheets QA runner now includes the existing pure specs for the p
 ## Fase 7 expansion — Connector freshness policies
 
 AXOS connector instances now have a pure freshness model derived from connector refresh policy. Scheduled-ready connectors become due after one hour and stale after 24 hours, while manual connectors become due after 24 hours and stale after seven days. Workbook Health consumes these reports to distinguish due refreshes, stale data, and invalid connector metadata before industrial workbooks are published or used for decisions.
+
+## Data Intelligence Workbench — Power Query + Power Pivot baseline
+
+AXOS Sheets now exposes a visible **Data Intelligence Workbench** from the AXOS ribbon. The workbench generates governed manufacturing BI workbooks from reusable presets instead of forcing users to export CSVs manually. Each preset inserts multiple AXOS ERP/MES connector tables, records Power Query-like transformation steps, protects connector ranges, persists connector instances for refresh, creates a refreshable pivot model, and adds chart suggestions plus an `AXOS BI Dashboard` sheet.
+
+The first workbench presets cover inventory/MRP/purchasing control tower, production/OEE/quality daily management, and supplier/BOM cost risk analysis. The implementation is intentionally pure in `dataWorkbench.ts` so future live backend aggregators can replace deterministic sample connector rows without changing the SheetEditor UX contract.
