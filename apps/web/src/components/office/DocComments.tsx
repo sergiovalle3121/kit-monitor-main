@@ -12,11 +12,44 @@ const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000').re
 
 interface Reply { id?: string; author: string; text: string; mentions?: string[]; createdAt: number | string }
 type CommentFilter = 'all' | 'open' | 'resolved' | 'assigned';
-interface CommentItem { id: string; persistedId?: string; text: string; author: string; createdAt: number | string | null; resolved: boolean; replies: Reply[]; from: number; to: number; quoted: string; mentions?: string[]; assignedTo?: string | null }
+type AnchorType = 'text' | 'range' | 'document';
+interface CommentItem { id: string; persistedId?: string; text: string; author: string; createdAt: number | string | null; resolved: boolean; replies: Reply[]; from: number; to: number; quoted: string; mentions?: string[]; assignedTo?: string | null; anchorType?: AnchorType; rangeRef?: string | null }
 
 const uid = () => `cm_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
 const fmt = (t: number | string | null) => (t ? new Date(t).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '');
 const mentionsOf = (text: string) => [...new Set((text.match(/@[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}|@[A-Za-z0-9._-]+/g) ?? []).map((m) => m.slice(1).toLowerCase()))];
+
+function fromOfficeComments(rows: any[]): Record<string, any> {
+  const roots: Record<string, any> = {};
+  for (const row of rows) {
+    if (row.parentId) continue;
+    const anchorId = row.objectId || row.rangeRef || row.id;
+    roots[anchorId] = {
+      id: row.id,
+      anchorId,
+      text: row.text,
+      author: row.authorEmail ?? '',
+      createdAt: row.createdAt,
+      resolved: !!row.resolved,
+      assignedTo: row.assignedTo ?? null,
+      quotedText: row.anchorLabel ?? '',
+      anchorType: row.anchorType,
+      rangeRef: row.rangeRef ?? null,
+      anchor: row.rangeRef ? rangeFromRef(row.rangeRef) : null,
+      replies: rows.filter((r) => r.parentId === row.id).map((r) => ({ id: r.id, author: r.authorEmail ?? '', text: r.text, mentions: mentionsOf(r.text), createdAt: r.createdAt })),
+    };
+  }
+  return roots;
+}
+
+function rangeRef(from: number, to: number, anchorType: AnchorType) {
+  return `${anchorType}:${from}-${to}`;
+}
+
+function rangeFromRef(ref: string | null | undefined) {
+  const match = String(ref ?? '').match(/^(?:text|range|document):(\d+)-(\d+)$/);
+  return match ? { from: Number(match[1]), to: Number(match[2]) } : null;
+}
 
 function collect(editor: Editor): CommentItem[] {
   const map = new Map<string, CommentItem>();
@@ -50,22 +83,16 @@ export function DocComments({ editor, author, docId }: { editor: Editor; author:
   React.useEffect(() => {
     if (!open || !docId) return;
     let active = true;
-    const params = new URLSearchParams({ status: filter === 'assigned' ? 'open' : filter });
-    if (filter === 'assigned' && author) params.set('assignedTo', author);
-    if (query.trim()) params.set('q', query.trim());
-    apiFetch(`${API_BASE}/office-documents/${docId}/comments?${params.toString()}`).then(async (r) => {
+    apiFetch(`${API_BASE}/office-documents/${docId}/slide-comments?includeResolved=1&anchorTypes=text,range,document`).then(async (r) => {
       if (!active || !r.ok) return;
-      const rows = await r.json();
-      const next: Record<string, any> = {};
-      for (const row of rows) next[row.anchorId] = row;
-      setPersisted(next);
+      setPersisted(fromOfficeComments(await r.json()));
     }).catch(() => undefined);
     return () => { active = false; };
   }, [open, docId, filter, query, author]);
 
   const comments = open ? collect(editor).map((c) => {
     const row = persisted[c.id];
-    return row ? { ...c, persistedId: row.id, text: row.text, author: row.author || c.author, createdAt: row.createdAt, resolved: !!row.resolved, replies: Array.isArray(row.replies) ? row.replies : [], mentions: row.mentions ?? [], assignedTo: row.assignedTo ?? null } : c;
+    return row ? { ...c, persistedId: row.id, text: row.text, author: row.author || c.author, createdAt: row.createdAt, resolved: !!row.resolved, replies: Array.isArray(row.replies) ? row.replies : [], mentions: row.mentions ?? [], assignedTo: row.assignedTo ?? null, anchorType: row.anchorType ?? c.anchorType, rangeRef: row.rangeRef ?? c.rangeRef } : c;
   }).filter((c) => {
     if (filter === 'open' && c.resolved) return false;
     if (filter === 'resolved' && !c.resolved) return false;
@@ -83,24 +110,27 @@ export function DocComments({ editor, author, docId }: { editor: Editor; author:
       .setComment({ commentId: c.id, text: c.text, author: c.author, createdAt: c.createdAt, resolved: c.resolved, replies: c.replies, ...patch })
       .run();
     if (docId && c.persistedId) {
-      const r = await apiFetch(`${API_BASE}/office-documents/${docId}/comments/${c.persistedId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(patch) });
-      if (r.ok) { const row = await r.json(); setPersisted((m) => ({ ...m, [row.anchorId]: row })); }
+      const r = await apiFetch(`${API_BASE}/office-documents/${docId}/slide-comments/${c.persistedId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(patch) });
+      if (r.ok) { const row = await r.json(); setPersisted((m) => ({ ...m, [c.id]: { ...(m[c.id] ?? {}), ...fromOfficeComments([row])[c.id] } })); }
     }
     refresh();
   };
 
   async function addComment() {
     const { from, to } = editor.state.selection;
-    if (from === to) { toast.info('Selecciona el texto que quieres comentar.'); return; }
-    const text = window.prompt('Comentario');
+    const anchorType: AnchorType = from === to ? 'document' : (to - from > 240 ? 'range' : 'text');
+    const markFrom = from === to ? Math.max(1, from - 1) : from;
+    const markTo = from === to ? from : to;
+    if (markFrom === markTo) { toast.info('Selecciona texto o coloca el cursor dentro de un bloque para comentar.'); return; }
+    const text = window.prompt(anchorType === 'document' ? 'Comentario de bloque' : 'Comentario');
     if (!text || !text.trim()) return;
     const commentId = uid();
-    const quotedText = editor.state.doc.textBetween(from, to, ' ').slice(0, 1000);
+    const quotedText = editor.state.doc.textBetween(markFrom, markTo, ' ').slice(0, 1000) || 'Bloque actual';
     const base = { commentId, text: text.trim(), author, createdAt: Date.now(), resolved: false, replies: [], mentions: mentionsOf(text), assignedTo: null };
-    (editor.chain().focus() as any).setComment(base).run();
+    (editor.chain().focus().setTextSelection({ from: markFrom, to: markTo }) as any).setComment(base).run();
     if (docId) {
-      const r = await apiFetch(`${API_BASE}/office-documents/${docId}/comments`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ anchorId: commentId, text: text.trim(), quotedText, anchor: { from, to }, mentions: mentionsOf(text) }) });
-      if (r.ok) { const row = await r.json(); setPersisted((m) => ({ ...m, [row.anchorId]: row })); }
+      const r = await apiFetch(`${API_BASE}/office-documents/${docId}/slide-comments`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ anchorType, objectId: commentId, rangeRef: rangeRef(markFrom, markTo, anchorType), anchorLabel: quotedText, assignedTo: mentionsOf(text)[0] ?? null, text: text.trim() }) });
+      if (r.ok) { const row = await r.json(); setPersisted((m) => ({ ...m, [commentId]: fromOfficeComments([row])[commentId] })); }
     }
     setOpen(true);
     refresh();
@@ -113,7 +143,7 @@ export function DocComments({ editor, author, docId }: { editor: Editor; author:
     update(c, { assignedTo: next.trim() || null });
   };
   const remove = async (c: CommentItem) => {
-    if (docId && c.persistedId) await apiFetch(`${API_BASE}/office-documents/${docId}/comments/${c.persistedId}`, { method: 'DELETE' }).catch(() => undefined);
+    if (docId && c.persistedId) await apiFetch(`${API_BASE}/office-documents/${docId}/slide-comments/${c.persistedId}`, { method: 'DELETE' }).catch(() => undefined);
     (editor.chain().setTextSelection({ from: c.from, to: c.to }) as any).unsetComment().run();
     refresh();
   };
@@ -122,8 +152,8 @@ export function DocComments({ editor, author, docId }: { editor: Editor; author:
     if (!t) return;
     const localReplies = [...c.replies, { author, text: t, mentions: mentionsOf(t), createdAt: Date.now() }];
     if (docId && c.persistedId) {
-      const r = await apiFetch(`${API_BASE}/office-documents/${docId}/comments/${c.persistedId}/replies`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: t, mentions: mentionsOf(t) }) });
-      if (r.ok) { const row = await r.json(); setPersisted((m) => ({ ...m, [row.anchorId]: row })); update(c, { replies: Array.isArray(row.replies) ? row.replies : localReplies }); }
+      const r = await apiFetch(`${API_BASE}/office-documents/${docId}/slide-comments`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ parentId: c.persistedId, anchorType: c.anchorType ?? 'text', objectId: c.id, rangeRef: c.rangeRef ?? rangeRef(c.from, c.to, c.anchorType ?? 'text'), anchorLabel: c.quoted, assignedTo: mentionsOf(t)[0] ?? null, text: t }) });
+      if (r.ok) { update(c, { replies: localReplies }); }
       else update(c, { replies: localReplies });
     } else update(c, { replies: localReplies });
     setReplyText('');

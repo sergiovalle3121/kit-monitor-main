@@ -1,14 +1,34 @@
 import {
-  Body, Controller, Delete, Get, Param, Patch, Post, Query, Request, UseGuards,
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+  Request,
+  UseGuards,
 } from '@nestjs/common';
 import { OfficeService } from './office.service';
-import type { OfficeDocumentLifecycleState, OfficeDocType, OfficeShare } from './entities/office-document.entity';
+import type {
+  OfficeDocumentLifecycleState,
+  OfficeDocType,
+  OfficeShare,
+} from './entities/office-document.entity';
 import type { OfficeCommentAnchorType } from './entities/office-comment.entity';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { AuthenticatedUser } from '../../common/types/jwt.types';
-import { CreateOfficeCommentDto, ListOfficeCommentsQueryDto, ReplyOfficeCommentDto, UpdateOfficeCommentDto } from './dto/office-comment.dto';
+import {
+  CreateOfficeCommentDto,
+  ListOfficeCommentsQueryDto,
+  ReplyOfficeCommentDto,
+  UpdateOfficeCommentDto,
+} from './dto/office-comment.dto';
 
-interface AuthReq { user: AuthenticatedUser }
+interface AuthReq {
+  user: AuthenticatedUser;
+}
 
 @UseGuards(JwtAuthGuard)
 @Controller('office-documents')
@@ -25,7 +45,12 @@ export class OfficeController {
     @Query('locked') locked?: string,
     @Query('owner') owner?: string,
   ) {
-    return this.service.list(type, req.user, trash === '1' || trash === 'true', { q, lifecycle, locked, owner });
+    return this.service.list(
+      type,
+      req.user,
+      trash === '1' || trash === 'true',
+      { q, lifecycle, locked, owner },
+    );
   }
 
   @Get(':id')
@@ -34,7 +59,11 @@ export class OfficeController {
   }
 
   @Post()
-  create(@Request() req: AuthReq, @Body() dto: { type: OfficeDocType; title?: string; content?: any; model?: string }) {
+  create(
+    @Request() req: AuthReq,
+    @Body()
+    dto: { type: OfficeDocType; title?: string; content?: any; model?: string },
+  ) {
     return this.service.create(dto, req.user);
   }
 
@@ -44,27 +73,47 @@ export class OfficeController {
   }
 
   @Post(':id/lifecycle/submit-review')
-  submitReview(@Request() req: AuthReq, @Param('id') id: string, @Body() dto: { note?: string }) {
+  submitReview(
+    @Request() req: AuthReq,
+    @Param('id') id: string,
+    @Body() dto: { note?: string },
+  ) {
     return this.service.submitForReview(id, req.user, dto);
   }
 
   @Post(':id/lifecycle/approve')
-  approve(@Request() req: AuthReq, @Param('id') id: string, @Body() dto: { note?: string }) {
+  approve(
+    @Request() req: AuthReq,
+    @Param('id') id: string,
+    @Body() dto: { note?: string },
+  ) {
     return this.service.approve(id, req.user, dto);
   }
 
   @Post(':id/lifecycle/release')
-  release(@Request() req: AuthReq, @Param('id') id: string, @Body() dto: { note?: string }) {
+  release(
+    @Request() req: AuthReq,
+    @Param('id') id: string,
+    @Body() dto: { note?: string },
+  ) {
     return this.service.release(id, req.user, dto);
   }
 
   @Post(':id/lifecycle/obsolete')
-  obsolete(@Request() req: AuthReq, @Param('id') id: string, @Body() dto: { note?: string }) {
+  obsolete(
+    @Request() req: AuthReq,
+    @Param('id') id: string,
+    @Body() dto: { note?: string },
+  ) {
     return this.service.obsolete(id, req.user, dto);
   }
 
   @Post(':id/lifecycle/reopen-draft')
-  reopenDraft(@Request() req: AuthReq, @Param('id') id: string, @Body() dto: { note?: string }) {
+  reopenDraft(
+    @Request() req: AuthReq,
+    @Param('id') id: string,
+    @Body() dto: { note?: string },
+  ) {
     return this.service.reopenDraft(id, req.user, dto);
   }
 
@@ -72,7 +121,13 @@ export class OfficeController {
   update(
     @Request() req: AuthReq,
     @Param('id') id: string,
-    @Body() dto: { title?: string; content?: any; model?: string | null; sharedWith?: OfficeShare[] },
+    @Body()
+    dto: {
+      title?: string;
+      content?: any;
+      model?: string | null;
+      sharedWith?: OfficeShare[];
+    },
   ) {
     return this.service.update(id, dto, req.user);
   }
@@ -84,27 +139,49 @@ export class OfficeController {
 
   // ── Document comments (Docs) ───────────────────────────────────────────────
   @Get(':id/comments')
-  comments(@Request() req: AuthReq, @Param('id') id: string, @Query() query: ListOfficeCommentsQueryDto) {
+  comments(
+    @Request() req: AuthReq,
+    @Param('id') id: string,
+    @Query() query: ListOfficeCommentsQueryDto,
+  ) {
     return this.service.listComments(id, req.user, query);
   }
 
   @Post(':id/comments')
-  createComment(@Request() req: AuthReq, @Param('id') id: string, @Body() dto: CreateOfficeCommentDto) {
+  createComment(
+    @Request() req: AuthReq,
+    @Param('id') id: string,
+    @Body() dto: CreateOfficeCommentDto,
+  ) {
     return this.service.createComment(id, dto, req.user);
   }
 
   @Patch(':id/comments/:commentId')
-  updateComment(@Request() req: AuthReq, @Param('id') id: string, @Param('commentId') commentId: string, @Body() dto: UpdateOfficeCommentDto) {
+  updateComment(
+    @Request() req: AuthReq,
+    @Param('id') id: string,
+    @Param('commentId') commentId: string,
+    @Body() dto: UpdateOfficeCommentDto,
+  ) {
     return this.service.updateComment(id, commentId, dto, req.user);
   }
 
   @Post(':id/comments/:commentId/replies')
-  replyComment(@Request() req: AuthReq, @Param('id') id: string, @Param('commentId') commentId: string, @Body() dto: ReplyOfficeCommentDto) {
+  replyComment(
+    @Request() req: AuthReq,
+    @Param('id') id: string,
+    @Param('commentId') commentId: string,
+    @Body() dto: ReplyOfficeCommentDto,
+  ) {
     return this.service.replyToComment(id, commentId, dto, req.user);
   }
 
   @Delete(':id/comments/:commentId')
-  deleteComment(@Request() req: AuthReq, @Param('id') id: string, @Param('commentId') commentId: string) {
+  deleteComment(
+    @Request() req: AuthReq,
+    @Param('id') id: string,
+    @Param('commentId') commentId: string,
+  ) {
     return this.service.deleteComment(id, commentId, req.user);
   }
 
@@ -115,15 +192,41 @@ export class OfficeController {
 
   // ── Slide/object comments (Slides) — generic anchored threads ───────────────
   @Get(':id/slide-comments')
-  slideComments(@Request() req: AuthReq, @Param('id') id: string, @Query('includeResolved') includeResolved?: string) {
-    return this.service.listSlideComments(id, req.user, includeResolved !== '0' && includeResolved !== 'false');
+  slideComments(
+    @Request() req: AuthReq,
+    @Param('id') id: string,
+    @Query('includeResolved') includeResolved?: string,
+    @Query('anchorTypes') anchorTypes?: string,
+  ) {
+    const types = anchorTypes
+      ?.split(',')
+      .map((t) => t.trim())
+      .filter((t): t is OfficeCommentAnchorType =>
+        ['document', 'slide', 'object', 'cell', 'range', 'text'].includes(t),
+      );
+    return this.service.listSlideComments(
+      id,
+      req.user,
+      includeResolved !== '0' && includeResolved !== 'false',
+      types,
+    );
   }
 
   @Post(':id/slide-comments')
   addSlideComment(
     @Request() req: AuthReq,
     @Param('id') id: string,
-    @Body() dto: { parentId?: string | null; anchorType?: OfficeCommentAnchorType; slideIndex?: number | null; objectId?: string | null; rangeRef?: string | null; anchorLabel?: string | null; text: string; assignedTo?: string | null },
+    @Body()
+    dto: {
+      parentId?: string | null;
+      anchorType?: OfficeCommentAnchorType;
+      slideIndex?: number | null;
+      objectId?: string | null;
+      rangeRef?: string | null;
+      anchorLabel?: string | null;
+      text: string;
+      assignedTo?: string | null;
+    },
   ) {
     return this.service.addSlideComment(id, dto, req.user);
   }
@@ -133,13 +236,24 @@ export class OfficeController {
     @Request() req: AuthReq,
     @Param('id') id: string,
     @Param('commentId') commentId: string,
-    @Body() dto: { resolved?: boolean },
+    @Body()
+    dto: {
+      resolved?: boolean;
+      assignedTo?: string | null;
+      anchorLabel?: string | null;
+      rangeRef?: string | null;
+      text?: string;
+    },
   ) {
-    return this.service.resolveSlideComment(id, commentId, dto?.resolved !== false, req.user);
+    return this.service.updateSlideComment(id, commentId, dto ?? {}, req.user);
   }
 
   @Delete(':id/slide-comments/:commentId')
-  removeSlideComment(@Request() req: AuthReq, @Param('id') id: string, @Param('commentId') commentId: string) {
+  removeSlideComment(
+    @Request() req: AuthReq,
+    @Param('id') id: string,
+    @Param('commentId') commentId: string,
+  ) {
     return this.service.removeSlideComment(id, commentId, req.user);
   }
   @Get(':id/versions')
@@ -148,12 +262,20 @@ export class OfficeController {
   }
 
   @Post(':id/versions')
-  snapshot(@Request() req: AuthReq, @Param('id') id: string, @Body() dto: { label?: string }) {
+  snapshot(
+    @Request() req: AuthReq,
+    @Param('id') id: string,
+    @Body() dto: { label?: string },
+  ) {
     return this.service.snapshotNow(id, req.user, dto?.label);
   }
 
   @Post(':id/versions/:versionId/restore')
-  restoreVersion(@Request() req: AuthReq, @Param('id') id: string, @Param('versionId') versionId: string) {
+  restoreVersion(
+    @Request() req: AuthReq,
+    @Param('id') id: string,
+    @Param('versionId') versionId: string,
+  ) {
     return this.service.restoreVersion(id, versionId, req.user);
   }
 
