@@ -298,7 +298,7 @@ export function DashboardWayfinding() {
                     ) : isLast ? (
                       <span
                         aria-current="page"
-                        className="truncate font-medium text-gray-900 dark:text-white"
+                        className="truncate font-medium text-foreground"
                       >
                         {c.label}
                       </span>

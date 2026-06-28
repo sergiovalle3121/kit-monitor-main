@@ -276,7 +276,7 @@ export default function MissionControlPage() {
   };
 
   return (
-    <div className="min-h-screen text-black dark:text-white">
+    <div className="min-h-screen text-foreground">
       <div className="mx-auto max-w-7xl px-6 py-8 md:px-10 lg:px-12">
         {/* ── Header ────────────────────────────────────────────────── */}
         <header className="mb-8 flex flex-wrap items-center justify-between gap-4">

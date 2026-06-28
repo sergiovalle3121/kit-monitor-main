@@ -91,7 +91,7 @@ export default function RoutingEditorPage() {
   }
 
   if (forbidden) {
-    return <div className="min-h-screen grid place-items-center text-black dark:text-white"><div className={`${glass} rounded-3xl p-10 text-center max-w-sm`}><Lock className="w-8 h-8 mx-auto mb-3 text-gray-400" /><h2 className="text-lg font-semibold">Sin acceso</h2></div></div>;
+    return <div className="min-h-screen grid place-items-center text-foreground"><div className={`${glass} rounded-3xl p-10 text-center max-w-sm`}><Lock className="w-8 h-8 mx-auto mb-3 text-gray-400" /><h2 className="text-lg font-semibold">Sin acceso</h2></div></div>;
   }
   if (isLoading || !routing) {
     return <div className="min-h-screen flex justify-center pt-32"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div>;
@@ -100,7 +100,7 @@ export default function RoutingEditorPage() {
   const meta = STATUS_META[routing.status];
 
   return (
-    <div className="min-h-screen text-black dark:text-white font-sans pb-28">
+    <div className="min-h-screen text-foreground font-sans pb-28">
       <main className="max-w-4xl mx-auto px-6 pt-8">
         <Link href="/dashboard/routing" className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-black dark:hover:text-white mb-6">
           <ChevronLeft className="w-4 h-4" /> Ruteo de Manufactura

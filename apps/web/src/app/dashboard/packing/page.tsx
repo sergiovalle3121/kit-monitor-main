@@ -99,7 +99,7 @@ export default function PackingPage() {
 
   if (forbidden) {
     return (
-      <div className="min-h-screen grid place-items-center text-black dark:text-white">
+      <div className="min-h-screen grid place-items-center text-foreground">
         <div className={`${glass} rounded-3xl p-10 text-center max-w-sm`}>
           <Lock className="w-8 h-8 mx-auto mb-3 text-gray-400" />
           <h2 className="text-lg font-semibold">Sin acceso</h2>
@@ -112,7 +112,7 @@ export default function PackingPage() {
   const firstLoad = isLoading && data === undefined;
 
   return (
-    <div className="min-h-screen text-black dark:text-white">
+    <div className="min-h-screen text-foreground">
       <div className={`${glass} sticky top-0 z-40 px-6 py-4`}>
         <div className="max-w-5xl mx-auto flex items-center gap-3">
           <Link href="/dashboard" className="p-2 -ml-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10">
@@ -131,7 +131,7 @@ export default function PackingPage() {
         </div>
       </div>
 
-      <main className="max-w-5xl mx-auto px-6 pt-8 pb-28">
+      <main className="max-w-7xl mx-auto px-6 pt-8 pb-28">
         <div className="flex flex-wrap items-center gap-2 mb-5">
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar SSCC, folio, parte…" className="pk-input flex-1 min-w-[200px]" />
           <select value={shipmentFilter} onChange={(e) => setShipmentFilter(e.target.value)} className="pk-input w-auto">

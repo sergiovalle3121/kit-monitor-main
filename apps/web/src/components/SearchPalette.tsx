@@ -386,7 +386,7 @@ export function SearchPalette() {
                 onChange={(e) => { setQuery(e.target.value); setSelected(0); }}
                 onKeyDown={onKeyDown}
                 placeholder="Ir a un área o pantalla…  Planeación, Calidad, Almacén, ERP"
-                className="flex-1 bg-transparent outline-none text-base text-gray-900 dark:text-gray-100 placeholder:text-gray-400"
+                className="flex-1 bg-transparent outline-none text-base text-foreground placeholder:text-gray-400"
               />
               {recordsLoading && <Loader2 className="w-4 h-4 text-primary animate-spin flex-shrink-0" />}
               <kbd className="hidden sm:inline text-[10px] font-mono px-1.5 py-0.5 rounded bg-black/5 dark:bg-white/10 text-gray-400">ESC</kbd>
@@ -426,7 +426,7 @@ export function SearchPalette() {
                       >
                         <Tile tone={item.tone} icon={Icon} active={active} />
                         <span className="min-w-0 flex-1">
-                          <span className="block text-[13.5px] font-medium text-gray-900 dark:text-gray-100 truncate">
+                          <span className="block text-[13.5px] font-medium text-foreground truncate">
                             {highlight(item.title, terms)}
                           </span>
                           {item.subtitle && (

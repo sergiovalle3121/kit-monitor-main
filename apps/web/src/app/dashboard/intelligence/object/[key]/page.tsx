@@ -230,7 +230,7 @@ export default function ObjectDrilldownPage() {
     <div className="mx-auto max-w-5xl px-5 py-8">
       <Link
         href="/dashboard/intelligence"
-        className="mb-6 inline-flex items-center gap-1.5 text-sm text-black/60 hover:text-black dark:text-white/60 dark:hover:text-white"
+        className="mb-6 inline-flex items-center gap-1.5 text-sm text-black/60 hover:text-foreground/60 dark:hover:text-white"
       >
         <ArrowLeft className="h-4 w-4" /> Centro de Inteligencia
       </Link>
