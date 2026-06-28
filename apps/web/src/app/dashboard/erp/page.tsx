@@ -127,7 +127,7 @@ export default function ErpHubPage() {
   };
 
   return (
-    <div className="min-h-screen text-black dark:text-white font-sans pb-24">
+    <div className="min-h-screen text-foreground font-sans pb-24">
       <div
         className={`${glass} sticky top-0 z-40 px-5 py-3 rounded-none border-x-0 border-t-0 flex items-center justify-between`}
       >

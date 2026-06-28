@@ -128,7 +128,7 @@ export default function CharacteristicsPage() {
   }
 
   return (
-    <div className="min-h-screen text-black dark:text-white font-sans pb-32">
+    <div className="min-h-screen text-foreground font-sans pb-32">
       <main className="max-w-6xl mx-auto px-6 pt-10">
         <PageHeader
           domain="quality"

@@ -104,7 +104,7 @@ export function WhereUsedView({ result }: { result: WhereUsedResult }) {
                 const sm = sourceMeta(s.source);
                 return (
                   <tr key={`${s.serial}-${idx}`} className="text-gray-600 dark:text-gray-300">
-                    <td className="py-2 pr-3 font-mono font-medium text-black dark:text-white">
+                    <td className="py-2 pr-3 font-mono font-medium text-foreground">
                       {s.serial}
                     </td>
                     <td className="py-2 pr-3 font-mono">{s.part}</td>

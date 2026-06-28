@@ -172,7 +172,7 @@ export default function NpiProjectDetailPage() {
 
   if (forbidden) {
     return (
-      <div className="min-h-screen grid place-items-center text-black dark:text-white">
+      <div className="min-h-screen grid place-items-center text-foreground">
         <div className={`${glass} rounded-3xl p-10 text-center max-w-sm`}>
           <Lock className="w-8 h-8 mx-auto mb-3 text-gray-400" />
           <h2 className="text-lg font-semibold">Sin acceso</h2>
@@ -195,7 +195,7 @@ export default function NpiProjectDetailPage() {
   const progress = gateProgress(gates);
 
   return (
-    <div className="min-h-screen text-black dark:text-white font-sans pb-28">
+    <div className="min-h-screen text-foreground font-sans pb-28">
       <main className="max-w-4xl mx-auto px-6 pt-8">
         {/* Executive header */}
         <div className="flex items-start gap-4 mb-6">

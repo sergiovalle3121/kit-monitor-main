@@ -467,7 +467,7 @@ export function Cide() {
                     onClick={newConversation}
                     aria-label="Nueva conversación"
                     title="Nueva conversación"
-                    className="rounded-lg p-2 text-black/50 transition-colors hover:bg-black/5 hover:text-black dark:text-white/50 dark:hover:bg-white/10 dark:hover:text-white"
+                    className="rounded-lg p-2 text-black/50 transition-colors hover:bg-black/5 hover:text-foreground/50 dark:hover:bg-white/10 dark:hover:text-white"
                   >
                     <Plus className="h-4 w-4" />
                   </button>
@@ -480,7 +480,7 @@ export function Cide() {
                     className={`rounded-lg p-2 transition-colors hover:bg-black/5 dark:hover:bg-white/10 ${
                       view === 'insights'
                         ? 'text-violet-600 dark:text-violet-300'
-                        : 'text-black/50 hover:text-black dark:text-white/50 dark:hover:text-white'
+                        : 'text-black/50 hover:text-foreground/50 dark:hover:text-white'
                     }`}
                   >
                     <ShieldAlert className="h-4 w-4" />
@@ -492,7 +492,7 @@ export function Cide() {
                     className={`rounded-lg p-2 transition-colors hover:bg-black/5 dark:hover:bg-white/10 ${
                       view === 'history'
                         ? 'text-violet-600 dark:text-violet-300'
-                        : 'text-black/50 hover:text-black dark:text-white/50 dark:hover:text-white'
+                        : 'text-black/50 hover:text-foreground/50 dark:hover:text-white'
                     }`}
                   >
                     <History className="h-4 w-4" />
@@ -502,7 +502,7 @@ export function Cide() {
                       href="/dashboard/admin/ai"
                       onClick={() => setOpen(false)}
                       aria-label="Configurar CIDE"
-                      className="rounded-lg p-2 text-black/50 transition-colors hover:bg-black/5 hover:text-black dark:text-white/50 dark:hover:bg-white/10 dark:hover:text-white"
+                      className="rounded-lg p-2 text-black/50 transition-colors hover:bg-black/5 hover:text-foreground/50 dark:hover:bg-white/10 dark:hover:text-white"
                     >
                       <Settings className="h-4 w-4" />
                     </Link>
@@ -510,7 +510,7 @@ export function Cide() {
                   <button
                     onClick={() => setOpen(false)}
                     aria-label="Cerrar"
-                    className="rounded-lg p-2 text-black/50 transition-colors hover:bg-black/5 hover:text-black dark:text-white/50 dark:hover:bg-white/10 dark:hover:text-white"
+                    className="rounded-lg p-2 text-black/50 transition-colors hover:bg-black/5 hover:text-foreground/50 dark:hover:bg-white/10 dark:hover:text-white"
                   >
                     <X className="h-5 w-5" />
                   </button>

@@ -61,7 +61,7 @@ function SelectWorkspaceInner() {
   const canEnter = Boolean(buildingId || projectId);
 
   return (
-    <div className="min-h-screen text-black dark:text-white">
+    <div className="min-h-screen text-foreground">
       <div className="mx-auto flex min-h-screen max-w-3xl flex-col justify-center px-6 py-16">
         <motion.div
           initial={{ opacity: 0, y: 10 }}

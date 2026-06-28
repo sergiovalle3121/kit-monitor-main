@@ -2430,8 +2430,8 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
     <div
       className={
         single
-          ? 'flex h-full min-h-0 w-full text-black dark:text-white font-sans'
-          : 'min-h-screen text-black dark:text-white font-sans'
+          ? 'flex h-full min-h-0 w-full text-foreground font-sans'
+          : 'min-h-screen text-foreground font-sans'
       }
     >
       {single ? (

@@ -126,7 +126,7 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
                   <AlertTriangle className="w-5 h-5" />
                 </div>
                 <div className="min-w-0 flex-1 pt-0.5">
-                  <h2 id={titleId} className="text-base font-semibold leading-tight text-black dark:text-white">
+                  <h2 id={titleId} className="text-base font-semibold leading-tight text-foreground">
                     {opts.title ?? '¿Confirmar acción?'}
                   </h2>
                   <p id={descId} className="text-sm text-gray-600 dark:text-gray-300 leading-snug mt-1">

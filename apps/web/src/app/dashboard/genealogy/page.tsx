@@ -109,7 +109,7 @@ export default function GenealogyPage() {
   const lotDisabled = !lotInput.trim() && !reelInput.trim();
 
   return (
-    <div className="min-h-screen text-black dark:text-white">
+    <div className="min-h-screen text-foreground">
       <main className="mx-auto max-w-6xl px-6 pb-24 pt-10">
         <Link
           href="/dashboard"
