@@ -3,7 +3,7 @@
 
 import React, { useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { CheckCircle2, GitPullRequestArrow, PenLine, Trash2, X } from 'lucide-react';
+import { CheckCircle2, GitPullRequestArrow, Paintbrush, PenLine, Trash2, X } from 'lucide-react';
 import { summarizeTrackedChanges } from '@/lib/office/trackChangesSummary';
 
 function formatDate(value: number | null) {
@@ -49,7 +49,7 @@ export function DocReviewSummary({ content }: { content: any }) {
               </div>
 
               <div className="flex-1 space-y-4 overflow-y-auto p-4">
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-4 gap-2">
                   <div className="rounded-2xl border border-black/10 p-3 dark:border-white/10">
                     <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-gray-400">Pendientes</p>
                     <p className="mt-1 text-2xl font-semibold text-foreground">{summary.total}</p>
@@ -61,6 +61,10 @@ export function DocReviewSummary({ content }: { content: any }) {
                   <div className="rounded-2xl border border-red-200 bg-red-50 p-3 dark:border-red-500/20 dark:bg-red-500/10">
                     <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-red-500">Delete</p>
                     <p className="mt-1 text-2xl font-semibold text-red-600 dark:text-red-300">{summary.deletions}</p>
+                  </div>
+                  <div className="rounded-2xl border border-blue-200 bg-blue-50 p-3 dark:border-blue-500/20 dark:bg-blue-500/10">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-blue-500">Format</p>
+                    <p className="mt-1 text-2xl font-semibold text-blue-600 dark:text-blue-300">{summary.formatting}</p>
                   </div>
                 </div>
 
@@ -84,6 +88,7 @@ export function DocReviewSummary({ content }: { content: any }) {
                             <div className="mt-1 flex items-center gap-2 text-[11px]">
                               <span className="inline-flex items-center gap-1 text-emerald-600"><PenLine className="h-3 w-3" />{author.insertions} inserciones</span>
                               <span className="inline-flex items-center gap-1 text-red-500"><Trash2 className="h-3 w-3" />{author.deletions} eliminaciones</span>
+                              <span className="inline-flex items-center gap-1 text-blue-500"><Paintbrush className="h-3 w-3" />{author.formatting} formato</span>
                             </div>
                           </div>
                         ))}
@@ -95,11 +100,12 @@ export function DocReviewSummary({ content }: { content: any }) {
                       {summary.items.slice(0, 25).map((item) => (
                         <div key={item.id} className="rounded-2xl border border-black/10 p-3 dark:border-white/10">
                           <div className="flex items-center justify-between gap-2">
-                            <span className={`text-[10px] font-bold uppercase tracking-wide ${item.type === 'insertion' ? 'text-emerald-600' : 'text-red-500'}`}>{item.type === 'insertion' ? 'Inserción' : 'Eliminación'}</span>
+                            <span className={`text-[10px] font-bold uppercase tracking-wide ${item.type === 'insertion' ? 'text-emerald-600' : item.type === 'deletion' ? 'text-red-500' : 'text-blue-500'}`}>{item.type === 'insertion' ? 'Inserción' : item.type === 'deletion' ? 'Eliminación' : 'Formato'}</span>
                             <span className="text-[10px] text-gray-400">{formatDate(item.date)}</span>
                           </div>
                           <p className="mt-1 text-xs font-medium text-gray-700 dark:text-gray-200">{item.author}</p>
-                          <p className={`mt-1 text-sm ${item.type === 'deletion' ? 'text-red-500 line-through' : 'text-emerald-700 dark:text-emerald-300'}`}>“{truncate(item.text)}”</p>
+                          <p className={`mt-1 text-sm ${item.type === 'deletion' ? 'text-red-500 line-through' : item.type === 'formatChange' ? 'text-blue-600 underline decoration-dotted underline-offset-4 dark:text-blue-300' : 'text-emerald-700 dark:text-emerald-300'}`}>“{truncate(item.text)}”</p>
+                          {item.type === 'formatChange' ? <p className="mt-1 text-[11px] text-gray-500">{item.after || item.property || 'Formato propuesto'}</p> : null}
                         </div>
                       ))}
                     </div>
