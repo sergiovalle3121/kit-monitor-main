@@ -221,3 +221,9 @@ The workbook payload keeps governance metadata alongside the existing `sheets`, 
 Protection remains stored on sheet-level `axosProtection` metadata and is enforced in the Fortune-Sheet edit hook. v1 covers protected sheets, protected ranges, connector-owned locked ranges, visual protection summaries, and local governance event mapping for critical protect/unprotect/comment actions. Backend event-ledger persistence is intentionally a contract extension point: when a tenant-safe Office audit endpoint is available, the frontend event objects can be posted without changing the workbook schema.
 
 Enterprise sharing and approval awareness is surfaced through the existing Office frame actions: lifecycle/approval controls, ShareButton, VersionHistory, and DocAuditTimeline remain the source of truth while Sheets adds workbook-health and governance summary signals inside the editor.
+
+## Fase 12 — Data Intelligence Workbench (Power Query + Power Pivot baseline)
+
+AXOS Sheets now exposes a visible **Data Intelligence Workbench** from the AXOS ribbon. The workbench generates governed manufacturing BI workbooks from reusable presets instead of forcing users to export CSVs manually. Each preset inserts multiple AXOS ERP/MES connector tables, records Power Query-like transformation steps, protects connector ranges, persists connector instances for refresh, creates a refreshable pivot model, and adds chart suggestions plus an `AXOS BI Dashboard` sheet.
+
+The first workbench presets cover inventory/MRP/purchasing control tower, production/OEE/quality daily management, and supplier/BOM cost risk analysis. The implementation is intentionally pure in `dataWorkbench.ts` so future live backend aggregators can replace deterministic sample connector rows without changing the SheetEditor UX contract.
