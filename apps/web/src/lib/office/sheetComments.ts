@@ -5,10 +5,15 @@ export interface SheetCommentReply {
   createdAt: string;
 }
 
+export type SheetCommentAnchorType = 'sheet' | 'cell' | 'range' | 'table' | 'pivot' | 'chart';
+
 export interface SheetCommentThread {
   id: string;
   sheetIndex: number;
   range: string;
+  anchorType?: SheetCommentAnchorType;
+  anchorLabel?: string;
+  assignedTo?: string | null;
   text: string;
   author?: string;
   createdAt: string;
@@ -20,12 +25,15 @@ export interface SheetCommentThread {
 
 const idFrom = (prefix: string, now: Date) => `${prefix}_${now.getTime().toString(36)}`;
 
-export function createSheetCommentThread(input: { sheetIndex: number; range: string; text: string; author?: string; now?: Date }): SheetCommentThread {
+export function createSheetCommentThread(input: { sheetIndex: number; range: string; text: string; author?: string; assignedTo?: string | null; anchorType?: SheetCommentAnchorType; anchorLabel?: string; now?: Date }): SheetCommentThread {
   const now = input.now ?? new Date();
   return {
     id: idFrom('sc', now),
     sheetIndex: input.sheetIndex,
     range: input.range,
+    anchorType: input.anchorType ?? (input.range.includes(':') ? 'range' : 'cell'),
+    anchorLabel: input.anchorLabel,
+    assignedTo: input.assignedTo ?? null,
     text: input.text.trim(),
     author: input.author,
     createdAt: now.toISOString(),
@@ -58,6 +66,7 @@ export function commentsForSelection(comments: SheetCommentThread[], sheetIndex:
 
 export function formatSheetCommentSummary(comment: SheetCommentThread): string {
   const replies = comment.replies?.length ? ` (${comment.replies.length} respuestas)` : '';
+  const assignee = comment.assignedTo ? ` · @${comment.assignedTo}` : '';
   const status = comment.resolved ? 'resuelto' : 'abierto';
-  return `${comment.range} · ${status}${replies} — ${comment.text}`;
+  return `${comment.anchorLabel || comment.range} · ${status}${assignee}${replies} — ${comment.text}`;
 }

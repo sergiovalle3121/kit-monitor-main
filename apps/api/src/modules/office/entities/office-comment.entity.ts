@@ -2,7 +2,7 @@ import {
   Column, CreateDateColumn, Entity, Index, PrimaryGeneratedColumn, UpdateDateColumn,
 } from 'typeorm';
 
-export type OfficeCommentAnchorType = 'document' | 'slide' | 'object' | 'cell' | 'range' | 'text';
+export type OfficeCommentAnchorType = 'document' | 'slide' | 'object' | 'sheet' | 'cell' | 'range' | 'table' | 'pivot' | 'chart' | 'text';
 
 /**
  * Persistent enterprise review thread for Office documents.

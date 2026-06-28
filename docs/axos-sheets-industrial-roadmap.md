@@ -205,3 +205,7 @@ AXOS connector instances now have a pure freshness model derived from connector 
 AXOS Sheets now exposes an Excel-grade workbench surface without replacing Fortune-Sheet: a persistent formula/name bar, selection intelligence, large-sheet status polish, and a right-side inspector that organizes workbook health, selected-cell statistics, data tools, charts, pivots, comments, protection, XLSX compatibility, and AXOS ERP/MES data connectors. The inspector launches existing dialogs/helpers instead of duplicating engines, and the XLSX review is best-effort metadata scanning only; macros are never executed.
 
 The new pure helper layer derives selection statistics, workbook summaries, health counters, and XLSX compatibility signals from persisted workbook JSON so autosave/export flows can surface risks before sharing or Excel round-trip review.
+
+## Delivered slice — server-backed cell and range comments
+
+AXOS Sheets now reuses the existing Office anchored comments backend for spreadsheet review threads when a document id is available. Sheet comments can target sheet, cell, range, table, pivot, and chart anchors through the generic `office_comments` model, with optimistic workbook-local fallback only when the backend is unavailable. The Workbench comments panel adds open, resolved, and assigned filters, displays backend/fallback state, and surfaces selection badges in the cell inspector and status area so reviewers can find unresolved comments without duplicating a Sheets-only comment service.
