@@ -221,7 +221,7 @@ function NpiSection({
         </h2>
         <Link
           href="/dashboard/npi"
-          className="ml-auto inline-flex items-center gap-1 text-xs font-medium text-violet-500 hover:text-violet-700"
+          className="ml-auto inline-flex items-center gap-1 text-xs font-medium text-primary hover:text-primary"
         >
           Ver Launch Center <ArrowRight className="w-3 h-3" />
         </Link>
@@ -302,7 +302,7 @@ function PlansSection({ modelNumber }: { modelNumber: string }) {
         <h2 className="text-sm font-semibold tracking-wide text-gray-500 dark:text-gray-400 flex items-center gap-2">
           <Megaphone className="w-4 h-4" /> Planes de este modelo
         </h2>
-        <Link href="/dashboard/planning" className="inline-flex items-center gap-1 text-xs font-medium text-violet-500 hover:text-violet-700">
+        <Link href="/dashboard/planning" className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:text-primary">
           Publicar plan <ArrowRight className="w-3 h-3" />
         </Link>
       </div>

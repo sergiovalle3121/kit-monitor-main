@@ -944,7 +944,7 @@ function MatrixView({
                         className="text-left min-w-0 group"
                         title="Ver perfil de competencias"
                       >
-                        <span className="block font-medium truncate group-hover:text-violet-600">{row.name}</span>
+                        <span className="block font-medium truncate group-hover:text-primary">{row.name}</span>
                         <span className="block text-[11px] text-gray-400 truncate">
                           {[row.area, `${rowCoverage.get(row.key) ?? 0} hab.`].filter(Boolean).join(' · ')}
                         </span>
@@ -1405,7 +1405,7 @@ function CertFormModal({
               <button
                 type="button"
                 onClick={onManageCatalog}
-                className="inline-flex items-center gap-1 text-violet-600 hover:underline"
+                className="inline-flex items-center gap-1 text-primary hover:underline"
               >
                 <BookOpen className="w-3 h-3" /> Catálogo
               </button>
@@ -1536,7 +1536,7 @@ function EmployeePicker({
   if (value && name) {
     return (
       <div className="flex items-center gap-2">
-        <span className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-violet-500/10 text-violet-700 dark:text-violet-300 text-sm font-medium">
+        <span className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-primary/10 text-primary dark:text-primary text-sm font-medium">
           <UserCheck className="w-4 h-4" /> {name}
         </span>
         <button onClick={onClear} className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10" title="Cambiar">
