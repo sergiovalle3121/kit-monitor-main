@@ -234,7 +234,7 @@ export default function ProductionPlanPage() {
         </div>
       </div>
 
-      <main className="max-w-6xl mx-auto px-6 pt-8 pb-24">
+      <main className="max-w-7xl mx-auto px-6 pt-8 pb-24">
         <div className="grid grid-cols-2 md:grid-cols-6 gap-3 mb-6">
           <Kpi label="WO abiertas" value={kpis?.open ?? 0} color={VIOLET} />
           <Kpi label="En ejecución" value={kpis?.inExecution ?? 0} color={BLUE} />

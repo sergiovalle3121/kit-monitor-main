@@ -234,7 +234,7 @@ export default function OutboundPage() {
         </div>
       </div>
 
-      <main className="max-w-5xl mx-auto px-6 pt-8 pb-24">
+      <main className="max-w-7xl mx-auto px-6 pt-8 pb-24">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
           <Kpi label="Por embarcar" value={kpis?.toShip ?? 0} color={AMBER} />
           <Kpi label="En tránsito" value={kpis?.inTransit ?? 0} color={BLUE} />

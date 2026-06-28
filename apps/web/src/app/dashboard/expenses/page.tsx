@@ -167,7 +167,7 @@ export default function ExpensesPage() {
         </div>
       </div>
 
-      <main className="max-w-5xl mx-auto px-6 pt-8 pb-24">
+      <main className="max-w-7xl mx-auto px-6 pt-8 pb-24">
         {/* KPI strip */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 mb-6">
           <Kpi icon={Layers} label="Reportes" value={String(kpis?.total ?? 0)} color={TEAL} />
