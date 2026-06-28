@@ -10,6 +10,10 @@ import {
   Loader2,
   Save,
   Cpu,
+  Activity,
+  RefreshCw,
+  CheckCircle2,
+  XCircle,
 } from 'lucide-react';
 import { glass } from '@/lib/glass';
 
@@ -22,6 +26,9 @@ interface AiConfig {
   tokensUsedThisPeriod: number;
   rateLimitPerHour: number;
   periodStart: string | null;
+  autoEscalate: boolean;
+  autoEscalateSource: 'tenant' | 'default';
+  knowledge: string;
   engine: {
     name: string;
     selfHosted: boolean;
@@ -56,15 +63,41 @@ interface Usage {
   recent: UsageRow[];
 }
 
+interface EngineHealth {
+  mock: boolean;
+  baseUrl: string;
+  apiKeyConfigured: boolean;
+  activeModel: string;
+  reachable: boolean;
+  models: string[];
+  modelAvailable: boolean;
+  message: string;
+  error?: string;
+}
+
 const fmtNum = (n: number) => Number(n || 0).toLocaleString();
 
 export default function AiAdminPage() {
   const [cfg, setCfg] = useState<AiConfig | null>(null);
   const [usage, setUsage] = useState<Usage | null>(null);
+  const [health, setHealth] = useState<EngineHealth | null>(null);
+  const [probing, setProbing] = useState(false);
   const [denied, setDenied] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+
+  async function probe() {
+    setProbing(true);
+    try {
+      const res = await fetch('/api/ai/health', { cache: 'no-store' });
+      if (res.ok) setHealth(await res.json());
+    } catch {
+      /* keep the last known status on a transient network error */
+    } finally {
+      setProbing(false);
+    }
+  }
 
   useEffect(() => {
     async function load() {
@@ -80,6 +113,7 @@ export default function AiAdminPage() {
       setCfg(await c.json());
       if (u.ok) setUsage(await u.json());
       setLoading(false);
+      void probe();
     }
     load().catch(() => setLoading(false));
   }, []);
@@ -167,7 +201,34 @@ export default function AiAdminPage() {
               modo demo (AI_MOCK)
             </span>
           )}
+          <span className="ml-auto inline-flex items-center gap-2">
+            <ConnectivityPill health={health} probing={probing} />
+            <button
+              onClick={() => void probe()}
+              disabled={probing}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-black/10 px-2.5 py-1 text-xs font-medium hover:bg-black/5 disabled:opacity-50 dark:border-white/10 dark:hover:bg-white/5"
+            >
+              <RefreshCw
+                className={`h-3.5 w-3.5 ${probing ? 'animate-spin' : ''}`}
+              />
+              Probar conexión
+            </button>
+          </span>
         </div>
+        {health && !health.mock && (
+          <p
+            className={`mt-2 text-xs ${
+              health.reachable && health.modelAvailable
+                ? 'text-emerald-600 dark:text-emerald-400'
+                : 'text-amber-600 dark:text-amber-400'
+            }`}
+          >
+            {health.message}
+            {health.reachable && health.models.length > 0 && (
+              <> Modelos cargados: {health.models.join(', ')}.</>
+            )}
+          </p>
+        )}
         <p className="mt-2 text-xs text-black/50 dark:text-white/50">
           CIDE corre en tu propia infraestructura ({cfg.engine.baseUrl}) sobre un
           modelo open-source. No se usa ningún proveedor externo de IA y los
@@ -258,6 +319,28 @@ export default function AiAdminPage() {
               </select>
             </div>
           </div>
+
+          <label className="mt-4 flex items-start justify-between gap-3 text-sm">
+            <span>
+              Escalado automático de modelo
+              <span className="mt-0.5 block text-[11px] text-black/45 dark:text-white/45">
+                Las consultas analíticas usan el modelo de escalación
+                automáticamente. Requiere que el motor sirva ese modelo.
+                {cfg.autoEscalateSource === 'default' && ' (heredado del entorno)'}
+              </span>
+            </span>
+            <input
+              type="checkbox"
+              checked={cfg.autoEscalate}
+              onChange={(e) =>
+                patch(
+                  { autoEscalate: e.target.checked },
+                  'Escalado automático actualizado.',
+                )
+              }
+              className="mt-0.5 h-4 w-4 shrink-0 accent-violet-600"
+            />
+          </label>
         </section>
 
         {/* Budget + limits */}
@@ -305,6 +388,25 @@ export default function AiAdminPage() {
           />
         </section>
       </div>
+
+      {/* Company knowledge — teach CIDE */}
+      <section className={`${glass} mt-6 rounded-2xl p-5`}>
+        <h2 className="mb-1 flex items-center gap-2 text-sm font-semibold">
+          <Sparkles className="h-4 w-4 text-violet-500" /> Conocimiento de la
+          empresa
+        </h2>
+        <p className="mb-3 text-xs text-black/55 dark:text-white/55">
+          Enséñale a CIDE el contexto propio de tu organización: políticas,
+          definiciones, abreviaturas, FAQs, objetivos. Lo usará como contexto
+          autoritativo al responder (no sustituye los datos reales de los
+          módulos). Máximo 8000 caracteres.
+        </p>
+        <KnowledgeEditor
+          value={cfg.knowledge ?? ''}
+          disabled={saving}
+          onSave={(v) => patch({ knowledge: v }, 'Conocimiento actualizado.')}
+        />
+      </section>
 
       {/* Usage */}
       <section className={`${glass} mt-6 rounded-2xl p-5`}>
@@ -379,6 +481,93 @@ export default function AiAdminPage() {
   );
 }
 
+function ConnectivityPill({
+  health,
+  probing,
+}: {
+  health: EngineHealth | null;
+  probing: boolean;
+}) {
+  if (probing && !health) {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-md bg-black/5 px-2 py-0.5 text-xs font-medium text-black/55 dark:bg-white/10 dark:text-white/55">
+        <Activity className="h-3.5 w-3.5 animate-pulse" /> probando…
+      </span>
+    );
+  }
+  if (!health) return null;
+  if (health.mock) {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-md bg-amber-500/15 px-2 py-0.5 text-xs font-medium text-amber-600 dark:text-amber-300">
+        <Activity className="h-3.5 w-3.5" /> sin motor (demo)
+      </span>
+    );
+  }
+  const ok = health.reachable && health.modelAvailable;
+  const warn = health.reachable && !health.modelAvailable;
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-xs font-medium ${
+        ok
+          ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-300'
+          : warn
+            ? 'bg-amber-500/15 text-amber-600 dark:text-amber-300'
+            : 'bg-red-500/15 text-red-600 dark:text-red-300'
+      }`}
+    >
+      {ok ? (
+        <CheckCircle2 className="h-3.5 w-3.5" />
+      ) : (
+        <XCircle className="h-3.5 w-3.5" />
+      )}
+      {ok ? 'motor en línea' : warn ? 'motor sin modelo' : 'motor inaccesible'}
+    </span>
+  );
+}
+
+function KnowledgeEditor({
+  value,
+  disabled,
+  onSave,
+}: {
+  value: string;
+  disabled: boolean;
+  onSave: (v: string) => void;
+}) {
+  const [v, setV] = useState(value);
+  const [lastValue, setLastValue] = useState(value);
+  if (value !== lastValue) {
+    setLastValue(value);
+    setV(value);
+  }
+  return (
+    <div>
+      <textarea
+        value={v}
+        onChange={(e) => setV(e.target.value.slice(0, 8000))}
+        rows={8}
+        placeholder={
+          'Ej.: Facturamos los viernes. "OTD" = On-Time Delivery, objetivo 95%.\n' +
+          'El cliente A exige FAI por lote. La línea 3 es SMT de alta mezcla…'
+        }
+        className="w-full resize-y rounded-lg border border-black/10 bg-white/60 px-3 py-2 text-sm outline-none focus:border-violet-400 dark:border-white/10 dark:bg-white/5"
+      />
+      <div className="mt-2 flex items-center justify-between">
+        <span className="text-[11px] text-black/45 dark:text-white/45">
+          {v.length}/8000
+        </span>
+        <button
+          onClick={() => onSave(v)}
+          disabled={disabled || v === value}
+          className="rounded-lg bg-indigo-600 px-3 py-2 text-sm text-white disabled:opacity-40"
+        >
+          Guardar conocimiento
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-xl bg-black/5 px-3 py-2.5 dark:bg-white/5">
@@ -410,7 +599,7 @@ function BudgetEditor({
         type="number"
         value={v}
         onChange={(e) => setV(e.target.value)}
-        className="flex-1 rounded-lg border border-black/10 bg-white/60 px-3 py-2 text-sm outline-none focus:border-violet-400 dark:border-white/10 dark:bg-white/5"
+        className="flex-1 rounded-lg border border-black/10 bg-white/60 px-3 py-2 text-sm outline-none focus:border-primary dark:border-white/10 dark:bg-white/5"
       />
       <button
         onClick={() => onSave(Math.max(0, parseInt(v || '0', 10)))}

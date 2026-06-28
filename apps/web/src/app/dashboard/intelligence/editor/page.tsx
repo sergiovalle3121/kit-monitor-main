@@ -83,7 +83,7 @@ type Panel =
   | null;
 
 const input =
-  'w-full rounded-lg border border-black/10 bg-white/60 px-3 py-2 text-sm outline-none focus:border-violet-400 dark:border-white/10 dark:bg-white/5';
+  'w-full rounded-lg border border-black/10 bg-white/60 px-3 py-2 text-sm outline-none focus:border-primary dark:border-white/10 dark:bg-white/5';
 
 export default function SemanticEditorPage() {
   const toast = useToast();
@@ -286,7 +286,7 @@ export default function SemanticEditorPage() {
     <div className="mx-auto max-w-4xl px-5 py-8">
       <Link
         href="/dashboard/intelligence"
-        className="mb-6 inline-flex items-center gap-1.5 text-sm text-black/60 hover:text-black dark:text-white/60 dark:hover:text-white"
+        className="mb-6 inline-flex items-center gap-1.5 text-sm text-black/60 hover:text-foreground/60 dark:hover:text-white"
       >
         <ArrowLeft className="h-4 w-4" /> Centro de Inteligencia
       </Link>

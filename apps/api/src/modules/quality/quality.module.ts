@@ -54,6 +54,12 @@ import { provideTenantScopedRepository } from '../../common/tenant/tenant-scoped
     MeasurementsService,
     provideTenantScopedRepository(QualityCharacteristic),
     provideTenantScopedRepository(QualityMeasurement),
+    provideTenantScopedRepository(QualityHold),
+    provideTenantScopedRepository(QuarantineTransfer),
+    provideTenantScopedRepository(Disposition),
+    provideTenantScopedRepository(CAPA),
+    provideTenantScopedRepository(IQCInspection),
+    provideTenantScopedRepository(FinalInspection),
   ],
   exports: [QualityService, CharacteristicsService, MeasurementsService],
 })

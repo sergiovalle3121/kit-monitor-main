@@ -14,6 +14,9 @@
 
 export type DocType = 'doc' | 'sheet' | 'slides';
 
+import type { ChartConfig } from './charts';
+import { buildPivot, pivotToCelldata, type PivotConfig } from './sheetOps';
+
 export interface TemplateDef {
   id: string;
   title: string;
@@ -61,6 +64,39 @@ const tableOf = (rows: any[][]) => ({ type: 'table', content: rows.map((r) => tr
 const controlGrid = (pairs: [string, string][]) => tableOf(
   pairs.map(([k, v]) => [th(k, { bg: '#f1f5f9', color: '#0f172a' }), td(v)]),
 );
+const field = (key: string, label: string, value = '') => ({ type: 'docField', attrs: { key, label, value: value || label } });
+const axosRef = (entity: string, refId: string, label: string, status = 'draft') => ({ type: 'axosRef', attrs: { entity, refId, label, status } });
+const mixedP = (content: any[], attrs?: any) => ({ type: 'paragraph', ...(attrs ? { attrs } : {}), content });
+const controlledDoc = (props: Record<string, string>, ...content: any[]) => ({
+  type: 'doc',
+  attrs: {
+    pageHeader: `${props.documentNumber || 'AXOS-DOC'} · Rev ${props.revision || 'A'} · ${props.status || 'Draft'}`,
+    pageFooter: 'Controlled copy when exported from AXOS Docs',
+    pageNumbers: true,
+    pageSize: 'letter',
+    pageMargin: 'normal',
+    pageWatermark: props.status === 'Draft' ? 'DRAFT' : '',
+    docProps: props,
+  },
+  content,
+});
+const approvalBlock = () => tableOf([
+  [th('Función'), th('Nombre'), th('Firma / aprobación'), th('Fecha')],
+  [td('Elaboró'), td(''), td(''), td('')],
+  [td('Revisó'), td(''), td(''), td('')],
+  [td('Aprobó'), td(''), td(''), td('')],
+]);
+const revisionBlock = () => tableOf([
+  [th('Rev.'), th('Fecha'), th('Descripción del cambio'), th('Autor')],
+  [td('A'), td(new Date().toLocaleDateString('es-ES')), td('Emisión inicial'), td('')],
+]);
+const linkedAxosContext = () => tableOf([
+  [th('Entidad AXOS'), th('Referencia inteligente'), th('Uso documental')],
+  [td('Work Order'), td('', { bg: '#eff6ff' }), td('Ejecución / lote afectado')],
+  [td('BOM'), td('', { bg: '#eff6ff' }), td('Materiales y revisión aplicable')],
+  [td('Routing'), td('', { bg: '#eff6ff' }), td('Operaciones y estación')],
+  [td('NCR / CAPA'), td('', { bg: '#eff6ff' }), td('Calidad y acciones')],
+]);
 
 const DOC_TEMPLATES: TemplateDef[] = [
   { id: 'blank', title: 'En blanco', description: 'Documento vacío.', category: 'General', accent: '#64748b', build: () => null },
@@ -194,6 +230,380 @@ const DOC_TEMPLATES: TemplateDef[] = [
       callout('info', 'Característica crítica (CTQ): marca aquí los pasos con tolerancia estrecha o de seguridad.'),
       h(2, 'Registro y control de calidad'),
       tasks(['Inspección de primera pieza (FAI) realizada', 'Backflush confirmado', 'Registro de defectos al día']),
+    ),
+  },
+  {
+    id: 'controlled-sop', title: 'SOP controlado AXOS', description: 'SOP con propiedades vivas, aprobaciones y referencias AXOS.', category: 'Calidad y planta', accent: '#0ea5e9',
+    build: () => controlledDoc(
+      { documentNumber: 'SOP-EMS-000', revision: 'A', owner: 'Calidad', department: 'Operaciones', effectiveDate: new Date().toLocaleDateString('es-ES'), status: 'Draft', customer: 'Cliente', model: 'Modelo' },
+      docTitle('Procedimiento Operativo Estándar'),
+      mixedP([txt('Documento '), field('documentNumber', 'No. documento', 'SOP-EMS-000'), txt(' · Rev. '), field('revision', 'Revisión', 'A'), txt(' · Estado '), field('status', 'Estado', 'Draft')], { styleName: 'subtitle' }),
+      controlGrid([
+        ['Dueño del proceso', 'Calidad / Operaciones'],
+        ['Área aplicable', 'SMT / Ensamble / Prueba'],
+        ['Cliente / Modelo', 'Cliente · Modelo'],
+        ['Fecha efectiva', new Date().toLocaleDateString('es-ES')],
+      ]),
+      callout('warning', 'Documento controlado. No usar copias impresas no emitidas por AXOS Docs.'),
+      h(2, '1. Propósito'),
+      p('Definir el método estándar, seguro y verificable para ejecutar el proceso descrito.'),
+      h(2, '2. Alcance y referencias AXOS'),
+      mixedP([txt('Este SOP puede vincularse a '), axosRef('routing', 'RT-000', 'Routing RT-000'), txt(', '), axosRef('bom', 'BOM-000', 'BOM BOM-000'), txt(' y '), axosRef('customer', 'CUST-000', 'Cliente CUST-000'), txt(' para mantener trazabilidad operacional.')]),
+      linkedAxosContext(),
+      h(2, '3. Responsabilidades'),
+      tableOf([
+        [th('Rol'), th('Responsabilidad'), th('Evidencia esperada')],
+        [td('Operador'), td('Ejecutar el proceso según esta versión vigente'), td('Registro de operación / firma electrónica')],
+        [td('Supervisor'), td('Verificar cumplimiento y escalar desviaciones'), td('Checklist de arranque / LPA')],
+        [td('Calidad'), td('Auditar CTQ y liberar cambios documentales'), td('Inspección / aprobación')],
+      ]),
+      h(2, '4. Riesgos, EPP y controles'),
+      tableOf([
+        [th('Riesgo'), th('Control preventivo'), th('Plan de reacción')],
+        [td('ESD'), td('Pulsera ESD, tapete verificado'), td('Detener lote y abrir NCR si falla verificación')],
+        [td('Parámetro fuera de ventana'), td('Poka-yoke / receta bloqueada'), td('Escalar a Ingeniería de Proceso')],
+      ]),
+      h(2, '5. Procedimiento'),
+      tableOf([
+        [th('Paso'), th('Actividad'), th('CTQ'), th('Registro')],
+        [td('1'), td('Validar WO, modelo y revisión antes de iniciar'), td('Sí'), td('Terminal AXOS')],
+        [td('2'), td('Preparar estación y material según BOM vigente'), td('Sí'), td('Checklist')],
+        [td('3'), td('Ejecutar operación y confirmar resultado'), td('No'), td('Backflush / evento MES')],
+      ]),
+      h(2, '6. Registros y retención'),
+      bullets(['Checklist de arranque de línea.', 'Evidencia de inspección de primera pieza.', 'Eventos MES vinculados a WO/lote.']),
+      h(2, '7. Aprobaciones'),
+      approvalBlock(),
+      h(2, '8. Historial de revisiones'),
+      revisionBlock(),
+    ),
+  },
+  {
+    id: 'work-instruction-premium', title: 'Work Instruction premium', description: 'Instrucción visual por operación con CTQ, herramientas y reacción.', category: 'Calidad y planta', accent: '#0284c7',
+    build: () => controlledDoc(
+      { documentNumber: 'WI-000', revision: 'A', owner: 'Ingeniería de Manufactura', department: 'Producción', effectiveDate: new Date().toLocaleDateString('es-ES'), status: 'Draft', customer: 'Cliente', model: 'Modelo' },
+      docTitle('Work Instruction — Operación crítica'),
+      mixedP([field('documentNumber', 'No. documento', 'WI-000'), txt(' · '), field('model', 'Modelo', 'Modelo'), txt(' · '), axosRef('work_order', 'WO-000', 'WO WO-000')], { styleName: 'subtitle' }),
+      controlGrid([
+        ['Operación / Estación', 'OP-010 · Estación'],
+        ['Herramental', 'Fixture / Torque / Programa'],
+        ['Tiempo estándar', '__ segundos'],
+        ['Skill requerido', 'Operador certificado'],
+      ]),
+      h(2, 'Preparación de estación'),
+      tasks(['Validar versión vigente de esta instrucción', 'Confirmar material contra BOM', 'Verificar herramienta calibrada', 'Confirmar ESD / 5S']),
+      h(2, 'Secuencia visual de trabajo'),
+      tableOf([
+        [th('Imagen / Evidencia'), th('Paso'), th('Qué hacer'), th('Punto clave'), th('Defecto si falla')],
+        [td('[Insertar imagen]'), td('1'), td('Colocar ensamble en fixture'), td('Orientación contra poka-yoke'), td('Daño mecánico / mala orientación')],
+        [td('[Insertar imagen]'), td('2'), td('Aplicar torque especificado'), td('Torque __ ± __'), td('Falla funcional / retrabajo')],
+        [td('[Insertar imagen]'), td('3'), td('Escanear serial y liberar estación'), td('Serial legible y único'), td('Pérdida de trazabilidad')],
+      ]),
+      h(2, 'Plan de reacción'),
+      callout('danger', 'Si se detecta defecto crítico: detener operación, contener WIP desde última pieza buena y abrir NCR.'),
+      tableOf([
+        [th('Evento'), th('Contención'), th('Escalamiento'), th('Registro')],
+        [td('Herramienta fuera de calibración'), td('Bloquear estación'), td('Calidad + Metrología'), td('NCR / mantenimiento')],
+        [td('Material incorrecto'), td('Segregar lote'), td('Materiales + Supervisor'), td('Evento MES')],
+      ]),
+      approvalBlock(),
+    ),
+  },
+  {
+    id: 'ppap-packet', title: 'Paquete PPAP', description: 'Checklist PPAP con evidencias, PSW y aprobación del cliente.', category: 'Calidad y planta', accent: '#16a34a',
+    build: () => controlledDoc(
+      { documentNumber: 'PPAP-000', revision: 'A', owner: 'Calidad Proveedores', department: 'Calidad', effectiveDate: new Date().toLocaleDateString('es-ES'), status: 'Draft', customer: 'Cliente', model: 'Número de parte' },
+      docTitle('PPAP — Production Part Approval Process'),
+      mixedP([txt('Cliente '), field('customer', 'Cliente', 'Cliente'), txt(' · Parte '), field('model', 'Modelo / Parte', 'Número de parte'), txt(' · '), axosRef('supplier', 'SUP-000', 'Proveedor SUP-000')], { styleName: 'subtitle' }),
+      controlGrid([
+        ['Nivel PPAP', 'Nivel 3'],
+        ['Motivo de envío', 'Nuevo producto / cambio / corrección'],
+        ['Proveedor / Planta', '____'],
+        ['Fecha objetivo', '____'],
+      ]),
+      h(2, 'Checklist de elementos PPAP'),
+      tableOf([
+        [th('No.'), th('Elemento'), th('Requerido'), th('Evidencia / archivo'), th('Estatus')],
+        [td('1'), td('Design Records'), td('Sí'), td('Dibujo aprobado'), td('Pendiente')],
+        [td('2'), td('Engineering Change Documents'), td('Si aplica'), td('ECO / desviación'), td('Pendiente')],
+        [td('3'), td('Customer Engineering Approval'), td('Si aplica'), td('Aprobación cliente'), td('Pendiente')],
+        [td('4'), td('Design FMEA'), td('Si aplica'), td('DFMEA'), td('Pendiente')],
+        [td('5'), td('Process Flow Diagram'), td('Sí'), td('Flujo de proceso'), td('Pendiente')],
+        [td('6'), td('Process FMEA'), td('Sí'), td('PFMEA'), td('Pendiente')],
+        [td('7'), td('Control Plan'), td('Sí'), td('Plan de control'), td('Pendiente')],
+        [td('8'), td('MSA / Gage R&R'), td('Sí'), td('Estudios MSA'), td('Pendiente')],
+        [td('9'), td('Dimensional Results'), td('Sí'), td('FAI / resultados'), td('Pendiente')],
+        [td('10'), td('Material / Performance Results'), td('Sí'), td('Certificados / pruebas'), td('Pendiente')],
+        [td('11'), td('Initial Process Studies'), td('Si aplica'), td('Cp/Cpk'), td('Pendiente')],
+        [td('12'), td('PSW'), td('Sí'), td('Part Submission Warrant'), td('Pendiente')],
+      ]),
+      h(2, 'Riesgos y condiciones de aprobación'),
+      bullets(['Identificar elementos con aprobación condicional.', 'Documentar desviaciones abiertas y fechas de cierre.', 'Vincular NCR/CAPA/ECO cuando aplique.']),
+      h(2, 'Aprobación PSW'),
+      approvalBlock(),
+    ),
+  },
+  {
+    id: 'engineering-change', title: 'Engineering Change Notice', description: 'ECN/ECO con impacto en BOM, routing, calidad y cliente.', category: 'Calidad y planta', accent: '#7c3aed',
+    build: () => controlledDoc(
+      { documentNumber: 'ECN-000', revision: 'A', owner: 'Ingeniería', department: 'NPI', effectiveDate: new Date().toLocaleDateString('es-ES'), status: 'Draft', customer: 'Cliente', model: 'Modelo' },
+      docTitle('Engineering Change Notice (ECN)'),
+      mixedP([field('documentNumber', 'No. ECN', 'ECN-000'), txt(' · '), axosRef('engineering_change', 'ECO-000', 'ECO-000'), txt(' · Modelo '), field('model', 'Modelo', 'Modelo')], { styleName: 'subtitle' }),
+      h(2, 'Descripción del cambio'),
+      p('Describe el cambio propuesto, motivo, origen y fecha efectiva requerida.'),
+      h(2, 'Impacto AXOS'),
+      tableOf([
+        [th('Dominio'), th('Referencia'), th('Impacto'), th('Acción requerida')],
+        [td('BOM'), td('BOM actual / nueva rev.'), td('Materiales / alternos'), td('Actualizar y liberar')],
+        [td('Routing'), td('Operación afectada'), td('Tiempo estándar / estación'), td('Validar capacidad')],
+        [td('Calidad'), td('Plan de control / PFMEA'), td('CTQ / inspección'), td('Actualizar documentos')],
+        [td('Cliente'), td('Aprobación'), td('Notificación / PPAP'), td('Obtener waiver si aplica')],
+      ]),
+      h(2, 'Inventario y WIP afectados'),
+      tableOf([
+        [th('Ubicación'), th('Cantidad'), th('Disposición'), th('Responsable')],
+        [td('Raw material'), td('—'), td('Usar / bloquear / retrabajar'), td('Materiales')],
+        [td('WIP'), td('—'), td('Contener desde último punto bueno'), td('Producción')],
+        [td('FG'), td('—'), td('Evaluar embarque'), td('Calidad')],
+      ]),
+      h(2, 'Plan de implementación'),
+      tasks(['Liberar nueva revisión documental', 'Actualizar BOM/routing', 'Capacitar operadores', 'Validar primera corrida', 'Cerrar ECO']),
+      approvalBlock(),
+    ),
+  },
+  {
+    id: 'maintenance-procedure', title: 'Procedimiento de mantenimiento', description: 'LOTO, repuestos, PM/CM y verificación de equipo.', category: 'Calidad y planta', accent: '#f59e0b',
+    build: () => controlledDoc(
+      { documentNumber: 'MNT-PROC-000', revision: 'A', owner: 'Mantenimiento', department: 'Operaciones', effectiveDate: new Date().toLocaleDateString('es-ES'), status: 'Draft', customer: 'Interno', model: 'Equipo' },
+      docTitle('Procedimiento de mantenimiento'),
+      mixedP([txt('Equipo: '), field('model', 'Equipo', 'Equipo'), txt(' · Orden: '), axosRef('maintenance_order', 'MNT-000', 'MNT-000')], { styleName: 'subtitle' }),
+      callout('danger', 'Aplicar LOTO antes de intervenir equipo. Verificar cero energía y liberar únicamente por personal autorizado.'),
+      h(2, 'Alcance y frecuencia'),
+      controlGrid([
+        ['Tipo', 'Preventivo / Correctivo'],
+        ['Frecuencia', 'Diaria / Semanal / Mensual'],
+        ['Duración estimada', '__ min'],
+        ['Repuestos críticos', '____'],
+      ]),
+      h(2, 'Herramientas y refacciones'),
+      tableOf([
+        [th('Recurso'), th('Especificación'), th('Cantidad'), th('Validación')],
+        [td('Herramienta'), td('—'), td('1'), td('Calibrada / OK')],
+        [td('Refacción'), td('NP —'), td('—'), td('Disponible')],
+      ]),
+      h(2, 'Secuencia'),
+      ordered(['Notificar a producción y poner equipo en modo seguro.', 'Ejecutar LOTO y verificar cero energía.', 'Realizar inspección/servicio según checklist.', 'Retirar herramientas, limpiar área y liberar LOTO.', 'Correr prueba funcional y registrar resultado.']),
+      h(2, 'Checklist de cierre'),
+      tasks(['Guardas reinstaladas', 'Paro de emergencia validado', 'Prueba funcional OK', 'Orden cerrada con evidencia']),
+    ),
+  },
+  {
+    id: 'calibration-procedure', title: 'Procedimiento de calibración', description: 'Instrumentos, patrón, tolerancia e incertidumbre.', category: 'Calidad y planta', accent: '#0891b2',
+    build: () => controlledDoc(
+      { documentNumber: 'CAL-000', revision: 'A', owner: 'Metrología', department: 'Calidad', effectiveDate: new Date().toLocaleDateString('es-ES'), status: 'Draft', customer: 'Interno', model: 'Instrumento' },
+      docTitle('Procedimiento de calibración'),
+      controlGrid([
+        ['Instrumento', '____'],
+        ['Rango', '____'],
+        ['Patrón trazable', '____'],
+        ['Intervalo de calibración', '____'],
+      ]),
+      h(2, 'Condiciones ambientales'),
+      tableOf([
+        [th('Variable'), th('Requisito'), th('Resultado')],
+        [td('Temperatura'), td('20–25 °C'), td('')],
+        [td('Humedad'), td('30–70% HR'), td('')],
+      ]),
+      h(2, 'Puntos de calibración'),
+      tableOf([
+        [th('Punto'), th('Nominal'), th('Patrón'), th('Lectura'), th('Error'), th('Tolerancia'), th('Resultado')],
+        [td('1'), td('—'), td('—'), td('—'), td('—'), td('±—'), td('')],
+        [td('2'), td('—'), td('—'), td('—'), td('—'), td('±—'), td('')],
+        [td('3'), td('—'), td('—'), td('—'), td('—'), td('±—'), td('')],
+      ]),
+      callout('warning', 'Si el instrumento está fuera de tolerancia, bloquear uso, evaluar producto medido desde la última calibración válida y abrir NCR si aplica.'),
+      approvalBlock(),
+    ),
+  },
+  {
+    id: 'test-procedure', title: 'Procedimiento de prueba', description: 'Prueba funcional con equipo, límites y criterios pass/fail.', category: 'Calidad y planta', accent: '#2563eb',
+    build: () => controlledDoc(
+      { documentNumber: 'TEST-000', revision: 'A', owner: 'Test Engineering', department: 'Ingeniería', effectiveDate: new Date().toLocaleDateString('es-ES'), status: 'Draft', customer: 'Cliente', model: 'Modelo' },
+      docTitle('Procedimiento de prueba funcional'),
+      mixedP([txt('Modelo '), field('model', 'Modelo', 'Modelo'), txt(' · Fixture '), axosRef('fixture', 'FX-000', 'Fixture FX-000'), txt(' · Programa '), axosRef('test_program', 'TP-000', 'TP-000')], { styleName: 'subtitle' }),
+      h(2, 'Equipo requerido'),
+      tableOf([
+        [th('Equipo / fixture'), th('Versión'), th('Calibración'), th('Estado')],
+        [td('Fixture'), td('—'), td('—'), td('OK')],
+        [td('Software de prueba'), td('—'), td('N/A'), td('Aprobado')],
+      ]),
+      h(2, 'Criterios de aceptación'),
+      tableOf([
+        [th('Prueba'), th('Límite inferior'), th('Límite superior'), th('Unidad'), th('Reacción ante falla')],
+        [td('Voltaje'), td('—'), td('—'), td('V'), td('Retestar una vez; si falla, NCR')],
+        [td('Corriente'), td('—'), td('—'), td('A'), td('Segregar')],
+      ]),
+      h(2, 'Secuencia de prueba'),
+      ordered(['Escanear serial y validar modelo/revisión.', 'Conectar unidad al fixture.', 'Ejecutar programa aprobado.', 'Registrar resultado PASS/FAIL en AXOS.', 'Etiquetar unidad y liberar/someter a MRB.']),
+      callout('info', 'La prueba debe generar trazabilidad por serial: operador, fixture, programa, límites y resultado.'),
+      approvalBlock(),
+    ),
+  },
+  {
+    id: 'customer-spec', title: 'Especificación de cliente', description: 'Requisitos contractuales, CTQ, empaque y aceptación.', category: 'Calidad y planta', accent: '#334155',
+    build: () => controlledDoc(
+      { documentNumber: 'CUST-SPEC-000', revision: 'A', owner: 'Program Management', department: 'Comercial / Calidad', effectiveDate: new Date().toLocaleDateString('es-ES'), status: 'Draft', customer: 'Cliente', model: 'Modelo' },
+      docTitle('Especificación de cliente'),
+      mixedP([field('customer', 'Cliente', 'Cliente'), txt(' · '), field('model', 'Modelo', 'Modelo'), txt(' · Cuenta '), axosRef('customer', 'CUST-000', 'CUST-000')], { styleName: 'subtitle' }),
+      h(2, 'Requisitos del producto'),
+      tableOf([
+        [th('Requisito'), th('Fuente'), th('Criterio de aceptación'), th('Evidencia')],
+        [td('Dimensional'), td('Dibujo rev. __'), td('Dentro de tolerancia'), td('FAI / inspección')],
+        [td('Funcional'), td('Spec cliente'), td('PASS'), td('Reporte de prueba')],
+        [td('Cosmético'), td('AQL / estándar'), td('Sin defectos críticos'), td('Inspección final')],
+      ]),
+      h(2, 'Requisitos logísticos y empaque'),
+      bullets(['Etiqueta cliente requerida.', 'Cantidad por empaque.', 'Certificado de conformidad / trazabilidad por lote.']),
+      h(2, 'Requisitos de cambio'),
+      callout('warning', 'No implementar cambios de material, proceso, proveedor o ubicación sin autorización escrita del cliente cuando aplique.'),
+      approvalBlock(),
+    ),
+  },
+  {
+    id: 'supplier-spec', title: 'Especificación de proveedor', description: 'Calidad de proveedor, CoC, empaque y SCAR.', category: 'Calidad y planta', accent: '#475569',
+    build: () => controlledDoc(
+      { documentNumber: 'SUP-SPEC-000', revision: 'A', owner: 'Supplier Quality', department: 'Calidad Proveedores', effectiveDate: new Date().toLocaleDateString('es-ES'), status: 'Draft', customer: 'Interno', model: 'Material' },
+      docTitle('Especificación de proveedor'),
+      mixedP([txt('Proveedor '), axosRef('supplier', 'SUP-000', 'SUP-000'), txt(' · Material '), axosRef('material', 'MAT-000', 'MAT-000')], { styleName: 'subtitle' }),
+      h(2, 'Requisitos de calidad'),
+      tableOf([
+        [th('Categoría'), th('Requisito'), th('Método de verificación'), th('Reacción')],
+        [td('Certificados'), td('CoC / CoA por lote'), td('Revisión documental'), td('Bloquear recibo si falta')],
+        [td('Empaque'), td('Protección ESD / humedad'), td('Inspección recibo'), td('NCR proveedor')],
+        [td('Cambio'), td('Notificación previa'), td('Aprobación AXOS/cliente'), td('SCAR / contención')],
+      ]),
+      h(2, 'Criterios de inspección recibo'),
+      tableOf([
+        [th('Característica'), th('Plan de muestreo'), th('AQL / criterio'), th('Registro')],
+        [td('Cantidad'), td('100% documental'), td('Coincide PO/ASN'), td('Recepción')],
+        [td('Daño visible'), td('Muestreo'), td('Cero crítico'), td('NCR si aplica')],
+      ]),
+      approvalBlock(),
+    ),
+  },
+  {
+    id: 'quality-manual', title: 'Manual de calidad', description: 'Manual QMS para EMS con procesos, KPIs y auditorías.', category: 'Calidad y planta', accent: '#111827',
+    build: () => controlledDoc(
+      { documentNumber: 'QM-000', revision: 'A', owner: 'Director de Calidad', department: 'QMS', effectiveDate: new Date().toLocaleDateString('es-ES'), status: 'Draft', customer: 'Interno', model: 'Sistema de calidad' },
+      docTitle('Manual de calidad — AXOS EMS'),
+      docSubtitle('Sistema de gestión de calidad para manufactura electrónica'),
+      { type: 'toc', attrs: { maxLevel: 3 } },
+      h(2, 'Política de calidad'),
+      callout('success', 'Entregar productos conformes, a tiempo y con trazabilidad completa, impulsando mejora continua y prevención de defectos.'),
+      h(2, 'Mapa de procesos'),
+      tableOf([
+        [th('Proceso'), th('Dueño'), th('Entradas'), th('Salidas'), th('KPI')],
+        [td('NPI'), td('Ingeniería'), td('Requisitos cliente'), td('Producto liberado'), td('Launch readiness')],
+        [td('Producción'), td('Operaciones'), td('Plan / WO'), td('Producto terminado'), td('OEE / FPY')],
+        [td('Calidad'), td('Calidad'), td('Plan control'), td('Liberación / NCR'), td('PPM / CAPA aging')],
+      ]),
+      h(2, 'Control documental'),
+      bullets(['Todo documento controlado debe tener dueño, revisión, fecha efectiva y aprobación.', 'Las copias controladas se exportan desde AXOS Docs con trazabilidad.', 'Documentos obsoletos se retiran del punto de uso.']),
+      h(2, 'Auditorías y mejora continua'),
+      tasks(['Programa anual de auditoría', 'Revisión de CAPA y efectividad', 'Management review trimestral']),
+      revisionBlock(),
+    ),
+  },
+  {
+    id: 'production-report', title: 'Reporte de producción', description: 'Salida diaria con WO, OEE, scrap, downtime y acciones.', category: 'Calidad y planta', accent: '#0f766e',
+    build: () => controlledDoc(
+      { documentNumber: 'PROD-REP-000', revision: 'A', owner: 'Supervisor de Producción', department: 'Operaciones', effectiveDate: new Date().toLocaleDateString('es-ES'), status: 'Draft', customer: 'Interno', model: 'Línea' },
+      docTitle('Reporte diario de producción'),
+      mixedP([txt('Línea '), field('model', 'Línea', 'Línea'), txt(' · WO principal '), axosRef('work_order', 'WO-000', 'WO-000')], { styleName: 'subtitle' }),
+      h(2, 'Resumen del turno'),
+      tableOf([
+        [th('Turno'), th('Plan'), th('Real'), th('Adherencia'), th('Scrap'), th('OEE')],
+        [td('T1'), td('0'), td('0'), td('0%'), td('0'), td('0%')],
+        [td('T2'), td('0'), td('0'), td('0%'), td('0'), td('0%')],
+        [td('T3'), td('0'), td('0'), td('0%'), td('0'), td('0%')],
+      ]),
+      h(2, 'Principales paros'),
+      tableOf([
+        [th('Categoría'), th('Minutos'), th('Causa'), th('Acción')],
+        [td('Material'), td('—'), td('—'), td('—')],
+        [td('Equipo'), td('—'), td('—'), td('—')],
+      ]),
+      h(2, 'Calidad'),
+      tableOf([
+        [th('Defecto'), th('Cantidad'), th('Ubicación'), th('NCR / Acción')],
+        [td('—'), td('—'), td('—'), td('—')],
+      ]),
+      h(2, 'Acciones para siguiente turno'),
+      tasks(['Acción 1 — responsable — hora', 'Acción 2 — responsable — hora']),
+    ),
+  },
+  {
+    id: 'lessons-learned', title: 'Lecciones aprendidas', description: 'Captura de conocimiento de NPI, calidad y operaciones.', category: 'Calidad y planta', accent: '#9333ea',
+    build: () => controlledDoc(
+      { documentNumber: 'LL-000', revision: 'A', owner: 'Mejora continua', department: 'NPI / Operaciones', effectiveDate: new Date().toLocaleDateString('es-ES'), status: 'Draft', customer: 'Cliente', model: 'Modelo' },
+      docTitle('Lecciones aprendidas'),
+      mixedP([txt('Proyecto / modelo '), field('model', 'Modelo', 'Modelo'), txt(' · '), axosRef('project', 'NPI-000', 'NPI-000')], { styleName: 'subtitle' }),
+      h(2, 'Contexto'),
+      p('Describe el evento, lanzamiento, auditoría, NCR o mejora que originó esta lección.'),
+      h(2, 'Qué funcionó'),
+      bullets(['Práctica que debe repetirse.', 'Decisión o preparación que redujo riesgo.']),
+      h(2, 'Qué debe cambiar'),
+      tableOf([
+        [th('Hallazgo'), th('Impacto'), th('Contramedida'), th('Documento/proceso a actualizar')],
+        [td('—'), td('—'), td('—'), td('SOP / PFMEA / Control Plan')],
+      ]),
+      h(2, 'Estandarización'),
+      tasks(['Actualizar documentos controlados', 'Entrenar al equipo', 'Verificar adopción en auditoría LPA']),
+    ),
+  },
+  {
+    id: 'launch-readiness', title: 'Launch Readiness', description: 'Checklist de lanzamiento EMS para NPI y transferencia a producción.', category: 'Calidad y planta', accent: '#0ea5e9',
+    build: () => controlledDoc(
+      { documentNumber: 'LR-000', revision: 'A', owner: 'NPI', department: 'Ingeniería', effectiveDate: new Date().toLocaleDateString('es-ES'), status: 'Draft', customer: 'Cliente', model: 'Modelo' },
+      docTitle('Launch Readiness Review'),
+      mixedP([field('customer', 'Cliente', 'Cliente'), txt(' · '), field('model', 'Modelo', 'Modelo'), txt(' · '), axosRef('routing', 'RT-000', 'Routing RT-000')], { styleName: 'subtitle' }),
+      h(2, 'Gate summary'),
+      tableOf([
+        [th('Gate'), th('Criterio'), th('Estatus'), th('Riesgo'), th('Dueño')],
+        [td('Diseño'), td('BOM / dibujo liberado'), td('Pendiente'), td('Medio'), td('Ingeniería')],
+        [td('Proceso'), td('Routing / WI / fixtures listos'), td('Pendiente'), td('Alto'), td('NPI')],
+        [td('Calidad'), td('PFMEA / Control Plan / FAI'), td('Pendiente'), td('Alto'), td('Calidad')],
+        [td('Supply'), td('Material crítico disponible'), td('Pendiente'), td('Medio'), td('Compras')],
+      ]),
+      h(2, 'Checklist de liberación'),
+      tasks(['BOM liberada y costeada', 'Routing con tiempos estándar', 'Work Instructions publicadas', 'Plan de control aprobado', 'FAI completado', 'Capacidad validada', 'Empaque aprobado', 'Plan de ramp-up acordado']),
+      h(2, 'Decisión'),
+      callout('warning', 'Go / Conditional Go / No Go — documentar condiciones abiertas y dueño.'),
+      approvalBlock(),
+    ),
+  },
+  {
+    id: 'management-review', title: 'Management Review', description: 'Revisión directiva QMS con KPIs, riesgos y acciones.', category: 'Calidad y planta', accent: '#1e3a8a',
+    build: () => controlledDoc(
+      { documentNumber: 'MR-000', revision: 'A', owner: 'Dirección', department: 'QMS', effectiveDate: new Date().toLocaleDateString('es-ES'), status: 'Draft', customer: 'Interno', model: 'QMS' },
+      docTitle('Management Review — Sistema de calidad'),
+      docSubtitle('Revisión directiva · ' + new Date().toLocaleDateString('es-ES')),
+      h(2, 'Agenda'),
+      ordered(['Estado de acciones previas', 'Cambios internos/externos', 'Desempeño de procesos', 'Satisfacción cliente', 'No conformidades y CAPA', 'Riesgos y oportunidades', 'Recursos y decisiones']),
+      h(2, 'KPI dashboard'),
+      tableOf([
+        [th('KPI'), th('Meta'), th('Resultado'), th('Tendencia'), th('Acción')],
+        [td('On-time delivery'), td('≥95%'), td('—'), td('—'), td('—')],
+        [td('Customer PPM'), td('≤ objetivo'), td('—'), td('—'), td('—')],
+        [td('CAPA aging'), td('≤30 días'), td('—'), td('—'), td('—')],
+        [td('Audit findings'), td('Cierre a tiempo'), td('—'), td('—'), td('—')],
+      ]),
+      h(2, 'Decisiones y acciones'),
+      tableOf([
+        [th('Decisión / acción'), th('Dueño'), th('Fecha compromiso'), th('Criterio de cierre')],
+        [td('—'), td('—'), td('—'), td('—')],
+      ]),
+      approvalBlock(),
     ),
   },
   {
@@ -470,6 +880,24 @@ function buildBook(specs: SheetSpec[]): any[] {
   });
 }
 
+function bookWithCharts(sheets: any[], charts: ChartConfig[]): { sheets: any[]; charts: ChartConfig[] } {
+  return { sheets, charts };
+}
+function bookWithPivots(sheets: any[], pivots: { id: string; config: PivotConfig; sheetName: string }[]): { sheets: any[]; pivots: { id: string; config: PivotConfig; sheetName: string }[] } {
+  return { sheets, pivots };
+}
+function appendPivotSheet(sheets: any[], name: string, cfg: PivotConfig, id: string): { id: string; config: PivotConfig; sheetName: string } | null {
+  const src = sheets[cfg.sheetIndex];
+  const res = buildPivot(src, cfg);
+  if (!res.matrix.length) return null;
+  sheets.forEach((sh: any) => { sh.status = 0; });
+  sheets.push({ name, celldata: pivotToCelldata(res, 0, 0), order: sheets.length, row: Math.max(80, res.nRows + 8), column: Math.max(16, res.nCols + 4), config: {}, status: 1 });
+  return { id, config: cfg, sheetName: name };
+}
+const chart = (id: string, title: string, type: ChartConfig['type'], range: string, extra: Partial<ChartConfig> = {}): ChartConfig => ({
+  id, title, type, range, sheetIndex: 0, legend: 'bottom', palette: 'brand', ...extra,
+});
+
 // Styled header cell (dark band + white bold) for a "designed" look out of the box.
 const H = (v: string, a: 'l' | 'c' | 'r' = 'l'): CellSpec => ({ v, b: true, bg: '#1f2937', fc: '#ffffff', a });
 const TOT = (v: string | number, fa = 'General'): CellSpec => ({ v, b: true, bg: '#f1f5f9', fa });
@@ -601,6 +1029,146 @@ const SHEET_TEMPLATES: TemplateDef[] = [
       ],
     }]),
   },
+
+  {
+    id: 'bom-costing', title: 'BOM Costing', description: 'Explosión de costo estándar: consumo, scrap, compra y make/buy.', category: 'Manufactura / MES', accent: '#0f766e',
+    build: () => { const sheets = buildBook([{
+      name: 'BOM Costing', freeze: true,
+      widths: { 0: 120, 1: 220, 2: 80, 3: 90, 4: 90, 5: 100, 6: 110, 7: 90 },
+      rows: [
+        [H('Nivel'), H('Componente'), H('Tipo'), H('Qty/BOM', 'r'), H('Scrap %', 'r'), H('Costo U.', 'r'), H('Costo ext.', 'r'), H('Fuente')],
+        ['0', 'AXOS-ASSY-1000 Ensamble final', 'Make', { v: 1, fa: '0.00' }, { v: 0, fa: PCT }, { v: 0, fa: MONEY }, { v: 0, fa: MONEY }, 'Producción'],
+        ['1', 'PCB-DRV-01 Tarjeta controladora', 'Buy', { v: 1, fa: '0.00' }, { v: 0.02, fa: PCT }, { v: 12.5, fa: MONEY }, { f: '=D3*(1+E3)*F3', v: 12.75, fa: MONEY }, 'Inventario'],
+        ['1', 'HARNESS-08 Arnés 8 pines', 'Buy', { v: 2, fa: '0.00' }, { v: 0.01, fa: PCT }, { v: 3.2, fa: MONEY }, { f: '=D4*(1+E4)*F4', v: 6.464, fa: MONEY }, 'Proveedor'],
+        ['1', 'LABOR-ASSY Mano de obra', 'Make', { v: 0.35, fa: '0.00' }, { v: 0, fa: PCT }, { v: 28, fa: MONEY }, { f: '=D5*(1+E5)*F5', v: 9.8, fa: MONEY }, 'Ruta'],
+        ['1', 'OH-SMT Overhead SMT', 'Make', { v: 0.18, fa: '0.00' }, { v: 0, fa: PCT }, { v: 45, fa: MONEY }, { f: '=D6*(1+E6)*F6', v: 8.1, fa: MONEY }, 'Centro costo'],
+        [TOT('Costo estándar'), '', '', '', '', '', { b: true, bg: '#ecfdf5', fc: '#065f46', f: '=SUM(G3:G6)', v: 37.114, fa: MONEY }, ''],
+        [TOT('Margen objetivo'), '', '', '', '', { v: 0.32, fa: PCT }, { b: true, bg: '#f1f5f9', f: '=G7/(1-F8)', v: 54.579, fa: MONEY }, 'Precio sugerido'],
+      ],
+    }]);
+      return bookWithCharts(sheets, [
+        chart('tpl_bom_cost_breakdown', 'BOM cost breakdown', 'doughnut', 'B2:G6', { legend: 'right' }),
+        chart('tpl_bom_scrap_cost', 'Costo extendido por componente', 'bar', 'B2:G6', { yTitle: 'Costo', palette: 'forest' }),
+      ]);
+    },
+  },
+  {
+    id: 'oee-calculator', title: 'OEE Calculator', description: 'Calculadora de disponibilidad, rendimiento, calidad y pérdidas por turno.', category: 'Manufactura / MES', accent: '#16a34a',
+    build: () => { const sheets = buildBook([{
+      name: 'OEE Calculator', freeze: true,
+      widths: { 0: 210, 1: 110, 2: 110, 3: 140 },
+      rows: [
+        [H('Entrada'), H('Valor', 'r'), H('Unidad'), H('Notas')],
+        ['Tiempo planificado', { v: 480, fa: NUM }, 'min', 'Duración de turno'],
+        ['Paros no planeados', { v: 55, fa: NUM }, 'min', 'Andon / mantenimiento'],
+        ['Tiempo operativo', { f: '=B2-B3', v: 425, fa: NUM }, 'min', ''],
+        ['Ciclo ideal', { v: 0.85, fa: '0.00' }, 'min/pza', 'Tiempo estándar'],
+        ['Producción total', { v: 470, fa: NUM }, 'pzas', 'Buenas + scrap'],
+        ['Piezas buenas', { v: 452, fa: NUM }, 'pzas', 'Liberadas por calidad'],
+        [TOT('Disponibilidad'), { b: true, bg: '#ecfdf5', fc: '#065f46', f: '=B4/B2', v: 0.885417, fa: PCT }, '', 'Tiempo operativo / planificado'],
+        [TOT('Rendimiento'), { b: true, bg: '#eff6ff', fc: '#1d4ed8', f: '=B5*B6/B4', v: 0.94, fa: PCT }, '', 'Ciclo ideal × total / operativo'],
+        [TOT('Calidad'), { b: true, bg: '#fefce8', fc: '#a16207', f: '=B7/B6', v: 0.961702, fa: PCT }, '', 'Buenas / total'],
+        [TOT('OEE'), { b: true, bg: '#dcfce7', fc: '#166534', f: '=B8*B9*B10', v: 0.800567, fa: PCT }, '', 'A × R × Q'],
+      ],
+    }]);
+      return bookWithCharts(sheets, [
+        chart('tpl_oee_calc', 'OEE · A x R x Q', 'bar', 'A8:B11', { yTitle: 'Ratio', palette: 'forest' }),
+      ]);
+    },
+  },
+  {
+    id: 'inventory-abc', title: 'Inventory ABC', description: 'Clasificación ABC por valor anual de consumo e inventario conectado.', category: 'Manufactura / MES', accent: '#0891b2',
+    build: () => { const sheets = buildBook([{
+      name: 'Inventory ABC', freeze: true,
+      widths: { 0: 120, 1: 190, 2: 100, 3: 110, 4: 120, 5: 120, 6: 70 },
+      rows: [
+        [H('SKU / NP'), H('Descripción'), H('Consumo anual', 'r'), H('Costo U.', 'r'), H('Valor anual', 'r'), H('% acumulado', 'r'), H('Clase')],
+        ['PCB-DRV-01', 'Tarjeta controladora', { v: 5200, fa: NUM }, { v: 12.5, fa: MONEY }, { f: '=C2*D2', v: 65000, fa: MONEY }, { f: '=SUM($E$2:E2)/$E$7', v: 0.646, fa: PCT }, 'A'],
+        ['MCU-STM32', 'Microcontrolador', { v: 5000, fa: NUM }, { v: 4.1, fa: MONEY }, { f: '=C3*D3', v: 20500, fa: MONEY }, { f: '=SUM($E$2:E3)/$E$7', v: 0.85, fa: PCT }, 'A'],
+        ['HARNESS-08', 'Arnés 8 pines', { v: 7400, fa: NUM }, { v: 1.7, fa: MONEY }, { f: '=C4*D4', v: 12580, fa: MONEY }, { f: '=SUM($E$2:E4)/$E$7', v: 0.975, fa: PCT }, 'B'],
+        ['LABEL-QA', 'Etiqueta QA', { v: 8500, fa: NUM }, { v: 0.12, fa: MONEY }, { f: '=C5*D5', v: 1020, fa: MONEY }, { f: '=SUM($E$2:E5)/$E$7', v: 0.985, fa: PCT }, 'C'],
+        ['SCREW-M3', 'Tornillo M3', { v: 30000, fa: NUM }, { v: 0.05, fa: MONEY }, { f: '=C6*D6', v: 1500, fa: MONEY }, { f: '=SUM($E$2:E6)/$E$7', v: 1, fa: PCT }, 'C'],
+        [TOT('Total'), '', '', '', TF('=SUM(E2:E6)', 100600, MONEY), '', ''],
+      ],
+    }]);
+      return bookWithCharts(sheets, [
+        chart('tpl_inventory_abc_value', 'Inventory ABC · valor anual', 'bar', 'A1:E6', { yTitle: 'Valor anual', palette: 'ocean' }),
+        chart('tpl_inventory_abc_curve', 'Curva ABC acumulada', 'line', 'A1:F6', { yTitle: '% acumulado', palette: 'forest' }),
+      ]);
+    },
+  },
+  {
+    id: 'supplier-scorecard', title: 'Supplier Scorecard', description: 'OTD, calidad, costo y respuesta ponderados por proveedor.', category: 'Manufactura / MES', accent: '#7c3aed',
+    build: () => { const sheets = buildBook([{
+      name: 'Supplier Scorecard', freeze: true,
+      widths: { 0: 170, 1: 90, 2: 90, 3: 90, 4: 90, 5: 100, 6: 90 },
+      rows: [
+        [H('Proveedor'), H('OTD', 'r'), H('Calidad', 'r'), H('Costo', 'r'), H('Respuesta', 'r'), H('Score', 'r'), H('Estatus')],
+        ['North Components', { v: 0.96, fa: PCT }, { v: 0.985, fa: PCT }, { v: 0.91, fa: PCT }, { v: 0.94, fa: PCT }, { f: '=B2*0.35+C2*0.35+D2*0.15+E2*0.15', v: 0.95625, fa: PCT }, 'Preferente'],
+        ['Acme Electronics', { v: 0.88, fa: PCT }, { v: 0.965, fa: PCT }, { v: 0.94, fa: PCT }, { v: 0.82, fa: PCT }, { f: '=B3*0.35+C3*0.35+D3*0.15+E3*0.15', v: 0.90925, fa: PCT }, 'Aprobado'],
+        ['Fasteners MX', { v: 0.78, fa: PCT }, { v: 0.92, fa: PCT }, { v: 0.97, fa: PCT }, { v: 0.75, fa: PCT }, { f: '=B4*0.35+C4*0.35+D4*0.15+E4*0.15', v: 0.853, fa: PCT }, 'Plan mejora'],
+        [TOT('Pesos'), { v: 0.35, fa: PCT }, { v: 0.35, fa: PCT }, { v: 0.15, fa: PCT }, { v: 0.15, fa: PCT }, TF('=SUM(B5:E5)', 1, PCT), ''],
+      ],
+    }]);
+      return bookWithCharts(sheets, [
+        chart('tpl_supplier_score', 'Supplier score', 'bar', 'A1:F4', { yTitle: 'Score', palette: 'sunset' }),
+        chart('tpl_supplier_radar', 'Supplier capabilities', 'radar', 'A1:E4', { legend: 'right', palette: 'brand' }),
+      ]);
+    },
+  },
+
+
+  {
+    id: 'industrial-pivot-pack', title: 'Industrial Pivot Analysis Pack', description: 'Scrap, compras, inventario, OEE y BOM por tablas dinámicas.', category: 'Manufactura / MES', accent: '#6366f1',
+    build: () => {
+      const sheets = buildBook([
+        { name: 'Scrap Raw', freeze: true, widths: { 0: 90, 1: 80, 2: 120, 3: 180, 4: 80 }, rows: [
+          [H('Fecha'), H('Línea'), H('Defecto'), H('Commodity'), H('Scrap', 'r')],
+          ['2026-06-16', 'L1', 'Soldadura fría', 'PCB', { v: 48, fa: NUM }],
+          ['2026-06-16', 'L1', 'Componente faltante', 'PCB', { v: 31, fa: NUM }],
+          ['2026-06-17', 'L2', 'Rayadura cosmética', 'Ensamble', { v: 9, fa: NUM }],
+          ['2026-06-17', 'L2', 'Polaridad invertida', 'Electrónica', { v: 18, fa: NUM }],
+        ] },
+        { name: 'Compras Raw', freeze: true, widths: { 0: 130, 1: 110, 2: 100, 3: 110, 4: 90 }, rows: [
+          [H('Proveedor'), H('Commodity'), H('PO'), H('Monto', 'r'), H('OTD', 'r')],
+          ['North Components', 'PCB', 'PO-1001', { v: 42000, fa: MONEY }, { v: 0.96, fa: PCT }],
+          ['North Components', 'Electrónica', 'PO-1002', { v: 18500, fa: MONEY }, { v: 0.92, fa: PCT }],
+          ['Acme Electronics', 'Electrónica', 'PO-1003', { v: 23000, fa: MONEY }, { v: 0.88, fa: PCT }],
+          ['Fasteners MX', 'Mecánico', 'PO-1004', { v: 7600, fa: MONEY }, { v: 0.78, fa: PCT }],
+        ] },
+        { name: 'Inventario Raw', freeze: true, widths: { 0: 120, 1: 120, 2: 90, 3: 120, 4: 100 }, rows: [
+          [H('Categoría'), H('SKU'), H('Clase'), H('Valor', 'r'), H('Turns', 'r')],
+          ['PCB', 'PCB-DRV-01', 'A', { v: 65000, fa: MONEY }, { v: 4.2, fa: '0.0' }],
+          ['Electrónica', 'MCU-STM32', 'A', { v: 20500, fa: MONEY }, { v: 3.6, fa: '0.0' }],
+          ['Cableado', 'HARNESS-08', 'B', { v: 12580, fa: MONEY }, { v: 5.1, fa: '0.0' }],
+          ['Consumible', 'SCREW-M3', 'C', { v: 1500, fa: MONEY }, { v: 9.8, fa: '0.0' }],
+        ] },
+        { name: 'OEE Raw', freeze: true, widths: { 0: 80, 1: 80, 2: 90, 3: 90, 4: 90, 5: 90 }, rows: [
+          [H('Línea'), H('Turno'), H('Disp.', 'r'), H('Perf.', 'r'), H('Calidad', 'r'), H('OEE', 'r')],
+          ['L1', 'T1', { v: 0.92, fa: PCT }, { v: 0.88, fa: PCT }, { v: 0.99, fa: PCT }, { v: 0.8015, fa: PCT }],
+          ['L1', 'T2', { v: 0.85, fa: PCT }, { v: 0.90, fa: PCT }, { v: 0.97, fa: PCT }, { v: 0.7421, fa: PCT }],
+          ['L2', 'T1', { v: 0.95, fa: PCT }, { v: 0.93, fa: PCT }, { v: 0.995, fa: PCT }, { v: 0.8789, fa: PCT }],
+          ['L2', 'T2', { v: 0.89, fa: PCT }, { v: 0.91, fa: PCT }, { v: 0.982, fa: PCT }, { v: 0.7959, fa: PCT }],
+        ] },
+        { name: 'BOM Raw', freeze: true, widths: { 0: 120, 1: 140, 2: 100, 3: 90, 4: 100 }, rows: [
+          [H('Ensamble'), H('Componente'), H('Commodity'), H('Qty', 'r'), H('Costo ext.', 'r')],
+          ['AXOS-1000', 'PCB-DRV-01', 'PCB', { v: 1, fa: '0.00' }, { v: 12.75, fa: MONEY }],
+          ['AXOS-1000', 'HARNESS-08', 'Cableado', { v: 2, fa: '0.00' }, { v: 6.46, fa: MONEY }],
+          ['AXOS-1000', 'LABOR-ASSY', 'Labor', { v: 0.35, fa: '0.00' }, { v: 9.8, fa: MONEY }],
+          ['AXOS-1000', 'OH-SMT', 'Overhead', { v: 0.18, fa: '0.00' }, { v: 8.1, fa: MONEY }],
+        ] },
+      ]);
+      const pivots = [
+        appendPivotSheet(sheets, 'Pivot Scrap', { range: 'A1:E5', sheetIndex: 0, rows: ['Defecto'], cols: ['Línea'], values: [{ field: 'Scrap', agg: 'sum' }], showRowTotals: true, showColTotals: true }, 'pv_tpl_scrap'),
+        appendPivotSheet(sheets, 'Pivot Compras', { range: 'A1:E5', sheetIndex: 1, rows: ['Proveedor'], cols: ['Commodity'], values: [{ field: 'Monto', agg: 'sum' }, { field: 'OTD', agg: 'avg' }], showRowTotals: true, showColTotals: true }, 'pv_tpl_purchasing'),
+        appendPivotSheet(sheets, 'Pivot Inventario', { range: 'A1:E5', sheetIndex: 2, rows: ['Categoría'], cols: ['Clase'], values: [{ field: 'Valor', agg: 'sum' }, { field: 'Turns', agg: 'avg' }], showRowTotals: true, showColTotals: true }, 'pv_tpl_inventory'),
+        appendPivotSheet(sheets, 'Pivot OEE', { range: 'A1:F5', sheetIndex: 3, rows: ['Línea'], cols: ['Turno'], values: [{ field: 'OEE', agg: 'avg' }], showRowTotals: true, showColTotals: true }, 'pv_tpl_oee'),
+        appendPivotSheet(sheets, 'Pivot BOM', { range: 'A1:E5', sheetIndex: 4, rows: ['Commodity'], cols: [], values: [{ field: 'Costo ext.', agg: 'sum' }, { field: 'Qty', agg: 'sum' }], showRowTotals: false, showColTotals: true }, 'pv_tpl_bom'),
+      ].filter(Boolean) as { id: string; config: PivotConfig; sheetName: string }[];
+      return bookWithPivots(sheets, pivots);
+    },
+  },
+
 
   // ── Negocio ──────────────────────────────────────────────────────────────────
   {

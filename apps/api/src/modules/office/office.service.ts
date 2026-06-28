@@ -1,20 +1,30 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { OfficeDocument, OfficeDocType, OfficeShare } from './entities/office-document.entity';
+import { Brackets, Repository } from 'typeorm';
+import { OfficeDocument, OfficeDocumentLifecycleState, OfficeDocType, OfficeShare } from './entities/office-document.entity';
 import { OfficeDocumentVersion } from './entities/office-document-version.entity';
 import { OfficeComment, OfficeCommentAnchorType } from './entities/office-comment.entity';
+import { OfficeDocumentComment, OfficeCommentReply } from './entities/office-document-comment.entity';
+import { CreateOfficeCommentDto, ListOfficeCommentsQueryDto, ReplyOfficeCommentDto, UpdateOfficeCommentDto } from './dto/office-comment.dto';
 import { AuthenticatedUser } from '../../common/types/jwt.types';
+import { AuditService } from '../governance/audit.service';
 
 const TYPES: OfficeDocType[] = ['doc', 'sheet', 'slides'];
 // Columns returned by list endpoints — heavy `content` is intentionally omitted.
-const LIST_COLUMNS = ['id', 'type', 'title', 'model', 'createdBy', 'tenantId', 'createdAt', 'updatedAt'];
+const LIST_COLUMNS = ['id', 'type', 'title', 'model', 'createdBy', 'tenantId', 'lifecycleState', 'locked', 'createdAt', 'updatedAt'];
 // Auto-snapshots are throttled so autosave doesn't create a version every keystroke.
 const SNAPSHOT_THROTTLE_MS = 2 * 60 * 1000;
 const MAX_VERSIONS = 50;
 
 interface CreateDto { type: OfficeDocType; title?: string; content?: any; model?: string }
 interface UpdateDto { title?: string; content?: any; model?: string | null; sharedWith?: OfficeShare[] }
+interface LifecycleDto { note?: string }
+interface ListFilters {
+  q?: string;
+  lifecycle?: OfficeDocumentLifecycleState;
+  locked?: string;
+  owner?: string;
+}
 interface CommentDto { parentId?: string | null; anchorType?: OfficeCommentAnchorType; slideIndex?: number | null; objectId?: string | null; rangeRef?: string | null; anchorLabel?: string | null; text: string; assignedTo?: string | null }
 
 /**
@@ -27,7 +37,9 @@ export class OfficeService {
   constructor(
     @InjectRepository(OfficeDocument) private readonly repo: Repository<OfficeDocument>,
     @InjectRepository(OfficeDocumentVersion) private readonly versionRepo: Repository<OfficeDocumentVersion>,
-    @InjectRepository(OfficeComment) private readonly commentRepo: Repository<OfficeComment>,
+    @InjectRepository(OfficeDocumentComment) private readonly commentRepo: Repository<OfficeDocumentComment>,
+    private readonly audit: AuditService,
+    @InjectRepository(OfficeComment) private readonly slideCommentRepo: Repository<OfficeComment>,
   ) {}
 
   // ── Authorization helpers ─────────────────────────────────────────────────
@@ -61,10 +73,25 @@ export class OfficeService {
   }
 
   // ── Queries ───────────────────────────────────────────────────────────────
-  list(type: OfficeDocType | undefined, user: AuthenticatedUser, trash = false) {
+  list(type: OfficeDocType | undefined, user: AuthenticatedUser, trash = false, filters: ListFilters = {}) {
     const qb = this.repo.createQueryBuilder('d').select(LIST_COLUMNS.map((c) => `d.${c}`));
     if (type) qb.andWhere('d.type = :type', { type });
     if (trash) qb.withDeleted().andWhere('d.deletedAt IS NOT NULL');
+    const q = String(filters.q ?? '').trim().toLowerCase();
+    if (q) {
+      qb.andWhere(new Brackets((b) => {
+        b.where('LOWER(d.title) LIKE :q', { q: `%${q}%` })
+          .orWhere("LOWER(COALESCE(d.model, '')) LIKE :q", { q: `%${q}%` })
+          .orWhere("LOWER(COALESCE(d.createdBy, '')) LIKE :q", { q: `%${q}%` });
+      }));
+    }
+    if (filters.lifecycle && ['draft', 'in_review', 'approved', 'effective', 'obsolete'].includes(filters.lifecycle)) {
+      qb.andWhere('d.lifecycleState = :lifecycle', { lifecycle: filters.lifecycle });
+    }
+    if (filters.locked === '1' || filters.locked === 'true') qb.andWhere('d.locked = true');
+    if (filters.locked === '0' || filters.locked === 'false') qb.andWhere('d.locked = false');
+    const owner = String(filters.owner ?? '').trim().toLowerCase();
+    if (owner) qb.andWhere('LOWER(COALESCE(d.createdBy, \'\')) = :owner', { owner });
     if (!this.isAdmin(user)) {
       const email = this.email(user) ?? '__none__';
       if (trash) {
@@ -102,6 +129,8 @@ export class OfficeService {
         model: dto.model?.trim().toUpperCase() || null,
         createdBy: this.email(user),
         tenantId: user?.tenant_id ?? null,
+        lifecycleState: 'draft',
+        locked: false,
       }),
     );
   }
@@ -109,6 +138,9 @@ export class OfficeService {
   async update(id: string, dto: UpdateDto, user: AuthenticatedUser) {
     const doc = await this.get(id, user);
     if (!this.canEdit(doc, user)) throw new ForbiddenException('No puedes editar este documento.');
+    if (doc.locked && (dto.title !== undefined || dto.content !== undefined || dto.model !== undefined)) {
+      throw new ForbiddenException('El documento está bloqueado por su estado de ciclo de vida.');
+    }
     // Snapshot the pre-edit state (throttled) so history captures prior versions.
     if (dto.content !== undefined) await this.maybeSnapshot(doc, user);
     if (dto.title !== undefined) doc.title = dto.title.trim() || 'Sin título';
@@ -134,8 +166,57 @@ export class OfficeService {
         model: src.model,
         createdBy: this.email(user),
         tenantId: user?.tenant_id ?? null,
+        lifecycleState: 'draft',
+        locked: false,
       }),
     );
+  }
+
+  async submitForReview(id: string, user: AuthenticatedUser, dto: LifecycleDto = {}) {
+    const doc = await this.get(id, user);
+    if (!this.canEdit(doc, user)) throw new ForbiddenException('No puedes enviar este documento a revisión.');
+    if (doc.lifecycleState === 'obsolete') throw new BadRequestException('No se puede reabrir un documento obsoleto desde revisión.');
+    return this.transitionLifecycle(doc, user, 'in_review', 'SUBMIT_DOC_REVIEW', dto.note, { locked: false });
+  }
+
+  async approve(id: string, user: AuthenticatedUser, dto: LifecycleDto = {}) {
+    const doc = await this.get(id, user);
+    if (!this.canEdit(doc, user)) throw new ForbiddenException('No puedes aprobar este documento.');
+    if (!['draft', 'in_review'].includes(doc.lifecycleState)) throw new BadRequestException('Solo documentos draft/in_review pueden aprobarse.');
+    return this.transitionLifecycle(doc, user, 'approved', 'APPROVE_DOC', dto.note, {
+      locked: true,
+      approvedBy: this.email(user),
+      approvedAt: new Date(),
+    });
+  }
+
+  async release(id: string, user: AuthenticatedUser, dto: LifecycleDto = {}) {
+    const doc = await this.get(id, user);
+    if (!this.canEdit(doc, user)) throw new ForbiddenException('No puedes liberar este documento.');
+    if (doc.lifecycleState !== 'approved') throw new BadRequestException('Solo documentos aprobados pueden liberarse.');
+    return this.transitionLifecycle(doc, user, 'effective', 'RELEASE_DOC', dto.note, {
+      locked: true,
+      releasedBy: this.email(user),
+      releasedAt: new Date(),
+    });
+  }
+
+  async obsolete(id: string, user: AuthenticatedUser, dto: LifecycleDto = {}) {
+    const doc = await this.get(id, user);
+    if (!this.isOwner(doc, user)) throw new ForbiddenException('Solo el dueño puede obsoletar este documento.');
+    if (doc.lifecycleState === 'obsolete') return doc;
+    return this.transitionLifecycle(doc, user, 'obsolete', 'OBSOLETE_DOC', dto.note, {
+      locked: true,
+      obsoletedBy: this.email(user),
+      obsoletedAt: new Date(),
+    });
+  }
+
+  async reopenDraft(id: string, user: AuthenticatedUser, dto: LifecycleDto = {}) {
+    const doc = await this.get(id, user);
+    if (!this.isOwner(doc, user)) throw new ForbiddenException('Solo el dueño puede reabrir este documento.');
+    if (doc.lifecycleState === 'obsolete') throw new BadRequestException('Un documento obsoleto no se reabre; duplica para crear una nueva revisión.');
+    return this.transitionLifecycle(doc, user, 'draft', 'REOPEN_DOC_DRAFT', dto.note, { locked: false });
   }
 
   /** Move to trash (soft delete). Only the owner/admin may delete. */
@@ -162,17 +243,199 @@ export class OfficeService {
     if (!doc) throw new NotFoundException('Documento no encontrado.');
     this.assertWriter(user);
     if (!this.isOwner(doc, user)) throw new ForbiddenException('Solo el dueño puede eliminar.');
+    await this.commentRepo.delete({ documentId: id });
     await this.versionRepo.delete({ documentId: id });
     await this.repo.delete(id);
     return { destroyed: true, id };
   }
 
+  private async transitionLifecycle(
+    doc: OfficeDocument,
+    user: AuthenticatedUser,
+    next: OfficeDocumentLifecycleState,
+    action: string,
+    note?: string,
+    patch: Partial<OfficeDocument> = {},
+  ) {
+    const before = {
+      lifecycleState: doc.lifecycleState,
+      locked: doc.locked,
+      approvedBy: doc.approvedBy,
+      releasedBy: doc.releasedBy,
+      obsoletedBy: doc.obsoletedBy,
+    };
+    await this.snapshot(doc, user, `Lifecycle: ${doc.lifecycleState} → ${next}`);
+    Object.assign(doc, patch, { lifecycleState: next });
+    const saved = await this.repo.save(doc);
+    await this.audit.log({
+      actor: this.email(user) || 'unknown',
+      action,
+      entity: 'OfficeDocument',
+      entityId: doc.id,
+      before,
+      after: {
+        lifecycleState: saved.lifecycleState,
+        locked: saved.locked,
+        approvedBy: saved.approvedBy,
+        releasedBy: saved.releasedBy,
+        obsoletedBy: saved.obsoletedBy,
+        note: String(note ?? '').slice(0, 1000) || undefined,
+      },
+      scope: { tenant_id: doc.tenantId ?? user?.tenant_id ?? null },
+    });
+    return saved;
+  }
 
 
-  // ── Enterprise comments ────────────────────────────────────────────────────
-  async listComments(id: string, user: AuthenticatedUser, includeResolved = true) {
+  // ── Persistent document comments ───────────────────────────────────────────
+
+  // ── Persistent document comments (Docs: office_document_comments) ───────────
+  async listComments(id: string, user: AuthenticatedUser, query: ListOfficeCommentsQueryDto = {}) {
+    await this.get(id, user);
+    const qb = this.commentRepo.createQueryBuilder('c').where('c.documentId = :id', { id });
+    const status = query.status ?? (query.includeResolved === '0' || query.includeResolved === 'false' ? 'open' : 'all');
+    if (status === 'open') qb.andWhere('c.resolved = false');
+    if (status === 'resolved') qb.andWhere('c.resolved = true');
+    const assignedTo = String(query.assignedTo ?? '').trim().toLowerCase();
+    if (assignedTo) qb.andWhere('LOWER(c.assignedTo) = :assignedTo', { assignedTo });
+    const author = String(query.author ?? '').trim().toLowerCase();
+    if (author) qb.andWhere('LOWER(c.author) = :author', { author });
+    const mention = String(query.mention ?? '').trim().toLowerCase();
+    if (mention) qb.andWhere('LOWER(CAST(c.mentions AS TEXT)) LIKE :mention', { mention: `%${mention}%` });
+    const q = String(query.q ?? '').trim().toLowerCase();
+    if (q) {
+      qb.andWhere(new Brackets((b) => {
+        b.where('LOWER(c.text) LIKE :q', { q: `%${q}%` })
+          .orWhere("LOWER(COALESCE(c.quotedText, '')) LIKE :q", { q: `%${q}%` })
+          .orWhere('LOWER(CAST(c.replies AS TEXT)) LIKE :q', { q: `%${q}%` });
+      }));
+    }
+    qb.orderBy('c.resolved', 'ASC').addOrderBy('c.updatedAt', 'DESC').take(query.limit ?? 100);
+    return qb.getMany();
+  }
+
+  async createComment(id: string, dto: CreateOfficeCommentDto, user: AuthenticatedUser) {
     const doc = await this.get(id, user);
-    const qb = this.commentRepo.createQueryBuilder('c')
+    if (!this.canEdit(doc, user)) throw new ForbiddenException('No puedes comentar este documento.');
+    const text = String(dto.text ?? '').trim();
+    if (!text) throw new BadRequestException('El comentario no puede estar vacío.');
+    const anchorId = String(dto.anchorId ?? '').trim() || `cm_${Date.now().toString(36)}`;
+    return this.commentRepo.save(this.commentRepo.create({
+      tenantId: doc.tenantId ?? user?.tenant_id ?? null,
+      documentId: id,
+      anchorId,
+      text,
+      author: this.email(user),
+      mentions: this.normalizeMentions(dto.mentions),
+      assignedTo: this.normalizePrincipal(dto.assignedTo),
+      quotedText: String(dto.quotedText ?? '').slice(0, 1000) || null,
+      anchor: dto.anchor ?? null,
+      replies: [],
+      resolved: false,
+    }));
+  }
+
+  async updateComment(id: string, commentId: string, dto: UpdateOfficeCommentDto, user: AuthenticatedUser) {
+    const doc = await this.get(id, user);
+    if (!this.canEdit(doc, user)) throw new ForbiddenException('No puedes editar comentarios en este documento.');
+    const c = await this.commentRepo.findOne({ where: { id: commentId, documentId: id } });
+    if (!c) throw new NotFoundException('Comentario no encontrado.');
+    if (dto.text !== undefined) {
+      const text = String(dto.text).trim();
+      if (!text) throw new BadRequestException('El comentario no puede estar vacío.');
+      c.text = text;
+    }
+    if (dto.mentions !== undefined) c.mentions = this.normalizeMentions(dto.mentions);
+    if (dto.assignedTo !== undefined) c.assignedTo = this.normalizePrincipal(dto.assignedTo);
+    if (dto.anchor !== undefined) c.anchor = dto.anchor ?? null;
+    if (dto.quotedText !== undefined) c.quotedText = String(dto.quotedText ?? '').slice(0, 1000) || null;
+    if (dto.resolved !== undefined && c.resolved !== !!dto.resolved) {
+      c.resolved = !!dto.resolved;
+      c.resolvedBy = c.resolved ? this.email(user) : null;
+      c.resolvedAt = c.resolved ? new Date() : null;
+    }
+    return this.commentRepo.save(c);
+  }
+
+  async replyToComment(id: string, commentId: string, dto: ReplyOfficeCommentDto, user: AuthenticatedUser) {
+    const doc = await this.get(id, user);
+    if (!this.canEdit(doc, user)) throw new ForbiddenException('No puedes responder en este documento.');
+    const c = await this.commentRepo.findOne({ where: { id: commentId, documentId: id } });
+    if (!c) throw new NotFoundException('Comentario no encontrado.');
+    const text = String(dto.text ?? '').trim();
+    if (!text) throw new BadRequestException('La respuesta no puede estar vacía.');
+    const reply: OfficeCommentReply = { id: `rp_${Date.now().toString(36)}`, author: this.email(user), text, mentions: this.normalizeMentions(dto.mentions), createdAt: new Date().toISOString() };
+    c.replies = [...(Array.isArray(c.replies) ? c.replies : []), reply];
+    return this.commentRepo.save(c);
+  }
+
+  async deleteComment(id: string, commentId: string, user: AuthenticatedUser) {
+    const doc = await this.get(id, user);
+    if (!this.canEdit(doc, user)) throw new ForbiddenException('No puedes eliminar comentarios en este documento.');
+    const c = await this.commentRepo.findOne({ where: { id: commentId, documentId: id } });
+    if (!c) throw new NotFoundException('Comentario no encontrado.');
+    await this.commentRepo.delete(c.id);
+    return { deleted: true, id: commentId };
+  }
+
+  async timeline(id: string, user: AuthenticatedUser) {
+    const doc = await this.get(id, user);
+    const [versions, comments, audit] = await Promise.all([
+      this.versionRepo.find({
+        where: { documentId: id },
+        order: { createdAt: 'DESC' },
+        select: ['id', 'label', 'createdBy', 'createdAt'],
+        take: 25,
+      }),
+      this.commentRepo.find({
+        where: { documentId: id },
+        order: { updatedAt: 'DESC' },
+        select: ['id', 'anchorId', 'author', 'resolved', 'resolvedBy', 'resolvedAt', 'updatedAt', 'createdAt'],
+        take: 50,
+      }),
+      this.audit.getEntityLogs('OfficeDocument', id, 50),
+    ]);
+    const events = [
+      {
+        id: `doc:${doc.id}:created`,
+        kind: 'document',
+        action: 'CREATED',
+        actor: doc.createdBy,
+        at: doc.createdAt,
+        details: { title: doc.title, lifecycleState: doc.lifecycleState, locked: doc.locked },
+      },
+      ...versions.map((v) => ({
+        id: `version:${v.id}`,
+        kind: 'version',
+        action: v.label || 'VERSION_SNAPSHOT',
+        actor: v.createdBy,
+        at: v.createdAt,
+        details: { versionId: v.id },
+      })),
+      ...comments.map((c) => ({
+        id: `comment:${c.id}`,
+        kind: 'comment',
+        action: c.resolved ? 'COMMENT_RESOLVED' : 'COMMENT_UPDATED',
+        actor: c.resolved ? c.resolvedBy : c.author,
+        at: c.resolvedAt || c.updatedAt || c.createdAt,
+        details: { commentId: c.id, anchorId: c.anchorId, resolved: c.resolved },
+      })),
+      ...audit.map((a) => ({
+        id: `audit:${a.id}`,
+        kind: 'audit',
+        action: a.action,
+        actor: a.actor,
+        at: a.timestamp,
+        details: { before: a.before, after: a.after, result: a.result, reason: a.reason },
+      })),
+    ].sort((a, b) => new Date(b.at as any).getTime() - new Date(a.at as any).getTime());
+    return { documentId: id, events };
+  }
+
+  // ── Slide/object comments (Slides: office_comments, generic anchors) ─────────
+  async listSlideComments(id: string, user: AuthenticatedUser, includeResolved = true) {
+    const doc = await this.get(id, user);
+    const qb = this.slideCommentRepo.createQueryBuilder('c')
       .where('c.documentId = :id', { id: doc.id })
       .orderBy('c.createdAt', 'ASC');
     if (doc.tenantId) qb.andWhere('c.tenantId = :tenantId', { tenantId: doc.tenantId });
@@ -181,16 +444,16 @@ export class OfficeService {
     return qb.getMany();
   }
 
-  async addComment(id: string, dto: CommentDto, user: AuthenticatedUser) {
+  async addSlideComment(id: string, dto: CommentDto, user: AuthenticatedUser) {
     const doc = await this.get(id, user);
     if (!this.canEdit(doc, user)) throw new ForbiddenException('No puedes comentar este documento.');
     const text = String(dto.text ?? '').trim();
     if (!text) throw new BadRequestException('El comentario no puede estar vacío.');
     if (dto.parentId) {
-      const parent = await this.commentRepo.findOne({ where: { id: dto.parentId, documentId: doc.id } });
+      const parent = await this.slideCommentRepo.findOne({ where: { id: dto.parentId, documentId: doc.id } });
       if (!parent) throw new BadRequestException('Thread de comentario inválido.');
     }
-    return this.commentRepo.save(this.commentRepo.create({
+    return this.slideCommentRepo.save(this.slideCommentRepo.create({
       documentId: doc.id,
       parentId: dto.parentId || null,
       tenantId: doc.tenantId ?? user?.tenant_id ?? null,
@@ -208,26 +471,25 @@ export class OfficeService {
     }));
   }
 
-  async resolveComment(id: string, commentId: string, resolved: boolean, user: AuthenticatedUser) {
+  async resolveSlideComment(id: string, commentId: string, resolved: boolean, user: AuthenticatedUser) {
     const doc = await this.get(id, user);
     if (!this.canEdit(doc, user)) throw new ForbiddenException('No puedes resolver comentarios en este documento.');
-    const c = await this.commentRepo.findOne({ where: { id: commentId, documentId: doc.id } });
+    const c = await this.slideCommentRepo.findOne({ where: { id: commentId, documentId: doc.id } });
     if (!c) throw new NotFoundException('Comentario no encontrado.');
     c.resolved = !!resolved;
     c.resolvedBy = c.resolved ? this.email(user) : null;
     c.resolvedAt = c.resolved ? new Date() : null;
-    return this.commentRepo.save(c);
+    return this.slideCommentRepo.save(c);
   }
 
-  async removeComment(id: string, commentId: string, user: AuthenticatedUser) {
+  async removeSlideComment(id: string, commentId: string, user: AuthenticatedUser) {
     const doc = await this.get(id, user);
     if (!this.canEdit(doc, user)) throw new ForbiddenException('No puedes eliminar comentarios en este documento.');
-    const c = await this.commentRepo.findOne({ where: { id: commentId, documentId: doc.id } });
+    const c = await this.slideCommentRepo.findOne({ where: { id: commentId, documentId: doc.id } });
     if (!c) throw new NotFoundException('Comentario no encontrado.');
-    await this.commentRepo.delete({ id: commentId, documentId: doc.id });
+    await this.slideCommentRepo.delete({ id: commentId, documentId: doc.id });
     return { deleted: true, id: commentId };
   }
-
 
   // ── Version history ─────────────────────────────────────────────────────────
   async listVersions(id: string, user: AuthenticatedUser) {
@@ -287,6 +549,16 @@ export class OfficeService {
     const ids = await this.versionRepo.find({ where: { documentId }, order: { createdAt: 'DESC' }, select: ['id'] });
     const excess = ids.slice(MAX_VERSIONS);
     if (excess.length) await this.versionRepo.delete(excess.map((v) => v.id));
+  }
+
+  private normalizeMentions(mentions?: string[]): string[] {
+    if (!Array.isArray(mentions)) return [];
+    return [...new Set(mentions.map((m) => String(m ?? '').trim().toLowerCase()).filter(Boolean))].slice(0, 25);
+  }
+
+  private normalizePrincipal(value?: string | null): string | null {
+    const v = String(value ?? '').trim().toLowerCase();
+    return v || null;
   }
 
   private normalizeShares(shares: OfficeShare[]): OfficeShare[] {

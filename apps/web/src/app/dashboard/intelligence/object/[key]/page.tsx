@@ -161,7 +161,7 @@ export default function ObjectDrilldownPage() {
   }, [adj, horizon, domain]);
 
   useEffect(() => {
-    if (data && !data.error) runProjection();
+    if (data && !data.error) queueMicrotask(() => runProjection());
   }, [data, runProjection]);
 
   if (loading) {
@@ -230,7 +230,7 @@ export default function ObjectDrilldownPage() {
     <div className="mx-auto max-w-5xl px-5 py-8">
       <Link
         href="/dashboard/intelligence"
-        className="mb-6 inline-flex items-center gap-1.5 text-sm text-black/60 hover:text-black dark:text-white/60 dark:hover:text-white"
+        className="mb-6 inline-flex items-center gap-1.5 text-sm text-black/60 hover:text-foreground/60 dark:hover:text-white"
       >
         <ArrowLeft className="h-4 w-4" /> Centro de Inteligencia
       </Link>
@@ -265,7 +265,7 @@ export default function ObjectDrilldownPage() {
           {data.trend.narrative}
         </p>
         <div className="h-40">
-          <ResponsiveContainer>
+          <ResponsiveContainer width="100%" height={160}>
             <AreaChart
               data={data.trend.series}
               margin={{ top: 6, right: 8, left: -18, bottom: 0 }}
@@ -336,7 +336,7 @@ export default function ObjectDrilldownPage() {
         </div>
 
         <div className="h-44">
-          <ResponsiveContainer>
+          <ResponsiveContainer width="100%" height={176}>
             <LineChart data={merged} margin={{ top: 6, right: 8, left: -18, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(120,120,120,0.15)" vertical={false} />
               <XAxis dataKey="date" tickFormatter={shortDate} tick={{ fontSize: 10, fill: 'rgba(120,120,120,0.85)' }} tickLine={false} axisLine={false} minTickGap={24} />

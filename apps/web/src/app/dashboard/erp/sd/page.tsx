@@ -76,7 +76,7 @@ export default function ErpSdPage() {
   }
 
   return (
-    <div className="min-h-screen text-black dark:text-white font-sans pb-24">
+    <div className="min-h-screen text-foreground font-sans pb-24">
       <ErpHeader title="Ventas" subtitle="SD" icon={<ShoppingCart className="w-5 h-5 text-violet-500" />} />
       <main className="max-w-6xl mx-auto px-4 sm:px-6 pt-6">
         <Tabs tabs={TABS} active={tab} onChange={setTab} />

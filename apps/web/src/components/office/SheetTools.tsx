@@ -18,6 +18,8 @@ const DV_TYPES: { value: DvType; label: string }[] = [
   { value: 'date', label: 'Fecha' },
   { value: 'text_length', label: 'Longitud del texto' },
   { value: 'text_content', label: 'Texto' },
+  { value: 'required', label: 'Obligatorio (no vacío)' },
+  { value: 'custom_formula', label: 'Fórmula personalizada (VALUE)' },
 ];
 const DV_OP_LABEL: Record<DvOperator, string> = {
   between: 'está entre', notBetween: 'no está entre',
@@ -104,6 +106,8 @@ export function SheetTools({
   const dvCurrentOp = dvOps.includes(dvOp) ? dvOp : (dvOps[0] ?? undefined);
   function buildDvConfig(): DvConfig {
     if (dvType === 'dropdown') return { type: 'dropdown', value1: dvFromRange ? dvListRange : options, fromRange: dvFromRange, prohibitInput: dvReject, hintText: dvHint };
+    if (dvType === 'required') return { type: 'required', prohibitInput: dvReject, hintText: dvHint };
+    if (dvType === 'custom_formula') return { type: 'custom_formula', value1: dvV1, prohibitInput: dvReject, hintText: dvHint };
     return { type: dvType, operator: dvCurrentOp, value1: dvV1, value2: dvV2, prohibitInput: dvReject, hintText: dvHint };
   }
   function submitValidation(action: 'apply' | 'mark' | 'clear') {
@@ -165,6 +169,15 @@ export function SheetTools({
                   </label>
                 )}
               </>
+            ) : dvType === 'required' ? (
+              <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-3 text-xs text-emerald-700 dark:text-emerald-200">
+                Las celdas del rango no podrán quedar vacías. Usa esta regla para campos críticos como lote, proveedor, cantidad, estación o causa raíz.
+              </div>
+            ) : dvType === 'custom_formula' ? (
+              <label className="block text-xs text-gray-500">Fórmula segura por celda
+                <input value={dvV1} onChange={(e) => setDvV1(e.target.value)} placeholder="=AND(VALUE>=0,VALUE<=100)" className={`${field} font-mono`} />
+                <span className="mt-1 block text-[11px] text-gray-400">Soporta VALUE, LEN(VALUE), ISNUMBER(VALUE), ISTEXT(VALUE), AND, OR, NOT y comparaciones (=, &lt;&gt;, &gt;, &gt;=, &lt;, &lt;=) sin ejecutar código arbitrario.</span>
+              </label>
             ) : dvType === 'text_content' ? (
               <div className="flex gap-2">
                 <label className="flex-1 text-xs text-gray-500">Condición

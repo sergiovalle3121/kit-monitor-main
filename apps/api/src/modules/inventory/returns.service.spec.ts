@@ -27,7 +27,7 @@ describe('ReturnsService', () => {
       ensureMaterial: jest.fn().mockResolvedValue({}),
     };
     audit = { recordAction: jest.fn().mockResolvedValue(undefined) };
-    service = new ReturnsService(returnRepo as never, {} as never, inventory as never, audit as never);
+    service = new ReturnsService(returnRepo as never, {} as never, inventory as never, audit as never, { getTenantId: () => null } as never);
   });
 
   describe('create', () => {

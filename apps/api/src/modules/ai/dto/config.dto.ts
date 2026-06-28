@@ -1,4 +1,13 @@
-import { IsBoolean, IsIn, IsInt, IsOptional, Max, Min } from 'class-validator';
+import {
+  IsBoolean,
+  IsIn,
+  IsInt,
+  IsOptional,
+  IsString,
+  Max,
+  MaxLength,
+  Min,
+} from 'class-validator';
 import { ALLOWED_MODELS } from '../ai-pricing';
 
 export class ConfigDto {
@@ -24,4 +33,13 @@ export class ConfigDto {
   @Min(1)
   @Max(10000)
   rateLimitPerHour?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  autoEscalate?: boolean;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(8000)
+  knowledge?: string;
 }

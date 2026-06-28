@@ -3,25 +3,14 @@ import { Circle, Group, Line, Rect, Textbox } from 'fabric';
 
 export type SmartObjectKind = 'kpiCard' | 'oeeGauge' | 'riskMatrix' | 'gantt' | 'kanbanBoard' | 'valueStream';
 
-export interface SmartObjectBinding {
-  source: 'manual' | 'static' | 'future-live' | string;
-  metric?: string;
-  params?: Record<string, string>;
-  lastUpdatedAt?: string;
-}
-
 export interface SmartObjectSpec {
   kind: SmartObjectKind;
   title: string;
   subtitle?: string;
   value?: string;
   target?: string;
-  unit?: string;
   status?: 'good' | 'warn' | 'bad';
   source?: string;
-  refreshMode?: 'manual' | 'static' | 'future-live';
-  binding?: SmartObjectBinding;
-  lastUpdatedAt?: string;
 }
 
 export const SMART_OBJECTS: { kind: SmartObjectKind; label: string; hint: string }[] = [
@@ -38,12 +27,12 @@ const palette = {
 };
 
 export function defaultSmartObject(kind: SmartObjectKind): SmartObjectSpec {
-  if (kind === 'oeeGauge') return { kind, title: 'OEE', subtitle: 'Línea A · turno actual', value: '86%', target: 'Meta 85%', status: 'good', source: 'AXOS.production.oee', refreshMode: 'manual', binding: { source: 'AXOS.production.oee', metric: 'oee' } };
-  if (kind === 'riskMatrix') return { kind, title: 'Riesgo de lanzamiento', subtitle: 'Severidad × probabilidad', value: 'Medio', status: 'warn', source: 'AXOS.quality.risk', refreshMode: 'manual', binding: { source: 'AXOS.quality.risk', metric: 'launchRisk' } };
-  if (kind === 'gantt') return { kind, title: 'Launch readiness', subtitle: 'APQP / PPAP / SOP', value: '72%', status: 'warn', source: 'AXOS.engineering.launch', refreshMode: 'manual', binding: { source: 'AXOS.engineering.launch', metric: 'readiness' } };
-  if (kind === 'kanbanBoard') return { kind, title: 'Kanban de acciones', subtitle: 'Daily Production Meeting', value: '12 abiertas', status: 'warn', source: 'AXOS.actions', refreshMode: 'manual', binding: { source: 'AXOS.actions', metric: 'openActions' } };
-  if (kind === 'valueStream') return { kind, title: 'Value stream', subtitle: 'Recepción → Embarque', value: '4.2 días', target: 'Lead time', status: 'good', source: 'AXOS.routing', refreshMode: 'manual', binding: { source: 'AXOS.routing', metric: 'leadTime' } };
-  return { kind, title: 'OEE Línea A', subtitle: 'Actualizado desde AXOS', value: '86%', target: 'Meta 85%', status: 'good', source: 'AXOS.production.oee', refreshMode: 'manual', binding: { source: 'AXOS.production.oee', metric: 'oee' } };
+  if (kind === 'oeeGauge') return { kind, title: 'OEE', subtitle: 'Línea A · turno actual', value: '86%', target: 'Meta 85%', status: 'good', source: 'AXOS.production.oee' };
+  if (kind === 'riskMatrix') return { kind, title: 'Riesgo de lanzamiento', subtitle: 'Severidad × probabilidad', value: 'Medio', status: 'warn', source: 'AXOS.quality.risk' };
+  if (kind === 'gantt') return { kind, title: 'Launch readiness', subtitle: 'APQP / PPAP / SOP', value: '72%', status: 'warn', source: 'AXOS.engineering.launch' };
+  if (kind === 'kanbanBoard') return { kind, title: 'Kanban de acciones', subtitle: 'Daily Production Meeting', value: '12 abiertas', status: 'warn', source: 'AXOS.actions' };
+  if (kind === 'valueStream') return { kind, title: 'Value stream', subtitle: 'Recepción → Embarque', value: '4.2 días', target: 'Lead time', status: 'good', source: 'AXOS.routing' };
+  return { kind, title: 'OEE Línea A', subtitle: 'Actualizado desde AXOS', value: '86%', target: 'Meta 85%', status: 'good', source: 'AXOS.production.oee' };
 }
 
 const txt = (text: string, left: number, top: number, width: number, size: number, fill = palette.ink, bold = false) => new Textbox(text, { left, top, width, fontSize: size, fill, fontFamily: 'Inter, sans-serif', fontWeight: bold ? 'bold' : 'normal', selectable: false, evented: false });

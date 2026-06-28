@@ -130,8 +130,8 @@ export default function AlmacenPage() {
   }
 
   return (
-    <div className="min-h-screen text-black dark:text-white font-sans pb-32">
-      <main className="max-w-5xl mx-auto px-6 pt-10">
+    <div className="min-h-screen text-foreground font-sans pb-32">
+      <main className="max-w-7xl mx-auto px-6 pt-10">
         <PageHeader
           domain="warehouse"
           title="Almacén · Surtido"

@@ -27,20 +27,56 @@ const FREE: ModelPrice = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
  * the inference engine (e.g. an Ollama tag or a vLLM `--served-model-name`).
  * Keep every entry permissively licensed (Apache-2.0 / MIT / BSD).
  */
-export const MODEL_PRICES: Record<string, ModelPrice> = {
+/**
+ * The built-in, permissively-licensed (Apache-2.0) catalog CIDE knows out of the
+ * box. Keys are the model tags passed straight to the inference engine (an Ollama
+ * tag, or a vLLM `--served-model-name`).
+ */
+const BASE_MODEL_PRICES: Record<string, ModelPrice> = {
   // Qwen2.5 Instruct — Apache-2.0. Strong tool-use + excellent Spanish.
-  'qwen2.5:7b': FREE, // default: runs on CPU or a small GPU
+  'qwen2.5:1.5b': FREE, // fast CPU tier: snappy on commodity CPUs, lighter tool-use
+  'qwen2.5:7b': FREE, // default: runs on CPU (slow) or a small GPU
   'qwen2.5:14b': FREE, // stronger reasoning, needs a GPU
   'qwen2.5:32b': FREE, // escalation tier, heavy reasoning (GPU)
   // Mistral 7B Instruct — Apache-2.0. Lightweight alternative.
   'mistral:7b': FREE,
 };
 
-/** Cheap, CPU-capable default for routine grounded queries. */
-export const DEFAULT_MODEL = 'qwen2.5:7b';
-/** High-capability tier for hard reasoning, used on demand (GPU recommended). */
-export const ESCALATION_MODEL = 'qwen2.5:32b';
+/**
+ * Extra served-model-names registered via `CIDE_EXTRA_MODELS` (comma-separated).
+ * Lets an operator point CIDE at any self-hosted OpenAI-compatible engine —
+ * e.g. a vLLM/TGI server exposing a raw HuggingFace id like
+ * `Qwen/Qwen2.5-72B-Instruct` — without a code change. Self-hosted ⇒ priced $0,
+ * same as the built-ins. Keep them permissively licensed per repo policy.
+ */
+function parseExtraModels(): string[] {
+  return (process.env.CIDE_EXTRA_MODELS ?? '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+export const MODEL_PRICES: Record<string, ModelPrice> = {
+  ...BASE_MODEL_PRICES,
+  ...Object.fromEntries(parseExtraModels().map((m) => [m, FREE])),
+};
+
 export const ALLOWED_MODELS = Object.keys(MODEL_PRICES);
+
+/** Pick an allowed model from an env var, falling back to a safe default. */
+function envModel(name: string, fallback: string): string {
+  const v = process.env[name]?.trim();
+  return v && ALLOWED_MODELS.includes(v) ? v : fallback;
+}
+
+/**
+ * Default model for routine grounded queries. Override with `CIDE_DEFAULT_MODEL`
+ * (must be one of {@link ALLOWED_MODELS}) — e.g. set `qwen2.5:1.5b` on a CPU-only
+ * deploy for snappier replies, or `qwen2.5:14b` on a GPU. Falls back to 7B.
+ */
+export const DEFAULT_MODEL = envModel('CIDE_DEFAULT_MODEL', 'qwen2.5:7b');
+/** High-capability tier for hard reasoning, used on demand (GPU recommended). */
+export const ESCALATION_MODEL = envModel('CIDE_ESCALATION_MODEL', 'qwen2.5:32b');
 
 export interface TokenUsage {
   inputTokens: number;

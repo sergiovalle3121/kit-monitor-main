@@ -192,20 +192,15 @@ export function SlideInspectorPanel({
             <div className="space-y-2">
               <Read label="Tipo" value={selection.smartObject.kind} />
               <label className="block text-[11px] text-gray-500">Título<input value={selection.smartObject.title || ''} disabled={readOnly} onChange={(e) => onSmartObject({ title: e.target.value })} className={field} /></label>
-              <label className="block text-[11px] text-gray-500">Fuente / binding<input value={selection.smartObject.source || selection.smartObject.binding?.source || 'manual'} disabled={readOnly} onChange={(e) => onSmartObject({ source: e.target.value, binding: { ...(selection.smartObject?.binding || { source: 'manual' }), source: e.target.value } })} className={field} /></label>
-              <div className="grid grid-cols-2 gap-2">
-                <label className="block text-[11px] text-gray-500">Metric key<input value={selection.smartObject.binding?.metric || ''} disabled={readOnly} onChange={(e) => onSmartObject({ binding: { ...(selection.smartObject?.binding || { source: selection.smartObject?.source || 'manual' }), metric: e.target.value } })} className={field} /></label>
-                <label className="block text-[11px] text-gray-500">Refresh<select value={selection.smartObject.refreshMode || 'manual'} disabled={readOnly} onChange={(e) => onSmartObject({ refreshMode: e.target.value as any })} className={field}><option value="manual">manual</option><option value="static">static</option><option value="future-live">future live</option></select></label>
-              </div>
+              <label className="block text-[11px] text-gray-500">Subtítulo<input value={selection.smartObject.subtitle || ''} disabled={readOnly} onChange={(e) => onSmartObject({ subtitle: e.target.value })} className={field} /></label>
+              <label className="block text-[11px] text-gray-500">Fuente / binding<input value={selection.smartObject.source || 'manual'} disabled={readOnly} onChange={(e) => onSmartObject({ source: e.target.value })} className={field} /></label>
               <div className="grid grid-cols-2 gap-2">
                 <label className="block text-[11px] text-gray-500">Valor<input value={selection.smartObject.value || ''} disabled={readOnly} onChange={(e) => onSmartObject({ value: e.target.value })} className={field} /></label>
                 <label className="block text-[11px] text-gray-500">Target<input value={selection.smartObject.target || ''} disabled={readOnly} onChange={(e) => onSmartObject({ target: e.target.value })} className={field} /></label>
               </div>
-              <label className="block text-[11px] text-gray-500">Unidad<input value={selection.smartObject.unit || ''} disabled={readOnly} onChange={(e) => onSmartObject({ unit: e.target.value })} className={field} /></label>
               <select value={selection.smartObject.status || 'good'} disabled={readOnly} onChange={(e) => onSmartObject({ status: e.target.value as any })} className={field}>
                 <option value="good">good</option><option value="warn">warn</option><option value="bad">bad</option>
               </select>
-              <p className="text-[10px] text-gray-400">Último snapshot: {selection.smartObject.lastUpdatedAt ? new Date(selection.smartObject.lastUpdatedAt).toLocaleString('es-ES') : 'sin refrescar'}</p>
               <button disabled={readOnly} onClick={onRefreshSmartObject} className={`${button} w-full justify-center`}><RefreshCw className="w-3.5 h-3.5" /> Refrescar snapshot</button>
             </div>
           </Section>

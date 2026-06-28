@@ -4,14 +4,23 @@ import React, { Suspense, useMemo } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { AlertCircle, Megaphone, HandHelping, PackageCheck } from "lucide-react";
+import {
+  AlertCircle,
+  Megaphone,
+  HandHelping,
+  PackageCheck,
+  CheckCircle2,
+  Search,
+  MessageSquare,
+  History,
+} from "lucide-react";
 import { glass } from "@/lib/glass";
 import { containerRM, itemRM, hoverRM, pressRM } from "@/lib/motion";
 import { useApi } from "@/hooks/useApi";
 import { positionLabel } from "@/config/positions";
 import { IconTile } from "@/components/ui/IconTile";
 import { HoverArrow } from "@/components/ui/HoverArrow";
-import { DOMAINS, type DomainKey } from "@/lib/design/domains";
+import { type DomainKey } from "@/lib/design/domains";
 import { seesAllAreas } from "@/lib/owner";
 import { timeAgo, ROLE_LABELS } from "@/lib/dashboardShared";
 import { AREAS, SECTION_ORDER } from "@/lib/dashboardAreas";
@@ -19,8 +28,33 @@ import { useDashboardSession } from "@/hooks/useDashboardSession";
 
 const MotionLink = motion.create(Link);
 
-interface PlanRow { id: number; model: string; workOrder: string; status: string; publishedBy?: string | null; publishedAt?: string | null }
-interface RequestRow { id: number; model?: string | null; status: string; requestedBy?: string; createdAt?: string }
+interface PlanRow {
+  id: number;
+  model: string;
+  workOrder: string;
+  status: string;
+  publishedBy?: string | null;
+  publishedAt?: string | null;
+}
+interface RequestRow {
+  id: number;
+  model?: string | null;
+  status: string;
+  requestedBy?: string;
+  createdAt?: string;
+}
+
+const sectionCopy: Record<string, string> = {
+  "Diseño · NPI": "Definición de producto, materiales y proceso",
+  Planeación: "Demanda, abastecimiento y publicación del plan",
+  Materiales: "Inventario, recibo y flujo hacia línea",
+  Producción: "Ejecución, mantenimiento y control de piso",
+  Calidad: "Inspección, trazabilidad y contención",
+  Logística: "Empaque, embarques y tráfico",
+  "Finanzas · ERP": "Costo, operación administrativa y módulos ERP",
+  "Control e inteligencia": "Señales ejecutivas, reportes y ontología",
+  Administración: "Personas, seguridad y configuración operativa",
+};
 
 function DashboardInner() {
   const router = useRouter();
@@ -32,73 +66,364 @@ function DashboardInner() {
 
   const { data: plansData } = useApi<PlanRow[]>("/plans");
   const { data: reqData } = useApi<RequestRow[]>("/material-requests");
-  const plans = useMemo(() => (Array.isArray(plansData) ? plansData : []), [plansData]);
-  const requests = useMemo(() => (Array.isArray(reqData) ? reqData : []), [reqData]);
+  const plans = useMemo(
+    () => (Array.isArray(plansData) ? plansData : []),
+    [plansData],
+  );
+  const requests = useMemo(
+    () => (Array.isArray(reqData) ? reqData : []),
+    [reqData],
+  );
 
-  const kpis = useMemo(() => ([
-    { label: "Planes por publicar", value: plans.filter((p) => p.status === "pending").length, icon: Megaphone, domain: "plan" as DomainKey, href: "/dashboard/planning" },
-    { label: "Publicados", value: plans.filter((p) => ["published", "released", "active"].includes(p.status)).length, icon: PackageCheck, domain: "planning" as DomainKey, href: "/dashboard/planning" },
-    { label: "Solicitudes pendientes", value: requests.filter((r) => r.status === "pending").length, icon: HandHelping, domain: "warehouse" as DomainKey, href: "/dashboard/almacen" },
-  ]), [plans, requests]);
+  const kpis = useMemo(
+    () => [
+      {
+        label: "Planes por publicar",
+        value: plans.filter((p) => p.status === "pending").length,
+        icon: Megaphone,
+        domain: "plan" as DomainKey,
+        href: "/dashboard/planning",
+        meta: "requieren liberación",
+      },
+      {
+        label: "Publicados",
+        value: plans.filter((p) =>
+          ["published", "released", "active"].includes(p.status),
+        ).length,
+        icon: PackageCheck,
+        domain: "planning" as DomainKey,
+        href: "/dashboard/planning",
+        meta: "visibles para operación",
+      },
+      {
+        label: "Solicitudes pendientes",
+        value: requests.filter((r) => r.status === "pending").length,
+        icon: HandHelping,
+        domain: "warehouse" as DomainKey,
+        href: "/dashboard/almacen",
+        meta: "esperando almacén",
+      },
+    ],
+    [plans, requests],
+  );
 
   const activity = useMemo(() => {
-    const a = plans.filter((p) => p.publishedAt).map((p) => ({ key: `plan-${p.id}`, icon: Megaphone, domain: "plan" as DomainKey, text: `Plan ${p.model} publicado`, who: p.publishedBy ?? "", at: p.publishedAt as string }));
-    const b = requests.map((r) => ({ key: `req-${r.id}`, icon: HandHelping, domain: "warehouse" as DomainKey, text: `Solicitud de ${r.model ?? "material"}`, who: r.requestedBy ?? "", at: r.createdAt as string }));
-    return [...a, ...b].filter((x) => x.at).sort((x, y) => +new Date(y.at) - +new Date(x.at)).slice(0, 5);
+    const a = plans
+      .filter((p) => p.publishedAt)
+      .map((p) => ({
+        key: `plan-${p.id}`,
+        icon: Megaphone,
+        domain: "plan" as DomainKey,
+        text: `Plan ${p.model} publicado`,
+        who: p.publishedBy ?? "",
+        at: p.publishedAt as string,
+      }));
+    const b = requests.map((r) => ({
+      key: `req-${r.id}`,
+      icon: HandHelping,
+      domain: "warehouse" as DomainKey,
+      text: `Solicitud de ${r.model ?? "material"}`,
+      who: r.requestedBy ?? "",
+      at: r.createdAt as string,
+    }));
+    return [...a, ...b]
+      .filter((x) => x.at)
+      .sort((x, y) => +new Date(y.at) - +new Date(x.at))
+      .slice(0, 5);
   }, [plans, requests]);
+
+  // Cola de atención: señales accionables derivadas de datos REALES ya cargados
+  // (planes por publicar, solicitudes esperando almacén). Sin inventar nada; si
+  // no hay pendientes, se muestra un estado "todo al día" honesto.
+  const attention = useMemo(() => {
+    const items: {
+      key: string;
+      domain: DomainKey;
+      icon: typeof Megaphone;
+      title: string;
+      meta: string;
+      href: string;
+      severity: "high" | "medium";
+    }[] = [];
+    const pendingPlans = plans.filter((p) => p.status === "pending");
+    if (pendingPlans.length > 0) {
+      items.push({
+        key: "plans-pending",
+        domain: "plan",
+        icon: Megaphone,
+        title: `${pendingPlans.length} ${pendingPlans.length === 1 ? "plan" : "planes"} por publicar`,
+        meta: "Libéralos para que operación los vea",
+        href: "/dashboard/planning",
+        severity: "high",
+      });
+    }
+    const pendingReqs = requests.filter((r) => r.status === "pending");
+    if (pendingReqs.length > 0) {
+      items.push({
+        key: "reqs-pending",
+        domain: "warehouse",
+        icon: HandHelping,
+        title: `${pendingReqs.length} ${pendingReqs.length === 1 ? "solicitud" : "solicitudes"} de material`,
+        meta: "Esperando surtido de almacén",
+        href: "/dashboard/almacen",
+        severity: "medium",
+      });
+    }
+    return items;
+  }, [plans, requests]);
+
+  const SEVERITY: Record<
+    "high" | "medium",
+    { dot: string; ring: string; label: string }
+  > = {
+    high: {
+      dot: "bg-red-500",
+      ring: "border-red-500/20",
+      label: "Prioridad alta",
+    },
+    medium: {
+      dot: "bg-amber-500",
+      ring: "border-amber-500/20",
+      label: "Pendiente",
+    },
+  };
 
   // Acceso del owner blindado: case-insensitive + override por email.
   const seesAll = seesAllAreas(session?.role, session?.email);
   const firstName = session?.name?.split(" ")[0] || "Usuario";
-  const roleLabel = positionLabel(session?.position) || ROLE_LABELS[session?.role || ""] || session?.role || "—";
-  const areas = AREAS.filter((a) => seesAll || a.roles.includes(session?.role || ""));
-  const grouped = SECTION_ORDER
-    .map((section) => ({ section, items: areas.filter((a) => a.section === section) }))
-    .filter((g) => g.items.length > 0);
+  const roleLabel =
+    positionLabel(session?.position) ||
+    ROLE_LABELS[session?.role || ""] ||
+    session?.role ||
+    "—";
+  const workspaceLabel = session?.email?.split("@")[1] || "Workspace AXOS";
+  const areas = AREAS.filter(
+    (a) => seesAll || a.roles.includes(session?.role || ""),
+  );
+  const grouped = SECTION_ORDER.map((section) => ({
+    section,
+    items: areas.filter((a) => a.section === section),
+  })).filter((g) => g.items.length > 0);
 
   return (
-    <div className="min-h-screen text-black dark:text-white font-sans">
+    <div className="min-h-screen text-foreground font-sans">
       {/* Barra superior, dock y fondo aurora los provee el layout del dashboard. */}
-      <main className="pt-2 pb-24 px-6 md:px-10 lg:px-16 max-w-5xl mx-auto">
+      <main className="mx-auto max-w-6xl px-5 pb-28 pt-3 sm:px-6 md:px-10 lg:px-12">
         {blocked && (
-          <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="mb-8 p-4 rounded-2xl bg-amber-50 dark:bg-amber-500/10 border border-amber-100 dark:border-amber-500/20 text-amber-800 dark:text-amber-200 flex gap-3 items-start">
-            <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" /><p className="text-sm">No tienes acceso a esa sección con tu puesto actual.</p>
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-8 flex items-start gap-3 rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4 text-amber-800 shadow-sm dark:text-amber-200"
+          >
+            <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+            <p className="text-sm">
+              No tienes acceso a esa sección con tu puesto actual.
+            </p>
           </motion.div>
         )}
 
         {/* Hero */}
-        <header className="mb-8">
-          <p className="text-gray-500 dark:text-gray-400 text-sm mb-1 capitalize">
-            {new Date().toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" })} · {roleLabel}
-          </p>
-          <motion.h1 initial={reduce ? false : { opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="text-4xl md:text-5xl font-bold tracking-tight">
-            Hola, {firstName}.
-          </motion.h1>
-        </header>
+        <motion.header
+          initial={reduce ? false : { opacity: 0, y: 14 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.55 }}
+          className={`${glass} relative mb-5 overflow-hidden rounded-[2rem] px-6 py-7 sm:px-8 sm:py-9 md:px-10`}
+        >
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-foreground/20 to-transparent"
+          />
+          <div
+            aria-hidden
+            className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full bg-foreground/[0.035] blur-3xl dark:bg-white/[0.045]"
+          />
+          <div className="relative flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+            <div className="max-w-3xl">
+              <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.28em] text-muted-foreground">
+                Hub operativo · {roleLabel}
+              </p>
+              <h1 className="text-4xl font-semibold tracking-[-0.045em] text-foreground sm:text-5xl md:text-6xl">
+                Hola, {firstName}.
+              </h1>
+              <p className="mt-4 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">
+                Coordina el flujo industrial desde un solo punto: diseño,
+                materiales, producción, calidad y control ejecutivo con señales
+                claras y navegación precisa.
+              </p>
+              {/* Acciones rápidas — qué puedes hacer ahora (universal a todo rol). */}
+              <div className="mt-5 flex flex-wrap gap-2">
+                <button
+                  onClick={() =>
+                    window.dispatchEvent(new CustomEvent("axos:open-search"))
+                  }
+                  className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-background/60 px-3.5 py-2 text-sm font-medium text-foreground transition-colors hover:bg-foreground/[0.05] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
+                >
+                  <Search className="h-4 w-4 text-muted-foreground" strokeWidth={1.75} />
+                  Buscar
+                  <kbd className="hidden font-mono text-[10px] text-muted-foreground sm:inline">
+                    ⌘K
+                  </kbd>
+                </button>
+                <Link
+                  href="/dashboard/chat"
+                  className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-background/60 px-3.5 py-2 text-sm font-medium text-foreground transition-colors hover:bg-foreground/[0.05] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
+                >
+                  <MessageSquare className="h-4 w-4 text-muted-foreground" strokeWidth={1.75} />
+                  Mensajes
+                </Link>
+                <Link
+                  href="/dashboard/activity"
+                  className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-background/60 px-3.5 py-2 text-sm font-medium text-foreground transition-colors hover:bg-foreground/[0.05] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
+                >
+                  <History className="h-4 w-4 text-muted-foreground" strokeWidth={1.75} />
+                  Mi actividad
+                </Link>
+              </div>
+            </div>
+            <div className="grid min-w-[220px] gap-2 rounded-2xl border border-border/70 bg-background/55 p-4 text-sm shadow-sm backdrop-blur-sm dark:bg-white/[0.035]">
+              <span className="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+                Contexto
+              </span>
+              <span className="truncate font-medium text-foreground">
+                {workspaceLabel}
+              </span>
+              <span className="text-xs capitalize text-muted-foreground">
+                {new Date().toLocaleDateString("es-ES", {
+                  weekday: "long",
+                  day: "numeric",
+                  month: "long",
+                })}
+              </span>
+            </div>
+          </div>
+        </motion.header>
 
         {/* KPIs — fila simétrica de 3 */}
-        <motion.section variants={containerRM(reduce)} initial="hidden" animate="show" className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-10">
+        <motion.section
+          variants={containerRM(reduce)}
+          initial="hidden"
+          animate="show"
+          className="mb-12 grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4"
+        >
           {kpis.map((k) => (
-            <MotionLink key={k.label} href={k.href} variants={itemRM(reduce)} whileHover={hoverRM(reduce)} whileTap={pressRM(reduce)} className="block h-full">
-              <div className={`${glass} group rounded-3xl p-5 h-full`}>
-                <div className="flex items-center justify-between mb-3">
-                  <IconTile domain={k.domain} size={46} icon={k.icon} />
-                  <HoverArrow />
+            <MotionLink
+              key={k.label}
+              href={k.href}
+              variants={itemRM(reduce)}
+              whileHover={hoverRM(reduce)}
+              whileTap={pressRM(reduce)}
+              className="group block h-full rounded-3xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
+            >
+              <div
+                className={`${glass} h-full rounded-3xl p-4 transition-[border-color,box-shadow,transform] duration-300 group-hover:border-foreground/10 group-hover:shadow-md sm:p-5`}
+              >
+                <div className="mb-4 flex items-start justify-between gap-3">
+                  <IconTile domain={k.domain} size={40} icon={k.icon} />
+                  <HoverArrow className="mt-1 opacity-60 group-hover:opacity-100" />
                 </div>
-                <div className="text-4xl font-bold tracking-tight tabular-nums" style={{ color: DOMAINS[k.domain].text }}>{k.value}</div>
-                <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">{k.label}</div>
+                <div className="text-3xl font-semibold tracking-[-0.04em] text-foreground tabular-nums sm:text-4xl">
+                  {k.value}
+                </div>
+                <div className="mt-1 text-sm font-medium text-foreground">
+                  {k.label}
+                </div>
+                <div className="mt-1 text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+                  {k.meta}
+                </div>
               </div>
             </MotionLink>
           ))}
         </motion.section>
 
+        {/* Requiere atención — cola accionable (datos reales; estado honesto) */}
+        <section className="mb-12">
+          <div className="mb-4 flex items-end justify-between border-t border-border/70 pt-5">
+            <h2 className="text-[11px] font-semibold uppercase tracking-[0.3em] text-muted-foreground">
+              Requiere atención
+            </h2>
+            <span className="text-xs text-muted-foreground">
+              {attention.length > 0
+                ? `${attention.length} ${attention.length === 1 ? "señal" : "señales"} accionables`
+                : "Sin pendientes"}
+            </span>
+          </div>
+          {attention.length === 0 ? (
+            <div
+              className={`${glass} flex items-center gap-3 rounded-3xl p-5 text-sm text-muted-foreground`}
+            >
+              <CheckCircle2 className="h-5 w-5 flex-shrink-0 text-emerald-500" />
+              <span>
+                Todo al día. No hay planes por publicar ni solicitudes
+                esperando surtido.
+              </span>
+            </div>
+          ) : (
+            <motion.div
+              variants={containerRM(reduce)}
+              initial="hidden"
+              animate="show"
+              className="grid grid-cols-1 gap-3 sm:grid-cols-2"
+            >
+              {attention.map((a) => {
+                const sv = SEVERITY[a.severity];
+                return (
+                  <MotionLink
+                    key={a.key}
+                    href={a.href}
+                    variants={itemRM(reduce)}
+                    whileHover={hoverRM(reduce)}
+                    whileTap={pressRM(reduce)}
+                    className={`group block rounded-3xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35`}
+                  >
+                    <div
+                      className={`${glass} flex h-full items-center gap-4 rounded-3xl border-l-2 ${sv.ring} p-4 transition-[border-color,box-shadow,transform] duration-300 group-hover:shadow-md sm:p-5`}
+                    >
+                      <IconTile domain={a.domain} size={40} icon={a.icon} />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span
+                            aria-hidden
+                            className={`h-1.5 w-1.5 flex-shrink-0 rounded-full ${sv.dot}`}
+                          />
+                          <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                            {sv.label}
+                          </span>
+                        </div>
+                        <p className="mt-1 truncate text-sm font-semibold text-foreground">
+                          {a.title}
+                        </p>
+                        <p className="text-[11px] text-muted-foreground">
+                          {a.meta}
+                        </p>
+                      </div>
+                      <HoverArrow className="opacity-50 group-hover:opacity-100" />
+                    </div>
+                  </MotionLink>
+                );
+              })}
+            </motion.div>
+          )}
+        </section>
+
         {/* Tus áreas — agrupadas por el flujo real (Diseño → … → Admin) */}
         {areas.length > 0 ? (
-          <div className="mb-10 space-y-8">
+          <div className="mb-12 space-y-11">
             {grouped.map((g) => (
               <section key={g.section}>
-                <h2 className="text-xs font-semibold tracking-wider uppercase text-gray-500 dark:text-gray-400 mb-3">{g.section}</h2>
-                <motion.div variants={containerRM(reduce)} initial="hidden" animate="show" className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                <div className="mb-4 flex flex-col gap-1 border-t border-border/70 pt-5 sm:flex-row sm:items-end sm:justify-between">
+                  <h2 className="text-[11px] font-semibold uppercase tracking-[0.3em] text-muted-foreground">
+                    {g.section}
+                  </h2>
+                  <p className="text-xs text-muted-foreground">
+                    {sectionCopy[g.section] ?? "Módulos operativos del área"}
+                  </p>
+                </div>
+                <motion.div
+                  variants={containerRM(reduce)}
+                  initial="hidden"
+                  animate="show"
+                  className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4"
+                >
                   {g.items.map((a) => (
                     <motion.button
                       key={a.name}
@@ -107,17 +432,25 @@ function DashboardInner() {
                       whileHover={hoverRM(reduce)}
                       whileTap={pressRM(reduce)}
                       aria-label={a.name}
-                      className={`${glass} group relative rounded-3xl p-5 text-left flex flex-col gap-3 justify-between min-h-32 overflow-hidden`}
+                      className={`${glass} group relative min-h-36 overflow-hidden rounded-3xl p-5 text-left transition-[border-color,box-shadow,transform] duration-300 hover:border-foreground/10 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35`}
                     >
-                      {/* Glow del color del dominio difuminado en la esquina (sutil). */}
-                      <span aria-hidden className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full opacity-20 blur-2xl transition-opacity duration-300 group-hover:opacity-40" style={{ background: DOMAINS[a.domain].solid }} />
-                      <div className="flex items-start justify-between">
-                        <IconTile domain={a.domain} size={46} icon={a.icon} />
-                        <HoverArrow />
-                      </div>
-                      <div>
-                        <div className="font-bold">{a.name}</div>
-                        <div className="text-gray-500 dark:text-gray-400 text-xs">{a.desc}</div>
+                      <span
+                        aria-hidden
+                        className="pointer-events-none absolute inset-x-5 top-0 h-px bg-gradient-to-r from-transparent via-white/60 to-transparent opacity-70 dark:via-white/15"
+                      />
+                      <div className="flex h-full flex-col justify-between gap-5">
+                        <div className="flex items-start justify-between gap-3">
+                          <IconTile domain={a.domain} size={40} icon={a.icon} />
+                          <HoverArrow className="opacity-50 group-hover:opacity-100" />
+                        </div>
+                        <div>
+                          <div className="font-semibold leading-tight tracking-[-0.01em] text-foreground">
+                            {a.name}
+                          </div>
+                          <div className="mt-1.5 text-xs leading-5 text-muted-foreground">
+                            {a.desc}
+                          </div>
+                        </div>
                       </div>
                     </motion.button>
                   ))}
@@ -126,21 +459,42 @@ function DashboardInner() {
             ))}
           </div>
         ) : (
-          <div className={`${glass} rounded-3xl p-8 text-center text-sm text-gray-400 mb-10`}>Aún no tienes áreas asignadas. Pide acceso a tu administrador.</div>
+          <div
+            className={`${glass} mb-10 rounded-3xl p-8 text-center text-sm text-muted-foreground`}
+          >
+            Aún no tienes áreas asignadas. Pide acceso a tu administrador.
+          </div>
         )}
 
         {/* Actividad reciente — lista limpia a todo lo ancho */}
         <section>
-          <h2 className="text-sm font-semibold tracking-wide text-gray-500 dark:text-gray-400 mb-4">Actividad reciente</h2>
+          <div className="mb-4 flex items-end justify-between border-t border-border/70 pt-5">
+            <h2 className="text-[11px] font-semibold uppercase tracking-[0.3em] text-muted-foreground">
+              Actividad reciente
+            </h2>
+            <span className="text-xs text-muted-foreground">
+              Últimas señales operativas
+            </span>
+          </div>
           <div className={`${glass} rounded-3xl p-2`}>
             {activity.length === 0 ? (
-              <div className="p-8 text-center text-sm text-gray-400">Sin actividad todavía. Publica un plan para empezar.</div>
+              <div className="p-8 text-center text-sm text-muted-foreground">
+                Sin actividad todavía. Publica un plan para empezar.
+              </div>
             ) : (
-              <div className="divide-y divide-gray-100 dark:divide-white/5">
+              <div className="divide-y divide-border/70">
                 {activity.map((a) => (
-                  <div key={a.key} className="flex items-center gap-3 px-4 py-3">
+                  <div
+                    key={a.key}
+                    className="flex items-center gap-3 rounded-2xl px-4 py-3 transition-colors hover:bg-foreground/[0.03] dark:hover:bg-white/[0.04]"
+                  >
                     <IconTile domain={a.domain} size={34} icon={a.icon} />
-                    <div className="min-w-0 flex-1"><p className="text-sm font-medium truncate">{a.text}</p><p className="text-[11px] text-gray-400">{a.who} · {timeAgo(a.at)}</p></div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium">{a.text}</p>
+                      <p className="text-[11px] text-muted-foreground">
+                        {a.who} · {timeAgo(a.at)}
+                      </p>
+                    </div>
                   </div>
                 ))}
               </div>
