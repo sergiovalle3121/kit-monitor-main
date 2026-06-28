@@ -178,7 +178,7 @@ export default function FixedAssetsPage() {
         </div>
       </div>
 
-      <main className="max-w-5xl mx-auto px-6 pt-8 pb-24">
+      <main className="max-w-7xl mx-auto px-6 pt-8 pb-24">
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 mb-6">
           <Kpi icon={Layers} label="Activos" value={String(kpis?.total ?? list.length)} sub={`${kpis?.inService ?? 0} en servicio`} color={TEAL} />
           <Kpi icon={Wallet} label="Costo bruto" value={money(kpis?.totalCost ?? 0, ccy)} color={GRAY} />

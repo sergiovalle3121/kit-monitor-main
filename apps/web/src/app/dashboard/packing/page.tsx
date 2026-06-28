@@ -131,7 +131,7 @@ export default function PackingPage() {
         </div>
       </div>
 
-      <main className="max-w-5xl mx-auto px-6 pt-8 pb-28">
+      <main className="max-w-7xl mx-auto px-6 pt-8 pb-28">
         <div className="flex flex-wrap items-center gap-2 mb-5">
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar SSCC, folio, parte…" className="pk-input flex-1 min-w-[200px]" />
           <select value={shipmentFilter} onChange={(e) => setShipmentFilter(e.target.value)} className="pk-input w-auto">

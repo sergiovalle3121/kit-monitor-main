@@ -110,7 +110,7 @@ export default function GenealogyPage() {
 
   return (
     <div className="min-h-screen text-foreground">
-      <main className="mx-auto max-w-6xl px-6 pb-24 pt-10">
+      <main className="mx-auto max-w-7xl px-6 pb-24 pt-10">
         <Link
           href="/dashboard"
           className="mb-4 inline-flex items-center gap-1 text-sm text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"

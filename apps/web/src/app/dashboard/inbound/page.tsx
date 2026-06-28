@@ -179,7 +179,7 @@ export default function InboundPage() {
         </div>
       </div>
 
-      <main className="max-w-5xl mx-auto px-6 pt-8 pb-24">
+      <main className="max-w-7xl mx-auto px-6 pt-8 pb-24">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
           <Kpi label="Pendientes IQC" value={kpis?.pendingIqc ?? 0} color={AMBER} />
           <Kpi label="En cuarentena" value={kpis?.inQuarantine ?? 0} color={(kpis?.inQuarantine ?? 0) > 0 ? RED : GREEN} />

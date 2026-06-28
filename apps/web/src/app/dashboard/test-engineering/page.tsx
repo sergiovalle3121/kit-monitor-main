@@ -138,7 +138,7 @@ export default function TestEngineeringPage() {
         </div>
       </div>
 
-      <main className="max-w-5xl mx-auto px-6 pt-8 pb-24">
+      <main className="max-w-7xl mx-auto px-6 pt-8 pb-24">
         {/* KPIs */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
           <Kpi label="First-Pass Yield" value={fpy === null || fpy === undefined ? '—' : `${fpy}%`} color={fpy !== null && fpy !== undefined && fpy >= 95 ? GREEN : AMBER} />

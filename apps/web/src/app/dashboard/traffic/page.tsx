@@ -102,7 +102,7 @@ export default function TrafficPage() {
         </div>
       </div>
 
-      <main className="max-w-6xl mx-auto px-6 pt-6 pb-28">
+      <main className="max-w-7xl mx-auto px-6 pt-6 pb-28">
         {firstLoad ? (
           <div className="flex justify-center py-24"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div>
         ) : tab === "board" ? (

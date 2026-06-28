@@ -93,7 +93,7 @@ export default function MrpPage() {
 
   return (
     <div className="min-h-screen text-foreground font-sans pb-28">
-      <main className="max-w-4xl mx-auto px-6 pt-10">
+      <main className="max-w-7xl mx-auto px-6 pt-10">
         <PageHeader domain="planning" title="MRP · Requerimiento Neto" icon={Calculator}
           subtitle="Explota un BOM por cantidad a construir, neto contra existencias y en tránsito, y sugiere qué ordenar (compra/fabricación)." />
 

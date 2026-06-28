@@ -448,7 +448,7 @@ export default function SkillsPage() {
         </div>
       </div>
 
-      <main className="max-w-6xl mx-auto px-6 pt-8 pb-24">
+      <main className="max-w-7xl mx-auto px-6 pt-8 pb-24">
         {/* KPIs (cuadran con la matriz: misma fuente filtrada) */}
         <KpiRow
           className="mb-6"
