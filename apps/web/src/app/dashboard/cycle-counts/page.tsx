@@ -166,7 +166,7 @@ export default function CycleCountsPage() {
 
   if (forbidden) {
     return (
-      <div className="min-h-screen grid place-items-center text-black dark:text-white">
+      <div className="min-h-screen grid place-items-center text-foreground">
         <div className={`${glass} rounded-3xl p-10 text-center max-w-sm`}>
           <Lock className="w-8 h-8 mx-auto mb-3 text-gray-400" />
           <h2 className="text-lg font-semibold">Sin acceso</h2>
@@ -214,8 +214,8 @@ export default function CycleCountsPage() {
   }
 
   return (
-    <div className="min-h-screen text-black dark:text-white font-sans pb-32">
-      <main className="max-w-5xl mx-auto px-6 pt-10">
+    <div className="min-h-screen text-foreground font-sans pb-32">
+      <main className="max-w-7xl mx-auto px-6 pt-10">
         <PageHeader
           domain="inventory"
           icon={ClipboardList}
@@ -404,7 +404,7 @@ function ViewBtn({ active, onClick, icon, children }: { active: boolean; onClick
     <button
       onClick={onClick}
       className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-sm font-medium transition-colors ${
-        active ? 'bg-white text-black shadow-sm dark:bg-white/15 dark:text-white' : 'text-gray-500 hover:text-black dark:hover:text-white'
+        active ? 'bg-white text-black shadow-sm dark:bg-white/15 dark:text-white' : 'text-gray-500 hover:text-foreground'
       }`}
     >
       {icon}

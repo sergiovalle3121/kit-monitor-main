@@ -28,13 +28,16 @@ export function cellValue(v: any): any {
 }
 
 // ── Mapeo puro de celda Fortune → celda SheetJS (sin dependencias) ────────────
-export interface XlsxCell { t: string; v?: any; f?: string; z?: string }
+export interface XlsxCell { t: string; v?: any; f?: string; z?: string; l?: { Target: string; Tooltip?: string }; c?: { t: string; a?: string }[] }
 export function cellToXlsx(cv: FortuneCellV): XlsxCell | null {
   const raw = cellValue(cv);
   const obj = cv && typeof cv === 'object' ? cv : null;
   const f = obj?.f ? String(obj.f).replace(/^=/, '') : undefined;
   const fa = obj?.ct?.fa;
   const z = fa && fa !== 'General' ? fa : undefined;
+  const link = obj?.hl ?? obj?.hyperlink ?? obj?.link;
+  const tip = obj?.hlTooltip ?? obj?.tooltip;
+  const comment = obj?.comment ?? obj?.noteText;
   let cell: XlsxCell;
   if (typeof raw === 'number') cell = { t: 'n', v: raw };
   else if (typeof raw === 'boolean') cell = { t: 'b', v: raw };
@@ -42,6 +45,8 @@ export function cellToXlsx(cv: FortuneCellV): XlsxCell | null {
   else cell = { t: 's', v: String(raw) };
   if (f) cell.f = f;
   if (z) cell.z = z;
+  if (typeof link === 'string' && link) cell.l = { Target: link, ...(tip ? { Tooltip: String(tip) } : {}) };
+  if (typeof comment === 'string' && comment) cell.c = [{ t: comment, a: 'AXOS' }];
   return cell;
 }
 
@@ -53,6 +58,8 @@ export function xlsxToFortuneV(cell: any): any {
   const fa = cell.z && cell.z !== 'General' ? String(cell.z) : 'General';
   const out: any = { v, m: cell.w != null ? String(cell.w) : (v != null ? String(v) : ''), ct: { fa, t: t === 'n' ? 'n' : t === 'b' ? 'b' : 's' } };
   if (cell.f) out.f = `=${cell.f}`;
+  if (cell.l?.Target) { out.hl = String(cell.l.Target); if (cell.l.Tooltip) out.hlTooltip = String(cell.l.Tooltip); }
+  if (Array.isArray(cell.c) && cell.c[0]?.t) out.comment = String(cell.c.map((x: any) => x.t).join('\n')); 
   return out;
 }
 

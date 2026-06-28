@@ -50,7 +50,7 @@ export function DocCompatibilityPanel({ content }: { content: any }) {
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-gray-400">Score exportación</p>
-                      <p className="mt-1 text-3xl font-semibold text-gray-900 dark:text-gray-100">{report.score}</p>
+                      <p className="mt-1 text-3xl font-semibold text-foreground">{report.score}</p>
                     </div>
                     {riskCount === 0 ? <CheckCircle2 className="h-9 w-9 text-emerald-500" /> : <AlertTriangle className="h-9 w-9 text-amber-500" />}
                   </div>
@@ -66,7 +66,7 @@ export function DocCompatibilityPanel({ content }: { content: any }) {
                 {report.findings.length === 0 ? (
                   <div className="rounded-2xl border border-dashed border-black/10 p-5 text-center dark:border-white/10">
                     <CheckCircle2 className="mx-auto mb-2 h-6 w-6 text-emerald-500" />
-                    <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">Sin riesgos detectados</p>
+                    <p className="text-sm font-semibold text-foreground">Sin riesgos detectados</p>
                     <p className="mt-1 text-xs text-gray-500">El contenido usa nodos y marcas conocidos por los exportadores actuales.</p>
                   </div>
                 ) : (

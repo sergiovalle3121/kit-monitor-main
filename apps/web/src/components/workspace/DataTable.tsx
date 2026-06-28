@@ -183,6 +183,7 @@ export function DataTable<T>({
     return [select, ...columns];
   }, [columns, enableSelection]);
 
+  // eslint-disable-next-line react-hooks/incompatible-library -- TanStack Table intentionally returns mutable table helpers; this component keeps them local and does not pass them into memoized React Compiler boundaries.
   const table = useReactTable({
     data,
     columns: allColumns,
@@ -362,7 +363,7 @@ export function DataTable<T>({
                           type="button"
                           onClick={h.column.getToggleSortingHandler()}
                           className={clsx(
-                            'inline-flex items-center gap-1 transition-colors hover:text-black dark:hover:text-white',
+                            'inline-flex items-center gap-1 transition-colors hover:text-foreground',
                             align === 'right' && 'flex-row-reverse',
                           )}
                         >

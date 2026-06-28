@@ -7,7 +7,7 @@ import {
   Search, LayoutGrid, LineChart, Warehouse, Boxes, Factory, HardHat, ShieldCheck,
   Cpu, DollarSign, Calculator, RadioTower, FileText, Landmark, Users, Building2,
   ShieldAlert, MessageSquare, CornerDownLeft, Hash, Lightbulb, Wrench, Scale, FlaskConical, ShoppingCart, GraduationCap, Truck, PackageCheck, ClipboardList, Target, Building, Receipt, Hammer, PackageX, Package,
-  Gauge, Megaphone, PackagePlus, ShieldX, Loader2, Network, Workflow, Upload, PackageMinus,
+  Gauge, Megaphone, PackagePlus, ShieldX, Loader2, Network, Workflow, Upload, PackageMinus, Rocket,
 } from 'lucide-react';
 import {
   ENTITY_ORDER, ensureSearchIndex, filterSearchIndex,
@@ -32,7 +32,8 @@ const DESTS: Dest[] = [
   { label: 'Producción', sub: 'Órdenes y piso', href: '/dashboard/production', keywords: 'produccion piso ordenes wo lineas', icon: Factory },
   { label: 'Operador MES', sub: 'Ejecución en estación', href: '/dashboard/operador', keywords: 'mes operador escanear estacion montar wo', icon: HardHat },
   { label: 'Calidad', sub: 'Inspección y NCR', href: '/dashboard/quality', keywords: 'calidad quality ncr inspeccion capa holds', icon: ShieldCheck },
-  { label: 'Modelos · NPI', sub: 'Maestro de productos', href: '/dashboard/models', keywords: 'modelos modelo producto productos npi master maestro mdl numero de parte folio nuevo modelo', icon: Boxes },
+  { label: 'NPI Launch Center', sub: 'Lanzamiento · readiness · gates · riesgos · liberación', href: '/dashboard/npi', keywords: 'npi launch lanzamiento gates readiness riesgos liberacion mp release dossier introduccion nuevo producto', icon: Rocket },
+  { label: 'Product Master', sub: 'Maestro de productos/modelos', href: '/dashboard/models', keywords: 'modelos modelo producto productos npi master maestro mdl numero de parte folio nuevo modelo product master', icon: Boxes },
   { label: 'Maestro de Materiales', sub: 'Partes · AVL · alternantes', href: '/dashboard/materials', keywords: 'materiales material maestro parte partes mm avl fabricante mpn alternante sustituto comprado fabricado phantom uom make buy numero de parte mat', icon: Package },
   { label: 'BOM Multinivel', sub: 'Estructura · explosión · where-used', href: '/dashboard/bom', keywords: 'bom estructura producto multinivel explosion explotar where used donde se usa ensamble subensamble componentes lista de materiales arbol niveles', icon: Network },
   { label: 'Ruteo de Manufactura', sub: 'Operaciones · tiempos · centro de trabajo', href: '/dashboard/routing', keywords: 'ruteo routing ruta proceso operaciones secuencia centro de trabajo work center tiempo estandar setup run backflush consumo manufactura rt', icon: Workflow },
@@ -162,6 +163,27 @@ const KIND_META: Record<RenderKind, { label: string; short: string; icon: React.
 /** Cuántos destinos de navegación se muestran durante una búsqueda (la vista inicial los muestra todos). */
 const NAV_CAP = 8;
 
+const RECENTS_KEY = 'axos_search_recent_hrefs';
+const RECENTS_LIMIT = 6;
+
+function readRecentHrefs(): string[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(RECENTS_KEY) || '[]');
+    return Array.isArray(parsed) ? parsed.filter((href): href is string => typeof href === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeRecentHrefs(hrefs: string[]) {
+  try {
+    window.localStorage.setItem(RECENTS_KEY, JSON.stringify(hrefs.slice(0, RECENTS_LIMIT)));
+  } catch {
+    // Storage can be unavailable in private mode; navigation must still work.
+  }
+}
+
 type SearchStatus = 'idle' | 'loading' | 'ready';
 interface SearchState {
   hits: SearchHit[];
@@ -180,6 +202,7 @@ export function SearchPalette() {
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState(0);
+  const [recentHrefs, setRecentHrefs] = useState(readRecentHrefs);
 
   // Record search (WO / NCR / parts / people / docs) — held in one atom that is
   // only ever written from async callbacks, so the effect never setStates
@@ -266,6 +289,12 @@ export function SearchPalette() {
   const groups = useMemo<RenderGroup[]>(() => {
     const out: RenderGroup[] = [];
     if (!terms.length) {
+      const recentItems = recentHrefs
+        .map((href) => allNav.find((d) => d.href === href))
+        .filter((item): item is RenderHit => Boolean(item));
+      if (recentItems.length) {
+        out.push({ key: 'recent', kind: 'nav', label: 'Recientes', tone: NAV_TONE, items: recentItems });
+      }
       for (const area of AREA_ORDER) {
         const items = allNav.filter((d) => d.area === area);
         if (items.length) out.push({ key: `area:${area}`, kind: 'nav', label: AREA_META[area].label, tone: AREA_META[area], items });
@@ -283,13 +312,18 @@ export function SearchPalette() {
       }
     }
     return out;
-  }, [terms, allNav, entityHits, q]);
+  }, [terms, allNav, recentHrefs, entityHits, q]);
 
   const flat = useMemo(() => groups.flatMap((g) => g.items), [groups]);
   const indexById = useMemo(() => new Map(flat.map((h, i) => [h.id, i])), [flat]);
   const sel = flat.length ? Math.max(0, Math.min(selected, flat.length - 1)) : -1;
 
   const go = useCallback((href: string) => {
+    setRecentHrefs((prev) => {
+      const next = [href, ...prev.filter((item) => item !== href)].slice(0, RECENTS_LIMIT);
+      writeRecentHrefs(next);
+      return next;
+    });
     setIsOpen(false);
     router.push(href);
   }, [router]);
@@ -341,7 +375,7 @@ export function SearchPalette() {
           >
             {/* Cabecera: ícono + input + spinner + ESC */}
             <div className="flex items-center gap-3 px-4 py-3.5 border-b border-black/[0.06] dark:border-white/10">
-              <Search className="w-5 h-5 text-violet-500 flex-shrink-0" strokeWidth={1.9} />
+              <Search className="w-5 h-5 text-primary flex-shrink-0" strokeWidth={1.9} />
               <input
                 autoFocus
                 role="combobox"
@@ -352,9 +386,9 @@ export function SearchPalette() {
                 onChange={(e) => { setQuery(e.target.value); setSelected(0); }}
                 onKeyDown={onKeyDown}
                 placeholder="Ir a un área o pantalla…  Planeación, Calidad, Almacén, ERP"
-                className="flex-1 bg-transparent outline-none text-base text-gray-900 dark:text-gray-100 placeholder:text-gray-400"
+                className="flex-1 bg-transparent outline-none text-base text-foreground placeholder:text-gray-400"
               />
-              {recordsLoading && <Loader2 className="w-4 h-4 text-violet-500 animate-spin flex-shrink-0" />}
+              {recordsLoading && <Loader2 className="w-4 h-4 text-primary animate-spin flex-shrink-0" />}
               <kbd className="hidden sm:inline text-[10px] font-mono px-1.5 py-0.5 rounded bg-black/5 dark:bg-white/10 text-gray-400">ESC</kbd>
             </div>
 
@@ -386,13 +420,13 @@ export function SearchPalette() {
                         onClick={() => go(item.href)}
                         className={`group/row w-full flex items-center gap-3 px-2.5 py-2 rounded-xl text-left transition-colors ${
                           active
-                            ? 'bg-violet-500/[0.09] dark:bg-violet-400/[0.12] ring-1 ring-inset ring-violet-500/25 dark:ring-violet-400/20'
+                            ? 'bg-primary/[0.09] dark:bg-primary/[0.12] ring-1 ring-inset ring-primary/25 dark:ring-primary/20'
                             : 'hover:bg-black/[0.035] dark:hover:bg-white/[0.05]'
                         }`}
                       >
                         <Tile tone={item.tone} icon={Icon} active={active} />
                         <span className="min-w-0 flex-1">
-                          <span className="block text-[13.5px] font-medium text-gray-900 dark:text-gray-100 truncate">
+                          <span className="block text-[13.5px] font-medium text-foreground truncate">
                             {highlight(item.title, terms)}
                           </span>
                           {item.subtitle && (
@@ -404,7 +438,7 @@ export function SearchPalette() {
                             {item.badge.replace(/_/g, ' ').toLowerCase()}
                           </span>
                         )}
-                        <span className={`flex-shrink-0 items-center gap-1 text-[10px] font-semibold text-violet-500 dark:text-violet-300 ${active ? 'flex' : 'hidden'}`}>
+                        <span className={`flex-shrink-0 items-center gap-1 text-[10px] font-semibold text-primary ${active ? 'flex' : 'hidden'}`}>
                           <CornerDownLeft className="w-3 h-3" />
                           <span className="hidden md:inline">Enter</span>
                         </span>
@@ -486,7 +520,7 @@ function highlight(text: string, terms: string[]): React.ReactNode {
   const set = new Set(terms);
   return parts.map((part, i) =>
     part && set.has(part.toLowerCase())
-      ? <mark key={i} className="bg-transparent text-violet-600 dark:text-violet-300 font-semibold">{part}</mark>
+      ? <mark key={i} className="bg-transparent text-primary font-semibold">{part}</mark>
       : <Fragment key={i}>{part}</Fragment>,
   );
 }

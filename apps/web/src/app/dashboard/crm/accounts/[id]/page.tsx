@@ -57,7 +57,7 @@ export default function AccountDetailPage() {
   ];
 
   return (
-    <div className="min-h-screen text-black dark:text-white">
+    <div className="min-h-screen text-foreground">
       {/* Header */}
       <div className={`${glass} sticky top-0 z-40 px-6 py-4`}>
         <div className="max-w-6xl mx-auto flex items-center gap-3">
@@ -549,7 +549,7 @@ function ModalActions({ busy, onClose, onSubmit, label }: { busy: boolean; onClo
 }
 function Guard() {
   return (
-    <div className="min-h-screen grid place-items-center text-black dark:text-white">
+    <div className="min-h-screen grid place-items-center text-foreground">
       <div className={`${glass} rounded-3xl p-10 text-center max-w-sm`}><Lock className="w-8 h-8 mx-auto mb-3 text-gray-400" /><h2 className="text-lg font-semibold">Sin acceso</h2></div>
     </div>
   );

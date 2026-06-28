@@ -3,10 +3,10 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { X, Plus, Trash2, BarChart3, BarChart2, LineChart, AreaChart, PieChart, CircleDashed } from 'lucide-react';
+import { X, Plus, Trash2, BarChart3, BarChart2, LineChart, AreaChart, PieChart, CircleDashed, ChartNoAxesCombined, CandlestickChart, Gauge, ScatterChart, Radar } from 'lucide-react';
 import { CHART_TYPES, CHART_PALETTES, buildChartGroup, type ChartSpec, type ChartType } from './slides/chart';
 
-const TYPE_ICON: Record<ChartType, any> = { bar: BarChart3, hbar: BarChart2, line: LineChart, area: AreaChart, pie: PieChart, doughnut: CircleDashed };
+const TYPE_ICON: Record<ChartType, any> = { bar: BarChart3, hbar: BarChart2, line: LineChart, area: AreaChart, pie: PieChart, doughnut: CircleDashed, scatter: ScatterChart, bubble: CircleDashed, radar: Radar, pareto: ChartNoAxesCombined, waterfall: CandlestickChart, gauge: Gauge };
 
 /** Editor de gráfico: tipo + título + tabla de datos editable con vista previa. */
 export function SlideChartEditor({ spec: initial, onApply, onClose }: {
@@ -49,9 +49,9 @@ export function SlideChartEditor({ spec: initial, onApply, onClose }: {
   function addCol() { setSpec((s) => ({ ...s, series: [...s.series, { name: `Serie ${s.series.length + 1}`, data: s.labels.map(() => 0) }] })); }
   function removeCol() { setSpec((s) => (s.series.length <= 1 ? s : { ...s, series: s.series.slice(0, -1) })); }
 
-  const cell = 'w-full h-8 px-2 text-sm rounded-md bg-black/[0.03] dark:bg-white/[0.05] border border-transparent focus:border-blue-500/50 outline-none text-gray-800 dark:text-gray-100';
+  const cell = 'w-full h-8 px-2 text-sm rounded-md bg-black/[0.03] dark:bg-white/[0.05] border border-transparent focus:border-blue-500/50 outline-none text-foreground';
 
-  const pieNote = useMemo(() => spec.type === 'pie' && spec.series.length > 1, [spec.type, spec.series.length]);
+  const pieNote = useMemo(() => (spec.type === 'pie' || spec.type === 'doughnut' || spec.type === 'pareto' || spec.type === 'waterfall' || spec.type === 'gauge') && spec.series.length > 1, [spec.type, spec.series.length]);
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -98,7 +98,7 @@ export function SlideChartEditor({ spec: initial, onApply, onClose }: {
           <div className="rounded-xl bg-gray-50 dark:bg-black/30 border border-black/5 dark:border-white/10 flex items-center justify-center p-2" style={{ minHeight: 170 }}>
             {preview ? <img src={preview} alt="Vista previa" className="max-h-[210px] w-auto" /> : <span className="text-sm text-gray-400">Generando vista previa…</span>}
           </div>
-          {pieNote && <p className="text-xs text-amber-600 dark:text-amber-400">El pastel usa sólo la primera serie de datos.</p>}
+          {pieNote && <p className="text-xs text-amber-600 dark:text-amber-400">Este tipo usa sólo la primera serie de datos.</p>}
 
           {/* Tabla de datos */}
           <div className="overflow-x-auto">

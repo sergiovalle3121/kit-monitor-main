@@ -61,7 +61,7 @@ export default function TrafficPage() {
 
   if (carriersApi.forbidden) {
     return (
-      <div className="min-h-screen grid place-items-center text-black dark:text-white">
+      <div className="min-h-screen grid place-items-center text-foreground">
         <div className={`${glass} rounded-3xl p-10 text-center max-w-sm`}>
           <Lock className="w-8 h-8 mx-auto mb-3 text-gray-400" />
           <h2 className="text-lg font-semibold">Sin acceso</h2>
@@ -74,7 +74,7 @@ export default function TrafficPage() {
   const firstLoad = carriersApi.isLoading && carriersApi.data === undefined;
 
   return (
-    <div className="min-h-screen text-black dark:text-white">
+    <div className="min-h-screen text-foreground">
       {/* Header + tabs (sticky) */}
       <div className={`${glass} sticky top-0 z-40 px-6 pt-4`}>
         <div className="max-w-6xl mx-auto">
@@ -102,7 +102,7 @@ export default function TrafficPage() {
         </div>
       </div>
 
-      <main className="max-w-6xl mx-auto px-6 pt-6 pb-28">
+      <main className="max-w-7xl mx-auto px-6 pt-6 pb-28">
         {firstLoad ? (
           <div className="flex justify-center py-24"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div>
         ) : tab === "board" ? (

@@ -126,7 +126,7 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
                   <AlertTriangle className="w-5 h-5" />
                 </div>
                 <div className="min-w-0 flex-1 pt-0.5">
-                  <h2 id={titleId} className="text-base font-semibold leading-tight text-black dark:text-white">
+                  <h2 id={titleId} className="text-base font-semibold leading-tight text-foreground">
                     {opts.title ?? '¿Confirmar acción?'}
                   </h2>
                   <p id={descId} className="text-sm text-gray-600 dark:text-gray-300 leading-snug mt-1">
@@ -136,7 +136,7 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
                 <button
                   onClick={() => settle(false)}
                   aria-label="Cerrar"
-                  className="flex-shrink-0 text-gray-400 hover:text-black dark:hover:text-white p-0.5 -mr-1 -mt-1"
+                  className="flex-shrink-0 text-gray-400 hover:text-foreground p-0.5 -mr-1 -mt-1"
                 >
                   <X className="w-4 h-4" />
                 </button>

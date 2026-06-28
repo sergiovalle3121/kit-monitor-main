@@ -340,8 +340,8 @@ export default function InventoryPage() {
     tab === "replenishment" ? rules.length > 0 : false;
 
   return (
-    <div className="min-h-screen text-black dark:text-white font-sans pb-32">
-      <main className="max-w-4xl mx-auto px-6 pt-10">
+    <div className="min-h-screen text-foreground font-sans pb-32">
+      <main className="max-w-7xl mx-auto px-6 pt-10">
         <PageHeader domain="inventory" title="Inventario" subtitle="Existencias por ubicación, escasez vs demanda y trazabilidad" />
 
         {/* Pestañas */}
@@ -698,7 +698,7 @@ function TabBtn({ active, onClick, icon, children }: { active: boolean; onClick:
     <button
       onClick={onClick}
       className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-sm font-medium transition-colors ${
-        active ? "bg-white text-black shadow-sm dark:bg-white/15 dark:text-white" : "text-gray-500 hover:text-black dark:hover:text-white"
+        active ? "bg-white text-black shadow-sm dark:bg-white/15 dark:text-white" : "text-gray-500 hover:text-foreground"
       }`}
     >
       {icon}

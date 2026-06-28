@@ -52,7 +52,7 @@ export function DepartmentWorkspace({
   const Icon = icon;
 
   return (
-    <div className="min-h-screen text-black dark:text-white font-sans pb-32">
+    <div className="min-h-screen text-foreground font-sans pb-32">
       <main className="max-w-5xl mx-auto px-6 pt-10">
         <header className="flex items-center gap-3 mb-8">
           <div className={`p-3 rounded-2xl ${iconTint}`}><Icon className={`w-7 h-7 ${iconClass}`} strokeWidth={1.5} /></div>

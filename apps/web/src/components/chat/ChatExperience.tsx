@@ -249,6 +249,27 @@ export interface ChatExperienceProps {
   onClose?: () => void;
 }
 
+
+function readStoredAutocorrect(): boolean {
+  if (typeof window === 'undefined') return true;
+  try {
+    const v = window.localStorage.getItem('axos_chat_autocorrect');
+    return v === null ? true : v === '1';
+  } catch {
+    return true;
+  }
+}
+
+function readStoredPresence(): PresenceStatus {
+  if (typeof window === 'undefined') return 'available';
+  try {
+    const v = window.localStorage.getItem(STATUS_KEY);
+    return v === 'busy' || v === 'away' || v === 'available' ? v : 'available';
+  } catch {
+    return 'available';
+  }
+}
+
 export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProps) {
   const single = variant === 'dock';
   const { user } = useAuth();
@@ -281,7 +302,7 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
   const [convoSearch, setConvoSearch] = useState('');
   const [searchIdx, setSearchIdx] = useState(0);
   // Autocorrector del composer (persistido).
-  const [autocorrect, setAutocorrect] = useState(true);
+  const [autocorrect, setAutocorrect] = useState(readStoredAutocorrect);
   // Acciones de hilo: responder, editar, reenviar, fijados.
   const [replyingTo, setReplyingTo] = useState<ChatMessage | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -290,7 +311,7 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
   const [showPinned, setShowPinned] = useState(false);
   // Presencia con estado (disponible/ocupado/ausente) por usuario.
   const [statuses, setStatuses] = useState<Map<string, PresenceStatus>>(new Map());
-  const [myStatus, setMyStatus] = useState<PresenceStatus>('available');
+  const [myStatus, setMyStatus] = useState<PresenceStatus>(readStoredPresence);
   const [showStatusMenu, setShowStatusMenu] = useState(false);
   // Búsqueda global de mensajes.
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
@@ -352,6 +373,7 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
   const lastTypingEmitRef = useRef(0);
   const draftRef = useRef('');
   const editingRef = useRef<string | null>(null);
+  const openConversationRef = useRef<(id: string) => void>(() => {});
   const threadRootRef = useRef<string | null>(null);
   useEffect(() => {
     threadRootRef.current = threadRoot?.id ?? null;
@@ -384,15 +406,6 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
     [],
   );
 
-  // Hidrata la preferencia de autocorrector.
-  useEffect(() => {
-    try {
-      const v = window.localStorage.getItem('axos_chat_autocorrect');
-      if (v !== null) setAutocorrect(v === '1');
-    } catch {
-      /* almacenamiento no disponible */
-    }
-  }, []);
   const changeAutocorrect = useCallback((b: boolean) => {
     setAutocorrect(b);
     try {
@@ -407,14 +420,6 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
   useEffect(() => {
     myStatusRef.current = myStatus;
   }, [myStatus]);
-  useEffect(() => {
-    try {
-      const v = window.localStorage.getItem(STATUS_KEY);
-      if (v === 'busy' || v === 'away' || v === 'available') setMyStatus(v);
-    } catch {
-      /* ignore */
-    }
-  }, []);
   function changeMyStatus(s: PresenceStatus) {
     setMyStatus(s);
     setShowStatusMenu(false);
@@ -503,6 +508,32 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
   }, []);
 
   // Carga inicial
+  // ── notificaciones de escritorio ───────────────────────────────────────────
+  function requestNotifyPermission() {
+    if (typeof window === 'undefined' || !('Notification' in window)) return;
+    if (Notification.permission === 'default') {
+      Notification.requestPermission().catch(() => {});
+    }
+  }
+  const notifyDesktop = useCallback((msg: ChatMessage) => {
+    if (typeof window === 'undefined' || !('Notification' in window)) return;
+    if (Notification.permission !== 'granted') return;
+    const name = senderName(msg.senderId, usersRef.current);
+    try {
+      const n = new Notification(name, {
+        body: replySnippet(msg),
+        tag: msg.conversationId,
+      });
+      n.onclick = () => {
+        window.focus();
+        openConversationRef.current(msg.conversationId);
+        n.close();
+      };
+    } catch {
+      /* el navegador puede bloquear notificaciones: ignorar */
+    }
+  }, []);
+
   useEffect(() => {
     if (!meId) return;
     let alive = true;
@@ -529,7 +560,7 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
   useEffect(() => {
     const q = search.trim();
     if (q.length < 2) {
-      setSearchResults([]);
+      queueMicrotask(() => setSearchResults([]));
       return;
     }
     let alive = true;
@@ -720,7 +751,7 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
       socketRef.current = null;
       setSocket(null);
     };
-  }, [meId, refreshConversations]);
+  }, [meId, refreshConversations, notifyDesktop]);
 
   // Cargar mensajes al cambiar de conversación + marcar leído + cargar lecturas
   useEffect(() => {
@@ -1143,7 +1174,7 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
     const until =
       hours === null
         ? null
-        : new Date(Date.now() + hours * 3600000).toISOString();
+        : new Date(new Date().getTime() + hours * 3600000).toISOString();
     try {
       // hours=0 → desactivar; null nunca llega aquí salvo "siempre" (100 años).
       await chatApi.setMuted(c.id, hours === 0 ? null : until);
@@ -1311,31 +1342,7 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
     }
   }
 
-  // ── notificaciones de escritorio ───────────────────────────────────────────
-  function requestNotifyPermission() {
-    if (typeof window === 'undefined' || !('Notification' in window)) return;
-    if (Notification.permission === 'default') {
-      Notification.requestPermission().catch(() => {});
-    }
-  }
-  function notifyDesktop(msg: ChatMessage) {
-    if (typeof window === 'undefined' || !('Notification' in window)) return;
-    if (Notification.permission !== 'granted') return;
-    const name = senderName(msg.senderId, usersRef.current);
-    try {
-      const n = new Notification(name, {
-        body: replySnippet(msg),
-        tag: msg.conversationId,
-      });
-      n.onclick = () => {
-        window.focus();
-        openConversation(msg.conversationId);
-        n.close();
-      };
-    } catch {
-      /* el navegador puede bloquear notificaciones: ignorar */
-    }
-  }
+
 
   // Reintenta un mensaje que falló (quita la burbuja fallida y reenvía).
   function retrySend(m: UiMessage) {
@@ -1399,6 +1406,10 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
       return next;
     });
   }
+
+  useEffect(() => {
+    openConversationRef.current = openConversation;
+  });
 
   async function startDm(userId: string) {
     const convo = await chatApi.openDm(userId);
@@ -2419,8 +2430,8 @@ export function ChatExperience({ variant = 'page', onClose }: ChatExperienceProp
     <div
       className={
         single
-          ? 'flex h-full min-h-0 w-full text-black dark:text-white font-sans'
-          : 'min-h-screen text-black dark:text-white font-sans'
+          ? 'flex h-full min-h-0 w-full text-foreground font-sans'
+          : 'min-h-screen text-foreground font-sans'
       }
     >
       {single ? (
@@ -4043,12 +4054,17 @@ function ScheduleModal({
 }) {
   const [text, setText] = useState(initialText);
   const [when, setWhen] = useState(() =>
-    localDatetimeValue(new Date(Date.now() + 3600000)),
+    localDatetimeValue(new Date(new Date().getTime() + 3600000)),
   );
+  const [now, setNow] = useState(() => new Date().getTime());
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date().getTime()), 10000);
+    return () => clearInterval(id);
+  }, []);
   const valid =
     text.trim().length > 0 &&
     !!when &&
-    new Date(when).getTime() > Date.now() + 10000;
+    new Date(when).getTime() > now + 10000;
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 p-4">
       <div className={`${glass} w-full max-w-md rounded-[24px] p-6`}>
@@ -4519,7 +4535,7 @@ function ThreadMessageRow({
           </span>
           <span className="text-[10px] text-gray-400">{timeOf(m.createdAt)}</span>
         </div>
-        <div className="break-words text-sm leading-relaxed text-gray-800 dark:text-gray-100">
+        <div className="break-words text-sm leading-relaxed text-foreground">
           {m.deletedAt ? (
             <span className="italic text-gray-400">Mensaje eliminado</span>
           ) : gifUrl ? (
@@ -4778,8 +4794,10 @@ function LinkPreviewCard({
 
   useEffect(() => {
     if (linkPreviewCache.has(url)) {
-      setData(linkPreviewCache.get(url) ?? null);
-      setDone(true);
+      queueMicrotask(() => {
+        setData(linkPreviewCache.get(url) ?? null);
+        setDone(true);
+      });
       return;
     }
     let alive = true;
@@ -4878,7 +4896,7 @@ function GalleryModal({
 
   useEffect(() => {
     let alive = true;
-    setLoading(true);
+    queueMicrotask(() => { if (alive) setLoading(true); });
     chatApi
       .listMedia(conversationId, tab)
       .then((r) => {
@@ -5106,8 +5124,13 @@ function MeetingModal({
 }) {
   const [title, setTitle] = useState('');
   const [when, setWhen] = useState(() =>
-    localDatetimeValue(new Date(Date.now() + 3600000)),
+    localDatetimeValue(new Date(new Date().getTime() + 3600000)),
   );
+  const [now, setNow] = useState(() => new Date().getTime());
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date().getTime()), 10000);
+    return () => clearInterval(id);
+  }, []);
   const [duration, setDuration] = useState(30);
   const [recurrence, setRecurrence] = useState<'none' | 'daily' | 'weekly'>(
     'none',
@@ -5115,7 +5138,7 @@ function MeetingModal({
   const valid =
     title.trim().length > 0 &&
     !!when &&
-    new Date(when).getTime() > Date.now() - 60000;
+    new Date(when).getTime() > now - 60000;
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 p-4">
       <div className={`${glass} flex max-h-[85vh] w-full max-w-md flex-col rounded-[24px] p-6`}>

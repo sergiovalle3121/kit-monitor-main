@@ -10,6 +10,7 @@
  * La LECTURA sigue en SheetJS (`xlsx.ts`); este módulo sólo sustituye los BYTES de salida del .xlsx.
  * Función pura: recibe el módulo `ExcelJS` ya cargado, así se puede probar sin navegador.
  */
+import { parseRange } from './charts';
 import type { NamedRange } from './sheetOps';
 import { cellValue, namesToDefined } from './xlsx';
 
@@ -33,6 +34,10 @@ type FortuneSheet = {
   config?: any; frozen?: any; order?: number; dataVerification?: Record<string, any>;
   filter_select?: { row?: number[]; column?: number[] } | null;
   protection?: SheetProtection | null;
+  axosProtection?: {
+    sheetLocked?: boolean;
+    ranges?: { range?: string; locked?: boolean }[];
+  } | null;
 };
 
 /** `#rrggbb` (o `rrggbb`) → `FFRRGGBB` (ARGB de ExcelJS). `null` si no es color válido. */
@@ -101,12 +106,68 @@ export function dataValidationFor(dv: any): any {
     return { ...base, type: 'list', formulae: [isRange ? v1 : `"${v1.replace(/"/g, '')}"`] };
   }
   if (dv.type === 'checkbox') return { ...base, type: 'list', formulae: ['"VERDADERO,FALSO"'] };
+  if (dv.type === 'custom_formula') {
+    const formula = String(dv.value1 ?? '').trim().replace(/^=/, '');
+    return formula ? { ...base, type: 'custom', formulae: [formula] } : null;
+  }
   const type = DV_TYPE[dv.type];
   if (!type) return null; // text_content y otros sin equivalente directo → se omiten
   const op = DV_OP[dv.type2] ?? 'between';
   const two = op === 'between' || op === 'notBetween';
   const formulae = two ? [String(dv.value1 ?? ''), String(dv.value2 ?? '')] : [String(dv.value1 ?? '')];
   return { ...base, type, operator: op, formulae };
+}
+
+
+/** AXOS range/sheet protection → safe ExcelJS sheet-protect defaults. */
+export function axosProtectOptionsFor(axos?: FortuneSheet['axosProtection']): { password: string; options: any } | null {
+  const ranges = Array.isArray(axos?.ranges) ? axos.ranges : [];
+  const hasLockedRange = ranges.some((range) => range?.locked !== false && !!parseRange(String(range?.range ?? '')));
+  if (!axos?.sheetLocked && !hasLockedRange) return null;
+  return {
+    password: '',
+    options: {
+      selectLockedCells: true,
+      selectUnlockedCells: true,
+      formatCells: false,
+      formatColumns: false,
+      formatRows: false,
+      insertRows: false,
+      insertColumns: false,
+      deleteRows: false,
+      deleteColumns: false,
+      sort: false,
+      autoFilter: false,
+    },
+  };
+}
+
+function axosLockedRanges(sheet: FortuneSheet) {
+  return (Array.isArray(sheet.axosProtection?.ranges) ? sheet.axosProtection.ranges : [])
+    .filter((range) => range?.locked !== false)
+    .map((range) => parseRange(String(range?.range ?? '')))
+    .filter((range): range is NonNullable<ReturnType<typeof parseRange>> => !!range);
+}
+
+function applyAxosCellProtection(ws: any, sheet: FortuneSheet, maxR: number, maxC: number): void {
+  const ranges = axosLockedRanges(sheet);
+  if (!sheet.axosProtection?.sheetLocked && !ranges.length) return;
+  let lastR = maxR;
+  let lastC = maxC;
+  for (const range of ranges) {
+    lastR = Math.max(lastR, range.r2);
+    lastC = Math.max(lastC, range.c2);
+  }
+  if (!sheet.axosProtection?.sheetLocked) {
+    for (let r = 0; r <= lastR; r++) {
+      for (let c = 0; c <= lastC; c++) ws.getCell(r + 1, c + 1).protection = { locked: false };
+    }
+  }
+  for (const range of ranges) {
+    for (let r = range.r1; r <= range.r2; r++) {
+      for (let c = range.c1; c <= range.c2; c++) ws.getCell(r + 1, c + 1).protection = { locked: true };
+    }
+  }
 }
 
 /** Rellena una worksheet de ExcelJS a partir de una hoja Fortune (valores + estilos + layout). */
@@ -117,8 +178,13 @@ export function fillWorksheet(ws: any, sheet: FortuneSheet): void {
     const cell = ws.getCell(cd.r + 1, cd.c + 1);
     const f = o && typeof o === 'object' && o.f ? String(o.f).replace(/^=/, '') : undefined;
     const raw = cellValue(o);
+    const link = o && typeof o === 'object' ? (o.hl ?? o.hyperlink ?? o.link) : undefined;
+    const tip = o && typeof o === 'object' ? (o.hlTooltip ?? o.tooltip) : undefined;
     if (f) cell.value = raw != null && raw !== '' ? { formula: f, result: raw } : { formula: f };
+    else if (typeof link === 'string' && link) cell.value = { text: raw == null || raw === '' ? link : String(raw), hyperlink: link, ...(tip ? { tooltip: String(tip) } : {}) };
     else if (raw != null && raw !== '') cell.value = raw;
+    const note = o && typeof o === 'object' ? (o.comment ?? o.noteText) : undefined;
+    if (typeof note === 'string' && note) cell.note = note;
     const fa = o && typeof o === 'object' ? o.ct?.fa : undefined;
     if (fa && fa !== 'General') cell.numFmt = fa;
     const st = cellStyle(o);
@@ -171,6 +237,7 @@ export function fillWorksheet(ws: any, sheet: FortuneSheet): void {
       try { ws.getCell(Number(m[1]) + 1, Number(m[2]) + 1).dataValidation = dv; } catch { /* ignora */ }
     }
   }
+  applyAxosCellProtection(ws, sheet, maxR, maxC);
 }
 
 /** Construye el libro ExcelJS completo (varias hojas + nombres definidos). */
@@ -214,7 +281,7 @@ export async function styledXlsxBuffer(ExcelJS: any, sheets: FortuneSheet[], nam
   // el mismo orden que `list` dentro de buildStyledWorkbook.
   const list = sheets?.length ? sheets : [];
   for (let i = 0; i < list.length; i++) {
-    const po = protectOptionsFor(list[i].protection);
+    const po = protectOptionsFor(list[i].protection) ?? axosProtectOptionsFor(list[i].axosProtection);
     if (po && wb.worksheets[i]) { try { await wb.worksheets[i].protect(po.password, po.options); } catch { /* ignora */ } }
   }
   return wb.xlsx.writeBuffer();
@@ -290,12 +357,16 @@ export async function readStylesIntoSheets(ExcelJS: any, buffer: ArrayBuffer, sh
         const r = rowNumber - 1, c = colNumber - 1;
         const st = fortuneStyleFromCell(cell);
         const nf = typeof cell.numFmt === 'string' && cell.numFmt !== 'General' ? cell.numFmt : undefined;
-        if (!Object.keys(st).length && !nf) return;
+        const hl = typeof cell.hyperlink === 'string' ? cell.hyperlink : (cell.value && typeof cell.value === 'object' && typeof cell.value.hyperlink === 'string' ? cell.value.hyperlink : undefined);
+        const note = typeof cell.note === 'string' ? cell.note : (Array.isArray(cell.note?.texts) ? cell.note.texts.map((x: any) => x.text).join('') : undefined);
+        if (!Object.keys(st).length && !nf && !hl && !note) return;
         let cd = index.get(`${r}_${c}`);
         if (!cd) { cd = { r, c, v: { v: '', m: '', ct: { fa: 'General', t: 's' } } }; sheet.celldata!.push(cd); index.set(`${r}_${c}`, cd); }
         if (!cd.v || typeof cd.v !== 'object') cd.v = { v: cd.v ?? '', m: cd.v == null ? '' : String(cd.v), ct: { fa: 'General', t: 's' } };
         Object.assign(cd.v, st);
         if (nf) cd.v.ct = { ...(cd.v.ct || {}), fa: nf };
+        if (hl) cd.v.hl = hl;
+        if (note) cd.v.comment = note;
       });
     });
   });

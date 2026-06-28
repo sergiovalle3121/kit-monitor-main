@@ -37,14 +37,15 @@ function StatusPill({ status, savedAt }: { status: SaveStatus; savedAt?: number 
 }
 
 function useRelativeTime(ts?: number | null) {
-  const [, force] = useState(0);
+  const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     if (!ts) return;
-    const t = setInterval(() => force((n) => n + 1), 15000);
+    queueMicrotask(() => setNow(Date.now()));
+    const t = setInterval(() => setNow(Date.now()), 15000);
     return () => clearInterval(t);
   }, [ts]);
   if (!ts) return '';
-  const s = Math.round((Date.now() - ts) / 1000);
+  const s = Math.round((now - ts) / 1000);
   if (s < 8) return 'ahora';
   if (s < 60) return `hace ${s}s`;
   const m = Math.round(s / 60);
@@ -101,13 +102,13 @@ export function OfficeShell({
       // z por encima de los botones flotantes globales (chat z-100, IA z-101) para que
       // el editor a pantalla completa no quede tapado por ellos; sigue por debajo de
       // toasts (z-120) y la paleta de búsqueda (z-200), que sí deben verse encima.
-      className="fixed inset-0 z-[110] flex flex-col bg-white dark:bg-[#0b0b0b] text-black dark:text-white font-sans"
+      className="fixed inset-0 z-[110] flex flex-col bg-white dark:bg-[#0b0b0b] text-foreground font-sans"
     >
       {/* ── Top app bar ───────────────────────────────────────────────── */}
       <header className="flex items-center gap-2 px-3 h-12 flex-shrink-0 border-b border-black/5 dark:border-white/10 bg-white/80 dark:bg-[#111]/80 backdrop-blur">
         <button
           onClick={() => (onBack ? onBack() : router.push('/dashboard/office'))}
-          className="flex items-center gap-1 text-sm font-medium text-gray-500 hover:text-black dark:hover:text-white transition-colors flex-shrink-0 pr-1"
+          className="flex items-center gap-1 text-sm font-medium text-gray-500 hover:text-foreground transition-colors flex-shrink-0 pr-1"
           title="Volver a Office"
         >
           <ChevronLeft className="w-4 h-4" />

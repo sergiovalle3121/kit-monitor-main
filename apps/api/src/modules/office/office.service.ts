@@ -4,6 +4,7 @@ import { Brackets, Repository } from 'typeorm';
 import { createHash } from 'crypto';
 import { OfficeDocument, OfficeDocumentLifecycleState, OfficeDocType, OfficeShare } from './entities/office-document.entity';
 import { OfficeDocumentVersion } from './entities/office-document-version.entity';
+import { OfficeComment, OfficeCommentAnchorType } from './entities/office-comment.entity';
 import { OfficeDocumentComment, OfficeCommentReply } from './entities/office-document-comment.entity';
 import { OfficeDocumentSearchIndex, OfficeDocumentSearchRef } from './entities/office-document-search-index.entity';
 import { OfficeDocumentDistribution, OfficeDistributionAction, OfficeDistributionFormat } from './entities/office-document-distribution.entity';
@@ -45,6 +46,7 @@ interface ListFilters {
   favorite?: string;
   pinned?: string;
 }
+interface CommentDto { parentId?: string | null; anchorType?: OfficeCommentAnchorType; slideIndex?: number | null; objectId?: string | null; rangeRef?: string | null; anchorLabel?: string | null; text: string; assignedTo?: string | null }
 
 /**
  * Documents are scoped to their owner. A user only ever sees the documents
@@ -63,6 +65,7 @@ export class OfficeService {
     @InjectRepository(OfficeDocumentTrainingAssignment) private readonly trainingRepo: Repository<OfficeDocumentTrainingAssignment>,
     @InjectRepository(OfficeDocumentReviewTask) private readonly reviewTaskRepo: Repository<OfficeDocumentReviewTask>,
     private readonly audit: AuditService,
+    @InjectRepository(OfficeComment) private readonly slideCommentRepo: Repository<OfficeComment>,
   ) {}
 
   // ── Authorization helpers ─────────────────────────────────────────────────
@@ -157,7 +160,6 @@ export class OfficeService {
     qb.orderBy('d.updatedAt', 'DESC');
     return qb.getMany();
   }
-
 
   async impactAnalysis(user: AuthenticatedUser, entity?: string, refId?: string) {
     const cleanEntity = String(entity ?? '').trim().toLowerCase();
@@ -402,6 +404,7 @@ export class OfficeService {
     this.assertWriter(user);
     if (!this.isOwner(doc, user)) throw new ForbiddenException('Solo el dueño puede eliminar.');
     await this.commentRepo.delete({ documentId: id });
+    await this.slideCommentRepo.delete({ documentId: id });
     await this.distributionRepo.delete({ documentId: id });
     await this.signatureRepo.delete({ documentId: id });
     await this.trainingRepo.delete({ documentId: id });
@@ -448,7 +451,6 @@ export class OfficeService {
     });
     return saved;
   }
-
 
   async workQueue(user: AuthenticatedUser) {
     const email = (this.email(user) ?? '').toLowerCase();
@@ -522,7 +524,6 @@ export class OfficeService {
       },
     };
   }
-
 
   async releaseReadiness(id: string, user: AuthenticatedUser) {
     const doc = await this.get(id, user);
@@ -636,7 +637,7 @@ export class OfficeService {
     };
   }
 
-  // ── Persistent document comments ───────────────────────────────────────────
+  // ── Persistent document comments (Docs: office_document_comments) ───────────
   async listComments(id: string, user: AuthenticatedUser, query: ListOfficeCommentsQueryDto = {}) {
     await this.get(id, user);
     const qb = this.commentRepo.createQueryBuilder('c').where('c.documentId = :id', { id });
@@ -835,7 +836,66 @@ export class OfficeService {
     return { documentId: id, events };
   }
 
+  // ── Slide/object comments (Slides: office_comments, generic anchors) ─────────
+  async listSlideComments(id: string, user: AuthenticatedUser, includeResolved = true) {
+    const doc = await this.get(id, user);
+    const qb = this.slideCommentRepo.createQueryBuilder('c')
+      .where('c.documentId = :id', { id: doc.id })
+      .orderBy('c.createdAt', 'ASC');
+    if (doc.tenantId) qb.andWhere('c.tenantId = :tenantId', { tenantId: doc.tenantId });
+    else qb.andWhere('c.tenantId IS NULL');
+    if (!includeResolved) qb.andWhere('c.resolved = false');
+    return qb.getMany();
+  }
 
+  async addSlideComment(id: string, dto: CommentDto, user: AuthenticatedUser) {
+    const doc = await this.get(id, user);
+    if (!this.canEdit(doc, user)) throw new ForbiddenException('No puedes comentar este documento.');
+    const text = String(dto.text ?? '').trim();
+    if (!text) throw new BadRequestException('El comentario no puede estar vacío.');
+    if (dto.parentId) {
+      const parent = await this.slideCommentRepo.findOne({ where: { id: dto.parentId, documentId: doc.id } });
+      if (!parent) throw new BadRequestException('Thread de comentario inválido.');
+    }
+    return this.slideCommentRepo.save(this.slideCommentRepo.create({
+      documentId: doc.id,
+      parentId: dto.parentId || null,
+      tenantId: doc.tenantId ?? user?.tenant_id ?? null,
+      authorEmail: this.email(user),
+      assignedTo: dto.assignedTo?.trim().toLowerCase() || null,
+      anchorType: dto.anchorType || 'document',
+      slideIndex: typeof dto.slideIndex === 'number' ? dto.slideIndex : null,
+      objectId: dto.objectId?.trim() || null,
+      rangeRef: dto.rangeRef?.trim() || null,
+      anchorLabel: dto.anchorLabel?.trim() || null,
+      text,
+      resolved: false,
+      resolvedBy: null,
+      resolvedAt: null,
+    }));
+  }
+
+  async resolveSlideComment(id: string, commentId: string, resolved: boolean, user: AuthenticatedUser) {
+    const doc = await this.get(id, user);
+    if (!this.canEdit(doc, user)) throw new ForbiddenException('No puedes resolver comentarios en este documento.');
+    const c = await this.slideCommentRepo.findOne({ where: { id: commentId, documentId: doc.id } });
+    if (!c) throw new NotFoundException('Comentario no encontrado.');
+    c.resolved = !!resolved;
+    c.resolvedBy = c.resolved ? this.email(user) : null;
+    c.resolvedAt = c.resolved ? new Date() : null;
+    return this.slideCommentRepo.save(c);
+  }
+
+  async removeSlideComment(id: string, commentId: string, user: AuthenticatedUser) {
+    const doc = await this.get(id, user);
+    if (!this.canEdit(doc, user)) throw new ForbiddenException('No puedes eliminar comentarios en este documento.');
+    const c = await this.slideCommentRepo.findOne({ where: { id: commentId, documentId: doc.id } });
+    if (!c) throw new NotFoundException('Comentario no encontrado.');
+    await this.slideCommentRepo.delete({ id: commentId, documentId: doc.id });
+    return { deleted: true, id: commentId };
+  }
+
+  // ── Controlled-copy distribution ledger ─────────────────────────────────────
   async listDistributions(id: string, user: AuthenticatedUser) {
     await this.get(id, user);
     return this.distributionRepo.find({
@@ -933,7 +993,7 @@ export class OfficeService {
     return saved;
   }
 
-
+  // ── Electronic signatures ───────────────────────────────────────────────────
   async listSignatures(id: string, user: AuthenticatedUser) {
     await this.get(id, user);
     return this.signatureRepo.find({ where: { documentId: id }, order: { signedAt: 'DESC' }, take: 100 });
@@ -1028,8 +1088,7 @@ export class OfficeService {
     return saved;
   }
 
-
-
+  // ── Review tasks / routes ───────────────────────────────────────────────────
   async listReviewTasks(id: string, user: AuthenticatedUser) {
     await this.get(id, user);
     return this.reviewTaskRepo.find({ where: { documentId: id }, order: { status: 'ASC', dueAt: 'ASC', updatedAt: 'DESC' }, take: 250 });
@@ -1090,6 +1149,7 @@ export class OfficeService {
     return saved;
   }
 
+  // ── Training / read-and-understood assignments ──────────────────────────────
   async listTrainingAssignments(id: string, user: AuthenticatedUser) {
     await this.get(id, user);
     return this.trainingRepo.find({ where: { documentId: id }, order: { status: 'ASC', dueAt: 'ASC', updatedAt: 'DESC' }, take: 250 });
@@ -1235,8 +1295,7 @@ export class OfficeService {
     if (excess.length) await this.versionRepo.delete(excess.map((v) => v.id));
   }
 
-
-
+  // ── Search index ────────────────────────────────────────────────────────────
   async rebuildSearchIndex(user: AuthenticatedUser) {
     this.assertWriter(user);
     const qb = this.repo.createQueryBuilder('d');
@@ -1311,9 +1370,7 @@ export class OfficeService {
     return { text: words.join(' '), refs: [...refs.values()].slice(0, 250), fields };
   }
 
-
-
-
+  // ── Private helpers ─────────────────────────────────────────────────────────
   private normalizeSignatureMeaning(meaning?: string): OfficeSignatureMeaning {
     const allowed: OfficeSignatureMeaning[] = ['reviewed', 'approved', 'released', 'acknowledged', 'training_ack'];
     return allowed.includes(meaning as OfficeSignatureMeaning) ? meaning as OfficeSignatureMeaning : 'reviewed';

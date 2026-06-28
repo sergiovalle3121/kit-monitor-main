@@ -1,5 +1,6 @@
 import { Column, Entity, Index, PrimaryGeneratedColumn } from 'typeorm';
 import { TenantBaseEntity } from '../../../common/entities/tenant-base.entity';
+import { DATE_COLUMN_TYPE } from '../../../common/database/date-column-type';
 import type { NpiPhase, NpiProjectStatus } from '../npi-state';
 
 /**
@@ -27,6 +28,22 @@ export class NpiProject extends TenantBaseEntity {
   @Column({ type: 'varchar', length: 40, name: 'model_number' })
   modelNumber: string;
 
+  /**
+   * Resolved id of the canonical ProductModel (`pm_product_models.id`) for this
+   * `modelNumber`, when one exists in scope. A soft link (plain varchar, NO FK
+   * constraint) so it never couples to nor mutates product-models: it is
+   * resolved best-effort at create and backfilled lazily on read. Null when no
+   * master record exists yet for the number.
+   */
+  @Index()
+  @Column({
+    type: 'varchar',
+    length: 36,
+    nullable: true,
+    name: 'product_model_id',
+  })
+  productModelId: string | null;
+
   @Column({ type: 'varchar', length: 20, default: '1.0' })
   revision: string;
 
@@ -51,4 +68,20 @@ export class NpiProject extends TenantBaseEntity {
 
   @Column({ type: 'varchar', length: 500, nullable: true })
   notes: string | null;
+
+  // ── Release to MP (explicit, audited) — additive & nullable ──────────────────
+  @Column({ type: DATE_COLUMN_TYPE, nullable: true, name: 'released_at' })
+  releasedAt: Date | null;
+
+  @Column({ type: 'varchar', length: 200, nullable: true, name: 'released_by' })
+  releasedBy: string | null;
+
+  /** Release note / deviation reason (when released with open blockers). */
+  @Column({
+    type: 'varchar',
+    length: 500,
+    nullable: true,
+    name: 'release_note',
+  })
+  releaseNote: string | null;
 }

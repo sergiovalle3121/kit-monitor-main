@@ -41,9 +41,9 @@ export default function OrganizationPage() {
   const flash = (m: string) => { setErr(m); setTimeout(() => setErr(null), 3500); };
 
   return (
-    <div className="min-h-screen text-black dark:text-white font-sans pb-32">
+    <div className="min-h-screen text-foreground font-sans pb-32">
       <div className={`${glass} sticky top-0 z-40 px-6 py-4 rounded-none border-x-0 border-t-0 flex items-center justify-between`}>
-        <Link href="/dashboard" className="flex items-center gap-2 text-sm font-medium text-gray-500 hover:text-black dark:hover:text-white transition-colors">
+        <Link href="/dashboard" className="flex items-center gap-2 text-sm font-medium text-gray-500 hover:text-foreground transition-colors">
           <ChevronLeft className="w-4 h-4" /> Dashboard
         </Link>
         <span className="text-sm font-semibold">Organización</span>

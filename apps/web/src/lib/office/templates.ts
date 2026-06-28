@@ -14,6 +14,9 @@
 
 export type DocType = 'doc' | 'sheet' | 'slides';
 
+import type { ChartConfig } from './charts';
+import { buildPivot, pivotToCelldata, type PivotConfig } from './sheetOps';
+
 export interface TemplateDef {
   id: string;
   title: string;
@@ -877,6 +880,24 @@ function buildBook(specs: SheetSpec[]): any[] {
   });
 }
 
+function bookWithCharts(sheets: any[], charts: ChartConfig[]): { sheets: any[]; charts: ChartConfig[] } {
+  return { sheets, charts };
+}
+function bookWithPivots(sheets: any[], pivots: { id: string; config: PivotConfig; sheetName: string }[]): { sheets: any[]; pivots: { id: string; config: PivotConfig; sheetName: string }[] } {
+  return { sheets, pivots };
+}
+function appendPivotSheet(sheets: any[], name: string, cfg: PivotConfig, id: string): { id: string; config: PivotConfig; sheetName: string } | null {
+  const src = sheets[cfg.sheetIndex];
+  const res = buildPivot(src, cfg);
+  if (!res.matrix.length) return null;
+  sheets.forEach((sh: any) => { sh.status = 0; });
+  sheets.push({ name, celldata: pivotToCelldata(res, 0, 0), order: sheets.length, row: Math.max(80, res.nRows + 8), column: Math.max(16, res.nCols + 4), config: {}, status: 1 });
+  return { id, config: cfg, sheetName: name };
+}
+const chart = (id: string, title: string, type: ChartConfig['type'], range: string, extra: Partial<ChartConfig> = {}): ChartConfig => ({
+  id, title, type, range, sheetIndex: 0, legend: 'bottom', palette: 'brand', ...extra,
+});
+
 // Styled header cell (dark band + white bold) for a "designed" look out of the box.
 const H = (v: string, a: 'l' | 'c' | 'r' = 'l'): CellSpec => ({ v, b: true, bg: '#1f2937', fc: '#ffffff', a });
 const TOT = (v: string | number, fa = 'General'): CellSpec => ({ v, b: true, bg: '#f1f5f9', fa });
@@ -1008,6 +1029,146 @@ const SHEET_TEMPLATES: TemplateDef[] = [
       ],
     }]),
   },
+
+  {
+    id: 'bom-costing', title: 'BOM Costing', description: 'Explosión de costo estándar: consumo, scrap, compra y make/buy.', category: 'Manufactura / MES', accent: '#0f766e',
+    build: () => { const sheets = buildBook([{
+      name: 'BOM Costing', freeze: true,
+      widths: { 0: 120, 1: 220, 2: 80, 3: 90, 4: 90, 5: 100, 6: 110, 7: 90 },
+      rows: [
+        [H('Nivel'), H('Componente'), H('Tipo'), H('Qty/BOM', 'r'), H('Scrap %', 'r'), H('Costo U.', 'r'), H('Costo ext.', 'r'), H('Fuente')],
+        ['0', 'AXOS-ASSY-1000 Ensamble final', 'Make', { v: 1, fa: '0.00' }, { v: 0, fa: PCT }, { v: 0, fa: MONEY }, { v: 0, fa: MONEY }, 'Producción'],
+        ['1', 'PCB-DRV-01 Tarjeta controladora', 'Buy', { v: 1, fa: '0.00' }, { v: 0.02, fa: PCT }, { v: 12.5, fa: MONEY }, { f: '=D3*(1+E3)*F3', v: 12.75, fa: MONEY }, 'Inventario'],
+        ['1', 'HARNESS-08 Arnés 8 pines', 'Buy', { v: 2, fa: '0.00' }, { v: 0.01, fa: PCT }, { v: 3.2, fa: MONEY }, { f: '=D4*(1+E4)*F4', v: 6.464, fa: MONEY }, 'Proveedor'],
+        ['1', 'LABOR-ASSY Mano de obra', 'Make', { v: 0.35, fa: '0.00' }, { v: 0, fa: PCT }, { v: 28, fa: MONEY }, { f: '=D5*(1+E5)*F5', v: 9.8, fa: MONEY }, 'Ruta'],
+        ['1', 'OH-SMT Overhead SMT', 'Make', { v: 0.18, fa: '0.00' }, { v: 0, fa: PCT }, { v: 45, fa: MONEY }, { f: '=D6*(1+E6)*F6', v: 8.1, fa: MONEY }, 'Centro costo'],
+        [TOT('Costo estándar'), '', '', '', '', '', { b: true, bg: '#ecfdf5', fc: '#065f46', f: '=SUM(G3:G6)', v: 37.114, fa: MONEY }, ''],
+        [TOT('Margen objetivo'), '', '', '', '', { v: 0.32, fa: PCT }, { b: true, bg: '#f1f5f9', f: '=G7/(1-F8)', v: 54.579, fa: MONEY }, 'Precio sugerido'],
+      ],
+    }]);
+      return bookWithCharts(sheets, [
+        chart('tpl_bom_cost_breakdown', 'BOM cost breakdown', 'doughnut', 'B2:G6', { legend: 'right' }),
+        chart('tpl_bom_scrap_cost', 'Costo extendido por componente', 'bar', 'B2:G6', { yTitle: 'Costo', palette: 'forest' }),
+      ]);
+    },
+  },
+  {
+    id: 'oee-calculator', title: 'OEE Calculator', description: 'Calculadora de disponibilidad, rendimiento, calidad y pérdidas por turno.', category: 'Manufactura / MES', accent: '#16a34a',
+    build: () => { const sheets = buildBook([{
+      name: 'OEE Calculator', freeze: true,
+      widths: { 0: 210, 1: 110, 2: 110, 3: 140 },
+      rows: [
+        [H('Entrada'), H('Valor', 'r'), H('Unidad'), H('Notas')],
+        ['Tiempo planificado', { v: 480, fa: NUM }, 'min', 'Duración de turno'],
+        ['Paros no planeados', { v: 55, fa: NUM }, 'min', 'Andon / mantenimiento'],
+        ['Tiempo operativo', { f: '=B2-B3', v: 425, fa: NUM }, 'min', ''],
+        ['Ciclo ideal', { v: 0.85, fa: '0.00' }, 'min/pza', 'Tiempo estándar'],
+        ['Producción total', { v: 470, fa: NUM }, 'pzas', 'Buenas + scrap'],
+        ['Piezas buenas', { v: 452, fa: NUM }, 'pzas', 'Liberadas por calidad'],
+        [TOT('Disponibilidad'), { b: true, bg: '#ecfdf5', fc: '#065f46', f: '=B4/B2', v: 0.885417, fa: PCT }, '', 'Tiempo operativo / planificado'],
+        [TOT('Rendimiento'), { b: true, bg: '#eff6ff', fc: '#1d4ed8', f: '=B5*B6/B4', v: 0.94, fa: PCT }, '', 'Ciclo ideal × total / operativo'],
+        [TOT('Calidad'), { b: true, bg: '#fefce8', fc: '#a16207', f: '=B7/B6', v: 0.961702, fa: PCT }, '', 'Buenas / total'],
+        [TOT('OEE'), { b: true, bg: '#dcfce7', fc: '#166534', f: '=B8*B9*B10', v: 0.800567, fa: PCT }, '', 'A × R × Q'],
+      ],
+    }]);
+      return bookWithCharts(sheets, [
+        chart('tpl_oee_calc', 'OEE · A x R x Q', 'bar', 'A8:B11', { yTitle: 'Ratio', palette: 'forest' }),
+      ]);
+    },
+  },
+  {
+    id: 'inventory-abc', title: 'Inventory ABC', description: 'Clasificación ABC por valor anual de consumo e inventario conectado.', category: 'Manufactura / MES', accent: '#0891b2',
+    build: () => { const sheets = buildBook([{
+      name: 'Inventory ABC', freeze: true,
+      widths: { 0: 120, 1: 190, 2: 100, 3: 110, 4: 120, 5: 120, 6: 70 },
+      rows: [
+        [H('SKU / NP'), H('Descripción'), H('Consumo anual', 'r'), H('Costo U.', 'r'), H('Valor anual', 'r'), H('% acumulado', 'r'), H('Clase')],
+        ['PCB-DRV-01', 'Tarjeta controladora', { v: 5200, fa: NUM }, { v: 12.5, fa: MONEY }, { f: '=C2*D2', v: 65000, fa: MONEY }, { f: '=SUM($E$2:E2)/$E$7', v: 0.646, fa: PCT }, 'A'],
+        ['MCU-STM32', 'Microcontrolador', { v: 5000, fa: NUM }, { v: 4.1, fa: MONEY }, { f: '=C3*D3', v: 20500, fa: MONEY }, { f: '=SUM($E$2:E3)/$E$7', v: 0.85, fa: PCT }, 'A'],
+        ['HARNESS-08', 'Arnés 8 pines', { v: 7400, fa: NUM }, { v: 1.7, fa: MONEY }, { f: '=C4*D4', v: 12580, fa: MONEY }, { f: '=SUM($E$2:E4)/$E$7', v: 0.975, fa: PCT }, 'B'],
+        ['LABEL-QA', 'Etiqueta QA', { v: 8500, fa: NUM }, { v: 0.12, fa: MONEY }, { f: '=C5*D5', v: 1020, fa: MONEY }, { f: '=SUM($E$2:E5)/$E$7', v: 0.985, fa: PCT }, 'C'],
+        ['SCREW-M3', 'Tornillo M3', { v: 30000, fa: NUM }, { v: 0.05, fa: MONEY }, { f: '=C6*D6', v: 1500, fa: MONEY }, { f: '=SUM($E$2:E6)/$E$7', v: 1, fa: PCT }, 'C'],
+        [TOT('Total'), '', '', '', TF('=SUM(E2:E6)', 100600, MONEY), '', ''],
+      ],
+    }]);
+      return bookWithCharts(sheets, [
+        chart('tpl_inventory_abc_value', 'Inventory ABC · valor anual', 'bar', 'A1:E6', { yTitle: 'Valor anual', palette: 'ocean' }),
+        chart('tpl_inventory_abc_curve', 'Curva ABC acumulada', 'line', 'A1:F6', { yTitle: '% acumulado', palette: 'forest' }),
+      ]);
+    },
+  },
+  {
+    id: 'supplier-scorecard', title: 'Supplier Scorecard', description: 'OTD, calidad, costo y respuesta ponderados por proveedor.', category: 'Manufactura / MES', accent: '#7c3aed',
+    build: () => { const sheets = buildBook([{
+      name: 'Supplier Scorecard', freeze: true,
+      widths: { 0: 170, 1: 90, 2: 90, 3: 90, 4: 90, 5: 100, 6: 90 },
+      rows: [
+        [H('Proveedor'), H('OTD', 'r'), H('Calidad', 'r'), H('Costo', 'r'), H('Respuesta', 'r'), H('Score', 'r'), H('Estatus')],
+        ['North Components', { v: 0.96, fa: PCT }, { v: 0.985, fa: PCT }, { v: 0.91, fa: PCT }, { v: 0.94, fa: PCT }, { f: '=B2*0.35+C2*0.35+D2*0.15+E2*0.15', v: 0.95625, fa: PCT }, 'Preferente'],
+        ['Acme Electronics', { v: 0.88, fa: PCT }, { v: 0.965, fa: PCT }, { v: 0.94, fa: PCT }, { v: 0.82, fa: PCT }, { f: '=B3*0.35+C3*0.35+D3*0.15+E3*0.15', v: 0.90925, fa: PCT }, 'Aprobado'],
+        ['Fasteners MX', { v: 0.78, fa: PCT }, { v: 0.92, fa: PCT }, { v: 0.97, fa: PCT }, { v: 0.75, fa: PCT }, { f: '=B4*0.35+C4*0.35+D4*0.15+E4*0.15', v: 0.853, fa: PCT }, 'Plan mejora'],
+        [TOT('Pesos'), { v: 0.35, fa: PCT }, { v: 0.35, fa: PCT }, { v: 0.15, fa: PCT }, { v: 0.15, fa: PCT }, TF('=SUM(B5:E5)', 1, PCT), ''],
+      ],
+    }]);
+      return bookWithCharts(sheets, [
+        chart('tpl_supplier_score', 'Supplier score', 'bar', 'A1:F4', { yTitle: 'Score', palette: 'sunset' }),
+        chart('tpl_supplier_radar', 'Supplier capabilities', 'radar', 'A1:E4', { legend: 'right', palette: 'brand' }),
+      ]);
+    },
+  },
+
+
+  {
+    id: 'industrial-pivot-pack', title: 'Industrial Pivot Analysis Pack', description: 'Scrap, compras, inventario, OEE y BOM por tablas dinámicas.', category: 'Manufactura / MES', accent: '#6366f1',
+    build: () => {
+      const sheets = buildBook([
+        { name: 'Scrap Raw', freeze: true, widths: { 0: 90, 1: 80, 2: 120, 3: 180, 4: 80 }, rows: [
+          [H('Fecha'), H('Línea'), H('Defecto'), H('Commodity'), H('Scrap', 'r')],
+          ['2026-06-16', 'L1', 'Soldadura fría', 'PCB', { v: 48, fa: NUM }],
+          ['2026-06-16', 'L1', 'Componente faltante', 'PCB', { v: 31, fa: NUM }],
+          ['2026-06-17', 'L2', 'Rayadura cosmética', 'Ensamble', { v: 9, fa: NUM }],
+          ['2026-06-17', 'L2', 'Polaridad invertida', 'Electrónica', { v: 18, fa: NUM }],
+        ] },
+        { name: 'Compras Raw', freeze: true, widths: { 0: 130, 1: 110, 2: 100, 3: 110, 4: 90 }, rows: [
+          [H('Proveedor'), H('Commodity'), H('PO'), H('Monto', 'r'), H('OTD', 'r')],
+          ['North Components', 'PCB', 'PO-1001', { v: 42000, fa: MONEY }, { v: 0.96, fa: PCT }],
+          ['North Components', 'Electrónica', 'PO-1002', { v: 18500, fa: MONEY }, { v: 0.92, fa: PCT }],
+          ['Acme Electronics', 'Electrónica', 'PO-1003', { v: 23000, fa: MONEY }, { v: 0.88, fa: PCT }],
+          ['Fasteners MX', 'Mecánico', 'PO-1004', { v: 7600, fa: MONEY }, { v: 0.78, fa: PCT }],
+        ] },
+        { name: 'Inventario Raw', freeze: true, widths: { 0: 120, 1: 120, 2: 90, 3: 120, 4: 100 }, rows: [
+          [H('Categoría'), H('SKU'), H('Clase'), H('Valor', 'r'), H('Turns', 'r')],
+          ['PCB', 'PCB-DRV-01', 'A', { v: 65000, fa: MONEY }, { v: 4.2, fa: '0.0' }],
+          ['Electrónica', 'MCU-STM32', 'A', { v: 20500, fa: MONEY }, { v: 3.6, fa: '0.0' }],
+          ['Cableado', 'HARNESS-08', 'B', { v: 12580, fa: MONEY }, { v: 5.1, fa: '0.0' }],
+          ['Consumible', 'SCREW-M3', 'C', { v: 1500, fa: MONEY }, { v: 9.8, fa: '0.0' }],
+        ] },
+        { name: 'OEE Raw', freeze: true, widths: { 0: 80, 1: 80, 2: 90, 3: 90, 4: 90, 5: 90 }, rows: [
+          [H('Línea'), H('Turno'), H('Disp.', 'r'), H('Perf.', 'r'), H('Calidad', 'r'), H('OEE', 'r')],
+          ['L1', 'T1', { v: 0.92, fa: PCT }, { v: 0.88, fa: PCT }, { v: 0.99, fa: PCT }, { v: 0.8015, fa: PCT }],
+          ['L1', 'T2', { v: 0.85, fa: PCT }, { v: 0.90, fa: PCT }, { v: 0.97, fa: PCT }, { v: 0.7421, fa: PCT }],
+          ['L2', 'T1', { v: 0.95, fa: PCT }, { v: 0.93, fa: PCT }, { v: 0.995, fa: PCT }, { v: 0.8789, fa: PCT }],
+          ['L2', 'T2', { v: 0.89, fa: PCT }, { v: 0.91, fa: PCT }, { v: 0.982, fa: PCT }, { v: 0.7959, fa: PCT }],
+        ] },
+        { name: 'BOM Raw', freeze: true, widths: { 0: 120, 1: 140, 2: 100, 3: 90, 4: 100 }, rows: [
+          [H('Ensamble'), H('Componente'), H('Commodity'), H('Qty', 'r'), H('Costo ext.', 'r')],
+          ['AXOS-1000', 'PCB-DRV-01', 'PCB', { v: 1, fa: '0.00' }, { v: 12.75, fa: MONEY }],
+          ['AXOS-1000', 'HARNESS-08', 'Cableado', { v: 2, fa: '0.00' }, { v: 6.46, fa: MONEY }],
+          ['AXOS-1000', 'LABOR-ASSY', 'Labor', { v: 0.35, fa: '0.00' }, { v: 9.8, fa: MONEY }],
+          ['AXOS-1000', 'OH-SMT', 'Overhead', { v: 0.18, fa: '0.00' }, { v: 8.1, fa: MONEY }],
+        ] },
+      ]);
+      const pivots = [
+        appendPivotSheet(sheets, 'Pivot Scrap', { range: 'A1:E5', sheetIndex: 0, rows: ['Defecto'], cols: ['Línea'], values: [{ field: 'Scrap', agg: 'sum' }], showRowTotals: true, showColTotals: true }, 'pv_tpl_scrap'),
+        appendPivotSheet(sheets, 'Pivot Compras', { range: 'A1:E5', sheetIndex: 1, rows: ['Proveedor'], cols: ['Commodity'], values: [{ field: 'Monto', agg: 'sum' }, { field: 'OTD', agg: 'avg' }], showRowTotals: true, showColTotals: true }, 'pv_tpl_purchasing'),
+        appendPivotSheet(sheets, 'Pivot Inventario', { range: 'A1:E5', sheetIndex: 2, rows: ['Categoría'], cols: ['Clase'], values: [{ field: 'Valor', agg: 'sum' }, { field: 'Turns', agg: 'avg' }], showRowTotals: true, showColTotals: true }, 'pv_tpl_inventory'),
+        appendPivotSheet(sheets, 'Pivot OEE', { range: 'A1:F5', sheetIndex: 3, rows: ['Línea'], cols: ['Turno'], values: [{ field: 'OEE', agg: 'avg' }], showRowTotals: true, showColTotals: true }, 'pv_tpl_oee'),
+        appendPivotSheet(sheets, 'Pivot BOM', { range: 'A1:E5', sheetIndex: 4, rows: ['Commodity'], cols: [], values: [{ field: 'Costo ext.', agg: 'sum' }, { field: 'Qty', agg: 'sum' }], showRowTotals: false, showColTotals: true }, 'pv_tpl_bom'),
+      ].filter(Boolean) as { id: string; config: PivotConfig; sheetName: string }[];
+      return bookWithPivots(sheets, pivots);
+    },
+  },
+
 
   // ── Negocio ──────────────────────────────────────────────────────────────────
   {
@@ -1404,6 +1565,64 @@ const SLIDE_TEMPLATES: TemplateDef[] = [
       timeline({ title: 'Proceso de la línea', steps: [{ label: 'SMT', desc: 'Colocación' }, { label: 'Reflujo', desc: 'Soldadura' }, { label: 'Ensamble', desc: 'Manual' }, { label: 'Prueba', desc: 'Funcional' }, { label: 'Empaque', desc: 'Packout' }] }),
       content({ kicker: 'Acciones', title: 'Plan de mejora', bullets: ['Reducir changeover en estación 3.', 'Atacar top-1 de Pareto (soldadura fría).', 'Mantenimiento preventivo del horno.'] }),
       closing({ title: 'Gracias', subtitle: 'Seguridad primero · 5S todos los días' }),
+    ]),
+  },
+
+
+  {
+    id: 'daily-production-meeting', title: 'Daily Production Meeting', description: 'Visual aid diario: seguridad, plan vs real, paros, calidad y acciones.', category: 'Planta / Operaciones', accent: P_IND.accent,
+    build: () => renderDeck(P_IND, [
+      cover({ variant: 'band', eyebrow: 'Daily Production Meeting', title: 'Reunión diaria de\nproducción', subtitle: 'Planta ____ · Línea ____ · Turno ____', footer: new Date().toLocaleDateString('es-ES') }),
+      agenda({ title: 'Cadencia de 15 minutos', items: ['Seguridad y 5S', 'Plan vs real', 'Paros / Andon', 'Calidad y scrap', 'Faltantes y acciones'] }),
+      kpis({ title: 'Pulso del turno', metrics: [{ value: '0', label: 'Incidentes', note: 'seguridad' }, { value: '96%', label: 'Plan vs real', note: 'adherencia' }, { value: '83%', label: 'OEE', note: 'meta 80%' }, { value: '2.5h', label: 'Downtime', note: 'acumulado' }] }),
+      comparison({ title: 'Plan vs real por turno', a: { h: 'Turno actual', items: ['Plan: 1,250 uds', 'Real: 1,198 uds', 'Gap: -52 uds'] }, b: { h: 'Top barreras', items: ['Material: 42 min', 'Cambio: 25 min', 'Calidad: 18 min'] } }),
+      content({ kicker: 'Calidad', title: 'Defectos y contención', bullets: ['Top defecto: soldadura fría — 48 piezas.', 'Contención: sorteo 100% en WIP de línea 1.', 'Dueño: Calidad de piso · cierre hoy 14:00.'] }),
+      twoCol({ title: 'Acciones del día', left: { h: 'Hoy', items: ['Cerrar falta de material CONN-8P.', 'Verificar parámetro de horno.', 'Actualizar ayuda visual estación 30.'] }, right: { h: 'Escalar', items: ['Riesgo de OT para WO-00042.', 'Tooling pendiente de mantenimiento.', 'Cliente visita viernes.'] } }),
+      closing({ title: 'Go / No-Go', subtitle: 'Acuerdos, responsables y hora de verificación', contact: 'Seguridad primero · Calidad en la fuente' }),
+    ]),
+  },
+  {
+    id: 'executive-ops-review', title: 'Executive Ops Review', description: 'Revisión ejecutiva: KPIs, riesgos, finanzas operativas y decisiones.', category: 'Planta / Operaciones', accent: P_DARK.accent,
+    build: () => renderDeck(P_DARK, [
+      cover({ variant: 'split', eyebrow: 'Executive Ops Review', title: 'Executive\nOps Review', subtitle: 'Semana ____ · Planta ____', footer: 'Confidencial · ' + new Date().toLocaleDateString('es-ES') }),
+      agenda({ title: 'Agenda ejecutiva', items: ['Scorecard operativo', 'Riesgos y decisiones', 'Capacidad / demanda', 'Calidad y cliente', 'Finanzas operativas'] }),
+      kpis({ title: 'Scorecard', metrics: [{ value: '84%', label: 'OEE', note: '+4 pp vs plan' }, { value: '98.7%', label: 'OTD', note: 'cliente' }, { value: '−6%', label: 'Costo unit.', note: 'vs forecast' }, { value: '3', label: 'Riesgos', note: 'requieren decisión' }] }),
+      twoCol({ title: 'Riesgos y decisiones', left: { h: 'Riesgos', items: ['Capacidad de prueba al 105%.', 'Proveedor crítico con atraso.', 'Scrap elevado en modelo A.'] }, right: { h: 'Decisiones', items: ['Aprobar turno extra sábado.', 'Liberar compra expedita.', 'Priorizar kaizen de prueba.'] } }),
+      timeline({ title: 'Roadmap de recuperación', steps: [{ label: 'Hoy', desc: 'Contención' }, { label: 'Semana 1', desc: 'Capacidad' }, { label: 'Semana 2', desc: 'Proveedor' }, { label: 'Semana 3', desc: 'Costo' }] }),
+      closing({ title: 'Decisiones requeridas', subtitle: 'Validar responsables y fecha de cierre antes de salir' }),
+    ]),
+  },
+  {
+    id: 'quality-review', title: 'Quality Review', description: 'Revisión de calidad: FPY, PPM, NCR/CAPA, Pareto y acciones.', category: 'Planta / Operaciones', accent: '#ef4444',
+    build: () => renderDeck(P_CORP, [
+      cover({ variant: 'minimal', eyebrow: 'Quality Review', title: 'Revisión de\ncalidad', subtitle: 'Modelo ____ · Cliente ____ · Periodo ____', footer: new Date().toLocaleDateString('es-ES') }),
+      kpis({ title: 'Indicadores de calidad', metrics: [{ value: '99.1%', label: 'FPY' }, { value: '110', label: 'PPM' }, { value: '7', label: 'NCR abiertas' }, { value: '2', label: 'CAPA vencidas' }] }),
+      content({ kicker: 'Pareto', title: 'Top defectos', bullets: ['Soldadura fría — 44% del total.', 'Componente faltante — 28% del total.', 'Polaridad invertida — 16% del total.'] }),
+      twoCol({ title: 'Contención vs causa raíz', left: { h: 'Contención', items: ['Sorteo 100% lote afectado.', 'Bloqueo de material sospechoso.', 'Alerta a estaciones 20/30.'] }, right: { h: 'Causa raíz', items: ['Perfil térmico fuera de ventana.', 'Poka-yoke deshabilitado.', 'Entrenamiento incompleto turno 2.'] } }),
+      timeline({ title: 'Plan CAPA', steps: [{ label: 'D3', desc: 'Contener' }, { label: 'D4', desc: 'Causa raíz' }, { label: 'D5', desc: 'PCA' }, { label: 'D6', desc: 'Validar' }, { label: 'D7', desc: 'Prevenir' }] }),
+      closing({ title: 'Cierre de calidad', subtitle: 'Criterio de salida: evidencia, efectividad y actualización documental' }),
+    ]),
+  },
+  {
+    id: 'launch-readiness', title: 'Launch Readiness', description: 'Readiness de lanzamiento: APQP, materiales, línea, calidad y riesgos.', category: 'Planta / Operaciones', accent: '#16a34a',
+    build: () => renderDeck(P_IND, [
+      cover({ variant: 'band', eyebrow: 'Launch Readiness', title: 'Preparación de\nlanzamiento', subtitle: 'Programa ____ · Gate ____', footer: 'NPI / Operaciones · ' + new Date().toLocaleDateString('es-ES') }),
+      kpis({ title: 'Gate readiness', metrics: [{ value: '92%', label: 'APQP' }, { value: '100%', label: 'BOM liberado' }, { value: '87%', label: 'Tooling' }, { value: '4', label: 'Open risks' }] }),
+      comparison({ title: 'Readiness por frente', a: { h: 'Listo', items: ['BOM y rutas liberadas.', 'FAI planificado.', 'Capacidad base confirmada.'] }, b: { h: 'Pendiente', items: ['Fixture de prueba final.', 'PPAP proveedor B.', 'Ayuda visual estación 40.'] } }),
+      timeline({ title: 'Hitos de lanzamiento', steps: [{ label: 'EVT', desc: 'Validación ingeniería' }, { label: 'DVT', desc: 'Diseño' }, { label: 'PVT', desc: 'Proceso' }, { label: 'SOP', desc: 'Arranque' }] }),
+      content({ kicker: 'Riesgos', title: 'Top launch risks', bullets: ['Capacidad de prueba insuficiente en ramp-up.', 'Material crítico con lead time extendido.', 'Instrucciones visuales pendientes de aprobación.'] }),
+      closing({ title: 'Gate decision', subtitle: 'Go / Conditional Go / No-Go con responsables y fechas' }),
+    ]),
+  },
+  {
+    id: 'customer-business-review', title: 'Customer Business Review', description: 'CBR: desempeño, valor entregado, oportunidades y próximos pasos.', category: 'Presentaciones de negocio', accent: P_CORP.accent,
+    build: () => renderDeck(P_CORP, [
+      cover({ variant: 'band', eyebrow: 'Customer Business Review', title: 'Customer\nBusiness Review', subtitle: '[Cliente] · Periodo ____', footer: 'Cuenta · ' + new Date().toLocaleDateString('es-ES') }),
+      agenda({ title: 'Agenda CBR', items: ['Resumen ejecutivo', 'Desempeño operativo', 'Valor entregado', 'Riesgos / soporte', 'Roadmap conjunto'] }),
+      kpis({ title: 'Desempeño de cuenta', metrics: [{ value: '98.7%', label: 'OTD' }, { value: '99.2%', label: 'Calidad' }, { value: '$1.4M', label: 'Valor' }, { value: '4.8', label: 'Satisfacción' }] }),
+      twoCol({ title: 'Valor y oportunidades', left: { h: 'Valor entregado', items: ['Reducción de lead time.', 'Mejora de FPY.', 'Visibilidad semanal de riesgos.'] }, right: { h: 'Oportunidades', items: ['Forecast colaborativo.', 'VMI / kanban cliente.', 'Automatización de reportes.'] } }),
+      timeline({ title: 'Roadmap conjunto', steps: [{ label: 'Q1', desc: 'Estabilizar' }, { label: 'Q2', desc: 'Optimizar' }, { label: 'Q3', desc: 'Escalar' }, { label: 'Q4', desc: 'Innovar' }] }),
+      closing({ title: 'Próximos pasos', subtitle: 'Confirmar owners, fechas y métricas de éxito', contact: 'account@empresa.com' }),
     ]),
   },
 

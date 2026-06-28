@@ -15,6 +15,7 @@ import { MessagingService } from './messaging.service';
 import { MessagingController } from './messaging.controller';
 import { ChatGateway } from './chat.gateway';
 import { getJwtSecret } from '../../common/config/jwt-secret';
+import { provideTenantScopedRepository } from '../../common/tenant/tenant-scoped.repository';
 
 @Module({
   imports: [
@@ -33,7 +34,19 @@ import { getJwtSecret } from '../../common/config/jwt-secret';
     // Mismo secreto que el REST para autenticar el handshake del socket.
     JwtModule.register({ secret: getJwtSecret() }),
   ],
-  providers: [MessagingService, ChatGateway],
+  providers: [
+    MessagingService,
+    ChatGateway,
+    provideTenantScopedRepository(Conversation),
+    provideTenantScopedRepository(ConversationMember),
+    provideTenantScopedRepository(Message),
+    provideTenantScopedRepository(ChatMessageReaction),
+    provideTenantScopedRepository(PollVote),
+    provideTenantScopedRepository(ScheduledMessage),
+    provideTenantScopedRepository(ConversationLabel),
+    provideTenantScopedRepository(SavedMessage),
+    provideTenantScopedRepository(Meeting),
+  ],
   controllers: [MessagingController],
   exports: [MessagingService],
 })

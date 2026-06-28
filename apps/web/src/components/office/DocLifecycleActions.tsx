@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CalendarClock, CheckCircle2, ChevronDown, CircleDot, FileLock2, FilePenLine, Lock, RotateCcw, Send, ShieldCheck, Archive } from 'lucide-react';
+import { CheckCircle2, ChevronDown, CircleDot, FileLock2, FilePenLine, Lock, RotateCcw, Send, ShieldCheck, Archive } from 'lucide-react';
 import { apiFetch } from '@/lib/apiFetch';
 import { useToast } from '@/contexts/ToastContext';
 
@@ -82,62 +82,6 @@ export function DocLifecycleActions({
     }
   }
 
-  async function schedulePeriodicReview() {
-    if (!isOwner) return;
-    const nextReviewAt = window.prompt('Próxima revisión periódica (YYYY-MM-DD):', '');
-    if (nextReviewAt === null) return;
-    const reviewIntervalDays = window.prompt('Intervalo de revisión en días (ej. 365):', '365');
-    if (reviewIntervalDays === null) return;
-    const reviewOwner = window.prompt('Responsable de revisión (email):', '');
-    if (reviewOwner === null) return;
-    setBusy('periodic-review');
-    try {
-      const res = await apiFetch(`${API_BASE}/office-documents/${docId}/periodic-review`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          nextReviewAt: nextReviewAt.trim() || null,
-          reviewIntervalDays: reviewIntervalDays.trim() ? Number(reviewIntervalDays) : null,
-          reviewOwner: reviewOwner.trim() || null,
-        }),
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body?.message || `HTTP ${res.status}`);
-      }
-      setOpen(false);
-      toast.success('Revisión periódica programada.');
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'No se pudo programar la revisión periódica.');
-    } finally {
-      setBusy(null);
-    }
-  }
-
-  async function completePeriodicReview() {
-    if (!isOwner) return;
-    const note = window.prompt('Nota de revisión periódica:', 'Revisión periódica completada; documento sigue apto para uso controlado.');
-    if (note === null) return;
-    setBusy('complete-periodic-review');
-    try {
-      const res = await apiFetch(`${API_BASE}/office-documents/${docId}/periodic-review/complete`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ note: note.trim() || null }),
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body?.message || `HTTP ${res.status}`);
-      }
-      setOpen(false);
-      toast.success('Revisión periódica completada y firmada.');
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'No se pudo completar la revisión periódica.');
-    } finally {
-      setBusy(null);
-    }
-  }
-
   return (
     <div className="relative">
       <button onClick={() => setOpen((value) => !value)} className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${meta.tone}`} title={meta.helper}>
@@ -156,22 +100,6 @@ export function DocLifecycleActions({
                 <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{meta.helper}</p>
               </div>
               <div className="h-px bg-black/5 dark:bg-white/10" />
-              {isOwner && (
-                <>
-                  <button onClick={schedulePeriodicReview} disabled={!!busy}
-                    className="mt-1 flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm font-medium transition-colors hover:bg-black/5 disabled:opacity-50 dark:hover:bg-white/10">
-                    <CalendarClock className="h-4 w-4" />
-                    <span className="flex-1">{busy === 'periodic-review' ? 'Programando…' : 'Programar revisión periódica'}</span>
-                    <span className="text-[10px] uppercase tracking-wide text-gray-400">QMS</span>
-                  </button>
-                  <button onClick={completePeriodicReview} disabled={!!busy}
-                    className="mt-1 flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm font-medium transition-colors hover:bg-emerald-50 disabled:opacity-50 dark:hover:bg-emerald-500/10">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-                    <span className="flex-1">{busy === 'complete-periodic-review' ? 'Cerrando…' : 'Completar revisión periódica'}</span>
-                    <span className="text-[10px] uppercase tracking-wide text-gray-400">Firma</span>
-                  </button>
-                </>
-              )}
               {available.length === 0 ? (
                 <p className="px-3 py-3 text-xs text-gray-500 dark:text-gray-400">No hay transiciones disponibles para este estado.</p>
               ) : available.map((action) => {

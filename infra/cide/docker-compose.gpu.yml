@@ -1,0 +1,72 @@
+# CIDE engine — GPU tier (vLLM), self-hosted OpenAI-compatible inference.
+#
+# This is the production-grade alternative to the CPU Ollama setup in
+# docker-compose.yml. It runs vLLM, which serves an open-weight model behind the
+# same OpenAI-compatible API the Axos OS backend already speaks — so moving from
+# CPU→GPU is a pure CIDE_BASE_URL swap, ZERO app code change.
+#
+# The trick that keeps it drop-in: `--served-model-name` aliases the HuggingFace
+# weights to the SAME tag the catalog uses (e.g. qwen2.5:7b). The backend keeps
+# sending "qwen2.5:7b"; vLLM answers to it. (Prefer to serve the raw HF id like
+# Qwen/Qwen2.5-14B-Instruct instead? Register it on the API with
+# CIDE_EXTRA_MODELS and set CIDE_DEFAULT_MODEL to it — also no code change.)
+#
+# Requires: an NVIDIA GPU host with the NVIDIA Container Toolkit.
+#
+# Quick start (from the repo root, on the GPU host):
+#   docker compose -f infra/cide/docker-compose.gpu.yml up -d
+#   curl http://localhost:8000/v1/models     # verify it's serving
+#
+# Then point the API at it (on the GPU host's reachable address):
+#   CIDE_BASE_URL=http://<gpu-host>:8000/v1
+#   AI_MOCK=0
+#   # CIDE_API_KEY=...   # only if you set VLLM_API_KEY below
+#
+# Sizing rule of thumb (bf16, single GPU): 7B ≈ 16GB, 14B ≈ 28GB, 32B ≈ 64GB.
+# Tight on VRAM? add --quantization awq (with an -AWQ checkpoint) or lower
+# --max-model-len. For 32B+ on multiple GPUs add --tensor-parallel-size N.
+
+services:
+  vllm:
+    image: vllm/vllm-openai:latest
+    container_name: cide-vllm
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    # vLLM's default ENTRYPOINT is the OpenAI API server; these are its args.
+    command:
+      - --model
+      - ${CIDE_HF_MODEL:-Qwen/Qwen2.5-7B-Instruct}
+      - --served-model-name
+      - ${CIDE_MODEL:-qwen2.5:7b}
+      - --host
+      - "0.0.0.0"
+      - --port
+      - "8000"
+      - --max-model-len
+      - "${CIDE_MAX_MODEL_LEN:-16384}"
+      # Require a bearer token (then set CIDE_API_KEY to the same value on the API):
+      # - --api-key
+      # - ${VLLM_API_KEY}
+      # Multi-GPU for big models (set to your GPU count):
+      # - --tensor-parallel-size
+      # - "2"
+    environment:
+      # For gated/private HF repos only (Qwen2.5 is open, so usually unset).
+      HUGGING_FACE_HUB_TOKEN: ${HUGGING_FACE_HUB_TOKEN:-}
+    # vLLM needs ample shared memory for its workers.
+    ipc: host
+    volumes:
+      # Cache downloaded weights so restarts don't re-pull from HuggingFace.
+      - cide-hf-cache:/root/.cache/huggingface
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+volumes:
+  cide-hf-cache:
+    name: cide-hf-cache

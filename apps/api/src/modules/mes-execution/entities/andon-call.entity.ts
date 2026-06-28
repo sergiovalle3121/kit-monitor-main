@@ -7,10 +7,21 @@ import {
 } from 'typeorm';
 import { DATE_COLUMN_TYPE } from '../../../common/database/date-column-type';
 
-export type AndonType = 'material' | 'quality' | 'maintenance' | 'stop';
+export type AndonType =
+  | 'material'
+  | 'quality'
+  | 'maintenance'
+  | 'stop'
+  | 'supervisor'
+  | 'materialist'
+  | 'engineering'
+  | 'tooling';
 export type AndonStatus = 'open' | 'ack' | 'resolved';
 
-/** Andon call raised from a station: summon materials / quality / maintenance / line stop. */
+/**
+ * Andon call raised from a station: summon materials, quality, maintenance,
+ * supervisor, engineering, tooling, or a line stop.
+ */
 @Entity('mes_andon_calls')
 export class AndonCall {
   @PrimaryGeneratedColumn()

@@ -71,6 +71,11 @@ export const OBJ_ANIM_OPTIONS: { label: string; value: string }[] = [
   { label: 'Salida · Alejar', value: 'zoomOut' },
   { label: 'Salida · Barrido', value: 'wipeOut' },
   { label: 'Salida · Girar y salir', value: 'spinOut' },
+  { label: 'Trayectoria · Derecha', value: 'pathRight' },
+  { label: 'Trayectoria · Izquierda', value: 'pathLeft' },
+  { label: 'Trayectoria · Arriba', value: 'pathUp' },
+  { label: 'Trayectoria · Abajo', value: 'pathDown' },
+  { label: 'Trayectoria · Bucle', value: 'pathLoop' },
 ];
 
 /** Cuándo se dispara la animación de un objeto (secuencia tipo PowerPoint). */
@@ -84,15 +89,16 @@ export const OBJ_ANIM_START: { label: string; value: string }[] = [
 export const DEFAULT_ANIM_START = 'afterPrev';
 const EMPHASIS = new Set(['pulse', 'spin', 'grow', 'flash', 'teeter', 'blink']);
 const EXIT = new Set(['fadeOut', 'flyOut', 'zoomOut', 'wipeOut', 'spinOut']);
-export type AnimKind = 'entrance' | 'emphasis' | 'exit' | 'none';
+export type AnimKind = 'entrance' | 'emphasis' | 'exit' | 'motion' | 'none';
 export function animKind(effect?: string): AnimKind {
   if (!effect || effect === 'none') return 'none';
+  if (effect.startsWith('path')) return 'motion';
   if (EMPHASIS.has(effect)) return 'emphasis';
   if (EXIT.has(effect)) return 'exit';
   return 'entrance';
 }
 export const ANIM_KIND_LABEL: Record<AnimKind, string> = {
-  entrance: 'Entrada', emphasis: 'Énfasis', exit: 'Salida', none: '—',
+  entrance: 'Entrada', emphasis: 'Énfasis', exit: 'Salida', motion: 'Trayectoria', none: '—',
 };
 
 export interface SlideTheme {
@@ -120,7 +126,7 @@ export const SLIDE_THEMES: SlideTheme[] = [
   { id: 'emerald', name: 'Esmeralda', bg: '#022c22', surface: '#064e3b', text: '#ecfdf5', muted: '#6ee7b7', accent: '#34d399', font: 'sans-serif', headingFont: 'Georgia, serif' },
 ];
 
-export type PlaceKind = 'title' | 'subtitle' | 'body' | 'bar' | 'accentBar';
+export type PlaceKind = 'title' | 'subtitle' | 'body' | 'bar' | 'accentBar' | 'logo' | 'footer' | 'date' | 'slideNumber' | 'chart' | 'image' | 'kpi' | 'timeline' | 'riskMatrix' | 'actionRegister';
 export interface Placeholder {
   kind: PlaceKind;
   text?: string;
@@ -186,6 +192,61 @@ export const SLIDE_LAYOUTS: SlideLayout[] = [
       { kind: 'accentBar', left: 120, top: 200, width: 80, height: 8 },
       { kind: 'title', text: '«Una cita memorable que resume la idea.»', left: 120, top: 224, width: 720, fontSize: 38, bold: true },
       { kind: 'subtitle', text: '— Autor / Fuente', left: 120, top: 360, width: 720, fontSize: 22, muted: true },
+    ],
+  },
+
+  {
+    id: 'kpiDashboard', name: 'KPI dashboard',
+    build: () => [
+      { kind: 'title', text: 'KPI Dashboard', left: 56, top: 52, width: 600, fontSize: 36, bold: true },
+      { kind: 'date', text: '{{date}}', left: 700, top: 62, width: 200, fontSize: 14, align: 'right', muted: true },
+      { kind: 'kpi', text: 'OEE', left: 56, top: 130, width: 190, height: 118 },
+      { kind: 'kpi', text: 'OTD', left: 268, top: 130, width: 190, height: 118 },
+      { kind: 'kpi', text: 'Scrap', left: 480, top: 130, width: 190, height: 118 },
+      { kind: 'kpi', text: 'Backlog', left: 692, top: 130, width: 190, height: 118 },
+      { kind: 'chart', text: 'Trend chart', left: 56, top: 288, width: 520, height: 180 },
+      { kind: 'body', text: '• Comentario ejecutivo\n• Riesgos y acciones\n• Decisiones requeridas', left: 612, top: 300, width: 280, fontSize: 20 },
+    ],
+  },
+  {
+    id: 'chartCommentary', name: 'Chart + comentario',
+    build: () => [
+      { kind: 'title', text: 'Análisis de tendencia', left: 56, top: 56, width: 840, fontSize: 38, bold: true },
+      { kind: 'chart', text: 'Gráfico editable', left: 56, top: 136, width: 560, height: 330 },
+      { kind: 'body', text: 'Insight clave\n• Causa raíz\n• Contención\n• Próximo paso', left: 650, top: 150, width: 250, fontSize: 22 },
+    ],
+  },
+  {
+    id: 'visualAid', name: 'Foto / Visual aid',
+    build: () => [
+      { kind: 'title', text: 'Visual aid / Instrucción', left: 56, top: 54, width: 840, fontSize: 36, bold: true },
+      { kind: 'image', text: 'Imagen / foto de proceso', left: 56, top: 130, width: 500, height: 335 },
+      { kind: 'body', text: 'Puntos críticos\n1. Verificar orientación\n2. Confirmar torque\n3. Registrar evidencia', left: 594, top: 145, width: 300, fontSize: 22 },
+    ],
+  },
+  {
+    id: 'timeline', name: 'Timeline',
+    build: () => [
+      { kind: 'title', text: 'Plan / Timeline', left: 56, top: 58, width: 840, fontSize: 38, bold: true },
+      { kind: 'timeline', text: 'Hitos principales', left: 72, top: 230, width: 800, height: 120 },
+      { kind: 'body', text: '• Gate 1\n• Gate 2\n• PPAP\n• SOP', left: 110, top: 365, width: 720, fontSize: 20, align: 'center' },
+    ],
+  },
+  {
+    id: 'riskMatrix', name: 'Risk matrix',
+    build: () => [
+      { kind: 'title', text: 'Matriz de riesgo', left: 56, top: 56, width: 840, fontSize: 38, bold: true },
+      { kind: 'riskMatrix', text: 'Severidad × Probabilidad', left: 80, top: 132, width: 420, height: 330 },
+      { kind: 'body', text: 'Top risks\n• Riesgo 1 · owner · mitigación\n• Riesgo 2 · owner · mitigación\n• Riesgo 3 · owner · mitigación', left: 548, top: 150, width: 330, fontSize: 21 },
+    ],
+  },
+  {
+    id: 'actionRegister', name: 'Action register',
+    build: () => [
+      { kind: 'title', text: 'Action register', left: 56, top: 56, width: 840, fontSize: 38, bold: true },
+      { kind: 'actionRegister', text: 'Acción · Owner · Due · Status', left: 56, top: 142, width: 848, height: 320 },
+      { kind: 'footer', text: '{{footer}}', left: 56, top: 500, width: 620, fontSize: 11, muted: true },
+      { kind: 'slideNumber', text: '{{slideNumber}}', left: 820, top: 500, width: 84, fontSize: 11, align: 'right', muted: true },
     ],
   },
   {

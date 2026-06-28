@@ -29,7 +29,7 @@ const TARGET_META: Record<Target, { label: string; icon: typeof Package; desc: s
 };
 
 const field =
-  'w-full bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-lg py-2 px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30';
+  'w-full bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-lg py-2 px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30';
 
 export default function ImportPage() {
   const toast = useToast();
@@ -151,7 +151,7 @@ export default function ImportPage() {
   }
 
   return (
-    <div className="min-h-screen text-black dark:text-white font-sans pb-28">
+    <div className="min-h-screen text-foreground font-sans pb-28">
       <main className="max-w-4xl mx-auto px-6 pt-10">
         <PageHeader domain="erp" title="Importar Datos · Migración" icon={Upload}
           subtitle="Trae Material Master, BOM y Routing desde CSV/Excel, staging SQL o un feed IDoc/API. Subir → mapear → previsualizar → confirmar." />
@@ -227,7 +227,7 @@ function Stepper({ step }: { step: Step }) {
     <div className="flex items-center gap-2 mb-6">
       {steps.map((s, i) => (
         <React.Fragment key={s.key}>
-          <div className={`flex items-center gap-2 text-sm ${i <= idx ? 'text-black dark:text-white font-medium' : 'text-gray-400'}`}>
+          <div className={`flex items-center gap-2 text-sm ${i <= idx ? 'text-foreground font-medium' : 'text-gray-400'}`}>
             <span className={`w-6 h-6 rounded-full grid place-items-center text-xs ${i < idx ? 'bg-emerald-500 text-white' : i === idx ? 'bg-violet-500 text-white' : 'bg-gray-100 dark:bg-white/10'}`}>
               {i < idx ? <Check className="w-3.5 h-3.5" /> : i + 1}
             </span>

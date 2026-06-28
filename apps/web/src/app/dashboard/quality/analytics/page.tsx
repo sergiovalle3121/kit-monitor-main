@@ -3,7 +3,7 @@
 import React, { useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
-  ChevronLeft, Lock, Inbox, FlaskConical, BarChart3, TrendingUp, Boxes, ArrowRight,
+  Lock, Inbox, FlaskConical, BarChart3, TrendingUp, Boxes, ArrowRight,
   Tag, Truck, AlertTriangle, ClipboardList, Gauge, Recycle, Info as InfoIcon, CheckCircle2,
 } from 'lucide-react';
 import {
@@ -215,11 +215,7 @@ export default function QualityAnalyticsPage() {
   };
 
   return (
-    <div className="mx-auto max-w-6xl px-6 pb-24 text-black md:px-8 dark:text-white">
-      <Link href="/dashboard/quality" className="mb-3 inline-flex items-center gap-1 text-sm text-gray-400 transition-colors hover:text-gray-600 dark:hover:text-gray-200">
-        <ChevronLeft className="h-4 w-4" /> Calidad · NCR
-      </Link>
-
+    <div className="mx-auto max-w-7xl px-6 pb-24 text-foreground md:px-8">
       <Toolbar
         domain="quality"
         icon={BarChart3}

@@ -99,7 +99,7 @@ export default function PackingPage() {
 
   if (forbidden) {
     return (
-      <div className="min-h-screen grid place-items-center text-black dark:text-white">
+      <div className="min-h-screen grid place-items-center text-foreground">
         <div className={`${glass} rounded-3xl p-10 text-center max-w-sm`}>
           <Lock className="w-8 h-8 mx-auto mb-3 text-gray-400" />
           <h2 className="text-lg font-semibold">Sin acceso</h2>
@@ -112,7 +112,7 @@ export default function PackingPage() {
   const firstLoad = isLoading && data === undefined;
 
   return (
-    <div className="min-h-screen text-black dark:text-white">
+    <div className="min-h-screen text-foreground">
       <div className={`${glass} sticky top-0 z-40 px-6 py-4`}>
         <div className="max-w-5xl mx-auto flex items-center gap-3">
           <Link href="/dashboard" className="p-2 -ml-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10">
@@ -131,7 +131,7 @@ export default function PackingPage() {
         </div>
       </div>
 
-      <main className="max-w-5xl mx-auto px-6 pt-8 pb-28">
+      <main className="max-w-7xl mx-auto px-6 pt-8 pb-28">
         <div className="flex flex-wrap items-center gap-2 mb-5">
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar SSCC, folio, parte…" className="pk-input flex-1 min-w-[200px]" />
           <select value={shipmentFilter} onChange={(e) => setShipmentFilter(e.target.value)} className="pk-input w-auto">
@@ -246,8 +246,8 @@ function HuRow({ hu, onEdit, onLabel, onChanged }: { hu: HandlingUnit; onEdit: (
       </div>
       <div className="flex items-center gap-1 flex-shrink-0">
         <button onClick={onLabel} title="Etiqueta ZPL" className="p-1.5 rounded-lg text-gray-400 hover:text-indigo-500 hover:bg-indigo-500/10"><Tag className="w-4 h-4" /></button>
-        <button onClick={regen} disabled={busy !== null} title="Regenerar SSCC" className="p-1.5 rounded-lg text-gray-400 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10">{busy === "regen" ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}</button>
-        <button onClick={onEdit} title="Editar" className="p-1.5 rounded-lg text-gray-400 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10"><Pencil className="w-4 h-4" /></button>
+        <button onClick={regen} disabled={busy !== null} title="Regenerar SSCC" className="p-1.5 rounded-lg text-gray-400 hover:text-foreground hover:bg-black/5 dark:hover:bg-white/10">{busy === "regen" ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}</button>
+        <button onClick={onEdit} title="Editar" className="p-1.5 rounded-lg text-gray-400 hover:text-foreground hover:bg-black/5 dark:hover:bg-white/10"><Pencil className="w-4 h-4" /></button>
         <button onClick={del} disabled={busy !== null} title="Eliminar" className="p-1.5 rounded-lg text-gray-400 hover:text-rose-500 hover:bg-rose-500/10">{busy === "del" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}</button>
       </div>
     </div>

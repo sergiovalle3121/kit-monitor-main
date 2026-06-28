@@ -1,7 +1,7 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class AddOfficeDocumentLifecycle20260627130000 implements MigrationInterface {
-  name = 'AddOfficeDocumentLifecycle20260627130000';
+export class AddOfficeDocumentLifecycle20260627140000 implements MigrationInterface {
+  name = 'AddOfficeDocumentLifecycle20260627140000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`ALTER TABLE "office_documents" ADD "lifecycle_state" character varying(24) NOT NULL DEFAULT 'draft'`);

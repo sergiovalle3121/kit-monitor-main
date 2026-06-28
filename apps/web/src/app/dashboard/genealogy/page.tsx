@@ -57,15 +57,19 @@ export default function GenealogyPage() {
     const reel = sp.get('reel');
     const part = sp.get('part');
     if (s) {
-      setMode('serial');
-      setSerialInput(s);
-      setActiveSerial(s.trim());
+      queueMicrotask(() => {
+        setMode('serial');
+        setSerialInput(s);
+        setActiveSerial(s.trim());
+      });
     } else if (lot || reel) {
-      setMode('lot');
-      setLotInput(lot ?? '');
-      setReelInput(reel ?? '');
-      setPartInput(part ?? '');
-      setActiveLot({ lot: (lot ?? '').trim(), reel: (reel ?? '').trim(), part: (part ?? '').trim() });
+      queueMicrotask(() => {
+        setMode('lot');
+        setLotInput(lot ?? '');
+        setReelInput(reel ?? '');
+        setPartInput(part ?? '');
+        setActiveLot({ lot: (lot ?? '').trim(), reel: (reel ?? '').trim(), part: (part ?? '').trim() });
+      });
     }
   }, []);
 
@@ -105,8 +109,8 @@ export default function GenealogyPage() {
   const lotDisabled = !lotInput.trim() && !reelInput.trim();
 
   return (
-    <div className="min-h-screen text-black dark:text-white">
-      <main className="mx-auto max-w-6xl px-6 pb-24 pt-10">
+    <div className="min-h-screen text-foreground">
+      <main className="mx-auto max-w-7xl px-6 pb-24 pt-10">
         <Link
           href="/dashboard"
           className="mb-4 inline-flex items-center gap-1 text-sm text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"

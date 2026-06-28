@@ -54,7 +54,7 @@ const NEXT_STATES: Record<NodeStatus, NodeStatus[]> = {
 const ITEM_CATEGORIES: ItemCategory[] = ['STANDARD', 'PHANTOM', 'NON_STOCK', 'REFERENCE'];
 
 const field =
-  'w-full bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-lg py-2 px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30';
+  'w-full bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-lg py-2 px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30';
 const money = (n: number) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 4 });
 
 export default function BomEditorPage() {
@@ -88,7 +88,7 @@ export default function BomEditorPage() {
   }
 
   if (forbidden) {
-    return <div className="min-h-screen grid place-items-center text-black dark:text-white"><div className={`${glass} rounded-3xl p-10 text-center max-w-sm`}><Lock className="w-8 h-8 mx-auto mb-3 text-gray-400" /><h2 className="text-lg font-semibold">Sin acceso</h2></div></div>;
+    return <div className="min-h-screen grid place-items-center text-foreground"><div className={`${glass} rounded-3xl p-10 text-center max-w-sm`}><Lock className="w-8 h-8 mx-auto mb-3 text-gray-400" /><h2 className="text-lg font-semibold">Sin acceso</h2></div></div>;
   }
   if (isLoading || !node) {
     return <div className="min-h-screen flex justify-center pt-32"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div>;
@@ -97,9 +97,9 @@ export default function BomEditorPage() {
   const meta = STATUS_META[node.status];
 
   return (
-    <div className="min-h-screen text-black dark:text-white font-sans pb-28">
+    <div className="min-h-screen text-foreground font-sans pb-28">
       <main className="max-w-4xl mx-auto px-6 pt-8">
-        <Link href="/dashboard/bom" className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-black dark:hover:text-white mb-6">
+        <Link href="/dashboard/bom" className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-foreground mb-6">
           <ChevronLeft className="w-4 h-4" /> BOM Multinivel
         </Link>
 
@@ -143,7 +143,7 @@ export default function BomEditorPage() {
 
 function TabBtn({ active, onClick, icon: Icon, label }: { active: boolean; onClick: () => void; icon: typeof Network; label: string }) {
   return (
-    <button onClick={onClick} className={`inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${active ? 'border-violet-500 text-black dark:text-white' : 'border-transparent text-gray-400 hover:text-gray-600 dark:hover:text-gray-200'}`}>
+    <button onClick={onClick} className={`inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${active ? 'border-violet-500 text-foreground' : 'border-transparent text-gray-400 hover:text-gray-600 dark:hover:text-gray-200'}`}>
       <Icon className="w-4 h-4" /> {label}
     </button>
   );
@@ -336,7 +336,7 @@ function ExplodeTab({ nodeId, baseQty }: { nodeId: string; baseQty: number }) {
           unidades
         </label>
         <div className="ml-auto flex gap-3 text-sm">
-          <span className="text-gray-400">Niveles: <b className="text-black dark:text-white">{data.maxDepth}</b></span>
+          <span className="text-gray-400">Niveles: <b className="text-foreground">{data.maxDepth}</b></span>
           <span className="text-gray-400">Costo total: <b className="text-emerald-500">{money(data.totalCost)}</b></span>
         </div>
       </div>
