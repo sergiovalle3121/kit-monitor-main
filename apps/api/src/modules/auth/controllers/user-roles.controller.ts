@@ -21,7 +21,9 @@ import { AssignRoleDto } from '../dto/role.dto';
  * All endpoints are protected with JWT authentication and require 'auth:write' permission.
  * These endpoints allow managing which roles are assigned to users within specific tenants.
  */
-@Controller('api/users')
+// Global prefix `api` is applied in main.ts; `'api/users'` would double-mount at
+// `/api/api/users`. The intended surface is `/api/users/:userId/roles`.
+@Controller('users')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class UserRolesController {
   constructor(

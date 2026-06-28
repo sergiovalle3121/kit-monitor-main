@@ -10,7 +10,9 @@ import { PermissionsGuard } from '../guards/permissions.guard';
  * These endpoints should be removed or heavily protected in production.
  * They are intended for initial setup and development only.
  */
-@Controller('api/seed')
+// Global prefix `api` is applied in main.ts; `'api/seed'` would double-mount at
+// `/api/api/seed`. The intended surface is `/api/seed/roles`.
+@Controller('seed')
 export class SeedController {
   constructor(private readonly rolesSeederService: RolesSeederService) {}
 
