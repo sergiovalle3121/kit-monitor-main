@@ -125,6 +125,49 @@ eq(fieldValues(sheet, RANGE, 'Region'), ['Norte', 'Sur'], 'fieldValues Region');
   eq(nums(rowByLabel(res, 'Total general')), [450, 500, 950], 'total general por mes + gran total');
 }
 
+
+// ── 11) Empty data retains headers + grand total shell with warning ──────────
+{
+  const emptySheet = { name: 'Empty', celldata: sheet.celldata.filter((c: any) => c.r === 0) };
+  const cfg: PivotConfig = { range: RANGE, sheetIndex: 0, rows: ['Region'], cols: ['Mes'], values: [{ field: 'Ventas', agg: 'sum' }], showColTotals: true, showRowTotals: true };
+  const res = buildPivot(emptySheet, cfg);
+  ok(res.warnings.some((w: string) => w.includes('no contiene filas')), 'empty data emits diagnostic');
+  ok(!!rowByLabel(res, 'Total general'), 'empty data keeps a grand total row');
+}
+
+// ── 12) Invalid fields emit diagnostics instead of silently degrading ───────
+{
+  const cfg: PivotConfig = {
+    range: RANGE,
+    sheetIndex: 0,
+    rows: ['Region', 'MissingRow'],
+    cols: ['MissingCol'],
+    values: [{ field: 'MissingValue', agg: 'sum' }, { field: 'Ventas', agg: 'max' }],
+    filters: [{ field: 'MissingFilter', include: ['x'] }],
+    showColTotals: true,
+    showRowTotals: true,
+  };
+  const res = buildPivot(sheet, cfg);
+  ok(res.warnings.some((w: string) => w.includes('Campo de fila inválido')), 'warns invalid row field');
+  ok(res.warnings.some((w: string) => w.includes('Campo de columna inválido')), 'warns invalid column field');
+  ok(res.warnings.some((w: string) => w.includes('Campo de valor inválido')), 'warns invalid value field');
+  ok(res.warnings.some((w: string) => w.includes('Filtro omitido')), 'warns invalid filter field');
+  eq(nums(rowByLabel(res, 'Norte')), [200, 200], 'valid value fields still calculate max + row total after invalid diagnostics');
+}
+
+// ── 13) Required v2 aggregations across row/column/value axes ───────────────
+{
+  const cfg: PivotConfig = { range: RANGE, sheetIndex: 0, rows: ['Region'], cols: ['Mes'], values: [
+    { field: 'Ventas', agg: 'sum' },
+    { field: 'Ventas', agg: 'count' },
+    { field: 'Ventas', agg: 'avg' },
+    { field: 'Ventas', agg: 'min' },
+    { field: 'Ventas', agg: 'max' },
+  ], showColTotals: true, showRowTotals: true };
+  const res = buildPivot(sheet, cfg);
+  eq(nums(rowByLabel(res, 'Sur')).slice(-5), [530, 3, 176.666667, 80, 300], 'sum/count/avg/min/max grand totals for Sur');
+}
+
 // ── Resumen ──────────────────────────────────────────────────────────────────
 console.log(`\nPIVOT SPEC: ${passed} OK, ${fails.length} fallos`);
 if (fails.length) { for (const f of fails) console.error('  ✗ ' + f); throw new Error(`${fails.length} aserciones fallaron`); }
