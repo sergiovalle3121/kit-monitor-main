@@ -1,137 +1,175 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * Segmentaciones de datos (slicers) y escala de tiempo — núcleo PURO sobre `celldata`.
+ * AXOS Sheets slicers and timeline filters — pure persistable model over Fortune-Sheet `celldata`.
  *
- * Un **slicer** filtra una tabla por los **valores seleccionados** de una columna (botones tipo Excel);
- * una **escala de tiempo** filtra una columna de fecha por un **rango [desde, hasta]**. Varios slicers
- * sobre la misma tabla se combinan con **Y** (una fila se oculta si CUALQUIER slicer la rechaza). El
- * resultado se aplica ocultando filas con `sheet.config.rowhidden = { [fila]: 0 }` (convención
- * Fortune-Sheet). Lógica pura → testeable sin la rejilla.
+ * `AxosSlicer` filters a table by selected unique values from one field, while
+ * `AxosTimelineFilter` filters date-like fields by a `[from, to]` window. Both are
+ * intentionally stored as workbook/sheet JSON metadata so autosave, import/export
+ * metadata, pivot refresh, and the inspector can share the same foundation.
  */
 import { parseRange } from '@/lib/office/charts';
+import type { PivotConfig } from '@/lib/office/sheetOps';
 
-export interface Slicer {
+export interface AxosSlicer {
   id: string;
-  range: string;        // rango de la tabla (incluye encabezado)
-  colRel: number;       // columna relativa dentro del rango
-  header: string;       // etiqueta (texto del encabezado)
-  selected: string[] | null; // valores marcados; `null` = todos
+  kind: 'slicer';
+  range: string;        // table range including header
+  colRel: number;       // relative column inside range
+  header: string;       // header/field label
+  selected: string[] | null; // null = all values
 }
 
-export interface Timeline {
+export interface AxosTimelineFilter {
   id: string;
+  kind: 'timeline';
   range: string;
   colRel: number;
   header: string;
-  from?: string | null; // ISO/serial; vacío = sin límite inferior
-  to?: string | null;
+  from?: string | null; // ISO date, date serial, or empty = no lower bound
+  to?: string | null;   // ISO date, date serial, or empty = no upper bound
 }
 
-/** Valor de presentación de una celda (texto). */
+// Backward-compatible aliases for existing editor metadata.
+export type Slicer = AxosSlicer;
+export type Timeline = AxosTimelineFilter;
+export type AxosSheetFilter = AxosSlicer | AxosTimelineFilter;
+
+export interface AxosFilterSummary {
+  hiddenRows: Record<number, number>;
+  hiddenCount: number;
+  visibleCount: number;
+  evaluatedRows: number;
+}
+
+/** Display value for value buttons and field comparisons. */
 function disp(v: any): string {
   if (v === null || v === undefined) return '';
   if (typeof v === 'object') return String(v.m ?? v.v ?? '');
   return String(v);
 }
 
-/** Convierte a número (fecha serial o número) para comparar la escala de tiempo. */
-function toNum(v: any): number | null {
+/** Converts numbers, Date instances, ISO dates, and Excel serial dates to comparable epoch ms. */
+export function axosDateValue(v: any): number | null {
   const raw = v && typeof v === 'object' ? (v.v ?? v.m) : v;
-  if (typeof raw === 'number') return raw;
   if (raw instanceof Date) return raw.getTime();
+  if (typeof raw === 'number') {
+    // Excel serial date support: 25569 = 1970-01-01. Keep large timestamps intact.
+    if (raw > 0 && raw < 100000) return Math.round((raw - 25569) * 86400000);
+    return raw;
+  }
   const s = String(raw ?? '').trim();
   if (!s) return null;
   const d = Date.parse(s);
   if (!Number.isNaN(d)) return d;
   const n = Number(s);
-  return Number.isNaN(n) ? null : n;
+  return Number.isNaN(n) ? null : axosDateValue(n);
 }
 
-const dateNum = (s?: string | null): number | null => {
-  if (s == null || s === '') return null;
-  const d = Date.parse(String(s));
-  if (!Number.isNaN(d)) return d;
-  const n = Number(s);
-  return Number.isNaN(n) ? null : n;
-};
+const dateNum = (s?: string | null): number | null => (s == null || s === '') ? null : axosDateValue(s);
 
-/** Mapa `"r_c" → celda` para acceso O(1). */
+/** Map `"r_c" → cell value` for O(1) access. */
 function cellMap(sheet: any): Map<string, any> {
   const m = new Map<string, any>();
   for (const cd of sheet?.celldata ?? []) m.set(`${cd.r}_${cd.c}`, cd.v);
   return m;
 }
 
-/** Valores distintos (ordenados) de la columna de un slicer — el conjunto de botones. */
-export function slicerValues(sheet: any, range: string, colRel: number): string[] {
+function fieldNameFor(sheet: any, range: string, colRel: number): string | null {
+  const rng = parseRange(range); if (!rng) return null;
+  return disp(cellMap(sheet).get(`${rng.r1}_${rng.c1 + colRel}`)) || null;
+}
+
+/** Unique non-empty values for a column in a table range, sorted naturally. */
+export function uniqueValuesForRange(sheet: any, range: string, colRel: number): string[] {
   const rng = parseRange(range); if (!rng) return [];
   const map = cellMap(sheet);
   const c = rng.c1 + colRel;
   const seen = new Set<string>();
-  for (let r = rng.r1 + 1; r <= rng.r2; r++) { // +1: salta el encabezado
+  for (let r = rng.r1 + 1; r <= rng.r2; r++) {
     const s = disp(map.get(`${r}_${c}`));
     if (s !== '') seen.add(s);
   }
   return Array.from(seen).sort((a, b) => {
     const na = Number(a), nb = Number(b);
     if (!Number.isNaN(na) && !Number.isNaN(nb)) return na - nb;
-    return a.localeCompare(b, 'es');
+    return a.localeCompare(b, 'es', { numeric: true });
   });
 }
 
-/** ¿La fila de datos `r` pasa el slicer de valores? */
-function passSlicer(map: Map<string, any>, rng: any, s: Slicer, r: number): boolean {
-  if (s.selected == null) return true;            // todos
-  if (s.selected.length === 0) return false;      // ninguno → oculta todo
-  return s.selected.includes(disp(map.get(`${r}_${rng.c1 + s.colRel}`)));
-}
+/** Backward-compatible name used by the current floating slicer UI. */
+export const slicerValues = uniqueValuesForRange;
 
-/** ¿La fila de datos `r` pasa la escala de tiempo? */
-function passTimeline(map: Map<string, any>, rng: any, t: Timeline, r: number): boolean {
-  const n = toNum(map.get(`${r}_${rng.c1 + t.colRel}`));
+export function rowPassesTimeline(value: any, filter: Pick<AxosTimelineFilter, 'from' | 'to'>): boolean {
+  const n = axosDateValue(value);
   if (n == null) return false;
-  const lo = dateNum(t.from), hi = dateNum(t.to);
+  const lo = dateNum(filter.from), hi = dateNum(filter.to);
   if (lo != null && n < lo) return false;
   if (hi != null && n > hi) return false;
   return true;
 }
 
-/**
- * Recalcula `sheet.config.rowhidden` a partir de TODOS los slicers y escalas de tiempo de la hoja
- * (`sheet.slicers`, `sheet.timelines`). Combina con Y. Devuelve el nº de filas ocultas.
- */
-export function applySlicers(sheet: any): number {
-  if (!sheet) return 0;
-  const slicers: Slicer[] = Array.isArray(sheet.slicers) ? sheet.slicers : [];
-  const timelines: Timeline[] = Array.isArray(sheet.timelines) ? sheet.timelines : [];
-  sheet.config = sheet.config || {};
-  const hidden: Record<number, number> = {};
-  // El rango de datos abarca el de todos los filtros (se asume una tabla común).
+function passSlicer(map: Map<string, any>, rng: any, s: AxosSlicer, r: number): boolean {
+  if (s.selected == null) return true;
+  if (s.selected.length === 0) return false;
+  return s.selected.includes(disp(map.get(`${r}_${rng.c1 + s.colRel}`)));
+}
+
+function passTimeline(map: Map<string, any>, rng: any, t: AxosTimelineFilter, r: number): boolean {
+  return rowPassesTimeline(map.get(`${r}_${rng.c1 + t.colRel}`), t);
+}
+
+export function summarizeAxosFilters(sheet: any): AxosFilterSummary {
+  const slicers: AxosSlicer[] = Array.isArray(sheet?.slicers) ? sheet.slicers : [];
+  const timelines: AxosTimelineFilter[] = Array.isArray(sheet?.timelines) ? sheet.timelines : [];
   const all = [...slicers, ...timelines];
-  if (!all.length) { delete sheet.config.rowhidden; return 0; }
+  const hiddenRows: Record<number, number> = {};
+  if (!all.length) return { hiddenRows, hiddenCount: 0, visibleCount: 0, evaluatedRows: 0 };
   const map = cellMap(sheet);
   let r1 = Infinity, r2 = -Infinity;
   for (const f of all) { const rng = parseRange(f.range); if (rng) { r1 = Math.min(r1, rng.r1 + 1); r2 = Math.max(r2, rng.r2); } }
-  if (!Number.isFinite(r1)) return 0;
-  let count = 0;
+  if (!Number.isFinite(r1)) return { hiddenRows, hiddenCount: 0, visibleCount: 0, evaluatedRows: 0 };
+  let hiddenCount = 0;
   for (let r = r1; r <= r2; r++) {
     let visible = true;
     for (const s of slicers) { const rng = parseRange(s.range); if (rng && !passSlicer(map, rng, s, r)) { visible = false; break; } }
     if (visible) for (const t of timelines) { const rng = parseRange(t.range); if (rng && !passTimeline(map, rng, t, r)) { visible = false; break; } }
-    if (!visible) { hidden[r] = 0; count++; }
+    if (!visible) { hiddenRows[r] = 0; hiddenCount++; }
   }
-  if (count) sheet.config.rowhidden = hidden; else delete sheet.config.rowhidden;
-  return count;
+  const evaluatedRows = r2 - r1 + 1;
+  return { hiddenRows, hiddenCount, visibleCount: evaluatedRows - hiddenCount, evaluatedRows };
 }
 
-const uid = () => Math.random().toString(36).slice(2, 9);
-
-/** Crea un slicer (todos los valores marcados) para una columna de la tabla. */
-export function makeSlicer(range: string, colRel: number, header: string): Slicer {
-  return { id: uid(), range, colRel, header, selected: null };
+/** Applies sheet-level filters by updating Fortune-Sheet row-hidden metadata. */
+export function applySlicers(sheet: any): number {
+  if (!sheet) return 0;
+  sheet.config = sheet.config || {};
+  const summary = summarizeAxosFilters(sheet);
+  if (summary.hiddenCount) sheet.config.rowhidden = summary.hiddenRows;
+  else delete sheet.config.rowhidden;
+  return summary.hiddenCount;
 }
 
-/** Crea una escala de tiempo para una columna de fecha. */
-export function makeTimeline(range: string, colRel: number, header: string): Timeline {
-  return { id: uid(), range, colRel, header, from: null, to: null };
+/** Applies value slicers to a pivot config without mutating it. Timeline filters remain row-level until pivot date filters are modeled. */
+export function applySlicersToPivotConfig(sheet: any, cfg: PivotConfig, slicers: AxosSlicer[] = sheet?.slicers ?? []): PivotConfig {
+  const filters = [...(cfg.filters ?? [])];
+  for (const slicer of slicers) {
+    if (slicer.selected == null) continue;
+    const field = fieldNameFor(sheet, slicer.range, slicer.colRel) ?? slicer.header;
+    if (!field) continue;
+    const include = [...slicer.selected];
+    const idx = filters.findIndex((f) => f.field === field);
+    if (idx >= 0) filters[idx] = { field, include };
+    else filters.push({ field, include });
+  }
+  return { ...cfg, filters };
+}
+
+const uid = () => `ax_${Math.random().toString(36).slice(2, 9)}`;
+
+export function makeSlicer(range: string, colRel: number, header: string): AxosSlicer {
+  return { id: uid(), kind: 'slicer', range, colRel, header, selected: null };
+}
+
+export function makeTimeline(range: string, colRel: number, header: string): AxosTimelineFilter {
+  return { id: uid(), kind: 'timeline', range, colRel, header, from: null, to: null };
 }

@@ -17,7 +17,7 @@ import { SheetNameManager } from './SheetNameManager';
 import { SheetPrintDialog } from './SheetPrintDialog';
 import { SheetTableStyle, type TableStylePayload } from './SheetTableStyle';
 import { SheetSlicer } from './sheets/SheetSlicer';
-import { slicerValues, applySlicers, makeSlicer, makeTimeline, type Slicer, type Timeline } from './sheets/slicer';
+import { slicerValues, applySlicers, applySlicersToPivotConfig, makeSlicer, makeTimeline, type Slicer, type Timeline } from './sheets/slicer';
 import { parseRange, type ChartConfig } from '@/lib/office/charts';
 import { applyConditional, sortRangeMulti, removeDuplicates, textToColumns, setCellNote, replaceAll, buildPivot, pivotToCelldata, applyNumberFormat, applyCellStyle, applySubtotals, applySparkline, applyFill, transposeRange, copyRange, buildFilter, mergeCells, unmergeCells, setAutoFilter, clearAutoFilter, buildPrintHtml, usedRange, colName, applyDataVerification, clearDataVerification, markInvalidCells, applyTableStyle, rawOf, type CondPayload, type PivotConfig, type FindOpts, type NamedRange, type PrintOpts } from '@/lib/office/sheetOps';
 import { normalizeCellInput } from './sheets/sheetFormula';
@@ -956,7 +956,8 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
     const sheets = clone(sheetsRef.current);
     const src = sheets[cfg.sheetIndex] ?? sheets[0];
     if (!src) { setShowPivot(false); return; }
-    const res = buildPivot(src, cfg);
+    const pivotCfg = applySlicersToPivotConfig(src, cfg);
+    const res = buildPivot(src, pivotCfg);
     if (!res.matrix.length) { toast.error(res.warnings[0] || 'No se pudo generar la tabla dinámica.'); return; }
     if (target.mode === 'cell') {
       const origin = parseRange(target.cell || 'A1');
@@ -976,7 +977,7 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
         row: Math.max(100, res.nRows + 8), column: Math.max(26, res.nCols + 4), config: {}, status: 1,
       });
       // Recuerda la definición para poder actualizar la tabla tras cambios en el origen.
-      pivotsRef.current = [...pivotsRef.current, { id: `pv_${Date.now().toString(36)}`, config: cfg, sheetName: name }];
+      pivotsRef.current = [...pivotsRef.current, { id: `pv_${Date.now().toString(36)}`, config: pivotCfg, sheetName: name }];
     }
     setShowPivot(false);
     remount(sheets);
@@ -1228,6 +1229,9 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
           onOpenConditional={() => setTool('condformat')}
           onOpenNames={() => setShowNames(true)}
           onOpenPivot={() => setShowPivot(true)}
+          onInsertSlicer={() => insertSlicer('slicer')}
+          onInsertTimeline={() => insertSlicer('timeline')}
+          onShowSlicers={() => setShowSlicers(true)}
           onOpenChart={() => setDataMode('spark')}
           onOpenScenarios={() => setShowScenarios(true)}
           onOpenGoalSeek={() => setShowGoalSeek(true)}
@@ -1368,13 +1372,15 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
 function SheetWorkbenchInspector({
   tab, onTab, health, compatibility, selection, sheets, activeSheetIndex, charts, pivots, comments, connectors, names, readOnly,
   onOpenValidation, onOpenConditional, onOpenNames, onOpenPivot, onOpenChart, onOpenScenarios, onOpenGoalSeek, onOpenSolver,
-  onAddComment, onProtectSelection, onProtectSheet, onRefreshConnectors, onInsertConnector,
+  onInsertSlicer, onInsertTimeline, onShowSlicers, onAddComment, onProtectSelection, onProtectSheet, onRefreshConnectors, onInsertConnector,
 }: any) {
   const tabs = [
     ['workbook', 'Workbook'], ['cell', 'Cell'], ['data', 'Data'], ['charts', 'Charts'], ['pivot', 'Pivot'], ['comments', 'Comments'], ['protection', 'Protection'], ['xlsx', 'XLSX'], ['axos', 'AXOS'],
   ];
   const activeSheet = sheets[activeSheetIndex] ?? sheets[0] ?? {};
   const openComments = comments.filter((c: any) => !c.resolved);
+  const activeSlicers = Array.isArray(activeSheet?.slicers) ? activeSheet.slicers : [];
+  const activeTimelines = Array.isArray(activeSheet?.timelines) ? activeSheet.timelines : [];
   const protectedRanges = sheets.flatMap((s: any, i: number) => [
     ...(s?.axosProtection?.sheetLocked ? [{ sheet: s.name || `Hoja ${i + 1}`, range: 'Hoja completa', locked: true }] : []),
     ...(Array.isArray(s?.axosProtection?.ranges) ? s.axosProtection.ranges.map((r: any) => ({ ...r, sheet: s.name || `Hoja ${i + 1}` })) : []),
@@ -1407,6 +1413,12 @@ function SheetWorkbenchInspector({
           <button disabled={readOnly} className={tool} onClick={onOpenScenarios}>Escenarios — what-if industrial</button>
           <button disabled={readOnly} className={tool} onClick={onOpenGoalSeek}>Goal Seek — objetivo financiero/OEE</button>
           <button disabled={readOnly} className={tool} onClick={onOpenSolver}>Solver — optimización restringida</button>
+          <div className="rounded-xl border border-black/10 bg-white p-2 text-[11px] shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
+            <div className="mb-2 font-semibold uppercase tracking-wider text-gray-500">Segmentaciones y timeline</div>
+            <div className="grid grid-cols-2 gap-2"><button disabled={readOnly} className={tool} onClick={onInsertSlicer}>Nueva segmentación</button><button disabled={readOnly} className={tool} onClick={onInsertTimeline}>Nuevo timeline</button></div>
+            <button className={`${tool} mt-2`} onClick={onShowSlicers}>Mostrar controles flotantes</button>
+            <div className="mt-2 space-y-1 text-gray-500">{activeSlicers.map((s: any) => <div key={s.id}><b>{s.header}</b> · {(s.selected ?? ['Todos']).join(', ')}</div>)}{activeTimelines.map((t: any) => <div key={t.id}><b>{t.header}</b> · {t.from || '∞'} → {t.to || '∞'}</div>)}{!activeSlicers.length && !activeTimelines.length && <div>Sin filtros persistidos en la hoja activa.</div>}</div>
+          </div>
         </Panel>}
         {tab === 'charts' && <Panel title="Charts">
           <button disabled={readOnly} className={tool} onClick={onOpenChart}>Insertar sparkline desde rango</button>

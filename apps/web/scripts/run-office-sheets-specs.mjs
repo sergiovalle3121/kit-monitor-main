@@ -20,6 +20,7 @@ const specs = [
   'src/components/office/sheets/templateCharts.spec.ts',
   'src/components/office/sheets/templatePivots.spec.ts',
   'src/components/office/sheets/pivot.spec.ts',
+  'src/components/office/sheets/slicer.spec.ts',
   'src/components/office/sheets/scenarios.spec.ts',
   'src/components/office/sheets/goalSeek.spec.ts',
   'src/components/office/sheets/solver.spec.ts',
