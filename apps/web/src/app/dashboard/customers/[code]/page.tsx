@@ -28,7 +28,7 @@ export default function Customer360Page() {
   const ccy = commercial.currency || 'USD';
 
   return (
-    <div className="min-h-screen text-black dark:text-white">
+    <div className="min-h-screen text-foreground">
       <div className={`${glass} sticky top-0 z-40 px-6 py-4`}>
         <div className="max-w-6xl mx-auto flex items-center gap-3">
           <Link href="/dashboard/customers" className="p-2 -ml-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10"><ChevronLeft className="w-5 h-5" /></Link>
@@ -160,4 +160,4 @@ function Row({ label, value, valueColor }: { label: string; value: string; value
   return <div className="flex items-center justify-between gap-2 text-[13px]"><span className="text-gray-400">{label}</span><span className="font-medium truncate ml-2" style={{ color: valueColor }}>{value}</span></div>;
 }
 function Muted({ text }: { text: string }) { return <p className="text-[13px] text-gray-400 py-2">{text}</p>; }
-function Guard() { return <div className="min-h-screen grid place-items-center text-black dark:text-white"><div className={`${glass} rounded-3xl p-10 text-center max-w-sm`}><Lock className="w-8 h-8 mx-auto mb-3 text-gray-400" /><h2 className="text-lg font-semibold">Sin acceso</h2></div></div>; }
+function Guard() { return <div className="min-h-screen grid place-items-center text-foreground"><div className={`${glass} rounded-3xl p-10 text-center max-w-sm`}><Lock className="w-8 h-8 mx-auto mb-3 text-gray-400" /><h2 className="text-lg font-semibold">Sin acceso</h2></div></div>; }

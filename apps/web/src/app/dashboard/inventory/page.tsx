@@ -340,7 +340,7 @@ export default function InventoryPage() {
     tab === "replenishment" ? rules.length > 0 : false;
 
   return (
-    <div className="min-h-screen text-black dark:text-white font-sans pb-32">
+    <div className="min-h-screen text-foreground font-sans pb-32">
       <main className="max-w-7xl mx-auto px-6 pt-10">
         <PageHeader domain="inventory" title="Inventario" subtitle="Existencias por ubicación, escasez vs demanda y trazabilidad" />
 

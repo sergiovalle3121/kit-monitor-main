@@ -73,7 +73,7 @@ export default function NcrDetailPage() {
 
   if (forbidden) {
     return (
-      <div className="min-h-screen text-black dark:text-white font-sans pb-32">
+      <div className="min-h-screen text-foreground font-sans pb-32">
         <main className="max-w-4xl mx-auto px-6 pt-10">
           {backLink}
           <Empty icon={<Lock className="w-6 h-6" />} title="Sin acceso al backend" body="Verifica que el servicio de API esté conectado y tu sesión sea válida." />
@@ -95,7 +95,7 @@ export default function NcrDetailPage() {
   const transitions = nextNcrStates(ncr.status);
 
   return (
-    <div className="min-h-screen text-black dark:text-white font-sans pb-32">
+    <div className="min-h-screen text-foreground font-sans pb-32">
       <main className="max-w-4xl mx-auto px-6 pt-10">
         {backLink}
         <PageHeader

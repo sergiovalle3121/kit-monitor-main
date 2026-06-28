@@ -220,7 +220,7 @@ export default function SuppliersPage() {
 
   if (forbidden) {
     return (
-      <div className="grid min-h-[60vh] place-items-center text-black dark:text-white">
+      <div className="grid min-h-[60vh] place-items-center text-foreground">
         <div className={`${glass} max-w-sm rounded-3xl p-10 text-center`}>
           <Lock className="mx-auto mb-3 h-8 w-8 text-gray-400" />
           <h2 className="text-lg font-semibold">Sin acceso</h2>
