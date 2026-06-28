@@ -23,6 +23,7 @@ import {
   RefreshCw,
   Pencil,
   Newspaper,
+  ShieldAlert,
 } from 'lucide-react';
 import { glass } from '@/lib/glass';
 import { isAdminAccess } from '@/lib/owner';
@@ -76,6 +77,15 @@ interface ConvSummary {
   updatedAt: string;
 }
 
+/** A proactive finding as returned by GET /api/ai/insights. */
+interface Insight {
+  area: string;
+  severity: 'critical' | 'high' | 'medium' | 'low';
+  title: string;
+  detail: string;
+  suggestedQuestion: string;
+}
+
 /** A stored message as returned by GET /api/ai/conversations/:id. */
 interface StoredMessage {
   role: 'user' | 'assistant';
@@ -122,10 +132,12 @@ export function Cide() {
   const [loading, setLoading] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [view, setView] = useState<'chat' | 'history'>('chat');
+  const [view, setView] = useState<'chat' | 'history' | 'insights'>('chat');
   const [conversations, setConversations] = useState<ConvSummary[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
+  const [insights, setInsights] = useState<Insight[] | null>(null);
+  const [loadingInsights, setLoadingInsights] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
   const { session } = useDashboardSession();
@@ -303,6 +315,30 @@ export function Cide() {
     }
   }
 
+  async function openInsights() {
+    setView('insights');
+    setLoadingInsights(true);
+    try {
+      const res = await fetch('/api/ai/insights', { cache: 'no-store' });
+      if (res.ok) {
+        const data = (await res.json()) as { insights?: Insight[] };
+        setInsights(data.insights ?? []);
+      } else {
+        setInsights([]);
+      }
+    } catch {
+      setInsights([]);
+    } finally {
+      setLoadingInsights(false);
+    }
+  }
+
+  /** Jump from a Centinela finding into a chat deep-dive. */
+  function analyzeInsight(question: string) {
+    setView('chat');
+    void send(question);
+  }
+
   async function openHistory() {
     setView('history');
     setLoadingHistory(true);
@@ -434,6 +470,20 @@ export function Cide() {
                     <Plus className="h-4 w-4" />
                   </button>
                   <button
+                    onClick={() =>
+                      view === 'insights' ? setView('chat') : openInsights()
+                    }
+                    aria-label="Centinela · alertas"
+                    title="Centinela · qué necesita tu atención"
+                    className={`rounded-lg p-2 transition-colors hover:bg-black/5 dark:hover:bg-white/10 ${
+                      view === 'insights'
+                        ? 'text-violet-600 dark:text-violet-300'
+                        : 'text-black/50 hover:text-black dark:text-white/50 dark:hover:text-white'
+                    }`}
+                  >
+                    <ShieldAlert className="h-4 w-4" />
+                  </button>
+                  <button
                     onClick={() => (view === 'history' ? setView('chat') : openHistory())}
                     aria-label="Historial de conversaciones"
                     title="Historial"
@@ -478,6 +528,13 @@ export function Cide() {
                     onPick={loadConversation}
                     onDelete={deleteConversation}
                     onRename={renameConversation}
+                  />
+                ) : view === 'insights' ? (
+                  <InsightsView
+                    insights={insights}
+                    loading={loadingInsights}
+                    onAnalyze={analyzeInsight}
+                    onRefresh={openInsights}
                   />
                 ) : (
                   <>
@@ -798,6 +855,102 @@ function HistoryView({
               </button>
             </>
           )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ── Centinela (proactive insights) ─────────────────────────────────────────
+
+const INSIGHT_DOT: Record<string, string> = {
+  critical: 'bg-red-500',
+  high: 'bg-orange-500',
+  medium: 'bg-amber-500',
+  low: 'bg-emerald-500',
+};
+
+function InsightsView({
+  insights,
+  loading,
+  onAnalyze,
+  onRefresh,
+}: {
+  insights: Insight[] | null;
+  loading: boolean;
+  onAnalyze: (question: string) => void;
+  onRefresh: () => void;
+}) {
+  if (loading && !insights) {
+    return (
+      <div className="flex items-center justify-center gap-2 pt-10 text-sm text-black/50 dark:text-white/50">
+        <Loader2 className="h-4 w-4 animate-spin" />
+        Revisando la operación…
+      </div>
+    );
+  }
+  if (!insights || insights.length === 0) {
+    return (
+      <div className="space-y-3 pt-10 text-center">
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-500">
+          <ShieldAlert className="h-6 w-6" />
+        </div>
+        <p className="text-sm text-black/60 dark:text-white/60">
+          Todo en orden por ahora. No hay alertas que requieran tu atención
+          según tus permisos.
+        </p>
+        <button
+          onClick={onRefresh}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-black/10 px-3 py-1.5 text-xs font-medium hover:bg-black/5 dark:border-white/10 dark:hover:bg-white/10"
+        >
+          <RefreshCw className="h-3.5 w-3.5" /> Revisar de nuevo
+        </button>
+      </div>
+    );
+  }
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between px-1 pb-1">
+        <p className="text-[11px] font-medium uppercase tracking-wide text-black/40 dark:text-white/40">
+          Qué necesita tu atención
+        </p>
+        <button
+          onClick={onRefresh}
+          aria-label="Actualizar"
+          className="rounded-md p-1 text-black/40 hover:bg-black/5 hover:text-black/70 dark:text-white/40 dark:hover:bg-white/10"
+        >
+          <RefreshCw className="h-3.5 w-3.5" />
+        </button>
+      </div>
+      {insights.map((it, i) => (
+        <div
+          key={i}
+          className="rounded-xl border border-black/10 px-3 py-2.5 dark:border-white/10"
+        >
+          <div className="flex items-start gap-2">
+            <span
+              className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${INSIGHT_DOT[it.severity] ?? 'bg-zinc-400'}`}
+            />
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-medium uppercase tracking-wide text-black/40 dark:text-white/40">
+                  {it.area}
+                </span>
+              </div>
+              <p className="text-sm font-medium leading-snug">{it.title}</p>
+              {it.detail && (
+                <p className="mt-0.5 text-xs text-black/55 dark:text-white/55">
+                  {it.detail}
+                </p>
+              )}
+              <button
+                onClick={() => onAnalyze(it.suggestedQuestion)}
+                className="mt-1.5 text-xs font-medium text-violet-600 hover:underline dark:text-violet-300"
+              >
+                Analizar con CIDE →
+              </button>
+            </div>
+          </div>
         </div>
       ))}
     </div>
