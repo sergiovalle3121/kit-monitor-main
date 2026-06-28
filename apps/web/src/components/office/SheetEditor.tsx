@@ -5,7 +5,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence } from 'framer-motion';
 import { Workbook } from '@fortune-sheet/react';
 import '@fortune-sheet/react/dist/index.css';
-import { ListChecks, Palette, Snowflake, FileText, Sigma, Search, ArrowDownUp, CopyMinus, Columns3, StickyNote, Table2, Hash, Rows3, Activity, ArrowDownToLine, FlipVertical2, Tag, Printer, ClipboardPaste, Filter, RefreshCw, LayoutGrid, Sparkles, Target, Grid3x3, Layers, Crosshair, Combine, CalendarRange, Lock, MessageSquare, Home, Eye, Clipboard, Scissors, Trash2, PaintBucket, Columns3 as ColumnsIcon, Percent, DollarSign, Eraser, MinusCircle, PlusCircle } from 'lucide-react';
+import { ListChecks, Palette, Snowflake, FileText, Sigma, Search, ArrowDownUp, CopyMinus, Columns3, StickyNote, Table2, Hash, Rows3, Activity, ArrowDownToLine, FlipVertical2, Tag, Printer, ClipboardPaste, Filter, RefreshCw, LayoutGrid, Sparkles, Target, Grid3x3, Layers, Crosshair, Combine, CalendarRange, Lock, MessageSquare, Home, Eye, Clipboard, Scissors, Trash2, PaintBucket, Columns3 as ColumnsIcon, Percent, DollarSign, Eraser, MinusCircle, PlusCircle, Presentation } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { SheetTools, type ValidationPayload } from './SheetTools';
 import { SheetFunctionWizard } from './SheetFunctionWizard';
@@ -45,6 +45,7 @@ import { auditWorkbookFormulas, formatFormulaAuditSummary } from '@/lib/office/f
 import { analyzeWorkbookHealth, deriveSheetSelectionStats, deriveWorkbookHealth, formatWorkbookHealthReport } from '@/lib/office/workbookHealth';
 import { scanXlsxCompatibility } from '@/lib/office/xlsxCompatibility';
 import { formatPivotRefreshReport, refreshStoredPivots } from '@/lib/office/pivotGovernance';
+import { buildExecutiveDashboard } from '@/lib/office/dashboardBuilder';
 
 // chart.js + react-chartjs-2 son pesados y solo se usan al insertar gráficas:
 // carga diferida para que abrir una hoja sin gráficas no los traiga al bundle.
@@ -952,6 +953,24 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
     else if (created) window.setTimeout(() => toast.success(`Tabla creada: ${created} — usa ${created}[Columna] en fórmulas.`), 30);
   }
 
+
+  function createExecutiveDashboard() {
+    if (readOnly) return;
+    const sheets = clone(sheetsRef.current);
+    sheets.forEach((sheet: any) => { sheet.status = 0; });
+    const result = buildExecutiveDashboard({
+      sheets,
+      charts: chartsRef.current,
+      pivots: pivotsRef.current,
+      connectors: connectorsRef.current,
+    });
+    sheets.push(result.sheet);
+    chartsRef.current = result.charts;
+    setCharts(chartsRef.current);
+    remount(sheets);
+    window.setTimeout(() => toast.success(`${result.sheet.name} creado con KPIs, narrativa ejecutiva y visualizaciones.`), 30);
+  }
+
   function applyPivot(cfg: PivotConfig, target: { mode: 'new' | 'cell'; cell?: string }) {
     const sheets = clone(sheetsRef.current);
     const src = sheets[cfg.sheetIndex] ?? sheets[0];
@@ -1074,6 +1093,10 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
               <RibbonButton icon={LayoutGrid} label="Dar formato como tabla" hideLabel={false} onClick={() => setShowTable(true)} />
               <RibbonButton icon={Table2} label="Tabla dinámica" hideLabel={false} onClick={() => setShowPivot(true)} />
               <RibbonButton icon={RefreshCw} label="Actualizar tablas dinámicas" onClick={refreshPivots} />
+            </RibbonGroup>
+            <RibbonSeparator />
+            <RibbonGroup label="Dashboards">
+              <RibbonButton icon={Presentation} label="Dashboard ejecutivo" hideLabel={false} onClick={createExecutiveDashboard} />
             </RibbonGroup>
             <RibbonSeparator />
             <RibbonGroup label="Minigráficos">
@@ -1229,6 +1252,7 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
           onOpenNames={() => setShowNames(true)}
           onOpenPivot={() => setShowPivot(true)}
           onOpenChart={() => setDataMode('spark')}
+          onOpenDashboard={createExecutiveDashboard}
           onOpenScenarios={() => setShowScenarios(true)}
           onOpenGoalSeek={() => setShowGoalSeek(true)}
           onOpenSolver={() => setShowSolver(true)}
@@ -1367,7 +1391,7 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
 
 function SheetWorkbenchInspector({
   tab, onTab, health, compatibility, selection, sheets, activeSheetIndex, charts, pivots, comments, connectors, names, readOnly,
-  onOpenValidation, onOpenConditional, onOpenNames, onOpenPivot, onOpenChart, onOpenScenarios, onOpenGoalSeek, onOpenSolver,
+  onOpenValidation, onOpenConditional, onOpenNames, onOpenPivot, onOpenChart, onOpenDashboard, onOpenScenarios, onOpenGoalSeek, onOpenSolver,
   onAddComment, onProtectSelection, onProtectSheet, onRefreshConnectors, onInsertConnector,
 }: any) {
   const tabs = [
@@ -1410,6 +1434,7 @@ function SheetWorkbenchInspector({
         </Panel>}
         {tab === 'charts' && <Panel title="Charts">
           <button disabled={readOnly} className={tool} onClick={onOpenChart}>Insertar sparkline desde rango</button>
+          <button disabled={readOnly} className={tool} onClick={onOpenDashboard}>Crear dashboard ejecutivo</button>
           {charts.map((c: any) => <div key={c.id} className="rounded-xl bg-white p-2 shadow-sm dark:bg-white/[0.04]"><b>{c.title || 'Chart'}</b><br />{c.type} · {c.range}</div>)}{!charts.length && <Empty text="No hay charts persistidos; usa Insertar para construir visualizaciones." />}
         </Panel>}
         {tab === 'pivot' && <Panel title="Pivot Workbench">
