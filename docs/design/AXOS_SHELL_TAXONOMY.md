@@ -29,13 +29,13 @@ type ChromeMode =
   | 'landing';        // público (landing / login / marketing)
 ```
 
-| Modo | Topbar global | Wayfinding | Dock inferior | Widgets flotantes | Viewport |
-| --- | --- | --- | --- | --- | --- |
-| `standard` | ✅ | ✅ miga + back único | ✅ | ✅ | contenido `max-w` |
-| `command-center` | ✅ | ✅ | ✅ | ✅ | hero ancho + grid |
-| `workbench` | propio del tool | salida propia | ❌ oculto | ❌ ocultos | full viewport |
-| `kiosk` | propio industrial | ❌ | ❌ oculto | ❌ ocultos | full viewport táctil |
-| `landing` | propio público | ❌ | ❌ | ❌ | full, editorial |
+| Modo | Topbar global | Wayfinding | Command rail desktop | Dock móvil | Widgets flotantes | Viewport |
+| --- | --- | --- | --- | --- | --- | --- |
+| `standard` | ✅ | ✅ miga + back único | ✅ dominios | ✅ | ✅ | contenido `max-w` |
+| `command-center` | ✅ | ✅ | ✅ dominios | ✅ | ✅ | hero ancho + grid |
+| `workbench` | propio del tool | salida propia | ❌ oculto | ❌ oculto | ❌ ocultos | full viewport |
+| `kiosk` | propio industrial | ❌ | ❌ oculto | ❌ oculto | ❌ ocultos | full viewport táctil |
+| `landing` | propio público | ❌ | ❌ | ❌ | ❌ | full, editorial |
 
 ---
 
@@ -56,8 +56,11 @@ Quality (sub-listas), NPI, CRM, Finance, Settings, y la mayoría de `/dashboard/
 - **Filtros debajo del header**, no flotando.
 - **Ancho de contenido** según densidad (`max-w-5xl`/`max-w-7xl`); evitar tablas
   pegadas a los bordes.
+- **Navegación responsive única.** En desktop el `DashboardCommandRail` muestra
+  los dominios del catálogo compartido; en móvil el `DashboardDock` conserva los
+  accesos rápidos inferiores.
 - **El dock no tapa acciones.** Las action bars fijas dejan colchón inferior
-  para el dock; los CTA críticos no quedan bajo él.
+  para el dock móvil; los CTA críticos no quedan bajo él.
 - **Modales consistentes** (material `.glass`, velo neutro, sombra nivel 2).
 
 ---
@@ -79,7 +82,7 @@ Control, Quality Command Center, NPI Launch Center, Analytics/Intelligence, Live
   CRUD inline.
 - **Menos CRUD puro**: el command center decide y deriva; el detalle vive en las
   páginas Standard.
-- Mantiene topbar + dock globales (no es full-screen).
+- Mantiene topbar + wayfinding + command rail desktop / dock móvil globales (no es full-screen).
 
 ---
 
@@ -165,6 +168,7 @@ useRouteChrome(): {
   inDashboard: boolean;        // bajo /dashboard
   bare: boolean;               // sin NINGÚN cromo global (kiosk o ruta bare)
   hideDock: boolean;           // ocultar dock (bare o workbench)
+  showCommandRail: boolean;    // rail desktop en standard/command-center
   hideFloatingWidgets: boolean;// ocultar ChatWidget + Cide (fuera de dashboard,
                                //   bare/kiosk, o cualquier workbench)
 }
@@ -183,8 +187,9 @@ useRouteChrome(): {
 - El **modo Kiosko** es imperativo (lo activa el Operator Terminal vía
   `operatorChrome`) y se combina aquí: una ruta kiosk siempre gana a su
   clasificación por pathname.
-- **Consumidores actuales:** `DashboardShell` (`bare`, `hideDock`),
-  `ChatWidget` y `Cide` (`hideFloatingWidgets`). Ningún componente vuelve a leer
+- **Consumidores actuales:** `DashboardShell` (`bare`, `hideDock`,
+  `showCommandRail`), `ChatWidget` y `Cide` (`hideFloatingWidgets`). Ningún
+  componente vuelve a leer
   `pathname.startsWith(...)` ni el kiosk store por su cuenta.
 
 **Para clasificar una ruta nueva:**

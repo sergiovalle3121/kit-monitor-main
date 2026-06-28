@@ -62,7 +62,7 @@ export function DashboardDock() {
 
   return (
     <div
-      className={`${glass} fixed bottom-5 left-1/2 z-50 flex -translate-x-1/2 items-center gap-1.5 rounded-[2rem] px-3 py-2.5 shadow-lg ring-1 ring-foreground/[0.03] sm:bottom-6 sm:gap-2 sm:px-4`}
+      className={`${glass} fixed bottom-5 left-1/2 z-50 flex -translate-x-1/2 md:hidden items-center gap-1.5 rounded-[2rem] px-3 py-2.5 shadow-lg ring-1 ring-foreground/[0.03] sm:bottom-6 sm:gap-2 sm:px-4`}
     >
       <DockLink
         href="/dashboard"

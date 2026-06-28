@@ -3,6 +3,7 @@
 import React from 'react';
 import { DashboardTopBar } from '@/components/DashboardTopBar';
 import { DashboardDock } from '@/components/DashboardDock';
+import { DashboardCommandRail } from '@/components/DashboardCommandRail';
 import { DashboardWayfinding } from '@/components/DashboardWayfinding';
 import { useRouteChrome } from '@/lib/routeChrome';
 
@@ -21,7 +22,7 @@ import { useRouteChrome } from '@/lib/routeChrome';
  * así que ocultamos el dock para no dejarlo en el DOM bajo el overlay.
  */
 export function DashboardShell({ children }: { children: React.ReactNode }) {
-  const { bare, hideDock } = useRouteChrome();
+  const { bare, hideDock, showCommandRail } = useRouteChrome();
 
   if (bare) return <>{children}</>;
 
@@ -34,7 +35,12 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         Saltar al contenido
       </a>
       <DashboardTopBar />
-      <div id="dashboard-content" tabIndex={-1} className="pt-20 focus:outline-none">
+      {showCommandRail && <DashboardCommandRail />}
+      <div
+        id="dashboard-content"
+        tabIndex={-1}
+        className={`pt-20 focus:outline-none ${showCommandRail ? 'md:pl-[19rem]' : ''}`}
+      >
         <DashboardWayfinding />
         {children}
       </div>

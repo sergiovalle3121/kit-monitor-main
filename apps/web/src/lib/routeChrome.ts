@@ -54,6 +54,16 @@ export const BARE_PREFIXES = [
  */
 export const WORKBENCH_PREFIXES = ['/dashboard/office/'] as const;
 
+/** Routes that keep global chrome but should read as control towers. */
+export const COMMAND_CENTER_PREFIXES = [
+  '/dashboard/control-tower',
+  '/dashboard/line-control-tower',
+  '/dashboard/mission-control',
+  '/dashboard/intelligence',
+  '/dashboard/live',
+  '/dashboard/npi',
+] as const;
+
 export interface RouteChrome {
   /** Tipo de experiencia de la ruta actual. */
   mode: ChromeMode;
@@ -69,6 +79,8 @@ export interface RouteChrome {
    * workbench (donde quedaban ENCIMA del lienzo del editor).
    */
   hideFloatingWidgets: boolean;
+  /** Render the desktop command rail (standard/command-center desktop only). */
+  showCommandRail: boolean;
 }
 
 /** ¿La ruta es un editor workbench a pantalla completa? */
@@ -79,6 +91,11 @@ export function isWorkbenchPath(pathname: string | null | undefined): boolean {
 /** ¿La ruta monta su propio layout full-screen (sin cromo del dashboard)? */
 export function isBarePath(pathname: string | null | undefined): boolean {
   return !!pathname && BARE_PREFIXES.some((p) => pathname.startsWith(p));
+}
+
+/** ¿La ruta es una torre de control dentro del dashboard? */
+export function isCommandCenterPath(pathname: string | null | undefined): boolean {
+  return !!pathname && (pathname === '/dashboard' || COMMAND_CENTER_PREFIXES.some((p) => pathname.startsWith(p)));
 }
 
 /**
@@ -101,6 +118,7 @@ export function useRouteChrome(): RouteChrome {
   if (!inDashboard) mode = 'landing';
   else if (kiosk) mode = 'kiosk';
   else if (workbench) mode = 'workbench';
+  else if (isCommandCenterPath(pathname)) mode = 'command-center';
   else mode = 'standard';
 
   const bare = kiosk || bareRoute;
@@ -111,5 +129,6 @@ export function useRouteChrome(): RouteChrome {
     bare,
     hideDock: bare || workbench,
     hideFloatingWidgets: !inDashboard || bare || workbench,
+    showCommandRail: inDashboard && !bare && !workbench && (mode === 'standard' || mode === 'command-center'),
   };
 }
