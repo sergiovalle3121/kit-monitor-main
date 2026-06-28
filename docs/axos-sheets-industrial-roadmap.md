@@ -205,3 +205,9 @@ AXOS connector instances now have a pure freshness model derived from connector 
 AXOS Sheets now exposes an Excel-grade workbench surface without replacing Fortune-Sheet: a persistent formula/name bar, selection intelligence, large-sheet status polish, and a right-side inspector that organizes workbook health, selected-cell statistics, data tools, charts, pivots, comments, protection, XLSX compatibility, and AXOS ERP/MES data connectors. The inspector launches existing dialogs/helpers instead of duplicating engines, and the XLSX review is best-effort metadata scanning only; macros are never executed.
 
 The new pure helper layer derives selection statistics, workbook summaries, health counters, and XLSX compatibility signals from persisted workbook JSON so autosave/export flows can surface risks before sharing or Excel round-trip review.
+
+## Fase 10 — Advanced analytics dashboard builder
+
+AXOS Sheets now includes a visible **Dashboard ejecutivo** action in the Insert ribbon and Workbench inspector. The action creates a new executive dashboard sheet from the current workbook metadata without replacing Fortune-Sheet: it summarizes AXOS connectors, stored pivot definitions, persisted charts, and what-if tooling into a polished KPI/narrative layout, marks the dashboard with `axosDashboard` metadata, and adds a connector-backed chart suggestion when a governed AXOS data block exists.
+
+This closes the analytics loop for the current phase: users can insert AXOS data, format it as a table, create pivots/charts/slicers, run what-if tools, and then generate a report-ready dashboard sheet that remains part of the saved workbook payload and can be refreshed/exported through the existing Office flows.
