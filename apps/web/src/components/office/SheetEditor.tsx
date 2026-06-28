@@ -40,7 +40,9 @@ import { OfficeRibbon, RibbonTab, RibbonGroup, RibbonSeparator, RibbonButton, Ri
 import { useToast } from '@/contexts/ToastContext';
 import { estimateWorkbookStats, shouldEmitWorkbook, workbookPerformanceLabel, type SignatureState } from '@/lib/office/workbookPerformance';
 import { AXOS_SHEET_CONNECTORS, buildAxosConnectorRefresh, buildAxosConnectorTable, connectorProtectionFor, createAxosConnectorInstance, suggestedChartsForConnector, type AxosConnectorInstance, type AxosConnectorType } from '@/lib/office/axosConnectors';
-import { addSheetCommentReply, commentsForSelection, createSheetCommentThread, deleteSheetComment, formatSheetCommentSummary, reopenSheetComment, resolveSheetComment, type SheetCommentThread } from '@/lib/office/sheetComments';
+import { addSheetCommentReply, commentsForSelection, createSheetCommentThread, deleteSheetComment, formatSheetCommentSummary, groupSheetCommentThreads, reopenSheetComment, resolveSheetComment, type SheetCommentThread } from '@/lib/office/sheetComments';
+import { anchorForSelection, assignedFromText, governanceEvent, labelForAnchor, mentionsOf, summarizeWorkbookGovernance, type SheetGovernanceEvent } from '@/lib/office/sheetGovernance';
+import { apiFetch } from '@/lib/apiFetch';
 import { auditWorkbookFormulas, formatFormulaAuditSummary } from '@/lib/office/formulaAudit';
 import { analyzeWorkbookHealth, deriveSheetSelectionStats, deriveWorkbookHealth, formatWorkbookHealthReport } from '@/lib/office/workbookHealth';
 import { scanXlsxCompatibility } from '@/lib/office/xlsxCompatibility';
@@ -48,6 +50,8 @@ import { formatPivotRefreshReport, refreshStoredPivots } from '@/lib/office/pivo
 
 // chart.js + react-chartjs-2 son pesados y solo se usan al insertar gráficas:
 // carga diferida para que abrir una hoja sin gráficas no los traiga al bundle.
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000').replace(/\/$/, '');
+
 const SheetCharts = dynamic(
   () => import('./SheetCharts').then((m) => m.SheetCharts),
   { ssr: false },
@@ -78,6 +82,9 @@ function commentsOf(v: any): SheetCommentThread[] {
 function connectorsOf(v: any): AxosConnectorInstance[] {
   return v && Array.isArray(v.connectors) ? v.connectors : [];
 }
+function governanceEventsOf(v: any): SheetGovernanceEvent[] {
+  return v && Array.isArray(v.governanceEvents) ? v.governanceEvents : [];
+}
 type StoredTable = { name: string; sheetIndex: number; range: string };
 function tablesOf(v: any): StoredTable[] {
   return v && Array.isArray(v.tables) ? v.tables : [];
@@ -101,7 +108,7 @@ function isCellProtected(sheet: any, r: number, c: number): boolean {
 installFormulaEngine();
 
 /** Excel-like spreadsheet (Fortune-sheet, MIT) — formulas, formats, charts, validation, conditional formatting. */
-export function SheetEditor({ value, onChange, readOnly, fileActions }: { value: any; onChange: (data: any) => void; readOnly?: boolean; fileActions?: React.ReactNode }) {
+export function SheetEditor({ value, onChange, readOnly, fileActions, docId, author }: { value: any; onChange: (data: any) => void; readOnly?: boolean; fileActions?: React.ReactNode; docId?: string; author?: string }) {
   const toast = useToast();
   const initSheets = sheetsOf(value)?.length ? (sheetsOf(value) as any[]) : [DEFAULT_SHEET];
   const [liveData, setLiveData] = useState<any[]>(initSheets); // only swapped on a forced remount
@@ -118,6 +125,8 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
   const [scenarios, setScenarios] = useState<Scenario[]>(scenariosRef.current);
   const tablesRef = useRef<StoredTable[]>(tablesOf(value));
   const commentsRef = useRef<SheetCommentThread[]>(commentsOf(value));
+  const [commentsState, setCommentsState] = useState<SheetCommentThread[]>(commentsRef.current);
+  const governanceEventsRef = useRef<SheetGovernanceEvent[]>(governanceEventsOf(value));
   const connectorsRef = useRef<AxosConnectorInstance[]>(connectorsOf(value));
   const [showScenarios, setShowScenarios] = useState(false);
   const [showNames, setShowNames] = useState(false);
@@ -225,6 +234,7 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
     tables: tablesRef.current,
     comments: commentsRef.current,
     connectors: connectorsRef.current,
+    governanceEvents: governanceEventsRef.current,
   }), []);
 
   const emit = useCallback(() => {
@@ -432,15 +442,44 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
   }
 
 
+  function syncComments(next: SheetCommentThread[], event?: SheetGovernanceEvent, shouldEmit = true) {
+    commentsRef.current = next;
+    setCommentsState([...next]);
+    if (event) governanceEventsRef.current = [event, ...governanceEventsRef.current].slice(0, 100);
+    if (shouldEmit) emit();
+  }
+  function apiCommentToSheet(c: any): SheetCommentThread {
+    const range = c.rangeRef || c.anchorLabel || 'A1';
+    return {
+      id: c.id, persistedId: c.id, parentId: c.parentId ?? null, sheetIndex: typeof c.slideIndex === 'number' ? c.slideIndex : 0, range,
+      anchor: anchorForSelection(undefined, range), text: c.text || '', author: c.authorEmail || 'AXOS', createdAt: c.createdAt || new Date().toISOString(),
+      resolved: !!c.resolved, resolvedAt: c.resolvedAt || undefined, assignedTo: c.assignedTo || null, mentions: mentionsOf(c.text || ''),
+    };
+  }
+  useEffect(() => {
+    if (!docId) return;
+    apiFetch(`${API_BASE}/office-documents/${docId}/slide-comments?includeResolved=true`)
+      .then(async (r) => {
+        if (!r.ok) return;
+        const rows = await r.json();
+        const sheetRows = Array.isArray(rows) ? rows.filter((c) => c.anchorType === 'cell' || c.anchorType === 'range').map(apiCommentToSheet) : [];
+        if (sheetRows.length) syncComments(groupSheetCommentThreads(sheetRows), undefined, false);
+      })
+      .catch(() => undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [docId]);
+
   function selectedCommentThreads(includeResolved = false) {
     return commentsForSelection(commentsRef.current, activeIndex(), selectionRange(), includeResolved);
   }
   function addSheetComment() {
     const text = window.prompt('Comentario para la celda/rango seleccionado:');
     if (!text?.trim()) return;
-    const comment = createSheetCommentThread({ sheetIndex: activeIndex(), range: selectionRange(), text, author: 'AXOS' });
-    commentsRef.current = [...commentsRef.current, comment];
-    emit();
+    const sheet = sheetsRef.current[activeIndex()] ?? sheetsRef.current[0];
+    const anchor = anchorForSelection(sheet?.name, selectionRange());
+    const comment = { ...createSheetCommentThread({ sheetIndex: activeIndex(), range: selectionRange(), text, author: author || 'AXOS' }), anchor };
+    syncComments([...commentsRef.current, comment], governanceEvent('comment.created', labelForAnchor(anchor), author || 'AXOS'));
+    if (docId) void apiFetch(`${API_BASE}/office-documents/${docId}/slide-comments`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ anchorType: anchor.type === 'cell' ? 'cell' : 'range', slideIndex: activeIndex(), rangeRef: comment.range, anchorLabel: labelForAnchor(anchor), text, assignedTo: comment.assignedTo }) }).then(async (r) => { if (r.ok) { const saved = apiCommentToSheet(await r.json()); syncComments(commentsRef.current.map((c) => c.id === comment.id ? saved : c)); } }).catch(() => undefined);
     toast.success(`Comentario agregado en ${comment.range}.`);
   }
   function showSheetComments() {
@@ -453,30 +492,30 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
     if (!first) { toast.info(`No hay comentarios abiertos exactamente en ${selectionRange()}.`); return; }
     const text = window.prompt('Respuesta al comentario seleccionado:');
     if (!text?.trim()) return;
-    commentsRef.current = addSheetCommentReply(commentsRef.current, first.id, text, 'AXOS');
-    emit();
+    syncComments(addSheetCommentReply(commentsRef.current, first.id, text, author || 'AXOS'), governanceEvent('comment.replied', first.range, author || 'AXOS'));
+    if (docId && (first.persistedId || first.id)) void apiFetch(`${API_BASE}/office-documents/${docId}/slide-comments`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ parentId: first.persistedId || first.id, anchorType: first.range.includes(':') ? 'range' : 'cell', slideIndex: first.sheetIndex, rangeRef: first.range, anchorLabel: first.range, text, assignedTo: assignedFromText(text) }) }).catch(() => undefined);
     toast.success(`Respuesta agregada en ${first.range}.`);
   }
   function resolveSelectionComments() {
     const threads = selectedCommentThreads();
     if (!threads.length) { toast.info(`No hay comentarios abiertos exactamente en ${selectionRange()}.`); return; }
-    for (const thread of threads) commentsRef.current = resolveSheetComment(commentsRef.current, thread.id);
-    emit();
+    for (const thread of threads) { commentsRef.current = resolveSheetComment(commentsRef.current, thread.id); if (docId) void apiFetch(`${API_BASE}/office-documents/${docId}/slide-comments/${thread.persistedId || thread.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ resolved: true }) }).catch(() => undefined); }
+    syncComments(commentsRef.current, governanceEvent('comment.resolved', selectionRange(), author || 'AXOS'));
     toast.success(`Comentarios resueltos en ${selectionRange()}.`);
   }
   function reopenSelectionComments() {
     const threads = selectedCommentThreads(true).filter((c) => c.resolved);
     if (!threads.length) { toast.info(`No hay comentarios resueltos exactamente en ${selectionRange()}.`); return; }
-    for (const thread of threads) commentsRef.current = reopenSheetComment(commentsRef.current, thread.id);
-    emit();
+    for (const thread of threads) { commentsRef.current = reopenSheetComment(commentsRef.current, thread.id); if (docId) void apiFetch(`${API_BASE}/office-documents/${docId}/slide-comments/${thread.persistedId || thread.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ resolved: false }) }).catch(() => undefined); }
+    syncComments(commentsRef.current, governanceEvent('comment.reopened', selectionRange(), author || 'AXOS'));
     toast.success(`Comentarios reabiertos en ${selectionRange()}.`);
   }
   function deleteSelectionComments() {
     const threads = selectedCommentThreads(true);
     if (!threads.length) { toast.info(`No hay comentarios exactamente en ${selectionRange()}.`); return; }
     if (!window.confirm(`Eliminar ${threads.length} comentario(s) de ${selectionRange()}?`)) return;
-    for (const thread of threads) commentsRef.current = deleteSheetComment(commentsRef.current, thread.id);
-    emit();
+    for (const thread of threads) { commentsRef.current = deleteSheetComment(commentsRef.current, thread.id); if (docId) void apiFetch(`${API_BASE}/office-documents/${docId}/slide-comments/${thread.persistedId || thread.id}`, { method: 'DELETE' }).catch(() => undefined); }
+    syncComments(commentsRef.current, governanceEvent('comment.deleted', selectionRange(), author || 'AXOS'));
     toast.success(`Comentarios eliminados en ${selectionRange()}.`);
   }
   function protectSheet(lock: boolean) {
@@ -484,6 +523,7 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
     const sheet = sheets[activeIndex()] ?? sheets[0];
     if (!sheet) return;
     sheet.axosProtection = { ...(sheet.axosProtection ?? {}), sheetLocked: lock };
+    governanceEventsRef.current = [governanceEvent(lock ? 'protection.enabled' : 'protection.disabled', sheet.name || `Hoja ${activeIndex() + 1}`, author || 'AXOS'), ...governanceEventsRef.current].slice(0, 100);
     remount(sheets);
     window.setTimeout(() => toast.success(lock ? 'Hoja protegida.' : 'Protección de hoja desactivada.'), 30);
   }
@@ -492,7 +532,8 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
     const sheet = sheets[activeIndex()] ?? sheets[0];
     if (!sheet) return;
     const range = selectionRange();
-    sheet.axosProtection = { ...(sheet.axosProtection ?? {}), ranges: [...(sheet.axosProtection?.ranges ?? []), { range, locked: true, createdAt: new Date().toISOString() }] };
+    sheet.axosProtection = { ...(sheet.axosProtection ?? {}), ranges: [...(sheet.axosProtection?.ranges ?? []), { range, locked: true, createdAt: new Date().toISOString(), owner: author || 'AXOS' }] };
+    governanceEventsRef.current = [governanceEvent('range.locked', range, author || 'AXOS'), ...governanceEventsRef.current].slice(0, 100);
     remount(sheets);
     window.setTimeout(() => toast.success(`Rango protegido: ${range}.`), 30);
   }
@@ -1220,9 +1261,11 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
           activeSheetIndex={activeIndex()}
           charts={chartsRef.current}
           pivots={pivotsRef.current}
-          comments={commentsRef.current}
+          comments={commentsState}
           connectors={connectorsRef.current}
           names={namesRef.current}
+          governance={summarizeWorkbookGovernance({ sheets: sheetsRef.current, comments: commentsState, healthFindings: deriveWorkbookHealth(workbookPayload()).findings })}
+          governanceEvents={governanceEventsRef.current}
           readOnly={readOnly}
           onOpenValidation={() => setTool('validation')}
           onOpenConditional={() => setTool('condformat')}
@@ -1366,7 +1409,7 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
 }
 
 function SheetWorkbenchInspector({
-  tab, onTab, health, compatibility, selection, sheets, activeSheetIndex, charts, pivots, comments, connectors, names, readOnly,
+  tab, onTab, health, compatibility, selection, sheets, activeSheetIndex, charts, pivots, comments, connectors, names, readOnly, governance, governanceEvents,
   onOpenValidation, onOpenConditional, onOpenNames, onOpenPivot, onOpenChart, onOpenScenarios, onOpenGoalSeek, onOpenSolver,
   onAddComment, onProtectSelection, onProtectSheet, onRefreshConnectors, onInsertConnector,
 }: any) {
@@ -1395,6 +1438,7 @@ function SheetWorkbenchInspector({
       <div className="min-h-0 flex-1 overflow-auto p-3 text-xs text-gray-600 dark:text-gray-300">
         {tab === 'workbook' && <Panel title="Workbook Health">
           <Metric label="Hojas" value={health.sheets} /><Metric label="Celdas usadas" value={health.usedCells} /><Metric label="Fórmulas" value={health.formulas} /><Metric label="Charts" value={health.charts} /><Metric label="Pivots" value={health.pivots} /><Metric label="Validaciones" value={health.validations} /><Metric label="Comentarios" value={health.comments} /><Metric label="Rangos protegidos" value={health.protectedRanges} /><Metric label="Nombres definidos" value={health.namedRanges} /><Metric label="Warnings import/XLSX" value={health.importWarnings + health.unsupportedXlsxFeatures} />
+          {governance && <div className="mt-3 grid grid-cols-2 gap-2"><Metric label="Gobierno" value={governance.healthLabel} /><Metric label="Asignados" value={governance.assignedComments} /><Metric label="Hojas protegidas" value={governance.protectedSheets} /><Metric label="Locks conectores" value={governance.connectorLocks} /></div>}
           <div className="mt-3 space-y-2">{health.findings.slice(0, 5).map((f: any) => <div key={f.code} className="rounded-xl bg-white p-2 shadow-sm dark:bg-white/[0.04]"><b>{f.severity}</b> · {f.message}</div>)}{!health.findings.length && <div className="rounded-xl bg-white p-2 shadow-sm dark:bg-white/[0.04]">Sin hallazgos relevantes para compartir/exportar.</div>}</div>
         </Panel>}
         {tab === 'cell' && <Panel title="Selección / celda">
@@ -1418,12 +1462,13 @@ function SheetWorkbenchInspector({
         </Panel>}
         {tab === 'comments' && <Panel title="Comments">
           <button disabled={readOnly} className={tool} onClick={onAddComment}>Agregar comentario a {selection.range}</button>
-          {openComments.map((c: any) => <div key={c.id} className="rounded-xl bg-white p-2 shadow-sm dark:bg-white/[0.04]"><b>{sheets[c.sheetIndex]?.name || 'Hoja'}</b> · {c.range}<br />{c.text || c.messages?.[0]?.text || 'Comentario'}</div>)}{!openComments.length && <Empty text="No hay comentarios abiertos." />}
+          {openComments.map((c: any) => <div key={c.id} className="rounded-xl bg-white p-2 shadow-sm dark:bg-white/[0.04]"><b>{sheets[c.sheetIndex]?.name || 'Hoja'}</b> · {c.range}<br />{c.text || c.messages?.[0]?.text || 'Comentario'}{c.assignedTo ? <><br /><span className="text-blue-500">Asignado a {c.assignedTo}</span></> : null}{c.replies?.length ? <><br /><span className="text-gray-500">{c.replies.length} respuesta(s)</span></> : null}</div>)}{!openComments.length && <Empty text="No hay comentarios abiertos." />}
         </Panel>}
         {tab === 'protection' && <Panel title="Protection">
           <button disabled={readOnly} className={tool} onClick={onProtectSelection}>Bloquear rango seleccionado</button>
           <button disabled={readOnly} className={tool} onClick={onProtectSheet}>Proteger hoja activa</button>
           {protectedRanges.map((p: any, i: number) => <div key={i} className="rounded-xl bg-white p-2 shadow-sm dark:bg-white/[0.04]"><b>{p.sheet}</b> · {p.range}</div>)}{!protectedRanges.length && <Empty text="La hoja activa no tiene protección AXOS visible." />}
+          <div className="mt-3 space-y-2">{(governanceEvents ?? []).slice(0, 5).map((e: any) => <div key={e.id} className="rounded-xl bg-white p-2 shadow-sm dark:bg-white/[0.04]"><b>{e.label}</b><br />{e.target} · {new Date(e.at).toLocaleString()}</div>)}</div>
         </Panel>}
         {tab === 'xlsx' && <Panel title="XLSX Compatibility Review">
           <Metric label="Score" value={`${compatibility.score}/100`} /><Metric label="Revisión" value={compatibility.reviewCount} /><Metric label="No soportado" value={compatibility.unsupportedCount} />

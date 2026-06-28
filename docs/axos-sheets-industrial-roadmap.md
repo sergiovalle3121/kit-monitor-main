@@ -205,3 +205,13 @@ AXOS connector instances now have a pure freshness model derived from connector 
 AXOS Sheets now exposes an Excel-grade workbench surface without replacing Fortune-Sheet: a persistent formula/name bar, selection intelligence, large-sheet status polish, and a right-side inspector that organizes workbook health, selected-cell statistics, data tools, charts, pivots, comments, protection, XLSX compatibility, and AXOS ERP/MES data connectors. The inspector launches existing dialogs/helpers instead of duplicating engines, and the XLSX review is best-effort metadata scanning only; macros are never executed.
 
 The new pure helper layer derives selection statistics, workbook summaries, health counters, and XLSX compatibility signals from persisted workbook JSON so autosave/export flows can surface risks before sharing or Excel round-trip review.
+
+## Fase 10 — Enterprise collaboration and governance v1
+
+AXOS Sheets now extends the existing Office anchored-comment backend instead of adding another comment table. Spreadsheet review threads use the generic `office_comments` model with `cell`/`range` anchors, `rangeRef`, threaded replies via `parentId`, resolve/reopen/delete lifecycle, assignment detection, and optimistic workbook metadata fallback when the backend is unavailable.
+
+The workbook payload keeps governance metadata alongside the existing `sheets`, `comments`, `connectors`, charts, pivots, scenarios, and names. Sheet comments now normalize cell/range anchors, extract mentions, support assignment hints (`responsable:` / `assign:`), and feed a visible Workbench inspector panel with open comments, assignments, replies, protection status, connector locks, and recent governance events.
+
+Protection remains stored on sheet-level `axosProtection` metadata and is enforced in the Fortune-Sheet edit hook. v1 covers protected sheets, protected ranges, connector-owned locked ranges, visual protection summaries, and local governance event mapping for critical protect/unprotect/comment actions. Backend event-ledger persistence is intentionally a contract extension point: when a tenant-safe Office audit endpoint is available, the frontend event objects can be posted without changing the workbook schema.
+
+Enterprise sharing and approval awareness is surfaced through the existing Office frame actions: lifecycle/approval controls, ShareButton, VersionHistory, and DocAuditTimeline remain the source of truth while Sheets adds workbook-health and governance summary signals inside the editor.
