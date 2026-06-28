@@ -17,6 +17,8 @@ const specs = [
   'src/lib/office/sheetComments.spec.ts',
   'src/lib/office/sheetGovernance.spec.ts',
   'src/lib/office/formulaAudit.spec.ts',
+  'src/lib/office/ranges.spec.ts',
+  'src/lib/office/formulaErrors.spec.ts',
   'src/lib/office/formulaDependencies.spec.ts',
   'src/lib/office/pivotGovernance.spec.ts',
   'src/lib/office/dashboardBuilder.spec.ts',

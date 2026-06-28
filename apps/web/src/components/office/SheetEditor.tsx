@@ -45,6 +45,7 @@ import { addSheetCommentReply, commentsForSelection, createSheetCommentThread, d
 import { anchorForSelection, assignedFromText, governanceEvent, labelForAnchor, mentionsOf, summarizeWorkbookGovernance, type SheetGovernanceEvent } from '@/lib/office/sheetGovernance';
 import { apiFetch } from '@/lib/apiFetch';
 import { auditWorkbookFormulas, formatFormulaAuditSummary } from '@/lib/office/formulaAudit';
+import { buildFormulaDependencyGraph, formatFormulaDependencySummary } from '@/lib/office/formulaDependencies';
 import { analyzeWorkbookHealth, deriveSheetSelectionStats, deriveWorkbookHealth, formatWorkbookHealthReport } from '@/lib/office/workbookHealth';
 import { scanXlsxCompatibility } from '@/lib/office/xlsxCompatibility';
 import { formatPivotRefreshReport, refreshStoredPivots } from '@/lib/office/pivotGovernance';
@@ -976,9 +977,18 @@ export function SheetEditor({ value, onChange, readOnly, fileActions, docId, aut
   }
 
   function auditFormulas() {
-    const result = auditWorkbookFormulas(workbookPayload());
+    const payload = workbookPayload();
+    const result = auditWorkbookFormulas(payload);
     if (!result.total) { toast.info('No hay fórmulas para auditar en este libro.'); return; }
-    window.alert(formatFormulaAuditSummary(result));
+    const graph = buildFormulaDependencyGraph(payload);
+    window.alert(`${formatFormulaAuditSummary(result)}\n${formatFormulaDependencySummary(graph)}`);
+  }
+
+  function showRecalcPlan() {
+    const graph = buildFormulaDependencyGraph(workbookPayload());
+    if (!graph.nodes.length) { toast.info('No hay fórmulas para planificar.'); return; }
+    const preview = graph.nodes.slice(0, 12).map((node) => `${node.id} ← ${node.dependencies.length || 0}`).join('\n');
+    window.alert(`${formatFormulaDependencySummary(graph)}\n\nOrden/precedentes (primeras 12):\n${preview}`);
   }
 
   function applyNumberFmt(p: NumberFmtPayload) {
@@ -1224,6 +1234,7 @@ export function SheetEditor({ value, onChange, readOnly, fileActions, docId, aut
             <RibbonGroup label="Biblioteca de funciones">
               <RibbonButton icon={Sigma} label="Insertar función" hideLabel={false} onClick={() => setShowWizard(true)} />
               <RibbonButton icon={Search} label="Auditar fórmulas" hideLabel={false} onClick={auditFormulas} />
+              <RibbonButton icon={Activity} label="Plan de recálculo" hideLabel={false} onClick={showRecalcPlan} />
             </RibbonGroup>
             <RibbonSeparator />
             <RibbonGroup label="Nombres definidos">

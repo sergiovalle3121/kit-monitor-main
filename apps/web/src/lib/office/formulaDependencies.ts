@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { colName, rawOf } from './sheetOps';
+import { formatCellAddress, parseCellAddress, parseRangeAddress, parseSheetReference } from './ranges';
 
 export interface FormulaDependencyNode {
   id: string;
@@ -17,6 +18,7 @@ export interface FormulaDependencyGraph {
   cycles: string[][];
   externalReferences: string[];
   missingReferences: string[];
+  namedReferences: string[];
 }
 
 export interface FormulaRecalculationPlan {
@@ -39,31 +41,31 @@ function stripStrings(formula: string): string {
   return formula.replace(/"(?:""|[^"])*"/g, '""');
 }
 
-function normalizeSheetName(name: string): string {
-  return name.replace(/^'|'$/g, '').replace(/''/g, "'");
-}
-
 function cellKey(sheetIndex: number, address: string): string {
   return `${sheetIndex}!${address.toUpperCase().replace(/\$/g, '')}`;
 }
 
-function parseA1(address: string): { r: number; c: number } | null {
-  const match = /^\$?([A-Z]{1,3})\$?(\d+)$/i.exec(address.trim());
-  if (!match) return null;
-  let c = 0;
-  for (const ch of match[1].toUpperCase()) c = c * 26 + (ch.charCodeAt(0) - 64);
-  return { r: Number(match[2]) - 1, c: c - 1 };
-}
-
 function expandRange(start: string, end?: string): string[] {
-  const a = parseA1(start);
-  const b = parseA1(end || start);
-  if (!a || !b) return [];
+  const rng = parseRangeAddress(`${start}:${end || start}`);
+  if (!rng) return [];
   const out: string[] = [];
-  for (let r = Math.min(a.r, b.r); r <= Math.max(a.r, b.r); r++) {
-    for (let c = Math.min(a.c, b.c); c <= Math.max(a.c, b.c); c++) out.push(`${colName(c)}${r + 1}`);
+  for (let r = Math.min(rng.start.row, rng.end.row); r <= Math.max(rng.start.row, rng.end.row); r++) {
+    for (let c = Math.min(rng.start.col, rng.end.col); c <= Math.max(rng.start.col, rng.end.col); c++) out.push(formatCellAddress({ row: r, col: c }));
   }
   return out;
+}
+
+
+function functionsOrNamesInFormula(formula: string): string[] {
+  const clean = stripStrings(formula).replace(/^=/, '');
+  const out = new Set<string>();
+  const re = /\b([A-Za-z_][A-Za-z0-9_.]*)\b(?!\s*\()/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(clean))) {
+    const token = m[1].toUpperCase();
+    if (!['TRUE', 'FALSE'].includes(token) && !parseCellAddress(token)) out.add(token);
+  }
+  return [...out];
 }
 
 function refsInFormula(formula: string): { refs: RefToken[]; external: string[] } {
@@ -74,13 +76,13 @@ function refsInFormula(formula: string): { refs: RefToken[]; external: string[] 
   let m: RegExpExecArray | null;
   while ((m = rangeRe.exec(clean))) {
     if (/\[[^\]]+\]/.test(m[0])) external.add(m[0]);
-    refs.push({ sheetName: m[1] ? normalizeSheetName(m[1].slice(0, -1)) : undefined, address: m[2], rangeEnd: m[3] });
+    refs.push({ sheetName: m[1] ? parseSheetReference(`${m[1]}${m[2]}`)?.sheetName : undefined, address: m[2], rangeEnd: m[3] });
   }
   const withoutRanges = clean.replace(rangeRe, ' ');
   const cellRe = /((?:'[^']+'|[A-Za-z_][\w .-]*)!)?(\$?[A-Z]{1,3}\$?\d+)/g;
   while ((m = cellRe.exec(withoutRanges))) {
     if (/\[[^\]]+\]/.test(m[0])) external.add(m[0]);
-    refs.push({ sheetName: m[1] ? normalizeSheetName(m[1].slice(0, -1)) : undefined, address: m[2] });
+    refs.push({ sheetName: m[1] ? parseSheetReference(`${m[1]}${m[2]}`)?.sheetName : undefined, address: m[2] });
   }
   for (const url of clean.match(/https?:\/\/[^\s),]+/gi) ?? []) external.add(url);
   return { refs, external: [...external].sort() };
@@ -90,10 +92,13 @@ export function buildFormulaDependencyGraph(content: any): FormulaDependencyGrap
   const sheets = Array.isArray(content) ? content : (Array.isArray(content?.sheets) ? content.sheets : []);
   const sheetIndexByName = new Map<string, number>();
   sheets.forEach((sheet: any, i: number) => sheetIndexByName.set(String(sheet?.name || `Hoja ${i + 1}`).toLowerCase(), i));
+  const names = Array.isArray(content?.names) ? content.names : [];
+  const nameByKey = new Map<string, any>(names.map((n: any) => [String(n.name || '').toUpperCase(), n]));
 
   const formulaById = new Map<string, FormulaDependencyNode>();
   const missing = new Set<string>();
   const external = new Set<string>();
+  const named = new Set<string>();
 
   for (let si = 0; si < sheets.length; si++) {
     const sheet = sheets[si];
@@ -113,6 +118,17 @@ export function buildFormulaDependencyGraph(content: any): FormulaDependencyGrap
     found.external.forEach((ref) => external.add(ref));
     const deps = new Set<string>();
     const refs = new Set<string>();
+    for (const fnName of functionsOrNamesInFormula(node.formula)) {
+      const nr = nameByKey.get(fnName);
+      if (!nr?.range) continue;
+      named.add(fnName);
+      const refSheetIndex = typeof nr.sheetIndex === 'number' ? nr.sheetIndex : node.sheetIndex;
+      for (const address of expandRange(String(nr.range).split(':')[0], String(nr.range).split(':')[1])) {
+        refs.add(cellKey(refSheetIndex, address));
+        const dep = formulaById.get(cellKey(refSheetIndex, address));
+        if (dep) deps.add(dep.id);
+      }
+    }
     for (const ref of found.refs) {
       const refSheetIndex = ref.sheetName ? sheetIndexByName.get(ref.sheetName.toLowerCase()) : node.sheetIndex;
       if (refSheetIndex == null) { missing.add(`${ref.sheetName}!${ref.address}`); continue; }
@@ -133,6 +149,7 @@ export function buildFormulaDependencyGraph(content: any): FormulaDependencyGrap
     cycles: findCycles(formulaById),
     externalReferences: [...external].sort(),
     missingReferences: [...missing].sort(),
+    namedReferences: [...named].sort(),
   };
 }
 
@@ -188,5 +205,5 @@ export function buildFormulaRecalculationPlan(graph: FormulaDependencyGraph): Fo
 
 export function formatFormulaDependencySummary(graph: FormulaDependencyGraph): string {
   const plan = buildFormulaRecalculationPlan(graph);
-  return `Dependencias: ${graph.nodes.length} fórmula(s), ${graph.edges.length} enlace(s), ${graph.cycles.length} ciclo(s), ${graph.externalReferences.length} referencia(s) externa(s), ${graph.missingReferences.length} referencia(s) faltante(s), plan ${plan.ready ? 'listo' : 'bloqueado'}.`;
+  return `Dependencias: ${graph.nodes.length} fórmula(s), ${graph.edges.length} enlace(s), ${graph.cycles.length} ciclo(s), ${graph.externalReferences.length} referencia(s) externa(s), ${graph.missingReferences.length} referencia(s) faltante(s), ${graph.namedReferences.length} nombre(s), plan ${plan.ready ? 'listo' : 'bloqueado'}.`;
 }
