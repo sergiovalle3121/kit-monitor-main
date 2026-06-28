@@ -30,6 +30,7 @@ import { isAdminAccess } from '@/lib/owner';
 import { useRouteChrome } from '@/lib/routeChrome';
 import { useDashboardSession } from '@/hooks/useDashboardSession';
 import { BRIEFING_PROMPT, suggestionsFor } from '@/lib/chat/cideSuggestions';
+import { MarkdownLite } from '@/components/MarkdownLite';
 
 type CideCard =
   | { type: 'metric'; title: string; value: number; unit?: string | null }
@@ -583,17 +584,22 @@ export function Cide() {
                           : 'max-w-[90%] rounded-2xl rounded-bl-md bg-black/5 px-4 py-2.5 text-sm dark:bg-white/10'
                       }
                     >
-                      <p className="whitespace-pre-wrap leading-relaxed">
-                        {m.content}
-                        {m.role === 'assistant' &&
-                          !m.content &&
+                      {m.role === 'assistant' ? (
+                        m.content ? (
+                          <MarkdownLite text={m.content} />
+                        ) : (
                           loading && (
                             <span className="inline-flex items-center gap-2 text-black/50 dark:text-white/50">
                               <Loader2 className="h-4 w-4 animate-spin" />
                               Analizando…
                             </span>
-                          )}
-                      </p>
+                          )
+                        )
+                      ) : (
+                        <p className="whitespace-pre-wrap leading-relaxed">
+                          {m.content}
+                        </p>
+                      )}
                       {m.role === 'assistant' && m.cards && m.cards.length > 0 && (
                         <div className="mt-2.5 space-y-2">
                           {m.cards.map((c, ci) => (
