@@ -210,6 +210,12 @@ export default function Home() {
               Programs
             </button>
             <button
+              onClick={() => scrollTo("why")}
+              className="hover:text-black dark:hover:text-white transition-colors cursor-pointer"
+            >
+              Por qué
+            </button>
+            <button
               onClick={() => scrollTo("platform")}
               className="hover:text-black dark:hover:text-white transition-colors cursor-pointer"
             >
@@ -573,10 +579,56 @@ export default function Home() {
       </section>
 
       {/* Footer */}
-      <footer className="py-12 px-6 border-t border-gray-100 dark:border-white/5 text-center">
-        <p className="text-sm text-gray-400 font-light">
-          © 2026 AXOS OS. Engineering Excellence.
-        </p>
+      <footer className="border-t border-gray-100 dark:border-white/5 px-6 pt-16 pb-10">
+        <div className="max-w-6xl mx-auto">
+          <div className="grid grid-cols-2 gap-8 md:grid-cols-4">
+            {/* Marca */}
+            <div className="col-span-2 md:col-span-1">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-8 h-8 bg-black dark:bg-white rounded-lg flex items-center justify-center">
+                  <Layers className="w-5 h-5 text-white dark:text-black" />
+                </div>
+                <span className="text-lg font-bold tracking-tight">
+                  AXOS <span className="font-light text-gray-500">OS</span>
+                </span>
+              </div>
+              <p className="text-sm text-gray-500 dark:text-gray-400 font-light max-w-[15rem]">
+                El sistema operativo industrial para manufactura electrónica
+                moderna.
+              </p>
+            </div>
+
+            {/* Producto */}
+            <FooterCol title="Producto">
+              <FooterLink onClick={() => scrollTo("galaxy")}>Programas</FooterLink>
+              <FooterLink onClick={() => scrollTo("flow")}>Flujo end-to-end</FooterLink>
+              <FooterLink onClick={() => scrollTo("platform")}>Plataforma</FooterLink>
+              <FooterLink onClick={() => scrollTo("solutions")}>Soluciones</FooterLink>
+            </FooterCol>
+
+            {/* Empresa */}
+            <FooterCol title="Empresa">
+              <FooterLink onClick={() => scrollTo("why")}>Por qué AXOS</FooterLink>
+              <FooterLink onClick={() => scrollTo("enterprise")}>Enterprise</FooterLink>
+            </FooterCol>
+
+            {/* Acceso */}
+            <FooterCol title="Acceso">
+              <FooterLink href="/login">Iniciar sesión</FooterLink>
+              <FooterLink href="/login?register=1">Crear cuenta</FooterLink>
+              <FooterLink onClick={startDemo}>Ver demo</FooterLink>
+            </FooterCol>
+          </div>
+
+          <div className="mt-12 pt-6 border-t border-gray-100 dark:border-white/5 flex flex-col sm:flex-row items-center justify-between gap-2">
+            <p className="text-xs text-gray-400 font-light">
+              © 2026 AXOS OS · Industrial Operating System
+            </p>
+            <p className="text-xs text-gray-400 font-light">
+              ERP · MES · Office · CAD · AI
+            </p>
+          </div>
+        </div>
       </footer>
 
       {/* Feature modal */}
@@ -660,5 +712,44 @@ export default function Home() {
         </AnimatePresence>
       </div>
     </main>
+  );
+}
+
+/** Columna del footer: título de sección + enlaces. */
+function FooterCol({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <h3 className="text-xs font-bold uppercase tracking-[0.18em] text-gray-400 mb-4">
+        {title}
+      </h3>
+      <ul className="flex flex-col gap-2.5">{children}</ul>
+    </div>
+  );
+}
+
+/** Enlace del footer: <Link> si trae href, <button> si trae onClick. */
+function FooterLink({
+  href,
+  onClick,
+  children,
+}: {
+  href?: string;
+  onClick?: () => void;
+  children: React.ReactNode;
+}) {
+  const cls =
+    "text-sm text-gray-500 dark:text-gray-400 font-light hover:text-black dark:hover:text-white transition-colors text-left";
+  return (
+    <li>
+      {href ? (
+        <Link href={href} className={cls}>
+          {children}
+        </Link>
+      ) : (
+        <button onClick={onClick} className={cls}>
+          {children}
+        </button>
+      )}
+    </li>
   );
 }
