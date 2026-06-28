@@ -205,3 +205,7 @@ AXOS connector instances now have a pure freshness model derived from connector 
 AXOS Sheets now exposes an Excel-grade workbench surface without replacing Fortune-Sheet: a persistent formula/name bar, selection intelligence, large-sheet status polish, and a right-side inspector that organizes workbook health, selected-cell statistics, data tools, charts, pivots, comments, protection, XLSX compatibility, and AXOS ERP/MES data connectors. The inspector launches existing dialogs/helpers instead of duplicating engines, and the XLSX review is best-effort metadata scanning only; macros are never executed.
 
 The new pure helper layer derives selection statistics, workbook summaries, health counters, and XLSX compatibility signals from persisted workbook JSON so autosave/export flows can surface risks before sharing or Excel round-trip review.
+
+## Delivered slice — advanced chart builder
+
+AXOS Sheets chart metadata now supports an advanced builder that can target a free range, a named formatted table, or the materialized output sheet of a stored pivot. The builder keeps using the shared chart range helpers, shows an inline preview before insertion, persists source metadata for future refresh behavior, and adds industrial chart variants for columns, horizontal bars, line, pie, donut, Pareto, and gauge visuals without introducing new dependencies.

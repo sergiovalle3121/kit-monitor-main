@@ -1251,7 +1251,7 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
         </div>
       )}
 
-      <SheetCharts charts={charts} sheets={sheetsRef.current} readOnly={readOnly} onAdd={addChart} onRemove={removeChart} onUpdate={updateChart} />
+      <SheetCharts charts={charts} sheets={sheetsRef.current} tables={tablesRef.current} pivots={pivotsRef.current} readOnly={readOnly} onAdd={addChart} onRemove={removeChart} onUpdate={updateChart} />
 
       <div className="h-8 flex items-center justify-between border-t border-black/5 dark:border-white/10 bg-gray-50 dark:bg-[#111] px-3 text-[11px] text-gray-500 dark:text-gray-400">
         <div className="flex items-center gap-3 overflow-hidden">
