@@ -243,7 +243,7 @@ export default function SuppliersPage() {
   const flagsActive = (filters.flags as string[] | undefined) ?? [];
 
   return (
-    <div className="mx-auto max-w-6xl px-6 pb-24 text-black md:px-8 dark:text-white">
+    <div className="mx-auto max-w-7xl px-6 pb-24 text-black md:px-8 dark:text-white">
       <Toolbar
         domain="logistics"
         icon={Truck}

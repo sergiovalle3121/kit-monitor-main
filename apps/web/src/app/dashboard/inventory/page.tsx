@@ -341,7 +341,7 @@ export default function InventoryPage() {
 
   return (
     <div className="min-h-screen text-black dark:text-white font-sans pb-32">
-      <main className="max-w-4xl mx-auto px-6 pt-10">
+      <main className="max-w-7xl mx-auto px-6 pt-10">
         <PageHeader domain="inventory" title="Inventario" subtitle="Existencias por ubicación, escasez vs demanda y trazabilidad" />
 
         {/* Pestañas */}

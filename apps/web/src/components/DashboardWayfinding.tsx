@@ -253,7 +253,7 @@ export function DashboardWayfinding() {
 
   return (
     <div className="px-6 pt-3 pb-1 md:px-10 lg:px-16">
-      <div className="mx-auto max-w-5xl">
+      <div className="mx-auto max-w-7xl">
         <nav
           aria-label="Ruta de navegación"
           className={`${glass} flex items-center gap-1.5 rounded-2xl px-2 py-1.5 text-xs sm:text-sm`}
