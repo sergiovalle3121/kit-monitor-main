@@ -19,7 +19,7 @@ import { SheetTableStyle, type TableStylePayload } from './SheetTableStyle';
 import { SheetSlicer } from './sheets/SheetSlicer';
 import { slicerValues, applySlicers, makeSlicer, makeTimeline, type Slicer, type Timeline } from './sheets/slicer';
 import { parseRange, type ChartConfig } from '@/lib/office/charts';
-import { applyConditional, sortRangeMulti, removeDuplicates, textToColumns, setCellNote, replaceAll, buildPivot, pivotToCelldata, applyNumberFormat, applyCellStyle, applySubtotals, applySparkline, applyFill, transposeRange, copyRange, buildFilter, mergeCells, unmergeCells, setAutoFilter, clearAutoFilter, buildPrintHtml, usedRange, colName, applyDataVerification, clearDataVerification, markInvalidCells, applyTableStyle, rawOf, type CondPayload, type PivotConfig, type FindOpts, type NamedRange, type PrintOpts } from '@/lib/office/sheetOps';
+import { applyConditional, sortRangeMulti, removeDuplicates, textToColumns, setCellNote, replaceAll, buildPivot, pivotToCelldata, applyNumberFormat, applyCellStyle, applySubtotals, applySparkline, applyFill, transposeRange, copyRange, buildFilter, mergeCells, unmergeCells, setAutoFilter, clearAutoFilter, buildPrintHtml, usedRange, colName, applyDataVerification, clearDataVerification, markInvalidCells, applyTableStyle, rawOf, normalizeSheetPrintLayout, type CondPayload, type PivotConfig, type FindOpts, type NamedRange, type PrintOpts, type SheetPrintLayout } from '@/lib/office/sheetOps';
 import { normalizeCellInput } from './sheets/sheetFormula';
 import { rangeToMarkdown } from '@/lib/office/sheetMarkdown';
 import { installFormulaEngine } from './sheets/formulaEngine';
@@ -78,6 +78,9 @@ function commentsOf(v: any): SheetCommentThread[] {
 function connectorsOf(v: any): AxosConnectorInstance[] {
   return v && Array.isArray(v.connectors) ? v.connectors : [];
 }
+function printLayoutOf(v: any): SheetPrintLayout {
+  return normalizeSheetPrintLayout(v?.printLayout);
+}
 type StoredTable = { name: string; sheetIndex: number; range: string };
 function tablesOf(v: any): StoredTable[] {
   return v && Array.isArray(v.tables) ? v.tables : [];
@@ -110,6 +113,8 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
   const wbRef = useRef<any>(null);
   const gridRef = useRef<HTMLDivElement>(null); // contenedor de la rejilla (foco/atajos)
   const chartsRef = useRef<ChartConfig[]>(chartsOf(value));
+  const printLayoutRef = useRef<SheetPrintLayout>(printLayoutOf(value));
+  const [printLayout, setPrintLayout] = useState<SheetPrintLayout>(printLayoutRef.current);
   const [charts, setCharts] = useState<ChartConfig[]>(chartsRef.current);
   const namesRef = useRef<NamedRange[]>(namesOf(value));
   const [names, setNames] = useState<NamedRange[]>(namesRef.current);
@@ -225,6 +230,7 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
     tables: tablesRef.current,
     comments: commentsRef.current,
     connectors: connectorsRef.current,
+    printLayout: printLayoutRef.current,
   }), []);
 
   const emit = useCallback(() => {
@@ -687,6 +693,12 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
     const sheet = sheetsRef.current[sheetIndex] ?? sheetsRef.current[0];
     return sheet ? buildPrintHtml(sheet, opts) : '<p>Hoja vacía.</p>';
   }, []);
+  function updatePrintLayout(next: SheetPrintLayout) {
+    printLayoutRef.current = normalizeSheetPrintLayout(next);
+    setPrintLayout(printLayoutRef.current);
+    emit();
+  }
+
   function doPrint(html: string) {
     setShowPrint(false);
     const w = window.open('', '_blank');
@@ -1355,7 +1367,9 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
             defaultSheetIndex={activeIndex()}
             defaultRange={usedRange(sheetsRef.current[activeIndex()]) ?? ''}
             defaultTitle={sheetNames()[activeIndex()] ?? ''}
+            layout={printLayout}
             getHtml={printHtml}
+            onLayoutChange={updatePrintLayout}
             onPrint={doPrint}
             onClose={() => setShowPrint(false)}
           />

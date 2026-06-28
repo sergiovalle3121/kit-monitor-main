@@ -24,9 +24,19 @@ export function SheetActions({
   // Content is either the legacy sheet array or the new { sheets, charts, names } shape.
   const sheetsOf = (v: any): any[] => (Array.isArray(v) ? v : (Array.isArray(v?.sheets) ? v.sheets : []));
   const namesOf = (v: any): any[] => (v && Array.isArray(v.names) ? v.names : []);
+  const exportWarningsOf = (v: any): string[] => {
+    const slicers = sheetsOf(v).reduce((sum, sheet) => sum + (Array.isArray(sheet?.slicers) ? sheet.slicers.length : 0) + (Array.isArray(sheet?.timelines) ? sheet.timelines.length : 0), 0);
+    const charts = Array.isArray(v?.charts) ? v.charts.length : 0;
+    const warnings: string[] = [];
+    if (slicers) warnings.push(`${slicers} segmentación(es)/línea(s) de tiempo no se exportan como controles interactivos.`);
+    if (charts) warnings.push(`${charts} chart(s) de dashboard se preservan como metadata AXOS, no como objetos nativos en el archivo.`);
+    return warnings;
+  };
 
   async function doExport(fmt: 'xlsx' | 'csv', delimiter = ',') {
     setOpen(false);
+    const warnings = exportWarningsOf(content);
+    if (warnings.length) toast.info(`Exportación con advertencias: ${warnings.join(' ')}`);
     setBusy(true);
     try { await exportSheets(sheetsOf(content), title || 'hoja', fmt, { delimiter }, namesOf(content)); }
     catch { /* ignore */ }
@@ -69,8 +79,13 @@ export function SheetActions({
               <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
               <motion.div
                 initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
-                className="absolute right-0 mt-1 z-20 w-44 rounded-xl border border-black/10 dark:border-white/10 bg-white dark:bg-[#1a1a1a] shadow-xl p-1"
+                className="absolute right-0 mt-1 z-20 w-64 rounded-xl border border-black/10 dark:border-white/10 bg-white dark:bg-[#1a1a1a] shadow-xl p-1"
               >
+                {exportWarningsOf(content).length > 0 && (
+                  <div className="m-1 rounded-lg bg-amber-50 px-2.5 py-2 text-[11px] leading-snug text-amber-700 dark:bg-amber-500/10 dark:text-amber-200">
+                    {exportWarningsOf(content).map((warning) => <p key={warning}>• {warning}</p>)}
+                  </div>
+                )}
                 <MenuItem onClick={() => doExport('xlsx')} label="Excel (.xlsx)" />
                 <MenuItem onClick={() => doExport('csv', ',')} label="CSV (coma)" />
                 <MenuItem onClick={() => doExport('csv', ';')} label="CSV (punto y coma)" />
