@@ -1,10 +1,9 @@
 'use client';
 
 import React, { useMemo, useState } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
-  ChevronLeft, Bell, BellOff, Loader2, Inbox, Lock, RefreshCw, Check, ArrowRight, Radio,
+  Bell, BellOff, Loader2, Inbox, Lock, RefreshCw, Check, ArrowRight, Radio,
 } from 'lucide-react';
 import { glass } from '@/lib/glass';
 import { useWebPush } from '@/hooks/useWebPush';
@@ -71,9 +70,6 @@ export default function NotificationsPage() {
   return (
     <div className="min-h-screen text-foreground">
       <main className="max-w-3xl mx-auto px-6 pt-10 pb-24">
-        <Link href="/dashboard" className="inline-flex items-center gap-1 text-sm text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 mb-4">
-          <ChevronLeft className="w-4 h-4" /> Dashboard
-        </Link>
 
         <PageHeader
           domain="mes"

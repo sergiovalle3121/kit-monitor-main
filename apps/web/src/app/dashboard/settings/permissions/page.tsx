@@ -4,7 +4,7 @@ import React, { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import {
-  ChevronLeft, ShieldCheck, Shield, Search, Check, Info, LayoutGrid, Rows3,
+  ShieldCheck, Shield, Search, Check, Info, LayoutGrid, Rows3,
   Crown, Filter, X, Users,
 } from 'lucide-react';
 import {
@@ -66,9 +66,6 @@ export default function PermissionsMatrixPage() {
     <div className="min-h-screen bg-[#FBFBFD] dark:bg-black p-6 md:p-8">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <Link href="/dashboard" className="inline-flex items-center gap-1.5 text-sm font-medium text-[#86868B] hover:text-[#1D1D1F] dark:hover:text-white transition-colors mb-4">
-          <ChevronLeft className="w-4 h-4" /> Dashboard
-        </Link>
         <div className="flex items-center gap-2 text-blue-600 font-medium mb-2">
           <Shield className="w-4 h-4" /><span className="text-sm tracking-wide uppercase">Administración</span>
         </div>

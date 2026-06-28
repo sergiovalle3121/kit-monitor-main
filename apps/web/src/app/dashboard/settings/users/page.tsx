@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import {
   Users, UserPlus, Shield, Building2, Search, CheckCircle2, XCircle,
-  ShieldCheck, Factory, ChevronLeft, X, Loader2, KeyRound, Pencil, Power,
+  ShieldCheck, Factory, X, Loader2, KeyRound, Pencil, Power,
   Lock, Crown, Info,
 } from 'lucide-react';
 import { useApi } from '@/hooks/useApi';
@@ -62,9 +62,6 @@ export default function UsersManagementPage() {
   return (
     <div className="min-h-screen bg-[#FBFBFD] dark:bg-black p-6 md:p-8">
       <div className="max-w-7xl mx-auto mb-8">
-        <Link href="/dashboard" className="inline-flex items-center gap-1.5 text-sm font-medium text-[#86868B] hover:text-[#1D1D1F] dark:hover:text-white transition-colors mb-4">
-          <ChevronLeft className="w-4 h-4" /> Dashboard
-        </Link>
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
           <div>
             <div className="flex items-center gap-2 text-blue-600 font-medium mb-2"><Shield className="w-4 h-4" /><span className="text-sm tracking-wide uppercase">Administración</span></div>
