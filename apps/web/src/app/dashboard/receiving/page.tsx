@@ -117,7 +117,7 @@ export default function ReceivingPage() {
 
   return (
     <div className="min-h-screen text-black dark:text-white font-sans pb-32">
-      <main className="max-w-4xl mx-auto px-6 pt-10">
+      <main className="max-w-7xl mx-auto px-6 pt-10">
         <PageHeader
           domain="staging"
           title="Recibo de material"
