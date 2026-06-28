@@ -14,6 +14,8 @@ const specs = [
   'src/lib/office/workbookHealth.spec.ts',
   'src/lib/office/sheetComments.spec.ts',
   'src/lib/office/formulaAudit.spec.ts',
+  'src/lib/office/ranges.spec.ts',
+  'src/lib/office/formulaErrors.spec.ts',
   'src/lib/office/formulaDependencies.spec.ts',
   'src/lib/office/pivotGovernance.spec.ts',
   'src/components/office/sheets/templateCharts.spec.ts',

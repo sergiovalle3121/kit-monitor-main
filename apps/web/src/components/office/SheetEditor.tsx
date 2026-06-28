@@ -42,6 +42,7 @@ import { estimateWorkbookStats, shouldEmitWorkbook, workbookPerformanceLabel, ty
 import { AXOS_SHEET_CONNECTORS, buildAxosConnectorRefresh, buildAxosConnectorTable, connectorProtectionFor, createAxosConnectorInstance, suggestedChartsForConnector, type AxosConnectorInstance, type AxosConnectorType } from '@/lib/office/axosConnectors';
 import { addSheetCommentReply, commentsForSelection, createSheetCommentThread, deleteSheetComment, formatSheetCommentSummary, reopenSheetComment, resolveSheetComment, type SheetCommentThread } from '@/lib/office/sheetComments';
 import { auditWorkbookFormulas, formatFormulaAuditSummary } from '@/lib/office/formulaAudit';
+import { buildFormulaDependencyGraph, formatFormulaDependencySummary } from '@/lib/office/formulaDependencies';
 import { analyzeWorkbookHealth, formatWorkbookHealthReport } from '@/lib/office/workbookHealth';
 import { formatPivotRefreshReport, refreshStoredPivots } from '@/lib/office/pivotGovernance';
 
@@ -920,9 +921,18 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
   }
 
   function auditFormulas() {
-    const result = auditWorkbookFormulas(workbookPayload());
+    const payload = workbookPayload();
+    const result = auditWorkbookFormulas(payload);
     if (!result.total) { toast.info('No hay fórmulas para auditar en este libro.'); return; }
-    window.alert(formatFormulaAuditSummary(result));
+    const graph = buildFormulaDependencyGraph(payload);
+    window.alert(`${formatFormulaAuditSummary(result)}\n${formatFormulaDependencySummary(graph)}`);
+  }
+
+  function showRecalcPlan() {
+    const graph = buildFormulaDependencyGraph(workbookPayload());
+    if (!graph.nodes.length) { toast.info('No hay fórmulas para planificar.'); return; }
+    const preview = graph.nodes.slice(0, 12).map((node) => `${node.id} ← ${node.dependencies.length || 0}`).join('\n');
+    window.alert(`${formatFormulaDependencySummary(graph)}\n\nOrden/precedentes (primeras 12):\n${preview}`);
   }
 
   function applyNumberFmt(p: NumberFmtPayload) {
@@ -1142,6 +1152,7 @@ export function SheetEditor({ value, onChange, readOnly, fileActions }: { value:
             <RibbonGroup label="Biblioteca de funciones">
               <RibbonButton icon={Sigma} label="Insertar función" hideLabel={false} onClick={() => setShowWizard(true)} />
               <RibbonButton icon={Search} label="Auditar fórmulas" hideLabel={false} onClick={auditFormulas} />
+              <RibbonButton icon={Activity} label="Plan de recálculo" hideLabel={false} onClick={showRecalcPlan} />
             </RibbonGroup>
             <RibbonSeparator />
             <RibbonGroup label="Nombres definidos">

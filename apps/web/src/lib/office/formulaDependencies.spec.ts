@@ -15,20 +15,22 @@ const workbook = { sheets: [
     { r: 2, c: 0, v: cell(5, '=A2') },
     { r: 1, c: 1, v: cell(6, '=SUM(B1:C1)') },
     { r: 2, c: 1, v: cell(7, '=HYPERLINK("https://example.com/A1", A1)') },
+    { r: 3, c: 1, v: cell(8, '=SUM(CostInputs)') },
   ] },
   { name: 'Rates', celldata: [
     { r: 0, c: 0, v: cell(10, '=Main!A1') },
   ] },
-] };
+], names: [{ name: 'CostInputs', sheetIndex: 0, range: 'A1:A3' }] };
 
 const graph = buildFormulaDependencyGraph(workbook);
-eq(graph.nodes.map((node) => node.id), ['0!A2', '0!A3', '0!B1', '0!B2', '0!B3', '0!C1', '1!A1'], 'ordena nodos fórmula');
+eq(graph.nodes.map((node) => node.id), ['0!A2', '0!A3', '0!B1', '0!B2', '0!B3', '0!B4', '0!C1', '1!A1'], 'ordena nodos fórmula');
 ok(graph.edges.some((edge) => edge.from === '0!C1' && edge.to === '0!B1'), 'detecta dependencia local');
 ok(graph.edges.some((edge) => edge.from === '0!B1' && edge.to === '1!A1'), 'detecta dependencia entre hojas');
 ok(graph.edges.some((edge) => edge.from === '0!B2' && edge.to === '0!B1'), 'expande rangos hacia fórmulas');
 ok(graph.cycles.some((cycle) => cycle.includes('0!A2') && cycle.includes('0!A3')), 'detecta ciclo indirecto');
 eq(graph.missingReferences, ['Missing!A1'], 'detecta hoja faltante');
 ok(graph.externalReferences.length === 0, 'ignora URLs dentro de strings de fórmulas');
+ok(graph.namedReferences.includes('COSTINPUTS'), 'resuelve named ranges como precedentes');
 const blockedPlan = buildFormulaRecalculationPlan(graph);
 ok(blockedPlan.ready === false, 'plan bloqueado por ciclo/referencia faltante');
 ok(blockedPlan.blockedByCycles.includes('0!A2') && blockedPlan.blockedByCycles.includes('0!A3'), 'plan reporta fórmulas bloqueadas por ciclo');
