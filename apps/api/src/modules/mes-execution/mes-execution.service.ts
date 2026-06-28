@@ -49,15 +49,29 @@ import {
 } from '../../common/tenant/tenant-scoped.repository';
 
 import {
+  AcknowledgeFollowUpDto,
   AssignStationDto,
   ConfirmAdvanceDto,
   DispositionIncidentDto,
+  EscalateFollowUpDto,
   OpenExecutionDto,
   RaiseAndonDto,
+  ReplayOfflineActionDto,
+  ReplayOfflineQueueDto,
   ReportIncidentDto,
 } from './dto/mes.dto';
 
 const DEFAULT_TENANT = 'default';
+const MES_ANDON_TYPES = [
+  'material',
+  'quality',
+  'maintenance',
+  'stop',
+  'supervisor',
+  'materialist',
+  'engineering',
+  'tooling',
+] as const;
 const REVERT_WINDOW_MS = 180_000; // 3 min undo window for a confirmed advance
 const round6 = (n: number) => Math.round(n * 1e6) / 1e6;
 
@@ -376,7 +390,7 @@ export class MesExecutionService {
       });
     }
 
-    const [andons, downtimes, assignments] = await Promise.all([
+    const [andons, downtimes, assignments, recentEvents] = await Promise.all([
       this.andonRepo.find({
         where: { executionId: execution.id },
         order: { createdAt: 'DESC' },
@@ -389,6 +403,11 @@ export class MesExecutionService {
       }),
       this.assignRepo.find({
         where: { executionId: execution.id, active: true },
+      }),
+      this.eventRepo.find({
+        where: { executionId: execution.id },
+        order: { timestamp: 'DESC' },
+        take: 16,
       }),
     ]);
 
@@ -409,6 +428,8 @@ export class MesExecutionService {
     return {
       execution: {
         id: execution.id,
+        planId: execution.planId,
+        kitId: execution.kitId,
         workOrder: execution.workOrder,
         model: execution.model,
         revision: execution.revision,
@@ -440,6 +461,9 @@ export class MesExecutionService {
         operatorId: a.operatorId,
       })),
       materialRequests: pendingRequests,
+      recentEvents: recentEvents.map((event) =>
+        this.serializeExecutionEvent(event, steps),
+      ),
       downtimeSummarySec: downtimes.reduce(
         (s, d) => s + (d.durationSec ?? this.elapsedSec(d.startedAt)),
         0,
@@ -846,6 +870,8 @@ export class MesExecutionService {
           severity: incident.severity,
           qtyAffected,
           blocksFlow: incident.blocksFlow,
+          ncrId: incident.ncrId,
+          containment: dto.containment ?? null,
         },
       },
       EventDomain.QUALITY,
@@ -922,7 +948,13 @@ export class MesExecutionService {
       String(incident.id),
       execution,
       resolvedBy,
-      { metadata: { disposition: incident.disposition } },
+      {
+        metadata: {
+          disposition: incident.disposition,
+          ncrId: incident.ncrId,
+          note: dto.note ?? null,
+        },
+      },
       EventDomain.QUALITY,
     );
 
@@ -932,12 +964,176 @@ export class MesExecutionService {
     });
   }
 
+
+  async acknowledgeFollowUp(dto: AcknowledgeFollowUpDto, actor: string) {
+    if (!dto.executionId || !dto.followUpKey?.trim() || !dto.label?.trim()) {
+      throw new BadRequestException(
+        'executionId, followUpKey y label son obligatorios.',
+      );
+    }
+    const execution = await this.findExecution(Number(dto.executionId));
+    await this.recordLedger(
+      'MES_FOLLOW_UP_ACK',
+      'OPERATOR_FOLLOW_UP',
+      dto.followUpKey.trim(),
+      execution,
+      actor,
+      {
+        metadata: {
+          label: dto.label.trim(),
+          owner: dto.owner ?? null,
+          source: dto.source ?? null,
+          status: dto.status ?? null,
+          note: dto.note ?? null,
+        },
+      },
+      EventDomain.PRODUCTION,
+    );
+    return {
+      ok: true,
+      followUpKey: dto.followUpKey.trim(),
+      acknowledgedAt: new Date().toISOString(),
+    };
+  }
+
+
+  async escalateFollowUp(dto: EscalateFollowUpDto, actor: string) {
+    if (
+      !dto.executionId ||
+      !dto.followUpKey?.trim() ||
+      !dto.label?.trim() ||
+      !dto.escalatedTo?.trim()
+    ) {
+      throw new BadRequestException(
+        'executionId, followUpKey, label y escalatedTo son obligatorios.',
+      );
+    }
+    const execution = await this.findExecution(Number(dto.executionId));
+    await this.recordLedger(
+      'MES_FOLLOW_UP_ESCALATED',
+      'OPERATOR_FOLLOW_UP',
+      dto.followUpKey.trim(),
+      execution,
+      actor,
+      {
+        metadata: {
+          label: dto.label.trim(),
+          owner: dto.owner ?? null,
+          escalatedTo: dto.escalatedTo.trim(),
+          source: dto.source ?? null,
+          reason: dto.reason ?? null,
+        },
+      },
+      EventDomain.PRODUCTION,
+    );
+    return {
+      ok: true,
+      followUpKey: dto.followUpKey.trim(),
+      escalatedTo: dto.escalatedTo.trim(),
+      escalatedAt: new Date().toISOString(),
+    };
+  }
+
+  async replayOfflineQueue(dto: ReplayOfflineQueueDto, actor: string) {
+    const actions = Array.isArray(dto.actions) ? dto.actions.slice(0, 25) : [];
+    if (!actions.length) {
+      throw new BadRequestException('La cola offline no contiene acciones.');
+    }
+
+    const results: {
+      id: string;
+      type: string;
+      ok: boolean;
+      message?: string;
+      result?: unknown;
+    }[] = [];
+    for (const action of actions) {
+      results.push(await this.replayOfflineAction(action, actor));
+    }
+
+    const succeeded = results.filter((result) => result.ok).length;
+    return {
+      replayedAt: new Date().toISOString(),
+      total: results.length,
+      succeeded,
+      failed: results.length - succeeded,
+      results,
+    };
+  }
+
+  private async replayOfflineAction(
+    action: ReplayOfflineActionDto,
+    actor: string,
+  ) {
+    try {
+      if (!action?.id || !action.type || !action.endpoint) {
+        throw new BadRequestException('Acción offline incompleta.');
+      }
+      if ((action.method ?? 'POST') !== 'POST') {
+        throw new BadRequestException('Solo se permite replay POST.');
+      }
+
+      if (action.type === 'confirm') {
+        const match = action.endpoint.match(
+          /^\/mes\/executions\/(\d+)\/steps\/(\d+)\/confirm$/,
+        );
+        if (!match) throw new BadRequestException('Endpoint confirm inválido.');
+        const result = await this.confirmAdvance(
+          Number(match[1]),
+          Number(match[2]),
+          action.payload as unknown as ConfirmAdvanceDto,
+          actor,
+        );
+        return { id: action.id, type: action.type, ok: true, result };
+      }
+
+      if (action.type === 'incident') {
+        const match = action.endpoint.match(
+          /^\/mes\/executions\/(\d+)\/steps\/(\d+)\/incidents$/,
+        );
+        if (!match) throw new BadRequestException('Endpoint incident inválido.');
+        const result = await this.reportIncident(
+          Number(match[1]),
+          Number(match[2]),
+          action.payload as unknown as ReportIncidentDto,
+          actor,
+        );
+        return { id: action.id, type: action.type, ok: true, result };
+      }
+
+      if (action.type === 'andon') {
+        const match = action.endpoint.match(
+          /^\/mes\/executions\/(\d+)\/andon$/,
+        );
+        if (!match) throw new BadRequestException('Endpoint Andon inválido.');
+        const result = await this.raiseAndon(
+          Number(match[1]),
+          action.payload as unknown as RaiseAndonDto,
+          actor,
+        );
+        return { id: action.id, type: action.type, ok: true, result };
+      }
+
+      throw new BadRequestException(`Tipo offline no soportado: ${action.type}`);
+    } catch (error) {
+      return {
+        id: action?.id ?? 'unknown',
+        type: action?.type ?? 'unknown',
+        ok: false,
+        message:
+          error instanceof Error
+            ? error.message
+            : 'No se pudo reproducir acción.',
+      };
+    }
+  }
+
   // ──────────────────────────────────────────────────────────────────────────
   // Andon
   // ──────────────────────────────────────────────────────────────────────────
 
   async raiseAndon(executionId: number, dto: RaiseAndonDto, actor: string) {
-    if (!['material', 'quality', 'maintenance', 'stop'].includes(dto.type)) {
+    if (!MES_ANDON_TYPES.includes(dto.type)) {
       throw new BadRequestException('type de andon inválido.');
     }
     const execution = await this.findExecution(executionId);
@@ -984,10 +1180,25 @@ export class MesExecutionService {
       String(andon.id),
       execution,
       raisedBy,
-      { metadata: { type: andon.type } },
+      {
+        metadata: {
+          type: andon.type,
+          responseRole: this.andonResponseRole(andon.type),
+        },
+      },
     );
 
     return this.serializeAndon(andon);
+  }
+
+  private andonResponseRole(type: string): string {
+    if (type === 'material' || type === 'materialist') return 'materialist';
+    if (type === 'quality') return 'quality_engineer';
+    if (type === 'maintenance') return 'maintenance_tech';
+    if (type === 'engineering') return 'process_engineer';
+    if (type === 'tooling') return 'tooling_tech';
+    if (type === 'supervisor' || type === 'stop') return 'production_supervisor';
+    return 'production_supervisor';
   }
 
   async updateAndon(andonId: number, action: 'ack' | 'resolve', actor: string) {
@@ -1404,8 +1615,32 @@ export class MesExecutionService {
       blocksFlow: i.blocksFlow,
       status: i.status,
       disposition: i.disposition,
+      ncrId: i.ncrId,
       raisedBy: i.raisedBy,
       createdAt: i.createdAt,
+    };
+  }
+
+
+  private serializeExecutionEvent(event: ExecutionEvent, steps: ExecutionStep[]) {
+    const step = steps.find((s) => s.id === event.executionStepId);
+    return {
+      id: event.id,
+      executionStepId: event.executionStepId,
+      stepId: step?.stepId ?? null,
+      stepName: step?.name ?? null,
+      quantity: event.quantity,
+      scrapQty: event.scrapQty,
+      operator: event.operator,
+      operatorPosition: event.operatorPosition,
+      serial: event.serial,
+      lot: event.lot,
+      clientRequestId: event.clientRequestId,
+      notes: event.notes,
+      timestamp: event.timestamp,
+      revertedAt: event.revertedAt,
+      revertedReason: event.revertedReason,
+      traceable: Boolean(event.serial || event.lot),
     };
   }
 
@@ -1418,6 +1653,7 @@ export class MesExecutionService {
       note: a.note,
       raisedBy: a.raisedBy,
       acknowledgedBy: a.acknowledgedBy,
+      responseRole: this.andonResponseRole(a.type),
       createdAt: a.createdAt,
     };
   }
